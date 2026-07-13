@@ -14,15 +14,19 @@ import {
 import { useSession } from 'next-auth/react';
 import TermsAcceptanceField from './TermsAcceptanceField';
 import { acceptTerms, fetchTermsStatus } from '@/utils/api-client/auth-client';
+import { fetchQuickStartEnabled } from '@/utils/quick_start';
 
 /**
  * Global post-login gate: if the active terms version changed since the user last
  * accepted, we block the app until they accept the new version.
+ *
+ * Skipped in Quick Start mode — local dev auto-login should not be blocked.
  */
 export default function TermsAcceptanceGate() {
   const { data: session, status } = useSession();
   const sessionToken = session?.session_token ?? '';
 
+  const [quickStart, setQuickStart] = React.useState<boolean | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [open, setOpen] = React.useState(false);
   const [checked, setChecked] = React.useState(false);
@@ -31,8 +35,29 @@ export default function TermsAcceptanceGate() {
   const [showWarning, setShowWarning] = React.useState(false);
 
   React.useEffect(() => {
-    if (status !== 'authenticated' || !sessionToken) {
+    let cancelled = false;
+
+    fetchQuickStartEnabled().then(enabled => {
+      if (!cancelled) {
+        setQuickStart(enabled);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  React.useEffect(() => {
+    if (quickStart === true) {
       setLoading(false);
+      return;
+    }
+
+    if (quickStart === null || status !== 'authenticated' || !sessionToken) {
+      if (quickStart !== null) {
+        setLoading(false);
+      }
       return;
     }
 
@@ -56,9 +81,15 @@ export default function TermsAcceptanceGate() {
     return () => {
       cancelled = true;
     };
-  }, [status, sessionToken]);
+  }, [status, sessionToken, quickStart]);
 
-  if (loading || status !== 'authenticated' || !sessionToken) {
+  if (
+    loading ||
+    quickStart === null ||
+    quickStart ||
+    status !== 'authenticated' ||
+    !sessionToken
+  ) {
     return null;
   }
 
