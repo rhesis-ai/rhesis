@@ -101,6 +101,17 @@ test.describe('Onboarding wizard — form @mocked', () => {
 
     await nextBtn.click();
 
+    const termsWarning = page.getByText(
+      /please accept the terms and conditions/i
+    );
+    const hasTermsGate = await termsWarning
+      .isVisible({ timeout: 2_000 })
+      .catch(() => false);
+    if (hasTermsGate) {
+      await page.getByRole('checkbox').click();
+      await nextBtn.click();
+    }
+
     const invalidInput = page.locator('input[aria-invalid="true"]').first();
     await expect(invalidInput).toBeVisible({
       timeout: 5_000,
@@ -151,6 +162,11 @@ test.describe('Onboarding wizard — form @mocked', () => {
       await projectNameInput.isVisible({ timeout: 3_000 }).catch(() => false)
     ) {
       await projectNameInput.fill(`e2e-project-${Date.now()}`);
+    }
+
+    const termsCheckbox = page.getByRole('checkbox');
+    if (await termsCheckbox.isVisible({ timeout: 2_000 }).catch(() => false)) {
+      await termsCheckbox.click();
     }
 
     const nextBtn = page.getByRole('button', { name: /^next$/i }).first();

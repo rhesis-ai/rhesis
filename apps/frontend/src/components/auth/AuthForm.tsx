@@ -5,8 +5,6 @@ import {
   Typography,
   Button,
   Divider,
-  Checkbox,
-  FormControlLabel,
   TextField,
   CircularProgress,
   Alert,
@@ -59,9 +57,6 @@ interface AuthFormProps {
 }
 
 export default function AuthForm({ isRegistration = false }: AuthFormProps) {
-  const [manualTermsAccepted, setManualTermsAccepted] = useState(false);
-  const [showTermsWarning, setShowTermsWarning] = useState(false);
-  const [previouslyAccepted, setPreviouslyAccepted] = useState(false);
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
   const [passwordPolicy, setPasswordPolicy] = useState<PasswordPolicy | null>(
     null
@@ -89,7 +84,6 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
   // Password visibility toggle
   const [showPassword, setShowPassword] = useState(false);
   const passwordInputRef = useRef<HTMLInputElement>(null);
-  const termsAccepted = previouslyAccepted || manualTermsAccepted;
 
   const handleTogglePasswordVisibility = () => {
     const input = passwordInputRef.current;
@@ -104,43 +98,6 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
       }
     }, 0);
   };
-
-  useEffect(() => {
-    // Look up prior acceptance for this email so returning users skip the checkbox.
-    const trimmed = email.trim();
-    if (!trimmed) {
-      setPreviouslyAccepted(false);
-      setManualTermsAccepted(false);
-      setShowTermsWarning(false);
-      return;
-    }
-
-    if (!trimmed.includes('@')) {
-      setPreviouslyAccepted(false);
-      return;
-    }
-
-    const timeout = window.setTimeout(async () => {
-      try {
-        const url = `${getClientApiBaseUrl()}/auth/terms-status?email=${encodeURIComponent(trimmed)}`;
-        const response = await fetch(url);
-        if (!response.ok) {
-          return;
-        }
-        const data = await response.json();
-        if (data.terms_accepted) {
-          setPreviouslyAccepted(true);
-          setShowTermsWarning(false);
-        } else {
-          setPreviouslyAccepted(false);
-        }
-      } catch {
-        // Ignore lookup failures; the user can still accept manually.
-      }
-    }, 400);
-
-    return () => window.clearTimeout(timeout);
-  }, [email]);
 
   useEffect(() => {
     const fetchProviders = async () => {
@@ -172,38 +129,13 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
     fetchProviders();
   }, []);
 
-  const handleTermsAcceptance = (
-    event: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    const accepted = event.target.checked;
-    setManualTermsAccepted(accepted);
-    if (accepted) {
-      setShowTermsWarning(false);
-    }
-  };
-
-  const checkTerms = (): boolean => {
-    if (!termsAccepted) {
-      setShowTermsWarning(true);
-      return false;
-    }
-    setShowTermsWarning(false);
-    return true;
-  };
-
   const handleOAuthLogin = async (provider: ProviderInfo) => {
-    if (!checkTerms()) return;
-
     const searchParams = new URLSearchParams(window.location.search);
     const returnTo = searchParams.get('return_to') || '/architect';
 
     if (provider.login_url) {
       const loginUrl = new URL(provider.login_url, getClientApiBaseUrl());
       loginUrl.searchParams.set('return_to', returnTo);
-      if (!previouslyAccepted) {
-        // User checked the box this session; backend records it on callback.
-        loginUrl.searchParams.set('terms_accepted', 'true');
-      }
       window.location.href = loginUrl.toString();
       return;
     }
@@ -212,16 +144,11 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
       `${getClientApiBaseUrl()}/auth/login/${provider.name}`
     );
     loginUrl.searchParams.set('return_to', returnTo);
-    if (!previouslyAccepted) {
-      // User checked the box this session; backend records it on callback.
-      loginUrl.searchParams.set('terms_accepted', 'true');
-    }
     window.location.href = loginUrl.toString();
   };
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!checkTerms()) return;
 
     if (isRegistration) {
       const policy = passwordPolicy ?? DEFAULT_PASSWORD_POLICY;
@@ -241,17 +168,8 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
         : `${getClientApiBaseUrl()}/auth/login/email`;
 
       const body = isRegistration
-        ? {
-            email,
-            password,
-            name: name || undefined,
-            accept_terms: true,
-          }
-        : {
-            email,
-            password,
-            ...(manualTermsAccepted ? { accept_terms: true } : {}),
-          };
+        ? { email, password, name: name || undefined }
+        : { email, password };
 
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -318,7 +236,6 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
 
   const handleMagicLink = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!checkTerms()) return;
 
     setFormLoading(true);
     setFormError(null);
@@ -327,10 +244,7 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
       const response = await fetch(`${getClientApiBaseUrl()}/auth/magic-link`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email,
-          ...(manualTermsAccepted ? { accept_terms: true } : {}),
-        }),
+        body: JSON.stringify({ email }),
       });
 
       if (!response.ok) {
@@ -853,74 +767,6 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
           >
             Back to all sign-in options
           </Button>
-        )}
-
-        {/* Terms and Conditions */}
-        {previouslyAccepted ? (
-          <Typography
-            variant="body2"
-            align="center"
-            sx={{ mt: 1, color: 'text.secondary' }}
-          >
-            By continuing, you confirm your agreement to our&nbsp;
-            <a
-              href="https://www.rhesis.ai/terms-conditions"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ color: 'inherit' }}
-            >
-              Terms and Conditions
-            </a>
-            &nbsp;&amp;&nbsp;
-            <a
-              href="https://www.rhesis.ai/privacy-policy"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ color: 'inherit' }}
-            >
-              Privacy Policy
-            </a>
-            .
-          </Typography>
-        ) : (
-          <Box sx={{ mt: 1 }}>
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={termsAccepted}
-                  onChange={handleTermsAcceptance}
-                  color="primary"
-                />
-              }
-              label={
-                <Typography variant="body2">
-                  I agree to the{' '}
-                  <a
-                    href="https://www.rhesis.ai/terms-conditions"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ color: 'inherit' }}
-                  >
-                    Terms
-                  </a>
-                  {' & '}
-                  <a
-                    href="https://www.rhesis.ai/privacy-policy"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ color: 'inherit' }}
-                  >
-                    Privacy Policy
-                  </a>
-                </Typography>
-              }
-            />
-            {showTermsWarning && (
-              <Typography variant="body2" color="error" sx={{ ml: 4 }}>
-                Please accept the Terms and Conditions to continue.
-              </Typography>
-            )}
-          </Box>
         )}
       </Box>
     </Box>

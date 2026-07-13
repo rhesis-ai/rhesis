@@ -211,11 +211,7 @@ class TestEmailRegistration:
         """Test registration with password too short (policy validation)."""
         response = client.post(
             "/auth/register",
-            json={
-                "email": "test@example.com",
-                "password": "short",
-                "accept_terms": True,
-            },
+            json={"email": "test@example.com", "password": "short"},
         )
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
@@ -770,7 +766,7 @@ class TestAuthMagicLinkRoutes:
         """POST /auth/magic-link always 200 (enumeration-safe)."""
         response = client.post(
             "/auth/magic-link",
-            json={"email": "unknown@example.com", "accept_terms": True},
+            json={"email": "unknown@example.com"},
         )
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
@@ -780,23 +776,35 @@ class TestAuthMagicLinkRoutes:
     def test_magic_link_missing_accept_terms_returns_200(
         self, client: TestClient, test_db, test_org_id
     ):
-        """Missing accept_terms must not leak account/terms state via status code."""
-        from rhesis.backend.app import crud
-
-        unknown = client.post(
+        """Magic link stays enumeration-safe without accept_terms in the body."""
+        response = client.post(
             "/auth/magic-link",
             json={"email": "nobody-magic@example.com"},
         )
-        assert unknown.status_code == status.HTTP_200_OK
-        assert crud.get_user_by_email(test_db, "nobody-magic@example.com") is None
+        assert response.status_code == status.HTTP_200_OK
 
-        email = _unique_email("magic-noterms")
-        org = create_test_organization(test_db, "Magic No Terms Org")
-        create_test_user(test_db, org.id, email, "Magic No Terms User")
-        test_db.commit()
+    def test_accept_terms_records_current_version(
+        self, client: TestClient, test_db, test_org_id
+    ):
+        from rhesis.backend.app.auth.terms import CURRENT_TERMS_VERSION
+        from rhesis.backend.app.auth.token_utils import create_session_token
 
-        existing = client.post("/auth/magic-link", json={"email": email})
-        assert existing.status_code == status.HTTP_200_OK
+        email = _unique_email("accept-terms")
+        org = create_test_organization(test_db, "Accept Terms Org")
+        user = create_test_user(test_db, org.id, email, "Accept Terms User")
+        test_db.flush()
+
+        token = create_session_token(user)
+        response = client.post(
+            "/auth/accept-terms",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json() == {"success": True, "terms_accepted": True}
+
+        test_db.refresh(user)
+        assert user.terms_accepted_at is not None
+        assert user.terms_accepted_version == CURRENT_TERMS_VERSION
 
     def test_magic_link_verify_valid_token_single_use(
         self, client: TestClient, test_db, test_org_id
@@ -1435,50 +1443,3 @@ class TestTermsAcceptance:
         response = client.get("/auth/terms-status", params={"email": email})
         assert response.status_code == status.HTTP_200_OK
         assert response.json() == {"terms_accepted": False}
-
-    def test_register_requires_accept_terms(self, client: TestClient):
-        response = client.post(
-            "/auth/register",
-            json={
-                "email": "new@example.com",
-                "password": "validpassword123",
-                "accept_terms": False,
-            },
-        )
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
-
-    def test_magic_link_verify_records_terms_acceptance(
-        self, client: TestClient, test_db, test_org_id
-    ):
-        from rhesis.backend.app.auth.terms import CURRENT_TERMS_VERSION
-
-        email = _unique_email("magic-terms")
-        org = create_test_organization(test_db, "Magic Terms Org")
-        user = create_test_user(test_db, org.id, email, "Magic Terms User")
-        test_db.flush()
-
-        with (
-            patch(
-                "rhesis.backend.app.auth.token_utils.get_secret_key",
-                return_value="test-secret",
-            ),
-            patch(
-                "rhesis.backend.app.routers.auth.claim_token_jti",
-                new_callable=AsyncMock,
-                return_value=True,
-            ),
-        ):
-            token = create_magic_link_token(
-                str(user.id),
-                user.email,
-                terms_accepted=True,
-            )
-            response = client.post(
-                "/auth/magic-link/verify",
-                json={"token": token},
-            )
-
-        assert response.status_code == status.HTTP_200_OK
-        test_db.refresh(user)
-        assert user.terms_accepted_at is not None
-        assert user.terms_accepted_version == CURRENT_TERMS_VERSION

@@ -6,7 +6,7 @@ import jwt
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 from jwt import PyJWTError as JWTError
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.orm import Session
 from starlette.responses import RedirectResponse
 
@@ -49,6 +49,7 @@ from rhesis.backend.app.auth.used_token_store import (
 from rhesis.backend.app.auth.user_utils import (
     _send_welcome_email,
     find_or_create_user_from_auth,
+    require_current_user_or_token,
 )
 from rhesis.backend.app.config.settings import (
     get_application_settings,
@@ -57,6 +58,7 @@ from rhesis.backend.app.config.settings import (
 from rhesis.backend.app.dependencies import (
     get_db_session,
 )
+from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.quick_start import is_quick_start_enabled
 from rhesis.backend.app.utils.rate_limit import (
     AUTH_FORGOT_PASSWORD_LIMIT,
@@ -89,7 +91,6 @@ class EmailLoginRequest(BaseModel):
 
     email: EmailStr
     password: str = Field(..., min_length=1)
-    accept_terms: Optional[bool] = None
 
 
 class EmailRegisterRequest(BaseModel):
@@ -98,14 +99,6 @@ class EmailRegisterRequest(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=1)
     name: Optional[str] = None
-    accept_terms: bool
-
-    @field_validator("accept_terms")
-    @classmethod
-    def must_accept_terms(cls, value: bool) -> bool:
-        if not value:
-            raise ValueError("You must accept the Terms and Conditions")
-        return value
 
 
 class ProviderInfo(BaseModel):
@@ -164,7 +157,6 @@ class MagicLinkRequest(BaseModel):
     """Request body for magic link login."""
 
     email: EmailStr
-    accept_terms: Optional[bool] = None
 
 
 class TermsStatusResponse(BaseModel):
@@ -226,18 +218,6 @@ def is_running_locally() -> bool:
         return True
 
     return False
-
-
-def _ensure_terms_accepted(user, accept_terms: Optional[bool]) -> None:
-    """Require current T&C acceptance and persist it when not already on file."""
-    if user_has_accepted_current_terms(user):
-        return
-    if not accept_terms:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="You must accept the Terms and Conditions",
-        )
-    record_terms_acceptance(user)
 
 
 def get_callback_url(request: Request, provider: Optional[str] = None) -> str:
@@ -385,6 +365,17 @@ async def get_terms_status(
     return TermsStatusResponse(terms_accepted=False)
 
 
+@router.post("/accept-terms")
+async def accept_terms(
+    db: Session = Depends(get_db_session),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Record the authenticated user's acceptance of the current T&C version."""
+    record_terms_acceptance(current_user)
+    db.commit()
+    return {"success": True, "terms_accepted": True}
+
+
 # =============================================================================
 # OAuth Login Endpoints
 # =============================================================================
@@ -395,7 +386,6 @@ async def login_with_provider(
     request: Request,
     provider: str,
     return_to: str = "/home",
-    terms_accepted: bool = False,
 ):
     """
     Initiate OAuth login with a specific provider.
@@ -403,8 +393,6 @@ async def login_with_provider(
     Args:
         provider: Provider name (e.g., 'google', 'github')
         return_to: URL to redirect to after successful login
-        terms_accepted: Set by the login page after the user checks the T&C box.
-            Stored in session and recorded on the OAuth callback.
     """
     ProviderRegistry.initialize()
     auth_provider = ProviderRegistry.get_provider(provider)
@@ -435,8 +423,6 @@ async def login_with_provider(
         request.session["original_frontend"] = origin
     request.session["return_to"] = return_to
     request.session["auth_provider"] = provider
-    if terms_accepted:
-        request.session["terms_accepted"] = True
 
     callback_url = get_callback_url(request, provider)
 
@@ -487,10 +473,6 @@ async def auth_callback(request: Request, db: Session = Depends(get_db_session))
         # Capture values from pre-auth session before regeneration
         original_frontend = request.session.get("original_frontend")
         return_to = request.session.get("return_to", "/architect")
-        oauth_terms_accepted = request.session.pop("terms_accepted", False)
-
-        if oauth_terms_accepted:
-            record_terms_acceptance(user)
 
         # Set up session and create tokens
         clear_user_logout(str(user.id))
@@ -570,8 +552,6 @@ async def login_with_email(
 
         # Find or create user (will update last_login_at)
         user = find_or_create_user_from_auth(db, auth_user)
-
-        _ensure_terms_accepted(user, body.accept_terms)
 
         # Set up session and create tokens
         request.session["user_id"] = str(user.id)
@@ -666,8 +646,6 @@ async def register_with_email(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="User creation failed",
             )
-
-        record_terms_acceptance(user)
 
         # Set up session and create tokens
         request.session["user_id"] = str(user.id)
@@ -934,10 +912,7 @@ async def request_magic_link(
     """
     Send a magic link email. Creates a new account if the email
     doesn't exist yet (unified sign-in / sign-up flow).
-
-    Always returns 200 to prevent email enumeration. When terms
-    acceptance is still required and not provided, no user is created
-    and no email is sent, but the response is identical.
+    Always returns 200 to prevent email enumeration.
     """
     from rhesis.backend.app import crud
     from rhesis.backend.app.schemas.user import UserCreate
@@ -945,9 +920,7 @@ async def request_magic_link(
     user = crud.get_user_by_email(db, body.email)
     is_new_user = False
 
-    if user is None:
-        if not body.accept_terms:
-            return _MAGIC_LINK_SUCCESS_RESPONSE
+    if not user:
         try:
             user_data = UserCreate(
                 email=body.email,
@@ -966,15 +939,9 @@ async def request_magic_link(
         except Exception as e:
             logger.warning(f"Failed to create user for magic link: {e}")
             return _MAGIC_LINK_SUCCESS_RESPONSE
-    elif not user_has_accepted_current_terms(user) and not body.accept_terms:
-        return _MAGIC_LINK_SUCCESS_RESPONSE
 
     try:
-        token = create_magic_link_token(
-            str(user.id),
-            user.email,
-            terms_accepted=bool(body.accept_terms),
-        )
+        token = create_magic_link_token(str(user.id), user.email)
         frontend_url = _get_frontend_url()
         magic_link_url = f"{frontend_url}/auth/magic-link?token={token}"
         email_service = _get_email_service()
@@ -1043,9 +1010,6 @@ async def verify_magic_link(
     # Mark email as verified (user clicked a link in their email)
     if not user.is_email_verified:
         user.is_email_verified = True
-
-    if payload.get("terms_accepted"):
-        record_terms_acceptance(user)
 
     # Update last login
     from datetime import datetime, timezone

@@ -362,20 +362,13 @@ def create_password_reset_token(user_id: str, email: str) -> str:
     )
 
 
-def create_magic_link_token(
-    user_id: str,
-    email: str,
-    *,
-    terms_accepted: bool = False,
-) -> str:
+def create_magic_link_token(user_id: str, email: str) -> str:
     """Create a 15-minute single-use magic link login token."""
-    extra_claims = {"terms_accepted": True} if terms_accepted else None
     return _create_email_flow_token(
         user_id=user_id,
         email=email,
         token_type="magic_link",
         expire_minutes=MAGIC_LINK_EXPIRE_MINUTES,
-        extra_claims=extra_claims,
         with_jti=True,
     )
 

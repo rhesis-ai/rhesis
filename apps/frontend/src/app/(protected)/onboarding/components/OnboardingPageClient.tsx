@@ -328,6 +328,7 @@ export default function OnboardingPageClient({
             formData={formData}
             updateFormData={updateFormData}
             onNext={handleNext}
+            sessionToken={sessionToken}
           />
         );
       case 1:
