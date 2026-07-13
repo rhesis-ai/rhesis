@@ -366,7 +366,15 @@ async def accept_terms(
     current_user: User = Depends(require_current_user_or_token_without_context),
 ):
     """Record the authenticated user's acceptance of the current T&C version."""
-    record_terms_acceptance(current_user)
+    from rhesis.backend.app import crud
+
+    user = crud.get_user_by_id(db, current_user.id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+    record_terms_acceptance(user)
     db.commit()
     return {"success": True, "terms_accepted": True}
 
