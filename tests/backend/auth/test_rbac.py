@@ -754,7 +754,7 @@ class TestRealAppCapabilities:
 
         cap_map = build_capability_map(app)
         invoke_paths = cap_map.get("endpoint:update", [])
-        assert any("/invoke" in p for p in invoke_paths), (
+        assert "/endpoints/{endpoint_id}/invoke" in invoke_paths, (
             f"endpoint invoke not mapped to endpoint:update; got: {invoke_paths}"
         )
 
