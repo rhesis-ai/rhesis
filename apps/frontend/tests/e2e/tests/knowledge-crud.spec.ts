@@ -65,10 +65,17 @@ test.describe('Knowledge — CRUD @crud', () => {
     await knowledgePage.setSourceTitle(UNIQUE_TITLE);
     await knowledgePage.setSourceDescription('Uploaded by Playwright E2E test');
 
-    // Submit the upload
+    // Submit the upload and wait for the grid to refetch
+    const listRefresh = page.waitForResponse(
+      resp =>
+        resp.url().includes('/sources') &&
+        resp.request().method() === 'GET' &&
+        resp.ok(),
+      { timeout: 30_000 }
+    );
     await knowledgePage.submitUpload();
     await knowledgePage.waitForUploadDrawerClosed();
-    await page.waitForLoadState('networkidle');
+    await listRefresh;
     await expectGridRowVisible(page, UNIQUE_TITLE);
   });
 

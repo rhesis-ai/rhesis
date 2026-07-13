@@ -40,6 +40,10 @@ export default function KnowledgeClientWrapper({
 
   const handleUploadSuccess = useCallback(() => {
     setUploadDrawerOpen(false);
+    // When the empty state is showing (sourceCount === 0) SourcesGrid is
+    // unmounted, so bump the count so the grid remounts and can list the
+    // newly uploaded source.
+    setSourceCount(prev => (prev === 0 ? 1 : prev));
     queryClient.invalidateQueries({ queryKey: sourceKeys.all() });
   }, [queryClient]);
 
