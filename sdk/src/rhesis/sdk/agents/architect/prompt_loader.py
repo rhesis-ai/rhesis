@@ -68,12 +68,23 @@ def phase_include_names(mode: AgentMode, workflow_path: WorkflowPath) -> List[st
 
     if m == AgentMode.DISCOVERY:
         if wp == WorkflowPath.EXPLORE:
-            includes.extend(["phases/discovery.md", "exploration-strategies.md", "odata-patterns.md"])
+            includes.extend(
+                [
+                    "phases/discovery.md",
+                    "exploration-strategies.md",
+                    "odata-patterns.md",
+                ]
+            )
         elif wp == WorkflowPath.PRD:
             includes.append("prd-workflow.md")
         elif wp == WorkflowPath.RUN_ANALYZE:
             includes.extend(
-                ["phases/execution.md", "phases/analysis.md", "result-analysis.md", "odata-patterns.md"]
+                [
+                    "phases/execution.md",
+                    "phases/analysis.md",
+                    "result-analysis.md",
+                    "odata-patterns.md",
+                ]
             )
         elif wp == WorkflowPath.DIRECT:
             includes.extend(["phases/direct-requests.md", "odata-patterns.md"])

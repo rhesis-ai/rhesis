@@ -345,10 +345,7 @@ class ArchitectAgent(BaseAgent):
         old_mode = self._mode
         if old_mode != new_mode:
             self._mode = new_mode
-            if (
-                new_mode == AgentMode.PLANNING
-                and self._workflow_path == WorkflowPath.UNSET
-            ):
+            if new_mode == AgentMode.PLANNING and self._workflow_path == WorkflowPath.UNSET:
                 self._workflow_path = WorkflowPath.EXPLORE
             await _emit(
                 self._event_handlers,
