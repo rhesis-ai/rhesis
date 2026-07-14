@@ -82,6 +82,53 @@ ASGI boundary:
 minus a small residual (FastAPI's own glue code) -- large unexplained gaps
 there point at something this probe still isn't instrumenting.
 
+Call counts, for telling "one slow call" apart from "many small calls summed
+up" (the same N+1 shape as a query fired per row, just in a different layer):
+
+- ``authz`` and ``affordance`` are sums across every call in the request, not
+  single measurements -- a ``require_permission`` or ``permitted_actions_for``
+  invoked once per row in a list response would sum to a large total that
+  looks identical to one genuinely slow call. ``authz_count`` /
+  ``affordance_count`` (calls made this request) disambiguate the two: a large
+  total with count=1 is a slow lookup; a large total with count=N (N close to
+  the response's row count) is a per-row check that should be batched instead.
+- ``orm_execute_count`` is the number of ``Session.execute()`` calls
+  underneath ``orm_execute`` -- same purpose for the ORM layer: many small
+  calls (e.g. a lazy-loaded relationship fetched separately per parent row)
+  versus one call that returns everything.
+- ``project_access`` / ``project_access_count``: time inside and call count of
+  ``dependencies.assert_project_access``, the project-membership + project
+  existence check that runs during ``deps`` whenever a request carries a
+  project scope (``X-Project-Id`` header or a project-scoped token). Unlike
+  ``authz``, this function has **no cache** -- it is two uncached DB queries
+  (``ProjectMembership`` then ``Project``) on every single call. A project-
+  scoped route paying this cost on every request, with no cache to warm, looks
+  identical in aggregate to a slow ``authz`` cache miss -- these two are easy
+  to conflate without the separate ``project_access`` number.
+- ``db`` gained a ``distinct`` count alongside its existing query count:
+  ``db=Xms(Nq/Kdistinct)``. When N is much larger than K (the same normalized
+  SQL shape repeating many times, differing only in a literal ID), that is the
+  direct signature of an N+1 -- a relationship or lookup being queried once
+  per row instead of batched into one ``IN (...)``. When this happens a
+  ``DUP xN | <sql>`` line is logged automatically alongside the per-query
+  breakdown, naming the repeated shape and its count directly instead of
+  requiring someone to eyeball the per-query lines for repeats.
+- ``cache_lookup`` / ``cache_set``: time inside ``PermissionCache.get``/
+  ``.set`` specifically (patched independently of ``authorize()`` itself),
+  with ``cache_lookup``'s count split into total lookups and ``hit`` count.
+  Isolates the Redis round-trip from the rest of ``authz``, so a large
+  ``authz`` total can be attributed to one of three distinct causes: the
+  cache lookup itself is slow (large ``cache_lookup``), the cache keeps
+  missing (``hit`` count stays low across repeated identical requests, so
+  the DB-backed provider runs every time), or the cache is fine and the
+  provider call on a genuine miss is what's slow (small ``cache_lookup``,
+  large remaining ``authz``).
+- ``pool_checkout`` gained a ``(checkedout/size)`` snapshot of the connection
+  pool's occupancy at the moment the checkout finished -- e.g. ``pool_checkout=
+  40.0ms(0new,10/10inuse)`` means the checkout was slow because the pool was
+  fully saturated (every connection in use), not because of connection setup
+  cost (``new`` is 0) or an unrelated slowdown.
+
 Five more signals, each testing a specific hypothesis rather than measuring
 a FastAPI/SQLAlchemy internal stage directly:
 
@@ -120,15 +167,17 @@ a FastAPI/SQLAlchemy internal stage directly:
 Enable with RHESIS_ENABLE_REQUEST_TIMING=1. Logs one summary line plus one
 line per query for each request:
 
-    GET /tests/?skip=75&limit=25 total=2190.3ms db=1181.4ms(17q) \
-pre_db=45.2ms pool_checkout=3.1ms(1new) deps=52.1ms authz=8.1ms \
-endpoint=1820.4ms endpoint_nondb=639.0ms pre_query=12.0ms between_query=430.1ms \
-post_query=196.9ms orm_execute=1350.9ms orm_nondb=169.5ms compile=22.4ms \
-threadpool=3/40 inflight=2 gc=8.1ms validate=140.2ms affordance=0.0ms \
-to_json=25.6ms handler=2038.3ms encode=152.0ms unlabeled=13.4ms
+    GET /tests/?skip=75&limit=25 total=2190.3ms db=1181.4ms(17q/9distinct) \
+pre_db=45.2ms pool_checkout=3.1ms(1new,2/10inuse) deps=52.1ms authz=8.1ms(1) \
+cache_lookup=1.2ms(1,1hit) cache_set=0.0ms project_access=0.0ms(0) \
+endpoint=1820.4ms endpoint_nondb=639.0ms pre_query=12.0ms \
+between_query=430.1ms post_query=196.9ms orm_execute=1350.9ms(6) orm_nondb=169.5ms \
+compile=22.4ms threadpool=3/40 inflight=2 gc=8.1ms validate=140.2ms \
+affordance=0.0ms(0) to_json=25.6ms handler=2038.3ms encode=152.0ms unlabeled=13.4ms
       412.1ms | SELECT test.id FROM test JOIN behavior ON ... WHERE ...
       203.4ms | SELECT prompt.id, prompt.content FROM prompt WHERE prompt.id IN (?)
       ...
+      DUP x8 | SELECT prompt.id, prompt.content FROM prompt WHERE prompt.id = ?
 
 Not meant to run in production long-term -- remove once the gap is
 diagnosed, same as the earlier debug_sql_timing.py probe (commit
@@ -142,6 +191,7 @@ import re
 import sys
 import threading
 import time
+from collections import Counter
 from contextvars import ContextVar
 
 from sqlalchemy import event
@@ -298,6 +348,7 @@ def _patch_authorize() -> None:
             return original(*args, **kwargs)
         finally:
             _record_phase("authz", (time.perf_counter() - start) * 1000)
+            _record_phase("authz_count", 1)
 
     _timed_authorize._rhesis_timing_patched = True
     rbac.authorize = _timed_authorize
@@ -327,6 +378,7 @@ def _patch_permitted_actions_for() -> None:
             return original(*args, **kwargs)
         finally:
             _record_phase("affordance", (time.perf_counter() - start) * 1000)
+            _record_phase("affordance_count", 1)
 
     _timed_permitted_actions_for._rhesis_timing_patched = True
     capabilities.permitted_actions_for = _timed_permitted_actions_for
@@ -450,9 +502,63 @@ def _patch_engine_connect() -> None:
             return original_connect(self, *args, **kwargs)
         finally:
             _record_phase("pool_checkout", (time.perf_counter() - start) * 1000)
+            # Snapshot of pool occupancy at the moment this checkout finished --
+            # a gauge (last-write-wins), not a sum, so a slow pool_checkout can
+            # be attributed to "the pool was fully checked out" vs. "the pool
+            # had room, something else was slow".
+            try:
+                _record_gauge("pool_checkedout", self.pool.checkedout())
+                _record_gauge("pool_size", self.pool.size())
+            except Exception:
+                pass
 
     _timed_connect._rhesis_timing_patched = True
     Engine.connect = _timed_connect
+
+
+def _patch_permission_cache() -> None:
+    """Time + count ``PermissionCache.get``/``.set`` on the process-global
+    singleton, split into hit vs. miss.
+
+    ``authz`` (the ``rbac.authorize()`` wrapper above) times the *whole*
+    decision -- cache lookup plus, on a miss, the DB-backed provider call --
+    as one number. This patch isolates just the Redis round-trip, so a large
+    ``authz`` total can be attributed to "the cache lookup itself is slow"
+    (e.g. Redis latency) vs. "the cache keeps missing and we're paying for
+    the DB provider every time" (visible as cache_hit_count staying at 0
+    across repeated identical requests) vs. "cache hits fine, the provider
+    call is what's slow" (fast cache_lookup, but authz stays large).
+    """
+    from rhesis.backend.app.services.permission_cache import get_permission_cache
+
+    cache = get_permission_cache()
+    if getattr(cache.get, "_rhesis_timing_patched", False):
+        return
+
+    original_get = cache.get
+    original_set = cache.set
+
+    def _timed_get(*args, **kwargs):
+        start = time.perf_counter()
+        result = None
+        try:
+            result = original_get(*args, **kwargs)
+            return result
+        finally:
+            _record_phase("cache_lookup", (time.perf_counter() - start) * 1000)
+            _record_phase("cache_lookup_count", 1)
+            _record_phase("cache_hit_count", 1 if result is not None else 0)
+
+    def _timed_set(*args, **kwargs):
+        start = time.perf_counter()
+        try:
+            return original_set(*args, **kwargs)
+        finally:
+            _record_phase("cache_set", (time.perf_counter() - start) * 1000)
+
+    _timed_get._rhesis_timing_patched = True
+    cache.get = _timed_get
+    cache.set = _timed_set
 
 
 def _patch_session_execute() -> None:
@@ -475,9 +581,41 @@ def _patch_session_execute() -> None:
             return original_execute(self, *args, **kwargs)
         finally:
             _record_phase("orm_execute", (time.perf_counter() - start) * 1000)
+            _record_phase("orm_execute_count", 1)
 
     _timed_execute._rhesis_timing_patched = True
     Session.execute = _timed_execute
+
+
+def _patch_assert_project_access() -> None:
+    """Time + count ``dependencies.assert_project_access`` -- the project
+    membership/existence check that runs during ``deps`` whenever a request
+    carries a project scope. Unlike ``authorize()`` this has no cache: every
+    call is two fresh DB queries (``ProjectMembership`` then ``Project``). See
+    ``project_access`` in the module docstring for why this is easy to
+    conflate with a slow ``authz`` cache miss without a separate number.
+
+    Called by bare module-global name from ``get_project_context`` in the same
+    module, so reassigning the module attribute here is picked up the same way
+    as the ``authorize`` patch above.
+    """
+    from rhesis.backend.app import dependencies
+
+    if getattr(dependencies.assert_project_access, "_rhesis_timing_patched", False):
+        return
+
+    original = dependencies.assert_project_access
+
+    def _timed_assert_project_access(*args, **kwargs):
+        start = time.perf_counter()
+        try:
+            return original(*args, **kwargs)
+        finally:
+            _record_phase("project_access", (time.perf_counter() - start) * 1000)
+            _record_phase("project_access_count", 1)
+
+    _timed_assert_project_access._rhesis_timing_patched = True
+    dependencies.assert_project_access = _timed_assert_project_access
 
 
 if is_enabled():
@@ -486,6 +624,8 @@ if is_enabled():
     _patch_fastapi_request_stages()
     _patch_engine_connect()
     _patch_session_execute()
+    _patch_assert_project_access()
+    _patch_permission_cache()
     if _gc_callback not in gc.callbacks:
         gc.callbacks.append(_gc_callback)
 
@@ -593,6 +733,7 @@ class RequestTimingMiddleware:
             end = time.perf_counter()
             total_ms = (end - start) * 1000
             db_ms = sum(elapsed_ms for _, _, elapsed_ms, _ in log)
+            distinct_queries = len({sql for _, _, _, sql in log})
             handler_ms = ((first_send_time - start) * 1000) if first_send_time else total_ms
             encode_ms = max(total_ms - handler_ms, 0.0)
 
@@ -625,29 +766,42 @@ class RequestTimingMiddleware:
             query_string = scope.get("query_string", b"").decode()
             path = scope["path"] + (f"?{query_string}" if query_string else "")
             logger.info(
-                "%s %s total=%.1fms db=%.1fms(%dq) pre_db=%.1fms "
-                "pool_checkout=%.1fms(%dnew) deps=%.1fms authz=%.1fms "
-                "endpoint=%.1fms endpoint_nondb=%.1fms pre_query=%.1fms "
-                "between_query=%.1fms post_query=%.1fms orm_execute=%.1fms "
-                "orm_nondb=%.1fms compile=%.1fms threadpool=%d/%d inflight=%d gc=%.1fms "
-                "validate=%.1fms affordance=%.1fms to_json=%.1fms handler=%.1fms "
+                "%s %s total=%.1fms db=%.1fms(%dq/%ddistinct) pre_db=%.1fms "
+                "pool_checkout=%.1fms(%dnew,%d/%dinuse) deps=%.1fms authz=%.1fms(%d) "
+                "cache_lookup=%.1fms(%d,%dhit) cache_set=%.1fms "
+                "project_access=%.1fms(%d) endpoint=%.1fms endpoint_nondb=%.1fms "
+                "pre_query=%.1fms between_query=%.1fms post_query=%.1fms "
+                "orm_execute=%.1fms(%d) orm_nondb=%.1fms compile=%.1fms "
+                "threadpool=%d/%d inflight=%d gc=%.1fms "
+                "validate=%.1fms affordance=%.1fms(%d) to_json=%.1fms handler=%.1fms "
                 "encode=%.1fms unlabeled=%.1fms",
                 scope["method"],
                 path,
                 total_ms,
                 db_ms,
                 len(log),
+                distinct_queries,
                 phases.get("pre_db", 0.0),
                 pool_checkout_ms,
                 new_connections,
+                int(phases.get("pool_checkedout", 0.0)),
+                int(phases.get("pool_size", 0.0)),
                 deps_ms,
                 phases.get("authz", 0.0),
+                int(phases.get("authz_count", 0.0)),
+                phases.get("cache_lookup", 0.0),
+                int(phases.get("cache_lookup_count", 0.0)),
+                int(phases.get("cache_hit_count", 0.0)),
+                phases.get("cache_set", 0.0),
+                phases.get("project_access", 0.0),
+                int(phases.get("project_access_count", 0.0)),
                 endpoint_ms,
                 endpoint_nondb_ms,
                 pre_query_ms,
                 between_query_ms,
                 post_query_ms,
                 orm_execute_ms,
+                int(phases.get("orm_execute_count", 0.0)),
                 orm_nondb_ms,
                 compile_ms,
                 threadpool_borrowed,
@@ -656,6 +810,7 @@ class RequestTimingMiddleware:
                 gc_ms,
                 validate_ms,
                 phases.get("affordance", 0.0),
+                int(phases.get("affordance_count", 0.0)),
                 to_json_ms,
                 handler_ms,
                 encode_ms,
@@ -663,3 +818,9 @@ class RequestTimingMiddleware:
             )
             for _, _, elapsed_ms, sql in sorted(log, key=lambda q: q[2], reverse=True):
                 logger.info("  %.1fms | %s", elapsed_ms, sql)
+
+            if log:
+                shape_counts = Counter(sql for _, _, _, sql in log)
+                top_sql, top_count = shape_counts.most_common(1)[0]
+                if top_count > 1:
+                    logger.info("  DUP x%d | %s", top_count, top_sql)
