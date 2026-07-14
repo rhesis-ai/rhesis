@@ -1,7 +1,13 @@
 Current Mode: {{ mode }}
+{% if workflow_path and workflow_path != 'unset' %}Workflow Path: {{ workflow_path }}{% endif %}
 
 User Message: {{ user_query }}
 
+{% if phase_knowledge_text %}
+Phase Guidance:
+{{ phase_knowledge_text }}
+
+{% endif %}
 {% if attachments_text %}
 User Context (resolved references and attached files):
 {{ attachments_text }}

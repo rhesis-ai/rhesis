@@ -32,8 +32,10 @@ from rhesis.sdk.models.base import BaseLLM
 
 from .config import ArchitectConfig, _default_discovery_state
 from .plan import _INTERNAL_FIELDS, ArchitectPlan, build_save_plan_tool
+from .prompt_loader import build_architect_jinja_env, render_phase_knowledge
 from .state import ArchitectAgentStateSnapshot
 from .tool_registry import mode_for, plan_category_for
+from .workflow import WorkflowPath, infer_workflow_path
 
 logger = logging.getLogger(__name__)
 
@@ -120,6 +122,7 @@ class ArchitectAgent(BaseAgent):
         event_handlers: Optional[List[AgentEventHandler]] = None,
     ):
         self._cfg = config or ArchitectConfig()
+        templates_dir = Path(__file__).parent / "prompt_templates"
         super().__init__(
             model=model,
             tools=tools,
@@ -129,11 +132,13 @@ class ArchitectAgent(BaseAgent):
             history_window=history_window,
             verbose=verbose,
             event_handlers=event_handlers,
-            prompt_templates_dir=(Path(__file__).parent / "prompt_templates"),
+            prompt_templates_dir=templates_dir,
+            jinja_env=build_architect_jinja_env(templates_dir),
         )
         self._conversation_history: List[Dict[str, Any]] = []
         self._plan: Optional[ArchitectPlan] = None
         self._mode: AgentMode = AgentMode.DISCOVERY
+        self._workflow_path: WorkflowPath = WorkflowPath.UNSET
 
         # ── write-guard state ────────────────────────────────────
         # Two-layer defense:
@@ -239,6 +244,7 @@ class ArchitectAgent(BaseAgent):
             # [TASK_COMPLETED] summary).
             self._blocked_this_turn = False
             self._conversation_history.append({"role": Role.USER, "content": message})
+            self._maybe_update_workflow_path(message)
 
             # If the previous turn asked for confirmation, unlock
             # only the specific tools that were blocked.
@@ -339,6 +345,11 @@ class ArchitectAgent(BaseAgent):
         old_mode = self._mode
         if old_mode != new_mode:
             self._mode = new_mode
+            if (
+                new_mode == AgentMode.PLANNING
+                and self._workflow_path == WorkflowPath.UNSET
+            ):
+                self._workflow_path = WorkflowPath.EXPLORE
             await _emit(
                 self._event_handlers,
                 "on_mode_change",
@@ -390,6 +401,7 @@ class ArchitectAgent(BaseAgent):
         self._execution_history.clear()
         self._plan = None
         self._mode = AgentMode.DISCOVERY
+        self._workflow_path = WorkflowPath.UNSET
         self._creation_approved = False
         self._confirming_tools = frozenset()
         self._blocked_this_turn = False
@@ -1319,6 +1331,7 @@ class ArchitectAgent(BaseAgent):
 
         return ArchitectAgentStateSnapshot(
             mode=self._mode.value if hasattr(self._mode, "value") else str(self._mode),
+            workflow_path=self._workflow_path.value,
             conversation_history=list(self._conversation_history),
             discovery_state=dict(self._discovery_state),
             guard_state=self.guard_state,
@@ -1343,6 +1356,11 @@ class ArchitectAgent(BaseAgent):
                 snapshot.mode,
             )
             self._mode = AgentMode.DISCOVERY
+
+        try:
+            self._workflow_path = WorkflowPath(snapshot.workflow_path)
+        except ValueError:
+            self._workflow_path = WorkflowPath.UNSET
 
         self._conversation_history = list(snapshot.conversation_history)
 
@@ -1418,6 +1436,15 @@ class ArchitectAgent(BaseAgent):
 
         return "Plan progress: " + ", ".join(parts) + ". " + gate + "."
 
+    def _maybe_update_workflow_path(self, message: str) -> None:
+        """Infer workflow path from the first unambiguous user signals."""
+        if self._workflow_path != WorkflowPath.UNSET:
+            return
+        has_attachments = bool(self._attachments)
+        inferred = infer_workflow_path(message, has_attachments=has_attachments)
+        if inferred is not None:
+            self._workflow_path = inferred
+
     def _build_prompt(
         self,
         user_query: str,
@@ -1431,8 +1458,13 @@ class ArchitectAgent(BaseAgent):
         attachments_text = self._format_attachments()
 
         template = self._jinja_env.get_template("iteration_prompt.j2")
+        phase_knowledge_text = render_phase_knowledge(
+            self._jinja_env, self._mode, self._workflow_path
+        )
         return template.render(
             mode=self._mode,
+            workflow_path=self._workflow_path.value,
+            phase_knowledge_text=phase_knowledge_text,
             user_query=user_query,
             tools_text=tools_text,
             history_text=history_text,

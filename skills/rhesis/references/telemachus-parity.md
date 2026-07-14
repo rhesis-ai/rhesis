@@ -1,88 +1,47 @@
 # Telemachus (Architect) parity plan
 
-The **Rhesis agent skill** (`skills/rhesis/SKILL.md`) and **Telemachus** (native Architect in the web UI) are separate runtimes:
+The **Rhesis agent skill** and **Telemachus** (native Architect) share operational knowledge from `skills/rhesis/references/`. Telemachus includes those files at runtime via `prompt_loader.py`; the coding agent reads them via `SKILL.md` routing.
 
 | | Agent skill | Telemachus |
 |---|---|---|
-| Instructions | `SKILL.md` + `references/` | `sdk/.../architect/prompt_templates/system_prompt.j2` |
-| Tools | MCP over HTTP | `LocalToolProvider` + same `mcp_tools.yaml` |
+| Instructions | `SKILL.md` + `references/` | `system_prompt.j2` includes same `references/` |
+| Docs (canonical) | Links to `docs.rhesis.ai/llms.txt` | Same content in repo refs |
+| Tools | MCP over HTTP | `LocalToolProvider` + `mcp_tools.yaml` |
 | Write safety | Prompt + user approval | `save_plan`, Accept/Change UI, modes |
 
-Telemachus does **not** load skill files today. This doc is the **port checklist** so both surfaces behave the same.
+## Implemented on this branch
 
-## 1. Four-path welcome menu (priority: high)
+### Phase 1 — Telemachus references skills
 
-On ambiguous first message (no endpoint, no PRD paste, no run/analyze request), Architect should present:
+- [x] `prompt_loader.py` — Jinja `ChoiceLoader` for `skills/rhesis/references/`
+- [x] `system_prompt.j2` — slim shell + shared refs via includes
+- [x] `telemachus-*.j2` — runtime-only partials
+- [x] Four-path menu in `workflow-routing.j2`
 
-```text
-What would you like to do?
+### Lazy phase loading
 
-1. Quick exploration — fast scan of an endpoint's domain and boundaries
-2. Comprehensive exploration — full capability and boundary analysis
-3. Build a test foundation from your PRD — behaviors, metrics, and test sets
-4. Run or analyze existing tests — execute a test set or review/compare past runs
-```
+- [x] Phase knowledge injected in `iteration_prompt.j2` per `mode` + `workflow_path`
+- [x] Fixed system prompt: routing, entity model, resolution, security only
+- [x] `workflow.py` — path inference from user message
+- [x] `WorkflowPath` persisted in agent state snapshot
 
-**Skip menu** when intent is clear (same table as `SKILL.md` § Choose a workflow).
+### Phase 2 — Docs as source of truth
 
-**Port target:** new `## Workflow routing` section in `system_prompt.j2`, before Discovery Phase.
+- [x] `docs/agent-skill/definitions.mdx`, `for-agents.mdx`
+- [x] `docs/metrics/metric-scope.mdx`
+- [x] `llms.txt` — **For AI agents** section with machine-reading rules
+- [x] Slim `SKILL.md` — router + docs URLs; `use-case-bracketfeld.md` stays in repo
+- [x] Skill refs link to canonical docs URLs at top of key files
 
-**UI:** optional welcome chips in `ArchitectWelcome.tsx` matching the four labels.
+### metric_scope (critical)
 
-## 2. PRD → test foundation workflow (priority: high)
+- [x] `plan.py` — `MetricSpec.metric_scope` + `save_plan` coverage validation
+- [x] `metric-scope.md` included in Telemachus prompt
+- [x] `docs/architect/planning.mdx` + `docs/metrics/metric-scope.mdx`
 
-Port from `references/prd-workflow.md` and `references/prd/*`:
+## Remaining (optional)
 
-- PRD intake (stakeholders, persona stories, numbered FRs)
-- Fine-grained behavior splitting (`behavior-design.md`)
-- AC-driven metrics (`metric-design.md`)
-- `metric_scope` on every metric + test set alignment (`scope-alignment.md`)
-- Tags via `list_tags` / `assign_tag` (after metrics, before `generate_test_set`)
-
-**Port target:** `{% include "prd-workflow.j2" %}` or inline section in `system_prompt.j2`.
-
-**Optional:** `AgentMode` for PRD in `tool_registry.py` so the mode chip shows the active workflow.
-
-## 3. `metric_scope` + scope coverage (priority: critical) — **implemented**
-
-Platform **drops** metrics whose `metric_scope` does not include the test's `test_type`.
-
-**Done / in progress on this branch:**
-
-- `plan.py` — `MetricSpec.metric_scope` + `save_plan` coverage validation
-- `system_prompt.j2` — "Metric scope" section, planning + creation guidance
-- `skills/rhesis/references/metric-scope.md` — shared when-to-use guide
-- `docs/architect/planning.mdx` — user-facing scope section
-
-**Remaining:**
-
-- `PlanDisplay.tsx` — show scope column (optional)
-- PRD workflow section in `system_prompt.j2` (separate from scope)
-
-## 4. Plan schema extensions (priority: medium)
-
-| Field | Model | Purpose |
-|---|---|---|
-| `tags` | `BehaviorSpec` | PRD tag taxonomy |
-| `metric_scope` | `MetricSpec` | Run-time compatibility |
-| `ac_source` | `MetricSpec` | FR/AC traceability |
-| `target_metrics` | `TestSetSpec` | Metrics expected to run |
-
-## 5. Already aligned (no port)
-
-- Entity resolution ladder (Architect is richer)
-- Creation order (behaviors → metrics → mappings → generate)
-- `save_plan` + plan panel
-- Quick / Comprehensive tool strategies (under exploration paths only)
-- Execution / analysis / comparison sections
-- `await_task` instead of manual polling
-
-## 6. Implementation order
-
-1. Four-path menu + workflow routing in `system_prompt.j2`
-2. `metric_scope` in prompt + `create_metric` + `MetricSpec`
-3. Scope coverage check in Planning Phase
-4. PRD workflow section + file-attachment routing
-5. `list_tags` / `assign_tag` in creation order
-6. Plan schema + PlanDisplay UI
-7. `ArchitectWelcome` chips + `docs/architect/scenarios.mdx`
+- [ ] `PlanDisplay.tsx` — scope column on metrics
+- [ ] `ArchitectWelcome.tsx` — four-path welcome chips
+- [ ] Phase 3 (#2033) — generate `tool-catalog.md` from `mcp_tools.yaml`
+- [ ] "Chat with docs" tool for Telemachus

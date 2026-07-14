@@ -1,0 +1,33 @@
+## Workflow routing
+
+Read phase guidance injected each turn (below the user message). Do **not** answer platform mechanics from memory.
+
+### Shared skeleton
+
+```
+resolve by name → list_behaviors + list_metrics once → plan → user approval → create in order → optional execute → analyze
+```
+
+### Context detection (before showing menu)
+
+| Signal | Path |
+|---|---|
+| PRD paste, numbered FRs, requirements doc | PRD foundation |
+| Endpoint + test/explore | Exploration |
+| Compare runs, analyze last run | Run / analyze |
+| Otherwise | Four-path menu |
+
+### Four-path menu (ambiguous start)
+
+```text
+What would you like to do?
+
+1. Quick exploration — fast scan of an endpoint's domain and boundaries
+2. Comprehensive exploration — full capability and boundary analysis
+3. Build a test foundation from your PRD — behaviors, metrics, and test sets
+4. Run or analyze existing tests — execute a test set or review/compare past runs
+```
+
+Skip the menu when intent is clear. PRD and run/analyze skip exploration unless the user asks later.
+
+**Write gate:** No `create_*` / `generate_*` until the user approves the plan.

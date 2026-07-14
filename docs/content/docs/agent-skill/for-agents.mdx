@@ -1,0 +1,40 @@
+---
+description: Machine-readable guide — how AI agents should load Rhesis platform knowledge from docs.
+keywords: [llms.txt, agent skill, MCP, Telemachus]
+---
+
+# For AI agents
+
+Human-readable pages live under `/docs`. **Agents should use the machine index** instead of guessing platform mechanics.
+
+## How to read
+
+1. **Start with the index:** `https://docs.rhesis.ai/llms.txt` — curated links to every page as `.md` (no MDX/JSX).
+2. **Fetch only what you need:** e.g. `https://docs.rhesis.ai/docs/metrics/metric-scope.md` for scope rules.
+3. **Full corpus (large):** `https://docs.rhesis.ai/llms-full.txt` — all pages concatenated.
+4. **Do not scrape HTML** — use `.md` URLs for stable, clean markdown.
+
+## Workflow routing
+
+| User signal | Read first |
+| --- | --- |
+| Vague "help me test" | [Platform workflow](/docs/agent-skill/platform) + four-path menu in skill |
+| Endpoint + explore | [Architect exploration](/docs/architect/exploration) |
+| Pasted PRD / FRs | [PRD workflow](/docs/agent-skill/prd) |
+| Run / analyze | [Execution and analysis](/docs/architect/execution-and-analysis) |
+| Terminology | [Definitions](/docs/agent-skill/definitions) |
+| `metric_scope` | [Metric scope](/docs/metrics/metric-scope) |
+
+## Repo skill (coding agents)
+
+Install: `npx skills add rhesis-ai/rhesis -g`
+
+The skill is a **thin router** — `SKILL.md` points here and to `skills/rhesis/references/` in the repo. Connect the Rhesis MCP server for tool calls.
+
+## Telemachus (native Architect)
+
+The in-product agent includes the same `skills/rhesis/references/` files in its system prompt. Behavior should match the agent skill.
+
+## Golden example (repo only)
+
+Full fictional PRD plan shape: [`use-case-bracketfeld.md`](https://github.com/rhesis-ai/rhesis/blob/main/skills/rhesis/references/use-case-bracketfeld.md) — not duplicated in docs; agents clone the section structure from this file.

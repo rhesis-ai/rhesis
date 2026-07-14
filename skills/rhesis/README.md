@@ -2,9 +2,9 @@
 
 Design, run, and analyze AI test suites on the [Rhesis](https://rhesis.ai) platform — from within Claude Code, Cursor, Codex, or [any compatible AI interface](https://github.com/vercel-labs/skills#supported-agents).
 
-This skill teaches your agent how to explore an AI endpoint's capabilities, design a test suite, **build a test foundation from a PRD**, create behaviors and metrics, generate tests, execute them, and analyze the results. All platform operations run through the Rhesis MCP server.
+This skill teaches your agent how to explore an AI endpoint's capabilities, design a test suite, create behaviors and metrics, generate tests, execute them, and analyze the results. All platform operations run through the Rhesis MCP server.
 
-**One skill, four entry paths** when you invoke `/rhesis` without context: Quick exploration, Comprehensive exploration, PRD test foundation, or run/analyze existing tests. See `references/telemachus-parity.md` for native Architect parity.
+**Skill layout:** `SKILL.md` is a thin router. Deep guidance lives under `references/` — start with `workflow-index.md`. PRD plans should match the fictional golden example in `use-case-bracketfeld.md` (City of Bracketfeld PermitDesk — not a real product).
 
 > **Note:** This is different from Rhesis's inbound MCP connector (where the platform consumes tools like Notion or GitHub). Here, an external AI agent calls *into* Rhesis to drive the testing platform.
 
@@ -99,22 +99,10 @@ Refer to your agent's documentation for the exact config file location and forma
 
 ## Usage
 
-Once installed, start a conversation naturally — or invoke `/rhesis` for the four-path menu:
-
-```
-/rhesis
-```
+Once installed, start a conversation naturally:
 
 ```
 "I want to test my travel chatbot. The endpoint is called 'travel-agent-v2'."
-```
-
-```
-"Here's our agent PRD: [paste requirements]"
-```
-
-```
-"Compare my last two test runs for the travel test set"
 ```
 
 The skill guides the full workflow:
@@ -144,13 +132,10 @@ You can also use it for direct operations without the full workflow:
 | `SKILL.md` | Skill instructions — loaded by all compatible agents |
 | `.claude-plugin/plugin.json` | Claude Code plugin manifest |
 | `.mcp.json` | MCP server config bundled with the Claude Code plugin |
-| `references/tool-catalog.md` | All MCP tools with parameters and common mistakes |
+| `references/tool-catalog.md` | All 27 MCP tools with parameters and common mistakes |
 | `references/odata-patterns.md` | `$filter`, `$select`, navigation properties, batched lookups |
 | `references/exploration-strategies.md` | Domain probing, capability mapping, boundary discovery |
 | `references/result-analysis.md` | Single-run summaries, run comparison, failure patterns |
-| `references/prd-workflow.md` | PRD → test foundation workflow |
-| `references/prd/` | PRD anatomy, behavior/metric design, scope alignment |
-| `references/telemachus-parity.md` | Native Architect port checklist (four-path menu, PRD, metric_scope) |
 
 ---
 
