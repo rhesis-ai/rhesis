@@ -7,6 +7,7 @@ import type {
   GridPaginationModel,
   GridSortModel,
 } from '@mui/x-data-grid';
+import { GridLogicOperator } from '@mui/x-data-grid';
 import { DEFAULT_GRID_SORT } from '@/utils/grid-sort';
 
 export interface UseGridStateOptions {
@@ -136,6 +137,9 @@ export function useGridState({
   const filterModel = useMemo(
     () => ({
       ...gridFilterMeta,
+      // Drawer/toolbar filters must always combine with AND. DataGrid can echo
+      // logicOperator: 'or', which would incorrectly broaden multi-filter results.
+      logicOperator: GridLogicOperator.And,
       items: [...managedFilterModel.items, ...reconciledColumnFilterItems],
     }),
     [gridFilterMeta, managedFilterModel, reconciledColumnFilterItems]
