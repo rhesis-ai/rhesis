@@ -44,7 +44,7 @@ x-common-smtp: &common-smtp
 x-common-jwt: &common-jwt
   JWT_SECRET_KEY: ${JWT_SECRET_KEY:-your-jwt-secret-key-change-in-production}
   JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
-  JWT_ACCESS_TOKEN_EXPIRE_MINUTES: ${JWT_ACCESS_TOKEN_EXPIRE_MINUTES:-10080}
+  JWT_ACCESS_TOKEN_EXPIRE_MINUTES: ${JWT_ACCESS_TOKEN_EXPIRE_MINUTES:-15}
 
 x-common-environment: &common-environment
   BACKEND_ENV: ${BACKEND_ENV:-local}
