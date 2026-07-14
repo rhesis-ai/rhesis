@@ -1,5 +1,5 @@
 export default {
   index: 'Overview',
-  'running-locally': 'Running Locally',
-  'self-hosting': 'Self-Hosting'
+  'quick-start': 'Quick Start',
+  'docker-compose': 'Docker Compose'
 }
