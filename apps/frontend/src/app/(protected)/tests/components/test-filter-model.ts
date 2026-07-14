@@ -72,28 +72,28 @@ export function applyTestDrawerFiltersToModel(
   if (drawerFilters.status) {
     drawerItems.push({
       field: 'status.name',
-      operator: 'contains',
+      operator: 'equals',
       value: drawerFilters.status,
     });
   }
   if (drawerFilters.behavior) {
     drawerItems.push({
       field: 'behavior.name',
-      operator: 'contains',
+      operator: 'equals',
       value: drawerFilters.behavior,
     });
   }
   if (drawerFilters.category) {
     drawerItems.push({
       field: 'category.name',
-      operator: 'contains',
+      operator: 'equals',
       value: drawerFilters.category,
     });
   }
   if (drawerFilters.topic) {
     drawerItems.push({
       field: 'topic.name',
-      operator: 'contains',
+      operator: 'equals',
       value: drawerFilters.topic,
     });
   }
