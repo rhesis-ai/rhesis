@@ -6,16 +6,6 @@ import { FileTree } from '@/components/FileTree'
 
 Deploy Rhesis on your own infrastructure with proper security, authentication, and production configuration.
 
-## Overview
-
-This guide covers deploying Rhesis for production use. It covers:
-
-- **[Secure authentication](#authentication--security)** - Native authentication with JWT token management
-- **[Database encryption](#database-encryption)** - Field-level encryption for sensitive data
-- **[Email notifications](#email-configuration-optional)** - SMTP configuration for system emails
-- **[AI model providers](#ai-model-configuration)** - Gemini, OpenAI, and Azure OpenAI configuration
-- **[Service monitoring](#monitoring-and-logs)** - Health checks, logging, and status management
-- **[Automated setup](#automated-database-setup)** - Database initialization and migrations
 
 <Callout type="warning">
 **Production Deployment**
@@ -23,15 +13,6 @@ This guide covers deploying Rhesis for production use. It covers:
 This guide is for production environments. For quick local testing, see the [Quick Start](/deployment/quick-start) guide.
 </Callout>
 
-## Prerequisites
-
-- Docker Desktop installed and running (Docker Compose V2)
-- Git
-- Ports 3000, 8080, 8081, 5432, and 6379 available on your system
-- (Optional) OAuth provider credentials for Google or GitHub sign-in
-- AI provider account (Gemini, OpenAI, or Azure OpenAI)
-
-> **Important**: This guide uses Docker Compose V2 syntax (`docker compose` without hyphen). If you're using an older version of Docker, you may need to install Docker Compose V2 or use the legacy `docker-compose` command.
 
 ## System Requirements
 
@@ -50,144 +31,67 @@ For production deployment with real users:
   align={["left", "center", "center", "center"]}
 />
 
-**Production Notes:**
-
-- Optimized builds without development overhead
-- Higher concurrent user capacity
-- Production logging levels
-- Database connection pooling
 
 ### Detailed Resource Breakdown
 
-**Memory Usage by Service:**
+<div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.5rem', alignItems: 'flex-start' }}>
+  <div style={{ flex: '1 1 320px', minWidth: 0 }}>
+    <Table
+      caption="Memory Usage by Service"
+      headers={["Service", "Production"]}
+      rows={[
+        ["PostgreSQL", "~1-2 GB"],
+        ["Redis", "~500 MB - 1 GB"],
+        ["Backend", "~500 MB - 1 GB"],
+        ["Worker", "~1-2 GB"],
+        ["Frontend", "~200-400 MB"],
+        ["Docker Overhead", "~500 MB - 1 GB"],
+        ["**Total Estimated**", "**~3.7-7.1 GB**"],
+      ]}
+      align={["left", "right"]}
+    />
+  </div>
+  <div style={{ flex: '1 1 320px', minWidth: 0 }}>
+    <Table
+      caption="Storage Requirements"
+      headers={["Component", "Production"]}
+      rows={[
+        ["Application Code", "~2 GB"],
+        ["Database", "~5-50 GB+"],
+        ["Docker Images", "~3-4 GB"],
+        ["Logs & Cache", "~2-10 GB"],
+        ["Working Space", "~3-5 GB"],
+        ["**Total Estimated**", "**~15-75 GB+**"],
+      ]}
+      align={["left", "right"]}
+    />
+  </div>
+</div>
 
-<Table
-  headers={["Service", "Production"]}
-  rows={[
-    ["PostgreSQL", "~1-2 GB"],
-    ["Redis", "~500 MB - 1 GB"],
-    ["Backend", "~500 MB - 1 GB"],
-    ["Worker", "~1-2 GB"],
-    ["Frontend", "~200-400 MB"],
-    ["Docker Overhead", "~500 MB - 1 GB"],
-    ["**Total Estimated**", "**~3.7-7.1 GB**"],
-  ]}
-  align={["left", "right"]}
-/>
-
-**Storage Requirements:**
-
-<Table
-  headers={["Component", "Production"]}
-  rows={[
-    ["Application Code", "~2 GB"],
-    ["Database", "~5-50 GB+"],
-    ["Docker Images", "~3-4 GB"],
-    ["Logs & Cache", "~2-10 GB"],
-    ["Working Space", "~3-5 GB"],
-    ["**Total Estimated**", "**~15-75 GB+**"],
-  ]}
-  align={["left", "right"]}
-/>
-
-### Performance Characteristics
-
-**CPU Usage Patterns:**
-
-- **High Load**: AI processing, bulk data operations, migrations
-- **Normal Load**: API requests, background tasks, web serving
-- **Idle**: Minimal CPU during low activity periods
-
-**Scaling Factors:**
-
-- **AI Operations**: Memory spikes during model inference
-- **Concurrent Users**: ~50-100 MB RAM per active user
-- **Database Growth**: Storage scales with user data and analytics
-- **Background Tasks**: CPU-intensive during batch processing
 
 ## Quick Start
 
-### 1. Clone the repository
-
 <CodeBlock filename="Terminal" language="bash">
-{`git clone https://github.com/rhesis-ai/rhesis.git
-cd rhesis`}
+{`# 1. Clone the repository
+git clone https://github.com/rhesis-ai/rhesis.git
+cd rhesis
+
+# 2. Copy environment variables
+cp .env.example .env.docker
+
+# 3. Configure environment variables
+# Edit .env.docker — see Environment Configuration below
+
+# 4. Start all services
+docker compose --env-file .env.docker up -d`}
 </CodeBlock>
 
-### 2. Copy environment variables
-
-<CodeBlock filename="Terminal" language="bash">
-{`cp .env.example .env.docker`}
-</CodeBlock>
-
-### 3. Configure environment variables
-
-Edit the `.env.docker` file and update all required configurations (see [Environment Configuration](#environment-configuration) below).
-
-### 4. Start all services
-
-<CodeBlock filename="Terminal" language="bash">
-{`docker compose --env-file .env.docker up -d`}
-</CodeBlock>
-
-### 5. Access the applications
+### Access the applications
 
 - **Frontend**: http://localhost:3000
 - **Backend API**: http://localhost:8080/docs
-- **Worker Health**: http://localhost:8081/health/basic
 
-## Architecture Overview
-
-### Services
-
-The Rhesis platform consists of several interconnected services:
-
-<Table
-  headers={["Service", "Port", "Description", "Health Check"]}
-  rows={[
-    ["PostgreSQL", "5432", "Primary database", "`pg_isready`"],
-    ["Redis", "6379", "Cache & message broker", "`redis-cli ping`"],
-    ["Backend", "8080", "FastAPI application", "`curl /health`"],
-    ["Worker", "8081", "Celery background tasks", "`curl /health/basic`"],
-    ["Frontend", "3000", "Next.js application", "`curl /api/auth/session`"],
-  ]}
-  align={["left", "center", "left", "left"]}
-/>
-
-### Service Dependencies
-
-```mermaid
-graph LR
-    Frontend["Frontend<br/><small>Port 3000<br/>Next.js</small>"]
-    Backend["Backend<br/><small>Port 8080<br/>FastAPI</small>"]
-    PostgreSQL["PostgreSQL<br/><small>Port 5432<br/>Database</small>"]
-    Redis["Redis<br/><small>Port 6379<br/>Cache & Queue</small>"]
-    Worker["Worker<br/><small>Port 8081<br/>Celery</small>"]
-
-    Frontend --> Backend
-    Backend --> PostgreSQL
-    Backend --> Redis
-    Worker --> Redis
-```
-
-## Automated Database Setup
-
-**No manual database setup required!** The system automatically handles:
-
-- PostgreSQL database and user creation
-- Database ownership and permissions setup
-- Automatic Alembic migration execution
-- Table and relationship creation
-- Migration status checking (prevents duplicate migrations)
-
-The backend container startup process:
-
-1. Waits for PostgreSQL to be ready
-2. Sets proper database ownership
-3. Runs all pending migrations
-4. Starts the FastAPI application
-
-### Database roles for production
+## Database roles for production
 
 Use separate database credentials for runtime traffic and migrations when your
 Postgres provider supports it:
@@ -217,15 +121,11 @@ These variables configure user authentication and security for the platform:
 {`# JWT Configuration
 # Used for secure token generation and validation
 JWT_SECRET_KEY=your-jwt-secret-key
-JWT_ALGORITHM=HS256
-JWT_ACCESS_TOKEN_EXPIRE_MINUTES=15
 
 # NextAuth Configuration
 # Required for Next.js authentication integration
 NEXTAUTH_SECRET=your-nextauth-secret
-
-# Frontend URL (public origin; NextAuth derives its base URL from this)
-FRONTEND_URL=https://your-domain.com`}
+`}
 </CodeBlock>
 
 #### Database Encryption
@@ -360,104 +260,35 @@ When the Enterprise package is not installed, Rhesis runs in Community mode and 
 
 ## Telemetry & Privacy
 
-<Callout type="info">
-**Transparency First**
-
-Rhesis collects anonymous usage data by default to improve the platform. All telemetry is privacy-focused and transparent. You can opt-out anytime.
-</Callout>
-
-### Telemetry Status
 
 **For self-hosted deployments: Telemetry is ENABLED by default** (opt-out).
-**For cloud deployments: Telemetry is ALWAYS enabled** (user consent via Terms & Conditions).
 
-Telemetry helps us improve Rhesis by understanding:
-- Which features are most valuable
-- Performance bottlenecks
-- Common error patterns
-
-### What We Collect
-
-✅ **Anonymous usage data:**
-- Feature usage patterns (which features are used, how often)
-- API performance metrics (response times, error rates)
-- Deployment information (self-hosted vs cloud, version)
-- Hashed user/org IDs (SHA-256, irreversible, 16-char truncated)
-
-### What We DON'T Collect
-
-❌ **Your private data is NEVER collected:**
-- Your prompts, responses, or generated content
-- Document contents or uploaded files
-- API keys, passwords, or credentials
-- Personal information (names, emails, etc.)
-- IP addresses or organization names
-- Any identifiable or sensitive data
-
-### Data Usage
-
-- **Usage**: Only by Rhesis team for product improvement
-- **Sharing**: Never sold or shared with third parties
-- **Storage**: Separate analytics database (isolated from your data)
-
-### How to Disable Telemetry (Opt-Out)
-
-Telemetry is **enabled by default**. To opt-out, add to your `.env.docker` file:
+To opt-out, add to your `.env.docker` file:
 
 <CodeBlock filename=".env.docker" language="bash">
 {`# Disable telemetry (opt-out)
 OTEL_RHESIS_TELEMETRY_ENABLED=false`}
 </CodeBlock>
 
-Then restart your services:
-
-<CodeBlock filename="Terminal" language="bash">
-{`docker compose --env-file .env.docker restart`}
-</CodeBlock>
-
-### Telemetry Configuration (Optional)
-
-If telemetry is enabled (default), you can optionally configure these settings:
-
-<CodeBlock filename=".env.docker" language="bash">
-{`# Telemetry configuration (optional - these are the defaults)
-OTEL_DEPLOYMENT_TYPE=self-hosted
-OTEL_EXPORTER_OTLP_ENDPOINT=https://telemetry.rhesis.ai
-OTEL_SERVICE_NAME=rhesis`}
-</CodeBlock>
-
-<Callout type="default">
-**Learn More**: For technical details about the telemetry architecture, see [Telemetry System Documentation](/contribute/telemetry).
-</Callout>
-
+Details of exactly what is and isn't collected, and how the data is used, are in the [Telemetry System Documentation](/contribute/telemetry).
 ## Management Commands
 
 ### Service Management
-
-**Start services:**
 
 <CodeBlock filename="Terminal" language="bash">
 {`# Start all services in detached mode
 docker compose --env-file .env.docker up -d
 
 # Start with logs visible
-docker compose --env-file .env.docker up`}
-</CodeBlock>
+docker compose --env-file .env.docker up
 
-**Stop services:**
-
-<CodeBlock filename="Terminal" language="bash">
-{`# Stop all services
+# Stop all services
 docker compose down
 
 # Stop and remove volumes (WARNING: deletes all data)
-docker compose down -v`}
-</CodeBlock>
+docker compose down -v
 
-**Restart services:**
-
-<CodeBlock filename="Terminal" language="bash">
-{`# Restart all services
+# Restart all services
 docker compose --env-file .env.docker restart
 
 # Restart specific service
@@ -503,109 +334,7 @@ docker compose --env-file .env.docker build backend
 docker compose --env-file .env.docker up -d --build`}
 </CodeBlock>
 
-### Database Operations
 
-The database is automatically managed, but you can access it directly if needed:
-
-<CodeBlock filename="Terminal" language="bash">
-{`# Connect to PostgreSQL
-docker exec -it rhesis-postgres psql -U rhesis-user -d rhesis-db
-
-# Check current migration status
-docker exec rhesis-backend bash -c "cd src/rhesis/backend && alembic current"
-
-# Run migrations manually (if needed)
-docker exec rhesis-backend bash -c "cd src/rhesis/backend && alembic upgrade head"
-
-# View migration history
-docker exec rhesis-backend bash -c "cd src/rhesis/backend && alembic history"`}
-</CodeBlock>
-
-## Troubleshooting
-
-### Common Issues
-
-**Database Migration Problems:**
-
-1. Check migration status:
-
-<CodeBlock filename="Terminal" language="bash">
-{`docker exec rhesis-backend bash -c "cd src/rhesis/backend && alembic current"`}
-</CodeBlock>
-
-2. View migration logs:
-
-<CodeBlock filename="Terminal" language="bash">
-{`docker compose logs backend | grep -i migration`}
-</CodeBlock>
-
-3. Reset database (WARNING: deletes all data):
-
-<CodeBlock filename="Terminal" language="bash">
-{`docker compose down -v
-docker compose --env-file .env.docker up -d`}
-</CodeBlock>
-
-**Service Health Issues:**
-
-1. Check service status:
-
-<CodeBlock filename="Terminal" language="bash">
-{`docker compose ps`}
-</CodeBlock>
-
-2. Verify environment variables:
-
-<CodeBlock filename="Terminal" language="bash">
-{`docker exec rhesis-backend env | grep JWT`}
-</CodeBlock>
-
-3. Check resource usage:
-
-<CodeBlock filename="Terminal" language="bash">
-{`docker stats`}
-</CodeBlock>
-
-**Port Conflicts:**
-
-If you encounter port conflicts, you can modify the ports in `docker-compose.yml` or stop conflicting services:
-
-<CodeBlock filename="Terminal" language="bash">
-{`# Check what's using a port (e.g., port 3000)
-lsof -i :3000
-
-# Kill process using the port
-kill -9 <PID>`}
-</CodeBlock>
-
-### Performance Optimization
-
-**Resource Allocation:**
-
-- Ensure Docker has at least 8GB RAM allocated for production
-- Monitor disk space usage with `docker system df`
-- Clean up unused resources with `docker system prune`
-
-**Database Performance:**
-
-- Monitor PostgreSQL logs: `docker compose logs postgres`
-- Check connection counts and slow queries
-- Consider PostgreSQL tuning for production workloads
-
-### Security Considerations
-
-<Callout type="warning">
-**Production Security Checklist**
-
-- ✅ Change all default passwords and secrets
-- ✅ Use strong JWT secrets (minimum 32 characters)
-- ✅ Configure proper firewall rules
-- ✅ Keep environment variables secure (never commit `.env.docker`)
-- ✅ Regularly update Docker images
-- ✅ Enable HTTPS/TLS for all external connections
-- ✅ Configure proper authentication settings and strong JWT secrets
-- ✅ Implement backup and disaster recovery procedures
-</Callout>
 
 ## Backup and Recovery
 
@@ -633,36 +362,3 @@ docker run --rm -v rhesis_redis_data:/data -v $(pwd):/backup alpine tar czf /bac
 docker compose --env-file .env.docker up -d`}
 </CodeBlock>
 
-## Support and Resources
-
-### Getting Help
-
-If you encounter issues:
-
-1. Check the logs: `docker compose logs`
-2. Verify environment variables are set correctly
-3. Ensure Docker has sufficient resources
-4. Check if ports are available and not in use
-5. Review the [documentation](https://docs.rhesis.ai) for additional guidance
-
-### Additional Resources
-
-- [Backend Documentation](/contribute/backend)
-- [Frontend Documentation](/contribute/frontend)
-- [Worker Documentation](/contribute/worker)
-- [Environment Setup Guide](/contribute/development-setup)
-- [Quick Start](/deployment/quick-start) - For local development and testing
-
-## Docker Compose Version Note
-
-**Why `docker compose` instead of `docker-compose`?**
-
-- **`docker-compose` (V1)**: The original standalone tool written in Python, **deprecated as of June 2023**
-- **`docker compose` (V2)**: The modern version integrated into Docker CLI, written in Go with better performance
-
-If you encounter errors with `docker-compose`, you're likely using the deprecated V1. Switch to `docker compose` (V2) for:
-
-- Better performance and reliability
-- Active maintenance and security updates
-- Support for newer Docker features
-- Improved integration with Docker CLI

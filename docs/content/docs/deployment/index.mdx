@@ -1,5 +1,6 @@
 
 import { NextStepCard, NextStepCardGrid } from '@/components/NextStepCard'
+import { Table } from '@/components/Table'
 
 # Deployment
 
@@ -37,8 +38,37 @@ with one command, to more advanced configurations like Kubernetes and cloud envi
   />
 </NextStepCardGrid>
 
-## Choosing a Strategy
+## Architecture Overview
 
-- **Rhesis Cloud (Recommended)**: Best for most teams. Zero setup, instant access, and fully managed.
-- **Start Locally**: If you are exploring Rhesis for the first time, want to test integrations, or only need to evaluate local applications, [Running Locally](/deployment/quick-start) with Docker Compose is the recommended path. It sets up the database, message broker, backend, and frontend in minutes.
-- **Move to Production**: When you are ready to scale, need high availability, or want to make Rhesis securely available across your team on your own hardware, follow the [Self-Hosting](/deployment/docker-compose) guide. It covers advanced configurations like external databases, persistent storage, and production-ready ingress.
+### Services
+
+The Rhesis platform consists of several interconnected services:
+
+<Table
+  headers={["Service", "Port", "Description", "Health Check"]}
+  rows={[
+    ["PostgreSQL", "5432", "Primary database", "`pg_isready`"],
+    ["Redis", "6379", "Cache & message broker", "`redis-cli ping`"],
+    ["Backend", "8080", "FastAPI application", "`curl /health`"],
+    ["Worker", "8081", "Celery background tasks", "`curl /health/basic`"],
+    ["Frontend", "3000", "Next.js application", "`curl /api/auth/session`"],
+  ]}
+  align={["left", "center", "left", "left"]}
+/>
+
+### Service Dependencies
+
+```mermaid
+graph LR
+    Frontend["Frontend<br/><small>Port 3000<br/>Next.js</small>"]
+    Backend["Backend<br/><small>Port 8080<br/>FastAPI</small>"]
+    PostgreSQL["PostgreSQL<br/><small>Port 5432<br/>Database</small>"]
+    Redis["Redis<br/><small>Port 6379<br/>Cache & Queue</small>"]
+    Worker["Worker<br/><small>Port 8081<br/>Celery</small>"]
+
+    Frontend --> Backend
+    Backend --> PostgreSQL
+    Backend --> Redis
+    Worker --> Redis
+```
+
