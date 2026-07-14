@@ -4,7 +4,7 @@
 
 Every metric declares **`metric_scope`**. Every test set declares **`test_type`**. At run time the platform keeps only metrics whose scope includes the test's type. Mismatches are **silently dropped**.
 
-See [Glossary](https://docs.rhesis.ai/glossary.md) for terms; `definitions.md` for agent disambiguation.
+See [Glossary](https://docs.rhesis.ai/glossary.md) (`glossary/metric-scope.md`) for the term; `definitions.md` for confusions.
 
 ---
 

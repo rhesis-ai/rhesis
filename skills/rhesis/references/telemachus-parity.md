@@ -28,7 +28,7 @@ The **Rhesis agent skill** and **Telemachus** (native Architect) share operation
 ### Phase 2 — Docs as source of truth
 
 - [x] `docs/agent-skill/for-agents.mdx`, `docs/metrics/metric-scope.mdx`
-- [x] Terminology via [Glossary](/glossary) — no duplicate definitions page
+- [x] Terminology: [Glossary](/glossary) canonical; `definitions.md` confusions only
 - [x] `llms.txt` — **For AI agents** section with machine-reading rules
 - [x] Slim `SKILL.md` — router + docs URLs; `use-case-bracketfeld.md` stays in repo
 - [x] Skill refs link to canonical docs URLs at top of key files

@@ -25,8 +25,8 @@ Details: `phases/creation.md`, `entity-model.md`, `metric-scope.md`.
 | Pasted PRD / spec / FRs | `prd-workflow.md` | `use-case-bracketfeld.md` (target shape) → `metric-scope.md` | `explore_endpoint` unless user asks |
 | "Run tests" / "analyze" / "compare runs" | `phases/execution.md` → `phases/analysis.md` | `result-analysis.md` | New plan |
 | Single action ("list test sets", "fix metric X") | `phases/direct-requests.md` | `tool-catalog.md` if needed | Full phases |
-| Entity / OData / tool questions | `definitions.md` | `entity-model.md`, `odata-patterns.md` | — |
-| Terminology dispute | `definitions.md` | — | — |
+| Entity / OData / tool questions | `entity-model.md` | `odata-patterns.md`, `tool-catalog.md` | — |
+| Terminology / "what is X?" | [Glossary](https://docs.rhesis.ai/glossary.md) (`glossary/<id>.md`) | `definitions.md` if concepts are mixed up | — |
 
 ---
 
@@ -70,7 +70,8 @@ Skip the menu when intent is already clear. PRD and run/analyze paths skip explo
 
 | File | Contents |
 |---|---|
-| `definitions.md` | Agent term disambiguation (docs: [Glossary](https://docs.rhesis.ai/glossary.md)) |
+| [Glossary](https://docs.rhesis.ai/glossary.md) | Canonical terms — `glossary/behavior.md`, `glossary/metric-scope.md`, … |
+| `definitions.md` | Confusions and PRD traceability only (glossary first) |
 | `entity-model.md` | Entity graph and tool chains |
 | `metric-scope.md` | Single-Turn vs Multi-Turn alignment |
 | `prd-workflow.md` | PRD → test foundation pipeline |
