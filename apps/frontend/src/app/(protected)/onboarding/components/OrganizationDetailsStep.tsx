@@ -13,7 +13,9 @@ import { useSession } from 'next-auth/react';
 import { useEffect, useState } from 'react';
 import OnboardingStepHeader from './OnboardingStepHeader';
 import OnboardingNavButtons from './OnboardingNavButtons';
+import TermsAcceptanceField from '@/components/auth/TermsAcceptanceField';
 import { ONBOARDING_STEPS } from './onboarding-steps';
+import { acceptTerms, fetchTermsStatus } from '@/utils/api-client/auth-client';
 import {
   validateName,
   validateOrganizationName,
@@ -41,12 +43,14 @@ interface OrganizationDetailsStepProps {
   formData: FormData;
   updateFormData: (data: Partial<FormData>) => void;
   onNext: () => void;
+  sessionToken: string;
 }
 
 export default function OrganizationDetailsStep({
   formData,
   updateFormData,
   onNext,
+  sessionToken,
 }: OrganizationDetailsStepProps) {
   const { data: session, status: sessionStatus } = useSession();
   const [loading, setLoading] = useState(true);
@@ -60,8 +64,32 @@ export default function OrganizationDetailsStep({
     projectName: '',
     website: '',
   });
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [showTermsWarning, setShowTermsWarning] = useState(false);
+  const [alreadyAcceptedTerms, setAlreadyAcceptedTerms] = useState(false);
 
   const step = ONBOARDING_STEPS[0];
+
+  useEffect(() => {
+    if (!sessionToken) {
+      return;
+    }
+
+    let cancelled = false;
+    fetchTermsStatus(sessionToken)
+      .then(status => {
+        if (!cancelled && status.terms_accepted) {
+          setAlreadyAcceptedTerms(true);
+        }
+      })
+      .catch(() => {
+        // User can still accept manually on this step.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionToken]);
 
   useEffect(() => {
     if (sessionStatus === 'loading') return;
@@ -154,8 +182,23 @@ export default function OrganizationDetailsStep({
       return;
     }
 
+    if (!sessionToken) {
+      setErrorMessage('Your session expired. Please log in again.');
+      return;
+    }
+
+    if (!alreadyAcceptedTerms && !termsAccepted) {
+      setShowTermsWarning(true);
+      return;
+    }
+
     try {
       setIsSubmitting(true);
+
+      if (!alreadyAcceptedTerms) {
+        await acceptTerms(sessionToken);
+        setAlreadyAcceptedTerms(true);
+      }
 
       try {
         const userData = {
@@ -290,6 +333,19 @@ export default function OrganizationDetailsStep({
           variant="outlined"
         />
       </Stack>
+
+      {!alreadyAcceptedTerms && (
+        <TermsAcceptanceField
+          checked={termsAccepted}
+          onChange={accepted => {
+            setTermsAccepted(accepted);
+            if (accepted) {
+              setShowTermsWarning(false);
+            }
+          }}
+          showWarning={showTermsWarning}
+        />
+      )}
 
       <OnboardingNavButtons
         primaryLabel={isSubmitting ? 'Saving...' : 'Next'}

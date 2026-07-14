@@ -92,6 +92,9 @@ AUTHZ_EXEMPT_ROUTES: frozenset[tuple[str, str]] = frozenset(
         # they first complete their profile (name, picture, etc.) after OAuth sign-in.
         # Cross-user update authorization is enforced by the in-handler authorize() call.
         ("PUT", "/users/{user_id}"),
+        # Onboarding: new users accept T&C before they have an organization.
+        ("POST", "/auth/accept-terms"),
+        ("GET", "/auth/terms-status"),
         # Cross-project entity resolution: spans multiple resource types
         # (test, endpoint, metric, ...) so no single resource+verb capability
         # applies. Authorization is enforced in-handler: the lookup is always

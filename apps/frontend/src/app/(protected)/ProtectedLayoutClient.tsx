@@ -13,6 +13,7 @@ import { AppShell } from '@/components/layout/AppShell';
 import { Sidebar } from '@/components/navigation/Sidebar';
 import { WebSocketProvider } from '@/contexts/WebSocketContext';
 import NoProjectAccess from '@/components/common/NoProjectAccess';
+import TermsAcceptanceGate from '@/components/auth/TermsAcceptanceGate';
 
 interface ExtendedUser {
   id: string;
@@ -99,6 +100,7 @@ export function ProtectedLayoutClient({
       <FeaturesProvider initialFeatures={initialFeatures}>
         <PermissionsProvider initialPermissions={initialPermissions}>
           <WebSocketProvider>
+            <TermsAcceptanceGate />
             {!isOnboarding && !chromeless && <VerificationBanner />}
             {content}
           </WebSocketProvider>

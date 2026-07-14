@@ -53,6 +53,7 @@ def _user_row(email, org_id, **extra):
         id=uuid4(),
         email=email,
         organization_id=org_id,
+        joined_at=None,
         is_deleted=False,
         name="Existing",
         given_name=None,
@@ -62,7 +63,6 @@ def _user_row(email, org_id, **extra):
         external_provider_id=None,
         last_login_at=None,
         is_email_verified=False,
-        joined_at=None,
     )
     for k, v in extra.items():
         setattr(row, k, v)

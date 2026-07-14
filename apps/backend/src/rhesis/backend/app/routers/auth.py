@@ -25,6 +25,11 @@ from rhesis.backend.app.auth.session_invalidation import (
     is_session_valid,
 )
 from rhesis.backend.app.auth.session_utils import regenerate_session
+from rhesis.backend.app.auth.terms import (
+    record_terms_acceptance,
+    user_has_accepted_current_terms,
+    user_has_prior_terms_acceptance,
+)
 from rhesis.backend.app.auth.token_utils import (
     MAGIC_LINK_EXPIRE_MINUTES,
     PASSWORD_RESET_EXPIRE_MINUTES,
@@ -46,6 +51,7 @@ from rhesis.backend.app.auth.user_utils import (
     _send_welcome_email,
     find_or_create_user_from_auth,
     mark_user_joined_if_needed,
+    require_current_user_or_token_without_context,
 )
 from rhesis.backend.app.config.settings import (
     get_application_settings,
@@ -54,6 +60,7 @@ from rhesis.backend.app.config.settings import (
 from rhesis.backend.app.dependencies import (
     get_db_session,
 )
+from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.quick_start import is_quick_start_enabled
 from rhesis.backend.app.utils.rate_limit import (
     AUTH_FORGOT_PASSWORD_LIMIT,
@@ -61,6 +68,7 @@ from rhesis.backend.app.utils.rate_limit import (
     AUTH_MAGIC_LINK_LIMIT,
     AUTH_REGISTER_LIMIT,
     AUTH_RESEND_VERIFICATION_LIMIT,
+    AUTH_TERMS_STATUS_LIMIT,
     limiter,
 )
 from rhesis.backend.app.utils.redact import redact_email
@@ -151,6 +159,13 @@ class MagicLinkRequest(BaseModel):
     """Request body for magic link login."""
 
     email: EmailStr
+
+
+class TermsStatusResponse(BaseModel):
+    """Response for terms acceptance lookup."""
+
+    terms_accepted: bool
+    has_prior_acceptance: bool = False
 
 
 class MagicLinkVerifyRequest(BaseModel):
@@ -330,6 +345,49 @@ async def get_providers(
             headers=dict(request.headers),
         ),
     )
+
+
+@router.get("/terms-status", response_model=TermsStatusResponse)
+@limiter.limit(AUTH_TERMS_STATUS_LIMIT)
+async def get_terms_status(
+    request: Request,
+    current_user: User = Depends(require_current_user_or_token_without_context),
+):
+    """
+    Check whether the authenticated user has accepted the current T&C version.
+
+    Used by onboarding step 0 to skip the checkbox for users who already accepted.
+    """
+    if user_has_accepted_current_terms(current_user):
+        return TermsStatusResponse(
+            terms_accepted=True,
+            has_prior_acceptance=True,
+        )
+    return TermsStatusResponse(
+        terms_accepted=False,
+        has_prior_acceptance=user_has_prior_terms_acceptance(current_user),
+    )
+
+
+@router.post("/accept-terms")
+async def accept_terms(
+    db: Session = Depends(get_db_session),
+    current_user: User = Depends(require_current_user_or_token_without_context),
+):
+    """Record the authenticated user's acceptance of the current T&C version."""
+    from rhesis.backend.app import crud
+    from sqlalchemy.orm.attributes import flag_modified
+
+    user = crud.get_user_by_id(db, current_user.id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+    record_terms_acceptance(user)
+    flag_modified(user, "user_settings")
+    db.commit()
+    return {"success": True, "terms_accepted": True}
 
 
 # =============================================================================
@@ -852,6 +910,11 @@ async def reset_password(
 # Magic Link Endpoints
 # =============================================================================
 
+_MAGIC_LINK_SUCCESS_RESPONSE = {
+    "success": True,
+    "message": "A sign-in link has been sent to your email.",
+}
+
 
 @router.post("/magic-link")
 @limiter.limit(AUTH_MAGIC_LINK_LIMIT)
@@ -872,7 +935,6 @@ async def request_magic_link(
     is_new_user = False
 
     if not user:
-        # Auto-create account for new users (unified flow)
         try:
             user_data = UserCreate(
                 email=body.email,
@@ -890,11 +952,7 @@ async def request_magic_link(
             )
         except Exception as e:
             logger.warning(f"Failed to create user for magic link: {e}")
-            # Return success to prevent email enumeration
-            return {
-                "success": True,
-                "message": ("A sign-in link has been sent to your email."),
-            }
+            return _MAGIC_LINK_SUCCESS_RESPONSE
 
     try:
         token = create_magic_link_token(str(user.id), user.email)
@@ -918,10 +976,7 @@ async def request_magic_link(
     if is_new_user:
         _send_welcome_email(user)
 
-    return {
-        "success": True,
-        "message": "A sign-in link has been sent to your email.",
-    }
+    return _MAGIC_LINK_SUCCESS_RESPONSE
 
 
 @router.post("/magic-link/verify")
