@@ -59,3 +59,7 @@ export function getBaseUrl(): string {
     return getClientApiBaseUrl();
   }
 }
+
+export function shouldUseSecureCookies(): boolean {
+  return (process.env.FRONTEND_URL || '').startsWith('https://');
+}

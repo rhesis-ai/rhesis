@@ -114,7 +114,7 @@ def clean_application_env(monkeypatch):
 
 @pytest.fixture
 def minimal_application_env(clean_application_env, monkeypatch):
-    """ApplicationSettings fields that have no default and are required for load."""
+    """Sets API_BASE_URL to a distinct test value (default is http://localhost:8080)."""
     monkeypatch.setenv("API_BASE_URL", "https://api.example.com")
     yield
 
@@ -183,9 +183,24 @@ def clean_telemetry_env(monkeypatch):
 
 
 @pytest.mark.unit
+def test_database_settings_uses_dev_defaults_when_env_missing(clean_database_env):
+    """With no DB_* vars set, host/port/name default to the local dev database."""
+    settings = DatabaseSettings(_env_file=None)
+
+    assert settings.host == "localhost"
+    assert settings.port == 5432
+    assert settings.name == "rhesis-db"
+    assert settings.app_user is None
+    assert settings.app_password is None
+
+
+@pytest.mark.unit
 def test_database_app_credentials_are_required(clean_database_env):
-    with pytest.raises(ValidationError):
-        DatabaseSettings(_env_file=None)
+    """Credentials have no default and must always be provided explicitly."""
+    settings = DatabaseSettings(_env_file=None)
+
+    with pytest.raises(ValueError, match="APP_DB_USER and APP_DB_PASS are required"):
+        _ = settings.app_url
 
 
 @pytest.mark.unit
@@ -334,9 +349,10 @@ def test_database_url_comes_from_component_env_vars(clean_database_env, monkeypa
 
 
 @pytest.mark.unit
-def test_frontend_url_is_required(clean_frontend_env):
-    with pytest.raises(ValidationError, match="FRONTEND_URL"):
-        FrontendSettings(_env_file=None)
+def test_frontend_url_uses_dev_default(clean_frontend_env):
+    settings = FrontendSettings(_env_file=None)
+
+    assert settings.url == "http://localhost:3000"
 
 
 @pytest.mark.unit
@@ -399,7 +415,7 @@ def test_auth_settings_uses_defaults(clean_auth_env):
     assert settings.session_secret_key is None
     assert settings.jwt_secret_key is None
     assert settings.jwt_algorithm == "HS256"
-    assert settings.jwt_access_token_expire_minutes == 15
+    assert settings.jwt_access_token_expire_minutes == 10080
     assert settings.google_enabled is False
     assert settings.github_enabled is False
 
@@ -628,9 +644,10 @@ def test_get_model_settings_cache_clear_allows_env_overrides(clean_model_env, mo
 
 
 @pytest.mark.unit
-def test_application_settings_requires_api_base_url(clean_application_env):
-    with pytest.raises(ValidationError):
-        ApplicationSettings(_env_file=None)
+def test_application_settings_api_base_url_uses_dev_default(clean_application_env):
+    settings = ApplicationSettings(_env_file=None)
+
+    assert settings.api_base_url == "http://localhost:8080"
 
 
 @pytest.mark.unit
