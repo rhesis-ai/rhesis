@@ -33,6 +33,7 @@ export default function TermsAcceptanceGate() {
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [showWarning, setShowWarning] = React.useState(false);
+  const [hasPriorAcceptance, setHasPriorAcceptance] = React.useState(false);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -64,13 +65,15 @@ export default function TermsAcceptanceGate() {
     let cancelled = false;
     setLoading(true);
     fetchTermsStatus(sessionToken)
-      .then(accepted => {
+      .then(status => {
         if (cancelled) return;
-        setOpen(!accepted);
+        setHasPriorAcceptance(status.has_prior_acceptance);
+        setOpen(!status.terms_accepted);
       })
       .catch(() => {
-        // Fail open: if we cannot reach the API (e.g. during E2E or transient
-        // outages), don't crash the app with an unhandled rejection.
+        // Fail open when the status endpoint is unreachable (transient outage,
+        // local dev). A definitive `terms_accepted: false` from a 200 still
+        // blocks until acceptance — only transport/API failures bypass the gate.
         if (cancelled) return;
         setOpen(false);
       })
@@ -123,12 +126,15 @@ export default function TermsAcceptanceGate() {
       maxWidth="sm"
       fullWidth
     >
-      <DialogTitle>Updated Terms</DialogTitle>
+      <DialogTitle>
+        {hasPriorAcceptance ? 'Updated Terms' : 'Terms and Conditions'}
+      </DialogTitle>
       <DialogContent>
         <Box sx={{ mt: 1 }}>
           <Typography variant="body2" sx={{ mb: 2 }}>
-            We’ve updated our Terms and Privacy Policy. Please accept to
-            continue.
+            {hasPriorAcceptance
+              ? 'We’ve updated our Terms and Privacy Policy. Please accept to continue.'
+              : 'Please review and accept our Terms and Privacy Policy to continue.'}
           </Typography>
 
           <TermsAcceptanceField

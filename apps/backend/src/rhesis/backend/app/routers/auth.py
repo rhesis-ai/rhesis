@@ -28,6 +28,7 @@ from rhesis.backend.app.auth.session_utils import regenerate_session
 from rhesis.backend.app.auth.terms import (
     record_terms_acceptance,
     user_has_accepted_current_terms,
+    user_has_prior_terms_acceptance,
 )
 from rhesis.backend.app.auth.token_utils import (
     MAGIC_LINK_EXPIRE_MINUTES,
@@ -164,6 +165,7 @@ class TermsStatusResponse(BaseModel):
     """Response for terms acceptance lookup."""
 
     terms_accepted: bool
+    has_prior_acceptance: bool = False
 
 
 class MagicLinkVerifyRequest(BaseModel):
@@ -357,8 +359,14 @@ async def get_terms_status(
     Used by onboarding step 0 to skip the checkbox for users who already accepted.
     """
     if user_has_accepted_current_terms(current_user):
-        return TermsStatusResponse(terms_accepted=True)
-    return TermsStatusResponse(terms_accepted=False)
+        return TermsStatusResponse(
+            terms_accepted=True,
+            has_prior_acceptance=True,
+        )
+    return TermsStatusResponse(
+        terms_accepted=False,
+        has_prior_acceptance=user_has_prior_terms_acceptance(current_user),
+    )
 
 
 @router.post("/accept-terms")

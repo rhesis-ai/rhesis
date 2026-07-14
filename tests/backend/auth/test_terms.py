@@ -6,6 +6,7 @@ from rhesis.backend.app.auth.terms import (
     CURRENT_TERMS_VERSION,
     record_terms_acceptance,
     user_has_accepted_current_terms,
+    user_has_prior_terms_acceptance,
 )
 from rhesis.backend.app.models.user import User
 
@@ -13,6 +14,7 @@ from rhesis.backend.app.models.user import User
 def test_user_has_accepted_current_terms_false_when_unset():
     user = User(email="a@example.com")
     assert user_has_accepted_current_terms(user) is False
+    assert user_has_prior_terms_acceptance(user) is False
 
 
 def test_user_has_accepted_current_terms_false_for_outdated_version():
@@ -23,6 +25,7 @@ def test_user_has_accepted_current_terms_false_for_outdated_version():
         },
     )
     assert user_has_accepted_current_terms(user) is False
+    assert user_has_prior_terms_acceptance(user) is True
 
 
 def test_record_terms_acceptance_sets_current_version():

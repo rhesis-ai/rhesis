@@ -1430,9 +1430,12 @@ class TestTermsAcceptance:
             headers={"Authorization": f"Bearer {token}"},
         )
         assert response.status_code == status.HTTP_200_OK
-        assert response.json() == {"terms_accepted": True}
+        assert response.json() == {
+            "terms_accepted": True,
+            "has_prior_acceptance": True,
+        }
 
-    def test_terms_status_returns_false_for_outdated_version(
+    def test_terms_status_returns_false_for_outdated_version_with_prior_acceptance(
         self, client: TestClient, test_db, test_org_id
     ):
         from datetime import datetime, timezone
@@ -1454,4 +1457,47 @@ class TestTermsAcceptance:
             headers={"Authorization": f"Bearer {token}"},
         )
         assert response.status_code == status.HTTP_200_OK
-        assert response.json() == {"terms_accepted": False}
+        assert response.json() == {
+            "terms_accepted": False,
+            "has_prior_acceptance": True,
+        }
+
+    def test_terms_status_returns_false_without_prior_acceptance(
+        self, client: TestClient, test_db, test_org_id
+    ):
+        from rhesis.backend.app.auth.token_utils import create_session_token
+
+        email = _unique_email("terms-new")
+        org = create_test_organization(test_db, "Terms New Org")
+        user = create_test_user(test_db, org.id, email, "Terms New User")
+        test_db.commit()
+
+        token = create_session_token(user)
+        response = client.get(
+            "/auth/terms-status",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json() == {
+            "terms_accepted": False,
+            "has_prior_acceptance": False,
+        }
+
+    def test_update_user_rejects_user_settings_terms(
+        self, authenticated_client, authenticated_user_id
+    ):
+        from datetime import datetime, timezone
+
+        response = authenticated_client.put(
+            f"/users/{authenticated_user_id}",
+            json={
+                "user_settings": {
+                    "version": 1,
+                    "terms": {
+                        "accepted_at": datetime.now(timezone.utc).isoformat(),
+                        "version": "1.0",
+                    },
+                }
+            },
+        )
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY

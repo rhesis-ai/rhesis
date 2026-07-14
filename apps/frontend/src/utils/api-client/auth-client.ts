@@ -1,21 +1,27 @@
 import { getClientApiBaseUrl } from '@/utils/url-resolver';
 
-export async function fetchTermsStatus(sessionToken: string): Promise<boolean> {
-  try {
-    const response = await fetch(`${getClientApiBaseUrl()}/auth/terms-status`, {
-      headers: {
-        Authorization: `Bearer ${sessionToken}`,
-      },
-      credentials: 'include',
-    });
-    if (!response.ok) {
-      return false;
-    }
-    const data = await response.json();
-    return Boolean(data.terms_accepted);
-  } catch {
-    return false;
+export interface TermsStatus {
+  terms_accepted: boolean;
+  has_prior_acceptance: boolean;
+}
+
+export async function fetchTermsStatus(
+  sessionToken: string
+): Promise<TermsStatus> {
+  const response = await fetch(`${getClientApiBaseUrl()}/auth/terms-status`, {
+    headers: {
+      Authorization: `Bearer ${sessionToken}`,
+    },
+    credentials: 'include',
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to fetch terms status (${response.status})`);
   }
+  const data = await response.json();
+  return {
+    terms_accepted: Boolean(data.terms_accepted),
+    has_prior_acceptance: Boolean(data.has_prior_acceptance),
+  };
 }
 
 export async function acceptTerms(sessionToken: string): Promise<void> {

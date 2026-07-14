@@ -77,8 +77,8 @@ export default function OrganizationDetailsStep({
 
     let cancelled = false;
     fetchTermsStatus(sessionToken)
-      .then(accepted => {
-        if (!cancelled && accepted) {
+      .then(status => {
+        if (!cancelled && status.terms_accepted) {
           setAlreadyAcceptedTerms(true);
         }
       })

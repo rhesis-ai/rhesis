@@ -150,7 +150,7 @@ const server = http.createServer((req, res) => {
   }
 
   if (method === 'GET' && pathname === '/auth/terms-status') {
-    sendJson(res, 200, { terms_accepted: true });
+    sendJson(res, 200, { terms_accepted: true, has_prior_acceptance: true });
     return;
   }
 
