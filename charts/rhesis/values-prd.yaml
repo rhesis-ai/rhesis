@@ -206,8 +206,8 @@ polyphemus:
     targetMemoryUtilizationPercentage: 80
   ingress:
     enabled: true
-    host: "polyphemus.rhesis.ai"
-    className: internal
+    host: "test-polyphemus.rhesis.ai"
+    className: external
     annotations:
       cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
