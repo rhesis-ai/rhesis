@@ -1,0 +1,357 @@
+import { CodeBlock } from '@/components/CodeBlock'
+import { Table } from '@/components/Table'
+import { FileTree } from '@/components/FileTree'
+
+# GCP (Terraform)
+
+Provision the GCP infrastructure Rhesis runs on — a GKE cluster, networking, and
+supporting services — using the same Terraform modules Rhesis uses internally.
+
+<Callout type="info">
+**Part 1 of 2**
+
+This guide provisions infrastructure only. Once your cluster is up, continue to the
+[Kubernetes (Helm)](/deployment/kubernetes-helm) guide to deploy the Rhesis application onto it.
+</Callout>
+
+## Overview
+
+Rhesis itself runs across three GCP projects (dev/stg/prd) plus a dedicated project for a
+WireGuard VPN hub that gates access to otherwise-private clusters. That layout exists for
+Rhesis's own multi-environment operations — it is not a requirement to run the application.
+This guide provisions the same building blocks in a **single GCP project**, with the GKE
+control plane reachable directly from an IP range you choose instead of through a VPN.
+
+```mermaid
+flowchart TD
+    subgraph GCP["Your GCP Project"]
+        VPC["VPC<br/><small>custom-mode network</small>"]
+        NODES["Nodes subnet<br/><small>+ pods/services secondary ranges</small>"]
+        NAT["Cloud NAT<br/><small>private node egress</small>"]
+        GKE["GKE Cluster<br/><small>private nodes, public control plane<br/>restricted to authorized networks</small>"]
+        GSA["Node + ESO service accounts<br/><small>Workload Identity</small>"]
+        GCS["GCS bucket<br/><small>backend file storage</small>"]
+        SM["Secret Manager<br/><small>API enabled</small>"]
+    end
+    ADMIN["Your IP / office network"]
+
+    VPC --> NODES
+    NODES --> GKE
+    VPC --> NAT
+    GKE --> GSA
+    ADMIN -->|"authorized network"| GKE
+    GSA -.->|Workload Identity| SM
+    GKE --> GCS
+```
+
+**What this provisions:**
+
+- A VPC with a nodes subnet (plus secondary ranges for pod/service IPs)
+- Cloud NAT so private nodes can reach the internet (pulling images, calling AI providers)
+- A private-nodes GKE cluster with Workload Identity enabled
+- A GCS bucket for Rhesis's file storage backend
+- A service account for External Secrets Operator (ESO), which the
+  [Kubernetes (Helm)](/deployment/kubernetes-helm) guide uses to sync application secrets
+
+**What this intentionally skips**, compared to Rhesis's own environments — these are Rhesis's
+operational choices, not requirements to run the app:
+
+- A WireGuard VPN hub (this guide uses a public control-plane endpoint locked to authorized
+  networks instead)
+- The multi-project dev/stg/prd split (this guide uses one project)
+- Cloudflare-based `external-dns` / self-hosted `internal-dns`
+- GitHub Actions Runner Controller (ARC) secrets
+
+ArgoCD itself is bootstrapped in the [Kubernetes (Helm)](/deployment/kubernetes-helm) guide, not
+here — this page stops once you have a working cluster.
+
+## Prerequisites
+
+<Table
+  headers={["Requirement", "Notes"]}
+  rows={[
+    ["GCP project", "With billing enabled"],
+    ["`gcloud` CLI", "Authenticated: `gcloud auth login` + `gcloud config set project <id>`"],
+    ["Terraform CLI", "Any version compatible with the `hashicorp/google ~> 6.0` provider"],
+    ["IAM permissions", "Project Editor, or equivalent granular roles for networking/GKE/IAM/storage/Secret Manager"],
+  ]}
+  align={["left", "left"]}
+/>
+
+Enable the required APIs:
+
+<CodeBlock filename="Terminal" language="bash">
+{`gcloud services enable \\
+  compute.googleapis.com \\
+  container.googleapis.com \\
+  iam.googleapis.com \\
+  secretmanager.googleapis.com \\
+  storage.googleapis.com`}
+</CodeBlock>
+
+## Decisions before you start
+
+- **Region** — any GCP region works; the examples below use `europe-west4`.
+- **Control-plane access** — this guide uses a **public endpoint restricted to authorized
+  networks** (no VPN/bastion required). You supply the CIDR(s) allowed to reach the GKE API —
+  typically your office network or a static egress IP. Nodes themselves are always private
+  (no public IPs), regardless of this setting.
+- **Public-facing ingress IP** — the in-repo `ingress/gcp` module reserves an *internal* static
+  IP for Rhesis's own VPN-only environments. For a public-facing deployment, skip that module —
+  the Kubernetes (Helm) guide's `ingress-nginx` `LoadBalancer` Service will provision its own
+  external IP automatically (or reserve a `google_compute_global_address` yourself later if you
+  want a stable IP for DNS).
+
+## Get the Terraform code
+
+Clone the repository and work from the shared modules directly, rather than Rhesis's own
+`terraform/infrastructure/envs/*` stacks — those are wired for Rhesis's specific multi-project,
+WireGuard-connected layout via remote-state lookups.
+
+<CodeBlock filename="Terminal" language="bash">
+{`git clone https://github.com/rhesis-ai/rhesis.git
+cd rhesis/terraform/infrastructure`}
+</CodeBlock>
+
+<FileTree
+  title="Modules you'll use"
+  data={[
+    { name: 'modules/network/gcp', type: 'folder', description: 'VPC, subnets, Cloud NAT' },
+    { name: 'modules/kubernetes/gcp', type: 'folder', description: 'GKE cluster + node pool' },
+    { name: 'modules/storage-buckets/gcp', type: 'folder', description: 'File storage GCS bucket' },
+    { name: 'modules/external-secrets/gcp', type: 'folder', description: 'ESO service account + Secret Manager API' },
+  ]}
+/>
+
+Create a new directory alongside `envs/` (e.g. `envs/customer/`) for your own root module:
+
+<CodeBlock filename="Terminal" language="bash">
+{`mkdir -p envs/customer
+cd envs/customer`}
+</CodeBlock>
+
+<CodeBlock filename="envs/customer/main.tf" language="hcl">
+{`terraform {
+  required_providers {
+    google = {
+      source  = "hashicorp/google"
+      version = "~> 6.0"
+    }
+  }
+  backend "gcs" {
+    prefix = "terraform/infrastructure/envs/customer"
+  }
+}
+
+provider "google" {
+  project = var.project_id
+  region  = var.region
+}
+
+module "network" {
+  source = "../../modules/network/gcp"
+
+  project_id         = var.project_id
+  environment        = var.environment
+  region             = var.region
+  network_cidr       = "10.2.0.0/15"
+  create_gke_subnets = true
+  node_cidr          = "10.2.0.0/23"
+  ilb_cidr           = "10.2.2.0/23"
+  master_cidr        = "10.2.4.0/28"
+  pod_cidr           = "10.3.0.0/17"
+  service_cidr       = "10.3.128.0/17"
+}
+
+module "gke" {
+  source = "../../modules/kubernetes/gcp"
+
+  project_id             = var.project_id
+  environment            = var.environment
+  region                 = var.region
+  vpc_name               = module.network.vpc_name
+  nodes_subnet_self_link = module.network.subnet_self_links["nodes"]
+  master_cidr            = "10.2.4.0/28"
+  node_cidr              = "10.2.0.0/23"
+  pod_cidr               = "10.3.0.0/17"
+  service_cidr           = "10.3.128.0/17"
+
+  # Named "wireguard_cidr" because Rhesis's own environments reach the control
+  # plane through a WireGuard VPN hub on this CIDR. You don't have one — pass
+  # the network you actually want to authorize instead (e.g. your office IP).
+  wireguard_cidr = var.admin_cidr
+
+  machine_type        = "e2-standard-2"
+  min_node_count      = 2
+  max_node_count      = 6
+  deletion_protection = var.gke_deletion_protection
+
+  # Public control-plane endpoint, restricted to admin_cidr above.
+  enable_private_endpoint = false
+
+  depends_on = [module.network]
+}
+
+module "eso" {
+  source = "../../modules/external-secrets/gcp"
+
+  project_id  = var.project_id
+  environment = var.environment
+
+  depends_on = [module.gke]
+}
+
+module "storage" {
+  source = "../../modules/storage-buckets/gcp"
+
+  project_id  = var.project_id
+  environment = var.environment
+  location    = var.region
+
+  file_storage_bucket_name = var.file_storage_bucket_name
+  cnpg_backup_bucket_name  = null
+  force_destroy            = var.force_destroy
+  file_storage_iam_members = [
+    {
+      member = "serviceAccount:\${module.storage_identity.email}"
+      role   = "roles/storage.objectAdmin"
+    }
+  ]
+}
+
+# Dedicated GSA the Rhesis pods use (via Workload Identity) to read/write the
+# file storage bucket. Bound to the "default" KSA in the "rhesis" namespace,
+# since the Helm chart does not define a custom ServiceAccount per component.
+resource "google_service_account" "storage_identity" {
+  project      = var.project_id
+  account_id   = "rhesis-\${var.environment}-app"
+  display_name = "Rhesis app (file storage) - \${var.environment}"
+}
+
+resource "google_service_account_iam_member" "storage_identity_workload_identity" {
+  service_account_id = google_service_account.storage_identity.name
+  role                = "roles/iam.workloadIdentityUser"
+  member              = "serviceAccount:\${var.project_id}.svc.id.goog[rhesis/default]"
+}
+
+output "storage_identity_email" {
+  value = google_service_account.storage_identity.email
+}`}
+</CodeBlock>
+
+<CodeBlock filename="envs/customer/variables.tf" language="hcl">
+{`variable "project_id" {
+  type = string
+}
+
+variable "region" {
+  type    = string
+  default = "europe-west4"
+}
+
+variable "environment" {
+  type    = string
+  default = "customer"
+}
+
+variable "admin_cidr" {
+  description = "CIDR allowed to reach the GKE control plane (e.g. your office IP as a /32)"
+  type        = string
+}
+
+variable "gke_deletion_protection" {
+  type    = bool
+  default = false
+}
+
+variable "file_storage_bucket_name" {
+  type = string
+}
+
+variable "force_destroy" {
+  type    = bool
+  default = false
+}`}
+</CodeBlock>
+
+<Callout type="warning">
+The CIDR blocks above (`10.2.0.0/15`, etc.) are examples taken from Rhesis's own dev environment
+IP plan. Adjust them if they conflict with networks you already peer with, but the pattern —
+one `/15` split into nodes/ilb/master/pods/services — works as-is for a standalone deployment.
+</Callout>
+
+## Configure your backend
+
+Create a GCS bucket to hold Terraform state (if you don't already have one), then point
+Terraform at it:
+
+<CodeBlock filename="Terminal" language="bash">
+{`gsutil mb -l europe-west4 gs://your-terraform-state-bucket
+cp ../../backend.conf.example backend.conf`}
+</CodeBlock>
+
+<CodeBlock filename="envs/customer/backend.conf" language="properties">
+{`bucket = "your-terraform-state-bucket"`}
+</CodeBlock>
+
+## Configure variables
+
+<CodeBlock filename="envs/customer/terraform.tfvars" language="hcl">
+{`project_id               = "your-gcp-project-id"
+region                   = "europe-west4"
+admin_cidr               = "203.0.113.4/32"
+file_storage_bucket_name = "your-rhesis-files-bucket"`}
+</CodeBlock>
+
+## Initialize, plan, apply
+
+<CodeBlock filename="Terminal" language="bash">
+{`terraform init -backend-config=backend.conf
+terraform plan
+terraform apply`}
+</CodeBlock>
+
+A first apply typically takes 10–15 minutes, mostly waiting on GKE cluster creation. On success,
+Terraform reports the new VPC, subnets, GKE cluster, ESO service account, and GCS bucket.
+
+## Connect to your cluster
+
+<CodeBlock filename="Terminal" language="bash">
+{`gcloud container clusters get-credentials gke-customer \\
+  --region europe-west4 \\
+  --project your-gcp-project-id
+
+kubectl get nodes`}
+</CodeBlock>
+
+If `kubectl` times out, double-check that `admin_cidr` includes the public IP you're connecting
+from (`curl -s ifconfig.me`).
+
+## Next step
+
+Continue to [Kubernetes (Helm)](/deployment/kubernetes-helm) to bootstrap ArgoCD and deploy the
+Rhesis application onto this cluster.
+
+## Tearing down
+
+<CodeBlock filename="Terminal" language="bash">
+{`terraform destroy`}
+</CodeBlock>
+
+<Callout type="warning">
+Set `gke_deletion_protection = false` and `force_destroy = true` (in `terraform.tfvars`) before
+destroying, or Terraform will refuse to delete the cluster and a non-empty storage bucket.
+</Callout>
+
+## Troubleshooting
+
+**"API not enabled" errors on `apply`** — re-run the `gcloud services enable` command above; API
+enablement can take a minute to propagate.
+
+**Quota errors creating the node pool** — GKE node pools need available regional CPU quota;
+check *IAM & Admin → Quotas* in the GCP console for the target region, or lower
+`min_node_count`/`machine_type`.
+
+**"Permission denied" on first apply** — the identity running Terraform needs, at minimum,
+Compute Network Admin, Kubernetes Engine Admin, Service Account Admin, Storage Admin, and
+Secret Manager Admin on the project (or the broader Editor role).
