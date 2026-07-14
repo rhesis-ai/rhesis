@@ -37,7 +37,6 @@ config:
   # Frontend
   apiBaseUrl: "https://api.rhesis.ai"
   nextPublicAppUrl: "https://app.rhesis.ai"
-  nextauthUrl: "https://app.rhesis.ai"
   nextPublicSupportEmail: "hello@rhesis.ai"
   onboardingVideoUrl: "https://youtu.be/fNtxqGtBu2Y"
   # Backend

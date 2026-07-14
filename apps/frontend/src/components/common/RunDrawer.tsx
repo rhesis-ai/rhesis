@@ -52,6 +52,7 @@ import { PreflightDialog } from '@/components/common/PreflightDialog';
 import SelectExperimentsDrawer from '@/components/common/SelectExperimentsDrawer';
 import SelectMetricsDialog from '@/components/common/SelectMetricsDialog';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { safeRandomUUID } from '@/utils/uuid';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { useEndpoints } from '@/hooks/useEndpoints';
 import type {
@@ -817,7 +818,7 @@ export default function RunDrawer(props: RunDrawerProps) {
     const endpointId = resolveEndpointId();
     if (!endpointId || testSetIds.length === 0) return;
 
-    const correlationId = crypto.randomUUID();
+    const correlationId = safeRandomUUID();
     setPreflightCorrelationId(correlationId);
 
     preflightRequestRef.current = {
@@ -883,7 +884,7 @@ export default function RunDrawer(props: RunDrawerProps) {
     const endpointId = resolveEndpointId();
     if (!endpointId || testSetIds.length === 0) return;
 
-    const newCorrelationId = crypto.randomUUID();
+    const newCorrelationId = safeRandomUUID();
     setPreflightCorrelationId(newCorrelationId);
     setPreflightChecks([]);
 

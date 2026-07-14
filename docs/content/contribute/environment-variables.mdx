@@ -81,7 +81,7 @@ For a full production file (many more keys), teams often load secrets from Googl
   rows={[
     ['`API_BASE_URL`', 'Same semantic as backend `API_BASE_URL`: this deployment\'s public backend API URL, exposed to browser code through `window.__ENV__`, e.g. `http://localhost:8080`.'],
     ['`BACKEND_URL`', 'Backend URL for server-side requests, e.g. `http://localhost:8080`.'],
-    ['`NEXTAUTH_URL`', 'Must match how users open the app (same origin as the frontend).'],
+    ['`FRONTEND_URL`', 'Canonical public URL of the frontend (same origin as how users open the app). NextAuth derives its base URL from this at runtime.'],
     ['`NEXTAUTH_SECRET`', 'NextAuth secret; change for non-local deployments.'],
     ['`NEXT_TELEMETRY_DISABLED`', 'Disables Next.js telemetry in local dev when set (e.g. `1`).'],
   ]}

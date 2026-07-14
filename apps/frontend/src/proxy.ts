@@ -5,7 +5,10 @@ import {
   isPublicPath,
   ONBOARDING_PATH,
 } from './constants/paths';
-import { getServerBackendUrl } from './utils/url-resolver';
+import {
+  getServerBackendUrl,
+  shouldUseSecureCookies,
+} from './utils/url-resolver';
 
 const decodeBase64 =
   globalThis.atob ??
@@ -163,24 +166,16 @@ async function createSessionClearingResponse(
     // Delete the cookie (default behavior)
     response.cookies.delete(name);
 
-    // Clear cookies for current hostname only (no cross-environment clearing)
-    if (process.env.FRONTEND_ENV !== 'development') {
-      // For deployed environments, clear with secure flag
-      response.cookies.set(name, '', {
-        path: '/',
-        secure: true,
-        sameSite: 'lax',
-        maxAge: 0,
-        expires: new Date(0),
-      });
-    } else {
-      // For development, clear without secure flag
-      response.cookies.set(name, '', {
-        path: '/',
-        maxAge: 0,
-        expires: new Date(0),
-      });
-    }
+    // Clear cookies for current hostname only (no cross-environment clearing).
+    // Derive the secure flag from the same source used when the cookie is set
+    // (auth.ts), so the clear matches the set and reliably overwrites it.
+    response.cookies.set(name, '', {
+      path: '/',
+      secure: shouldUseSecureCookies(),
+      sameSite: 'lax',
+      maxAge: 0,
+      expires: new Date(0),
+    });
   });
 
   return response;
