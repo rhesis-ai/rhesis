@@ -9,6 +9,7 @@ import WelcomeVideoStep from './WelcomeVideoStep';
 import OnboardingShell from './OnboardingShell';
 import { ONBOARDING_STEP_COUNT } from './onboarding-steps';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { safeRandomUUID } from '@/utils/uuid';
 import { OrganizationCreate } from '@/utils/api-client/organizations-client';
 import { ProjectCreate } from '@/utils/api-client/interfaces/project';
 import { UUID } from 'crypto';
@@ -36,11 +37,13 @@ interface FormData {
 interface OnboardingPageClientProps {
   sessionToken: string;
   userId: UUID;
+  videoUrl?: string;
 }
 
 export default function OnboardingPageClient({
   sessionToken,
   userId,
+  videoUrl,
 }: OnboardingPageClientProps) {
   const notifications = useNotifications();
   const [activeStep, setActiveStep] = React.useState(0);
@@ -53,7 +56,7 @@ export default function OnboardingPageClient({
     organizationName: '',
     projectName: '',
     website: '',
-    invites: [{ id: crypto.randomUUID(), email: '' }],
+    invites: [{ id: safeRandomUUID(), email: '' }],
   });
 
   const organizationsClient = new ApiClientFactory(
@@ -354,6 +357,7 @@ export default function OnboardingPageClient({
             onBack={handleBack}
             isSubmitting={isSubmitting}
             onboardingStatus={onboardingStatus}
+            videoUrl={videoUrl}
           />
         );
       default:

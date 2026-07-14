@@ -46,7 +46,12 @@ from uuid import UUID
 from fastapi import Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app.auth.capabilities import Permission, get_all_capabilities
+from rhesis.backend.app.auth.capabilities import (
+    SCOPE_ORGANIZATION,
+    Permission,
+    capability_scope,
+    get_all_capabilities,
+)
 from rhesis.backend.app.auth.principal import (
     Principal,
     resolve_principal_from_request,
@@ -101,7 +106,7 @@ class AuthorizationProvider:
 # EE overrides the whole provider; this set only drives community-tier decisions.
 #
 # ProjectMember.MANAGE is included here so that managing project membership
-# (add/remove/list members) requires org ownership in the community tier.  When
+# (add/remove members) requires org ownership in the community tier.  When
 # a project IS in the ambient scope the DefaultAuthorizationProvider would
 # normally allow any project member — but membership management is sensitive
 # enough that we restrict it to org owners (and, in EE Phase 2, project admins
@@ -303,10 +308,15 @@ def authorize(
     perm_str = str(permission)
 
     # --- Token project boundary (deterministic, no DB, never cached) ---
-    # A project-scoped token may only act within its own project.  Enforced here
-    # in the PDP so the rule holds for every transport (HTTP, WebSocket, future
-    # callers), not just the HTTP get_project_context dependency.  Org-scoped
-    # checks (project_id is None) are intentionally not blocked.
+    # A project-scoped token may only act within its own project. Checked here,
+    # against the *unnormalized* project_id, before the org-scope normalization
+    # below can null it out — otherwise a token minted for project A could reach
+    # org-scoped capabilities while the ambient request context is project B
+    # (a mismatch this check exists to catch) simply because org-scoped caps get
+    # their project_id cleared first. Enforced here in the PDP so the rule holds
+    # for every transport (HTTP, WebSocket, future callers), not just the HTTP
+    # get_project_context dependency. Org-scoped checks (project_id is None from
+    # the start) are intentionally not blocked.
     if (
         principal.token_project_id is not None
         and project_id is not None
@@ -318,6 +328,18 @@ def authorize(
             project_id,
         )
         return False
+
+    # Org-scoped capabilities (sso:manage, role:manage, member:manage, ...) must
+    # never be narrowed by an ambient project context. require_permission's
+    # auto-injected dependency reads project_id from the request's active
+    # project (e.g. an X-Project-Id header), which is meaningful for
+    # project-scoped actions but not for org-wide admin actions — a caller
+    # whose explicit *project* role is lower than their *org* role would
+    # otherwise be incorrectly denied an org-level action while that project
+    # happens to be active. Force project_id=None here so the PDP always
+    # resolves org-scoped permissions against the org role.
+    if project_id is not None and capability_scope(perm_str) == SCOPE_ORGANIZATION:
+        project_id = None
 
     # Cache is keyed on org context; skip entirely when the org is absent
     # (those are always denies — no value in caching them).

@@ -21,9 +21,9 @@
  */
 
 import * as React from 'react';
-import { Box, CircularProgress } from '@mui/material';
+import { Alert, Box, CircularProgress } from '@mui/material';
 import { FeatureName } from '@/constants/features';
-import { FeatureGate } from '@/contexts/FeaturesContext';
+import { FeatureGate, useFeatureWarning } from '@/contexts/FeaturesContext';
 import { registerOrgSettingsTab } from '@/lib/extension-registries';
 import { SectionCard } from '@/components/common/SectionCard';
 import SSOEmptyState from './components/SSOEmptyState';
@@ -31,8 +31,15 @@ import SSOEmptyState from './components/SSOEmptyState';
 const SSOConfigForm = React.lazy(() => import('./components/SSOConfigForm'));
 
 function SSOSection() {
+  const warning = useFeatureWarning(FeatureName.SSO);
+
   return (
     <FeatureGate feature={FeatureName.SSO} fallback={<SSOEmptyState />}>
+      {warning && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          {warning}
+        </Alert>
+      )}
       <React.Suspense
         fallback={
           <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
@@ -52,7 +59,7 @@ export function registerSSO(): void {
   registerOrgSettingsTab({
     id: 'sso',
     title: 'SSO',
-    order: 50,
+    order: 30,
     component: SSOSection,
   });
 }

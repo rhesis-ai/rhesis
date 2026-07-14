@@ -321,7 +321,11 @@ class ReviewsMixin:
             review_status = last_review.get("status")
             if review_status and isinstance(review_status, dict):
                 review_status_id = review_status.get("status_id")
-                status_id = self._get_status_id_for_match()
+                # Prefer the pre-review snapshot: applying a review overwrites
+                # the live status to match the verdict, so comparing against
+                # it would always match and hide genuine disagreements.
+                metadata = self._get_reviews_data().get("metadata") or {}
+                status_id = metadata.get("original_status_id") or self._get_status_id_for_match()
                 if review_status_id and status_id:
                     matches = str(status_id) == str(review_status_id)
 

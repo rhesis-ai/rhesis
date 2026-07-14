@@ -105,7 +105,7 @@ export function buildE2EStorageState(origin = 'http://localhost:3100') {
 export async function seedAuthWithoutBackend(browser: Browser) {
   await fs.promises.mkdir(AUTH_DIR, { recursive: true });
 
-  const origin = process.env.NEXTAUTH_URL || 'http://localhost:3100';
+  const origin = process.env.FRONTEND_URL || 'http://localhost:3100';
   const storageState = buildE2EStorageState(origin);
   await fs.promises.writeFile(
     AUTH_STORAGE_PATH,

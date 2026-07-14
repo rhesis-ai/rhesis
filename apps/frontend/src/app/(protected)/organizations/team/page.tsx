@@ -1,98 +1,17 @@
-'use client';
+import { redirect } from 'next/navigation';
 
-import * as React from 'react';
-import { useState, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
-import Box from '@mui/material/Box';
-import Paper from '@mui/material/Paper';
-import { PageLayout } from '@/components/layout/PageLayout';
-import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
-import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
-import TeamInviteDrawer from './components/TeamInviteDrawer';
-import TeamMembersGrid from './components/TeamMembersGrid';
-import { useOnboardingTour } from '@/hooks/useOnboardingTour';
-import { useOnboarding } from '@/contexts/OnboardingContext';
-import { Can } from '@/components/common/Can';
-import { Capability } from '@/constants/capabilities';
+interface TeamPageProps {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
 
-export default function TeamPage() {
-  const searchParams = useSearchParams();
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [inviteDrawerOpen, setInviteDrawerOpen] = useState(false);
-  const { markStepComplete, progress, activeTour } = useOnboarding();
+/** Legacy route — team management now lives under Organization Settings. */
+export default async function TeamPage({ searchParams }: TeamPageProps) {
+  const params = await searchParams;
+  const qs = new URLSearchParams({ tab: 'team' });
 
-  const handleTotalCountChange = React.useCallback(
-    (count: number) => {
-      if (count > 1 && !progress.usersInvited) {
-        markStepComplete('usersInvited');
-      }
-    },
-    [progress.usersInvited, markStepComplete]
-  );
+  if (typeof params.tour === 'string') {
+    qs.set('tour', params.tour);
+  }
 
-  useOnboardingTour('invite');
-
-  const tourParam = searchParams?.get('tour');
-  const isOnInviteTour = tourParam === 'invite' || activeTour === 'invite';
-
-  useEffect(() => {
-    if (isOnInviteTour) {
-      const timeout = setTimeout(() => setInviteDrawerOpen(true), 300);
-      return () => clearTimeout(timeout);
-    }
-  }, [isOnInviteTour]);
-
-  const handleInvitesSent = (emails: string[]) => {
-    setRefreshTrigger(prev => prev + 1);
-    if (emails.length > 0 && !progress.usersInvited) {
-      markStepComplete('usersInvited');
-    }
-  };
-
-  return (
-    <>
-      <PageLayout
-        title="Team"
-        description="Invite colleagues and manage who has access to your organization."
-        breadcrumbs={[]}
-        actions={
-          <FabGroup>
-            <Can capability={Capability.Member.CREATE}>
-              <Fab
-                icon={<FabAddIcon />}
-                tooltip="Invite team members"
-                onClick={() => setInviteDrawerOpen(true)}
-                disabled={isOnInviteTour}
-                data-tour="invite-team-button"
-              />
-            </Can>
-          </FabGroup>
-        }
-      >
-        <Box sx={{ mt: 2, mb: 2 }}>
-          <Paper
-            sx={{
-              width: '100%',
-              borderRadius: BORDER_RADIUS.md,
-              boxShadow: ELEVATION.xs,
-              border: theme => `1px solid ${theme.palette.greyscale.border}`,
-              overflow: 'hidden',
-            }}
-          >
-            <TeamMembersGrid
-              refreshTrigger={refreshTrigger}
-              onTotalCountChange={handleTotalCountChange}
-            />
-          </Paper>
-        </Box>
-      </PageLayout>
-
-      <TeamInviteDrawer
-        open={inviteDrawerOpen}
-        onClose={() => setInviteDrawerOpen(false)}
-        onInvitesSent={handleInvitesSent}
-        disableDuringTour={isOnInviteTour}
-      />
-    </>
-  );
+  redirect(`/organizations/settings?${qs.toString()}`);
 }

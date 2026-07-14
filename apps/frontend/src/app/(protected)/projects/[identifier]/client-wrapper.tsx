@@ -121,8 +121,8 @@ export default function ClientWrapper({
         error instanceof Error ? error.message : 'Failed to delete project',
         { severity: 'error' }
       );
-      setDeleteConfirmOpen(false);
     } finally {
+      setDeleteConfirmOpen(false);
       setIsDeleting(false);
     }
   };

@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
 from rhesis.backend.app.config.settings import get_model_settings
+from rhesis.backend.app.constants import TestSetType
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.services import (
     SourceData,
@@ -192,7 +193,7 @@ async def test_generation_pipeline_stream(
     organization_id: str,
     project_id: Optional[str] = None,
     previous_messages: Optional[list] = None,
-    test_type: str = "single_turn",
+    test_type: str = "Single-Turn",
     num_tests: int = 5,
     sources: Optional[List[SourceData]] = None,
     model_id: Optional[str] = None,
@@ -212,6 +213,10 @@ async def test_generation_pipeline_stream(
       - ``{"type": "error", "phase": str, "message": str}``
       - ``{"type": "done"}``
     """
+    resolved_type = TestSetType.from_string(test_type)
+    if resolved_type is None:
+        resolved_type = TestSetType.SINGLE_TURN
+    test_type = resolved_type.value
 
     config_response: Optional[TestConfigResponse] = config
 
@@ -252,7 +257,7 @@ async def test_generation_pipeline_stream(
     tests_generated = 0
 
     try:
-        if test_type == "multi_turn":
+        if test_type == "Multi-Turn":
             config_dict = {
                 "generation_prompt": prompt,
                 "behaviors": active_behaviors,
@@ -271,7 +276,7 @@ async def test_generation_pipeline_stream(
                         "type": "test",
                         "index": test_index,
                         "test": test,
-                        "test_type": "multi_turn",
+                        "test_type": "Multi-Turn",
                     }
                 )
                 test_index += 1
@@ -302,7 +307,7 @@ async def test_generation_pipeline_stream(
                         "type": "test",
                         "index": test_index,
                         "test": test,
-                        "test_type": "single_turn",
+                        "test_type": "Single-Turn",
                     }
                 )
                 test_index += 1
@@ -331,7 +336,7 @@ async def test_generation_pipeline_stream(
                         "type": "test",
                         "index": test_index,
                         "test": test,
-                        "test_type": "single_turn",
+                        "test_type": "Single-Turn",
                     }
                 )
                 test_index += 1

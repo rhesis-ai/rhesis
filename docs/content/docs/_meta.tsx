@@ -135,7 +135,7 @@ const meta: MetaRecord = {
   },
   tracing: 'Traces',
   endpoints: 'Endpoints',
-  mcp: 'MCP',
+  tools: 'Tools',
   models: 'Models',
   integrations: 'Integrations',
   'api-tokens': 'API Tokens',

@@ -36,10 +36,37 @@ npm test:ci`}
 
 </CodeBlock>
 
+Equivalent `make` targets are also available from `apps/frontend`: **`make test`** runs `npm test` with `--passWithNoTests --ci --watchAll=false`; **`make test-coverage`** runs `npm run test:ci` (Jest with coverage reporters aligned with CI). `./rh test frontend` (repo root) runs plain `npm test` in `apps/frontend`.
+
 <Callout type="default">
   **Test Coverage** Target coverage thresholds: **70%** for branches, functions,
   lines, and statements
 </Callout>
+
+## End-to-end Testing (Playwright)
+
+Changes under `apps/frontend/**` trigger **[Test] Frontend E2E** in CI. CI uses Docker for the Quick Start backend (`make test-e2e-ci`, Chromium only).
+
+**Locally without Docker** (frontend + mocked API only):
+
+<CodeBlock filename="e2e-local.sh" language="bash">
+{`cd apps/frontend
+npx playwright install chromium   # once
+make test-e2e-local               # @mocked tests on http://localhost:3100`}
+</CodeBlock>
+
+This starts a dedicated dev server on port **3100** (so it does not clash with `npm run dev` on 3000), seeds auth without a backend (`E2E_NO_DOCKER=1`), and runs Playwright route mocks for API data.
+
+**CI / full backend** (requires Docker):
+
+<CodeBlock filename="e2e-docker.sh" language="bash">
+{`make test-e2e        # @sanity|@crud on Chromium + Firefox (local)
+make test-e2e-ci     # @sanity|@crud on Chromium only — same as CI
+make test-e2e-smoke  # @sanity only
+make docker-down     # tear down stack`}
+</CodeBlock>
+
+Debug: `npm run test:e2e:ui` or `npm run test:e2e:headed`. Config: `playwright.config.ts`; specs: `tests/e2e/`.
 
 ## Testing Configuration
 

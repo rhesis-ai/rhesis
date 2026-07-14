@@ -127,7 +127,7 @@ async def read_projects(
 @router.get(
     "/{project_id}/members",
     response_model=list[schemas.ProjectMember],
-    **capability(Permission.ProjectMember.MANAGE),
+    **capability(Permission.ProjectMember.READ),
 )
 def read_project_members(
     project_id: uuid.UUID,

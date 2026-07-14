@@ -46,6 +46,7 @@ import {
   getTestResultDisplayStatus,
   truncateText,
 } from './test-run-results-grid-utils';
+import { resultHasAnyHumanReview } from './test-run-summary-utils';
 import { EntityType } from '@/types/entity-type';
 
 interface TestsTableViewProps {
@@ -609,7 +610,7 @@ export default function TestsTableView({
                 width: '100%',
               }}
             >
-              {!test.last_review && (
+              {!resultHasAnyHumanReview(test) && (
                 <Tooltip title="Confirm Review">
                   <span>
                     <IconButton

@@ -58,14 +58,14 @@ describe('ee bootstrap', () => {
     expect(typeof roles?.component).toBe('function');
   });
 
-  it('orders tabs: SSO < API < Roles', () => {
+  it('orders tabs: Roles < SSO < API', () => {
     bootstrapEE();
     const tabs = getOrgSettingsTabs();
     const ssoOrder = tabs.find(t => t.id === 'sso')?.order ?? -1;
     const apiOrder = tabs.find(t => t.id === 'api')?.order ?? -1;
     const rolesOrder = tabs.find(t => t.id === 'roles')?.order ?? -1;
+    expect(rolesOrder).toBeLessThan(ssoOrder);
     expect(ssoOrder).toBeLessThan(apiOrder);
-    expect(apiOrder).toBeLessThan(rolesOrder);
   });
 
   it('registers member role extension components', () => {

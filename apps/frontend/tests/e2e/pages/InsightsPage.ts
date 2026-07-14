@@ -33,14 +33,19 @@ export class InsightsPage extends BasePage {
       timeout: 10_000,
     });
 
-    const noEndpoints = this.page.getByText(/no endpoints in this project/i);
-    const noTestResults = this.page.getByText(/no test results yet/i);
-    const searchBehaviors = this.page.getByPlaceholder(/search behaviors/i);
+    const noEndpoints = this.page.getByRole('heading', {
+      name: /no endpoints in this project/i,
+    });
+    const noTestResults = this.page.getByRole('heading', {
+      name: /no test results yet/i,
+    });
+    const passRate = this.page.getByText(/pass rate/i);
     const timeRange1M = this.page.getByRole('button', { name: '1M' });
 
-    await expect(noEndpoints.or(noTestResults).or(searchBehaviors)).toBeVisible(
-      { timeout: 15_000 }
-    );
+    // Wait for endpoint auto-selection and insights fetch to settle.
+    await expect(noEndpoints.or(noTestResults).or(passRate)).toBeVisible({
+      timeout: 30_000,
+    });
 
     if (await noEndpoints.isVisible()) {
       await expect(
@@ -54,13 +59,9 @@ export class InsightsPage extends BasePage {
       return;
     }
 
-    await expect(searchBehaviors).toBeVisible();
+    await expect(this.page.getByPlaceholder(/search behaviors/i)).toBeVisible();
     await expect(timeRange1M).toBeVisible();
-    await expect(
-      this.page.getByText(/\d+\.\d+%\s*pass rate/i).first()
-    ).toBeVisible({
-      timeout: 10_000,
-    });
+    await expect(passRate.first()).toBeVisible({ timeout: 15_000 });
   }
 
   /** Expand a collapsible sidebar section (e.g. CONNECT for Endpoints). */

@@ -48,6 +48,7 @@ from rhesis.backend.ee.sso.rate_limits import (
     SSO_LOGIN_RATE_LIMIT,
     SSO_TEST_CONNECTION_RATE_LIMIT,
 )
+from rhesis.backend.ee.sso.runtime_check import sso_runtime_check
 from rhesis.backend.ee.sso.schemas import SSOConfig
 from rhesis.backend.ee.sso.user_utils import SSOLoginError, find_or_create_sso_user
 
@@ -65,16 +66,20 @@ def check_sso_available(organization: Optional[Organization] = None) -> bool:
     """Return ``True`` iff SSO can be served at all.
 
     With ``organization`` set, this is the full per-tenant check
-    (registered + licensed + runtime ready). Without it, only the
-    runtime/registration half is checked — which is what the OIDC
-    callback needs as an early bailout *before* the signed state has
-    been validated and the org resolved. The license decision is then
-    made downstream once the org is in hand (typically by reading the
-    SSO config from the DB; full per-tenant gating arrives with the
-    JWT license provider).
+    (registered + licensed + runtime ready). Without it, this checks
+    registration plus the runtime precondition directly — which is what
+    the OIDC callback needs as an early bailout *before* the signed state
+    has been validated and the org resolved. ``is_registered`` alone does
+    not run the runtime check (it is the cheapest, license/runtime-agnostic
+    tier), so it is paired with an explicit ``sso_runtime_check()`` call
+    here. The license decision is made downstream once the org is in hand
+    (typically by reading the SSO config from the DB; full per-tenant
+    gating arrives with the JWT license provider).
     """
     if organization is None:
-        return FeatureRegistry.is_registered(FeatureName.SSO)
+        if not FeatureRegistry.is_registered(FeatureName.SSO):
+            return False
+        return sso_runtime_check()
     return FeatureRegistry.is_available(FeatureName.SSO, organization)
 
 

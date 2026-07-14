@@ -20,6 +20,7 @@ import { fetchQuickStartEnabled } from '@/utils/quick_start';
 // the server-side one. Layout.tsx imports the same module for the
 // server bundle. Both imports are idempotent.
 import '@/ee_bootstrap';
+import '@/lib/org-settings-tabs-bootstrap';
 
 function getAllSegments(items: NavigationItem[]): string[] {
   return items.reduce<string[]>((acc, item) => {

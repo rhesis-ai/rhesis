@@ -286,7 +286,7 @@ jobs:
               --no-traffic \
               --revision-suffix=${{ env.COMMIT_SHA }} \
               --set-env-vars="$(cat <<EOF
-          NEXTAUTH_URL=$PREVIEW_FRONTEND_URL,
+          FRONTEND_URL=$PREVIEW_FRONTEND_URL,
           NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }},
           API_BASE_URL=$BACKEND_API_URL,
           BACKEND_URL=$BACKEND_API_URL,
@@ -300,7 +300,7 @@ jobs:
           SMTP_USER=${{ secrets.SMTP_USER }},
           SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }},
           FROM_EMAIL=${{ secrets.FROM_EMAIL }},
-          NEXT_PUBLIC_ONBOARDING_VIDEO_URL=${{ secrets.NEXT_PUBLIC_ONBOARDING_VIDEO_URL }}
+          ONBOARDING_VIDEO_URL=${{ secrets.ONBOARDING_VIDEO_URL || secrets.NEXT_PUBLIC_ONBOARDING_VIDEO_URL }}
           EOF
           )"
 
@@ -324,7 +324,7 @@ jobs:
               --concurrency=80 \
               --timeout=300s \
               --set-env-vars="$(cat <<EOF
-          NEXTAUTH_URL=${{ secrets.NEXTAUTH_URL }},
+          FRONTEND_URL=${{ secrets.FRONTEND_URL }},
           NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }},
           API_BASE_URL=${{ secrets.API_BASE_URL }},
           BACKEND_URL=${{ secrets.BACKEND_URL }},
@@ -338,7 +338,7 @@ jobs:
           SMTP_USER=${{ secrets.SMTP_USER }},
           SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }},
           FROM_EMAIL=${{ secrets.FROM_EMAIL }},
-          NEXT_PUBLIC_ONBOARDING_VIDEO_URL=${{ secrets.NEXT_PUBLIC_ONBOARDING_VIDEO_URL }}
+          ONBOARDING_VIDEO_URL=${{ secrets.ONBOARDING_VIDEO_URL || secrets.NEXT_PUBLIC_ONBOARDING_VIDEO_URL }}
           EOF
           )"
 
@@ -477,7 +477,7 @@ jobs:
             --no-traffic \
             --revision-suffix=$REVISION_SUFFIX \
             --set-env-vars="$(cat <<EOF
-          NEXTAUTH_URL=PLACEHOLDER_URL,
+          FRONTEND_URL=PLACEHOLDER_URL,
           NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }},
           API_BASE_URL=$BACKEND_API_URL,
           BACKEND_URL=$BACKEND_API_URL,
@@ -533,7 +533,7 @@ jobs:
             --no-traffic \
             --revision-suffix=$FINAL_REVISION_SUFFIX \
             --set-env-vars="$(cat <<EOF
-          NEXTAUTH_URL=$PREVIEW_URL,
+          FRONTEND_URL=$PREVIEW_URL,
           NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }},
           API_BASE_URL=$BACKEND_API_URL,
           BACKEND_URL=$BACKEND_URL_VAR,

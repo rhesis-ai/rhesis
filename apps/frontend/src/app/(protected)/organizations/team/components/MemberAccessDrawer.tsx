@@ -99,18 +99,21 @@ export default function MemberAccessDrawer({
       return;
     }
 
-    const factory = new ApiClientFactory(session.session_token);
-    const projectsClient = factory.getProjectsClient();
+    const sessionToken = session.session_token;
 
-    projectsClient
+    new ApiClientFactory(sessionToken)
+      .getProjectsClient()
       .getAllProjects()
       .then(async projects => {
         const results = await Promise.all(
           projects.map(async project => {
             try {
-              const members = await projectsClient.getProjectMembers(
+              const members = await new ApiClientFactory(
+                sessionToken,
                 project.id as string
-              );
+              )
+                .getProjectsClient()
+                .getProjectMembers(project.id as string);
               const row = members.find(m => m.user_id === user.id);
               return row ? ({ project, member: row } as ProjectAccess) : null;
             } catch {

@@ -7,23 +7,38 @@ for orgs with the RBAC feature enabled.  Installed via
 
 Resolution order:
 1. If RBAC is not available for the org → delegate to the community provider.
-2. If a ``project_id`` is given and the user has a ``project_membership`` row
-   with a non-NULL ``role_id`` → the project role governs (overrides org role,
-   not a union).
-3. No explicit project role set — behaviour depends on the org role level:
-   a. Org Admin or Owner (level >= 80): implicit access to all projects.
-      Their org role applies as the effective project role.  They do not need
-      to be individually enrolled in every project.
-   b. Org Member or Viewer (level < 80): explicit project enrollment is
-      required.  If a ``project_membership`` row exists (even with
-      ``role_id = NULL``), their org role applies to that project.  If no
-      membership row exists, access is denied for that project.
-4. No org role → deny everywhere.
+2. No ``organization_member`` row (or ``role_id`` is NULL) but
+   ``organization.owner_id == principal.user_id`` → built-in **Owner** role
+   (owner floor — mirrors the community bypass; SP9 token scopes still apply).
+3. No org role at all (org-scoped checks) → deny; org-scoped permissions
+   require an org role. (For project-scoped checks, see step 6 — a pure
+   project member with no org role is still governed by their explicit
+   project role.)
+4. Org Admin or Owner (level >= 80): implicit access to all projects. Their
+   org role applies as the effective project role. They do not need to be
+   individually enrolled in every project.
+5. Org Member or Viewer (level < 80): explicit project enrollment is
+   required. If a ``project_membership`` row exists (even with
+   ``role_id = NULL``), their org role applies to that project. If no
+   membership row exists, access is denied for that project.
+6. If the user also has an explicit ``project_membership.role_id`` for this
+   project, it is compared against the org role (when one exists) and the
+   **higher-level** role wins — an explicit project role can elevate access
+   above the org role, but can never restrict it below what the org role
+   already grants. With no org role at all, the explicit project role is
+   the whole answer.
 
 The rationale for the Admin/Owner implicit-access rule mirrors tools like
 GitHub, Linear, and Notion: org-level administrators see and can manage all
 workspaces/projects without being individually added to each one.  Contributors
 (Member/Viewer) are scoped to projects they have been explicitly invited to.
+
+"Higher role wins, never restricts" (step 6) mirrors GitLab's inherited-membership
+rule and GCP IAM's resource-hierarchy inheritance: a narrower scope (project) can
+only add to what a broader scope (organization) already grants. An org Owner
+assigned a lower explicit role on one project still keeps Owner-level access to
+that project; an org Member assigned Owner on one project gets elevated access
+to that project only.
 
 The ``Role`` model has ``organization_id`` which triggers the ORM
 ``auto_filter`` event.  Built-in roles (``organization_id IS NULL``) would be
@@ -131,34 +146,59 @@ class PermissionAuthorizationProvider:
     def _resolve_role(self, principal: "Principal", project_id: Optional[UUID], db: "Session"):
         """Return the effective :class:`~rhesis.backend.ee.rbac.models.Role` or None.
 
-        When a project context is present the resolution follows three steps:
+        When a project context is present, access is gated by org role level
+        and enrollment first, then the org role and any explicit project role
+        are compared and the **higher-level** one is returned:
 
-        1. Explicit project role (``project_membership.role_id`` set) → use it.
-        2. Org role level >= Admin (80) → implicit access; org role is the
-           effective project role.
-        3. Org role level < Admin → explicit enrollment required; the user must
-           have a ``project_membership`` row (even with ``role_id = NULL``) to
-           receive their org role for this project.  No row → deny.
+        1. No org role at all — the explicit project role (if any) governs
+           directly; there is no org-level floor to compare it against. This
+           is the pure project-member case (e.g. a user with no
+           ``organization_member`` row at all).
+        2. Org role level >= Admin (80): implicit access to every project.
+        3. Org role level < Admin: explicit enrollment required — a
+           ``project_membership`` row (even with ``role_id = NULL``) must
+           exist, or access is denied outright.
+        4. If an explicit ``project_membership.role_id`` is also set, it is
+           compared against the org role by ``level``; the higher one wins.
+           A project role can elevate access above the org role but can never
+           restrict it below what the org role already grants (see module
+           docstring — "higher role wins, never restricts").
         """
         if project_id is None:
             return self._get_org_role(principal, db)
 
-        membership = self._get_project_membership(principal, project_id, db)
-
-        # Step 1 — explicit project role overrides everything.
-        if membership is not None and membership.role_id is not None:
-            return self._load_role(membership.role_id, db)
-
-        # Steps 2 & 3 — fall back to org role, gated by enrollment for lower levels.
         org_role = self._get_org_role(principal, db)
+
+        membership = self._get_project_membership(principal, project_id, db)
+        explicit_role = None
+        if membership is not None and membership.role_id is not None:
+            explicit_role = self._load_role(membership.role_id, db)
+
         if org_role is None:
-            return None
+            # No org-level floor to enforce — the explicit project role (if
+            # any) is the whole answer. If the membership row exists but
+            # role_id is NULL (e.g. its custom role was deleted — see
+            # delete_role's docstring in router.py), this deliberately
+            # resolves to None (deny) rather than falling back to some
+            # default project role: with no org role to compare against,
+            # there is no floor to fall back to, and granting access here
+            # would let a role deletion silently re-grant standard access to
+            # holders an admin may be deliberately locking out. Community
+            # mode's DefaultAuthorizationProvider treats a bare membership
+            # row as implicit standard access with no equivalent "delete the
+            # role" trigger, so the two tiers are not directly comparable.
+            return explicit_role
 
         if org_role.level >= self._IMPLICIT_PROJECT_ACCESS_LEVEL:
-            # Admin / Owner: implicit access to all projects.
+            # Admin / Owner: implicit access to all projects; an explicit
+            # project role can only elevate further.
+            if explicit_role is not None and explicit_role.level > org_role.level:
+                return explicit_role
             return org_role
 
-        # Member / Viewer: only get fallback if explicitly enrolled.
+        # Member / Viewer: explicit enrollment required to access the project.
+        if explicit_role is not None:
+            return explicit_role if explicit_role.level > org_role.level else org_role
         if membership is not None:
             return org_role
 
@@ -188,7 +228,9 @@ class PermissionAuthorizationProvider:
 
     def _get_org_role(self, principal: "Principal", db: "Session"):
         """Return the org-level role for the principal, or None."""
-        from rhesis.backend.ee.rbac.models import OrganizationMember
+        from rhesis.backend.app.models.organization import Organization
+        from rhesis.backend.app.scope import bypass_tenant_filter
+        from rhesis.backend.ee.rbac.models import OrganizationMember, Role
 
         member = (
             db.query(OrganizationMember)
@@ -198,10 +240,27 @@ class PermissionAuthorizationProvider:
             )
             .first()
         )
-        if member is None or member.role_id is None:
-            return None
+        if member is not None and member.role_id is not None:
+            return self._load_role(member.role_id, db)
 
-        return self._load_role(member.role_id, db)
+        # Owner floor: missing organization_member rows must not lock out the
+        # org creator (post-backfill orgs, RBAC-dark onboarding).  Flows
+        # through the built-in Owner role so SP9 token-scope intersection
+        # still applies — unlike the community provider's raw allow bypass.
+        with bypass_tenant_filter():
+            org = (
+                db.query(Organization)
+                .filter_by(id=principal.organization_id, owner_id=principal.user_id)
+                .first()
+            )
+            if org is not None:
+                return (
+                    db.query(Role)
+                    .filter_by(name="Owner", is_built_in=True, organization_id=None)
+                    .first()
+                )
+
+        return None
 
     def _role_has_permission(self, role, perm_str: str, db: "Session") -> bool:
         """Return True when *role* carries *perm_str*.

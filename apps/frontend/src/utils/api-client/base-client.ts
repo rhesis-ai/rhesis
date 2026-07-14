@@ -368,8 +368,12 @@ export class BaseApiClient {
           error.status = response.status;
           error.data = errorData;
 
-          // Handle authentication errors
-          if (response.status === 401 || response.status === 403) {
+          // 401 means the session itself is invalid — force a full logout.
+          // 403 means the session is valid but lacks permission for this
+          // specific action; that's an expected, per-resource outcome (e.g.
+          // a view-only role hitting an RBAC-gated endpoint) and must not
+          // tear down the user's session.
+          if (response.status === 401) {
             return await this.handleUnauthorizedError(response.status);
           }
 
@@ -390,8 +394,10 @@ export class BaseApiClient {
         lastError = error instanceof Error ? error : new Error(String(error));
         const errWithStatus = error as Error & { status?: number };
 
-        // Handle authentication errors immediately without retrying
-        if (errWithStatus.status === 401 || errWithStatus.status === 403) {
+        // Handle authentication errors immediately without retrying.
+        // 403 (Forbidden) is a permission denial, not a session failure —
+        // see the comment at the 401 check above.
+        if (errWithStatus.status === 401) {
           return await this.handleUnauthorizedError(errWithStatus.status);
         }
 
@@ -519,8 +525,9 @@ export class BaseApiClient {
       error.status = response.status;
       error.data = errorData;
 
-      // Handle authentication errors
-      if (response.status === 401 || response.status === 403) {
+      // 401 means the session itself is invalid; 403 is a permission
+      // denial and must not force a logout — see the comment above.
+      if (response.status === 401) {
         return await this.handleUnauthorizedError(response.status);
       }
 

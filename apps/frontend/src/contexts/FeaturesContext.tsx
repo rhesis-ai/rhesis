@@ -20,7 +20,10 @@
 import { FeatureName } from '@/constants/features';
 import { featureKeys } from '@/constants/query-keys';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import type { LicenseInfo } from '@/utils/api-client/features-client';
+import type {
+  LicenseInfo,
+  FeaturesResponse,
+} from '@/utils/api-client/features-client';
 import { useQuery } from '@tanstack/react-query';
 import { useSession } from 'next-auth/react';
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
@@ -28,6 +31,7 @@ import { createContext, useContext, useMemo, type ReactNode } from 'react';
 interface FeaturesState {
   license: LicenseInfo | null;
   enabled: ReadonlySet<string>;
+  warnings: Readonly<Record<string, string>>;
   loading: boolean;
   error: Error | null;
 }
@@ -35,13 +39,27 @@ interface FeaturesState {
 const DEFAULT_STATE: FeaturesState = {
   license: null,
   enabled: new Set<string>(),
+  warnings: {},
   loading: true,
   error: null,
 };
 
 const FeaturesContext = createContext<FeaturesState>(DEFAULT_STATE);
 
-export function FeaturesProvider({ children }: { children: ReactNode }) {
+export function FeaturesProvider({
+  children,
+  initialFeatures = null,
+}: {
+  children: ReactNode;
+  /**
+   * Server-fetched `GET /features` result (see `(protected)/layout.tsx`),
+   * seeded as this query's `initialData` so `loading` is already `false` on
+   * the very first client render instead of flashing "no features enabled"
+   * for one round trip. `null` (no session server-side, or the fetch failed)
+   * falls back to the normal client-side fetch.
+   */
+  initialFeatures?: FeaturesResponse | null;
+}) {
   const { data: session, status } = useSession();
   const sessionToken =
     status === 'authenticated' ? session?.session_token : undefined;
@@ -55,6 +73,7 @@ export function FeaturesProvider({ children }: { children: ReactNode }) {
       new ApiClientFactory(sessionToken!).getFeaturesClient().getFeatures(),
     enabled: !!sessionToken,
     staleTime: 5 * 60_000,
+    ...(initialFeatures ? { initialData: initialFeatures } : {}),
   });
 
   const value = useMemo<FeaturesState>(() => {
@@ -68,6 +87,7 @@ export function FeaturesProvider({ children }: { children: ReactNode }) {
       return {
         license: null,
         enabled: new Set<string>(),
+        warnings: {},
         loading: false,
         error: error instanceof Error ? error : new Error(String(error)),
       };
@@ -75,6 +95,7 @@ export function FeaturesProvider({ children }: { children: ReactNode }) {
     return {
       license: data.license,
       enabled: new Set<string>(data.enabled),
+      warnings: data.warnings ?? {},
       loading: false,
       error: null,
     };
@@ -95,6 +116,17 @@ export function useFeature(name: FeatureName): boolean {
   const { enabled, loading } = useContext(FeaturesContext);
   if (loading) return false;
   return enabled.has(name);
+}
+
+/**
+ * Returns the warning message for a feature, or null if the feature
+ * is fully operational. Use this to show a banner when a feature is
+ * licensed but its backing infrastructure is not yet configured.
+ */
+export function useFeatureWarning(name: FeatureName): string | null {
+  const { warnings, loading } = useContext(FeaturesContext);
+  if (loading) return null;
+  return warnings[name] ?? null;
 }
 
 /**

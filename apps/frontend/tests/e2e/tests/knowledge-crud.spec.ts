@@ -65,10 +65,21 @@ test.describe('Knowledge — CRUD @crud', () => {
     await knowledgePage.setSourceTitle(UNIQUE_TITLE);
     await knowledgePage.setSourceDescription('Uploaded by Playwright E2E test');
 
-    // Submit the upload
+    // Register the list waiter before upload, but only accept GETs that land
+    // after the POST completes so we don't match a stale in-flight request.
+    let postCompleted = false;
+    const listRefresh = page.waitForResponse(
+      resp =>
+        postCompleted &&
+        resp.url().includes('/sources') &&
+        resp.request().method() === 'GET' &&
+        resp.ok(),
+      { timeout: 30_000 }
+    );
     await knowledgePage.submitUpload();
+    postCompleted = true;
     await knowledgePage.waitForUploadDrawerClosed();
-    await page.waitForLoadState('networkidle');
+    await listRefresh;
     await expectGridRowVisible(page, UNIQUE_TITLE);
   });
 

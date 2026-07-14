@@ -121,6 +121,54 @@ describe('FeaturesProvider', () => {
   });
 });
 
+describe('FeaturesProvider server-seeded initialFeatures', () => {
+  it('reports loading=false and the seeded feature synchronously, with no fetch', () => {
+    // Never-resolving promise: if the provider fell back to fetching instead
+    // of trusting the seed, `loading` would stay true forever and this
+    // assertion would time out rather than pass synchronously.
+    mockGetFeatures.mockReturnValue(new Promise(() => {}));
+
+    render(
+      <FeaturesProvider
+        initialFeatures={{ license: LICENSE, enabled: ['sso'] }}
+      >
+        <Probe feature={FeatureName.SSO} />
+        <StateProbe />
+      </FeaturesProvider>
+    );
+
+    expect(screen.getByTestId('probe')).toHaveTextContent('on');
+    expect(screen.getByTestId('loading')).toHaveTextContent('false');
+  });
+
+  it('still exposes a feature absent from the seed as off', () => {
+    mockGetFeatures.mockReturnValue(new Promise(() => {}));
+
+    render(
+      <FeaturesProvider initialFeatures={{ license: LICENSE, enabled: [] }}>
+        <Probe feature={FeatureName.SSO} />
+      </FeaturesProvider>
+    );
+
+    expect(screen.getByTestId('probe')).toHaveTextContent('off');
+  });
+
+  it('falls back to the normal client fetch when initialFeatures is null', async () => {
+    mockGetFeatures.mockResolvedValue({ license: LICENSE, enabled: ['sso'] });
+
+    render(
+      <FeaturesProvider initialFeatures={null}>
+        <Probe feature={FeatureName.SSO} />
+      </FeaturesProvider>
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId('probe')).toHaveTextContent('on')
+    );
+    expect(mockGetFeatures).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('FeaturesProvider session gating', () => {
   it('stays fail-closed (loading) while the session is still resolving', () => {
     // While next-auth resolves the session there is no token, so the query is

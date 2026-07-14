@@ -11,6 +11,7 @@ import {
   type NavigationHeaderItem,
   type NavigationPageItem,
 } from '@/types/navigation';
+import { useAmbientPermissions } from '@/contexts/PermissionsContext';
 import { collapsedNavGroupSx } from './sidebar-utils';
 import { NavItem } from './NavItem';
 
@@ -27,6 +28,20 @@ export function NavSection({ header, items, collapsed }: NavSectionProps) {
   );
   // Icon-only sidebar: always show section items (section headers are hidden).
   const showItems = collapsed || !isCollapsible || sectionOpen;
+
+  // Each NavItem hides itself when its capability is denied. Mirror that
+  // decision here (reading the ambient scope set once, not one hook per item)
+  // so a section whose every item is hidden doesn't render an orphaned header
+  // with an empty body. The membership logic matches `useCan`: fail-closed
+  // while loading, permissive when RBAC is off, otherwise a set-membership check.
+  const ambient = useAmbientPermissions();
+  const hasVisibleItem = items.some(item => {
+    if (!item.requiredPermission) return true;
+    if (ambient.loading) return false;
+    if (!ambient.enabled) return true;
+    return ambient.permitted_actions.includes(item.requiredPermission);
+  });
+  if (!hasVisibleItem) return null;
 
   return (
     <Box

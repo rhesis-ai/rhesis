@@ -100,6 +100,9 @@ def find_or_create_sso_user(
         user_in_org.external_provider_id = auth_user.external_id
         user_in_org.last_login_at = current_time
         user_in_org.is_email_verified = True
+        from rhesis.backend.app.auth.user_utils import mark_user_joined_if_needed
+
+        mark_user_joined_if_needed(user_in_org, when=current_time)
         return user_in_org
 
     # 4. Check if user exists in a different org (cross-org prevention)
@@ -148,6 +151,10 @@ def find_or_create_sso_user(
         organization_id=organization.id,
     )
     user = crud.create_user(db, user_data)
+
+    from rhesis.backend.app.auth.user_utils import mark_user_joined_if_needed
+
+    mark_user_joined_if_needed(user, when=current_time)
 
     audit_log(
         SSOAuditEvent.USER_PROVISIONED,

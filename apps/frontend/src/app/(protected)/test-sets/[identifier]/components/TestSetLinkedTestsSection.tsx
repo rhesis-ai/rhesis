@@ -16,6 +16,8 @@ import EmbeddingTestsPanel from './EmbeddingTestsPanel';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TestDetail } from '@/utils/api-client/interfaces/tests';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import type { Theme } from '@mui/material/styles';
 
@@ -44,6 +46,7 @@ export default function TestSetLinkedTestsSection({
   isGenerating: initialIsGenerating = false,
 }: TestSetLinkedTestsSectionProps) {
   const { show: showNotification } = useNotifications();
+  const canEditTestSet = useCan(Capability.TestSet.UPDATE);
   const router = useRouter();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -132,7 +135,7 @@ export default function TestSetLinkedTestsSection({
 
   const isEmpty = totalCount === 0;
 
-  const assignButton = (
+  const assignButton = canEditTestSet ? (
     <Button
       variant="outlined"
       startIcon={<AddIcon />}
@@ -140,7 +143,7 @@ export default function TestSetLinkedTestsSection({
     >
       Assign
     </Button>
-  );
+  ) : null;
 
   return (
     <>
@@ -190,15 +193,19 @@ export default function TestSetLinkedTestsSection({
               No tests yet
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Assign tests to this test set to group related cases together.
+              {canEditTestSet
+                ? 'Assign tests to this test set to group related cases together.'
+                : 'This test set has no tests yet.'}
             </Typography>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => setDrawerOpen(true)}
-            >
-              Assign tests
-            </Button>
+            {canEditTestSet && (
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={() => setDrawerOpen(true)}
+              >
+                Assign tests
+              </Button>
+            )}
           </Box>
         </Paper>
       ) : (
@@ -234,14 +241,16 @@ export default function TestSetLinkedTestsSection({
         </>
       )}
 
-      <AssignTestsDrawer
-        open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-        sessionToken={sessionToken}
-        testSetId={testSetId}
-        testSetType={testSetType}
-        onAssign={handleAssignTests}
-      />
+      {canEditTestSet && (
+        <AssignTestsDrawer
+          open={drawerOpen}
+          onClose={() => setDrawerOpen(false)}
+          sessionToken={sessionToken}
+          testSetId={testSetId}
+          testSetType={testSetType}
+          onAssign={handleAssignTests}
+        />
+      )}
     </>
   );
 }

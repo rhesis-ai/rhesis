@@ -33,6 +33,7 @@ import { FeaturesClient } from './features-client';
 import { PermissionsClient } from './permissions-client';
 import { ParametersClient } from './parameters-client';
 import { PreflightClient } from './preflight-client';
+import { ResolveClient } from './resolve-client';
 
 export class ApiClientFactory {
   private sessionToken: string;
@@ -55,6 +56,7 @@ export class ApiClientFactory {
   private architectClient: ArchitectClient | null = null;
   private parametersClient: ParametersClient | null = null;
   private preflightClient: PreflightClient | null = null;
+  private resolveClient: ResolveClient | null = null;
 
   /**
    * @param sessionToken The user's session token.
@@ -336,5 +338,16 @@ export class ApiClientFactory {
       );
     }
     return this.preflightClient;
+  }
+
+  getResolveClient(): ResolveClient {
+    if (!this.resolveClient) {
+      this.resolveClient = new ResolveClient(
+        this.sessionToken,
+        undefined,
+        this.projectId
+      );
+    }
+    return this.resolveClient;
   }
 }

@@ -149,12 +149,14 @@ export default function TestSetHeaderActions({
             loading={isDeleting}
           />
         </Can>
-        <Fab
-          icon={<DownloadIcon sx={{ fontSize: 28 }} />}
-          tooltip="Download test set (CSV)"
-          onClick={handleDownload}
-          loading={isDownloading}
-        />
+        <Can capability={Capability.TestSet.EXPORT}>
+          <Fab
+            icon={<DownloadIcon sx={{ fontSize: 28 }} />}
+            tooltip="Download test set (CSV)"
+            onClick={handleDownload}
+            loading={isDownloading}
+          />
+        </Can>
         <Can capability={Capability.TestSet.EXECUTE}>
           <Fab
             icon={<PlayArrowIcon sx={{ fontSize: 28 }} />}

@@ -9,6 +9,8 @@ import React, {
 } from 'react';
 import { Box, Typography, TextField } from '@mui/material';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
+import { testRunKeys } from '@/constants/query-keys';
 import DetailTabNav from '@/components/common/DetailTabNav';
 import TestRunDetailHeader from './TestRunDetailHeader';
 import TestRunConfigurationTab from './TestRunConfigurationTab';
@@ -108,6 +110,7 @@ export default function TestRunMainView({
   const notifications = useNotifications();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
 
   const preferLinkedEntities = Boolean(initialSelectedTestId);
   const activeTab = tabIndexFromKey(
@@ -318,8 +321,11 @@ export default function TestRunMainView({
         return newMap;
       });
       void refetchTestResults();
+      void queryClient.invalidateQueries({
+        queryKey: [...testRunKeys.all(), 'list'],
+      });
     },
-    [refetchTestResults]
+    [refetchTestResults, queryClient]
   );
 
   const previousTabRef = useRef(activeTab);
