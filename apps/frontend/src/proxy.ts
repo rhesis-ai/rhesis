@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { getToken } from 'next-auth/jwt';
 import { auth } from './auth';
 import {
   DEFAULT_AUTHENTICATED_PATH,
@@ -81,33 +82,18 @@ async function verifySessionWithBackend(sessionToken: string) {
   }
 }
 
-// Helper function to get session token from request
-function getSessionTokenFromRequest(request: NextRequest): string | null {
-  const sessionCookie =
-    request.cookies.get('authjs.session-token') ??
-    request.cookies.get('next-auth.session-token');
-  if (!sessionCookie?.value) return null;
-
-  const cookieValue = sessionCookie.value;
-
-  // Try to parse as JSON first (NextAuth.js stores session data as JSON)
-  try {
-    const sessionData = JSON.parse(cookieValue);
-    // Extract the actual JWT token from the session data
-    if (
-      sessionData &&
-      typeof sessionData === 'object' &&
-      sessionData.session_token
-    ) {
-      return sessionData.session_token;
-    }
-  } catch (_error) {
-    // If JSON parsing fails, it might be a direct JWT token
-  }
-
-  // If it's not JSON or doesn't have session_token field, return as is
-  // This handles cases where the token is stored directly
-  return cookieValue;
+// Helper function to get the backend access token from the request.
+// The session cookie is an encrypted JWE, so it must be decrypted with the
+// NextAuth secret (getToken) rather than parsed as plaintext.
+async function getSessionTokenFromRequest(
+  request: NextRequest
+): Promise<string | null> {
+  const token = await getToken({
+    req: request,
+    secret: process.env.NEXTAUTH_SECRET,
+    cookieName: 'next-auth.session-token',
+  });
+  return (token?.session_token as string | undefined) ?? null;
 }
 
 // Helper function to create a response that clears session cookies
@@ -224,7 +210,7 @@ export async function proxy(request: NextRequest) {
   // If not public, check for session
   try {
     // Get session token from request
-    const sessionToken = getSessionTokenFromRequest(request);
+    const sessionToken = await getSessionTokenFromRequest(request);
     if (!sessionToken) {
       // For users accessing protected routes without any authentication,
       // redirect to home page which has the unified login experience
@@ -268,7 +254,7 @@ export async function proxy(request: NextRequest) {
       return await createSessionClearingResponse(
         homeUrl,
         true,
-        getSessionTokenFromRequest(request) || undefined
+        (await getSessionTokenFromRequest(request)) || undefined
       ); // Call backend logout
     }
 
@@ -284,7 +270,7 @@ export async function proxy(request: NextRequest) {
       return await createSessionClearingResponse(
         homeUrl,
         true,
-        getSessionTokenFromRequest(request) || undefined
+        (await getSessionTokenFromRequest(request)) || undefined
       ); // Call backend logout
     }
 

@@ -211,7 +211,9 @@ export class BaseApiClient {
 
       // Add a delay to ensure any pending operations complete
       await this.delay(500);
-      await clearAllSessionData(); // This now redirects to home page
+      // Pass the token we were constructed with so backend logout can
+      // revoke it (the JWE cookie can't be read client-side).
+      await clearAllSessionData(this.sessionToken); // This now redirects to home page
 
       // This line should never be reached as clearAllSessionData redirects
       throw createUnauthorizedError('Unauthorized - session cleared');

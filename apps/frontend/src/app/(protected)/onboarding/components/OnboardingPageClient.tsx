@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { signIn } from 'next-auth/react';
+import { useSession } from 'next-auth/react';
 import OrganizationDetailsStep from './OrganizationDetailsStep';
 import InviteTeamStep from './InviteTeamStep';
 import FinishStep from './FinishStep';
@@ -45,6 +45,7 @@ export default function OnboardingPageClient({
   videoUrl,
 }: OnboardingPageClientProps) {
   const notifications = useNotifications();
+  const { update: updateSession } = useSession();
   const [activeStep, setActiveStep] = React.useState(0);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [onboardingStatus, setOnboardingStatus] =
@@ -138,16 +139,12 @@ export default function OnboardingPageClient({
 
       if ('session_token' in response) {
         const activeSessionToken = response.session_token;
-        const signInResult = await signIn('credentials', {
-          session_token: activeSessionToken,
-          refresh_token:
-            (response as { refresh_token?: string }).refresh_token || '',
-          redirect: false,
-        });
-
-        if (signInResult?.error) {
-          throw new Error('Failed to establish session after onboarding');
-        }
+        // Onboarding attached the user to an org, so the backend minted a
+        // fresh ACCESS token. Update only the access token in the session;
+        // the refresh token is unchanged and must be preserved (a full
+        // re-signIn would drop it). The raw access token is still used
+        // below for the immediate authenticated follow-up calls.
+        await updateSession({ session_token: activeSessionToken });
 
         const authenticatedFactory = new ApiClientFactory(activeSessionToken);
         const authenticatedUsersClient = authenticatedFactory.getUsersClient();

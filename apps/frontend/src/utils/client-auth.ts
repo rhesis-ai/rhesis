@@ -6,7 +6,7 @@ import { signOut } from 'next-auth/react';
 // Add a flag to prevent multiple simultaneous logout attempts
 let isLoggingOut = false;
 
-export async function handleClientSignOut() {
+export async function handleClientSignOut(sessionToken?: string) {
   // Prevent multiple simultaneous logout attempts
   if (isLoggingOut) {
     return;
@@ -15,8 +15,10 @@ export async function handleClientSignOut() {
   isLoggingOut = true;
 
   try {
-    // Clear all session data first (cookies, localStorage, etc.)
-    await clearAllSessionData();
+    // Clear all session data first (cookies, localStorage, etc.).
+    // Forward the access token (from the NextAuth session) so the backend
+    // can revoke refresh tokens — it can't be read from the JWE cookie.
+    await clearAllSessionData(sessionToken);
 
     // Then call NextAuth signOut with redirect to ensure complete cleanup
     await signOut({

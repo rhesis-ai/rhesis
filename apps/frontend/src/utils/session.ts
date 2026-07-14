@@ -2,99 +2,13 @@
 
 import { API_CONFIG } from './api-client/config';
 
-export interface User {
-  id: string;
-  name: string;
-  email: string;
-  image?: string;
-  organization_id?: string;
-}
-
-export interface Session {
-  user: User;
-}
-
-export async function getSession(): Promise<Session | null> {
-  // Get session token from cookie
-  const cookieValue = document.cookie
-    .split('; ')
-    .find(row => row.startsWith('next-auth.session-token='))
-    ?.split('=')[1];
-
-  if (!cookieValue) return null;
-
-  // Extract the actual JWT token from the session data
-  let token = cookieValue;
-  try {
-    const sessionData = JSON.parse(decodeURIComponent(cookieValue));
-    if (
-      sessionData &&
-      typeof sessionData === 'object' &&
-      sessionData.session_token
-    ) {
-      token = sessionData.session_token;
-    }
-  } catch (_error) {
-    // If JSON parsing fails, treat as direct token
-  }
-
-  try {
-    const response = await fetch(`${API_CONFIG.baseUrl}/auth/verify`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-      },
-      body: JSON.stringify({ session_token: token }),
-    });
-
-    if (!response.ok) {
-      return null;
-    }
-
-    const data = await response.json();
-    if (!data.authenticated || !data.user) {
-      return null;
-    }
-
-    return {
-      user: data.user,
-    };
-  } catch (_error) {
-    return null;
-  }
-}
-
-export async function clearAllSessionData() {
-  // Step 1: Call backend logout endpoint to clear server-side session
-  // Try to get the session token first to pass to backend
-  let sessionToken: string | undefined;
-  try {
-    // Extract session token from cookie directly
-    const cookieValue = document.cookie
-      .split('; ')
-      .find(row => row.startsWith('next-auth.session-token='))
-      ?.split('=')[1];
-
-    if (cookieValue) {
-      // Try to parse as JSON first
-      try {
-        const sessionData = JSON.parse(decodeURIComponent(cookieValue));
-        if (
-          sessionData &&
-          typeof sessionData === 'object' &&
-          sessionData.session_token
-        ) {
-          sessionToken = sessionData.session_token;
-        }
-      } catch {
-        // If JSON parsing fails, treat as direct token
-        sessionToken = decodeURIComponent(cookieValue);
-      }
-    }
-  } catch (error) {
-    console.error('Failed to extract session token during logout:', error);
-  }
+export async function clearAllSessionData(sessionToken?: string) {
+  // Step 1: Call backend logout endpoint to clear server-side session.
+  // The session cookie is an encrypted JWE, so the access token cannot be
+  // read from it client-side. Callers that have it (from the NextAuth
+  // session) pass it in so the backend can revoke refresh tokens and
+  // invalidate the session; without it, the backend still clears the
+  // cookie-based session and NextAuth signOut removes the cookie.
 
   // Call backend logout with retry logic
   const maxRetries = 2;

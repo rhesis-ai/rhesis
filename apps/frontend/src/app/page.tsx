@@ -60,8 +60,7 @@ export default function LandingPage() {
               const data = await response.json();
               const { signIn } = await import('next-auth/react');
               await signIn('credentials', {
-                session_token: data.session_token,
-                refresh_token: data.refresh_token || '',
+                code: data.auth_code,
                 redirect: true,
                 callbackUrl: '/architect',
               });

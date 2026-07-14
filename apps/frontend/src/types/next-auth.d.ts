@@ -6,6 +6,7 @@ declare module 'next-auth' {
     session_token?: string;
     user?: User;
     expires: string;
+    error?: string;
   }
 
   interface User extends NextAuthUser {

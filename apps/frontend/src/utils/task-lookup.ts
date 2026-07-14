@@ -45,7 +45,7 @@ export async function getStatuses(sessionToken?: string): Promise<Status[]> {
   }
 
   try {
-    const token = sessionToken || getSessionToken();
+    const token = sessionToken;
     if (!token) {
       throw new Error('No session token available');
     }
@@ -111,7 +111,7 @@ export async function getPriorities(
   }
 
   try {
-    const token = sessionToken || getSessionToken();
+    const token = sessionToken;
     if (!token) {
       throw new Error('No session token available');
     }
@@ -199,7 +199,7 @@ export async function getStatusesForTask(
     !allStatuses.find(status => status.id === existingTaskStatusId)
   ) {
     try {
-      const token = sessionToken || getSessionToken();
+      const token = sessionToken;
       if (token) {
         const clientFactory = new ApiClientFactory(token);
         const statusClient = clientFactory.getStatusClient();
@@ -236,7 +236,7 @@ export async function getPrioritiesForTask(
     !allPriorities.find(priority => priority.id === existingTaskPriorityId)
   ) {
     try {
-      const token = sessionToken || getSessionToken();
+      const token = sessionToken;
       if (token) {
         const clientFactory = new ApiClientFactory(token);
         const typeLookupClient = clientFactory.getTypeLookupClient();
@@ -264,19 +264,4 @@ export async function getPrioritiesForTask(
 
 export function clearCache(): void {
   taskDataCache.clear();
-}
-
-// Helper function to get session token from NextAuth
-function getSessionToken(): string | null {
-  // Try to get from NextAuth session cookie
-  if (typeof document !== 'undefined') {
-    const cookies = document.cookie.split(';');
-    const sessionCookie = cookies.find(cookie =>
-      cookie.trim().startsWith('next-auth.session-token=')
-    );
-    if (sessionCookie) {
-      return sessionCookie.split('=')[1];
-    }
-  }
-  return null;
 }
