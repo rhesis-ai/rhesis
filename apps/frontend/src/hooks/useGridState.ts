@@ -1,13 +1,13 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import type {
-  GridFilterModel,
-  GridFilterItem,
-  GridPaginationModel,
-  GridSortModel,
+import {
+  GridLogicOperator,
+  type GridFilterModel,
+  type GridFilterItem,
+  type GridPaginationModel,
+  type GridSortModel,
 } from '@mui/x-data-grid';
-import { GridLogicOperator } from '@mui/x-data-grid';
 import { DEFAULT_GRID_SORT } from '@/utils/grid-sort';
 
 export interface UseGridStateOptions {

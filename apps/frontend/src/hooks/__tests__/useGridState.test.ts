@@ -1,6 +1,5 @@
 import { act, renderHook } from '@testing-library/react';
-import type { GridFilterModel } from '@mui/x-data-grid';
-import { GridLogicOperator } from '@mui/x-data-grid';
+import { GridLogicOperator, type GridFilterModel } from '@mui/x-data-grid';
 import { useGridState } from '../useGridState';
 import { applyTestDrawerFiltersToModel } from '@/app/(protected)/tests/components/test-filter-model';
 import { EMPTY_TEST_FILTERS } from '@/app/(protected)/tests/components/TestFilterDrawer';
