@@ -70,7 +70,7 @@ Skip the menu when intent is already clear. PRD and run/analyze paths skip explo
 
 | File | Contents |
 |---|---|
-| `definitions.md` | Platform vocabulary |
+| `definitions.md` | Agent term disambiguation (docs: [Glossary](https://docs.rhesis.ai/glossary.md)) |
 | `entity-model.md` | Entity graph and tool chains |
 | `metric-scope.md` | Single-Turn vs Multi-Turn alignment |
 | `prd-workflow.md` | PRD → test foundation pipeline |

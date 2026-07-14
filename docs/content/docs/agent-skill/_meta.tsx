@@ -4,8 +4,7 @@ const meta: MetaRecord = {
   index: 'Overview',
   platform: 'Platform workflow',
   prd: 'PRD workflow',
-  definitions: 'Definitions',
-  'for-agents': 'For AI agents',
+  'for-agents': 'Agent reference',
 }
 
 export default meta

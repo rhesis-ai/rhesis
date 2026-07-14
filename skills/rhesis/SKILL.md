@@ -11,7 +11,7 @@ description: >-
 
 Platform operations use the `rhesis` MCP server. **Read `references/workflow-index.md` first** to route the request and load the right references. Do not answer platform mechanics from memory.
 
-**Canonical docs (human + machine):** [docs.rhesis.ai/llms.txt](https://docs.rhesis.ai/llms.txt) — fetch `.md` links from the index. Key pages: [definitions](https://docs.rhesis.ai/docs/agent-skill/definitions.md), [metric scope](https://docs.rhesis.ai/docs/metrics/metric-scope.md), [PRD workflow](https://docs.rhesis.ai/docs/agent-skill/prd.md), [for agents](https://docs.rhesis.ai/docs/agent-skill/for-agents.md).
+**Canonical docs (human + machine):** [docs.rhesis.ai/llms.txt](https://docs.rhesis.ai/llms.txt) — fetch `.md` links from the index. Key pages: [glossary](https://docs.rhesis.ai/glossary.md), [metric scope](https://docs.rhesis.ai/docs/metrics/metric-scope.md), [PRD workflow](https://docs.rhesis.ai/docs/agent-skill/prd.md), [agent reference](https://docs.rhesis.ai/docs/agent-skill/for-agents.md).
 
 **Golden example (repo):** `references/use-case-bracketfeld.md` — full PRD plan shape; not duplicated in docs.
 

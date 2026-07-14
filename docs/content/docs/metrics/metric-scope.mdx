@@ -8,7 +8,11 @@ keywords: [metric_scope, single-turn, multi-turn, test type]
 Every metric declares **`metric_scope`**. Every test set declares **`test_type`**. At run time the platform keeps only metrics whose scope includes the test's type. **Mismatches are silently dropped** — no error, empty scores.
 
 <Callout type="warning">
-  Always set `metric_scope` when creating metrics and validate scope coverage in your plan before generating test sets.
+  Set `metric_scope` when creating metrics and check scope coverage in your plan before generating test sets.
+</Callout>
+
+<Callout type="info">
+  See also the [Metric Scope](/glossary/metric-scope) glossary entry and [Architect planning](/docs/architect/planning).
 </Callout>
 
 ## When to use `["Single-Turn"]`
@@ -25,7 +29,7 @@ Pair with a **Multi-Turn** test set; `generation_prompt` describes the **thread 
 
 ## When to use both
 
-Rare — same rubric for one reply or full transcript. Prefer two metrics + two test sets when probes differ.
+Rare — same rubric for one reply or full transcript. Prefer two metrics and two test sets when probes differ.
 
 ## Planning checklist
 
@@ -35,12 +39,4 @@ Rare — same rubric for one reply or full transcript. Prefer two metrics + two 
 4. Coverage: every behavior in a set has a linked metric whose scope includes that set's `test_type`.
 5. Split guardrails (Single-Turn) and retention (Multi-Turn) into separate sets when needed.
 
-## Plan tables (before approval)
-
-| Table | Columns |
-| --- | --- |
-| **Metrics** | Metric, Behavior, AC source, `metric_scope`, Score type, Pass definition |
-| **Test sets** | Test set, `test_type`, Behaviors, Metrics expected to run |
-| **Coverage matrix** | Test set, test_type, Behavior, Linked metric, Scope OK? |
-
-→ [Architect planning](/docs/architect/planning) · [PRD workflow](/docs/agent-skill/prd)
+→ [PRD workflow](/docs/agent-skill/prd) · [Agent reference](/docs/agent-skill/for-agents) (plan table templates)

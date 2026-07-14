@@ -77,7 +77,7 @@ test('renderLlmsTxt: includes the expected primary section headings', t => {
 
   // At minimum we expect Docs.
   assert.match(body, /^## Docs$/m, 'Docs section should be present')
-  assert.match(body, /^## For AI agents$/m, 'Agent section should be present')
+  assert.match(body, /^## Agent reference$/m, 'Agent section should be present')
 
   if (/^## Optional$/m.test(body)) {
     const optionalIdx = body.search(/^## Optional$/m)

@@ -66,13 +66,13 @@ export function renderLlmsTxt() {
   lines.push('')
 
   // Agent ingestion — how machines should use this index
-  lines.push('## For AI agents')
+  lines.push('## Agent reference')
   lines.push('')
   lines.push('> Read this section first if you are an LLM agent (Cursor, Claude Code, Telemachus, MCP).')
   lines.push('> Fetch linked `.md` URLs — do not scrape HTML. One concept per fetch; do not load llms-full.txt unless you need the full corpus.')
   lines.push('')
-  lines.push('- [For AI agents](https://docs.rhesis.ai/docs/agent-skill/for-agents.md): routing table and reading rules')
-  lines.push('- [Platform definitions](https://docs.rhesis.ai/docs/agent-skill/definitions.md): behaviors, metrics, test sets, terms')
+  lines.push('- [Agent reference](https://docs.rhesis.ai/docs/agent-skill/for-agents.md): routing, confusions, plan tables')
+  lines.push('- [Glossary](https://docs.rhesis.ai/glossary.md): platform terms (also `glossary/behavior.md`, `glossary/metric-scope.md`, …)')
   lines.push('- [Metric scope](https://docs.rhesis.ai/docs/metrics/metric-scope.md): Single-Turn vs Multi-Turn alignment (critical)')
   lines.push('- [PRD workflow](https://docs.rhesis.ai/docs/agent-skill/prd.md): requirements → test foundation')
   lines.push('- [Architect workflow](https://docs.rhesis.ai/docs/architect/workflow.md): native UI agent phases')

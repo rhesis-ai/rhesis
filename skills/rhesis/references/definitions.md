@@ -1,6 +1,6 @@
 # Rhesis platform definitions
 
-> **Docs:** https://docs.rhesis.ai/docs/agent-skill/definitions.md
+> **Docs:** [Glossary](https://docs.rhesis.ai/glossary.md) — per-term pages at `glossary/<id>.md`. This file adds agent workflow disambiguation.
 
 Canonical terms for this skill. When the user or your own draft mixes these up, align to these definitions.
 
