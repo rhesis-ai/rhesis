@@ -1,7 +1,7 @@
 # Terminology — confusions only
 
 > **Canonical terms:** [Glossary](https://docs.rhesis.ai/glossary.md) — fetch `glossary/<id>.md` per term.
-> Start with: `behavior`, `metric`, `metric-scope`, `test-set`, `endpoint`, `test`, `test-run`, `test-result`, `category`, `topic`, `knowledge`.
+> Start with: `behavior`, `metric`, `metric-scope`, `test-set`, `endpoint`, `test`, `test-run`, `test-result`, `category`, `topic`, `tag`, `knowledge`.
 
 Use this file when concepts get mixed up. Do **not** duplicate glossary definitions here.
 
@@ -19,7 +19,7 @@ Use this file when concepts get mixed up. Do **not** duplicate glossary definiti
 
 **Source vs pasted PRD** — Pasted chat text is ephemeral. For large specs, `create_source` then pass the source id into `generate_test_set` (Single-Turn only). See glossary: `knowledge`.
 
-**Endpoint vs MCP** — Endpoint = the AI app under test. MCP = how agents connect to Rhesis tools. See glossary: `endpoint`, `mcp`.
+**Endpoint vs MCP** — Endpoint = the AI app under test. MCP has two meanings: knowledge import vs Rhesis agent tool server. See glossary: `endpoint`, `mcp`.
 
 ---
 

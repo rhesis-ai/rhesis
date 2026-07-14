@@ -70,7 +70,7 @@ Skip the menu when intent is already clear. PRD and run/analyze paths skip explo
 
 | File | Contents |
 |---|---|
-| [Glossary](https://docs.rhesis.ai/glossary.md) | Canonical terms — `glossary/behavior.md`, `glossary/metric-scope.md`, … |
+| [Glossary](https://docs.rhesis.ai/glossary.md) | Canonical terms — `glossary/behavior.md`, `glossary/test-result.md`, `glossary/tag.md`, … |
 | `definitions.md` | Confusions and PRD traceability only (glossary first) |
 | `entity-model.md` | Entity graph and tool chains |
 | `metric-scope.md` | Single-Turn vs Multi-Turn alignment |

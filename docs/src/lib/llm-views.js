@@ -72,7 +72,7 @@ export function renderLlmsTxt() {
   lines.push('> Fetch linked `.md` URLs — do not scrape HTML. One concept per fetch; do not load llms-full.txt unless you need the full corpus.')
   lines.push('')
   lines.push('- [Agent reference](https://docs.rhesis.ai/docs/agent-skill/for-agents.md): routing, confusions, plan tables')
-  lines.push('- [Glossary](https://docs.rhesis.ai/glossary.md): platform terms (also `glossary/behavior.md`, `glossary/metric-scope.md`, …)')
+  lines.push('- [Glossary](https://docs.rhesis.ai/glossary.md): platform terms (e.g. `glossary/behavior.md`, `glossary/test-result.md`, `glossary/metric-scope.md`, `glossary/tag.md`)')
   lines.push('- [Metric scope](https://docs.rhesis.ai/docs/metrics/metric-scope.md): Single-Turn vs Multi-Turn alignment (critical)')
   lines.push('- [PRD workflow](https://docs.rhesis.ai/docs/agent-skill/prd.md): requirements → test foundation')
   lines.push('- [Architect workflow](https://docs.rhesis.ai/docs/architect/workflow.md): native UI agent phases')
