@@ -45,11 +45,11 @@ export class InsightsPage extends BasePage {
     const timeRange1M = this.page.getByRole('button', { name: '1M' });
 
     // Wait for endpoint auto-selection and insights fetch to settle.
-    await expect(
-      noEndpoints.or(noTestResults).or(searchBehaviors)
-    ).toBeVisible({
-      timeout: 30_000,
-    });
+    await expect(noEndpoints.or(noTestResults).or(searchBehaviors)).toBeVisible(
+      {
+        timeout: 30_000,
+      }
+    );
 
     if (await noEndpoints.isVisible()) {
       await expect(
