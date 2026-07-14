@@ -63,7 +63,6 @@ config:
   # Frontend
   apiBaseUrl: ""
   nextPublicAppUrl: ""
-  nextauthUrl: ""
   nextTelemetryDisabled: "1"
   nextPublicQuickStart: "false"
   nextPublicSupportEmail: "hello@rhesis.ai"
@@ -156,6 +155,7 @@ backend:
     annotations:
       cert-manager.io/cluster-issuer: "letsencrypt-prod"
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/proxy-body-size: "25m"
     host: ""
     tlsSecretName: "rhesis-backend-tls"
   env: []

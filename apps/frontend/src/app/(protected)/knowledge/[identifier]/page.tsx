@@ -2,10 +2,10 @@ export const dynamic = 'force-dynamic';
 
 import { auth } from '@/auth';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
+import { notFoundIfEntityMissing } from '@/utils/entity-not-found-server';
 import SourcePreviewClientWrapper from './components/SourcePreviewClientWrapper';
 import { Alert, Paper } from '@mui/material';
 import styles from '@/styles/Knowledge.module.css';
-import { notFound } from 'next/navigation';
 
 interface SourcePreviewPageProps {
   params: Promise<{
@@ -54,12 +54,8 @@ export default async function SourcePreviewPage({
       />
     );
   } catch (error) {
-    // If source not found, return 404
-    if (error instanceof Error && error.message.includes('404')) {
-      notFound();
-    }
+    notFoundIfEntityMissing(error);
 
-    // Show error state for other errors
     return (
       <Paper className={styles.errorContainer}>
         <Alert severity="error">

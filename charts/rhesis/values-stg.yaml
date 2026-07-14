@@ -33,7 +33,6 @@ config:
   # Frontend
   apiBaseUrl: "https://stg-api.rhesis.ai"
   nextPublicAppUrl: "https://stg-app.rhesis.ai"
-  nextauthUrl: "https://stg-app.rhesis.ai"
   nextPublicSupportEmail: "hello@rhesis.ai"
   onboardingVideoUrl: "https://youtu.be/fNtxqGtBu2Y"
   # Backend
@@ -70,6 +69,7 @@ backend:
     annotations:
       cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/proxy-body-size: "25m"
   livenessProbe:
     httpGet:
       path: /health

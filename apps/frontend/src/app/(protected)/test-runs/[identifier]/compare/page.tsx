@@ -1,7 +1,6 @@
 import { Box } from '@mui/material';
 import { Metadata } from 'next';
-import { notFound } from 'next/navigation';
-import { isNotFoundApiError } from '@/utils/api-client/is-not-found-error';
+import { notFoundIfEntityMissing } from '@/utils/entity-not-found-server';
 import { auth } from '@/auth';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
@@ -47,9 +46,7 @@ export default async function TestRunComparePage({
   try {
     testRun = await testRunsClient.getTestRun(identifier);
   } catch (error) {
-    if (isNotFoundApiError(error)) {
-      notFound();
-    }
+    notFoundIfEntityMissing(error);
     throw error;
   }
 

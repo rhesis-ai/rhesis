@@ -477,7 +477,11 @@ async def update_test_set(
     return db_test_set
 
 
-@router.get("/{test_set_identifier}/download", response_class=StreamingResponse)
+@router.get(
+    "/{test_set_identifier}/download",
+    response_class=StreamingResponse,
+    **capability(Permission.TestSet.EXPORT),
+)
 def download_test_set_prompts(
     test_set_identifier: str,
     db: Session = Depends(get_tenant_db_session),
@@ -702,7 +706,10 @@ def generate_test_set_test_stats(
         )
 
 
-@router.get("/{test_set_identifier}/prompts/download")
+@router.get(
+    "/{test_set_identifier}/prompts/download",
+    **capability(Permission.TestSet.EXPORT),
+)
 def download_test_set_prompts_csv(
     test_set_identifier: str,
     db: Session = Depends(get_tenant_db_session),

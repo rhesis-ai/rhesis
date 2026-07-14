@@ -57,30 +57,54 @@ const FRAMEWORK_TRACING_ITEMS = [
 /** LangChain, LangGraph, and SDK Connector — single Observability section on /docs/integrations */
 const OBSERVABILITY_GRID_ITEMS = [...FRAMEWORK_TRACING_ITEMS, CONNECTOR_ITEM]
 
-/** MCP server providers — sections on /docs/mcp */
-const MCP_ITEMS = [
+/** Tool providers — sections on /docs/tools */
+const TOOL_ITEMS = [
   {
     name: 'Notion',
-    href: '/docs/mcp#notion',
+    href: '/docs/tools#notion',
     src: '/integrations/providers/notion.svg',
     kind: 'simpleIcon',
   },
   {
     name: 'GitHub',
-    href: '/docs/mcp#github',
+    href: '/docs/tools#github',
     src: '/integrations/providers/github.svg',
     kind: 'simpleIcon',
   },
   {
     name: 'Jira',
-    href: '/docs/mcp#jira-or-confluence',
+    href: '/docs/tools#jira',
     src: '/integrations/providers/jira.svg',
     kind: 'simpleIcon',
   },
   {
-    name: 'Confluence',
-    href: '/docs/mcp#jira-or-confluence',
-    src: '/integrations/providers/confluence.svg',
+    name: 'GitLab',
+    href: '/docs/tools#gitlab',
+    src: '/integrations/providers/gitlab.svg',
+    kind: 'simpleIcon',
+  },
+  {
+    name: 'Asana',
+    href: '/docs/tools#asana',
+    src: '/integrations/providers/asana.svg',
+    kind: 'simpleIcon',
+  },
+  {
+    name: 'Azure DevOps',
+    href: '/docs/tools#azure-devops',
+    src: '/integrations/providers/azure-devops.svg',
+    kind: 'simpleIcon',
+  },
+  {
+    name: 'Linear',
+    href: '/docs/tools#linear',
+    src: '/integrations/providers/linear.svg',
+    kind: 'simpleIcon',
+  },
+  {
+    name: 'Shortcut',
+    href: '/docs/tools#shortcut',
+    src: '/integrations/providers/shortcut.svg',
     kind: 'simpleIcon',
   },
 ]
@@ -319,24 +343,9 @@ function ProviderChip({ item }) {
   )
 }
 
-export function McpSection() {
+export function ToolsSection() {
   return (
     <section style={{ marginBottom: '2.5rem' }}>
-      <p
-        style={{
-          margin: '0 0 1.25rem 0',
-          fontSize: '0.9375rem',
-          color: 'var(--integration-showcase-lede)',
-          maxWidth: '42rem',
-          lineHeight: 1.55,
-        }}
-      >
-        Connect MCP servers so Rhesis can use external tools during workflows. See the{' '}
-        <a href="/docs/mcp" style={{ color: 'var(--integration-showcase-link)', fontWeight: 600 }}>
-          MCP
-        </a>{' '}
-        guide for setup.
-      </p>
       <div
         style={{
           display: 'grid',
@@ -344,7 +353,7 @@ export function McpSection() {
           gap: '0.75rem',
         }}
       >
-        {MCP_ITEMS.map(item => (
+        {TOOL_ITEMS.map(item => (
           <GridCard key={item.name + item.href} item={item} />
         ))}
       </div>
@@ -566,11 +575,11 @@ export function IntegrationsHub() {
         }}
       >
         A single place to see how Rhesis plugs into your environment: observability and remote test
-        runs, evaluation-framework integrations, MCP servers, and LLM providers.
+        runs, evaluation-framework integrations, tool connections, and LLM providers.
       </p>
       <ObservabilitySection />
       <TestsSection />
-      <McpSection />
+      <ToolsSection />
       <ModelProvidersSection />
     </div>
   )

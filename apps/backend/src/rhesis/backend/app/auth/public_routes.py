@@ -92,6 +92,13 @@ AUTHZ_EXEMPT_ROUTES: frozenset[tuple[str, str]] = frozenset(
         # they first complete their profile (name, picture, etc.) after OAuth sign-in.
         # Cross-user update authorization is enforced by the in-handler authorize() call.
         ("PUT", "/users/{user_id}"),
+        # Cross-project entity resolution: spans multiple resource types
+        # (test, endpoint, metric, ...) so no single resource+verb capability
+        # applies. Authorization is enforced in-handler: the lookup is always
+        # organization_id-scoped, and project-level access is resolved to
+        # "no_access" (details withheld) when the caller lacks a
+        # ProjectMembership row for the entity's project.
+        ("GET", "/resolve"),
     }
 )
 

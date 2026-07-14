@@ -18,9 +18,9 @@ class DatabaseSettings(BaseSettings):
     model_config = SettingsConfigDict(env_ignore_empty=True)
 
     driver: str = Field(default="postgresql", alias="DB_DRIVER")
-    host: str = Field(alias="DB_HOST")
+    host: str = Field(default="localhost", alias="DB_HOST")
     port: int = Field(default=5432, alias="DB_PORT")
-    name: str = Field(alias="DB_NAME")
+    name: str = Field(default="rhesis-db", alias="DB_NAME")
 
     app_user: str | None = Field(default=None, alias="APP_DB_USER")
     app_password: str | None = Field(default=None, alias="APP_DB_PASS")
@@ -62,7 +62,7 @@ class FrontendSettings(BaseSettings):
 
     model_config = SettingsConfigDict(env_ignore_empty=True)
 
-    url: str = Field(alias="FRONTEND_URL")
+    url: str = Field(default="http://localhost:3000", alias="FRONTEND_URL")
 
     @field_validator("url")
     @classmethod
@@ -100,7 +100,7 @@ class ApplicationSettings(BaseSettings):
     google_cloud_project: str | None = Field(default=None, alias="GOOGLE_CLOUD_PROJECT")
     cloud_run_service: str | None = Field(default=None, alias="K_SERVICE")
     cloud_run_revision: str | None = Field(default=None, alias="K_REVISION")
-    api_base_url: str = Field(alias="API_BASE_URL")
+    api_base_url: str = Field(default="http://localhost:8080", alias="API_BASE_URL")
 
     @field_validator("api_base_url")
     @classmethod
@@ -124,6 +124,10 @@ class ApplicationSettings(BaseSettings):
     @property
     def is_google_cloud(self) -> bool:
         return bool(self.cloud_run_service or self.cloud_run_revision)
+
+    @property
+    def secure_cookies(self) -> bool:
+        return urlparse(self.api_base_url).scheme == "https"
 
     @property
     def quick_start_allowed_by_env(self) -> bool:

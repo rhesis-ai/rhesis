@@ -25,6 +25,8 @@ import { applyTestDrawerFiltersToModel } from '@/app/(protected)/tests/component
 import { useGridState } from '@/hooks/useGridState';
 import { useGridQuery } from '@/hooks/useGridQuery';
 import { testSetKeys } from '@/constants/query-keys';
+import { useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 
 interface LinkedTestsToolbarState {
   searchQuery: string;
@@ -41,6 +43,7 @@ const LinkedTestsToolbarContext = React.createContext<LinkedTestsToolbarState>({
 });
 
 function LinkedTestsUnifiedToolbar() {
+  const canExport = useCan(Capability.TestSet.EXPORT);
   const {
     searchQuery,
     setSearchQuery,
@@ -61,7 +64,7 @@ function LinkedTestsUnifiedToolbar() {
         <>
           <GridToolbarColumnsButton />
           <GridToolbarDensitySelector />
-          <GridToolbarExport />
+          {canExport && <GridToolbarExport />}
         </>
       }
     />

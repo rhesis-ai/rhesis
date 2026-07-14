@@ -15,7 +15,7 @@ describe('trace-filter-params', () => {
         timeRange: '24h',
       },
       'llm.invoke',
-      'single_turn',
+      'Single-Turn',
       50,
       0
     );
@@ -23,7 +23,7 @@ describe('trace-filter-params', () => {
     expect(params.project_id).toBe('proj-1');
     expect(params.trace_source).toBe('test');
     expect(params.search).toBe('llm.invoke');
-    expect(params.trace_type).toBe('single_turn');
+    expect(params.trace_type).toBe('Single-Turn');
     expect(params.start_time_after).toBeDefined();
     expect(params.limit).toBe(50);
     expect(params.offset).toBe(0);

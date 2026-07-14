@@ -279,21 +279,39 @@ class TestGetMyPermissions:
             f"Missing: {expected - my_perms}. Extra: {my_perms - expected}."
         )
 
-    def test_project_member_with_project_id_gets_all_capabilities(
+    def test_project_member_with_project_id_excludes_org_owner_only_capabilities(
         self, authed_client: TestClient, mock_project_member
     ):
-        """Project member gets all capabilities when the project_id scope matches."""
+        """Project member with a project scope still can't reach org-owner-only caps.
+
+        Org-scoped capabilities (sso:manage, role:manage, organization:update, ...)
+        must never be granted by project membership alone, regardless of whether the
+        request carries a project_id — authorize() forces project_id=None for them
+        before delegating to the provider, so a project member's ambient project
+        context can't leak into org-admin actions they don't otherwise hold.
+
+        ``project_member:read`` is project-scoped and granted by plain project
+        membership. ``project_member:manage`` is owner-only for org-scoped
+        requests (no ``project_id``) via ``_OWNER_ONLY_CAPABILITIES``, but the
+        community provider's rule 3 still grants every project-scoped cap —
+        including ``project_member:manage`` — to enrolled members when
+        ``project_id`` is present (EE RBAC tightens this via role matrices).
+        """
         from rhesis.backend.app.auth.capabilities import get_all_capabilities
+        from rhesis.backend.app.auth.rbac import _OWNER_ONLY_CAPABILITIES
 
         all_caps = set(get_all_capabilities())
+        # Community provider rule 3 grants every project-scoped cap (including
+        # project_member:manage) to any enrolled member when project_id is set.
+        expected = (all_caps - _OWNER_ONLY_CAPABILITIES) | {"project_member:manage"}
         my_perms = set(
             authed_client.get(
                 "/me/permissions", params={"project_id": str(_TEST_PROJECT_ID)}
             ).json()
         )
-        assert all_caps == my_perms, (
-            f"Project member should have all capabilities for their project. "
-            f"Missing: {all_caps - my_perms}."
+        assert my_perms == expected, (
+            f"Project member should hold standard (non-owner) capabilities for their "
+            f"project. Missing: {expected - my_perms}. Extra: {my_perms - expected}."
         )
 
     def test_project_member_without_project_id_gets_standard_capabilities(

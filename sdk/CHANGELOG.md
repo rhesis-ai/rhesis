@@ -13,6 +13,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-07-09
+
+### Added
+- **Pydantic AI Integration**: Added `PydanticAIIntegration` for auto-instrumentation and `PydanticAITarget` for Penelope.
+- **Native Telemetry Translation**: Migrated Pydantic AI to a native OpenTelemetry translating exporter (`PydanticAITranslatingExporter`), supporting `run()`, `run_sync()`, and `run_stream()` with automatic translation of agent, LLM, tool, and handoff spans.
+- **Native Async Targets**: Added native async paths (`a_send_message()`) for `LangChainTarget` and `LangGraphTarget` utilizing native `ainvoke()` execution.
+- **Multimodal File Attachments**: Added support for file attachments and multimodal content blocks in LangChain, LangGraph, and Pydantic AI targets, including support for object-storage-backed `FileReference` resolution.
+- **OWASP Synthesizer**: Added `OWASPSynthesizer` for report-based generation and security evaluation (defaulting to "OWASP LLM Top 10").
+
+
 ## [0.9.1] - 2026-06-25
 
 ### Added

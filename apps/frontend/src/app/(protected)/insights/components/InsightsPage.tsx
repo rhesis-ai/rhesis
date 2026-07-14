@@ -4,6 +4,10 @@ import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { Alert, Box, Button, CircularProgress } from '@mui/material';
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
 import { useEndpoints } from '@/hooks/useEndpoints';
+import { useCanWithStatus } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
+import AccessDenied from '@/components/common/AccessDenied';
+import PageLoadingState from '@/components/common/PageLoadingState';
 import { PageLayout } from '@/components/layout/PageLayout';
 import TestResultsFilters from './TestResultsFilters';
 import BehaviorInsightsView from './BehaviorInsightsView';
@@ -32,6 +36,9 @@ interface InsightsPageProps {
 
 export default function InsightsPage({ sessionToken }: InsightsPageProps) {
   const { activeProject } = useActiveProject();
+  const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
+    Capability.TestResult.READ
+  );
   const [filters, setFilters] = useState<InsightsFilters>(() =>
     normalizeInsightsFilters(DEFAULT_INSIGHTS_FILTERS)
   );
@@ -42,11 +49,15 @@ export default function InsightsPage({ sessionToken }: InsightsPageProps) {
     isLoading: endpointsLoading,
     isError: endpointsHasError,
     refetch: refetchEndpoints,
-  } = useEndpoints(sessionToken, {
-    limit: 100,
-    sort_by: 'name',
-    sort_order: 'asc',
-  });
+  } = useEndpoints(
+    sessionToken,
+    {
+      limit: 100,
+      sort_by: 'name',
+      sort_order: 'asc',
+    },
+    !permsLoading && canRead
+  );
   const endpointsError = endpointsHasError
     ? 'Failed to load endpoints. Please try again.'
     : null;
@@ -68,7 +79,7 @@ export default function InsightsPage({ sessionToken }: InsightsPageProps) {
     loading: insightsLoading,
     error,
     noRuns,
-  } = useBehaviorInsightsData(sessionToken, filters);
+  } = useBehaviorInsightsData(sessionToken, filters, !permsLoading && canRead);
 
   const behaviorOptions = useMemo<InsightsBehaviorOption[]>(
     () =>
@@ -197,6 +208,9 @@ export default function InsightsPage({ sessionToken }: InsightsPageProps) {
     searchQuery,
     onSearchChange: setSearchQuery,
   } as const;
+
+  if (permsLoading) return <PageLoadingState />;
+  if (!canRead) return <AccessDenied resource="insights" />;
 
   return (
     <PageLayout

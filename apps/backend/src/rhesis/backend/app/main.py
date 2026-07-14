@@ -33,7 +33,11 @@ from rhesis.backend.app.auth.user_utils import (
     require_current_user_or_token,
     require_current_user_or_token_without_context,
 )
-from rhesis.backend.app.config.settings import get_auth_settings, get_frontend_settings
+from rhesis.backend.app.config.settings import (
+    get_application_settings,
+    get_auth_settings,
+    get_frontend_settings,
+)
 from rhesis.backend.app.database import Base, engine, get_db
 from rhesis.backend.app.error_handlers import (
     create_validation_error_response,
@@ -617,7 +621,7 @@ app.add_middleware(
     session_cookie="session",
     max_age=3600,  # 1 hour session lifetime
     same_site="lax",  # Required for OAuth flows
-    https_only=not is_running_locally(),  # Enforce HTTPS outside local development
+    https_only=get_application_settings().secure_cookies,
 )
 
 

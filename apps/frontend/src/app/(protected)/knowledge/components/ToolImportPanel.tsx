@@ -28,6 +28,7 @@ import AddIcon from '@mui/icons-material/Add';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { safeRandomUUID } from '@/utils/uuid';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { Tool } from '@/utils/api-client/interfaces/tool';
 import { UUID } from 'crypto';
@@ -131,7 +132,7 @@ const ToolImportPanel = forwardRef<ToolImportPanelHandle, ToolImportPanelProps>(
     const notifications = useNotifications();
 
     const [urlItems, setUrlItems] = useState<UrlItem[]>([
-      { id: crypto.randomUUID(), url: '', status: 'pending' },
+      { id: safeRandomUUID(), url: '', status: 'pending' },
     ]);
 
     const { data: toolSourceTypes } = useTypeLookups(
@@ -163,7 +164,7 @@ const ToolImportPanel = forwardRef<ToolImportPanelHandle, ToolImportPanelProps>(
           }))
         );
       } else {
-        setUrlItems([{ id: crypto.randomUUID(), url: '', status: 'pending' }]);
+        setUrlItems([{ id: safeRandomUUID(), url: '', status: 'pending' }]);
         setError(null);
         setIncludeChildren(false);
         setPreviewItems(null);
@@ -190,7 +191,7 @@ const ToolImportPanel = forwardRef<ToolImportPanelHandle, ToolImportPanelProps>(
     const handleAddUrl = () => {
       setUrlItems(prev => [
         ...prev,
-        { id: crypto.randomUUID(), url: '', status: 'pending' },
+        { id: safeRandomUUID(), url: '', status: 'pending' },
       ]);
     };
 

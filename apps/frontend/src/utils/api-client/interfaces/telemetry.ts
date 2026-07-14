@@ -224,7 +224,7 @@ export type TraceSource = 'all' | 'test' | 'operation';
 /**
  * Trace type filter enum (single-turn vs multi-turn)
  */
-export type TraceType = 'all' | 'single_turn' | 'multi_turn';
+export type TraceType = 'all' | 'Single-Turn' | 'Multi-Turn';
 
 /**
  * Evaluation status for trace metrics (Pass/Fail/Error)
@@ -258,7 +258,7 @@ export interface TraceQueryParams {
   test_id?: string;
   endpoint_id?: string; // Filter by endpoint ID
   trace_source?: TraceSource; // Filter by trace source (all/test/operation)
-  trace_type?: TraceType; // Filter by trace type (all/single_turn/multi_turn)
+  trace_type?: TraceType; // Filter by trace type (all/Single-Turn/Multi-Turn)
   trace_metrics_status?: TraceMetricsStatus;
   root_spans_only?: boolean; // Return only root spans (defaults to true in backend)
   limit?: number;

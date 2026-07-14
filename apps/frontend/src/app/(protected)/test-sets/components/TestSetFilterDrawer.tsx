@@ -9,7 +9,7 @@ import {
   filterDrawerTextFieldSx,
 } from '@/components/common/FilterDrawer';
 import { filterUniqueValidOptions } from '@/components/common/BaseDrawer';
-import { TEST_TYPES } from '@/constants/test-types';
+import { TEST_TYPE_FILTER_OPTIONS } from '@/constants/test-types';
 import { ENTITY_TYPES } from '@/utils/api-client/config';
 import { useStatuses, useUsers, useTags } from '@/hooks/useLookups';
 import ActivityPresenceFiltersSection from '@/components/common/ActivityPresenceFilters';
@@ -61,11 +61,6 @@ export function countActiveTestSetFilters(f: TestSetFilters): number {
     countActivePresenceFilters(f)
   );
 }
-
-const TEST_SET_TYPE_OPTIONS = [
-  { label: 'Single Turn', value: TEST_TYPES.SINGLE_TURN },
-  { label: 'Multi Turn', value: TEST_TYPES.MULTI_TURN },
-] as const;
 
 const textFieldSx = filterDrawerTextFieldSx;
 
@@ -163,7 +158,7 @@ export default function TestSetFilterDrawer({
     >
       <FilterSection title="Test Set Type">
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-          {TEST_SET_TYPE_OPTIONS.map(opt => (
+          {TEST_TYPE_FILTER_OPTIONS.map(opt => (
             <Box
               key={opt.value}
               component="button"

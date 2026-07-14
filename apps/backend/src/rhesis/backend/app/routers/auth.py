@@ -46,6 +46,7 @@ from rhesis.backend.app.auth.used_token_store import (
 from rhesis.backend.app.auth.user_utils import (
     _send_welcome_email,
     find_or_create_user_from_auth,
+    mark_user_joined_if_needed,
 )
 from rhesis.backend.app.config.settings import (
     get_application_settings,
@@ -975,10 +976,12 @@ async def verify_magic_link(
     if not user.is_email_verified:
         user.is_email_verified = True
 
-    # Update last login
+    # Update last login and stamp first org join when applicable
     from datetime import datetime, timezone
 
-    user.last_login_at = datetime.now(timezone.utc)
+    current_time = datetime.now(timezone.utc)
+    user.last_login_at = current_time
+    mark_user_joined_if_needed(user, when=current_time)
     db.commit()
 
     # Set up session and create tokens. Refresh token wrapped in a
@@ -1264,8 +1267,9 @@ async def logout(
     # Clear the backend SessionMiddleware cookie (host-only on the API origin).
     # NextAuth cookies live on the frontend host and are cleared there.
     # Emit both Secure and non-Secure clears so logout works regardless of
-    # how the cookie was set (SessionMiddleware uses https_only=not
-    # is_running_locally()). The mismatched variant is a harmless no-op.
+    # how the cookie was set (SessionMiddleware derives https_only from the
+    # API_BASE_URL scheme via ApplicationSettings.secure_cookies). The
+    # mismatched variant is a harmless no-op.
     for secure in (False, True):
         response.set_cookie(
             key="session",

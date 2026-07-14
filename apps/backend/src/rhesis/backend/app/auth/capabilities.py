@@ -93,6 +93,7 @@ class Permission:
         DELETE = "test_set:delete"
         GENERATE = "test_set:generate"
         EXECUTE = "test_set:execute"
+        EXPORT = "test_set:export"
 
     class Test(_PermissionEnum):
         READ = "test:read"
@@ -130,6 +131,11 @@ class Permission:
         CREATE = "endpoint:create"
         UPDATE = "endpoint:update"
         DELETE = "endpoint:delete"
+
+    class Playground(_PermissionEnum):
+        """Interactive endpoint chat in the Playground UI and WebSocket handler."""
+
+        USE = "playground:use"
 
     # --- Metrics & models (project-scoped) ----------------------------------
 
@@ -241,7 +247,10 @@ class Permission:
         UPDATE = "project:update"
 
     class ProjectMember(_PermissionEnum):
-        #: List/add/remove project members. Owner-only in the community tier
+        #: List project members. Granted to any enrolled project member in the
+        #: community tier; Viewer+ in EE via the built-in :read baseline.
+        READ = "project_member:read"
+        #: Add/remove project members. Owner-only in the community tier
         #: (plan §1.5); EE Phase 2 (SP8) grants it via project-admin roles.
         MANAGE = "project_member:manage"
 
@@ -290,6 +299,11 @@ class Permission:
 
         MANAGE = "api_clients:manage"
 
+    class Polyphemus(_PermissionEnum):
+        """Polyphemus adversarial model — org-scoped self-service access request."""
+
+        REQUEST = "polyphemus:request"
+
 
 class ResourceType(_PermissionEnum):
     """Resource identifiers — the prefix of a ``resource:action`` capability.
@@ -305,6 +319,51 @@ class ResourceType(_PermissionEnum):
     TASK = "task"
     TEST_RESULT = "test_result"
     TEST_RUN = "test_run"
+
+
+# ---------------------------------------------------------------------------
+# Capability scope — organization vs. project
+# ---------------------------------------------------------------------------
+#
+# Community-side because authorize()/require_permission() (this package) need
+# it to decide whether a permission check should ignore the ambient project
+# scope. EE's ``ee/rbac/models.py`` re-exports these names for its own use
+# (custom-role ``scope`` column, catalog tests) rather than defining them,
+# since core code must never import from ``rhesis.backend.ee.*``.
+
+SCOPE_ORGANIZATION = "organization"
+SCOPE_PROJECT = "project"
+
+#: Resource types whose permissions are always org-scoped, regardless of any
+#: ambient project context (mirrors the seeded ``permission.scope`` column).
+_ORG_SCOPED_RESOURCES: frozenset[str] = frozenset(
+    {
+        "organization",
+        "member",
+        "role",
+        "token",
+        "recycle",
+        "sso",
+        "api_clients",
+        "polyphemus",
+    }
+)
+
+
+def capability_scope(cap: str) -> str:
+    """Return ``'organization'`` or ``'project'`` for a capability string.
+
+    ``project:create`` is org-scoped (creating a project *inside* the org).
+    All other ``project:*`` capabilities (read, update) are project-scoped.
+    """
+    parts = cap.split(":", 1)
+    resource = parts[0]
+    action = parts[1] if len(parts) > 1 else ""
+    if resource in _ORG_SCOPED_RESOURCES:
+        return SCOPE_ORGANIZATION
+    if resource == "project" and action == "create":
+        return SCOPE_ORGANIZATION
+    return SCOPE_PROJECT
 
 
 # ---------------------------------------------------------------------------

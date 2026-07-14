@@ -70,7 +70,7 @@ export default function ProjectMembers({
   } = useQuery({
     queryKey: membersQueryKey,
     queryFn: async () => {
-      const data = await new ApiClientFactory(sessionToken)
+      const data = await new ApiClientFactory(sessionToken, projectId)
         .getProjectsClient()
         .getProjectMembers(projectId);
       onMembersLoaded?.(data);

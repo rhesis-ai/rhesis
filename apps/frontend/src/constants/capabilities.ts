@@ -23,6 +23,7 @@ export const Capability = {
     DELETE: 'test_set:delete',
     GENERATE: 'test_set:generate',
     EXECUTE: 'test_set:execute',
+    EXPORT: 'test_set:export',
   },
   Test: {
     READ: 'test:read',
@@ -79,6 +80,9 @@ export const Capability = {
     CREATE: 'endpoint:create',
     UPDATE: 'endpoint:update',
     DELETE: 'endpoint:delete',
+  },
+  Playground: {
+    USE: 'playground:use',
   },
   Comment: {
     READ: 'comment:read',
@@ -153,6 +157,10 @@ export const Capability = {
     DELETE: 'file:delete',
     IMPORT: 'file:import',
   },
+  Garak: {
+    READ: 'garak:read',
+    CREATE: 'garak:create',
+  },
   Metric: {
     READ: 'metric:read',
     CREATE: 'metric:create',
@@ -171,6 +179,7 @@ export const Capability = {
     UPDATE: 'project:update',
   },
   ProjectMember: {
+    READ: 'project_member:read',
     MANAGE: 'project_member:manage',
   },
   Organization: {
@@ -202,6 +211,9 @@ export const Capability = {
   ApiClients: {
     MANAGE: 'api_clients:manage',
   },
+  Polyphemus: {
+    REQUEST: 'polyphemus:request',
+  },
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -223,6 +235,7 @@ export const CAPABILITY_LABELS: Record<string, string> = {
   'test_set:delete': 'Delete test sets',
   'test_set:generate': 'Generate tests',
   'test_set:execute': 'Run test sets',
+  'test_set:export': 'Export test sets',
   // Tests
   'test:read': 'View tests',
   'test:create': 'Create tests',
@@ -257,6 +270,8 @@ export const CAPABILITY_LABELS: Record<string, string> = {
   'endpoint:create': 'Create endpoints',
   'endpoint:update': 'Edit endpoints',
   'endpoint:delete': 'Delete endpoints',
+  // Playground
+  'playground:use': 'Use playground',
   // Comments
   'comment:read': 'View comments',
   'comment:create': 'Post comments',
@@ -310,6 +325,9 @@ export const CAPABILITY_LABELS: Record<string, string> = {
   'file:update': 'Update files',
   'file:delete': 'Delete files',
   'file:import': 'Import files',
+  // Garak
+  'garak:read': 'View Garak probes',
+  'garak:create': 'Import Garak probes',
   // Metrics
   'metric:read': 'View metrics',
   'metric:create': 'Create metrics',
@@ -324,6 +342,7 @@ export const CAPABILITY_LABELS: Record<string, string> = {
   'project:read': 'View projects',
   'project:create': 'Create projects',
   'project:update': 'Edit projects',
+  'project_member:read': 'View project members',
   'project_member:manage': 'Manage project members',
   // Organization
   'organization:read': 'View organization settings',
@@ -346,4 +365,5 @@ export const CAPABILITY_LABELS: Record<string, string> = {
   // EE
   'sso:manage': 'Manage SSO configuration',
   'api_clients:manage': 'Manage API clients',
+  'polyphemus:request': 'Request Polyphemus access',
 };

@@ -5,16 +5,20 @@ import { Paper, Typography, Button, Box, Alert } from '@mui/material';
 import { PageLayout } from '@/components/layout/PageLayout';
 import Link from 'next/link';
 import ArrowBackIcon from '@mui/icons-material/ArrowBackOutlined';
+import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { usePathname } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { DeletedEntityAlert } from '@/components/common/DeletedEntityAlert';
-import { NotFoundAlert } from '@/components/common/NotFoundAlert';
+import DetailNotFoundState from '@/components/common/DetailNotFoundState';
 import {
   getDeletedEntityData,
   getNotFoundEntityData,
   getErrorMessage,
+  isForbiddenError,
+  parseEntityFromPathname,
+  urlSegmentToResolveEntityType,
 } from '@/utils/entity-error-handler';
-import { useSession } from 'next-auth/react';
 
 interface ErrorProps {
   error: Error & {
@@ -28,30 +32,75 @@ interface ErrorProps {
 /**
  * Global error handler for all protected routes.
  *
- * Features:
- * - Automatically handles 404 (not found) errors with navigation UI
- * - Automatically handles 410 (deleted entity) errors with restore UI
- * - Gracefully handles all other errors with retry functionality
- * - Performance optimized with memoization
- * - Type-safe and accessible
- *
- * Works for ALL entities without manual error handling!
+ * Entity 404s render DetailNotFoundState (with cross-project resolution).
+ * Deleted entities, forbidden access, and other errors have dedicated UI.
  */
 export default function ProtectedError({ error, reset }: ErrorProps) {
   const { data: session } = useSession();
   const [isResetting, setIsResetting] = useState(false);
 
-  // Check if this is a not found error (404)
   const notFoundEntityData = useMemo(
     () => getNotFoundEntityData(error),
     [error]
   );
-
-  // Check if this is a deleted entity error (410)
+  const isForbidden = useMemo(() => isForbiddenError(error), [error]);
   const deletedEntityData = useMemo(() => getDeletedEntityData(error), [error]);
 
+  const pathname = usePathname();
+  const pathSegments = useMemo(
+    () => pathname.split('/').filter(Boolean),
+    [pathname]
+  );
+  const parsedPathEntity = useMemo(
+    () => parseEntityFromPathname(pathname),
+    [pathname]
+  );
+
+  const backUrl = useMemo(() => {
+    if (parsedPathEntity?.listUrl) {
+      return parsedPathEntity.listUrl;
+    }
+    if (pathSegments.length > 1) {
+      return `/${pathSegments[0]}`;
+    }
+    return '/';
+  }, [parsedPathEntity, pathSegments]);
+
+  const formatEntityName = (segment: string): string => {
+    return segment
+      .split('-')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
+
+  const breadcrumbs = useMemo(() => {
+    if (pathSegments.length === 0) return [];
+
+    const entityName = formatEntityName(pathSegments[0]);
+    const crumbs = [{ label: entityName, href: `/${pathSegments[0]}` }];
+
+    if (pathSegments.length > 1) {
+      const itemId = pathSegments[1];
+      let itemTitle = itemId;
+
+      if (deletedEntityData?.item_name) {
+        itemTitle = deletedEntityData.item_name;
+      } else if (deletedEntityData) {
+        const displayName =
+          deletedEntityData.model_name_display || deletedEntityData.model_name;
+        itemTitle = `${displayName} (${itemId.substring(0, 8)}...)`;
+      }
+
+      crumbs.push({
+        label: itemTitle,
+        href: pathname,
+      });
+    }
+
+    return crumbs;
+  }, [pathSegments, deletedEntityData, pathname]);
+
   useEffect(() => {
-    // Use different log levels for expected vs unexpected states
     if (notFoundEntityData) {
       console.warn('Entity not found:', {
         entity: notFoundEntityData.model_name,
@@ -71,37 +120,17 @@ export default function ProtectedError({ error, reset }: ErrorProps) {
         digest: error.digest,
         stack: error.stack,
       });
-
-      // TODO: Send to error tracking service in production
-      // if (process.env.FRONTEND_ENV === 'production') {
-      //   reportErrorToService(error);
-      // }
     }
   }, [error, notFoundEntityData, deletedEntityData]);
 
-  // Get current pathname and parse segments (reactive to navigation changes)
-  const pathname = usePathname();
-  const pathSegments = useMemo(() => {
-    return pathname.split('/').filter(Boolean);
-  }, [pathname]);
-
-  // Format entity name from URL segment (e.g., "test-runs" -> "Test Runs")
-  const formatEntityName = (segment: string): string => {
-    return segment
-      .split('-')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
-  };
-
-  // Get page title based on error type (memoized)
   const pageTitle = useMemo(() => {
-    if (notFoundEntityData) {
-      const displayName =
-        notFoundEntityData.model_name_display || notFoundEntityData.model_name;
-      return `${displayName} not found`;
+    if (isForbidden) {
+      if (pathSegments.length > 0) {
+        return `${formatEntityName(pathSegments[0])} — Access denied`;
+      }
+      return 'Access denied';
     }
     if (deletedEntityData) {
-      // Use actual item name if available, otherwise use model type
       if (deletedEntityData.item_name) {
         return `${deletedEntityData.item_name} (Deleted)`;
       }
@@ -110,95 +139,82 @@ export default function ProtectedError({ error, reset }: ErrorProps) {
       return `${displayName} Deleted`;
     }
     return 'Error';
-  }, [notFoundEntityData, deletedEntityData]);
+  }, [deletedEntityData, isForbidden, pathSegments]);
 
-  // Determine back URL based on current path (memoized)
-  const backUrl = useMemo(() => {
-    if (pathSegments.length > 1) {
-      return `/${pathSegments[0]}`;
-    }
-    return '/';
-  }, [pathSegments]);
-
-  // Get back button label (memoized)
   const backLabel = useMemo(() => {
     if (pathSegments.length > 0) {
-      const entityName = formatEntityName(pathSegments[0]);
-      return `Back to ${entityName}`;
+      return `Back to ${formatEntityName(pathSegments[0])}`;
     }
     return 'Back';
   }, [pathSegments]);
 
-  // Generate breadcrumbs based on current path (memoized)
-  const breadcrumbs = useMemo(() => {
-    if (pathSegments.length === 0) return [];
-
-    // Get entity name for the list page
-    const entityName = formatEntityName(pathSegments[0]);
-
-    const crumbs = [{ label: entityName, href: `/${pathSegments[0]}` }];
-
-    // If we're on a detail page, add the current item
-    if (pathSegments.length > 1) {
-      const itemId = pathSegments[1];
-      let itemTitle = itemId;
-
-      if (deletedEntityData) {
-        // Use actual item name if available
-        if (deletedEntityData.item_name) {
-          itemTitle = deletedEntityData.item_name;
-        } else {
-          // Fallback: show type with short ID
-          const displayName =
-            deletedEntityData.model_name_display ||
-            deletedEntityData.model_name;
-          const shortId = itemId.substring(0, 8);
-          itemTitle = `${displayName} (${shortId}...)`;
-        }
-      }
-
-      crumbs.push({
-        label: itemTitle,
-        href: typeof window !== 'undefined' ? window.location.pathname : '',
-      });
-    }
-
-    return crumbs;
-  }, [pathSegments, deletedEntityData]);
-
-  // Handle reset with loading state
   const handleReset = () => {
     setIsResetting(true);
     reset();
-    // Note: reset() will reload the component, so setIsResetting(false) won't be needed
   };
+
+  if (notFoundEntityData) {
+    const displayName =
+      notFoundEntityData.model_name_display || notFoundEntityData.model_name;
+
+    return (
+      <DetailNotFoundState
+        entityLabel={displayName}
+        entityId={notFoundEntityData.item_id}
+        entityTableName={
+          notFoundEntityData.table_name ||
+          parsedPathEntity?.entityType ||
+          (pathSegments[0]
+            ? urlSegmentToResolveEntityType(pathSegments[0])
+            : 'item')
+        }
+        entityData={notFoundEntityData}
+        listUrl={backUrl}
+        breadcrumbs={breadcrumbs}
+        onBack={() => window.history.back()}
+      />
+    );
+  }
 
   return (
     <PageLayout title={pageTitle} breadcrumbs={breadcrumbs}>
-      {notFoundEntityData ? (
-        // Not found entity UI (404)
-        <NotFoundAlert
-          entityData={notFoundEntityData}
-          backUrl={backUrl}
-          backLabel={backLabel}
-        />
-      ) : deletedEntityData ? (
-        // Deleted entity UI with restore functionality (410)
+      {deletedEntityData ? (
         <DeletedEntityAlert
           entityData={deletedEntityData}
           sessionToken={session?.session_token}
           backUrl={backUrl}
           backLabel={backLabel}
           onRestoreSuccess={() => {
-            // After restore, reload the page to fetch fresh server-side data
-            // Use a brief delay to let the success message show
             setTimeout(() => {
               window.location.reload();
             }, 1000);
           }}
         />
+      ) : isForbidden ? (
+        <Alert severity="warning" icon={<LockOutlinedIcon />}>
+          <Box mb={2}>
+            <Typography>
+              You don't have permission to view this{' '}
+              {pathSegments.length > 0
+                ? formatEntityName(pathSegments[0])
+                    .toLowerCase()
+                    .replace(/s$/, '')
+                : 'resource'}
+              . Contact your project administrator if you need access.
+            </Typography>
+          </Box>
+          <Box display="flex" gap={2} flexWrap="wrap">
+            <Button
+              variant="outlined"
+              size="medium"
+              startIcon={<ArrowBackIcon />}
+              onClick={() => window.history.back()}
+            >
+              Back
+            </Button>
+          </Box>
+        </Alert>
       ) : (
-        // Generic error UI with retry
         <Paper role="alert" aria-live="assertive" aria-atomic="true">
           <Box p={3}>
             <Typography variant="h6" color="error" gutterBottom>
@@ -209,7 +225,6 @@ export default function ProtectedError({ error, reset }: ErrorProps) {
               {getErrorMessage(error)}
             </Typography>
 
-            {/* Show error digest in development for debugging */}
             {process.env.FRONTEND_ENV === 'development' && error.digest && (
               <Alert severity="info">
                 <Typography variant="caption" component="div">

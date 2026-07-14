@@ -1,8 +1,11 @@
 import {
   TEST_TYPES,
+  TEST_TYPE_FILTER_OPTIONS,
+  TEST_TYPE_PILL_TABS,
   getTestType,
   isMultiTurnTest,
   isSingleTurnTest,
+  normalizeTestType,
 } from '../test-types';
 
 describe('getTestType', () => {
@@ -15,6 +18,11 @@ describe('getTestType', () => {
     expect(getTestType('single-turn')).toBe(TEST_TYPES.SINGLE_TURN);
     expect(getTestType('MULTI-TURN')).toBe(TEST_TYPES.MULTI_TURN);
     expect(getTestType('Single-turn')).toBe(TEST_TYPES.SINGLE_TURN);
+  });
+
+  it('accepts legacy snake_case aliases', () => {
+    expect(getTestType('single_turn')).toBe(TEST_TYPES.SINGLE_TURN);
+    expect(getTestType('multi_turn')).toBe(TEST_TYPES.MULTI_TURN);
   });
 
   it('returns null for unknown types', () => {
@@ -63,9 +71,39 @@ describe('isSingleTurnTest', () => {
   });
 });
 
+describe('normalizeTestType', () => {
+  it('returns canonical values for known inputs', () => {
+    expect(normalizeTestType('Single-Turn')).toBe(TEST_TYPES.SINGLE_TURN);
+    expect(normalizeTestType('multi_turn')).toBe(TEST_TYPES.MULTI_TURN);
+  });
+
+  it('falls back for unknown values', () => {
+    expect(normalizeTestType('unknown')).toBe(TEST_TYPES.SINGLE_TURN);
+    expect(normalizeTestType(null, TEST_TYPES.MULTI_TURN)).toBe(
+      TEST_TYPES.MULTI_TURN
+    );
+  });
+});
+
 describe('TEST_TYPES constants', () => {
   it('has expected values', () => {
     expect(TEST_TYPES.SINGLE_TURN).toBe('Single-Turn');
     expect(TEST_TYPES.MULTI_TURN).toBe('Multi-Turn');
+  });
+});
+
+describe('TEST_TYPE_FILTER_OPTIONS', () => {
+  it('uses hyphenated labels matching canonical values', () => {
+    expect(TEST_TYPE_FILTER_OPTIONS).toEqual([
+      { label: 'Single-Turn', value: 'Single-Turn' },
+      { label: 'Multi-Turn', value: 'Multi-Turn' },
+    ]);
+  });
+});
+
+describe('TEST_TYPE_PILL_TABS', () => {
+  it('includes All plus filter options', () => {
+    expect(TEST_TYPE_PILL_TABS[0]).toEqual({ label: 'All', value: 'all' });
+    expect(TEST_TYPE_PILL_TABS.slice(1)).toEqual([...TEST_TYPE_FILTER_OPTIONS]);
   });
 });

@@ -126,6 +126,23 @@ generate_encryption_key() {
          python3 -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())'" 2>/dev/null
 }
 
+# Prompt for a host port, accepting a default when the user just presses Enter.
+# Usage: PORT=$(prompt_port "backend" 8080)
+# The prompt is written to stderr (via read -p) so it is not captured by $(...).
+prompt_port() {
+    local label="$1"
+    local default="$2"
+    local port=""
+    if [ -t 0 ]; then
+        read -r -p "$(echo -e "${YELLOW}Enter ${label} port [default: ${default}]: ${NC}")" port
+    fi
+    # Fall back to the default on empty input or a non-numeric entry.
+    if ! [[ "$port" =~ ^[0-9]+$ ]]; then
+        port="$default"
+    fi
+    echo "$port"
+}
+
 # ============================================================================
 # Dev environment functions
 # ============================================================================
@@ -177,11 +194,10 @@ $DEV_ENV_MARKER on $timestamp
 
 QUICK_START=true
 
-# Database (dev ports)
-DB_DRIVER=postgresql
+# Database
 DB_HOST=localhost
-DB_PORT=${DEV_POSTGRES_PORT}
 DB_NAME=rhesis-db
+DB_PORT=${DEV_POSTGRES_PORT}
 APP_DB_USER=rhesis-user
 APP_DB_PASS=rhesis-password
 DB_ENCRYPTION_KEY=${encryption_key}
@@ -196,15 +212,8 @@ DEV_MODE=true
 LOG_LEVEL=DEBUG
 OTEL_RHESIS_TELEMETRY_ENABLED=false
 
-# URLs
-API_BASE_URL=http://localhost:8080
-FRONTEND_URL=http://localhost:3000
-BACKEND_URL=http://localhost:8080
-
 # JWT
 JWT_SECRET_KEY=dev-jwt-secret-key-change-in-production
-JWT_ALGORITHM=HS256
-JWT_ACCESS_TOKEN_EXPIRE_MINUTES=10080
 
 # Rhesis API Key (get one at https://app.rhesis.ai)
 RHESIS_API_KEY=your_api_key
@@ -231,7 +240,7 @@ $DEV_ENV_MARKER on $timestamp
 API_BASE_URL=http://localhost:8080
 FRONTEND_ENV=local
 BACKEND_URL=http://localhost:8080
-NEXTAUTH_URL=http://localhost:3000
+FRONTEND_URL=http://localhost:3000
 NEXTAUTH_SECRET=dev-nextauth-secret-change-in-production
 NEXT_TELEMETRY_DISABLED=1
 EOF
@@ -596,6 +605,16 @@ start_all() {
 
         # Create or update .env.docker.local
         if [ ! -f ".env.docker.local" ]; then
+            # Ask which host ports to serve on (Enter accepts the defaults).
+            echo ""
+            echo -e "${YELLOW}🔌 Host ports${NC}"
+            echo -e "${WHITE}   Choose the host ports for Rhesis (press Enter to accept the default).${NC}"
+            echo ""
+            local backend_port frontend_port
+            backend_port=$(prompt_port "backend" 8080)
+            frontend_port=$(prompt_port "frontend" 3000)
+            echo -e "${GREEN}✅ Using backend port ${backend_port}, frontend port ${frontend_port}${NC}"
+
             # Create new file
             echo "# Auto-generated local environment configuration" > .env.docker.local
             echo "" >> .env.docker.local
@@ -604,6 +623,15 @@ start_all() {
             echo "" >> .env.docker.local
             echo "# Local Authentication Bypass" >> .env.docker.local
             echo "QUICK_START=true" >> .env.docker.local
+            echo "" >> .env.docker.local
+            # Host bind ports plus the matching public URLs. Compose keeps these
+            # decoupled, but for localhost dev the public URL is just localhost on
+            # the chosen host port, so derive and write both here.
+            echo "# Host ports and matching public URLs" >> .env.docker.local
+            echo "BACKEND_PORT=$backend_port" >> .env.docker.local
+            echo "FRONTEND_PORT=$frontend_port" >> .env.docker.local
+            echo "API_BASE_URL=http://localhost:$backend_port" >> .env.docker.local
+            echo "FRONTEND_URL=http://localhost:$frontend_port" >> .env.docker.local
             echo -e "${GREEN}✅ Created .env.docker.local with local configuration${NC}"
         else
             # Update existing file
@@ -687,10 +715,14 @@ fi
         echo ""
         echo -e "${GREEN}✅ All services started successfully!${NC}"
         echo ""
+        local shown_backend_port shown_frontend_port
+        shown_backend_port=$(grep -m1 "^BACKEND_PORT=" .env.docker.local 2>/dev/null | cut -d= -f2)
+        shown_frontend_port=$(grep -m1 "^FRONTEND_PORT=" .env.docker.local 2>/dev/null | cut -d= -f2)
+        shown_backend_port="${shown_backend_port:-8080}"
+        shown_frontend_port="${shown_frontend_port:-3000}"
         echo -e "${CYAN}Access the platform:${NC}"
-        echo -e "   Frontend:  ${WHITE}http://localhost:3000${NC} (auto-login enabled)"
-        echo -e "   Backend:   ${WHITE}http://localhost:8080/docs${NC}"
-        echo -e "   Worker:    ${WHITE}http://localhost:8081/health/basic${NC}"
+        echo -e "   Frontend:  ${WHITE}http://localhost:${shown_frontend_port}${NC} (auto-login enabled)"
+        echo -e "   Backend:   ${WHITE}http://localhost:${shown_backend_port}/docs${NC}"
         echo ""
         echo -e "${YELLOW}Useful commands:${NC}"
         echo -e "   View logs:    ${GREEN}./rh logs${NC}"
@@ -714,7 +746,7 @@ stop_all() {
 
     local compose_flags
     compose_flags=$(quickstart_compose_flags_from_file)
-    docker compose $compose_flags -p "$PROJECT_NAME" down
+    docker compose $compose_flags -p "$PROJECT_NAME" --env-file .env.docker.local down
 
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}✅ All services stopped${NC}"
@@ -791,10 +823,10 @@ view_logs() {
 
     if [ -z "$1" ]; then
         # No service specified, show all logs
-        docker compose $compose_flags -p "$PROJECT_NAME" logs -f
+        docker compose $compose_flags -p "$PROJECT_NAME" --env-file .env.docker.local logs -f
     else
         # Show logs for specific service
-        docker compose $compose_flags -p "$PROJECT_NAME" logs -f "$1"
+        docker compose $compose_flags -p "$PROJECT_NAME" --env-file .env.docker.local logs -f "$1"
     fi
 }
 
@@ -834,10 +866,10 @@ delete_all() {
     compose_flags=$(quickstart_compose_flags_from_file)
 
     # Stop and remove containers, networks, and volumes managed by this compose file
-    docker compose $compose_flags -p "$PROJECT_NAME" down -v --rmi all 2>/dev/null || {
+    docker compose $compose_flags -p "$PROJECT_NAME" --env-file .env.docker.local down -v --rmi all 2>/dev/null || {
         # Fallback: If project name doesn't match, try without -p flag
         echo -e "${YELLOW}⚠️  Project-specific deletion failed, trying default method...${NC}"
-        docker compose $compose_flags down -v --rmi all
+        docker compose $compose_flags --env-file .env.docker.local down -v --rmi all
     }
 
     rm -f .env.docker.local
