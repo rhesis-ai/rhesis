@@ -441,6 +441,34 @@ async def lifespan(app: FastAPI):
 
         setup_mcp_server(app)
 
+    # Pre-warm OWASP report section cache in background (non-blocking)
+    # This ensures the first user request doesn't have to wait for the report
+    # PDF to be downloaded and parsed (can take up to a minute).
+    async def warm_owasp_cache():
+        """Background task to pre-warm the OWASP report section cache."""
+        try:
+            from rhesis.backend.app.services.owasp import (
+                OWASP_FRAMEWORKS,
+                list_categories,
+            )
+
+            for framework in OWASP_FRAMEWORKS:
+                await asyncio.to_thread(list_categories, framework)
+        except Exception as e:
+            logger.warning(f"OWASP cache pre-warming failed (non-fatal): {e}")
+
+    owasp_cache_task = asyncio.create_task(warm_owasp_cache())
+
+    def _log_owasp_task_exception(t: asyncio.Task) -> None:
+        try:
+            t.result()
+        except asyncio.CancelledError:
+            pass  # Expected during shutdown
+        except Exception as e:
+            logger.error(f"OWASP cache pre-warming task failed: {e}", exc_info=True)
+
+    owasp_cache_task.add_done_callback(_log_owasp_task_exception)
+
     # Start MCP session manager (Mount doesn't propagate lifespan).
     # StreamableHTTPSessionManager.run() can only be called once per
     # instance, so create a fresh one each time the lifespan starts
