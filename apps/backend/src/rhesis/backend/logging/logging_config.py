@@ -14,7 +14,6 @@ logging_settings = get_logging_settings()
 LOG_LEVEL = logging_settings.log_level
 LOG_DIR = logging_settings.log_dir
 ENVIRONMENT = application_settings.backend_env
-IS_GOOGLE_CLOUD = application_settings.is_google_cloud
 LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 LOG_DATE_FORMAT = "%m/%d/%Y %I:%M:%S%p"
 
@@ -236,12 +235,6 @@ def set_logger():
     # default lastResort handler) so we control all output.
     root_logger.handlers.clear()
 
-    if IS_GOOGLE_CLOUD:
-        json_console_handler = logging.StreamHandler(stream=sys.stdout)
-        json_console_handler.setLevel(LOG_LEVEL)
-        json_console_handler.setFormatter(RedactingFormatter(JsonLogFormatter()))
-        root_logger.addHandler(json_console_handler)
-
     if ENVIRONMENT == "local":
         color_console_handler = logging.StreamHandler(stream=sys.stdout)
         color_console_handler.setLevel(LOG_LEVEL)
@@ -256,6 +249,14 @@ def set_logger():
         file_handler.setLevel(LOG_LEVEL)
         file_handler.setFormatter(RedactingFormatter(_create_formatter()))
         root_logger.addHandler(file_handler)
+    else:
+        # Any non-local environment (GKE dev/staging/production, Cloud Run, etc.)
+        # gets structured JSON on stdout so container log collection always
+        # captures request/error output, regardless of which cloud runs it.
+        json_console_handler = logging.StreamHandler(stream=sys.stdout)
+        json_console_handler.setLevel(LOG_LEVEL)
+        json_console_handler.setFormatter(RedactingFormatter(JsonLogFormatter()))
+        root_logger.addHandler(json_console_handler)
 
     for name in ("uvicorn", "uvicorn.access", "uvicorn.error", "websockets", "fastapi"):
         logger = logging.getLogger(name)
