@@ -11,7 +11,13 @@ import {
   writeInsightsEndpointId,
 } from '@/utils/insights-endpoint';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
-import { InsightsTimeRange, timeRangeToStatsParams } from '../types';
+import { TestRun } from '@/utils/api-client/interfaces/test-run';
+import {
+  InsightsFilters,
+  InsightsTimeRange,
+  resolveInsightsTimeRange,
+  timeRangeToStatsParams,
+} from '../types';
 
 function endpointMatchesProject(
   endpoint: Endpoint,
@@ -132,11 +138,11 @@ export function buildEndpointRunFilter(endpointId: string): string {
   return `test_configuration/endpoint_id eq '${endpointId}'`;
 }
 
-export async function fetchTestRunIdsForEndpoint(
+export async function fetchTestRunsForEndpoint(
   sessionToken: string,
   endpointId: string,
   timeRange?: InsightsTimeRange
-): Promise<string[]> {
+): Promise<TestRun[]> {
   const client = new ApiClientFactory(sessionToken).getTestRunsClient();
   const filterParts = [buildEndpointRunFilter(endpointId)];
   if (timeRange) {
@@ -146,7 +152,7 @@ export async function fetchTestRunIdsForEndpoint(
     }
   }
   const filter = filterParts.join(' and ');
-  const ids: string[] = [];
+  const runs: TestRun[] = [];
   let skip = 0;
   const limit = 100;
   let hasMore = true;
@@ -160,13 +166,49 @@ export async function fetchTestRunIdsForEndpoint(
       sort_order: 'desc',
     });
 
-    ids.push(...response.data.map(run => run.id));
+    runs.push(...response.data);
     const total = response.pagination?.totalCount ?? response.data.length;
-    hasMore = ids.length < total;
+    hasMore = runs.length < total;
     skip += limit;
   }
 
-  return ids;
+  return runs;
+}
+
+export async function fetchTestRunIdsForEndpoint(
+  sessionToken: string,
+  endpointId: string,
+  timeRange?: InsightsTimeRange
+): Promise<string[]> {
+  const runs = await fetchTestRunsForEndpoint(
+    sessionToken,
+    endpointId,
+    timeRange
+  );
+  return runs.map(run => run.id);
+}
+
+/** Resolve which test run IDs to query based on Insights filter state. */
+export async function resolveInsightsQueryTestRunIds(
+  sessionToken: string,
+  filters: Pick<
+    InsightsFilters,
+    'endpointId' | 'runFilterMode' | 'timeRange' | 'testRunIds'
+  >
+): Promise<string[]> {
+  if (filters.runFilterMode === 'timeRange') {
+    return fetchTestRunIdsForEndpoint(
+      sessionToken,
+      filters.endpointId,
+      resolveInsightsTimeRange(filters.timeRange)
+    );
+  }
+
+  if (filters.testRunIds.length > 0) {
+    return filters.testRunIds;
+  }
+
+  return fetchTestRunIdsForEndpoint(sessionToken, filters.endpointId);
 }
 
 export function buildBehaviorColumns(

@@ -14,7 +14,7 @@ import {
 import {
   BehaviorInsightColumn,
   buildBehaviorColumns,
-  fetchTestRunIdsForEndpoint,
+  resolveInsightsQueryTestRunIds,
 } from '../utils/behavior-insights-utils';
 import { fetchFailedTestIdsForInsights } from '../utils/insights-failed-tests';
 
@@ -86,10 +86,9 @@ export function useBehaviorInsightsData(
     debounceRef.current = setTimeout(() => {
       void (async () => {
         try {
-          const testRunIds = await fetchTestRunIdsForEndpoint(
+          const testRunIds = await resolveInsightsQueryTestRunIds(
             sessionToken,
-            filters.endpointId,
-            resolveInsightsTimeRange(filters.timeRange)
+            filters
           );
 
           if (!isCurrentRequest(requestId)) return;
@@ -111,10 +110,12 @@ export function useBehaviorInsightsData(
           const behaviorClient = factory.getBehaviorClient();
 
           const statsParams = {
-            ...timeRangeToStatsParams(
-              resolveInsightsTimeRange(filters.timeRange)
-            ),
             test_run_ids: testRunIds,
+            ...(filters.runFilterMode === 'timeRange'
+              ? timeRangeToStatsParams(
+                  resolveInsightsTimeRange(filters.timeRange)
+                )
+              : {}),
           };
 
           const [summaryResult, behaviorResult, behaviors] = await Promise.all([
@@ -183,6 +184,7 @@ export function useBehaviorInsightsData(
                   sessionToken,
                   {
                     endpointId: filters.endpointId,
+                    runFilterMode: filters.runFilterMode,
                     timeRange: resolveInsightsTimeRange(filters.timeRange),
                     testRunIds,
                   }
@@ -212,7 +214,14 @@ export function useBehaviorInsightsData(
         clearTimeout(debounceRef.current);
       }
     };
-  }, [enabled, sessionToken, filters.endpointId, filters.timeRange]);
+  }, [
+    enabled,
+    sessionToken,
+    filters.endpointId,
+    filters.runFilterMode,
+    filters.timeRange,
+    filters.testRunIds,
+  ]);
 
   return {
     summary,

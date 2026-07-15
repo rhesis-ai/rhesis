@@ -3,7 +3,7 @@ import { DEFAULT_INSIGHTS_FILTERS } from '../../types';
 import { useBehaviorInsightsData } from '../useBehaviorInsightsData';
 
 jest.mock('../../utils/behavior-insights-utils', () => ({
-  fetchTestRunIdsForEndpoint: jest.fn(),
+  resolveInsightsQueryTestRunIds: jest.fn(),
   buildBehaviorColumns: jest.fn(() => []),
 }));
 
@@ -31,16 +31,16 @@ jest.mock('@/utils/api-client/client-factory', () => ({
   })),
 }));
 
-import { fetchTestRunIdsForEndpoint } from '../../utils/behavior-insights-utils';
+import { resolveInsightsQueryTestRunIds } from '../../utils/behavior-insights-utils';
 import { fetchFailedTestIdsForInsights } from '../../utils/insights-failed-tests';
 
-const mockFetchTestRunIds = fetchTestRunIdsForEndpoint as jest.Mock;
+const mockResolveTestRunIds = resolveInsightsQueryTestRunIds as jest.Mock;
 const mockFetchFailedIds = fetchFailedTestIdsForInsights as jest.Mock;
 
 describe('useBehaviorInsightsData', () => {
   beforeEach(() => {
     jest.useFakeTimers();
-    mockFetchTestRunIds.mockReset();
+    mockResolveTestRunIds.mockReset();
     mockFetchFailedIds.mockReset();
   });
 
@@ -49,7 +49,7 @@ describe('useBehaviorInsightsData', () => {
   });
 
   it('resolves deduped failedTestCaseCount when summary has failures', async () => {
-    mockFetchTestRunIds.mockResolvedValue(['run-1', 'run-2']);
+    mockResolveTestRunIds.mockResolvedValue(['run-1', 'run-2']);
     mockFetchFailedIds.mockResolvedValue([
       'test-1',
       'test-2',
@@ -58,12 +58,13 @@ describe('useBehaviorInsightsData', () => {
       'test-5',
     ]);
 
+    const filters = {
+      ...DEFAULT_INSIGHTS_FILTERS,
+      endpointId: 'ep-1',
+    };
+
     const { result } = renderHook(() =>
-      useBehaviorInsightsData('token', {
-        ...DEFAULT_INSIGHTS_FILTERS,
-        endpointId: 'ep-1',
-        timeRange: '1m',
-      })
+      useBehaviorInsightsData('token', filters)
     );
 
     jest.advanceTimersByTime(300);
@@ -78,13 +79,14 @@ describe('useBehaviorInsightsData', () => {
     expect(result.current.summary?.failed).toBe(10);
     expect(mockFetchFailedIds).toHaveBeenCalledWith('token', {
       endpointId: 'ep-1',
+      runFilterMode: 'timeRange',
       timeRange: '1m',
       testRunIds: ['run-1', 'run-2'],
     });
   });
 
   it('finishes main loading before unique failed count resolves', async () => {
-    mockFetchTestRunIds.mockResolvedValue(['run-1']);
+    mockResolveTestRunIds.mockResolvedValue(['run-1']);
     let resolveFailed!: (ids: string[]) => void;
     mockFetchFailedIds.mockImplementation(
       () =>
@@ -97,7 +99,6 @@ describe('useBehaviorInsightsData', () => {
       useBehaviorInsightsData('token', {
         ...DEFAULT_INSIGHTS_FILTERS,
         endpointId: 'ep-1',
-        timeRange: '1m',
       })
     );
 
@@ -115,14 +116,13 @@ describe('useBehaviorInsightsData', () => {
   });
 
   it('still renders insights when unique failed count fetch fails', async () => {
-    mockFetchTestRunIds.mockResolvedValue(['run-1']);
+    mockResolveTestRunIds.mockResolvedValue(['run-1']);
     mockFetchFailedIds.mockRejectedValue(new Error('network'));
 
     const { result } = renderHook(() =>
       useBehaviorInsightsData('token', {
         ...DEFAULT_INSIGHTS_FILTERS,
         endpointId: 'ep-1',
-        timeRange: '1m',
       })
     );
 
@@ -161,7 +161,7 @@ describe('useBehaviorInsightsData', () => {
       }),
     }));
 
-    mockFetchTestRunIds.mockResolvedValue(['run-1']);
+    mockResolveTestRunIds.mockResolvedValue(['run-1']);
 
     const { result } = renderHook(() =>
       useBehaviorInsightsData('token', {
@@ -181,7 +181,7 @@ describe('useBehaviorInsightsData', () => {
   });
 
   it('does not fetch when enabled is false, even with a valid endpointId', async () => {
-    mockFetchTestRunIds.mockResolvedValue(['run-1']);
+    mockResolveTestRunIds.mockResolvedValue(['run-1']);
 
     const { result } = renderHook(() =>
       useBehaviorInsightsData(
@@ -189,7 +189,6 @@ describe('useBehaviorInsightsData', () => {
         {
           ...DEFAULT_INSIGHTS_FILTERS,
           endpointId: 'ep-1',
-          timeRange: '1m',
         },
         false
       )
@@ -199,28 +198,24 @@ describe('useBehaviorInsightsData', () => {
 
     expect(result.current.loading).toBe(false);
     expect(result.current.summary).toBeNull();
-    expect(mockFetchTestRunIds).not.toHaveBeenCalled();
+    expect(mockResolveTestRunIds).not.toHaveBeenCalled();
   });
 
   it('starts fetching once enabled flips from false to true', async () => {
-    mockFetchTestRunIds.mockResolvedValue(['run-1']);
+    mockResolveTestRunIds.mockResolvedValue(['run-1']);
+
+    const filters = {
+      ...DEFAULT_INSIGHTS_FILTERS,
+      endpointId: 'ep-1',
+    };
 
     const { result, rerender } = renderHook(
-      ({ enabled }) =>
-        useBehaviorInsightsData(
-          'token',
-          {
-            ...DEFAULT_INSIGHTS_FILTERS,
-            endpointId: 'ep-1',
-            timeRange: '1m',
-          },
-          enabled
-        ),
+      ({ enabled }) => useBehaviorInsightsData('token', filters, enabled),
       { initialProps: { enabled: false } }
     );
 
     jest.advanceTimersByTime(300);
-    expect(mockFetchTestRunIds).not.toHaveBeenCalled();
+    expect(mockResolveTestRunIds).not.toHaveBeenCalled();
 
     rerender({ enabled: true });
     jest.advanceTimersByTime(300);
@@ -228,6 +223,6 @@ describe('useBehaviorInsightsData', () => {
     await waitFor(() => {
       expect(result.current.loading).toBe(false);
     });
-    expect(mockFetchTestRunIds).toHaveBeenCalledWith('token', 'ep-1', '1m');
+    expect(mockResolveTestRunIds).toHaveBeenCalledWith('token', filters);
   });
 });
