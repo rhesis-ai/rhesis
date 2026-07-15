@@ -239,12 +239,15 @@ def _affordance_resource_types(response_model) -> set:
             stack.extend(args)
             continue
         try:
-            if (
-                isinstance(tp, type)
-                and issubclass(tp, WithPermittedActions)
-                and tp.__resource_type__ is not None
-            ):
-                found.add(tp.__resource_type__)
+            if isinstance(tp, type) and issubclass(tp, WithPermittedActions):
+                if tp.__resource_type__ is not None:
+                    found.add(tp.__resource_type__)
+                else:
+                    logger.warning(
+                        "%s mixes in WithPermittedActions but has no __resource_type__ "
+                        "set; permitted_actions will always be empty for this schema",
+                        tp.__name__,
+                    )
         except TypeError:
             continue
     return found
