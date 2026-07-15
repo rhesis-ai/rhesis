@@ -127,7 +127,10 @@ describe('behavior-insights-utils', () => {
     it('allows selections at or below the cap', () => {
       expect(() =>
         assertInsightsTestRunIdsWithinLimit(
-          Array.from({ length: MAX_INSIGHTS_TEST_RUN_IDS }, (_, i) => `run-${i}`)
+          Array.from(
+            { length: MAX_INSIGHTS_TEST_RUN_IDS },
+            (_, i) => `run-${i}`
+          )
         )
       ).not.toThrow();
     });

@@ -197,7 +197,9 @@ export async function fetchTestRunIdsForEndpoint(
  */
 export const MAX_INSIGHTS_TEST_RUN_IDS = 100;
 
-export function assertInsightsTestRunIdsWithinLimit(testRunIds: string[]): void {
+export function assertInsightsTestRunIdsWithinLimit(
+  testRunIds: string[]
+): void {
   if (testRunIds.length > MAX_INSIGHTS_TEST_RUN_IDS) {
     throw new Error(
       `Too many test runs to query at once (${testRunIds.length}; max ${MAX_INSIGHTS_TEST_RUN_IDS}). Narrow your selection or use a shorter time range.`
