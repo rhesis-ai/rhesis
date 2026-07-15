@@ -14,60 +14,6 @@ This guide is for production environments. For quick local testing, see the [Qui
 </Callout>
 
 
-## System Requirements
-
-### Production Environment
-
-For production deployment with real users:
-
-<Table
-  headers={["Resource", "Minimum", "Recommended", "High-Scale"]}
-  rows={[
-    ["RAM", "8 GB", "16 GB", "32 GB+"],
-    ["Storage", "20 GB SSD", "50 GB SSD", "100 GB+ SSD"],
-    ["CPU", "4 cores", "8 cores", "16+ cores"],
-    ["Network", "50 Mbps", "100 Mbps", "1 Gbps+"],
-  ]}
-  align={["left", "center", "center", "center"]}
-/>
-
-
-### Detailed Resource Breakdown
-
-<div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.5rem', alignItems: 'flex-start' }}>
-  <div style={{ flex: '1 1 320px', minWidth: 0 }}>
-    <Table
-      caption="Memory Usage by Service"
-      headers={["Service", "Production"]}
-      rows={[
-        ["PostgreSQL", "~1-2 GB"],
-        ["Redis", "~500 MB - 1 GB"],
-        ["Backend", "~500 MB - 1 GB"],
-        ["Worker", "~1-2 GB"],
-        ["Frontend", "~200-400 MB"],
-        ["Docker Overhead", "~500 MB - 1 GB"],
-        ["**Total Estimated**", "**~3.7-7.1 GB**"],
-      ]}
-      align={["left", "right"]}
-    />
-  </div>
-  <div style={{ flex: '1 1 320px', minWidth: 0 }}>
-    <Table
-      caption="Storage Requirements"
-      headers={["Component", "Production"]}
-      rows={[
-        ["Application Code", "~2 GB"],
-        ["Database", "~5-50 GB+"],
-        ["Docker Images", "~3-4 GB"],
-        ["Logs & Cache", "~2-10 GB"],
-        ["Working Space", "~3-5 GB"],
-        ["**Total Estimated**", "**~15-75 GB+**"],
-      ]}
-      align={["left", "right"]}
-    />
-  </div>
-</div>
-
 
 ## Quick Start
 
@@ -79,8 +25,11 @@ cd rhesis
 # 2. Copy environment variables
 cp .env.example .env.docker
 
-# 3. Configure environment variables
-# Edit .env.docker — see Environment Configuration below
+# 3. Generate the four required secrets and paste each into .env.docker
+openssl rand -base64 32 | tr '+/' '-_'   # DB_ENCRYPTION_KEY
+openssl rand -hex 32                      # JWT_SECRET_KEY
+openssl rand -hex 32                      # NEXTAUTH_SECRET
+openssl rand -hex 32                      # SESSION_SECRET_KEY
 
 # 4. Start all services
 docker compose --env-file .env.docker up -d`}
@@ -91,162 +40,69 @@ docker compose --env-file .env.docker up -d`}
 - **Frontend**: http://localhost:3000
 - **Backend API**: http://localhost:8080/docs
 
-## Database roles for production
-
-Use separate database credentials for runtime traffic and migrations when your
-Postgres provider supports it:
-
-| Variable | Purpose |
-| --- | --- |
-| `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_DRIVER` | Shared database connection components |
-| `APP_DB_USER`, `APP_DB_PASS` | Runtime backend and worker database role |
-| `ADMIN_DB_USER`, `ADMIN_DB_PASS` | Migration or administrative database role |
-
-If `ADMIN_DB_*` is not set, migrations fall back to the app credentials for
-single-role setups. On managed Postgres, the admin role does not need to be a
-PostgreSQL superuser; RLS-aware migrations set the required tenant session
-variables during backfills.
+This starts a self-contained stack with a built-in Postgres and Redis. From here you can customize the deployment — for example, pointing at an external database, setting your public URLs, or enabling OAuth and email — as described in [Environment Configuration](#environment-configuration) below.
 
 ## Environment Configuration
 
-### Required Environment Variables
+This section covers the variables you need to set for a production deployment. For the complete list — every variable, its default, and whether it is required — see the [Environment Variables](/docs/deployment/environment-variables) reference.
 
-Update your `.env.docker` file with the following configurations:
+### Required secrets
 
-#### Authentication & Security
+Four secrets are required and have no safe default; the stack refuses to start if any is unset. Generate them as shown in [Quick Start](#quick-start) (step 3) and set them in `.env.docker`.
 
-These variables configure user authentication and security for the platform:
+| Secret | Protects |
+|---|---|
+| `DB_ENCRYPTION_KEY` | Sensitive database fields (such as stored provider credentials) at rest |
+| `JWT_SECRET_KEY` | Backend-issued JWTs |
+| `NEXTAUTH_SECRET` | NextAuth (frontend) sessions |
+| `SESSION_SECRET_KEY` | Backend session cookies |
 
-<CodeBlock filename=".env.docker" language="bash">
-{`# JWT Configuration
-# Used for secure token generation and validation
-JWT_SECRET_KEY=your-jwt-secret-key
+### Public URLs
 
-# NextAuth Configuration
-# Required for Next.js authentication integration
-NEXTAUTH_SECRET=your-nextauth-secret
-`}
-</CodeBlock>
-
-#### Database Encryption
+Set `FRONTEND_URL` and `API_BASE_URL` to the public origins your users reach. When either starts with `https://`, the stack issues secure (HTTPS-only) cookies. `FRONTEND_PORT` and `BACKEND_PORT` are the host ports Docker publishes and are independent of these URLs — behind a reverse proxy the published port and the public URL usually differ.
 
 <CodeBlock filename=".env.docker" language="bash">
-{`# Database Field Encryption
-# Generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-DB_ENCRYPTION_KEY=your-generated-encryption-key`}
+{`FRONTEND_URL=https://app.example.com
+API_BASE_URL=https://api.example.com`}
 </CodeBlock>
 
-#### OAuth Providers (Optional)
+### Database
 
-Additional authentication providers for social login. If no OAuth credentials are provided, only email/password authentication is available.
+By default the stack runs a built-in `postgres` container. To use your own PostgreSQL instead, set the variables below and grant the role read/write privileges on the database.
 
-<CodeBlock filename=".env.docker" language="bash">
-{`# Google OAuth (Optional)
-# Enables Google sign-in for users
-GOOGLE_CLIENT_ID=your-google-client-id
-GOOGLE_CLIENT_SECRET=your-google-client-secret
+The database name and user are **fixed** — some scripts reference them by name — so when you provision your own database you must create it with exactly these names:
 
-# GitHub OAuth (Optional)
-# Enables GitHub sign-in for users
-GH_CLIENT_ID=your-github-client-id
-GH_CLIENT_SECRET=your-github-client-secret`}
-</CodeBlock>
+| Variable | Value | Notes |
+| --- | --- | --- |
+| `DB_NAME` | `rhesis-db` (fixed) | Create your database with this exact name |
+| `APP_DB_USER` | `rhesis-user` (fixed) | Create the runtime role with this exact name |
+| `APP_DB_PASS` | your choice | Password for the runtime role |
+| `DB_HOST`, `DB_PORT` | your values | Where your database is reachable |
+| `ADMIN_DB_USER`, `ADMIN_DB_PASS` | optional | Separate migration role; falls back to the app role |
 
-#### Email Configuration (Optional)
+To use an external Redis, set `BROKER_URL` and `CELERY_RESULT_BACKEND`.
 
-Required for sending system emails, notifications, and user communications:
+### AI Models
 
-<CodeBlock filename=".env.docker" language="bash">
-{`# SMTP Configuration (Optional)
-# Used for sending emails (notifications, invitations, etc.)
-SMTP_HOST=your_smtp_host
-SMTP_PORT=465
-SMTP_USER=your_smtp_user
-SMTP_PASSWORD=your_smtp_password
-FROM_EMAIL=your_from_email`}
-</CodeBlock>
-
-#### AI Model Configuration
-
-An AI provider is required for test generation, evaluation, multi-turn execution, and embeddings. By default, the system uses `rhesis/rhesis-default` for generation, evaluation, and execution, and `rhesis/rhesis-embedding` for embeddings. These hosted defaults require a `RHESIS_API_KEY`. If you do not configure either a `RHESIS_API_KEY` or alternative providers with matching `DEFAULT_GENERATION_MODEL`, `DEFAULT_EVALUATION_MODEL`, `DEFAULT_EXECUTION_MODEL`, and `DEFAULT_EMBEDDING_MODEL`, generation, execution, and Explorer embedding workflows will fail.
-
-**Option 1: Use Rhesis API (Recommended)**
-
-Set your Rhesis API key — no other model configuration is needed since the defaults already use Rhesis-hosted generation and embedding models:
+Rhesis provides the models used for test generation, evaluation, multi-turn execution, and embeddings. By default the stack uses `rhesis/rhesis-default` for generation, evaluation, and execution, and `rhesis/rhesis-embedding` for embeddings. These models are hosted by Rhesis and require a `RHESIS_API_KEY` — without it, generation, execution, and Explorer embedding workflows will fail.
 
 <CodeBlock filename=".env.docker" language="bash">
 {`# Rhesis API key (get from https://app.rhesis.ai/)
 RHESIS_API_KEY=your-actual-rhesis-api-key-here`}
 </CodeBlock>
 
-**Option 2: Use Your Own AI Provider**
+To run against your own model provider instead, see the [Environment Variables](/docs/deployment/environment-variables#ai-models) reference.
 
-Set your provider API keys **and** change the default models to use those providers. The embedding provider can be different from the language-model provider:
+### Optional configuration
 
-<CodeBlock filename=".env.docker" language="bash">
-{`# Google Gemini
-GEMINI_API_KEY=your-gemini-api-key
-GOOGLE_API_KEY=your-google-api-key
-DEFAULT_GENERATION_MODEL=gemini/gemini-2.0-flash-001
-DEFAULT_EVALUATION_MODEL=gemini/gemini-2.0-flash-001
-DEFAULT_EXECUTION_MODEL=gemini/gemini-2.0-flash-001
-DEFAULT_EMBEDDING_MODEL=gemini/gemini-embedding-001
+The variables above get a deployment running. Everything else is optional — see the [Environment Variables](/docs/deployment/environment-variables) reference for the details:
 
-# Or Azure OpenAI for language models, paired with a supported embedding provider
-AZURE_OPENAI_ENDPOINT=YOUR_AZURE_OPENAI_API_ENDPOINT
-AZURE_OPENAI_API_KEY=YOUR_AZURE_OPENAI_API_KEY
-AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4o
-AZURE_OPENAI_API_VERSION=YOUR_AZURE_OPENAI_API_VERSION
-DEFAULT_GENERATION_MODEL=azure/gpt-4o
-DEFAULT_EVALUATION_MODEL=azure/gpt-4o
-DEFAULT_EXECUTION_MODEL=azure/gpt-4o
-OPENAI_API_KEY=YOUR_OPENAI_API_KEY
-DEFAULT_EMBEDDING_MODEL=openai/text-embedding-3-small
+- **Configure an OAuth provider (Google or GitHub)** for social login — [Authentication and OAuth](/docs/deployment/environment-variables#authentication-and-oauth)
+- **Configure email (SMTP)** for notifications and invitations — [SMTP and email](/docs/deployment/environment-variables#smtp-and-email)
+- **Configure object storage for files** (GCS or S3) — [Object storage](/docs/deployment/environment-variables#object-storage)
+- **Tune the Celery worker** for throughput — [Logging and tuning](/docs/deployment/environment-variables#logging-and-tuning)
 
-# Or OpenAI
-OPENAI_API_KEY=YOUR_OPENAI_API_KEY
-DEFAULT_GENERATION_MODEL=openai/gpt-4o
-DEFAULT_EVALUATION_MODEL=openai/gpt-4o
-DEFAULT_EXECUTION_MODEL=openai/gpt-4o
-DEFAULT_EMBEDDING_MODEL=openai/text-embedding-3-small`}
-</CodeBlock>
-
-For embeddings, supported default provider prefixes are `rhesis`, `openai`, `gemini`, and `vertex_ai`. If you previously relied on an explicit deployment secret such as `DEFAULT_EMBEDDING_MODEL=vertex_ai/text-embedding-005`, that explicit value continues to override the new `rhesis/rhesis-embedding` code default.
-
-Supported language-model provider prefixes: `openai`, `gemini`, `azure`, `anthropic`, `groq`, `mistral`, `together_ai`, `perplexity`, `replicate`, `openrouter`, `cohere`, `ollama`.
-
-#### Object Storage for Files
-
-Rhesis stores uploaded file bytes in object storage. Metadata remains in Postgres, but file content, thumbnails, and execution attachments are read from the configured storage backend.
-
-Set `STORAGE_SERVICE_URI` in `.env.docker`:
-
-<CodeBlock filename=".env.docker" language="bash">
-{`# Local filesystem for single-host deployments or CI
-STORAGE_SERVICE_URI=file:///var/lib/rhesis/files
-
-# Google Cloud Storage
-# STORAGE_SERVICE_URI=gs://your-rhesis-files-bucket
-
-# S3-compatible object storage
-# STORAGE_SERVICE_URI=s3://your-rhesis-files-bucket`}
-</CodeBlock>
-
-| Backend | Example | Operational notes |
-|---|---|---|
-| Local filesystem | `file:///var/lib/rhesis/files` | Mount the same persistent volume into backend and worker containers |
-| Google Cloud Storage | `gs://bucket-name` | Grant the backend and worker identity object read/write permissions |
-| S3-compatible storage | `s3://bucket-name` | Provide credentials through the standard AWS environment variables |
-
-Downloads from `GET /files/{id}/content` and thumbnails from `GET /files/{id}/thumbnail` redirect to presigned URLs. Browsers and the SDK follow these redirects automatically; custom clients should allow redirects.
-
-<Callout type="info">
-  If you are upgrading from a pre-0.8.0 deployment, apply the storage-column
-  migration, deploy code that streams file bytes to object storage, and only
-  then apply the migration that drops the legacy database `content` column.
-</Callout>
-
-#### Enterprise Features
+### Enterprise Features
 
 Enterprise Edition features are discovered at runtime through `GET /features`. The endpoint returns license metadata and enabled feature names for the current organization. Frontend pages hide gated UI until the feature appears in that response.
 
@@ -362,3 +218,57 @@ docker run --rm -v rhesis_redis_data:/data -v $(pwd):/backup alpine tar czf /bac
 docker compose --env-file .env.docker up -d`}
 </CodeBlock>
 
+
+## System Requirements
+
+### Production Environment
+
+For production deployment with real users:
+
+<Table
+  headers={["Resource", "Minimum", "Recommended", "High-Scale"]}
+  rows={[
+    ["RAM", "8 GB", "16 GB", "32 GB+"],
+    ["Storage", "20 GB SSD", "50 GB SSD", "100 GB+ SSD"],
+    ["CPU", "4 cores", "8 cores", "16+ cores"],
+    ["Network", "50 Mbps", "100 Mbps", "1 Gbps+"],
+  ]}
+  align={["left", "center", "center", "center"]}
+/>
+
+
+### Detailed Resource Breakdown
+
+<div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.5rem', alignItems: 'flex-start' }}>
+  <div style={{ flex: '1 1 320px', minWidth: 0 }}>
+    <Table
+      caption="Memory Usage by Service"
+      headers={["Service", "Production"]}
+      rows={[
+        ["PostgreSQL", "~1-2 GB"],
+        ["Redis", "~500 MB - 1 GB"],
+        ["Backend", "~500 MB - 1 GB"],
+        ["Worker", "~1-2 GB"],
+        ["Frontend", "~200-400 MB"],
+        ["Docker Overhead", "~500 MB - 1 GB"],
+        ["**Total Estimated**", "**~3.7-7.1 GB**"],
+      ]}
+      align={["left", "right"]}
+    />
+  </div>
+  <div style={{ flex: '1 1 320px', minWidth: 0 }}>
+    <Table
+      caption="Storage Requirements"
+      headers={["Component", "Production"]}
+      rows={[
+        ["Application Code", "~2 GB"],
+        ["Database", "~5-50 GB+"],
+        ["Docker Images", "~3-4 GB"],
+        ["Logs & Cache", "~2-10 GB"],
+        ["Working Space", "~3-5 GB"],
+        ["**Total Estimated**", "**~15-75 GB+**"],
+      ]}
+      align={["left", "right"]}
+    />
+  </div>
+</div>
