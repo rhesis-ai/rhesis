@@ -105,11 +105,13 @@ def infer_workflow_path(message: str, *, has_attachments: bool = False) -> Workf
     return None
 
 
-_OVERRIDE_FROM_EXPLORE = frozenset({
-    WorkflowPath.PRD,
-    WorkflowPath.RUN_ANALYZE,
-    WorkflowPath.DIRECT,
-})
+_OVERRIDE_FROM_EXPLORE = frozenset(
+    {
+        WorkflowPath.PRD,
+        WorkflowPath.RUN_ANALYZE,
+        WorkflowPath.DIRECT,
+    }
+)
 
 
 def resolve_workflow_path_update(

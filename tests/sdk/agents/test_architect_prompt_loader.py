@@ -19,14 +19,7 @@ from rhesis.sdk.agents.constants import AgentMode
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _TEMPLATES_DIR = (
-    _REPO_ROOT
-    / "sdk"
-    / "src"
-    / "rhesis"
-    / "sdk"
-    / "agents"
-    / "architect"
-    / "prompt_templates"
+    _REPO_ROOT / "sdk" / "src" / "rhesis" / "sdk" / "agents" / "architect" / "prompt_templates"
 )
 _SKILLS_REFS = _REPO_ROOT / "skills" / "rhesis" / "references"
 
@@ -56,26 +49,17 @@ class TestInferWorkflowPath:
 @pytest.mark.unit
 class TestResolveWorkflowPathUpdate:
     def test_unset_to_inferred(self):
-        assert (
-            resolve_workflow_path_update(WorkflowPath.UNSET, "1")
-            == WorkflowPath.EXPLORE
-        )
+        assert resolve_workflow_path_update(WorkflowPath.UNSET, "1") == WorkflowPath.EXPLORE
 
     def test_explore_overridden_by_prd_paste(self):
         msg = "Functional requirement: " + ("x" * 500)
-        assert (
-            resolve_workflow_path_update(WorkflowPath.EXPLORE, msg)
-            == WorkflowPath.PRD
-        )
+        assert resolve_workflow_path_update(WorkflowPath.EXPLORE, msg) == WorkflowPath.PRD
 
     def test_prd_not_overridden_by_ambiguous(self):
         assert resolve_workflow_path_update(WorkflowPath.PRD, "hello") is None
 
     def test_explore_not_overridden_by_another_explore_signal(self):
-        assert (
-            resolve_workflow_path_update(WorkflowPath.EXPLORE, "explore my endpoint")
-            is None
-        )
+        assert resolve_workflow_path_update(WorkflowPath.EXPLORE, "explore my endpoint") is None
 
 
 @pytest.mark.unit
@@ -170,6 +154,6 @@ class TestBundledSkillReferences:
         assert wheels, "No wheel produced"
         with zipfile.ZipFile(wheels[0]) as zf:
             names = zf.namelist()
-        assert any(
-            n.endswith("prompt_templates/skill_refs/entity-model.md") for n in names
-        ), f"skill refs missing from wheel: {[n for n in names if 'skill_refs' in n][:5]}"
+        assert any(n.endswith("prompt_templates/skill_refs/entity-model.md") for n in names), (
+            f"skill refs missing from wheel: {[n for n in names if 'skill_refs' in n][:5]}"
+        )

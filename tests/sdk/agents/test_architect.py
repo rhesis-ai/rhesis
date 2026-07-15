@@ -1288,10 +1288,15 @@ class TestArchitectSkillIncludes:
         assert "PRD" in iteration or "acceptance criteria" in iteration.lower()
 
     def test_rendered_system_prompt_smaller_than_eager_load(self, mock_model):
-        """Lazy loading keeps the fixed system prompt well under the old ~1400 lines."""
+        """Fixed prompt stays lean vs old ~1400-line eager load.
+
+        Always-on guidelines and OData patterns are hoisted into the system
+        prompt (~530 lines); phase-specific content still loads per iteration.
+        """
         agent = _make_agent(mock_model)
         lines = agent.system_prompt.splitlines()
-        assert len(lines) < 500, f"system prompt still {len(lines)} lines"
+        assert len(lines) < 600, f"system prompt still {len(lines)} lines"
+        assert len(lines) < 900, "should remain well under the old eager-load size"
 
 
 @pytest.mark.unit
