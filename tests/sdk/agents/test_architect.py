@@ -1260,7 +1260,7 @@ class TestArchitectSkillIncludes:
     def test_workflow_menu_in_prompt(self, mock_model):
         prompt = _make_agent(mock_model).system_prompt
         assert "Quick exploration" in prompt
-        assert "Build a test foundation from your PRD" in prompt
+        assert "Build test foundation from requirements" in prompt
 
     def test_exploration_not_in_system_prompt(self, mock_model):
         """Heavy phase content loads per iteration, not in the fixed system prompt."""

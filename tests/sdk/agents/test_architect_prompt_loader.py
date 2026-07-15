@@ -76,7 +76,7 @@ class TestPhaseIncludeNames:
 
     def test_planning_prd_has_prd_workflow_and_bracketfeld(self):
         names = phase_include_names(AgentMode.PLANNING, WorkflowPath.PRD)
-        assert "prd-workflow.md" in names
+        assert "requirements-workflow.md" in names
         assert "use-case-bracketfeld.md" in names
         assert "phases/reuse.md" in names
         assert "telemachus-save-plan.j2" in names

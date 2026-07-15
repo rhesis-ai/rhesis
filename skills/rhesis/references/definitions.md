@@ -15,7 +15,7 @@ Use this file when concepts get mixed up. Do **not** duplicate glossary definiti
 
 **Single-Turn test vs metric scope** — A Multi-Turn test set only runs metrics with `"Multi-Turn"` in `metric_scope`. Plan both explicitly — see `metric-scope.md` and glossary `metric-scope`.
 
-**PRD section title vs behavior** — "Security" or "Operate Safely" is not a behavior. Split numbered requirements and acceptance criteria into testable expectations (see `prd-workflow.md`).
+**PRD section title vs behavior** — "Security" or "Operate Safely" is not a behavior. Split numbered requirements and acceptance criteria into testable expectations (see `requirements-workflow.md`).
 
 **Source vs pasted PRD** — Pasted chat text is ephemeral. For large specs, `create_source` then pass the source id into `generate_test_set` (Single-Turn only). See glossary: `knowledge`.
 

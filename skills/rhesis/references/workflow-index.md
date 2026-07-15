@@ -6,7 +6,7 @@ Read this file first when routing a request. Do **not** answer platform mechanic
 
 ## Shared skeleton (every full workflow)
 
-```
+```text
 resolve by name → list_behaviors + list_metrics once → plan → user approval → create in order → optional execute → analyze
 ```
 
@@ -21,8 +21,8 @@ Details: `phases/creation.md`, `entity-model.md`, `metric-scope.md`.
 | Intent | Read first | Then | Skip |
 |---|---|---|---|
 | Vague `/rhesis` or "help me test" | This file → `SKILL.md` intake | Matching path below | — |
-| Named endpoint + explore/test | `phases/discovery.md` | `exploration-strategies.md` → `phases/planning.md` | PRD workflow |
-| Pasted PRD / spec / FRs | `prd-workflow.md` | `use-case-bracketfeld.md` (target shape) → `metric-scope.md` | `explore_endpoint` unless user asks |
+| Named endpoint + explore/test | `phases/discovery.md` | `exploration-strategies.md` → `phases/planning.md` | Requirements workflow |
+| Pasted PRD / spec / FRs | `requirements-workflow.md` | `use-case-bracketfeld.md` (target shape) → `metric-scope.md` | `explore_endpoint` unless user asks |
 | "Run tests" / "analyze" / "compare runs" | `phases/execution.md` → `phases/analysis.md` | `result-analysis.md` | New plan |
 | Single action ("list test sets", "fix metric X") | `phases/direct-requests.md` | `tool-catalog.md` if needed | Full phases |
 | Entity / OData / tool questions | `entity-model.md` | `odata-patterns.md`, `tool-catalog.md` | — |
@@ -34,7 +34,7 @@ Details: `phases/creation.md`, `entity-model.md`, `metric-scope.md`.
 
 | Signal | Default path |
 |---|---|
-| PRD paste, numbered FRs, "requirements doc" | PRD foundation |
+| PRD paste, numbered FRs, "requirements doc" | Requirements → test foundation |
 | Endpoint name + "test" / "explore" | Exploration (Quick unless they said comprehensive) |
 | Test run id, "compare runs", "last run" | Run / analyze |
 | OpenAPI, `AGENTS.md`, agent code in repo | Quick exploration of implied endpoint |
@@ -49,7 +49,7 @@ What would you like to do?
 
 1. Quick exploration — fast scan of an endpoint's domain and boundaries
 2. Comprehensive exploration — full capability and boundary analysis
-3. Build a test foundation from your PRD — behaviors, metrics, and test sets
+3. Build test foundation from requirements — behaviors, metrics, and test sets
 4. Run or analyze existing tests — execute a test set or review/compare past runs
 ```
 
@@ -57,10 +57,10 @@ What would you like to do?
 |---|---|
 | 1 Quick | `phases/discovery.md` → Quick strategy |
 | 2 Comprehensive | `phases/discovery.md` → Comprehensive strategy |
-| 3 PRD | `prd-workflow.md` — match `use-case-bracketfeld.md` |
+| 3 Requirements | `requirements-workflow.md` — match `use-case-bracketfeld.md` |
 | 4 Run / analyze | `phases/execution.md`, `phases/analysis.md` |
 
-Skip the menu when intent is already clear. PRD and run/analyze paths skip exploration unless the user asks later.
+Skip the menu when intent is already clear. Requirements and run/analyze paths skip exploration unless the user asks later.
 
 **Write gate:** No `create_*` / `generate_*` until the user approves the plan.
 
@@ -71,11 +71,11 @@ Skip the menu when intent is already clear. PRD and run/analyze paths skip explo
 | File | Contents |
 |---|---|
 | [Glossary](https://docs.rhesis.ai/glossary.md) | Canonical terms — `glossary/behavior.md`, `glossary/test-result.md`, `glossary/tag.md`, … |
-| `definitions.md` | Confusions and PRD traceability only (glossary first) |
+| `definitions.md` | Confusions and requirements traceability only (glossary first) |
 | `entity-model.md` | Entity graph and tool chains |
 | `metric-scope.md` | Single-Turn vs Multi-Turn alignment |
-| `prd-workflow.md` | PRD → test foundation pipeline |
-| `use-case-bracketfeld.md` | **Golden example** — full plan shape (fictional PRD) |
+| `requirements-workflow.md` | Requirements → test foundation pipeline |
+| `use-case-bracketfeld.md` | **Golden example** — full plan shape (fictional requirements doc) |
 | `exploration-strategies.md` | `explore_endpoint` strategies |
 | `phases/discovery.md` | Discovery phase |
 | `phases/planning.md` | Planning and reuse |
@@ -91,4 +91,4 @@ Skip the menu when intent is already clear. PRD and run/analyze paths skip explo
 
 ## Grounding rule
 
-Before citing **metric_scope**, **creation order**, **field constraints**, or **PRD extraction rules**, read the reference above — do not paraphrase from memory. For PRD plans, match the section structure in `use-case-bracketfeld.md`.
+Before citing **metric_scope**, **creation order**, **field constraints**, or **requirements extraction rules**, read the reference above — do not paraphrase from memory. For requirements plans, match the section structure in `use-case-bracketfeld.md`.

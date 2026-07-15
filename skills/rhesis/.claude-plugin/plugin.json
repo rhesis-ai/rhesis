@@ -1,6 +1,6 @@
 {
   "name": "rhesis",
-  "description": "Design, run, and analyze AI test suites on Rhesis — explore endpoints, build test foundations from PRDs, and drive the full workflow via MCP.",
+  "description": "Design, run, and analyze AI test suites on Rhesis — explore endpoints, build test foundations from requirements, and drive the full workflow via MCP.",
   "version": "0.1.0",
   "author": {
     "name": "Rhesis AI",

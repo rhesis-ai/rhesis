@@ -85,7 +85,7 @@ export function renderLlmsTxt() {
     '- [Metric scope](https://docs.rhesis.ai/docs/metrics/metric-scope.md): Single-Turn vs Multi-Turn alignment (critical)'
   )
   lines.push(
-    '- [PRD workflow](https://docs.rhesis.ai/docs/agent-skill/prd.md): requirements → test foundation'
+    '- [Requirements workflow](https://docs.rhesis.ai/docs/agent-skill/requirements.md): requirements → test foundation'
   )
   lines.push(
     '- [Architect workflow](https://docs.rhesis.ai/docs/architect/workflow.md): native UI agent phases'
@@ -94,7 +94,7 @@ export function renderLlmsTxt() {
     '- [Agent skill install](https://docs.rhesis.ai/docs/agent-skill/platform.md): MCP + `npx skills add`'
   )
   lines.push(
-    '- Golden PRD example (repo only): https://github.com/rhesis-ai/rhesis/blob/main/skills/rhesis/references/use-case-bracketfeld.md'
+    '- Golden requirements example (repo only): https://github.com/rhesis-ai/rhesis/blob/main/skills/rhesis/references/use-case-bracketfeld.md'
   )
   lines.push('')
 

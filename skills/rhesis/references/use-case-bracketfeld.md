@@ -2,7 +2,7 @@
 
 > **Entirely fictional.** "Bracketfeld" is a made-up municipality. PermitDesk is a synthetic internal product name. Use this file as the **shape** to match when scoping PRDs — do not treat company names, ordinance numbers, or fees as real.
 
-When building a PRD foundation, your presented plan should mirror these sections and depth.
+When building a requirements foundation, your presented plan should mirror these sections and depth.
 
 ---
 

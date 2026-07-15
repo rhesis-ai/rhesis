@@ -1,11 +1,11 @@
 # Agent Skill
 
-Rhesis ships one **agent skill** (`rhesis`) that covers the full workflow via the Rhesis MCP server — from PRD to test execution.
+Rhesis ships one **agent skill** (`rhesis`) that covers the full workflow via the Rhesis MCP server — from requirements to test execution.
 
 | Workflow | When to use |
 | --- | --- |
 | [**Platform**](/docs/agent-skill/platform) | Explore endpoints, design and run tests, analyze results |
-| [**PRD → test foundation**](/docs/agent-skill/prd) | Paste requirements; create behaviors, metrics, tags, and test sets |
+| [**Requirements → test foundation**](/docs/agent-skill/requirements) | Paste a Product Requirements Document (PRD), product spec, or other requirements; create behaviors, metrics, tags, and test sets |
 
 One install. Invoke with `/rhesis` for a **four-path menu** when intent is unclear, or speak naturally and the skill routes automatically.
 
@@ -15,14 +15,14 @@ One install. Invoke with `/rhesis` for a **four-path menu** when intent is uncle
 
 ## Four paths
 
-On an ambiguous `/rhesis` (no endpoint, PRD, or run request yet), the skill offers:
+On an ambiguous `/rhesis` (no endpoint, requirements doc, or run request yet), the skill offers:
 
 1. **Quick exploration** — fast endpoint scan
 2. **Comprehensive exploration** — full capability and boundary analysis
-3. **PRD → test foundation** — behaviors, metrics, tags, test sets from requirements
+3. **Requirements → test foundation** — behaviors, metrics, tags, test sets from requirements
 4. **Run or analyze** — execute test sets or compare past runs (returning users)
 
-If you already paste a PRD or name an endpoint, the menu is skipped.
+If you already paste requirements or name an endpoint, the menu is skipped.
 
 → **AI agents:** [Agent reference](/docs/agent-skill/for-agents) and [llms.txt](https://docs.rhesis.ai/llms.txt)
 → **Terms:** [Glossary](/glossary) · [Metric scope](/docs/metrics/metric-scope)
@@ -44,8 +44,8 @@ Connect the MCP server in your agent — see [Install in Cursor](/docs/agent-ski
 # Platform — explore and test an endpoint
 "I want to test my travel chatbot. The endpoint is called 'travel-agent-v2'."
 
-# PRD — build a test foundation first
-"Here's our agent PRD: [paste requirements]"
+# Requirements — build a test foundation first
+"Here's our agent PRD: [paste product requirements]"
 
 # Returning user — run or analyze
 "Compare my last two test runs for the safety test set"
@@ -57,4 +57,4 @@ The in-app **Architect** agent mirrors the same four paths. See [Architect workf
 
 ## Source
 
-[`skills/rhesis/`](https://github.com/rhesis-ai/rhesis/tree/main/skills/rhesis) — skill instructions and reference docs (`references/prd/` for PRD workflow).
+[`skills/rhesis/`](https://github.com/rhesis-ai/rhesis/tree/main/skills/rhesis) — skill instructions and reference docs (`references/prd/` for requirements design guides).
