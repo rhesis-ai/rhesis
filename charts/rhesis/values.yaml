@@ -48,6 +48,10 @@ database:
 config:
   environment: "production"
   logLevel: "INFO"
+  # Structured JSON logs on stdout, for a container log collector. Defaults
+  # to false so self-hosted deployments get human-readable text logs;
+  # Rhesis-managed environments override this to true.
+  jsonLoggerEnabled: false
 
   # Database (host/port/name/user are computed from subchart or externalDatabase)
   dbPort: "5432"
