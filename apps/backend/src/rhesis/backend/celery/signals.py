@@ -11,6 +11,7 @@ from celery.signals import (
 )
 
 import rhesis.backend.tasks.architect.monitor  # noqa: F401
+from rhesis.backend.logging import set_logger
 from rhesis.backend.tasks.enums import RunStatus
 
 logger = logging.getLogger("celery.signals")
@@ -96,6 +97,18 @@ def warm_architect_worker(sender=None, **kwargs):
 
     elapsed = time.perf_counter() - start
     logger.info("Architect worker: backend app preloaded in %.1fs", elapsed)
+
+
+@after_setup_logger.connect
+def configure_worker_logging(logger=None, **kw):
+    """Replace Celery's default root logger setup with our shared pipeline
+    (RedactingFormatter + JSON/plain-text stdout, per JSON_LOGGER_ENABLED).
+
+    Runs after Celery hijacks the root logger at worker boot (the default
+    `worker_hijack_root_logger` behavior), so calling this at import time
+    would just get overwritten by Celery's own setup.
+    """
+    set_logger()
 
 
 @after_setup_logger.connect
