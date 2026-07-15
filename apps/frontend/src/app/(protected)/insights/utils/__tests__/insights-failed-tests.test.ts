@@ -34,6 +34,32 @@ describe('insights-failed-tests', () => {
     );
   });
 
+  it('builds tests URL for all test runs with an empty testRunIds param', () => {
+    expect(
+      buildInsightsFailedTestsUrl({
+        endpointId: 'ep-1',
+        runFilterMode: 'testRuns',
+        timeRange: '1m',
+        testRunIds: [],
+      })
+    ).toBe(
+      '/tests?failedFromInsights=1&endpointId=ep-1&runFilterMode=testRuns&testRunIds='
+    );
+  });
+
+  it('parses all-runs testRuns URLs with empty testRunIds', () => {
+    const params = new URLSearchParams(
+      'failedFromInsights=1&endpointId=ep-1&runFilterMode=testRuns&testRunIds='
+    );
+    expect(parseInsightsFailedTestsSearchParams(params)).toEqual({
+      endpointId: 'ep-1',
+      runFilterMode: 'testRuns',
+      timeRange: '1m',
+      testRunIds: [],
+      outcome: 'failed',
+    });
+  });
+
   it('builds tests URL with behavior metric scope', () => {
     expect(
       buildInsightsFailedTestsUrl(

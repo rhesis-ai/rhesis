@@ -65,7 +65,8 @@ export function buildInsightsFailedTestsUrl(
       INSIGHTS_TIME_RANGE_PARAM,
       resolveInsightsTimeRange(filters.timeRange)
     );
-  } else if (filters.testRunIds.length > 0) {
+  } else if (filters.runFilterMode === 'testRuns') {
+    // Explicit empty list = all runs for the endpoint (parsed the same way).
     params.set(INSIGHTS_TEST_RUN_IDS_PARAM, filters.testRunIds.join(','));
   }
 
@@ -263,16 +264,19 @@ const TEST_RUN_ID_CHUNK = 15;
  */
 export async function fetchFailedTestIdsForInsights(
   sessionToken: string,
-  filters: InsightsRunContextFilters &
-    InsightsFailedTestsScope & { testRunIds?: string[] }
+  filters: InsightsRunContextFilters & InsightsFailedTestsScope
 ): Promise<string[]> {
   if (!filters.endpointId) {
     return [];
   }
 
+  // Empty `testRunIds` is meaningful: time-range mode and testRuns/"all runs"
+  // both store `[]` and need resolution via `resolveInsightsQueryTestRunIds`.
+  // Do not treat `[]` as missing (`??` would skip resolution).
   const testRunIds =
-    filters.testRunIds ??
-    (await resolveInsightsQueryTestRunIds(sessionToken, filters));
+    filters.testRunIds.length > 0
+      ? filters.testRunIds
+      : await resolveInsightsQueryTestRunIds(sessionToken, filters);
   if (testRunIds.length === 0) {
     return [];
   }
