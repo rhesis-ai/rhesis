@@ -15,11 +15,12 @@ import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { getEntityEmptyStateEnrichment } from '@/constants/entity-empty-state-env';
-import { HorizontalSplitIcon } from '@/components/icons';
+import { HorizontalSplitIcon, OwaspIcon } from '@/components/icons';
 import TestSetsGrid from './components/TestSetsGrid';
 import TestSetDrawer from './components/TestSetDrawer';
 import FileImportDrawer from './components/FileImportDrawer';
 import GarakImportDrawer from './components/GarakImportDrawer';
+import OwaspGenerateDrawer from './components/OwaspGenerateDrawer';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import { useNotifications } from '@/components/common/NotificationContext';
@@ -43,6 +44,8 @@ export default function TestSetsPage() {
   const [createDrawerOpen, setCreateDrawerOpen] = React.useState(false);
   const [fileImportDrawerOpen, setFileImportDrawerOpen] = React.useState(false);
   const [garakImportDrawerOpen, setGarakImportDrawerOpen] =
+    React.useState(false);
+  const [owaspGenerateDrawerOpen, setOwaspGenerateDrawerOpen] =
     React.useState(false);
 
   useDocumentTitle('Test Sets');
@@ -78,6 +81,15 @@ export default function TestSetsPage() {
     },
     [queryClient, notifications, router]
   );
+
+  const handleOwaspGenerateSuccess = React.useCallback(() => {
+    // Generation runs as a background task — the test set doesn't exist yet,
+    // so the drawer stays open showing its own completion state. The user
+    // closes it manually once they've read the "will appear in your list" note.
+    notifications.show('OWASP test set generation started', {
+      severity: 'success',
+    });
+  }, [notifications]);
 
   if (status === 'loading') {
     return (
@@ -122,6 +134,14 @@ export default function TestSetsPage() {
                 icon={<SecurityIcon />}
                 tooltip="Import from Garak"
                 onClick={() => setGarakImportDrawerOpen(true)}
+              />
+            </Can>
+            <Can capability={Capability.TestSet.GENERATE}>
+              <Fab
+                icon={<OwaspIcon />}
+                tooltip="Generate from OWASP"
+                aria-label="Generate from OWASP"
+                onClick={() => setOwaspGenerateDrawerOpen(true)}
               />
             </Can>
             <Can capability={Capability.TestSet.GENERATE}>
@@ -192,6 +212,13 @@ export default function TestSetsPage() {
         onClose={() => setGarakImportDrawerOpen(false)}
         sessionToken={sessionToken}
         onSuccess={handleGarakImportSuccess}
+      />
+
+      <OwaspGenerateDrawer
+        open={owaspGenerateDrawerOpen}
+        onClose={() => setOwaspGenerateDrawerOpen(false)}
+        sessionToken={sessionToken}
+        onSuccess={handleOwaspGenerateSuccess}
       />
     </>
   );
