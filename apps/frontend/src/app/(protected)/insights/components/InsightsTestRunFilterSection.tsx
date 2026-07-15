@@ -34,10 +34,12 @@ interface InsightsTestRunFilterSectionProps {
 function TestRunCheckboxRow({
   option,
   checked,
+  disabled,
   onToggle,
 }: {
   option: InsightsTestRunOption;
   checked: boolean;
+  disabled?: boolean;
   onToggle: () => void;
 }) {
   return (
@@ -51,6 +53,7 @@ function TestRunCheckboxRow({
     >
       <Checkbox
         checked={checked}
+        disabled={disabled}
         onChange={onToggle}
         sx={checkboxSx}
         inputProps={{ 'aria-label': option.label }}
@@ -85,6 +88,7 @@ export default function InsightsTestRunFilterSection({
       : options.slice(0, DEFAULT_VISIBLE_COUNT);
 
   const toggleTestRun = (id: string) => {
+    if (disabled) return;
     onCheckedIdsChange(
       checkedIds.includes(id)
         ? checkedIds.filter(value => value !== id)
@@ -130,6 +134,7 @@ export default function InsightsTestRunFilterSection({
                 key={option.id}
                 option={option}
                 checked={checkedIds.includes(option.id)}
+                disabled={disabled}
                 onToggle={() => toggleTestRun(option.id)}
               />
             ))}
@@ -153,14 +158,19 @@ export default function InsightsTestRunFilterSection({
           component="button"
           type="button"
           underline="always"
-          onClick={() => setShowAll(true)}
+          disabled={disabled}
+          onClick={() => {
+            if (!disabled) setShowAll(true);
+          }}
           sx={{
             alignSelf: 'flex-start',
             fontSize: 14,
             lineHeight: '22px',
             color: theme => theme.palette.greyscale.body,
-            cursor: 'pointer',
+            cursor: disabled ? 'default' : 'pointer',
             textUnderlineOffset: '2px',
+            opacity: disabled ? 0.5 : 1,
+            pointerEvents: disabled ? 'none' : 'auto',
           }}
         >
           Show all
