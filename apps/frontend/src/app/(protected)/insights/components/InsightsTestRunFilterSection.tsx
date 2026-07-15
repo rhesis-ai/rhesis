@@ -149,7 +149,8 @@ export default function InsightsTestRunFilterSection({
             pt: '3px',
           }}
         >
-          All runs are included by default. Uncheck runs to narrow the view.
+          All runs are included by default. Uncheck runs to narrow the
+          view (up to 100 runs can be queried at once).
         </Typography>
       </Box>
 
