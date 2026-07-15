@@ -29,13 +29,13 @@ import {
 export interface TestFilters {
   /** test_type/type_value equals: Single-Turn | Multi-Turn | '' */
   testType: string;
-  /** status/name contains */
+  /** status/name equals */
   status: string;
-  /** behavior/name contains */
+  /** behavior/name equals */
   behavior: string;
-  /** category/name contains */
+  /** category/name equals */
   category: string;
-  /** topic/name contains */
+  /** topic/name equals */
   topic: string;
   tags: ActivityPresenceFilters['tags'];
   comments: ActivityPresenceFilters['comments'];
