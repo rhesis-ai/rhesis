@@ -474,20 +474,27 @@ def effective_permissions(
     *,
     project_id: Optional[UUID],
     db: Session,
+    resource_types: Optional[frozenset[str]] = None,
 ) -> list[str]:
-    """Return every capability *principal* effectively holds in the given scope.
+    """Return capabilities *principal* effectively holds in the given scope.
 
-    Runs the full capability catalog through :func:`authorize`, so the result
-    reflects the active authorization provider (community in Phase 1, EE in
-    Phase 2). This is the single implementation behind both ``GET /me/permissions``
-    and the server-driven affordances resolver — each ``authorize`` call is
-    Redis-cached, so repeated calls within a request are cheap.
+    Runs the capability catalog through :func:`authorize`, so the result reflects
+    the active authorization provider (community in Phase 1, EE in Phase 2). This
+    is the single implementation behind both ``GET /me/permissions`` and the
+    server-driven affordances resolver — each ``authorize`` call is Redis-cached,
+    so repeated calls within a request are cheap.
+
+    *resource_types*, when given, checks only capabilities prefixed with one of
+    these resource types (e.g. ``{"test_run"}`` matches ``test_run:read``, ...).
+    ``GET /me/permissions`` needs everything and leaves this ``None``; the
+    affordances resolver knows its response's resource type(s) up front, so it
+    skips capabilities no object in the response could ever use.
     """
-    return [
-        cap
-        for cap in get_all_capabilities()
-        if authorize(principal, cap, project_id=project_id, db=db)
-    ]
+    candidates = get_all_capabilities()
+    if resource_types is not None:
+        prefixes = tuple(f"{rt}:" for rt in resource_types)
+        candidates = [cap for cap in candidates if cap.startswith(prefixes)]
+    return [cap for cap in candidates if authorize(principal, cap, project_id=project_id, db=db)]
 
 
 def project_id_from_scope(db: Session) -> Optional[UUID]:
