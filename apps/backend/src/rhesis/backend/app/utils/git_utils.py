@@ -6,8 +6,6 @@ import os
 import subprocess
 from typing import Optional, Tuple
 
-from rhesis.backend.app.config.settings import get_application_settings
-
 
 def get_git_info() -> Tuple[Optional[str], Optional[str]]:
     """
@@ -40,20 +38,9 @@ def get_git_info() -> Tuple[Optional[str], Optional[str]]:
         return None, None
 
 
-def should_show_git_info() -> bool:
-    """
-    Determine if git information should be shown based on environment.
-    Returns True for non-production environments.
-    """
-    settings = get_application_settings()
-
-    # Don't show git info in production
-    return settings.is_development
-
-
 def get_version_info() -> dict:
     """
-    Get version information including git details when appropriate.
+    Get version information including git details when available.
 
     Returns:
         Dictionary with version information
@@ -62,11 +49,10 @@ def get_version_info() -> dict:
 
     version_info = {"version": __version__}
 
-    if should_show_git_info():
-        branch, commit = get_git_info()
-        if branch:
-            version_info["branch"] = branch
-        if commit:
-            version_info["commit"] = commit
+    branch, commit = get_git_info()
+    if branch:
+        version_info["branch"] = branch
+    if commit:
+        version_info["commit"] = commit
 
     return version_info
