@@ -254,6 +254,32 @@ class TestOrchestrationPassthrough:
         call_kwargs = mock_sequential.call_args.kwargs
         assert call_kwargs["reference_test_run_id"] == "ref-run-2"
 
+    def test_empty_test_set_raises_execution_error(self):
+        """execute_test_cases raises TestExecutionError when association count is zero."""
+        mock_test_set = MagicMock()
+        mock_test_set.id = "ts-empty"
+
+        with (
+            patch(
+                "rhesis.backend.tasks.execution.orchestration.get_test_set",
+                return_value=mock_test_set,
+            ),
+            patch(
+                "rhesis.backend.tasks.execution.orchestration.count_test_set_tests",
+                return_value=0,
+            ),
+        ):
+            from rhesis.backend.tasks.execution.orchestration import (
+                execute_test_cases,
+            )
+            from rhesis.backend.tasks.execution.run import TestExecutionError
+
+            with pytest.raises(TestExecutionError, match="Cannot execute test set with 0 tests"):
+                execute_test_cases(
+                    session=MagicMock(),
+                    test_config=MagicMock(test_set_id="ts-empty"),
+                    test_run=MagicMock(),
+                )
 
 
 # ============================================================================
