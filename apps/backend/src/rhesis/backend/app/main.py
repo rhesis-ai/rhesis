@@ -595,7 +595,6 @@ _frontend_settings = get_frontend_settings()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_frontend_settings.cors_origins,
-    allow_origin_regex=_frontend_settings.loopback_cors_regex,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

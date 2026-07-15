@@ -79,12 +79,6 @@ class FrontendSettings(BaseSettings):
     def allowed_domain(self) -> str:
         return urlparse(self.url).netloc
 
-    @property
-    def loopback_cors_regex(self) -> str | None:
-        if get_application_settings().is_development:
-            return r"^http://(localhost|127\.0\.0\.1|\[::1\])(:\d{1,5})?$"
-        return None
-
 
 class ApplicationSettings(BaseSettings):
     """General application runtime configuration."""
