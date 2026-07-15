@@ -1,11 +1,13 @@
 'use client';
 
 import { useMemo } from 'react';
+import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Test } from '@/utils/api-client/interfaces/tests';
 import { User } from '@/utils/api-client/interfaces/user';
 import { useNotifications } from '@/components/common/NotificationContext';
 import BaseWorkflowSection from '@/components/common/BaseWorkflowSection';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface TestWorkflowSectionProps {
   status?: string;
@@ -33,17 +35,18 @@ export default function TestWorkflowSection({
   onOwnerChange,
 }: TestWorkflowSectionProps) {
   const notifications = useNotifications();
+  const { status: sessionStatus } = useSession();
 
   // Create API clients exactly once
   const apiClients = useMemo(() => {
-    if (!sessionToken) return null;
+    if (!isAuthenticated(sessionStatus)) return null;
 
     const clientFactory = new ApiClientFactory(sessionToken);
     return {
       clientFactory,
       testsClient: clientFactory.getTestsClient(),
     };
-  }, [sessionToken]);
+  }, [sessionToken, sessionStatus]);
 
   const updateTest = async (updateData: Partial<Test>, fieldName: string) => {
     if (!apiClients?.testsClient) {

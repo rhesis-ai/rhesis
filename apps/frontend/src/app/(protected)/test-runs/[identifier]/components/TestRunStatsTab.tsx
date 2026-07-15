@@ -30,6 +30,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import RateReviewIcon from '@mui/icons-material/RateReview';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { useSession } from 'next-auth/react';
 import {
   CategoryPassRates,
   TestResultDetail,
@@ -51,6 +52,7 @@ import {
   metricShowsHumanCorrection,
   MetricStat,
 } from './test-run-summary-utils';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface TestRunStatsTabProps {
   testRun: TestRunDetail;
@@ -632,6 +634,7 @@ export default function TestRunStatsTab({
   onViewBehavior,
   onViewMetric,
 }: TestRunStatsTabProps) {
+  const { status } = useSession();
   const isMounted = useRef(false);
   const [stats, setStats] = useState<TestResultsStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
@@ -646,7 +649,7 @@ export default function TestRunStatsTab({
   );
 
   const fetchStats = useCallback(async () => {
-    if (!sessionToken) {
+    if (!isAuthenticated(status)) {
       setStatsLoading(false);
       return;
     }
@@ -666,7 +669,7 @@ export default function TestRunStatsTab({
         setStatsLoading(false);
       }
     }
-  }, [sessionToken, testRunId]);
+  }, [sessionToken, testRunId, status]);
 
   useEffect(() => {
     isMounted.current = true;

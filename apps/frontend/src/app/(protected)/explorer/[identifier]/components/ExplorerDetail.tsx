@@ -39,6 +39,7 @@ import TuneOutlinedIcon from '@mui/icons-material/TuneOutlined';
 import { alpha, useTheme } from '@mui/material/styles';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import {
   GridColDef,
   GridPaginationModel,
@@ -79,6 +80,7 @@ import type { MetricDetail } from '@/utils/api-client/interfaces/metric';
 import SuggestionsDialog from './SuggestionsDialog';
 import { ScoreMetricsTooltip } from './scoreMetricsTooltip';
 import { METRIC_SCOPES } from '@/constants/metric-scopes';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 const GENERATE_PROGRESS_NOTIFICATION_KEY = 'explorer-generate-progress';
 const EVALUATE_PROGRESS_NOTIFICATION_KEY = 'explorer-evaluate-progress';
@@ -1964,6 +1966,7 @@ export default function ExplorerDetail({
   const [exportSubmitting, setExportSubmitting] = useState(false);
 
   const theme = useTheme();
+  const { status } = useSession();
   const notifications = useNotifications();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -2062,7 +2065,7 @@ export default function ExplorerDetail({
 
   // Load metrics on mount for the metric selector
   useEffect(() => {
-    if (!sessionToken) return;
+    if (!isAuthenticated(status)) return;
     let cancelled = false;
     setMetricsLoading(true);
     const clientFactory = new ApiClientFactory(sessionToken);
@@ -2097,7 +2100,7 @@ export default function ExplorerDetail({
     return () => {
       cancelled = true;
     };
-  }, [sessionToken]);
+  }, [status, sessionToken]);
 
   const handleGenerateOutputsClose = () => {
     if (!generateSubmitting) {

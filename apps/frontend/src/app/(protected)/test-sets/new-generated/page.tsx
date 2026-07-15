@@ -3,11 +3,12 @@
 import { Box, CircularProgress, Typography } from '@mui/material';
 import { useSession } from 'next-auth/react';
 import TestGenerationFlow from './components/TestGenerationFlow';
+import { isAuthenticated, isSessionLoading } from '@/hooks/useIsAuthenticated';
 
 export default function GenerateTestsPage() {
   const { data: session, status } = useSession();
 
-  if (status === 'loading') {
+  if (isSessionLoading(status)) {
     return (
       <Box
         sx={{
@@ -24,9 +25,9 @@ export default function GenerateTestsPage() {
     );
   }
 
-  if (!session?.session_token) {
+  if (!isAuthenticated(status)) {
     throw new Error('No session token available');
   }
 
-  return <TestGenerationFlow sessionToken={session.session_token} />;
+  return <TestGenerationFlow sessionToken={session?.session_token ?? ''} />;
 }

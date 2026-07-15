@@ -31,6 +31,7 @@ import {
   projectNameSx,
   truncateSx,
 } from './memberCardSx';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface ProjectAccess {
   project: Pick<Project, 'id' | 'name' | 'description' | 'icon'>;
@@ -73,20 +74,20 @@ export default function MemberAccessDrawer({
   onClose,
   user,
 }: MemberAccessDrawerProps) {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const [projectAccess, setProjectAccess] = useState<ProjectAccess[]>([]);
   const [loading, setLoading] = useState(false);
   const { OrgRoleCell, ProjectRoleCell, fetchUserProjectMemberships } =
     getMemberRoleExtensions();
 
   useEffect(() => {
-    if (!open || !user || !session?.session_token) return;
+    if (!open || !user || !isAuthenticated(status)) return;
 
     setLoading(true);
     setProjectAccess([]);
 
     if (fetchUserProjectMemberships) {
-      fetchUserProjectMemberships(session.session_token, user.id)
+      fetchUserProjectMemberships(session?.session_token ?? '', user.id)
         .then(memberships => {
           setProjectAccess(
             memberships
@@ -99,7 +100,7 @@ export default function MemberAccessDrawer({
       return;
     }
 
-    const sessionToken = session.session_token;
+    const sessionToken = session?.session_token ?? '';
 
     new ApiClientFactory(sessionToken)
       .getProjectsClient()
@@ -128,7 +129,14 @@ export default function MemberAccessDrawer({
         );
       })
       .finally(() => setLoading(false));
-  }, [open, user?.id, session?.session_token, fetchUserProjectMemberships]);
+  }, [
+    open,
+    user?.id,
+    session?.session_token,
+    fetchUserProjectMemberships,
+    status,
+    user,
+  ]);
 
   const displayName = user ? getDisplayName(user) : '';
   const sessionToken = session?.session_token ?? '';

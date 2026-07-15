@@ -45,12 +45,7 @@ export async function getStatuses(sessionToken?: string): Promise<Status[]> {
   }
 
   try {
-    const token = sessionToken;
-    if (!token) {
-      throw new Error('No session token available');
-    }
-
-    const clientFactory = new ApiClientFactory(token);
+    const clientFactory = new ApiClientFactory(sessionToken);
     const statusClient = clientFactory.getStatusClient();
     const apiStatuses = await statusClient.getStatuses({
       entity_type: EntityType.TASK,
@@ -111,12 +106,7 @@ export async function getPriorities(
   }
 
   try {
-    const token = sessionToken;
-    if (!token) {
-      throw new Error('No session token available');
-    }
-
-    const clientFactory = new ApiClientFactory(token);
+    const clientFactory = new ApiClientFactory(sessionToken);
     const typeLookupClient = clientFactory.getTypeLookupClient();
 
     // Filter for task priorities (assuming they have a specific type or filter)
@@ -199,22 +189,19 @@ export async function getStatusesForTask(
     !allStatuses.find(status => status.id === existingTaskStatusId)
   ) {
     try {
-      const token = sessionToken;
-      if (token) {
-        const clientFactory = new ApiClientFactory(token);
-        const statusClient = clientFactory.getStatusClient();
-        const specificStatus =
-          await statusClient.getStatus(existingTaskStatusId);
+      const clientFactory = new ApiClientFactory(sessionToken);
+      const statusClient = clientFactory.getStatusClient();
+      const specificStatus =
+        await statusClient.getStatus(existingTaskStatusId);
 
-        if (specificStatus) {
-          const additionalStatus: Status = {
-            id: specificStatus.id,
-            name: specificStatus.name,
-            description: specificStatus.description,
-            entity_type_id: specificStatus.entity_type,
-          };
-          return [...allStatuses, additionalStatus];
-        }
+      if (specificStatus) {
+        const additionalStatus: Status = {
+          id: specificStatus.id,
+          name: specificStatus.name,
+          description: specificStatus.description,
+          entity_type_id: specificStatus.entity_type,
+        };
+        return [...allStatuses, additionalStatus];
       }
     } catch (error) {
       console.error('Failed to fetch specific status for task:', error);
@@ -236,23 +223,20 @@ export async function getPrioritiesForTask(
     !allPriorities.find(priority => priority.id === existingTaskPriorityId)
   ) {
     try {
-      const token = sessionToken;
-      if (token) {
-        const clientFactory = new ApiClientFactory(token);
-        const typeLookupClient = clientFactory.getTypeLookupClient();
-        const specificPriority = await typeLookupClient.getTypeLookup(
-          existingTaskPriorityId
-        );
+      const clientFactory = new ApiClientFactory(sessionToken);
+      const typeLookupClient = clientFactory.getTypeLookupClient();
+      const specificPriority = await typeLookupClient.getTypeLookup(
+        existingTaskPriorityId
+      );
 
-        if (specificPriority) {
-          const additionalPriority: Priority = {
-            id: specificPriority.id,
-            type_name: specificPriority.type_name,
-            type_value: specificPriority.type_value,
-            description: specificPriority.description,
-          };
-          return [...allPriorities, additionalPriority];
-        }
+      if (specificPriority) {
+        const additionalPriority: Priority = {
+          id: specificPriority.id,
+          type_name: specificPriority.type_name,
+          type_value: specificPriority.type_value,
+          description: specificPriority.description,
+        };
+        return [...allPriorities, additionalPriority];
       }
     } catch (error) {
       console.error('Failed to fetch specific priority for task:', error);

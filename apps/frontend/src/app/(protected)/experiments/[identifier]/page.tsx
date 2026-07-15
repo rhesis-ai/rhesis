@@ -12,7 +12,7 @@ interface PageProps {
 export default async function ExperimentDetailPage({ params }: PageProps) {
   const session = await auth();
 
-  if (!session?.session_token) {
+  if (!session || session.error) {
     return (
       <Paper sx={{ p: 3 }}>
         <Alert severity="error">
@@ -26,7 +26,7 @@ export default async function ExperimentDetailPage({ params }: PageProps) {
   return (
     <ExperimentDetailClient
       experimentId={identifier}
-      sessionToken={session.session_token}
+      sessionToken={session.session_token ?? ''}
     />
   );
 }

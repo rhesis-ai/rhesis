@@ -1,5 +1,6 @@
 import { useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useSession } from 'next-auth/react';
 import {
   FileResponse,
   FileEntityType,
@@ -8,6 +9,7 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { EntityType } from '@/types/entity-type';
 import { fileKeys } from '@/constants/query-keys';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface UseFilesProps {
   entityId: string;
@@ -20,6 +22,7 @@ export function useFiles({
   entityType,
   sessionToken,
 }: UseFilesProps) {
+  const { status } = useSession();
   const notifications = useNotifications();
   const queryClient = useQueryClient();
   const queryKey = fileKeys.list(entityType, entityId);
@@ -41,7 +44,7 @@ export function useFiles({
       }
       return [];
     },
-    enabled: !!sessionToken && !!entityId,
+    enabled: isAuthenticated(status) && !!entityId,
   });
 
   const error = isError ? 'Failed to fetch files' : null;
@@ -58,7 +61,7 @@ export function useFiles({
 
   const uploadMutation = useMutation({
     mutationFn: (newFiles: File[]) => {
-      if (!sessionToken) {
+      if (!isAuthenticated(status)) {
         throw new Error('No session token available');
       }
       return new ApiClientFactory(sessionToken)
@@ -69,7 +72,7 @@ export function useFiles({
 
   const deleteMutation = useMutation({
     mutationFn: (fileId: string) => {
-      if (!sessionToken) {
+      if (!isAuthenticated(status)) {
         throw new Error('No session token available');
       }
       return new ApiClientFactory(sessionToken)

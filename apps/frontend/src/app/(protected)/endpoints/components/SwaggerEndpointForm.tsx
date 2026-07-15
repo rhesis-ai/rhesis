@@ -33,6 +33,7 @@ import { useNotifications } from '@/components/common/NotificationContext';
 import { readActiveProjectId } from '@/utils/active-project';
 
 import { getProjectIcon, ENVIRONMENTS } from './endpoint-icon-utils';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 export default function SwaggerEndpointForm() {
   const router = useRouter();
@@ -44,7 +45,7 @@ export default function SwaggerEndpointForm() {
   const [swaggerUrl, setSwaggerUrl] = useState('');
   const [projects, setProjects] = useState<Project[]>([]);
   const [loadingProjects, setLoadingProjects] = useState<boolean>(true);
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const { markStepComplete } = useOnboarding();
   const notifications = useNotifications();
 
@@ -85,8 +86,10 @@ export default function SwaggerEndpointForm() {
           }
         }
 
-        if (sessionToken) {
-          const client = new ApiClientFactory(sessionToken).getProjectsClient();
+        if (isAuthenticated(status)) {
+          const client = new ApiClientFactory(
+            sessionToken ?? ''
+          ).getProjectsClient();
           const data = await client.getProjects();
           setProjects(data.data);
         } else {
@@ -100,7 +103,7 @@ export default function SwaggerEndpointForm() {
     };
 
     fetchProjects();
-  }, [session]);
+  }, [session, status]);
 
   const handleChange = (field: string, value: unknown) => {
     setFormData(prev => ({

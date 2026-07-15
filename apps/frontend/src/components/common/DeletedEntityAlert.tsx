@@ -5,7 +5,9 @@ import RestoreIcon from '@mui/icons-material/RestoreFromTrash';
 import ArrowBackIcon from '@mui/icons-material/ArrowBackOutlined';
 import { useState } from 'react';
 import Link from 'next/link';
+import { useSession } from 'next-auth/react';
 import { RecycleClient } from '@/utils/api-client/recycle-client';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 export interface DeletedEntityData {
   model_name: string;
@@ -58,9 +60,10 @@ export function DeletedEntityAlert({
   const [isRestoring, setIsRestoring] = useState(false);
   const [restoreError, setRestoreError] = useState<string | null>(null);
   const [isRestored, setIsRestored] = useState(false);
+  const { status } = useSession();
 
   const handleRestore = async () => {
-    if (!sessionToken) {
+    if (!isAuthenticated(status)) {
       setRestoreError('Authentication required to restore items');
       return;
     }
@@ -117,7 +120,7 @@ export function DeletedEntityAlert({
       )}
 
       <Box display="flex" gap={2} mt={2}>
-        {sessionToken && (
+        {isAuthenticated(status) && (
           <Button
             variant="contained"
             size="medium"

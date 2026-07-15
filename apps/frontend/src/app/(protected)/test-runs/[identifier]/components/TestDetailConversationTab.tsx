@@ -13,12 +13,14 @@ import type {
   TraceSummary,
 } from '@/utils/api-client/interfaces/telemetry';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { useSession } from 'next-auth/react';
 import ConversationHistory from '@/components/common/ConversationHistory';
 import TraceDrawer from '@/app/(protected)/traces/components/TraceDrawer';
 import {
   isMultiTurnTestResult,
   resolveConversationSummary,
 } from '@/utils/conversation-from-spans';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface TestDetailConversationTabProps {
   test: TestResultDetail;
@@ -41,6 +43,7 @@ export default function TestDetailConversationTab({
   onConfirmAutomatedReview,
   isConfirmingReview = false,
 }: TestDetailConversationTabProps) {
+  const { status } = useSession();
   const [traces, setTraces] = useState<TraceSummary[]>([]);
   const [rootSpans, setRootSpans] = useState<SpanNode[]>([]);
   const [spanFiles, setSpanFiles] = useState<FileResponse[][]>([]);
@@ -59,7 +62,7 @@ export default function TestDetailConversationTab({
     setTraces([]);
     setRootSpans([]);
 
-    if (!test.id || !sessionToken || !isMultiTurn) return;
+    if (!test.id || !isAuthenticated(status) || !isMultiTurn) return;
 
     const load = async () => {
       setTracesLoading(true);
@@ -108,7 +111,7 @@ export default function TestDetailConversationTab({
     };
 
     void load();
-  }, [test.id, sessionToken, isMultiTurn]);
+  }, [test.id, sessionToken, isMultiTurn, status]);
 
   const conversationSummary = useMemo(
     () => resolveConversationSummary(test, rootSpans, spanFiles),

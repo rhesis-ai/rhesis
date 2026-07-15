@@ -22,6 +22,7 @@ import StorageIcon from '@mui/icons-material/Storage';
 import CloseIcon from '@mui/icons-material/Close';
 import AddIcon from '@mui/icons-material/Add';
 import Link from 'next/link';
+import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TestSetMetric } from '@/utils/api-client/interfaces/test-set';
 import { useNotifications } from '@/components/common/NotificationContext';
@@ -31,6 +32,7 @@ import { Capability } from '@/constants/capabilities';
 import type { UUID } from 'crypto';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { testSetKeys } from '@/constants/query-keys';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface TestSetMetricsProps {
   testSetId: string;
@@ -68,6 +70,7 @@ export default function TestSetMetrics({
   testSetId,
   sessionToken,
 }: TestSetMetricsProps) {
+  const { status } = useSession();
   const [isRemoving, setIsRemoving] = useState<string | null>(null);
   const [metricsDialogOpen, setMetricsDialogOpen] = useState(false);
   const canEditTestSet = useCan(Capability.TestSet.UPDATE);
@@ -90,7 +93,7 @@ export default function TestSetMetrics({
       new ApiClientFactory(sessionToken)
         .getTestSetsClient()
         .getTestSetMetrics(testSetId),
-    enabled: !!sessionToken,
+    enabled: isAuthenticated(status),
   });
 
   const error = fetchError

@@ -12,7 +12,7 @@ export default async function TracesPage() {
   try {
     const session = await auth();
 
-    if (!session?.session_token) {
+    if (!session || session.error) {
       return (
         <Paper sx={{ p: 3 }}>
           <Alert severity="error">
@@ -24,7 +24,7 @@ export default async function TracesPage() {
 
     return (
       <TracesClientWrapper
-        sessionToken={session.session_token}
+        sessionToken={session.session_token ?? ''}
         currentUserId={session.user?.id || ''}
         currentUserName={session.user?.name || ''}
         currentUserPicture={session.user?.picture || undefined}

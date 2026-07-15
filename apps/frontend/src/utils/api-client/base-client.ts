@@ -107,12 +107,26 @@ export class BaseApiClient {
     this.projectId = projectId;
   }
 
-  protected getHeaders(): HeadersInit {
-    const headers: Record<string, string> = { ...API_CONFIG.defaultHeaders };
-
-    if (this.sessionToken) {
-      headers['Authorization'] = `Bearer ${this.sessionToken}`;
+  /**
+   * Builds the `Authorization` header, but only for server-side calls that
+   * hit the backend directly. Client-side requests go through the
+   * same-origin `/api/backend` proxy (see `getBaseUrl()`), which injects the
+   * header itself from the httpOnly session cookie — the access token must
+   * never reach a browser-issued fetch header, regardless of whether a
+   * caller still happens to pass one in.
+   */
+  protected buildAuthHeaders(): Record<string, string> {
+    if (this.sessionToken && typeof window === 'undefined') {
+      return { Authorization: `Bearer ${this.sessionToken}` };
     }
+    return {};
+  }
+
+  protected getHeaders(): HeadersInit {
+    const headers: Record<string, string> = {
+      ...API_CONFIG.defaultHeaders,
+      ...this.buildAuthHeaders(),
+    };
 
     // Inject project scope: explicit projectId > cookie
     const activeProject = this.projectId ?? readActiveProjectId();

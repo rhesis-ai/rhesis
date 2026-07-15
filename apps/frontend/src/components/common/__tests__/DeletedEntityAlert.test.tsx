@@ -4,6 +4,14 @@ import userEvent from '@testing-library/user-event';
 import { DeletedEntityAlert } from '../DeletedEntityAlert';
 import { RecycleClient } from '@/utils/api-client/recycle-client';
 
+const mockUseSession = jest.fn(() => ({
+  data: { session_token: 'tok' },
+  status: 'authenticated',
+}));
+jest.mock('next-auth/react', () => ({
+  useSession: () => mockUseSession(),
+}));
+
 jest.mock('@/utils/api-client/recycle-client', () => ({
   RecycleClient: jest.fn().mockImplementation(() => ({
     restoreItem: jest.fn().mockResolvedValue({}),
@@ -44,7 +52,11 @@ describe('DeletedEntityAlert', () => {
     ).toBeInTheDocument();
   });
 
-  it('hides the Restore button when sessionToken is not provided', () => {
+  it('hides the Restore button when unauthenticated', () => {
+    mockUseSession.mockReturnValueOnce({
+      data: null,
+      status: 'unauthenticated',
+    } as unknown as ReturnType<typeof mockUseSession>);
     render(<DeletedEntityAlert entityData={defaultEntityData} />);
     expect(
       screen.queryByRole('button', { name: /restore/i })

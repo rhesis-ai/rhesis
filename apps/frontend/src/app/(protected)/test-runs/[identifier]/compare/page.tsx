@@ -33,11 +33,11 @@ export default async function TestRunComparePage({
     typeof baselineParam === 'string' ? baselineParam : undefined;
 
   const session = await auth();
-  if (!session?.session_token) {
+  if (!session || session.error) {
     throw new Error('Authentication required');
   }
 
-  const apiFactory = await createServerApiFactory(session.session_token);
+  const apiFactory = await createServerApiFactory();
   const testRunsClient = apiFactory.getTestRunsClient();
   const testResultsClient = apiFactory.getTestResultsClient();
   const behaviorClient = apiFactory.getBehaviorClient();
@@ -217,7 +217,7 @@ export default async function TestRunComparePage({
           availableTestRuns={availableTestRuns}
           prompts={promptsMap}
           behaviors={behaviors}
-          sessionToken={session.session_token}
+          sessionToken={session.session_token ?? ''}
           initialBaselineId={initialBaselineId}
           testSetType={
             testRun.test_configuration?.test_set?.test_set_type?.type_value

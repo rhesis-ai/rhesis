@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useSession } from 'next-auth/react';
 import { endpointKeys, projectKeys } from '@/constants/query-keys';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
@@ -14,6 +15,7 @@ import {
   ProjectsQueryParams,
 } from '@/utils/api-client/interfaces/project';
 import { PaginationParams } from '@/utils/api-client/interfaces/pagination';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 const STALE_TIME = 5 * 60_000;
 
@@ -31,6 +33,7 @@ export function useEndpoints(
   params: Partial<PaginationParams> = {},
   enabled = true
 ) {
+  const { status } = useSession();
   return useQuery<Endpoint[]>({
     queryKey: endpointKeys.list(
       params.$filter ?? '',
@@ -45,7 +48,7 @@ export function useEndpoints(
         .getEndpoints(params);
       return response.data || [];
     },
-    enabled: enabled && !!sessionToken,
+    enabled: enabled && isAuthenticated(status),
     staleTime: STALE_TIME,
   });
 }
@@ -55,23 +58,25 @@ export function useEndpoint(
   identifier: string,
   enabled = true
 ) {
+  const { status } = useSession();
   return useQuery<Endpoint>({
     queryKey: endpointKeys.detail(identifier),
     queryFn: () =>
       new ApiClientFactory(sessionToken)
         .getEndpointsClient()
         .getEndpoint(identifier),
-    enabled: enabled && !!sessionToken && !!identifier,
+    enabled: enabled && isAuthenticated(status) && !!identifier,
     staleTime: STALE_TIME,
   });
 }
 
 export function useProject(sessionToken: string, id: string, enabled = true) {
+  const { status } = useSession();
   return useQuery<Project>({
     queryKey: projectKeys.detail(id),
     queryFn: () =>
       new ApiClientFactory(sessionToken).getProjectsClient().getProject(id),
-    enabled: enabled && !!sessionToken && !!id,
+    enabled: enabled && isAuthenticated(status) && !!id,
     staleTime: STALE_TIME,
   });
 }
@@ -81,6 +86,7 @@ export function useProjects(
   params: ProjectsQueryParams = {},
   enabled = true
 ) {
+  const { status } = useSession();
   return useQuery<Project[]>({
     queryKey: projectKeys.list(
       params.$filter ?? '',
@@ -95,7 +101,7 @@ export function useProjects(
         .getProjects(params);
       return response.data || [];
     },
-    enabled: enabled && !!sessionToken,
+    enabled: enabled && isAuthenticated(status),
     staleTime: STALE_TIME,
   });
 }
@@ -152,9 +158,10 @@ export function useEndpointOptions(sessionToken: string, enabled = true) {
 
 export function useDeleteEndpoint(sessionToken: string) {
   const queryClient = useQueryClient();
+  const { status } = useSession();
   return useMutation({
     mutationFn: (id: string) => {
-      if (!sessionToken) {
+      if (!isAuthenticated(status)) {
         throw new Error('No session token available');
       }
       return new ApiClientFactory(sessionToken)
@@ -168,9 +175,10 @@ export function useDeleteEndpoint(sessionToken: string) {
 }
 
 export function useTestEndpoint(sessionToken: string) {
+  const { status } = useSession();
   return useMutation({
     mutationFn: (testConfig: EndpointTestRequest) => {
-      if (!sessionToken) {
+      if (!isAuthenticated(status)) {
         throw new Error('No session token available');
       }
       return new ApiClientFactory(sessionToken)
@@ -181,6 +189,7 @@ export function useTestEndpoint(sessionToken: string) {
 }
 
 export function useInvokeEndpoint(sessionToken: string) {
+  const { status } = useSession();
   return useMutation({
     mutationFn: ({
       id,
@@ -189,7 +198,7 @@ export function useInvokeEndpoint(sessionToken: string) {
       id: string;
       inputData: Record<string, unknown>;
     }) => {
-      if (!sessionToken) {
+      if (!isAuthenticated(status)) {
         throw new Error('No session token available');
       }
       return new ApiClientFactory(sessionToken)

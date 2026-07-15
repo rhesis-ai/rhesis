@@ -42,11 +42,11 @@ export default async function TestRunPage({
 
   const session = await auth();
 
-  if (!session?.session_token) {
+  if (!session || session.error) {
     throw new Error('Authentication required');
   }
 
-  const apiFactory = await createServerApiFactory(session.session_token);
+  const apiFactory = await createServerApiFactory();
   const testRunsClient = apiFactory.getTestRunsClient();
 
   let testRun;
@@ -79,7 +79,7 @@ export default async function TestRunPage({
           test_configuration_id: testRun.test_configuration_id,
         }}
         testRun={testRun}
-        sessionToken={session.session_token}
+        sessionToken={session.session_token ?? ''}
         currentUserId={session.user?.id || ''}
         currentUserName={session.user?.name || ''}
         currentUserPicture={session.user?.picture || undefined}

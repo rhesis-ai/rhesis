@@ -17,6 +17,7 @@ import {
 } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { Source } from '@/utils/api-client/interfaces/source';
 import { Box, Chip, Typography } from '@mui/material';
 import GridToolbar from '@/components/common/GridToolbar';
@@ -45,6 +46,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { sourceKeys } from '@/constants/query-keys';
 import { useGridState } from '@/hooks/useGridState';
 import { useGridQuery } from '@/hooks/useGridQuery';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface SourcesGridProps {
   sessionToken: string;
@@ -102,6 +104,7 @@ export default function SourcesGrid({
   onTotalCountChange,
 }: SourcesGridProps) {
   const router = useRouter();
+  const { status } = useSession();
   const notifications = useNotifications();
   const canEditSource = useCan(Capability.Source.UPDATE);
   const canDeleteSource = useCan(Capability.Source.DELETE);
@@ -188,7 +191,7 @@ export default function SourcesGrid({
         ...(filterString && { $filter: filterString }),
       });
     },
-    enabled: !!sessionToken,
+    enabled: isAuthenticated(status),
   });
 
   const sources = sourcesData?.data ?? [];

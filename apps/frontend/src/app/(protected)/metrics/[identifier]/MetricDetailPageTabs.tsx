@@ -36,6 +36,7 @@ import type {
 } from '@/utils/api-client/interfaces/behavior';
 import type { Status } from '@/utils/api-client/interfaces/status';
 import type { UUID } from 'crypto';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 /** Linked behaviors come back with the status relationship at runtime. */
 type LinkedBehaviorRow = BehaviorReference & { status?: Status | null };
@@ -49,7 +50,7 @@ const NAV_LABELS: Record<(typeof TAB_KEYS)[number], string> = {
 
 export default function MetricDetailPageTabs() {
   const params = useParams();
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
     Capability.Metric.READ
   );
@@ -88,6 +89,7 @@ export default function MetricDetailPageTabs() {
           <MetricLinkedBehaviors
             metricId={metricId}
             sessionToken={sessionToken}
+            sessionStatus={status}
           />
         ) : undefined
       }
@@ -98,9 +100,11 @@ export default function MetricDetailPageTabs() {
 function MetricLinkedBehaviors({
   metricId,
   sessionToken,
+  sessionStatus,
 }: {
   metricId: string;
   sessionToken: string;
+  sessionStatus: 'loading' | 'authenticated' | 'unauthenticated';
 }) {
   const router = useRouter();
   const notifications = useNotifications();
@@ -126,7 +130,7 @@ function MetricLinkedBehaviors({
   });
 
   const fetchLinked = useCallback(async () => {
-    if (!sessionToken) return;
+    if (!isAuthenticated(sessionStatus)) return;
     setLoading(true);
     try {
       const client = new MetricsClient(sessionToken);
@@ -139,7 +143,7 @@ function MetricLinkedBehaviors({
     } finally {
       setLoading(false);
     }
-  }, [metricId, sessionToken]);
+  }, [metricId, sessionToken, sessionStatus]);
 
   useEffect(() => {
     fetchLinked();

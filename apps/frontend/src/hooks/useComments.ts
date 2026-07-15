@@ -1,9 +1,11 @@
 import { useCallback, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useSession } from 'next-auth/react';
 import { Comment, EntityType } from '@/types/comments';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { commentKeys } from '@/constants/query-keys';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface UseCommentsProps {
   entityType: string;
@@ -24,6 +26,7 @@ export function useComments({
 }: UseCommentsProps) {
   const queryClient = useQueryClient();
   const notifications = useNotifications();
+  const { status } = useSession();
   const queryKey = useMemo(
     () => commentKeys.list(entityType, entityId),
     [entityType, entityId]
@@ -42,12 +45,13 @@ export function useComments({
         .getCommentsClient()
         .getComments(entityType, entityId);
     },
-    enabled: !!sessionToken && !!entityType && !!entityId,
+    enabled: isAuthenticated(status) && !!entityType && !!entityId,
   });
 
   const createComment = useCallback(
     async (text: string) => {
-      if (!sessionToken) throw new Error('No session token available');
+      if (!isAuthenticated(status))
+        throw new Error('No session token available');
 
       const clientFactory = new ApiClientFactory(sessionToken);
       const commentsClient = clientFactory.getCommentsClient();
@@ -88,12 +92,14 @@ export function useComments({
       notifications,
       queryClient,
       queryKey,
+      status,
     ]
   );
 
   const editComment = useCallback(
     async (commentId: string, newText: string) => {
-      if (!sessionToken) throw new Error('No session token available');
+      if (!isAuthenticated(status))
+        throw new Error('No session token available');
 
       const clientFactory = new ApiClientFactory(sessionToken);
       const commentsClient = clientFactory.getCommentsClient();
@@ -132,12 +138,14 @@ export function useComments({
       notifications,
       queryClient,
       queryKey,
+      status,
     ]
   );
 
   const deleteComment = useCallback(
     async (commentId: string) => {
-      if (!sessionToken) throw new Error('No session token available');
+      if (!isAuthenticated(status))
+        throw new Error('No session token available');
 
       const clientFactory = new ApiClientFactory(sessionToken);
       const commentsClient = clientFactory.getCommentsClient();
@@ -153,12 +161,13 @@ export function useComments({
       });
       return deletedComment;
     },
-    [sessionToken, notifications, queryClient, queryKey]
+    [sessionToken, notifications, queryClient, queryKey, status]
   );
 
   const reactToComment = useCallback(
     async (commentId: string, emoji: string) => {
-      if (!sessionToken) throw new Error('No session token available');
+      if (!isAuthenticated(status))
+        throw new Error('No session token available');
 
       const clientFactory = new ApiClientFactory(sessionToken);
       const commentsClient = clientFactory.getCommentsClient();
@@ -198,6 +207,7 @@ export function useComments({
       currentUserPicture,
       queryClient,
       queryKey,
+      status,
     ]
   );
 

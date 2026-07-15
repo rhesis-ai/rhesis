@@ -19,6 +19,7 @@ import { Priority, Status } from '@/utils/api-client/interfaces/task';
 import { useSession } from 'next-auth/react';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import { drawerOutlinedFieldSx } from '@/components/common/drawerFormFieldSx';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface TaskCreationDrawerProps {
   open: boolean;
@@ -39,7 +40,7 @@ export function TaskCreationDrawer({
   isLoading = false,
   commentId,
 }: TaskCreationDrawerProps) {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [statusId, setStatusId] = useState<string>('');
@@ -54,7 +55,7 @@ export function TaskCreationDrawer({
   useEffect(() => {
     const loadData = async () => {
       const sessionToken = session?.session_token;
-      if (!open || !sessionToken) return;
+      if (!open || !isAuthenticated(status)) return;
 
       setIsLoadingData(true);
       try {
@@ -86,7 +87,7 @@ export function TaskCreationDrawer({
     };
 
     loadData();
-  }, [open, session?.session_token]);
+  }, [open, session?.session_token, status]);
 
   const handleSubmit = async () => {
     if (!title.trim()) return;

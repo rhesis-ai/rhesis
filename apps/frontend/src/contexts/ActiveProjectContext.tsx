@@ -23,6 +23,7 @@ import {
 } from '@/utils/active-project';
 import type { UUID } from 'crypto';
 import { Project } from '@/utils/api-client/interfaces/project';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface ActiveProjectContextValue {
   /** Projects the current user is a member of. */
@@ -55,7 +56,7 @@ export function ActiveProjectProvider({
   children: React.ReactNode;
   initialActiveProject?: Project | null;
 }) {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const queryClient = useQueryClient();
   const userScope = session?.user?.id ?? session?.session_token ?? '';
   const pathname = usePathname();
@@ -71,7 +72,7 @@ export function ActiveProjectProvider({
 
   const fetchProjects = useCallback(
     async (options?: { listOnly?: boolean }) => {
-      if (!session?.session_token) return;
+      if (!isAuthenticated(status)) return;
       if (
         pathnameRef.current.startsWith('/onboarding') ||
         !session?.user?.organization_id
@@ -125,7 +126,7 @@ export function ActiveProjectProvider({
         try {
           const settings = await fetchUserSettings(
             queryClient,
-            session.session_token,
+            session.session_token ?? '',
             userScope
           );
           defaultId = settings?.default_project?.project_id
@@ -160,6 +161,7 @@ export function ActiveProjectProvider({
       session?.user?.organization_id,
       queryClient,
       userScope,
+      status,
     ]
   );
 
@@ -177,7 +179,7 @@ export function ActiveProjectProvider({
 
         // Persist as default_project so the selection survives logout/login.
         const token = session?.session_token;
-        if (token) {
+        if (isAuthenticated(status)) {
           try {
             const factory = new ApiClientFactory(token);
             const updated = await factory.getUsersClient().updateUserSettings({
@@ -204,7 +206,7 @@ export function ActiveProjectProvider({
         window.location.reload();
       }
     },
-    [session?.session_token, queryClient, userScope]
+    [session?.session_token, queryClient, userScope, status]
   );
 
   const refresh = useCallback(

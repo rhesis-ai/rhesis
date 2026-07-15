@@ -5,6 +5,7 @@ import { Box, Button, Paper, Typography } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import RouteOutlinedIcon from '@mui/icons-material/RouteOutlined';
 import Link from 'next/link';
+import { useSession } from 'next-auth/react';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import AssignEntityDrawer from '@/components/common/AssignEntityDrawer';
 import {
@@ -17,6 +18,7 @@ import { TestSetsClient } from '@/utils/api-client/test-sets-client';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { formatDate } from '@/utils/date';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface LinkedTestSetsSectionProps {
   testId: string;
@@ -28,6 +30,7 @@ export default function LinkedTestSetsSection({
   sessionToken,
 }: LinkedTestSetsSectionProps) {
   const { show: showNotification } = useNotifications();
+  const { status } = useSession();
 
   const [testSets, setTestSets] = useState<TestSet[]>([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -43,7 +46,7 @@ export default function LinkedTestSetsSection({
   const [loadingAvailable, setLoadingAvailable] = useState(false);
 
   const fetchLinkedTestSets = useCallback(async () => {
-    if (!testId || !sessionToken) return;
+    if (!testId || !isAuthenticated(status)) return;
     setLoading(true);
     try {
       const apiFactory = new ApiClientFactory(sessionToken);
@@ -69,6 +72,7 @@ export default function LinkedTestSetsSection({
     paginationModel.page,
     paginationModel.pageSize,
     showNotification,
+    status,
   ]);
 
   useEffect(() => {

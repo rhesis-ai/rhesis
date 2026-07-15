@@ -14,11 +14,12 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { BORDER_RADIUS } from '@/styles/theme-constants';
 import { patchEndpointFields } from './endpointPatch';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 export function useEndpointDetail(initialEndpoint: Endpoint) {
   const theme = useTheme();
   const router = useRouter();
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const notifications = useNotifications();
 
   const [endpoint, setEndpoint] = useState<Endpoint>(initialEndpoint);
@@ -50,7 +51,7 @@ export function useEndpointDetail(initialEndpoint: Endpoint) {
       try {
         setLoadingProjects(true);
         const sessionToken = session?.session_token || '';
-        if (!sessionToken) return;
+        if (!isAuthenticated(status)) return;
 
         const client = new ApiClientFactory(sessionToken).getProjectsClient();
         const response = await client.getProjects();
@@ -73,7 +74,7 @@ export function useEndpointDetail(initialEndpoint: Endpoint) {
     };
 
     if (session) fetchProjects();
-  }, [session]);
+  }, [session, status]);
 
   const saveFields = useCallback(
     async (payload: EndpointEditData) => {

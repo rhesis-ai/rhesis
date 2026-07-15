@@ -14,6 +14,7 @@ import {
 } from '@mui/material';
 import { User } from '@/utils/api-client/interfaces/user';
 import { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
 import { UsersClient } from '@/utils/api-client/users-client';
 import PersonIcon from '@mui/icons-material/Person';
 
@@ -38,6 +39,7 @@ import PhoneIphoneIcon from '@mui/icons-material/PhoneIphone';
 import SchoolIcon from '@mui/icons-material/School';
 import ScienceIcon from '@mui/icons-material/Science';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 // Define available icons for selection
 const PROJECT_ICONS = {
@@ -109,12 +111,13 @@ export default function FinishStep({
   isSubmitting = false,
   sessionToken,
 }: FinishStepProps) {
+  const { status } = useSession();
   const [owner, setOwner] = useState<User | null>(null);
   const [loadingOwner, setLoadingOwner] = useState(false);
 
   // Fetch owner details if we have an owner_id
   useEffect(() => {
-    if (!formData.owner_id || !sessionToken) return;
+    if (!formData.owner_id || !isAuthenticated(status)) return;
 
     const fetchOwner = async () => {
       setLoadingOwner(true);
@@ -140,7 +143,7 @@ export default function FinishStep({
     };
 
     fetchOwner();
-  }, [formData.owner_id, sessionToken]);
+  }, [formData.owner_id, sessionToken, status]);
 
   // Get the icon component with better error handling
   const getIconComponent = () => {

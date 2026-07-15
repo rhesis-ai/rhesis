@@ -23,7 +23,7 @@ export default async function SourcePreviewPage({
   try {
     const session = await auth();
 
-    if (!session?.session_token) {
+    if (!session || session.error) {
       return (
         <Paper className={styles.errorContainer}>
           <Alert severity="error">
@@ -33,7 +33,7 @@ export default async function SourcePreviewPage({
       );
     }
 
-    const apiFactory = await createServerApiFactory(session.session_token);
+    const apiFactory = await createServerApiFactory();
     const sourcesClient = apiFactory.getSourcesClient();
 
     // Await params before using its properties (Next.js 15 requirement)
@@ -47,7 +47,7 @@ export default async function SourcePreviewPage({
     return (
       <SourcePreviewClientWrapper
         source={source}
-        sessionToken={session.session_token}
+        sessionToken={session.session_token ?? ''}
         currentUserId={session.user?.id || ''}
         currentUserName={session.user?.name || ''}
         currentUserPicture={session.user?.picture || undefined}

@@ -51,6 +51,7 @@ import {
   useInvokeEndpoint,
 } from '@/hooks/useEndpoints';
 import { TEST_TYPES } from '@/constants/test-types';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 function extractResponseText(response: unknown): string {
   if (typeof response === 'string') return response;
@@ -128,7 +129,7 @@ export default function TestGenerationInterface({
   );
   const [fetchTrigger, setFetchTrigger] = useState(0);
   const [showEndpointModal, setShowEndpointModal] = useState(false);
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const invokeEndpointMutation = useInvokeEndpoint(
     session?.session_token ?? ''
   );
@@ -261,7 +262,7 @@ export default function TestGenerationInterface({
     const fetchResponses = async () => {
       if (
         !selectedEndpointId ||
-        !session?.session_token ||
+        !isAuthenticated(status) ||
         localTestSamples.length === 0 ||
         isFetchingResponses
       ) {
@@ -281,7 +282,7 @@ export default function TestGenerationInterface({
 
       setIsFetchingResponses(true);
 
-      const apiFactory = new ApiClientFactory(session.session_token);
+      const apiFactory = new ApiClientFactory(session?.session_token);
       const testsClient = apiFactory.getTestsClient();
 
       // Mark all samples as loading
@@ -465,7 +466,7 @@ export default function TestGenerationInterface({
   // Manual fetch for a single sample (for multi-turn "Simulate Response" button)
   const handleFetchSampleResponse = useCallback(
     async (sampleId: string) => {
-      if (!selectedEndpointId || !session?.session_token) return;
+      if (!selectedEndpointId || !isAuthenticated(status)) return;
 
       const sample = localTestSamples.find(s => s.id === sampleId);
       if (!sample) return;
@@ -473,7 +474,7 @@ export default function TestGenerationInterface({
       if (sample.testType === 'Multi-Turn' && sample.isLoadingConversation)
         return;
 
-      const apiFactory = new ApiClientFactory(session.session_token);
+      const apiFactory = new ApiClientFactory(session?.session_token);
       const testsClient = apiFactory.getTestsClient();
 
       // Mark sample as loading
@@ -594,6 +595,7 @@ export default function TestGenerationInterface({
       localTestSamples,
       processedSampleIds,
       invokeEndpointMutation,
+      status,
     ]
   );
 

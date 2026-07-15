@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useRef } from 'react';
+import { useSession } from 'next-auth/react';
 import { BasePieChart, BaseChartsGrid } from '@/components/common/BaseCharts';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
@@ -11,6 +12,7 @@ import {
 } from '@/utils/api-client/interfaces/test-run-stats';
 import { Box, CircularProgress, Typography, Paper } from '@mui/material';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 // Fallback mock data in case the API fails
 const fallbackData = [{ name: 'Loading...', value: 100 }];
@@ -36,6 +38,7 @@ interface TestRunChartsProps {
 }
 
 export default function TestRunCharts({ sessionToken }: TestRunChartsProps) {
+  const { status } = useSession();
   const isMounted = useRef(false);
 
   // Global loading state for all charts
@@ -58,7 +61,7 @@ export default function TestRunCharts({ sessionToken }: TestRunChartsProps) {
     isMounted.current = true;
 
     const fetchAllCharts = async () => {
-      if (!sessionToken) return;
+      if (!isAuthenticated(status)) return;
 
       try {
         setIsLoading(true);
@@ -96,7 +99,7 @@ export default function TestRunCharts({ sessionToken }: TestRunChartsProps) {
     return () => {
       isMounted.current = false;
     };
-  }, [sessionToken]);
+  }, [sessionToken, status]);
 
   // Generate chart data from individual chart states
   const generateStatusData = () => {

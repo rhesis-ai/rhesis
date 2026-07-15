@@ -33,12 +33,12 @@ export async function generateMetadata({
 export default async function TestSetPage({ params }: PageProps) {
   const session = await auth();
 
-  if (!session?.session_token) {
+  if (!session || session.error) {
     throw new Error('Authentication required');
   }
 
   const { identifier } = await params;
-  const apiFactory = await createServerApiFactory(session.session_token);
+  const apiFactory = await createServerApiFactory();
   const testSetsClient = apiFactory.getTestSetsClient();
 
   let testSet;
@@ -102,7 +102,7 @@ export default async function TestSetPage({ params }: PageProps) {
 
   const pageActions = (
     <TestSetHeaderActions
-      sessionToken={session.session_token}
+      sessionToken={session.session_token ?? ''}
       testSetId={identifier}
       testSetName={testSet.name}
       testCount={testCount}
@@ -129,7 +129,7 @@ export default async function TestSetPage({ params }: PageProps) {
             testSet={serializedTestSet}
             testCount={testCount}
             isGenerating={isGenerating}
-            sessionToken={session.session_token}
+            sessionToken={session.session_token ?? ''}
             currentUserId={session.user?.id || ''}
             currentUserName={session.user?.name || ''}
             currentUserPicture={session.user?.picture || undefined}

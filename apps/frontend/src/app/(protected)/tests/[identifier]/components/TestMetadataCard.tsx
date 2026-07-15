@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useSession } from 'next-auth/react';
 import Grid from '@mui/material/Grid';
 import { MenuItem, TextField } from '@mui/material';
 import BaseFreesoloAutocomplete, {
@@ -17,6 +18,7 @@ import { useRouter } from 'next/navigation';
 import { UUID } from 'crypto';
 import { useQuery } from '@tanstack/react-query';
 import { behaviorKeys, topicKeys, categoryKeys } from '@/constants/query-keys';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface TestDetailOption {
   id: UUID;
@@ -60,41 +62,42 @@ export default function TestMetadataCard({
   const router = useRouter();
   const notifications = useNotifications();
   const canEditTest = useCan(Capability.Test.UPDATE);
+  const { status } = useSession();
 
   const apiFactory = React.useMemo(
-    () => (sessionToken ? new ApiClientFactory(sessionToken) : null),
+    () => new ApiClientFactory(sessionToken),
     [sessionToken]
   );
 
   const { data: behaviorsData } = useQuery({
     queryKey: behaviorKeys.list(),
     queryFn: () =>
-      apiFactory!
+      apiFactory
         .getBehaviorClient()
         .getBehaviors({ sort_by: 'name', sort_order: 'asc' }),
-    enabled: !!apiFactory,
+    enabled: isAuthenticated(status),
     staleTime: 5 * 60_000,
   });
 
   const { data: topicsData } = useQuery({
     queryKey: topicKeys.list('Test'),
     queryFn: () =>
-      apiFactory!
+      apiFactory
         .getTopicClient()
         .getTopics({ entity_type: 'Test', sort_by: 'name', sort_order: 'asc' }),
-    enabled: !!apiFactory,
+    enabled: isAuthenticated(status),
     staleTime: 5 * 60_000,
   });
 
   const { data: categoriesData } = useQuery({
     queryKey: categoryKeys.list('Test'),
     queryFn: () =>
-      apiFactory!.getCategoryClient().getCategories({
+      apiFactory.getCategoryClient().getCategories({
         entity_type: 'Test',
         sort_by: 'name',
         sort_order: 'asc',
       }),
-    enabled: !!apiFactory,
+    enabled: isAuthenticated(status),
     staleTime: 5 * 60_000,
   });
 

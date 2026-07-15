@@ -14,6 +14,13 @@ jest.mock('../../../components/common/Can', () => ({
 
 // Mock dependencies
 jest.mock('../../../utils/api-client/client-factory');
+const mockUseSession = jest.fn(() => ({
+  data: { session_token: 'tok' },
+  status: 'authenticated',
+}));
+jest.mock('next-auth/react', () => ({
+  useSession: () => mockUseSession(),
+}));
 jest.mock('next/navigation', () => ({
   useRouter: () => ({
     push: jest.fn(),
@@ -99,7 +106,11 @@ describe('TasksSection - Infinite Loading Fix', () => {
   });
 
   it('should set loading to false when required props are missing', async () => {
-    wrap(<TasksSection {...defaultProps} sessionToken="" />);
+    mockUseSession.mockReturnValueOnce({
+      data: null,
+      status: 'unauthenticated',
+    } as unknown as ReturnType<typeof mockUseSession>);
+    wrap(<TasksSection {...defaultProps} />);
 
     // Should show empty state, not loading spinner
     await waitFor(() => {

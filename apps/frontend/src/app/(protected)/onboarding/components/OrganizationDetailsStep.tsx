@@ -21,6 +21,7 @@ import {
   validateUrl,
   normalizeUrl,
 } from '@/utils/validation';
+import { isSessionLoading } from '@/hooks/useIsAuthenticated';
 
 interface FormData {
   firstName: string;
@@ -64,7 +65,7 @@ export default function OrganizationDetailsStep({
   const step = ONBOARDING_STEPS[0];
 
   useEffect(() => {
-    if (sessionStatus === 'loading') return;
+    if (isSessionLoading(sessionStatus)) return;
 
     if (session?.user && !hasAttemptedPrefill) {
       try {

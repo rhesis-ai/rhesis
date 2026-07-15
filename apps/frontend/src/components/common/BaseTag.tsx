@@ -14,6 +14,7 @@ import React, {
   FocusEvent,
   useEffect,
 } from 'react';
+import { useSession } from 'next-auth/react';
 import styles from '@/styles/BaseTag.module.css';
 import {
   Box,
@@ -30,6 +31,7 @@ import { useNotifications } from '@/components/common/NotificationContext';
 import { EntityType, Tag, TagCreate } from '@/utils/api-client/interfaces/tag';
 import { UUID } from 'crypto';
 import { editableTagChipSx } from '@/components/common/editableTagChipSx';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 // Type definitions
 interface TaggableEntity {
@@ -120,6 +122,7 @@ export default function BaseTag({
   onTagUpdate,
   ...textFieldProps
 }: BaseTagProps) {
+  const { status } = useSession();
   const [inputValue, setInputValue] = useState<string>('');
   const [_focused, setFocused] = useState<boolean>(false);
   const [isUpdating, setIsUpdating] = useState<boolean>(false);
@@ -150,7 +153,7 @@ export default function BaseTag({
   }, [entity?.tags]);
 
   const handleTagsChange = async (newTagNames: string[]) => {
-    if (!sessionToken || !entityType || !entity || isUpdating) {
+    if (!isAuthenticated(status) || !entityType || !entity || isUpdating) {
       onChange(newTagNames);
       return;
     }

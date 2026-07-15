@@ -17,6 +17,7 @@ import {
   GridToolbarExport,
 } from '@mui/x-data-grid';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useSession } from 'next-auth/react';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import GridToolbar from '@/components/common/GridToolbar';
 import { useRouter } from 'next/navigation';
@@ -30,6 +31,7 @@ import { DeleteModal } from '@/components/common/DeleteModal';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { formatDate } from '@/utils/date';
 import { explorerKeys } from '@/constants/query-keys';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface ExplorerGridProps {
   sessionToken: string;
@@ -70,6 +72,7 @@ export default function ExplorerGrid({
   onTotalCountChange,
 }: ExplorerGridProps) {
   const router = useRouter();
+  const { status } = useSession();
   const queryClient = useQueryClient();
   const notifications = useNotifications();
   const [searchQuery, setSearchQuery] = useState('');
@@ -88,7 +91,7 @@ export default function ExplorerGrid({
       new ApiClientFactory(sessionToken)
         .getExplorerClient()
         .getExplorerTestSets(),
-    enabled: !!sessionToken,
+    enabled: isAuthenticated(status),
   });
 
   useEffect(() => {

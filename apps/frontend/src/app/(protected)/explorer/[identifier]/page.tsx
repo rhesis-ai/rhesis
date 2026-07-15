@@ -15,11 +15,11 @@ export default async function ExplorerDetailPage({
   const { identifier } = await params;
   const session = await auth();
 
-  if (!session?.session_token) {
+  if (!session || session.error) {
     throw new Error('No session token available');
   }
 
-  const clientFactory = await createServerApiFactory(session.session_token);
+  const clientFactory = await createServerApiFactory();
   const explorerClient = clientFactory.getExplorerClient();
 
   try {
@@ -45,7 +45,7 @@ export default async function ExplorerDetailPage({
         topics={topics}
         testSetName={testSetName}
         testSetId={identifier}
-        sessionToken={session.session_token}
+        sessionToken={session.session_token ?? ''}
       />
     );
   } catch (error) {

@@ -2,6 +2,13 @@ import { renderHook, waitFor } from '@testing-library/react';
 import { DEFAULT_INSIGHTS_FILTERS } from '../../types';
 import { useBehaviorInsightsData } from '../useBehaviorInsightsData';
 
+jest.mock('next-auth/react', () => ({
+  useSession: () => ({
+    data: { session_token: 'tok' },
+    status: 'authenticated',
+  }),
+}));
+
 jest.mock('../../utils/behavior-insights-utils', () => ({
   fetchTestRunIdsForEndpoint: jest.fn(),
   buildBehaviorColumns: jest.fn(() => []),

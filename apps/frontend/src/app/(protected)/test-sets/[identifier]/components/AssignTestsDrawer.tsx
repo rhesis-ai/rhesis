@@ -8,6 +8,7 @@ import React, {
   useState,
 } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import type {
   GridFilterModel,
   GridPaginationModel,
@@ -29,6 +30,7 @@ import {
 } from '@/app/(protected)/tests/components/test-filter-model';
 import { getTestDisplayContent } from '@/app/(protected)/tests/components/test-grid-helpers';
 import { getTestSetTestColumns } from './testSetTestColumns';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface AssignTestsDrawerProps {
   open: boolean;
@@ -48,6 +50,7 @@ export default function AssignTestsDrawer({
   onAssign,
 }: AssignTestsDrawerProps) {
   const router = useRouter();
+  const { status } = useSession();
   const [available, setAvailable] = useState<TestDetail[]>([]);
   const [loading, setLoading] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
@@ -100,7 +103,7 @@ export default function AssignTestsDrawer({
   }, [sessionToken, testSetId]);
 
   const fetchTests = useCallback(async () => {
-    if (!sessionToken || !open) return;
+    if (!isAuthenticated(status) || !open) return;
 
     try {
       setLoading(true);
@@ -135,6 +138,7 @@ export default function AssignTestsDrawer({
     filterModel,
     paginationModel.page,
     paginationModel.pageSize,
+    status,
   ]);
 
   useEffect(() => {

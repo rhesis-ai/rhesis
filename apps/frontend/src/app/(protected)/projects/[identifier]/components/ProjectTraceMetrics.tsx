@@ -33,6 +33,7 @@ import {
 import AutoGraphIcon from '@mui/icons-material/AutoGraph';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import Link from 'next/link';
+import { useSession } from 'next-auth/react';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import GridBadge from '@/components/common/GridBadge';
 import GridToolbar, {
@@ -57,6 +58,7 @@ import { DeleteModal } from '@/components/common/DeleteModal';
 import type { UUID } from 'crypto';
 import { useQuery } from '@tanstack/react-query';
 import { projectKeys } from '@/constants/query-keys';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface ProjectTraceMetricsProps {
   project: Project;
@@ -113,6 +115,7 @@ export default forwardRef<ProjectTraceMetricsHandle, ProjectTraceMetricsProps>(
     ref
   ) {
     const theme = useTheme();
+    const { status } = useSession();
     const canUpdateProject = useCan(Capability.Project.UPDATE);
     const [searchQuery, setSearchQuery] = useState('');
     const [metricsDialogOpen, setMetricsDialogOpen] = useState(false);
@@ -160,7 +163,7 @@ export default forwardRef<ProjectTraceMetricsHandle, ProjectTraceMetricsProps>(
           .map(r => r.value)
           .filter(m => m.metric_scope?.includes('Trace'));
       },
-      enabled: !!sessionToken,
+      enabled: isAuthenticated(status),
     });
 
     const error = fetchError

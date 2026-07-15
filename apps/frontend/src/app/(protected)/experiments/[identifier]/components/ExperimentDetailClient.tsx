@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSession } from 'next-auth/react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { experimentKeys } from '@/constants/query-keys';
 import {
@@ -47,6 +48,7 @@ import ExperimentParametersTab from './ExperimentParametersTab';
 import { formatDate } from '@/utils/date';
 import DetailEntityMissingState from '@/components/common/DetailEntityMissingState';
 import { isNotFoundApiError } from '@/utils/api-client/is-not-found-error';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 const TAB_KEYS = ['overview', 'parameters', 'versions', 'runs'] as const;
 
@@ -89,6 +91,7 @@ export default function ExperimentDetailClient({
   sessionToken,
 }: ExperimentDetailClientProps) {
   const notifications = useNotifications();
+  const { status } = useSession();
   const { activeTab, handleTabChange } = useDetailTabNav(TAB_KEYS);
 
   // Configuration tab state
@@ -137,7 +140,7 @@ export default function ExperimentDetailClient({
       ]);
       return { experiment: detail, schema: schemaResp, environments: envResp };
     },
-    enabled: !!sessionToken && !!experimentId,
+    enabled: isAuthenticated(status) && !!experimentId,
   });
 
   const experiment = expData?.experiment ?? null;

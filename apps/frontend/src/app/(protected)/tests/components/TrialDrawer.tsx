@@ -18,6 +18,7 @@ import {
   Collapse,
 } from '@mui/material';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { useSession } from 'next-auth/react';
 import { TestDetail } from '@/utils/api-client/interfaces/tests';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { useNotifications } from '@/components/common/NotificationContext';
@@ -30,6 +31,7 @@ import {
   MultiTurnTestConfig,
 } from '@/utils/api-client/interfaces/multi-turn-test-config';
 import { ConversationTurn } from '@/utils/api-client/interfaces/test-results';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface ProjectOption {
   id: UUID;
@@ -60,6 +62,7 @@ export default function TrialDrawer({
 }: TrialDrawerProps) {
   const [error, setError] = useState<string>();
   const theme = useTheme();
+  const { status } = useSession();
   const [loading, setLoading] = useState(false);
   const [testData, setTestData] = useState<TestDetail | null>(null);
   const [projects, setProjects] = useState<ProjectOption[]>([]);
@@ -117,7 +120,7 @@ export default function TrialDrawer({
   // Fetch projects, endpoints, and test data
   useEffect(() => {
     const fetchData = async () => {
-      if (!sessionToken || !open) {
+      if (!isAuthenticated(status) || !open) {
         return;
       }
 
@@ -270,7 +273,7 @@ export default function TrialDrawer({
   };
 
   const handleSave = async () => {
-    if (!sessionToken || !selectedEndpoint || !testData) return;
+    if (!isAuthenticated(status) || !selectedEndpoint || !testData) return;
 
     // Determine test type
     const isMultiTurn = isMultiTurnTest(testData.test_type?.type_value);

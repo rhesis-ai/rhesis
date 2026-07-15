@@ -26,7 +26,7 @@ export async function generateMetadata({
 export default async function BehaviorDetailPage({ params }: PageProps) {
   const session = await auth();
 
-  if (!session?.session_token) {
+  if (!session || session.error) {
     throw new Error('Authentication required');
   }
 
@@ -51,7 +51,7 @@ export default async function BehaviorDetailPage({ params }: PageProps) {
   return (
     <BehaviorDetailClient
       behavior={serializedBehavior}
-      sessionToken={session.session_token}
+      sessionToken={session.session_token ?? ''}
       identifier={identifier}
     />
   );

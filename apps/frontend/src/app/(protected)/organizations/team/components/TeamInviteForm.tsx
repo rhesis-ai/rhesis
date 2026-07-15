@@ -39,6 +39,7 @@ import { getMemberRoleExtensions } from '@/lib/extension-registries';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { safeRandomUUID } from '@/utils/uuid';
 import { UUID } from 'crypto';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface InviteItem {
   id: string;
@@ -75,7 +76,7 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
     },
     ref
   ) {
-    const { data: session } = useSession();
+    const { data: session, status } = useSession();
     const notifications = useNotifications();
     const { projects: availableProjects } = useActiveProject();
     const { AddMemberRoleField, InviteOrgRoleField, assignOrgMemberRole } =
@@ -168,14 +169,14 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
         return;
       }
 
-      if (!session?.session_token) {
+      if (!isAuthenticated(status)) {
         notifications.show('Session expired. Please refresh the page.', {
           severity: 'error',
         });
         return;
       }
 
-      const sessionToken = session.session_token;
+      const sessionToken = session?.session_token ?? '';
 
       try {
         setIsSubmitting(true);
@@ -208,7 +209,7 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
             const email = invite.email.trim();
             const userData = {
               email: email,
-              organization_id: session.user?.organization_id as UUID,
+              organization_id: session?.user?.organization_id as UUID,
               is_active: true,
               send_invite: true,
             };
@@ -511,10 +512,10 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
                   }}
                   data-tour={index === 0 ? 'invite-email-input' : undefined}
                 />
-                {InviteOrgRoleField && session?.session_token && (
+                {InviteOrgRoleField && isAuthenticated(status) && (
                   <Box sx={{ flex: 1, minWidth: 0 }}>
                     <InviteOrgRoleField
-                      sessionToken={session.session_token}
+                      sessionToken={session?.session_token ?? ''}
                       value={invite.orgRoleId}
                       onChange={roleId => handleOrgRoleChange(invite, roleId)}
                       active={drawerOpen}
@@ -628,10 +629,10 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
                           </Box>
                           {isSelected &&
                             AddMemberRoleField &&
-                            session?.session_token && (
+                            isAuthenticated(status) && (
                               <Box sx={{ flexShrink: 0 }}>
                                 <AddMemberRoleField
-                                  sessionToken={session.session_token}
+                                  sessionToken={session?.session_token ?? ''}
                                   value={projectRoles[projectId] ?? null}
                                   onChange={roleId =>
                                     setProjectRoles(prev => ({

@@ -1,6 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import { useSession } from 'next-auth/react';
 import {
   statusKeys,
   behaviorKeys,
@@ -20,6 +21,7 @@ import { User } from '@/utils/api-client/interfaces/user';
 import { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
 import { getPriorities } from '@/utils/task-lookup';
 import type { Priority } from '@/utils/api-client/interfaces/task';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 const STALE_TIME = 5 * 60_000;
 
@@ -39,6 +41,7 @@ export function useStatuses(
   entityType: string,
   enabled = true
 ) {
+  const { status: sessionStatus } = useSession();
   return useQuery<Status[]>({
     queryKey: statusKeys.list(entityType),
     queryFn: async () => {
@@ -51,12 +54,13 @@ export function useStatuses(
         });
       return statuses;
     },
-    enabled: enabled && !!sessionToken,
+    enabled: enabled && isAuthenticated(sessionStatus),
     staleTime: STALE_TIME,
   });
 }
 
 export function useBehaviors(sessionToken: string, enabled = true) {
+  const { status: sessionStatus } = useSession();
   return useQuery<BehaviorWithMetrics[]>({
     queryKey: behaviorKeys.list('', 0, 100, 'name', 'asc'),
     queryFn: async () => {
@@ -65,7 +69,7 @@ export function useBehaviors(sessionToken: string, enabled = true) {
         .getBehaviors({ sort_by: 'name', sort_order: 'asc' });
       return behaviors;
     },
-    enabled: enabled && !!sessionToken,
+    enabled: enabled && isAuthenticated(sessionStatus),
     staleTime: STALE_TIME,
   });
 }
@@ -75,6 +79,7 @@ export function useCategories(
   entityType: string,
   enabled = true
 ) {
+  const { status: sessionStatus } = useSession();
   return useQuery<Category[]>({
     queryKey: categoryKeys.list(entityType),
     queryFn: async () => {
@@ -87,7 +92,7 @@ export function useCategories(
         });
       return categories;
     },
-    enabled: enabled && !!sessionToken,
+    enabled: enabled && isAuthenticated(sessionStatus),
     staleTime: STALE_TIME,
   });
 }
@@ -97,6 +102,7 @@ export function useTopics(
   entityType: string,
   enabled = true
 ) {
+  const { status: sessionStatus } = useSession();
   return useQuery<Topic[]>({
     queryKey: topicKeys.list(entityType),
     queryFn: async () => {
@@ -109,12 +115,13 @@ export function useTopics(
         });
       return topics;
     },
-    enabled: enabled && !!sessionToken,
+    enabled: enabled && isAuthenticated(sessionStatus),
     staleTime: STALE_TIME,
   });
 }
 
 export function useTags(sessionToken: string, enabled = true) {
+  const { status: sessionStatus } = useSession();
   return useQuery<Tag[]>({
     queryKey: tagKeys.list(),
     queryFn: async () => {
@@ -123,12 +130,13 @@ export function useTags(sessionToken: string, enabled = true) {
         .getTags({ sort_by: 'name', sort_order: 'asc' });
       return tags;
     },
-    enabled: enabled && !!sessionToken,
+    enabled: enabled && isAuthenticated(sessionStatus),
     staleTime: STALE_TIME,
   });
 }
 
 export function useUsers(sessionToken: string, enabled = true) {
+  const { status: sessionStatus } = useSession();
   return useQuery<User[]>({
     queryKey: userKeys.list(),
     queryFn: async () => {
@@ -137,7 +145,7 @@ export function useUsers(sessionToken: string, enabled = true) {
         .getUsers();
       return response.data;
     },
-    enabled: enabled && !!sessionToken,
+    enabled: enabled && isAuthenticated(sessionStatus),
     staleTime: STALE_TIME,
   });
 }
@@ -147,6 +155,7 @@ export function useTypeLookups(
   filter: string,
   enabled = true
 ) {
+  const { status: sessionStatus } = useSession();
   return useQuery<TypeLookup[]>({
     queryKey: typeLookupKeys.list(filter),
     queryFn: async () => {
@@ -159,17 +168,18 @@ export function useTypeLookups(
         });
       return types;
     },
-    enabled: enabled && !!sessionToken,
+    enabled: enabled && isAuthenticated(sessionStatus),
     staleTime: STALE_TIME,
   });
 }
 
 /** Thin React Query wrapper around the existing TTL-cached `getPriorities` utility. */
 export function usePriorities(sessionToken: string, enabled = true) {
+  const { status: sessionStatus } = useSession();
   return useQuery<Priority[]>({
     queryKey: ['task-priorities'],
     queryFn: () => getPriorities(sessionToken),
-    enabled: enabled && !!sessionToken,
+    enabled: enabled && isAuthenticated(sessionStatus),
     staleTime: STALE_TIME,
   });
 }

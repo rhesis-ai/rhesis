@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useState } from 'react';
+import { useSession } from 'next-auth/react';
 import { useSearchParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { Alert, Box, Paper } from '@mui/material';
@@ -17,6 +18,7 @@ import PageLoadingState from '@/components/common/PageLoadingState';
 import { useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import { traceKeys } from '@/constants/query-keys';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface TracesClientWrapperProps {
   sessionToken: string;
@@ -31,6 +33,7 @@ export default function TracesClientWrapper({
   currentUserName = '',
   currentUserPicture,
 }: TracesClientWrapperProps) {
+  const { status } = useSession();
   const searchParams = useSearchParams();
   const initialTraceId = searchParams.get('open_trace');
   const initialProjectId = searchParams.get('project_id');
@@ -53,7 +56,7 @@ export default function TracesClientWrapper({
   if (permsLoading) return <PageLoadingState />;
   if (!canRead) return <AccessDenied resource="traces" />;
 
-  if (!sessionToken) {
+  if (!isAuthenticated(status)) {
     return (
       <PageLayout
         title="Traces"

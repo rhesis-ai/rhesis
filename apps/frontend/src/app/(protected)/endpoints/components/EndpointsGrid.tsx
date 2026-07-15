@@ -43,6 +43,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { endpointKeys } from '@/constants/query-keys';
 import { useGridState } from '@/hooks/useGridState';
 import { useGridQuery } from '@/hooks/useGridQuery';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface EndpointsGridProps {
   sessionToken?: string;
@@ -107,7 +108,7 @@ export default function EndpointsGrid({
 }: EndpointsGridProps) {
   const theme = useTheme();
   const router = useRouter();
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const notifications = useNotifications();
   const canEditEndpoint = useCan(Capability.Endpoint.UPDATE);
   const canDeleteEndpoint = useCan(Capability.Endpoint.DELETE);
@@ -207,7 +208,7 @@ export default function EndpointsGrid({
         ...(filterString && { $filter: filterString }),
       });
     },
-    enabled: !!sessionToken,
+    enabled: isAuthenticated(status),
   });
 
   const endpoints = endpointsData?.data ?? [];
@@ -233,7 +234,7 @@ export default function EndpointsGrid({
     const fetchProjects = async () => {
       try {
         setLoadingProjects(true);
-        if (!sessionToken) return;
+        if (!isAuthenticated(status)) return;
 
         const client = new ApiClientFactory(sessionToken).getProjectsClient();
         const response = await client.getProjects();
@@ -257,17 +258,17 @@ export default function EndpointsGrid({
       }
     };
 
-    if (sessionToken) {
+    if (isAuthenticated(status)) {
       fetchProjects();
     }
-  }, [sessionToken]);
+  }, [sessionToken, status]);
 
   const handleRefresh = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: endpointKeys.all() });
   }, [queryClient]);
 
   const handleDeleteEndpoints = async () => {
-    if (!sessionToken || !pendingDeleteId) return;
+    if (!isAuthenticated(status) || !pendingDeleteId) return;
     const idsToDelete = [pendingDeleteId];
 
     try {

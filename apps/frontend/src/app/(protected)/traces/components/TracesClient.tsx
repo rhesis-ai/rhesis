@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useSession } from 'next-auth/react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { Alert, Box, Typography } from '@mui/material';
@@ -19,6 +20,7 @@ import {
   sanitizeTraceDrawerFiltersForTestRunScope,
   type TraceDrawerFilters,
 } from './trace-filter-params';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 const TRACE_PAGE_SIZE_OPTIONS = [25, 50, 100];
 
@@ -47,6 +49,7 @@ export default function TracesClient({
   fixedTestRunId,
   onUnfilteredEmpty,
 }: TracesClientProps) {
+  const { status } = useSession();
   const router = useRouter();
   const pathname = usePathname();
   const queryClient = useQueryClient();
@@ -116,7 +119,7 @@ export default function TracesClient({
       const clientFactory = new ApiClientFactory(sessionToken, scopedProjectId);
       return clientFactory.getTelemetryClient().listTraces(queryParams);
     },
-    enabled: !!sessionToken && !projectLoading && !!scopedProjectId,
+    enabled: isAuthenticated(status) && !projectLoading && !!scopedProjectId,
   });
 
   const traces = data?.traces ?? [];

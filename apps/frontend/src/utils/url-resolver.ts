@@ -45,8 +45,12 @@ export function getServerBackendUrl(): string {
 
 /**
  * Gets the appropriate base URL based on execution environment
- * - Client-side: Uses runtime config for browser-to-host communication
- * - Server-side: Uses BACKEND_URL for container-to-container communication
+ * - Client-side: same-origin `/api/backend` BFF proxy. The browser never
+ *   holds a backend access token; the proxy injects `Authorization`
+ *   server-side from the httpOnly session cookie (see `src/auth.ts`'s
+ *   `getFreshAccessToken()` and `src/app/api/backend/[...path]/route.ts`).
+ * - Server-side: Uses BACKEND_URL for container-to-container communication,
+ *   calling the backend directly (no self-proxy hop).
  *
  * @returns Resolved base URL appropriate for the current environment
  */
@@ -55,8 +59,11 @@ export function getBaseUrl(): string {
     // Server-side: use BACKEND_URL for container-to-container communication
     return getServerBackendUrl();
   } else {
-    // Client-side: use runtime config for browser-to-host communication
-    return getClientApiBaseUrl();
+    // Client-side: same-origin BFF proxy, not the backend directly.
+    // `joinUrl` strips leading slashes from every part it's given and never
+    // re-adds one, so a bare `/api/backend` path would resolve relative to
+    // the current page path instead of the origin root — must be absolute.
+    return `${window.location.origin}/api/backend`;
   }
 }
 

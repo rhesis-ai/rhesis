@@ -7,22 +7,23 @@ import { PageLayout } from '@/components/layout/PageLayout';
 import { CircularProgress, Box } from '@mui/material';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 export default function SwaggerEndpointPage() {
   const params = useParams<{ identifier: string }>();
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const [projectName, setProjectName] = useState<string>('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchProjectName = async () => {
-      if (!params?.identifier || !session?.session_token) {
+      if (!params?.identifier || !isAuthenticated(status)) {
         setLoading(false);
         return;
       }
 
       try {
-        const apiFactory = new ApiClientFactory(session.session_token);
+        const apiFactory = new ApiClientFactory(session?.session_token ?? '');
         const projectsClient = apiFactory.getProjectsClient();
         const project = await projectsClient.getProject(params.identifier);
         setProjectName(project.name);
@@ -34,7 +35,7 @@ export default function SwaggerEndpointPage() {
     };
 
     fetchProjectName();
-  }, [params?.identifier, session]);
+  }, [params?.identifier, session, status]);
 
   if (loading) {
     return (

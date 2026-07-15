@@ -14,6 +14,7 @@ import EndpointDetailView from './components/EndpointDetailView';
 import EndpointHeaderActions from './components/EndpointHeaderActions';
 import { useEndpoint, useProject } from '@/hooks/useEndpoints';
 import { isNotFoundApiError } from '@/utils/api-client/is-not-found-error';
+import { isAuthenticated, isSessionLoading, isSessionUnauthenticated } from '@/hooks/useIsAuthenticated';
 
 interface PageProps {
   params: Promise<{ identifier: string }>;
@@ -38,11 +39,7 @@ export default function EndpointPage({ params }: PageProps) {
     isFetching,
     error: fetchError,
     refetch,
-  } = useEndpoint(
-    sessionToken,
-    identifier,
-    status === 'authenticated' && !!sessionToken && isValidId
-  );
+  } = useEndpoint(sessionToken, identifier, isAuthenticated(status) && isValidId);
   const { data: project } = useProject(
     sessionToken,
     endpoint?.project_id ?? '',
@@ -51,7 +48,7 @@ export default function EndpointPage({ params }: PageProps) {
 
   useDocumentTitle(endpoint?.name || null);
 
-  const loading = status === 'loading' || isLoading;
+  const loading = isSessionLoading(status) || isLoading;
   const error = !isValidId
     ? 'Invalid endpoint identifier format'
     : fetchError instanceof Error
@@ -60,7 +57,7 @@ export default function EndpointPage({ params }: PageProps) {
         ? 'Failed to load endpoint'
         : null;
 
-  if (status === 'unauthenticated') {
+  if (isSessionUnauthenticated(status)) {
     return (
       <Box sx={{ p: 3 }}>
         <Typography color="error">

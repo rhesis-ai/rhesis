@@ -59,6 +59,7 @@ import {
 import MultiFileUpload from '@/components/common/MultiFileUpload';
 import { EntityType } from '@/types/entity-type';
 import { useTypeLookups } from '@/hooks/useLookups';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 type TestType = 'Single-Turn' | 'Multi-Turn';
 
@@ -92,7 +93,7 @@ const filter = createFilterOptions<string>();
 
 export default function ManualTestWriter() {
   const router = useRouter();
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const notifications = useNotifications();
 
   const [testType, setTestType] = useState<TestType>(() => {
@@ -186,7 +187,7 @@ export default function ManualTestWriter() {
   const { data: resolvedTestSetTypes } = useTypeLookups(
     session?.session_token ?? '',
     `type_name eq '${TYPE_NAMES.TEST_SET_TYPE}' and type_value eq '${testTypeValue}'`,
-    !!session?.session_token
+    isAuthenticated(status)
   );
   useEffect(() => {
     if (resolvedTestSetTypes && resolvedTestSetTypes.length > 0) {
@@ -202,14 +203,14 @@ export default function ManualTestWriter() {
   // Fetch data from API
   useEffect(() => {
     const fetchData = async () => {
-      if (!session?.session_token) {
+      if (!isAuthenticated(status)) {
         notifications.show('No session token available', { severity: 'error' });
         return;
       }
 
       try {
         setLoading(true);
-        const apiFactory = new ApiClientFactory(session.session_token);
+        const apiFactory = new ApiClientFactory(session?.session_token);
 
         // Fetch behaviors
         const behaviorsClient = apiFactory.getBehaviorClient();
@@ -248,7 +249,7 @@ export default function ManualTestWriter() {
     };
 
     fetchData();
-  }, [session, notifications, testType]);
+  }, [session, notifications, testType, status]);
 
   const addNewRow = () => {
     const newTestCase: TestCase =
@@ -366,14 +367,14 @@ export default function ManualTestWriter() {
   };
 
   const handleConfirmSave = async () => {
-    if (!session?.session_token) {
+    if (!isAuthenticated(status)) {
       notifications.show('No session token available', { severity: 'error' });
       return;
     }
 
     try {
       setSaving(true);
-      const apiFactory = new ApiClientFactory(session.session_token);
+      const apiFactory = new ApiClientFactory(session?.session_token);
 
       // Filter out completely empty rows
       const nonEmptyTestCases = testCases.filter(tc => {

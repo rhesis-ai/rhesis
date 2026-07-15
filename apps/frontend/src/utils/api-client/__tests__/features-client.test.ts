@@ -1,6 +1,6 @@
 import { FeaturesClient } from '../features-client';
 
-const BASE_URL = 'http://127.0.0.1:8080/api/v1';
+const BASE_URL = 'http://localhost/api/backend';
 
 function makeFetch(
   body: unknown,
@@ -32,7 +32,7 @@ describe('FeaturesClient', () => {
 
   afterEach(() => jest.restoreAllMocks());
 
-  it('calls GET /features with the session token', async () => {
+  it('calls GET /features via the proxy without an Authorization header', async () => {
     const response = {
       license: { edition: 'community', licensed: false },
       enabled: ['sso'],
@@ -41,14 +41,12 @@ describe('FeaturesClient', () => {
 
     const result = await client.getFeatures();
 
-    expect(fetchMock).toHaveBeenCalledWith(
-      `${BASE_URL}/features`,
-      expect.objectContaining({
-        headers: expect.objectContaining({
-          Authorization: 'Bearer test-token',
-        }),
-      })
-    );
+    expect(fetchMock).toHaveBeenCalledWith(`${BASE_URL}/features`, expect.anything());
+    const headers = fetchMock.mock.calls[0][1].headers as Record<
+      string,
+      string
+    >;
+    expect(headers['Authorization']).toBeUndefined();
     expect(result).toEqual(response);
   });
 

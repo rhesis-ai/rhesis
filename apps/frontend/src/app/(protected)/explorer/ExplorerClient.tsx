@@ -23,6 +23,7 @@ import type { ImportExplorerTestSetResponse } from '@/utils/api-client/interface
 import ExplorerGrid from './components/ExplorerGrid';
 import ExplorerCreateDialog from './components/ExplorerCreateDialog';
 import ImportExplorerTestSetDialog from './components/ImportExplorerTestSetDialog';
+import { isAuthenticated, isSessionLoading } from '@/hooks/useIsAuthenticated';
 
 export default function ExplorerClient() {
   const { data: session, status } = useSession();
@@ -60,7 +61,7 @@ export default function ExplorerClient() {
     [queryClient, notifications, router]
   );
 
-  if (status === 'loading' || permsLoading) {
+  if (isSessionLoading(status) || permsLoading) {
     return (
       <PageLayout title="Explorer" breadcrumbs={[]}>
         <Box sx={{ p: 3 }}>
@@ -70,7 +71,7 @@ export default function ExplorerClient() {
     );
   }
 
-  if (!sessionToken) {
+  if (!isAuthenticated(status)) {
     return (
       <PageLayout title="Explorer" breadcrumbs={[]}>
         <Box sx={{ p: 3 }}>

@@ -8,6 +8,7 @@ import {
   TaskUpdate,
 } from '@/utils/api-client/interfaces/task';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 /**
  * Task mutations (create/update/delete/get). No consumer reads a cached
@@ -15,15 +16,15 @@ import { useNotifications } from '@/components/common/NotificationContext';
  * `taskKeys` query externally — so there's no list-fetching state here.
  */
 export function useTasks() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const { show } = useNotifications();
 
   const createMutation = useMutation({
     mutationFn: (taskData: TaskCreate) => {
-      if (!session?.session_token) {
+      if (!isAuthenticated(status)) {
         throw new Error('No session token available');
       }
-      return new ApiClientFactory(session.session_token)
+      return new ApiClientFactory(session?.session_token)
         .getTasksClient()
         .createTask(taskData);
     },
@@ -37,10 +38,10 @@ export function useTasks() {
       taskId: string;
       taskData: TaskUpdate;
     }) => {
-      if (!session?.session_token) {
+      if (!isAuthenticated(status)) {
         throw new Error('No session token available');
       }
-      return new ApiClientFactory(session.session_token)
+      return new ApiClientFactory(session?.session_token)
         .getTasksClient()
         .updateTask(taskId, taskData);
     },
@@ -48,10 +49,10 @@ export function useTasks() {
 
   const deleteMutation = useMutation({
     mutationFn: (taskId: string) => {
-      if (!session?.session_token) {
+      if (!isAuthenticated(status)) {
         throw new Error('No session token available');
       }
-      return new ApiClientFactory(session.session_token)
+      return new ApiClientFactory(session?.session_token)
         .getTasksClient()
         .deleteTask(taskId);
     },
@@ -59,10 +60,10 @@ export function useTasks() {
 
   const getMutation = useMutation({
     mutationFn: (taskId: string) => {
-      if (!session?.session_token) {
+      if (!isAuthenticated(status)) {
         throw new Error('No session token available');
       }
-      return new ApiClientFactory(session.session_token)
+      return new ApiClientFactory(session?.session_token)
         .getTasksClient()
         .getTask(taskId);
     },

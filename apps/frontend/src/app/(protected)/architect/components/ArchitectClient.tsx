@@ -18,9 +18,10 @@ import {
 import ArchitectSidebar from './ArchitectSidebar';
 import ArchitectChat from './ArchitectChat';
 import ArchitectWelcome from './ArchitectWelcome';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 export default function ArchitectClient() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const { activeProject } = useActiveProject();
   const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
     Capability.Architect.READ
@@ -33,9 +34,11 @@ export default function ArchitectClient() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
 
   const getClient = useCallback(() => {
-    if (!session?.session_token) return null;
-    return new ApiClientFactory(session.session_token).getArchitectClient();
-  }, [session?.session_token]);
+    if (!isAuthenticated(status)) return null;
+    return new ApiClientFactory(
+      session?.session_token ?? ''
+    ).getArchitectClient();
+  }, [session?.session_token, status]);
 
   const touchResumeHint = useCallback(
     (sessionId: string) => {

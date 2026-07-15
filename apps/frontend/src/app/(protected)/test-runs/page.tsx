@@ -20,6 +20,7 @@ import TestRunsGrid from './components/TestRunsGrid';
 import RunDrawer from '@/components/common/RunDrawer';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
+import { isAuthenticated, isSessionLoading } from '@/hooks/useIsAuthenticated';
 
 export default function TestRunsPage() {
   const { data: session, status } = useSession();
@@ -40,7 +41,7 @@ export default function TestRunsPage() {
     queryClient.invalidateQueries({ queryKey: testRunKeys.all() });
   }, [queryClient]);
 
-  if (status === 'loading') {
+  if (isSessionLoading(status)) {
     return (
       <PageLayout title="Test Runs" breadcrumbs={[]}>
         <Box sx={{ p: 3 }}>
@@ -53,7 +54,7 @@ export default function TestRunsPage() {
   if (permsLoading) return <PageLoadingState />;
   if (!canRead) return <AccessDenied resource="test runs" />;
 
-  if (!sessionToken) {
+  if (!isAuthenticated(status)) {
     return (
       <PageLayout title="Test Runs" breadcrumbs={[]}>
         <Box sx={{ p: 3 }}>

@@ -41,6 +41,7 @@ import GridBadge from '@/components/common/GridBadge';
 import { AttachFileIcon, ChatIcon, DescriptionIcon } from '@/components/icons';
 import InsertDriveFileOutlined from '@mui/icons-material/InsertDriveFileOutlined';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { useSession } from 'next-auth/react';
 import TestDrawer from './TestDrawer';
 import TestSetSelectionDrawer from './TestSetSelectionDrawer';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
@@ -77,6 +78,7 @@ import {
   formatInsightsFailedTestsBanner,
   type InsightsFailedTestsFilter,
 } from '@/app/(protected)/insights/utils/insights-failed-tests';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface TestsTableProps {
   sessionToken: string;
@@ -196,6 +198,7 @@ export default function TestsTable({
   const canEditTest = useCan(Capability.Test.UPDATE);
   const canDeleteTest = useCan(Capability.Test.DELETE);
   const queryClient = useQueryClient();
+  const { status } = useSession();
 
   // Search + tab filter — managed here, shared to toolbar via context
   const [searchQuery, setSearchQuery] = useState('');
@@ -278,7 +281,7 @@ export default function TestsTable({
         ...(filterString && { filter: filterString }),
       });
     },
-    enabled: !!sessionToken && insightsFilterReady,
+    enabled: isAuthenticated(status) && insightsFilterReady,
   });
 
   const tests = testsData?.data ?? [];
@@ -318,7 +321,7 @@ export default function TestsTable({
 
   // Apply Insights failed-test filter from URL params
   useEffect(() => {
-    if (!insightsFailedFilter || !sessionToken) {
+    if (!insightsFailedFilter || !isAuthenticated(status)) {
       setInsightsFailedTestIds(null);
       setInsightsFilterError(null);
       setInsightsFilterLoading(false);
@@ -365,6 +368,7 @@ export default function TestsTable({
     insightsFailedFilter?.timeRange,
     sessionToken,
     insightsFailedFilter,
+    status,
   ]);
 
   // Row action handlers
@@ -649,7 +653,7 @@ export default function TestsTable({
 
   const handleTestSetsAssign = useCallback(
     async (testSets: TestSet[]) => {
-      if (!sessionToken || testSets.length === 0) return;
+      if (!isAuthenticated(status) || testSets.length === 0) return;
 
       const testIds = selectedRows as string[];
       const testSetsClient = new TestSetsClient(sessionToken);
@@ -707,7 +711,7 @@ export default function TestsTable({
         setTestSetDrawerOpen(false);
       }
     },
-    [sessionToken, selectedRows, notifications]
+    [sessionToken, selectedRows, notifications, status]
   );
 
   const handleDeleteTests = useCallback(() => {
@@ -881,7 +885,7 @@ export default function TestsTable({
         sx={rowActionsHoverSx}
       />
 
-      {sessionToken && (
+      {isAuthenticated(status) && (
         <>
           <TestDrawer
             open={drawerOpen}

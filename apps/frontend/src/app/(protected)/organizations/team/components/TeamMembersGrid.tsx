@@ -51,6 +51,7 @@ import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import { getMemberRoleExtensions } from '@/lib/extension-registries';
 import { getMemberJoinStatus } from '@/utils/member-join-status';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface TeamMembersGridProps {
   refreshTrigger?: number;
@@ -69,7 +70,7 @@ export default function TeamMembersGrid({
   refreshTrigger,
   onTotalCountChange,
 }: TeamMembersGridProps) {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const canDeleteMember = useCan(Capability.Member.DELETE);
   const canManageMembers = useCan(Capability.Member.MANAGE);
   const notifications = useNotifications();
@@ -91,7 +92,7 @@ export default function TeamMembersGrid({
 
   const fetchUsers = useCallback(
     async (skip = 0, limit = 25) => {
-      if (!session?.session_token) {
+      if (!isAuthenticated(status)) {
         setError('Session expired. Please refresh the page.');
         setLoading(false);
         return;
@@ -101,7 +102,7 @@ export default function TeamMembersGrid({
         setLoading(true);
         setError(null);
 
-        const clientFactory = new ApiClientFactory(session.session_token);
+        const clientFactory = new ApiClientFactory(session?.session_token ?? '');
         const usersClient = clientFactory.getUsersClient();
         const response = await usersClient.getUsers({
           skip,
@@ -119,7 +120,13 @@ export default function TeamMembersGrid({
         setLoading(false);
       }
     },
-    [session?.session_token, onTotalCountChange, searchQuery, drawerFilters]
+    [
+      session?.session_token,
+      onTotalCountChange,
+      searchQuery,
+      drawerFilters,
+      status,
+    ]
   );
 
   useEffect(() => {
@@ -137,14 +144,14 @@ export default function TeamMembersGrid({
   }, []);
 
   const handleConfirmDelete = async () => {
-    if (!userToDelete || !session?.session_token) {
+    if (!userToDelete || !isAuthenticated(status)) {
       return;
     }
 
     try {
       setDeleting(true);
 
-      const clientFactory = new ApiClientFactory(session.session_token);
+      const clientFactory = new ApiClientFactory(session?.session_token ?? '');
       const usersClient = clientFactory.getUsersClient();
 
       await usersClient.deleteUser(userToDelete.id);
@@ -186,10 +193,10 @@ export default function TeamMembersGrid({
   const sessionToken = session?.session_token ?? '';
 
   useEffect(() => {
-    if (sessionToken) {
+    if (isAuthenticated(status)) {
       prewarmCaches?.(sessionToken, { canManageRoles: canManageMembers });
     }
-  }, [sessionToken, prewarmCaches, canManageMembers]);
+  }, [sessionToken, prewarmCaches, canManageMembers, status]);
 
   const showRoleColumn = Boolean(OrgRoleCell);
   const currentUserId = session?.user?.id;

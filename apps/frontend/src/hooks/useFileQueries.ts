@@ -8,17 +8,20 @@
 
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useSession } from 'next-auth/react';
 import { FileResponse } from '@/utils/api-client/interfaces/file';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { fileKeys } from '@/constants/query-keys';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 // ---------------------------------------------------------------------------
 // useFileMetadata — cached file metadata from GET /files/{id}
 // ---------------------------------------------------------------------------
 export function useFileMetadata(fileId: string | null, sessionToken: string) {
+  const { status } = useSession();
   return useQuery<FileResponse>({
     queryKey: fileKeys.metadata(fileId ?? ''),
-    enabled: !!fileId && !!sessionToken,
+    enabled: !!fileId && isAuthenticated(status),
     queryFn: async () => {
       if (!fileId) {
         throw new Error('fileId is required to fetch file metadata');
@@ -46,9 +49,10 @@ export function useFileThumbnail(
   size: 72 | 144 | 288 = 144,
   sessionToken: string
 ) {
+  const { status } = useSession();
   return useQuery<Blob>({
     queryKey: fileKeys.thumbnail(fileId ?? '', size),
-    enabled: !!fileId && !!sessionToken,
+    enabled: !!fileId && isAuthenticated(status),
     queryFn: async () => {
       const response = await fetch(
         `/api/files/${fileId}/thumbnail?size=${size}`,

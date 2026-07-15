@@ -36,6 +36,7 @@ import BehaviorFilterDrawer, {
   hasActiveBehaviorFilters,
   countActiveBehaviorFilters,
 } from './BehaviorFilterDrawer';
+import { isAuthenticated, isSessionLoading } from '@/hooks/useIsAuthenticated';
 
 interface BehaviorsClientProps {
   sessionToken: string;
@@ -96,9 +97,9 @@ export default function BehaviorsClient({
 
   React.useEffect(() => {
     const fetchBehaviors = async () => {
-      if (!sessionToken) {
+      if (!isAuthenticated(sessionStatus)) {
         // Keep spinner while session is still loading; stop it on auth failure
-        if (sessionStatus !== 'loading') {
+        if (!isSessionLoading(sessionStatus)) {
           setIsLoading(false);
         }
         return;
@@ -522,7 +523,7 @@ export default function BehaviorsClient({
   }
 
   // Auth error state
-  if (!sessionToken) {
+  if (!isAuthenticated(sessionStatus)) {
     return (
       <PageLayout title="Behaviors" breadcrumbs={[]}>
         <Alert severity="error" sx={{ mb: 3 }}>

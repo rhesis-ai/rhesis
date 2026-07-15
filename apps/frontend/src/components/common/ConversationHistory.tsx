@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useState } from 'react';
+import { useSession } from 'next-auth/react';
 import {
   Box,
   Paper,
@@ -28,6 +29,7 @@ import StatusChip from '@/components/common/StatusChip';
 import { getProjectIconComponent } from '@/components/common/ProjectIcons';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 // Superhero (female) emoji built from code points to avoid linter emoji detection.
 // U+1F9B8 (superhero) + U+200D (ZWJ) + U+2640 (female sign) + U+FE0F (variation selector)
@@ -71,10 +73,11 @@ export default function ConversationHistory({
   sessionToken,
 }: ConversationHistoryProps) {
   const theme = useTheme();
+  const { status } = useSession();
 
   const handleDownloadFile = useCallback(
     async (file: FileResponse) => {
-      if (!sessionToken) return;
+      if (!isAuthenticated(status)) return;
       try {
         const factory = new ApiClientFactory(sessionToken);
         const client = factory.getFilesClient();
@@ -89,7 +92,7 @@ export default function ConversationHistory({
         console.error('Failed to download file:', err);
       }
     },
-    [sessionToken]
+    [sessionToken, status]
   );
 
   // Get the project icon component
@@ -451,7 +454,7 @@ export default function ConversationHistory({
 
                 {turn.penelope_files &&
                   turn.penelope_files.length > 0 &&
-                  sessionToken && (
+                  isAuthenticated(status) && (
                     <Box
                       sx={{
                         display: 'flex',

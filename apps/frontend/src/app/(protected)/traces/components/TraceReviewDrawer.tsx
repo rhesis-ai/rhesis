@@ -13,6 +13,7 @@ import {
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 import RateReviewOutlinedIcon from '@mui/icons-material/RateReviewOutlined';
+import { useSession } from 'next-auth/react';
 import TrackChangesIcon from '@mui/icons-material/TrackChanges';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import {
@@ -31,6 +32,7 @@ import MentionTextInput, {
   inferReviewTarget,
   InferredTarget,
 } from '@/components/common/MentionTextInput';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface TraceReviewDrawerProps {
   open: boolean;
@@ -76,6 +78,7 @@ export default function TraceReviewDrawer({
   mentionableTurns = [],
 }: TraceReviewDrawerProps) {
   const theme = useTheme();
+  const { status } = useSession();
   const [newStatus, setNewStatus] = useState<'passed' | 'failed'>('passed');
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
@@ -167,7 +170,7 @@ export default function TraceReviewDrawer({
 
   useEffect(() => {
     const fetchStatuses = async () => {
-      if (!open || !sessionToken || statuses.length > 0) return;
+      if (!open || !isAuthenticated(status) || statuses.length > 0) return;
       try {
         setLoadingStatuses(true);
         const clientFactory = new ApiClientFactory(sessionToken);
@@ -183,7 +186,7 @@ export default function TraceReviewDrawer({
       }
     };
     fetchStatuses();
-  }, [open, sessionToken, statuses.length]);
+  }, [open, sessionToken, statuses.length, status]);
 
   useEffect(() => {
     if (open && selectedSpan) {
@@ -220,7 +223,7 @@ export default function TraceReviewDrawer({
       return;
     }
 
-    if (!selectedSpan?.id || !sessionToken) return;
+    if (!selectedSpan?.id || !isAuthenticated(status)) return;
 
     if (traceTarget.type === 'trace' || traceTarget.type === 'turn') {
       const hasExistingReview = !!selectedSpan.last_review;

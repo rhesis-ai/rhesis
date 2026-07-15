@@ -17,6 +17,7 @@ import {
 } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { Task } from '@/utils/api-client/interfaces/task';
 import { can } from '@/utils/affordances';
 import { Capability } from '@/constants/capabilities';
@@ -42,6 +43,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { taskKeys } from '@/constants/query-keys';
 import { useGridState } from '@/hooks/useGridState';
 import { useGridQuery } from '@/hooks/useGridQuery';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface TasksGridProps {
   sessionToken: string;
@@ -120,6 +122,7 @@ export default function TasksGrid({
   const router = useRouter();
   const notifications = useNotifications();
   const queryClient = useQueryClient();
+  const { status } = useSession();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -207,7 +210,7 @@ export default function TasksGrid({
         ...(filterString && { $filter: filterString }),
       });
     },
-    enabled: !!sessionToken,
+    enabled: isAuthenticated(status),
   });
   const tasks: Task[] = tasksData?.data ?? [];
   const totalCount = tasksData?.totalCount ?? 0;

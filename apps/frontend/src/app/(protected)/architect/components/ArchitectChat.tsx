@@ -25,6 +25,7 @@ import ArchitectChatInput, {
 } from './ArchitectChatInput';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface ArchitectChatProps {
   sessionId: string | null;
@@ -133,7 +134,7 @@ export default function ArchitectChat({
   onUserActivity,
   sessionProjectId,
 }: ArchitectChatProps) {
-  const { data: authSession } = useSession();
+  const { data: authSession, status } = useSession();
   const canCreate = useCan(Capability.Architect.CREATE);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<ArchitectChatInputHandle>(null);
@@ -170,12 +171,14 @@ export default function ArchitectChat({
 
   // Load existing messages when session changes
   useEffect(() => {
-    if (!sessionId || !sessionToken) return;
+    if (!sessionId || !isAuthenticated(status)) return;
     if (skipLoadRef.current.has(sessionId)) return;
 
     const loadMessages = async () => {
       try {
-        const client = new ApiClientFactory(sessionToken).getArchitectClient();
+        const client = new ApiClientFactory(
+          sessionToken ?? ''
+        ).getArchitectClient();
         const session = await client.getSession(sessionId);
 
         // Restore auto-approve toggle from persisted agent state
@@ -238,6 +241,7 @@ export default function ArchitectChat({
     setAutoApproveAll,
     setCurrentMode,
     setCurrentPlan,
+    status,
   ]);
 
   // Scroll to bottom on new messages

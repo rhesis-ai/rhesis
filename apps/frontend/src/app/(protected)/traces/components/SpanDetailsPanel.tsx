@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { useSession } from 'next-auth/react';
 import {
   Box,
   Typography,
@@ -35,6 +36,7 @@ import TraceMetricsTab from './TraceMetricsTab';
 import TraceReviewsTab from './TraceReviewsTab';
 import { TasksAndCommentsWrapper } from '@/components/tasks/TasksAndCommentsWrapper';
 import { BORDER_RADIUS } from '@/styles/theme-constants';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface SpanDetailsPanelProps {
   span: SpanNode | null;
@@ -93,6 +95,7 @@ export default function SpanDetailsPanel({
   traceMetricsStatus = null,
   selectedTurnNumber = null,
 }: SpanDetailsPanelProps) {
+  const { status } = useSession();
   const [activeTabIndex, setActiveTabIndex] = useState(0);
   const [spanFiles, setSpanFiles] = useState<FileResponse[]>([]);
   const [spanFilesLoading, setSpanFilesLoading] = useState(false);
@@ -158,7 +161,7 @@ export default function SpanDetailsPanel({
 
   // Fetch files attached to the selected span
   useEffect(() => {
-    if (!span?.id || !sessionToken) {
+    if (!span?.id || !isAuthenticated(status)) {
       setSpanFiles([]);
       return;
     }
@@ -182,7 +185,7 @@ export default function SpanDetailsPanel({
     return () => {
       cancelled = true;
     };
-  }, [span?.id, sessionToken]);
+  }, [span?.id, sessionToken, status]);
 
   const { llmAttributes, functionAttributes, testAttributes, otherAttributes } =
     useMemo(() => {

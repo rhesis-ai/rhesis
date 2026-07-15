@@ -37,6 +37,7 @@ import {
   GridToolbarExport,
 } from '@mui/x-data-grid';
 import Link from 'next/link';
+import { useSession } from 'next-auth/react';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import FormSectionDivider from '@/components/common/FormSectionDivider';
@@ -72,6 +73,7 @@ import { DeleteModal } from '@/components/common/DeleteModal';
 import ProjectAddEnvironmentDrawer from './ProjectAddEnvironmentDrawer';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { projectKeys } from '@/constants/query-keys';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 const FIGMA_BODY_SX = {
   fontSize: 14,
@@ -154,6 +156,7 @@ export default forwardRef<ProjectEnvironmentsHandle, ProjectEnvironmentsProps>(
   ) {
     const notifications = useNotifications();
     const theme = useTheme();
+    const { status } = useSession();
     const canUpdateProject = useCan(Capability.Project.UPDATE);
     const [searchQuery, setSearchQuery] = useState('');
 
@@ -191,7 +194,7 @@ export default forwardRef<ProjectEnvironmentsHandle, ProjectEnvironmentsProps>(
         ]);
         return { bindings: bindingsResp, experiments: expsResp };
       },
-      enabled: !!sessionToken && !!projectId,
+      enabled: isAuthenticated(status) && !!projectId,
     });
 
     const bindings = envData?.bindings ?? null;

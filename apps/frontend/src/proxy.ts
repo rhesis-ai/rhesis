@@ -58,33 +58,6 @@ function verifySessionLocally(sessionToken: string): boolean {
   }
 }
 
-// Helper function to verify token with backend
-async function verifySessionWithBackend(sessionToken: string) {
-  if (isLocalE2EVerificationEnabled()) {
-    return verifySessionLocally(sessionToken);
-  }
-
-  try {
-    const response = await fetch(`${getServerBackendUrl()}/auth/verify`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-      },
-      body: JSON.stringify({ session_token: sessionToken }),
-    });
-
-    if (!response.ok) {
-      return false;
-    }
-
-    const data = await response.json();
-    return data.authenticated && data.user;
-  } catch (_error) {
-    return false;
-  }
-}
-
 // Helper function to get the backend access token from the request.
 // The session cookie is an encrypted JWE, so it must be decrypted with the
 // NextAuth secret (getToken) rather than parsed as plaintext.
@@ -215,24 +188,44 @@ export async function proxy(request: NextRequest) {
       return NextResponse.redirect(homeUrl);
     }
 
-    // Verify session token with backend
-    const isValidBackendSession = await verifySessionWithBackend(sessionToken);
-    if (!isValidBackendSession) {
-      // For users with expired/invalid sessions (they were previously authenticated),
-      // redirect to home page with session clearing and expired flag
+    // E2E-no-docker seeds a fake, unencrypted token that real auth() cannot
+    // decrypt/refresh (there's no backend to refresh against). Keep this as
+    // a local, non-network check exactly as before.
+    if (isLocalE2EVerificationEnabled()) {
+      if (!verifySessionLocally(sessionToken)) {
+        const homeUrl = new URL('/', request.url);
+        homeUrl.searchParams.set('session_expired', 'true');
+        homeUrl.searchParams.set('force_logout', 'true');
+        return await createSessionClearingResponse(homeUrl, true, sessionToken);
+      }
+    }
+
+    // Resolve the session via auth() — NOT a separate raw-token verify call.
+    // auth() runs the same jwt callback used everywhere else in the app: if
+    // the access token is stale it transparently refreshes before returning,
+    // so a merely-expired-but-refreshable token never reaches this check as
+    // "invalid". A previous version of this file called a plain /auth/verify
+    // HTTP check on the raw (possibly stale) access token BEFORE this line —
+    // that check has no concept of refreshing, so it killed the session on
+    // every request where the short-lived access token happened to have
+    // expired, pre-empting the refresh this app depends on entirely.
+    const session = await auth();
+
+    if (!session || session.error) {
+      // No session, or a genuine refresh failure (revoked/expired refresh
+      // token) — session.error is the same signal useSessionGuard reacts to
+      // client-side; here we do the equivalent for the initial page request.
       const homeUrl = new URL('/', request.url);
       homeUrl.searchParams.set('session_expired', 'true');
       homeUrl.searchParams.set('force_logout', 'true');
-      return await createSessionClearingResponse(homeUrl, true, sessionToken); // Call backend logout with session token
+      return await createSessionClearingResponse(homeUrl, true, sessionToken);
     }
 
-    // Get session data from auth
-    const session = await auth();
-    if (!session?.user?.organization_id && pathname !== ONBOARDING_PATH) {
+    if (!session.user?.organization_id && pathname !== ONBOARDING_PATH) {
       return NextResponse.redirect(new URL(ONBOARDING_PATH, request.url));
     }
 
-    if (pathname === ONBOARDING_PATH && session?.user?.organization_id) {
+    if (pathname === ONBOARDING_PATH && session.user?.organization_id) {
       return NextResponse.redirect(
         new URL(DEFAULT_AUTHENTICATED_PATH, request.url)
       );

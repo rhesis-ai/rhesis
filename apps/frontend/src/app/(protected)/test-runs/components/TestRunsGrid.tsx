@@ -7,6 +7,7 @@ import React, {
   useContext,
   useMemo,
 } from 'react';
+import { useSession } from 'next-auth/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { testRunKeys } from '@/constants/query-keys';
 import { useGridState } from '@/hooks/useGridState';
@@ -66,6 +67,7 @@ import {
   createRowActionsColumn,
   rowActionsHoverSx,
 } from '@/components/common/createRowActionsColumn';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 type RunKindFilter = 'all' | 'tests' | 'experiments';
 
@@ -154,6 +156,7 @@ interface TestRunsGridProps {
 }
 
 function TestRunsGrid({ sessionToken, onTotalCountChange }: TestRunsGridProps) {
+  const { status } = useSession();
   const queryClient = useQueryClient();
   const router = useRouter();
   const notifications = useNotifications();
@@ -277,7 +280,7 @@ function TestRunsGrid({ sessionToken, onTotalCountChange }: TestRunsGridProps) {
         ...(drawerFilters.reviews === 'without' && { has_reviews: false }),
       });
     },
-    enabled: !!sessionToken,
+    enabled: isAuthenticated(status),
   });
 
   const testRuns = testRunsData?.data ?? [];

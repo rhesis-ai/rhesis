@@ -5,9 +5,9 @@ import InsightsPage from './components/InsightsPage';
 export default async function InsightsRoutePage() {
   const session = await auth();
 
-  if (!session?.session_token) {
+  if (!session || session.error) {
     throw new Error('No session token available');
   }
 
-  return <InsightsPage sessionToken={session.session_token} />;
+  return <InsightsPage sessionToken={session.session_token ?? ''} />;
 }

@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { ResolvedEntity } from '@/utils/api-client/resolve-client';
 import { UUID_PATTERN } from '@/utils/entity-error-handler';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface UseCrossProjectResolveResult {
   crossProjectData: ResolvedEntity | null;
@@ -19,7 +20,7 @@ export function useCrossProjectResolve(
   entityId: string | undefined,
   enabled = true
 ): UseCrossProjectResolveResult {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const [crossProjectData, setCrossProjectData] =
     useState<ResolvedEntity | null>(null);
   const [resolveAttempted, setResolveAttempted] = useState(false);
@@ -44,7 +45,7 @@ export function useCrossProjectResolve(
       return;
     }
 
-    if (!session?.session_token) {
+    if (!isAuthenticated(status)) {
       setResolveAttempted(true);
       return;
     }
@@ -55,7 +56,7 @@ export function useCrossProjectResolve(
     }
 
     const requestId = ++requestIdRef.current;
-    const factory = new ApiClientFactory(session.session_token);
+    const factory = new ApiClientFactory(session?.session_token);
     const resolveClient = factory.getResolveClient();
 
     resolveClient
@@ -79,7 +80,7 @@ export function useCrossProjectResolve(
     return () => {
       requestIdRef.current += 1;
     };
-  }, [enabled, entityType, entityId, session?.session_token, retryCount]);
+  }, [enabled, entityType, entityId, session?.session_token, retryCount, status]);
 
   const isResolving =
     enabled &&
@@ -87,12 +88,12 @@ export function useCrossProjectResolve(
     !!entityId &&
     UUID_PATTERN.test(entityId) &&
     !resolveAttempted &&
-    !!session?.session_token;
+    isAuthenticated(status);
 
   return {
     crossProjectData,
     isResolving,
-    resolveAttempted: resolveAttempted || !session?.session_token,
+    resolveAttempted: resolveAttempted || !isAuthenticated(status),
     resolveError,
     retryResolve,
   };

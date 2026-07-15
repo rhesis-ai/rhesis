@@ -8,6 +8,7 @@ import {
   CircularProgress,
   TablePagination,
 } from '@mui/material';
+import { useSession } from 'next-auth/react';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { Project, ProjectCreate } from '@/utils/api-client/interfaces/project';
 import ProjectCard from './ProjectCard';
@@ -35,6 +36,7 @@ import { Can, useCan, useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import AccessDenied from '@/components/common/AccessDenied';
 import PageLoadingState from '@/components/common/PageLoadingState';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 type StatusFilter = 'all' | 'active' | 'inactive';
 
@@ -45,6 +47,7 @@ interface ProjectsClientWrapperProps {
 export default function ProjectsClientWrapper({
   sessionToken,
 }: ProjectsClientWrapperProps) {
+  const { status } = useSession();
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -79,7 +82,7 @@ export default function ProjectsClientWrapper({
 
   // Fetch all projects on mount
   const fetchProjects = useCallback(async () => {
-    if (!sessionToken) return;
+    if (!isAuthenticated(status)) return;
     try {
       setIsLoading(true);
       setError(null);
@@ -95,7 +98,7 @@ export default function ProjectsClientWrapper({
     } finally {
       setIsLoading(false);
     }
-  }, [sessionToken]);
+  }, [sessionToken, status]);
 
   useEffect(() => {
     fetchProjects();
@@ -184,7 +187,7 @@ export default function ProjectsClientWrapper({
     page * rowsPerPage + rowsPerPage
   );
 
-  if (!sessionToken) {
+  if (!isAuthenticated(status)) {
     return (
       <PageLayout title="Projects" breadcrumbs={[]}>
         <Alert severity="error" sx={{ mb: 3 }}>

@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useSession } from 'next-auth/react';
 import type { Theme } from '@mui/material/styles';
 import {
   Box,
@@ -34,6 +35,7 @@ export {
   hasActiveTraceDrawerFilters,
   countActiveTraceDrawerFilters,
 } from './trace-filter-params';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 const TIME_RANGE_OPTIONS: { label: string; value: TraceTimeRange }[] = [
   { label: 'All time', value: 'all' },
@@ -86,6 +88,7 @@ export default function TraceFilterDrawer({
   sessionToken,
   fixedTestRunId,
 }: TraceFilterDrawerProps) {
+  const { status } = useSession();
   const isTestRunScope = Boolean(fixedTestRunId);
 
   const resetFilters = React.useMemo(
@@ -122,7 +125,7 @@ export default function TraceFilterDrawer({
 
   React.useEffect(() => {
     const fetchData = async () => {
-      if (!sessionToken) return;
+      if (!isAuthenticated(status)) return;
       try {
         const clientFactory = new ApiClientFactory(sessionToken);
         const projectsResponse = await clientFactory
@@ -148,10 +151,10 @@ export default function TraceFilterDrawer({
       }
     };
 
-    if (open && sessionToken && !isTestRunScope) {
+    if (open && isAuthenticated(status) && !isTestRunScope) {
       fetchData();
     }
-  }, [open, sessionToken, isTestRunScope, setDraft]);
+  }, [open, sessionToken, isTestRunScope, setDraft, status]);
 
   const filteredEndpoints = draft.projectId
     ? endpoints.filter(e => e.project_id === draft.projectId)

@@ -10,6 +10,13 @@ import FileAttachmentList from '../FileAttachmentList';
 import { FileResponse } from '@/utils/api-client/interfaces/file';
 import { createMockFileResponse } from '@/__mocks__/test-utils';
 
+jest.mock('next-auth/react', () => ({
+  useSession: () => ({
+    data: { session_token: 'tok' },
+    status: 'authenticated',
+  }),
+}));
+
 // Mock the ApiClientFactory for AuthImage blob fetching
 jest.mock('@/utils/api-client/client-factory', () => ({
   ApiClientFactory: jest.fn().mockImplementation(() => ({

@@ -10,6 +10,7 @@ import GridToolbar, {
   directoryToolbarProps,
 } from '@/components/common/GridToolbar';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import SelectBehaviorsDialog from '@/components/common/SelectBehaviorsDialog';
@@ -34,6 +35,7 @@ import type {
 import type { UUID } from 'crypto';
 import { Can, useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 export interface FilterState {
   search: string;
   backend: string[];
@@ -109,6 +111,7 @@ export default function MetricsDirectoryTab({
   const router = useRouter();
   const searchParams = useSearchParams();
   const notifications = useNotifications();
+  const { status } = useSession();
   const canCreate = useCan(Capability.Metric.CREATE);
   const canDelete = useCan(Capability.Metric.DELETE);
 
@@ -415,7 +418,7 @@ export default function MetricsDirectoryTab({
   };
 
   const handleConfirmDeleteMetric = async () => {
-    if (!sessionToken || !metricToDeleteCompletely) return;
+    if (!isAuthenticated(status) || !metricToDeleteCompletely) return;
 
     try {
       setIsDeletingMetric(true);

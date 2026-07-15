@@ -16,11 +16,11 @@ export async function updateEndpoint(
 ): Promise<UpdateEndpointResult> {
   try {
     const session = await auth();
-    if (!session?.session_token) {
+    if (!session || session.error) {
       throw new Error('No session token available');
     }
 
-    const apiFactory = await createServerApiFactory(session.session_token);
+    const apiFactory = await createServerApiFactory();
     const endpointsClient = apiFactory.getEndpointsClient();
     const updatedEndpoint = await endpointsClient.updateEndpoint(
       endpointId,

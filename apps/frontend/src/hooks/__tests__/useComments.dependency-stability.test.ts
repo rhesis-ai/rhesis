@@ -7,6 +7,12 @@ import { ApiClientFactory } from '../../utils/api-client/client-factory';
 
 // Mock dependencies
 jest.mock('../../utils/api-client/client-factory');
+jest.mock('next-auth/react', () => ({
+  useSession: () => ({
+    data: { session_token: 'tok' },
+    status: 'authenticated',
+  }),
+}));
 const mockShow = jest.fn();
 const mockNotifications = { show: mockShow };
 jest.mock('../../components/common/NotificationContext', () => ({

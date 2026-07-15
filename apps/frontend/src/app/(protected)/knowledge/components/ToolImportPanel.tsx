@@ -27,6 +27,7 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
+import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { safeRandomUUID } from '@/utils/uuid';
 import { useNotifications } from '@/components/common/NotificationContext';
@@ -39,6 +40,7 @@ import {
   drawerOutlinedFieldSx,
   drawerOutlineButtonSx,
 } from '@/components/common/drawerFormFieldSx';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 export interface ToolImportPanelHandle {
   triggerPrimary: () => Promise<void>;
@@ -122,6 +124,7 @@ const ToolImportPanel = forwardRef<ToolImportPanelHandle, ToolImportPanelProps>(
     { open, onClose, onSuccess, sessionToken, tool, onFooterStateChange },
     ref
   ) {
+    const { status } = useSession();
     const [importing, setImporting] = useState(false);
     const [previewing, setPreviewing] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -138,7 +141,7 @@ const ToolImportPanel = forwardRef<ToolImportPanelHandle, ToolImportPanelProps>(
     const { data: toolSourceTypes } = useTypeLookups(
       sessionToken ?? '',
       "type_name eq 'SourceType' and type_value eq 'Tool'",
-      open && !!sessionToken
+      open && isAuthenticated(status)
     );
     const toolSourceTypeId = toolSourceTypes?.[0]?.id as UUID | undefined;
 

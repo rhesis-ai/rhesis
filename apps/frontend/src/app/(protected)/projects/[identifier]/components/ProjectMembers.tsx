@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Alert, Avatar, Box, IconButton, Typography } from '@mui/material';
 import { GridColDef, GridPaginationModel } from '@mui/x-data-grid';
 import PersonIcon from '@mui/icons-material/Person';
+import { useSession } from 'next-auth/react';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import SectionEmptyState from '@/components/common/SectionEmptyState';
 import { DeleteModal } from '@/components/common/DeleteModal';
@@ -20,6 +21,7 @@ import { Capability } from '@/constants/capabilities';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { projectKeys } from '@/constants/query-keys';
 import { getMemberRoleExtensions } from '@/lib/extension-registries';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface ProjectMembersProps {
   projectId: string;
@@ -47,6 +49,7 @@ export default function ProjectMembers({
   const notifications = useNotifications();
   const canManageMembers = useCan(Capability.ProjectMember.MANAGE);
   const queryClient = useQueryClient();
+  const { status } = useSession();
 
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
     page: 0,
@@ -76,7 +79,7 @@ export default function ProjectMembers({
       onMembersLoaded?.(data);
       return data;
     },
-    enabled: !!sessionToken && !!projectId,
+    enabled: isAuthenticated(status) && !!projectId,
   });
 
   const membersError = membersQueryError
@@ -115,12 +118,12 @@ export default function ProjectMembers({
   const { ProjectRoleCell, prewarmProjectCaches } = getMemberRoleExtensions();
 
   useEffect(() => {
-    if (sessionToken && projectId) {
+    if (isAuthenticated(status) && projectId) {
       prewarmProjectCaches?.(sessionToken, projectId, {
         canManageRoles: canManageMembers,
       });
     }
-  }, [sessionToken, projectId, prewarmProjectCaches, canManageMembers]);
+  }, [sessionToken, projectId, prewarmProjectCaches, canManageMembers, status]);
 
   const columns: GridColDef[] = React.useMemo(() => {
     const RoleCell = ProjectRoleCell;

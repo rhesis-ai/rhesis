@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useSession } from 'next-auth/react';
 import { Box, Typography, CircularProgress, Alert, Paper } from '@mui/material';
 import Link from 'next/link';
 import SpanTreeView from './SpanTreeView';
@@ -27,6 +28,7 @@ import { formatDuration } from '@/utils/format-duration';
 import { shortVersion } from '@/utils/api-client/interfaces/parameters';
 import { experimentHref } from '@/utils/experiment-links';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface TraceDrawerProps {
   open: boolean;
@@ -108,6 +110,7 @@ export default function TraceDrawer({
   currentUserPicture,
   onTraceUpdated,
 }: TraceDrawerProps) {
+  const { status } = useSession();
   const [trace, setTrace] = useState<TraceDetailResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -361,7 +364,7 @@ export default function TraceDrawer({
   // Fetch experiment info from test run attributes
   useEffect(() => {
     const fetchExperimentInfo = async () => {
-      if (!trace?.test_run?.id || !sessionToken || !projectId) {
+      if (!trace?.test_run?.id || !isAuthenticated(status) || !projectId) {
         setExperimentInfo(null);
         return;
       }
@@ -386,7 +389,7 @@ export default function TraceDrawer({
       }
     };
     fetchExperimentInfo();
-  }, [trace?.test_run?.id, sessionToken, projectId]);
+  }, [trace?.test_run?.id, sessionToken, projectId, status]);
 
   // Add keyboard shortcut for ESC key
   useEffect(() => {

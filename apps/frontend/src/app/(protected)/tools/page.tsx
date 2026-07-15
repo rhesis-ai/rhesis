@@ -34,9 +34,10 @@ import {
 } from './components';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 export default function ToolsPage() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const notifications = useNotifications();
   const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
     Capability.Tool.READ
@@ -47,7 +48,7 @@ export default function ToolsPage() {
   const { data: providerTypes = [] } = useTypeLookups(
     session?.session_token ?? '',
     "type_name eq 'ToolProviderType'",
-    !!session?.session_token
+    isAuthenticated(status)
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -64,13 +65,13 @@ export default function ToolsPage() {
 
   useEffect(() => {
     async function loadData() {
-      if (!session?.session_token) {
+      if (!isAuthenticated(status)) {
         setLoading(false);
         return;
       }
       try {
         setLoading(true);
-        const apiFactory = new ApiClientFactory(session.session_token);
+        const apiFactory = new ApiClientFactory(session?.session_token);
         const toolsClient = apiFactory.getToolsClient();
 
         const toolsResponse = await toolsClient
@@ -88,14 +89,14 @@ export default function ToolsPage() {
     }
 
     loadData();
-  }, [session]);
+  }, [session, status]);
 
   const handleConnect = async (
     _: string,
     toolData: ToolCreate
   ): Promise<Tool> => {
-    if (!session?.session_token) throw new Error('No session token');
-    const apiFactory = new ApiClientFactory(session.session_token);
+    if (!isAuthenticated(status)) throw new Error('No session token');
+    const apiFactory = new ApiClientFactory(session?.session_token);
     const tool = await apiFactory.getToolsClient().createTool(toolData);
     setTools(prev => [...prev, tool]);
     notifications.show('Tool connection created successfully', {
@@ -105,8 +106,8 @@ export default function ToolsPage() {
   };
 
   const handleUpdate = async (toolId: UUID, updates: Partial<ToolUpdate>) => {
-    if (!session?.session_token) return;
-    const apiFactory = new ApiClientFactory(session.session_token);
+    if (!isAuthenticated(status)) return;
+    const apiFactory = new ApiClientFactory(session?.session_token);
     const updated = await apiFactory
       .getToolsClient()
       .updateTool(toolId, updates);
@@ -127,9 +128,9 @@ export default function ToolsPage() {
   };
 
   const handleDeleteConfirm = async () => {
-    if (!session?.session_token || !toolToDelete) return;
+    if (!isAuthenticated(status) || !toolToDelete) return;
     try {
-      const apiFactory = new ApiClientFactory(session.session_token);
+      const apiFactory = new ApiClientFactory(session?.session_token);
       await apiFactory.getToolsClient().deleteTool(toolToDelete.id);
       setTools(prev => prev.filter(t => t.id !== toolToDelete.id));
       setDeleteDialogOpen(false);

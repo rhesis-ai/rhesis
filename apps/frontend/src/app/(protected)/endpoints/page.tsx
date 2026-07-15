@@ -21,6 +21,7 @@ import { Can, useCan, useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import AccessDenied from '@/components/common/AccessDenied';
 import PageLoadingState from '@/components/common/PageLoadingState';
+import { isAuthenticated, isSessionLoading } from '@/hooks/useIsAuthenticated';
 
 export default function EndpointsPage() {
   const { data: session, status } = useSession();
@@ -61,7 +62,7 @@ export default function EndpointsPage() {
     queryClient.invalidateQueries({ queryKey: endpointKeys.all() });
   }, [queryClient]);
 
-  if (status === 'loading') {
+  if (isSessionLoading(status)) {
     return (
       <PageLayout title="Endpoints" breadcrumbs={[]}>
         <Box sx={{ p: 3 }}>
@@ -74,7 +75,7 @@ export default function EndpointsPage() {
   if (permsLoading) return <PageLoadingState />;
   if (!canRead) return <AccessDenied resource="endpoints" />;
 
-  if (!sessionToken) {
+  if (!isAuthenticated(status)) {
     return (
       <PageLayout title="Endpoints" breadcrumbs={[]}>
         <Box sx={{ p: 3 }}>

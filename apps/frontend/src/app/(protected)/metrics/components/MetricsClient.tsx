@@ -15,6 +15,7 @@ import type { UUID } from 'crypto';
 import { TEST_TYPES } from '@/constants/test-types';
 
 import MetricsDirectoryTab, { type FilterState } from './MetricsDirectoryTab';
+import { isAuthenticated, isSessionLoading } from '@/hooks/useIsAuthenticated';
 
 const initialFilterState: FilterState = {
   search: '',
@@ -101,8 +102,8 @@ export default function MetricsClientComponent({
   // Fetch behaviors, metrics, and filter options - using same pattern as test runs
   React.useEffect(() => {
     const fetchData = async () => {
-      if (!sessionToken) {
-        if (sessionStatus !== 'loading') {
+      if (!isAuthenticated(sessionStatus)) {
+        if (!isSessionLoading(sessionStatus)) {
           setIsLoading(false);
         }
         return;

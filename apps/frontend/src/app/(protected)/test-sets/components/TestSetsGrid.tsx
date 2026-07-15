@@ -57,6 +57,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { testSetKeys } from '@/constants/query-keys';
 import { useGridState } from '@/hooks/useGridState';
 import { useGridQuery } from '@/hooks/useGridQuery';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface TestSetsGridProps {
   sessionToken?: string;
@@ -160,7 +161,7 @@ export default function TestSetsGrid({
   onTotalCountChange,
 }: TestSetsGridProps) {
   const router = useRouter();
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const notifications = useNotifications();
   const canEditTestSet = useCan(Capability.TestSet.UPDATE);
   const canDeleteTestSet = useCan(Capability.TestSet.DELETE);
@@ -267,7 +268,7 @@ export default function TestSetsGrid({
         ...(filterString && { $filter: filterString }),
       });
     },
-    enabled: !!sessionToken,
+    enabled: isAuthenticated(status),
   });
   const testSets = testSetsData?.data ?? [];
   const totalCount = testSetsData?.pagination.totalCount ?? 0;
@@ -696,7 +697,7 @@ export default function TestSetsGrid({
       />
 
       {/* Test Run Drawer */}
-      {sessionToken && (
+      {isAuthenticated(status) && (
         <>
           <RunDrawer
             mode="createFromGrid"

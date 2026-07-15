@@ -2,8 +2,10 @@
 
 import * as React from 'react';
 import { Box, Typography, Paper } from '@mui/material';
+import { useSession } from 'next-auth/react';
 import EndpointsGrid from '@/app/(protected)/endpoints/components/EndpointsGrid';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface ProjectEndpointsProps {
   projectId: string;
@@ -14,7 +16,9 @@ export default function ProjectEndpoints({
   projectId,
   sessionToken,
 }: ProjectEndpointsProps) {
-  if (!sessionToken) {
+  const { status } = useSession();
+
+  if (!isAuthenticated(status)) {
     return (
       <Box sx={{ p: 3 }}>
         <Typography color="error">No session token available</Typography>

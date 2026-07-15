@@ -7,6 +7,7 @@ import {
   ToggleButtonGroup,
   Typography,
 } from '@mui/material';
+import { useSession } from 'next-auth/react';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 import BaseDrawer from '@/components/common/BaseDrawer';
@@ -20,6 +21,7 @@ import MentionTextInput, {
   inferReviewTarget,
   InferredTarget,
 } from '@/components/common/MentionTextInput';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface ReviewJudgementDrawerProps {
   open: boolean;
@@ -44,6 +46,7 @@ export default function ReviewJudgementDrawer({
   mentionableMetrics = [],
   mentionableTurns = [],
 }: ReviewJudgementDrawerProps) {
+  const { status } = useSession();
   const [selectedStatusId, setSelectedStatusId] = useState('');
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
@@ -69,7 +72,7 @@ export default function ReviewJudgementDrawer({
   // Fetch statuses for TestResult entity type when first opened
   useEffect(() => {
     const fetchStatuses = async () => {
-      if (!open || !sessionToken || statuses.length > 0) return;
+      if (!open || !isAuthenticated(status) || statuses.length > 0) return;
       try {
         setLoadingStatuses(true);
         const clientFactory = new ApiClientFactory(sessionToken);
@@ -85,7 +88,7 @@ export default function ReviewJudgementDrawer({
       }
     };
     fetchStatuses();
-  }, [open, sessionToken, statuses.length]);
+  }, [open, sessionToken, statuses.length, status]);
 
   // Reset form when drawer opens (intentionally excludes initialComment/initialStatus
   // from deps so parent state resets don't clear a form the user is actively filling)
@@ -121,7 +124,7 @@ export default function ReviewJudgementDrawer({
       return;
     }
 
-    if (!test || !sessionToken) return;
+    if (!test || !isAuthenticated(status)) return;
 
     try {
       setSubmitting(true);

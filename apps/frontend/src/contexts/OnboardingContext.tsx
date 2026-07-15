@@ -24,6 +24,7 @@ import {
   mergeProgress,
 } from '@/utils/onboarding-service';
 import { getTourSteps, driverConfig } from '@/config/onboarding-tours';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 const OnboardingContext = createContext<OnboardingContextValue | undefined>(
   undefined
@@ -50,7 +51,7 @@ interface OnboardingProviderProps {
 }
 
 export function OnboardingProvider({ children }: OnboardingProviderProps) {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const queryClient = useQueryClient();
   const userScope = session?.user?.id ?? session?.session_token ?? '';
   // Initialize with localStorage data immediately to avoid flash
@@ -83,7 +84,11 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
     const token = session?.session_token;
     // /users/settings requires an organization; a user mid-onboarding (before
     // the org-attach step) has none yet, and the fetch would 403.
-    if (!token || !session?.user?.organization_id || loadStartedRef.current) {
+    if (
+      !isAuthenticated(status) ||
+      !session?.user?.organization_id ||
+      loadStartedRef.current
+    ) {
       return;
     }
     loadStartedRef.current = true;
@@ -92,7 +97,7 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
       try {
         const dbProgress = await loadProgressFromDatabase(
           queryClient,
-          token,
+          token ?? '',
           userScope
         );
 
@@ -110,7 +115,7 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
           if (mergedKey !== progressKey(dbProgress)) {
             syncProgressToDatabase(
               queryClient,
-              token,
+              token ?? '',
               userScope,
               mergedProgress
             ).catch(error => {
@@ -135,6 +140,7 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
     session?.user?.organization_id,
     queryClient,
     userScope,
+    status,
   ]);
 
   // Persist user-initiated progress changes: save to localStorage
@@ -145,7 +151,7 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
 
     saveProgress(progress);
 
-    if (!dbLoadedRef.current || !session?.session_token) return;
+    if (!dbLoadedRef.current || !isAuthenticated(status)) return;
 
     // Skip the write when progress already matches what the database holds.
     // This suppresses the redundant PATCH the initial load's merge would
@@ -153,7 +159,7 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
     const key = progressKey(progress);
     if (key === lastSyncedRef.current) return;
 
-    const sessionToken = session.session_token;
+    const sessionToken = session?.session_token ?? '';
     if (syncTimeoutRef.current) {
       clearTimeout(syncTimeoutRef.current);
     }
@@ -175,7 +181,7 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
         clearTimeout(syncTimeoutRef.current);
       }
     };
-  }, [progress, session?.session_token, queryClient, userScope]);
+  }, [progress, session?.session_token, queryClient, userScope, status]);
 
   // Initialize driver.js instance
   useEffect(() => {
@@ -390,8 +396,8 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
   }, [driverInstance]);
 
   const forceSyncToDatabase = useCallback(async () => {
-    if (session?.session_token && session?.user?.organization_id) {
-      const sessionToken = session.session_token;
+    if (isAuthenticated(status) && session?.user?.organization_id) {
+      const sessionToken = session.session_token ?? '';
       try {
         await syncProgressToDatabase(
           queryClient,
@@ -409,6 +415,7 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
     progress,
     queryClient,
     userScope,
+    status,
   ]);
 
   const isComplete = isOnboardingComplete(progress);

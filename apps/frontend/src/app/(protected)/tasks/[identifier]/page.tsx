@@ -29,6 +29,7 @@ import DetailEntityMissingState from '@/components/common/DetailEntityMissingSta
 import DetailNotFoundState from '@/components/common/DetailNotFoundState';
 import { useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface PageProps {
   params: Promise<{ identifier: string }>;
@@ -181,7 +182,7 @@ function TaskDetailErrorState({
 
 export default function TaskDetailPage({ params }: PageProps) {
   const router = useRouter();
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
     Capability.Task.READ
   );
@@ -233,11 +234,11 @@ export default function TaskDetailPage({ params }: PageProps) {
           throw new Error('No task ID provided');
         }
 
-        if (!session?.session_token) {
+        if (!isAuthenticated(status)) {
           throw new Error('No session token available');
         }
 
-        const sessionToken = session.session_token;
+        const sessionToken = session?.session_token;
         const clientFactory = new ApiClientFactory(sessionToken);
         const tasksClient = clientFactory.getTasksClient();
         const taskData = await tasksClient.getTask(taskId);
@@ -280,19 +281,19 @@ export default function TaskDetailPage({ params }: PageProps) {
         setIsRetrying(false);
       }
     },
-    [taskId, session?.session_token, show, hasInitialLoad]
+    [taskId, session?.session_token, show, hasInitialLoad, status]
   );
 
   useEffect(() => {
-    if (taskId && session?.session_token) {
+    if (taskId && isAuthenticated(status)) {
       loadInitialData();
     }
-  }, [taskId, session?.session_token, loadInitialData]);
+  }, [taskId, session?.session_token, loadInitialData, status]);
 
   useEffect(() => {
     let timeoutId: NodeJS.Timeout;
 
-    if (isLoading || (!hasInitialLoad && taskId && session?.session_token)) {
+    if (isLoading || (!hasInitialLoad && taskId && isAuthenticated(status))) {
       timeoutId = setTimeout(() => {
         setLoadingTimeout(true);
       }, 10000);
@@ -305,7 +306,7 @@ export default function TaskDetailPage({ params }: PageProps) {
         clearTimeout(timeoutId);
       }
     };
-  }, [isLoading, hasInitialLoad, taskId, session?.session_token]);
+  }, [isLoading, hasInitialLoad, taskId, session?.session_token, status]);
 
   // Keep the last loaded task visible while retrying so transient failures
   // still show cached data instead of flashing back to the loading state.
@@ -319,7 +320,7 @@ export default function TaskDetailPage({ params }: PageProps) {
   if (permsLoading) return <PageLoadingState />;
   if (!canRead) return <AccessDenied resource="tasks" />;
 
-  if (isLoading || (!hasInitialLoad && taskId && session?.session_token)) {
+  if (isLoading || (!hasInitialLoad && taskId && isAuthenticated(status))) {
     return (
       <TaskDetailLoadingState
         taskId={taskId}

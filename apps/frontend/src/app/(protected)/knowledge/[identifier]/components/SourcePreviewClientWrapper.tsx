@@ -28,6 +28,7 @@ import CheckIcon from '@mui/icons-material/Check';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import type { UUID } from 'crypto';
 import {
   formatFileSize,
@@ -39,6 +40,7 @@ import SourceTagsCard from './SourceTagsCard';
 import CommentsWrapper from '@/components/comments/CommentsWrapper';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface SourcePreviewClientWrapperProps {
   source: Source;
@@ -128,6 +130,7 @@ export default function SourcePreviewClientWrapper({
   );
   const notifications = useNotifications();
   const theme = useTheme();
+  const { status } = useSession();
   const canEditSource = useCan(Capability.Source.UPDATE);
   const [isEditing, setIsEditing] = useState<EditableSectionType | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -235,7 +238,7 @@ export default function SourcePreviewClientWrapper({
   };
 
   const handleUpdateFromTool = async () => {
-    if (!sessionToken || isUpdating) return;
+    if (!isAuthenticated(status) || isUpdating) return;
 
     // Check if this is a tool source
     if (localSource.source_type?.type_value !== 'Tool') {
@@ -373,7 +376,7 @@ export default function SourcePreviewClientWrapper({
   }, []);
 
   const handleConfirmEdit = useCallback(async () => {
-    if (!sessionToken) return;
+    if (!isAuthenticated(status)) return;
 
     setIsSaving(true);
     try {
@@ -406,7 +409,7 @@ export default function SourcePreviewClientWrapper({
     } finally {
       setIsSaving(false);
     }
-  }, [sessionToken, localSource, collectFieldValues, notifications]);
+  }, [status, sessionToken, localSource, collectFieldValues, notifications]);
 
   return (
     <PageLayout

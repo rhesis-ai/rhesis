@@ -1,5 +1,6 @@
 import NextAuth, { type NextAuthConfig, type User } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
+import { decode as defaultDecode, getToken } from 'next-auth/jwt';
 import { JWTCallbackParams, SessionCallbackParams } from './types/next-auth.d';
 import {
   SESSION_DURATION_MS,
@@ -30,6 +31,11 @@ if (
 }
 
 const BACKEND_URL = getServerBackendUrl();
+
+// Keep in sync with `authConfig.cookies.sessionToken.name` below — also
+// doubles as the JWE decryption `salt` (Auth.js derives it from the cookie
+// name when no explicit `salt` is passed to `getToken()`).
+const SESSION_COOKIE_NAME = 'next-auth.session-token';
 
 interface RefreshResult {
   access_token: string;
@@ -110,6 +116,84 @@ function decodeJwtUser(jwt: string): SessionUserClaims | null {
   }
 }
 
+interface TokenFreshness {
+  session_token?: string;
+  refresh_token?: string;
+  access_token_expires?: number;
+  error?: string;
+}
+
+/**
+ * Given the token fields persisted on the session, returns them unchanged if
+ * the access token is still fresh, or refreshes via the coalescing map
+ * otherwise. Shared by the `jwt` callback (which persists the result back
+ * onto the session cookie) and `getFreshAccessToken()` (which returns it for
+ * a single server-side call, e.g. from the BFF proxy, without persisting).
+ */
+async function resolveFreshToken(
+  state: TokenFreshness
+): Promise<TokenFreshness> {
+  const expiresAt = state.access_token_expires ?? 0;
+  const nowSeconds = Math.floor(Date.now() / 1000);
+
+  if (nowSeconds < expiresAt - 60) {
+    return state;
+  }
+
+  if (!state.refresh_token) {
+    return { ...state, error: 'RefreshTokenMissing' };
+  }
+
+  try {
+    const data = await refreshAccessToken(state.refresh_token);
+    return {
+      session_token: data.access_token,
+      refresh_token: data.refresh_token,
+      access_token_expires: decodeJwtExpiry(data.access_token),
+    };
+  } catch {
+    return { ...state, error: 'RefreshTokenError' };
+  }
+}
+
+/**
+ * Server-only helper that returns a fresh backend access token without ever
+ * exposing it to the browser. Used by the `/api/backend/*` proxy (to inject
+ * `Authorization` on behalf of the client) and by `createServerApiFactory`
+ * (Server Components / actions calling the backend directly).
+ *
+ * Deliberately does NOT rewrite the session cookie: UI logins mint "stable"
+ * (non-rotating) refresh tokens (see `verify_and_refresh_token` on the
+ * backend), so calling `/auth/refresh` again on the next request with the
+ * same refresh token is safe — there's no reuse-detection penalty. Normal
+ * page navigation (via `auth()` in `proxy.ts`/layout) still persists a
+ * refreshed cookie through the ordinary `jwt` callback path; this helper
+ * just covers API calls between navigations, bounded by the same
+ * `activeRefreshes` coalescing map.
+ */
+export async function getFreshAccessToken(req: {
+  headers: Headers | Record<string, string>;
+}): Promise<string | null> {
+  const token = await getToken({
+    req,
+    secret: process.env.NEXTAUTH_SECRET,
+    cookieName: SESSION_COOKIE_NAME,
+  });
+
+  const sessionToken = token?.session_token as string | undefined;
+  if (!sessionToken) {
+    return null;
+  }
+
+  const refreshed = await resolveFreshToken({
+    session_token: sessionToken,
+    refresh_token: token?.refresh_token as string | undefined,
+    access_token_expires: token?.access_token_expires as number | undefined,
+  });
+
+  return refreshed.error ? null : (refreshed.session_token ?? null);
+}
+
 export const authConfig: NextAuthConfig = {
   trustHost: true,
   providers: [
@@ -187,17 +271,43 @@ export const authConfig: NextAuthConfig = {
     strategy: 'jwt',
     maxAge: SESSION_DURATION_SECONDS,
   },
-  // No custom jwt.encode/decode: NextAuth encrypts the session cookie as a
-  // JWE (its secure default). The backend access token, refresh token, and
+  // No custom jwt.encode: NextAuth encrypts the session cookie as a JWE
+  // (its secure default). The backend access token, refresh token, and
   // expiry live inside that encrypted payload — never as a plaintext cookie
   // value. The access token is surfaced to the app only through the session
   // object (session.session_token); nothing reads the raw cookie.
+  jwt: {
+    // Fall back to null instead of throwing when a cookie can't be
+    // decrypted as JWE. This is expected for any cookie minted before
+    // this encryption was introduced (a plaintext-JSON blob under the old
+    // custom encode) — treat it as "no session" rather than a hard
+    // JWTSessionError that crashes rendering. Auth.js resolves a null
+    // token to an unauthenticated session, so the user is simply prompted
+    // to sign in again.
+    async decode(params) {
+      try {
+        return await defaultDecode(params);
+      } catch {
+        return null;
+      }
+    },
+  },
   callbacks: {
     async jwt({ token, user, trigger, session }: JWTCallbackParams) {
       if (user) {
+        // Build token.user explicitly (never spread the raw `user` object) —
+        // it carries session_token/refresh_token from authorize(), and
+        // token.user is exactly what the session callback forwards to the
+        // client via session.user. Spreading it here previously leaked the
+        // refresh token to browser JS through GET /api/auth/session.
         token.user = {
-          ...user,
+          id: user.id,
+          name: user.name,
+          email: user.email,
           image: user.picture || user.image || null,
+          picture: user.picture,
+          organization_id: user.organization_id,
+          is_email_verified: user.is_email_verified,
         };
         token.session_token = user.session_token;
         token.refresh_token = user.refresh_token;
@@ -233,31 +343,22 @@ export const authConfig: NextAuthConfig = {
         return token;
       }
 
-      const expiresAt = (token.access_token_expires as number) ?? 0;
-      const nowSeconds = Math.floor(Date.now() / 1000);
-
-      if (nowSeconds < expiresAt - 60) {
-        return token;
-      }
-
-      if (!token.refresh_token) {
-        token.error = 'RefreshTokenMissing';
-        return token;
-      }
-
-      try {
-        const data = await refreshAccessToken(
-          token.refresh_token as string
-        );
-        token.session_token = data.access_token;
-        token.refresh_token = data.refresh_token;
-        token.access_token_expires = decodeJwtExpiry(data.access_token);
+      const refreshed = await resolveFreshToken({
+        session_token: token.session_token as string | undefined,
+        refresh_token: token.refresh_token as string | undefined,
+        access_token_expires: token.access_token_expires as
+          | number
+          | undefined,
+      });
+      token.session_token = refreshed.session_token;
+      token.refresh_token = refreshed.refresh_token;
+      token.access_token_expires = refreshed.access_token_expires;
+      if (refreshed.error) {
+        token.error = refreshed.error;
+      } else {
         delete token.error;
-        return token;
-      } catch {
-        token.error = 'RefreshTokenError';
-        return token;
       }
+      return token;
     },
     async session({ session, token }: SessionCallbackParams) {
       const updatedSession = {
@@ -270,7 +371,12 @@ export const authConfig: NextAuthConfig = {
           ...token.user,
           image: token.user.picture || token.user.image || null,
         };
-        updatedSession.session_token = token.session_token;
+        // Deliberately NOT exposing token.session_token here. The access
+        // token must never reach browser JS — client API calls go through
+        // the same-origin `/api/backend` proxy (see getBaseUrl()), which
+        // injects it server-side via getFreshAccessToken(). Server
+        // components/actions use getFreshAccessToken() directly, never
+        // session.session_token.
       }
 
       if (token.error) {

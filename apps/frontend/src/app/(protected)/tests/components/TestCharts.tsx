@@ -3,8 +3,10 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { BasePieChart, BaseChartsGrid } from '@/components/common/BaseCharts';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { useSession } from 'next-auth/react';
 import { TestStats } from '@/utils/api-client/interfaces/tests';
 import { Box, CircularProgress, Typography } from '@mui/material';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 // Fallback mock data in case the API fails
 const fallbackData = [{ name: 'Loading...', value: 100 }];
@@ -32,6 +34,7 @@ export default function TestCharts({
   sessionToken,
   onLoadComplete,
 }: TestChartsProps) {
+  const { status } = useSession();
   // Better state tracking with a ref
   const isMountedRef = useRef(true);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -51,7 +54,7 @@ export default function TestCharts({
 
   // Fetch data only when initialized
   useEffect(() => {
-    if (!isInitialized || !sessionToken) return;
+    if (!isInitialized || !isAuthenticated(status)) return;
 
     const fetchTestStats = async () => {
       try {
@@ -91,7 +94,7 @@ export default function TestCharts({
     };
 
     fetchTestStats();
-  }, [sessionToken, isInitialized, onLoadComplete]);
+  }, [sessionToken, isInitialized, onLoadComplete, status]);
 
   // Chart data generation functions
   const generateBehaviorData = () => {

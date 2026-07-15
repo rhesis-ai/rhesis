@@ -14,6 +14,7 @@ import {
 } from '@mui/material';
 import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
+import { useSession } from 'next-auth/react';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import { Tool } from '@/utils/api-client/interfaces/tool';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -27,6 +28,7 @@ import ToolImportPanel, {
   ToolImportPanelHandle,
   PanelFooterState,
 } from './ToolImportPanel';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface ToolImportDrawerProps {
   open: boolean;
@@ -41,6 +43,7 @@ export default function ToolImportDrawer({
   onSuccess,
   sessionToken,
 }: ToolImportDrawerProps) {
+  const { status } = useSession();
   const [tools, setTools] = useState<Tool[]>([]);
   const [loadingTools, setLoadingTools] = useState(false);
   const [selectedToolId, setSelectedToolId] = useState<string>('');
@@ -54,7 +57,7 @@ export default function ToolImportDrawer({
   });
 
   const loadTools = useCallback(async () => {
-    if (!sessionToken) return;
+    if (!isAuthenticated(status)) return;
     try {
       setLoadingTools(true);
       const apiFactory = new ApiClientFactory(sessionToken);
@@ -73,7 +76,7 @@ export default function ToolImportDrawer({
     } finally {
       setLoadingTools(false);
     }
-  }, [sessionToken]);
+  }, [status, sessionToken]);
 
   useEffect(() => {
     if (open) {

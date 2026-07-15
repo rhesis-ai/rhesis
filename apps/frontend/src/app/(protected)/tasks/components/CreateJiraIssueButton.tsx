@@ -9,6 +9,7 @@ import { useNotifications } from '@/components/common/NotificationContext';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import SvgIcon, { type SvgIconProps } from '@mui/material/SvgIcon';
 import { Fab, FabGroup } from '@/components/common/Fab';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 const JiraIcon = (props: SvgIconProps) => (
   <SvgIcon {...props} viewBox="0 0 24 24">
@@ -25,7 +26,7 @@ export default function CreateJiraIssueButton({
   task,
   onIssueCreated,
 }: CreateJiraIssueButtonProps) {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const { show } = useNotifications();
   const [jiraTools, setJiraTools] = useState<Tool[]>([]);
   const [loading, setLoading] = useState(false);
@@ -41,11 +42,11 @@ export default function CreateJiraIssueButton({
 
   useEffect(() => {
     const fetchJiraTools = async () => {
-      if (!session?.session_token) return;
+      if (!isAuthenticated(status)) return;
 
       setLoading(true);
       try {
-        const clientFactory = new ApiClientFactory(session.session_token);
+        const clientFactory = new ApiClientFactory(session?.session_token);
         const toolsClient = clientFactory.getToolsClient();
 
         const response = await toolsClient.getTools({});
@@ -66,20 +67,20 @@ export default function CreateJiraIssueButton({
     };
 
     fetchJiraTools();
-  }, [session?.session_token]);
+  }, [session?.session_token, status]);
 
   const handleCreateIssue = async (toolId?: string) => {
     const selectedToolId = toolId || jiraTools[0]?.id;
     if (!selectedToolId) return;
 
-    if (!session?.session_token) {
+    if (!isAuthenticated(status)) {
       show('Session not available', { severity: 'error' });
       return;
     }
 
     setIsCreating(true);
     try {
-      const clientFactory = new ApiClientFactory(session.session_token);
+      const clientFactory = new ApiClientFactory(session?.session_token);
       const servicesClient = clientFactory.getServicesClient();
 
       const result = await servicesClient.createJiraTicketFromTask(

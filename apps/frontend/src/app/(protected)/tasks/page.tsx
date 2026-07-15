@@ -23,6 +23,7 @@ import TaskDrawer, {
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import { EntityType } from '@/types/tasks';
+import { isAuthenticated, isSessionLoading } from '@/hooks/useIsAuthenticated';
 
 export default function TasksPage() {
   const { data: session, status } = useSession();
@@ -86,7 +87,7 @@ export default function TasksPage() {
     setInitialEntity(undefined);
   }, []);
 
-  if (status === 'loading') {
+  if (isSessionLoading(status)) {
     return (
       <PageLayout title="Tasks" breadcrumbs={[]}>
         <Box sx={{ p: 3 }}>
@@ -99,7 +100,7 @@ export default function TasksPage() {
   if (permsLoading) return <PageLoadingState />;
   if (!canRead) return <AccessDenied resource="tasks" />;
 
-  if (!sessionToken) {
+  if (!isAuthenticated(status)) {
     return (
       <PageLayout title="Tasks" breadcrumbs={[]}>
         <Box sx={{ p: 3 }}>

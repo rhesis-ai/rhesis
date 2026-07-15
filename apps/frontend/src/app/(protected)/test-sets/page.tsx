@@ -27,6 +27,7 @@ import { Can, useCan, useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import AccessDenied from '@/components/common/AccessDenied';
 import PageLoadingState from '@/components/common/PageLoadingState';
+import { isAuthenticated, isSessionLoading } from '@/hooks/useIsAuthenticated';
 
 export default function TestSetsPage() {
   const { data: session, status } = useSession();
@@ -79,7 +80,7 @@ export default function TestSetsPage() {
     [queryClient, notifications, router]
   );
 
-  if (status === 'loading') {
+  if (isSessionLoading(status)) {
     return (
       <PageLayout title="Test Sets" breadcrumbs={[]}>
         <Box sx={{ p: 3 }}>
@@ -92,7 +93,7 @@ export default function TestSetsPage() {
   if (permsLoading) return <PageLoadingState />;
   if (!canRead) return <AccessDenied resource="test sets" />;
 
-  if (!sessionToken) {
+  if (!isAuthenticated(status)) {
     return (
       <PageLayout title="Test Sets" breadcrumbs={[]}>
         <Box sx={{ p: 3 }}>

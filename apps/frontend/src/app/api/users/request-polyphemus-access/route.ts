@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/auth';
+import { getFreshAccessToken } from '@/auth';
 import { getServerBackendUrl } from '@/utils/url-resolver';
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await auth();
+    const accessToken = await getFreshAccessToken({ headers: req.headers });
 
-    if (!session?.session_token) {
+    if (!accessToken) {
       return NextResponse.json({ detail: 'Unauthorized' }, { status: 401 });
     }
 
@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${session.session_token}`,
+        Authorization: `Bearer ${accessToken}`,
       },
       body: JSON.stringify(body),
     });

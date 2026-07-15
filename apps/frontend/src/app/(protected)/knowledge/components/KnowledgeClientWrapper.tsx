@@ -2,6 +2,7 @@
 
 import React, { useState, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { useSession } from 'next-auth/react';
 import { sourceKeys } from '@/constants/query-keys';
 import { Box, Alert, Paper } from '@mui/material';
 import UploadIcon from '@mui/icons-material/Upload';
@@ -19,6 +20,7 @@ import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import SourcesGrid from './SourcesGrid';
 import UploadSourceDrawer from './UploadSourceDrawer';
 import ToolImportDrawer from './ToolImportDrawer';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface KnowledgeClientWrapperProps {
   sessionToken: string;
@@ -31,6 +33,7 @@ export default function KnowledgeClientWrapper({
     Capability.Source.READ
   );
   const canCreateSource = useCan(Capability.Source.CREATE);
+  const { status } = useSession();
   const queryClient = useQueryClient();
   const [sourceCount, setSourceCount] = useState<number | null>(null);
   const [uploadDrawerOpen, setUploadDrawerOpen] = useState(false);
@@ -48,7 +51,7 @@ export default function KnowledgeClientWrapper({
     queryClient.invalidateQueries({ queryKey: sourceKeys.all() });
   }, [queryClient]);
 
-  if (!sessionToken) {
+  if (!isAuthenticated(status)) {
     return (
       <PageLayout
         title="Knowledge"

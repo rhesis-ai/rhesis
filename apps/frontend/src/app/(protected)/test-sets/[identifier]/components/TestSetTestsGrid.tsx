@@ -10,6 +10,7 @@ import {
   GridToolbarExport,
 } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
+import { useSession } from 'next-auth/react';
 import { Alert } from '@mui/material';
 import GridToolbar from '@/components/common/GridToolbar';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -27,6 +28,7 @@ import { useGridQuery } from '@/hooks/useGridQuery';
 import { testSetKeys } from '@/constants/query-keys';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface LinkedTestsToolbarState {
   searchQuery: string;
@@ -87,6 +89,7 @@ export default function TestSetTestsGrid({
   onTotalCountChange,
 }: TestSetTestsGridProps) {
   const router = useRouter();
+  const { status } = useSession();
   const [searchQuery, setSearchQuery] = useState('');
   const [drawerFilters, setDrawerFilters] =
     useState<TestFilters>(EMPTY_TEST_FILTERS);
@@ -128,7 +131,7 @@ export default function TestSetTestsGrid({
           sort_order: 'asc',
           ...(filterString && { $filter: filterString }),
         }),
-    enabled: !!sessionToken && !!testSetId,
+    enabled: isAuthenticated(status) && !!testSetId,
   });
 
   const tests = data?.data ?? [];

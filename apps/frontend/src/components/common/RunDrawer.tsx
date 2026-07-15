@@ -39,6 +39,7 @@ import {
 } from '@mui/icons-material';
 import Switch from '@mui/material/Switch';
 import Link from 'next/link';
+import { useSession } from 'next-auth/react';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import BaseTag from '@/components/common/BaseTag';
 import FormSectionDivider from '@/components/common/FormSectionDivider';
@@ -77,6 +78,7 @@ import { BORDER_RADIUS } from '@/styles/theme';
 import type { UUID } from 'crypto';
 import { readActiveProjectId } from '@/utils/active-project';
 import { formatDate } from '@/utils/date';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 // ---------------------------------------------------------------------------
 // Shared local types
@@ -274,6 +276,7 @@ export default function RunDrawer(props: RunDrawerProps) {
   const { open, onClose, sessionToken, onSuccess, mode } = props;
   const cfg = MODE_CONFIGS[mode];
   const notifications = useNotifications();
+  const { status } = useSession();
 
   // ---- Core state ----
   const [loading, setLoading] = useState(false);
@@ -447,7 +450,7 @@ export default function RunDrawer(props: RunDrawerProps) {
   // -----------------------------------------------------------------------
 
   useEffect(() => {
-    if (!open || !sessionToken) return;
+    if (!open || !isAuthenticated(status)) return;
     if (!cfg.projectEditable && mode !== 'runExperiment') return;
 
     let mounted = true;

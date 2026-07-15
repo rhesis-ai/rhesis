@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { Fab, FabAddIcon } from '@/components/common/Fab';
 import TestSetDrawer from './components/TestSetDrawer';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 /**
  * Client component that owns the "New Test Set" Fab and the creation drawer.
@@ -13,7 +14,7 @@ import TestSetDrawer from './components/TestSetDrawer';
  * a client component.
  */
 export function TestSetsNewAction() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const sessionToken = session?.session_token ?? '';
@@ -24,9 +25,9 @@ export function TestSetsNewAction() {
         icon={<FabAddIcon />}
         tooltip="New Test Set"
         onClick={() => setOpen(true)}
-        disabled={!sessionToken}
+        disabled={!isAuthenticated(status)}
       />
-      {sessionToken && (
+      {isAuthenticated(status) && (
         <TestSetDrawer
           open={open}
           onClose={() => setOpen(false)}

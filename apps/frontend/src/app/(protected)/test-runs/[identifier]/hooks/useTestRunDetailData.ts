@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { Prompt } from '@/utils/api-client/interfaces/prompt';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 export interface BehaviorWithMetrics {
   id: string;
@@ -134,6 +136,7 @@ export function useTestRunDetailData({
   sessionToken,
   enabled = true,
 }: UseTestRunDetailDataOptions): UseTestRunDetailDataReturn {
+  const { status } = useSession();
   const [testResults, setTestResults] = useState<TestResultDetail[]>([]);
   const [prompts, setPrompts] = useState<Record<string, Prompt>>({});
   const [behaviors, setBehaviors] = useState<BehaviorWithMetrics[]>([]);
@@ -147,7 +150,7 @@ export function useTestRunDetailData({
   }, []);
 
   useEffect(() => {
-    if (!enabled || !sessionToken || !testRunId) {
+    if (!enabled || !isAuthenticated(status) || !testRunId) {
       setLoading(false);
       return;
     }
@@ -190,7 +193,7 @@ export function useTestRunDetailData({
     return () => {
       cancelled = true;
     };
-  }, [testRunId, sessionToken, enabled, reloadToken]);
+  }, [testRunId, sessionToken, enabled, reloadToken, status]);
 
   return {
     testResults,
