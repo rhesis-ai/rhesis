@@ -51,10 +51,12 @@ export function behaviorIdsFromCheckedSelection(
 export function isRunFilterActive(
   filters: Pick<InsightsFilters, 'runFilterMode' | 'timeRange' | 'testRunIds'>
 ): boolean {
-  if (filters.runFilterMode === 'timeRange') {
-    return filters.timeRange !== DEFAULT_INSIGHTS_TIME_RANGE;
+  // Test-runs mode is always a non-default scope (including empty
+  // testRunIds = "all runs"), even when the allowlist is empty.
+  if (filters.runFilterMode === 'testRuns') {
+    return true;
   }
-  return filters.testRunIds.length > 0;
+  return filters.timeRange !== DEFAULT_INSIGHTS_TIME_RANGE;
 }
 
 export function countActiveInsightsFilters(input: {
