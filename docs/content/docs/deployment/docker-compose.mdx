@@ -15,7 +15,9 @@ This guide is for production environments. For quick local testing, see the [Qui
 
 
 
-## Quick Start
+## Production Setup
+
+The steps below are the recommended path for a production self-hosted deployment: you supply your own secrets, public URLs, and infrastructure, and run the stack directly with Docker Compose. (For a throwaway local instance, use the one-command [Quick Start](/docs/deployment/quick-start) instead.)
 
 <CodeBlock filename="Terminal" language="bash">
 {`# 1. Clone the repository
@@ -48,7 +50,7 @@ This section covers the variables you need to set for a production deployment. F
 
 ### Required secrets
 
-Four secrets are required and have no safe default; the stack refuses to start if any is unset. Generate them as shown in [Quick Start](#quick-start) (step 3) and set them in `.env.docker`.
+Four secrets are required and have no safe default; the stack refuses to start if any is unset. Generate them as shown in [Production Setup](#production-setup) (step 3) and set them in `.env.docker`.
 
 | Secret | Protects |
 |---|---|
