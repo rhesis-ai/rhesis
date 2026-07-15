@@ -16,7 +16,7 @@ export class BehaviorClient extends BaseApiClient {
   ): Promise<BehaviorWithMetrics[]> {
     const {
       skip = 0,
-      limit = 10,
+      limit = 100,
       sort_by = 'created_at',
       sort_order = 'desc',
       $filter,
