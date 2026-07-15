@@ -62,7 +62,7 @@ export function useBehaviors(sessionToken: string, enabled = true) {
     queryFn: async () => {
       const behaviors = await new ApiClientFactory(sessionToken)
         .getBehaviorClient()
-        .getBehaviors({ limit: 100, sort_by: 'name', sort_order: 'asc' });
+        .getAllBehaviors({ sort_by: 'name', sort_order: 'asc' });
       return behaviors;
     },
     enabled: enabled && !!sessionToken,
