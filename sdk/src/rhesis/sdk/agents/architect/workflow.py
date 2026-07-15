@@ -103,3 +103,27 @@ def infer_workflow_path(message: str, *, has_attachments: bool = False) -> Workf
         return WorkflowPath.EXPLORE
 
     return None
+
+
+_OVERRIDE_FROM_EXPLORE = frozenset({
+    WorkflowPath.PRD,
+    WorkflowPath.RUN_ANALYZE,
+    WorkflowPath.DIRECT,
+})
+
+
+def resolve_workflow_path_update(
+    current: WorkflowPath,
+    message: str,
+    *,
+    has_attachments: bool = False,
+) -> WorkflowPath | None:
+    """Return an updated path when user signals warrant re-classification."""
+    inferred = infer_workflow_path(message, has_attachments=has_attachments)
+    if inferred is None:
+        return None
+    if current == WorkflowPath.UNSET:
+        return inferred
+    if current == WorkflowPath.EXPLORE and inferred in _OVERRIDE_FROM_EXPLORE:
+        return inferred
+    return None

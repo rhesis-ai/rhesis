@@ -335,6 +335,23 @@ class TestTagRoutes(TagTestMixin, BaseEntityRouteTests):
         match = next(t for t in tags if t["id"] == created["id"])
         assert set(match.keys()) == {"id", "name"}
 
+    def test_list_tags_select_name_only_includes_id(self, authenticated_client):
+        """$select without id still returns id for entity identification."""
+        tag_data = self.get_sample_data()
+        create_response = authenticated_client.post(self.endpoints.create, json=tag_data)
+        assert create_response.status_code == status.HTTP_200_OK
+        created = create_response.json()
+
+        response = authenticated_client.get(
+            f"{self.endpoints.list}?$select=name",
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        tags = response.json()
+        match = next(t for t in tags if t["id"] == created["id"])
+        assert set(match.keys()) == {"id", "name"}
+        assert match["id"] == created["id"]
+
     def test_list_tags_with_sorting(self, authenticated_client):
         """Test listing tags with sorting"""
         # Create tags with different names

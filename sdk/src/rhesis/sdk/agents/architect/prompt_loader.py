@@ -16,23 +16,30 @@ from .workflow import WorkflowPath
 logger = logging.getLogger(__name__)
 
 _ARCHITECT_DIR = Path(__file__).resolve().parent
+_SKILLS_REFERENCES_SUFFIX = Path("skills") / "rhesis" / "references"
 
 
 def resolve_skills_references_dir() -> Optional[Path]:
-    """Return ``skills/rhesis/references`` when running from the monorepo.
+    """Return skill reference markdown for Architect prompt includes.
 
-    Override with ``RHESIS_SKILLS_REFERENCES`` for custom layouts.
+    Resolution order:
+    1. ``RHESIS_SKILLS_REFERENCES`` env override
+    2. Monorepo ``skills/rhesis/references`` (walk up from this module)
+    3. Bundled ``prompt_templates/skill_refs`` (populated at wheel build)
     """
     override = os.environ.get("RHESIS_SKILLS_REFERENCES", "").strip()
     if override:
         path = Path(override)
         return path if path.is_dir() else None
 
-    # architect → agents → sdk package → rhesis → src → sdk project → repo root
-    repo_root = _ARCHITECT_DIR.parents[5]
-    references = repo_root / "skills" / "rhesis" / "references"
-    if references.is_dir():
-        return references
+    current = _ARCHITECT_DIR
+    for _ in range(12):
+        references = current / _SKILLS_REFERENCES_SUFFIX
+        if references.is_dir():
+            return references
+        if current.parent == current:
+            break
+        current = current.parent
 
     bundled = _ARCHITECT_DIR / "prompt_templates" / "skill_refs"
     if bundled.is_dir():
@@ -72,7 +79,6 @@ def phase_include_names(mode: AgentMode, workflow_path: WorkflowPath) -> List[st
                 [
                     "phases/discovery.md",
                     "exploration-strategies.md",
-                    "odata-patterns.md",
                 ]
             )
         elif wp == WorkflowPath.PRD:
@@ -83,34 +89,29 @@ def phase_include_names(mode: AgentMode, workflow_path: WorkflowPath) -> List[st
                     "phases/execution.md",
                     "phases/analysis.md",
                     "result-analysis.md",
-                    "odata-patterns.md",
                 ]
             )
         elif wp == WorkflowPath.DIRECT:
-            includes.extend(["phases/direct-requests.md", "odata-patterns.md"])
+            includes.append("phases/direct-requests.md")
         # UNSET: routing only (system prompt) — no phase block
 
     elif m == AgentMode.PLANNING:
         includes.extend(
             [
                 "phases/planning.md",
+                "phases/reuse.md",
                 "metric-scope.md",
                 "telemachus-save-plan.j2",
-                "telemachus-reuse.j2",
-                "telemachus-guidelines.j2",
-                "odata-patterns.md",
             ]
         )
         if wp == WorkflowPath.PRD:
-            includes.append("prd-workflow.md")
+            includes.extend(["prd-workflow.md", "use-case-bracketfeld.md"])
 
     elif m == AgentMode.CREATING:
         includes.extend(
             [
                 "phases/creation.md",
-                "telemachus-creation-order.j2",
                 "metric-scope.md",
-                "odata-patterns.md",
             ]
         )
         if wp == WorkflowPath.PRD:
@@ -122,7 +123,6 @@ def phase_include_names(mode: AgentMode, workflow_path: WorkflowPath) -> List[st
                 "phases/execution.md",
                 "phases/analysis.md",
                 "result-analysis.md",
-                "odata-patterns.md",
             ]
         )
 

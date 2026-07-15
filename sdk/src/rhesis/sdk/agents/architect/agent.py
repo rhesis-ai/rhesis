@@ -35,7 +35,7 @@ from .plan import _INTERNAL_FIELDS, ArchitectPlan, build_save_plan_tool
 from .prompt_loader import build_architect_jinja_env, render_phase_knowledge
 from .state import ArchitectAgentStateSnapshot
 from .tool_registry import mode_for, plan_category_for
-from .workflow import WorkflowPath, infer_workflow_path
+from .workflow import WorkflowPath, resolve_workflow_path_update
 
 logger = logging.getLogger(__name__)
 
@@ -1434,13 +1434,13 @@ class ArchitectAgent(BaseAgent):
         return "Plan progress: " + ", ".join(parts) + ". " + gate + "."
 
     def _maybe_update_workflow_path(self, message: str) -> None:
-        """Infer workflow path from the first unambiguous user signals."""
-        if self._workflow_path != WorkflowPath.UNSET:
-            return
+        """Infer or update workflow path from user signals."""
         has_attachments = bool(self._attachments)
-        inferred = infer_workflow_path(message, has_attachments=has_attachments)
-        if inferred is not None:
-            self._workflow_path = inferred
+        updated = resolve_workflow_path_update(
+            self._workflow_path, message, has_attachments=has_attachments
+        )
+        if updated is not None:
+            self._workflow_path = updated
 
     def _build_prompt(
         self,

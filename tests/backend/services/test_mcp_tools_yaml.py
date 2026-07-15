@@ -115,6 +115,15 @@ class TestTagMcpToolsPresent:
         assert cfg["method"].upper() == "POST"
         assert cfg["path"] == "/tags/{entity_type}/{entity_id}"
 
+    def test_list_tags_default_query_select(self):
+        by_name = {tc["name"]: tc for tc in load_tool_configs()}
+        cfg = by_name["list_tags"]
+        assert cfg.get("default_query", {}).get("$select") == "id,name"
+
+    def test_assign_tag_requires_confirmation(self):
+        by_name = {tc["name"]: tc for tc in load_tool_configs()}
+        assert by_name["assign_tag"].get("requires_confirmation") is True
+
 
 @pytest.mark.unit
 class TestMcpToolsYamlStructure:
