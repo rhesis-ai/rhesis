@@ -122,4 +122,25 @@ describe('behavior-insights-utils', () => {
       expect(resolveEndpointId(numericProjectEndpoints, '42')).toBe('ep-1');
     });
   });
+
+  describe('assertInsightsTestRunIdsWithinLimit', () => {
+    it('allows selections at or below the cap', () => {
+      expect(() =>
+        assertInsightsTestRunIdsWithinLimit(
+          Array.from({ length: MAX_INSIGHTS_TEST_RUN_IDS }, (_, i) => `run-${i}`)
+        )
+      ).not.toThrow();
+    });
+
+    it('throws when the allowlist exceeds the cap', () => {
+      expect(() =>
+        assertInsightsTestRunIdsWithinLimit(
+          Array.from(
+            { length: MAX_INSIGHTS_TEST_RUN_IDS + 1 },
+            (_, i) => `run-${i}`
+          )
+        )
+      ).toThrow(/Too many test runs/);
+    });
+  });
 });
