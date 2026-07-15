@@ -3,14 +3,21 @@ import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { TEST_RESULT_STATUS_NAMES } from '@/utils/test-result-status';
 import {
   InsightsFilters,
+  InsightsRunFilterMode,
   InsightsTimeRange,
   resolveInsightsTimeRange,
   timeRangeToStatsParams,
 } from '../types';
-import { fetchTestRunIdsForEndpoint } from './behavior-insights-utils';
+import { resolveInsightsQueryTestRunIds } from './behavior-insights-utils';
 
 export const INSIGHTS_FAILED_TESTS_QUERY = 'failedFromInsights';
 export const INSIGHTS_OUTCOME_ALL = 'all';
+export const INSIGHTS_RUN_FILTER_MODE_PARAM = 'runFilterMode';
+export const INSIGHTS_TIME_RANGE_PARAM = 'timeRange';
+export const INSIGHTS_TEST_RUN_IDS_PARAM = 'testRunIds';
+
+/** @deprecated Legacy URL param — parsed for backward compatibility. */
+export const INSIGHTS_TEST_RUN_SCOPE_PARAM = 'testRunScope';
 
 export type InsightsTestOutcome = 'failed' | 'all';
 
@@ -24,7 +31,9 @@ export interface InsightsFailedTestsScope {
 
 export interface InsightsFailedTestsFilter {
   endpointId: string;
+  runFilterMode: InsightsRunFilterMode;
   timeRange: InsightsTimeRange;
+  testRunIds: string[];
   behaviorId?: string;
   behaviorName?: string;
   metricName?: string;
@@ -38,7 +47,7 @@ function escapeODataValue(value: string): string {
 
 export type InsightsRunContextFilters = Pick<
   InsightsFilters,
-  'endpointId' | 'timeRange'
+  'endpointId' | 'runFilterMode' | 'timeRange' | 'testRunIds'
 >;
 
 export function buildInsightsFailedTestsUrl(
@@ -48,8 +57,18 @@ export function buildInsightsFailedTestsUrl(
   const params = new URLSearchParams({
     [INSIGHTS_FAILED_TESTS_QUERY]: '1',
     endpointId: filters.endpointId,
-    timeRange: filters.timeRange,
+    [INSIGHTS_RUN_FILTER_MODE_PARAM]: filters.runFilterMode,
   });
+
+  if (filters.runFilterMode === 'timeRange') {
+    params.set(
+      INSIGHTS_TIME_RANGE_PARAM,
+      resolveInsightsTimeRange(filters.timeRange)
+    );
+  } else if (filters.runFilterMode === 'testRuns') {
+    // Explicit empty list = all runs for the endpoint (parsed the same way).
+    params.set(INSIGHTS_TEST_RUN_IDS_PARAM, filters.testRunIds.join(','));
+  }
 
   if (scope?.behaviorId) {
     params.set('behaviorId', scope.behaviorId);
@@ -70,6 +89,69 @@ export function buildInsightsFailedTestsUrl(
   return `/tests?${params.toString()}`;
 }
 
+type LegacyTestRunScope = 'default' | 'all' | 'custom';
+
+function parseLegacyFilters(
+  searchParams: Pick<URLSearchParams, 'get'>
+): Pick<
+  InsightsFailedTestsFilter,
+  'runFilterMode' | 'timeRange' | 'testRunIds'
+> | null {
+  const runFilterMode = searchParams.get(
+    INSIGHTS_RUN_FILTER_MODE_PARAM
+  ) as InsightsRunFilterMode | null;
+  if (runFilterMode === 'timeRange' || runFilterMode === 'testRuns') {
+    const timeRange = searchParams.get(INSIGHTS_TIME_RANGE_PARAM);
+    const rawTestRunIds = searchParams.get(INSIGHTS_TEST_RUN_IDS_PARAM);
+    return {
+      runFilterMode,
+      timeRange: resolveInsightsTimeRange(
+        (timeRange as InsightsTimeRange | null) ?? undefined
+      ),
+      testRunIds:
+        runFilterMode === 'testRuns' && rawTestRunIds
+          ? rawTestRunIds.split(',').filter(Boolean)
+          : [],
+    };
+  }
+
+  const legacyScope = searchParams.get(
+    INSIGHTS_TEST_RUN_SCOPE_PARAM
+  ) as LegacyTestRunScope | null;
+  const legacyTimeRange = searchParams.get(INSIGHTS_TIME_RANGE_PARAM);
+
+  if (legacyScope === 'custom') {
+    const rawTestRunIds = searchParams.get(INSIGHTS_TEST_RUN_IDS_PARAM);
+    return {
+      runFilterMode: 'testRuns',
+      timeRange: DEFAULT_INSIGHTS_TIME_RANGE,
+      testRunIds: rawTestRunIds ? rawTestRunIds.split(',').filter(Boolean) : [],
+    };
+  }
+
+  if (legacyScope === 'all') {
+    return {
+      runFilterMode: 'testRuns',
+      timeRange: DEFAULT_INSIGHTS_TIME_RANGE,
+      testRunIds: [],
+    };
+  }
+
+  if (legacyScope === 'default' || legacyTimeRange) {
+    return {
+      runFilterMode: 'timeRange',
+      timeRange: resolveInsightsTimeRange(
+        (legacyTimeRange as InsightsTimeRange | null) ?? undefined
+      ),
+      testRunIds: [],
+    };
+  }
+
+  return null;
+}
+
+const DEFAULT_INSIGHTS_TIME_RANGE = resolveInsightsTimeRange(undefined);
+
 export function parseInsightsFailedTestsSearchParams(
   searchParams: Pick<URLSearchParams, 'get'>
 ): InsightsFailedTestsFilter | null {
@@ -78,14 +160,18 @@ export function parseInsightsFailedTestsSearchParams(
   }
 
   const endpointId = searchParams.get('endpointId');
-  const timeRange = searchParams.get('timeRange');
-  if (!endpointId || !timeRange) {
+  if (!endpointId) {
+    return null;
+  }
+
+  const runFilters = parseLegacyFilters(searchParams);
+  if (!runFilters) {
     return null;
   }
 
   return {
     endpointId,
-    timeRange: resolveInsightsTimeRange(timeRange as InsightsTimeRange),
+    ...runFilters,
     behaviorId: searchParams.get('behaviorId') || undefined,
     behaviorName: searchParams.get('behaviorName') || undefined,
     metricName: searchParams.get('metric') || undefined,
@@ -173,32 +259,34 @@ async function filterTestIdsByTopic(
 const TEST_RUN_ID_CHUNK = 15;
 
 /**
- * Resolve test case IDs that failed for the endpoint + time window shown on Insights,
+ * Resolve test case IDs that failed for the selected Insights scope,
  * optionally scoped to a behavior, metric, or topic row.
  */
 export async function fetchFailedTestIdsForInsights(
   sessionToken: string,
-  filters: InsightsRunContextFilters &
-    InsightsFailedTestsScope & { testRunIds?: string[] }
+  filters: InsightsRunContextFilters & InsightsFailedTestsScope
 ): Promise<string[]> {
   if (!filters.endpointId) {
     return [];
   }
 
+  // Empty `testRunIds` is meaningful: time-range mode and testRuns/"all runs"
+  // both store `[]` and need resolution via `resolveInsightsQueryTestRunIds`.
+  // Do not treat `[]` as missing (`??` would skip resolution).
   const testRunIds =
-    filters.testRunIds ??
-    (await fetchTestRunIdsForEndpoint(
-      sessionToken,
-      filters.endpointId,
-      filters.timeRange
-    ));
+    filters.testRunIds.length > 0
+      ? filters.testRunIds
+      : await resolveInsightsQueryTestRunIds(sessionToken, filters);
   if (testRunIds.length === 0) {
     return [];
   }
 
   const client = new ApiClientFactory(sessionToken).getTestResultsClient();
   const ids = new Set<string>();
-  const createdAtFilter = buildCreatedAtFilter(filters.timeRange);
+  const createdAtFilter =
+    filters.runFilterMode === 'timeRange'
+      ? buildCreatedAtFilter(resolveInsightsTimeRange(filters.timeRange))
+      : '';
   const failedOnly = filters.outcome !== 'all';
   const statusFilter = `status/name eq '${TEST_RESULT_STATUS_NAMES.FAILED}'`;
 
@@ -307,13 +395,31 @@ export function formatInsightsTimeRangeLabel(
   }
 }
 
+export function formatInsightsRunFilterLabel(
+  filter: Pick<
+    InsightsFailedTestsFilter,
+    'runFilterMode' | 'timeRange' | 'testRunIds'
+  >
+): string {
+  if (filter.runFilterMode === 'timeRange') {
+    return `the last ${formatInsightsTimeRangeLabel(
+      resolveInsightsTimeRange(filter.timeRange)
+    )}`;
+  }
+  if (filter.testRunIds.length === 0) {
+    return 'all test runs';
+  }
+  const count = filter.testRunIds.length;
+  return `${count} selected test run${count === 1 ? '' : 's'}`;
+}
+
 export function formatInsightsFailedTestsBanner(
   filter: InsightsFailedTestsFilter,
   count: number,
   endpointName?: string
 ): string {
   const endpoint = endpointName ?? 'the selected endpoint';
-  const period = formatInsightsTimeRangeLabel(filter.timeRange);
+  const period = formatInsightsRunFilterLabel(filter);
   const noun = `test case${count === 1 ? '' : 's'}`;
 
   const showAll = filter.outcome === 'all';
@@ -326,23 +432,36 @@ export function formatInsightsFailedTestsBanner(
 
   if (filter.metricName && filter.behaviorName) {
     if (showAll) {
-      return `Showing ${count} ${noun} evaluated for "${filter.metricName}" in ${filter.behaviorName} on ${endpoint} in the last ${period}.`;
+      return `Showing ${count} ${noun} evaluated for "${filter.metricName}" in ${filter.behaviorName} on ${endpoint} for ${period}.`;
     }
-    return `Showing ${count} ${noun} where "${filter.metricName}" failed for ${filter.behaviorName} on ${endpoint} in the last ${period}.`;
+    return `Showing ${count} ${noun} where "${filter.metricName}" failed for ${filter.behaviorName} on ${endpoint} for ${period}.`;
   }
 
   if (filter.topicName && filter.behaviorName) {
     if (showAll) {
-      return `Showing ${count} ${noun} for topic "${filter.topicName}" in ${filter.behaviorName} on ${endpoint} in the last ${period}.`;
+      return `Showing ${count} ${noun} for topic "${filter.topicName}" in ${filter.behaviorName} on ${endpoint} for ${period}.`;
     }
-    return `Showing ${count} failed ${noun} for topic "${filter.topicName}" in ${filter.behaviorName} on ${endpoint} in the last ${period}.`;
+    return `Showing ${count} failed ${noun} for topic "${filter.topicName}" in ${filter.behaviorName} on ${endpoint} for ${period}.`;
   }
 
   if (filter.behaviorName) {
     return showAll
-      ? `Showing ${count} ${noun} for ${filter.behaviorName} on ${endpoint} in the last ${period}.`
-      : `Showing ${count} failed ${noun} for ${filter.behaviorName} on ${endpoint} in the last ${period}.`;
+      ? `Showing ${count} ${noun} for ${filter.behaviorName} on ${endpoint} for ${period}.`
+      : `Showing ${count} failed ${noun} for ${filter.behaviorName} on ${endpoint} for ${period}.`;
   }
 
-  return `Showing ${count} failed ${noun} for ${endpoint} in the last ${period}.`;
+  return showAll
+    ? `Showing ${count} ${noun} for ${endpoint} for ${period}.`
+    : `Showing ${count} failed ${noun} for ${endpoint} for ${period}.`;
+}
+
+export function insightsFailedFilterToRunContext(
+  filter: InsightsFailedTestsFilter
+): InsightsRunContextFilters {
+  return {
+    endpointId: filter.endpointId,
+    runFilterMode: filter.runFilterMode,
+    timeRange: filter.timeRange,
+    testRunIds: filter.testRunIds,
+  };
 }

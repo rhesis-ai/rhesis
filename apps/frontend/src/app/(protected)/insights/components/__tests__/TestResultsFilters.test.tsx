@@ -9,6 +9,43 @@ jest.mock('@/utils/insights-endpoint', () => ({
   writeInsightsEndpointId: jest.fn(),
 }));
 
+jest.mock('../InsightsFilterDrawer', () => ({
+  __esModule: true,
+  default: ({
+    open,
+    onApply,
+  }: {
+    open: boolean;
+    onApply: (filters: {
+      endpointId: string;
+      behaviorIds: string[];
+      runFilterMode: 'timeRange' | 'testRuns';
+      timeRange: '1m' | '7d';
+      testRunIds: string[];
+    }) => void;
+  }) =>
+    open ? (
+      <div role="presentation">
+        <button
+          type="button"
+          onClick={() =>
+            onApply({
+              endpointId: 'ep-2',
+              behaviorIds: [],
+              runFilterMode: 'testRuns',
+              timeRange: '1m',
+              testRunIds: ['run-1'],
+            })
+          }
+        >
+          Apply
+        </button>
+      </div>
+    ) : null,
+  countActiveInsightsDrawerFilters: () => 1,
+  hasActiveInsightsDrawerFilters: () => true,
+}));
+
 import { writeInsightsEndpointId } from '@/utils/insights-endpoint';
 
 function makeEndpoint(id: string, name: string) {
@@ -32,8 +69,12 @@ function renderFilters(
   props: Partial<React.ComponentProps<typeof TestResultsFilters>> = {}
 ) {
   const defaults = {
-    filters: { timeRange: '1m' as const, endpointId: 'ep-1', behaviorIds: [] },
+    filters: {
+      ...DEFAULT_INSIGHTS_FILTERS,
+      endpointId: 'ep-1',
+    },
     onFiltersChange: jest.fn(),
+    sessionToken: 'token',
     projectEndpoints: defaultEndpoints,
     endpointsLoading: false,
     behaviorOptions: [
@@ -59,32 +100,6 @@ afterEach(() => {
 });
 
 describe('TestResultsFilters', () => {
-  it('selects 1M by default', () => {
-    render(
-      <TestResultsFilters
-        filters={DEFAULT_INSIGHTS_FILTERS}
-        onFiltersChange={jest.fn()}
-        projectEndpoints={defaultEndpoints}
-        endpointsLoading={false}
-        searchQuery=""
-        onSearchChange={jest.fn()}
-        behaviorOptions={[]}
-      />
-    );
-
-    expect(screen.getByRole('button', { name: '1M' })).toHaveStyle({
-      color: 'rgb(255, 255, 255)',
-    });
-  });
-
-  it('renders time range pill tabs', () => {
-    renderFilters();
-    expect(screen.getByRole('button', { name: '1D' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '7D' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '1M' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '3M' })).toBeInTheDocument();
-  });
-
   it('renders search input', () => {
     renderFilters();
     expect(
@@ -102,45 +117,29 @@ describe('TestResultsFilters', () => {
     expect(onSearchChange).toHaveBeenCalled();
   });
 
-  it('renders endpoint dropdown in filter drawer', async () => {
+  it('opens the filter drawer', async () => {
     const user = userEvent.setup();
     renderFilters();
     await openFilterDrawer(user);
 
-    const drawer = screen.getByRole('presentation');
-    expect(within(drawer).getByLabelText(/endpoint/i)).toBeInTheDocument();
+    expect(screen.getByRole('presentation')).toBeInTheDocument();
   });
 
-  it('calls onFiltersChange when a time range pill is clicked', async () => {
-    const user = userEvent.setup();
-    const onFiltersChange = jest.fn();
-    renderFilters({ onFiltersChange });
-
-    await user.click(screen.getByRole('button', { name: '7D' }));
-
-    expect(onFiltersChange).toHaveBeenCalledWith({
-      timeRange: '7d',
-      endpointId: 'ep-1',
-      behaviorIds: [],
-    });
-  });
-
-  it('persists endpoint selection to cookie when applied from drawer', async () => {
+  it('persists endpoint and test run selection when applied from drawer', async () => {
     const user = userEvent.setup();
     const onFiltersChange = jest.fn();
     renderFilters({ onFiltersChange });
     await openFilterDrawer(user);
 
     const drawer = screen.getByRole('presentation');
-    await user.click(within(drawer).getByLabelText(/endpoint/i));
-    await user.click(screen.getByRole('option', { name: 'Endpoint Two' }));
     await user.click(within(drawer).getByRole('button', { name: /apply/i }));
 
     expect(writeInsightsEndpointId).toHaveBeenCalledWith('ep-2');
     expect(onFiltersChange).toHaveBeenCalledWith({
-      timeRange: '1m',
+      ...DEFAULT_INSIGHTS_FILTERS,
       endpointId: 'ep-2',
-      behaviorIds: [],
+      runFilterMode: 'testRuns',
+      testRunIds: ['run-1'],
     });
   });
 
@@ -149,19 +148,7 @@ describe('TestResultsFilters', () => {
     expect(screen.getByLabelText(/1 active filters/i)).toBeInTheDocument();
   });
 
-  it('disables endpoint dropdown while loading', async () => {
-    const user = userEvent.setup();
-    renderFilters({ endpointsLoading: true });
-    await openFilterDrawer(user);
-
-    const drawer = screen.getByRole('presentation');
-    expect(within(drawer).getByLabelText(/endpoint/i)).toHaveAttribute(
-      'aria-disabled',
-      'true'
-    );
-  });
-
-  it('hides behavior search in compact variant but keeps filters and time range', () => {
+  it('hides behavior search in compact variant but keeps filters', () => {
     renderFilters({ variant: 'compact' });
 
     expect(
@@ -170,6 +157,5 @@ describe('TestResultsFilters', () => {
     expect(
       screen.getByRole('button', { name: /filters/i })
     ).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '1M' })).toBeInTheDocument();
   });
 });

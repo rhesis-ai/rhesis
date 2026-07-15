@@ -42,7 +42,7 @@ export class InsightsPage extends BasePage {
     });
     const searchBehaviors = this.page.getByPlaceholder(/search behaviors/i);
     const passRateMetric = this.page.getByText(/\d+\.\d+%\s*pass rate/i);
-    const timeRange1M = this.page.getByRole('button', { name: '1M' });
+    const filterButton = this.page.getByRole('button', { name: /filters/i });
 
     // Wait for endpoint auto-selection and insights fetch to settle.
     await expect(noEndpoints.or(noTestResults).or(searchBehaviors)).toBeVisible(
@@ -59,12 +59,12 @@ export class InsightsPage extends BasePage {
     }
 
     if (await noTestResults.isVisible()) {
-      await expect(timeRange1M).toBeVisible();
+      await expect(filterButton).toBeVisible();
       return;
     }
 
     await expect(this.page.getByPlaceholder(/search behaviors/i)).toBeVisible();
-    await expect(timeRange1M).toBeVisible();
+    await expect(filterButton).toBeVisible();
     await expect(passRateMetric.first()).toBeVisible({ timeout: 15_000 });
   }
 

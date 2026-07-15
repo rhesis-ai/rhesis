@@ -3,17 +3,11 @@
 import React, { useMemo, useState } from 'react';
 import { Box, Button } from '@mui/material';
 import GridToolbar, {
-  ToolbarPillTabs,
   directoryToolbarProps,
 } from '@/components/common/GridToolbar';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import { writeInsightsEndpointId } from '@/utils/insights-endpoint';
-import {
-  INSIGHTS_TIME_RANGE_OPTIONS,
-  InsightsFilters,
-  InsightsTimeRange,
-  resolveInsightsTimeRange,
-} from '../types';
+import { InsightsFilters } from '../types';
 import InsightsFilterDrawer, {
   countActiveInsightsDrawerFilters,
   hasActiveInsightsDrawerFilters,
@@ -24,6 +18,7 @@ import { InsightsBehaviorOption } from '../utils/insights-filter-utils';
 interface TestResultsFiltersProps {
   filters: InsightsFilters;
   onFiltersChange: (filters: InsightsFilters) => void;
+  sessionToken: string;
   projectEndpoints: Endpoint[];
   endpointsLoading: boolean;
   behaviorOptions: InsightsBehaviorOption[];
@@ -33,8 +28,8 @@ interface TestResultsFiltersProps {
   allExpanded?: boolean;
   onToggleAll?: () => void;
   /**
-   * `compact` keeps endpoint/time controls (filter drawer + time range) but
-   * hides behavior search — used on the no-test-results empty state.
+   * `compact` keeps endpoint/test-run controls (filter drawer) but hides
+   * behavior search — used on the no-test-results empty state.
    */
   variant?: 'full' | 'compact';
 }
@@ -42,6 +37,7 @@ interface TestResultsFiltersProps {
 export default function TestResultsFilters({
   filters,
   onFiltersChange,
+  sessionToken,
   projectEndpoints,
   endpointsLoading,
   behaviorOptions,
@@ -59,16 +55,18 @@ export default function TestResultsFilters({
     () => ({
       endpointId: filters.endpointId,
       behaviorIds: filters.behaviorIds,
+      runFilterMode: filters.runFilterMode,
+      timeRange: filters.timeRange,
+      testRunIds: filters.testRunIds,
     }),
-    [filters.endpointId, filters.behaviorIds]
+    [
+      filters.endpointId,
+      filters.behaviorIds,
+      filters.runFilterMode,
+      filters.timeRange,
+      filters.testRunIds,
+    ]
   );
-
-  const handleTimeRangeChange = (value: string) => {
-    onFiltersChange({
-      ...filters,
-      timeRange: value as InsightsTimeRange,
-    });
-  };
 
   const handleDrawerApply = (next: InsightsDrawerFilters) => {
     if (next.endpointId) {
@@ -78,6 +76,9 @@ export default function TestResultsFilters({
       ...filters,
       endpointId: next.endpointId,
       behaviorIds: next.behaviorIds,
+      runFilterMode: next.runFilterMode,
+      timeRange: next.timeRange,
+      testRunIds: next.testRunIds,
     });
   };
 
@@ -93,25 +94,20 @@ export default function TestResultsFilters({
         activeFilterCount={countActiveInsightsDrawerFilters(drawerFilters)}
         {...directoryToolbarProps}
         middleContent={
-          <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1,
-              flexWrap: 'wrap',
-            }}
-          >
-            <ToolbarPillTabs
-              tabs={INSIGHTS_TIME_RANGE_OPTIONS}
-              activeValue={resolveInsightsTimeRange(filters.timeRange)}
-              onChange={handleTimeRangeChange}
-            />
-            {showExpandToggle && onToggleAll && (
+          showExpandToggle && onToggleAll ? (
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+                flexWrap: 'wrap',
+              }}
+            >
               <Button size="small" variant="text" onClick={onToggleAll}>
                 {allExpanded ? 'Collapse all' : 'Expand all'}
               </Button>
-            )}
-          </Box>
+            </Box>
+          ) : undefined
         }
       />
 
@@ -119,6 +115,7 @@ export default function TestResultsFilters({
         open={filterDrawerOpen}
         onClose={() => setFilterDrawerOpen(false)}
         filters={drawerFilters}
+        sessionToken={sessionToken}
         projectEndpoints={projectEndpoints}
         endpointsLoading={endpointsLoading}
         behaviorOptions={behaviorOptions}

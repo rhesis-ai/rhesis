@@ -75,6 +75,7 @@ import { gridSortToApiParams } from '@/utils/grid-sort';
 import {
   fetchFailedTestIdsForInsights,
   formatInsightsFailedTestsBanner,
+  insightsFailedFilterToRunContext,
   type InsightsFailedTestsFilter,
 } from '@/app/(protected)/insights/utils/insights-failed-tests';
 
@@ -333,8 +334,7 @@ export default function TestsTable({
       setInsightsFilterError(null);
       try {
         const ids = await fetchFailedTestIdsForInsights(sessionToken, {
-          endpointId: insightsFailedFilter.endpointId,
-          timeRange: insightsFailedFilter.timeRange,
+          ...insightsFailedFilterToRunContext(insightsFailedFilter),
           behaviorId: insightsFailedFilter.behaviorId,
           behaviorName: insightsFailedFilter.behaviorName,
           metricName: insightsFailedFilter.metricName,
@@ -362,7 +362,9 @@ export default function TestsTable({
     };
   }, [
     insightsFailedFilter?.endpointId,
+    insightsFailedFilter?.runFilterMode,
     insightsFailedFilter?.timeRange,
+    insightsFailedFilter?.testRunIds,
     sessionToken,
     insightsFailedFilter,
   ]);
