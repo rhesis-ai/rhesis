@@ -213,21 +213,20 @@ def apply_auth_backstop(app: FastAPI) -> None:
         _inject_route_dependency(route, backstop)
 
 
-def _affordance_resource_types(response_model) -> set:
-    """Return every ``__resource_type__`` a ``WithPermittedActions`` schema in
-    *response_model* declares, or an empty set if none carries the mixin.
+def _response_carries_affordances(response_model) -> bool:
+    """True if *response_model* is, contains, or wraps a ``WithPermittedActions`` schema.
 
     Unwraps typing generics (``List[X]``, ``Optional[X]``, ``Union[...]``) so list
-    and optional response models are detected, not just bare model classes. The
-    result also scopes :func:`~rhesis.backend.app.auth.rbac.effective_permissions`
-    to this route's actual resource type(s) instead of the whole catalog.
+    and optional response models are detected, not just bare model classes. Warns
+    if a matching schema left ``__resource_type__`` unset, since that silently
+    yields empty ``permitted_actions`` for every response using it.
     """
     from typing import get_args
 
     from rhesis.backend.app.schemas.affordances import WithPermittedActions
 
     seen: set = set()
-    found: set = set()
+    found = False
     stack = [response_model]
     while stack:
         tp = stack.pop()
@@ -240,9 +239,8 @@ def _affordance_resource_types(response_model) -> set:
             continue
         try:
             if isinstance(tp, type) and issubclass(tp, WithPermittedActions):
-                if tp.__resource_type__ is not None:
-                    found.add(tp.__resource_type__)
-                else:
+                found = True
+                if tp.__resource_type__ is None:
                     logger.warning(
                         "%s mixes in WithPermittedActions but has no __resource_type__ "
                         "set; permitted_actions will always be empty for this schema",
@@ -264,7 +262,7 @@ def apply_affordance_backstop(app: FastAPI) -> None:
     have every router remember to add that dependency — and silently ship empty
     affordances if it forgets — inject it here for exactly the routes whose
     ``response_model`` carries the mixin, detected via
-    :func:`_affordance_resource_types`.
+    :func:`_response_carries_affordances`.
 
     Routes whose response does not carry the mixin are left untouched, so
     onboarding/context-free routes are never forced through the tenant-db + auth
@@ -272,22 +270,17 @@ def apply_affordance_backstop(app: FastAPI) -> None:
 
     Must run **after** all routers (core + EE) are registered, like the auth/authz
     backstops, so every affordance-bearing route is covered.
-
-    Each route's binder is built via
-    :func:`~rhesis.backend.app.dependencies.bind_affordance_context_for`, scoped to
-    that route's resource type(s) so effective-permission checks stay narrow.
     """
-    from rhesis.backend.app.dependencies import bind_affordance_context_for
+    from rhesis.backend.app.dependencies import bind_affordance_context
 
+    dep = Depends(bind_affordance_context)
     for route in app.router.routes:
         if not isinstance(route, APIRoute):
             continue
         if route.path in PUBLIC_ROUTES:
             continue
-        resource_types = _affordance_resource_types(route.response_model)
-        if not resource_types:
+        if not _response_carries_affordances(route.response_model):
             continue
-        dep = Depends(bind_affordance_context_for(frozenset(resource_types)))
         _inject_route_dependency(route, dep)
 
 

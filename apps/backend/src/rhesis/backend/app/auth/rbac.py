@@ -48,6 +48,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.capabilities import (
     SCOPE_ORGANIZATION,
+    SCOPE_PROJECT,
     Permission,
     capability_scope,
     get_all_capabilities,
@@ -98,6 +99,52 @@ class AuthorizationProvider:
         """
         return False
 
+    def get_effective_permissions(
+        self,
+        principal: Principal,
+        *,
+        project_id: Optional[UUID],
+        db: Session,
+    ) -> set[str]:
+        """Return every capability *principal* holds in *project_id*.
+
+        Default implementation: check the full catalog one capability at a
+        time via :meth:`is_authorized`. Correct for any provider, but O(N) in
+        the number of registered capabilities — override with a batch
+        resolution (role/membership looked up once) where possible, as
+        :class:`DefaultAuthorizationProvider` does.
+        """
+        return {
+            cap
+            for cap in get_all_capabilities()
+            if self.is_authorized(principal, cap, project_id=project_id, db=db)
+        }
+
+
+def rbac_active_for(organization_id: Optional[UUID], db: Session) -> bool:
+    """Return ``True`` iff granular, per-user RBAC is licensed and active for
+    *organization_id*.
+
+    Community deployments are never RBAC-active — the community provider has
+    only owner/project-member/org-member tiers, not per-user permission sets.
+    Single source of truth for "does this org have fine-grained permissions,
+    or only the coarse community tiers" — used both by the EE provider's own
+    role resolution and by callers outside the provider (e.g. token scope
+    validation) that need to know whether enforcing scopes means anything for
+    this org.
+    """
+    from rhesis.backend.app.features import FeatureName, FeatureRegistry
+    from rhesis.backend.app.models.organization import Organization
+    from rhesis.backend.app.scope import bypass_tenant_filter
+
+    if organization_id is None:
+        return False
+    with bypass_tenant_filter():
+        org = db.query(Organization).filter_by(id=organization_id).first()
+    if org is None:
+        return False
+    return FeatureRegistry.is_available(FeatureName.RBAC, org)
+
 
 # Capabilities that require org ownership even when no project scope is present.
 # Any other capability is accessible to any authenticated org member when
@@ -140,6 +187,34 @@ class DefaultAuthorizationProvider(AuthorizationProvider):
        (any org member may perform standard CRUD; the ORM scope limits rows to their org).
     """
 
+    @staticmethod
+    def _is_org_owner(principal: Principal, db: Session) -> bool:
+        """One query: is *principal* the owner of their organization?"""
+        from rhesis.backend.app.models.organization import Organization
+
+        return (
+            db.query(Organization)
+            .filter_by(id=principal.organization_id, owner_id=principal.user_id)
+            .first()
+            is not None
+        )
+
+    @staticmethod
+    def _is_project_member(principal: Principal, project_id: UUID, db: Session) -> bool:
+        """One query: does *principal* have a ``ProjectMembership`` row for *project_id*?"""
+        from rhesis.backend.app.models.project_membership import ProjectMembership
+
+        return (
+            db.query(ProjectMembership)
+            .filter_by(
+                project_id=project_id,
+                user_id=principal.user_id,
+                organization_id=principal.organization_id,
+            )
+            .first()
+            is not None
+        )
+
     def is_authorized(
         self,
         principal: Principal,
@@ -148,20 +223,12 @@ class DefaultAuthorizationProvider(AuthorizationProvider):
         project_id: Optional[UUID],
         db: Session,
     ) -> bool:
-        from rhesis.backend.app.models.organization import Organization
-        from rhesis.backend.app.models.project_membership import ProjectMembership
-
         if principal.organization_id is None:
             logger.debug("authorize: deny — no organization on principal %s", principal.user_id)
             return False
 
         # 1. Org owner bypass — allowed for every permission.
-        org = (
-            db.query(Organization)
-            .filter_by(id=principal.organization_id, owner_id=principal.user_id)
-            .first()
-        )
-        if org is not None:
+        if self._is_org_owner(principal, db):
             logger.debug(
                 "authorize: allow — org owner %s for org %s",
                 principal.user_id,
@@ -171,16 +238,7 @@ class DefaultAuthorizationProvider(AuthorizationProvider):
 
         # 2. Project-scoped permission: require project membership.
         if project_id is not None:
-            membership = (
-                db.query(ProjectMembership)
-                .filter_by(
-                    project_id=project_id,
-                    user_id=principal.user_id,
-                    organization_id=principal.organization_id,
-                )
-                .first()
-            )
-            if membership is not None:
+            if self._is_project_member(principal, project_id, db):
                 logger.debug(
                     "authorize: allow — project member %s in project %s",
                     principal.user_id,
@@ -208,6 +266,46 @@ class DefaultAuthorizationProvider(AuthorizationProvider):
             permission,
         )
         return True
+
+    def get_effective_permissions(
+        self,
+        principal: Principal,
+        *,
+        project_id: Optional[UUID],
+        db: Session,
+    ) -> set[str]:
+        """Batch version of :meth:`is_authorized`'s decision tree.
+
+        Resolves the two facts that decision tree actually depends on — org
+        ownership and (when *project_id* is given) project membership — with
+        one query each, then classifies the whole catalog in memory. This
+        must stay in lockstep with :meth:`is_authorized`; in particular a
+        capability's project membership requirement only applies when it is
+        genuinely project-scoped (see :func:`capability_scope`) — mirroring
+        how :func:`authorize` normalizes org-scoped capabilities to
+        ``project_id=None`` before ever reaching :meth:`is_authorized`. An
+        org-scoped capability (or a project-scoped one checked with no
+        ambient project) falls through to the owner-only-capability check
+        instead of the membership check.
+        """
+        if principal.organization_id is None:
+            return set()
+
+        if self._is_org_owner(principal, db):
+            return set(get_all_capabilities())
+
+        is_project_member = project_id is not None and self._is_project_member(
+            principal, project_id, db
+        )
+
+        result: set[str] = set()
+        for cap in get_all_capabilities():
+            if project_id is not None and capability_scope(cap) == SCOPE_PROJECT:
+                if is_project_member:
+                    result.add(cap)
+            elif cap not in _OWNER_ONLY_CAPABILITIES:
+                result.add(cap)
+        return result
 
 
 # ---------------------------------------------------------------------------
@@ -474,27 +572,28 @@ def effective_permissions(
     *,
     project_id: Optional[UUID],
     db: Session,
-    resource_types: Optional[frozenset[str]] = None,
 ) -> list[str]:
-    """Return capabilities *principal* effectively holds in the given scope.
+    """Return every capability *principal* effectively holds in the given scope.
 
-    Runs the capability catalog through :func:`authorize`, so the result reflects
-    the active authorization provider (community in Phase 1, EE in Phase 2). This
+    Delegates to the active provider's :meth:`AuthorizationProvider.get_effective_permissions`
+    (community resolves org-ownership/project-membership once and classifies the
+    whole catalog in memory; EE resolves the effective role once) rather than
+    running the catalog through :func:`authorize` one capability at a time. This
     is the single implementation behind both ``GET /me/permissions`` and the
-    server-driven affordances resolver — each ``authorize`` call is Redis-cached,
-    so repeated calls within a request are cheap.
+    server-driven affordances resolver.
 
-    *resource_types*, when given, checks only capabilities prefixed with one of
-    these resource types (e.g. ``{"test_run"}`` matches ``test_run:read``, ...).
-    ``GET /me/permissions`` needs everything and leaves this ``None``; the
-    affordances resolver knows its response's resource type(s) up front, so it
-    skips capabilities no object in the response could ever use.
+    Replicates :func:`authorize`'s token-project-boundary rule up front: a
+    project-scoped token may only act within its own project, so if *project_id*
+    is given and doesn't match the token's bound project, nothing is permitted.
     """
-    candidates = get_all_capabilities()
-    if resource_types is not None:
-        prefixes = tuple(f"{rt}:" for rt in resource_types)
-        candidates = [cap for cap in candidates if cap.startswith(prefixes)]
-    return [cap for cap in candidates if authorize(principal, cap, project_id=project_id, db=db)]
+    if (
+        principal.token_project_id is not None
+        and project_id is not None
+        and project_id != principal.token_project_id
+    ):
+        return []
+    provider = _AuthorizationRegistry.get_authorization_provider()
+    return sorted(provider.get_effective_permissions(principal, project_id=project_id, db=db))
 
 
 def project_id_from_scope(db: Session) -> Optional[UUID]:

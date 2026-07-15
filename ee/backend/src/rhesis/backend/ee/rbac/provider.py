@@ -129,15 +129,9 @@ class PermissionAuthorizationProvider:
 
     def _rbac_available(self, principal: "Principal", db: "Session") -> bool:
         """Return True when RBAC is licensed and registered for the principal's org."""
-        from rhesis.backend.app.features import FeatureName, FeatureRegistry
-        from rhesis.backend.app.models.organization import Organization
-        from rhesis.backend.app.scope import bypass_tenant_filter
+        from rhesis.backend.app.auth.rbac import rbac_active_for
 
-        with bypass_tenant_filter():
-            org = db.query(Organization).filter_by(id=principal.organization_id).first()
-        if org is None:
-            return False
-        return FeatureRegistry.is_available(FeatureName.RBAC, org)
+        return rbac_active_for(principal.organization_id, db)
 
     #: Minimum role level that grants implicit access to all projects without
     #: requiring an explicit project_membership row.  Corresponds to Admin (80).

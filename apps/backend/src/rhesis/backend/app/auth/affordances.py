@@ -95,10 +95,6 @@ class _AffordanceContext:
     current_user: object
     request: object
     db: Session
-    #: Resource type(s) this route's response can need affordances for (derived
-    #: at startup by ``main.apply_affordance_backstop``). ``None`` means check
-    #: the full capability catalog.
-    resource_types: Optional[frozenset] = None
     _caps: Optional[List[str]] = field(default=None, init=False)
     _principal: object = field(default=None, init=False)
     _own_gated: dict = field(default_factory=dict, init=False)
@@ -107,12 +103,7 @@ class _AffordanceContext:
         if self._caps is None:
             self._principal = resolve_principal_from_request(self.current_user, self.request)
             project_id = project_id_from_scope(self.db)
-            self._caps = effective_permissions(
-                self._principal,
-                project_id=project_id,
-                db=self.db,
-                resource_types=self.resource_types,
-            )
+            self._caps = effective_permissions(self._principal, project_id=project_id, db=self.db)
         return self._caps
 
     def precompute(self) -> None:
@@ -167,17 +158,10 @@ def current_affordance_context() -> Optional[_AffordanceContext]:
     return _affordance_ctx.get()
 
 
-def set_affordance_context(
-    current_user: object,
-    request: object,
-    db: Session,
-    resource_types: Optional[frozenset] = None,
-) -> object:
+def set_affordance_context(current_user: object, request: object, db: Session) -> object:
     """Bind a fresh affordance context; returns a token for :func:`reset_affordance_context`."""
     return _affordance_ctx.set(
-        _AffordanceContext(
-            current_user=current_user, request=request, db=db, resource_types=resource_types
-        )
+        _AffordanceContext(current_user=current_user, request=request, db=db)
     )
 
 
