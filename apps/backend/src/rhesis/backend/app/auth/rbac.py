@@ -559,6 +559,25 @@ def authorize_object(
     return authorize(principal, own_perm_str, project_id=project_id, db=db)
 
 
+def _get_effective_permissions_safe(
+    provider: AuthorizationProvider,
+    principal: Principal,
+    *,
+    project_id: Optional[UUID],
+    db: Session,
+) -> set[str]:
+    """Call ``provider.get_effective_permissions``, fail-closed on exception."""
+    try:
+        return provider.get_effective_permissions(principal, project_id=project_id, db=db)
+    except Exception:
+        logger.exception(
+            "effective_permissions: provider error for principal %s (project=%s) — denying",
+            principal.user_id,
+            project_id,
+        )
+        return set()
+
+
 def effective_permissions(
     principal: Principal,
     *,
@@ -583,6 +602,10 @@ def effective_permissions(
     Also enforces the token-project-boundary rule up front: nothing is
     permitted if *project_id* doesn't match a project-scoped token's own
     ``token_project_id``.
+
+    Fail-closed like :func:`authorize`: a provider exception is logged and
+    treated as an empty result rather than propagating into a 500 on
+    ``GET /me/permissions`` or any affordance-bearing response.
     """
     if (
         principal.token_project_id is not None
@@ -592,11 +615,13 @@ def effective_permissions(
         return []
 
     provider = _AuthorizationRegistry.get_authorization_provider()
-    org_context = provider.get_effective_permissions(principal, project_id=None, db=db)
+    org_context = _get_effective_permissions_safe(provider, principal, project_id=None, db=db)
     if project_id is None:
         return sorted(org_context)
 
-    project_context = provider.get_effective_permissions(principal, project_id=project_id, db=db)
+    project_context = _get_effective_permissions_safe(
+        provider, principal, project_id=project_id, db=db
+    )
     result = {cap for cap in org_context if capability_scope(cap) == SCOPE_ORGANIZATION} | {
         cap for cap in project_context if capability_scope(cap) == SCOPE_PROJECT
     }

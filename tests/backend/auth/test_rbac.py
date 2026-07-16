@@ -424,6 +424,21 @@ class TestEffectivePermissions:
         result = effective_permissions(p, project_id=PROJECT_ID, db=db)
         assert result == sorted(get_all_capabilities())
 
+    def test_provider_exception_fails_closed(self):
+        """A provider exception must not propagate into a 500 on
+        /me/permissions or any affordance-bearing response — mirrors
+        authorize()'s own fail-closed behavior."""
+
+        class ExplodingProvider(AuthorizationProvider):
+            def get_effective_permissions(self, principal, *, project_id, db):
+                raise RuntimeError("simulated provider failure")
+
+        set_authorization_provider(ExplodingProvider())
+        p = _principal()
+        db = MagicMock()
+        assert effective_permissions(p, project_id=PROJECT_ID, db=db) == []
+        assert effective_permissions(p, project_id=None, db=db) == []
+
     def test_token_scoped_to_other_project_returns_empty(self):
         """A project-scoped token may only act within its own project — this
         must be enforced once per call, not per capability, mirroring
