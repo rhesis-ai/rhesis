@@ -215,14 +215,11 @@ _configured = False
 
 
 def set_logger():
-    """Configure the root logger for the application.
+    """Configure the root logger once at startup.
 
-    Sets up JSON console output with extra local-development output.
-    All handlers use RedactingFormatter to ensure sensitive data is scrubbed
-    from the final output without mutating shared LogRecord objects.
-
-    Must be called once during application startup (e.g. in main.py).
-    Subsequent calls are no-ops to prevent duplicate handlers.
+    Console: JSON if ``JSON_LOGGER_ENABLED``, else color on a TTY, else plain text.
+    When ``BACKEND_ENV=local``, also write a timestamped plain-text file under
+    ``LOG_DIR``. All handlers redact sensitive data via ``RedactingFormatter``.
     """
     global _configured
     if _configured:
@@ -236,12 +233,20 @@ def set_logger():
     # default lastResort handler) so we control all output.
     root_logger.handlers.clear()
 
-    if ENVIRONMENT == "local":
-        color_console_handler = logging.StreamHandler(stream=sys.stdout)
-        color_console_handler.setLevel(LOG_LEVEL)
-        color_console_handler.setFormatter(RedactingFormatter(_create_color_formatter()))
-        root_logger.addHandler(color_console_handler)
+    console_handler = logging.StreamHandler(stream=sys.stdout)
+    console_handler.setLevel(LOG_LEVEL)
+    if JSON_LOGGER_ENABLED:
+        # Explicit opt-in (e.g. Rhesis-managed deployments) for structured
+        # JSON on stdout, consumed by a container log collector.
+        console_handler.setFormatter(RedactingFormatter(JsonLogFormatter()))
+    elif sys.stdout.isatty():
+        console_handler.setFormatter(RedactingFormatter(_create_color_formatter()))
+    else:
+        # Non-interactive stdout (pipes, containers without a TTY): plain text.
+        console_handler.setFormatter(RedactingFormatter(_create_formatter()))
+    root_logger.addHandler(console_handler)
 
+    if ENVIRONMENT == "local":
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         Path(LOG_DIR).mkdir(parents=True, exist_ok=True)
 
@@ -250,20 +255,6 @@ def set_logger():
         file_handler.setLevel(LOG_LEVEL)
         file_handler.setFormatter(RedactingFormatter(_create_formatter()))
         root_logger.addHandler(file_handler)
-    elif JSON_LOGGER_ENABLED:
-        # Explicit opt-in (e.g. Rhesis-managed deployments) for structured
-        # JSON on stdout, consumed by a container log collector.
-        json_console_handler = logging.StreamHandler(stream=sys.stdout)
-        json_console_handler.setLevel(LOG_LEVEL)
-        json_console_handler.setFormatter(RedactingFormatter(JsonLogFormatter()))
-        root_logger.addHandler(json_console_handler)
-    else:
-        # Default for non-local environments (e.g. self-hosted deployments):
-        # plain-text stdout, readable without a structured log collector.
-        plain_console_handler = logging.StreamHandler(stream=sys.stdout)
-        plain_console_handler.setLevel(LOG_LEVEL)
-        plain_console_handler.setFormatter(RedactingFormatter(_create_formatter()))
-        root_logger.addHandler(plain_console_handler)
 
     for name in ("uvicorn", "uvicorn.access", "uvicorn.error", "websockets", "fastapi"):
         logger = logging.getLogger(name)

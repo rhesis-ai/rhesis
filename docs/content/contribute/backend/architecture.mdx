@@ -97,9 +97,10 @@ The logger chooses handlers from runtime configuration:
 
 | Runtime condition | Output |
 | --- | --- |
-| Google Cloud runtime detected | JSON logs on stdout with `severity`, `module`, and `message` fields |
-| `BACKEND_ENV=local` | Colored console logs plus timestamped files under `LOG_DIR` |
-| Other environments | Root logger level and framework logger levels are controlled by `LOG_LEVEL` |
+| `JSON_LOGGER_ENABLED=true` | JSON logs on stdout (`severity`, `module`, `message`) — never colored |
+| Interactive TTY (and JSON off) | Colored plain-text logs on stdout |
+| Non-TTY stdout (and JSON off) | Plain-text logs on stdout |
+| `BACKEND_ENV=local` (any of the above) | Additionally writes a timestamped plain-text file under `LOG_DIR` |
 
 `DEV_MODE=true` enables Uvicorn hot reload and `--log-level debug` in `start.sh`, and forces `CELERY_WORKER_LOGLEVEL=DEBUG` in the worker. Set `DEV_MODE=true` in `apps/backend/.env` when running via `./rh dev`; leave it unset or `false` everywhere else (Docker Compose local, cloud deployments).
 

@@ -102,7 +102,7 @@ def warm_architect_worker(sender=None, **kwargs):
 @after_setup_logger.connect
 def configure_worker_logging(logger=None, **kw):
     """Replace Celery's default root logger setup with our shared pipeline
-    (RedactingFormatter + JSON/plain-text stdout, per JSON_LOGGER_ENABLED).
+    (RedactingFormatter + JSON/color/plain stdout; file logs when BACKEND_ENV=local).
 
     Runs after Celery hijacks the root logger at worker boot (the default
     `worker_hijack_root_logger` behavior), so calling this at import time
