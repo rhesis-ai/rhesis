@@ -1,11 +1,83 @@
 import path from 'path';
-import { test, expect } from '@playwright/test';
+import { randomUUID } from 'crypto';
+import { test, expect, type Page } from '@playwright/test';
 import { KnowledgePage } from '../pages/KnowledgePage';
 import {
   confirmDeleteDialog,
   expectGridRowVisible,
   waitForDrawerClosed,
 } from '../helpers/CrudHelper';
+
+interface StubbedSource {
+  id: string;
+  title: string;
+  description?: string;
+}
+
+function isSourcesListUrl(url: URL): boolean {
+  const pathWithQuery = `${url.pathname}${url.search}`;
+  return (
+    (pathWithQuery.includes('/sources?') ||
+      /\/sources\/?$/.test(url.pathname)) &&
+    !pathWithQuery.includes('/sources/upload') &&
+    !/\/sources\/[0-9a-f-]{36}/i.test(pathWithQuery)
+  );
+}
+
+/** Stub upload + list refresh so the CRUD test validates UI without slow backend extraction. */
+async function stubKnowledgeUpload(page: Page, source: StubbedSource) {
+  await page.route(
+    url => url.href.includes('/sources/upload'),
+    async route => {
+      if (route.request().method() !== 'POST') {
+        await route.fallback();
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          ...source,
+          source_type: { type_value: 'document' },
+          source_metadata: {
+            original_filename: 'fixture.txt',
+            file_size: 128,
+          },
+          content: 'fixture content',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }),
+      });
+    }
+  );
+
+  await page.route(
+    url => isSourcesListUrl(url),
+    async route => {
+      if (route.request().method() !== 'GET') {
+        await route.fallback();
+        return;
+      }
+      const response = await route.fetch();
+      const existing = (await response.json()) as Array<{ id: string }>;
+      const items = Array.isArray(existing) ? existing : [];
+      const merged = [source, ...items.filter(item => item.id !== source.id)];
+      const headers = Object.fromEntries(
+        response.headersArray().map(({ name, value }) => [name, value])
+      );
+      await route.fulfill({
+        status: response.status(),
+        contentType: 'application/json',
+        headers: {
+          ...headers,
+          'access-control-expose-headers': 'x-total-count',
+          'x-total-count': String(merged.length),
+        },
+        body: JSON.stringify(merged),
+      });
+    }
+  );
+}
 
 /**
  * CRUD interaction tests for the Knowledge (sources) page.
@@ -41,6 +113,13 @@ test.describe('Knowledge — CRUD @crud', () => {
     test.setTimeout(90_000);
     const UNIQUE_TITLE = `e2e-source-${Date.now()}`;
     const fixturePath = path.join(__dirname, '../fixtures/fixture.txt');
+    const stubbedSource = {
+      id: randomUUID(),
+      title: UNIQUE_TITLE,
+      description: 'Uploaded by Playwright E2E test',
+    };
+
+    await stubKnowledgeUpload(page, stubbedSource);
 
     const knowledgePage = new KnowledgePage(page);
     await knowledgePage.goto();

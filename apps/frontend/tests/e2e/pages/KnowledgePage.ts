@@ -86,12 +86,15 @@ export class KnowledgePage extends BasePage {
     const uploadResponse = this.page.waitForResponse(
       resp =>
         resp.url().includes('/sources/upload') &&
-        resp.request().method() === 'POST' &&
-        resp.ok(),
+        resp.request().method() === 'POST',
       { timeout: 60_000 }
     );
     await saveButton.click();
-    await uploadResponse;
+    const response = await uploadResponse;
+    if (!response.ok()) {
+      const body = await response.text().catch(() => '');
+      throw new Error(`Upload failed (${response.status()}): ${body}`);
+    }
   }
 
   /** BaseDrawer stays mounted — wait for the drawer to close. */
