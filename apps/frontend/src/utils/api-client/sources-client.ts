@@ -1,5 +1,6 @@
 import { BaseApiClient } from './base-client';
 import { API_ENDPOINTS } from './config';
+import { readActiveProjectId } from '../active-project';
 import {
   Source,
   SourceCreate,
@@ -138,6 +139,11 @@ export class SourcesClient extends BaseApiClient {
     // Add authorization if we have a session token (copied from BaseApiClient logic)
     if (this.sessionToken) {
       headers['Authorization'] = `Bearer ${this.sessionToken}`;
+    }
+
+    const activeProject = this.projectId ?? readActiveProjectId();
+    if (activeProject) {
+      headers['X-Project-Id'] = activeProject;
     }
 
     // Use direct fetch to avoid BaseApiClient's default Content-Type header

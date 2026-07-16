@@ -40,16 +40,19 @@ export class InsightsPage extends BasePage {
     const noTestResults = this.page.getByRole('heading', {
       name: /no test results yet/i,
     });
-    const searchBehaviors = this.page.getByPlaceholder(/search behaviors/i);
     const passRateMetric = this.page.getByText(/\d+\.\d+%\s*pass rate/i);
+    const loadingResults = this.page.getByText(/loading results/i);
     const filterButton = this.page.getByRole('button', { name: /filters/i });
 
-    // Wait for endpoint auto-selection and insights fetch to settle.
-    await expect(noEndpoints.or(noTestResults).or(searchBehaviors)).toBeVisible(
-      {
-        timeout: 30_000,
-      }
-    );
+    // The behavior search box appears while insights are still loading, so wait
+    // for a terminal signal instead of treating search alone as "settled".
+    await expect(
+      noEndpoints.or(noTestResults).or(passRateMetric).or(loadingResults)
+    ).toBeVisible({ timeout: 45_000 });
+
+    if (await loadingResults.isVisible()) {
+      await expect(loadingResults).toBeHidden({ timeout: 45_000 });
+    }
 
     if (await noEndpoints.isVisible()) {
       await expect(

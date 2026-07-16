@@ -42,13 +42,15 @@ import { TagsClient } from '@/utils/api-client/tags-client';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import BehaviorDrawer from '../../components/BehaviorDrawer';
+import BehaviorLinkedTests from './BehaviorLinkedTests';
 import type { UUID } from 'crypto';
 
-const TAB_KEYS = ['basic', 'linked-metrics'] as const;
+const TAB_KEYS = ['basic', 'linked-metrics', 'linked-tests'] as const;
 
 const NAV_LABELS: Record<(typeof TAB_KEYS)[number], string> = {
   basic: 'Basic Information',
   'linked-metrics': 'Linked Metrics',
+  'linked-tests': 'Linked Tests',
 };
 
 interface BehaviorDetailTabsProps {
@@ -93,6 +95,10 @@ export default function BehaviorDetailTabs({
           behavior={behavior}
           sessionToken={sessionToken}
         />
+      </DetailTabPanel>
+
+      <DetailTabPanel value={activeTab} index={2} prefix="behavior-detail">
+        <BehaviorLinkedTests behavior={behavior} sessionToken={sessionToken} />
       </DetailTabPanel>
     </Box>
   );
