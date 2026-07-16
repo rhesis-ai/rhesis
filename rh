@@ -137,7 +137,7 @@ ensure_env_secret() {
     local var_name="$1"
     local generator="$2"
 
-    if grep -q "^${var_name}=.\+" .env.docker.local 2>/dev/null; then
+    if grep -qE "^${var_name}=[^[:space:]]" .env.docker.local 2>/dev/null; then
         return 0
     fi
 
@@ -645,7 +645,7 @@ start_all() {
     compose_flags=$(quickstart_compose_flags_for_mode "$quickstart_mode")
 
     # Check if .env.docker.local exists and has DB_ENCRYPTION_KEY
-    if [ ! -f ".env.docker.local" ] || ! grep -q "^DB_ENCRYPTION_KEY=.\+" .env.docker.local 2>/dev/null; then
+    if [ ! -f ".env.docker.local" ] || ! grep -qE "^DB_ENCRYPTION_KEY=[^[:space:]]" .env.docker.local 2>/dev/null; then
         echo -e "${YELLOW}🔑 Generating DB_ENCRYPTION_KEY...${NC}"
 
         ENCRYPTION_KEY=$(generate_encryption_key)
