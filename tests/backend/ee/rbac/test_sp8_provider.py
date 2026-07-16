@@ -396,14 +396,27 @@ class TestPermissionChecks:
 
 @pytest.mark.ee
 class TestGetEffectivePermissions:
-    def test_returns_empty_when_rbac_off(self, provider):
+    def test_delegates_to_fallback_when_rbac_off(self, provider):
+        """RBAC off → community fallback, mirroring is_authorized's own resolution
+        order. Returning an empty set here (the old behavior) would wrongly zero
+        out /me/permissions and every affordance's permitted_actions for orgs
+        without RBAC licensed."""
         principal = _make_principal()
         db = MagicMock()
+        project_id = uuid.uuid4()
 
-        with patch.object(provider, "_rbac_available", return_value=False):
-            perms = provider.get_effective_permissions(principal, project_id=None, db=db)
+        with (
+            patch.object(provider, "_rbac_available", return_value=False),
+            patch.object(
+                provider._fallback,
+                "get_effective_permissions",
+                return_value={"test_set:read"},
+            ) as mock_fallback,
+        ):
+            perms = provider.get_effective_permissions(principal, project_id=project_id, db=db)
 
-        assert perms == set()
+        mock_fallback.assert_called_once_with(principal, project_id=project_id, db=db)
+        assert perms == {"test_set:read"}
 
     def test_returns_empty_when_no_role(self, provider):
         principal = _make_principal()
@@ -544,6 +557,26 @@ class TestBuiltInRoleBranch:
         assert perms == set()
         db.query.assert_called_once()
 
+    def test_get_effective_permissions_intersects_token_scopes(self, provider):
+        """A scoped token must never see more than its own scopes, even though
+        its role grants more (SP9 — mirrors is_authorized's own intersection)."""
+        principal = Principal(
+            user_id=uuid.uuid4(),
+            organization_id=uuid.uuid4(),
+            kind="token",
+            scopes=frozenset(["test_set:read"]),
+        )
+        db = MagicMock()
+        fake_role = self._make_role("Member", is_built_in=True)
+
+        with (
+            patch.object(provider, "_rbac_available", return_value=True),
+            patch.object(provider, "_resolve_role", return_value=fake_role),
+        ):
+            perms = provider.get_effective_permissions(principal, project_id=None, db=db)
+
+        assert perms == {"test_set:read"}
+
 
 # ---------------------------------------------------------------------------
 # Owner floor — org owner without organization_member row
@@ -581,7 +614,6 @@ class TestOwnerFloor:
         from sqlalchemy import text
 
         from rhesis.backend.app.auth.rbac import authorize
-
         from tests.backend.ee.rbac._rbac_helpers import (
             _create_org,
             _create_user,
@@ -608,4 +640,3 @@ class TestOwnerFloor:
         with _ee_provider_active():
             assert authorize(principal, "test_set:read", project_id=None, db=test_db)
             assert not authorize(principal, "test_set:delete", project_id=None, db=test_db)
-

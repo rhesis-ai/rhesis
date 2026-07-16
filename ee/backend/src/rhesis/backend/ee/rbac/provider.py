@@ -309,15 +309,22 @@ class PermissionAuthorizationProvider:
     ) -> set[str]:
         """Return the full set of active permission names for the principal.
 
-        Used by ``GET /me/permissions`` and the privilege-escalation guard to
-        inspect what the actor actually holds before a role create/assign.
-        Returns an empty set when RBAC is off or no role is found.
+        Used by ``GET /me/permissions``, the affordances resolver, and the
+        privilege-escalation guard to inspect what the actor actually holds
+        before a role create/assign.
+
+        Mirrors :meth:`is_authorized`'s own resolution order: delegates to the
+        community fallback when RBAC isn't available for the org (rather than
+        returning empty, which would wrongly zero out permissions/affordances
+        for non-RBAC orgs), and — when RBAC is active — intersects the role's
+        permission set with the authenticating token's scopes, exactly as
+        :meth:`is_authorized`'s SP9 check does.
 
         Built-in roles compute their permission set from code; custom roles
         query ``role_permission``.  See :meth:`_role_has_permission`.
         """
         if not self._rbac_available(principal, db):
-            return set()
+            return self._fallback.get_effective_permissions(principal, project_id=project_id, db=db)
 
         role = self._resolve_role(principal, project_id, db)
         if role is None:
@@ -331,18 +338,24 @@ class PermissionAuthorizationProvider:
         )
 
         if role.is_built_in:
-            return permissions_for_built_in_role(role.name, get_all_capabilities())
-
-        rows = (
-            db.query(Permission.name)
-            .join(RolePermission, Permission.id == RolePermission.permission_id)
-            .filter(
-                RolePermission.role_id == role.id,
-                Permission.is_retired.is_(False),
+            permissions = permissions_for_built_in_role(role.name, get_all_capabilities())
+        else:
+            rows = (
+                db.query(Permission.name)
+                .join(RolePermission, Permission.id == RolePermission.permission_id)
+                .filter(
+                    RolePermission.role_id == role.id,
+                    Permission.is_retired.is_(False),
+                )
+                .all()
             )
-            .all()
-        )
-        return {row[0] for row in rows}
+            permissions = {row[0] for row in rows}
+
+        # SP9: token scope intersection (mirrors is_authorized's own check).
+        if principal.scopes is not None:
+            permissions &= principal.scopes
+
+        return permissions
 
 
 __all__ = ["PermissionAuthorizationProvider"]
