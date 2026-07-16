@@ -64,7 +64,9 @@ backend:
   replicas: 2
   resources:
     requests:
-      memory: "2Gi"
+      # Raised from 2Gi: Grafana showed real baseline usage sitting at ~2.3-2.5Gi
+      # per pod even at idle, already above the old request.
+      memory: "3Gi"
       cpu: "500m"
     limits:
       memory: "4Gi"
@@ -73,7 +75,10 @@ backend:
     enabled: true
     minReplicas: 2
     maxReplicas: 6
-    targetCPUUtilizationPercentage: 70
+    # Lowered from 70: k6 load testing showed combined CPU usage briefly exceed
+    # 100% of combined requests during fast ramp-up, before new replicas came
+    # online. Scaling earlier gives HPA more lead time to react.
+    targetCPUUtilizationPercentage: 60
     targetMemoryUtilizationPercentage: 80
   ingress:
     enabled: true
