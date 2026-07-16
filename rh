@@ -38,6 +38,7 @@ show_help() {
     echo -e "  ${GREEN}./rh restart --build${NC}   - Restart and rebuild images locally"
     echo -e "  ${GREEN}./rh logs${NC}              - View logs from all services"
     echo -e "  ${GREEN}./rh delete${NC}            - Delete all services, images, volumes, and data"
+    echo -e "  ${GREEN}./rh secrets${NC}           - Generate the required secrets in .env.docker"
     echo ""
     echo -e "${YELLOW}Local Development:${NC}"
     echo -e "  ${GREEN}./rh dev init${NC}          - Initialize env files (one-time setup)"
@@ -160,6 +161,61 @@ ensure_env_secret() {
         echo "${var_name}=${value}" >> .env.docker.local
     fi
     echo -e "${GREEN}✅ ${var_name} generated${NC}"
+}
+
+# Set VAR_NAME=value in .env.docker, replacing an existing line or appending one.
+# Portable across macOS (BSD sed) and Linux (GNU sed).
+set_docker_secret() {
+    local var_name="$1"
+    local value="$2"
+    if grep -q "^${var_name}=" .env.docker 2>/dev/null; then
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            sed -i '' "s|^${var_name}=.*|${var_name}=${value}|" .env.docker
+        else
+            sed -i "s|^${var_name}=.*|${var_name}=${value}|" .env.docker
+        fi
+    else
+        echo "${var_name}=${value}" >> .env.docker
+    fi
+}
+
+# Fill the four required secrets in an existing .env.docker (production flow).
+# DB_ENCRYPTION_KEY is guarded: rotating it makes data already encrypted with the
+# old key undecryptable, so it is overwritten only on explicit confirmation
+# (default no). The other three are safe to rotate and are set unconditionally.
+generate_docker_secrets() {
+    if [ ! -f ".env.docker" ]; then
+        echo -e "${RED}❌ .env.docker not found${NC}"
+        echo -e "${YELLOW}   Create it first: ${GREEN}cp .env.example .env.docker${NC}"
+        exit 1
+    fi
+
+    if grep -qE "^DB_ENCRYPTION_KEY=[^[:space:]]" .env.docker 2>/dev/null; then
+        echo -e "${YELLOW}⚠️  DB_ENCRYPTION_KEY is already set in .env.docker.${NC}"
+        echo -e "${WHITE}   Overwriting it makes data already encrypted with the old key"
+        echo -e "   (such as stored provider credentials) permanently undecryptable.${NC}"
+        local reply=""
+        if [ -t 0 ]; then
+            read -r -p "$(echo -e ${YELLOW}Overwrite DB_ENCRYPTION_KEY? [y/N]: ${NC})" reply
+        fi
+        if [[ "$reply" =~ ^[Yy]$ ]]; then
+            set_docker_secret "DB_ENCRYPTION_KEY" "$(generate_encryption_key)"
+            echo -e "${GREEN}✅ DB_ENCRYPTION_KEY regenerated${NC}"
+        else
+            echo -e "${WHITE}   Kept existing DB_ENCRYPTION_KEY.${NC}"
+        fi
+    else
+        set_docker_secret "DB_ENCRYPTION_KEY" "$(generate_encryption_key)"
+        echo -e "${GREEN}✅ DB_ENCRYPTION_KEY generated${NC}"
+    fi
+
+    set_docker_secret "JWT_SECRET_KEY" "$(generate_hex_secret)"
+    set_docker_secret "SESSION_SECRET_KEY" "$(generate_hex_secret)"
+    set_docker_secret "NEXTAUTH_SECRET" "$(generate_hex_secret)"
+    echo -e "${GREEN}✅ JWT_SECRET_KEY, SESSION_SECRET_KEY, NEXTAUTH_SECRET set${NC}"
+
+    chmod 600 .env.docker
+    echo -e "${GREEN}✅ Secrets written to .env.docker${NC}"
 }
 
 # Prompt for a host port, accepting a default when the user just presses Enter.
@@ -1412,6 +1468,9 @@ case "$1" in
                 exit 1
                 ;;
         esac
+        ;;
+    "secrets")
+        generate_docker_secrets
         ;;
     "stop")
         stop_all
