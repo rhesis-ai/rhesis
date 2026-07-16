@@ -309,19 +309,13 @@ class PermissionAuthorizationProvider:
     ) -> set[str]:
         """Return the full set of active permission names for the principal.
 
-        Used by ``GET /me/permissions``, the affordances resolver, and the
-        privilege-escalation guard to inspect what the actor actually holds
-        before a role create/assign.
+        Mirrors :meth:`is_authorized`'s resolution order: delegates to the
+        community fallback when RBAC isn't available, and intersects with the
+        token's scopes (SP9) when RBAC is active.
 
-        Mirrors :meth:`is_authorized`'s own resolution order: delegates to the
-        community fallback when RBAC isn't available for the org (rather than
-        returning empty, which would wrongly zero out permissions/affordances
-        for non-RBAC orgs), and — when RBAC is active — intersects the role's
-        permission set with the authenticating token's scopes, exactly as
-        :meth:`is_authorized`'s SP9 check does.
-
-        Built-in roles compute their permission set from code; custom roles
-        query ``role_permission``.  See :meth:`_role_has_permission`.
+        Single-context and not scope-aware by design — see
+        :func:`~rhesis.backend.app.auth.rbac.effective_permissions` for the
+        org/project split; don't reintroduce it here.
         """
         if not self._rbac_available(principal, db):
             return self._fallback.get_effective_permissions(principal, project_id=project_id, db=db)

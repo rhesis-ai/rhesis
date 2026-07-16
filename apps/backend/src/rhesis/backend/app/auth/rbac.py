@@ -123,20 +123,12 @@ class AuthorizationProvider:
 
 def rbac_active_for(organization_id: Optional[UUID], db: Session) -> bool:
     """Return ``True`` iff granular, per-user RBAC is licensed and active for
-    *organization_id*.
+    *organization_id*. Community is never RBAC-active.
 
-    Community deployments are never RBAC-active — the community provider has
-    only owner/project-member/org-member tiers, not per-user permission sets.
-    Single source of truth for "does this org have fine-grained permissions,
-    or only the coarse community tiers" — used both by the EE provider's own
-    role resolution (on every ``authorize()``/``get_effective_permissions()``
-    call) and by callers outside the provider (e.g. token scope validation)
-    that need to know whether enforcing scopes means anything for this org.
-
-    Cached in the same Redis store as permission decisions (45 s TTL, no
-    explicit bust — a plan/license change doesn't have a bust hook today, so
-    this accepts the same staleness window ``authorize()`` already tolerates)
-    so this doesn't re-run the org lookup on every single call.
+    Single source of truth so callers outside the provider (e.g. token scope
+    validation) don't have to re-derive it. Cached (same store/TTL as
+    permission decisions, no explicit bust — no bust hook exists yet for a
+    plan/license change) since this runs on every ``authorize()`` call.
     """
     from rhesis.backend.app.features import FeatureName, FeatureRegistry
     from rhesis.backend.app.models.organization import Organization
@@ -291,19 +283,8 @@ class DefaultAuthorizationProvider(AuthorizationProvider):
         project_id: Optional[UUID],
         db: Session,
     ) -> set[str]:
-        """Batch version of :meth:`is_authorized`'s decision tree.
-
-        Resolves the two facts that decision tree actually depends on — org
-        ownership and (when *project_id* is given) project membership — with
-        one query each, then classifies the whole catalog in memory. This
-        must stay in lockstep with :meth:`is_authorized`; in particular a
-        capability's project membership requirement only applies when it is
-        genuinely project-scoped (see :func:`capability_scope`) — mirroring
-        how :func:`authorize` normalizes org-scoped capabilities to
-        ``project_id=None`` before ever reaching :meth:`is_authorized`. An
-        org-scoped capability (or a project-scoped one checked with no
-        ambient project) falls through to the owner-only-capability check
-        instead of the membership check.
+        """Single-context batch version of :meth:`is_authorized` — not
+        scope-aware; see :func:`effective_permissions` for the org/project split.
         """
         if principal.organization_id is None:
             return set()
@@ -311,18 +292,12 @@ class DefaultAuthorizationProvider(AuthorizationProvider):
         if self._is_org_owner(principal, db):
             return set(get_all_capabilities())
 
-        is_project_member = project_id is not None and self._is_project_member(
-            principal, project_id, db
-        )
+        if project_id is not None:
+            if self._is_project_member(principal, project_id, db):
+                return set(get_all_capabilities())
+            return set()
 
-        result: set[str] = set()
-        for cap in get_all_capabilities():
-            if project_id is not None and capability_scope(cap) == SCOPE_PROJECT:
-                if is_project_member:
-                    result.add(cap)
-            elif cap not in _OWNER_ONLY_CAPABILITIES:
-                result.add(cap)
-        return result
+        return {cap for cap in get_all_capabilities() if cap not in _OWNER_ONLY_CAPABILITIES}
 
 
 # ---------------------------------------------------------------------------
@@ -592,16 +567,22 @@ def effective_permissions(
 ) -> list[str]:
     """Return every capability *principal* effectively holds in the given scope.
 
-    Delegates to the active provider's :meth:`AuthorizationProvider.get_effective_permissions`
-    (community resolves org-ownership/project-membership once and classifies the
-    whole catalog in memory; EE resolves the effective role once) rather than
-    running the catalog through :func:`authorize` one capability at a time. This
-    is the single implementation behind both ``GET /me/permissions`` and the
-    server-driven affordances resolver.
+    Delegates to the active provider's ``get_effective_permissions`` instead of
+    running the catalog through :func:`authorize` one capability at a time.
+    Single implementation behind ``GET /me/permissions`` and the affordances
+    resolver.
 
-    Replicates :func:`authorize`'s token-project-boundary rule up front: a
-    project-scoped token may only act within its own project, so if *project_id*
-    is given and doesn't match the token's bound project, nothing is permitted.
+    A provider resolves one project_id context per call (e.g. EE may return a
+    merged role that outranks the plain org role), so when *project_id* is
+    given, this calls the provider twice — once at ``project_id=None``, once
+    at the ambient *project_id* — and keeps only the org-scoped capabilities
+    from the former and project-scoped ones from the latter, per
+    :func:`capability_scope`. This mirrors :func:`authorize`'s own org-scope
+    normalization; do not collapse it to a single call.
+
+    Also enforces the token-project-boundary rule up front: nothing is
+    permitted if *project_id* doesn't match a project-scoped token's own
+    ``token_project_id``.
     """
     if (
         principal.token_project_id is not None
@@ -609,8 +590,17 @@ def effective_permissions(
         and project_id != principal.token_project_id
     ):
         return []
+
     provider = _AuthorizationRegistry.get_authorization_provider()
-    return sorted(provider.get_effective_permissions(principal, project_id=project_id, db=db))
+    org_context = provider.get_effective_permissions(principal, project_id=None, db=db)
+    if project_id is None:
+        return sorted(org_context)
+
+    project_context = provider.get_effective_permissions(principal, project_id=project_id, db=db)
+    result = {cap for cap in org_context if capability_scope(cap) == SCOPE_ORGANIZATION} | {
+        cap for cap in project_context if capability_scope(cap) == SCOPE_PROJECT
+    }
+    return sorted(result)
 
 
 def project_id_from_scope(db: Session) -> Optional[UUID]:

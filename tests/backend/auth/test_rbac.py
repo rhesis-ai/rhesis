@@ -30,6 +30,7 @@ from rhesis.backend.app.auth.principal import (
     resolve_principal_from_request,
 )
 from rhesis.backend.app.auth.rbac import (
+    _OWNER_ONLY_CAPABILITIES,
     AuthorizationProvider,
     DefaultAuthorizationProvider,
     _AuthorizationRegistry,
@@ -360,9 +361,10 @@ class TestAuthorize:
 
 
 class TestDefaultAuthorizationProviderEffectivePermissions:
-    """get_effective_permissions() must classify the whole catalog exactly the
-    way repeated is_authorized() calls would — see TestDefaultAuthorizationProvider
-    for the per-capability truth table this mirrors."""
+    """get_effective_permissions() resolves a single fixed project_id context
+    and is deliberately NOT scope-aware — see TestEffectivePermissions below
+    for the org/project split that combines two such calls into a result that
+    matches authorize()'s per-capability decisions."""
 
     def setup_method(self):
         self.provider = DefaultAuthorizationProvider()
@@ -378,71 +380,30 @@ class TestDefaultAuthorizationProviderEffectivePermissions:
         result = self.provider.get_effective_permissions(p, project_id=PROJECT_ID, db=db)
         assert result == set(get_all_capabilities())
 
-    def test_project_member_gets_project_scoped_including_owner_only_named_ones(self):
-        """A project-scoped capability that happens to be in _OWNER_ONLY_CAPABILITIES
-        (e.g. project_member:manage) is still granted to any enrolled member when
-        project_id is present — the owner-only list only gates the *no ambient
-        project* branch, matching is_authorized()'s own behavior."""
+    def test_project_member_with_project_id_gets_every_capability(self):
+        """Single-context contract: at a given project_id, a member gets the
+        whole catalog — org-scoped capabilities included. Discarding the ones
+        authorize() wouldn't actually grant in this context (e.g.
+        organization:update) is the caller's job, not this method's."""
         p = _principal()
         db = _mock_db(is_owner=False, is_member=True)
         result = self.provider.get_effective_permissions(p, project_id=PROJECT_ID, db=db)
-        assert "test_set:read" in result
-        assert "project_member:manage" in result
-        assert "organization:update" not in result  # org-scoped, not owner
+        assert result == set(get_all_capabilities())
 
-    def test_non_member_with_project_id_excludes_project_scoped_caps(self):
+    def test_non_member_with_project_id_gets_nothing(self):
         p = _principal()
         db = _mock_db(is_owner=False, is_member=False)
         result = self.provider.get_effective_permissions(p, project_id=PROJECT_ID, db=db)
-        assert "test_set:read" not in result
-        # Org-scoped, non-owner-only capabilities are still granted.
-        assert "organization:read" in result
-        assert "organization:update" not in result
+        assert result == set()
 
-    def test_no_project_id_grants_non_owner_only_caps_even_if_project_scoped(self):
-        """Without an ambient project_id, project-scoped capabilities are treated
-        like any other non-owner-only capability — allowed for any org member,
-        exactly as is_authorized() falls through to the owner-only check when
-        project_id is None."""
+    def test_no_project_id_grants_non_owner_only_caps(self):
+        """Org context (project_id=None): any org member gets every capability
+        except the owner-only list, regardless of project membership."""
         p = _principal()
         db = _mock_db(is_owner=False, is_member=False)
         result = self.provider.get_effective_permissions(p, project_id=None, db=db)
-        assert "test_set:read" in result
-        assert "organization:update" not in result
-
-    def test_matches_authorize_for_every_capability(self):
-        """Cross-check: get_effective_permissions() must agree with calling the
-        module-level authorize() once per capability, for every branch
-        combination. Deliberately compares against authorize() rather than
-        provider.is_authorized() directly: is_authorized() only produces a
-        correct decision for org-scoped capabilities when project_id has
-        already been normalized to None by authorize() — calling it directly
-        with a non-None project_id skips that normalization and over-grants,
-        since its project_id-given branch allows *any* capability once
-        membership is confirmed (correct only because authorize() guarantees
-        org-scoped capabilities never reach it with a project_id set).
-
-        authorize() caches decisions by (user_id, org_id, project_id,
-        permission) — not by DB content — so the cache is cleared before each
-        combination to avoid one iteration's mock DB leaking into the next.
-        """
-        from rhesis.backend.app.services.permission_cache import get_permission_cache
-
-        _AuthorizationRegistry.reset()
-        for is_owner, is_member in ((True, False), (False, True), (False, False)):
-            for project_id in (PROJECT_ID, None):
-                get_permission_cache().clear_all()
-                p = _principal()
-                db = _mock_db(is_owner=is_owner, is_member=is_member)
-                batch = self.provider.get_effective_permissions(p, project_id=project_id, db=db)
-                get_permission_cache().clear_all()
-                expected_db = _mock_db(is_owner=is_owner, is_member=is_member)
-                expected = {
-                    cap
-                    for cap in get_all_capabilities()
-                    if authorize(p, cap, project_id=project_id, db=expected_db)
-                }
-                assert batch == expected, (is_owner, is_member, project_id)
+        expected = {cap for cap in get_all_capabilities() if cap not in _OWNER_ONLY_CAPABILITIES}
+        assert result == expected
 
 
 # ---------------------------------------------------------------------------
@@ -499,6 +460,88 @@ class TestEffectivePermissions:
         db = _mock_db(is_owner=True, is_member=False)
         result = effective_permissions(p, project_id=None, db=db)
         assert result == sorted(get_all_capabilities())
+
+    def test_project_member_result_matches_authorize_including_owner_only_named_project_cap(self):
+        """End-to-end: a project-scoped capability that happens to be in
+        _OWNER_ONLY_CAPABILITIES (e.g. project_member:manage) is still granted
+        to any enrolled member, but a genuinely org-scoped capability is not —
+        matching authorize()'s own per-capability decisions exactly."""
+        p = _principal()
+        db = _mock_db(is_owner=False, is_member=True)
+        result = effective_permissions(p, project_id=PROJECT_ID, db=db)
+        assert "test_set:read" in result
+        assert "project_member:manage" in result
+        assert "organization:update" not in result
+
+    def test_matches_authorize_for_every_capability(self):
+        """Cross-check: effective_permissions() must agree with calling
+        authorize() once per capability, for every branch combination.
+
+        authorize() caches decisions by (user_id, org_id, project_id,
+        permission) — not by DB content — so the cache is cleared before each
+        combination to avoid one iteration's mock DB leaking into the next.
+        """
+        from rhesis.backend.app.services.permission_cache import get_permission_cache
+
+        for is_owner, is_member in ((True, False), (False, True), (False, False)):
+            for project_id in (PROJECT_ID, None):
+                get_permission_cache().clear_all()
+                p = _principal()
+                db = _mock_db(is_owner=is_owner, is_member=is_member)
+                batch = effective_permissions(p, project_id=project_id, db=db)
+                get_permission_cache().clear_all()
+                expected_db = _mock_db(is_owner=is_owner, is_member=is_member)
+                expected = sorted(
+                    cap
+                    for cap in get_all_capabilities()
+                    if authorize(p, cap, project_id=project_id, db=expected_db)
+                )
+                assert batch == expected, (is_owner, is_member, project_id)
+
+
+class TestEffectivePermissionsOrgProjectSplit:
+    """Provider-agnostic proof of the fix: effective_permissions() must keep
+    only org-scoped capabilities from the project_id=None call and only
+    project-scoped ones from the project_id=<ambient> call — never trust one
+    call's full result. This is what protects against a provider (like EE)
+    that resolves a single merged role per project_id, where an elevated
+    project role could otherwise leak org-admin capabilities into a context
+    authorize() would still evaluate against the plain (lower) org role."""
+
+    def setup_method(self):
+        _AuthorizationRegistry.reset()
+
+    def teardown_method(self):
+        _AuthorizationRegistry.reset()
+
+    def test_elevated_project_context_cannot_leak_org_scoped_caps(self):
+        class FakeMergedRoleProvider(AuthorizationProvider):
+            def get_effective_permissions(self, principal, *, project_id, db):
+                if project_id is None:
+                    return {"test_set:read"}  # plain org role, e.g. Member
+                # Elevated merged role for this project, e.g. Owner — would
+                # wrongly include org-admin caps if not filtered by scope.
+                return {"test_set:read", "test_set:delete", "organization:update"}
+
+        set_authorization_provider(FakeMergedRoleProvider())
+        p = _principal()
+        db = MagicMock()
+
+        result = effective_permissions(p, project_id=PROJECT_ID, db=db)
+
+        assert "test_set:delete" in result  # project-scoped: kept from project context
+        assert "organization:update" not in result  # org-scoped: discarded
+
+    def test_no_project_id_uses_org_context_result_directly(self):
+        class FakeProvider(AuthorizationProvider):
+            def get_effective_permissions(self, principal, *, project_id, db):
+                assert project_id is None
+                return {"organization:read"}
+
+        set_authorization_provider(FakeProvider())
+        p = _principal()
+        db = MagicMock()
+        assert effective_permissions(p, project_id=None, db=db) == ["organization:read"]
 
 
 # ---------------------------------------------------------------------------

@@ -579,6 +579,51 @@ class TestBuiltInRoleBranch:
 
 
 # ---------------------------------------------------------------------------
+# Org/project split — real bug this fix targets (elevated project role must
+# never leak org-scoped permissions into rbac.effective_permissions())
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.ee
+class TestEffectivePermissionsOrgProjectSplit:
+    def test_elevated_project_role_does_not_leak_org_scoped_permissions(self, provider):
+        """An org Member explicitly elevated to project Owner on one project
+        must not gain organization:update through /me/permissions?project_id=...
+        — authorize() would still evaluate that org-scoped capability against
+        the plain Member org role, never the elevated project role. But
+        project-scoped capabilities Member itself lacks (project_member:manage
+        needs Owner/Admin) are correctly granted from the elevated role."""
+        from rhesis.backend.app.auth.rbac import (
+            _AuthorizationRegistry,
+            effective_permissions,
+            set_authorization_provider,
+        )
+
+        principal = _make_principal()
+        db = MagicMock()
+        project_id = uuid.uuid4()
+
+        org_role = _make_role("Member", level=60, is_built_in=True)
+        project_role = _make_role("Owner", level=100, is_built_in=True)
+
+        def fake_resolve_role(principal, pid, db):
+            return project_role if pid == project_id else org_role
+
+        set_authorization_provider(provider)
+        try:
+            with (
+                patch.object(provider, "_rbac_available", return_value=True),
+                patch.object(provider, "_resolve_role", side_effect=fake_resolve_role),
+            ):
+                result = effective_permissions(principal, project_id=project_id, db=db)
+        finally:
+            _AuthorizationRegistry.reset()
+
+        assert "organization:update" not in result
+        assert "project_member:manage" in result
+
+
+# ---------------------------------------------------------------------------
 # Owner floor — org owner without organization_member row
 # ---------------------------------------------------------------------------
 
