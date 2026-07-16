@@ -6,8 +6,6 @@ from .behavior import router as behavior_router
 from .category import router as category_router
 from .comment import router as comment_router
 from .connector import router as connector_router
-from .demographic import router as demographic_router
-from .dimension import router as dimension_router
 from .endpoint import router as endpoint_router
 from .experiments import router as experiments_router
 from .explorer import router as explorer_router
@@ -80,8 +78,6 @@ __all__ = [
     "risk",
     "topic",
     "user",
-    "demographic",
-    "dimension",
     "test_run",
     "tag",
     "auth",
@@ -130,8 +126,6 @@ routers = sorted(
         risk_router,
         topic_router,
         user_router,
-        demographic_router,
-        dimension_router,
         test_run_router,
         tag_router,
         auth_router,

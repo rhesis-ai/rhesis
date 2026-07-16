@@ -9,7 +9,6 @@ from rhesis.backend.app.schemas.tag import Tag
 # Base Prompt Schema
 class PromptBase(Base):
     content: str
-    demographic_id: Optional[UUID4] = None
     category_id: Optional[UUID4] = None
     attack_category_id: Optional[UUID4] = None
     topic_id: Optional[UUID4] = None
@@ -43,7 +42,6 @@ class Prompt(PromptBase):
 
 class PromptView(Base):
     content: str
-    demographic: Optional[str] = None
     category: Optional[str] = None
     attack_category: Optional[str] = None
     topic: Optional[str] = None

@@ -30,7 +30,7 @@ class OrganizationFilterChecker:
         
         # Models that require organization filtering
         self.organization_models = {
-            'Behavior', 'Category', 'Comment', 'Demographic', 'Dimension',
+            'Behavior', 'Category', 'Comment',
             'Metric', 'Model', 'Prompt', 'Risk', 'Source', 'Status', 
             'Tag', 'Task', 'Test', 'TestResult', 'TestRun', 'TestSet',
             'Token', 'Topic', 'TypeLookup', 'UseCase', 'Endpoint'
