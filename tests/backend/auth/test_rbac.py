@@ -20,6 +20,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from rhesis.backend.app.auth.capabilities import get_all_capabilities
 from rhesis.backend.app.auth.principal import (
     REQUEST_STATE_API_TOKEN_PROJECT_ID,
     REQUEST_STATE_API_TOKEN_SCOPES,
@@ -33,6 +34,8 @@ from rhesis.backend.app.auth.rbac import (
     DefaultAuthorizationProvider,
     _AuthorizationRegistry,
     authorize,
+    effective_permissions,
+    rbac_active_for,
     set_authorization_provider,
 )
 
@@ -352,6 +355,211 @@ class TestAuthorize:
 
 
 # ---------------------------------------------------------------------------
+# DefaultAuthorizationProvider.get_effective_permissions() — batch resolution
+# ---------------------------------------------------------------------------
+
+
+class TestDefaultAuthorizationProviderEffectivePermissions:
+    """get_effective_permissions() must classify the whole catalog exactly the
+    way repeated is_authorized() calls would — see TestDefaultAuthorizationProvider
+    for the per-capability truth table this mirrors."""
+
+    def setup_method(self):
+        self.provider = DefaultAuthorizationProvider()
+
+    def test_no_org_context_returns_empty(self):
+        p = Principal(user_id=USER_ID, organization_id=None, kind="session")
+        db = _mock_db(is_owner=False, is_member=False)
+        assert self.provider.get_effective_permissions(p, project_id=PROJECT_ID, db=db) == set()
+
+    def test_org_owner_gets_every_capability(self):
+        p = _principal()
+        db = _mock_db(is_owner=True, is_member=False)
+        result = self.provider.get_effective_permissions(p, project_id=PROJECT_ID, db=db)
+        assert result == set(get_all_capabilities())
+
+    def test_project_member_gets_project_scoped_including_owner_only_named_ones(self):
+        """A project-scoped capability that happens to be in _OWNER_ONLY_CAPABILITIES
+        (e.g. project_member:manage) is still granted to any enrolled member when
+        project_id is present — the owner-only list only gates the *no ambient
+        project* branch, matching is_authorized()'s own behavior."""
+        p = _principal()
+        db = _mock_db(is_owner=False, is_member=True)
+        result = self.provider.get_effective_permissions(p, project_id=PROJECT_ID, db=db)
+        assert "test_set:read" in result
+        assert "project_member:manage" in result
+        assert "organization:update" not in result  # org-scoped, not owner
+
+    def test_non_member_with_project_id_excludes_project_scoped_caps(self):
+        p = _principal()
+        db = _mock_db(is_owner=False, is_member=False)
+        result = self.provider.get_effective_permissions(p, project_id=PROJECT_ID, db=db)
+        assert "test_set:read" not in result
+        # Org-scoped, non-owner-only capabilities are still granted.
+        assert "organization:read" in result
+        assert "organization:update" not in result
+
+    def test_no_project_id_grants_non_owner_only_caps_even_if_project_scoped(self):
+        """Without an ambient project_id, project-scoped capabilities are treated
+        like any other non-owner-only capability — allowed for any org member,
+        exactly as is_authorized() falls through to the owner-only check when
+        project_id is None."""
+        p = _principal()
+        db = _mock_db(is_owner=False, is_member=False)
+        result = self.provider.get_effective_permissions(p, project_id=None, db=db)
+        assert "test_set:read" in result
+        assert "organization:update" not in result
+
+    def test_matches_authorize_for_every_capability(self):
+        """Cross-check: get_effective_permissions() must agree with calling the
+        module-level authorize() once per capability, for every branch
+        combination. Deliberately compares against authorize() rather than
+        provider.is_authorized() directly: is_authorized() only produces a
+        correct decision for org-scoped capabilities when project_id has
+        already been normalized to None by authorize() — calling it directly
+        with a non-None project_id skips that normalization and over-grants,
+        since its project_id-given branch allows *any* capability once
+        membership is confirmed (correct only because authorize() guarantees
+        org-scoped capabilities never reach it with a project_id set).
+
+        authorize() caches decisions by (user_id, org_id, project_id,
+        permission) — not by DB content — so the cache is cleared before each
+        combination to avoid one iteration's mock DB leaking into the next.
+        """
+        from rhesis.backend.app.services.permission_cache import get_permission_cache
+
+        _AuthorizationRegistry.reset()
+        for is_owner, is_member in ((True, False), (False, True), (False, False)):
+            for project_id in (PROJECT_ID, None):
+                get_permission_cache().clear_all()
+                p = _principal()
+                db = _mock_db(is_owner=is_owner, is_member=is_member)
+                batch = self.provider.get_effective_permissions(p, project_id=project_id, db=db)
+                get_permission_cache().clear_all()
+                expected_db = _mock_db(is_owner=is_owner, is_member=is_member)
+                expected = {
+                    cap
+                    for cap in get_all_capabilities()
+                    if authorize(p, cap, project_id=project_id, db=expected_db)
+                }
+                assert batch == expected, (is_owner, is_member, project_id)
+
+
+# ---------------------------------------------------------------------------
+# effective_permissions() — module-level delegation + token boundary
+# ---------------------------------------------------------------------------
+
+
+class TestEffectivePermissions:
+    def setup_method(self):
+        _AuthorizationRegistry.reset()
+
+    def teardown_method(self):
+        _AuthorizationRegistry.reset()
+
+    def test_delegates_to_active_provider(self):
+        p = _principal()
+        db = _mock_db(is_owner=True, is_member=False)
+        result = effective_permissions(p, project_id=PROJECT_ID, db=db)
+        assert result == sorted(get_all_capabilities())
+
+    def test_token_scoped_to_other_project_returns_empty(self):
+        """A project-scoped token may only act within its own project — this
+        must be enforced once per call, not per capability, mirroring
+        authorize()'s token-project-boundary check."""
+        p = Principal(
+            user_id=USER_ID,
+            organization_id=ORG_ID,
+            kind="token",
+            token_project_id=OTHER_PROJECT_ID,
+        )
+        db = _mock_db(is_owner=True, is_member=False)
+        assert effective_permissions(p, project_id=PROJECT_ID, db=db) == []
+
+    def test_token_scoped_to_matching_project_is_unaffected(self):
+        p = Principal(
+            user_id=USER_ID,
+            organization_id=ORG_ID,
+            kind="token",
+            token_project_id=PROJECT_ID,
+        )
+        db = _mock_db(is_owner=True, is_member=False)
+        result = effective_permissions(p, project_id=PROJECT_ID, db=db)
+        assert result == sorted(get_all_capabilities())
+
+    def test_token_scoped_but_no_ambient_project_is_unaffected(self):
+        """The boundary check only fires when the request itself targets a
+        project — org-scoped calls (project_id=None) are never blocked by it."""
+        p = Principal(
+            user_id=USER_ID,
+            organization_id=ORG_ID,
+            kind="token",
+            token_project_id=OTHER_PROJECT_ID,
+        )
+        db = _mock_db(is_owner=True, is_member=False)
+        result = effective_permissions(p, project_id=None, db=db)
+        assert result == sorted(get_all_capabilities())
+
+
+# ---------------------------------------------------------------------------
+# rbac_active_for() — caching
+# ---------------------------------------------------------------------------
+
+
+class TestRbacActiveFor:
+    def setup_method(self):
+        from rhesis.backend.app.services.permission_cache import get_permission_cache
+
+        get_permission_cache().clear_all()
+
+    def teardown_method(self):
+        from rhesis.backend.app.services.permission_cache import get_permission_cache
+
+        get_permission_cache().clear_all()
+
+    def test_no_org_id_returns_false_without_querying(self):
+        db = MagicMock()
+        assert rbac_active_for(None, db) is False
+        db.query.assert_not_called()
+
+    def test_second_call_for_same_org_skips_db(self):
+        """The org lookup + FeatureRegistry check should only run once per org
+        within the cache TTL — this is the fix for the same N-DB-query problem
+        effective_permissions() had, applied to the RBAC-active check itself."""
+        from unittest.mock import patch
+
+        from rhesis.backend.app.features import FeatureRegistry
+
+        db = MagicMock()
+        org = MagicMock()
+        db.query.return_value.filter_by.return_value.first.return_value = org
+
+        with patch.object(FeatureRegistry, "is_available", return_value=True):
+            first = rbac_active_for(ORG_ID, db)
+            second = rbac_active_for(ORG_ID, db)
+
+        assert first is True
+        assert second is True
+        db.query.assert_called_once()
+
+    def test_different_orgs_are_cached_independently(self):
+        from unittest.mock import patch
+
+        from rhesis.backend.app.features import FeatureRegistry
+
+        db = MagicMock()
+        db.query.return_value.filter_by.return_value.first.return_value = MagicMock()
+
+        with patch.object(FeatureRegistry, "is_available", side_effect=[True, False]):
+            result_a = rbac_active_for(ORG_ID, db)
+            result_b = rbac_active_for(OTHER_ORG_ID, db)
+
+        assert result_a is True
+        assert result_b is False
+        assert db.query.call_count == 2
+
+
+# ---------------------------------------------------------------------------
 # Capabilities module
 # ---------------------------------------------------------------------------
 
@@ -533,12 +741,8 @@ class TestCapabilities:
 
         # "app1_sentinel" and "app2_sentinel" are deliberately not in the
         # Permission enum, so their presence/absence reflects only routes.
-        app1 = self._make_app(
-            [("/app1_sentinel", {"GET"}, {"x-rhesis-resource": "app1_sentinel"})]
-        )
-        app2 = self._make_app(
-            [("/app2_sentinel", {"GET"}, {"x-rhesis-resource": "app2_sentinel"})]
-        )
+        app1 = self._make_app([("/app1_sentinel", {"GET"}, {"x-rhesis-resource": "app1_sentinel"})])
+        app2 = self._make_app([("/app2_sentinel", {"GET"}, {"x-rhesis-resource": "app2_sentinel"})])
 
         register_capabilities(app1)
         assert "app1_sentinel:read" in get_all_capabilities()

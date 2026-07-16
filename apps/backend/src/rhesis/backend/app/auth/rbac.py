@@ -129,21 +129,38 @@ def rbac_active_for(organization_id: Optional[UUID], db: Session) -> bool:
     only owner/project-member/org-member tiers, not per-user permission sets.
     Single source of truth for "does this org have fine-grained permissions,
     or only the coarse community tiers" — used both by the EE provider's own
-    role resolution and by callers outside the provider (e.g. token scope
-    validation) that need to know whether enforcing scopes means anything for
-    this org.
+    role resolution (on every ``authorize()``/``get_effective_permissions()``
+    call) and by callers outside the provider (e.g. token scope validation)
+    that need to know whether enforcing scopes means anything for this org.
+
+    Cached in the same Redis store as permission decisions (45 s TTL, no
+    explicit bust — a plan/license change doesn't have a bust hook today, so
+    this accepts the same staleness window ``authorize()`` already tolerates)
+    so this doesn't re-run the org lookup on every single call.
     """
     from rhesis.backend.app.features import FeatureName, FeatureRegistry
     from rhesis.backend.app.models.organization import Organization
     from rhesis.backend.app.scope import bypass_tenant_filter
+    from rhesis.backend.app.services.permission_cache import get_permission_cache
 
     if organization_id is None:
         return False
+
+    _cache = get_permission_cache()
+    cached = _cache.get_rbac_active(organization_id)
+    if cached is not None:
+        return cached
+
     with bypass_tenant_filter():
         org = db.query(Organization).filter_by(id=organization_id).first()
-    if org is None:
-        return False
-    return FeatureRegistry.is_available(FeatureName.RBAC, org)
+    result = org is not None and FeatureRegistry.is_available(FeatureName.RBAC, org)
+
+    try:
+        _cache.set_rbac_active(organization_id, result)
+    except Exception as exc:
+        logger.warning("rbac_active_for: cache set failed (non-fatal): %s", exc)
+
+    return result
 
 
 # Capabilities that require org ownership even when no project scope is present.
