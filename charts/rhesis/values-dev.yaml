@@ -19,6 +19,7 @@ config:
   environment: "development"
   # INFO reduces API log I/O under load; use DEBUG only when actively tracing.
   logLevel: "INFO"
+  jsonLoggerEnabled: true
 
   # App DB name (ConfigMap DB_NAME) and Bitnami PostgreSQL bootstrap database.
   dbName: &rhesis_db_name "rhesis-dev-db"

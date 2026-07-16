@@ -94,6 +94,7 @@ class ApplicationSettings(BaseSettings):
     google_cloud_project: str | None = Field(default=None, alias="GOOGLE_CLOUD_PROJECT")
     cloud_run_service: str | None = Field(default=None, alias="K_SERVICE")
     cloud_run_revision: str | None = Field(default=None, alias="K_REVISION")
+    json_logger_enabled: bool = Field(default=False, alias="JSON_LOGGER_ENABLED")
     api_base_url: str = Field(default="http://localhost:8080", alias="API_BASE_URL")
 
     @field_validator("api_base_url")
