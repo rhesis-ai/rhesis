@@ -118,6 +118,17 @@ Email (notifications, invitations) is disabled until `SMTP_HOST` is set.
 | `STORAGE_SERVICE_ACCOUNT_KEY` | Base64 service-account credentials for GCS | *(unset)* |
 | `LOCAL_STORAGE_PATH` | Filesystem path for the `file://` backend | `/tmp/rhesis-files` |
 
+## Enterprise features
+
+Only used when the Enterprise package is installed (see
+[Enterprise Features](/docs/deployment/docker-compose#enterprise-features)). Each feature stays
+disabled until its secret is set and valid.
+
+| Variable | Description | Generate with |
+|---|---|---|
+| `SSO_ENCRYPTION_KEY` | Encrypts stored SSO `client_secret`s; required for Single Sign-On. Must stay stable once set — changing it makes stored SSO credentials undecryptable | `openssl rand -base64 32 \| tr '+/' '-_'` |
+| `AUDIT_HASH_KEY` | HMAC key for hashing emails in API-client audit logs; required for API Clients | `openssl rand -hex 32` |
+
 ## Telemetry
 
 | Variable | Description | Default |
@@ -182,8 +193,6 @@ The empty-state pair exists for each of `TESTS`, `PROJECTS`, `TEST_SETS`, `TEST_
 
 | Variable | Purpose |
 |---|---|
-| `AUDIT_HASH_KEY` | Hashing key for API-client audit logs (Enterprise) |
-| `SSO_ENCRYPTION_KEY` | Encryption key for SSO configuration (Enterprise) |
 | `AUTH_SECRET`, `DATABASE_URL` | Hosted frontend auth secret and direct database URL |
 | `VERTEX_AI_LOCATION`, `VERTEX_AI_PROJECT`, `GOOGLE_APPLICATION_CREDENTIALS` | Vertex AI / GCP model access |
 | `PERSPECTIVE_API_KEY`, `CHATBOT_API_KEY` | Hosted third-party API keys |
