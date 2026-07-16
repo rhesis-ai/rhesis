@@ -203,6 +203,7 @@ class SecuritySettings(BaseSettings):
     model_config = SettingsConfigDict(env_ignore_empty=True)
 
     db_encryption_key: str = Field(alias="DB_ENCRYPTION_KEY")
+    sso_encryption_key: str | None = Field(default=None, alias="SSO_ENCRYPTION_KEY")
 
     @field_validator("db_encryption_key")
     @classmethod

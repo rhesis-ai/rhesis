@@ -105,7 +105,10 @@ class TestAuthProviders:
         from rhesis.backend.app.auth.providers.registry import ProviderRegistry
         from rhesis.backend.app.config.settings import get_auth_settings
 
-        with patch.dict(os.environ, {}, clear=True):
+        # Preserve SESSION_SECRET_KEY (a required setting) so AuthSettings can
+        # still be constructed; only the OAuth credentials are cleared here.
+        preserved = {"SESSION_SECRET_KEY": os.environ["SESSION_SECRET_KEY"]}
+        with patch.dict(os.environ, preserved, clear=True):
             # Clear the LRU-cached settings so is_enabled re-reads the (now empty) env
             get_auth_settings.cache_clear()
             ProviderRegistry.reset()
@@ -147,7 +150,10 @@ class TestProviderLogin:
         from rhesis.backend.app.auth.providers.registry import ProviderRegistry
         from rhesis.backend.app.config.settings import get_auth_settings
 
-        with patch.dict(os.environ, {}, clear=True):
+        # Preserve SESSION_SECRET_KEY (a required setting) so AuthSettings can
+        # still be constructed; only the OAuth credentials are cleared here.
+        preserved = {"SESSION_SECRET_KEY": os.environ["SESSION_SECRET_KEY"]}
+        with patch.dict(os.environ, preserved, clear=True):
             get_auth_settings.cache_clear()
             ProviderRegistry.reset()
 
