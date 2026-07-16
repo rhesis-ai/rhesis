@@ -12,12 +12,13 @@ from rhesis.backend.app.config.settings import (
 _LOOPBACK_HOSTNAMES = frozenset(("localhost", "127.0.0.1", "::1"))
 
 
-def build_redirect_url(request, session_token, refresh_token=None):
+async def build_redirect_url(request, session_token, refresh_token=None):
     """Build the redirect URL with a short-lived auth code.
 
-    The auth code is a 60-second JWT that wraps both the access token
-    and the refresh token.  The frontend exchanges it via
-    POST /auth/exchange-code, keeping the long-lived tokens out of URLs.
+    The auth code is a 60-second, single-use OPAQUE reference; the tokens
+    it points to are stored server-side (see ``create_auth_code``). The
+    frontend exchanges it via POST /auth/exchange-code, keeping the
+    long-lived tokens out of URLs, browser history, and logs.
     """
     # Get the original frontend URL from session or fallback to env
     original_frontend = request.session.get("original_frontend")
@@ -59,8 +60,8 @@ def build_redirect_url(request, session_token, refresh_token=None):
     # Ensure return_to starts with a slash
     return_to = f"/{return_to.lstrip('/')}"
 
-    # Create a short-lived auth code wrapping both tokens
-    code = create_auth_code(session_token, refresh_token)
+    # Create a short-lived opaque auth code referencing both tokens
+    code = await create_auth_code(session_token, refresh_token)
 
     final_url = f"{frontend_url.rstrip('/')}/auth/signin"
     final_url = f"{final_url}?code={code}&return_to={return_to}"

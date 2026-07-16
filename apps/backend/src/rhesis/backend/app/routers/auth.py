@@ -459,7 +459,7 @@ async def auth_callback(request: Request, db: Session = Depends(get_db_session))
             )
 
         # Determine redirect URL
-        redirect_url = build_redirect_url(request, session_token, refresh_tok)
+        redirect_url = await build_redirect_url(request, session_token, refresh_tok)
         return RedirectResponse(url=redirect_url)
 
     except HTTPException:
@@ -518,7 +518,7 @@ async def login_with_email(
         access_token = create_session_token(user)
         refresh_tok = create_refresh_token(db, str(user.id))
         db.commit()
-        auth_code = create_auth_code(access_token, refresh_tok)
+        auth_code = await create_auth_code(access_token, refresh_tok)
 
         # Track login activity
         if is_telemetry_enabled():
@@ -614,7 +614,7 @@ async def register_with_email(
         access_token = create_session_token(user)
         refresh_tok = create_refresh_token(db, str(user.id))
         db.commit()
-        auth_code = create_auth_code(access_token, refresh_tok)
+        auth_code = await create_auth_code(access_token, refresh_tok)
 
         # Send welcome email (best-effort)
         _send_welcome_email(user)
@@ -703,7 +703,7 @@ async def verify_email(
     access_token = create_session_token(user)
     refresh_tok = create_refresh_token(db, str(user.id))
     db.commit()
-    auth_code = create_auth_code(access_token, refresh_tok)
+    auth_code = await create_auth_code(access_token, refresh_tok)
 
     return {
         "success": True,
@@ -991,7 +991,7 @@ async def verify_magic_link(
     access_token = create_session_token(user)
     refresh_tok = create_refresh_token(db, str(user.id))
     db.commit()
-    auth_code = create_auth_code(access_token, refresh_tok)
+    auth_code = await create_auth_code(access_token, refresh_tok)
 
     # Track login activity
     if is_telemetry_enabled():
@@ -1385,7 +1385,7 @@ async def local_login(request: Request, db: Session = Depends(get_db_session)):
         access_token = create_session_token(user)
         refresh_tok = create_refresh_token(db, str(user.id))
         db.commit()
-        auth_code = create_auth_code(access_token, refresh_tok)
+        auth_code = await create_auth_code(access_token, refresh_tok)
 
         logger.info(
             "QUICK START MODE login successful for user: %s",

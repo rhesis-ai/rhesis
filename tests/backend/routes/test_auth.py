@@ -881,20 +881,82 @@ class TestAuthMagicLinkRoutes:
 class TestAuthExchangeCode:
     """Test POST /auth/exchange-code for OAuth auth code exchange."""
 
-    def test_exchange_valid_code(self, client: TestClient):
-        """Exchange a valid auth code returns session + refresh tokens."""
-        with patch(
-            "rhesis.backend.app.auth.token_utils.get_secret_key",
-            return_value="test-secret",
+    def test_exchange_valid_opaque_code(self, client: TestClient):
+        """Opaque code: tokens live server-side; exchange is single-use."""
+        import asyncio
+
+        stored: dict = {}
+
+        async def fake_store(code, session_token, refresh_token, ttl_seconds):
+            payload = {"session_token": session_token}
+            if refresh_token:
+                payload["refresh_token"] = refresh_token
+            stored[code] = payload
+
+        async def fake_consume(code):
+            return stored.pop(code, None)
+
+        with (
+            patch(
+                "rhesis.backend.app.auth.used_token_store.store_auth_code_tokens",
+                fake_store,
+            ),
+            patch(
+                "rhesis.backend.app.auth.used_token_store.consume_auth_code_tokens",
+                fake_consume,
+            ),
         ):
-            code = create_auth_code(
-                "real-session-token-123",
-                refresh_token="refresh-tok-456",
+            code = asyncio.run(
+                create_auth_code(
+                    "real-session-token-123",
+                    refresh_token="refresh-tok-456",
+                )
             )
-            response = client.post(
-                "/auth/exchange-code",
-                json={"code": code},
+            # Opaque codes carry no token material and are not JWTs.
+            assert "." not in code
+            assert "real-session-token-123" not in code
+
+            response = client.post("/auth/exchange-code", json={"code": code})
+            assert response.status_code == status.HTTP_200_OK
+            data = response.json()
+            assert data["session_token"] == "real-session-token-123"
+            assert data["refresh_token"] == "refresh-tok-456"
+
+            # Single-use: the same code cannot be exchanged twice.
+            replay = client.post("/auth/exchange-code", json={"code": code})
+            assert replay.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_exchange_valid_jwt_fallback_code(self, client: TestClient):
+        """Redis-down fallback: JWT-format code still exchanges correctly."""
+        import asyncio
+
+        from rhesis.backend.app.auth.used_token_store import (
+            TokenStoreUnavailableError,
+        )
+
+        async def unavailable_store(*args, **kwargs):
+            raise TokenStoreUnavailableError("down")
+
+        with (
+            patch(
+                "rhesis.backend.app.auth.token_utils.get_secret_key",
+                return_value="test-secret",
+            ),
+            patch(
+                "rhesis.backend.app.auth.used_token_store.store_auth_code_tokens",
+                unavailable_store,
+            ),
+        ):
+            code = asyncio.run(
+                create_auth_code(
+                    "real-session-token-123",
+                    refresh_token="refresh-tok-456",
+                )
             )
+            # Fallback codes are JWTs (three dot-separated segments).
+            assert code.count(".") == 2
+
+            response = client.post("/auth/exchange-code", json={"code": code})
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
@@ -1064,12 +1126,8 @@ class TestAuthRefreshToken:
             "rhesis.backend.app.auth.token_utils.get_secret_key",
             return_value="test-secret",
         ):
-            resp1 = client.post(
-                "/auth/refresh", json={"refresh_token": raw_token}
-            )
-            resp2 = client.post(
-                "/auth/refresh", json={"refresh_token": raw_token}
-            )
+            resp1 = client.post("/auth/refresh", json={"refresh_token": raw_token})
+            resp2 = client.post("/auth/refresh", json={"refresh_token": raw_token})
 
         assert resp1.status_code == status.HTTP_200_OK
         assert resp2.status_code == status.HTTP_200_OK
@@ -1077,9 +1135,7 @@ class TestAuthRefreshToken:
         assert resp1.json()["refresh_token"] == raw_token
         assert resp2.json()["refresh_token"] == raw_token
 
-    def test_refresh_revoked_ui_token_rejected(
-        self, client: TestClient, test_db, test_org_id
-    ):
+    def test_refresh_revoked_ui_token_rejected(self, client: TestClient, test_db, test_org_id):
         """A revoked UI/SSO token (e.g. after logout) is rejected with a
         uniform 401 detail."""
         from rhesis.backend.app.auth.refresh_token_utils import (
@@ -1100,9 +1156,7 @@ class TestAuthRefreshToken:
         revoke_all_for_user(test_db, str(user.id))
         test_db.commit()
 
-        response = client.post(
-            "/auth/refresh", json={"refresh_token": raw_token}
-        )
+        response = client.post("/auth/refresh", json={"refresh_token": raw_token})
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
         assert response.json()["detail"] == "Invalid refresh token"
 
@@ -1215,9 +1269,7 @@ class TestGetCallbackUrl:
         "rhesis.backend.app.routers.auth.get_application_settings",
         new=_mock_application_settings("local", api_base_url="https://api.rhesis.ai"),
     )
-    def test_backend_env_local_with_remote_api_base_url_uses_production_callback(
-        self, mock_qs
-    ):
+    def test_backend_env_local_with_remote_api_base_url_uses_production_callback(self, mock_qs):
         """BACKEND_ENV=local alone does not enable local callback behavior."""
         from rhesis.backend.app.routers.auth import get_callback_url
 
