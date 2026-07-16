@@ -27,7 +27,7 @@ spec:
   resources:
     requests:
       memory: 1Gi
-      cpu: 1000m
+      cpu: "1"
     limits:
       memory: 4Gi
       # cpu limit intentionally omitted: databases benefit from absorbing CPU bursts.
