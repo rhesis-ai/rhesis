@@ -204,61 +204,35 @@ def _get_api_base_url() -> str:
     return get_application_settings().api_base_url
 
 
-def is_running_locally() -> bool:
-    """Detect local deployment using server-side environment signals only.
-
-    Never uses any request-derived data. Uses two independent signals:
-    1. Quick Start mode (QUICK_START=true + no GCP env vars)
-    2. API_BASE_URL explicitly configured for localhost
-    """
-    # Signal 1: Quick Start mode (env-vars only, no request data)
-    if is_quick_start_enabled():
-        return True
-
-    # Signal 2: API_BASE_URL points to a local address
-    parsed_host = urlparse(_get_api_base_url()).hostname or ""
-    if parsed_host in _LOCAL_HOSTNAMES:
-        return True
-
-    return False
-
-
 def get_callback_url(request: Request, provider: Optional[str] = None) -> str:
-    """Generate the OAuth callback URL.
+    """Generate the OAuth callback URL from the configured API_BASE_URL.
 
-    For local development, uses the request hostname with the server's
-    listening port to preserve session cookie domain alignment. Only
-    whitelisted local hostnames (localhost, 127.0.0.1, ::1) are
-    accepted; any other value falls back to 'localhost'. For
-    production, uses API_BASE_URL.
+    The one exception is loopback aliasing: when API_BASE_URL points at a
+    loopback address, the OAuth session cookie is bound to whichever loopback
+    alias the browser actually used (localhost vs 127.0.0.1 vs ::1), so the
+    callback host is swapped to match — otherwise the cookie set before the
+    redirect is not returned on the callback and state validation fails.
+
+    The swap is gated on the *configured* host being loopback (a trusted,
+    inherently-local value), and only ever selects another loopback alias, so
+    the callback can never point off-box. For real (production) domains the
+    request host is never trusted.
     """
-    if is_running_locally():
-        # Local: use request hostname to match session cookie domain
-        # (e.g., 127.0.0.1 vs localhost). Whitelist ensures that even
-        # if is_running_locally() fires on a misconfigured server,
-        # the callback can only ever point to a local address.
-        hostname = request.url.hostname or "localhost"
-        if hostname not in _LOCAL_HOSTNAMES:
-            hostname = "localhost"
-        server = request.scope.get("server")
-        port = server[1] if server else 8080
-        base_url = f"http://{hostname}:{port}"
+    parsed = urlparse(_get_api_base_url().rstrip("/"))
+
+    if parsed.hostname in _LOCAL_HOSTNAMES:
+        # Loopback: follow the browser's alias (ignoring any non-loopback
+        # request host) and keep the configured scheme — local dev is http.
+        req_host = request.url.hostname
+        host = req_host if req_host in _LOCAL_HOSTNAMES else parsed.hostname
+        port = f":{parsed.port}" if parsed.port else ""
+        base_url = f"{parsed.scheme}://{host}{port}"
     else:
-        # Production: always use configured base URL
-        base_url = _get_api_base_url().rstrip("/")
+        # Real domain: never trust the request host, and always use HTTPS
+        # (guards a misconfigured http:// API_BASE_URL).
+        base_url = f"https://{parsed.netloc}"
 
-    callback_url = f"{base_url}/auth/callback"
-
-    # Ensure HTTPS for non-local URLs
-    if (
-        callback_url.startswith("http://")
-        and "localhost" not in callback_url
-        and "127.0.0.1" not in callback_url
-        and "::1" not in callback_url
-    ):
-        callback_url = "https://" + callback_url[7:]
-
-    return callback_url
+    return f"{base_url}/auth/callback"
 
 
 def _get_frontend_url() -> str:

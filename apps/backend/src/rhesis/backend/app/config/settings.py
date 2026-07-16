@@ -182,7 +182,7 @@ class AuthSettings(BaseSettings):
     google_client_secret: str | None = Field(default=None, alias="GOOGLE_CLIENT_SECRET")
     github_client_id: str | None = Field(default=None, alias="GH_CLIENT_ID")
     github_client_secret: str | None = Field(default=None, alias="GH_CLIENT_SECRET")
-    session_secret_key: str | None = Field(default=None, alias="SESSION_SECRET_KEY")
+    session_secret_key: str = Field(alias="SESSION_SECRET_KEY")
     jwt_secret_key: str | None = Field(default=None, alias="JWT_SECRET_KEY")
     jwt_algorithm: str = Field(default="HS256", alias="JWT_ALGORITHM")
     jwt_access_token_expire_minutes: int = Field(
@@ -288,7 +288,7 @@ def get_logging_settings() -> LoggingSettings:
 
 @lru_cache
 def get_auth_settings() -> AuthSettings:
-    return AuthSettings()
+    return AuthSettings()  # pyright: ignore[reportCallIssue]
 
 
 @lru_cache

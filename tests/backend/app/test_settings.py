@@ -401,7 +401,9 @@ def test_get_frontend_settings_cache_clear_allows_env_overrides(clean_frontend_e
 
 
 @pytest.mark.unit
-def test_auth_settings_uses_defaults(clean_auth_env):
+def test_auth_settings_uses_defaults(clean_auth_env, monkeypatch):
+    # SESSION_SECRET_KEY is required; provide it so the other defaults can be checked.
+    monkeypatch.setenv("SESSION_SECRET_KEY", "session-secret-key")
     settings = AuthSettings(_env_file=None)
 
     assert settings.email_password_enabled is True
@@ -410,12 +412,18 @@ def test_auth_settings_uses_defaults(clean_auth_env):
     assert settings.google_client_secret is None
     assert settings.github_client_id is None
     assert settings.github_client_secret is None
-    assert settings.session_secret_key is None
+    assert settings.session_secret_key == "session-secret-key"
     assert settings.jwt_secret_key is None
     assert settings.jwt_algorithm == "HS256"
     assert settings.jwt_access_token_expire_minutes == 10080
     assert settings.google_enabled is False
     assert settings.github_enabled is False
+
+
+@pytest.mark.unit
+def test_auth_settings_requires_session_secret_key(clean_auth_env):
+    with pytest.raises(ValidationError, match="SESSION_SECRET_KEY"):
+        AuthSettings(_env_file=None)
 
 
 @pytest.mark.unit
@@ -449,6 +457,7 @@ def test_auth_settings_loads_existing_environment_variables(clean_auth_env, monk
 
 @pytest.mark.unit
 def test_auth_settings_oauth_enabled_requires_client_id_and_secret(clean_auth_env, monkeypatch):
+    monkeypatch.setenv("SESSION_SECRET_KEY", "session-secret-key")
     monkeypatch.setenv("GOOGLE_CLIENT_ID", "google-client-id")
     monkeypatch.setenv("GH_CLIENT_SECRET", "github-client-secret")
 
@@ -460,7 +469,9 @@ def test_auth_settings_oauth_enabled_requires_client_id_and_secret(clean_auth_en
 
 @pytest.mark.unit
 def test_get_auth_settings_cache_clear_allows_env_overrides(clean_auth_env, monkeypatch):
-    assert get_auth_settings().session_secret_key is None
+    # SESSION_SECRET_KEY is required, so it must be set before AuthSettings loads.
+    monkeypatch.setenv("SESSION_SECRET_KEY", "initial-session-secret-key")
+    assert get_auth_settings().session_secret_key == "initial-session-secret-key"
     assert get_auth_settings().jwt_secret_key is None
 
     monkeypatch.setenv("SESSION_SECRET_KEY", "cached-session-secret-key")
