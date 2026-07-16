@@ -27,15 +27,19 @@ cd rhesis
 # 2. Copy environment variables
 cp .env.example .env.docker
 
-# 3. Generate the four required secrets and paste each into .env.docker
-openssl rand -base64 32 | tr '+/' '-_'   # DB_ENCRYPTION_KEY
-openssl rand -hex 32                      # JWT_SECRET_KEY
-openssl rand -hex 32                      # NEXTAUTH_SECRET
-openssl rand -hex 32                      # SESSION_SECRET_KEY
+# 3. Generate the four required secrets into .env.docker
+#    (DB_ENCRYPTION_KEY, JWT_SECRET_KEY, NEXTAUTH_SECRET, SESSION_SECRET_KEY)
+./rh secrets
 
 # 4. Start all services
 docker compose --env-file .env.docker up -d`}
 </CodeBlock>
+
+<Callout type="warning">
+Changing `DB_ENCRYPTION_KEY` on an existing deployment makes data already encrypted with the old
+key (such as stored provider credentials) permanently undecryptable. Back it up and keep it stable.
+The other three secrets can be rotated safely.
+</Callout>
 
 ### Access the applications
 
@@ -106,15 +110,19 @@ The variables above get a deployment running. Everything else is optional — se
 
 ### Enterprise Features
 
-Enterprise Edition features are discovered at runtime through `GET /features`. The endpoint returns license metadata and enabled feature names for the current organization. Frontend pages hide gated UI until the feature appears in that response.
+Enterprise Edition features are discovered at runtime through `GET /features`; the frontend hides gated UI until a feature appears there. Without the Enterprise package, Rhesis runs in Community mode and all three are unavailable.
 
-| Feature | Feature name | Related docs |
-|---|---|---|
-| Role-Based Access Control | `rbac` | [Roles & Permissions](/docs/organizations/roles) |
-| Single Sign-On | `sso` | [Single Sign-On](/docs/organizations/sso) |
-| API Clients | `api_clients` | [API Clients](/docs/organizations/api-clients) |
+Two features need their own secret — set it in `.env.docker` (see [Enterprise features](/docs/deployment/environment-variables#enterprise-features) for how to generate each). The feature stays disabled until its secret is present and valid.
 
-When the Enterprise package is not installed, Rhesis runs in Community mode and these features are unavailable.
+| Feature | Feature name | Secret | Docs |
+|---|---|---|---|
+| Role-Based Access Control | `rbac` | — | [Roles & Permissions](/docs/organizations/roles) |
+| Single Sign-On | `sso` | `SSO_ENCRYPTION_KEY` | [Single Sign-On](/docs/organizations/sso) |
+| API Clients | `api_clients` | `AUDIT_HASH_KEY` | [API Clients](/docs/organizations/api-clients) |
+
+<Callout type="warning">
+Keep `SSO_ENCRYPTION_KEY` stable once set — like `DB_ENCRYPTION_KEY`, changing it makes already-stored SSO credentials undecryptable.
+</Callout>
 
 ## Telemetry & Privacy
 
