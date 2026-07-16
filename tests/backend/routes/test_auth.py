@@ -1193,13 +1193,19 @@ class TestGetCallbackUrl:
         "rhesis.backend.app.routers.auth.is_quick_start_enabled",
         return_value=True,
     )
-    def test_quick_start_mode_uses_localhost(self, mock_qs):
-        """Quick start mode returns http://localhost:{port}/auth/callback."""
+    @patch(
+        "rhesis.backend.app.routers.auth.get_application_settings",
+        new=_mock_application_settings("local", api_base_url="https://api.rhesis.ai"),
+    )
+    def test_quick_start_does_not_override_remote_api_base_url(self, mock_qs):
+        """QUICK_START does not force a local callback: the callback host is
+        driven solely by API_BASE_URL. With a remote API_BASE_URL the request
+        host is never trusted, even in quick-start mode."""
         from rhesis.backend.app.routers.auth import get_callback_url
 
         request = _make_mock_request(host="localhost", port=8080)
         url = get_callback_url(request)
-        assert url == "http://localhost:8080/auth/callback"
+        assert url == "https://api.rhesis.ai/auth/callback"
 
     @patch(
         "rhesis.backend.app.routers.auth.is_quick_start_enabled",

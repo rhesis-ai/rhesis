@@ -166,19 +166,8 @@ def _generate_pkce() -> tuple:
     return code_verifier, code_challenge
 
 
-def _get_sso_callback_url(request: Request) -> str:
-    """Build the SSO callback URL."""
-    from rhesis.backend.app.routers.auth import is_running_locally
-
-    api_base_url = get_application_settings().api_base_url
-
-    if is_running_locally() and not api_base_url:
-        base_url = str(request.base_url).rstrip("/")
-    elif api_base_url:
-        base_url = api_base_url.rstrip("/")
-    else:
-        base_url = str(request.base_url).rstrip("/")
-
+def _get_sso_callback_url() -> str:
+    base_url = get_application_settings().api_base_url.rstrip("/")
     return f"{base_url}/auth/sso/callback"
 
 
@@ -243,7 +232,7 @@ async def sso_callback(
         logger.warning("SSO callback missing code_verifier in session")
         return RedirectResponse(url=error_redirect, status_code=302)
 
-    redirect_uri = _get_sso_callback_url(request)
+    redirect_uri = _get_sso_callback_url()
 
     # Authenticate with OIDC provider
     provider = OIDCProvider(sso_config)
@@ -346,7 +335,7 @@ async def sso_login(
         request.session["original_frontend"] = original_frontend
     request.session["return_to"] = return_to
 
-    redirect_uri = _get_sso_callback_url(request)
+    redirect_uri = _get_sso_callback_url()
 
     provider = OIDCProvider(sso_config)
     try:
