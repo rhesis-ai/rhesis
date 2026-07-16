@@ -435,44 +435,6 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> Dict[s
                 commit=False,
             )
 
-        # Process dimensions
-        print("Processing dimensions...")
-        for item in initial_data.get("dimension", []):
-            get_or_create_entity(
-                db=db,
-                model=models.Dimension,
-                entity_data={"name": item["name"], "description": item["description"]},
-                organization_id=organization_id,
-                user_id=user_id,
-                commit=False,
-            )
-
-        # Process demographics
-        print("Processing demographics...")
-        for item in initial_data.get("demographic", []):
-            item_copy = item.copy()  # Don't modify original data
-            dimension_name = item_copy.pop("dimension", None)
-            demographic = get_or_create_entity(
-                db=db,
-                model=models.Demographic,
-                entity_data=item_copy,
-                organization_id=organization_id,
-                user_id=user_id,
-                commit=False,
-            )
-            if dimension_name:
-                dimension = (
-                    db.query(models.Dimension)
-                    .filter(
-                        models.Dimension.name == dimension_name,
-                        models.Dimension.organization_id == uuid.UUID(organization_id),
-                    )
-                    .first()
-                )
-                if dimension:
-                    demographic.dimension_id = dimension.id
-                    db.flush()
-
         # Process topics
         print("Processing topics...")
         for item in initial_data.get("topic", []):
@@ -1660,8 +1622,6 @@ def rollback_initial_data(db: Session, organization_id: str, user_id: str | None
                 "Metric": 2,
                 "UseCase": 2,
                 "Risk": 2,
-                "Demographic": 3,
-                "Dimension": 4,
                 "TestSet": 5,
                 "Endpoint": 5,
                 "Project": 6,
