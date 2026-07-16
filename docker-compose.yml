@@ -27,8 +27,7 @@ x-common-auth: &common-auth
   # GitHub OAuth (optional - leave empty to disable)
   GH_CLIENT_ID: ${GH_CLIENT_ID:-}
   GH_CLIENT_SECRET: ${GH_CLIENT_SECRET:-}
-  # Session secret key (required)
-  SESSION_SECRET_KEY: ${SESSION_SECRET_KEY:-your-session-secret-key-change-in-production}
+  SESSION_SECRET_KEY: ${SESSION_SECRET_KEY:?SESSION_SECRET_KEY is required, no safe default}
 
 
 x-common-smtp: &common-smtp
@@ -39,7 +38,7 @@ x-common-smtp: &common-smtp
   FROM_EMAIL: ${FROM_EMAIL:-noreply@example.com}
 
 x-common-jwt: &common-jwt
-  JWT_SECRET_KEY: ${JWT_SECRET_KEY:-your-jwt-secret-key-change-in-production}
+  JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY is required, no safe default}
 
 x-common-environment: &common-environment
   BACKEND_ENV: local
@@ -57,18 +56,24 @@ x-rhesis-config: &rhesis-config
   BACKEND_URL: http://backend:8080
   DEFAULT_GENERATION_MODEL: ${DEFAULT_GENERATION_MODEL:-rhesis/rhesis-default}
   DEFAULT_EVALUATION_MODEL: ${DEFAULT_EVALUATION_MODEL:-rhesis/rhesis-default}
+  DEFAULT_EXECUTION_MODEL: ${DEFAULT_EXECUTION_MODEL:-rhesis/rhesis-default}
   DEFAULT_EMBEDDING_MODEL: ${DEFAULT_EMBEDDING_MODEL:-rhesis/rhesis-embedding}
 
 x-telemetry-config: &telemetry-config
   OTEL_RHESIS_TELEMETRY_ENABLED: ${OTEL_RHESIS_TELEMETRY_ENABLED:-true}  # Self-hosted: opt-out via env var
 
 x-nextjs-frontend: &nextjs-frontend
-  NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-your-nextauth-secret-change-in-production}
+  NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?NEXTAUTH_SECRET is required, no safe default}
   NEXT_TELEMETRY_DISABLED: 1
 
 
 services:
-  # PostgreSQL Database
+  # PostgreSQL Database (built-in). Credentials below are fixed by
+  # apps/backend/src/rhesis/backend/alembic/create_user.sql — do not change
+  # them here. To use a different database (managed Postgres, different
+  # credentials, etc.), set DB_HOST/DB_PORT/DB_NAME/APP_DB_USER/APP_DB_PASS
+  # in your .env file to point the backend/worker at it instead; this
+  # built-in container will simply go unused.
   postgres:
     image: mirror.gcr.io/pgvector/pgvector:pg16
     environment:
@@ -86,7 +91,10 @@ services:
     networks:
       - rhesis-network
 
-   # Redis for Celery
+   # Redis for Celery (built-in). Password below is fixed — do not change it
+  # here. To use an external Redis, set BROKER_URL/CELERY_RESULT_BACKEND in
+  # your .env file to point the backend/worker at it instead; this built-in
+  # container will simply go unused.
   redis:
     image: mirror.gcr.io/redis:7-alpine
     command: redis-server --requirepass rhesis-redis-pass
@@ -108,12 +116,18 @@ services:
       target: backend
     environment:
       <<: [*common-auth, *common-smtp, *common-jwt, *common-environment, *rhesis-config, *telemetry-config, *common-storage]
-      DB_HOST: postgres
-      APP_DB_USER: rhesis-user
-      APP_DB_PASS: rhesis-password
+      # DB/Redis default to the built-in postgres/redis services above; set
+      # these in your .env file to point at an external database or Redis.
+      DB_HOST: ${DB_HOST:-postgres}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_NAME: ${DB_NAME:-rhesis-db}
+      APP_DB_USER: ${APP_DB_USER:-rhesis-user}
+      APP_DB_PASS: ${APP_DB_PASS:-rhesis-password}
+      ADMIN_DB_USER: ${ADMIN_DB_USER:-}
+      ADMIN_DB_PASS: ${ADMIN_DB_PASS:-}
       DB_ENCRYPTION_KEY: ${DB_ENCRYPTION_KEY:?DB_ENCRYPTION_KEY is required, no safe default}
-      BROKER_URL: redis://:rhesis-redis-pass@redis:6379/0
-      CELERY_RESULT_BACKEND: redis://:rhesis-redis-pass@redis:6379/1
+      BROKER_URL: ${BROKER_URL:-redis://:rhesis-redis-pass@redis:6379/0}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://:rhesis-redis-pass@redis:6379/1}
       OTEL_EXPORTER_OTLP_ENDPOINT: https://telemetry.rhesis.ai
       OTEL_SERVICE_NAME: rhesis
       OTEL_DEPLOYMENT_TYPE: self-hosted
@@ -148,12 +162,18 @@ services:
       target: worker
     environment:
       <<: [*common-auth,  *common-smtp, *common-jwt, *common-environment, *rhesis-config, *common-storage]
-      DB_HOST: postgres
-      APP_DB_USER: rhesis-user
-      APP_DB_PASS: rhesis-password
+      # DB/Redis default to the built-in postgres/redis services above; set
+      # these in your .env file to point at an external database or Redis.
+      DB_HOST: ${DB_HOST:-postgres}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_NAME: ${DB_NAME:-rhesis-db}
+      APP_DB_USER: ${APP_DB_USER:-rhesis-user}
+      APP_DB_PASS: ${APP_DB_PASS:-rhesis-password}
+      ADMIN_DB_USER: ${ADMIN_DB_USER:-}
+      ADMIN_DB_PASS: ${ADMIN_DB_PASS:-}
       DB_ENCRYPTION_KEY: ${DB_ENCRYPTION_KEY:?DB_ENCRYPTION_KEY is required, no safe default}
-      BROKER_URL: redis://:rhesis-redis-pass@redis:6379/0
-      CELERY_RESULT_BACKEND: redis://:rhesis-redis-pass@redis:6379/1
+      BROKER_URL: ${BROKER_URL:-redis://:rhesis-redis-pass@redis:6379/0}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://:rhesis-redis-pass@redis:6379/1}
       LOG_LEVEL: INFO
       CELERY_WORKER_CONCURRENCY: ${CELERY_WORKER_CONCURRENCY:-8}
       CELERY_WORKER_PREFETCH_MULTIPLIER: ${CELERY_WORKER_PREFETCH_MULTIPLIER:-4}
