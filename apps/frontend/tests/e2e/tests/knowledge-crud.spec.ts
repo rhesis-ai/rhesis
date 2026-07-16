@@ -62,8 +62,20 @@ async function stubKnowledgeUpload(page: Page, source: StubbedSource) {
       const existing = (await response.json()) as Array<{ id: string }>;
       const items = Array.isArray(existing) ? existing : [];
       const merged = [source, ...items.filter(item => item.id !== source.id)];
+      const body = JSON.stringify(merged);
+      // Drop length/encoding headers — they reflect the upstream body, not ours.
       const headers = Object.fromEntries(
-        response.headersArray().map(({ name, value }) => [name, value])
+        response
+          .headersArray()
+          .filter(
+            ({ name }) =>
+              ![
+                'content-length',
+                'content-encoding',
+                'transfer-encoding',
+              ].includes(name.toLowerCase())
+          )
+          .map(({ name, value }) => [name, value])
       );
       await route.fulfill({
         status: response.status(),
@@ -73,7 +85,7 @@ async function stubKnowledgeUpload(page: Page, source: StubbedSource) {
           'access-control-expose-headers': 'x-total-count',
           'x-total-count': String(merged.length),
         },
-        body: JSON.stringify(merged),
+        body,
       });
     }
   );
