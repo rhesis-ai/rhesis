@@ -101,6 +101,7 @@ The logger chooses handlers from runtime configuration:
 | Interactive TTY (and JSON off) | Colored plain-text logs on stdout |
 | Non-TTY stdout (and JSON off) | Plain-text logs on stdout |
 | `BACKEND_ENV=local` (any of the above) | Additionally writes a timestamped plain-text file under `LOG_DIR` |
+| Celery worker (node name ``-n main@…`` / ``architect@…``) | Adds `worker_role` to JSON; `[ROLE] -` prefix in plain/color |
 
 `DEV_MODE=true` enables Uvicorn hot reload and `--log-level debug` in `start.sh`, and forces `CELERY_WORKER_LOGLEVEL=DEBUG` in the worker. Set `DEV_MODE=true` in `apps/backend/.env` when running via `./rh dev`; leave it unset or `false` everywhere else (Docker Compose local, cloud deployments).
 
