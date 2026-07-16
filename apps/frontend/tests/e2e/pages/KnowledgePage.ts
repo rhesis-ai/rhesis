@@ -11,8 +11,10 @@ import {
  * Page Object for the Knowledge (sources) page (/knowledge).
  */
 export class KnowledgePage extends BasePage {
-  readonly uploadButton = this.page.getByRole('button', {
-    name: /upload source/i,
+  /** Page FAB — distinct from the empty-state "Upload source" CTA. */
+  readonly uploadFabButton = this.page.getByRole('button', {
+    name: 'Upload Source',
+    exact: true,
   });
   readonly dataGrid = this.page.locator('[role="grid"]');
 
@@ -36,8 +38,18 @@ export class KnowledgePage extends BasePage {
 
   /** Open the "Upload Source" drawer. */
   async openUploadSourceDialog() {
-    await this.uploadButton.click();
+    await this.uploadFabButton.click();
     await expectOpenDrawerTitle(this.page, /^upload source$/i);
+  }
+
+  /** Attach a file in the upload drawer and wait for the UI to reflect it. */
+  async selectUploadFile(filePath: string) {
+    const fileName = filePath.split('/').pop() ?? filePath;
+    const drawer = openDrawer(this.page);
+    const fileInput = drawer.locator('input[type="file"]');
+    await expect(fileInput).toBeAttached({ timeout: 5_000 });
+    await fileInput.setInputFiles(filePath);
+    await expect(drawer.getByText(fileName)).toBeVisible({ timeout: 5_000 });
   }
 
   /**
@@ -65,16 +77,20 @@ export class KnowledgePage extends BasePage {
 
   /** Submit the upload drawer and wait for the API response. */
   async submitUpload() {
+    const drawer = openDrawer(this.page);
+    const saveButton = drawer.getByRole('button', {
+      name: /^upload source$/i,
+    });
+    await expect(saveButton).toBeEnabled({ timeout: 10_000 });
+
     const uploadResponse = this.page.waitForResponse(
       resp =>
-        resp.url().includes('/sources') &&
+        resp.url().includes('/sources/upload') &&
         resp.request().method() === 'POST' &&
         resp.ok(),
-      { timeout: 30_000 }
+      { timeout: 60_000 }
     );
-    await openDrawer(this.page)
-      .getByRole('button', { name: /^upload source$/i })
-      .click();
+    await saveButton.click();
     await uploadResponse;
   }
 

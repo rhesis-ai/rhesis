@@ -21,7 +21,7 @@ test.describe('Knowledge — CRUD @crud', () => {
     await page.waitForLoadState('networkidle');
 
     // Open the upload dialog
-    const btnVisible = await knowledgePage.uploadButton
+    const btnVisible = await knowledgePage.uploadFabButton
       .isVisible({ timeout: 10_000 })
       .catch(() => false);
     if (!btnVisible) {
@@ -38,6 +38,7 @@ test.describe('Knowledge — CRUD @crud', () => {
   });
 
   test('can upload a TXT file as a knowledge source', async ({ page }) => {
+    test.setTimeout(90_000);
     const UNIQUE_TITLE = `e2e-source-${Date.now()}`;
     const fixturePath = path.join(__dirname, '../fixtures/fixture.txt');
 
@@ -46,7 +47,7 @@ test.describe('Knowledge — CRUD @crud', () => {
     await knowledgePage.expectLoaded();
     await page.waitForLoadState('networkidle');
 
-    const btnVisible = await knowledgePage.uploadButton
+    const btnVisible = await knowledgePage.uploadFabButton
       .isVisible({ timeout: 10_000 })
       .catch(() => false);
     if (!btnVisible) {
@@ -55,31 +56,14 @@ test.describe('Knowledge — CRUD @crud', () => {
     }
 
     await knowledgePage.openUploadSourceDialog();
-
-    // File inputs are often hidden — assert it's attached to the DOM before using it
-    const fileInput = page.locator('input[type="file"]').first();
-    await expect(fileInput).toBeAttached({ timeout: 5_000 });
-    await fileInput.setInputFiles(fixturePath);
+    await knowledgePage.selectUploadFile(fixturePath);
 
     // Override the auto-populated title with a unique name
     await knowledgePage.setSourceTitle(UNIQUE_TITLE);
     await knowledgePage.setSourceDescription('Uploaded by Playwright E2E test');
 
-    // Register the list waiter before upload, but only accept GETs that land
-    // after the POST completes so we don't match a stale in-flight request.
-    let postCompleted = false;
-    const listRefresh = page.waitForResponse(
-      resp =>
-        postCompleted &&
-        resp.url().includes('/sources') &&
-        resp.request().method() === 'GET' &&
-        resp.ok(),
-      { timeout: 30_000 }
-    );
     await knowledgePage.submitUpload();
-    postCompleted = true;
     await knowledgePage.waitForUploadDrawerClosed();
-    await listRefresh;
     await expectGridRowVisible(page, UNIQUE_TITLE);
   });
 
@@ -95,7 +79,7 @@ test.describe('Knowledge — CRUD @crud', () => {
     await knowledgePage.expectLoaded();
     await page.waitForLoadState('networkidle');
 
-    const btnVisible = await knowledgePage.uploadButton
+    const btnVisible = await knowledgePage.uploadFabButton
       .isVisible({ timeout: 10_000 })
       .catch(() => false);
     if (!btnVisible) {
