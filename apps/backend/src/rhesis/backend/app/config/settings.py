@@ -199,6 +199,27 @@ class AuthSettings(BaseSettings):
         return bool(self.github_client_id and self.github_client_secret)
 
 
+class SecuritySettings(BaseSettings):
+    model_config = SettingsConfigDict(env_ignore_empty=True)
+
+    db_encryption_key: str = Field(alias="DB_ENCRYPTION_KEY")
+
+    @field_validator("db_encryption_key")
+    @classmethod
+    def validate_encryption_key(cls, value: str) -> str:
+        try:
+            from cryptography.fernet import Fernet
+
+            Fernet(value.encode())
+        except Exception as exc:
+            raise ValueError(
+                "DB_ENCRYPTION_KEY is not a valid Fernet key. Generate one with: "
+                'python -c "from cryptography.fernet import Fernet; '
+                'print(Fernet.generate_key().decode())"'
+            ) from exc
+        return value
+
+
 class RedisSettings(BaseSettings):
     """Redis broker configuration."""
 
@@ -289,6 +310,11 @@ def get_logging_settings() -> LoggingSettings:
 @lru_cache
 def get_auth_settings() -> AuthSettings:
     return AuthSettings()  # pyright: ignore[reportCallIssue]
+
+
+@lru_cache
+def get_security_settings() -> SecuritySettings:
+    return SecuritySettings()  # pyright: ignore[reportCallIssue]
 
 
 @lru_cache
