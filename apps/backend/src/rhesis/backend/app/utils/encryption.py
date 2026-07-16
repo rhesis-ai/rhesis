@@ -19,6 +19,18 @@ logger = logging.getLogger(__name__)
 _pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
+class EncryptionKeyNotFoundError(Exception):
+    """Raised when a required encryption key environment variable is not set.
+
+    The core ``DB_ENCRYPTION_KEY`` path no longer raises this (a missing key is
+    rejected by ``SecuritySettings`` at settings load), but it is reused by the
+    EE SSO encryption helpers, whose keys are still resolved from the
+    environment on demand.
+    """
+
+    pass
+
+
 class EncryptionError(Exception):
     """Raised when encryption operation fails."""
 
