@@ -11,9 +11,10 @@ because:
    every stored ``client_secret`` at once. Today only ``v1`` exists, mapped
    to the ``sso_encryption_key`` setting (``SSO_ENCRYPTION_KEY``).
 
-The exception types (``EncryptionError``, ``EncryptionKeyNotFoundError``,
-``DecryptionError``) are reused from core: they are general-purpose and
-not coupled to SSO.
+The general-purpose exception types (``EncryptionError``, ``DecryptionError``)
+are reused from core; ``EncryptionKeyNotFoundError`` is defined here because the
+core ``DB_ENCRYPTION_KEY`` path no longer raises it (a missing key is rejected
+by ``SecuritySettings`` at load time) — only the SSO key is resolved on demand.
 """
 
 from __future__ import annotations
@@ -26,8 +27,13 @@ from rhesis.backend.app.config.settings import get_security_settings
 from rhesis.backend.app.utils.encryption import (
     DecryptionError,
     EncryptionError,
-    EncryptionKeyNotFoundError,
 )
+
+
+class EncryptionKeyNotFoundError(Exception):
+    """Raised when the SSO encryption key is not configured."""
+
+    pass
 
 # Maps a ciphertext version prefix to the ``SecuritySettings`` attribute that
 # holds the key for that version. Future rotation adds ``"v2": ...`` here.
@@ -112,6 +118,7 @@ def is_sso_encryption_available() -> bool:
 __all__ = [
     "_get_sso_fernet",
     "_SSO_KEY_VERSIONS",
+    "EncryptionKeyNotFoundError",
     "get_sso_encryption_key",
     "is_sso_encryption_available",
     "sso_decrypt",
