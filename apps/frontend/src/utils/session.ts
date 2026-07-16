@@ -41,7 +41,25 @@ export async function clearAllSessionData(sessionToken?: string) {
     }
   }
 
-  // Step 2: Clear ALL frontend cookies
+  clearLocalSessionData();
+}
+
+/**
+ * Clears cookies, localStorage, and sessionStorage without contacting the
+ * backend. Use this when there's no session to reliably revoke server-side —
+ * e.g. the BFF proxy itself returned 401 because it couldn't resolve/refresh
+ * a token from the cookie. Going through `clearAllSessionData()` in that case
+ * would route the logout call itself through the same proxy, which mints a
+ * *fresh* refresh token via `getFreshAccessToken()` just to immediately
+ * revoke it — wasteful, and if repeated (e.g. by a transient/misrouted 401)
+ * burns through the refresh-token family for no reason.
+ *
+ * NOTE: this cannot remove the `next-auth.session-token` cookie — it is
+ * httpOnly, invisible to `document.cookie`. Callers must ALSO run NextAuth's
+ * `signOut()` so the auth server clears it via Set-Cookie.
+ */
+export function clearLocalSessionData() {
+  // Clear ALL frontend cookies
   // Get all cookies and extract their names
   const allCookies = document.cookie.split(';');
   const cookieNames = allCookies
@@ -118,10 +136,10 @@ export async function clearAllSessionData(sessionToken?: string) {
     });
   }, 100);
 
-  // Step 3: Clear ALL local storage items
+  // Clear ALL local storage items
   localStorage.clear();
 
-  // Step 4: Clear ALL session storage items
+  // Clear ALL session storage items
   sessionStorage.clear();
 
   // Note: Redirect will be handled by the calling function (NextAuth signOut)

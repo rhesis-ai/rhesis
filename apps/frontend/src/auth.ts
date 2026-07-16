@@ -1,6 +1,11 @@
 import NextAuth, { type NextAuthConfig, type User } from 'next-auth';
+import type { NextResponse } from 'next/server';
 import CredentialsProvider from 'next-auth/providers/credentials';
-import { decode as defaultDecode, getToken } from 'next-auth/jwt';
+import {
+  decode as defaultDecode,
+  encode as defaultEncode,
+  getToken,
+} from 'next-auth/jwt';
 import { JWTCallbackParams, SessionCallbackParams } from './types/next-auth.d';
 import {
   SESSION_DURATION_MS,
@@ -34,8 +39,23 @@ const BACKEND_URL = getServerBackendUrl();
 
 // Keep in sync with `authConfig.cookies.sessionToken.name` below — also
 // doubles as the JWE decryption `salt` (Auth.js derives it from the cookie
-// name when no explicit `salt` is passed to `getToken()`).
+// name when no explicit `salt` is passed to `getToken()`/`encode()`).
 const SESSION_COOKIE_NAME = 'next-auth.session-token';
+
+// Shared with `authConfig.cookies.sessionToken.options` below — also used by
+// `applyRefreshedSessionCookie()` to re-set the cookie outside NextAuth's own
+// request cycle (see `getFreshAccessToken()`), so a manually-issued cookie is
+// never out of sync with the one NextAuth itself would have written.
+const SESSION_COOKIE_OPTIONS = {
+  httpOnly: true,
+  sameSite: 'lax' as const,
+  path: '/',
+  secure: shouldUseSecureCookies(),
+  maxAge: SESSION_DURATION_SECONDS,
+  // Use undefined domain to isolate sessions per subdomain (prevents
+  // cross-environment conflicts).
+  domain: undefined,
+};
 
 interface RefreshResult {
   access_token: string;
@@ -53,9 +73,41 @@ interface RefreshResult {
 // racing a refresh at the same instant.
 const activeRefreshes = new Map<string, Promise<RefreshResult>>();
 
+// `getFreshAccessToken()` deliberately never rewrites the session cookie (see
+// its own docstring), and only a full page navigation (which runs the `jwt`
+// callback) persists a refreshed cookie. So once a client-side-only session
+// runs past the cookie's frozen `access_token_expires`, EVERY subsequent
+// request — not just a narrow window near one token's expiry, but for the
+// rest of the session until the next hard navigation — reads that same
+// stale cookie and independently decides it needs a refresh.
+// `activeRefreshes` only coalesces requests that overlap while in flight; it
+// does nothing for requests arriving a few hundred ms apart, each after the
+// previous refresh already completed — a real thundering herd that map fails
+// to prevent. This short-lived cache closes that gap: a refresh result stays
+// reusable for REFRESH_RESULT_TTL_MS after it resolves, so a burst of
+// near-sequential requests (e.g. a page firing several API calls at once)
+// shares one backend round trip instead of one each. It does NOT fix the
+// underlying cause above — that needs the cookie itself kept current.
+//
+// Safe to key by the input refresh token: this function is only ever called
+// with the browser's stable, non-rotating UI refresh token (see
+// `verify_and_refresh_token`'s client_id-IS-NULL path) — rotating
+// client-bound tokens never flow through NextAuth's server code, so caching
+// by the pre-call token can't collide with reuse-detection semantics.
+const REFRESH_RESULT_TTL_MS = 5_000;
+const recentRefreshes = new Map<
+  string,
+  { result: RefreshResult; cachedAt: number }
+>();
+
 async function refreshAccessToken(
   refreshToken: string
 ): Promise<RefreshResult> {
+  const cached = recentRefreshes.get(refreshToken);
+  if (cached && Date.now() - cached.cachedAt < REFRESH_RESULT_TTL_MS) {
+    return cached.result;
+  }
+
   const inFlight = activeRefreshes.get(refreshToken);
   if (inFlight) return inFlight;
 
@@ -75,7 +127,19 @@ async function refreshAccessToken(
 
   activeRefreshes.set(refreshToken, promise);
   try {
-    return await promise;
+    const result = await promise;
+    recentRefreshes.set(refreshToken, { result, cachedAt: Date.now() });
+    // Self-evicting: guarantees the entry is cleaned up even if this exact
+    // token is never looked up again, so the map can't grow unbounded across
+    // a long-running process. The reference check guards against evicting a
+    // newer entry in the unlikely event this token gets refreshed again
+    // before the timeout fires.
+    setTimeout(() => {
+      if (recentRefreshes.get(refreshToken)?.result === result) {
+        recentRefreshes.delete(refreshToken);
+      }
+    }, REFRESH_RESULT_TTL_MS);
+    return result;
   } finally {
     activeRefreshes.delete(refreshToken);
   }
@@ -104,7 +168,7 @@ interface SessionUserClaims {
 }
 
 /** Decode the `user` claim from a backend-minted session JWT. */
-function decodeJwtUser(jwt: string): SessionUserClaims | null {
+export function decodeJwtUser(jwt: string): SessionUserClaims | null {
   try {
     const [, payloadB64] = jwt.split('.');
     const payload = JSON.parse(
@@ -156,24 +220,42 @@ async function resolveFreshToken(
   }
 }
 
+export interface FreshAccessToken {
+  accessToken: string | null;
+  /**
+   * A newly-encoded session cookie value, present only when this call
+   * actually performed a refresh. `null` when the existing token was
+   * already fresh, or when refreshing failed. See `applyRefreshedSessionCookie`.
+   */
+  refreshedCookie: string | null;
+}
+
 /**
  * Server-only helper that returns a fresh backend access token without ever
  * exposing it to the browser. Used by the `/api/backend/*` proxy (to inject
  * `Authorization` on behalf of the client) and by `createServerApiFactory`
  * (Server Components / actions calling the backend directly).
  *
- * Deliberately does NOT rewrite the session cookie: UI logins mint "stable"
+ * Reads the token via a raw `getToken()` call rather than through NextAuth's
+ * own request cycle, so — unlike the `jwt` callback — nothing here
+ * automatically persists a refreshed cookie back to the browser. Historically
+ * this meant every request after a client-side-only session ran past its
+ * cookie's frozen `access_token_expires` would independently decide it
+ * needed a refresh, forever, until the next full page navigation (the only
+ * other path that runs the `jwt` callback and rewrites the cookie). This
+ * function now re-encodes and returns an updated cookie value whenever it
+ * actually performs a refresh, so a caller that CAN set cookies (the BFF
+ * proxy route) can persist it — closing that gap. Callers that can't set
+ * cookies (Server Component renders, via `createServerApiFactory`) simply
+ * ignore `refreshedCookie`; the next proxy call (or navigation) will catch
+ * it up. This is safe specifically because UI logins mint "stable"
  * (non-rotating) refresh tokens (see `verify_and_refresh_token` on the
- * backend), so calling `/auth/refresh` again on the next request with the
- * same refresh token is safe — there's no reuse-detection penalty. Normal
- * page navigation (via `auth()` in `proxy.ts`/layout) still persists a
- * refreshed cookie through the ordinary `jwt` callback path; this helper
- * just covers API calls between navigations, bounded by the same
- * `activeRefreshes` coalescing map.
+ * backend) — presenting the same refresh token again next time, before this
+ * cookie update is ever observed, is not treated as reuse.
  */
 export async function getFreshAccessToken(req: {
   headers: Headers | Record<string, string>;
-}): Promise<string | null> {
+}): Promise<FreshAccessToken> {
   const token = await getToken({
     req,
     secret: process.env.NEXTAUTH_SECRET,
@@ -181,17 +263,77 @@ export async function getFreshAccessToken(req: {
   });
 
   const sessionToken = token?.session_token as string | undefined;
-  if (!sessionToken) {
-    return null;
+  if (!token || !sessionToken) {
+    return { accessToken: null, refreshedCookie: null };
   }
 
   const refreshed = await resolveFreshToken({
     session_token: sessionToken,
-    refresh_token: token?.refresh_token as string | undefined,
-    access_token_expires: token?.access_token_expires as number | undefined,
+    refresh_token: token.refresh_token as string | undefined,
+    access_token_expires: token.access_token_expires as number | undefined,
   });
 
-  return refreshed.error ? null : (refreshed.session_token ?? null);
+  if (refreshed.error) {
+    return { accessToken: null, refreshedCookie: null };
+  }
+
+  let refreshedCookie: string | null = null;
+  if (refreshed.session_token !== sessionToken) {
+    // An actual refresh happened (as opposed to the token already being
+    // fresh) — re-encode the full original claims with only the
+    // token/expiry fields swapped, so nothing else carried on the token
+    // (`user`, `sub`, etc.) is lost.
+    refreshedCookie = await defaultEncode({
+      token: {
+        ...token,
+        session_token: refreshed.session_token,
+        refresh_token: refreshed.refresh_token,
+        access_token_expires: refreshed.access_token_expires,
+      },
+      secret: process.env.NEXTAUTH_SECRET as string,
+      salt: SESSION_COOKIE_NAME,
+      maxAge: SESSION_DURATION_SECONDS,
+    });
+  }
+
+  return { accessToken: refreshed.session_token ?? null, refreshedCookie };
+}
+
+// Auth.js starts chunking session cookies (`name.0`, `name.1`, …) at
+// ~3933 bytes. `applyRefreshedSessionCookie` writes a single unchunked
+// cookie; if the encoded JWE ever crossed that threshold while NextAuth had
+// previously written chunks, the unchunked value and the stale chunks would
+// coexist and Auth.js's SessionStore would concatenate them into garbage —
+// silently logging the user out. Today's payload is ~2KB, so this is a
+// guard, not an expected path.
+const MAX_UNCHUNKED_COOKIE_BYTES = 3900;
+
+/**
+ * Sets the session cookie on `response` when `getFreshAccessToken()`
+ * performed a refresh. No-op otherwise. Call this on every response from a
+ * route handler that used `getFreshAccessToken()`, right before returning it.
+ */
+export function applyRefreshedSessionCookie(
+  response: NextResponse,
+  refreshedCookie: string | null
+): void {
+  if (!refreshedCookie) return;
+  if (refreshedCookie.length > MAX_UNCHUNKED_COOKIE_BYTES) {
+    // Skipping is safe: the refresh itself already succeeded for THIS
+    // request; the cookie just stays stale, so the next request refreshes
+    // again (the pre-persistence behavior, bounded by the refresh cache).
+    console.warn(
+      `[auth] refreshed session cookie is ${refreshedCookie.length} bytes ` +
+        `(> ${MAX_UNCHUNKED_COOKIE_BYTES}); skipping Set-Cookie to avoid ` +
+        'clashing with Auth.js cookie chunking'
+    );
+    return;
+  }
+  response.cookies.set(
+    SESSION_COOKIE_NAME,
+    refreshedCookie,
+    SESSION_COOKIE_OPTIONS
+  );
 }
 
 export const authConfig: NextAuthConfig = {
@@ -391,7 +533,19 @@ export const authConfig: NextAuthConfig = {
         return `${baseUrl}/`;
       }
 
-      return url.startsWith(baseUrl) ? url : baseUrl;
+      // Same-origin check, NOT a string-prefix check: `startsWith(baseUrl)`
+      // would accept `https://app.example.com.evil.com` for a baseUrl of
+      // `https://app.example.com` — a classic open redirect. Resolving
+      // relative to baseUrl also keeps plain-path callbackUrls ("/foo")
+      // working.
+      try {
+        const target = new URL(url, baseUrl);
+        return target.origin === new URL(baseUrl).origin
+          ? target.toString()
+          : baseUrl;
+      } catch {
+        return baseUrl;
+      }
     },
   },
   events: {
@@ -404,16 +558,8 @@ export const authConfig: NextAuthConfig = {
   basePath: '/api/auth',
   cookies: {
     sessionToken: {
-      name: `next-auth.session-token`,
-      options: {
-        httpOnly: true,
-        sameSite: 'lax',
-        path: '/',
-        secure: shouldUseSecureCookies(),
-        maxAge: SESSION_DURATION_SECONDS,
-        // Use undefined domain to isolate sessions per subdomain (prevents cross-environment conflicts)
-        domain: undefined,
-      },
+      name: SESSION_COOKIE_NAME,
+      options: SESSION_COOKIE_OPTIONS,
     },
   },
 };

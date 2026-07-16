@@ -2,7 +2,7 @@ import { API_CONFIG, API_ENDPOINTS } from './config';
 import { getBaseUrl } from '../url-resolver';
 import { PaginationParams, PaginatedResponse } from './interfaces/pagination';
 import { joinUrl } from '@/utils/url';
-import { clearAllSessionData } from '../session';
+import { clearLocalSessionData } from '../session';
 import { readActiveProjectId } from '../active-project';
 
 /** Structured FastAPI detail payload (e.g. bulk associate failures) */
@@ -15,10 +15,44 @@ export interface StructuredApiErrorDetail {
 export interface ApiErrorData {
   detail?: string | ValidationErrorDetail[] | StructuredApiErrorDetail;
   message?: string;
+  /** Present only on the `/api/backend` proxy's own fail-closed response
+   * (`{ error: 'Unauthorized' }`), never on a real backend error body — used
+   * to tell "the proxy couldn't resolve/refresh a token" apart from "the
+   * backend rejected a token it received". See `isProxyUnauthorized`. */
+  error?: string;
   table_name?: string;
   item_id?: string;
   item_name?: string;
   [key: string]: unknown;
+}
+
+/**
+ * True when a 401 was issued by the BFF proxy itself rather than the
+ * backend — i.e. `getFreshAccessToken()` returned null (no session, or
+ * refresh failed): a "we don't have a valid session to even attempt the
+ * request with" outcome, not "this token was rejected".
+ *
+ * The authoritative signal is the `x-auth-origin: bff` response header set
+ * by `/api/backend/[...path]/route.ts`. The body shape
+ * (`{ error: 'Unauthorized' }` vs FastAPI's `{ detail: ... }`) is kept as a
+ * fallback for the retry/catch path, where only the parsed error body is
+ * still available.
+ *
+ * The distinction matters: treating both alike as "session invalid, revoke
+ * it" sends the proxy-originated case through `clearAllSessionData()`, whose
+ * logout call is itself routed through `/api/backend` — which mints a FRESH
+ * refresh token via `getFreshAccessToken()` just to immediately revoke it.
+ * A transient proxy failure (or, previously, a routing bug that produced a
+ * spurious 401) then permanently kills the session it was merely hiccuping
+ * on, and repeated occurrences burn through the refresh-token family.
+ */
+function isProxyUnauthorized(errorData: ApiErrorData | undefined): boolean {
+  return errorData?.error === 'Unauthorized';
+}
+
+/** Reads the authoritative proxy-401 marker from a response. */
+function hasProxyAuthHeader(response: Response): boolean {
+  return response.headers.get('x-auth-origin') === 'bff';
 }
 
 /** Validation error detail for array-form detail (e.g. Pydantic validation) */
@@ -189,7 +223,11 @@ export class BaseApiClient {
     return false;
   }
 
-  private async handleUnauthorizedError(status: number = 401): Promise<never> {
+  private async handleUnauthorizedError(
+    status: number = 401,
+    errorData?: ApiErrorData,
+    proxyIssued: boolean = false
+  ): Promise<never> {
     // Create an error with status property to prevent retries
     const createUnauthorizedError = (message: string) => {
       const error = new Error(message) as Error & { status: number };
@@ -225,11 +263,34 @@ export class BaseApiClient {
 
       // Add a delay to ensure any pending operations complete
       await this.delay(500);
-      // Pass the token we were constructed with so backend logout can
-      // revoke it (the JWE cookie can't be read client-side).
-      await clearAllSessionData(this.sessionToken); // This now redirects to home page
 
-      // This line should never be reached as clearAllSessionData redirects
+      // Either way, NextAuth's signOut() must run: the session cookie is
+      // httpOnly, so `document.cookie`-based clearing cannot remove it —
+      // only the NextAuth server can, via Set-Cookie on /api/auth/signout.
+      // (Dynamic imports keep these client-only modules out of the server
+      // bundle; this file is also imported by server-side factories.)
+      if (proxyIssued || isProxyUnauthorized(errorData)) {
+        // The proxy couldn't resolve/refresh a token — there's no reliably
+        // valid session to revoke server-side, and routing a backend logout
+        // call through the proxy would force an unnecessary (and
+        // destructive) refresh-then-revoke cycle. Clear local state and
+        // sign out WITHOUT the backend revoke.
+        clearLocalSessionData();
+        const { signOut } = await import('next-auth/react');
+        await signOut({
+          redirect: true,
+          callbackUrl: '/?session_expired=true',
+        });
+      } else {
+        // The backend itself rejected the token: full sign-out, passing the
+        // token we were constructed with so backend logout can revoke it
+        // (the JWE cookie can't be read client-side). handleClientSignOut
+        // runs clearAllSessionData + NextAuth signOut and redirects.
+        const { handleClientSignOut } = await import('@/utils/client-auth');
+        await handleClientSignOut(this.sessionToken);
+      }
+
+      // Normally unreached: signOut({ redirect: true }) navigates away.
       throw createUnauthorizedError('Unauthorized - session cleared');
     } catch (_error) {
       // Throw clean error instead of re-throwing complex error
@@ -390,7 +451,11 @@ export class BaseApiClient {
           // a view-only role hitting an RBAC-gated endpoint) and must not
           // tear down the user's session.
           if (response.status === 401) {
-            return await this.handleUnauthorizedError(response.status);
+            return await this.handleUnauthorizedError(
+              response.status,
+              errorData,
+              hasProxyAuthHeader(response)
+            );
           }
 
           throw error;
@@ -408,13 +473,19 @@ export class BaseApiClient {
         return result;
       } catch (error: unknown) {
         lastError = error instanceof Error ? error : new Error(String(error));
-        const errWithStatus = error as Error & { status?: number };
+        const errWithStatus = error as Error & {
+          status?: number;
+          data?: ApiErrorData;
+        };
 
         // Handle authentication errors immediately without retrying.
         // 403 (Forbidden) is a permission denial, not a session failure —
         // see the comment at the 401 check above.
         if (errWithStatus.status === 401) {
-          return await this.handleUnauthorizedError(errWithStatus.status);
+          return await this.handleUnauthorizedError(
+            errWithStatus.status,
+            errWithStatus.data
+          );
         }
 
         // Handle deleted entities (410 Gone) immediately without retrying
@@ -544,7 +615,11 @@ export class BaseApiClient {
       // 401 means the session itself is invalid; 403 is a permission
       // denial and must not force a logout — see the comment above.
       if (response.status === 401) {
-        return await this.handleUnauthorizedError(response.status);
+        return await this.handleUnauthorizedError(
+          response.status,
+          errorData,
+          hasProxyAuthHeader(response)
+        );
       }
 
       throw error;

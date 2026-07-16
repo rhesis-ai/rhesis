@@ -19,9 +19,14 @@ import { getFreshAccessToken } from '@/auth';
  *
  * Client components must NOT use this — they construct `ApiClientFactory`
  * directly (no token) and calls route through the `/api/backend` proxy.
+ *
+ * Ignores `refreshedCookie`: Server Component renders can't set cookies (only
+ * a Route Handler or Server Action can), so a refresh performed here can't be
+ * persisted — the next `/api/backend` proxy call (or navigation) catches the
+ * cookie up. See `getFreshAccessToken()`'s docstring.
  */
 export async function createServerApiFactory(): Promise<ApiClientFactory> {
-  const [accessToken, projectId] = await Promise.all([
+  const [{ accessToken }, projectId] = await Promise.all([
     getFreshAccessToken({ headers: await headers() }),
     getServerActiveProjectId(),
   ]);

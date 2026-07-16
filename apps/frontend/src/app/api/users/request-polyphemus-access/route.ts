@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getFreshAccessToken } from '@/auth';
+import { applyRefreshedSessionCookie, getFreshAccessToken } from '@/auth';
 import { getServerBackendUrl } from '@/utils/url-resolver';
 
 export async function POST(req: NextRequest) {
   try {
-    const accessToken = await getFreshAccessToken({ headers: req.headers });
+    const { accessToken, refreshedCookie } = await getFreshAccessToken({
+      headers: req.headers,
+    });
 
     if (!accessToken) {
       return NextResponse.json({ detail: 'Unauthorized' }, { status: 401 });
@@ -26,10 +28,16 @@ export async function POST(req: NextRequest) {
     const data = await response.json();
 
     if (!response.ok) {
-      return NextResponse.json(data, { status: response.status });
+      const errorResponse = NextResponse.json(data, {
+        status: response.status,
+      });
+      applyRefreshedSessionCookie(errorResponse, refreshedCookie);
+      return errorResponse;
     }
 
-    return NextResponse.json(data);
+    const successResponse = NextResponse.json(data);
+    applyRefreshedSessionCookie(successResponse, refreshedCookie);
+    return successResponse;
   } catch (error) {
     console.error('Error in request-polyphemus-access route:', error);
     return NextResponse.json(
