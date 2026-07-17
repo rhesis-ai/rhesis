@@ -3,6 +3,7 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   Box,
+  Button,
   Typography,
   Popover,
   List,
@@ -10,7 +11,6 @@ import {
   ListItemText,
   Link,
 } from '@mui/material';
-import { LoadingButton } from '@mui/lab';
 import { PlayArrowIcon } from '@/components/icons';
 import RequestBodyEditor from './RequestBodyEditor';
 import FormSectionDivider from '@/components/common/FormSectionDivider';
@@ -304,7 +304,7 @@ export default function MappingEditor({
             headline="Request body"
             descriptiveText="Define the JSON body Rhesis sends with each test. Place {{ input }} where your API expects the prompt."
           />
-          <LoadingButton
+          <Button
             variant="contained"
             onClick={handleQuickTest}
             loading={isTestingEndpoint}
@@ -313,7 +313,7 @@ export default function MappingEditor({
             sx={{ ...sectionContainedButtonSx, flexShrink: 0, mt: 0.5 }}
           >
             Check connection
-          </LoadingButton>
+          </Button>
         </Box>
         <RequestBodyEditor
           value={requestTemplate}
