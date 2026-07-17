@@ -12,6 +12,45 @@ from typing import Any, Dict, List, Union
 logger = logging.getLogger(__name__)
 
 
+def _as_response_dict(result: Union[Dict, Any]) -> Dict[str, Any]:
+    """Normalize invoker results (dict or ErrorResponse) to a plain dict."""
+    if not result:
+        return {}
+    if isinstance(result, dict):
+        return result
+    if hasattr(result, "to_dict"):
+        return result.to_dict()
+    if hasattr(result, "model_dump"):
+        return result.model_dump(exclude_none=True)
+    if hasattr(result, "dict"):
+        return result.dict(exclude_none=True)
+    try:
+        return dict(result)
+    except (TypeError, ValueError):
+        return {}
+
+
+def is_http_error_response(result: Union[Dict, Any]) -> bool:
+    """Return True when the endpoint response is an HTTP error (4xx/5xx).
+
+    Detects structured invoker failures (``error_type == "http_error"`` or
+    ``error`` with ``status_code >= 400``). Does not match on free-text
+    messages.
+    """
+    data = _as_response_dict(result)
+    if not data:
+        return False
+
+    if data.get("error_type") == "http_error":
+        return True
+
+    status_code = data.get("status_code")
+    if data.get("error") and isinstance(status_code, int) and status_code >= 400:
+        return True
+
+    return False
+
+
 def extract_response_with_fallback(result: Union[Dict, Any]) -> str:
     """
     Extract response from result using the fallback hierarchy:

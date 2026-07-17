@@ -19,6 +19,7 @@ from rhesis.backend.tasks.execution.executors.output_providers import (
     SingleTurnOutput,
 )
 from rhesis.backend.tasks.execution.response_extractor import (
+    is_http_error_response,
     normalize_context_to_list,
 )
 
@@ -223,6 +224,17 @@ class SingleTurnRunner(BaseRunner):
 
         execution_time = output.execution_time
         processed_result = output.response
+
+        # HTTP errors are not model answers — skip metrics and leave status Error.
+        if is_http_error_response(processed_result):
+            status_code = (
+                processed_result.get("status_code") if isinstance(processed_result, dict) else None
+            )
+            logger.info(
+                f"[SingleTurnRunner] HTTP error for test {test_id} "
+                f"(status_code={status_code}); skipping metrics"
+            )
+            return execution_time, processed_result, {}
 
         # --- Entity 2: Evaluate metrics ---
         metrics_results = {}

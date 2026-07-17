@@ -16,7 +16,10 @@ from rhesis.backend.app import crud, schemas
 from rhesis.backend.app.constants import TestResultStatus
 from rhesis.backend.app.models.test import Test
 from rhesis.backend.app.utils.crud_utils import get_or_create_status
-from rhesis.backend.tasks.execution.response_extractor import extract_response_with_fallback
+from rhesis.backend.tasks.execution.response_extractor import (
+    extract_response_with_fallback,
+    is_http_error_response,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -283,8 +286,11 @@ def create_test_result_record(
     Returns:
         UUID of the created test result, or None if creation failed
     """
-    # Determine status based on metrics evaluation
-    if not metrics_results or len(metrics_results) == 0:
+    # HTTP errors must never become Pass/Fail from metric scores.
+    if is_http_error_response(processed_result):
+        status_value = TestResultStatus.ERROR.value
+        metrics_results = {}
+    elif not metrics_results or len(metrics_results) == 0:
         # No metrics to evaluate - mark as ERROR
         status_value = TestResultStatus.ERROR.value
     else:
