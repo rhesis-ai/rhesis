@@ -340,6 +340,13 @@ class BackendEndpointTarget(Target):
                 error=f"Invalid request: {str(e)}",
             )
         except Exception as e:
+            from rhesis.backend.app.services.invokers.common.errors import (
+                EndpointInvocationError,
+            )
+
+            if isinstance(e, EndpointInvocationError):
+                return self._target_response_from_invocation_error(e)
+
             logger.error(
                 f"BackendEndpointTarget unexpected error for {self.endpoint_id}: {e}",
                 exc_info=True,
@@ -349,6 +356,23 @@ class BackendEndpointTarget(Target):
                 content="",
                 error=f"Unexpected error: {str(e)}",
             )
+
+    @staticmethod
+    def _target_response_from_invocation_error(error: Any) -> TargetResponse:
+        """Build a failed TargetResponse that keeps structured HTTP error details."""
+        error_details = {
+            "error": True,
+            "error_type": getattr(error, "error_type", None) or "endpoint_error",
+            "status_code": getattr(error, "status_code", None),
+            "message": str(error),
+            "output": str(error),
+        }
+        return TargetResponse(
+            success=False,
+            content="",
+            error=str(error),
+            metadata={"error_details": error_details},
+        )
 
     async def a_send_message(
         self,
@@ -446,6 +470,13 @@ class BackendEndpointTarget(Target):
                 error=f"Invalid request: {str(e)}",
             )
         except Exception as e:
+            from rhesis.backend.app.services.invokers.common.errors import (
+                EndpointInvocationError,
+            )
+
+            if isinstance(e, EndpointInvocationError):
+                return self._target_response_from_invocation_error(e)
+
             logger.error(
                 f"BackendEndpointTarget async unexpected error: {e}",
                 exc_info=True,

@@ -51,6 +51,59 @@ def is_http_error_response(result: Union[Dict, Any]) -> bool:
     return False
 
 
+def _error_details_from_tool_execution(target_interaction: Dict[str, Any]) -> Dict[str, Any]:
+    """Extract invoker ``error_details`` from a Penelope target_interaction dict."""
+    tool_message = target_interaction.get("tool_message")
+    if not isinstance(tool_message, dict):
+        return {}
+
+    content = tool_message.get("content")
+    if isinstance(content, str):
+        try:
+            parsed = json.loads(content)
+        except json.JSONDecodeError:
+            return {}
+    elif isinstance(content, dict):
+        parsed = content
+    else:
+        return {}
+
+    if not isinstance(parsed, dict):
+        return {}
+
+    metadata = parsed.get("metadata")
+    if not isinstance(metadata, dict):
+        return {}
+
+    error_details = metadata.get("error_details")
+    return error_details if isinstance(error_details, dict) else {}
+
+
+def has_http_error_in_result(result: Union[Dict, Any]) -> bool:
+    """Return True for single-turn HTTP errors or multi-turn first-message HTTP errors.
+
+    Multi-turn: only the first history turn's target interaction is checked. Later
+    turns with HTTP failures are left to normal Pass/Fail scoring.
+    """
+    if is_http_error_response(result):
+        return True
+
+    data = _as_response_dict(result)
+    history = data.get("history")
+    if not isinstance(history, list) or not history:
+        return False
+
+    first_turn = history[0]
+    if not isinstance(first_turn, dict):
+        return False
+
+    target_interaction = first_turn.get("target_interaction")
+    if not isinstance(target_interaction, dict):
+        return False
+
+    return is_http_error_response(_error_details_from_tool_execution(target_interaction))
+
+
 def extract_response_with_fallback(result: Union[Dict, Any]) -> str:
     """
     Extract response from result using the fallback hierarchy:

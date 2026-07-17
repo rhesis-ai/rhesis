@@ -19,6 +19,7 @@ from rhesis.backend.tasks.execution.executors.output_providers import (
     SingleTurnOutput,
 )
 from rhesis.backend.tasks.execution.response_extractor import (
+    has_http_error_in_result,
     is_http_error_response,
     normalize_context_to_list,
 )
@@ -383,6 +384,17 @@ class MultiTurnRunner(BaseRunner):
 
         execution_time = output.execution_time
         penelope_trace = output.response
+
+        # First target message HTTP error → no metrics, status Error.
+        if has_http_error_in_result(penelope_trace):
+            status_code = None
+            if isinstance(penelope_trace, dict):
+                status_code = penelope_trace.get("status_code")
+            logger.info(
+                f"[MultiTurnRunner] HTTP error on first target message "
+                f"(status_code={status_code}); skipping metrics"
+            )
+            return execution_time, penelope_trace, {}
 
         # --- Entity 2: Evaluate metrics ---
         ep_project_id, ep_environment = _get_endpoint_routing(db, endpoint_id, organization_id)

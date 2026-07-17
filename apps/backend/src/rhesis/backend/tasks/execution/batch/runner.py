@@ -318,8 +318,15 @@ async def _execute_single_test(
                 }
 
             # --- Async metric evaluation ---
-            metrics_results = dict(penelope_metrics)
-            if evaluator and ctx.metric_configs:
+            from rhesis.backend.tasks.execution.response_extractor import (
+                has_http_error_in_result,
+            )
+
+            if has_http_error_in_result(output):
+                # Discard Penelope goal metrics when the first target call was HTTP error.
+                metrics_results = {}
+                logger.info(f"[BATCH] HTTP error for test {test_id}; skipping metrics")
+            elif evaluator and ctx.metric_configs:
                 metrics_results = await evaluate_metrics(
                     ctx,
                     evaluator,
@@ -331,6 +338,8 @@ async def _execute_single_test(
                     is_multi_turn,
                     penelope_metrics,
                 )
+            else:
+                metrics_results = dict(penelope_metrics)
 
             execution_time = (time.monotonic() - start_time) * 1000
 
