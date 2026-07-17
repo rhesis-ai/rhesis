@@ -259,7 +259,7 @@ ENV PYTHONHASHSEED=0 \
     CELERY_TASK_EAGER_PROPAGATES=False \
     CELERY_WORKER_CONCURRENCY=2 \
     CELERY_WORKER_PREFETCH_MULTIPLIER=1 \
-    CELERY_WORKER_LOGLEVEL=WARNING \
+    LOG_LEVEL=INFO \
     CELERY_WORKER_OPTS="--without-gossip --without-mingle --without-heartbeat"
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \

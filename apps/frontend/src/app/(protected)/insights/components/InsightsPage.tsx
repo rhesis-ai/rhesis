@@ -14,6 +14,7 @@ import BehaviorInsightsView from './BehaviorInsightsView';
 import InsightsFailedTestsFab from './InsightsFailedTestsFab';
 import {
   DEFAULT_INSIGHTS_FILTERS,
+  DEFAULT_INSIGHTS_TIME_RANGE,
   normalizeInsightsFilters,
   InsightsFilters,
 } from '../types';
@@ -116,7 +117,9 @@ export default function InsightsPage() {
     setExpandedRows(new Set(expandableRowIndices));
   }, [
     filters.endpointId,
+    filters.runFilterMode,
     filters.timeRange,
+    filters.testRunIds,
     filters.behaviorIds,
     expandableRowIndices,
   ]);
@@ -160,7 +163,13 @@ export default function InsightsPage() {
     setFilters(prev =>
       prev.endpointId === resolvedId
         ? prev
-        : { ...prev, endpointId: resolvedId }
+        : {
+            ...prev,
+            endpointId: resolvedId,
+            testRunIds: [],
+            runFilterMode: 'timeRange',
+            timeRange: DEFAULT_INSIGHTS_TIME_RANGE,
+          }
     );
   }, [
     endpointsLoading,
@@ -210,7 +219,7 @@ export default function InsightsPage() {
   return (
     <PageLayout
       title="Insights"
-      description="View pass rates by behavior, metric, and topic for your selected endpoint. Filter by time range or switch endpoints to compare performance."
+      description="View pass rates by behavior, metric, and topic. Filter by time range or pick specific test runs in the filter drawer."
       breadcrumbs={[]}
       actions={
         <InsightsFailedTestsFab

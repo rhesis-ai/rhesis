@@ -220,11 +220,7 @@ export function TasksSection({
     <Can capability={Capability.Task.CREATE}>
       <Button
         variant="outlined"
-        startIcon={
-          <AddIcon
-            sx={{ color: theme => `${theme.palette.primary.main} !important` }}
-          />
-        }
+        startIcon={<AddIcon />}
         onClick={handleCreateTask}
         size="small"
       >
@@ -263,12 +259,7 @@ export function TasksSection({
               textAlign: 'center',
             }}
           >
-            <TasksIcon
-              sx={{
-                fontSize: 32,
-                color: theme => `${theme.palette.primary.main} !important`,
-              }}
-            />
+            <TasksIcon color="primary" sx={{ fontSize: 32 }} />
             <Typography
               variant="h6"
               sx={{ fontWeight: 600, color: 'primary.main' }}
@@ -282,9 +273,8 @@ export function TasksSection({
             <Can capability={Capability.Task.CREATE}>
               <Button
                 variant="contained"
-                startIcon={<AddIcon sx={{ color: 'white !important' }} />}
+                startIcon={<AddIcon />}
                 onClick={handleCreateTask}
-                sx={{ color: 'white' }}
               >
                 Create task
               </Button>

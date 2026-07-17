@@ -467,9 +467,7 @@ export default function TestResultDrawer({
             {(test?.test?.id ?? test?.test_id) && (
               <Button
                 variant="outlined"
-                endIcon={
-                  <OpenInNewIcon sx={{ color: 'primary.main !important' }} />
-                }
+                endIcon={<OpenInNewIcon />}
                 component="a"
                 href={`/tests/${test.test?.id ?? test.test_id}`}
                 target="_blank"

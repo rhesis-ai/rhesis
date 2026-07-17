@@ -53,6 +53,7 @@ def _user_row(email, org_id, **extra):
         id=uuid4(),
         email=email,
         organization_id=org_id,
+        joined_at=None,
         is_deleted=False,
         name="Existing",
         given_name=None,
@@ -185,7 +186,12 @@ class TestFindOrCreateSSOUser:
         config = _sso_config(auto_provision_users=True)
         auth_user = _auth_user(email="newuser@example.com", name="New User")
 
-        fake_created = SimpleNamespace(id=uuid4(), email="newuser@example.com")
+        fake_created = SimpleNamespace(
+            id=uuid4(),
+            email="newuser@example.com",
+            organization_id=org.id,
+            joined_at=None,
+        )
         mock_create_user.return_value = fake_created
 
         user = find_or_create_sso_user(db, auth_user, org, config)

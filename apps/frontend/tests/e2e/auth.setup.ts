@@ -1,6 +1,7 @@
 import fs from 'fs';
 import { test as setup, expect } from '@playwright/test';
 import { LoginPage } from './pages/LoginPage';
+import { acceptTermsViaApi } from './helpers/TermsHelper';
 import { seedAuthWithoutBackend } from './helpers/seed-auth';
 
 /**
@@ -43,6 +44,9 @@ setup('authenticate via Quick Start', async ({ page, browser }) => {
       // Non-fatal — tests will still work; the overlay may appear
     }
   });
+
+  // Accept current T&C so TermsAcceptanceGate does not block test interactions.
+  await acceptTermsViaApi(page);
 
   // Ensure the .auth directory exists — it is gitignored so it won't be
   // present on a fresh checkout or in CI without an explicit mkdir step.

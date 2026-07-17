@@ -61,7 +61,7 @@ export function useBehaviors(enabled = true) {
     queryFn: async () => {
       const behaviors = await new ApiClientFactory()
         .getBehaviorClient()
-        .getBehaviors({ sort_by: 'name', sort_order: 'asc' });
+        .getAllBehaviors({ sort_by: 'name', sort_order: 'asc' });
       return behaviors;
     },
     enabled: enabled && isAuthenticated,

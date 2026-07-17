@@ -47,13 +47,9 @@ export const projectCardItemSx: SxProps<Theme> = {
 /**
  * Selectable project row card (TeamInviteForm).
  *
- * We intentionally do NOT pass `selected` to the ListItemButton so that MUI
- * never adds the Mui-selected class. The Drawer's global Mui-selected rules
- * force color:white and background:#primary on every child (including
- * Typography), which is unreadable on our near-transparent tint.
- *
- * Visual selection state is managed entirely through the `isSelected` JS
- * variable, bypassing all MUI global overrides.
+ * Visual selection state is managed through the `isSelected` JS variable
+ * (border + tint) rather than MUI's `selected` prop, so the row keeps a
+ * subtle tint with readable text instead of a solid primary fill.
  */
 export function getSelectableProjectItemSx(
   isSelected: boolean

@@ -12,10 +12,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from rhesis.backend.app.auth.url_utils import build_redirect_url
-from rhesis.backend.app.config.settings import (
-    get_application_settings,
-    get_frontend_settings,
-)
+from rhesis.backend.app.config.settings import get_frontend_settings
 
 
 def _build(request, session_token, refresh_token=None):
@@ -28,14 +25,9 @@ def _build(request, session_token, refresh_token=None):
 @pytest.fixture(autouse=True)
 def clean_frontend_settings(monkeypatch):
     monkeypatch.setenv("FRONTEND_URL", "http://localhost:3000")
-    # Pin to production so the loopback dev gate is OFF by default; tests
-    # that exercise the dev branch override BACKEND_ENV explicitly.
-    monkeypatch.setenv("BACKEND_ENV", "production")
     get_frontend_settings.cache_clear()
-    get_application_settings.cache_clear()
     yield
     get_frontend_settings.cache_clear()
-    get_application_settings.cache_clear()
 
 
 def _make_request(original_frontend=None, return_to="/architect"):
@@ -120,142 +112,6 @@ class TestDomainValidation:
         request = _make_request(original_frontend="https://evil-app.rhesis.ai")
         url = _build(request, "token123")
         assert "evil-app" not in url
-
-
-@pytest.mark.unit
-class TestLoopbackDevGate:
-    """Loopback origins are accepted only on development backends.
-
-    Regression coverage for the local-dev-against-remote-API workflow:
-    a frontend running on ``http://localhost:3000`` calling a remote
-    dev backend (``FRONTEND_URL=https://dev-app.rhesis.ai``) must end
-    up redirected back to localhost, while a production backend with
-    the same incoming origin must not.
-    """
-
-    @patch(
-        "rhesis.backend.app.auth.token_utils.get_secret_key",
-        return_value="test-secret",
-    )
-    def test_rejects_loopback_in_production(self, _mock_key, monkeypatch):
-        """BACKEND_ENV=production (autouse default in this file) rejects loopback."""
-        monkeypatch.setenv("FRONTEND_URL", "https://app.rhesis.ai")
-        get_frontend_settings.cache_clear()
-        get_application_settings.cache_clear()
-
-        request = _make_request(original_frontend="http://localhost:3000")
-        url = _build(request, "token123")
-
-        assert url.startswith("https://app.rhesis.ai/")
-        assert "localhost" not in url
-
-    @patch(
-        "rhesis.backend.app.auth.token_utils.get_secret_key",
-        return_value="test-secret",
-    )
-    def test_accepts_loopback_when_only_environment_is_production(self, _mock_key, monkeypatch):
-        """ENVIRONMENT=production alone no longer gates loopback; only BACKEND_ENV drives it."""
-        monkeypatch.setenv("FRONTEND_URL", "https://app.rhesis.ai")
-        monkeypatch.setenv("BACKEND_ENV", "development")
-        get_frontend_settings.cache_clear()
-        get_application_settings.cache_clear()
-
-        request = _make_request(original_frontend="http://localhost:3000")
-        url = _build(request, "token123")
-
-        assert url.startswith("http://localhost:3000/")
-
-    @patch(
-        "rhesis.backend.app.auth.token_utils.get_secret_key",
-        return_value="test-secret",
-    )
-    def test_accepts_loopback_when_backend_env_is_development(self, _mock_key, monkeypatch):
-        """Localhost frontend against a remote dev backend redirects home.
-
-        This is the exact regression scenario: developing the frontend
-        on localhost while pointing the API at dev-api.rhesis.ai (whose
-        FRONTEND_URL is dev-app.rhesis.ai) should still bring the user
-        back to localhost after OAuth.
-        """
-        monkeypatch.setenv("FRONTEND_URL", "https://dev-app.rhesis.ai")
-        monkeypatch.setenv("BACKEND_ENV", "development")
-        get_frontend_settings.cache_clear()
-        get_application_settings.cache_clear()
-
-        request = _make_request(original_frontend="http://localhost:3000")
-        url = _build(request, "token123")
-
-        assert url.startswith("http://localhost:3000/")
-
-    @patch(
-        "rhesis.backend.app.auth.token_utils.get_secret_key",
-        return_value="test-secret",
-    )
-    def test_accepts_loopback_when_backend_env_is_local(self, _mock_key, monkeypatch):
-        """BACKEND_ENV=local (Quick Start) is treated as non-production."""
-        monkeypatch.setenv("FRONTEND_URL", "https://dev-app.rhesis.ai")
-        monkeypatch.setenv("BACKEND_ENV", "local")
-        get_frontend_settings.cache_clear()
-        get_application_settings.cache_clear()
-
-        request = _make_request(original_frontend="http://localhost:3000")
-        url = _build(request, "token123")
-
-        assert url.startswith("http://localhost:3000/")
-
-    @patch(
-        "rhesis.backend.app.auth.token_utils.get_secret_key",
-        return_value="test-secret",
-    )
-    def test_accepts_127_in_development(self, _mock_key, monkeypatch):
-        """127.0.0.1 with an arbitrary port is accepted in development."""
-        monkeypatch.setenv("FRONTEND_URL", "https://dev-app.rhesis.ai")
-        monkeypatch.setenv("BACKEND_ENV", "development")
-        get_frontend_settings.cache_clear()
-        get_application_settings.cache_clear()
-
-        request = _make_request(original_frontend="http://127.0.0.1:5173")
-        url = _build(request, "token123")
-
-        assert url.startswith("http://127.0.0.1:5173/")
-
-    @patch(
-        "rhesis.backend.app.auth.token_utils.get_secret_key",
-        return_value="test-secret",
-    )
-    def test_dev_mode_does_not_relax_lookalike_check(self, _mock_key, monkeypatch):
-        """Even in development, ``evil-localhost.com`` is rejected.
-
-        Dev mode opens an exact-match loopback whitelist; it must never
-        accept substring lookalikes that would also be open redirects.
-        """
-        monkeypatch.setenv("FRONTEND_URL", "https://dev-app.rhesis.ai")
-        monkeypatch.setenv("BACKEND_ENV", "development")
-        get_frontend_settings.cache_clear()
-        get_application_settings.cache_clear()
-
-        request = _make_request(original_frontend="https://evil-localhost.com")
-        url = _build(request, "token123")
-
-        assert url.startswith("https://dev-app.rhesis.ai/")
-        assert "evil-localhost.com" not in url
-
-    @patch(
-        "rhesis.backend.app.auth.token_utils.get_secret_key",
-        return_value="test-secret",
-    )
-    def test_dev_mode_rejects_localhost_subdomain_attack(self, _mock_key, monkeypatch):
-        """``localhost.attacker.com`` must not be treated as loopback."""
-        monkeypatch.setenv("FRONTEND_URL", "https://dev-app.rhesis.ai")
-        monkeypatch.setenv("BACKEND_ENV", "development")
-        get_frontend_settings.cache_clear()
-        get_application_settings.cache_clear()
-
-        request = _make_request(original_frontend="https://localhost.attacker.com")
-        url = _build(request, "token123")
-
-        assert url.startswith("https://dev-app.rhesis.ai/")
-        assert "attacker.com" not in url
 
 
 @pytest.mark.unit

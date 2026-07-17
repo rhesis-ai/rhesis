@@ -13,8 +13,14 @@ from faker import Faker
 
 from rhesis.backend.app.auth.constants import AuthProviderType
 from rhesis.backend.app.config.settings import get_auth_settings
+from tests.backend.conftest import _TEST_ENV_VARS
 
 fake = Faker()
+
+# AuthSettings requires SESSION_SECRET_KEY, so auth tests that clear the whole
+# environment to isolate OAuth credentials must still provide it. The value is
+# reused from the shared test env baseline in tests/backend/conftest.py.
+REQUIRED_AUTH_ENV = {"SESSION_SECRET_KEY": _TEST_ENV_VARS["SESSION_SECRET_KEY"]}
 
 
 @pytest.fixture(autouse=True)
@@ -172,7 +178,7 @@ class TestEmailProvider:
         """Test EmailProvider is enabled by default."""
         from rhesis.backend.app.auth.providers.email import EmailProvider
 
-        with patch.dict(os.environ, {}, clear=True):
+        with patch.dict(os.environ, REQUIRED_AUTH_ENV, clear=True):
             provider = EmailProvider()
             assert provider.is_enabled is True
 
@@ -190,7 +196,7 @@ class TestEmailProvider:
         """Test registration is enabled by default."""
         from rhesis.backend.app.auth.providers.email import EmailProvider
 
-        with patch.dict(os.environ, {}, clear=True):
+        with patch.dict(os.environ, REQUIRED_AUTH_ENV, clear=True):
             provider = EmailProvider()
             assert provider.is_registration_enabled is True
 
@@ -245,7 +251,7 @@ class TestGoogleProvider:
         """Test GoogleProvider is disabled without credentials."""
         from rhesis.backend.app.auth.providers.google import GoogleProvider
 
-        with patch.dict(os.environ, {}, clear=True):
+        with patch.dict(os.environ, REQUIRED_AUTH_ENV, clear=True):
             provider = GoogleProvider()
             assert provider.is_enabled is False
 
@@ -272,7 +278,7 @@ class TestGoogleProvider:
         # Only client ID
         with patch.dict(
             os.environ,
-            {"GOOGLE_CLIENT_ID": "test-client-id"},
+            {**REQUIRED_AUTH_ENV, "GOOGLE_CLIENT_ID": "test-client-id"},
             clear=True,
         ):
             provider = GoogleProvider()
@@ -281,7 +287,7 @@ class TestGoogleProvider:
         # Only client secret
         with patch.dict(
             os.environ,
-            {"GOOGLE_CLIENT_SECRET": "test-client-secret"},
+            {**REQUIRED_AUTH_ENV, "GOOGLE_CLIENT_SECRET": "test-client-secret"},
             clear=True,
         ):
             provider = GoogleProvider()
@@ -318,7 +324,7 @@ class TestGitHubProvider:
         """Test GitHubProvider is disabled without credentials."""
         from rhesis.backend.app.auth.providers.github import GitHubProvider
 
-        with patch.dict(os.environ, {}, clear=True):
+        with patch.dict(os.environ, REQUIRED_AUTH_ENV, clear=True):
             provider = GitHubProvider()
             assert provider.is_enabled is False
 
@@ -345,7 +351,7 @@ class TestGitHubProvider:
         # Only client ID
         with patch.dict(
             os.environ,
-            {"GH_CLIENT_ID": "test-client-id"},
+            {**REQUIRED_AUTH_ENV, "GH_CLIENT_ID": "test-client-id"},
             clear=True,
         ):
             provider = GitHubProvider()

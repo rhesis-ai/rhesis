@@ -1,5 +1,3 @@
-import re
-
 import pytest
 from pydantic import ValidationError
 
@@ -41,6 +39,7 @@ DATABASE_ENV_VARS = (
 FRONTEND_ENV_VARS = ("FRONTEND_URL",)
 APPLICATION_ENV_VARS = (
     "QUICK_START",
+    "DEV_MODE",
     "BACKEND_ENV",
     "API_BASE_URL",
     "GCP_PROJECT",
@@ -403,7 +402,9 @@ def test_get_frontend_settings_cache_clear_allows_env_overrides(clean_frontend_e
 
 
 @pytest.mark.unit
-def test_auth_settings_uses_defaults(clean_auth_env):
+def test_auth_settings_uses_defaults(clean_auth_env, monkeypatch):
+    # SESSION_SECRET_KEY is required; provide it so the other defaults can be checked.
+    monkeypatch.setenv("SESSION_SECRET_KEY", "session-secret-key")
     settings = AuthSettings(_env_file=None)
 
     assert settings.email_password_enabled is True
@@ -412,12 +413,18 @@ def test_auth_settings_uses_defaults(clean_auth_env):
     assert settings.google_client_secret is None
     assert settings.github_client_id is None
     assert settings.github_client_secret is None
-    assert settings.session_secret_key is None
+    assert settings.session_secret_key == "session-secret-key"
     assert settings.jwt_secret_key is None
     assert settings.jwt_algorithm == "HS256"
     assert settings.jwt_access_token_expire_minutes == 10080
     assert settings.google_enabled is False
     assert settings.github_enabled is False
+
+
+@pytest.mark.unit
+def test_auth_settings_requires_session_secret_key(clean_auth_env):
+    with pytest.raises(ValidationError, match="SESSION_SECRET_KEY"):
+        AuthSettings(_env_file=None)
 
 
 @pytest.mark.unit
@@ -451,6 +458,7 @@ def test_auth_settings_loads_existing_environment_variables(clean_auth_env, monk
 
 @pytest.mark.unit
 def test_auth_settings_oauth_enabled_requires_client_id_and_secret(clean_auth_env, monkeypatch):
+    monkeypatch.setenv("SESSION_SECRET_KEY", "session-secret-key")
     monkeypatch.setenv("GOOGLE_CLIENT_ID", "google-client-id")
     monkeypatch.setenv("GH_CLIENT_SECRET", "github-client-secret")
 
@@ -462,7 +470,9 @@ def test_auth_settings_oauth_enabled_requires_client_id_and_secret(clean_auth_en
 
 @pytest.mark.unit
 def test_get_auth_settings_cache_clear_allows_env_overrides(clean_auth_env, monkeypatch):
-    assert get_auth_settings().session_secret_key is None
+    # SESSION_SECRET_KEY is required, so it must be set before AuthSettings loads.
+    monkeypatch.setenv("SESSION_SECRET_KEY", "initial-session-secret-key")
+    assert get_auth_settings().session_secret_key == "initial-session-secret-key"
     assert get_auth_settings().jwt_secret_key is None
 
     monkeypatch.setenv("SESSION_SECRET_KEY", "cached-session-secret-key")
@@ -656,14 +666,14 @@ def test_application_settings_defaults(minimal_application_env):
     settings = ApplicationSettings(_env_file=None)
 
     assert settings.quick_start is False
+    assert settings.dev_mode is False
     assert settings.backend_env == "development"
     assert settings.gcp_project is None
     assert settings.google_cloud_project is None
     assert settings.cloud_run_service is None
     assert settings.cloud_run_revision is None
     assert settings.api_base_url == "https://api.example.com"
-    # Default posture is non-production (dev-only affordances are on by
-    # default, matching utils/git_utils.should_show_git_info).
+    # Default posture is non-production.
     assert settings.is_production is False
     assert settings.is_development is True
 
@@ -717,16 +727,40 @@ def test_application_settings_is_production(
 
 
 @pytest.mark.unit
+@pytest.mark.parametrize(
+    "dev_mode_value,expected_dev_mode",
+    [
+        ("true", True),
+        ("True", True),
+        ("1", True),
+        ("false", False),
+        ("0", False),
+        ("", False),
+    ],
+)
+def test_application_settings_dev_mode(
+    minimal_application_env, monkeypatch, dev_mode_value, expected_dev_mode
+):
+    """Process posture is driven exclusively by DEV_MODE."""
+    if dev_mode_value:
+        monkeypatch.setenv("DEV_MODE", dev_mode_value)
+
+    settings = ApplicationSettings(_env_file=None)
+
+    assert settings.dev_mode is expected_dev_mode
+
+
+@pytest.mark.unit
 def test_get_application_settings_cache_clear_allows_env_overrides(
     minimal_application_env, monkeypatch
 ):
-    assert get_application_settings().is_development is True
+    assert get_application_settings().dev_mode is False
 
-    monkeypatch.setenv("BACKEND_ENV", "production")
+    monkeypatch.setenv("DEV_MODE", "true")
     get_application_settings.cache_clear()
 
-    assert get_application_settings().is_development is False
-    assert get_application_settings().backend_env == "production"
+    assert get_application_settings().dev_mode is True
+    assert get_application_settings().backend_env == "development"
 
 
 @pytest.mark.unit
@@ -747,68 +781,6 @@ def test_get_application_settings_api_base_url_cache_clear(
     get_application_settings.cache_clear()
 
     assert get_application_settings().api_base_url == "https://cached-api.example.com"
-
-
-@pytest.mark.unit
-class TestLoopbackCorsRegex:
-    """``FrontendSettings.loopback_cors_regex`` returns a regex only on dev backends.
-
-    Mirrors the loopback redirect gate in ``auth/url_utils.py`` so that
-    a frontend dev server on the developer's loopback can call a remote
-    dev backend (FRONTEND_URL on a different host) without CORS blocking
-    XHR/fetch requests.
-    """
-
-    @pytest.fixture(autouse=True)
-    def _frontend_url(self, clean_frontend_env, minimal_application_env, monkeypatch):
-        monkeypatch.setenv("FRONTEND_URL", "https://dev-app.rhesis.ai")
-
-    def test_returns_none_in_production(self, monkeypatch):
-        monkeypatch.setenv("BACKEND_ENV", "production")
-        get_application_settings.cache_clear()
-
-        assert get_frontend_settings().loopback_cors_regex is None
-
-    def test_returns_regex_when_only_environment_is_production(self, monkeypatch):
-        """ENVIRONMENT=production alone no longer gates; only BACKEND_ENV drives is_production."""
-        monkeypatch.setenv("BACKEND_ENV", "development")
-        get_application_settings.cache_clear()
-
-        assert get_frontend_settings().loopback_cors_regex is not None
-
-    def test_returns_regex_in_development(self, monkeypatch):
-        monkeypatch.setenv("BACKEND_ENV", "development")
-        get_application_settings.cache_clear()
-
-        regex = get_frontend_settings().loopback_cors_regex
-
-        assert regex is not None
-        compiled = re.compile(regex)
-        assert compiled.match("http://localhost:3000")
-        assert compiled.match("http://localhost:5173")
-        assert compiled.match("http://127.0.0.1:8080")
-        assert compiled.match("http://[::1]:5000")
-        assert compiled.match("http://localhost")  # default port
-
-    def test_regex_rejects_lookalikes(self, monkeypatch):
-        """The regex must not match localhost-themed lookalike origins."""
-        monkeypatch.setenv("BACKEND_ENV", "development")
-        get_application_settings.cache_clear()
-
-        regex = get_frontend_settings().loopback_cors_regex
-        assert regex is not None
-        compiled = re.compile(regex)
-
-        # Substring/suffix attacks must not slip through.
-        assert not compiled.match("http://evil-localhost.com")
-        assert not compiled.match("http://localhost.attacker.com")
-        assert not compiled.match("http://127.0.0.1.attacker.com")
-        # https on loopback is not honoured (devs serving https locally
-        # would need to register their origin via FRONTEND_URL instead).
-        assert not compiled.match("https://localhost:3000")
-        # Other private ranges are not loopback.
-        assert not compiled.match("http://10.0.0.1:3000")
-        assert not compiled.match("http://192.168.1.1:3000")
 
 
 @pytest.mark.unit

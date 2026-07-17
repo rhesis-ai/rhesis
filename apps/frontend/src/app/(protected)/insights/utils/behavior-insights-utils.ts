@@ -11,7 +11,13 @@ import {
   writeInsightsEndpointId,
 } from '@/utils/insights-endpoint';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
-import { InsightsTimeRange, timeRangeToStatsParams } from '../types';
+import { TestRun } from '@/utils/api-client/interfaces/test-run';
+import {
+  InsightsFilters,
+  InsightsTimeRange,
+  resolveInsightsTimeRange,
+  timeRangeToStatsParams,
+} from '../types';
 
 function endpointMatchesProject(
   endpoint: Endpoint,
@@ -132,10 +138,10 @@ export function buildEndpointRunFilter(endpointId: string): string {
   return `test_configuration/endpoint_id eq '${endpointId}'`;
 }
 
-export async function fetchTestRunIdsForEndpoint(
+export async function fetchTestRunsForEndpoint(
   endpointId: string,
   timeRange?: InsightsTimeRange
-): Promise<string[]> {
+): Promise<TestRun[]> {
   const client = new ApiClientFactory().getTestRunsClient();
   const filterParts = [buildEndpointRunFilter(endpointId)];
   if (timeRange) {
@@ -145,12 +151,11 @@ export async function fetchTestRunIdsForEndpoint(
     }
   }
   const filter = filterParts.join(' and ');
-  const ids: string[] = [];
+  const runs: TestRun[] = [];
   let skip = 0;
   const limit = 100;
-  let hasMore = true;
 
-  while (hasMore) {
+  while (true) {
     const response = await client.getTestRuns({
       filter,
       skip,
@@ -159,13 +164,70 @@ export async function fetchTestRunIdsForEndpoint(
       sort_order: 'desc',
     });
 
-    ids.push(...response.data.map(run => run.id));
-    const total = response.pagination?.totalCount ?? response.data.length;
-    hasMore = ids.length < total;
+    runs.push(...response.data);
+    // Prefer page-size termination over totalCount — some responses omit
+    // x-total-count and totalCount defaults to 0, which would stop after
+    // the first page and silently drop later runs.
+    if (response.data.length < limit) {
+      break;
+    }
     skip += limit;
   }
 
-  return ids;
+  return runs;
+}
+
+export async function fetchTestRunIdsForEndpoint(
+  endpointId: string,
+  timeRange?: InsightsTimeRange
+): Promise<string[]> {
+  const runs = await fetchTestRunsForEndpoint(
+    endpointId,
+    timeRange
+  );
+  return runs.map(run => run.id);
+}
+
+/**
+ * Soft cap for `test_run_ids` query params on `/test_results/stats`.
+ * Beyond this, GET URLs risk proxy/browser length limits.
+ */
+export const MAX_INSIGHTS_TEST_RUN_IDS = 100;
+
+export function assertInsightsTestRunIdsWithinLimit(
+  testRunIds: string[]
+): void {
+  if (testRunIds.length > MAX_INSIGHTS_TEST_RUN_IDS) {
+    throw new Error(
+      `Too many test runs to query at once (${testRunIds.length}; max ${MAX_INSIGHTS_TEST_RUN_IDS}). Narrow your selection or use a shorter time range.`
+    );
+  }
+}
+
+/** Resolve which test run IDs to query based on Insights filter state. */
+export async function resolveInsightsQueryTestRunIds(
+  filters: Pick<
+    InsightsFilters,
+    'endpointId' | 'runFilterMode' | 'timeRange' | 'testRunIds'
+  >
+): Promise<string[]> {
+  let testRunIds: string[];
+
+  if (filters.runFilterMode === 'timeRange') {
+    testRunIds = await fetchTestRunIdsForEndpoint(
+      filters.endpointId,
+      resolveInsightsTimeRange(filters.timeRange)
+    );
+  } else if (filters.testRunIds.length > 0) {
+    testRunIds = filters.testRunIds;
+  } else {
+    testRunIds = await fetchTestRunIdsForEndpoint(
+      filters.endpointId
+    );
+  }
+
+  assertInsightsTestRunIdsWithinLimit(testRunIds);
+  return testRunIds;
 }
 
 export function buildBehaviorColumns(

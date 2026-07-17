@@ -1063,7 +1063,9 @@ class TestListUserProjectMemberships:
         results = self._list(user_id)
         assert {r.user_id for r in results} == {user_id}
 
-    def test_membership_without_role_returns_none_role(self):
+    def test_membership_without_explicit_role_inherits_org_role_for_display(self):
+        """``role_id`` stays NULL when no project role was assigned, but the
+        API resolves the member's effective inherited org role for display."""
         user_id = _create_user(self.db, self.org_id)
         _assign_org_role(self.db, self.org_id, user_id, "Owner")
         project = _create_project(self.db, self.org_id)
@@ -1071,7 +1073,10 @@ class TestListUserProjectMemberships:
 
         results = self._list(user_id)
         assert results[0].role_id is None
-        assert results[0].role is None
+        # Role is resolved for display from the effective auth provider role when
+        # project_membership.role_id is NULL (inherited org role / owner floor).
+        assert results[0].role is not None
+        assert results[0].role.name == "Owner"
 
 
 # ---------------------------------------------------------------------------

@@ -105,7 +105,10 @@ class TestAuthProviders:
         from rhesis.backend.app.auth.providers.registry import ProviderRegistry
         from rhesis.backend.app.config.settings import get_auth_settings
 
-        with patch.dict(os.environ, {}, clear=True):
+        # Preserve SESSION_SECRET_KEY (a required setting) so AuthSettings can
+        # still be constructed; only the OAuth credentials are cleared here.
+        preserved = {"SESSION_SECRET_KEY": os.environ["SESSION_SECRET_KEY"]}
+        with patch.dict(os.environ, preserved, clear=True):
             # Clear the LRU-cached settings so is_enabled re-reads the (now empty) env
             get_auth_settings.cache_clear()
             ProviderRegistry.reset()
@@ -147,7 +150,10 @@ class TestProviderLogin:
         from rhesis.backend.app.auth.providers.registry import ProviderRegistry
         from rhesis.backend.app.config.settings import get_auth_settings
 
-        with patch.dict(os.environ, {}, clear=True):
+        # Preserve SESSION_SECRET_KEY (a required setting) so AuthSettings can
+        # still be constructed; only the OAuth credentials are cleared here.
+        preserved = {"SESSION_SECRET_KEY": os.environ["SESSION_SECRET_KEY"]}
+        with patch.dict(os.environ, preserved, clear=True):
             get_auth_settings.cache_clear()
             ProviderRegistry.reset()
 
@@ -773,6 +779,40 @@ class TestAuthMagicLinkRoutes:
         assert data["success"] is True
         assert "message" in data
 
+    def test_magic_link_missing_accept_terms_returns_200(
+        self, client: TestClient, test_db, test_org_id
+    ):
+        """Magic link stays enumeration-safe without accept_terms in the body."""
+        response = client.post(
+            "/auth/magic-link",
+            json={"email": "nobody-magic@example.com"},
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_accept_terms_records_current_version(
+        self, client: TestClient, test_db, test_org_id
+    ):
+        from rhesis.backend.app.auth.terms import CURRENT_TERMS_VERSION
+        from rhesis.backend.app.auth.token_utils import create_session_token
+
+        email = _unique_email("accept-terms")
+        org = create_test_organization(test_db, "Accept Terms Org")
+        user = create_test_user(test_db, org.id, email, "Accept Terms User")
+        test_db.commit()
+
+        token = create_session_token(user)
+        response = client.post(
+            "/auth/accept-terms",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json() == {"success": True, "terms_accepted": True}
+
+        test_db.refresh(user)
+        terms = (user.user_settings or {}).get("terms") or {}
+        assert terms.get("accepted_at") is not None
+        assert terms.get("version") == CURRENT_TERMS_VERSION
+
     def test_magic_link_verify_valid_token_single_use(
         self, client: TestClient, test_db, test_org_id
     ):
@@ -1205,13 +1245,19 @@ class TestGetCallbackUrl:
         "rhesis.backend.app.routers.auth.is_quick_start_enabled",
         return_value=True,
     )
-    def test_quick_start_mode_uses_localhost(self, mock_qs):
-        """Quick start mode returns http://localhost:{port}/auth/callback."""
+    @patch(
+        "rhesis.backend.app.routers.auth.get_application_settings",
+        new=_mock_application_settings("local", api_base_url="https://api.rhesis.ai"),
+    )
+    def test_quick_start_does_not_override_remote_api_base_url(self, mock_qs):
+        """QUICK_START does not force a local callback: the callback host is
+        driven solely by API_BASE_URL. With a remote API_BASE_URL the request
+        host is never trusted, even in quick-start mode."""
         from rhesis.backend.app.routers.auth import get_callback_url
 
         request = _make_mock_request(host="localhost", port=8080)
         url = get_callback_url(request)
-        assert url == "http://localhost:8080/auth/callback"
+        assert url == "https://api.rhesis.ai/auth/callback"
 
     @patch(
         "rhesis.backend.app.routers.auth.is_quick_start_enabled",
@@ -1407,3 +1453,107 @@ class TestGetCallbackUrl:
         )
         url = get_callback_url(request)
         assert url == "https://self-hosted.example.com/auth/callback"
+
+
+@pytest.mark.unit
+class TestTermsAcceptance:
+    """Tests for T&C acceptance persistence and lookup."""
+
+    def test_terms_status_requires_authentication(self, client: TestClient):
+        response = client.get("/auth/terms-status")
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_terms_status_returns_true_for_current_version(
+        self, client: TestClient, test_db, test_org_id
+    ):
+        from datetime import datetime, timezone
+
+        from rhesis.backend.app.auth.terms import CURRENT_TERMS_VERSION
+        from rhesis.backend.app.auth.token_utils import create_session_token
+
+        email = _unique_email("terms")
+        org = create_test_organization(test_db, "Terms Org")
+        user = create_test_user(test_db, org.id, email, "Terms User")
+        user.user_settings = {
+            **(user.user_settings or {}),
+            "terms": {"accepted_at": datetime.now(timezone.utc).isoformat(), "version": CURRENT_TERMS_VERSION},
+        }
+        test_db.commit()
+
+        token = create_session_token(user)
+        response = client.get(
+            "/auth/terms-status",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json() == {
+            "terms_accepted": True,
+            "has_prior_acceptance": True,
+        }
+
+    def test_terms_status_returns_false_for_outdated_version_with_prior_acceptance(
+        self, client: TestClient, test_db, test_org_id
+    ):
+        from datetime import datetime, timezone
+
+        from rhesis.backend.app.auth.token_utils import create_session_token
+
+        email = _unique_email("terms-old")
+        org = create_test_organization(test_db, "Terms Old Org")
+        user = create_test_user(test_db, org.id, email, "Terms Old User")
+        user.user_settings = {
+            **(user.user_settings or {}),
+            "terms": {"accepted_at": datetime.now(timezone.utc).isoformat(), "version": "0.9"},
+        }
+        test_db.commit()
+
+        token = create_session_token(user)
+        response = client.get(
+            "/auth/terms-status",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json() == {
+            "terms_accepted": False,
+            "has_prior_acceptance": True,
+        }
+
+    def test_terms_status_returns_false_without_prior_acceptance(
+        self, client: TestClient, test_db, test_org_id
+    ):
+        from rhesis.backend.app.auth.token_utils import create_session_token
+
+        email = _unique_email("terms-new")
+        org = create_test_organization(test_db, "Terms New Org")
+        user = create_test_user(test_db, org.id, email, "Terms New User")
+        test_db.commit()
+
+        token = create_session_token(user)
+        response = client.get(
+            "/auth/terms-status",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json() == {
+            "terms_accepted": False,
+            "has_prior_acceptance": False,
+        }
+
+    def test_update_user_rejects_user_settings_terms(
+        self, authenticated_client, authenticated_user_id
+    ):
+        from datetime import datetime, timezone
+
+        response = authenticated_client.put(
+            f"/users/{authenticated_user_id}",
+            json={
+                "user_settings": {
+                    "version": 1,
+                    "terms": {
+                        "accepted_at": datetime.now(timezone.utc).isoformat(),
+                        "version": "1.0",
+                    },
+                }
+            },
+        )
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY

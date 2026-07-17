@@ -1,0 +1,284 @@
+import { CodeBlock } from '@/components/CodeBlock'
+import { Table } from '@/components/Table'
+import { FileTree } from '@/components/FileTree'
+
+# Docker Compose
+
+Deploy Rhesis on your own infrastructure with proper security, authentication, and production configuration.
+
+
+<Callout type="warning">
+**Production Deployment**
+
+This guide is for production environments. For quick local testing, see the [Quick Start](/deployment/quick-start) guide.
+</Callout>
+
+
+
+## Production Setup
+
+The steps below are the recommended path for a production self-hosted deployment: you supply your own secrets, public URLs, and infrastructure, and run the stack directly with Docker Compose. (For a throwaway local instance, use the one-command [Quick Start](/docs/deployment/quick-start) instead.)
+
+<CodeBlock filename="Terminal" language="bash">
+{`# 1. Clone the repository
+git clone https://github.com/rhesis-ai/rhesis.git
+cd rhesis
+
+# 2. Copy environment variables
+cp .env.example .env.docker
+
+# 3. Generate the four required secrets into .env.docker
+#    (DB_ENCRYPTION_KEY, JWT_SECRET_KEY, NEXTAUTH_SECRET, SESSION_SECRET_KEY)
+./rh secrets
+
+# 4. Start all services
+docker compose --env-file .env.docker up -d`}
+</CodeBlock>
+
+<Callout type="warning">
+Changing `DB_ENCRYPTION_KEY` on an existing deployment makes data already encrypted with the old
+key (such as stored provider credentials) permanently undecryptable. Back it up and keep it stable.
+The other three secrets can be rotated safely.
+</Callout>
+
+### Access the applications
+
+- **Frontend**: http://localhost:3000
+- **Backend API**: http://localhost:8080/docs
+
+This starts a self-contained stack with a built-in Postgres and Redis. From here you can customize the deployment — for example, pointing at an external database, setting your public URLs, or enabling OAuth and email — as described in [Environment Configuration](#environment-configuration) below.
+
+## Environment Configuration
+
+This section covers the variables you need to set for a production deployment. For the complete list — every variable, its default, and whether it is required — see the [Environment Variables](/docs/deployment/environment-variables) reference.
+
+### Required secrets
+
+Four secrets are required and have no safe default; the stack refuses to start if any is unset. Generate them as shown in [Production Setup](#production-setup) (step 3) and set them in `.env.docker`.
+
+| Secret | Protects |
+|---|---|
+| `DB_ENCRYPTION_KEY` | Sensitive database fields (such as stored provider credentials) at rest |
+| `JWT_SECRET_KEY` | Backend-issued JWTs |
+| `NEXTAUTH_SECRET` | NextAuth (frontend) sessions |
+| `SESSION_SECRET_KEY` | Backend session cookies |
+
+### Public URLs
+
+Set `FRONTEND_URL` and `API_BASE_URL` to the public origins your users reach. When either starts with `https://`, the stack issues secure (HTTPS-only) cookies. `FRONTEND_PORT` and `BACKEND_PORT` are the host ports Docker publishes and are independent of these URLs — behind a reverse proxy the published port and the public URL usually differ.
+
+<CodeBlock filename=".env.docker" language="bash">
+{`FRONTEND_URL=https://app.example.com
+API_BASE_URL=https://api.example.com`}
+</CodeBlock>
+
+### Database
+
+By default the stack runs a built-in `postgres` container. To use your own PostgreSQL instead, set the variables below and grant the role read/write privileges on the database.
+
+The database name and user are **fixed** — some scripts reference them by name — so when you provision your own database you must create it with exactly these names:
+
+| Variable | Value | Notes |
+| --- | --- | --- |
+| `DB_NAME` | `rhesis-db` (fixed) | Create your database with this exact name |
+| `APP_DB_USER` | `rhesis-user` (fixed) | Create the runtime role with this exact name |
+| `APP_DB_PASS` | your choice | Password for the runtime role |
+| `DB_HOST`, `DB_PORT` | your values | Where your database is reachable |
+| `ADMIN_DB_USER`, `ADMIN_DB_PASS` | optional | Separate migration role; falls back to the app role |
+
+To use an external Redis, set `BROKER_URL` and `CELERY_RESULT_BACKEND`.
+
+### AI Models
+
+Rhesis provides the models used for test generation, evaluation, multi-turn execution, and embeddings. By default the stack uses `rhesis/rhesis-default` for generation, evaluation, and execution, and `rhesis/rhesis-embedding` for embeddings. These models are hosted by Rhesis and require a `RHESIS_API_KEY` — without it, generation, execution, and Explorer embedding workflows will fail.
+
+<CodeBlock filename=".env.docker" language="bash">
+{`# Rhesis API key (get from https://app.rhesis.ai/)
+RHESIS_API_KEY=your-actual-rhesis-api-key-here`}
+</CodeBlock>
+
+To run against your own model provider instead, see the [Environment Variables](/docs/deployment/environment-variables#ai-models) reference.
+
+### Optional configuration
+
+The variables above get a deployment running. Everything else is optional — see the [Environment Variables](/docs/deployment/environment-variables) reference for the details:
+
+- **Configure an OAuth provider (Google or GitHub)** for social login — [Authentication and OAuth](/docs/deployment/environment-variables#authentication-and-oauth)
+- **Configure email (SMTP)** for notifications and invitations — [SMTP and email](/docs/deployment/environment-variables#smtp-and-email)
+- **Configure object storage for files** (GCS or S3) — [Object storage](/docs/deployment/environment-variables#object-storage)
+- **Tune the Celery worker** for throughput — [Logging and tuning](/docs/deployment/environment-variables#logging-and-tuning)
+
+### Enterprise Features
+
+Enterprise Edition features are discovered at runtime through `GET /features`; the frontend hides gated UI until a feature appears there. Without the Enterprise package, Rhesis runs in Community mode and all three are unavailable.
+
+Two features need their own secret — set it in `.env.docker` (see [Enterprise features](/docs/deployment/environment-variables#enterprise-features) for how to generate each). The feature stays disabled until its secret is present and valid.
+
+| Feature | Feature name | Secret | Docs |
+|---|---|---|---|
+| Role-Based Access Control | `rbac` | — | [Roles & Permissions](/docs/organizations/roles) |
+| Single Sign-On | `sso` | `SSO_ENCRYPTION_KEY` | [Single Sign-On](/docs/organizations/sso) |
+| API Clients | `api_clients` | `AUDIT_HASH_KEY` | [API Clients](/docs/organizations/api-clients) |
+
+<Callout type="warning">
+Keep `SSO_ENCRYPTION_KEY` stable once set — like `DB_ENCRYPTION_KEY`, changing it makes already-stored SSO credentials undecryptable.
+</Callout>
+
+## Telemetry & Privacy
+
+
+**For self-hosted deployments: Telemetry is ENABLED by default** (opt-out).
+
+To opt-out, add to your `.env.docker` file:
+
+<CodeBlock filename=".env.docker" language="bash">
+{`# Disable telemetry (opt-out)
+OTEL_RHESIS_TELEMETRY_ENABLED=false`}
+</CodeBlock>
+
+Details of exactly what is and isn't collected, and how the data is used, are in the [Telemetry System Documentation](/contribute/telemetry).
+## Management Commands
+
+### Service Management
+
+<CodeBlock filename="Terminal" language="bash">
+{`# Start all services in detached mode
+docker compose --env-file .env.docker up -d
+
+# Start with logs visible
+docker compose --env-file .env.docker up
+
+# Stop all services
+docker compose down
+
+# Stop and remove volumes (WARNING: deletes all data)
+docker compose down -v
+
+# Restart all services
+docker compose --env-file .env.docker restart
+
+# Restart specific service
+docker compose --env-file .env.docker restart backend`}
+</CodeBlock>
+
+### Monitoring and Logs
+
+**View logs:**
+
+<CodeBlock filename="Terminal" language="bash">
+{`# All services
+docker compose logs
+
+# Specific service
+docker compose logs backend
+docker compose logs frontend
+docker compose logs worker
+
+# Follow logs in real-time
+docker compose logs -f backend`}
+</CodeBlock>
+
+**Check service status:**
+
+<CodeBlock filename="Terminal" language="bash">
+{`# View running containers and their status
+docker compose ps`}
+</CodeBlock>
+
+### Building and Updates
+
+**Rebuild services:**
+
+<CodeBlock filename="Terminal" language="bash">
+{`# Rebuild all services
+docker compose --env-file .env.docker build
+
+# Rebuild specific service
+docker compose --env-file .env.docker build backend
+
+# Rebuild and restart
+docker compose --env-file .env.docker up -d --build`}
+</CodeBlock>
+
+
+
+## Backup and Recovery
+
+### Database Backup
+
+<CodeBlock filename="Terminal" language="bash">
+{`# Create database backup
+docker exec rhesis-postgres pg_dump -U rhesis-user rhesis-db > backup.sql
+
+# Restore from backup
+docker exec -i rhesis-postgres psql -U rhesis-user -d rhesis-db < backup.sql`}
+</CodeBlock>
+
+### Full System Backup
+
+<CodeBlock filename="Terminal" language="bash">
+{`# Stop services
+docker compose down
+
+# Backup volumes
+docker run --rm -v rhesis_postgres_data:/data -v $(pwd):/backup alpine tar czf /backup/postgres_backup.tar.gz -C /data .
+docker run --rm -v rhesis_redis_data:/data -v $(pwd):/backup alpine tar czf /backup/redis_backup.tar.gz -C /data .
+
+# Restart services
+docker compose --env-file .env.docker up -d`}
+</CodeBlock>
+
+
+## System Requirements
+
+### Production Environment
+
+For production deployment with real users:
+
+<Table
+  headers={["Resource", "Minimum", "Recommended", "High-Scale"]}
+  rows={[
+    ["RAM", "8 GB", "16 GB", "32 GB+"],
+    ["Storage", "20 GB SSD", "50 GB SSD", "100 GB+ SSD"],
+    ["CPU", "4 cores", "8 cores", "16+ cores"],
+    ["Network", "50 Mbps", "100 Mbps", "1 Gbps+"],
+  ]}
+  align={["left", "center", "center", "center"]}
+/>
+
+
+### Detailed Resource Breakdown
+
+<div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.5rem', alignItems: 'flex-start' }}>
+  <div style={{ flex: '1 1 320px', minWidth: 0 }}>
+    <Table
+      caption="Memory Usage by Service"
+      headers={["Service", "Production"]}
+      rows={[
+        ["PostgreSQL", "~1-2 GB"],
+        ["Redis", "~500 MB - 1 GB"],
+        ["Backend", "~500 MB - 1 GB"],
+        ["Worker", "~1-2 GB"],
+        ["Frontend", "~200-400 MB"],
+        ["Docker Overhead", "~500 MB - 1 GB"],
+        ["**Total Estimated**", "**~3.7-7.1 GB**"],
+      ]}
+      align={["left", "right"]}
+    />
+  </div>
+  <div style={{ flex: '1 1 320px', minWidth: 0 }}>
+    <Table
+      caption="Storage Requirements"
+      headers={["Component", "Production"]}
+      rows={[
+        ["Application Code", "~2 GB"],
+        ["Database", "~5-50 GB+"],
+        ["Docker Images", "~3-4 GB"],
+        ["Logs & Cache", "~2-10 GB"],
+        ["Working Space", "~3-5 GB"],
+        ["**Total Estimated**", "**~15-75 GB+**"],
+      ]}
+      align={["left", "right"]}
+    />
+  </div>
+</div>

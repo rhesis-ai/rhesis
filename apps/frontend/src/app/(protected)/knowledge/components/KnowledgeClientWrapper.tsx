@@ -35,15 +35,24 @@ export default function KnowledgeClientWrapper() {
 
   useDocumentTitle('Knowledge');
 
+  const remountSourcesGridAfterCreate = useCallback(() => {
+    // Empty state uses `sourceCount === 0`, which unmounts SourcesGrid. Reset to
+    // `null` (initial load state) so the grid remounts and `onTotalCountChange`
+    // can set the real count once the refetch succeeds.
+    setSourceCount(prev => (prev === 0 ? null : prev));
+  }, []);
+
   const handleUploadSuccess = useCallback(() => {
     setUploadDrawerOpen(false);
+    remountSourcesGridAfterCreate();
     queryClient.invalidateQueries({ queryKey: sourceKeys.all() });
-  }, [queryClient]);
+  }, [queryClient, remountSourcesGridAfterCreate]);
 
   const handleMcpImportSuccess = useCallback(() => {
     setToolImportDrawerOpen(false);
+    remountSourcesGridAfterCreate();
     queryClient.invalidateQueries({ queryKey: sourceKeys.all() });
-  }, [queryClient]);
+  }, [queryClient, remountSourcesGridAfterCreate]);
 
   if (!isAuthenticated(status)) {
     return (

@@ -68,9 +68,6 @@ CELERY_CONFIG = {
     # Reduce verbose task result logging
     "task_always_eager": False,
     "task_eager_propagates": False,
-    # Suppress verbose task result logging
-    "worker_log_format": "[%(asctime)s: %(levelname)s/%(processName)s] %(message)s",
-    "worker_task_log_format": "[%(asctime)s: %(levelname)s/%(processName)s] %(message)s",
     # Task annotations
     "task_annotations": {
         "rhesis.backend.tasks.execute_test_configuration": {

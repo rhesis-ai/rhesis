@@ -147,6 +147,10 @@ class UserSettings(BaseModel):
 class UserSettingsRead(UserSettings):
     """GET /users/settings — includes server-resolved affordances for self-service actions."""
 
+    terms: Optional[dict] = Field(
+        None,
+        description="Server-managed terms acceptance metadata (read-only for users)",
+    )
     permitted_actions: list[str] = Field(
         default_factory=list,
         description="Capabilities the caller may exercise on their own settings "

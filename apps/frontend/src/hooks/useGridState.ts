@@ -1,11 +1,12 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import type {
-  GridFilterModel,
-  GridFilterItem,
-  GridPaginationModel,
-  GridSortModel,
+import {
+  GridLogicOperator,
+  type GridFilterModel,
+  type GridFilterItem,
+  type GridPaginationModel,
+  type GridSortModel,
 } from '@mui/x-data-grid';
 import { DEFAULT_GRID_SORT } from '@/utils/grid-sort';
 
@@ -136,6 +137,9 @@ export function useGridState({
   const filterModel = useMemo(
     () => ({
       ...gridFilterMeta,
+      // Drawer/toolbar filters must always combine with AND. DataGrid can echo
+      // logicOperator: 'or', which would incorrectly broaden multi-filter results.
+      logicOperator: GridLogicOperator.And,
       items: [...managedFilterModel.items, ...reconciledColumnFilterItems],
     }),
     [gridFilterMeta, managedFilterModel, reconciledColumnFilterItems]

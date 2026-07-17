@@ -11,11 +11,14 @@ from celery.signals import (
 )
 
 import rhesis.backend.tasks.architect.monitor  # noqa: F401
+from rhesis.backend.logging import set_logger
 from rhesis.backend.tasks.enums import RunStatus
 
 logger = logging.getLogger("celery.signals")
 
 _EXECUTE_TEST_CONFIGURATION_TASK = "rhesis.backend.tasks.execute_test_configuration"
+# Set in celeryd_init from the worker node name (e.g. main@host → MAIN).
+_worker_role: str | None = None
 
 
 def _update_test_run_status(task_id: str, new_status: RunStatus, error_message: str = None):
@@ -53,16 +56,14 @@ def _update_test_run_status(task_id: str, new_status: RunStatus, error_message: 
 
 
 @celeryd_init.connect
-def setup_worker_log_format(sender=None, conf=None, **kwargs):
-    """Prefix Celery log lines with MAIN/ARCHITECT so both workers are distinguishable."""
-    if conf is None:
-        return
-    role = (sender.split("@", 1)[0] if sender else "worker").upper()
-    conf.worker_log_format = f"[%(asctime)s: %(levelname)s/{role}/%(processName)s] %(message)s"
-    conf.worker_task_log_format = (
-        f"[%(asctime)s: %(levelname)s/{role}/%(processName)s] "
-        "[%(task_name)s(%(task_id)s)] %(message)s"
-    )
+def capture_worker_role(sender=None, conf=None, **kwargs):
+    """Derive MAIN/ARCHITECT from the Celery node name (``-n main@host``).
+
+    Runs before ``after_setup_logger`` in Celery's worker boot sequence, so the
+    role is available when we install our shared logging pipeline.
+    """
+    global _worker_role
+    _worker_role = (sender.split("@", 1)[0] if sender else "worker").upper()
 
 
 @worker_ready.connect
@@ -96,6 +97,19 @@ def warm_architect_worker(sender=None, **kwargs):
 
     elapsed = time.perf_counter() - start
     logger.info("Architect worker: backend app preloaded in %.1fs", elapsed)
+
+
+@after_setup_logger.connect
+def configure_worker_logging(logger=None, **kw):
+    """Replace Celery's default root logger setup with our shared pipeline.
+
+    Runs after Celery hijacks the root logger at worker boot (the default
+    `worker_hijack_root_logger` behavior), so calling this at import time
+    would just get overwritten by Celery's own setup.
+
+    Uses the role captured from the Celery hostname in ``celeryd_init``.
+    """
+    set_logger(worker_role=_worker_role)
 
 
 @after_setup_logger.connect
