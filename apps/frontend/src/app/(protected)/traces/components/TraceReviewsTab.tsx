@@ -517,9 +517,7 @@ export default function TraceReviewsTab({
                             <Button
                               size="small"
                               variant="text"
-                              disabled={
-                                resolvingReviewId === review.review_id
-                              }
+                              disabled={resolvingReviewId === review.review_id}
                               onClick={e => {
                                 e.stopPropagation();
                                 void handleToggleResolved(review);

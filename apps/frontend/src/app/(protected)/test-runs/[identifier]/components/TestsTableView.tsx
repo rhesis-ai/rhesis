@@ -107,8 +107,7 @@ export default function TestsTableView({
   );
   const [drawerOpen, setDrawerOpen] = useState(false);
   const resolvedInitialTab =
-    initialDetailTab &&
-    initialDetailTab in TEST_RESULT_DRAWER_TAB
+    initialDetailTab && initialDetailTab in TEST_RESULT_DRAWER_TAB
       ? TEST_RESULT_DRAWER_TAB[
           initialDetailTab as keyof typeof TEST_RESULT_DRAWER_TAB
         ]

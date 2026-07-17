@@ -104,10 +104,7 @@ export default function MentionTextInput({
     [onChange]
   );
 
-  const typeColors = useMemo(
-    () => getMentionTypeStyles(theme).colors,
-    [theme]
-  );
+  const typeColors = useMemo(() => getMentionTypeStyles(theme).colors, [theme]);
 
   const filteredDataRef = useRef<ExtendedSuggestionDataItem[]>([]);
 

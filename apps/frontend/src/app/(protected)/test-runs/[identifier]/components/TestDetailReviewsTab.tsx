@@ -539,9 +539,7 @@ export default function TestDetailReviewsTab({
                         {formatRelativeTime(review.updated_at)}
                       </Typography>
                     </Box>
-                    <Box
-                      sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
-                    >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       {review.resolved && (
                         <Chip
                           size="small"
@@ -549,7 +547,8 @@ export default function TestDetailReviewsTab({
                           variant="outlined"
                           sx={{
                             height: 24,
-                            fontSize: theme => theme.typography.caption.fontSize,
+                            fontSize: theme =>
+                              theme.typography.caption.fontSize,
                             borderRadius: BORDER_RADIUS.pill,
                             borderColor: 'success.main',
                             color: 'success.main',

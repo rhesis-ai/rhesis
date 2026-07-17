@@ -1,6 +1,12 @@
 'use client';
 
-import React, { useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import {
   GridColDef,
   GridPaginationModel,
@@ -205,7 +211,8 @@ export default function AnnotationsGrid({
         width: 140,
         sortable: false,
         valueGetter: (_value, row) =>
-          ANNOTATION_SOURCE_LABELS[row.source as AnnotationSource] || row.source,
+          ANNOTATION_SOURCE_LABELS[row.source as AnnotationSource] ||
+          row.source,
       },
       {
         field: 'target',
@@ -308,11 +315,7 @@ export default function AnnotationsGrid({
   const handleRowClick = useCallback((params: GridRowParams) => {
     const row = params.row as AnnotationListItem;
     let url: string | null = null;
-    if (
-      row.source === 'test_result' &&
-      row.test_run_id &&
-      row.test_result_id
-    ) {
+    if (row.source === 'test_result' && row.test_run_id && row.test_result_id) {
       url = `/test-runs/${row.test_run_id}?selectedresult=${row.test_result_id}&detailTab=reviews`;
     } else if (row.source === 'trace' && row.trace_id && row.project_id) {
       url = `/traces?open_trace=${row.trace_id}&project_id=${row.project_id}`;

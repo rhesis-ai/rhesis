@@ -87,9 +87,7 @@ export default async function TestRunPage({
         initialSelectedTestId={
           typeof selectedResult === 'string' ? selectedResult : undefined
         }
-        initialDetailTab={
-          typeof detailTab === 'string' ? detailTab : undefined
-        }
+        initialDetailTab={typeof detailTab === 'string' ? detailTab : undefined}
       />
     </PageLayout>
   );
