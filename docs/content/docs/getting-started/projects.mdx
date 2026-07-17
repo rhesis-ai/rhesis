@@ -1,22 +1,14 @@
 # Projects
 
-Organize and manage your testing projects with comprehensive project management capabilities.
+Projects are the top-level organizational unit in Rhesis: each project groups the endpoints, tests, test sets, and results for one AI application or testing initiative.
 
 <Callout type="default">
-  **What are Projects?** Projects are the top-level organizational unit in
-  Rhesis. They group related endpoints, tests, test sets, and results together,
-  making it easy to manage different AI applications or testing initiatives.
   **Prefer code?** Create and manage projects with the [Python SDK](/sdk/installation) ([entities](/sdk/entities/projects)).
 </Callout>
 
 ## Understanding Projects
 
-**Projects are the parent organization structure for endpoints.** Each project can have multiple endpoints nested within it, allowing you to test the same AI application across different environments (development, staging, production) or compare different implementations and API configurations. Within a project, you'll find:
-
-- **Endpoints**: The API configurations that connect to your LLM application (each project can have many endpoints)
-- **Tests**: The test cases you've created to evaluate behavior
-- **Test Sets**: Collections of tests organized for execution
-- **Test Results**: All historical results from your test runs
+A project can hold multiple endpoints, so you can test the same AI application across environments (development, staging, production) or compare different implementations and API configurations.
 
 ### Parameter Schema
 
@@ -51,15 +43,10 @@ Create a project by clicking on **Project** in the Requirement section, then **C
 
 Once your project is created, you'll typically:
 
-1. **Add endpoints** that connect to your LLM application's API. Each endpoint is created within this project and can represent different environments (development, staging, production) or different API implementations. For example, you might create:
-   - A development endpoint pointing to your local LLM application instance
-   - A staging endpoint for pre-production validation of your LLM application
-   - A production endpoint for live system monitoring
+1. **Add endpoints** that connect to your LLM application's API
 2. **Create or generate tests** to validate your AI behavior
 3. **Organize tests into test sets** for execution
 4. **Run tests against any of your project's endpoints** and analyze results
-
-This multi-endpoint approach lets you validate that your AI works correctly across all environments before deploying changes to production.
 
 ## Managing Projects
 
@@ -67,9 +54,9 @@ This multi-endpoint approach lets you validate that your AI works correctly acro
 
 Click **View** on any project card to access the project details page, where you can edit settings or delete the project.
 
-### Search, filters, and pagination (v0.6.9+)
+### Search, filters, and pagination
 
-The Projects page supports built-in discovery controls for larger organizations:
+The Projects page supports discovery controls for larger organizations:
 
 | Control | Behavior |
 |---|---|
@@ -100,14 +87,11 @@ Projects can be either active or inactive.
 To delete a project, open the project details page, click **Delete**, and confirm in the modal dialog. This permanently removes the project and all associated endpoints, tests, and test sets.
 
 
-
-
-
 ---
 
 <Callout type="default">
   **Next Steps** - Add [Endpoints](/docs/endpoints) to connect your AI
-  application - Create [Tests](/docs/tests-generation) to validate your
+  application - Create [Tests](/docs/explorer/tests-generation) to validate your
   AI behavior - Organize tests into [Test Sets](/docs/test-sets)
   for execution
 </Callout>

@@ -2,11 +2,9 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 # Run Evaluations
 
-With your environment set up and your application connected, you are ready to run evaluations. In Rhesis, a group of test cases used to evaluate an application is called a **Test Set**.
+In Rhesis, a **Test Set** is a collection of test cases — prompts with optional context and expected outputs — that is sent to your Endpoint for evaluation.
 
-A Test Set is a collection of prompts (with optional context and expected outputs) that will be sent to your Endpoint.
-
-There are three main ways to acquire or create Test Sets in Rhesis:
+There are three main ways to acquire or create Test Sets:
 
 ## Generating Tests
 
@@ -36,9 +34,7 @@ test_set = synthesizer.generate(num_tests=10)`}
 
 ## Importing Existing Tests
 
-If you already have test cases stored in a file (such as a CSV or JSON file from previous evaluations), you can easily import them into Rhesis.
-
-This is useful for regression testing or when you want to evaluate your application against established benchmarks. You can upload files directly through the Platform UI.
+If you already have test cases stored in a file (such as a CSV or JSON file from previous evaluations), you can upload them directly through the Platform UI. This is useful for regression testing or evaluating against established benchmarks.
 
 - [Learn more about Importing from File](/docs/test-sets/import-from-file).
 
@@ -49,7 +45,7 @@ For evaluating the security and robustness of your AI application, Rhesis integr
 Using our integration with **Garak** (Generative AI Red-teaming and Assessment Kit), you can automatically probe your application for vulnerabilities like prompt injection, data leakage, and harmful content generation.
 
 - [Learn more about Importing from Garak](/docs/test-sets/import-from-garak).
-- [Learn more about Adversarial Testing](/adversarial-testing).
+- [Learn more about Adversarial Testing](/docs/tests/adversarial-testing).
 
 ## Running the Test Set
 
@@ -64,7 +60,7 @@ Once your Test Set is ready and your Endpoint is connected, you can execute a te
 
 Rhesis will orchestrate the execution, sending each test case to your application in parallel, collecting the responses, and computing relevant metrics. You can then analyze the results in the interactive dashboards.
 
-For detailed information on configuring execution behavior, concurrency, and handling retries, see the [Test Execution Guide](/docs/test-execution).
+For detailed information on configuring execution behavior, concurrency, and handling retries, see the [Test Execution Guide](/docs/test-runs/execution).
 
 <Callout type="info">
   **Prefer working from your IDE?** The [Rhesis agent skill](/docs/agent-skill) lets you run the full discover-plan-execute workflow — or build a test foundation from requirements — from Cursor, Claude Code, or any compatible AI interface.
