@@ -7,7 +7,7 @@ using a fallback hierarchy system.
 
 import json
 import logging
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Optional, Union
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +30,20 @@ def _as_response_dict(result: Union[Dict, Any]) -> Dict[str, Any]:
         return {}
 
 
+def _coerce_http_status_code(value: Any) -> Optional[int]:
+    """Normalize status codes from int or numeric string; reject bools."""
+    if isinstance(value, bool) or value is None:
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        try:
+            return int(value.strip())
+        except ValueError:
+            return None
+    return None
+
+
 def is_http_error_response(result: Union[Dict, Any]) -> bool:
     """Return True when the endpoint response is an HTTP error (4xx/5xx).
 
@@ -44,11 +58,37 @@ def is_http_error_response(result: Union[Dict, Any]) -> bool:
     if data.get("error_type") == "http_error":
         return True
 
-    status_code = data.get("status_code")
-    if data.get("error") and isinstance(status_code, int) and status_code >= 400:
+    status_code = _coerce_http_status_code(data.get("status_code"))
+    if data.get("error") and status_code is not None and status_code >= 400:
         return True
 
     return False
+
+
+def get_http_error_status_code(result: Union[Dict, Any]) -> Optional[int]:
+    """Return HTTP status from a flat response or multi-turn first-turn error_details."""
+    data = _as_response_dict(result)
+    if not data:
+        return None
+
+    status_code = _coerce_http_status_code(data.get("status_code"))
+    if status_code is not None:
+        return status_code
+
+    history = data.get("history")
+    if not isinstance(history, list) or not history:
+        return None
+
+    first_turn = history[0]
+    if not isinstance(first_turn, dict):
+        return None
+
+    target_interaction = first_turn.get("target_interaction")
+    if not isinstance(target_interaction, dict):
+        return None
+
+    error_details = _error_details_from_tool_execution(target_interaction)
+    return _coerce_http_status_code(error_details.get("status_code"))
 
 
 def _error_details_from_tool_execution(target_interaction: Dict[str, Any]) -> Dict[str, Any]:

@@ -24,11 +24,14 @@ async def evaluate_metrics(
     penelope_metrics: Dict[str, Any],
 ) -> Dict[str, Any]:
     """Run async metric evaluation, returning merged results."""
-    from rhesis.backend.tasks.execution.response_extractor import has_http_error_in_result
+    from rhesis.backend.tasks.execution.response_extractor import (
+        get_http_error_status_code,
+        has_http_error_in_result,
+    )
 
     # HTTP errors are not model answers — do not score metrics against them.
     if has_http_error_in_result(output):
-        status_code = output.get("status_code") if isinstance(output, dict) else None
+        status_code = get_http_error_status_code(output)
         logger.info(
             f"[BATCH] HTTP error for test {test_id} (status_code={status_code}); skipping metrics"
         )

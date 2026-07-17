@@ -14,6 +14,7 @@ from rhesis.backend.tasks.execution.executors.output_providers import TestOutput
 from rhesis.backend.tasks.execution.executors.runners import MultiTurnRunner, SingleTurnRunner
 from rhesis.backend.tasks.execution.penelope_target import BackendEndpointTarget
 from rhesis.backend.tasks.execution.response_extractor import (
+    get_http_error_status_code,
     has_http_error_in_result,
     is_http_error_response,
 )
@@ -73,6 +74,16 @@ class TestIsHttpErrorResponse:
             }
         )
 
+    def test_error_flag_with_string_status_ge_400(self):
+        assert is_http_error_response(
+            {
+                "error": True,
+                "status_code": "405",
+                "message": "Method Not Allowed",
+                "output": "Method Not Allowed",
+            }
+        )
+
     def test_error_response_object(self):
         resp = ErrorResponse(
             output="Not Found",
@@ -98,6 +109,34 @@ class TestIsHttpErrorResponse:
     def test_empty_result(self):
         assert not is_http_error_response(None)
         assert not is_http_error_response({})
+
+
+class TestGetHttpErrorStatusCode:
+    def test_flat_response(self):
+        assert (
+            get_http_error_status_code(
+                {
+                    "error": True,
+                    "error_type": "http_error",
+                    "status_code": 405,
+                }
+            )
+            == 405
+        )
+
+    def test_string_status_code(self):
+        assert (
+            get_http_error_status_code(
+                {
+                    "error": True,
+                    "status_code": "503",
+                }
+            )
+            == 503
+        )
+
+    def test_multi_turn_nested_status_code(self):
+        assert get_http_error_status_code(_multi_turn_trace_with_first_http_error(503)) == 503
 
 
 class TestHasHttpErrorInResult:
