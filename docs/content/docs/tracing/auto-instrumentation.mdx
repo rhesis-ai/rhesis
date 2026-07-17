@@ -2,7 +2,7 @@ import { CodeBlock } from "@/components/CodeBlock";
 
 # Auto-Instrumentation
 
-Zero-config tracing for LangChain and LangGraph applications.
+Zero-config tracing for LangChain, LangGraph, Microsoft Agent Framework, and Pydantic AI applications.
 
 ## Overview
 
@@ -12,10 +12,12 @@ Auto-instrumentation automatically traces all LLM calls, tool invocations, and c
     AI["auto_instrument()"] --> LC["LangChain"]
     AI --> LG["LangGraph"]
     AI --> MAF["Microsoft Agent Framework"]
+    AI --> PAI["Pydantic AI"]
 
     LC --> T["Automatic Traces"]
     LG --> T
-    MAF --> T`} />
+    MAF --> T
+    PAI --> T`} />
 
 ## API at a glance
 
@@ -239,9 +241,10 @@ disable_auto_instrument()`}
 | LangChain | Auto-instrument (callback + tool patch) | `langchain` | Supported |
 | LangGraph | Auto-instrument (callback + graph patch) | `langgraph` | Supported |
 | Microsoft Agent Framework | Auto-instrument (OTel span translation) | `agent-framework` | Supported |
-| Other Python frameworks (CrewAI, OpenAI Agents SDK, LlamaIndex, AutoGen, …) | `@observe.*` decorators | n/a | Use [Decorators](/tracing/decorators) |
+| Pydantic AI | Auto-instrument (OTel span translation) | `pydantic-ai` | Supported |
+| Other Python frameworks (CrewAI, OpenAI Agents SDK, LlamaIndex, …) | `@observe.*` decorators | n/a | Use [Decorators](/tracing/decorators) |
 
-Microsoft Agent Framework has its own dedicated guide - see [Microsoft Agent Framework](/tracing/agent-framework) for installation, handoff tracing, and content-capture options.
+Microsoft Agent Framework has its own dedicated guide - see [Microsoft Agent Framework](/tracing/agent-framework) for installation, handoff tracing, and content-capture options. For Pydantic AI, call `auto_instrument("pydantic_ai")` after creating `RhesisClient`.
 
 For frameworks not in the auto-instrument list, wrap the functions, tools, or agents you want to trace with `@observe.llm`, `@observe.tool`, `@observe.retrieval`, etc. Without decorators only top-level inputs and outputs are captured.
 
