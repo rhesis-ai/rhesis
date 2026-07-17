@@ -11,6 +11,8 @@ import pytest
 
 from rhesis.backend.app.config.settings import get_auth_settings
 
+_SESSION_SECRET = {"SESSION_SECRET_KEY": "test-session-secret-key-for-backend-tests"}
+
 
 class TestProviderRegistry:
     """Tests for the ProviderRegistry class."""
@@ -153,7 +155,7 @@ class TestProviderRegistry:
         """Test OAuth providers are disabled without credentials."""
         from rhesis.backend.app.auth.providers.registry import ProviderRegistry
 
-        with patch.dict(os.environ, {}, clear=True):
+        with patch.dict(os.environ, _SESSION_SECRET, clear=True):
             ProviderRegistry.reset()
             ProviderRegistry.initialize()
 
