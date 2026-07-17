@@ -10,7 +10,9 @@ positive example. Apply when trimming pages under `docs/content/`.
    it!", "the script will do it for you!", "improving the user experience". State what a command
    does, not how easy it is. Concrete, true promises are fine where they set expectations —
    "running in under 5 minutes" belongs in a getting-started/quick-start intro (once, not
-   repeated in every heading).
+   repeated in every heading). Exception: marketing-facing pages (Product Tour, Welcome, and to
+   a degree Core Concepts) may keep promotional copy — decluttering there targets redundancy and
+   wrong facts, not tone.
 2. **No "simply", "easily", "just", "powerful", "seamless", "comprehensive".** If a step needs
    "simply" to sound simple, rewrite the step instead. Where a verifiable claim exists, replace
    the adjective with it rather than only deleting: "drop-in replacement for the OpenAI SDK"
@@ -99,8 +101,8 @@ Check off pages/sections as they are done.
 - [x] Welcome (`docs/index.mdx`) — no changes needed; landing-page Steps duplication kept by design
 - [x] Getting Started — Overview, Setup Environment, Connect Application, Run Evaluations,
       Projects, Default Chatbot (Rosalind)
-- [ ] Core Concepts (`docs/concepts.mdx`)
-- [ ] Product Tour (`docs/product-tour.mdx`)
+- [x] Core Concepts (`docs/concepts.mdx`) — already lean; fixed two broken links, tidied whitespace
+- [x] Product Tour (`docs/product-tour.mdx`) — no changes; promotional tone allowed by design
 - [ ] Architect — Overview, Workflow, Endpoint Exploration, Planning Test Suites,
       Running and Analyzing, Chat Features, Scenarios
 - [ ] Agent Skill
