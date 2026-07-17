@@ -1,0 +1,39 @@
+# Annotations
+
+Browse human reviews across test results and traces from **Improve → Annotations**.
+
+Annotations are the same judgements you create on a [test result](/docs/tasks/test-reviews) or [trace](/docs/tracing) — Pass/Fail with a comment — collected in one list so you can find and follow up on them without hunting through individual runs.
+
+## Using the hub
+
+1. Open **Improve → Annotations**
+2. Use **All / Open / Resolved** to filter by resolution status
+3. Search by comment, annotator, target, or rating
+4. Open the filter drawer for type (test result / trace), rating, and target
+5. Click a row to open the source review in a new tab
+
+| Column | Meaning |
+|--------|---------|
+| **Type** | Test result or trace |
+| **Target** | Overall result, metric, turn, or trace |
+| **Rating** | Human Pass / Fail |
+| **Annotator** | Who wrote the review |
+| **Status** | Open or Resolved |
+| **Comment** | Review text (mentions render as chips) |
+
+## Resolve
+
+Mark a review **Resolved** when the disagreement is handled (for example after fixing the model or accepting the override). Use **Reopen** if it needs attention again.
+
+Resolve and reopen from the Reviews tab on the test result or trace. Conflicts between automated and human verdicts are hidden once the conflicting review is resolved.
+
+## Permissions
+
+You need **test result read** and/or **telemetry read**. The list only includes sources you can access.
+
+## Related
+
+- [Test Reviews](/docs/tasks/test-reviews) — how to add and target reviews on test results
+- [Test Runs](/docs/test-runs) — open a result and use the Reviews tab
+- [Tracing](/docs/tracing) — live traces and review workflows
+- [Trace Metrics](/docs/metrics/trace-metrics) — automated evaluation on traces
