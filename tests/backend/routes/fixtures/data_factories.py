@@ -594,32 +594,6 @@ class OrganizationDataFactory(BaseDataFactory):
 
 
 @dataclass
-class DimensionDataFactory(BaseDataFactory):
-    """Factory for generating dimension test data"""
-
-    @classmethod
-    def minimal_data(cls) -> Dict[str, Any]:
-        """Generate minimal dimension data"""
-        return {"name": fake.word().title() + " Dimension"}
-
-    @classmethod
-    def sample_data(cls) -> Dict[str, Any]:
-        """Generate sample dimension data"""
-        return {
-            "name": fake.word().title() + " Dimension",
-            "description": fake.text(max_nb_chars=180),
-        }
-
-    @classmethod
-    def update_data(cls) -> Dict[str, Any]:
-        """Generate dimension update data"""
-        return {
-            "name": fake.catch_phrase() + " Dimension",
-            "description": fake.paragraph(nb_sentences=1),
-        }
-
-
-@dataclass
 class ProjectDataFactory(BaseDataFactory):
     """Factory for generating project test data"""
 
@@ -718,8 +692,8 @@ class PromptDataFactory(BaseDataFactory):
         if include_expected_response:
             data["expected_response"] = fake.paragraph(nb_sentences=2)
 
-        # Note: Relationship fields (demographic_id, category_id, etc.)
-        # are typically set by fixtures or test setup, not in sample data
+        # Note: Relationship fields (category_id, etc.) are typically set by
+        # fixtures or test setup, not in sample data
 
         return data
 
@@ -965,7 +939,6 @@ FACTORY_REGISTRY = {
     "metric": MetricDataFactory,
     "model": ModelDataFactory,
     "organization": OrganizationDataFactory,
-    "dimension": DimensionDataFactory,
     "project": ProjectDataFactory,
     "prompt": PromptDataFactory,
     "endpoint": EndpointDataFactory,
@@ -2509,7 +2482,6 @@ __all__ = [
     "MetricDataFactory",
     "ModelDataFactory",
     "OrganizationDataFactory",
-    "DimensionDataFactory",
     "PromptTemplateDataFactory",
     "ResponsePatternDataFactory",
     "RiskDataFactory",

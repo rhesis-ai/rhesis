@@ -5,7 +5,6 @@ This package provides fixtures for individual business entities.
 Each module contains fixtures for a specific business domain.
 
 Modules:
-- dimensions.py: Dimension-related fixtures
 - categories.py: Category-related fixtures
 - topics.py: Topic-related fixtures
 - behaviors.py: Behavior-related fixtures
@@ -17,7 +16,6 @@ Modules:
 # Import all entity fixtures
 from .behaviors import *
 from .categories import *
-from .dimensions import *
 from .endpoints import *
 from .metrics import *
 from .projects import *
@@ -30,9 +28,6 @@ from .topics import *
 from .users import *  # Enhanced user fixtures
 
 __all__ = [
-    # Dimension fixtures
-    "sample_dimension",
-    "sample_dimensions",
     # Category fixtures
     "sample_category",
     "parent_category",
