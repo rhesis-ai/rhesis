@@ -38,7 +38,6 @@ def get_test_set(db: Session, test_set_id: uuid.UUID, organization_id: str = Non
         db.query(TestSet)
         .filter(TestSet.id == test_set_id)
         .options(
-            joinedload(TestSet.prompts).joinedload(Prompt.demographic),
             joinedload(TestSet.prompts).joinedload(Prompt.category),
             joinedload(TestSet.prompts).joinedload(Prompt.attack_category),
             joinedload(TestSet.prompts).joinedload(Prompt.topic),

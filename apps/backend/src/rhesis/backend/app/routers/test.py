@@ -75,8 +75,6 @@ def create_tests_bulk(
                 "prompt": {
                     "content": "Prompt text",
                     "language_code": "en",
-                    "demographic": "Optional demographic",
-                    "dimension": "Optional dimension",
                     "expected_response": "Optional expected response"
                 },
                 "behavior": "Behavior name",

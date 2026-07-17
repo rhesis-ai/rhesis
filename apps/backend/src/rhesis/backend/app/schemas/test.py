@@ -100,6 +100,7 @@ class TestBase(Base):
 class TestPromptCreate(BaseModel):
     content: str
     language_code: str = "en"
+    # Accepted but ignored: dimension/demographic tables were removed.
     demographic: Optional[str] = None
     dimension: Optional[str] = None
     expected_response: Optional[str] = None

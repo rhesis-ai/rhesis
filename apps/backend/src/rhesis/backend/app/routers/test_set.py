@@ -252,8 +252,6 @@ async def create_test_set_bulk(
                 "prompt": {
                     "content": "Prompt text",
                     "language_code": "en",
-                    "demographic": "Optional demographic (e.g., 'Caucasian')",
-                    "dimension": "Optional dimension (e.g., 'Ethnicity')",
                     "expected_response": "Optional expected response text"
                 },
                 "behavior": "Behavior name",
@@ -278,9 +276,7 @@ async def create_test_set_bulk(
     }
 
     Notes:
-    - demographic and dimension are optional fields that work together
-    - If both demographic and dimension are provided, they will be properly associated
-    - The dimension will be created first, then the demographic will be linked to it
+    - demographic and dimension fields are accepted but ignored (dimension/demographic tables were removed)
     - expected_response is an optional field to specify the expected model response
     """
     try:
