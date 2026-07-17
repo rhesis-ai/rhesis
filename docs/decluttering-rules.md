@@ -115,8 +115,10 @@ Check off pages/sections as they are done.
       are permission-gated. Roles: corrected Admin/Member capability descriptions.
       API Clients: fixed token-lifetime defaults and invalid_request/target/client
       error mapping. SSO: verified accurate, no changes.)
-- [ ] Deployment — Overview, Quick Start, Docker Compose, Environment Variables
-      (recently rewritten in #2167 — mostly done, light pass only)
+- [x] Deployment — Overview, Quick Start, Docker Compose, Environment Variables
+      (Quick Start and Docker Compose: removed unused FileTree imports, tone pass,
+      fixed backup commands and internal links; verified ports, ./rh commands,
+      secrets, and env defaults against rh/docker-compose.yml/.env.example)
 
 **Define**
 - [ ] Knowledge
