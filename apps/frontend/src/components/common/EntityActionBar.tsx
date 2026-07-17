@@ -50,20 +50,11 @@ export function EntityActionBar<T extends WithPermittedActions>({
             <Box component="span" sx={{ display: 'inline-flex' }}>
               <IconButton
                 size="small"
+                color="primary"
                 aria-label={action.label}
                 disabled={!enabled}
                 onClick={() => subject && action.onSelect(subject)}
-                sx={{
-                  p: 0,
-                  // Match the existing action-icon styling; only force the
-                  // primary tint while enabled so disabled keeps MUI's grey.
-                  ...(enabled && {
-                    '& .MuiSvgIcon-root': {
-                      color: (theme: Theme) =>
-                        `${theme.palette.primary.main} !important`,
-                    },
-                  }),
-                }}
+                sx={{ p: 0 }}
               >
                 {Icon ? <Icon sx={{ fontSize: iconSize }} /> : null}
               </IconButton>
