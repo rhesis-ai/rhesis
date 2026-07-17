@@ -105,11 +105,10 @@ resource "terraform_data" "bind9_config_update" {
         --tunnel-through-iap \
         --command="sudo bash -c '\
           set -e && \
-          apt-get install -y -qq bind9 > /dev/null 2>&1 || true && \
+          apt-get install -y -qq bind9 > /dev/null 2>&1 && \
           systemctl stop dnsmasq 2>/dev/null || true && \
           systemctl disable dnsmasq 2>/dev/null || true && \
           base64 -d /tmp/named.conf.tf.b64 > /tmp/named.conf.new && \
-          rm /tmp/named.conf.tf.b64 && \
           [ -s /tmp/named.conf.new ] || { echo \"ERROR: decoded named.conf is empty\"; rm -f /tmp/named.conf.new; exit 1; } && \
           named-checkconf /tmp/named.conf.new && \
           mv /tmp/named.conf.new /etc/bind/named.conf && \

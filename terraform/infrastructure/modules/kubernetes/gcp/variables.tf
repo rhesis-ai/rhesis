@@ -133,3 +133,21 @@ variable "deletion_protection" {
   type        = bool
   default     = false
 }
+
+variable "enable_public_ingress_firewall" {
+  description = "Allow inbound tcp:80,443 to GKE nodes for a public-facing ingress-nginx-external LoadBalancer. Off by default; enable per-environment once that environment actually exposes a service publicly."
+  type        = bool
+  default     = false
+}
+
+variable "public_ingress_source_ranges" {
+  description = "Source ranges allowed to reach the public ingress on tcp:80,443. Ignored when use_cloudflare_source_ranges is true."
+  type        = list(string)
+  default     = ["0.0.0.0/0"]
+}
+
+variable "use_cloudflare_source_ranges" {
+  description = "Restrict the public ingress firewall rule to Cloudflare's current edge IP ranges (fetched live via the cloudflare provider) instead of public_ingress_source_ranges. Only makes sense if the DNS record is Proxied (orange-cloud) in Cloudflare — otherwise real visitor traffic won't come from these ranges and will be blocked."
+  type        = bool
+  default     = false
+}

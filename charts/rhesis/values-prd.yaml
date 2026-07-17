@@ -12,7 +12,7 @@ global:
   imagePullPolicy: Always
   # Set to a pinned tag before deploy, e.g. "v1.2.3" or the Artifact Registry digest tag.
   # Helm render fails if this is empty or "latest" — enforced by requirePinnedTag below.
-  imageTag: ""
+  imageTag: "d6f9572a"
   requirePinnedTag: true
 
 # DB: app URL uses rhesis-user; migrate.sh / Alembic use rhesis-admin.
@@ -59,27 +59,32 @@ config:
   azureOpenAiApiVersion: "2024-02-01"
 
 # ---------------------------------------------------------------------------
-# Ingress — prd (external class for public services)
+# Ingress — prd (internal class for VPN-only testing; switch to external for go-live)
 # ---------------------------------------------------------------------------
 backend:
   replicas: 2
   resources:
     requests:
-      memory: "1Gi"
+      # Raised from 2Gi: Grafana showed real baseline usage sitting at ~2.3-2.5Gi
+      # per pod even at idle, already above the old request.
+      memory: "3Gi"
       cpu: "500m"
     limits:
-      memory: "2Gi"
+      memory: "4Gi"
       cpu: "2000m"
   hpa:
     enabled: true
     minReplicas: 2
     maxReplicas: 6
-    targetCPUUtilizationPercentage: 70
+    # Lowered from 70: k6 load testing showed combined CPU usage briefly exceed
+    # 100% of combined requests during fast ramp-up, before new replicas came
+    # online. Scaling earlier gives HPA more lead time to react.
+    targetCPUUtilizationPercentage: 60
     targetMemoryUtilizationPercentage: 80
   ingress:
     enabled: true
     host: "api.rhesis.ai"
-    className: external
+    className: internal
     annotations:
       cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
@@ -111,7 +116,7 @@ frontend:
   ingress:
     enabled: true
     host: "app.rhesis.ai"
-    className: external
+    className: internal
     annotations:
       cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
@@ -150,7 +155,7 @@ docs:
   ingress:
     enabled: true
     host: "docs.rhesis.ai"
-    className: external
+    className: internal
     annotations:
       cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
@@ -173,7 +178,7 @@ chatbot:
   ingress:
     enabled: true
     host: "chatbot.rhesis.ai"
-    className: external
+    className: internal
     annotations:
       cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
@@ -182,7 +187,7 @@ otelCollector:
   ingress:
     enabled: true
     host: "telemetry.rhesis.ai"
-    className: external
+    className: internal
     annotations:
       cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
@@ -208,7 +213,7 @@ polyphemus:
   ingress:
     enabled: true
     host: "polyphemus.rhesis.ai"
-    className: external
+    className: internal
     annotations:
       cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
