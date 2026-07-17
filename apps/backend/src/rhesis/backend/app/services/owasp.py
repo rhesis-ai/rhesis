@@ -1,8 +1,13 @@
 """OWASP Top 10 report category service.
 
-Wraps the SDK's ``fetch_owasp_sections`` (downloads and parses the official
-OWASP Top 10 PDF) with a Redis-backed cache so the frontend's category picker
-doesn't re-download/re-parse the report on every drawer open.
+Wraps the SDK's ``fetch_owasp_sections`` with two caches so the PDF download +
+pdfminer parse happens at most once per framework:
+
+- A permanent content cache (parsed sections as ``owasp/{framework}.json`` in
+  the object store, no TTL) shared by the categories endpoint and the
+  generation task.
+- A Redis id/name-only cache in front of it (7-day TTL) so the frontend's
+  category picker avoids a storage round-trip.
 """
 
 import json
@@ -11,6 +16,7 @@ from typing import Dict, List, Optional
 
 from rhesis.backend.app.services.cache import RedisBackedCache
 from rhesis.backend.app.services.redis_constants import RedisDatabase
+from rhesis.backend.app.services.storage_service import StorageService
 from rhesis.sdk.services.owasp_extractor import (
     DEFAULT_OWASP_AGENTIC_PDF_URL,
     DEFAULT_OWASP_LLM_PDF_URL,
@@ -34,7 +40,7 @@ OWASP_FRAMEWORKS: Dict[str, Dict[str, str]] = {
     },
 }
 
-_CACHE_TTL = 86400 * 7  # 7 days - the published report rarely changes
+_CACHE_TTL = 86400 * 7  # 7 days - Redis metadata cache only; content cache never expires
 
 
 class OwaspSectionCache(RedisBackedCache):
@@ -62,6 +68,35 @@ class OwaspSectionCache(RedisBackedCache):
 
 _cache = OwaspSectionCache()
 
+_storage_service: Optional[StorageService] = None
+
+
+def _get_storage() -> StorageService:
+    global _storage_service
+    if _storage_service is None:
+        _storage_service = StorageService()
+    return _storage_service
+
+
+def load_owasp_content_cache(framework: str) -> Optional[List[dict]]:
+    """``cache_loader`` for ``fetch_owasp_sections``: read cached sections or None."""
+    storage = _get_storage()
+    raw = storage.get_object_bytes(storage.get_owasp_content_path(framework))
+    if raw is None:
+        return None
+    try:
+        return json.loads(raw)
+    except (TypeError, ValueError) as e:
+        logger.warning(f"Corrupt OWASP content cache for {framework!r}, ignoring: {e}")
+        return None
+
+
+def save_owasp_content_cache(framework: str, sections: List[dict]) -> None:
+    """``cache_writer`` for ``fetch_owasp_sections``: persist parsed sections (no TTL)."""
+    storage = _get_storage()
+    payload = json.dumps(sections).encode("utf-8")
+    storage.put_object_bytes(payload, storage.get_owasp_content_path(framework), "application/json")
+
 
 def list_categories(framework: str) -> List[ReportSection]:
     """Return the report sections (id, name) for *framework*, using the cache when warm."""
@@ -74,7 +109,14 @@ def list_categories(framework: str) -> List[ReportSection]:
     if cached is not None:
         return [ReportSection(id=s["id"], name=s["name"], content="") for s in cached]
 
+    # On a Redis miss, fetch_owasp_sections still checks the content cache before
+    # falling back to a fresh download+parse.
     report_url = OWASP_FRAMEWORKS[framework]["report_url"]
-    sections = fetch_owasp_sections(report_url)
+    sections = fetch_owasp_sections(
+        report_url,
+        cache_key=framework,
+        cache_loader=load_owasp_content_cache,
+        cache_writer=save_owasp_content_cache,
+    )
     _cache.set_sections(framework, [{"id": s.id, "name": s.name} for s in sections])
     return sections
