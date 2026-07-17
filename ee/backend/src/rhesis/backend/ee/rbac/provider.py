@@ -129,15 +129,9 @@ class PermissionAuthorizationProvider:
 
     def _rbac_available(self, principal: "Principal", db: "Session") -> bool:
         """Return True when RBAC is licensed and registered for the principal's org."""
-        from rhesis.backend.app.features import FeatureName, FeatureRegistry
-        from rhesis.backend.app.models.organization import Organization
-        from rhesis.backend.app.scope import bypass_tenant_filter
+        from rhesis.backend.app.auth.rbac import rbac_active_for
 
-        with bypass_tenant_filter():
-            org = db.query(Organization).filter_by(id=principal.organization_id).first()
-        if org is None:
-            return False
-        return FeatureRegistry.is_available(FeatureName.RBAC, org)
+        return rbac_active_for(principal.organization_id, db)
 
     #: Minimum role level that grants implicit access to all projects without
     #: requiring an explicit project_membership row.  Corresponds to Admin (80).
@@ -315,15 +309,16 @@ class PermissionAuthorizationProvider:
     ) -> set[str]:
         """Return the full set of active permission names for the principal.
 
-        Used by ``GET /me/permissions`` and the privilege-escalation guard to
-        inspect what the actor actually holds before a role create/assign.
-        Returns an empty set when RBAC is off or no role is found.
+        Mirrors :meth:`is_authorized`'s resolution order: delegates to the
+        community fallback when RBAC isn't available, and intersects with the
+        token's scopes (SP9) when RBAC is active.
 
-        Built-in roles compute their permission set from code; custom roles
-        query ``role_permission``.  See :meth:`_role_has_permission`.
+        Single-context and not scope-aware by design — see
+        :func:`~rhesis.backend.app.auth.rbac.effective_permissions` for the
+        org/project split; don't reintroduce it here.
         """
         if not self._rbac_available(principal, db):
-            return set()
+            return self._fallback.get_effective_permissions(principal, project_id=project_id, db=db)
 
         role = self._resolve_role(principal, project_id, db)
         if role is None:
@@ -337,18 +332,24 @@ class PermissionAuthorizationProvider:
         )
 
         if role.is_built_in:
-            return permissions_for_built_in_role(role.name, get_all_capabilities())
-
-        rows = (
-            db.query(Permission.name)
-            .join(RolePermission, Permission.id == RolePermission.permission_id)
-            .filter(
-                RolePermission.role_id == role.id,
-                Permission.is_retired.is_(False),
+            permissions = permissions_for_built_in_role(role.name, get_all_capabilities())
+        else:
+            rows = (
+                db.query(Permission.name)
+                .join(RolePermission, Permission.id == RolePermission.permission_id)
+                .filter(
+                    RolePermission.role_id == role.id,
+                    Permission.is_retired.is_(False),
+                )
+                .all()
             )
-            .all()
-        )
-        return {row[0] for row in rows}
+            permissions = {row[0] for row in rows}
+
+        # SP9: token scope intersection (mirrors is_authorized's own check).
+        if principal.scopes is not None:
+            permissions &= principal.scopes
+
+        return permissions
 
 
 __all__ = ["PermissionAuthorizationProvider"]

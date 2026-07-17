@@ -122,13 +122,13 @@ def _validate_token_scopes(scopes: list[str], principal: "Principal", db: Sessio
     token, the requested scopes must also be within that token's own scopes —
     preventing privilege escalation by minting a wider child token.
 
-    In the community tier every valid capability string is permitted (the
-    DefaultAuthorizationProvider doesn't enforce scopes at auth time anyway).
-    In the EE tier we call the provider's ``get_effective_permissions`` so the
-    check matches exactly what ``authorize()`` would decide.
+    In the community tier every valid capability string is permitted (RBAC is
+    an EE-only feature, so scopes have nothing granular to enforce against).
+    Where RBAC is active we call the provider's ``get_effective_permissions``
+    so the check matches exactly what ``authorize()`` would decide.
     """
     from rhesis.backend.app.auth.capabilities import get_all_capabilities
-    from rhesis.backend.app.auth.rbac import get_authorization_provider
+    from rhesis.backend.app.auth.rbac import get_authorization_provider, rbac_active_for
 
     # SP9 chained-mint guard: a scoped token cannot mint a token with wider scopes.
     if principal.kind == AuthKind.TOKEN and principal.scopes is not None:
@@ -153,12 +153,13 @@ def _validate_token_scopes(scopes: list[str], principal: "Principal", db: Sessio
                 detail=f"Unknown capability strings in scopes: {sorted(unknown)}",
             )
 
-    provider = get_authorization_provider()
-    if not hasattr(provider, "get_effective_permissions"):
-        # Community provider — scopes are stored but not enforced at auth time.
+    if not rbac_active_for(principal.organization_id, db):
+        # RBAC not licensed/active for this org — scopes are stored but not
+        # enforced at auth time.
         return
 
-    # EE provider — validate scopes ⊆ caller's effective permissions.
+    # RBAC active — validate scopes ⊆ caller's effective permissions.
+    provider = get_authorization_provider()
     # project_id=None intentionally validates against the caller's org-level
     # role (the org-role ceiling) rather than a specific project role.  This is
     # the conservative correct baseline: if a project-membership role grants

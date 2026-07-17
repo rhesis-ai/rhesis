@@ -181,6 +181,40 @@ class TestPermissionCacheUnit:
         assert self.cache.get(USER_ID, ORG_ID, PROJECT_ID, "test_set:read") is None
         assert self.cache.get(OTHER_USER_ID, OTHER_ORG_ID, None, "organization:update") is None
 
+    # --- get_rbac_active / set_rbac_active ---
+
+    def test_get_rbac_active_uninitialised_returns_none(self):
+        assert self.cache.get_rbac_active(ORG_ID) is None
+
+    def test_set_rbac_active_true_then_get_returns_true(self):
+        self.cache.set_rbac_active(ORG_ID, True)
+        assert self.cache.get_rbac_active(ORG_ID) is True
+
+    def test_set_rbac_active_false_then_get_returns_false(self):
+        self.cache.set_rbac_active(ORG_ID, False)
+        assert self.cache.get_rbac_active(ORG_ID) is False
+
+    def test_rbac_active_different_org_is_a_miss(self):
+        self.cache.set_rbac_active(ORG_ID, True)
+        assert self.cache.get_rbac_active(OTHER_ORG_ID) is None
+
+    def test_rbac_active_does_not_collide_with_permission_decisions(self):
+        """The rbac_active flag and per-user permission decisions share a
+        Redis DB/TTL but must never read each other's entries."""
+        self.cache.set(USER_ID, ORG_ID, PROJECT_ID, "test_set:read", True)
+        self.cache.set_rbac_active(ORG_ID, False)
+
+        assert self.cache.get(USER_ID, ORG_ID, PROJECT_ID, "test_set:read") is True
+        assert self.cache.get_rbac_active(ORG_ID) is False
+
+    def test_rbac_active_survives_bust_user(self):
+        """bust_user only sweeps per-user permission-decision keys — the
+        org-level rbac_active flag has no user_id in its key and must be
+        unaffected."""
+        self.cache.set_rbac_active(ORG_ID, True)
+        self.cache.bust_user(USER_ID, ORG_ID)
+        assert self.cache.get_rbac_active(ORG_ID) is True
+
 
 # ===========================================================================
 # 2. Redis-mode unit tests (mocked Redis client)
@@ -409,7 +443,7 @@ class TestAuthorizeWithCache(_AuthzCacheTestBase):
         db_deny = _mock_db(is_owner=False, is_member=False)
 
         authorize(p1, "test_set:read", project_id=PROJECT_ID, db=db_allow)  # True → cached
-        authorize(p2, "test_set:read", project_id=PROJECT_ID, db=db_deny)   # False → cached
+        authorize(p2, "test_set:read", project_id=PROJECT_ID, db=db_deny)  # False → cached
 
         # Verify both are independently stored.
         cache = get_permission_cache()
@@ -454,9 +488,7 @@ class TestRevocationTiming(_AuthzCacheTestBase):
         db = MagicMock()
         db.execute.return_value = None
 
-        with patch(
-            "rhesis.backend.app.services.organization._set_default_project_if_empty"
-        ):
+        with patch("rhesis.backend.app.services.organization._set_default_project_if_empty"):
             enroll_user_in_project(db, USER_ID, PROJECT_ID, ORG_ID)
 
         # Cache must be busted.
@@ -493,9 +525,7 @@ class TestRevocationTiming(_AuthzCacheTestBase):
 
         db.query.side_effect = _query
 
-        with patch(
-            "rhesis.backend.app.services.organization._reassign_default_project_if_removed"
-        ):
+        with patch("rhesis.backend.app.services.organization._reassign_default_project_if_removed"):
             result = unenroll_user_from_project(
                 db, USER_ID, PROJECT_ID, ORG_ID, requester_user_id=OTHER_USER_ID
             )
@@ -562,9 +592,7 @@ class TestRevocationTiming(_AuthzCacheTestBase):
         db.query.side_effect = _query
         db.flush.return_value = None
 
-        with patch(
-            "rhesis.backend.app.services.organization._reassign_default_project_if_removed"
-        ):
+        with patch("rhesis.backend.app.services.organization._reassign_default_project_if_removed"):
             count = unenroll_all_project_members(db, PROJECT_ID, ORG_ID)
 
         assert count == 2
