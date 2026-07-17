@@ -105,6 +105,10 @@ autogen = [
     "pyautogen>=0.2.0",
 ]
 
+haystack = [
+    "haystack-ai>=2.0.0",
+]
+
 pydantic-ai = [
     "pydantic-ai>=0.0.49",
 ]
@@ -131,6 +135,7 @@ all-integrations = [
     "langgraph>=0.0.26",
     "langgraph-checkpoint>=3.0.0",
     "pyautogen>=0.2.0",
+    "haystack-ai>=2.0.0",
     "pydantic-ai>=0.0.49",
     "agent-framework-core>=1.1.0",
     "agent-framework-openai>=1.1.0",
@@ -147,6 +152,7 @@ all = [
     "langgraph>=0.0.26",
     "langgraph-checkpoint>=3.0.0",
     "pyautogen>=0.2.0",
+    "haystack-ai>=2.0.0",
     "pydantic-ai>=0.0.49",
     "agent-framework-core>=1.1.0",
     "agent-framework-openai>=1.1.0",

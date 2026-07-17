@@ -15,6 +15,7 @@ Future targets may include:
 """
 
 from rhesis.penelope.targets.endpoint import EndpointTarget
+from rhesis.penelope.targets.haystack import HaystackTarget
 from rhesis.penelope.targets.langchain import LangChainTarget
 from rhesis.penelope.targets.langgraph import LangGraphTarget
 from rhesis.penelope.targets.maf import MAFTarget
@@ -25,6 +26,7 @@ __all__ = [
     "Target",
     "TargetResponse",
     "EndpointTarget",
+    "HaystackTarget",
     "LangChainTarget",
     "LangGraphTarget",
     "MAFTarget",

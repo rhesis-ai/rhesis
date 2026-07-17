@@ -101,13 +101,13 @@ sequenceDiagram
 
 ## Rhesis Integration
 
-Rhesis imports (`RhesisClient`, `@endpoint`, `auto_instrument`) live only in `app.py` and `examples/serve_playground.py`. Haystack SDK auto-instrumentation is marked pending until the integration lands on main.
+Rhesis imports (`RhesisClient`, `@endpoint`, `auto_instrument`) live only in `app.py` and `examples/serve_playground.py`. Haystack SDK auto-instrumentation is enabled in `app.py` via `auto_instrument("haystack")` once the `RhesisClient` is constructed.
 
-## Trace Surface (future)
+## Trace Surface
 
 | Span | Source |
 |---|---|
 | `ai.endpoint.invoke` | Rhesis `@endpoint` on `/chat` |
-| Haystack component spans | Pending `auto_instrument("haystack")` |
+| `ai.agent.invoke` / `ai.llm.invoke` / `ai.retrieval` / `ai.transform` | Haystack pipeline + component spans via `auto_instrument("haystack")` |
 
-Multi-turn grouping will use `session.run_chat_turn` + conversation id context once Haystack instrumentation is available.
+Multi-turn grouping uses `session.run_chat_turn` + conversation id context, which the Haystack instrumentation ties to the active trace.

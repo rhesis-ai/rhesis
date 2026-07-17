@@ -58,6 +58,9 @@ langgraph = [
     "langchain-core>=1.3.3",
     "langchain-google-genai>=2.0.0",
 ]
+haystack = [
+    "haystack-ai>=2.0.0",
+]
 pydantic-ai = [
     "pydantic-ai>=0.0.49",
 ]
@@ -73,6 +76,7 @@ all = [
     "langchain-core>=1.3.3",
     "langchain-google-genai>=2.0.0",
     "langgraph>=0.2.0",
+    "haystack-ai>=2.0.0",
     "pydantic-ai>=0.0.49",
     "agent-framework-core>=1.1.0",
     "agent-framework-openai>=1.1.0",

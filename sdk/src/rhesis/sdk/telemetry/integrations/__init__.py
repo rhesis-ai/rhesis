@@ -4,6 +4,7 @@ from rhesis.sdk.telemetry.integrations.agent_framework import (
     get_integration as _get_agent_framework,
 )
 from rhesis.sdk.telemetry.integrations.autogen import get_integration as _get_autogen
+from rhesis.sdk.telemetry.integrations.haystack import get_integration as _get_haystack
 from rhesis.sdk.telemetry.integrations.langchain import get_integration as _get_langchain
 from rhesis.sdk.telemetry.integrations.langgraph import get_integration as _get_langgraph
 from rhesis.sdk.telemetry.integrations.pydantic_ai import get_integration as _get_pydantic_ai
@@ -12,6 +13,7 @@ from rhesis.sdk.telemetry.integrations.pydantic_ai import get_integration as _ge
 langchain = _get_langchain()
 langgraph = _get_langgraph()
 autogen = _get_autogen()
+haystack = _get_haystack()
 agent_framework = _get_agent_framework()
 pydantic_ai = _get_pydantic_ai()
 
@@ -19,6 +21,7 @@ __all__ = [
     "langchain",
     "langgraph",
     "autogen",
+    "haystack",
     "agent_framework",
     "pydantic_ai",
     "get_all_integrations",
@@ -40,6 +43,7 @@ def get_all_integrations():
         "langchain": langchain,
         "langgraph": langgraph,
         "autogen": autogen,
+        "haystack": haystack,
         "agent_framework": agent_framework,
         "maf": agent_framework,
         "pydantic_ai": pydantic_ai,

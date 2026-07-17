@@ -40,6 +40,9 @@ llamaindex = [
 crewai = [
     "crewai[google-genai]>=0.108.0",
 ]
+haystack = [
+    "haystack-ai>=2.0.0",
+]
 
 [tool.uv]
 exclude-newer = "1 week"

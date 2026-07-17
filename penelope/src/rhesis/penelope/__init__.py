@@ -22,6 +22,7 @@ from rhesis.penelope.schemas import (
 )
 from rhesis.penelope.targets import (
     EndpointTarget,
+    HaystackTarget,
     LangChainTarget,
     LangGraphTarget,
     MAFTarget,
@@ -49,6 +50,7 @@ __all__ = [
     "ExtractInformationParams",
     "Target",
     "EndpointTarget",
+    "HaystackTarget",
     "LangChainTarget",
     "LangGraphTarget",
     "MAFTarget",
