@@ -14,7 +14,6 @@ interface TestWorkflowSectionProps {
   priority?: number;
   assignee?: User | null;
   owner?: User | null;
-  sessionToken: string;
   testId: string;
   onStatusChange?: (newStatus: string) => void;
   onPriorityChange?: (newPriority: number) => void;
@@ -27,7 +26,6 @@ export default function TestWorkflowSection({
   priority = 1,
   assignee,
   owner,
-  sessionToken,
   testId,
   onStatusChange,
   onPriorityChange,
@@ -41,12 +39,12 @@ export default function TestWorkflowSection({
   const apiClients = useMemo(() => {
     if (!isAuthenticated(sessionStatus)) return null;
 
-    const clientFactory = new ApiClientFactory(sessionToken);
+    const clientFactory = new ApiClientFactory();
     return {
       clientFactory,
       testsClient: clientFactory.getTestsClient(),
     };
-  }, [sessionToken, sessionStatus]);
+  }, [sessionStatus]);
 
   const updateTest = async (updateData: Partial<Test>, fieldName: string) => {
     if (!apiClients?.testsClient) {

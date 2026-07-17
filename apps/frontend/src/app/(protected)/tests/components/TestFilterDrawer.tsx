@@ -79,7 +79,6 @@ interface TestFilterDrawerProps {
   open: boolean;
   onClose: () => void;
   filters: TestFilters;
-  sessionToken?: string;
   onApply: (filters: TestFilters) => void;
 }
 
@@ -87,28 +86,21 @@ export default function TestFilterDrawer({
   open,
   onClose,
   filters,
-  sessionToken,
   onApply,
 }: TestFilterDrawerProps) {
   const [draft, setDraft] = React.useState<TestFilters>(filters);
-  const token = sessionToken ?? '';
 
   const { data: rawStatuses, isLoading: loadingStatuses } = useStatuses(
-    token,
     ENTITY_TYPES.test,
     open
   );
-  const { data: rawBehaviors, isLoading: loadingBehaviors } = useBehaviors(
-    token,
-    open
-  );
+  const { data: rawBehaviors, isLoading: loadingBehaviors } =
+    useBehaviors(open);
   const { data: rawCategories, isLoading: loadingCategories } = useCategories(
-    token,
     EntityType.TEST,
     open
   );
   const { data: rawTopics, isLoading: loadingTopics } = useTopics(
-    token,
     EntityType.TEST,
     open
   );

@@ -68,7 +68,6 @@ interface TestSetFilterDrawerProps {
   open: boolean;
   onClose: () => void;
   filters: TestSetFilters;
-  sessionToken?: string;
   onApply: (filters: TestSetFilters) => void;
 }
 
@@ -76,19 +75,16 @@ export default function TestSetFilterDrawer({
   open,
   onClose,
   filters,
-  sessionToken,
   onApply,
 }: TestSetFilterDrawerProps) {
   const [draft, setDraft] = React.useState<TestSetFilters>(filters);
-  const token = sessionToken ?? '';
 
   const { data: rawStatuses, isLoading: loadingStatuses } = useStatuses(
-    token,
     ENTITY_TYPES.testSet,
     open
   );
-  const { data: rawUsers, isLoading: loadingUsers } = useUsers(token, open);
-  const { data: rawTags, isLoading: loadingTags } = useTags(token, open);
+  const { data: rawUsers, isLoading: loadingUsers } = useUsers(open);
+  const { data: rawTags, isLoading: loadingTags } = useTags(open);
   const loadingOptions = loadingStatuses || loadingUsers || loadingTags;
 
   const statusOptions = React.useMemo(

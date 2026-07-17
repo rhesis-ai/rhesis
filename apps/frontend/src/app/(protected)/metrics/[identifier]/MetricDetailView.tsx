@@ -237,9 +237,7 @@ export function MetricDetailView({
       dataFetchedRef.current = true;
 
       try {
-        const clientFactory = new ApiClientFactory(
-          session?.session_token ?? ''
-        );
+        const clientFactory = new ApiClientFactory();
         const metricsClient = clientFactory.getMetricsClient();
 
         // Fetch metric data
@@ -282,7 +280,7 @@ export function MetricDetailView({
     };
 
     fetchData();
-  }, [metricId, mode, session?.session_token, notifications, router, status]);
+  }, [metricId, mode, notifications, router, status]);
 
   const collectFieldValues = React.useCallback((): Partial<EditData> => {
     const values: Partial<EditData> = {};
@@ -503,7 +501,7 @@ export function MetricDetailView({
   const handleTagsSave = React.useCallback(
     async (draft: { tagNames: string[] }) => {
       if (!metric || !isAuthenticated(status)) return;
-      const tagsClient = new TagsClient(session?.session_token);
+      const tagsClient = new TagsClient();
       const currentTagObjects = metric.tags || [];
       const currentTagMap = new Map(
         currentTagObjects.map(tag => [tag.name, tag])
@@ -529,7 +527,7 @@ export function MetricDetailView({
         });
       }
 
-      const clientFactory = new ApiClientFactory(session?.session_token ?? '');
+      const clientFactory = new ApiClientFactory();
       const updatedMetric = await clientFactory
         .getMetricsClient()
         .getMetric(metric.id);
@@ -565,9 +563,7 @@ export function MetricDetailView({
             // Fetch models asynchronously without blocking
             (async () => {
               try {
-                const clientFactory = new ApiClientFactory(
-                  session?.session_token as string
-                );
+                const clientFactory = new ApiClientFactory();
                 const modelsClient = clientFactory.getModelsClient();
                 const modelsData = await modelsClient.getModels({
                   limit: 100,
@@ -597,14 +593,7 @@ export function MetricDetailView({
 
       setEditData(sectionData);
     },
-    [
-      metric,
-      session?.session_token,
-      populateFieldRefs,
-      notifications,
-      tagNames,
-      status,
-    ]
+    [metric, populateFieldRefs, notifications, tagNames, status]
   );
 
   const handleCancelEdit = React.useCallback(() => {
@@ -702,7 +691,7 @@ export function MetricDetailView({
         }
       });
 
-      const clientFactory = new ApiClientFactory(session?.session_token ?? '');
+      const clientFactory = new ApiClientFactory();
       const metricsClient = clientFactory.getMetricsClient();
       await metricsClient.updateMetric(metric.id, dataToSend);
 
@@ -724,18 +713,7 @@ export function MetricDetailView({
     } finally {
       setIsSaving(false);
     }
-  }, [
-    session?.session_token,
-    session?.user?.id,
-    metric,
-    collectFieldValues,
-    editData,
-    notifications,
-    isEditing,
-    tagNames,
-    onSaved,
-    status,
-  ]);
+  }, [metric, collectFieldValues, editData, notifications, onSaved, status]);
 
   const addStep = React.useCallback(() => {
     setStepsWithIds(prev => {
@@ -761,7 +739,7 @@ export function MetricDetailView({
 
     setIsDuplicating(true);
     try {
-      const clientFactory = new ApiClientFactory(session?.session_token ?? '');
+      const clientFactory = new ApiClientFactory();
       const metricsClient = clientFactory.getMetricsClient();
 
       const created = await metricsClient.createMetric({
@@ -801,7 +779,7 @@ export function MetricDetailView({
     } finally {
       setIsDuplicating(false);
     }
-  }, [session?.session_token, metric, notifications, router, status]);
+  }, [metric, notifications, router, status]);
 
   if (loading) {
     if (mode === 'embedded') {

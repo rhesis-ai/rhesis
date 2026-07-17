@@ -24,14 +24,12 @@ interface UploadSourceDrawerProps {
   open: boolean;
   onClose: () => void;
   onSuccess?: () => void;
-  sessionToken: string;
 }
 
 export default function UploadSourceDrawer({
   open,
   onClose,
   onSuccess,
-  sessionToken,
 }: UploadSourceDrawerProps) {
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState('');
@@ -78,7 +76,7 @@ export default function UploadSourceDrawer({
       setUploading(true);
       setError(null);
 
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const sourcesClient = clientFactory.getSourcesClient();
 
       const uploadedSource = await sourcesClient.uploadSource(

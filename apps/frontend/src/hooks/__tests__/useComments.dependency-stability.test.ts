@@ -44,7 +44,6 @@ describe('useComments - Dependency Stability', () => {
   const defaultProps = {
     entityType: 'Test' as const,
     entityId: '123',
-    sessionToken: 'mock-token',
     currentUserId: 'user-1',
     currentUserName: 'Test User',
     currentUserPicture: 'http://example.com/pic.jpg',

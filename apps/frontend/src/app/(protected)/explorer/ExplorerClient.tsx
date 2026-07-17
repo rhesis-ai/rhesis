@@ -26,7 +26,7 @@ import ImportExplorerTestSetDialog from './components/ImportExplorerTestSetDialo
 import { isAuthenticated, isSessionLoading } from '@/hooks/useIsAuthenticated';
 
 export default function ExplorerClient() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const router = useRouter();
   const queryClient = useQueryClient();
   const notifications = useNotifications();
@@ -37,7 +37,6 @@ export default function ExplorerClient() {
 
   useDocumentTitle('Explorer');
 
-  const sessionToken = session?.session_token ?? '';
   const canCreateSession = useCan(Capability.Explorer.CREATE);
   const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
     Capability.Explorer.READ
@@ -127,10 +126,7 @@ export default function ExplorerClient() {
                 overflow: 'hidden',
               }}
             >
-              <ExplorerGrid
-                sessionToken={sessionToken}
-                onTotalCountChange={setSessionCount}
-              />
+              <ExplorerGrid onTotalCountChange={setSessionCount} />
             </Paper>
           )}
         </Box>
@@ -139,7 +135,6 @@ export default function ExplorerClient() {
       <ExplorerCreateDialog
         open={createDialogOpen}
         onClose={() => setCreateDialogOpen(false)}
-        sessionToken={sessionToken}
         onCreated={() =>
           queryClient.invalidateQueries({ queryKey: explorerKeys.all() })
         }
@@ -152,7 +147,6 @@ export default function ExplorerClient() {
         open={importDialogOpen}
         onClose={() => setImportDialogOpen(false)}
         onImported={handleImportedExplorerSet}
-        sessionToken={sessionToken}
       />
     </>
   );

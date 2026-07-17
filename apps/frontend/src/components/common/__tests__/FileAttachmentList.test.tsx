@@ -55,7 +55,6 @@ global.URL.revokeObjectURL = mockRevokeObjectURL;
 describe('FileAttachmentList', () => {
   const defaultProps = {
     files: [] as FileResponse[],
-    sessionToken: 'mock-token',
   };
 
   beforeEach(() => {

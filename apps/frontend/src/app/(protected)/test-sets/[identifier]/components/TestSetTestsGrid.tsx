@@ -74,7 +74,6 @@ function LinkedTestsUnifiedToolbar() {
 }
 
 interface TestSetTestsGridProps {
-  sessionToken: string;
   testSetId: string;
   testSetType?: string;
   /** When true, grid is rendered inside embedding atlas (spacing only). */
@@ -83,7 +82,6 @@ interface TestSetTestsGridProps {
 }
 
 export default function TestSetTestsGrid({
-  sessionToken,
   testSetId,
   testSetType,
   onTotalCountChange,
@@ -122,15 +120,13 @@ export default function TestSetTestsGrid({
     ],
     errorFallbackMessage: 'Failed to load tests',
     queryFn: () =>
-      new ApiClientFactory(sessionToken)
-        .getTestSetsClient()
-        .getTestSetTests(testSetId, {
-          skip: paginationModel.page * paginationModel.pageSize,
-          limit: paginationModel.pageSize,
-          sort_by: 'topic',
-          sort_order: 'asc',
-          ...(filterString && { $filter: filterString }),
-        }),
+      new ApiClientFactory().getTestSetsClient().getTestSetTests(testSetId, {
+        skip: paginationModel.page * paginationModel.pageSize,
+        limit: paginationModel.pageSize,
+        sort_by: 'topic',
+        sort_order: 'asc',
+        ...(filterString && { $filter: filterString }),
+      }),
     enabled: isAuthenticated(status) && !!testSetId,
   });
 
@@ -191,7 +187,6 @@ export default function TestSetTestsGrid({
         open={filterDrawerOpen}
         onClose={() => setFilterDrawerOpen(false)}
         filters={drawerFilters}
-        sessionToken={sessionToken}
         onApply={setDrawerFilters}
       />
     </LinkedTestsToolbarContext.Provider>

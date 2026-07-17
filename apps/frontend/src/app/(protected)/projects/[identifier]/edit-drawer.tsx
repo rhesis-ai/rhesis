@@ -115,7 +115,6 @@ interface EditDrawerProps {
   onClose: () => void;
   project: Project;
   onSave: (updatedProject: Partial<Project>) => Promise<boolean>;
-  sessionToken: string;
 }
 
 interface FormErrors {
@@ -132,7 +131,6 @@ export default function EditDrawer({
   onClose,
   project,
   onSave,
-  sessionToken,
 }: EditDrawerProps) {
   const [users, setUsers] = React.useState<User[]>([]);
   const [loading, setLoading] = React.useState(false);
@@ -176,7 +174,7 @@ export default function EditDrawer({
 
     const fetchUsers = async () => {
       try {
-        const usersClient = new UsersClient(sessionToken);
+        const usersClient = new UsersClient();
         const fetchedUsers = await usersClient.getUsers();
         if (isMounted) {
           setUsers(fetchedUsers.data);
@@ -193,7 +191,7 @@ export default function EditDrawer({
     return () => {
       isMounted = false;
     };
-  }, [open, sessionToken]);
+  }, [open]);
 
   // Memoize event handlers
   const handleTextChange = React.useCallback(

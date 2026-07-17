@@ -23,7 +23,7 @@ import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import { isAuthenticated, isSessionLoading } from '@/hooks/useIsAuthenticated';
 
 export default function TestRunsPage() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const queryClient = useQueryClient();
   const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
     Capability.TestRun.READ
@@ -33,8 +33,6 @@ export default function TestRunsPage() {
   const [createDrawerOpen, setCreateDrawerOpen] = React.useState(false);
 
   useDocumentTitle('Test Runs');
-
-  const sessionToken = session?.session_token ?? '';
 
   const handleCreateSuccess = React.useCallback(() => {
     setCreateDrawerOpen(false);
@@ -105,10 +103,7 @@ export default function TestRunsPage() {
                 overflow: 'hidden',
               }}
             >
-              <TestRunsGrid
-                sessionToken={sessionToken}
-                onTotalCountChange={setTestRunCount}
-              />
+              <TestRunsGrid onTotalCountChange={setTestRunCount} />
             </Paper>
           )}
         </Box>
@@ -118,7 +113,6 @@ export default function TestRunsPage() {
         mode="newTestRun"
         open={createDrawerOpen}
         onClose={() => setCreateDrawerOpen(false)}
-        sessionToken={sessionToken}
         onSuccess={handleCreateSuccess}
       />
     </>

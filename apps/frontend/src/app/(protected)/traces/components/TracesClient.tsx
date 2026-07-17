@@ -29,7 +29,6 @@ function normalizePageSize(size: number): number {
 }
 
 interface TracesClientProps {
-  sessionToken: string;
   currentUserId?: string;
   currentUserName?: string;
   currentUserPicture?: string;
@@ -40,7 +39,6 @@ interface TracesClientProps {
 }
 
 export default function TracesClient({
-  sessionToken,
   currentUserId = '',
   currentUserName = '',
   currentUserPicture,
@@ -116,7 +114,7 @@ export default function TracesClient({
     queryFn: () => {
       if (!scopedProjectId)
         return Promise.reject(new Error('No active project'));
-      const clientFactory = new ApiClientFactory(sessionToken, scopedProjectId);
+      const clientFactory = new ApiClientFactory(undefined, scopedProjectId);
       return clientFactory.getTelemetryClient().listTraces(queryParams);
     },
     enabled: isAuthenticated(status) && !projectLoading && !!scopedProjectId,
@@ -222,7 +220,6 @@ export default function TracesClient({
         filterDrawerOpen={filterDrawerOpen}
         onFilterDrawerOpen={() => setFilterDrawerOpen(true)}
         onFilterDrawerClose={() => setFilterDrawerOpen(false)}
-        sessionToken={sessionToken}
         fixedTestRunId={fixedTestRunId}
       />
 
@@ -243,7 +240,6 @@ export default function TracesClient({
         onClose={handleCloseDrawer}
         traceId={selectedTraceId}
         projectId={selectedProjectId || ''}
-        sessionToken={sessionToken}
         currentUserId={currentUserId}
         currentUserName={currentUserName}
         currentUserPicture={currentUserPicture}

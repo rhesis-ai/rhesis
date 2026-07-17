@@ -24,7 +24,6 @@ export default async function TracesPage() {
 
     return (
       <TracesClientWrapper
-        sessionToken={session.session_token ?? ''}
         currentUserId={session.user?.id || ''}
         currentUserName={session.user?.name || ''}
         currentUserPicture={session.user?.picture || undefined}

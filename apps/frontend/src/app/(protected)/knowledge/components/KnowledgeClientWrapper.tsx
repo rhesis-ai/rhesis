@@ -22,13 +22,7 @@ import UploadSourceDrawer from './UploadSourceDrawer';
 import ToolImportDrawer from './ToolImportDrawer';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
-interface KnowledgeClientWrapperProps {
-  sessionToken: string;
-}
-
-export default function KnowledgeClientWrapper({
-  sessionToken,
-}: KnowledgeClientWrapperProps) {
+export default function KnowledgeClientWrapper() {
   const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
     Capability.Source.READ
   );
@@ -123,10 +117,7 @@ export default function KnowledgeClientWrapper({
                 position: 'relative',
               }}
             >
-              <SourcesGrid
-                sessionToken={sessionToken}
-                onTotalCountChange={setSourceCount}
-              />
+              <SourcesGrid onTotalCountChange={setSourceCount} />
             </Paper>
           )}
         </Box>
@@ -136,14 +127,12 @@ export default function KnowledgeClientWrapper({
         open={uploadDrawerOpen}
         onClose={() => setUploadDrawerOpen(false)}
         onSuccess={handleUploadSuccess}
-        sessionToken={sessionToken}
       />
 
       <ToolImportDrawer
         open={toolImportDrawerOpen}
         onClose={() => setToolImportDrawerOpen(false)}
         onSuccess={handleMcpImportSuccess}
-        sessionToken={sessionToken}
       />
     </>
   );

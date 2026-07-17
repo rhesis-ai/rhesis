@@ -42,7 +42,6 @@ describe('useComments', () => {
   const mockProps = {
     entityType: 'Test',
     entityId: '123',
-    sessionToken: 'mock-session-token',
     currentUserId: 'user-1',
     currentUserName: 'John Doe',
     currentUserPicture: 'https://example.com/avatar.jpg',
@@ -251,7 +250,7 @@ describe('useComments', () => {
       });
 
       await expect(result.current.createComment('New comment')).rejects.toThrow(
-        'No session token available'
+        'Not authenticated'
       );
     });
   });

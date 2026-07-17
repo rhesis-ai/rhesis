@@ -44,7 +44,6 @@ import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface SourcePreviewClientWrapperProps {
   source: Source;
-  sessionToken: string;
   currentUserId: string;
   currentUserName: string;
   currentUserPicture?: string;
@@ -118,7 +117,6 @@ function InfoRow({
  */
 export default function SourcePreviewClientWrapper({
   source,
-  sessionToken,
   currentUserId,
   currentUserName,
   currentUserPicture,
@@ -197,7 +195,7 @@ export default function SourcePreviewClientWrapper({
 
   const handleDownloadFile = async () => {
     try {
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const sourcesClient = clientFactory.getSourcesClient();
 
       // Get file content as blob to preserve binary data
@@ -228,7 +226,7 @@ export default function SourcePreviewClientWrapper({
 
   // fetch updated source after tag update and refresh local state
   const handleTagsUpdate = async () => {
-    const clientFactory = new ApiClientFactory(sessionToken);
+    const clientFactory = new ApiClientFactory();
     const sourcesClient = clientFactory.getSourcesClient();
     const updatedSource = await sourcesClient.getSourceWithContent(
       localSource.id
@@ -260,7 +258,7 @@ export default function SourcePreviewClientWrapper({
 
     setIsUpdating(true);
     try {
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const servicesClient = clientFactory.getServicesClient();
       const sourcesClient = clientFactory.getSourcesClient();
 
@@ -380,7 +378,7 @@ export default function SourcePreviewClientWrapper({
 
     setIsSaving(true);
     try {
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const sourcesClient = clientFactory.getSourcesClient();
 
       // Collect values from refs
@@ -409,7 +407,7 @@ export default function SourcePreviewClientWrapper({
     } finally {
       setIsSaving(false);
     }
-  }, [status, sessionToken, localSource, collectFieldValues, notifications]);
+  }, [status, localSource, collectFieldValues, notifications]);
 
   return (
     <PageLayout
@@ -790,7 +788,6 @@ export default function SourcePreviewClientWrapper({
         )}
 
         <SourceTagsCard
-          sessionToken={sessionToken}
           source={localSource}
           userId={currentUserId ? (currentUserId as UUID) : undefined}
           onUpdate={handleTagsUpdate}
@@ -800,7 +797,6 @@ export default function SourcePreviewClientWrapper({
         <CommentsWrapper
           entityType="Source"
           entityId={localSource.id}
-          sessionToken={sessionToken}
           currentUserId={currentUserId}
           currentUserName={currentUserName}
           currentUserPicture={currentUserPicture}

@@ -159,7 +159,6 @@ interface SuggestionsDialogProps {
   open: boolean;
   onClose: () => void;
   testSetId: string;
-  sessionToken: string;
   topic: string | null;
   /** Optional user guidance passed to generate_suggestions (LLM prompt). */
   userFeedback?: string | null;
@@ -171,7 +170,6 @@ export default function SuggestionsDialog({
   open,
   onClose,
   testSetId,
-  sessionToken,
   topic,
   userFeedback = null,
   onTestAccepted,
@@ -244,7 +242,7 @@ export default function SuggestionsDialog({
     let evalsFailed = 0;
 
     try {
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const client = clientFactory.getExplorerClient();
       const trimmedFeedback = regenerationGuide.trim();
 
@@ -486,7 +484,7 @@ export default function SuggestionsDialog({
     }
     // notifications.show is stable; omit to avoid unnecessary effect churn
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionToken, testSetId, topic, regenerationGuide]);
+  }, [testSetId, topic, regenerationGuide]);
 
   useEffect(() => {
     if (open && !hasStarted.current) {
@@ -512,7 +510,7 @@ export default function SuggestionsDialog({
   const handleAccept = async (row: SuggestionRow) => {
     setAcceptingIds(prev => new Set(prev).add(row._id));
     try {
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const client = clientFactory.getExplorerClient();
       await client.createTest(
         testSetId,
@@ -546,7 +544,7 @@ export default function SuggestionsDialog({
     });
     let shouldCloseAfterAcceptAll = false;
     try {
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const client = clientFactory.getExplorerClient();
       const results = await Promise.allSettled(
         toAccept.map(row =>

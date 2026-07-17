@@ -14,13 +14,11 @@ import { Can } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 
 interface TestToTestSetProps {
-  sessionToken: string;
   testId: string;
   parentButton?: React.ReactNode;
 }
 
 export default function TestToTestSet({
-  sessionToken,
   testId,
   parentButton,
 }: TestToTestSetProps) {
@@ -39,7 +37,7 @@ export default function TestToTestSet({
   const handleDeleteConfirm = async () => {
     setIsDeleting(true);
     try {
-      const apiFactory = new ApiClientFactory(sessionToken);
+      const apiFactory = new ApiClientFactory();
       await apiFactory.getTestsClient().deleteTest(testId);
       notifications.show('Test deleted', {
         severity: 'success',
@@ -60,7 +58,7 @@ export default function TestToTestSet({
   const handleDuplicate = async () => {
     setIsDuplicating(true);
     try {
-      const apiFactory = new ApiClientFactory(sessionToken);
+      const apiFactory = new ApiClientFactory();
       const testsClient = apiFactory.getTestsClient();
       const original = await testsClient.getTest(testId);
       const duplicate = await testsClient.createTest({
@@ -118,7 +116,6 @@ export default function TestToTestSet({
       <TrialDrawer
         open={trialDrawerOpen}
         onClose={() => setTrialDrawerOpen(false)}
-        sessionToken={sessionToken}
         testIds={[testId]}
         onSuccess={handleTrialSuccess}
       />

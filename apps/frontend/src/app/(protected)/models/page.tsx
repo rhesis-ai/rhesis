@@ -44,7 +44,7 @@ type ModelTypeFilter = 'all' | 'language' | 'embedding';
 export default function ModelsPage() {
   const { data: session, status } = useSession();
   const queryClient = useQueryClient();
-  const userScope = session?.user?.id ?? session?.session_token ?? '';
+  const userScope = session?.user?.id ?? '';
   const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
     Capability.Model.READ
   );
@@ -91,7 +91,7 @@ export default function ModelsPage() {
 
       try {
         setLoading(true);
-        const apiFactory = new ApiClientFactory(session?.session_token ?? '');
+        const apiFactory = new ApiClientFactory();
         const modelsClient = apiFactory.getModelsClient();
         const typeLookupClient = apiFactory.getTypeLookupClient();
 
@@ -100,11 +100,7 @@ export default function ModelsPage() {
             $filter: "type_name eq 'ProviderType'",
             limit: 100,
           }),
-          fetchUserSettings(
-            queryClient,
-            session?.session_token ?? '',
-            userScope
-          ).catch(() => null),
+          fetchUserSettings(queryClient, userScope).catch(() => null),
           modelsClient.getModels().catch(() => null),
           apiFactory
             .getStatusClient()
@@ -160,11 +156,7 @@ export default function ModelsPage() {
   const refreshUserSettings = async () => {
     if (!isAuthenticated(status)) return;
     try {
-      const settings = await fetchUserSettings(
-        queryClient,
-        session?.session_token ?? '',
-        userScope
-      );
+      const settings = await fetchUserSettings(queryClient, userScope);
       setUserSettings(settings);
     } catch (error) {
       console.error('Failed to refresh user settings:', error);
@@ -180,7 +172,7 @@ export default function ModelsPage() {
       );
 
       try {
-        const apiFactory = new ApiClientFactory(session?.session_token ?? '');
+        const apiFactory = new ApiClientFactory();
         const modelsClient = apiFactory.getModelsClient();
         const result = await modelsClient.testModelConnection(modelId);
 
@@ -207,7 +199,7 @@ export default function ModelsPage() {
         );
       }
     },
-    [session?.session_token, status]
+    [status]
   );
 
   // Validate default models whenever they change
@@ -263,7 +255,6 @@ export default function ModelsPage() {
     userSettings?.models?.evaluation?.model_id,
     userSettings?.models?.execution?.model_id,
     userSettings?.models?.embedding?.model_id,
-    session?.session_token,
     validateModel,
     status,
   ]);
@@ -273,7 +264,7 @@ export default function ModelsPage() {
     modelData: ModelCreate
   ): Promise<Model> => {
     if (!isAuthenticated(status)) throw new Error('No session token');
-    const apiFactory = new ApiClientFactory(session?.session_token ?? '');
+    const apiFactory = new ApiClientFactory();
     const modelsClient = apiFactory.getModelsClient();
     const model = await modelsClient.createModel(modelData);
     setConnectedModels(prev => [...prev, model]);
@@ -288,7 +279,7 @@ export default function ModelsPage() {
 
   const handleUpdate = async (modelId: UUID, updates: Partial<ModelCreate>) => {
     if (!isAuthenticated(status)) return;
-    const apiFactory = new ApiClientFactory(session?.session_token ?? '');
+    const apiFactory = new ApiClientFactory();
     const modelsClient = apiFactory.getModelsClient();
     const updatedModel = await modelsClient.updateModel(modelId, updates);
     setConnectedModels(prev =>
@@ -312,7 +303,7 @@ export default function ModelsPage() {
   const handleDeleteConfirm = async () => {
     if (!isAuthenticated(status) || !modelToDelete) return;
     try {
-      const apiFactory = new ApiClientFactory(session?.session_token ?? '');
+      const apiFactory = new ApiClientFactory();
       const modelsClient = apiFactory.getModelsClient();
       await modelsClient.deleteModel(modelToDelete.id);
       setConnectedModels(prev =>

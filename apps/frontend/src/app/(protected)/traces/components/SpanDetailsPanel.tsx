@@ -41,7 +41,6 @@ import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 interface SpanDetailsPanelProps {
   span: SpanNode | null;
   trace: TraceDetailResponse | null;
-  sessionToken: string;
   hasTraceMetrics?: boolean;
   isConversationTrace?: boolean;
   currentUserId?: string;
@@ -80,7 +79,6 @@ function TabPanel({ children, value, index }: TabPanelProps) {
 export default function SpanDetailsPanel({
   span,
   trace,
-  sessionToken,
   hasTraceMetrics = false,
   isConversationTrace = false,
   currentUserId = '',
@@ -169,7 +167,7 @@ export default function SpanDetailsPanel({
     let cancelled = false;
     setSpanFilesLoading(true);
 
-    const filesClient = new FilesClient(sessionToken);
+    const filesClient = new FilesClient();
     filesClient
       .getSpanFiles(span.id)
       .then(files => {
@@ -185,7 +183,7 @@ export default function SpanDetailsPanel({
     return () => {
       cancelled = true;
     };
-  }, [span?.id, sessionToken, status]);
+  }, [span?.id, status]);
 
   const { llmAttributes, functionAttributes, testAttributes, otherAttributes } =
     useMemo(() => {
@@ -463,7 +461,6 @@ export default function SpanDetailsPanel({
                   </Typography>
                   <FileAttachmentList
                     files={spanFiles}
-                    sessionToken={sessionToken}
                     isLoading={spanFilesLoading}
                   />
                 </CardContent>
@@ -1071,7 +1068,7 @@ export default function SpanDetailsPanel({
         {/* Test Result Tab */}
         {showTestResultTab && (
           <TabPanel value={activeTabKey} index="tests">
-            <TestResultTab trace={trace} sessionToken={sessionToken} />
+            <TestResultTab trace={trace} />
           </TabPanel>
         )}
 
@@ -1094,7 +1091,6 @@ export default function SpanDetailsPanel({
             <TraceReviewsTab
               selectedSpan={span}
               trace={trace}
-              sessionToken={sessionToken}
               onTraceUpdated={onTraceUpdated ?? (() => {})}
               mentionableMetrics={mentionableMetrics}
               mentionableTurns={mentionableTurns}
@@ -1108,7 +1104,6 @@ export default function SpanDetailsPanel({
               <TasksAndCommentsWrapper
                 entityType="Trace"
                 entityId={trace.root_spans[0].id}
-                sessionToken={sessionToken}
                 currentUserId={currentUserId}
                 currentUserName={currentUserName}
                 currentUserPicture={currentUserPicture}

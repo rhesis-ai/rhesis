@@ -24,7 +24,7 @@ import PageLoadingState from '@/components/common/PageLoadingState';
 import { isAuthenticated, isSessionLoading } from '@/hooks/useIsAuthenticated';
 
 export default function EndpointsPage() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const router = useRouter();
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
@@ -39,8 +39,6 @@ export default function EndpointsPage() {
   >();
 
   useDocumentTitle('Endpoints');
-
-  const sessionToken = session?.session_token ?? '';
 
   React.useEffect(() => {
     if (searchParams.get('create') !== '1') return;
@@ -125,10 +123,7 @@ export default function EndpointsPage() {
                 overflow: 'hidden',
               }}
             >
-              <EndpointsGrid
-                sessionToken={sessionToken}
-                onTotalCountChange={setEndpointCount}
-              />
+              <EndpointsGrid onTotalCountChange={setEndpointCount} />
             </Paper>
           )}
         </Box>

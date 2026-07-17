@@ -31,7 +31,7 @@ import { testKeys, testSetKeys } from '@/constants/query-keys';
 import { isAuthenticated, isSessionLoading } from '@/hooks/useIsAuthenticated';
 
 export default function TestsPage() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
@@ -73,9 +73,8 @@ export default function TestsPage() {
     [searchParams]
   );
   const { data: insightsEndpoint } = useEndpoint(
-    session?.session_token ?? '',
     insightsFailedFilter?.endpointId ?? '',
-    !!insightsFailedFilter && isAuthenticated(status)
+    !!insightsFailedFilter
   );
   const insightsEndpointName = insightsEndpoint?.name;
 
@@ -224,7 +223,6 @@ export default function TestsPage() {
             }}
           >
             <TestsGrid
-              sessionToken={session?.session_token ?? ''}
               onNewTest={handleCreateManual}
               disableAddButton={shouldDisableAddButton}
               insightsFailedFilter={insightsFailedFilter}
@@ -260,7 +258,6 @@ export default function TestsPage() {
       <FileImportDrawer
         open={fileImportDrawerOpen}
         onClose={() => setFileImportDrawerOpen(false)}
-        sessionToken={session?.session_token ?? ''}
         onSuccess={handleFileImportSuccess}
       />
     </>

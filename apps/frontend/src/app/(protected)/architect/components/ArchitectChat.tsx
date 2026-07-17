@@ -29,7 +29,6 @@ import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface ArchitectChatProps {
   sessionId: string | null;
-  sessionToken?: string;
   onSessionTitleUpdate?: (sessionId: string, title: string) => void;
   initialMessage?: string | null;
   onInitialMessageSent?: () => void;
@@ -127,7 +126,6 @@ const SUGGESTED_PROMPTS = [
 
 export default function ArchitectChat({
   sessionId,
-  sessionToken,
   onSessionTitleUpdate: _onSessionTitleUpdate,
   initialMessage,
   onInitialMessageSent,
@@ -176,9 +174,7 @@ export default function ArchitectChat({
 
     const loadMessages = async () => {
       try {
-        const client = new ApiClientFactory(
-          sessionToken ?? ''
-        ).getArchitectClient();
+        const client = new ApiClientFactory().getArchitectClient();
         const session = await client.getSession(sessionId);
 
         // Restore auto-approve toggle from persisted agent state
@@ -236,7 +232,6 @@ export default function ArchitectChat({
     loadMessages();
   }, [
     sessionId,
-    sessionToken,
     setMessages,
     setAutoApproveAll,
     setCurrentMode,
@@ -495,7 +490,6 @@ export default function ArchitectChat({
         disabled={isLoading || !canCreate}
         isLoading={isLoading}
         isConnected={isConnected}
-        sessionToken={sessionToken}
         readOnly={!canCreate}
       />
     </Paper>

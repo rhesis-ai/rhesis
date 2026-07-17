@@ -1203,6 +1203,15 @@ async def logout(
     # Clear session data
     request.session.clear()
 
+    # The browser never holds the access token (BFF pattern), so explicit
+    # sign-outs arrive through the frontend proxy with the token in the
+    # Authorization header instead of the query string. Fall back to it so
+    # those logouts still revoke the refresh-token family.
+    if not session_token:
+        auth_header = request.headers.get("authorization", "")
+        if auth_header.lower().startswith("bearer "):
+            session_token = auth_header[7:]
+
     # If session token is provided, invalidate sessions + refresh tokens
     if session_token:
         try:

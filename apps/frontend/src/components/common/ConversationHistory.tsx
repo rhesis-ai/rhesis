@@ -49,7 +49,6 @@ interface ConversationHistoryProps {
   maxHeight?: number | string;
   turnReviewMap?: Map<number, Review>;
   /** Required when turns carry penelope_files for authenticated downloads. */
-  sessionToken?: string;
 }
 
 /**
@@ -70,7 +69,6 @@ export default function ConversationHistory({
   isConfirmingReview = false,
   maxHeight = 600,
   turnReviewMap = new Map<number, Review>(),
-  sessionToken,
 }: ConversationHistoryProps) {
   const theme = useTheme();
   const { status } = useSession();
@@ -79,7 +77,7 @@ export default function ConversationHistory({
     async (file: FileResponse) => {
       if (!isAuthenticated(status)) return;
       try {
-        const factory = new ApiClientFactory(sessionToken);
+        const factory = new ApiClientFactory();
         const client = factory.getFilesClient();
         const blob = await client.getFileContent(file.id);
         const url = URL.createObjectURL(blob);
@@ -92,7 +90,7 @@ export default function ConversationHistory({
         console.error('Failed to download file:', err);
       }
     },
-    [sessionToken, status]
+    [status]
   );
 
   // Get the project icon component

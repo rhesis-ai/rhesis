@@ -53,7 +53,7 @@ interface OnboardingProviderProps {
 export function OnboardingProvider({ children }: OnboardingProviderProps) {
   const { data: session, status } = useSession();
   const queryClient = useQueryClient();
-  const userScope = session?.user?.id ?? session?.session_token ?? '';
+  const userScope = session?.user?.id ?? '';
   // Initialize with localStorage data immediately to avoid flash
   const [progress, setProgress] = useState<OnboardingProgress>(() => {
     // Load synchronously during initialization to prevent flash
@@ -81,7 +81,6 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
   // Load from database once when session becomes available, merge with
   // localStorage, and sync differences back in a single round-trip.
   useEffect(() => {
-    const token = session?.session_token;
     // /users/settings requires an organization; a user mid-onboarding (before
     // the org-attach step) has none yet, and the fetch would 403.
     if (
@@ -97,7 +96,6 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
       try {
         const dbProgress = await loadProgressFromDatabase(
           queryClient,
-          token ?? '',
           userScope
         );
 
@@ -115,7 +113,6 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
           if (mergedKey !== progressKey(dbProgress)) {
             syncProgressToDatabase(
               queryClient,
-              token ?? '',
               userScope,
               mergedProgress
             ).catch(error => {
@@ -135,13 +132,7 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
     };
 
     loadInitialProgress();
-  }, [
-    session?.session_token,
-    session?.user?.organization_id,
-    queryClient,
-    userScope,
-    status,
-  ]);
+  }, [session?.user?.organization_id, queryClient, userScope, status]);
 
   // Persist user-initiated progress changes: save to localStorage
   // immediately and debounce-sync to the database. Skips until the
@@ -159,19 +150,13 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
     const key = progressKey(progress);
     if (key === lastSyncedRef.current) return;
 
-    const sessionToken = session?.session_token ?? '';
     if (syncTimeoutRef.current) {
       clearTimeout(syncTimeoutRef.current);
     }
 
     syncTimeoutRef.current = setTimeout(() => {
       lastSyncedRef.current = key;
-      syncProgressToDatabase(
-        queryClient,
-        sessionToken,
-        userScope,
-        progress
-      ).catch(error => {
+      syncProgressToDatabase(queryClient, userScope, progress).catch(error => {
         console.error('Error syncing progress to database:', error);
       });
     }, 5000);
@@ -181,7 +166,7 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
         clearTimeout(syncTimeoutRef.current);
       }
     };
-  }, [progress, session?.session_token, queryClient, userScope, status]);
+  }, [progress, queryClient, userScope, status]);
 
   // Initialize driver.js instance
   useEffect(() => {
@@ -397,20 +382,13 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
 
   const forceSyncToDatabase = useCallback(async () => {
     if (isAuthenticated(status) && session?.user?.organization_id) {
-      const sessionToken = session.session_token ?? '';
       try {
-        await syncProgressToDatabase(
-          queryClient,
-          sessionToken,
-          userScope,
-          progress
-        );
+        await syncProgressToDatabase(queryClient, userScope, progress);
       } catch (error) {
         console.error('Error forcing sync to database:', error);
       }
     }
   }, [
-    session?.session_token,
     session?.user?.organization_id,
     progress,
     queryClient,

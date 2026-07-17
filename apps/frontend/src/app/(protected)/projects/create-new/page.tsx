@@ -39,7 +39,6 @@ export default async function CreateProjectPage() {
   return (
     <Box sx={{ p: 0 }}>
       <CreateProjectClient
-        sessionToken={session.session_token ?? ''}
         userId={session.user.id as UUID}
         organizationId={organizationId}
         userName={session.user.name || ''}

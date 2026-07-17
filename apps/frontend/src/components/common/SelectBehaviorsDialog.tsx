@@ -26,7 +26,6 @@ interface SelectBehaviorsDialogProps {
   open: boolean;
   onClose: () => void;
   onSelect: (behaviorId: UUID) => void;
-  sessionToken: string;
   excludeBehaviorIds?: UUID[];
 }
 
@@ -34,7 +33,6 @@ export default function SelectBehaviorsDialog({
   open,
   onClose,
   onSelect,
-  sessionToken,
   excludeBehaviorIds = [],
 }: SelectBehaviorsDialogProps) {
   const [behaviors, setBehaviors] = React.useState<BehaviorWithMetrics[]>([]);
@@ -49,7 +47,7 @@ export default function SelectBehaviorsDialog({
     try {
       setIsLoading(true);
       setError(null);
-      const behaviorClient = new BehaviorClient(sessionToken);
+      const behaviorClient = new BehaviorClient();
       const behaviorsList = await behaviorClient.getBehaviorsWithMetrics({
         skip: 0,
         limit: 100,
@@ -71,7 +69,7 @@ export default function SelectBehaviorsDialog({
     } finally {
       setIsLoading(false);
     }
-  }, [sessionToken, excludeBehaviorIds]);
+  }, [excludeBehaviorIds]);
 
   // Fetch behaviors when dialog opens
   React.useEffect(() => {

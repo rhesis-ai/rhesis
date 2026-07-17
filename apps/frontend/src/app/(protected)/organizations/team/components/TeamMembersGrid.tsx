@@ -102,7 +102,7 @@ export default function TeamMembersGrid({
         setLoading(true);
         setError(null);
 
-        const clientFactory = new ApiClientFactory(session?.session_token ?? '');
+        const clientFactory = new ApiClientFactory();
         const usersClient = clientFactory.getUsersClient();
         const response = await usersClient.getUsers({
           skip,
@@ -120,13 +120,7 @@ export default function TeamMembersGrid({
         setLoading(false);
       }
     },
-    [
-      session?.session_token,
-      onTotalCountChange,
-      searchQuery,
-      drawerFilters,
-      status,
-    ]
+    [onTotalCountChange, searchQuery, drawerFilters, status]
   );
 
   useEffect(() => {
@@ -151,7 +145,7 @@ export default function TeamMembersGrid({
     try {
       setDeleting(true);
 
-      const clientFactory = new ApiClientFactory(session?.session_token ?? '');
+      const clientFactory = new ApiClientFactory();
       const usersClient = clientFactory.getUsersClient();
 
       await usersClient.deleteUser(userToDelete.id);
@@ -190,13 +184,12 @@ export default function TeamMembersGrid({
   }, []);
 
   const { OrgRoleCell, prewarmCaches } = getMemberRoleExtensions();
-  const sessionToken = session?.session_token ?? '';
 
   useEffect(() => {
     if (isAuthenticated(status)) {
-      prewarmCaches?.(sessionToken, { canManageRoles: canManageMembers });
+      prewarmCaches?.({ canManageRoles: canManageMembers });
     }
-  }, [sessionToken, prewarmCaches, canManageMembers, status]);
+  }, [prewarmCaches, canManageMembers, status]);
 
   const showRoleColumn = Boolean(OrgRoleCell);
   const currentUserId = session?.user?.id;
@@ -353,10 +346,7 @@ export default function TeamMembersGrid({
                         onClick={e => e.stopPropagation()}
                         onMouseDown={e => e.stopPropagation()}
                       >
-                        <OrgRoleCell
-                          userId={user.id}
-                          sessionToken={sessionToken}
-                        />
+                        <OrgRoleCell userId={user.id} />
                       </TableCell>
                     )}
                     <TableCell sx={sectionOverviewBodyCellSx}>

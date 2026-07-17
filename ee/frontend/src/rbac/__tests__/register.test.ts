@@ -32,7 +32,6 @@ import { fetchOrgMembers } from '../api/org-members-cache';
 import { fetchProjectMembers } from '../api/project-members-cache';
 import { fetchRoles } from '../api/role-cache';
 
-const SESSION_TOKEN = 'session-token';
 const PROJECT_ID = 'project-1';
 
 describe('register.tsx — prewarm caches', () => {
@@ -44,57 +43,40 @@ describe('register.tsx — prewarm caches', () => {
 
   describe('prewarmCaches', () => {
     it('always fetches org members', () => {
-      getMemberRoleExtensions().prewarmCaches?.(SESSION_TOKEN);
-      expect(fetchOrgMembers).toHaveBeenCalledWith(SESSION_TOKEN);
+      getMemberRoleExtensions().prewarmCaches?.();
+      expect(fetchOrgMembers).toHaveBeenCalled();
     });
 
     it('fetches roles when canManageRoles is true', () => {
-      getMemberRoleExtensions().prewarmCaches?.(SESSION_TOKEN, {
-        canManageRoles: true,
-      });
-      expect(fetchRoles).toHaveBeenCalledWith(SESSION_TOKEN);
+      getMemberRoleExtensions().prewarmCaches?.({ canManageRoles: true });
+      expect(fetchRoles).toHaveBeenCalled();
     });
 
     it('does not fetch roles when canManageRoles is false or omitted', () => {
-      getMemberRoleExtensions().prewarmCaches?.(SESSION_TOKEN, {
-        canManageRoles: false,
-      });
-      getMemberRoleExtensions().prewarmCaches?.(SESSION_TOKEN);
+      getMemberRoleExtensions().prewarmCaches?.({ canManageRoles: false });
+      getMemberRoleExtensions().prewarmCaches?.();
       expect(fetchRoles).not.toHaveBeenCalled();
     });
   });
 
   describe('prewarmProjectCaches', () => {
     it('always fetches project members', () => {
-      getMemberRoleExtensions().prewarmProjectCaches?.(
-        SESSION_TOKEN,
-        PROJECT_ID
-      );
-      expect(fetchProjectMembers).toHaveBeenCalledWith(
-        SESSION_TOKEN,
-        PROJECT_ID
-      );
+      getMemberRoleExtensions().prewarmProjectCaches?.(PROJECT_ID);
+      expect(fetchProjectMembers).toHaveBeenCalledWith(PROJECT_ID);
     });
 
     it('fetches roles when canManageRoles is true', () => {
-      getMemberRoleExtensions().prewarmProjectCaches?.(
-        SESSION_TOKEN,
-        PROJECT_ID,
-        { canManageRoles: true }
-      );
-      expect(fetchRoles).toHaveBeenCalledWith(SESSION_TOKEN);
+      getMemberRoleExtensions().prewarmProjectCaches?.(PROJECT_ID, {
+        canManageRoles: true,
+      });
+      expect(fetchRoles).toHaveBeenCalled();
     });
 
     it('does not fetch roles when canManageRoles is false or omitted', () => {
-      getMemberRoleExtensions().prewarmProjectCaches?.(
-        SESSION_TOKEN,
-        PROJECT_ID,
-        { canManageRoles: false }
-      );
-      getMemberRoleExtensions().prewarmProjectCaches?.(
-        SESSION_TOKEN,
-        PROJECT_ID
-      );
+      getMemberRoleExtensions().prewarmProjectCaches?.(PROJECT_ID, {
+        canManageRoles: false,
+      });
+      getMemberRoleExtensions().prewarmProjectCaches?.(PROJECT_ID);
       expect(fetchRoles).not.toHaveBeenCalled();
     });
   });

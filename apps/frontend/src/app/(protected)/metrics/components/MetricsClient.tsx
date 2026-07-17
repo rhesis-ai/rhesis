@@ -58,13 +58,11 @@ interface BehaviorMetrics {
 }
 
 interface MetricsClientProps {
-  sessionToken: string;
   organizationId: UUID;
   sessionStatus?: 'loading' | 'authenticated' | 'unauthenticated';
 }
 
 export default function MetricsClientComponent({
-  sessionToken,
   organizationId,
   sessionStatus,
 }: MetricsClientProps) {
@@ -95,8 +93,6 @@ export default function MetricsClientComponent({
   // Refresh key for manual refresh
   const [refreshKey] = React.useState(0);
 
-  // Use ref to track the actual session token value to prevent unnecessary re-fetches
-  const lastSessionTokenRef = React.useRef<string | null>(null);
   const hasFetchedRef = React.useRef(false);
 
   // Fetch behaviors, metrics, and filter options - using same pattern as test runs
@@ -109,25 +105,21 @@ export default function MetricsClientComponent({
         return;
       }
 
-      // Check if this is a real session token change or just a session object recreation
-      const isTokenChange = lastSessionTokenRef.current !== sessionToken;
       const isRefresh = refreshKey > 0;
       const isFirstLoad = !hasFetchedRef.current;
 
-      if (!isTokenChange && !isRefresh && !isFirstLoad) {
+      if (!isRefresh && !isFirstLoad) {
         return;
       }
 
-      // Update refs
-      lastSessionTokenRef.current = sessionToken;
       hasFetchedRef.current = true;
 
       try {
         setIsLoading(true);
         setError(null);
 
-        const behaviorClient = new BehaviorClient(sessionToken);
-        const metricsClient = new MetricsClient(sessionToken);
+        const behaviorClient = new BehaviorClient();
+        const metricsClient = new MetricsClient();
 
         const [behaviorsWithMetricsData, allMetricsData] = await Promise.all([
           behaviorClient.getBehaviorsWithMetrics({
@@ -232,12 +224,11 @@ export default function MetricsClientComponent({
     };
 
     fetchData();
-  }, [sessionToken, refreshKey, notifications, sessionStatus]);
+  }, [refreshKey, notifications, sessionStatus]);
 
   return (
     <ErrorBoundary>
       <MetricsDirectoryTab
-        sessionToken={sessionToken}
         organizationId={organizationId}
         behaviors={behaviors}
         metrics={metrics}

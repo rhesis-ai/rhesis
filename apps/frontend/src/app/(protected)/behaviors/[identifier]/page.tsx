@@ -1,8 +1,7 @@
 import * as React from 'react';
 import { Metadata } from 'next';
 import { auth } from '@/auth';
-import { BehaviorClient } from '@/utils/api-client/behavior-client';
-import { getServerActiveProjectId } from '@/utils/server-active-project';
+import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { notFoundIfEntityMissing } from '@/utils/entity-not-found-server';
 import BehaviorDetailClient from './components/BehaviorDetailClient';
 import type { UUID } from 'crypto';
@@ -31,12 +30,11 @@ export default async function BehaviorDetailPage({ params }: PageProps) {
   }
 
   const { identifier } = await params;
-  const projectId = await getServerActiveProjectId();
-  const client = new BehaviorClient(
-    session.session_token,
-    undefined,
-    projectId
-  );
+  // Server-side calls must go through createServerApiFactory: the session
+  // object no longer exposes the access token (session.session_token is
+  // always undefined post-BFF), and the factory also threads the active
+  // project header.
+  const client = (await createServerApiFactory()).getBehaviorClient();
 
   let behavior;
   try {
@@ -51,7 +49,6 @@ export default async function BehaviorDetailPage({ params }: PageProps) {
   return (
     <BehaviorDetailClient
       behavior={serializedBehavior}
-      sessionToken={session.session_token ?? ''}
       identifier={identifier}
     />
   );

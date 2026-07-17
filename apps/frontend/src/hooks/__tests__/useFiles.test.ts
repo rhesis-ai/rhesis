@@ -45,7 +45,6 @@ describe('useFiles', () => {
   const mockProps = {
     entityId: 'test-123',
     entityType: 'Test' as const,
-    sessionToken: 'mock-session-token',
   };
 
   const mockFilesClient = {
@@ -329,7 +328,7 @@ describe('useFiles', () => {
         result.current.uploadFiles([
           new File(['x'], 'x.png', { type: 'image/png' }),
         ])
-      ).rejects.toThrow('No session token available');
+      ).rejects.toThrow('Not authenticated');
     });
   });
 
@@ -412,7 +411,7 @@ describe('useFiles', () => {
       });
 
       await expect(result.current.deleteFile('file-1')).rejects.toThrow(
-        'No session token available'
+        'Not authenticated'
       );
     });
   });

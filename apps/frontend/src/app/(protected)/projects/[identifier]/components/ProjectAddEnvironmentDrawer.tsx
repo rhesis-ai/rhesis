@@ -21,7 +21,6 @@ interface ProjectAddEnvironmentDrawerProps {
   open: boolean;
   onClose: () => void;
   projectId: string;
-  sessionToken: string;
   existingNames: Set<string>;
   onCreated: () => void;
 }
@@ -30,7 +29,6 @@ export default function ProjectAddEnvironmentDrawer({
   open,
   onClose,
   projectId,
-  sessionToken,
   existingNames,
   onCreated,
 }: ProjectAddEnvironmentDrawerProps) {
@@ -64,7 +62,7 @@ export default function ProjectAddEnvironmentDrawer({
 
     setSaving(true);
     try {
-      const client = new ApiClientFactory(sessionToken).getParametersClient();
+      const client = new ApiClientFactory().getParametersClient();
       await client.registerEnvironment(projectId, { name: trimmed });
       notifications.show(
         `Environment "${trimmed}" created. Use Promote to bind it.`,

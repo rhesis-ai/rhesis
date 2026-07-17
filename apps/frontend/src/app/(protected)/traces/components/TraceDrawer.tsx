@@ -35,7 +35,6 @@ interface TraceDrawerProps {
   onClose: () => void;
   traceId: string | null;
   projectId: string;
-  sessionToken: string;
   initialTurnIndex?: number;
   currentUserId?: string;
   currentUserName?: string;
@@ -103,7 +102,6 @@ export default function TraceDrawer({
   onClose,
   traceId,
   projectId,
-  sessionToken,
   initialTurnIndex,
   currentUserId = '',
   currentUserName = '',
@@ -188,7 +186,7 @@ export default function TraceDrawer({
     setSelectedSpan(null);
 
     try {
-      const clientFactory = new ApiClientFactory(sessionToken, projectId);
+      const clientFactory = new ApiClientFactory(undefined, projectId);
       const client = clientFactory.getTelemetryClient();
       const data = await client.getTrace(traceId, projectId);
       setTrace(data);
@@ -212,13 +210,13 @@ export default function TraceDrawer({
     } finally {
       setLoading(false);
     }
-  }, [traceId, projectId, sessionToken, initialTurnIndex]);
+  }, [traceId, projectId, initialTurnIndex]);
 
   const refreshTrace = useCallback(async () => {
     if (!traceId || !projectId) return;
 
     try {
-      const clientFactory = new ApiClientFactory(sessionToken, projectId);
+      const clientFactory = new ApiClientFactory(undefined, projectId);
       const client = clientFactory.getTelemetryClient();
       const data = await client.getTrace(traceId, projectId);
       setTrace(data);
@@ -238,7 +236,7 @@ export default function TraceDrawer({
     } catch (err) {
       console.error('Failed to refresh trace:', err);
     }
-  }, [traceId, projectId, sessionToken]);
+  }, [traceId, projectId]);
 
   // Review drawer state (lifted from SpanDetailsPanel for cross-panel access)
   const [reviewDrawerOpen, setReviewDrawerOpen] = useState(false);
@@ -369,7 +367,7 @@ export default function TraceDrawer({
         return;
       }
       try {
-        const clientFactory = new ApiClientFactory(sessionToken, projectId);
+        const clientFactory = new ApiClientFactory(undefined, projectId);
         const testRunsClient = clientFactory.getTestRunsClient();
         const testRun = await testRunsClient.getTestRun(trace.test_run.id);
         if (testRun?.experiment_id) {
@@ -389,7 +387,7 @@ export default function TraceDrawer({
       }
     };
     fetchExperimentInfo();
-  }, [trace?.test_run?.id, sessionToken, projectId, status]);
+  }, [trace?.test_run?.id, projectId, status]);
 
   // Add keyboard shortcut for ESC key
   useEffect(() => {
@@ -669,7 +667,6 @@ export default function TraceDrawer({
                 {activeViewKey === 'conversation' && (
                   <ConversationTraceView
                     trace={trace}
-                    sessionToken={sessionToken}
                     onSpanSelect={handleSpanSelect}
                     rootSpans={trace.root_spans}
                     onReviewTurn={
@@ -746,7 +743,6 @@ export default function TraceDrawer({
             <SpanDetailsPanel
               span={selectedSpan}
               trace={trace}
-              sessionToken={sessionToken}
               hasTraceMetrics={hasTraceMetrics}
               isConversationTrace={isConversationTrace}
               currentUserId={currentUserId}
@@ -826,7 +822,6 @@ export default function TraceDrawer({
             setReviewInitialStatus(undefined);
           }}
           selectedSpan={selectedSpan}
-          sessionToken={sessionToken}
           onSave={handleReviewSave}
           initialComment={reviewInitialComment}
           initialStatus={reviewInitialStatus}

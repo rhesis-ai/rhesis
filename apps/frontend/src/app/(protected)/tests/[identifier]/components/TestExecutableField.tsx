@@ -11,7 +11,6 @@ import { useNotifications } from '@/components/common/NotificationContext';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface TestExecutableFieldProps {
-  sessionToken: string;
   testId: string;
   promptId: string;
   initialContent: string;
@@ -20,7 +19,6 @@ interface TestExecutableFieldProps {
 }
 
 export default function TestExecutableField({
-  sessionToken,
   testId: _testId,
   promptId,
   initialContent,
@@ -61,7 +59,7 @@ export default function TestExecutableField({
 
     setIsUpdating(true);
     try {
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const promptsClient = clientFactory.getPromptsClient();
 
       await promptsClient.updatePrompt(promptId, {

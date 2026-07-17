@@ -1,7 +1,6 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { useSession } from 'next-auth/react';
 import {
   statusKeys,
   behaviorKeys,
@@ -21,7 +20,7 @@ import { User } from '@/utils/api-client/interfaces/user';
 import { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
 import { getPriorities } from '@/utils/task-lookup';
 import type { Priority } from '@/utils/api-client/interfaces/task';
-import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import { useIsAuthenticated } from '@/hooks/useIsAuthenticated';
 
 const STALE_TIME = 5 * 60_000;
 
@@ -36,16 +35,12 @@ const STALE_TIME = 5 * 60_000;
  * component asks for it.
  */
 
-export function useStatuses(
-  sessionToken: string,
-  entityType: string,
-  enabled = true
-) {
-  const { status: sessionStatus } = useSession();
+export function useStatuses(entityType: string, enabled = true) {
+  const isAuthenticated = useIsAuthenticated();
   return useQuery<Status[]>({
     queryKey: statusKeys.list(entityType),
     queryFn: async () => {
-      const statuses = await new ApiClientFactory(sessionToken)
+      const statuses = await new ApiClientFactory()
         .getStatusClient()
         .getStatuses({
           entity_type: entityType,
@@ -54,36 +49,32 @@ export function useStatuses(
         });
       return statuses;
     },
-    enabled: enabled && isAuthenticated(sessionStatus),
+    enabled: enabled && isAuthenticated,
     staleTime: STALE_TIME,
   });
 }
 
-export function useBehaviors(sessionToken: string, enabled = true) {
-  const { status: sessionStatus } = useSession();
+export function useBehaviors(enabled = true) {
+  const isAuthenticated = useIsAuthenticated();
   return useQuery<BehaviorWithMetrics[]>({
     queryKey: behaviorKeys.list('', 0, 100, 'name', 'asc'),
     queryFn: async () => {
-      const behaviors = await new ApiClientFactory(sessionToken)
+      const behaviors = await new ApiClientFactory()
         .getBehaviorClient()
         .getBehaviors({ sort_by: 'name', sort_order: 'asc' });
       return behaviors;
     },
-    enabled: enabled && isAuthenticated(sessionStatus),
+    enabled: enabled && isAuthenticated,
     staleTime: STALE_TIME,
   });
 }
 
-export function useCategories(
-  sessionToken: string,
-  entityType: string,
-  enabled = true
-) {
-  const { status: sessionStatus } = useSession();
+export function useCategories(entityType: string, enabled = true) {
+  const isAuthenticated = useIsAuthenticated();
   return useQuery<Category[]>({
     queryKey: categoryKeys.list(entityType),
     queryFn: async () => {
-      const categories = await new ApiClientFactory(sessionToken)
+      const categories = await new ApiClientFactory()
         .getCategoryClient()
         .getCategories({
           entity_type: entityType,
@@ -92,74 +83,62 @@ export function useCategories(
         });
       return categories;
     },
-    enabled: enabled && isAuthenticated(sessionStatus),
+    enabled: enabled && isAuthenticated,
     staleTime: STALE_TIME,
   });
 }
 
-export function useTopics(
-  sessionToken: string,
-  entityType: string,
-  enabled = true
-) {
-  const { status: sessionStatus } = useSession();
+export function useTopics(entityType: string, enabled = true) {
+  const isAuthenticated = useIsAuthenticated();
   return useQuery<Topic[]>({
     queryKey: topicKeys.list(entityType),
     queryFn: async () => {
-      const topics = await new ApiClientFactory(sessionToken)
-        .getTopicClient()
-        .getTopics({
-          entity_type: entityType,
-          sort_by: 'name',
-          sort_order: 'asc',
-        });
+      const topics = await new ApiClientFactory().getTopicClient().getTopics({
+        entity_type: entityType,
+        sort_by: 'name',
+        sort_order: 'asc',
+      });
       return topics;
     },
-    enabled: enabled && isAuthenticated(sessionStatus),
+    enabled: enabled && isAuthenticated,
     staleTime: STALE_TIME,
   });
 }
 
-export function useTags(sessionToken: string, enabled = true) {
-  const { status: sessionStatus } = useSession();
+export function useTags(enabled = true) {
+  const isAuthenticated = useIsAuthenticated();
   return useQuery<Tag[]>({
     queryKey: tagKeys.list(),
     queryFn: async () => {
-      const tags = await new ApiClientFactory(sessionToken)
+      const tags = await new ApiClientFactory()
         .getTagsClient()
         .getTags({ sort_by: 'name', sort_order: 'asc' });
       return tags;
     },
-    enabled: enabled && isAuthenticated(sessionStatus),
+    enabled: enabled && isAuthenticated,
     staleTime: STALE_TIME,
   });
 }
 
-export function useUsers(sessionToken: string, enabled = true) {
-  const { status: sessionStatus } = useSession();
+export function useUsers(enabled = true) {
+  const isAuthenticated = useIsAuthenticated();
   return useQuery<User[]>({
     queryKey: userKeys.list(),
     queryFn: async () => {
-      const response = await new ApiClientFactory(sessionToken)
-        .getUsersClient()
-        .getUsers();
+      const response = await new ApiClientFactory().getUsersClient().getUsers();
       return response.data;
     },
-    enabled: enabled && isAuthenticated(sessionStatus),
+    enabled: enabled && isAuthenticated,
     staleTime: STALE_TIME,
   });
 }
 
-export function useTypeLookups(
-  sessionToken: string,
-  filter: string,
-  enabled = true
-) {
-  const { status: sessionStatus } = useSession();
+export function useTypeLookups(filter: string, enabled = true) {
+  const isAuthenticated = useIsAuthenticated();
   return useQuery<TypeLookup[]>({
     queryKey: typeLookupKeys.list(filter),
     queryFn: async () => {
-      const types = await new ApiClientFactory(sessionToken)
+      const types = await new ApiClientFactory()
         .getTypeLookupClient()
         .getTypeLookups({
           $filter: filter,
@@ -168,18 +147,18 @@ export function useTypeLookups(
         });
       return types;
     },
-    enabled: enabled && isAuthenticated(sessionStatus),
+    enabled: enabled && isAuthenticated,
     staleTime: STALE_TIME,
   });
 }
 
 /** Thin React Query wrapper around the existing TTL-cached `getPriorities` utility. */
-export function usePriorities(sessionToken: string, enabled = true) {
-  const { status: sessionStatus } = useSession();
+export function usePriorities(enabled = true) {
+  const isAuthenticated = useIsAuthenticated();
   return useQuery<Priority[]>({
     queryKey: ['task-priorities'],
-    queryFn: () => getPriorities(sessionToken),
-    enabled: enabled && isAuthenticated(sessionStatus),
+    queryFn: () => getPriorities(),
+    enabled: enabled && isAuthenticated,
     staleTime: STALE_TIME,
   });
 }

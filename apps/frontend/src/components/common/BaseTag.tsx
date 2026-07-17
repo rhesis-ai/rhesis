@@ -77,7 +77,6 @@ export interface BaseTagProps extends Omit<
   /** Whether to disable tag deletion on backspace */
   disableDeleteOnBackspace?: boolean;
   /** Session token for API calls */
-  sessionToken?: string;
   /** Entity type for tag management */
   entityType?: EntityType;
   /** Entity for tag management */
@@ -112,7 +111,6 @@ export default function BaseTag({
   disabled = false,
   error = false,
   disableDeleteOnBackspace = false,
-  sessionToken,
   entityType,
   entity,
   chipClassName,
@@ -167,8 +165,8 @@ export default function BaseTag({
     onChange(newTagNames);
 
     try {
-      const _apiFactory = new ApiClientFactory(sessionToken);
-      const tagsClient = new TagsClient(sessionToken);
+      const _apiFactory = new ApiClientFactory();
+      const tagsClient = new TagsClient();
 
       // Tags to remove (exist in current but not in new) - use the current tagObjectsMap
       const tagsToRemove = initialTagNames

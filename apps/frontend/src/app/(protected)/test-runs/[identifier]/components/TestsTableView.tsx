@@ -59,7 +59,6 @@ interface TestsTableViewProps {
     metrics: Array<{ name: string; description?: string }>;
   }>;
   testRunId: string;
-  sessionToken: string;
   loading?: boolean;
   onTestResultUpdate: (updatedTest: TestResultDetail) => void;
   currentUserId: string;
@@ -79,7 +78,6 @@ export default function TestsTableView({
   prompts,
   behaviors,
   testRunId,
-  sessionToken,
   loading = false,
   onTestResultUpdate,
   currentUserId,
@@ -204,7 +202,7 @@ export default function TestsTableView({
 
   const handleOverruleSave = async (testId: string) => {
     try {
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const testResultsClient = clientFactory.getTestResultsClient();
       const updatedTest = await testResultsClient.getTestResult(testId);
       onTestResultUpdate(updatedTest);
@@ -224,7 +222,7 @@ export default function TestsTableView({
     try {
       setIsConfirmingReview(true);
 
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const testResultsClient = clientFactory.getTestResultsClient();
       const statusClient = clientFactory.getStatusClient();
       const statuses = await statusClient.getStatuses({
@@ -689,7 +687,6 @@ export default function TestsTableView({
         prompts={prompts}
         behaviors={behaviors}
         testRunId={testRunId}
-        sessionToken={sessionToken}
         onTestResultUpdate={handleTestResultUpdateInDrawer}
         currentUserId={currentUserId}
         currentUserName={currentUserName}
@@ -705,7 +702,6 @@ export default function TestsTableView({
         open={overruleDrawerOpen}
         onClose={() => setOverruleDrawerOpen(false)}
         test={testToOverrule}
-        sessionToken={sessionToken}
         onSave={handleOverruleSave}
       />
     </Box>

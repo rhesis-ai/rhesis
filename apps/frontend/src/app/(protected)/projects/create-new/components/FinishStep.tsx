@@ -101,7 +101,6 @@ interface FinishStepProps {
   onComplete: () => void;
   onBack: () => void;
   isSubmitting?: boolean;
-  sessionToken: string;
 }
 
 export default function FinishStep({
@@ -109,7 +108,6 @@ export default function FinishStep({
   onComplete,
   onBack,
   isSubmitting = false,
-  sessionToken,
 }: FinishStepProps) {
   const { status } = useSession();
   const [owner, setOwner] = useState<User | null>(null);
@@ -122,7 +120,7 @@ export default function FinishStep({
     const fetchOwner = async () => {
       setLoadingOwner(true);
       try {
-        const usersClient = new UsersClient(sessionToken);
+        const usersClient = new UsersClient();
         if (formData.owner_id) {
           const ownerData = await usersClient.getUser(formData.owner_id);
           setOwner(ownerData);
@@ -143,7 +141,7 @@ export default function FinishStep({
     };
 
     fetchOwner();
-  }, [formData.owner_id, sessionToken, status]);
+  }, [formData.owner_id, status]);
 
   // Get the icon component with better error handling
   const getIconComponent = () => {

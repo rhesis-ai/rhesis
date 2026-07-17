@@ -23,7 +23,6 @@ import {
 
 interface FileAttachmentListProps {
   files: FileResponse[];
-  sessionToken: string;
   isLoading?: boolean;
   onDelete?: (fileId: string) => void;
 }
@@ -39,13 +38,11 @@ function formatFileSize(bytes: number): string {
 function ThumbnailImage({
   fileId,
   filename,
-  sessionToken,
 }: {
   fileId: string;
   filename: string;
-  sessionToken: string;
 }) {
-  const { data: blob, isLoading } = useFileThumbnail(fileId, 144, sessionToken);
+  const { data: blob, isLoading } = useFileThumbnail(fileId, 144);
   const src = useThumbnailObjectUrl(blob);
 
   if (isLoading || !src) {
@@ -83,11 +80,9 @@ function getFileTypeIcon(contentType: string) {
 
 function FileRow({
   file,
-  sessionToken,
   onDelete,
 }: {
   file: FileResponse;
-  sessionToken: string;
   onDelete?: (fileId: string) => void;
 }) {
   const isImage = file.content_type.startsWith('image/');
@@ -117,11 +112,7 @@ function FileRow({
           }}
         >
           {isImage ? (
-            <ThumbnailImage
-              fileId={file.id}
-              filename={file.filename}
-              sessionToken={sessionToken}
-            />
+            <ThumbnailImage fileId={file.id} filename={file.filename} />
           ) : (
             getFileTypeIcon(file.content_type)
           )}
@@ -203,7 +194,6 @@ function FileRow({
 
 export default function FileAttachmentList({
   files,
-  sessionToken,
   isLoading = false,
   onDelete,
 }: FileAttachmentListProps) {
@@ -226,12 +216,7 @@ export default function FileAttachmentList({
   return (
     <Box>
       {files.map(file => (
-        <FileRow
-          key={file.id}
-          file={file}
-          sessionToken={sessionToken}
-          onDelete={onDelete}
-        />
+        <FileRow key={file.id} file={file} onDelete={onDelete} />
       ))}
     </Box>
   );

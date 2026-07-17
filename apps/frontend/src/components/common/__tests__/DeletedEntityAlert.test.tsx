@@ -40,13 +40,8 @@ describe('DeletedEntityAlert', () => {
     ).toBeInTheDocument();
   });
 
-  it('shows the Restore button when sessionToken is provided', () => {
-    render(
-      <DeletedEntityAlert
-        entityData={defaultEntityData}
-        sessionToken="mock-token"
-      />
-    );
+  it('shows the Restore button', () => {
+    render(<DeletedEntityAlert entityData={defaultEntityData} />);
     expect(
       screen.getByRole('button', { name: /restore/i })
     ).toBeInTheDocument();
@@ -93,7 +88,6 @@ describe('DeletedEntityAlert', () => {
     render(
       <DeletedEntityAlert
         entityData={defaultEntityData}
-        sessionToken="mock-token"
         onRestoreSuccess={onRestoreSuccess}
       />
     );
@@ -119,12 +113,7 @@ describe('DeletedEntityAlert', () => {
 
     const user = userEvent.setup();
 
-    render(
-      <DeletedEntityAlert
-        entityData={defaultEntityData}
-        sessionToken="mock-token"
-      />
-    );
+    render(<DeletedEntityAlert entityData={defaultEntityData} />);
 
     await user.click(screen.getByRole('button', { name: /restore/i }));
 

@@ -2,7 +2,6 @@
 
 import * as React from 'react';
 import { Box, FormControl, InputLabel, MenuItem, Select } from '@mui/material';
-import { useSession } from 'next-auth/react';
 import {
   FilterDrawerShell,
   FilterSection,
@@ -67,7 +66,6 @@ export default function EndpointFilterDrawer({
   filters,
   onApply,
 }: EndpointFilterDrawerProps) {
-  const { data: session } = useSession();
   const { draft, setDraft, handleReset, handleApply } = useFilterDrawerDraft(
     open,
     filters,
@@ -76,7 +74,6 @@ export default function EndpointFilterDrawer({
     onClose
   );
   const { data: rawStatuses, isLoading: loadingOptions } = useStatuses(
-    session?.session_token ?? '',
     'General',
     open
   );

@@ -1,6 +1,5 @@
 import { useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useSession } from 'next-auth/react';
 import {
   FileResponse,
   FileEntityType,
@@ -9,20 +8,15 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { EntityType } from '@/types/entity-type';
 import { fileKeys } from '@/constants/query-keys';
-import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import { useIsAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface UseFilesProps {
   entityId: string;
   entityType: FileEntityType;
-  sessionToken: string;
 }
 
-export function useFiles({
-  entityId,
-  entityType,
-  sessionToken,
-}: UseFilesProps) {
-  const { status } = useSession();
+export function useFiles({ entityId, entityType }: UseFilesProps) {
+  const isAuthenticated = useIsAuthenticated();
   const notifications = useNotifications();
   const queryClient = useQueryClient();
   const queryKey = fileKeys.list(entityType, entityId);
@@ -35,7 +29,7 @@ export function useFiles({
   } = useQuery<FileResponse[]>({
     queryKey,
     queryFn: async () => {
-      const filesClient = new ApiClientFactory(sessionToken).getFilesClient();
+      const filesClient = new ApiClientFactory().getFilesClient();
       if (entityType === EntityType.TEST) {
         return filesClient.getTestFiles(entityId);
       }
@@ -44,7 +38,7 @@ export function useFiles({
       }
       return [];
     },
-    enabled: isAuthenticated(status) && !!entityId,
+    enabled: isAuthenticated && !!entityId,
   });
 
   const error = isError ? 'Failed to fetch files' : null;
@@ -61,10 +55,10 @@ export function useFiles({
 
   const uploadMutation = useMutation({
     mutationFn: (newFiles: File[]) => {
-      if (!isAuthenticated(status)) {
-        throw new Error('No session token available');
+      if (!isAuthenticated) {
+        throw new Error('Not authenticated');
       }
-      return new ApiClientFactory(sessionToken)
+      return new ApiClientFactory()
         .getFilesClient()
         .uploadFiles(newFiles, entityId, entityType);
     },
@@ -72,12 +66,10 @@ export function useFiles({
 
   const deleteMutation = useMutation({
     mutationFn: (fileId: string) => {
-      if (!isAuthenticated(status)) {
-        throw new Error('No session token available');
+      if (!isAuthenticated) {
+        throw new Error('Not authenticated');
       }
-      return new ApiClientFactory(sessionToken)
-        .getFilesClient()
-        .deleteFile(fileId);
+      return new ApiClientFactory().getFilesClient().deleteFile(fileId);
     },
   });
 

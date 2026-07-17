@@ -96,7 +96,6 @@ export default async function TestDetailPage({ params }: PageProps) {
 
   const pageActions = (
     <TestToTestSet
-      sessionToken={session.session_token ?? ''}
       testId={identifier}
       parentButton={
         test.parent_id ? (
@@ -132,7 +131,6 @@ export default async function TestDetailPage({ params }: PageProps) {
         >
           <TestDetailTabs
             test={test}
-            sessionToken={session.session_token ?? ''}
             currentUserId={session.user?.id || ''}
             currentUserName={session.user?.name || ''}
             currentUserPicture={session.user?.picture || undefined}

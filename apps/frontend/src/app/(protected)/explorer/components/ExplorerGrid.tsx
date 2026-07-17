@@ -34,7 +34,6 @@ import { explorerKeys } from '@/constants/query-keys';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface ExplorerGridProps {
-  sessionToken: string;
   onTotalCountChange?: (count: number) => void;
 }
 
@@ -68,7 +67,6 @@ function ExplorerUnifiedToolbar() {
 }
 
 export default function ExplorerGrid({
-  sessionToken,
   onTotalCountChange,
 }: ExplorerGridProps) {
   const router = useRouter();
@@ -88,9 +86,7 @@ export default function ExplorerGrid({
   const { data: allRows = [], isLoading: loading } = useQuery({
     queryKey: explorerKeys.all(),
     queryFn: () =>
-      new ApiClientFactory(sessionToken)
-        .getExplorerClient()
-        .getExplorerTestSets(),
+      new ApiClientFactory().getExplorerClient().getExplorerTestSets(),
     enabled: isAuthenticated(status),
   });
 
@@ -188,7 +184,7 @@ export default function ExplorerGrid({
 
     setIsExporting(true);
     try {
-      const client = new ApiClientFactory(sessionToken).getExplorerClient();
+      const client = new ApiClientFactory().getExplorerClient();
       const result = await client.exportRegularTestSetFromExplorer(
         String(selectedRows[0])
       );
@@ -213,14 +209,14 @@ export default function ExplorerGrid({
     } finally {
       setIsExporting(false);
     }
-  }, [notifications, router, selectedRows, sessionToken]);
+  }, [notifications, router, selectedRows]);
 
   const handleDeleteConfirm = async () => {
     if (selectedRows.length === 0) return;
 
     try {
       setIsDeleting(true);
-      const client = new ApiClientFactory(sessionToken).getExplorerClient();
+      const client = new ApiClientFactory().getExplorerClient();
       await Promise.all(
         selectedRows.map(id => client.deleteExplorerTestSet(String(id)))
       );

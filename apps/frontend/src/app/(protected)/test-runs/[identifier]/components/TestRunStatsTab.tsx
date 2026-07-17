@@ -58,7 +58,6 @@ interface TestRunStatsTabProps {
   testRun: TestRunDetail;
   testRunId: string;
   testResults: TestResultDetail[];
-  sessionToken: string;
   loading?: boolean;
   onRefresh?: () => void;
   behaviors?: BehaviorWithMetrics[];
@@ -627,7 +626,6 @@ export default function TestRunStatsTab({
   testRun,
   testRunId,
   testResults,
-  sessionToken,
   loading = false,
   onRefresh,
   behaviors,
@@ -655,7 +653,7 @@ export default function TestRunStatsTab({
     }
     try {
       setStatsLoading(true);
-      const client = new ApiClientFactory(sessionToken).getTestResultsClient();
+      const client = new ApiClientFactory().getTestResultsClient();
       const result = await client.getComprehensiveTestResultsStats({
         test_run_ids: [testRunId],
         mode: 'all',
@@ -669,7 +667,7 @@ export default function TestRunStatsTab({
         setStatsLoading(false);
       }
     }
-  }, [sessionToken, testRunId, status]);
+  }, [testRunId, status]);
 
   useEffect(() => {
     isMounted.current = true;
@@ -784,7 +782,7 @@ export default function TestRunStatsTab({
         )}
       </Stack>
 
-      <TestRunTags sessionToken={sessionToken} testRun={testRun} />
+      <TestRunTags testRun={testRun} />
     </Box>
   );
 }

@@ -58,7 +58,7 @@ export function ActiveProjectProvider({
 }) {
   const { data: session, status } = useSession();
   const queryClient = useQueryClient();
-  const userScope = session?.user?.id ?? session?.session_token ?? '';
+  const userScope = session?.user?.id ?? '';
   const pathname = usePathname();
   const pathnameRef = useRef(pathname);
   pathnameRef.current = pathname;
@@ -84,7 +84,7 @@ export function ActiveProjectProvider({
       }
       setLoading(true);
       try {
-        const factory = new ApiClientFactory(session.session_token);
+        const factory = new ApiClientFactory();
         const projectsClient = factory.getProjectsClient();
         const data = await projectsClient.getMyProjects();
         setProjects(data);
@@ -124,11 +124,7 @@ export function ActiveProjectProvider({
         // 2. Fall back to the user's configured default project.
         let defaultId: string | null = null;
         try {
-          const settings = await fetchUserSettings(
-            queryClient,
-            session.session_token ?? '',
-            userScope
-          );
+          const settings = await fetchUserSettings(queryClient, userScope);
           defaultId = settings?.default_project?.project_id
             ? String(settings.default_project.project_id)
             : null;
@@ -156,13 +152,7 @@ export function ActiveProjectProvider({
         setLoading(false);
       }
     },
-    [
-      session?.session_token,
-      session?.user?.organization_id,
-      queryClient,
-      userScope,
-      status,
-    ]
+    [session?.user?.organization_id, queryClient, userScope, status]
   );
 
   useEffect(() => {
@@ -178,10 +168,9 @@ export function ActiveProjectProvider({
         writeActiveProjectId(nextId as string);
 
         // Persist as default_project so the selection survives logout/login.
-        const token = session?.session_token;
         if (isAuthenticated(status)) {
           try {
-            const factory = new ApiClientFactory(token);
+            const factory = new ApiClientFactory();
             const updated = await factory.getUsersClient().updateUserSettings({
               default_project: {
                 project_id: project.id as UUID,
@@ -206,7 +195,7 @@ export function ActiveProjectProvider({
         window.location.reload();
       }
     },
-    [session?.session_token, queryClient, userScope, status]
+    [queryClient, userScope, status]
   );
 
   const refresh = useCallback(

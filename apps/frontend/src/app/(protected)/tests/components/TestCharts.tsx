@@ -26,14 +26,10 @@ const truncateName = (name: string): string => {
 };
 
 interface TestChartsProps {
-  sessionToken: string;
   onLoadComplete?: () => void;
 }
 
-export default function TestCharts({
-  sessionToken,
-  onLoadComplete,
-}: TestChartsProps) {
+export default function TestCharts({ onLoadComplete }: TestChartsProps) {
   const { status } = useSession();
   // Better state tracking with a ref
   const isMountedRef = useRef(true);
@@ -59,7 +55,7 @@ export default function TestCharts({
     const fetchTestStats = async () => {
       try {
         setIsLoading(true);
-        const clientFactory = new ApiClientFactory(sessionToken);
+        const clientFactory = new ApiClientFactory();
         const testsClient = clientFactory.getTestsClient();
 
         const maxTop = Math.max(
@@ -94,7 +90,7 @@ export default function TestCharts({
     };
 
     fetchTestStats();
-  }, [sessionToken, isInitialized, onLoadComplete, status]);
+  }, [isInitialized, onLoadComplete, status]);
 
   // Chart data generation functions
   const generateBehaviorData = () => {

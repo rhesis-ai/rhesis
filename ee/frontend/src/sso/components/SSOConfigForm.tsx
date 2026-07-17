@@ -47,7 +47,7 @@ const DEFAULT_SSO_CONFIG: SSOConfig = {
 };
 
 export default function SSOConfigForm() {
-  const { organization, sessionToken, onUpdate } = useOrgSettings();
+  const { organization, onUpdate } = useOrgSettings();
   const notifications = useNotifications();
   const ssoDisplayBaseUrl = getClientApiBaseUrl();
   const [formData, setFormData] = useState<SSOConfig>(DEFAULT_SSO_CONFIG);
@@ -67,7 +67,7 @@ export default function SSOConfigForm() {
 
   const loadSSOConfig = useCallback(async () => {
     try {
-      const client = new SSOClient(sessionToken);
+      const client = new SSOClient();
       const config = await client.getSSOConfig(organization.id);
       if (config) {
         const loaded: SSOConfig = {
@@ -87,7 +87,7 @@ export default function SSOConfigForm() {
     } finally {
       setLoading(false);
     }
-  }, [sessionToken, organization.id]);
+  }, [organization.id]);
 
   useEffect(() => {
     loadSSOConfig();
@@ -142,7 +142,7 @@ export default function SSOConfigForm() {
     setError(null);
 
     try {
-      const client = new SSOClient(sessionToken);
+      const client = new SSOClient();
 
       const configToSave: Partial<SSOConfig> = {
         ...formData,
@@ -187,7 +187,7 @@ export default function SSOConfigForm() {
     setTestResult(null);
 
     try {
-      const client = new SSOClient(sessionToken);
+      const client = new SSOClient();
       const result = await client.testSSOConnection(organization.id);
       setTestResult(result);
     } catch {
@@ -202,7 +202,7 @@ export default function SSOConfigForm() {
     setError(null);
 
     try {
-      const client = new SSOClient(sessionToken);
+      const client = new SSOClient();
       await client.deleteSSOConfig(organization.id);
       notifications.show('SSO configuration removed', {
         severity: 'success',

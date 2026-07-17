@@ -22,12 +22,10 @@ import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface LinkedTestSetsSectionProps {
   testId: string;
-  sessionToken: string;
 }
 
 export default function LinkedTestSetsSection({
   testId,
-  sessionToken,
 }: LinkedTestSetsSectionProps) {
   const { show: showNotification } = useNotifications();
   const { status } = useSession();
@@ -49,7 +47,7 @@ export default function LinkedTestSetsSection({
     if (!testId || !isAuthenticated(status)) return;
     setLoading(true);
     try {
-      const apiFactory = new ApiClientFactory(sessionToken);
+      const apiFactory = new ApiClientFactory();
       const testsClient = apiFactory.getTestsClient();
       const response = await testsClient.getLinkedTestSets(testId, {
         skip: paginationModel.page * paginationModel.pageSize,
@@ -68,7 +66,6 @@ export default function LinkedTestSetsSection({
     }
   }, [
     testId,
-    sessionToken,
     paginationModel.page,
     paginationModel.pageSize,
     showNotification,
@@ -83,7 +80,7 @@ export default function LinkedTestSetsSection({
     setLoadingAvailable(true);
     setAssignOpen(true);
     try {
-      const testSetsClient = new TestSetsClient(sessionToken);
+      const testSetsClient = new TestSetsClient();
       const response = await testSetsClient.getTestSets({
         limit: 500,
         sort_by: 'name',
@@ -95,7 +92,7 @@ export default function LinkedTestSetsSection({
     } finally {
       setLoadingAvailable(false);
     }
-  }, [sessionToken]);
+  }, []);
 
   const linkedIds = useMemo(
     () => new Set(testSets.map(ts => String(ts.id))),
@@ -109,7 +106,7 @@ export default function LinkedTestSetsSection({
 
   const handleAssign = useCallback(
     async (selectedIds: string[]) => {
-      const testSetsClient = new TestSetsClient(sessionToken);
+      const testSetsClient = new TestSetsClient();
       const errors: string[] = [];
       await Promise.all(
         selectedIds.map(async id => {
@@ -136,7 +133,7 @@ export default function LinkedTestSetsSection({
       setAssignOpen(false);
       await fetchLinkedTestSets();
     },
-    [sessionToken, testId, showNotification, fetchLinkedTestSets]
+    [testId, showNotification, fetchLinkedTestSets]
   );
 
   const columns: GridColDef[] = [

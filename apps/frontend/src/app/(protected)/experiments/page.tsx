@@ -30,5 +30,5 @@ export default async function ExperimentsPage() {
     );
   }
 
-  return <ExperimentsClientWrapper sessionToken={session.session_token ?? ''} />;
+  return <ExperimentsClientWrapper />;
 }

@@ -76,7 +76,6 @@ interface TraceFilterDrawerProps {
   onClose: () => void;
   filters: TraceDrawerFilters;
   onApply: (filters: TraceDrawerFilters) => void;
-  sessionToken: string;
   fixedTestRunId?: string;
 }
 
@@ -85,7 +84,6 @@ export default function TraceFilterDrawer({
   onClose,
   filters,
   onApply,
-  sessionToken,
   fixedTestRunId,
 }: TraceFilterDrawerProps) {
   const { status } = useSession();
@@ -113,7 +111,6 @@ export default function TraceFilterDrawer({
     Array<{ id: string; name: string }>
   >([]);
   const { data: endpoints = [] } = useEndpoints(
-    sessionToken,
     { limit: 100 },
     open && !isTestRunScope
   );
@@ -127,7 +124,7 @@ export default function TraceFilterDrawer({
     const fetchData = async () => {
       if (!isAuthenticated(status)) return;
       try {
-        const clientFactory = new ApiClientFactory(sessionToken);
+        const clientFactory = new ApiClientFactory();
         const projectsResponse = await clientFactory
           .getProjectsClient()
           .getProjects({ limit: 100 });
@@ -154,7 +151,7 @@ export default function TraceFilterDrawer({
     if (open && isAuthenticated(status) && !isTestRunScope) {
       fetchData();
     }
-  }, [open, sessionToken, isTestRunScope, setDraft, status]);
+  }, [open, isTestRunScope, setDraft, status]);
 
   const filteredEndpoints = draft.projectId
     ? endpoints.filter(e => e.project_id === draft.projectId)

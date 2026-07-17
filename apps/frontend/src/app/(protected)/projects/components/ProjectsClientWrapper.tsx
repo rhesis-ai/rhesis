@@ -40,13 +40,7 @@ import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 type StatusFilter = 'all' | 'active' | 'inactive';
 
-interface ProjectsClientWrapperProps {
-  sessionToken: string;
-}
-
-export default function ProjectsClientWrapper({
-  sessionToken,
-}: ProjectsClientWrapperProps) {
+export default function ProjectsClientWrapper() {
   const { status } = useSession();
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -86,7 +80,7 @@ export default function ProjectsClientWrapper({
     try {
       setIsLoading(true);
       setError(null);
-      const factory = new ApiClientFactory(sessionToken);
+      const factory = new ApiClientFactory();
       const client = factory.getProjectsClient();
       const data = await client.getAllProjects({
         sort_by: 'name',
@@ -98,7 +92,7 @@ export default function ProjectsClientWrapper({
     } finally {
       setIsLoading(false);
     }
-  }, [sessionToken, status]);
+  }, [status]);
 
   useEffect(() => {
     fetchProjects();
@@ -106,18 +100,18 @@ export default function ProjectsClientWrapper({
 
   const handleCreate = useCallback(
     async (payload: ProjectCreate) => {
-      const factory = new ApiClientFactory(sessionToken);
+      const factory = new ApiClientFactory();
       const client = factory.getProjectsClient();
       await client.createProject(payload);
       await Promise.all([fetchProjects(), refreshActiveProjects()]);
     },
-    [sessionToken, fetchProjects, refreshActiveProjects]
+    [fetchProjects, refreshActiveProjects]
   );
 
   const confirmDelete = useCallback(async () => {
     if (!deleteTarget) return;
     try {
-      const factory = new ApiClientFactory(sessionToken);
+      const factory = new ApiClientFactory();
       const client = factory.getProjectsClient();
       await client.deleteProject(deleteTarget.id);
       setProjects(prev => prev.filter(p => p.id !== deleteTarget.id));
@@ -127,7 +121,7 @@ export default function ProjectsClientWrapper({
     } finally {
       setDeleteTarget(null);
     }
-  }, [deleteTarget, sessionToken, refreshActiveProjects]);
+  }, [deleteTarget, refreshActiveProjects]);
 
   // Mark onboarding step complete when projects are loaded
   useEffect(() => {
@@ -357,7 +351,6 @@ export default function ProjectsClientWrapper({
         open={createDrawerOpen}
         onClose={() => setCreateDrawerOpen(false)}
         onCreate={handleCreate}
-        sessionToken={sessionToken}
       />
 
       <ProjectFilterDrawer

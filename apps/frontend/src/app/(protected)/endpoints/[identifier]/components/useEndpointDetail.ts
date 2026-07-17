@@ -50,10 +50,9 @@ export function useEndpointDetail(initialEndpoint: Endpoint) {
     const fetchProjects = async () => {
       try {
         setLoadingProjects(true);
-        const sessionToken = session?.session_token || '';
         if (!isAuthenticated(status)) return;
 
-        const client = new ApiClientFactory(sessionToken).getProjectsClient();
+        const client = new ApiClientFactory().getProjectsClient();
         const response = await client.getProjects();
         const projectMap: Record<string, Project> = {};
         const projectsArray = Array.isArray(response)

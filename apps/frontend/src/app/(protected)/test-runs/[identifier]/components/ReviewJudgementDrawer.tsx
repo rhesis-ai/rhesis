@@ -27,7 +27,6 @@ interface ReviewJudgementDrawerProps {
   open: boolean;
   onClose: () => void;
   test: TestResultDetail | null;
-  sessionToken: string;
   onSave: (testId: string) => Promise<void>;
   initialComment?: string;
   initialStatus?: 'passed' | 'failed';
@@ -39,7 +38,6 @@ export default function ReviewJudgementDrawer({
   open,
   onClose,
   test,
-  sessionToken,
   onSave,
   initialComment,
   initialStatus,
@@ -75,7 +73,7 @@ export default function ReviewJudgementDrawer({
       if (!open || !isAuthenticated(status) || statuses.length > 0) return;
       try {
         setLoadingStatuses(true);
-        const clientFactory = new ApiClientFactory(sessionToken);
+        const clientFactory = new ApiClientFactory();
         const statusClient = clientFactory.getStatusClient();
         const fetched = await statusClient.getStatuses({
           entity_type: EntityType.TEST_RESULT,
@@ -88,7 +86,7 @@ export default function ReviewJudgementDrawer({
       }
     };
     fetchStatuses();
-  }, [open, sessionToken, statuses.length, status]);
+  }, [open, statuses.length, status]);
 
   // Reset form when drawer opens (intentionally excludes initialComment/initialStatus
   // from deps so parent state resets don't clear a form the user is actively filling)
@@ -130,7 +128,7 @@ export default function ReviewJudgementDrawer({
       setSubmitting(true);
       setError('');
 
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const testResultsClient = clientFactory.getTestResultsClient();
 
       await testResultsClient.createReview(

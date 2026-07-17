@@ -25,7 +25,6 @@ import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface ProjectMembersProps {
   projectId: string;
-  sessionToken: string;
   /** ID of the project owner — prevents removing them. */
   ownerId?: string;
   onMembersLoaded?: (members: ProjectMember[]) => void;
@@ -42,7 +41,6 @@ function getMemberDisplayName(
 
 export default function ProjectMembers({
   projectId,
-  sessionToken,
   ownerId,
   onMembersLoaded,
 }: ProjectMembersProps) {
@@ -73,7 +71,7 @@ export default function ProjectMembers({
   } = useQuery({
     queryKey: membersQueryKey,
     queryFn: async () => {
-      const data = await new ApiClientFactory(sessionToken, projectId)
+      const data = await new ApiClientFactory(undefined, projectId)
         .getProjectsClient()
         .getProjectMembers(projectId);
       onMembersLoaded?.(data);
@@ -95,7 +93,7 @@ export default function ProjectMembers({
     if (!memberToRemove) return;
     setRemoving(true);
     try {
-      const factory = new ApiClientFactory(sessionToken);
+      const factory = new ApiClientFactory();
       await factory
         .getProjectsClient()
         .removeProjectMember(projectId, memberToRemove.user_id);
@@ -119,11 +117,11 @@ export default function ProjectMembers({
 
   useEffect(() => {
     if (isAuthenticated(status) && projectId) {
-      prewarmProjectCaches?.(sessionToken, projectId, {
+      prewarmProjectCaches?.(projectId, {
         canManageRoles: canManageMembers,
       });
     }
-  }, [sessionToken, projectId, prewarmProjectCaches, canManageMembers, status]);
+  }, [projectId, prewarmProjectCaches, canManageMembers, status]);
 
   const columns: GridColDef[] = React.useMemo(() => {
     const RoleCell = ProjectRoleCell;
@@ -139,7 +137,6 @@ export default function ProjectMembers({
             <RoleCell
               userId={(params.row as ProjectMember).user_id}
               projectId={projectId}
-              sessionToken={sessionToken}
             />
           ),
         }
@@ -233,7 +230,6 @@ export default function ProjectMembers({
   }, [
     ProjectRoleCell,
     projectId,
-    sessionToken,
     ownerId,
     canManageMembers,
     handleRemoveClick,

@@ -20,5 +20,5 @@ export default async function TokensPage() {
     );
   }
 
-  return <TokensPageClient sessionToken={session.session_token ?? ''} />;
+  return <TokensPageClient />;
 }

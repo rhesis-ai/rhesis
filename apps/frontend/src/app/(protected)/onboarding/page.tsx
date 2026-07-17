@@ -20,7 +20,6 @@ export default async function OnboardingPage() {
 
   return (
     <OnboardingPageClient
-      sessionToken={session.session_token ?? ''}
       userId={session.user.id as UUID}
       videoUrl={videoUrl}
     />

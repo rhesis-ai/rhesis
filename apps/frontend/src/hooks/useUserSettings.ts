@@ -31,15 +31,10 @@ export function useUserSettings(enabled = true) {
  * Imperative counterpart for call sites outside a render path (e.g. inside
  * an async callback). Joins the same cache/dedup as `useUserSettings`.
  */
-export function fetchUserSettings(
-  queryClient: QueryClient,
-  sessionToken: string,
-  userScope: string
-) {
+export function fetchUserSettings(queryClient: QueryClient, userScope: string) {
   return queryClient.fetchQuery({
     queryKey: userSettingsKeys.all(userScope),
-    queryFn: () =>
-      new ApiClientFactory(sessionToken).getUsersClient().getUserSettings(),
+    queryFn: () => new ApiClientFactory().getUsersClient().getUserSettings(),
     staleTime: 5 * 60_000,
   });
 }

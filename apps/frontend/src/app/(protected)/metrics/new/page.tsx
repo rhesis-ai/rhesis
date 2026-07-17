@@ -89,7 +89,6 @@ export default function NewMetricPage() {
   const theme = useTheme();
   const type = searchParams.get('type');
   const { data: allTypeLookups } = useTypeLookups(
-    session?.session_token ?? '',
     type
       ? `(type_name eq 'MetricType' and type_value eq '${type}') or (type_name eq 'BackendType' and type_value eq 'custom')`
       : '',
@@ -117,7 +116,7 @@ export default function NewMetricPage() {
 
       try {
         setIsLoadingModels(true);
-        const apiClient = new ApiClientFactory(session?.session_token ?? '');
+        const apiClient = new ApiClientFactory();
         const modelsClient = apiClient.getModelsClient();
         const response = await modelsClient.getModels({
           sort_by: 'name',
@@ -136,7 +135,7 @@ export default function NewMetricPage() {
     };
 
     fetchModels();
-  }, [session?.session_token, notifications, status]);
+  }, [notifications, status]);
 
   const handleChange =
     (field: keyof MetricFormData) =>
@@ -221,7 +220,7 @@ export default function NewMetricPage() {
         );
       }
 
-      const apiClient = new ApiClientFactory(session?.session_token ?? '');
+      const apiClient = new ApiClientFactory();
       const metricsClient = apiClient.getMetricsClient();
 
       const typeLookups = (allTypeLookups ?? []).filter(

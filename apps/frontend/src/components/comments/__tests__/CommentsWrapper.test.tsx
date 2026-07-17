@@ -55,7 +55,6 @@ import userEvent from '@testing-library/user-event';
 const DEFAULT_PROPS = {
   entityType: 'Test' as const,
   entityId: 'e1',
-  sessionToken: 'tok',
   currentUserId: 'u1',
   currentUserName: 'Alice',
 };

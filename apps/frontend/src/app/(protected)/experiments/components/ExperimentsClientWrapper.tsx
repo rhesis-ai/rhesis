@@ -151,13 +151,7 @@ function ExperimentsFilterDrawer({
   );
 }
 
-interface ExperimentsClientWrapperProps {
-  sessionToken: string;
-}
-
-export default function ExperimentsClientWrapper({
-  sessionToken,
-}: ExperimentsClientWrapperProps) {
+export default function ExperimentsClientWrapper() {
   const isMounted = useRef(false);
   const router = useRouter();
   const { status } = useSession();
@@ -184,10 +178,7 @@ export default function ExperimentsClientWrapper({
     items: [],
   });
 
-  const apiFactory = useMemo(
-    () => new ApiClientFactory(sessionToken),
-    [sessionToken]
-  );
+  const apiFactory = useMemo(() => new ApiClientFactory(), []);
 
   const initialLoadDone = useRef(false);
 
@@ -470,7 +461,6 @@ export default function ExperimentsClientWrapper({
       <CreateExperimentDialog
         open={createOpen}
         onClose={() => setCreateOpen(false)}
-        sessionToken={sessionToken}
         onCreated={async experiment => {
           setCreateOpen(false);
           router.push(`/experiments/${experiment.id}`);

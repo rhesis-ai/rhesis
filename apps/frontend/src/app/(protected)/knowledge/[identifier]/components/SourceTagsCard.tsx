@@ -28,14 +28,12 @@ interface TagsDraft {
 }
 
 interface SourceTagsCardProps {
-  sessionToken: string;
   source: Source;
   userId?: UUID;
   onUpdate?: () => void;
 }
 
 export default function SourceTagsCard({
-  sessionToken,
   source,
   userId,
   onUpdate,
@@ -47,7 +45,7 @@ export default function SourceTagsCard({
   const initialDraft: TagsDraft = { tagNames: initialTagNames };
 
   const handleSave = async (draft: TagsDraft) => {
-    const tagsClient = new TagsClient(sessionToken);
+    const tagsClient = new TagsClient();
     const currentNames = initialTagNames;
     const newNames = draft.tagNames;
 

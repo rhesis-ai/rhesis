@@ -39,7 +39,6 @@ import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface TestDetailChartsProps {
   testId: string;
-  sessionToken: string;
 }
 
 interface LastTestRunCardProps {
@@ -471,10 +470,7 @@ function SinglePointChart({
   );
 }
 
-export default function TestDetailCharts({
-  testId,
-  sessionToken,
-}: TestDetailChartsProps) {
+export default function TestDetailCharts({ testId }: TestDetailChartsProps) {
   const _theme = useTheme();
   const { status } = useSession();
 
@@ -485,7 +481,7 @@ export default function TestDetailCharts({
   } = useQuery({
     queryKey: [...testKeys.detail(testId), 'stats'],
     queryFn: () =>
-      new ApiClientFactory(sessionToken)
+      new ApiClientFactory()
         .getTestsClient()
         .getIndividualTestStats(testId, { recent_runs_limit: 5 }),
     enabled: isAuthenticated(status) && !!testId,

@@ -49,13 +49,11 @@ function priorityLabel(n: number): string {
 }
 
 interface TestMetadataCardProps {
-  sessionToken: string;
   test: TestDetail;
   onUpdate?: () => void;
 }
 
 export default function TestMetadataCard({
-  sessionToken,
   test,
   onUpdate,
 }: TestMetadataCardProps) {
@@ -64,10 +62,7 @@ export default function TestMetadataCard({
   const canEditTest = useCan(Capability.Test.UPDATE);
   const { status } = useSession();
 
-  const apiFactory = React.useMemo(
-    () => new ApiClientFactory(sessionToken),
-    [sessionToken]
-  );
+  const apiFactory = React.useMemo(() => new ApiClientFactory(), []);
 
   const { data: behaviorsData } = useQuery({
     queryKey: behaviorKeys.list(),
@@ -138,7 +133,7 @@ export default function TestMetadataCard({
   };
 
   const handleSave = async (draft: MetadataDraft) => {
-    const apiFactory = new ApiClientFactory(sessionToken);
+    const apiFactory = new ApiClientFactory();
     const testsClient = apiFactory.getTestsClient();
     await testsClient.updateTest(test.id, {
       behavior_id: draft.behavior_id ?? undefined,

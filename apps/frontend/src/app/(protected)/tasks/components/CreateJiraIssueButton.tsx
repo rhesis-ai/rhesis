@@ -26,7 +26,7 @@ export default function CreateJiraIssueButton({
   task,
   onIssueCreated,
 }: CreateJiraIssueButtonProps) {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const { show } = useNotifications();
   const [jiraTools, setJiraTools] = useState<Tool[]>([]);
   const [loading, setLoading] = useState(false);
@@ -46,7 +46,7 @@ export default function CreateJiraIssueButton({
 
       setLoading(true);
       try {
-        const clientFactory = new ApiClientFactory(session?.session_token);
+        const clientFactory = new ApiClientFactory();
         const toolsClient = clientFactory.getToolsClient();
 
         const response = await toolsClient.getTools({});
@@ -67,7 +67,7 @@ export default function CreateJiraIssueButton({
     };
 
     fetchJiraTools();
-  }, [session?.session_token, status]);
+  }, [status]);
 
   const handleCreateIssue = async (toolId?: string) => {
     const selectedToolId = toolId || jiraTools[0]?.id;
@@ -80,7 +80,7 @@ export default function CreateJiraIssueButton({
 
     setIsCreating(true);
     try {
-      const clientFactory = new ApiClientFactory(session?.session_token);
+      const clientFactory = new ApiClientFactory();
       const servicesClient = clientFactory.getServicesClient();
 
       const result = await servicesClient.createJiraTicketFromTask(

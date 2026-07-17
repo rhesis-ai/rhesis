@@ -133,11 +133,10 @@ export function buildEndpointRunFilter(endpointId: string): string {
 }
 
 export async function fetchTestRunIdsForEndpoint(
-  sessionToken: string,
   endpointId: string,
   timeRange?: InsightsTimeRange
 ): Promise<string[]> {
-  const client = new ApiClientFactory(sessionToken).getTestRunsClient();
+  const client = new ApiClientFactory().getTestRunsClient();
   const filterParts = [buildEndpointRunFilter(endpointId)];
   if (timeRange) {
     const timeFilter = buildTestRunTimeFilter(timeRange);

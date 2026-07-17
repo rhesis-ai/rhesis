@@ -217,7 +217,6 @@ export default async function TestRunComparePage({
           availableTestRuns={availableTestRuns}
           prompts={promptsMap}
           behaviors={behaviors}
-          sessionToken={session.session_token ?? ''}
           initialBaselineId={initialBaselineId}
           testSetType={
             testRun.test_configuration?.test_set?.test_set_type?.type_value

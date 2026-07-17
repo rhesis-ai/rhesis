@@ -33,7 +33,6 @@ interface DeletedEntityAlertProps {
   /**
    * Optional session token for API calls
    */
-  sessionToken?: string;
 
   /**
    * Optional back link URL (e.g., '/test-runs')
@@ -53,7 +52,6 @@ interface DeletedEntityAlertProps {
 export function DeletedEntityAlert({
   entityData,
   onRestoreSuccess,
-  sessionToken,
   backUrl,
   backLabel,
 }: DeletedEntityAlertProps) {
@@ -72,7 +70,7 @@ export function DeletedEntityAlert({
     setRestoreError(null);
 
     try {
-      const recycleClient = new RecycleClient(sessionToken);
+      const recycleClient = new RecycleClient();
       await recycleClient.restoreItem(
         entityData.table_name,
         entityData.item_id

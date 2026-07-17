@@ -135,7 +135,7 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
     const { data: session, status } = useSession();
     const notifications = useNotifications();
     const { markStepComplete } = useOnboarding();
-    const testEndpointMutation = useTestEndpoint(session?.session_token ?? '');
+    const testEndpointMutation = useTestEndpoint();
 
     const [formData, setFormData] = useState<FormData>({
       name: '',
@@ -178,9 +178,7 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
         }
         try {
           setLoadingProjects(true);
-          const client = new ApiClientFactory(
-            session?.session_token ?? ''
-          ).getProjectsClient();
+          const client = new ApiClientFactory().getProjectsClient();
           const data = await client.getProjects();
           setProjects(Array.isArray(data) ? data : data?.data || []);
         } catch {

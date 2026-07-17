@@ -43,7 +43,6 @@ import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 
 interface TestDetailReviewsTabProps {
   test: TestResultDetail;
-  sessionToken: string;
   onTestResultUpdate: (updatedTest: TestResultDetail) => void;
   currentUserId: string;
   initialComment?: string;
@@ -55,7 +54,6 @@ interface TestDetailReviewsTabProps {
 
 export default function TestDetailReviewsTab({
   test,
-  sessionToken,
   onTestResultUpdate,
   currentUserId,
   initialComment = '',
@@ -99,7 +97,7 @@ export default function TestDetailReviewsTab({
   };
 
   const handleReviewSaved = async (testId: string) => {
-    const clientFactory = new ApiClientFactory(sessionToken);
+    const clientFactory = new ApiClientFactory();
     const testResultsClient = clientFactory.getTestResultsClient();
     const updatedTest = await testResultsClient.getTestResult(testId);
     onTestResultUpdate(updatedTest);
@@ -115,7 +113,7 @@ export default function TestDetailReviewsTab({
     if (!reviewToDelete) return;
     try {
       setDeleting(true);
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const testResultsClient = clientFactory.getTestResultsClient();
       await testResultsClient.deleteReview(test.id, reviewToDelete.review_id);
       const updatedTest = await testResultsClient.getTestResult(test.id);
@@ -549,7 +547,6 @@ export default function TestDetailReviewsTab({
         open={createOpen}
         onClose={handleCloseCreateDrawer}
         test={test}
-        sessionToken={sessionToken}
         onSave={handleReviewSaved}
         initialComment={pendingCommentRef.current?.comment}
         initialStatus={pendingCommentRef.current?.status}

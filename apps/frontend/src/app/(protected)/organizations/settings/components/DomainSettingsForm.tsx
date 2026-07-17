@@ -22,13 +22,11 @@ import { useNotifications } from '@/components/common/NotificationContext';
 
 interface DomainSettingsFormProps {
   organization: Organization;
-  sessionToken: string;
   onUpdate: () => void;
 }
 
 export default function DomainSettingsForm({
   organization,
-  sessionToken,
   onUpdate,
 }: DomainSettingsFormProps) {
   const notifications = useNotifications();
@@ -51,7 +49,7 @@ export default function DomainSettingsForm({
     setError(null);
 
     try {
-      const apiFactory = new ApiClientFactory(sessionToken);
+      const apiFactory = new ApiClientFactory();
       const organizationsClient = apiFactory.getOrganizationsClient();
 
       await organizationsClient.updateOrganization(organization.id, {

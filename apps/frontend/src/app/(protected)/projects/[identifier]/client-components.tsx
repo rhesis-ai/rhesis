@@ -92,15 +92,9 @@ const getProjectIcon = (project: Project) => {
   return <SmartToyIcon />;
 };
 
-export function EditDrawerWrapper({
-  project,
-  sessionToken,
-}: {
-  project: Project;
-  sessionToken: string;
-}) {
+export function EditDrawerWrapper({ project }: { project: Project }) {
   const [open, setOpen] = React.useState(false);
-  const [apiFactory] = React.useState(() => new ApiClientFactory(sessionToken));
+  const [apiFactory] = React.useState(() => new ApiClientFactory());
 
   React.useEffect(() => {
     const handleOpenDrawer = () => setOpen(true);
@@ -128,7 +122,6 @@ export function EditDrawerWrapper({
       onClose={() => setOpen(false)}
       project={project}
       onSave={handleSave}
-      sessionToken={sessionToken}
     />
   );
 }

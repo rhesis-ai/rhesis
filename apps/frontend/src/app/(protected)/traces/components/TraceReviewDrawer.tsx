@@ -38,7 +38,6 @@ interface TraceReviewDrawerProps {
   open: boolean;
   onClose: () => void;
   selectedSpan: SpanNode | null;
-  sessionToken: string;
   onSave: () => Promise<void>;
   initialComment?: string;
   initialStatus?: 'passed' | 'failed';
@@ -70,7 +69,6 @@ export default function TraceReviewDrawer({
   open,
   onClose,
   selectedSpan,
-  sessionToken,
   onSave,
   initialComment,
   initialStatus,
@@ -173,7 +171,7 @@ export default function TraceReviewDrawer({
       if (!open || !isAuthenticated(status) || statuses.length > 0) return;
       try {
         setLoadingStatuses(true);
-        const clientFactory = new ApiClientFactory(sessionToken);
+        const clientFactory = new ApiClientFactory();
         const statusClient = clientFactory.getStatusClient();
         const fetchedStatuses = await statusClient.getStatuses({
           entity_type: EntityType.TEST_RESULT,
@@ -186,7 +184,7 @@ export default function TraceReviewDrawer({
       }
     };
     fetchStatuses();
-  }, [open, sessionToken, statuses.length, status]);
+  }, [open, statuses.length, status]);
 
   useEffect(() => {
     if (open && selectedSpan) {
@@ -250,7 +248,7 @@ export default function TraceReviewDrawer({
       setSubmitting(true);
       setError('');
 
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const telemetryClient = clientFactory.getTelemetryClient();
 
       await telemetryClient.createReview(

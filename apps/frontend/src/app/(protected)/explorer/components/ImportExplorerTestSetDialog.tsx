@@ -27,14 +27,12 @@ interface ImportExplorerTestSetDialogProps {
   open: boolean;
   onClose: () => void;
   onImported: (result: ImportExplorerTestSetResponse) => void;
-  sessionToken: string;
 }
 
 export default function ImportExplorerTestSetDialog({
   open,
   onClose,
   onImported,
-  sessionToken,
 }: ImportExplorerTestSetDialogProps) {
   const [testSets, setTestSets] = React.useState<TestSet[]>([]);
   const [loading, setLoading] = React.useState(false);
@@ -60,7 +58,7 @@ export default function ImportExplorerTestSetDialog({
       }
 
       try {
-        const clientFactory = new ApiClientFactory(sessionToken);
+        const clientFactory = new ApiClientFactory();
         const testSetsClient = clientFactory.getTestSetsClient();
 
         const queryParams: {
@@ -94,7 +92,7 @@ export default function ImportExplorerTestSetDialog({
         }
       }
     },
-    [sessionToken, open, notifications]
+    [open, notifications]
   );
 
   React.useEffect(() => {
@@ -138,7 +136,7 @@ export default function ImportExplorerTestSetDialog({
 
     setSubmitting(true);
     try {
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const explorerClient = clientFactory.getExplorerClient();
       const result = await explorerClient.importExplorerTestSetFromSource(
         String(selectedTestSet.id)

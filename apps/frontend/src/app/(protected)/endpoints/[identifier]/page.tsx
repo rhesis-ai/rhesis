@@ -14,7 +14,10 @@ import EndpointDetailView from './components/EndpointDetailView';
 import EndpointHeaderActions from './components/EndpointHeaderActions';
 import { useEndpoint, useProject } from '@/hooks/useEndpoints';
 import { isNotFoundApiError } from '@/utils/api-client/is-not-found-error';
-import { isAuthenticated, isSessionLoading, isSessionUnauthenticated } from '@/hooks/useIsAuthenticated';
+import {
+  isSessionLoading,
+  isSessionUnauthenticated,
+} from '@/hooks/useIsAuthenticated';
 
 interface PageProps {
   params: Promise<{ identifier: string }>;
@@ -28,8 +31,7 @@ export default function EndpointPage({ params }: PageProps) {
   const { identifier } = use(params);
   const router = useRouter();
 
-  const { data: session, status } = useSession();
-  const sessionToken = session?.session_token ?? '';
+  const { status } = useSession();
 
   const isValidId = !!identifier && UUID_REGEX.test(identifier);
 
@@ -39,9 +41,8 @@ export default function EndpointPage({ params }: PageProps) {
     isFetching,
     error: fetchError,
     refetch,
-  } = useEndpoint(sessionToken, identifier, isAuthenticated(status) && isValidId);
+  } = useEndpoint(identifier, isValidId);
   const { data: project } = useProject(
-    sessionToken,
     endpoint?.project_id ?? '',
     !!endpoint?.project_id
   );

@@ -13,7 +13,11 @@ import { EndpointDetailProvider } from '@/app/(protected)/endpoints/[identifier]
 import EndpointDetailView from '@/app/(protected)/endpoints/[identifier]/components/EndpointDetailView';
 import EndpointHeaderActions from '@/app/(protected)/endpoints/[identifier]/components/EndpointHeaderActions';
 import { useEndpoint, useProject } from '@/hooks/useEndpoints';
-import { isAuthenticated, isSessionLoading, isSessionUnauthenticated } from '@/hooks/useIsAuthenticated';
+import {
+  isAuthenticated,
+  isSessionLoading,
+  isSessionUnauthenticated,
+} from '@/hooks/useIsAuthenticated';
 
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -21,8 +25,7 @@ const UUID_REGEX =
 export default function ProjectEndpointPage() {
   const params = useParams<{ identifier: string; endpointId: string }>();
   const router = useRouter();
-  const { data: session, status } = useSession();
-  const sessionToken = session?.session_token ?? '';
+  const { status } = useSession();
   const isValidId = !!params?.endpointId && UUID_REGEX.test(params.endpointId);
 
   const {
@@ -32,12 +35,10 @@ export default function ProjectEndpointPage() {
     error: fetchError,
     refetch,
   } = useEndpoint(
-    sessionToken,
     params?.endpointId ?? '',
     isAuthenticated(status) && isValidId
   );
   const { data: project } = useProject(
-    sessionToken,
     params?.identifier ?? '',
     !!params?.identifier
   );

@@ -34,14 +34,12 @@ interface ToolImportDrawerProps {
   open: boolean;
   onClose: () => void;
   onSuccess?: () => void;
-  sessionToken: string;
 }
 
 export default function ToolImportDrawer({
   open,
   onClose,
   onSuccess,
-  sessionToken,
 }: ToolImportDrawerProps) {
   const { status } = useSession();
   const [tools, setTools] = useState<Tool[]>([]);
@@ -60,7 +58,7 @@ export default function ToolImportDrawer({
     if (!isAuthenticated(status)) return;
     try {
       setLoadingTools(true);
-      const apiFactory = new ApiClientFactory(sessionToken);
+      const apiFactory = new ApiClientFactory();
       const response = await apiFactory
         .getToolsClient()
         .getTools({ limit: 100 });
@@ -76,7 +74,7 @@ export default function ToolImportDrawer({
     } finally {
       setLoadingTools(false);
     }
-  }, [status, sessionToken]);
+  }, [status]);
 
   useEffect(() => {
     if (open) {
@@ -213,7 +211,6 @@ export default function ToolImportDrawer({
             open={open}
             onClose={onClose}
             onSuccess={onSuccess}
-            sessionToken={sessionToken}
             tool={selectedTool}
             onFooterStateChange={handlePanelFooterChange}
           />

@@ -28,13 +28,7 @@ import { Capability } from '@/constants/capabilities';
 import AccessDenied from '@/components/common/AccessDenied';
 import PageLoadingState from '@/components/common/PageLoadingState';
 
-interface TokensPageClientProps {
-  sessionToken: string;
-}
-
-export default function TokensPageClient({
-  sessionToken,
-}: TokensPageClientProps) {
+export default function TokensPageClient() {
   const { allowed: canManage, loading: permsLoading } = useCanWithStatus(
     Capability.Token.MANAGE
   );
@@ -66,9 +60,7 @@ export default function TokensPageClient({
   });
 
   // Stable tokens client across renders
-  const tokensClientRef = useRef(
-    new ApiClientFactory(sessionToken).getTokensClient()
-  );
+  const tokensClientRef = useRef(new ApiClientFactory().getTokensClient());
 
   const loadTokens = useCallback(async () => {
     try {
@@ -310,7 +302,6 @@ export default function TokensPageClient({
       <CreateTokenDrawer
         open={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
-        sessionToken={sessionToken}
         onCreateToken={handleCreateToken}
       />
 

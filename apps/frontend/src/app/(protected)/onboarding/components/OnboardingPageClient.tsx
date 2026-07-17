@@ -35,13 +35,11 @@ interface FormData {
 }
 
 interface OnboardingPageClientProps {
-  sessionToken: string;
   userId: UUID;
   videoUrl?: string;
 }
 
 export default function OnboardingPageClient({
-  sessionToken,
   userId,
   videoUrl,
 }: OnboardingPageClientProps) {
@@ -60,10 +58,8 @@ export default function OnboardingPageClient({
     invites: [{ id: safeRandomUUID(), email: '' }],
   });
 
-  const organizationsClient = new ApiClientFactory(
-    sessionToken
-  ).getOrganizationsClient();
-  const usersClient = new ApiClientFactory(sessionToken).getUsersClient();
+  const organizationsClient = new ApiClientFactory().getOrganizationsClient();
+  const usersClient = new ApiClientFactory().getUsersClient();
 
   const completingRef = React.useRef(false);
 
@@ -143,11 +139,13 @@ export default function OnboardingPageClient({
         // Onboarding attached the user to an org, so the backend minted a
         // fresh ACCESS token. Update only the access token in the session;
         // the refresh token is unchanged and must be preserved (a full
-        // re-signIn would drop it). The raw access token is still used
-        // below for the immediate authenticated follow-up calls.
+        // re-signIn would drop it). Awaiting the update also rewrites the
+        // httpOnly session cookie, so the follow-up calls below — which go
+        // through the /api/backend proxy like every client request — carry
+        // the new org-scoped token.
         await updateSession({ session_token: activeSessionToken });
 
-        const authenticatedFactory = new ApiClientFactory(activeSessionToken);
+        const authenticatedFactory = new ApiClientFactory();
         const authenticatedUsersClient = authenticatedFactory.getUsersClient();
         const authenticatedOrganizationsClient =
           authenticatedFactory.getOrganizationsClient();

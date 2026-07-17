@@ -52,7 +52,6 @@ describe('TasksSection - Infinite Loading Fix', () => {
   const defaultProps = {
     entityType: 'Test' as const,
     entityId: 'test-123',
-    sessionToken: 'mock-session-token',
     onCreateTask: jest.fn(),
     onEditTask: jest.fn(),
     onDeleteTask: jest.fn(),

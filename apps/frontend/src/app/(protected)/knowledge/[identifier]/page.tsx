@@ -47,7 +47,6 @@ export default async function SourcePreviewPage({
     return (
       <SourcePreviewClientWrapper
         source={source}
-        sessionToken={session.session_token ?? ''}
         currentUserId={session.user?.id || ''}
         currentUserName={session.user?.name || ''}
         currentUserPicture={session.user?.picture || undefined}

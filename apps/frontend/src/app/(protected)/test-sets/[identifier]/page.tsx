@@ -102,7 +102,6 @@ export default async function TestSetPage({ params }: PageProps) {
 
   const pageActions = (
     <TestSetHeaderActions
-      sessionToken={session.session_token ?? ''}
       testSetId={identifier}
       testSetName={testSet.name}
       testCount={testCount}
@@ -129,7 +128,6 @@ export default async function TestSetPage({ params }: PageProps) {
             testSet={serializedTestSet}
             testCount={testCount}
             isGenerating={isGenerating}
-            sessionToken={session.session_token ?? ''}
             currentUserId={session.user?.id || ''}
             currentUserName={session.user?.name || ''}
             currentUserPicture={session.user?.picture || undefined}

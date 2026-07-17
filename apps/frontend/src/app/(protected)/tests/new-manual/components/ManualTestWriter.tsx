@@ -185,9 +185,7 @@ export default function ManualTestWriter() {
   const testTypeValue =
     testType === 'Single-Turn' ? TEST_TYPES.SINGLE_TURN : TEST_TYPES.MULTI_TURN;
   const { data: resolvedTestSetTypes } = useTypeLookups(
-    session?.session_token ?? '',
-    `type_name eq '${TYPE_NAMES.TEST_SET_TYPE}' and type_value eq '${testTypeValue}'`,
-    isAuthenticated(status)
+    `type_name eq '${TYPE_NAMES.TEST_SET_TYPE}' and type_value eq '${testTypeValue}'`
   );
   useEffect(() => {
     if (resolvedTestSetTypes && resolvedTestSetTypes.length > 0) {
@@ -210,7 +208,7 @@ export default function ManualTestWriter() {
 
       try {
         setLoading(true);
-        const apiFactory = new ApiClientFactory(session?.session_token);
+        const apiFactory = new ApiClientFactory();
 
         // Fetch behaviors
         const behaviorsClient = apiFactory.getBehaviorClient();
@@ -374,7 +372,7 @@ export default function ManualTestWriter() {
 
     try {
       setSaving(true);
-      const apiFactory = new ApiClientFactory(session?.session_token);
+      const apiFactory = new ApiClientFactory();
 
       // Filter out completely empty rows
       const nonEmptyTestCases = testCases.filter(tc => {

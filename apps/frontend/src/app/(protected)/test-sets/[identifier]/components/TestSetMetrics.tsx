@@ -36,7 +36,6 @@ import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface TestSetMetricsProps {
   testSetId: string;
-  sessionToken: string;
 }
 
 const getBackendIcon = (backendType?: string) => {
@@ -66,10 +65,7 @@ const getScoreTypeIcon = (scoreType?: string) => {
   }
 };
 
-export default function TestSetMetrics({
-  testSetId,
-  sessionToken,
-}: TestSetMetricsProps) {
+export default function TestSetMetrics({ testSetId }: TestSetMetricsProps) {
   const { status } = useSession();
   const [isRemoving, setIsRemoving] = useState<string | null>(null);
   const [metricsDialogOpen, setMetricsDialogOpen] = useState(false);
@@ -90,9 +86,7 @@ export default function TestSetMetrics({
   } = useQuery({
     queryKey: metricsQueryKey,
     queryFn: () =>
-      new ApiClientFactory(sessionToken)
-        .getTestSetsClient()
-        .getTestSetMetrics(testSetId),
+      new ApiClientFactory().getTestSetsClient().getTestSetMetrics(testSetId),
     enabled: isAuthenticated(status),
   });
 
@@ -104,7 +98,7 @@ export default function TestSetMetrics({
 
   const handleAddMetric = async (metricId: UUID) => {
     try {
-      await new ApiClientFactory(sessionToken)
+      await new ApiClientFactory()
         .getTestSetsClient()
         .addMetricToTestSet(testSetId, metricId as string);
       queryClient.invalidateQueries({ queryKey: metricsQueryKey });
@@ -123,7 +117,7 @@ export default function TestSetMetrics({
   const handleRemoveMetric = async (metricId: string) => {
     try {
       setIsRemoving(metricId);
-      await new ApiClientFactory(sessionToken)
+      await new ApiClientFactory()
         .getTestSetsClient()
         .removeMetricFromTestSet(testSetId, metricId);
       queryClient.invalidateQueries({ queryKey: metricsQueryKey });
@@ -160,7 +154,6 @@ export default function TestSetMetrics({
       open={metricsDialogOpen}
       onClose={() => setMetricsDialogOpen(false)}
       onSelect={handleAddMetric}
-      sessionToken={sessionToken}
       excludeMetricIds={excludeMetricIds}
       title="Add Metric to Test Set"
       subtitle="Select a metric to add to this test set"

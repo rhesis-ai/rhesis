@@ -22,7 +22,6 @@ import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 interface TestSetDrawerProps {
   open: boolean;
   onClose: () => void;
-  sessionToken: string;
   testSet?: TestSet;
   onSuccess?: () => void;
 }
@@ -30,7 +29,6 @@ interface TestSetDrawerProps {
 export default function TestSetDrawer({
   open,
   onClose,
-  sessionToken,
   testSet,
   onSuccess,
 }: TestSetDrawerProps) {
@@ -63,7 +61,6 @@ export default function TestSetDrawer({
   }, [open, testSet]);
 
   const { data: rawTestSetTypes } = useTypeLookups(
-    sessionToken,
     `type_name eq '${TYPE_NAMES.TEST_SET_TYPE}'`,
     open
   );
@@ -114,7 +111,7 @@ export default function TestSetDrawer({
     try {
       setLoading(true);
 
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const testSetsClient = clientFactory.getTestSetsClient();
 
       const testSetData = {

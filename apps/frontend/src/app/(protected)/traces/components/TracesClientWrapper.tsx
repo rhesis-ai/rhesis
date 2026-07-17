@@ -21,14 +21,12 @@ import { traceKeys } from '@/constants/query-keys';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface TracesClientWrapperProps {
-  sessionToken: string;
   currentUserId?: string;
   currentUserName?: string;
   currentUserPicture?: string;
 }
 
 export default function TracesClientWrapper({
-  sessionToken,
   currentUserId = '',
   currentUserName = '',
   currentUserPicture,
@@ -121,7 +119,6 @@ export default function TracesClientWrapper({
             }}
           >
             <TracesClient
-              sessionToken={sessionToken}
               currentUserId={currentUserId}
               currentUserName={currentUserName}
               currentUserPicture={currentUserPicture}

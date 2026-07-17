@@ -45,7 +45,6 @@ export default async function ExplorerDetailPage({
         topics={topics}
         testSetName={testSetName}
         testSetId={identifier}
-        sessionToken={session.session_token ?? ''}
       />
     );
   } catch (error) {

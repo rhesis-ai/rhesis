@@ -26,7 +26,7 @@ import { EntityType } from '@/types/tasks';
 import { isAuthenticated, isSessionLoading } from '@/hooks/useIsAuthenticated';
 
 export default function TasksPage() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const queryClient = useQueryClient();
   const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
     Capability.Task.READ
@@ -40,8 +40,6 @@ export default function TasksPage() {
   >();
 
   useDocumentTitle('Tasks');
-
-  const sessionToken = session?.session_token ?? '';
 
   React.useEffect(() => {
     const shouldOpen = searchParams.get('create') === 'true';
@@ -158,10 +156,7 @@ export default function TasksPage() {
                 overflow: 'hidden',
               }}
             >
-              <TasksGrid
-                sessionToken={sessionToken}
-                onTotalCountChange={setTaskCount}
-              />
+              <TasksGrid onTotalCountChange={setTaskCount} />
             </Paper>
           )}
         </Box>
@@ -170,7 +165,6 @@ export default function TasksPage() {
       <TaskDrawer
         open={createDrawerOpen}
         onClose={handleCloseDrawer}
-        sessionToken={sessionToken}
         initialEntity={initialEntity}
         onSuccess={handleCreateSuccess}
       />

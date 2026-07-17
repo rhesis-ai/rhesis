@@ -79,7 +79,6 @@ export default async function TestRunPage({
           test_configuration_id: testRun.test_configuration_id,
         }}
         testRun={testRun}
-        sessionToken={session.session_token ?? ''}
         currentUserId={session.user?.id || ''}
         currentUserName={session.user?.name || ''}
         currentUserPicture={session.user?.picture || undefined}

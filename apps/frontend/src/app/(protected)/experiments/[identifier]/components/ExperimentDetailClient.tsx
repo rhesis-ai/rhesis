@@ -61,7 +61,6 @@ const TAB_LABELS: Record<(typeof TAB_KEYS)[number], string> = {
 
 interface ExperimentDetailClientProps {
   experimentId: string;
-  sessionToken: string;
 }
 
 function defaultsForSchema(
@@ -88,7 +87,6 @@ function valuesFromVersion(
 
 export default function ExperimentDetailClient({
   experimentId,
-  sessionToken,
 }: ExperimentDetailClientProps) {
   const notifications = useNotifications();
   const { status } = useSession();
@@ -118,10 +116,7 @@ export default function ExperimentDetailClient({
     environment?: string;
   }>({});
 
-  const apiFactory = useMemo(
-    () => new ApiClientFactory(sessionToken),
-    [sessionToken]
-  );
+  const apiFactory = useMemo(() => new ApiClientFactory(), []);
 
   const queryClient = useQueryClient();
 
@@ -389,7 +384,6 @@ export default function ExperimentDetailClient({
           <ExperimentOverviewTab
             experiment={experiment}
             environments={environments}
-            sessionToken={sessionToken}
             onUpdated={() =>
               queryClient.invalidateQueries({
                 queryKey: experimentKeys.detail(experimentId),
@@ -427,7 +421,6 @@ export default function ExperimentDetailClient({
         <DetailTabPanel value={activeTab} index={3} prefix="experiment">
           <ExperimentRunsTab
             experimentId={experiment.id}
-            sessionToken={sessionToken}
             onRunExperiment={() => setRunDrawerOpen(true)}
           />
         </DetailTabPanel>
@@ -441,7 +434,6 @@ export default function ExperimentDetailClient({
             setRunDrawerOpen(false);
             setSelectedVersionHashes(new Set());
           }}
-          sessionToken={sessionToken}
           data={{
             experiment,
             initialVersionHashes:
@@ -461,7 +453,6 @@ export default function ExperimentDetailClient({
         <PromoteEnvironmentDialog
           open={promoteOpen}
           onClose={() => setPromoteOpen(false)}
-          sessionToken={sessionToken}
           projectId={experiment.project_id}
           experimentId={experiment.id}
           experimentName={experiment.name}

@@ -8,10 +8,6 @@ import type { UUID } from 'crypto';
 export default function BehaviorsPage() {
   const { data: session, status } = useSession();
 
-  const sessionToken = React.useMemo(
-    () => session?.session_token ?? '',
-    [session?.session_token]
-  );
   const organizationId = React.useMemo(
     () => session?.user?.organization_id as UUID,
     [session?.user?.organization_id]
@@ -23,7 +19,6 @@ export default function BehaviorsPage() {
 
   return (
     <BehaviorsClient
-      sessionToken={sessionToken}
       organizationId={organizationId}
       userId={userId}
       sessionStatus={status}

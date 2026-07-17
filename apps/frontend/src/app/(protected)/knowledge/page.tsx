@@ -22,7 +22,7 @@ export default async function KnowledgePage() {
       );
     }
 
-    return <KnowledgeClientWrapper sessionToken={session.session_token ?? ''} />;
+    return <KnowledgeClientWrapper />;
   } catch (error) {
     return (
       <Paper className={styles.errorContainer}>

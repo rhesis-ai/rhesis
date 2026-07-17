@@ -30,7 +30,7 @@ import PageLoadingState from '@/components/common/PageLoadingState';
 import { isAuthenticated, isSessionLoading } from '@/hooks/useIsAuthenticated';
 
 export default function TestSetsPage() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const router = useRouter();
   const queryClient = useQueryClient();
   const notifications = useNotifications();
@@ -47,8 +47,6 @@ export default function TestSetsPage() {
     React.useState(false);
 
   useDocumentTitle('Test Sets');
-
-  const sessionToken = session?.session_token ?? '';
 
   const handleCreateSuccess = React.useCallback(() => {
     setCreateDrawerOpen(false);
@@ -165,10 +163,7 @@ export default function TestSetsPage() {
                 overflow: 'hidden',
               }}
             >
-              <TestSetsGrid
-                sessionToken={sessionToken}
-                onTotalCountChange={setTestSetCount}
-              />
+              <TestSetsGrid onTotalCountChange={setTestSetCount} />
             </Paper>
           )}
         </Box>
@@ -177,21 +172,18 @@ export default function TestSetsPage() {
       <TestSetDrawer
         open={createDrawerOpen}
         onClose={() => setCreateDrawerOpen(false)}
-        sessionToken={sessionToken}
         onSuccess={handleCreateSuccess}
       />
 
       <FileImportDrawer
         open={fileImportDrawerOpen}
         onClose={() => setFileImportDrawerOpen(false)}
-        sessionToken={sessionToken}
         onSuccess={handleFileImportSuccess}
       />
 
       <GarakImportDrawer
         open={garakImportDrawerOpen}
         onClose={() => setGarakImportDrawerOpen(false)}
-        sessionToken={sessionToken}
         onSuccess={handleGarakImportSuccess}
       />
     </>

@@ -19,11 +19,5 @@ export default async function ProjectDetailPage({ params }: PageProps) {
   const resolvedParams = await params;
   const project = await projectsClient.getProject(resolvedParams.identifier);
 
-  return (
-    <ClientWrapper
-      project={project}
-      sessionToken={session.session_token ?? ''}
-      projectId={project.id}
-    />
-  );
+  return <ClientWrapper project={project} projectId={project.id} />;
 }

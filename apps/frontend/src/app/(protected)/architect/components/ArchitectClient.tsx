@@ -21,7 +21,7 @@ import ArchitectWelcome from './ArchitectWelcome';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 export default function ArchitectClient() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const { activeProject } = useActiveProject();
   const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
     Capability.Architect.READ
@@ -35,10 +35,8 @@ export default function ArchitectClient() {
 
   const getClient = useCallback(() => {
     if (!isAuthenticated(status)) return null;
-    return new ApiClientFactory(
-      session?.session_token ?? ''
-    ).getArchitectClient();
-  }, [session?.session_token, status]);
+    return new ApiClientFactory().getArchitectClient();
+  }, [status]);
 
   const touchResumeHint = useCallback(
     (sessionId: string) => {
@@ -202,7 +200,6 @@ export default function ArchitectClient() {
         {activeSessionId ? (
           <ArchitectChat
             sessionId={activeSessionId}
-            sessionToken={session?.session_token}
             onSessionTitleUpdate={handleSessionTitleUpdate}
             initialMessage={pendingMessage}
             onInitialMessageSent={handleInitialMessageSent}

@@ -14,10 +14,9 @@ import { isAuthenticated } from '@/hooks/useIsAuthenticated';
  * a client component.
  */
 export function TestSetsNewAction() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const sessionToken = session?.session_token ?? '';
 
   return (
     <>
@@ -31,7 +30,6 @@ export function TestSetsNewAction() {
         <TestSetDrawer
           open={open}
           onClose={() => setOpen(false)}
-          sessionToken={sessionToken}
           onSuccess={() => {
             setOpen(false);
             router.refresh();

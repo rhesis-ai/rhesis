@@ -24,7 +24,7 @@ import type {
 const BASE = '/rbac';
 
 export class RbacClient extends BaseApiClient {
-  constructor(sessionToken: string) {
+  constructor(sessionToken?: string) {
     super(sessionToken);
   }
 

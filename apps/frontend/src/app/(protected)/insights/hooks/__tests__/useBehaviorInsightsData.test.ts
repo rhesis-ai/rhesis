@@ -66,7 +66,7 @@ describe('useBehaviorInsightsData', () => {
     ]);
 
     const { result } = renderHook(() =>
-      useBehaviorInsightsData('token', {
+      useBehaviorInsightsData({
         ...DEFAULT_INSIGHTS_FILTERS,
         endpointId: 'ep-1',
         timeRange: '1m',
@@ -83,7 +83,7 @@ describe('useBehaviorInsightsData', () => {
     });
 
     expect(result.current.summary?.failed).toBe(10);
-    expect(mockFetchFailedIds).toHaveBeenCalledWith('token', {
+    expect(mockFetchFailedIds).toHaveBeenCalledWith({
       endpointId: 'ep-1',
       timeRange: '1m',
       testRunIds: ['run-1', 'run-2'],
@@ -101,7 +101,7 @@ describe('useBehaviorInsightsData', () => {
     );
 
     const { result } = renderHook(() =>
-      useBehaviorInsightsData('token', {
+      useBehaviorInsightsData({
         ...DEFAULT_INSIGHTS_FILTERS,
         endpointId: 'ep-1',
         timeRange: '1m',
@@ -126,7 +126,7 @@ describe('useBehaviorInsightsData', () => {
     mockFetchFailedIds.mockRejectedValue(new Error('network'));
 
     const { result } = renderHook(() =>
-      useBehaviorInsightsData('token', {
+      useBehaviorInsightsData({
         ...DEFAULT_INSIGHTS_FILTERS,
         endpointId: 'ep-1',
         timeRange: '1m',
@@ -171,7 +171,7 @@ describe('useBehaviorInsightsData', () => {
     mockFetchTestRunIds.mockResolvedValue(['run-1']);
 
     const { result } = renderHook(() =>
-      useBehaviorInsightsData('token', {
+      useBehaviorInsightsData({
         ...DEFAULT_INSIGHTS_FILTERS,
         endpointId: 'ep-1',
       })
@@ -192,7 +192,6 @@ describe('useBehaviorInsightsData', () => {
 
     const { result } = renderHook(() =>
       useBehaviorInsightsData(
-        'token',
         {
           ...DEFAULT_INSIGHTS_FILTERS,
           endpointId: 'ep-1',
@@ -215,7 +214,6 @@ describe('useBehaviorInsightsData', () => {
     const { result, rerender } = renderHook(
       ({ enabled }) =>
         useBehaviorInsightsData(
-          'token',
           {
             ...DEFAULT_INSIGHTS_FILTERS,
             endpointId: 'ep-1',
@@ -235,6 +233,6 @@ describe('useBehaviorInsightsData', () => {
     await waitFor(() => {
       expect(result.current.loading).toBe(false);
     });
-    expect(mockFetchTestRunIds).toHaveBeenCalledWith('token', 'ep-1', '1m');
+    expect(mockFetchTestRunIds).toHaveBeenCalledWith('ep-1', '1m');
   });
 });

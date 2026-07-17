@@ -20,7 +20,7 @@ export function useCrossProjectResolve(
   entityId: string | undefined,
   enabled = true
 ): UseCrossProjectResolveResult {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const [crossProjectData, setCrossProjectData] =
     useState<ResolvedEntity | null>(null);
   const [resolveAttempted, setResolveAttempted] = useState(false);
@@ -56,7 +56,7 @@ export function useCrossProjectResolve(
     }
 
     const requestId = ++requestIdRef.current;
-    const factory = new ApiClientFactory(session?.session_token);
+    const factory = new ApiClientFactory();
     const resolveClient = factory.getResolveClient();
 
     resolveClient
@@ -80,7 +80,7 @@ export function useCrossProjectResolve(
     return () => {
       requestIdRef.current += 1;
     };
-  }, [enabled, entityType, entityId, session?.session_token, retryCount, status]);
+  }, [enabled, entityType, entityId, retryCount, status]);
 
   const isResolving =
     enabled &&

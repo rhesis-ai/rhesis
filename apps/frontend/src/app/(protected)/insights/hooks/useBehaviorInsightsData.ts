@@ -39,7 +39,6 @@ export interface BehaviorInsightsData {
 }
 
 export function useBehaviorInsightsData(
-  sessionToken: string,
   filters: InsightsFilters,
   enabled = true
 ): BehaviorInsightsData {
@@ -90,7 +89,6 @@ export function useBehaviorInsightsData(
       void (async () => {
         try {
           const testRunIds = await fetchTestRunIdsForEndpoint(
-            sessionToken,
             filters.endpointId,
             resolveInsightsTimeRange(filters.timeRange)
           );
@@ -109,7 +107,7 @@ export function useBehaviorInsightsData(
 
           setNoRuns(false);
 
-          const factory = new ApiClientFactory(sessionToken);
+          const factory = new ApiClientFactory();
           const testResultsClient = factory.getTestResultsClient();
           const behaviorClient = factory.getBehaviorClient();
 
@@ -182,14 +180,11 @@ export function useBehaviorInsightsData(
           if ((overallSummary.failed ?? 0) > 0) {
             void (async () => {
               try {
-                const failedIds = await fetchFailedTestIdsForInsights(
-                  sessionToken,
-                  {
-                    endpointId: filters.endpointId,
-                    timeRange: resolveInsightsTimeRange(filters.timeRange),
-                    testRunIds,
-                  }
-                );
+                const failedIds = await fetchFailedTestIdsForInsights({
+                  endpointId: filters.endpointId,
+                  timeRange: resolveInsightsTimeRange(filters.timeRange),
+                  testRunIds,
+                });
                 if (!isCurrentRequest(requestId)) return;
                 setFailedTestCaseCount(failedIds.length);
               } catch {
@@ -215,7 +210,7 @@ export function useBehaviorInsightsData(
         clearTimeout(debounceRef.current);
       }
     };
-  }, [enabled, status, sessionToken, filters.endpointId, filters.timeRange]);
+  }, [enabled, status, filters.endpointId, filters.timeRange]);
 
   return {
     summary,

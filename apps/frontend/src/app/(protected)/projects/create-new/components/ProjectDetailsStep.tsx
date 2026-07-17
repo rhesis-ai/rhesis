@@ -66,7 +66,6 @@ interface ProjectDetailsStepProps {
   onNext: () => void;
   userName: string;
   userImage: string;
-  sessionToken: string;
   userId: string;
 }
 
@@ -135,7 +134,6 @@ export default function ProjectDetailsStep({
   onNext,
   userName: _userName,
   userImage: _userImage,
-  sessionToken: _sessionToken,
   userId: _userId,
 }: ProjectDetailsStepProps) {
   const [loading, setLoading] = useState(false);

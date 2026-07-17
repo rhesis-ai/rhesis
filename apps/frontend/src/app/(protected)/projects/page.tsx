@@ -22,5 +22,5 @@ export default async function ProjectsPage() {
     );
   }
 
-  return <ProjectsClientWrapper sessionToken={session.session_token ?? ''} />;
+  return <ProjectsClientWrapper />;
 }

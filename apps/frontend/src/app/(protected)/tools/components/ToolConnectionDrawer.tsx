@@ -604,7 +604,7 @@ export function ToolConnectionDrawer({
     setTestResult(null);
 
     try {
-      const apiFactory = new ApiClientFactory(session?.session_token);
+      const apiFactory = new ApiClientFactory();
       const servicesClient = apiFactory.getServicesClient();
 
       let testRequest: {

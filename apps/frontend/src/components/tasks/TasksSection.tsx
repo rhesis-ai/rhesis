@@ -27,7 +27,6 @@ import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 interface TasksSectionProps {
   entityType: EntityType;
   entityId: string;
-  sessionToken: string;
   onCreateTask: (taskData: Record<string, unknown>) => Promise<void>;
   onEditTask?: (taskId: string) => void;
   onDeleteTask?: (taskId: string) => Promise<void>;
@@ -38,7 +37,6 @@ interface TasksSectionProps {
 export function TasksSection({
   entityType,
   entityId,
-  sessionToken,
   onCreateTask: _onCreateTask,
   onEditTask: _onEditTask,
   onDeleteTask,
@@ -71,7 +69,7 @@ export function TasksSection({
   } = useQuery({
     queryKey,
     queryFn: async () => {
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const tasksClient = clientFactory.getTasksClient();
       return tasksClient.getTasks({
         skip: currentPage * currentPageSize,

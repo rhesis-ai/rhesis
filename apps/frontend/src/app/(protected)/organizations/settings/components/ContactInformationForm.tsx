@@ -13,7 +13,6 @@ import { Capability } from '@/constants/capabilities';
 
 interface ContactInformationFormProps {
   organization: Organization;
-  sessionToken: string;
   onUpdate: () => void;
 }
 
@@ -33,7 +32,6 @@ function draftFromOrganization(org: Organization): ContactDraft {
 
 export default function ContactInformationForm({
   organization,
-  sessionToken,
   onUpdate,
 }: ContactInformationFormProps) {
   const notifications = useNotifications();
@@ -66,7 +64,7 @@ export default function ContactInformationForm({
     }
 
     try {
-      const apiFactory = new ApiClientFactory(sessionToken);
+      const apiFactory = new ApiClientFactory();
       const organizationsClient = apiFactory.getOrganizationsClient();
 
       await organizationsClient.updateOrganization(organization.id, {

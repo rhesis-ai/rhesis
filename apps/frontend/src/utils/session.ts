@@ -4,11 +4,10 @@ import { API_CONFIG } from './api-client/config';
 
 export async function clearAllSessionData(sessionToken?: string) {
   // Step 1: Call backend logout endpoint to clear server-side session.
-  // The session cookie is an encrypted JWE, so the access token cannot be
-  // read from it client-side. Callers that have it (from the NextAuth
-  // session) pass it in so the backend can revoke refresh tokens and
-  // invalidate the session; without it, the backend still clears the
-  // cookie-based session and NextAuth signOut removes the cookie.
+  // The call goes through the same-origin /api/backend proxy, which injects
+  // the access token server-side from the httpOnly session cookie — the
+  // backend falls back to that Authorization header to revoke refresh
+  // tokens when no explicit session_token is passed.
 
   // Call backend logout with retry logic
   const maxRetries = 2;

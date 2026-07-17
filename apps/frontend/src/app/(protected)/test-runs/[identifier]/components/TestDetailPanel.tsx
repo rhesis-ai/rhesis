@@ -46,7 +46,6 @@ interface TestDetailPanelProps {
     metrics: Array<{ name: string; description?: string }>;
   }>;
   testRunId: string;
-  sessionToken: string;
   onTestResultUpdate: (updatedTest: TestResultDetail) => void;
   currentUserId: string;
   currentUserName: string;
@@ -128,7 +127,6 @@ export default function TestDetailPanel({
   prompts,
   behaviors,
   testRunId,
-  sessionToken,
   onTestResultUpdate,
   currentUserId,
   currentUserName,
@@ -186,7 +184,7 @@ export default function TestDetailPanel({
     try {
       setIsConfirmingReview(true);
 
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const testResultsClient = clientFactory.getTestResultsClient();
       const statusClient = clientFactory.getStatusClient();
 
@@ -251,7 +249,7 @@ export default function TestDetailPanel({
   const handleReviewDrawerSave = useCallback(
     async (testId: string) => {
       try {
-        const clientFactory = new ApiClientFactory(sessionToken);
+        const clientFactory = new ApiClientFactory();
         const testResultsClient = clientFactory.getTestResultsClient();
         const updatedTest = await testResultsClient.getTestResult(testId);
         onTestResultUpdate(updatedTest);
@@ -259,7 +257,7 @@ export default function TestDetailPanel({
         console.error('Failed to save review:', error);
       }
     },
-    [sessionToken, onTestResultUpdate]
+    [onTestResultUpdate]
   );
 
   if (loading) {
@@ -381,7 +379,6 @@ export default function TestDetailPanel({
           <TestDetailOverviewTab
             test={test}
             prompts={prompts}
-            sessionToken={sessionToken}
             onTestResultUpdate={onTestResultUpdate}
             testSetType={testSetType}
           />
@@ -401,7 +398,6 @@ export default function TestDetailPanel({
               <TestDetailConversationTab
                 test={test}
                 testSetType={testSetType}
-                sessionToken={sessionToken}
                 project={project}
                 projectName={projectName}
                 onReviewTurn={handleReviewTurn}
@@ -424,7 +420,6 @@ export default function TestDetailPanel({
         <TabPanel value={activeTab} index={isMultiTurn ? 3 : 2}>
           <TestDetailReviewsTab
             test={test}
-            sessionToken={sessionToken}
             onTestResultUpdate={onTestResultUpdate}
             currentUserId={currentUserId}
             initialComment={reviewInitialComment}
@@ -439,18 +434,13 @@ export default function TestDetailPanel({
         </TabPanel>
 
         <TabPanel value={activeTab} index={isMultiTurn ? 4 : 3}>
-          <TestDetailHistoryTab
-            test={test}
-            testRunId={testRunId}
-            sessionToken={sessionToken}
-          />
+          <TestDetailHistoryTab test={test} testRunId={testRunId} />
         </TabPanel>
 
         <TabPanel value={activeTab} index={isMultiTurn ? 5 : 4}>
           <TasksAndCommentsWrapper
             entityType="TestResult"
             entityId={test.id}
-            sessionToken={sessionToken}
             currentUserId={currentUserId}
             currentUserName={currentUserName}
             currentUserPicture={currentUserPicture}
@@ -463,7 +453,6 @@ export default function TestDetailPanel({
         open={reviewDrawerOpen}
         onClose={() => setReviewDrawerOpen(false)}
         test={test}
-        sessionToken={sessionToken}
         onSave={handleReviewDrawerSave}
         initialComment={reviewDrawerComment}
         initialStatus={reviewDrawerStatus}

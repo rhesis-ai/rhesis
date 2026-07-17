@@ -33,11 +33,7 @@ const truncateName = (name: string): string => {
 
 // Using real API interfaces now
 
-interface TestRunChartsProps {
-  sessionToken: string;
-}
-
-export default function TestRunCharts({ sessionToken }: TestRunChartsProps) {
+export default function TestRunCharts() {
   const { status } = useSession();
   const isMounted = useRef(false);
 
@@ -68,7 +64,7 @@ export default function TestRunCharts({ sessionToken }: TestRunChartsProps) {
         setHasError(false);
         setErrorMessage(null);
 
-        const clientFactory = new ApiClientFactory(sessionToken);
+        const clientFactory = new ApiClientFactory();
         const testRunsClient = clientFactory.getTestRunsClient();
 
         // Fetch all chart data in a single call
@@ -99,7 +95,7 @@ export default function TestRunCharts({ sessionToken }: TestRunChartsProps) {
     return () => {
       isMounted.current = false;
     };
-  }, [sessionToken, status]);
+  }, [status]);
 
   // Generate chart data from individual chart states
   const generateStatusData = () => {

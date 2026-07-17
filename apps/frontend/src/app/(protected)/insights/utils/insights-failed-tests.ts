@@ -140,7 +140,6 @@ function matchesBehaviorScope(
 }
 
 async function filterTestIdsByTopic(
-  sessionToken: string,
   testIds: string[],
   topicName: string
 ): Promise<string[]> {
@@ -148,7 +147,7 @@ async function filterTestIdsByTopic(
     return [];
   }
 
-  const client = new ApiClientFactory(sessionToken).getTestsClient();
+  const client = new ApiClientFactory().getTestsClient();
   const escapedTopic = escapeODataValue(topicName);
   const matched = new Set<string>();
   const chunkSize = 40;
@@ -177,7 +176,6 @@ const TEST_RUN_ID_CHUNK = 15;
  * optionally scoped to a behavior, metric, or topic row.
  */
 export async function fetchFailedTestIdsForInsights(
-  sessionToken: string,
   filters: InsightsRunContextFilters &
     InsightsFailedTestsScope & { testRunIds?: string[] }
 ): Promise<string[]> {
@@ -187,16 +185,12 @@ export async function fetchFailedTestIdsForInsights(
 
   const testRunIds =
     filters.testRunIds ??
-    (await fetchTestRunIdsForEndpoint(
-      sessionToken,
-      filters.endpointId,
-      filters.timeRange
-    ));
+    (await fetchTestRunIdsForEndpoint(filters.endpointId, filters.timeRange));
   if (testRunIds.length === 0) {
     return [];
   }
 
-  const client = new ApiClientFactory(sessionToken).getTestResultsClient();
+  const client = new ApiClientFactory().getTestResultsClient();
   const ids = new Set<string>();
   const createdAtFilter = buildCreatedAtFilter(filters.timeRange);
   const failedOnly = filters.outcome !== 'all';
@@ -260,11 +254,7 @@ export async function fetchFailedTestIdsForInsights(
   let testIds = [...ids];
 
   if (filters.topicName) {
-    testIds = await filterTestIdsByTopic(
-      sessionToken,
-      testIds,
-      filters.topicName
-    );
+    testIds = await filterTestIdsByTopic(testIds, filters.topicName);
   }
 
   return testIds;

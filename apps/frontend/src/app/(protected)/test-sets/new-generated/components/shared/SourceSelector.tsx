@@ -45,7 +45,7 @@ export default function SourceSelector({
   const [fetchedSources, setFetchedSources] = useState<Source[]>([]);
   const [isFetching, setIsFetching] = useState(preloadedSources === undefined);
   const [error, setError] = useState<string | null>(null);
-  const { data: session, status } = useSession();
+  const { status } = useSession();
 
   // Use preloaded data when available; otherwise fall back to internal fetch
   const sources = preloadedSources ?? fetchedSources;
@@ -67,7 +67,7 @@ export default function SourceSelector({
       setIsFetching(true);
       setError(null);
 
-      const apiFactory = new ApiClientFactory(session?.session_token);
+      const apiFactory = new ApiClientFactory();
       const sourcesClient = apiFactory.getSourcesClient();
 
       // Fetch all sources
@@ -87,7 +87,7 @@ export default function SourceSelector({
     } finally {
       setIsFetching(false);
     }
-  }, [session, preloadedSources, status]);
+  }, [preloadedSources, status]);
 
   useEffect(() => {
     loadSources();

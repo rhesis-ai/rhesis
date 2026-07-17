@@ -9,5 +9,5 @@ export default async function InsightsRoutePage() {
     throw new Error('No session token available');
   }
 
-  return <InsightsPage sessionToken={session.session_token ?? ''} />;
+  return <InsightsPage />;
 }

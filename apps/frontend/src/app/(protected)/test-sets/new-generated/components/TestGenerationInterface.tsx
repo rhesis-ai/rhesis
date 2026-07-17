@@ -129,17 +129,13 @@ export default function TestGenerationInterface({
   );
   const [fetchTrigger, setFetchTrigger] = useState(0);
   const [showEndpointModal, setShowEndpointModal] = useState(false);
-  const { data: session, status } = useSession();
-  const invokeEndpointMutation = useInvokeEndpoint(
-    session?.session_token ?? ''
-  );
+  const { status } = useSession();
+  const invokeEndpointMutation = useInvokeEndpoint();
   const { data: selectedEndpoint } = useEndpoint(
-    session?.session_token ?? '',
     selectedEndpointId ?? '',
     !!selectedEndpointId
   );
   const { data: selectedEndpointProject } = useProject(
-    session?.session_token ?? '',
     selectedEndpoint?.project_id ?? '',
     !!selectedEndpoint?.project_id
   );
@@ -282,7 +278,7 @@ export default function TestGenerationInterface({
 
       setIsFetchingResponses(true);
 
-      const apiFactory = new ApiClientFactory(session?.session_token);
+      const apiFactory = new ApiClientFactory();
       const testsClient = apiFactory.getTestsClient();
 
       // Mark all samples as loading
@@ -474,7 +470,7 @@ export default function TestGenerationInterface({
       if (sample.testType === 'Multi-Turn' && sample.isLoadingConversation)
         return;
 
-      const apiFactory = new ApiClientFactory(session?.session_token);
+      const apiFactory = new ApiClientFactory();
       const testsClient = apiFactory.getTestsClient();
 
       // Mark sample as loading
@@ -591,7 +587,6 @@ export default function TestGenerationInterface({
     },
     [
       selectedEndpointId,
-      session?.session_token,
       localTestSamples,
       processedSampleIds,
       invokeEndpointMutation,

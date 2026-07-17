@@ -9,13 +9,9 @@ import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface ProjectEndpointsProps {
   projectId: string;
-  sessionToken: string;
 }
 
-export default function ProjectEndpoints({
-  projectId,
-  sessionToken,
-}: ProjectEndpointsProps) {
+export default function ProjectEndpoints({ projectId }: ProjectEndpointsProps) {
   const { status } = useSession();
 
   if (!isAuthenticated(status)) {
@@ -36,7 +32,7 @@ export default function ProjectEndpoints({
         overflow: 'hidden',
       }}
     >
-      <EndpointsGrid sessionToken={sessionToken} projectId={projectId} />
+      <EndpointsGrid projectId={projectId} />
     </Paper>
   );
 }

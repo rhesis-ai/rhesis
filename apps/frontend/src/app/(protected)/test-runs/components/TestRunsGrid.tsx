@@ -151,11 +151,10 @@ function TestRunsUnifiedToolbar() {
 // ── Grid component ────────────────────────────────────────────────────────────
 
 interface TestRunsGridProps {
-  sessionToken: string;
   onTotalCountChange?: (count: number) => void;
 }
 
-function TestRunsGrid({ sessionToken, onTotalCountChange }: TestRunsGridProps) {
+function TestRunsGrid({ onTotalCountChange }: TestRunsGridProps) {
   const { status } = useSession();
   const queryClient = useQueryClient();
   const router = useRouter();
@@ -267,7 +266,7 @@ function TestRunsGrid({ sessionToken, onTotalCountChange }: TestRunsGridProps) {
     ],
     errorFallbackMessage: 'Failed to load test runs',
     queryFn: () => {
-      const client = new ApiClientFactory(sessionToken).getTestRunsClient();
+      const client = new ApiClientFactory().getTestRunsClient();
       return client.getTestRuns({
         skip: paginationModel.page * paginationModel.pageSize,
         limit: paginationModel.pageSize,
@@ -668,7 +667,7 @@ function TestRunsGrid({ sessionToken, onTotalCountChange }: TestRunsGridProps) {
 
     try {
       setIsDeleting(true);
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const testRunsClient = clientFactory.getTestRunsClient();
 
       await testRunsClient.deleteTestRun(pendingDeleteId);
@@ -685,7 +684,7 @@ function TestRunsGrid({ sessionToken, onTotalCountChange }: TestRunsGridProps) {
       setIsDeleting(false);
       setDeleteModalOpen(false);
     }
-  }, [pendingDeleteId, sessionToken, notifications, queryClient]);
+  }, [pendingDeleteId, notifications, queryClient]);
 
   const handleDeleteCancel = useCallback(() => {
     setDeleteModalOpen(false);
@@ -702,7 +701,7 @@ function TestRunsGrid({ sessionToken, onTotalCountChange }: TestRunsGridProps) {
 
     try {
       setIsCancelling(true);
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const testRunsClient = clientFactory.getTestRunsClient();
       await testRunsClient.cancelTestRun(pendingCancelId);
       notifications.show('Successfully cancelled test run', {
@@ -716,7 +715,7 @@ function TestRunsGrid({ sessionToken, onTotalCountChange }: TestRunsGridProps) {
       setIsCancelling(false);
       setCancelModalOpen(false);
     }
-  }, [pendingCancelId, sessionToken, notifications, queryClient]);
+  }, [pendingCancelId, notifications, queryClient]);
 
   const handleCancelClose = useCallback(() => {
     setCancelModalOpen(false);

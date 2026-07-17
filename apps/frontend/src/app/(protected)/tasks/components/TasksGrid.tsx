@@ -46,7 +46,6 @@ import { useGridQuery } from '@/hooks/useGridQuery';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface TasksGridProps {
-  sessionToken: string;
   onTotalCountChange?: (count: number) => void;
 }
 
@@ -115,10 +114,7 @@ function TasksUnifiedToolbar() {
   );
 }
 
-export default function TasksGrid({
-  sessionToken,
-  onTotalCountChange,
-}: TasksGridProps) {
+export default function TasksGrid({ onTotalCountChange }: TasksGridProps) {
   const router = useRouter();
   const notifications = useNotifications();
   const queryClient = useQueryClient();
@@ -201,7 +197,7 @@ export default function TasksGrid({
     ),
     errorFallbackMessage: 'Failed to load tasks',
     queryFn: () => {
-      const client = new ApiClientFactory(sessionToken).getTasksClient();
+      const client = new ApiClientFactory().getTasksClient();
       return client.getTasks({
         skip: paginationModel.page * paginationModel.pageSize,
         limit: paginationModel.pageSize,
@@ -247,7 +243,7 @@ export default function TasksGrid({
     if (!pendingDeleteId) return;
     try {
       setIsDeleting(true);
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const tasksClient = clientFactory.getTasksClient();
       await tasksClient.deleteTask(pendingDeleteId);
       notifications.show('Successfully deleted task', {
@@ -265,7 +261,7 @@ export default function TasksGrid({
       setIsDeleting(false);
       setDeleteModalOpen(false);
     }
-  }, [pendingDeleteId, sessionToken, notifications, queryClient]);
+  }, [pendingDeleteId, notifications, queryClient]);
 
   const handleDeleteCancel = useCallback(() => {
     setDeleteModalOpen(false);

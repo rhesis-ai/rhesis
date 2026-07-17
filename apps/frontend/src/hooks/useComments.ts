@@ -1,16 +1,14 @@
 import { useCallback, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useSession } from 'next-auth/react';
 import { Comment, EntityType } from '@/types/comments';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { commentKeys } from '@/constants/query-keys';
-import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import { useIsAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface UseCommentsProps {
   entityType: string;
   entityId: string;
-  sessionToken: string;
   currentUserId: string;
   currentUserName: string;
   currentUserPicture?: string;
@@ -19,14 +17,13 @@ interface UseCommentsProps {
 export function useComments({
   entityType,
   entityId,
-  sessionToken,
   currentUserId,
   currentUserName,
   currentUserPicture,
 }: UseCommentsProps) {
   const queryClient = useQueryClient();
   const notifications = useNotifications();
-  const { status } = useSession();
+  const isAuthenticated = useIsAuthenticated();
   const queryKey = useMemo(
     () => commentKeys.list(entityType, entityId),
     [entityType, entityId]
@@ -40,20 +37,19 @@ export function useComments({
   } = useQuery({
     queryKey,
     queryFn: async () => {
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       return clientFactory
         .getCommentsClient()
         .getComments(entityType, entityId);
     },
-    enabled: isAuthenticated(status) && !!entityType && !!entityId,
+    enabled: isAuthenticated && !!entityType && !!entityId,
   });
 
   const createComment = useCallback(
     async (text: string) => {
-      if (!isAuthenticated(status))
-        throw new Error('No session token available');
+      if (!isAuthenticated) throw new Error('Not authenticated');
 
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const commentsClient = clientFactory.getCommentsClient();
       const newComment = await commentsClient.createComment({
         content: text,
@@ -85,23 +81,21 @@ export function useComments({
     [
       entityType,
       entityId,
-      sessionToken,
       currentUserId,
       currentUserName,
       currentUserPicture,
       notifications,
       queryClient,
       queryKey,
-      status,
+      isAuthenticated,
     ]
   );
 
   const editComment = useCallback(
     async (commentId: string, newText: string) => {
-      if (!isAuthenticated(status))
-        throw new Error('No session token available');
+      if (!isAuthenticated) throw new Error('Not authenticated');
 
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const commentsClient = clientFactory.getCommentsClient();
       const updatedComment = await commentsClient.updateComment(commentId, {
         content: newText,
@@ -131,23 +125,21 @@ export function useComments({
       return commentWithUser;
     },
     [
-      sessionToken,
       currentUserId,
       currentUserName,
       currentUserPicture,
       notifications,
       queryClient,
       queryKey,
-      status,
+      isAuthenticated,
     ]
   );
 
   const deleteComment = useCallback(
     async (commentId: string) => {
-      if (!isAuthenticated(status))
-        throw new Error('No session token available');
+      if (!isAuthenticated) throw new Error('Not authenticated');
 
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const commentsClient = clientFactory.getCommentsClient();
       const deletedComment = await commentsClient.deleteComment(commentId);
 
@@ -161,15 +153,14 @@ export function useComments({
       });
       return deletedComment;
     },
-    [sessionToken, notifications, queryClient, queryKey, status]
+    [isAuthenticated, notifications, queryClient, queryKey]
   );
 
   const reactToComment = useCallback(
     async (commentId: string, emoji: string) => {
-      if (!isAuthenticated(status))
-        throw new Error('No session token available');
+      if (!isAuthenticated) throw new Error('Not authenticated');
 
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const commentsClient = clientFactory.getCommentsClient();
 
       const current = queryClient.getQueryData<Comment[]>(queryKey) ?? [];
@@ -201,13 +192,12 @@ export function useComments({
       return commentWithUser;
     },
     [
-      sessionToken,
       currentUserId,
       currentUserName,
       currentUserPicture,
       queryClient,
       queryKey,
-      status,
+      isAuthenticated,
     ]
   );
 

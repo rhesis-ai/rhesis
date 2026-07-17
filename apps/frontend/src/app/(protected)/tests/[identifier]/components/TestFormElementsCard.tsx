@@ -16,13 +16,11 @@ interface TagsDraft {
 }
 
 interface TestFormElementsCardProps {
-  sessionToken: string;
   test: TestDetail;
   onUpdate?: () => void;
 }
 
 export default function TestFormElementsCard({
-  sessionToken,
   test,
   onUpdate: _onUpdate,
 }: TestFormElementsCardProps) {
@@ -34,7 +32,7 @@ export default function TestFormElementsCard({
   const initialDraft: TagsDraft = { tagNames: initialTagNames };
 
   const handleSave = async (draft: TagsDraft) => {
-    const tagsClient = new TagsClient(sessionToken);
+    const tagsClient = new TagsClient();
     const currentNames = initialTagNames;
     const newNames = draft.tagNames;
 

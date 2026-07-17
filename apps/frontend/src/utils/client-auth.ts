@@ -15,9 +15,10 @@ export async function handleClientSignOut(sessionToken?: string) {
   isLoggingOut = true;
 
   try {
-    // Clear all session data first (cookies, localStorage, etc.).
-    // Forward the access token (from the NextAuth session) so the backend
-    // can revoke refresh tokens — it can't be read from the JWE cookie.
+    // Clear all session data first (cookies, localStorage, etc.). The
+    // backend logout request goes through the /api/backend proxy, which
+    // injects Authorization from the httpOnly session cookie, so the
+    // backend can revoke refresh tokens without a client-held token.
     await clearAllSessionData(sessionToken);
 
     // Then call NextAuth signOut with redirect to ensure complete cleanup

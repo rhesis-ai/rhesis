@@ -6,7 +6,7 @@ import TestGenerationFlow from './components/TestGenerationFlow';
 import { isAuthenticated, isSessionLoading } from '@/hooks/useIsAuthenticated';
 
 export default function GenerateTestsPage() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
 
   if (isSessionLoading(status)) {
     return (
@@ -29,5 +29,5 @@ export default function GenerateTestsPage() {
     throw new Error('No session token available');
   }
 
-  return <TestGenerationFlow sessionToken={session?.session_token ?? ''} />;
+  return <TestGenerationFlow />;
 }

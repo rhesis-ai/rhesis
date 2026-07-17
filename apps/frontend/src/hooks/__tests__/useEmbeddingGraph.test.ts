@@ -62,9 +62,7 @@ describe('useEmbeddingGraph', () => {
       task_id: 'task-1',
     });
 
-    const { result } = renderHook(() =>
-      useEmbeddingGraph('test-set-1', 'token')
-    );
+    const { result } = renderHook(() => useEmbeddingGraph('test-set-1'));
 
     await waitFor(() => {
       expect(result.current.isLoading).toBe(false);
@@ -111,7 +109,7 @@ describe('useEmbeddingGraph', () => {
 
     const { result, rerender } = renderHook(
       ({ enabled }: { enabled: boolean }) =>
-        useEmbeddingGraph('test-set-1', 'token', { enabled }),
+        useEmbeddingGraph('test-set-1', { enabled }),
       { initialProps: { enabled: true } }
     );
 
@@ -138,7 +136,7 @@ describe('useEmbeddingGraph', () => {
     });
 
     const { result } = renderHook(() =>
-      useEmbeddingGraph('test-set-1', 'token', { enabled: true })
+      useEmbeddingGraph('test-set-1', { enabled: true })
     );
 
     await waitFor(() => {
@@ -177,7 +175,7 @@ describe('useEmbeddingGraph', () => {
 
     const { result, rerender } = renderHook(
       ({ enabled }: { enabled: boolean }) =>
-        useEmbeddingGraph('test-set-1', 'token', { enabled }),
+        useEmbeddingGraph('test-set-1', { enabled }),
       { initialProps: { enabled: true } }
     );
 
@@ -218,7 +216,7 @@ describe('useEmbeddingGraph', () => {
 
     const { result, rerender } = renderHook(
       ({ enabled }: { enabled: boolean }) =>
-        useEmbeddingGraph('test-set-1', 'token', { enabled }),
+        useEmbeddingGraph('test-set-1', { enabled }),
       { initialProps: { enabled: true } }
     );
 

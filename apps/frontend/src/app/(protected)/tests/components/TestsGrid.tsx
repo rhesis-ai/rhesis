@@ -81,7 +81,6 @@ import {
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface TestsTableProps {
-  sessionToken: string;
   onNewTest?: () => void;
   disableAddButton?: boolean;
   insightsFailedFilter?: InsightsFailedTestsFilter | null;
@@ -184,7 +183,6 @@ function TestsUnifiedToolbar() {
 }
 
 export default function TestsTable({
-  sessionToken,
   onNewTest: _onNewTest,
   disableAddButton: _disableAddButton = false,
   insightsFailedFilter = null,
@@ -272,7 +270,7 @@ export default function TestsTable({
     ),
     errorFallbackMessage: 'Failed to load tests',
     queryFn: () => {
-      const testsClient = new ApiClientFactory(sessionToken).getTestsClient();
+      const testsClient = new ApiClientFactory().getTestsClient();
       return testsClient.getTests({
         skip: paginationModel.page * paginationModel.pageSize,
         limit: paginationModel.pageSize,
@@ -335,7 +333,7 @@ export default function TestsTable({
       setInsightsFilterLoading(true);
       setInsightsFilterError(null);
       try {
-        const ids = await fetchFailedTestIdsForInsights(sessionToken, {
+        const ids = await fetchFailedTestIdsForInsights({
           endpointId: insightsFailedFilter.endpointId,
           timeRange: insightsFailedFilter.timeRange,
           behaviorId: insightsFailedFilter.behaviorId,
@@ -366,7 +364,6 @@ export default function TestsTable({
   }, [
     insightsFailedFilter?.endpointId,
     insightsFailedFilter?.timeRange,
-    sessionToken,
     insightsFailedFilter,
     status,
   ]);
@@ -656,7 +653,7 @@ export default function TestsTable({
       if (!isAuthenticated(status) || testSets.length === 0) return;
 
       const testIds = selectedRows as string[];
-      const testSetsClient = new TestSetsClient(sessionToken);
+      const testSetsClient = new TestSetsClient();
       let successCount = 0;
       let alreadyAssociatedCount = 0;
       let failureCount = 0;
@@ -711,7 +708,7 @@ export default function TestsTable({
         setTestSetDrawerOpen(false);
       }
     },
-    [sessionToken, selectedRows, notifications, status]
+    [selectedRows, notifications, status]
   );
 
   const handleDeleteTests = useCallback(() => {
@@ -728,7 +725,7 @@ export default function TestsTable({
 
     try {
       setIsDeleting(true);
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const testsClient = clientFactory.getTestsClient();
 
       await Promise.all(idsToDelete.map(id => testsClient.deleteTest(id)));
@@ -750,7 +747,7 @@ export default function TestsTable({
       setIsDeleting(false);
       setDeleteModalOpen(false);
     }
-  }, [pendingDeleteId, selectedRows, sessionToken, notifications, queryClient]);
+  }, [pendingDeleteId, selectedRows, notifications, queryClient]);
 
   const handleDeleteCancel = useCallback(() => {
     setDeleteModalOpen(false);
@@ -890,7 +887,6 @@ export default function TestsTable({
           <TestDrawer
             open={drawerOpen}
             onClose={handleDrawerClose}
-            sessionToken={sessionToken}
             test={selectedTest}
             onSuccess={handleTestSaved}
           />
@@ -898,7 +894,6 @@ export default function TestsTable({
             open={testSetDrawerOpen}
             onClose={() => setTestSetDrawerOpen(false)}
             onSelect={handleTestSetsAssign}
-            sessionToken={sessionToken}
             testTypeValue={selectedTestTypes.commonTypeValue}
           />
           <DeleteModal
@@ -922,7 +917,6 @@ export default function TestsTable({
         open={filterDrawerOpen}
         onClose={() => setFilterDrawerOpen(false)}
         filters={drawerFilters}
-        sessionToken={sessionToken}
         onApply={f => {
           setDrawerFilters(f);
           // If drawer sets a test type, sync the pill tab too

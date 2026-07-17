@@ -23,10 +23,5 @@ export default async function ExperimentDetailPage({ params }: PageProps) {
   }
 
   const { identifier } = await params;
-  return (
-    <ExperimentDetailClient
-      experimentId={identifier}
-      sessionToken={session.session_token ?? ''}
-    />
-  );
+  return <ExperimentDetailClient experimentId={identifier} />;
 }

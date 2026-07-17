@@ -48,7 +48,6 @@ interface EndpointOption {
 interface TrialDrawerProps {
   open: boolean;
   onClose: () => void;
-  sessionToken: string;
   testIds: string[];
   onSuccess?: () => void;
 }
@@ -56,7 +55,6 @@ interface TrialDrawerProps {
 export default function TrialDrawer({
   open,
   onClose,
-  sessionToken,
   testIds,
   onSuccess: _onSuccess,
 }: TrialDrawerProps) {
@@ -70,11 +68,7 @@ export default function TrialDrawer({
     data: rawEndpoints,
     isLoading: endpointsLoading,
     isError: endpointsError,
-  } = useEndpoints(
-    sessionToken,
-    { sort_by: 'name', sort_order: 'asc', limit: 100 },
-    open
-  );
+  } = useEndpoints({ sort_by: 'name', sort_order: 'asc', limit: 100 }, open);
   const endpoints = useMemo<EndpointOption[]>(
     () =>
       (rawEndpoints ?? [])
@@ -144,7 +138,7 @@ export default function TrialDrawer({
           setTrialCompleted(false);
           setError(undefined);
         }
-        const clientFactory = new ApiClientFactory(sessionToken);
+        const clientFactory = new ApiClientFactory();
 
         // Fetch test data (we only support single test trial for now)
         if (testIds.length > 0) {
@@ -244,7 +238,7 @@ export default function TrialDrawer({
     }
     // testIds is intentionally not in deps - we track changes via testIdsRef to avoid re-running on array reference changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionToken, open]);
+  }, [open]);
 
   // Filter endpoints by selected project; when no project is selected show all
   useEffect(() => {
@@ -302,7 +296,7 @@ export default function TrialDrawer({
       setTrialInProgress(true);
       setError(undefined);
 
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
 
       if (isMultiTurn) {
         // Multi-turn test execution
@@ -425,7 +419,7 @@ export default function TrialDrawer({
 
               // Fetch full project data to get icon
               try {
-                const clientFactory = new ApiClientFactory(sessionToken);
+                const clientFactory = new ApiClientFactory();
                 const projectsClient = clientFactory.getProjectsClient();
                 const projectData = await projectsClient.getProject(
                   newValue.id

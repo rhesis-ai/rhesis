@@ -64,7 +64,6 @@ interface BehaviorMetrics {
 // Using SelectBehaviorsDialog component instead of inline dialog
 
 interface MetricsDirectoryTabProps {
-  sessionToken: string;
   organizationId: UUID;
   behaviors: ApiBehavior[];
   metrics: MetricDetail[];
@@ -94,7 +93,6 @@ function isValidMetricType(
 }
 
 export default function MetricsDirectoryTab({
-  sessionToken,
   organizationId: _organizationId,
   behaviors,
   metrics,
@@ -242,7 +240,7 @@ export default function MetricsDirectoryTab({
     metricId: string
   ) => {
     try {
-      const metricClient = new MetricsClient(sessionToken);
+      const metricClient = new MetricsClient();
 
       // Assign metric to behavior
       await metricClient.addBehaviorToMetric(
@@ -330,7 +328,7 @@ export default function MetricsDirectoryTab({
     metricId: string
   ) => {
     try {
-      const metricClient = new MetricsClient(sessionToken);
+      const metricClient = new MetricsClient();
 
       // Remove metric from behavior
       await metricClient.removeBehaviorFromMetric(
@@ -422,7 +420,7 @@ export default function MetricsDirectoryTab({
 
     try {
       setIsDeletingMetric(true);
-      const metricClient = new MetricsClient(sessionToken);
+      const metricClient = new MetricsClient();
       await metricClient.deleteMetric(metricToDeleteCompletely.id as UUID);
 
       // Remove the metric from local state
@@ -713,7 +711,6 @@ export default function MetricsDirectoryTab({
               setSelectedMetric(null);
             }}
             onSelect={handleAssignMetric}
-            sessionToken={sessionToken}
             excludeBehaviorIds={(selectedMetric?.behaviors || [])
               .filter(b => typeof b !== 'string' && b.id)
               .map(b =>

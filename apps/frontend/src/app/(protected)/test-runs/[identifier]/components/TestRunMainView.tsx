@@ -90,7 +90,6 @@ interface TestRunMainViewProps {
     test_configuration_id?: string;
   };
   testRun: TestRunDetail;
-  sessionToken: string;
   currentUserId: string;
   currentUserName: string;
   currentUserPicture?: string;
@@ -101,7 +100,6 @@ export default function TestRunMainView({
   testRunId,
   testRunData: _testRunData,
   testRun,
-  sessionToken,
   currentUserId,
   currentUserName,
   currentUserPicture,
@@ -140,7 +138,6 @@ export default function TestRunMainView({
     refetch: refetchTestResults,
   } = useTestRunDetailData({
     testRunId,
-    sessionToken,
     enabled: needsTestResults.current,
   });
 
@@ -345,9 +342,7 @@ export default function TestRunMainView({
   const handleDownload = useCallback(async () => {
     setIsDownloading(true);
     try {
-      const testRunsClient = new ApiClientFactory(
-        sessionToken
-      ).getTestRunsClient();
+      const testRunsClient = new ApiClientFactory().getTestRunsClient();
       const blob = await testRunsClient.downloadTestRun(testRunId);
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -367,7 +362,7 @@ export default function TestRunMainView({
     } finally {
       setIsDownloading(false);
     }
-  }, [testRunId, sessionToken, notifications]);
+  }, [testRunId, notifications]);
 
   const handleRerun = useCallback(() => {
     if (testSetExists === false) {
@@ -402,9 +397,7 @@ export default function TestRunMainView({
     setTestSetCheckError(false);
     (async () => {
       try {
-        await new ApiClientFactory(sessionToken)
-          .getTestSetsClient()
-          .getTestSet(testSetId);
+        await new ApiClientFactory().getTestSetsClient().getTestSet(testSetId);
         if (!cancelled) {
           setTestSetExists(true);
           setTestSetCheckError(false);
@@ -424,7 +417,7 @@ export default function TestRunMainView({
     return () => {
       cancelled = true;
     };
-  }, [testSetId, sessionToken]);
+  }, [testSetId]);
 
   useEffect(() => {
     if (!testSetId) {
@@ -434,9 +427,7 @@ export default function TestRunMainView({
     let cancelled = false;
     (async () => {
       try {
-        const testRunsClient = new ApiClientFactory(
-          sessionToken
-        ).getTestRunsClient();
+        const testRunsClient = new ApiClientFactory().getTestRunsClient();
         const response = await testRunsClient.getTestRuns({
           limit: 2,
           skip: 0,
@@ -455,7 +446,7 @@ export default function TestRunMainView({
     return () => {
       cancelled = true;
     };
-  }, [testSetId, testRunId, sessionToken]);
+  }, [testSetId, testRunId]);
 
   const handleCompare = useCallback(() => {
     window.open(
@@ -481,9 +472,7 @@ export default function TestRunMainView({
       return;
     }
     try {
-      const testRunsClient = new ApiClientFactory(
-        sessionToken
-      ).getTestRunsClient();
+      const testRunsClient = new ApiClientFactory().getTestRunsClient();
       await testRunsClient.updateTestRun(testRunId, { name: trimmed });
       notifications.show('Test run renamed successfully', {
         severity: 'success',
@@ -495,14 +484,7 @@ export default function TestRunMainView({
         severity: 'error',
       });
     }
-  }, [
-    renameValue,
-    testRun.name,
-    testRunId,
-    sessionToken,
-    notifications,
-    router,
-  ]);
+  }, [renameValue, testRun.name, testRunId, notifications, router]);
 
   const handleRerunSuccess = useCallback(() => {
     router.push('/test-runs');
@@ -602,7 +584,6 @@ export default function TestRunMainView({
           testRun={testRun}
           testRunId={testRunId}
           testResults={testResults}
-          sessionToken={sessionToken}
           loading={loading}
           onRefresh={() => router.refresh()}
           behaviors={behaviors}
@@ -627,7 +608,6 @@ export default function TestRunMainView({
           canRerun={canRerun}
           totalTests={testResults.length}
           testRunId={testRunId}
-          sessionToken={sessionToken}
           loading={loading}
           prompts={prompts}
           behaviors={behaviors}
@@ -652,7 +632,6 @@ export default function TestRunMainView({
       <TabPanel value={activeTab} index={3}>
         <TestRunTracesTab
           testRunId={testRunId}
-          sessionToken={sessionToken}
           currentUserId={currentUserId}
           currentUserName={currentUserName}
           currentUserPicture={currentUserPicture}
@@ -675,7 +654,6 @@ export default function TestRunMainView({
           testRunId: testRun.id,
           originalAttributes: testRun.test_configuration?.attributes,
         }}
-        sessionToken={sessionToken}
         onSuccess={handleRerunSuccess}
       />
     </Box>

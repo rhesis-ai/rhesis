@@ -27,7 +27,6 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
-import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { safeRandomUUID } from '@/utils/uuid';
 import { useNotifications } from '@/components/common/NotificationContext';
@@ -40,7 +39,6 @@ import {
   drawerOutlinedFieldSx,
   drawerOutlineButtonSx,
 } from '@/components/common/drawerFormFieldSx';
-import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 export interface ToolImportPanelHandle {
   triggerPrimary: () => Promise<void>;
@@ -72,7 +70,6 @@ interface ToolImportPanelProps {
   open: boolean;
   onClose: () => void;
   onSuccess?: () => void;
-  sessionToken: string;
   tool?: Tool | null;
   onFooterStateChange: (state: PanelFooterState) => void;
 }
@@ -121,10 +118,9 @@ function getProviderLabel(provider: string): {
 
 const ToolImportPanel = forwardRef<ToolImportPanelHandle, ToolImportPanelProps>(
   function ToolImportPanel(
-    { open, onClose, onSuccess, sessionToken, tool, onFooterStateChange },
+    { open, onClose, onSuccess, tool, onFooterStateChange },
     ref
   ) {
-    const { status } = useSession();
     const [importing, setImporting] = useState(false);
     const [previewing, setPreviewing] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -139,9 +135,8 @@ const ToolImportPanel = forwardRef<ToolImportPanelHandle, ToolImportPanelProps>(
     ]);
 
     const { data: toolSourceTypes } = useTypeLookups(
-      sessionToken ?? '',
       "type_name eq 'SourceType' and type_value eq 'Tool'",
-      open && isAuthenticated(status)
+      open
     );
     const toolSourceTypeId = toolSourceTypes?.[0]?.id as UUID | undefined;
 
@@ -214,7 +209,7 @@ const ToolImportPanel = forwardRef<ToolImportPanelHandle, ToolImportPanelProps>(
         setImporting(true);
         setError(null);
 
-        const clientFactory = new ApiClientFactory(sessionToken);
+        const clientFactory = new ApiClientFactory();
         const sourcesClient = clientFactory.getSourcesClient();
 
         const provider = tool.tool_provider_type?.type_value ?? 'tool';
@@ -281,7 +276,7 @@ const ToolImportPanel = forwardRef<ToolImportPanelHandle, ToolImportPanelProps>(
         }
         if (successCount > 0 && errorCount === 0) onSuccess?.();
       },
-      [tool, sessionToken, toolSourceTypeId, notifications, onSuccess]
+      [tool, toolSourceTypeId, notifications, onSuccess]
     );
 
     const handleImportOrPreview = useCallback(async () => {
@@ -309,7 +304,7 @@ const ToolImportPanel = forwardRef<ToolImportPanelHandle, ToolImportPanelProps>(
       setPreviewing(true);
       setError(null);
 
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const servicesClient = clientFactory.getServicesClient();
 
       const fetched: PreviewItem[] = [];
@@ -348,7 +343,7 @@ const ToolImportPanel = forwardRef<ToolImportPanelHandle, ToolImportPanelProps>(
       } else {
         await commitImport(fetched);
       }
-    }, [tool, pendingItems, includeChildren, sessionToken, commitImport]);
+    }, [tool, pendingItems, includeChildren, commitImport]);
 
     useImperativeHandle(
       ref,

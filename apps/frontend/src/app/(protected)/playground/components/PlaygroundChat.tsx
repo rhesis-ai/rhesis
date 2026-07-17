@@ -71,7 +71,7 @@ export default function PlaygroundChat({
   onClose,
   onSplit,
 }: PlaygroundChatProps) {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -568,7 +568,6 @@ export default function PlaygroundChat({
           onClose={handleCloseTraceDrawer}
           traceId={selectedTraceId}
           projectId={projectId}
-          sessionToken={session?.session_token ?? ''}
         />
       )}
 
@@ -577,7 +576,6 @@ export default function PlaygroundChat({
         <CreateTestFromConversationDrawer
           open={testDrawerOpen}
           onClose={() => setTestDrawerOpen(false)}
-          sessionToken={session?.session_token ?? ''}
           messages={testDrawerMessages}
           testType={testDrawerType}
           endpointId={endpointId}

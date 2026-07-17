@@ -49,7 +49,6 @@ import { useGridQuery } from '@/hooks/useGridQuery';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface SourcesGridProps {
-  sessionToken: string;
   onTotalCountChange?: (count: number) => void;
 }
 
@@ -99,10 +98,7 @@ function SourcesUnifiedToolbar() {
   );
 }
 
-export default function SourcesGrid({
-  sessionToken,
-  onTotalCountChange,
-}: SourcesGridProps) {
+export default function SourcesGrid({ onTotalCountChange }: SourcesGridProps) {
   const router = useRouter();
   const { status } = useSession();
   const notifications = useNotifications();
@@ -182,7 +178,7 @@ export default function SourcesGrid({
     ),
     errorFallbackMessage: 'Failed to load knowledge sources',
     queryFn: () => {
-      const client = new ApiClientFactory(sessionToken).getSourcesClient();
+      const client = new ApiClientFactory().getSourcesClient();
       return client.getSources({
         skip: paginationModel.page * paginationModel.pageSize,
         limit: paginationModel.pageSize,
@@ -232,7 +228,7 @@ export default function SourcesGrid({
 
     try {
       setIsDeleting(true);
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const sourcesClient = clientFactory.getSourcesClient();
 
       await sourcesClient.deleteSource(

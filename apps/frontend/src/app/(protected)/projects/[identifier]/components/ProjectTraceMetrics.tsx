@@ -62,7 +62,6 @@ import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface ProjectTraceMetricsProps {
   project: Project;
-  sessionToken: string;
   onProjectUpdate: (updatedProject: Partial<Project>) => Promise<boolean>;
 }
 
@@ -110,10 +109,7 @@ function getTraceMetricIds(project: Project): string[] {
 }
 
 export default forwardRef<ProjectTraceMetricsHandle, ProjectTraceMetricsProps>(
-  function ProjectTraceMetrics(
-    { project, sessionToken, onProjectUpdate },
-    ref
-  ) {
+  function ProjectTraceMetrics({ project, onProjectUpdate }, ref) {
     const theme = useTheme();
     const { status } = useSession();
     const canUpdateProject = useCan(Capability.Project.UPDATE);
@@ -145,9 +141,7 @@ export default forwardRef<ProjectTraceMetricsHandle, ProjectTraceMetricsProps>(
       ],
       queryFn: async () => {
         if (metricIds.length === 0) return [];
-        const metricsClient = new ApiClientFactory(
-          sessionToken
-        ).getMetricsClient();
+        const metricsClient = new ApiClientFactory().getMetricsClient();
         const results = await Promise.allSettled(
           metricIds.map(id =>
             metricsClient.getMetric(
@@ -409,7 +403,6 @@ export default forwardRef<ProjectTraceMetricsHandle, ProjectTraceMetricsProps>(
             open={metricsDialogOpen}
             onClose={() => setMetricsDialogOpen(false)}
             onSelect={handleAddMetric}
-            sessionToken={sessionToken}
             excludeMetricIds={excludeMetricIds}
             title="Add Trace Metric"
             subtitle="Select a trace metric to evaluate all traces in this project"

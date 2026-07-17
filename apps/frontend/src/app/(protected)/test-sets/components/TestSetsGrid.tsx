@@ -60,7 +60,6 @@ import { useGridQuery } from '@/hooks/useGridQuery';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface TestSetsGridProps {
-  sessionToken?: string;
   onTotalCountChange?: (count: number) => void;
 }
 
@@ -157,17 +156,14 @@ const ChipContainer = ({ items }: { items: string[] }) => {
 };
 
 export default function TestSetsGrid({
-  sessionToken: sessionTokenProp,
   onTotalCountChange,
 }: TestSetsGridProps) {
   const router = useRouter();
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const notifications = useNotifications();
   const canEditTestSet = useCan(Capability.TestSet.UPDATE);
   const canDeleteTestSet = useCan(Capability.TestSet.DELETE);
   const queryClient = useQueryClient();
-
-  const sessionToken = sessionTokenProp || session?.session_token || '';
 
   // ── Search + type filter ────────────────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState('');
@@ -259,7 +255,7 @@ export default function TestSetsGrid({
     ),
     errorFallbackMessage: 'Failed to load test sets',
     queryFn: () => {
-      const client = new ApiClientFactory(sessionToken).getTestSetsClient();
+      const client = new ApiClientFactory().getTestSetsClient();
       return client.getTestSets({
         skip: paginationModel.page * paginationModel.pageSize,
         limit: paginationModel.pageSize,
@@ -320,7 +316,7 @@ export default function TestSetsGrid({
 
     try {
       setIsDeleting(true);
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const testSetsClient = clientFactory.getTestSetsClient();
 
       await Promise.all(
@@ -344,7 +340,7 @@ export default function TestSetsGrid({
       setIsDeleting(false);
       setDeleteModalOpen(false);
     }
-  }, [pendingDeleteId, selectedRows, sessionToken, notifications, queryClient]);
+  }, [pendingDeleteId, selectedRows, notifications, queryClient]);
 
   const handleDeleteCancel = useCallback(() => {
     setDeleteModalOpen(false);
@@ -703,7 +699,6 @@ export default function TestSetsGrid({
             mode="createFromGrid"
             open={testRunDrawerOpen}
             onClose={() => setTestRunDrawerOpen(false)}
-            sessionToken={sessionToken}
             data={{ selectedTestSetIds: selectedRows as string[] }}
             onSuccess={() => setTestRunDrawerOpen(false)}
           />
@@ -728,7 +723,6 @@ export default function TestSetsGrid({
         open={filterDrawerOpen}
         onClose={() => setFilterDrawerOpen(false)}
         filters={drawerFilters}
-        sessionToken={sessionToken}
         onApply={f => {
           setDrawerFilters(f);
           if (f.testSetType) setTypeFilter(f.testSetType);

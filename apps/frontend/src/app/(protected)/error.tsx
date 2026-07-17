@@ -8,7 +8,6 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBackOutlined';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { usePathname } from 'next/navigation';
-import { useSession } from 'next-auth/react';
 import { DeletedEntityAlert } from '@/components/common/DeletedEntityAlert';
 import DetailNotFoundState from '@/components/common/DetailNotFoundState';
 import {
@@ -36,7 +35,6 @@ interface ErrorProps {
  * Deleted entities, forbidden access, and other errors have dedicated UI.
  */
 export default function ProtectedError({ error, reset }: ErrorProps) {
-  const { data: session } = useSession();
   const [isResetting, setIsResetting] = useState(false);
 
   const notFoundEntityData = useMemo(
@@ -181,7 +179,6 @@ export default function ProtectedError({ error, reset }: ErrorProps) {
       {deletedEntityData ? (
         <DeletedEntityAlert
           entityData={deletedEntityData}
-          sessionToken={session?.session_token}
           backUrl={backUrl}
           backLabel={backLabel}
           onRestoreSuccess={() => {

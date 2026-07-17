@@ -176,8 +176,6 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
         return;
       }
 
-      const sessionToken = session?.session_token ?? '';
-
       try {
         setIsSubmitting(true);
 
@@ -192,7 +190,7 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
           return;
         }
 
-        const clientFactory = new ApiClientFactory(sessionToken);
+        const clientFactory = new ApiClientFactory();
         const usersClient = clientFactory.getUsersClient();
 
         type InviteResult = {
@@ -218,11 +216,7 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
               const user = await usersClient.createUser(userData);
               if (user && invite.orgRoleId && assignOrgMemberRole) {
                 try {
-                  await assignOrgMemberRole(
-                    sessionToken,
-                    String(user.id),
-                    invite.orgRoleId
-                  );
+                  await assignOrgMemberRole(String(user.id), invite.orgRoleId);
                 } catch {
                   // org-role assignment failure is non-fatal — user is still invited
                 }
@@ -515,7 +509,6 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
                 {InviteOrgRoleField && isAuthenticated(status) && (
                   <Box sx={{ flex: 1, minWidth: 0 }}>
                     <InviteOrgRoleField
-                      sessionToken={session?.session_token ?? ''}
                       value={invite.orgRoleId}
                       onChange={roleId => handleOrgRoleChange(invite, roleId)}
                       active={drawerOpen}
@@ -632,7 +625,6 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
                             isAuthenticated(status) && (
                               <Box sx={{ flexShrink: 0 }}>
                                 <AddMemberRoleField
-                                  sessionToken={session?.session_token ?? ''}
                                   value={projectRoles[projectId] ?? null}
                                   onChange={roleId =>
                                     setProjectRoles(prev => ({

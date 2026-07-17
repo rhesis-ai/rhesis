@@ -1,6 +1,5 @@
 import { useCallback } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
   Task,
@@ -8,7 +7,7 @@ import {
   TaskUpdate,
 } from '@/utils/api-client/interfaces/task';
 import { useNotifications } from '@/components/common/NotificationContext';
-import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import { useIsAuthenticated } from '@/hooks/useIsAuthenticated';
 
 /**
  * Task mutations (create/update/delete/get). No consumer reads a cached
@@ -16,17 +15,15 @@ import { isAuthenticated } from '@/hooks/useIsAuthenticated';
  * `taskKeys` query externally — so there's no list-fetching state here.
  */
 export function useTasks() {
-  const { data: session, status } = useSession();
+  const isAuthenticated = useIsAuthenticated();
   const { show } = useNotifications();
 
   const createMutation = useMutation({
     mutationFn: (taskData: TaskCreate) => {
-      if (!isAuthenticated(status)) {
-        throw new Error('No session token available');
+      if (!isAuthenticated) {
+        throw new Error('Not authenticated');
       }
-      return new ApiClientFactory(session?.session_token)
-        .getTasksClient()
-        .createTask(taskData);
+      return new ApiClientFactory().getTasksClient().createTask(taskData);
     },
   });
 
@@ -38,10 +35,10 @@ export function useTasks() {
       taskId: string;
       taskData: TaskUpdate;
     }) => {
-      if (!isAuthenticated(status)) {
-        throw new Error('No session token available');
+      if (!isAuthenticated) {
+        throw new Error('Not authenticated');
       }
-      return new ApiClientFactory(session?.session_token)
+      return new ApiClientFactory()
         .getTasksClient()
         .updateTask(taskId, taskData);
     },
@@ -49,23 +46,19 @@ export function useTasks() {
 
   const deleteMutation = useMutation({
     mutationFn: (taskId: string) => {
-      if (!isAuthenticated(status)) {
-        throw new Error('No session token available');
+      if (!isAuthenticated) {
+        throw new Error('Not authenticated');
       }
-      return new ApiClientFactory(session?.session_token)
-        .getTasksClient()
-        .deleteTask(taskId);
+      return new ApiClientFactory().getTasksClient().deleteTask(taskId);
     },
   });
 
   const getMutation = useMutation({
     mutationFn: (taskId: string) => {
-      if (!isAuthenticated(status)) {
-        throw new Error('No session token available');
+      if (!isAuthenticated) {
+        throw new Error('Not authenticated');
       }
-      return new ApiClientFactory(session?.session_token)
-        .getTasksClient()
-        .getTask(taskId);
+      return new ApiClientFactory().getTasksClient().getTask(taskId);
     },
   });
 

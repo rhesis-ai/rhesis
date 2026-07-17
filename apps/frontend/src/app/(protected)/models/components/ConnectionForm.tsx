@@ -240,7 +240,7 @@ export const ConnectionForm = forwardRef<
 
   const { data: session, status } = useSession();
   const queryClient = useQueryClient();
-  const userScope = session?.user?.id ?? session?.session_token ?? '';
+  const userScope = session?.user?.id ?? '';
 
   // Fetch available models for the provider
   useEffect(() => {
@@ -259,7 +259,7 @@ export const ConnectionForm = forwardRef<
 
       setLoadingModels(true);
       try {
-        const apiFactory = new ApiClientFactory(session?.session_token ?? '');
+        const apiFactory = new ApiClientFactory();
         const modelsClient = apiFactory.getModelsClient();
 
         let models: string[];
@@ -289,7 +289,7 @@ export const ConnectionForm = forwardRef<
     if (!isAuthenticated(status)) return;
 
     try {
-      const apiFactory = new ApiClientFactory(session?.session_token ?? '');
+      const apiFactory = new ApiClientFactory();
       const usersClient = apiFactory.getUsersClient();
       const updates: { models: Record<string, { model_id: string | null }> } = {
         models: {},
@@ -376,7 +376,7 @@ export const ConnectionForm = forwardRef<
     setShowFullError(false);
 
     try {
-      const apiFactory = new ApiClientFactory(session?.session_token ?? '');
+      const apiFactory = new ApiClientFactory();
       const modelsClient = apiFactory.getModelsClient();
 
       const requestBody: TestModelConnectionRequest = {

@@ -38,13 +38,11 @@ import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface ExperimentRunsTabProps {
   experimentId: string;
-  sessionToken: string;
   onRunExperiment?: () => void;
 }
 
 export default function ExperimentRunsTab({
   experimentId,
-  sessionToken,
   onRunExperiment,
 }: ExperimentRunsTabProps) {
   const { status } = useSession();
@@ -53,10 +51,7 @@ export default function ExperimentRunsTab({
   );
   const [searchQuery, setSearchQuery] = useState('');
 
-  const apiFactory = useMemo(
-    () => new ApiClientFactory(sessionToken),
-    [sessionToken]
-  );
+  const apiFactory = useMemo(() => new ApiClientFactory(), []);
 
   const {
     data,

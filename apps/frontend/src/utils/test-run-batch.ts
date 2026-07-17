@@ -190,7 +190,6 @@ export async function executeBatchedTestRuns({
 interface AssignTagsToRunsParams {
   outcome: BatchRunOutcome;
   testRunsClient: TestRunsClient;
-  sessionToken: string;
   tags: string[];
   organizationId: UUID | string;
   userId?: string;
@@ -199,14 +198,13 @@ interface AssignTagsToRunsParams {
 export async function assignTagsToRuns({
   outcome,
   testRunsClient,
-  sessionToken,
   tags,
   organizationId,
   userId,
 }: AssignTagsToRunsParams): Promise<void> {
   if (tags.length === 0) return;
 
-  const tagsClient = new TagsClient(sessionToken);
+  const tagsClient = new TagsClient();
 
   for (const member of outcome.members) {
     const resultRecord = member.result as Record<string, unknown>;

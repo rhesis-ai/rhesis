@@ -238,17 +238,16 @@ export default function TaskDetailPage({ params }: PageProps) {
           throw new Error('No session token available');
         }
 
-        const sessionToken = session?.session_token;
-        const clientFactory = new ApiClientFactory(sessionToken);
+        const clientFactory = new ApiClientFactory();
         const tasksClient = clientFactory.getTasksClient();
         const taskData = await tasksClient.getTask(taskId);
 
         const [fetchedStatuses, fetchedPriorities, fetchedUsers] =
           await Promise.all([
-            getStatusesForTask(sessionToken, taskData.status_id),
-            getPrioritiesForTask(sessionToken, taskData.priority_id),
+            getStatusesForTask(taskData.status_id),
+            getPrioritiesForTask(taskData.priority_id),
             (async () => {
-              const clientFactory = new ApiClientFactory(sessionToken);
+              const clientFactory = new ApiClientFactory();
               const usersClient = clientFactory.getUsersClient();
               const response = await usersClient.getUsers();
               return response.data || [];
@@ -281,14 +280,14 @@ export default function TaskDetailPage({ params }: PageProps) {
         setIsRetrying(false);
       }
     },
-    [taskId, session?.session_token, show, hasInitialLoad, status]
+    [taskId, show, hasInitialLoad, status]
   );
 
   useEffect(() => {
     if (taskId && isAuthenticated(status)) {
       loadInitialData();
     }
-  }, [taskId, session?.session_token, loadInitialData, status]);
+  }, [taskId, loadInitialData, status]);
 
   useEffect(() => {
     let timeoutId: NodeJS.Timeout;
@@ -306,7 +305,7 @@ export default function TaskDetailPage({ params }: PageProps) {
         clearTimeout(timeoutId);
       }
     };
-  }, [isLoading, hasInitialLoad, taskId, session?.session_token, status]);
+  }, [isLoading, hasInitialLoad, taskId, status]);
 
   // Keep the last loaded task visible while retrying so transient failures
   // still show cached data instead of flashing back to the loading state.
@@ -456,7 +455,6 @@ export default function TaskDetailPage({ params }: PageProps) {
         statuses={statuses}
         priorities={priorities}
         users={users}
-        sessionToken={session?.session_token || ''}
         currentUserId={session?.user?.id || ''}
         currentUserName={session?.user?.name || 'Unknown User'}
         currentUserPicture={session?.user?.picture || undefined}

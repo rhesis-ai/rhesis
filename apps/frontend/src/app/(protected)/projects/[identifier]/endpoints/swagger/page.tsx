@@ -23,7 +23,7 @@ export default function SwaggerEndpointPage() {
       }
 
       try {
-        const apiFactory = new ApiClientFactory(session?.session_token ?? '');
+        const apiFactory = new ApiClientFactory();
         const projectsClient = apiFactory.getProjectsClient();
         const project = await projectsClient.getProject(params.identifier);
         setProjectName(project.name);

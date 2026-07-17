@@ -55,7 +55,6 @@ import MentionTextInput, {
 interface TraceReviewsTabProps {
   selectedSpan: SpanNode;
   trace: TraceDetailResponse;
-  sessionToken: string;
   onTraceUpdated: () => void;
   mentionableMetrics?: MentionOption[];
   mentionableTurns?: MentionOption[];
@@ -67,7 +66,6 @@ interface TraceReviewsTabProps {
 export default function TraceReviewsTab({
   selectedSpan,
   trace: _trace,
-  sessionToken,
   onTraceUpdated,
   mentionableMetrics = [],
   mentionableTurns = [],
@@ -104,7 +102,7 @@ export default function TraceReviewsTab({
   useEffect(() => {
     const fetchStatuses = async () => {
       try {
-        const clientFactory = new ApiClientFactory(sessionToken);
+        const clientFactory = new ApiClientFactory();
         const statusClient = clientFactory.getStatusClient();
         const statusList = await statusClient.getStatuses({
           entity_type: EntityType.TEST_RESULT,
@@ -118,7 +116,7 @@ export default function TraceReviewsTab({
     if (showReviewForm) {
       fetchStatuses();
     }
-  }, [sessionToken, showReviewForm]);
+  }, [showReviewForm]);
 
   const handleSubmitReview = async () => {
     if (reason.trim().length < 10) {
@@ -145,7 +143,7 @@ export default function TraceReviewsTab({
       setSubmitting(true);
       setError('');
 
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const telemetryClient = clientFactory.getTelemetryClient();
 
       const reviewTarget = inferReviewTarget(reason);
@@ -195,7 +193,7 @@ export default function TraceReviewsTab({
     try {
       setDeleting(true);
 
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const telemetryClient = clientFactory.getTelemetryClient();
 
       await telemetryClient.deleteReview(
