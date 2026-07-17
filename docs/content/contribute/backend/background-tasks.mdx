@@ -306,17 +306,20 @@ ENV CELERY_WORKER_CONCURRENCY=8 \
     CELERY_WORKER_PREFETCH_MULTIPLIER=4 \
     CELERY_WORKER_MAX_TASKS_PER_CHILD=1000 \
     LOG_LEVEL=INFO \
+    CELERY_WORKER_LOGLEVEL=INFO \
     CELERY_WORKER_OPTS="--without-heartbeat --without-gossip"`}
 </CodeBlock>
 
-The worker startup script applies these configurations. Celery reads its log
-level from the same `LOG_LEVEL` variable used by the rest of the backend,
-rather than a separate Celery-specific variable:
+The worker startup script applies these configurations. `LOG_LEVEL` controls
+application logs (your own `logging.info`/`logging.debug` calls); Celery's own
+task-lifecycle messages ("Task X received/succeeded") are controlled
+separately by `CELERY_WORKER_LOGLEVEL`, which defaults to `LOG_LEVEL` but can
+be overridden independently:
 
 <CodeBlock filename="start-worker.sh" language="bash">
   {`# Start Celery worker with configuration from environment variables
 celery -A rhesis.backend.worker.app worker \
-    --loglevel=\${LOG_LEVEL:-INFO} \
+    --loglevel=\${CELERY_WORKER_LOGLEVEL:-INFO} \
     --concurrency=\${CELERY_WORKER_CONCURRENCY:-8} \
     --prefetch-multiplier=\${CELERY_WORKER_PREFETCH_MULTIPLIER:-4} \
     --max-tasks-per-child=\${CELERY_WORKER_MAX_TASKS_PER_CHILD:-1000} \

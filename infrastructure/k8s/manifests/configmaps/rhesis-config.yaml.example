@@ -105,6 +105,7 @@ data:
   # Celery worker settings
   CELERY_WORKER_CONCURRENCY: "8"
   CELERY_WORKER_PREFETCH_MULTIPLIER: "4"
+  CELERY_WORKER_LOGLEVEL: "INFO"
   BATCH_CONCURRENCY: "15"
 
   # =============================================================================

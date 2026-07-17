@@ -69,6 +69,11 @@ spec:
             secretKeyRef:
               name: rhesis-worker-secrets
               key: LOG_LEVEL
+        - name: CELERY_WORKER_LOGLEVEL
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: CELERY_WORKER_LOGLEVEL
         - name: CELERY_WORKER_CONCURRENCY
           valueFrom:
             secretKeyRef:

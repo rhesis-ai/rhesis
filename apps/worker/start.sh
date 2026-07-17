@@ -12,12 +12,13 @@ set -e
 : "${CELERY_ARCHITECT_CONCURRENCY:=2}"         # threads for the architect worker
 : "${CELERY_WORKER_PREFETCH_MULTIPLIER:=4}"    # prefetch multiplier for the main worker
 : "${CELERY_ARCHITECT_PREFETCH_MULTIPLIER:=4}" # prefetch multiplier for the architect worker
-: "${LOG_LEVEL:=INFO}"                         # shared with the backend's LoggingSettings
+: "${LOG_LEVEL:=INFO}"                         # application logs (set_logger() root logger)
+: "${CELERY_WORKER_LOGLEVEL:=$LOG_LEVEL}"      # celery's own task-lifecycle logger; defaults to LOG_LEVEL
 : "${CELERY_WORKER_OPTS:=}"                   # extra flags passed to both workers
 : "${ENABLE_FLOWER:=no}"
 export CELERY_WORKER_CONCURRENCY CELERY_ARCHITECT_CONCURRENCY \
     CELERY_WORKER_PREFETCH_MULTIPLIER CELERY_ARCHITECT_PREFETCH_MULTIPLIER \
-    LOG_LEVEL CELERY_WORKER_OPTS ENABLE_FLOWER
+    LOG_LEVEL CELERY_WORKER_LOGLEVEL CELERY_WORKER_OPTS ENABLE_FLOWER
 
 # Print environment variables for debugging (excluding sensitive info)
 echo "=== Environment Configuration Debug ==="
@@ -34,7 +35,7 @@ echo "Celery architect prefetch multiplier: $CELERY_ARCHITECT_PREFETCH_MULTIPLIE
 echo "Celery worker pool: threads"
 
 echo "🔧 Using log level: ${LOG_LEVEL}"
-echo "Celery worker log level: $LOG_LEVEL"
+echo "Celery worker log level: $CELERY_WORKER_LOGLEVEL"
 
 # Enhanced TLS detection and debugging
 if [[ "$BROKER_URL" == rediss://* ]]; then
@@ -239,8 +240,8 @@ echo "Starting Celery worker with full output..."
 # libraries (SSL, gRPC, Kerberos/CoreFoundation). Works well for I/O-bound
 # work (LLM API calls, DB queries). -E enables events for Flower/monitoring.
 
-MAIN_CMD="celery -A rhesis.backend.worker.app worker --pool threads -n main@%h --queues=celery,execution,telemetry --loglevel=$LOG_LEVEL --concurrency=$CELERY_WORKER_CONCURRENCY --prefetch-multiplier=$CELERY_WORKER_PREFETCH_MULTIPLIER --optimization=fair -E $CELERY_WORKER_OPTS"
-ARCHITECT_CMD="celery -A rhesis.backend.worker.app worker --pool threads -n architect@%h --queues=architect --loglevel=$LOG_LEVEL --concurrency=$CELERY_ARCHITECT_CONCURRENCY --prefetch-multiplier=$CELERY_ARCHITECT_PREFETCH_MULTIPLIER --optimization=fair -E $CELERY_WORKER_OPTS"
+MAIN_CMD="celery -A rhesis.backend.worker.app worker --pool threads -n main@%h --queues=celery,execution,telemetry --loglevel=$CELERY_WORKER_LOGLEVEL --concurrency=$CELERY_WORKER_CONCURRENCY --prefetch-multiplier=$CELERY_WORKER_PREFETCH_MULTIPLIER --optimization=fair -E $CELERY_WORKER_OPTS"
+ARCHITECT_CMD="celery -A rhesis.backend.worker.app worker --pool threads -n architect@%h --queues=architect --loglevel=$CELERY_WORKER_LOGLEVEL --concurrency=$CELERY_ARCHITECT_CONCURRENCY --prefetch-multiplier=$CELERY_ARCHITECT_PREFETCH_MULTIPLIER --optimization=fair -E $CELERY_WORKER_OPTS"
 
 echo "--- Main worker ---"
 echo "Command:     $MAIN_CMD"
@@ -255,7 +256,7 @@ echo "Concurrency: $CELERY_ARCHITECT_CONCURRENCY"
 echo "Prefetch:    $CELERY_ARCHITECT_PREFETCH_MULTIPLIER"
 echo ""
 echo "Pool:        threads"
-echo "Log level:   $LOG_LEVEL"
+echo "Log level:   $CELERY_WORKER_LOGLEVEL"
 echo "Extra opts:  ${CELERY_WORKER_OPTS:-none}"
 
 # Start main worker in background

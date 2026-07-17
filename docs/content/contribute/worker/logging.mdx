@@ -19,8 +19,12 @@ The worker system generates logs from multiple sources:
 Control logging behavior with these environment variables:
 
 <CodeBlock language="bash" isTerminal={true}>
-{`# Log level shared by every component, including Celery
+{`# Application log level (root logger, your own logging.info/debug calls)
 LOG_LEVEL=INFO
+
+# Celery's own task-lifecycle log level ("Task X received/succeeded").
+# Defaults to LOG_LEVEL if unset, but can be overridden independently.
+CELERY_WORKER_LOGLEVEL=INFO
 
 # Python logging configuration
 PYTHONUNBUFFERED=1  # Ensures immediate log output`}
@@ -39,7 +43,7 @@ In the worker startup, Celery is configured with:
 
 <CodeBlock language="bash" isTerminal={true}>
 {`celery -A rhesis.backend.worker.app worker \
-    --loglevel=\${LOG_LEVEL:-INFO} \
+    --loglevel=\${CELERY_WORKER_LOGLEVEL:-INFO} \
     --concurrency=\${CELERY_WORKER_CONCURRENCY:-8} \
     # ... other options`}
 </CodeBlock>
