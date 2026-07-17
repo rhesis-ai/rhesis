@@ -31,6 +31,8 @@ export interface AnnotationListItem {
   trace_id?: string | null;
   project_id?: string | null;
   span_name?: string | null;
+  behavior_id?: string | null;
+  behavior_name?: string | null;
 }
 
 export interface AnnotationsQueryParams {
@@ -49,8 +51,8 @@ export const ANNOTATION_SOURCE_LABELS: Record<AnnotationSource, string> = {
 };
 
 export const ANNOTATION_TARGET_LABELS: Record<string, string> = {
-  test_result: 'Test Result',
-  test: 'Test Result',
+  test_result: 'Output',
+  test: 'Output',
   trace: 'Trace',
   turn: 'Turn',
   metric: 'Metric',

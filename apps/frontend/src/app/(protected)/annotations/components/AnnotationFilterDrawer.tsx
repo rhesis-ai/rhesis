@@ -44,7 +44,7 @@ const TARGET_OPTIONS: {
   label: string;
   value: 'test_result' | 'trace' | 'metric' | 'turn';
 }[] = [
-  { label: 'Test Result', value: 'test_result' },
+  { label: 'Output', value: 'test_result' },
   { label: 'Trace', value: 'trace' },
   { label: 'Metric', value: 'metric' },
   { label: 'Turn', value: 'turn' },

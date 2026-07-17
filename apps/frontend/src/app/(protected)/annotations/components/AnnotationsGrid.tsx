@@ -265,6 +265,28 @@ export default function AnnotationsGrid({
         valueGetter: (_value, row) => row.user?.name || '—',
       },
       {
+        field: 'behavior_name',
+        headerName: 'Behavior',
+        flex: 1,
+        minWidth: 140,
+        sortable: false,
+        valueGetter: (_value, row) =>
+          (row as AnnotationListItem).behavior_name || '',
+        renderCell: params => {
+          const name = (params.row as AnnotationListItem).behavior_name;
+          return (
+            <Typography
+              variant="body2"
+              noWrap
+              title={name || undefined}
+              sx={{ color: name ? 'text.primary' : 'text.secondary' }}
+            >
+              {name || '—'}
+            </Typography>
+          );
+        },
+      },
+      {
         field: 'resolved',
         headerName: 'Status',
         width: 120,
