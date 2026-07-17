@@ -14,6 +14,8 @@ import {
   Slider,
   Stack,
   TextField,
+  ToggleButton,
+  ToggleButtonGroup,
   Typography,
 } from '@mui/material';
 import {
@@ -31,6 +33,7 @@ import { readActiveProjectId } from '@/utils/active-project';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import ModelSelector from '@/components/common/ModelSelector';
 import { OwaspIcon } from '@/components/icons';
+import { TEST_TYPES, type TestTypeValue } from '@/constants/test-types';
 
 interface OwaspGenerateDrawerProps {
   open: boolean;
@@ -79,6 +82,9 @@ export default function OwaspGenerateDrawer({
     Set<OwaspFramework>
   >(new Set(FRAMEWORK_GROUPS.map(g => g.framework)));
   const [numTests, setNumTests] = React.useState(DEFAULT_TESTS);
+  const [testType, setTestType] = React.useState<TestTypeValue>(
+    TEST_TYPES.SINGLE_TURN
+  );
   const [modelId, setModelId] = React.useState('');
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string>();
@@ -139,6 +145,7 @@ export default function OwaspGenerateDrawer({
     setSelectedKeys(new Set());
     setExpandedFrameworks(new Set(FRAMEWORK_GROUPS.map(g => g.framework)));
     setNumTests(DEFAULT_TESTS);
+    setTestType(TEST_TYPES.SINGLE_TURN);
     setModelId('');
     setSubmitting(false);
     setError(undefined);
@@ -281,6 +288,7 @@ export default function OwaspGenerateDrawer({
             num_tests: numTests,
             name,
             model_id: modelId || undefined,
+            test_type: testType,
           });
         })
       );
@@ -368,6 +376,33 @@ export default function OwaspGenerateDrawer({
               disabled={submitting}
               helperText="Describe what the system does — attacks are tailored to this description."
             />
+
+            <Box>
+              <Typography
+                variant="subtitle2"
+                color="text.secondary"
+                gutterBottom
+                sx={{ mb: 1 }}
+              >
+                Test type
+              </Typography>
+              <ToggleButtonGroup
+                value={testType}
+                exclusive
+                onChange={(_, val) => {
+                  if (val) setTestType(val as TestTypeValue);
+                }}
+                size="small"
+                disabled={submitting}
+              >
+                <ToggleButton value={TEST_TYPES.SINGLE_TURN}>
+                  Single-Turn
+                </ToggleButton>
+                <ToggleButton value={TEST_TYPES.MULTI_TURN}>
+                  Multi-Turn
+                </ToggleButton>
+              </ToggleButtonGroup>
+            </Box>
 
             <Box>
               <Stack

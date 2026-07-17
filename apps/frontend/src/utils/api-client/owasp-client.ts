@@ -1,4 +1,5 @@
 import { BaseApiClient } from './base-client';
+import type { TestTypeValue } from '@/constants/test-types';
 
 /** Which OWASP Top 10 report to generate attacks from */
 export type OwaspFramework = 'llm' | 'agentic';
@@ -31,6 +32,9 @@ export interface OwaspGenerateRequest {
   name?: string;
   batch_size?: number;
   model_id?: string;
+  /** 'Single-Turn' (default) generates one-shot attack prompts;
+   * 'Multi-Turn' generates multi-turn conversational attacks. */
+  test_type?: TestTypeValue;
 }
 
 /**
