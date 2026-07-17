@@ -499,7 +499,8 @@ export default function TraceReviewsTab({
                               variant="outlined"
                               sx={{
                                 height: 24,
-                                fontSize: '0.75rem',
+                                fontSize: theme =>
+                                  theme.typography.caption.fontSize,
                                 borderRadius: BORDER_RADIUS.pill,
                                 borderColor: 'success.main',
                                 color: 'success.main',

@@ -388,9 +388,10 @@ export default function TestDetailReviewsTab({
         <Box
           sx={{
             bgcolor: theme =>
-              theme.palette.mode === 'light'
-                ? 'rgba(245, 124, 0, 0.08)'
-                : 'rgba(245, 124, 0, 0.16)',
+              alpha(
+                theme.palette.warning.main,
+                theme.palette.mode === 'light' ? 0.08 : 0.16
+              ),
             border: '1px solid',
             borderColor: 'warning.main',
             borderRadius: BORDER_RADIUS.xs,
@@ -548,7 +549,7 @@ export default function TestDetailReviewsTab({
                           variant="outlined"
                           sx={{
                             height: 24,
-                            fontSize: '0.75rem',
+                            fontSize: theme => theme.typography.caption.fontSize,
                             borderRadius: BORDER_RADIUS.pill,
                             borderColor: 'success.main',
                             color: 'success.main',

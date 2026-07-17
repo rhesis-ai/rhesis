@@ -271,7 +271,7 @@ export default function AnnotationsGrid({
               variant="outlined"
               sx={{
                 height: 24,
-                fontSize: '0.75rem',
+                fontSize: theme => theme.typography.caption.fontSize,
                 borderRadius: BORDER_RADIUS.pill,
                 ...(resolved
                   ? {
