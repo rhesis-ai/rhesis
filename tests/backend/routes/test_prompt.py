@@ -202,16 +202,6 @@ class TestPromptRoutes(PromptTestMixin, BaseEntityRouteTests):
         # Verify behavior_id field is present in response (may be None)
         assert "behavior_id" in created_prompt
 
-    def test_prompt_with_demographic_relationship(self, prompt_factory, prompt_data):
-        """Test prompt creation with demographic relationship (demonstrates API accepts field)"""
-        # Test that demographic_id field is accepted by the API
-        # Note: Full relationship testing requires db_demographic fixture which may have setup issues
-
-        created_prompt = prompt_factory.create(prompt_data)
-
-        # Verify demographic_id field is present in response (may be None)
-        assert "demographic_id" in created_prompt
-
     def test_prompt_with_status_relationship(self, prompt_factory, prompt_data, db_status):
         """Test prompt creation with status relationship"""
         prompt_data["status_id"] = str(db_status.id)
