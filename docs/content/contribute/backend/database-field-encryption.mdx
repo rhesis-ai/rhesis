@@ -123,36 +123,27 @@ Developers can generate keys locally using:
 
 <CodeBlock filename="migration-flow.txt" language="text">
 {`1. Deploy application code with EncryptedString TypeDecorator
-   - Includes backward compatibility (reads both encrypted and plaintext)
 2. Run data migration script to encrypt all existing plaintext values
-   - Processes each row: plaintext → encrypted in same column
-3. Monitor application logs for any remaining plaintext values
-   - Log warnings when plaintext is encountered
-4. After validation period (e.g., 1 week), remove backward compatibility fallback`}
+   - Processes each row: plaintext → encrypted in same column`}
 </CodeBlock>
 
-**Backward Compatibility Implementation:**
+**Reads fail loudly:**
 
-The `EncryptedString` SQLAlchemy TypeDecorator will gracefully handle both encrypted and plaintext values during the migration window:
+The `EncryptedString` SQLAlchemy TypeDecorator does not fall back to returning
+the raw stored value. If a value cannot be decrypted — because it is still
+plaintext, or was encrypted with a different `DB_ENCRYPTION_KEY` — the read
+raises `DecryptionError` rather than silently leaking ciphertext or plaintext to
+callers. The one-time data migration must therefore run before the encrypted
+columns are read.
 
-<CodeBlock filename="backward-compatibility.py" language="python">
+<CodeBlock filename="decrypt-on-read.py" language="python">
 {`def process_result_value(self, value, dialect):
     """Decrypt when reading from database"""
     if value is None:
-        return value
+        return None
 
-    try:
-        # Attempt decryption
-        decrypted = self.cipher.decrypt(value.encode()).decode()
-        return decrypted
-    except InvalidToken:
-        # Value is not encrypted yet (plaintext)
-        # Log warning for monitoring
-        logger.warning(
-            "Encountered unencrypted value in encrypted column",
-            extra={"column": self.column_name}
-        )
-        return value  # Return plaintext during migration window`}
+    # Raises DecryptionError on a plaintext value or a wrong/rotated key.
+    return decrypt(value)`}
 </CodeBlock>
 
 ### 4. Database Schema: No Changes Required
@@ -226,13 +217,13 @@ class Endpoint(Base):
 
 **Threat model (stylized):** at-rest ciphertext helps against backup/SQL-dump style exposure; it does **not** substitute for network access control, least-privilege DB users, or protecting `DB_ENCRYPTION_KEY`. If both DB and key are lost to the same attacker, they can decrypt.
 
-**Phase 1 (implemented):** Fernet via `EncryptedString`, key in env, optional dual-read during migration.
+**Phase 1 (implemented):** Fernet via `EncryptedString`, key required in env, one-time data migration to encrypt pre-existing values.
 
 **Later:** key rotation, Secret Manager/HSM, per-tenant keys, and decrypt audit trails are out of scope for phase 1.
 
 ## Consequences
 
-**Upside:** Transparent ORM encryption, no column rename, migration can read mixed plaintext/ciphertext for a window.
+**Upside:** Transparent ORM encryption, no column rename, one-time in-place data migration to encrypt pre-existing values.
 
 **Downside:** You must operate `DB_ENCRYPTION_KEY` like production credentials—loss of key is data loss; small per-field CPU cost during rollout.
 
