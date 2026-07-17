@@ -340,7 +340,7 @@ export default function TestDetailReviewsTab({
           }}
         >
           <Box sx={{ pr: '12px', py: '7px', flexShrink: 0 }}>
-            <WarningAmberIcon sx={{ fontSize: 22, color: '#fff !important' }} />
+            <WarningAmberIcon sx={{ fontSize: 22, color: 'common.white' }} />
           </Box>
           <Box
             sx={{
@@ -620,8 +620,6 @@ function EmptyStateCard({
           onClick={onCreateReview}
           sx={{
             borderRadius: BORDER_RADIUS.md,
-            // Override the MuiDrawer theme rule that sets all icons to body color
-            '& .MuiSvgIcon-root': { color: '#ffffff' },
           }}
         >
           Create review
