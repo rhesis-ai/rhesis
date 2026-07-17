@@ -225,9 +225,7 @@ def verify_and_refresh_token(
         # user disabled, family revocation). There is no rotated "old"
         # token to distinguish from theft here, so reject plainly rather
         # than nuking the family.
-        logger.info(
-            "Revoked UI/SSO refresh token presented for user %s", db_token.user_id
-        )
+        logger.info("Revoked UI/SSO refresh token presented for user %s", db_token.user_id)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid refresh token",
@@ -255,9 +253,7 @@ def verify_and_refresh_token(
     if family_started_at is not None:
         if family_started_at.tzinfo is None:
             family_started_at = family_started_at.replace(tzinfo=timezone.utc)
-        absolute_deadline = family_started_at + timedelta(
-            days=AUTH_ABSOLUTE_SESSION_MAX_DAYS
-        )
+        absolute_deadline = family_started_at + timedelta(days=AUTH_ABSOLUTE_SESSION_MAX_DAYS)
         if absolute_deadline <= now:
             logger.info(
                 "Refresh rejected: session for user %s exceeded absolute cap "
@@ -278,9 +274,7 @@ def verify_and_refresh_token(
     # but never beyond the absolute deadline.
     sliding_expiry = now + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
     db_token.expires_at = (
-        min(sliding_expiry, absolute_deadline)
-        if absolute_deadline is not None
-        else sliding_expiry
+        min(sliding_expiry, absolute_deadline) if absolute_deadline is not None else sliding_expiry
     )
 
     return db_token, raw_token

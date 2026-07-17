@@ -104,11 +104,11 @@ export default function MagicLinkPage() {
             sx={{
               mt: 1,
               height: 46,
-              borderRadius: '10px',
+              borderRadius: '10px', // Intentional: button border radius
               bgcolor: 'primary.main',
               '&:hover': {
                 bgcolor: BUTTON_HOVER,
-                boxShadow: '0 4px 12px rgba(80,185,224,0.3)',
+                boxShadow: '0 4px 12px rgba(80,185,224,0.3)', // Intentional: button hover glow
               },
             }}
           >

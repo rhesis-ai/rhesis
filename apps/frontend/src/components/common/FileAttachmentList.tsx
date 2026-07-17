@@ -20,6 +20,7 @@ import {
   useFileContentUrl,
   useThumbnailObjectUrl,
 } from '@/hooks/useFileQueries';
+import { BORDER_RADIUS } from '@/styles/theme-constants';
 
 interface FileAttachmentListProps {
   files: FileResponse[];
@@ -63,7 +64,7 @@ function ThumbnailImage({
         width: 48,
         height: 48,
         objectFit: 'cover',
-        borderRadius: '8px',
+        borderRadius: BORDER_RADIUS.sm,
         flexShrink: 0,
       }}
     />
@@ -93,7 +94,7 @@ function FileRow({
       sx={{
         display: 'flex',
         alignItems: 'center',
-        borderTop: '1px solid #cdd2da',
+        borderTop: theme => `1px solid ${theme.palette.greyscale.border}`,
         overflow: 'hidden',
       }}
     >
@@ -106,8 +107,8 @@ function FileRow({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            bgcolor: '#cdd2da',
-            borderRadius: '8px',
+            bgcolor: theme => theme.palette.greyscale.border,
+            borderRadius: BORDER_RADIUS.sm,
             overflow: 'hidden',
           }}
         >
@@ -125,7 +126,7 @@ function FileRow({
           sx={{
             fontSize: 14,
             lineHeight: '22px',
-            color: '#2a2e36',
+            color: theme => theme.palette.greyscale.body,
             wordBreak: 'break-word',
           }}
         >
@@ -148,7 +149,7 @@ function FileRow({
             fontSize: 14,
             fontWeight: 700,
             lineHeight: '22px',
-            color: '#2a2e36',
+            color: theme => theme.palette.greyscale.body,
             whiteSpace: 'nowrap',
           }}
         >
