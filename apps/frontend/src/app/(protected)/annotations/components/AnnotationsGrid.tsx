@@ -9,10 +9,11 @@ import {
   GridToolbarDensitySelector,
   GridToolbarExport,
 } from '@mui/x-data-grid';
-import { Alert, Box, Chip, Typography } from '@mui/material';
+import { Alert, Box, Typography } from '@mui/material';
+import { alpha, useTheme } from '@mui/material/styles';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import GridToolbar, { ToolbarPillTabs } from '@/components/common/GridToolbar';
-import StatusChip from '@/components/common/StatusChip';
+import GridBadge from '@/components/common/GridBadge';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { MentionText } from '@/components/common/MentionTextInput';
 import {
@@ -24,7 +25,6 @@ import {
 import { annotationKeys } from '@/constants/query-keys';
 import { useGridQuery } from '@/hooks/useGridQuery';
 import { isPassedStatusName } from '@/utils/test-result-status';
-import { BORDER_RADIUS } from '@/styles/theme';
 import AnnotationFilterDrawer, {
   type AnnotationFilters,
   EMPTY_ANNOTATION_FILTERS,
@@ -113,6 +113,7 @@ export default function AnnotationsGrid({
   sessionToken,
   onTotalCountChange,
 }: AnnotationsGridProps) {
+  const theme = useTheme();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
@@ -229,9 +230,7 @@ export default function AnnotationsGrid({
               </Typography>
             );
           }
-          const status: 'Pass' | 'Fail' = isPassedStatusName(name)
-            ? 'Pass'
-            : 'Fail';
+          const passed = isPassedStatusName(name);
           const label =
             name.toLowerCase() === 'pass'
               ? 'Passed'
@@ -239,12 +238,14 @@ export default function AnnotationsGrid({
                 ? 'Failed'
                 : name;
           return (
-            <StatusChip
-              status={status}
+            <GridBadge
               label={label}
-              size="small"
-              variant="outlined"
-              sx={{ height: 24 }}
+              sx={{
+                bgcolor: passed
+                  ? alpha(theme.palette.success.main, 0.12)
+                  : alpha(theme.palette.error.main, 0.12),
+                color: passed ? 'success.dark' : 'error.dark',
+              }}
             />
           );
         },
@@ -265,24 +266,16 @@ export default function AnnotationsGrid({
         renderCell: params => {
           const resolved = Boolean(params.row.resolved);
           return (
-            <Chip
-              size="small"
+            <GridBadge
               label={resolved ? 'Resolved' : 'Open'}
-              variant="outlined"
-              sx={{
-                height: 24,
-                fontSize: theme => theme.typography.caption.fontSize,
-                borderRadius: BORDER_RADIUS.pill,
-                ...(resolved
+              sx={
+                resolved
                   ? {
-                      borderColor: 'success.main',
-                      color: 'success.main',
+                      bgcolor: alpha(theme.palette.success.main, 0.12),
+                      color: 'success.dark',
                     }
-                  : {
-                      borderColor: 'greyscale.border',
-                      color: 'text.secondary',
-                    }),
-              }}
+                  : undefined
+              }
             />
           );
         },
@@ -309,7 +302,7 @@ export default function AnnotationsGrid({
         ),
       },
     ],
-    []
+    [theme]
   );
 
   const handleRowClick = useCallback((params: GridRowParams) => {
