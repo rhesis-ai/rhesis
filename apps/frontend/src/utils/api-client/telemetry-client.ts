@@ -127,6 +127,7 @@ export class TelemetryClient extends BaseApiClient {
       status_id?: string;
       comments?: string;
       target?: TraceReviewTarget;
+      resolved?: boolean;
     }
   ): Promise<TraceReview> {
     return this.fetch<TraceReview>(

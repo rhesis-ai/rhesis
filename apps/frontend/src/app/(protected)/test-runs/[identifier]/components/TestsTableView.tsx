@@ -66,6 +66,8 @@ interface TestsTableViewProps {
   currentUserName: string;
   currentUserPicture?: string;
   initialSelectedTestId?: string;
+  /** Drawer tab key when opening via deep-link (e.g. "reviews"). */
+  initialDetailTab?: string;
   testSetType?: string;
   project?: { icon?: string; useCase?: string; name?: string };
   projectName?: string;
@@ -86,6 +88,7 @@ export default function TestsTableView({
   currentUserName,
   currentUserPicture,
   initialSelectedTestId,
+  initialDetailTab,
   testSetType,
   project,
   projectName,
@@ -103,7 +106,14 @@ export default function TestsTableView({
     null
   );
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [initialTab, setInitialTab] = useState<number>(0);
+  const resolvedInitialTab =
+    initialDetailTab &&
+    initialDetailTab in TEST_RESULT_DRAWER_TAB
+      ? TEST_RESULT_DRAWER_TAB[
+          initialDetailTab as keyof typeof TEST_RESULT_DRAWER_TAB
+        ]
+      : 0;
+  const [initialTab, setInitialTab] = useState<number>(resolvedInitialTab);
   const [overruleDrawerOpen, setOverruleDrawerOpen] = useState(false);
   const [testToOverrule, setTestToOverrule] = useState<TestResultDetail | null>(
     null
@@ -155,6 +165,7 @@ export default function TestsTableView({
     const page = Math.floor(testIndex / paginationModel.pageSize);
     setPaginationModel(prev => ({ ...prev, page }));
     setSelectedTest(mergedTests[testIndex]);
+    setInitialTab(resolvedInitialTab);
     setDrawerOpen(true);
     setHasInitialSelection(true);
   }, [
@@ -162,6 +173,7 @@ export default function TestsTableView({
     mergedTests,
     paginationModel.pageSize,
     hasInitialSelection,
+    resolvedInitialTab,
   ]);
 
   useEffect(() => {

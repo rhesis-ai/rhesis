@@ -65,6 +65,27 @@ def resolve_review_owner_uuid(review: dict) -> Optional[UUID]:
         return None
 
 
+def apply_review_resolved(
+    review: dict,
+    *,
+    resolved: bool,
+    current_user: "User",
+) -> None:
+    """Set or clear resolution fields on a review JSONB entry."""
+    now = datetime.now(timezone.utc).isoformat()
+    review["resolved"] = resolved
+    review["updated_at"] = now
+    if resolved:
+        review["resolved_at"] = now
+        review["resolved_by"] = {
+            "user_id": str(current_user.id),
+            "name": current_user.name or current_user.email,
+        }
+    else:
+        review["resolved_at"] = None
+        review["resolved_by"] = None
+
+
 ENTITY_REVIEW_TARGET_TYPES = ("test_result", "test")
 
 

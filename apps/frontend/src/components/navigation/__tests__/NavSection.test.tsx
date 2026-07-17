@@ -116,4 +116,45 @@ describe('NavSection', () => {
     expect(screen.getByText('CONNECT')).toBeInTheDocument();
     expect(screen.getByText('endpoints')).toBeInTheDocument();
   });
+
+  it('shows an item when any requiredAnyOf capability is present', () => {
+    setAmbient({ enabled: true, permitted_actions: ['telemetry:read'] });
+    render(
+      <NavSection
+        header={header}
+        items={[
+          {
+            kind: 'page',
+            segment: 'annotations',
+            title: 'annotations',
+            requiredAnyOf: ['test_result:read', 'telemetry:read'],
+          },
+        ]}
+        collapsed={false}
+      />
+    );
+
+    expect(screen.getByText('annotations')).toBeInTheDocument();
+  });
+
+  it('hides an item when no requiredAnyOf capability is present', () => {
+    setAmbient({ enabled: true, permitted_actions: [] });
+    render(
+      <NavSection
+        header={header}
+        items={[
+          {
+            kind: 'page',
+            segment: 'annotations',
+            title: 'annotations',
+            requiredAnyOf: ['test_result:read', 'telemetry:read'],
+          },
+        ]}
+        collapsed={false}
+      />
+    );
+
+    expect(screen.queryByText('CONNECT')).not.toBeInTheDocument();
+    expect(screen.queryByText('annotations')).not.toBeInTheDocument();
+  });
 });

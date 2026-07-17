@@ -8,7 +8,7 @@ import {
   REVIEW_TARGET_TYPES,
   type ReviewTargetType,
 } from '@/utils/api-client/interfaces/test-results';
-
+import { BORDER_RADIUS } from '@/styles/theme';
 export interface MentionOption {
   id: string;
   display: string;
@@ -105,11 +105,7 @@ export default function MentionTextInput({
   );
 
   const typeColors = useMemo(
-    () => ({
-      user: theme.palette.success.main,
-      metric: theme.palette.secondary.main,
-      turn: theme.palette.info.main,
-    }),
+    () => getMentionTypeStyles(theme).colors,
     [theme]
   );
 
@@ -221,9 +217,10 @@ export default function MentionTextInput({
         const color = typeColors[type];
         el.style.backgroundColor = alpha(
           color,
-          theme.palette.action.activatedOpacity
+          Math.max(theme.palette.action.selectedOpacity, 0.12)
         );
-        el.style.borderRadius = `${theme.shape.borderRadius}px`;
+        el.style.color = color;
+        el.style.borderRadius = BORDER_RADIUS.pill;
       }
     });
   }, [mentionTypeMap, typeColors, theme]);
@@ -390,6 +387,32 @@ export default function MentionTextInput({
 }
 
 /**
+ * Readable mention colors — metrics use primary (not secondary orange).
+ */
+export function getMentionTypeStyles(theme: {
+  palette: {
+    success: { main: string };
+    primary: { main: string };
+    info: { main: string };
+    action: { selectedOpacity: number };
+  };
+}) {
+  const bgOpacity = Math.max(theme.palette.action.selectedOpacity, 0.12);
+  return {
+    colors: {
+      user: theme.palette.success.main,
+      metric: theme.palette.primary.main,
+      turn: theme.palette.info.main,
+    },
+    backgrounds: {
+      user: alpha(theme.palette.success.main, bgOpacity),
+      metric: alpha(theme.palette.primary.main, bgOpacity),
+      turn: alpha(theme.palette.info.main, bgOpacity),
+    },
+  };
+}
+
+/**
  * Render review text with styled mention chips.
  * Parses @[Display](type:id) patterns and renders them as colored spans.
  */
@@ -419,12 +442,13 @@ export function renderMentionText(
         sx={theme => ({
           color: typeColors[type] || 'inherit',
           backgroundColor: typeBackgrounds[type] || 'transparent',
-          borderRadius: `${theme.shape.borderRadius / 2}px`,
-          px: 0.5,
-          py: 0.125,
+          borderRadius: BORDER_RADIUS.pill,
+          px: 0.75,
+          py: 0.25,
           fontWeight: 600,
           fontSize: 'inherit',
           whiteSpace: 'nowrap',
+          lineHeight: 1.4,
         })}
       >
         @{display}
@@ -438,6 +462,16 @@ export function renderMentionText(
   }
 
   return parts.length > 0 ? <>{parts}</> : text;
+}
+
+/** Theme-aware mention renderer for grids and drawers. */
+export function MentionText({ text }: { text: string }) {
+  const theme = useTheme();
+  const { colors, backgrounds } = useMemo(
+    () => getMentionTypeStyles(theme),
+    [theme]
+  );
+  return <>{renderMentionText(text, colors, backgrounds)}</>;
 }
 
 export interface InferredTarget {
