@@ -34,8 +34,8 @@ echo "Celery worker prefetch multiplier: $CELERY_WORKER_PREFETCH_MULTIPLIER"
 echo "Celery architect prefetch multiplier: $CELERY_ARCHITECT_PREFETCH_MULTIPLIER"
 echo "Celery worker pool: threads"
 
-echo "🔧 Using log level: ${LOG_LEVEL}"
-echo "Celery worker log level: $CELERY_WORKER_LOGLEVEL"
+echo "🔧 Application log level: ${LOG_LEVEL}"
+echo "🔧 Celery log level: ${CELERY_WORKER_LOGLEVEL}"
 
 # Enhanced TLS detection and debugging
 if [[ "$BROKER_URL" == rediss://* ]]; then
