@@ -635,6 +635,7 @@ def generate_and_save_owasp_test_set(
     batch_size: int = 10,
     name: Optional[str] = None,
     model_id: Optional[str] = None,
+    test_type: Optional[str] = TestSetType.SINGLE_TURN.value,
 ):
     """
     Generate and save a test set using the SDK's OWASPSynthesizer.
@@ -653,13 +654,19 @@ def generate_and_save_owasp_test_set(
         batch_size: Max attacks generated per LLM call per category.
         name: Optional custom name for the test set.
         model_id: Optional model UUID to override the user's default generation model.
+        test_type: "Single-Turn" (default) or "Multi-Turn" - whether to generate
+            one-shot attack prompts or multi-turn conversational attacks.
 
     Returns:
         dict: Information about the generated and saved test set.
     """
     org_id, user_id, project_id = self.get_tenant_context()
 
-    from rhesis.backend.app.services.owasp import OWASP_FRAMEWORKS
+    from rhesis.backend.app.services.owasp import (
+        OWASP_FRAMEWORKS,
+        load_owasp_content_cache,
+        save_owasp_content_cache,
+    )
 
     framework_info = OWASP_FRAMEWORKS[framework]
     report_url = framework_info["report_url"]
@@ -674,6 +681,7 @@ def generate_and_save_owasp_test_set(
         framework=framework,
         num_tests=num_tests,
         model=model_info,
+        test_type=test_type,
     )
 
     try:
@@ -689,6 +697,11 @@ def generate_and_save_owasp_test_set(
             batch_size=batch_size,
             model=model,
             behavior=behavior,
+            test_type=test_type,
+            # Shared content cache: parse each report's PDF at most once per framework.
+            cache_key=framework,
+            cache_loader=load_owasp_content_cache,
+            cache_writer=save_owasp_content_cache,
         )
 
         import time

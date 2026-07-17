@@ -7,6 +7,8 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
+from rhesis.backend.app.constants import TestSetType
+
 
 class OwaspFramework(str, Enum):
     """Which OWASP Top 10 report to generate attacks from."""
@@ -76,6 +78,10 @@ class OwaspGenerateRequest(BaseModel):
     model_id: Optional[str] = Field(
         None,
         description="Optional model UUID to override the user's default generation model",
+    )
+    test_type: TestSetType = Field(
+        TestSetType.SINGLE_TURN,
+        description="'Single-Turn' (default) or 'Multi-Turn' conversational attacks.",
     )
 
 

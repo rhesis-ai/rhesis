@@ -9,12 +9,12 @@ set of adversarial prompts for a described system under test.
 import logging
 
 from fastapi import Depends, HTTPException
-from rhesis.backend.app.routers.base import RhesisRouter
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.dependencies import get_tenant_db_session
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.owasp import (
     OwaspCategoriesResponse,
     OwaspCategory,
@@ -93,6 +93,7 @@ async def generate_test_set(
             batch_size=request.batch_size,
             name=request.name,
             model_id=request.model_id,
+            test_type=request.test_type.value,
         )
 
         logger.info(
