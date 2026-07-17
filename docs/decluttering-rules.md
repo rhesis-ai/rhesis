@@ -106,7 +106,9 @@ Check off pages/sections as they are done.
 - [x] Architect — Overview, Workflow, Endpoint Exploration, Planning Test Suites,
       Running and Analyzing, Chat Features, Scenarios (already rule-compliant; two
       redundancy cuts and eight factual fixes)
-- [ ] Agent Skill
+- [x] Agent Skill — accurate mirror of the repo skill README; one promotional-word
+      fix and one redundancy cut (Cursor skill-install prose duplicated the universal
+      installer)
 - [ ] Organizations & Team — Overview, Roles, Single Sign-On, API Clients
 - [ ] Deployment — Overview, Quick Start, Docker Compose, Environment Variables
       (recently rewritten in #2167 — mostly done, light pass only)
