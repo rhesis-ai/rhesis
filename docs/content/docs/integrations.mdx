@@ -17,8 +17,8 @@ Beyond those four layers, Rhesis also bundles **evaluation frameworks** (DeepEva
 
 Your application emits spans through the Rhesis SDK; spans are batched and sent to Rhesis over HTTP using OpenTelemetry conventions. The integration mechanism depends on the framework:
 
-- **LangChain** and **LangGraph** are auto-instrumented end-to-end with a single `auto_instrument()` call — no per-function decorators required.
-- Other Python frameworks (CrewAI, OpenAI Agents SDK, LlamaIndex, AutoGen, …) are traced with the `@observe.*` decorators, applied to the functions, tools, or agents you want to capture.
+- **LangChain**, **LangGraph**, **Microsoft Agent Framework**, and **Pydantic AI** are auto-instrumented with a single `auto_instrument()` call — no per-function decorators required.
+- Other Python frameworks (CrewAI, OpenAI Agents SDK, LlamaIndex, …) are traced with the `@observe.*` decorators, applied to the functions, tools, or agents you want to capture.
 - Any OpenTelemetry-compatible exporter can target the Rhesis ingestion endpoint directly. See [Tracing setup](/docs/tracing/setup) for the exact endpoint and headers.
 
 See: [Tracing overview](/docs/tracing) · [Auto-instrumentation](/docs/tracing/auto-instrumentation) · [Decorators](/docs/tracing/decorators) · [Multi-agent tracing](/docs/tracing/multi-agent)
