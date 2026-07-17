@@ -103,8 +103,9 @@ Check off pages/sections as they are done.
       Projects, Default Chatbot (Rosalind)
 - [x] Core Concepts (`docs/concepts.mdx`) — already lean; fixed two broken links, tidied whitespace
 - [x] Product Tour (`docs/product-tour.mdx`) — no changes; promotional tone allowed by design
-- [ ] Architect — Overview, Workflow, Endpoint Exploration, Planning Test Suites,
-      Running and Analyzing, Chat Features, Scenarios
+- [x] Architect — Overview, Workflow, Endpoint Exploration, Planning Test Suites,
+      Running and Analyzing, Chat Features, Scenarios (already rule-compliant; two
+      redundancy cuts and eight factual fixes)
 - [ ] Agent Skill
 - [ ] Organizations & Team — Overview, Roles, Single Sign-On, API Clients
 - [ ] Deployment — Overview, Quick Start, Docker Compose, Environment Variables
