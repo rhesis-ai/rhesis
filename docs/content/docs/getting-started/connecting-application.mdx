@@ -35,10 +35,9 @@ If you are developing your application in Python and want deeper integration, yo
 By decorating your Python functions with `@endpoint`, you create a secure, bi-directional tunnel between Rhesis and your application. Rhesis can then execute your local code directly during tests. The Connector will try to automatically map the platform-managed variables to your function's arguments, but it also supports explicit request and response mapping.
 
 <CodeBlock filename="example.py" language="python">
-{`import rhesis
-from rhesis.sdk.decorators import endpoint
+{`from rhesis.sdk import RhesisClient, endpoint
 
-rhesis.api_key = "rh-XXXXXXXXXXXXXXXXXXXX"
+client = RhesisClient(api_key="rh-XXXXXXXXXXXXXXXXXXXX")
 
 # This function is now exposed to Rhesis for testing
 @endpoint(name="My Customer Support Bot")
@@ -49,7 +48,7 @@ def run_chatbot(prompt: str, context: dict = None) -> str:
 
 # Start the connector to listen for tests
 if __name__ == "__main__":
-    rhesis.connect()`}
+    client.connect()`}
 </CodeBlock>
 
 > **Note:** The SDK approach works even if your application runs locally behind a firewall: the connector establishes an outbound connection to Rhesis, so no ngrok or port forwarding is needed.
@@ -65,7 +64,7 @@ Rhesis uses these variables to pass inputs to your API during testing and extrac
 ### Request Variables (Sent to your API)
 - `input` (Required): The main user query or test prompt.
 - `files`: Array of file attachments (for multimodal testing).
-- `conversation_id`: Conversation tracking identifier.
+- `conversation_id`: Conversation tracking identifier (`session_id`, `thread_id`, and `chat_id` are accepted aliases).
 
 ### Response Variables (Extracted from your API)
 - `output` (Required): The main response text to be evaluated.

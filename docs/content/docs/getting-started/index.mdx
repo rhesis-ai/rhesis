@@ -20,10 +20,10 @@ pip install rhesis-sdk
 
 ```python
 import os
-from rhesis.sdk.entities import TestSet
+from rhesis.sdk.entities import TestSets
 
 os.environ["RHESIS_API_KEY"] = "rh-your-api-key"  # from app.rhesis.ai
-for ts in TestSet().all():
+for ts in TestSets.all():
     print(ts.name)
 ```
 

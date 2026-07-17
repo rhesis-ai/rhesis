@@ -204,3 +204,7 @@ Check off pages/sections as they are done.
   only if still used after trimming.
 - After trimming, check internal links still resolve (pages that got merged/renamed).
 - Verify the docs build (`docs/` is Nextra).
+- Verify factual correctness while trimming: check every concrete claim the page keeps —
+  commands, env vars, API routes and fields, defaults, rate limits, UI labels, code samples —
+  against the code. A page that passed the decluttering pass counts as verified, so wrong claims
+  must be fixed or cut, never carried over.

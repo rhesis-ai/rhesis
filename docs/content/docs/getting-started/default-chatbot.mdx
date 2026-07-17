@@ -26,17 +26,21 @@ Rosalind is a pre-configured insurance chatbot powered by Google's Gemini, avail
     "Term life insurance provides coverage for a specific time period",
     "Whole life insurance offers permanent coverage with cash value"
   ],
-  "use_case": "insurance"
+  "metadata": {
+    "use_case": "insurance",
+    "mode": "text"
+  },
+  "tool_calls": []
 }`}
 </CodeBlock>
 
 **Parameters:**
 
 - `message` (string, required): Your question or message to Rosalind
-- `session_id` (string, optional): UUID for conversation continuity. If omitted, a new session is created
-- `use_case` (string, optional): The domain context. Defaults to "travel"
+- `session_id` (string, optional): Identifier for conversation continuity. If omitted, a new session is created
+- `use_case` (string, optional): The domain context. Defaults to "insurance"
 
-If the service is configured with an API key, chat and session requests require a bearer token in the `Authorization: Bearer <your-api-key>` header. `/health`, `/`, and `/use-cases` are always accessible without authentication.
+Requests may include a bearer token in the `Authorization: Bearer <your-api-key>` header; authenticated requests get a higher rate limit. Requests without a token fall back to the public tier.
 
 ### Echo use case
 
@@ -58,7 +62,7 @@ Reuse the `session_id` from a response in follow-up requests to keep conversatio
 
 ## Rate Limits
 
-Without authentication, the service allows 100 requests per day per IP address; with authentication, 1000 per day per user. Limits reset at midnight UTC. Responses carry `X-RateLimit-Limit`, `X-RateLimit-Remaining`, and `X-RateLimit-Reset` headers; exceeding the limit returns `429 Too Many Requests` with a `Retry-After` header.
+Without authentication, the service allows 100 requests per day per IP address; with authentication, 1000 per day per user (configurable via `CHATBOT_RATE_LIMIT`). Limits use a rolling 24-hour window; exceeding them returns `429 Too Many Requests`.
 
 ## Example
 
@@ -95,9 +99,8 @@ Rosalind is a parameter-aware endpoint: its system prompt, use case, model, temp
 
 - **Domain-Specific**: Rosalind answers insurance questions only and may decline off-topic queries
 - **Rate Limited**: Usage is restricted to prevent abuse and ensure availability
-- **No Persistence**: Session data may be cleared during deployments
+- **Session Expiry**: Sessions expire after 24 hours
 - **No SLA**: This is a demo service without uptime guarantees
-- **English Only**: Currently supports English language interactions only
 
 ---
 
