@@ -81,14 +81,14 @@ Successful responses follow the OAuth token response shape:
   "access_token": "<rhesis-jwt>",
   "issued_token_type": "urn:ietf:params:oauth:token-type:access_token",
   "token_type": "Bearer",
-  "expires_in": 900,
+  "expires_in": 604800,
   "scope": "read offline_access",
   "refresh_token": "<refresh-token>",
-  "refresh_expires_in": 2592000
+  "refresh_expires_in": 604800
 }`}
 </CodeBlock>
 
-`refresh_token` is present only when the resolved scope includes `offline_access`.
+`refresh_token` is present only when the resolved scope includes `offline_access`. Both lifetimes are deployment-configurable (`JWT_ACCESS_TOKEN_EXPIRE_MINUTES` and `JWT_REFRESH_TOKEN_EXPIRE_DAYS`); the values above are the defaults.
 
 ## Manage clients
 
@@ -106,8 +106,9 @@ Rotating a client secret also advances the client's token epoch. Existing client
 
 ## Common errors
 
-- `invalid_target`: audience is malformed, the organization slug does not exist, SSO is unavailable, or API Clients are not enabled.
-- `invalid_client`: client credentials are missing or invalid.
+- `invalid_request`: the audience is malformed or multi-valued, client credentials are missing, or a required form field is absent.
+- `invalid_target`: the organization slug does not exist, SSO is not configured, or API Clients are not enabled.
+- `invalid_client`: the supplied client credentials are wrong.
 - `invalid_grant`: the subject token is invalid, expired, replayed, or does not match the configured `azp` and audience.
 - `invalid_scope`: requested scopes are not allowed for the client.
 

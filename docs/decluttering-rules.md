@@ -109,7 +109,12 @@ Check off pages/sections as they are done.
 - [x] Agent Skill — accurate mirror of the repo skill README; one promotional-word
       fix and one redundancy cut (Cursor skill-install prose duplicated the universal
       installer)
-- [ ] Organizations & Team — Overview, Roles, Single Sign-On, API Clients
+- [x] Organizations & Team — Overview, Roles, Single Sign-On, API Clients
+      (Overview: fixed broken list/callout formatting, wrong image alt, and a
+      false sidebar claim — denied items are hidden, not locked, and Metrics/Models
+      are permission-gated. Roles: corrected Admin/Member capability descriptions.
+      API Clients: fixed token-lifetime defaults and invalid_request/target/client
+      error mapping. SSO: verified accurate, no changes.)
 - [ ] Deployment — Overview, Quick Start, Docker Compose, Environment Variables
       (recently rewritten in #2167 — mostly done, light pass only)
 
