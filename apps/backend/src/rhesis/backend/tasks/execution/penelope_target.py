@@ -285,18 +285,9 @@ class BackendEndpointTarget(Target):
                 )
 
             # Handle ErrorResponse objects (Pydantic models) from invokers
-            from rhesis.backend.app.services.invokers.common.schemas import (
-                ErrorResponse,
-            )
-
-            if isinstance(response_data, ErrorResponse):
-                response_dict = response_data.to_dict()
-                return TargetResponse(
-                    success=False,
-                    content="",
-                    error=response_dict.get("output", "Endpoint invocation failed"),
-                    metadata={"error_details": response_dict},
-                )
+            failed = self._failed_target_response_from_result(response_data)
+            if failed is not None:
+                return failed
 
             # Extract response content
             response_text = response_data.get("output", "")
@@ -374,6 +365,38 @@ class BackendEndpointTarget(Target):
             metadata={"error_details": error_details},
         )
 
+    @staticmethod
+    def _failed_target_response_from_result(response_data: Any) -> Optional[TargetResponse]:
+        """Return a failed TargetResponse when *response_data* is an HTTP/invoker error.
+
+        Handles ``ErrorResponse`` objects and error-shaped dicts
+        (``error_type == "http_error"`` or ``error`` + ``status_code >= 400``).
+        Returns ``None`` when the result is not an error response.
+        """
+        from rhesis.backend.app.services.invokers.common.schemas import ErrorResponse
+        from rhesis.backend.tasks.execution.response_extractor import is_http_error_response
+
+        if isinstance(response_data, ErrorResponse):
+            response_dict = response_data.to_dict()
+            return TargetResponse(
+                success=False,
+                content="",
+                error=response_dict.get("output", "Endpoint invocation failed"),
+                metadata={"error_details": response_dict},
+            )
+
+        if isinstance(response_data, dict) and is_http_error_response(response_data):
+            return TargetResponse(
+                success=False,
+                content="",
+                error=response_data.get("output")
+                or response_data.get("message")
+                or "Endpoint invocation failed",
+                metadata={"error_details": response_data},
+            )
+
+        return None
+
     async def a_send_message(
         self,
         message: str,
@@ -438,6 +461,18 @@ class BackendEndpointTarget(Target):
                     content="",
                     error="Endpoint invocation returned None",
                 )
+
+            # Defense in depth: ErrorResponse is raised by invoke_with_retry, but
+            # an error-shaped dict must not be treated as a successful answer.
+            failed = self._failed_target_response_from_result(response_data)
+            if failed is not None:
+                if isinstance(response_data, dict):
+                    deferred_trace = response_data.pop("_deferred_trace", None)
+                    if deferred_trace:
+                        self._deferred_traces.append(deferred_trace)
+                        if not self._current_trace_id:
+                            self._current_trace_id = deferred_trace.trace_id
+                return failed
 
             deferred_trace = response_data.pop("_deferred_trace", None)
             if deferred_trace:

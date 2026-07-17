@@ -371,3 +371,38 @@ class TestBackendEndpointTargetPreservesHttpError:
         assert response.metadata["error_details"]["error_type"] == "http_error"
         assert response.metadata["error_details"]["status_code"] == 405
         assert is_http_error_response(response.metadata["error_details"])
+
+    @pytest.mark.asyncio
+    async def test_async_treats_error_shaped_dict_as_failure(self):
+        target = BackendEndpointTarget.__new__(BackendEndpointTarget)
+        target.endpoint_id = "ep-1"
+        target.organization_id = "org-1"
+        target.user_id = "user-1"
+        target.project_id = None
+        target.test_execution_context = {"test_id": "test-1"}
+        target.params = None
+        target._endpoint = MagicMock()
+        target._current_trace_id = None
+        target._deferred_traces = []
+        target._invoke_max_attempts = 1
+        target._invoke_retry_min_wait = 0.01
+        target._invoke_retry_max_wait = 0.01
+        target.endpoint_service = MagicMock()
+
+        error_dict = {
+            "error": True,
+            "error_type": "http_error",
+            "status_code": 503,
+            "message": "Service Unavailable",
+            "output": "Service Unavailable",
+        }
+
+        with patch(
+            "rhesis.backend.tasks.execution.batch.retry.invoke_with_retry",
+            AsyncMock(return_value=error_dict),
+        ):
+            response = await target.a_send_message("hello")
+
+        assert response.success is False
+        assert response.metadata["error_details"]["status_code"] == 503
+        assert is_http_error_response(response.metadata["error_details"])
