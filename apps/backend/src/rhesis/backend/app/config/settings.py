@@ -86,6 +86,7 @@ class ApplicationSettings(BaseSettings):
     model_config = SettingsConfigDict(env_ignore_empty=True)
 
     quick_start: bool = Field(default=False, alias="QUICK_START")
+    dev_mode: bool = Field(default=False, alias="DEV_MODE")
     backend_env: Literal["production", "development", "staging", "local"] = Field(
         default="development", alias="BACKEND_ENV"
     )
@@ -131,8 +132,9 @@ class ApplicationSettings(BaseSettings):
         This is the deployment-static portion of the Quick Start gate: it is
         fail-secure and returns False if QUICK_START is not explicitly enabled,
         if BACKEND_ENV is production, or if any Google Cloud signal is present.
-        Request-scoped signals
-        (hostname, headers) are evaluated separately in
+        Deliberately independent of DEV_MODE: Quick Start must not imply hot
+        reload, which slows the app down. Request-scoped signals (hostname,
+        headers) are evaluated separately in
         ``rhesis.backend.app.utils.quick_start.is_quick_start_enabled``.
         """
         if not self.quick_start:

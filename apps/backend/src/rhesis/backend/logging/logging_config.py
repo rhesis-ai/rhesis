@@ -15,6 +15,7 @@ LOG_LEVEL = logging_settings.log_level
 LOG_DIR = logging_settings.log_dir
 ENVIRONMENT = application_settings.backend_env
 JSON_LOGGER_ENABLED = application_settings.json_logger_enabled
+DEV_MODE = application_settings.dev_mode
 # role_prefix is "" for API; Celery workers get "[MAIN] - " via the filter.
 LOG_FORMAT = "%(asctime)s - %(role_prefix)s%(name)s - %(levelname)s - %(message)s"
 LOG_DATE_FORMAT = "%m/%d/%Y %I:%M:%S%p"
@@ -225,7 +226,7 @@ def set_logger(worker_role: str | None = None):
     """Configure the root logger once at startup.
 
     Console: JSON if ``JSON_LOGGER_ENABLED``, else color on a TTY, else plain text.
-    When ``BACKEND_ENV=local``, also write a timestamped plain-text file under
+    When ``DEV_MODE=true``, also write a timestamped plain-text file under
     ``LOG_DIR``. Optional ``worker_role`` (e.g. MAIN/ARCHITECT from Celery's
     node name) is included in JSON and as a plain-text prefix.
     """
@@ -253,7 +254,7 @@ def set_logger(worker_role: str | None = None):
     console_handler.setFormatter(formatter)
     root_logger.addHandler(console_handler)
 
-    if ENVIRONMENT == "local":
+    if DEV_MODE:
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         Path(LOG_DIR).mkdir(parents=True, exist_ok=True)
 

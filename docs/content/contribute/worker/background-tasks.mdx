@@ -314,7 +314,7 @@ Celery workers are configured with Redis-optimized performance settings:
 ENV CELERY_WORKER_CONCURRENCY=8 \
     CELERY_WORKER_PREFETCH_MULTIPLIER=4 \
     CELERY_WORKER_MAX_TASKS_PER_CHILD=1000 \
-    CELERY_WORKER_LOGLEVEL=INFO \
+    LOG_LEVEL=INFO \
     CELERY_WORKER_OPTS=""`}
 </CodeBlock>
 
@@ -358,13 +358,15 @@ The Celery app includes Redis-optimized settings:
 )`}
 </CodeBlock>
 
-The worker startup script applies these configurations:
+The worker startup script applies these configurations. Celery reads its log
+level from the same `LOG_LEVEL` variable used by the rest of the backend,
+rather than a separate Celery-specific variable:
 
 <CodeBlock language="bash" filename="start-worker.sh" isTerminal={true}>
 {`# Start Celery worker with Redis-optimized settings
 celery -A rhesis.backend.worker.app worker \
     --queues=celery,execution,telemetry \
-    --loglevel=\${CELERY_WORKER_LOGLEVEL:-INFO} \
+    --loglevel=\${LOG_LEVEL:-INFO} \
     --concurrency=\${CELERY_WORKER_CONCURRENCY:-8} \
     --prefetch-multiplier=\${CELERY_WORKER_PREFETCH_MULTIPLIER:-4} \
     --max-tasks-per-child=\${CELERY_WORKER_MAX_TASKS_PER_CHILD:-1000} \

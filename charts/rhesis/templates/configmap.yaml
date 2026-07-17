@@ -70,7 +70,6 @@ data:
   CELERY_WORKER_CONCURRENCY: {{ .Values.config.celeryWorkerConcurrency | quote }}
   CELERY_WORKER_PREFETCH_MULTIPLIER: {{ .Values.config.celeryWorkerPrefetchMultiplier | quote }}
   CELERY_WORKER_MAX_TASKS_PER_CHILD: {{ .Values.config.celeryWorkerMaxTasksPerChild | quote }}
-  CELERY_WORKER_LOGLEVEL: {{ .Values.config.celeryWorkerLogLevel | quote }}
 
   # -------------------------------------------------------------------------
   # GCP / Vertex AI

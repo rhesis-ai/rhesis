@@ -100,10 +100,10 @@ The logger chooses handlers from runtime configuration:
 | `JSON_LOGGER_ENABLED=true` | JSON logs on stdout (`severity`, `module`, `message`) — never colored |
 | Interactive TTY (and JSON off) | Colored plain-text logs on stdout |
 | Non-TTY stdout (and JSON off) | Plain-text logs on stdout |
-| `BACKEND_ENV=local` (any of the above) | Additionally writes a timestamped plain-text file under `LOG_DIR` |
+| `DEV_MODE=true` (any of the above) | Additionally writes a timestamped plain-text file under `LOG_DIR` |
 | Celery worker (node name ``-n main@…`` / ``architect@…``) | Adds `worker_role` to JSON; `[ROLE] -` prefix in plain/color |
 
-`DEV_MODE=true` enables Uvicorn hot reload and `--log-level debug` in `start.sh`, and forces `CELERY_WORKER_LOGLEVEL=DEBUG` in the worker. Set `DEV_MODE=true` in `apps/backend/.env` when running via `./rh dev`; leave it unset or `false` everywhere else (Docker Compose local, cloud deployments).
+`DEV_MODE=true` enables Uvicorn hot reload and `--log-level debug` in `start.sh`. The Celery worker reads its log level from the shared `LOG_LEVEL` variable rather than from `DEV_MODE`. Set `DEV_MODE=true` in `apps/backend/.env` when running via `./rh dev`; leave it unset or `false` everywhere else (Docker Compose local, cloud deployments).
 
 All configured handlers wrap their formatter in `RedactingFormatter`, which
 scrubs bearer tokens, JWTs, API keys, database URLs, cookies, passwords, and
