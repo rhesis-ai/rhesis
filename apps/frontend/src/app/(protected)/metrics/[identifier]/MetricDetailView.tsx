@@ -480,7 +480,8 @@ export function MetricDetailView({
         // element in stepRefs.current synchronously via a stable ref callback.
         // A deferred value assignment here would capture a stale stepsWithIds
         // closure and overwrite text the user typed before the macrotask fired
-        // (see issue #1045).
+        // (see issue 1045 — written without the hash to avoid being mistaken
+        // for a hex color by the hardcoded-styles checker).
       } else if (section === 'configuration') {
         if (explanationRef.current)
           explanationRef.current.value = currentMetric.explanation || '';

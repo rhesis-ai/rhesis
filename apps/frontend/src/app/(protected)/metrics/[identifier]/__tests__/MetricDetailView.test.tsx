@@ -8,7 +8,7 @@ import {
   act,
 } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import MetricDetailView from '../MetricDetailView';
+import { MetricDetailView } from '../MetricDetailView';
 import type { MetricDetail } from '@/utils/api-client/interfaces/metric';
 
 const mockGetMetric = jest.fn();
