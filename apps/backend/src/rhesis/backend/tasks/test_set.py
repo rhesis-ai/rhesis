@@ -220,7 +220,15 @@ def _build_task_result(
     org_id: str,
     user_id: str,
 ) -> dict:
-    """Build the comprehensive task result dictionary."""
+    """Build the comprehensive task result dictionary.
+
+    The returned dict is forwarded to the email template (TASK_COMPLETION) by
+    BaseTask.on_success → _send_task_completion_email. ``project_id`` is
+    included so the "View Test Set" deep link can switch the frontend to the
+    owning project before fetching the test set (see issue #2133). It is
+    ``None`` when the test set has no project — the template guards with
+    ``{% if project_id %}``.
+    """
     return {
         "test_set_id": str(db_test_set.id),
         "test_set_name": db_test_set.name,
@@ -234,6 +242,9 @@ def _build_task_result(
         "metadata": db_test_set.attributes.get("metadata", {}) if db_test_set.attributes else {},
         "organization_id": org_id,
         "user_id": user_id,
+        # Thread the test set's project_id into the email deep link so the
+        # frontend can switch projects before fetching the test set (#2133).
+        "project_id": str(db_test_set.project_id) if db_test_set.project_id else None,
         "save_successful": True,
     }
 

@@ -70,6 +70,11 @@ def send_task_assignment_notification(
             "entity_type": task.entity_type,
             "entity_id": str(task.entity_id) if task.entity_id else None,
             "entity_name": entity_name,
+            # Thread the task's owning project_id into the deep link so the
+            # frontend can switch projects before fetching the task (see #2133).
+            # May be None for tasks without a project — the template guards
+            # with `{% if project_id %}`.
+            "project_id": str(task.project_id) if task.project_id else None,
             "created_at": task.created_at.strftime("%Y-%m-%d %H:%M:%S")
             if task.created_at
             else "N/A",

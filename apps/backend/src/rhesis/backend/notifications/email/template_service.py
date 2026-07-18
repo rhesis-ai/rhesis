@@ -59,7 +59,12 @@ class TemplateService:
                 "execution_time",
                 "error_message",
                 "frontend_url",
-                # Note: test_run_id and test_set_id are optional (task-specific)
+                # Note: test_run_id, test_set_id, and project_id are optional
+                # (task-specific). project_id is intentionally NOT in this set
+                # so _prepare_context leaves it as None/Undefined when absent,
+                # which the template's `{% if project_id %}` guard correctly
+                # evaluates to False (issue #2133). Adding it here would set
+                # missing values to 'N/A' (truthy) and produce ?project_id=N/A.
             },
             EmailTemplate.TEST_EXECUTION_SUMMARY: {
                 "recipient_name",
@@ -78,6 +83,7 @@ class TemplateService:
                 "endpoint_name",
                 "endpoint_url",
                 "project_name",
+                # project_id is optional — see TASK_COMPLETION note above.
             },
             EmailTemplate.TEAM_INVITATION: {
                 "recipient_name",
@@ -102,6 +108,7 @@ class TemplateService:
                 "created_at",
                 "task_metadata",
                 "frontend_url",
+                # project_id is optional — see TASK_COMPLETION note above.
             },
             EmailTemplate.WELCOME: {
                 "recipient_name",

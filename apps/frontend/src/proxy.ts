@@ -14,6 +14,7 @@ import {
   getServerBackendUrl,
   shouldUseSecureCookies,
 } from './utils/url-resolver';
+import { ACTIVE_PROJECT_COOKIE } from './utils/active-project';
 
 const decodeBase64 =
   globalThis.atob ??
@@ -144,7 +145,102 @@ async function createSessionClearingResponse(
   return response;
 }
 
+// UUID pattern for `?project_id=<uuid>` deep links from backend email
+// notifications. See `applyProjectDeepLink` below.
+const UUID_PATTERN =
+  /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+
+// Cookie max-age must match writeActiveProjectId() so server- and
+// client-side writes produce identical cookies (no shadowing).
+const PROJECT_COOKIE_MAX_AGE = 60 * 60 * 24 * 365; // 1 year
+
+/**
+ * Proactively switch the active project when a project-scoped detail page is
+ * reached via a deep link carrying `?project_id=<uuid>`.
+ *
+ * Backend email notifications thread the entity's owning project_id into
+ * every project-scoped deep link (see issue 2133). Without this switch, the
+ * target page's server component would fetch with the currently selected
+ * project's cookie, 404 against the project-scoped API, and fall through to
+ * `notFound()` before any client-side switcher could run.
+ *
+ * Running here — before the auth/session checks — lets us set the
+ * `rh_active_project_id` cookie so `getServerActiveProjectId()` returns the
+ * owning project on the very first server-rendered fetch. Auth still runs
+ * afterwards on the (now project-correct) request.
+ *
+ * Returns `null` when no switching is needed so the caller can fall through
+ * to the rest of the proxy logic.
+ */
+export function applyProjectDeepLink(
+  request: NextRequest
+): NextResponse | null {
+  const projectId = request.nextUrl.searchParams.get('project_id');
+
+  // No project_id in URL — normal navigation, no-op.
+  if (!projectId) {
+    return null;
+  }
+
+  // Reject malformed project_id — don't blindly trust a query param.
+  // A non-UUID value would otherwise overwrite the cookie with garbage and
+  // break the user's session.
+  if (!UUID_PATTERN.test(projectId)) {
+    return null;
+  }
+
+  const currentProjectId = request.cookies.get(ACTIVE_PROJECT_COOKIE)?.value;
+
+  // Already on the correct project — no-op, avoids a Set-Cookie header on
+  // every intra-project navigation that happens to carry ?project_id.
+  if (currentProjectId === projectId) {
+    return null;
+  }
+
+  // Mutate the INCOMING request's Cookie header FIRST.
+  //
+  // `response.cookies.set()` only adds a `Set-Cookie` response header —
+  // the browser stores it for the NEXT navigation, but `cookies()` from
+  // `next/headers` reads the CURRENT request's `Cookie` header, which is
+  // unchanged. The server component on this same request would still see
+  // the OLD project_id cookie and 404 against the project-scoped API.
+  //
+  // `NextRequest.cookies` is a `RequestCookies` whose `set()` mutates the
+  // underlying `Cookie` header on `request.headers`. Then we forward that
+  // modified headers object via `NextResponse.next({ request: { headers } })`,
+  // which is how middleware propagates header changes to downstream server
+  // components in a single request (no extra round-trip, no 404 flash).
+  //
+  // See: https://nextjs.org/docs/app/api-reference/functions/next-request#cookies
+  request.cookies.set(ACTIVE_PROJECT_COOKIE, projectId);
+
+  const response = NextResponse.next({
+    request: {
+      headers: request.headers,
+    },
+  });
+
+  // ALSO set on the response so the browser persists it for future
+  // navigations (otherwise the cookie would only live for this single
+  // request and the next navigation would lose the project switch).
+  response.cookies.set(ACTIVE_PROJECT_COOKIE, projectId, {
+    path: '/',
+    maxAge: PROJECT_COOKIE_MAX_AGE,
+    sameSite: 'lax',
+  });
+
+  return response;
+}
+
 export async function proxy(request: NextRequest) {
+  // Apply project deep-link switching before auth/session checks so the
+  // first server-rendered fetch sees the correct project. Auth still runs
+  // on the (now project-correct) request via the fall-through below.
+  const deepLinkResponse = applyProjectDeepLink(request);
+  if (deepLinkResponse) {
+    return deepLinkResponse;
+  }
+
   const pathname = request.nextUrl.pathname;
 
   // At the top of the middleware function, after pathname declaration

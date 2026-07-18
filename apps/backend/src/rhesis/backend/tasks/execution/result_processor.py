@@ -336,6 +336,17 @@ def get_test_context(test_configuration) -> Tuple[str, str, str, str]:
     return test_set_name, endpoint_name, endpoint_url, project_name
 
 
+def get_test_run_project_id(test_run) -> Optional[str]:
+    """
+    Return the test run's project_id as a string, or None.
+
+    Used by email deep-link rendering so the frontend can switch to the
+    owning project before fetching the test run (see issue #2133).
+    """
+    project_id = getattr(test_run, "project_id", None)
+    return str(project_id) if project_id else None
+
+
 def calculate_execution_time(
     test_run: TestRun, completion_time: datetime, logger_func
 ) -> Optional[str]:
@@ -519,6 +530,7 @@ def build_summary_data(
     endpoint_url: str,
     project_name: str,
     completion_time: datetime,
+    project_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Build the summary data dictionary to return from the task.
@@ -537,6 +549,10 @@ def build_summary_data(
         endpoint_url: URL of the endpoint
         project_name: Name of the project
         completion_time: Completion timestamp
+        project_id: UUID string of the test run's owning project. Threaded into
+            email deep links so the frontend can switch to the owning project
+            before fetching the test run (see issue #2133). ``None`` when the
+            test run has no project_id — templates guard with ``{% if project_id %}``.
 
     Returns:
         Dictionary containing test execution summary
@@ -555,6 +571,7 @@ def build_summary_data(
         "endpoint_name": endpoint_name,
         "endpoint_url": endpoint_url,
         "project_name": project_name,
+        "project_id": project_id,
         "completed_at": completion_time.strftime("%Y-%m-%d %H:%M:%S"),
     }
 
@@ -614,6 +631,7 @@ class TestRunProcessor:
                 "",
                 "",
                 completion_time,
+                project_id=get_test_run_project_id(test_run),
             )
 
         # Calculate test statistics using SQL aggregation
@@ -665,4 +683,5 @@ class TestRunProcessor:
             endpoint_url,
             project_name,
             completion_time,
+            project_id=get_test_run_project_id(test_run),
         )
