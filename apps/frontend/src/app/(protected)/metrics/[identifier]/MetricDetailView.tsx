@@ -475,15 +475,12 @@ export function MetricDetailView({
         });
         setStepsWithIds(stepsWithIds);
 
-        // Populate step refs after a brief delay to ensure DOM elements exist
-        setTimeout(() => {
-          stepsWithIds.forEach(step => {
-            const stepElement = stepRefs.current.get(step.id);
-            if (stepElement) {
-              stepElement.value = step.content;
-            }
-          });
-        }, 0);
+        // No setTimeout needed: each step input uses defaultValue={step.content}
+        // which React commits to the DOM on mount, and getStepRef registers the
+        // element in stepRefs.current synchronously via a stable ref callback.
+        // A deferred value assignment here would capture a stale stepsWithIds
+        // closure and overwrite text the user typed before the macrotask fired
+        // (see issue #1045).
       } else if (section === 'configuration') {
         if (explanationRef.current)
           explanationRef.current.value = currentMetric.explanation || '';
