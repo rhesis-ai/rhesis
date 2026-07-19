@@ -88,9 +88,7 @@ export function useBehaviorInsightsData(
     debounceRef.current = setTimeout(() => {
       void (async () => {
         try {
-          const testRunIds = await resolveInsightsQueryTestRunIds(
-            filters
-          );
+          const testRunIds = await resolveInsightsQueryTestRunIds(filters);
 
           if (!isCurrentRequest(requestId)) return;
 

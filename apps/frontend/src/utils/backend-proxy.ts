@@ -198,9 +198,7 @@ export async function proxyToBackend(
     // It's also what lets `clearTimeout` below bound only "time to first
     // byte" rather than the full body transfer for long-running responses.
     const body =
-      upstream.status === 204 || upstream.status === 304
-        ? null
-        : upstream.body;
+      upstream.status === 204 || upstream.status === 304 ? null : upstream.body;
 
     return new NextResponse(body, {
       status: upstream.status,

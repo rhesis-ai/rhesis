@@ -139,9 +139,7 @@ export default function InsightsFilterDrawer({
 
     void (async () => {
       try {
-        const allRuns = await fetchTestRunsForEndpoint(
-          draft.endpointId
-        );
+        const allRuns = await fetchTestRunsForEndpoint(draft.endpointId);
 
         if (cancelled) return;
 

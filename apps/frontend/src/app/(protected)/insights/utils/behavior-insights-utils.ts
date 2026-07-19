@@ -181,10 +181,7 @@ export async function fetchTestRunIdsForEndpoint(
   endpointId: string,
   timeRange?: InsightsTimeRange
 ): Promise<string[]> {
-  const runs = await fetchTestRunsForEndpoint(
-    endpointId,
-    timeRange
-  );
+  const runs = await fetchTestRunsForEndpoint(endpointId, timeRange);
   return runs.map(run => run.id);
 }
 
@@ -221,9 +218,7 @@ export async function resolveInsightsQueryTestRunIds(
   } else if (filters.testRunIds.length > 0) {
     testRunIds = filters.testRunIds;
   } else {
-    testRunIds = await fetchTestRunIdsForEndpoint(
-      filters.endpointId
-    );
+    testRunIds = await fetchTestRunIdsForEndpoint(filters.endpointId);
   }
 
   assertInsightsTestRunIdsWithinLimit(testRunIds);

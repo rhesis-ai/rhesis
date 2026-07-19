@@ -488,9 +488,7 @@ export const authConfig: NextAuthConfig = {
       const refreshed = await resolveFreshToken({
         session_token: token.session_token as string | undefined,
         refresh_token: token.refresh_token as string | undefined,
-        access_token_expires: token.access_token_expires as
-          | number
-          | undefined,
+        access_token_expires: token.access_token_expires as number | undefined,
       });
       token.session_token = refreshed.session_token;
       token.refresh_token = refreshed.refresh_token;

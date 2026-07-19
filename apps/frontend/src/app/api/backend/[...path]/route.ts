@@ -52,9 +52,12 @@ function isCrossSiteRequest(req: NextRequest): boolean {
 
 async function handle(req: NextRequest): Promise<NextResponse> {
   if (isCrossSiteRequest(req)) {
-    return NextResponse.json({ error: 'Cross-site request rejected' }, {
-      status: 403,
-    });
+    return NextResponse.json(
+      { error: 'Cross-site request rejected' },
+      {
+        status: 403,
+      }
+    );
   }
 
   const { accessToken, refreshedCookie } = await getFreshAccessToken({

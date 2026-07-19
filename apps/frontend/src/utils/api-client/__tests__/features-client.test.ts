@@ -41,7 +41,10 @@ describe('FeaturesClient', () => {
 
     const result = await client.getFeatures();
 
-    expect(fetchMock).toHaveBeenCalledWith(`${BASE_URL}/features`, expect.anything());
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${BASE_URL}/features`,
+      expect.anything()
+    );
     const headers = fetchMock.mock.calls[0][1].headers as Record<
       string,
       string

@@ -119,13 +119,7 @@ describe('Project detail ClientWrapper delete flow', () => {
   });
 
   it('closes the delete modal after a successful delete', async () => {
-    render(
-      <ClientWrapper
-        project={makeProject()}
-
-        projectId="proj-1"
-      />
-    );
+    render(<ClientWrapper project={makeProject()} projectId="proj-1" />);
 
     await openDeleteModal();
     await userEvent.click(
@@ -148,13 +142,7 @@ describe('Project detail ClientWrapper delete flow', () => {
   it('closes the delete modal when deletion fails', async () => {
     mockDeleteProject.mockRejectedValue(new Error('Server error'));
 
-    render(
-      <ClientWrapper
-        project={makeProject()}
-
-        projectId="proj-1"
-      />
-    );
+    render(<ClientWrapper project={makeProject()} projectId="proj-1" />);
 
     await openDeleteModal();
     await userEvent.click(

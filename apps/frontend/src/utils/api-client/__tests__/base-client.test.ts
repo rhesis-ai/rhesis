@@ -123,13 +123,10 @@ describe('BaseApiClient', () => {
 
       await client.fetchPublic('/tests/1');
 
-      const [, requestInit] = fetchMock.mock.calls[0] as [
-        string,
-        RequestInit,
-      ];
-      expect((requestInit.headers as Record<string, string>)['Content-Type']).toBe(
-        'application/json'
-      );
+      const [, requestInit] = fetchMock.mock.calls[0] as [string, RequestInit];
+      expect(
+        (requestInit.headers as Record<string, string>)['Content-Type']
+      ).toBe('application/json');
       expect(
         (requestInit.headers as Record<string, string>)['Authorization']
       ).toBeUndefined();

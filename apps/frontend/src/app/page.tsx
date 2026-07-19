@@ -10,7 +10,11 @@ import AuthPageShell from '../components/auth/AuthPageShell';
 import { getClientApiBaseUrl } from '../utils/url-resolver';
 import RocketLaunchIcon from '@mui/icons-material/RocketLaunchOutlined';
 import { fetchQuickStartEnabled } from '@/utils/quick_start';
-import { isAuthenticated, isSessionLoading, isSessionUnauthenticated } from '@/hooks/useIsAuthenticated';
+import {
+  isAuthenticated,
+  isSessionLoading,
+  isSessionUnauthenticated,
+} from '@/hooks/useIsAuthenticated';
 
 export default function LandingPage() {
   const { data: session, status } = useSession();

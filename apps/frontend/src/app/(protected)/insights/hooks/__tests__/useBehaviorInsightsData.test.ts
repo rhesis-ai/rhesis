@@ -70,9 +70,7 @@ describe('useBehaviorInsightsData', () => {
       endpointId: 'ep-1',
     };
 
-    const { result } = renderHook(() =>
-      useBehaviorInsightsData(filters)
-    );
+    const { result } = renderHook(() => useBehaviorInsightsData(filters));
 
     jest.advanceTimersByTime(300);
 

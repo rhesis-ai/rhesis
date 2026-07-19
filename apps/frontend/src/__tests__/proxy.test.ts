@@ -20,10 +20,7 @@ import {
   getFreshAccessToken,
 } from '@/auth';
 import { proxy } from '@/proxy';
-import {
-  DEFAULT_AUTHENTICATED_PATH,
-  ONBOARDING_PATH,
-} from '@/constants/paths';
+import { DEFAULT_AUTHENTICATED_PATH, ONBOARDING_PATH } from '@/constants/paths';
 
 jest.mock('next-auth/jwt', () => ({
   getToken: jest.fn(),
@@ -37,7 +34,8 @@ jest.mock('@/auth', () => ({
 
 const mockGetToken = getToken as jest.Mock;
 const mockGetFreshAccessToken = getFreshAccessToken as jest.Mock;
-const mockApplyRefreshedSessionCookie = applyRefreshedSessionCookie as jest.Mock;
+const mockApplyRefreshedSessionCookie =
+  applyRefreshedSessionCookie as jest.Mock;
 const mockDecodeJwtUser = decodeJwtUser as jest.Mock;
 
 const ORIGIN = 'http://localhost:3000';
