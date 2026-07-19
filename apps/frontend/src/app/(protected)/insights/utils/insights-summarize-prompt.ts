@@ -17,7 +17,7 @@ export interface CapArchitectInsightsTestRunIdsResult {
  * Cap run IDs for the Architect handoff.
  *
  * - Time-range mode: IDs are already recency-ordered (newest first) — take first 50.
- * - Explicit selection: preserve user-provided order — take first 50 (peqy / #2178).
+ * - Explicit selection: preserve user-provided order — take first 50.
  */
 export function capArchitectInsightsTestRunIds(
   testRunIds: string[]

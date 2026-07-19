@@ -20,7 +20,7 @@ export interface CreateAndOpenArchitectSessionOptions {
  * then navigate to `/architect?session=<id>`.
  *
  * Opens `about:blank` synchronously on the click gesture so browsers do not
- * popup-block the tab after the async create call (peqy / #2178).
+ * popup-block the tab after the async create call.
  */
 export async function createAndOpenArchitectSession(
   options: CreateAndOpenArchitectSessionOptions

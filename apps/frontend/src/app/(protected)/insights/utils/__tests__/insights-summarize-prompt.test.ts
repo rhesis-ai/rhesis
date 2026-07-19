@@ -7,9 +7,7 @@ import {
 } from '../insights-summarize-prompt';
 import { DEFAULT_INSIGHTS_FILTERS, InsightsFilters } from '../../types';
 
-function filters(
-  overrides: Partial<InsightsFilters> = {}
-): InsightsFilters {
+function filters(overrides: Partial<InsightsFilters> = {}): InsightsFilters {
   return { ...DEFAULT_INSIGHTS_FILTERS, ...overrides };
 }
 
@@ -36,9 +34,7 @@ describe('capArchitectInsightsTestRunIds', () => {
 
 describe('formatInsightsPeriodLabel', () => {
   it('uses time-range labels', () => {
-    expect(
-      formatInsightsPeriodLabel(filters({ timeRange: '7d' }))
-    ).toBe('7D');
+    expect(formatInsightsPeriodLabel(filters({ timeRange: '7d' }))).toBe('7D');
   });
 
   it('uses run count for explicit selection', () => {

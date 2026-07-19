@@ -36,6 +36,8 @@ ENV PATH="/root/.cargo/bin:$PATH"
 COPY sdk /app/sdk/
 COPY penelope /app/penelope/
 COPY packages/rhesis /app/packages/rhesis/
+# Hatch force-includes skill refs into the SDK wheel (see sdk/pyproject.toml).
+COPY skills/rhesis/references /app/skills/rhesis/references/
 # EE source. Deployed images always carry the EE code; runtime activation is
 # decided by the license provider + RHESIS_LICENSE env var, mirroring the
 # QUICK_START pattern (always-on code, env-flipped behavior). The migrate

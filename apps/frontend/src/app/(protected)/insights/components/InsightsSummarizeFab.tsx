@@ -34,7 +34,7 @@ export default function InsightsSummarizeFab({
 }: InsightsSummarizeFabProps) {
   const [creating, setCreating] = useState(false);
 
-  // Enabled regardless of failedCount (including 0) — peqy / #2178
+  // Enabled regardless of failedCount (including 0)
   const isDisabled =
     disabled || loading || creating || !filters.endpointId || !sessionToken;
 
@@ -70,13 +70,7 @@ export default function InsightsSummarizeFab({
     } finally {
       setCreating(false);
     }
-  }, [
-    endpointName,
-    filters,
-    isDisabled,
-    sessionToken,
-    visibleBehaviorNames,
-  ]);
+  }, [endpointName, filters, isDisabled, sessionToken, visibleBehaviorNames]);
 
   return (
     <Can capability={Capability.Architect.CREATE}>

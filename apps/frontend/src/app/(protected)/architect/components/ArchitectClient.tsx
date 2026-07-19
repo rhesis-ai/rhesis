@@ -80,10 +80,7 @@ export default function ArchitectClient() {
           if (!data.some(s => s.id === sessionFromQuery)) {
             try {
               const detail = await client.getSession(sessionFromQuery);
-              nextSessions = [
-                detail,
-                ...data.filter(s => s.id !== detail.id),
-              ];
+              nextSessions = [detail, ...data.filter(s => s.id !== detail.id)];
             } catch (err) {
               console.error('Failed to load session from query:', err);
             }
