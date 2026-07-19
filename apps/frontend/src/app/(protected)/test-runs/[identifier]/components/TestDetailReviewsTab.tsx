@@ -87,7 +87,7 @@ export default function TestDetailReviewsTab({
     let cancelled = false;
     (async () => {
       try {
-        const clientFactory = new ApiClientFactory(sessionToken);
+        const clientFactory = new ApiClientFactory();
         const testResultsClient = clientFactory.getTestResultsClient();
         const updatedTest = await testResultsClient.getTestResult(test.id);
         if (!cancelled) onTestResultUpdate(updatedTest);
@@ -99,7 +99,7 @@ export default function TestDetailReviewsTab({
     return () => {
       cancelled = true;
     };
-  }, [test.id, test.test_reviews, sessionToken, onTestResultUpdate]);
+  }, [test.id, test.test_reviews, onTestResultUpdate]);
 
   // Stable capture of initial comment for the drawer (survives parent reset)
   const pendingCommentRef = useRef<{
@@ -230,7 +230,7 @@ export default function TestDetailReviewsTab({
   const handleToggleResolved = async (review: Review) => {
     try {
       setResolvingReviewId(review.review_id);
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const testResultsClient = clientFactory.getTestResultsClient();
       await testResultsClient.updateReview(test.id, review.review_id, {
         resolved: !review.resolved,

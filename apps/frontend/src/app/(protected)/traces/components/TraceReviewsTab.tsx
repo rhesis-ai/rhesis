@@ -203,7 +203,7 @@ export default function TraceReviewsTab({
     if (!selectedSpan.id) return;
     try {
       setResolvingReviewId(review.review_id);
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const telemetryClient = clientFactory.getTelemetryClient();
       await telemetryClient.updateReview(selectedSpan.id, review.review_id, {
         resolved: !review.resolved,
