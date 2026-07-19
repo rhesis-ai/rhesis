@@ -45,6 +45,14 @@ class TestInferWorkflowPath:
     def test_ambiguous_returns_none(self):
         assert infer_workflow_path("hello") is None
 
+    def test_insights_summarize_signals(self):
+        assert (
+            infer_workflow_path("Summarize insights for the Insights page view")
+            == WorkflowPath.RUN_ANALYZE
+        )
+        assert infer_workflow_path("insights summary — Chatbot") == WorkflowPath.RUN_ANALYZE
+
+
 
 @pytest.mark.unit
 class TestResolveWorkflowPathUpdate:
@@ -89,6 +97,12 @@ class TestPhaseIncludeNames:
 
     def test_executing_has_analysis(self):
         names = phase_include_names(AgentMode.EXECUTING, WorkflowPath.EXPLORE)
+        assert "phases/analysis.md" in names
+
+    def test_run_analyze_discovery_includes_insights_summary(self):
+        names = phase_include_names(AgentMode.DISCOVERY, WorkflowPath.RUN_ANALYZE)
+        assert "insights-summary.md" in names
+        assert "result-analysis.md" in names
         assert "phases/analysis.md" in names
 
 

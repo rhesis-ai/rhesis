@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Box } from '@mui/material';
 import { useSession } from 'next-auth/react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { ArchitectSession } from '@/utils/api-client/architect-client';
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
@@ -22,6 +23,9 @@ import ArchitectWelcome from './ArchitectWelcome';
 export default function ArchitectClient() {
   const { data: session } = useSession();
   const { activeProject } = useActiveProject();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
     Capability.Architect.READ
   );
@@ -46,10 +50,19 @@ export default function ArchitectClient() {
     [activeProject?.id]
   );
 
+  const clearSessionQueryParam = useCallback(() => {
+    if (!searchParams.has('session')) return;
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete('session');
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [pathname, router, searchParams]);
+
   // Reload sessions whenever the active project changes so the sidebar always
   // shows only sessions belonging to the current project. The backend already
   // filters by project via RLS (X-Project-Id header); we just need to re-fetch
   // when the project scope switches.
+  // Prefer ?session= over the resume hint (contextual handoffs from Insights etc.).
   useEffect(() => {
     const loadSessions = async () => {
       if (permsLoading || !canRead) return;
@@ -60,14 +73,37 @@ export default function ArchitectClient() {
       setSessions([]);
       try {
         const data = await client.getSessions();
-        setSessions(data);
+        let nextSessions = data;
+        const sessionFromQuery = searchParams.get('session');
 
-        const projectId = activeProject?.id;
-        if (projectId) {
-          const resumeSessionId = pickResumableSessionId(projectId, data);
-          setActiveSessionId(resumeSessionId);
+        if (sessionFromQuery) {
+          if (!data.some(s => s.id === sessionFromQuery)) {
+            try {
+              const detail = await client.getSession(sessionFromQuery);
+              nextSessions = [
+                detail,
+                ...data.filter(s => s.id !== detail.id),
+              ];
+            } catch (err) {
+              console.error('Failed to load session from query:', err);
+            }
+          }
+          setSessions(nextSessions);
+          const exists = nextSessions.some(s => s.id === sessionFromQuery);
+          setActiveSessionId(exists ? sessionFromQuery : null);
+          if (exists) {
+            touchResumeHint(sessionFromQuery);
+          }
+          clearSessionQueryParam();
         } else {
-          setActiveSessionId(null);
+          setSessions(nextSessions);
+          const projectId = activeProject?.id;
+          if (projectId) {
+            const resumeSessionId = pickResumableSessionId(projectId, data);
+            setActiveSessionId(resumeSessionId);
+          } else {
+            setActiveSessionId(null);
+          }
         }
       } catch (err) {
         console.error('Failed to load architect sessions:', err);
@@ -77,6 +113,9 @@ export default function ArchitectClient() {
       }
     };
     loadSessions();
+    // Intentionally omit searchParams from deps after first load for a given
+    // project — clearing ?session= must not re-trigger a full reload loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- project/token drive reload
   }, [getClient, activeProject?.id, permsLoading, canRead]);
 
   // Bump last-activity when navigating away mid-conversation.
