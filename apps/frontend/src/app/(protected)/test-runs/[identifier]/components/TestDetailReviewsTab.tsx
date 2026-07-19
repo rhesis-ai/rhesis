@@ -18,6 +18,7 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { formatDistanceToNow } from 'date-fns';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   TestResultDetail,
   Review,
@@ -29,6 +30,7 @@ import { alpha } from '@mui/material/styles';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import StatusChip from '@/components/common/StatusChip';
 import { isPassedStatusName } from '@/utils/test-result-status';
+import { annotationKeys } from '@/constants/query-keys';
 import {
   getResultReviews,
   getLatestMetricReviewForResult,
@@ -36,7 +38,7 @@ import {
 } from './test-run-summary-utils';
 import {
   MentionOption,
-  renderMentionText,
+  MentionText,
 } from '@/components/common/MentionTextInput';
 import ReviewJudgementDrawer from './ReviewJudgementDrawer';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
@@ -65,10 +67,41 @@ export default function TestDetailReviewsTab({
   mentionableTurns = [],
 }: TestDetailReviewsTabProps) {
   const theme = useTheme();
+  const queryClient = useQueryClient();
+
+  const invalidateAnnotations = () => {
+    void queryClient.invalidateQueries({ queryKey: annotationKeys.all() });
+  };
 
   const canCreateReview = can(test, Capability.TestResult.UPDATE);
   const [createOpen, setCreateOpen] = useState(false);
   const [showOthers, setShowOthers] = useState(false);
+
+  // List payloads omit review affordances — refresh so resolve/delete gates work.
+  useEffect(() => {
+    const reviews = test.test_reviews?.reviews;
+    if (!reviews?.length) return;
+    const missingAffordances = reviews.some(
+      r => !Array.isArray(r.permitted_actions)
+    );
+    if (!missingAffordances) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const clientFactory = new ApiClientFactory(sessionToken);
+        const testResultsClient = clientFactory.getTestResultsClient();
+        const updatedTest = await testResultsClient.getTestResult(test.id);
+        if (!cancelled) onTestResultUpdate(updatedTest);
+      } catch (error) {
+        console.error('Failed to refresh review affordances:', error);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [test.id, test.test_reviews, sessionToken, onTestResultUpdate]);
 
   // Stable capture of initial comment for the drawer (survives parent reset)
   const pendingCommentRef = useRef<{
@@ -103,6 +136,7 @@ export default function TestDetailReviewsTab({
     const testResultsClient = clientFactory.getTestResultsClient();
     const updatedTest = await testResultsClient.getTestResult(testId);
     onTestResultUpdate(updatedTest);
+    invalidateAnnotations();
   };
 
   // Delete handlers
@@ -120,6 +154,7 @@ export default function TestDetailReviewsTab({
       await testResultsClient.deleteReview(test.id, reviewToDelete.review_id);
       const updatedTest = await testResultsClient.getTestResult(test.id);
       onTestResultUpdate(updatedTest);
+      invalidateAnnotations();
       setDeleteDialogOpen(false);
       setReviewToDelete(null);
     } catch (_err) {
@@ -180,15 +215,37 @@ export default function TestDetailReviewsTab({
   const hasMetricReviewOnly =
     !latestTestLevelReview && latestMetricReview !== undefined;
 
-  // Conflict: human test-level review disagrees with automated
+  // Conflict: human test-level review disagrees with automated (and not resolved)
   const hasConflict = useMemo(() => {
     if (!latestTestLevelReview?.status?.name) return false;
+    if (latestTestLevelReview.resolved) return false;
     return (
       isPassedStatusName(latestTestLevelReview.status.name) !==
       automatedStatus.passed
     );
   }, [latestTestLevelReview, automatedStatus]);
 
+  const [resolvingReviewId, setResolvingReviewId] = useState<string | null>(
+    null
+  );
+
+  const handleToggleResolved = async (review: Review) => {
+    try {
+      setResolvingReviewId(review.review_id);
+      const clientFactory = new ApiClientFactory(sessionToken);
+      const testResultsClient = clientFactory.getTestResultsClient();
+      await testResultsClient.updateReview(test.id, review.review_id, {
+        resolved: !review.resolved,
+      });
+      const updatedTest = await testResultsClient.getTestResult(test.id);
+      onTestResultUpdate(updatedTest);
+      invalidateAnnotations();
+    } catch (error) {
+      console.error('Failed to update review resolution:', error);
+    } finally {
+      setResolvingReviewId(null);
+    }
+  };
   const getReviewStatusDisplay = (
     statusName: string
   ): { passed: boolean; label: string } => {
@@ -330,7 +387,13 @@ export default function TestDetailReviewsTab({
       {hasConflict && (
         <Box
           sx={{
-            bgcolor: 'warning.light',
+            bgcolor: theme =>
+              alpha(
+                theme.palette.warning.main,
+                theme.palette.mode === 'light' ? 0.08 : 0.16
+              ),
+            border: '1px solid',
+            borderColor: 'warning.main',
             borderRadius: BORDER_RADIUS.xs,
             px: '30px',
             py: '12px',
@@ -339,8 +402,8 @@ export default function TestDetailReviewsTab({
             overflow: 'hidden',
           }}
         >
-          <Box sx={{ pr: '12px', py: '7px', flexShrink: 0 }}>
-            <WarningAmberIcon sx={{ fontSize: 22, color: 'common.white' }} />
+          <Box sx={{ pr: '12px', py: '4px', flexShrink: 0 }}>
+            <WarningAmberIcon sx={{ fontSize: 18, color: 'warning.main' }} />
           </Box>
           <Box
             sx={{
@@ -353,16 +416,16 @@ export default function TestDetailReviewsTab({
           >
             <Typography
               sx={{
-                color: 'white',
+                color: 'text.primary',
                 fontWeight: 700,
-                fontSize: 18,
-                lineHeight: '25px',
+                fontSize: 14,
+                lineHeight: '20px',
               }}
             >
               Status Conflict Detected:
             </Typography>
             <Typography
-              sx={{ color: 'white', fontSize: 16, lineHeight: '24px' }}
+              sx={{ color: 'text.secondary', fontSize: 13, lineHeight: '18px' }}
             >
               The human review status differs from the automated test result.
               This indicates the reviewer disagreed with the automation.
@@ -430,8 +493,20 @@ export default function TestDetailReviewsTab({
           >
             {visibleReviews.map(review => {
               const display = getReviewStatusDisplay(review.status.name);
+              const canUpdateReview =
+                can(review, Capability.TestResult.UPDATE) ||
+                (canCreateReview &&
+                  String(review.user.user_id) === currentUserId);
+              const isResolving = resolvingReviewId === review.review_id;
               return (
-                <Box key={review.review_id} sx={{ px: 3, py: 2 }}>
+                <Box
+                  key={review.review_id}
+                  sx={{
+                    px: 3,
+                    py: 2,
+                    opacity: review.resolved ? 0.7 : 1,
+                  }}
+                >
                   <Box
                     sx={{
                       display: 'flex',
@@ -464,15 +539,53 @@ export default function TestDetailReviewsTab({
                         {formatRelativeTime(review.updated_at)}
                       </Typography>
                     </Box>
-                    <Box
-                      sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
-                    >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      {review.resolved && (
+                        <Chip
+                          size="small"
+                          label="Resolved"
+                          variant="outlined"
+                          sx={{
+                            height: 24,
+                            fontSize: theme =>
+                              theme.typography.caption.fontSize,
+                            borderRadius: BORDER_RADIUS.pill,
+                            borderColor: 'success.main',
+                            color: 'success.main',
+                          }}
+                        />
+                      )}
                       <StatusChip
                         passed={display.passed}
                         label={display.label}
                         size="small"
                         variant="outlined"
                       />
+                      {canUpdateReview && (
+                        <Button
+                          size="small"
+                          variant="text"
+                          disabled={isResolving}
+                          onClick={e => {
+                            e.stopPropagation();
+                            void handleToggleResolved(review);
+                          }}
+                          sx={{
+                            minWidth: 0,
+                            px: 1,
+                            textTransform: 'none',
+                            fontWeight: 600,
+                            fontSize: 13,
+                            color: 'text.secondary',
+                            '&:hover': {
+                              color: 'text.primary',
+                              bgcolor: 'action.hover',
+                            },
+                          }}
+                        >
+                          {review.resolved ? 'Reopen' : 'Resolve'}
+                        </Button>
+                      )}
                       {can(review, Capability.TestResult.DELETE) && (
                         <Tooltip title="Delete review">
                           <IconButton
@@ -482,15 +595,14 @@ export default function TestDetailReviewsTab({
                               handleDeleteReview(review);
                             }}
                             sx={{
-                              color: 'primary.main',
-                              '& .MuiSvgIcon-root': { color: 'primary.main' },
+                              color: 'text.secondary',
+                              '& .MuiSvgIcon-root': { color: 'inherit' },
                               '&:hover': {
                                 bgcolor: alpha(
                                   theme.palette.error.main,
                                   theme.palette.action.focusOpacity
                                 ),
                                 color: 'error.main',
-                                '& .MuiSvgIcon-root': { color: 'error.main' },
                               },
                             }}
                           >
@@ -513,28 +625,7 @@ export default function TestDetailReviewsTab({
                       variant="body2"
                       sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
                     >
-                      {renderMentionText(
-                        review.comments,
-                        {
-                          user: theme.palette.success.main,
-                          metric: theme.palette.secondary.main,
-                          turn: theme.palette.info.main,
-                        },
-                        {
-                          user: alpha(
-                            theme.palette.success.main,
-                            theme.palette.action.disabledOpacity
-                          ),
-                          metric: alpha(
-                            theme.palette.secondary.main,
-                            theme.palette.action.disabledOpacity
-                          ),
-                          turn: alpha(
-                            theme.palette.info.main,
-                            theme.palette.action.disabledOpacity
-                          ),
-                        }
-                      )}
+                      <MentionText text={review.comments} />
                     </Typography>
                   </Box>
                 </Box>

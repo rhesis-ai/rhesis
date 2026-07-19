@@ -229,6 +229,18 @@ class Permission:
 
         CREATE = "preflight:create"
 
+    # --- Telemetry / traces (project-scoped) --------------------------------
+
+    class Telemetry(_PermissionEnum):
+        """Trace ingestion and query. Most routes derive these from the
+        telemetry router's ``resource=`` stamp; ``READ`` is also checked
+        explicitly in the annotations dual-gate handler."""
+
+        READ = "telemetry:read"
+        CREATE = "telemetry:create"
+        UPDATE = "telemetry:update"
+        DELETE = "telemetry:delete"
+
     # --- Files (project/org) ------------------------------------------------
 
     class File(_PermissionEnum):

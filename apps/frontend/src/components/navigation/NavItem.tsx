@@ -24,15 +24,27 @@ export function NavItem({ item, collapsed, parentPath = '' }: NavItemProps) {
     ? `${parentPath}/${item.segment}`
     : `/${item.segment}`;
   const active = isActive(pathname, fullPath);
-  const permitted = useCan(item.requiredPermission ?? '');
-  const { loading: permsLoading } = useAmbientPermissions();
+  const ambient = useAmbientPermissions();
+  const singlePermitted = useCan(item.requiredPermission ?? '');
 
-  if (item.requiredPermission) {
+  const requiredAnyOf = item.requiredAnyOf;
+  const isGated = Boolean(requiredAnyOf?.length || item.requiredPermission);
+
+  let permitted = true;
+  if (requiredAnyOf?.length) {
+    permitted =
+      !ambient.enabled ||
+      requiredAnyOf.some(p => ambient.permitted_actions.includes(p));
+  } else if (item.requiredPermission) {
+    permitted = singlePermitted;
+  }
+
+  if (isGated) {
     // Hide the item entirely, both while the RBAC status/scope set is still
     // resolving (avoid a flash of an item the user may not be allowed to see)
     // and once resolved if denied — a denied item is not rendered at all,
     // it isn't shown locked/disabled.
-    if (permsLoading) return null;
+    if (ambient.loading) return null;
     if (!permitted) return null;
   }
 

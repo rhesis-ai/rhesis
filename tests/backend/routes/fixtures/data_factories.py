@@ -1427,10 +1427,13 @@ class UseCaseDataFactory(BaseDataFactory):
     def edge_case_data(cls, case_type: str) -> Dict[str, Any]:
         """Generate use case edge case data"""
         if case_type == "long_name":
-            # Generate a name that's guaranteed to be >100 characters
-            long_name = " ".join([fake.sentence(nb_words=5) for _ in range(4)])
+            # Generate a name that's guaranteed to be >100 characters.
+            # fake.sentence() length varies; a fixed number of sentences can be ≤100.
+            long_name = fake.text(max_nb_chars=500).replace("\n", " ")
+            while len(long_name) <= 100:
+                long_name += " " + fake.sentence(nb_words=10).replace("\n", " ")
             return {
-                "name": long_name[:200],  # Ensure we don't exceed 200 chars
+                "name": long_name[:200],  # Cap to avoid excessive length
                 "description": fake.paragraph(nb_sentences=5),
                 "industry": "Technology",
                 "application": "Complex System Integration",

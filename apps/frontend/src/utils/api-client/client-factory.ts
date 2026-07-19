@@ -22,6 +22,7 @@ import { ModelsClient } from './models-client';
 import { TagsClient } from './tags-client';
 import { CommentsClient } from './comments-client';
 import { TasksClient } from './tasks-client';
+import { AnnotationsClient } from './annotations-client';
 import { SourcesClient } from './sources-client';
 import { RecycleClient } from './recycle-client';
 import { ToolsClient } from './tools-client';
@@ -44,6 +45,7 @@ export class ApiClientFactory {
   private tagsClient: TagsClient | null = null;
   private commentsClient: CommentsClient | null = null;
   private tasksClient: TasksClient | null = null;
+  private annotationsClient: AnnotationsClient | null = null;
   private sourcesClient: SourcesClient | null = null;
   private recycleClient: RecycleClient | null = null;
   private toolsClient: ToolsClient | null = null;
@@ -210,6 +212,17 @@ export class ApiClientFactory {
       );
     }
     return this.tasksClient;
+  }
+
+  getAnnotationsClient(): AnnotationsClient {
+    if (!this.annotationsClient) {
+      this.annotationsClient = new AnnotationsClient(
+        this.sessionToken,
+        undefined,
+        this.projectId
+      );
+    }
+    return this.annotationsClient;
   }
 
   getSourcesClient(): SourcesClient {

@@ -34,6 +34,8 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 ENV PATH="/root/.cargo/bin:$PATH"
 
 COPY sdk /app/sdk/
+# Hatch force-includes skill refs into the SDK wheel (see sdk/pyproject.toml).
+COPY skills /app/skills/
 COPY penelope /app/penelope/
 COPY packages/rhesis /app/packages/rhesis/
 # EE source. Deployed images always carry the EE code; runtime activation is
