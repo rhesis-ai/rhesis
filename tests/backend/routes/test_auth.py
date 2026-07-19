@@ -789,9 +789,7 @@ class TestAuthMagicLinkRoutes:
         )
         assert response.status_code == status.HTTP_200_OK
 
-    def test_accept_terms_records_current_version(
-        self, client: TestClient, test_db, test_org_id
-    ):
+    def test_accept_terms_records_current_version(self, client: TestClient, test_db, test_org_id):
         from rhesis.backend.app.auth.terms import CURRENT_TERMS_VERSION
         from rhesis.backend.app.auth.token_utils import create_session_token
 
@@ -1476,7 +1474,10 @@ class TestTermsAcceptance:
         user = create_test_user(test_db, org.id, email, "Terms User")
         user.user_settings = {
             **(user.user_settings or {}),
-            "terms": {"accepted_at": datetime.now(timezone.utc).isoformat(), "version": CURRENT_TERMS_VERSION},
+            "terms": {
+                "accepted_at": datetime.now(timezone.utc).isoformat(),
+                "version": CURRENT_TERMS_VERSION,
+            },
         }
         test_db.commit()
 
@@ -1539,9 +1540,11 @@ class TestTermsAcceptance:
             "has_prior_acceptance": False,
         }
 
-    def test_update_user_rejects_user_settings_terms(
+    def test_update_user_strips_user_settings_terms(
         self, authenticated_client, authenticated_user_id
     ):
+        """PUT /users silently strips the server-managed ``terms`` key from
+        user_settings so callers cannot forge their own acceptance record."""
         from datetime import datetime, timezone
 
         response = authenticated_client.put(
@@ -1556,4 +1559,7 @@ class TestTermsAcceptance:
                 }
             },
         )
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        settings = data.get("user", data).get("user_settings", {})
+        assert "terms" not in settings

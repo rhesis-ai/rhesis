@@ -35,13 +35,11 @@ setup('authenticate via Quick Start', async ({ page, browser }) => {
   // OnboardingContext reconciles localStorage with the server on mount: it
   // reads localStorage once into React state, then asynchronously fetches
   // /users/settings and writes `mergeProgress(reactState, dbProgress)` back
-  // to localStorage. If that DB round-trip resolves *after* the manual seed
-  // below, it clobbers `dismissed: true` with the stale pre-seed React state
-  // OR'd against a fresh org's `dismissed: false` — silently reverting the
-  // seed. Reload after seeding so React re-mounts and reads the seeded value
-  // *before* the merge runs; `mergeProgress` then ORs `true` with anything,
-  // which can only stay `true`.
-  await page.evaluate(() => {
+  // to localStorage. Because `mergeProgress` uses OR for every boolean flag,
+  // seeding `dismissed: true` in BOTH localStorage AND the database
+  // guarantees the merge result is `true` regardless of timing or hydration
+  // order.
+  await page.evaluate(async () => {
     try {
       const key = 'rhesis_onboarding_progress';
       const stored = localStorage.getItem(key);
@@ -52,6 +50,20 @@ setup('authenticate via Quick Start', async ({ page, browser }) => {
       );
     } catch (_) {
       // Non-fatal — tests will still work; the overlay may appear
+    }
+
+    // Seed the database too so the merge always produces dismissed: true.
+    try {
+      await fetch('/api/backend/users/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          onboarding: { dismissed: true },
+        }),
+      });
+    } catch (_) {
+      // Non-fatal — localStorage seed is the primary mechanism
     }
   });
 
