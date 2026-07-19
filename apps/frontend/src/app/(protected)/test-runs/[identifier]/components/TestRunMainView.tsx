@@ -94,6 +94,8 @@ interface TestRunMainViewProps {
   currentUserName: string;
   currentUserPicture?: string;
   initialSelectedTestId?: string;
+  /** Drawer tab to open when deep-linking via selectedresult (e.g. "reviews"). */
+  initialDetailTab?: string;
 }
 
 export default function TestRunMainView({
@@ -104,6 +106,7 @@ export default function TestRunMainView({
   currentUserName,
   currentUserPicture,
   initialSelectedTestId,
+  initialDetailTab,
 }: TestRunMainViewProps) {
   const notifications = useNotifications();
   const router = useRouter();
@@ -616,6 +619,7 @@ export default function TestRunMainView({
           currentUserName={currentUserName}
           currentUserPicture={currentUserPicture}
           initialSelectedTestId={initialSelectedTestId}
+          initialDetailTab={initialDetailTab}
           testSetType={
             testRun.test_configuration?.test_set?.test_set_type?.type_value
           }

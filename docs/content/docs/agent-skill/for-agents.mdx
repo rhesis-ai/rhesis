@@ -1,0 +1,59 @@
+---
+description: How AI agents load Rhesis platform knowledge from docs and the agent skill.
+keywords: [llms.txt, agent skill, MCP, Telemachus]
+---
+
+# Agent reference
+
+This page is for **AI agents** (Cursor, Claude Code, Telemachus, MCP). Humans should start with [Platform workflow](/docs/agent-skill/platform) or [Core Concepts](/docs/concepts).
+
+<Callout type="info">
+  Fetch [llms.txt](https://docs.rhesis.ai/llms.txt) and linked `.md` URLs — not HTML pages. Load one topic at a time; avoid `llms-full.txt` unless you need the full corpus.
+</Callout>
+
+## How to read
+
+1. **Index:** `https://docs.rhesis.ai/llms.txt`
+2. **Single page:** e.g. `https://docs.rhesis.ai/docs/metrics/metric-scope.md`
+3. **Term lookup:** `https://docs.rhesis.ai/glossary/<term-id>.md` (e.g. `behavior`, `metric-scope`, `test-set`)
+4. **Confusions only:** `skills/rhesis/references/definitions.md` in the repo — when terms are mixed up, not for full definitions
+
+## Workflow routing
+
+| User signal | Read first |
+| --- | --- |
+| Vague "help me test" | [Platform workflow](/docs/agent-skill/platform) |
+| Endpoint + explore | [Architect exploration](/docs/architect/exploration) |
+| Pasted PRD / FRs / requirements | [Requirements workflow](/docs/agent-skill/requirements) |
+| Run / analyze | [Execution and analysis](/docs/architect/execution-and-analysis) |
+| Terminology | [Glossary](/glossary) first (`test-result`, `tag`, `mcp`); repo `definitions.md` for confusions only |
+| `metric_scope` | [Metric scope](/docs/metrics/metric-scope) |
+
+## Common confusions
+
+- **Behavior vs metric** — Behavior = what should happen. Metric = how you score it.
+- **Category/topic vs behavior** — Categories and topics organize tests; they do not replace behaviors or metrics.
+- **PRD section title vs behavior** — "Security" is not a behavior. Split numbered requirements into testable expectations.
+- **Source vs pasted PRD** — Chat paste is ephemeral; use `create_source` for large specs (Single-Turn only).
+
+## Plan tables (before approval)
+
+| Table | Columns |
+| --- | --- |
+| **Metrics** | Metric, Behavior, AC source, `metric_scope`, Score type, Pass definition |
+| **Test sets** | Test set, `test_type`, Behaviors, Metrics expected to run |
+| **Coverage matrix** | Test set, test_type, Behavior, Linked metric, Scope OK? |
+
+## Coding agents
+
+Install: `npx skills add rhesis-ai/rhesis -g`
+
+`SKILL.md` routes to these docs and to `skills/rhesis/references/` in the repo. Connect the Rhesis MCP server for tool calls.
+
+## Telemachus (native Architect)
+
+Loads the same `skills/rhesis/references/` files per phase. See [Architect workflow](/docs/architect/workflow).
+
+## Golden example (repo only)
+
+Fictional requirements plan shape: [`use-case-bracketfeld.md`](https://github.com/rhesis-ai/rhesis/blob/main/skills/rhesis/references/use-case-bracketfeld.md)

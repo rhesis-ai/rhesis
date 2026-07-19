@@ -27,6 +27,7 @@ import {
   BehaviorsIcon,
   KidStarIcon,
   ForumIcon,
+  RateReviewIcon,
   TracesIcon,
   PlaygroundIcon,
   AccountTreeIcon,
@@ -177,6 +178,13 @@ async function getNavigationItems(session: Session | null): Promise<{
       title: 'Traces',
       icon: <TracesIcon key="traces-icon" />,
       requiredPermission: Capability.Telemetry.READ,
+    },
+    {
+      kind: 'page',
+      segment: 'annotations',
+      title: 'Annotations',
+      icon: <RateReviewIcon key="annotations-icon" />,
+      requiredAnyOf: [Capability.TestResult.READ, Capability.Telemetry.READ],
     },
     {
       kind: 'page',

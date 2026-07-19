@@ -1,0 +1,42 @@
+---
+description: How metric_scope must match test_type — mismatches are silently dropped at run time.
+keywords: [metric_scope, single-turn, multi-turn, test type]
+---
+
+# Metric scope
+
+Every metric declares **`metric_scope`**. Every test set declares **`test_type`**. At run time the platform keeps only metrics whose scope includes the test's type. **Mismatches are silently dropped** — no error, empty scores.
+
+<Callout type="warning">
+  Set `metric_scope` when creating metrics and check scope coverage in your plan before generating test sets.
+</Callout>
+
+<Callout type="info">
+  See also the [Metric Scope](/glossary/metric-scope) glossary entry and [Architect planning](/docs/architect/planning).
+</Callout>
+
+## When to use `["Single-Turn"]`
+
+One prompt → one reply. Use for refusals, one-shot format rules, factual checks, adversarial probes.
+
+Pair with a **Single-Turn** test set.
+
+## When to use `["Multi-Turn"]`
+
+Full transcript required — context retention, multi-step threads, session goals.
+
+Pair with a **Multi-Turn** test set; `generation_prompt` describes the **thread goal**.
+
+## When to use both
+
+Rare — same rubric for one reply or full transcript. Prefer two metrics and two test sets when probes differ.
+
+## Planning checklist
+
+1. `metric_scope` on every metric (copy from `list_metrics` when reusing).
+2. One `test_type` per test set.
+3. Behaviors listed on each test set.
+4. Coverage: every behavior in a set has a linked metric whose scope includes that set's `test_type`.
+5. Split guardrails (Single-Turn) and retention (Multi-Turn) into separate sets when needed.
+
+→ [Requirements workflow](/docs/agent-skill/requirements) · [Agent reference](/docs/agent-skill/for-agents) (plan table templates)

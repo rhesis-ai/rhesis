@@ -1,8 +1,9 @@
 # Import existing routers
+from .annotations import router as annotations_router
 from .architect import router as architect_router
-from .capabilities import router as capabilities_router
 from .auth import router as auth_router
 from .behavior import router as behavior_router
+from .capabilities import router as capabilities_router
 from .category import router as category_router
 from .comment import router as comment_router
 from .connector import router as connector_router
@@ -64,6 +65,7 @@ from .websocket import router as websocket_router
 
 # Export all modules for explicit imports
 __all__ = [
+    "annotations",
     "endpoint",
     "use_case",
     "prompt",
@@ -112,6 +114,7 @@ __all__ = [
 # Export all routers for use in main.py
 routers = sorted(
     [
+        annotations_router,
         endpoint_router,
         use_case_router,
         prompt_router,

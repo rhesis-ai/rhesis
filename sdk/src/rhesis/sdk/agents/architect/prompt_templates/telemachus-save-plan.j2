@@ -1,0 +1,65 @@
+### Saving the plan
+When you have formulated the plan, you MUST call **save_plan** before presenting it to the user. This persists the plan structurally so you can follow it exactly during execution.
+
+**save_plan is strictly validated** — the call fails if any field is missing, has the wrong type, or uses a value outside the allowed set. Send arguments exactly as specified below.
+
+Top-level structure (all three array fields are required, even if empty):
+- `project`: `{name, description}` — optional. Omit entirely when no project is needed (ad-hoc tests, single test set for an existing endpoint). Do NOT pass `null` or an empty object.
+- `behaviors`: array (required, may be empty)
+- `test_sets`: array (required, may be empty)
+- `metrics`: array (required, may be empty)
+- `behavior_metric_mappings`: array (**required** when behaviors and metrics are present — always populate this, even when all entities are reused)
+
+`behaviors[]` items:
+- `name`: string (required) — Title Case, e.g. "Refuses Harmful Requests"
+- `description`: string (optional, defaults to "") — what this behavior expects
+- `reuse_status`: string (optional, defaults to `"new"`) — must be exactly one of `"reuse"`, `"improve"`, `"new"`. Lower-case only. No other values.
+- `existing_id`: string (optional, defaults to `null`) — required when `reuse_status` is `"reuse"`
+
+`metrics[]` items:
+- `name`: string (required) — Title Case, e.g. "Response Accuracy"
+- `description`: string (required) — what this metric evaluates
+- `reuse_status`: string (optional, defaults to `"new"`) — same allowed values as behaviors
+- `existing_id`: string (optional) — required when `reuse_status` is `"reuse"` or `"improve"`
+- `metric_scope`: array of strings (required) — each entry must be exactly `"Single-Turn"` or `"Multi-Turn"`. At least one entry. Must match the test sets that will evaluate this metric (see "Metric scope").
+- `evaluation_prompt`: string (optional) — for new metrics
+- `evaluation_steps`: string (optional)
+- `reasoning`: string (optional)
+- `threshold`: number (optional, defaults to 1.0)
+- `threshold_operator`: string (optional, defaults to `">="`)
+
+`test_sets[]` items:
+- `name`: string (required)
+- `description`: string (required)
+- `short_description`: string (optional)
+- `num_tests`: integer (optional, defaults to 15) — must be a number, NOT a string like `"15"`
+- `test_type`: string (optional, defaults to `"Single-Turn"`) — must be exactly `"Single-Turn"` or `"Multi-Turn"`. No other values, no lower-case variants.
+- `generation_prompt`: string (optional)
+- `behaviors`: array of strings (optional) — behavior names this test set targets
+- `categories`: array of strings (optional)
+- `topics`: array of strings (optional)
+
+`behavior_metric_mappings[]` items:
+- `behavior`: string (required) — must match a `behaviors[].name` exactly (case-insensitive)
+- `metrics`: array of strings (optional but expected) — each entry must match a `metrics[].name` exactly. Every behavior in the test sets should have at least one metric mapped to it.
+
+**Metric scope coverage (validated by save_plan):** For each test set, every behavior listed in `test_sets[].behaviors` must have at least one mapped metric whose `metric_scope` includes that test set's `test_type`. If a Multi-Turn test set targets a behavior, link a metric with `"Multi-Turn"` in `metric_scope` — not Single-Turn-only metrics.
+
+Common validation pitfalls that will be rejected:
+- `reuse_status: "Reuse"` or `"existing"` → must be `"reuse"`, `"improve"`, or `"new"` (lower-case)
+- `test_type: "single-turn"` or `"singleturn"` → must be `"Single-Turn"` or `"Multi-Turn"` (exact case, hyphen)
+- `num_tests: "15"` → must be the integer `15`
+- Top-level keys missing because the section was empty → send `[]`, not omit
+- `project: null` or `project: {}` when there is no project → omit the key entirely
+- Extra fields not listed above are ignored, but typos in field names mean the data is dropped
+
+When save_plan fails the error response lists each invalid field with its reason. Read it, fix the offending fields, and re-call save_plan with the corrected arguments. Do NOT proceed to other tools while the plan is unsaved.
+
+When the user iterates on the plan, call save_plan again with the **complete updated plan**, not just the changed parts — save_plan replaces the previous plan in full. Preserve fields you want to keep.
+
+Do NOT try to control the per-item `completed` checkboxes. They are runtime-only fields managed by the platform: any value you send is stripped before validation, and the runtime fills them in from what it has actually observed this session (entities you created, behavior-metric links you made). If you call save_plan after already creating some entities, the matching plan items will come back marked completed automatically — you do not need to re-run anything to "fix" the plan, and you should not loop on save_plan trying to.
+
+After save_plan succeeds, finish your turn and present the plan to the user. Wait for the user to tell you to proceed (e.g. "yes", "go ahead", "looks good") before calling any creating tool. The platform will surface an Accept/Change prompt automatically the first time you call a tool that requires confirmation, so you do not need to manage that UI yourself.
+
+- Allow the user to review, provide feedback, and iterate on the plan
+- Update the plan based on user feedback — always call save_plan again with the revised plan

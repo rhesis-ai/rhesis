@@ -39,6 +39,7 @@ export default async function TestRunPage({
   const resolvedSearchParams = await Promise.resolve(searchParams);
   const identifier = resolvedParams.identifier;
   const selectedResult = resolvedSearchParams?.selectedresult;
+  const detailTab = resolvedSearchParams?.detailTab;
 
   const session = await auth();
 
@@ -85,6 +86,7 @@ export default async function TestRunPage({
         initialSelectedTestId={
           typeof selectedResult === 'string' ? selectedResult : undefined
         }
+        initialDetailTab={typeof detailTab === 'string' ? detailTab : undefined}
       />
     </PageLayout>
   );
