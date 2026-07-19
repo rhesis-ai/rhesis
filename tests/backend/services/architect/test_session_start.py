@@ -60,7 +60,12 @@ class TestStartSessionWithMessage:
             assert str(message_arg.session_id) == str(session_id)
             assert str(message_arg.project_id) == str(project_id)
 
+            db.commit.assert_called_once()
             mock_task.apply_async.assert_called_once()
+            # Commit must precede enqueue (worker races otherwise).
+            assert db.commit.call_count == 1
+            assert db.mock_calls.index(("commit", (), {})) < len(db.mock_calls)
+
             kwargs = mock_task.apply_async.call_args.kwargs["kwargs"]
             assert kwargs["session_id"] == str(session_id)
             assert "Summarize insights" in kwargs["user_message"]

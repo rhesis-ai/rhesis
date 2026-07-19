@@ -3,6 +3,7 @@
 import React, { useCallback, useState } from 'react';
 import { Fab } from '@/components/common/Fab';
 import { Can } from '@/components/common/Can';
+import { useNotifications } from '@/components/common/NotificationContext';
 import { Capability } from '@/constants/capabilities';
 import { EngineeringIcon } from '@/components/icons';
 import { createAndOpenArchitectSession } from '@/utils/architect-handoff';
@@ -33,6 +34,7 @@ export default function InsightsSummarizeFab({
   disabled = false,
 }: InsightsSummarizeFabProps) {
   const [creating, setCreating] = useState(false);
+  const { show: showNotification } = useNotifications();
 
   // Enabled regardless of failedCount (including 0)
   const isDisabled =
@@ -67,10 +69,20 @@ export default function InsightsSummarizeFab({
       });
     } catch (error) {
       console.error('Failed to open Insights summary in Architect:', error);
+      showNotification('Could not open Architect summary. Please try again.', {
+        severity: 'error',
+      });
     } finally {
       setCreating(false);
     }
-  }, [endpointName, filters, isDisabled, sessionToken, visibleBehaviorNames]);
+  }, [
+    endpointName,
+    filters,
+    isDisabled,
+    sessionToken,
+    showNotification,
+    visibleBehaviorNames,
+  ]);
 
   return (
     <Can capability={Capability.Architect.CREATE}>

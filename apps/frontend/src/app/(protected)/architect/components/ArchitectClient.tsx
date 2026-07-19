@@ -50,6 +50,8 @@ export default function ArchitectClient() {
     [activeProject?.id]
   );
 
+  const sessionFromQuery = searchParams.get('session');
+
   const clearSessionQueryParam = useCallback(() => {
     if (!searchParams.has('session')) return;
     const params = new URLSearchParams(searchParams.toString());
@@ -62,45 +64,30 @@ export default function ArchitectClient() {
   // shows only sessions belonging to the current project. The backend already
   // filters by project via RLS (X-Project-Id header); we just need to re-fetch
   // when the project scope switches.
-  // Prefer ?session= over the resume hint (contextual handoffs from Insights etc.).
   useEffect(() => {
     const loadSessions = async () => {
       if (permsLoading || !canRead) return;
       const client = getClient();
       if (!client) return;
       setIsLoadingSessions(true);
-      setActiveSessionId(null);
+      // Keep a pending ?session= selection while the list reloads.
+      if (!searchParams.get('session')) {
+        setActiveSessionId(null);
+      }
       setSessions([]);
       try {
         const data = await client.getSessions();
-        let nextSessions = data;
-        const sessionFromQuery = searchParams.get('session');
-
-        if (sessionFromQuery) {
-          if (!data.some(s => s.id === sessionFromQuery)) {
-            try {
-              const detail = await client.getSession(sessionFromQuery);
-              nextSessions = [detail, ...data.filter(s => s.id !== detail.id)];
-            } catch (err) {
-              console.error('Failed to load session from query:', err);
-            }
-          }
-          setSessions(nextSessions);
-          const exists = nextSessions.some(s => s.id === sessionFromQuery);
-          setActiveSessionId(exists ? sessionFromQuery : null);
-          if (exists) {
-            touchResumeHint(sessionFromQuery);
-          }
-          clearSessionQueryParam();
+        setSessions(data);
+        // Skip resume when a ?session= handoff is pending — the query effect
+        // prefers that id over the resume hint.
+        if (searchParams.get('session')) {
+          return;
+        }
+        const projectId = activeProject?.id;
+        if (projectId) {
+          setActiveSessionId(pickResumableSessionId(projectId, data));
         } else {
-          setSessions(nextSessions);
-          const projectId = activeProject?.id;
-          if (projectId) {
-            const resumeSessionId = pickResumableSessionId(projectId, data);
-            setActiveSessionId(resumeSessionId);
-          } else {
-            setActiveSessionId(null);
-          }
+          setActiveSessionId(null);
         }
       } catch (err) {
         console.error('Failed to load architect sessions:', err);
@@ -110,10 +97,60 @@ export default function ArchitectClient() {
       }
     };
     loadSessions();
-    // Intentionally omit searchParams from deps after first load for a given
-    // project — clearing ?session= must not re-trigger a full reload loop.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- project/token drive reload
   }, [getClient, activeProject?.id, permsLoading, canRead]);
+
+  // Prefer ?session= over resume (contextual handoffs). Separate from the list
+  // reload so in-app navigations to /architect?session= still work without a
+  // remount (peqy).
+  useEffect(() => {
+    if (!sessionFromQuery || permsLoading || !canRead) return;
+
+    let cancelled = false;
+
+    const selectFromQuery = async () => {
+      const client = getClient();
+      if (!client) return;
+
+      setActiveSessionId(sessionFromQuery);
+      touchResumeHint(sessionFromQuery);
+
+      const alreadyListed = sessions.some(s => s.id === sessionFromQuery);
+      if (!alreadyListed) {
+        try {
+          const detail = await client.getSession(sessionFromQuery);
+          if (cancelled) return;
+          setSessions(prev => [
+            detail,
+            ...prev.filter(s => s.id !== detail.id),
+          ]);
+        } catch (err) {
+          console.error('Failed to load session from query:', err);
+          if (!cancelled) {
+            setActiveSessionId(null);
+          }
+          return;
+        }
+      }
+
+      clearSessionQueryParam();
+    };
+
+    selectFromQuery();
+    return () => {
+      cancelled = true;
+    };
+    // sessions intentionally omitted — we only need the id from the URL;
+    // re-running on every list change would clear the param twice.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- query-driven select
+  }, [
+    sessionFromQuery,
+    permsLoading,
+    canRead,
+    getClient,
+    touchResumeHint,
+    clearSessionQueryParam,
+  ]);
 
   // Bump last-activity when navigating away mid-conversation.
   useEffect(() => {
