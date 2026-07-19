@@ -17,6 +17,15 @@ AnnotationRating = Literal["Pass", "Fail"]
 AnnotationTargetType = Literal["test_result", "trace", "metric", "turn"]
 
 
+def _as_resolved(value: Any) -> bool:
+    """Coerce review ``resolved`` without treating ``\"false\"`` as True."""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {"true", "1", "yes"}
+    return False
+
+
 def _row_to_item(row: Any) -> AnnotationListItem:
     review = row.review if isinstance(row.review, dict) else {}
     target = review.get("target") or {}
@@ -32,7 +41,7 @@ def _row_to_item(row: Any) -> AnnotationListItem:
         status=review.get("status") or {},
         user=review.get("user") or {},
         target=target if isinstance(target, dict) else {},
-        resolved=bool(review.get("resolved")),
+        resolved=_as_resolved(review.get("resolved")),
         test_result_id=row.test_result_id,
         test_run_id=row.test_run_id,
         trace_db_id=row.trace_db_id,

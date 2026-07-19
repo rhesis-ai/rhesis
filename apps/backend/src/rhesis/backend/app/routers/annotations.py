@@ -57,11 +57,20 @@ def read_annotations(
 
     Dual-gated: callers need ``test_result:read`` and/or ``telemetry:read``.
     Each source branch is included only when the matching permission is present.
+
+    Project-scoped: requires an ambient project (``X-Project-Id`` / token
+    project). Missing project scope fails closed so we never list across
+    all projects in the organization.
     """
     organization_id, _user_id = tenant_context
     principal = resolve_principal_from_request(current_user, request)
     project_id = project_id_from_scope(db)
-    project_id_str = str(project_id) if project_id else None
+    if project_id is None:
+        raise HTTPException(
+            status_code=400,
+            detail="project_id is required (set X-Project-Id or use a project-scoped token)",
+        )
+    project_id_str = str(project_id)
 
     can_read_test_results = authorize(principal, TEST_RESULT_READ, project_id=project_id, db=db)
     can_read_traces = authorize(principal, TELEMETRY_READ, project_id=project_id, db=db)

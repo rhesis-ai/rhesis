@@ -13,7 +13,21 @@ from rhesis.backend.app.models.behavior import Behavior
 from rhesis.backend.app.models.status import Status
 from rhesis.backend.app.models.test import Test
 from rhesis.backend.app.models.test_result import TestResult
+from rhesis.backend.app.scope import RequestScope
 from tests.backend.routes.fixtures.data_factories import TraceDataFactory
+
+
+def _bind_project_scope(test_db, organization_id, user_id, project_id):
+    """Attach ambient project scope on the shared test session.
+
+    Route tests override ``get_tenant_db_session`` with the plain test session,
+    so ``X-Project-Id`` never reaches the real dependency that binds scope.
+    """
+    test_db.info["_scope"] = RequestScope(
+        organization_id=str(organization_id),
+        user_id=str(user_id),
+        project_id=str(project_id),
+    )
 
 
 def _ensure_pass_fail_statuses(test_db, test_organization, test_type_lookup, db_user):
@@ -75,11 +89,31 @@ def _review_payload(status_id, user_id, user_name="Test User", target_type="test
 
 @pytest.mark.integration
 class TestListAnnotations:
-    def test_list_empty(self, authenticated_client: TestClient):
+    def test_list_empty(
+        self,
+        authenticated_client: TestClient,
+        test_db,
+        test_organization,
+        authenticated_user,
+        db_project,
+    ):
+        _bind_project_scope(
+            test_db, test_organization.id, authenticated_user.id, db_project.id
+        )
         response = authenticated_client.get("/annotations/")
         assert response.status_code == status.HTTP_200_OK
         assert response.json() == []
         assert response.headers.get("X-Total-Count") == "0"
+
+    def test_requires_project_scope(self, authenticated_client: TestClient, test_db):
+        test_db.info.pop("_scope", None)
+        with patch(
+            "rhesis.backend.app.routers.annotations.project_id_from_scope",
+            return_value=None,
+        ):
+            response = authenticated_client.get("/annotations/")
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "project_id is required" in response.json()["detail"]
 
     def test_list_test_result_and_trace_reviews(
         self,
@@ -91,6 +125,9 @@ class TestListAnnotations:
         authenticated_user,
         db_project,
     ):
+        _bind_project_scope(
+            test_db, test_organization.id, authenticated_user.id, db_project.id
+        )
         pass_status, _ = _ensure_pass_fail_statuses(
             test_db, test_organization, test_type_lookup, db_user
         )
@@ -197,19 +234,24 @@ class TestListAnnotations:
         authenticated_user,
         db_project,
     ):
+        _bind_project_scope(
+            test_db, test_organization.id, authenticated_user.id, db_project.id
+        )
         pass_status, _ = _ensure_pass_fail_statuses(
             test_db, test_organization, test_type_lookup, db_user
         )
         review = _review_payload(pass_status.id, authenticated_user.id)
         review["resolved"] = True
         review["resolved_at"] = review["updated_at"]
+        legacy_open = _review_payload(pass_status.id, authenticated_user.id)
+        legacy_open["resolved"] = "false"
         test_result = TestResult(
             organization_id=test_organization.id,
             user_id=authenticated_user.id,
             project_id=db_project.id,
             test_reviews={
-                "metadata": {"total_reviews": 1},
-                "reviews": [review],
+                "metadata": {"total_reviews": 2},
+                "reviews": [review, legacy_open],
             },
         )
         test_db.add(test_result)
@@ -217,8 +259,9 @@ class TestListAnnotations:
 
         response = authenticated_client.get("/annotations/?source=test_result")
         assert response.status_code == status.HTTP_200_OK
-        item = next(i for i in response.json() if i["review_id"] == review["review_id"])
-        assert item["resolved"] is True
+        by_id = {i["review_id"]: i for i in response.json()}
+        assert by_id[review["review_id"]]["resolved"] is True
+        assert by_id[legacy_open["review_id"]]["resolved"] is False
 
     def test_search_and_filters(
         self,
@@ -230,6 +273,9 @@ class TestListAnnotations:
         authenticated_user,
         db_project,
     ):
+        _bind_project_scope(
+            test_db, test_organization.id, authenticated_user.id, db_project.id
+        )
         pass_status, fail_status = _ensure_pass_fail_statuses(
             test_db, test_organization, test_type_lookup, db_user
         )
@@ -279,8 +325,16 @@ class TestAnnotationsDualGateAuth:
     """Negative tests for the in-handler dual-gate on GET /annotations."""
 
     def test_forbidden_without_either_read_permission(
-        self, authenticated_client: TestClient
+        self,
+        authenticated_client: TestClient,
+        test_db,
+        test_organization,
+        authenticated_user,
+        db_project,
     ):
+        _bind_project_scope(
+            test_db, test_organization.id, authenticated_user.id, db_project.id
+        )
         with patch(
             "rhesis.backend.app.routers.annotations.authorize",
             return_value=False,
@@ -293,8 +347,17 @@ class TestAnnotationsDualGateAuth:
         assert str(Permission.Telemetry.READ) in accepted
 
     def test_forbidden_source_trace_without_telemetry_read(
-        self, authenticated_client: TestClient
+        self,
+        authenticated_client: TestClient,
+        test_db,
+        test_organization,
+        authenticated_user,
+        db_project,
     ):
+        _bind_project_scope(
+            test_db, test_organization.id, authenticated_user.id, db_project.id
+        )
+
         def _authorize(_principal, permission, **_kwargs):
             return str(permission) == str(Permission.TestResult.READ)
 

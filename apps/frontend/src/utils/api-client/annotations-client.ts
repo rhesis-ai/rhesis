@@ -13,46 +13,24 @@ export class AnnotationsClient extends BaseApiClient {
   async getAnnotations(
     params: AnnotationsQueryParams = {}
   ): Promise<{ data: AnnotationListItem[]; totalCount: number }> {
-    const queryParams = new URLSearchParams();
+    const response = await this.fetchPaginated<AnnotationListItem>(
+      API_ENDPOINTS.annotations,
+      {
+        skip: params.skip ?? 0,
+        limit: params.limit ?? 50,
+        ...(params.source ? { source: params.source } : {}),
+        ...(params.search ? { search: params.search } : {}),
+        ...(params.resolved !== undefined
+          ? { resolved: params.resolved }
+          : {}),
+        ...(params.rating ? { rating: params.rating } : {}),
+        ...(params.target_type ? { target_type: params.target_type } : {}),
+      }
+    );
 
-    if (params.skip !== undefined) {
-      queryParams.append('skip', params.skip.toString());
-    }
-    if (params.limit !== undefined) {
-      queryParams.append('limit', params.limit.toString());
-    }
-    if (params.source) {
-      queryParams.append('source', params.source);
-    }
-    if (params.search) {
-      queryParams.append('search', params.search);
-    }
-    if (params.resolved !== undefined) {
-      queryParams.append('resolved', params.resolved.toString());
-    }
-    if (params.rating) {
-      queryParams.append('rating', params.rating);
-    }
-    if (params.target_type) {
-      queryParams.append('target_type', params.target_type);
-    }
-
-    const path = `${API_ENDPOINTS.annotations}/?${queryParams.toString()}`;
-    const url = this.baseUrl + path;
-    const headers = this.getHeaders();
-
-    const response = await fetch(url, {
-      headers,
-      credentials: 'include',
-    });
-
-    if (!response.ok) {
-      throw new Error(`API error: ${response.status} - ${response.statusText}`);
-    }
-
-    const data = (await response.json()) as AnnotationListItem[];
-    const totalCount = parseInt(response.headers.get('X-Total-Count') || '0');
-
-    return { data, totalCount };
+    return {
+      data: response.data,
+      totalCount: response.pagination.totalCount,
+    };
   }
 }
