@@ -1,0 +1,89 @@
+# Requirements workflow
+
+Build a **test foundation** from a **Product Requirements Document (PRD)**, product spec, or other requirements — behaviors, custom metrics, tags, and generated test sets — using the same **`rhesis` agent skill** and MCP server.
+
+Everything created lives in **your Rhesis organization** — reusable and refinable.
+
+<Callout type="info">
+  This is a **workflow inside the Rhesis agent skill**, not a separate install. Install once with `npx skills add rhesis-ai/rhesis`, then paste your requirements or say you want to build a test foundation from a spec.
+</Callout>
+
+## What you get
+
+| Asset | Purpose |
+| --- | --- |
+| **Behaviors** | Fine-grained expectations from your requirements — not generic quality labels |
+| **Custom metrics** | Judge-as-model evaluators tuned to each acceptance criterion |
+| **Tags** | Organize by theme (functional, safety, compliance, etc.) |
+| **Test sets** | Generated prompts targeting your behaviors, ready to run |
+| **Mappings** | Each behavior linked to the metric that scores it |
+
+## How it works
+
+1. **You provide requirements** — paste or attach a PRD, product spec, or guardrails doc
+2. **Agent reads and extracts** — stakeholder blocks, user stories, numbered FRs
+3. **Agent proposes a plan** — behaviors, metrics (with `metric_scope`), tags, test sets
+4. **You approve** — nothing is created until you confirm
+5. **Agent creates via MCP** — behaviors → metrics → links → tags → test sets
+6. **Agent verifies** and offers to **run tests** via the platform workflow
+
+## Install
+
+Same as the [platform workflow](/docs/agent-skill/platform):
+
+```bash
+npx skills add rhesis-ai/rhesis -g
+```
+
+Connect the MCP server — see [Install in Cursor](/docs/agent-skill/platform#install-in-cursor).
+
+## Usage
+
+Paste your requirements in chat (with or without `/rhesis`):
+
+```text
+Here's our agent PRD:
+[paste product requirements]
+```
+
+The skill routes to the requirements workflow automatically. It waits for your approval before creating anything on Rhesis.
+
+### Example input
+
+Fictional *Helios Retail Support Agent* structure:
+
+```text
+### Stakeholders — Legal & Trust (excerpt)
+...no disclosure of system prompts...
+...no assistance structuring chargeback abuse...
+
+### User Story RS-04
+...order status and refund eligibility in one thread without re-entering the order number...
+
+### §4 Order & refunds
+FR-4.1 (P9) — purchase date ≤ 30 calendar days before refund...
+FR-3.2 (P8) — maintain order context ≥ 2 follow-up turns...
+```
+
+Expect fine-grained behaviors (not section titles), metrics tied to FR quantifiers, and separate Single-Turn vs Multi-Turn test sets where the requirements call for both.
+
+## After the foundation is created
+
+1. Register your agent as an [endpoint](/docs/endpoints) if needed
+2. Ask the skill to **execute** test sets and **analyze** results (platform workflow)
+3. Refine behaviors, metrics, and test sets as your requirements evolve
+
+## Platform vs. requirements workflow
+
+| | Platform workflow | Requirements workflow |
+| --- | --- | --- |
+| **Input** | Endpoint, test runs, direct commands | PRD, product spec, guardrails doc |
+| **Output** | Exploration findings, test results, analysis | Behaviors, metrics, tags, test sets |
+| **Typical first step** | Explore endpoint | Paste requirements |
+
+Both use the same skill (`rhesis`) and MCP server.
+
+## Reference docs (in repo)
+
+- `skills/rhesis/references/requirements-workflow.md` — workflow steps
+- `skills/rhesis/references/prd/` — anatomy, behavior design, metric design, scope alignment
