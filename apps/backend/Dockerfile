@@ -43,7 +43,9 @@ COPY packages/rhesis /app/packages/rhesis/
 COPY ee/backend /app/ee/backend/
 # sdk/pyproject.toml force-includes this path into the wheel (skill_refs for
 # the architect agent); uv sync fails building rhesis-sdk without it on disk.
-COPY skills /app/skills/
+# Build-only: base-runtime never copies /app/skills forward, unlike sdk/
+# penelope/packages-rhesis/ee-backend above.
+COPY skills/rhesis/references /app/skills/rhesis/references/
 
 # =============================================================================
 # build-core: core-only venv (migrations / slim jobs) — no rhesis-sdk / torch / ee

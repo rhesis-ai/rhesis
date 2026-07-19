@@ -28,8 +28,9 @@ Use relative symlink targets (as above) so they resolve in every clone and git w
 
 ## Notes
 
-- **Windows**: git recreates these as real symlinks only when `core.symlinks=true` (the default
-  for Git for Windows). Otherwise they materialize as text files.
+- **Windows**: git recreates these as real symlinks only when `core.symlinks=true` and Windows
+  symlink support is available (Developer Mode, or admin privileges). Neither is on by default —
+  otherwise they materialize as text files.
 - **Cursor** follows per-skill symlinks inside a real project-level `.cursor/skills/` directory,
   but does not reliably follow a symlinked `.cursor/skills` directory itself or global
   `~/.cursor/skills` symlinks — which is why each skill is linked individually here.
