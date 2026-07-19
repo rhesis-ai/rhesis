@@ -338,9 +338,14 @@ export default function AnnotationsGrid({
     const row = params.row as AnnotationListItem;
     let url: string | null = null;
     if (row.source === 'test_result' && row.test_run_id && row.test_result_id) {
-      url = `/test-runs/${row.test_run_id}?selectedresult=${row.test_result_id}&detailTab=reviews`;
+      url =
+        `/test-runs/${encodeURIComponent(row.test_run_id)}` +
+        `?selectedresult=${encodeURIComponent(row.test_result_id)}` +
+        `&detailTab=reviews`;
     } else if (row.source === 'trace' && row.trace_id && row.project_id) {
-      url = `/traces?open_trace=${row.trace_id}&project_id=${row.project_id}`;
+      url =
+        `/traces?open_trace=${encodeURIComponent(row.trace_id)}` +
+        `&project_id=${encodeURIComponent(row.project_id)}`;
     }
     if (url) {
       window.open(url, '_blank', 'noopener,noreferrer');

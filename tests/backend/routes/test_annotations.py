@@ -2,11 +2,13 @@
 
 import uuid
 from datetime import datetime, timezone
+from unittest.mock import patch
 
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
+from rhesis.backend.app.auth.capabilities import Permission
 from rhesis.backend.app.models.behavior import Behavior
 from rhesis.backend.app.models.status import Status
 from rhesis.backend.app.models.test import Test
@@ -270,3 +272,39 @@ class TestListAnnotations:
         fail_ids = {i["review_id"] for i in failed.json()}
         assert resolved_review["review_id"] in fail_ids
         assert open_review["review_id"] not in fail_ids
+
+
+@pytest.mark.integration
+class TestAnnotationsDualGateAuth:
+    """Negative tests for the in-handler dual-gate on GET /annotations."""
+
+    def test_forbidden_without_either_read_permission(
+        self, authenticated_client: TestClient
+    ):
+        with patch(
+            "rhesis.backend.app.routers.annotations.authorize",
+            return_value=False,
+        ):
+            response = authenticated_client.get("/annotations/")
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        accepted = response.headers.get("X-Accepted-Permissions", "")
+        assert str(Permission.TestResult.READ) in accepted
+        assert str(Permission.Telemetry.READ) in accepted
+
+    def test_forbidden_source_trace_without_telemetry_read(
+        self, authenticated_client: TestClient
+    ):
+        def _authorize(_principal, permission, **_kwargs):
+            return str(permission) == str(Permission.TestResult.READ)
+
+        with patch(
+            "rhesis.backend.app.routers.annotations.authorize",
+            side_effect=_authorize,
+        ):
+            response = authenticated_client.get("/annotations/?source=trace")
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert response.headers.get("X-Accepted-Permissions") == str(
+            Permission.Telemetry.READ
+        )

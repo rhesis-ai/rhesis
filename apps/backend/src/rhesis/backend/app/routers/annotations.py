@@ -24,7 +24,7 @@ router = RhesisRouter(
 )
 
 TEST_RESULT_READ = Permission.TestResult.READ
-TELEMETRY_READ = "telemetry:read"
+TELEMETRY_READ = Permission.Telemetry.READ
 
 
 @router.get(

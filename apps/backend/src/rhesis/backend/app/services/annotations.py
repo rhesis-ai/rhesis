@@ -65,12 +65,13 @@ def list_annotations(
     Explicit org/project predicates are required because this uses ``text()``
     SQL (ORM auto-filter does not apply).
     """
+    # Narrow to the requested source by turning the other branch off.
+    # Do not force the matching flag True — callers may have already
+    # denied that source via permission-derived flags.
     if source == "test_result":
         include_traces = False
-        include_test_results = True
     elif source == "trace":
         include_test_results = False
-        include_traces = True
 
     if not include_test_results and not include_traces:
         return [], 0
