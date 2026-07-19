@@ -20,9 +20,7 @@ export class AnnotationsClient extends BaseApiClient {
         limit: params.limit ?? 50,
         ...(params.source ? { source: params.source } : {}),
         ...(params.search ? { search: params.search } : {}),
-        ...(params.resolved !== undefined
-          ? { resolved: params.resolved }
-          : {}),
+        ...(params.resolved !== undefined ? { resolved: params.resolved } : {}),
         ...(params.rating ? { rating: params.rating } : {}),
         ...(params.target_type ? { target_type: params.target_type } : {}),
       }
