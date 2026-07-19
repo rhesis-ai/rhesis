@@ -19,14 +19,14 @@ literal text:
 
 ```mdx
 ✅ GOOD: API PUT /test_results/\{id\}
-❌ BAD:  API PUT /test_results/{id}  ← causes "ReferenceError: id is not defined"
+❌ BAD: API PUT /test_results/{id} ← causes "ReferenceError: id is not defined"
 ```
 
 Common scenarios: API endpoint paths (`/api/users/\{userId\}/profile`), template strings
 (`"Hello \{name\}"`), headings (`### Using \{variable\} in templates`), JSON examples
 (`\{"key": "value"\}`), path parameters, variable placeholders (`\{count\} items`).
 
-**When NOT to escape**: inside fenced code blocks (``` ``` ``` or `~~~`) or inline code
+**When NOT to escape**: inside fenced code blocks (` ` ``` or `~~~`) or inline code
 (`` `{id}` ``) — both are already literal.
 
 ## Material-UI icons in MDX
@@ -35,24 +35,28 @@ MDX files cannot directly import Material-UI icons — module resolution fails. 
 `@mui/icons-material/*` directly in `.mdx`. Instead:
 
 1. Create a JSX component in `src/components/` that imports the icon:
+
    ```jsx
-   'use client'
-   import React from 'react'
-   import IconName from '@mui/icons-material/IconName'
-   import { InfoCardHorizontal } from './InfoCardHorizontal'
+   "use client";
+   import React from "react";
+   import IconName from "@mui/icons-material/IconName";
+   import { InfoCardHorizontal } from "./InfoCardHorizontal";
 
    export const MyComponent = () => (
      <InfoCardHorizontal icon={IconName} title="..." description="..." />
-   )
+   );
    ```
+
 2. Register it in `src/mdx-components.js`:
+
    ```js
-   import { MyComponent } from './components/MyComponent'
+   import { MyComponent } from "./components/MyComponent";
 
    export function useMDXComponents(components) {
-     return { ...themeComponents, ...components, MyComponent }
+     return { ...themeComponents, ...components, MyComponent };
    }
    ```
+
 3. Use it in MDX with no imports: `<MyComponent />`
 
 Examples already following this pattern: `FeatureOverview.jsx`, `ArchitectureOverview.jsx`,
@@ -76,14 +80,14 @@ docs/
 Each directory needs a `_meta.tsx` for navigation:
 
 ```typescript
-import type { MetaRecord } from 'nextra'
+import type { MetaRecord } from "nextra";
 
 const meta: MetaRecord = {
-  index: 'Overview',
-  'getting-started': 'Getting Started',
-}
+  index: "Overview",
+  "getting-started": "Getting Started",
+};
 
-export default meta
+export default meta;
 ```
 
 ## Style

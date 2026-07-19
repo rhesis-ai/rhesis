@@ -37,7 +37,7 @@ requirements).
 
 - **Never commit on `main`.** Check `git branch --show-current` first; if on `main`, create a
   branch before committing: `git fetch origin && git checkout main && git pull origin main &&
-  git checkout -b feature/short-description`.
+git checkout -b feature/short-description`.
 - Stage changes selectively (`git add <file>` or `git add -p`), not `git add .`/`git add -A`.
 - Group commits by logical change (feature, fix, refactor, docs, config, test) — don't mix them.
 - Follow Conventional Commits: `<type>[optional scope]: <description>`
@@ -51,20 +51,25 @@ requirements).
 
 - **Small PRs, one logical change each.** Ideal 1-200 lines, acceptable 200-400, break down 400+.
 - Branch from latest `main`: `git fetch origin && git checkout main && git pull origin main &&
-  git checkout -b feature/your-feature-name`.
+git checkout -b feature/your-feature-name`.
 - Title: action verb first (Add/Fix/Update/Remove), under 72 characters.
 - Description must include these sections:
+
   ```markdown
   ## Purpose
+
   [Explain why this change is needed]
 
   ## What Changed
+
   - [Key change 1]
 
   ## Additional Context
+
   - [Links to issues, tickets, breaking changes]
 
   ## Testing
+
   [How to test these changes]
   ```
 

@@ -116,11 +116,11 @@ Set `RHESIS_DISABLE_SCOPE_LISTENER=1` to disable both listeners without redeploy
 Three functions set tenant GUCs and/or the ORM auto-filter scope. Use the table below —
 do not default to `bind_scope_to_session`.
 
-| Situation | Function |
-|---|---|
-| You own a long-lived session (Celery task, WebSocket handler, script) | `bind_scope_to_session(db, org, user, project)` |
-| Short project-scope window inside a FastAPI request | `with temporary_project_scope(db, org, user, project):` |
-| Re-apply GUCs after a mid-request `db.commit()` (no context manager) | `set_session_variables(db, org, user, project)` |
+| Situation                                                             | Function                                                |
+| --------------------------------------------------------------------- | ------------------------------------------------------- |
+| You own a long-lived session (Celery task, WebSocket handler, script) | `bind_scope_to_session(db, org, user, project)`         |
+| Short project-scope window inside a FastAPI request                   | `with temporary_project_scope(db, org, user, project):` |
+| Re-apply GUCs after a mid-request `db.commit()` (no context manager)  | `set_session_variables(db, org, user, project)`         |
 
 **Why the distinction matters.** `bind_scope_to_session` writes `db.info['_scope']`, which activates
 the ORM auto-filter for the session's remaining lifetime. Calling it inside a FastAPI request for a
@@ -158,7 +158,7 @@ so blanking them is "belt-and-suspenders". The hazard is **timing**: never blank
 GUCs while ORM changes are still unflushed. A deferred write flushed under a blank
 `app.current_organization` makes the strict `tenant_isolation` policy reject the `''::uuid` cast
 (`invalid input syntax for type uuid: ""`). `get_db_with_tenant_variables` therefore commits
-deferred writes *before* `reset_session_context()` runs. Any new side-channel caller that resets or
+deferred writes _before_ `reset_session_context()` runs. Any new side-channel caller that resets or
 blanks GUCs must commit/flush first.
 
 ## Affordances — backend side

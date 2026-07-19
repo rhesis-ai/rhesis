@@ -16,11 +16,11 @@ The backend resolves permitted actions per object and exposes them as `permitted
 via `WithPermittedActions`. The frontend consumes them through **three primitives only** — never
 roll your own ownership logic (`user.id === currentUserId`).
 
-| Primitive | When to use |
-|---|---|
-| `can(subject, Capability.X.Y)` | Object already in scope and its type extends `WithPermittedActions`. Checks the object's own `permitted_actions`. |
-| `useCan(Capability.X.Y)` | No object in scope (page guard, create button, editable prop). Checks the caller's ambient scope set. |
-| `<Can capability={Capability.X.Y}>` | Same as `useCan` but declarative JSX — wraps buttons/FABs. |
+| Primitive                           | When to use                                                                                                       |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `can(subject, Capability.X.Y)`      | Object already in scope and its type extends `WithPermittedActions`. Checks the object's own `permitted_actions`. |
+| `useCan(Capability.X.Y)`            | No object in scope (page guard, create button, editable prop). Checks the caller's ambient scope set.             |
+| `<Can capability={Capability.X.Y}>` | Same as `useCan` but declarative JSX — wraps buttons/FABs.                                                        |
 
 ```tsx
 // Object-level — subject carries permitted_actions
@@ -33,7 +33,7 @@ if (!canRead) return <AccessDenied resource="test runs" />;
 // Declarative
 <Can capability={Capability.TestSet.CREATE}>
   <Fab icon={<FabAddIcon />} />
-</Can>
+</Can>;
 ```
 
 Types carrying object-level affordances: `TestResult`, `ExperimentRead`, `Task`, `TestRun`,
@@ -83,7 +83,7 @@ npm run lint           # ESLint
   Recharts formatter types). Last resort: `as unknown as TargetType`. Exception: test files may use
   `any` for mocks — add `/* eslint-disable @typescript-eslint/no-explicit-any */` at the top.
 - **`unknown` leaking into JSX**: values typed `Record<string, unknown>` (e.g. `metadata`) must be
-  extracted and narrowed to a concrete type/boolean *before* use in JSX conditionals or children —
+  extracted and narrowed to a concrete type/boolean _before_ use in JSX conditionals or children —
   raw `unknown` in a `&&` chain fails `TS2769`. Guard API values that may be `{}` with `typeof`
   checks before passing to `new Date()`, string methods, etc.
 - **No non-null assertions** (`!`) — use optional chaining or explicit `if` checks instead.
