@@ -31,6 +31,16 @@ setup('authenticate via Quick Start', async ({ page, browser }) => {
   // Mark the onboarding checklist as dismissed so it never overlays test
   // interactions. The checklist is a fixed-position overlay that intercepts
   // pointer events; dismissing it here means all tests inherit a clean state.
+  //
+  // OnboardingContext reconciles localStorage with the server on mount: it
+  // reads localStorage once into React state, then asynchronously fetches
+  // /users/settings and writes `mergeProgress(reactState, dbProgress)` back
+  // to localStorage. If that DB round-trip resolves *after* the manual seed
+  // below, it clobbers `dismissed: true` with the stale pre-seed React state
+  // OR'd against a fresh org's `dismissed: false` — silently reverting the
+  // seed. Reload after seeding so React re-mounts and reads the seeded value
+  // *before* the merge runs; `mergeProgress` then ORs `true` with anything,
+  // which can only stay `true`.
   await page.evaluate(() => {
     try {
       const key = 'rhesis_onboarding_progress';
@@ -44,6 +54,9 @@ setup('authenticate via Quick Start', async ({ page, browser }) => {
       // Non-fatal — tests will still work; the overlay may appear
     }
   });
+
+  await page.reload();
+  await page.waitForLoadState('networkidle');
 
   // Accept current T&C so TermsAcceptanceGate does not block test interactions.
   await acceptTermsViaApi(page);
