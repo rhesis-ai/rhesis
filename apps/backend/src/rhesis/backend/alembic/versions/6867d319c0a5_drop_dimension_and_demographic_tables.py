@@ -38,7 +38,8 @@ def _constraint_exists(bind, table_name: str, constraint_name: str) -> bool:
     """Return True if a constraint with the given name exists on the table."""
     result = bind.execute(
         sa.text(
-            "SELECT 1 FROM pg_constraint WHERE conname = :name AND conrelid = :table::regclass"
+            "SELECT 1 FROM pg_constraint "
+            "WHERE conname = :name AND conrelid = CAST(:table AS regclass)"
         ),
         {"name": constraint_name, "table": table_name},
     )
