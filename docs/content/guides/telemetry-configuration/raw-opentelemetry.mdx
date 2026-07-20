@@ -1,0 +1,256 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
+# Configure Telemetry: Raw OpenTelemetry
+
+For cases where you can't decorate functions — third-party code, dynamic dispatch — or need fine-grained control over span attributes and events, use the OpenTelemetry tracer directly with Rhesis's semantic constants.
+
+## What You'll Achieve
+
+- Full control over span names, attributes, and events
+- An understanding of the export pipeline so you can wire it manually if needed
+- Correctly-shaped spans that pass Rhesis's span-name validation
+
+## Prerequisites
+
+- `RhesisClient` initialized — see [Configuring Telemetry](/guides/telemetry-configuration#prerequisites)
+
+<Callout type="info">
+If you initialize `RhesisClient()`, the export pipeline below is already wired up for you — skip to [Creating Spans Manually](#creating-spans-manually). The manual pipeline setup is only needed if you're bypassing `RhesisClient()` entirely.
+</Callout>
+
+## The Export Pipeline
+
+`RhesisClient()` calls `get_tracer_provider()`, which creates a singleton `TracerProvider` with a `BatchSpanProcessor` wrapping a `RhesisOTLPExporter`, and registers it as the global OpenTelemetry provider. After that, any `trace.get_tracer(...)` call returns a tracer that feeds into this pipeline:
+
+<Mermaid chart={`sequenceDiagram
+    participant App as Your code
+    participant Tracer as OTel Tracer
+    participant BSP as BatchSpanProcessor
+    participant Exp as RhesisOTLPExporter
+    participant API as Rhesis Backend
+
+    App->>Tracer: start_as_current_span(...)
+    Tracer->>BSP: span ends, queued
+    Note over BSP: buffers up to 2048 spans,<br/>flushes every 5s or at 512 spans
+    BSP->>Exp: export(batch)
+    Exp->>API: POST /telemetry/traces (JSON, authenticated)
+    Exp-->>BSP: retry with backoff on 408/429/5xx`} />
+
+### Setting up the pipeline manually
+
+If you skip `RhesisClient()` and wire things yourself:
+
+<CodeBlock filename="telemetry_setup.py" language="python">
+{`from opentelemetry import trace
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from rhesis.telemetry.exporter import RhesisOTLPExporter
+
+# 1. Create the exporter (authenticated JSON-over-HTTP to your backend)
+exporter = RhesisOTLPExporter(
+    api_key="your-api-key",
+    base_url="https://api.rhesis.ai",  # or your self-hosted URL
+    project_id="your-project-id",
+    environment="production",
+)
+
+# 2. Create a TracerProvider with resource metadata
+resource = Resource.create({
+    "service.name": "my-app",
+    "service.namespace": "rhesis",
+    "deployment.environment": "production",
+})
+provider = TracerProvider(resource=resource)
+
+# 3. Wire the exporter through a BatchSpanProcessor
+provider.add_span_processor(
+    BatchSpanProcessor(
+        exporter,
+        max_queue_size=2048,        # spans buffered in memory
+        max_export_batch_size=512,  # spans per HTTP request
+        schedule_delay_millis=5000, # flush interval (5 seconds)
+    )
+)
+
+# 4. Register as global provider
+trace.set_tracer_provider(provider)
+
+# Now trace.get_tracer("my-app") works
+tracer = trace.get_tracer("my-app")`}
+</CodeBlock>
+
+`RhesisOTLPExporter` handles authentication, retry with exponential backoff jitter (on 408/429/5xx and connection errors), chunking for batches over `max_chunk_size` (default 100), conversation context propagation, and span-name validation.
+
+At the end of your process, flush pending spans:
+
+<CodeBlock filename="teardown.py" language="python">
+{`from rhesis.telemetry.provider import shutdown_tracer_provider
+
+shutdown_tracer_provider()  # flushes buffered spans and shuts down`}
+</CodeBlock>
+
+## The Semantic Layer
+
+<Callout type="warning">
+All spans must be named `ai.<domain>.<action>` or `function.<name>`. Names like `chain`, `workflow`, or `pipeline` are rejected by the backend with HTTP 422.
+</Callout>
+
+<CodeBlock filename="constants.py" language="python">
+{`from rhesis.sdk.telemetry import AIAttributes, AIEvents
+from rhesis.telemetry.schemas import AIOperationType
+
+# Span names (use as span_name)
+AIOperationType.LLM_INVOKE          # "ai.llm.invoke"
+AIOperationType.TOOL_INVOKE         # "ai.tool.invoke"
+AIOperationType.RETRIEVAL           # "ai.retrieval"
+AIOperationType.EMBEDDING_GENERATE  # "ai.embedding.generate"
+AIOperationType.RERANK              # "ai.rerank"
+AIOperationType.EVALUATION          # "ai.evaluation"
+AIOperationType.GUARDRAIL           # "ai.guardrail"
+AIOperationType.TRANSFORM           # "ai.transform"
+AIOperationType.AGENT_INVOKE        # "ai.agent.invoke"
+AIOperationType.AGENT_HANDOFF       # "ai.agent.handoff"
+
+# Attribute keys
+AIAttributes.MODEL_PROVIDER        # "ai.model.provider"
+AIAttributes.MODEL_NAME            # "ai.model.name"
+AIAttributes.LLM_TOKENS_INPUT      # "ai.llm.tokens.input"
+AIAttributes.LLM_TOKENS_OUTPUT     # "ai.llm.tokens.output"
+AIAttributes.TOOL_NAME             # "ai.tool.name"
+AIAttributes.TOOL_TYPE             # "ai.tool.type"
+AIAttributes.AGENT_NAME            # "ai.agent.name"
+
+# Event names (for prompt/completion capture)
+AIEvents.PROMPT       # "ai.prompt"
+AIEvents.COMPLETION   # "ai.completion"
+AIEvents.TOOL_INPUT   # "ai.tool.input"
+AIEvents.TOOL_OUTPUT  # "ai.tool.output"`}
+</CodeBlock>
+
+See the [Semantic Conventions Reference](/docs/tracing/semantic-conventions) for the complete list.
+
+## Creating Spans Manually
+
+<Steps>
+
+### Trace an LLM call
+
+<CodeBlock filename="llm_span.py" language="python">
+{`from opentelemetry import trace
+from rhesis.sdk.telemetry import AIAttributes, AIEvents
+from rhesis.telemetry.schemas import AIOperationType
+
+tracer = trace.get_tracer("my-app")
+
+def call_llm(prompt: str) -> str:
+    with tracer.start_as_current_span(AIOperationType.LLM_INVOKE) as span:
+        span.set_attribute(AIAttributes.MODEL_PROVIDER, "openai")
+        span.set_attribute(AIAttributes.MODEL_NAME, "gpt-4o")
+
+        span.add_event(AIEvents.PROMPT, attributes={
+            AIAttributes.PROMPT_ROLE: "user",
+            AIAttributes.PROMPT_CONTENT: prompt,
+        })
+
+        response = openai.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "user", "content": prompt}],
+        )
+        result = response.choices[0].message.content
+
+        span.add_event(AIEvents.COMPLETION, attributes={
+            AIAttributes.COMPLETION_CONTENT: result,
+        })
+        span.set_attribute(AIAttributes.LLM_TOKENS_INPUT, response.usage.prompt_tokens)
+        span.set_attribute(AIAttributes.LLM_TOKENS_OUTPUT, response.usage.completion_tokens)
+
+        return result`}
+</CodeBlock>
+
+### Trace a tool call
+
+<CodeBlock filename="tool_span.py" language="python">
+{`def execute_tool(tool_name: str, tool_input: dict) -> dict:
+    with tracer.start_as_current_span(AIOperationType.TOOL_INVOKE) as span:
+        span.set_attribute(AIAttributes.TOOL_NAME, tool_name)
+        span.set_attribute(AIAttributes.TOOL_TYPE, "function")
+
+        span.add_event(AIEvents.TOOL_INPUT, attributes={"ai.tool.input": str(tool_input)})
+        result = tool_registry[tool_name](**tool_input)
+        span.add_event(AIEvents.TOOL_OUTPUT, attributes={"ai.tool.output": str(result)})
+
+        return result`}
+</CodeBlock>
+
+### Trace an agent handoff
+
+<CodeBlock filename="agent_span.py" language="python">
+{`def run_agent(agent_name: str, input_text: str) -> str:
+    with tracer.start_as_current_span(AIOperationType.AGENT_INVOKE) as span:
+        span.set_attribute(AIAttributes.AGENT_NAME, agent_name)
+
+        result = call_llm(input_text)
+
+        if should_handoff(result):
+            with tracer.start_as_current_span(AIOperationType.AGENT_HANDOFF) as handoff_span:
+                handoff_span.set_attribute(AIAttributes.AGENT_HANDOFF_FROM, agent_name)
+                handoff_span.set_attribute(AIAttributes.AGENT_HANDOFF_TO, "specialist")
+                result = run_agent("specialist", result)
+
+        return result`}
+</CodeBlock>
+
+</Steps>
+
+<Callout type="tip">
+Building attribute dicts by hand? `create_llm_attributes(...)` and `create_tool_attributes(...)` in `rhesis.sdk.telemetry` save you from remembering every constant name.
+</Callout>
+
+## Tracking Multi-Turn Conversations
+
+At the lowest level, you build the synthetic parent context yourself so subsequent turns share a `trace_id`:
+
+<CodeBlock filename="conversation_span.py" language="python">
+{`from opentelemetry.trace import NonRecordingSpan, SpanContext, TraceFlags
+
+conversations = {}  # session_id -> {"trace_id": str, "turn": int}
+
+def handle_turn(session_id: str, user_message: str) -> str:
+    parent_context = None
+
+    if session_id in conversations:
+        conv = conversations[session_id]
+        trace_id_int = int(conv["trace_id"], 16)
+        synthetic_span_ctx = SpanContext(
+            trace_id=trace_id_int,
+            span_id=0x00000000CAFECAFE,  # placeholder, stripped by exporter
+            is_remote=True,
+            trace_flags=TraceFlags(TraceFlags.SAMPLED),
+        )
+        parent_context = trace.set_span_in_context(NonRecordingSpan(synthetic_span_ctx))
+
+    with tracer.start_as_current_span("function.chat", context=parent_context) as span:
+        span.set_attribute("rhesis.conversation.is_turn_root", True)
+        span.set_attribute("rhesis.conversation.id", session_id)
+        span.set_attribute("rhesis.conversation.input", user_message[:10000])
+
+        if session_id not in conversations:
+            trace_id = format(span.get_span_context().trace_id, "032x")
+            conversations[session_id] = {"trace_id": trace_id, "turn": 1}
+
+        return call_llm(user_message)`}
+</CodeBlock>
+
+For the full attribute reference (`rhesis.conversation.*`) and the shared-vs-separate trace_id tradeoff, see [Conversation Tracing](/docs/tracing/conversation-tracing).
+
+<Callout type="success">
+**You have full control over span creation.** For most applications, [Decorators](/guides/telemetry-configuration/decorators) cover the same ground with far less code — reach for raw OpenTelemetry only when you genuinely need it.
+</Callout>
+
+<Callout type="info">
+  **Related:**
+  - [Custom Spans Reference](/docs/tracing/custom-spans) — every attribute and event in depth
+  - [Semantic Conventions Reference](/docs/tracing/semantic-conventions) — the complete `ai.*` schema
+  - [Configuring Telemetry](/guides/telemetry-configuration) — back to the mode overview
+</Callout>
