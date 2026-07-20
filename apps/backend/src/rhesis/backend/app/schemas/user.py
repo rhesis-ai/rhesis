@@ -144,13 +144,24 @@ class UserSettings(BaseModel):
     is_verified: Optional[bool] = Field(None, description="User verification status")
 
 
-class UserSettingsRead(UserSettings):
-    """GET /users/settings — includes server-resolved affordances for self-service actions."""
+class UserSettingsOutput(UserSettings):
+    """user_settings as returned in user-serializing responses (e.g. GET /users/, GET /users/{id}).
+
+    Adds the server-managed ``terms`` field so users whose settings contain it don't fail
+    response validation. Distinct from the writable ``UserSettings`` (still forbids ``terms``
+    on input) and from ``UserSettingsRead`` (adds ``permitted_actions`` for the dedicated
+    GET /users/settings endpoint).
+    """
 
     terms: Optional[dict] = Field(
         None,
         description="Server-managed terms acceptance metadata (read-only for users)",
     )
+
+
+class UserSettingsRead(UserSettingsOutput):
+    """GET /users/settings — includes server-resolved affordances for self-service actions."""
+
     permitted_actions: list[str] = Field(
         default_factory=list,
         description="Capabilities the caller may exercise on their own settings "
@@ -221,7 +232,10 @@ class UserUpdate(UserBase):
 
 
 class User(UserBase):
-    pass
+    user_settings: Optional[UserSettingsOutput] = Field(
+        default_factory=lambda: UserSettingsOutput(version=1),
+        description="User preferences and settings",
+    )
 
 
 # For use in responses where we need minimal user info
