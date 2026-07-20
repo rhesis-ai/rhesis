@@ -88,6 +88,37 @@ def upgrade() -> None:
     if _table_exists(bind, "dimension"):
         op.drop_table("dimension")
 
+    # 5. Retire the dimension/demographic capabilities from the permission
+    #    catalog — the routers, models, and service-layer code for these
+    #    resources are removed in this same PR, so the capabilities no
+    #    longer appear in get_all_capabilities() and must be marked retired
+    #    to keep test_capability_catalog in sync.
+    _RETIRED_CAPS = [
+        "demographic:create",
+        "demographic:delete",
+        "demographic:read",
+        "demographic:update",
+        "dimension:create",
+        "dimension:delete",
+        "dimension:read",
+        "dimension:update",
+    ]
+    op.execute(
+        sa.text(
+            "UPDATE permission SET is_retired = true WHERE name IN :caps"
+        ).bindparams(sa.bindparam("caps", expanding=True)),
+        {"caps": _RETIRED_CAPS},
+    )
+    op.execute(
+        sa.text(
+            "DELETE FROM role_permission "
+            "WHERE permission_id IN ("
+            "  SELECT id FROM permission WHERE name IN :caps"
+            ")"
+        ).bindparams(sa.bindparam("caps", expanding=True)),
+        {"caps": _RETIRED_CAPS},
+    )
+
 
 def downgrade() -> None:
     """Recreate the pre-drop schema (empty).
@@ -199,3 +230,23 @@ def downgrade() -> None:
             ["demographic_id"],
             ["id"],
         )
+
+    # 4. Unretire the dimension/demographic capabilities so the catalog
+    #    is back in sync with the restored code (downgrade reverses step 5
+    #    of upgrade).
+    _RETIRED_CAPS = [
+        "demographic:create",
+        "demographic:delete",
+        "demographic:read",
+        "demographic:update",
+        "dimension:create",
+        "dimension:delete",
+        "dimension:read",
+        "dimension:update",
+    ]
+    op.execute(
+        sa.text(
+            "UPDATE permission SET is_retired = false WHERE name IN :caps"
+        ).bindparams(sa.bindparam("caps", expanding=True)),
+        {"caps": _RETIRED_CAPS},
+    )
