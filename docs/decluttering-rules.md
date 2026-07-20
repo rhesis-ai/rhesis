@@ -91,6 +91,17 @@ positive example. Apply when trimming pages under `docs/content/`.
     reader would *do* ("Group traces into sessions", "Add attributes to traces"), not card grids
     restating the navigation ("Explore the Product Tour →").
 
+## Terminology
+
+19. **Call it an "LLM application" (or "AI agent"), never "AI application" / "generative AI
+    application".** "Generative AI" and "AI application" are too broad — image generation is
+    generative AI too, but not what Rhesis tests. Default to **LLM application**; use **AI agent**
+    only where the context is specifically about agents (reasoning, tool calls, multi-turn goal
+    pursuit). Leave proper names untouched: Garak's expansion "Generative AI Red-teaming and
+    Assessment Kit", the "Pydantic AI" framework, and example strings like `name="My AI App"`.
+    Glossary term text lives in `content/glossary/glossary-terms.jsonl` — edit the source and
+    regenerate with `node scripts/generate-glossary-pages.js`, not the generated `index.mdx` files.
+
 ## Documentation sections (`docs/content/`, 262 pages)
 
 Inventory for the decluttering pass, mirroring the sidebar (`_meta.tsx` order and titles).
