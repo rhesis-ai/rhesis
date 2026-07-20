@@ -146,11 +146,11 @@ Check off pages/sections as they are done.
 
 ### Guides (5 pages)
 
-- [ ] Overview
-- [ ] Quick Start: Testing in 10 Minutes
-- [ ] Building Custom Metrics with the Rhesis SDK
-- [ ] Integrating Rhesis SDK into CI/CD
-- [ ] Testing User Journeys of AI Agents
+- [x] Overview
+- [x] Quick Start: Testing in 10 Minutes
+- [x] Building Custom Metrics with the Rhesis SDK
+- [x] Integrating Rhesis SDK into CI/CD
+- [x] Testing User Journeys of AI Agents
 
 ### SDK (27 pages)
 
