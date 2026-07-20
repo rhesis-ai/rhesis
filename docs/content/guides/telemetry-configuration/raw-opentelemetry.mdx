@@ -2,7 +2,7 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 # Configure Telemetry: Raw OpenTelemetry
 
-For cases where you can't decorate functions — third-party code, dynamic dispatch — or need fine-grained control over span attributes and events, use the OpenTelemetry tracer directly with Rhesis's semantic constants.
+For cases where you can't decorate functions (third-party code, dynamic dispatch) or need fine-grained control over span attributes and events, use the OpenTelemetry tracer directly with Rhesis's semantic constants.
 
 ## What You'll Achieve
 
@@ -12,10 +12,10 @@ For cases where you can't decorate functions — third-party code, dynamic dispa
 
 ## Prerequisites
 
-- `RhesisClient` initialized — see [Configuring Telemetry](/guides/telemetry-configuration#prerequisites)
+- `RhesisClient` initialized: see [Configuring Telemetry](/guides/telemetry-configuration#prerequisites)
 
 <Callout type="info">
-If you initialize `RhesisClient()`, the export pipeline below is already wired up for you — skip to [Creating Spans Manually](#creating-spans-manually). The manual pipeline setup is only needed if you're bypassing `RhesisClient()` entirely.
+If you initialize `RhesisClient()`, the export pipeline below is already wired up for you: skip to [Creating Spans Manually](#creating-spans-manually). The manual pipeline setup is only needed if you're bypassing `RhesisClient()` entirely.
 </Callout>
 
 ## The Export Pipeline
@@ -245,12 +245,12 @@ def handle_turn(session_id: str, user_message: str) -> str:
 For the full attribute reference (`rhesis.conversation.*`) and the shared-vs-separate trace_id tradeoff, see [Conversation Tracing](/docs/tracing/conversation-tracing).
 
 <Callout type="success">
-**You have full control over span creation.** For most applications, [Decorators](/guides/telemetry-configuration/decorators) cover the same ground with far less code — reach for raw OpenTelemetry only when you genuinely need it.
+**You have full control over span creation.** For most applications, [Decorators](/guides/telemetry-configuration/decorators) cover the same ground with far less code: reach for raw OpenTelemetry only when you genuinely need it.
 </Callout>
 
 <Callout type="info">
   **Related:**
-  - [Custom Spans Reference](/docs/tracing/custom-spans) — every attribute and event in depth
-  - [Semantic Conventions Reference](/docs/tracing/semantic-conventions) — the complete `ai.*` schema
-  - [Configuring Telemetry](/guides/telemetry-configuration) — back to the mode overview
+  - [Custom Spans Reference](/docs/tracing/custom-spans) - every attribute and event in depth
+  - [Semantic Conventions Reference](/docs/tracing/semantic-conventions) - the complete `ai.*` schema
+  - [Configuring Telemetry](/guides/telemetry-configuration) - back to the mode overview
 </Callout>

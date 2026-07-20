@@ -13,7 +13,7 @@ Auto-instrumentation traces every LLM call, tool invocation, and chain or graph 
 
 ## Prerequisites
 
-- `RhesisClient` initialized — see [Configuring Telemetry](/guides/telemetry-configuration#prerequisites)
+- `RhesisClient` initialized: see [Configuring Telemetry](/guides/telemetry-configuration#prerequisites)
 - The pip extra for your framework installed
 
 ## Supported Frameworks
@@ -28,7 +28,7 @@ Auto-instrumentation traces every LLM call, tool invocation, and chain or graph 
   ]}
 />
 
-Using a different framework? Auto-instrumentation won't cover it — go to [Decorators](/guides/telemetry-configuration/decorators) instead.
+Using a different framework? Auto-instrumentation won't cover it. Go to [Decorators](/guides/telemetry-configuration/decorators) instead.
 
 ## Setup
 
@@ -68,7 +68,7 @@ auto_instrument("pydantic_ai")`}
 </CodeBlock>
 
 <Callout type="info">
-Call `auto_instrument()` once, right after creating `RhesisClient`, before your framework code runs. It patches the framework's entry points, so anything constructed beforehand (e.g. a chain built at import time) is still traced — the patching targets invocation, not construction.
+Call `auto_instrument()` once, right after creating `RhesisClient`, before your framework code runs. It patches the framework's entry points, so anything constructed beforehand (e.g. a chain built at import time) is still traced: the patching targets invocation, not construction.
 </Callout>
 
 ### Use your framework normally
@@ -78,7 +78,7 @@ Call `auto_instrument()` once, right after creating `RhesisClient`, before your 
 
 llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash-exp")
 response = llm.invoke("Explain quantum computing")
-# Traced automatically — no changes to this call`}
+# Traced automatically, no changes to this call`}
 </CodeBlock>
 
 ### Verify traces are arriving
@@ -109,7 +109,7 @@ flowchart LR
 
 ## Combining with Decorators
 
-Auto-instrumentation and `@observe`/`@endpoint` work together — the SDK deduplicates so you never get two spans for the same LLM call:
+Auto-instrumentation and `@observe`/`@endpoint` work together: the SDK deduplicates so you never get two spans for the same LLM call:
 
 <CodeBlock filename="app.py" language="python">
 {`from rhesis.sdk import RhesisClient, endpoint
@@ -140,7 +140,7 @@ disable_auto_instrument()  # turns off every previously-enabled framework`}
 
 <Callout type="info">
   **Related:**
-  - [Auto-Instrumentation Reference](/docs/tracing/auto-instrumentation) — full API surface and per-framework examples
-  - [Microsoft Agent Framework](/docs/tracing/agent-framework) — handoff tracing and content-capture options
-  - [Configuring Telemetry](/guides/telemetry-configuration) — back to the mode overview
+  - [Auto-Instrumentation Reference](/docs/tracing/auto-instrumentation) - full API surface and per-framework examples
+  - [Microsoft Agent Framework](/docs/tracing/agent-framework) - handoff tracing and content-capture options
+  - [Configuring Telemetry](/guides/telemetry-configuration) - back to the mode overview
 </Callout>

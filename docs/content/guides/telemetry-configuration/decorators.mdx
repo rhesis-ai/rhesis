@@ -3,7 +3,7 @@ import { Table } from '@/components/Table'
 
 # Configure Telemetry: Decorators
 
-Decorators are the sweet spot between zero-code auto-instrumentation and manual span creation. Wrap any function with `@observe` (or a typed variant) and the SDK handles span naming, I/O capture, and attribute stamping for you. Use this mode for frameworks not covered by [auto-instrumentation](/guides/telemetry-configuration/auto-instrumentation) — CrewAI, OpenAI Agents SDK, or your own hand-rolled pipeline.
+Decorators are the sweet spot between zero-code auto-instrumentation and manual span creation. Wrap any function with `@observe` (or a typed variant) and the SDK handles span naming, I/O capture, and attribute stamping for you. Use this mode for frameworks not covered by [auto-instrumentation](/guides/telemetry-configuration/auto-instrumentation): CrewAI, OpenAI Agents SDK, or your own hand-rolled pipeline.
 
 ## What You'll Achieve
 
@@ -13,7 +13,7 @@ Decorators are the sweet spot between zero-code auto-instrumentation and manual 
 
 ## Prerequisites
 
-- `RhesisClient` initialized — see [Configuring Telemetry](/guides/telemetry-configuration#prerequisites)
+- `RhesisClient` initialized: see [Configuring Telemetry](/guides/telemetry-configuration#prerequisites)
 
 ## Setup
 
@@ -121,7 +121,7 @@ def researcher(query: str) -> dict:
 
 ```mermaid
 graph TD
-    A[function.run — root] --> B[ai.agent.invoke: orchestrator]
+    A["function.run (root)"] --> B[ai.agent.invoke: orchestrator]
     B --> C[ai.llm.invoke: plan_task]
     B --> D[ai.agent.handoff]
     D --> E[ai.agent.invoke: researcher]
@@ -172,7 +172,7 @@ def handle_message(session_id: str, user_message: str) -> str:
 </CodeBlock>
 
 <Callout type="tip">
-Prefer `@endpoint()` with a returned `session_id` field when you can — the Rhesis connector manages this context for you automatically. Manual context management is only needed for custom chat servers outside the connector.
+Prefer `@endpoint()` with a returned `session_id` field when you can: the Rhesis connector manages this context for you automatically. Manual context management is only needed for custom chat servers outside the connector.
 </Callout>
 
 ## Combining with Auto-Instrumentation
@@ -192,7 +192,7 @@ def chat(input: str) -> dict:
     return {"output": chain.invoke({"message": input})}`}
 </CodeBlock>
 
-The SDK deduplicates automatically — `@observe.llm()` sets a context flag that tells the auto-instrumentation callback to skip creating a duplicate span for the same call.
+The SDK deduplicates automatically: `@observe.llm()` sets a context flag that tells the auto-instrumentation callback to skip creating a duplicate span for the same call.
 
 <Callout type="success">
 **You have working traces.** Need finer control over attributes or events than the typed decorators expose? See [Raw OpenTelemetry](/guides/telemetry-configuration/raw-opentelemetry).
@@ -200,7 +200,7 @@ The SDK deduplicates automatically — `@observe.llm()` sets a context flag that
 
 <Callout type="info">
   **Related:**
-  - [Decorators Reference](/docs/tracing/decorators) — full `@observe` and `@endpoint` API
-  - [Conversation Tracing](/docs/tracing/conversation-tracing) — deep reference on turn management
-  - [Configuring Telemetry](/guides/telemetry-configuration) — back to the mode overview
+  - [Decorators Reference](/docs/tracing/decorators) - full `@observe` and `@endpoint` API
+  - [Conversation Tracing](/docs/tracing/conversation-tracing) - deep reference on turn management
+  - [Configuring Telemetry](/guides/telemetry-configuration) - back to the mode overview
 </Callout>
