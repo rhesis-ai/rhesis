@@ -146,11 +146,18 @@ Check off pages/sections as they are done.
 - [x] Playground — toned down promo intro, cut redundant setup filler, removed WebSocket
       payload internals (table + chat.message JSON, unused CodeBlock import), fixed "audio"
       factual error and two /docs-less links (multimodal-testing, tracing)
-- [ ] Explorer — Overview, Workflow, Building and Evaluating, Scenarios, Test Generation
+- [x] Explorer — Overview, Workflow, Building and Evaluating, Scenarios (dedup pass: stripped
+      the suggestions mechanics from the Overview and the duplicate "Two benefits" section from
+      Workflow, both owned by Building and Evaluating; removed the manual TOC from Scenarios;
+      verified 10/20 defaults, /explorer routes, and 1000-char guide. Building and Evaluating
+      kept as the canonical deep-dive. Test Generation MOVED out of Explorer to Test Sets —
+      the feature lives at /test-sets/new-generated in the app, not Explorer.)
 - [ ] Tests — Tests, Conversation Simulation (Overview, Getting Started, Examples & Use Cases,
       Configuration, Execution Trace, Extending), Adversarial Testing (Overview, Polyphemus,
       Requesting Access, SDK Usage), Multi-modal Testing
-- [ ] Test Sets — Overview, Import from File, Import from Garak
+- [ ] Test Sets — Overview, Test Generation (relocated here from Explorer; content decluttered:
+      fixed stale Small/Medium/Large presets → the real 1–200 slider (default 50), fixed broken
+      platform/tests link, trimmed promo and Next Steps), Import from File, Import from Garak
 
 **Improve**
 - [ ] Insights (`results-overview`)

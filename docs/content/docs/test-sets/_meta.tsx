@@ -2,6 +2,7 @@ import type { MetaRecord } from "nextra";
 
 const meta: MetaRecord = {
   index: "Overview",
+  "tests-generation": "Test Generation",
   "import-from-file": "Import from File",
   "import-from-garak": "Import from Garak",
 };
