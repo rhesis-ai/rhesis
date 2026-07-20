@@ -136,7 +136,11 @@ Check off pages/sections as they are done.
       to an inline list, added missing `.md` and 5 MB limit, dropped wrong `.zip` note
 - [x] Behaviors — folded definition callout into intro, dropped low-value grid/cards/detail
       table, terminology fix (AI system → LLM application), converted Next Steps callout to a list
-- [ ] Metrics — Overview, DeepEval, Ragas, Trace Metrics, Code Metrics
+- [x] Metrics — Overview, Metric scope, DeepEval, Ragas, Trace Metrics, Code Metrics
+      (Overview: folded intro callout + "at a glance" into the intro, deduped Metric Scope
+      against metric-scope.mdx, dropped decorative rules, fixed "appraoch" typo and the broken
+      /docs/tests-generation link. Trace Metrics: trimmed promotional intro tail. Metric scope,
+      DeepEval, Ragas, Code Metrics: already lean and rule-compliant, facts verified — no changes)
 
 **Generate**
 - [ ] Playground

@@ -1,16 +1,8 @@
 # Metrics
 
-Define and manage evaluation criteria for testing AI responses with LLM-based grading.
-
-<Callout type="default">
-  **What are Metrics?** Metrics are quantifiable measurements that evaluate AI behavior and determine if requirements are met.
-</Callout>
-
-## Metrics at a glance
-
-Metrics are organized by [**Behaviors**](/docs/behaviors), which are atomic expectations you have for the output of your application.
-
-**In short:** Behaviors define what you expect, metrics measure how well you meet those expectations.
+Metrics are the quantifiable measurements that evaluate an AI response and decide whether it
+meets your requirements. They are organized by [**Behaviors**](/docs/behaviors): behaviors
+define what you expect, metrics measure how well you meet it.
 
 ## Offline Tests vs Online Trace Metrics
 
@@ -47,7 +39,7 @@ You can create custom metrics tailored to your specific evaluation needs.
 
 ![Create Metrics](/screenshots/rhesis-ai-create-metrics.png)
 
-This section presents what needs to be configured to create a custom metric using a Judge-as-Model appraoch.
+This section presents what needs to be configured to create a custom metric using a Judge-as-Model approach.
 
 ### 1. Evaluation Process
 
@@ -102,8 +94,6 @@ weigh issues by importance, then determine the final score."
 - Use concrete, measurable criteria
 - Provide clear examples when possible
 
----
-
 ### Evaluating Context, Metadata, and Tool Calls
 
 Metrics can also take into account `context`, `metadata`, and `tool_calls`. These are Rhesis-managed keys providing additional information for a given interaction alongside the standard text response.
@@ -149,8 +139,6 @@ Check the `metadata` for token counts. A response that uses more than
 - **Token usage (`metadata`)** -- evaluate cost efficiency by checking `prompt_tokens` and `completion_tokens`
 - **Confidence scores (`metadata`)** -- verify the model's self-reported confidence aligns with response quality
 
----
-
 ### 2. Score Configuration
 
 Choose your scoring approach:
@@ -180,19 +168,16 @@ Define custom categories for classification:
 
 </details>
 
----
-
 ### 3. Metric Scope
 
-Select applicable scopes (at least one required):
+Select at least one scope:
 
-- **Single-Turn**: Individual question-answer pairs
-- **Multi-Turn**: Multi-exchange conversations
-- **Trace**: Live production traffic evaluated in real-time (see [Trace Metrics](/docs/metrics/trace-metrics))
+- **Single-Turn**: individual question-answer pairs
+- **Multi-Turn**: multi-exchange conversations
+- **Trace**: live production traffic evaluated in real-time (see [Trace Metrics](/docs/metrics/trace-metrics))
 
-You can find more information about test types in the [Tests Section](/docs/tests).
-
----
+Scope must include the test's type or the metric is silently skipped at run time — see
+[Metric scope](/docs/metrics/metric-scope).
 
 ### 4. Result Explanation
 
@@ -231,11 +216,8 @@ The request body has one field:
   score type, threshold, categories, and metric scope before using it in a critical test run.
 </Callout>
 
-## See Also
--  Learn how to use metrics programmatically in the [SDK Metrics Documentation](/sdk/metrics)
+## Next steps
 
-<Callout type="default">
-  **Next Steps** - Use metrics in [Tests](/docs/tests-generation) by
-  assigning them to behaviors - View metric performance in [Test
-  Results](/docs/test-results)
-</Callout>
+- Assign metrics to [behaviors](/docs/behaviors) and use them in [test generation](/docs/explorer/tests-generation)
+- View metric performance in [Test Results](/docs/test-results)
+- Use metrics programmatically with the [SDK](/sdk/metrics)
