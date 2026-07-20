@@ -42,6 +42,7 @@ interface TestRunLinkedEntitiesTabProps {
   currentUserName: string;
   currentUserPicture?: string;
   initialSelectedTestId?: string;
+  initialDetailTab?: string;
   testSetType?: string;
   project?: { icon?: string; useCase?: string; name?: string };
   projectName?: string;
@@ -72,6 +73,7 @@ export default function TestRunLinkedEntitiesTab({
   currentUserName,
   currentUserPicture,
   initialSelectedTestId,
+  initialDetailTab,
   testSetType,
   project,
   projectName,
@@ -126,6 +128,7 @@ export default function TestRunLinkedEntitiesTab({
         currentUserName={currentUserName}
         currentUserPicture={currentUserPicture}
         initialSelectedTestId={initialSelectedTestId}
+        initialDetailTab={initialDetailTab}
         testSetType={testSetType}
         project={project}
         projectName={projectName}

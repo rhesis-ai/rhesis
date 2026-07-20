@@ -13,6 +13,7 @@ export const testRunKeys = createEntityKeys('test-runs');
 export const endpointKeys = createEntityKeys('endpoints');
 export const sourceKeys = createEntityKeys('sources');
 export const taskKeys = createEntityKeys('tasks');
+export const annotationKeys = createEntityKeys('annotations');
 export const experimentKeys = createEntityKeys('experiments');
 export const modelKeys = createEntityKeys('models');
 export const behaviorKeys = createEntityKeys('behaviors');

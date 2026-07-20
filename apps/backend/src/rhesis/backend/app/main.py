@@ -217,13 +217,16 @@ def _response_carries_affordances(response_model) -> bool:
     """True if *response_model* is, contains, or wraps a ``WithPermittedActions`` schema.
 
     Unwraps typing generics (``List[X]``, ``Optional[X]``, ``Union[...]``) so list
-    and optional response models are detected, not just bare model classes.
+    and optional response models are detected, not just bare model classes. Warns
+    if a matching schema left ``__resource_type__`` unset, since that silently
+    yields empty ``permitted_actions`` for every response using it.
     """
     from typing import get_args
 
     from rhesis.backend.app.schemas.affordances import WithPermittedActions
 
     seen: set = set()
+    found = False
     stack = [response_model]
     while stack:
         tp = stack.pop()
@@ -236,10 +239,16 @@ def _response_carries_affordances(response_model) -> bool:
             continue
         try:
             if isinstance(tp, type) and issubclass(tp, WithPermittedActions):
-                return True
+                found = True
+                if tp.__resource_type__ is None:
+                    logger.warning(
+                        "%s mixes in WithPermittedActions but has no __resource_type__ "
+                        "set; permitted_actions will always be empty for this schema",
+                        tp.__name__,
+                    )
         except TypeError:
             continue
-    return False
+    return found
 
 
 def apply_affordance_backstop(app: FastAPI) -> None:

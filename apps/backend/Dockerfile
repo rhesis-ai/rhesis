@@ -34,8 +34,12 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 ENV PATH="/root/.cargo/bin:$PATH"
 
 COPY sdk /app/sdk/
+# Hatch force-includes skill refs into the SDK wheel (see sdk/pyproject.toml).
+COPY skills /app/skills/
 COPY penelope /app/penelope/
 COPY packages/rhesis /app/packages/rhesis/
+# Hatch force-includes skill refs into the SDK wheel (see sdk/pyproject.toml).
+COPY skills/rhesis/references /app/skills/rhesis/references/
 # EE source. Deployed images always carry the EE code; runtime activation is
 # decided by the license provider + RHESIS_LICENSE env var, mirroring the
 # QUICK_START pattern (always-on code, env-flipped behavior). The migrate
@@ -259,7 +263,7 @@ ENV PYTHONHASHSEED=0 \
     CELERY_TASK_EAGER_PROPAGATES=False \
     CELERY_WORKER_CONCURRENCY=2 \
     CELERY_WORKER_PREFETCH_MULTIPLIER=1 \
-    CELERY_WORKER_LOGLEVEL=WARNING \
+    LOG_LEVEL=INFO \
     CELERY_WORKER_OPTS="--without-gossip --without-mingle --without-heartbeat"
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \

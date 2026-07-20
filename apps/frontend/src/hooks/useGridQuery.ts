@@ -7,6 +7,8 @@ export interface UseGridQueryOptions<T> {
   queryKey: readonly unknown[];
   queryFn: () => Promise<T>;
   enabled?: boolean;
+  /** Override the app-wide staleTime (e.g. 0 for lists that must stay fresh). */
+  staleTime?: number;
   /** Shown when the query fails with a non-Error rejection. */
   errorFallbackMessage?: string;
 }
@@ -22,6 +24,7 @@ export function useGridQuery<T>({
   queryKey,
   queryFn,
   enabled = true,
+  staleTime,
   errorFallbackMessage = 'Failed to load data',
 }: UseGridQueryOptions<T>) {
   const query = useQuery<T>({
@@ -29,6 +32,7 @@ export function useGridQuery<T>({
     queryFn,
     enabled,
     placeholderData: keepPreviousData,
+    ...(staleTime !== undefined ? { staleTime } : {}),
   });
 
   const [dismissed, setDismissed] = useState(false);

@@ -12,6 +12,8 @@ import { PageLayout } from '@/components/layout/PageLayout';
 import TestResultsFilters from './TestResultsFilters';
 import BehaviorInsightsView from './BehaviorInsightsView';
 import InsightsFailedTestsFab from './InsightsFailedTestsFab';
+import InsightsSummarizeFab from './InsightsSummarizeFab';
+import { FabGroup } from '@/components/common/Fab';
 import {
   DEFAULT_INSIGHTS_FILTERS,
   DEFAULT_INSIGHTS_TIME_RANGE,
@@ -193,6 +195,11 @@ export default function InsightsPage({ sessionToken }: InsightsPageProps) {
     [projectEndpoints, filters.endpointId]
   );
 
+  const visibleBehaviorNames = useMemo(
+    () => filteredColumns.map(column => column.name),
+    [filteredColumns]
+  );
+
   const fabLoading =
     endpointsLoading ||
     insightsLoading ||
@@ -228,12 +235,22 @@ export default function InsightsPage({ sessionToken }: InsightsPageProps) {
       description="View pass rates by behavior, metric, and topic. Filter by time range or pick specific test runs in the filter drawer."
       breadcrumbs={[]}
       actions={
-        <InsightsFailedTestsFab
-          filters={filters}
-          failedCount={failedTestCaseCount ?? 0}
-          loading={fabLoading}
-          disabled={projectEndpoints.length === 0}
-        />
+        <FabGroup>
+          <InsightsSummarizeFab
+            sessionToken={sessionToken}
+            filters={filters}
+            endpointName={selectedEndpointName}
+            visibleBehaviorNames={visibleBehaviorNames}
+            loading={fabLoading}
+            disabled={projectEndpoints.length === 0}
+          />
+          <InsightsFailedTestsFab
+            filters={filters}
+            failedCount={failedTestCaseCount ?? 0}
+            loading={fabLoading}
+            disabled={projectEndpoints.length === 0}
+          />
+        </FabGroup>
       }
     >
       <Box

@@ -102,6 +102,11 @@ AUTHZ_EXEMPT_ROUTES: frozenset[tuple[str, str]] = frozenset(
         # "no_access" (details withheld) when the caller lacks a
         # ProjectMembership row for the entity's project.
         ("GET", "/resolve"),
+        # Annotations hub: dual-gates test_result:read and telemetry:read in
+        # the handler and returns only the sources the caller can read. A
+        # single PEP capability would exclude telemetry-only (or result-only)
+        # users. Authentication still runs; authorize() is enforced in-handler.
+        ("GET", "/annotations/"),
     }
 )
 

@@ -117,6 +117,7 @@ export interface ResultReview {
   comments?: string;
   user?: { name?: string };
   updated_at?: string;
+  resolved?: boolean;
 }
 
 function isTestResultReviewTarget(review: ResultReview): boolean {

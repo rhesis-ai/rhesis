@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Box } from '@mui/material';
 import { useSession } from 'next-auth/react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { ArchitectSession } from '@/utils/api-client/architect-client';
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
@@ -22,6 +23,9 @@ import ArchitectWelcome from './ArchitectWelcome';
 export default function ArchitectClient() {
   const { data: session } = useSession();
   const { activeProject } = useActiveProject();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
     Capability.Architect.READ
   );
@@ -46,6 +50,16 @@ export default function ArchitectClient() {
     [activeProject?.id]
   );
 
+  const sessionFromQuery = searchParams.get('session');
+
+  const clearSessionQueryParam = useCallback(() => {
+    if (!searchParams.has('session')) return;
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete('session');
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [pathname, router, searchParams]);
+
   // Reload sessions whenever the active project changes so the sidebar always
   // shows only sessions belonging to the current project. The backend already
   // filters by project via RLS (X-Project-Id header); we just need to re-fetch
@@ -56,16 +70,22 @@ export default function ArchitectClient() {
       const client = getClient();
       if (!client) return;
       setIsLoadingSessions(true);
-      setActiveSessionId(null);
+      // Keep a pending ?session= selection while the list reloads.
+      if (!searchParams.get('session')) {
+        setActiveSessionId(null);
+      }
       setSessions([]);
       try {
         const data = await client.getSessions();
         setSessions(data);
-
+        // Skip resume when a ?session= handoff is pending — the query effect
+        // prefers that id over the resume hint.
+        if (searchParams.get('session')) {
+          return;
+        }
         const projectId = activeProject?.id;
         if (projectId) {
-          const resumeSessionId = pickResumableSessionId(projectId, data);
-          setActiveSessionId(resumeSessionId);
+          setActiveSessionId(pickResumableSessionId(projectId, data));
         } else {
           setActiveSessionId(null);
         }
@@ -77,7 +97,60 @@ export default function ArchitectClient() {
       }
     };
     loadSessions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- project/token drive reload
   }, [getClient, activeProject?.id, permsLoading, canRead]);
+
+  // Prefer ?session= over resume (contextual handoffs). Separate from the list
+  // reload so in-app navigations to /architect?session= still work without a
+  // remount (peqy).
+  useEffect(() => {
+    if (!sessionFromQuery || permsLoading || !canRead) return;
+
+    let cancelled = false;
+
+    const selectFromQuery = async () => {
+      const client = getClient();
+      if (!client) return;
+
+      setActiveSessionId(sessionFromQuery);
+      touchResumeHint(sessionFromQuery);
+
+      const alreadyListed = sessions.some(s => s.id === sessionFromQuery);
+      if (!alreadyListed) {
+        try {
+          const detail = await client.getSession(sessionFromQuery);
+          if (cancelled) return;
+          setSessions(prev => [
+            detail,
+            ...prev.filter(s => s.id !== detail.id),
+          ]);
+        } catch (err) {
+          console.error('Failed to load session from query:', err);
+          if (!cancelled) {
+            setActiveSessionId(null);
+          }
+          return;
+        }
+      }
+
+      clearSessionQueryParam();
+    };
+
+    selectFromQuery();
+    return () => {
+      cancelled = true;
+    };
+    // sessions intentionally omitted — we only need the id from the URL;
+    // re-running on every list change would clear the param twice.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- query-driven select
+  }, [
+    sessionFromQuery,
+    permsLoading,
+    canRead,
+    getClient,
+    touchResumeHint,
+    clearSessionQueryParam,
+  ]);
 
   // Bump last-activity when navigating away mid-conversation.
   useEffect(() => {

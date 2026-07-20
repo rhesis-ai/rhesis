@@ -38,6 +38,7 @@ from rhesis.backend.app.schemas.telemetry import (
 )
 from rhesis.backend.app.services.async_service import BROKER_ERRORS
 from rhesis.backend.app.services.review import (
+    apply_review_resolved,
     authorize_review_action,
     get_review_status_details,
     update_review_metadata,
@@ -838,6 +839,9 @@ def add_trace_review(
             "type": review.target.type,
             "reference": review.target.reference,
         },
+        "resolved": False,
+        "resolved_at": None,
+        "resolved_by": None,
     }
 
     db_trace.trace_reviews["reviews"].append(new_review)
@@ -915,6 +919,9 @@ def update_trace_review(
 
     if review.comments is not None:
         review_to_update["comments"] = review.comments
+
+    if review.resolved is not None:
+        apply_review_resolved(review_to_update, resolved=review.resolved, current_user=current_user)
 
     target_changed = False
     if review.target is not None:

@@ -29,8 +29,6 @@ from tests.backend.fixtures.test_setup import (
     create_test_user,
 )
 
-_SESSION_SECRET = {"SESSION_SECRET_KEY": "test-session-secret-key-for-backend-tests"}
-
 # Initialize Faker
 fake = Faker()
 
@@ -107,7 +105,10 @@ class TestAuthProviders:
         from rhesis.backend.app.auth.providers.registry import ProviderRegistry
         from rhesis.backend.app.config.settings import get_auth_settings
 
-        with patch.dict(os.environ, _SESSION_SECRET, clear=True):
+        # Preserve SESSION_SECRET_KEY (a required setting) so AuthSettings can
+        # still be constructed; only the OAuth credentials are cleared here.
+        preserved = {"SESSION_SECRET_KEY": os.environ["SESSION_SECRET_KEY"]}
+        with patch.dict(os.environ, preserved, clear=True):
             # Clear the LRU-cached settings so is_enabled re-reads the (now empty) env
             get_auth_settings.cache_clear()
             ProviderRegistry.reset()
@@ -149,7 +150,10 @@ class TestProviderLogin:
         from rhesis.backend.app.auth.providers.registry import ProviderRegistry
         from rhesis.backend.app.config.settings import get_auth_settings
 
-        with patch.dict(os.environ, _SESSION_SECRET, clear=True):
+        # Preserve SESSION_SECRET_KEY (a required setting) so AuthSettings can
+        # still be constructed; only the OAuth credentials are cleared here.
+        preserved = {"SESSION_SECRET_KEY": os.environ["SESSION_SECRET_KEY"]}
+        with patch.dict(os.environ, preserved, clear=True):
             get_auth_settings.cache_clear()
             ProviderRegistry.reset()
 
@@ -785,7 +789,9 @@ class TestAuthMagicLinkRoutes:
         )
         assert response.status_code == status.HTTP_200_OK
 
-    def test_accept_terms_records_current_version(self, client: TestClient, test_db, test_org_id):
+    def test_accept_terms_records_current_version(
+        self, client: TestClient, test_db, test_org_id
+    ):
         from rhesis.backend.app.auth.terms import CURRENT_TERMS_VERSION
         from rhesis.backend.app.auth.token_utils import create_session_token
 
@@ -1263,7 +1269,9 @@ class TestGetCallbackUrl:
         "rhesis.backend.app.routers.auth.get_application_settings",
         new=_mock_application_settings("local", api_base_url="https://api.rhesis.ai"),
     )
-    def test_backend_env_local_with_remote_api_base_url_uses_production_callback(self, mock_qs):
+    def test_backend_env_local_with_remote_api_base_url_uses_production_callback(
+        self, mock_qs
+    ):
         """BACKEND_ENV=local alone does not enable local callback behavior."""
         from rhesis.backend.app.routers.auth import get_callback_url
 
@@ -1424,10 +1432,7 @@ class TestTermsAcceptance:
         user = create_test_user(test_db, org.id, email, "Terms User")
         user.user_settings = {
             **(user.user_settings or {}),
-            "terms": {
-                "accepted_at": datetime.now(timezone.utc).isoformat(),
-                "version": CURRENT_TERMS_VERSION,
-            },
+            "terms": {"accepted_at": datetime.now(timezone.utc).isoformat(), "version": CURRENT_TERMS_VERSION},
         }
         test_db.commit()
 

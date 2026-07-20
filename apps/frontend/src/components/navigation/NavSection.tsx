@@ -36,10 +36,15 @@ export function NavSection({ header, items, collapsed }: NavSectionProps) {
   // while loading, permissive when RBAC is off, otherwise a set-membership check.
   const ambient = useAmbientPermissions();
   const hasVisibleItem = items.some(item => {
-    if (!item.requiredPermission) return true;
+    const required = item.requiredAnyOf?.length
+      ? item.requiredAnyOf
+      : item.requiredPermission
+        ? [item.requiredPermission]
+        : null;
+    if (!required) return true;
     if (ambient.loading) return false;
     if (!ambient.enabled) return true;
-    return ambient.permitted_actions.includes(item.requiredPermission);
+    return required.some(p => ambient.permitted_actions.includes(p));
   });
   if (!hasVisibleItem) return null;
 

@@ -86,6 +86,7 @@ class ApplicationSettings(BaseSettings):
     model_config = SettingsConfigDict(env_ignore_empty=True)
 
     quick_start: bool = Field(default=False, alias="QUICK_START")
+    dev_mode: bool = Field(default=False, alias="DEV_MODE")
     backend_env: Literal["production", "development", "staging", "local"] = Field(
         default="development", alias="BACKEND_ENV"
     )
@@ -131,8 +132,9 @@ class ApplicationSettings(BaseSettings):
         This is the deployment-static portion of the Quick Start gate: it is
         fail-secure and returns False if QUICK_START is not explicitly enabled,
         if BACKEND_ENV is production, or if any Google Cloud signal is present.
-        Request-scoped signals
-        (hostname, headers) are evaluated separately in
+        Deliberately independent of DEV_MODE: Quick Start must not imply hot
+        reload, which slows the app down. Request-scoped signals (hostname,
+        headers) are evaluated separately in
         ``rhesis.backend.app.utils.quick_start.is_quick_start_enabled``.
         """
         if not self.quick_start:
@@ -198,6 +200,28 @@ class AuthSettings(BaseSettings):
     @property
     def github_enabled(self) -> bool:
         return bool(self.github_client_id and self.github_client_secret)
+
+
+class SecuritySettings(BaseSettings):
+    model_config = SettingsConfigDict(env_ignore_empty=True)
+
+    db_encryption_key: str = Field(alias="DB_ENCRYPTION_KEY")
+    sso_encryption_key: str | None = Field(default=None, alias="SSO_ENCRYPTION_KEY")
+
+    @field_validator("db_encryption_key")
+    @classmethod
+    def validate_encryption_key(cls, value: str) -> str:
+        try:
+            from cryptography.fernet import Fernet
+
+            Fernet(value.encode())
+        except Exception as exc:
+            raise ValueError(
+                "DB_ENCRYPTION_KEY is not a valid Fernet key. Generate one with: "
+                'python -c "from cryptography.fernet import Fernet; '
+                'print(Fernet.generate_key().decode())"'
+            ) from exc
+        return value
 
 
 class RedisSettings(BaseSettings):
@@ -290,6 +314,11 @@ def get_logging_settings() -> LoggingSettings:
 @lru_cache
 def get_auth_settings() -> AuthSettings:
     return AuthSettings()  # pyright: ignore[reportCallIssue]
+
+
+@lru_cache
+def get_security_settings() -> SecuritySettings:
+    return SecuritySettings()  # pyright: ignore[reportCallIssue]
 
 
 @lru_cache

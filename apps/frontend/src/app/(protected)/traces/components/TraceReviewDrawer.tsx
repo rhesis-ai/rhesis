@@ -31,6 +31,8 @@ import MentionTextInput, {
   inferReviewTarget,
   InferredTarget,
 } from '@/components/common/MentionTextInput';
+import { useQueryClient } from '@tanstack/react-query';
+import { annotationKeys } from '@/constants/query-keys';
 
 interface TraceReviewDrawerProps {
   open: boolean;
@@ -76,6 +78,7 @@ export default function TraceReviewDrawer({
   mentionableTurns = [],
 }: TraceReviewDrawerProps) {
   const theme = useTheme();
+  const queryClient = useQueryClient();
   const [newStatus, setNewStatus] = useState<'passed' | 'failed'>('passed');
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
@@ -257,6 +260,7 @@ export default function TraceReviewDrawer({
         traceTarget
       );
 
+      void queryClient.invalidateQueries({ queryKey: annotationKeys.all() });
       await onSave();
       onClose();
     } catch (_err) {
