@@ -180,10 +180,25 @@ Check off pages/sections as they are done.
       aliases and range parsing, and the 10 MB import cap against the file_import service.)
 
 **Improve**
-- [ ] Insights (`results-overview`)
-- [ ] Test Runs — Test Runs, Test Execution
-- [ ] Experiments — Experiments, Parameter Schema, SDK Usage, Connector Injection
-- [ ] Tasks — Tasks, Test Reviews
+- [x] Insights (`results-overview`) — Next Steps callout → list; page already lean
+- [x] Test Runs — Test Runs, Test Execution (Test Runs: folded definition callout into intro,
+      dropped version annotations from three headings, deduped the metrics-hierarchy section
+      down to a pointer to Test Execution which owns it, Next Steps → list. Test Execution: folded
+      the definition callout + removed the redundant reuse-outputs teaser into the intro, AI system
+      → LLM application, cut the generic Best Practices section, Related Pages → Next steps list.
+      Verified against code: POST /test_runs/{id}/cancel with 404/409, POST /preflight-checks,
+      review target types test_result/metric/turn.)
+- [x] Experiments — Experiments, Parameter Schema, SDK Usage, Connector Injection (folded the
+      tagline/definition callouts into plain intros across all four; Experiments: trimmed the
+      Vocabulary preamble and removed two "Screenshot placeholder" TODO lines. Parameter Schema:
+      dropped "just", AI features → LLM application. Verified: four well-known environments
+      (default/development/staging/production), the 8 parameter types, Parameters.get env vars
+      RHESIS_PARAMETERS_ENVIRONMENT/_LABEL and the 60s cache TTL, and the endpoints#anchors.)
+- [x] Tasks — Tasks, Test Reviews (Tasks: merged the Overview section into the intro, removed a
+      block of stray blank lines, fixed broken /docs/projects → /docs/getting-started/projects,
+      Next Steps → list; verified the /docs/tools#jira anchor. Test Reviews: folded definition
+      callout into intro, fixed broken /docs/test-execution → /docs/test-runs/execution, Next
+      Steps → list.)
 
 **Connect**
 - [ ] Traces (`tracing`) — Overview, Getting Started, Decorators, Custom Spans,

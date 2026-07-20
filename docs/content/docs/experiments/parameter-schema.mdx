@@ -2,9 +2,7 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 # Parameter Schema
 
-<Callout type="default">
-  A *Parameter Schema* is the foundation for experiments. It declares the typed knobs your project supports — what can be configured, not what the values are. [Experiments](/docs/experiments) fill in the values.
-</Callout>
+A parameter schema declares the typed knobs your project supports — what can be configured, not what the values are. [Experiments](/docs/experiments) fill in the values.
 
 ## Why start with a schema?
 
@@ -12,7 +10,7 @@ Before you can create your first experiment, your project needs a schema. The sc
 
 Without this contract in place, there's nothing for experiments to fill in. Think of the schema as the blank form and experiments as the filled-in copies.
 
-Production LLM applications have many knobs: system prompts, model selections, sampling temperatures, retrieval strategies, and evaluation thresholds. Parameter schemas give these knobs a typed, versioned home — extending far beyond just prompt management to encompass the entire behavioral surface of your AI features.
+Production LLM applications have many knobs: system prompts, model selections, sampling temperatures, retrieval strategies, and evaluation thresholds. Parameter schemas give these knobs a typed, versioned home — the whole behavioral surface of your LLM application, not only its prompts.
 
 ## The schema as a contract
 
