@@ -47,8 +47,9 @@ COPY skills/rhesis/references /app/skills/rhesis/references/
 COPY ee/backend /app/ee/backend/
 # sdk/pyproject.toml force-includes this path into the wheel (skill_refs for
 # the architect agent); uv sync fails building rhesis-sdk without it on disk.
-# Build-only: base-runtime never copies /app/skills forward, unlike sdk/
-# penelope/packages-rhesis/ee-backend above.
+# base-runtime also copies /app/skills forward (see below) since rhesis-sdk is
+# installed editable and resolves skill refs from this path at runtime, not
+# from the force-included wheel copy.
 COPY skills/rhesis/references /app/skills/rhesis/references/
 
 # =============================================================================
@@ -132,6 +133,11 @@ COPY --from=build-backend --chown=rhesis-user:rhesis-user /app/apps/backend/src 
 COPY --from=build-backend --chown=rhesis-user:rhesis-user /app/sdk /app/sdk
 COPY --from=build-backend --chown=rhesis-user:rhesis-user /app/penelope /app/penelope
 COPY --from=build-backend --chown=rhesis-user:rhesis-user /app/packages/rhesis /app/packages/rhesis
+# rhesis-sdk is installed editable, so prompt_loader.py resolves skill refs by
+# walking up from its real source path (/app/sdk/src/...) rather than from
+# hatchling's force-included wheel copy. That walk only succeeds if
+# /app/skills/rhesis/references exists in the runtime image too.
+COPY --from=build-backend --chown=rhesis-user:rhesis-user /app/skills/rhesis/references /app/skills/rhesis/references
 # EE editable install resolves via a .pth file pointing at /app/ee/backend/src,
 # so the source tree must exist in the runtime image too. License-based gating
 # decides at runtime which features the bootstrap actually mounts.
