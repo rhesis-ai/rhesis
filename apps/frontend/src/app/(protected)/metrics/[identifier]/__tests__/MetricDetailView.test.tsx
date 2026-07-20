@@ -88,8 +88,15 @@ async function renderAndViewMetric() {
   await act(async () => {
     render(<MetricDetailView metricId="metric-1" />);
   });
+  // The component renders `metric.name` in multiple places (breadcrumb label,
+  // page heading via PageLayout's title prop, and a Typography in detailBody).
+  // Query by role+level to target the unique h1 rendered by PageLayout, which
+  // avoids `getByText`'s "Found multiple elements" error while still verifying
+  // the metric loaded.
   await waitFor(() =>
-    expect(screen.getByText('Test Metric')).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { name: 'Test Metric', level: 1 })
+    ).toBeInTheDocument()
   );
 }
 
@@ -186,7 +193,11 @@ describe('MetricDetailView — evaluation steps (issue #1045)', () => {
 
     // Remove the second step — an adjacent code path that must also preserve
     // the text already entered in the remaining step inputs.
-    const deleteButtons = screen.getAllByRole('button', { name: /delete/i });
+    // IconButton wrapping <DeleteIcon /> has no aria-label (pre-existing a11y
+    // debt, out of scope for #1045), so query by icon testid and walk up to
+    // the button ancestor.
+    const deleteIcons = screen.getAllByTestId('DeleteIcon');
+    const deleteButtons = deleteIcons.map(icon => icon.closest('button')!);
     // The second step's delete button is the last one rendered before "Add Step".
     await act(async () => {
       fireEvent.click(deleteButtons[deleteButtons.length - 1]);
