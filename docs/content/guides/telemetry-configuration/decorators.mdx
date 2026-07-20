@@ -3,13 +3,7 @@ import { Table } from '@/components/Table'
 
 # Configure Telemetry: Decorators
 
-Decorators are the sweet spot between zero-code auto-instrumentation and manual span creation. Wrap any function with `@observe` (or a typed variant) and the SDK handles span naming, I/O capture, and attribute stamping for you. Use this mode for frameworks not covered by [auto-instrumentation](/guides/telemetry-configuration/auto-instrumentation): CrewAI, OpenAI Agents SDK, or your own hand-rolled pipeline.
-
-## What You'll Achieve
-
-- A traced entry point (`@endpoint`) that's also registered for remote testing
-- Typed spans (`ai.llm.invoke`, `ai.tool.invoke`, `ai.retrieval`, …) around your internal functions
-- Correct parent-child nesting with zero manual OpenTelemetry code
+Decorators sit between zero-code auto-instrumentation and manual span creation. Wrap any function with `@observe` (or a typed variant) and the SDK handles span naming, I/O capture, attribute stamping, and parent-child nesting for you. Use this mode for frameworks not covered by [auto-instrumentation](/guides/telemetry-configuration/auto-instrumentation): CrewAI, OpenAI Agents SDK, or your own hand-rolled pipeline.
 
 ## Prerequisites
 
@@ -194,9 +188,7 @@ def chat(input: str) -> dict:
 
 The SDK deduplicates automatically: `@observe.llm()` sets a context flag that tells the auto-instrumentation callback to skip creating a duplicate span for the same call.
 
-<Callout type="success">
-**You have working traces.** Need finer control over attributes or events than the typed decorators expose? See [Raw OpenTelemetry](/guides/telemetry-configuration/raw-opentelemetry).
-</Callout>
+Need finer control over attributes or events than the typed decorators expose? See [Raw OpenTelemetry](/guides/telemetry-configuration/raw-opentelemetry).
 
 <Callout type="info">
   **Related:**

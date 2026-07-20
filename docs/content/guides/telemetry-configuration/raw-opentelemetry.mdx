@@ -2,13 +2,7 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 # Configure Telemetry: Raw OpenTelemetry
 
-For cases where you can't decorate functions (third-party code, dynamic dispatch) or need fine-grained control over span attributes and events, use the OpenTelemetry tracer directly with Rhesis's semantic constants.
-
-## What You'll Achieve
-
-- Full control over span names, attributes, and events
-- An understanding of the export pipeline so you can wire it manually if needed
-- Correctly-shaped spans that pass Rhesis's span-name validation
+For cases where you can't decorate functions (third-party code, dynamic dispatch) or need fine-grained control over span names, attributes, and events, use the OpenTelemetry tracer directly with Rhesis's semantic constants.
 
 ## Prerequisites
 
@@ -244,9 +238,7 @@ def handle_turn(session_id: str, user_message: str) -> str:
 
 For the full attribute reference (`rhesis.conversation.*`) and the shared-vs-separate trace_id tradeoff, see [Conversation Tracing](/docs/tracing/conversation-tracing).
 
-<Callout type="success">
-**You have full control over span creation.** For most applications, [Decorators](/guides/telemetry-configuration/decorators) cover the same ground with far less code: reach for raw OpenTelemetry only when you genuinely need it.
-</Callout>
+For most applications, [Decorators](/guides/telemetry-configuration/decorators) cover the same ground with far less code — reach for raw OpenTelemetry only when you genuinely need it.
 
 <Callout type="info">
   **Related:**

@@ -151,6 +151,8 @@ Check off pages/sections as they are done.
 - [x] Building Custom Metrics with the Rhesis SDK
 - [x] Integrating Rhesis SDK into CI/CD
 - [x] Testing User Journeys of AI Agents
+- [x] Configuring Telemetry for Your AI Application (+ subpages: auto-instrumentation,
+      decorators, raw-opentelemetry, genai-conventions)
 
 ### SDK (27 pages)
 
