@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.services.garak.importer import GarakImporter, ProbeSelection
 from rhesis.backend.app.services.garak.probes import GarakProbeInfo
-from rhesis.backend.app.services.garak.taxonomy import GarakMapping
+from rhesis.backend.app.services.garak.taxonomy import FALLBACK_BEHAVIOR, GarakMapping
 
 fake = Faker()
 
@@ -104,7 +104,6 @@ class TestGarakImporterMetadataBuilding:
         mapping = GarakMapping(
             category="Harmful",
             topic="Jailbreak",
-            behavior="Robustness",
             default_detector="garak.detectors.mitigation.MitigationBypass",
             description="DAN mapping",
         )
@@ -113,7 +112,8 @@ class TestGarakImporterMetadataBuilding:
 
         assert len(tests_data) == 2
         assert tests_data[0].prompt.content == "Prompt 1"
-        assert tests_data[0].behavior == "Robustness"
+        # probe.tags=["jailbreak"] has no quality:* tag, so resolve_behavior falls back
+        assert tests_data[0].behavior == FALLBACK_BEHAVIOR
         assert tests_data[0].category == "Harmful"
         assert tests_data[0].topic == "Jailbreak"
         assert tests_data[0].test_type == "Single-Turn"
@@ -136,7 +136,6 @@ class TestGarakImporterMetadataBuilding:
         mapping = GarakMapping(
             category="Harmful",
             topic="Jailbreak",
-            behavior="Robustness",
             default_detector="detector",
             description="desc",
         )

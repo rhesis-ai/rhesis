@@ -23,7 +23,7 @@ from rhesis.backend.app.schemas import test_set as test_set_schemas
 from rhesis.backend.app.services.test_set import bulk_create_test_set
 
 from .probes import GarakProbeInfo, GarakProbeService
-from .taxonomy import GarakTaxonomy
+from .taxonomy import GarakTaxonomy, resolve_behavior
 
 logger = logging.getLogger(__name__)
 
@@ -136,6 +136,10 @@ class GarakImporter:
                 **garak_metadata,
             }
 
+            # Tag Garak-created behaviors so they are distinguishable from
+            # hand-authored behaviors in the UI and queries.
+            self._tag_garak_behaviors(test_set, organization_id, user_id)
+
             # Associate metric with test set
             detector = probe_info.detector or mapping.default_detector
             if detector:
@@ -193,6 +197,7 @@ class GarakImporter:
         Each prompt from the Garak probe becomes a test with proper
         category, behavior, topic, and metadata.
         """
+        behavior = resolve_behavior(probe.tags)
         tests_data = []
 
         for idx, prompt_content in enumerate(probe.prompts):
@@ -223,7 +228,7 @@ class GarakImporter:
                     content=prompt_content,
                     language_code="en",
                 ),
-                behavior=mapping.behavior,
+                behavior=behavior,
                 category=mapping.category,
                 topic=mapping.topic,
                 test_type="Single-Turn",
@@ -402,6 +407,50 @@ class GarakImporter:
                     user_id=user_uuid,
                 )
             )
+
+    def _tag_garak_behaviors(
+        self,
+        test_set: TestSet,
+        organization_id: str,
+        user_id: str,
+    ) -> None:
+        """Ensure every ``Garak (...)`` behavior in the test set carries a ``garak`` tag."""
+        from rhesis.backend.app.models.tag import Tag, TaggedItem
+
+        seen_behavior_ids: set = set()
+        for test in test_set.tests:
+            if not test.behavior_id or test.behavior_id in seen_behavior_ids:
+                continue
+            seen_behavior_ids.add(test.behavior_id)
+            behavior = test.behavior
+            if not behavior:
+                continue
+
+            already_tagged = any(t.name == "garak" for t in (behavior.tags or []))
+            if already_tagged:
+                continue
+
+            tag = (
+                self.db.query(Tag)
+                .filter_by(
+                    name="garak",
+                    organization_id=organization_id,
+                )
+                .first()
+            )
+            if not tag:
+                tag = Tag(name="garak", organization_id=organization_id, user_id=user_id)
+                self.db.add(tag)
+                self.db.flush()
+
+            tagged_item = TaggedItem(
+                tag_id=tag.id,
+                entity_id=behavior.id,
+                entity_type="Behavior",
+                organization_id=organization_id,
+                user_id=user_id,
+            )
+            self.db.add(tagged_item)
 
     def get_import_preview(
         self,
