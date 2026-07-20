@@ -2,7 +2,7 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 # Run Evaluations
 
-In Rhesis, a **Test Set** is a collection of test cases — prompts with optional context and expected outputs — that is sent to your Endpoint for evaluation.
+In Rhesis, a **Test Set** is a collection of tests — single-turn prompts or multi-turn conversation scenarios, each with optional context and expected outcomes — that is run against your Endpoint for evaluation.
 
 There are three main ways to acquire or create Test Sets:
 
@@ -11,7 +11,7 @@ There are three main ways to acquire or create Test Sets:
 Instead of writing test cases manually, you can use Rhesis to automatically generate them based on your application's requirements or constraints.
 
 **Using the UI:**
-You can use the Rhesis Platform to generate tests interactively. Navigate to the **Tests** page and start a generation: choose whether to generate tests with AI from a description, or write them manually.
+You can use the Rhesis Platform to generate tests interactively. On the **Test Sets** page, click **AI generated Test Set** and describe what you want to test; Rhesis generates the tests for you.
 
 ![Test Generation](/screenshots/rhesis-ai-test-generation.png)
 
@@ -40,7 +40,7 @@ If you already have test cases stored in a file (such as a CSV or JSON file from
 
 ## Adversarial Security Testing (Garak)
 
-For evaluating the security and robustness of your AI application, Rhesis integrates with specialized tools to generate adversarial tests.
+For evaluating the security and robustness of your LLM application, Rhesis integrates with specialized tools to generate adversarial tests.
 
 Using our integration with **Garak** (Generative AI Red-teaming and Assessment Kit), you can automatically probe your application for vulnerabilities like prompt injection, data leakage, and harmful content generation.
 

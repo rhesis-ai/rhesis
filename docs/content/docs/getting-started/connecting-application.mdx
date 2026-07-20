@@ -1,22 +1,22 @@
 ---
 title: Connect Your Application – Rhesis
-description: Connect your Generative AI application to Rhesis via REST endpoints or the Python SDK. Rhesis orchestrates test prompts and records responses for evaluation.
-keywords: [connect AI application, Rhesis integration, LLM API integration, Python SDK integration]
+description: Connect your LLM application to Rhesis via REST endpoints or the Python SDK. Rhesis orchestrates test inputs and records responses for evaluation.
+keywords: [connect LLM application, Rhesis integration, LLM API integration, Python SDK integration]
 ---
 
 import { CodeBlock } from '@/components/CodeBlock'
 
 # Connect Application
 
-An **Endpoint** is the connection point between Rhesis and your Generative AI application: Rhesis sends test prompts to it and records the responses for evaluation.
+An **Endpoint** is the connection point between Rhesis and your LLM application: Rhesis sends test inputs to it and records the responses for evaluation.
 
-Because every AI application expects a different request format and returns data in a different shape, Rhesis uses a mapping layer: instead of rewriting your application's API to conform to Rhesis, you map Rhesis's standardized variables to your application's expected format.
+Because every LLM application expects a different request format and returns data in a different shape, Rhesis uses a mapping layer: instead of rewriting your application's API to conform to Rhesis, you map Rhesis's standardized variables to your application's expected format.
 
 Rhesis supports two main approaches for connecting your application: **REST Endpoints** (configured via the UI) and the **Rhesis Connector** (using our Python SDK).
 
 ## Approach 1: REST Endpoints
 
-If your AI application is exposed as an HTTP API, you can connect it directly from the Rhesis UI without writing any new code. To do this, log in to the Rhesis Platform and navigate to the **`/endpoints`** page.
+If your LLM application is exposed as an HTTP API, you can connect it directly from the Rhesis UI without writing any new code. To do this, log in to the Rhesis Platform and navigate to the **`/endpoints`** page.
 
 ![Endpoint Creation](/screenshots/rhesis-ai-endpoints-create.png)
 
@@ -37,7 +37,10 @@ By decorating your Python functions with `@endpoint`, you create a secure, bi-di
 <CodeBlock filename="example.py" language="python">
 {`from rhesis.sdk import RhesisClient, endpoint
 
-client = RhesisClient(api_key="rh-XXXXXXXXXXXXXXXXXXXX")
+client = RhesisClient(
+    api_key="rh-XXXXXXXXXXXXXXXXXXXX",
+    project_id="your-project-id",
+)
 
 # This function is now exposed to Rhesis for testing
 @endpoint(name="My Customer Support Bot")
@@ -62,7 +65,7 @@ Whether you are using REST Endpoints or the Python SDK, Rhesis communicates with
 Rhesis uses these variables to pass inputs to your API during testing and extract the outputs for evaluation. When creating a REST Endpoint, you map these either automatically (via Auto-Configure) or manually.
 
 ### Request Variables (Sent to your API)
-- `input` (Required): The main user query or test prompt.
+- `input` (Required): The main user query or test input.
 - `files`: Array of file attachments (for multimodal testing).
 - `conversation_id`: Conversation tracking identifier (`session_id`, `thread_id`, and `chat_id` are accepted aliases).
 

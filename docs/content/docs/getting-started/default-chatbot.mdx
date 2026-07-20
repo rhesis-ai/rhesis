@@ -62,7 +62,7 @@ Reuse the `session_id` from a response in follow-up requests to keep conversatio
 
 ## Rate Limits
 
-Without authentication, the service allows 100 requests per day per IP address; with authentication, 1000 per day per user (configurable via `CHATBOT_RATE_LIMIT`). Limits use a rolling 24-hour window; exceeding them returns `429 Too Many Requests`.
+Without authentication, the service allows 100 requests per day per IP address; with authentication, 1000 per day per user (configurable via `CHATBOT_RATE_LIMIT`). Limits reset on a fixed daily window; exceeding them returns `429 Too Many Requests`.
 
 ## Example
 
@@ -99,7 +99,7 @@ Rosalind is a parameter-aware endpoint: its system prompt, use case, model, temp
 
 - **Domain-Specific**: Rosalind answers insurance questions only and may decline off-topic queries
 - **Rate Limited**: Usage is restricted to prevent abuse and ensure availability
-- **Session Expiry**: Sessions expire after 24 hours
+- **Session Expiry**: Sessions expire after 24 hours of inactivity (default)
 - **No SLA**: This is a demo service without uptime guarantees
 
 ---
@@ -107,5 +107,5 @@ Rosalind is a parameter-aware endpoint: its system prompt, use case, model, temp
 <Callout type="default">
   **Next Steps** - Create [custom endpoints](/docs/endpoints) for your own AI
   services - Explore [test generation](/docs/explorer/tests-generation) to validate your
-  AI applications - Set up [metrics](/docs/metrics) to measure response quality
+  LLM applications - Set up [metrics](/docs/metrics) to measure response quality
 </Callout>
