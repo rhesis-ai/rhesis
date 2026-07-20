@@ -201,9 +201,26 @@ Check off pages/sections as they are done.
       Steps → list.)
 
 **Connect**
-- [ ] Traces (`tracing`) — Overview, Getting Started, Decorators, Custom Spans,
+- [x] Traces (`tracing`) — Overview, Getting Started, Decorators, Custom Spans,
       Semantic Conventions, Auto-Instrumentation, Microsoft Agent Framework,
-      Multi-Agent Tracing, Conversation Tracing
+      Multi-Agent Tracing, Conversation Tracing.
+      **Link fix (site-wide):** internal tracing links used `/tracing/...` (a redirect hop to the
+      canonical `/docs/tracing/...`) — repointed all ~26 to `/docs/tracing/...`; cross-section
+      links (`/sdk/connector`, `/docs/metrics`, `/docs/integrations`, `/contribute/...`) verified
+      already correct. Overview: dropped the bold subtitle + "comprehensive", cut the Key Features
+      restatement, replaced the hand-rolled styled video iframe with `<YouTubeEmbed>`, dropped the
+      "(v0.6.6+)" version annotation and deduped the Conversation Traces block to a pointer, Next
+      Steps callout → list. Getting Started: dropped the "(v0.6.0+)" version annotation. Decorators:
+      removed the Comparison table (redundant with the earlier "When to use which" table + prose).
+      Custom Spans: deduped the Model/LLM/Tool/Retrieval/Embedding/Event attribute tables to a
+      pointer at Semantic Conventions (the canonical reference). Auto-Instrumentation + Agent
+      Framework: folded the "Overview" heading into the intro; dropped the incomplete duplicate
+      Supported Frameworks table from Agent Framework. Conversation Tracing: rewrote the "in
+      seconds, not hours" promo intro to a factual definition. Verified against code: BatchSpanProcessor
+      defaults (2048 queue / 512 batch / 5s), RHESIS_CONNECTOR_DISABLED + truthy values, all
+      AIOperationType / AIAttributes / AIEvents constants, auto_instrument keys, and the LangGraph
+      agent keywords (agent/specialist/orchestrator/coordinator/supervisor), agent-name resolution
+      priority, and transfer_to_* handoff detection.
 - [ ] Endpoints — Overview, Creating Endpoints, Request Mapping, Response Mapping, Examples,
       Management, SDK Endpoints (+ hidden: auto-configure, multi-turn-conversations)
 - [ ] Tools

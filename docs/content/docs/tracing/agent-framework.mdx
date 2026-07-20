@@ -4,9 +4,7 @@ import { CodeBlock } from "@/components/CodeBlock";
 
 Zero-config tracing for [Microsoft Agent Framework](https://github.com/microsoft/agent-framework) (MAF) agents and workflows.
 
-## Overview
-
-Microsoft Agent Framework already emits OpenTelemetry spans for agents, model calls, tools, and multi-agent workflows. Rhesis turns those spans into first-class traces with a single call: enable MAF's instrumentation, translate its GenAI spans into the Rhesis [semantic conventions](/tracing/semantic-conventions), and synthesize agent handoff events for the Graph View. Your agent code does not change.
+Microsoft Agent Framework already emits OpenTelemetry spans for agents, model calls, tools, and multi-agent workflows. Rhesis turns those spans into first-class traces with a single call: enable MAF's instrumentation, translate its GenAI spans into the Rhesis [semantic conventions](/docs/tracing/semantic-conventions), and synthesize agent handoff events for the Graph View. Your agent code does not change.
 
 <Mermaid chart={`flowchart LR
     AI["auto_instrument('agent_framework')"] --> MAF["Microsoft Agent Framework"]
@@ -93,7 +91,7 @@ Spans that don't match a known operation fall back to `function.maf.<name>` so t
 
 ## Multi-Agent Handoffs
 
-MAF's `HandoffBuilder` workflows route work between agents. With current MAF builds, a handoff is expressed as a tool call inside the chat span rather than a separate tool span, so Rhesis reads the model output and **synthesizes** an `ai.agent.handoff` span for each transition. These render as edges in the [Graph View](/tracing/multi-agent#trace-visualization).
+MAF's `HandoffBuilder` workflows route work between agents. With current MAF builds, a handoff is expressed as a tool call inside the chat span rather than a separate tool span, so Rhesis reads the model output and **synthesizes** an `ai.agent.handoff` span for each transition. These render as edges in the [Graph View](/docs/tracing/multi-agent#trace-visualization).
 
 <Mermaid chart={`flowchart TD
     subgraph Trace["Trace: Plan a day trip"]
@@ -109,7 +107,7 @@ MAF's `HandoffBuilder` workflows route work between agents. With current MAF bui
     C --> H1 --> S --> TS
     C --> H2 --> L --> TL`} />
 
-Each handoff span carries `ai.agent.handoff.to` and, when it can be resolved, `ai.agent.handoff.from`. See the [Multi-Agent Tracing](/tracing/multi-agent) page for the full span reference.
+Each handoff span carries `ai.agent.handoff.to` and, when it can be resolved, `ai.agent.handoff.from`. See the [Multi-Agent Tracing](/docs/tracing/multi-agent) page for the full span reference.
 
 ## Content Capture and Privacy
 
@@ -173,20 +171,12 @@ Turn instrumentation off (restores the original exporter) with:
 disable_auto_instrument()`}
 </CodeBlock>
 
-## Supported Frameworks
-
-| Framework | Extra | Status |
-|---|---|---|
-| LangChain | `langchain` | Supported |
-| LangGraph | `langgraph` | Supported |
-| Microsoft Agent Framework | `agent-framework` | Supported |
-
 ---
 
 <Callout type="info">
   **Related:**
-  - [Auto-Instrumentation](/tracing/auto-instrumentation) - zero-config tracing for LangChain, LangGraph, and Microsoft Agent Framework
-  - [Multi-Agent Tracing](/tracing/multi-agent) - agent and handoff spans
-  - [Setup](/tracing/setup) - initial configuration
+  - [Auto-Instrumentation](/docs/tracing/auto-instrumentation) - zero-config tracing for LangChain, LangGraph, and Microsoft Agent Framework
+  - [Multi-Agent Tracing](/docs/tracing/multi-agent) - agent and handoff spans
+  - [Setup](/docs/tracing/setup) - initial configuration
   - [Connector](/sdk/connector) - register functions as endpoints
 </Callout>

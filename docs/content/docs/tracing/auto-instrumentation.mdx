@@ -2,11 +2,7 @@ import { CodeBlock } from "@/components/CodeBlock";
 
 # Auto-Instrumentation
 
-Zero-config tracing for LangChain, LangGraph, Microsoft Agent Framework, and Pydantic AI applications.
-
-## Overview
-
-Auto-instrumentation automatically traces all LLM calls, tool invocations, and chain executions without modifying your code.
+Zero-config tracing for LangChain, LangGraph, Microsoft Agent Framework, and Pydantic AI applications. It traces LLM calls, tool invocations, and chain executions without modifying your code.
 
 <Mermaid chart={`flowchart LR
     AI["auto_instrument()"] --> LC["LangChain"]
@@ -176,7 +172,7 @@ LangGraph runs on top of LangChain's callback system. To avoid emitting duplicat
 
 ## Trace Output
 
-Each node in the graph produces spans following [semantic conventions](/tracing/semantic-conventions). In this example, `researcher` and `analyst` are not named with agent keywords, so their LLM calls are traced as `ai.llm.invoke` spans directly.
+Each node in the graph produces spans following [semantic conventions](/docs/tracing/semantic-conventions). In this example, `researcher` and `analyst` are not named with agent keywords, so their LLM calls are traced as `ai.llm.invoke` spans directly.
 
 <Mermaid chart={`flowchart TD
     subgraph Trace["Trace: User Query"]
@@ -188,7 +184,7 @@ Each node in the graph produces spans following [semantic conventions](/tracing/
     R --> A
     A --> T`} />
 
-Spans include attributes for model name, provider, token counts (input/output), and tool names. To get `ai.agent.invoke` spans for multi-agent systems, see [Multi-Agent Tracing](/tracing/multi-agent).
+Spans include attributes for model name, provider, token counts (input/output), and tool names. To get `ai.agent.invoke` spans for multi-agent systems, see [Multi-Agent Tracing](/docs/tracing/multi-agent).
 
 ## Combining with Decorators
 
