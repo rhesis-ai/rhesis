@@ -176,9 +176,9 @@ def call_llm(prompt: str) -> str:
         span.set_attribute(AIAttributes.TOOL_NAME, tool_name)
         span.set_attribute(AIAttributes.TOOL_TYPE, "function")
 
-        span.add_event(AIEvents.TOOL_INPUT, attributes={"ai.tool.input": str(tool_input)})
+        span.add_event(AIEvents.TOOL_INPUT, attributes={AIAttributes.TOOL_INPUT_CONTENT: str(tool_input)})
         result = tool_registry[tool_name](**tool_input)
-        span.add_event(AIEvents.TOOL_OUTPUT, attributes={"ai.tool.output": str(result)})
+        span.add_event(AIEvents.TOOL_OUTPUT, attributes={AIAttributes.TOOL_OUTPUT_CONTENT: str(result)})
 
         return result`}
 </CodeBlock>

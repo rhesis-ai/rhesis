@@ -15,10 +15,10 @@ If you're building an *application* rather than a framework, use [Auto-Instrumen
 
 ## Operation Mapping
 
-The spec defines several GenAI operation types. Here's how each maps to Rhesis today:
+The spec defines several GenAI operation types. Here's how each maps to Rhesis today — the "Rhesis Translation" column is the exported span's **name**, which is distinct from its `ai.operation.type` attribute value (see [Attribute Mapping](#attribute-mapping) below):
 
 <Table
-  headers={['GenAI Operation', 'Span Name Pattern', 'Rhesis Translation', 'Status']}
+  headers={['GenAI Operation', 'Span Name Pattern', 'Rhesis Span Name', 'Status']}
   rows={[
     ['`chat`', '`chat {model}`', '`ai.llm.invoke`', 'Fully supported'],
     ['`invoke_agent`', '`invoke_agent {agent_name}`', '`ai.agent.invoke`', 'Fully supported'],
@@ -31,6 +31,10 @@ The spec defines several GenAI operation types. Here's how each maps to Rhesis t
 />
 
 `chat`, `invoke_agent`, `create_agent`, `execute_tool`, and `embeddings` translate fully — correct attribute mapping, token extraction, and prompt/completion event synthesis included. `invoke_workflow` and `plan` land under a `function.*` fallback name: visible in traces, but without semantic interpretation yet.
+
+<Callout type="info">
+Span name and `ai.operation.type` are two different fields, and they don't always match textually. An `embeddings` span is named `ai.embedding.generate`, but its `ai.operation.type` attribute is set to `embedding.create` — both refer to the same operation, just via different naming (the span name follows the `ai.<domain>.<action>` convention; the attribute value tracks the GenAI spec's own operation vocabulary more closely).
+</Callout>
 
 ## Attribute Mapping
 
