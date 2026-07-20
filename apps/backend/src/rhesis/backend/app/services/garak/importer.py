@@ -414,43 +414,52 @@ class GarakImporter:
         organization_id: str,
         user_id: str,
     ) -> None:
-        """Ensure every ``Garak (...)`` behavior in the test set carries a ``garak`` tag."""
+        """Ensure every ``Garak (...)`` behavior in the test set carries a ``garak`` tag.
+
+        Behaviors are shared across probes/test sets (e.g. many probes resolve to the
+        same ``Garak (...)`` behavior), so this can run multiple times against the same
+        behavior within one import call. We check for an existing ``TaggedItem`` by its
+        unique-constraint keys (not the possibly-stale ``behavior.tags`` relationship)
+        and flush immediately after inserting, so a later iteration in the same session
+        sees it and skips re-inserting -- avoiding a ``uq_tagged_item_assignment``
+        violation.
+        """
         from rhesis.backend.app.models.tag import Tag, TaggedItem
+
+        tag = self.db.query(Tag).filter_by(name="garak", organization_id=organization_id).first()
+        if not tag:
+            tag = Tag(name="garak", organization_id=organization_id, user_id=user_id)
+            self.db.add(tag)
+            self.db.flush()
 
         seen_behavior_ids: set = set()
         for test in test_set.tests:
             if not test.behavior_id or test.behavior_id in seen_behavior_ids:
                 continue
             seen_behavior_ids.add(test.behavior_id)
-            behavior = test.behavior
-            if not behavior:
-                continue
 
-            already_tagged = any(t.name == "garak" for t in (behavior.tags or []))
-            if already_tagged:
-                continue
-
-            tag = (
-                self.db.query(Tag)
+            already_tagged = (
+                self.db.query(TaggedItem)
                 .filter_by(
-                    name="garak",
+                    tag_id=tag.id,
+                    entity_id=test.behavior_id,
+                    entity_type="Behavior",
                     organization_id=organization_id,
                 )
                 .first()
             )
-            if not tag:
-                tag = Tag(name="garak", organization_id=organization_id, user_id=user_id)
-                self.db.add(tag)
-                self.db.flush()
+            if already_tagged:
+                continue
 
             tagged_item = TaggedItem(
                 tag_id=tag.id,
-                entity_id=behavior.id,
+                entity_id=test.behavior_id,
                 entity_type="Behavior",
                 organization_id=organization_id,
                 user_id=user_id,
             )
             self.db.add(tagged_item)
+            self.db.flush()
 
     def get_import_preview(
         self,

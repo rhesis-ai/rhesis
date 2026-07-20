@@ -29,11 +29,16 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    # class_name is the canonical discriminator for Garak metrics -- it's the same
+    # constant (GarakImporter.GARAK_METRIC_CLASS_NAME = "GarakDetectorMetric") the app
+    # sets when creating them. evaluation_prompt LIKE 'garak.detectors.%%' alone would
+    # miss legacy rows that store a short-form path (e.g. "perspective.Toxicity",
+    # "apikey.ApiKey") or that are missing backend_type_id.
     op.execute("""
         DELETE FROM behavior_metric
         WHERE metric_id IN (
             SELECT id FROM metric
-            WHERE evaluation_prompt LIKE 'garak.detectors.%%'
+            WHERE class_name = 'GarakDetectorMetric'
         )
     """)
 
