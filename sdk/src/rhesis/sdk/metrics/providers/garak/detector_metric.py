@@ -236,10 +236,7 @@ class GarakDetectorMetric(BaseMetric):
                 f"[GARAK] Raw detector results: {results} (type: {type(results).__name__})"
             )
 
-            if isinstance(results, (list, tuple)):
-                raw_scores = list(results)
-            else:
-                raw_scores = [float(results)]
+            raw_scores = list(results)
 
             # --- Handle empty results (probe-context missing) ---------------
             if not raw_scores:
