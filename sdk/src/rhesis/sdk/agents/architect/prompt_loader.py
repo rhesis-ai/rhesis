@@ -89,6 +89,7 @@ def phase_include_names(mode: AgentMode, workflow_path: WorkflowPath) -> List[st
                     "phases/execution.md",
                     "phases/analysis.md",
                     "result-analysis.md",
+                    "insights-summary.md",
                 ]
             )
         elif wp == WorkflowPath.DIRECT:

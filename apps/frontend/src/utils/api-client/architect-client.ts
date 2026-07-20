@@ -31,6 +31,11 @@ export interface ArchitectMessageResponse {
 
 export interface ArchitectSessionCreateRequest {
   title?: string;
+  /**
+   * When set, the backend persists this as the first user message and starts
+   * the Architect Celery task immediately (contextual handoff).
+   */
+  initial_message?: string;
 }
 
 export class ArchitectClient extends BaseApiClient {

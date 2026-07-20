@@ -185,6 +185,12 @@ Returns: full prompt, full response, expected response, metric scores with indiv
 
 ---
 
+## Insights handoff
+
+When the message is an Insights page summarize handoff, follow `insights-summary.md`: skip the menu, re-fetch with the listed `test_run_ids` / behaviors, enforce the nested ≤50-run budget, then present aggregates and a few failure samples.
+
+---
+
 ## Offering next steps after analysis
 
 After presenting results, proactively offer relevant follow-ups:
