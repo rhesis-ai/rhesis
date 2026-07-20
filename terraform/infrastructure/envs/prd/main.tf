@@ -14,6 +14,10 @@ terraform {
       source  = "hashicorp/null"
       version = "~> 3.0"
     }
+    cloudflare = {
+      source  = "cloudflare/cloudflare"
+      version = "~> 4.0"
+    }
   }
   backend "gcs" {
     prefix = "terraform/infrastructure/envs/prd"
@@ -24,6 +28,10 @@ provider "google" {
   project = var.project_id
   region  = var.region
 }
+
+# No credentials: only used for the public, unauthenticated cloudflare_ip_ranges
+# data source (modules/kubernetes/gcp), not for managing Cloudflare resources.
+provider "cloudflare" {}
 
 module "prd" {
   source = "../../modules/network/gcp"
@@ -63,6 +71,11 @@ module "gke_prd" {
   # Explicitly set to guard against a future module-default change accidentally making prd public.
   enable_private_endpoint = true
   extra_authorized_cidrs  = ["${local.cidrs.prd.wireguard_nic_ip}/32"]
+
+  # polyphemus (test-polyphemus.rhesis.ai) is served via ingress-nginx-external,
+  # proxied through Cloudflare — restrict to Cloudflare's live edge IP ranges.
+  enable_public_ingress_firewall = true
+  use_cloudflare_source_ranges   = true
 
   depends_on = [module.prd]
 }

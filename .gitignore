@@ -352,3 +352,6 @@ gke_gcloud_auth_plugin_cache
 
 # service secrets
 infrastructure/config/service-secrets-file.json
+
+# K6 test results
+tests/k6/results/
