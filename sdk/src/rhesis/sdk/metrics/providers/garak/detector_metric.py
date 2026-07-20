@@ -236,7 +236,12 @@ class GarakDetectorMetric(BaseMetric):
                 f"[GARAK] Raw detector results: {results} (type: {type(results).__name__})"
             )
 
-            raw_scores = list(results)
+            # Garak detectors return generators/iterables as of v0.14+, but tolerate a
+            # bare scalar too in case a detector implementation returns one directly.
+            try:
+                raw_scores = list(results)
+            except TypeError:
+                raw_scores = [float(results)]
 
             # --- Handle empty results (probe-context missing) ---------------
             if not raw_scores:
