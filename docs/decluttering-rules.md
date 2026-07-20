@@ -152,12 +152,32 @@ Check off pages/sections as they are done.
       verified 10/20 defaults, /explorer routes, and 1000-char guide. Building and Evaluating
       kept as the canonical deep-dive. Test Generation MOVED out of Explorer to Test Sets —
       the feature lives at /test-sets/new-generated in the app, not Explorer.)
-- [ ] Tests — Tests, Conversation Simulation (Overview, Getting Started, Examples & Use Cases,
+- [x] Tests — Tests, Conversation Simulation (Overview, Getting Started, Examples & Use Cases,
       Configuration, Execution Trace, Extending), Adversarial Testing (Overview, Polyphemus,
-      Requesting Access, SDK Usage), Multi-modal Testing
-- [ ] Test Sets — Overview, Test Generation (relocated here from Explorer; content decluttered:
+      Requesting Access, SDK Usage), Multi-modal Testing.
+      **Link fix (site-wide):** these pages live at `/docs/tests/...` but redirects and ~20
+      cross-links still pointed at the pre-#1930 flat paths (`/docs/conversation-simulation`,
+      `/adversarial-testing`, `/docs/multimodal-testing`) — all 404 or redirect-hop. Repointed
+      every link to `/docs/tests/...` and fixed the stale destinations in `src/next.config.mjs`
+      (incl. `/penelope`). Tests: folded the definition callout into the intro, dropped the
+      max_iterations version callout, terminology (AI system → LLM application), Next Steps → list.
+      Conversation Simulation Overview: cut the promo subtitle, "What Makes Penelope Unique",
+      "Design Philosophy", and the Practical-Examples code (owned by Examples); kept the four
+      parameters as canonical. Getting Started: cut the contributor Development Setup section.
+      Examples: removed decorative emojis (⚠️ 📝) and the Contributing-Examples Steps. Execution
+      Trace / Extending / Configuration: emoji + promo trims, dropped Extending's Design Principles
+      and Configuration's duplicate Test-Level section. Adversarial + Multi-modal: already lean —
+      link fixes only. Verified against code: SDK default model names (claude-4, gemini-2.0-flash,
+      gpt-4o), Penelope env vars / defaults / 0.8 early-stop, PolyphemusLLM + env vars, and the
+      10 MB / 20 MB / 10-file multimodal limits with the image|pdf|audio MIME allow-list.
+- [x] Test Sets — Overview, Test Generation (relocated here from Explorer; content decluttered:
       fixed stale Small/Medium/Large presets → the real 1–200 slider (default 50), fixed broken
       platform/tests link, trimmed promo and Next Steps), Import from File, Import from Garak
+      (Overview: folded definition callout into intro, fixed broken /docs/test-execution →
+      /docs/test-runs/execution, Next Steps → list. Import from File/Garak: Next Steps → list,
+      deduped repeated /docs/test-sets pointers to a #executing-test-sets anchor. Verified the
+      import field names/required fields (category/topic/behavior + prompt_content|goal), turn-config
+      aliases and range parsing, and the 10 MB import cap against the file_import service.)
 
 **Improve**
 - [ ] Insights (`results-overview`)
