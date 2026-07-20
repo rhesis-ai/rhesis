@@ -4,7 +4,7 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 Files are binary attachments (images, PDFs, audio) that can be associated with Tests and TestResults. They are managed through a dedicated upload API rather than the standard `push()` method.
 
-Note: As of version 0.8.0, file bytes are stored in object storage (GCS/S3/local filesystem) rather than Postgres. Downloads return a 302 redirect to a presigned URL; the SDK `File.download()` method follows the redirect transparently.
+File bytes are stored in object storage (GCS/S3/local filesystem). Downloads return a 302 redirect to a presigned URL; `File.download()` follows the redirect transparently.
 
 ## File
 
@@ -20,13 +20,8 @@ A `File` represents a binary attachment stored on the platform.
 | `size_bytes` | `int` | File size in bytes |
 | `description` | `str` | Optional description |
 | `entity_id` | `str` | ID of the parent entity |
-| `entity_type` | `str` | Parent type (`Test`, `TestResult`, `Trace`, or `ArchitectSession`) |
+| `entity_type` | `str` | Parent type (`Test` or `TestResult`) |
 | `position` | `int` | Ordering position within the entity |
-| `content_hash` | `str` | SHA-256 hex digest of the file bytes (useful for deduplication) |
-| `extracted_text` | `str` | Text extracted from the file at upload time (OCR/text-layer) |
-| `extraction_status` | `str` | `pending` \| `done` \| `failed` \| `not_applicable` |
-
-Note: `storage_path` (the internal object-storage key) is intentionally not exposed in API responses.
 
 ### Limits
 
@@ -39,7 +34,7 @@ Note: `storage_path` (the internal object-storage key) is intentionally not expo
 
 ### Via Test Entity
 
-The simplest way to attach files is through the `Test` entity:
+Attach files through the `Test` entity:
 
 <CodeBlock filename="test_with_files.py" language="python">
 {`from rhesis.sdk.entities import Test, Prompt

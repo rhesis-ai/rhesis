@@ -154,20 +154,18 @@ Check off pages/sections as they are done.
 - [x] Configuring Telemetry for Your AI Application (+ subpages: auto-instrumentation,
       decorators, raw-opentelemetry, genai-conventions)
 
-### SDK (27 pages)
-
-- [ ] Installation & Setup
-- [ ] Rhesis Client
-- [ ] Agents
-- [ ] Entities — Overview, Projects, Experiments, Models, Test Sets & Tests, Test Attributes,
+- [x] Installation & Setup
+- [x] Rhesis Client
+- [x] Agents
+- [x] Entities — Overview, Projects, Experiments, Models, Test Sets & Tests, Test Attributes,
       Test Runs & Results, Files, Status, Endpoints
-- [ ] Parameters & Experiments
-- [ ] Test Execution
-- [ ] Statistics
-- [ ] Models
-- [ ] Synthesizers
-- [ ] Metrics — Overview, Single-Turn, Conversational
-- [ ] Connector — Overview, Input/Output Mapping, File Attachments, Advanced Mapping,
+- [x] Parameters & Experiments
+- [x] Test Execution
+- [x] Statistics
+- [x] Models
+- [x] Synthesizers
+- [x] Metrics — Overview, Single-Turn, Conversational
+- [x] Connector — Overview, Input/Output Mapping, File Attachments, Advanced Mapping,
       Parameter Binding, Examples
 
 ### Contribute (66 pages)
