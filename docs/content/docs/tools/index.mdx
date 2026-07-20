@@ -1,27 +1,25 @@
 # Tools
 
-Tools let you connect external services to Rhesis so you can export their content into your Knowledge base.
-These sources can then be used in test generation and other workflows.
+Tools connect external services to Rhesis so you can export their content into your [Knowledge](/docs/knowledge) base for use in test generation and other workflows.
 
 <Callout type="info">
   This page covers importing knowledge into Rhesis from tools like Notion, GitHub, and Jira. If you want to call Rhesis from Cursor or Claude Code to explore endpoints and run tests, see [Agent Skill](/docs/agent-skill) instead.
 </Callout>
 
 ![Tools Page](/screenshots/rhesis-ai-mcp.png)
+
 ## Setting Up a Tool Connection
+
+Every connection follows the same flow in Rhesis: on the **Tools** page, click **Add tool connection**, pick the provider, fill in the connection name, token, and any provider-specific fields listed below, then **Test the connection** and **Save**. Each provider below covers only how to generate its token and which extra fields it needs.
 
 <details>
 <summary id="notion"><img src="/integrations/providers/notion.svg" width="20" height="20" alt="" style={{ display: "inline", verticalAlign: "middle", marginRight: "6px" }} /> Notion</summary>
 
 <ToolPurposeChip text="Export knowledge into Rhesis" />
 
-1. Create a Notion integration at [https://www.notion.so/profile/integrations/internal/](https://www.notion.so/profile/integrations/internal/).
-2. After creating the integration, click on the "Content access" tab to grant access to the pages and teamspaces you want to export from. *Note: This step is required for the integration to access your content.*
-3. In Rhesis, go to the Tools page and click "Add tool connection"
-4. Select "Notion" as the provider type
-5. Enter a connection name and paste the token (it should start with "ntn...")
-6. Test the connection
-7. Save
+1. Create a Notion integration at [notion.so/profile/integrations/internal](https://www.notion.so/profile/integrations/internal/).
+2. In the "Content access" tab, grant access to the pages and teamspaces you want to export from — required for the integration to reach your content.
+3. In Rhesis, paste the token (starts with `ntn...`).
 </details>
 
 <details>
@@ -29,16 +27,9 @@ These sources can then be used in test generation and other workflows.
 
 <ToolPurposeChip text="Export knowledge into Rhesis" />
 
-1. Log in to GitHub and click your profile picture → Settings.
-2. Select "Developer Settings" from the left sidebar
-3. From there, click on "Personal Access Tokens" → "Tokens (classic)"
-4. Click on "Generate new token" → "Generate new token (classic)"
-5. Choose the scopes required. For Rhesis, you will need to select repo (permission to full access to repositories).
-6. In Rhesis, go to the Tools page and click "Add tool connection."
-7. Select "GitHub" as the provider type.
-8. Enter the connection name, the repository URL, and paste the token (it should start with "ghp...").
-9. Test the connection
-10. Save
+1. On GitHub, go to Settings → Developer Settings → Personal Access Tokens → Tokens (classic).
+2. Generate a classic token with the `repo` scope (full repository access).
+3. In Rhesis, add the repository URL and paste the token (starts with `ghp...`).
 </details>
 
 <details>
@@ -46,15 +37,9 @@ These sources can then be used in test generation and other workflows.
 
 <ToolPurposeChip text="Create an issue from a Rhesis task" />
 
-1. Go to https://id.atlassian.com/manage-profile/security
-2. Scroll down to the API tokens section and click "Create API token" (not "Create API token with scopes" — Rhesis needs the classic unscoped token)
-3. Follow the instructions to verify your identity
-4. Click on "Create an API token", then select a name and a expiration date
-5. In Rhesis, go to the Tools page and click "Add tool connection."
-6. Select "Jira" as the provider type
-7. In addition to the API token, also insert the email you are registered with Atlassian, and the atlassian workspace URL (yourorg.atlassian.net)
-8. Test the connection
-9. Save
+1. Go to [id.atlassian.com/manage-profile/security](https://id.atlassian.com/manage-profile/security).
+2. Under API tokens, click "Create API token" (not "Create API token with scopes" — Rhesis needs the classic unscoped token). Verify your identity, name the token, and set an expiration.
+3. In Rhesis, also enter your Atlassian email and workspace URL (`yourorg.atlassian.net`), then paste the token.
 </details>
 
 <details>
@@ -62,15 +47,9 @@ These sources can then be used in test generation and other workflows.
 
 <ToolPurposeChip text="Export knowledge into Rhesis" />
 
-1. Click your avatar (top right) → Edit profile → Access → Personal access tokens.
-2. Click "Generate token" and select "Legacy token" (not "Fine-grained token"), name it, and set an expiration date.
-3. Select the `api` scope (or `read_api` for read-only access).
-4. Click "Create personal access token" and copy it (it should start with "glpat-").
-5. In Rhesis, go to the Tools page and click "Add tool connection."
-6. Select "GitLab" as the provider type.
-7. Enter a connection name, the project namespace (`group/project`, or a full project URL), and paste the token. Self-managed instances also need the GitLab API URL.
-8. Test the connection
-9. Save
+1. Go to avatar → Edit profile → Access → Personal access tokens.
+2. Generate a "Legacy token" (not "Fine-grained token") with the `api` scope (or `read_api` for read-only). Name it and set an expiration.
+3. In Rhesis, add the project namespace (`group/project`, or a full project URL) and paste the token (starts with `glpat-`). Self-managed instances also need the GitLab API URL.
 </details>
 
 <details>
@@ -78,14 +57,9 @@ These sources can then be used in test generation and other workflows.
 
 <ToolPurposeChip text="Export knowledge into Rhesis" />
 
-1. Click your profile photo (top right) → My Settings → Apps → "Manage Developer Apps".
-2. Under "Personal access tokens", click "+ Create new token".
-3. Give the token a description, agree to the Asana API terms, then confirm and copy it (shown only once).
-4. In Rhesis, go to the Tools page and click "Add tool connection."
-5. Select "Asana" as the provider type.
-6. Enter a connection name and paste the token. Optionally add a workspace GID to scope search and import.
-7. Test the connection
-8. Save
+1. Go to profile photo → My Settings → Apps → "Manage Developer Apps".
+2. Under "Personal access tokens", create a new token and copy it (shown only once).
+3. In Rhesis, paste the token. Optionally add a workspace GID to scope search and import.
 </details>
 
 <details>
@@ -93,15 +67,9 @@ These sources can then be used in test generation and other workflows.
 
 <ToolPurposeChip text="Export knowledge into Rhesis" />
 
-1. Sign in at `https://dev.azure.com/{your_organization}`, then click the user settings icon → Personal access tokens.
-2. Click "+ New Token", name it, and set an expiration date.
-3. Choose the required scopes (e.g. Work Items (Read)) or Full access.
-4. Click "Create" and copy the token immediately (it is never shown again).
-5. In Rhesis, go to the Tools page and click "Add tool connection."
-6. Select "Azure DevOps" as the provider type.
-7. Enter a connection name, your organization name (not the full URL), your Azure DevOps email, the project, and paste the token.
-8. Test the connection
-9. Save
+1. Sign in at `https://dev.azure.com/{your_organization}`, then go to user settings → Personal access tokens.
+2. Create a token with the required scopes (e.g. Work Items (Read)) or Full access, set an expiration, and copy it (shown only once).
+3. In Rhesis, enter your organization name (not the full URL), your Azure DevOps email, and the project, then paste the token.
 </details>
 
 <details>
@@ -110,13 +78,8 @@ These sources can then be used in test generation and other workflows.
 <ToolPurposeChip text="Export knowledge into Rhesis" />
 
 1. In Linear, go to Settings → Account → Security & access.
-2. Under "Personal API keys", click "Create API key".
-3. Name the key and choose an access level, then copy it (shown only once, starts with "lin_api_").
-4. In Rhesis, go to the Tools page and click "Add tool connection."
-5. Select "Linear" as the provider type.
-6. Enter a connection name and paste the token.
-7. Test the connection
-8. Save
+2. Under "Personal API keys", create an API key with an access level and copy it (shown only once, starts with `lin_api_`).
+3. In Rhesis, paste the token.
 </details>
 
 <details>
@@ -125,13 +88,8 @@ These sources can then be used in test generation and other workflows.
 <ToolPurposeChip text="Export knowledge into Rhesis" />
 
 1. In Shortcut, go to Settings → Your Account → API Tokens.
-2. Enter a name for the token and click "Generate Token".
-3. Copy the token (it grants full workspace access).
-4. In Rhesis, go to the Tools page and click "Add tool connection."
-5. Select "Shortcut" as the provider type.
-6. Enter a connection name and paste the token.
-7. Test the connection
-8. Save
+2. Generate a token and copy it (grants full workspace access).
+3. In Rhesis, paste the token.
 </details>
 
 Watch this video to see how to connect your Notion workspace and export pages as knowledge sources:
@@ -146,8 +104,7 @@ Watch this video to see how to connect your Notion workspace and export pages as
   />
 </div>
 
----
+## Next steps
 
-<Callout type="default">
-  **Next Steps** - Export sources from Tools in [Knowledge](/docs/knowledge) - Use exported sources in [Test Generation](/docs/test-sets/tests-generation)
-</Callout>
+- Export sources from a connected tool into [Knowledge](/docs/knowledge).
+- Generate tests from exported sources in [Test Generation](/docs/test-sets/tests-generation).

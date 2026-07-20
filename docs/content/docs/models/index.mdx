@@ -1,35 +1,25 @@
 # Models
 
-<Callout type="default">
-  **What are Models?** Models are AI service providers that you can set up for your evaluation and testing workflows.
-</Callout>
+Models are the LLM providers Rhesis uses for three purposes:
 
-Models in Rhesis are used for three primary purposes:
+- **Test generation**: create test cases from your requirements (see [Tests](/docs/tests))
+- **Evaluation (LLM-as-judge)**: score responses with LLM-powered [Metrics](/docs/metrics)
+- **Execution (multi-turn)**: drive conversation simulations with [Penelope](/docs/tests/conversation-simulation) against your endpoints
 
-- **Test Generation**: Automatically generate test cases based on your requirements (see [Tests](/docs/tests))
-- **Evaluation (LLM as Judge)**: Evaluate AI responses using metrics powered by LLMs (see [Metrics](/docs/metrics))
-- **Execution (Multi-Turn)**: Drive multi-turn conversation simulations with [Penelope](/docs/tests/conversation-simulation), the agent that conducts automated conversations against your endpoints
-
-You can configure default models for each purpose in the model settings, or override them per execution when running tests (see [Test Execution](/docs/test-execution)).
+Configure a default model per purpose in the model settings, or override it per run (see [Test Execution](/docs/test-execution)).
 
 ![Models Overview](/screenshots/rhesis-ai-models.png)
 
 ## Default Model
 
-Rhesis provides a default managed model that requires no configuration:
-
-- **Rhesis Default**: Default Rhesis-hosted model
-  - No API key required
-  - Pre-configured for generation, evaluation, and execution
-  - Ready to use immediately
-
+**Rhesis Default** is a Rhesis-hosted model, pre-configured for generation, evaluation, and execution with no API key required — so you can start testing without connecting a provider.
 
 ## Supported Providers
 
-<details>
-<summary><strong>Supported Providers</strong></summary>
+Rhesis connects to major cloud providers and to local or self-hosted runtimes (Ollama, vLLM, LiteLLM proxy). A selection:
 
-Rhesis supports connections to major AI providers including:
+<details>
+<summary><strong>Provider list</strong></summary>
 
 - **Anthropic** - Claude provider
 - **Azure AI Studio** - Azure-hosted model endpoints (`azure_ai`)
@@ -47,7 +37,6 @@ Rhesis supports connections to major AI providers including:
 - **Together AI** - Multi-model provider
 
 </details>
-
 
 ## Connecting a Model Provider
 
@@ -69,14 +58,13 @@ Fill in the connection details and defaults:
 | --- | --- |
 | **Connection Name** | Unique display name for this connection |
 | **Model Name** | Provider-specific model or deployment name, such as `gemini-1.5-pro` or `gpt-4-turbo` |
+| **API Endpoint** | Endpoint URL, for providers that need one (see the table below) |
 | **API Key** | Provider API key, when required |
-| **Custom Headers** | Optional HTTP headers for gateways or proxies |
 | **Default for Test Generation** | Use this model when generating tests |
-| **Default for Evaluation** | Use this model for LLM-as-judge metrics |
+| **Default for Evaluation (LLM as Judge)** | Use this model for LLM-as-judge metrics |
 | **Default for Execution (Multi-Turn)** | Use this model for conversation simulation with Penelope |
 
-Click **Test Connection** before saving. Click **Connect** for a new provider
-connection or **Update** when editing an existing connection.
+Click **Test Connection** before saving.
 </Steps>
 
 ## Provider-Specific Connection Fields
@@ -85,7 +73,7 @@ Some providers require endpoint configuration in addition to model name:
 
 | Provider | Provider value | API Endpoint required | API key required | Notes |
 |----------|----------------|-----------------------|------------------|-------|
-| LiteLLM Proxy | `litellm_proxy` | Yes | Optional | Pre-filled with `http://0.0.0.0:4000` by default |
+| LiteLLM Proxy | `litellm_proxy` | Yes | Optional | Pre-filled with `http://host.docker.internal:4000` by default |
 | Azure AI Studio | `azure_ai` | Yes | Yes | Use your Azure AI inference endpoint URL |
 | Azure OpenAI | `azure` | Yes | Yes | Use your Azure OpenAI resource endpoint URL |
 
@@ -93,7 +81,7 @@ Some providers require endpoint configuration in addition to model name:
   If a model connection fails, use **Test Connection** in the connection dialog before saving.
 </Callout>
 
-## Polyphemus Access Control (v0.6.6+)
+## Polyphemus Access Control
 
 Polyphemus uses an explicit request-and-review workflow. If access is not granted yet, the model
 card shows **Access Required** and a **Request Access** action.
@@ -112,14 +100,7 @@ card shows **Access Required** and a **Request Access** action.
 | `justification` | Required, 10-2000 characters |
 | `expected_monthly_requests` | Required, integer from 0 to 10,000 |
 
-<Callout type="info">
-  Request state is stored in user settings under `polyphemus_access`
-  (for example `requested_at` and `revoked_at`) together with user verification status.
-</Callout>
+## Next steps
 
-
----
-
-<Callout type="default">
-  **Next Steps** - Create [Metrics](/docs/metrics) using your connected models - Generate [Tests](/docs/tests) with AI-powered test generation
-</Callout>
+- Build [Metrics](/docs/metrics) that use your connected models as the judge.
+- Generate [Tests](/docs/tests) with a model set as the generation default.

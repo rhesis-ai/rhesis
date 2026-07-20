@@ -138,11 +138,11 @@ Check off pages/sections as they are done.
 **Connect**
 - [x] Traces
 - [x] Endpoints
-- [ ] Tools
-- [ ] Models
-- [ ] Integrations
-- [ ] API Tokens
-- [ ] Acknowledgments (+ hidden pages: test-results, test-sets-runs)
+- [x] Tools
+- [x] Models
+- [x] Integrations
+- [x] API Tokens
+- [x] Acknowledgments (+ hidden pages: test-results, test-sets-runs)
 
 ### Guides (5 pages)
 
