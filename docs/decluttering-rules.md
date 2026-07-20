@@ -132,8 +132,10 @@ Check off pages/sections as they are done.
       secrets, and env defaults against rh/docker-compose.yml/.env.example)
 
 **Define**
-- [ ] Knowledge
-- [ ] Behaviors
+- [x] Knowledge — folded Sources definition into intro, collapsed self-describing format table
+      to an inline list, added missing `.md` and 5 MB limit, dropped wrong `.zip` note
+- [x] Behaviors — folded definition callout into intro, dropped low-value grid/cards/detail
+      table, terminology fix (AI system → LLM application), converted Next Steps callout to a list
 - [ ] Metrics — Overview, DeepEval, Ragas, Trace Metrics, Code Metrics
 
 **Generate**
