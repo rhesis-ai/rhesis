@@ -8,6 +8,10 @@ from typing import Any, Dict, Optional
 from rhesis.backend.app.models.test import Test
 from rhesis.backend.tasks.execution.batch.context import ExecutionContext
 from rhesis.backend.tasks.execution.constants import PENELOPE_EVALUATED_METRICS
+from rhesis.backend.tasks.execution.response_extractor import (
+    get_http_error_status_code,
+    has_http_error_in_result,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -24,12 +28,7 @@ async def evaluate_metrics(
     penelope_metrics: Dict[str, Any],
 ) -> Dict[str, Any]:
     """Run async metric evaluation, returning merged results."""
-    from rhesis.backend.tasks.execution.response_extractor import (
-        get_http_error_status_code,
-        has_http_error_in_result,
-    )
-
-    # HTTP errors are not model answers — do not score metrics against them.
+    # HTTP errors are not model answers; do not score metrics against them.
     if has_http_error_in_result(output):
         status_code = get_http_error_status_code(output)
         logger.info(

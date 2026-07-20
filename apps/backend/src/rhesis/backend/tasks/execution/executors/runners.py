@@ -227,7 +227,7 @@ class SingleTurnRunner(BaseRunner):
         execution_time = output.execution_time
         processed_result = output.response
 
-        # HTTP errors are not model answers — skip metrics and leave status Error.
+        # HTTP errors are not model answers; skip metrics and leave status Error.
         if is_http_error_response(processed_result):
             status_code = get_http_error_status_code(processed_result)
             logger.info(

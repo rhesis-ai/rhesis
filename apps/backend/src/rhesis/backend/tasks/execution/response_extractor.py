@@ -75,16 +75,8 @@ def get_http_error_status_code(result: Union[Dict, Any]) -> Optional[int]:
     if status_code is not None:
         return status_code
 
-    history = data.get("history")
-    if not isinstance(history, list) or not history:
-        return None
-
-    first_turn = history[0]
-    if not isinstance(first_turn, dict):
-        return None
-
-    target_interaction = first_turn.get("target_interaction")
-    if not isinstance(target_interaction, dict):
+    target_interaction = _first_send_message_interaction(data.get("history"))
+    if target_interaction is None:
         return None
 
     error_details = _error_details_from_tool_execution(target_interaction)
@@ -119,26 +111,39 @@ def _error_details_from_tool_execution(target_interaction: Dict[str, Any]) -> Di
     return error_details if isinstance(error_details, dict) else {}
 
 
+def _first_send_message_interaction(history: Any) -> Optional[Dict[str, Any]]:
+    """Return the first ``send_message_to_target`` interaction in a Penelope history.
+
+    Penelope turns always carry ``target_interaction``, but history entries may
+    include other target tools. Scan rather than assuming ``history[0]``.
+    """
+    if not isinstance(history, list):
+        return None
+
+    for turn in history:
+        if not isinstance(turn, dict):
+            continue
+        target_interaction = turn.get("target_interaction")
+        if not isinstance(target_interaction, dict):
+            continue
+        if target_interaction.get("tool_name") == "send_message_to_target":
+            return target_interaction
+
+    return None
+
+
 def has_http_error_in_result(result: Union[Dict, Any]) -> bool:
     """Return True for single-turn HTTP errors or multi-turn first-message HTTP errors.
 
-    Multi-turn: only the first history turn's target interaction is checked. Later
-    turns with HTTP failures are left to normal Pass/Fail scoring.
+    Multi-turn: only the first ``send_message_to_target`` interaction is checked.
+    Later turns with HTTP failures are left to normal Pass/Fail scoring.
     """
     if is_http_error_response(result):
         return True
 
     data = _as_response_dict(result)
-    history = data.get("history")
-    if not isinstance(history, list) or not history:
-        return False
-
-    first_turn = history[0]
-    if not isinstance(first_turn, dict):
-        return False
-
-    target_interaction = first_turn.get("target_interaction")
-    if not isinstance(target_interaction, dict):
+    target_interaction = _first_send_message_interaction(data.get("history"))
+    if target_interaction is None:
         return False
 
     return is_http_error_response(_error_details_from_tool_execution(target_interaction))

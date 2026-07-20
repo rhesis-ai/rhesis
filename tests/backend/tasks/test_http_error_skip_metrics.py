@@ -154,6 +154,45 @@ class TestHasHttpErrorInResult:
     def test_multi_turn_first_message_http_error(self):
         assert has_http_error_in_result(_multi_turn_trace_with_first_http_error(503))
 
+    def test_multi_turn_skips_non_send_message_turns(self):
+        """History may lead with other target tools; scan for first send_message."""
+        http_err = json.dumps(
+            {
+                "success": False,
+                "output": {},
+                "error": "503",
+                "metadata": {
+                    "error_details": {
+                        "error": True,
+                        "error_type": "http_error",
+                        "status_code": 503,
+                        "message": "Service Unavailable",
+                        "output": "Service Unavailable",
+                    }
+                },
+            }
+        )
+        trace = {
+            "history": [
+                {
+                    "turn_number": 1,
+                    "target_interaction": {
+                        "tool_name": "invoke_api_endpoint",
+                        "tool_message": {"content": "{}"},
+                    },
+                },
+                {
+                    "turn_number": 2,
+                    "target_interaction": {
+                        "tool_name": "send_message_to_target",
+                        "tool_message": {"content": http_err},
+                    },
+                },
+            ]
+        }
+        assert has_http_error_in_result(trace)
+        assert get_http_error_status_code(trace) == 503
+
     def test_multi_turn_successful_first_message(self):
         tool_content = json.dumps(
             {
@@ -375,24 +414,29 @@ class TestBatchEvaluateMetricsSkipsHttpError:
         assert result == {}
 
 
+def _make_backend_endpoint_target() -> BackendEndpointTarget:
+    """Minimal BackendEndpointTarget for unit tests (avoids full __init__)."""
+    target = BackendEndpointTarget.__new__(BackendEndpointTarget)
+    target.endpoint_id = "ep-1"
+    target.organization_id = "org-1"
+    target.user_id = "user-1"
+    target.project_id = None
+    target.test_execution_context = {"test_id": "test-1"}
+    target.params = None
+    target._endpoint = MagicMock()
+    target._current_trace_id = None
+    target._deferred_traces = []
+    target._invoke_max_attempts = 1
+    target._invoke_retry_min_wait = 0.01
+    target._invoke_retry_max_wait = 0.01
+    target.endpoint_service = MagicMock()
+    return target
+
+
 class TestBackendEndpointTargetPreservesHttpError:
     @pytest.mark.asyncio
     async def test_async_preserves_endpoint_invocation_error_details(self):
-        target = BackendEndpointTarget.__new__(BackendEndpointTarget)
-        target.endpoint_id = "ep-1"
-        target.organization_id = "org-1"
-        target.user_id = "user-1"
-        target.project_id = None
-        target.test_execution_context = {"test_id": "test-1"}
-        target.params = None
-        target._endpoint = MagicMock()
-        target._current_trace_id = None
-        target._deferred_traces = []
-        target._invoke_max_attempts = 1
-        target._invoke_retry_min_wait = 0.01
-        target._invoke_retry_max_wait = 0.01
-        target.endpoint_service = MagicMock()
-
+        target = _make_backend_endpoint_target()
         error = EndpointInvocationError(
             "Method Not Allowed",
             transient=False,
@@ -413,21 +457,7 @@ class TestBackendEndpointTargetPreservesHttpError:
 
     @pytest.mark.asyncio
     async def test_async_treats_error_shaped_dict_as_failure(self):
-        target = BackendEndpointTarget.__new__(BackendEndpointTarget)
-        target.endpoint_id = "ep-1"
-        target.organization_id = "org-1"
-        target.user_id = "user-1"
-        target.project_id = None
-        target.test_execution_context = {"test_id": "test-1"}
-        target.params = None
-        target._endpoint = MagicMock()
-        target._current_trace_id = None
-        target._deferred_traces = []
-        target._invoke_max_attempts = 1
-        target._invoke_retry_min_wait = 0.01
-        target._invoke_retry_max_wait = 0.01
-        target.endpoint_service = MagicMock()
-
+        target = _make_backend_endpoint_target()
         error_dict = {
             "error": True,
             "error_type": "http_error",

@@ -17,6 +17,9 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud
 from rhesis.backend.app.dependencies import get_endpoint_service
 from rhesis.backend.app.models.endpoint import Endpoint
+from rhesis.backend.app.services.invokers.common.errors import EndpointInvocationError
+from rhesis.backend.app.services.invokers.common.schemas import ErrorResponse
+from rhesis.backend.tasks.execution.response_extractor import is_http_error_response
 from rhesis.penelope.targets.base import Target, TargetResponse
 
 logger = logging.getLogger(__name__)
@@ -330,14 +333,9 @@ class BackendEndpointTarget(Target):
                 content="",
                 error=f"Invalid request: {str(e)}",
             )
+        except EndpointInvocationError as e:
+            return self._target_response_from_invocation_error(e)
         except Exception as e:
-            from rhesis.backend.app.services.invokers.common.errors import (
-                EndpointInvocationError,
-            )
-
-            if isinstance(e, EndpointInvocationError):
-                return self._target_response_from_invocation_error(e)
-
             logger.error(
                 f"BackendEndpointTarget unexpected error for {self.endpoint_id}: {e}",
                 exc_info=True,
@@ -349,7 +347,7 @@ class BackendEndpointTarget(Target):
             )
 
     @staticmethod
-    def _target_response_from_invocation_error(error: Any) -> TargetResponse:
+    def _target_response_from_invocation_error(error: EndpointInvocationError) -> TargetResponse:
         """Build a failed TargetResponse that keeps structured HTTP error details."""
         error_details = {
             "error": True,
@@ -373,9 +371,6 @@ class BackendEndpointTarget(Target):
         (``error_type == "http_error"`` or ``error`` + ``status_code >= 400``).
         Returns ``None`` when the result is not an error response.
         """
-        from rhesis.backend.app.services.invokers.common.schemas import ErrorResponse
-        from rhesis.backend.tasks.execution.response_extractor import is_http_error_response
-
         if isinstance(response_data, ErrorResponse):
             response_dict = response_data.to_dict()
             return TargetResponse(
@@ -504,14 +499,9 @@ class BackendEndpointTarget(Target):
                 content="",
                 error=f"Invalid request: {str(e)}",
             )
+        except EndpointInvocationError as e:
+            return self._target_response_from_invocation_error(e)
         except Exception as e:
-            from rhesis.backend.app.services.invokers.common.errors import (
-                EndpointInvocationError,
-            )
-
-            if isinstance(e, EndpointInvocationError):
-                return self._target_response_from_invocation_error(e)
-
             logger.error(
                 f"BackendEndpointTarget async unexpected error: {e}",
                 exc_info=True,
