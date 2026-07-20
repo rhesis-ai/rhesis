@@ -1,6 +1,6 @@
 """drop dimension and demographic tables
 
-Revision ID: a1b2c3d4e5f6
+Revision ID: 6867d319c0a5
 Revises: e6f7a8b9c0d4
 Create Date: 2026-07-16 18:00:00.000000
 
@@ -19,6 +19,7 @@ Issue #1240 tracks their removal as dead code.
 NOTE: This migration must not be squashed or reordered ahead of any
 migration that references the `dimension` or `demographic` tables.
 """
+
 from typing import Union
 
 import sqlalchemy as sa
@@ -27,7 +28,7 @@ from alembic import op
 from rhesis.backend.app.models.guid import GUID
 
 # revision identifiers, used by Alembic.
-revision: str = "a1b2c3d4e5f6"
+revision: str = "6867d319c0a5"
 down_revision: Union[str, None] = "e6f7a8b9c0d4"
 branch_labels: Union[str, None] = None
 depends_on: Union[list[str], None] = None
@@ -59,9 +60,7 @@ def _column_exists(bind, table_name: str, column_name: str) -> bool:
 def _table_exists(bind, table_name: str) -> bool:
     """Return True if a table with the given name exists in the schema."""
     result = bind.execute(
-        sa.text(
-            "SELECT 1 FROM information_schema.tables WHERE table_name = :table"
-        ),
+        sa.text("SELECT 1 FROM information_schema.tables WHERE table_name = :table"),
         {"table": table_name},
     )
     return result.scalar() is not None
@@ -114,8 +113,12 @@ def downgrade() -> None:
                 server_default=sa.text("gen_random_uuid()"),
                 nullable=False,
             ),
-            sa.Column("created_at", sa.TIMESTAMP(), server_default=sa.text("now()"), nullable=False),
-            sa.Column("updated_at", sa.TIMESTAMP(), server_default=sa.text("now()"), nullable=False),
+            sa.Column(
+                "created_at", sa.TIMESTAMP(), server_default=sa.text("now()"), nullable=False
+            ),
+            sa.Column(
+                "updated_at", sa.TIMESTAMP(), server_default=sa.text("now()"), nullable=False
+            ),
             sa.Column("nano_id", sa.String(), nullable=True),
             sa.Column("deleted_at", sa.DateTime(), nullable=True),
             sa.Column("organization_id", GUID(), nullable=True),
@@ -132,9 +135,7 @@ def downgrade() -> None:
         )
         op.create_index(op.f("ix_dimension_id"), "dimension", ["id"], unique=True)
         op.create_index(op.f("ix_dimension_deleted_at"), "dimension", ["deleted_at"], unique=False)
-        op.create_index(
-            op.f("ix_dimension_project_id"), "dimension", ["project_id"], unique=False
-        )
+        op.create_index(op.f("ix_dimension_project_id"), "dimension", ["project_id"], unique=False)
 
     # 2. Recreate the demographic table (depends on dimension.id FK).
     if not _table_exists(bind, "demographic"):
@@ -149,8 +150,12 @@ def downgrade() -> None:
                 server_default=sa.text("gen_random_uuid()"),
                 nullable=False,
             ),
-            sa.Column("created_at", sa.TIMESTAMP(), server_default=sa.text("now()"), nullable=False),
-            sa.Column("updated_at", sa.TIMESTAMP(), server_default=sa.text("now()"), nullable=False),
+            sa.Column(
+                "created_at", sa.TIMESTAMP(), server_default=sa.text("now()"), nullable=False
+            ),
+            sa.Column(
+                "updated_at", sa.TIMESTAMP(), server_default=sa.text("now()"), nullable=False
+            ),
             sa.Column("nano_id", sa.String(), nullable=True),
             sa.Column("deleted_at", sa.DateTime(), nullable=True),
             sa.Column("organization_id", GUID(), nullable=True),
@@ -167,7 +172,9 @@ def downgrade() -> None:
             sa.PrimaryKeyConstraint("id"),
         )
         op.create_index(op.f("ix_demographic_id"), "demographic", ["id"], unique=True)
-        op.create_index(op.f("ix_demographic_deleted_at"), "demographic", ["deleted_at"], unique=False)
+        op.create_index(
+            op.f("ix_demographic_deleted_at"), "demographic", ["deleted_at"], unique=False
+        )
         op.create_index(
             op.f("ix_demographic_project_id"), "demographic", ["project_id"], unique=False
         )
