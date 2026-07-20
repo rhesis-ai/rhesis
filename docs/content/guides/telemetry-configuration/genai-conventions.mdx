@@ -1,0 +1,213 @@
+import { CodeBlock } from '@/components/CodeBlock'
+import { Table } from '@/components/Table'
+
+# Configure Telemetry: OTel GenAI Semantic Conventions
+
+If you're building a framework, orchestrator, or agent runtime, implement the [OpenTelemetry Semantic Conventions for GenAI](https://github.com/open-telemetry/semantic-conventions-genai) directly instead of coupling to the Rhesis SDK. Rhesis already ships a translation layer that consumes `gen_ai.*` spans and maps them into the Rhesis `ai.*` schema: this is exactly how the Microsoft Agent Framework and Pydantic AI integrations work today.
+
+## Who This Is For
+
+- You're building a framework other people will use, and don't want them coupled to Rhesis
+- You want telemetry that works with any OTel-compatible backend (Jaeger, Honeycomb, Datadog, …) *and* Rhesis
+- You already emit OTel spans and want to align with the emerging standard
+
+If you're building an *application* rather than a framework, use [Auto-Instrumentation](/guides/telemetry-configuration/auto-instrumentation) or [Decorators](/guides/telemetry-configuration/decorators) instead: they're less setup for the same result.
+
+## Operation Mapping
+
+The spec defines several GenAI operation types. Here's how each maps to Rhesis today. The "Rhesis Translation" column is the exported span's **name**, which is distinct from its `ai.operation.type` attribute value (see [Attribute Mapping](#attribute-mapping) below):
+
+<Table
+  headers={['GenAI Operation', 'Span Name Pattern', 'Rhesis Span Name', 'Status']}
+  rows={[
+    ['`chat`', '`chat {model}`', '`ai.llm.invoke`', 'Fully supported'],
+    ['`invoke_agent`', '`invoke_agent {agent_name}`', '`ai.agent.invoke`', 'Fully supported'],
+    ['`create_agent`', '`create_agent {agent_name}`', '`ai.agent.invoke`', 'Fully supported'],
+    ['`execute_tool`', '`execute_tool {tool_name}`', '`ai.tool.invoke`', 'Fully supported'],
+    ['`embeddings`', '`embeddings {model}`', '`ai.embedding.generate`', 'Fully supported'],
+    ['`invoke_workflow`', '`invoke_workflow {name}`', '`function.{framework}.*`', 'Fallback: no semantic mapping yet'],
+    ['`plan`', '`plan {agent_name}`', '`function.{framework}.*`', 'Fallback: no semantic mapping yet'],
+  ]}
+/>
+
+`chat`, `invoke_agent`, `create_agent`, `execute_tool`, and `embeddings` translate fully: correct attribute mapping, token extraction, and prompt/completion event synthesis included. `invoke_workflow` and `plan` land under a `function.*` fallback name: visible in traces, but without semantic interpretation yet.
+
+<Callout type="info">
+Span name and `ai.operation.type` are two different fields, and they don't always match textually. An `embeddings` span is named `ai.embedding.generate`, but its `ai.operation.type` attribute is set to `embedding.create`: both refer to the same operation, just via different naming (the span name follows the `ai.<domain>.<action>` convention; the attribute value tracks the GenAI spec's own operation vocabulary more closely).
+</Callout>
+
+## Attribute Mapping
+
+The translation layer maps `gen_ai.*` attributes to `ai.*` and preserves the originals, so both coexist on the exported span:
+
+<Table
+  headers={['GenAI Attribute', 'Rhesis Attribute', 'Notes']}
+  rows={[
+    ['`gen_ai.operation.name`', '`ai.operation.type`', 'chat→llm.invoke, invoke_agent→agent.invoke, execute_tool→tool.invoke, embeddings→embedding.create'],
+    ['`gen_ai.request.model`', '`ai.model.name`', 'Preferred over response.model when both present'],
+    ['`gen_ai.response.model`', '`ai.model.name`', 'Used when request model is absent'],
+    ['`gen_ai.provider.name`', '`ai.model.provider`', ''],
+    ['`gen_ai.system`', '`ai.model.provider`', 'Legacy alias, same target'],
+    ['`gen_ai.usage.input_tokens`', '`ai.llm.tokens.input`', ''],
+    ['`gen_ai.usage.output_tokens`', '`ai.llm.tokens.output`', ''],
+    ['(computed)', '`ai.llm.tokens.total`', 'input + output, synthesized'],
+    ['`gen_ai.request.temperature`', '`ai.llm.temperature`', ''],
+    ['`gen_ai.request.max_tokens`', '`ai.llm.max_tokens`', ''],
+    ['`gen_ai.response.finish_reasons`', '`ai.llm.finish_reason`', ''],
+    ['`gen_ai.tool.name`', '`ai.tool.name`', ''],
+    ['`gen_ai.tool.type`', '`ai.tool.type`', ''],
+    ['`gen_ai.agent.name`', '`ai.agent.name`', ''],
+    ['`gen_ai.conversation.id`', '`ai.session.id`', ''],
+  ]}
+/>
+
+## Content Capture
+
+The GenAI spec stores message content as structured JSON attributes:
+
+<CodeBlock filename="attributes" language="text">
+{`gen_ai.system_instructions -> [{"type": "text", "content": "You are a helpful assistant"}]
+gen_ai.input.messages      -> [{"role": "user", "parts": [{"type": "text", "content": "Hello"}]}]
+gen_ai.output.messages     -> [{"role": "assistant", "parts": [{"type": "text", "content": "Hi!"}]}]`}
+</CodeBlock>
+
+Rhesis translates these into `ai.prompt` and `ai.completion` span events rendered in the trace UI. Tool I/O attributes (`gen_ai.tool.call.arguments`, `gen_ai.tool.call.result`) translate similarly into `ai.tool.input` / `ai.tool.output` events.
+
+<Callout type="tip">
+Populate these attributes: they're what makes traces useful in the Rhesis UI (actual prompts and completions inline, not just span names). Privacy-sensitive deployments can opt out with `RHESIS_DISABLE_CONTENT_CAPTURE=true`.
+</Callout>
+
+## Agent Handoffs
+
+Rhesis synthesizes `ai.agent.handoff` spans from two patterns:
+
+1. **Tool-call pattern**: an `execute_tool` span where `gen_ai.tool.name` starts with `handoff_to_`. The target agent is parsed from the suffix (`handoff_to_researcher` → `researcher`); the source agent is resolved by walking the span's parent chain.
+2. **Message pattern**: a `chat` span whose `gen_ai.output.messages` contains a `tool_call` part named `handoff_to_*`. This covers frameworks (like MAF) where handoff middleware short-circuits before a tool-execution span is created.
+
+<Callout type="tip">
+If your framework supports agent-to-agent delegation, name your handoff tools `handoff_to_{target_agent}`. That's the convention Microsoft Agent Framework uses, and it's enough signal for Rhesis to draw handoff edges in the graph view with zero Rhesis-specific instrumentation.
+</Callout>
+
+## Setup
+
+<Steps>
+
+### Initialize the Rhesis client and enable translation
+
+If your framework is already in the auto-instrument list:
+
+<CodeBlock filename="app.py" language="python">
+{`from rhesis.sdk import RhesisClient
+from rhesis.sdk.telemetry import auto_instrument
+
+client = RhesisClient()
+auto_instrument("agent_framework")  # or "pydantic_ai", or auto-detect`}
+</CodeBlock>
+
+This wraps the OTLP exporter with a translating exporter that rewrites `gen_ai.*` spans into the Rhesis schema before export.
+
+### Emit the minimum viable span set
+
+If you're building a new framework, this is what to emit for full Rhesis compatibility:
+
+<CodeBlock filename="minimal_instrumentation.py" language="python">
+{`from opentelemetry import trace
+import json
+
+tracer = trace.get_tracer("my-framework", "1.0.0")
+
+# 1. Agent invocation
+with tracer.start_as_current_span(
+    "invoke_agent my-agent",
+    kind=trace.SpanKind.INTERNAL,
+    attributes={
+        "gen_ai.operation.name": "invoke_agent",
+        "gen_ai.agent.name": "my-agent",
+    },
+) as agent_span:
+
+    # 2. LLM call (child of agent)
+    with tracer.start_as_current_span(
+        "chat gpt-4o",
+        kind=trace.SpanKind.CLIENT,
+        attributes={
+            "gen_ai.operation.name": "chat",
+            "gen_ai.request.model": "gpt-4o",
+            "gen_ai.provider.name": "openai",
+        },
+    ) as chat_span:
+        # Make the LLM call...
+        chat_span.set_attribute("gen_ai.usage.input_tokens", 150)
+        chat_span.set_attribute("gen_ai.usage.output_tokens", 80)
+
+        chat_span.set_attribute("gen_ai.input.messages", json.dumps([
+            {"role": "user", "parts": [{"type": "text", "content": "What is ML?"}]}
+        ]))
+        chat_span.set_attribute("gen_ai.output.messages", json.dumps([
+            {"role": "assistant", "parts": [{"type": "text", "content": "ML is..."}]}
+        ]))
+
+    # 3. Tool execution (child of agent)
+    with tracer.start_as_current_span(
+        "execute_tool calculator",
+        kind=trace.SpanKind.INTERNAL,
+        attributes={
+            "gen_ai.operation.name": "execute_tool",
+            "gen_ai.tool.name": "calculator",
+            "gen_ai.tool.type": "function",
+        },
+    ) as tool_span:
+        tool_span.set_attribute("gen_ai.tool.call.arguments", '{"expression": "2+2"}')
+        tool_span.set_attribute("gen_ai.tool.call.result", "4")
+
+    # 4. Agent handoff (as a tool call)
+    with tracer.start_as_current_span(
+        "execute_tool handoff_to_specialist",
+        kind=trace.SpanKind.INTERNAL,
+        attributes={
+            "gen_ai.operation.name": "execute_tool",
+            "gen_ai.tool.name": "handoff_to_specialist",
+        },
+    ) as handoff_span:
+        # Rhesis translates this into ai.agent.handoff automatically
+        pass`}
+</CodeBlock>
+
+</Steps>
+
+These spans work with any OTel-compatible backend (they follow the standard) and Rhesis translates them automatically into `ai.llm.invoke`, `ai.agent.invoke`, `ai.tool.invoke`, and `ai.agent.handoff` with full attribute mapping.
+
+## What Is Not Yet Translated
+
+These GenAI spec features land in Rhesis as passthrough attributes, preserved on the span and shipped to the backend, but not yet rendered specially in the UI:
+
+<Table
+  headers={['GenAI Feature', 'Status', 'What Happens Today']}
+  rows={[
+    ['`invoke_workflow` operation', 'Fallback', 'Lands as `function.{framework}.*`, visible but uninterpreted'],
+    ['`plan` operation', 'Fallback', 'Lands as `function.{framework}.*`, visible but uninterpreted'],
+    ['`gen_ai.plan.reasoning` / `gen_ai.plan.steps`', 'Passthrough', 'Preserved as raw attributes'],
+    ['`gen_ai.workflow.name` / `gen_ai.workflow.id`', 'Passthrough', 'Preserved as raw attributes'],
+    ['`gen_ai.data_source.id`', 'Passthrough', 'Preserved as raw attributes'],
+    ['`gen_ai.output.type`', 'Passthrough', 'Preserved as raw attributes'],
+    ['`gen_ai.usage.cache_creation.input_tokens`', 'Passthrough', 'Preserved as raw attributes'],
+    ['`gen_ai.usage.cache_read.input_tokens`', 'Passthrough', 'Preserved as raw attributes'],
+    ['Memory operations (`create_memory`, `search_memory`, …)', 'Passthrough', 'Not yet emitted by any framework we integrate with'],
+  ]}
+/>
+
+<Callout type="info">
+Passthrough means the data is queryable but the Rhesis UI doesn't render it specially yet: no plan visualization, no workflow grouping, no cache-hit indicators. As the GenAI spec stabilizes and frameworks adopt these operations, we'll add semantic mappings.
+</Callout>
+
+<Callout type="success">
+**Your framework now emits spec-native telemetry.** Any application built on it gets Rhesis traces automatically, with zero Rhesis-specific code in the framework itself.
+</Callout>
+
+<Callout type="info">
+  **Related:**
+  - [OTel GenAI Semantic Conventions Spec](https://github.com/open-telemetry/semantic-conventions-genai/blob/main/docs/gen-ai/gen-ai-agent-spans.md)
+  - [Microsoft Agent Framework](/docs/tracing/agent-framework) - a working example of this pattern
+  - [Semantic Conventions Reference](/docs/tracing/semantic-conventions) - the Rhesis `ai.*` schema these spans translate into
+  - [Configuring Telemetry](/guides/telemetry-configuration) - back to the mode overview
+</Callout>
