@@ -120,6 +120,7 @@ resource "terraform_data" "bind9_config_update" {
           fi && \
           systemctl enable named && \
           systemctl restart named && \
+          rm -f /tmp/named.conf.tf.b64 && \
           echo \"BIND9 config updated and reloaded successfully\"'"
     EOT
   }

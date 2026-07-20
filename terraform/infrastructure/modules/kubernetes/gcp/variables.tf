@@ -147,7 +147,7 @@ variable "public_ingress_source_ranges" {
 }
 
 variable "use_cloudflare_source_ranges" {
-  description = "Restrict the public ingress firewall rule to Cloudflare's current edge IP ranges (fetched live via the cloudflare provider) instead of public_ingress_source_ranges. Only makes sense if the DNS record is Proxied (orange-cloud) in Cloudflare — otherwise real visitor traffic won't come from these ranges and will be blocked."
+  description = "Restrict the public ingress firewall rule to Cloudflare's current edge IP ranges (fetched live via the cloudflare provider) instead of public_ingress_source_ranges. Only makes sense if the DNS record is Proxied (orange-cloud) in Cloudflare — otherwise real visitor traffic won't come from these ranges and will be blocked. Note: Cloudflare's edge ranges are shared across all their customers. This blocks arbitrary direct-to-origin traffic (defense-in-depth) but does not cryptographically authenticate that requests came from our Cloudflare zone. If strict origin authentication is needed later, Authenticated Origin Pulls (mTLS) or an ingress-nginx secret header should be used."
   type        = bool
   default     = false
 }
