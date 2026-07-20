@@ -43,19 +43,21 @@ Already using the SDK to run tests? `RhesisClient()` is likely initialized somew
 
 ```mermaid
 flowchart TD
-    Q1{Building a framework<br/>others will use?}
-    Q1 -->|Yes| GENAI[Emit gen_ai.* spans<br/>per OTel GenAI conventions]
-    Q1 -->|No| Q2{Framework supported by<br/>auto_instrument?}
-    Q2 -->|"Yes: LangChain, LangGraph,<br/>MAF, Pydantic AI"| AUTO[auto_instrument]
-    Q2 -->|No| Q3{Can you decorate the<br/>functions you want traced?}
-    Q3 -->|Yes| DEC["@observe / @endpoint"]
-    Q3 -->|"No: third-party code,<br/>dynamic dispatch"| RAW[Raw OpenTelemetry]
+    Q1{Building a<br/>framework?}
+    Q1 -->|Yes| GENAI[GenAI Semantic<br/>Conventions]
+    Q1 -->|No| Q2{Framework has<br/>auto_instrument?}
+    Q2 -->|Yes| AUTO[Auto-Instrumentation]
+    Q2 -->|No| Q3{Can you decorate<br/>the code?}
+    Q3 -->|Yes| DEC[Decorators]
+    Q3 -->|No| RAW[Raw OpenTelemetry]
 
     style GENAI fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
     style AUTO fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
     style DEC fill:#fff3e0,stroke:#f57c00,stroke-width:2px
     style RAW fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
 ```
+
+The table below has the full detail (which frameworks, which code changes); the diagram only needs to carry the decision logic.
 
 | Mode | Best for | Code changes | Guide |
 |---|---|---|---|
