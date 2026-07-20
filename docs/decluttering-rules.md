@@ -109,120 +109,35 @@ Check off pages/sections as they are done.
 
 ### Docs (87 pages)
 
-- [x] Welcome (`docs/index.mdx`) — no changes needed; landing-page Steps duplication kept by design
-- [x] Getting Started — Overview, Setup Environment, Connect Application, Run Evaluations,
-      Projects, Default Chatbot (Rosalind)
-- [x] Core Concepts (`docs/concepts.mdx`) — already lean; fixed two broken links, tidied whitespace
-- [x] Product Tour (`docs/product-tour.mdx`) — no changes; promotional tone allowed by design
-- [x] Architect — Overview, Workflow, Endpoint Exploration, Planning Test Suites,
-      Running and Analyzing, Chat Features, Scenarios (already rule-compliant; two
-      redundancy cuts and eight factual fixes)
-- [x] Agent Skill — accurate mirror of the repo skill README; one promotional-word
-      fix and one redundancy cut (Cursor skill-install prose duplicated the universal
-      installer)
-- [x] Organizations & Team — Overview, Roles, Single Sign-On, API Clients
-      (Overview: fixed broken list/callout formatting, wrong image alt, and a
-      false sidebar claim — denied items are hidden, not locked, and Metrics/Models
-      are permission-gated. Roles: corrected Admin/Member capability descriptions.
-      API Clients: fixed token-lifetime defaults and invalid_request/target/client
-      error mapping. SSO: verified accurate, no changes.)
-- [x] Deployment — Overview, Quick Start, Docker Compose, Environment Variables
-      (Quick Start and Docker Compose: removed unused FileTree imports, tone pass,
-      fixed backup commands and internal links; verified ports, ./rh commands,
-      secrets, and env defaults against rh/docker-compose.yml/.env.example)
+- [x] Welcome
+- [x] Getting Started
+- [x] Core Concepts
+- [x] Product Tour
+- [x] Architect
+- [x] Agent Skill
+- [x] Organizations & Team
+- [x] Deployment
 
 **Define**
-- [x] Knowledge — folded Sources definition into intro, collapsed self-describing format table
-      to an inline list, added missing `.md` and 5 MB limit, dropped wrong `.zip` note
-- [x] Behaviors — folded definition callout into intro, dropped low-value grid/cards/detail
-      table, terminology fix (AI system → LLM application), converted Next Steps callout to a list
-- [x] Metrics — Overview, Metric scope, DeepEval, Ragas, Trace Metrics, Code Metrics
-      (Overview: folded intro callout + "at a glance" into the intro, deduped Metric Scope
-      against metric-scope.mdx, dropped decorative rules, fixed "appraoch" typo and the broken
-      /docs/tests-generation link. Trace Metrics: trimmed promotional intro tail. Metric scope,
-      DeepEval, Ragas, Code Metrics: already lean and rule-compliant, facts verified — no changes)
+- [x] Knowledge
+- [x] Behaviors
+- [x] Metrics
 
 **Generate**
-- [x] Playground — toned down promo intro, cut redundant setup filler, removed WebSocket
-      payload internals (table + chat.message JSON, unused CodeBlock import), fixed "audio"
-      factual error and two /docs-less links (multimodal-testing, tracing)
-- [x] Explorer — Overview, Workflow, Building and Evaluating, Scenarios (dedup pass: stripped
-      the suggestions mechanics from the Overview and the duplicate "Two benefits" section from
-      Workflow, both owned by Building and Evaluating; removed the manual TOC from Scenarios;
-      verified 10/20 defaults, /explorer routes, and 1000-char guide. Building and Evaluating
-      kept as the canonical deep-dive. Test Generation MOVED out of Explorer to Test Sets —
-      the feature lives at /test-sets/new-generated in the app, not Explorer.)
-- [x] Tests — Tests, Conversation Simulation (Overview, Getting Started, Examples & Use Cases,
-      Configuration, Execution Trace, Extending), Adversarial Testing (Overview, Polyphemus,
-      Requesting Access, SDK Usage), Multi-modal Testing.
-      **Link fix (site-wide):** these pages live at `/docs/tests/...` but redirects and ~20
-      cross-links still pointed at the pre-#1930 flat paths (`/docs/conversation-simulation`,
-      `/adversarial-testing`, `/docs/multimodal-testing`) — all 404 or redirect-hop. Repointed
-      every link to `/docs/tests/...` and fixed the stale destinations in `src/next.config.mjs`
-      (incl. `/penelope`). Tests: folded the definition callout into the intro, dropped the
-      max_iterations version callout, terminology (AI system → LLM application), Next Steps → list.
-      Conversation Simulation Overview: cut the promo subtitle, "What Makes Penelope Unique",
-      "Design Philosophy", and the Practical-Examples code (owned by Examples); kept the four
-      parameters as canonical. Getting Started: cut the contributor Development Setup section.
-      Examples: removed decorative emojis (⚠️ 📝) and the Contributing-Examples Steps. Execution
-      Trace / Extending / Configuration: emoji + promo trims, dropped Extending's Design Principles
-      and Configuration's duplicate Test-Level section. Adversarial + Multi-modal: already lean —
-      link fixes only. Verified against code: SDK default model names (claude-4, gemini-2.0-flash,
-      gpt-4o), Penelope env vars / defaults / 0.8 early-stop, PolyphemusLLM + env vars, and the
-      10 MB / 20 MB / 10-file multimodal limits with the image|pdf|audio MIME allow-list.
-- [x] Test Sets — Overview, Test Generation (relocated here from Explorer; content decluttered:
-      fixed stale Small/Medium/Large presets → the real 1–200 slider (default 50), fixed broken
-      platform/tests link, trimmed promo and Next Steps), Import from File, Import from Garak
-      (Overview: folded definition callout into intro, fixed broken /docs/test-execution →
-      /docs/test-runs/execution, Next Steps → list. Import from File/Garak: Next Steps → list,
-      deduped repeated /docs/test-sets pointers to a #executing-test-sets anchor. Verified the
-      import field names/required fields (category/topic/behavior + prompt_content|goal), turn-config
-      aliases and range parsing, and the 10 MB import cap against the file_import service.)
+- [x] Playground
+- [x] Explorer
+- [x] Tests
+- [x] Test Sets
 
 **Improve**
-- [x] Insights (`results-overview`) — Next Steps callout → list; page already lean
-- [x] Test Runs — Test Runs, Test Execution (Test Runs: folded definition callout into intro,
-      dropped version annotations from three headings, deduped the metrics-hierarchy section
-      down to a pointer to Test Execution which owns it, Next Steps → list. Test Execution: folded
-      the definition callout + removed the redundant reuse-outputs teaser into the intro, AI system
-      → LLM application, cut the generic Best Practices section, Related Pages → Next steps list.
-      Verified against code: POST /test_runs/{id}/cancel with 404/409, POST /preflight-checks,
-      review target types test_result/metric/turn.)
-- [x] Experiments — Experiments, Parameter Schema, SDK Usage, Connector Injection (folded the
-      tagline/definition callouts into plain intros across all four; Experiments: trimmed the
-      Vocabulary preamble and removed two "Screenshot placeholder" TODO lines. Parameter Schema:
-      dropped "just", AI features → LLM application. Verified: four well-known environments
-      (default/development/staging/production), the 8 parameter types, Parameters.get env vars
-      RHESIS_PARAMETERS_ENVIRONMENT/_LABEL and the 60s cache TTL, and the endpoints#anchors.)
-- [x] Tasks — Tasks, Test Reviews (Tasks: merged the Overview section into the intro, removed a
-      block of stray blank lines, fixed broken /docs/projects → /docs/getting-started/projects,
-      Next Steps → list; verified the /docs/tools#jira anchor. Test Reviews: folded definition
-      callout into intro, fixed broken /docs/test-execution → /docs/test-runs/execution, Next
-      Steps → list.)
+- [x] Insights
+- [x] Test Runs
+- [x] Experiments
+- [x] Tasks
 
 **Connect**
-- [x] Traces (`tracing`) — Overview, Getting Started, Decorators, Custom Spans,
-      Semantic Conventions, Auto-Instrumentation, Microsoft Agent Framework,
-      Multi-Agent Tracing, Conversation Tracing.
-      **Link fix (site-wide):** internal tracing links used `/tracing/...` (a redirect hop to the
-      canonical `/docs/tracing/...`) — repointed all ~26 to `/docs/tracing/...`; cross-section
-      links (`/sdk/connector`, `/docs/metrics`, `/docs/integrations`, `/contribute/...`) verified
-      already correct. Overview: dropped the bold subtitle + "comprehensive", cut the Key Features
-      restatement, replaced the hand-rolled styled video iframe with `<YouTubeEmbed>`, dropped the
-      "(v0.6.6+)" version annotation and deduped the Conversation Traces block to a pointer, Next
-      Steps callout → list. Getting Started: dropped the "(v0.6.0+)" version annotation. Decorators:
-      removed the Comparison table (redundant with the earlier "When to use which" table + prose).
-      Custom Spans: deduped the Model/LLM/Tool/Retrieval/Embedding/Event attribute tables to a
-      pointer at Semantic Conventions (the canonical reference). Auto-Instrumentation + Agent
-      Framework: folded the "Overview" heading into the intro; dropped the incomplete duplicate
-      Supported Frameworks table from Agent Framework. Conversation Tracing: rewrote the "in
-      seconds, not hours" promo intro to a factual definition. Verified against code: BatchSpanProcessor
-      defaults (2048 queue / 512 batch / 5s), RHESIS_CONNECTOR_DISABLED + truthy values, all
-      AIOperationType / AIAttributes / AIEvents constants, auto_instrument keys, and the LangGraph
-      agent keywords (agent/specialist/orchestrator/coordinator/supervisor), agent-name resolution
-      priority, and transfer_to_* handoff detection.
-- [ ] Endpoints — Overview, Creating Endpoints, Request Mapping, Response Mapping, Examples,
-      Management, SDK Endpoints (+ hidden: auto-configure, multi-turn-conversations)
+- [x] Traces
+- [x] Endpoints
 - [ ] Tools
 - [ ] Models
 - [ ] Integrations
