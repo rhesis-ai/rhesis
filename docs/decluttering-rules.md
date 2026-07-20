@@ -143,7 +143,9 @@ Check off pages/sections as they are done.
       DeepEval, Ragas, Code Metrics: already lean and rule-compliant, facts verified — no changes)
 
 **Generate**
-- [ ] Playground
+- [x] Playground — toned down promo intro, cut redundant setup filler, removed WebSocket
+      payload internals (table + chat.message JSON, unused CodeBlock import), fixed "audio"
+      factual error and two /docs-less links (multimodal-testing, tracing)
 - [ ] Explorer — Overview, Workflow, Building and Evaluating, Scenarios, Test Generation
 - [ ] Tests — Tests, Conversation Simulation (Overview, Getting Started, Examples & Use Cases,
       Configuration, Execution Trace, Extending), Adversarial Testing (Overview, Polyphemus,

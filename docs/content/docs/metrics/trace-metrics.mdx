@@ -53,7 +53,7 @@ coherence = NumericJudge(
 coherence.push()`}
 </CodeBlock>
 
-If you set the scope to just `["Trace"]` without specifying Single-Turn or Multi-Turn, the metric adapts automatically based on the presence of a `conversation_id`: 
+If you set the scope to only `["Trace"]` without specifying Single-Turn or Multi-Turn, the metric adapts automatically based on the presence of a `conversation_id`:
 * **If there is no conversation ID:** It runs immediately (per-turn).
 * **If there is a conversation ID:** It skips the immediate evaluation and waits to run per-conversation once the timeout expires.
 
