@@ -21,6 +21,10 @@ import FileAttachmentList from '@/components/common/FileAttachmentList';
 import MarkdownContent from '@/components/common/MarkdownContent';
 import { JsonPreview } from '@/app/(protected)/endpoints/components/JsonPreview';
 import { testPreviewSx } from '@/app/(protected)/endpoints/components/endpoint-styles';
+import {
+  looksLikeMarkdown,
+  parseJsonString,
+} from '@/utils/message-content';
 import { useFiles } from '@/hooks/useFiles';
 import { getEffectiveTestResultStatus } from '@/utils/test-result-status';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme-constants';
@@ -34,27 +38,6 @@ interface TestDetailOverviewTabProps {
   onTestResultUpdate: (updatedTest: TestResultDetail) => void;
   testSetType?: string; // e.g., "Multi-turn" or "Single-turn"
 }
-
-const parseJsonString = (
-  text: string
-): Record<string, unknown> | unknown[] | null => {
-  const trimmed = text.trim();
-  if (
-    !(trimmed.startsWith('{') && trimmed.endsWith('}')) &&
-    !(trimmed.startsWith('[') && trimmed.endsWith(']'))
-  ) {
-    return null;
-  }
-  try {
-    const parsed: unknown = JSON.parse(trimmed);
-    if (parsed !== null && typeof parsed === 'object') {
-      return parsed as Record<string, unknown> | unknown[];
-    }
-  } catch {
-    return null;
-  }
-  return null;
-};
 
 // Helper function to render text with proper list formatting
 const renderFormattedText = (text: string) => {
@@ -150,7 +133,16 @@ export default function TestDetailOverviewTab({
         </Box>
       );
     }
-    return <MarkdownContent content={text} variant="body2" />;
+    return looksLikeMarkdown(text) ? (
+      <MarkdownContent content={text} variant="body2" />
+    ) : (
+      <Typography
+        variant="body2"
+        sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', m: 0 }}
+      >
+        {text}
+      </Typography>
+    );
   };
 
   const isMultiTurn =

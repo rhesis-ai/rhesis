@@ -28,6 +28,10 @@ import MarkdownContent from '@/components/common/MarkdownContent';
 import StatusChip from '@/components/common/StatusChip';
 import { JsonPreview } from '@/app/(protected)/endpoints/components/JsonPreview';
 import { testPreviewSx } from '@/app/(protected)/endpoints/components/endpoint-styles';
+import {
+  looksLikeMarkdown,
+  parseJsonString,
+} from '@/utils/message-content';
 import { getProjectIconComponent } from '@/components/common/ProjectIcons';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -36,27 +40,6 @@ import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 // Superhero (female) emoji built from code points to avoid linter emoji detection.
 // U+1F9B8 (superhero) + U+200D (ZWJ) + U+2640 (female sign) + U+FE0F (variation selector)
 const PENELOPE_ICON = String.fromCodePoint(0x1f9b8, 0x200d, 0x2640, 0xfe0f);
-
-const parseJsonString = (
-  text: string
-): Record<string, unknown> | unknown[] | null => {
-  const trimmed = text.trim();
-  if (
-    !(trimmed.startsWith('{') && trimmed.endsWith('}')) &&
-    !(trimmed.startsWith('[') && trimmed.endsWith(']'))
-  ) {
-    return null;
-  }
-  try {
-    const parsed: unknown = JSON.parse(trimmed);
-    if (parsed !== null && typeof parsed === 'object') {
-      return parsed as Record<string, unknown> | unknown[];
-    }
-  } catch {
-    return null;
-  }
-  return null;
-};
 
 function renderJsonPreview(value: unknown) {
   return (
@@ -71,7 +54,17 @@ function renderMessageContent(content: string) {
   if (parsed !== null) {
     return renderJsonPreview(parsed);
   }
-  return <MarkdownContent content={content} variant="body2" />;
+  if (looksLikeMarkdown(content)) {
+    return <MarkdownContent content={content} variant="body2" />;
+  }
+  return (
+    <Typography
+      variant="body2"
+      sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', m: 0 }}
+    >
+      {content}
+    </Typography>
+  );
 }
 
 interface ConversationHistoryProps {
@@ -721,7 +714,7 @@ export default function ConversationHistory({
                         }}
                         onClick={e => e.stopPropagation()}
                       >
-                        {(turn.context as string[]).map((item, idx, arr) => {
+                        {(turn.context ?? []).map((item, idx, arr) => {
                           const itemContent =
                             typeof item === 'string'
                               ? renderMessageContent(item)
