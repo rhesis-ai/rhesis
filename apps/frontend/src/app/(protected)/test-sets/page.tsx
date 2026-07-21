@@ -63,20 +63,16 @@ export default function TestSetsPage() {
     [queryClient, notifications]
   );
 
-  const handleGarakImportSuccess = React.useCallback(
-    (testSetIds: string[]) => {
-      queryClient.invalidateQueries({ queryKey: testSetKeys.all() });
-      const count = testSetIds.length;
-      notifications.show(
-        `${count} Garak ${count === 1 ? 'probe' : 'probes'} imported successfully`,
-        { severity: 'success', autoHideDuration: 6000 }
-      );
-      if (testSetIds.length === 1) {
-        router.push(`/test-sets/${testSetIds[0]}`);
-      }
-    },
-    [queryClient, notifications, router]
-  );
+  const handleGarakImportStarted = React.useCallback(() => {
+    // Import/generation run as background tasks — this fires once they're
+    // queued, not once they're done. Invalidate now so the list picks up
+    // completed test sets whenever the user next revisits it.
+    queryClient.invalidateQueries({ queryKey: testSetKeys.all() });
+    notifications.show(
+      'Garak import started — the test set(s) will appear in your list shortly',
+      { severity: 'success', autoHideDuration: 6000 }
+    );
+  }, [queryClient, notifications]);
 
   if (isSessionLoading(status)) {
     return (
@@ -184,7 +180,7 @@ export default function TestSetsPage() {
       <GarakImportDrawer
         open={garakImportDrawerOpen}
         onClose={() => setGarakImportDrawerOpen(false)}
-        onSuccess={handleGarakImportSuccess}
+        onImportStarted={handleGarakImportStarted}
       />
     </>
   );

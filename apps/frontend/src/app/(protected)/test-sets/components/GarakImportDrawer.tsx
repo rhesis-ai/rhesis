@@ -43,13 +43,18 @@ import BaseDrawer from '@/components/common/BaseDrawer';
 interface GarakImportDrawerProps {
   open: boolean;
   onClose: () => void;
-  onSuccess?: (testSetIds: string[]) => void;
+  /**
+   * Called once the import/generation task(s) have been queued. Import and
+   * generation both run as background tasks, so this fires on "started",
+   * not "completed" — no test set IDs are available yet.
+   */
+  onImportStarted?: () => void;
 }
 
 export default function GarakImportDrawer({
   open,
   onClose,
-  onSuccess,
+  onImportStarted,
 }: GarakImportDrawerProps) {
   const [loading, setLoading] = React.useState(false);
   const [loadingModules, setLoadingModules] = React.useState(false);
@@ -284,7 +289,6 @@ export default function GarakImportDrawer({
 
       const clientFactory = new ApiClientFactory();
       const garakClient = clientFactory.getGarakClient();
-      const createdTestSetIds: string[] = [];
 
       if (staticProbes.length > 0) {
         let previewData = preview;
@@ -297,15 +301,6 @@ export default function GarakImportDrawer({
           setPreview(previewData);
           setPreparingImport(false);
         }
-
-        const cumulativeTestCounts = previewData.probes.reduce<number[]>(
-          (acc, probe, idx) => {
-            const prevCount = idx > 0 ? acc[idx - 1] : 0;
-            acc.push(prevCount + probe.prompt_count);
-            return acc;
-          },
-          []
-        );
 
         setImportProgress({
           phase: 'static',
@@ -321,51 +316,20 @@ export default function GarakImportDrawer({
           isComplete: false,
         });
 
-        const totalTests = previewData.total_tests;
-        const maxSimulated = Math.floor(totalTests * 0.95);
-        const progressInterval = setInterval(() => {
-          setImportProgress(prev => {
-            if (
-              !prev ||
-              prev.phase !== 'static' ||
-              prev.isComplete ||
-              !previewData
-            )
-              return prev;
-            const testsPerInterval = Math.max(1, Math.ceil(totalTests / 60));
-            const nextTestCount = Math.min(
-              prev.currentTestCount + testsPerInterval,
-              maxSimulated
-            );
-            let probeIndex = prev.currentProbeIndex;
-            while (
-              probeIndex < cumulativeTestCounts.length - 1 &&
-              nextTestCount >= cumulativeTestCounts[probeIndex]
-            ) {
-              probeIndex++;
-            }
-            return {
-              ...prev,
-              currentProbeIndex: probeIndex,
-              currentTestCount: nextTestCount,
-              currentProbe: previewData.probes[probeIndex] || prev.currentProbe,
-            };
-          });
-        }, 500);
-
-        const response = await garakClient.importProbes({
+        // Import runs as a background task (some probes produce thousands of
+        // tests) — this only confirms the task was queued, not that it
+        // finished. The resulting test set(s) appear in the test sets list
+        // once the task completes.
+        await garakClient.importProbes({
           probes: buildProbeSelections(staticProbes),
           name_prefix: 'Garak',
         });
-
-        clearInterval(progressInterval);
-        createdTestSetIds.push(...response.test_sets.map(ts => ts.test_set_id));
 
         setImportProgress(prev =>
           prev
             ? {
                 ...prev,
-                currentTestCount: totalTests,
+                currentTestCount: prev.totalTests,
                 staticImported: staticProbes.length,
               }
             : prev
@@ -437,17 +401,12 @@ export default function GarakImportDrawer({
           : prev
       );
 
-      const hasDynamic = dynamicProbes.length > 0;
-      if (!hasDynamic) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      }
-
-      if (createdTestSetIds.length > 0) {
-        onSuccess?.(createdTestSetIds);
-      }
-      if (!hasDynamic) {
-        handleClose();
-      }
+      // Both static import and dynamic generation now run as background
+      // tasks — neither completes synchronously, so we don't auto-close or
+      // report created test set IDs here. The resulting test set(s) appear
+      // in the test sets list once their tasks finish; the user closes this
+      // drawer manually after seeing the "started" confirmation below.
+      onImportStarted?.();
     } catch (err: unknown) {
       setError(
         err instanceof Error ? err.message : 'Failed to import Garak probes'
@@ -844,7 +803,7 @@ export default function GarakImportDrawer({
                 {!importProgress.isComplete && <CircularProgress size={20} />}
                 <Typography variant="subtitle1" fontWeight="medium">
                   {importProgress.phase === 'static' &&
-                    'Importing static probes...'}
+                    'Starting static probe import...'}
                   {importProgress.phase === 'dynamic' &&
                     'Generating dynamic probes...'}
                   {importProgress.phase === 'done' && 'Complete'}
@@ -972,7 +931,7 @@ export default function GarakImportDrawer({
                   >
                     <CheckCircleIcon />
                     <Typography variant="body1" fontWeight="medium">
-                      Import complete!
+                      Import started!
                     </Typography>
                   </Stack>
                   {importProgress.staticImported > 0 && (
@@ -980,7 +939,7 @@ export default function GarakImportDrawer({
                       <Typography variant="body2" color="text.secondary">
                         {importProgress.staticImported} static probe
                         {importProgress.staticImported !== 1 ? 's' : ''}{' '}
-                        imported:
+                        — import started in background:
                       </Typography>
                       {preview?.probes.map(p => (
                         <Typography
@@ -992,6 +951,14 @@ export default function GarakImportDrawer({
                           • {p.test_set_name} ({p.prompt_count} tests)
                         </Typography>
                       ))}
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        sx={{ mt: 0.5 }}
+                      >
+                        Once import completes, the test set(s) will appear in
+                        your test sets list.
+                      </Typography>
                     </Stack>
                   )}
                   {importProgress.dynamicResults.length > 0 && (
