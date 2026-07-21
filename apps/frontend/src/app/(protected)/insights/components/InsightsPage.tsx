@@ -231,7 +231,6 @@ export default function InsightsPage() {
       actions={
         <FabGroup>
           <InsightsSummarizeFab
-            sessionToken={sessionToken}
             filters={filters}
             endpointName={selectedEndpointName}
             visibleBehaviorNames={visibleBehaviorNames}

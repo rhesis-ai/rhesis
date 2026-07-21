@@ -16,7 +16,6 @@ import {
 } from '../utils/insights-summarize-prompt';
 
 interface InsightsSummarizeFabProps {
-  sessionToken: string;
   filters: InsightsFilters;
   endpointName?: string;
   /** Behavior names currently visible (multi-select ∩ search). */
@@ -26,7 +25,6 @@ interface InsightsSummarizeFabProps {
 }
 
 export default function InsightsSummarizeFab({
-  sessionToken,
   filters,
   endpointName = '',
   visibleBehaviorNames,
@@ -37,17 +35,13 @@ export default function InsightsSummarizeFab({
   const { show: showNotification } = useNotifications();
 
   // Enabled regardless of failedCount (including 0)
-  const isDisabled =
-    disabled || loading || creating || !filters.endpointId || !sessionToken;
+  const isDisabled = disabled || loading || creating || !filters.endpointId;
 
   const handleClick = useCallback(async () => {
     if (isDisabled) return;
     setCreating(true);
     try {
-      const resolvedIds = await resolveInsightsQueryTestRunIds(
-        sessionToken,
-        filters
-      );
+      const resolvedIds = await resolveInsightsQueryTestRunIds(filters);
       const { ids, truncated, totalMatched } =
         capArchitectInsightsTestRunIds(resolvedIds);
       const title = buildInsightsSummarizeSessionTitle({
@@ -63,7 +57,6 @@ export default function InsightsSummarizeFab({
         totalMatched,
       });
       await createAndOpenArchitectSession({
-        sessionToken,
         title,
         initialMessage,
       });
@@ -75,14 +68,7 @@ export default function InsightsSummarizeFab({
     } finally {
       setCreating(false);
     }
-  }, [
-    endpointName,
-    filters,
-    isDisabled,
-    sessionToken,
-    showNotification,
-    visibleBehaviorNames,
-  ]);
+  }, [endpointName, filters, isDisabled, showNotification, visibleBehaviorNames]);
 
   return (
     <Can capability={Capability.Architect.CREATE}>

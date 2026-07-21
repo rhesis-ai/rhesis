@@ -22,7 +22,6 @@ describe('createAndOpenArchitectSession', () => {
     const navigate = jest.fn();
 
     await createAndOpenArchitectSession({
-      sessionToken: 'token',
       title: 'Insights summary — Bot — 1M',
       initialMessage: 'Summarize insights\ntest results',
       openWindow,
@@ -43,7 +42,6 @@ describe('createAndOpenArchitectSession', () => {
     const navigate = jest.fn();
 
     await createAndOpenArchitectSession({
-      sessionToken: 'token',
       title: 'Title',
       initialMessage: 'Message',
       openWindow,
@@ -60,8 +58,7 @@ describe('createAndOpenArchitectSession', () => {
 
     await expect(
       createAndOpenArchitectSession({
-        sessionToken: 'token',
-        title: 'Title',
+          title: 'Title',
         initialMessage: 'Message',
         openWindow,
         navigate: jest.fn(),
