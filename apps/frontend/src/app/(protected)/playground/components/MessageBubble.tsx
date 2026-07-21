@@ -187,7 +187,7 @@ export default function MessageBubble({
               }}
             >
               <Box sx={{ flex: 1, minWidth: 0 }}>
-                {isUser ? (
+                {message.role === 'user' ? (
                   <Typography
                     variant="body2"
                     sx={{

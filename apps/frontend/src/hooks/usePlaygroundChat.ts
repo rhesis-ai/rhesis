@@ -12,24 +12,30 @@ import { readActiveProjectId } from '@/utils/active-project';
 /**
  * Chat message interface for the playground.
  */
-export interface ChatMessage {
+type ChatMessageBase = {
   /** Unique message ID */
   id: string;
-  /** Message role: user or assistant */
-  role: 'user' | 'assistant';
-  /** Message content (string or structured JSON from endpoint output) */
-  content: string | Record<string, unknown> | unknown[];
-  /** Trace ID for assistant messages (for viewing trace details) */
-  traceId?: string;
   /** Timestamp when the message was created */
   timestamp: Date;
   /** Whether the message is an error */
   isError?: boolean;
-  /** File attachments on user messages */
+};
+
+export type UserChatMessage = ChatMessageBase & {
+  role: 'user';
+  content: string;
   files?: FileAttachment[];
-  /** Output files on assistant messages */
+};
+
+export type AssistantChatMessage = ChatMessageBase & {
+  role: 'assistant';
+  /** String or structured JSON from endpoint output */
+  content: string | Record<string, unknown> | unknown[];
+  traceId?: string;
   outputFiles?: FileAttachment[];
-}
+};
+
+export type ChatMessage = UserChatMessage | AssistantChatMessage;
 
 /**
  * Options for the usePlaygroundChat hook.
@@ -132,10 +138,10 @@ export function usePlaygroundChat(
           }
 
           // Add assistant message
-          const assistantMessage: ChatMessage = {
+          const assistantMessage: AssistantChatMessage = {
             id: generateMessageId(),
             role: 'assistant',
-            content: payload?.output || '',
+            content: payload?.output ?? '',
             traceId: payload?.trace_id,
             timestamp: new Date(),
             ...(payload?.output_files?.length && {
@@ -163,7 +169,7 @@ export function usePlaygroundChat(
           setError(errorMessage);
 
           // Add error message as assistant response
-          const errorChatMessage: ChatMessage = {
+          const errorChatMessage: AssistantChatMessage = {
             id: generateMessageId(),
             role: 'assistant',
             content: `Error: ${errorMessage}`,
@@ -214,7 +220,7 @@ export function usePlaygroundChat(
       pendingCorrelationRef.current = correlationId;
 
       // Add user message immediately
-      const userMessage: ChatMessage = {
+      const userMessage: UserChatMessage = {
         id: generateMessageId(),
         role: 'user',
         content: trimmedMessage,
