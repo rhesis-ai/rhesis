@@ -1,4 +1,5 @@
 import type { SxProps, Theme } from '@mui/material/styles';
+import type { SystemStyleObject } from '@mui/system';
 import { BORDER_RADIUS } from '@/styles/theme';
 
 /** Default drawer shell width — 518px content + 30px padding each side (Figma 1641:16598). */
@@ -96,7 +97,7 @@ export const drawerDisabledFieldSx: SxProps<Theme> = {
  * Figma Chip Medium — Body M/Reg 14/22 (node 818:38079).
  * For tag inputs inside form fields, not dense selection lists.
  */
-export const drawerChipSx: SxProps<Theme> = {
+export const drawerChipSx: SystemStyleObject<Theme> = {
   fontSize: 14,
   fontWeight: 400,
   lineHeight: '22px',
@@ -108,7 +109,7 @@ export const drawerChipSx: SxProps<Theme> = {
 };
 
 /** Compact chips for dense probe/category lists inside drawers. */
-export const drawerListChipSx: SxProps<Theme> = {
+export const drawerListChipSx: SystemStyleObject<Theme> = {
   height: 20,
   fontSize: 11,
   fontWeight: 500,

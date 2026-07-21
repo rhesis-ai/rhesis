@@ -56,10 +56,14 @@ import OwaspGenerateForm, {
 /** Garak/OWASP lists need extra room vs the default 578 form drawer. */
 const SECURITY_DRAWER_WIDTH = 680;
 
+type SecuritySource = 'garak' | 'owasp';
+
 /** Strip light markdown emphasis markers from Garak probe copy. */
 const stripMarkdown = (value: string) =>
-  value.replace(/\*\*(.+?)\*\*/g, '$1').replace(/\*(.+?)\*/g, '$1').trim();
-
+  value
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/\*(.+?)\*/g, '$1')
+    .trim();
 
 interface GarakImportDrawerProps {
   open: boolean;
@@ -526,8 +530,7 @@ export default function GarakImportDrawer({
 
   const isOwasp = source === 'owasp';
   const drawerTitle = isOwasp ? 'Generate from OWASP' : 'Import from Garak';
-  const isGarakListMode =
-    !isOwasp && !importing && !isCompleteWithDynamic;
+  const isGarakListMode = !isOwasp && !importing && !isCompleteWithDynamic;
 
   const hideSourceSelector =
     (isOwasp && owaspFooter?.isComplete) || isCompleteWithDynamic;
@@ -547,9 +550,7 @@ export default function GarakImportDrawer({
             : 'Cancel'
       }
       loading={
-        isOwasp
-          ? (owaspFooter?.loading ?? false)
-          : importing || preparingImport
+        isOwasp ? (owaspFooter?.loading ?? false) : importing || preparingImport
       }
       onSave={
         isOwasp
@@ -591,351 +592,403 @@ export default function GarakImportDrawer({
         </FormControl>
       )}
 
-        {isOwasp ? (
-          <OwaspGenerateForm
-            active={open && isOwasp}
-            onSuccess={onOwaspSuccess}
-            onFooterChange={setOwaspFooter}
-          />
-        ) : (
-          <>
-        {error && (
-          <Alert severity="error" onClose={() => setError(undefined)}>
-            {error}
-          </Alert>
-        )}
+      {isOwasp ? (
+        <OwaspGenerateForm
+          active={open && isOwasp}
+          onSuccess={onOwaspSuccess}
+          onFooterChange={setOwaspFooter}
+        />
+      ) : (
+        <>
+          {error && (
+            <Alert severity="error" onClose={() => setError(undefined)}>
+              {error}
+            </Alert>
+          )}
 
-        {/* Probe Selection - Hide when importing or showing completion */}
-        {!importing && !isCompleteWithDynamic && (
-          <Box
-            sx={{
-              ...drawerSectionSx,
-              flex: 1,
-              minHeight: 0,
-            }}
-          >
-            <Box sx={{ flexShrink: 0 }}>
-              <Stack
-                direction="row"
-                alignItems="center"
-                justifyContent="space-between"
-                spacing={2}
-              >
-                <Typography
-                  sx={{
-                    fontSize: 18,
-                    lineHeight: '25px',
-                    fontWeight: 700,
-                    color: theme => theme.palette.greyscale.title,
-                  }}
-                >
-                  Select Probes
-                </Typography>
-                <Button
-                  size="small"
-                  onClick={handleSelectAll}
-                  disabled={loadingModules || visibleProbesCount === 0}
-                  sx={{
-                    flexShrink: 0,
-                    fontSize: 14,
-                    fontWeight: 700,
-                    lineHeight: '22px',
-                    textTransform: 'none',
-                  }}
-                >
-                  {allVisibleSelected ? 'Deselect All' : 'Select All'}
-                </Button>
-              </Stack>
-              <Typography
-                sx={{
-                  fontSize: 12,
-                  lineHeight: '18px',
-                  color: theme => theme.palette.greyscale.subtitle,
-                }}
-              >
-                {`${selectedProbes.size} of ${allProbesCount} probes selected${garakVersion ? ` · Garak v${garakVersion}` : ''}.`}
-              </Typography>
-            </Box>
+          {/* Probe Selection - Hide when importing or showing completion */}
+          {!importing && !isCompleteWithDynamic && (
             <Box
               sx={{
-                ...drawerFieldsSx,
+                ...drawerSectionSx,
                 flex: 1,
                 minHeight: 0,
               }}
             >
-            <TextField
-              placeholder="Search probes..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              fullWidth
-              label="Search"
-              sx={{ ...drawerOutlinedFieldSx, flexShrink: 0 }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon fontSize="small" />
-                  </InputAdornment>
-                ),
-                endAdornment: searchQuery ? (
-                  <InputAdornment position="end">
-                    <IconButton
-                      size="small"
-                      onClick={() => setSearchQuery('')}
-                      edge="end"
-                    >
-                      <ClearIcon fontSize="small" />
-                    </IconButton>
-                  </InputAdornment>
-                ) : undefined,
-              }}
-            />
-
-            {loadingModules ? (
-              <Box display="flex" justifyContent="center" p={4}>
-                <CircularProgress />
-              </Box>
-            ) : (
-              <Stack spacing={1} sx={{ flex: 1, minHeight: 0 }}>
-                {filteredModules.length === 0 ? (
-                  <Paper variant="outlined" sx={{ p: 4, textAlign: 'center' }}>
-                    <Typography color="text.secondary">
-                      No probes matching &ldquo;{searchQuery}&rdquo;
-                    </Typography>
-                  </Paper>
-                ) : (
-                  <Paper
-                    variant="outlined"
+              <Box sx={{ flexShrink: 0 }}>
+                <Stack
+                  direction="row"
+                  alignItems="center"
+                  justifyContent="space-between"
+                  spacing={2}
+                >
+                  <Typography
                     sx={{
-                      flex: 1,
-                      minHeight: 0,
-                      overflow: 'auto',
-                      bgcolor: 'background.paper',
-                      '& .MuiChip-root': drawerListChipSx,
+                      fontSize: 18,
+                      lineHeight: '25px',
+                      fontWeight: 700,
+                      color: theme => theme.palette.greyscale.title,
                     }}
                   >
-                    <Stack divider={<Divider />}>
-                      {filteredModules.map(module => (
-                        <Box key={module.name}>
-                          {/* Module Header */}
-                          <Stack
-                            direction="row"
-                            alignItems="center"
-                            sx={{
-                              p: 1.5,
-                              cursor: 'pointer',
-                              bgcolor: 'action.hover',
-                            }}
-                            onClick={() => toggleModuleExpand(module.name)}
-                          >
-                            <Checkbox
-                              checked={isModuleFullySelected(module)}
-                              indeterminate={isModulePartiallySelected(module)}
-                              onClick={e => e.stopPropagation()}
-                              onChange={() => handleModuleToggle(module)}
-                            />
-                            <Stack flex={1} spacing={0.5} minWidth={0}>
+                    Select Probes
+                  </Typography>
+                  <Button
+                    size="small"
+                    onClick={handleSelectAll}
+                    disabled={loadingModules || visibleProbesCount === 0}
+                    sx={{
+                      flexShrink: 0,
+                      fontSize: 14,
+                      fontWeight: 700,
+                      lineHeight: '22px',
+                      textTransform: 'none',
+                    }}
+                  >
+                    {allVisibleSelected ? 'Deselect All' : 'Select All'}
+                  </Button>
+                </Stack>
+                <Typography
+                  sx={{
+                    fontSize: 12,
+                    lineHeight: '18px',
+                    color: theme => theme.palette.greyscale.subtitle,
+                  }}
+                >
+                  {`${selectedProbes.size} of ${allProbesCount} probes selected${garakVersion ? ` · Garak v${garakVersion}` : ''}.`}
+                </Typography>
+              </Box>
+              <Box
+                sx={{
+                  ...drawerFieldsSx,
+                  flex: 1,
+                  minHeight: 0,
+                }}
+              >
+                <TextField
+                  placeholder="Search probes..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  fullWidth
+                  label="Search"
+                  sx={{ ...drawerOutlinedFieldSx, flexShrink: 0 }}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon fontSize="small" />
+                      </InputAdornment>
+                    ),
+                    endAdornment: searchQuery ? (
+                      <InputAdornment position="end">
+                        <IconButton
+                          size="small"
+                          onClick={() => setSearchQuery('')}
+                          edge="end"
+                        >
+                          <ClearIcon fontSize="small" />
+                        </IconButton>
+                      </InputAdornment>
+                    ) : undefined,
+                  }}
+                />
+
+                {loadingModules ? (
+                  <Box display="flex" justifyContent="center" p={4}>
+                    <CircularProgress />
+                  </Box>
+                ) : (
+                  <Stack spacing={1} sx={{ flex: 1, minHeight: 0 }}>
+                    {filteredModules.length === 0 ? (
+                      <Paper
+                        variant="outlined"
+                        sx={{ p: 4, textAlign: 'center' }}
+                      >
+                        <Typography color="text.secondary">
+                          No probes matching &ldquo;{searchQuery}&rdquo;
+                        </Typography>
+                      </Paper>
+                    ) : (
+                      <Paper
+                        variant="outlined"
+                        sx={{
+                          flex: 1,
+                          minHeight: 0,
+                          overflow: 'auto',
+                          bgcolor: 'background.paper',
+                          '& .MuiChip-root': drawerListChipSx,
+                        }}
+                      >
+                        <Stack divider={<Divider />}>
+                          {filteredModules.map(module => (
+                            <Box key={module.name}>
+                              {/* Module Header */}
                               <Stack
                                 direction="row"
                                 alignItems="center"
-                                spacing={1}
-                                flexWrap="wrap"
-                              >
-                                <Typography variant="bodyMBold">
-                                  {module.name}
-                                </Typography>
-                                <Chip
-                                  label={`${module.probe_count} probes`}
-                                  size="small"
-                                  variant="outlined"
-                                />
-                                {module.has_dynamic_probes &&
-                                module.total_prompt_count === 0 ? (
-                                  <Tooltip title="Prompts are generated at runtime using your LLM">
-                                    <Chip
-                                      icon={<AutoAwesomeIcon />}
-                                      label="Dynamic"
-                                      size="small"
-                                      color="warning"
-                                      variant="outlined"
-                                    />
-                                  </Tooltip>
-                                ) : module.has_dynamic_probes ? (
-                                  <>
-                                    <Chip
-                                      label={`${module.total_prompt_count} prompts`}
-                                      size="small"
-                                      variant="outlined"
-                                    />
-                                    <Tooltip title="Some probes generate prompts at runtime using your LLM">
-                                      <Chip
-                                        icon={<AutoAwesomeIcon />}
-                                        label="+ Dynamic"
-                                        size="small"
-                                        color="warning"
-                                        variant="outlined"
-                                      />
-                                    </Tooltip>
-                                  </>
-                                ) : (
-                                  <Chip
-                                    label={`${module.total_prompt_count} prompts`}
-                                    size="small"
-                                    variant="outlined"
-                                  />
-                                )}
-                              </Stack>
-                              <Typography
-                                variant="caption"
-                                color="text.secondary"
                                 sx={{
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                  display: '-webkit-box',
-                                  WebkitLineClamp: 2,
-                                  WebkitBoxOrient: 'vertical',
+                                  p: 1.5,
+                                  cursor: 'pointer',
+                                  bgcolor: 'action.hover',
                                 }}
+                                onClick={() => toggleModuleExpand(module.name)}
                               >
-                                {stripMarkdown(module.description)}
-                              </Typography>
-                              <Stack
-                                direction="row"
-                                spacing={0.5}
-                                flexWrap="wrap"
-                              >
-                                <Chip
-                                  label={module.rhesis_category}
-                                  size="small"
-                                  color="primary"
-                                  variant="outlined"
+                                <Checkbox
+                                  checked={isModuleFullySelected(module)}
+                                  indeterminate={isModulePartiallySelected(
+                                    module
+                                  )}
+                                  onClick={e => e.stopPropagation()}
+                                  onChange={() => handleModuleToggle(module)}
                                 />
-                                <Chip
-                                  label={module.rhesis_topic}
-                                  size="small"
-                                  color="secondary"
-                                  variant="outlined"
-                                />
-                              </Stack>
-                            </Stack>
-                            <IconButton size="small">
-                              <ExpandMoreIcon
-                                sx={theme => ({
-                                  transform: expandedModules.has(module.name)
-                                    ? 'rotate(180deg)'
-                                    : 'none',
-                                  transition: theme.transitions.create(
-                                    'transform',
-                                    {
-                                      duration:
-                                        theme.transitions.duration.short,
-                                    }
-                                  ),
-                                })}
-                              />
-                            </IconButton>
-                          </Stack>
-
-                          {/* Individual Probes */}
-                          <Collapse in={expandedModules.has(module.name)}>
-                            <Stack divider={<Divider />}>
-                              {getModuleProbes(module).map(probe => (
-                                <Stack
-                                  key={probe.full_name}
-                                  direction="row"
-                                  alignItems="flex-start"
-                                  sx={{ px: 1.5, py: 1, pl: 6, cursor: 'pointer' }}
-                                  onClick={() => handleProbeToggle(probe)}
-                                >
-                                  <Checkbox
-                                    size="small"
-                                    checked={selectedProbes.has(
-                                      probe.full_name
-                                    )}
-                                    onClick={e => e.stopPropagation()}
-                                    onChange={() => handleProbeToggle(probe)}
-                                    sx={{ pt: 0.25 }}
-                                  />
-                                  <Stack flex={1} spacing={0.25} minWidth={0}>
-                                    <Stack
-                                      direction="row"
-                                      alignItems="center"
-                                      spacing={1}
-                                    >
-                                      <Typography variant="bodyMBold">
-                                        {probe.class_name}
-                                      </Typography>
-                                      {probe.is_dynamic ? (
-                                        <Tooltip title="Prompts will be generated at runtime using your LLM">
+                                <Stack flex={1} spacing={0.5} minWidth={0}>
+                                  <Stack
+                                    direction="row"
+                                    alignItems="center"
+                                    spacing={1}
+                                    flexWrap="wrap"
+                                  >
+                                    <Typography variant="bodyMBold">
+                                      {module.name}
+                                    </Typography>
+                                    <Chip
+                                      label={`${module.probe_count} probes`}
+                                      size="small"
+                                      variant="outlined"
+                                    />
+                                    {module.has_dynamic_probes &&
+                                    module.total_prompt_count === 0 ? (
+                                      <Tooltip title="Prompts are generated at runtime using your LLM">
+                                        <Chip
+                                          icon={<AutoAwesomeIcon />}
+                                          label="Dynamic"
+                                          size="small"
+                                          color="warning"
+                                          variant="outlined"
+                                        />
+                                      </Tooltip>
+                                    ) : module.has_dynamic_probes ? (
+                                      <>
+                                        <Chip
+                                          label={`${module.total_prompt_count} prompts`}
+                                          size="small"
+                                          variant="outlined"
+                                        />
+                                        <Tooltip title="Some probes generate prompts at runtime using your LLM">
                                           <Chip
                                             icon={<AutoAwesomeIcon />}
-                                            label="Dynamic"
+                                            label="+ Dynamic"
                                             size="small"
                                             color="warning"
                                             variant="outlined"
                                           />
                                         </Tooltip>
-                                      ) : (
-                                        <Chip
-                                          label={`${probe.prompt_count} tests`}
-                                          size="small"
-                                          variant="outlined"
-                                        />
-                                      )}
-                                    </Stack>
-                                    <Typography
-                                      variant="caption"
-                                      color="text.secondary"
-                                      sx={{
-                                        overflow: 'hidden',
-                                        textOverflow: 'ellipsis',
-                                        display: '-webkit-box',
-                                        WebkitLineClamp: 2,
-                                        WebkitBoxOrient: 'vertical',
-                                      }}
-                                    >
-                                      {stripMarkdown(probe.description)}
-                                    </Typography>
+                                      </>
+                                    ) : (
+                                      <Chip
+                                        label={`${module.total_prompt_count} prompts`}
+                                        size="small"
+                                        variant="outlined"
+                                      />
+                                    )}
+                                  </Stack>
+                                  <Typography
+                                    variant="caption"
+                                    color="text.secondary"
+                                    sx={{
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      display: '-webkit-box',
+                                      WebkitLineClamp: 2,
+                                      WebkitBoxOrient: 'vertical',
+                                    }}
+                                  >
+                                    {stripMarkdown(module.description)}
+                                  </Typography>
+                                  <Stack
+                                    direction="row"
+                                    spacing={0.5}
+                                    flexWrap="wrap"
+                                  >
+                                    <Chip
+                                      label={module.rhesis_category}
+                                      size="small"
+                                      color="primary"
+                                      variant="outlined"
+                                    />
+                                    <Chip
+                                      label={module.rhesis_topic}
+                                      size="small"
+                                      color="secondary"
+                                      variant="outlined"
+                                    />
                                   </Stack>
                                 </Stack>
-                              ))}
-                            </Stack>
-                          </Collapse>
-                        </Box>
-                      ))}
-                    </Stack>
-                  </Paper>
+                                <IconButton size="small">
+                                  <ExpandMoreIcon
+                                    sx={theme => ({
+                                      transform: expandedModules.has(
+                                        module.name
+                                      )
+                                        ? 'rotate(180deg)'
+                                        : 'none',
+                                      transition: theme.transitions.create(
+                                        'transform',
+                                        {
+                                          duration:
+                                            theme.transitions.duration.short,
+                                        }
+                                      ),
+                                    })}
+                                  />
+                                </IconButton>
+                              </Stack>
+
+                              {/* Individual Probes */}
+                              <Collapse in={expandedModules.has(module.name)}>
+                                <Stack divider={<Divider />}>
+                                  {getModuleProbes(module).map(probe => (
+                                    <Stack
+                                      key={probe.full_name}
+                                      direction="row"
+                                      alignItems="flex-start"
+                                      sx={{
+                                        px: 1.5,
+                                        py: 1,
+                                        pl: 6,
+                                        cursor: 'pointer',
+                                      }}
+                                      onClick={() => handleProbeToggle(probe)}
+                                    >
+                                      <Checkbox
+                                        size="small"
+                                        checked={selectedProbes.has(
+                                          probe.full_name
+                                        )}
+                                        onClick={e => e.stopPropagation()}
+                                        onChange={() =>
+                                          handleProbeToggle(probe)
+                                        }
+                                        sx={{ pt: 0.25 }}
+                                      />
+                                      <Stack
+                                        flex={1}
+                                        spacing={0.25}
+                                        minWidth={0}
+                                      >
+                                        <Stack
+                                          direction="row"
+                                          alignItems="center"
+                                          spacing={1}
+                                        >
+                                          <Typography variant="bodyMBold">
+                                            {probe.class_name}
+                                          </Typography>
+                                          {probe.is_dynamic ? (
+                                            <Tooltip title="Prompts will be generated at runtime using your LLM">
+                                              <Chip
+                                                icon={<AutoAwesomeIcon />}
+                                                label="Dynamic"
+                                                size="small"
+                                                color="warning"
+                                                variant="outlined"
+                                              />
+                                            </Tooltip>
+                                          ) : (
+                                            <Chip
+                                              label={`${probe.prompt_count} tests`}
+                                              size="small"
+                                              variant="outlined"
+                                            />
+                                          )}
+                                        </Stack>
+                                        <Typography
+                                          variant="caption"
+                                          color="text.secondary"
+                                          sx={{
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis',
+                                            display: '-webkit-box',
+                                            WebkitLineClamp: 2,
+                                            WebkitBoxOrient: 'vertical',
+                                          }}
+                                        >
+                                          {stripMarkdown(probe.description)}
+                                        </Typography>
+                                      </Stack>
+                                    </Stack>
+                                  ))}
+                                </Stack>
+                              </Collapse>
+                            </Box>
+                          ))}
+                        </Stack>
+                      </Paper>
+                    )}
+                  </Stack>
                 )}
-              </Stack>
-            )}
+              </Box>
             </Box>
-          </Box>
-        )}
+          )}
 
-        {/* Import Progress */}
-        {(importing || isCompleteWithDynamic) && importProgress && (
-          <Paper
-            elevation={0}
-            sx={theme => ({
-              p: 3,
-              bgcolor: alpha(theme.palette.primary.main, 0.08),
-              border: 1,
-              borderColor: alpha(theme.palette.primary.main, 0.24),
-              borderRadius: `${theme.shape.borderRadius}px`,
-            })}
-          >
-            <Stack spacing={2}>
-              <Stack direction="row" alignItems="center" spacing={1}>
-                {!importProgress.isComplete && <CircularProgress size={20} />}
-                <Typography variant="subtitle1" fontWeight="medium">
-                  {importProgress.phase === 'static' &&
-                    'Importing static probes...'}
-                  {importProgress.phase === 'dynamic' &&
-                    'Generating dynamic probes...'}
-                  {importProgress.phase === 'done' && 'Complete'}
-                </Typography>
-              </Stack>
+          {/* Import Progress */}
+          {(importing || isCompleteWithDynamic) && importProgress && (
+            <Paper
+              elevation={0}
+              sx={theme => ({
+                p: 3,
+                bgcolor: alpha(theme.palette.primary.main, 0.08),
+                border: 1,
+                borderColor: alpha(theme.palette.primary.main, 0.24),
+                borderRadius: `${theme.shape.borderRadius}px`,
+              })}
+            >
+              <Stack spacing={2}>
+                <Stack direction="row" alignItems="center" spacing={1}>
+                  {!importProgress.isComplete && <CircularProgress size={20} />}
+                  <Typography variant="subtitle1" fontWeight="medium">
+                    {importProgress.phase === 'static' &&
+                      'Importing static probes...'}
+                    {importProgress.phase === 'dynamic' &&
+                      'Generating dynamic probes...'}
+                    {importProgress.phase === 'done' && 'Complete'}
+                  </Typography>
+                </Stack>
 
-              {importProgress.phase === 'static' &&
-                importProgress.totalTests > 0 && (
+                {importProgress.phase === 'static' &&
+                  importProgress.totalTests > 0 && (
+                    <Box>
+                      <Stack
+                        direction="row"
+                        justifyContent="space-between"
+                        mb={0.5}
+                      >
+                        <Typography variant="body2" color="text.secondary">
+                          {importProgress.currentTestCount.toLocaleString()} of{' '}
+                          {importProgress.totalTests.toLocaleString()} tests
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {Math.min(
+                            importProgress.currentProbeIndex + 1,
+                            importProgress.totalProbes
+                          )}{' '}
+                          of {importProgress.totalProbes} probes
+                        </Typography>
+                      </Stack>
+                      <LinearProgress
+                        variant="determinate"
+                        value={
+                          (importProgress.currentTestCount /
+                            importProgress.totalTests) *
+                          100
+                        }
+                        sx={theme => ({
+                          height: theme.spacing(1),
+                          borderRadius: theme.spacing(0.5),
+                        })}
+                      />
+                    </Box>
+                  )}
+
+                {importProgress.phase === 'dynamic' && (
                   <Box>
                     <Stack
                       direction="row"
@@ -943,176 +996,142 @@ export default function GarakImportDrawer({
                       mb={0.5}
                     >
                       <Typography variant="body2" color="text.secondary">
-                        {importProgress.currentTestCount.toLocaleString()} of{' '}
-                        {importProgress.totalTests.toLocaleString()} tests
+                        Launching LLM generation tasks...
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
-                        {Math.min(
-                          importProgress.currentProbeIndex + 1,
-                          importProgress.totalProbes
-                        )}{' '}
-                        of {importProgress.totalProbes} probes
+                        {importProgress.dynamicLaunched} of{' '}
+                        {importProgress.dynamicTotal} probes
                       </Typography>
                     </Stack>
                     <LinearProgress
                       variant="determinate"
                       value={
-                        (importProgress.currentTestCount /
-                          importProgress.totalTests) *
+                        (importProgress.dynamicLaunched /
+                          importProgress.dynamicTotal) *
                         100
                       }
                       sx={theme => ({
                         height: theme.spacing(1),
                         borderRadius: theme.spacing(0.5),
                       })}
+                      color="warning"
                     />
                   </Box>
                 )}
 
-              {importProgress.phase === 'dynamic' && (
-                <Box>
-                  <Stack
-                    direction="row"
-                    justifyContent="space-between"
-                    mb={0.5}
-                  >
-                    <Typography variant="body2" color="text.secondary">
-                      Launching LLM generation tasks...
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {importProgress.dynamicLaunched} of{' '}
-                      {importProgress.dynamicTotal} probes
-                    </Typography>
-                  </Stack>
-                  <LinearProgress
-                    variant="determinate"
-                    value={
-                      (importProgress.dynamicLaunched /
-                        importProgress.dynamicTotal) *
-                      100
-                    }
-                    sx={theme => ({
-                      height: theme.spacing(1),
-                      borderRadius: theme.spacing(0.5),
-                    })}
-                    color="warning"
-                  />
-                </Box>
-              )}
+                {importProgress.currentProbe && (
+                  <Paper variant="outlined" sx={{ p: 2 }}>
+                    <Stack spacing={1}>
+                      <Stack direction="row" alignItems="center" spacing={1}>
+                        {importProgress.phase === 'dynamic' ? (
+                          <AutoAwesomeIcon fontSize="small" color="warning" />
+                        ) : (
+                          <SecurityIcon fontSize="small" color="primary" />
+                        )}
+                        <Typography variant="body1" fontWeight="medium">
+                          {importProgress.currentProbe.test_set_name}
+                        </Typography>
+                      </Stack>
+                      <Stack direction="row" spacing={2}>
+                        {importProgress.phase === 'dynamic' ? (
+                          <Chip
+                            icon={<AutoAwesomeIcon />}
+                            label="Generating via LLM"
+                            size="small"
+                            color="warning"
+                            variant="outlined"
+                          />
+                        ) : (
+                          <Chip
+                            label={`${importProgress.currentProbe.prompt_count} prompts`}
+                            size="small"
+                            variant="outlined"
+                          />
+                        )}
+                        {importProgress.currentProbe.detector && (
+                          <Chip
+                            label={importProgress.currentProbe.detector}
+                            size="small"
+                            color="secondary"
+                            variant="outlined"
+                          />
+                        )}
+                      </Stack>
+                      <Typography variant="caption" color="text.secondary">
+                        Module: {importProgress.currentProbe.module_name}
+                      </Typography>
+                    </Stack>
+                  </Paper>
+                )}
 
-              {importProgress.currentProbe && (
-                <Paper variant="outlined" sx={{ p: 2 }}>
+                {importProgress.isComplete && (
                   <Stack spacing={1}>
-                    <Stack direction="row" alignItems="center" spacing={1}>
-                      {importProgress.phase === 'dynamic' ? (
-                        <AutoAwesomeIcon fontSize="small" color="warning" />
-                      ) : (
-                        <SecurityIcon fontSize="small" color="primary" />
-                      )}
+                    <Stack
+                      direction="row"
+                      alignItems="center"
+                      spacing={1}
+                      sx={{ color: 'success.main' }}
+                    >
+                      <CheckCircleIcon />
                       <Typography variant="body1" fontWeight="medium">
-                        {importProgress.currentProbe.test_set_name}
+                        Import complete!
                       </Typography>
                     </Stack>
-                    <Stack direction="row" spacing={2}>
-                      {importProgress.phase === 'dynamic' ? (
-                        <Chip
-                          icon={<AutoAwesomeIcon />}
-                          label="Generating via LLM"
-                          size="small"
-                          color="warning"
-                          variant="outlined"
-                        />
-                      ) : (
-                        <Chip
-                          label={`${importProgress.currentProbe.prompt_count} prompts`}
-                          size="small"
-                          variant="outlined"
-                        />
-                      )}
-                      {importProgress.currentProbe.detector && (
-                        <Chip
-                          label={importProgress.currentProbe.detector}
-                          size="small"
-                          color="secondary"
-                          variant="outlined"
-                        />
-                      )}
-                    </Stack>
-                    <Typography variant="caption" color="text.secondary">
-                      Module: {importProgress.currentProbe.module_name}
-                    </Typography>
-                  </Stack>
-                </Paper>
-              )}
-
-              {importProgress.isComplete && (
-                <Stack spacing={1}>
-                  <Stack
-                    direction="row"
-                    alignItems="center"
-                    spacing={1}
-                    sx={{ color: 'success.main' }}
-                  >
-                    <CheckCircleIcon />
-                    <Typography variant="body1" fontWeight="medium">
-                      Import complete!
-                    </Typography>
-                  </Stack>
-                  {importProgress.staticImported > 0 && (
-                    <Stack spacing={0.5}>
-                      <Typography variant="body2" color="text.secondary">
-                        {importProgress.staticImported} static probe
-                        {importProgress.staticImported !== 1 ? 's' : ''}{' '}
-                        imported:
-                      </Typography>
-                      {preview?.probes.map(p => (
+                    {importProgress.staticImported > 0 && (
+                      <Stack spacing={0.5}>
+                        <Typography variant="body2" color="text.secondary">
+                          {importProgress.staticImported} static probe
+                          {importProgress.staticImported !== 1 ? 's' : ''}{' '}
+                          imported:
+                        </Typography>
+                        {preview?.probes.map(p => (
+                          <Typography
+                            key={p.full_name}
+                            variant="body2"
+                            color="text.secondary"
+                            sx={{ pl: 2 }}
+                          >
+                            • {p.test_set_name} ({p.prompt_count} tests)
+                          </Typography>
+                        ))}
+                      </Stack>
+                    )}
+                    {importProgress.dynamicResults.length > 0 && (
+                      <Stack spacing={0.5}>
+                        <Typography variant="body2" color="text.secondary">
+                          {importProgress.dynamicResults.length} dynamic probe
+                          {importProgress.dynamicResults.length !== 1
+                            ? 's'
+                            : ''}{' '}
+                          — generation started in background:
+                        </Typography>
+                        {importProgress.dynamicResults.map(result => (
+                          <Typography
+                            key={result.task_id}
+                            variant="body2"
+                            color="text.secondary"
+                            sx={{ pl: 2 }}
+                          >
+                            • {result.probe_full_name}
+                          </Typography>
+                        ))}
                         <Typography
-                          key={p.full_name}
                           variant="body2"
                           color="text.secondary"
-                          sx={{ pl: 2 }}
+                          sx={{ mt: 0.5 }}
                         >
-                          • {p.test_set_name} ({p.prompt_count} tests)
+                          Once generation completes, the test sets will appear
+                          in your test sets list.
                         </Typography>
-                      ))}
-                    </Stack>
-                  )}
-                  {importProgress.dynamicResults.length > 0 && (
-                    <Stack spacing={0.5}>
-                      <Typography variant="body2" color="text.secondary">
-                        {importProgress.dynamicResults.length} dynamic probe
-                        {importProgress.dynamicResults.length !== 1
-                          ? 's'
-                          : ''}{' '}
-                        — generation started in background:
-                      </Typography>
-                      {importProgress.dynamicResults.map(result => (
-                        <Typography
-                          key={result.task_id}
-                          variant="body2"
-                          color="text.secondary"
-                          sx={{ pl: 2 }}
-                        >
-                          • {result.probe_full_name}
-                        </Typography>
-                      ))}
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        sx={{ mt: 0.5 }}
-                      >
-                        Once generation completes, the test sets will appear in
-                        your test sets list.
-                      </Typography>
-                    </Stack>
-                  )}
-                </Stack>
-              )}
-            </Stack>
-          </Paper>
-        )}
-          </>
-        )}
+                      </Stack>
+                    )}
+                  </Stack>
+                )}
+              </Stack>
+            </Paper>
+          )}
+        </>
+      )}
     </BaseDrawer>
   );
 }

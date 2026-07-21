@@ -168,7 +168,8 @@ export default function MetricsDirectoryTab({
 
   /** Whether any loaded metric carries the OWASP tag — gates the OWASP pill. */
   const hasOwaspMetrics = React.useMemo(
-    () => metrics.some(m => (m.tags ?? []).some(t => t.name === OWASP_TAG_NAME)),
+    () =>
+      metrics.some(m => (m.tags ?? []).some(t => t.name === OWASP_TAG_NAME)),
     [metrics]
   );
 

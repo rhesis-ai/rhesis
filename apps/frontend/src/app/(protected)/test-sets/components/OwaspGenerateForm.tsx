@@ -74,8 +74,7 @@ const FRAMEWORK_GROUPS: FrameworkGroup[] = [
   {
     framework: 'agentic',
     label: 'OWASP Agentic Top 10',
-    description:
-      'Risks for autonomous and agentic AI systems (ASI01–ASI10).',
+    description: 'Risks for autonomous and agentic AI systems (ASI01–ASI10).',
   },
 ];
 
@@ -254,7 +253,9 @@ export default function OwaspGenerateForm({
 
     const projectId = readActiveProjectId();
     if (!projectId) {
-      setError('Select an active project first — its description is used as the system under test');
+      setError(
+        'Select an active project first — its description is used as the system under test'
+      );
       return;
     }
 
@@ -263,7 +264,9 @@ export default function OwaspGenerateForm({
       setError(undefined);
 
       const clientFactory = new ApiClientFactory();
-      const project = await clientFactory.getProjectsClient().getProject(projectId);
+      const project = await clientFactory
+        .getProjectsClient()
+        .getProject(projectId);
       const purpose = project?.description?.trim();
       if (!purpose) {
         setError(

@@ -88,7 +88,8 @@ export default function TestSetsPage() {
     });
   }, [notifications]);
 
-  if (isSessionLoading(status)) {    return (
+  if (isSessionLoading(status)) {
+    return (
       <PageLayout title="Test Sets" breadcrumbs={[]}>
         <Box sx={{ p: 3 }}>
           <Typography>Loading...</Typography>
