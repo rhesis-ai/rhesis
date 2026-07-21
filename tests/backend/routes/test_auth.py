@@ -1543,8 +1543,11 @@ class TestTermsAcceptance:
     def test_update_user_strips_user_settings_terms(
         self, authenticated_client, authenticated_user_id
     ):
-        """PUT /users silently strips the server-managed ``terms`` key from
-        user_settings so callers cannot forge their own acceptance record."""
+        """PUT /users silently strips the server-managed ``terms`` key from the
+        writable ``user_settings`` payload so callers cannot forge their own
+        acceptance record. The response schema always includes a ``terms`` key
+        (server-managed, read-only) — it must be absent/null here, not the
+        forged value, since this user never legitimately accepted terms."""
         from datetime import datetime, timezone
 
         response = authenticated_client.put(
@@ -1562,4 +1565,4 @@ class TestTermsAcceptance:
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
         settings = data.get("user", data).get("user_settings", {})
-        assert "terms" not in settings
+        assert not settings.get("terms")
