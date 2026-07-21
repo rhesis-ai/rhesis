@@ -22,6 +22,10 @@ class OwaspCategory(BaseModel):
 
     id: str = Field(..., description="Normalised category id, e.g. 'llm01', 'asi06'")
     name: str = Field(..., description="Human-readable category name, e.g. 'Prompt Injection'")
+    description: str = Field(
+        default="",
+        description="Short summary from the report's Description/Overview subsection",
+    )
 
 
 class OwaspCategoriesResponse(BaseModel):

@@ -22,7 +22,7 @@ from rhesis.backend.app.schemas.owasp import (
     OwaspGenerateRequest,
     OwaspGenerateResponse,
 )
-from rhesis.backend.app.services.owasp import OWASP_FRAMEWORKS, list_categories
+from rhesis.backend.app.services.owasp import OWASP_FRAMEWORKS, list_category_summaries
 from rhesis.backend.tasks import task_launcher
 from rhesis.backend.tasks.test_set import generate_and_save_owasp_test_set
 
@@ -49,12 +49,19 @@ async def get_categories(
     framework, then serves from cache.
     """
     try:
-        sections = list_categories(framework.value)
+        summaries = list_category_summaries(framework.value)
 
         return OwaspCategoriesResponse(
             framework=framework,
             report_url=OWASP_FRAMEWORKS[framework.value]["report_url"],
-            categories=[OwaspCategory(id=s.id, name=s.name) for s in sections],
+            categories=[
+                OwaspCategory(
+                    id=s["id"],
+                    name=s["name"],
+                    description=s.get("description", ""),
+                )
+                for s in summaries
+            ],
         )
     except Exception as e:
         logger.error(f"Error listing OWASP categories for {framework.value}: {e}")

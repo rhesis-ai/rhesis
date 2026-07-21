@@ -449,11 +449,11 @@ async def lifespan(app: FastAPI):
         try:
             from rhesis.backend.app.services.owasp import (
                 OWASP_FRAMEWORKS,
-                list_categories,
+                list_category_summaries,
             )
 
             for framework in OWASP_FRAMEWORKS:
-                await asyncio.to_thread(list_categories, framework)
+                await asyncio.to_thread(list_category_summaries, framework)
         except Exception as e:
             logger.warning(f"OWASP cache pre-warming failed (non-fatal): {e}")
 

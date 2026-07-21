@@ -270,3 +270,17 @@ def set_logger():
         "kombu.pidbox",
     ):
         logging.getLogger(name).setLevel(logging.WARNING)
+
+    # pdfminer emits per-token DEBUG lines while parsing OWASP report PDFs; under
+    # uvicorn --log-level debug that can fill hundreds of MB and stall the
+    # categories endpoint / cache warm-up for minutes.
+    for name in (
+        "pdfminer",
+        "pdfminer.psparser",
+        "pdfminer.pdfinterp",
+        "pdfminer.pdfdocument",
+        "pdfminer.pdfpage",
+        "pdfminer.converter",
+        "pdfminer.cmapdb",
+    ):
+        logging.getLogger(name).setLevel(logging.WARNING)
