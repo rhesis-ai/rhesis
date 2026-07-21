@@ -154,8 +154,19 @@ def _ensure_ee_features_registered():
     yield
 
 
+# Fixtures whose transitive graph can result in a real, authorized DB query
+# (an HTTP request through a TestClient, or a raw session with RLS context
+# set). request.fixturenames is pytest's fully-resolved transitive set, so a
+# test that only depends on e.g. test_entity_type (which itself depends on
+# test_db) still matches here even though it never names test_db directly.
+_DB_TOUCHING_FIXTURES = frozenset(
+    {"client", "authenticated_client", "owner_client", "test_db", "real_commit_test_db",
+     "real_commit_client"}
+)
+
+
 @pytest.fixture(autouse=True)
-def _ensure_session_user_is_owner(_ensure_ee_features_registered):
+def _ensure_session_user_is_owner(request, _ensure_ee_features_registered):
     """Guarantee the shared session-auth user holds the built-in Owner role.
 
     With RBAC enforced (see _ensure_ee_features_registered), every
@@ -167,8 +178,20 @@ def _ensure_session_user_is_owner(_ensure_ee_features_registered):
     get_db() will see. Idempotent and cheap (two indexed lookups when already
     correct). No-op in community builds or before session auth is created.
 
+    Skipped entirely for tests whose fixture graph touches none of
+    _DB_TOUCHING_FIXTURES: with no client and no DB session, a test has no way
+    to make an authorized request or query tenant-scoped data, so the Owner
+    guarantee is moot. This is what actually removes the per-test DB
+    round-trip for the ~2,000 pure-unit tests in the suite (confirmed via a
+    static scan there is no test that reaches an authorized DB path without
+    one of these fixtures in its transitive graph).
+
     Depends on _ensure_ee_features_registered so RBAC is registered first.
     """
+    if not _DB_TOUCHING_FIXTURES.intersection(request.fixturenames):
+        yield
+        return
+
     from tests.backend.fixtures import auth as _auth
 
     cache = _auth._session_auth_cache
