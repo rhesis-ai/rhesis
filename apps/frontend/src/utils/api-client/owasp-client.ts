@@ -10,6 +10,8 @@ export type OwaspFramework = 'llm' | 'agentic';
 export interface OwaspCategory {
   id: string;
   name: string;
+  /** Short summary from the report Description/Overview subsection */
+  description?: string;
 }
 
 /**

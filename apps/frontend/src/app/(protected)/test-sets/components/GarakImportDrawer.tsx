@@ -19,11 +19,15 @@ import {
   alpha,
   TextField,
   InputAdornment,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
+import type { SelectChangeEvent } from '@mui/material/Select';
 import {
   ExpandMore as ExpandMoreIcon,
   Security as SecurityIcon,
-  Refresh as RefreshIcon,
   CheckCircle as CheckCircleIcon,
   AutoAwesome as AutoAwesomeIcon,
   Search as SearchIcon,
@@ -39,12 +43,34 @@ import type {
   GarakGenerateResponse,
 } from '@/utils/api-client/garak-client';
 import BaseDrawer from '@/components/common/BaseDrawer';
+import {
+  drawerFieldsSx,
+  drawerListChipSx,
+  drawerOutlinedFieldSx,
+  drawerSectionSx,
+} from '@/components/common/drawerFormFieldSx';
+import OwaspGenerateForm, {
+  type OwaspGenerateFooterState,
+} from './OwaspGenerateForm';
+
+/** Garak/OWASP lists need extra room vs the default 578 form drawer. */
+const SECURITY_DRAWER_WIDTH = 680;
+
+/** Strip light markdown emphasis markers from Garak probe copy. */
+const stripMarkdown = (value: string) =>
+  value.replace(/\*\*(.+?)\*\*/g, '$1').replace(/\*(.+?)\*/g, '$1').trim();
+
 
 interface GarakImportDrawerProps {
   open: boolean;
   onClose: () => void;
   sessionToken: string;
   onSuccess?: (testSetIds: string[]) => void;
+  onOwaspSuccess?: (taskIds: string[]) => void;
+  /** When false, the Garak option is hidden from the source dropdown. Default true. */
+  canUseGarak?: boolean;
+  /** When false, the OWASP option is hidden from the source dropdown. Default false. */
+  canUseOwasp?: boolean;
 }
 
 export default function GarakImportDrawer({
@@ -52,8 +78,23 @@ export default function GarakImportDrawer({
   onClose,
   sessionToken,
   onSuccess,
+  onOwaspSuccess,
+  canUseGarak = true,
+  canUseOwasp = false,
 }: GarakImportDrawerProps) {
-  const [loading, setLoading] = React.useState(false);
+  const availableSources = React.useMemo(() => {
+    const sources: SecuritySource[] = [];
+    if (canUseGarak) sources.push('garak');
+    if (canUseOwasp) sources.push('owasp');
+    return sources;
+  }, [canUseGarak, canUseOwasp]);
+
+  const [source, setSource] = React.useState<SecuritySource>(
+    availableSources[0] ?? 'garak'
+  );
+  const [owaspFooter, setOwaspFooter] =
+    React.useState<OwaspGenerateFooterState | null>(null);
+
   const [loadingModules, setLoadingModules] = React.useState(false);
   const [importing, setImporting] = React.useState(false);
   const [preparingImport, setPreparingImport] = React.useState(false);
@@ -82,9 +123,6 @@ export default function GarakImportDrawer({
     dynamicResults: GarakGenerateResponse[];
     isComplete: boolean;
   } | null>(null);
-  const [dynamicPreviewProbes, setDynamicPreviewProbes] = React.useState<
-    GarakProbeClass[]
-  >([]);
 
   const fetchModules = React.useCallback(async () => {
     try {
@@ -107,10 +145,24 @@ export default function GarakImportDrawer({
   }, [sessionToken]);
 
   React.useEffect(() => {
-    if (open && modules.length === 0) {
+    if (open && source === 'garak' && modules.length === 0) {
       fetchModules();
     }
-  }, [open, fetchModules, modules.length]);
+  }, [open, source, fetchModules, modules.length]);
+
+  // Keep the selected source valid when permissions change.
+  React.useEffect(() => {
+    if (availableSources.length === 0) return;
+    if (!availableSources.includes(source)) {
+      setSource(availableSources[0]);
+    }
+  }, [availableSources, source]);
+
+  const handleSourceChange = (event: SelectChangeEvent<SecuritySource>) => {
+    setSource(event.target.value as SecuritySource);
+  };
+
+  const showSourceSelector = availableSources.length > 1;
 
   const filteredModules = React.useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
@@ -228,45 +280,6 @@ export default function GarakImportDrawer({
       module_name: p.module_name,
       class_name: p.class_name,
     }));
-  };
-
-  const handlePreview = async () => {
-    if (selectedProbes.size === 0) {
-      setError('Please select at least one probe');
-      return;
-    }
-
-    try {
-      setLoading(true);
-      setError(undefined);
-
-      const { staticProbes, dynamicProbes } = getSelectedProbeObjects();
-      const clientFactory = new ApiClientFactory(sessionToken);
-      const garakClient = clientFactory.getGarakClient();
-
-      if (staticProbes.length > 0) {
-        const previewResponse = await garakClient.previewImport({
-          probes: buildProbeSelections(staticProbes),
-          name_prefix: 'Garak',
-        });
-        setPreview(previewResponse);
-      } else {
-        setPreview({
-          garak_version: garakVersion,
-          total_test_sets: 0,
-          total_tests: 0,
-          detector_count: 0,
-          detectors: [],
-          probes: [],
-        });
-      }
-
-      setDynamicPreviewProbes(dynamicProbes);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to preview import');
-    } finally {
-      setLoading(false);
-    }
   };
 
   const handleImport = async () => {
@@ -471,9 +484,10 @@ export default function GarakImportDrawer({
     setError(undefined);
     setImportProgress(null);
     setPreparingImport(false);
-    setDynamicPreviewProbes([]);
     setSearchQuery('');
-  }, []);
+    setOwaspFooter(null);
+    setSource(availableSources[0] ?? 'garak');
+  }, [availableSources]);
 
   React.useEffect(() => {
     if (!open) resetState();
@@ -512,19 +526,82 @@ export default function GarakImportDrawer({
     return `Import ${selectedProbes.size} Probe${selectedProbes.size !== 1 ? 's' : ''}`;
   })();
 
+  const isOwasp = source === 'owasp';
+  const drawerTitle = isOwasp ? 'Generate from OWASP' : 'Import from Garak';
+  const isGarakListMode =
+    !isOwasp && !importing && !isCompleteWithDynamic;
+
+  const hideSourceSelector =
+    (isOwasp && owaspFooter?.isComplete) || isCompleteWithDynamic;
+
   return (
     <BaseDrawer
       open={open}
       onClose={handleClose}
-      title="Import from Garak"
-      width={720}
-      closeButtonText={isCompleteWithDynamic ? 'Close' : 'Cancel'}
-      loading={importing || preparingImport}
-      onSave={isCompleteWithDynamic ? undefined : handleImport}
-      saveDisabled={loading || selectedProbes.size === 0}
-      saveButtonText={saveButtonText}
+      title={drawerTitle}
+      width={SECURITY_DRAWER_WIDTH}
+      contentLayout={isGarakListMode ? 'fill' : 'form'}
+      closeButtonText={
+        isOwasp
+          ? (owaspFooter?.closeButtonText ?? 'Cancel')
+          : isCompleteWithDynamic
+            ? 'Close'
+            : 'Cancel'
+      }
+      loading={
+        isOwasp
+          ? (owaspFooter?.loading ?? false)
+          : importing || preparingImport
+      }
+      onSave={
+        isOwasp
+          ? owaspFooter?.onSave
+          : isCompleteWithDynamic
+            ? undefined
+            : handleImport
+      }
+      saveDisabled={
+        isOwasp
+          ? (owaspFooter?.saveDisabled ?? true)
+          : selectedProbes.size === 0
+      }
+      saveButtonText={
+        isOwasp ? (owaspFooter?.saveButtonText ?? 'Generate') : saveButtonText
+      }
     >
-      <Stack spacing={3} sx={{ flex: 1, minHeight: 0 }}>
+      {showSourceSelector && !hideSourceSelector && (
+        <FormControl
+          fullWidth
+          sx={{
+            ...drawerOutlinedFieldSx,
+            flexShrink: 0,
+            ...(isGarakListMode ? { mt: '10px', mb: '40px' } : {}),
+          }}
+        >
+          <InputLabel shrink id="security-source-label">
+            Source
+          </InputLabel>
+          <Select
+            labelId="security-source-label"
+            label="Source"
+            value={source}
+            onChange={handleSourceChange}
+          >
+            {canUseGarak && <MenuItem value="garak">Garak</MenuItem>}
+            {canUseOwasp && <MenuItem value="owasp">OWASP</MenuItem>}
+          </Select>
+        </FormControl>
+      )}
+
+        {isOwasp ? (
+          <OwaspGenerateForm
+            active={open && isOwasp}
+            sessionToken={sessionToken}
+            onSuccess={onOwaspSuccess}
+            onFooterChange={setOwaspFooter}
+          />
+        ) : (
+          <>
         {error && (
           <Alert severity="error" onClose={() => setError(undefined)}>
             {error}
@@ -535,61 +612,86 @@ export default function GarakImportDrawer({
         {!importing && !isCompleteWithDynamic && (
           <Box
             sx={{
+              ...drawerSectionSx,
               flex: 1,
               minHeight: 0,
-              display: 'flex',
-              flexDirection: 'column',
             }}
           >
-            <Stack
-              direction="row"
-              justifyContent="space-between"
-              alignItems="center"
-              mb={1}
-            >
-              <Stack direction="row" alignItems="center" spacing={1}>
-                <Typography variant="subtitle1" fontWeight="medium">
-                  Select Probes ({selectedProbes.size} of {allProbesCount}{' '}
-                  selected)
-                </Typography>
-                {garakVersion && (
-                  <Chip
-                    label={`v${garakVersion}`}
-                    size="small"
-                    variant="outlined"
-                  />
-                )}
-              </Stack>
-              <Stack direction="row" spacing={1}>
-                <Button
-                  size="small"
-                  onClick={handlePreview}
-                  disabled={
-                    loading ||
-                    importing ||
-                    preparingImport ||
-                    selectedProbes.size === 0
-                  }
-                  variant="outlined"
+            <Box sx={{ flexShrink: 0 }}>
+              <Stack
+                direction="row"
+                alignItems="center"
+                justifyContent="space-between"
+                spacing={2}
+              >
+                <Typography
+                  sx={{
+                    fontSize: 18,
+                    lineHeight: '25px',
+                    fontWeight: 700,
+                    color: theme => theme.palette.greyscale.title,
+                  }}
                 >
-                  Preview
-                </Button>
+                  Select Probes
+                </Typography>
                 <Button
                   size="small"
                   onClick={handleSelectAll}
                   disabled={loadingModules || visibleProbesCount === 0}
+                  sx={{
+                    flexShrink: 0,
+                    fontSize: 14,
+                    fontWeight: 700,
+                    lineHeight: '22px',
+                    textTransform: 'none',
+                  }}
                 >
                   {allVisibleSelected ? 'Deselect All' : 'Select All'}
                 </Button>
-                <IconButton
-                  size="small"
-                  onClick={fetchModules}
-                  disabled={loadingModules}
-                >
-                  <RefreshIcon />
-                </IconButton>
               </Stack>
-            </Stack>
+              <Typography
+                sx={{
+                  fontSize: 12,
+                  lineHeight: '18px',
+                  color: theme => theme.palette.greyscale.subtitle,
+                }}
+              >
+                {`${selectedProbes.size} of ${allProbesCount} probes selected${garakVersion ? ` · Garak v${garakVersion}` : ''}.`}
+              </Typography>
+            </Box>
+            <Box
+              sx={{
+                ...drawerFieldsSx,
+                flex: 1,
+                minHeight: 0,
+              }}
+            >
+            <TextField
+              placeholder="Search probes..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              fullWidth
+              label="Search"
+              sx={{ ...drawerOutlinedFieldSx, flexShrink: 0 }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon fontSize="small" />
+                  </InputAdornment>
+                ),
+                endAdornment: searchQuery ? (
+                  <InputAdornment position="end">
+                    <IconButton
+                      size="small"
+                      onClick={() => setSearchQuery('')}
+                      edge="end"
+                    >
+                      <ClearIcon fontSize="small" />
+                    </IconButton>
+                  </InputAdornment>
+                ) : undefined,
+              }}
+            />
 
             {loadingModules ? (
               <Box display="flex" justifyContent="center" p={4}>
@@ -597,31 +699,6 @@ export default function GarakImportDrawer({
               </Box>
             ) : (
               <Stack spacing={1} sx={{ flex: 1, minHeight: 0 }}>
-                <TextField
-                  size="small"
-                  placeholder="Search probes by name, description, category..."
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  fullWidth
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <SearchIcon fontSize="small" color="action" />
-                      </InputAdornment>
-                    ),
-                    endAdornment: searchQuery ? (
-                      <InputAdornment position="end">
-                        <IconButton
-                          size="small"
-                          onClick={() => setSearchQuery('')}
-                          edge="end"
-                        >
-                          <ClearIcon fontSize="small" />
-                        </IconButton>
-                      </InputAdornment>
-                    ) : null,
-                  }}
-                />
                 {filteredModules.length === 0 ? (
                   <Paper variant="outlined" sx={{ p: 4, textAlign: 'center' }}>
                     <Typography color="text.secondary">
@@ -631,7 +708,13 @@ export default function GarakImportDrawer({
                 ) : (
                   <Paper
                     variant="outlined"
-                    sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}
+                    sx={{
+                      flex: 1,
+                      minHeight: 0,
+                      overflow: 'auto',
+                      bgcolor: 'background.paper',
+                      '& .MuiChip-root': drawerListChipSx,
+                    }}
                   >
                     <Stack divider={<Divider />}>
                       {filteredModules.map(module => (
@@ -653,13 +736,14 @@ export default function GarakImportDrawer({
                               onClick={e => e.stopPropagation()}
                               onChange={() => handleModuleToggle(module)}
                             />
-                            <Stack flex={1} spacing={0.5}>
+                            <Stack flex={1} spacing={0.5} minWidth={0}>
                               <Stack
                                 direction="row"
                                 alignItems="center"
                                 spacing={1}
+                                flexWrap="wrap"
                               >
-                                <Typography variant="body1" fontWeight="medium">
+                                <Typography variant="bodyMBold">
                                   {module.name}
                                 </Typography>
                                 <Chip
@@ -704,10 +788,17 @@ export default function GarakImportDrawer({
                                 )}
                               </Stack>
                               <Typography
-                                variant="body2"
+                                variant="caption"
                                 color="text.secondary"
+                                sx={{
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  display: '-webkit-box',
+                                  WebkitLineClamp: 2,
+                                  WebkitBoxOrient: 'vertical',
+                                }}
                               >
-                                {module.description}
+                                {stripMarkdown(module.description)}
                               </Typography>
                               <Stack
                                 direction="row"
@@ -748,13 +839,13 @@ export default function GarakImportDrawer({
 
                           {/* Individual Probes */}
                           <Collapse in={expandedModules.has(module.name)}>
-                            <Stack sx={{ pl: 4 }} divider={<Divider />}>
+                            <Stack divider={<Divider />}>
                               {getModuleProbes(module).map(probe => (
                                 <Stack
                                   key={probe.full_name}
                                   direction="row"
-                                  alignItems="center"
-                                  sx={{ p: 1, pl: 2, cursor: 'pointer' }}
+                                  alignItems="flex-start"
+                                  sx={{ px: 1.5, py: 1, pl: 6, cursor: 'pointer' }}
                                   onClick={() => handleProbeToggle(probe)}
                                 >
                                   <Checkbox
@@ -764,17 +855,15 @@ export default function GarakImportDrawer({
                                     )}
                                     onClick={e => e.stopPropagation()}
                                     onChange={() => handleProbeToggle(probe)}
+                                    sx={{ pt: 0.25 }}
                                   />
-                                  <Stack flex={1} spacing={0.25}>
+                                  <Stack flex={1} spacing={0.25} minWidth={0}>
                                     <Stack
                                       direction="row"
                                       alignItems="center"
                                       spacing={1}
                                     >
-                                      <Typography
-                                        variant="body2"
-                                        fontWeight="medium"
-                                      >
+                                      <Typography variant="bodyMBold">
                                         {probe.class_name}
                                       </Typography>
                                       {probe.is_dynamic ? (
@@ -785,10 +874,6 @@ export default function GarakImportDrawer({
                                             size="small"
                                             color="warning"
                                             variant="outlined"
-                                            sx={{
-                                              height: theme =>
-                                                theme.spacing(2.5),
-                                            }}
                                           />
                                         </Tooltip>
                                       ) : (
@@ -796,9 +881,6 @@ export default function GarakImportDrawer({
                                           label={`${probe.prompt_count} tests`}
                                           size="small"
                                           variant="outlined"
-                                          sx={{
-                                            height: theme => theme.spacing(2.5),
-                                          }}
                                         />
                                       )}
                                     </Stack>
@@ -808,11 +890,12 @@ export default function GarakImportDrawer({
                                       sx={{
                                         overflow: 'hidden',
                                         textOverflow: 'ellipsis',
-                                        whiteSpace: 'nowrap',
-                                        maxWidth: theme => theme.spacing(50),
+                                        display: '-webkit-box',
+                                        WebkitLineClamp: 2,
+                                        WebkitBoxOrient: 'vertical',
                                       }}
                                     >
-                                      {probe.description}
+                                      {stripMarkdown(probe.description)}
                                     </Typography>
                                   </Stack>
                                 </Stack>
@@ -826,6 +909,7 @@ export default function GarakImportDrawer({
                 )}
               </Stack>
             )}
+            </Box>
           </Box>
         )}
 
@@ -1030,58 +1114,8 @@ export default function GarakImportDrawer({
             </Stack>
           </Paper>
         )}
-
-        {/* Preview */}
-        {preview && !importing && !isCompleteWithDynamic && (
-          <Alert severity="info" icon={false}>
-            <Typography variant="subtitle2" gutterBottom>
-              Import Preview
-            </Typography>
-            <Stack spacing={0.5}>
-              {preview.total_test_sets > 0 && (
-                <>
-                  <Typography variant="body2">
-                    Static test sets: <strong>{preview.total_test_sets}</strong>
-                  </Typography>
-                  <Typography variant="body2">
-                    Static tests: <strong>{preview.total_tests}</strong>
-                  </Typography>
-                </>
-              )}
-              {dynamicPreviewProbes.length > 0 && (
-                <>
-                  <Typography variant="body2">
-                    Dynamic probes (LLM generation):{' '}
-                    <strong>{dynamicPreviewProbes.length}</strong>
-                  </Typography>
-                  {dynamicPreviewProbes.map(probe => (
-                    <Typography
-                      key={probe.full_name}
-                      variant="body2"
-                      sx={{ pl: 2 }}
-                    >
-                      • {probe.full_name}
-                    </Typography>
-                  ))}
-                </>
-              )}
-              {preview.detector_count > 0 && (
-                <Typography variant="body2">
-                  Unique detectors: <strong>{preview.detector_count}</strong>
-                </Typography>
-              )}
-            </Stack>
-            {preview.probes.length > 0 && preview.probes.length <= 5 && (
-              <Box mt={1}>
-                <Typography variant="caption" color="text.secondary">
-                  Test sets:{' '}
-                  {preview.probes.map(p => p.test_set_name).join(', ')}
-                </Typography>
-              </Box>
-            )}
-          </Alert>
+          </>
         )}
-      </Stack>
     </BaseDrawer>
   );
 }

@@ -111,7 +111,6 @@ export { default as EngineeringIcon } from '@mui/icons-material/EngineeringOutli
 
 export { default as ForumIcon } from '@mui/icons-material/ForumOutlined';
 export { default as DiscordIcon } from './DiscordIcon';
-export { default as OwaspIcon } from './OwaspIcon';
 export { default as EmailOutlinedIcon } from '@mui/icons-material/EmailOutlined';
 
 // Metric specific icons
