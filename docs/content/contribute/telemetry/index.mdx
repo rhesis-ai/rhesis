@@ -1,30 +1,21 @@
-import { FileTree } from '@/components/FileTree'
 import { CodeBlock } from '@/components/CodeBlock'
 
 # Telemetry System
 
-This page provides technical details about Rhesis's telemetry architecture for developers and contributors.
+How Rhesis collects and stores usage analytics from cloud-hosted and self-hosted
+instances, for developers and contributors working on the telemetry pipeline.
+
+Telemetry uses OpenTelemetry (OTEL) for tracing and metrics. It is enabled by default
+for self-hosted deployments (opt-out via `OTEL_RHESIS_TELEMETRY_ENABLED=false`) and
+always enabled for cloud deployments, where consent is covered by the Terms & Conditions.
 
 <Callout type="info">
-  **Privacy First**: All telemetry is optional, privacy-focused, and
-  transparent. User and organization IDs are hashed using SHA-256, and sensitive
-  data like passwords and API keys are automatically filtered out.
+  User and organization IDs are hashed with SHA-256 before storage, and sensitive
+  attributes (passwords, tokens, secrets) are stripped at the collector. See
+  [What we collect](#what-we-collect) for the full list.
 </Callout>
 
-## Overview
-
-Rhesis includes a privacy-focused telemetry system to collect and analyze usage patterns from both cloud-hosted and self-hosted instances. This system uses OpenTelemetry (OTEL) for distributed tracing and metrics collection.
-
-**Key Principles:**
-- **Enabled by default (opt-out)** for self-hosted deployments
-- **Always enabled** for cloud deployments (user consent via Terms & Conditions)
-- **Privacy-first**: All user/org IDs are hashed (SHA-256)
-- **Automatic filtering**: Sensitive data (passwords, tokens, PII) is never collected
-- **Transparent**: All collected data types are documented
-
-## Architecture Overview
-
-The telemetry system consists of three main components working together:
+## Architecture
 
 ```mermaid
 graph TD
@@ -50,117 +41,57 @@ graph TD
     style DB fill:#e6ffe6,stroke:#00cc66,stroke-width:2px
 ```
 
-### Components
+- **OpenTelemetry Collector** — receives OTLP telemetry from instances, filters sensitive
+  attributes, and forwards to the processor. Config lives in
+  `apps/otel-collector/otel-collector-config.yaml`.
+- **Telemetry Processor** — gRPC service (`apps/telemetry-processor`) that parses spans
+  and writes structured rows to the analytics database.
+- **Analytics Database** — a separate PostgreSQL database, isolated from operational data
+  with its own access controls and backups.
 
-1. **OpenTelemetry Collector** - Receives telemetry from user instances, filters sensitive data, and forwards to the processor
-2. **Telemetry Processor** - gRPC service that processes traces and stores structured analytics data
-3. **Analytics Database** - Separate PostgreSQL database for analytics, isolated from operational data
+## What we collect
 
-## What Data We Collect
+- **User activity** — login/logout events, session duration, deployment type, hashed
+  user and organization IDs.
+- **Endpoint usage** — API paths, HTTP methods, status codes, request duration, timestamp.
+- **Feature usage** — feature name (e.g. `test-run`, `test-set`, `endpoint`), action
+  (created, viewed, updated, deleted), timestamp, deployment context.
 
-<Callout type="default">
-  The telemetry system collects **usage patterns** to help us understand how
-  Rhesis is used and identify areas for improvement.
-</Callout>
+The collector deletes `password`, `token`, `api_key`, `secret`, and `authorization`
+attributes before anything is stored. We never collect credentials, PII (emails,
+usernames, IP addresses, device IDs), or test content and other user-generated data.
 
-### User Activity
+### ID hashing
 
-- Login/logout events
-- Session duration
-- Deployment type (cloud or self-hosted)
-- Hashed user and organization IDs (SHA-256, irreversible)
-
-### Endpoint Usage
-
-- API endpoint paths and HTTP methods
-- Response status codes
-- Request duration (performance metrics)
-- Timestamp of requests
-
-### Feature Usage
-
-- Feature interactions (created, viewed, updated, deleted)
-- Feature names (e.g., "test-run", "test-set", "endpoint")
-- Usage timestamps
-- Deployment context
-
-## What We DON'T Collect
-
-<Callout type="warning">
-  **Privacy Protection**: The following data is automatically filtered and NEVER
-  stored:
-</Callout>
-
-- ❌ Passwords or password hashes
-- ❌ API keys or tokens
-- ❌ Authentication credentials
-- ❌ Personal Identifiable Information (PII)
-- ❌ Test content or user-generated data
-- ❌ Email addresses or usernames
-- ❌ IP addresses or device identifiers
-- ❌ Any sensitive business data
-
-### ID Hashing
-
-All user and organization IDs are one-way hashed before storage:
+User and organization IDs are one-way hashed before storage — the same ID always
+produces the same hash (so events can be correlated) but the hash cannot be reversed:
 
 <CodeBlock filename="Example Hashing" language="python">
 {`# SHA-256 hash truncated to 16 characters
 hash = hashlib.sha256(id_str.encode()).hexdigest()[:16]
-# Original ID: "user-123-456-789"
-# Stored hash: "a1b2c3d4e5f6g7h8" (cannot be reversed)`}
+# "user-123-456-789" -> "a1b2c3d4e5f6g7h8"`}
 </CodeBlock>
 
-**Properties:**
+## Ports
 
-- ✅ **One-way**: Cannot recover original IDs
-- ✅ **Consistent**: Same ID always produces the same hash for analytics
-- ✅ **Anonymous**: No PII stored
-- ✅ **Collision-resistant**: 2^64 unique values
+**OpenTelemetry Collector**
 
-## Privacy & Security
+- `4317` — OTLP gRPC receiver
+- `4318` — OTLP HTTP receiver (used by the frontend)
+- `8888` — collector's own metrics
+- `13133` — health check
+- `55679` — zpages (debug)
 
-### Opt-In/Opt-Out
+**Telemetry Processor**
 
-- Telemetry respects user preferences
-- Can be disabled entirely for self-hosted instances
-- No data collection without explicit configuration
+- `4317` — gRPC server for traces from the collector
 
-### Data Isolation
+## Database schema
 
-- Analytics database is **completely separate** from operational data
-- Different access controls and backup policies
-- Can be managed independently
-- No impact on application performance
-
-### Security Measures
-
-- Sensitive attributes filtered at the collector level
-- Batch processing with retry logic for reliability
-- Memory limits to prevent resource exhaustion
-- Health checks and monitoring built-in
-
-## Ports & Endpoints
-
-### OpenTelemetry Collector
-
-- **4317**: OTLP gRPC receiver (primary)
-- **4318**: OTLP HTTP receiver (web apps)
-- **8888**: Collector metrics (Prometheus)
-- **13133**: Health check endpoint
-- **55679**: Debug zpages
-
-### Telemetry Processor
-
-- **4317**: gRPC server for receiving traces from collector
-
-## Database Schema
-
-The analytics database uses three tables with consistent structure:
+The analytics database uses three tables sharing a common base (`id`, `user_id`,
+`organization_id`, `timestamp`, `deployment_type`, `event_metadata`).
 
 ### `user_activity`
-
-Tracks user engagement events
 
 | Column            | Type         | Description                |
 | ----------------- | ------------ | -------------------------- |
@@ -174,8 +105,6 @@ Tracks user engagement events
 | `event_metadata`  | JSONB        | Additional context         |
 
 ### `endpoint_usage`
-
-Tracks API usage and performance
 
 | Column            | Type             | Description         |
 | ----------------- | ---------------- | ------------------- |
@@ -192,8 +121,6 @@ Tracks API usage and performance
 
 ### `feature_usage`
 
-Tracks feature-specific interactions
-
 | Column            | Type         | Description         |
 | ----------------- | ------------ | ------------------- |
 | `id`              | UUID         | Primary key         |
@@ -205,84 +132,36 @@ Tracks feature-specific interactions
 | `deployment_type` | VARCHAR(50)  | cloud / self-hosted |
 | `event_metadata`  | JSONB        | Additional context  |
 
-## Configuration
+## Environment variables
 
-### OpenTelemetry Collector
+### Backend and frontend
 
-Configured via `apps/otel-collector/otel-collector-config.yaml`:
-
-**Key Features:**
-
-- OTLP gRPC and HTTP receivers with CORS support
-- Batch processing for efficiency
-- Memory limits to prevent OOM
-- Automatic sensitive data filtering
-- Resource metadata enrichment
-- Event categorization for analytics
-
-**Environment Variables:**
+Set in `.env` or `.env.docker`:
 
 <CodeBlock filename=".env" language="bash">
-{`OTEL_PROCESSOR_ENDPOINT=telemetry-processor:4317`}
+{`OTEL_RHESIS_TELEMETRY_ENABLED=true   # 'false' to opt out (self-hosted; default true)
+OTEL_DEPLOYMENT_TYPE=self-hosted     # 'self-hosted' | 'cloud'
+OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318/  # collector endpoint
+OTEL_SERVICE_NAME=rhesis             # service identifier
+OTEL_PROCESSOR_ENDPOINT=telemetry-processor:4317  # collector -> processor (internal)
+OTEL_API_KEY=your-api-key            # authenticates the collector to the processor`}
 </CodeBlock>
 
-### Telemetry Processor
+Telemetry is skipped entirely when `OTEL_EXPORTER_OTLP_ENDPOINT` is unset.
 
-**Required Environment Variables:**
+### Telemetry processor
 
-<CodeBlock filename=".env" language="bash">
-{`# Analytics Database (separate from main database)
-ANALYTICS_DB_USER=your-db-username
-ANALYTICS_DB_PASS=your-secure-password
-ANALYTICS_DB_HOST=postgres-analytics
-ANALYTICS_DB_PORT=5432
-ANALYTICS_DB_NAME=rhesis_analytics
-
-# Or use connection string
-ANALYTICS_DATABASE_URL=postgresql://user:pass@host:port/dbname
-
-# Service Configuration
-PORT=4317
-LOG_LEVEL=INFO`}
-</CodeBlock>
-
-## Environment Variables Reference
-
-### Backend/Services Configuration
-
-Configure these in your `.env` or `.env.docker` file:
+The processor requires the analytics database credentials (or a full
+`ANALYTICS_DATABASE_URL`) and the matching `OTEL_API_KEY`:
 
 <CodeBlock filename=".env" language="bash">
-{`# Telemetry Control
-OTEL_RHESIS_TELEMETRY_ENABLED=true   # Set to 'false' to disable (enabled by default for self-hosted)
-OTEL_DEPLOYMENT_TYPE=self-hosted     # Options: 'self-hosted' | 'cloud'
-
-# OpenTelemetry Configuration
-OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318/  # OTel Collector endpoint
-OTEL_SERVICE_NAME=rhesis                                  # Service identifier
-OTEL_PROCESSOR_ENDPOINT=telemetry-processor:4317          # Processor endpoint (internal)
-OTEL_API_KEY=your-api-key                                 # Optional: API key for authentication`}
-</CodeBlock>
-
-**Variable Details:**
-- `OTEL_RHESIS_TELEMETRY_ENABLED`: Master switch for telemetry. Defaults to `true` (enabled) for self-hosted deployments. Set to `false` to opt-out
-- `OTEL_DEPLOYMENT_TYPE`: Used to tag data by deployment type for analytics
-- `OTEL_EXPORTER_OTLP_ENDPOINT`: Where backend sends telemetry (should point to OTel Collector)
-- `OTEL_PROCESSOR_ENDPOINT`: Internal endpoint for collector-to-processor communication
-- `OTEL_API_KEY`: Optional authentication key for securing telemetry endpoints
-
-### Analytics Database Configuration
-
-Separate database for telemetry storage (recommended to isolate from operational data):
-
-<CodeBlock filename=".env" language="bash">
-{`# Analytics Database (separate from main DB)
-ANALYTICS_DB_USER=analytics-user
+{`ANALYTICS_DB_USER=analytics-user
 ANALYTICS_DB_PASS=secure-password
 ANALYTICS_DB_HOST=postgres-analytics
 ANALYTICS_DB_PORT=5432
 ANALYTICS_DB_NAME=rhesis-analytics
+# Or: ANALYTICS_DATABASE_URL=postgresql://user:pass@host:port/rhesis-analytics
 
-# Or use full connection string
-ANALYTICS_DATABASE_URL=postgresql://user:pass@host:port/rhesis-analytics`}
+OTEL_API_KEY=your-api-key   # must match the collector's OTEL_API_KEY
+PORT=4317                   # gRPC listen port`}
 </CodeBlock>
