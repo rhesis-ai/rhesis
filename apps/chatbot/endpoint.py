@@ -99,6 +99,7 @@ class ResponseGenerator:
         temperature: float = 0.7,
         max_tokens: int = 1024,
         context_strategy: str = "heuristic",
+        response_schema: dict | None = None,
     ):
         """Initialize with SDK model and use case."""
         if model:
@@ -116,6 +117,7 @@ class ResponseGenerator:
         self.temperature = temperature
         self.max_tokens = max_tokens
         self.context_strategy = context_strategy
+        self.response_schema = response_schema
 
         self.use_case_system_prompt = self._load_system_prompt()
 
@@ -192,6 +194,19 @@ class ResponseGenerator:
         messages.append({"role": "user", "content": current_user_content})
         return messages
 
+    @staticmethod
+    def _wrap_json_schema(schema: dict) -> dict:
+        """Wrap a caller-supplied JSON Schema into the structured-output shape
+        SDK model providers expect (OpenAI's json_schema response_format)."""
+        return {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "custom_response",
+                "schema": schema,
+                "strict": True,
+            },
+        }
+
     @observe.llm(
         provider=_provider,
         model=_model_name,
@@ -203,7 +218,11 @@ class ResponseGenerator:
             "max_tokens": self.max_tokens,
         }
         if mode == "json":
-            kwargs["schema"] = ChatResponse
+            kwargs["schema"] = (
+                self._wrap_json_schema(self.response_schema)
+                if self.response_schema
+                else ChatResponse
+            )
 
         return await self.model.a_generate(messages=messages, **kwargs)
 
@@ -534,6 +553,7 @@ def get_response_generator(
     temperature: float = 0.7,
     max_tokens: int = 1024,
     context_strategy: str = "heuristic",
+    response_schema: dict | None = None,
 ) -> ResponseGenerator:
     """Get a ResponseGenerator instance for the specified use case."""
     return ResponseGenerator(
@@ -543,6 +563,7 @@ def get_response_generator(
         temperature=temperature,
         max_tokens=max_tokens,
         context_strategy=context_strategy,
+        response_schema=response_schema,
     )
 
 
