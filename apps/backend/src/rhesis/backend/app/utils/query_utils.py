@@ -77,11 +77,10 @@ class QueryBuilder:
         unknown: List[str] = []
         attrs: List[object] = []
         for name in relationship_names:
-            attr = getattr(self.model, name, None)
-            if attr is None:
+            if inspect(self.model).relationships.get(name) is None:
                 unknown.append(name)
                 continue
-            attrs.append(attr)
+            attrs.append(getattr(self.model, name))
         if unknown:
             raise ValueError(
                 f"with_joined: {self.model.__name__} has no relationship(s) named {unknown!r}"
@@ -105,11 +104,10 @@ class QueryBuilder:
         unknown: List[str] = []
         attrs: List[object] = []
         for name in relationship_names:
-            attr = getattr(self.model, name, None)
-            if attr is None:
+            if inspect(self.model).relationships.get(name) is None:
                 unknown.append(name)
                 continue
-            attrs.append(attr)
+            attrs.append(getattr(self.model, name))
         if unknown:
             raise ValueError(
                 f"with_selectin: {self.model.__name__} has no relationship(s) named {unknown!r}"
@@ -150,6 +148,53 @@ class QueryBuilder:
             self.query = self.query.options(load)
             self._selectin_count += 1
             self._maybe_warn_load_count()
+        return self
+
+    def with_related(self, *relationship_names: str, nested: dict | None = None) -> "QueryBuilder":
+        """Eager-load each named relationship, picking ``joinedload`` vs ``selectinload``
+        automatically from the relationship's own cardinality.
+
+        ``nested`` mirrors the dict/list chain spec used elsewhere in this module (e.g.
+        ``{"test_configuration": {"endpoint": ["project"], "test_set": ["test_set_type"]}}``),
+        with the same per-hop cardinality detection applied at each level.
+        """
+        if relationship_names:
+            unknown: List[str] = []
+            joined_names: List[str] = []
+            selectin_names: List[str] = []
+            for name in relationship_names:
+                rel_prop = inspect(self.model).relationships.get(name)
+                if rel_prop is None:
+                    unknown.append(name)
+                    continue
+                (selectin_names if rel_prop.uselist else joined_names).append(name)
+            if unknown:
+                raise ValueError(
+                    f"with_related: {self.model.__name__} has no relationship(s) named {unknown!r}"
+                )
+            if joined_names:
+                self.with_joined(*joined_names)
+            if selectin_names:
+                self.with_selectin(*selectin_names)
+
+        if nested:
+            for rel_name, spec in nested.items():
+                rel_prop = inspect(self.model).relationships.get(rel_name)
+                if rel_prop is None:
+                    raise ValueError(
+                        f"with_related: {self.model.__name__} has no relationship "
+                        f"named {rel_name!r}"
+                    )
+                attr = getattr(self.model, rel_name)
+                base_load = selectinload(attr) if rel_prop.uselist else joinedload(attr)
+                target_model = rel_prop.mapper.class_
+                options = _build_related_chain(base_load, target_model, spec)
+                self.query = self.query.options(base_load, *options)
+                if rel_prop.uselist:
+                    self._selectin_count += 1
+                else:
+                    self._joined_count += 1
+                self._maybe_warn_load_count()
         return self
 
     def with_default_derived_field_loads(self, extra_chains: list | None = None) -> "QueryBuilder":
@@ -644,6 +689,56 @@ def _build_nested_load_options(
                 options.extend(
                     _build_nested_load_options(nested_load, nested_rel_prop, deeper_spec)
                 )
+
+    return options
+
+
+def _build_related_chain(parent_load, target_model: Type, nested_spec) -> List:
+    """
+    Recursively build chained load options for ``QueryBuilder.with_related``'s ``nested``
+    spec, choosing ``joinedload``/``selectinload`` per hop from each relationship's own
+    cardinality (unlike ``_build_nested_load_options``, which always chains ``joinedload``).
+
+    Args:
+        parent_load: The parent load option (e.g. joinedload(Model.rel))
+        target_model: The model class the parent relationship points to
+        nested_spec: Either a list of relationship names or a dict for deeper nesting.
+                     List format:  ["endpoint", "test_set"]
+                     Dict format:  {"endpoint": ["project"], "test_set": ["test_set_type"]}
+
+    Returns:
+        List of chained load options to apply to the query.
+    """
+    options = []
+
+    def _chain_names(names):
+        for nested_rel_name in names:
+            rel_prop = inspect(target_model).relationships.get(nested_rel_name)
+            if rel_prop is None:
+                continue
+            nested_attr = getattr(target_model, nested_rel_name)
+            chained = (
+                parent_load.selectinload(nested_attr)
+                if rel_prop.uselist
+                else parent_load.joinedload(nested_attr)
+            )
+            options.append(chained)
+
+    if isinstance(nested_spec, list):
+        _chain_names(nested_spec)
+    elif isinstance(nested_spec, dict):
+        for nested_rel_name, deeper_spec in nested_spec.items():
+            rel_prop = inspect(target_model).relationships.get(nested_rel_name)
+            if rel_prop is None:
+                continue
+            nested_attr = getattr(target_model, nested_rel_name)
+            nested_load = (
+                parent_load.selectinload(nested_attr)
+                if rel_prop.uselist
+                else parent_load.joinedload(nested_attr)
+            )
+            options.append(nested_load)
+            options.extend(_build_related_chain(nested_load, rel_prop.mapper.class_, deeper_spec))
 
     return options
 

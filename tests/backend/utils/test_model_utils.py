@@ -144,10 +144,61 @@ class TestQueryBuilder:
                 "organization",
             )
 
-        assert any(
-            "accumulated 12 eager loads" in record.message
-            for record in caplog.records
-        )
+        assert any("accumulated 12 eager loads" in record.message for record in caplog.records)
+
+    def test_with_related_dispatches_joined_and_selectin_by_cardinality(
+        self, test_db: Session, authenticated_user_id, test_org_id
+    ):
+        """with_related should route single-valued names through with_joined and
+        collection names through with_selectin, without the caller stating either."""
+        query_builder = QueryBuilder(test_db, models.Test)
+        original_query = MagicMock()
+        query_builder.query = original_query
+        stage1 = MagicMock()
+        stage2 = MagicMock()
+        original_query.options.return_value = stage1
+        stage1.options.return_value = stage2
+
+        # "prompt" is many-to-one, "children" is a one-to-many collection.
+        result = query_builder.with_related("prompt", "children")
+
+        assert result is query_builder
+        assert query_builder.query is stage2
+        assert query_builder._joined_count == 1
+        assert query_builder._selectin_count == 1
+
+    def test_with_related_rejects_unknown_relationship(
+        self, test_db: Session, authenticated_user_id, test_org_id
+    ):
+        query_builder = QueryBuilder(test_db, models.Test)
+        with pytest.raises(ValueError, match="not_a_real_relationship"):
+            query_builder.with_related("prompt", "not_a_real_relationship")
+
+    def test_with_related_empty_call_is_noop(
+        self, test_db: Session, authenticated_user_id, test_org_id
+    ):
+        query_builder = QueryBuilder(test_db, models.Test)
+        original_query = MagicMock()
+        query_builder.query = original_query
+
+        query_builder.with_related()
+
+        original_query.options.assert_not_called()
+        assert query_builder._joined_count == 0
+        assert query_builder._selectin_count == 0
+
+    def test_with_related_nested_chains_pick_strategy_per_hop(
+        self, test_db: Session, authenticated_user_id, test_org_id
+    ):
+        """The `nested` spec should chain joinedload/selectinload per hop based on
+        each hop's own cardinality, not assume joinedload throughout."""
+        query_builder = QueryBuilder(test_db, models.TestRun)
+
+        # test_configuration is many-to-one; test_results off of it is a
+        # one-to-many collection, so the nested hop should selectin-chain.
+        query_builder.with_related(nested={"test_configuration": ["test_results"]})
+
+        assert query_builder._joined_count == 1
 
     def test_query_builder_with_optimized_loads(
         self, test_db: Session, authenticated_user_id, test_org_id
@@ -195,9 +246,7 @@ class TestQueryBuilder:
             mock_final = MagicMock()
             mock_apply_optimized_loads.return_value = mock_final
 
-            result = query_builder.with_joined("prompt").with_optimized_loads(
-                skip_one_to_many=True
-            )
+            result = query_builder.with_joined("prompt").with_optimized_loads(skip_one_to_many=True)
 
             assert result is query_builder
             assert original_query.options.call_count == 1

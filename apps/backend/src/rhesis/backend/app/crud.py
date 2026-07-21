@@ -511,6 +511,22 @@ def get_test_set(
     )
 
 
+# Relationships serialized by TestSetDetailSchema. All many-to-one -- excludes
+# collection relationships (prompts, tests, metrics, test_configurations)
+# because those produce cartesian-product joins or lazy fan-out and none of
+# these endpoints serialize them. comments/tasks/files/tags ARE serialized
+# (via CountsMixin.counts / TagsMixin.tags) -- see with_default_derived_field_loads.
+_TEST_SET_RELATED_FIELDS = (
+    "status",
+    "license_type",
+    "test_set_type",
+    "user",
+    "owner",
+    "assignee",
+    "organization",
+)
+
+
 def get_test_sets(
     db: Session,
     skip: int = 0,
@@ -529,20 +545,7 @@ def get_test_sets(
     """
     query_builder = (
         QueryBuilder(db, models.TestSet)
-        # Eager-load the many-to-one relationships referenced by TestSetDetailSchema.
-        # Excludes collection relationships (prompts, tests, metrics, test_configurations)
-        # because those produce cartesian-product joins or lazy fan-out and the list
-        # endpoint does not serialize them. comments/tasks/files/tags ARE serialized
-        # (via CountsMixin.counts / TagsMixin.tags) -- see with_default_derived_field_loads.
-        .with_joined(
-            "status",
-            "license_type",
-            "test_set_type",
-            "user",
-            "owner",
-            "assignee",
-            "organization",
-        )
+        .with_related(*_TEST_SET_RELATED_FIELDS)
         .with_default_derived_field_loads()
         .with_organization_filter(organization_id)  # Apply organization filtering
         .with_visibility_filter(user_id)
@@ -634,17 +637,7 @@ def get_test_set_by_nano_id_or_slug(
     """
     return (
         QueryBuilder(db, models.TestSet)
-        # See get_test_sets() for rationale: load only the M2O relationships that
-        # TestSetDetailSchema serializes.
-        .with_joined(
-            "status",
-            "license_type",
-            "test_set_type",
-            "user",
-            "owner",
-            "assignee",
-            "organization",
-        )
+        .with_related(*_TEST_SET_RELATED_FIELDS)
         .with_organization_filter(organization_id)
         .with_visibility_filter(user_id)
         .with_custom_filter(
@@ -713,15 +706,7 @@ def get_test_sets_for_test(
     """
     query_builder = (
         QueryBuilder(db, models.TestSet)
-        .with_joined(
-            "status",
-            "license_type",
-            "test_set_type",
-            "user",
-            "owner",
-            "assignee",
-            "organization",
-        )
+        .with_related(*_TEST_SET_RELATED_FIELDS)
         .with_organization_filter(organization_id)
         .with_visibility_filter(user_id)
         .with_custom_filter(
@@ -769,12 +754,13 @@ def get_test_set_tests(
     """
     query_builder = (
         QueryBuilder(db, models.Test)
-        # Eager-load the many-to-one relationships TestDetailSchema serializes.
-        # Crucially DOES NOT load Test.test_results / Test.test_contexts / Test.trace:
-        # those are one-to-many with very large JSONB payloads and previously
-        # produced a 22-join cartesian product on this endpoint that materialized
-        # multi-GB intermediate result sets.
-        .with_joined(
+        # Eager-load the relationships TestDetailSchema serializes. with_related
+        # picks the strategy per name from its own cardinality, so this can never
+        # regress into the 22-join cartesian product that previously materialized
+        # multi-GB intermediate result sets on this endpoint -- accidentally adding
+        # a one-to-many name here (e.g. test_results/test_contexts/trace) would
+        # route through selectin, not joinedload.
+        .with_related(
             "prompt",
             "test_type",
             "user",
@@ -942,7 +928,7 @@ def get_status(
     item = (
         QueryBuilder(db, models.Status)
         .with_deleted()
-        .with_optimized_loads(skip_one_to_many=True)
+        .with_related("entity_type", "project", "organization", "user")
         .with_organization_filter(organization_id)
         .with_visibility_filter(user_id)
         .filter_by_id(status_id)
@@ -2113,7 +2099,7 @@ def get_projects(
     with bypass_tenant_filter():
         builder = (
             QueryBuilder(db, models.Project)
-            .with_optimized_loads(skip_many_to_many=False, skip_one_to_many=True)
+            .with_related("user", "owner", "organization", "status")
             .with_default_derived_field_loads()
             .with_organization_filter(organization_id)
             .with_visibility_filter(user_id)
@@ -2426,10 +2412,16 @@ def get_test_run(
     item = (
         QueryBuilder(db, models.TestRun)
         .with_deleted()
-        .with_optimized_loads(
-            skip_many_to_many=False,
-            skip_one_to_many=True,
-            nested_relationships=_TEST_RUN_NESTED_RELS,
+        .with_related(
+            "status",
+            "assignee",
+            "owner",
+            "user",
+            "test_configuration",
+            "organization",
+            "experiment",
+            "project",
+            nested=_TEST_RUN_NESTED_RELS,
         )
         .with_default_derived_field_loads()
         .with_custom_filter(_defer_endpoint_last_token)
@@ -2490,10 +2482,16 @@ def get_test_runs(
 
     return (
         QueryBuilder(db, models.TestRun)
-        .with_optimized_loads(
-            skip_many_to_many=False,
-            skip_one_to_many=True,
-            nested_relationships=_TEST_RUN_NESTED_RELS,
+        .with_related(
+            "status",
+            "assignee",
+            "owner",
+            "user",
+            "test_configuration",
+            "organization",
+            "experiment",
+            "project",
+            nested=_TEST_RUN_NESTED_RELS,
         )
         .with_default_derived_field_loads()
         .with_custom_filter(_defer_endpoint_last_token)
@@ -2927,9 +2925,13 @@ def get_type_lookup_by_name_and_value(
 
 
 # Metric CRUD
-# Many-to-one relationships serialized by MetricDetailSchema. Joined-loading these
-# adds at most one row per metric (1:1 join), so it's cheap.
-_METRIC_M2O_RELATIONSHIPS = (
+# Relationships serialized by MetricDetailSchema. with_related picks joinedload
+# for the many-to-one ones (metric_type, status, ...) and selectinload for the
+# many-to-many ones (behaviors, test_sets) automatically -- joinedload on the
+# M2M pair previously produced a cartesian product (one row per
+# (metric, behavior, test_set) tuple) that bloated the response by orders of
+# magnitude.
+_METRIC_RELATED_FIELDS = (
     "metric_type",
     "status",
     "assignee",
@@ -2938,13 +2940,9 @@ _METRIC_M2O_RELATIONSHIPS = (
     "backend_type",
     "user",
     "organization",
+    "behaviors",
+    "test_sets",
 )
-
-# Many-to-many relationships serialized by MetricDetailSchema. These MUST use
-# selectinload — joinedload on M2M produces a cartesian product (one row per
-# (metric, behavior, test_set) tuple), which previously bloated the response by
-# orders of magnitude.
-_METRIC_M2M_RELATIONSHIPS = ("behaviors", "test_sets")
 
 
 def get_metric(
@@ -2953,8 +2951,7 @@ def get_metric(
     """Get a specific metric by ID with its related objects, including many-to-many relationships"""
     return (
         QueryBuilder(db, models.Metric)
-        .with_joined(*_METRIC_M2O_RELATIONSHIPS)
-        .with_selectin(*_METRIC_M2M_RELATIONSHIPS)
+        .with_related(*_METRIC_RELATED_FIELDS)
         .with_default_derived_field_loads()
         .with_organization_filter(organization_id)
         .with_visibility_filter(user_id)
@@ -2976,8 +2973,7 @@ def get_metrics(
     """Get all metrics with their related objects, including many-to-many relationships"""
     return (
         QueryBuilder(db, models.Metric)
-        .with_joined(*_METRIC_M2O_RELATIONSHIPS)
-        .with_selectin(*_METRIC_M2M_RELATIONSHIPS)
+        .with_related(*_METRIC_RELATED_FIELDS)
         .with_default_derived_field_loads()
         .with_organization_filter(organization_id)
         .with_visibility_filter(user_id)
