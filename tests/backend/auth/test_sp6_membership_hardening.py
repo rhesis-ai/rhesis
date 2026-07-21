@@ -395,11 +395,12 @@ class TestRecoverOrgOwnerCLI:
     """
 
     def test_dry_run_does_not_mutate_owner(
-        self, test_db: Session, test_org_id, authenticated_user_id
+        self, real_commit_test_db: Session, test_org_id, authenticated_user_id
     ):
         """dry_run=True prints intent and rolls back — owner_id unchanged."""
         from rhesis.backend.app.management.recover_org_owner import run
 
+        test_db = real_commit_test_db
         # Create a second user to be the "new owner" in dry-run mode.
         new_owner = _unique_user(test_db, test_org_id)
         test_db.commit()  # commit so the CLI's independent session can see it
@@ -417,10 +418,13 @@ class TestRecoverOrgOwnerCLI:
             "dry_run=True must not mutate organization.owner_id"
         )
 
-    def test_real_run_reassigns_owner(self, test_db: Session, test_org_id, authenticated_user_id):
+    def test_real_run_reassigns_owner(
+        self, real_commit_test_db: Session, test_org_id, authenticated_user_id
+    ):
         """dry_run=False reassigns organization.owner_id to the target user."""
         from rhesis.backend.app.management.recover_org_owner import run
 
+        test_db = real_commit_test_db
         new_owner = _unique_user(test_db, test_org_id)
         test_db.commit()
 
