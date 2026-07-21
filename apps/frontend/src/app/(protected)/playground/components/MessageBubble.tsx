@@ -21,7 +21,7 @@ import DownloadIcon from '@mui/icons-material/Download';
 import ScienceOutlinedIcon from '@mui/icons-material/ScienceOutlined';
 import { TracesIcon } from '@/components/icons';
 import { ChatMessage } from '@/hooks/usePlaygroundChat';
-import MarkdownContent from '@/components/common/MarkdownContent';
+import MessageContent from '@/components/common/MessageContent';
 import { BORDER_RADIUS } from '@/styles/theme-constants';
 
 interface MessageBubbleProps {
@@ -196,7 +196,7 @@ export default function MessageBubble({
                     {message.content}
                   </Typography>
                 ) : (
-                  <MarkdownContent content={message.content} variant="body2" />
+                  <MessageContent content={message.content} variant="body2" />
                 )}
               </Box>
 
