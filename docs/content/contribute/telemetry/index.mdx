@@ -78,9 +78,8 @@ hash = hashlib.sha256(id_str.encode()).hexdigest()[:16]
 
 - `4317` — OTLP gRPC receiver
 - `4318` — OTLP HTTP receiver (used by the frontend)
-- `8888` — collector's own metrics
+- `8889` — Prometheus metrics (exposed by the Helm Service)
 - `13133` — health check
-- `55679` — zpages (debug)
 
 **Telemetry Processor**
 
