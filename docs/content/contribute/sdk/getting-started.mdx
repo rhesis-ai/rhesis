@@ -2,35 +2,31 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 # Getting Started
 
-Before contributing to the SDK, read the main [`CONTRIBUTING.md`](https://github.com/rhesis-ai/rhesis/blob/main/CONTRIBUTING.md) at the root of the repository. It contains guidelines that apply to all contributors, including commit conventions and the pull request workflow.
-
-## Before you start
-
-Install [`uv`](https://docs.astral.sh/uv/) for Python environment management.
+Read the root [`CONTRIBUTING.md`](https://github.com/rhesis-ai/rhesis/blob/main/CONTRIBUTING.md)
+first for commit conventions and the pull request workflow that apply to all contributors.
 
 ## Development setup
+
+Install [`uv`](https://docs.astral.sh/uv/), then:
 
 <CodeBlock filename="setup.sh" language="bash">
 {`git clone https://github.com/rhesis-ai/rhesis.git
 cd rhesis/sdk
-
-# Create a development virtual environment
 uv sync --dev
-
-# Activate the virtual environment
 source .venv/bin/activate`}
 </CodeBlock>
 
 ## Linting and formatting
 
-From `sdk`:
+From `sdk`, both targets run [ruff](https://docs.astral.sh/ruff/) via `uvx`:
 
 <CodeBlock filename="format-and-lint.sh" language="bash">
-{`make format      # auto-format and fix all Python files
-make lint        # check formatting without modifying files`}
+{`make format      # auto-format and apply fixes
+make lint        # check without modifying files`}
 </CodeBlock>
 
-Both targets use [ruff](https://docs.astral.sh/ruff/) via `uvx`. There are also diff-scoped variants that only run against files changed relative to `main`:
+The `_diff` variants scope to files changed relative to `origin/main`, which is what
+`make all` (`format_diff lint_diff type-check test`) runs:
 
 <CodeBlock filename="format-and-lint-diff.sh" language="bash">
 {`make format_diff
@@ -39,14 +35,16 @@ make lint_diff`}
 
 ## Tests
 
-Tests live in `../tests/sdk` (relative to `sdk/`), not inside the SDK package itself.
+Tests live in `../tests/sdk` (relative to `sdk/`), not inside the SDK package. Run these
+from `sdk`:
 
-From `sdk`:
-
-- **Unit tests** — `make test` runs `pytest` on `../tests/sdk`, ignoring `../tests/sdk/integration`.
-- **Integration tests** — `make test-integration` starts the `sdk` Docker profile (see `tests/docker-compose.test.yml`), then runs the full suite including `../tests/sdk/integration`.
-- **Coverage** — `make test-coverage` runs `pytest` with coverage reporting for `src/rhesis`.
-- **Teardown** — `make docker-down` (or `make docker-clean` to remove volumes).
+- **Unit** — `make test` runs `pytest` on `../tests/sdk`, ignoring `../tests/sdk/integration`.
+- **Integration** — `make test-integration` brings up the `sdk` Docker profile
+  (`tests/docker-compose.test.yml`), then runs the full suite including
+  `../tests/sdk/integration`.
+- **Coverage** — `make test-coverage` reports coverage for `src/rhesis`
+  (terminal + HTML).
+- **Teardown** — `make docker-down`, or `make docker-clean` to also drop volumes.
 
 Run a single test after starting the Docker profile yourself:
 
@@ -54,9 +52,3 @@ Run a single test after starting the Docker profile yourself:
 {`make docker-up
 uv run pytest -s ../tests/sdk/entities/test_endpoint.py::test_endpoint -v`}
 </CodeBlock>
-
-## Questions or need help?
-
-- Contact us at support@rhesis.ai
-- Create an issue in the repository
-- Check our [documentation](https://docs.rhesis.ai)
