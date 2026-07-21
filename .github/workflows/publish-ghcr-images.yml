@@ -1,6 +1,9 @@
 name: "[Build] Docker GitHub Container Registry"
 
 on:
+  push:
+    tags:
+      - 'v*'  # Trigger on platform version tags (e.g., v0.10.0)
   workflow_dispatch:
 
 permissions:
@@ -243,14 +246,30 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Compute image tags
+        id: tags
+        run: |
+          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.image }}"
+          # Release (platform tag e.g. v0.10.0): publish :latest + :<version>.
+          # Manual dispatch: publish :dev only, so ad-hoc builds never touch :latest.
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+            TAG_ARGS="-t ${IMAGE}:latest -t ${IMAGE}:${VERSION}"
+            PRIMARY_REF="${IMAGE}:${VERSION}"
+          else
+            TAG_ARGS="-t ${IMAGE}:dev"
+            PRIMARY_REF="${IMAGE}:dev"
+          fi
+          echo "tag_args=${TAG_ARGS}" >> "$GITHUB_OUTPUT"
+          echo "primary_ref=${PRIMARY_REF}" >> "$GITHUB_OUTPUT"
+
       - name: Create manifest list and push
         working-directory: ${{ runner.temp }}/digests
         run: |
           docker buildx imagetools create \
-            -t ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.image }}:latest \
+            ${{ steps.tags.outputs.tag_args }} \
             $(printf '${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.image }}@sha256:%s ' *)
 
       - name: Inspect image
         run: |
-          docker buildx imagetools inspect \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.image }}:latest
+          docker buildx imagetools inspect ${{ steps.tags.outputs.primary_ref }}
