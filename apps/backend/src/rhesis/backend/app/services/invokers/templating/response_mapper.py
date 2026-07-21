@@ -2,6 +2,7 @@
 
 import json
 import logging
+import re
 from typing import Any, Dict
 
 import jsonpath_ng
@@ -9,9 +10,28 @@ from jinja2 import Template
 
 logger = logging.getLogger(__name__)
 
+# Matches a template that is exactly one bare variable reference, e.g. "{{ message }}"
+# or "{{ metadata.output_mode }}" — no filters, literals, or operators.
+_SIMPLE_VAR_PATTERN = re.compile(r"^\{\{\s*([A-Za-z0-9_.]+)\s*\}\}$")
+
 
 class ResponseMapper:
     """Handles response mapping using Jinja2 templates (with optional JSONPath)."""
+
+    def _resolve_dotted_path(self, response_data: Dict[str, Any], path: str) -> Any:
+        """Resolve a dotted path (e.g. "metadata.id") against response_data.
+
+        Returns None if any segment along the path is missing.
+        """
+        value: Any = response_data
+        for part in path.split("."):
+            if isinstance(value, dict) and part in value:
+                value = value[part]
+            elif hasattr(value, part):
+                value = getattr(value, part)
+            else:
+                return None
+        return value
 
     def _jsonpath_extract(self, response_data: Dict[str, Any], path: str) -> Any:
         """
@@ -44,6 +64,19 @@ class ResponseMapper:
         Returns:
             The mapped value or None if extraction failed
         """
+        # If the template is a single bare variable reference and that value is a
+        # complex type (dict/list/Pydantic model), preserve it as-is instead of
+        # rendering through Jinja2, which would stringify it via Python's repr
+        # (e.g. {'response': 'foo'}) rather than producing valid JSON. This mirrors
+        # TemplateRenderer._parse_rendered_value on the request-mapping side.
+        simple_var_match = _SIMPLE_VAR_PATTERN.match(mapping_value)
+        if simple_var_match:
+            value = self._resolve_dotted_path(response_data, simple_var_match.group(1))
+            if hasattr(value, "model_dump"):
+                return value.model_dump(exclude_none=True)
+            if isinstance(value, (dict, list)):
+                return value
+
         # Step 1: Render as Jinja2 template with response_data as context
         # Also provide jsonpath() function for extracting nested fields
         template = Template(mapping_value)
