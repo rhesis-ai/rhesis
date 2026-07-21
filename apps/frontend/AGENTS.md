@@ -59,6 +59,35 @@ jest.mock('@/components/common/Can', () => ({
 Key files: `src/components/common/Can.tsx` (primitives), `src/contexts/PermissionsContext.tsx`
 (ambient scope provider), `src/types/affordances.ts` (`WithPermittedActions` interface).
 
+## BFF Auth Pattern (no client-side session tokens)
+
+Authenticated calls from client components go through the same-origin `/api/backend/...` proxy,
+which injects `Authorization` server-side from the httpOnly session cookie. The access token must
+never reach a browser-issued fetch — don't prop-drill a `sessionToken` string into client
+components, hooks, or utils.
+
+- **Instantiate `new ApiClientFactory()` with no arguments** in client components/hooks/utils.
+  `buildAuthHeaders()` in `src/utils/api-client/base-client.ts` only attaches `Authorization` when
+  `typeof window === 'undefined'` — a token passed from client code is silently dropped, so adding
+  one back doesn't "fix" anything, it just leaves dead prop-drilling for the next person to trip
+  over.
+- **Only server-side code** (Server Components, Route Handlers, Server Actions —
+  `src/utils/api-client/server-factory.ts`) passes an explicit token/`projectId` into
+  `ApiClientFactory`.
+- **Gate on auth state with `isAuthenticated(status)` / `useIsAuthenticated()`** from
+  `src/hooks/useIsAuthenticated.ts` (checks NextAuth's `useSession().status`), not on
+  `session?.session_token` presence. The old token-presence check silently breaks once a component
+  stops receiving a token.
+- **Tests**: any `jest.mock('next-auth/react', ...)` mock of `useSession` must include
+  `status: 'authenticated'` alongside `data` — components gating on `isAuthenticated(status)` hang
+  in a loading state forever if the mock omits `status`.
+
+This isn't optional style — a PR that reintroduces `sessionToken` prop-drilling on a new feature
+merged cleanly with BFF-migrated code and broke lint, unit tests, and every E2E shard (the merge
+was textually clean but semantically broken: the dangling `sessionToken` reference didn't exist as
+a conflict, just a runtime `ReferenceError`). When adding a feature that needs the backend from a
+client component, follow the pattern above rather than copying an older prop-drilled example.
+
 ## Feature Gating — frontend side
 
 Mirror `FeatureName` from the backend enum in `src/constants/features.ts`. `FeaturesProvider`
