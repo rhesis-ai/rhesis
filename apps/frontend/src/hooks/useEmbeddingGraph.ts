@@ -19,7 +19,6 @@ export interface UseEmbeddingGraphResult {
 
 export function useEmbeddingGraph(
   testSetId: string,
-  sessionToken: string,
   options?: { enabled?: boolean }
 ): UseEmbeddingGraphResult {
   const enabled = options?.enabled ?? true;
@@ -64,7 +63,7 @@ export function useEmbeddingGraph(
     }): Promise<
       { status: 'ready'; graph: Scatter2DGraph } | { status: 'pending' }
     > => {
-      const client = new ApiClientFactory(sessionToken).getTestSetsClient();
+      const client = new ApiClientFactory().getTestSetsClient();
       const response = await client.getEmbeddingGraph(testSetId);
       if (response.status === 'ready') {
         if (
@@ -86,7 +85,7 @@ export function useEmbeddingGraph(
       }
       return { status: 'pending' };
     },
-    [sessionToken, testSetId]
+    [testSetId]
   );
 
   const pollUntilReady = useCallback(() => {
@@ -159,7 +158,7 @@ export function useEmbeddingGraph(
     computeBaselineRef.current = graph?.computed_at ?? null;
     setIsComputing(true);
     try {
-      const client = new ApiClientFactory(sessionToken).getTestSetsClient();
+      const client = new ApiClientFactory().getTestSetsClient();
       await client.computeEmbeddingGraph(testSetId);
       pollUntilReady();
     } catch (err) {
@@ -170,11 +169,11 @@ export function useEmbeddingGraph(
       setError(message);
       clearPoll();
     }
-  }, [clearPoll, graph?.computed_at, pollUntilReady, sessionToken, testSetId]);
+  }, [clearPoll, graph?.computed_at, pollUntilReady, testSetId]);
 
   useEffect(() => {
     clearPoll();
-  }, [clearPoll, sessionToken, testSetId]);
+  }, [clearPoll, testSetId]);
 
   useEffect(() => {
     if (!enabled) {

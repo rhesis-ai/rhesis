@@ -90,6 +90,7 @@ class ReviewUpdate(Base):
     status_id: Optional[UUID4] = Field(None, description="Updated status UUID")
     comments: Optional[str] = Field(None, description="Updated review comments")
     target: Optional[ReviewTargetCreate] = Field(None, description="Updated target")
+    resolved: Optional[bool] = Field(None, description="Mark the review as resolved or reopen it")
 
 
 class ReviewResponse(Base):
@@ -100,4 +101,7 @@ class ReviewResponse(Base):
     created_at: str
     updated_at: str
     target: Dict[str, Any]
+    resolved: bool = False
+    resolved_at: Optional[str] = None
+    resolved_by: Optional[Dict[str, Any]] = None
     permitted_actions: List[str] = Field(default_factory=list)

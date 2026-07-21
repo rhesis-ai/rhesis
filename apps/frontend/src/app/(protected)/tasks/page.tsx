@@ -23,9 +23,10 @@ import TaskDrawer, {
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import { EntityType } from '@/types/tasks';
+import { isAuthenticated, isSessionLoading } from '@/hooks/useIsAuthenticated';
 
 export default function TasksPage() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const queryClient = useQueryClient();
   const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
     Capability.Task.READ
@@ -39,8 +40,6 @@ export default function TasksPage() {
   >();
 
   useDocumentTitle('Tasks');
-
-  const sessionToken = session?.session_token ?? '';
 
   React.useEffect(() => {
     const shouldOpen = searchParams.get('create') === 'true';
@@ -86,7 +85,7 @@ export default function TasksPage() {
     setInitialEntity(undefined);
   }, []);
 
-  if (status === 'loading') {
+  if (isSessionLoading(status)) {
     return (
       <PageLayout title="Tasks" breadcrumbs={[]}>
         <Box sx={{ p: 3 }}>
@@ -99,7 +98,7 @@ export default function TasksPage() {
   if (permsLoading) return <PageLoadingState />;
   if (!canRead) return <AccessDenied resource="tasks" />;
 
-  if (!sessionToken) {
+  if (!isAuthenticated(status)) {
     return (
       <PageLayout title="Tasks" breadcrumbs={[]}>
         <Box sx={{ p: 3 }}>
@@ -157,10 +156,7 @@ export default function TasksPage() {
                 overflow: 'hidden',
               }}
             >
-              <TasksGrid
-                sessionToken={sessionToken}
-                onTotalCountChange={setTaskCount}
-              />
+              <TasksGrid onTotalCountChange={setTaskCount} />
             </Paper>
           )}
         </Box>
@@ -169,7 +165,6 @@ export default function TasksPage() {
       <TaskDrawer
         open={createDrawerOpen}
         onClose={handleCloseDrawer}
-        sessionToken={sessionToken}
         initialEntity={initialEntity}
         onSuccess={handleCreateSuccess}
       />

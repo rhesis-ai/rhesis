@@ -40,7 +40,6 @@ const LEGACY_TAB_MAP: Record<string, string> = {
 
 interface OrganizationSettingsTabsProps {
   organization: Organization;
-  sessionToken: string;
   onUpdate: () => void;
 }
 
@@ -59,7 +58,6 @@ function resolveTabParam(
 
 export default function OrganizationSettingsTabs({
   organization,
-  sessionToken,
   onUpdate,
 }: OrganizationSettingsTabsProps) {
   const router = useRouter();
@@ -127,12 +125,10 @@ export default function OrganizationSettingsTabs({
       >
         <OrganizationDetailsForm
           organization={organization}
-          sessionToken={sessionToken}
           onUpdate={onUpdate}
         />
         <ContactInformationForm
           organization={organization}
-          sessionToken={sessionToken}
           onUpdate={onUpdate}
         />
       </DetailTabPanel>
@@ -159,7 +155,7 @@ export default function OrganizationSettingsTabs({
         prefix="org-settings"
       >
         <SectionCard title="Danger Zone" variant="danger">
-          <DangerZone organization={organization} sessionToken={sessionToken} />
+          <DangerZone organization={organization} />
         </SectionCard>
       </DetailTabPanel>
     </Box>

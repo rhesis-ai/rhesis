@@ -9,6 +9,13 @@ jest.mock('@/utils/api-client/client-factory', () => ({
   ApiClientFactory: jest.fn(),
 }));
 
+jest.mock('next-auth/react', () => ({
+  useSession: () => ({
+    data: { session_token: 'tok' },
+    status: 'authenticated',
+  }),
+}));
+
 jest.mock('@/utils/api-client/tags-client', () => ({
   TagsClient: jest.fn(),
 }));

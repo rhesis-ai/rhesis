@@ -21,7 +21,6 @@ import { useActiveProject } from '@/contexts/ActiveProjectContext';
 interface CreateTokenDrawerProps {
   open: boolean;
   onClose: () => void;
-  sessionToken: string;
   onCreateToken: (
     name: string,
     expiresInDays: number | null,
@@ -32,7 +31,6 @@ interface CreateTokenDrawerProps {
 export default function CreateTokenDrawer({
   open,
   onClose,
-  sessionToken,
   onCreateToken,
 }: CreateTokenDrawerProps) {
   const { activeProject } = useActiveProject();
@@ -151,11 +149,7 @@ export default function CreateTokenDrawer({
           </LocalizationProvider>
         )}
         {TokenScopeField && (
-          <TokenScopeField
-            sessionToken={sessionToken}
-            value={scopes}
-            onChange={setScopes}
-          />
+          <TokenScopeField value={scopes} onChange={setScopes} />
         )}
       </Stack>
     </BaseDrawer>

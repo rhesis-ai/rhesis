@@ -21,12 +21,12 @@ export default withNextra({
       { source: '/', destination: '/docs', permanent: false },
       {
         source: '/penelope',
-        destination: '/docs/conversation-simulation',
+        destination: '/docs/tests/conversation-simulation',
         permanent,
       },
       {
         source: '/penelope/:path*',
-        destination: '/docs/conversation-simulation/:path*',
+        destination: '/docs/tests/conversation-simulation/:path*',
         permanent,
       },
       { source: '/getting-started', destination: '/docs/getting-started', permanent },
@@ -41,6 +41,7 @@ export default withNextra({
       { source: '/docs/frameworks', destination: '/docs/metrics', permanent },
       { source: '/docs/mcp', destination: '/docs/tools', permanent },
       { source: '/docs/mcp/:path*', destination: '/docs/tools/:path*', permanent },
+      { source: '/docs/test-execution', destination: '/docs/test-runs/execution', permanent },
       // Avoid clash with public/static assets under /integrations/* — only the bare path is a doc URL
       { source: '/integrations', destination: '/docs/integrations', permanent },
       { source: '/integrations/', destination: '/docs/integrations', permanent },
@@ -65,32 +66,32 @@ export default withNextra({
       { source: '/tracing/:path*', destination: '/docs/tracing/:path*', permanent },
       {
         source: '/conversation-simulation',
-        destination: '/docs/conversation-simulation',
+        destination: '/docs/tests/conversation-simulation',
         permanent,
       },
       {
         source: '/conversation-simulation/:path*',
-        destination: '/docs/conversation-simulation/:path*',
+        destination: '/docs/tests/conversation-simulation/:path*',
         permanent,
       },
       {
         source: '/adversarial-testing',
-        destination: '/docs/adversarial-testing',
+        destination: '/docs/tests/adversarial-testing',
         permanent,
       },
       {
         source: '/adversarial-testing/:path*',
-        destination: '/docs/adversarial-testing/:path*',
+        destination: '/docs/tests/adversarial-testing/:path*',
         permanent,
       },
       {
         source: '/multimodal-testing',
-        destination: '/docs/multimodal-testing',
+        destination: '/docs/tests/multimodal-testing',
         permanent,
       },
       {
         source: '/multimodal-testing/:path*',
-        destination: '/docs/multimodal-testing/:path*',
+        destination: '/docs/tests/multimodal-testing/:path*',
         permanent,
       },
       { source: '/platform', destination: '/docs/getting-started', permanent },

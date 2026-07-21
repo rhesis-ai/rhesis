@@ -34,10 +34,6 @@ import TestConfigurationConfirmation from './TestConfigurationConfirmation';
 import { TEMPLATES } from '@/config/test-templates';
 import { getApiErrorMessage } from '@/utils/error-utils';
 
-interface TestGenerationFlowProps {
-  sessionToken: string;
-}
-
 // Initial empty chip configurations
 const createEmptyChips = (): ConfigChips => {
   return {
@@ -251,9 +247,7 @@ const convertTestEventToSample = (
  * TestGenerationFlow Component
  * Main orchestrator for the test generation flow
  */
-export default function TestGenerationFlow({
-  sessionToken,
-}: TestGenerationFlowProps) {
+export default function TestGenerationFlow() {
   const router = useRouter();
   const { show } = useNotifications();
 
@@ -311,7 +305,7 @@ export default function TestGenerationFlow({
   const [isLoadingSources, setIsLoadingSources] = useState(true);
 
   useEffect(() => {
-    const factory = new ApiClientFactory(sessionToken);
+    const factory = new ApiClientFactory();
 
     factory
       .getModelsClient()
@@ -328,7 +322,7 @@ export default function TestGenerationFlow({
       )
       .catch(() => setPrefetchedSources([]))
       .finally(() => setIsLoadingSources(false));
-  }, [sessionToken]);
+  }, []);
 
   const handleTestTypeChange = useCallback((newType: TestType) => {
     setTestType(newType);
@@ -410,7 +404,7 @@ export default function TestGenerationFlow({
         setIsLoadingConfig(true);
         setIsLoadingSamples(true);
 
-        const apiFactory = new ApiClientFactory(sessionToken);
+        const apiFactory = new ApiClientFactory();
         const servicesClient = apiFactory.getServicesClient();
 
         await servicesClient.generateTestPipelineStream(
@@ -436,7 +430,7 @@ export default function TestGenerationFlow({
     initializeFromTemplate();
     // selectedProjectId, selectedSources, testType, selectedModelId intentionally excluded - template init runs once on mount
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionToken, show, handlePipelineEvent]);
+  }, [show, handlePipelineEvent]);
 
   // Input Screen Handler
   const handleContinueFromInput = useCallback(
@@ -452,7 +446,7 @@ export default function TestGenerationFlow({
 
       let apiFactory: ApiClientFactory;
       try {
-        apiFactory = new ApiClientFactory(sessionToken);
+        apiFactory = new ApiClientFactory();
       } catch (_error) {
         setIsLoadingConfig(false);
         setIsLoadingSamples(false);
@@ -495,14 +489,7 @@ export default function TestGenerationFlow({
         setIsLoadingSamples(false);
       }
     },
-    [
-      sessionToken,
-      show,
-      testType,
-      selectedProjectId,
-      selectedModelId,
-      handlePipelineEvent,
-    ]
+    [show, testType, selectedProjectId, selectedModelId, handlePipelineEvent]
   );
 
   // Generate test samples
@@ -511,7 +498,7 @@ export default function TestGenerationFlow({
     setIsLoadingSamples(true);
 
     try {
-      const apiFactory = new ApiClientFactory(sessionToken);
+      const apiFactory = new ApiClientFactory();
       const servicesClient = apiFactory.getServicesClient();
 
       const pipelineConfig = {
@@ -549,7 +536,6 @@ export default function TestGenerationFlow({
       setIsLoadingSamples(false);
     }
   }, [
-    sessionToken,
     description,
     selectedProjectId,
     selectedSources,
@@ -570,7 +556,7 @@ export default function TestGenerationFlow({
       setRegeneratingSampleId(sampleId);
 
       try {
-        const apiFactory = new ApiClientFactory(sessionToken);
+        const apiFactory = new ApiClientFactory();
         const servicesClient = apiFactory.getServicesClient();
 
         // Build config from configuration with feedback
@@ -668,7 +654,6 @@ export default function TestGenerationFlow({
       }
     },
     [
-      sessionToken,
       description,
       configChips,
       selectedSources,
@@ -755,7 +740,7 @@ export default function TestGenerationFlow({
       setIsLoadingSamples(true);
 
       try {
-        const apiFactory = new ApiClientFactory(sessionToken);
+        const apiFactory = new ApiClientFactory();
         const servicesClient = apiFactory.getServicesClient();
 
         const previousMessages = chatMessages
@@ -805,7 +790,6 @@ export default function TestGenerationFlow({
       }
     },
     [
-      sessionToken,
       description,
       selectedProjectId,
       selectedSources,
@@ -840,7 +824,7 @@ export default function TestGenerationFlow({
   const handleLoadMoreSamples = useCallback(async () => {
     setIsLoadingMore(true);
     try {
-      const apiFactory = new ApiClientFactory(sessionToken);
+      const apiFactory = new ApiClientFactory();
       const servicesClient = apiFactory.getServicesClient();
 
       const activeBehaviors = configChips.behavior
@@ -873,7 +857,6 @@ export default function TestGenerationFlow({
       setIsLoadingMore(false);
     }
   }, [
-    sessionToken,
     description,
     configChips,
     selectedSources,
@@ -893,7 +876,7 @@ export default function TestGenerationFlow({
     }
     setIsFinishing(true);
     try {
-      const apiFactory = new ApiClientFactory(sessionToken);
+      const apiFactory = new ApiClientFactory();
       const testSetsClient = apiFactory.getTestSetsClient();
 
       const activeBehaviors = configChips.behavior
@@ -970,7 +953,6 @@ export default function TestGenerationFlow({
       setIsFinishing(false);
     }
   }, [
-    sessionToken,
     configChips.behavior,
     configChips.topics,
     configChips.category,
@@ -1044,7 +1026,6 @@ export default function TestGenerationFlow({
       case 'input':
         return (
           <TestInputScreen
-            sessionToken={sessionToken}
             testType={testType}
             onTestTypeChange={handleTestTypeChange}
             onContinue={handleContinueFromInput}

@@ -422,15 +422,50 @@ def verify_email_flow_token(token: str, expected_type: str) -> Dict[str, Any]:
     return payload
 
 
-def create_auth_code(
+async def create_auth_code(
     session_token: str,
     refresh_token: str | None = None,
 ) -> str:
-    """Create a short-lived JWT auth code wrapping tokens.
+    """Create a short-lived, single-use auth code for the login redirect.
 
-    Used during OAuth callback redirects so the long-lived tokens
-    are never exposed in the URL.  The auth code expires in 60 seconds.
+    The code is an OPAQUE random reference: the session/refresh tokens are
+    stored server-side (Redis, 60s TTL) and the code itself carries nothing —
+    so URLs, browser history, Referer headers, and access logs never contain
+    token material. ``POST /auth/exchange-code`` consumes it atomically.
+
+    Fallback: when Redis is unavailable, logins must keep working, so we
+    fall back to the legacy signed-JWT code that EMBEDS the tokens in its
+    payload (base64-decodable by anyone who sees the URL). This is a
+    deliberate availability-over-confidentiality trade in a degraded state,
+    and is logged loudly. ``verify_auth_code`` accepts both formats.
     """
+    from rhesis.backend.app.auth.used_token_store import (
+        TokenStoreUnavailableError,
+        store_auth_code_tokens,
+    )
+
+    code = secrets.token_urlsafe(32)
+    try:
+        await store_auth_code_tokens(
+            code,
+            session_token,
+            refresh_token,
+            ttl_seconds=AUTH_CODE_EXPIRE_MINUTES * 60,
+        )
+        return code
+    except TokenStoreUnavailableError:
+        logger.warning(
+            "Redis unavailable — falling back to JWT auth code with embedded "
+            "tokens (degraded: token material will appear in the redirect URL)"
+        )
+        return _create_jwt_auth_code(session_token, refresh_token)
+
+
+def _create_jwt_auth_code(
+    session_token: str,
+    refresh_token: str | None = None,
+) -> str:
+    """Legacy JWT auth code embedding the tokens (Redis-down fallback only)."""
     now = datetime.now(timezone.utc)
     payload: Dict[str, Any] = {
         "type": "auth_code",
@@ -445,14 +480,46 @@ def create_auth_code(
 
 
 async def verify_auth_code(code: str) -> Dict[str, str]:
-    """Verify a short-lived auth code and return the wrapped tokens.
+    """Verify a short-lived auth code and return the referenced tokens.
 
     Returns a dict with ``session_token`` (always present) and
     ``refresh_token`` (present when the code was created with one).
 
-    Each auth code can only be exchanged once (jti tracked in Redis).
-    Raises HTTPException(400) if the code is invalid, expired, or already used.
+    Opaque codes (the normal case) are consumed atomically from Redis —
+    single-use is inherent. Legacy JWT-format codes (Redis-down fallback,
+    plus any code minted before this change) are verified by signature with
+    best-effort jti replay protection. The two formats are unambiguous:
+    ``secrets.token_urlsafe`` output never contains ``.``; a JWT always does.
+
+    Raises HTTPException(400) if the code is invalid, expired, or already
+    used, and HTTPException(503) if the token store holding an opaque
+    code's tokens is unreachable.
     """
+    if "." not in code:
+        from rhesis.backend.app.auth.used_token_store import (
+            TokenStoreUnavailableError,
+            consume_auth_code_tokens,
+        )
+
+        try:
+            tokens = await consume_auth_code_tokens(code)
+        except TokenStoreUnavailableError:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Authentication temporarily unavailable",
+            )
+        if tokens is None or not tokens.get("session_token"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid or expired auth code",
+            )
+        return tokens
+
+    return await _verify_jwt_auth_code(code)
+
+
+async def _verify_jwt_auth_code(code: str) -> Dict[str, str]:
+    """Verify a legacy JWT-format auth code (embedded tokens)."""
     try:
         payload = jwt.decode(code, get_secret_key(), algorithms=[get_jwt_algorithm()])
     except JWTError as e:

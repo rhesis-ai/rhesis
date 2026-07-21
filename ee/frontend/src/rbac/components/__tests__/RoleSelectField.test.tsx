@@ -63,13 +63,7 @@ describe('RoleSelectField', () => {
       })
     );
 
-    render(
-      <RoleSelectField
-        sessionToken={SESSION_TOKEN}
-        value={null}
-        onChange={jest.fn()}
-      />
-    );
+    render(<RoleSelectField value={null} onChange={jest.fn()} />);
 
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
     expect(screen.queryByText('Default (Member)')).not.toBeInTheDocument();
@@ -84,13 +78,7 @@ describe('RoleSelectField', () => {
     rbacClientInstanceMock.getRoles.mockResolvedValue([NONE_ROLE]);
 
     const user = userEvent.setup();
-    render(
-      <RoleSelectField
-        sessionToken={SESSION_TOKEN}
-        value={null}
-        onChange={jest.fn()}
-      />
-    );
+    render(<RoleSelectField value={null} onChange={jest.fn()} />);
 
     await user.click(await screen.findByRole('combobox'));
     expect(screen.getAllByRole('option')).toHaveLength(1);
@@ -106,13 +94,7 @@ describe('RoleSelectField', () => {
     ]);
     const user = userEvent.setup();
 
-    render(
-      <RoleSelectField
-        sessionToken={SESSION_TOKEN}
-        value={null}
-        onChange={jest.fn()}
-      />
-    );
+    render(<RoleSelectField value={null} onChange={jest.fn()} />);
 
     await user.click(await screen.findByRole('combobox'));
     expect(
@@ -128,13 +110,7 @@ describe('RoleSelectField', () => {
     const onChange = jest.fn();
     const user = userEvent.setup();
 
-    render(
-      <RoleSelectField
-        sessionToken={SESSION_TOKEN}
-        value={null}
-        onChange={onChange}
-      />
-    );
+    render(<RoleSelectField value={null} onChange={onChange} />);
 
     await user.click(await screen.findByRole('combobox'));
     await user.click(await screen.findByRole('option', { name: 'Viewer' }));
@@ -151,24 +127,12 @@ describe('RoleSelectField', () => {
     ]);
 
     const { rerender } = render(
-      <RoleSelectField
-        sessionToken={SESSION_TOKEN}
-        value={null}
-        onChange={jest.fn()}
-        active={false}
-      />
+      <RoleSelectField value={null} onChange={jest.fn()} active={false} />
     );
 
     expect(rbacClientInstanceMock.getRoles).not.toHaveBeenCalled();
 
-    rerender(
-      <RoleSelectField
-        sessionToken={SESSION_TOKEN}
-        value={null}
-        onChange={jest.fn()}
-        active
-      />
-    );
+    rerender(<RoleSelectField value={null} onChange={jest.fn()} active />);
 
     await waitFor(() => {
       expect(rbacClientInstanceMock.getRoles).toHaveBeenCalledTimes(1);
@@ -182,13 +146,7 @@ describe('RoleSelectField', () => {
       MEMBER_ROLE,
     ]);
 
-    render(
-      <RoleSelectField
-        sessionToken={SESSION_TOKEN}
-        value="role-deleted"
-        onChange={onChange}
-      />
-    );
+    render(<RoleSelectField value="role-deleted" onChange={onChange} />);
 
     await waitFor(() => {
       expect(onChange).toHaveBeenCalledWith(null);

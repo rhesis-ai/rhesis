@@ -114,7 +114,6 @@ interface TracesTableProps {
   filterDrawerOpen: boolean;
   onFilterDrawerOpen: () => void;
   onFilterDrawerClose: () => void;
-  sessionToken: string;
   fixedTestRunId?: string;
 }
 
@@ -136,7 +135,6 @@ export default function TracesTable({
   filterDrawerOpen,
   onFilterDrawerOpen,
   onFilterDrawerClose,
-  sessionToken,
   fixedTestRunId,
 }: TracesTableProps) {
   const hasActiveDrawerFilters = hasActiveTraceDrawerFilters(drawerFilters, {
@@ -443,7 +441,6 @@ export default function TracesTable({
         onClose={onFilterDrawerClose}
         filters={drawerFilters}
         onApply={onApplyDrawerFilters}
-        sessionToken={sessionToken}
         fixedTestRunId={fixedTestRunId}
       />
     </TracesToolbarContext.Provider>

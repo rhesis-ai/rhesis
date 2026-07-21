@@ -214,7 +214,6 @@ function PrivilegeRail() {
 // ---------------------------------------------------------------------------
 
 export default function RolesTab() {
-  const { sessionToken } = useOrgSettings();
   const notifications = useNotifications();
   const { allowed: canReadRoles, loading: permsLoading } = useCanWithStatus(
     Capability.Role.READ
@@ -232,7 +231,7 @@ export default function RolesTab() {
   const [deleting, setDeleting] = useState(false);
 
   const loadRoles = useCallback(() => {
-    fetchRoles(sessionToken)
+    fetchRoles()
       .then(data => {
         setRoles(data);
         setLoading(false);
@@ -241,7 +240,7 @@ export default function RolesTab() {
         setError(err instanceof Error ? err.message : 'Failed to load roles');
         setLoading(false);
       });
-  }, [sessionToken]);
+  }, []);
 
   useEffect(() => {
     if (permsLoading || !canReadRoles) return;
@@ -274,7 +273,7 @@ export default function RolesTab() {
     if (!roleToDelete) return;
     setDeleting(true);
     try {
-      const client = new RbacClient(sessionToken);
+      const client = new RbacClient();
       await client.deleteRole(roleToDelete.id);
       invalidateRoles();
       handleDeleted(roleToDelete.id);
@@ -288,7 +287,7 @@ export default function RolesTab() {
     } finally {
       setDeleting(false);
     }
-  }, [roleToDelete, sessionToken, handleDeleted, notifications]);
+  }, [roleToDelete, handleDeleted, notifications]);
 
   if (permsLoading) {
     return (

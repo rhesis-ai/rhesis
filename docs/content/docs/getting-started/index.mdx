@@ -1,16 +1,14 @@
 ---
 title: Getting Started with Rhesis
-description: Set up your Rhesis environment, connect your Gen AI application, and run your first automated evaluations in minutes.
-keywords: [getting started, AI testing setup, LLM evaluation quickstart, connect AI application]
+description: Set up your Rhesis environment, connect your LLM application, and run your first automated evaluations in minutes.
+keywords: [getting started, AI testing setup, LLM evaluation quickstart, connect LLM application]
 ---
 
 import { NextStepCard, NextStepCardGrid } from '@/components/NextStepCard'
 
 # Getting Started
 
-Welcome to Rhesis! This guide will help you get started with testing and evaluating your Generative AI applications.
-
-The Rhesis platform is designed to seamlessly integrate into your development lifecycle, enabling you to build, test, and deploy Gen AI applications with confidence. From setting up your first environment to running complex adversarial evaluations, this guide provides a step-by-step pathway.
+This guide takes you from a fresh environment to your first automated evaluation of your LLM application.
 
 ## Quick install (Python SDK)
 
@@ -22,10 +20,10 @@ pip install rhesis-sdk
 
 ```python
 import os
-from rhesis.sdk.entities import TestSet
+from rhesis.sdk.entities import TestSets
 
 os.environ["RHESIS_API_KEY"] = "rh-your-api-key"  # from app.rhesis.ai
-for ts in TestSet().all():
+for ts in TestSets.all():
     print(ts.name)
 ```
 
@@ -54,7 +52,7 @@ Pick a path that matches your goal — each card links to deeper docs.
     emoji="🛡️"
     title="Adversarial and safety"
     description="Red-team style checks and Polyphemus integration."
-    link="/docs/adversarial-testing"
+    link="/docs/tests/adversarial-testing"
     linkText="Adversarial testing →"
   />
   <NextStepCard
@@ -68,7 +66,7 @@ Pick a path that matches your goal — each card links to deeper docs.
     emoji="💬"
     title="Conversation testing"
     description="Multi-turn simulation with Penelope."
-    link="/docs/conversation-simulation"
+    link="/docs/tests/conversation-simulation"
     linkText="Conversation simulation →"
   />
   <NextStepCard
@@ -92,7 +90,7 @@ Choose how you want to run Rhesis: Cloud (fastest), Local, or Self-hosted.
 [Setup Environment Guide →](/docs/getting-started/setup-environment)
 
 ### Connect Application
-Connect your Gen AI application to Rhesis via REST Endpoints or our Python SDK.
+Connect your LLM application to Rhesis via REST Endpoints or our Python SDK.
 [Connect Application Guide →](/docs/getting-started/connecting-application)
 
 ### Run Evaluations
@@ -137,10 +135,4 @@ Generate test sets interactively and run automated evaluations against your appl
 
 - **In-app support drawer**: Click **Support** in the sidebar footer to open
   links to the documentation site, support email, GitHub, and Discord.
-- **Documentation**: Browse the docs using the navigation menu
 - **GitHub Issues**: [Report bugs or request features](https://github.com/rhesis-ai/rhesis/issues)
-- **Community**: Join discussions and get support
-
-<Callout type="default">
-**Tip**: If you're new to Gen AI testing, start with [Core Concepts](/docs/concepts) to understand key principles before diving into implementation.
-</Callout>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { useSession } from 'next-auth/react';
 import {
   Box,
   Typography,
@@ -35,11 +36,11 @@ import TraceMetricsTab from './TraceMetricsTab';
 import TraceReviewsTab from './TraceReviewsTab';
 import { TasksAndCommentsWrapper } from '@/components/tasks/TasksAndCommentsWrapper';
 import { BORDER_RADIUS } from '@/styles/theme-constants';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface SpanDetailsPanelProps {
   span: SpanNode | null;
   trace: TraceDetailResponse | null;
-  sessionToken: string;
   hasTraceMetrics?: boolean;
   isConversationTrace?: boolean;
   currentUserId?: string;
@@ -78,7 +79,6 @@ function TabPanel({ children, value, index }: TabPanelProps) {
 export default function SpanDetailsPanel({
   span,
   trace,
-  sessionToken,
   hasTraceMetrics = false,
   isConversationTrace = false,
   currentUserId = '',
@@ -93,6 +93,7 @@ export default function SpanDetailsPanel({
   traceMetricsStatus = null,
   selectedTurnNumber = null,
 }: SpanDetailsPanelProps) {
+  const { status } = useSession();
   const [activeTabIndex, setActiveTabIndex] = useState(0);
   const [spanFiles, setSpanFiles] = useState<FileResponse[]>([]);
   const [spanFilesLoading, setSpanFilesLoading] = useState(false);
@@ -158,7 +159,7 @@ export default function SpanDetailsPanel({
 
   // Fetch files attached to the selected span
   useEffect(() => {
-    if (!span?.id || !sessionToken) {
+    if (!span?.id || !isAuthenticated(status)) {
       setSpanFiles([]);
       return;
     }
@@ -166,7 +167,7 @@ export default function SpanDetailsPanel({
     let cancelled = false;
     setSpanFilesLoading(true);
 
-    const filesClient = new FilesClient(sessionToken);
+    const filesClient = new FilesClient();
     filesClient
       .getSpanFiles(span.id)
       .then(files => {
@@ -182,7 +183,7 @@ export default function SpanDetailsPanel({
     return () => {
       cancelled = true;
     };
-  }, [span?.id, sessionToken]);
+  }, [span?.id, status]);
 
   const { llmAttributes, functionAttributes, testAttributes, otherAttributes } =
     useMemo(() => {
@@ -460,7 +461,6 @@ export default function SpanDetailsPanel({
                   </Typography>
                   <FileAttachmentList
                     files={spanFiles}
-                    sessionToken={sessionToken}
                     isLoading={spanFilesLoading}
                   />
                 </CardContent>
@@ -1068,7 +1068,7 @@ export default function SpanDetailsPanel({
         {/* Test Result Tab */}
         {showTestResultTab && (
           <TabPanel value={activeTabKey} index="tests">
-            <TestResultTab trace={trace} sessionToken={sessionToken} />
+            <TestResultTab trace={trace} />
           </TabPanel>
         )}
 
@@ -1091,7 +1091,6 @@ export default function SpanDetailsPanel({
             <TraceReviewsTab
               selectedSpan={span}
               trace={trace}
-              sessionToken={sessionToken}
               onTraceUpdated={onTraceUpdated ?? (() => {})}
               mentionableMetrics={mentionableMetrics}
               mentionableTurns={mentionableTurns}
@@ -1105,7 +1104,6 @@ export default function SpanDetailsPanel({
               <TasksAndCommentsWrapper
                 entityType="Trace"
                 entityId={trace.root_spans[0].id}
-                sessionToken={sessionToken}
                 currentUserId={currentUserId}
                 currentUserName={currentUserName}
                 currentUserPicture={currentUserPicture}

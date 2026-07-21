@@ -18,19 +18,16 @@ import type { ComponentType } from 'react';
 
 export interface OrgRoleCellProps {
   userId: string;
-  sessionToken: string;
   onRoleChanged?: () => void;
 }
 
 export interface ProjectRoleCellProps {
   userId: string;
   projectId: string;
-  sessionToken: string;
   onRoleChanged?: () => void;
 }
 
 export interface AddMemberRoleFieldProps {
-  sessionToken: string;
   value: string | null;
   onChange: (roleId: string | null) => void;
   /** 'small' renders a compact inline Select without a label, suitable for
@@ -41,7 +38,6 @@ export interface AddMemberRoleFieldProps {
 }
 
 export interface InviteOrgRoleFieldProps {
-  sessionToken: string;
   value: string | null;
   onChange: (roleId: string | null) => void;
   /** When true, bypass the role catalog cache (e.g. each time a host drawer opens). */
@@ -79,21 +75,15 @@ export interface MemberRoleExtensions {
   /** Renders an org-role picker beside each email on the team invite form. */
   InviteOrgRoleField?: ComponentType<InviteOrgRoleFieldProps>;
   /** Assigns an org role after a user is invited. */
-  assignOrgMemberRole?: (
-    sessionToken: string,
-    userId: string,
-    roleId: string
-  ) => Promise<void>;
+  assignOrgMemberRole?: (userId: string, roleId: string) => Promise<void>;
   /** Assigns a project role after a member is added via the community endpoint. */
   assignProjectMemberRole?: (
-    sessionToken: string,
     projectId: string,
     userId: string,
     roleId: string
   ) => Promise<void>;
   /** Fetches all project memberships for a user in a single call (EE bulk endpoint). */
   fetchUserProjectMemberships?: (
-    sessionToken: string,
     userId: string
   ) => Promise<UserProjectMembership[]>;
   /**
@@ -104,10 +94,7 @@ export interface MemberRoleExtensions {
    * rights don't hold, so fetching it unconditionally would fire a doomed
    * 403 for every non-admin page load.
    */
-  prewarmCaches?: (
-    sessionToken: string,
-    opts?: { canManageRoles?: boolean }
-  ) => void;
+  prewarmCaches?: (opts?: { canManageRoles?: boolean }) => void;
   /**
    * Pre-warm RBAC caches for a single project's members grid, so
    * `ProjectRoleCell` renders immediately instead of each row triggering its
@@ -116,7 +103,6 @@ export interface MemberRoleExtensions {
    * `Permission.Role.READ`.
    */
   prewarmProjectCaches?: (
-    sessionToken: string,
     projectId: string,
     opts?: { canManageRoles?: boolean }
   ) => void;

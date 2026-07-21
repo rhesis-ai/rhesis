@@ -8,6 +8,13 @@ import { EntityType } from '@/types/entity-type';
 
 // Mock dependencies
 jest.mock('../../utils/api-client/client-factory');
+const mockUseSession = jest.fn(() => ({
+  data: { session_token: 'tok' },
+  status: 'authenticated',
+}));
+jest.mock('next-auth/react', () => ({
+  useSession: () => mockUseSession(),
+}));
 const mockShow = jest.fn();
 const mockNotifications = { show: mockShow };
 jest.mock('../../components/common/NotificationContext', () => ({
@@ -35,7 +42,6 @@ describe('useComments', () => {
   const mockProps = {
     entityType: 'Test',
     entityId: '123',
-    sessionToken: 'mock-session-token',
     currentUserId: 'user-1',
     currentUserName: 'John Doe',
     currentUserPicture: 'https://example.com/avatar.jpg',
@@ -161,10 +167,13 @@ describe('useComments', () => {
     });
 
     it('handles missing session token', async () => {
-      const { result } = renderHook(
-        () => useComments({ ...mockProps, sessionToken: '' }),
-        { wrapper: createWrapper() }
-      );
+      mockUseSession.mockReturnValueOnce({
+        data: null,
+        status: 'unauthenticated',
+      } as unknown as ReturnType<typeof mockUseSession>);
+      const { result } = renderHook(() => useComments(mockProps), {
+        wrapper: createWrapper(),
+      });
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false);
@@ -232,13 +241,16 @@ describe('useComments', () => {
     });
 
     it('handles missing session token for create', async () => {
-      const { result } = renderHook(
-        () => useComments({ ...mockProps, sessionToken: '' }),
-        { wrapper: createWrapper() }
-      );
+      mockUseSession.mockReturnValueOnce({
+        data: null,
+        status: 'unauthenticated',
+      } as unknown as ReturnType<typeof mockUseSession>);
+      const { result } = renderHook(() => useComments(mockProps), {
+        wrapper: createWrapper(),
+      });
 
       await expect(result.current.createComment('New comment')).rejects.toThrow(
-        'No session token available'
+        'Not authenticated'
       );
     });
   });

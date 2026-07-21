@@ -105,7 +105,10 @@ class TestAuthProviders:
         from rhesis.backend.app.auth.providers.registry import ProviderRegistry
         from rhesis.backend.app.config.settings import get_auth_settings
 
-        with patch.dict(os.environ, {}, clear=True):
+        # Preserve SESSION_SECRET_KEY (a required setting) so AuthSettings can
+        # still be constructed; only the OAuth credentials are cleared here.
+        preserved = {"SESSION_SECRET_KEY": os.environ["SESSION_SECRET_KEY"]}
+        with patch.dict(os.environ, preserved, clear=True):
             # Clear the LRU-cached settings so is_enabled re-reads the (now empty) env
             get_auth_settings.cache_clear()
             ProviderRegistry.reset()
@@ -147,7 +150,10 @@ class TestProviderLogin:
         from rhesis.backend.app.auth.providers.registry import ProviderRegistry
         from rhesis.backend.app.config.settings import get_auth_settings
 
-        with patch.dict(os.environ, {}, clear=True):
+        # Preserve SESSION_SECRET_KEY (a required setting) so AuthSettings can
+        # still be constructed; only the OAuth credentials are cleared here.
+        preserved = {"SESSION_SECRET_KEY": os.environ["SESSION_SECRET_KEY"]}
+        with patch.dict(os.environ, preserved, clear=True):
             get_auth_settings.cache_clear()
             ProviderRegistry.reset()
 
@@ -783,9 +789,7 @@ class TestAuthMagicLinkRoutes:
         )
         assert response.status_code == status.HTTP_200_OK
 
-    def test_accept_terms_records_current_version(
-        self, client: TestClient, test_db, test_org_id
-    ):
+    def test_accept_terms_records_current_version(self, client: TestClient, test_db, test_org_id):
         from rhesis.backend.app.auth.terms import CURRENT_TERMS_VERSION
         from rhesis.backend.app.auth.token_utils import create_session_token
 
@@ -836,8 +840,11 @@ class TestAuthMagicLinkRoutes:
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
         assert data["success"] is True
-        assert "session_token" in data
-        assert "refresh_token" in data
+        # Refresh token stays out of the browser: the flow returns a
+        # single-use auth code, not raw tokens.
+        assert "auth_code" in data
+        assert "session_token" not in data
+        assert "refresh_token" not in data
         assert data["user"]["email"] == user.email
         assert data["user"]["id"] == str(user.id)
 
@@ -912,20 +919,82 @@ class TestAuthMagicLinkRoutes:
 class TestAuthExchangeCode:
     """Test POST /auth/exchange-code for OAuth auth code exchange."""
 
-    def test_exchange_valid_code(self, client: TestClient):
-        """Exchange a valid auth code returns session + refresh tokens."""
-        with patch(
-            "rhesis.backend.app.auth.token_utils.get_secret_key",
-            return_value="test-secret",
+    def test_exchange_valid_opaque_code(self, client: TestClient):
+        """Opaque code: tokens live server-side; exchange is single-use."""
+        import asyncio
+
+        stored: dict = {}
+
+        async def fake_store(code, session_token, refresh_token, ttl_seconds):
+            payload = {"session_token": session_token}
+            if refresh_token:
+                payload["refresh_token"] = refresh_token
+            stored[code] = payload
+
+        async def fake_consume(code):
+            return stored.pop(code, None)
+
+        with (
+            patch(
+                "rhesis.backend.app.auth.used_token_store.store_auth_code_tokens",
+                fake_store,
+            ),
+            patch(
+                "rhesis.backend.app.auth.used_token_store.consume_auth_code_tokens",
+                fake_consume,
+            ),
         ):
-            code = create_auth_code(
-                "real-session-token-123",
-                refresh_token="refresh-tok-456",
+            code = asyncio.run(
+                create_auth_code(
+                    "real-session-token-123",
+                    refresh_token="refresh-tok-456",
+                )
             )
-            response = client.post(
-                "/auth/exchange-code",
-                json={"code": code},
+            # Opaque codes carry no token material and are not JWTs.
+            assert "." not in code
+            assert "real-session-token-123" not in code
+
+            response = client.post("/auth/exchange-code", json={"code": code})
+            assert response.status_code == status.HTTP_200_OK
+            data = response.json()
+            assert data["session_token"] == "real-session-token-123"
+            assert data["refresh_token"] == "refresh-tok-456"
+
+            # Single-use: the same code cannot be exchanged twice.
+            replay = client.post("/auth/exchange-code", json={"code": code})
+            assert replay.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_exchange_valid_jwt_fallback_code(self, client: TestClient):
+        """Redis-down fallback: JWT-format code still exchanges correctly."""
+        import asyncio
+
+        from rhesis.backend.app.auth.used_token_store import (
+            TokenStoreUnavailableError,
+        )
+
+        async def unavailable_store(*args, **kwargs):
+            raise TokenStoreUnavailableError("down")
+
+        with (
+            patch(
+                "rhesis.backend.app.auth.token_utils.get_secret_key",
+                return_value="test-secret",
+            ),
+            patch(
+                "rhesis.backend.app.auth.used_token_store.store_auth_code_tokens",
+                unavailable_store,
+            ),
+        ):
+            code = asyncio.run(
+                create_auth_code(
+                    "real-session-token-123",
+                    refresh_token="refresh-tok-456",
+                )
             )
+            # Fallback codes are JWTs (three dot-separated segments).
+            assert code.count(".") == 2
+
+            response = client.post("/auth/exchange-code", json={"code": code})
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
@@ -1030,7 +1099,8 @@ class TestAuthRefreshToken:
     """Test POST /auth/refresh for access/refresh token rotation."""
 
     def test_refresh_valid_token(self, client: TestClient, test_db, test_org_id):
-        """POST /auth/refresh with valid refresh token returns new tokens."""
+        """POST /auth/refresh with a valid UI/SSO token returns a fresh
+        access token and the SAME (stable) refresh token."""
         from rhesis.backend.app.auth.refresh_token_utils import (
             create_refresh_token as create_rt,
         )
@@ -1057,8 +1127,10 @@ class TestAuthRefreshToken:
         assert "access_token" in data
         assert "refresh_token" in data
         assert data["token_type"] == "bearer"
-        # New refresh token must differ from old one (rotation)
-        assert data["refresh_token"] != raw_token
+        # UI/SSO refresh tokens are stable (not rotated), so the same
+        # token comes back. Rotation is reserved for token-exchange
+        # (client_id) tokens.
+        assert data["refresh_token"] == raw_token
 
     def test_refresh_invalid_token(self, client: TestClient):
         """POST /auth/refresh with invalid refresh token returns 401."""
@@ -1068,90 +1140,68 @@ class TestAuthRefreshToken:
         )
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
-    def test_refresh_reuse_detection(self, client: TestClient, test_db, test_org_id):
-        """POST /auth/refresh with reused token revokes entire family."""
+    def test_refresh_ui_token_is_stable_and_reusable(
+        self, client: TestClient, test_db, test_org_id
+    ):
+        """A UI/SSO refresh token can be used repeatedly (stable, no
+        rotation). This is what makes refresh idempotent under Next.js
+        RSC renders and concurrent tabs. Reuse detection / family
+        revocation applies only to token-exchange tokens (covered in the
+        refresh_token_utils unit tests)."""
         from rhesis.backend.app.auth.refresh_token_utils import (
             create_refresh_token as create_rt,
         )
 
-        email = _unique_email("reuse")
-        org = create_test_organization(test_db, "Reuse Org")
-        user = create_test_user(test_db, org.id, email, "Reuse User")
+        email = _unique_email("stable")
+        org = create_test_organization(test_db, "Stable Org")
+        user = create_test_user(test_db, org.id, email, "Stable User")
         test_db.flush()
 
         raw_token = create_rt(test_db, str(user.id))
         test_db.commit()
 
-        # First use should succeed
         with patch(
             "rhesis.backend.app.auth.token_utils.get_secret_key",
             return_value="test-secret",
         ):
-            resp1 = client.post(
-                "/auth/refresh",
-                json={"refresh_token": raw_token},
-            )
-        assert resp1.status_code == status.HTTP_200_OK
+            resp1 = client.post("/auth/refresh", json={"refresh_token": raw_token})
+            resp2 = client.post("/auth/refresh", json={"refresh_token": raw_token})
 
-        # Second use of the SAME token should fail (reuse detection).
-        # The HTTP body is uniform across every 401 path so the
-        # response cannot serve as an oracle for which failure mode
-        # tripped (reuse vs expired vs unknown vs wrong client). The
-        # detailed reason still lands in structured logs and the audit
-        # stream; the public surface is intentionally generic.
-        with patch(
-            "rhesis.backend.app.auth.token_utils.get_secret_key",
-            return_value="test-secret",
-        ):
-            resp2 = client.post(
-                "/auth/refresh",
-                json={"refresh_token": raw_token},
-            )
-        assert resp2.status_code == status.HTTP_401_UNAUTHORIZED
-        assert resp2.json()["detail"] == "Invalid refresh token"
+        assert resp1.status_code == status.HTTP_200_OK
+        assert resp2.status_code == status.HTTP_200_OK
+        # Same token still valid on both calls, and always returned as-is.
+        assert resp1.json()["refresh_token"] == raw_token
+        assert resp2.json()["refresh_token"] == raw_token
+
+    def test_refresh_revoked_ui_token_rejected(self, client: TestClient, test_db, test_org_id):
+        """A revoked UI/SSO token (e.g. after logout) is rejected with a
+        uniform 401 detail."""
+        from rhesis.backend.app.auth.refresh_token_utils import (
+            create_refresh_token as create_rt,
+        )
+        from rhesis.backend.app.auth.refresh_token_utils import (
+            revoke_all_for_user,
+        )
+
+        email = _unique_email("revoked")
+        org = create_test_organization(test_db, "Revoked Org")
+        user = create_test_user(test_db, org.id, email, "Revoked User")
+        test_db.flush()
+
+        raw_token = create_rt(test_db, str(user.id))
+        test_db.commit()
+
+        revoke_all_for_user(test_db, str(user.id))
+        test_db.commit()
+
+        response = client.post("/auth/refresh", json={"refresh_token": raw_token})
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+        assert response.json()["detail"] == "Invalid refresh token"
 
     def test_refresh_missing_body(self, client: TestClient):
         """POST /auth/refresh without body returns 422."""
         response = client.post("/auth/refresh", json={})
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
-
-    def test_refresh_rotated_token_works(self, client: TestClient, test_db, test_org_id):
-        """After rotation the new refresh token can be used."""
-        from rhesis.backend.app.auth.refresh_token_utils import (
-            create_refresh_token as create_rt,
-        )
-
-        email = _unique_email("rotate")
-        org = create_test_organization(test_db, "Rotate Org")
-        user = create_test_user(test_db, org.id, email, "Rotate User")
-        test_db.flush()
-
-        raw_token = create_rt(test_db, str(user.id))
-        test_db.commit()
-
-        # First rotation
-        with patch(
-            "rhesis.backend.app.auth.token_utils.get_secret_key",
-            return_value="test-secret",
-        ):
-            resp1 = client.post(
-                "/auth/refresh",
-                json={"refresh_token": raw_token},
-            )
-        assert resp1.status_code == status.HTTP_200_OK
-        new_refresh = resp1.json()["refresh_token"]
-
-        # Use the rotated token
-        with patch(
-            "rhesis.backend.app.auth.token_utils.get_secret_key",
-            return_value="test-secret",
-        ):
-            resp2 = client.post(
-                "/auth/refresh",
-                json={"refresh_token": new_refresh},
-            )
-        assert resp2.status_code == status.HTTP_200_OK
-        assert resp2.json()["refresh_token"] != new_refresh
 
 
 # =============================================================================
@@ -1193,13 +1243,19 @@ class TestGetCallbackUrl:
         "rhesis.backend.app.routers.auth.is_quick_start_enabled",
         return_value=True,
     )
-    def test_quick_start_mode_uses_localhost(self, mock_qs):
-        """Quick start mode returns http://localhost:{port}/auth/callback."""
+    @patch(
+        "rhesis.backend.app.routers.auth.get_application_settings",
+        new=_mock_application_settings("local", api_base_url="https://api.rhesis.ai"),
+    )
+    def test_quick_start_does_not_override_remote_api_base_url(self, mock_qs):
+        """QUICK_START does not force a local callback: the callback host is
+        driven solely by API_BASE_URL. With a remote API_BASE_URL the request
+        host is never trusted, even in quick-start mode."""
         from rhesis.backend.app.routers.auth import get_callback_url
 
         request = _make_mock_request(host="localhost", port=8080)
         url = get_callback_url(request)
-        assert url == "http://localhost:8080/auth/callback"
+        assert url == "https://api.rhesis.ai/auth/callback"
 
     @patch(
         "rhesis.backend.app.routers.auth.is_quick_start_enabled",
@@ -1257,9 +1313,7 @@ class TestGetCallbackUrl:
         "rhesis.backend.app.routers.auth.get_application_settings",
         new=_mock_application_settings("local", api_base_url="https://api.rhesis.ai"),
     )
-    def test_backend_env_local_with_remote_api_base_url_uses_production_callback(
-        self, mock_qs
-    ):
+    def test_backend_env_local_with_remote_api_base_url_uses_production_callback(self, mock_qs):
         """BACKEND_ENV=local alone does not enable local callback behavior."""
         from rhesis.backend.app.routers.auth import get_callback_url
 
@@ -1420,7 +1474,10 @@ class TestTermsAcceptance:
         user = create_test_user(test_db, org.id, email, "Terms User")
         user.user_settings = {
             **(user.user_settings or {}),
-            "terms": {"accepted_at": datetime.now(timezone.utc).isoformat(), "version": CURRENT_TERMS_VERSION},
+            "terms": {
+                "accepted_at": datetime.now(timezone.utc).isoformat(),
+                "version": CURRENT_TERMS_VERSION,
+            },
         }
         test_db.commit()
 
@@ -1483,9 +1540,14 @@ class TestTermsAcceptance:
             "has_prior_acceptance": False,
         }
 
-    def test_update_user_rejects_user_settings_terms(
+    def test_update_user_strips_user_settings_terms(
         self, authenticated_client, authenticated_user_id
     ):
+        """PUT /users silently strips the server-managed ``terms`` key from the
+        writable ``user_settings`` payload so callers cannot forge their own
+        acceptance record. The response schema always includes a ``terms`` key
+        (server-managed, read-only) — it must be absent/null here, not the
+        forged value, since this user never legitimately accepted terms."""
         from datetime import datetime, timezone
 
         response = authenticated_client.put(
@@ -1500,4 +1562,7 @@ class TestTermsAcceptance:
                 }
             },
         )
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        settings = data.get("user", data).get("user_settings", {})
+        assert not settings.get("terms")

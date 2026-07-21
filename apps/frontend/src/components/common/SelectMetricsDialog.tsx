@@ -87,7 +87,6 @@ interface SelectMetricsDialogProps {
   open: boolean;
   onClose: () => void;
   onSelect: (metricId: UUID) => void;
-  sessionToken: string;
   excludeMetricIds?: UUID[];
   title?: string;
   subtitle?: string;
@@ -103,7 +102,6 @@ export default function SelectMetricsDialog({
   open,
   onClose,
   onSelect,
-  sessionToken,
   excludeMetricIds = [],
   title = 'Add Metric',
   subtitle = 'Select a metric to add',
@@ -126,7 +124,7 @@ export default function SelectMetricsDialog({
     try {
       setIsLoading(true);
       setError(null);
-      const metricsClient = new MetricsClient(sessionToken);
+      const metricsClient = new MetricsClient();
       const allMetrics = await metricsClient.getAllMetrics({
         sort_by: 'name',
         sort_order: 'asc',
@@ -154,7 +152,7 @@ export default function SelectMetricsDialog({
     } finally {
       setIsLoading(false);
     }
-  }, [sessionToken, excludeMetricIds, scopeFilter, strictScope]);
+  }, [excludeMetricIds, scopeFilter, strictScope]);
 
   // Fetch metrics when dialog opens
   React.useEffect(() => {

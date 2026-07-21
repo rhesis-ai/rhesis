@@ -18,7 +18,6 @@ interface TestSetDetailTabsProps {
   testSet: TestSet;
   testCount: number;
   isGenerating?: boolean;
-  sessionToken: string;
   currentUserId: string;
   currentUserName: string;
   currentUserPicture?: string;
@@ -28,7 +27,6 @@ export default function TestSetDetailTabs({
   testSet,
   testCount,
   isGenerating = false,
-  sessionToken,
   currentUserId,
   currentUserName,
   currentUserPicture,
@@ -62,22 +60,13 @@ export default function TestSetDetailTabs({
       />
 
       <DetailTabPanel value={activeTab} index={0} prefix="test-set-detail">
-        <TestSetDetailsCard
-          sessionToken={sessionToken}
-          testSet={testSet}
-          onUpdate={handleUpdate}
-        />
-        <TestSetTagsMetricsCard
-          sessionToken={sessionToken}
-          testSet={testSet}
-          onUpdate={handleUpdate}
-        />
+        <TestSetDetailsCard testSet={testSet} onUpdate={handleUpdate} />
+        <TestSetTagsMetricsCard testSet={testSet} onUpdate={handleUpdate} />
       </DetailTabPanel>
 
       <DetailTabPanel value={activeTab} index={1} prefix="test-set-detail">
         <TestSetLinkedTestsSection
           testSetId={testSet.id as string}
-          sessionToken={sessionToken}
           testSetType={testSet.test_set_type?.type_value}
           testCount={testCount}
           isGenerating={isGenerating}
@@ -88,7 +77,6 @@ export default function TestSetDetailTabs({
         <TasksAndCommentsWrapper
           entityType="TestSet"
           entityId={testSet.id as string}
-          sessionToken={sessionToken}
           currentUserId={currentUserId}
           currentUserName={currentUserName}
           currentUserPicture={currentUserPicture}

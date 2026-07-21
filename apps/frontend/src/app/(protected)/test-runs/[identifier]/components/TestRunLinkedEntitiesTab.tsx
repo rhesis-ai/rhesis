@@ -28,7 +28,6 @@ interface TestRunLinkedEntitiesTabProps {
   canRerun: boolean;
   totalTests: number;
   testRunId: string;
-  sessionToken: string;
   loading?: boolean;
   prompts: Record<string, { content: string; name?: string }>;
   behaviors: Array<{
@@ -42,6 +41,7 @@ interface TestRunLinkedEntitiesTabProps {
   currentUserName: string;
   currentUserPicture?: string;
   initialSelectedTestId?: string;
+  initialDetailTab?: string;
   testSetType?: string;
   project?: { icon?: string; useCase?: string; name?: string };
   projectName?: string;
@@ -63,7 +63,6 @@ export default function TestRunLinkedEntitiesTab({
   canRerun,
   totalTests,
   testRunId,
-  sessionToken,
   loading = false,
   prompts,
   behaviors,
@@ -72,6 +71,7 @@ export default function TestRunLinkedEntitiesTab({
   currentUserName,
   currentUserPicture,
   initialSelectedTestId,
+  initialDetailTab,
   testSetType,
   project,
   projectName,
@@ -119,13 +119,13 @@ export default function TestRunLinkedEntitiesTab({
         prompts={prompts}
         behaviors={behaviors}
         testRunId={testRunId}
-        sessionToken={sessionToken}
         loading={loading}
         onTestResultUpdate={onTestResultUpdate}
         currentUserId={currentUserId}
         currentUserName={currentUserName}
         currentUserPicture={currentUserPicture}
         initialSelectedTestId={initialSelectedTestId}
+        initialDetailTab={initialDetailTab}
         testSetType={testSetType}
         project={project}
         projectName={projectName}

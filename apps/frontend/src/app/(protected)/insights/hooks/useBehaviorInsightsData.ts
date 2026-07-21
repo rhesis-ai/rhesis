@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
   PassFailStats,
@@ -14,9 +15,10 @@ import {
 import {
   BehaviorInsightColumn,
   buildBehaviorColumns,
-  fetchTestRunIdsForEndpoint,
+  resolveInsightsQueryTestRunIds,
 } from '../utils/behavior-insights-utils';
 import { fetchFailedTestIdsForInsights } from '../utils/insights-failed-tests';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 const EMPTY_SUMMARY: PassFailStats = {
   total: 0,
@@ -37,7 +39,6 @@ export interface BehaviorInsightsData {
 }
 
 export function useBehaviorInsightsData(
-  sessionToken: string,
   filters: InsightsFilters,
   enabled = true
 ): BehaviorInsightsData {
@@ -52,6 +53,7 @@ export function useBehaviorInsightsData(
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [noRuns, setNoRuns] = useState(false);
+  const { status } = useSession();
   const requestIdRef = useRef(0);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -63,7 +65,7 @@ export function useBehaviorInsightsData(
     // `test_result:read`). When denied we must not fire any request — the hook
     // still runs unconditionally (rules of hooks), so this is the direct guard
     // rather than relying on `endpointId` never being populated.
-    if (!enabled || !sessionToken || !filters.endpointId) {
+    if (!enabled || !isAuthenticated(status) || !filters.endpointId) {
       setLoading(false);
       setSummary(null);
       setMetadata(null);
@@ -86,11 +88,7 @@ export function useBehaviorInsightsData(
     debounceRef.current = setTimeout(() => {
       void (async () => {
         try {
-          const testRunIds = await fetchTestRunIdsForEndpoint(
-            sessionToken,
-            filters.endpointId,
-            resolveInsightsTimeRange(filters.timeRange)
-          );
+          const testRunIds = await resolveInsightsQueryTestRunIds(filters);
 
           if (!isCurrentRequest(requestId)) return;
 
@@ -106,15 +104,17 @@ export function useBehaviorInsightsData(
 
           setNoRuns(false);
 
-          const factory = new ApiClientFactory(sessionToken);
+          const factory = new ApiClientFactory();
           const testResultsClient = factory.getTestResultsClient();
           const behaviorClient = factory.getBehaviorClient();
 
           const statsParams = {
-            ...timeRangeToStatsParams(
-              resolveInsightsTimeRange(filters.timeRange)
-            ),
             test_run_ids: testRunIds,
+            ...(filters.runFilterMode === 'timeRange'
+              ? timeRangeToStatsParams(
+                  resolveInsightsTimeRange(filters.timeRange)
+                )
+              : {}),
           };
 
           const [summaryResult, behaviorResult, behaviors] = await Promise.all([
@@ -179,14 +179,12 @@ export function useBehaviorInsightsData(
           if ((overallSummary.failed ?? 0) > 0) {
             void (async () => {
               try {
-                const failedIds = await fetchFailedTestIdsForInsights(
-                  sessionToken,
-                  {
-                    endpointId: filters.endpointId,
-                    timeRange: resolveInsightsTimeRange(filters.timeRange),
-                    testRunIds,
-                  }
-                );
+                const failedIds = await fetchFailedTestIdsForInsights({
+                  endpointId: filters.endpointId,
+                  runFilterMode: filters.runFilterMode,
+                  timeRange: resolveInsightsTimeRange(filters.timeRange),
+                  testRunIds,
+                });
                 if (!isCurrentRequest(requestId)) return;
                 setFailedTestCaseCount(failedIds.length);
               } catch {
@@ -212,7 +210,14 @@ export function useBehaviorInsightsData(
         clearTimeout(debounceRef.current);
       }
     };
-  }, [enabled, sessionToken, filters.endpointId, filters.timeRange]);
+  }, [
+    enabled,
+    status,
+    filters.endpointId,
+    filters.runFilterMode,
+    filters.timeRange,
+    filters.testRunIds,
+  ]);
 
   return {
     summary,

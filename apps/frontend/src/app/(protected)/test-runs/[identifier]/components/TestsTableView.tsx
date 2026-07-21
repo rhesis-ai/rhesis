@@ -59,13 +59,14 @@ interface TestsTableViewProps {
     metrics: Array<{ name: string; description?: string }>;
   }>;
   testRunId: string;
-  sessionToken: string;
   loading?: boolean;
   onTestResultUpdate: (updatedTest: TestResultDetail) => void;
   currentUserId: string;
   currentUserName: string;
   currentUserPicture?: string;
   initialSelectedTestId?: string;
+  /** Drawer tab key when opening via deep-link (e.g. "reviews"). */
+  initialDetailTab?: string;
   testSetType?: string;
   project?: { icon?: string; useCase?: string; name?: string };
   projectName?: string;
@@ -79,13 +80,13 @@ export default function TestsTableView({
   prompts,
   behaviors,
   testRunId,
-  sessionToken,
   loading = false,
   onTestResultUpdate,
   currentUserId,
   currentUserName,
   currentUserPicture,
   initialSelectedTestId,
+  initialDetailTab,
   testSetType,
   project,
   projectName,
@@ -103,7 +104,13 @@ export default function TestsTableView({
     null
   );
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [initialTab, setInitialTab] = useState<number>(0);
+  const resolvedInitialTab =
+    initialDetailTab && initialDetailTab in TEST_RESULT_DRAWER_TAB
+      ? TEST_RESULT_DRAWER_TAB[
+          initialDetailTab as keyof typeof TEST_RESULT_DRAWER_TAB
+        ]
+      : 0;
+  const [initialTab, setInitialTab] = useState<number>(resolvedInitialTab);
   const [overruleDrawerOpen, setOverruleDrawerOpen] = useState(false);
   const [testToOverrule, setTestToOverrule] = useState<TestResultDetail | null>(
     null
@@ -155,6 +162,7 @@ export default function TestsTableView({
     const page = Math.floor(testIndex / paginationModel.pageSize);
     setPaginationModel(prev => ({ ...prev, page }));
     setSelectedTest(mergedTests[testIndex]);
+    setInitialTab(resolvedInitialTab);
     setDrawerOpen(true);
     setHasInitialSelection(true);
   }, [
@@ -162,6 +170,7 @@ export default function TestsTableView({
     mergedTests,
     paginationModel.pageSize,
     hasInitialSelection,
+    resolvedInitialTab,
   ]);
 
   useEffect(() => {
@@ -204,7 +213,7 @@ export default function TestsTableView({
 
   const handleOverruleSave = async (testId: string) => {
     try {
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const testResultsClient = clientFactory.getTestResultsClient();
       const updatedTest = await testResultsClient.getTestResult(testId);
       onTestResultUpdate(updatedTest);
@@ -224,7 +233,7 @@ export default function TestsTableView({
     try {
       setIsConfirmingReview(true);
 
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const testResultsClient = clientFactory.getTestResultsClient();
       const statusClient = clientFactory.getStatusClient();
       const statuses = await statusClient.getStatuses({
@@ -689,7 +698,6 @@ export default function TestsTableView({
         prompts={prompts}
         behaviors={behaviors}
         testRunId={testRunId}
-        sessionToken={sessionToken}
         onTestResultUpdate={handleTestResultUpdateInDrawer}
         currentUserId={currentUserId}
         currentUserName={currentUserName}
@@ -705,7 +713,6 @@ export default function TestsTableView({
         open={overruleDrawerOpen}
         onClose={() => setOverruleDrawerOpen(false)}
         test={testToOverrule}
-        sessionToken={sessionToken}
         onSave={handleOverruleSave}
       />
     </Box>

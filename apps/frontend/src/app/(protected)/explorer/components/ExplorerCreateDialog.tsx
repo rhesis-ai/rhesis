@@ -13,7 +13,6 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 interface ExplorerCreateDialogProps {
   open: boolean;
   onClose: () => void;
-  sessionToken: string;
   onCreated: () => void;
   onNavigateToSession: (sessionId: string) => void;
 }
@@ -21,7 +20,6 @@ interface ExplorerCreateDialogProps {
 export default function ExplorerCreateDialog({
   open,
   onClose,
-  sessionToken,
   onCreated,
   onNavigateToSession,
 }: ExplorerCreateDialogProps) {
@@ -51,7 +49,7 @@ export default function ExplorerCreateDialog({
     setSubmitting(true);
     setSubmitError(null);
     try {
-      const client = new ApiClientFactory(sessionToken).getExplorerClient();
+      const client = new ApiClientFactory().getExplorerClient();
       const created = await client.createExplorerTestSet(
         trimmedName,
         description.trim() || undefined

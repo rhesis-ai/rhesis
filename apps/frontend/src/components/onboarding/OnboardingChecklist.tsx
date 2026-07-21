@@ -80,9 +80,9 @@ export default function OnboardingChecklist() {
 
         // For steps that require projects (like endpoint setup),
         // fetch the first project and navigate to its detail page
-        if (step.requiresProjects && session?.session_token) {
+        if (step.requiresProjects && session?.user) {
           try {
-            const apiFactory = new ApiClientFactory(session.session_token);
+            const apiFactory = new ApiClientFactory();
             const projectsClient = apiFactory.getProjectsClient();
             const response = await projectsClient.getProjects();
             const projects = Array.isArray(response)

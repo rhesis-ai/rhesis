@@ -1,9 +1,15 @@
 # Configures kube-dns to forward rhesis.ai queries to the environment's BIND9 server.
 # GKE addon manager mode is EnsureExists — it will not overwrite this after creation.
+#
+# prd uses 10.6.1.10 (WireGuard VM's second NIC in vpc-prd), NOT 10.0.0.10 like
+# dev/stg. node-local-dns runs with hostNetwork, so queries originate from node
+# IPs (10.6.0.x); replies from 10.0.0.10 would route back out the vpc-prd NIC
+# (asymmetric) and get dropped. Querying the eth1 NIC IP keeps the path symmetric.
+# Pod-sourced traffic (e.g. internal-dns RFC2136) keeps using 10.0.0.10 via peering.
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: kube-dns
   namespace: kube-system
 data:
-  stubDomains: '{"rhesis.ai": ["10.6.1.200"]}'
+  stubDomains: '{"rhesis.ai": ["10.6.1.10"]}'

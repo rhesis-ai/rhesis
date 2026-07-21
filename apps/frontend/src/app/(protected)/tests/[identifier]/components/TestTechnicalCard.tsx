@@ -31,18 +31,11 @@ interface PromptDraft {
 }
 
 interface TestTechnicalCardProps {
-  sessionToken: string;
   test: TestDetail;
   onUpdate?: () => void;
 }
 
-function AttachmentsBlock({
-  test,
-  sessionToken,
-}: {
-  test: TestDetail;
-  sessionToken: string;
-}) {
+function AttachmentsBlock({ test }: { test: TestDetail }) {
   const [pendingFiles, setPendingFiles] = React.useState<File[]>([]);
   const [isUploading, setIsUploading] = React.useState(false);
 
@@ -55,7 +48,6 @@ function AttachmentsBlock({
   } = useFiles({
     entityId: test.id,
     entityType: 'Test',
-    sessionToken,
   });
 
   const handleFilesSelect = React.useCallback(
@@ -97,7 +89,6 @@ function AttachmentsBlock({
       </Typography>
       <FileAttachmentList
         files={attachedFiles}
-        sessionToken={sessionToken}
         isLoading={filesLoading}
         onDelete={deleteAttachedFile}
       />
@@ -115,7 +106,6 @@ function AttachmentsBlock({
 }
 
 export default function TestTechnicalCard({
-  sessionToken,
   test,
   onUpdate,
 }: TestTechnicalCardProps) {
@@ -145,7 +135,7 @@ export default function TestTechnicalCard({
 
   const handleSave = async (draft: PromptDraft) => {
     if (!test.prompt_id) return;
-    const apiFactory = new ApiClientFactory(sessionToken);
+    const apiFactory = new ApiClientFactory();
     const promptsClient = apiFactory.getPromptsClient();
     await promptsClient.updatePrompt(test.prompt_id, {
       content: draft.content,
@@ -177,7 +167,7 @@ export default function TestTechnicalCard({
         throw new Error('Goal cannot be empty');
       }
 
-      const apiFactory = new ApiClientFactory(sessionToken);
+      const apiFactory = new ApiClientFactory();
       const testsClient = apiFactory.getTestsClient();
 
       const payload: MultiTurnTestConfig = {
@@ -215,7 +205,7 @@ export default function TestTechnicalCard({
               setDraft={setDraft}
               isEditing={isEditing}
             />
-            <AttachmentsBlock test={test} sessionToken={sessionToken} />
+            <AttachmentsBlock test={test} />
           </Box>
         )}
       </EditableSection>
@@ -331,7 +321,7 @@ export default function TestTechnicalCard({
           )}
 
           <Grid size={12}>
-            <AttachmentsBlock test={test} sessionToken={sessionToken} />
+            <AttachmentsBlock test={test} />
           </Grid>
         </Grid>
       )}

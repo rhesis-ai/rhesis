@@ -40,10 +40,7 @@ export class ImportClient extends BaseApiClient {
     formData.append('file', file);
 
     // Multipart upload: omit Content-Type so browser sets boundary
-    const headers: Record<string, string> = {};
-    if (this.sessionToken) {
-      headers['Authorization'] = `Bearer ${this.sessionToken}`;
-    }
+    const headers: Record<string, string> = { ...this.buildAuthHeaders() };
 
     const response = await fetch(url.toString(), {
       method: 'POST',

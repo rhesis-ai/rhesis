@@ -56,8 +56,12 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # Layer 2: full sources, then install local packages
 WORKDIR /app
 COPY sdk /app/sdk/
+# Hatch force-includes skill refs into the SDK wheel (see sdk/pyproject.toml).
+COPY skills /app/skills/
 COPY penelope /app/penelope/
 COPY packages/rhesis /app/packages/rhesis/
+# Hatch force-includes skill refs into the SDK wheel (see sdk/pyproject.toml).
+COPY skills/rhesis/references /app/skills/rhesis/references/
 COPY ee/backend /app/ee/backend/
 COPY apps/backend/src /app/apps/backend/src/
 

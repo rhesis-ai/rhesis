@@ -12,8 +12,11 @@ import { PageLayout } from '@/components/layout/PageLayout';
 import TestResultsFilters from './TestResultsFilters';
 import BehaviorInsightsView from './BehaviorInsightsView';
 import InsightsFailedTestsFab from './InsightsFailedTestsFab';
+import InsightsSummarizeFab from './InsightsSummarizeFab';
+import { FabGroup } from '@/components/common/Fab';
 import {
   DEFAULT_INSIGHTS_FILTERS,
+  DEFAULT_INSIGHTS_TIME_RANGE,
   normalizeInsightsFilters,
   InsightsFilters,
 } from '../types';
@@ -30,11 +33,7 @@ import { useBehaviorInsightsData } from '../hooks/useBehaviorInsightsData';
 import InsightsEmptyState from './InsightsEmptyState';
 import { resolveInsightsPageView } from '../utils/insights-page-view';
 
-interface InsightsPageProps {
-  sessionToken: string;
-}
-
-export default function InsightsPage({ sessionToken }: InsightsPageProps) {
+export default function InsightsPage() {
   const { activeProject } = useActiveProject();
   const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
     Capability.TestResult.READ
@@ -50,7 +49,6 @@ export default function InsightsPage({ sessionToken }: InsightsPageProps) {
     isError: endpointsHasError,
     refetch: refetchEndpoints,
   } = useEndpoints(
-    sessionToken,
     {
       limit: 100,
       sort_by: 'name',
@@ -79,7 +77,7 @@ export default function InsightsPage({ sessionToken }: InsightsPageProps) {
     loading: insightsLoading,
     error,
     noRuns,
-  } = useBehaviorInsightsData(sessionToken, filters, !permsLoading && canRead);
+  } = useBehaviorInsightsData(filters, !permsLoading && canRead);
 
   const behaviorOptions = useMemo<InsightsBehaviorOption[]>(
     () =>
@@ -121,7 +119,9 @@ export default function InsightsPage({ sessionToken }: InsightsPageProps) {
     setExpandedRows(new Set(expandableRowIndices));
   }, [
     filters.endpointId,
+    filters.runFilterMode,
     filters.timeRange,
+    filters.testRunIds,
     filters.behaviorIds,
     expandableRowIndices,
   ]);
@@ -165,7 +165,13 @@ export default function InsightsPage({ sessionToken }: InsightsPageProps) {
     setFilters(prev =>
       prev.endpointId === resolvedId
         ? prev
-        : { ...prev, endpointId: resolvedId }
+        : {
+            ...prev,
+            endpointId: resolvedId,
+            testRunIds: [],
+            runFilterMode: 'timeRange',
+            timeRange: DEFAULT_INSIGHTS_TIME_RANGE,
+          }
     );
   }, [
     endpointsLoading,
@@ -182,6 +188,11 @@ export default function InsightsPage({ sessionToken }: InsightsPageProps) {
   const selectedEndpointName = useMemo(
     () => projectEndpoints.find(e => e.id === filters.endpointId)?.name,
     [projectEndpoints, filters.endpointId]
+  );
+
+  const visibleBehaviorNames = useMemo(
+    () => filteredColumns.map(column => column.name),
+    [filteredColumns]
   );
 
   const fabLoading =
@@ -215,15 +226,24 @@ export default function InsightsPage({ sessionToken }: InsightsPageProps) {
   return (
     <PageLayout
       title="Insights"
-      description="View pass rates by behavior, metric, and topic for your selected endpoint. Filter by time range or switch endpoints to compare performance."
+      description="View pass rates by behavior, metric, and topic. Filter by time range or pick specific test runs in the filter drawer."
       breadcrumbs={[]}
       actions={
-        <InsightsFailedTestsFab
-          filters={filters}
-          failedCount={failedTestCaseCount ?? 0}
-          loading={fabLoading}
-          disabled={projectEndpoints.length === 0}
-        />
+        <FabGroup>
+          <InsightsSummarizeFab
+            filters={filters}
+            endpointName={selectedEndpointName}
+            visibleBehaviorNames={visibleBehaviorNames}
+            loading={fabLoading}
+            disabled={projectEndpoints.length === 0}
+          />
+          <InsightsFailedTestsFab
+            filters={filters}
+            failedCount={failedTestCaseCount ?? 0}
+            loading={fabLoading}
+            disabled={projectEndpoints.length === 0}
+          />
+        </FabGroup>
       }
     >
       <Box
@@ -275,7 +295,6 @@ export default function InsightsPage({ sessionToken }: InsightsPageProps) {
             />
 
             <BehaviorInsightsView
-              sessionToken={sessionToken}
               filters={filters}
               insights={{
                 summary,

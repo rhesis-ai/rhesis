@@ -29,13 +29,13 @@ import {
 export interface TestFilters {
   /** test_type/type_value equals: Single-Turn | Multi-Turn | '' */
   testType: string;
-  /** status/name contains */
+  /** status/name equals */
   status: string;
-  /** behavior/name contains */
+  /** behavior/name equals */
   behavior: string;
-  /** category/name contains */
+  /** category/name equals */
   category: string;
-  /** topic/name contains */
+  /** topic/name equals */
   topic: string;
   tags: ActivityPresenceFilters['tags'];
   comments: ActivityPresenceFilters['comments'];
@@ -79,7 +79,6 @@ interface TestFilterDrawerProps {
   open: boolean;
   onClose: () => void;
   filters: TestFilters;
-  sessionToken?: string;
   onApply: (filters: TestFilters) => void;
 }
 
@@ -87,28 +86,21 @@ export default function TestFilterDrawer({
   open,
   onClose,
   filters,
-  sessionToken,
   onApply,
 }: TestFilterDrawerProps) {
   const [draft, setDraft] = React.useState<TestFilters>(filters);
-  const token = sessionToken ?? '';
 
   const { data: rawStatuses, isLoading: loadingStatuses } = useStatuses(
-    token,
     ENTITY_TYPES.test,
     open
   );
-  const { data: rawBehaviors, isLoading: loadingBehaviors } = useBehaviors(
-    token,
-    open
-  );
+  const { data: rawBehaviors, isLoading: loadingBehaviors } =
+    useBehaviors(open);
   const { data: rawCategories, isLoading: loadingCategories } = useCategories(
-    token,
     EntityType.TEST,
     open
   );
   const { data: rawTopics, isLoading: loadingTopics } = useTopics(
-    token,
     EntityType.TEST,
     open
   );

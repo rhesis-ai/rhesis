@@ -17,7 +17,7 @@ from rhesis.backend.app.auth.providers import ProviderRegistry
 from rhesis.backend.app.auth.refresh_token_utils import (
     create_refresh_token,
     revoke_all_for_user,
-    verify_and_rotate_refresh_token,
+    verify_and_refresh_token,
 )
 from rhesis.backend.app.auth.session_invalidation import (
     clear_user_logout,
@@ -33,6 +33,7 @@ from rhesis.backend.app.auth.terms import (
 from rhesis.backend.app.auth.token_utils import (
     MAGIC_LINK_EXPIRE_MINUTES,
     PASSWORD_RESET_EXPIRE_MINUTES,
+    create_auth_code,
     create_email_verification_token,
     create_magic_link_token,
     create_password_reset_token,
@@ -204,61 +205,35 @@ def _get_api_base_url() -> str:
     return get_application_settings().api_base_url
 
 
-def is_running_locally() -> bool:
-    """Detect local deployment using server-side environment signals only.
-
-    Never uses any request-derived data. Uses two independent signals:
-    1. Quick Start mode (QUICK_START=true + no GCP env vars)
-    2. API_BASE_URL explicitly configured for localhost
-    """
-    # Signal 1: Quick Start mode (env-vars only, no request data)
-    if is_quick_start_enabled():
-        return True
-
-    # Signal 2: API_BASE_URL points to a local address
-    parsed_host = urlparse(_get_api_base_url()).hostname or ""
-    if parsed_host in _LOCAL_HOSTNAMES:
-        return True
-
-    return False
-
-
 def get_callback_url(request: Request, provider: Optional[str] = None) -> str:
-    """Generate the OAuth callback URL.
+    """Generate the OAuth callback URL from the configured API_BASE_URL.
 
-    For local development, uses the request hostname with the server's
-    listening port to preserve session cookie domain alignment. Only
-    whitelisted local hostnames (localhost, 127.0.0.1, ::1) are
-    accepted; any other value falls back to 'localhost'. For
-    production, uses API_BASE_URL.
+    The one exception is loopback aliasing: when API_BASE_URL points at a
+    loopback address, the OAuth session cookie is bound to whichever loopback
+    alias the browser actually used (localhost vs 127.0.0.1 vs ::1), so the
+    callback host is swapped to match — otherwise the cookie set before the
+    redirect is not returned on the callback and state validation fails.
+
+    The swap is gated on the *configured* host being loopback (a trusted,
+    inherently-local value), and only ever selects another loopback alias, so
+    the callback can never point off-box. For real (production) domains the
+    request host is never trusted.
     """
-    if is_running_locally():
-        # Local: use request hostname to match session cookie domain
-        # (e.g., 127.0.0.1 vs localhost). Whitelist ensures that even
-        # if is_running_locally() fires on a misconfigured server,
-        # the callback can only ever point to a local address.
-        hostname = request.url.hostname or "localhost"
-        if hostname not in _LOCAL_HOSTNAMES:
-            hostname = "localhost"
-        server = request.scope.get("server")
-        port = server[1] if server else 8080
-        base_url = f"http://{hostname}:{port}"
+    parsed = urlparse(_get_api_base_url().rstrip("/"))
+
+    if parsed.hostname in _LOCAL_HOSTNAMES:
+        # Loopback: follow the browser's alias (ignoring any non-loopback
+        # request host) and keep the configured scheme — local dev is http.
+        req_host = request.url.hostname
+        host = req_host if req_host in _LOCAL_HOSTNAMES else parsed.hostname
+        port = f":{parsed.port}" if parsed.port else ""
+        base_url = f"{parsed.scheme}://{host}{port}"
     else:
-        # Production: always use configured base URL
-        base_url = _get_api_base_url().rstrip("/")
+        # Real domain: never trust the request host, and always use HTTPS
+        # (guards a misconfigured http:// API_BASE_URL).
+        base_url = f"https://{parsed.netloc}"
 
-    callback_url = f"{base_url}/auth/callback"
-
-    # Ensure HTTPS for non-local URLs
-    if (
-        callback_url.startswith("http://")
-        and "localhost" not in callback_url
-        and "127.0.0.1" not in callback_url
-        and "::1" not in callback_url
-    ):
-        callback_url = "https://" + callback_url[7:]
-
-    return callback_url
+    return f"{base_url}/auth/callback"
 
 
 def _get_frontend_url() -> str:
@@ -516,7 +491,7 @@ async def auth_callback(request: Request, db: Session = Depends(get_db_session))
             )
 
         # Determine redirect URL
-        redirect_url = build_redirect_url(request, session_token, refresh_tok)
+        redirect_url = await build_redirect_url(request, session_token, refresh_tok)
         return RedirectResponse(url=redirect_url)
 
     except HTTPException:
@@ -567,12 +542,15 @@ async def login_with_email(
         # Find or create user (will update last_login_at)
         user = find_or_create_user_from_auth(db, auth_user)
 
-        # Set up session and create tokens
+        # Set up session and create tokens. The refresh token is wrapped
+        # in a short-lived, single-use auth code so it never reaches the
+        # browser: the client exchanges the code via NextAuth server-side.
         request.session["user_id"] = str(user.id)
         clear_user_logout(str(user.id))
         access_token = create_session_token(user)
         refresh_tok = create_refresh_token(db, str(user.id))
         db.commit()
+        auth_code = await create_auth_code(access_token, refresh_tok)
 
         # Track login activity
         if is_telemetry_enabled():
@@ -590,8 +568,7 @@ async def login_with_email(
 
         return {
             "success": True,
-            "session_token": access_token,
-            "refresh_token": refresh_tok,
+            "auth_code": auth_code,
             "user": {
                 "id": str(user.id),
                 "email": user.email,
@@ -661,12 +638,15 @@ async def register_with_email(
                 detail="User creation failed",
             )
 
-        # Set up session and create tokens
+        # Set up session and create tokens. Refresh token wrapped in a
+        # single-use auth code (see /auth/login/email) so it stays out of
+        # the browser.
         request.session["user_id"] = str(user.id)
         clear_user_logout(str(user.id))
         access_token = create_session_token(user)
         refresh_tok = create_refresh_token(db, str(user.id))
         db.commit()
+        auth_code = await create_auth_code(access_token, refresh_tok)
 
         # Send welcome email (best-effort)
         _send_welcome_email(user)
@@ -701,8 +681,7 @@ async def register_with_email(
 
         return {
             "success": True,
-            "session_token": access_token,
-            "refresh_token": refresh_tok,
+            "auth_code": auth_code,
             "user": {
                 "id": str(user.id),
                 "email": user.email,
@@ -751,16 +730,17 @@ async def verify_email(
         user.is_email_verified = True
         logger.info("Email verified for user: %s", redact_email(user.email))
 
-    # Return fresh tokens so the frontend can update the session
+    # Return a single-use auth code so the frontend can establish a
+    # session without the refresh token ever touching the browser.
     access_token = create_session_token(user)
     refresh_tok = create_refresh_token(db, str(user.id))
     db.commit()
+    auth_code = await create_auth_code(access_token, refresh_tok)
 
     return {
         "success": True,
         "message": "Email verified successfully",
-        "session_token": access_token,
-        "refresh_token": refresh_tok,
+        "auth_code": auth_code,
     }
 
 
@@ -1033,12 +1013,14 @@ async def verify_magic_link(
     mark_user_joined_if_needed(user, when=current_time)
     db.commit()
 
-    # Set up session and create tokens
+    # Set up session and create tokens. Refresh token wrapped in a
+    # single-use auth code so it stays out of the browser.
     request.session["user_id"] = str(user.id)
     clear_user_logout(str(user.id))
     access_token = create_session_token(user)
     refresh_tok = create_refresh_token(db, str(user.id))
     db.commit()
+    auth_code = await create_auth_code(access_token, refresh_tok)
 
     # Track login activity
     if is_telemetry_enabled():
@@ -1056,8 +1038,7 @@ async def verify_magic_link(
 
     return {
         "success": True,
-        "session_token": access_token,
-        "refresh_token": refresh_tok,
+        "auth_code": auth_code,
         "user": {
             "id": str(user.id),
             "email": user.email,
@@ -1115,66 +1096,74 @@ async def refresh_tokens(
     request: Request,
     db: Session = Depends(get_db_session),
 ):
-    """Exchange a valid refresh token for a new access + refresh token pair.
+    """Exchange a valid refresh token for a fresh access token.
 
-    The old refresh token is revoked (rotation).  If a revoked token
-    is presented, the entire token family is revoked (reuse detection).
+    The refresh behaviour depends on the token's client binding:
 
-    Token-exchange refresh tokens (rows with a non-null ``client_id``)
-    are subject to additional checks:
+    - **UI / SSO tokens** (``client_id`` IS NULL) are **not rotated**.
+      A fresh short-lived session JWT is minted and the *same* refresh
+      token is returned with its expiry slid forward. Browser sessions
+      run through NextAuth, whose refresh runs inside Next.js React
+      Server Component renders that cannot persist a rotated cookie;
+      rotating there revoked the in-use token and forced spurious
+      logouts. A stable token keeps refresh idempotent under concurrent
+      renders / tabs. It stays revocable on logout, honours the
+      ``is_active`` kill switch below, and hard-expires after
+      ``REFRESH_TOKEN_EXPIRE_DAYS`` of inactivity.
 
-    - HTTP Basic ``Authorization`` is **required** -- the same
-      AuthClient that minted the refresh token must re-authenticate
-      to use it. Without this, a stolen refresh token alone would be
-      sufficient to mint new access tokens.
-    - The Basic credential's client_id must match the refresh token
-      row's ``client_id``. Mismatch is an attempted lateral move.
-    - The minted access token preserves the original
-      ``azp`` / ``aud`` / ``scope`` / ``epoch`` so that scope cannot
-      escalate across rotation and revocation via ``token_epoch``
-      keeps applying to refreshed tokens.
-    - The bound user MUST still be active. A disabled user's refresh
-      token is rejected even if everything else is valid -- otherwise
-      ``DELETE /users/{id}`` (or the soft-disable equivalent) would
-      not actually cut access until the access token expired and the
-      user got a fresh one through SSO.
+    - **Token-exchange tokens** (rows with a non-null ``client_id``)
+      keep **per-use rotation with reuse detection** and additional
+      checks (the confidential client persists the rotated token
+      itself, so the NextAuth limitation does not apply):
+
+      * HTTP Basic ``Authorization`` is **required** -- the same
+        AuthClient that minted the refresh token must re-authenticate
+        to use it. Without this, a stolen refresh token alone would be
+        sufficient to mint new access tokens.
+      * The Basic credential's client_id must match the refresh token
+        row's ``client_id``. Mismatch is an attempted lateral move.
+      * The minted access token preserves the original
+        ``azp`` / ``aud`` / ``scope`` / ``epoch`` so that scope cannot
+        escalate across rotation and revocation via ``token_epoch``
+        keeps applying to refreshed tokens.
+
+    The bound user MUST still be active regardless of path. A disabled
+    user's refresh token is rejected even if everything else is valid --
+    otherwise ``DELETE /users/{id}`` (or the soft-disable equivalent)
+    would not actually cut access until the access token expired.
 
     Every 401 returns the same generic detail string regardless of the
     underlying reason; differentiating them in the response body would
     let a caller with a stolen token probe whether the token ever
     existed, whether they tripped reuse detection, etc. Detailed
     reasons go to structured logs and the audit stream.
-
-    UI / SSO refresh tokens (``client_id`` IS NULL) keep the legacy
-    behaviour unchanged otherwise: no Basic auth required, plain
-    session JWT minted.
     """
     from rhesis.backend.app import crud
     from rhesis.backend.app.auth.refresh_client_hook import (
         get_refresh_client_minter,
     )
 
-    # ``verify_and_rotate_refresh_token`` raises HTTPException with
-    # variant detail strings (kept for backward compatibility with
-    # other call sites). For /auth/refresh we replace the response
-    # body with the uniform "invalid" string while still letting the
-    # function's structured logs capture the precise reason.
+    # ``verify_and_refresh_token`` raises HTTPException with variant
+    # detail strings (kept for backward compatibility with other call
+    # sites). For /auth/refresh we replace the response body with the
+    # uniform "invalid" string while still letting the function's
+    # structured logs capture the precise reason.
     try:
-        old_token, new_raw_refresh = verify_and_rotate_refresh_token(db, body.refresh_token)
+        token_row, refresh_to_return = verify_and_refresh_token(db, body.refresh_token)
     except HTTPException as exc:
         # Keep 503 / 5xx as-is (those aren't oracles); collapse 401s.
         if exc.status_code == status.HTTP_401_UNAUTHORIZED:
             raise _refresh_invalid() from exc
         raise
 
-    user = crud.get_user(db, str(old_token.user_id))
+    user = crud.get_user(db, str(token_row.user_id))
     if not user:
         # User vanished between mint and refresh (unusual; would
         # require the user to be hard-deleted). Same uniform 401.
         logger.warning(
             "Refresh: user %s for token family %s no longer exists",
-            old_token.user_id,
-            old_token.family_id,
+            token_row.user_id,
+            token_row.family_id,
         )
         raise _refresh_invalid()
 
@@ -1184,8 +1173,8 @@ async def refresh_tokens(
     if not getattr(user, "is_active", True):
         logger.warning(
             "Refresh: rejected for inactive user %s (family %s)",
-            old_token.user_id,
-            old_token.family_id,
+            token_row.user_id,
+            token_row.family_id,
         )
         raise _refresh_invalid()
 
@@ -1194,7 +1183,7 @@ async def refresh_tokens(
     # (because AuthClient is an EE concept) and is invoked here via
     # a hook the EE bootstrap registers. UI / SSO refresh tokens
     # have NULL client_id and skip the hook entirely.
-    if old_token.client_id is not None:
+    if token_row.client_id is not None:
         minter = get_refresh_client_minter()
         if minter is None:
             # A token-exchange-issued refresh exists in the DB but the
@@ -1204,14 +1193,14 @@ async def refresh_tokens(
             logger.error(
                 "Refresh token client_id=%s presented but EE refresh hook "
                 "is not registered; rejecting",
-                old_token.client_id,
+                token_row.client_id,
             )
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Token refresh temporarily unavailable",
             )
         try:
-            access_token = minter(db, request, old_token, user)
+            access_token = minter(db, request, token_row, user)
         except HTTPException as exc:
             if exc.status_code == status.HTTP_401_UNAUTHORIZED:
                 raise _refresh_invalid() from exc
@@ -1222,7 +1211,7 @@ async def refresh_tokens(
 
     return {
         "access_token": access_token,
-        "refresh_token": new_raw_refresh,
+        "refresh_token": refresh_to_return,
         "token_type": "bearer",
     }
 
@@ -1242,6 +1231,15 @@ async def logout(
     """Log out the user and clear their session"""
     # Clear session data
     request.session.clear()
+
+    # The browser never holds the access token (BFF pattern), so explicit
+    # sign-outs arrive through the frontend proxy with the token in the
+    # Authorization header instead of the query string. Fall back to it so
+    # those logouts still revoke the refresh-token family.
+    if not session_token:
+        auth_header = request.headers.get("authorization", "")
+        if auth_header.lower().startswith("bearer "):
+            session_token = auth_header[7:]
 
     # If session token is provided, invalidate sessions + refresh tokens
     if session_token:
@@ -1425,6 +1423,7 @@ async def local_login(request: Request, db: Session = Depends(get_db_session)):
         access_token = create_session_token(user)
         refresh_tok = create_refresh_token(db, str(user.id))
         db.commit()
+        auth_code = await create_auth_code(access_token, refresh_tok)
 
         logger.info(
             "QUICK START MODE login successful for user: %s",
@@ -1446,8 +1445,7 @@ async def local_login(request: Request, db: Session = Depends(get_db_session)):
 
         return {
             "success": True,
-            "session_token": access_token,
-            "refresh_token": refresh_tok,
+            "auth_code": auth_code,
             "user": {
                 "id": str(user.id),
                 "email": user.email,

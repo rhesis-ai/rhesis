@@ -8,6 +8,7 @@ import React, {
   useState,
 } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import type {
   GridFilterModel,
   GridPaginationModel,
@@ -29,11 +30,11 @@ import {
 } from '@/app/(protected)/tests/components/test-filter-model';
 import { getTestDisplayContent } from '@/app/(protected)/tests/components/test-grid-helpers';
 import { getTestSetTestColumns } from './testSetTestColumns';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface AssignTestsDrawerProps {
   open: boolean;
   onClose: () => void;
-  sessionToken: string;
   testSetId: string;
   testSetType?: string;
   onAssign: (tests: TestDetail[]) => Promise<void>;
@@ -42,12 +43,12 @@ interface AssignTestsDrawerProps {
 export default function AssignTestsDrawer({
   open,
   onClose,
-  sessionToken,
   testSetId,
   testSetType,
   onAssign,
 }: AssignTestsDrawerProps) {
   const router = useRouter();
+  const { status } = useSession();
   const [available, setAvailable] = useState<TestDetail[]>([]);
   const [loading, setLoading] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
@@ -86,7 +87,7 @@ export default function AssignTestsDrawer({
 
   const fetchLinkedIds = useCallback(async () => {
     try {
-      const factory = new ApiClientFactory(sessionToken);
+      const factory = new ApiClientFactory();
       const testSetsClient = factory.getTestSetsClient();
       const linkedTests = await testSetsClient.getAllTestSetTests(testSetId);
       if (!isMountedRef.current) return;
@@ -97,15 +98,15 @@ export default function AssignTestsDrawer({
       if (!isMountedRef.current) return;
       setResolvedLinkedIds(new Set());
     }
-  }, [sessionToken, testSetId]);
+  }, [testSetId]);
 
   const fetchTests = useCallback(async () => {
-    if (!sessionToken || !open) return;
+    if (!isAuthenticated(status) || !open) return;
 
     try {
       setLoading(true);
 
-      const factory = new ApiClientFactory(sessionToken);
+      const factory = new ApiClientFactory();
       const testsClient = factory.getTestsClient();
       const filterString = combineTestFiltersToOData(filterModel);
 
@@ -130,11 +131,11 @@ export default function AssignTestsDrawer({
       }
     }
   }, [
-    sessionToken,
     open,
     filterModel,
     paginationModel.page,
     paginationModel.pageSize,
+    status,
   ]);
 
   useEffect(() => {
@@ -229,7 +230,6 @@ export default function AssignTestsDrawer({
         open={filterOpen}
         onClose={() => setFilterOpen(false)}
         filters={drawerFilters}
-        sessionToken={sessionToken}
         onApply={setDrawerFilters}
       />
     </>

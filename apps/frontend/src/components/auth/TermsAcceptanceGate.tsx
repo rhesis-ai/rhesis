@@ -23,8 +23,7 @@ import { fetchQuickStartEnabled } from '@/utils/quick_start';
  * Skipped in Quick Start mode — local dev auto-login should not be blocked.
  */
 export default function TermsAcceptanceGate() {
-  const { data: session, status } = useSession();
-  const sessionToken = session?.session_token ?? '';
+  const { status } = useSession();
 
   const [quickStart, setQuickStart] = React.useState<boolean | null>(null);
   const [loading, setLoading] = React.useState(true);
@@ -55,7 +54,7 @@ export default function TermsAcceptanceGate() {
       return;
     }
 
-    if (quickStart === null || status !== 'authenticated' || !sessionToken) {
+    if (quickStart === null || status !== 'authenticated') {
       if (quickStart !== null) {
         setLoading(false);
       }
@@ -64,7 +63,7 @@ export default function TermsAcceptanceGate() {
 
     let cancelled = false;
     setLoading(true);
-    fetchTermsStatus(sessionToken)
+    fetchTermsStatus()
       .then(status => {
         if (cancelled) return;
         setHasPriorAcceptance(status.has_prior_acceptance);
@@ -84,14 +83,13 @@ export default function TermsAcceptanceGate() {
     return () => {
       cancelled = true;
     };
-  }, [status, sessionToken, quickStart]);
+  }, [status, quickStart]);
 
   if (
     loading ||
     quickStart === null ||
     quickStart ||
-    status !== 'authenticated' ||
-    !sessionToken
+    status !== 'authenticated'
   ) {
     return null;
   }
@@ -106,7 +104,7 @@ export default function TermsAcceptanceGate() {
 
     try {
       setSubmitting(true);
-      await acceptTerms(sessionToken);
+      await acceptTerms();
       setOpen(false);
     } catch {
       setError('Failed to record terms acceptance. Please try again.');

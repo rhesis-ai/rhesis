@@ -33,7 +33,6 @@ interface MetadataDraft {
 
 interface ProjectMetadataCardProps {
   project: Project;
-  sessionToken: string;
   onSave: (updatedProject: Partial<Project>) => Promise<boolean>;
   editable?: boolean;
 }
@@ -46,7 +45,6 @@ function getUserDisplayName(user: User): string {
 
 export default function ProjectMetadataCard({
   project,
-  sessionToken,
   onSave,
   editable,
 }: ProjectMetadataCardProps) {
@@ -57,7 +55,7 @@ export default function ProjectMetadataCard({
 
     async function loadUsers() {
       try {
-        const usersClient = new UsersClient(sessionToken, undefined, '');
+        const usersClient = new UsersClient(undefined, undefined, '');
         const result = await usersClient.getUsers({ limit: 100 });
         if (!cancelled) setUsers(result.data);
       } catch {
@@ -69,7 +67,7 @@ export default function ProjectMetadataCard({
     return () => {
       cancelled = true;
     };
-  }, [sessionToken]);
+  }, []);
 
   const initialDraft: MetadataDraft = useMemo(
     () => ({

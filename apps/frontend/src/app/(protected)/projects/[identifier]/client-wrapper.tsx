@@ -24,13 +24,11 @@ import { format } from 'date-fns';
 
 interface ClientWrapperProps {
   project: Project;
-  sessionToken: string;
   projectId: string;
 }
 
 export default function ClientWrapper({
   project,
-  sessionToken,
   projectId,
 }: ClientWrapperProps) {
   const router = useRouter();
@@ -74,7 +72,7 @@ export default function ClientWrapper({
     async (updatedProject: Partial<Project>): Promise<boolean> => {
       setIsUpdating(true);
       try {
-        const apiFactory = new ApiClientFactory(sessionToken);
+        const apiFactory = new ApiClientFactory();
         const projectsClient = apiFactory.getProjectsClient();
         const response = await projectsClient.updateProject(
           projectId,
@@ -103,13 +101,13 @@ export default function ClientWrapper({
         setIsUpdating(false);
       }
     },
-    [projectId, sessionToken, notifications, currentProject, syncProject]
+    [projectId, notifications, currentProject, syncProject]
   );
 
   const handleDeleteConfirm = async () => {
     setIsDeleting(true);
     try {
-      const apiFactory = new ApiClientFactory(sessionToken);
+      const apiFactory = new ApiClientFactory();
       const projectsClient = apiFactory.getProjectsClient();
       await projectsClient.deleteProject(projectId);
       notifications.show('Project deleted successfully', {
@@ -159,13 +157,11 @@ export default function ClientWrapper({
       <ProjectDetailTabs
         project={currentProject}
         projectId={projectId}
-        sessionToken={sessionToken}
         onProjectUpdate={handleUpdateProject}
       />
 
       <ProjectEditDrawer
         project={currentProject}
-        sessionToken={sessionToken}
         open={isDrawerOpen}
         onClose={() => setIsDrawerOpen(false)}
         onSave={handleUpdateProject}

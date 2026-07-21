@@ -11,13 +11,9 @@ import { DeleteModal } from '@/components/common/DeleteModal';
 
 interface DangerZoneProps {
   organization: Organization;
-  sessionToken: string;
 }
 
-export default function DangerZone({
-  organization,
-  sessionToken,
-}: DangerZoneProps) {
+export default function DangerZone({ organization }: DangerZoneProps) {
   const notifications = useNotifications();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
@@ -36,7 +32,7 @@ export default function DangerZone({
     setIsLeaving(true);
 
     try {
-      const apiFactory = new ApiClientFactory(sessionToken);
+      const apiFactory = new ApiClientFactory();
       const usersClient = apiFactory.getUsersClient();
 
       // Call the leave organization endpoint

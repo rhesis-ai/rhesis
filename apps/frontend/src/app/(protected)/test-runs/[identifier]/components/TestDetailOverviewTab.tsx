@@ -28,7 +28,6 @@ interface TestDetailOverviewTabProps {
     string,
     { content: string; name?: string; expected_response?: string }
   >;
-  sessionToken: string;
   onTestResultUpdate: (updatedTest: TestResultDetail) => void;
   testSetType?: string; // e.g., "Multi-turn" or "Single-turn"
 }
@@ -105,7 +104,6 @@ const renderFormattedText = (text: string) => {
 export default function TestDetailOverviewTab({
   test,
   prompts,
-  sessionToken,
   onTestResultUpdate,
   testSetType,
 }: TestDetailOverviewTabProps) {
@@ -118,13 +116,11 @@ export default function TestDetailOverviewTab({
   const { files: testFiles, isLoading: testFilesLoading } = useFiles({
     entityId: (test.test_id as string) || '',
     entityType: 'Test',
-    sessionToken,
   });
 
   const { files: outputFiles, isLoading: outputFilesLoading } = useFiles({
     entityId: test.id as string,
     entityType: 'TestResult',
-    sessionToken,
   });
 
   // Render text content, formatting JSON when detected
@@ -300,11 +296,7 @@ export default function TestDetailOverviewTab({
             )}
 
             {/* Tags */}
-            <TestResultTags
-              sessionToken={sessionToken}
-              testResult={test}
-              onUpdate={onTestResultUpdate}
-            />
+            <TestResultTags testResult={test} onUpdate={onTestResultUpdate} />
           </Box>
         </Paper>
 
@@ -397,7 +389,6 @@ export default function TestDetailOverviewTab({
             <Collapse in={filesExpanded} timeout="auto" unmountOnExit>
               <FileAttachmentList
                 files={testFiles}
-                sessionToken={sessionToken}
                 isLoading={testFilesLoading}
               />
             </Collapse>
@@ -437,7 +428,6 @@ export default function TestDetailOverviewTab({
             <Collapse in={outputFilesExpanded} timeout="auto" unmountOnExit>
               <FileAttachmentList
                 files={outputFiles}
-                sessionToken={sessionToken}
                 isLoading={outputFilesLoading}
               />
             </Collapse>
@@ -586,11 +576,7 @@ export default function TestDetailOverviewTab({
           )}
 
           {/* Tags */}
-          <TestResultTags
-            sessionToken={sessionToken}
-            testResult={test}
-            onUpdate={onTestResultUpdate}
-          />
+          <TestResultTags testResult={test} onUpdate={onTestResultUpdate} />
         </Box>
       </Paper>
 
@@ -625,7 +611,6 @@ export default function TestDetailOverviewTab({
           <Collapse in={filesExpanded} timeout="auto" unmountOnExit>
             <FileAttachmentList
               files={testFiles}
-              sessionToken={sessionToken}
               isLoading={testFilesLoading}
             />
           </Collapse>
@@ -665,7 +650,6 @@ export default function TestDetailOverviewTab({
           <Collapse in={outputFilesExpanded} timeout="auto" unmountOnExit>
             <FileAttachmentList
               files={outputFiles}
-              sessionToken={sessionToken}
               isLoading={outputFilesLoading}
             />
           </Collapse>

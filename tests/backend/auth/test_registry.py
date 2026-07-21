@@ -10,6 +10,7 @@ from unittest.mock import patch
 import pytest
 
 from rhesis.backend.app.config.settings import get_auth_settings
+from tests.backend.auth.test_providers import REQUIRED_AUTH_ENV
 
 
 class TestProviderRegistry:
@@ -153,7 +154,7 @@ class TestProviderRegistry:
         """Test OAuth providers are disabled without credentials."""
         from rhesis.backend.app.auth.providers.registry import ProviderRegistry
 
-        with patch.dict(os.environ, {}, clear=True):
+        with patch.dict(os.environ, REQUIRED_AUTH_ENV, clear=True):
             ProviderRegistry.reset()
             ProviderRegistry.initialize()
 

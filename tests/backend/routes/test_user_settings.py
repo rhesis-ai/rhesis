@@ -470,6 +470,38 @@ class TestUserSettingsRoutes:
 
         assert data["ui"]["theme"] == "dark", "JSONB mutation was not persisted"
 
+    def test_patch_settings_for_terms_accepted_user_returns_200(
+        self, authenticated_client, settings_endpoint, test_db, authenticated_user_id
+    ):
+        """✅ PATCH /users/settings must not 500 when user_settings already has `terms`.
+
+        Regression test for the response-model bug where `terms` (written by
+        auth/terms.py on T&C acceptance) failed response validation against the
+        strict `UserSettings` schema (extra="forbid", no `terms` field).
+        """
+        from datetime import datetime, timezone
+
+        from rhesis.backend.app import models
+
+        db_user = (
+            test_db.query(models.User).filter(models.User.id == authenticated_user_id).first()
+        )
+        db_user.user_settings = {
+            **(db_user.user_settings or {}),
+            "terms": {
+                "accepted_at": datetime.now(timezone.utc).isoformat(),
+                "version": "1.0",
+            },
+        }
+        test_db.commit()
+
+        response = authenticated_client.patch(settings_endpoint, json={"ui": {"theme": "dark"}})
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["ui"]["theme"] == "dark"
+        assert data["terms"]["version"] == "1.0"
+
 
 # Export test class for pytest discovery
 __all__ = ["TestUserSettingsRoutes"]

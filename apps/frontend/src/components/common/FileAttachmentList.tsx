@@ -20,10 +20,10 @@ import {
   useFileContentUrl,
   useThumbnailObjectUrl,
 } from '@/hooks/useFileQueries';
+import { BORDER_RADIUS } from '@/styles/theme-constants';
 
 interface FileAttachmentListProps {
   files: FileResponse[];
-  sessionToken: string;
   isLoading?: boolean;
   onDelete?: (fileId: string) => void;
 }
@@ -39,13 +39,11 @@ function formatFileSize(bytes: number): string {
 function ThumbnailImage({
   fileId,
   filename,
-  sessionToken,
 }: {
   fileId: string;
   filename: string;
-  sessionToken: string;
 }) {
-  const { data: blob, isLoading } = useFileThumbnail(fileId, 144, sessionToken);
+  const { data: blob, isLoading } = useFileThumbnail(fileId, 144);
   const src = useThumbnailObjectUrl(blob);
 
   if (isLoading || !src) {
@@ -66,7 +64,7 @@ function ThumbnailImage({
         width: 48,
         height: 48,
         objectFit: 'cover',
-        borderRadius: '8px',
+        borderRadius: BORDER_RADIUS.sm,
         flexShrink: 0,
       }}
     />
@@ -83,11 +81,9 @@ function getFileTypeIcon(contentType: string) {
 
 function FileRow({
   file,
-  sessionToken,
   onDelete,
 }: {
   file: FileResponse;
-  sessionToken: string;
   onDelete?: (fileId: string) => void;
 }) {
   const isImage = file.content_type.startsWith('image/');
@@ -98,7 +94,7 @@ function FileRow({
       sx={{
         display: 'flex',
         alignItems: 'center',
-        borderTop: '1px solid #cdd2da',
+        borderTop: theme => `1px solid ${theme.palette.greyscale.border}`,
         overflow: 'hidden',
       }}
     >
@@ -111,17 +107,13 @@ function FileRow({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            bgcolor: '#cdd2da',
-            borderRadius: '8px',
+            bgcolor: theme => theme.palette.greyscale.border,
+            borderRadius: BORDER_RADIUS.sm,
             overflow: 'hidden',
           }}
         >
           {isImage ? (
-            <ThumbnailImage
-              fileId={file.id}
-              filename={file.filename}
-              sessionToken={sessionToken}
-            />
+            <ThumbnailImage fileId={file.id} filename={file.filename} />
           ) : (
             getFileTypeIcon(file.content_type)
           )}
@@ -134,7 +126,7 @@ function FileRow({
           sx={{
             fontSize: 14,
             lineHeight: '22px',
-            color: '#2a2e36',
+            color: theme => theme.palette.greyscale.body,
             wordBreak: 'break-word',
           }}
         >
@@ -157,7 +149,7 @@ function FileRow({
             fontSize: 14,
             fontWeight: 700,
             lineHeight: '22px',
-            color: '#2a2e36',
+            color: theme => theme.palette.greyscale.body,
             whiteSpace: 'nowrap',
           }}
         >
@@ -203,7 +195,6 @@ function FileRow({
 
 export default function FileAttachmentList({
   files,
-  sessionToken,
   isLoading = false,
   onDelete,
 }: FileAttachmentListProps) {
@@ -226,12 +217,7 @@ export default function FileAttachmentList({
   return (
     <Box>
       {files.map(file => (
-        <FileRow
-          key={file.id}
-          file={file}
-          sessionToken={sessionToken}
-          onDelete={onDelete}
-        />
+        <FileRow key={file.id} file={file} onDelete={onDelete} />
       ))}
     </Box>
   );

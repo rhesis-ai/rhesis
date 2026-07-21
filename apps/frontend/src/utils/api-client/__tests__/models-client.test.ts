@@ -1,7 +1,7 @@
 import { ModelsClient } from '../models-client';
 import { UUID } from 'crypto';
 
-const BASE_URL = 'http://127.0.0.1:8080/api/v1';
+const BASE_URL = 'http://localhost/api/backend';
 const MODEL_ID = 'mo1mo1m0-0000-0000-0000-000000000001' as UUID;
 
 function makeFetch(

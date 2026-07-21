@@ -54,7 +54,6 @@ interface SelectExperimentsDrawerProps {
   open: boolean;
   onClose: () => void;
   onConfirm: (experiments: SelectedExperiment[]) => void;
-  sessionToken: string;
   projectId: string | null;
   initialSelection?: SelectedExperiment[];
   title?: string;
@@ -96,7 +95,6 @@ export default function SelectExperimentsDrawer({
   open,
   onClose,
   onConfirm,
-  sessionToken,
   projectId,
   initialSelection = [],
   title = 'Add Experiments',
@@ -128,10 +126,7 @@ export default function SelectExperimentsDrawer({
   const [draftMessage, setDraftMessage] = React.useState('');
   const [savingVersion, setSavingVersion] = React.useState(false);
 
-  const apiFactory = React.useMemo(
-    () => new ApiClientFactory(sessionToken),
-    [sessionToken]
-  );
+  const apiFactory = React.useMemo(() => new ApiClientFactory(), []);
 
   React.useEffect(() => {
     if (!open) return;

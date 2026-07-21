@@ -9,28 +9,36 @@ because:
    SSO-specific code.
 2. The version prefix enables future key rotation without re-encrypting
    every stored ``client_secret`` at once. Today only ``v1`` exists, mapped
-   to the ``SSO_ENCRYPTION_KEY`` environment variable.
+   to the ``sso_encryption_key`` setting (``SSO_ENCRYPTION_KEY``).
 
-The exception types (``EncryptionError``, ``EncryptionKeyNotFoundError``,
-``DecryptionError``) are reused from core: they are general-purpose and
-not coupled to SSO.
+The general-purpose exception types (``EncryptionError``, ``DecryptionError``)
+are reused from core; ``EncryptionKeyNotFoundError`` is defined here because the
+core ``DB_ENCRYPTION_KEY`` path no longer raises it (a missing key is rejected
+by ``SecuritySettings`` at load time) — only the SSO key is resolved on demand.
 """
 
 from __future__ import annotations
 
-import os
 from functools import lru_cache
 
 from cryptography.fernet import Fernet, InvalidToken
 
+from rhesis.backend.app.config.settings import get_security_settings
 from rhesis.backend.app.utils.encryption import (
     DecryptionError,
     EncryptionError,
-    EncryptionKeyNotFoundError,
 )
 
+
+class EncryptionKeyNotFoundError(Exception):
+    """Raised when the SSO encryption key is not configured."""
+
+    pass
+
+# Maps a ciphertext version prefix to the ``SecuritySettings`` attribute that
+# holds the key for that version. Future rotation adds ``"v2": ...`` here.
 _SSO_KEY_VERSIONS = {
-    "v1": "SSO_ENCRYPTION_KEY",
+    "v1": "sso_encryption_key",
 }
 
 
@@ -42,16 +50,16 @@ def _get_sso_fernet(version: str) -> Fernet:
     the cache lasts the life of the process, so dynamic key rotation
     without a restart is not supported.
     """
-    env_var = _SSO_KEY_VERSIONS.get(version)
-    if not env_var:
+    attr = _SSO_KEY_VERSIONS.get(version)
+    if not attr:
         raise EncryptionError(f"Unknown SSO key version: {version}")
-    key = os.getenv(env_var)
+    key = getattr(get_security_settings(), attr)
     if not key:
-        raise EncryptionKeyNotFoundError(f"{env_var} environment variable is not set")
+        raise EncryptionKeyNotFoundError("SSO_ENCRYPTION_KEY is not set")
     try:
         return Fernet(key.encode())
     except Exception:
-        raise EncryptionError(f"{env_var} is not a valid Fernet key")
+        raise EncryptionError("SSO_ENCRYPTION_KEY is not a valid Fernet key")
 
 
 def get_sso_encryption_key(version: str = "v1") -> bytes:
@@ -61,8 +69,8 @@ def get_sso_encryption_key(version: str = "v1") -> bytes:
     ``EncryptionError`` or ``EncryptionKeyNotFoundError`` on failure.
     """
     _get_sso_fernet(version)
-    env_var = _SSO_KEY_VERSIONS[version]
-    return os.getenv(env_var).encode()
+    attr = _SSO_KEY_VERSIONS[version]
+    return getattr(get_security_settings(), attr).encode()
 
 
 def sso_encrypt(plaintext: str, version: str = "v1") -> str:
@@ -110,6 +118,7 @@ def is_sso_encryption_available() -> bool:
 __all__ = [
     "_get_sso_fernet",
     "_SSO_KEY_VERSIONS",
+    "EncryptionKeyNotFoundError",
     "get_sso_encryption_key",
     "is_sso_encryption_available",
     "sso_decrypt",

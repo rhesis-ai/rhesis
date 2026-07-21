@@ -12,14 +12,9 @@ import { TaskCreationDrawer } from './TaskCreationDrawer';
 interface TasksWrapperProps {
   entityType: EntityType;
   entityId: string;
-  sessionToken: string;
 }
 
-export function TasksWrapper({
-  entityType,
-  entityId,
-  sessionToken,
-}: TasksWrapperProps) {
+export function TasksWrapper({ entityType, entityId }: TasksWrapperProps) {
   const queryClient = useQueryClient();
   const [createDrawerOpen, setCreateDrawerOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -63,7 +58,6 @@ export function TasksWrapper({
       <TasksSection
         entityType={entityType}
         entityId={entityId}
-        sessionToken={sessionToken}
         onCreateTask={handleCreateTask}
         onEditTask={handleEditTask}
         onDeleteTask={handleDeleteTask}

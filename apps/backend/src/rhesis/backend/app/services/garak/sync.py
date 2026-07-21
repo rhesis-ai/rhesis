@@ -26,7 +26,7 @@ from rhesis.backend.app.schemas import test_set as test_set_schemas
 from rhesis.backend.app.services.test import bulk_create_tests
 
 from .probes import GarakProbeInfo, GarakProbeService
-from .taxonomy import GarakTaxonomy
+from .taxonomy import GarakTaxonomy, resolve_behavior
 
 logger = logging.getLogger(__name__)
 
@@ -304,7 +304,7 @@ class GarakSyncService:
                     content=prompt_content,
                     language_code="en",
                 ),
-                behavior=mapping.behavior,
+                behavior=resolve_behavior(probe.tags),
                 category=mapping.category,
                 topic=mapping.topic,
                 test_type="Single-Turn",

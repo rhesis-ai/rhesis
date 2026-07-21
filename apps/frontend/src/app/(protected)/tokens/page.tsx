@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 export default async function TokensPage() {
   const session = await auth();
 
-  if (!session?.session_token) {
+  if (!session || session.error) {
     return (
       <Paper sx={{ p: 3 }}>
         <Alert severity="error">
@@ -20,5 +20,5 @@ export default async function TokensPage() {
     );
   }
 
-  return <TokensPageClient sessionToken={session.session_token} />;
+  return <TokensPageClient />;
 }

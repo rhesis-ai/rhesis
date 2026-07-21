@@ -38,6 +38,7 @@ show_help() {
     echo -e "  ${GREEN}./rh restart --build${NC}   - Restart and rebuild images locally"
     echo -e "  ${GREEN}./rh logs${NC}              - View logs from all services"
     echo -e "  ${GREEN}./rh delete${NC}            - Delete all services, images, volumes, and data"
+    echo -e "  ${GREEN}./rh secrets${NC}           - Generate the required secrets in .env.docker"
     echo ""
     echo -e "${YELLOW}Local Development:${NC}"
     echo -e "  ${GREEN}./rh dev init${NC}          - Initialize env files (one-time setup)"
@@ -119,11 +120,102 @@ check_node() {
     fi
 }
 
-# Function to generate encryption key using Docker
+# Function to generate a Fernet key (32 random bytes, base64url-encoded) for
+# DB_ENCRYPTION_KEY, without needing Docker/Python to build it.
 generate_encryption_key() {
-    docker run --rm mirror.gcr.io/library/python:3.10.17-slim sh -c \
-        "pip install --quiet --no-cache-dir cryptography > /dev/null 2>&1 && \
-         python3 -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())'" 2>/dev/null
+    openssl rand -base64 32 | tr '+/' '-_'
+}
+
+# Function to generate a random hex secret (JWT/session/NextAuth secrets)
+generate_hex_secret() {
+    openssl rand -hex 32
+}
+
+# Ensure VAR_NAME has a non-empty value in .env.docker.local, generating one
+# with the given generator function (e.g. generate_hex_secret) if missing.
+# Usage: ensure_env_secret VAR_NAME generator_function
+ensure_env_secret() {
+    local var_name="$1"
+    local generator="$2"
+
+    if grep -qE "^${var_name}=[^[:space:]]" .env.docker.local 2>/dev/null; then
+        return 0
+    fi
+
+    echo -e "${YELLOW}🔑 Generating ${var_name}...${NC}"
+    local value
+    value=$("$generator")
+    if [ -z "$value" ]; then
+        echo -e "${RED}❌ Error: Failed to generate ${var_name}${NC}"
+        exit 1
+    fi
+
+    if grep -q "^${var_name}=" .env.docker.local 2>/dev/null; then
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            sed -i '' "s|^${var_name}=.*|${var_name}=${value}|" .env.docker.local
+        else
+            sed -i "s|^${var_name}=.*|${var_name}=${value}|" .env.docker.local
+        fi
+    else
+        echo "" >> .env.docker.local
+        echo "${var_name}=${value}" >> .env.docker.local
+    fi
+    echo -e "${GREEN}✅ ${var_name} generated${NC}"
+}
+
+# Set VAR_NAME=value in .env.docker, replacing an existing line or appending one.
+# Portable across macOS (BSD sed) and Linux (GNU sed).
+set_docker_secret() {
+    local var_name="$1"
+    local value="$2"
+    if grep -q "^${var_name}=" .env.docker 2>/dev/null; then
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            sed -i '' "s|^${var_name}=.*|${var_name}=${value}|" .env.docker
+        else
+            sed -i "s|^${var_name}=.*|${var_name}=${value}|" .env.docker
+        fi
+    else
+        echo "${var_name}=${value}" >> .env.docker
+    fi
+}
+
+# Fill the four required secrets in an existing .env.docker (production flow).
+# DB_ENCRYPTION_KEY is guarded: rotating it makes data already encrypted with the
+# old key undecryptable, so it is overwritten only on explicit confirmation
+# (default no). The other three are safe to rotate and are set unconditionally.
+generate_docker_secrets() {
+    if [ ! -f ".env.docker" ]; then
+        echo -e "${RED}❌ .env.docker not found${NC}"
+        echo -e "${YELLOW}   Create it first: ${GREEN}cp .env.example .env.docker${NC}"
+        exit 1
+    fi
+
+    if grep -qE "^DB_ENCRYPTION_KEY=[^[:space:]]" .env.docker 2>/dev/null; then
+        echo -e "${YELLOW}⚠️  DB_ENCRYPTION_KEY is already set in .env.docker.${NC}"
+        echo -e "${WHITE}   Overwriting it makes data already encrypted with the old key"
+        echo -e "   (such as stored provider credentials) permanently undecryptable.${NC}"
+        local reply=""
+        if [ -t 0 ]; then
+            read -r -p "$(echo -e ${YELLOW}Overwrite DB_ENCRYPTION_KEY? [y/N]: ${NC})" reply
+        fi
+        if [[ "$reply" =~ ^[Yy]$ ]]; then
+            set_docker_secret "DB_ENCRYPTION_KEY" "$(generate_encryption_key)"
+            echo -e "${GREEN}✅ DB_ENCRYPTION_KEY regenerated${NC}"
+        else
+            echo -e "${WHITE}   Kept existing DB_ENCRYPTION_KEY.${NC}"
+        fi
+    else
+        set_docker_secret "DB_ENCRYPTION_KEY" "$(generate_encryption_key)"
+        echo -e "${GREEN}✅ DB_ENCRYPTION_KEY generated${NC}"
+    fi
+
+    set_docker_secret "JWT_SECRET_KEY" "$(generate_hex_secret)"
+    set_docker_secret "SESSION_SECRET_KEY" "$(generate_hex_secret)"
+    set_docker_secret "NEXTAUTH_SECRET" "$(generate_hex_secret)"
+    echo -e "${GREEN}✅ JWT_SECRET_KEY, SESSION_SECRET_KEY, NEXTAUTH_SECRET set${NC}"
+
+    chmod 600 .env.docker
+    echo -e "${GREEN}✅ Secrets written to .env.docker${NC}"
 }
 
 # Prompt for a host port, accepting a default when the user just presses Enter.
@@ -178,6 +270,8 @@ prompt_overwrite() {
 create_backend_env() {
     local env_file="$DEV_BACKEND_ENV"
     local encryption_key="$1"
+    local jwt_secret="$2"
+    local session_secret="$3"
     local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
 
     # Check if file exists and wasn't generated by us
@@ -213,7 +307,10 @@ LOG_LEVEL=DEBUG
 OTEL_RHESIS_TELEMETRY_ENABLED=false
 
 # JWT
-JWT_SECRET_KEY=dev-jwt-secret-key-change-in-production
+JWT_SECRET_KEY=${jwt_secret}
+
+# Session
+SESSION_SECRET_KEY=${session_secret}
 
 # Rhesis API Key (get one at https://app.rhesis.ai)
 RHESIS_API_KEY=your_api_key
@@ -223,6 +320,7 @@ EOF
 # Function to create/update frontend .env.local file
 create_frontend_env() {
     local env_file="$DEV_FRONTEND_ENV"
+    local nextauth_secret="$1"
     local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
 
     # Check if file exists and wasn't generated by us
@@ -241,7 +339,7 @@ API_BASE_URL=http://localhost:8080
 FRONTEND_ENV=local
 BACKEND_URL=http://localhost:8080
 FRONTEND_URL=http://localhost:3000
-NEXTAUTH_SECRET=dev-nextauth-secret-change-in-production
+NEXTAUTH_SECRET=${nextauth_secret}
 NEXT_TELEMETRY_DISABLED=1
 EOF
 }
@@ -276,7 +374,7 @@ dev_init() {
         fi
     fi
 
-    # Step 1: Generate encryption key
+    # Step 1: Generate encryption key and secrets
     echo -e "${YELLOW}Generating encryption key...${NC}"
     ENCRYPTION_KEY=$(generate_encryption_key)
     if [ -z "$ENCRYPTION_KEY" ]; then
@@ -285,11 +383,21 @@ dev_init() {
     fi
     echo -e "${GREEN}✅ Encryption key generated${NC}"
 
+    echo -e "${YELLOW}Generating JWT/session/NextAuth secrets...${NC}"
+    JWT_SECRET=$(generate_hex_secret)
+    SESSION_SECRET=$(generate_hex_secret)
+    DEV_NEXTAUTH_SECRET=$(generate_hex_secret)
+    if [ -z "$JWT_SECRET" ] || [ -z "$SESSION_SECRET" ] || [ -z "$DEV_NEXTAUTH_SECRET" ]; then
+        echo -e "${RED}❌ Error: Failed to generate secrets${NC}"
+        exit 1
+    fi
+    echo -e "${GREEN}✅ Secrets generated${NC}"
+
     # Step 2: Create env files
     echo ""
     echo -e "${YELLOW}Creating environment files...${NC}"
-    create_backend_env "$ENCRYPTION_KEY"
-    create_frontend_env
+    create_backend_env "$ENCRYPTION_KEY" "$JWT_SECRET" "$SESSION_SECRET"
+    create_frontend_env "$DEV_NEXTAUTH_SECRET"
 
     # Step 3: Display success message and backup reminder
     echo ""
@@ -593,7 +701,7 @@ start_all() {
     compose_flags=$(quickstart_compose_flags_for_mode "$quickstart_mode")
 
     # Check if .env.docker.local exists and has DB_ENCRYPTION_KEY
-    if [ ! -f ".env.docker.local" ] || ! grep -q "^DB_ENCRYPTION_KEY=.\+" .env.docker.local 2>/dev/null; then
+    if [ ! -f ".env.docker.local" ] || ! grep -qE "^DB_ENCRYPTION_KEY=[^[:space:]]" .env.docker.local 2>/dev/null; then
         echo -e "${YELLOW}🔑 Generating DB_ENCRYPTION_KEY...${NC}"
 
         ENCRYPTION_KEY=$(generate_encryption_key)
@@ -656,6 +764,12 @@ start_all() {
             echo -e "${GREEN}✅ Local configuration updated in .env.docker.local${NC}"
         fi
     fi
+
+    # Generate JWT/session/NextAuth secrets if missing (required by docker-compose.yml)
+    ensure_env_secret "JWT_SECRET_KEY" generate_hex_secret
+    ensure_env_secret "SESSION_SECRET_KEY" generate_hex_secret
+    ensure_env_secret "NEXTAUTH_SECRET" generate_hex_secret
+    chmod 600 .env.docker.local
 
 # Check if RHESIS_API_KEY is set in .env.docker.local
 if ! grep -q "^RHESIS_API_KEY=" .env.docker.local 2>/dev/null; then
@@ -1354,6 +1468,9 @@ case "$1" in
                 exit 1
                 ;;
         esac
+        ;;
+    "secrets")
+        generate_docker_secrets
         ;;
     "stop")
         stop_all

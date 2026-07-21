@@ -14,6 +14,7 @@ import React, {
   FocusEvent,
   useEffect,
 } from 'react';
+import { useSession } from 'next-auth/react';
 import styles from '@/styles/BaseTag.module.css';
 import {
   Box,
@@ -30,6 +31,7 @@ import { useNotifications } from '@/components/common/NotificationContext';
 import { EntityType, Tag, TagCreate } from '@/utils/api-client/interfaces/tag';
 import { UUID } from 'crypto';
 import { editableTagChipSx } from '@/components/common/editableTagChipSx';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 // Type definitions
 interface TaggableEntity {
@@ -75,7 +77,6 @@ export interface BaseTagProps extends Omit<
   /** Whether to disable tag deletion on backspace */
   disableDeleteOnBackspace?: boolean;
   /** Session token for API calls */
-  sessionToken?: string;
   /** Entity type for tag management */
   entityType?: EntityType;
   /** Entity for tag management */
@@ -110,7 +111,6 @@ export default function BaseTag({
   disabled = false,
   error = false,
   disableDeleteOnBackspace = false,
-  sessionToken,
   entityType,
   entity,
   chipClassName,
@@ -120,6 +120,7 @@ export default function BaseTag({
   onTagUpdate,
   ...textFieldProps
 }: BaseTagProps) {
+  const { status } = useSession();
   const [inputValue, setInputValue] = useState<string>('');
   const [_focused, setFocused] = useState<boolean>(false);
   const [isUpdating, setIsUpdating] = useState<boolean>(false);
@@ -150,7 +151,7 @@ export default function BaseTag({
   }, [entity?.tags]);
 
   const handleTagsChange = async (newTagNames: string[]) => {
-    if (!sessionToken || !entityType || !entity || isUpdating) {
+    if (!isAuthenticated(status) || !entityType || !entity || isUpdating) {
       onChange(newTagNames);
       return;
     }
@@ -164,8 +165,8 @@ export default function BaseTag({
     onChange(newTagNames);
 
     try {
-      const _apiFactory = new ApiClientFactory(sessionToken);
-      const tagsClient = new TagsClient(sessionToken);
+      const _apiFactory = new ApiClientFactory();
+      const tagsClient = new TagsClient();
 
       // Tags to remove (exist in current but not in new) - use the current tagObjectsMap
       const tagsToRemove = initialTagNames

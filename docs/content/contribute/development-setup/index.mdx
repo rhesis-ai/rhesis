@@ -2,15 +2,11 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 # Development setup
 
-Two approaches:  (`./rh dev …`) for day-to-day work, or **all-in-one Docker** (`./rh start`) for a full environment without local service wiring.
+Two paths: **local dev** (`./rh dev …`) for day-to-day work, or **all-in-one Docker** (`./rh start`) for a full environment without local service wiring.
 
 ## Prerequisites
 
-- **Git**
-- **Docker** (for `./rh dev up`, `./rh start`, and related commands)
-- **[uv](https://docs.astral.sh/uv/)** — Python tooling at the repo root and under `apps/backend`
-- **Node.js 18+** and **npm** — frontend and docs dev servers
-
+[uv](https://docs.astral.sh/uv/) for Python tooling, Node.js 18+ for the frontend and docs, and Docker for `./rh dev up` and `./rh start`.
 
 ## Default ports
 
@@ -23,7 +19,6 @@ Two approaches:  (`./rh dev …`) for day-to-day work, or **all-in-one Docker** 
 | Dev Redis (`./rh dev up`) | 11001 |
 | Mock LLM server (`./rh dev mock-llm`) | 18080 |
 | Mock Chatbot server (`./rh dev mock-chatbot`) | 18090 |
-
 
 ## Clone the repo
 
@@ -38,33 +33,27 @@ git remote add upstream https://github.com/rhesis-ai/rhesis.git`}
 From the repo root:
 
 <CodeBlock filename="Terminal" language="bash" isTerminal={true}>
-{`./rh dev init         # env files (one-time; see note below)
-./rh dev up             # postgres and redis (see table above)
-./rh dev backend        # FastAPI server — http://localhost:8080
+{`./rh dev init         # env files (one-time)
+./rh dev up             # postgres and redis
+./rh dev backend        # http://localhost:8080 (API docs at /docs)
 ./rh dev worker         # Celery worker for background tasks
-./rh dev frontend       # Next.js app — http://localhost:3000`}
+./rh dev frontend       # http://localhost:3000`}
 </CodeBlock>
 
-- **App:** [http://localhost:3000](http://localhost:3000)
-- **API docs:** [http://localhost:8080/docs](http://localhost:8080/docs)
+`./rh dev init` writes `apps/backend/.env` and `apps/frontend/.env.local`. If those files already exist and were not created by `init`, the script may prompt before overwriting.
 
-`./rh dev init` writes `apps/backend/.env` and `apps/frontend/.env.local` for local infrastructure. If those files already exist and were not created by `init`, the script may prompt before overwriting.
+**Tip:** `./rh dev tmux` starts all of the above in one tmux session, one window per service. Run `./rh help` or `./rh dev` for the full command list (`./rh dev docs`, `./rh dev status`, etc.).
 
-**Tip:** run `./rh dev tmux` to start all of the above services in a single tmux session with one window per service, instead of running each command in its own terminal.
-
-
-Optionally, start the mock servers (see [LLM access](#llm-access) below):
+Optionally, start the mock servers (see [LLM access](#llm-access)):
 
 <CodeBlock filename="Terminal" language="bash" isTerminal={true}>
-{`./rh dev mock-llm      # mock LLM server — http://localhost:18080
-./rh dev mock-chatbot  # mock Chatbot server — http://localhost:18090`}
+{`./rh dev mock-llm      # http://localhost:18080
+./rh dev mock-chatbot  # http://localhost:18090`}
 </CodeBlock>
-
-Run `./rh help` or `./rh dev` for the full command list (`./rh dev docs`, `./rh dev status`, etc.).
 
 ## LLM access
 
-Rhesis relies heavily on LLMs for test generation, test evaluation, and other features. You have three options for LLM access:
+Rhesis relies on LLMs for test generation and evaluation. Three options:
 
 1. **Use the LLM provided by Rhesis.ai (recommended)** — create an account at [app.rhesis.ai](https://app.rhesis.ai), generate an API key, and paste it into `apps/backend/.env`:
 
@@ -72,8 +61,8 @@ Rhesis relies heavily on LLMs for test generation, test evaluation, and other fe
 {`RHESIS_API_KEY=your_api_key`}
 </CodeBlock>
 
-2. **Bring your own LLM** — add your own model under Model → Add button → Language Model. You have to set it as the default for generation, evaluation, and execution.
-3. **Use the mock LLM** — only supports single-turn testing. It's still in development and may be buggy. Start it with `./rh dev mock-llm` and `./rh dev mock-chatbot` (see Path 1 above).
+2. **Bring your own LLM** — add your model under Model → Add → Language Model, and set it as the default for generation, evaluation, and execution.
+3. **Use the mock LLM** — single-turn only, still in development and may be buggy. Start it with `./rh dev mock-llm` and `./rh dev mock-chatbot`.
 
 ## Path 2: Full stack with Docker
 
@@ -82,36 +71,23 @@ Rhesis relies heavily on LLMs for test generation, test evaluation, and other fe
 ./rh start --build        # optional: build images from local Dockerfiles`}
 </CodeBlock>
 
-Typical URLs: frontend [http://localhost:3000](http://localhost:3000), API [http://localhost:8080/docs](http://localhost:8080/docs). Use `./rh logs`, `./rh stop`, `./rh restart` (add `--build` to rebuild locally), and `./rh delete` to manage the stack.
-
-This mode is aimed at local testing (including convenient sign-in behavior). For production-style deployment, see the deployment documentation on this site.
-
-
-## Documentation site locally
-
-<CodeBlock filename="Terminal" language="bash" isTerminal={true}>
-{`./rh dev docs`}
-</CodeBlock>
-
-This runs `docs/src/start.sh` (default port **3001**).
-
+Frontend at [http://localhost:3000](http://localhost:3000), API at [http://localhost:8080/docs](http://localhost:8080/docs). Manage the stack with `./rh logs`, `./rh stop`, `./rh restart` (add `--build` to rebuild), and `./rh delete`. This mode is aimed at local testing, including convenient sign-in behavior. For production deployment, see the deployment documentation.
 
 ## Branching, commits, and checks
 
-- Use feature branches and [Conventional Commits](https://www.conventionalcommits.org/)
+- Feature branches and [Conventional Commits](https://www.conventionalcommits.org/)
 - `uvx pre-commit install` before your first commit
-- Run `make format`, `make lint`, and `make test` from `apps/backend/`, `sdk/`, or `apps/frontend/` as appropriate for your change
+- Run `make format`, `make lint`, and `make test` from `apps/backend/`, `sdk/`, or `apps/frontend/` as appropriate
 
 ## Troubleshooting
 
-- **`./rh dev up` fails:** ensure Docker is running; confirm nothing else is bound to the dev Postgres/Redis ports in the table above
-- **Backend database errors:** run `./rh dev up` after `./rh dev init`; for non-local database setups, see [Environment config](/contribute/backend/environment-config)
+- **`./rh dev up` fails:** ensure Docker is running and nothing else is bound to the dev Postgres/Redis ports above
+- **Backend database errors:** run `./rh dev up` after `./rh dev init`; for non-local databases, see [Environment config](/contribute/backend/environment-config)
 - **Stale Python env:** from `apps/backend`, run `uv sync` again and use `apps/backend/.venv`
-
-**Still stuck?** Ask on [Discord](https://discord.com/invite/Qu8szPNz2M).
+- **Still stuck?** Ask on [Discord](https://discord.com/invite/Qu8szPNz2M)
 
 ## Related
 
 - [Environment variables](/contribute/environment-variables)
 - [Coding standards](/contribute/coding-standards)
-- [Contribute overview](/contribute)
+- [Managing documentation](/contribute/managing-docs)

@@ -119,7 +119,7 @@ export class EndpointsClient extends BaseApiClient {
       {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${this.sessionToken}`,
+          ...this.buildAuthHeaders(),
           'Content-Type': 'application/json',
         },
       }

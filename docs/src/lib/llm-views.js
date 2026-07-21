@@ -65,6 +65,39 @@ export function renderLlmsTxt() {
   lines.push(`> ${siteConfig.siteDescription}`)
   lines.push('')
 
+  // Agent ingestion — how machines should use this index
+  lines.push('## Agent reference')
+  lines.push('')
+  lines.push(
+    '> Read this section first if you are an LLM agent (Cursor, Claude Code, Telemachus, MCP).'
+  )
+  lines.push(
+    '> Fetch linked `.md` URLs — do not scrape HTML. One concept per fetch; do not load llms-full.txt unless you need the full corpus.'
+  )
+  lines.push('')
+  lines.push(
+    '- [Agent reference](https://docs.rhesis.ai/docs/agent-skill/for-agents.md): routing, confusions, plan tables'
+  )
+  lines.push(
+    '- [Glossary](https://docs.rhesis.ai/glossary.md): platform terms (e.g. `glossary/behavior.md`, `glossary/test-result.md`, `glossary/metric-scope.md`, `glossary/tag.md`)'
+  )
+  lines.push(
+    '- [Metric scope](https://docs.rhesis.ai/docs/metrics/metric-scope.md): Single-Turn vs Multi-Turn alignment (critical)'
+  )
+  lines.push(
+    '- [Requirements workflow](https://docs.rhesis.ai/docs/agent-skill/requirements.md): requirements → test foundation'
+  )
+  lines.push(
+    '- [Architect workflow](https://docs.rhesis.ai/docs/architect/workflow.md): native UI agent phases'
+  )
+  lines.push(
+    '- [Agent skill install](https://docs.rhesis.ai/docs/agent-skill/platform.md): MCP + `npx skills add`'
+  )
+  lines.push(
+    '- Golden requirements example (repo only): https://github.com/rhesis-ai/rhesis/blob/main/skills/rhesis/references/use-case-bracketfeld.md'
+  )
+  lines.push('')
+
   // Primary sections — shown as named H2 blocks
   const primarySections = SECTION_ORDER.filter(sec => !OPTIONAL_SECTIONS.has(sec))
   for (const sec of primarySections) {

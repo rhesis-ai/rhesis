@@ -36,7 +36,6 @@ function renderView(
   props: Partial<React.ComponentProps<typeof BehaviorInsightsView>> = {}
 ) {
   const defaults: React.ComponentProps<typeof BehaviorInsightsView> = {
-    sessionToken: 'token',
     filters: { ...DEFAULT_INSIGHTS_FILTERS, endpointId: 'ep-1' },
     insights: {
       summary: { total: 10, passed: 8, failed: 2, pass_rate: 80 },

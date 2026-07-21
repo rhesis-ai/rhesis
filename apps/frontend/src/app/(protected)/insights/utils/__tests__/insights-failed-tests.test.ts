@@ -1,25 +1,74 @@
 import {
   buildInsightsFailedTestsUrl,
   formatInsightsFailedTestsBanner,
+  formatInsightsRunFilterLabel,
   formatInsightsSummaryDetail,
   formatInsightsTimeRangeLabel,
   parseInsightsFailedTestsSearchParams,
 } from '../insights-failed-tests';
 
 describe('insights-failed-tests', () => {
-  it('builds tests URL with insights context', () => {
+  it('builds tests URL with time range scope', () => {
     expect(
       buildInsightsFailedTestsUrl({
         endpointId: 'ep-1',
+        runFilterMode: 'timeRange',
         timeRange: '1m',
+        testRunIds: [],
       })
-    ).toBe('/tests?failedFromInsights=1&endpointId=ep-1&timeRange=1m');
+    ).toBe(
+      '/tests?failedFromInsights=1&endpointId=ep-1&runFilterMode=timeRange&timeRange=1m'
+    );
+  });
+
+  it('builds tests URL with custom test run scope', () => {
+    expect(
+      buildInsightsFailedTestsUrl({
+        endpointId: 'ep-1',
+        runFilterMode: 'testRuns',
+        timeRange: '1m',
+        testRunIds: ['run-1', 'run-2'],
+      })
+    ).toBe(
+      '/tests?failedFromInsights=1&endpointId=ep-1&runFilterMode=testRuns&testRunIds=run-1%2Crun-2'
+    );
+  });
+
+  it('builds tests URL for all test runs with an empty testRunIds param', () => {
+    expect(
+      buildInsightsFailedTestsUrl({
+        endpointId: 'ep-1',
+        runFilterMode: 'testRuns',
+        timeRange: '1m',
+        testRunIds: [],
+      })
+    ).toBe(
+      '/tests?failedFromInsights=1&endpointId=ep-1&runFilterMode=testRuns&testRunIds='
+    );
+  });
+
+  it('parses all-runs testRuns URLs with empty testRunIds', () => {
+    const params = new URLSearchParams(
+      'failedFromInsights=1&endpointId=ep-1&runFilterMode=testRuns&testRunIds='
+    );
+    expect(parseInsightsFailedTestsSearchParams(params)).toEqual({
+      endpointId: 'ep-1',
+      runFilterMode: 'testRuns',
+      timeRange: '1m',
+      testRunIds: [],
+      outcome: 'failed',
+    });
   });
 
   it('builds tests URL with behavior metric scope', () => {
     expect(
       buildInsightsFailedTestsUrl(
-        { endpointId: 'ep-1', timeRange: '1m' },
+        {
+          endpointId: 'ep-1',
+          runFilterMode: 'timeRange',
+          timeRange: '1m',
+          testRunIds: [],
+        },
         {
           behaviorId: 'beh-1',
           behaviorName: 'Safety',
@@ -27,14 +76,19 @@ describe('insights-failed-tests', () => {
         }
       )
     ).toBe(
-      '/tests?failedFromInsights=1&endpointId=ep-1&timeRange=1m&behaviorId=beh-1&behaviorName=Safety&metric=Toxicity'
+      '/tests?failedFromInsights=1&endpointId=ep-1&runFilterMode=timeRange&timeRange=1m&behaviorId=beh-1&behaviorName=Safety&metric=Toxicity'
     );
   });
 
   it('builds tests URL with all-outcome dimension scope', () => {
     expect(
       buildInsightsFailedTestsUrl(
-        { endpointId: 'ep-1', timeRange: '1m' },
+        {
+          endpointId: 'ep-1',
+          runFilterMode: 'timeRange',
+          timeRange: '1m',
+          testRunIds: [],
+        },
         {
           behaviorId: 'beh-1',
           behaviorName: 'Safety',
@@ -43,17 +97,19 @@ describe('insights-failed-tests', () => {
         }
       )
     ).toBe(
-      '/tests?failedFromInsights=1&endpointId=ep-1&timeRange=1m&behaviorId=beh-1&behaviorName=Safety&topic=Claims&outcome=all'
+      '/tests?failedFromInsights=1&endpointId=ep-1&runFilterMode=timeRange&timeRange=1m&behaviorId=beh-1&behaviorName=Safety&topic=Claims&outcome=all'
     );
   });
 
   it('parses insights failed tests search params', () => {
     const params = new URLSearchParams(
-      'failedFromInsights=1&endpointId=ep-1&timeRange=7d&behaviorId=b1&metric=m1&topic=t1&behaviorName=Beh'
+      'failedFromInsights=1&endpointId=ep-1&runFilterMode=testRuns&testRunIds=run-1,run-2&behaviorId=b1&metric=m1&topic=t1&behaviorName=Beh'
     );
     expect(parseInsightsFailedTestsSearchParams(params)).toEqual({
       endpointId: 'ep-1',
-      timeRange: '7d',
+      runFilterMode: 'testRuns',
+      timeRange: '1m',
+      testRunIds: ['run-1', 'run-2'],
       behaviorId: 'b1',
       behaviorName: 'Beh',
       metricName: 'm1',
@@ -62,14 +118,42 @@ describe('insights-failed-tests', () => {
     });
   });
 
+  it('parses legacy timeRange URLs as time range mode', () => {
+    const params = new URLSearchParams(
+      'failedFromInsights=1&endpointId=ep-1&timeRange=7d'
+    );
+    expect(parseInsightsFailedTestsSearchParams(params)).toEqual({
+      endpointId: 'ep-1',
+      runFilterMode: 'timeRange',
+      timeRange: '7d',
+      testRunIds: [],
+      outcome: 'failed',
+    });
+  });
+
   it('returns null when query flag is missing', () => {
-    const params = new URLSearchParams('endpointId=ep-1&timeRange=1m');
+    const params = new URLSearchParams(
+      'endpointId=ep-1&runFilterMode=timeRange&timeRange=1m'
+    );
     expect(parseInsightsFailedTestsSearchParams(params)).toBeNull();
   });
 
-  it('formats time range labels', () => {
+  it('formats run filter labels', () => {
+    expect(
+      formatInsightsRunFilterLabel({
+        runFilterMode: 'timeRange',
+        timeRange: '1m',
+        testRunIds: [],
+      })
+    ).toBe('the last 1 month');
+    expect(
+      formatInsightsRunFilterLabel({
+        runFilterMode: 'testRuns',
+        timeRange: '1m',
+        testRunIds: [],
+      })
+    ).toBe('all test runs');
     expect(formatInsightsTimeRangeLabel('1d')).toBe('1 day');
-    expect(formatInsightsTimeRangeLabel('3m')).toBe('3 months');
   });
 
   it('formats summary detail with test results wording', () => {
@@ -78,24 +162,14 @@ describe('insights-failed-tests', () => {
     );
   });
 
-  it('appends unique failed test case count when it differs from failures', () => {
-    expect(formatInsightsSummaryDetail(10, 20, 10, 5)).toBe(
-      '(10/20 test results passed, 10 failed · 5 unique test cases failed)'
-    );
-  });
-
-  it('omits unique failed test case count when it matches failures', () => {
-    expect(formatInsightsSummaryDetail(7, 10, 3, 3)).toBe(
-      '(7/10 test results passed, 3 failed)'
-    );
-  });
-
   it('formats banner for metric drill-down', () => {
     expect(
       formatInsightsFailedTestsBanner(
         {
           endpointId: 'ep-1',
+          runFilterMode: 'timeRange',
           timeRange: '1m',
+          testRunIds: [],
           behaviorName: 'Safety',
           metricName: 'Toxicity',
         },
@@ -107,7 +181,9 @@ describe('insights-failed-tests', () => {
       formatInsightsFailedTestsBanner(
         {
           endpointId: 'ep-1',
+          runFilterMode: 'timeRange',
           timeRange: '1m',
+          testRunIds: [],
           behaviorName: 'Safety',
           metricName: 'Toxicity',
         },
@@ -122,7 +198,9 @@ describe('insights-failed-tests', () => {
       formatInsightsFailedTestsBanner(
         {
           endpointId: 'ep-1',
+          runFilterMode: 'timeRange',
           timeRange: '1m',
+          testRunIds: [],
           behaviorName: 'Safety',
           topicName: 'Claims',
           outcome: 'all',
@@ -135,7 +213,9 @@ describe('insights-failed-tests', () => {
       formatInsightsFailedTestsBanner(
         {
           endpointId: 'ep-1',
+          runFilterMode: 'testRuns',
           timeRange: '1m',
+          testRunIds: ['run-1'],
           behaviorName: 'Safety',
           metricName: 'Toxicity',
           outcome: 'all',

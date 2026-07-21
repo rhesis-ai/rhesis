@@ -9,16 +9,13 @@ import { useTestExecutionHistory } from './useTestExecutionHistory';
 
 interface TestExecutionHistorySectionProps {
   testId: string;
-  sessionToken: string;
 }
 
 export default function TestExecutionHistorySection({
   testId,
-  sessionToken,
 }: TestExecutionHistorySectionProps) {
   const { rows, loading, error } = useTestExecutionHistory({
     testId,
-    sessionToken,
   });
 
   if (loading) {

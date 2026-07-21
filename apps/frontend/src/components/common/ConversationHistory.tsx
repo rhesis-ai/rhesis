@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useState } from 'react';
+import { useSession } from 'next-auth/react';
 import {
   Box,
   Paper,
@@ -28,6 +29,7 @@ import StatusChip from '@/components/common/StatusChip';
 import { getProjectIconComponent } from '@/components/common/ProjectIcons';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 // Superhero (female) emoji built from code points to avoid linter emoji detection.
 // U+1F9B8 (superhero) + U+200D (ZWJ) + U+2640 (female sign) + U+FE0F (variation selector)
@@ -47,7 +49,6 @@ interface ConversationHistoryProps {
   maxHeight?: number | string;
   turnReviewMap?: Map<number, Review>;
   /** Required when turns carry penelope_files for authenticated downloads. */
-  sessionToken?: string;
 }
 
 /**
@@ -68,15 +69,15 @@ export default function ConversationHistory({
   isConfirmingReview = false,
   maxHeight = 600,
   turnReviewMap = new Map<number, Review>(),
-  sessionToken,
 }: ConversationHistoryProps) {
   const theme = useTheme();
+  const { status } = useSession();
 
   const handleDownloadFile = useCallback(
     async (file: FileResponse) => {
-      if (!sessionToken) return;
+      if (!isAuthenticated(status)) return;
       try {
-        const factory = new ApiClientFactory(sessionToken);
+        const factory = new ApiClientFactory();
         const client = factory.getFilesClient();
         const blob = await client.getFileContent(file.id);
         const url = URL.createObjectURL(blob);
@@ -89,7 +90,7 @@ export default function ConversationHistory({
         console.error('Failed to download file:', err);
       }
     },
-    [sessionToken]
+    [status]
   );
 
   // Get the project icon component
@@ -451,7 +452,7 @@ export default function ConversationHistory({
 
                 {turn.penelope_files &&
                   turn.penelope_files.length > 0 &&
-                  sessionToken && (
+                  isAuthenticated(status) && (
                     <Box
                       sx={{
                         display: 'flex',

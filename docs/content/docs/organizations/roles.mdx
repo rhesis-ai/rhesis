@@ -23,9 +23,9 @@ Rhesis controls what each member can do through roles, assigned at the organizat
 
 | Role | Level | Access |
 |---|---|---|
-| Owner | 100 | Full control, including billing, deletion, and ownership transfer |
-| Admin | 80 | Manage members, roles, projects, and org settings. Cannot delete the org |
-| Member | 60 | Create, edit, and run evaluations across their projects. Manage own API tokens |
+| Owner | 100 | Full control, including deletion and ownership transfer |
+| Admin | 80 | Manage members, projects, and org settings, and assign roles. Cannot delete the org or create custom roles |
+| Member | 60 | Create, edit, and run evaluations across their projects |
 | Viewer | 40 | Read-only access. Can browse and export but not change anything |
 | None | 0 | No access. Used to explicitly revoke a member while keeping them in the org |
 
@@ -145,4 +145,4 @@ Assign the **None** role at the org tier to revoke a member while keeping them i
 - [Single Sign-On](/docs/organizations/sso)
 - [API Clients](/docs/organizations/api-clients)
 - [Organizations & Team](/docs/organizations)
-- [Self-Hosting](/docs/deployment/self-hosting)
+- [Self-Hosting](/docs/deployment/docker-compose)

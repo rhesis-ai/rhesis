@@ -19,6 +19,7 @@ import { Priority, Status } from '@/utils/api-client/interfaces/task';
 import { useSession } from 'next-auth/react';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import { drawerOutlinedFieldSx } from '@/components/common/drawerFormFieldSx';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface TaskCreationDrawerProps {
   open: boolean;
@@ -39,7 +40,7 @@ export function TaskCreationDrawer({
   isLoading = false,
   commentId,
 }: TaskCreationDrawerProps) {
-  const { data: session } = useSession();
+  const { status } = useSession();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [statusId, setStatusId] = useState<string>('');
@@ -53,17 +54,16 @@ export function TaskCreationDrawer({
   // Load data when modal opens
   useEffect(() => {
     const loadData = async () => {
-      const sessionToken = session?.session_token;
-      if (!open || !sessionToken) return;
+      if (!open || !isAuthenticated(status)) return;
 
       setIsLoadingData(true);
       try {
         const [fetchedStatuses, fetchedPriorities, fetchedUsers] =
           await Promise.all([
-            getStatuses(sessionToken),
-            getPriorities(sessionToken),
+            getStatuses(),
+            getPriorities(),
             (async () => {
-              const clientFactory = new ApiClientFactory(sessionToken);
+              const clientFactory = new ApiClientFactory();
               const usersClient = clientFactory.getUsersClient();
               const response = await usersClient.getUsers();
               return response.data;
@@ -86,7 +86,7 @@ export function TaskCreationDrawer({
     };
 
     loadData();
-  }, [open, session?.session_token]);
+  }, [open, status]);
 
   const handleSubmit = async () => {
     if (!title.trim()) return;

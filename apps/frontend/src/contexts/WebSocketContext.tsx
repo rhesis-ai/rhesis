@@ -17,6 +17,7 @@ import {
 } from '@/utils/websocket';
 import { getClientApiBaseUrl } from '@/utils/url-resolver';
 import { WebSocketTokenClient } from '@/utils/api-client/websocket-token-client';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 /**
  * Context value interface for WebSocket functionality.
@@ -58,15 +59,17 @@ function getWebSocketUrl(): string {
 }
 
 /**
- * Returns a `tokenProvider` function bound to the given session token.
+ * Returns a `tokenProvider` function that mints a fresh WS token per attempt.
  *
- * Each call to the provider fetches a fresh short-lived WS token from
- * `POST /ws/token`, so every connection attempt (including auto-reconnects)
- * uses a valid single-use credential instead of the long-lived session JWT.
+ * Each call fetches a fresh short-lived WS token from `POST /ws/token` (routed
+ * through the `/api/backend` proxy, which injects `Authorization` from the
+ * httpOnly session cookie — this client never holds the access token itself),
+ * so every connection attempt (including auto-reconnects) uses a valid
+ * single-use credential.
  */
-function makeWsTokenProvider(sessionToken: string): () => Promise<string> {
+function makeWsTokenProvider(): () => Promise<string> {
   return async () => {
-    const client = new WebSocketTokenClient(sessionToken);
+    const client = new WebSocketTokenClient();
     const { token } = await client.getWebSocketToken();
     return token;
   };
@@ -93,7 +96,7 @@ function makeWsTokenProvider(sessionToken: string): () => Promise<string> {
  * ```
  */
 export function WebSocketProvider({ children }: WebSocketProviderProps) {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const [isConnected, setIsConnected] = useState(false);
   const [connectionId, setConnectionId] = useState<string | undefined>();
   const clientRef = useRef<WebSocketClient | null>(null);
@@ -101,20 +104,21 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
   // Initialize WebSocket client when session is available
   useEffect(() => {
     // Don't connect if no session or still loading
-    if (status === 'loading' || !session?.session_token) {
+    if (!isAuthenticated(status)) {
       return;
     }
 
     const wsUrl = getWebSocketUrl();
 
     // Create WebSocket client. The tokenProvider fetches a fresh short-lived
-    // WS token before each connection attempt (including auto-reconnects),
-    // keeping the long-lived session JWT out of the WebSocket URL.
-    // The static token acts as a fallback if the provider call fails.
+    // WS token before each connection attempt (including auto-reconnects) via
+    // the BFF proxy. There's no static access token to fall back to here —
+    // this client never holds one — so a provider failure fails the
+    // connection attempt cleanly instead of reusing a stale credential.
     const client = new WebSocketClient({
       url: wsUrl,
-      token: session.session_token,
-      tokenProvider: makeWsTokenProvider(session.session_token),
+      token: '',
+      tokenProvider: makeWsTokenProvider(),
       onConnectionChange: connected => {
         setIsConnected(connected);
         if (!connected) {
@@ -142,7 +146,7 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
       setIsConnected(false);
       setConnectionId(undefined);
     };
-  }, [session?.session_token, status]);
+  }, [status]);
 
   /**
    * Send a message to the WebSocket server.

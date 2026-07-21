@@ -64,7 +64,6 @@ const stripMarkdown = (value: string) =>
 interface GarakImportDrawerProps {
   open: boolean;
   onClose: () => void;
-  sessionToken: string;
   onSuccess?: (testSetIds: string[]) => void;
   onOwaspSuccess?: (taskIds: string[]) => void;
   /** When false, the Garak option is hidden from the source dropdown. Default true. */
@@ -76,7 +75,6 @@ interface GarakImportDrawerProps {
 export default function GarakImportDrawer({
   open,
   onClose,
-  sessionToken,
   onSuccess,
   onOwaspSuccess,
   canUseGarak = true,
@@ -129,7 +127,7 @@ export default function GarakImportDrawer({
       setLoadingModules(true);
       setError(undefined);
 
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const garakClient = clientFactory.getGarakClient();
 
       const response = await garakClient.listProbeModules();
@@ -142,7 +140,7 @@ export default function GarakImportDrawer({
     } finally {
       setLoadingModules(false);
     }
-  }, [sessionToken]);
+  }, []);
 
   React.useEffect(() => {
     if (open && source === 'garak' && modules.length === 0) {
@@ -297,7 +295,7 @@ export default function GarakImportDrawer({
       setImporting(true);
       setError(undefined);
 
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const garakClient = clientFactory.getGarakClient();
       const createdTestSetIds: string[] = [];
 
@@ -596,7 +594,6 @@ export default function GarakImportDrawer({
         {isOwasp ? (
           <OwaspGenerateForm
             active={open && isOwasp}
-            sessionToken={sessionToken}
             onSuccess={onOwaspSuccess}
             onFooterChange={setOwaspFooter}
           />

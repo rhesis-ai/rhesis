@@ -54,6 +54,11 @@ logger = logging.getLogger(__name__)
 
 _PERMISSION_CACHE_TTL = 45  # seconds; plan §1.6 specifies 30–60 s
 _KEY_PREFIX = "perm:v1"
+#: Separate prefix (same Redis DB/TTL) for rbac_active_for()'s org-level
+#: "is RBAC licensed/active" flag — cheap to share the connection, distinct
+#: key shape (no user_id/project_id/permission) so it can't collide with
+#: per-decision keys or get swept by bust_user's per-user prefix scan.
+_RBAC_ACTIVE_KEY_PREFIX = "rbac_active:v1"
 
 
 class PermissionCache(RedisBackedCache):
@@ -126,6 +131,23 @@ class PermissionCache(RedisBackedCache):
         """Store a permission decision in the cache."""
         key = self._make_key(user_id, org_id, project_id, permission, scope_fingerprint)
         self._set(key, "1" if result else "0")
+
+    def get_rbac_active(self, org_id: UUID) -> Optional[bool]:
+        """Return the cached "is RBAC active for this org" flag, or ``None`` on miss.
+
+        Used by :func:`~rhesis.backend.app.auth.rbac.rbac_active_for`, which is
+        called on every ``authorize()``/``get_effective_permissions()`` call —
+        without this, each call re-runs the org lookup just to answer a flag
+        that changes only on a plan/license change.
+        """
+        val = self._get(f"{_RBAC_ACTIVE_KEY_PREFIX}:{org_id}")
+        if val is None:
+            return None
+        return val == "1"
+
+    def set_rbac_active(self, org_id: UUID, result: bool) -> None:
+        """Cache the "is RBAC active for this org" flag."""
+        self._set(f"{_RBAC_ACTIVE_KEY_PREFIX}:{org_id}", "1" if result else "0")
 
     def bust_user(self, user_id: UUID, org_id: UUID) -> None:
         """Bust all cached permissions for *user_id* within *org_id*.

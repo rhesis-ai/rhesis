@@ -54,7 +54,6 @@ export interface OwaspGenerateFooterState {
 interface OwaspGenerateFormProps {
   /** When true, load categories and keep state alive. */
   active: boolean;
-  sessionToken: string;
   onSuccess?: (taskIds: string[]) => void;
   onFooterChange?: (footer: OwaspGenerateFooterState) => void;
 }
@@ -94,7 +93,6 @@ const categoryKey = (framework: OwaspFramework, id: string) =>
 
 export default function OwaspGenerateForm({
   active,
-  sessionToken,
   onSuccess,
   onFooterChange,
 }: OwaspGenerateFormProps) {
@@ -124,7 +122,7 @@ export default function OwaspGenerateForm({
     try {
       setLoadingCategories(true);
       setError(undefined);
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const owaspClient = clientFactory.getOwaspClient();
       const [llmResponse, agenticResponse] = await Promise.all([
         owaspClient.listCategories('llm'),
@@ -141,7 +139,7 @@ export default function OwaspGenerateForm({
     } finally {
       setLoadingCategories(false);
     }
-  }, [sessionToken]);
+  }, []);
 
   React.useEffect(() => {
     if (active && !hasLoadedCategories.current) {
@@ -264,7 +262,7 @@ export default function OwaspGenerateForm({
       setSubmitting(true);
       setError(undefined);
 
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const project = await clientFactory.getProjectsClient().getProject(projectId);
       const purpose = project?.description?.trim();
       if (!purpose) {
@@ -313,7 +311,6 @@ export default function OwaspGenerateForm({
     }
   }, [
     selectionsByFramework,
-    sessionToken,
     testSetName,
     categoriesByFramework,
     numTests,
@@ -542,7 +539,6 @@ export default function OwaspGenerateForm({
         />
         <Box sx={drawerFieldsSx}>
           <ModelSelector
-            sessionToken={sessionToken}
             value={modelId}
             onChange={setModelId}
             label="Generation Model"

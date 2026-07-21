@@ -41,6 +41,7 @@ import GridBadge from '@/components/common/GridBadge';
 import { AttachFileIcon, ChatIcon, DescriptionIcon } from '@/components/icons';
 import InsertDriveFileOutlined from '@mui/icons-material/InsertDriveFileOutlined';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { useSession } from 'next-auth/react';
 import TestDrawer from './TestDrawer';
 import TestSetSelectionDrawer from './TestSetSelectionDrawer';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
@@ -75,11 +76,12 @@ import { gridSortToApiParams } from '@/utils/grid-sort';
 import {
   fetchFailedTestIdsForInsights,
   formatInsightsFailedTestsBanner,
+  insightsFailedFilterToRunContext,
   type InsightsFailedTestsFilter,
 } from '@/app/(protected)/insights/utils/insights-failed-tests';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface TestsTableProps {
-  sessionToken: string;
   onNewTest?: () => void;
   disableAddButton?: boolean;
   insightsFailedFilter?: InsightsFailedTestsFilter | null;
@@ -182,7 +184,6 @@ function TestsUnifiedToolbar() {
 }
 
 export default function TestsTable({
-  sessionToken,
   onNewTest: _onNewTest,
   disableAddButton: _disableAddButton = false,
   insightsFailedFilter = null,
@@ -196,6 +197,7 @@ export default function TestsTable({
   const canEditTest = useCan(Capability.Test.UPDATE);
   const canDeleteTest = useCan(Capability.Test.DELETE);
   const queryClient = useQueryClient();
+  const { status } = useSession();
 
   // Search + tab filter — managed here, shared to toolbar via context
   const [searchQuery, setSearchQuery] = useState('');
@@ -269,7 +271,7 @@ export default function TestsTable({
     ),
     errorFallbackMessage: 'Failed to load tests',
     queryFn: () => {
-      const testsClient = new ApiClientFactory(sessionToken).getTestsClient();
+      const testsClient = new ApiClientFactory().getTestsClient();
       return testsClient.getTests({
         skip: paginationModel.page * paginationModel.pageSize,
         limit: paginationModel.pageSize,
@@ -278,7 +280,7 @@ export default function TestsTable({
         ...(filterString && { filter: filterString }),
       });
     },
-    enabled: !!sessionToken && insightsFilterReady,
+    enabled: isAuthenticated(status) && insightsFilterReady,
   });
 
   const tests = testsData?.data ?? [];
@@ -318,7 +320,7 @@ export default function TestsTable({
 
   // Apply Insights failed-test filter from URL params
   useEffect(() => {
-    if (!insightsFailedFilter || !sessionToken) {
+    if (!insightsFailedFilter || !isAuthenticated(status)) {
       setInsightsFailedTestIds(null);
       setInsightsFilterError(null);
       setInsightsFilterLoading(false);
@@ -332,9 +334,8 @@ export default function TestsTable({
       setInsightsFilterLoading(true);
       setInsightsFilterError(null);
       try {
-        const ids = await fetchFailedTestIdsForInsights(sessionToken, {
-          endpointId: insightsFailedFilter.endpointId,
-          timeRange: insightsFailedFilter.timeRange,
+        const ids = await fetchFailedTestIdsForInsights({
+          ...insightsFailedFilterToRunContext(insightsFailedFilter),
           behaviorId: insightsFailedFilter.behaviorId,
           behaviorName: insightsFailedFilter.behaviorName,
           metricName: insightsFailedFilter.metricName,
@@ -362,9 +363,11 @@ export default function TestsTable({
     };
   }, [
     insightsFailedFilter?.endpointId,
+    insightsFailedFilter?.runFilterMode,
     insightsFailedFilter?.timeRange,
-    sessionToken,
+    insightsFailedFilter?.testRunIds,
     insightsFailedFilter,
+    status,
   ]);
 
   // Row action handlers
@@ -649,10 +652,10 @@ export default function TestsTable({
 
   const handleTestSetsAssign = useCallback(
     async (testSets: TestSet[]) => {
-      if (!sessionToken || testSets.length === 0) return;
+      if (!isAuthenticated(status) || testSets.length === 0) return;
 
       const testIds = selectedRows as string[];
-      const testSetsClient = new TestSetsClient(sessionToken);
+      const testSetsClient = new TestSetsClient();
       let successCount = 0;
       let alreadyAssociatedCount = 0;
       let failureCount = 0;
@@ -707,7 +710,7 @@ export default function TestsTable({
         setTestSetDrawerOpen(false);
       }
     },
-    [sessionToken, selectedRows, notifications]
+    [selectedRows, notifications, status]
   );
 
   const handleDeleteTests = useCallback(() => {
@@ -724,7 +727,7 @@ export default function TestsTable({
 
     try {
       setIsDeleting(true);
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const testsClient = clientFactory.getTestsClient();
 
       await Promise.all(idsToDelete.map(id => testsClient.deleteTest(id)));
@@ -746,7 +749,7 @@ export default function TestsTable({
       setIsDeleting(false);
       setDeleteModalOpen(false);
     }
-  }, [pendingDeleteId, selectedRows, sessionToken, notifications, queryClient]);
+  }, [pendingDeleteId, selectedRows, notifications, queryClient]);
 
   const handleDeleteCancel = useCallback(() => {
     setDeleteModalOpen(false);
@@ -881,12 +884,11 @@ export default function TestsTable({
         sx={rowActionsHoverSx}
       />
 
-      {sessionToken && (
+      {isAuthenticated(status) && (
         <>
           <TestDrawer
             open={drawerOpen}
             onClose={handleDrawerClose}
-            sessionToken={sessionToken}
             test={selectedTest}
             onSuccess={handleTestSaved}
           />
@@ -894,7 +896,6 @@ export default function TestsTable({
             open={testSetDrawerOpen}
             onClose={() => setTestSetDrawerOpen(false)}
             onSelect={handleTestSetsAssign}
-            sessionToken={sessionToken}
             testTypeValue={selectedTestTypes.commonTypeValue}
           />
           <DeleteModal
@@ -918,7 +919,6 @@ export default function TestsTable({
         open={filterDrawerOpen}
         onClose={() => setFilterDrawerOpen(false)}
         filters={drawerFilters}
-        sessionToken={sessionToken}
         onApply={f => {
           setDrawerFilters(f);
           // If drawer sets a test type, sync the pill tab too

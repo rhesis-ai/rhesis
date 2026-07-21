@@ -11,19 +11,21 @@ import { useQuery } from '@tanstack/react-query';
 import { FileResponse } from '@/utils/api-client/interfaces/file';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { fileKeys } from '@/constants/query-keys';
+import { useIsAuthenticated } from '@/hooks/useIsAuthenticated';
 
 // ---------------------------------------------------------------------------
 // useFileMetadata — cached file metadata from GET /files/{id}
 // ---------------------------------------------------------------------------
-export function useFileMetadata(fileId: string | null, sessionToken: string) {
+export function useFileMetadata(fileId: string | null) {
+  const isAuthenticated = useIsAuthenticated();
   return useQuery<FileResponse>({
     queryKey: fileKeys.metadata(fileId ?? ''),
-    enabled: !!fileId && !!sessionToken,
+    enabled: !!fileId && isAuthenticated,
     queryFn: async () => {
       if (!fileId) {
         throw new Error('fileId is required to fetch file metadata');
       }
-      const client = new ApiClientFactory(sessionToken).getFilesClient();
+      const client = new ApiClientFactory().getFilesClient();
       return client.getFileMetadata(fileId);
     },
   });
@@ -43,17 +45,20 @@ export function useFileMetadata(fileId: string | null, sessionToken: string) {
 // ---------------------------------------------------------------------------
 export function useFileThumbnail(
   fileId: string | null,
-  size: 72 | 144 | 288 = 144,
-  sessionToken: string
+  size: 72 | 144 | 288 = 144
 ) {
+  const isAuthenticated = useIsAuthenticated();
   return useQuery<Blob>({
     queryKey: fileKeys.thumbnail(fileId ?? '', size),
-    enabled: !!fileId && !!sessionToken,
+    enabled: !!fileId && isAuthenticated,
     queryFn: async () => {
+      // Same-origin BFF proxy: it injects Authorization server-side from the
+      // httpOnly session cookie. The plain `/api/files/...` catch-all only
+      // FORWARDS a browser-supplied header — which no longer exists, since
+      // the access token never reaches browser JS.
       const response = await fetch(
-        `/api/files/${fileId}/thumbnail?size=${size}`,
+        `/api/backend/files/${fileId}/thumbnail?size=${size}`,
         {
-          headers: { Authorization: `Bearer ${sessionToken}` },
           credentials: 'include',
           redirect: 'follow',
         }
@@ -92,10 +97,11 @@ export function useThumbnailObjectUrl(blob: Blob | undefined): string | null {
 }
 
 // ---------------------------------------------------------------------------
-// useFileContentUrl — returns the direct /files/{id}/content URL (no fetch).
-// The browser follows the 302 to the presigned URL automatically.
+// useFileContentUrl — returns the /files/{id}/content URL via the BFF proxy
+// (no fetch). The proxy authenticates the request server-side; a cross-origin
+// (presigned storage) redirect passes through for the browser to follow.
 // ---------------------------------------------------------------------------
 export function useFileContentUrl(fileId: string | null): string | null {
   if (!fileId) return null;
-  return `/api/files/${fileId}/content`;
+  return `/api/backend/files/${fileId}/content`;
 }

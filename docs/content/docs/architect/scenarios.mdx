@@ -73,9 +73,7 @@ Ground test generation in your own documentation. Reference the source by name.
   <ChatArchitect>Found "Product FAQ" in your knowledge library. I'll use it to generate grounded single-turn tests. Shall I plan the full suite?</ChatArchitect>
 </ChatExchange>
 
-<Callout type="warning">
-  Knowledge sources only apply to single-turn test generation. Multi-turn tests are not grounded.
-</Callout>
+→ [Planning — Knowledge sources](/docs/architect/planning#knowledge-sources) covers how grounding works and its single-turn limitation.
 
 ## Attaching a spec or requirements document
 
@@ -111,5 +109,5 @@ Turn on auto-approve when you want to move fast through a well-understood workfl
 3. Architect creates, then executes without pausing for confirmation at each step.
 
 <Callout type="warning">
-  Auto-approve skips all confirmations for the session — including creation and execution. See [Chat Features — Auto-approve](/docs/architect/chat-features#auto-approve).
+  Auto-approve skips all confirmations — including creation and execution — until you turn it off. See [Chat Features — Auto-approve](/docs/architect/chat-features#auto-approve).
 </Callout>

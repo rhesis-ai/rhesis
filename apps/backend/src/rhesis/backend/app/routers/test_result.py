@@ -22,6 +22,7 @@ from rhesis.backend.app.dependencies import (
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.services.review import (
+    apply_review_resolved,
     authorize_review_action,
     get_review_status_details,
     update_review_metadata,
@@ -576,6 +577,9 @@ def add_review(
         "created_at": now,
         "updated_at": now,
         "target": {"type": review.target.type, "reference": review.target.reference},
+        "resolved": False,
+        "resolved_at": None,
+        "resolved_by": None,
     }
 
     # Add the review
@@ -690,6 +694,9 @@ def update_review(
 
     if review.comments is not None:
         review_to_update["comments"] = review.comments
+
+    if review.resolved is not None:
+        apply_review_resolved(review_to_update, resolved=review.resolved, current_user=current_user)
 
     target_changed = False
     if review.target is not None:

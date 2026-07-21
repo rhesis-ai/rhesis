@@ -11,17 +11,17 @@ export async function generateMetadata({
   try {
     const resolvedParams = await params;
     const identifier = resolvedParams.identifier;
-    const session = (await auth()) as { session_token: string } | null;
+    const session = await auth();
 
     // If no session (like during warmup), return basic metadata
-    if (!session?.session_token) {
+    if (!session || session.error) {
       return {
         title: `Project ${identifier}`,
         description: `Details for Project ${identifier}`,
       };
     }
 
-    const apiFactory = await createServerApiFactory(session.session_token);
+    const apiFactory = await createServerApiFactory();
     const projectsClient = apiFactory.getProjectsClient();
     const project = await projectsClient.getProject(identifier);
 

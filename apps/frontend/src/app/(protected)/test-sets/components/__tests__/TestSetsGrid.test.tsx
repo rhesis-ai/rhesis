@@ -205,7 +205,7 @@ describe('TestSetsGrid', () => {
 
   it('shows loading state while fetching', () => {
     mockGetTestSets.mockReturnValue(new Promise(() => {}));
-    render(<TestSetsGrid sessionToken="tok" />);
+    render(<TestSetsGrid />);
     expect(screen.getByTestId('grid-loading')).toBeInTheDocument();
   });
 
@@ -216,7 +216,7 @@ describe('TestSetsGrid', () => {
         makeTestSet('00000000-0000-0000-0000-000000000002' as UUID),
       ])
     );
-    render(<TestSetsGrid sessionToken="tok" />);
+    render(<TestSetsGrid />);
     await waitFor(() =>
       expect(
         screen.getByTestId('row-00000000-0000-0000-0000-000000000001')
@@ -233,7 +233,7 @@ describe('TestSetsGrid', () => {
         makeTestSet('00000000-0000-0000-0000-000000000099' as UUID),
       ])
     );
-    render(<TestSetsGrid sessionToken="tok" />);
+    render(<TestSetsGrid />);
     await waitFor(() =>
       expect(
         screen.getByTestId('row-00000000-0000-0000-0000-000000000099')
@@ -248,7 +248,7 @@ describe('TestSetsGrid', () => {
   });
 
   it('does not show "New Test Set" or import buttons in the grid (moved to page header)', async () => {
-    render(<TestSetsGrid sessionToken="tok" />);
+    render(<TestSetsGrid />);
     await waitForGrid();
     expect(screen.queryByTestId('action-New Test Set')).not.toBeInTheDocument();
     expect(

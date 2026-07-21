@@ -8,7 +8,7 @@ configMapGenerator:
   - name: internal-dns-config
     literals:
       - tsig-secret-gcp-key=internal-dns-tsig-key-prd
-      - rfc2136-host=10.6.1.200
+      - rfc2136-host=10.0.0.10
       - tsig-keyname=tsig-prd
       - domain-filter=rhesis.ai
       - txt-owner-id=prd-internal-dns

@@ -14,7 +14,6 @@ import { Capability } from '@/constants/capabilities';
 
 interface OrganizationDetailsFormProps {
   organization: Organization;
-  sessionToken: string;
   onUpdate: () => void;
 }
 
@@ -38,7 +37,6 @@ function draftFromOrganization(org: Organization): DetailsDraft {
 
 export default function OrganizationDetailsForm({
   organization,
-  sessionToken,
   onUpdate,
 }: OrganizationDetailsFormProps) {
   const router = useRouter();
@@ -72,7 +70,7 @@ export default function OrganizationDetailsForm({
     }
 
     try {
-      const apiFactory = new ApiClientFactory(sessionToken);
+      const apiFactory = new ApiClientFactory();
       const organizationsClient = apiFactory.getOrganizationsClient();
 
       const website = draft.website ? normalizeUrl(draft.website) : undefined;

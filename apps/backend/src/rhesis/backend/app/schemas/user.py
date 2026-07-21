@@ -143,14 +143,38 @@ class UserSettings(BaseModel):
     )
     is_verified: Optional[bool] = Field(None, description="User verification status")
 
+    @model_validator(mode="wrap")
+    @classmethod
+    def _strip_subclass_only_keys(cls, data, handler):
+        """Strip keys declared only on read-only subclasses (e.g. ``terms``
+        from ``UserSettingsRead``) so ``extra='forbid'`` does not reject them
+        when this base class is used for response serialization in ``User``
+        schemas.  Subclasses that declare those fields are unaffected because
+        the ``cls is UserSettings`` guard skips them."""
+        if cls is UserSettings and isinstance(data, dict):
+            known = set(cls.model_fields.keys())
+            data = {k: v for k, v in data.items() if k in known}
+        return handler(data)
 
-class UserSettingsRead(UserSettings):
-    """GET /users/settings — includes server-resolved affordances for self-service actions."""
+
+class UserSettingsOutput(UserSettings):
+    """user_settings as returned in user-serializing responses (e.g. GET /users/, GET /users/{id}).
+
+    Adds the server-managed ``terms`` field so users whose settings contain it don't fail
+    response validation. Distinct from the writable ``UserSettings`` (still forbids ``terms``
+    on input) and from ``UserSettingsRead`` (adds ``permitted_actions`` for the dedicated
+    GET /users/settings endpoint).
+    """
 
     terms: Optional[dict] = Field(
         None,
         description="Server-managed terms acceptance metadata (read-only for users)",
     )
+
+
+class UserSettingsRead(UserSettingsOutput):
+    """GET /users/settings — includes server-resolved affordances for self-service actions."""
+
     permitted_actions: list[str] = Field(
         default_factory=list,
         description="Capabilities the caller may exercise on their own settings "
@@ -221,7 +245,10 @@ class UserUpdate(UserBase):
 
 
 class User(UserBase):
-    pass
+    user_settings: Optional[UserSettingsOutput] = Field(
+        default_factory=lambda: UserSettingsOutput(version=1),
+        description="User preferences and settings",
+    )
 
 
 # For use in responses where we need minimal user info

@@ -23,7 +23,6 @@ import type { Model } from '@/utils/api-client/interfaces/model';
 import type { Source } from '@/utils/api-client/interfaces/source';
 
 interface TestInputScreenProps {
-  sessionToken: string;
   testType?: TestType;
   onTestTypeChange?: (type: TestType) => void;
   onContinue: (description: string, sources: SourceData[]) => void;
@@ -127,7 +126,6 @@ const SCAFFOLD_CATEGORIES = [
  * Collects user description and optional sources for test generation
  */
 export default function TestInputScreen({
-  sessionToken,
   testType = 'Single-Turn',
   onTestTypeChange,
   onContinue,
@@ -241,7 +239,6 @@ export default function TestInputScreen({
 
           <Box>
             <ModelSelector
-              sessionToken={sessionToken}
               label="Generation model"
               purpose="generation"
               value={selectedModelId || ''}

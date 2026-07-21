@@ -6,9 +6,17 @@ expect.extend(toHaveNoViolations);
 
 // Set environment variables for tests
 process.env.API_BASE_URL = 'http://localhost:8080/api/v1';
-window.__ENV__ = {
-  apiBaseUrl: 'http://localhost:8080/api/v1',
-};
+
+// Some suites (e.g. middleware tests needing NextRequest) opt into the node
+// environment via a per-file `@jest-environment node` docblock; everything
+// touching `window` below only applies to the default jsdom environment.
+const hasWindow = typeof window !== 'undefined';
+
+if (hasWindow) {
+  window.__ENV__ = {
+    apiBaseUrl: 'http://localhost:8080/api/v1',
+  };
+}
 
 // Mock TextEncoder and TextDecoder for basic compatibility
 global.TextEncoder = global.TextEncoder || require('util').TextEncoder;
@@ -59,19 +67,21 @@ jest.mock('next/navigation', () => ({
 }));
 
 // Mock window.matchMedia for responsive components
-Object.defineProperty(window, 'matchMedia', {
-  writable: true,
-  value: jest.fn().mockImplementation(query => ({
-    matches: false,
-    media: query,
-    onchange: null,
-    addListener: jest.fn(), // Deprecated
-    removeListener: jest.fn(), // Deprecated
-    addEventListener: jest.fn(),
-    removeEventListener: jest.fn(),
-    dispatchEvent: jest.fn(),
-  })),
-});
+if (hasWindow) {
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: jest.fn().mockImplementation(query => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: jest.fn(), // Deprecated
+      removeListener: jest.fn(), // Deprecated
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn(),
+      dispatchEvent: jest.fn(),
+    })),
+  });
+}
 
 // Mock ResizeObserver
 global.ResizeObserver = jest.fn().mockImplementation(() => ({
@@ -87,31 +97,33 @@ global.IntersectionObserver = jest.fn().mockImplementation(() => ({
   disconnect: jest.fn(),
 }));
 
-// Mock window.scrollTo
-Object.defineProperty(window, 'scrollTo', {
-  value: jest.fn(),
-  writable: true,
-});
+if (hasWindow) {
+  // Mock window.scrollTo
+  Object.defineProperty(window, 'scrollTo', {
+    value: jest.fn(),
+    writable: true,
+  });
 
-// Make window.location mockable for tests
-// Delete first, then redefine to avoid jsdom's built-in location
-delete window.location;
-window.location = {
-  href: 'http://localhost:3000',
-  origin: 'http://localhost:3000',
-  protocol: 'http:',
-  host: 'localhost:3000',
-  hostname: 'localhost',
-  port: '3000',
-  pathname: '/',
-  search: '',
-  hash: '',
-  // Location methods that components may call
-  assign: jest.fn(),
-  replace: jest.fn(),
-  reload: jest.fn(),
-  toString: jest.fn(() => 'http://localhost:3000'),
-};
+  // Make window.location mockable for tests
+  // Delete first, then redefine to avoid jsdom's built-in location
+  delete window.location;
+  window.location = {
+    href: 'http://localhost:3000',
+    origin: 'http://localhost:3000',
+    protocol: 'http:',
+    host: 'localhost:3000',
+    hostname: 'localhost',
+    port: '3000',
+    pathname: '/',
+    search: '',
+    hash: '',
+    // Location methods that components may call
+    assign: jest.fn(),
+    replace: jest.fn(),
+    reload: jest.fn(),
+    toString: jest.fn(() => 'http://localhost:3000'),
+  };
+}
 
 // Mock localStorage
 const localStorageMock = {

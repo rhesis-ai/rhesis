@@ -29,7 +29,6 @@ import { EntityType } from '@/types/entity-type';
 interface CreateTestFromConversationDrawerProps {
   open: boolean;
   onClose: () => void;
-  sessionToken: string;
   /** Conversation messages to extract the test from */
   messages: ConversationMessage[];
   /** "Single-Turn" or "Multi-Turn" */
@@ -58,7 +57,6 @@ interface TestFormData {
 export default function CreateTestFromConversationDrawer({
   open,
   onClose,
-  sessionToken,
   messages,
   testType,
   endpointId,
@@ -84,7 +82,7 @@ export default function CreateTestFromConversationDrawer({
 
     const loadOptions = async () => {
       try {
-        const apiFactory = new ApiClientFactory(sessionToken);
+        const apiFactory = new ApiClientFactory();
         const [behaviorsData, topicsData, categoriesData] = await Promise.all([
           apiFactory
             .getBehaviorClient()
@@ -110,7 +108,7 @@ export default function CreateTestFromConversationDrawer({
     };
 
     loadOptions();
-  }, [open, sessionToken]);
+  }, [open]);
 
   // Extract test metadata from conversation when drawer opens
   useEffect(() => {
@@ -120,7 +118,7 @@ export default function CreateTestFromConversationDrawer({
       setExtracting(true);
       setError(undefined);
       try {
-        const apiFactory = new ApiClientFactory(sessionToken);
+        const apiFactory = new ApiClientFactory();
         const testsClient = apiFactory.getTestsClient();
 
         const extraction = await testsClient.extractTestFromConversation({
@@ -200,7 +198,7 @@ export default function CreateTestFromConversationDrawer({
       if (!formData.topic) throw new Error('Topic is required');
       if (!formData.category) throw new Error('Category is required');
 
-      const apiFactory = new ApiClientFactory(sessionToken);
+      const apiFactory = new ApiClientFactory();
       const testsClient = apiFactory.getTestsClient();
 
       const testData: Record<string, unknown> = {
@@ -247,7 +245,7 @@ export default function CreateTestFromConversationDrawer({
     } finally {
       setSaving(false);
     }
-  }, [formData, sessionToken, testType, onSuccess, onClose]);
+  }, [formData, testType, onSuccess, onClose]);
 
   const drawerTitle =
     testType === TEST_TYPES.SINGLE_TURN

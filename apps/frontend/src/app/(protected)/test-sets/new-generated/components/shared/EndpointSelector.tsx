@@ -2,7 +2,6 @@
 
 import React from 'react';
 import { Box, CircularProgress, Typography, Alert } from '@mui/material';
-import { useSession } from 'next-auth/react';
 import { useEndpointOptions } from '@/hooks/useEndpoints';
 import EndpointSelectField from '@/components/common/EndpointSelectField';
 
@@ -21,12 +20,11 @@ export default function EndpointSelector({
   onEndpointChange,
   enabled = true,
 }: EndpointSelectorProps) {
-  const { data: session } = useSession();
   const {
     options: endpointOptions,
     isLoading,
     error: optionsError,
-  } = useEndpointOptions(session?.session_token ?? '', enabled);
+  } = useEndpointOptions(enabled);
   const error = optionsError
     ? 'Failed to load endpoints. Please try again.'
     : null;

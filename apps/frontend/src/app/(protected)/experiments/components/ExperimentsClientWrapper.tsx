@@ -18,6 +18,7 @@ import {
   GridToolbarExport,
 } from '@mui/x-data-grid';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { PageLayout } from '@/components/layout/PageLayout';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { getEntityEmptyStateEnrichment } from '@/constants/entity-empty-state-env';
@@ -51,6 +52,7 @@ import { useNotifications } from '@/components/common/NotificationContext';
 import { combineExperimentFiltersToOData } from '@/utils/odata-filter';
 import CreateExperimentDialog from './CreateExperimentDialog';
 import { formatDate } from '@/utils/date';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 // ─── Toolbar context ───────────────────────────────────────────────────────────
 
@@ -149,15 +151,10 @@ function ExperimentsFilterDrawer({
   );
 }
 
-interface ExperimentsClientWrapperProps {
-  sessionToken: string;
-}
-
-export default function ExperimentsClientWrapper({
-  sessionToken,
-}: ExperimentsClientWrapperProps) {
+export default function ExperimentsClientWrapper() {
   const isMounted = useRef(false);
   const router = useRouter();
+  const { status } = useSession();
   const notifications = useNotifications();
   const { activeProject } = useActiveProject();
   const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
@@ -181,16 +178,13 @@ export default function ExperimentsClientWrapper({
     items: [],
   });
 
-  const apiFactory = useMemo(
-    () => new ApiClientFactory(sessionToken),
-    [sessionToken]
-  );
+  const apiFactory = useMemo(() => new ApiClientFactory(), []);
 
   const initialLoadDone = useRef(false);
 
   const fetchExperiments = useCallback(
     async (skip: number, limit: number) => {
-      if (!sessionToken) return;
+      if (!isAuthenticated(status)) return;
 
       try {
         // Only show loading overlay on the first load
@@ -226,7 +220,7 @@ export default function ExperimentsClientWrapper({
         if (isMounted.current) setLoading(false);
       }
     },
-    [sessionToken, apiFactory, filterModel, notifications]
+    [status, apiFactory, filterModel, notifications]
   );
 
   useEffect(() => {
@@ -467,7 +461,6 @@ export default function ExperimentsClientWrapper({
       <CreateExperimentDialog
         open={createOpen}
         onClose={() => setCreateOpen(false)}
-        sessionToken={sessionToken}
         onCreated={async experiment => {
           setCreateOpen(false);
           router.push(`/experiments/${experiment.id}`);

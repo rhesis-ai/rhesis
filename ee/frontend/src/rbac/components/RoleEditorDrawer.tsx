@@ -54,7 +54,6 @@ export default function RoleEditorDrawer({
   onSaved,
   onDeleted,
 }: RoleEditorDrawerProps) {
-  const { sessionToken } = useOrgSettings();
   const notifications = useNotifications();
   const readOnly = mode === 'view';
   const isCreate = mode === 'create';
@@ -69,10 +68,7 @@ export default function RoleEditorDrawer({
   // Org-tier actor authority (matches the backend's project_id=None escalation
   // check for create_role/update_role) — drives the per-area maxLevel below so
   // an over-grant is disabled in the UI instead of rejected at save time.
-  const { permissionNames: actorPermissions } = useActorAuthority(
-    sessionToken,
-    'org'
-  );
+  const { permissionNames: actorPermissions } = useActorAuthority('org');
 
   // Reset form when drawer opens or role changes
   useEffect(() => {
@@ -128,7 +124,7 @@ export default function RoleEditorDrawer({
     if (!canSave) return;
     setSubmitting(true);
     setError(undefined);
-    const client = new RbacClient(sessionToken);
+    const client = new RbacClient();
 
     try {
       let saved: RoleRead;
@@ -172,7 +168,7 @@ export default function RoleEditorDrawer({
     if (!role || readOnly || role.is_built_in) return;
     setSubmitting(true);
     setError(undefined);
-    const client = new RbacClient(sessionToken);
+    const client = new RbacClient();
 
     try {
       await client.deleteRole(role.id);

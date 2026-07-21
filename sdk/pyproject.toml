@@ -205,6 +205,9 @@ include = [
     "src/rhesis/sdk/synthesizers/assets/*.jinja",
 ]
 
+[tool.hatch.build.targets.wheel.force-include]
+"../skills/rhesis/references" = "src/rhesis/sdk/agents/architect/prompt_templates/skill_refs"
+
 [tool.hatch.metadata]
 allow-direct-references = true
 

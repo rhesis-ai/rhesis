@@ -147,6 +147,9 @@ export interface Review {
   created_at: string;
   updated_at: string;
   target: ReviewTarget;
+  resolved?: boolean;
+  resolved_at?: string | null;
+  resolved_by?: ReviewUser | null;
   permitted_actions?: string[];
 }
 

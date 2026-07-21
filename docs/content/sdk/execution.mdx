@@ -6,7 +6,7 @@ The SDK provides methods on `TestSet` for executing tests against endpoints, re-
 outputs with different metrics, and managing which metrics are assigned to a test set.
 
 For background on execution concepts (metrics hierarchy, execution modes, output reuse) see the
-[Platform Test Execution](/docs/test-execution) guide.
+[Platform Test Execution](/docs/test-runs) guide.
 
 ## Executing Test Sets
 
@@ -40,11 +40,8 @@ result = test_set.execute(endpoint, mode=ExecutionMode.SEQUENTIAL)
 result = test_set.execute(endpoint, mode="sequential")  # string also valid`}
 </CodeBlock>
 
-- **ExecutionMode.PARALLEL** (default): Tests are dispatched concurrently for maximum throughput.
-- **ExecutionMode.SEQUENTIAL**: Tests run one after another. Use this for endpoints with strict
-  rate limits or when order matters.
-
-Invalid mode values raise `ValueError`.
+Use sequential for endpoints with strict rate limits or where request order matters. Invalid mode
+values raise `ValueError`.
 
 ### Experiment Parameters
 
@@ -240,5 +237,5 @@ test_set.remove_metrics(["Accuracy", "Toxicity", "Relevance"])`}
 **Related** — [Test Sets](/sdk/entities/test-sets) |
 [Test Runs](/sdk/entities/test-runs) |
 [SDK Metrics (Evaluation Engine)](/sdk/metrics) |
-[Platform Test Execution](/docs/test-execution)
+[Platform Test Execution](/docs/test-runs)
 </Callout>

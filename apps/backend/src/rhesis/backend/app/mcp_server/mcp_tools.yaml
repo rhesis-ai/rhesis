@@ -1013,6 +1013,43 @@ tools:
           REQUIRED. UUID of the source type. Copy from list_sources on an
           existing source of the same type (check source_type_id field).
 
+  # ── Tags ────────────────────────────────────────────────
+  - name: list_tags
+    label: Listing tags
+    method: GET
+    path: /tags/
+    page_size: 50
+    description: >
+      List organization tags. Use before assigning tags to behaviors or
+      metrics so you reuse existing names (safety, compliance, functional,
+      domain, etc.) instead of inventing duplicates.
+    default_query:
+      $select: "id,name"
+
+  - name: assign_tag
+    label: Assigning tag
+    method: POST
+    path: /tags/{entity_type}/{entity_id}
+    requires_confirmation: true
+    description: >
+      Assign a tag to a behavior or metric. Creates the tag if it does not
+      exist. POST body is JSON: {"name": "safety"} — only `name` is required
+      in the body; `entity_type` and `entity_id` are path parameters. Call
+      after create_behavior or create_metric to group entities by theme
+      (safety, compliance, functional, domain, transparency).
+      ENTITY: Tag ↔ Behavior/Metric.
+    parameters:
+      entity_type:
+        description: >
+          REQUIRED path parameter. Must be exactly "Behavior" or "Metric"
+          (case-sensitive Enum values).
+      entity_id:
+        description: "REQUIRED path parameter. UUID of the behavior or metric."
+      name:
+        description: >
+          REQUIRED JSON body field (not a query param). Tag name string,
+          e.g. {"name": "safety"}. Reuse names from list_tags when possible.
+
   # ── Background Jobs ─────────────────────────────────────
   - name: get_job_status
     label: Checking job status

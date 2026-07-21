@@ -12,7 +12,6 @@ const SECURITY_DRAWER_WIDTH = 680;
 interface OwaspGenerateDrawerProps {
   open: boolean;
   onClose: () => void;
-  sessionToken: string;
   onSuccess?: (taskIds: string[]) => void;
 }
 
@@ -20,7 +19,6 @@ interface OwaspGenerateDrawerProps {
 export default function OwaspGenerateDrawer({
   open,
   onClose,
-  sessionToken,
   onSuccess,
 }: OwaspGenerateDrawerProps) {
   const [footer, setFooter] = React.useState<OwaspGenerateFooterState | null>(
@@ -41,7 +39,6 @@ export default function OwaspGenerateDrawer({
     >
       <OwaspGenerateForm
         active={open}
-        sessionToken={sessionToken}
         onSuccess={onSuccess}
         onFooterChange={setFooter}
       />

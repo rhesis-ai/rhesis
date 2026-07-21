@@ -8,13 +8,13 @@ test sets from Garak probes as Rhesis test sets.
 import logging
 import random
 
-from fastapi import APIRouter, Depends, HTTPException
-from rhesis.backend.app.routers.base import RhesisRouter
+from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.dependencies import get_tenant_context, get_tenant_db_session
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.garak import (
     GarakGenerateRequest,
     GarakGenerateResponse,
@@ -37,6 +37,7 @@ from rhesis.backend.app.services.garak import (
     GarakSyncService,
     GarakTaxonomy,
 )
+from rhesis.backend.app.services.garak.taxonomy import resolve_behavior
 from rhesis.backend.tasks import task_launcher
 from rhesis.backend.tasks.test_set import generate_and_save_test_set
 
@@ -110,7 +111,7 @@ async def list_probe_modules(
                     default_detector=module.default_detector,
                     rhesis_category=mapping.category,
                     rhesis_topic=mapping.topic,
-                    rhesis_behavior=mapping.behavior,
+                    rhesis_behavior=resolve_behavior(module.tags),
                     has_dynamic_probes=module.has_dynamic_probes,
                     probes=probe_responses,
                 )
@@ -184,7 +185,7 @@ async def get_probe_module_detail(
             rhesis_mapping={
                 "category": mapping.category,
                 "topic": mapping.topic,
-                "behavior": mapping.behavior,
+                "behavior": resolve_behavior(module_info.tags),
             },
             probes=probe_details,
         )

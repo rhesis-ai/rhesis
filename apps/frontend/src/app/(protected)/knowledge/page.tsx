@@ -12,7 +12,7 @@ export default async function KnowledgePage() {
   try {
     const session = await auth();
 
-    if (!session?.session_token) {
+    if (!session || session.error) {
       return (
         <Paper className={styles.errorContainer}>
           <Alert severity="error">
@@ -22,7 +22,7 @@ export default async function KnowledgePage() {
       );
     }
 
-    return <KnowledgeClientWrapper sessionToken={session.session_token} />;
+    return <KnowledgeClientWrapper />;
   } catch (error) {
     return (
       <Paper className={styles.errorContainer}>

@@ -1,6 +1,5 @@
 'use client';
 
-import { useSession } from 'next-auth/react';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { DeletedEntityAlert } from '@/components/common/DeletedEntityAlert';
 import DetailNotFoundState from '@/components/common/DetailNotFoundState';
@@ -42,8 +41,6 @@ export default function DetailEntityMissingState({
   onRetry,
   isRetrying,
 }: DetailEntityMissingStateProps) {
-  const { data: session } = useSession();
-
   if (isDeletedEntityError(error)) {
     const deletedData = getDeletedEntityData(error);
     if (deletedData) {
@@ -57,7 +54,6 @@ export default function DetailEntityMissingState({
         <PageLayout title={pageTitle} breadcrumbs={breadcrumbs}>
           <DeletedEntityAlert
             entityData={deletedData}
-            sessionToken={session?.session_token}
             backUrl={listUrl}
             backLabel={
               listUrl ? `Back to ${entityLabel}s` : `Back to ${entityLabel}`

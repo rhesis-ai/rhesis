@@ -94,7 +94,7 @@ for v in exp.list_versions():
 latest = exp.latest_version_data()
 print(f"{latest['version']}: {latest['message']}")
 
-# Specific version by sequential identifier
+# Specific version by label or content hash
 v = exp.get_version("v3")
 print(v["values"])`}
 </CodeBlock>
@@ -175,7 +175,7 @@ Deleting an experiment automatically unbinds any environments that point to it:
 | `commit(values, *, message, parent_version)` | `dict` | Append an immutable version |
 | `list_versions()` | `list[dict]` | All versions, oldest to newest |
 | `latest_version_data()` | `dict \| None` | Most recent version entry |
-| `get_version(version)` | `dict` | Single version by sequential identifier |
+| `get_version(version)` | `dict` | Single version by label or content hash |
 | `share()` | `None` | Set visibility to shared |
 | `unshare()` | `None` | Set visibility to private |
 | `promote(environment)` | `None` | Bind latest version to environment |
@@ -185,9 +185,4 @@ Deleting an experiment automatically unbinds any environments that point to it:
 
 ---
 
-<Callout type="default">
-  **Next Steps**
-  - [Parameters & Experiments SDK guide](/sdk/parameters) for the full workflow
-  - [Parameters schema](/docs/experiments/parameter-schema) for defining typed slots
-  - [Experiments concepts](/docs/experiments) for the mental model
-</Callout>
+Next: define typed parameter slots with a [parameter schema](/docs/experiments/parameter-schema), then work through the full flow in [Parameters & Experiments](/sdk/parameters).

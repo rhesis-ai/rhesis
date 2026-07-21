@@ -2,11 +2,13 @@
 
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from rhesis.sdk.agents.constants import InternalTool, ToolMeta
 
 ReuseStatus = Literal["reuse", "improve", "new"]
+MetricScope = Literal["Single-Turn", "Multi-Turn"]
+_VALID_METRIC_SCOPES = frozenset({"Single-Turn", "Multi-Turn"})
 
 # Fields that track execution progress and must never be written by the LLM.
 # Referenced by _strip_internal_fields (JSON schema builder) and
@@ -103,9 +105,28 @@ class MetricSpec(BaseModel):
         default=">=",
         description="Comparison operator for threshold",
     )
+    metric_scope: List[MetricScope] = Field(
+        default_factory=lambda: ["Single-Turn"],
+        description=(
+            "Which test types this metric can evaluate. Each entry must be "
+            'exactly "Single-Turn" or "Multi-Turn". Use ["Single-Turn"] for '
+            'one-shot prompts; ["Multi-Turn"] for conversational goals; '
+            "both only when the same rubric applies to either shape."
+        ),
+        min_length=1,
+    )
     completed: bool = Field(
         default=False, description="Whether this metric has been created/resolved"
     )
+
+    @field_validator("metric_scope")
+    @classmethod
+    def _validate_metric_scope_values(cls, value: List[str]) -> List[str]:
+        invalid = [entry for entry in value if entry not in _VALID_METRIC_SCOPES]
+        if invalid:
+            allowed = ", ".join(sorted(_VALID_METRIC_SCOPES))
+            raise ValueError(f"metric_scope entries must be {allowed}; got invalid: {invalid}")
+        return value
 
 
 class MappingSpec(BaseModel):
@@ -163,6 +184,60 @@ class ArchitectPlan(BaseModel):
             return [{"behavior": beh, "metrics": mnames} for beh, mnames in v.items()]
         return v
 
+    @model_validator(mode="after")
+    def _validate_metric_scope_coverage(self) -> "ArchitectPlan":
+        """Ensure every test-set behavior has a compatible linked metric."""
+        if not self.test_sets:
+            return self
+
+        behavior_to_metrics: Dict[str, List[str]] = {}
+        for mapping in self.behavior_metric_mappings:
+            key = mapping.behavior.lower()
+            behavior_to_metrics.setdefault(key, []).extend(mapping.metrics)
+
+        metric_scopes: Dict[str, List[str]] = {
+            metric.name.lower(): list(metric.metric_scope) for metric in self.metrics
+        }
+
+        errors: List[str] = []
+        for test_set in self.test_sets:
+            if not test_set.behaviors:
+                continue
+            for behavior in test_set.behaviors:
+                behavior_key = behavior.lower()
+                linked_metrics = behavior_to_metrics.get(behavior_key, [])
+                if not linked_metrics:
+                    errors.append(
+                        f"Test set '{test_set.name}' ({test_set.test_type}): "
+                        f"behavior '{behavior}' has no behavior_metric_mappings entry"
+                    )
+                    continue
+
+                compatible = [
+                    metric_name
+                    for metric_name in linked_metrics
+                    if test_set.test_type in metric_scopes.get(metric_name.lower(), [])
+                ]
+                if not compatible:
+                    scope_details = ", ".join(
+                        f"{name} ({metric_scopes.get(name.lower(), [])})" for name in linked_metrics
+                    )
+                    errors.append(
+                        f"Test set '{test_set.name}' ({test_set.test_type}): "
+                        f"behavior '{behavior}' is linked only to metrics whose "
+                        f"metric_scope does not include '{test_set.test_type}' "
+                        f"— linked: {scope_details}"
+                    )
+
+        if errors:
+            bullet_list = "\n".join(f"- {err}" for err in errors)
+            raise ValueError(
+                "Metric scope coverage failed. Every behavior in a test set "
+                "must have at least one linked metric whose metric_scope "
+                f"includes that test set's test_type:\n{bullet_list}"
+            )
+        return self
+
     def to_markdown(self) -> str:
         """Render the plan as human-readable markdown with task list checkboxes."""
         lines: List[str] = []
@@ -200,7 +275,8 @@ class ArchitectPlan(BaseModel):
             for m in self.metrics:
                 box = "[x]" if m.completed else "[ ]"
                 tag = f" *({m.reuse_status})*" if m.reuse_status != "new" else ""
-                lines.append(f"- {box} **{m.name}**{tag}")
+                scope = ", ".join(m.metric_scope) if m.metric_scope else "unset"
+                lines.append(f"- {box} **{m.name}**{tag} — scope: {scope}")
             lines.append("")
 
         if self.behavior_metric_mappings:

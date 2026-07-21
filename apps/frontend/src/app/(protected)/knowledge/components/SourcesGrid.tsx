@@ -17,6 +17,7 @@ import {
 } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { Source } from '@/utils/api-client/interfaces/source';
 import { Box, Chip, Typography } from '@mui/material';
 import GridToolbar from '@/components/common/GridToolbar';
@@ -45,9 +46,9 @@ import { useQueryClient } from '@tanstack/react-query';
 import { sourceKeys } from '@/constants/query-keys';
 import { useGridState } from '@/hooks/useGridState';
 import { useGridQuery } from '@/hooks/useGridQuery';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface SourcesGridProps {
-  sessionToken: string;
   onTotalCountChange?: (count: number) => void;
 }
 
@@ -97,11 +98,9 @@ function SourcesUnifiedToolbar() {
   );
 }
 
-export default function SourcesGrid({
-  sessionToken,
-  onTotalCountChange,
-}: SourcesGridProps) {
+export default function SourcesGrid({ onTotalCountChange }: SourcesGridProps) {
   const router = useRouter();
+  const { status } = useSession();
   const notifications = useNotifications();
   const canEditSource = useCan(Capability.Source.UPDATE);
   const canDeleteSource = useCan(Capability.Source.DELETE);
@@ -179,7 +178,7 @@ export default function SourcesGrid({
     ),
     errorFallbackMessage: 'Failed to load knowledge sources',
     queryFn: () => {
-      const client = new ApiClientFactory(sessionToken).getSourcesClient();
+      const client = new ApiClientFactory().getSourcesClient();
       return client.getSources({
         skip: paginationModel.page * paginationModel.pageSize,
         limit: paginationModel.pageSize,
@@ -188,7 +187,7 @@ export default function SourcesGrid({
         ...(filterString && { $filter: filterString }),
       });
     },
-    enabled: !!sessionToken,
+    enabled: isAuthenticated(status),
   });
 
   const sources = sourcesData?.data ?? [];
@@ -229,7 +228,7 @@ export default function SourcesGrid({
 
     try {
       setIsDeleting(true);
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const sourcesClient = clientFactory.getSourcesClient();
 
       await sourcesClient.deleteSource(

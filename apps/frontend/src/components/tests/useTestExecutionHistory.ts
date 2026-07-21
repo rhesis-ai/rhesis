@@ -12,7 +12,6 @@ const MAX_RESULTS = 100;
 
 interface UseTestExecutionHistoryOptions {
   testId: string | undefined;
-  sessionToken: string;
   enabled?: boolean;
 }
 
@@ -25,7 +24,6 @@ interface UseTestExecutionHistoryResult {
 
 export function useTestExecutionHistory({
   testId,
-  sessionToken,
   enabled = true,
 }: UseTestExecutionHistoryOptions): UseTestExecutionHistoryResult {
   const [rows, setRows] = useState<TestExecutionHistoryRow[]>([]);
@@ -55,7 +53,7 @@ export function useTestExecutionHistory({
     async function fetchHistory() {
       try {
         setLoading(true);
-        const clientFactory = new ApiClientFactory(sessionToken);
+        const clientFactory = new ApiClientFactory();
         const testResultsClient = clientFactory.getTestResultsClient();
 
         const results = await testResultsClient.getTestResults({
@@ -133,7 +131,7 @@ export function useTestExecutionHistory({
     return () => {
       cancelled = true;
     };
-  }, [testId, sessionToken, enabled, fetchKey]);
+  }, [testId, enabled, fetchKey]);
 
   return { rows, loading, error, refetch };
 }

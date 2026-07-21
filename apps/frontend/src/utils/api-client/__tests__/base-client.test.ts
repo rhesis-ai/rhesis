@@ -66,9 +66,13 @@ describe('BaseApiClient', () => {
       expect(headers['Content-Type']).toBe('application/json');
     });
 
-    it('includes Authorization bearer token when session token provided', () => {
+    it('omits Authorization header even when a session token is provided (jsdom = browser)', () => {
+      // Client-side requests go through the same-origin `/api/backend` proxy,
+      // which injects Authorization server-side from the httpOnly session
+      // cookie — the token must never reach a browser-issued fetch header,
+      // regardless of whether a caller still happens to pass one in.
       const headers = client.getHeadersPublic() as Record<string, string>;
-      expect(headers['Authorization']).toBe('Bearer test-session-token');
+      expect(headers['Authorization']).toBeUndefined();
     });
 
     it('omits Authorization header when no session token', () => {
@@ -114,20 +118,18 @@ describe('BaseApiClient', () => {
       );
     });
 
-    it('sends Authorization and Content-Type headers', async () => {
+    it('sends Content-Type header but no Authorization (client-side)', async () => {
       fetchMock.mockResolvedValue(makeFetchResponse({ id: '1' }));
 
       await client.fetchPublic('/tests/1');
 
-      expect(fetchMock).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.objectContaining({
-          headers: expect.objectContaining({
-            Authorization: 'Bearer test-session-token',
-            'Content-Type': 'application/json',
-          }),
-        })
-      );
+      const [, requestInit] = fetchMock.mock.calls[0] as [string, RequestInit];
+      expect(
+        (requestInit.headers as Record<string, string>)['Content-Type']
+      ).toBe('application/json');
+      expect(
+        (requestInit.headers as Record<string, string>)['Authorization']
+      ).toBeUndefined();
     });
 
     it('returns undefined for 204 No Content response', async () => {
