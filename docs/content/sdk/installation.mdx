@@ -8,7 +8,7 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 # Installation & Setup
 
-Get started with the Rhesis Python SDK - install the package, configure authentication, and learn the fundamental concepts including models, synthesizers, and metrics.
+The Rhesis Python SDK generates test sets, runs evaluations, and traces LLM applications from code.
 
 <Callout type="default">
   **Using the web app instead?** The same workflows are available in the browser. Start with [Getting Started](/docs/getting-started) and the [product tour](/docs/product-tour).
@@ -87,12 +87,10 @@ pprint(test_set.tests)`}
 
 </Steps>
 
----
+## Next steps
 
-<Callout type="default">
-  **Next Steps** - Explore the [Platform Guide](/docs/getting-started) to understand
-  how SDK integrates with the web interface
-  - Learn about [Core Concepts](/docs/concepts) to understand
-  the overall workflow
-  - Browse the [API Reference](https://rhesis-sdk.readthedocs.io/en/latest/) for detailed SDK documentation
-</Callout>
+- Generate a test set with a [synthesizer](/sdk/synthesizers)
+- Run tests against an endpoint with [test execution](/sdk/execution)
+- Score results with [metrics](/sdk/metrics)
+
+Full class and method documentation is in the [API reference](https://rhesis-sdk.readthedocs.io/en/latest/).

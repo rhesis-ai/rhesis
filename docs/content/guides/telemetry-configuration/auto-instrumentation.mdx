@@ -3,13 +3,7 @@ import { Table } from '@/components/Table'
 
 # Configure Telemetry: Auto-Instrumentation
 
-Auto-instrumentation traces every LLM call, tool invocation, and chain or graph execution in supported frameworks without touching your application code. If you're building on LangChain, LangGraph, Microsoft Agent Framework, or Pydantic AI, this is the fastest path to a working trace.
-
-## What You'll Achieve
-
-- Traces for every LLM call, tool call, and (for LangGraph/MAF) agent/graph step
-- No decorators, no manual span creation
-- One line of code: `auto_instrument()`
+Auto-instrumentation traces every LLM call, tool invocation, and chain or graph execution in supported frameworks without touching your application code — one call to `auto_instrument()`, no decorators or manual spans. If you're building on LangChain, LangGraph, Microsoft Agent Framework, or Pydantic AI, this is the fastest path to a working trace.
 
 ## Prerequisites
 
@@ -134,9 +128,10 @@ def chat_handler(input: str) -> dict:
 disable_auto_instrument()  # turns off every previously-enabled framework`}
 </CodeBlock>
 
-<Callout type="success">
-**You have working traces.** Multi-agent system? See [Multi-Agent Tracing](/docs/tracing/multi-agent). Multi-turn chat? See [Tracking Multi-Turn Conversations](/guides/telemetry-configuration#tracking-multi-turn-conversations).
-</Callout>
+## Next Steps
+
+- Multi-agent system? See [Multi-Agent Tracing](/docs/tracing/multi-agent).
+- Multi-turn chat? See [Tracking Multi-Turn Conversations](/guides/telemetry-configuration#tracking-multi-turn-conversations).
 
 <Callout type="info">
   **Related:**

@@ -2,7 +2,7 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 # Projects
 
-Projects represent the top-level organizational unit in Rhesis. They contain test sets, endpoints, and other resources for testing and evaluating LLM applications.
+A project is the top-level organizational unit, holding test sets, endpoints, and other resources for one LLM application.
 
 ## Properties
 
@@ -11,100 +11,48 @@ Projects represent the top-level organizational unit in Rhesis. They contain tes
 | `id` | `str` | Unique identifier |
 | `name` | `str` | Display name |
 | `description` | `str` | Project description |
-| `is_active` | `bool` | Whether the project is active |
+| `is_active` | `bool` | Whether the project is active (defaults to `True`) |
 | `icon` | `str` | Icon identifier for the project |
 | `status_id` | `str` | Associated status ID |
 | `user_id` | `str` | User who created the project |
 | `owner_id` | `str` | Project owner ID |
 | `organization_id` | `str` | Organization this project belongs to |
 
-## Fetching Projects
+Projects use the shared [entity interface](/sdk/entities) for fetching, filtering, updating, and deleting.
 
-<CodeBlock filename="fetch_projects.py" language="python">
-{`from rhesis.sdk.entities import Projects
+<CodeBlock filename="projects.py" language="python">
+{`from rhesis.sdk.entities import Project, Projects
 
-# List all projects
-for project in Projects.all():
-    print(f"{project.name}: {project.description}")
-
-# Get by ID
-project = Projects.pull(id="project-123")
-
-# Get by name (case-insensitive)
-project = Projects.pull(name="My AI App")`}
-</CodeBlock>
-
-## Filtering Projects
-
-Use OData filter syntax to query specific projects:
-
-<CodeBlock filename="filter_projects.py" language="python">
-{`from rhesis.sdk.entities import Projects
-
-# Get active projects only
-active_projects = Projects.all(filter="is_active eq true")
-
-# Filter by name pattern
-safety_projects = Projects.all(filter="contains(tolower(name), 'safety')")`}
-</CodeBlock>
-
-## Creating Projects
-
-<CodeBlock filename="create_project.py" language="python">
-{`from rhesis.sdk.entities import Project
-
+# Create
 project = Project(
     name="Customer Support Bot",
     description="Testing suite for our customer service chatbot",
-    is_active=True,
 )
-
 project.push()
-print(f"Created project: {project.id}")`}
-</CodeBlock>
 
-## Updating Projects
-
-<CodeBlock filename="update_project.py" language="python">
-{`from rhesis.sdk.entities import Projects
-
-# Fetch existing project
+# Fetch by name (case-insensitive) or ID
 project = Projects.pull(name="Customer Support Bot")
 
-# Modify and save
-project.description = "Updated testing suite for customer service v2"
-project.push()`}
+# List only active projects
+active = Projects.all(filter="is_active eq true")`}
 </CodeBlock>
 
-## Checking Existence
+## Resolving parameters
 
-<CodeBlock filename="check_project.py" language="python">
-{`from rhesis.sdk.entities import Projects
+A project instance resolves the parameter values bound to its environments and experiments:
 
-if Projects.exists("project-123"):
-    project = Projects.pull(id="project-123")
-    print(f"Found: {project.name}")
-else:
-    print("Project not found")`}
+<CodeBlock filename="project_parameters.py" language="python">
+{`project = Projects.pull(name="Customer Support Bot")
+
+# Resolved parameter values (optionally for a specific environment or experiment)
+params = project.parameters(environment="staging")
+
+# The project's parameter schema
+schema = project.parameter_schema()`}
 </CodeBlock>
 
-## Deleting Projects
-
-<CodeBlock filename="delete_project.py" language="python">
-{`from rhesis.sdk.entities import Projects
-
-project = Projects.pull(name="Deprecated Project")
-deleted = project.delete()
-
-if deleted:
-    print("Project removed")`}
-</CodeBlock>
+See [Parameters & Experiments](/sdk/parameters) for the full parameter workflow.
 
 ---
 
-<Callout type="default">
-  **Next Steps**
-  - Create [Test Sets](/sdk/entities/test-sets) within your project
-  - Configure [Endpoints](/sdk/entities/endpoints) to test your AI services
-  - Track execution with [Test Runs](/sdk/entities/test-runs)
-</Callout>
+Next: [register an endpoint](/sdk/entities/endpoints) and [create a test set](/sdk/entities/test-sets) in your project.

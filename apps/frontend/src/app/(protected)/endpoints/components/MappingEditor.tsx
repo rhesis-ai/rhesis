@@ -42,7 +42,8 @@ const REQUEST_VARIABLES = [
         stateful and stateless endpoints.
       </>
     ),
-    docsUrl: 'https://docs.rhesis.ai/docs/endpoints/multi-turn-conversations',
+    docsUrl:
+      'https://docs.rhesis.ai/docs/endpoints/request-mapping#multi-turn-conversations',
   },
   {
     groupLabel: 'System prompt',
@@ -56,7 +57,7 @@ const REQUEST_VARIABLES = [
     description:
       'File attachments (images, PDFs). Use provider filters: to_openai, to_anthropic, to_gemini.',
     docsUrl:
-      'https://docs.rhesis.ai/docs/endpoints/single-turn#file-format-filters',
+      'https://docs.rhesis.ai/docs/endpoints/request-mapping#file-format-filters',
   },
   {
     groupLabel: 'Experiments',

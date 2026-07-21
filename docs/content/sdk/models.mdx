@@ -2,11 +2,11 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 # Models
 
-Models are core components of the SDK that enable you to create and manage test sets for LLM applications. Models also play a crucial role in the evaluation process, serving as LLM judges to assess and validate outputs.
+Models generate test data for LLM applications and act as LLM judges during evaluation. A single function, `get_model`, creates instances across every supported provider.
 
 ### Using the `get_model` function
 
-The easiest way to use models is through the `get_model` function. When called without any arguments, this function returns the default Rhesis model.
+Call `get_model` to create a model instance. With no arguments it returns the default Rhesis model.
 
 <CodeBlock filename="default_model.py" language="python">
 {`from rhesis.sdk.models import get_model
@@ -32,10 +32,8 @@ model = get_model("gemini")`}
 - `azure_ai` - Azure AI Studio deployments via LiteLLM
 - `azure` - Azure OpenAI deployments via LiteLLM
 - `litellm_proxy` - OpenAI-compatible LiteLLM Proxy endpoint
-- `openrouter`, `mistral`, `cohere`, `groq`, `perplexity`, `replicate`, `together_ai`
-- `ollama`, `huggingface`, `lmformatenforcer` - local/self-hosted options
-
-Use `get_model(...)` for the most stable cross-provider API.
+- `openrouter`, `mistral`, `cohere`, `groq`, `perplexity`, `replicate`, `together_ai`, `meta_llama`
+- `ollama`, `huggingface`, `vllm` - local/self-hosted options
 
 To use a specific model, provide its name in the format `provider/model_name`:
 
@@ -121,36 +119,21 @@ azure_model = AzureOpenAILLM(
 
 </CodeBlock>
 
-### Generate content with models
+### Generating text
 
-All models share a consistent interface. The primary function is `generate`, which accepts:
-
-- `prompt`: The text prompt for generation
-- `schema`: (optional) A Pydantic schema defining the structure of the generated text
-
-### Language model generation APIs (v0.6.9+)
-
-Language-model providers in the SDK are async-first. You can use:
+All models share the same interface. The core method is `generate`, which takes a `prompt` and an optional Pydantic `schema` for structured output. Language-model providers are async-first:
 
 | Method | Execution style | Typical use |
 |---|---|---|
-| `generate(...)` | Synchronous convenience wrapper | Scripts and notebooks without explicit async code |
-| `a_generate(...)` | Native async call | Async services, workers, and concurrent pipelines |
-| `generate_batch(...)` | Multi-prompt batch call | High-throughput generation for datasets or evaluations |
+| `generate(...)` | Synchronous wrapper (bridges to `a_generate`) | Scripts and notebooks |
+| `a_generate(...)` | Native async call | Async services, workers, concurrent pipelines |
+| `generate_batch(...)` | Multi-prompt batch call | High-throughput generation |
 
-<Callout type="info">
-  `generate(...)` internally bridges to `a_generate(...)`. If your application is already async, prefer `a_generate(...)` directly.
-</Callout>
+If your application is already async, call `a_generate(...)` directly.
 
-`a_generate(...)` retries when the underlying provider *raises* a retryable exception — specifically
-`requests` `ConnectionError`, `Timeout`, or `HTTPError` with status `429` or `500`/`502`/`503`/`504`.
-Providers that catch errors internally and return them without raising will not trigger retries. The
-SDK makes one initial attempt plus up to three retries with exponential jitter. Client-side errors
-(`400`, `401`, `403`, `404`) are never retried.
+`a_generate(...)` retries transient failures — connection errors, timeouts, and HTTP `429`/`500`/`502`/`503`/`504` from either `requests` or the provider SDK — with one initial attempt plus three retries and exponential backoff with jitter. Client errors (`400`, `401`, `403`, `404`) are never retried.
 
-You can pass provider-specific keyword arguments through `generate(...)` or `a_generate(...)`.
-For example, streaming is exposed through `stream=True` on providers that support token streaming,
-and structured output is requested with the `schema` argument.
+Pass provider-specific keyword arguments through `generate(...)` or `a_generate(...)`: `stream=True` enables token streaming on providers that support it, and `schema` requests structured output.
 
 ### Multi-turn messages
 
@@ -217,7 +200,7 @@ output = model.generate(
 
 ### Batch Processing
 
-For improved performance when processing multiple prompts, use the `generate_batch` method. This method leverages parallel processing to efficiently handle multiple requests simultaneously.
+`generate_batch` processes multiple prompts in parallel.
 
 **Basic batch generation:**
 
@@ -284,14 +267,7 @@ results = model.generate_batch(
 
 </CodeBlock>
 
-**When to use batch processing:**
-
-- Processing large test sets or datasets
-- Running evaluations across multiple inputs
-- Generating multiple test variations
-- Any scenario requiring parallel LLM calls
-
-Batch processing is available for LiteLLM-based providers and `rhesis` language models.
+Use batch generation for large test sets, multi-input evaluations, or generating variations. It runs on LiteLLM-based providers and `rhesis` language models.
 
 <CodeBlock filename="async_generation.py" language="python">
 {`import asyncio
@@ -318,7 +294,7 @@ asyncio.run(main())`}
 
 ### Using models with synthesizers and metrics
 
-Models become most useful when combined with synthesizers and metrics:
+Pass a model to a synthesizer or metric to control which LLM does the work:
 
 <CodeBlock filename="models_with_tools.py" language="python">
 {`from rhesis.sdk.models import get_model
@@ -386,7 +362,7 @@ Embedders generate vector representations (embeddings) of text, which are useful
 
 ### Using the `get_model` function
 
-The easiest way to use embedders is through the `get_model` function with embedding models. When called with an embedding model, it automatically detects the type and returns an embedder.
+Call `get_model` with an embedding model name; it detects the type and returns an embedder.
 
 <CodeBlock filename="default_embedder.py" language="python">
 {`from rhesis.sdk.models import get_model

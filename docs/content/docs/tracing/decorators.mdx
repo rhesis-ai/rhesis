@@ -193,15 +193,6 @@ def preprocess_text(text: str) -> str:
 | `transform_type` | Yes | Type (text, image, audio) |
 | `operation` | Yes | Operation (clean, normalize, tokenize) |
 
-## Comparison
-
-| Feature | `@observe` | `@endpoint` |
-|---------|------------|-------------|
-| Traces execution | Yes | Yes (default; can disable) |
-| Registered for Rhesis to invoke (e.g. test runs from the platform) | No | Yes |
-| Needs `bind` for infra when invoked remotely | N/A | Often (see [binding](/sdk/connector/binding)) |
-| Use case | Helpers, instrumented stack | Callable entry points for tests and connector |
-
 ## Usage Pattern
 
 <Mermaid chart={`flowchart TD
@@ -238,5 +229,5 @@ def search_docs(query: str) -> list:
 ---
 
 <Callout type="info">
-  **Next:** Learn about [custom spans](/tracing/custom-spans) for advanced attribute configuration.
+  **Next:** Learn about [custom spans](/docs/tracing/custom-spans) for advanced attribute configuration.
 </Callout>

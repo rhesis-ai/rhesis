@@ -45,52 +45,7 @@ Import attribute constants from `rhesis.sdk.telemetry`:
 {`from rhesis.sdk.telemetry import AIAttributes, AIEvents`}
 </CodeBlock>
 
-### Model Attributes
-
-| Constant | Key | Description |
-|----------|-----|-------------|
-| `MODEL_PROVIDER` | `ai.model.provider` | Provider name (openai, anthropic) |
-| `MODEL_NAME` | `ai.model.name` | Model identifier (gpt-4, claude-3) |
-
-### LLM Attributes
-
-| Constant | Key | Description |
-|----------|-----|-------------|
-| `LLM_TOKENS_INPUT` | `ai.llm.tokens.input` | Input token count |
-| `LLM_TOKENS_OUTPUT` | `ai.llm.tokens.output` | Output token count |
-| `LLM_TOKENS_TOTAL` | `ai.llm.tokens.total` | Total token count |
-| `LLM_TEMPERATURE` | `ai.llm.temperature` | Temperature parameter |
-| `LLM_MAX_TOKENS` | `ai.llm.max_tokens` | Max tokens parameter |
-
-### Tool Attributes
-
-| Constant | Key | Description |
-|----------|-----|-------------|
-| `TOOL_NAME` | `ai.tool.name` | Tool name |
-| `TOOL_TYPE` | `ai.tool.type` | Type (http, function, database) |
-
-### Retrieval Attributes
-
-| Constant | Key | Description |
-|----------|-----|-------------|
-| `RETRIEVAL_BACKEND` | `ai.retrieval.backend` | Backend (pinecone, weaviate) |
-| `RETRIEVAL_TOP_K` | `ai.retrieval.top_k` | Number of results |
-
-### Embedding Attributes
-
-| Constant | Key | Description |
-|----------|-----|-------------|
-| `EMBEDDING_MODEL` | `ai.embedding.model` | Model name |
-| `EMBEDDING_VECTOR_SIZE` | `ai.embedding.vector.size` | Vector dimensions |
-
-### Event Names
-
-| Constant | Value | Description |
-|----------|-------|-------------|
-| `AIEvents.PROMPT` | `ai.prompt` | Prompt sent to LLM |
-| `AIEvents.COMPLETION` | `ai.completion` | LLM completion |
-| `AIEvents.TOOL_INPUT` | `ai.tool.input` | Tool input data |
-| `AIEvents.TOOL_OUTPUT` | `ai.tool.output` | Tool output data |
+See [Semantic Conventions](/docs/tracing/semantic-conventions#attribute-constants) for the full list of `AIAttributes` keys and `AIEvents` names.
 
 ## Helper Functions
 
@@ -174,5 +129,5 @@ def generate_with_custom_model(prompt: str) -> str:
 ---
 
 <Callout type="info">
-  **Next:** Learn about [auto-instrumentation](/tracing/auto-instrumentation) for zero-config tracing.
+  **Next:** Learn about [auto-instrumentation](/docs/tracing/auto-instrumentation) for zero-config tracing.
 </Callout>

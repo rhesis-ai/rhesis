@@ -2,30 +2,14 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 # How to Integrate Rhesis SDK into Your CI/CD Pipeline
 
-Automate LLM testing in your CI/CD pipeline to catch quality issues before they reach production. This guide shows you how to set up automated test execution, quality gates, and failure detection in your continuous integration workflow.
-
-## What You'll Achieve
-
-- **Automated Testing**: Run LLM tests on every commit or pull request
-- **Quality Gates**: Block deployments when tests fail
-- **Early Detection**: Catch regressions and quality issues before production
-- **Test Reports**: Get detailed test results in your CI/CD logs
-
-## Use Cases
-
-- **Chatbot Testing**: Validate conversational AI responses
-- **API Validation**: Test LLM-powered API endpoints
-- **Regression Prevention**: Detect when changes break existing behaviors
+Run LLM tests on every commit or pull request so regressions get caught before production, with a failing test set blocking the pipeline. This guide sets up automated test execution and a quality gate.
 
 ## Prerequisites
 
-Before integrating Rhesis into your CI/CD pipeline, ensure you have:
-
-- Python 3.10+ available in your CI environment
+- Python 3.10+ in your CI environment
 - A Rhesis account at [app.rhesis.ai](https://app.rhesis.ai)
 - An **Endpoint** configured in Rhesis with your LLM application URL
-- A **Test Set** created with test scenarios to run
-- Basic familiarity with GitHub Actions, GitLab CI, or similar tools
+- A **Test Set** with the scenarios to run
 
 <Callout type="info">
 This guide uses GitHub Actions as the example, but the principles apply to any CI/CD platform (GitLab CI, Jenkins, CircleCI, etc.).
@@ -280,16 +264,9 @@ Run tests only on pull requests to main:
 
 ## Next Steps
 
-<Callout type="success">
-**You're ready to automate LLM testing!** Your CI/CD pipeline now catches quality issues before production.
-</Callout>
+- Add [Custom Metrics](/guides/custom-metrics) to sharpen your quality gate.
+- Cover multi-turn flows with [Conversation Simulation](/docs/tests/conversation-simulation).
+- See the full API in the [Rhesis SDK documentation](/sdk/installation).
 
-- **Learn More:** [Rhesis SDK Documentation](/sdk/installation)
-- **Advanced Testing:** [Building Custom Metrics](/guides/custom-metrics)
-- **Multi-Turn Testing:** [Conversation Simulation](/conversation-simulation)
-- **Get Help:** Join our [Discord community](https://discord.rhesis.ai)
-
----
-
-Need help with integration? Reach out on [Discord](https://discord.rhesis.ai) or email support@rhesis.ai.
+Need help? Reach out on [Discord](https://discord.rhesis.ai) or email support@rhesis.ai.
 

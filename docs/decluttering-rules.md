@@ -109,81 +109,63 @@ Check off pages/sections as they are done.
 
 ### Docs (87 pages)
 
-- [x] Welcome (`docs/index.mdx`) — no changes needed; landing-page Steps duplication kept by design
-- [x] Getting Started — Overview, Setup Environment, Connect Application, Run Evaluations,
-      Projects, Default Chatbot (Rosalind)
-- [x] Core Concepts (`docs/concepts.mdx`) — already lean; fixed two broken links, tidied whitespace
-- [x] Product Tour (`docs/product-tour.mdx`) — no changes; promotional tone allowed by design
-- [x] Architect — Overview, Workflow, Endpoint Exploration, Planning Test Suites,
-      Running and Analyzing, Chat Features, Scenarios (already rule-compliant; two
-      redundancy cuts and eight factual fixes)
-- [x] Agent Skill — accurate mirror of the repo skill README; one promotional-word
-      fix and one redundancy cut (Cursor skill-install prose duplicated the universal
-      installer)
-- [x] Organizations & Team — Overview, Roles, Single Sign-On, API Clients
-      (Overview: fixed broken list/callout formatting, wrong image alt, and a
-      false sidebar claim — denied items are hidden, not locked, and Metrics/Models
-      are permission-gated. Roles: corrected Admin/Member capability descriptions.
-      API Clients: fixed token-lifetime defaults and invalid_request/target/client
-      error mapping. SSO: verified accurate, no changes.)
-- [x] Deployment — Overview, Quick Start, Docker Compose, Environment Variables
-      (Quick Start and Docker Compose: removed unused FileTree imports, tone pass,
-      fixed backup commands and internal links; verified ports, ./rh commands,
-      secrets, and env defaults against rh/docker-compose.yml/.env.example)
+- [x] Welcome
+- [x] Getting Started
+- [x] Core Concepts
+- [x] Product Tour
+- [x] Architect
+- [x] Agent Skill
+- [x] Organizations & Team
+- [x] Deployment
 
 **Define**
-- [ ] Knowledge
-- [ ] Behaviors
-- [ ] Metrics — Overview, DeepEval, Ragas, Trace Metrics, Code Metrics
+- [x] Knowledge
+- [x] Behaviors
+- [x] Metrics
 
 **Generate**
-- [ ] Playground
-- [ ] Explorer — Overview, Workflow, Building and Evaluating, Scenarios, Test Generation
-- [ ] Tests — Tests, Conversation Simulation (Overview, Getting Started, Examples & Use Cases,
-      Configuration, Execution Trace, Extending), Adversarial Testing (Overview, Polyphemus,
-      Requesting Access, SDK Usage), Multi-modal Testing
-- [ ] Test Sets — Overview, Import from File, Import from Garak
+- [x] Playground
+- [x] Explorer
+- [x] Tests
+- [x] Test Sets
 
 **Improve**
-- [ ] Insights (`results-overview`)
-- [ ] Test Runs — Test Runs, Test Execution
-- [ ] Experiments — Experiments, Parameter Schema, SDK Usage, Connector Injection
-- [ ] Tasks — Tasks, Test Reviews
+- [x] Insights
+- [x] Test Runs
+- [x] Experiments
+- [x] Tasks
 
 **Connect**
-- [ ] Traces (`tracing`) — Overview, Getting Started, Decorators, Custom Spans,
-      Semantic Conventions, Auto-Instrumentation, Microsoft Agent Framework,
-      Multi-Agent Tracing, Conversation Tracing
-- [ ] Endpoints — Overview, Creating Endpoints, Request Mapping, Response Mapping, Examples,
-      Management, SDK Endpoints (+ hidden: auto-configure, multi-turn-conversations)
-- [ ] Tools
-- [ ] Models
-- [ ] Integrations
-- [ ] API Tokens
-- [ ] Acknowledgments (+ hidden pages: test-results, test-sets-runs)
+- [x] Traces
+- [x] Endpoints
+- [x] Tools
+- [x] Models
+- [x] Integrations
+- [x] API Tokens
+- [x] Acknowledgments (+ hidden pages: test-results, test-sets-runs)
 
 ### Guides (5 pages)
 
-- [ ] Overview
-- [ ] Quick Start: Testing in 10 Minutes
-- [ ] Building Custom Metrics with the Rhesis SDK
-- [ ] Integrating Rhesis SDK into CI/CD
-- [ ] Testing User Journeys of AI Agents
+- [x] Overview
+- [x] Quick Start: Testing in 10 Minutes
+- [x] Building Custom Metrics with the Rhesis SDK
+- [x] Integrating Rhesis SDK into CI/CD
+- [x] Testing User Journeys of AI Agents
+- [x] Configuring Telemetry for Your AI Application (+ subpages: auto-instrumentation,
+      decorators, raw-opentelemetry, genai-conventions)
 
-### SDK (27 pages)
-
-- [ ] Installation & Setup
-- [ ] Rhesis Client
-- [ ] Agents
-- [ ] Entities — Overview, Projects, Experiments, Models, Test Sets & Tests, Test Attributes,
+- [x] Installation & Setup
+- [x] Rhesis Client
+- [x] Agents
+- [x] Entities — Overview, Projects, Experiments, Models, Test Sets & Tests, Test Attributes,
       Test Runs & Results, Files, Status, Endpoints
-- [ ] Parameters & Experiments
-- [ ] Test Execution
-- [ ] Statistics
-- [ ] Models
-- [ ] Synthesizers
-- [ ] Metrics — Overview, Single-Turn, Conversational
-- [ ] Connector — Overview, Input/Output Mapping, File Attachments, Advanced Mapping,
+- [x] Parameters & Experiments
+- [x] Test Execution
+- [x] Statistics
+- [x] Models
+- [x] Synthesizers
+- [x] Metrics — Overview, Single-Turn, Conversational
+- [x] Connector — Overview, Input/Output Mapping, File Attachments, Advanced Mapping,
       Parameter Binding, Examples
 
 ### Contribute (66 pages)
