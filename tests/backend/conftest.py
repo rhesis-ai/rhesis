@@ -219,18 +219,7 @@ def _ensure_session_user_is_owner(request, _ensure_ee_features_registered):
 # =============================================================================
 
 
-@pytest.fixture(scope="session", autouse=True)
-def run_migrations_once():
-    """
-    Run Alembic migrations once per test session.
-
-    Idempotent: if the DB is already at head, this is a fast no-op.
-    Set RHESIS_SKIP_MIGRATIONS=1 to skip (e.g. for unit-only runs without DB).
-    """
-    if os.environ.get("RHESIS_SKIP_MIGRATIONS", "").lower() in ("1", "true", "yes"):
-        yield
-        return
-
+def _run_migrations() -> None:
     backend_dir = (
         Path(__file__).parent.parent.parent / "apps" / "backend" / "src" / "rhesis" / "backend"
     )
@@ -258,6 +247,42 @@ def run_migrations_once():
             f"stdout: {result.stdout}\nstderr: {result.stderr}\n"
             "Set RHESIS_SKIP_MIGRATIONS=1 to skip migrations for unit-only runs."
         )
+
+
+@pytest.fixture(scope="session", autouse=True)
+def run_migrations_once(tmp_path_factory, worker_id):
+    """
+    Run Alembic migrations once per test session.
+
+    Idempotent: if the DB is already at head, this is a fast no-op.
+    Set RHESIS_SKIP_MIGRATIONS=1 to skip (e.g. for unit-only runs without DB).
+
+    Under pytest-xdist, ``worker_id`` is ``"master"`` outside of xdist and
+    ``"gw0"``/``"gw1"``/... inside it — every worker is a separate process
+    with its own ``session``-scoped fixtures, so without coordination each
+    worker would race to run ``alembic upgrade`` concurrently against the
+    same database. A cross-process file lock (shared under xdist's own root
+    temp dir, one level above each worker's private tmp dir) plus a sentinel
+    file makes only the first worker to grab the lock actually run
+    migrations; the rest see the sentinel and skip.
+    """
+    if os.environ.get("RHESIS_SKIP_MIGRATIONS", "").lower() in ("1", "true", "yes"):
+        yield
+        return
+
+    if worker_id == "master":
+        _run_migrations()
+        yield
+        return
+
+    from filelock import FileLock
+
+    root_tmp_dir = tmp_path_factory.getbasetemp().parent
+    with FileLock(str(root_tmp_dir / "migrations.lock")):
+        sentinel = root_tmp_dir / "migrations.done"
+        if not sentinel.exists():
+            _run_migrations()
+            sentinel.write_text("done")
 
     yield
 

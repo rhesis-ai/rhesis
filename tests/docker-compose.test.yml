@@ -112,6 +112,7 @@ services:
   backend-test-postgres:
     image: mirror.gcr.io/pgvector/pgvector:pg16
     profiles: ["backend"]
+    command: postgres -c max_connections=200
     environment:
       POSTGRES_DB: rhesis-test-db
       POSTGRES_USER: rhesis-user
