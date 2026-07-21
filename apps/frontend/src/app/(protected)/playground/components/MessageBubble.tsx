@@ -22,6 +22,7 @@ import ScienceOutlinedIcon from '@mui/icons-material/ScienceOutlined';
 import { TracesIcon } from '@/components/icons';
 import { ChatMessage } from '@/hooks/usePlaygroundChat';
 import MessageContent from '@/components/common/MessageContent';
+import { stringifyMessageContent } from '@/utils/message-content';
 import { BORDER_RADIUS } from '@/styles/theme-constants';
 
 interface MessageBubbleProps {
@@ -53,7 +54,9 @@ export default function MessageBubble({
   const handleCopy = async (e: React.MouseEvent) => {
     e.stopPropagation();
     try {
-      await navigator.clipboard.writeText(message.content);
+      await navigator.clipboard.writeText(
+        stringifyMessageContent(message.content)
+      );
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {

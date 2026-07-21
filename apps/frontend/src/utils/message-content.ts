@@ -2,6 +2,9 @@
 export function parseJsonString(
   text: string
 ): Record<string, unknown> | unknown[] | null {
+  if (typeof text !== 'string') {
+    return null;
+  }
   const trimmed = text.trim();
   if (
     !(trimmed.startsWith('{') && trimmed.endsWith('}')) &&
@@ -25,5 +28,19 @@ const MARKDOWN_PATTERN =
 
 /** True when the text contains common markdown syntax (not just plain text). */
 export function looksLikeMarkdown(text: string): boolean {
+  if (typeof text !== 'string' || !text) {
+    return false;
+  }
   return MARKDOWN_PATTERN.test(text);
+}
+
+/** Normalize message content to a display/API string. */
+export function stringifyMessageContent(content: unknown): string {
+  if (typeof content === 'string') {
+    return content;
+  }
+  if (content == null) {
+    return '';
+  }
+  return JSON.stringify(content, null, 2);
 }

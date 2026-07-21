@@ -33,6 +33,7 @@ import MessageBubble, { MessageBubbleSkeleton } from './MessageBubble';
 import TraceDrawer from '@/app/(protected)/traces/components/TraceDrawer';
 import CreateTestFromConversationDrawer from './CreateTestFromConversationDrawer';
 import { ConversationMessage } from '@/utils/api-client/interfaces/tests';
+import { stringifyMessageContent } from '@/utils/message-content';
 import { TEST_TYPES, type TestTypeValue } from '@/constants/test-types';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
@@ -193,7 +194,10 @@ export default function PlaygroundChat({
 
     const conversationMessages = messages
       .filter(msg => !msg.isError)
-      .map(msg => ({ role: msg.role, content: msg.content }));
+      .map(msg => ({
+        role: msg.role,
+        content: stringifyMessageContent(msg.content),
+      }));
 
     setTestDrawerMessages(conversationMessages);
     setTestDrawerType(TEST_TYPES.MULTI_TURN);
@@ -207,7 +211,10 @@ export default function PlaygroundChat({
 
       const userMessage = messages[messageIndex];
       const conversationMessages: ConversationMessage[] = [
-        { role: userMessage.role, content: userMessage.content },
+        {
+          role: userMessage.role,
+          content: stringifyMessageContent(userMessage.content),
+        },
       ];
 
       // Include the next assistant message if available
@@ -219,7 +226,7 @@ export default function PlaygroundChat({
       ) {
         conversationMessages.push({
           role: nextMessage.role,
-          content: nextMessage.content,
+          content: stringifyMessageContent(nextMessage.content),
         });
       }
 

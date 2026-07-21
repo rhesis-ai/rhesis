@@ -17,8 +17,8 @@ export interface ChatMessage {
   id: string;
   /** Message role: user or assistant */
   role: 'user' | 'assistant';
-  /** Message content (may contain markdown) */
-  content: string;
+  /** Message content (string or structured JSON from endpoint output) */
+  content: string | Record<string, unknown> | unknown[];
   /** Trace ID for assistant messages (for viewing trace details) */
   traceId?: string;
   /** Timestamp when the message was created */
