@@ -278,9 +278,12 @@ async def import_probes(
         # that path is CPU-heavy and must not run on the request thread. When
         # warm, filter down to exactly the requested (module, class) pairs so
         # only that data is serialized through the Celery dispatch (not whole
-        # modules or the full ~168-probe corpus). When cold, pass no preload
-        # data at all — the task falls back to targeted per-probe extraction
-        # inside the worker, off the event loop.
+        # modules or the full ~168-probe corpus). When cold — or when the
+        # cache is warm but is missing one of the requested probes (e.g. a
+        # Garak version bump renamed/removed it) — pass no preload data at
+        # all, rather than a partial dict: a partial preload would make the
+        # importer silently skip the missing probe instead of falling back to
+        # live extraction for it.
         cached_probes_by_module = await probe_service.get_cached_probes()
         filtered_probes_by_module = None
         if cached_probes_by_module is not None:
@@ -295,8 +298,10 @@ async def import_probes(
                     ),
                     None,
                 )
-                if match:
-                    filtered_probes_by_module.setdefault(module_name, []).append(match)
+                if match is None:
+                    filtered_probes_by_module = None
+                    break
+                filtered_probes_by_module.setdefault(module_name, []).append(match)
 
         task_result = task_launcher(
             import_garak_probes_task,
@@ -401,20 +406,29 @@ async def sync_test_set(
         target = sync_service.resolve_sync_target(test_set_id, organization_id)
 
         # Read the cache without ever triggering enumeration on a miss — that
-        # path is CPU-heavy and must not run on the request thread. When cold,
-        # pass no preload data; the task falls back to targeted extraction
-        # inside the worker, off the event loop.
+        # path is CPU-heavy and must not run on the request thread. When cold
+        # — or when the cache is warm but is missing one of the target
+        # module(s)/probe(s) (e.g. a Garak version bump renamed/removed it) —
+        # pass no preload data at all, rather than a partial dict: for the
+        # legacy multi-module sync path in particular, a partial preload
+        # (some modules resolving to zero probes) would make the diff below
+        # treat every existing prompt in that module as "no longer present"
+        # and delete it, instead of falling back to live extraction.
         cached_probes_by_module = await probe_service.get_cached_probes()
         filtered_probes_by_module = None
         if cached_probes_by_module is not None:
             filtered_probes_by_module = {}
             for module_name, class_names in target.items():
                 module_probes = cached_probes_by_module.get(module_name, [])
-                filtered_probes_by_module[module_name] = (
+                filtered = (
                     [p for p in module_probes if p.class_name in class_names]
                     if class_names
                     else module_probes
                 )
+                if not filtered:
+                    filtered_probes_by_module = None
+                    break
+                filtered_probes_by_module[module_name] = filtered
 
         task_result = task_launcher(
             sync_garak_test_set_task,

@@ -252,6 +252,77 @@ class TestGarakSyncServiceSyncTestSet:
 
 @pytest.mark.unit
 @pytest.mark.service
+class TestGarakSyncServiceLegacySyncSafety:
+    """Regression tests for a critical PR review finding: preloaded probe data
+    that resolves to zero probes for a non-empty legacy module list must never
+    be treated as "every existing test was removed upstream" — it must raise
+    instead of silently deleting the test set's tests."""
+
+    def test_raises_when_preloaded_probes_resolve_empty_for_all_modules(
+        self, test_db: Session, test_org_id, authenticated_user_id
+    ):
+        service = GarakSyncService(test_db)
+
+        test_set = TestSet(
+            name="Legacy Garak Test Set",
+            description="Test",
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            attributes={
+                "source": "garak",
+                "garak_modules": ["dan", "encoding"],
+            },
+        )
+        test_db.add(test_set)
+        test_db.commit()
+
+        # Simulates the exact failure mode from review: preloaded probe data
+        # is present (not None, so live extraction is skipped) but missing
+        # both target modules — e.g. a partial cache filter upstream, or a
+        # Garak version bump that renamed/removed them.
+        service.preload_probes({})
+
+        with pytest.raises(ValueError, match="No probes resolved for any of the modules"):
+            service._sync_legacy_test_set(
+                test_set, ["dan", "encoding"], str(test_org_id), str(authenticated_user_id)
+            )
+
+    def test_does_not_raise_when_at_least_one_module_resolves_probes(
+        self, test_db: Session, test_org_id, authenticated_user_id
+    ):
+        service = GarakSyncService(test_db)
+
+        test_set = TestSet(
+            name="Legacy Garak Test Set",
+            description="Test",
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            attributes={
+                "source": "garak",
+                "garak_modules": ["dan", "encoding"],
+            },
+        )
+        test_db.add(test_set)
+        test_db.commit()
+
+        dan_probe = GarakProbeInfo(
+            module_name="dan",
+            class_name="Dan_11_0",
+            full_name="dan.Dan_11_0",
+            description="d",
+            prompts=["hello"],
+        )
+        # "encoding" is still missing from the preloaded data, but "dan"
+        # resolved at least one probe, so the guard must not fire.
+        service.preload_probes({"dan": [dan_probe]})
+
+        service._sync_legacy_test_set(
+            test_set, ["dan", "encoding"], str(test_org_id), str(authenticated_user_id)
+        )
+
+
+@pytest.mark.unit
+@pytest.mark.service
 class TestGarakSyncServiceSyncPreview:
     """Tests for get_sync_preview method."""
 

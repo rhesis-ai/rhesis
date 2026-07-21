@@ -148,6 +148,41 @@ class TestImportProbesDispatch:
         _, call_kwargs = mock_launcher.call_args
         assert call_kwargs["probes_by_module"] is None
 
+    @pytest.mark.asyncio
+    async def test_warm_cache_missing_a_requested_probe_falls_back_to_none(self):
+        """Regression test: a warm cache that is MISSING one of the requested
+        probes (e.g. a Garak version bump renamed/removed it) must not
+        produce a partial preload dict — the importer would then silently
+        skip the missing probe instead of falling back to live extraction. The
+        whole request must fall back to probes_by_module=None instead."""
+        dan_probe = GarakProbeInfo(
+            module_name="dan", class_name="Dan_11_0", full_name="dan.Dan_11_0", description="d"
+        )
+        # Cache is warm and has "dan", but not the "encoding" probe requested below.
+        probe_service = _mock_probe_service({"dan": [dan_probe]})
+        request = GarakImportRequest(
+            probes=[
+                GarakProbeSelection(module_name="dan", class_name="Dan_11_0"),
+                GarakProbeSelection(module_name="encoding", class_name="InjectBase64"),
+            ],
+            name_prefix="Garak",
+        )
+        current_user = MagicMock(id=uuid4(), organization_id=uuid4())
+
+        with patch("rhesis.backend.app.routers.garak.task_launcher") as mock_launcher:
+            mock_launcher.return_value = MagicMock(id="task-abc-123")
+
+            await import_probes(
+                request=request,
+                db=MagicMock(),
+                tenant_context=(str(current_user.organization_id), str(current_user.id)),
+                current_user=current_user,
+                probe_service=probe_service,
+            )
+
+        _, call_kwargs = mock_launcher.call_args
+        assert call_kwargs["probes_by_module"] is None
+
 
 @pytest.mark.unit
 class TestSyncTestSetDispatch:
@@ -227,6 +262,75 @@ class TestSyncTestSetDispatch:
     @pytest.mark.asyncio
     async def test_cold_cache_dispatches_with_no_preload_data(self):
         probe_service = _mock_probe_service(None)
+        current_user = MagicMock(id=uuid4(), organization_id=uuid4())
+        test_set_id = str(uuid4())
+
+        with (
+            patch("rhesis.backend.app.routers.garak.GarakSyncService") as mock_sync_cls,
+            patch("rhesis.backend.app.routers.garak.task_launcher") as mock_launcher,
+        ):
+            mock_sync_cls.return_value.resolve_sync_target.return_value = {"dan": ["Dan_11_0"]}
+            mock_launcher.return_value = MagicMock(id="task-xyz-789")
+
+            await sync_test_set(
+                test_set_id=test_set_id,
+                db=MagicMock(),
+                tenant_context=(str(current_user.organization_id), str(current_user.id)),
+                current_user=current_user,
+                probe_service=probe_service,
+            )
+
+        _, call_kwargs = mock_launcher.call_args
+        assert call_kwargs["probes_by_module"] is None
+
+    @pytest.mark.asyncio
+    async def test_warm_cache_missing_a_legacy_module_falls_back_to_none(self):
+        """Critical regression test (flagged in PR review): a warm cache that
+        is missing one of the legacy sync's target modules (e.g. a Garak
+        version bump renamed/removed it) must NOT produce a partial preload
+        dict with an empty list for that module. GarakSyncService's legacy
+        sync path treats "zero probes for a listed module" as "every existing
+        test in that module was removed upstream" and deletes them — so a
+        partial preload here would silently wipe the test set instead of
+        falling back to live extraction."""
+        dan_probe = GarakProbeInfo(
+            module_name="dan", class_name="Dan_11_0", full_name="dan.Dan_11_0", description="d"
+        )
+        # Cache is warm and has "dan", but the target also needs "encoding",
+        # which is absent from this (warm) cache.
+        probe_service = _mock_probe_service({"dan": [dan_probe]})
+        current_user = MagicMock(id=uuid4(), organization_id=uuid4())
+        test_set_id = str(uuid4())
+
+        with (
+            patch("rhesis.backend.app.routers.garak.GarakSyncService") as mock_sync_cls,
+            patch("rhesis.backend.app.routers.garak.task_launcher") as mock_launcher,
+        ):
+            mock_sync_cls.return_value.resolve_sync_target.return_value = {
+                "dan": [],
+                "encoding": [],
+            }
+            mock_launcher.return_value = MagicMock(id="task-xyz-789")
+
+            await sync_test_set(
+                test_set_id=test_set_id,
+                db=MagicMock(),
+                tenant_context=(str(current_user.organization_id), str(current_user.id)),
+                current_user=current_user,
+                probe_service=probe_service,
+            )
+
+        _, call_kwargs = mock_launcher.call_args
+        assert call_kwargs["probes_by_module"] is None
+
+    @pytest.mark.asyncio
+    async def test_warm_cache_missing_the_target_probe_class_falls_back_to_none(self):
+        """Same regression, modern single-probe format: the cache has the
+        module but not the specific probe class the test set references."""
+        dan_probe = GarakProbeInfo(
+            module_name="dan", class_name="Dan_10_0", full_name="dan.Dan_10_0", description="d"
+        )
+        probe_service = _mock_probe_service({"dan": [dan_probe]})
         current_user = MagicMock(id=uuid4(), organization_id=uuid4())
         test_set_id = str(uuid4())
 

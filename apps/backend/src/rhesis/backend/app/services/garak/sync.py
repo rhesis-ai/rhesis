@@ -271,6 +271,18 @@ class GarakSyncService:
             probes = self.probe_service.get_probes_for_module(module_name, self._probes_by_module)
             all_probes.extend(probes)
 
+        # Guard against a broken invariant: if every listed module resolved to
+        # zero probes (e.g. preloaded cache data missing a module — see
+        # preload_probes), the diff below would treat every existing prompt as
+        # "no longer present" and delete the entire test set. That is never a
+        # legitimate outcome for a non-empty module list, so fail loudly
+        # instead of silently wiping the test set.
+        if not all_probes:
+            raise ValueError(
+                f"No probes resolved for any of the modules {modules} — refusing to "
+                "sync (this would otherwise remove every existing test)"
+            )
+
         # Build latest probe IDs
         latest_probe_ids = set()
         for probe in all_probes:
