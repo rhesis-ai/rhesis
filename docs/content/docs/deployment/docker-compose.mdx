@@ -18,15 +18,24 @@ This guide is for production environments. For quick local testing, see the [Qui
 
 The steps below are the recommended path for a production self-hosted deployment: you supply your own secrets, public URLs, and infrastructure, and run the stack directly with Docker Compose. (For a throwaway local instance, use the one-command [Quick Start](/docs/deployment/quick-start) instead.)
 
+The last step gives you two ways to start the stack — pick one:
+
+- **Recommended:** pull prebuilt images for the latest release, skipping the build.
+- Build backend, worker, and frontend from your local checkout instead.
+
 <CodeBlock filename="Terminal" language="bash">
 {`git clone https://github.com/rhesis-ai/rhesis.git
 cd rhesis
 
 cp .env.example .env.docker
 
-# DB_ENCRYPTION_KEY, JWT_SECRET_KEY, NEXTAUTH_SECRET, SESSION_SECRET_KEY
+# generate DB_ENCRYPTION_KEY, JWT_SECRET_KEY, NEXTAUTH_SECRET, SESSION_SECRET_KEY
 ./rh secrets
 
+# recommended: uses prebuilt GHCR images for the latest release
+docker compose -f docker-compose.yml -f docker-compose.ghcr.yml --env-file .env.docker up -d
+
+# alternative: builds backend, worker, and frontend from the current state of the repo
 docker compose --env-file .env.docker up -d`}
 </CodeBlock>
 
