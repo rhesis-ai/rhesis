@@ -100,7 +100,7 @@ const features = [
     icon: RocketLaunchIcon,
     title: 'Test Execution',
     description: 'Run tests against your endpoints and configure execution parameters.',
-    link: '/docs/test-execution',
+    link: '/docs/test-runs/execution',
   },
   {
     icon: PlayArrowIcon,
