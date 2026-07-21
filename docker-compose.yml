@@ -1,30 +1,21 @@
-# Host-facing access. Internal container ports stay constant (backend 8080,
-# frontend 3000). Two independent layers:
-#   BACKEND_PORT / FRONTEND_PORT — host bind port in `host:container` mappings.
-#   *_URL  — public address the browser/backend use for links, redirects, cookies.
-# On localhost they happen to match; in self-hosting the public URL (domain /
-# reverse proxy) is unrelated to the bind port, so neither derives from the other.
 x-host:
   backend_port:  &backend_port  ${BACKEND_PORT:-8080}
   frontend_port: &frontend_port ${FRONTEND_PORT:-3000}
   api_base_url:  &api_base_url  ${API_BASE_URL:-http://localhost:8080}
   frontend_url:  &frontend_url  ${FRONTEND_URL:-http://localhost:3000}
 
-# Object storage configuration (local dev defaults to bind-mounted /app/storage)
 x-common-storage: &common-storage
   STORAGE_SERVICE_URI: ${STORAGE_SERVICE_URI:-file:///app/storage}
   STORAGE_SERVICE_ACCOUNT_KEY: ${STORAGE_SERVICE_ACCOUNT_KEY:-}
   LOCAL_STORAGE_PATH: ${LOCAL_STORAGE_PATH:-/tmp/rhesis-files}
 
-# Native authentication configuration (provider-agnostic)
 x-common-auth: &common-auth
-  # Email/password authentication
   AUTH_EMAIL_PASSWORD_ENABLED: ${AUTH_EMAIL_PASSWORD_ENABLED:-true}
   AUTH_REGISTRATION_ENABLED: ${AUTH_REGISTRATION_ENABLED:-true}
-  # Google OAuth (optional - leave empty to disable)
+  # Google OAuth (optional)
   GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
   GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
-  # GitHub OAuth (optional - leave empty to disable)
+  # GitHub OAuth (optional)
   GH_CLIENT_ID: ${GH_CLIENT_ID:-}
   GH_CLIENT_SECRET: ${GH_CLIENT_SECRET:-}
   SESSION_SECRET_KEY: ${SESSION_SECRET_KEY:?SESSION_SECRET_KEY is required, no safe default}
@@ -68,12 +59,6 @@ x-nextjs-frontend: &nextjs-frontend
 
 
 services:
-  # PostgreSQL Database (built-in). Credentials below are fixed by
-  # apps/backend/src/rhesis/backend/alembic/create_user.sql — do not change
-  # them here. To use a different database (managed Postgres, different
-  # credentials, etc.), set DB_HOST/DB_PORT/DB_NAME/APP_DB_USER/APP_DB_PASS
-  # in your .env file to point the backend/worker at it instead; this
-  # built-in container will simply go unused.
   postgres:
     image: mirror.gcr.io/pgvector/pgvector:pg16
     environment:
@@ -91,10 +76,6 @@ services:
     networks:
       - rhesis-network
 
-   # Redis for Celery (built-in). Password below is fixed — do not change it
-  # here. To use an external Redis, set BROKER_URL/CELERY_RESULT_BACKEND in
-  # your .env file to point the backend/worker at it instead; this built-in
-  # container will simply go unused.
   redis:
     image: mirror.gcr.io/redis:7-alpine
     command: redis-server --requirepass rhesis-redis-pass
@@ -108,7 +89,6 @@ services:
     networks:
       - rhesis-network
 
-  # Backend API
   backend:
     build:
       context: .
@@ -154,7 +134,6 @@ services:
       retries: 3
       start_period: 60s
 
-  # Celery Worker
   worker:
     build:
       context: .
@@ -198,7 +177,6 @@ services:
       retries: 3
       start_period: 60s
 
-  # Frontend
   frontend:
     build:
       context: .
@@ -223,7 +201,6 @@ services:
       retries: 3
       start_period: 60s
 
-  # Documentation
   docs:
     build:
       context: ./docs
