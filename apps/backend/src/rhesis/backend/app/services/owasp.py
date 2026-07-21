@@ -163,10 +163,7 @@ def list_categories(framework: str) -> List[ReportSection]:
     Description is still available via :func:`list_category_summaries`.
     """
     summaries = list_category_summaries(framework)
-    return [
-        ReportSection(id=s["id"], name=s["name"], content="")
-        for s in summaries
-    ]
+    return [ReportSection(id=s["id"], name=s["name"], content="") for s in summaries]
 
 
 def list_category_summaries(framework: str) -> List[dict]:

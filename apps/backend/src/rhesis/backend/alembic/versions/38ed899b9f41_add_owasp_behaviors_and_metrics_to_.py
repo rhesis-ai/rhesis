@@ -55,9 +55,7 @@ _OWASP_PREFIX = "OWASP"
 
 def _owasp_behavior_names() -> list[str]:
     return [
-        b["name"]
-        for b in load_behaviors_from_initial_data()
-        if b["name"].startswith(_OWASP_PREFIX)
+        b["name"] for b in load_behaviors_from_initial_data() if b["name"].startswith(_OWASP_PREFIX)
     ]
 
 
