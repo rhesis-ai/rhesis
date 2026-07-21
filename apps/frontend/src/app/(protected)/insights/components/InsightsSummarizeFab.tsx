@@ -68,7 +68,13 @@ export default function InsightsSummarizeFab({
     } finally {
       setCreating(false);
     }
-  }, [endpointName, filters, isDisabled, showNotification, visibleBehaviorNames]);
+  }, [
+    endpointName,
+    filters,
+    isDisabled,
+    showNotification,
+    visibleBehaviorNames,
+  ]);
 
   return (
     <Can capability={Capability.Architect.CREATE}>

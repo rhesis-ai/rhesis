@@ -58,7 +58,7 @@ describe('createAndOpenArchitectSession', () => {
 
     await expect(
       createAndOpenArchitectSession({
-          title: 'Title',
+        title: 'Title',
         initialMessage: 'Message',
         openWindow,
         navigate: jest.fn(),
