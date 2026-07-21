@@ -61,16 +61,14 @@ class QueryBuilder:
         self._joined_count = 0
         self._selectin_count = 0
 
-    def with_joined(self, *relationship_names: str) -> "QueryBuilder":
+    def _with_joined(self, *relationship_names: str) -> "QueryBuilder":
         """Eager-load each named relationship with ``joinedload``.
 
-        Use this for many-to-one and one-to-one relationships, where each
-        parent row matches at most one child. Avoid joinedload on
+        Low-level primitive for many-to-one and one-to-one relationships, where
+        each parent row matches at most one child. Avoid joinedload on
         relationships whose child rows carry large JSONB payloads — those
         produce cartesian-product result sets that can be orders of
         magnitude larger than the logical row count.
-
-        Use ``with_selectin`` for many-to-many or one-to-many.
         """
         if not relationship_names:
             return self
@@ -83,7 +81,7 @@ class QueryBuilder:
             attrs.append(getattr(self.model, name))
         if unknown:
             raise ValueError(
-                f"with_joined: {self.model.__name__} has no relationship(s) named {unknown!r}"
+                f"_with_joined: {self.model.__name__} has no relationship(s) named {unknown!r}"
             )
         for attr in attrs:
             self.query = self.query.options(joinedload(attr))
@@ -91,13 +89,14 @@ class QueryBuilder:
         self._maybe_warn_load_count()
         return self
 
-    def with_selectin(self, *relationship_names: str) -> "QueryBuilder":
+    def _with_selectin(self, *relationship_names: str) -> "QueryBuilder":
         """Eager-load each named relationship with ``selectinload``.
 
-        Use this for many-to-many or one-to-many relationships. ``selectinload``
-        issues a single follow-up ``SELECT ... WHERE parent_id IN (...)``
-        query per relationship, which avoids the cartesian-product blowup
-        that ``joinedload`` produces on collection relationships.
+        Low-level primitive for many-to-many or one-to-many relationships.
+        ``selectinload`` issues a single follow-up
+        ``SELECT ... WHERE parent_id IN (...)`` query per relationship, which
+        avoids the cartesian-product blowup that ``joinedload`` produces on
+        collection relationships.
         """
         if not relationship_names:
             return self
@@ -110,44 +109,12 @@ class QueryBuilder:
             attrs.append(getattr(self.model, name))
         if unknown:
             raise ValueError(
-                f"with_selectin: {self.model.__name__} has no relationship(s) named {unknown!r}"
+                f"_with_selectin: {self.model.__name__} has no relationship(s) named {unknown!r}"
             )
         for attr in attrs:
             self.query = self.query.options(selectinload(attr))
         self._selectin_count += len(attrs)
         self._maybe_warn_load_count()
-        return self
-
-    def with_selectin_chain(self, *chain: str) -> "QueryBuilder":
-        """Eager-load a chain of relationships with nested ``selectinload``.
-
-        Use this for polymorphic one-to-many collections (e.g. TagsMixin) that
-        ``with_optimized_loads`` skips because they have no ``secondary`` table.
-        Each element resolves against the target model of the previous step.
-
-        Example::
-
-            .with_selectin_chain("_tags_relationship", "tag")
-            # → selectinload(Model._tags_relationship).selectinload(TaggedItem.tag)
-        """
-        if not chain:
-            return self
-        current_model: type = self.model
-        load = None
-        for rel_name in chain:
-            rel_prop = inspect(current_model).relationships.get(rel_name)
-            if rel_prop is None:
-                raise ValueError(
-                    f"with_selectin_chain: {current_model.__name__!r} has no "
-                    f"relationship named {rel_name!r}"
-                )
-            attr = getattr(current_model, rel_name)
-            load = selectinload(attr) if load is None else load.selectinload(attr)
-            current_model = rel_prop.mapper.class_
-        if load is not None:
-            self.query = self.query.options(load)
-            self._selectin_count += 1
-            self._maybe_warn_load_count()
         return self
 
     def with_related(self, *relationship_names: str, nested: dict | None = None) -> "QueryBuilder":
@@ -173,9 +140,9 @@ class QueryBuilder:
                     f"with_related: {self.model.__name__} has no relationship(s) named {unknown!r}"
                 )
             if joined_names:
-                self.with_joined(*joined_names)
+                self._with_joined(*joined_names)
             if selectin_names:
-                self.with_selectin(*selectin_names)
+                self._with_selectin(*selectin_names)
 
         if nested:
             for rel_name, spec in nested.items():
@@ -216,7 +183,8 @@ class QueryBuilder:
 
         Safe to call unconditionally -- skips models/relationships that don't
         have these mixins. Merges in any caller-supplied ``extra_chains`` too
-        (same format as ``with_selectin_chain``), deduped by full chain.
+        (each a flat ``[name, ...]`` path, e.g. ``["_tags_relationship", "tag"]``),
+        deduped by full chain.
         """
         from rhesis.backend.app.models.mixins import (
             CommentsMixin,
@@ -245,10 +213,23 @@ class QueryBuilder:
             if issubclass(self.model, mixin):
                 _add(list(chain))
         for chain in chains:
-            self.with_selectin_chain(*chain)
+            if len(chain) == 1:
+                # Single hop -- these are always the collection side
+                # (comments/tasks/files/tags), so with_related always picks
+                # selectinload here, same as before.
+                self.with_related(chain[0])
+                continue
+            # Multi-hop (e.g. _tags_relationship -> tag): build the nested
+            # spec with_related expects, picking joinedload vs selectinload
+            # per hop from that hop's own cardinality, instead of assuming
+            # selectinload at every level.
+            spec: list | dict = list(chain[-1:])
+            for name in reversed(chain[1:-1]):
+                spec = {name: spec}
+            self.with_related(nested={chain[0]: spec})
 
         # Cascade one level into joined-in single-object relations (the ones
-        # with_optimized_loads/with_joined eager-load via joinedload) whose
+        # with_optimized_loads/with_related eager-load via joinedload) whose
         # target model also carries these mixins. These relationships are
         # already strategy=joinedload (by convention, whether set by this
         # call or by the caller) -- selectinload-ing the same attribute

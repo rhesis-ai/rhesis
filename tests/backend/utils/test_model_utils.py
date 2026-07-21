@@ -50,7 +50,7 @@ class TestQueryBuilder:
     def test_with_joined_applies_joinedload_per_relationship(
         self, test_db: Session, authenticated_user_id, test_org_id
     ):
-        """with_joined should call query.options(joinedload(...)) once per name."""
+        """_with_joined should call query.options(joinedload(...)) once per name."""
         query_builder = QueryBuilder(test_db, models.Test)
         original_query = MagicMock()
         query_builder.query = original_query
@@ -61,7 +61,7 @@ class TestQueryBuilder:
         original_query.options.return_value = stage1
         stage1.options.return_value = stage2
 
-        result = query_builder.with_joined("prompt", "topic")
+        result = query_builder._with_joined("prompt", "topic")
 
         assert result is query_builder
         assert original_query.options.call_count == 1
@@ -75,12 +75,12 @@ class TestQueryBuilder:
         """Unknown relationship names should fail loudly, not silently."""
         query_builder = QueryBuilder(test_db, models.Test)
         with pytest.raises(ValueError, match="not_a_real_relationship"):
-            query_builder.with_joined("prompt", "not_a_real_relationship")
+            query_builder._with_joined("prompt", "not_a_real_relationship")
 
     def test_with_selectin_applies_selectinload_per_relationship(
         self, test_db: Session, authenticated_user_id, test_org_id
     ):
-        """with_selectin should call query.options(selectinload(...)) once per name."""
+        """_with_selectin should call query.options(selectinload(...)) once per name."""
         query_builder = QueryBuilder(test_db, models.Metric)
         original_query = MagicMock()
         query_builder.query = original_query
@@ -89,7 +89,7 @@ class TestQueryBuilder:
         original_query.options.return_value = stage1
         stage1.options.return_value = stage2
 
-        result = query_builder.with_selectin("behaviors", "test_sets")
+        result = query_builder._with_selectin("behaviors", "test_sets")
 
         assert result is query_builder
         assert query_builder.query is stage2
@@ -100,7 +100,7 @@ class TestQueryBuilder:
     ):
         query_builder = QueryBuilder(test_db, models.Metric)
         with pytest.raises(ValueError, match="not_a_real_m2m"):
-            query_builder.with_selectin("behaviors", "not_a_real_m2m")
+            query_builder._with_selectin("behaviors", "not_a_real_m2m")
 
     def test_with_joined_and_selectin_empty_call_is_noop(
         self, test_db: Session, authenticated_user_id, test_org_id
@@ -110,7 +110,7 @@ class TestQueryBuilder:
         original_query = MagicMock()
         query_builder.query = original_query
 
-        query_builder.with_joined().with_selectin()
+        query_builder._with_joined()._with_selectin()
 
         original_query.options.assert_not_called()
         assert query_builder._joined_count == 0
@@ -129,7 +129,7 @@ class TestQueryBuilder:
 
         # Test has 12 M2O relationships — exactly the threshold for the warning.
         with caplog.at_level(logging.WARNING):
-            query_builder.with_joined(
+            query_builder._with_joined(
                 "prompt",
                 "test_type",
                 "user",
@@ -246,7 +246,9 @@ class TestQueryBuilder:
             mock_final = MagicMock()
             mock_apply_optimized_loads.return_value = mock_final
 
-            result = query_builder.with_joined("prompt").with_optimized_loads(skip_one_to_many=True)
+            result = query_builder._with_joined("prompt").with_optimized_loads(
+                skip_one_to_many=True
+            )
 
             assert result is query_builder
             assert original_query.options.call_count == 1
