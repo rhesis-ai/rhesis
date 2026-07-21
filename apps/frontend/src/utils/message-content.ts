@@ -1,30 +1,35 @@
-/** Parse a string as JSON object/array; returns null when not valid JSON. */
-export function parseJsonString(
-  text: string
-): Record<string, unknown> | unknown[] | null {
+/** Parse a string as JSON; returns null when not valid JSON. */
+export function parseJsonString(text: string): unknown | null {
   if (typeof text !== 'string') {
     return null;
   }
   const trimmed = text.trim();
-  if (
-    !(trimmed.startsWith('{') && trimmed.endsWith('}')) &&
-    !(trimmed.startsWith('[') && trimmed.endsWith(']'))
-  ) {
+  if (!trimmed) {
     return null;
   }
+
+  const looksLikeJson =
+    (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+    (trimmed.startsWith('[') && trimmed.endsWith(']')) ||
+    trimmed === 'true' ||
+    trimmed === 'false' ||
+    trimmed === 'null' ||
+    (trimmed.startsWith('"') && trimmed.endsWith('"') && trimmed.length >= 2) ||
+    /^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?$/.test(trimmed);
+
+  if (!looksLikeJson) {
+    return null;
+  }
+
   try {
-    const parsed: unknown = JSON.parse(trimmed);
-    if (parsed !== null && typeof parsed === 'object') {
-      return parsed as Record<string, unknown> | unknown[];
-    }
+    return JSON.parse(trimmed);
   } catch {
     return null;
   }
-  return null;
 }
 
 const MARKDOWN_PATTERN =
-  /(^|\n)(#{1,6}\s|[-*+]\s|\d+\.\s|>\s|```)|(\*\*.+\*\*|__.+__)|(\[.+\]\(.+\))/;
+  /(^|\n)(#{1,6}\s|[-*+]\s|\d+\.\s|>\s|```)|(\*\*.+\*\*|__.+__)|(\[.+\]\(.+\))|(`[^`\n]+`)/;
 
 /** True when the text contains common markdown syntax (not just plain text). */
 export function looksLikeMarkdown(text: string): boolean {
