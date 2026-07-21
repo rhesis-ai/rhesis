@@ -20,7 +20,8 @@ export const OUTPUT_VARIABLES = [
     label: '{{ conversation_id }}',
     groupLabel: 'Conversation ID',
     description: 'Conversation ID for multi-turn tracking.',
-    docsUrl: 'https://docs.rhesis.ai/docs/endpoints/multi-turn-conversations',
+    docsUrl:
+      'https://docs.rhesis.ai/docs/endpoints/request-mapping#multi-turn-conversations',
   },
   {
     name: 'context',

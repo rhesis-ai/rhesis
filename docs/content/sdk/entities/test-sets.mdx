@@ -2,7 +2,7 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 # Test Sets & Tests
 
-Test sets are collections of individual test entities used to evaluate AI applications. Each test entity contains a prompt, expected behaviors, and metadata for categorization.
+Test sets are collections of individual test entities used to evaluate LLM applications. Each test entity contains a prompt, expected behaviors, and metadata for categorization.
 
 ## TestSet
 
@@ -142,13 +142,10 @@ print(f"Execution started: {result}")`}
 For the full execution API — including re-scoring, last run inspection, and test set metric
 management — see [Test Execution](/sdk/execution).
 
-### Explorer / TestTree node metadata (v0.6.12+)
+### Explorer / TestTree node metadata
 
 If you use the SDK `TestTree` APIs (module `rhesis.sdk.adaptive_testing`) against Explorer sessions, each `TestTreeNode` can carry
 evaluation metadata in addition to `label` and `model_score`.
-
-This is useful when you want to inspect per-metric outcomes programmatically after Explorer
-evaluation runs.
 
 | Field | Type | Description |
 | --- | --- | --- |

@@ -57,31 +57,6 @@ def summarize(input: str) -> dict:
     return {"output": generate_summary(input)}`}
 </CodeBlock>
 
-## Custom Field Mapping
-
-Map custom API fields to function parameters:
-
-<CodeBlock filename="custom_fields.py" language="python">
-{`@endpoint(
-    request_mapping={
-        "question": "{{ input }}",
-        "policy_id": "{{ policy_number }}",
-        "customer_tier": "{{ tier }}",
-    },
-    response_mapping={
-        "output": "$.answer",
-        "metadata": "$.claim_info",
-    },
-)
-def insurance_query(question: str, policy_id: str, customer_tier: str = "standard") -> dict:
-    """Query insurance policy with custom fields."""
-    answer, claim_info = lookup_policy(question, policy_id, customer_tier)
-    return {
-        "answer": answer,
-        "claim_info": claim_info,
-    }`}
-</CodeBlock>
-
 ## mlflow Agent Integration
 
 Native integration with mlflow's ChatAgent framework:
@@ -144,74 +119,6 @@ def my_agent(request: ChatAgentRequest) -> ChatAgentResponse:
     )`}
 </CodeBlock>
 
-## Dataclass-Based Endpoint
-
-Using Python dataclasses for type safety:
-
-<CodeBlock filename="dataclass_endpoint.py" language="python">
-{`from dataclasses import dataclass
-from rhesis.sdk import RhesisClient, endpoint
-
-client = RhesisClient(
-    api_key="your-api-key",
-    project_id="your-project-id",
-    environment="development",
-)
-
-@dataclass
-class SearchRequest:
-    query: str
-    filters: dict | None = None
-    max_results: int = 10
-
-@dataclass
-class SearchResult:
-    title: str
-    snippet: str
-    score: float
-
-@dataclass
-class SearchResponse:
-    results: list[SearchResult]
-    total_count: int
-    query_time_ms: float
-
-@endpoint(
-    request_mapping={
-        "request": {
-            "query": "{{ input }}",
-            "max_results": 5,
-        }
-    },
-    response_mapping={
-        "output": "$.results[0].snippet",
-        "context": "$.results",
-        "metadata": "{{ {'total': total_count, 'time_ms': query_time_ms} }}",
-    },
-)
-def search(request: SearchRequest) -> SearchResponse:
-    """Search endpoint with dataclass types."""
-    import time
-    start = time.time()
-    
-    raw_results = perform_search(request.query, request.max_results)
-    
-    results = [
-        SearchResult(
-            title=r["title"],
-            snippet=r["snippet"],
-            score=r["score"],
-        )
-        for r in raw_results
-    ]
-    
-    return SearchResponse(
-        results=results,
-        total_count=len(results),
-        query_time_ms=(time.time() - start) * 1000,
-    )`}
-</CodeBlock>
-
 ## With Database Dependencies
 
 Using parameter binding for database connections:
@@ -267,7 +174,7 @@ def query_documents(db, user_id, input: str, session_id: str = None) -> dict:
 
 ## Async with Error Handling
 
-Async endpoint with comprehensive error handling:
+Async endpoint with a timeout and error handling:
 
 <CodeBlock filename="async_error_handling.py" language="python">
 {`from rhesis.sdk import RhesisClient, endpoint
@@ -446,8 +353,8 @@ Answer:"""
     }`}
 </CodeBlock>
 
----
+## Related pages
 
-<Callout type="default">
-  **More Resources** - [Overview](./index) for quick start guide - [Mapping](./mapping) for input/output configuration - [Advanced Mapping](./serializers) for complex types - [Parameter Binding](./binding) for dependency injection
-</Callout>
+- [Input/Output Mapping](./mapping)
+- [Advanced Mapping](./serializers)
+- [Parameter Binding](./binding)

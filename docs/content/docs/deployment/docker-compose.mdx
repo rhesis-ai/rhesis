@@ -1,6 +1,5 @@
 import { CodeBlock } from '@/components/CodeBlock'
 import { Table } from '@/components/Table'
-import { FileTree } from '@/components/FileTree'
 
 # Docker Compose
 
@@ -10,7 +9,7 @@ Deploy Rhesis on your own infrastructure with proper security, authentication, a
 <Callout type="warning">
 **Production Deployment**
 
-This guide is for production environments. For quick local testing, see the [Quick Start](/deployment/quick-start) guide.
+This guide is for production environments. For quick local testing, see the [Quick Start](/docs/deployment/quick-start) guide.
 </Callout>
 
 
@@ -20,18 +19,14 @@ This guide is for production environments. For quick local testing, see the [Qui
 The steps below are the recommended path for a production self-hosted deployment: you supply your own secrets, public URLs, and infrastructure, and run the stack directly with Docker Compose. (For a throwaway local instance, use the one-command [Quick Start](/docs/deployment/quick-start) instead.)
 
 <CodeBlock filename="Terminal" language="bash">
-{`# 1. Clone the repository
-git clone https://github.com/rhesis-ai/rhesis.git
+{`git clone https://github.com/rhesis-ai/rhesis.git
 cd rhesis
 
-# 2. Copy environment variables
 cp .env.example .env.docker
 
-# 3. Generate the four required secrets into .env.docker
-#    (DB_ENCRYPTION_KEY, JWT_SECRET_KEY, NEXTAUTH_SECRET, SESSION_SECRET_KEY)
+# DB_ENCRYPTION_KEY, JWT_SECRET_KEY, NEXTAUTH_SECRET, SESSION_SECRET_KEY
 ./rh secrets
 
-# 4. Start all services
 docker compose --env-file .env.docker up -d`}
 </CodeBlock>
 
@@ -208,10 +203,10 @@ docker compose --env-file .env.docker up -d --build`}
 
 <CodeBlock filename="Terminal" language="bash">
 {`# Create database backup
-docker exec rhesis-postgres pg_dump -U rhesis-user rhesis-db > backup.sql
+docker compose --env-file .env.docker exec -T postgres pg_dump -U rhesis-user rhesis-db > backup.sql
 
 # Restore from backup
-docker exec -i rhesis-postgres psql -U rhesis-user -d rhesis-db < backup.sql`}
+docker compose --env-file .env.docker exec -T postgres psql -U rhesis-user -d rhesis-db < backup.sql`}
 </CodeBlock>
 
 ### Full System Backup

@@ -11,7 +11,7 @@ There are two ways to instrument a multi-agent system: **auto-instrumentation** 
 
 ## Auto-Instrumentation
 
-For supported frameworks, [`auto_instrument()`](/tracing/auto-instrumentation) handles all span creation automatically — no decorator changes required.
+For supported frameworks, [`auto_instrument()`](/docs/tracing/auto-instrumentation) handles all span creation automatically — no decorator changes required.
 
 <CodeBlock filename="app.py" language="python">
 {`from rhesis.sdk import RhesisClient
@@ -64,7 +64,7 @@ Handoffs are detected automatically in two ways:
 
 ### More Frameworks
 
-LangGraph and Microsoft Agent Framework both produce native `ai.agent.invoke` and `ai.agent.handoff` spans. For MAF, handoffs in a `HandoffBuilder` workflow are detected and synthesized automatically - see [Microsoft Agent Framework](/tracing/agent-framework). LangChain is supported for general tracing (LLM calls, tools, chains), but agent and handoff span detection there requires LangGraph node naming conventions or `transfer_to_*` tool names. Support for additional frameworks will be added over time. Use [manual decoration](#manual-decoration) for any framework not yet covered.
+LangGraph and Microsoft Agent Framework both produce native `ai.agent.invoke` and `ai.agent.handoff` spans. For MAF, handoffs in a `HandoffBuilder` workflow are detected and synthesized automatically - see [Microsoft Agent Framework](/docs/tracing/agent-framework). LangChain is supported for general tracing (LLM calls, tools, chains), but agent and handoff span detection there requires LangGraph node naming conventions or `transfer_to_*` tool names. Support for additional frameworks will be added over time. Use [manual decoration](#manual-decoration) for any framework not yet covered.
 
 ## Manual Decoration
 
@@ -169,14 +169,14 @@ The Graph View in Rhesis renders agents, tools, and handoffs as nodes and edges,
 | From agent | `ai.agent.handoff.from` | Agent initiating the handoff |
 | To agent | `ai.agent.handoff.to` | Agent receiving control |
 
-See [Semantic Conventions](/tracing/semantic-conventions#agent-operations) for the full attribute reference.
+See [Semantic Conventions](/docs/tracing/semantic-conventions#agent-operations) for the full attribute reference.
 
 ---
 
 <Callout type="info">
   **Related:**
-  - [Decorators](/tracing/decorators) — `@observe` and `@endpoint`
-  - [Auto-Instrumentation](/tracing/auto-instrumentation) — zero-config tracing for LangChain and LangGraph
-  - [Microsoft Agent Framework](/tracing/agent-framework) — native agent and handoff tracing for MAF
-  - [Conversation Tracing](/tracing/conversation-tracing) — visualize full multi-turn sessions
+  - [Decorators](/docs/tracing/decorators) — `@observe` and `@endpoint`
+  - [Auto-Instrumentation](/docs/tracing/auto-instrumentation) — zero-config tracing for LangChain and LangGraph
+  - [Microsoft Agent Framework](/docs/tracing/agent-framework) — native agent and handoff tracing for MAF
+  - [Conversation Tracing](/docs/tracing/conversation-tracing) — visualize full multi-turn sessions
 </Callout>

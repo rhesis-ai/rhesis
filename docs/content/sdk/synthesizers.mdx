@@ -2,7 +2,7 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 # Synthesizers
 
-Generate test sets for evaluating LLM applications. Synthesizers use LLMs to create diverse, targeted test cases based on prompts, configurations, or source documents.
+Generate test sets for evaluating LLM applications. Synthesizers use an LLM to create test cases from prompts, configurations, or source documents.
 
 <Callout type="info">
   All synthesizers accept a `model` parameter to customize the LLM used for generation. See [Models](./models) for available options and configuration.
@@ -20,18 +20,6 @@ test_set = synthesizer.generate(num_tests=10)
 
 for test in test_set.tests:
     print(test.prompt.content)`}
-</CodeBlock>
-
-With a specified model:
-
-<CodeBlock filename="quick_start_gemini.py" language="python">
-{`from rhesis.sdk.synthesizers import PromptSynthesizer
-
-synthesizer = PromptSynthesizer(
-    prompt="Generate tests for a customer support chatbot that handles refund requests",
-    model="gemini/gemini-2.0-flash",
-)
-test_set = synthesizer.generate(num_tests=10)`}
 </CodeBlock>
 
 ## Adversarial-only generation
@@ -146,31 +134,22 @@ for test in test_set.tests:
     print(test.metadata["owasp_category"], test.metadata["owasp_name"])`}
 </CodeBlock>
 
-`OWASPSynthesizer` always creates harmful single-turn tests. The generator spreads
-`num_tests` as evenly as possible across the selected OWASP categories and tags
-each generated test with `metadata["owasp_category"]` and `metadata["owasp_name"]`.
+`OWASPSynthesizer` always creates harmful single-turn tests. It spreads `num_tests`
+across the selected OWASP categories and tags each test with
+`metadata["owasp_category"]` and `metadata["owasp_name"]`.
 
-| Category ID | OWASP category | Rhesis behavior |
-| --- | --- | --- |
-| `llm01` | Prompt Injection | Robustness |
-| `llm02` | Sensitive Information Disclosure | Compliance |
-| `llm03` | Supply Chain Vulnerabilities | Reliability |
-| `llm04` | Data and Model Poisoning | Reliability |
-| `llm05` | Improper Output Handling | Compliance |
-| `llm06` | Excessive Agency | Robustness |
-| `llm07` | System Prompt Leakage | Compliance |
-| `llm08` | Vector and Embedding Weaknesses | Reliability |
-| `llm09` | Misinformation | Reliability |
-| `llm10` | Unbounded Consumption | Robustness |
-
-You can inspect the registry programmatically with `OWASP_LLM_TOP_10`:
-
-<CodeBlock filename="owasp_categories.py" language="python">
-{`from rhesis.sdk.synthesizers import OWASP_LLM_TOP_10
-
-for category_id, category in OWASP_LLM_TOP_10.items():
-    print(category_id, category.name, category.topic)`}
-</CodeBlock>
+| Category ID | OWASP category |
+| --- | --- |
+| `llm01` | Prompt Injection |
+| `llm02` | Sensitive Information Disclosure |
+| `llm03` | Supply Chain Vulnerabilities |
+| `llm04` | Data and Model Poisoning |
+| `llm05` | Improper Output Handling |
+| `llm06` | Excessive Agency |
+| `llm07` | System Prompt Leakage |
+| `llm08` | Vector and Embedding Weaknesses |
+| `llm09` | Misinformation |
+| `llm10` | Unbounded Consumption |
 
 <Callout type="info">
   OWASP generation uses an LLM to create fresh attacks for each run. For high-risk
@@ -244,13 +223,12 @@ synthesizer = PromptSynthesizer(
 test_set = synthesizer.generate(num_tests=12)`}
 </CodeBlock>
 
-For uploaded test attachments, the execution pipeline uses the shared `extract_with_vision_fallback` path: images go through image extraction first, documents use their text layer first, and image-heavy documents can fall back to a vision model when one is configured.
+For uploaded test attachments, images are extracted first, documents use their text layer first, and image-heavy documents fall back to a vision model when one is configured.
 
-## Chunking strategies for source-based generation (v0.6.11)
+## Chunking strategies for source-based generation
 
-When you pass `sources` to a synthesizer, Rhesis chunks extracted content before generation. In
-v0.6.11, chunking is powered by `chonkie` and defaults to `RecursiveChunker(chunk_size=1500)`
-when no custom strategy is provided.
+When you pass `sources` to a synthesizer, Rhesis chunks extracted content before generation.
+Chunking defaults to `RecursiveChunker(chunk_size=1500)` when no custom strategy is provided.
 
 ### Choose a chunking strategy
 
@@ -328,10 +306,8 @@ test_set.push()
 `}
 </CodeBlock>
 
----
+## Next steps
 
-<Callout type="default">
-  **Next Steps** - Learn about [Models](./models) to configure LLMs for generation
-  - Use [Metrics](./metrics) to evaluate generated test results
-</Callout>
+- [Evaluate generated tests with metrics](./metrics)
+- [Configure the generation model](./models)
 

@@ -35,7 +35,14 @@ class ArchitectSessionBase(Base):
 
 
 class ArchitectSessionCreate(ArchitectSessionBase):
-    pass
+    """Create an Architect session.
+
+    When ``initial_message`` is set, the backend persists it as the first user
+    message and dispatches the Celery chat task in the same request so the
+    session is already processing when the client opens it.
+    """
+
+    initial_message: Optional[str] = None
 
 
 class ArchitectSessionUpdate(ArchitectSessionBase):

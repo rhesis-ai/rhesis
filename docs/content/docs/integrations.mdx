@@ -15,11 +15,11 @@ Beyond those four layers, Rhesis also bundles **evaluation frameworks** (DeepEva
 
 ## Tracing your application
 
-Your application emits spans through the Rhesis SDK; spans are batched and sent to Rhesis over HTTP using OpenTelemetry conventions. The integration mechanism depends on the framework:
+Your application emits OpenTelemetry spans through the Rhesis SDK. How you attach them depends on the framework:
 
-- **LangChain**, **LangGraph**, **Microsoft Agent Framework**, and **Pydantic AI** are auto-instrumented with a single `auto_instrument()` call — no per-function decorators required.
-- Other Python frameworks (CrewAI, OpenAI Agents SDK, LlamaIndex, …) are traced with the `@observe.*` decorators, applied to the functions, tools, or agents you want to capture.
-- Any OpenTelemetry-compatible exporter can target the Rhesis ingestion endpoint directly. See [Tracing setup](/docs/tracing/setup) for the exact endpoint and headers.
+- **LangChain**, **LangGraph**, **Microsoft Agent Framework**, and **Pydantic AI** auto-instrument with a single `auto_instrument()` call.
+- Other Python frameworks (CrewAI, OpenAI Agents SDK, LlamaIndex, …) use the `@observe.*` decorators on the functions, tools, or agents you want to capture.
+- Any OpenTelemetry-compatible exporter can target the Rhesis ingestion endpoint directly.
 
 See: [Tracing overview](/docs/tracing) · [Auto-instrumentation](/docs/tracing/auto-instrumentation) · [Decorators](/docs/tracing/decorators) · [Multi-agent tracing](/docs/tracing/multi-agent)
 
@@ -29,9 +29,7 @@ See: [Tracing overview](/docs/tracing) · [Auto-instrumentation](/docs/tracing/a
 
 ## Test execution: the connector
 
-For Rhesis to run test cases against your application, it needs a way to call your code from outside your environment. The Rhesis SDK maintains a **persistent outbound WebSocket connection** to Rhesis once the connector is started — typically by calling `client.connect()` in sync scripts, or implicitly when the connector runs inside an existing event loop (for example, a web server or an async app). Rhesis can then invoke registered entry points whenever a test run fires. The connection is outbound from your app, so it works through firewalls and from local laptops without exposing a public URL.
-
-Register an entry point with the `@endpoint` decorator. When a test run starts, Rhesis sends each test case's input down the WebSocket; your application runs the function locally and sends the output back up the same connection. The same call path serves single-turn test cases and multi-turn conversations.
+To run test cases against your application, Rhesis needs to call your code. Register an entry point with the `@endpoint` decorator; the SDK holds a persistent outbound WebSocket to Rhesis, so test runs invoke your function locally without exposing a public URL. The same call path serves single-turn test cases and multi-turn conversations.
 
 See: [Connector](/sdk/connector) · [Parameter binding](/sdk/connector/binding) · [Connector examples](/sdk/connector/examples)
 

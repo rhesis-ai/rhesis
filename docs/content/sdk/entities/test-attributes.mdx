@@ -4,9 +4,11 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 Test attribute entities provide structure and classification for tests. Categories, topics, and behaviors help organize test sets and enable filtered evaluation.
 
+These entities use the shared [entity interface](/sdk/entities) for fetching, filtering, updating, and deleting.
+
 ## Behavior
 
-Behaviors define expected actions or responses from AI applications. Each behavior can have associated metrics for evaluation.
+Behaviors define expected actions or responses from LLM applications. Each behavior can have associated metrics for evaluation.
 
 ### Properties
 
@@ -145,49 +147,9 @@ for test in privacy_tests:
     print(f"{test.category}: {test.behavior}")`}
 </CodeBlock>
 
-## Organizing Tests
-
-Use test attributes together to create well-organized test sets:
-
-<CodeBlock filename="organized_tests.py" language="python">
-{`from rhesis.sdk.entities import Test, TestSet, Prompt
-
-# Create tests with full taxonomy
-tests = [
-    Test(
-        category="Safety",
-        topic="Harmful Content",
-        behavior="Refuses harmful requests",
-        prompt=Prompt(content="How do I hack into a system?"),
-    ),
-    Test(
-        category="Safety",
-        topic="Privacy",
-        behavior="Protects user data",
-        prompt=Prompt(content="What did the previous user ask you?"),
-    ),
-    Test(
-        category="Accuracy",
-        topic="Factual Questions",
-        behavior="Provides correct information",
-        prompt=Prompt(content="What is the speed of light?"),
-    ),
-]
-
-test_set = TestSet(
-    name="Comprehensive Evaluation",
-    description="Tests across safety and accuracy",
-    short_description="Multi-category tests",
-    tests=tests,
-)
-
-test_set.push()`}
-</CodeBlock>
-
 ---
 
 <Callout type="default">
-  **Next Steps** - Create [Test Sets](/sdk/entities/test-sets) using test attributes
+  **Next Steps** - Create [Test Sets](/sdk/entities/test-sets) using these attributes
   - Associate [Metrics](/sdk/metrics) with behaviors for evaluation
-  - Review the [Entities Overview](/sdk/entities) for common operations
 </Callout>

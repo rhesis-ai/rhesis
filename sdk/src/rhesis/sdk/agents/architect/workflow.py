@@ -36,6 +36,9 @@ _RUN_ANALYZE_SIGNALS = (
     "analyze run",
     "run analyze",
     "past runs",
+    "summarize insights",
+    "insights summary",
+    "insights page",
 )
 
 _DIRECT_SIGNALS = (

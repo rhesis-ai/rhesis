@@ -72,7 +72,9 @@ Test for vulnerabilities and inappropriate behaviors.
 
 </CodeBlock>
 
-⚠️ **Important:** Only test systems you own or have permission to test.
+<Callout type="warning">
+  Only test systems you own or have permission to test.
+</Callout>
 
 ### Testing with Restrictions
 
@@ -105,7 +107,7 @@ result = agent.execute_test(
 - **Information security** - No system prompt leaks
 - **Content safety** - No harmful content generation
 
-See [Core Concepts](/conversation-simulation#core-concepts) for detailed explanation of how restrictions work with goals, instructions, and scenarios.
+See [The Four Parameters](/docs/tests/conversation-simulation#the-four-parameters) for how restrictions work with goals, instructions, and scenarios.
 
 ### Compliance Verification
 
@@ -214,7 +216,7 @@ Load TestSets from Rhesis platform, execute with Penelope, and store results bac
   {`uv run python platform_integration.py --endpoint-id <your-endpoint-id>`}
 </CodeBlock>
 
-📝 **Note:** Requires valid TestSet IDs in your Rhesis account.
+Note: requires valid TestSet IDs in your Rhesis account.
 
 ### Custom Tools
 
@@ -244,7 +246,7 @@ agent = PenelopeAgent(tools=[DatabaseVerificationTool()])
 
 </CodeBlock>
 
-See [Extending](/conversation-simulation/extending#custom-tools) for detailed tool creation guide.
+See [Extending](/docs/tests/conversation-simulation/extending#custom-tools) for the tool creation guide.
 
 ### Batch Testing
 
@@ -277,45 +279,7 @@ runner.display_summary()
 
 </CodeBlock>
 
-## Contributing Examples
+## Next steps
 
-Have an interesting use case? Contribute by following these guidelines:
-
-<Steps>
-### Document Your Example
-
-- Clear purpose and description
-- Prerequisites needed
-- How to run it
-- Expected output
-
-### Write Clean Code
-
-- Well-commented code
-- Clear variable names
-- Follow existing patterns
-- Use type hints
-
-### Make It Realistic
-
-- Real-world scenarios
-- Proper error handling
-- Self-contained examples
-
-### Test It
-
-- Runs without errors
-- Works with default configuration
-- Clear instructions
-
-</Steps>
-
-See [CONTRIBUTING.md](https://github.com/rhesis-ai/rhesis/blob/main/CONTRIBUTING.md) for details.
-
----
-
-<Callout type="default">
-  **Next:** Learn about [Configuration](/conversation-simulation/configuration) options or
-  explore how to [Extend](/conversation-simulation/extending) Penelope with custom tools and
-  architectures.
-</Callout>
+- Review [Configuration](/docs/tests/conversation-simulation/configuration) options
+- Learn how to [Extend](/docs/tests/conversation-simulation/extending) Penelope with custom tools

@@ -38,11 +38,19 @@ COPY sdk /app/sdk/
 COPY skills /app/skills/
 COPY penelope /app/penelope/
 COPY packages/rhesis /app/packages/rhesis/
+# Hatch force-includes skill refs into the SDK wheel (see sdk/pyproject.toml).
+COPY skills/rhesis/references /app/skills/rhesis/references/
 # EE source. Deployed images always carry the EE code; runtime activation is
 # decided by the license provider + RHESIS_LICENSE env var, mirroring the
 # QUICK_START pattern (always-on code, env-flipped behavior). The migrate
 # lane below intentionally skips this to keep the migration image lean.
 COPY ee/backend /app/ee/backend/
+# sdk/pyproject.toml force-includes this path into the wheel (skill_refs for
+# the architect agent); uv sync fails building rhesis-sdk without it on disk.
+# base-runtime also copies /app/skills forward (see below) since rhesis-sdk is
+# installed editable and resolves skill refs from this path at runtime, not
+# from the force-included wheel copy.
+COPY skills/rhesis/references /app/skills/rhesis/references/
 
 # =============================================================================
 # build-core: core-only venv (migrations / slim jobs) — no rhesis-sdk / torch / ee
@@ -125,6 +133,11 @@ COPY --from=build-backend --chown=rhesis-user:rhesis-user /app/apps/backend/src 
 COPY --from=build-backend --chown=rhesis-user:rhesis-user /app/sdk /app/sdk
 COPY --from=build-backend --chown=rhesis-user:rhesis-user /app/penelope /app/penelope
 COPY --from=build-backend --chown=rhesis-user:rhesis-user /app/packages/rhesis /app/packages/rhesis
+# rhesis-sdk is installed editable, so prompt_loader.py resolves skill refs by
+# walking up from its real source path (/app/sdk/src/...) rather than from
+# hatchling's force-included wheel copy. That walk only succeeds if
+# /app/skills/rhesis/references exists in the runtime image too.
+COPY --from=build-backend --chown=rhesis-user:rhesis-user /app/skills/rhesis/references /app/skills/rhesis/references
 # EE editable install resolves via a .pth file pointing at /app/ee/backend/src,
 # so the source tree must exist in the runtime image too. License-based gating
 # decides at runtime which features the bootstrap actually mounts.

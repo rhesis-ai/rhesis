@@ -2,9 +2,7 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 # Experiments
 
-<Callout type="default">
-  An *Experiment* is one attempt at a configuration. *Versions* are its history. *Environments* are how the world finds it.
-</Callout>
+An **experiment** is one attempt at a parameter configuration. **Versions** are its immutable history; **environments** are how running code and test runs find a version.
 
 ## The mental model
 
@@ -35,8 +33,6 @@ flowchart LR
 6. **Resolve:** Application code and test runs request parameters by environment, automatically receiving the newly promoted configuration.
 
 ## Vocabulary
-
-Before diving into mechanics, it's helpful to establish precise definitions:
 
 - **Parameter Schema** — A project-scoped, typed *contract*. Declares what knobs exist (slot name + type + default).
 - **Parameter** (or *slot*) — One named entry in the schema.
@@ -105,8 +101,6 @@ When executing a Test Set, you can optionally target it against an experiment:
 4. Review the resolved-values preview (secret references are masked).
 5. Click Run.
 
-*(Screenshot placeholder: Execute drawer with experiment selector)*
-
 ### The Latest Results panel
 
 The bottom of the Experiment detail page features the Latest Results panel. This fetches recent test runs that executed against versions of this experiment.
@@ -119,8 +113,6 @@ It offers two toggleable views:
    - The pass-rate before vs after, and the delta (for example `82% → 70% (-12pp)`).
 
 The config-diff view is your primary regression-finder: it surfaces exactly which edit broke things without requiring manual reasoning.
-
-*(Screenshot placeholder: Latest results panel showing config diffs)*
 
 ## Comparisons
 

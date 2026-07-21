@@ -154,12 +154,13 @@ export default function NewMetricPage() {
   const handleStepChange =
     (index: number) =>
     (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-      const newSteps = [...formData.evaluation_steps];
-      newSteps[index] = event.target.value;
-      setFormData(prev => ({
-        ...prev,
-        evaluation_steps: newSteps,
-      }));
+      // Use prev.evaluation_steps instead of the formData closure so concurrent
+      // edits (e.g. rapid keystrokes batched in the same tick) are not lost.
+      setFormData(prev => {
+        const newSteps = [...prev.evaluation_steps];
+        newSteps[index] = event.target.value;
+        return { ...prev, evaluation_steps: newSteps };
+      });
     };
 
   const addStep = () => {

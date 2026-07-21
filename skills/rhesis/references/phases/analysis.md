@@ -15,3 +15,7 @@ Present: overall pass rate → by behavior → by metric → 2–3 failure examp
 Operational volume: `get_test_run_stats`.
 
 Details: `result-analysis.md`.
+
+## Insights handoff
+
+When the user message is an Insights summarize handoff, also follow `insights-summary.md` (no four-path menu; respect listed behaviors and ≤50 run IDs).
