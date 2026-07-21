@@ -38,7 +38,7 @@ type-check:
 
 # Tests (starts docker automatically)
 test: docker-up
-	uv run --extra cpu pytest ../../tests/backend --ignore=../../tests/backend/integration
+	uv run --extra cpu pytest ../../tests/backend --ignore=../../tests/backend/integration -n 4
 
 # Re-run only failed tests (starts docker automatically)
 test-lf: docker-up
