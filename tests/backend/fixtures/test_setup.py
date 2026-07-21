@@ -223,6 +223,13 @@ def ensure_owner_membership(db: Session, organization_id: uuid.UUID, user_id: uu
         elif member.role_id != owner_role.id:
             member.role_id = owner_role.id
             db.flush()
+            # Defensive: a prior test may have left this row demoted (e.g. a
+            # bug bypassing temporarily_set_org_role's own bust_user calls)
+            # while a "denied" decision for the old role is still cached.
+            # Busting here means the fix-up above is never served stale.
+            from rhesis.backend.app.services.permission_cache import get_permission_cache
+
+            get_permission_cache().bust_user(user_id, organization_id)
 
 
 @contextmanager

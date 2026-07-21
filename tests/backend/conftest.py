@@ -86,22 +86,6 @@ def isolate_storage_settings_cache():
 
 
 @pytest.fixture(autouse=True)
-def isolate_permission_cache():
-    """Clear the permission cache before and after every test.
-
-    Prevents cached authorization decisions from one test leaking into the next
-    when both use the same principal UUIDs.  The permission cache (SP5) is
-    in-memory-only during unit tests (Redis not initialized in the test harness)
-    so ``clear_all()`` just empties the in-memory dict.
-    """
-    from rhesis.backend.app.services.permission_cache import get_permission_cache
-
-    get_permission_cache().clear_all()
-    yield
-    get_permission_cache().clear_all()
-
-
-@pytest.fixture(autouse=True)
 def _ensure_ee_features_registered():
     """Re-bootstrap EE features when the registry has been wiped.
 
