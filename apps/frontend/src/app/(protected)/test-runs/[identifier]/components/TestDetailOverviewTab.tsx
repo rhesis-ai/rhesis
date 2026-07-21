@@ -21,10 +21,7 @@ import FileAttachmentList from '@/components/common/FileAttachmentList';
 import MarkdownContent from '@/components/common/MarkdownContent';
 import { JsonPreview } from '@/app/(protected)/endpoints/components/JsonPreview';
 import { testPreviewSx } from '@/app/(protected)/endpoints/components/endpoint-styles';
-import {
-  looksLikeMarkdown,
-  parseJsonString,
-} from '@/utils/message-content';
+import { looksLikeMarkdown, parseJsonString } from '@/utils/message-content';
 import { useFiles } from '@/hooks/useFiles';
 import { getEffectiveTestResultStatus } from '@/utils/test-result-status';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme-constants';

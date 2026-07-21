@@ -28,10 +28,7 @@ import MarkdownContent from '@/components/common/MarkdownContent';
 import StatusChip from '@/components/common/StatusChip';
 import { JsonPreview } from '@/app/(protected)/endpoints/components/JsonPreview';
 import { testPreviewSx } from '@/app/(protected)/endpoints/components/endpoint-styles';
-import {
-  looksLikeMarkdown,
-  parseJsonString,
-} from '@/utils/message-content';
+import { looksLikeMarkdown, parseJsonString } from '@/utils/message-content';
 import { getProjectIconComponent } from '@/components/common/ProjectIcons';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
