@@ -98,7 +98,7 @@ describe('OrgRoleChip', () => {
       new Error('Not Found')
     );
 
-    render(<OrgRoleChip userId={USER_ID} sessionToken={SESSION_TOKEN} />);
+    render(<OrgRoleChip userId={USER_ID} />);
 
     // Falls through to the assignable Select instead of hanging forever.
     expect(await screen.findByText('Assign role')).toBeInTheDocument();
@@ -113,7 +113,7 @@ describe('OrgRoleChip', () => {
       member({ permitted_actions: [] }),
     ]);
 
-    render(<OrgRoleChip userId={USER_ID} sessionToken={SESSION_TOKEN} />);
+    render(<OrgRoleChip userId={USER_ID} />);
 
     expect(await screen.findByText('Viewer')).toBeInTheDocument();
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
@@ -125,7 +125,7 @@ describe('OrgRoleChip', () => {
       member({ permitted_actions: ['member:manage'] }),
     ]);
 
-    render(<OrgRoleChip userId={USER_ID} sessionToken={SESSION_TOKEN} />);
+    render(<OrgRoleChip userId={USER_ID} />);
 
     expect(await screen.findByRole('combobox')).toBeInTheDocument();
   });
@@ -139,7 +139,7 @@ describe('OrgRoleChip', () => {
     const show = jest.fn();
     notificationsMock.useNotifications.mockReturnValue({ show });
 
-    render(<OrgRoleChip userId={USER_ID} sessionToken={SESSION_TOKEN} />);
+    render(<OrgRoleChip userId={USER_ID} />);
 
     await user.click(await screen.findByText('Viewer'));
     await user.click(await screen.findByRole('option', { name: 'Admin' }));

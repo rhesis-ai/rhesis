@@ -23,6 +23,7 @@ import {
   validateUrl,
   normalizeUrl,
 } from '@/utils/validation';
+import { isSessionLoading } from '@/hooks/useIsAuthenticated';
 
 interface FormData {
   firstName: string;
@@ -43,14 +44,12 @@ interface OrganizationDetailsStepProps {
   formData: FormData;
   updateFormData: (data: Partial<FormData>) => void;
   onNext: () => void;
-  sessionToken: string;
 }
 
 export default function OrganizationDetailsStep({
   formData,
   updateFormData,
   onNext,
-  sessionToken,
 }: OrganizationDetailsStepProps) {
   const { data: session, status: sessionStatus } = useSession();
   const [loading, setLoading] = useState(true);
@@ -71,12 +70,10 @@ export default function OrganizationDetailsStep({
   const step = ONBOARDING_STEPS[0];
 
   useEffect(() => {
-    if (!sessionToken) {
-      return;
-    }
+    if (isSessionLoading(sessionStatus)) return;
 
     let cancelled = false;
-    fetchTermsStatus(sessionToken)
+    fetchTermsStatus()
       .then(status => {
         if (!cancelled && status.terms_accepted) {
           setAlreadyAcceptedTerms(true);
@@ -89,10 +86,10 @@ export default function OrganizationDetailsStep({
     return () => {
       cancelled = true;
     };
-  }, [sessionToken]);
+  }, [sessionStatus]);
 
   useEffect(() => {
-    if (sessionStatus === 'loading') return;
+    if (isSessionLoading(sessionStatus)) return;
 
     if (session?.user && !hasAttemptedPrefill) {
       try {
@@ -182,11 +179,6 @@ export default function OrganizationDetailsStep({
       return;
     }
 
-    if (!sessionToken) {
-      setErrorMessage('Your session expired. Please log in again.');
-      return;
-    }
-
     if (!alreadyAcceptedTerms && !termsAccepted) {
       setShowTermsWarning(true);
       return;
@@ -196,7 +188,7 @@ export default function OrganizationDetailsStep({
       setIsSubmitting(true);
 
       if (!alreadyAcceptedTerms) {
-        await acceptTerms(sessionToken);
+        await acceptTerms();
         setAlreadyAcceptedTerms(true);
       }
 

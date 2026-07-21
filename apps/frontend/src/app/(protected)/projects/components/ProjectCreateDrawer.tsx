@@ -72,7 +72,6 @@ interface ProjectCreateDrawerProps {
   open: boolean;
   onClose: () => void;
   onCreate: (project: ProjectCreate) => Promise<void>;
-  sessionToken: string;
 }
 
 const EMPTY_FORM = {
@@ -86,7 +85,6 @@ export default function ProjectCreateDrawer({
   open,
   onClose,
   onCreate,
-  sessionToken,
 }: ProjectCreateDrawerProps) {
   const [users, setUsers] = React.useState<User[]>([]);
   const [loading, setLoading] = React.useState(false);
@@ -99,7 +97,7 @@ export default function ProjectCreateDrawer({
     setError('');
     const fetchUsers = async () => {
       try {
-        const client = new UsersClient(sessionToken);
+        const client = new UsersClient();
         const result = await client.getUsers();
         setUsers(result.data);
       } catch (error) {
@@ -110,7 +108,7 @@ export default function ProjectCreateDrawer({
       }
     };
     fetchUsers();
-  }, [open, sessionToken]);
+  }, [open]);
 
   const handleText =
     (field: string) =>

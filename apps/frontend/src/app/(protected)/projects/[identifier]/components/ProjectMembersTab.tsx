@@ -17,13 +17,11 @@ import { Capability } from '@/constants/capabilities';
 interface ProjectMembersTabProps {
   project: Project;
   projectId: string;
-  sessionToken: string;
 }
 
 export default function ProjectMembersTab({
   project,
   projectId,
-  sessionToken,
 }: ProjectMembersTabProps) {
   const queryClient = useQueryClient();
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -59,7 +57,6 @@ export default function ProjectMembersTab({
       >
         <ProjectMembers
           projectId={projectId}
-          sessionToken={sessionToken}
           ownerId={project.owner_id ? String(project.owner_id) : undefined}
           onMembersLoaded={handleMembersLoaded}
         />
@@ -69,7 +66,6 @@ export default function ProjectMembersTab({
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
         projectId={projectId}
-        sessionToken={sessionToken}
         memberUserIds={memberUserIds}
         onMemberAdded={handleMemberAdded}
       />

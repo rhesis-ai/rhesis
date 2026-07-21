@@ -110,7 +110,6 @@ const defaultProps = {
   prompts: {},
   behaviors: [],
   testRunId: u(1),
-  sessionToken: 'tok',
   onTestResultUpdate: jest.fn(),
   currentUserId: 'user-1',
   currentUserName: 'Alice',

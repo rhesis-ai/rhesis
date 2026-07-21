@@ -52,6 +52,7 @@ import { generateCopyName } from '@/utils/entity-helpers';
 import { TEST_TYPES } from '@/constants/test-types';
 import { Can, useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 type EditableSectionType = 'general' | 'evaluation' | 'configuration';
 
@@ -189,7 +190,7 @@ export function MetricDetailView({
   tabNav,
   tabBody,
 }: MetricDetailViewProps) {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const theme = useTheme();
   const router = useRouter();
   const canEditMetric = useCan(Capability.Metric.UPDATE);
@@ -231,12 +232,12 @@ export function MetricDetailView({
 
   useEffect(() => {
     const fetchData = async () => {
-      if (!session?.session_token || dataFetchedRef.current) return;
+      if (!isAuthenticated(status) || dataFetchedRef.current) return;
 
       dataFetchedRef.current = true;
 
       try {
-        const clientFactory = new ApiClientFactory(session.session_token);
+        const clientFactory = new ApiClientFactory();
         const metricsClient = clientFactory.getMetricsClient();
 
         // Fetch metric data
@@ -279,7 +280,7 @@ export function MetricDetailView({
     };
 
     fetchData();
-  }, [metricId, mode, session?.session_token, notifications, router]);
+  }, [metricId, mode, notifications, router, status]);
 
   const collectFieldValues = React.useCallback((): Partial<EditData> => {
     const values: Partial<EditData> = {};
@@ -497,8 +498,8 @@ export function MetricDetailView({
 
   const handleTagsSave = React.useCallback(
     async (draft: { tagNames: string[] }) => {
-      if (!metric || !session?.session_token) return;
-      const tagsClient = new TagsClient(session.session_token);
+      if (!metric || !isAuthenticated(status)) return;
+      const tagsClient = new TagsClient();
       const currentTagObjects = metric.tags || [];
       const currentTagMap = new Map(
         currentTagObjects.map(tag => [tag.name, tag])
@@ -520,11 +521,11 @@ export function MetricDetailView({
         await tagsClient.assignTagToEntity(EntityType.METRIC, metric.id, {
           name,
           organization_id: metric.organization_id,
-          user_id: session.user?.id as UUID | undefined,
+          user_id: session?.user?.id as UUID | undefined,
         });
       }
 
-      const clientFactory = new ApiClientFactory(session.session_token);
+      const clientFactory = new ApiClientFactory();
       const updatedMetric = await clientFactory
         .getMetricsClient()
         .getMetric(metric.id);
@@ -534,7 +535,7 @@ export function MetricDetailView({
         autoHideDuration: 4000,
       });
     },
-    [metric, session, tagNames, notifications]
+    [metric, session, tagNames, notifications, status]
   );
 
   const handleEdit = React.useCallback(
@@ -556,13 +557,11 @@ export function MetricDetailView({
 
         // For editing, we need all available models, not just the current one
         setModels(currentModels => {
-          if (currentModels.length <= 1 && session?.session_token) {
+          if (currentModels.length <= 1 && isAuthenticated(status)) {
             // Fetch models asynchronously without blocking
             (async () => {
               try {
-                const clientFactory = new ApiClientFactory(
-                  session.session_token as string
-                );
+                const clientFactory = new ApiClientFactory();
                 const modelsClient = clientFactory.getModelsClient();
                 const modelsData = await modelsClient.getModels({
                   limit: 100,
@@ -592,7 +591,7 @@ export function MetricDetailView({
 
       setEditData(sectionData);
     },
-    [metric, session?.session_token, populateFieldRefs, notifications, tagNames]
+    [metric, populateFieldRefs, notifications, tagNames, status]
   );
 
   const handleCancelEdit = React.useCallback(() => {
@@ -605,7 +604,7 @@ export function MetricDetailView({
   }, []);
 
   const handleConfirmEdit = React.useCallback(async () => {
-    if (!session?.session_token || !metric) return;
+    if (!isAuthenticated(status) || !metric) return;
 
     // Validate metric scope - at least one must be selected
     const currentMetricScope =
@@ -690,7 +689,7 @@ export function MetricDetailView({
         }
       });
 
-      const clientFactory = new ApiClientFactory(session.session_token);
+      const clientFactory = new ApiClientFactory();
       const metricsClient = clientFactory.getMetricsClient();
       await metricsClient.updateMetric(metric.id, dataToSend);
 
@@ -712,17 +711,7 @@ export function MetricDetailView({
     } finally {
       setIsSaving(false);
     }
-  }, [
-    session?.session_token,
-    session?.user?.id,
-    metric,
-    collectFieldValues,
-    editData,
-    notifications,
-    isEditing,
-    tagNames,
-    onSaved,
-  ]);
+  }, [metric, collectFieldValues, editData, notifications, onSaved, status]);
 
   const addStep = React.useCallback(() => {
     setStepsWithIds(prev => {
@@ -744,11 +733,11 @@ export function MetricDetailView({
   const [isDuplicating, setIsDuplicating] = React.useState(false);
 
   const handleDuplicate = React.useCallback(async () => {
-    if (!session?.session_token || !metric) return;
+    if (!isAuthenticated(status) || !metric) return;
 
     setIsDuplicating(true);
     try {
-      const clientFactory = new ApiClientFactory(session.session_token);
+      const clientFactory = new ApiClientFactory();
       const metricsClient = clientFactory.getMetricsClient();
 
       const created = await metricsClient.createMetric({
@@ -788,7 +777,7 @@ export function MetricDetailView({
     } finally {
       setIsDuplicating(false);
     }
-  }, [session?.session_token, metric, notifications, router]);
+  }, [metric, notifications, router, status]);
 
   if (loading) {
     if (mode === 'embedded') {

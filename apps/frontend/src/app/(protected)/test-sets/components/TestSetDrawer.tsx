@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useSession } from 'next-auth/react';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import { TYPE_NAMES, TEST_TYPES } from '@/constants/test-types';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
@@ -16,11 +17,11 @@ import {
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { UUID } from 'crypto';
 import { useTypeLookups } from '@/hooks/useLookups';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface TestSetDrawerProps {
   open: boolean;
   onClose: () => void;
-  sessionToken: string;
   testSet?: TestSet;
   onSuccess?: () => void;
 }
@@ -28,10 +29,10 @@ interface TestSetDrawerProps {
 export default function TestSetDrawer({
   open,
   onClose,
-  sessionToken,
   testSet,
   onSuccess,
 }: TestSetDrawerProps) {
+  const { status } = useSession();
   const [error, setError] = React.useState<string>();
   const [loading, setLoading] = React.useState(false);
   const [name, setName] = React.useState(testSet?.name || '');
@@ -60,7 +61,6 @@ export default function TestSetDrawer({
   }, [open, testSet]);
 
   const { data: rawTestSetTypes } = useTypeLookups(
-    sessionToken,
     `type_name eq '${TYPE_NAMES.TEST_SET_TYPE}'`,
     open
   );
@@ -84,7 +84,7 @@ export default function TestSetDrawer({
   }, [open, testSet, testSetTypes]);
 
   const handleSave = async () => {
-    if (!sessionToken) return;
+    if (!isAuthenticated(status)) return;
 
     setNameError('');
     setTypeError('');
@@ -111,7 +111,7 @@ export default function TestSetDrawer({
     try {
       setLoading(true);
 
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const testSetsClient = clientFactory.getTestSetsClient();
 
       const testSetData = {

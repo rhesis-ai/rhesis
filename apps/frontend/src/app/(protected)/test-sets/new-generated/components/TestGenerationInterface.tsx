@@ -51,6 +51,7 @@ import {
   useInvokeEndpoint,
 } from '@/hooks/useEndpoints';
 import { TEST_TYPES } from '@/constants/test-types';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 function extractResponseText(response: unknown): string {
   if (typeof response === 'string') return response;
@@ -128,17 +129,13 @@ export default function TestGenerationInterface({
   );
   const [fetchTrigger, setFetchTrigger] = useState(0);
   const [showEndpointModal, setShowEndpointModal] = useState(false);
-  const { data: session } = useSession();
-  const invokeEndpointMutation = useInvokeEndpoint(
-    session?.session_token ?? ''
-  );
+  const { status } = useSession();
+  const invokeEndpointMutation = useInvokeEndpoint();
   const { data: selectedEndpoint } = useEndpoint(
-    session?.session_token ?? '',
     selectedEndpointId ?? '',
     !!selectedEndpointId
   );
   const { data: selectedEndpointProject } = useProject(
-    session?.session_token ?? '',
     selectedEndpoint?.project_id ?? '',
     !!selectedEndpoint?.project_id
   );
@@ -261,7 +258,7 @@ export default function TestGenerationInterface({
     const fetchResponses = async () => {
       if (
         !selectedEndpointId ||
-        !session?.session_token ||
+        !isAuthenticated(status) ||
         localTestSamples.length === 0 ||
         isFetchingResponses
       ) {
@@ -281,7 +278,7 @@ export default function TestGenerationInterface({
 
       setIsFetchingResponses(true);
 
-      const apiFactory = new ApiClientFactory(session.session_token);
+      const apiFactory = new ApiClientFactory();
       const testsClient = apiFactory.getTestsClient();
 
       // Mark all samples as loading
@@ -465,7 +462,7 @@ export default function TestGenerationInterface({
   // Manual fetch for a single sample (for multi-turn "Simulate Response" button)
   const handleFetchSampleResponse = useCallback(
     async (sampleId: string) => {
-      if (!selectedEndpointId || !session?.session_token) return;
+      if (!selectedEndpointId || !isAuthenticated(status)) return;
 
       const sample = localTestSamples.find(s => s.id === sampleId);
       if (!sample) return;
@@ -473,7 +470,7 @@ export default function TestGenerationInterface({
       if (sample.testType === 'Multi-Turn' && sample.isLoadingConversation)
         return;
 
-      const apiFactory = new ApiClientFactory(session.session_token);
+      const apiFactory = new ApiClientFactory();
       const testsClient = apiFactory.getTestsClient();
 
       // Mark sample as loading
@@ -590,10 +587,10 @@ export default function TestGenerationInterface({
     },
     [
       selectedEndpointId,
-      session?.session_token,
       localTestSamples,
       processedSampleIds,
       invokeEndpointMutation,
+      status,
     ]
   );
 

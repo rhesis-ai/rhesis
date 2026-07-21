@@ -134,12 +134,7 @@ export class SourcesClient extends BaseApiClient {
 
     // For multipart/form-data, we need to override the default headers
     // Create headers object without Content-Type so browser can set it correctly
-    const headers: Record<string, string> = {};
-
-    // Add authorization if we have a session token (copied from BaseApiClient logic)
-    if (this.sessionToken) {
-      headers['Authorization'] = `Bearer ${this.sessionToken}`;
-    }
+    const headers: Record<string, string> = { ...this.buildAuthHeaders() };
 
     const activeProject = this.projectId ?? readActiveProjectId();
     if (activeProject) {

@@ -33,11 +33,7 @@ import { useBehaviorInsightsData } from '../hooks/useBehaviorInsightsData';
 import InsightsEmptyState from './InsightsEmptyState';
 import { resolveInsightsPageView } from '../utils/insights-page-view';
 
-interface InsightsPageProps {
-  sessionToken: string;
-}
-
-export default function InsightsPage({ sessionToken }: InsightsPageProps) {
+export default function InsightsPage() {
   const { activeProject } = useActiveProject();
   const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
     Capability.TestResult.READ
@@ -53,7 +49,6 @@ export default function InsightsPage({ sessionToken }: InsightsPageProps) {
     isError: endpointsHasError,
     refetch: refetchEndpoints,
   } = useEndpoints(
-    sessionToken,
     {
       limit: 100,
       sort_by: 'name',
@@ -82,7 +77,7 @@ export default function InsightsPage({ sessionToken }: InsightsPageProps) {
     loading: insightsLoading,
     error,
     noRuns,
-  } = useBehaviorInsightsData(sessionToken, filters, !permsLoading && canRead);
+  } = useBehaviorInsightsData(filters, !permsLoading && canRead);
 
   const behaviorOptions = useMemo<InsightsBehaviorOption[]>(
     () =>
@@ -218,7 +213,6 @@ export default function InsightsPage({ sessionToken }: InsightsPageProps) {
   const filterBarProps = {
     filters,
     onFiltersChange: handleFiltersChange,
-    sessionToken,
     projectEndpoints,
     endpointsLoading,
     behaviorOptions,
@@ -237,7 +231,6 @@ export default function InsightsPage({ sessionToken }: InsightsPageProps) {
       actions={
         <FabGroup>
           <InsightsSummarizeFab
-            sessionToken={sessionToken}
             filters={filters}
             endpointName={selectedEndpointName}
             visibleBehaviorNames={visibleBehaviorNames}
@@ -302,7 +295,6 @@ export default function InsightsPage({ sessionToken }: InsightsPageProps) {
             />
 
             <BehaviorInsightsView
-              sessionToken={sessionToken}
               filters={filters}
               insights={{
                 summary,

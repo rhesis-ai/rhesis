@@ -20,7 +20,7 @@ import { API_ENDPOINTS } from '@/utils/api-client/config';
 import type { SSOConfig, SSOTestResult } from '../types';
 
 export class SSOClient extends BaseApiClient {
-  constructor(sessionToken: string) {
+  constructor(sessionToken?: string) {
     super(sessionToken);
   }
 

@@ -19,9 +19,10 @@ import {
 import ArchitectSidebar from './ArchitectSidebar';
 import ArchitectChat from './ArchitectChat';
 import ArchitectWelcome from './ArchitectWelcome';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 export default function ArchitectClient() {
-  const { data: session } = useSession();
+  const { status } = useSession();
   const { activeProject } = useActiveProject();
   const router = useRouter();
   const pathname = usePathname();
@@ -37,9 +38,9 @@ export default function ArchitectClient() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
 
   const getClient = useCallback(() => {
-    if (!session?.session_token) return null;
-    return new ApiClientFactory(session.session_token).getArchitectClient();
-  }, [session?.session_token]);
+    if (!isAuthenticated(status)) return null;
+    return new ApiClientFactory().getArchitectClient();
+  }, [status]);
 
   const touchResumeHint = useCallback(
     (sessionId: string) => {
@@ -272,7 +273,6 @@ export default function ArchitectClient() {
         {activeSessionId ? (
           <ArchitectChat
             sessionId={activeSessionId}
-            sessionToken={session?.session_token}
             onSessionTitleUpdate={handleSessionTitleUpdate}
             initialMessage={pendingMessage}
             onInitialMessageSent={handleInitialMessageSent}

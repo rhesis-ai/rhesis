@@ -31,14 +31,14 @@ describe('fetchFailedTestIdsForInsights resolution', () => {
   it('resolves empty testRunIds via resolveInsightsQueryTestRunIds', async () => {
     mockResolve.mockResolvedValue(['run-a', 'run-b']);
 
-    const ids = await fetchFailedTestIdsForInsights('token', {
+    const ids = await fetchFailedTestIdsForInsights({
       endpointId: 'ep-1',
       runFilterMode: 'timeRange',
       timeRange: '1m',
       testRunIds: [],
     });
 
-    expect(mockResolve).toHaveBeenCalledWith('token', {
+    expect(mockResolve).toHaveBeenCalledWith({
       endpointId: 'ep-1',
       runFilterMode: 'timeRange',
       timeRange: '1m',
@@ -48,7 +48,7 @@ describe('fetchFailedTestIdsForInsights resolution', () => {
   });
 
   it('uses provided testRunIds without calling resolve', async () => {
-    const ids = await fetchFailedTestIdsForInsights('token', {
+    const ids = await fetchFailedTestIdsForInsights({
       endpointId: 'ep-1',
       runFilterMode: 'testRuns',
       timeRange: '1m',

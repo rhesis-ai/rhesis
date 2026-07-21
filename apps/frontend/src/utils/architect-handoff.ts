@@ -5,7 +5,6 @@ import type {
 } from '@/utils/api-client/architect-client';
 
 export interface CreateAndOpenArchitectSessionOptions {
-  sessionToken: string;
   title: string;
   initialMessage: string;
   /** Open in a new tab (default true). Falls back to same-tab if blocked. */
@@ -25,7 +24,7 @@ export interface CreateAndOpenArchitectSessionOptions {
 export async function createAndOpenArchitectSession(
   options: CreateAndOpenArchitectSessionOptions
 ): Promise<ArchitectSession> {
-  const { sessionToken, title, initialMessage } = options;
+  const { title, initialMessage } = options;
   const newTab = options.newTab !== false;
   const openWindow =
     options.openWindow ??
@@ -44,7 +43,7 @@ export async function createAndOpenArchitectSession(
   }
 
   try {
-    const client = new ApiClientFactory(sessionToken).getArchitectClient();
+    const client = new ApiClientFactory().getArchitectClient();
     const payload: ArchitectSessionCreateRequest = {
       title,
       initial_message: initialMessage,

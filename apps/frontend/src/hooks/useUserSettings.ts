@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react';
 import { userSettingsKeys } from '@/constants/query-keys';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { UserSettings } from '@/utils/api-client/interfaces/user';
+import { isAuthenticated as checkIsAuthenticated } from '@/hooks/useIsAuthenticated';
 
 /**
  * Cached current-user settings from GET /users/settings.
@@ -15,15 +16,13 @@ import { UserSettings } from '@/utils/api-client/interfaces/user';
  */
 export function useUserSettings(enabled = true) {
   const { data: session, status } = useSession();
-  const sessionToken =
-    status === 'authenticated' ? session?.session_token : undefined;
-  const userScope = session?.user?.id ?? sessionToken ?? '';
+  const isAuthenticated = checkIsAuthenticated(status);
+  const userScope = session?.user?.id ?? '';
 
   return useQuery<UserSettings>({
     queryKey: userSettingsKeys.all(userScope),
-    queryFn: () =>
-      new ApiClientFactory(sessionToken!).getUsersClient().getUserSettings(),
-    enabled: enabled && !!sessionToken,
+    queryFn: () => new ApiClientFactory().getUsersClient().getUserSettings(),
+    enabled: enabled && isAuthenticated,
     staleTime: 5 * 60_000,
   });
 }
@@ -32,15 +31,10 @@ export function useUserSettings(enabled = true) {
  * Imperative counterpart for call sites outside a render path (e.g. inside
  * an async callback). Joins the same cache/dedup as `useUserSettings`.
  */
-export function fetchUserSettings(
-  queryClient: QueryClient,
-  sessionToken: string,
-  userScope: string
-) {
+export function fetchUserSettings(queryClient: QueryClient, userScope: string) {
   return queryClient.fetchQuery({
     queryKey: userSettingsKeys.all(userScope),
-    queryFn: () =>
-      new ApiClientFactory(sessionToken).getUsersClient().getUserSettings(),
+    queryFn: () => new ApiClientFactory().getUsersClient().getUserSettings(),
     staleTime: 5 * 60_000,
   });
 }

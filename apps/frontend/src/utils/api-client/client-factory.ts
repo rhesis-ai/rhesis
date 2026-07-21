@@ -37,7 +37,7 @@ import { PreflightClient } from './preflight-client';
 import { ResolveClient } from './resolve-client';
 
 export class ApiClientFactory {
-  private sessionToken: string;
+  private sessionToken?: string;
   private projectId?: string;
   private explorerClient: ExplorerClient | null = null;
   private metricsClient: MetricsClient | null = null;
@@ -61,13 +61,18 @@ export class ApiClientFactory {
   private resolveClient: ResolveClient | null = null;
 
   /**
-   * @param sessionToken The user's session token.
+   * @param sessionToken The user's session token. Server-side callers pass one
+   *   so `BaseApiClient` can attach `Authorization` when calling the backend
+   *   directly. Client-side callers should omit it — client requests go
+   *   through the same-origin `/api/backend` proxy, which injects the header
+   *   itself; a token passed here is never attached to a browser fetch (see
+   *   `BaseApiClient.buildAuthHeaders()`).
    * @param projectId Optional active project id. Pass this on the server (where the
    *   `rh_active_project_id` cookie is not readable via `document.cookie`) so that
    *   server-rendered fetches carry the `X-Project-Id` scope. On the client it can be
    *   omitted — the clients fall back to the cookie.
    */
-  constructor(sessionToken: string, projectId?: string) {
+  constructor(sessionToken?: string, projectId?: string) {
     this.sessionToken = sessionToken;
     this.projectId = projectId;
   }

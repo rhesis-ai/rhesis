@@ -14,6 +14,7 @@ import {
   ProjectsQueryParams,
 } from '@/utils/api-client/interfaces/project';
 import { PaginationParams } from '@/utils/api-client/interfaces/pagination';
+import { useIsAuthenticated } from '@/hooks/useIsAuthenticated';
 
 const STALE_TIME = 5 * 60_000;
 
@@ -27,10 +28,10 @@ export interface EndpointOption {
 }
 
 export function useEndpoints(
-  sessionToken: string,
   params: Partial<PaginationParams> = {},
   enabled = true
 ) {
+  const isAuthenticated = useIsAuthenticated();
   return useQuery<Endpoint[]>({
     queryKey: endpointKeys.list(
       params.$filter ?? '',
@@ -40,47 +41,39 @@ export function useEndpoints(
       params.sort_order ?? ''
     ),
     queryFn: async () => {
-      const response = await new ApiClientFactory(sessionToken)
+      const response = await new ApiClientFactory()
         .getEndpointsClient()
         .getEndpoints(params);
       return response.data || [];
     },
-    enabled: enabled && !!sessionToken,
+    enabled: enabled && isAuthenticated,
     staleTime: STALE_TIME,
   });
 }
 
-export function useEndpoint(
-  sessionToken: string,
-  identifier: string,
-  enabled = true
-) {
+export function useEndpoint(identifier: string, enabled = true) {
+  const isAuthenticated = useIsAuthenticated();
   return useQuery<Endpoint>({
     queryKey: endpointKeys.detail(identifier),
     queryFn: () =>
-      new ApiClientFactory(sessionToken)
-        .getEndpointsClient()
-        .getEndpoint(identifier),
-    enabled: enabled && !!sessionToken && !!identifier,
+      new ApiClientFactory().getEndpointsClient().getEndpoint(identifier),
+    enabled: enabled && isAuthenticated && !!identifier,
     staleTime: STALE_TIME,
   });
 }
 
-export function useProject(sessionToken: string, id: string, enabled = true) {
+export function useProject(id: string, enabled = true) {
+  const isAuthenticated = useIsAuthenticated();
   return useQuery<Project>({
     queryKey: projectKeys.detail(id),
-    queryFn: () =>
-      new ApiClientFactory(sessionToken).getProjectsClient().getProject(id),
-    enabled: enabled && !!sessionToken && !!id,
+    queryFn: () => new ApiClientFactory().getProjectsClient().getProject(id),
+    enabled: enabled && isAuthenticated && !!id,
     staleTime: STALE_TIME,
   });
 }
 
-export function useProjects(
-  sessionToken: string,
-  params: ProjectsQueryParams = {},
-  enabled = true
-) {
+export function useProjects(params: ProjectsQueryParams = {}, enabled = true) {
+  const isAuthenticated = useIsAuthenticated();
   return useQuery<Project[]>({
     queryKey: projectKeys.list(
       params.$filter ?? '',
@@ -90,12 +83,12 @@ export function useProjects(
       params.sort_order ?? ''
     ),
     queryFn: async () => {
-      const response = await new ApiClientFactory(sessionToken)
+      const response = await new ApiClientFactory()
         .getProjectsClient()
         .getProjects(params);
       return response.data || [];
     },
-    enabled: enabled && !!sessionToken,
+    enabled: enabled && isAuthenticated,
     staleTime: STALE_TIME,
   });
 }
@@ -107,7 +100,7 @@ export function useProjects(
  * independently copy-pasted into PlaygroundClient, EndpointSelector, and
  * ExplorerDetail — each fetching its own uncached copy of both lists.
  */
-export function useEndpointOptions(sessionToken: string, enabled = true) {
+export function useEndpointOptions(enabled = true) {
   const listParams = {
     sort_by: 'name',
     sort_order: 'asc' as const,
@@ -117,12 +110,12 @@ export function useEndpointOptions(sessionToken: string, enabled = true) {
     data: endpoints,
     isLoading: endpointsLoading,
     error: endpointsError,
-  } = useEndpoints(sessionToken, listParams, enabled);
+  } = useEndpoints(listParams, enabled);
   const {
     data: projects,
     isLoading: projectsLoading,
     error: projectsError,
-  } = useProjects(sessionToken, listParams, enabled);
+  } = useProjects(listParams, enabled);
 
   const options = useMemo<EndpointOption[]>(() => {
     if (!endpoints || !projects) return [];
@@ -150,16 +143,15 @@ export function useEndpointOptions(sessionToken: string, enabled = true) {
   };
 }
 
-export function useDeleteEndpoint(sessionToken: string) {
+export function useDeleteEndpoint() {
   const queryClient = useQueryClient();
+  const isAuthenticated = useIsAuthenticated();
   return useMutation({
     mutationFn: (id: string) => {
-      if (!sessionToken) {
-        throw new Error('No session token available');
+      if (!isAuthenticated) {
+        throw new Error('Not authenticated');
       }
-      return new ApiClientFactory(sessionToken)
-        .getEndpointsClient()
-        .deleteEndpoint(id);
+      return new ApiClientFactory().getEndpointsClient().deleteEndpoint(id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: endpointKeys.all() });
@@ -167,20 +159,22 @@ export function useDeleteEndpoint(sessionToken: string) {
   });
 }
 
-export function useTestEndpoint(sessionToken: string) {
+export function useTestEndpoint() {
+  const isAuthenticated = useIsAuthenticated();
   return useMutation({
     mutationFn: (testConfig: EndpointTestRequest) => {
-      if (!sessionToken) {
-        throw new Error('No session token available');
+      if (!isAuthenticated) {
+        throw new Error('Not authenticated');
       }
-      return new ApiClientFactory(sessionToken)
+      return new ApiClientFactory()
         .getEndpointsClient()
         .testEndpoint(testConfig);
     },
   });
 }
 
-export function useInvokeEndpoint(sessionToken: string) {
+export function useInvokeEndpoint() {
+  const isAuthenticated = useIsAuthenticated();
   return useMutation({
     mutationFn: ({
       id,
@@ -189,10 +183,10 @@ export function useInvokeEndpoint(sessionToken: string) {
       id: string;
       inputData: Record<string, unknown>;
     }) => {
-      if (!sessionToken) {
-        throw new Error('No session token available');
+      if (!isAuthenticated) {
+        throw new Error('Not authenticated');
       }
-      return new ApiClientFactory(sessionToken)
+      return new ApiClientFactory()
         .getEndpointsClient()
         .invokeEndpoint(id, inputData);
     },

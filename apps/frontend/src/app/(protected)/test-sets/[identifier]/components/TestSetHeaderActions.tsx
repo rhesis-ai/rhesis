@@ -24,7 +24,6 @@ import { Can } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 
 interface TestSetHeaderActionsProps {
-  sessionToken: string;
   testSetId: string;
   testSetName: string;
   testCount: number;
@@ -32,7 +31,6 @@ interface TestSetHeaderActionsProps {
 }
 
 export default function TestSetHeaderActions({
-  sessionToken,
   testSetId,
   testSetName,
   testCount,
@@ -53,7 +51,7 @@ export default function TestSetHeaderActions({
   const handleDeleteConfirm = async () => {
     setIsDeleting(true);
     try {
-      const factory = new ApiClientFactory(sessionToken);
+      const factory = new ApiClientFactory();
       await factory.getTestSetsClient().deleteTestSet(testSetId);
       notifications.show('Test set deleted', {
         severity: 'success',
@@ -74,7 +72,7 @@ export default function TestSetHeaderActions({
   const handleDownload = async () => {
     setIsDownloading(true);
     try {
-      const factory = new ApiClientFactory(sessionToken);
+      const factory = new ApiClientFactory();
       const blob = await factory.getTestSetsClient().downloadTestSet(testSetId);
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -95,7 +93,7 @@ export default function TestSetHeaderActions({
   const handleGarakSyncPreview = async () => {
     setIsSyncing(true);
     try {
-      const factory = new ApiClientFactory(sessionToken);
+      const factory = new ApiClientFactory();
       const preview = await factory.getGarakClient().previewSync(testSetId);
       if (preview.error) {
         notifications.show(`Garak sync unavailable: ${preview.error}`, {
@@ -120,7 +118,7 @@ export default function TestSetHeaderActions({
     setIsSyncing(true);
     setSyncDialogOpen(false);
     try {
-      const factory = new ApiClientFactory(sessionToken);
+      const factory = new ApiClientFactory();
       await factory.getGarakClient().syncTestSet(testSetId);
       notifications.show('Garak sync started', {
         severity: 'success',
@@ -181,7 +179,6 @@ export default function TestSetHeaderActions({
         mode="executeTestSet"
         open={executeDrawerOpen}
         onClose={() => setExecuteDrawerOpen(false)}
-        sessionToken={sessionToken}
         data={{ testSetId }}
       />
 

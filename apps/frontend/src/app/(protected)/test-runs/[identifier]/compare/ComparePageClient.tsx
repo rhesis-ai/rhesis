@@ -35,7 +35,6 @@ interface ComparePageClientProps {
     description?: string;
     metrics: Array<{ name: string; description?: string }>;
   }>;
-  sessionToken: string;
   initialBaselineId?: string;
   testSetType?: string;
   project?: { icon?: string; useCase?: string; name?: string };
@@ -48,7 +47,6 @@ export default function ComparePageClient({
   availableTestRuns,
   prompts,
   behaviors,
-  sessionToken,
   initialBaselineId,
   testSetType,
   project,
@@ -80,9 +78,7 @@ export default function ComparePageClient({
   const handleLoadBaseline = useCallback(
     async (baselineTestRunId: string): Promise<TestResultDetail[]> => {
       try {
-        const testResultsClient = new ApiClientFactory(
-          sessionToken
-        ).getTestResultsClient();
+        const testResultsClient = new ApiClientFactory().getTestResultsClient();
         let testResults: TestResultDetail[] = [];
         let skip = 0;
         const batchSize = 100;
@@ -110,7 +106,7 @@ export default function ComparePageClient({
         return [];
       }
     },
-    [sessionToken, notifications]
+    [notifications]
   );
 
   // No baseline available to compare against. This should not normally be

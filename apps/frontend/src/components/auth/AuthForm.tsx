@@ -208,11 +208,11 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
         throw new Error(message || fallback);
       }
 
-      // Use NextAuth to establish session with tokens from backend
-      if (data.session_token) {
+      // Establish the NextAuth session via a single-use auth code. The
+      // exchange (and the refresh token) stays server-side in authorize().
+      if (data.auth_code) {
         const result = await signIn('credentials', {
-          session_token: data.session_token,
-          refresh_token: data.refresh_token || '',
+          code: data.auth_code,
           redirect: false,
         });
 

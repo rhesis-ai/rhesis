@@ -139,11 +139,10 @@ export function buildEndpointRunFilter(endpointId: string): string {
 }
 
 export async function fetchTestRunsForEndpoint(
-  sessionToken: string,
   endpointId: string,
   timeRange?: InsightsTimeRange
 ): Promise<TestRun[]> {
-  const client = new ApiClientFactory(sessionToken).getTestRunsClient();
+  const client = new ApiClientFactory().getTestRunsClient();
   const filterParts = [buildEndpointRunFilter(endpointId)];
   if (timeRange) {
     const timeFilter = buildTestRunTimeFilter(timeRange);
@@ -179,15 +178,10 @@ export async function fetchTestRunsForEndpoint(
 }
 
 export async function fetchTestRunIdsForEndpoint(
-  sessionToken: string,
   endpointId: string,
   timeRange?: InsightsTimeRange
 ): Promise<string[]> {
-  const runs = await fetchTestRunsForEndpoint(
-    sessionToken,
-    endpointId,
-    timeRange
-  );
+  const runs = await fetchTestRunsForEndpoint(endpointId, timeRange);
   return runs.map(run => run.id);
 }
 
@@ -209,7 +203,6 @@ export function assertInsightsTestRunIdsWithinLimit(
 
 /** Resolve which test run IDs to query based on Insights filter state. */
 export async function resolveInsightsQueryTestRunIds(
-  sessionToken: string,
   filters: Pick<
     InsightsFilters,
     'endpointId' | 'runFilterMode' | 'timeRange' | 'testRunIds'
@@ -219,17 +212,13 @@ export async function resolveInsightsQueryTestRunIds(
 
   if (filters.runFilterMode === 'timeRange') {
     testRunIds = await fetchTestRunIdsForEndpoint(
-      sessionToken,
       filters.endpointId,
       resolveInsightsTimeRange(filters.timeRange)
     );
   } else if (filters.testRunIds.length > 0) {
     testRunIds = filters.testRunIds;
   } else {
-    testRunIds = await fetchTestRunIdsForEndpoint(
-      sessionToken,
-      filters.endpointId
-    );
+    testRunIds = await fetchTestRunIdsForEndpoint(filters.endpointId);
   }
 
   assertInsightsTestRunIdsWithinLimit(testRunIds);

@@ -28,9 +28,10 @@ import AccessDenied from '@/components/common/AccessDenied';
 import PageLoadingState from '@/components/common/PageLoadingState';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { testKeys, testSetKeys } from '@/constants/query-keys';
+import { isAuthenticated, isSessionLoading } from '@/hooks/useIsAuthenticated';
 
 export default function TestsPage() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
@@ -72,9 +73,8 @@ export default function TestsPage() {
     [searchParams]
   );
   const { data: insightsEndpoint } = useEndpoint(
-    session?.session_token ?? '',
     insightsFailedFilter?.endpointId ?? '',
-    !!insightsFailedFilter && !!session?.session_token
+    !!insightsFailedFilter
   );
   const insightsEndpointName = insightsEndpoint?.name;
 
@@ -132,7 +132,7 @@ export default function TestsPage() {
     };
   }, [router]);
 
-  if (status === 'loading') {
+  if (isSessionLoading(status)) {
     return (
       <PageLayout title="Tests" breadcrumbs={[]}>
         <Box sx={{ p: 3 }}>
@@ -145,7 +145,7 @@ export default function TestsPage() {
   if (permsLoading) return <PageLoadingState />;
   if (!canRead) return <AccessDenied resource="tests" />;
 
-  if (!session?.session_token) {
+  if (!isAuthenticated(status)) {
     return (
       <PageLayout title="Tests" breadcrumbs={[]}>
         <Box sx={{ p: 3 }}>
@@ -223,7 +223,6 @@ export default function TestsPage() {
             }}
           >
             <TestsGrid
-              sessionToken={session.session_token}
               onNewTest={handleCreateManual}
               disableAddButton={shouldDisableAddButton}
               insightsFailedFilter={insightsFailedFilter}
@@ -259,7 +258,6 @@ export default function TestsPage() {
       <FileImportDrawer
         open={fileImportDrawerOpen}
         onClose={() => setFileImportDrawerOpen(false)}
-        sessionToken={session.session_token}
         onSuccess={handleFileImportSuccess}
       />
     </>

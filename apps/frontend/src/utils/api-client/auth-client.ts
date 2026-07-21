@@ -1,17 +1,10 @@
-import { getClientApiBaseUrl } from '@/utils/url-resolver';
-
 export interface TermsStatus {
   terms_accepted: boolean;
   has_prior_acceptance: boolean;
 }
 
-export async function fetchTermsStatus(
-  sessionToken: string
-): Promise<TermsStatus> {
-  const response = await fetch(`${getClientApiBaseUrl()}/auth/terms-status`, {
-    headers: {
-      Authorization: `Bearer ${sessionToken}`,
-    },
+export async function fetchTermsStatus(): Promise<TermsStatus> {
+  const response = await fetch('/api/backend/auth/terms-status', {
     credentials: 'include',
   });
   if (!response.ok) {
@@ -24,12 +17,11 @@ export async function fetchTermsStatus(
   };
 }
 
-export async function acceptTerms(sessionToken: string): Promise<void> {
-  const response = await fetch(`${getClientApiBaseUrl()}/auth/accept-terms`, {
+export async function acceptTerms(): Promise<void> {
+  const response = await fetch('/api/backend/auth/accept-terms', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${sessionToken}`,
     },
     credentials: 'include',
   });

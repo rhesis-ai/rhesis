@@ -3,6 +3,7 @@
 import React, { useState, useCallback } from 'react';
 import { Box, Typography, Button, Chip, Avatar } from '@mui/material';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useSession } from 'next-auth/react';
 import { AddIcon } from '@/components/icons';
 import TasksIcon from '@/components/TasksIcon';
 import { Task, EntityType } from '@/types/tasks';
@@ -21,11 +22,11 @@ import { TaskErrorBoundary } from './TaskErrorBoundary';
 import { AVATAR_SIZES } from '@/constants/avatar-sizes';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { taskKeys } from '@/constants/query-keys';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface TasksSectionProps {
   entityType: EntityType;
   entityId: string;
-  sessionToken: string;
   onCreateTask: (taskData: Record<string, unknown>) => Promise<void>;
   onEditTask?: (taskId: string) => void;
   onDeleteTask?: (taskId: string) => Promise<void>;
@@ -36,7 +37,6 @@ interface TasksSectionProps {
 export function TasksSection({
   entityType,
   entityId,
-  sessionToken,
   onCreateTask: _onCreateTask,
   onEditTask: _onEditTask,
   onDeleteTask,
@@ -44,6 +44,7 @@ export function TasksSection({
 }: TasksSectionProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { status } = useSession();
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
     page: 0,
     pageSize: 10,
@@ -68,7 +69,7 @@ export function TasksSection({
   } = useQuery({
     queryKey,
     queryFn: async () => {
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const tasksClient = clientFactory.getTasksClient();
       return tasksClient.getTasks({
         skip: currentPage * currentPageSize,
@@ -78,7 +79,7 @@ export function TasksSection({
         $filter: filter,
       });
     },
-    enabled: !!sessionToken && !!entityType && !!entityId,
+    enabled: isAuthenticated(status) && !!entityType && !!entityId,
     placeholderData: prev => prev,
   });
 

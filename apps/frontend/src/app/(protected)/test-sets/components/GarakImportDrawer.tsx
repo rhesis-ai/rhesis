@@ -43,14 +43,12 @@ import BaseDrawer from '@/components/common/BaseDrawer';
 interface GarakImportDrawerProps {
   open: boolean;
   onClose: () => void;
-  sessionToken: string;
   onSuccess?: (testSetIds: string[]) => void;
 }
 
 export default function GarakImportDrawer({
   open,
   onClose,
-  sessionToken,
   onSuccess,
 }: GarakImportDrawerProps) {
   const [loading, setLoading] = React.useState(false);
@@ -91,7 +89,7 @@ export default function GarakImportDrawer({
       setLoadingModules(true);
       setError(undefined);
 
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const garakClient = clientFactory.getGarakClient();
 
       const response = await garakClient.listProbeModules();
@@ -104,7 +102,7 @@ export default function GarakImportDrawer({
     } finally {
       setLoadingModules(false);
     }
-  }, [sessionToken]);
+  }, []);
 
   React.useEffect(() => {
     if (open && modules.length === 0) {
@@ -241,7 +239,7 @@ export default function GarakImportDrawer({
       setError(undefined);
 
       const { staticProbes, dynamicProbes } = getSelectedProbeObjects();
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const garakClient = clientFactory.getGarakClient();
 
       if (staticProbes.length > 0) {
@@ -284,7 +282,7 @@ export default function GarakImportDrawer({
       setImporting(true);
       setError(undefined);
 
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const garakClient = clientFactory.getGarakClient();
       const createdTestSetIds: string[] = [];
 

@@ -1,5 +1,6 @@
 import fs from 'fs';
 import type { Browser } from '@playwright/test';
+import { encode } from 'next-auth/jwt';
 import projectsFixture from '../fixtures/projects.json';
 import e2eUserFixture from '../fixtures/e2e-user.json';
 
@@ -9,16 +10,29 @@ export const AUTH_STORAGE_PATH = `${AUTH_DIR}/user.json`;
 /** Stable test user used across no-docker E2E runs. */
 const E2E_USER = e2eUserFixture;
 
+// Must match `authConfig.cookies.sessionToken.name` in src/auth.ts — the
+// cookie name doubles as the JWE salt, so an encode under any other name
+// produces a cookie the app cannot decrypt.
+const SESSION_COOKIE_NAME = 'next-auth.session-token';
+
+// Must match the webServer env in playwright.config.ts: this helper runs in
+// the Playwright process, which does NOT inherit webServerEnv, but the JWE we
+// seed here has to decrypt inside the dev server Playwright starts.
+const NEXTAUTH_SECRET =
+  process.env.NEXTAUTH_SECRET || 'test-secret-for-e2e-tests-only';
+
+const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365;
+
 /**
- * Build a session JWT payload compatible with NextAuth decode and proxy.ts
- * local verification (E2E_NO_DOCKER). Signature is not verified in test mode.
+ * Build a fake backend-style session JWT for proxy.ts local verification
+ * (E2E_NO_DOCKER). Its signature is never verified in test mode — only the
+ * payload's `exp` and `user.organization_id` are checked locally.
  */
-function createE2ESessionToken(): string {
-  const now = Math.floor(Date.now() / 1000);
+function createFakeBackendJwt(nowSeconds: number): string {
   const payload = {
     sub: E2E_USER.id,
-    iat: now,
-    exp: now + 60 * 60 * 24 * 365,
+    iat: nowSeconds,
+    exp: nowSeconds + ONE_YEAR_SECONDS,
     type: 'session',
     user: {
       id: E2E_USER.id,
@@ -39,26 +53,50 @@ function createE2ESessionToken(): string {
   return `${header}.${body}.e2e-local-no-docker`;
 }
 
+/**
+ * Encode the session cookie exactly the way NextAuth does in production: a
+ * JWE (encrypted with NEXTAUTH_SECRET, salted by the cookie name) whose
+ * payload carries the backend JWT as `session_token`. A plain unsigned JWT
+ * here is useless — `getToken()`/`auth()` decrypt the cookie before reading
+ * it, so proxy.ts and /api/auth/session would both treat it as "no session".
+ * `access_token_expires` is a year out so the middleware never attempts a
+ * refresh (there is no backend to refresh against in no-docker runs).
+ */
+async function createE2ESessionCookie(): Promise<string> {
+  const now = Math.floor(Date.now() / 1000);
+  const sessionToken = createFakeBackendJwt(now);
+
+  return encode({
+    token: {
+      sub: E2E_USER.id,
+      user: {
+        id: E2E_USER.id,
+        email: E2E_USER.email,
+        name: E2E_USER.name,
+        image: null,
+        picture: null,
+        organization_id: E2E_USER.organization_id,
+        is_email_verified: true,
+      },
+      session_token: sessionToken,
+      access_token_expires: now + ONE_YEAR_SECONDS,
+    },
+    secret: NEXTAUTH_SECRET,
+    salt: SESSION_COOKIE_NAME,
+    maxAge: ONE_YEAR_SECONDS,
+  });
+}
+
 /** Playwright storageState object for an authenticated Quick Start user. */
-export function buildE2EStorageState(origin = 'http://localhost:3100') {
-  const sessionToken = createE2ESessionToken();
-  const expires = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 365;
+export async function buildE2EStorageState(origin = 'http://localhost:3100') {
+  const sessionCookie = await createE2ESessionCookie();
+  const expires = Math.floor(Date.now() / 1000) + ONE_YEAR_SECONDS;
 
   return {
     cookies: [
       {
-        name: 'authjs.session-token',
-        value: sessionToken,
-        domain: 'localhost',
-        path: '/',
-        expires,
-        httpOnly: true,
-        secure: false,
-        sameSite: 'Lax' as const,
-      },
-      {
-        name: 'next-auth.session-token',
-        value: sessionToken,
+        name: SESSION_COOKIE_NAME,
+        value: sessionCookie,
         domain: 'localhost',
         path: '/',
         expires,
@@ -106,7 +144,7 @@ export async function seedAuthWithoutBackend(browser: Browser) {
   await fs.promises.mkdir(AUTH_DIR, { recursive: true });
 
   const origin = process.env.FRONTEND_URL || 'http://localhost:3100';
-  const storageState = buildE2EStorageState(origin);
+  const storageState = await buildE2EStorageState(origin);
   await fs.promises.writeFile(
     AUTH_STORAGE_PATH,
     JSON.stringify(storageState, null, 2)

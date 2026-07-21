@@ -28,7 +28,6 @@ interface TestRunLinkedEntitiesTabProps {
   canRerun: boolean;
   totalTests: number;
   testRunId: string;
-  sessionToken: string;
   loading?: boolean;
   prompts: Record<string, { content: string; name?: string }>;
   behaviors: Array<{
@@ -64,7 +63,6 @@ export default function TestRunLinkedEntitiesTab({
   canRerun,
   totalTests,
   testRunId,
-  sessionToken,
   loading = false,
   prompts,
   behaviors,
@@ -121,7 +119,6 @@ export default function TestRunLinkedEntitiesTab({
         prompts={prompts}
         behaviors={behaviors}
         testRunId={testRunId}
-        sessionToken={sessionToken}
         loading={loading}
         onTestResultUpdate={onTestResultUpdate}
         currentUserId={currentUserId}

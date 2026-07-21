@@ -5,6 +5,7 @@ import { Box, Button, Paper, Typography } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import RouteOutlinedIcon from '@mui/icons-material/RouteOutlined';
 import Link from 'next/link';
+import { useSession } from 'next-auth/react';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import AssignEntityDrawer from '@/components/common/AssignEntityDrawer';
 import {
@@ -17,17 +18,17 @@ import { TestSetsClient } from '@/utils/api-client/test-sets-client';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { formatDate } from '@/utils/date';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface LinkedTestSetsSectionProps {
   testId: string;
-  sessionToken: string;
 }
 
 export default function LinkedTestSetsSection({
   testId,
-  sessionToken,
 }: LinkedTestSetsSectionProps) {
   const { show: showNotification } = useNotifications();
+  const { status } = useSession();
 
   const [testSets, setTestSets] = useState<TestSet[]>([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -43,10 +44,10 @@ export default function LinkedTestSetsSection({
   const [loadingAvailable, setLoadingAvailable] = useState(false);
 
   const fetchLinkedTestSets = useCallback(async () => {
-    if (!testId || !sessionToken) return;
+    if (!testId || !isAuthenticated(status)) return;
     setLoading(true);
     try {
-      const apiFactory = new ApiClientFactory(sessionToken);
+      const apiFactory = new ApiClientFactory();
       const testsClient = apiFactory.getTestsClient();
       const response = await testsClient.getLinkedTestSets(testId, {
         skip: paginationModel.page * paginationModel.pageSize,
@@ -65,10 +66,10 @@ export default function LinkedTestSetsSection({
     }
   }, [
     testId,
-    sessionToken,
     paginationModel.page,
     paginationModel.pageSize,
     showNotification,
+    status,
   ]);
 
   useEffect(() => {
@@ -79,7 +80,7 @@ export default function LinkedTestSetsSection({
     setLoadingAvailable(true);
     setAssignOpen(true);
     try {
-      const testSetsClient = new TestSetsClient(sessionToken);
+      const testSetsClient = new TestSetsClient();
       const response = await testSetsClient.getTestSets({
         limit: 500,
         sort_by: 'name',
@@ -91,7 +92,7 @@ export default function LinkedTestSetsSection({
     } finally {
       setLoadingAvailable(false);
     }
-  }, [sessionToken]);
+  }, []);
 
   const linkedIds = useMemo(
     () => new Set(testSets.map(ts => String(ts.id))),
@@ -105,7 +106,7 @@ export default function LinkedTestSetsSection({
 
   const handleAssign = useCallback(
     async (selectedIds: string[]) => {
-      const testSetsClient = new TestSetsClient(sessionToken);
+      const testSetsClient = new TestSetsClient();
       const errors: string[] = [];
       await Promise.all(
         selectedIds.map(async id => {
@@ -132,7 +133,7 @@ export default function LinkedTestSetsSection({
       setAssignOpen(false);
       await fetchLinkedTestSets();
     },
-    [sessionToken, testId, showNotification, fetchLinkedTestSets]
+    [testId, showNotification, fetchLinkedTestSets]
   );
 
   const columns: GridColDef[] = [

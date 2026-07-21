@@ -33,7 +33,6 @@ import {
   MetricScope,
   ThresholdOperator,
 } from '@/utils/api-client/interfaces/metric';
-import { User } from '@/utils/api-client/interfaces/user';
 import { UUID } from 'crypto';
 import { Model } from '@/utils/api-client/interfaces/model';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -41,14 +40,7 @@ import { EntityType } from '@/utils/api-client/interfaces/tag';
 import { TEST_TYPES } from '@/constants/test-types';
 import { SCORE_TYPES, ScoreTypeValue } from '@/constants/score-types';
 import { useTypeLookups } from '@/hooks/useLookups';
-
-// Add session type augmentation
-declare module 'next-auth' {
-  interface Session {
-    session_token?: string;
-    user?: User;
-  }
-}
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface MetricFormData {
   name: string;
@@ -93,11 +85,10 @@ export default function NewMetricPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const notifications = useNotifications();
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const theme = useTheme();
   const type = searchParams.get('type');
   const { data: allTypeLookups } = useTypeLookups(
-    session?.session_token ?? '',
     type
       ? `(type_name eq 'MetricType' and type_value eq '${type}') or (type_name eq 'BackendType' and type_value eq 'custom')`
       : '',
@@ -121,11 +112,11 @@ export default function NewMetricPage() {
   // Fetch models on component mount
   React.useEffect(() => {
     const fetchModels = async () => {
-      if (!session?.session_token) return;
+      if (!isAuthenticated(status)) return;
 
       try {
         setIsLoadingModels(true);
-        const apiClient = new ApiClientFactory(session.session_token);
+        const apiClient = new ApiClientFactory();
         const modelsClient = apiClient.getModelsClient();
         const response = await modelsClient.getModels({
           sort_by: 'name',
@@ -144,7 +135,7 @@ export default function NewMetricPage() {
     };
 
     fetchModels();
-  }, [session?.session_token, notifications]);
+  }, [notifications, status]);
 
   const handleChange =
     (field: keyof MetricFormData) =>
@@ -224,13 +215,13 @@ export default function NewMetricPage() {
     setIsCreating(true);
 
     try {
-      if (!session?.session_token) {
+      if (!isAuthenticated(status)) {
         throw new Error(
           'No session token available. Please try logging in again.'
         );
       }
 
-      const apiClient = new ApiClientFactory(session.session_token);
+      const apiClient = new ApiClientFactory();
       const metricsClient = apiClient.getMetricsClient();
 
       const typeLookups = (allTypeLookups ?? []).filter(
@@ -297,7 +288,7 @@ export default function NewMetricPage() {
         metric_type_id: typeLookups[0].id as UUID,
         backend_type_id: backendTypes[0].id as UUID,
         model_id: formData.model_id ? (formData.model_id as UUID) : undefined,
-        owner_id: session.user?.id as UUID,
+        owner_id: session?.user?.id as UUID,
         metric_scope: formData.metric_scope,
       };
 
@@ -316,8 +307,8 @@ export default function NewMetricPage() {
               createdMetric.id,
               {
                 name: tagName,
-                organization_id: session.user?.organization_id as UUID,
-                user_id: session.user?.id as UUID,
+                organization_id: session?.user?.organization_id as UUID,
+                user_id: session?.user?.id as UUID,
               }
             );
           } catch (tagError) {

@@ -10,6 +10,7 @@ import {
   GridToolbarExport,
 } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
+import { useSession } from 'next-auth/react';
 import { Alert } from '@mui/material';
 import GridToolbar from '@/components/common/GridToolbar';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -27,6 +28,7 @@ import { useGridQuery } from '@/hooks/useGridQuery';
 import { testSetKeys } from '@/constants/query-keys';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface LinkedTestsToolbarState {
   searchQuery: string;
@@ -72,7 +74,6 @@ function LinkedTestsUnifiedToolbar() {
 }
 
 interface TestSetTestsGridProps {
-  sessionToken: string;
   testSetId: string;
   testSetType?: string;
   /** When true, grid is rendered inside embedding atlas (spacing only). */
@@ -81,12 +82,12 @@ interface TestSetTestsGridProps {
 }
 
 export default function TestSetTestsGrid({
-  sessionToken,
   testSetId,
   testSetType,
   onTotalCountChange,
 }: TestSetTestsGridProps) {
   const router = useRouter();
+  const { status } = useSession();
   const [searchQuery, setSearchQuery] = useState('');
   const [drawerFilters, setDrawerFilters] =
     useState<TestFilters>(EMPTY_TEST_FILTERS);
@@ -119,16 +120,14 @@ export default function TestSetTestsGrid({
     ],
     errorFallbackMessage: 'Failed to load tests',
     queryFn: () =>
-      new ApiClientFactory(sessionToken)
-        .getTestSetsClient()
-        .getTestSetTests(testSetId, {
-          skip: paginationModel.page * paginationModel.pageSize,
-          limit: paginationModel.pageSize,
-          sort_by: 'topic',
-          sort_order: 'asc',
-          ...(filterString && { $filter: filterString }),
-        }),
-    enabled: !!sessionToken && !!testSetId,
+      new ApiClientFactory().getTestSetsClient().getTestSetTests(testSetId, {
+        skip: paginationModel.page * paginationModel.pageSize,
+        limit: paginationModel.pageSize,
+        sort_by: 'topic',
+        sort_order: 'asc',
+        ...(filterString && { $filter: filterString }),
+      }),
+    enabled: isAuthenticated(status) && !!testSetId,
   });
 
   const tests = data?.data ?? [];
@@ -188,7 +187,6 @@ export default function TestSetTestsGrid({
         open={filterDrawerOpen}
         onClose={() => setFilterDrawerOpen(false)}
         filters={drawerFilters}
-        sessionToken={sessionToken}
         onApply={setDrawerFilters}
       />
     </LinkedTestsToolbarContext.Provider>

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Alert, Avatar, Box, IconButton, Typography } from '@mui/material';
 import { GridColDef, GridPaginationModel } from '@mui/x-data-grid';
 import PersonIcon from '@mui/icons-material/Person';
+import { useSession } from 'next-auth/react';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import SectionEmptyState from '@/components/common/SectionEmptyState';
 import { DeleteModal } from '@/components/common/DeleteModal';
@@ -20,10 +21,10 @@ import { Capability } from '@/constants/capabilities';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { projectKeys } from '@/constants/query-keys';
 import { getMemberRoleExtensions } from '@/lib/extension-registries';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface ProjectMembersProps {
   projectId: string;
-  sessionToken: string;
   /** ID of the project owner — prevents removing them. */
   ownerId?: string;
   onMembersLoaded?: (members: ProjectMember[]) => void;
@@ -40,13 +41,13 @@ function getMemberDisplayName(
 
 export default function ProjectMembers({
   projectId,
-  sessionToken,
   ownerId,
   onMembersLoaded,
 }: ProjectMembersProps) {
   const notifications = useNotifications();
   const canManageMembers = useCan(Capability.ProjectMember.MANAGE);
   const queryClient = useQueryClient();
+  const { status } = useSession();
 
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
     page: 0,
@@ -70,13 +71,13 @@ export default function ProjectMembers({
   } = useQuery({
     queryKey: membersQueryKey,
     queryFn: async () => {
-      const data = await new ApiClientFactory(sessionToken, projectId)
+      const data = await new ApiClientFactory(undefined, projectId)
         .getProjectsClient()
         .getProjectMembers(projectId);
       onMembersLoaded?.(data);
       return data;
     },
-    enabled: !!sessionToken && !!projectId,
+    enabled: isAuthenticated(status) && !!projectId,
   });
 
   const membersError = membersQueryError
@@ -92,7 +93,7 @@ export default function ProjectMembers({
     if (!memberToRemove) return;
     setRemoving(true);
     try {
-      const factory = new ApiClientFactory(sessionToken);
+      const factory = new ApiClientFactory();
       await factory
         .getProjectsClient()
         .removeProjectMember(projectId, memberToRemove.user_id);
@@ -115,12 +116,12 @@ export default function ProjectMembers({
   const { ProjectRoleCell, prewarmProjectCaches } = getMemberRoleExtensions();
 
   useEffect(() => {
-    if (sessionToken && projectId) {
-      prewarmProjectCaches?.(sessionToken, projectId, {
+    if (isAuthenticated(status) && projectId) {
+      prewarmProjectCaches?.(projectId, {
         canManageRoles: canManageMembers,
       });
     }
-  }, [sessionToken, projectId, prewarmProjectCaches, canManageMembers]);
+  }, [projectId, prewarmProjectCaches, canManageMembers, status]);
 
   const columns: GridColDef[] = React.useMemo(() => {
     const RoleCell = ProjectRoleCell;
@@ -136,7 +137,6 @@ export default function ProjectMembers({
             <RoleCell
               userId={(params.row as ProjectMember).user_id}
               projectId={projectId}
-              sessionToken={sessionToken}
             />
           ),
         }
@@ -230,7 +230,6 @@ export default function ProjectMembers({
   }, [
     ProjectRoleCell,
     projectId,
-    sessionToken,
     ownerId,
     canManageMembers,
     handleRemoveClick,

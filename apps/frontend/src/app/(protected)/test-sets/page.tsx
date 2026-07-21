@@ -27,9 +27,10 @@ import { Can, useCan, useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import AccessDenied from '@/components/common/AccessDenied';
 import PageLoadingState from '@/components/common/PageLoadingState';
+import { isAuthenticated, isSessionLoading } from '@/hooks/useIsAuthenticated';
 
 export default function TestSetsPage() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const router = useRouter();
   const queryClient = useQueryClient();
   const notifications = useNotifications();
@@ -46,8 +47,6 @@ export default function TestSetsPage() {
     React.useState(false);
 
   useDocumentTitle('Test Sets');
-
-  const sessionToken = session?.session_token ?? '';
 
   const handleCreateSuccess = React.useCallback(() => {
     setCreateDrawerOpen(false);
@@ -79,7 +78,7 @@ export default function TestSetsPage() {
     [queryClient, notifications, router]
   );
 
-  if (status === 'loading') {
+  if (isSessionLoading(status)) {
     return (
       <PageLayout title="Test Sets" breadcrumbs={[]}>
         <Box sx={{ p: 3 }}>
@@ -92,7 +91,7 @@ export default function TestSetsPage() {
   if (permsLoading) return <PageLoadingState />;
   if (!canRead) return <AccessDenied resource="test sets" />;
 
-  if (!sessionToken) {
+  if (!isAuthenticated(status)) {
     return (
       <PageLayout title="Test Sets" breadcrumbs={[]}>
         <Box sx={{ p: 3 }}>
@@ -164,10 +163,7 @@ export default function TestSetsPage() {
                 overflow: 'hidden',
               }}
             >
-              <TestSetsGrid
-                sessionToken={sessionToken}
-                onTotalCountChange={setTestSetCount}
-              />
+              <TestSetsGrid onTotalCountChange={setTestSetCount} />
             </Paper>
           )}
         </Box>
@@ -176,21 +172,18 @@ export default function TestSetsPage() {
       <TestSetDrawer
         open={createDrawerOpen}
         onClose={() => setCreateDrawerOpen(false)}
-        sessionToken={sessionToken}
         onSuccess={handleCreateSuccess}
       />
 
       <FileImportDrawer
         open={fileImportDrawerOpen}
         onClose={() => setFileImportDrawerOpen(false)}
-        sessionToken={sessionToken}
         onSuccess={handleFileImportSuccess}
       />
 
       <GarakImportDrawer
         open={garakImportDrawerOpen}
         onClose={() => setGarakImportDrawerOpen(false)}
-        sessionToken={sessionToken}
         onSuccess={handleGarakImportSuccess}
       />
     </>

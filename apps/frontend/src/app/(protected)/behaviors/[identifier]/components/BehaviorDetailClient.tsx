@@ -14,13 +14,11 @@ import { Capability } from '@/constants/capabilities';
 
 interface BehaviorDetailClientProps {
   behavior: BehaviorWithMetrics;
-  sessionToken: string;
   identifier: string;
 }
 
 export default function BehaviorDetailClient({
   behavior: initialBehavior,
-  sessionToken,
   identifier,
 }: BehaviorDetailClientProps) {
   const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
@@ -63,11 +61,7 @@ export default function BehaviorDetailClient({
       metadata={metadataStrip}
     >
       <Box sx={{ flexGrow: 1 }}>
-        <BehaviorDetailTabs
-          behavior={behavior}
-          sessionToken={sessionToken}
-          onUpdated={setBehavior}
-        />
+        <BehaviorDetailTabs behavior={behavior} onUpdated={setBehavior} />
       </Box>
     </PageLayout>
   );

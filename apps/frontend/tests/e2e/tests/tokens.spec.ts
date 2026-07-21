@@ -15,9 +15,11 @@ test.describe('API Tokens @sanity', () => {
     await page.goto('/tokens');
 
     const emptyState = page.getByText(/no api tokens yet/i);
-    const createButton = page.getByRole('button', {
-      name: /create api token/i,
-    });
+    const createButton = page
+      .getByRole('button', {
+        name: /create api token/i,
+      })
+      .first();
     const dataGrid = page.locator('[role="grid"]');
 
     await expect(emptyState.or(dataGrid)).toBeVisible({ timeout: 15_000 });

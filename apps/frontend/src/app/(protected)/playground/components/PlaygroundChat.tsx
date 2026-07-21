@@ -34,6 +34,7 @@ import TraceDrawer from '@/app/(protected)/traces/components/TraceDrawer';
 import CreateTestFromConversationDrawer from './CreateTestFromConversationDrawer';
 import { ConversationMessage } from '@/utils/api-client/interfaces/tests';
 import { TEST_TYPES, type TestTypeValue } from '@/constants/test-types';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface PlaygroundChatProps {
   /** The endpoint ID to chat with */
@@ -70,7 +71,7 @@ export default function PlaygroundChat({
   onClose,
   onSplit,
 }: PlaygroundChatProps) {
-  const { data: session } = useSession();
+  const { status } = useSession();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -561,22 +562,20 @@ export default function PlaygroundChat({
       </Paper>
 
       {/* Trace Drawer */}
-      {session?.session_token && (
+      {isAuthenticated(status) && (
         <TraceDrawer
           open={traceDrawerOpen}
           onClose={handleCloseTraceDrawer}
           traceId={selectedTraceId}
           projectId={projectId}
-          sessionToken={session.session_token}
         />
       )}
 
       {/* Create Test from Conversation Drawer */}
-      {session?.session_token && (
+      {isAuthenticated(status) && (
         <CreateTestFromConversationDrawer
           open={testDrawerOpen}
           onClose={() => setTestDrawerOpen(false)}
-          sessionToken={session.session_token}
           messages={testDrawerMessages}
           testType={testDrawerType}
           endpointId={endpointId}

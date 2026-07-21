@@ -31,7 +31,6 @@ import {
 } from '../capability-groups';
 
 interface TokenScopeFieldProps {
-  sessionToken: string;
   value: string[] | null;
   onChange: (scopes: string[] | null) => void;
 }
@@ -44,7 +43,6 @@ const LEVEL_COLORS: Record<CapabilityLevel, string> = {
 };
 
 export default function TokenScopeField({
-  sessionToken,
   value,
   onChange,
 }: TokenScopeFieldProps) {
@@ -54,9 +52,8 @@ export default function TokenScopeField({
   const mode = value === null ? 'full' : 'restricted';
 
   useEffect(() => {
-    if (!sessionToken) return;
     let cancelled = false;
-    fetchRoles(sessionToken)
+    fetchRoles()
       .then(data => {
         if (!cancelled) {
           setRoles(data);
@@ -69,7 +66,7 @@ export default function TokenScopeField({
     return () => {
       cancelled = true;
     };
-  }, [sessionToken]);
+  }, []);
 
   const assignableRoles = useMemo(
     () => roles.filter(isAssignableProjectRole),

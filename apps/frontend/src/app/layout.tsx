@@ -64,9 +64,9 @@ async function getNavigationItems(session: Session | null): Promise<{
   let organizationName = 'Rhesis AI';
   let organization: Organization | null = null;
 
-  if (session?.user?.organization_id && session?.session_token) {
+  if (session?.user?.organization_id && !session.error) {
     try {
-      const clientFactory = await createServerApiFactory(session.session_token);
+      const clientFactory = await createServerApiFactory();
       organization = await clientFactory
         .getOrganizationsClient()
         .getOrganization(session.user.organization_id);
@@ -296,9 +296,9 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
   // project name on first paint without a flash.
   let initialActiveProject: Project | null = null;
   const projectId = await getServerActiveProjectId();
-  if (projectId && session?.session_token) {
+  if (projectId && session && !session.error) {
     try {
-      const factory = await createServerApiFactory(session.session_token);
+      const factory = await createServerApiFactory();
       initialActiveProject = await factory
         .getProjectsClient()
         .getProject(projectId);

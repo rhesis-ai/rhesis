@@ -18,6 +18,7 @@ const mockGetModels = jest.fn();
 jest.mock('next-auth/react', () => ({
   useSession: () => ({
     data: { session_token: 'tok', user: { id: 'user-1' } },
+    status: 'authenticated',
   }),
 }));
 

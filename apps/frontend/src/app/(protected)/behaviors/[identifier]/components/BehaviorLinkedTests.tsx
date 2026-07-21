@@ -24,7 +24,6 @@ import { TEST_TYPE_PILL_TABS } from '@/constants/test-types';
 
 interface BehaviorLinkedTestsProps {
   behavior: BehaviorWithMetrics;
-  sessionToken: string;
 }
 
 function escapeODataValue(value: string): string {
@@ -33,7 +32,6 @@ function escapeODataValue(value: string): string {
 
 export default function BehaviorLinkedTests({
   behavior,
-  sessionToken,
 }: BehaviorLinkedTestsProps) {
   const router = useRouter();
   const notifications = useNotifications();
@@ -46,7 +44,7 @@ export default function BehaviorLinkedTests({
     setLoading(true);
     setLoadError(false);
     try {
-      const client = new TestsClient(sessionToken);
+      const client = new TestsClient();
       const result = await client.getAllTests({
         filter: `behavior_id eq '${escapeODataValue(String(behavior.id))}'`,
         sort_by: 'created_at',
@@ -65,7 +63,7 @@ export default function BehaviorLinkedTests({
     } finally {
       setLoading(false);
     }
-  }, [behavior.id, sessionToken, notifications]);
+  }, [behavior.id, notifications]);
 
   useEffect(() => {
     fetchLinked();

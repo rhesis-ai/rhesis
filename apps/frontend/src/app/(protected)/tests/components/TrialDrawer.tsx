@@ -18,6 +18,7 @@ import {
   Collapse,
 } from '@mui/material';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { useSession } from 'next-auth/react';
 import { TestDetail } from '@/utils/api-client/interfaces/tests';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { useNotifications } from '@/components/common/NotificationContext';
@@ -30,6 +31,7 @@ import {
   MultiTurnTestConfig,
 } from '@/utils/api-client/interfaces/multi-turn-test-config';
 import { ConversationTurn } from '@/utils/api-client/interfaces/test-results';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface ProjectOption {
   id: UUID;
@@ -46,7 +48,6 @@ interface EndpointOption {
 interface TrialDrawerProps {
   open: boolean;
   onClose: () => void;
-  sessionToken: string;
   testIds: string[];
   onSuccess?: () => void;
 }
@@ -54,12 +55,12 @@ interface TrialDrawerProps {
 export default function TrialDrawer({
   open,
   onClose,
-  sessionToken,
   testIds,
   onSuccess: _onSuccess,
 }: TrialDrawerProps) {
   const [error, setError] = useState<string>();
   const theme = useTheme();
+  const { status } = useSession();
   const [loading, setLoading] = useState(false);
   const [testData, setTestData] = useState<TestDetail | null>(null);
   const [projects, setProjects] = useState<ProjectOption[]>([]);
@@ -67,11 +68,7 @@ export default function TrialDrawer({
     data: rawEndpoints,
     isLoading: endpointsLoading,
     isError: endpointsError,
-  } = useEndpoints(
-    sessionToken,
-    { sort_by: 'name', sort_order: 'asc', limit: 100 },
-    open
-  );
+  } = useEndpoints({ sort_by: 'name', sort_order: 'asc', limit: 100 }, open);
   const endpoints = useMemo<EndpointOption[]>(
     () =>
       (rawEndpoints ?? [])
@@ -117,7 +114,7 @@ export default function TrialDrawer({
   // Fetch projects, endpoints, and test data
   useEffect(() => {
     const fetchData = async () => {
-      if (!sessionToken || !open) {
+      if (!isAuthenticated(status) || !open) {
         return;
       }
 
@@ -141,7 +138,7 @@ export default function TrialDrawer({
           setTrialCompleted(false);
           setError(undefined);
         }
-        const clientFactory = new ApiClientFactory(sessionToken);
+        const clientFactory = new ApiClientFactory();
 
         // Fetch test data (we only support single test trial for now)
         if (testIds.length > 0) {
@@ -241,7 +238,7 @@ export default function TrialDrawer({
     }
     // testIds is intentionally not in deps - we track changes via testIdsRef to avoid re-running on array reference changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionToken, open]);
+  }, [open]);
 
   // Filter endpoints by selected project; when no project is selected show all
   useEffect(() => {
@@ -270,7 +267,7 @@ export default function TrialDrawer({
   };
 
   const handleSave = async () => {
-    if (!sessionToken || !selectedEndpoint || !testData) return;
+    if (!isAuthenticated(status) || !selectedEndpoint || !testData) return;
 
     // Determine test type
     const isMultiTurn = isMultiTurnTest(testData.test_type?.type_value);
@@ -299,7 +296,7 @@ export default function TrialDrawer({
       setTrialInProgress(true);
       setError(undefined);
 
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
 
       if (isMultiTurn) {
         // Multi-turn test execution
@@ -422,7 +419,7 @@ export default function TrialDrawer({
 
               // Fetch full project data to get icon
               try {
-                const clientFactory = new ApiClientFactory(sessionToken);
+                const clientFactory = new ApiClientFactory();
                 const projectsClient = clientFactory.getProjectsClient();
                 const projectData = await projectsClient.getProject(
                   newValue.id

@@ -61,7 +61,6 @@ interface ArchitectChatInputProps {
   disabled?: boolean;
   isLoading?: boolean;
   isConnected?: boolean;
-  sessionToken?: string;
   /** When true, input is disabled due to missing architect:create (viewer). */
   readOnly?: boolean;
 }
@@ -81,7 +80,6 @@ const ArchitectChatInput = forwardRef<
     disabled = false,
     isLoading = false,
     isConnected = true,
-    sessionToken: _sessionToken,
     readOnly = false,
   },
   ref
