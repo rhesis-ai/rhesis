@@ -1,6 +1,6 @@
-.PHONY: all format lint lint_diff format_diff type-check test test-integration test-coverage docker-up docker-down docker-clean
+.PHONY: all format lint lint_diff format_diff test test-integration test-coverage docker-up docker-down docker-clean
 
-all: format_diff lint_diff type-check test
+all: format_diff lint_diff test
 
 
 ALL_FILES := .

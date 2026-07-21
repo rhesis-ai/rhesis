@@ -3,9 +3,9 @@ import { ArchitectureOverview } from "@/components/ArchitectureOverview";
 
 # Contribute
 
-We welcome contributions of all kinds: code, ideas, documentation, and bug reports. This section is technical documentation for developers working on and with Rhesis.
+Technical documentation for developers working on and with Rhesis. Contributions of all kinds are welcome: code, documentation, and bug reports.
 
-For setup instructions, see [Development setup](/contribute/development-setup).
+To set up your environment, see [Development setup](/contribute/development-setup).
 
 ## Repository layout
 
@@ -13,7 +13,7 @@ For setup instructions, see [Development setup](/contribute/development-setup).
 - `apps/frontend` — Next.js UI
 - `sdk` — Python SDK
 - `docs` — documentation site (this content)
-- `tests/backend`, `tests/sdk` — tests consumed via each package’s Makefile/pytest config
+- `tests/backend`, `tests/sdk` — test suites for the backend and SDK
 
 ## Development resources
 
@@ -22,22 +22,6 @@ For setup instructions, see [Development setup](/contribute/development-setup).
 ## Architecture overview
 
 <ArchitectureOverview />
-
-## Tests and formatting
-
-Run `make` targets from the relevant app directory (see backend, SDK, and frontend topics in this section):
-
-- **Backend** (`apps/backend`): `make test`, `make format`, `make lint`, `make all`
-- **SDK** (`sdk`): `make test` (and integration flows documented there)
-- **Frontend** (`apps/frontend`): `make test`, `make lint`, etc.
-
-Tip: `./.github/pr` is available in the repo for opening pull requests if your clone includes it.
-
-## Deep dives here
-
-- [Development setup](/contribute/development-setup)
-- [Coding standards](/contribute/coding-standards)
-- [Backend](/contribute/backend) and [Frontend](/contribute/frontend) sections in the sidebar
 
 <Callout type="default">
   **Issues:** [GitHub](https://github.com/rhesis-ai/rhesis/issues) (filter by the `good first issue` label). **Community:** [Discord](https://discord.com/invite/Qu8szPNz2M).

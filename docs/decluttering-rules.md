@@ -170,10 +170,10 @@ Check off pages/sections as they are done.
 
 ### Contribute (66 pages)
 
-- [ ] Overview
-- [ ] Development Setup
-- [ ] Coding Standards
-- [ ] Managing Documentation
+- [x] Overview
+- [x] Development Setup
+- [x] Coding Standards
+- [x] Managing Documentation
 
 **Architecture**
 - [ ] Frontend — Overview, Getting Started, Architecture, Routing, Component Library,
@@ -188,14 +188,14 @@ Check off pages/sections as they are done.
 - [ ] Worker — Overview, Architecture, Multi-Worker RPC, Background Tasks,
       Architect Background Tasks, Trace Ingestion Pipeline, Test Execution, Test Types,
       Execution Modes, Logging, Troubleshooting, GKE Troubleshooting
-- [ ] SDK — Getting Started, Architect Agent, Integrations
+- [x] SDK — Getting Started, Architect Agent, Integrations
 - [ ] Tracing System — Overview, Architecture, Trace Lifecycle, Data Structures
 - [ ] Polyphemus
 - [ ] Connector (`contribute/connector.mdx`)
 
 **Reference**
 - [ ] Environment Variables (`contribute/environment-variables.mdx`)
-- [ ] Telemetry
+- [x] Telemetry
 
 ### Other
 
