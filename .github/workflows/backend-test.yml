@@ -66,7 +66,7 @@ jobs:
         # before the EE tests under tests/backend/ee/ run.
         run: |
           make docker-up
-          uv run --extra cpu --extra ee pytest ../../tests/backend --ignore=../../tests/backend/integration -n 4
+          uv run --extra cpu --extra ee pytest ../../tests/backend --ignore=../../tests/backend/integration -n 4 --timeout=120 --timeout-method=thread
         working-directory: apps/backend
 
       - name: Stop Docker services
