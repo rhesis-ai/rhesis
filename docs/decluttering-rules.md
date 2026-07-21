@@ -170,10 +170,10 @@ Check off pages/sections as they are done.
 
 ### Contribute (66 pages)
 
-- [ ] Overview
-- [ ] Development Setup
-- [ ] Coding Standards
-- [ ] Managing Documentation
+- [x] Overview
+- [x] Development Setup
+- [x] Coding Standards
+- [x] Managing Documentation
 
 **Architecture**
 - [ ] Frontend — Overview, Getting Started, Architecture, Routing, Component Library,
