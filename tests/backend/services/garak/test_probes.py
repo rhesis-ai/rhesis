@@ -1,6 +1,6 @@
 """Tests for GarakProbeService."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -412,3 +412,128 @@ class TestGeneratorPlaceholder:
     def test_generator_placeholder_value(self):
         """Test that the generator placeholder has the expected value."""
         assert GENERATOR_PLACEHOLDER == "{TARGET_MODEL}"
+
+
+@pytest.mark.unit
+@pytest.mark.service
+class TestGarakProbeServiceGetProbe:
+    """Tests for get_probe/get_probes_for_module cache-preferring lookups."""
+
+    def test_get_probe_uses_preloaded_data_without_extraction(self):
+        service = GarakProbeService()
+        preloaded = GarakProbeInfo(
+            module_name="dan",
+            class_name="Dan_11_0",
+            full_name="dan.Dan_11_0",
+            description="preloaded",
+        )
+        probes_by_module = {"dan": [preloaded]}
+
+        with patch.object(service, "extract_probes_from_module") as mock_extract:
+            result = service.get_probe("dan", "Dan_11_0", probes_by_module)
+
+        assert result is preloaded
+        mock_extract.assert_not_called()
+
+    def test_get_probe_returns_none_when_not_in_preloaded_module(self):
+        service = GarakProbeService()
+        result = service.get_probe("dan", "NoSuchProbe", {"dan": []})
+        assert result is None
+
+    def test_get_probe_falls_back_to_extraction_without_preload(self):
+        service = GarakProbeService()
+        expected = GarakProbeInfo(
+            module_name="dan", class_name="Dan_11_0", full_name="dan.Dan_11_0", description="d"
+        )
+
+        with patch.object(
+            service, "extract_probes_from_module", return_value=[expected]
+        ) as mock_extract:
+            result = service.get_probe("dan", "Dan_11_0")
+
+        assert result is expected
+        mock_extract.assert_called_once_with("dan", probe_class_names=["Dan_11_0"])
+
+    def test_get_probes_for_module_uses_preloaded_data(self):
+        service = GarakProbeService()
+        preloaded = [
+            GarakProbeInfo(
+                module_name="dan", class_name="Dan_11_0", full_name="dan.Dan_11_0", description="d"
+            )
+        ]
+
+        with patch.object(service, "extract_probes_from_module") as mock_extract:
+            result = service.get_probes_for_module("dan", {"dan": preloaded})
+
+        assert result == preloaded
+        mock_extract.assert_not_called()
+
+    def test_get_probes_for_module_falls_back_to_extraction_without_preload(self):
+        service = GarakProbeService()
+
+        with patch.object(service, "extract_probes_from_module", return_value=[]) as mock_extract:
+            result = service.get_probes_for_module("dan")
+
+        assert result == []
+        mock_extract.assert_called_once_with("dan")
+
+
+@pytest.mark.unit
+@pytest.mark.service
+class TestGarakProbeServiceGetCachedProbes:
+    """Tests for get_cached_probes — a GET-only cache read that must never
+    trigger enumeration on a miss, unlike enumerate_probe_modules_cached."""
+
+    @pytest.mark.asyncio
+    async def test_returns_none_on_cache_miss_without_enumerating(self):
+        service = GarakProbeService()
+
+        with (
+            patch(
+                "rhesis.backend.app.services.garak.cache.GarakProbeCache.initialize",
+                new=AsyncMock(),
+            ),
+            patch(
+                "rhesis.backend.app.services.garak.cache.GarakProbeCache.get",
+                new=AsyncMock(return_value=None),
+            ),
+            patch.object(service, "enumerate_probe_modules") as mock_enumerate,
+            patch.object(service, "extract_probes_from_module") as mock_extract,
+        ):
+            result = await service.get_cached_probes()
+
+        assert result is None
+        mock_enumerate.assert_not_called()
+        mock_extract.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_returns_deserialized_probes_on_cache_hit(self):
+        service = GarakProbeService()
+        cached_data = {
+            "modules": [],
+            "probes_by_module": {
+                "dan": [
+                    {
+                        "module_name": "dan",
+                        "class_name": "Dan_11_0",
+                        "full_name": "dan.Dan_11_0",
+                        "description": "d",
+                    }
+                ]
+            },
+        }
+
+        with (
+            patch(
+                "rhesis.backend.app.services.garak.cache.GarakProbeCache.initialize",
+                new=AsyncMock(),
+            ),
+            patch(
+                "rhesis.backend.app.services.garak.cache.GarakProbeCache.get",
+                new=AsyncMock(return_value=cached_data),
+            ),
+        ):
+            result = await service.get_cached_probes()
+
+        assert result is not None
+        assert result["dan"][0].class_name == "Dan_11_0"

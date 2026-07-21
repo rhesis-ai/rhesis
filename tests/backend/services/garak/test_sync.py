@@ -424,3 +424,152 @@ class TestGarakSyncServiceGetProbe:
             result = service._get_probe("nonexistent", "NoProbe")
 
             assert result is None
+
+    def test_get_probe_uses_preloaded_probes_without_extraction(self, test_db: Session):
+        """preload_probes() must short-circuit live extraction entirely."""
+        service = GarakSyncService(test_db)
+
+        preloaded_probe = GarakProbeInfo(
+            module_name="dan",
+            class_name="Dan_11_0",
+            full_name="dan.Dan_11_0",
+            description="preloaded",
+        )
+        service.preload_probes({"dan": [preloaded_probe]})
+
+        with patch.object(service.probe_service, "extract_probes_from_module") as mock_extract:
+            result = service._get_probe("dan", "Dan_11_0")
+
+        assert result is preloaded_probe
+        mock_extract.assert_not_called()
+
+
+@pytest.mark.unit
+@pytest.mark.service
+class TestGarakSyncServiceResolveSyncTarget:
+    """Tests for resolve_sync_target.
+
+    The branching here must mirror sync_test_set exactly: the single-probe
+    path only applies when BOTH garak_module and garak_probe_class are set,
+    otherwise the legacy garak_modules list is used. A mismatch would make the
+    router filter the probe cache to the wrong module set, and a background
+    sync that finds none of its expected probes deletes every existing prompt
+    instead of erroring.
+    """
+
+    def test_raises_when_test_set_not_found(self, test_db: Session, test_org_id):
+        service = GarakSyncService(test_db)
+
+        with pytest.raises(ValueError, match="Test set not found"):
+            service.resolve_sync_target(str(uuid4()), str(test_org_id))
+
+    def test_raises_when_not_garak_imported(
+        self, test_db: Session, test_org_id, authenticated_user_id
+    ):
+        service = GarakSyncService(test_db)
+
+        test_set = TestSet(
+            name="Regular Test Set",
+            description="Test",
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            attributes={"source": "manual"},
+        )
+        test_db.add(test_set)
+        test_db.commit()
+
+        with pytest.raises(ValueError, match="not a Garak-imported test set"):
+            service.resolve_sync_target(str(test_set.id), str(test_org_id))
+
+    def test_returns_single_probe_class_for_modern_format(
+        self, test_db: Session, test_org_id, authenticated_user_id
+    ):
+        service = GarakSyncService(test_db)
+
+        test_set = TestSet(
+            name="Garak Test Set",
+            description="Test",
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            attributes={
+                "source": "garak",
+                "garak_module": "dan",
+                "garak_probe_class": "Dan_11_0",
+            },
+        )
+        test_db.add(test_set)
+        test_db.commit()
+
+        result = service.resolve_sync_target(str(test_set.id), str(test_org_id))
+
+        assert result == {"dan": ["Dan_11_0"]}
+
+    def test_returns_modules_for_legacy_format(
+        self, test_db: Session, test_org_id, authenticated_user_id
+    ):
+        service = GarakSyncService(test_db)
+
+        test_set = TestSet(
+            name="Legacy Garak Test Set",
+            description="Test",
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            attributes={
+                "source": "garak",
+                "garak_modules": ["dan", "encoding"],
+            },
+        )
+        test_db.add(test_set)
+        test_db.commit()
+
+        result = service.resolve_sync_target(str(test_set.id), str(test_org_id))
+
+        assert result == {"dan": [], "encoding": []}
+
+    def test_falls_back_to_legacy_when_probe_class_missing(
+        self, test_db: Session, test_org_id, authenticated_user_id
+    ):
+        """Regression test: garak_module alone (without garak_probe_class) must
+        NOT be treated as the modern single-probe format — it must fall
+        through to the legacy garak_modules list, exactly like sync_test_set
+        does. Treating garak_module as sufficient on its own would make the
+        router filter the probe cache to only that one module while the
+        legacy sync path actually iterates every module in garak_modules,
+        starving the sync of data for the other modules."""
+        service = GarakSyncService(test_db)
+
+        test_set = TestSet(
+            name="Ambiguous Garak Test Set",
+            description="Test",
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            attributes={
+                "source": "garak",
+                "garak_module": "dan",
+                "garak_modules": ["dan", "encoding"],
+            },
+        )
+        test_db.add(test_set)
+        test_db.commit()
+
+        result = service.resolve_sync_target(str(test_set.id), str(test_org_id))
+
+        assert result == {"dan": [], "encoding": []}
+
+    def test_raises_when_no_probe_information(
+        self, test_db: Session, test_org_id, authenticated_user_id
+    ):
+        service = GarakSyncService(test_db)
+
+        test_set = TestSet(
+            name="No Probe Info",
+            description="Test",
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            attributes={"source": "garak"},
+        )
+        test_db.add(test_set)
+        test_db.commit()
+
+        with pytest.raises(ValueError, match="No Garak probe information"):
+            service.resolve_sync_target(str(test_set.id), str(test_org_id))

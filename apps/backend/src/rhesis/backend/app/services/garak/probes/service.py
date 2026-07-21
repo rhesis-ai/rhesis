@@ -262,6 +262,54 @@ class GarakProbeService:
 
         return probes
 
+    def get_probe(
+        self,
+        module_name: str,
+        class_name: str,
+        probes_by_module: Optional[Dict[str, List[GarakProbeInfo]]] = None,
+    ) -> Optional[GarakProbeInfo]:
+        """
+        Look up a single probe by module/class name.
+
+        Prefers pre-fetched data (e.g. from ``enumerate_probe_modules_cached()``)
+        over live extraction, so callers who already hold cached probe data
+        avoid re-instantiating the Garak probe class from scratch.
+
+        Args:
+            module_name: Name of the probe module
+            class_name: Name of the probe class
+            probes_by_module: Optional pre-fetched probe data, keyed by module name
+
+        Returns:
+            GarakProbeInfo, or None if not found
+        """
+        if probes_by_module is not None:
+            return next(
+                (p for p in probes_by_module.get(module_name, []) if p.class_name == class_name),
+                None,
+            )
+        probes = self.extract_probes_from_module(module_name, probe_class_names=[class_name])
+        return probes[0] if probes else None
+
+    def get_probes_for_module(
+        self,
+        module_name: str,
+        probes_by_module: Optional[Dict[str, List[GarakProbeInfo]]] = None,
+    ) -> List[GarakProbeInfo]:
+        """
+        Get all probes for a module, preferring pre-fetched data over live extraction.
+
+        Args:
+            module_name: Name of the probe module
+            probes_by_module: Optional pre-fetched probe data, keyed by module name
+
+        Returns:
+            List of GarakProbeInfo for the module
+        """
+        if probes_by_module is not None:
+            return probes_by_module.get(module_name, [])
+        return self.extract_probes_from_module(module_name)
+
     def _extract_probe_info(
         self, module_name: str, class_name: str, probe_class: type
     ) -> Optional[GarakProbeInfo]:
@@ -473,33 +521,46 @@ class GarakProbeService:
         import io
         import logging
 
+        import anyio
+
         logger.info(f"Garak probe cache MISS: generating probe data (v{self.garak_version})...")
 
-        # Suppress stdout/stderr (garak uses print() for "loading probe:" messages)
-        null_output = io.StringIO()
+        def _enumerate() -> tuple[List[GarakModuleInfo], Dict[str, List[GarakProbeInfo]]]:
+            # Enumerating/instantiating every Garak probe class is CPU-bound and can
+            # take many seconds. Run it in a worker thread so a cache miss on an async
+            # request handler (import/sync/preview, /garak/probes) does not block the
+            # event loop and starve every other request on the worker.
+            null_output = io.StringIO()
 
-        # Only suppress garak-specific loggers to avoid affecting concurrent requests
-        # DO NOT suppress root logger - it would affect all loggers in the async app
-        garak_logger = logging.getLogger("garak")
-        original_garak_level = garak_logger.level
+            # Only suppress garak-specific loggers to avoid affecting concurrent requests
+            # DO NOT suppress root logger - it would affect all loggers in the async app
+            garak_logger = logging.getLogger("garak")
+            original_garak_level = garak_logger.level
 
-        try:
-            # Suppress only garak's logging during enumeration
-            garak_logger.setLevel(logging.CRITICAL)
+            try:
+                # Suppress only garak's logging during enumeration
+                garak_logger.setLevel(logging.CRITICAL)
 
-            # Suppress stdout/stderr (garak uses print() for "loading probe:" messages)
-            with contextlib.redirect_stdout(null_output), contextlib.redirect_stderr(null_output):
-                modules = self.enumerate_probe_modules()
+                # Suppress stdout/stderr (garak uses print() for "loading probe:" messages)
+                with (
+                    contextlib.redirect_stdout(null_output),
+                    contextlib.redirect_stderr(null_output),
+                ):
+                    modules = self.enumerate_probe_modules()
 
-                # Extract probes for each module
-                probes_by_module: Dict[str, List[GarakProbeInfo]] = {}
-                for module in modules:
-                    probes = self.extract_probes_from_module(module.name)
-                    if probes:
-                        probes_by_module[module.name] = probes
-        finally:
-            # Restore garak logger level
-            garak_logger.setLevel(original_garak_level)
+                    # Extract probes for each module
+                    probes_by_module: Dict[str, List[GarakProbeInfo]] = {}
+                    for module in modules:
+                        probes = self.extract_probes_from_module(module.name)
+                        if probes:
+                            probes_by_module[module.name] = probes
+            finally:
+                # Restore garak logger level
+                garak_logger.setLevel(original_garak_level)
+
+            return modules, probes_by_module
+
+        modules, probes_by_module = await anyio.to_thread.run_sync(_enumerate)
 
         # Store in cache
         cache_data = serialize_probe_data(modules, probes_by_module)
@@ -512,6 +573,34 @@ class GarakProbeService:
         )
 
         return modules, probes_by_module
+
+    async def get_cached_probes(self) -> Optional[Dict[str, List[GarakProbeInfo]]]:
+        """
+        Return cached probe data if present, WITHOUT enumerating on a miss.
+
+        Unlike ``enumerate_probe_modules_cached``, this never triggers the
+        expensive full-corpus enumeration — it is a plain Redis GET. Callers on
+        the request path (e.g. Garak import/sync dispatch) use this to reuse the
+        cache when it is warm while never blocking the event loop on a cold
+        cache; on a miss they fall back to targeted, background extraction.
+
+        Returns:
+            probes_by_module dict if the cache is warm, otherwise None.
+        """
+        from rhesis.backend.app.services.garak.cache import (
+            GarakProbeCache,
+            deserialize_probe_data,
+        )
+
+        # Idempotent; safe to call outside app lifespan (tests, workers, etc.).
+        await GarakProbeCache.initialize()
+
+        cached_data = await GarakProbeCache.get(self.garak_version)
+        if not cached_data:
+            return None
+
+        _, probes_by_module = deserialize_probe_data(cached_data)
+        return probes_by_module
 
     async def warm_cache(self) -> bool:
         """

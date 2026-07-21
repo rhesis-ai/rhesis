@@ -243,6 +243,7 @@ def bulk_create_test_set(
     organization_id: str,
     user_id: str,
     test_set_type: TestSetType = None,
+    skip_prompt_dedup: bool = False,
 ) -> models.TestSet:
     """Create a test set with its associated tests in a single operation.
 
@@ -253,6 +254,9 @@ def bulk_create_test_set(
         user_id: User ID
         test_set_type: Test set type (TestSetType.SINGLE_TURN or TestSetType.MULTI_TURN).
                       If not provided, defaults to TestSetType.SINGLE_TURN.
+        skip_prompt_dedup: Passed through to ``bulk_create_tests`` — skip the
+            duplicate-content SELECT when prompt content is always unique
+            (e.g. bulk Garak imports).
 
     Returns:
         Created TestSet model instance
@@ -333,6 +337,7 @@ def bulk_create_test_set(
             user_id=user_id,
             test_set_id=str(test_set.id),
             test_type_value=test_set_type_value,
+            skip_prompt_dedup=skip_prompt_dedup,
         )
 
         # Refresh test set to get all relationships

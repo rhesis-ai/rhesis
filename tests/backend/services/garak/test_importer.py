@@ -254,6 +254,24 @@ class TestGarakImporterProbeRetrieval:
 
             assert result is None
 
+    def test_get_probe_info_uses_preloaded_probes_without_extraction(self, test_db: Session):
+        """preload_probes() must short-circuit live extraction entirely."""
+        importer = GarakImporter(test_db)
+
+        preloaded_probe = GarakProbeInfo(
+            module_name="dan",
+            class_name="Dan_11_0",
+            full_name="dan.Dan_11_0",
+            description="preloaded",
+        )
+        importer.preload_probes({"dan": [preloaded_probe]})
+
+        with patch.object(importer.probe_service, "extract_probes_from_module") as mock_extract:
+            result = importer._get_probe_info("dan", "Dan_11_0")
+
+        assert result is preloaded_probe
+        mock_extract.assert_not_called()
+
 
 @pytest.mark.unit
 @pytest.mark.service

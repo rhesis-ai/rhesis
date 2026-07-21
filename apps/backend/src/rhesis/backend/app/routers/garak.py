@@ -18,17 +18,16 @@ from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.garak import (
     GarakGenerateRequest,
     GarakGenerateResponse,
-    GarakImportedTestSet,
     GarakImportPreviewResponse,
     GarakImportRequest,
-    GarakImportResponse,
+    GarakImportTaskResponse,
     GarakProbeClassResponse,
     GarakProbeDetailResponse,
     GarakProbeModuleResponse,
     GarakProbePreview,
     GarakProbesListResponse,
     GarakSyncPreviewResponse,
-    GarakSyncResponse,
+    GarakSyncTaskResponse,
 )
 from rhesis.backend.app.services.garak import (
     GarakDynamicGenerator,
@@ -37,8 +36,10 @@ from rhesis.backend.app.services.garak import (
     GarakSyncService,
     GarakTaxonomy,
 )
+from rhesis.backend.app.services.garak.cache import serialize_probes_by_module
 from rhesis.backend.app.services.garak.taxonomy import resolve_behavior
 from rhesis.backend.tasks import task_launcher
+from rhesis.backend.tasks.garak import import_garak_probes_task, sync_garak_test_set_task
 from rhesis.backend.tasks.test_set import generate_and_save_test_set
 
 logger = logging.getLogger(__name__)
@@ -206,6 +207,7 @@ async def preview_import(
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
+    probe_service: GarakProbeService = Depends(get_probe_service),
 ):
     """
     Preview what will be imported without creating test sets.
@@ -213,7 +215,13 @@ async def preview_import(
     Returns details of test sets that would be created for each probe.
     """
     try:
+        # Preload from the Garak probe cache instead of re-instantiating each
+        # selected probe from scratch — turns this into a Redis GET + dict
+        # lookups rather than re-running probe extraction.
+        _, probes_by_module = await probe_service.enumerate_probe_modules_cached()
+
         importer = GarakImporter(db)
+        importer.preload_probes(probes_by_module)
         preview = importer.get_import_preview(
             probes=request.probes,
             name_prefix=request.name_prefix,
@@ -248,59 +256,73 @@ async def preview_import(
         )
 
 
-@router.post("/import", response_model=GarakImportResponse)
+@router.post("/import", response_model=GarakImportTaskResponse, status_code=202)
 async def import_probes(
     request: GarakImportRequest,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
+    probe_service: GarakProbeService = Depends(get_probe_service),
 ):
     """
     Import selected Garak probes as Rhesis test sets.
 
-    Creates one test set per probe, with tests for each prompt,
-    and associates appropriate Garak detector metrics.
+    Creates one test set per probe, with tests for each prompt, and associates
+    appropriate Garak detector metrics. Some Garak probes produce thousands of
+    prompts, so this runs as a background task rather than blocking the
+    request — returns HTTP 202 Accepted with a `task_id` that can be polled
+    via `GET /jobs/{task_id}`.
     """
     try:
-        organization_id, user_id = tenant_context
+        # Read the probe cache without ever triggering enumeration on a miss —
+        # that path is CPU-heavy and must not run on the request thread. When
+        # warm, filter down to exactly the requested (module, class) pairs so
+        # only that data is serialized through the Celery dispatch (not whole
+        # modules or the full ~168-probe corpus). When cold, pass no preload
+        # data at all — the task falls back to targeted per-probe extraction
+        # inside the worker, off the event loop.
+        cached_probes_by_module = await probe_service.get_cached_probes()
+        filtered_probes_by_module = None
+        if cached_probes_by_module is not None:
+            needed = {(p.module_name, p.class_name) for p in request.probes}
+            filtered_probes_by_module = {}
+            for module_name, class_name in needed:
+                match = next(
+                    (
+                        p
+                        for p in cached_probes_by_module.get(module_name, [])
+                        if p.class_name == class_name
+                    ),
+                    None,
+                )
+                if match:
+                    filtered_probes_by_module.setdefault(module_name, []).append(match)
 
-        importer = GarakImporter(db)
-        results = importer.import_probes(
-            probes=request.probes,
+        task_result = task_launcher(
+            import_garak_probes_task,
+            current_user=current_user,
+            db=db,
+            probes=[p.model_dump() for p in request.probes],
             name_prefix=request.name_prefix,
             description_template=request.description_template,
-            organization_id=organization_id,
-            user_id=user_id,
+            probes_by_module=(
+                serialize_probes_by_module(filtered_probes_by_module)
+                if filtered_probes_by_module is not None
+                else None
+            ),
         )
 
-        test_set_responses = [
-            GarakImportedTestSet(
-                test_set_id=str(r["test_set_id"]),
-                test_set_name=r["test_set_name"],
-                probe_full_name=r["probe_full_name"],
-                test_count=r["test_count"],
-            )
-            for r in results["test_sets"]
-        ]
-
-        return GarakImportResponse(
-            test_sets=test_set_responses,
-            total_test_sets=results["total_test_sets"],
-            total_tests=results["total_tests"],
-            garak_version=results["garak_version"],
+        return GarakImportTaskResponse(
+            task_id=str(task_result.id),
+            probe_count=len(request.probes),
+            message=f"Import started for {len(request.probes)} probe(s).",
         )
 
-    except ValueError as e:
-        logger.warning(f"Import validation error: {e}")
-        raise HTTPException(
-            status_code=400,
-            detail=str(e),
-        )
     except Exception as e:
-        logger.error(f"Error importing Garak probes: {e}")
+        logger.error(f"Error launching Garak probe import: {e}")
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to import Garak probes: {str(e)}",
+            detail=f"Failed to launch Garak probe import: {str(e)}",
         )
 
 
@@ -310,6 +332,7 @@ async def preview_sync(
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
+    probe_service: GarakProbeService = Depends(get_probe_service),
 ):
     """
     Preview what changes would occur when syncing a test set.
@@ -319,7 +342,12 @@ async def preview_sync(
     try:
         organization_id, _ = tenant_context
 
+        # Preload from the Garak probe cache instead of re-instantiating the
+        # probe(s) from scratch.
+        _, probes_by_module = await probe_service.enumerate_probe_modules_cached()
+
         sync_service = GarakSyncService(db)
+        sync_service.preload_probes(probes_by_module)
         preview = sync_service.get_sync_preview(test_set_id, organization_id)
 
         if not preview:
@@ -346,35 +374,64 @@ async def preview_sync(
         )
 
 
-@router.post("/sync/{test_set_id}", response_model=GarakSyncResponse)
+@router.post("/sync/{test_set_id}", response_model=GarakSyncTaskResponse, status_code=202)
 async def sync_test_set(
     test_set_id: str,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
+    probe_service: GarakProbeService = Depends(get_probe_service),
 ):
     """
     Sync a Garak-imported test set with the latest probes.
 
-    Updates the test set to include new probes and remove
-    deprecated ones.
+    Updates the test set to include new probes and remove deprecated ones.
+    Some Garak probes produce thousands of prompts, so this runs as a
+    background task rather than blocking the request — returns HTTP 202
+    Accepted with a `task_id` that can be polled via `GET /jobs/{task_id}`.
     """
     try:
-        organization_id, user_id = tenant_context
+        organization_id, _ = tenant_context
 
         sync_service = GarakSyncService(db)
-        result = sync_service.sync_test_set(
+        # Resolve which probe class(es) this test set needs, so we only
+        # serialize the relevant subset of the probe cache through the Celery
+        # task dispatch (not the entire ~168-probe corpus). Raises ValueError
+        # (-> 400 below) for the same conditions sync_test_set itself checks.
+        target = sync_service.resolve_sync_target(test_set_id, organization_id)
+
+        # Read the cache without ever triggering enumeration on a miss — that
+        # path is CPU-heavy and must not run on the request thread. When cold,
+        # pass no preload data; the task falls back to targeted extraction
+        # inside the worker, off the event loop.
+        cached_probes_by_module = await probe_service.get_cached_probes()
+        filtered_probes_by_module = None
+        if cached_probes_by_module is not None:
+            filtered_probes_by_module = {}
+            for module_name, class_names in target.items():
+                module_probes = cached_probes_by_module.get(module_name, [])
+                filtered_probes_by_module[module_name] = (
+                    [p for p in module_probes if p.class_name in class_names]
+                    if class_names
+                    else module_probes
+                )
+
+        task_result = task_launcher(
+            sync_garak_test_set_task,
+            current_user=current_user,
+            db=db,
             test_set_id=test_set_id,
-            organization_id=organization_id,
-            user_id=user_id,
+            probes_by_module=(
+                serialize_probes_by_module(filtered_probes_by_module)
+                if filtered_probes_by_module is not None
+                else None
+            ),
         )
 
-        return GarakSyncResponse(
-            added=result.added,
-            removed=result.removed,
-            unchanged=result.unchanged,
-            new_garak_version=result.new_garak_version,
-            old_garak_version=result.old_garak_version,
+        return GarakSyncTaskResponse(
+            task_id=str(task_result.id),
+            test_set_id=test_set_id,
+            message=f"Sync started for test set {test_set_id}.",
         )
 
     except ValueError as e:
@@ -383,13 +440,11 @@ async def sync_test_set(
             status_code=400,
             detail=str(e),
         )
-    except HTTPException:
-        raise
     except Exception as e:
-        logger.error(f"Error syncing test set: {e}")
+        logger.error(f"Error launching test set sync: {e}")
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to sync test set: {str(e)}",
+            detail=f"Failed to launch test set sync: {str(e)}",
         )
 
 
@@ -411,7 +466,7 @@ async def generate_dynamic_probe(
     set. All garak metadata is preserved on the resulting test set.
 
     Returns HTTP 202 Accepted with a `task_id` that can be polled via
-    `GET /tasks/{task_id}`.
+    `GET /jobs/{task_id}`.
     """
     module_name = request.module_name
     class_name = request.class_name

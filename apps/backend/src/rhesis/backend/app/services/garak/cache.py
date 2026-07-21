@@ -413,3 +413,42 @@ def deserialize_probe_data(data: Dict[str, Any]) -> tuple:
     }
 
     return modules, probes_by_module
+
+
+def serialize_probes_by_module(probes_by_module: Dict[str, List[Any]]) -> Dict[str, List[Dict]]:
+    """
+    Serialize a probes-by-module dict for passing through Celery task args.
+
+    Unlike ``serialize_probe_data``, this carries only the probe data (no
+    module metadata) — used when a caller (e.g. Garak import/sync) needs to
+    hand a filtered subset of already-cached probes to a background task
+    without re-deriving module-level aggregates.
+
+    Args:
+        probes_by_module: Dict mapping module names to lists of GarakProbeInfo
+
+    Returns:
+        Dict ready for JSON serialization
+    """
+    from dataclasses import asdict
+
+    return {
+        module_name: [asdict(p) for p in probes] for module_name, probes in probes_by_module.items()
+    }
+
+
+def deserialize_probes_by_module(data: Dict[str, List[Dict]]) -> Dict[str, List[Any]]:
+    """
+    Deserialize a probes-by-module dict back to GarakProbeInfo instances.
+
+    Args:
+        data: Dict as produced by ``serialize_probes_by_module``
+
+    Returns:
+        Dict mapping module names to lists of GarakProbeInfo
+    """
+    from rhesis.backend.app.services.garak.probes import GarakProbeInfo
+
+    return {
+        module_name: [GarakProbeInfo(**p) for p in probes] for module_name, probes in data.items()
+    }
