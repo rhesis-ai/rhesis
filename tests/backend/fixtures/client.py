@@ -47,14 +47,7 @@ def client(test_db):
 @pytest.fixture
 def authenticated_client(client, rhesis_api_key):
     """🔑 FastAPI test client with authentication headers."""
-    masked_key = f"{rhesis_api_key[:3]}...{rhesis_api_key[-4:]}" if rhesis_api_key else None
-    print(f"🔍 DEBUG: Setting Authorization header with API key: {masked_key}")
     client.headers.update({"Authorization": f"Bearer {rhesis_api_key}"})
-    # Mask the authorization header in debug output
-    headers_debug = dict(client.headers)
-    if "authorization" in headers_debug:
-        headers_debug["authorization"] = "***"
-    print(f"🔍 DEBUG: Client headers now include: {headers_debug}")
     return client
 
 
