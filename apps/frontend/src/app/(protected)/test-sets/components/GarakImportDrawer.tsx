@@ -14,15 +14,12 @@ import {
   Paper,
   IconButton,
   Collapse,
-  LinearProgress,
   Tooltip,
-  alpha,
   TextField,
   InputAdornment,
 } from '@mui/material';
 import {
   ExpandMore as ExpandMoreIcon,
-  Security as SecurityIcon,
   Refresh as RefreshIcon,
   CheckCircle as CheckCircleIcon,
   AutoAwesome as AutoAwesomeIcon,
@@ -35,7 +32,6 @@ import type {
   GarakProbeClass,
   GarakImportPreviewResponse,
   GarakProbeSelection,
-  GarakProbePreview,
   GarakGenerateResponse,
 } from '@/utils/api-client/garak-client';
 import BaseDrawer from '@/components/common/BaseDrawer';
@@ -72,18 +68,13 @@ export default function GarakImportDrawer({
     new Set()
   );
   const [searchQuery, setSearchQuery] = React.useState('');
-  const [importProgress, setImportProgress] = React.useState<{
-    phase: 'static' | 'dynamic' | 'done';
-    currentProbeIndex: number;
-    totalProbes: number;
-    currentTestCount: number;
-    totalTests: number;
-    currentProbe: GarakProbePreview | null;
+  // Both static import and dynamic generation are pure fire-and-forget
+  // dispatch calls (fast 202 responses) — there's no real incremental
+  // progress to report, so this only ever gets set once, after every
+  // dispatch call has resolved.
+  const [importResult, setImportResult] = React.useState<{
     staticImported: number;
-    dynamicLaunched: number;
-    dynamicTotal: number;
     dynamicResults: GarakGenerateResponse[];
-    isComplete: boolean;
   } | null>(null);
   const [dynamicPreviewProbes, setDynamicPreviewProbes] = React.useState<
     GarakProbeClass[]
@@ -279,9 +270,7 @@ export default function GarakImportDrawer({
     }
 
     const { staticProbes, dynamicProbes } = getSelectedProbeObjects();
-    const totalProbes = staticProbes.length + dynamicProbes.length;
-
-    if (totalProbes === 0) return;
+    if (staticProbes.length + dynamicProbes.length === 0) return;
 
     try {
       setImporting(true);
@@ -290,6 +279,7 @@ export default function GarakImportDrawer({
       const clientFactory = new ApiClientFactory();
       const garakClient = clientFactory.getGarakClient();
 
+      let staticImported = 0;
       if (staticProbes.length > 0) {
         let previewData = preview;
         if (!previewData || previewData.probes.length === 0) {
@@ -302,20 +292,6 @@ export default function GarakImportDrawer({
           setPreparingImport(false);
         }
 
-        setImportProgress({
-          phase: 'static',
-          currentProbeIndex: 0,
-          totalProbes,
-          currentTestCount: 0,
-          totalTests: previewData.total_tests,
-          currentProbe: previewData.probes[0] || null,
-          staticImported: 0,
-          dynamicLaunched: 0,
-          dynamicTotal: dynamicProbes.length,
-          dynamicResults: [],
-          isComplete: false,
-        });
-
         // Import runs as a background task (some probes produce thousands of
         // tests) — this only confirms the task was queued, not that it
         // finished. The resulting test set(s) appear in the test sets list
@@ -324,94 +300,35 @@ export default function GarakImportDrawer({
           probes: buildProbeSelections(staticProbes),
           name_prefix: 'Garak',
         });
-
-        setImportProgress(prev =>
-          prev
-            ? {
-                ...prev,
-                currentTestCount: prev.totalTests,
-                staticImported: staticProbes.length,
-              }
-            : prev
-        );
+        staticImported = staticProbes.length;
       }
 
-      if (dynamicProbes.length > 0) {
-        setImportProgress(prev => ({
-          phase: 'dynamic',
-          currentProbeIndex: prev ? prev.staticImported : 0,
-          totalProbes,
-          currentTestCount: prev?.currentTestCount ?? 0,
-          totalTests: prev?.totalTests ?? 0,
-          currentProbe: null,
-          staticImported: prev?.staticImported ?? 0,
-          dynamicLaunched: 0,
-          dynamicTotal: dynamicProbes.length,
-          dynamicResults: [],
-          isComplete: false,
-        }));
+      // Dynamic generation is also just a queue-and-return dispatch per
+      // probe — fire them concurrently rather than one at a time, since
+      // there's no per-probe work to wait on here.
+      const dynamicResults =
+        dynamicProbes.length > 0
+          ? await Promise.all(
+              dynamicProbes.map(probe =>
+                garakClient.generateDynamicProbe({
+                  module_name: probe.module_name,
+                  class_name: probe.class_name,
+                })
+              )
+            )
+          : [];
 
-        const dynamicResults: GarakGenerateResponse[] = [];
-
-        for (let i = 0; i < dynamicProbes.length; i++) {
-          const probe = dynamicProbes[i];
-          setImportProgress(prev =>
-            prev
-              ? {
-                  ...prev,
-                  currentProbeIndex: (prev.staticImported || 0) + i,
-                  currentProbe: {
-                    module_name: probe.module_name,
-                    class_name: probe.class_name,
-                    full_name: probe.full_name,
-                    test_set_name: `Garak Dynamic: ${probe.full_name}`,
-                    prompt_count: 0,
-                    detector: probe.detector,
-                  },
-                }
-              : prev
-          );
-
-          const result = await garakClient.generateDynamicProbe({
-            module_name: probe.module_name,
-            class_name: probe.class_name,
-          });
-          dynamicResults.push(result);
-
-          setImportProgress(prev =>
-            prev
-              ? {
-                  ...prev,
-                  dynamicLaunched: i + 1,
-                  dynamicResults: [...dynamicResults],
-                }
-              : prev
-          );
-        }
-      }
-
-      setImportProgress(prev =>
-        prev
-          ? {
-              ...prev,
-              phase: 'done',
-              currentProbe: null,
-              isComplete: true,
-            }
-          : prev
-      );
-
-      // Both static import and dynamic generation now run as background
-      // tasks — neither completes synchronously, so we don't auto-close or
-      // report created test set IDs here. The resulting test set(s) appear
-      // in the test sets list once their tasks finish; the user closes this
-      // drawer manually after seeing the "started" confirmation below.
+      // Both static import and dynamic generation are fire-and-forget
+      // background tasks — neither completes synchronously, so we don't
+      // auto-close or report created test set IDs here. The resulting test
+      // set(s) appear in the test sets list once their tasks finish; the
+      // user closes this drawer manually after seeing the confirmation below.
+      setImportResult({ staticImported, dynamicResults });
       onImportStarted?.();
     } catch (err: unknown) {
       setError(
         err instanceof Error ? err.message : 'Failed to import Garak probes'
       );
-      setImportProgress(null);
     } finally {
       setImporting(false);
       setPreparingImport(false);
@@ -426,14 +343,22 @@ export default function GarakImportDrawer({
     setSelectedProbes(new Set());
     setPreview(null);
     setError(undefined);
-    setImportProgress(null);
+    setImportResult(null);
     setPreparingImport(false);
     setDynamicPreviewProbes([]);
     setSearchQuery('');
   }, []);
 
+  // Reset on the opening transition, not on close: BaseDrawer keeps children
+  // mounted through its close animation, so clearing state the instant
+  // `open` goes false would re-render the probe-selection screen underneath
+  // the still-visible confirmation panel — a brief flash of stale content
+  // during the slide-out. Resetting on (re)open instead gives every session
+  // a clean slate without touching state while the drawer is animating shut.
+  const wasOpenRef = React.useRef(false);
   React.useEffect(() => {
-    if (!open) resetState();
+    if (open && !wasOpenRef.current) resetState();
+    wasOpenRef.current = open;
   }, [open, resetState]);
 
   const toggleModuleExpand = (moduleName: string) => {
@@ -460,7 +385,7 @@ export default function GarakImportDrawer({
   // tasks — once queued, the drawer must show the "started" summary and wait
   // for the user to close it explicitly (not just for the dynamic case: a
   // static-only import needs the same persistent confirmation).
-  const isImportComplete = !!importProgress?.isComplete;
+  const isImportComplete = !!importResult;
 
   const saveButtonText = (() => {
     const { staticProbes, dynamicProbes } = getSelectedProbeObjects();
@@ -788,160 +713,43 @@ export default function GarakImportDrawer({
           </Box>
         )}
 
-        {/* Import Progress */}
-        {(importing || isImportComplete) && importProgress && (
-          <Paper
-            elevation={0}
-            sx={theme => ({
-              p: 3,
-              bgcolor: alpha(theme.palette.primary.main, 0.08),
-              border: 1,
-              borderColor: alpha(theme.palette.primary.main, 0.24),
-              borderRadius: `${theme.shape.borderRadius}px`,
-            })}
-          >
-            <Stack spacing={2}>
-              <Stack direction="row" alignItems="center" spacing={1}>
-                {!importProgress.isComplete && <CircularProgress size={20} />}
-                <Typography variant="subtitle1" fontWeight="medium">
-                  {importProgress.phase === 'static' &&
-                    'Starting static probe import...'}
-                  {importProgress.phase === 'dynamic' &&
-                    'Generating dynamic probes...'}
-                  {importProgress.phase === 'done' && 'Running in background'}
-                </Typography>
-              </Stack>
+        {/* Import Result — mirrors the completion screen in this same
+            folder's FileImportDrawer (centered check icon + headline)
+            instead of the old "in-progress" panel: both static import and
+            dynamic generation are now pure fire-and-forget dispatch calls
+            (fast 202 responses), so there's no meaningful in-between state
+            to show while `importing` — the Save button's own spinner (via
+            BaseDrawer's `loading` prop) covers that brief window, and this
+            only ever renders once every dispatch call has resolved. */}
+        {isImportComplete && importResult && (
+          <Stack spacing={3} alignItems="center" sx={{ py: 4 }}>
+            <CheckCircleIcon
+              sx={theme => ({
+                fontSize: theme.spacing(8),
+                color: theme.palette.success.main,
+              })}
+            />
+            <Stack spacing={0.5} alignItems="center">
+              <Typography variant="h6">Import Started!</Typography>
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                textAlign="center"
+              >
+                Running in the background — the test set(s) will appear in your
+                test sets list once complete.
+              </Typography>
+            </Stack>
 
-              {importProgress.phase === 'static' &&
-                importProgress.totalTests > 0 && (
-                  <Box>
-                    <Stack
-                      direction="row"
-                      justifyContent="space-between"
-                      mb={0.5}
-                    >
-                      <Typography variant="body2" color="text.secondary">
-                        {importProgress.currentTestCount.toLocaleString()} of{' '}
-                        {importProgress.totalTests.toLocaleString()} tests
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {Math.min(
-                          importProgress.currentProbeIndex + 1,
-                          importProgress.totalProbes
-                        )}{' '}
-                        of {importProgress.totalProbes} probes
-                      </Typography>
-                    </Stack>
-                    <LinearProgress
-                      variant="determinate"
-                      value={
-                        (importProgress.currentTestCount /
-                          importProgress.totalTests) *
-                        100
-                      }
-                      sx={theme => ({
-                        height: theme.spacing(1),
-                        borderRadius: theme.spacing(0.5),
-                      })}
-                    />
-                  </Box>
-                )}
-
-              {importProgress.phase === 'dynamic' && (
-                <Box>
-                  <Stack
-                    direction="row"
-                    justifyContent="space-between"
-                    mb={0.5}
-                  >
-                    <Typography variant="body2" color="text.secondary">
-                      Launching LLM generation tasks...
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {importProgress.dynamicLaunched} of{' '}
-                      {importProgress.dynamicTotal} probes
-                    </Typography>
-                  </Stack>
-                  <LinearProgress
-                    variant="determinate"
-                    value={
-                      (importProgress.dynamicLaunched /
-                        importProgress.dynamicTotal) *
-                      100
-                    }
-                    sx={theme => ({
-                      height: theme.spacing(1),
-                      borderRadius: theme.spacing(0.5),
-                    })}
-                    color="warning"
-                  />
-                </Box>
-              )}
-
-              {importProgress.currentProbe && (
-                <Paper variant="outlined" sx={{ p: 2 }}>
-                  <Stack spacing={1}>
-                    <Stack direction="row" alignItems="center" spacing={1}>
-                      {importProgress.phase === 'dynamic' ? (
-                        <AutoAwesomeIcon fontSize="small" color="warning" />
-                      ) : (
-                        <SecurityIcon fontSize="small" color="primary" />
-                      )}
-                      <Typography variant="body1" fontWeight="medium">
-                        {importProgress.currentProbe.test_set_name}
-                      </Typography>
-                    </Stack>
-                    <Stack direction="row" spacing={2}>
-                      {importProgress.phase === 'dynamic' ? (
-                        <Chip
-                          icon={<AutoAwesomeIcon />}
-                          label="Generating via LLM"
-                          size="small"
-                          color="warning"
-                          variant="outlined"
-                        />
-                      ) : (
-                        <Chip
-                          label={`${importProgress.currentProbe.prompt_count} prompts`}
-                          size="small"
-                          variant="outlined"
-                        />
-                      )}
-                      {importProgress.currentProbe.detector && (
-                        <Chip
-                          label={importProgress.currentProbe.detector}
-                          size="small"
-                          color="secondary"
-                          variant="outlined"
-                        />
-                      )}
-                    </Stack>
-                    <Typography variant="caption" color="text.secondary">
-                      Module: {importProgress.currentProbe.module_name}
-                    </Typography>
-                  </Stack>
-                </Paper>
-              )}
-
-              {importProgress.isComplete && (
-                <Stack spacing={1}>
-                  <Stack
-                    direction="row"
-                    alignItems="center"
-                    spacing={1}
-                    sx={{ color: 'success.main' }}
-                  >
-                    <CheckCircleIcon />
-                    <Typography variant="body1" fontWeight="medium">
-                      Import started!
-                    </Typography>
-                  </Stack>
-                  {importProgress.staticImported > 0 && (
+            {(importResult.staticImported > 0 ||
+              importResult.dynamicResults.length > 0) && (
+              <Paper variant="outlined" sx={{ p: 2, width: '100%' }}>
+                <Stack spacing={2}>
+                  {importResult.staticImported > 0 && (
                     <Stack spacing={0.5}>
-                      <Typography variant="body2" color="text.secondary">
-                        {importProgress.staticImported} static probe
-                        {importProgress.staticImported !== 1 ? 's' : ''} —
-                        import started in background:
+                      <Typography variant="body2" fontWeight="medium">
+                        {importResult.staticImported} static probe
+                        {importResult.staticImported !== 1 ? 's' : ''}
                       </Typography>
                       {preview?.probes.map(p => (
                         <Typography
@@ -953,26 +761,15 @@ export default function GarakImportDrawer({
                           • {p.test_set_name} ({p.prompt_count} tests)
                         </Typography>
                       ))}
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        sx={{ mt: 0.5 }}
-                      >
-                        Once import completes, the test set(s) will appear in
-                        your test sets list.
-                      </Typography>
                     </Stack>
                   )}
-                  {importProgress.dynamicResults.length > 0 && (
+                  {importResult.dynamicResults.length > 0 && (
                     <Stack spacing={0.5}>
-                      <Typography variant="body2" color="text.secondary">
-                        {importProgress.dynamicResults.length} dynamic probe
-                        {importProgress.dynamicResults.length !== 1
-                          ? 's'
-                          : ''}{' '}
-                        — generation started in background:
+                      <Typography variant="body2" fontWeight="medium">
+                        {importResult.dynamicResults.length} dynamic probe
+                        {importResult.dynamicResults.length !== 1 ? 's' : ''}
                       </Typography>
-                      {importProgress.dynamicResults.map(result => (
+                      {importResult.dynamicResults.map(result => (
                         <Typography
                           key={result.task_id}
                           variant="body2"
@@ -982,20 +779,12 @@ export default function GarakImportDrawer({
                           • {result.probe_full_name}
                         </Typography>
                       ))}
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        sx={{ mt: 0.5 }}
-                      >
-                        Once generation completes, the test sets will appear in
-                        your test sets list.
-                      </Typography>
                     </Stack>
                   )}
                 </Stack>
-              )}
-            </Stack>
-          </Paper>
+              </Paper>
+            )}
+          </Stack>
         )}
 
         {/* Preview */}
