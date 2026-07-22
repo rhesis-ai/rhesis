@@ -118,8 +118,14 @@ export default function TestDetailMetricsTab({
       !isMultiTurn;
 
     if (useBehaviorGrouping) {
-      // Handle behavior-based metrics (single-turn tests with behavior source)
-      behaviors.forEach(behavior => {
+      // Filter to only the behavior belonging to this test result to avoid
+      // duplicating metrics shared across different behaviors in the run.
+      const testBehaviorId = test.test?.behavior?.id;
+      const relevantBehaviors = testBehaviorId
+        ? behaviors.filter(b => b.id === testBehaviorId)
+        : behaviors;
+
+      relevantBehaviors.forEach(behavior => {
         behavior.metrics.forEach(metric => {
           const metricResult = testMetrics[metric.name];
           if (metricResult) {
