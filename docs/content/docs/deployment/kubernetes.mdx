@@ -9,9 +9,11 @@ Deploy Rhesis to a local Kubernetes cluster with Minikube, using the Helm chart 
 <Callout type="warning">
 **Local Development Only**
 
-The chart ships one values file, `values-local.yaml`, tuned for Minikube (`imagePullPolicy: Never`,
-images built and loaded locally). There is no production values file yet. For a production
-deployment, use [Docker Compose](/docs/deployment/docker-compose).
+The chart ships one values file, `values-local.yaml`, tuned for Minikube: the five app images
+(frontend, backend, worker, chatbot, docs) use `imagePullPolicy: Never` since they're built and
+loaded locally, while Postgres and Redis pull from `mirror.gcr.io` (`IfNotPresent`). There is no
+production values file yet. For a production deployment, use
+[Docker Compose](/docs/deployment/docker-compose).
 </Callout>
 
 ## Setup
