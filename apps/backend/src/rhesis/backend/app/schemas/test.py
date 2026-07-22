@@ -126,7 +126,6 @@ class TestReference(Base):
 # The detailed model with expanded relations
 class TestDetail(Test):
     # Include the full related objects instead of just IDs
-    nano_id: Optional[str]
     content: Optional[str] = None
     counts: Optional[Dict[str, Any]] = None
     prompt: Optional[PromptReference] = None

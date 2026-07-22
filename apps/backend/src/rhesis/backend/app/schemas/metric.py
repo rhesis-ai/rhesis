@@ -130,7 +130,6 @@ class TestSetReference(Base):
 
 
 class MetricDetail(Metric):
-    nano_id: Optional[str]
     name: Optional[str] = None
     counts: Optional[Dict[str, Any]] = None
     status: Optional[StatusReference] = None

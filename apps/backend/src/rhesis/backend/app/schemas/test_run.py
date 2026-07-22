@@ -108,7 +108,6 @@ class TestConfigurationReference(Base):
 
 class TestRunDetail(TestRun):
     id: UUID4
-    nano_id: Optional[str]
     counts: Optional[Dict[str, Any]] = None
     experiment_summary: Optional[Dict[str, Any]] = None
     tags: Optional[List[TagRead]] = None

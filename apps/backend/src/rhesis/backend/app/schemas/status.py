@@ -35,7 +35,6 @@ class Status(StatusBase):
 # The detailed model with expanded relations
 class StatusDetail(Status):
     id: UUID4
-    nano_id: Optional[str]
     name: Optional[str] = None
     entity_type: Optional[TypeLookupReference] = None
     project: Optional[ProjectReference] = None

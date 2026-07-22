@@ -80,7 +80,6 @@ class TestConfigurationDetail(TestConfiguration):
     # The factory-generated schema overrides endpoint_id to Optional (the
     # base schema declares it required) -- preserved here for parity.
     id: UUID4
-    nano_id: Optional[str]
     endpoint_id: Optional[UUID4] = None
     category: Optional[CategoryReference] = None
     topic: Optional[TopicReference] = None

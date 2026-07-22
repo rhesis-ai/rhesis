@@ -39,7 +39,6 @@ class Topic(TopicBase):
 # The detailed model with expanded relations
 class TopicDetail(Topic):
     id: UUID4
-    nano_id: Optional[str]
     name: Optional[str] = None
 
     status: Optional[StatusReference] = None

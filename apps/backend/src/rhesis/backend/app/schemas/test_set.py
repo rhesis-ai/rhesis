@@ -68,7 +68,6 @@ class TestSet(TestSetBase):
 
 # The detailed model with expanded relations
 class TestSetDetail(TestSet):
-    nano_id: Optional[str]
     name: Optional[str] = None
     tags: Optional[List[TagRead]] = None
     attributes: Optional[Dict[str, Any]] = None

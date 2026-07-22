@@ -246,7 +246,6 @@ class Endpoint(Base):
 
 # The detailed model with expanded relations
 class EndpointDetail(Endpoint):
-    nano_id: Optional[str]
     name: Optional[str] = None
     tags: Optional[List[TagRead]] = None
     status: Optional[StatusReference] = None

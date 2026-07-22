@@ -35,7 +35,6 @@ class Project(ProjectBase):
 
 # The detailed model with expanded relations
 class ProjectDetail(Project):
-    nano_id: Optional[str]
     name: Optional[str] = None
     tags: Optional[List[TagRead]] = None
     user: Optional[UserReference] = None

@@ -95,7 +95,6 @@ class Tool(Base):
 
 # The detailed model with expanded relations
 class ToolDetail(Tool):
-    nano_id: Optional[str]
     name: Optional[str] = None
 
     tool_provider_type: Optional[TypeLookupReference] = None

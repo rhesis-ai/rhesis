@@ -80,7 +80,6 @@ class Comment(CommentBase, WithPermittedActions):
 
 # The detailed model with expanded relations
 class CommentDetail(Comment):
-    nano_id: Optional[str]
     content: Optional[str] = None
     user_id: Optional[UUID4] = None
     user: Optional[UserReference] = None

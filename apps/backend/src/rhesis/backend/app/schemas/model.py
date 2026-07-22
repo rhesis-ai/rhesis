@@ -118,7 +118,6 @@ class Model(ModelBase):
 
 # The detailed model with expanded relations
 class ModelDetail(ModelRead):
-    nano_id: Optional[str]
     name: Optional[str] = None
     model_name: Optional[str] = None
     provider_type: Optional[TypeLookupReference] = None

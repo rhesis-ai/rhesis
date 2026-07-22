@@ -104,7 +104,6 @@ class Task(Base, WithPermittedActions):
 # The detailed model with expanded relations
 class TaskDetail(Task):
     id: UUID4
-    nano_id: Optional[str]
     title: Optional[str] = None
     user_id: Optional[UUID4] = None
     status_id: Optional[UUID4] = None

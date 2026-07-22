@@ -39,7 +39,6 @@ class Category(CategoryBase):
 # The detailed model with expanded relations
 class CategoryDetail(Category):
     id: UUID4
-    nano_id: Optional[str]
     name: Optional[str] = None
     counts: Optional[Dict[str, Any]] = None
     status: Optional[StatusReference] = None
