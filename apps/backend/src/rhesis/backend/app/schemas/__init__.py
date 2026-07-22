@@ -8,9 +8,9 @@ from .architect import (
 )
 from .base import Base
 from .behavior import Behavior, BehaviorBase, BehaviorCreate, BehaviorUpdate
-from .category import Category, CategoryBase, CategoryCreate, CategoryUpdate
+from .category import Category, CategoryBase, CategoryCreate, CategoryDetail, CategoryUpdate
 from .chunk import Chunk, ChunkBase, ChunkCreate, ChunkUpdate
-from .comment import Comment, CommentBase, CommentCreate, CommentUpdate
+from .comment import Comment, CommentBase, CommentCreate, CommentDetail, CommentUpdate
 from .demographic import Demographic, DemographicBase, DemographicCreate, DemographicUpdate
 from .dimension import Dimension, DimensionBase, DimensionCreate, DimensionUpdate
 from .embedding import (
@@ -118,7 +118,7 @@ from .stats import (
     TestRunSummary,
     TimelineData,
 )
-from .status import Status, StatusBase, StatusCreate, StatusUpdate
+from .status import Status, StatusBase, StatusCreate, StatusDetail, StatusUpdate
 from .tag import Tag, TagBase, TagCreate, TagUpdate
 from .task import (
     HealthCheck,
@@ -131,7 +131,7 @@ from .task import (
     WorkerStats,
     WorkerStatus,
 )
-from .task_management import Task, TaskBase, TaskCreate, TaskUpdate
+from .task_management import Task, TaskBase, TaskCreate, TaskDetail, TaskUpdate
 from .test import (
     ConversationMessage,
     ConversationTestExtractionResponse,
@@ -190,8 +190,8 @@ from .test_set import (
     TestSetUpdate,
 )
 from .token import Token, TokenBase, TokenCreate, TokenUpdate
-from .tool import Tool, ToolBase, ToolCreate, ToolUpdate
-from .topic import Topic, TopicBase, TopicCreate, TopicUpdate
+from .tool import Tool, ToolBase, ToolCreate, ToolDetail, ToolUpdate
+from .topic import Topic, TopicBase, TopicCreate, TopicDetail, TopicUpdate
 from .type_lookup import TypeLookup, TypeLookupBase, TypeLookupCreate, TypeLookupUpdate
 from .use_case import UseCase, UseCaseBase, UseCaseCreate, UseCaseUpdate
 from .user import User, UserBase, UserCreate, UserUpdate
@@ -215,10 +215,12 @@ __all__ = [
     "Category",
     "CategoryBase",
     "CategoryCreate",
+    "CategoryDetail",
     "CategoryUpdate",
     "Comment",
     "CommentBase",
     "CommentCreate",
+    "CommentDetail",
     "CommentUpdate",
     "Chunk",
     "ChunkBase",
@@ -293,6 +295,7 @@ __all__ = [
     "Status",
     "StatusBase",
     "StatusCreate",
+    "StatusDetail",
     "StatusUpdate",
     "Source",
     "SourceBase",
@@ -302,6 +305,7 @@ __all__ = [
     "Topic",
     "TopicBase",
     "TopicCreate",
+    "TopicDetail",
     "TopicUpdate",
     "Demographic",
     "DemographicBase",
@@ -330,6 +334,7 @@ __all__ = [
     "Task",
     "TaskBase",
     "TaskCreate",
+    "TaskDetail",
     "TaskUpdate",
     "Token",
     "TokenBase",
@@ -338,6 +343,7 @@ __all__ = [
     "Tool",
     "ToolBase",
     "ToolCreate",
+    "ToolDetail",
     "ToolUpdate",
     "Organization",
     "OrganizationBase",

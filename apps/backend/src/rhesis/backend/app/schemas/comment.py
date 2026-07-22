@@ -1,8 +1,8 @@
 import datetime
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import UUID4, BaseModel, ConfigDict, Field
 
 from rhesis.backend.app.auth.capabilities import ResourceType
 from rhesis.backend.app.constants import EntityType
@@ -10,6 +10,8 @@ from rhesis.backend.app.constants import EntityType
 from .affordances import WithPermittedActions
 from .base import Base
 from .emoji_reaction import EmojiReaction
+from .tag import TagRead
+from .user import UserReference as _BaseUserReference
 
 
 class CommentBase(Base):
@@ -74,3 +76,48 @@ class Comment(CommentBase, WithPermittedActions):
     updated_at: Union[datetime.datetime, str]
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# Lightweight reference schemas for CommentDetail's relationship fields.
+# Mirrors the shape schema_factory.create_detailed_schema previously derived
+# by reflection (see utils/schema_factory.py common_fields).
+class OrganizationReference(Base):
+    id: UUID4
+    name: Optional[str] = None
+    description: Optional[str] = None
+    email: Optional[str] = None
+    user_id: Optional[UUID4] = None
+    tags: Optional[List[TagRead]] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ProjectReference(Base):
+    id: UUID4
+    name: Optional[str] = None
+    description: Optional[str] = None
+    user_id: Optional[UUID4] = None
+    organization_id: Optional[UUID4] = None
+    status_id: Optional[UUID4] = None
+    attributes: Optional[Dict[str, Any]] = None
+    tags: Optional[List[TagRead]] = None
+    icon: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class UserReference(_BaseUserReference):
+    """Extends the shared UserReference with organization_id, which the
+    schema_factory-generated reference for Comment included."""
+
+    organization_id: Optional[UUID4] = None
+
+
+# The detailed model with expanded relations
+class CommentDetail(Comment):
+    nano_id: Optional[str]
+    content: Optional[str] = None
+    user_id: Optional[UUID4] = None
+    user: Optional[UserReference] = None
+    organization: Optional[OrganizationReference] = None
+    project: Optional[ProjectReference] = None
