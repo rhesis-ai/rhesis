@@ -112,6 +112,8 @@ dev = [
     "bandit>=1.8.0",
     "pytest-xdist>=3.6.0",
     "factory-boy>=3.3.0",
+    "pytest-timeout>=2.3.1",
+    "pytest-rerunfailures>=12.0",
 ]
 
 # PyTorch index configuration for CPU and GPU variants

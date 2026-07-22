@@ -86,22 +86,6 @@ def isolate_storage_settings_cache():
 
 
 @pytest.fixture(autouse=True)
-def isolate_permission_cache():
-    """Clear the permission cache before and after every test.
-
-    Prevents cached authorization decisions from one test leaking into the next
-    when both use the same principal UUIDs.  The permission cache (SP5) is
-    in-memory-only during unit tests (Redis not initialized in the test harness)
-    so ``clear_all()`` just empties the in-memory dict.
-    """
-    from rhesis.backend.app.services.permission_cache import get_permission_cache
-
-    get_permission_cache().clear_all()
-    yield
-    get_permission_cache().clear_all()
-
-
-@pytest.fixture(autouse=True)
 def _ensure_ee_features_registered():
     """Re-bootstrap EE features when the registry has been wiped.
 
@@ -170,8 +154,19 @@ def _ensure_ee_features_registered():
     yield
 
 
+# Fixtures whose transitive graph can result in a real, authorized DB query
+# (an HTTP request through a TestClient, or a raw session with RLS context
+# set). request.fixturenames is pytest's fully-resolved transitive set, so a
+# test that only depends on e.g. test_entity_type (which itself depends on
+# test_db) still matches here even though it never names test_db directly.
+_DB_TOUCHING_FIXTURES = frozenset(
+    {"client", "authenticated_client", "owner_client", "test_db", "real_commit_test_db",
+     "real_commit_client"}
+)
+
+
 @pytest.fixture(autouse=True)
-def _ensure_session_user_is_owner(_ensure_ee_features_registered):
+def _ensure_session_user_is_owner(request, _ensure_ee_features_registered):
     """Guarantee the shared session-auth user holds the built-in Owner role.
 
     With RBAC enforced (see _ensure_ee_features_registered), every
@@ -183,8 +178,20 @@ def _ensure_session_user_is_owner(_ensure_ee_features_registered):
     get_db() will see. Idempotent and cheap (two indexed lookups when already
     correct). No-op in community builds or before session auth is created.
 
+    Skipped entirely for tests whose fixture graph touches none of
+    _DB_TOUCHING_FIXTURES: with no client and no DB session, a test has no way
+    to make an authorized request or query tenant-scoped data, so the Owner
+    guarantee is moot. This is what actually removes the per-test DB
+    round-trip for the ~2,000 pure-unit tests in the suite (confirmed via a
+    static scan there is no test that reaches an authorized DB path without
+    one of these fixtures in its transitive graph).
+
     Depends on _ensure_ee_features_registered so RBAC is registered first.
     """
+    if not _DB_TOUCHING_FIXTURES.intersection(request.fixturenames):
+        yield
+        return
+
     from tests.backend.fixtures import auth as _auth
 
     cache = _auth._session_auth_cache
@@ -212,18 +219,7 @@ def _ensure_session_user_is_owner(_ensure_ee_features_registered):
 # =============================================================================
 
 
-@pytest.fixture(scope="session", autouse=True)
-def run_migrations_once():
-    """
-    Run Alembic migrations once per test session.
-
-    Idempotent: if the DB is already at head, this is a fast no-op.
-    Set RHESIS_SKIP_MIGRATIONS=1 to skip (e.g. for unit-only runs without DB).
-    """
-    if os.environ.get("RHESIS_SKIP_MIGRATIONS", "").lower() in ("1", "true", "yes"):
-        yield
-        return
-
+def _run_migrations() -> None:
     backend_dir = (
         Path(__file__).parent.parent.parent / "apps" / "backend" / "src" / "rhesis" / "backend"
     )
@@ -251,6 +247,49 @@ def run_migrations_once():
             f"stdout: {result.stdout}\nstderr: {result.stderr}\n"
             "Set RHESIS_SKIP_MIGRATIONS=1 to skip migrations for unit-only runs."
         )
+
+
+@pytest.fixture(scope="session", autouse=True)
+def run_migrations_once(tmp_path_factory, request):
+    """
+    Run Alembic migrations once per test session.
+
+    Idempotent: if the DB is already at head, this is a fast no-op.
+    Set RHESIS_SKIP_MIGRATIONS=1 to skip (e.g. for unit-only runs without DB).
+
+    Under pytest-xdist, every worker is a separate process with its own
+    ``session``-scoped fixtures, so without coordination each worker would
+    race to run ``alembic upgrade`` concurrently against the same database.
+    A cross-process file lock (shared under xdist's own root temp dir, one
+    level above each worker's private tmp dir) plus a sentinel file makes
+    only the first worker to grab the lock actually run migrations; the rest
+    see the sentinel and skip.
+
+    The worker id is read from ``request.config.workerinput`` (set by xdist
+    only when it's actually active) rather than requesting the ``worker_id``
+    fixture directly, so this doesn't hard-depend on the ``pytest-xdist``
+    plugin being installed — a plain, non-xdist ``pytest`` run still works.
+    """
+    if os.environ.get("RHESIS_SKIP_MIGRATIONS", "").lower() in ("1", "true", "yes"):
+        yield
+        return
+
+    workerinput = getattr(request.config, "workerinput", None)
+    worker_id = workerinput["workerid"] if workerinput is not None else "master"
+
+    if worker_id == "master":
+        _run_migrations()
+        yield
+        return
+
+    from filelock import FileLock
+
+    root_tmp_dir = tmp_path_factory.getbasetemp().parent
+    with FileLock(str(root_tmp_dir / "migrations.lock")):
+        sentinel = root_tmp_dir / "migrations.done"
+        if not sentinel.exists():
+            _run_migrations()
+            sentinel.write_text("done")
 
     yield
 
