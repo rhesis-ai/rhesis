@@ -121,10 +121,13 @@ export default function TestDetailMetricsTab({
     if (useBehaviorGrouping) {
       // Filter to only the behavior belonging to this test result to avoid
       // duplicating metrics shared across different behaviors in the run.
+      // If this test has no known behavior, don't fall back to the full run-wide
+      // behaviors list either — that would reintroduce the same duplication for
+      // this test. The direct-metrics branch below picks up the slack instead.
       const testBehaviorId = test.test?.behavior?.id;
       const relevantBehaviors = testBehaviorId
         ? behaviors.filter(b => b.id === testBehaviorId)
-        : behaviors;
+        : [];
 
       relevantBehaviors.forEach(behavior => {
         behavior.metrics.forEach(metric => {
