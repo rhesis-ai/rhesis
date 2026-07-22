@@ -25,6 +25,7 @@ from .job import router as task_router
 from .metric import router as metric_router
 from .model import router as model_router
 from .organization import router as organization_router
+from .owasp import router as owasp_router
 from .parameters import (
     project_experiments_router as project_experiments_router,
 )
@@ -102,6 +103,7 @@ __all__ = [
     "task",
     "task_management",
     "garak",
+    "owasp",
     "capabilities",
     "features",
     "file",
@@ -158,6 +160,7 @@ routers = sorted(
         recycle_router,
         resolve_router,
         garak_router,
+        owasp_router,
         features_router,
         feedback_router,
         file_router,

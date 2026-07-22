@@ -92,6 +92,11 @@ function isValidMetricType(
   );
 }
 
+/** Tag applied to OWASP metrics by the tag_owasp migration. */
+const OWASP_TAG_NAME = 'OWASP';
+/** Pseudo-backend pill value for the OWASP tag — no real backend uses it. */
+const OWASP_PILL_VALUE = 'owasp';
+
 export default function MetricsDirectoryTab({
   organizationId: _organizationId,
   behaviors,
@@ -161,6 +166,13 @@ export default function MetricsDirectoryTab({
     filters.backend.length === 0 &&
     activeAdvancedFilterCount === 0;
 
+  /** Whether any loaded metric carries the OWASP tag — gates the OWASP pill. */
+  const hasOwaspMetrics = React.useMemo(
+    () =>
+      metrics.some(m => (m.tags ?? []).some(t => t.name === OWASP_TAG_NAME)),
+    [metrics]
+  );
+
   // Filter metrics based on search and filter criteria
   const getFilteredMetrics = () => {
     return metrics.filter(metric => {
@@ -177,13 +189,16 @@ export default function MetricsDirectoryTab({
           .toLowerCase()
           .includes(filters.search.toLowerCase());
 
-      // Backend filter
+      // Backend filter — pills are OR'd. The OWASP pill is a pseudo-backend
+      // that matches the OWASP tag instead of a backend_type.
       const backendMatch =
         filters.backend.length === 0 ||
         (metric.backend_type &&
           filters.backend.includes(
             metric.backend_type.type_value.toLowerCase()
-          ));
+          )) ||
+        (filters.backend.includes(OWASP_PILL_VALUE) &&
+          (metric.tags ?? []).some(t => t.name === OWASP_TAG_NAME));
 
       // Type filter
       const typeMatch =
@@ -573,6 +588,9 @@ export default function MetricsDirectoryTab({
                     value: o.type_value.toLowerCase(),
                     label: o.type_value,
                   })),
+                  ...(hasOwaspMetrics
+                    ? [{ value: OWASP_PILL_VALUE, label: OWASP_TAG_NAME }]
+                    : []),
                 ]}
                 selectedValues={filters.backend}
                 onMultiChange={values => handleFilterChange('backend', values)}

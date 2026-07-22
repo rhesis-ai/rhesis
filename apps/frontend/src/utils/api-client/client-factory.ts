@@ -28,6 +28,7 @@ import { RecycleClient } from './recycle-client';
 import { ToolsClient } from './tools-client';
 import { TelemetryClient } from './telemetry-client';
 import { GarakClient } from './garak-client';
+import { OwaspClient } from './owasp-client';
 import { ImportClient } from './import-client';
 import { FilesClient } from './files-client';
 import { FeaturesClient } from './features-client';
@@ -51,6 +52,7 @@ export class ApiClientFactory {
   private toolsClient: ToolsClient | null = null;
   private telemetryClient: TelemetryClient | null = null;
   private garakClient: GarakClient | null = null;
+  private owaspClient: OwaspClient | null = null;
   private importClient: ImportClient | null = null;
   private filesClient: FilesClient | null = null;
   private featuresClient: FeaturesClient | null = null;
@@ -283,6 +285,17 @@ export class ApiClientFactory {
       );
     }
     return this.garakClient;
+  }
+
+  getOwaspClient(): OwaspClient {
+    if (!this.owaspClient) {
+      this.owaspClient = new OwaspClient(
+        this.sessionToken,
+        undefined,
+        this.projectId
+      );
+    }
+    return this.owaspClient;
   }
 
   getImportClient(): ImportClient {

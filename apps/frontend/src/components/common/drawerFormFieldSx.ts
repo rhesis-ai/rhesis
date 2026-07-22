@@ -1,4 +1,5 @@
 import type { SxProps, Theme } from '@mui/material/styles';
+import type { SystemStyleObject } from '@mui/system';
 import { BORDER_RADIUS } from '@/styles/theme';
 
 /** Default drawer shell width — 518px content + 30px padding each side (Figma 1641:16598). */
@@ -52,7 +53,8 @@ export const drawerOutlinedFieldSx: SxProps<Theme> = {
     borderColor: theme => theme.palette.greyscale.border,
   },
   '& .MuiInputLabel-root.MuiInputLabel-shrink': {
-    fontSize: 12,
+    // MUI shrinks labels with scale(0.75); 16 → 12px visual (Figma Caption).
+    fontSize: 16,
     lineHeight: '18px',
     color: theme => theme.palette.greyscale.subtitle,
   },
@@ -91,6 +93,40 @@ export const drawerDisabledFieldSx: SxProps<Theme> = {
   },
 };
 
+/**
+ * Figma Chip Medium — Body M/Reg 14/22 (node 818:38079).
+ * For tag inputs inside form fields, not dense selection lists.
+ */
+export const drawerChipSx: SystemStyleObject<Theme> = {
+  fontSize: 14,
+  fontWeight: 400,
+  lineHeight: '22px',
+  height: 'auto',
+  '& .MuiChip-label': {
+    fontSize: 14,
+    lineHeight: '22px',
+  },
+};
+
+/** Compact chips for dense probe/category lists inside drawers. */
+export const drawerListChipSx: SystemStyleObject<Theme> = {
+  height: 20,
+  fontSize: 11,
+  fontWeight: 500,
+  lineHeight: '16px',
+  borderRadius: '4px',
+  '& .MuiChip-label': {
+    px: 0.75,
+    fontSize: 11,
+    lineHeight: '16px',
+  },
+  '& .MuiChip-icon': {
+    fontSize: 12,
+    ml: 0.5,
+    mr: -0.25,
+  },
+};
+
 export const drawerTagFieldSx: SxProps<Theme> = {
   ...drawerOutlinedFieldSx,
   '& .MuiOutlinedInput-root': {
@@ -108,7 +144,7 @@ export const drawerTagFieldSx: SxProps<Theme> = {
     lineHeight: '24px',
   },
   '& .MuiChip-root': {
-    fontWeight: 400,
+    ...drawerChipSx,
   },
 };
 

@@ -34,6 +34,7 @@ export default function TestSetsPage() {
   );
   const canCreate = useCan(Capability.TestSet.CREATE);
   const canGenerate = useCan(Capability.TestSet.GENERATE);
+  const canGarak = useCan(Capability.Garak.CREATE);
 
   const [createDrawerOpen, setCreateDrawerOpen] = React.useState(false);
   const [fileImportDrawerOpen, setFileImportDrawerOpen] = React.useState(false);
@@ -71,6 +72,15 @@ export default function TestSetsPage() {
     },
     [queryClient, notifications, router]
   );
+
+  const handleOwaspGenerateSuccess = React.useCallback(() => {
+    // Generation runs as a background task — the test set doesn't exist yet,
+    // so the drawer stays open showing its own completion state. The user
+    // closes it manually once they've read the "will appear in your list" note.
+    notifications.show('OWASP test set generation started', {
+      severity: 'success',
+    });
+  }, [notifications]);
 
   if (isSessionLoading(status)) {
     return (
@@ -110,13 +120,26 @@ export default function TestSetsPage() {
                 onClick={() => setFileImportDrawerOpen(true)}
               />
             </Can>
-            <Can capability={Capability.Garak.CREATE}>
+            {(canGarak || canGenerate) && (
               <Fab
                 icon={<SecurityIcon />}
-                tooltip="Import from Garak"
+                tooltip={
+                  canGarak && canGenerate
+                    ? 'Import from Garak or OWASP'
+                    : canGenerate
+                      ? 'Generate from OWASP'
+                      : 'Import from Garak'
+                }
+                aria-label={
+                  canGarak && canGenerate
+                    ? 'Import from Garak or OWASP'
+                    : canGenerate
+                      ? 'Generate from OWASP'
+                      : 'Import from Garak'
+                }
                 onClick={() => setGarakImportDrawerOpen(true)}
               />
-            </Can>
+            )}
             <Can capability={Capability.TestSet.GENERATE}>
               <Fab
                 icon={<AutoFixHighIcon />}
@@ -160,6 +183,9 @@ export default function TestSetsPage() {
         open={garakImportDrawerOpen}
         onClose={() => setGarakImportDrawerOpen(false)}
         onSuccess={handleGarakImportSuccess}
+        onOwaspSuccess={handleOwaspGenerateSuccess}
+        canUseGarak={canGarak}
+        canUseOwasp={canGenerate}
       />
     </>
   );

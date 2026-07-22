@@ -12,8 +12,13 @@ PDF layout (LLM Top 10, Agentic Top 10, etc.).
 from __future__ import annotations
 
 import logging
-from typing import Any, Collection, Dict, List, Optional, Union
+from typing import Any, Callable, Collection, Dict, List, Optional, Union
 
+from jinja2 import Template
+from pydantic import BaseModel, Field
+
+from rhesis.sdk.entities.test_set import TestSet
+from rhesis.sdk.enums import TestType
 from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.services.owasp_extractor import (
     DEFAULT_OWASP_AGENTIC_PDF_URL,
@@ -23,8 +28,28 @@ from rhesis.sdk.services.owasp_extractor import (
     fetch_owasp_sections,
 )
 from rhesis.sdk.synthesizers.base import TestSetSynthesizer
+from rhesis.sdk.synthesizers.utils import load_prompt_template
 
 logger = logging.getLogger(__name__)
+
+
+# Flat schema for multi-turn generation, repacked to the nested test_configuration
+# shape after generation — mirrors multi_turn.base.FlatTest.
+class FlatMultiTurnTest(BaseModel):
+    test_configuration_goal: str
+    test_configuration_instructions: str
+    test_configuration_restrictions: str
+    test_configuration_scenario: str
+    test_configuration_min_turns: int = Field(ge=1, le=50)
+    test_configuration_max_turns: int = Field(ge=1, le=50)
+    behavior: str
+    category: str
+    topic: str
+
+
+class FlatMultiTurnTests(BaseModel):
+    tests: List[FlatMultiTurnTest]
+
 
 __all__ = [
     "OWASPSynthesizer",
@@ -70,6 +95,7 @@ class OWASPSynthesizer(TestSetSynthesizer):
     """
 
     prompt_template_file = "owasp_synthesizer.jinja"
+    multi_turn_prompt_template_file = "owasp_synthesizer_multi_turn.jinja"
 
     def __init__(
         self,
@@ -80,6 +106,10 @@ class OWASPSynthesizer(TestSetSynthesizer):
         batch_size: int = 10,
         model: Optional[Union[str, BaseLLM]] = None,
         behavior: str = "OWASP LLM Top 10",
+        test_type: Union[str, TestType] = TestType.SINGLE_TURN,
+        cache_key: Optional[str] = None,
+        cache_loader: Optional[Callable[[str], Optional[List[dict]]]] = None,
+        cache_writer: Optional[Callable[[str, List[dict]], None]] = None,
     ):
         """
         Args:
@@ -101,6 +131,11 @@ class OWASPSynthesizer(TestSetSynthesizer):
             behavior: Behavior label stored on every generated test, used for
                 analytics grouping.  Override to e.g. ``"OWASP Agentic Top 10"``
                 when using :data:`DEFAULT_OWASP_AGENTIC_PDF_URL`.
+            test_type: ``SINGLE_TURN`` (default) generates one-shot prompts;
+                ``MULTI_TURN`` generates conversational attacks.
+            cache_key, cache_loader, cache_writer: Optional content-cache hooks
+                passed through to
+                :func:`~rhesis.sdk.services.owasp_extractor.fetch_owasp_sections`.
         """
         super().__init__(batch_size=batch_size, model=model, harmful=True)
         self.purpose = purpose
@@ -108,7 +143,12 @@ class OWASPSynthesizer(TestSetSynthesizer):
         self._behavior = behavior
         self._category_filter = [c.lower() for c in categories] if categories else None
         self._subsection_exclusions = subsection_exclusions
+        self._cache_key = cache_key
+        self._cache_loader = cache_loader
+        self._cache_writer = cache_writer
         self._sections: Optional[List[ReportSection]] = None  # lazy-loaded on first use
+        self.test_type = test_type if isinstance(test_type, TestType) else TestType(test_type)
+        self._multi_turn_template: Optional[Template] = None  # lazy-loaded on first use
 
     # ------------------------------------------------------------------
     # TestSetSynthesizer interface
@@ -129,6 +169,16 @@ class OWASPSynthesizer(TestSetSynthesizer):
 
     def _get_synthesizer_name(self) -> str:
         return "OWASPSynthesizer"
+
+    def generate(self, num_tests: int = 10, **kwargs: Any) -> TestSet:
+        """Generate the test set, then stamp multi-turn metadata (the base class
+        always sets test_set_type=SINGLE_TURN), mirroring MultiTurnSynthesizer.generate."""
+        test_set = super().generate(num_tests=num_tests, **kwargs)
+        if self.test_type == TestType.MULTI_TURN:
+            test_set.test_set_type = TestType.MULTI_TURN
+            if test_set.name:
+                test_set.name = f"{test_set.name} (Multi-Turn)"
+        return test_set
 
     # ------------------------------------------------------------------
     # Core generation — one pass per section
@@ -153,7 +203,10 @@ class OWASPSynthesizer(TestSetSynthesizer):
                 section.name,
             )
             context = self._build_section_context(section, **kwargs)
-            tests = self._generate_with_retry(n, **context)
+            if self.test_type == TestType.MULTI_TURN:
+                tests = self._generate_multiturn_tests(n, context)
+            else:
+                tests = self._generate_with_retry(n, **context)
             for t in tests:
                 t.setdefault("metadata", {})["owasp_category"] = section.id
                 t.setdefault("metadata", {})["owasp_name"] = section.name
@@ -167,6 +220,73 @@ class OWASPSynthesizer(TestSetSynthesizer):
 
         return all_tests
 
+    # Multi-turn generation — modeled on MultiTurnSynthesizer._generate_batch.
+
+    def _get_multi_turn_template(self) -> Template:
+        """Lazily load the multi-turn OWASP Jinja template."""
+        if self._multi_turn_template is None:
+            self._multi_turn_template = load_prompt_template(self.multi_turn_prompt_template_file)
+        return self._multi_turn_template
+
+    @staticmethod
+    def _flat_multiturn_test_to_nested(flat: Dict[str, Any]) -> Dict[str, Any]:
+        """Repack a flat multi-turn test dict (LLM output) into the nested shape."""
+        return {
+            "test_configuration": {
+                "goal": flat["test_configuration_goal"],
+                "instructions": flat["test_configuration_instructions"],
+                "restrictions": flat["test_configuration_restrictions"],
+                "scenario": flat["test_configuration_scenario"],
+                "min_turns": int(flat["test_configuration_min_turns"]),
+                "max_turns": int(flat["test_configuration_max_turns"]),
+            },
+            "behavior": flat["behavior"],
+            "category": flat["category"],
+            "topic": flat["topic"],
+        }
+
+    def _generate_multiturn_tests(
+        self, num_tests: int, context: Dict[str, Any]
+    ) -> List[Dict[str, Any]]:
+        """Generate multi-turn OWASP tests for one section, batching by ``self.batch_size``."""
+        template = self._get_multi_turn_template()
+        all_tests: List[Dict[str, Any]] = []
+        remaining = num_tests
+
+        while remaining > 0:
+            batch_n = min(remaining, self.batch_size)
+            prompt = template.render(num_tests=batch_n, **context)
+
+            try:
+                response = self.model.generate(prompt=prompt, schema=FlatMultiTurnTests)
+            except Exception:
+                logger.exception("[OWASPSynthesizer] Multi-turn batch generation failed")
+                break
+
+            if not isinstance(response, dict) or "tests" not in response:
+                logger.error(
+                    "[OWASPSynthesizer] Multi-turn batch: unexpected response type=%s: %s",
+                    type(response).__name__,
+                    str(response)[:500],
+                )
+                break
+
+            flat_tests = response["tests"][:batch_n]
+            if not flat_tests:
+                logger.warning("[OWASPSynthesizer] Multi-turn batch returned no tests")
+                break
+
+            for flat in flat_tests:
+                all_tests.append(
+                    {
+                        **self._flat_multiturn_test_to_nested(flat),
+                        "test_type": TestType.MULTI_TURN.value,
+                    }
+                )
+            remaining -= len(flat_tests)
+
+        return all_tests
+
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
@@ -177,7 +297,11 @@ class OWASPSynthesizer(TestSetSynthesizer):
             return self._sections
 
         all_sections = fetch_owasp_sections(
-            self._report_url, subsection_exclusions=self._subsection_exclusions
+            self._report_url,
+            subsection_exclusions=self._subsection_exclusions,
+            cache_key=self._cache_key,
+            cache_loader=self._cache_loader,
+            cache_writer=self._cache_writer,
         )
 
         if self._category_filter is not None:
