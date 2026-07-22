@@ -79,6 +79,11 @@ spec:
             secretKeyRef:
               name: rhesis-worker-secrets
               key: CELERY_WORKER_CONCURRENCY
+        - name: CELERY_ARCHITECT_CONCURRENCY
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: CELERY_ARCHITECT_CONCURRENCY
         - name: BATCH_CONCURRENCY
           valueFrom:
             secretKeyRef:

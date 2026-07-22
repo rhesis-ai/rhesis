@@ -121,7 +121,11 @@ workers:
       maxReplicas: 4
       targetCPUUtilizationPercentage: 70
       targetMemoryUtilizationPercentage: 80
-    env: []
+    env:
+      - name: CELERY_WORKER_CONCURRENCY
+        value: "16"
+      - name: CELERY_ARCHITECT_CONCURRENCY
+        value: "8"
 
 docs:
   resources:
