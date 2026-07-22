@@ -456,9 +456,11 @@ export default function GarakImportDrawer({
       .flatMap(m => getModuleProbes(m))
       .every(p => selectedProbes.has(p.full_name));
 
-  const isCompleteWithDynamic =
-    !!importProgress?.isComplete &&
-    (importProgress?.dynamicResults.length ?? 0) > 0;
+  // Both static import and dynamic generation are fire-and-forget background
+  // tasks — once queued, the drawer must show the "started" summary and wait
+  // for the user to close it explicitly (not just for the dynamic case: a
+  // static-only import needs the same persistent confirmation).
+  const isImportComplete = !!importProgress?.isComplete;
 
   const saveButtonText = (() => {
     const { staticProbes, dynamicProbes } = getSelectedProbeObjects();
@@ -475,9 +477,9 @@ export default function GarakImportDrawer({
       onClose={handleClose}
       title="Import from Garak"
       width={720}
-      closeButtonText={isCompleteWithDynamic ? 'Close' : 'Cancel'}
+      closeButtonText={isImportComplete ? 'Close' : 'Cancel'}
       loading={importing || preparingImport}
-      onSave={isCompleteWithDynamic ? undefined : handleImport}
+      onSave={isImportComplete ? undefined : handleImport}
       saveDisabled={loading || selectedProbes.size === 0}
       saveButtonText={saveButtonText}
     >
@@ -489,7 +491,7 @@ export default function GarakImportDrawer({
         )}
 
         {/* Probe Selection - Hide when importing or showing completion */}
-        {!importing && !isCompleteWithDynamic && (
+        {!importing && !isImportComplete && (
           <Box
             sx={{
               flex: 1,
@@ -787,7 +789,7 @@ export default function GarakImportDrawer({
         )}
 
         {/* Import Progress */}
-        {(importing || isCompleteWithDynamic) && importProgress && (
+        {(importing || isImportComplete) && importProgress && (
           <Paper
             elevation={0}
             sx={theme => ({
@@ -806,7 +808,7 @@ export default function GarakImportDrawer({
                     'Starting static probe import...'}
                   {importProgress.phase === 'dynamic' &&
                     'Generating dynamic probes...'}
-                  {importProgress.phase === 'done' && 'Complete'}
+                  {importProgress.phase === 'done' && 'Running in background'}
                 </Typography>
               </Stack>
 
@@ -997,7 +999,7 @@ export default function GarakImportDrawer({
         )}
 
         {/* Preview */}
-        {preview && !importing && !isCompleteWithDynamic && (
+        {preview && !importing && !isImportComplete && (
           <Alert severity="info" icon={false}>
             <Typography variant="subtitle2" gutterBottom>
               Import Preview
