@@ -11,6 +11,7 @@ import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined';
 import { FilterDrawerShell } from '@/components/common/FilterDrawer';
 import { BORDER_RADIUS } from '@/styles/theme';
 import DiscordIcon from '@/components/DiscordIcon';
+import AppVersion from '@/components/common/AppVersion';
 
 interface SupportDrawerProps {
   open: boolean;
@@ -129,7 +130,14 @@ export default function SupportDrawer({ open, onClose }: SupportDrawerProps) {
       title="Support"
       anchor="right"
     >
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: '40px' }}>
+      <Box
+        sx={{
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '40px',
+        }}
+      >
         <SupportSection
           title="Docs"
           description="Explore guides, API references, and examples to get the most out of Rhesis."
@@ -203,6 +211,14 @@ export default function SupportDrawer({ open, onClose }: SupportDrawerProps) {
             />
           </Box>
         </SupportSection>
+
+        <AppVersion
+          sx={{
+            mt: 'auto',
+            fontSize: 12,
+            color: theme => theme.palette.greyscale.subtitle,
+          }}
+        />
       </Box>
     </FilterDrawerShell>
   );
