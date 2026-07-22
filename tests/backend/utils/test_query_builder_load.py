@@ -48,6 +48,11 @@ class TestIncludeConstruction:
         with pytest.raises(AttributeError):
             include(models.Test.id)
 
+    def test_rejects_empty_cols_list(self):
+        """cols=[] is rejected rather than silently treated as "load everything"."""
+        with pytest.raises(ValueError, match="cols=\\[\\]"):
+            include(models.Test.behavior, cols=[])
+
 
 @pytest.mark.unit
 @pytest.mark.utils

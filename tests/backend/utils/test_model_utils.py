@@ -100,7 +100,7 @@ class TestQueryBuilder:
         assert result is query_builder
         original_query.options.assert_called_once()
         assert query_builder.query is stage
-        assert query_builder._joined_count == 2
+        assert query_builder._eager_load_count == 2
 
     def test_with_related_empty_call_is_noop(
         self, test_db: Session, authenticated_user_id, test_org_id
@@ -112,8 +112,7 @@ class TestQueryBuilder:
         query_builder.with_related()
 
         original_query.options.assert_not_called()
-        assert query_builder._joined_count == 0
-        assert query_builder._selectin_count == 0
+        assert query_builder._eager_load_count == 0
 
     def test_query_builder_with_optimized_loads(
         self, test_db: Session, authenticated_user_id, test_org_id

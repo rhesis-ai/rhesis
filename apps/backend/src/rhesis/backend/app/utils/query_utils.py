@@ -51,8 +51,10 @@ def include(*path, cols: list | None = None):
     ``selectinload`` is picked per hop from that relationship's own cardinality,
     so a collection relationship can never regress into the cartesian-product
     blowup a plain JOIN would produce (see ``_MAX_EAGER_LOADS_WARN`` below).
-    ``cols`` scopes the final hop to specific columns -- omit it to load the
-    full related row.
+    ``cols`` scopes the final hop to specific columns -- omit it (leave as
+    ``None``) to load the full related row. ``cols=[]`` is rejected outright
+    rather than silently treated as "no scoping", since that's the opposite
+    of what an empty list reads as.
 
     Example::
 
@@ -60,10 +62,15 @@ def include(*path, cols: list | None = None):
         include(Test.test_configuration, TestConfiguration.endpoint,
                 cols=[Endpoint.id, Endpoint.name])
     """
+    if cols is not None and not cols:
+        raise ValueError(
+            "include(): cols=[] is not allowed -- omit cols to load the full "
+            "row, or pass at least one column"
+        )
     opt = selectinload(path[0]) if path[0].property.uselist else joinedload(path[0])
     for attr in path[1:]:
         opt = opt.selectinload(attr) if attr.property.uselist else opt.joinedload(attr)
-    if cols:
+    if cols is not None:
         opt = opt.load_only(*cols)
     return opt
 
@@ -96,10 +103,12 @@ class QueryBuilder:
         self._sort_order = "asc"
         self._secondary_sort_by = None
         self._secondary_sort_order = "asc"
-        # Track explicit eager-load counts so we can warn callers who request
-        # an unreasonably large number of joins on a single query.
-        self._joined_count = 0
-        self._selectin_count = 0
+        # Track eager-load count so we can warn callers who request an
+        # unreasonably large number of relationships on a single query. Not
+        # split by strategy (joined vs. selectin) -- that decision happens
+        # inside include() now, invisibly to with_related, so a joined/
+        # selectin breakdown here would just be made up.
+        self._eager_load_count = 0
 
     def with_related(self, *options) -> "QueryBuilder":
         """Eager-load each relationship option, built via ``include(...)`` (see
@@ -116,7 +125,7 @@ class QueryBuilder:
             # chain, which is enough to catch the "far too many relationships in
             # one query" pattern that caused the 22-join blowup this guards
             # against -- see _MAX_EAGER_LOADS_WARN above.
-            self._joined_count += len(options)
+            self._eager_load_count += len(options)
             self._maybe_warn_load_count()
         return self
 
@@ -204,16 +213,12 @@ class QueryBuilder:
         return self
 
     def _maybe_warn_load_count(self) -> None:
-        total = self._joined_count + self._selectin_count
-        if total >= _MAX_EAGER_LOADS_WARN:
+        if self._eager_load_count >= _MAX_EAGER_LOADS_WARN:
             logger.warning(
-                "QueryBuilder(%s) has accumulated %d eager loads "
-                "(joined=%d, selectin=%d); consider whether the response "
-                "schema actually needs all of these.",
+                "QueryBuilder(%s) has accumulated %d eager loads; consider "
+                "whether the response schema actually needs all of these.",
                 self.model.__name__,
-                total,
-                self._joined_count,
-                self._selectin_count,
+                self._eager_load_count,
             )
 
     def with_optimized_loads(
