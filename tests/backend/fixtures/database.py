@@ -122,13 +122,13 @@ def test_db(test_org_id, authenticated_user_id, monkeypatch):
 
     Note: this session only sees its own uncommitted writes plus whatever was
     truly committed before the test started (e.g. the shared session-auth
-    org/user/token). Code paths that open a genuinely separate connection —
-    e.g. auth resolution in ``auth/user_utils.py``, which calls ``get_db()``
-    directly rather than through FastAPI ``Depends`` — will NOT see this
-    session's writes until a real commit happens on a real (non-savepoint)
-    connection. Tests that need that (e.g. authenticating as a brand-new user
-    created mid-test) should use ``real_commit_test_db``/``owner_client``
-    instead.
+    org/user/token). Auth resolution in ``auth/user_utils.py`` calls
+    ``get_db()`` directly rather than through FastAPI ``Depends``, but
+    ``patch_auth_get_db`` (see below) points that at this same session, so
+    authenticating as a brand-new user created mid-test (e.g. ``owner_client``)
+    works fine here — no real commit needed. ``real_commit_test_db`` is only
+    for code that opens a genuinely independent, unpatchable connection —
+    e.g. a CLI entrypoint calling ``SessionLocal()`` directly.
     """
     from rhesis.backend.app.database import (
         _current_tenant_organization_id,
