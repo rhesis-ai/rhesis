@@ -221,9 +221,7 @@ def prefetch_execution_context(
         # Check whether P1 or P2 apply (shared metrics for all tests).
         attrs = test_config.attributes or {}
         has_execution_time_metrics = bool(attrs.get("metrics"))
-        has_test_set_metrics = bool(
-            test_set and hasattr(test_set, "metrics") and test_set.metrics
-        )
+        has_test_set_metrics = bool(test_set and hasattr(test_set, "metrics") and test_set.metrics)
 
         if has_execution_time_metrics or has_test_set_metrics:
             # P1 / P2: metrics are the same for every test; resolve once.
