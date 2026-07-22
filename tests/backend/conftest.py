@@ -250,25 +250,32 @@ def _run_migrations() -> None:
 
 
 @pytest.fixture(scope="session", autouse=True)
-def run_migrations_once(tmp_path_factory, worker_id):
+def run_migrations_once(tmp_path_factory, request):
     """
     Run Alembic migrations once per test session.
 
     Idempotent: if the DB is already at head, this is a fast no-op.
     Set RHESIS_SKIP_MIGRATIONS=1 to skip (e.g. for unit-only runs without DB).
 
-    Under pytest-xdist, ``worker_id`` is ``"master"`` outside of xdist and
-    ``"gw0"``/``"gw1"``/... inside it — every worker is a separate process
-    with its own ``session``-scoped fixtures, so without coordination each
-    worker would race to run ``alembic upgrade`` concurrently against the
-    same database. A cross-process file lock (shared under xdist's own root
-    temp dir, one level above each worker's private tmp dir) plus a sentinel
-    file makes only the first worker to grab the lock actually run
-    migrations; the rest see the sentinel and skip.
+    Under pytest-xdist, every worker is a separate process with its own
+    ``session``-scoped fixtures, so without coordination each worker would
+    race to run ``alembic upgrade`` concurrently against the same database.
+    A cross-process file lock (shared under xdist's own root temp dir, one
+    level above each worker's private tmp dir) plus a sentinel file makes
+    only the first worker to grab the lock actually run migrations; the rest
+    see the sentinel and skip.
+
+    The worker id is read from ``request.config.workerinput`` (set by xdist
+    only when it's actually active) rather than requesting the ``worker_id``
+    fixture directly, so this doesn't hard-depend on the ``pytest-xdist``
+    plugin being installed — a plain, non-xdist ``pytest`` run still works.
     """
     if os.environ.get("RHESIS_SKIP_MIGRATIONS", "").lower() in ("1", "true", "yes"):
         yield
         return
+
+    workerinput = getattr(request.config, "workerinput", None)
+    worker_id = workerinput["workerid"] if workerinput is not None else "master"
 
     if worker_id == "master":
         _run_migrations()
