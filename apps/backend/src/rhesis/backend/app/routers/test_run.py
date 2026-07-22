@@ -29,17 +29,7 @@ from rhesis.backend.app.services.test_run import (
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.odata import apply_select
-from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 from rhesis.backend.tasks.enums import RunStatus
-
-# Create the detailed schema for TestRun
-TestRunDetailSchema = create_detailed_schema(
-    schemas.TestRun,
-    models.TestRun,
-    include_nested_relationships={
-        "test_configuration": {"endpoint": ["project"], "test_set": ["test_set_type"]}
-    },
-)
 
 
 class TestRunStatsMode(str, Enum):
@@ -85,7 +75,7 @@ def create_test_run(
     )
 
 
-@router.get("/", response_model=list[TestRunDetailSchema])
+@router.get("/", response_model=list[schemas.TestRunDetail])
 @with_count_header(model=models.TestRun)
 def read_test_runs(
     response: Response,
@@ -147,7 +137,7 @@ def read_test_runs(
     review_stats = get_review_statistics_for_runs(db, run_ids, organization_id=organization_id)
     serialized = []
     for run in results:
-        item = TestRunDetailSchema.model_validate(run).model_dump(mode="json")
+        item = schemas.TestRunDetail.model_validate(run).model_dump(mode="json")
         item["stats"] = run_stats.get(
             str(item.get("id")),
             {"total": 0, "passed": 0, "failed": 0, "errors": 0},
@@ -355,7 +345,7 @@ def generate_test_run_stats(
     )
 
 
-@router.get("/{test_run_id}", response_model=TestRunDetailSchema)
+@router.get("/{test_run_id}", response_model=schemas.TestRunDetail)
 def read_test_run(
     test_run_id: UUID,
     db: Session = Depends(get_tenant_db_session),

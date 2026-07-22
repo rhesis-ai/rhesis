@@ -5,9 +5,15 @@ from typing import Any, Dict, Optional, Union
 from pydantic import UUID4, ConfigDict, field_serializer
 
 from .base import Base
+from .references import (
+    OrganizationReference,
+    ProjectReference,
+    StatusReference,
+    TypeLookupReference,
+)
 from .status import Status
 from .type_lookup import TypeLookup
-from .user import User
+from .user import User, UserReference
 
 
 class ToolBase(Base):
@@ -85,3 +91,14 @@ class Tool(Base):
     user: Optional[User] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# The detailed model with expanded relations
+class ToolDetail(Tool):
+    name: Optional[str] = None
+
+    tool_provider_type: Optional[TypeLookupReference] = None
+    status: Optional[StatusReference] = None
+    user: Optional[UserReference] = None
+    organization: Optional[OrganizationReference] = None
+    project: Optional[ProjectReference] = None

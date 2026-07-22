@@ -1,8 +1,11 @@
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import UUID4
 
 from rhesis.backend.app.schemas import Base
+from rhesis.backend.app.schemas.references import OrganizationReference, StatusReference
+from rhesis.backend.app.schemas.tag import TagRead
+from rhesis.backend.app.schemas.user import UserReference
 
 
 # Project schemas
@@ -28,3 +31,13 @@ class ProjectUpdate(ProjectBase):
 
 class Project(ProjectBase):
     id: UUID4
+
+
+# The detailed model with expanded relations
+class ProjectDetail(Project):
+    name: Optional[str] = None
+    tags: Optional[List[TagRead]] = None
+    user: Optional[UserReference] = None
+    owner: Optional[UserReference] = None
+    organization: Optional[OrganizationReference] = None
+    status: Optional[StatusReference] = None

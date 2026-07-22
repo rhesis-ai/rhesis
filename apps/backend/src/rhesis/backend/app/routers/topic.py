@@ -16,10 +16,6 @@ from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.odata import apply_select, combine_entity_type_filter
-from rhesis.backend.app.utils.schema_factory import create_detailed_schema
-
-# Create the detailed schema for Test
-TopicDetailSchema = create_detailed_schema(schemas.Topic, models.Topic)
 
 router = RhesisRouter(
     prefix="/topics",
@@ -47,7 +43,7 @@ def create_topic(
     return crud.create_topic(db=db, topic=topic, organization_id=organization_id, user_id=user_id)
 
 
-@router.get("/", response_model=list[TopicDetailSchema])
+@router.get("/", response_model=list[schemas.TopicDetail])
 @with_count_header(model=models.Topic)
 def read_topics(
     response: Response,
@@ -86,7 +82,7 @@ def read_topics(
     return results
 
 
-@router.get("/{topic_id}", response_model=TopicDetailSchema)
+@router.get("/{topic_id}", response_model=schemas.TopicDetail)
 def read_topic(
     topic_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),

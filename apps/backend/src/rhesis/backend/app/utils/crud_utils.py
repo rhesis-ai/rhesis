@@ -343,6 +343,7 @@ def get_item_detail(
     user_id: str = None,
     include_deleted: bool = False,
     project_id: str = None,
+    nested_relationships: dict = None,
 ) -> Optional[T]:
     """
     Get a single item with all first-level relationships eagerly loaded.
@@ -360,6 +361,10 @@ def get_item_detail(
             the session auto-filter).  When provided the predicate is
             ``project_id = :pid OR project_id IS NULL`` so org-level rows
             remain visible.  ``None`` skips the filter.
+        nested_relationships: Dict specifying nested relationships to load.
+            Format: {"relationship_name": ["nested_rel1", "nested_rel2"]}. Mirrors
+            get_items_detail's parameter of the same name, for parity between the
+            single-item and list paths when a schema nests fields two levels deep.
 
     Returns:
         Item with relationships loaded or None if not found
@@ -371,7 +376,7 @@ def get_item_detail(
     item = (
         QueryBuilder(db, model)
         .with_deleted()  # Always include deleted to check status
-        .with_optimized_loads(skip_one_to_many=True)
+        .with_optimized_loads(skip_one_to_many=True, nested_relationships=nested_relationships)
         .with_default_derived_field_loads()
         .with_organization_filter(organization_id)
         .with_project_filter(project_id)

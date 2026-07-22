@@ -133,13 +133,13 @@ class QueryBuilder:
         """Selectin-load comments/tasks/files/tags for this model, and for any
         many-to-one/one-to-one relationship whose target model also has them.
 
-        schema_factory.py nests a related model's own derived fields into the
-        response too (e.g. Test.prompt -> the nested PromptReference schema
-        also gets a "counts"/"tags" field, since Prompt has the same mixins),
-        so those need eager-loading as well -- not just this model's own. This
-        is what makes Test.prompt (near-1:1 with Test, so effectively N
-        distinct prompts per page) safe: without this, each row's prompt
-        lazy-loads its own comments/tasks/tags individually.
+        Detail response schemas nest a related model's own derived fields
+        too (e.g. Test.prompt -> the nested PromptReference schema also gets
+        a "counts"/"tags" field, since Prompt has the same mixins), so those
+        need eager-loading as well -- not just this model's own. This is what
+        makes Test.prompt (near-1:1 with Test, so effectively N distinct
+        prompts per page) safe: without this, each row's prompt lazy-loads
+        its own comments/tasks/tags individually.
 
         Checks the actual mixin class, not just attribute presence -- some
         models (e.g. User.comments, "comments authored by this user") have an
