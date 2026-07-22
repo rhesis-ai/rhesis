@@ -194,7 +194,7 @@ Check off pages/sections as they are done.
 - [x] Connector (`contribute/connector.mdx`)
 
 **Reference**
-- [ ] Environment Variables (`contribute/environment-variables.mdx`)
+- [x] Environment Variables (`contribute/environment-variables.mdx`)
 - [x] Telemetry
 
 ### Other
