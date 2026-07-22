@@ -940,8 +940,8 @@ export default function GarakImportDrawer({
                     <Stack spacing={0.5}>
                       <Typography variant="body2" color="text.secondary">
                         {importProgress.staticImported} static probe
-                        {importProgress.staticImported !== 1 ? 's' : ''}{' '}
-                        — import started in background:
+                        {importProgress.staticImported !== 1 ? 's' : ''} —
+                        import started in background:
                       </Typography>
                       {preview?.probes.map(p => (
                         <Typography
