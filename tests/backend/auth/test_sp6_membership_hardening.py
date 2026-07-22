@@ -403,6 +403,7 @@ class TestRecoverOrgOwnerCLI:
         test_db = real_commit_test_db
         # Create a second user to be the "new owner" in dry-run mode.
         new_owner = _unique_user(test_db, test_org_id)
+        test_db.info["_owned_user_ids"].append(str(new_owner.id))
         test_db.commit()  # commit so the CLI's independent session can see it
 
         org_before = test_db.query(models.Organization).filter_by(id=test_org_id).first()
@@ -426,6 +427,7 @@ class TestRecoverOrgOwnerCLI:
 
         test_db = real_commit_test_db
         new_owner = _unique_user(test_db, test_org_id)
+        test_db.info["_owned_user_ids"].append(str(new_owner.id))
         test_db.commit()
 
         org = test_db.query(models.Organization).filter_by(id=test_org_id).first()

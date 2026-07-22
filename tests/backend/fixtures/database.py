@@ -274,6 +274,49 @@ def _hard_delete_organization(db, organization_id: str) -> None:
             print(f"real_commit_test_db: failed to reset session_replication_role: {e}")
 
 
+def _hard_delete_user(db, user_id: str) -> None:
+    """Best-effort targeted hard-delete of one leaked user row and its dependents.
+
+    Companion to ``_hard_delete_organization`` for ``real_commit_test_db``
+    tests that commit a *user* into the existing shared session-auth org
+    (rather than creating a whole new org) — those rows aren't covered by
+    ``_owned_org_ids`` cleanup and would otherwise persist for the rest of
+    the worker's test session. Same FK-trigger-disabling technique, but
+    scoped by ``user_id`` across every table that has one (queried live
+    rather than hardcoded, since "who did this" ``user_id`` columns are far
+    more widespread across the schema than ``organization_id`` ones).
+    """
+    try:
+        user_scoped_tables = {
+            row[0]
+            for row in db.execute(
+                text(
+                    "SELECT c.table_name FROM information_schema.columns c "
+                    "JOIN information_schema.tables t "
+                    "ON t.table_schema = c.table_schema AND t.table_name = c.table_name "
+                    "WHERE c.table_schema = 'public' AND c.column_name = 'user_id' "
+                    "AND t.table_type = 'BASE TABLE'"
+                )
+            )
+        }
+
+        db.execute(text("SET session_replication_role = 'replica'"))
+        for table in user_scoped_tables:
+            db.execute(text(f'DELETE FROM "{table}" WHERE user_id = :uid'), {"uid": user_id})
+        db.execute(text('DELETE FROM "user" WHERE id = :uid'), {"uid": user_id})
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        print(f"real_commit_test_db cleanup failed for user {user_id}: {e}")
+    finally:
+        try:
+            db.execute(text("SET session_replication_role = 'origin'"))
+            db.commit()
+        except Exception as e:
+            db.rollback()
+            print(f"real_commit_test_db: failed to reset session_replication_role: {e}")
+
+
 @pytest.fixture
 def real_commit_test_db(test_org_id, authenticated_user_id, monkeypatch):
     """``test_db`` variant for tests needing genuinely cross-connection-visible commits.
@@ -285,10 +328,12 @@ def real_commit_test_db(test_org_id, authenticated_user_id, monkeypatch):
     ``app.dependency_overrides`` entirely, so it needs a freshly created token
     to be really committed to authenticate as that user.
 
-    Teardown does targeted, per-organization cleanup (see
-    ``_hard_delete_organization``) instead of a blanket TRUNCATE — tracked via
-    ``db.info["_owned_org_ids"]``, which callers (e.g. ``owner_client``) append
-    to after creating an org.
+    Teardown does targeted cleanup instead of a blanket TRUNCATE, tracked via
+    two lists on ``db.info``: ``"_owned_org_ids"`` (see
+    ``_hard_delete_organization``) for callers that create a whole new org
+    (e.g. ``owner_client``), and ``"_owned_user_ids"`` (see
+    ``_hard_delete_user``) for callers that instead commit a user into the
+    existing shared session-auth org.
     """
     from rhesis.backend.app.database import (
         _current_tenant_organization_id,
@@ -298,6 +343,7 @@ def real_commit_test_db(test_org_id, authenticated_user_id, monkeypatch):
 
     db = TestingSessionLocal()
     db.info["_owned_org_ids"] = []
+    db.info["_owned_user_ids"] = []
 
     try:
         if test_org_id:
@@ -327,6 +373,8 @@ def real_commit_test_db(test_org_id, authenticated_user_id, monkeypatch):
 
         for org_id in db.info.get("_owned_org_ids", []):
             _hard_delete_organization(db, org_id)
+        for user_id in db.info.get("_owned_user_ids", []):
+            _hard_delete_user(db, user_id)
 
         clear_tenant_context()
         db.close()
