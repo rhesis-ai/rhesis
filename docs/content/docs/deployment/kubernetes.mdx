@@ -1,0 +1,132 @@
+import { CodeBlock } from '@/components/CodeBlock'
+import { Table } from '@/components/Table'
+
+# Kubernetes
+
+Deploy Rhesis to a local Kubernetes cluster with Minikube, using the Helm chart in
+`infrastructure/k8s/`.
+
+<Callout type="warning">
+**Local Development Only**
+
+The chart ships one values file, `values-local.yaml`, tuned for Minikube (`imagePullPolicy: Never`,
+images built and loaded locally). There is no production values file yet. For a production
+deployment, use [Docker Compose](/docs/deployment/docker-compose).
+</Callout>
+
+## Setup
+
+<CodeBlock filename="Terminal" language="bash">
+{`git clone https://github.com/rhesis-ai/rhesis.git
+cd rhesis/infrastructure/k8s
+
+minikube start --driver=docker --memory=8192 --cpus=4
+
+# creates rhesis-secrets.yaml and fills in the 4 secrets with no safe default
+./generate-secrets.sh
+
+# builds all images, loads them into Minikube, applies secrets/configmaps, installs the Helm release
+./k8s-deploy.sh reset`}
+</CodeBlock>
+
+### Access the applications
+
+<CodeBlock filename="Terminal" language="bash">
+{`kubectl port-forward -n rhesis svc/frontend 3000:3000 &
+kubectl port-forward -n rhesis svc/backend 8080:8080 &`}
+</CodeBlock>
+
+<Table
+  headers={['Service', 'URL']}
+  rows={[
+    ['Frontend', 'http://localhost:3000'],
+    ['Backend API', 'http://localhost:8080/docs'],
+  ]}
+  align={['left', 'left']}
+/>
+
+## Configuring secrets
+
+A Kubernetes Secret's `data:` map must be valid base64 for every key it lists — there's no
+"leave it blank" the way `${VAR:-}` works in `docker-compose.yml`. `rhesis-secrets.yaml.example`
+mirrors `docker-compose.yml`'s defaults instead: values that work locally out of the box are
+already base64-encoded in the template (`APP_DB_PASS`, `REDIS_PASSWORD`, `STORAGE_SERVICE_URI`,
+...), and everything else ships as an encoded empty string (disabled) rather than placeholder
+text — so the file applies as-is.
+
+Four secrets have no safe default and ship blank on purpose — the app won't start without them.
+`./generate-secrets.sh` fills these in and is safe to re-run (it only touches keys still blank):
+
+<Table
+  headers={['Secret', 'Protects']}
+  rows={[
+    ['DB_ENCRYPTION_KEY', 'Sensitive database fields (such as stored provider credentials) at rest'],
+    ['JWT_SECRET_KEY', 'Backend-issued JWTs'],
+    ['NEXTAUTH_SECRET', 'NextAuth (frontend) sessions'],
+    ['SESSION_SECRET_KEY', 'Backend session cookies'],
+  ]}
+  align={['left', 'left']}
+/>
+
+<Callout type="warning">
+Changing `DB_ENCRYPTION_KEY` on an existing deployment makes data already encrypted with the old
+key permanently undecryptable. Back it up and keep it stable.
+</Callout>
+
+Everything else in the file already has a working local default or is safely disabled —
+`APP_DB_PASS`/`REDIS_PASSWORD` (in-cluster Postgres/Redis), `RHESIS_API_KEY` (placeholder, so
+generation/evaluation calls fail closed until you set a real key), `STORAGE_SERVICE_URI`
+(bind-mounted local storage), `CHATBOT_API_KEY` (optional — the bundled chatbot demo falls back
+to public rate limits without it), and the Enterprise-only `AUDIT_HASH_KEY`/`SSO_ENCRYPTION_KEY`.
+
+To set a real value for anything else — `OPENAI_API_KEY`, `SMTP_*`, `GOOGLE_CLIENT_*`, and the
+other provider/OAuth/email variables described in
+[Environment Configuration](/docs/deployment/docker-compose#environment-configuration) — encode
+it and paste the result into `rhesis-secrets.yaml` next to the matching key:
+
+<CodeBlock filename="Terminal" language="bash">
+{`./generate-secrets.sh encode "your-actual-value"`}
+</CodeBlock>
+
+Non-sensitive configuration (model names, ports, URLs) lives separately in
+`manifests/configmaps/rhesis-config.yaml` — copy it from `rhesis-config.yaml.example` and edit
+directly; no encoding needed.
+
+Apply either file after editing:
+
+<CodeBlock filename="Terminal" language="bash">
+{`./k8s-deploy.sh apply`}
+</CodeBlock>
+
+## Management commands
+
+<Table
+  headers={['Command', 'What it does']}
+  rows={[
+    ['./k8s-deploy.sh apply', 'Apply namespace + secrets + configmaps + Helm release, then restart every service — no rebuild'],
+    ['./k8s-deploy.sh rebuild [service]', 'Rebuild one image (frontend, backend, worker, chatbot, docs) or all, reload into Minikube, restart'],
+    ['./k8s-deploy.sh restart <service>', "Bounce one service's pods only — no manifest or image changes"],
+    ['./k8s-deploy.sh reset', 'Wipe all data and images, rebuild everything, and redeploy from scratch'],
+    ['./k8s-deploy.sh logs <service> -f', 'Follow logs for a service'],
+    ['./k8s-deploy.sh status', 'Pods, services, PVCs, and Helm release status'],
+  ]}
+  align={['left', 'left']}
+/>
+
+Pick by what changed: application code → `rebuild`; `values-local.yaml`, `rhesis-config.yaml`, or
+`rhesis-secrets.yaml` → `apply`; nothing changed, a pod is just stuck → `restart`; starting over
+(this wipes your database) → `reset`. `apply` is also what you reach for after a Minikube restart
+— it reinstalls the Helm release using whatever images are still loaded, no Docker build step.
+
+For less common operations — shelling into a pod, connecting to Postgres/Redis, scaling replicas,
+killing port-forwards — see
+[`K8S-DEPLOY-USAGE.md`](https://github.com/rhesis-ai/rhesis/blob/main/infrastructure/k8s/K8S-DEPLOY-USAGE.md)
+in the repository.
+
+## Next Steps
+
+<Callout type="info">
+**Ready for Production?**
+
+For production deployment, see the [Docker Compose Guide](/docs/deployment/docker-compose).
+</Callout>
