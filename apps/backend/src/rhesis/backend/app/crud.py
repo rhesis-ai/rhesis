@@ -389,11 +389,33 @@ def delete_category(
 
 
 # Behavior CRUD
+# Relationships serialized by schemas.Behavior/BehaviorDetail (status, project,
+# organization, user) -- see get_status for the same shape on a simpler model.
+_BEHAVIOR_RELATED_FIELDS = (
+    include(models.Behavior.status),
+    include(models.Behavior.project),
+    include(models.Behavior.organization),
+    include(models.Behavior.user),
+)
+
+
 def get_behavior(
     db: Session, behavior_id: uuid.UUID, organization_id: str = None, user_id: str = None
 ) -> Optional[models.Behavior]:
-    """Get behavior."""
-    return get_item(db, models.Behavior, behavior_id, organization_id, user_id)
+    """Get behavior with relationships eagerly loaded."""
+    from rhesis.backend.app.utils.crud_utils import _check_and_raise_if_deleted
+    from rhesis.backend.app.utils.query_utils import QueryBuilder
+
+    item = (
+        QueryBuilder(db, models.Behavior)
+        .with_deleted()
+        .with_related(*_BEHAVIOR_RELATED_FIELDS)
+        .with_default_derived_field_loads()
+        .with_organization_filter(organization_id)
+        .with_visibility_filter(user_id)
+        .filter_by_id(behavior_id)
+    )
+    return _check_and_raise_if_deleted(item, models.Behavior, behavior_id, False)
 
 
 def get_behaviors(
@@ -2395,7 +2417,7 @@ def delete_test_context(
 # Test Run CRUD
 
 # Relationships loaded for TestRun detail responses. Matches the schema defined
-# by TestRunDetailSchema in routers/test_run.py.
+# by schemas.TestRunDetail.
 _TEST_RUN_RELATED_FIELDS = (
     include(models.TestRun.status),
     include(models.TestRun.assignee),
@@ -2930,7 +2952,7 @@ def get_type_lookup_by_name_and_value(
 
 
 # Metric CRUD
-# Relationships serialized by MetricDetailSchema. with_related picks joinedload
+# Relationships serialized by schemas.MetricDetail. with_related picks joinedload
 # for the many-to-one ones (metric_type, status, ...) and selectinload for the
 # many-to-many ones (behaviors, test_sets) automatically -- joinedload on the
 # M2M pair previously produced a cartesian product (one row per
