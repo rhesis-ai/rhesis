@@ -639,3 +639,4 @@ class TestGarakProbeServiceEnumerateCachedConcurrency:
             new_loop.run_until_complete(_contend())
         finally:
             new_loop.close()
+
