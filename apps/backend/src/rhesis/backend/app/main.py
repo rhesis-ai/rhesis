@@ -658,6 +658,15 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 # Outermost middleware -- runs first on every response
 app.add_middleware(SecurityHeadersMiddleware)
 
+# Temporary diagnostic: RHESIS_ENABLE_REQUEST_TIMING=1 logs total/db/other
+# wall-clock time plus a per-query breakdown for each request. See
+# debug_request_timing.py. Added last so it wraps every other middleware
+# and dependency, not just the route handler.
+from rhesis.backend.app.debug_request_timing import RequestTimingMiddleware, is_enabled
+
+if is_enabled():
+    app.add_middleware(RequestTimingMiddleware)
+
 
 class LoggingMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
