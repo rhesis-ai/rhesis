@@ -112,8 +112,6 @@ Replace `<your-org>/rhesis` in every manifest below with your fork's path.
 <CodeBlock filename="Terminal" language="bash">
 {`kubectl create namespace argocd
 kubectl apply -n argocd -k kubernetes/bootstrap/argocd/
-
-# Wait for ArgoCD's pods to become ready
 kubectl -n argocd wait --for=condition=available --timeout=300s deployment/argocd-server`}
 </CodeBlock>
 
@@ -140,7 +138,7 @@ external-secrets, ingress-nginx, and the `rhesis` app itself. Skip `external-dns
   data={[
     { name: 'base.yaml', type: 'file', description: 'Root Application — the one thing you apply by hand' },
     { name: 'kustomization.yaml', type: 'file', description: 'Lists every sub-Application synced by base.yaml' },
-    { name: 'external-secrets.yaml', type: 'file', description: 'Application: ESO Helm chart + ClusterSecretStore' },
+    { name: 'external-secrets.yaml', type: 'file', description: 'Application: ESO Helm chart' },
     { name: 'external-secrets/', type: 'folder', description: 'ClusterSecretStore + your ExternalSecret manifest' },
     { name: 'cert-manager.yaml', type: 'file', description: 'Application: cert-manager Helm chart' },
     { name: 'cert-manager/', type: 'folder', description: 'ClusterIssuer for Let’s Encrypt' },
@@ -277,9 +275,8 @@ spec:
 </CodeBlock>
 
 <Callout type="info">
-This uses an HTTP-01 challenge, which needs no DNS provider API — it just requires your domain's
-DNS to point at the ingress-nginx `LoadBalancer` IP (created below) before certificates can
-issue. Rhesis's own environments use Cloudflare + DNS-01 instead, which isn't required here.
+This uses an HTTP-01 challenge, which needs no DNS provider API — it requires your domain's DNS
+to point at the ingress-nginx `LoadBalancer` IP (created below) before certificates can issue. Rhesis's own environments use Cloudflare + DNS-01 instead, which isn't required here.
 </Callout>
 
 <CodeBlock filename="kubernetes/clusters/customer/ingress-nginx.yaml" language="yaml">
@@ -579,14 +576,13 @@ in a `remoteRef.key`.
 Beyond this first deployment, Rhesis's own production environment adds, all optional and
 independently adoptable:
 
-- **CloudNativePG** for managed Postgres backups (replaces the bundled `postgresql` subchart) —
-  see `kubernetes/clusters/prd/cnpg-cluster/`
-- **Horizontal Pod Autoscaling** — already wired into the chart (`*.hpa.enabled`), just needs
-  turning on per component
-- **Monitoring** — `kube-prometheus-stack`, Loki, and Alloy, also managed as ArgoCD Applications
-  in `kubernetes/base/`
-- **External DNS / dedicated internal ingress** — if you want automated DNS record management
-  or a VPN-only internal surface alongside the public one
+- **Switch to CloudNativePG** for managed Postgres backups, replacing the bundled `postgresql`
+  subchart — see `kubernetes/clusters/prd/cnpg-cluster/`
+- **Turn on autoscaling** — set `*.hpa.enabled: true` per component; already wired into the chart
+- **Add monitoring** — `kube-prometheus-stack`, Loki, and Alloy, deployed the same way as ArgoCD
+  Applications in `kubernetes/base/`
+- **Add DNS automation or an internal-only ingress** — for managed DNS records or a VPN-only
+  surface alongside the public one
 
 None of these are required to run Rhesis — they're the same building blocks Rhesis itself adds
 on top of the deployment you just completed.
