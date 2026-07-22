@@ -5,14 +5,15 @@
 
 set -e
 
-# Color codes
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-MAGENTA='\033[0;35m'
-NC='\033[0m' # No Color
+# Color codes ($'...' so the escape is a real ESC byte — needed for the heredoc
+# in print_usage, which (unlike `echo -e`) doesn't interpret backslash escapes)
+RED=$'\033[0;31m'
+GREEN=$'\033[0;32m'
+YELLOW=$'\033[1;33m'
+BLUE=$'\033[0;34m'
+CYAN=$'\033[0;36m'
+MAGENTA=$'\033[0;35m'
+NC=$'\033[0m' # No Color
 
 # Get the project root directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -37,10 +38,10 @@ ${YELLOW}Usage:${NC}
   $0 <command> [options]
 
 ${YELLOW}Commands:${NC}
-  ${GREEN}clean${NC}                      Full clean install (delete everything, rebuild, deploy)
-  ${GREEN}update${NC}                     Hot update configs (no rebuild, just apply values changes)
+  ${GREEN}reset${NC}                      Wipe ALL data + images, rebuild everything, redeploy from scratch
+  ${GREEN}apply${NC}                      Apply namespace + secrets + configmaps + Helm release + restart (no rebuild)
   ${GREEN}rebuild${NC} [service]          Rebuild images (all or specific: frontend, backend, worker, chatbot, docs)
-  ${GREEN}restart${NC} <service>          Restart a specific service
+  ${GREEN}restart${NC} <service>          Bounce one service's pods (no manifest/image changes)
   ${GREEN}logs${NC} <service> [--follow]  View logs of a service (use -f or --follow for live logs)
   ${GREEN}shell${NC} <service>            Open a shell in a service pod
   ${GREEN}db${NC}                         Connect to PostgreSQL database
@@ -52,22 +53,24 @@ ${YELLOW}Commands:${NC}
   ${GREEN}help${NC}                       Show this help message
 
 ${YELLOW}Examples:${NC}
-  $0 clean                    # Fresh start - deletes everything and redeploys
-  $0 update                   # Apply values-local.yaml changes without rebuild
+  $0 reset                    # Nuke everything (data included) and rebuild from scratch
+  $0 apply                    # Apply rhesis-secrets.yaml / rhesis-config.yaml / values-local.yaml changes
   $0 rebuild backend          # Rebuild only backend image
   $0 rebuild                  # Rebuild all images
+  $0 restart frontend         # Bounce frontend pods only, nothing re-applied
   $0 logs backend --follow    # Watch backend logs in real-time
   $0 shell backend            # Open bash shell in backend pod
   $0 db                       # Connect to PostgreSQL
-  $0 restart frontend         # Restart frontend pods
   $0 status                   # See what's running
   $0 kill                     # Kill all port-forward processes
   $0 kill backend             # Kill only backend port-forward
 
-${CYAN}💡 Pro Tips:${NC}
-  • Use 'update' when you only change configs or resource limits
-  • Use 'rebuild' when you change application code
-  • Use 'clean' when things go sideways and you want a fresh start
+${CYAN}💡 Which command do I want?${NC}
+  • Changed application code           → ${GREEN}rebuild${NC} [service]
+  • Changed values-local.yaml / rhesis-config.yaml / rhesis-secrets.yaml → ${GREEN}apply${NC}
+  • A pod is stuck/crashed, nothing else changed → ${GREEN}restart${NC} <service>
+  • Starting fresh, or things are broken beyond repair → ${GREEN}reset${NC} (deletes your data)
+  • First time ever running this? Run './generate-secrets.sh' first, then ${GREEN}reset${NC}.
   • Press Ctrl+C to exit logs or shells
 
 EOF
@@ -254,43 +257,59 @@ load_images() {
     echo ""
 }
 
-# Deploy or update application
-deploy() {
-    echo -e "${YELLOW}🚀 Deploying application...${NC}"
-    
-    cd "$PROJECT_ROOT/infrastructure/k8s/charts/rhesis" || exit 1
-    
-    chmod +x deploy-local.sh
-    ./deploy-local.sh
-    
-    echo -e "${GREEN}✅ Deployment completed${NC}"
-    echo ""
+# Fail with a pointer to generate-secrets.sh if the real secrets file is missing.
+check_secrets_exist() {
+    local secrets_file="$PROJECT_ROOT/infrastructure/k8s/manifests/secrets/rhesis-secrets.yaml"
+    if [ ! -f "$secrets_file" ]; then
+        echo -e "${RED}❌ $secrets_file not found.${NC}"
+        echo -e "${YELLOW}   Generate it first: ${GREEN}./generate-secrets.sh${NC}"
+        exit 1
+    fi
 }
 
-# Update configuration without rebuilding images
-update_config() {
-    echo -e "${YELLOW}🔄 Updating configuration...${NC}"
-    
-    cd "$PROJECT_ROOT/infrastructure/k8s/charts/rhesis" || exit 1
-    
+# Create the namespace if it doesn't exist yet.
+create_namespace() {
     if ! kubectl get namespace "$NAMESPACE" &> /dev/null; then
-        echo -e "${RED}❌ Namespace $NAMESPACE does not exist. Run 'clean' first.${NC}"
-        exit 1
+        echo -e "${YELLOW}📦 Creating namespace: $NAMESPACE${NC}"
+        kubectl create namespace "$NAMESPACE"
     fi
-    
-    if ! helm list -n "$NAMESPACE" 2>/dev/null | grep -q rhesis; then
-        echo -e "${RED}❌ Helm release not found. Run 'clean' first.${NC}"
-        exit 1
+}
+
+# Apply namespace + secrets + configmaps + Helm release (install or upgrade,
+# whichever applies), then restart every service so it actually picks up any
+# changed secrets/configmaps — Helm alone won't trigger this, since they're
+# referenced by name and their content isn't part of what Helm diffs.
+# Uses whatever images are already loaded into Minikube — never rebuilds.
+apply_all() {
+    check_secrets_exist
+    create_namespace
+
+    echo -e "${YELLOW}📋 Applying secrets and configmaps...${NC}"
+    kubectl apply -f "$PROJECT_ROOT/infrastructure/k8s/manifests/secrets/" -n "$NAMESPACE"
+    kubectl apply -f "$PROJECT_ROOT/infrastructure/k8s/manifests/configmaps/" -n "$NAMESPACE"
+
+    cd "$PROJECT_ROOT/infrastructure/k8s/charts/rhesis" || exit 1
+
+    echo -e "${YELLOW}🚀 Applying Helm release...${NC}"
+    if helm list -n "$NAMESPACE" 2>/dev/null | grep -q rhesis; then
+        helm upgrade rhesis . --values values-local.yaml --namespace "$NAMESPACE" --wait --timeout 10m
+    else
+        helm install rhesis . --values values-local.yaml --namespace "$NAMESPACE" --wait --timeout 10m
     fi
-    
-    echo -e "  - Upgrading Helm release with new values...${NC}"
-    helm upgrade rhesis . \
-        --values values-local.yaml \
-        --namespace "$NAMESPACE" \
-        --wait \
-        --timeout 10m
-    
-    echo -e "${GREEN}✅ Configuration updated${NC}"
+
+    echo -e "${YELLOW}🔄 Restarting services to pick up any config/secret changes...${NC}"
+    for svc in "${SERVICES[@]}" postgres redis; do
+        if kubectl get deployment "$svc" -n "$NAMESPACE" &> /dev/null; then
+            kubectl rollout restart deployment "$svc" -n "$NAMESPACE"
+        fi
+    done
+    for svc in "${SERVICES[@]}" postgres redis; do
+        if kubectl get deployment "$svc" -n "$NAMESPACE" &> /dev/null; then
+            kubectl rollout status deployment "$svc" -n "$NAMESPACE" --timeout=5m || true
+        fi
+    done
+
+    echo -e "${GREEN}✅ Applied${NC}"
     echo ""
 }
 
@@ -391,7 +410,7 @@ show_status() {
     
     if ! kubectl get namespace "$NAMESPACE" &> /dev/null; then
         echo -e "${YELLOW}⚠️  Namespace $NAMESPACE does not exist${NC}"
-        echo -e "${YELLOW}Run: $0 clean${NC}"
+        echo -e "${YELLOW}Run: $0 reset${NC}"
         return
     fi
     
@@ -565,22 +584,22 @@ restart_service() {
     echo -e "${GREEN}✅ $service restarted${NC}"
 }
 
-# Clean install
-clean_install() {
+# Wipe all data + images, rebuild every image, and deploy from scratch.
+full_reset() {
     print_banner
-    echo -e "${YELLOW}🧹 Starting clean installation...${NC}"
-    echo -e "${RED}This will delete all data including databases!${NC}"
+    echo -e "${YELLOW}🧹 Resetting: wiping data and images, rebuilding, redeploying...${NC}"
+    echo -e "${RED}This deletes your database, Redis data, and all built images. Irreversible.${NC}"
     echo ""
-    
+
     check_prerequisites
     delete_old_images
     delete_volumes
     rebuild_images
     load_images
-    deploy
-    
+    apply_all
+
     echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
-    echo -e "${GREEN}🎉 Clean installation completed!${NC}"
+    echo -e "${GREEN}🎉 Reset complete!${NC}"
     echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
     echo ""
     show_status
@@ -632,14 +651,14 @@ main() {
     shift
     
     case $command in
-        clean)
-            clean_install
+        reset)
+            full_reset
             ;;
-        update)
+        apply)
             print_banner
             check_prerequisites
-            update_config
-            echo -e "${GREEN}🎉 Configuration updated!${NC}"
+            apply_all
+            show_status
             ;;
         rebuild)
             rebuild_and_redeploy "$@"
