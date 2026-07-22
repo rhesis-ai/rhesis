@@ -194,10 +194,13 @@ def prefetch_execution_context(
     #
     # Metric resolution follows a 3-level priority (see executors/data.py):
     #   P1 execution-time, P2 test-set, P3 behavior.
-    # P1 and P2 produce the same metrics for every test, so a single resolution
-    # from any sample test is correct.  P3 (behavior) can differ per test because
-    # each test may belong to a different behavior with different metrics.
-    # Detect which priority applies and resolve accordingly.
+    # P1 and P2 come from shared config (test_configuration.attributes / test_set.metrics)
+    # and resolve identically for every test, so a single resolution is correct — but
+    # only when one of them actually wins. get_test_metrics() can fall through past a
+    # *configured* P1/P2 to P3 if it resolves to zero valid metrics (missing/invalid IDs,
+    # or every candidate filtered out for lacking a class_name), and that fallback can
+    # differ per test. So resolve the sample test first and branch on the priority that
+    # actually won, not on whether P1/P2 config is merely present.
     metric_configs: List[MetricConfig] = []
     per_test_metric_configs: Dict[str, List[MetricConfig]] = {}
 
@@ -218,37 +221,41 @@ def prefetch_execution_context(
                     )
             return configs
 
-        # Check whether P1 or P2 apply (shared metrics for all tests).
-        attrs = test_config.attributes or {}
-        has_execution_time_metrics = bool(attrs.get("metrics"))
-        has_test_set_metrics = bool(test_set and hasattr(test_set, "metrics") and test_set.metrics)
-
-        if has_execution_time_metrics or has_test_set_metrics:
-            # P1 / P2: metrics are the same for every test; resolve once.
-            sample_test = tests[0] if tests else None
-            if sample_test:
-                metrics = get_test_metrics(
-                    sample_test,
-                    session,
-                    organization_id,
-                    user_id,
-                    test_set=test_set,
-                    test_configuration=test_config,
-                )
-                models = prepare_metric_configs(metrics, str(sample_test.id))
-                metric_configs = _convert_metrics(models, f"test {sample_test.id}")
+        sample_test = tests[0] if tests else None
+        if sample_test:
+            sample_metrics, sample_source = get_test_metrics(
+                sample_test,
+                session,
+                organization_id,
+                user_id,
+                test_set=test_set,
+                test_configuration=test_config,
+                return_source=True,
+            )
         else:
-            # P3: behavior metrics — resolve per test.
+            sample_metrics, sample_source = [], "none"
+
+        if sample_source in ("execution_time", "test_set"):
+            # P1 / P2 actually won: shared config, safe to reuse for every test.
+            models = prepare_metric_configs(sample_metrics, str(sample_test.id))
+            metric_configs = _convert_metrics(models, f"test {sample_test.id}")
+        else:
+            # P3 (or no metrics at all) — resolution can differ per test since each
+            # test may belong to a different behavior. Reuse the sample test's
+            # already-resolved metrics instead of querying it twice.
             for test in tests:
                 tid = str(test.id)
-                metrics = get_test_metrics(
-                    test,
-                    session,
-                    organization_id,
-                    user_id,
-                    test_set=test_set,
-                    test_configuration=test_config,
-                )
+                if test is sample_test:
+                    metrics = sample_metrics
+                else:
+                    metrics = get_test_metrics(
+                        test,
+                        session,
+                        organization_id,
+                        user_id,
+                        test_set=test_set,
+                        test_configuration=test_config,
+                    )
                 models = prepare_metric_configs(metrics, tid)
                 per_test_metric_configs[tid] = _convert_metrics(models, f"test {tid}")
     except Exception as e:

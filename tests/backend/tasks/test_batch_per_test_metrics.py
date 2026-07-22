@@ -162,11 +162,15 @@ class TestPrefetchMetricResolution:
             "t2", "Behavior B", "Metric B", "JudgeB"
         )
 
-        # get_test_metrics returns different metrics per test
+        # get_test_metrics returns different metrics per test; the sample-test
+        # call passes return_source=True and expects a (metrics, source) tuple.
         def side_effect(test, *args, **kwargs):
-            return {str(test_1.id): [metric_1], str(test_2.id): [metric_2]}[
+            metrics = {str(test_1.id): [metric_1], str(test_2.id): [metric_2]}[
                 str(test.id)
             ]
+            if kwargs.get("return_source"):
+                return metrics, "behavior"
+            return metrics
 
         mock_get_metrics.side_effect = side_effect
 
@@ -262,8 +266,9 @@ class TestPrefetchMetricResolution:
         shared_metric.class_name = "SharedJudge"
         shared_metric.id = uuid4()
 
-        # get_test_metrics returns the shared metric (from test_set, P2)
-        mock_get_metrics.return_value = [shared_metric]
+        # get_test_metrics returns the shared metric (from test_set, P2); the
+        # sample-test call passes return_source=True and expects a tuple back.
+        mock_get_metrics.return_value = ([shared_metric], "test_set")
 
         def to_config(m):
             cfg = MagicMock()
@@ -338,6 +343,134 @@ class TestPrefetchMetricResolution:
         # Both tests should get the same shared configs
         assert ctx.get_metric_configs_for_test(str(test_1.id)) == ctx.metric_configs
         assert ctx.get_metric_configs_for_test(str(test_2.id)) == ctx.metric_configs
+
+
+class TestPrefetchFallthroughToPerTest:
+    """Regression test: a *configured* P1 (execution-time) override that
+    resolves to zero valid metrics must fall through to per-test P3
+    resolution, not be treated as shared just because
+    test_configuration.attributes['metrics'] is merely present."""
+
+    def _make_test(self, test_id, behavior_name, metric_name, metric_class):
+        metric = MagicMock()
+        metric.name = metric_name
+        metric.class_name = metric_class
+        metric.id = uuid4()
+        metric.metric_scope = ["Single-Turn"]
+
+        behavior = MagicMock()
+        behavior.name = behavior_name
+        behavior.metrics = [metric]
+
+        test = MagicMock()
+        test.id = uuid4() if test_id is None else test_id
+        test.behavior = behavior
+        test.behavior_id = uuid4()
+        test.project_id = None
+        test.prompt = MagicMock()
+        test.prompt.content = "test prompt"
+        test.prompt.expected_response = "expected"
+        test.test_type = None
+        test.test_configuration = None
+        test.test_metadata = None
+        return test, metric
+
+    @patch("rhesis.backend.metrics.metric_config.metric_model_to_config")
+    @patch("rhesis.backend.tasks.execution.executors.data.get_test_metrics")
+    def test_configured_but_invalid_execution_time_metrics_falls_back_per_test(
+        self, mock_get_metrics, mock_to_config
+    ):
+        test_1, metric_1 = self._make_test("t1", "Behavior A", "Metric A", "JudgeA")
+        test_2, metric_2 = self._make_test("t2", "Behavior B", "Metric B", "JudgeB")
+
+        # get_test_metrics reports that P1 (execution_time) was configured but
+        # resolved to nothing valid, so it fell through to P3 (behavior) —
+        # which differs per test.
+        def side_effect(test, *args, **kwargs):
+            metrics = {str(test_1.id): [metric_1], str(test_2.id): [metric_2]}[
+                str(test.id)
+            ]
+            if kwargs.get("return_source"):
+                return metrics, "behavior"
+            return metrics
+
+        mock_get_metrics.side_effect = side_effect
+
+        def to_config(m):
+            cfg = MagicMock()
+            cfg.name = m.name
+            cfg.class_name = m.class_name
+            return cfg
+
+        mock_to_config.side_effect = to_config
+
+        test_set = MagicMock()
+        test_set.metrics = []
+        test_set.id = uuid4()
+
+        test_config = MagicMock()
+        # P1 is *configured* (non-empty) but, per the mocked source above,
+        # resolves to nothing valid and falls through to P3 internally.
+        test_config.attributes = {"metrics": [{"id": str(uuid4())}]}
+        test_config.organization_id = uuid4()
+        test_config.user_id = uuid4()
+        test_config.project_id = None
+        test_config.test_set_id = test_set.id
+        test_config.endpoint_id = uuid4()
+
+        test_run = MagicMock()
+        test_run.id = uuid4()
+
+        endpoint = MagicMock()
+        endpoint.id = test_config.endpoint_id
+        endpoint.project_id = None
+        endpoint.environment = None
+
+        session = MagicMock()
+        session.query.return_value.filter.return_value.first.return_value = endpoint
+
+        with (
+            patch("rhesis.backend.app.database.bind_scope_to_session"),
+            patch(
+                "rhesis.backend.app.services.test_set.get_test_set",
+                return_value=test_set,
+            ),
+            patch(
+                "rhesis.backend.app.services.invokers.auth.manager"
+                ".AuthenticationManager"
+            ),
+            patch("rhesis.backend.app.config.settings.get_model_settings"),
+            patch(
+                "rhesis.backend.tasks.execution.executors.data"
+                ".get_test_and_prompt",
+                side_effect=lambda s, tid, org: (
+                    test_1 if tid == str(test_1.id) else test_2,
+                    "prompt",
+                    "expected",
+                ),
+            ),
+        ):
+            from rhesis.backend.tasks.execution.batch.context import (
+                prefetch_execution_context,
+            )
+
+            ctx = prefetch_execution_context(
+                session, test_config, test_run, [test_1, test_2]
+            )
+
+        # Even though P1 config was present, it didn't actually win — the
+        # per-test path must be used, not a single shared resolution from
+        # tests[0].
+        assert ctx.metric_configs == []
+        assert str(test_1.id) in ctx.per_test_metric_configs
+        assert str(test_2.id) in ctx.per_test_metric_configs
+
+        configs_1 = ctx.per_test_metric_configs[str(test_1.id)]
+        configs_2 = ctx.per_test_metric_configs[str(test_2.id)]
+        assert len(configs_1) == 1
+        assert len(configs_2) == 1
+        assert configs_1[0].class_name == "JudgeA"
+        assert configs_2[0].class_name == "JudgeB"
 
 
 # ============================================================================
