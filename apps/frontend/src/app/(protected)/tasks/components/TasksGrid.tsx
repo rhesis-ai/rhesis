@@ -1,12 +1,6 @@
 'use client';
 
-import React, {
-  useEffect,
-  useState,
-  useCallback,
-  useContext,
-  useMemo,
-} from 'react';
+import React, { useState, useCallback, useContext, useMemo } from 'react';
 import {
   GridColDef,
   GridFilterModel,
@@ -15,13 +9,14 @@ import {
   GridToolbarDensitySelector,
   GridToolbarExport,
 } from '@mui/x-data-grid';
-import BaseDataGrid from '@/components/common/BaseDataGrid';
+import BaseDataGrid, { GRID_PAPER_SX } from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { Task } from '@/utils/api-client/interfaces/task';
 import { can } from '@/utils/affordances';
 import { Capability } from '@/constants/capabilities';
-import { Typography, Box, Alert, Avatar } from '@mui/material';
+import { Typography, Box, Alert, Avatar, Paper } from '@mui/material';
+import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined';
 import GridToolbar, { ToolbarPillTabs } from '@/components/common/GridToolbar';
 import GridBadge from '@/components/common/GridBadge';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -44,9 +39,12 @@ import { taskKeys } from '@/constants/query-keys';
 import { useGridState } from '@/hooks/useGridState';
 import { useGridQuery } from '@/hooks/useGridQuery';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import GridStateGate from '@/components/common/GridStateGate';
+import EntityEmptyState from '@/components/common/EntityEmptyState';
 
 interface TasksGridProps {
-  onTotalCountChange?: (count: number) => void;
+  canCreate?: boolean;
+  onCreateClick?: () => void;
 }
 
 const STATUS_PILL_TABS = [
@@ -114,7 +112,10 @@ function TasksUnifiedToolbar() {
   );
 }
 
-export default function TasksGrid({ onTotalCountChange }: TasksGridProps) {
+export default function TasksGrid({
+  canCreate,
+  onCreateClick,
+}: TasksGridProps) {
   const router = useRouter();
   const notifications = useNotifications();
   const queryClient = useQueryClient();
@@ -210,22 +211,6 @@ export default function TasksGrid({ onTotalCountChange }: TasksGridProps) {
   });
   const tasks: Task[] = tasksData?.data ?? [];
   const totalCount = tasksData?.totalCount ?? 0;
-
-  useEffect(() => {
-    if (!tasksData) return;
-    const filtersActive =
-      filterModel.items.length > 0 ||
-      !!searchQuery ||
-      hasActiveTaskFilters(drawerFilters);
-    if (!filtersActive) onTotalCountChange?.(totalCount);
-  }, [
-    tasksData,
-    filterModel.items.length,
-    searchQuery,
-    drawerFilters,
-    onTotalCountChange,
-    totalCount,
-  ]);
 
   const handleRowClick = useCallback(
     (params: GridRowParams) => {
@@ -353,76 +338,98 @@ export default function TasksGrid({ onTotalCountChange }: TasksGridProps) {
     ];
   }, [router, handleRowDeleteAction]);
 
+  const filtersActive =
+    filterModel.items.length > 0 ||
+    !!searchQuery ||
+    hasActiveTaskFilters(drawerFilters);
+
   return (
-    <TasksToolbarContext.Provider
-      value={{
-        searchQuery,
-        setSearchQuery,
-        statusFilter,
-        setStatusFilter,
-        openFilterDrawer: () => setFilterDrawerOpen(true),
-        hasActiveDrawerFilters: hasActiveTaskFilters(drawerFilters),
-        activeFilterCount: countActiveTaskFilters(drawerFilters),
-      }}
+    <GridStateGate
+      data={tasksData}
+      error={error}
+      isEmpty={totalCount === 0 && !filtersActive}
+      emptyState={
+        <EntityEmptyState
+          icon={AssignmentOutlinedIcon}
+          title="No tasks yet"
+          description="Create tasks to track follow-ups, issues, and action items from tests and evaluations."
+          actionLabel={canCreate ? 'Create task' : undefined}
+          onAction={canCreate ? onCreateClick : undefined}
+        />
+      }
     >
-      <Box sx={{ position: 'relative' }}>
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }} onClose={dismissError}>
-            {error}
-          </Alert>
-        )}
-
-        <BaseDataGrid
-          rows={tasks}
-          columns={columns}
-          loading={loading}
-          getRowId={row => row.id}
-          paginationModel={paginationModel}
-          onPaginationModelChange={handlePaginationModelChange}
-          filterModel={filterModel}
-          onFilterModelChange={handleFilterModelChange}
-          disableRowSelectionOnClick
-          onRowClick={handleRowClick}
-          serverSidePagination={true}
-          totalRows={totalCount}
-          pageSizeOptions={[10, 25, 50, 100]}
-          serverSideFiltering={true}
-          showToolbar={true}
-          toolbarSlot={TasksUnifiedToolbar}
-          disablePaperWrapper={true}
-          persistState
-          sx={{
-            ...rowActionsHoverSx,
-            '& .MuiDataGrid-row': {
-              cursor: 'pointer',
-            },
+      <Paper sx={GRID_PAPER_SX}>
+        <TasksToolbarContext.Provider
+          value={{
+            searchQuery,
+            setSearchQuery,
+            statusFilter,
+            setStatusFilter,
+            openFilterDrawer: () => setFilterDrawerOpen(true),
+            hasActiveDrawerFilters: hasActiveTaskFilters(drawerFilters),
+            activeFilterCount: countActiveTaskFilters(drawerFilters),
           }}
-        />
+        >
+          <Box sx={{ position: 'relative' }}>
+            {error && (
+              <Alert severity="error" sx={{ mb: 2 }} onClose={dismissError}>
+                {error}
+              </Alert>
+            )}
 
-        <DeleteModal
-          open={deleteModalOpen}
-          onClose={handleDeleteCancel}
-          onConfirm={handleDeleteConfirm}
-          isLoading={isDeleting}
-          title="Delete Task"
-          message="Are you sure you want to delete this task? This action cannot be undone."
-          itemType="task"
-        />
+            <BaseDataGrid
+              rows={tasks}
+              columns={columns}
+              loading={loading}
+              getRowId={row => row.id}
+              paginationModel={paginationModel}
+              onPaginationModelChange={handlePaginationModelChange}
+              filterModel={filterModel}
+              onFilterModelChange={handleFilterModelChange}
+              disableRowSelectionOnClick
+              onRowClick={handleRowClick}
+              serverSidePagination={true}
+              totalRows={totalCount}
+              pageSizeOptions={[10, 25, 50, 100]}
+              serverSideFiltering={true}
+              showToolbar={true}
+              toolbarSlot={TasksUnifiedToolbar}
+              disablePaperWrapper={true}
+              persistState
+              sx={{
+                ...rowActionsHoverSx,
+                '& .MuiDataGrid-row': {
+                  cursor: 'pointer',
+                },
+              }}
+            />
 
-        <TaskFilterDrawer
-          open={filterDrawerOpen}
-          onClose={() => setFilterDrawerOpen(false)}
-          filters={drawerFilters}
-          onApply={f => {
-            setDrawerFilters(f);
-            if (f.status) {
-              setStatusFilter(f.status);
-            } else if (!drawerFilters.status) {
-              setStatusFilter('all');
-            }
-          }}
-        />
-      </Box>
-    </TasksToolbarContext.Provider>
+            <DeleteModal
+              open={deleteModalOpen}
+              onClose={handleDeleteCancel}
+              onConfirm={handleDeleteConfirm}
+              isLoading={isDeleting}
+              title="Delete Task"
+              message="Are you sure you want to delete this task? This action cannot be undone."
+              itemType="task"
+            />
+
+            <TaskFilterDrawer
+              open={filterDrawerOpen}
+              onClose={() => setFilterDrawerOpen(false)}
+              filters={drawerFilters}
+              onApply={f => {
+                setDrawerFilters(f);
+                if (f.status) {
+                  setStatusFilter(f.status);
+                } else if (!drawerFilters.status) {
+                  setStatusFilter('all');
+                }
+              }}
+            />
+          </Box>
+        </TasksToolbarContext.Provider>
+      </Paper>
+    </GridStateGate>
   );
 }

@@ -262,20 +262,29 @@ function TestsTableHarness(props: React.ComponentProps<typeof TestsTable>) {
 describe('TestsTable', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockGetTests.mockResolvedValue(makePaginatedResponse([]));
+    // Default: one row, so tests that don't care about emptiness exercise
+    // the populated (grid) branch rather than the empty-state branch.
+    mockGetTests.mockResolvedValue(makePaginatedResponse([makeTest('t-0')]));
   });
 
-  it('shows loading state while fetching', () => {
+  it('shows a loading state while the first fetch is in flight', () => {
     mockGetTests.mockReturnValue(new Promise(() => {}));
     render(<TestsTableHarness />);
-    expect(screen.getByTestId('grid-loading')).toBeInTheDocument();
+    expect(screen.getByRole('progressbar')).toBeInTheDocument();
+    expect(screen.queryByTestId('base-data-grid')).not.toBeInTheDocument();
+  });
+
+  it('renders the empty state directly, without ever mounting the grid, when there are zero tests', async () => {
+    mockGetTests.mockResolvedValue(makePaginatedResponse([]));
+    render(<TestsTableHarness />);
+    expect(await screen.findByText('No test yet')).toBeInTheDocument();
+    expect(screen.queryByTestId('base-data-grid')).not.toBeInTheDocument();
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
   });
 
   it('renders no action buttons when no rows are selected', async () => {
     render(<TestsTableHarness />);
-    await waitFor(() =>
-      expect(screen.queryByTestId('grid-loading')).not.toBeInTheDocument()
-    );
+    await screen.findByTestId('base-data-grid');
     expect(screen.queryByTestId('action-Add Tests')).not.toBeInTheDocument();
   });
 

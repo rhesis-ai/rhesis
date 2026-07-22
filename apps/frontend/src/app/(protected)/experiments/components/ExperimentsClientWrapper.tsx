@@ -412,10 +412,9 @@ export default function ExperimentsClientWrapper() {
         </FabGroup>
       }
     >
-      {!loading &&
-      experiments.length === 0 &&
-      !searchQuery.trim() &&
-      !visibilityFilter ? (
+      {loading ? null : experiments.length === 0 &&
+        !searchQuery.trim() &&
+        !visibilityFilter ? (
         <EntityEmptyState
           card
           icon={BiotechIcon}
