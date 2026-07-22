@@ -7,7 +7,7 @@ from .architect import (
     ArchitectSessionUpdate,
 )
 from .base import Base
-from .behavior import Behavior, BehaviorBase, BehaviorCreate, BehaviorUpdate
+from .behavior import Behavior, BehaviorBase, BehaviorCreate, BehaviorDetail, BehaviorUpdate
 from .category import Category, CategoryBase, CategoryCreate, CategoryDetail, CategoryUpdate
 from .chunk import Chunk, ChunkBase, ChunkCreate, ChunkUpdate
 from .comment import Comment, CommentBase, CommentCreate, CommentDetail, CommentUpdate
@@ -28,6 +28,7 @@ from .endpoint import (
     Endpoint,
     EndpointBase,
     EndpointCreate,
+    EndpointDetail,
     EndpointTestRequest,
     EndpointUpdate,
 )
@@ -42,7 +43,7 @@ from .metric import (
     MetricUpdate,
     ScoreType,
 )
-from .model import Model, ModelBase, ModelCreate, ModelRead, ModelUpdate
+from .model import Model, ModelBase, ModelCreate, ModelDetail, ModelRead, ModelUpdate
 from .organization import Organization, OrganizationBase, OrganizationCreate, OrganizationUpdate
 from .parameters import (
     ENVIRONMENT_NAME_MAX_LENGTH,
@@ -79,7 +80,7 @@ from .parameters import (
     validate_environment_name,
     validate_values_against_schema,
 )
-from .project import Project, ProjectBase, ProjectCreate, ProjectUpdate
+from .project import Project, ProjectBase, ProjectCreate, ProjectDetail, ProjectUpdate
 from .project_membership import ProjectMember, ProjectMemberCreate, ProjectMemberUser
 from .prompt import Prompt, PromptBase, PromptCreate, PromptUpdate, PromptView
 from .prompt_template import (
@@ -157,6 +158,7 @@ from .test_configuration import (
     TestConfiguration,
     TestConfigurationBase,
     TestConfigurationCreate,
+    TestConfigurationDetail,
     TestConfigurationExecutionRequest,
     TestConfigurationUpdate,
 )
@@ -186,6 +188,7 @@ from .test_set import (
     TestSetBulkDisassociateResponse,
     TestSetBulkResponse,
     TestSetCreate,
+    TestSetDetail,
     TestSetExecutionRequest,
     TestSetUpdate,
 )
@@ -211,6 +214,7 @@ __all__ = [
     "Behavior",
     "BehaviorBase",
     "BehaviorCreate",
+    "BehaviorDetail",
     "BehaviorUpdate",
     "Category",
     "CategoryBase",
@@ -237,11 +241,13 @@ __all__ = [
     "Endpoint",
     "EndpointBase",
     "EndpointCreate",
+    "EndpointDetail",
     "EndpointTestRequest",
     "EndpointUpdate",
     "Model",
     "ModelBase",
     "ModelCreate",
+    "ModelDetail",
     "ModelRead",
     "ModelUpdate",
     "PromptTemplate",
@@ -260,6 +266,7 @@ __all__ = [
     "TestConfiguration",
     "TestConfigurationBase",
     "TestConfigurationCreate",
+    "TestConfigurationDetail",
     "TestConfigurationUpdate",
     "TestConfigurationExecutionRequest",
     "TestResult",
@@ -274,6 +281,7 @@ __all__ = [
     "TestSet",
     "TestSetBase",
     "TestSetCreate",
+    "TestSetDetail",
     "TestSetUpdate",
     "TestPrompt",
     "TestData",
@@ -352,6 +360,7 @@ __all__ = [
     "Project",
     "ProjectBase",
     "ProjectCreate",
+    "ProjectDetail",
     "ProjectUpdate",
     "ProjectMember",
     "ProjectMemberCreate",

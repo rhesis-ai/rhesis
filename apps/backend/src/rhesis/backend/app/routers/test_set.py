@@ -55,8 +55,8 @@ from rhesis.backend.tasks.test_set import generate_and_save_test_set
 
 logger = logging.getLogger(__name__)
 
-# Create the detailed schema for TestSet and Test
-TestSetDetailSchema = create_detailed_schema(schemas.TestSet, models.TestSet)
+# Test's detail schema stays auto-generated here (out of scope for this change);
+# only TestSet's own detail schema was ported to schemas.TestSetDetail.
 TestDetailSchema = create_detailed_schema(schemas.Test, models.Test)
 
 router = RhesisRouter(
@@ -321,7 +321,7 @@ async def create_test_set(
     )
 
 
-@router.get("/", response_model=list[TestSetDetailSchema])
+@router.get("/", response_model=list[schemas.TestSetDetail])
 @with_count_header(model=models.TestSet)
 async def read_test_sets(
     response: Response,
@@ -413,7 +413,7 @@ def generate_test_set_stats(
         )
 
 
-@router.get("/{test_set_identifier}", response_model=TestSetDetailSchema)
+@router.get("/{test_set_identifier}", response_model=schemas.TestSetDetail)
 async def read_test_set(
     test_set_identifier: str,
     db: Session = Depends(get_tenant_db_session),

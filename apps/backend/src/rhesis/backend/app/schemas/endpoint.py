@@ -10,6 +10,8 @@ from rhesis.backend.app.models.enums import (
     EndpointResponseFormat,
 )
 from rhesis.backend.app.schemas import Base
+from rhesis.backend.app.schemas.tag import TagRead
+from rhesis.backend.app.schemas.user import UserReference as _BaseUserReference
 
 
 # Endpoint metadata schemas
@@ -235,6 +237,62 @@ class Endpoint(Base):
     scopes: Optional[List[str]] = None
     audience: Optional[str] = None
     extra_payload: Optional[Dict[str, Any]] = None
+
+
+# Lightweight reference schemas for EndpointDetail's relationship fields.
+# Mirrors the shape schema_factory.create_detailed_schema previously derived
+# by reflection (see utils/schema_factory.py common_fields).
+class StatusReference(Base):
+    id: UUID4
+    name: Optional[str] = None
+    description: Optional[str] = None
+    user_id: Optional[UUID4] = None
+    organization_id: Optional[UUID4] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ProjectReference(Base):
+    id: UUID4
+    name: Optional[str] = None
+    description: Optional[str] = None
+    user_id: Optional[UUID4] = None
+    organization_id: Optional[UUID4] = None
+    status_id: Optional[UUID4] = None
+    attributes: Optional[Dict[str, Any]] = None
+    tags: Optional[List[TagRead]] = None
+    icon: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class OrganizationReference(Base):
+    id: UUID4
+    name: Optional[str] = None
+    description: Optional[str] = None
+    email: Optional[str] = None
+    user_id: Optional[UUID4] = None
+    tags: Optional[List[TagRead]] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class UserReference(_BaseUserReference):
+    """Extends the shared UserReference with organization_id, which the
+    schema_factory-generated reference for Endpoint included."""
+
+    organization_id: Optional[UUID4] = None
+
+
+# The detailed model with expanded relations
+class EndpointDetail(Endpoint):
+    nano_id: Optional[str]
+    name: Optional[str] = None
+    tags: Optional[List[TagRead]] = None
+    status: Optional[StatusReference] = None
+    user: Optional[UserReference] = None
+    organization: Optional[OrganizationReference] = None
+    project: Optional[ProjectReference] = None
 
 
 # Auto-configure schemas — use BaseModel (not Base) since these are
