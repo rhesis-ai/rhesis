@@ -24,7 +24,27 @@ logger = logging.getLogger(__name__)
 # the expensive work it may trigger must still be de-duplicated across all
 # concurrent callers on this worker. See the docstring there for why this
 # exists.
-_enumeration_lock = asyncio.Lock()
+#
+# asyncio.Lock binds to whichever event loop first genuinely contends on it
+# (i.e. the first time a caller has to wait, not merely acquire/release
+# uncontended) and raises RuntimeError if a different loop later contends on
+# the same instance. A production worker keeps one event loop for its entire
+# lifetime, so a module-level lock is never a problem there — but tests
+# (pytest-asyncio's function-scoped event loops recreate the loop per test)
+# can trip this if two different tests both contend on the same lock. Track
+# (loop, lock) and recreate the lock whenever the running loop changes, so
+# each loop gets its own lock instead of fighting over one bound elsewhere.
+_enumeration_lock_state: tuple = (None, None)
+
+
+def _get_enumeration_lock() -> asyncio.Lock:
+    global _enumeration_lock_state
+    loop = asyncio.get_running_loop()
+    cached_loop, lock = _enumeration_lock_state
+    if cached_loop is not loop:
+        lock = asyncio.Lock()
+        _enumeration_lock_state = (loop, lock)
+    return lock
 
 
 class GarakProbeService:
@@ -534,7 +554,7 @@ class GarakProbeService:
         # never finish. With the lock, only one caller does the work; every
         # other concurrent caller waits for it, then reads the now-warm cache
         # instead of repeating it (double-checked below).
-        async with _enumeration_lock:
+        async with _get_enumeration_lock():
             cached_data = await GarakProbeCache.get(self.garak_version)
             if cached_data:
                 logger.info(

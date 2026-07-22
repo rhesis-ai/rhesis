@@ -12,6 +12,7 @@ from rhesis.backend.app.services.garak.probes import (
     GarakProbeInfo,
     GarakProbeService,
 )
+from rhesis.backend.app.services.garak.probes.service import _get_enumeration_lock
 
 
 @pytest.mark.unit
@@ -599,3 +600,42 @@ class TestGarakProbeServiceEnumerateCachedConcurrency:
         for modules, probes_by_module in results:
             assert modules == []
             assert probes_by_module == {}
+
+    @pytest.mark.asyncio
+    async def test_lock_survives_across_different_event_loops(self):
+        """Regression test flagged in PR review: a bare module-level
+        asyncio.Lock() binds to whichever event loop first genuinely contends
+        on it (waits, not just uncontended acquire/release), and raises
+        RuntimeError if a different loop later contends on the same instance.
+        pytest-asyncio recreates the event loop per test function
+        (function-scoped), so two different tests contending on the same
+        process-wide single-flight lock would hit exactly this in CI.
+        _get_enumeration_lock() must hand back a fresh, working lock whenever
+        the running loop differs from the one it was last bound to."""
+
+        async def _contend():
+            lock = _get_enumeration_lock()
+
+            async def holder():
+                async with lock:
+                    await asyncio.sleep(0.01)
+
+            async def waiter():
+                async with lock:
+                    pass
+
+            await asyncio.gather(holder(), waiter())
+
+        # Contends on the lock in the current (pytest-asyncio) event loop —
+        # this is what binds a bare asyncio.Lock() internally.
+        await _contend()
+
+        # Simulate a second, independent test function getting its own fresh
+        # event loop (exactly what pytest-asyncio's function-scoped loops do)
+        # and also contending on the same process-wide lock. Without the fix,
+        # this raises "... is bound to a different event loop".
+        new_loop = asyncio.new_event_loop()
+        try:
+            new_loop.run_until_complete(_contend())
+        finally:
+            new_loop.close()
