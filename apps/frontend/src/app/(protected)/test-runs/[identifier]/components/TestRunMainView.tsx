@@ -23,7 +23,7 @@ import { FilterState } from './TestRunFilterBar';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 import { useNotifications } from '@/components/common/NotificationContext';
-import { can } from '@/utils/affordances';
+import { can, useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useTestRunDetailData } from '../hooks/useTestRunDetailData';
@@ -509,16 +509,16 @@ export default function TestRunMainView({
     'aria-controls': `test-run-tabpanel-${index}`,
   }));
 
-  const canCreateRerun = can(testRun, Capability.TestRun.CREATE);
+  const canExecute = useCan(Capability.TestSet.EXECUTE);
   const canRerun =
     Boolean(testRun.test_configuration_id) &&
-    canCreateRerun &&
+    canExecute &&
     testSetExists !== false;
 
   const rerunTooltip =
     testSetExists === false
       ? 'The test set for this run no longer exists'
-      : !canCreateRerun
+      : !canExecute
         ? 'You do not have permission to re-run tests'
         : !testRun.test_configuration_id
           ? 'Cannot re-run: No test configuration found'
