@@ -39,7 +39,7 @@ conflicts = [[
 ]]
 
 [options]
-exclude-newer = "2026-07-14T20:56:58.893502Z"
+exclude-newer = "2026-07-15T08:10:03.328949Z"
 exclude-newer-span = "P1W"
 
 [options.exclude-newer-package]
@@ -6648,6 +6648,7 @@ dev = [
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
     { name = "pytest-mock" },
+    { name = "pytest-rerunfailures" },
     { name = "pytest-timeout" },
     { name = "pytest-xdist" },
     { name = "ruff" },
@@ -6739,6 +6740,7 @@ dev = [
     { name = "pytest-asyncio", specifier = ">=0.24.0" },
     { name = "pytest-cov", specifier = ">=6.0.0" },
     { name = "pytest-mock", specifier = ">=3.12.0" },
+    { name = "pytest-rerunfailures", specifier = ">=12.0" },
     { name = "pytest-timeout", specifier = ">=2.3.1" },
     { name = "pytest-xdist", specifier = ">=3.6.0" },
     { name = "ruff", specifier = ">=0.11.6" },
