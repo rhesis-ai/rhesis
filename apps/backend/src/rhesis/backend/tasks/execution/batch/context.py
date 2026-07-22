@@ -47,7 +47,11 @@ class ExecutionContext:
     execution_model: Any = None
     evaluation_model: Any = None
     # SDK MetricConfig objects built while the DB session is open (ORM-safe after close).
+    # Shared list used when all tests share the same metrics (Priority 1/2).
     metric_configs: List[MetricConfig] = field(default_factory=list)
+    # Per-test metric configs for behavior-mapped metrics (Priority 3) where each
+    # test may have a different behavior with different metrics.
+    per_test_metric_configs: Dict[str, List[MetricConfig]] = field(default_factory=dict)
     test_data: Dict[str, Any] = field(default_factory=dict)
     input_files: Dict[str, List] = field(default_factory=dict)
     existing_result_ids: Set[str] = field(default_factory=set)
@@ -66,6 +70,21 @@ class ExecutionContext:
     # Snapshot of test_data taken before the main pass, used to persist error
     # records after the batch for tests that failed without a DB row.
     test_data_snapshot: Dict[str, Any] = field(default_factory=dict)
+
+    def get_metric_configs_for_test(self, test_id: str) -> List[MetricConfig]:
+        """Return metric configs for a specific test.
+
+        Uses per-test configs when available (behavior-mapped metrics),
+        otherwise falls back to the shared list (test_set / execution-time).
+        """
+        if self.per_test_metric_configs:
+            return self.per_test_metric_configs.get(test_id, [])
+        return self.metric_configs
+
+    @property
+    def has_metrics(self) -> bool:
+        """True if any test has metric configs to evaluate."""
+        return bool(self.metric_configs) or bool(self.per_test_metric_configs)
 
 
 def prefetch_execution_context(
@@ -172,31 +191,68 @@ def prefetch_execution_context(
     # Pre-fetch metrics: convert ORM -> MetricConfig before session closes.  Async
     # evaluation runs after session.close(); detached Metric rows would raise on
     # lazy loads (e.g. backend_type) in metric_model_to_config.
+    #
+    # Metric resolution follows a 3-level priority (see executors/data.py):
+    #   P1 execution-time, P2 test-set, P3 behavior.
+    # P1 and P2 produce the same metrics for every test, so a single resolution
+    # from any sample test is correct.  P3 (behavior) can differ per test because
+    # each test may belong to a different behavior with different metrics.
+    # Detect which priority applies and resolve accordingly.
     metric_configs: List[MetricConfig] = []
-    try:
-        sample_test = tests[0] if tests else None
-        if sample_test:
-            metrics = get_test_metrics(
-                sample_test,
-                session,
-                organization_id,
-                user_id,
-                test_set=test_set,
-                test_configuration=test_config,
-            )
-            from rhesis.backend.tasks.execution.executors.metrics import (
-                prepare_metric_configs,
-            )
+    per_test_metric_configs: Dict[str, List[MetricConfig]] = {}
 
-            metric_models = prepare_metric_configs(metrics, str(sample_test.id))
+    try:
+        from rhesis.backend.tasks.execution.executors.metrics import (
+            prepare_metric_configs,
+        )
+
+        def _convert_metrics(metric_models, label):
+            configs = []
             for m in metric_models:
                 try:
-                    metric_configs.append(metric_model_to_config(m))
+                    configs.append(metric_model_to_config(m))
                 except Exception as conv_err:
                     logger.warning(
-                        f"Failed to convert metric {getattr(m, 'id', '?')} to "
-                        f"MetricConfig for test {sample_test.id}: {conv_err}"
+                        f"Failed to convert metric {getattr(m, 'id', '?')} "
+                        f"to MetricConfig for {label}: {conv_err}"
                     )
+            return configs
+
+        # Check whether P1 or P2 apply (shared metrics for all tests).
+        attrs = test_config.attributes or {}
+        has_execution_time_metrics = bool(attrs.get("metrics"))
+        has_test_set_metrics = bool(
+            test_set and hasattr(test_set, "metrics") and test_set.metrics
+        )
+
+        if has_execution_time_metrics or has_test_set_metrics:
+            # P1 / P2: metrics are the same for every test; resolve once.
+            sample_test = tests[0] if tests else None
+            if sample_test:
+                metrics = get_test_metrics(
+                    sample_test,
+                    session,
+                    organization_id,
+                    user_id,
+                    test_set=test_set,
+                    test_configuration=test_config,
+                )
+                models = prepare_metric_configs(metrics, str(sample_test.id))
+                metric_configs = _convert_metrics(models, f"test {sample_test.id}")
+        else:
+            # P3: behavior metrics — resolve per test.
+            for test in tests:
+                tid = str(test.id)
+                metrics = get_test_metrics(
+                    test,
+                    session,
+                    organization_id,
+                    user_id,
+                    test_set=test_set,
+                    test_configuration=test_config,
+                )
+                models = prepare_metric_configs(metrics, tid)
+                per_test_metric_configs[tid] = _convert_metrics(models, f"test {tid}")
     except Exception as e:
         logger.warning(f"Failed to pre-fetch metrics: {e}")
 
@@ -270,6 +326,7 @@ def prefetch_execution_context(
         execution_model=execution_model,
         evaluation_model=evaluation_model,
         metric_configs=metric_configs,
+        per_test_metric_configs=per_test_metric_configs,
         test_data=test_data,
         existing_result_ids=existing_result_ids,
         batch_concurrency=batch_concurrency,

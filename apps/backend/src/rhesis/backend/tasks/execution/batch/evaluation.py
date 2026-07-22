@@ -37,9 +37,14 @@ async def evaluate_metrics(
         return {}
 
     metrics_results = dict(penelope_metrics)
+    test_metric_configs = ctx.get_metric_configs_for_test(test_id)
     try:
         if is_multi_turn:
-            metrics_results.update(await _evaluate_multi_turn_metrics(ctx, evaluator, test, output))
+            metrics_results.update(
+                await _evaluate_multi_turn_metrics(
+                    ctx, evaluator, test, output, test_metric_configs
+                )
+            )
         else:
             metrics_results.update(
                 await _evaluate_single_turn_metrics(
@@ -49,6 +54,7 @@ async def evaluate_metrics(
                     output,
                     prompt_content,
                     expected_response,
+                    test_metric_configs,
                 )
             )
     except Exception as e:
@@ -57,10 +63,11 @@ async def evaluate_metrics(
 
 
 async def _evaluate_multi_turn_metrics(
-    ctx: ExecutionContext,
+    _ctx: ExecutionContext,
     evaluator: Any,
     test: Test,
     output: Dict[str, Any],
+    metric_configs: list,
 ) -> Dict[str, Any]:
     from rhesis.backend.tasks.execution.constants import CONVERSATION_SUMMARY_KEY
     from rhesis.backend.tasks.execution.evaluation import _build_conversation_history
@@ -73,7 +80,7 @@ async def _evaluate_multi_turn_metrics(
     goal = test_config_data.get("goal", "")
 
     filtered_configs = [
-        mc for mc in ctx.metric_configs if mc.class_name not in PENELOPE_EVALUATED_METRICS
+        mc for mc in metric_configs if mc.class_name not in PENELOPE_EVALUATED_METRICS
     ]
 
     if not filtered_configs:
@@ -96,12 +103,13 @@ async def _evaluate_multi_turn_metrics(
 
 
 async def _evaluate_single_turn_metrics(
-    ctx: ExecutionContext,
+    _ctx: ExecutionContext,
     evaluator: Any,
     test: Any,
     output: Dict[str, Any],
     prompt_content: str,
     expected_response: str,
+    metric_configs: list,
 ) -> Dict[str, Any]:
     from rhesis.backend.tasks.execution.response_extractor import (
         extract_response_with_fallback,
@@ -118,7 +126,7 @@ async def _evaluate_single_turn_metrics(
     # directly into the metric configs so the metric has them at construction time.
     # This avoids threading probe context through the generic evaluator interface.
     garak_notes = (test.test_metadata or {}).get("garak_notes") if test else None
-    metric_configs = _inject_probe_notes(ctx.metric_configs, garak_notes)
+    metric_configs = _inject_probe_notes(metric_configs, garak_notes)
 
     # Drop metrics that are scoped exclusively to Multi-Turn — they require
     # conversation_history which is not available for single-turn tests.
