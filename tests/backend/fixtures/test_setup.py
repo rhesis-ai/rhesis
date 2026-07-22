@@ -101,7 +101,7 @@ def create_test_user(
 
 
 def create_test_api_token(
-    db: Session, user: models.User, name: str = "Test API Token", set_env_var: bool = True
+    db: Session, user: models.User, name: str = "Test API Token", set_env_var: bool = False
 ) -> models.Token:
     """
     Create a test API token for the user.
@@ -489,8 +489,12 @@ def setup_test_environment() -> Tuple[models.Organization, models.User, models.T
                     print(f"🔑 Set RHESIS_API_KEY environment variable: {existing_token.token}")
                     return existing_org, existing_user, existing_token
                 else:
-                    # Create new API token for existing user
-                    api_token = create_test_api_token(db, existing_user)
+                    # Create new API token for existing user. This is the
+                    # standalone `python test_setup.py setup` CLI entrypoint,
+                    # not a pytest fixture — it's meant to point RHESIS_API_KEY
+                    # at this environment for manual/dev use, matching the
+                    # existing_token branch above.
+                    api_token = create_test_api_token(db, existing_user, set_env_var=True)
                     return existing_org, existing_user, api_token
 
         # Create new test organization, user, and API token
