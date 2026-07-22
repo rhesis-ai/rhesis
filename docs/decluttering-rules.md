@@ -191,7 +191,7 @@ Check off pages/sections as they are done.
 - [x] SDK — Getting Started, Architect Agent, Integrations
 - [x] Tracing System — Overview, Architecture, Trace Lifecycle, Data Structures
 - [ ] Polyphemus
-- [ ] Connector (`contribute/connector.mdx`)
+- [x] Connector (`contribute/connector.mdx`)
 
 **Reference**
 - [ ] Environment Variables (`contribute/environment-variables.mdx`)
