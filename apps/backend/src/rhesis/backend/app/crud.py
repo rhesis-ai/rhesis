@@ -2967,6 +2967,7 @@ _METRIC_RELATED_FIELDS = (
     include(models.Metric.backend_type),
     include(models.Metric.user),
     include(models.Metric.organization),
+    include(models.Metric.project),
     include(models.Metric.behaviors),
     include(models.Metric.test_sets),
 )

@@ -95,7 +95,6 @@ class Tool(Base):
 
 # The detailed model with expanded relations
 class ToolDetail(Tool):
-    id: UUID4
     nano_id: Optional[str]
     name: Optional[str] = None
 

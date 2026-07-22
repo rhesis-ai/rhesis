@@ -111,6 +111,8 @@ class TestRunReference(Base):
 
 
 class TestResultDetail(TestResult):
+    id: UUID4
+    nano_id: Optional[str]
     counts: Optional[Dict[str, Any]] = None
     tags: Optional[List[TagRead]] = None
     status: Optional[StatusReference] = None

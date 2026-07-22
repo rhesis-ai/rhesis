@@ -43,6 +43,9 @@ class BehaviorDetail(Behavior):
     # Overrides of the base schema's fields to match the shape used for
     # the detailed/expanded response (lightweight reference instead of the
     # full related schema, and TagRead instead of Tag for tags).
+    id: UUID4
+    nano_id: Optional[str]
+    name: Optional[str] = None
     tags: Optional[List[TagRead]] = None
     status: Optional[StatusReference] = None
     counts: Optional[Dict[str, Any]] = None
