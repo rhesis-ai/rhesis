@@ -169,7 +169,7 @@ async def run_batch(
 
     # Create a single MetricEvaluator for the batch (stateless, safe to share).
     evaluator = None
-    if ctx.metric_configs:
+    if ctx.has_metrics:
         from rhesis.backend.metrics.evaluator import MetricEvaluator
 
         evaluator = MetricEvaluator(
@@ -323,7 +323,7 @@ async def _execute_single_test(
                 # Discard Penelope goal metrics when the first target call was HTTP error.
                 metrics_results = {}
                 logger.info(f"[BATCH] HTTP error for test {test_id}; skipping metrics")
-            elif evaluator and ctx.metric_configs:
+            elif evaluator and ctx.get_metric_configs_for_test(test_id):
                 metrics_results = await evaluate_metrics(
                     ctx,
                     evaluator,
