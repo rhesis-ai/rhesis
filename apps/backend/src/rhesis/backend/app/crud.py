@@ -546,6 +546,7 @@ _TEST_SET_RELATED_FIELDS = (
     include(models.TestSet.owner),
     include(models.TestSet.assignee),
     include(models.TestSet.organization),
+    include(models.TestSet.project),
 )
 
 
@@ -795,6 +796,7 @@ def get_test_set_tests(
             include(models.Test.status),
             include(models.Test.source),
             include(models.Test.organization),
+            include(models.Test.project),
         )
         .with_visibility_filter()
         .with_custom_filter(
@@ -2703,7 +2705,14 @@ def get_test_result(
     db: Session, test_result_id: uuid.UUID, organization_id: str = None, user_id: str = None
 ) -> Optional[models.TestResult]:
     """Get test_result with relationships (tags, tasks, comments) using optimized approach."""
-    return get_item_detail(db, models.TestResult, test_result_id, organization_id, user_id)
+    return get_item_detail(
+        db,
+        models.TestResult,
+        test_result_id,
+        organization_id,
+        user_id,
+        nested_relationships={"test": ["prompt", "behavior", "topic"]},
+    )
 
 
 def get_test_results(
