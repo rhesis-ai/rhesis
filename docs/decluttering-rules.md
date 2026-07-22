@@ -176,7 +176,7 @@ Check off pages/sections as they are done.
 - [x] Managing Documentation
 
 **Architecture**
-- [ ] Frontend — Overview, Getting Started, Architecture, Routing, Component Library,
+- [x] Frontend — Overview, Getting Started, Architecture, Routing, Component Library,
       State Management, Architect Chat UI, API Integration, Frontend Authentication, Testing
 - [ ] Backend (26 pages, largest subsection) — Overview, Getting Started, Architecture,
       API Structure, Database Models, User Settings, Soft Deletion, Cascade Operations,
