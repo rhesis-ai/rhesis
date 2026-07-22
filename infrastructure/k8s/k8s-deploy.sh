@@ -189,12 +189,12 @@ build_service_image() {
             # Build context must be the repo root (not apps/frontend) so the
             # Dockerfile can COPY ee/frontend/*, which lives outside apps/frontend.
             cd "$PROJECT_ROOT" || exit 1
-            docker build -t rhesis-frontend:latest . -f apps/frontend/Dockerfile \
-                --build-arg FRONTEND_ENV=local
+            docker build -t rhesis-frontend:latest -f apps/frontend/Dockerfile \
+                --build-arg FRONTEND_ENV=local .
             ;;
         backend)
             cd "$PROJECT_ROOT" || exit 1
-            docker build -t rhesis-backend:latest . -f apps/backend/Dockerfile --target backend
+            docker build -t rhesis-backend:latest -f apps/backend/Dockerfile --target backend .
             ;;
         worker)
             cd "$PROJECT_ROOT" || exit 1
