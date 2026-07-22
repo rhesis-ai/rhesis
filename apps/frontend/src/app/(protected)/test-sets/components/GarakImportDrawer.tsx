@@ -15,11 +15,13 @@ import {
   IconButton,
   Collapse,
   Tooltip,
+  alpha,
   TextField,
   InputAdornment,
 } from '@mui/material';
 import {
   ExpandMore as ExpandMoreIcon,
+  Security as SecurityIcon,
   Refresh as RefreshIcon,
   CheckCircle as CheckCircleIcon,
   AutoAwesome as AutoAwesomeIcon,
@@ -713,24 +715,33 @@ export default function GarakImportDrawer({
           </Box>
         )}
 
-        {/* Import Result — mirrors the completion screen in this same
-            folder's FileImportDrawer (centered check icon + headline)
-            instead of the old "in-progress" panel: both static import and
-            dynamic generation are now pure fire-and-forget dispatch calls
-            (fast 202 responses), so there's no meaningful in-between state
-            to show while `importing` — the Save button's own spinner (via
-            BaseDrawer's `loading` prop) covers that brief window, and this
-            only ever renders once every dispatch call has resolved. */}
+        {/* Import Result — a tinted icon badge plus per-group icon + colored
+            chips, matching the probe-selection list's own icon/chip
+            conventions below. Both static import and dynamic generation are
+            pure fire-and-forget dispatch calls (fast 202 responses), so
+            there's no meaningful in-between state to show while `importing`
+            — the Save button's own spinner (via BaseDrawer's `loading`
+            prop) covers that brief window, and this only ever renders once
+            every dispatch call has resolved. */}
         {isImportComplete && importResult && (
-          <Stack spacing={3} alignItems="center" sx={{ py: 4 }}>
-            <CheckCircleIcon
+          <Stack spacing={3} alignItems="center" sx={{ pt: 2 }}>
+            <Box
               sx={theme => ({
-                fontSize: theme.spacing(8),
-                color: theme.palette.success.main,
+                width: theme.spacing(11),
+                height: theme.spacing(11),
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                bgcolor: alpha(theme.palette.success.main, 0.12),
               })}
-            />
+            >
+              <CheckCircleIcon sx={{ fontSize: 56, color: 'success.main' }} />
+            </Box>
             <Stack spacing={0.5} alignItems="center">
-              <Typography variant="h6">Import Started!</Typography>
+              <Typography variant="h5" fontWeight="bold">
+                Import Started!
+              </Typography>
               <Typography
                 variant="body2"
                 color="text.secondary"
@@ -743,42 +754,67 @@ export default function GarakImportDrawer({
 
             {(importResult.staticImported > 0 ||
               importResult.dynamicResults.length > 0) && (
-              <Paper variant="outlined" sx={{ p: 2, width: '100%' }}>
-                <Stack spacing={2}>
+              <Paper
+                variant="outlined"
+                sx={theme => ({
+                  p: 2.5,
+                  width: '100%',
+                  borderColor: alpha(theme.palette.success.main, 0.24),
+                  bgcolor: alpha(theme.palette.success.main, 0.04),
+                })}
+              >
+                <Stack spacing={2} divider={<Divider />}>
                   {importResult.staticImported > 0 && (
-                    <Stack spacing={0.5}>
-                      <Typography variant="body2" fontWeight="medium">
-                        {importResult.staticImported} static probe
-                        {importResult.staticImported !== 1 ? 's' : ''}
-                      </Typography>
-                      {preview?.probes.map(p => (
-                        <Typography
-                          key={p.full_name}
-                          variant="body2"
-                          color="text.secondary"
-                          sx={{ pl: 2 }}
-                        >
-                          • {p.test_set_name} ({p.prompt_count} tests)
+                    <Stack spacing={1}>
+                      <Stack direction="row" alignItems="center" spacing={1}>
+                        <SecurityIcon fontSize="small" color="primary" />
+                        <Typography variant="subtitle2" fontWeight="medium">
+                          {importResult.staticImported} static probe
+                          {importResult.staticImported !== 1 ? 's' : ''}
                         </Typography>
-                      ))}
+                      </Stack>
+                      <Stack spacing={0.75} sx={{ pl: 4 }}>
+                        {preview?.probes.map(p => (
+                          <Stack
+                            key={p.full_name}
+                            direction="row"
+                            alignItems="center"
+                            justifyContent="space-between"
+                            spacing={1}
+                          >
+                            <Typography variant="body2" color="text.secondary">
+                              {p.test_set_name}
+                            </Typography>
+                            <Chip
+                              label={`${p.prompt_count} tests`}
+                              size="small"
+                              variant="outlined"
+                            />
+                          </Stack>
+                        ))}
+                      </Stack>
                     </Stack>
                   )}
                   {importResult.dynamicResults.length > 0 && (
-                    <Stack spacing={0.5}>
-                      <Typography variant="body2" fontWeight="medium">
-                        {importResult.dynamicResults.length} dynamic probe
-                        {importResult.dynamicResults.length !== 1 ? 's' : ''}
-                      </Typography>
-                      {importResult.dynamicResults.map(result => (
-                        <Typography
-                          key={result.task_id}
-                          variant="body2"
-                          color="text.secondary"
-                          sx={{ pl: 2 }}
-                        >
-                          • {result.probe_full_name}
+                    <Stack spacing={1}>
+                      <Stack direction="row" alignItems="center" spacing={1}>
+                        <AutoAwesomeIcon fontSize="small" color="warning" />
+                        <Typography variant="subtitle2" fontWeight="medium">
+                          {importResult.dynamicResults.length} dynamic probe
+                          {importResult.dynamicResults.length !== 1 ? 's' : ''}
                         </Typography>
-                      ))}
+                      </Stack>
+                      <Stack spacing={0.75} sx={{ pl: 4 }}>
+                        {importResult.dynamicResults.map(result => (
+                          <Typography
+                            key={result.task_id}
+                            variant="body2"
+                            color="text.secondary"
+                          >
+                            {result.probe_full_name}
+                          </Typography>
+                        ))}
+                      </Stack>
                     </Stack>
                   )}
                 </Stack>
