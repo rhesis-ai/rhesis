@@ -13,12 +13,12 @@ graph LR
     TargetApp["Target Application<br/><small>Python SDK<br/>@endpoint decorator</small>"]
     Backend["Rhesis Backend<br/><small>ConnectionManager<br/>WebSocket</small>"]
     Workers["Workers<br/><small>Celery<br/>Test Execution</small>"]
-    Redis["Redis<br/><small>Pub/Sub RPC<br/>Message Broker</small>"]
+    Redis["Redis<br/><small>Routing keys + RPC<br/>list/pub-sub</small>"]
     PostgreSQL["PostgreSQL<br/><small>Endpoint Records<br/>Configuration</small>"]
 
     TargetApp <-->|WebSocket<br/>Registration & Execution| Backend
-    Backend <-->|Pub/Sub RPC| Redis
-    Workers <-->|Pub/Sub RPC| Redis
+    Backend <-->|Routing + RPC| Redis
+    Workers <-->|Routing + RPC| Redis
     Backend -->|Store Endpoints| PostgreSQL
     Workers -->|Read Config| PostgreSQL
 ```
@@ -46,20 +46,20 @@ graph LR
 
 **Initial Connection**:
 1. Target app starts → SDK initializes `RhesisClient` with `project_id` and `environment`
-2. SDK establishes WebSocket connection to backend (`/connector/ws`)
-3. SDK sends registration message with function metadata
-4. Backend stores connection and creates endpoint records
+2. SDK establishes an authenticated WebSocket connection to the backend (`/connector/ws`) — project/environment binding happens later, not at connect time
+3. SDK sends a `register` message with function metadata, binding the connection to `project_id`/`environment`
+4. Backend stores the connection routing and creates endpoint records
 
 **Test Execution Flow**:
 1. Worker receives test execution task
-2. Worker publishes RPC request to Redis (`ws:rpc:requests`)
-3. Backend subscribes to Redis and forwards request to SDK via WebSocket
-4. SDK executes function in target app
-5. SDK sends result back via WebSocket
-6. Backend publishes result to Redis (`ws:rpc:response:{test_run_id}`)
-7. Worker subscribes and receives result
+2. Worker looks up which backend instance owns the connection (`ws:routing:{project_id}:{environment}`) and pushes the RPC request onto that instance's queue (`ws:rpc:{worker_id}`)
+3. Backend pops the request and forwards it to the SDK via WebSocket
+4. SDK executes the function in the target app
+5. SDK sends the result back via WebSocket
+6. Backend publishes the result to Redis (`ws:rpc:response:{test_run_id}`)
+7. Worker subscribes to that channel and receives the result
 
-### Connector hardening controls (v0.6.8+)
+### Connector hardening controls
 
 The SDK connector WebSocket endpoint (`/connector/ws`) applies runtime safeguards configurable
 with backend environment variables:
@@ -79,40 +79,48 @@ These limits apply specifically to SDK connector traffic, not to all platform We
 Manages WebSocket connections and RPC routing:
 
 <CodeBlock filename="connection-manager.py" language="python">
-{`from rhesis.backend.app.services.connector.manager import ConnectionManager
+{`from rhesis.backend.app.services.connector.manager import connection_manager
 
-# Store connections (in-memory + Redis)
-await connection_manager.connect(project_id, environment, websocket)
+# Register a connection (project/environment binding happens later, via "register")
+await connection_manager.connect(connection_id, context, websocket)
 
 # Check connection status
 is_connected = await connection_manager.is_connected(project_id, environment)
 
-# Listen for RPC requests from workers
+# Listen for RPC requests from workers (per-instance Redis queue)
 asyncio.create_task(connection_manager._listen_for_rpc_requests())`}
 </CodeBlock>
 
 ### Message Handlers
 
-- **`registration.py`**: Processes SDK function registration, syncs endpoints
-- **`test_result.py`**: Handles test execution results, triggers validation
-- **`pong.py`**: Keepalive message handling
+`SDKMessageHandler` (`services/connector/handler.py`) dispatches each WebSocket message to a specialized handler:
+
+- **`handlers/registration.py`**: processes SDK function registration, syncs endpoints and SDK-registered metrics
+- **`handlers/test_result.py`**: handles test execution results; for validation runs, updates endpoint status (Active/Error)
+- **`handlers/pong.py`**: keepalive message handling
+- **`handlers/metric_sync.py`**: syncs SDK-registered metrics into the `Metric` table
+
+`metric_result` messages are handled inline in `manager.py` rather than through a dedicated handler.
 
 ### Mapping System
 
-4-tier priority for request/response mapping:
+4-tier priority for request/response mapping (`services/connector/mapping/mapper_service.py`):
 
 1. **SDK Manual**: Explicit mappings from `@endpoint` decorator
 2. **Existing DB**: Preserved manual edits from UI
 3. **Auto-Mapping**: Pattern-based heuristics (confidence >= 0.7)
-4. **LLM Fallback**: GPT-4 generates mappings (confidence < 0.7)
+4. **LLM Fallback**: Uses the user's configured generation model (confidence < 0.7)
 
 <CodeBlock filename="mapping-service.py" language="python">
 {`from rhesis.backend.app.services.connector.mapping import MappingService
 
 mapping_service = MappingService()
 result = mapping_service.generate_or_use_existing(
+    db=db,
+    user=user,
+    endpoint=endpoint,
+    sdk_metadata=sdk_metadata,
     function_data=function_data,
-    existing_mappings=endpoint.mappings
 )`}
 </CodeBlock>
 
@@ -122,14 +130,15 @@ result = mapping_service.generate_or_use_existing(
 
 Workers run in separate processes and cannot access backend's in-memory connection dictionary.
 
-### Solution: Redis Pub/Sub RPC
+### Solution: Redis-Based RPC
 
 **Flow**:
-1. Worker publishes request to Redis channel
-2. Backend subscribes and forwards to WebSocket
-3. SDK executes function and returns result
-4. Backend publishes response to Redis
-5. Worker subscribes and receives result
+1. Worker resolves the owning backend instance via a routing key (`ws:routing:{project_id}:{environment}`)
+2. Worker pushes the request onto that instance's Redis list (`ws:rpc:{worker_id}`)
+3. Backend pops the request (`BLPOP`) and forwards it over the WebSocket
+4. SDK executes the function and returns the result
+5. Backend publishes the response to a per-request pub/sub channel (`ws:rpc:response:{test_run_id}`)
+6. Worker subscribes to that channel and receives the result
 
 <CodeBlock filename="rpc-usage.py" language="python">
 {`from rhesis.backend.app.services.connector.rpc_client import SDKRpcClient
@@ -155,10 +164,16 @@ if await rpc_client.is_connected(project_id, environment):
 
 ### Message Types
 
-- **`register`**: SDK registers functions with metadata
-- **`execute_test`**: Backend requests function execution
-- **`test_result`**: SDK returns execution result
-- **`pong`**: Keepalive response
+| Type | Direction | Purpose |
+|---|---|---|
+| `register` | SDK → backend | Registers functions/metrics, optionally binds `project_id`/`environment` |
+| `connected` | backend → SDK | Sent immediately on connect, before registration |
+| `execute_test` | backend → SDK | Requests function execution |
+| `test_result` | SDK → backend | Returns execution result |
+| `execute_metric` | backend → SDK | Requests metric evaluation |
+| `metric_result` | SDK → backend | Returns metric evaluation result |
+| `pong` | SDK → backend | Keepalive response |
+| `error` | backend → SDK | Oversized, rate-limited, or malformed message |
 
 ### Registration Message
 
@@ -208,23 +223,28 @@ stats = await sync_sdk_endpoints(
     organization_id=org_id,
     user_id=user_id
 )
-# Returns: {"created": 2, "updated": 1, "marked_inactive": 0}`}
+# Returns: {"created": 2, "updated": 1, "marked_inactive": 0, "errors": []}`}
 </CodeBlock>
 
 ## Key Files
 
 **Backend** (`apps/backend/src/rhesis/backend/app/`):
+- `routers/connector.py` - WebSocket and REST endpoints
 - `services/connector/manager.py` - Connection management
-- `services/connector/handlers/` - Message handlers
+- `services/connector/handler.py` - Message dispatch facade
+- `services/connector/handlers/` - Specialized message handlers
+- `services/connector/schemas.py` - Wire protocol message schemas
 - `services/connector/mapping/` - Mapping logic
 - `services/connector/rpc_client.py` - Worker RPC client
 - `services/connector/redis_client.py` - Redis connection
-- `routers/connector.py` - WebSocket and REST endpoints
+- `services/endpoint/sdk_sync.py` - Endpoint synchronization
 
 **SDK** (`sdk/src/rhesis/sdk/`):
+- `clients/rhesis.py` - `RhesisClient`
 - `connector/manager.py` - SDK connector manager
 - `connector/connection.py` - WebSocket connection
-- `decorators.py` - `@endpoint` decorator
+- `connector/executor.py` - Function dispatch
+- `decorators/endpoint.py` - `@endpoint` decorator
 
 ---
 

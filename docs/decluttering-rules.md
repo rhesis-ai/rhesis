@@ -189,12 +189,12 @@ Check off pages/sections as they are done.
       Architect Background Tasks, Trace Ingestion Pipeline, Test Execution, Test Types,
       Execution Modes, Logging, Troubleshooting, GKE Troubleshooting
 - [x] SDK — Getting Started, Architect Agent, Integrations
-- [ ] Tracing System — Overview, Architecture, Trace Lifecycle, Data Structures
+- [x] Tracing System — Overview, Architecture, Trace Lifecycle, Data Structures
 - [ ] Polyphemus
-- [ ] Connector (`contribute/connector.mdx`)
+- [x] Connector (`contribute/connector.mdx`)
 
 **Reference**
-- [ ] Environment Variables (`contribute/environment-variables.mdx`)
+- [x] Environment Variables (`contribute/environment-variables.mdx`)
 - [x] Telemetry
 
 ### Other
