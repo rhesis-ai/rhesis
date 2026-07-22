@@ -36,7 +36,7 @@ from rhesis.backend.app.utils.crud_utils import (
     update_item,
 )
 from rhesis.backend.app.utils.name_generator import generate_memorable_name
-from rhesis.backend.app.utils.query_utils import QueryBuilder
+from rhesis.backend.app.utils.query_utils import QueryBuilder, include
 
 logger = logging.getLogger(__name__)
 
@@ -517,13 +517,13 @@ def get_test_set(
 # these endpoints serialize them. comments/tasks/files/tags ARE serialized
 # (via CountsMixin.counts / TagsMixin.tags) -- see with_default_derived_field_loads.
 _TEST_SET_RELATED_FIELDS = (
-    "status",
-    "license_type",
-    "test_set_type",
-    "user",
-    "owner",
-    "assignee",
-    "organization",
+    include(models.TestSet.status),
+    include(models.TestSet.license_type),
+    include(models.TestSet.test_set_type),
+    include(models.TestSet.user),
+    include(models.TestSet.owner),
+    include(models.TestSet.assignee),
+    include(models.TestSet.organization),
 )
 
 
@@ -761,18 +761,18 @@ def get_test_set_tests(
         # a one-to-many name here (e.g. test_results/test_contexts/trace) would
         # route through selectin, not joinedload.
         .with_related(
-            "prompt",
-            "test_type",
-            "user",
-            "assignee",
-            "owner",
-            "parent",
-            "topic",
-            "behavior",
-            "category",
-            "status",
-            "source",
-            "organization",
+            include(models.Test.prompt),
+            include(models.Test.test_type),
+            include(models.Test.user),
+            include(models.Test.assignee),
+            include(models.Test.owner),
+            include(models.Test.parent),
+            include(models.Test.topic),
+            include(models.Test.behavior),
+            include(models.Test.category),
+            include(models.Test.status),
+            include(models.Test.source),
+            include(models.Test.organization),
         )
         .with_visibility_filter()
         .with_custom_filter(
@@ -928,7 +928,12 @@ def get_status(
     item = (
         QueryBuilder(db, models.Status)
         .with_deleted()
-        .with_related("entity_type", "project", "organization", "user")
+        .with_related(
+            include(models.Status.entity_type),
+            include(models.Status.project),
+            include(models.Status.organization),
+            include(models.Status.user),
+        )
         .with_organization_filter(organization_id)
         .with_visibility_filter(user_id)
         .filter_by_id(status_id)
@@ -2099,7 +2104,12 @@ def get_projects(
     with bypass_tenant_filter():
         builder = (
             QueryBuilder(db, models.Project)
-            .with_related("user", "owner", "organization", "status")
+            .with_related(
+                include(models.Project.user),
+                include(models.Project.owner),
+                include(models.Project.organization),
+                include(models.Project.status),
+            )
             .with_default_derived_field_loads()
             .with_organization_filter(organization_id)
             .with_visibility_filter(user_id)
@@ -2384,14 +2394,29 @@ def delete_test_context(
 
 # Test Run CRUD
 
-# Nested relationship loading spec for TestRun detail responses.
-# Matches the schema defined by TestRunDetailSchema in routers/test_run.py.
-_TEST_RUN_NESTED_RELS = {
-    "test_configuration": {
-        "endpoint": ["project"],
-        "test_set": ["test_set_type"],
-    }
-}
+# Relationships loaded for TestRun detail responses. Matches the schema defined
+# by TestRunDetailSchema in routers/test_run.py.
+_TEST_RUN_RELATED_FIELDS = (
+    include(models.TestRun.status),
+    include(models.TestRun.assignee),
+    include(models.TestRun.owner),
+    include(models.TestRun.user),
+    include(models.TestRun.organization),
+    include(models.TestRun.experiment),
+    include(models.TestRun.project),
+    include(models.TestRun.test_configuration, models.TestConfiguration.endpoint),
+    include(
+        models.TestRun.test_configuration,
+        models.TestConfiguration.endpoint,
+        models.Endpoint.project,
+    ),
+    include(models.TestRun.test_configuration, models.TestConfiguration.test_set),
+    include(
+        models.TestRun.test_configuration,
+        models.TestConfiguration.test_set,
+        models.TestSet.test_set_type,
+    ),
+)
 
 
 def _defer_endpoint_last_token(q):
@@ -2412,16 +2437,7 @@ def get_test_run(
     item = (
         QueryBuilder(db, models.TestRun)
         .with_deleted()
-        .with_related(
-            "status",
-            "assignee",
-            "owner",
-            "user",
-            "organization",
-            "experiment",
-            "project",
-            nested=_TEST_RUN_NESTED_RELS,
-        )
+        .with_related(*_TEST_RUN_RELATED_FIELDS)
         .with_default_derived_field_loads()
         .with_custom_filter(_defer_endpoint_last_token)
         .with_organization_filter(organization_id)
@@ -2481,16 +2497,7 @@ def get_test_runs(
 
     return (
         QueryBuilder(db, models.TestRun)
-        .with_related(
-            "status",
-            "assignee",
-            "owner",
-            "user",
-            "organization",
-            "experiment",
-            "project",
-            nested=_TEST_RUN_NESTED_RELS,
-        )
+        .with_related(*_TEST_RUN_RELATED_FIELDS)
         .with_default_derived_field_loads()
         .with_custom_filter(_defer_endpoint_last_token)
         .with_custom_filter(experiment_filter)
@@ -2930,16 +2937,16 @@ def get_type_lookup_by_name_and_value(
 # (metric, behavior, test_set) tuple) that bloated the response by orders of
 # magnitude.
 _METRIC_RELATED_FIELDS = (
-    "metric_type",
-    "status",
-    "assignee",
-    "owner",
-    "model",
-    "backend_type",
-    "user",
-    "organization",
-    "behaviors",
-    "test_sets",
+    include(models.Metric.metric_type),
+    include(models.Metric.status),
+    include(models.Metric.assignee),
+    include(models.Metric.owner),
+    include(models.Metric.model),
+    include(models.Metric.backend_type),
+    include(models.Metric.user),
+    include(models.Metric.organization),
+    include(models.Metric.behaviors),
+    include(models.Metric.test_sets),
 )
 
 

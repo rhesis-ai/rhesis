@@ -25,6 +25,49 @@ T = TypeVar("T")
 _MAX_EAGER_LOADS_WARN = 12
 
 
+def _resolve_chain(model: Type, names: list) -> tuple:
+    """Resolve a runtime ``[name, ...]`` relationship-name chain into a tuple of
+    real attributes, one per hop, starting from ``model``.
+
+    Used where relationship names are only known dynamically per-model (e.g.
+    ``with_default_derived_field_loads``, which runs across every model), so a
+    static ``Model.attr`` reference isn't available at the call site.
+    """
+    attrs = []
+    current_model = model
+    for name in names:
+        attrs.append(getattr(current_model, name))
+        rel_prop = inspect(current_model).relationships.get(name)
+        if rel_prop is not None:
+            current_model = rel_prop.mapper.class_
+    return tuple(attrs)
+
+
+def include(*path, cols: list | None = None):
+    """Build one eager-load option for ``QueryBuilder.with_related``.
+
+    ``path`` is one or more relationship attributes forming a chain (e.g.
+    ``Test.test_configuration, TestConfiguration.endpoint``). ``joinedload`` vs.
+    ``selectinload`` is picked per hop from that relationship's own cardinality,
+    so a collection relationship can never regress into the cartesian-product
+    blowup a plain JOIN would produce (see ``_MAX_EAGER_LOADS_WARN`` below).
+    ``cols`` scopes the final hop to specific columns -- omit it to load the
+    full related row.
+
+    Example::
+
+        include(Test.behavior, cols=[Behavior.id, Behavior.name])
+        include(Test.test_configuration, TestConfiguration.endpoint,
+                cols=[Endpoint.id, Endpoint.name])
+    """
+    opt = selectinload(path[0]) if path[0].property.uselist else joinedload(path[0])
+    for attr in path[1:]:
+        opt = opt.selectinload(attr) if attr.property.uselist else opt.joinedload(attr)
+    if cols:
+        opt = opt.load_only(*cols)
+    return opt
+
+
 class QueryBuilder:
     """
     A flexible query builder that allows selective application of filters and transformations.
@@ -54,114 +97,27 @@ class QueryBuilder:
         self._secondary_sort_by = None
         self._secondary_sort_order = "asc"
         # Track explicit eager-load counts so we can warn callers who request
-        # an unreasonably large number of joins on a single query. Indexes
-        # joined and selectin separately because they have different cost
-        # profiles (joinedload multiplies rows, selectinload issues one extra
-        # SELECT per relationship).
+        # an unreasonably large number of joins on a single query.
         self._joined_count = 0
         self._selectin_count = 0
 
-    def _with_joined(self, *relationship_names: str) -> "QueryBuilder":
-        """Eager-load each named relationship with ``joinedload``.
+    def with_related(self, *options) -> "QueryBuilder":
+        """Eager-load each relationship option, built via ``include(...)`` (see
+        module level) -- e.g. ``include(Test.behavior, cols=[Behavior.id,
+        Behavior.name])`` or a multi-hop chain: ``include(Test.test_configuration,
+        TestConfiguration.endpoint, cols=[Endpoint.id, Endpoint.name])``.
 
-        Low-level primitive for many-to-one and one-to-one relationships, where
-        each parent row matches at most one child. Avoid joinedload on
-        relationships whose child rows carry large JSONB payloads — those
-        produce cartesian-product result sets that can be orders of
-        magnitude larger than the logical row count.
+        A pass-through onto the query's own ``.options()`` -- all of the
+        strategy-picking and column-scoping happens in ``include()`` itself.
         """
-        if not relationship_names:
-            return self
-        unknown: List[str] = []
-        attrs: List[object] = []
-        for name in relationship_names:
-            if inspect(self.model).relationships.get(name) is None:
-                unknown.append(name)
-                continue
-            attrs.append(getattr(self.model, name))
-        if unknown:
-            raise ValueError(
-                f"_with_joined: {self.model.__name__} has no relationship(s) named {unknown!r}"
-            )
-        for attr in attrs:
-            self.query = self.query.options(joinedload(attr))
-        self._joined_count += len(attrs)
-        self._maybe_warn_load_count()
-        return self
-
-    def _with_selectin(self, *relationship_names: str) -> "QueryBuilder":
-        """Eager-load each named relationship with ``selectinload``.
-
-        Low-level primitive for many-to-many or one-to-many relationships.
-        ``selectinload`` issues a single follow-up
-        ``SELECT ... WHERE parent_id IN (...)`` query per relationship, which
-        avoids the cartesian-product blowup that ``joinedload`` produces on
-        collection relationships.
-        """
-        if not relationship_names:
-            return self
-        unknown: List[str] = []
-        attrs: List[object] = []
-        for name in relationship_names:
-            if inspect(self.model).relationships.get(name) is None:
-                unknown.append(name)
-                continue
-            attrs.append(getattr(self.model, name))
-        if unknown:
-            raise ValueError(
-                f"_with_selectin: {self.model.__name__} has no relationship(s) named {unknown!r}"
-            )
-        for attr in attrs:
-            self.query = self.query.options(selectinload(attr))
-        self._selectin_count += len(attrs)
-        self._maybe_warn_load_count()
-        return self
-
-    def with_related(self, *relationship_names: str, nested: dict | None = None) -> "QueryBuilder":
-        """Eager-load each named relationship, picking ``joinedload`` vs ``selectinload``
-        automatically from the relationship's own cardinality.
-
-        ``nested`` mirrors the dict/list chain spec used elsewhere in this module (e.g.
-        ``{"test_configuration": {"endpoint": ["project"], "test_set": ["test_set_type"]}}``),
-        with the same per-hop cardinality detection applied at each level.
-        """
-        if relationship_names:
-            unknown: List[str] = []
-            joined_names: List[str] = []
-            selectin_names: List[str] = []
-            for name in relationship_names:
-                rel_prop = inspect(self.model).relationships.get(name)
-                if rel_prop is None:
-                    unknown.append(name)
-                    continue
-                (selectin_names if rel_prop.uselist else joined_names).append(name)
-            if unknown:
-                raise ValueError(
-                    f"with_related: {self.model.__name__} has no relationship(s) named {unknown!r}"
-                )
-            if joined_names:
-                self._with_joined(*joined_names)
-            if selectin_names:
-                self._with_selectin(*selectin_names)
-
-        if nested:
-            for rel_name, spec in nested.items():
-                rel_prop = inspect(self.model).relationships.get(rel_name)
-                if rel_prop is None:
-                    raise ValueError(
-                        f"with_related: {self.model.__name__} has no relationship "
-                        f"named {rel_name!r}"
-                    )
-                attr = getattr(self.model, rel_name)
-                base_load = selectinload(attr) if rel_prop.uselist else joinedload(attr)
-                target_model = rel_prop.mapper.class_
-                options = _build_related_chain(base_load, target_model, spec)
-                self.query = self.query.options(base_load, *options)
-                if rel_prop.uselist:
-                    self._selectin_count += 1
-                else:
-                    self._joined_count += 1
-                self._maybe_warn_load_count()
+        if options:
+            self.query = self.query.options(*options)
+            # Approximate: counts top-level options, not each hop of a multi-hop
+            # chain, which is enough to catch the "far too many relationships in
+            # one query" pattern that caused the 22-join blowup this guards
+            # against -- see _MAX_EAGER_LOADS_WARN above.
+            self._joined_count += len(options)
+            self._maybe_warn_load_count()
         return self
 
     def with_default_derived_field_loads(self, extra_chains: list | None = None) -> "QueryBuilder":
@@ -213,20 +169,12 @@ class QueryBuilder:
             if issubclass(self.model, mixin):
                 _add(list(chain))
         for chain in chains:
-            if len(chain) == 1:
-                # Single hop -- these are always the collection side
-                # (comments/tasks/files/tags), so with_related always picks
-                # selectinload here, same as before.
-                self.with_related(chain[0])
-                continue
-            # Multi-hop (e.g. _tags_relationship -> tag): build the nested
-            # spec with_related expects, picking joinedload vs selectinload
-            # per hop from that hop's own cardinality, instead of assuming
-            # selectinload at every level.
-            spec: list | dict = list(chain[-1:])
-            for name in reversed(chain[1:-1]):
-                spec = {name: spec}
-            self.with_related(nested={chain[0]: spec})
+            # _resolve_chain turns the runtime [name, ...] chain into a tuple of
+            # real attributes; include() picks joinedload vs. selectinload per hop
+            # from each one's own cardinality, whether the chain is a single hop
+            # (comments/tasks/files/tags) or multi-hop (_tags_relationship -> tag)
+            # -- no special-casing needed for either length.
+            self.with_related(include(*_resolve_chain(self.model, chain)))
 
         # Cascade one level into joined-in single-object relations (the ones
         # with_optimized_loads/with_related eager-load via joinedload) whose
@@ -670,56 +618,6 @@ def _build_nested_load_options(
                 options.extend(
                     _build_nested_load_options(nested_load, nested_rel_prop, deeper_spec)
                 )
-
-    return options
-
-
-def _build_related_chain(parent_load, target_model: Type, nested_spec) -> List:
-    """
-    Recursively build chained load options for ``QueryBuilder.with_related``'s ``nested``
-    spec, choosing ``joinedload``/``selectinload`` per hop from each relationship's own
-    cardinality (unlike ``_build_nested_load_options``, which always chains ``joinedload``).
-
-    Args:
-        parent_load: The parent load option (e.g. joinedload(Model.rel))
-        target_model: The model class the parent relationship points to
-        nested_spec: Either a list of relationship names or a dict for deeper nesting.
-                     List format:  ["endpoint", "test_set"]
-                     Dict format:  {"endpoint": ["project"], "test_set": ["test_set_type"]}
-
-    Returns:
-        List of chained load options to apply to the query.
-    """
-    options = []
-
-    def _chain_names(names):
-        for nested_rel_name in names:
-            rel_prop = inspect(target_model).relationships.get(nested_rel_name)
-            if rel_prop is None:
-                continue
-            nested_attr = getattr(target_model, nested_rel_name)
-            chained = (
-                parent_load.selectinload(nested_attr)
-                if rel_prop.uselist
-                else parent_load.joinedload(nested_attr)
-            )
-            options.append(chained)
-
-    if isinstance(nested_spec, list):
-        _chain_names(nested_spec)
-    elif isinstance(nested_spec, dict):
-        for nested_rel_name, deeper_spec in nested_spec.items():
-            rel_prop = inspect(target_model).relationships.get(nested_rel_name)
-            if rel_prop is None:
-                continue
-            nested_attr = getattr(target_model, nested_rel_name)
-            nested_load = (
-                parent_load.selectinload(nested_attr)
-                if rel_prop.uselist
-                else parent_load.joinedload(nested_attr)
-            )
-            options.append(nested_load)
-            options.extend(_build_related_chain(nested_load, rel_prop.mapper.class_, deeper_spec))
 
     return options
 
