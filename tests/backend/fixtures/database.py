@@ -249,19 +249,29 @@ def _hard_delete_organization(db, organization_id: str) -> None:
         managed_tables = [t for t in _ORG_SCOPED_TABLES if t.strip('"') in existing_tables]
 
         db.execute(text("SET session_replication_role = 'replica'"))
-        try:
-            for table in managed_tables:
-                db.execute(
-                    text(f"DELETE FROM {table} WHERE organization_id = :oid"),
-                    {"oid": organization_id},
-                )
-            db.execute(text("DELETE FROM organization WHERE id = :oid"), {"oid": organization_id})
-        finally:
-            db.execute(text("SET session_replication_role = 'origin'"))
+        for table in managed_tables:
+            db.execute(
+                text(f"DELETE FROM {table} WHERE organization_id = :oid"),
+                {"oid": organization_id},
+            )
+        db.execute(text("DELETE FROM organization WHERE id = :oid"), {"oid": organization_id})
         db.commit()
     except Exception as e:
         db.rollback()
         print(f"real_commit_test_db cleanup failed for org {organization_id}: {e}")
+    finally:
+        # session_replication_role is session-scoped, not transaction-scoped —
+        # a rollback above does NOT reset it. Restore it in its own try/except,
+        # after any rollback has already cleared an aborted transaction (a
+        # failed DELETE above would otherwise make this very statement fail
+        # too, leaving the pooled connection stuck in 'replica' — silently
+        # disabling FK enforcement for whichever later test reuses it).
+        try:
+            db.execute(text("SET session_replication_role = 'origin'"))
+            db.commit()
+        except Exception as e:
+            db.rollback()
+            print(f"real_commit_test_db: failed to reset session_replication_role: {e}")
 
 
 @pytest.fixture
