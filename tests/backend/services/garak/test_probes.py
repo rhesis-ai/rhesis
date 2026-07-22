@@ -1,5 +1,7 @@
 """Tests for GarakProbeService."""
 
+import asyncio
+import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -537,3 +539,63 @@ class TestGarakProbeServiceGetCachedProbes:
 
         assert result is not None
         assert result["dan"][0].class_name == "Dan_11_0"
+
+
+@pytest.mark.unit
+@pytest.mark.service
+class TestGarakProbeServiceEnumerateCachedConcurrency:
+    """Regression test for a cache-stampede bug: enumerate_probe_modules_cached
+    offloads the cold-cache "enumerate + populate" path to a worker thread so
+    it doesn't block the event loop. Without a single-flight lock around that
+    path, concurrent callers hitting a cold cache would each independently
+    kick off their own full-corpus enumeration — observed in CI as dozens of
+    overlapping enumerations that never finished and hung the whole test run
+    for hours. Only one concurrent caller must actually enumerate; the rest
+    must wait and then read the now-warm cache."""
+
+    @pytest.mark.asyncio
+    async def test_concurrent_cache_misses_enumerate_only_once(self):
+        cache_store = {}
+        enumerate_call_count = 0
+
+        async def fake_get(version):
+            return cache_store.get(version)
+
+        async def fake_set(version, data):
+            cache_store[version] = data
+
+        def fake_enumerate_probe_modules():
+            nonlocal enumerate_call_count
+            enumerate_call_count += 1
+            # Simulate slow, CPU-bound work so concurrent callers genuinely
+            # overlap instead of trivially serializing by accident.
+            time.sleep(0.05)
+            return []
+
+        service = GarakProbeService()
+
+        with (
+            patch(
+                "rhesis.backend.app.services.garak.cache.GarakProbeCache.initialize",
+                new=AsyncMock(),
+            ),
+            patch(
+                "rhesis.backend.app.services.garak.cache.GarakProbeCache.get",
+                new=AsyncMock(side_effect=fake_get),
+            ),
+            patch(
+                "rhesis.backend.app.services.garak.cache.GarakProbeCache.set",
+                new=AsyncMock(side_effect=fake_set),
+            ),
+            patch.object(
+                service, "enumerate_probe_modules", side_effect=fake_enumerate_probe_modules
+            ),
+        ):
+            results = await asyncio.gather(
+                *[service.enumerate_probe_modules_cached() for _ in range(5)]
+            )
+
+        assert enumerate_call_count == 1
+        for modules, probes_by_module in results:
+            assert modules == []
+            assert probes_by_module == {}
