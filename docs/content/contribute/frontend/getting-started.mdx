@@ -31,10 +31,10 @@ yarn install`}
 
 ### 3. Set Up Environment Variables
 
-Copy the example environment file and fill in the required values:
+Copy the example environment file (at the repo root) and fill in the required values:
 
 <CodeBlock filename="Terminal" language="bash" isTerminal={true}>
-{`cp .env.example .env.local`}
+{`cp ../../.env.example .env.local`}
 </CodeBlock>
 
 Update `.env.local` with the necessary configurations:
@@ -59,8 +59,8 @@ Open [http://localhost:3000](http://localhost:3000) in your browser to see the a
 
 ### Available Scripts
 
-- `npm run dev`: Starts the development server with Turbo.
-- `npm run build`: Builds the application for production (runs type-check and lint first).
+- `npm run dev`: Starts the development server (Webpack). `npm run dev:turbo` runs the same server with Turbopack — this is what `./rh dev frontend` uses.
+- `npm run build`: Cleans `.next` and builds the application for production. Run `type-check` and `lint` separately first, or use `make lint`/`make lint-fast` (below), which chain them.
 - `npm run start`: Starts a production server (after building).
 - `npm run lint`: Lints the codebase using Next.js's built-in ESLint configuration.
 - `npm run type-check`: Validates TypeScript types.
