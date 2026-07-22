@@ -46,6 +46,7 @@ import { can } from '@/utils/affordances';
 import { Can, useCan, useCanWithStatus } from '@/components/common/Can';
 import AccessDenied from '@/components/common/AccessDenied';
 import PageLoadingState from '@/components/common/PageLoadingState';
+import GridStateGate from '@/components/common/GridStateGate';
 import { BiotechIcon } from '@/components/icons';
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
 import { useNotifications } from '@/components/common/NotificationContext';
@@ -412,20 +413,26 @@ export default function ExperimentsClientWrapper() {
         </FabGroup>
       }
     >
-      {loading ? null : experiments.length === 0 &&
-        !searchQuery.trim() &&
-        !visibilityFilter ? (
-        <EntityEmptyState
-          card
-          icon={BiotechIcon}
-          title="No experiments yet"
-          description="Experiments let you bundle parameter values into versioned configurations. Create one to start tracking how different settings affect your test results."
-          actionLabel={canCreateExperiment ? 'New Experiment' : undefined}
-          onAction={canCreateExperiment ? () => setCreateOpen(true) : undefined}
-          actionDisabled={!activeProject}
-          enrichment={getEntityEmptyStateEnrichment('experiments')}
-        />
-      ) : (
+      <GridStateGate
+        data={loading ? null : experiments}
+        isEmpty={
+          experiments.length === 0 && !searchQuery.trim() && !visibilityFilter
+        }
+        emptyState={
+          <EntityEmptyState
+            card
+            icon={BiotechIcon}
+            title="No experiments yet"
+            description="Experiments let you bundle parameter values into versioned configurations. Create one to start tracking how different settings affect your test results."
+            actionLabel={canCreateExperiment ? 'New Experiment' : undefined}
+            onAction={
+              canCreateExperiment ? () => setCreateOpen(true) : undefined
+            }
+            actionDisabled={!activeProject}
+            enrichment={getEntityEmptyStateEnrichment('experiments')}
+          />
+        }
+      >
         <ExperimentsToolbarContext.Provider
           value={{
             searchQuery,
@@ -455,7 +462,7 @@ export default function ExperimentsClientWrapper() {
             sx={rowActionsHoverSx}
           />
         </ExperimentsToolbarContext.Provider>
-      )}
+      </GridStateGate>
 
       <CreateExperimentDialog
         open={createOpen}
