@@ -38,7 +38,7 @@ export default function GridStateGate({
   children,
 }: GridStateGateProps) {
   if (!active) return <>{children}</>;
-  if (!data && !error) return <PageLoadingState />;
+  if (data == null && !error) return <PageLoadingState />;
   if (isEmpty && !error) return <>{emptyState}</>;
   return <>{children}</>;
 }

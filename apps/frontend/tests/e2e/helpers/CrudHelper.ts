@@ -41,9 +41,19 @@ export async function expectGridRowVisible(page: Page, text: string) {
   await expect(row).toBeVisible({ timeout: 15_000 });
 }
 
-/** Locator for the currently open MUI drawer (BaseDrawer titles are plain Typography). */
-export function openDrawer(page: Page) {
-  return page.locator('.MuiDrawer-root:not([aria-hidden="true"])');
+/**
+ * Locator for an open MUI drawer (BaseDrawer titles are plain Typography).
+ * Pass `title` to scope to one specific drawer — required whenever more
+ * than one drawer can be mounted on the page (even closed), since a
+ * just-closed drawer's `aria-hidden` attribute can lag its mount by a
+ * frame, which otherwise trips Playwright's strict-mode "resolved to N
+ * elements" check against the unscoped locator.
+ */
+export function openDrawer(page: Page, title?: string | RegExp) {
+  const drawers = page.locator('.MuiDrawer-root:not([aria-hidden="true"])');
+  if (title === undefined) return drawers;
+  // BaseDrawer title is Typography — avoid matching the footer save button.
+  return drawers.filter({ has: page.getByRole('paragraph', { name: title }) });
 }
 
 /** Wait until the open drawer shows the expected title text. */
@@ -60,9 +70,16 @@ export async function expectOpenDrawerTitle(
   ).toBeVisible({ timeout });
 }
 
-/** Wait until no drawer is open. */
-export async function waitForDrawerClosed(page: Page, timeout = 15_000) {
-  await openDrawer(page).waitFor({ state: 'hidden', timeout });
+/**
+ * Wait until no drawer is open. Pass `title` to scope to one specific
+ * drawer when other drawers may be mounted-but-closed on the page.
+ */
+export async function waitForDrawerClosed(
+  page: Page,
+  opts: { title?: string | RegExp; timeout?: number } = {}
+) {
+  const { title, timeout = 15_000 } = opts;
+  await openDrawer(page, title).waitFor({ state: 'hidden', timeout });
 }
 
 /** Wait until a drawer heading is no longer visible (BaseDrawer uses role=presentation). */
@@ -71,7 +88,7 @@ export async function waitForDrawerHeadingHidden(
   title: string | RegExp,
   timeout = 15_000
 ) {
-  await waitForDrawerClosed(page, timeout);
+  await waitForDrawerClosed(page, { title, timeout });
 }
 
 /** UUID that is valid but unlikely to exist in Quick Start seed data. */

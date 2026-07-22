@@ -49,7 +49,10 @@ test.describe('Test Sets — CRUD @crud', () => {
 
     // Save (button text from BaseDrawer default is "Save Changes")
     await drawer.getByRole('button', { name: /save changes/i }).click();
-    await waitForDrawerClosed(page);
+    // Scoped by title: the grid's own RunDrawer/TestSetFilterDrawer can be
+    // mounted-but-closed here too, and an unscoped wait would strict-mode
+    // violate against whichever of them hasn't yet settled aria-hidden.
+    await waitForDrawerClosed(page, { title: 'New Test Set' });
 
     // The new test set should appear in the list
     await page.waitForLoadState('networkidle');

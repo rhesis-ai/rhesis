@@ -99,7 +99,7 @@ export class KnowledgePage extends BasePage {
 
   /** BaseDrawer stays mounted — wait for the drawer to close. */
   async waitForUploadDrawerClosed() {
-    await waitForDrawerClosed(this.page, 20_000);
+    await waitForDrawerClosed(this.page, { timeout: 20_000 });
   }
 
   /** Delete a row via the hover-revealed row-actions delete icon. */
