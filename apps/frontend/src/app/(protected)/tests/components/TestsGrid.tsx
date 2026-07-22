@@ -25,7 +25,7 @@ import {
   GridToolbarDensitySelector,
   GridToolbarExport,
 } from '@mui/x-data-grid';
-import BaseDataGrid from '@/components/common/BaseDataGrid';
+import BaseDataGrid, { GRID_PAPER_SX } from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
 import { TestDetail } from '@/utils/api-client/interfaces/tests';
 import { Tag } from '@/utils/api-client/interfaces/tag';
@@ -36,9 +36,15 @@ import {
   Chip,
   FormControlLabel,
   Switch,
+  Paper,
 } from '@mui/material';
 import GridBadge from '@/components/common/GridBadge';
-import { AttachFileIcon, ChatIcon, DescriptionIcon } from '@/components/icons';
+import {
+  AttachFileIcon,
+  ChatIcon,
+  DescriptionIcon,
+  ScienceIcon,
+} from '@/components/icons';
 import InsertDriveFileOutlined from '@mui/icons-material/InsertDriveFileOutlined';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useSession } from 'next-auth/react';
@@ -80,13 +86,16 @@ import {
   type InsightsFailedTestsFilter,
 } from '@/app/(protected)/insights/utils/insights-failed-tests';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import GridStateGate from '@/components/common/GridStateGate';
+import EntityEmptyState from '@/components/common/EntityEmptyState';
+import { getEntityEmptyStateEnrichment } from '@/constants/entity-empty-state-env';
 
 interface TestsTableProps {
   onNewTest?: () => void;
   disableAddButton?: boolean;
+  canCreate?: boolean;
   insightsFailedFilter?: InsightsFailedTestsFilter | null;
   insightsEndpointName?: string;
-  onTotalCountChange?: (count: number) => void;
   onBulkActionsChange?: (actions: TestsBulkActionsState) => void;
 }
 
@@ -184,11 +193,11 @@ function TestsUnifiedToolbar() {
 }
 
 export default function TestsTable({
-  onNewTest: _onNewTest,
-  disableAddButton: _disableAddButton = false,
+  onNewTest,
+  disableAddButton = false,
+  canCreate,
   insightsFailedFilter = null,
   insightsEndpointName,
-  onTotalCountChange,
   onBulkActionsChange,
 }: TestsTableProps) {
   const router = useRouter();
@@ -300,23 +309,6 @@ export default function TestsTable({
         typeValues.size === 1 ? ([...typeValues][0] ?? undefined) : undefined,
     };
   }, [selectedRows, tests]);
-
-  useEffect(() => {
-    if (!testsData) return;
-    const filtersActive =
-      filterModel.items.length > 0 ||
-      !!searchQuery ||
-      hasActiveTestFilters(drawerFilters) ||
-      !!insightsFailedFilter;
-    if (!filtersActive) onTotalCountChange?.(testsData.pagination.totalCount);
-  }, [
-    testsData,
-    filterModel.items.length,
-    searchQuery,
-    drawerFilters,
-    insightsFailedFilter,
-    onTotalCountChange,
-  ]);
 
   // Apply Insights failed-test filter from URL params
   useEffect(() => {
@@ -780,6 +772,12 @@ export default function TestsTable({
     }
   }, [queryClient, paginationModel.page]);
 
+  const filtersActive =
+    filterModel.items.length > 0 ||
+    !!searchQuery ||
+    hasActiveTestFilters(drawerFilters) ||
+    !!insightsFailedFilter;
+
   const showSelectionActions = checkboxSelectionMode && selectedRows.length > 0;
 
   const bulkHandlersRef = useRef({
@@ -812,120 +810,140 @@ export default function TestsTable({
   }, [onBulkActionsChange]);
 
   return (
-    <TestsToolbarContext.Provider
-      value={{
-        searchQuery,
-        setSearchQuery,
-        typeFilter,
-        setTypeFilter,
-        openFilterDrawer: () => setFilterDrawerOpen(true),
-        hasActiveDrawerFilters: hasActiveTestFilters(drawerFilters),
-        activeFilterCount: countActiveTestFilters(drawerFilters),
-        checkboxSelectionMode,
-        setCheckboxSelectionMode: handleCheckboxSelectionModeChange,
-      }}
+    <GridStateGate
+      data={testsData}
+      error={error}
+      isEmpty={totalCount === 0 && !filtersActive}
+      emptyState={
+        <EntityEmptyState
+          card
+          icon={ScienceIcon}
+          title="No test yet"
+          description="Create your first test to start evaluating your AI endpoints. Tests let you measure quality, safety, and reliability across single-turn and multi-turn interactions."
+          actionLabel={canCreate ? 'Create test' : undefined}
+          onAction={canCreate ? onNewTest : undefined}
+          actionDisabled={disableAddButton}
+          enrichment={getEntityEmptyStateEnrichment('tests')}
+        />
+      }
     >
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={dismissError}>
-          {error}
-        </Alert>
-      )}
+      <Paper sx={GRID_PAPER_SX}>
+        <TestsToolbarContext.Provider
+          value={{
+            searchQuery,
+            setSearchQuery,
+            typeFilter,
+            setTypeFilter,
+            openFilterDrawer: () => setFilterDrawerOpen(true),
+            hasActiveDrawerFilters: hasActiveTestFilters(drawerFilters),
+            activeFilterCount: countActiveTestFilters(drawerFilters),
+            checkboxSelectionMode,
+            setCheckboxSelectionMode: handleCheckboxSelectionModeChange,
+          }}
+        >
+          {error && (
+            <Alert severity="error" sx={{ mb: 2 }} onClose={dismissError}>
+              {error}
+            </Alert>
+          )}
 
-      {insightsFailedFilter && (
-        <Alert severity="info" sx={{ mb: 2 }}>
-          {insightsFilterLoading
-            ? 'Loading test cases from Insights…'
-            : insightsFilterError ||
-              formatInsightsFailedTestsBanner(
-                insightsFailedFilter,
-                insightsFailedTestIds?.length ?? 0,
-                insightsEndpointName
-              )}
-        </Alert>
-      )}
+          {insightsFailedFilter && (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              {insightsFilterLoading
+                ? 'Loading test cases from Insights…'
+                : insightsFilterError ||
+                  formatInsightsFailedTestsBanner(
+                    insightsFailedFilter,
+                    insightsFailedTestIds?.length ?? 0,
+                    insightsEndpointName
+                  )}
+            </Alert>
+          )}
 
-      <BaseDataGrid
-        rows={tests}
-        columns={columns}
-        loading={loading}
-        getRowId={row => row.id}
-        paginationModel={paginationModel}
-        onPaginationModelChange={handlePaginationModelChange}
-        checkboxSelection={checkboxSelectionMode}
-        disableRowSelectionOnClick={checkboxSelectionMode || undefined}
-        onRowSelectionModelChange={
-          checkboxSelectionMode ? handleSelectionChange : undefined
-        }
-        rowSelectionModel={checkboxSelectionMode ? selectedRows : []}
-        onRowClick={checkboxSelectionMode ? undefined : handleRowClick}
-        getRowUrl={
-          checkboxSelectionMode ? undefined : row => `/tests/${row.id}`
-        }
-        serverSidePagination={true}
-        totalRows={totalCount}
-        pageSizeOptions={[10, 25, 50]}
-        serverSideFiltering={true}
-        filterModel={filterModel}
-        onFilterModelChange={handleFilterModelChange}
-        sortingMode="server"
-        sortModel={sortModel}
-        onSortModelChange={handleSortModelChange}
-        toolbarSlot={TestsUnifiedToolbar}
-        showToolbar={true}
-        disablePaperWrapper={true}
-        persistState={!insightsFailedFilter}
-        initialState={{
-          columns: {
-            columnVisibilityModel: {
-              'test_metadata.sources': false,
-            },
-          },
-        }}
-        sx={rowActionsHoverSx}
-      />
-
-      {isAuthenticated(status) && (
-        <>
-          <TestDrawer
-            open={drawerOpen}
-            onClose={handleDrawerClose}
-            test={selectedTest}
-            onSuccess={handleTestSaved}
-          />
-          <TestSetSelectionDrawer
-            open={testSetDrawerOpen}
-            onClose={() => setTestSetDrawerOpen(false)}
-            onSelect={handleTestSetsAssign}
-            testTypeValue={selectedTestTypes.commonTypeValue}
-          />
-          <DeleteModal
-            open={deleteModalOpen}
-            onClose={handleDeleteCancel}
-            onConfirm={handleDeleteConfirm}
-            isLoading={isDeleting}
-            title={pendingDeleteId ? 'Delete Test' : 'Delete Tests'}
-            message={
-              pendingDeleteId
-                ? 'Are you sure you want to delete this test? Related data will not be deleted.'
-                : `Are you sure you want to delete ${selectedRows.length} ${selectedRows.length === 1 ? 'test' : 'tests'}? Don't worry, related data will not be deleted, only ${selectedRows.length === 1 ? 'this record' : 'these records'}.`
+          <BaseDataGrid
+            rows={tests}
+            columns={columns}
+            loading={loading}
+            getRowId={row => row.id}
+            paginationModel={paginationModel}
+            onPaginationModelChange={handlePaginationModelChange}
+            checkboxSelection={checkboxSelectionMode}
+            disableRowSelectionOnClick={checkboxSelectionMode || undefined}
+            onRowSelectionModelChange={
+              checkboxSelectionMode ? handleSelectionChange : undefined
             }
-            itemType="tests"
+            rowSelectionModel={checkboxSelectionMode ? selectedRows : []}
+            onRowClick={checkboxSelectionMode ? undefined : handleRowClick}
+            getRowUrl={
+              checkboxSelectionMode ? undefined : row => `/tests/${row.id}`
+            }
+            serverSidePagination={true}
+            totalRows={totalCount}
+            pageSizeOptions={[10, 25, 50]}
+            serverSideFiltering={true}
+            filterModel={filterModel}
+            onFilterModelChange={handleFilterModelChange}
+            sortingMode="server"
+            sortModel={sortModel}
+            onSortModelChange={handleSortModelChange}
+            toolbarSlot={TestsUnifiedToolbar}
+            showToolbar={true}
+            disablePaperWrapper={true}
+            persistState={!insightsFailedFilter}
+            initialState={{
+              columns: {
+                columnVisibilityModel: {
+                  'test_metadata.sources': false,
+                },
+              },
+            }}
+            sx={rowActionsHoverSx}
           />
-        </>
-      )}
 
-      {/* Filter drawer */}
-      <TestFilterDrawer
-        open={filterDrawerOpen}
-        onClose={() => setFilterDrawerOpen(false)}
-        filters={drawerFilters}
-        onApply={f => {
-          setDrawerFilters(f);
-          // If drawer sets a test type, sync the pill tab too
-          if (f.testType) setTypeFilter(f.testType);
-          else if (!drawerFilters.testType) setTypeFilter('all');
-        }}
-      />
-    </TestsToolbarContext.Provider>
+          {isAuthenticated(status) && (
+            <>
+              <TestDrawer
+                open={drawerOpen}
+                onClose={handleDrawerClose}
+                test={selectedTest}
+                onSuccess={handleTestSaved}
+              />
+              <TestSetSelectionDrawer
+                open={testSetDrawerOpen}
+                onClose={() => setTestSetDrawerOpen(false)}
+                onSelect={handleTestSetsAssign}
+                testTypeValue={selectedTestTypes.commonTypeValue}
+              />
+              <DeleteModal
+                open={deleteModalOpen}
+                onClose={handleDeleteCancel}
+                onConfirm={handleDeleteConfirm}
+                isLoading={isDeleting}
+                title={pendingDeleteId ? 'Delete Test' : 'Delete Tests'}
+                message={
+                  pendingDeleteId
+                    ? 'Are you sure you want to delete this test? Related data will not be deleted.'
+                    : `Are you sure you want to delete ${selectedRows.length} ${selectedRows.length === 1 ? 'test' : 'tests'}? Don't worry, related data will not be deleted, only ${selectedRows.length === 1 ? 'this record' : 'these records'}.`
+                }
+                itemType="tests"
+              />
+            </>
+          )}
+
+          {/* Filter drawer */}
+          <TestFilterDrawer
+            open={filterDrawerOpen}
+            onClose={() => setFilterDrawerOpen(false)}
+            filters={drawerFilters}
+            onApply={f => {
+              setDrawerFilters(f);
+              // If drawer sets a test type, sync the pill tab too
+              if (f.testType) setTypeFilter(f.testType);
+              else if (!drawerFilters.testType) setTypeFilter('all');
+            }}
+          />
+        </TestsToolbarContext.Provider>
+      </Paper>
+    </GridStateGate>
   );
 }

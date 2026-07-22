@@ -4,7 +4,6 @@ import * as React from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
-import Paper from '@mui/material/Paper';
 import { useSession } from 'next-auth/react';
 import { useQueryClient } from '@tanstack/react-query';
 import EditNoteIcon from '@mui/icons-material/EditNote';
@@ -12,13 +11,10 @@ import DownloadOutlinedIcon from '@mui/icons-material/DownloadOutlined';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabGroup } from '@/components/common/Fab';
-import EntityEmptyState from '@/components/common/EntityEmptyState';
-import { getEntityEmptyStateEnrichment } from '@/constants/entity-empty-state-env';
-import { CategoryIcon, ScienceIcon } from '@/components/icons';
+import { CategoryIcon } from '@/components/icons';
 import TestsGrid, { type TestsBulkActionsState } from './components/TestsGrid';
 import FileImportDrawer from '@/app/(protected)/test-sets/components/FileImportDrawer';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
-import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { parseInsightsFailedTestsSearchParams } from '@/app/(protected)/insights/utils/insights-failed-tests';
 import { useEndpoint } from '@/hooks/useEndpoints';
@@ -36,7 +32,6 @@ export default function TestsPage() {
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const notifications = useNotifications();
-  const [testCount, setTestCount] = React.useState<number | null>(null);
   const [fileImportDrawerOpen, setFileImportDrawerOpen] = React.useState(false);
   const [bulkActions, setBulkActions] = React.useState<
     Pick<TestsBulkActionsState, 'visible' | 'assignDisabled'>
@@ -212,46 +207,14 @@ export default function TestsPage() {
         }
       >
         <Box sx={{ mt: 2, mb: 2 }}>
-          <Paper
-            sx={{
-              width: '100%',
-              borderRadius: BORDER_RADIUS.md,
-              boxShadow: ELEVATION.xs,
-              border: theme => `1px solid ${theme.palette.greyscale.border}`,
-              overflow: 'hidden',
-              position: 'relative',
-            }}
-          >
-            <TestsGrid
-              onNewTest={handleCreateManual}
-              disableAddButton={shouldDisableAddButton}
-              insightsFailedFilter={insightsFailedFilter}
-              insightsEndpointName={insightsEndpointName}
-              onTotalCountChange={setTestCount}
-              onBulkActionsChange={handleBulkActionsChange}
-            />
-            {testCount === 0 && (
-              <Box
-                sx={{
-                  position: 'absolute',
-                  inset: 0,
-                  zIndex: 1,
-                  bgcolor: 'background.paper',
-                }}
-              >
-                <EntityEmptyState
-                  card
-                  icon={ScienceIcon}
-                  title="No test yet"
-                  description="Create your first test to start evaluating your AI endpoints. Tests let you measure quality, safety, and reliability across single-turn and multi-turn interactions."
-                  actionLabel={canCreate ? 'Create test' : undefined}
-                  onAction={canCreate ? handleCreateManual : undefined}
-                  actionDisabled={shouldDisableAddButton}
-                  enrichment={getEntityEmptyStateEnrichment('tests')}
-                />
-              </Box>
-            )}
-          </Paper>
+          <TestsGrid
+            onNewTest={handleCreateManual}
+            disableAddButton={shouldDisableAddButton}
+            canCreate={canCreate}
+            insightsFailedFilter={insightsFailedFilter}
+            insightsEndpointName={insightsEndpointName}
+            onBulkActionsChange={handleBulkActionsChange}
+          />
         </Box>
       </PageLayout>
 
