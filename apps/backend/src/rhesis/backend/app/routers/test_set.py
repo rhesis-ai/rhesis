@@ -48,16 +48,11 @@ from rhesis.backend.app.utils.execution_validation import (
     validate_generation_model,
 )
 from rhesis.backend.app.utils.odata import apply_select
-from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 from rhesis.backend.tasks import task_launcher
 from rhesis.backend.tasks.embedding.graph import compute_test_set_graph_task
 from rhesis.backend.tasks.test_set import generate_and_save_test_set
 
 logger = logging.getLogger(__name__)
-
-# Test's detail schema stays auto-generated here (out of scope for this change);
-# only TestSet's own detail schema was ported to schemas.TestSetDetail.
-TestDetailSchema = create_detailed_schema(schemas.Test, models.Test)
 
 router = RhesisRouter(
     prefix="/test_sets",
@@ -531,7 +526,7 @@ def get_test_set_prompts(
     return get_prompts_for_test_set(db, db_test_set.id, organization_id)
 
 
-@router.get("/{test_set_identifier}/tests", response_model=list[TestDetailSchema])
+@router.get("/{test_set_identifier}/tests", response_model=list[schemas.TestDetail])
 async def get_test_set_tests(
     test_set_identifier: str,
     response: Response,

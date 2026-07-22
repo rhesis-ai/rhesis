@@ -171,9 +171,10 @@ from .test_result import (
     TestResult,
     TestResultBase,
     TestResultCreate,
+    TestResultDetail,
     TestResultUpdate,
 )
-from .test_run import TestRun, TestRunBase, TestRunCreate, TestRunUpdate
+from .test_run import TestRun, TestRunBase, TestRunCreate, TestRunDetail, TestRunUpdate
 from .test_set import (
     ExplorerTestSetCreate,
     TestData,
@@ -272,6 +273,7 @@ __all__ = [
     "TestResult",
     "TestResultBase",
     "TestResultCreate",
+    "TestResultDetail",
     "TestResultUpdate",
     "ReviewCreate",
     "ReviewUpdate",
@@ -295,6 +297,7 @@ __all__ = [
     "TestRun",
     "TestRunBase",
     "TestRunCreate",
+    "TestRunDetail",
     "TestRunUpdate",
     "UseCase",
     "UseCaseBase",

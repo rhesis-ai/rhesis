@@ -19,14 +19,8 @@ from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.odata import apply_select
-from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 
 logger = logging.getLogger(__name__)
-
-# Create the detailed schema for Metric with many-to-many relationships included
-MetricDetailSchema = create_detailed_schema(
-    schemas.Metric, models.Metric, include_many_to_many=True
-)
 
 router = RhesisRouter(
     prefix="/metrics",
@@ -194,7 +188,7 @@ def improve_metric(
         )
 
 
-@router.get("/", response_model=list[MetricDetailSchema])
+@router.get("/", response_model=list[schemas.MetricDetail])
 @with_count_header(model=models.Metric)
 def read_metrics(
     response: Response,
@@ -230,7 +224,7 @@ def read_metrics(
     return results
 
 
-@router.get("/{metric_id}", response_model=MetricDetailSchema)
+@router.get("/{metric_id}", response_model=schemas.MetricDetail)
 def read_metric(
     metric_id: UUID,
     db: Session = Depends(get_tenant_db_session),

@@ -35,13 +35,6 @@ from rhesis.backend.app.services.stats import get_test_result_stats
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.odata import apply_select
-from rhesis.backend.app.utils.schema_factory import create_detailed_schema
-
-TestResultDetailSchema = create_detailed_schema(
-    schemas.TestResult,
-    models.TestResult,
-    include_nested_relationships={"test": ["prompt", "behavior", "topic"]},
-)
 
 
 class TestResultStatsMode(str, Enum):
@@ -117,7 +110,7 @@ def create_test_result(
     )
 
 
-@router.get("/", response_model=list[TestResultDetailSchema])
+@router.get("/", response_model=list[schemas.TestResultDetail])
 @with_count_header(model=models.TestResult)
 def read_test_results(
     response: Response,
@@ -410,7 +403,7 @@ def generate_test_result_stats(
     )
 
 
-@router.get("/{test_result_id}", response_model=TestResultDetailSchema)
+@router.get("/{test_result_id}", response_model=schemas.TestResultDetail)
 def read_test_result(
     test_result_id: UUID,
     request: Request,

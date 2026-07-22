@@ -4,70 +4,19 @@ from typing import Any, Dict, List, Optional, Union
 from pydantic import UUID4, BaseModel, ConfigDict, field_validator
 
 from rhesis.backend.app.schemas import Base
+from rhesis.backend.app.schemas.references import (
+    BehaviorReference,
+    CategoryReference,
+    OrganizationReference,
+    ProjectReference,
+    PromptReference,
+    SourceReference,
+    StatusReference,
+    TopicReference,
+    TypeLookupReference,
+)
+from rhesis.backend.app.schemas.tag import TagRead
 from rhesis.backend.app.schemas.user import UserReference
-
-
-# Base models for related entities
-class UserBase(Base):
-    id: UUID4
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class TypeLookup(Base):
-    id: UUID4
-    type_name: str
-    type_value: str
-    description: Optional[str] = None
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class Topic(Base):
-    id: UUID4
-    name: str
-    description: Optional[str] = None
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class Prompt(Base):
-    id: UUID4
-    content: str  # Changed from text to content based on your model
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class Status(Base):
-    id: UUID4
-    name: str
-    description: Optional[str] = None
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class Behavior(Base):
-    id: UUID4
-    name: str
-    description: Optional[str] = None
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class Category(Base):
-    id: UUID4
-    name: str
-    description: Optional[str] = None
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class Source(Base):
-    id: UUID4
-    title: str
-    description: Optional[str] = None
-
-    model_config = ConfigDict(from_attributes=True)
 
 
 class TestTag(Base):
@@ -158,21 +107,41 @@ class Test(TestBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+# Shallow self-reference for TestDetail.parent -- deliberately not recursive
+# (mirrors the factory's reference-only, one-level-deep behavior for parent).
+class TestReference(Base):
+    id: UUID4
+    nano_id: Optional[str] = None
+    content: Optional[str] = None
+    counts: Optional[Dict[str, Any]] = None
+    user_id: Optional[UUID4] = None
+    organization_id: Optional[UUID4] = None
+    status_id: Optional[UUID4] = None
+    project_id: Optional[UUID4] = None
+    tags: Optional[List[TagRead]] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 # The detailed model with expanded relations
 class TestDetail(Test):
     # Include the full related objects instead of just IDs
-    prompt: Optional[Prompt] = None
-    test_type: Optional[TypeLookup] = None
+    content: Optional[str] = None
+    counts: Optional[Dict[str, Any]] = None
+    prompt: Optional[PromptReference] = None
+    test_type: Optional[TypeLookupReference] = None
     user: Optional[UserReference] = None
     assignee: Optional[UserReference] = None
     owner: Optional[UserReference] = None
-    parent: Optional["TestDetail"] = None
-    topic: Optional[Topic] = None
-    behavior: Optional[Behavior] = None
-    category: Optional[Category] = None
-    status: Optional[Status] = None
-    source: Optional[Source] = None
+    parent: Optional[TestReference] = None
+    topic: Optional[TopicReference] = None
+    behavior: Optional[BehaviorReference] = None
+    category: Optional[CategoryReference] = None
+    status: Optional[StatusReference] = None
+    source: Optional[SourceReference] = None
     tags: Optional[List[TestTag]] = []
+    organization: Optional[OrganizationReference] = None
+    project: Optional[ProjectReference] = None
 
 
 # Bulk creation models

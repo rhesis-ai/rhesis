@@ -1,13 +1,18 @@
 from datetime import datetime
 from enum import Enum
-from typing import List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 from pydantic import UUID4, ConfigDict, model_validator
 
 from rhesis.backend.app.schemas import Base
 from rhesis.backend.app.schemas.metric_types import ScoreType, ThresholdOperator
-from rhesis.backend.app.schemas.status import Status
-from rhesis.backend.app.schemas.tag import Tag
+from rhesis.backend.app.schemas.references import (
+    BehaviorReference,
+    OrganizationReference,
+    ProjectReference,
+    StatusReference,
+)
+from rhesis.backend.app.schemas.tag import Tag, TagRead
 from rhesis.backend.app.schemas.type_lookup import TypeLookup
 from rhesis.backend.app.schemas.user import UserReference
 
@@ -91,10 +96,50 @@ class Metric(MetricBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+# Lightweight reference schemas below are specific to MetricDetail (Model
+# and TestSet references aren't identical across every consumer elsewhere,
+# so stay local rather than living in the shared schemas/references.py module).
+class ModelReference(Base):
+    id: UUID4
+    name: Optional[str] = None
+    description: Optional[str] = None
+    counts: Optional[Dict[str, Any]] = None
+    model_name: Optional[str] = None
+    endpoint: Optional[str] = None
+    user_id: Optional[UUID4] = None
+    organization_id: Optional[UUID4] = None
+    status_id: Optional[UUID4] = None
+    tags: Optional[List[TagRead]] = None
+    icon: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TestSetReference(Base):
+    id: UUID4
+    name: Optional[str] = None
+    description: Optional[str] = None
+    counts: Optional[Dict[str, Any]] = None
+    user_id: Optional[UUID4] = None
+    organization_id: Optional[UUID4] = None
+    status_id: Optional[UUID4] = None
+    attributes: Optional[Dict[str, Any]] = None
+    tags: Optional[List[TagRead]] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class MetricDetail(Metric):
-    status: Optional[Status] = None
+    counts: Optional[Dict[str, Any]] = None
+    status: Optional[StatusReference] = None
     assignee: Optional[UserReference] = None
     owner: Optional[UserReference] = None
+    user: Optional[UserReference] = None
+    model: Optional[ModelReference] = None
+    behaviors: Optional[List[BehaviorReference]] = []
+    test_sets: Optional[List[TestSetReference]] = []
+    organization: Optional[OrganizationReference] = None
+    project: Optional[ProjectReference] = None
 
 
 class GenerateMetricRequest(Base):
