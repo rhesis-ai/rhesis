@@ -259,5 +259,6 @@ class UserReference(Base):
     family_name: Optional[str] = ""  # Default to empty string to avoid validation errors
     email: Optional[str] = ""  # Default to empty string to avoid validation errors
     picture: Optional[str] = ""  # Default to empty string to avoid validation errors
+    organization_id: Optional[UUID4] = None
 
     model_config = ConfigDict(from_attributes=True)

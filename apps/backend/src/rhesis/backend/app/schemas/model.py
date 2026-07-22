@@ -10,11 +10,16 @@ from typing import Any, Dict, List, Literal, Optional
 from pydantic import UUID4, BaseModel, ConfigDict, Field, field_validator
 
 from .base import Base
+from .references import (
+    OrganizationReference,
+    ProjectReference,
+    StatusReference,
+    TypeLookupReference,
+)
 from .status import Status
 from .tag import Tag, TagRead
 from .type_lookup import TypeLookup
-from .user import User
-from .user import UserReference as _BaseUserReference
+from .user import User, UserReference
 
 
 class ModelBaseFields(Base):
@@ -109,62 +114,6 @@ class Model(ModelBase):
     tags: Optional[List[Tag]] = []
 
     model_config = ConfigDict(from_attributes=True)
-
-
-# Lightweight reference schemas for ModelDetail's relationship fields.
-# Mirrors the shape schema_factory.create_detailed_schema previously derived
-# by reflection (see utils/schema_factory.py common_fields).
-class TypeLookupReference(Base):
-    id: UUID4
-    description: Optional[str] = None
-    type_name: Optional[str] = None
-    type_value: Optional[str] = None
-    user_id: Optional[UUID4] = None
-    organization_id: Optional[UUID4] = None
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class StatusReference(Base):
-    id: UUID4
-    name: Optional[str] = None
-    description: Optional[str] = None
-    user_id: Optional[UUID4] = None
-    organization_id: Optional[UUID4] = None
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class ProjectReference(Base):
-    id: UUID4
-    name: Optional[str] = None
-    description: Optional[str] = None
-    user_id: Optional[UUID4] = None
-    organization_id: Optional[UUID4] = None
-    status_id: Optional[UUID4] = None
-    attributes: Optional[Dict[str, Any]] = None
-    tags: Optional[List[TagRead]] = None
-    icon: Optional[str] = None
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class OrganizationReference(Base):
-    id: UUID4
-    name: Optional[str] = None
-    description: Optional[str] = None
-    email: Optional[str] = None
-    user_id: Optional[UUID4] = None
-    tags: Optional[List[TagRead]] = None
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class UserReference(_BaseUserReference):
-    """Extends the shared UserReference with organization_id, which the
-    schema_factory-generated reference for Model included."""
-
-    organization_id: Optional[UUID4] = None
 
 
 # The detailed model with expanded relations

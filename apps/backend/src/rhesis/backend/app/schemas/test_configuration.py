@@ -3,6 +3,14 @@ from typing import Any, Dict, List, Optional
 from pydantic import UUID4, BaseModel, Field
 
 from rhesis.backend.app.schemas import Base
+from rhesis.backend.app.schemas.references import (
+    CategoryReference,
+    OrganizationReference,
+    ProjectReference,
+    PromptReference,
+    StatusReference,
+    TopicReference,
+)
 from rhesis.backend.app.schemas.tag import TagRead
 from rhesis.backend.app.schemas.user import UserReference
 
@@ -33,42 +41,9 @@ class TestConfiguration(TestConfigurationBase):
     pass
 
 
-# Lightweight reference schemas for the relationships exposed on
-# TestConfigurationDetail. Local to this module (not exported) -- mirrors
-# the TestDetail convention. These deliberately do NOT import from the
-# schemas modules owned by other models (category/topic/prompt/use_case/
-# test_set/endpoint/status/project/organization) to keep this port scoped
-# to the TestConfiguration model only.
-class CategoryReference(Base):
-    id: UUID4
-    name: Optional[str] = None
-    description: Optional[str] = None
-    counts: Optional[Dict[str, Any]] = None
-    user_id: Optional[UUID4] = None
-    organization_id: Optional[UUID4] = None
-    status_id: Optional[UUID4] = None
-
-
-class TopicReference(Base):
-    id: UUID4
-    name: Optional[str] = None
-    description: Optional[str] = None
-    user_id: Optional[UUID4] = None
-    organization_id: Optional[UUID4] = None
-    status_id: Optional[UUID4] = None
-
-
-class PromptReference(Base):
-    id: UUID4
-    content: Optional[str] = None
-    expected_response: Optional[str] = None
-    counts: Optional[Dict[str, Any]] = None
-    user_id: Optional[UUID4] = None
-    organization_id: Optional[UUID4] = None
-    status_id: Optional[UUID4] = None
-    tags: Optional[List[TagRead]] = None
-
-
+# Lightweight reference schemas below are specific to TestConfigurationDetail
+# (use_case/test_set/endpoint have consumer-specific shapes elsewhere, so
+# stay local rather than living in the shared schemas/references.py module).
 class UseCaseReference(Base):
     id: UUID4
     name: Optional[str] = None
@@ -90,14 +65,6 @@ class TestSetReference(Base):
     tags: Optional[List[TagRead]] = None
 
 
-class StatusReference(Base):
-    id: UUID4
-    name: Optional[str] = None
-    description: Optional[str] = None
-    user_id: Optional[UUID4] = None
-    organization_id: Optional[UUID4] = None
-
-
 class EndpointReference(Base):
     id: UUID4
     name: Optional[str] = None
@@ -105,27 +72,6 @@ class EndpointReference(Base):
     user_id: Optional[UUID4] = None
     organization_id: Optional[UUID4] = None
     status_id: Optional[UUID4] = None
-    tags: Optional[List[TagRead]] = None
-
-
-class ProjectReference(Base):
-    id: UUID4
-    name: Optional[str] = None
-    description: Optional[str] = None
-    user_id: Optional[UUID4] = None
-    organization_id: Optional[UUID4] = None
-    status_id: Optional[UUID4] = None
-    attributes: Optional[Dict[str, Any]] = None
-    tags: Optional[List[TagRead]] = None
-    icon: Optional[str] = None
-
-
-class OrganizationReference(Base):
-    id: UUID4
-    name: Optional[str] = None
-    description: Optional[str] = None
-    email: Optional[str] = None
-    user_id: Optional[UUID4] = None
     tags: Optional[List[TagRead]] = None
 
 
