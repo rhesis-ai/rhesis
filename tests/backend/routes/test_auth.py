@@ -1519,16 +1519,20 @@ class TestTermsAcceptance:
             "has_prior_acceptance": True,
         }
 
-    def test_terms_status_grandfathers_onboarded_user_without_terms_record(
+    def test_terms_status_grandfathers_pre_tracking_onboarded_user(
         self, client: TestClient, test_db, test_org_id
     ):
         """Users who finished signup before server-side tracking should not be
         re-prompted for the baseline T&C version."""
+        from datetime import timedelta
+
+        from rhesis.backend.app.auth.terms import TERMS_TRACKING_STARTED_AT
         from rhesis.backend.app.auth.token_utils import create_session_token
 
         email = _unique_email("terms-grandfather")
         org = create_test_organization(test_db, "Terms Grandfather Org")
         user = create_test_user(test_db, org.id, email, "Terms Grandfather User")
+        user.created_at = TERMS_TRACKING_STARTED_AT - timedelta(days=1)
         test_db.commit()
 
         token = create_session_token(user)
@@ -1540,6 +1544,28 @@ class TestTermsAcceptance:
         assert response.json() == {
             "terms_accepted": True,
             "has_prior_acceptance": True,
+        }
+
+    def test_terms_status_requires_record_for_post_tracking_onboarded_user(
+        self, client: TestClient, test_db, test_org_id
+    ):
+        """Org membership after tracking shipped does not imply acceptance."""
+        from rhesis.backend.app.auth.token_utils import create_session_token
+
+        email = _unique_email("terms-post-tracking")
+        org = create_test_organization(test_db, "Terms Post Tracking Org")
+        user = create_test_user(test_db, org.id, email, "Terms Post Tracking User")
+        test_db.commit()
+
+        token = create_session_token(user)
+        response = client.get(
+            "/auth/terms-status",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json() == {
+            "terms_accepted": False,
+            "has_prior_acceptance": False,
         }
 
     def test_terms_status_returns_false_for_pre_onboarding_user(

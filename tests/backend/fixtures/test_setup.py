@@ -69,14 +69,18 @@ def create_test_organization(db: Session, name: str = "Test Organization") -> mo
 
 
 def create_test_user(
-    db: Session, organization_id: uuid.UUID, email: str = "test@rhesis.ai", name: str = "Test User"
+    db: Session,
+    organization_id: Optional[uuid.UUID] = None,
+    email: str = "test@rhesis.ai",
+    name: str = "Test User",
 ) -> models.User:
     """
     Create a test user.
 
     Args:
         db: Database session
-        organization_id: Organization ID to associate user with
+        organization_id: Organization ID to associate with, or None for
+            pre-onboarding users who have not joined an organization yet
         email: User email
         name: User name
 
@@ -531,7 +535,7 @@ def reset_test_environment() -> None:
 if __name__ == "__main__":
     """
     Command-line interface for test setup utilities.
-    
+
     Usage:
         python test_setup.py setup    # Set up test environment
         python test_setup.py reset    # Reset test environment
