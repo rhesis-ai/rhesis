@@ -216,6 +216,7 @@ export default function TestsTable({
 
   const {
     filterModel,
+    gridFilterModel,
     paginationModel,
     sortModel,
     setPaginationModel,
@@ -881,7 +882,7 @@ export default function TestsTable({
             totalRows={totalCount}
             pageSizeOptions={[10, 25, 50]}
             serverSideFiltering={true}
-            filterModel={filterModel}
+            filterModel={gridFilterModel}
             onFilterModelChange={handleFilterModelChange}
             sortingMode="server"
             sortModel={sortModel}

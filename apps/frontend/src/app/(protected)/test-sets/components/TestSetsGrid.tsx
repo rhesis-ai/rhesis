@@ -194,6 +194,7 @@ export default function TestSetsGrid({
   // ── Grid state (pagination, filter, sort) via useGridState ──────────────────
   const {
     filterModel,
+    gridFilterModel,
     paginationModel,
     sortModel,
     setPaginationModel,
@@ -213,6 +214,7 @@ export default function TestSetsGrid({
         const drawerItems: typeof prev.items = [];
         if (drawerFilters.testSetType) {
           drawerItems.push({
+            id: 'testSetType',
             field: 'testSetType',
             operator: 'equals',
             value: drawerFilters.testSetType,
@@ -220,6 +222,7 @@ export default function TestSetsGrid({
         }
         if (drawerFilters.status) {
           drawerItems.push({
+            id: 'status.name',
             field: 'status.name',
             operator: 'contains',
             value: drawerFilters.status,
@@ -227,6 +230,7 @@ export default function TestSetsGrid({
         }
         if (drawerFilters.creator) {
           drawerItems.push({
+            id: 'creator',
             field: 'creator',
             operator: 'contains',
             value: drawerFilters.creator,
@@ -234,6 +238,7 @@ export default function TestSetsGrid({
         }
         if (drawerFilters.tag) {
           drawerItems.push({
+            id: 'tags',
             field: 'tags',
             operator: 'contains',
             value: drawerFilters.tag,
@@ -690,7 +695,7 @@ export default function TestSetsGrid({
             totalRows={totalCount}
             pageSizeOptions={[10, 25, 50]}
             serverSideFiltering={true}
-            filterModel={filterModel}
+            filterModel={gridFilterModel}
             onFilterModelChange={handleFilterModelChange}
             sortingMode="server"
             sortModel={sortModel}

@@ -33,6 +33,7 @@ export function presenceToFilterItem(
 ): GridFilterModel['items'][number] | null {
   if (value === 'all') return null;
   return {
+    id: `${field}-presence`,
     field,
     operator: value === 'with' ? 'isNotEmpty' : 'isEmpty',
     value: true,
