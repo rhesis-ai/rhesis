@@ -2,60 +2,34 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 # Environment Configuration
 
-## Overview
+The backend is configured through environment variables. For the full variable catalog, see the [Environment Variables](/docs/deployment/environment-variables) reference; for local-dev knobs, see [Environment Variables](/contribute/environment-variables) under Contribute. This page covers the backend-specific conventions those references assume.
 
-Configuration is environment variables (see [12-factor app](https://12factor.net/)); different files and hosts supply values per environment.
+## Environment files
 
-## Environment Variables Reference
+- `.env` — local development (written by `./rh dev init`; see the [Backend Overview](/contribute/backend))
+- `.env.docker` — Docker Compose
+- `.env.test` — test runs (not committed)
 
-For a complete list of all environment variables, their requirements, and descriptions, see the [Environment Variables](/docs/deployment/environment-variables) reference. For local-dev setup and contributor knobs, see [Environment Variables](/contribute/environment-variables) under Contribute.
+## Runtime environment label
 
-## Environment Files
-
-The application supports multiple environment files:
-
-- `.env`: Default environment file for local development
-- `.env.docker`: Environment configuration for Docker deployment
-- `.env.test`: Environment configuration for testing (not committed to version control)
-
-## Loading Environment Variables
-
-Environment variables are loaded using the `python-dotenv` library:
-
-<CodeBlock filename="python" language="python">
-{`from dotenv import load_dotenv
-
-load_dotenv()  # Loads variables from .env file`}
-</CodeBlock>
-
-## Environment-Specific Configuration
-
-The backend uses `BACKEND_ENV` as the canonical runtime environment label in
-Python settings and logging. Valid values are `production`, `development`,
-`staging`, `local`, and `test`.
+`BACKEND_ENV` is the canonical runtime environment label in Python settings and logging. Valid values are `production`, `development`, `staging`, and `local`; anything else fails validation at startup.
 
 <CodeBlock filename="settings.py" language="python">
 {`from rhesis.backend.app.config.settings import get_application_settings
 
 settings = get_application_settings()
 
-if settings.backend_env == "production":
-    enable_local_debug = False
-elif settings.backend_env == "test":
-    enable_local_debug = True
-else:
-    enable_local_debug = settings.is_development`}
+if settings.is_production:
+    ...
+elif settings.is_development:
+    ...`}
 </CodeBlock>
 
-Shell entrypoints may still read `ENVIRONMENT` for deployment-script behavior, but
-application code should use `BACKEND_ENV`.
+Shell entrypoints may still read `ENVIRONMENT` for deployment-script behavior, but application code should use `BACKEND_ENV`.
 
 ## Database credentials
 
-Database URLs are built from component environment variables. Runtime application
-sessions use `APP_DB_USER` / `APP_DB_PASS`; migrations and administrative jobs use
-`ADMIN_DB_USER` / `ADMIN_DB_PASS` when present and fall back to the app
-credentials for single-role local setups.
+Database URLs are built from component variables. Runtime application sessions use `APP_DB_USER` / `APP_DB_PASS`; migrations and administrative jobs use `ADMIN_DB_USER` / `ADMIN_DB_PASS` when present and fall back to the app credentials for single-role local setups.
 
 | Variable | Required | Used for |
 | --- | --- | --- |
@@ -74,64 +48,6 @@ credentials for single-role local setups.
   migrations do not require a PostgreSQL superuser.
 </Callout>
 
-## Configuration Validation
+## Secrets
 
-The application validates critical configuration at startup:
-
-<CodeBlock filename="python" language="python">
-{`def validate_config():
-    """Validate that all required configuration is present."""
-    required_vars = [
-        "DB_HOST",
-        "DB_NAME",
-        "APP_DB_USER",
-        "APP_DB_PASS",
-        "JWT_SECRET_KEY",
-    ]
-
-    missing = [var for var in required_vars if not os.getenv(var)]
-
-    if missing:
-        raise ValueError(f"Missing required environment variables: {', '.join(missing)}")`}
-</CodeBlock>
-
-## Docker Environment
-
-When running in Docker, environment variables can be passed in several ways:
-
-1. Through the `environment` section in `docker-compose.yml`
-2. Using the `--env-file` flag with `docker run`
-3. Setting individual variables with `-e` flags
-
-Example Docker Compose configuration:
-
-<CodeBlock filename="docker-compose.yml" language="yaml">
-{`services:
-  backend:
-    build: ./apps/backend
-    env_file:
-      - ./apps/backend/.env.docker
-    environment:
-      - DB_HOST=postgres
-      - LOG_LEVEL=INFO`}
-</CodeBlock>
-
-## Cloud Deployment
-
-For cloud deployments, environment variables should be set using the cloud provider's secrets or environment configuration:
-
-- Google Cloud: Secret Manager and environment variables in Cloud Run
-- AWS: Parameter Store/Secrets Manager and environment variables in ECS/Lambda
-- Azure: Key Vault and App Configuration
-
-## Security Best Practices
-
-Never commit secrets. Use distinct keys per environment, store them in a secret manager, rotate periodically, and keep production config separate from dev.
-
-## Sensitive Information
-
-Sensitive information such as API keys and passwords should never be committed to version control. Instead:
-
-1. Use placeholder values in `.env.example`
-2. Document the required variables in the [Environment Setup Guide](../environment-setup.mdx)
-3. Use secrets management in production environments
+Never commit secrets. Use placeholder values in `.env.example`, distinct keys per environment, and a secret manager in production. See [Deployment](/contribute/backend/deployment) for how secrets are supplied to cloud runtimes.

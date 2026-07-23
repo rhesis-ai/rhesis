@@ -1,157 +1,24 @@
 import { CodeBlock } from '@/components/CodeBlock'
 
-# Encryption Troubleshooting Guide
+# Encryption Troubleshooting
 
-## Quick Diagnostics
+Diagnosing and fixing problems with encrypted database fields. For how encryption works, see
+[Database Field Encryption](/contribute/backend/database-field-encryption).
 
-### Check Encryption Status
+## Quick checks
 
 <CodeBlock filename="check-encryption-status.sh" language="bash">
-{`# Verify DB_ENCRYPTION_KEY is set
+{`# Key is set and valid (backend won't start otherwise)
 echo $DB_ENCRYPTION_KEY
 
-# Test encryption/decryption
+# Helpers import cleanly
 python -c "from rhesis.backend.app.utils.encryption import encrypt, decrypt; print('ok')"`}
 </CodeBlock>
 
-### Verify Database Encryption
+Count encrypted vs. plaintext rows (plaintext should be 0 after the migration):
 
 <CodeBlock filename="verify-database-encryption.sql" language="sql">
-{`-- Count encrypted vs plaintext values (plaintext_count should be 0 after migration)
-SELECT
-    'endpoint' as table_name,
-    COUNT(*) FILTER (WHERE auth_token LIKE 'gAAAAA%') as encrypted,
-    COUNT(*) FILTER (WHERE auth_token IS NOT NULL AND NOT auth_token LIKE 'gAAAAA%') as plaintext
-FROM endpoint WHERE auth_token IS NOT NULL
-UNION ALL
-SELECT 'model',
-    COUNT(*) FILTER (WHERE key LIKE 'gAAAAA%'),
-    COUNT(*) FILTER (WHERE key IS NOT NULL AND NOT key LIKE 'gAAAAA%')
-FROM model WHERE key IS NOT NULL
-UNION ALL
-SELECT 'token',
-    COUNT(*) FILTER (WHERE token LIKE 'gAAAAA%'),
-    COUNT(*) FILTER (WHERE token IS NOT NULL AND NOT token LIKE 'gAAAAA%')
-FROM token WHERE token IS NOT NULL;`}
-</CodeBlock>
-
-## Common Issues
-
-### Issue: "DB_ENCRYPTION_KEY Field required" at startup
-
-`DB_ENCRYPTION_KEY` is a required setting with no default. The backend fails to
-start if it is missing, or if the value is not a valid Fernet key. This is
-intentional — a missing key must not silently disable encryption.
-
-**Solution:**
-
-<CodeBlock filename="solution-missing-key.sh" language="bash">
-{`# Generate key
-python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-
-# Set in environment
-export DB_ENCRYPTION_KEY="<generated-key>"
-
-# For production: Update Kubernetes secret or GCP Secret Manager`}
-</CodeBlock>
-
----
-
-### Issue: "Invalid encrypted data or wrong encryption key"
-
-**Cause:** Using different encryption key than when data was encrypted
-
-**Solution:**
-
-- Verify same key across all instances: `echo $DB_ENCRYPTION_KEY | md5sum`
-- Check if key was recently changed - restore correct key from backup
-- Ensure Kubernetes secrets match across environments
-
----
-
-### Issue: Endpoint/Model API Calls Failing
-
-**Cause:** Token not decrypting properly
-
-**Diagnosis:**
-
-<CodeBlock filename="diagnosis-endpoint-calls.py" language="python">
-{`# Check if value is encrypted in DB
-from rhesis.backend.app.utils.encryption import is_encrypted
-print(is_encrypted(endpoint.auth_token))  # Should be False (auto-decrypted by ORM)`}
-</CodeBlock>
-
-**Solution:**
-
-- Verify encryption key is correct
-- Check logs for decryption errors: `kubectl logs -l app=rhesis-backend | grep -i decrypt`
-- Re-save the record to re-encrypt with current key
-
----
-
-### Issue: Migration Failed Partway Through
-
-**Solution:**
-
-- Migration is idempotent - safe to re-run: `alembic upgrade head`
-- Already encrypted values will be skipped
-- Check database connection and timeout settings
-
----
-
-### Issue: Performance Degradation
-
-**Expected:** ~1-2ms overhead per encrypt/decrypt operation
-
-**Check:**
-
-- Monitor CPU usage: `kubectl top pods -l app=rhesis-backend`
-- Verify connection pool settings (pool_size=10, max_overflow=20)
-- Check for N+1 query patterns
-
----
-
-### Issue: `DecryptionError` reading an encrypted column
-
-**Cause:** The stored value is still plaintext (the one-time data migration never
-ran), or it was encrypted with a different `DB_ENCRYPTION_KEY`. Reads fail loudly
-rather than returning the raw stored value.
-
-**Solution:**
-
-- Run the data migration: `alembic upgrade head`
-- Or manually re-save affected records to trigger encryption
-- If the key was rotated, restore the original `DB_ENCRYPTION_KEY`
-
-## Debug Script
-
-<CodeBlock filename="debug-script.py" language="python">
-{`#!/usr/bin/env python3
-"""Quick encryption status check"""
-from rhesis.backend.app.database import SessionLocal
-from rhesis.backend.app.models.endpoint import Endpoint
-from rhesis.backend.app.models.model import Model
-from rhesis.backend.app.models.token import Token
-from rhesis.backend.app.utils.encryption import is_encrypted
-
-db = SessionLocal()
-
-for table, model, field in [
-    ("endpoint", Endpoint, "auth_token"),
-    ("model", Model, "key"),
-    ("token", Token, "token")
-]:
-    records = db.query(model).all()
-    encrypted = sum(1 for r in records if getattr(r, field, None) and is_encrypted(getattr(r, field)))
-    total = sum(1 for r in records if getattr(r, field, None))
-    print(f"{table}: {encrypted}/{total} encrypted")`}
-</CodeBlock>
-
-## Verification Queries
-
-<CodeBlock filename="verification-queries.sql" language="sql">
-{`-- After migration, all should return 0
-SELECT COUNT(*) FROM endpoint
+{`SELECT COUNT(*) FROM endpoint
 WHERE (auth_token IS NOT NULL AND NOT auth_token LIKE 'gAAAAA%')
    OR (client_secret IS NOT NULL AND NOT client_secret LIKE 'gAAAAA%')
    OR (last_token IS NOT NULL AND NOT last_token LIKE 'gAAAAA%');
@@ -160,18 +27,74 @@ SELECT COUNT(*) FROM model WHERE key IS NOT NULL AND NOT key LIKE 'gAAAAA%';
 SELECT COUNT(*) FROM token WHERE token IS NOT NULL AND NOT token LIKE 'gAAAAA%';`}
 </CodeBlock>
 
-## Getting Help
+## Common issues
 
-### Log Collection
+### "DB_ENCRYPTION_KEY Field required" at startup
 
-<CodeBlock filename="collect-logs.sh" language="bash">
-{`# Collect encryption-related logs
-kubectl logs -l app=rhesis-backend -n rhesis-prod --since=1h | grep -i "encrypt\\|decrypt" > logs.txt`}
+The key is missing. It is required with no default, and a missing or invalid key stops the backend
+from starting rather than silently disabling encryption. Generate one, set it in the environment
+(or the Kubernetes secret / GCP Secret Manager in deployed environments), and restart:
+
+<CodeBlock filename="solution-missing-key.sh" language="bash">
+{`export DB_ENCRYPTION_KEY="$(python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())')"`}
 </CodeBlock>
 
-### Support
+### `DecryptionError` / "Invalid encrypted data or wrong encryption key"
 
-- Review [Database Field Encryption](./database-field-encryption.mdx)
-- Check [Security Documentation](./security.mdx)
-- Create GitHub issue with `encryption` label
-- Contact DevOps team for production issues
+Reads fail loudly when a value cannot be decrypted. Two causes:
+
+- The value is still plaintext because the data migration never ran — run `alembic upgrade head`,
+  or re-save the affected records to encrypt them.
+- The value was encrypted with a different key. Confirm the same key across all instances
+  (`echo $DB_ENCRYPTION_KEY | md5sum`) and restore the original key from backup if it was changed.
+
+### Endpoint or model calls failing on the stored token
+
+The token is not decrypting. Confirm the key is correct, then check backend logs:
+
+<CodeBlock filename="check-logs.sh" language="bash">
+{`kubectl logs -l app=rhesis-backend | grep -i decrypt`}
+</CodeBlock>
+
+Re-saving the record re-encrypts it with the current key. In application code the value is already
+decrypted by the ORM (`is_encrypted(endpoint.auth_token)` should be `False`).
+
+### Migration failed partway through
+
+`alembic upgrade head` is idempotent — already-encrypted values are skipped — so re-run it. If it
+keeps failing, check the database connection and statement timeout.
+
+## Debug script
+
+Reports how many rows are encrypted per field:
+
+<CodeBlock filename="debug-script.py" language="python">
+{`from rhesis.backend.app.database import SessionLocal
+from rhesis.backend.app.models.endpoint import Endpoint
+from rhesis.backend.app.models.model import Model
+from rhesis.backend.app.models.token import Token
+from rhesis.backend.app.utils.encryption import is_encrypted
+
+db = SessionLocal()
+for table, model, field in [
+    ("endpoint", Endpoint, "auth_token"),
+    ("model", Model, "key"),
+    ("token", Token, "token"),
+]:
+    records = db.query(model).all()
+    encrypted = sum(1 for r in records if getattr(r, field, None) and is_encrypted(getattr(r, field)))
+    total = sum(1 for r in records if getattr(r, field, None))
+    print(f"{table}: {encrypted}/{total} encrypted")`}
+</CodeBlock>
+
+Note: reading through the ORM decrypts values, so `is_encrypted` on an ORM attribute reflects
+decrypted plaintext, not the stored ciphertext. Use the SQL checks above to inspect what is
+actually stored.
+
+## Getting help
+
+Collect recent encryption-related logs and open a GitHub issue with the `encryption` label:
+
+<CodeBlock filename="collect-logs.sh" language="bash">
+{`kubectl logs -l app=rhesis-backend -n rhesis-prod --since=1h | grep -i "encrypt\\|decrypt" > logs.txt`}
+</CodeBlock>

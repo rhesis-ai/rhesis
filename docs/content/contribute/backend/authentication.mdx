@@ -2,9 +2,7 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 # Authentication
 
-## Overview
-
-The Rhesis backend implements a native authentication system with a pluggable provider architecture. The system supports email/password authentication, OAuth providers (Google and GitHub), magic link login, and token-based API access.
+The Rhesis backend implements a native authentication system with a pluggable provider architecture, supporting email/password, OAuth (Google and GitHub), magic link login, and token-based API access. For authorization decisions once the caller is known, see [Authorization (RBAC)](/contribute/backend/authorization).
 
 ## Authentication Methods
 
@@ -169,22 +167,22 @@ Refresh tokens implement automatic rotation with reuse detection:
 3. If a revoked token is reused, the entire token family is revoked (theft detection)
 4. Expired tokens are cleaned up periodically
 
-## Authentication Middleware
+## Authentication backstop
 
-The application uses a custom route class to enforce authentication requirements:
+Authentication is enforced by a defense-in-depth backstop rather than per-route
+decorators. After all routers are registered, `apply_auth_backstop()` in
+`app/main.py` walks every `APIRoute` and injects
+`Depends(require_current_user_or_token)` — accepting both session and `rh-*`
+token auth — on any route that is not in `PUBLIC_ROUTES` and does not already
+declare its own auth dependency. A route can never be accidentally exposed
+without authentication.
 
-<CodeBlock filename="auth-middleware.py" language="python">
-{`class AuthenticatedAPIRoute(APIRoute):
-    def get_dependencies(self):
-        if self.path in PUBLIC_ROUTES:
-            # No auth required
-            return []
-        elif any(self.path.startswith(route) for route in TOKEN_ENABLED_ROUTES):
-            # Both session and token auth accepted
-            return [Depends(require_current_user_or_token)]
-        # Default to session-only auth
-        return [Depends(require_current_user)]`}
-</CodeBlock>
+Routes that declare their own dependency are left untouched so an intentionally
+weaker policy stays authoritative — for example onboarding routes
+(`POST /organizations/`, `PUT /users/\{id\}`) use
+`require_current_user_or_token_without_context` so a brand-new user with no
+organization can create one. WebSocket routes are skipped and authenticate in
+their handlers.
 
 ## Rate Limiting
 
@@ -198,14 +196,15 @@ Authentication endpoints are rate-limited to prevent abuse:
 
 ## Security Considerations
 
-- HTTPS is enforced for all communications
-- Access tokens are short-lived (15 minutes) to limit the impact of token theft
-- Refresh tokens are stored as SHA-256 hashes (raw token never persisted)
-- Passwords are hashed with bcrypt via passlib
-- Single-use tokens (magic link, password reset) are enforced via Redis JTI tracking
-- All email-sensitive endpoints return HTTP 200 regardless of user existence (prevents email enumeration)
-- OAuth redirect URLs are validated against an allowlist of frontend domains
-- Session cookies use httpOnly, secure, and sameSite flags
+Auth-specific hardening beyond the token lifetimes and rotation covered above:
+
+- Email-sensitive endpoints (login, register, forgot-password, magic link) return
+  HTTP 200 regardless of whether the user exists, to prevent email enumeration.
+- Session cookies use httpOnly and `sameSite=lax`; the secure flag is set when
+  secure cookies are enabled.
+
+Cross-cutting controls (CORS, security headers, field encryption) are documented
+in [Security](/contribute/backend/security).
 
 ## Email Flows
 

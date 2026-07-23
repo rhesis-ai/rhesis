@@ -2,133 +2,64 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 # User Settings
 
-The User model stores preferences in a `user_settings` JSONB column, including LLM defaults, UI preferences, notifications, and localization settings.
+The `User` model (see [Database Models](/contribute/backend/database-models)) stores preferences in a `user_settings` JSONB column: per-purpose LLM defaults, UI preferences, notifications, localization, and privacy.
 
-## Schema Structure
+## Schema
 
 <CodeBlock filename="user-settings-schema.json" language="json">
 {`{
   "version": 1,
   "models": {
-    "generation": {
-      "model_id": "uuid-of-model",
-      "fallback_model_id": "uuid-of-fallback-model",
-      "temperature": 0.7,
-      "max_tokens": 2000
-    },
-    "evaluation": {
-      "model_id": "uuid-of-model",
-      "fallback_model_id": "uuid-of-fallback-model",
-      "temperature": 0.3,
-      "max_tokens": 1000
-    }
+    "generation": { "model_id": "uuid", "fallback_model_id": "uuid", "temperature": 0.7, "max_tokens": 2000 },
+    "evaluation": { "model_id": "uuid", "temperature": 0.3 },
+    "execution": { "model_id": "uuid" },
+    "embedding": { "model_id": "uuid" }
   },
-  "ui": {
-    "theme": "light",
-    "density": "comfortable",
-    "sidebar_collapsed": false,
-    "default_page_size": 25
-  },
-  "notifications": {
-    "email": {
-      "test_run_complete": true,
-      "test_failures": true,
-      "weekly_summary": false
-    },
-    "in_app": {
-      "test_run_complete": true,
-      "mentions": true
-    }
-  },
-  "localization": {
-    "language": "en",
-    "timezone": "UTC",
-    "date_format": "YYYY-MM-DD",
-    "time_format": "24h"
-  },
-  "privacy": {
-    "show_email": false,
-    "show_activity": true
-  }
+  "ui": { "theme": "light", "density": "comfortable", "sidebar_collapsed": false, "default_page_size": 25 },
+  "notifications": { "email": { "test_run_complete": true }, "in_app": { "mentions": true } },
+  "localization": { "language": "en", "timezone": "UTC", "date_format": "YYYY-MM-DD", "time_format": "24h" },
+  "privacy": { "show_email": false, "show_activity": true }
 }`}
 </CodeBlock>
+
+Only `version` and the four `models` slots (`generation`, `evaluation`, `execution`, `embedding`) are present by default; other sections are created on first write. The column also holds `onboarding` progress and a `default_project` reference.
 
 ## Usage
 
-Access settings via the `user.settings` property, which provides type-safe access to all preferences:
+Read and write through the `user.settings` property, which wraps the raw dict in typed accessors and returns `None` for missing values. `update()` deep-merges and persists the change onto the model automatically — you still commit the session.
 
 <CodeBlock filename="accessing-settings.py" language="python">
-{`# Model preferences
+{`# Read (returns None when unset)
 model_id = user.settings.models.generation.model_id
 temperature = user.settings.models.generation.temperature
-max_tokens = user.settings.models.generation.max_tokens
-
-# UI settings
 theme = user.settings.ui.theme
-page_size = user.settings.ui.default_page_size
 
-# Notifications
-email_prefs = user.settings.notifications.email
-
-# Update settings (deep merge)
+# Update (deep merge, auto-assigns user.user_settings)
 user.settings.update({
-    "models": {
-        "generation": {
-            "model_id": str(new_model.id),
-            "temperature": 0.8
-        }
-    }
+    "models": {"generation": {"model_id": str(new_model.id), "temperature": 0.8}}
 })
-user.user_settings = user.settings.raw
-await db.commit()`}
+db.commit()`}
 </CodeBlock>
 
-## API Endpoints
+## API
 
 <CodeBlock filename="settings-endpoints.http" language="http">
-{`# Get user settings
-GET /api/users/me
+{`GET /users/settings
 
-# Update user settings
-PATCH /api/users/me/settings
+PATCH /users/settings
 Content-Type: application/json
 
 {
-  "models": {
-    "generation": {
-      "model_id": "550e8400-e29b-41d4-a716-446655440000",
-      "temperature": 0.7
-    }
-  }
+  "models": { "generation": { "model_id": "550e8400-...", "temperature": 0.7 } }
 }`}
 </CodeBlock>
 
+`PATCH` merges partial data into existing settings. Changes to `models.embedding` are rejected — the embedding model is fixed for a deployment.
+
 ## Validation
 
-Settings are validated using Pydantic schemas in `rhesis.backend.app.schemas.user`:
+Pydantic schemas in `rhesis.backend.app.schemas.user` validate updates:
 
-- **LLMModelSettings**: Temperature (0.0-2.0), max_tokens (>0)
-- **UISettings**: Theme choices, page size (1-100)
-- **NotificationSettings**: Boolean preferences
-
-## Best Practices
-
-1. Access settings via `user.settings` property, not the raw `user_settings` dictionary
-2. Handle `None` values - properties return `None` for missing settings
-3. Use `user.settings.update()` for deep merge updates
-4. Remember to persist: `user.user_settings = user.settings.raw` and commit
-5. Provide sensible defaults when settings are unspecified
-
-## Example
-
-<CodeBlock filename="generation-service.py" language="python">
-{`# Get user's preferred model with fallback
-model_id = user.settings.models.generation.model_id
-model = await get_model_by_id(db, model_id) if model_id else None
-if not model:
-    model = await get_system_default_model(db, purpose="generation")
-
-# Use settings or defaults
-temperature = user.settings.models.generation.temperature or 0.7
-max_tokens = user.settings.models.generation.max_tokens`}
-</CodeBlock>
+- `LLMModelSettings` — `temperature` in 0.0–2.0, `max_tokens` > 0
+- `UISettings` — `default_page_size` in 1–100
+- The top-level `UserSettings` uses `extra="forbid"`, so unknown keys are rejected
