@@ -28,7 +28,7 @@ export interface UseGridStateResult {
    * the truncated result differs from the (still multi-item) controlled
    * prop, DataGrid treats that as a prop change and re-fires
    * `onFilterModelChange`, which — with our multi-item managed/drawer
-   * filters — creates an infinite `setState` loop (React error #185). Pass
+   * filters — creates an infinite `setState` loop (React error 185). Pass
    * this pre-truncated, single-item-safe model to the `<DataGrid>`
    * component's `filterModel` prop instead of `filterModel`. Use the full
    * `filterModel` only for building the server-side filter query, since
