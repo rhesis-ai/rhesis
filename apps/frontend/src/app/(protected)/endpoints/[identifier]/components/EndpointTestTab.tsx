@@ -112,12 +112,13 @@ export default function EndpointTestTab() {
         );
       }
       const result = await invokeEndpoint(endpoint.id, inputData);
+      if (!result.success) {
+        throw new Error(result.error ?? 'Test failed');
+      }
       const data = result.data as Record<string, unknown>;
       const raw = data?.raw_response ?? data;
       setRawResponse(raw);
-      setStatusCode(
-        String(data?.status_code ?? (result.success ? '200' : 'error'))
-      );
+      setStatusCode(String(data?.status_code ?? '200'));
       if (responseMapping.conversation_id) {
         const convId = applyJsonPath(raw, responseMapping.conversation_id);
         if (typeof convId === 'string') {
