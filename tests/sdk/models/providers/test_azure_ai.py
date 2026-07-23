@@ -94,6 +94,7 @@ class TestAzureAILLMGenerate:
             api_base="https://endpoint.inference.ai.azure.com/",
             api_version=None,
             extra_headers={"Connection": "close"},
+            timeout=300,
         )
 
     @patch("rhesis.sdk.models.providers.litellm.acompletion")
@@ -120,6 +121,7 @@ class TestAzureAILLMGenerate:
             api_base="https://endpoint.inference.ai.azure.com/",
             api_version=None,
             extra_headers={"Connection": "close"},
+            timeout=300,
         )
 
     @patch("rhesis.sdk.models.providers.litellm.acompletion")
@@ -182,6 +184,7 @@ class TestAzureAILLMGenerate:
             api_base="https://endpoint.inference.ai.azure.com/",
             api_version=None,
             extra_headers={"Connection": "close"},
+            timeout=300,
         )
 
     @patch("rhesis.sdk.models.providers.litellm.acompletion")
@@ -205,6 +208,7 @@ class TestAzureAILLMGenerate:
             api_base="https://endpoint.inference.ai.azure.com/",
             api_version=None,
             extra_headers={"Connection": "close"},
+            timeout=300,
             temperature=0.7,
             max_tokens=100,
         )

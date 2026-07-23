@@ -33,7 +33,7 @@ async def test_ws_token_denied_for_token_auth():
     user = SimpleNamespace(id=uuid.uuid4(), organization_id=uuid.uuid4())
 
     with pytest.raises(HTTPException) as exc:
-        await get_websocket_token(request=request, current_user=user)
+        get_websocket_token(request=request, current_user=user)
     assert exc.value.status_code == 403
 
 
@@ -50,7 +50,7 @@ async def test_ws_token_allowed_for_session_auth():
         WS_TOKEN_TTL_SECONDS=60,
     )
     with patch.object(ws_router, "get_ws_token_service", return_value=stub):
-        resp = await ws_router.get_websocket_token(request=request, current_user=user)
+        resp = ws_router.get_websocket_token(request=request, current_user=user)
 
     assert resp.token == "ws-token-xyz"
     assert resp.expires_in == 60

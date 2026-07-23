@@ -30,7 +30,7 @@ router = RhesisRouter(
 @handle_database_exceptions(
     entity_name="project", custom_unique_message="Project with this name already exists"
 )
-async def create_project(
+def create_project(
     project: schemas.ProjectCreate,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
@@ -80,7 +80,7 @@ def read_my_projects(
 
 
 @router.get("/", response_model=list[schemas.ProjectDetail])
-async def read_projects(
+def read_projects(
     response: Response,
     skip: int = 0,
     limit: int = 10,

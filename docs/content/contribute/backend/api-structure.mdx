@@ -2,112 +2,70 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 # API Structure
 
-## Overview
+FastAPI routers live under `app/routers/`, one resource family per module (`test.py`, `test_set.py`,
+`metric.py`, `endpoint.py`, `architect.py`, …). Paths follow REST conventions unless noted below.
 
-FastAPI routers under `app/routers/`, one resource family per module where possible. Paths use normal REST patterns unless noted below.
+## Authentication backstop
 
-## Router Organization
+There is no per-route auth declaration to remember. After all routers are included (core and EE),
+`main.py` walks every registered route and injects authentication and authorization dependencies:
 
-All API routers are defined in the `app/routers/` directory. The application includes over 30 routers for different entities, including:
+- `apply_auth_backstop` injects `require_current_user_or_token` on every route whose exact path is
+  not in `PUBLIC_ROUTES`, unless the route already declares an auth dependency (directly or
+  transitively via `get_tenant_db_session`). This guarantees a route is never accidentally exposed.
+- `apply_authz_backstop` then injects a `require_permission(capability)` check on every non-exempt
+  route.
 
-- Authentication
-- Users and Organizations
-- Tests and Test Sets
-- Prompts and Templates
-- Models and Endpoints
-- Categories and Tags
-
-## Route Categories
-
-Routes are categorized based on authentication requirements:
-
-### Public Routes
-
-These routes don't require any authentication:
+`PUBLIC_ROUTES` (no authentication) lives in `app/auth/public_routes.py`:
 
 <CodeBlock filename="public_routes.py" language="python">
-{`PUBLIC_ROUTES = [
+{`PUBLIC_ROUTES: list[str] = [
     "/",
-    "/auth/login",
+    "/auth/login/{provider}",
+    "/auth/login/email",
     "/auth/callback",
     "/auth/logout",
+    "/auth/register",
+    "/auth/verify-email",
+    "/auth/magic-link",
+    "/auth/refresh",
+    # ...other /auth/* endpoints
     "/home",
+    "/feedback/",
+    "/health",
     "/docs",
     "/redoc",
     "/openapi.json",
 ]`}
 </CodeBlock>
 
-The full list lives in `apps/backend/src/rhesis/backend/app/auth/public_routes.py` and is mutable so EE features (or other plugins) can extend it from their bootstrap before `app.include_router` runs for their own routers.
+The check is an **exact** match against the fully-resolved path, so trailing slashes matter. The
+list is a mutable module attribute so EE features can extend it from their bootstrap before their
+routers are included.
 
-### Token-Enabled Routes
+For token vs. session auth and the RBAC capability model, see
+[Backend Authentication](/contribute/backend/authentication) and
+[Authorization (RBAC)](/contribute/backend/authorization).
 
-These routes accept both session and token authentication:
+## Standard endpoints
 
-<CodeBlock filename="public_routes.py" language="python">
-{`TOKEN_ENABLED_ROUTES = [
-    "/api/",
-    "/tokens/",
-    "/test_sets/",
-    "/topics/",
-    "/prompts/",
-    # ...and many more
-]`}
-</CodeBlock>
+Most resource routers follow the same shape:
 
-### Session-Only Routes
-
-All other routes require session-based authentication.
-
-## Custom Route Class
-
-The application uses a custom `AuthenticatedAPIRoute` class that automatically adds the appropriate authentication dependencies based on the route path:
-
-<CodeBlock filename="authenticated-api-route.py" language="python">
-{`class AuthenticatedAPIRoute(APIRoute):
-    def get_dependencies(self):
-        if self.path in PUBLIC_ROUTES:
-            # No auth required
-            return []
-        elif any(self.path.startswith(route) for route in TOKEN_ENABLED_ROUTES):
-            # Both session and token auth accepted
-            return [Depends(require_current_user_or_token)]
-        # Default to session-only auth
-        return [Depends(require_current_user)]`}
-</CodeBlock>
-
-## Standard Endpoints
-
-Most resource routers follow a standard pattern with these endpoints:
-
-### Read Operations
-
-- `GET /{resource}/`: List all resources (with filtering and pagination)
-- `GET /{resource}/{id}`: Get a specific resource by ID
-- `GET /{resource}/count`: Get the count of resources
-
-### Write Operations
-
-- `POST /{resource}/`: Create a new resource
-- `PUT /{resource}/{id}`: Update a resource
-- `DELETE /{resource}/{id}`: Delete a resource
-
-## Example Router
-
-Here's a simplified example of a router structure:
+- `GET /\{resource\}/` — list (filtering, sorting, pagination; total in `X-Total-Count`)
+- `GET /\{resource\}/\{id\}` — get one by ID
+- `POST /\{resource\}/` — create
+- `PUT /\{resource\}/\{id\}` — update
+- `DELETE /\{resource\}/\{id\}` — delete
 
 <CodeBlock filename="example-router.py" language="python">
 {`from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.database import get_db
-from rhesis.backend.app.schemas import TestCreate, TestUpdate, Test
-from rhesis.backend.app.crud import create_test, get_test, update_test, delete_test
+from rhesis.backend.app.schemas import TestCreate, Test
+from rhesis.backend.app.crud import create_test, get_test
 
-router = APIRouter(
-prefix="/tests",
-tags=["tests"],
-)
+router = APIRouter(prefix="/tests", tags=["tests"])
 
 @router.post("/", response_model=Test)
 def create_test_endpoint(test: TestCreate, db: Session = Depends(get_db)):
@@ -118,59 +76,27 @@ def read_test(test_id: str, db: Session = Depends(get_db)):
     db_test = get_test(db, test_id=test_id)
     if db_test is None:
         raise HTTPException(status_code=404, detail="Test not found")
-    return db_test
-
-# Additional endpoints...`}
-
+    return db_test`}
 </CodeBlock>
 
-## Query Parameters
+## Query parameters
 
-The API supports various query parameters for filtering, sorting, and pagination:
+List endpoints accept `skip`, `limit`, `sort_by`, `sort_order`, and OData-style `$filter` and
+`$select`:
 
-### Filtering
-
-OData-style filtering is supported:
-
-<CodeBlock filename="filter-example.txt" language="text">
-{`GET /tests/?$filter=prompt_id eq '89905869-e8e9-4b2f-b362-3598cfe91968'`}
+<CodeBlock filename="query-example.txt" language="text">
+{`GET /tests/?$filter=priority eq 1&sort_by=created_at&sort_order=desc&skip=10&limit=10`}
 </CodeBlock>
 
-### Sorting
+The list endpoint sets `X-Total-Count` with the unpaginated total (exposed via CORS). See the
+[OData Query Guide](/contribute/backend/odata-guide) for the full filter syntax.
 
-<CodeBlock filename="sort-example.txt" language="text">
-{`GET /tests/?$orderby=created_at desc`}
-</CodeBlock>
+## API documentation
 
-### Pagination
+FastAPI generates OpenAPI docs automatically: Swagger UI at `/docs`, ReDoc at `/redoc`, and the
+schema at `/openapi.json`.
 
-<CodeBlock filename="pagination-example.txt" language="text">
-{`GET /tests/?$skip=10&$top=10`}
-</CodeBlock>
+## Error handling
 
-## Response Headers
-
-The API includes helpful response headers:
-
-- `X-Total-Count`: Total number of items for paginated responses
-- Standard CORS headers for cross-origin requests
-
-## API Documentation
-
-The API documentation is automatically generated using FastAPI's built-in support for OpenAPI:
-
-- Swagger UI: Available at `/docs`
-- ReDoc: Available at `/redoc`
-- OpenAPI JSON: Available at `/openapi.json`
-
-## Error Handling
-
-The API uses standard HTTP status codes for error responses:
-
-- 400: Bad Request (invalid input)
-- 401: Unauthorized (authentication required)
-- 403: Forbidden (insufficient permissions)
-- 404: Not Found (resource doesn't exist)
-- 500: Internal Server Error (server-side error)
-
-Error responses include a JSON body with details about the error.
+Errors use standard HTTP status codes (`400`, `401`, `403`, `404`, `500`) with a JSON body carrying
+a `detail` message.

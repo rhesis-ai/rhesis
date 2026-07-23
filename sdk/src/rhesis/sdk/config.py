@@ -4,6 +4,8 @@ from typing import Optional, TypeVar
 # Default values
 DEFAULT_BASE_URL = "https://api.rhesis.ai"
 
+DEFAULT_LLM_TIMEOUT = 300
+
 # Module level variables
 api_key: Optional[str] = None
 base_url: Optional[str] = None

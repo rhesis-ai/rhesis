@@ -92,7 +92,7 @@ router = RhesisRouter(
 @handle_database_exceptions(
     entity_name="user", custom_unique_message="User with this email already exists"
 )
-async def create_user(
+def create_user(
     request: Request,
     user: schemas.UserCreate,
     db: Session = Depends(get_tenant_db_session),
@@ -200,7 +200,7 @@ async def create_user(
 
 @router.get("/", response_model=list[schemas.User])
 @with_count_header(model=models.User)
-async def read_users(
+def read_users(
     response: Response,
     skip: int = 0,
     limit: int = 10,

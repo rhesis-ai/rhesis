@@ -851,7 +851,7 @@ async def generate_suggestions_endpoint(
 @router.post(
     "/{test_set_identifier}/generate_suggestion_outputs",
 )
-async def generate_suggestion_outputs_endpoint(
+def generate_suggestion_outputs_endpoint(
     test_set_identifier: str,
     body: GenerateSuggestionOutputsRequest,
     db: Session = Depends(get_tenant_db_session),
@@ -899,7 +899,7 @@ async def generate_suggestion_outputs_endpoint(
 @router.post(
     "/{test_set_identifier}/suggestion_pipeline",
 )
-async def suggestion_pipeline_endpoint(
+def suggestion_pipeline_endpoint(
     test_set_identifier: str,
     body: SuggestionPipelineRequest,
     db: Session = Depends(get_tenant_db_session),
@@ -959,7 +959,7 @@ async def suggestion_pipeline_endpoint(
 @router.post(
     "/{test_set_identifier}/evaluate_suggestions",
 )
-async def evaluate_suggestions_endpoint(
+def evaluate_suggestions_endpoint(
     test_set_identifier: str,
     body: EvaluateSuggestionsRequest,
     db: Session = Depends(get_tenant_db_session),

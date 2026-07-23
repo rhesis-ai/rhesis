@@ -512,7 +512,7 @@ def cancel_test_run(
 
 
 @router.post("/{test_run_id}/rescore", **capability(Permission.TestRun.UPDATE))
-async def rescore_test_run_endpoint(
+def rescore_test_run_endpoint(
     test_run_id: UUID,
     request: schemas.TestRunRescoreRequest = None,
     db: Session = Depends(get_tenant_db_session),
@@ -606,7 +606,7 @@ def download_test_run_results(
 
 
 @router.get("/{test_run_id}/traces", response_model=TraceListResponse)
-async def get_test_run_traces(
+def get_test_run_traces(
     test_run_id: UUID,
     limit: int = Query(100, ge=1, le=1000, description="Results per page"),
     offset: int = Query(0, ge=0, description="Pagination offset"),

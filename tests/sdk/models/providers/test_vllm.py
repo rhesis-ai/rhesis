@@ -1,4 +1,3 @@
-import os
 from unittest.mock import Mock, patch
 
 import pytest
@@ -61,6 +60,7 @@ class TestVllmLLM:
             api_base="http://localhost:8000",
             api_version=None,
             extra_headers={"Connection": "close"},
+            timeout=300,
         )
 
     @patch("rhesis.sdk.models.factory._create_from_spec")

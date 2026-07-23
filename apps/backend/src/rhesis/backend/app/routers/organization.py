@@ -42,7 +42,7 @@ router = RhesisRouter(
 @handle_database_exceptions(
     entity_name="organization", custom_unique_message="Organization with this name already exists"
 )
-async def create_organization(
+def create_organization(
     organization: schemas.OrganizationCreate,
     db: Session = Depends(get_db_session),
     current_user: User = Depends(require_current_user_or_token_without_context),
@@ -54,7 +54,7 @@ async def create_organization(
 
 @router.get("/", response_model=list[schemas.Organization])
 @with_count_header(model=models.Organization)
-async def read_organizations(
+def read_organizations(
     response: Response,
     skip: int = 0,
     limit: int = 10,
@@ -135,7 +135,7 @@ def update_organization(
     response_model=dict,
     **capability(Permission.Organization.UPDATE),
 )
-async def initialize_organization_data(
+def initialize_organization_data(
     organization_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token),
@@ -271,7 +271,7 @@ async def initialize_organization_data(
     response_model=dict,
     **capability(Permission.Organization.UPDATE),
 )
-async def rollback_organization_data(
+def rollback_organization_data(
     organization_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token),
