@@ -10,7 +10,8 @@ When executing a test configuration (a set of tests against an endpoint), Rhesis
 
 ### Description
 
-Tests are executed simultaneously using multiple Celery workers. This is the default mode and provides the fastest execution time.
+A single Celery task runs the tests concurrently through an async batch engine. This is the default
+mode and the fastest.
 
 ### How It Works
 
@@ -33,21 +34,11 @@ Collect Results`}
 
 ### Use Cases
 
-✅ **Best for:**
+**Best for:** independent tests against endpoints that handle concurrent requests without rate
+limits, and large test suites where speed matters.
 
-- Endpoints that can handle concurrent requests
-- Independent tests (no dependencies)
-- Fast execution needed
-- Scalable endpoints without rate limits
-- High-performance testing scenarios
-- Large test suites
-
-⚠️ **Considerations:**
-
-- May overwhelm endpoints
-- Harder to debug concurrent failures
-- Requires adequate system resources
-- May hit rate limits
+**Considerations:** may overwhelm an endpoint or hit rate limits, and concurrent failures are
+harder to debug.
 
 ### Configuration
 
@@ -103,20 +94,10 @@ Collect Results`}
 
 ### Use Cases
 
-✅ **Best for:**
+**Best for:** rate-limited or stateful endpoints, tests with dependencies on each other, and
+debugging (one test at a time is easier to trace).
 
-- Endpoints with rate limiting
-- Endpoints that can't handle concurrent load
-- Tests with dependencies on each other
-- Debugging test execution issues
-- Limited endpoint resources
-- Stateful testing scenarios
-
-⚠️ **Considerations:**
-
-- Slower overall execution time
-- Less efficient resource utilization
-- Longer wait times for results
+**Considerations:** slower overall, with longer waits for results.
 
 ### Configuration
 
@@ -244,46 +225,8 @@ Example with 20 tests, 5s average test time:
 
 | Mode                 | Execution Time | Resource Usage |
 | -------------------- | -------------- | -------------- |
-| Parallel (5 workers) | ~20-25 seconds | High           |
+| Parallel (concurrency 5) | ~20-25 seconds | High       |
 | Sequential           | ~100 seconds   | Low            |
-
----
-
-## Utilities
-
-### Get Current Mode
-
-<CodeBlock language="python" filename="get_mode.py" isTerminal={false}>
-{`from rhesis.backend.tasks.execution.modes import get_execution_mode
-
-mode = get_execution_mode(test_config)
-# Returns: ExecutionMode.PARALLEL or ExecutionMode.SEQUENTIAL`}
-</CodeBlock>
-
-### Get Mode Description
-
-<CodeBlock language="python" filename="get_description.py" isTerminal={false}>
-{`from rhesis.backend.tasks.execution.modes import get_mode_description
-
-description = get_mode_description(ExecutionMode.PARALLEL)
-# Returns: "Tests are executed simultaneously using multiple workers..."`}
-</CodeBlock>
-
-### Get Recommendations
-
-<CodeBlock language="python" filename="get_recommendations.py" isTerminal={false}>
-{`from rhesis.backend.tasks.execution.modes import get_mode_recommendations
-
-recommendations = get_mode_recommendations()
-# Returns: {
-#   ExecutionMode.SEQUENTIAL: {
-#     "use_when": [...],
-#     "pros": [...],
-#     "cons": [...]
-#   },
-#   ...
-# }`}
-</CodeBlock>
 
 ---
 
