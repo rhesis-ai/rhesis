@@ -19,7 +19,7 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-07-16T15:29:05.818807Z"
+exclude-newer = "2026-07-16T22:45:30.76982Z"
 exclude-newer-span = "P1W"
 
 [options.exclude-newer-package]
@@ -46,7 +46,6 @@ constraints = [
     { name = "pyasn1", specifier = ">=0.6.4" },
     { name = "pytest", specifier = ">=9.0.3" },
     { name = "python-multipart", specifier = ">=0.0.31" },
-    { name = "setuptools", specifier = ">=83.0.0" },
     { name = "soupsieve", specifier = ">=2.8.4" },
     { name = "tornado", specifier = ">=6.5.7" },
     { name = "urllib3", specifier = ">=2.7.0" },
