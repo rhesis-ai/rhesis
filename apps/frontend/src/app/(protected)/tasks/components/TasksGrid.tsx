@@ -132,6 +132,7 @@ export default function TasksGrid({
 
   const {
     filterModel,
+    gridFilterModel,
     paginationModel,
     sortModel,
     setPaginationModel,
@@ -151,6 +152,7 @@ export default function TasksGrid({
         const drawerItems: typeof prev.items = [];
         if (drawerFilters.status) {
           drawerItems.push({
+            id: 'status',
             field: 'status',
             operator: 'equals',
             value: drawerFilters.status,
@@ -158,6 +160,7 @@ export default function TasksGrid({
         }
         if (drawerFilters.priority) {
           drawerItems.push({
+            id: 'priority',
             field: 'priority',
             operator: 'equals',
             value: drawerFilters.priority,
@@ -165,6 +168,7 @@ export default function TasksGrid({
         }
         if (drawerFilters.assignee) {
           drawerItems.push({
+            id: 'assignee',
             field: 'assignee',
             operator: 'equals',
             value: drawerFilters.assignee,
@@ -384,7 +388,7 @@ export default function TasksGrid({
               getRowId={row => row.id}
               paginationModel={paginationModel}
               onPaginationModelChange={handlePaginationModelChange}
-              filterModel={filterModel}
+              filterModel={gridFilterModel}
               onFilterModelChange={handleFilterModelChange}
               disableRowSelectionOnClick
               onRowClick={handleRowClick}

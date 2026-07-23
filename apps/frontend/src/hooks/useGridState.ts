@@ -21,6 +21,20 @@ export interface UseGridStateOptions {
 
 export interface UseGridStateResult {
   filterModel: GridFilterModel;
+  /**
+   * Community `DataGrid` hard-forces `disableMultipleColumnsFiltering: true`
+   * (see `DATA_GRID_FORCED_PROPS` in `@mui/x-data-grid`), so it silently
+   * truncates any controlled `filterModel` with 2+ items on every render. If
+   * the truncated result differs from the (still multi-item) controlled
+   * prop, DataGrid treats that as a prop change and re-fires
+   * `onFilterModelChange`, which — with our multi-item managed/drawer
+   * filters — creates an infinite `setState` loop (React error #185). Pass
+   * this pre-truncated, single-item-safe model to the `<DataGrid>`
+   * component's `filterModel` prop instead of `filterModel`. Use the full
+   * `filterModel` only for building the server-side filter query, since
+   * actual row filtering happens server-side, not in the grid.
+   */
+  gridFilterModel: GridFilterModel;
   paginationModel: GridPaginationModel;
   sortModel: GridSortModel;
   setFilterModel: (model: GridFilterModel) => void;
@@ -67,7 +81,12 @@ function buildManagedFilterModel(
       ...model,
       items: [
         ...model.items,
-        { field: 'quickFilter', operator: 'contains', value: searchQuery },
+        {
+          id: 'quickFilter',
+          field: 'quickFilter',
+          operator: 'contains',
+          value: searchQuery,
+        },
       ],
     };
   }
@@ -83,7 +102,12 @@ function buildManagedFilterModel(
       ...model,
       items: [
         ...model.items.filter(item => item.field !== typeFilterField),
-        { field: typeFilterField, operator: 'equals', value: typeFilter },
+        {
+          id: typeFilterField,
+          field: typeFilterField,
+          operator: 'equals',
+          value: typeFilter,
+        },
       ],
     };
   }
@@ -145,6 +169,11 @@ export function useGridState({
     [gridFilterMeta, managedFilterModel, reconciledColumnFilterItems]
   );
 
+  const gridFilterModel = useMemo(
+    () => ({ ...filterModel, items: filterModel.items.slice(0, 1) }),
+    [filterModel]
+  );
+
   useEffect(() => {
     setPaginationModel(prev => (prev.page === 0 ? prev : { ...prev, page: 0 }));
   }, [managedFilterModel]);
@@ -161,12 +190,20 @@ export function useGridState({
       const columnItems = stripManagedColumnItems(model.items, managedFields);
 
       setColumnFilterItems(columnItems);
-      setGridFilterMeta({
-        logicOperator: model.logicOperator,
-        quickFilterValues: model.quickFilterValues,
-        quickFilterLogicOperator: model.quickFilterLogicOperator,
-      });
-      setPaginationModel(prev => ({ ...prev, page: 0 }));
+      setGridFilterMeta(prev =>
+        prev.logicOperator === model.logicOperator &&
+        prev.quickFilterValues === model.quickFilterValues &&
+        prev.quickFilterLogicOperator === model.quickFilterLogicOperator
+          ? prev
+          : {
+              logicOperator: model.logicOperator,
+              quickFilterValues: model.quickFilterValues,
+              quickFilterLogicOperator: model.quickFilterLogicOperator,
+            }
+      );
+      setPaginationModel(prev =>
+        prev.page === 0 ? prev : { ...prev, page: 0 }
+      );
     },
     [managedFields]
   );
@@ -185,6 +222,7 @@ export function useGridState({
 
   return {
     filterModel,
+    gridFilterModel,
     paginationModel,
     sortModel,
     setFilterModel,
