@@ -1,7 +1,7 @@
 """drop dimension and demographic tables
 
 Revision ID: 6867d319c0a5
-Revises: e6f7a8b9c0d4
+Revises: d4e7f2a9c1b8
 Create Date: 2026-07-16 18:00:00.000000
 
 This migration is DESTRUCTIVE: it drops the `dimension` and `demographic`
