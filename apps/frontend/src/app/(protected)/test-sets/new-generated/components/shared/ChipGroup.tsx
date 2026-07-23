@@ -35,11 +35,7 @@ export default function ChipGroup({
     };
 
     return colorMap[chip.colorVariant || 'blue'] as
-      | 'primary'
-      | 'secondary'
-      | 'warning'
-      | 'success'
-      | undefined;
+      'primary' | 'secondary' | 'warning' | 'success' | undefined;
   };
 
   const getChipSx = (chip: ChipConfig) => {

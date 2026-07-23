@@ -255,8 +255,7 @@ export interface SuggestionOutputStreamSummaryEvent {
 }
 
 export type SuggestionOutputStreamEvent =
-  | SuggestionOutputStreamItemEvent
-  | SuggestionOutputStreamSummaryEvent;
+  SuggestionOutputStreamItemEvent | SuggestionOutputStreamSummaryEvent;
 
 // =============================================================================
 // Evaluate Suggestions (non-persisted)
@@ -290,8 +289,7 @@ export interface SuggestionEvalStreamSummaryEvent {
 }
 
 export type SuggestionEvalStreamEvent =
-  | SuggestionEvalStreamItemEvent
-  | SuggestionEvalStreamSummaryEvent;
+  SuggestionEvalStreamItemEvent | SuggestionEvalStreamSummaryEvent;
 
 // =============================================================================
 // Unified Suggestion Pipeline (single stream)

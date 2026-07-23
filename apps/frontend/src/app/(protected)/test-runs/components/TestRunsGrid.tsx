@@ -439,8 +439,7 @@ function TestRunsGrid({ canCreate, onCreateClick }: TestRunsGridProps) {
             (params.row.attributes?.parameter_experiment_name as string) ||
             undefined;
           const version = params.row.attributes?.parameter_version as
-            | string
-            | undefined;
+            string | undefined;
 
           if (!name && !version) return null;
 

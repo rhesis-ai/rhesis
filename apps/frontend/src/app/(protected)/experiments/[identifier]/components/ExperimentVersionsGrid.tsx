@@ -185,8 +185,7 @@ export default function ExperimentVersionsGrid({
           row.values[field.name] ?? null,
         renderCell: (params: GridRenderCellParams<ExperimentVersion>) => {
           const val = params.row.values[field.name] as
-            | ParameterValue
-            | undefined;
+            ParameterValue | undefined;
           return (
             <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
               {val !== undefined ? (
