@@ -2858,7 +2858,7 @@ def get_project_members(
 
 
 def get_my_projects(db: Session, user_id: uuid.UUID, organization_id: str) -> List[models.Project]:
-    """Return all projects the given user is a member of."""
+    """Return all ACTIVE, non-deleted projects the given user is a member of."""
     from rhesis.backend.app.models.project_membership import ProjectMembership
 
     return (
@@ -2867,6 +2867,8 @@ def get_my_projects(db: Session, user_id: uuid.UUID, organization_id: str) -> Li
         .filter(
             ProjectMembership.user_id == user_id,
             ProjectMembership.organization_id == organization_id,
+            models.Project.deleted_at.is_(None),
+            models.Project.is_active.is_(True),
         )
         .all()
     )

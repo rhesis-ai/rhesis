@@ -122,6 +122,55 @@ class TestResolveEntityEndpoint:
         assert data["project_id"] == str(other_project.id)
         assert data["project_name"] == other_project.name
 
+    def test_archived_project_not_offered_as_switchable(
+        self,
+        authenticated_client: TestClient,
+        test_db,
+        test_organization,
+        db_user,
+        db_owner_user,
+        db_status,
+        active_project_context,
+        authenticated_user_id,
+    ):
+        """An entity in a project the caller is a member of, but the project is
+        inactive/archived, must not be offered as a switch target — it should
+        404 like any other project the candidate list excludes."""
+        archived_project = self._create_project_with_membership(
+            test_db,
+            test_organization,
+            db_user,
+            db_owner_user,
+            db_status,
+            authenticated_user_id,
+            "archived",
+        )
+        archived_project.is_active = False
+        test_db.flush()
+
+        test_set = TestSet(
+            name="Archived-project test set",
+            description="Belongs to an archived project",
+            user_id=db_user.id,
+            organization_id=test_organization.id,
+            status_id=db_status.id,
+            project_id=archived_project.id,
+            is_published=False,
+            visibility="organization",
+        )
+        test_db.add(test_set)
+        test_db.flush()
+
+        response = authenticated_client.get(
+            "/resolve",
+            params={
+                "entity_type": "test_set",
+                "entity_id": str(test_set.id),
+            },
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
     def test_not_member_of_entity_project_returns_404(
         self,
         authenticated_client: TestClient,

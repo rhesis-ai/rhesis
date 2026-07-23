@@ -23,8 +23,9 @@ def list_other_member_projects(
     user_id: str,
     exclude_project_id: str | None = None,
 ) -> list[tuple[str, str]]:
-    """Return (project_id, project_name) for every project the caller belongs
-    to in this org, excluding ``exclude_project_id`` (typically the active one).
+    """Return (project_id, project_name) for every ACTIVE, non-deleted project
+    the caller belongs to in this org, excluding ``exclude_project_id``
+    (typically the active one).
     """
     with bypass_tenant_filter():
         rows = (
@@ -36,6 +37,8 @@ def list_other_member_projects(
             .filter(
                 models.ProjectMembership.user_id == user_id,
                 models.ProjectMembership.organization_id == organization_id,
+                models.Project.deleted_at.is_(None),
+                models.Project.is_active.is_(True),
             )
             .all()
         )
