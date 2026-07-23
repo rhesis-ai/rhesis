@@ -1,7 +1,7 @@
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -15,6 +15,7 @@ from rhesis.backend.app.constants import (
 from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.crud_utils import (
+    create_item,
     get_or_create_entity,
     get_or_create_status,
     get_or_create_type_lookup,
@@ -545,9 +546,26 @@ def prepare_test_data(
 
 
 def create_prompt(
-    db: Session, prompt_data: Dict, defaults: Dict, organization_id: str, user_id: str
+    db: Session,
+    prompt_data: Dict,
+    defaults: Dict,
+    organization_id: str,
+    user_id: str,
+    cache: Optional["_BulkEntityCache"] = None,
+    skip_duplicate_check: bool = False,
 ) -> models.Prompt:
-    """Create a prompt with its associated entities"""
+    """Create a prompt with its associated entities.
+
+    Args:
+        cache: Optional bulk-entity cache. When provided, the prompt's status
+            lookup is cached across calls instead of re-querying the DB for
+            every prompt (dramatically fewer round-trips for bulk imports,
+            e.g. Garak).
+        skip_duplicate_check: When True, skip the SELECT that looks for an
+            existing Prompt with identical content before creating one. Bulk
+            imports (e.g. Garak) always create fresh, unique prompt content,
+            so that lookup never hits and is wasted work.
+    """
     # Multi-turn tests don't have prompts, return None
     if not prompt_data:
         return None
@@ -580,24 +598,46 @@ def create_prompt(
             dimension_id=dimension.id,
         )
 
+    if cache is not None:
+        status = cache.get_or_create_status(
+            db=db,
+            name=defaults["prompt"]["status"],
+            entity_type=EntityType.GENERAL,
+            organization_id=organization_id,
+            user_id=user_id,
+        )
+    else:
+        status = get_or_create_status(
+            db=db,
+            name=defaults["prompt"]["status"],
+            entity_type=EntityType.GENERAL,
+            organization_id=organization_id,
+            user_id=user_id,
+        )
+
+    entity_data = {
+        **prompt_data,
+        "organization_id": organization_id,
+        "user_id": user_id,
+        "status_id": status.id,
+        "language_code": prompt_data.get("language_code", defaults["prompt"]["language_code"]),
+        "demographic_id": demographic.id if demographic else None,
+        "expected_response": prompt_data.get("expected_response"),
+    }
+
+    if skip_duplicate_check:
+        return create_item(
+            db=db,
+            model=models.Prompt,
+            item_data=entity_data,
+            organization_id=organization_id,
+            user_id=user_id,
+        )
+
     return get_or_create_entity(
         db=db,
         model=models.Prompt,
-        entity_data={
-            **prompt_data,
-            "organization_id": organization_id,
-            "user_id": user_id,
-            "status_id": get_or_create_status(
-                db=db,
-                name=defaults["prompt"]["status"],
-                entity_type=EntityType.GENERAL,
-                organization_id=organization_id,
-                user_id=user_id,
-            ).id,
-            "language_code": prompt_data.get("language_code", defaults["prompt"]["language_code"]),
-            "demographic_id": demographic.id if demographic else None,
-            "expected_response": prompt_data.get("expected_response"),
-        },
+        entity_data=entity_data,
         organization_id=organization_id,
         user_id=user_id,
     )
@@ -611,6 +651,7 @@ def bulk_create_tests(
     test_set_id: str | None = None,
     test_type_value: str | None = None,
     flush_interval: int = 100,
+    skip_prompt_dedup: bool = False,
 ) -> List[str]:
     """Bulk create tests from a list of test data dictionaries or TestData objects.
 
@@ -628,6 +669,9 @@ def bulk_create_tests(
         test_set_id: Optional test set ID
         test_type_value: Optional test type value (e.g., "Single-Turn", "Multi-Turn")
         flush_interval: Number of tests between flush+expunge cycles (default 100)
+        skip_prompt_dedup: Passed through to ``create_prompt`` — skip the
+            duplicate-content SELECT when the caller knows prompt content is
+            always unique (e.g. bulk Garak imports).
 
     Returns:
         List of created test ID strings.
@@ -704,6 +748,8 @@ def bulk_create_tests(
                     defaults=defaults,
                     organization_id=organization_id,
                     user_id=user_id,
+                    cache=cache,
+                    skip_duplicate_check=skip_prompt_dedup,
                 )
 
             # Create topic, behavior, and category (with caching for bulk operations)

@@ -41,6 +41,12 @@ _TEST_ENV_VARS = {
     "DB_ENCRYPTION_KEY": "Zb21wZbPsUpb-c2JKj8uMugk767pWXHFTsjocd0Orac=",
     "SSO_ENCRYPTION_KEY": "9KgQ8O8Dx3xfUejfiAwkDgYMqD_2vekaNYw2WvqvJdw=",
     "OTEL_RHESIS_TELEMETRY_ENABLED": "false",
+    # Skip the production-only Garak probe cache pre-warm. Each test spins up a
+    # fresh TestClient (fresh app lifespan), so without this every route test
+    # would launch a full-corpus Garak enumeration in a non-cancellable worker
+    # thread and the concurrent pile-up would hang the suite. See the guard in
+    # app/main.py's lifespan for the full rationale.
+    "RHESIS_SKIP_GARAK_WARM_CACHE": "true",
 }
 
 
