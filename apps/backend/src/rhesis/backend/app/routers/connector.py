@@ -291,7 +291,7 @@ async def trigger_test(
 
 
 @router.get("/status/{project_id}", response_model=ConnectionStatusResponse)
-async def get_status(
+def get_status(
     project_id: str,
     environment: str = "development",
     current_user: User = Depends(require_current_user_or_token),
@@ -320,7 +320,7 @@ async def get_status(
 
 
 @router.post("/trace", response_model=TraceResponse)
-async def receive_trace(
+def receive_trace(
     trace: ExecutionTrace,
     current_user: User = Depends(require_current_user_or_token),
 ):
