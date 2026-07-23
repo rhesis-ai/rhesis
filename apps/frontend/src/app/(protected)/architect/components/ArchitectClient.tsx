@@ -16,7 +16,10 @@ import {
   pickResumableSessionId,
   writeResumeHint,
 } from '@/utils/architect-resume';
-import { takePendingHandoffMessage } from '@/utils/architect-handoff';
+import {
+  stashPendingHandoffMessage,
+  takePendingHandoffMessage,
+} from '@/utils/architect-handoff';
 import ArchitectSidebar from './ArchitectSidebar';
 import ArchitectChat from './ArchitectChat';
 import ArchitectWelcome from './ArchitectWelcome';
@@ -119,6 +122,9 @@ export default function ArchitectClient() {
       // backend. Pick it up here and route it through the same auto-send path
       // the welcome screen uses, so the Architect starts working as soon as
       // this tab is connected — no lost events, no need for a manual "go".
+      // Consume it optimistically (before the getSession round-trip) so the
+      // prompt bubble renders immediately; re-stash it if selection fails so
+      // the message is not lost.
       const pendingHandoff = takePendingHandoffMessage(sessionFromQuery);
       if (pendingHandoff) {
         setPendingMessage(pendingHandoff);
@@ -140,6 +146,10 @@ export default function ArchitectClient() {
           console.error('Failed to load session from query:', err);
           if (!cancelled) {
             setActiveSessionId(null);
+            if (pendingHandoff) {
+              setPendingMessage(null);
+              stashPendingHandoffMessage(sessionFromQuery, pendingHandoff);
+            }
           }
           return;
         }

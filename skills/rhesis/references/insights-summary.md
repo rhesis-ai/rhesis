@@ -1,6 +1,6 @@
 # Insights summary handoff
 
-Use this when the user message is an **Insights handoff** (phrases like "summarize insights", "insights summary", "Insights page view").
+Use this when the user message is an **Insights handoff** (phrases like "summarize insights", "insights summary", "Insights page view"). If the current message is **not** an Insights handoff (e.g. an ordinary "analyze my last run" request), ignore this section entirely and follow `result-analysis.md`.
 
 ## Intent
 
