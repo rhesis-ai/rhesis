@@ -6,6 +6,7 @@ import litellm
 from litellm import acompletion, aembedding, batch_completion, embedding
 from pydantic import BaseModel
 
+from rhesis.sdk.config import DEFAULT_LLM_TIMEOUT
 from rhesis.sdk.errors import NO_MODEL_NAME_PROVIDED
 from rhesis.sdk.models.base import BaseEmbedder, BaseLLM, Embedding
 from rhesis.sdk.models.utils import validate_llm_response
@@ -31,6 +32,7 @@ class LiteLLM(BaseLLM):
         api_key: Optional[str] = None,
         api_base: Optional[str] = None,
         api_version: Optional[str] = None,
+        timeout: Optional[float] = None,
     ):
         """
         LiteLLM: LiteLLM Provider for Model inference
@@ -46,6 +48,10 @@ class LiteLLM(BaseLLM):
             api_version (Optional[str]): The API version string
                 (e.g. for Azure). If not provided, LiteLLM uses its
                 default or env vars.
+            timeout (Optional[float]): Per-request timeout in seconds. Defaults to
+                ``DEFAULT_LLM_TIMEOUT``. Prevents a hung upstream call from blocking the
+                worker thread indefinitely. A ``timeout`` kwarg passed to a ``generate``
+                call overrides this per request.
 
         Usage:
             >>> llm = LiteLLM(model_name="provider/model", api_key="your_api_key")
@@ -58,6 +64,7 @@ class LiteLLM(BaseLLM):
         self.api_key = api_key
         self.api_base = api_base
         self.api_version = api_version
+        self.timeout = timeout if timeout is not None else DEFAULT_LLM_TIMEOUT
         if not model_name or not isinstance(model_name, str) or model_name.strip() == "":
             raise ValueError(NO_MODEL_NAME_PROVIDED)
         super().__init__(model_name)
@@ -117,6 +124,7 @@ class LiteLLM(BaseLLM):
         # asyncio.run() calls (e.g. Celery tasks), which would cause
         # RuntimeError: Event loop is closed on teardown.
         extra_headers = {"Connection": "close", **(kwargs.pop("extra_headers", None) or {})}
+        timeout = kwargs.pop("timeout", self.timeout)
         response = await acompletion(
             model=self.model_name,
             messages=messages,
@@ -125,6 +133,7 @@ class LiteLLM(BaseLLM):
             api_base=self.api_base,
             api_version=self.api_version,
             extra_headers=extra_headers,
+            timeout=timeout,
             *args,
             **kwargs,
         )
@@ -169,6 +178,7 @@ class LiteLLM(BaseLLM):
         # asyncio.run() calls (e.g. Celery tasks), which would cause
         # RuntimeError: Event loop is closed on teardown.
         extra_headers = {"Connection": "close", **(kwargs.pop("extra_headers", None) or {})}
+        timeout = kwargs.pop("timeout", self.timeout)
         response = await acompletion(
             model=self.model_name,
             messages=messages,
@@ -178,6 +188,7 @@ class LiteLLM(BaseLLM):
             api_base=self.api_base,
             api_version=self.api_version,
             extra_headers=extra_headers,
+            timeout=timeout,
             *args,
             **kwargs,
         )
@@ -224,6 +235,7 @@ class LiteLLM(BaseLLM):
         # Handle schema format for LiteLLM
         response_format = schema
 
+        timeout = kwargs.pop("timeout", self.timeout)
         responses = batch_completion(
             model=self.model_name,
             messages=messages,
@@ -232,6 +244,7 @@ class LiteLLM(BaseLLM):
             api_base=self.api_base,
             api_version=self.api_version,
             n=n,
+            timeout=timeout,
             *args,
             **kwargs,
         )
@@ -295,12 +308,14 @@ class LiteLLMEmbedder(BaseEmbedder):
         model_name: str,
         api_key: Optional[str] = None,
         dimensions: Optional[int] = None,
+        timeout: Optional[float] = None,
     ):
         if not model_name or not isinstance(model_name, str) or model_name.strip() == "":
             raise ValueError(NO_MODEL_NAME_PROVIDED)
         super().__init__(model_name)
         self.api_key = api_key
         self.dimensions = dimensions
+        self.timeout = timeout if timeout is not None else DEFAULT_LLM_TIMEOUT
 
     async def a_generate(self, text: str, **kwargs) -> Embedding:
         """Generate embedding for a single text (async, via LiteLLM)."""
@@ -308,12 +323,14 @@ class LiteLLMEmbedder(BaseEmbedder):
             raise TypeError(f"text must be a string, got {type(text).__name__}")
 
         dimensions = kwargs.pop("dimensions", self.dimensions)
+        timeout = kwargs.pop("timeout", self.timeout)
 
         response = await aembedding(
             model=self.model_name,
             input=[text],
             api_key=self.api_key,
             dimensions=dimensions,
+            timeout=timeout,
             **kwargs,
         )
         return response["data"][0]["embedding"]
@@ -338,12 +355,14 @@ class LiteLLMEmbedder(BaseEmbedder):
 
         # Allow overriding dimensions per call
         dimensions = kwargs.pop("dimensions", self.dimensions)
+        timeout = kwargs.pop("timeout", self.timeout)
 
         response = embedding(
             model=self.model_name,
             input=texts,
             api_key=self.api_key,
             dimensions=dimensions,
+            timeout=timeout,
             **kwargs,
         )
         return [item["embedding"] for item in response["data"]]
