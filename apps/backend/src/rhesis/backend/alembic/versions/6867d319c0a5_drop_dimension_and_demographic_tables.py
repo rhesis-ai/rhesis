@@ -29,7 +29,7 @@ from rhesis.backend.app.models.guid import GUID
 
 # revision identifiers, used by Alembic.
 revision: str = "6867d319c0a5"
-down_revision: Union[str, None] = "e6f7a8b9c0d4"
+down_revision: Union[str, None] = "d4e7f2a9c1b8"
 branch_labels: Union[str, None] = None
 depends_on: Union[list[str], None] = None
 
@@ -104,9 +104,9 @@ def upgrade() -> None:
         "dimension:update",
     ]
     op.execute(
-        sa.text(
-            "UPDATE permission SET is_retired = true WHERE name IN :caps"
-        ).bindparams(sa.bindparam("caps", expanding=True)),
+        sa.text("UPDATE permission SET is_retired = true WHERE name IN :caps").bindparams(
+            sa.bindparam("caps", expanding=True)
+        ),
         {"caps": _RETIRED_CAPS},
     )
     op.execute(
@@ -245,8 +245,8 @@ def downgrade() -> None:
         "dimension:update",
     ]
     op.execute(
-        sa.text(
-            "UPDATE permission SET is_retired = false WHERE name IN :caps"
-        ).bindparams(sa.bindparam("caps", expanding=True)),
+        sa.text("UPDATE permission SET is_retired = false WHERE name IN :caps").bindparams(
+            sa.bindparam("caps", expanding=True)
+        ),
         {"caps": _RETIRED_CAPS},
     )
