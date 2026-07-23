@@ -36,13 +36,17 @@ alembic/
 The simplest approach - just load templates with your data:
 
 ```python
-from rhesis.backend.alembic.utils.template_loader import load_type_lookup_template, load_status_template
+from rhesis.backend.alembic.utils.template_loader import (
+    load_type_lookup_template,
+    load_status_template,
+)
+
 
 def upgrade() -> None:
     # Add entity type
     entity_values = "('EntityType', 'Project', 'Entity type for projects')"
     op.execute(load_type_lookup_template(entity_values))
-    
+
     # Add priority system
     priority_values = """
         ('ProjectPriority', 'High', 'High priority project'),
@@ -50,14 +54,14 @@ def upgrade() -> None:
         ('ProjectPriority', 'Low', 'Low priority project')
     """.strip()
     op.execute(load_type_lookup_template(priority_values))
-    
+
     # Add statuses
     status_values = """
         ('Planning', 'Project is in planning phase'),
         ('Active', 'Project is currently active'),
         ('Completed', 'Project has been completed')
     """.strip()
-    op.execute(load_status_template('Project', status_values))
+    op.execute(load_status_template("Project", status_values))
 ```
 
 ### 2. Direct Template Usage
@@ -67,11 +71,12 @@ You can also use templates directly by reading and replacing placeholders:
 ```python
 from rhesis.backend.alembic.utils.template_loader import load_template
 
+
 def upgrade() -> None:
     # Custom template usage
-    sql = load_template("type_lookup_template", {
-        "VALUES_PLACEHOLDER": "('CustomType', 'Value1', 'Description 1')"
-    })
+    sql = load_template(
+        "type_lookup_template", {"VALUES_PLACEHOLDER": "('CustomType', 'Value1', 'Description 1')"}
+    )
     op.execute(sql)
 ```
 
@@ -150,13 +155,13 @@ def upgrade() -> None:
 def downgrade() -> None:
     # Use pre-built cleanup functions
     cleanup_sql = generate_task_cleanup_sql()
-    op.execute(cleanup_sql['task_status_cleanup'])
-    op.execute(cleanup_sql['task_priority_cleanup'])
+    op.execute(cleanup_sql["task_status_cleanup"])
+    op.execute(cleanup_sql["task_priority_cleanup"])
     # ... etc
-    
+
     # Or use generator for custom cleanup
     generator = get_sql_generator()
-    cleanup_sql = generator.generate_cleanup_type_lookup_sql('CustomType', ['Value1', 'Value2'])
+    cleanup_sql = generator.generate_cleanup_type_lookup_sql("CustomType", ["Value1", "Value2"])
     op.execute(cleanup_sql)
 ```
 
@@ -209,7 +214,7 @@ The README above contains comprehensive examples including:
       ('New', 'Newly created status'),
       ('Approved', 'Approved status')
   """.strip()
-  op.execute(load_status_template('EntityType', 'NewEntity', status_values))
+  op.execute(load_status_template("EntityType", "NewEntity", status_values))
   ```
 
 ### 3. Cleanup Type Lookup Template (`cleanup_type_lookup_template.sql`)
@@ -221,7 +226,7 @@ The README above contains comprehensive examples including:
 - **Example Usage**:
   ```python
   values = "'NewEntity', 'AnotherEntity'"
-  op.execute(load_cleanup_type_lookup_template('EntityType', values))
+  op.execute(load_cleanup_type_lookup_template("EntityType", values))
   ```
 
 ### 4. Cleanup Status Template (`cleanup_status_template.sql`)
@@ -234,7 +239,7 @@ The README above contains comprehensive examples including:
 - **Example Usage**:
   ```python
   status_names = "'New', 'Approved'"
-  op.execute(load_cleanup_status_template('EntityType', 'NewEntity', status_names))
+  op.execute(load_cleanup_status_template("EntityType", "NewEntity", status_names))
   ```
 
 ### 5. Cleanup References Template (`cleanup_references_template.sql`)
@@ -249,7 +254,7 @@ The README above contains comprehensive examples including:
 - **Example Usage**:
   ```python
   status_values = "'New', 'Approved'"
-  op.execute(load_cleanup_references_template('task', 'status', 'EntityType', 'Task', status_values))
+  op.execute(load_cleanup_references_template("task", "status", "EntityType", "Task", status_values))
   ```
 
 ### 6. Cleanup Priority References Template (`cleanup_priority_references_template.sql`)
@@ -263,7 +268,9 @@ The README above contains comprehensive examples including:
 - **Example Usage**:
   ```python
   priority_values = "'Low', 'Medium', 'High'"
-  op.execute(load_cleanup_priority_references_template('task', 'priority', 'TaskPriority', priority_values))
+  op.execute(
+      load_cleanup_priority_references_template("task", "priority", "TaskPriority", priority_values)
+  )
   ```
 
 ## Adding New Templates
