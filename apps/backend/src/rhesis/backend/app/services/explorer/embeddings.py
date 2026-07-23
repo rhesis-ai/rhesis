@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 from uuid import UUID as UUIDType
 
 import numpy as np
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.models.embedding import EmbeddingConfig
@@ -20,6 +20,7 @@ from rhesis.backend.app.models.user import User
 from rhesis.backend.app.services.explorer.diversity_strategies import (
     DEFAULT_EMBEDDING_DIVERSITY_STRATEGY,
 )
+from rhesis.backend.app.utils.query_utils import QueryBuilder, include
 from rhesis.backend.app.utils.user_model_utils import get_user_embedding_model
 from rhesis.sdk.models.factory import get_model
 
@@ -260,15 +261,17 @@ async def a_generate_embedding_vectors_batch(
 def load_test_for_embedding(db: Session, test_id: str, organization_id: str) -> Optional[Test]:
     """Load a Test with relationships required for ``to_searchable_text()``."""
     return (
-        db.query(Test)
-        .options(
-            joinedload(Test.prompt),
-            joinedload(Test.topic),
-            joinedload(Test.behavior),
-            joinedload(Test.category),
-            joinedload(Test.test_type),
+        QueryBuilder(db, Test)
+        .with_custom_filter(
+            lambda q: q.filter(Test.id == test_id, Test.organization_id == organization_id)
         )
-        .filter(Test.id == test_id, Test.organization_id == organization_id)
+        .with_related(
+            include(Test.prompt),
+            include(Test.topic),
+            include(Test.behavior),
+            include(Test.category),
+            include(Test.test_type),
+        )
         .first()
     )
 

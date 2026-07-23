@@ -533,36 +533,21 @@ def get_trace(
     organization_id, user_id = tenant_context
 
     try:
-        # Fetch all spans for trace with eager loading of relationships
-        from sqlalchemy.orm import joinedload
-
+        # Fetch all spans for trace with eager loading of relationships, including
+        # the nested test_result.test_configuration.endpoint chain in the same query
         spans = crud.get_trace_by_id(
             db=db,
             trace_id=trace_id,
             project_id=project_id,
             organization_id=organization_id,
-            eager_load=["project", "test_run", "test_result", "test"],
+            eager_load=[
+                "project",
+                "test_run",
+                "test_result",
+                "test",
+                "test_result.test_configuration.endpoint",
+            ],
         )
-
-        # Additional eager load for endpoint via test_result.test_configuration.endpoint
-        # This is done separately since it's a nested relationship
-        if spans and spans[0].test_result_id:
-            from rhesis.backend.app.models.test_configuration import TestConfiguration
-            from rhesis.backend.app.models.test_result import TestResult
-
-            # Fetch test_result with nested eager loading and explicitly update the relationship
-            test_result_with_endpoint = (
-                db.query(TestResult)
-                .filter(TestResult.id == spans[0].test_result_id)
-                .options(
-                    joinedload(TestResult.test_configuration).joinedload(TestConfiguration.endpoint)
-                )
-                .first()
-            )
-
-            # Explicitly update the relationship instead of relying on identity map
-            if test_result_with_endpoint:
-                spans[0].test_result = test_result_with_endpoint
 
         if not spans:
             raise HTTPException(

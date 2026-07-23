@@ -36,7 +36,7 @@ from rhesis.backend.app.utils.crud_utils import (
     update_item,
 )
 from rhesis.backend.app.utils.name_generator import generate_memorable_name
-from rhesis.backend.app.utils.query_utils import QueryBuilder, include
+from rhesis.backend.app.utils.query_utils import QueryBuilder, _resolve_chain, include
 
 logger = logging.getLogger(__name__)
 
@@ -4184,32 +4184,38 @@ def get_trace_by_id(
         trace_id: OpenTelemetry trace ID
         project_id: Project ID for access control
         organization_id: Organization ID for multi-tenant security
-        eager_load: Optional list of relationship names to eager load
+        eager_load: Optional list of relationship names to eager load. Each
+            entry may be a single name ("test_result") or a dotted chain
+            ("test_result.test_configuration.endpoint") to eager-load a
+            nested relationship in the same query.
 
     Returns:
         List of Trace models ordered by start_time
     """
     from uuid import UUID
 
-    from sqlalchemy.orm import joinedload
-
     # Convert organization_id to UUID
     org_uuid = UUID(organization_id)
 
-    query = db.query(models.Trace).filter(
-        and_(
-            models.Trace.trace_id == trace_id,
-            models.Trace.project_id == project_id,
-            models.Trace.organization_id == org_uuid,
+    builder = QueryBuilder(db, models.Trace).with_custom_filter(
+        lambda q: q.filter(
+            and_(
+                models.Trace.trace_id == trace_id,
+                models.Trace.project_id == project_id,
+                models.Trace.organization_id == org_uuid,
+            )
         )
     )
 
     # Add eager loading if specified
     if eager_load:
-        for relationship in eager_load:
-            query = query.options(joinedload(getattr(models.Trace, relationship)))
+        options = [
+            include(*_resolve_chain(models.Trace, relationship.split(".")))
+            for relationship in eager_load
+        ]
+        builder = builder.with_related(*options)
 
-    return query.order_by(models.Trace.start_time).all()
+    return builder.with_sorting(sort_by="start_time").all()
 
 
 def get_trace_id_for_conversation(
