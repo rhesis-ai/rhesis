@@ -17,6 +17,7 @@ import {
   LOCAL_PROVIDERS,
   EMBEDDING_PROVIDERS,
   PROVIDER_ICONS,
+  getProviderDisplayName,
 } from '@/config/model-providers';
 
 interface ProviderItem {
@@ -74,7 +75,7 @@ function buildModelProviderItems(
 
     return {
       provider,
-      name: provider.description || provider.type_value,
+      name: getProviderDisplayName(provider),
       icon: PROVIDER_ICONS[provider.type_value] || (
         <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.large }} />
       ),
