@@ -65,6 +65,9 @@ export interface Endpoint {
   organization_id?: string;
   project_id?: string;
 
+  created_at?: string;
+  updated_at?: string;
+
   // Nested project object (when included in response)
   project?: {
     id?: string;
@@ -75,6 +78,13 @@ export interface Endpoint {
 
   // Nested status object (when included in response)
   status?: Status;
+
+  // Nested user object (when included in the detail response)
+  user?: {
+    id?: string;
+    name?: string;
+    email?: string;
+  };
 
   has_auth_token?: boolean;
 
