@@ -5,7 +5,6 @@ import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
-from rhesis.backend.app.routers.base import RhesisRouter
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
@@ -14,6 +13,7 @@ from rhesis.backend.app.constants import TestSetType
 from rhesis.backend.app.dependencies import get_tenant_db_session
 from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.preflight import (
     PreflightCheckInfo,
     PreflightCheckRequest,
@@ -33,6 +33,7 @@ from rhesis.backend.app.services.preflight import (
     compute_summary,
     run_preflight_checks_multi,
 )
+from rhesis.backend.app.utils.query_utils import QueryBuilder, include
 
 logger = logging.getLogger(__name__)
 
@@ -200,8 +201,14 @@ async def run_preflight(
     db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    # Query all requested test sets
-    db_test_sets = db.query(TestSet).filter(TestSet.id.in_(request.test_set_ids)).all()
+    # Query all requested test sets, eager-loading test_set_type so
+    # _is_multi_turn() below doesn't lazy-load it once per test set.
+    db_test_sets = (
+        QueryBuilder(db, TestSet)
+        .with_custom_filter(lambda q: q.filter(TestSet.id.in_(request.test_set_ids)))
+        .with_related(include(TestSet.test_set_type))
+        .all()
+    )
 
     found_ids = {ts.id for ts in db_test_sets}
     missing = [str(tid) for tid in request.test_set_ids if tid not in found_ids]
