@@ -2,31 +2,9 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 # Development Workflow
 
-Recommended day-to-day workflow for the backend.
+Day-to-day commands for backend contributors. To run the server locally, see the [Backend Overview](/contribute/backend).
 
-## Local Development Setup
-
-### Initial Setup
-
-1. Clone the repository
-2. Set up your Python environment (Python 3.10+)
-3. Install dependencies with UV: `uv pip install -e .`
-4. Set up your local PostgreSQL database
-5. Configure your `.env` file with local settings
-
-### Running the Application
-
-Start the FastAPI development server:
-
-<CodeBlock filename="start-server.sh" language="bash">
-{`uvicorn rhesis.backend.app.main:app --reload`}
-</CodeBlock>
-
-The `--reload` flag enables auto-reloading when code changes are detected.
-
-## Code Style and Quality
-
-### Formatting and linting
+## Formatting and linting
 
 From `apps/backend`:
 
@@ -35,86 +13,18 @@ From `apps/backend`:
 make lint        # check formatting without modifying files`}
 </CodeBlock>
 
-Both targets use [ruff](https://docs.astral.sh/ruff/) via `uvx`. There are also diff-scoped variants that only run against files changed relative to `main`:
+Both targets run [ruff](https://docs.astral.sh/ruff/) via `uvx`. Diff-scoped variants run only against files changed relative to `main`:
 
 <CodeBlock filename="format-and-lint-diff.sh" language="bash">
 {`make format_diff
 make lint_diff`}
 </CodeBlock>
 
-### Type Checking
-
 Type hints are encouraged for readability and IDE support; enforcement is not strict everywhere.
 
-## Database Changes
+## Tests
 
-### Creating Models
-
-When creating new database models:
-
-1. Define your model in `app/models/`
-2. Import it in `app/models/__init__.py`
-3. Create corresponding Pydantic schemas in `app/schemas/`
-4. Add CRUD operations in `app/crud.py`
-
-### Database Migrations
-
-For schema changes:
-
-1. Make changes to your SQLAlchemy models
-2. Generate a migration: `alembic revision --autogenerate -m "Description of changes"`
-3. Review the generated migration file in `alembic/versions/`
-4. Apply the migration: `alembic upgrade head`
-
-## API Development
-
-### Creating New Endpoints
-
-When adding new API endpoints:
-
-1. Create or modify a router file in `app/routers/`
-2. Define your endpoint functions with appropriate decorators
-3. Import and register your router in `app/routers/__init__.py`
-4. Add necessary schemas, models, and CRUD operations
-
-### Testing Endpoints
-
-Test your endpoints using:
-
-1. FastAPI's interactive documentation (Swagger UI) at `/docs`
-2. API client tools like Postman or Insomnia
-3. Automated tests (see Testing section)
-
-## Background Tasks
-
-### Creating Celery Tasks
-
-When creating new background tasks:
-
-1. Define your task in an appropriate file in `tasks/`
-2. Import and register your task in `tasks/__init__.py`
-3. Add any necessary database models and schemas
-
-### Testing Tasks
-
-Test your tasks using:
-
-1. Direct invocation in development mode
-2. Running a local Celery worker: `celery -A rhesis.backend.worker worker --loglevel=info`
-
-## Testing
-
-### Writing Tests
-
-Tests are located in the `tests/backend/` directory. When writing tests:
-
-1. Create test files that mirror the structure of the code being tested
-2. Use pytest fixtures for common setup and teardown
-3. Use a test database (configured in `conftest.py`)
-
-### Running Tests
-
-From `apps/backend`:
+Tests live in `tests/backend/`, wired through the backend `pyproject.toml`. Run them from `apps/backend`.
 
 **Full suite** — `make test` starts the test Docker profile (PostgreSQL and Redis on host ports 12001 and 12002), then runs `pytest` on `../../tests/backend` (see the `Makefile` for flags).
 
@@ -125,41 +35,38 @@ From `apps/backend`:
 uv run --extra cpu pytest ../../tests/backend/models/test_foo.py::TestClass::test_name -v`}
 </CodeBlock>
 
-Your usual **dev** database containers (different ports) are not used; tests expect the `backend` profile in `tests/docker-compose.test.yml`.
+Your usual dev database containers (different ports) are not used; tests expect the `backend` profile in `tests/docker-compose.test.yml`.
 
 **Teardown** — `make docker-down` (or `make docker-clean` to remove volumes).
 
+## Database changes
+
+For a schema change:
+
+1. Edit the SQLAlchemy model in `app/models/` and import it in `app/models/__init__.py`.
+2. Generate a migration: `alembic revision --autogenerate -m "Description of changes"`.
+3. Review the generated file under `alembic/versions/`, then apply it: `alembic upgrade head`.
+
+New models usually need matching Pydantic schemas in `app/schemas/` and CRUD helpers in `app/crud.py`.
+
+## Adding endpoints and tasks
+
+- **Endpoints** — add or edit a router in `app/routers/` and register it in `app/routers/__init__.py`.
+- **Celery tasks** — add the task under `tasks/` and register it in `tasks/__init__.py`. Run a worker with `./rh dev worker` to exercise it (see [Background tasks](/contribute/backend/background-tasks)).
+
 ## Debugging
 
-### Logging
-
-Use the application's logging system for debugging:
+Log through the application logger so output is redacted and formatted consistently (see [Architecture](/contribute/backend/architecture)):
 
 <CodeBlock filename="logging-example.py" language="python">
 {`from rhesis.backend.logging import logger
 
 logger.debug("Debug message")
-logger.info("Info message")
-logger.warning("Warning message")
-logger.error("Error message")`}
+logger.info("Info message")`}
 </CodeBlock>
 
-### Interactive Debugging
+Common local issues: wrong `DB_HOST`/`APP_DB_PASS` or Postgres not running, missing `.env` keys, or JWT/auth misconfiguration. Check logs and [Environment configuration](/contribute/backend/environment-config).
 
-For interactive debugging:
+## Before opening a PR
 
-1. Add breakpoints using `breakpoint()` or your IDE's debugging tools
-2. Run the application in debug mode through your IDE
-3. Use `print()` statements judiciously for quick debugging
-
-## Git Workflow
-
-Use short-lived branches from the integration branch your team uses, conventional commit messages (present tense, ~50-char subject), PRs with description and linked issues, and green tests before merge.
-
-## Deployment
-
-See [Deployment](./deployment). Before release: tests green, dependency review if you bumped packages, env vars and migrations checked.
-
-## Troubleshooting
-
-Typical issues: wrong `DB_HOST`/`APP_DB_PASS` or Postgres not running, missing `.env` keys, wrong `PYTHONPATH`/venv, or JWT/auth misconfiguration. Check logs and [Environment configuration](./environment-config).
+Tests green, ruff clean, env-var and migration changes reviewed. See the repository contribution rules for commit and PR conventions, and [Deployment](/contribute/backend/deployment) for release steps.

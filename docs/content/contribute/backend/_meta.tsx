@@ -75,8 +75,4 @@ export default {
   deployment: {
     title: "Deployment",
   },
-  README: {
-    title: "README",
-    display: "hidden",
-  },
 };

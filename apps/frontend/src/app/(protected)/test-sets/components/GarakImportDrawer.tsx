@@ -14,7 +14,6 @@ import {
   Paper,
   IconButton,
   Collapse,
-  LinearProgress,
   Tooltip,
   alpha,
   TextField,
@@ -35,7 +34,6 @@ import type {
   GarakProbeClass,
   GarakImportPreviewResponse,
   GarakProbeSelection,
-  GarakProbePreview,
   GarakGenerateResponse,
 } from '@/utils/api-client/garak-client';
 import BaseDrawer from '@/components/common/BaseDrawer';
@@ -43,13 +41,18 @@ import BaseDrawer from '@/components/common/BaseDrawer';
 interface GarakImportDrawerProps {
   open: boolean;
   onClose: () => void;
-  onSuccess?: (testSetIds: string[]) => void;
+  /**
+   * Called once the import/generation task(s) have been queued. Import and
+   * generation both run as background tasks, so this fires on "started",
+   * not "completed" — no test set IDs are available yet.
+   */
+  onImportStarted?: () => void;
 }
 
 export default function GarakImportDrawer({
   open,
   onClose,
-  onSuccess,
+  onImportStarted,
 }: GarakImportDrawerProps) {
   const [loading, setLoading] = React.useState(false);
   const [loadingModules, setLoadingModules] = React.useState(false);
@@ -67,18 +70,13 @@ export default function GarakImportDrawer({
     new Set()
   );
   const [searchQuery, setSearchQuery] = React.useState('');
-  const [importProgress, setImportProgress] = React.useState<{
-    phase: 'static' | 'dynamic' | 'done';
-    currentProbeIndex: number;
-    totalProbes: number;
-    currentTestCount: number;
-    totalTests: number;
-    currentProbe: GarakProbePreview | null;
+  // Both static import and dynamic generation are pure fire-and-forget
+  // dispatch calls (fast 202 responses) — there's no real incremental
+  // progress to report, so this only ever gets set once, after every
+  // dispatch call has resolved.
+  const [importResult, setImportResult] = React.useState<{
     staticImported: number;
-    dynamicLaunched: number;
-    dynamicTotal: number;
     dynamicResults: GarakGenerateResponse[];
-    isComplete: boolean;
   } | null>(null);
   const [dynamicPreviewProbes, setDynamicPreviewProbes] = React.useState<
     GarakProbeClass[]
@@ -274,9 +272,7 @@ export default function GarakImportDrawer({
     }
 
     const { staticProbes, dynamicProbes } = getSelectedProbeObjects();
-    const totalProbes = staticProbes.length + dynamicProbes.length;
-
-    if (totalProbes === 0) return;
+    if (staticProbes.length + dynamicProbes.length === 0) return;
 
     try {
       setImporting(true);
@@ -284,8 +280,8 @@ export default function GarakImportDrawer({
 
       const clientFactory = new ApiClientFactory();
       const garakClient = clientFactory.getGarakClient();
-      const createdTestSetIds: string[] = [];
 
+      let staticImported = 0;
       if (staticProbes.length > 0) {
         let previewData = preview;
         if (!previewData || previewData.probes.length === 0) {
@@ -298,161 +294,43 @@ export default function GarakImportDrawer({
           setPreparingImport(false);
         }
 
-        const cumulativeTestCounts = previewData.probes.reduce<number[]>(
-          (acc, probe, idx) => {
-            const prevCount = idx > 0 ? acc[idx - 1] : 0;
-            acc.push(prevCount + probe.prompt_count);
-            return acc;
-          },
-          []
-        );
-
-        setImportProgress({
-          phase: 'static',
-          currentProbeIndex: 0,
-          totalProbes,
-          currentTestCount: 0,
-          totalTests: previewData.total_tests,
-          currentProbe: previewData.probes[0] || null,
-          staticImported: 0,
-          dynamicLaunched: 0,
-          dynamicTotal: dynamicProbes.length,
-          dynamicResults: [],
-          isComplete: false,
-        });
-
-        const totalTests = previewData.total_tests;
-        const maxSimulated = Math.floor(totalTests * 0.95);
-        const progressInterval = setInterval(() => {
-          setImportProgress(prev => {
-            if (
-              !prev ||
-              prev.phase !== 'static' ||
-              prev.isComplete ||
-              !previewData
-            )
-              return prev;
-            const testsPerInterval = Math.max(1, Math.ceil(totalTests / 60));
-            const nextTestCount = Math.min(
-              prev.currentTestCount + testsPerInterval,
-              maxSimulated
-            );
-            let probeIndex = prev.currentProbeIndex;
-            while (
-              probeIndex < cumulativeTestCounts.length - 1 &&
-              nextTestCount >= cumulativeTestCounts[probeIndex]
-            ) {
-              probeIndex++;
-            }
-            return {
-              ...prev,
-              currentProbeIndex: probeIndex,
-              currentTestCount: nextTestCount,
-              currentProbe: previewData.probes[probeIndex] || prev.currentProbe,
-            };
-          });
-        }, 500);
-
-        const response = await garakClient.importProbes({
+        // Import runs as a background task (some probes produce thousands of
+        // tests) — this only confirms the task was queued, not that it
+        // finished. The resulting test set(s) appear in the test sets list
+        // once the task completes.
+        await garakClient.importProbes({
           probes: buildProbeSelections(staticProbes),
           name_prefix: 'Garak',
         });
-
-        clearInterval(progressInterval);
-        createdTestSetIds.push(...response.test_sets.map(ts => ts.test_set_id));
-
-        setImportProgress(prev =>
-          prev
-            ? {
-                ...prev,
-                currentTestCount: totalTests,
-                staticImported: staticProbes.length,
-              }
-            : prev
-        );
+        staticImported = staticProbes.length;
       }
 
-      if (dynamicProbes.length > 0) {
-        setImportProgress(prev => ({
-          phase: 'dynamic',
-          currentProbeIndex: prev ? prev.staticImported : 0,
-          totalProbes,
-          currentTestCount: prev?.currentTestCount ?? 0,
-          totalTests: prev?.totalTests ?? 0,
-          currentProbe: null,
-          staticImported: prev?.staticImported ?? 0,
-          dynamicLaunched: 0,
-          dynamicTotal: dynamicProbes.length,
-          dynamicResults: [],
-          isComplete: false,
-        }));
+      // Dynamic generation is also just a queue-and-return dispatch per
+      // probe — fire them concurrently rather than one at a time, since
+      // there's no per-probe work to wait on here.
+      const dynamicResults =
+        dynamicProbes.length > 0
+          ? await Promise.all(
+              dynamicProbes.map(probe =>
+                garakClient.generateDynamicProbe({
+                  module_name: probe.module_name,
+                  class_name: probe.class_name,
+                })
+              )
+            )
+          : [];
 
-        const dynamicResults: GarakGenerateResponse[] = [];
-
-        for (let i = 0; i < dynamicProbes.length; i++) {
-          const probe = dynamicProbes[i];
-          setImportProgress(prev =>
-            prev
-              ? {
-                  ...prev,
-                  currentProbeIndex: (prev.staticImported || 0) + i,
-                  currentProbe: {
-                    module_name: probe.module_name,
-                    class_name: probe.class_name,
-                    full_name: probe.full_name,
-                    test_set_name: `Garak Dynamic: ${probe.full_name}`,
-                    prompt_count: 0,
-                    detector: probe.detector,
-                  },
-                }
-              : prev
-          );
-
-          const result = await garakClient.generateDynamicProbe({
-            module_name: probe.module_name,
-            class_name: probe.class_name,
-          });
-          dynamicResults.push(result);
-
-          setImportProgress(prev =>
-            prev
-              ? {
-                  ...prev,
-                  dynamicLaunched: i + 1,
-                  dynamicResults: [...dynamicResults],
-                }
-              : prev
-          );
-        }
-      }
-
-      setImportProgress(prev =>
-        prev
-          ? {
-              ...prev,
-              phase: 'done',
-              currentProbe: null,
-              isComplete: true,
-            }
-          : prev
-      );
-
-      const hasDynamic = dynamicProbes.length > 0;
-      if (!hasDynamic) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      }
-
-      if (createdTestSetIds.length > 0) {
-        onSuccess?.(createdTestSetIds);
-      }
-      if (!hasDynamic) {
-        handleClose();
-      }
+      // Both static import and dynamic generation are fire-and-forget
+      // background tasks — neither completes synchronously, so we don't
+      // auto-close or report created test set IDs here. The resulting test
+      // set(s) appear in the test sets list once their tasks finish; the
+      // user closes this drawer manually after seeing the confirmation below.
+      setImportResult({ staticImported, dynamicResults });
+      onImportStarted?.();
     } catch (err: unknown) {
       setError(
         err instanceof Error ? err.message : 'Failed to import Garak probes'
       );
-      setImportProgress(null);
     } finally {
       setImporting(false);
       setPreparingImport(false);
@@ -467,14 +345,22 @@ export default function GarakImportDrawer({
     setSelectedProbes(new Set());
     setPreview(null);
     setError(undefined);
-    setImportProgress(null);
+    setImportResult(null);
     setPreparingImport(false);
     setDynamicPreviewProbes([]);
     setSearchQuery('');
   }, []);
 
+  // Reset on the opening transition, not on close: BaseDrawer keeps children
+  // mounted through its close animation, so clearing state the instant
+  // `open` goes false would re-render the probe-selection screen underneath
+  // the still-visible confirmation panel — a brief flash of stale content
+  // during the slide-out. Resetting on (re)open instead gives every session
+  // a clean slate without touching state while the drawer is animating shut.
+  const wasOpenRef = React.useRef(false);
   React.useEffect(() => {
-    if (!open) resetState();
+    if (open && !wasOpenRef.current) resetState();
+    wasOpenRef.current = open;
   }, [open, resetState]);
 
   const toggleModuleExpand = (moduleName: string) => {
@@ -497,9 +383,11 @@ export default function GarakImportDrawer({
       .flatMap(m => getModuleProbes(m))
       .every(p => selectedProbes.has(p.full_name));
 
-  const isCompleteWithDynamic =
-    !!importProgress?.isComplete &&
-    (importProgress?.dynamicResults.length ?? 0) > 0;
+  // Both static import and dynamic generation are fire-and-forget background
+  // tasks — once queued, the drawer must show the "started" summary and wait
+  // for the user to close it explicitly (not just for the dynamic case: a
+  // static-only import needs the same persistent confirmation).
+  const isImportComplete = !!importResult;
 
   const saveButtonText = (() => {
     const { staticProbes, dynamicProbes } = getSelectedProbeObjects();
@@ -516,9 +404,9 @@ export default function GarakImportDrawer({
       onClose={handleClose}
       title="Import from Garak"
       width={720}
-      closeButtonText={isCompleteWithDynamic ? 'Close' : 'Cancel'}
+      closeButtonText={isImportComplete ? 'Close' : 'Cancel'}
       loading={importing || preparingImport}
-      onSave={isCompleteWithDynamic ? undefined : handleImport}
+      onSave={isImportComplete ? undefined : handleImport}
       saveDisabled={loading || selectedProbes.size === 0}
       saveButtonText={saveButtonText}
     >
@@ -530,7 +418,7 @@ export default function GarakImportDrawer({
         )}
 
         {/* Probe Selection - Hide when importing or showing completion */}
-        {!importing && !isCompleteWithDynamic && (
+        {!importing && !isImportComplete && (
           <Box
             sx={{
               flex: 1,
@@ -827,210 +715,116 @@ export default function GarakImportDrawer({
           </Box>
         )}
 
-        {/* Import Progress */}
-        {(importing || isCompleteWithDynamic) && importProgress && (
-          <Paper
-            elevation={0}
-            sx={theme => ({
-              p: 3,
-              bgcolor: alpha(theme.palette.primary.main, 0.08),
-              border: 1,
-              borderColor: alpha(theme.palette.primary.main, 0.24),
-              borderRadius: `${theme.shape.borderRadius}px`,
-            })}
-          >
-            <Stack spacing={2}>
-              <Stack direction="row" alignItems="center" spacing={1}>
-                {!importProgress.isComplete && <CircularProgress size={20} />}
-                <Typography variant="subtitle1" fontWeight="medium">
-                  {importProgress.phase === 'static' &&
-                    'Importing static probes...'}
-                  {importProgress.phase === 'dynamic' &&
-                    'Generating dynamic probes...'}
-                  {importProgress.phase === 'done' && 'Complete'}
-                </Typography>
-              </Stack>
+        {/* Import Result — a tinted icon badge plus per-group icon + colored
+            chips, matching the probe-selection list's own icon/chip
+            conventions below. Both static import and dynamic generation are
+            pure fire-and-forget dispatch calls (fast 202 responses), so
+            there's no meaningful in-between state to show while `importing`
+            — the Save button's own spinner (via BaseDrawer's `loading`
+            prop) covers that brief window, and this only ever renders once
+            every dispatch call has resolved. */}
+        {isImportComplete && importResult && (
+          <Stack spacing={3} alignItems="center" sx={{ pt: 2 }}>
+            <Box
+              sx={theme => ({
+                width: theme.spacing(11),
+                height: theme.spacing(11),
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                bgcolor: alpha(theme.palette.success.main, 0.12),
+              })}
+            >
+              <CheckCircleIcon sx={{ fontSize: 56, color: 'success.main' }} />
+            </Box>
+            <Stack spacing={0.5} alignItems="center">
+              <Typography variant="h5" fontWeight="bold">
+                Import Started!
+              </Typography>
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                textAlign="center"
+              >
+                Running in the background — the test set(s) will appear in your
+                test sets list once complete.
+              </Typography>
+            </Stack>
 
-              {importProgress.phase === 'static' &&
-                importProgress.totalTests > 0 && (
-                  <Box>
-                    <Stack
-                      direction="row"
-                      justifyContent="space-between"
-                      mb={0.5}
-                    >
-                      <Typography variant="body2" color="text.secondary">
-                        {importProgress.currentTestCount.toLocaleString()} of{' '}
-                        {importProgress.totalTests.toLocaleString()} tests
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {Math.min(
-                          importProgress.currentProbeIndex + 1,
-                          importProgress.totalProbes
-                        )}{' '}
-                        of {importProgress.totalProbes} probes
-                      </Typography>
-                    </Stack>
-                    <LinearProgress
-                      variant="determinate"
-                      value={
-                        (importProgress.currentTestCount /
-                          importProgress.totalTests) *
-                        100
-                      }
-                      sx={theme => ({
-                        height: theme.spacing(1),
-                        borderRadius: theme.spacing(0.5),
-                      })}
-                    />
-                  </Box>
-                )}
-
-              {importProgress.phase === 'dynamic' && (
-                <Box>
-                  <Stack
-                    direction="row"
-                    justifyContent="space-between"
-                    mb={0.5}
-                  >
-                    <Typography variant="body2" color="text.secondary">
-                      Launching LLM generation tasks...
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {importProgress.dynamicLaunched} of{' '}
-                      {importProgress.dynamicTotal} probes
-                    </Typography>
-                  </Stack>
-                  <LinearProgress
-                    variant="determinate"
-                    value={
-                      (importProgress.dynamicLaunched /
-                        importProgress.dynamicTotal) *
-                      100
-                    }
-                    sx={theme => ({
-                      height: theme.spacing(1),
-                      borderRadius: theme.spacing(0.5),
-                    })}
-                    color="warning"
-                  />
-                </Box>
-              )}
-
-              {importProgress.currentProbe && (
-                <Paper variant="outlined" sx={{ p: 2 }}>
-                  <Stack spacing={1}>
-                    <Stack direction="row" alignItems="center" spacing={1}>
-                      {importProgress.phase === 'dynamic' ? (
-                        <AutoAwesomeIcon fontSize="small" color="warning" />
-                      ) : (
+            {(importResult.staticImported > 0 ||
+              importResult.dynamicResults.length > 0) && (
+              <Paper
+                variant="outlined"
+                sx={theme => ({
+                  p: 2.5,
+                  width: '100%',
+                  borderColor: alpha(theme.palette.success.main, 0.24),
+                  bgcolor: alpha(theme.palette.success.main, 0.04),
+                })}
+              >
+                <Stack spacing={2} divider={<Divider />}>
+                  {importResult.staticImported > 0 && (
+                    <Stack spacing={1}>
+                      <Stack direction="row" alignItems="center" spacing={1}>
                         <SecurityIcon fontSize="small" color="primary" />
-                      )}
-                      <Typography variant="body1" fontWeight="medium">
-                        {importProgress.currentProbe.test_set_name}
-                      </Typography>
-                    </Stack>
-                    <Stack direction="row" spacing={2}>
-                      {importProgress.phase === 'dynamic' ? (
-                        <Chip
-                          icon={<AutoAwesomeIcon />}
-                          label="Generating via LLM"
-                          size="small"
-                          color="warning"
-                          variant="outlined"
-                        />
-                      ) : (
-                        <Chip
-                          label={`${importProgress.currentProbe.prompt_count} prompts`}
-                          size="small"
-                          variant="outlined"
-                        />
-                      )}
-                      {importProgress.currentProbe.detector && (
-                        <Chip
-                          label={importProgress.currentProbe.detector}
-                          size="small"
-                          color="secondary"
-                          variant="outlined"
-                        />
-                      )}
-                    </Stack>
-                    <Typography variant="caption" color="text.secondary">
-                      Module: {importProgress.currentProbe.module_name}
-                    </Typography>
-                  </Stack>
-                </Paper>
-              )}
-
-              {importProgress.isComplete && (
-                <Stack spacing={1}>
-                  <Stack
-                    direction="row"
-                    alignItems="center"
-                    spacing={1}
-                    sx={{ color: 'success.main' }}
-                  >
-                    <CheckCircleIcon />
-                    <Typography variant="body1" fontWeight="medium">
-                      Import complete!
-                    </Typography>
-                  </Stack>
-                  {importProgress.staticImported > 0 && (
-                    <Stack spacing={0.5}>
-                      <Typography variant="body2" color="text.secondary">
-                        {importProgress.staticImported} static probe
-                        {importProgress.staticImported !== 1 ? 's' : ''}{' '}
-                        imported:
-                      </Typography>
-                      {preview?.probes.map(p => (
-                        <Typography
-                          key={p.full_name}
-                          variant="body2"
-                          color="text.secondary"
-                          sx={{ pl: 2 }}
-                        >
-                          • {p.test_set_name} ({p.prompt_count} tests)
+                        <Typography variant="subtitle2" fontWeight="medium">
+                          {importResult.staticImported} static probe
+                          {importResult.staticImported !== 1 ? 's' : ''}
                         </Typography>
-                      ))}
+                      </Stack>
+                      <Stack spacing={0.75} sx={{ pl: 4 }}>
+                        {preview?.probes.map(p => (
+                          <Stack
+                            key={p.full_name}
+                            direction="row"
+                            alignItems="center"
+                            justifyContent="space-between"
+                            spacing={1}
+                          >
+                            <Typography variant="body2" color="text.secondary">
+                              {p.test_set_name}
+                            </Typography>
+                            <Chip
+                              label={`${p.prompt_count} tests`}
+                              size="small"
+                              variant="outlined"
+                            />
+                          </Stack>
+                        ))}
+                      </Stack>
                     </Stack>
                   )}
-                  {importProgress.dynamicResults.length > 0 && (
-                    <Stack spacing={0.5}>
-                      <Typography variant="body2" color="text.secondary">
-                        {importProgress.dynamicResults.length} dynamic probe
-                        {importProgress.dynamicResults.length !== 1
-                          ? 's'
-                          : ''}{' '}
-                        — generation started in background:
-                      </Typography>
-                      {importProgress.dynamicResults.map(result => (
-                        <Typography
-                          key={result.task_id}
-                          variant="body2"
-                          color="text.secondary"
-                          sx={{ pl: 2 }}
-                        >
-                          • {result.probe_full_name}
+                  {importResult.dynamicResults.length > 0 && (
+                    <Stack spacing={1}>
+                      <Stack direction="row" alignItems="center" spacing={1}>
+                        <AutoAwesomeIcon fontSize="small" color="warning" />
+                        <Typography variant="subtitle2" fontWeight="medium">
+                          {importResult.dynamicResults.length} dynamic probe
+                          {importResult.dynamicResults.length !== 1 ? 's' : ''}
                         </Typography>
-                      ))}
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        sx={{ mt: 0.5 }}
-                      >
-                        Once generation completes, the test sets will appear in
-                        your test sets list.
-                      </Typography>
+                      </Stack>
+                      <Stack spacing={0.75} sx={{ pl: 4 }}>
+                        {importResult.dynamicResults.map(result => (
+                          <Typography
+                            key={result.task_id}
+                            variant="body2"
+                            color="text.secondary"
+                          >
+                            {result.probe_full_name}
+                          </Typography>
+                        ))}
+                      </Stack>
                     </Stack>
                   )}
                 </Stack>
-              )}
-            </Stack>
-          </Paper>
+              </Paper>
+            )}
+          </Stack>
         )}
 
         {/* Preview */}
-        {preview && !importing && !isCompleteWithDynamic && (
+        {preview && !importing && !isImportComplete && (
           <Alert severity="info" icon={false}>
             <Typography variant="subtitle2" gutterBottom>
               Import Preview

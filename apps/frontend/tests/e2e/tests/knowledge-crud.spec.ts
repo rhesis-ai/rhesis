@@ -98,6 +98,19 @@ async function stubKnowledgeUpload(page: Page, source: StubbedSource) {
  * Uses a small fixture TXT file from the fixtures directory.
  */
 test.describe('Knowledge — CRUD @crud', () => {
+  // stubKnowledgeUpload's GET handler proxies through to the real backend
+  // (route.fetch()) and stays registered for the page's lifetime. If the app
+  // issues a background refetch of the sources list after a test's own
+  // assertions have already passed (e.g. a post-upload revalidation), that
+  // in-flight route.fetch() can still be running when Playwright tears down
+  // the page for the next test — throwing "Target page, context or browser
+  // has been closed" and failing a test that otherwise passed. Unrouting
+  // with `ignoreErrors` discards any such stray in-flight handler instead of
+  // letting its rejection surface.
+  test.afterEach(async ({ page }) => {
+    await page.unrouteAll({ behavior: 'ignoreErrors' });
+  });
+
   test('can open the Upload Source dialog', async ({ page }) => {
     const knowledgePage = new KnowledgePage(page);
     await knowledgePage.goto();

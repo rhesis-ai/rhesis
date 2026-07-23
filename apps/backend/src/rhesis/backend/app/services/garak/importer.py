@@ -48,6 +48,19 @@ class GarakImporter:
         self.db = db
         self.probe_service = GarakProbeService()
         self._garak_version = self.probe_service.garak_version
+        self._probes_by_module: Optional[Dict[str, List[GarakProbeInfo]]] = None
+
+    def preload_probes(self, probes_by_module: Dict[str, List[GarakProbeInfo]]) -> None:
+        """
+        Inject pre-fetched (cached) probe data instead of re-extracting per probe.
+
+        When set, ``_get_probe_info`` looks up probes from this dict instead of
+        calling ``GarakProbeService.extract_probes_from_module`` — which
+        re-instantiates every Garak probe class from scratch. Callers should
+        populate this from ``GarakProbeService.enumerate_probe_modules_cached()``
+        before calling ``import_probes``/``get_import_preview``.
+        """
+        self._probes_by_module = probes_by_module
 
     def import_probes(
         self,
@@ -121,12 +134,15 @@ class GarakImporter:
                 tests=tests_data,
             )
 
-            # Use bulk creation infrastructure
+            # Use bulk creation infrastructure. skip_prompt_dedup=True: Garak prompt
+            # content is always unique per import, so the duplicate-check SELECT
+            # get_or_create_entity would otherwise do per prompt is wasted work.
             test_set = bulk_create_test_set(
                 db=self.db,
                 test_set_data=test_set_data,
                 organization_id=organization_id,
                 user_id=user_id,
+                skip_prompt_dedup=True,
             )
 
             # Store Garak attributes directly in the test set
@@ -240,10 +256,7 @@ class GarakImporter:
 
     def _get_probe_info(self, module_name: str, class_name: str) -> Optional[GarakProbeInfo]:
         """Get probe info for a specific probe class."""
-        probes = self.probe_service.extract_probes_from_module(
-            module_name, probe_class_names=[class_name]
-        )
-        return probes[0] if probes else None
+        return self.probe_service.get_probe(module_name, class_name, self._probes_by_module)
 
     def _generate_test_set_name(self, probe: GarakProbeInfo, prefix: Optional[str]) -> str:
         """Generate a test set name from probe info."""

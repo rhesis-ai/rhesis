@@ -178,14 +178,14 @@ Check off pages/sections as they are done.
 **Architecture**
 - [x] Frontend — Overview, Getting Started, Architecture, Routing, Component Library,
       State Management, Architect Chat UI, API Integration, Frontend Authentication, Testing
-- [ ] Backend (26 pages, largest subsection) — Overview, Getting Started, Architecture,
+- [x] Backend (26 pages, largest subsection) — Overview, Getting Started, Architecture,
       API Structure, Database Models, User Settings, Soft Deletion, Cascade Operations,
       Backend Authentication, Authorization (RBAC), Multi-tenancy, Background Tasks,
       Email Notifications, Test Reviews, Test Result Statistics, Test Result Status,
       Test Run Status, OData Query Guide, Architect Chat System, Environment Configuration,
       Security Features, Security Improvements, Database Field Encryption,
       Encryption Troubleshooting, Development Workflow, Deployment
-- [ ] Worker — Overview, Architecture, Multi-Worker RPC, Background Tasks,
+- [x] Worker — Overview, Architecture, Multi-Worker RPC, Background Tasks,
       Architect Background Tasks, Trace Ingestion Pipeline, Test Execution, Test Types,
       Execution Modes, Logging, Troubleshooting, GKE Troubleshooting
 - [x] SDK — Getting Started, Architect Agent, Integrations

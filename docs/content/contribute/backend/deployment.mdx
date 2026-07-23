@@ -2,201 +2,55 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 # Deployment
 
-## Overview
+The backend ships as a Docker image whose entrypoint is `start.sh`, serving on port 8080. The same codebase runs in three roles: the API service, a migration job, and Celery workers.
 
-This document outlines the process for deploying the Rhesis backend to various environments. The application is containerized using Docker, making it deployable to any environment that supports containers.
+## Container
 
-## Prerequisites
-
-Before deploying, ensure you have:
-
-- Access to the target environment
-- Docker installed (for local builds)
-- Required environment variables and secrets
-- Database migration plan
-
-## Docker Deployment
-
-### Building the Docker Image
-
-The application includes a `Dockerfile` that defines the container build:
+Build from the repository root:
 
 <CodeBlock filename="build-image.sh" language="bash">
-{`# Build the Docker image
-docker build -t rhesis-backend:latest ./apps/backend`}
+{`docker build -t rhesis-backend:latest -f apps/backend/Dockerfile .`}
 </CodeBlock>
 
-### Running the Container
-
-Run the container with appropriate environment variables:
+Run it with an env file (see [Environment configuration](/contribute/backend/environment-config) for the variables it expects):
 
 <CodeBlock filename="run-container.sh" language="bash">
-{`docker run -p 8000:8000 \
-  --env-file ./apps/backend/.env.docker \
-  rhesis-backend:latest`}
+{`docker run -p 8080:8080 --env-file ./apps/backend/.env.docker rhesis-backend:latest`}
 </CodeBlock>
 
-## Environment Configuration
+`start.sh` loads `.env` in local mode, applies migrations via `migrate.sh` when a database is configured, then starts the server (Gunicorn with Uvicorn workers in production, Uvicorn otherwise).
 
-### Production Environment Variables
+## Migrations
 
-For production deployments, ensure these environment variables are configured:
+In cloud deployments, migrations run as a **separate job** (its image entrypoint is `migrate.sh`, running `alembic upgrade head`), and the API service sets `SKIP_MIGRATIONS=true` so it does not migrate on boot. This keeps schema changes to a single controlled step.
 
-<CodeBlock filename=".env.production" language="bash">
-{`# Database
-DB_HOST=your-db-host
-DB_PORT=5432
-DB_NAME=your-db-name
-APP_DB_USER=your-app-user
-APP_DB_PASS=your-app-password
-# Optional: set ADMIN_DB_USER/ADMIN_DB_PASS for a separate migration role
-
-# Authentication
-JWT_SECRET_KEY=your-jwt-secret-key
-JWT_ALGORITHM=HS256
-JWT_ACCESS_TOKEN_EXPIRE_MINUTES=15
-
-# OAuth Providers (optional)
-GOOGLE_CLIENT_ID=your-google-client-id
-GOOGLE_CLIENT_SECRET=your-google-client-secret
-GH_CLIENT_ID=your-github-client-id
-GH_CLIENT_SECRET=your-github-client-secret
-
-# Application
-LOG_LEVEL=INFO
-FRONTEND_URL=https://app.rhesis.ai
-
-# Celery
-BROKER_URL=sqla+postgresql://celery-user:password@host:port/celery
-CELERY_RESULT_BACKEND=db+postgresql://celery-user:password@host:port/celery`}
-</CodeBlock>
-
-## Deployment Environments
-
-### Local Development
-
-For local testing of the production build:
-
-<CodeBlock filename="run-local.sh" language="bash">
-{`# Run the Docker container locally
-docker run -p 8000:8000 --env-file ./apps/backend/.env.docker rhesis-backend:latest`}
-</CodeBlock>
-
-### Google Cloud Run
-
-Deploy to Google Cloud Run:
-
-1. Build and push the image to Google Container Registry:
-
-<CodeBlock filename="build-gcr.sh" language="bash">
-{`gcloud builds submit --tag gcr.io/project-id/rhesis-backend ./apps/backend`}
-</CodeBlock>
-
-2. Deploy to Cloud Run:
-
-<CodeBlock filename="deploy-cloud-run.sh" language="bash">
-{`gcloud run deploy rhesis-backend \
-  --image gcr.io/project-id/rhesis-backend \
-  --platform managed \
-  --region us-central1 \
-  --allow-unauthenticated \
-  --set-env-vars "DB_HOST=/cloudsql/project-id:region:instance"`}
-</CodeBlock>
-
-3. Set up Cloud SQL connection:
-
-<CodeBlock filename="setup-cloudsql.sh" language="bash">
-{`gcloud run services update rhesis-backend \
-  --add-cloudsql-instances project-id:region:instance`}
-</CodeBlock>
-
-### AWS Deployment
-
-Deploy to AWS ECS:
-
-1. Push the image to Amazon ECR:
-
-<CodeBlock filename="push-to-ecr.sh" language="bash">
-{`aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin account-id.dkr.ecr.us-east-1.amazonaws.com
-docker tag rhesis-backend:latest account-id.dkr.ecr.us-east-1.amazonaws.com/rhesis-backend:latest
-docker push account-id.dkr.ecr.us-east-1.amazonaws.com/rhesis-backend:latest`}
-</CodeBlock>
-
-2. Update the ECS task definition and service
-
-## Database Migrations
-
-Before deploying a new version:
-
-1. Apply database migrations:
-
-<CodeBlock filename="apply-migrations.sh" language="bash">
-{`# Inside the container or with access to the database
-alembic upgrade head`}
-</CodeBlock>
-
-For zero-downtime migrations:
-
-1. Ensure migrations are backward compatible
-2. Deploy the new version with migrations
-3. Verify the application works correctly
-4. If issues occur, be prepared to rollback
-
-## Scaling
-
-### Horizontal Scaling
-
-The application is designed to scale horizontally:
-
-- Stateless API design allows multiple instances
-- Database connections use connection pooling
-- Background tasks are handled by separate Celery workers
-
-### Celery Workers
-
-Deploy Celery workers separately:
-
-<CodeBlock filename="deploy-celery-workers.sh" language="bash">
-{`docker run \\
-  --env-file ./apps/backend/.env.docker \\
-  rhesis-backend:latest \\
-  celery -A rhesis.backend.worker worker --loglevel=info`}
-</CodeBlock>
-
-## Monitoring and Logging
-
-### Application Logs
-
-The application logs to stdout/stderr, which can be captured by container platforms:
-
-<CodeBlock filename="view-logs.sh" language="bash">
-{`# View logs in Docker
-docker logs container_id`}
-</CodeBlock>
-
-### Health Checks
-
-The application provides a health check endpoint at `/health`:
-
-<CodeBlock filename="health-check.sh" language="bash">
-{`curl http://localhost:8000/health`}
-</CodeBlock>
-
-## Rollback Procedure
-
-If deployment issues occur:
-
-1. Identify the issue through logs and monitoring
-2. Rollback to the previous known-good version by redeploying the previous image
-3. If database migrations need to be reversed:
+Make migrations backward compatible so a new revision can run before the new code is fully rolled out. To roll a schema change back:
 
 <CodeBlock filename="rollback-migration.sh" language="bash">
-{`alembic downgrade -1  # Downgrade one version`}
+{`alembic downgrade -1`}
 </CodeBlock>
 
-## Security Considerations
+## Workers
 
-- Store secrets securely using environment variables or secret management services
-- Use HTTPS for all communications
-- Implement network security policies to restrict access
-- Regularly update dependencies to address security vulnerabilities
+Celery workers deploy as their own service from the worker image, sharing the broker and result backend (`BROKER_URL`, `CELERY_RESULT_BACKEND`). Scale workers independently of the API. See [Background tasks](/contribute/backend/background-tasks).
+
+## Google Cloud Run
+
+The production target is Cloud Run. Deploy the API service, run the migration job separately, and connect Cloud SQL:
+
+<CodeBlock filename="deploy-cloud-run.sh" language="bash">
+{`gcloud run deploy rhesis-backend \\
+  --image gcr.io/project-id/rhesis-backend \\
+  --region us-central1 \\
+  --add-cloudsql-instances project-id:region:instance \\
+  --set-env-vars "DB_HOST=/cloudsql/project-id:region:instance,SKIP_MIGRATIONS=true"`}
+</CodeBlock>
+
+The image is a standard container, so it also runs on other platforms (AWS ECS, Azure Container Apps, plain Docker) given the same environment variables.
+
+## Operations
+
+- **Health** — `GET /health` returns `{"status": "ok"}`; use it as the container health check.
+- **Logs** — the application logs to stdout/stderr; set `JSON_LOGGER_ENABLED=true` for structured logs (see [Architecture](/contribute/backend/architecture)).
+- **Rollback** — redeploy the previous image; reverse migrations only if the new revision was not backward compatible.
+- **Secrets** — supply `JWT_SECRET_KEY`, database, and OAuth credentials through the platform's secret manager, not the image.

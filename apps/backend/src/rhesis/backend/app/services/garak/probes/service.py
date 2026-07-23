@@ -5,6 +5,7 @@ This module provides the main service class for discovering and
 extracting Garak probes for import into Rhesis as test sets.
 """
 
+import asyncio
 import importlib
 import logging
 import pkgutil
@@ -16,6 +17,34 @@ from .extraction import PromptExtractor
 from .models import GarakModuleInfo, GarakProbeInfo
 
 logger = logging.getLogger(__name__)
+
+# Guards the cache-miss "enumerate + populate" path in
+# enumerate_probe_modules_cached() below. Process-wide (module-level, not
+# per-instance) since GarakProbeService is constructed fresh per request but
+# the expensive work it may trigger must still be de-duplicated across all
+# concurrent callers on this worker. See the docstring there for why this
+# exists.
+#
+# asyncio.Lock binds to whichever event loop first genuinely contends on it
+# (i.e. the first time a caller has to wait, not merely acquire/release
+# uncontended) and raises RuntimeError if a different loop later contends on
+# the same instance. A production worker keeps one event loop for its entire
+# lifetime, so a module-level lock is never a problem there — but tests
+# (pytest-asyncio's function-scoped event loops recreate the loop per test)
+# can trip this if two different tests both contend on the same lock. Track
+# (loop, lock) and recreate the lock whenever the running loop changes, so
+# each loop gets its own lock instead of fighting over one bound elsewhere.
+_enumeration_lock_state: tuple = (None, None)
+
+
+def _get_enumeration_lock() -> asyncio.Lock:
+    global _enumeration_lock_state
+    loop = asyncio.get_running_loop()
+    cached_loop, lock = _enumeration_lock_state
+    if cached_loop is not loop:
+        lock = asyncio.Lock()
+        _enumeration_lock_state = (loop, lock)
+    return lock
 
 
 class GarakProbeService:
@@ -262,6 +291,54 @@ class GarakProbeService:
 
         return probes
 
+    def get_probe(
+        self,
+        module_name: str,
+        class_name: str,
+        probes_by_module: Optional[Dict[str, List[GarakProbeInfo]]] = None,
+    ) -> Optional[GarakProbeInfo]:
+        """
+        Look up a single probe by module/class name.
+
+        Prefers pre-fetched data (e.g. from ``enumerate_probe_modules_cached()``)
+        over live extraction, so callers who already hold cached probe data
+        avoid re-instantiating the Garak probe class from scratch.
+
+        Args:
+            module_name: Name of the probe module
+            class_name: Name of the probe class
+            probes_by_module: Optional pre-fetched probe data, keyed by module name
+
+        Returns:
+            GarakProbeInfo, or None if not found
+        """
+        if probes_by_module is not None:
+            return next(
+                (p for p in probes_by_module.get(module_name, []) if p.class_name == class_name),
+                None,
+            )
+        probes = self.extract_probes_from_module(module_name, probe_class_names=[class_name])
+        return probes[0] if probes else None
+
+    def get_probes_for_module(
+        self,
+        module_name: str,
+        probes_by_module: Optional[Dict[str, List[GarakProbeInfo]]] = None,
+    ) -> List[GarakProbeInfo]:
+        """
+        Get all probes for a module, preferring pre-fetched data over live extraction.
+
+        Args:
+            module_name: Name of the probe module
+            probes_by_module: Optional pre-fetched probe data, keyed by module name
+
+        Returns:
+            List of GarakProbeInfo for the module
+        """
+        if probes_by_module is not None:
+            return probes_by_module.get(module_name, [])
+        return self.extract_probes_from_module(module_name)
+
     def _extract_probe_info(
         self, module_name: str, class_name: str, probe_class: type
     ) -> Optional[GarakProbeInfo]:
@@ -467,51 +544,86 @@ class GarakProbeService:
             )
             return deserialize_probe_data(cached_data)
 
-        # Cache miss - generate probe data
-        # Suppress verbose output during enumeration (print statements and garak logging)
-        import contextlib
-        import io
-        import logging
+        # Cache miss. Serialize the "enumerate + populate" path behind a
+        # process-wide lock: enumerating the full ~168-probe corpus is a slow,
+        # CPU-heavy operation (multiple minutes for some Garak probes), and
+        # without this lock, N concurrent callers hitting a cold cache would
+        # each independently kick off their own full enumeration -- a cache
+        # stampede that multiplies the cost by N. With the lock, only one
+        # caller does the work; every other concurrent caller waits for it,
+        # then reads the now-warm cache instead of repeating it
+        # (double-checked below).
+        #
+        # Cross-process coordination (multiple gunicorn workers starting
+        # simultaneously) is handled naturally: the first worker to finish
+        # writes to the shared Redis L2 cache, and the other workers' L2
+        # check (inside the lock) hits that entry before they start their
+        # own enumeration. The startup pre-warm in main.py guarantees the
+        # cache is warm before user requests arrive.
+        async with _get_enumeration_lock():
+            cached_data = await GarakProbeCache.get(self.garak_version)
+            if cached_data:
+                logger.info(
+                    f"Garak probe cache HIT after waiting for in-flight "
+                    f"enumeration (v{self.garak_version})"
+                )
+                return deserialize_probe_data(cached_data)
 
-        logger.info(f"Garak probe cache MISS: generating probe data (v{self.garak_version})...")
+            # Suppress verbose output during enumeration (print statements and garak
+            # logging)
+            import contextlib
+            import io
+            import logging
 
-        # Suppress stdout/stderr (garak uses print() for "loading probe:" messages)
-        null_output = io.StringIO()
+            import anyio
 
-        # Only suppress garak-specific loggers to avoid affecting concurrent requests
-        # DO NOT suppress root logger - it would affect all loggers in the async app
-        garak_logger = logging.getLogger("garak")
-        original_garak_level = garak_logger.level
+            logger.info(f"Garak probe cache MISS: generating probe data (v{self.garak_version})...")
 
-        try:
-            # Suppress only garak's logging during enumeration
-            garak_logger.setLevel(logging.CRITICAL)
+            def _enumerate() -> tuple[List[GarakModuleInfo], Dict[str, List[GarakProbeInfo]]]:
+                # Enumerating/instantiating every Garak probe class is CPU-bound
+                # and can take many seconds. Run it in a worker thread so this
+                # does not block the event loop and starve every other request on
+                # the worker while the lock above is held.
+                null_output = io.StringIO()
 
-            # Suppress stdout/stderr (garak uses print() for "loading probe:" messages)
-            with contextlib.redirect_stdout(null_output), contextlib.redirect_stderr(null_output):
-                modules = self.enumerate_probe_modules()
+                # Only suppress garak-specific loggers to avoid affecting
+                # concurrent requests. DO NOT suppress root logger -- it would
+                # affect all loggers in the async app.
+                garak_logger = logging.getLogger("garak")
+                original_garak_level = garak_logger.level
 
-                # Extract probes for each module
-                probes_by_module: Dict[str, List[GarakProbeInfo]] = {}
-                for module in modules:
-                    probes = self.extract_probes_from_module(module.name)
-                    if probes:
-                        probes_by_module[module.name] = probes
-        finally:
-            # Restore garak logger level
-            garak_logger.setLevel(original_garak_level)
+                try:
+                    garak_logger.setLevel(logging.CRITICAL)
 
-        # Store in cache
-        cache_data = serialize_probe_data(modules, probes_by_module)
-        await GarakProbeCache.set(self.garak_version, cache_data)
+                    with (
+                        contextlib.redirect_stdout(null_output),
+                        contextlib.redirect_stderr(null_output),
+                    ):
+                        modules = self.enumerate_probe_modules()
 
-        total_probes = sum(len(p) for p in probes_by_module.values())
-        logger.info(
-            f"Garak probe cache SET: {len(modules)} modules, "
-            f"{total_probes} probes (v{self.garak_version}, TTL: 7 days)"
-        )
+                        probes_by_module: Dict[str, List[GarakProbeInfo]] = {}
+                        for module in modules:
+                            probes = self.extract_probes_from_module(module.name)
+                            if probes:
+                                probes_by_module[module.name] = probes
+                finally:
+                    garak_logger.setLevel(original_garak_level)
 
-        return modules, probes_by_module
+                return modules, probes_by_module
+
+            modules, probes_by_module = await anyio.to_thread.run_sync(_enumerate)
+
+            # Store in cache
+            cache_data = serialize_probe_data(modules, probes_by_module)
+            await GarakProbeCache.set(self.garak_version, cache_data)
+
+            total_probes = sum(len(p) for p in probes_by_module.values())
+            logger.info(
+                f"Garak probe cache SET: {len(modules)} modules, "
+                f"{total_probes} probes (v{self.garak_version}, TTL: 7 days)"
+            )
+
+            return modules, probes_by_module
 
     async def warm_cache(self) -> bool:
         """

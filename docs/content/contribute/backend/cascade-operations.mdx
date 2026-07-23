@@ -2,522 +2,54 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 # Cascade Deletion and Restoration
 
-## Overview
+Soft-deleting or restoring a parent often needs the same operation on its children (deleting a `TestRun` should soft-delete its `TestResult` rows). Rather than repeating that logic in every CRUD helper, parent-child edges are declared once in `config/cascade_config.py` and applied automatically by `delete_item` / `restore_item`. See [Soft Deletion](/contribute/backend/soft-deletion) for the underlying mechanics.
 
-Configured parent/child relationships drive bulk soft-delete and restore so `delete_item` / `restore_item` stay thin: you declare edges once in `config/cascade_config.py` instead of repeating queries in every CRUD helper.
+## Configuration
 
-## Motivation
-
-In a relational database with complex parent-child relationships, soft deleting or restoring a parent entity often requires the same operation on its children. For example:
-
-- **Deleting a TestRun** should also soft delete all associated **TestResults**
-- **Restoring a TestRun** should also restore all associated **TestResults**
-
-### The Problem: Manual Cascade Logic
-
-Before the cascade system, each CRUD function needed manual cascade logic:
-
-<CodeBlock filename="delete_test_run_before.py" language="python">
-{`def delete_test_run(db, test_run_id, org_id, user_id):
-    # Get the test run
-    test_run = get_item(db, models.TestRun, test_run_id, org_id, user_id)
-
-    # Manually query and soft delete all test results (50+ lines)
-    query = db.query(models.TestResult).filter(
-        models.TestResult.test_run_id == test_run_id
-    )
-    if org_id:
-        query = query.filter(models.TestResult.organization_id == org_id)
-    query.update({"deleted_at": datetime.utcnow()}, synchronize_session=False)
-
-    # Soft delete the test run
-    test_run.soft_delete()
-    db.commit()
-    return test_run`}
-</CodeBlock>
-
-### The Solution: Configuration-Driven Cascades
-
-With the cascade system, the same operation is now automatic:
-
-<CodeBlock filename="delete_test_run_after.py" language="python">
-{`# Configuration (defined once in config/cascade_config.py)
-CASCADE_RELATIONSHIPS = {
-    models.TestRun: [
-        CascadeRelationship(
-            child_model=models.TestResult,
-            foreign_key='test_run_id'
-        )
-    ]
-}
-
-# Implementation (automatically handles cascades)
-def delete_test_run(db, test_run_id, org_id, user_id):
-    return delete_item(db, models.TestRun, test_run_id, org_id, user_id)`}
-</CodeBlock>
-
-## Architecture
-
-The cascade system consists of three main components:
-
-### 1. Cascade Configuration (`config/cascade_config.py`)
-
-Centralized registry that defines all parent-child relationships:
+Each edge is a `CascadeRelationship` registered under its parent model in `CASCADE_RELATIONSHIPS`:
 
 <CodeBlock filename="cascade_config.py" language="python">
-{`from dataclasses import dataclass
-from typing import Type, Dict, List
-from rhesis.backend.app import models
-
-@dataclass
+{`@dataclass
 class CascadeRelationship:
-    """Defines a parent-child cascade relationship."""
-    child_model: Type          # The child entity model
-    foreign_key: str           # The FK column in child table
-    cascade_delete: bool = True   # Enable cascade delete
-    cascade_restore: bool = True  # Enable cascade restore
-    description: str = ""      # Optional documentation
+    child_model: Type              # child entity model
+    foreign_key: str               # FK column on the child pointing at the parent
+    cascade_delete: bool = True
+    cascade_restore: bool = True
+    description: str = ""
+    extra_filters: Dict[str, Any] = field(default_factory=dict)  # polymorphic filters
 
 CASCADE_RELATIONSHIPS: Dict[Type, List[CascadeRelationship]] = {
     models.TestRun: [
-        CascadeRelationship(
-            child_model=models.TestResult,
-            foreign_key='test_run_id',
-            description="Test results belong to a test run"
-        )
+        CascadeRelationship(models.TestResult, foreign_key="test_run_id"),
     ],
-    # Add more relationships here...
-}`}
-</CodeBlock>
-
-### 2. Cascade Service (`services/cascade.py`)
-
-Generic service that reads the configuration and performs bulk cascade operations:
-
-<CodeBlock filename="cascade_service.py" language="python">
-{`def cascade_soft_delete(
-    db: Session,
-    parent_model: Type,
-    parent_id: UUID,
-    organization_id: Optional[str] = None,
-) -> int:
-    """
-    Cascade soft delete to all configured child relationships.
-    Uses efficient bulk UPDATE queries.
-    """
-    total_deleted = 0
-    relationships = get_cascade_relationships(parent_model)
-
-    for rel in relationships:
-        if not rel.cascade_delete:
-            continue
-
-        query = db.query(rel.child_model).filter(
-            getattr(rel.child_model, rel.foreign_key) == parent_id
-        )
-
-        if organization_id and hasattr(rel.child_model, 'organization_id'):
-            query = query.filter(rel.child_model.organization_id == organization_id)
-
-        count = query.update(
-            {"deleted_at": datetime.utcnow()},
-            synchronize_session=False
-        )
-        total_deleted += count
-
-    return total_deleted`}
-</CodeBlock>
-
-### 3. Automatic Integration (`utils/crud_utils.py`)
-
-The generic `delete_item()` and `restore_item()` functions automatically call the cascade service:
-
-<CodeBlock filename="crud_utils.py" language="python">
-{`def delete_item(
-    db: Session,
-    model: Type[T],
-    item_id: uuid.UUID,
-    organization_id: str = None,
-    user_id: str = None,
-) -> Optional[T]:
-    """
-    Soft delete an item with automatic cascade.
-    """
-    from rhesis.backend.app.services import cascade as cascade_service
-
-    item = get_item(db, model, item_id, organization_id, user_id)
-    if not item:
-        return None
-
-    try:
-        # Automatic cascade to configured children
-        cascade_service.cascade_soft_delete(db, model, item_id, organization_id)
-
-        # Soft delete the parent
-        item.soft_delete()
-        db.commit()
-        return item
-    except Exception as e:
-        db.rollback()
-        raise`}
-</CodeBlock>
-
-## How to Add New Cascade Relationships
-
-Adding a new cascade relationship is a **5-line change** in `config/cascade_config.py`:
-
-### Step 1: Identify the Relationship
-
-Determine:
-
-- **Parent model**: The entity being deleted/restored
-- **Child model**: The dependent entity
-- **Foreign key**: The column in the child table that references the parent
-
-### Step 2: Add to Configuration
-
-Add a new entry or append to an existing entry in `CASCADE_RELATIONSHIPS`:
-
-<CodeBlock filename="cascade_config.py" language="python">
-{`CASCADE_RELATIONSHIPS: Dict[Type, List[CascadeRelationship]] = {
-    # Existing relationships
-    models.TestRun: [
+    # Polymorphic child (File keyed by entity_type) needs extra_filters
+    models.Test: [
         CascadeRelationship(
-            child_model=models.TestResult,
-            foreign_key='test_run_id',
-            description="Test results belong to a test run"
-        )
-    ],
-
-    # NEW: Add cascade for Project -> TestSet
-    models.Project: [
-        CascadeRelationship(
-            child_model=models.TestSet,
-            foreign_key='project_id',
-            cascade_delete=True,
-            cascade_restore=True,
-            description="Test sets belong to a project"
-        )
-    ],
-
-    # NEW: Add cascade for TestSet -> Test (with multiple children)
-    models.TestSet: [
-        CascadeRelationship(
-            child_model=models.Test,
-            foreign_key='test_set_id',
-            description="Tests belong to a test set"
+            models.File, foreign_key="entity_id",
+            extra_filters={"entity_type": "Test"},
         ),
-        CascadeRelationship(
-            child_model=models.TestSetMetadata,
-            foreign_key='test_set_id',
-            description="Metadata belongs to a test set"
-        )
     ],
 }`}
 </CodeBlock>
 
-### Step 3: Test the Cascade
+Adding a relationship is config-only — no CRUD or service code changes. Set `cascade_delete=False` or `cascade_restore=False` to opt an edge out (e.g. preserve an audit trail on delete, or require manual review before restoring). Add a test alongside the config change.
 
-That's it! No code changes needed. The cascade will work automatically. Test it:
+## How it works
 
-<CodeBlock filename="test_cascade.py" language="python">
-{`def test_delete_project_cascades_to_test_sets(test_db, db_project, db_test_sets):
-    """Verify that deleting a project cascades to test sets"""
-    project_id = db_project.id
-    test_set_ids = [ts.id for ts in db_test_sets]
+`delete_item` and `restore_item` call the cascade service (`services/cascade.py`), which reads the config and issues a single bulk `UPDATE` per child relationship (`deleted_at = now()` on delete, `deleted_at = NULL` on restore) rather than loading objects. Child updates and the parent change commit together, so a failure rolls back everything.
 
-    # Delete the project (cascade happens automatically)
-    crud.delete_project(test_db, project_id, org_id, user_id)
+Organization filtering is applied automatically when the child model has an `organization_id`, preventing cross-org cascades.
 
-    # Verify project is soft deleted
-    assert db_project.deleted_at is not None
-
-    # Verify all test sets are also soft deleted
-    with without_soft_delete_filter():
-        for test_set_id in test_set_ids:
-            test_set = test_db.query(models.TestSet).filter(
-                models.TestSet.id == test_set_id
-            ).first()
-            assert test_set.deleted_at is not None`}
-</CodeBlock>
-
-## Advanced Configuration
-
-### Disable Delete or Restore for Specific Relationships
-
-You can selectively disable cascade operations:
-
-<CodeBlock filename="cascade_config.py" language="python">
-{`CascadeRelationship(
-    child_model=models.AuditLog,
-    foreign_key='entity_id',
-    cascade_delete=False,    # Don't cascade delete (preserve audit trail)
-    cascade_restore=False,   # Don't cascade restore (audit is immutable)
-    description="Audit logs should never be deleted"
-)`}
-</CodeBlock>
-
-### Complex Multi-Level Cascades
-
-The system automatically handles multi-level cascades:
-
-<CodeBlock filename="cascade_config.py" language="python">
-{`# Level 1: Project -> TestSet
-models.Project: [
-    CascadeRelationship(child_model=models.TestSet, foreign_key='project_id')
-],
-
-# Level 2: TestSet -> Test
-models.TestSet: [
-    CascadeRelationship(child_model=models.Test, foreign_key='test_set_id')
-],
-
-# Level 3: Test -> TestResult
-models.Test: [
-    CascadeRelationship(child_model=models.TestResult, foreign_key='test_id')
-]`}
-</CodeBlock>
-
-When you delete a `Project`:
-
-1. All `TestSet` records are soft deleted
-2. All `Test` records in those test sets are soft deleted
-3. All `TestResult` records for those tests are soft deleted
-
-**Note:** Each level is handled independently, not recursively. The parent cascade handles its immediate children only.
-
-## Performance Considerations
-
-### Bulk UPDATE Operations
-
-The cascade service uses efficient bulk UPDATE queries instead of loading objects:
-
-<CodeBlock filename="bulk-update-operations.py" language="python">
-{`# EFFICIENT: Bulk UPDATE (single query)
-query.update({"deleted_at": datetime.utcnow()}, synchronize_session=False)
-
-# INEFFICIENT: Load and update each object
-for obj in query.all():
-    obj.soft_delete()`}
-</CodeBlock>
-
-**Benefits:**
-
-- **Fast**: Single UPDATE query regardless of how many children
-- **Memory-efficient**: No objects loaded into memory
-- **Transaction-safe**: All updates happen in one transaction
-
-### Organization Filtering
-
-The cascade service automatically applies organization filters when available:
-
-<CodeBlock filename="organization-filtering.py" language="python">
-{`if organization_id and hasattr(rel.child_model, 'organization_id'):
-    query = query.filter(rel.child_model.organization_id == organization_id)`}
-</CodeBlock>
-
-This ensures:
-
-- **Security**: Only cascade to entities in the same organization
-- **Performance**: Smaller result sets to process
-- **Data integrity**: Cross-org cascades are prevented
-
-## Transaction Management
-
-All cascade operations are fully transactional:
-
-<CodeBlock filename="transaction-management.py" language="python">
-{`try:
-    # Cascade to children (bulk UPDATE)
-    cascade_service.cascade_soft_delete(db, model, item_id, org_id)
-
-    # Soft delete parent
-    item.soft_delete()
-
-    # SINGLE COMMIT - atomicity guaranteed
-    db.commit()
-    return item
-except Exception as e:
-    # Rollback EVERYTHING on error
-    db.rollback()
-    raise`}
-</CodeBlock>
-
-All child updates and the parent soft-delete happen in one commit (rollback on error).
-
-## Testing Cascade Relationships
-
-### Unit Tests
-
-Test cascade relationships in isolation:
-
-<CodeBlock filename="test-unit-cascade.py" language="python">
-{`@pytest.mark.unit
-@pytest.mark.crud
-def test_cascade_soft_delete(test_db, db_parent, db_children):
-    """Test that soft deleting parent cascades to children"""
-    parent_id = db_parent.id
-    child_ids = [c.id for c in db_children]
-
-    # Perform cascade delete
-    cascade_soft_delete(test_db, models.Parent, parent_id, org_id)
-    test_db.commit()
-
-    # Verify all children are soft deleted
-    with without_soft_delete_filter():
-        for child_id in child_ids:
-            child = test_db.query(models.Child).filter(
-                models.Child.id == child_id
-            ).first()
-            assert child.deleted_at is not None`}
-</CodeBlock>
-
-## Best Practices
-
-### 1. Document Relationships
-
-Always add a `description` to cascade relationships:
-
-<CodeBlock filename="document-relationships.py" language="python">
-{`CascadeRelationship(
-    child_model=models.TestResult,
-    foreign_key='test_run_id',
-    description="Test results belong to a test run and should cascade with it"
-)`}
-</CodeBlock>
-
-### 2. Consider Data Preservation
-
-Some relationships should **NOT** cascade:
-
-<CodeBlock filename="data-preservation.py" language="python">
-{`# DON'T: cascade delete audit logs
-models.User: [
-    CascadeRelationship(
-        child_model=models.AuditLog,
-        foreign_key='user_id',
-        cascade_delete=False,  # Preserve audit trail
-        description="Audit logs are immutable and should never be deleted"
-    )
-]
-
-# DO: cascade delete user sessions
-models.User: [
-    CascadeRelationship(
-        child_model=models.UserSession,
-        foreign_key='user_id',
-        cascade_delete=True,   # Clean up sessions
-        description="User sessions should be removed when user is deleted"
-    )
-]`}
-</CodeBlock>
-
-### 3. Test Cascade Behavior
-
-Always add tests when adding new cascade relationships:
-
-<CodeBlock filename="test-cascade-behavior.py" language="python">
-{`# tests/backend/crud/test_project_cascade_delete.py
-def test_delete_project_cascades_to_test_sets(test_db, db_project):
-    # ... test implementation ...`}
-</CodeBlock>
-
-### 4. Monitor Performance
-
-For very large child sets, log counts and ensure indexed FKs; avoid chains deeper than you can explain in a code review.
-
-## Common Patterns
-
-### Pattern 1: Simple One-to-Many
-
-The most common pattern:
-
-<CodeBlock filename="pattern-one-to-many.py" language="python">
-{`models.TestRun: [
-    CascadeRelationship(
-        child_model=models.TestResult,
-        foreign_key='test_run_id'
-    )
-]`}
-</CodeBlock>
-
-### Pattern 2: Multiple Children
-
-A parent with multiple child types:
-
-<CodeBlock filename="pattern-multiple-children.py" language="python">
-{`models.Test: [
-    CascadeRelationship(
-        child_model=models.TestResult,
-        foreign_key='test_id'
-    ),
-    CascadeRelationship(
-        child_model=models.TestMetric,
-        foreign_key='test_id'
-    ),
-    CascadeRelationship(
-        child_model=models.TestAttachment,
-        foreign_key='test_id'
-    )
-]`}
-</CodeBlock>
-
-### Pattern 3: Conditional Cascade
-
-Different behavior for delete vs. restore:
-
-<CodeBlock filename="pattern-conditional-cascade.py" language="python">
-{`models.Organization: [
-    CascadeRelationship(
-        child_model=models.Project,
-        foreign_key='organization_id',
-        cascade_delete=True,   # Delete projects when org is deleted
-        cascade_restore=False  # Don't auto-restore (manual review needed)
-    )
-]`}
-</CodeBlock>
+**Cascade is one level deep.** The service updates a parent's immediate configured children only; it does not recurse. If you need `Project → TestSet → Test` to fully cascade, that chaining is not automatic — the bulk `UPDATE` on children does not re-trigger the children's own cascades.
 
 ## Troubleshooting
 
-### Issue: Cascade Not Working
+- **Children not cascading** — confirm the edge is in `CASCADE_RELATIONSHIPS`, the `foreign_key` matches the actual column, and `cascade_delete` is `True`.
+- **Slow cascades** — ensure the child FK column is indexed; the service already uses bulk `UPDATE`, so check for missing indexes rather than object loading.
+- **Orphaned children after hard delete** — soft-delete cascades before any hard delete; back them with database `ON DELETE` constraints where needed.
 
-**Symptom:** Children are not being soft deleted when parent is deleted.
+## Related
 
-**Solutions:**
-
-1. Check that the relationship is configured in `CASCADE_RELATIONSHIPS`
-2. Verify the `foreign_key` name matches the actual column name
-3. Ensure `cascade_delete=True` (default)
-4. Check logs for any errors during cascade
-
-### Issue: Performance Degradation
-
-**Symptom:** Cascade operations are slow.
-
-**Solutions:**
-
-1. Add an index on the foreign key column
-2. Verify bulk UPDATE is being used (not loading objects)
-3. Check for unnecessary filters or joins
-4. Consider batching for very large child sets (>10,000)
-
-### Issue: Orphaned Records
-
-**Symptom:** Children remain after parent is permanently deleted.
-
-**Solutions:**
-
-1. Soft delete cascade should happen **before** hard delete
-2. Check that hard delete operations go through proper channels
-3. Use database foreign key constraints with `ON DELETE` clauses as backup
-
-## Migrating away from manual cascades
-
-Add the relationship to `CASCADE_RELATIONSHIPS`, delete bespoke child-update blocks in favor of `delete_item`/`restore_item`, then fix tests to assert via `without_soft_delete_filter()` as needed.
-
-## Related Documentation
-
-- [Soft Deletion Architecture](./soft-deletion)
-- [Database Models](./database-models)
-- [API Structure](./api-structure)
-- [Development Workflow](./development-workflow)
+- [Soft Deletion](/contribute/backend/soft-deletion)
+- [Database Models](/contribute/backend/database-models)
+- [API Structure](/contribute/backend/api-structure)

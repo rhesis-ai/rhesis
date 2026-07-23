@@ -1,6 +1,8 @@
 """Tests for GarakProbeService."""
 
-from unittest.mock import MagicMock, patch
+import asyncio
+import time
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -10,6 +12,7 @@ from rhesis.backend.app.services.garak.probes import (
     GarakProbeInfo,
     GarakProbeService,
 )
+from rhesis.backend.app.services.garak.probes.service import _get_enumeration_lock
 
 
 @pytest.mark.unit
@@ -412,3 +415,166 @@ class TestGeneratorPlaceholder:
     def test_generator_placeholder_value(self):
         """Test that the generator placeholder has the expected value."""
         assert GENERATOR_PLACEHOLDER == "{TARGET_MODEL}"
+
+
+@pytest.mark.unit
+@pytest.mark.service
+class TestGarakProbeServiceGetProbe:
+    """Tests for get_probe/get_probes_for_module cache-preferring lookups."""
+
+    def test_get_probe_uses_preloaded_data_without_extraction(self):
+        service = GarakProbeService()
+        preloaded = GarakProbeInfo(
+            module_name="dan",
+            class_name="Dan_11_0",
+            full_name="dan.Dan_11_0",
+            description="preloaded",
+        )
+        probes_by_module = {"dan": [preloaded]}
+
+        with patch.object(service, "extract_probes_from_module") as mock_extract:
+            result = service.get_probe("dan", "Dan_11_0", probes_by_module)
+
+        assert result is preloaded
+        mock_extract.assert_not_called()
+
+    def test_get_probe_returns_none_when_not_in_preloaded_module(self):
+        service = GarakProbeService()
+        result = service.get_probe("dan", "NoSuchProbe", {"dan": []})
+        assert result is None
+
+    def test_get_probe_falls_back_to_extraction_without_preload(self):
+        service = GarakProbeService()
+        expected = GarakProbeInfo(
+            module_name="dan", class_name="Dan_11_0", full_name="dan.Dan_11_0", description="d"
+        )
+
+        with patch.object(
+            service, "extract_probes_from_module", return_value=[expected]
+        ) as mock_extract:
+            result = service.get_probe("dan", "Dan_11_0")
+
+        assert result is expected
+        mock_extract.assert_called_once_with("dan", probe_class_names=["Dan_11_0"])
+
+    def test_get_probes_for_module_uses_preloaded_data(self):
+        service = GarakProbeService()
+        preloaded = [
+            GarakProbeInfo(
+                module_name="dan", class_name="Dan_11_0", full_name="dan.Dan_11_0", description="d"
+            )
+        ]
+
+        with patch.object(service, "extract_probes_from_module") as mock_extract:
+            result = service.get_probes_for_module("dan", {"dan": preloaded})
+
+        assert result == preloaded
+        mock_extract.assert_not_called()
+
+    def test_get_probes_for_module_falls_back_to_extraction_without_preload(self):
+        service = GarakProbeService()
+
+        with patch.object(service, "extract_probes_from_module", return_value=[]) as mock_extract:
+            result = service.get_probes_for_module("dan")
+
+        assert result == []
+        mock_extract.assert_called_once_with("dan")
+
+
+@pytest.mark.unit
+@pytest.mark.service
+class TestGarakProbeServiceEnumerateCachedConcurrency:
+    """Regression test for a cache-stampede bug: enumerate_probe_modules_cached
+    offloads the cold-cache "enumerate + populate" path to a worker thread so
+    it doesn't block the event loop. Without a single-flight lock around that
+    path, concurrent callers hitting a cold cache would each independently
+    kick off their own full-corpus enumeration — observed in CI as dozens of
+    overlapping enumerations that never finished and hung the whole test run
+    for hours. Only one concurrent caller must actually enumerate; the rest
+    must wait and then read the now-warm cache."""
+
+    @pytest.mark.asyncio
+    async def test_concurrent_cache_misses_enumerate_only_once(self):
+        cache_store = {}
+        enumerate_call_count = 0
+
+        async def fake_get(version):
+            return cache_store.get(version)
+
+        async def fake_set(version, data):
+            cache_store[version] = data
+
+        def fake_enumerate_probe_modules():
+            nonlocal enumerate_call_count
+            enumerate_call_count += 1
+            # Simulate slow, CPU-bound work so concurrent callers genuinely
+            # overlap instead of trivially serializing by accident.
+            time.sleep(0.05)
+            return []
+
+        service = GarakProbeService()
+
+        with (
+            patch(
+                "rhesis.backend.app.services.garak.cache.GarakProbeCache.initialize",
+                new=AsyncMock(),
+            ),
+            patch(
+                "rhesis.backend.app.services.garak.cache.GarakProbeCache.get",
+                new=AsyncMock(side_effect=fake_get),
+            ),
+            patch(
+                "rhesis.backend.app.services.garak.cache.GarakProbeCache.set",
+                new=AsyncMock(side_effect=fake_set),
+            ),
+            patch.object(
+                service, "enumerate_probe_modules", side_effect=fake_enumerate_probe_modules
+            ),
+        ):
+            results = await asyncio.gather(
+                *[service.enumerate_probe_modules_cached() for _ in range(5)]
+            )
+
+        assert enumerate_call_count == 1
+        for modules, probes_by_module in results:
+            assert modules == []
+            assert probes_by_module == {}
+
+    @pytest.mark.asyncio
+    async def test_lock_survives_across_different_event_loops(self):
+        """Regression test flagged in PR review: a bare module-level
+        asyncio.Lock() binds to whichever event loop first genuinely contends
+        on it (waits, not just uncontended acquire/release), and raises
+        RuntimeError if a different loop later contends on the same instance.
+        pytest-asyncio recreates the event loop per test function
+        (function-scoped), so two different tests contending on the same
+        process-wide single-flight lock would hit exactly this in CI.
+        _get_enumeration_lock() must hand back a fresh, working lock whenever
+        the running loop differs from the one it was last bound to."""
+
+        async def _contend():
+            lock = _get_enumeration_lock()
+
+            async def holder():
+                async with lock:
+                    await asyncio.sleep(0.01)
+
+            async def waiter():
+                async with lock:
+                    pass
+
+            await asyncio.gather(holder(), waiter())
+
+        # Contends on the lock in the current (pytest-asyncio) event loop —
+        # this is what binds a bare asyncio.Lock() internally.
+        await _contend()
+
+        # Simulate a second, independent test function getting its own fresh
+        # event loop (exactly what pytest-asyncio's function-scoped loops do)
+        # and also contending on the same process-wide lock. Without the fix,
+        # this raises "... is bound to a different event loop".
+        new_loop = asyncio.new_event_loop()
+        try:
+            new_loop.run_until_complete(_contend())
+        finally:
+            new_loop.close()

@@ -1,99 +1,30 @@
-import { CodeBlock } from '@/components/CodeBlock'
-
 # Backend Architecture
 
-## Overview
+A FastAPI application backed by PostgreSQL (SQLAlchemy ORM) and Celery workers on a Redis broker, with authentication via email/password, Google OAuth, and GitHub OAuth. For the directory layout, see the [Backend Overview](/contribute/backend).
 
-FastAPI app with routers, services, SQLAlchemy models, and OpenAPI docs out of the box.
+## Layering
 
-## Tech Stack
+Requests flow through three layers:
 
-- **Framework**: FastAPI
-- **Database**: PostgreSQL with SQLAlchemy ORM
-- **Authentication**: Native (email/password, Google OAuth, GitHub OAuth)
-- **Task Queue**: Celery with Redis broker
-- **API Documentation**: Swagger UI (via FastAPI)
-- **Package Management**: UV (Python package installer)
+- **Routers** (`app/routers/`) — FastAPI route handlers, grouped by resource.
+- **Services** (`app/services/`) and **CRUD** (`app/crud.py`) — business logic and database access.
+- **Models** (`app/models/`) and **schemas** (`app/schemas/`) — SQLAlchemy ORM models and Pydantic request/response types.
 
-## Directory Structure
+`app/main.py` creates the app, registers routers, and wires middleware (CORS, authentication) and exception handlers. FastAPI dependency injection supplies the database session, current user, and feature gates to handlers.
 
-<CodeBlock filename="backend-directory-structure.txt" language="text">
-  {`apps/backend/
-├── src/
-│   └── rhesis/
-│       └── backend/
-│           ├── __init__.py      # Package initialization
-│           ├── app/             # Main application code
-│           │   ├── main.py      # FastAPI application entry point
-│           │   ├── database.py  # Database connection and session management
-│           │   ├── crud.py      # CRUD operations
-│           │   ├── models/      # SQLAlchemy models
-│           │   ├── schemas/     # Pydantic schemas
-│           │   ├── routers/     # API endpoints
-│           │   ├── auth/        # Authentication logic
-│           │   ├── utils/       # Utility functions
-│           │   └── services/    # Business logic services
-│           ├── alembic/         # Database migrations
-│           ├── tasks/           # Celery background tasks
-│           ├── metrics/         # Application metrics
-│           └── logging/         # Logging configuration
-├── pyproject.toml              # Project dependencies and configuration
-└── .env                        # Environment variables`}
-</CodeBlock>
+## Request flow
 
-## Architectural Patterns
+1. Authentication middleware validates the request.
+2. Dependencies resolve (database session, current user, tenant scope).
+3. Pydantic validates the request body.
+4. The handler runs service or CRUD logic.
+5. A Pydantic-validated response is returned.
 
-### 1. Model-View-Controller (MVC)
+Tenant isolation is applied automatically per request rather than threaded through call arguments — organization/user/project scope is stamped onto new rows and added as a `WHERE` filter to queries, backed by PostgreSQL row-level security. See [Multi-tenancy](/contribute/backend/multi-tenancy).
 
-The backend follows an MVC-like pattern:
+## Logging
 
-- **Models**: SQLAlchemy models in `app/models/`
-- **Views**: FastAPI route handlers in `app/routers/`
-- **Controllers**: Business logic in `app/services/` and CRUD operations in `app/crud.py`
-
-### 2. Repository Pattern
-
-The CRUD operations are abstracted into a repository layer, allowing for clean separation between database access and business logic.
-
-### 3. Dependency Injection
-
-FastAPI's dependency injection system is used extensively for:
-
-- Database session management
-- Authentication and authorization
-- Feature toggles and configuration
-
-## Key Components
-
-### FastAPI Application
-
-The main application is defined in `app/main.py`, which:
-
-- Creates the FastAPI application
-- Configures middleware (CORS, authentication)
-- Registers all routers
-- Sets up exception handlers
-
-### Database Layer
-
-The database layer consists of:
-
-- Connection management in `app/database.py`
-- SQLAlchemy models in `app/models/`
-- Pydantic schemas for request/response validation in `app/schemas/`
-
-### API Routers
-
-API endpoints are organized into routers by resource type, with each router handling a specific domain entity (tests, prompts, users, etc.).
-
-### Background Tasks
-
-Long-running operations are handled by Celery tasks defined in the `tasks/` directory, which are executed asynchronously.
-
-### Logging
-
-Backend startup calls `set_logger()` from `rhesis.backend.logging.logging_config`.
-The logger chooses handlers from runtime configuration:
+Backend startup calls `set_logger()` from `rhesis.backend.logging.logging_config`. The logger chooses handlers from runtime configuration:
 
 | Runtime condition | Output |
 | --- | --- |
@@ -105,31 +36,4 @@ The logger chooses handlers from runtime configuration:
 
 `DEV_MODE=true` enables Uvicorn hot reload and `--log-level debug` in `start.sh`. The Celery worker uses two separate log-level variables instead of `DEV_MODE`: `LOG_LEVEL` for application logs and `CELERY_WORKER_LOGLEVEL` for Celery's own task-lifecycle messages (defaults to `LOG_LEVEL`, overridable independently). Set `DEV_MODE=true` in `apps/backend/.env` when running via `./rh dev`; leave it unset or `false` everywhere else (Docker Compose local, cloud deployments).
 
-All configured handlers wrap their formatter in `RedactingFormatter`, which
-scrubs bearer tokens, JWTs, API keys, database URLs, cookies, passwords, and
-private keys from final log output.
-
-### Authentication
-
-Authentication is handled through a native provider-based system, with custom middleware to enforce different authentication requirements based on route configuration.
-
-## Communication Flow
-
-1. Client sends request to API endpoint
-2. FastAPI routes the request to the appropriate handler
-3. Authentication middleware validates the request
-4. Dependencies are resolved (database session, current user)
-5. Request is validated using Pydantic schemas
-6. Business logic is executed (via services or direct CRUD operations)
-7. Response is generated and returned to the client
-
-## Multi-tenancy
-
-The application implements multi-tenancy through PostgreSQL row-level security, ensuring data isolation between different organizations.
-
-## Scalability Considerations
-
-- Database connection pooling
-- Stateless API design for horizontal scaling
-- Background task processing with Celery
-- Caching strategies for frequently accessed data
+All configured handlers wrap their formatter in `RedactingFormatter`, which scrubs bearer tokens, JWTs, API keys, database URLs, cookies, passwords, and private keys from final log output.
