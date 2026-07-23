@@ -130,13 +130,9 @@ class TestAuthProvidersOrgParam:
         db = MagicMock()
         db.query.return_value = _FakeQuery(org)
 
-        import asyncio
-
         from rhesis.backend.app.routers.auth import get_providers
 
-        result = asyncio.get_event_loop().run_until_complete(
-            get_providers(request=_make_mock_request(), org=str(org_id), db=db)
-        )
+        result = get_providers(request=_make_mock_request(), org=str(org_id), db=db)
 
         sso_providers = [p for p in result.providers if p.name == "sso"]
         assert len(sso_providers) == 1
@@ -149,13 +145,9 @@ class TestAuthProvidersOrgParam:
         db = MagicMock()
         db.query.return_value = _FakeQuery(org)
 
-        import asyncio
-
         from rhesis.backend.app.routers.auth import get_providers
 
-        result = asyncio.get_event_loop().run_until_complete(
-            get_providers(request=_make_mock_request(), org="acme-corp", db=db)
-        )
+        result = get_providers(request=_make_mock_request(), org="acme-corp", db=db)
 
         sso_providers = [p for p in result.providers if p.name == "sso"]
         assert len(sso_providers) == 1
@@ -169,13 +161,9 @@ class TestAuthProvidersOrgParam:
         db = MagicMock()
         db.query.return_value = _FakeQuery(org)
 
-        import asyncio
-
         from rhesis.backend.app.routers.auth import get_providers
 
-        result = asyncio.get_event_loop().run_until_complete(
-            get_providers(request=_make_mock_request(), org=str(org_id), db=db)
-        )
+        result = get_providers(request=_make_mock_request(), org=str(org_id), db=db)
 
         sso_providers = [p for p in result.providers if p.name == "sso"]
         assert len(sso_providers) == 1
@@ -185,13 +173,9 @@ class TestAuthProvidersOrgParam:
         """When no org param, SSO should never appear."""
         db = MagicMock()
 
-        import asyncio
-
         from rhesis.backend.app.routers.auth import get_providers
 
-        result = asyncio.get_event_loop().run_until_complete(
-            get_providers(request=_make_mock_request(), org=None, db=db)
-        )
+        result = get_providers(request=_make_mock_request(), org=None, db=db)
 
         sso_providers = [p for p in result.providers if p.name == "sso"]
         assert len(sso_providers) == 0
