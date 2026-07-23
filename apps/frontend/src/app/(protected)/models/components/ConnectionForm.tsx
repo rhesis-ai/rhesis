@@ -43,6 +43,7 @@ import {
   LOCAL_PROVIDERS,
   PROVIDERS_WITH_OPTIONAL_API_KEY,
   providerSupportsModelListing,
+  getProviderDisplayName,
 } from '@/config/model-providers';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
@@ -488,7 +489,7 @@ export const ConnectionForm = forwardRef<
         try {
           const modelData: ModelCreate = {
             name,
-            description: `${isCustomProvider ? providerName : provider.description} Connection`,
+            description: `${isCustomProvider ? providerName : getProviderDisplayName(provider)} Connection`,
             icon: provider.type_value,
             model_name: modelName,
             model_type: modelType,
