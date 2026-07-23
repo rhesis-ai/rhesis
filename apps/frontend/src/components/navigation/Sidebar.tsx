@@ -102,10 +102,12 @@ export function Sidebar() {
   const groups = groupNavItems(navigation);
 
   const mainGroups = groups.filter(g => g.type !== 'footer-links') as (
-    StandaloneGroup | SectionGroup
+    | StandaloneGroup
+    | SectionGroup
   )[];
   const footerGroup = groups.find(g => g.type === 'footer-links') as
-    FooterLinksGroup | undefined;
+    | FooterLinksGroup
+    | undefined;
 
   const sidebarWidth = collapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_WIDTH;
 

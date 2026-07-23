@@ -323,7 +323,8 @@ export class WebSocketClient {
     // Handle connection confirmation
     if (message.type === EventType.CONNECTED) {
       const payload = message.payload as unknown as
-        ConnectedPayload | undefined;
+        | ConnectedPayload
+        | undefined;
       this.state.connectionId = payload?.connection_id;
     }
 
