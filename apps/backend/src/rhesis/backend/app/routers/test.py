@@ -133,6 +133,28 @@ def create_tests_bulk(
             )
 
 
+@router.delete("/bulk", response_model=schemas.TestBulkDeleteResponse)
+def bulk_delete_tests(
+    request: schemas.TestBulkDeleteRequest,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Delete multiple tests at once.
+
+    Soft-deletes every test in one transaction and recomputes each affected
+    test set's attributes once, rather than once per deleted test.
+
+    Registered before /{test_id} routes below -- FastAPI matches routes in
+    registration order, so a literal /bulk path must come first or a
+    /{test_id}-shaped route would swallow it (treating "bulk" as an id).
+    """
+    organization_id, user_id = tenant_context
+    return crud.bulk_delete_tests(
+        db=db, test_ids=request.test_ids, organization_id=organization_id, user_id=user_id
+    )
+
+
 @router.post(
     "/from-conversation",
     response_model=schemas.ConversationToTestResponse,

@@ -490,8 +490,12 @@ export default function TestRunMainView({
   }, [renameValue, testRun.name, testRunId, notifications, router]);
 
   const handleRerunSuccess = useCallback(() => {
+    // A re-run creates a new test run, so drop the cached test-runs list pages
+    // (kept fresh for 5 min otherwise) to make the new run and its status show
+    // up immediately on the list we navigate to.
+    void queryClient.invalidateQueries({ queryKey: testRunKeys.all() });
     router.push('/test-runs');
-  }, [router]);
+  }, [queryClient, router]);
 
   useEffect(() => {
     const tab = searchParams.get('tab');

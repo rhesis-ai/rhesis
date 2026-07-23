@@ -37,9 +37,6 @@ export default function AnnotationsPage() {
     );
   }
 
-  if (permsLoading) return <PageLoadingState />;
-  if (!canRead) return <AccessDenied resource="annotations" />;
-
   if (!isAuthenticated(status)) {
     return (
       <PageLayout title="Annotations" breadcrumbs={[]}>
@@ -49,6 +46,9 @@ export default function AnnotationsPage() {
       </PageLayout>
     );
   }
+
+  if (permsLoading) return <PageLoadingState />;
+  if (!canRead) return <AccessDenied resource="annotations" />;
 
   return (
     <PageLayout

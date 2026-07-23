@@ -53,7 +53,6 @@ class TestInferWorkflowPath:
         assert infer_workflow_path("insights summary — Chatbot") == WorkflowPath.RUN_ANALYZE
 
 
-
 @pytest.mark.unit
 class TestResolveWorkflowPathUpdate:
     def test_unset_to_inferred(self):
@@ -104,6 +103,19 @@ class TestPhaseIncludeNames:
         assert "insights-summary.md" in names
         assert "result-analysis.md" in names
         assert "phases/analysis.md" in names
+
+    def test_run_analyze_executing_keeps_insights_summary(self):
+        # The first get_test_result_stats call switches the mode to EXECUTING;
+        # the Insights handoff guidance must stay loaded so the agent keeps
+        # aggregating across all runs instead of falling back to single-run
+        # patterns.
+        names = phase_include_names(AgentMode.EXECUTING, WorkflowPath.RUN_ANALYZE)
+        assert "insights-summary.md" in names
+        assert "result-analysis.md" in names
+
+    def test_executing_non_run_analyze_omits_insights_summary(self):
+        names = phase_include_names(AgentMode.EXECUTING, WorkflowPath.EXPLORE)
+        assert "insights-summary.md" not in names
 
 
 @pytest.mark.unit

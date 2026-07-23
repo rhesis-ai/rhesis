@@ -138,6 +138,7 @@ export default function EndpointsGrid({
 
   const {
     filterModel,
+    gridFilterModel,
     paginationModel,
     setPaginationModel,
     handlePaginationModelChange,
@@ -156,6 +157,7 @@ export default function EndpointsGrid({
 
         if (drawerFilters.connectionType) {
           drawerItems.push({
+            id: 'connectionType',
             field: 'connectionType',
             operator: 'equals',
             value: drawerFilters.connectionType,
@@ -163,6 +165,7 @@ export default function EndpointsGrid({
         }
         if (drawerFilters.environment) {
           drawerItems.push({
+            id: 'environment',
             field: 'environment',
             operator: 'equals',
             value: drawerFilters.environment,
@@ -170,6 +173,7 @@ export default function EndpointsGrid({
         }
         if (drawerFilters.status) {
           drawerItems.push({
+            id: 'status',
             field: 'status',
             operator: 'equals',
             value: drawerFilters.status,
@@ -403,7 +407,7 @@ export default function EndpointsGrid({
           onPaginationModelChange={handlePaginationModelChange}
           pageSizeOptions={[10, 25, 50]}
           serverSideFiltering={true}
-          filterModel={filterModel}
+          filterModel={gridFilterModel}
           onFilterModelChange={handleFilterModelChange}
           toolbarSlot={EndpointsUnifiedToolbar}
           showToolbar={true}

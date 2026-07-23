@@ -12,7 +12,6 @@ from typing import List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
-from rhesis.backend.app.routers.base import RhesisRouter
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -23,6 +22,7 @@ from rhesis.backend.app.dependencies import (
     get_tenant_db_session,
 )
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.explorer import (
     CreateExplorerTestBody,
     EvaluateFailedItem,
@@ -32,6 +32,8 @@ from rhesis.backend.app.schemas.explorer import (
     EvaluateSuggestionsRequest,
     ExplorerSettingsResponse,
     ExplorerSettingsUpdate,
+    ExplorerTestSetBulkDeleteRequest,
+    ExplorerTestSetBulkDeleteResponse,
     ExportExplorerTestSetResponse,
     GenerateOutputsFailedItem,
     GenerateOutputsRequest,
@@ -45,6 +47,7 @@ from rhesis.backend.app.schemas.explorer import (
     SuggestionPipelineRequest,
 )
 from rhesis.backend.app.services.explorer import (
+    bulk_delete_explorer_test_sets,
     create_explorer_test_set,
     create_test_node,
     create_topic_node,
@@ -219,6 +222,31 @@ def list_explorer_test_sets(
         limit=limit,
         sort_by=sort_by,
         sort_order=sort_order,
+    )
+
+
+@router.delete("/bulk", response_model=ExplorerTestSetBulkDeleteResponse)
+def bulk_delete_explorer_test_sets_endpoint(
+    request: ExplorerTestSetBulkDeleteRequest,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Delete multiple Explorer test sets at once.
+
+    Ids that don't resolve to a test set with the Adaptive Testing behavior
+    are reported in `not_found_ids` rather than deleted.
+
+    Registered before /{test_set_identifier} below -- FastAPI matches routes
+    in registration order, so a literal /bulk path must come first or the
+    identifier-shaped route would swallow it (treating "bulk" as an identifier).
+    """
+    organization_id, user_id = tenant_context
+    return bulk_delete_explorer_test_sets(
+        db=db,
+        test_set_ids=request.test_set_ids,
+        organization_id=str(organization_id),
+        user_id=str(user_id),
     )
 
 

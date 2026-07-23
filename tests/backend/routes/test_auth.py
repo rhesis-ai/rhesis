@@ -1540,6 +1540,27 @@ class TestTermsAcceptance:
             "has_prior_acceptance": False,
         }
 
+    def test_terms_status_returns_false_for_pre_onboarding_user(
+        self, client: TestClient, test_db, test_org_id
+    ):
+        """Users still in onboarding (no organization) must accept explicitly."""
+        from rhesis.backend.app.auth.token_utils import create_session_token
+
+        email = _unique_email("terms-pre-onboarding")
+        user = create_test_user(test_db, None, email, "Terms Pre Onboarding User")
+        test_db.commit()
+
+        token = create_session_token(user)
+        response = client.get(
+            "/auth/terms-status",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json() == {
+            "terms_accepted": False,
+            "has_prior_acceptance": False,
+        }
+
     def test_update_user_strips_user_settings_terms(
         self, authenticated_client, authenticated_user_id
     ):

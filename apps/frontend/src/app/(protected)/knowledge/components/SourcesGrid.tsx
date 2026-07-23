@@ -117,6 +117,7 @@ export default function SourcesGrid({
 
   const {
     filterModel,
+    gridFilterModel,
     paginationModel,
     sortModel,
     setPaginationModel,
@@ -134,6 +135,7 @@ export default function SourcesGrid({
         const drawerItems: typeof prev.items = [];
         if (drawerFilters.sourceType) {
           drawerItems.push({
+            id: 'source_type.type_value',
             field: 'source_type.type_value',
             operator: 'equals',
             value: drawerFilters.sourceType,
@@ -141,6 +143,7 @@ export default function SourcesGrid({
         }
         if (drawerFilters.creator) {
           drawerItems.push({
+            id: 'user.name',
             field: 'user.name',
             operator: 'contains',
             value: drawerFilters.creator,
@@ -148,6 +151,7 @@ export default function SourcesGrid({
         }
         if (drawerFilters.tag) {
           drawerItems.push({
+            id: 'tags',
             field: 'tags',
             operator: 'contains',
             value: drawerFilters.tag,
@@ -520,7 +524,7 @@ export default function SourcesGrid({
             showToolbar={true}
             paginationModel={paginationModel}
             onPaginationModelChange={handlePaginationModelChange}
-            filterModel={filterModel}
+            filterModel={gridFilterModel}
             onFilterModelChange={handleFilterModelChange}
             sortModel={sortModel}
             onSortModelChange={handleSortModelChange}

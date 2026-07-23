@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models
 from rhesis.backend.app.services.explorer import (
+    bulk_delete_explorer_test_sets,
     create_explorer_test_set,
     create_test_node,
     delete_explorer_test_set,
@@ -475,6 +476,61 @@ class TestDeleteExplorerTestSet:
                 organization_id=test_org_id,
                 user_id=authenticated_user_id,
             )
+
+
+class TestBulkDeleteExplorerTestSets:
+    """Test bulk_delete_explorer_test_sets - deletes several at once, skips non-explorer ids."""
+
+    def test_deletes_valid_explorer_sets(
+        self, test_db, explorer_and_regular_test_sets, test_org_id, authenticated_user_id
+    ):
+        explorer_1 = explorer_and_regular_test_sets["explorer_1"]
+        explorer_2 = explorer_and_regular_test_sets["explorer_2"]
+
+        result = bulk_delete_explorer_test_sets(
+            db=test_db,
+            test_set_ids=[explorer_1.id, explorer_2.id],
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+
+        assert set(result["deleted_ids"]) == {str(explorer_1.id), str(explorer_2.id)}
+        assert result["not_found_ids"] == []
+        listed_ids = {
+            str(ts.id)
+            for ts in get_explorer_test_sets(db=test_db, organization_id=test_org_id, limit=500)
+        }
+        assert str(explorer_1.id) not in listed_ids
+        assert str(explorer_2.id) not in listed_ids
+
+    def test_skips_non_explorer_and_nonexistent_ids(
+        self, test_db, explorer_and_regular_test_sets, test_org_id, authenticated_user_id
+    ):
+        explorer_1 = explorer_and_regular_test_sets["explorer_1"]
+        regular = explorer_and_regular_test_sets["regular"]
+        fake_id = uuid.uuid4()
+
+        result = bulk_delete_explorer_test_sets(
+            db=test_db,
+            test_set_ids=[explorer_1.id, regular.id, fake_id],
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+
+        assert result["deleted_ids"] == [str(explorer_1.id)]
+        assert set(result["not_found_ids"]) == {str(regular.id), str(fake_id)}
+
+        # The regular (non-explorer) test set must still exist, untouched.
+        still_there = (
+            test_db.query(models.TestSet).filter(models.TestSet.id == regular.id).first()
+        )
+        assert still_there is not None
+
+    def test_empty_ids_is_a_noop(self, test_db, test_org_id, authenticated_user_id):
+        result = bulk_delete_explorer_test_sets(
+            db=test_db, test_set_ids=[], organization_id=test_org_id, user_id=authenticated_user_id
+        )
+        assert result == {"deleted_ids": [], "not_found_ids": []}
 
 
 # ============================================================================

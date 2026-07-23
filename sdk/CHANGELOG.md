@@ -13,6 +13,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-07-23
+
+data hashing).
+
+    ### Fixed
+    - Fixed a crash in `GarakDetectorMetric.evaluate()` by adding support for generator results (introduced in Garak v0.14+) and tolerating scalar fallbacks.
+    - Resolved a runtime template resolution issue where `prompt_loader` failed to find skill references on cloud deployments by marking includes to ignore missing.
+    -
+
+
 ## [0.10.0] - 2026-07-09
 
 ### Added

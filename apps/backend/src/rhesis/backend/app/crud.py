@@ -26,6 +26,7 @@ from rhesis.backend.app.schemas.telemetry import (
     TraceType,
 )
 from rhesis.backend.app.utils.crud_utils import (
+    bulk_delete_by_ids,
     create_item,
     delete_item,
     get_item,
@@ -36,7 +37,7 @@ from rhesis.backend.app.utils.crud_utils import (
     update_item,
 )
 from rhesis.backend.app.utils.name_generator import generate_memorable_name
-from rhesis.backend.app.utils.query_utils import QueryBuilder, include
+from rhesis.backend.app.utils.query_utils import QueryBuilder, include, resolve_chain
 
 logger = logging.getLogger(__name__)
 
@@ -2343,6 +2344,53 @@ def delete_test(
     return db_test
 
 
+def bulk_delete_tests(
+    db: Session,
+    test_ids: List[uuid.UUID],
+    organization_id: str,
+    user_id: str,
+) -> Dict[str, List[str]]:
+    """
+    Soft delete multiple tests in one transaction and recompute test-set
+    attributes once per distinct affected test set (not once per deleted test).
+
+    Deleting the same 25 tests one at a time (25 DELETE /tests/{id} requests)
+    recomputes -- and re-UPDATEs -- a shared test set's attributes up to 25
+    times, and those concurrent UPDATEs to the same row serialize at the
+    database. Resolving the affected test sets across the whole batch up
+    front and recomputing each exactly once avoids both problems.
+    """
+    from rhesis.backend.app.services.test_set import update_test_set_attributes
+
+    if not test_ids:
+        return {"deleted_ids": [], "not_found_ids": []}
+
+    def _recompute_affected_test_sets(deleted_ids: List[uuid.UUID]) -> None:
+        rows = db.execute(
+            test_test_set_association.select().where(
+                test_test_set_association.c.test_id.in_(deleted_ids),
+                test_test_set_association.c.organization_id == organization_id,
+            )
+        ).fetchall()
+        affected_test_set_ids = {row.test_set_id for row in rows}
+        for test_set_id in affected_test_set_ids:
+            update_test_set_attributes(
+                db=db,
+                test_set_id=str(test_set_id),
+                organization_id=organization_id,
+                user_id=user_id,
+            )
+
+    return bulk_delete_by_ids(
+        db,
+        models.Test,
+        test_ids,
+        organization_id=organization_id,
+        user_id=user_id,
+        on_deleted=_recompute_affected_test_sets,
+    )
+
+
 # TestContext CRUD
 def get_test_context(
     db: Session, test_context_id: uuid.UUID, organization_id: str = None, user_id: str = None
@@ -2810,7 +2858,7 @@ def get_project_members(
 
 
 def get_my_projects(db: Session, user_id: uuid.UUID, organization_id: str) -> List[models.Project]:
-    """Return all projects the given user is a member of."""
+    """Return all ACTIVE, non-deleted projects the given user is a member of."""
     from rhesis.backend.app.models.project_membership import ProjectMembership
 
     return (
@@ -2819,6 +2867,8 @@ def get_my_projects(db: Session, user_id: uuid.UUID, organization_id: str) -> Li
         .filter(
             ProjectMembership.user_id == user_id,
             ProjectMembership.organization_id == organization_id,
+            models.Project.deleted_at.is_(None),
+            models.Project.is_active.is_(True),
         )
         .all()
     )
@@ -4184,32 +4234,38 @@ def get_trace_by_id(
         trace_id: OpenTelemetry trace ID
         project_id: Project ID for access control
         organization_id: Organization ID for multi-tenant security
-        eager_load: Optional list of relationship names to eager load
+        eager_load: Optional list of relationship names to eager load. Each
+            entry may be a single name ("test_result") or a dotted chain
+            ("test_result.test_configuration.endpoint") to eager-load a
+            nested relationship in the same query.
 
     Returns:
         List of Trace models ordered by start_time
     """
     from uuid import UUID
 
-    from sqlalchemy.orm import joinedload
-
     # Convert organization_id to UUID
     org_uuid = UUID(organization_id)
 
-    query = db.query(models.Trace).filter(
-        and_(
-            models.Trace.trace_id == trace_id,
-            models.Trace.project_id == project_id,
-            models.Trace.organization_id == org_uuid,
+    builder = QueryBuilder(db, models.Trace).with_custom_filter(
+        lambda q: q.filter(
+            and_(
+                models.Trace.trace_id == trace_id,
+                models.Trace.project_id == project_id,
+                models.Trace.organization_id == org_uuid,
+            )
         )
     )
 
     # Add eager loading if specified
     if eager_load:
-        for relationship in eager_load:
-            query = query.options(joinedload(getattr(models.Trace, relationship)))
+        options = [
+            include(*resolve_chain(models.Trace, relationship.split(".")))
+            for relationship in eager_load
+        ]
+        builder = builder.with_related(*options)
 
-    return query.order_by(models.Trace.start_time).all()
+    return builder.with_sorting(sort_by="start_time").all()
 
 
 def get_trace_id_for_conversation(

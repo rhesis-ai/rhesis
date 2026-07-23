@@ -216,6 +216,7 @@ export default function TestsTable({
 
   const {
     filterModel,
+    gridFilterModel,
     paginationModel,
     sortModel,
     setPaginationModel,
@@ -722,7 +723,7 @@ export default function TestsTable({
       const clientFactory = new ApiClientFactory();
       const testsClient = clientFactory.getTestsClient();
 
-      await Promise.all(idsToDelete.map(id => testsClient.deleteTest(id)));
+      await testsClient.bulkDeleteTests(idsToDelete);
 
       notifications.show(
         `Successfully deleted ${idsToDelete.length} ${idsToDelete.length === 1 ? 'test' : 'tests'}`,
@@ -881,7 +882,7 @@ export default function TestsTable({
             totalRows={totalCount}
             pageSizeOptions={[10, 25, 50]}
             serverSideFiltering={true}
-            filterModel={filterModel}
+            filterModel={gridFilterModel}
             onFilterModelChange={handleFilterModelChange}
             sortingMode="server"
             sortModel={sortModel}

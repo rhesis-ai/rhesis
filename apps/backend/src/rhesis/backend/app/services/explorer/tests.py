@@ -11,10 +11,12 @@ from rhesis.backend.app.constants import ADAPTIVE_TESTING_BEHAVIOR
 from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.services.test import create_test_set_associations
 from rhesis.backend.app.utils.crud_utils import (
+    bulk_delete_by_ids,
     get_or_create_behavior,
     get_or_create_topic,
     get_or_create_type_lookup,
 )
+from rhesis.backend.app.utils.query_utils import QueryBuilder
 from rhesis.sdk.adaptive_testing.schemas import TestTreeNode, TopicNode
 
 from .topics import create_topic_node
@@ -229,6 +231,43 @@ def delete_explorer_test_set(
     if deleted is None:
         raise ValueError("Test set not found with provided identifier")
     return payload
+
+
+def bulk_delete_explorer_test_sets(
+    db: Session,
+    test_set_ids: List[UUID],
+    organization_id: str,
+    user_id: str,
+) -> dict:
+    """Delete multiple Explorer test sets at once.
+
+    Any id that doesn't resolve to a test set with the Adaptive Testing
+    behavior is reported back in "not_found_ids" rather than deleted -- same
+    guard delete_explorer_test_set() enforces per-item, applied to the batch
+    up front so bulk_delete_by_ids() only ever touches valid ids.
+    """
+    if not test_set_ids:
+        return {"deleted_ids": [], "not_found_ids": []}
+
+    candidates = (
+        QueryBuilder(db, models.TestSet)
+        .with_organization_filter(organization_id)
+        .with_custom_filter(lambda q: q.filter(models.TestSet.id.in_(test_set_ids)))
+        .all()
+    )
+    valid_ids = [ts.id for ts in candidates if _is_explorer_test_set(ts)]
+
+    result = bulk_delete_by_ids(
+        db,
+        models.TestSet,
+        valid_ids,
+        organization_id=organization_id,
+        user_id=user_id,
+    )
+    valid_id_strs = {str(i) for i in valid_ids}
+    skipped_ids = [str(i) for i in test_set_ids if str(i) not in valid_id_strs]
+    result["not_found_ids"] = result["not_found_ids"] + skipped_ids
+    return result
 
 
 def _unique_explorer_import_name(db: Session, organization_id: str, base_name: str) -> str:

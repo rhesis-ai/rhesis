@@ -7,7 +7,6 @@ import {
 
 export const TEST_DRAWER_FILTER_FIELDS = [
   'test_type.type_value',
-  'status.name',
   'behavior.name',
   'category.name',
   'topic.name',
@@ -21,7 +20,12 @@ export function applyQuickFilterToModel(
   const items = searchQuery
     ? [
         ...otherItems,
-        { field: 'quickFilter', operator: 'contains', value: searchQuery },
+        {
+          id: 'quickFilter',
+          field: 'quickFilter',
+          operator: 'contains',
+          value: searchQuery,
+        },
       ]
     : otherItems;
   return { ...prev, items };
@@ -39,6 +43,7 @@ export function applyTestTypeFilterToModel(
       ? [
           ...otherItems,
           {
+            id: 'test_type.type_value',
             field: 'test_type.type_value',
             operator: 'equals',
             value: typeFilter,
@@ -64,20 +69,15 @@ export function applyTestDrawerFiltersToModel(
 
   if (drawerFilters.testType) {
     drawerItems.push({
+      id: 'test_type.type_value',
       field: 'test_type.type_value',
       operator: 'equals',
       value: drawerFilters.testType,
     });
   }
-  if (drawerFilters.status) {
-    drawerItems.push({
-      field: 'status.name',
-      operator: 'equals',
-      value: drawerFilters.status,
-    });
-  }
   if (drawerFilters.behavior) {
     drawerItems.push({
+      id: 'behavior.name',
       field: 'behavior.name',
       operator: 'equals',
       value: drawerFilters.behavior,
@@ -85,6 +85,7 @@ export function applyTestDrawerFiltersToModel(
   }
   if (drawerFilters.category) {
     drawerItems.push({
+      id: 'category.name',
       field: 'category.name',
       operator: 'equals',
       value: drawerFilters.category,
@@ -92,6 +93,7 @@ export function applyTestDrawerFiltersToModel(
   }
   if (drawerFilters.topic) {
     drawerItems.push({
+      id: 'topic.name',
       field: 'topic.name',
       operator: 'equals',
       value: drawerFilters.topic,

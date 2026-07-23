@@ -35,6 +35,7 @@ jobs:
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
         packages-dir: ./packages/rhesis/dist/
+        skip-existing: true
 
   publish-sdk:
     needs: publish-rhesis
@@ -61,3 +62,4 @@ jobs:
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
         packages-dir: ./sdk/dist/
+        skip-existing: true

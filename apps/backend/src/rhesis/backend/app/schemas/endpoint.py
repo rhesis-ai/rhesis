@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import UUID4, BaseModel, ConfigDict, field_validator
@@ -228,6 +229,9 @@ class Endpoint(Base):
     status_id: Optional[UUID4] = None
     user_id: Optional[UUID4] = None
     organization_id: Optional[UUID4] = None
+
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     # Tracing control
     disable_tracing: bool = False
