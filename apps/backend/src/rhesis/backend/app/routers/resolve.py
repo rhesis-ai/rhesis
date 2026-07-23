@@ -1,9 +1,22 @@
 """Cross-project entity resolution endpoint.
 
 When a user follows a shared link to an entity that belongs to a different
-project than their currently active one, the auto-filter returns 404. This
-endpoint lets the frontend discover the entity's actual project so it can
-offer a "switch project" prompt instead of a confusing "Not Found" page.
+project than their currently active one, the auto-filter (and Postgres RLS)
+returns 404. This endpoint discovers which of the caller's *other* projects
+contains the entity so the frontend can offer a "switch project" prompt
+instead of a confusing "Not Found" page.
+
+It probes each project the caller is a member of under that project's own
+scope. Postgres ``FORCE ROW LEVEL SECURITY`` on project-scoped tables cannot
+be bypassed from the non-privileged app role, so the ORM-level
+``bypass_tenant_filter()`` is not sufficient on its own — probing under a real
+project scope is the only cross-project lookup available to the app role.
+
+Probing is sequential with early exit rather than parallel: each probe needs a
+distinct ``app.current_project`` GUC, which is transaction-scoped, so parallel
+probes would need separate connections (fanning out the small engine pool and
+breaking the savepoint-isolated test harness) for no real gain — the lookups
+are indexed primary-key hits on a rare, only-on-404 endpoint.
 """
 
 import uuid
@@ -14,12 +27,12 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.exc import UnmappedClassError
 
-from rhesis.backend.app import models
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
+from rhesis.backend.app.database import temporary_project_scope
 from rhesis.backend.app.dependencies import get_project_context, get_tenant_db_session
 from rhesis.backend.app.models.base import Base
 from rhesis.backend.app.models.user import User
-from rhesis.backend.app.scope import bypass_tenant_filter
+from rhesis.backend.app.services.project_membership import list_other_member_projects
 
 router = APIRouter(prefix="/resolve", tags=["resolve"])
 
@@ -70,6 +83,29 @@ class ResolvedEntity(BaseModel):
     project_name: str | None = None
 
 
+def _entity_visible_in_project(
+    db: Session,
+    model_cls: type,
+    entity_id: uuid.UUID,
+    organization_id: str,
+    user_id: str,
+    project_id: str,
+) -> bool:
+    """Return True if the entity is visible (and not soft-deleted) with the
+    session temporarily scoped to ``project_id``.
+
+    ``temporary_project_scope`` sets ``app.current_project`` on the request
+    connection and restores the caller's original scope on exit. Scoping to a
+    real project is what makes the lookup correct under RLS: the row is only
+    visible when ``app.current_project`` matches the entity's project.
+    """
+    with temporary_project_scope(db, organization_id, user_id, project_id):
+        query = db.query(model_cls).filter(model_cls.id == entity_id)
+        if hasattr(model_cls, "deleted_at"):
+            query = query.filter(model_cls.deleted_at.is_(None))
+        return query.first() is not None
+
+
 @router.get("", response_model=ResolvedEntity)
 def resolve_entity(
     entity_type: str,
@@ -78,13 +114,13 @@ def resolve_entity(
     project_id: str | None = Depends(get_project_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """Resolve an entity across projects within the caller's organization.
+    """Resolve an entity across the caller's *other* projects.
 
-    Returns one of three resolutions:
-    - ``switchable``: entity is in a different project the caller can access
-    - ``no_access``: entity exists but the caller lacks project membership
-      (project details are withheld)
-    - 404: entity does not exist, is deleted, or belongs to another org
+    Returns ``switchable`` with the target project when the entity lives in a
+    project the caller is a member of; otherwise 404. Entities in projects the
+    caller cannot access are indistinguishable from non-existent ones by
+    design — the app role cannot see them under RLS, and not revealing their
+    existence is the safer behavior.
     """
     model_cls = get_resolvable_entities().get(entity_type)
     if model_cls is None:
@@ -96,62 +132,20 @@ def resolve_entity(
     organization_id = str(current_user.organization_id)
     user_id = str(current_user.id)
 
-    with bypass_tenant_filter():
-        entity = (
-            db.query(model_cls)
-            .filter(
-                model_cls.id == entity_id,
-                model_cls.organization_id == organization_id,
+    candidates = list_other_member_projects(db, organization_id, user_id, project_id)
+
+    # Probe candidate projects one at a time, stopping at the first match. A
+    # UUID PK is globally unique, so at most one project can contain the entity.
+    for candidate_project_id, candidate_project_name in candidates:
+        if _entity_visible_in_project(
+            db, model_cls, entity_id, organization_id, user_id, candidate_project_id
+        ):
+            return ResolvedEntity(
+                resolution="switchable",
+                entity_type=entity_type,
+                entity_id=str(entity_id),
+                project_id=candidate_project_id,
+                project_name=candidate_project_name,
             )
-            .first()
-        )
 
-    if entity is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
-
-    if hasattr(entity, "deleted_at") and entity.deleted_at is not None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
-
-    entity_project_id = str(entity.project_id) if entity.project_id else None
-
-    if entity_project_id is None or entity_project_id == (project_id or ""):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
-
-    with bypass_tenant_filter():
-        membership = (
-            db.query(models.ProjectMembership)
-            .filter(
-                models.ProjectMembership.user_id == user_id,
-                models.ProjectMembership.project_id == entity_project_id,
-                models.ProjectMembership.organization_id == organization_id,
-            )
-            .first()
-        )
-
-    if membership is None:
-        return ResolvedEntity(
-            resolution="no_access",
-            entity_type=entity_type,
-            entity_id=str(entity_id),
-        )
-
-    with bypass_tenant_filter():
-        project = (
-            db.query(models.Project)
-            .filter(
-                models.Project.id == entity_project_id,
-                models.Project.organization_id == organization_id,
-            )
-            .first()
-        )
-
-    if project is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
-
-    return ResolvedEntity(
-        resolution="switchable",
-        entity_type=entity_type,
-        entity_id=str(entity_id),
-        project_id=str(project.id),
-        project_name=project.name,
-    )
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
