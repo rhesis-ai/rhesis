@@ -217,9 +217,7 @@ export default function ExplorerGrid({
     try {
       setIsDeleting(true);
       const client = new ApiClientFactory().getExplorerClient();
-      await Promise.all(
-        selectedRows.map(id => client.deleteExplorerTestSet(String(id)))
-      );
+      await client.bulkDeleteExplorerTestSets(selectedRows.map(String));
 
       notifications.show(
         `Successfully deleted ${selectedRows.length} ${selectedRows.length === 1 ? 'session' : 'sessions'}`,
