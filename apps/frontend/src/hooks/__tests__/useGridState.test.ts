@@ -7,7 +7,7 @@ import { combineTestFiltersToOData } from '@/utils/odata-filter';
 
 describe('useGridState', () => {
   it('keeps search when drawer filters are applied first', () => {
-    const drawerFilters = { ...EMPTY_TEST_FILTERS, status: 'Active' };
+    const drawerFilters = { ...EMPTY_TEST_FILTERS, behavior: 'Active' };
 
     const { result, rerender } = renderHook(
       ({
@@ -32,7 +32,7 @@ describe('useGridState', () => {
 
     expect(result.current.filterModel.items).toEqual([
       {
-        field: 'status.name',
+        field: 'behavior.name',
         operator: 'equals',
         value: 'Active',
       },
@@ -48,7 +48,7 @@ describe('useGridState', () => {
           value: 'refund',
         },
         {
-          field: 'status.name',
+          field: 'behavior.name',
           operator: 'equals',
           value: 'Active',
         },
@@ -130,7 +130,7 @@ describe('useGridState', () => {
   });
 
   it('drops stale column filters when the same field becomes toolbar-managed', () => {
-    const drawerFilters = { ...EMPTY_TEST_FILTERS, status: 'Active' };
+    const drawerFilters = { ...EMPTY_TEST_FILTERS, behavior: 'Active' };
 
     const { result, rerender } = renderHook(
       ({
@@ -157,7 +157,7 @@ describe('useGridState', () => {
       result.current.handleFilterModelChange({
         items: [
           {
-            field: 'status.name',
+            field: 'behavior.name',
             operator: 'equals',
             value: 'Draft',
           },
@@ -167,7 +167,7 @@ describe('useGridState', () => {
 
     expect(result.current.filterModel.items).toEqual([
       {
-        field: 'status.name',
+        field: 'behavior.name',
         operator: 'equals',
         value: 'Draft',
       },
@@ -177,7 +177,7 @@ describe('useGridState', () => {
 
     expect(result.current.filterModel.items).toEqual([
       {
-        field: 'status.name',
+        field: 'behavior.name',
         operator: 'equals',
         value: 'Active',
       },
@@ -188,7 +188,7 @@ describe('useGridState', () => {
     const drawerFilters = {
       ...EMPTY_TEST_FILTERS,
       behavior: 'Accuracy Testing',
-      status: 'New',
+      category: 'New',
     };
 
     const { result } = renderHook(() =>
