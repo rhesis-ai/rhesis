@@ -99,7 +99,16 @@ flowchart LR
 
 **Callback-based (LangChain/LangGraph):** the SDK registers a global callback handler that intercepts `on_chat_model_start`, `on_tool_start`, `on_chain_start`, and equivalents, creating properly-nested Rhesis-convention spans directly. LangGraph reuses the LangChain callback rather than creating its own, so `auto_instrument("langgraph")` alone already covers chains, tools, and LLM calls invoked from graph nodes.
 
-**Span-translating (MAF/Pydantic AI):** these frameworks already emit standard OpenTelemetry GenAI spans (`gen_ai.*`). The SDK wraps the OTLP exporter with a translating exporter that rewrites span names and attributes into the Rhesis `ai.*` schema at export time, and synthesizes `ai.agent.handoff` spans from `handoff_to_*` tool-call patterns.
+**Span-translating (MAF/Pydantic AI):** these frameworks already emit standard OpenTelemetry GenAI spans (`gen_ai.*`). The SDK wraps the OTLP exporter with a translating exporter that rewrites span names and attributes into the Rhesis `ai.*` schema at export time.
+
+- Microsoft Agent Framework handoffs are recognized from `handoff_to_*` tool-call spans.
+- Pydantic AI handoffs are recognized when one agent invokes another within a tool call. Native instrumentation covers `run()`, `run_sync()`, and `run_stream()`, including model and tool spans.
+
+<Callout type="info">
+  Pydantic AI tracing uses instrumentation schema version 5 and never records binary
+  attachment content. Set `RHESIS_DISABLE_CONTENT_CAPTURE=1` before creating the
+  client to omit prompts, completions, and tool payloads as well.
+</Callout>
 
 ## Combining with Decorators
 
