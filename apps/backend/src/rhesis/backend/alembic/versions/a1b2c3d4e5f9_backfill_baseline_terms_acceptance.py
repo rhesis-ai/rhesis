@@ -12,7 +12,7 @@ hardcoded merge date. It stamps baseline acceptance for every onboarded
 user that does not already have a terms record. New users after deploy
 must accept explicitly via onboarding / ``POST /auth/accept-terms``.
 
-Revision ID: a1b2c3d4e5f9
+Revision ID: b5c6d7e8f9a0
 Revises: d4e7f2a9c1b8
 Create Date: 2026-07-23
 """
@@ -22,7 +22,7 @@ from typing import Sequence, Union
 import sqlalchemy as sa
 from alembic import op
 
-revision: str = "a1b2c3d4e5f9"
+revision: str = "b5c6d7e8f9a0"
 down_revision: Union[str, None] = "d4e7f2a9c1b8"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None

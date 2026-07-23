@@ -5,7 +5,7 @@ is stored in ``user_settings.terms`` (``version`` + ``accepted_at``) so they
 are not prompted again until the version changes.
 
 Existing onboarded users without a terms record are backfilled once at deploy
-by alembic revision ``a1b2c3d4e5f9`` (baseline version ``1.0``). After that,
+by alembic revision ``b5c6d7e8f9a0`` (baseline version ``1.0``). After that,
 only an explicit accept or a version bump matters.
 
 Bump ``CURRENT_TERMS_VERSION`` (and ``CURRENT_TERMS_EFFECTIVE_DATE``) when
