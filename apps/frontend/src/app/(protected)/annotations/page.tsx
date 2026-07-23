@@ -44,7 +44,7 @@ export default function AnnotationsPage() {
     return (
       <PageLayout title="Annotations" breadcrumbs={[]}>
         <Box sx={{ p: 3 }}>
-          <Typography color="error">No session token available</Typography>
+          <Typography color="error">You are not signed in</Typography>
         </Box>
       </PageLayout>
     );
