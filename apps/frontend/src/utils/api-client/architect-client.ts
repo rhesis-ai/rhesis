@@ -33,7 +33,14 @@ export interface ArchitectSessionCreateRequest {
   title?: string;
   /**
    * When set, the backend persists this as the first user message and starts
-   * the Architect Celery task immediately (contextual handoff).
+   * the Architect Celery task immediately.
+   *
+   * WARNING: do NOT use this for new-tab / handoff flows. The turn starts at
+   * creation time, before the opened tab connects and subscribes to
+   * `architect:{id}`, so the streaming events are missed and the Architect
+   * appears idle until the user sends another message. Handoffs stash the
+   * first message and send it over the WebSocket once connected instead — see
+   * `createAndOpenArchitectSession` in `utils/architect-handoff.ts`.
    */
   initial_message?: string;
 }
