@@ -130,7 +130,9 @@ export default function EndpointTestTab() {
           (typeof data.output === 'string' && data.output) ||
           'Endpoint invocation failed';
         setStatusCode(
-          typeof data.status_code === 'number' ? String(data.status_code) : ''
+          typeof data.status_code === 'number'
+            ? String(data.status_code)
+            : 'error'
         );
         setError(message);
         return;
