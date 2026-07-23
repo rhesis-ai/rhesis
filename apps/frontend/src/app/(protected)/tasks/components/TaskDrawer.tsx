@@ -35,7 +35,6 @@ export interface TaskDrawerInitialEntity {
 interface TaskDrawerProps {
   open: boolean;
   onClose: () => void;
-  sessionToken: string;
   initialEntity?: TaskDrawerInitialEntity;
   onSuccess?: () => void;
 }
@@ -43,7 +42,6 @@ interface TaskDrawerProps {
 export default function TaskDrawer({
   open,
   onClose,
-  sessionToken,
   initialEntity,
   onSuccess,
 }: TaskDrawerProps) {
@@ -75,10 +73,10 @@ export default function TaskDrawer({
       try {
         const [fetchedStatuses, fetchedPriorities, fetchedUsers] =
           await Promise.all([
-            getStatuses(sessionToken),
-            getPriorities(sessionToken),
+            getStatuses(),
+            getPriorities(),
             (async () => {
-              const clientFactory = new ApiClientFactory(sessionToken);
+              const clientFactory = new ApiClientFactory();
               const usersClient = clientFactory.getUsersClient();
               const response = await usersClient.getUsers();
               return response.data;
@@ -107,7 +105,7 @@ export default function TaskDrawer({
     };
 
     loadData();
-  }, [open, sessionToken, show]);
+  }, [open, show]);
 
   const handleSave = async () => {
     const trimmedTitle = title.trim();

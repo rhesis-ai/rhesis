@@ -2,16 +2,13 @@
 
 import * as React from 'react';
 import Box from '@mui/material/Box';
-import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
-import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined';
 import { useSession } from 'next-auth/react';
 import { useSearchParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { taskKeys } from '@/constants/query-keys';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
-import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { Can, useCan, useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import AccessDenied from '@/components/common/AccessDenied';
@@ -21,26 +18,23 @@ import TaskDrawer, {
   type TaskDrawerInitialEntity,
 } from './components/TaskDrawer';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
-import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import { EntityType } from '@/types/tasks';
+import { isAuthenticated, isSessionLoading } from '@/hooks/useIsAuthenticated';
 
 export default function TasksPage() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const queryClient = useQueryClient();
   const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
     Capability.Task.READ
   );
   const canCreateTask = useCan(Capability.Task.CREATE);
   const searchParams = useSearchParams();
-  const [taskCount, setTaskCount] = React.useState<number | null>(null);
   const [createDrawerOpen, setCreateDrawerOpen] = React.useState(false);
   const [initialEntity, setInitialEntity] = React.useState<
     TaskDrawerInitialEntity | undefined
   >();
 
   useDocumentTitle('Tasks');
-
-  const sessionToken = session?.session_token ?? '';
 
   React.useEffect(() => {
     const shouldOpen = searchParams.get('create') === 'true';
@@ -86,7 +80,7 @@ export default function TasksPage() {
     setInitialEntity(undefined);
   }, []);
 
-  if (status === 'loading') {
+  if (isSessionLoading(status)) {
     return (
       <PageLayout title="Tasks" breadcrumbs={[]}>
         <Box sx={{ p: 3 }}>
@@ -99,7 +93,7 @@ export default function TasksPage() {
   if (permsLoading) return <PageLoadingState />;
   if (!canRead) return <AccessDenied resource="tasks" />;
 
-  if (!sessionToken) {
+  if (!isAuthenticated(status)) {
     return (
       <PageLayout title="Tasks" breadcrumbs={[]}>
         <Box sx={{ p: 3 }}>
@@ -132,44 +126,19 @@ export default function TasksPage() {
         }
       >
         <Box sx={{ mt: 2, mb: 2 }}>
-          {taskCount === 0 ? (
-            <EntityEmptyState
-              icon={AssignmentOutlinedIcon}
-              title="No tasks yet"
-              description="Create tasks to track follow-ups, issues, and action items from tests and evaluations."
-              actionLabel={canCreateTask ? 'Create task' : undefined}
-              onAction={
-                canCreateTask
-                  ? () => {
-                      setInitialEntity(undefined);
-                      setCreateDrawerOpen(true);
-                    }
-                  : undefined
-              }
-            />
-          ) : (
-            <Paper
-              sx={{
-                width: '100%',
-                borderRadius: BORDER_RADIUS.md,
-                boxShadow: ELEVATION.xs,
-                border: theme => `1px solid ${theme.palette.greyscale.border}`,
-                overflow: 'hidden',
-              }}
-            >
-              <TasksGrid
-                sessionToken={sessionToken}
-                onTotalCountChange={setTaskCount}
-              />
-            </Paper>
-          )}
+          <TasksGrid
+            canCreate={canCreateTask}
+            onCreateClick={() => {
+              setInitialEntity(undefined);
+              setCreateDrawerOpen(true);
+            }}
+          />
         </Box>
       </PageLayout>
 
       <TaskDrawer
         open={createDrawerOpen}
         onClose={handleCloseDrawer}
-        sessionToken={sessionToken}
         initialEntity={initialEntity}
         onSuccess={handleCreateSuccess}
       />

@@ -1,10 +1,7 @@
 # Test Runs
 
-View execution results when you run a test set against an endpoint. Each test run contains all individual test results with detailed metrics, conversation history, and performance data.
+A test run is created when you execute a test set against an endpoint. It captures all individual test results with detailed metrics, conversation history, execution metadata, and performance data for analysis.
 
-<Callout type="default">
-  **What are Test Runs?** A test run is created when you execute a test set against an endpoint. It captures all test results, execution metadata, and evaluation metrics for analysis.
-</Callout>
 ![Test Runs Page](/screenshots/rhesis-ai-test-runs.png)
 
 By clicking on a test run, you'll see the overview of how the test run went. From here you can:
@@ -39,7 +36,7 @@ The Test Run detail page displays an **Experiment** card showing the experiment 
 
 Because Test Results inherit this snapshot from their parent test run, there is no need to track configurations on a per-result basis. The test-runs list page also includes an Experiment filter to help you slice historical results by configuration.
 
-## Multi-turn Result Details (v0.6.7+)
+## Multi-turn Result Details
 
 For multi-turn tests, the run detail includes conversation-specific execution data:
 
@@ -49,7 +46,7 @@ For multi-turn tests, the run detail includes conversation-specific execution da
 - **Conversation-linked trace access**: Open the trace drawer to inspect tree, sequence, graph,
   and conversation views for the related trace
 
-## Cancel In-Progress Test Runs (v0.6.12+)
+## Cancel In-Progress Test Runs
 
 You can cancel runs that are still waiting or running:
 
@@ -87,7 +84,7 @@ Reviews allow human evaluators to validate or override automated test evaluation
    - **Fail**: The test fails the metric
 4. Add a comment explaining your review decision
 
-### Review targets and override behavior (v0.6.9+)
+### Review targets and override behavior
 
 Reviews can now target different parts of a test result, not only the overall result.
 
@@ -130,43 +127,11 @@ Use filters to focus on specific changes:
 
 ## Test Run Metrics
 
-When a test run executes, Rhesis evaluates each test against a set of metrics. The metrics used follow a priority hierarchy that allows flexibility at different levels.
+Each test result records the metrics it was evaluated against. Which metrics run is resolved from a priority hierarchy (execution-time → test set → behavior) configured when you start the run. See [Test Execution](/docs/test-runs/execution#test-run-metrics) for how to set metrics at each level.
 
-### Metrics Resolution Hierarchy
+## Next steps
 
-Rhesis resolves which metrics to use based on the following priority order:
-
-| Priority | Source | Description |
-|----------|--------|-------------|
-| 1 (Highest) | **Execution-time metrics** | Metrics specified when triggering the test run. These completely override all other metric configurations. |
-| 2 | **Test set metrics** | Metrics configured on the test set entity. Override behavior-level defaults. |
-| 3 (Lowest) | **Behavior metrics** | Default metrics defined at the behavior level for each test. |
-
-<Callout type="info">
-  Execution-time metrics completely override other levels. There is no merging of metrics between levels.
-</Callout>
-
-### Specifying Execution-time Metrics
-
-When executing a test set from the UI:
-
-1. Open the **Execute Test Set** drawer from a test set detail page
-2. In the **Test Run Metrics** section, select "Define metrics for this execution"
-3. Click **Add Metric** to select which metrics to use
-4. Only metrics applicable to your test set type (Single-Turn or Multi-Turn) will be shown
-
-<Callout type="warning">
-  Execution-time metrics only apply to that specific test run. They are not saved to the test set configuration.
-</Callout>
-
-### When to Use Each Level
-
-- **Behavior metrics**: Set default evaluation criteria for all tests with a specific behavior. This is the most common configuration.
-- **Test set metrics**: Override defaults for specialized test sets, such as Garak security tests that use detector metrics.
-- **Execution-time metrics**: Quick validation with specific metrics without modifying test set configuration. Useful for one-off experiments or A/B testing different evaluation criteria.
-
----
-
-<Callout type="default">
-  **Next Steps** - Review failed tests to understand issues - Compare against baseline runs to detect regressions - Add human reviews to test results - Export results for reporting or analysis
-</Callout>
+- Review failed tests to understand issues
+- Compare against baseline runs to detect regressions
+- Add human reviews to test results
+- Export results for reporting or analysis

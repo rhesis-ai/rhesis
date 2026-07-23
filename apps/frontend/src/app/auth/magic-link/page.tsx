@@ -41,10 +41,9 @@ export default function MagicLinkPage() {
           throw new Error(data.detail || 'Magic link verification failed');
         }
 
-        if (data.session_token) {
+        if (data.auth_code) {
           const result = await signIn('credentials', {
-            session_token: data.session_token,
-            refresh_token: data.refresh_token || '',
+            code: data.auth_code,
             redirect: false,
           });
 
@@ -59,7 +58,7 @@ export default function MagicLinkPage() {
           return;
         }
 
-        throw new Error('No session token received');
+        throw new Error('No auth code received');
       } catch (err) {
         setStatus('error');
         setMessage(err instanceof Error ? err.message : 'Sign-in failed');
@@ -105,11 +104,11 @@ export default function MagicLinkPage() {
             sx={{
               mt: 1,
               height: 46,
-              borderRadius: '10px',
+              borderRadius: '10px', // Intentional: button border radius
               bgcolor: 'primary.main',
               '&:hover': {
                 bgcolor: BUTTON_HOVER,
-                boxShadow: '0 4px 12px rgba(80,185,224,0.3)',
+                boxShadow: '0 4px 12px rgba(80,185,224,0.3)', // Intentional: button hover glow
               },
             }}
           >

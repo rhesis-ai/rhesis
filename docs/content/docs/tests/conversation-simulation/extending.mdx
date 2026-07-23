@@ -2,11 +2,9 @@ import { CodeBlock } from "@/components/CodeBlock";
 
 # Extending Penelope
 
-Understand Penelope's architecture and learn how to extend it with custom tools for specialized testing needs.
+Understand Penelope's architecture and extend it with custom tools for specialized testing needs.
 
 ## Architecture Overview
-
-Penelope follows a clean, modular architecture designed for extensibility and reliability.
 
 <CodeBlock filename="Architecture" isTerminal={true}>
   {`┌─────────────────────────────────────────┐
@@ -327,7 +325,7 @@ IMPORTANT:
 
 ## Multiple Custom Tools
 
-Add multiple tools for comprehensive testing:
+Add multiple tools to cover more of the system in one test:
 
 <CodeBlock filename="multiple_tools.py" language="python">
 {`db_tool = DatabaseVerificationTool(db_path="test.db")
@@ -431,14 +429,6 @@ def test_database_tool_missing_params():
 
 </CodeBlock>
 
-## Design Principles
-
-1. **Modularity** - Clear separation of concerns (agent, executor, evaluator, tools)
-2. **Extensibility** - Easy to add custom tools and targets
-3. **Observability** - Full transparency into reasoning and execution
-4. **Type Safety** - Pydantic validation throughout
-5. **Provider Agnostic** - Works with any LLM provider
-
 ## Real-World Examples
 
 See complete implementations in the [examples directory](https://github.com/rhesis-ai/rhesis/tree/main/penelope/examples):
@@ -447,9 +437,7 @@ See complete implementations in the [examples directory](https://github.com/rhes
 - **batch_testing.py** - Batch test runner tool
 - **platform_integration.py** - TestSet loader tool
 
----
+## Next steps
 
-<Callout type="default">
-  **Next:** Check out [Examples](/conversation-simulation/examples) to see custom tools in
-  action, or learn about [Configuration](/conversation-simulation/configuration) options.
-</Callout>
+- See [Examples](/docs/tests/conversation-simulation/examples) for custom tools in action
+- Review [Configuration](/docs/tests/conversation-simulation/configuration) options

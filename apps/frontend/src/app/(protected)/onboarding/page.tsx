@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function OnboardingPage() {
   const session = await auth();
-  if (!session?.session_token) {
+  if (!session || session.error) {
     throw new Error('No session token available');
   }
 
@@ -20,7 +20,6 @@ export default async function OnboardingPage() {
 
   return (
     <OnboardingPageClient
-      sessionToken={session.session_token}
       userId={session.user.id as UUID}
       videoUrl={videoUrl}
     />

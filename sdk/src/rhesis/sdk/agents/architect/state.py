@@ -21,6 +21,7 @@ class ArchitectAgentStateSnapshot(BaseModel):
     """
 
     mode: str = "discovery"
+    workflow_path: str = "unset"
     conversation_history: List[Dict[str, Any]] = Field(default_factory=list)
     discovery_state: Dict[str, Any] = Field(default_factory=dict)
     guard_state: Dict[str, Any] = Field(default_factory=dict)

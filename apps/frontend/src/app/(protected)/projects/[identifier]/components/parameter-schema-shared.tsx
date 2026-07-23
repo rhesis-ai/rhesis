@@ -167,7 +167,7 @@ export function stripKeys(draft: FieldRowState[]): ParameterField[] {
  * Owns the parameter-schema draft + server reconciliation lifecycle so
  * the different visual variants only render UI.
  */
-export function useParameterSchema(projectId: string, sessionToken: string) {
+export function useParameterSchema(projectId: string) {
   const notifications = useNotifications();
 
   const [serverSchema, setServerSchema] = useState<ParameterSchema | null>(
@@ -178,10 +178,7 @@ export function useParameterSchema(projectId: string, sessionToken: string) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const apiFactory = useMemo(
-    () => new ApiClientFactory(sessionToken),
-    [sessionToken]
-  );
+  const apiFactory = useMemo(() => new ApiClientFactory(), []);
 
   const fetchSchema = useCallback(async () => {
     setLoading(true);

@@ -25,6 +25,56 @@ T = TypeVar("T")
 _MAX_EAGER_LOADS_WARN = 12
 
 
+def _resolve_chain(model: Type, names: list) -> tuple:
+    """Resolve a runtime ``[name, ...]`` relationship-name chain into a tuple of
+    real attributes, one per hop, starting from ``model``.
+
+    Used where relationship names are only known dynamically per-model (e.g.
+    ``with_default_derived_field_loads``, which runs across every model), so a
+    static ``Model.attr`` reference isn't available at the call site.
+    """
+    attrs = []
+    current_model = model
+    for name in names:
+        attrs.append(getattr(current_model, name))
+        rel_prop = inspect(current_model).relationships.get(name)
+        if rel_prop is not None:
+            current_model = rel_prop.mapper.class_
+    return tuple(attrs)
+
+
+def include(*path, cols: list | None = None):
+    """Build one eager-load option for ``QueryBuilder.with_related``.
+
+    ``path`` is one or more relationship attributes forming a chain (e.g.
+    ``Test.test_configuration, TestConfiguration.endpoint``). ``joinedload`` vs.
+    ``selectinload`` is picked per hop from that relationship's own cardinality,
+    so a collection relationship can never regress into the cartesian-product
+    blowup a plain JOIN would produce (see ``_MAX_EAGER_LOADS_WARN`` below).
+    ``cols`` scopes the final hop to specific columns -- omit it (leave as
+    ``None``) to load the full related row. ``cols=[]`` is rejected outright
+    rather than silently treated as "no scoping", since that's the opposite
+    of what an empty list reads as.
+
+    Example::
+
+        include(Test.behavior, cols=[Behavior.id, Behavior.name])
+        include(Test.test_configuration, TestConfiguration.endpoint,
+                cols=[Endpoint.id, Endpoint.name])
+    """
+    if cols is not None and not cols:
+        raise ValueError(
+            "include(): cols=[] is not allowed -- omit cols to load the full "
+            "row, or pass at least one column"
+        )
+    opt = selectinload(path[0]) if path[0].property.uselist else joinedload(path[0])
+    for attr in path[1:]:
+        opt = opt.selectinload(attr) if attr.property.uselist else opt.joinedload(attr)
+    if cols is not None:
+        opt = opt.load_only(*cols)
+    return opt
+
+
 class QueryBuilder:
     """
     A flexible query builder that allows selective application of filters and transformations.
@@ -53,102 +103,29 @@ class QueryBuilder:
         self._sort_order = "asc"
         self._secondary_sort_by = None
         self._secondary_sort_order = "asc"
-        # Track explicit eager-load counts so we can warn callers who request
-        # an unreasonably large number of joins on a single query. Indexes
-        # joined and selectin separately because they have different cost
-        # profiles (joinedload multiplies rows, selectinload issues one extra
-        # SELECT per relationship).
-        self._joined_count = 0
-        self._selectin_count = 0
+        # Track eager-load count so we can warn callers who request an
+        # unreasonably large number of relationships on a single query. Not
+        # split by strategy (joined vs. selectin) -- that decision happens
+        # inside include() now, invisibly to with_related, so a joined/
+        # selectin breakdown here would just be made up.
+        self._eager_load_count = 0
 
-    def with_joined(self, *relationship_names: str) -> "QueryBuilder":
-        """Eager-load each named relationship with ``joinedload``.
+    def with_related(self, *options) -> "QueryBuilder":
+        """Eager-load each relationship option, built via ``include(...)`` (see
+        module level) -- e.g. ``include(Test.behavior, cols=[Behavior.id,
+        Behavior.name])`` or a multi-hop chain: ``include(Test.test_configuration,
+        TestConfiguration.endpoint, cols=[Endpoint.id, Endpoint.name])``.
 
-        Use this for many-to-one and one-to-one relationships, where each
-        parent row matches at most one child. Avoid joinedload on
-        relationships whose child rows carry large JSONB payloads — those
-        produce cartesian-product result sets that can be orders of
-        magnitude larger than the logical row count.
-
-        Use ``with_selectin`` for many-to-many or one-to-many.
+        A pass-through onto the query's own ``.options()`` -- all of the
+        strategy-picking and column-scoping happens in ``include()`` itself.
         """
-        if not relationship_names:
-            return self
-        unknown: List[str] = []
-        attrs: List[object] = []
-        for name in relationship_names:
-            attr = getattr(self.model, name, None)
-            if attr is None:
-                unknown.append(name)
-                continue
-            attrs.append(attr)
-        if unknown:
-            raise ValueError(
-                f"with_joined: {self.model.__name__} has no relationship(s) named {unknown!r}"
-            )
-        for attr in attrs:
-            self.query = self.query.options(joinedload(attr))
-        self._joined_count += len(attrs)
-        self._maybe_warn_load_count()
-        return self
-
-    def with_selectin(self, *relationship_names: str) -> "QueryBuilder":
-        """Eager-load each named relationship with ``selectinload``.
-
-        Use this for many-to-many or one-to-many relationships. ``selectinload``
-        issues a single follow-up ``SELECT ... WHERE parent_id IN (...)``
-        query per relationship, which avoids the cartesian-product blowup
-        that ``joinedload`` produces on collection relationships.
-        """
-        if not relationship_names:
-            return self
-        unknown: List[str] = []
-        attrs: List[object] = []
-        for name in relationship_names:
-            attr = getattr(self.model, name, None)
-            if attr is None:
-                unknown.append(name)
-                continue
-            attrs.append(attr)
-        if unknown:
-            raise ValueError(
-                f"with_selectin: {self.model.__name__} has no relationship(s) named {unknown!r}"
-            )
-        for attr in attrs:
-            self.query = self.query.options(selectinload(attr))
-        self._selectin_count += len(attrs)
-        self._maybe_warn_load_count()
-        return self
-
-    def with_selectin_chain(self, *chain: str) -> "QueryBuilder":
-        """Eager-load a chain of relationships with nested ``selectinload``.
-
-        Use this for polymorphic one-to-many collections (e.g. TagsMixin) that
-        ``with_optimized_loads`` skips because they have no ``secondary`` table.
-        Each element resolves against the target model of the previous step.
-
-        Example::
-
-            .with_selectin_chain("_tags_relationship", "tag")
-            # → selectinload(Model._tags_relationship).selectinload(TaggedItem.tag)
-        """
-        if not chain:
-            return self
-        current_model: type = self.model
-        load = None
-        for rel_name in chain:
-            rel_prop = inspect(current_model).relationships.get(rel_name)
-            if rel_prop is None:
-                raise ValueError(
-                    f"with_selectin_chain: {current_model.__name__!r} has no "
-                    f"relationship named {rel_name!r}"
-                )
-            attr = getattr(current_model, rel_name)
-            load = selectinload(attr) if load is None else load.selectinload(attr)
-            current_model = rel_prop.mapper.class_
-        if load is not None:
-            self.query = self.query.options(load)
-            self._selectin_count += 1
+        if options:
+            self.query = self.query.options(*options)
+            # Approximate: counts top-level options, not each hop of a multi-hop
+            # chain, which is enough to catch the "far too many relationships in
+            # one query" pattern that caused the 22-join blowup this guards
+            # against -- see _MAX_EAGER_LOADS_WARN above.
+            self._eager_load_count += len(options)
             self._maybe_warn_load_count()
         return self
 
@@ -156,13 +133,13 @@ class QueryBuilder:
         """Selectin-load comments/tasks/files/tags for this model, and for any
         many-to-one/one-to-one relationship whose target model also has them.
 
-        schema_factory.py nests a related model's own derived fields into the
-        response too (e.g. Test.prompt -> the nested PromptReference schema
-        also gets a "counts"/"tags" field, since Prompt has the same mixins),
-        so those need eager-loading as well -- not just this model's own. This
-        is what makes Test.prompt (near-1:1 with Test, so effectively N
-        distinct prompts per page) safe: without this, each row's prompt
-        lazy-loads its own comments/tasks/tags individually.
+        Detail response schemas nest a related model's own derived fields
+        too (e.g. Test.prompt -> the nested PromptReference schema also gets
+        a "counts"/"tags" field, since Prompt has the same mixins), so those
+        need eager-loading as well -- not just this model's own. This is what
+        makes Test.prompt (near-1:1 with Test, so effectively N distinct
+        prompts per page) safe: without this, each row's prompt lazy-loads
+        its own comments/tasks/tags individually.
 
         Checks the actual mixin class, not just attribute presence -- some
         models (e.g. User.comments, "comments authored by this user") have an
@@ -171,7 +148,8 @@ class QueryBuilder:
 
         Safe to call unconditionally -- skips models/relationships that don't
         have these mixins. Merges in any caller-supplied ``extra_chains`` too
-        (same format as ``with_selectin_chain``), deduped by full chain.
+        (each a flat ``[name, ...]`` path, e.g. ``["_tags_relationship", "tag"]``),
+        deduped by full chain.
         """
         from rhesis.backend.app.models.mixins import (
             CommentsMixin,
@@ -200,10 +178,15 @@ class QueryBuilder:
             if issubclass(self.model, mixin):
                 _add(list(chain))
         for chain in chains:
-            self.with_selectin_chain(*chain)
+            # _resolve_chain turns the runtime [name, ...] chain into a tuple of
+            # real attributes; include() picks joinedload vs. selectinload per hop
+            # from each one's own cardinality, whether the chain is a single hop
+            # (comments/tasks/files/tags) or multi-hop (_tags_relationship -> tag)
+            # -- no special-casing needed for either length.
+            self.with_related(include(*_resolve_chain(self.model, chain)))
 
         # Cascade one level into joined-in single-object relations (the ones
-        # with_optimized_loads/with_joined eager-load via joinedload) whose
+        # with_optimized_loads/with_related eager-load via joinedload) whose
         # target model also carries these mixins. These relationships are
         # already strategy=joinedload (by convention, whether set by this
         # call or by the caller) -- selectinload-ing the same attribute
@@ -230,16 +213,12 @@ class QueryBuilder:
         return self
 
     def _maybe_warn_load_count(self) -> None:
-        total = self._joined_count + self._selectin_count
-        if total >= _MAX_EAGER_LOADS_WARN:
+        if self._eager_load_count >= _MAX_EAGER_LOADS_WARN:
             logger.warning(
-                "QueryBuilder(%s) has accumulated %d eager loads "
-                "(joined=%d, selectin=%d); consider whether the response "
-                "schema actually needs all of these.",
+                "QueryBuilder(%s) has accumulated %d eager loads; consider "
+                "whether the response schema actually needs all of these.",
                 self.model.__name__,
-                total,
-                self._joined_count,
-                self._selectin_count,
+                self._eager_load_count,
             )
 
     def with_optimized_loads(

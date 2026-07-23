@@ -15,12 +15,18 @@ import { type NavigationItem, type LayoutProps } from '../../types/navigation';
 import { ActiveProjectProvider } from '@/contexts/ActiveProjectContext';
 import { OrganizationProvider } from '@/contexts/OrganizationContext';
 import { fetchQuickStartEnabled } from '@/utils/quick_start';
+import { useSessionGuard } from '@/hooks/useSessionGuard';
 // Side-effect import: pulls ee_bootstrap into the *client* bundle so
 // EE feature registrations land in the client-side registry as well as
 // the server-side one. Layout.tsx imports the same module for the
 // server bundle. Both imports are idempotent.
 import '@/ee_bootstrap';
 import '@/lib/org-settings-tabs-bootstrap';
+
+function SessionGuard({ children }: { children: React.ReactNode }) {
+  useSessionGuard();
+  return <>{children}</>;
+}
 
 function getAllSegments(items: NavigationItem[]): string[] {
   return items.reduce<string[]>((acc, item) => {
@@ -127,34 +133,35 @@ export function LayoutContent({
 
   return (
     <SessionProvider session={session} refetchOnWindowFocus={false}>
-      <AppRouterCacheProvider options={{ enableCssLayer: true }}>
-        <CssBaseline />
-        <QueryClientProvider client={queryClient}>
-          <ActiveProjectProvider initialActiveProject={initialActiveProject}>
-            <OrganizationProvider initialOrganization={initialOrganization}>
-              <NotificationProvider>
-                <OnboardingProvider>
-                  <Box sx={boxSx}>
-                    <Box sx={{ flex: 1 }}>
-                      <NavigationProvider
-                        navigation={navigation}
-                        branding={branding}
-                        session={session}
-                        authentication={authentication}
-                        theme={theme}
-                      >
-                        {children}
-                      </NavigationProvider>
+      <SessionGuard>
+        <AppRouterCacheProvider options={{ enableCssLayer: true }}>
+          <CssBaseline />
+          <QueryClientProvider client={queryClient}>
+            <ActiveProjectProvider initialActiveProject={initialActiveProject}>
+              <OrganizationProvider initialOrganization={initialOrganization}>
+                <NotificationProvider>
+                  <OnboardingProvider>
+                    <Box sx={boxSx}>
+                      <Box sx={{ flex: 1 }}>
+                        <NavigationProvider
+                          navigation={navigation}
+                          branding={branding}
+                          session={session}
+                          authentication={authentication}
+                          theme={theme}
+                        >
+                          {children}
+                        </NavigationProvider>
+                      </Box>
                     </Box>
-                  </Box>
-                  {/* Show onboarding checklist for authenticated users */}
-                  {session && isProtectedRoute && <OnboardingChecklist />}
-                </OnboardingProvider>
-              </NotificationProvider>
-            </OrganizationProvider>
-          </ActiveProjectProvider>
-        </QueryClientProvider>
-      </AppRouterCacheProvider>
+                    {session && isProtectedRoute && <OnboardingChecklist />}
+                  </OnboardingProvider>
+                </NotificationProvider>
+              </OrganizationProvider>
+            </ActiveProjectProvider>
+          </QueryClientProvider>
+        </AppRouterCacheProvider>
+      </SessionGuard>
     </SessionProvider>
   );
 }

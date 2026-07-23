@@ -303,16 +303,20 @@ class BaseAgent:
         history_window: Optional[int] = None,
         verbose: bool = False,
         prompt_templates_dir: Optional[Path] = None,
+        jinja_env: Optional[jinja2.Environment] = None,
         event_handlers: Optional[List[AgentEventHandler]] = None,
     ):
         # Template environment
         templates_dir = prompt_templates_dir or (Path(__file__).parent / "mcp" / "prompt_templates")
-        self._jinja_env = jinja2.Environment(
-            loader=jinja2.FileSystemLoader(str(templates_dir)),
-            autoescape=False,
-            trim_blocks=True,
-            lstrip_blocks=True,
-        )
+        if jinja_env is not None:
+            self._jinja_env = jinja_env
+        else:
+            self._jinja_env = jinja2.Environment(
+                loader=jinja2.FileSystemLoader(str(templates_dir)),
+                autoescape=False,
+                trim_blocks=True,
+                lstrip_blocks=True,
+            )
 
         self.model = self._resolve_model(model)
         self.system_prompt = system_prompt or self._load_default_system_prompt()

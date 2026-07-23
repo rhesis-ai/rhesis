@@ -1,12 +1,6 @@
 'use client';
 
-import React, {
-  useEffect,
-  useState,
-  useCallback,
-  useContext,
-  useMemo,
-} from 'react';
+import React, { useState, useCallback, useContext, useMemo } from 'react';
 import {
   GridColDef,
   GridFilterModel,
@@ -15,10 +9,11 @@ import {
   GridToolbarDensitySelector,
   GridToolbarExport,
 } from '@mui/x-data-grid';
-import BaseDataGrid from '@/components/common/BaseDataGrid';
+import BaseDataGrid, { GRID_PAPER_SX } from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { Source } from '@/utils/api-client/interfaces/source';
-import { Box, Chip, Typography } from '@mui/material';
+import { Box, Chip, Typography, Paper } from '@mui/material';
 import GridToolbar from '@/components/common/GridToolbar';
 import GridBadge from '@/components/common/GridBadge';
 import {
@@ -32,7 +27,7 @@ import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import styles from '@/styles/Knowledge.module.css';
 import { combineSourceFiltersToOData } from '@/utils/odata-filter';
-import { ChatIcon } from '@/components/icons';
+import { ChatIcon, MenuBookIcon } from '@/components/icons';
 import { formatFileSize, getFileExtension } from '@/constants/knowledge';
 import { formatDate } from '@/utils/date';
 import SourceFilterDrawer, {
@@ -45,10 +40,13 @@ import { useQueryClient } from '@tanstack/react-query';
 import { sourceKeys } from '@/constants/query-keys';
 import { useGridState } from '@/hooks/useGridState';
 import { useGridQuery } from '@/hooks/useGridQuery';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import GridStateGate from '@/components/common/GridStateGate';
+import EntityEmptyState from '@/components/common/EntityEmptyState';
 
 interface SourcesGridProps {
-  sessionToken: string;
-  onTotalCountChange?: (count: number) => void;
+  canCreate?: boolean;
+  onCreateClick?: () => void;
 }
 
 interface SourcesToolbarState {
@@ -98,10 +96,11 @@ function SourcesUnifiedToolbar() {
 }
 
 export default function SourcesGrid({
-  sessionToken,
-  onTotalCountChange,
+  canCreate,
+  onCreateClick,
 }: SourcesGridProps) {
   const router = useRouter();
+  const { status } = useSession();
   const notifications = useNotifications();
   const canEditSource = useCan(Capability.Source.UPDATE);
   const canDeleteSource = useCan(Capability.Source.DELETE);
@@ -179,7 +178,7 @@ export default function SourcesGrid({
     ),
     errorFallbackMessage: 'Failed to load knowledge sources',
     queryFn: () => {
-      const client = new ApiClientFactory(sessionToken).getSourcesClient();
+      const client = new ApiClientFactory().getSourcesClient();
       return client.getSources({
         skip: paginationModel.page * paginationModel.pageSize,
         limit: paginationModel.pageSize,
@@ -188,27 +187,11 @@ export default function SourcesGrid({
         ...(filterString && { $filter: filterString }),
       });
     },
-    enabled: !!sessionToken,
+    enabled: isAuthenticated(status),
   });
 
   const sources = sourcesData?.data ?? [];
   const totalCount = sourcesData?.pagination.totalCount ?? 0;
-
-  useEffect(() => {
-    if (!sourcesData) return;
-    const filtersActive =
-      filterModel.items.length > 0 ||
-      !!searchQuery ||
-      hasActiveSourceFilters(drawerFilters);
-    if (!filtersActive) onTotalCountChange?.(totalCount);
-  }, [
-    sourcesData,
-    filterModel.items.length,
-    searchQuery,
-    drawerFilters,
-    onTotalCountChange,
-    totalCount,
-  ]);
 
   // Handle row click to navigate to preview
   const handleRowClick = useCallback(
@@ -229,7 +212,7 @@ export default function SourcesGrid({
 
     try {
       setIsDeleting(true);
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const sourcesClient = clientFactory.getSourcesClient();
 
       await sourcesClient.deleteSource(
@@ -506,48 +489,71 @@ export default function SourcesGrid({
     );
   }
 
+  const filtersActive =
+    filterModel.items.length > 0 ||
+    !!searchQuery ||
+    hasActiveSourceFilters(drawerFilters);
+
   return (
-    <SourcesToolbarContext.Provider value={toolbarContextValue}>
-      <BaseDataGrid
-        columns={columns}
-        rows={sources}
-        loading={loading}
-        getRowId={row => row.id}
-        showToolbar={true}
-        paginationModel={paginationModel}
-        onPaginationModelChange={handlePaginationModelChange}
-        filterModel={filterModel}
-        onFilterModelChange={handleFilterModelChange}
-        sortModel={sortModel}
-        onSortModelChange={handleSortModelChange}
-        serverSidePagination={true}
-        serverSideFiltering={true}
-        sortingMode="server"
-        totalRows={totalCount}
-        pageSizeOptions={[10, 25, 50]}
-        disablePaperWrapper={true}
-        onRowClick={handleRowClick}
-        toolbarSlot={SourcesUnifiedToolbar}
-        persistState
-        sx={rowActionsHoverSx}
-      />
+    <GridStateGate
+      data={sourcesData}
+      error={error}
+      isEmpty={totalCount === 0 && !filtersActive}
+      emptyState={
+        <EntityEmptyState
+          card
+          icon={MenuBookIcon}
+          title="No knowledge sources yet"
+          description="Upload files or import from tool connections to use as context for test generation and evaluation."
+          actionLabel={canCreate ? 'Upload source' : undefined}
+          onAction={canCreate ? onCreateClick : undefined}
+        />
+      }
+    >
+      <Paper sx={GRID_PAPER_SX}>
+        <SourcesToolbarContext.Provider value={toolbarContextValue}>
+          <BaseDataGrid
+            columns={columns}
+            rows={sources}
+            loading={loading}
+            getRowId={row => row.id}
+            showToolbar={true}
+            paginationModel={paginationModel}
+            onPaginationModelChange={handlePaginationModelChange}
+            filterModel={filterModel}
+            onFilterModelChange={handleFilterModelChange}
+            sortModel={sortModel}
+            onSortModelChange={handleSortModelChange}
+            serverSidePagination={true}
+            serverSideFiltering={true}
+            sortingMode="server"
+            totalRows={totalCount}
+            pageSizeOptions={[10, 25, 50]}
+            disablePaperWrapper={true}
+            onRowClick={handleRowClick}
+            toolbarSlot={SourcesUnifiedToolbar}
+            persistState
+            sx={rowActionsHoverSx}
+          />
 
-      <DeleteModal
-        open={deleteModalOpen}
-        onClose={handleDeleteCancel}
-        onConfirm={handleDeleteConfirm}
-        isLoading={isDeleting}
-        title="Delete Source"
-        message="Are you sure you want to delete this source? This action cannot be undone."
-        itemType="source"
-      />
+          <DeleteModal
+            open={deleteModalOpen}
+            onClose={handleDeleteCancel}
+            onConfirm={handleDeleteConfirm}
+            isLoading={isDeleting}
+            title="Delete Source"
+            message="Are you sure you want to delete this source? This action cannot be undone."
+            itemType="source"
+          />
 
-      <SourceFilterDrawer
-        open={filterDrawerOpen}
-        onClose={() => setFilterDrawerOpen(false)}
-        filters={drawerFilters}
-        onApply={f => setDrawerFilters(f)}
-      />
-    </SourcesToolbarContext.Provider>
+          <SourceFilterDrawer
+            open={filterDrawerOpen}
+            onClose={() => setFilterDrawerOpen(false)}
+            filters={drawerFilters}
+            onApply={f => setDrawerFilters(f)}
+          />
+        </SourcesToolbarContext.Provider>
+      </Paper>
+    </GridStateGate>
   );
 }

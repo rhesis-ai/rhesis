@@ -51,7 +51,6 @@ interface TestResultDrawerProps {
     metrics: Array<{ name: string; description?: string }>;
   }>;
   testRunId: string;
-  sessionToken: string;
   onTestResultUpdate: (updatedTest: TestResultDetail) => void;
   currentUserId: string;
   currentUserName: string;
@@ -139,7 +138,6 @@ export default function TestResultDrawer({
   prompts,
   behaviors,
   testRunId,
-  sessionToken,
   onTestResultUpdate,
   currentUserId,
   currentUserName,
@@ -213,7 +211,7 @@ export default function TestResultDrawer({
     try {
       setIsConfirmingReview(true);
 
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const testResultsClient = clientFactory.getTestResultsClient();
       const statusClient = clientFactory.getStatusClient();
 
@@ -263,7 +261,7 @@ export default function TestResultDrawer({
     try {
       const { ApiClientFactory } =
         await import('@/utils/api-client/client-factory');
-      const apiFactory = new ApiClientFactory(sessionToken);
+      const apiFactory = new ApiClientFactory();
       const testResultsClient = apiFactory.getTestResultsClient();
       const updatedTest = await testResultsClient.getTestResult(test.id);
 
@@ -272,7 +270,7 @@ export default function TestResultDrawer({
     } catch (error) {
       console.error('Failed to update test result counts:', error);
     }
-  }, [test, sessionToken, onTestResultUpdate]);
+  }, [test, onTestResultUpdate]);
 
   const drawerContent = () => {
     if (loading) {
@@ -397,7 +395,6 @@ export default function TestResultDrawer({
             <TestDetailOverviewTab
               test={test}
               prompts={prompts}
-              sessionToken={sessionToken}
               onTestResultUpdate={onTestResultUpdate}
               testSetType={testSetType}
             />
@@ -407,7 +404,6 @@ export default function TestResultDrawer({
             <TestDetailConversationTab
               test={test}
               testSetType={testSetType}
-              sessionToken={sessionToken}
               project={project}
               projectName={projectName}
               onReviewTurn={isMultiTurn ? handleReviewTurn : undefined}
@@ -427,7 +423,6 @@ export default function TestResultDrawer({
           <TabPanel value={activeTab} index={TAB.reviews}>
             <TestDetailReviewsTab
               test={test}
-              sessionToken={sessionToken}
               onTestResultUpdate={onTestResultUpdate}
               currentUserId={currentUserId}
               initialComment={reviewInitialComment}
@@ -442,11 +437,7 @@ export default function TestResultDrawer({
           </TabPanel>
 
           <TabPanel value={activeTab} index={TAB.history}>
-            <TestDetailHistoryTab
-              test={test}
-              testRunId={testRunId}
-              sessionToken={sessionToken}
-            />
+            <TestDetailHistoryTab test={test} testRunId={testRunId} />
           </TabPanel>
 
           <TabPanel value={activeTab} index={TAB.tasks}>
@@ -454,7 +445,6 @@ export default function TestResultDrawer({
               <TasksAndCommentsWrapper
                 entityType="TestResult"
                 entityId={test.id}
-                sessionToken={sessionToken}
                 currentUserId={currentUserId}
                 currentUserName={currentUserName}
                 currentUserPicture={currentUserPicture}
@@ -477,9 +467,7 @@ export default function TestResultDrawer({
             {(test?.test?.id ?? test?.test_id) && (
               <Button
                 variant="outlined"
-                endIcon={
-                  <OpenInNewIcon sx={{ color: 'primary.main !important' }} />
-                }
+                endIcon={<OpenInNewIcon />}
                 component="a"
                 href={`/tests/${test.test?.id ?? test.test_id}`}
                 target="_blank"

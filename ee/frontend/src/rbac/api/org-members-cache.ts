@@ -11,34 +11,29 @@ import { RbacClient } from './rbac-client';
 import type { OrgMemberRead } from '../types';
 
 interface CacheEntry {
-  key: string;
   data: OrgMemberRead[];
   ts: number;
 }
 
 let _cache: CacheEntry | null = null;
-let _pending: { key: string; promise: Promise<OrgMemberRead[]> } | null = null;
+let _pending: Promise<OrgMemberRead[]> | null = null;
 
 const TTL_MS = 30_000;
 
-export function fetchOrgMembers(
-  sessionToken: string
-): Promise<OrgMemberRead[]> {
-  if (
-    _cache &&
-    _cache.key === sessionToken &&
-    Date.now() - _cache.ts < TTL_MS
-  ) {
+export function fetchOrgMembers(): Promise<OrgMemberRead[]> {
+  // Not keyed by account: an account change always goes through a full-page
+  // logout redirect that tears down this module's state, and the 30s TTL
+  // bounds any residual staleness. (Requests authenticate via the BFF proxy's
+  // httpOnly cookie — no token is available client-side to key by.)
+  if (_cache && Date.now() - _cache.ts < TTL_MS) {
     return Promise.resolve(_cache.data);
   }
-  // Keyed by sessionToken so an in-flight fetch for a prior session/account
-  // is never handed back to a caller running under a new one.
-  if (_pending && _pending.key === sessionToken) return _pending.promise;
+  if (_pending) return _pending;
 
-  const promise = new RbacClient(sessionToken)
+  const promise = new RbacClient()
     .getOrganizationMembers()
     .then(data => {
-      _cache = { key: sessionToken, data, ts: Date.now() };
+      _cache = { data, ts: Date.now() };
       _pending = null;
       return data;
     })
@@ -46,7 +41,7 @@ export function fetchOrgMembers(
       _pending = null;
       throw err;
     });
-  _pending = { key: sessionToken, promise };
+  _pending = promise;
   return promise;
 }
 

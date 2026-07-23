@@ -28,6 +28,7 @@ data:
   BACKEND_ENV: {{ .Values.config.environment | quote }}
   WORKER_ENV: {{ .Values.config.environment | quote }}
   LOG_LEVEL: {{ .Values.config.logLevel | quote }}
+  JSON_LOGGER_ENABLED: {{ .Values.config.jsonLoggerEnabled | quote }}
 
   # -------------------------------------------------------------------------
   # Frontend
@@ -67,6 +68,7 @@ data:
   # Celery
   # -------------------------------------------------------------------------
   CELERY_WORKER_CONCURRENCY: {{ .Values.config.celeryWorkerConcurrency | quote }}
+  CELERY_ARCHITECT_CONCURRENCY: {{ .Values.config.celeryArchitectConcurrency | quote }}
   CELERY_WORKER_PREFETCH_MULTIPLIER: {{ .Values.config.celeryWorkerPrefetchMultiplier | quote }}
   CELERY_WORKER_MAX_TASKS_PER_CHILD: {{ .Values.config.celeryWorkerMaxTasksPerChild | quote }}
   CELERY_WORKER_LOGLEVEL: {{ .Values.config.celeryWorkerLogLevel | quote }}

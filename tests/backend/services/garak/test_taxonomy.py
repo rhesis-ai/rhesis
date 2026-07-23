@@ -2,7 +2,12 @@
 
 import pytest
 
-from rhesis.backend.app.services.garak.taxonomy import GarakMapping, GarakTaxonomy
+from rhesis.backend.app.services.garak.taxonomy import (
+    FALLBACK_BEHAVIOR,
+    GarakMapping,
+    GarakTaxonomy,
+    resolve_behavior,
+)
 
 
 @pytest.mark.unit
@@ -15,14 +20,12 @@ class TestGarakMapping:
         mapping = GarakMapping(
             category="Harmful",
             topic="Jailbreak",
-            behavior="Robustness",
             default_detector="garak.detectors.mitigation.MitigationBypass",
             description="Test mapping",
         )
 
         assert mapping.category == "Harmful"
         assert mapping.topic == "Jailbreak"
-        assert mapping.behavior == "Robustness"
         assert mapping.default_detector == "garak.detectors.mitigation.MitigationBypass"
         assert mapping.description == "Test mapping"
 
@@ -38,7 +41,6 @@ class TestGarakTaxonomyMappings:
 
         assert mapping.category == "Harmful"
         assert mapping.topic == "Jailbreak"
-        assert mapping.behavior == "Robustness"
         assert mapping.default_detector == "garak.detectors.mitigation.MitigationBypass"
 
     def test_encoding_module_mapping(self):
@@ -55,7 +57,6 @@ class TestGarakTaxonomyMappings:
 
         assert mapping.category == "Harmful"
         assert mapping.topic == "Prompt Injection"
-        assert mapping.behavior == "Compliance"
 
     def test_continuation_module_mapping(self):
         """Test continuation module mapping."""
@@ -68,7 +69,6 @@ class TestGarakTaxonomyMappings:
         mapping = GarakTaxonomy.get_mapping("misleading")
 
         assert mapping.topic == "Misinformation"
-        assert mapping.behavior == "Reliability"
 
     def test_toxicity_module_mapping(self):
         """Test realtoxicityprompts module mapping."""
@@ -96,7 +96,6 @@ class TestGarakTaxonomyMappings:
         mapping = GarakTaxonomy.get_mapping("snowball")
 
         assert mapping.topic == "Factual Errors"
-        assert mapping.behavior == "Reliability"
         assert mapping.default_detector == "garak.detectors.snowball.SnowballDetector"
 
     def test_donotanswer_module_mapping(self):
@@ -125,7 +124,6 @@ class TestGarakTaxonomyDefaultMapping:
 
         assert mapping.category == "Harmful"
         assert mapping.topic == "Security Testing"
-        assert mapping.behavior == "Robustness"
         assert mapping.default_detector == "garak.detectors.mitigation.MitigationBypass"
 
     def test_default_mapping_attributes(self):
@@ -134,7 +132,6 @@ class TestGarakTaxonomyDefaultMapping:
 
         assert mapping.category is not None
         assert mapping.topic is not None
-        assert mapping.behavior is not None
         assert mapping.default_detector is not None
         assert mapping.description is not None
 
@@ -149,9 +146,6 @@ class TestGarakTaxonomyHelpers:
 
     def test_get_mapping_topic(self):
         assert GarakTaxonomy.get_mapping("dan").topic == "Jailbreak"
-
-    def test_get_mapping_behavior(self):
-        assert GarakTaxonomy.get_mapping("dan").behavior == "Robustness"
 
     def test_get_mapping_default_detector(self):
         assert (
@@ -348,14 +342,83 @@ class TestGarakTaxonomyV013Modules:
     # ---- Regression: old module names must not exist ----
 
     def test_art_key_does_not_exist(self):
-        """'art' was renamed to 'atkgen' in v0.13.3 — the old key must be gone."""
+        """'art' was renamed to 'atkgen' in v0.13.3 -- the old key must be gone."""
         assert "art" not in GarakTaxonomy.MODULE_MAPPINGS, (
-            "Found stale 'art' key in taxonomy — it was renamed to 'atkgen' in garak v0.13.3."
+            "Found stale 'art' key in taxonomy -- it was renamed to 'atkgen' in garak v0.13.3."
         )
 
     def test_knownbadsignatures_key_does_not_exist(self):
         """'knownbadsignatures' was renamed to 'av_spam_scanning' in v0.13.3."""
         assert "knownbadsignatures" not in GarakTaxonomy.MODULE_MAPPINGS, (
-            "Found stale 'knownbadsignatures' key — "
+            "Found stale 'knownbadsignatures' key -- "
             "it was renamed to 'av_spam_scanning' in garak v0.13.3."
         )
+
+
+@pytest.mark.unit
+@pytest.mark.service
+class TestResolveBehavior:
+    """Tests for resolve_behavior tag-to-behavior resolution."""
+
+    def test_no_tags_returns_fallback(self):
+        assert resolve_behavior(None) == FALLBACK_BEHAVIOR
+        assert resolve_behavior([]) == FALLBACK_BEHAVIOR
+
+    def test_no_quality_tags_returns_fallback(self):
+        assert resolve_behavior(["owasp:llm01", "cwe:79"]) == FALLBACK_BEHAVIOR
+
+    def test_single_content_safety_tag(self):
+        assert resolve_behavior(["quality:Behavioral:ContentSafety:Toxicity"]) == "Garak (Toxicity)"
+
+    def test_single_security_tag(self):
+        assert resolve_behavior(["quality:Security:PromptStability"]) == "Garak (Prompt Stability)"
+
+    def test_content_safety_wins_over_security(self):
+        tags = [
+            "quality:Security:PromptStability",
+            "quality:Behavioral:ContentSafety:HateHarassment",
+        ]
+        assert resolve_behavior(tags) == "Garak (Hate & Harassment)"
+
+    def test_content_safety_wins_over_robustness(self):
+        tags = [
+            "quality:Robustness:GenerativeMisinformation",
+            "quality:Behavioral:ContentSafety:Violence",
+        ]
+        assert resolve_behavior(tags) == "Garak (Violence)"
+
+    def test_behavioral_wins_over_security(self):
+        tags = [
+            "quality:Security:Adversarial",
+            "quality:Behavioral:DeliberativeMisinformation",
+        ]
+        assert resolve_behavior(tags) == "Garak (Deliberate Misinformation)"
+
+    def test_alphabetical_tiebreak_within_tier(self):
+        tags = [
+            "quality:Behavioral:ContentSafety:Violence",
+            "quality:Behavioral:ContentSafety:HateHarassment",
+        ]
+        assert resolve_behavior(tags) == "Garak (Hate & Harassment)"
+
+    def test_non_quality_tags_ignored(self):
+        tags = [
+            "owasp:llm01",
+            "payload:jailbreak",
+            "quality:Security:Integrity",
+        ]
+        assert resolve_behavior(tags) == "Garak (Integrity)"
+
+    def test_all_behaviors_are_prefixed(self):
+        """Every resolved behavior name starts with 'Garak ('."""
+        for tag in [
+            "quality:Behavioral:ContentSafety:Toxicity",
+            "quality:Behavioral:DeliberativeMisinformation",
+            "quality:Robustness:GenerativeMisinformation",
+            "quality:Security:Adversarial",
+        ]:
+            result = resolve_behavior([tag])
+            assert result.startswith("Garak ("), f"{tag} resolved to '{result}'"
+
+    def test_fallback_is_prefixed(self):
+        assert FALLBACK_BEHAVIOR.startswith("Garak (")

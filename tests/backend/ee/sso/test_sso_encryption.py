@@ -51,6 +51,7 @@ class TestSSOEncryption:
         assert is_sso_encryption_available() is True
 
     def test_is_sso_encryption_unavailable(self, monkeypatch):
+        from rhesis.backend.app.config.settings import get_security_settings
         from rhesis.backend.ee.sso.encryption import (
             _get_sso_fernet,
             is_sso_encryption_available,
@@ -58,6 +59,9 @@ class TestSSOEncryption:
 
         _get_sso_fernet.cache_clear()
         monkeypatch.delenv("SSO_ENCRYPTION_KEY", raising=False)
+        # The key is now read via the lru-cached SecuritySettings, so the
+        # settings cache must be cleared for the deleted env var to take effect.
+        get_security_settings.cache_clear()
         result = is_sso_encryption_available()
         assert result is False
 
@@ -66,3 +70,4 @@ class TestSSOEncryption:
             "SSO_ENCRYPTION_KEY", "9KgQ8O8Dx3xfUejfiAwkDgYMqD_2vekaNYw2WvqvJdw="
         )
         _get_sso_fernet.cache_clear()
+        get_security_settings.cache_clear()

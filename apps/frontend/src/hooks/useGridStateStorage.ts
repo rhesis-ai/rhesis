@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 import { usePathname } from 'next/navigation';
 import type { GridApi, GridInitialState } from '@mui/x-data-grid';
 
@@ -132,8 +138,10 @@ export function useGridStateStorage(
     GridInitialState | undefined
   >(undefined);
 
-  // Load state on mount (client-side only, runs once after hydration)
-  useEffect(() => {
+  // Load state on mount (client-side only, runs once after hydration).
+  // useLayoutEffect so this resolves before paint — a passive useEffect
+  // would let the browser paint the "not loaded yet" fallback first.
+  useLayoutEffect(() => {
     const savedState = loadState(storageKey);
     if (savedState) {
       setInitialState(savedState);

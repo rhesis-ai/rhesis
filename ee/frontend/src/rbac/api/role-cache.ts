@@ -12,7 +12,6 @@ import { RbacClient } from './rbac-client';
 import type { RoleRead } from '../types';
 
 interface CacheEntry {
-  key: string;
   data: RoleRead[];
   ts: number;
 }
@@ -27,26 +26,26 @@ export interface FetchRolesOptions {
   bypassCache?: boolean;
 }
 
-export function fetchRoles(
-  sessionToken: string,
-  options?: FetchRolesOptions
-): Promise<RoleRead[]> {
+export function fetchRoles(options?: FetchRolesOptions): Promise<RoleRead[]> {
   const bypassCache = options?.bypassCache ?? false;
 
+  // Not keyed by account: an account change always goes through a full-page
+  // logout redirect that tears down this module's state, and the 30s TTL
+  // bounds any residual staleness. (Requests authenticate via the BFF proxy's
+  // httpOnly cookie — no token is available client-side to key by.)
   if (
     !bypassCache &&
     _rolesCache &&
-    _rolesCache.key === sessionToken &&
     Date.now() - _rolesCache.ts < CACHE_TTL_MS
   ) {
     return Promise.resolve(_rolesCache.data);
   }
   if (!bypassCache && _rolesPending) return _rolesPending;
 
-  const fetchPromise = new RbacClient(sessionToken)
+  const fetchPromise = new RbacClient()
     .getRoles()
     .then(data => {
-      _rolesCache = { key: sessionToken, data, ts: Date.now() };
+      _rolesCache = { data, ts: Date.now() };
       _rolesPending = null;
       return data;
     })

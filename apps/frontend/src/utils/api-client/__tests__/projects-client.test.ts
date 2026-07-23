@@ -1,6 +1,6 @@
 import { ProjectsClient } from '../projects-client';
 
-const BASE_URL = 'http://127.0.0.1:8080/api/v1';
+const BASE_URL = 'http://localhost/api/backend';
 
 function makeFetchResponse(
   body: unknown,
@@ -87,7 +87,7 @@ describe('ProjectsClient', () => {
       expect(calledUrl).toContain('%24filter');
     });
 
-    it('sends Authorization header', async () => {
+    it('omits Authorization header client-side (proxy injects it)', async () => {
       fetchMock.mockResolvedValue(
         makeFetchResponse({ data: [], total: 0 }, 200, {
           'x-total-count': '0',
@@ -96,14 +96,11 @@ describe('ProjectsClient', () => {
 
       await client.getProjects();
 
-      expect(fetchMock).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.objectContaining({
-          headers: expect.objectContaining({
-            Authorization: 'Bearer test-token',
-          }),
-        })
-      );
+      const headers = fetchMock.mock.calls[0][1].headers as Record<
+        string,
+        string
+      >;
+      expect(headers['Authorization']).toBeUndefined();
     });
   });
 

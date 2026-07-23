@@ -59,6 +59,9 @@ export interface TraceReview extends WithPermittedActions {
   created_at: string;
   updated_at: string;
   target: TraceReviewTarget;
+  resolved?: boolean;
+  resolved_at?: string | null;
+  resolved_by?: TraceReviewUser | null;
 }
 
 export interface TraceReviewsMetadata {

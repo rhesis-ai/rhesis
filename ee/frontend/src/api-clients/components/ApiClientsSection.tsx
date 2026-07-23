@@ -38,7 +38,7 @@ import CreateApiClientDrawer from './CreateApiClientDrawer';
 import ClientSecretDisplayDrawer from './ClientSecretDisplayDrawer';
 
 export default function ApiClientsSection() {
-  const { organization, sessionToken } = useOrgSettings();
+  const { organization } = useOrgSettings();
   const notifications = useNotifications();
 
   const [clients, setClients] = React.useState<AuthClient[]>([]);
@@ -59,10 +59,7 @@ export default function ApiClientsSection() {
 
   // Memoise the client; building it on every render would be
   // harmless but creates extra GC pressure on a list refresh.
-  const apiClient = React.useMemo(
-    () => new ApiClientsClient(sessionToken),
-    [sessionToken]
-  );
+  const apiClient = React.useMemo(() => new ApiClientsClient(), []);
 
   const loadClients = React.useCallback(async () => {
     setLoading(true);

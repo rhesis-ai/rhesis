@@ -26,14 +26,12 @@ import { useActiveProject } from '@/contexts/ActiveProjectContext';
 interface CreateExperimentDrawerProps {
   open: boolean;
   onClose: () => void;
-  sessionToken: string;
   onCreated: (experiment: ExperimentRead) => void;
 }
 
 export default function CreateExperimentDialog({
   open,
   onClose,
-  sessionToken,
   onCreated,
 }: CreateExperimentDrawerProps) {
   const notifications = useNotifications();
@@ -51,10 +49,7 @@ export default function CreateExperimentDialog({
     setVisibility('private');
   }, [open]);
 
-  const apiFactory = useMemo(
-    () => new ApiClientFactory(sessionToken),
-    [sessionToken]
-  );
+  const apiFactory = useMemo(() => new ApiClientFactory(), []);
 
   const projectId = activeProject ? String(activeProject.id) : '';
   const canSubmit = !!projectId && name.trim().length > 0 && !submitting;

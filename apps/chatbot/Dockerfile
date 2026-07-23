@@ -32,7 +32,11 @@ COPY apps/chatbot/pyproject.toml apps/chatbot/uv.lock ./
 
 # SDK and rhesis meta-package (SDK depends on rhesis[telemetry])
 COPY sdk /app/sdk/
+# Hatch force-includes skill refs into the SDK wheel (see sdk/pyproject.toml).
+COPY skills /app/skills/
 COPY packages/rhesis /app/packages/rhesis/
+# Hatch force-includes skill refs into the SDK wheel (see sdk/pyproject.toml).
+COPY skills/rhesis/references /app/skills/rhesis/references/
 
 ENV UV_COMPILE_BYTECODE=1 \
     UV_NO_MANAGED_PYTHON=1 \

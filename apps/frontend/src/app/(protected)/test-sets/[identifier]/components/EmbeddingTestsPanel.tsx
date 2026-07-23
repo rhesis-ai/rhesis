@@ -72,14 +72,12 @@ const CLUSTER_VIEW_ENABLED = false;
 
 interface EmbeddingTestsPanelProps {
   testSetId: string;
-  sessionToken: string;
   testSetType?: string;
   onTotalCountChange?: (count: number) => void;
 }
 
 export default function EmbeddingTestsPanel({
   testSetId,
-  sessionToken,
   testSetType,
   onTotalCountChange,
 }: EmbeddingTestsPanelProps) {
@@ -89,7 +87,7 @@ export default function EmbeddingTestsPanel({
   const clustersActive = CLUSTER_VIEW_ENABLED && activeTab === CLUSTER_VIEW_TAB;
 
   const { graph, isLoading, isComputing, error, computeGraph } =
-    useEmbeddingGraph(testSetId, sessionToken, { enabled: clustersActive });
+    useEmbeddingGraph(testSetId, { enabled: clustersActive });
 
   const [tests, setTests] = useState<TestDetail[]>([]);
   const [testsLoading, setTestsLoading] = useState(false);
@@ -127,7 +125,7 @@ export default function EmbeddingTestsPanel({
     async function fetchAll() {
       setTestsLoading(true);
       setTestsError(null);
-      const client = new ApiClientFactory(sessionToken).getTestSetsClient();
+      const client = new ApiClientFactory().getTestSetsClient();
       const accumulated: TestDetail[] = [];
       let skip = 0;
 
@@ -164,7 +162,7 @@ export default function EmbeddingTestsPanel({
     return () => {
       cancelled = true;
     };
-  }, [clustersActive, sessionToken, testSetId, filterModel]);
+  }, [clustersActive, testSetId, filterModel]);
 
   const embeddingColors = useMemo(
     () => getEmbeddingChartColors(theme),
@@ -307,7 +305,6 @@ export default function EmbeddingTestsPanel({
         <Box sx={{ p: 2.5, width: '100%', minHeight: 400 }}>
           <TestSetTestsGrid
             testSetId={testSetId}
-            sessionToken={sessionToken}
             testSetType={testSetType}
             embedded
             onTotalCountChange={onTotalCountChange}

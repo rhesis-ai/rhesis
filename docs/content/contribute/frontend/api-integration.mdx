@@ -2,32 +2,28 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 # API Integration
 
-This document explains how the Rhesis frontend application integrates with the Rhesis backend API.
+This document explains how the Rhesis frontend integrates with the Rhesis backend API.
 
-## API Client Architecture
+## Architecture: BFF Proxy
 
-The Rhesis frontend communicates exclusively with the Rhesis backend API for all data operations and authentication. The frontend uses a centralized API client to handle all requests to the Rhesis backend. This client is built with:
+The browser never holds a backend access token. Client components call a same-origin
+`/api/backend/*` proxy, which injects `Authorization` server-side from the httpOnly session
+cookie. Server-side code (Server Components, Route Handlers) calls the backend directly with
+`BACKEND_URL`. See `apps/frontend/AGENTS.md`'s "BFF Auth Pattern" section for the full contract.
 
-- Type safety for request and response data
-- Automatic authentication handling with JWT tokens
-- Error handling and retries
-- Request caching where appropriate
-- Consistent error formatting
-
-## Rhesis Backend API
-
-The Rhesis backend API serves as the intermediary between the frontend and various services:
-
-- **Authentication**: The backend handles authentication and token management
-- **Data Storage**: The backend manages all data persistence and retrieval
-- **Business Logic**: Complex business logic is implemented in the backend
-- **External Service Integration**: The backend integrates with any third-party services
-
-All frontend requests are routed through the Rhesis backend API, which provides a unified interface for the frontend application.
+<CodeBlock filename="src/utils/url-resolver.ts" language="typescript">
+{`export function getBaseUrl(): string {
+  if (typeof window === 'undefined') {
+    return getServerBackendUrl(); // BACKEND_URL, container-to-container
+  } else {
+    return \`\${window.location.origin}/api/backend\`; // same-origin BFF proxy
+  }
+}`}
+</CodeBlock>
 
 ## API Client Implementation
 
-The API client is implemented in `src/utils/api-client/`:
+The client is implemented in `src/utils/api-client/` as flat per-resource files (`projects-client.ts`, `tests-client.ts`, `tasks-client.ts`, ...), not an `endpoints/` subfolder:
 
 <FileTree
   title="API Client Structure"
@@ -37,68 +33,34 @@ The API client is implemented in `src/utils/api-client/`:
       type: "folder",
       children: [
         {
-          name: "index.ts",
-          type: "file",
-          description: "Main export file",
-        },
-        {
           name: "base-client.ts",
           type: "file",
-          description: "Base API client implementation",
+          description: "BaseApiClient — headers, fetch, retry, error handling",
         },
         {
-          name: "endpoints",
-          type: "folder",
-          description: "API endpoint definitions",
-          children: [
-            {
-              name: "auth.ts",
-              type: "file",
-              description: "Authentication endpoints",
-            },
-            {
-              name: "projects.ts",
-              type: "file",
-              description: "Projects endpoints",
-            },
-            {
-              name: "tests.ts",
-              type: "file",
-              description: "Tests endpoints",
-            },
-            {
-              name: "...",
-              type: "file",
-              description: "Other endpoint groups",
-            },
-          ],
+          name: "client-factory.ts",
+          type: "file",
+          description: "ApiClientFactory — client-side, no token",
         },
         {
-          name: "types",
+          name: "server-factory.ts",
+          type: "file",
+          description: "createServerApiFactory() — server-side, with token",
+        },
+        {
+          name: "projects-client.ts",
+          type: "file",
+          description: "ProjectsClient extends BaseApiClient",
+        },
+        {
+          name: "...",
+          type: "file",
+          description: "~40 other *-client.ts files, one per resource",
+        },
+        {
+          name: "interfaces",
           type: "folder",
-          description: "API type definitions",
-          children: [
-            {
-              name: "auth.ts",
-              type: "file",
-              description: "Authentication types",
-            },
-            {
-              name: "projects.ts",
-              type: "file",
-              description: "Projects types",
-            },
-            {
-              name: "tests.ts",
-              type: "file",
-              description: "Tests types",
-            },
-            {
-              name: "...",
-              type: "file",
-              description: "Other type groups",
-            },
-          ],
+          description: "TypeScript types per resource (not \"types/\")",
         },
       ],
     },
@@ -107,103 +69,94 @@ The API client is implemented in `src/utils/api-client/`:
 
 ### Base Client
 
-The base client is implemented in `src/utils/api-client/base-client.ts` and resolves the backend URL when each client instance is constructed. This avoids holding a server-only URL in a browser bundle.
-
 <CodeBlock filename="src/utils/api-client/base-client.ts" language="typescript">
-{`import { API_CONFIG, API_ENDPOINTS } from './config';
-import { getBaseUrl } from '../url-resolver';
-import { readActiveProjectId } from '../active-project';
-import { joinUrl } from '@/utils/url';
-
-export class BaseApiClient {
-  protected baseUrl: string;
-  protected sessionToken?: string;
-  protected projectId?: string;
-
-  constructor(sessionToken?: string, projectId?: string) {
+{`export class BaseApiClient {
+  constructor(
+    protected sessionToken?: string,
+    protected retryConfig: Partial<RetryConfig> = {},
+    protected projectId?: string,
+  ) {
     this.baseUrl = getBaseUrl();
-    this.sessionToken = sessionToken;
-    this.projectId = projectId;
   }
 
-  protected getHeaders(): HeadersInit {
-    const headers: Record<string, string> = { ...API_CONFIG.defaultHeaders };
-    if (this.sessionToken) {
-      headers.Authorization = \`Bearer \${this.sessionToken}\`;
+  private buildAuthHeaders(): HeadersInit {
+    // Only attaches Authorization server-side. On the client, auth is
+    // injected by the /api/backend proxy — a client-passed token is dropped.
+    if (typeof window === 'undefined' && this.sessionToken) {
+      return { Authorization: \`Bearer \${this.sessionToken}\` };
     }
-
-    const activeProject = this.projectId ?? readActiveProjectId();
-    if (activeProject) {
-      headers['X-Project-Id'] = activeProject;
-    }
-    return headers;
+    return {};
   }
 
-  protected async fetch<T>(
-    endpoint: keyof typeof API_ENDPOINTS | string,
-    options: RequestInit = {}
-  ): Promise<T> {
-    const path = API_ENDPOINTS[endpoint as keyof typeof API_ENDPOINTS] || endpoint;
-    const url = joinUrl(this.baseUrl, path);
-    const response = await fetch(url, { ...options, headers: this.getHeaders() });
-    return response.json() as Promise<T>;
+  protected async fetch<T>(path: string, options: RequestInit = {}): Promise<T> {
+    // Retries with backoff, parses structured errors, and signs out the
+    // user on a 401 from the backend.
+    ...
+  }
+
+  protected async fetchPaginated<T>(path: string, options: RequestInit = {}): Promise<Paginated<T>> {
+    ...
   }
 }`}
 </CodeBlock>
 
-`getBaseUrl()` chooses `BACKEND_URL` for server-side code and `NEXT_PUBLIC_API_BASE_URL` for browser-side code, with localhost normalized to `127.0.0.1` to avoid IPv6 localhost issues.
+<Callout type="warning">
+  Always construct `new ApiClientFactory()` with no arguments in client components/hooks/utils.
+  Only server-side code (via `createServerApiFactory()`) passes an explicit token/`projectId`.
+</Callout>
 
-### Runtime backend proxy
-
-Route handlers under `src/app/api/` proxy frontend `/api/*` requests to the backend at runtime:
-
-<CodeBlock filename="src/app/api/[...path]/route.ts" language="typescript">
-{`import { NextRequest } from 'next/server';
-import { proxyToBackend } from '@/utils/backend-proxy';
-
-export const dynamic = 'force-dynamic';
-
-export function GET(req: NextRequest) {
-  return proxyToBackend(req);
-}
-export function POST(req: NextRequest) {
-  return proxyToBackend(req);
-}`}
-</CodeBlock>
-
-`proxyToBackend()` reads `BACKEND_URL` on every request, forwards authorization, content, and active-project headers, and preserves redirect responses. Do not add `next.config.mjs` rewrites for `/api/*`; rewrite destinations are baked into `.next/routes-manifest.json` at build time.
-
-### Endpoint Definitions
-
-API endpoints are defined in separate files for each resource, all targeting the Rhesis backend API:
+### Resource Clients
 
 <CodeBlock language="tsx" filename="src/utils/api-client/projects-client.ts">
-{`import { BaseApiClient } from './base-client';
-import { API_ENDPOINTS } from './config';
-import { Project, ProjectCreate, ProjectUpdate } from './interfaces/project';
-
-export class ProjectsClient extends BaseApiClient {
-  async getProject(id: string): Promise<Project> {
-    return this.fetch<Project>(\`\${API_ENDPOINTS.projects}/\${id}\`);
+{`export class ProjectsClient extends BaseApiClient {
+  async getProject(identifier: string) {
+    return this.fetch<Project>(\`/projects/\${identifier}\`);
   }
 
-  async createProject(project: ProjectCreate): Promise<Project> {
-    return this.fetch<Project>(API_ENDPOINTS.projects, {
-      method: 'POST',
-      body: JSON.stringify(project),
-    });
-  }
-
-  async updateProject(id: string, project: ProjectUpdate): Promise<Project> {
-    return this.fetch<Project>(\`\${API_ENDPOINTS.projects}/\${id}\`, {
-      method: 'PUT',
-      body: JSON.stringify(project),
-    });
+  async createProject(data: ProjectCreate) {
+    return this.fetch<Project>('/projects', { method: 'POST', body: JSON.stringify(data) });
   }
 }`}
 </CodeBlock>
 
-### WebSocket API for Playground chat
+Consumed through a factory rather than imported directly:
+
+<CodeBlock language="tsx" filename="Usage">
+{`// Client component/hook — no token
+const project = await new ApiClientFactory().getProjectsClient().getProject(identifier);
+
+// Server Component / Route Handler — attaches the session token
+const factory = await createServerApiFactory();
+const project = await factory.getProjectsClient().getProject(identifier);`}
+</CodeBlock>
+
+### Proxy Routes
+
+Two Next.js Route Handlers proxy to the backend:
+
+- **`src/app/api/backend/[...path]/route.ts`** — the BFF route hit by `BaseApiClient` on the client. Reads the access token via `getFreshAccessToken()` from the session cookie and injects `Authorization`; returns 401 if there's no valid session.
+- **`src/app/api/[...path]/route.ts`** — a catch-all proxy (`proxyToBackend()`) for routes without a dedicated handler. Forwards an allow-list of headers (`authorization`, `content-type`, `accept`, `x-project-id`, ...), applies per-path timeout budgets (longer for LLM/import/Garak calls), and follows same-origin backend redirects.
+
+Avoid `next.config.mjs` rewrites for backend proxying — rewrite destinations are baked into the build at compile time, which doesn't work for a runtime-configurable `BACKEND_URL`.
+
+### Type Definitions
+
+API types live in `src/utils/api-client/interfaces/` (singular resource files, e.g. `project.ts`) and mirror the backend's snake_case fields rather than being camelCased:
+
+<CodeBlock language="tsx" filename="src/utils/api-client/interfaces/project.ts">
+{`export interface Project extends ProjectBase {
+  id: string;
+  is_active: boolean;
+  user_id: string;
+  owner_id: string;
+  organization_id: string;
+  created_at?: string;
+  updated_at?: string;
+  // plus nested user/owner/organization objects and frontend-only fields
+}`}
+</CodeBlock>
+
+## WebSocket API for Playground Chat
 
 In addition to REST clients, the frontend Playground uses WebSocket events for interactive endpoint chat.
 The shared message types live in:
@@ -256,260 +209,32 @@ Core chat event types:
 | `output_files` | No | Files returned by the endpoint |
 
 <Callout type="info">
-  Playground chat messages are size-limited by backend WebSocket handling (10 MB max per message).
-  Keep attachment payloads below this limit.
+  All WebSocket traffic on the `/ws` endpoint (not just Playground chat) is capped at 10 MB per message.
 </Callout>
 
-### Type Definitions
+## Runtime Configuration
 
-API types are defined to match the Rhesis backend API response structures:
+The backend URL is not baked into the client bundle at build time. `app/layout.tsx` injects it into
+every server-rendered page as `window.__ENV__`:
 
-<CodeBlock language="tsx" filename="src/utils/api-client/types/projects.ts">
-{`// src/utils/api-client/types/projects.ts
-export interface Project {
-  id: string;
-  name: string;
-  description: string;
-  createdAt: string;
-  updatedAt: string;
-  ownerId: string;
-  status: "active" | "archived";
-}
-
-export interface ProjectCreate {
-  name: string;
-  description?: string;
-}
-
-export interface ProjectUpdate {
-  name?: string;
-  description?: string;
-  status?: "active" | "archived";
-}`}
+<CodeBlock filename="src/app/layout.tsx" language="typescript">
+{`const runtimeEnvScript = \`window.__ENV__=\${JSON.stringify({
+  apiBaseUrl: process.env.API_BASE_URL ?? 'http://localhost:8080',
+})};\`;`}
 </CodeBlock>
 
-## Using the API Client
-
-### In Server Components
-
-In server components, you can use the API client to communicate with the Rhesis backend:
-
-<CodeBlock language="tsx" filename="app/(protected)/projects/page.tsx">
-{`// app/(protected)/projects/page.tsx
-import { projectsApi } from "@/utils/api-client/endpoints/projects";
-
-export default async function ProjectsPage() {
-  // Fetch data from the Rhesis backend API
-  const { data: projects, total } = await projectsApi.getAll({ limit: 10 });
-
-  return (
-    <div>
-      <h1>Projects ({total})</h1>
-      <ul>
-        {projects.map((project) => (
-          <li key={project.id}>{project.name}</li>
-        ))}
-      </ul>
-    </div>
-  );
-}`}
-</CodeBlock>
-
-### In Client Components
-
-In client components, you can use the API client with React hooks to communicate with the Rhesis backend:
-
-<CodeBlock language="tsx" filename="components/projects/ProjectForm.tsx">
-{`// components/projects/ProjectForm.tsx
-"use client";
-
-import { useState } from "react";
-import { projectsApi } from "@/utils/api-client/endpoints/projects";
-import type { ProjectCreate } from "@/utils/api-client/types/projects";
-
-export default function ProjectForm() {
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-
-    try {
-      const data: ProjectCreate = {
-        name,
-        description: description || undefined,
-      };
-
-      // Send data to the Rhesis backend API
-      await projectsApi.create(data);
-      // Handle success (e.g., redirect, show message)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <form onSubmit={handleSubmit}>
-      {/* Form fields */}
-      {error && <div className="error">{error}</div>}
-      <button type="submit" disabled={loading}>
-        {loading ? "Creating..." : "Create Project"}
-      </button>
-    </form>
-  );
-}`}
-</CodeBlock>
-
-## Server Actions
-
-For form submissions and mutations, you can use server actions that communicate with the Rhesis backend API:
-
-<CodeBlock language="tsx" filename="app/(protected)/projects/actions.ts">
-{`// app/(protected)/projects/actions.ts
-"use server";
-
-import { revalidatePath } from "next/cache";
-import { projectsApi } from "@/utils/api-client/endpoints/projects";
-import type {
-  ProjectCreate,
-  ProjectUpdate,
-} from "@/utils/api-client/types/projects";
-
-export async function createProject(data: ProjectCreate) {
-  try {
-    // Create project through the Rhesis backend API
-    await projectsApi.create(data);
-    revalidatePath("/projects");
-    return { success: true };
-  } catch (error) {
-    return {
-      success: false,
-      error:
-        error instanceof Error ? error.message : "Failed to create project",
-    };
-  }
-}
-
-export async function updateProject(id: string, data: ProjectUpdate) {
-  try {
-    // Update project through the Rhesis backend API
-    await projectsApi.update(id, data);
-    revalidatePath(\`/projects/\${id}\`);
-    revalidatePath("/projects");
-    return { success: true };
-  } catch (error) {
-    return {
-      success: false,
-      error:
-        error instanceof Error ? error.message : "Failed to update project",
-    };
-  }
-}
-
-export async function deleteProject(id: string) {
-  try {
-    // Delete project through the Rhesis backend API
-    await projectsApi.delete(id);
-    revalidatePath("/projects");
-    return { success: true };
-  } catch (error) {
-    return {
-      success: false,
-      error:
-        error instanceof Error ? error.message : "Failed to delete project",
-    };
-  }
-}`}
-</CodeBlock>
-
-## API Configuration
-
-The Rhesis backend API URL is configured in environment variables:
+`getClientApiBaseUrl()` (`utils/url-resolver.ts`) reads `window.__ENV__.apiBaseUrl` — this is used by pages that call the backend directly and unauthenticated from the browser (login, magic-link, forgot-password, provider discovery), not by `BaseApiClient`, which always uses the same-origin `/api/backend` proxy regardless of environment.
 
 <CodeBlock filename=".env.local" language="bash">
-{`# Browser-visible API URL
-NEXT_PUBLIC_API_BASE_URL=https://api.rhesis.ai
+{`# Server-side: used directly by server code and injected into window.__ENV__
+API_BASE_URL=http://localhost:8080
 
-# Server-side Route Handler proxy target
-BACKEND_URL=http://backend:8080`}
-</CodeBlock>
-
-For local development, both can point to your local backend:
-
-<CodeBlock language="bash" filename=".env.local">
-{`# .env.local
-NEXT_PUBLIC_API_BASE_URL=http://localhost:8080
+# Server-side: target for the /api/backend and /api/[...path] proxies
 BACKEND_URL=http://localhost:8080`}
 </CodeBlock>
 
-Container startup runs `scripts/replace-runtime-env.sh`, which replaces the `__NEXT_PUBLIC_API_BASE_URL__` and `__NEXT_PUBLIC_QUICK_START__` placeholders in the built bundle. This lets one frontend image move between local, preview, staging, and production deployments without rebuilding.
+There is no `NEXT_PUBLIC_API_BASE_URL` env var and no build-time placeholder-replacement script — the same built image works across environments because the backend URL is read from `process.env` at request time, not baked in.
 
 ## Error Handling
 
-The API client includes centralized error handling for Rhesis backend API errors:
-
-<CodeBlock language="tsx" filename="components/common/ErrorBoundary.tsx">
-{`// components/common/ErrorBoundary.tsx
-"use client";
-
-import { useEffect } from "react";
-
-export default function ErrorBoundary({
-  error,
-  reset,
-}: {
-  error: Error;
-  reset: () => void;
-}) {
-  useEffect(() => {
-    console.error(error);
-  }, [error]);
-
-  const apiStatus = "status" in error ? (error as Error & { status?: number }).status : undefined;
-
-  if (apiStatus) {
-    // Handle API-specific errors from the Rhesis backend
-    if (apiStatus === 401) {
-      return (
-        <div>
-          <h2>Session expired</h2>
-          <p>Please log in again.</p>
-          <button onClick={() => (window.location.href = "/login")}>
-            Log In
-          </button>
-        </div>
-      );
-    }
-
-    if (apiStatus === 403) {
-      return (
-        <div>
-          <h2>Access denied</h2>
-          <p>You don't have permission to access this resource.</p>
-          <button onClick={() => (window.location.href = "/dashboard")}>
-            Go to Dashboard
-          </button>
-        </div>
-      );
-    }
-  }
-
-  // Generic error handling
-  return (
-    <div>
-      <h2>Something went wrong!</h2>
-      <button onClick={reset}>Try again</button>
-    </div>
-  );
-}`}
-</CodeBlock>
-
-## API Documentation
-
-For detailed Rhesis backend API endpoint configuration, refer to the [Endpoint Configuration](./endpoint-configuration.mdx) document.
+`BaseApiClient.fetch()` centralizes error handling: structured error parsing, retry with backoff on transient failures, and automatic session clearing on a 401 from the backend. Components can still add their own `error.tsx` boundary for UI-level fallbacks (see [Routing](/contribute/frontend/routing)).

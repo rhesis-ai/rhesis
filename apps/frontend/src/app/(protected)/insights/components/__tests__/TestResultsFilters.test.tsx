@@ -74,7 +74,6 @@ function renderFilters(
       endpointId: 'ep-1',
     },
     onFiltersChange: jest.fn(),
-    sessionToken: 'token',
     projectEndpoints: defaultEndpoints,
     endpointsLoading: false,
     behaviorOptions: [

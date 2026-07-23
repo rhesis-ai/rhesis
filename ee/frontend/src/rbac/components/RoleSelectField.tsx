@@ -20,7 +20,6 @@ import { useActorAuthority } from '../hooks/useActorAuthority';
 import type { RoleRead } from '../types';
 
 interface RoleSelectFieldProps {
-  sessionToken: string;
   value: string | null;
   onChange: (roleId: string | null) => void;
   size?: 'small' | 'medium';
@@ -31,7 +30,6 @@ interface RoleSelectFieldProps {
 }
 
 export default function RoleSelectField({
-  sessionToken,
   value,
   onChange,
   size = 'medium',
@@ -42,13 +40,12 @@ export default function RoleSelectField({
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!sessionToken) return;
     if (active === false) return;
 
     let cancelled = false;
     setLoading(true);
 
-    fetchRoles(sessionToken, { bypassCache: active === true })
+    fetchRoles({ bypassCache: active === true })
       .then(data => {
         if (!cancelled) {
           setRoles(data);
@@ -61,12 +58,10 @@ export default function RoleSelectField({
     return () => {
       cancelled = true;
     };
-  }, [sessionToken, active]);
+  }, [active]);
 
-  const { level: myLevel, permissionNames: myPermissions } = useActorAuthority(
-    sessionToken,
-    'org'
-  );
+  const { level: myLevel, permissionNames: myPermissions } =
+    useActorAuthority('org');
   const assignableRoles = useMemo(
     () =>
       roles.filter(

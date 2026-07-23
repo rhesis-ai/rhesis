@@ -314,6 +314,7 @@ Celery workers are configured with Redis-optimized performance settings:
 ENV CELERY_WORKER_CONCURRENCY=8 \
     CELERY_WORKER_PREFETCH_MULTIPLIER=4 \
     CELERY_WORKER_MAX_TASKS_PER_CHILD=1000 \
+    LOG_LEVEL=INFO \
     CELERY_WORKER_LOGLEVEL=INFO \
     CELERY_WORKER_OPTS=""`}
 </CodeBlock>
@@ -358,7 +359,10 @@ The Celery app includes Redis-optimized settings:
 )`}
 </CodeBlock>
 
-The worker startup script applies these configurations:
+The worker startup script applies these configurations. `LOG_LEVEL` controls
+application logs; Celery's own task-lifecycle messages are controlled
+separately by `CELERY_WORKER_LOGLEVEL`, which defaults to `LOG_LEVEL` but can
+be overridden independently:
 
 <CodeBlock language="bash" filename="start-worker.sh" isTerminal={true}>
 {`# Start Celery worker with Redis-optimized settings

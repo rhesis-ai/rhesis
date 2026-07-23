@@ -1,7 +1,9 @@
 'use client';
 
 import * as React from 'react';
+import { useSession } from 'next-auth/react';
 import { FormControl, InputLabel, MenuItem, Select } from '@mui/material';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 import {
   FilterDrawerShell,
   FilterSection,
@@ -69,7 +71,6 @@ interface InsightsFilterDrawerProps {
   open: boolean;
   onClose: () => void;
   filters: InsightsDrawerFilters;
-  sessionToken: string;
   projectEndpoints: Endpoint[];
   endpointsLoading: boolean;
   behaviorOptions: InsightsBehaviorOption[];
@@ -80,12 +81,12 @@ export default function InsightsFilterDrawer({
   open,
   onClose,
   filters,
-  sessionToken,
   projectEndpoints,
   endpointsLoading,
   behaviorOptions,
   onApply,
 }: InsightsFilterDrawerProps) {
+  const { status } = useSession();
   const { draft, setDraft, handleReset, handleApply } = useFilterDrawerDraft(
     open,
     filters,
@@ -122,7 +123,7 @@ export default function InsightsFilterDrawer({
   React.useEffect(() => {
     if (
       !open ||
-      !sessionToken ||
+      !isAuthenticated(status) ||
       !draft.endpointId ||
       draft.runFilterMode !== 'testRuns'
     ) {
@@ -138,10 +139,7 @@ export default function InsightsFilterDrawer({
 
     void (async () => {
       try {
-        const allRuns = await fetchTestRunsForEndpoint(
-          sessionToken,
-          draft.endpointId
-        );
+        const allRuns = await fetchTestRunsForEndpoint(draft.endpointId);
 
         if (cancelled) return;
 
@@ -165,7 +163,7 @@ export default function InsightsFilterDrawer({
     return () => {
       cancelled = true;
     };
-  }, [open, sessionToken, draft.endpointId, draft.runFilterMode]);
+  }, [open, status, draft.endpointId, draft.runFilterMode]);
 
   const handleCheckedBehaviorIdsChange = React.useCallback(
     (checkedIds: string[]) => {

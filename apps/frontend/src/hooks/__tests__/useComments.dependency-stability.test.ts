@@ -7,6 +7,12 @@ import { ApiClientFactory } from '../../utils/api-client/client-factory';
 
 // Mock dependencies
 jest.mock('../../utils/api-client/client-factory');
+jest.mock('next-auth/react', () => ({
+  useSession: () => ({
+    data: { session_token: 'tok' },
+    status: 'authenticated',
+  }),
+}));
 const mockShow = jest.fn();
 const mockNotifications = { show: mockShow };
 jest.mock('../../components/common/NotificationContext', () => ({
@@ -38,7 +44,6 @@ describe('useComments - Dependency Stability', () => {
   const defaultProps = {
     entityType: 'Test' as const,
     entityId: '123',
-    sessionToken: 'mock-token',
     currentUserId: 'user-1',
     currentUserName: 'Test User',
     currentUserPicture: 'http://example.com/pic.jpg',

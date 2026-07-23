@@ -8,18 +8,15 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { EntityType } from '@/types/entity-type';
 import { fileKeys } from '@/constants/query-keys';
+import { useIsAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface UseFilesProps {
   entityId: string;
   entityType: FileEntityType;
-  sessionToken: string;
 }
 
-export function useFiles({
-  entityId,
-  entityType,
-  sessionToken,
-}: UseFilesProps) {
+export function useFiles({ entityId, entityType }: UseFilesProps) {
+  const isAuthenticated = useIsAuthenticated();
   const notifications = useNotifications();
   const queryClient = useQueryClient();
   const queryKey = fileKeys.list(entityType, entityId);
@@ -32,7 +29,7 @@ export function useFiles({
   } = useQuery<FileResponse[]>({
     queryKey,
     queryFn: async () => {
-      const filesClient = new ApiClientFactory(sessionToken).getFilesClient();
+      const filesClient = new ApiClientFactory().getFilesClient();
       if (entityType === EntityType.TEST) {
         return filesClient.getTestFiles(entityId);
       }
@@ -41,7 +38,7 @@ export function useFiles({
       }
       return [];
     },
-    enabled: !!sessionToken && !!entityId,
+    enabled: isAuthenticated && !!entityId,
   });
 
   const error = isError ? 'Failed to fetch files' : null;
@@ -58,10 +55,10 @@ export function useFiles({
 
   const uploadMutation = useMutation({
     mutationFn: (newFiles: File[]) => {
-      if (!sessionToken) {
-        throw new Error('No session token available');
+      if (!isAuthenticated) {
+        throw new Error('Not authenticated');
       }
-      return new ApiClientFactory(sessionToken)
+      return new ApiClientFactory()
         .getFilesClient()
         .uploadFiles(newFiles, entityId, entityType);
     },
@@ -69,12 +66,10 @@ export function useFiles({
 
   const deleteMutation = useMutation({
     mutationFn: (fileId: string) => {
-      if (!sessionToken) {
-        throw new Error('No session token available');
+      if (!isAuthenticated) {
+        throw new Error('Not authenticated');
       }
-      return new ApiClientFactory(sessionToken)
-        .getFilesClient()
-        .deleteFile(fileId);
+      return new ApiClientFactory().getFilesClient().deleteFile(fileId);
     },
   });
 

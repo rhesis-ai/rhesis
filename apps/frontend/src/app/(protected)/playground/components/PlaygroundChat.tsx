@@ -33,7 +33,9 @@ import MessageBubble, { MessageBubbleSkeleton } from './MessageBubble';
 import TraceDrawer from '@/app/(protected)/traces/components/TraceDrawer';
 import CreateTestFromConversationDrawer from './CreateTestFromConversationDrawer';
 import { ConversationMessage } from '@/utils/api-client/interfaces/tests';
+import { stringifyMessageContent } from '@/utils/message-content';
 import { TEST_TYPES, type TestTypeValue } from '@/constants/test-types';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface PlaygroundChatProps {
   /** The endpoint ID to chat with */
@@ -70,7 +72,7 @@ export default function PlaygroundChat({
   onClose,
   onSplit,
 }: PlaygroundChatProps) {
-  const { data: session } = useSession();
+  const { status } = useSession();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -192,7 +194,10 @@ export default function PlaygroundChat({
 
     const conversationMessages = messages
       .filter(msg => !msg.isError)
-      .map(msg => ({ role: msg.role, content: msg.content }));
+      .map(msg => ({
+        role: msg.role,
+        content: stringifyMessageContent(msg.content),
+      }));
 
     setTestDrawerMessages(conversationMessages);
     setTestDrawerType(TEST_TYPES.MULTI_TURN);
@@ -206,7 +211,10 @@ export default function PlaygroundChat({
 
       const userMessage = messages[messageIndex];
       const conversationMessages: ConversationMessage[] = [
-        { role: userMessage.role, content: userMessage.content },
+        {
+          role: userMessage.role,
+          content: stringifyMessageContent(userMessage.content),
+        },
       ];
 
       // Include the next assistant message if available
@@ -218,7 +226,7 @@ export default function PlaygroundChat({
       ) {
         conversationMessages.push({
           role: nextMessage.role,
-          content: nextMessage.content,
+          content: stringifyMessageContent(nextMessage.content),
         });
       }
 
@@ -561,22 +569,20 @@ export default function PlaygroundChat({
       </Paper>
 
       {/* Trace Drawer */}
-      {session?.session_token && (
+      {isAuthenticated(status) && (
         <TraceDrawer
           open={traceDrawerOpen}
           onClose={handleCloseTraceDrawer}
           traceId={selectedTraceId}
           projectId={projectId}
-          sessionToken={session.session_token}
         />
       )}
 
       {/* Create Test from Conversation Drawer */}
-      {session?.session_token && (
+      {isAuthenticated(status) && (
         <CreateTestFromConversationDrawer
           open={testDrawerOpen}
           onClose={() => setTestDrawerOpen(false)}
-          sessionToken={session.session_token}
           messages={testDrawerMessages}
           testType={testDrawerType}
           endpointId={endpointId}

@@ -18,7 +18,6 @@ const TAB_KEYS = ['basic', 'linked', 'history', 'tasks'] as const;
 
 interface TestDetailTabsProps {
   test: TestDetail;
-  sessionToken: string;
   currentUserId: string;
   currentUserName: string;
   currentUserPicture?: string;
@@ -26,7 +25,6 @@ interface TestDetailTabsProps {
 
 export default function TestDetailTabs({
   test,
-  sessionToken,
   currentUserId,
   currentUserName,
   currentUserPicture,
@@ -62,39 +60,23 @@ export default function TestDetailTabs({
       />
 
       <DetailTabPanel value={activeTab} index={0} prefix="test-detail">
-        <TestMetadataCard
-          sessionToken={sessionToken}
-          test={test}
-          onUpdate={handleTestUpdate}
-        />
-        <TestTechnicalCard
-          sessionToken={sessionToken}
-          test={test}
-          onUpdate={handleTestUpdate}
-        />
-        <TestFormElementsCard
-          sessionToken={sessionToken}
-          test={test}
-          onUpdate={handleTestUpdate}
-        />
+        <TestMetadataCard test={test} onUpdate={handleTestUpdate} />
+        <TestTechnicalCard test={test} onUpdate={handleTestUpdate} />
+        <TestFormElementsCard test={test} onUpdate={handleTestUpdate} />
       </DetailTabPanel>
 
       <DetailTabPanel value={activeTab} index={1} prefix="test-detail">
-        <LinkedTestSetsSection testId={test.id} sessionToken={sessionToken} />
+        <LinkedTestSetsSection testId={test.id} />
       </DetailTabPanel>
 
       <DetailTabPanel value={activeTab} index={2} prefix="test-detail">
-        <TestExecutionHistorySection
-          testId={test.id}
-          sessionToken={sessionToken}
-        />
+        <TestExecutionHistorySection testId={test.id} />
       </DetailTabPanel>
 
       <DetailTabPanel value={activeTab} index={3} prefix="test-detail">
         <TasksAndCommentsWrapper
           entityType="Test"
           entityId={test.id}
-          sessionToken={sessionToken}
           currentUserId={currentUserId}
           currentUserName={currentUserName}
           currentUserPicture={currentUserPicture}

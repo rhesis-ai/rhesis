@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 from uuid import UUID
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from rhesis.backend.app import models, schemas
@@ -777,6 +778,8 @@ def execute_test_set_on_endpoint(
     # Check user access permissions
     _validate_user_access(current_user, db_test_set, db_endpoint)
 
+    _validate_test_set_not_empty(db, db_test_set)
+
     # Validate reference test run if provided (output reuse / re-scoring)
     if reference_test_run_id:
         _validate_reference_test_run(db, reference_test_run_id, db_test_set, current_user)
@@ -844,6 +847,30 @@ def execute_test_set_on_endpoint(
     }
     logger.info(f"Successfully initiated test set execution: {response_data}")
     return response_data
+
+
+def count_test_set_tests(db: Session, test_set_id: uuid.UUID) -> int:
+    """Count active tests associated with a test set.
+
+    Join the test table explicitly so stale association rows do not count tests
+    that have been soft-deleted.
+    """
+    return (
+        db.query(func.count(models.Test.id))
+        .select_from(test_test_set_association)
+        .join(models.Test, models.Test.id == test_test_set_association.c.test_id)
+        .filter(
+            test_test_set_association.c.test_set_id == test_set_id,
+            models.Test.deleted_at.is_(None),
+        )
+        .scalar()
+    ) or 0
+
+
+def _validate_test_set_not_empty(db: Session, test_set: models.TestSet) -> None:
+    """Reject execution when a test set has no associated tests."""
+    if count_test_set_tests(db, test_set.id) == 0:
+        raise ValueError("Cannot execute test set with 0 tests. Please add tests before executing.")
 
 
 def _validate_user_access(

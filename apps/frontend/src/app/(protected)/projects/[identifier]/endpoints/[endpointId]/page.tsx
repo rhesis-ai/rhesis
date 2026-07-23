@@ -13,6 +13,11 @@ import { EndpointDetailProvider } from '@/app/(protected)/endpoints/[identifier]
 import EndpointDetailView from '@/app/(protected)/endpoints/[identifier]/components/EndpointDetailView';
 import EndpointHeaderActions from '@/app/(protected)/endpoints/[identifier]/components/EndpointHeaderActions';
 import { useEndpoint, useProject } from '@/hooks/useEndpoints';
+import {
+  isAuthenticated,
+  isSessionLoading,
+  isSessionUnauthenticated,
+} from '@/hooks/useIsAuthenticated';
 
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -20,8 +25,7 @@ const UUID_REGEX =
 export default function ProjectEndpointPage() {
   const params = useParams<{ identifier: string; endpointId: string }>();
   const router = useRouter();
-  const { data: session, status } = useSession();
-  const sessionToken = session?.session_token ?? '';
+  const { status } = useSession();
   const isValidId = !!params?.endpointId && UUID_REGEX.test(params.endpointId);
 
   const {
@@ -31,19 +35,17 @@ export default function ProjectEndpointPage() {
     error: fetchError,
     refetch,
   } = useEndpoint(
-    sessionToken,
     params?.endpointId ?? '',
-    status === 'authenticated' && !!sessionToken && isValidId
+    isAuthenticated(status) && isValidId
   );
   const { data: project } = useProject(
-    sessionToken,
     params?.identifier ?? '',
     !!params?.identifier
   );
   const projectName = project?.name ?? '';
 
   useDocumentTitle(endpoint?.name || null);
-  const loading = status === 'loading' || isLoading;
+  const loading = isSessionLoading(status) || isLoading;
   const error = !isValidId
     ? 'Invalid endpoint identifier format'
     : fetchError instanceof Error
@@ -52,7 +54,7 @@ export default function ProjectEndpointPage() {
         ? 'Failed to load endpoint'
         : null;
 
-  if (status === 'loading' || loading || !params?.endpointId) {
+  if (isSessionLoading(status) || loading || !params?.endpointId) {
     return (
       <Box
         sx={{
@@ -68,7 +70,7 @@ export default function ProjectEndpointPage() {
     );
   }
 
-  if (status === 'unauthenticated') {
+  if (isSessionUnauthenticated(status)) {
     return (
       <Box sx={{ p: 3 }}>
         <Typography color="error">

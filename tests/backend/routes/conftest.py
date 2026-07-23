@@ -80,36 +80,6 @@ def batch_test_data():
     return _generate_batch
 
 
-# === AUTO-USE FIXTURES (Automatic Cleanup) ===
-
-
-@pytest.fixture(autouse=True)
-def test_isolation():
-    """
-    🏝️ Ensure test isolation and cleanup
-
-    Automatically runs before and after each test to ensure proper isolation.
-    """
-    # Pre-test setup
-    yield
-    # Post-test cleanup handled by factory fixtures
-
-
-@pytest.fixture(autouse=True)
-def performance_monitoring():
-    """
-    📊 Monitor test performance
-
-    Automatically tracks test execution time and warns about slow tests.
-    """
-    import time
-
-    start_time = time.time()
-    yield
-
-    duration = time.time() - start_time
-    if duration > 5.0:  # Warn about tests taking >5 seconds
-        print(f"⚠️  Slow test detected: {duration:.2f}s (consider @pytest.mark.slow)")
 
 
 # === PARAMETERIZED FIXTURES ===

@@ -9,13 +9,11 @@ import { Capability } from '@/constants/capabilities';
 
 interface ProjectOverviewTabProps {
   project: Project;
-  sessionToken: string;
   onProjectUpdate: (updatedProject: Partial<Project>) => Promise<boolean>;
 }
 
 export default function ProjectOverviewTab({
   project,
-  sessionToken,
   onProjectUpdate,
 }: ProjectOverviewTabProps) {
   const canUpdateProject = useCan(Capability.Project.UPDATE);
@@ -24,7 +22,6 @@ export default function ProjectOverviewTab({
     <>
       <ProjectMetadataCard
         project={project}
-        sessionToken={sessionToken}
         onSave={onProjectUpdate}
         editable={canUpdateProject}
       />

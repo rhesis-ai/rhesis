@@ -16,7 +16,6 @@ import type { ComponentType } from 'react';
 // ---------------------------------------------------------------------------
 
 export interface TokenScopeFieldProps {
-  sessionToken: string;
   /** null = full access (no scope restriction). */
   value: string[] | null;
   onChange: (scopes: string[] | null) => void;

@@ -6,10 +6,11 @@ import CancelIcon from '@mui/icons-material/Cancel';
 import CheckIcon from '@mui/icons-material/Check';
 import { useState } from 'react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { useSession } from 'next-auth/react';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface TestExecutableFieldProps {
-  sessionToken: string;
   testId: string;
   promptId: string;
   initialContent: string;
@@ -18,7 +19,6 @@ interface TestExecutableFieldProps {
 }
 
 export default function TestExecutableField({
-  sessionToken,
   testId: _testId,
   promptId,
   initialContent,
@@ -26,6 +26,7 @@ export default function TestExecutableField({
   fieldName = 'content',
 }: TestExecutableFieldProps) {
   const _theme = useTheme();
+  const { status } = useSession();
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState(initialContent);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -54,11 +55,11 @@ export default function TestExecutableField({
   const hasChanges = editedContent.trim() !== initialContent.trim();
 
   const handleConfirmEdit = async () => {
-    if (!sessionToken) return;
+    if (!isAuthenticated(status)) return;
 
     setIsUpdating(true);
     try {
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const promptsClient = clientFactory.getPromptsClient();
 
       await promptsClient.updatePrompt(promptId, {

@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { signIn } from 'next-auth/react';
+import { useSession } from 'next-auth/react';
 import OrganizationDetailsStep from './OrganizationDetailsStep';
 import InviteTeamStep from './InviteTeamStep';
 import FinishStep from './FinishStep';
@@ -35,17 +35,16 @@ interface FormData {
 }
 
 interface OnboardingPageClientProps {
-  sessionToken: string;
   userId: UUID;
   videoUrl?: string;
 }
 
 export default function OnboardingPageClient({
-  sessionToken,
   userId,
   videoUrl,
 }: OnboardingPageClientProps) {
   const notifications = useNotifications();
+  const { update: updateSession } = useSession();
   const [activeStep, setActiveStep] = React.useState(0);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [onboardingStatus, setOnboardingStatus] =
@@ -59,10 +58,8 @@ export default function OnboardingPageClient({
     invites: [{ id: safeRandomUUID(), email: '' }],
   });
 
-  const organizationsClient = new ApiClientFactory(
-    sessionToken
-  ).getOrganizationsClient();
-  const usersClient = new ApiClientFactory(sessionToken).getUsersClient();
+  const organizationsClient = new ApiClientFactory().getOrganizationsClient();
+  const usersClient = new ApiClientFactory().getUsersClient();
 
   const completingRef = React.useRef(false);
 
@@ -139,18 +136,16 @@ export default function OnboardingPageClient({
 
       if ('session_token' in response) {
         const activeSessionToken = response.session_token;
-        const signInResult = await signIn('credentials', {
-          session_token: activeSessionToken,
-          refresh_token:
-            (response as { refresh_token?: string }).refresh_token || '',
-          redirect: false,
-        });
+        // Onboarding attached the user to an org, so the backend minted a
+        // fresh ACCESS token. Update only the access token in the session;
+        // the refresh token is unchanged and must be preserved (a full
+        // re-signIn would drop it). Awaiting the update also rewrites the
+        // httpOnly session cookie, so the follow-up calls below — which go
+        // through the /api/backend proxy like every client request — carry
+        // the new org-scoped token.
+        await updateSession({ session_token: activeSessionToken });
 
-        if (signInResult?.error) {
-          throw new Error('Failed to establish session after onboarding');
-        }
-
-        const authenticatedFactory = new ApiClientFactory(activeSessionToken);
+        const authenticatedFactory = new ApiClientFactory();
         const authenticatedUsersClient = authenticatedFactory.getUsersClient();
         const authenticatedOrganizationsClient =
           authenticatedFactory.getOrganizationsClient();
@@ -331,7 +326,6 @@ export default function OnboardingPageClient({
             formData={formData}
             updateFormData={updateFormData}
             onNext={handleNext}
-            sessionToken={sessionToken}
           />
         );
       case 1:

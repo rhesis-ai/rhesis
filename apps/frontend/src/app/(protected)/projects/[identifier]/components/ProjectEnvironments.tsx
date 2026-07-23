@@ -37,6 +37,7 @@ import {
   GridToolbarExport,
 } from '@mui/x-data-grid';
 import Link from 'next/link';
+import { useSession } from 'next-auth/react';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import FormSectionDivider from '@/components/common/FormSectionDivider';
@@ -72,6 +73,7 @@ import { DeleteModal } from '@/components/common/DeleteModal';
 import ProjectAddEnvironmentDrawer from './ProjectAddEnvironmentDrawer';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { projectKeys } from '@/constants/query-keys';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 const FIGMA_BODY_SX = {
   fontSize: 14,
@@ -82,7 +84,6 @@ const FIGMA_BODY_SX = {
 
 interface ProjectEnvironmentsProps {
   projectId: string;
-  sessionToken: string;
   /** When true, the add action lives in the section header instead of the grid toolbar. */
   hideToolbarAddButton?: boolean;
 }
@@ -149,11 +150,12 @@ function canRemoveEnvironment(row: EnvironmentRow): boolean {
  */
 export default forwardRef<ProjectEnvironmentsHandle, ProjectEnvironmentsProps>(
   function ProjectEnvironments(
-    { projectId, sessionToken, hideToolbarAddButton = false },
+    { projectId, hideToolbarAddButton = false },
     ref
   ) {
     const notifications = useNotifications();
     const theme = useTheme();
+    const { status } = useSession();
     const canUpdateProject = useCan(Capability.Project.UPDATE);
     const [searchQuery, setSearchQuery] = useState('');
 
@@ -184,14 +186,14 @@ export default forwardRef<ProjectEnvironmentsHandle, ProjectEnvironmentsProps>(
     } = useQuery({
       queryKey: environmentsQueryKey,
       queryFn: async () => {
-        const client = new ApiClientFactory(sessionToken).getParametersClient();
+        const client = new ApiClientFactory().getParametersClient();
         const [bindingsResp, expsResp] = await Promise.all([
           client.getEnvironments(projectId),
           client.listProjectExperiments(projectId, { limit: 200 }),
         ]);
         return { bindings: bindingsResp, experiments: expsResp };
       },
-      enabled: !!sessionToken && !!projectId,
+      enabled: isAuthenticated(status) && !!projectId,
     });
 
     const bindings = envData?.bindings ?? null;
@@ -253,7 +255,7 @@ export default forwardRef<ProjectEnvironmentsHandle, ProjectEnvironmentsProps>(
       if (!deleteTargetName) return;
       setDeleting(true);
       try {
-        const client = new ApiClientFactory(sessionToken).getParametersClient();
+        const client = new ApiClientFactory().getParametersClient();
         await client.deleteEnvironment(projectId, deleteTargetName);
         refresh();
         setDeleteDialogOpen(false);
@@ -269,7 +271,7 @@ export default forwardRef<ProjectEnvironmentsHandle, ProjectEnvironmentsProps>(
       } finally {
         setDeleting(false);
       }
-    }, [deleteTargetName, notifications, projectId, refresh, sessionToken]);
+    }, [deleteTargetName, notifications, projectId, refresh]);
 
     const displayedRows = useMemo(() => {
       const query = searchQuery.trim().toLowerCase();
@@ -553,7 +555,6 @@ export default forwardRef<ProjectEnvironmentsHandle, ProjectEnvironmentsProps>(
               open={!!pickerEnvironmentName}
               environmentName={pickerEnvironmentName}
               projectId={projectId}
-              sessionToken={sessionToken}
               experiments={sharedExperiments}
               onClose={() => setPickerEnvironmentName(null)}
               onPromoted={async () => {
@@ -567,7 +568,6 @@ export default forwardRef<ProjectEnvironmentsHandle, ProjectEnvironmentsProps>(
             open={addDrawerOpen}
             onClose={() => setAddDrawerOpen(false)}
             projectId={projectId}
-            sessionToken={sessionToken}
             existingNames={existingNames}
             onCreated={refresh}
           />
@@ -581,7 +581,6 @@ interface PromoteFromProjectDrawerProps {
   open: boolean;
   environmentName: string;
   projectId: string;
-  sessionToken: string;
   experiments: ExperimentRead[];
   onClose: () => void;
   onPromoted: () => void;
@@ -591,7 +590,6 @@ function PromoteFromProjectDrawer({
   open,
   environmentName,
   projectId,
-  sessionToken,
   experiments,
   onClose,
   onPromoted,
@@ -605,10 +603,7 @@ function PromoteFromProjectDrawer({
   );
   const [submitting, setSubmitting] = useState(false);
 
-  const apiFactory = useMemo(
-    () => new ApiClientFactory(sessionToken),
-    [sessionToken]
-  );
+  const apiFactory = useMemo(() => new ApiClientFactory(), []);
 
   const selectedExperiment = experiments.find(e => e.id === experimentId);
 

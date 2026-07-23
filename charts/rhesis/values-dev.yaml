@@ -19,6 +19,7 @@ config:
   environment: "development"
   # INFO reduces API log I/O under load; use DEBUG only when actively tracing.
   logLevel: "INFO"
+  jsonLoggerEnabled: true
 
   # App DB name (ConfigMap DB_NAME) and Bitnami PostgreSQL bootstrap database.
   dbName: &rhesis_db_name "rhesis-dev-db"
@@ -211,7 +212,9 @@ workers:
       failureThreshold: 90
     env:
       - name: CELERY_WORKER_CONCURRENCY
-        value: "2"
+        value: "16"
+      - name: CELERY_ARCHITECT_CONCURRENCY
+        value: "8"
 
 telemetryProcessor:
   enabled: true

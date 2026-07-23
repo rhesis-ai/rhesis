@@ -25,6 +25,7 @@ database:
 config:
   environment: "staging"
   logLevel: "INFO"
+  jsonLoggerEnabled: true
 
   # Must match kubernetes/clusters/stg/cnpg-cluster/cnpg-cluster.yaml bootstrap.initdb.database
   dbName: "rhesis-stg-db"
@@ -120,7 +121,11 @@ workers:
       maxReplicas: 4
       targetCPUUtilizationPercentage: 70
       targetMemoryUtilizationPercentage: 80
-    env: []
+    env:
+      - name: CELERY_WORKER_CONCURRENCY
+        value: "16"
+      - name: CELERY_ARCHITECT_CONCURRENCY
+        value: "8"
 
 docs:
   resources:

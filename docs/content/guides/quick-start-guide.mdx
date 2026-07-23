@@ -4,49 +4,24 @@ import { ThemeAwareImage } from '@/components/ThemeAwareImage'
 
 # How to Start Testing LLM and Agentic Apps in 10 Minutes with Rhesis AI
 
-Testing LLM and agentic apps is challenging: outputs are non-deterministic, edge cases are unpredictable, and manual testing doesn't scale. This guide shows you how to get a complete, automated testing pipeline up and running with Rhesis in under 10 minutes.
-
-## What You'll Get
-
-- **Test generation**: Generate hundreds of test scenarios from plain-language requirements
-- **Single-turn and multi-turn testing**: Test both simple Q&A responses and complex conversations (via Penelope)
-- **LLM-based evaluation**: Automated scoring of whether outputs meet your requirements
-- **Full testing platform**: UI, API, and SDK for running and managing tests
+Testing LLM and agentic apps is challenging: outputs are non-deterministic, edge cases are unpredictable, and manual testing doesn't scale. This guide gets a complete, automated testing pipeline running with Rhesis in under 10 minutes — self-hosted via Docker, driven from the UI or the Python SDK.
 
 ## Prerequisites
 
-- Docker Desktop installed and running
-- Git (to clone the repository)
-- Ports 3000, 8080, 8081, 5432, and 6379 available on your system
+- Docker running, and ports 3000, 8080, 8081, 5432, and 6379 free
 - An AI provider API key (Rhesis API, OpenAI, Azure OpenAI, or Google Gemini)
 
 ## Step 1: Clone and Start (5 minutes)
 
 <CodeBlock filename="Terminal" language="bash">
-{`# Clone the repository
-git clone https://github.com/rhesis-ai/rhesis.git
+{`git clone https://github.com/rhesis-ai/rhesis.git
 cd rhesis
 
-# Start all services with one command (prebuilt GHCR images)
-./rh start
-
-# Optional: build images from this repo instead of pulling
-# ./rh start --build`}
+./rh start                # pulls prebuilt images from GHCR
+# ./rh start --build      # build images locally instead`}
 </CodeBlock>
 
-By default, images are **pulled from GHCR**. Use `./rh start --build` if you need a fully local Docker build.
-
-The `./rh start` command automatically:
-- Checks if Docker is running
-- Generates a secure database encryption key
-- Creates `.env.docker.local` with all required configuration
-- Enables local authentication bypass (auto-login)
-- Pulls or builds images, then starts all services (backend, frontend, database, worker)
-- Creates the database and runs migrations
-- Creates the default admin user (`Local Admin`)
-- Loads example test data
-
-Wait while images download or build and services start (often a few minutes on first run). You'll see progress in your terminal.
+`./rh start` generates local configuration, starts all services, runs migrations, seeds an admin user with auto-login, and loads example data. First run takes a few minutes while images download.
 
 ## Step 2: Access the Platform (1 minute)
 
@@ -138,27 +113,16 @@ Keep this key secure and never share it publicly.
 
 ### Configure the SDK
 
-You can configure the SDK either through environment variables or direct configuration:
-
-**Environment Variables:**
+Point the SDK at your local instance with environment variables:
 
 <CodeBlock filename="terminal" language="bash">
 {`export RHESIS_API_KEY="your-api-key"
 export RHESIS_BASE_URL="http://localhost:8080"`}
 </CodeBlock>
 
-**Direct Configuration:**
-
-<CodeBlock filename="config.py" language="python">
-{`import rhesis
-
-rhesis.api_key = "your-api-key"
-rhesis.base_url = "http://localhost:8080"`}
-</CodeBlock>
-
 ### Set up your REST endpoint
 
-Set up your REST endpoint in the UI, or use the [Rhesis connector](https://docs.rhesis.ai/contribute/connector). Then retrieve the endpoint by ID:
+Set up your REST endpoint in the UI, or use the [Rhesis connector](/sdk/connector). Then retrieve the endpoint by ID:
 
 <CodeBlock filename="endpoint.py" language="python">
 {`import os
@@ -229,7 +193,7 @@ print(f"Test run started: {result}")`}
 
 </Steps>
 
-For complex conversations, use [Penelope](https://docs.rhesis.ai/docs/conversation-simulation/getting-started) to simulate multi-turn interactions.
+For complex conversations, use [Penelope](/docs/tests/conversation-simulation/getting-started) to simulate multi-turn interactions.
 
 ## What's Running
 
@@ -291,43 +255,14 @@ graph LR
 
 ## Next Steps
 
-- **Read the docs**: https://docs.rhesis.ai
-- **Try examples**: Check the `examples/` directory in the repository
-- **Join Discord**: Get help and share feedback
-- **Explore Conversation Simulation**: Learn about multi-turn testing at https://docs.rhesis.ai/docs/conversation-simulation
+- Simulate multi-turn conversations with [Penelope](/docs/tests/conversation-simulation).
+- Wire test runs into your pipeline with [CI/CD Integration](/guides/ci-cd-integration).
+- Write evaluation criteria for your use case with [Custom Metrics](/guides/custom-metrics).
 
 ## Troubleshooting
 
-**Docker not running?**
+- **Port already in use**: `lsof -i :3000` to find the process, then `kill -9 <PID>`.
+- **Services not starting**: check `./rh logs`, or `./rh delete && ./rh start` for a clean slate.
+- **AI provider not working**: verify the key in `.env.docker.local`, then `./rh restart`.
 
-<CodeBlock filename="Terminal" language="bash">
-{`./rh start`}
-</CodeBlock>
-
-**Port already in use?**
-
-<CodeBlock filename="Terminal" language="bash">
-{`lsof -i :3000  # Check what's using the port
-kill -9 <PID>  # Kill the process`}
-</CodeBlock>
-
-**Services not starting?**
-
-<CodeBlock filename="Terminal" language="bash">
-{`./rh logs  # Check logs for errors
-./rh delete && ./rh start  # Fresh start`}
-</CodeBlock>
-
-**AI provider not working?**
-
-Verify your API key in `.env.docker.local` and restart with `./rh restart`.
-
-**Need help?** Join our Discord: https://discord.rhesis.ai
-
----
-
-<Callout type="info">
-**You're all set!** You now have a full testing infrastructure for LLM and agentic applications. Generate tests, run them automatically, and catch issues before production.
-
-For more details, see the [full self-hosting guide](/deployment/docker-compose) or [read about our Docker Compose journey](https://www.rhesis.ai/post/self-hosting-rhesis-with-docker-compose-our-journey-to-a-one-command-setup).
-</Callout>
+For self-hosting details beyond this quickstart, see the [Docker Compose deployment guide](/docs/deployment/docker-compose).

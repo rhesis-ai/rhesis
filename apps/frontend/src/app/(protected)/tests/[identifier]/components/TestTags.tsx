@@ -7,11 +7,10 @@ import { EntityType } from '@/utils/api-client/interfaces/tag';
 import { TestDetail } from '@/utils/api-client/interfaces/tests';
 
 interface TestTagsProps {
-  sessionToken: string;
   test: TestDetail;
 }
 
-export default function TestTags({ sessionToken, test }: TestTagsProps) {
+export default function TestTags({ test }: TestTagsProps) {
   const [tagNames, setTagNames] = useState<string[]>([]);
 
   // Initialize and update tag names when test changes
@@ -35,7 +34,6 @@ export default function TestTags({ sessionToken, test }: TestTagsProps) {
         size="small"
         margin="normal"
         fullWidth
-        sessionToken={sessionToken}
         entityType={EntityType.TEST}
         entity={test}
       />

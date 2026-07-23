@@ -14,6 +14,7 @@ jest.mock('next-auth/react', () => ({
       session_token: 'tok',
       user: { email: 'user@example.com' },
     },
+    status: 'authenticated',
   }),
 }));
 

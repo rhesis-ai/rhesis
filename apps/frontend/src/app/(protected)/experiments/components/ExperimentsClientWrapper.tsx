@@ -18,6 +18,7 @@ import {
   GridToolbarExport,
 } from '@mui/x-data-grid';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { PageLayout } from '@/components/layout/PageLayout';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { getEntityEmptyStateEnrichment } from '@/constants/entity-empty-state-env';
@@ -45,12 +46,14 @@ import { can } from '@/utils/affordances';
 import { Can, useCan, useCanWithStatus } from '@/components/common/Can';
 import AccessDenied from '@/components/common/AccessDenied';
 import PageLoadingState from '@/components/common/PageLoadingState';
+import GridStateGate from '@/components/common/GridStateGate';
 import { BiotechIcon } from '@/components/icons';
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { combineExperimentFiltersToOData } from '@/utils/odata-filter';
 import CreateExperimentDialog from './CreateExperimentDialog';
 import { formatDate } from '@/utils/date';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 // ─── Toolbar context ───────────────────────────────────────────────────────────
 
@@ -149,15 +152,10 @@ function ExperimentsFilterDrawer({
   );
 }
 
-interface ExperimentsClientWrapperProps {
-  sessionToken: string;
-}
-
-export default function ExperimentsClientWrapper({
-  sessionToken,
-}: ExperimentsClientWrapperProps) {
+export default function ExperimentsClientWrapper() {
   const isMounted = useRef(false);
   const router = useRouter();
+  const { status } = useSession();
   const notifications = useNotifications();
   const { activeProject } = useActiveProject();
   const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
@@ -181,16 +179,13 @@ export default function ExperimentsClientWrapper({
     items: [],
   });
 
-  const apiFactory = useMemo(
-    () => new ApiClientFactory(sessionToken),
-    [sessionToken]
-  );
+  const apiFactory = useMemo(() => new ApiClientFactory(), []);
 
   const initialLoadDone = useRef(false);
 
   const fetchExperiments = useCallback(
     async (skip: number, limit: number) => {
-      if (!sessionToken) return;
+      if (!isAuthenticated(status)) return;
 
       try {
         // Only show loading overlay on the first load
@@ -226,7 +221,7 @@ export default function ExperimentsClientWrapper({
         if (isMounted.current) setLoading(false);
       }
     },
-    [sessionToken, apiFactory, filterModel, notifications]
+    [status, apiFactory, filterModel, notifications]
   );
 
   useEffect(() => {
@@ -418,21 +413,26 @@ export default function ExperimentsClientWrapper({
         </FabGroup>
       }
     >
-      {!loading &&
-      experiments.length === 0 &&
-      !searchQuery.trim() &&
-      !visibilityFilter ? (
-        <EntityEmptyState
-          card
-          icon={BiotechIcon}
-          title="No experiments yet"
-          description="Experiments let you bundle parameter values into versioned configurations. Create one to start tracking how different settings affect your test results."
-          actionLabel={canCreateExperiment ? 'New Experiment' : undefined}
-          onAction={canCreateExperiment ? () => setCreateOpen(true) : undefined}
-          actionDisabled={!activeProject}
-          enrichment={getEntityEmptyStateEnrichment('experiments')}
-        />
-      ) : (
+      <GridStateGate
+        data={loading ? null : experiments}
+        isEmpty={
+          experiments.length === 0 && !searchQuery.trim() && !visibilityFilter
+        }
+        emptyState={
+          <EntityEmptyState
+            card
+            icon={BiotechIcon}
+            title="No experiments yet"
+            description="Experiments let you bundle parameter values into versioned configurations. Create one to start tracking how different settings affect your test results."
+            actionLabel={canCreateExperiment ? 'New Experiment' : undefined}
+            onAction={
+              canCreateExperiment ? () => setCreateOpen(true) : undefined
+            }
+            actionDisabled={!activeProject}
+            enrichment={getEntityEmptyStateEnrichment('experiments')}
+          />
+        }
+      >
         <ExperimentsToolbarContext.Provider
           value={{
             searchQuery,
@@ -462,12 +462,11 @@ export default function ExperimentsClientWrapper({
             sx={rowActionsHoverSx}
           />
         </ExperimentsToolbarContext.Provider>
-      )}
+      </GridStateGate>
 
       <CreateExperimentDialog
         open={createOpen}
         onClose={() => setCreateOpen(false)}
-        sessionToken={sessionToken}
         onCreated={async experiment => {
           setCreateOpen(false);
           router.push(`/experiments/${experiment.id}`);

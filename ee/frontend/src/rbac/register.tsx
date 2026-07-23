@@ -61,38 +61,34 @@ export function registerRBAC(): void {
     ProjectRoleCell: ProjectRoleChip,
     AddMemberRoleField: RoleSelectField,
     InviteOrgRoleField: props => <RoleSelectField {...props} scope="org" />,
-    assignOrgMemberRole: async (sessionToken, userId, roleId) => {
-      const client = new RbacClient(sessionToken);
+    assignOrgMemberRole: async (userId, roleId) => {
+      const client = new RbacClient();
       await client.assignOrgRole(userId, { role_id: roleId });
     },
     assignProjectMemberRole: async (
-      sessionToken: string,
       projectId: string,
       userId: string,
       roleId: string
     ) => {
-      const client = new RbacClient(sessionToken);
+      const client = new RbacClient();
       await client.assignProjectRole(projectId, userId, {
         role_id: roleId,
       });
     },
-    fetchUserProjectMemberships: async (
-      sessionToken: string,
-      userId: string
-    ) => {
-      const client = new RbacClient(sessionToken);
+    fetchUserProjectMemberships: async (userId: string) => {
+      const client = new RbacClient();
       return client.getUserProjectMemberships(userId);
     },
-    prewarmCaches: (sessionToken, opts) => {
-      fetchOrgMembers(sessionToken);
+    prewarmCaches: opts => {
+      fetchOrgMembers();
       if (opts?.canManageRoles) {
-        fetchRoles(sessionToken);
+        fetchRoles();
       }
     },
-    prewarmProjectCaches: (sessionToken, projectId, opts) => {
-      fetchProjectMembers(sessionToken, projectId);
+    prewarmProjectCaches: (projectId, opts) => {
+      fetchProjectMembers(projectId);
       if (opts?.canManageRoles) {
-        fetchRoles(sessionToken);
+        fetchRoles();
       }
     },
   });

@@ -20,6 +20,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from rhesis.backend.app.auth.capabilities import get_all_capabilities
 from rhesis.backend.app.auth.principal import (
     REQUEST_STATE_API_TOKEN_PROJECT_ID,
     REQUEST_STATE_API_TOKEN_SCOPES,
@@ -29,10 +30,13 @@ from rhesis.backend.app.auth.principal import (
     resolve_principal_from_request,
 )
 from rhesis.backend.app.auth.rbac import (
+    _OWNER_ONLY_CAPABILITIES,
     AuthorizationProvider,
     DefaultAuthorizationProvider,
     _AuthorizationRegistry,
     authorize,
+    effective_permissions,
+    rbac_active_for,
     set_authorization_provider,
 )
 
@@ -46,6 +50,27 @@ PROJECT_ID = uuid.uuid4()
 OTHER_USER_ID = uuid.uuid4()
 OTHER_ORG_ID = uuid.uuid4()
 OTHER_PROJECT_ID = uuid.uuid4()
+
+
+@pytest.fixture(autouse=True)
+def _isolate_this_files_permission_cache():
+    """Clear the (real, Redis-backed) permission cache around every test here.
+
+    This file's tests share fixed module-level principal UUIDs by design (a
+    PDP truth-table matrix) and repeatedly swap the active authorization
+    provider mid-file — the opposite of the "one principal per test" shape the
+    suite-wide cache assumes elsewhere. Without this, an earlier test's cached
+    ``authorize()`` decision for (ORG_ID, USER_ID, PROJECT_ID, permission) gets
+    served to a later test expecting a different provider/outcome for that
+    same tuple. Scoped to this file rather than suite-wide: every other test
+    file uses per-test-random principal UUIDs (see conftest.py's removed
+    ``isolate_permission_cache`` for the prior suite-wide version of this).
+    """
+    from rhesis.backend.app.services.permission_cache import get_permission_cache
+
+    get_permission_cache().clear_all()
+    yield
+    get_permission_cache().clear_all()
 
 
 def _principal(
@@ -352,6 +377,268 @@ class TestAuthorize:
 
 
 # ---------------------------------------------------------------------------
+# DefaultAuthorizationProvider.get_effective_permissions() — batch resolution
+# ---------------------------------------------------------------------------
+
+
+class TestDefaultAuthorizationProviderEffectivePermissions:
+    """get_effective_permissions() resolves a single fixed project_id context
+    and is deliberately NOT scope-aware — see TestEffectivePermissions below
+    for the org/project split that combines two such calls into a result that
+    matches authorize()'s per-capability decisions."""
+
+    def setup_method(self):
+        self.provider = DefaultAuthorizationProvider()
+
+    def test_no_org_context_returns_empty(self):
+        p = Principal(user_id=USER_ID, organization_id=None, kind="session")
+        db = _mock_db(is_owner=False, is_member=False)
+        assert self.provider.get_effective_permissions(p, project_id=PROJECT_ID, db=db) == set()
+
+    def test_org_owner_gets_every_capability(self):
+        p = _principal()
+        db = _mock_db(is_owner=True, is_member=False)
+        result = self.provider.get_effective_permissions(p, project_id=PROJECT_ID, db=db)
+        assert result == set(get_all_capabilities())
+
+    def test_project_member_with_project_id_gets_every_capability(self):
+        """Single-context contract: at a given project_id, a member gets the
+        whole catalog — org-scoped capabilities included. Discarding the ones
+        authorize() wouldn't actually grant in this context (e.g.
+        organization:update) is the caller's job, not this method's."""
+        p = _principal()
+        db = _mock_db(is_owner=False, is_member=True)
+        result = self.provider.get_effective_permissions(p, project_id=PROJECT_ID, db=db)
+        assert result == set(get_all_capabilities())
+
+    def test_non_member_with_project_id_gets_nothing(self):
+        p = _principal()
+        db = _mock_db(is_owner=False, is_member=False)
+        result = self.provider.get_effective_permissions(p, project_id=PROJECT_ID, db=db)
+        assert result == set()
+
+    def test_no_project_id_grants_non_owner_only_caps(self):
+        """Org context (project_id=None): any org member gets every capability
+        except the owner-only list, regardless of project membership."""
+        p = _principal()
+        db = _mock_db(is_owner=False, is_member=False)
+        result = self.provider.get_effective_permissions(p, project_id=None, db=db)
+        expected = {cap for cap in get_all_capabilities() if cap not in _OWNER_ONLY_CAPABILITIES}
+        assert result == expected
+
+
+# ---------------------------------------------------------------------------
+# effective_permissions() — module-level delegation + token boundary
+# ---------------------------------------------------------------------------
+
+
+class TestEffectivePermissions:
+    def setup_method(self):
+        _AuthorizationRegistry.reset()
+
+    def teardown_method(self):
+        _AuthorizationRegistry.reset()
+
+    def test_delegates_to_active_provider(self):
+        p = _principal()
+        db = _mock_db(is_owner=True, is_member=False)
+        result = effective_permissions(p, project_id=PROJECT_ID, db=db)
+        assert result == sorted(get_all_capabilities())
+
+    def test_provider_exception_fails_closed(self):
+        """A provider exception must not propagate into a 500 on
+        /me/permissions or any affordance-bearing response — mirrors
+        authorize()'s own fail-closed behavior."""
+
+        class ExplodingProvider(AuthorizationProvider):
+            def get_effective_permissions(self, principal, *, project_id, db):
+                raise RuntimeError("simulated provider failure")
+
+        set_authorization_provider(ExplodingProvider())
+        p = _principal()
+        db = MagicMock()
+        assert effective_permissions(p, project_id=PROJECT_ID, db=db) == []
+        assert effective_permissions(p, project_id=None, db=db) == []
+
+    def test_token_scoped_to_other_project_returns_empty(self):
+        """A project-scoped token may only act within its own project — this
+        must be enforced once per call, not per capability, mirroring
+        authorize()'s token-project-boundary check."""
+        p = Principal(
+            user_id=USER_ID,
+            organization_id=ORG_ID,
+            kind="token",
+            token_project_id=OTHER_PROJECT_ID,
+        )
+        db = _mock_db(is_owner=True, is_member=False)
+        assert effective_permissions(p, project_id=PROJECT_ID, db=db) == []
+
+    def test_token_scoped_to_matching_project_is_unaffected(self):
+        p = Principal(
+            user_id=USER_ID,
+            organization_id=ORG_ID,
+            kind="token",
+            token_project_id=PROJECT_ID,
+        )
+        db = _mock_db(is_owner=True, is_member=False)
+        result = effective_permissions(p, project_id=PROJECT_ID, db=db)
+        assert result == sorted(get_all_capabilities())
+
+    def test_token_scoped_but_no_ambient_project_is_unaffected(self):
+        """The boundary check only fires when the request itself targets a
+        project — org-scoped calls (project_id=None) are never blocked by it."""
+        p = Principal(
+            user_id=USER_ID,
+            organization_id=ORG_ID,
+            kind="token",
+            token_project_id=OTHER_PROJECT_ID,
+        )
+        db = _mock_db(is_owner=True, is_member=False)
+        result = effective_permissions(p, project_id=None, db=db)
+        assert result == sorted(get_all_capabilities())
+
+    def test_project_member_result_matches_authorize_including_owner_only_named_project_cap(self):
+        """End-to-end: a project-scoped capability that happens to be in
+        _OWNER_ONLY_CAPABILITIES (e.g. project_member:manage) is still granted
+        to any enrolled member, but a genuinely org-scoped capability is not —
+        matching authorize()'s own per-capability decisions exactly."""
+        p = _principal()
+        db = _mock_db(is_owner=False, is_member=True)
+        result = effective_permissions(p, project_id=PROJECT_ID, db=db)
+        assert "test_set:read" in result
+        assert "project_member:manage" in result
+        assert "organization:update" not in result
+
+    def test_matches_authorize_for_every_capability(self):
+        """Cross-check: effective_permissions() must agree with calling
+        authorize() once per capability, for every branch combination.
+
+        authorize() caches decisions by (user_id, org_id, project_id,
+        permission) — not by DB content — so the cache is cleared before each
+        combination to avoid one iteration's mock DB leaking into the next.
+        """
+        from rhesis.backend.app.services.permission_cache import get_permission_cache
+
+        for is_owner, is_member in ((True, False), (False, True), (False, False)):
+            for project_id in (PROJECT_ID, None):
+                get_permission_cache().clear_all()
+                p = _principal()
+                db = _mock_db(is_owner=is_owner, is_member=is_member)
+                batch = effective_permissions(p, project_id=project_id, db=db)
+                get_permission_cache().clear_all()
+                expected_db = _mock_db(is_owner=is_owner, is_member=is_member)
+                expected = sorted(
+                    cap
+                    for cap in get_all_capabilities()
+                    if authorize(p, cap, project_id=project_id, db=expected_db)
+                )
+                assert batch == expected, (is_owner, is_member, project_id)
+
+
+class TestEffectivePermissionsOrgProjectSplit:
+    """Provider-agnostic proof of the fix: effective_permissions() must keep
+    only org-scoped capabilities from the project_id=None call and only
+    project-scoped ones from the project_id=<ambient> call — never trust one
+    call's full result. This is what protects against a provider (like EE)
+    that resolves a single merged role per project_id, where an elevated
+    project role could otherwise leak org-admin capabilities into a context
+    authorize() would still evaluate against the plain (lower) org role."""
+
+    def setup_method(self):
+        _AuthorizationRegistry.reset()
+
+    def teardown_method(self):
+        _AuthorizationRegistry.reset()
+
+    def test_elevated_project_context_cannot_leak_org_scoped_caps(self):
+        class FakeMergedRoleProvider(AuthorizationProvider):
+            def get_effective_permissions(self, principal, *, project_id, db):
+                if project_id is None:
+                    return {"test_set:read"}  # plain org role, e.g. Member
+                # Elevated merged role for this project, e.g. Owner — would
+                # wrongly include org-admin caps if not filtered by scope.
+                return {"test_set:read", "test_set:delete", "organization:update"}
+
+        set_authorization_provider(FakeMergedRoleProvider())
+        p = _principal()
+        db = MagicMock()
+
+        result = effective_permissions(p, project_id=PROJECT_ID, db=db)
+
+        assert "test_set:delete" in result  # project-scoped: kept from project context
+        assert "organization:update" not in result  # org-scoped: discarded
+
+    def test_no_project_id_uses_org_context_result_directly(self):
+        class FakeProvider(AuthorizationProvider):
+            def get_effective_permissions(self, principal, *, project_id, db):
+                assert project_id is None
+                return {"organization:read"}
+
+        set_authorization_provider(FakeProvider())
+        p = _principal()
+        db = MagicMock()
+        assert effective_permissions(p, project_id=None, db=db) == ["organization:read"]
+
+
+# ---------------------------------------------------------------------------
+# rbac_active_for() — caching
+# ---------------------------------------------------------------------------
+
+
+class TestRbacActiveFor:
+    def setup_method(self):
+        from rhesis.backend.app.services.permission_cache import get_permission_cache
+
+        get_permission_cache().clear_all()
+
+    def teardown_method(self):
+        from rhesis.backend.app.services.permission_cache import get_permission_cache
+
+        get_permission_cache().clear_all()
+
+    def test_no_org_id_returns_false_without_querying(self):
+        db = MagicMock()
+        assert rbac_active_for(None, db) is False
+        db.query.assert_not_called()
+
+    def test_second_call_for_same_org_skips_db(self):
+        """The org lookup + FeatureRegistry check should only run once per org
+        within the cache TTL — this is the fix for the same N-DB-query problem
+        effective_permissions() had, applied to the RBAC-active check itself."""
+        from unittest.mock import patch
+
+        from rhesis.backend.app.features import FeatureRegistry
+
+        db = MagicMock()
+        org = MagicMock()
+        db.query.return_value.filter_by.return_value.first.return_value = org
+
+        with patch.object(FeatureRegistry, "is_available", return_value=True):
+            first = rbac_active_for(ORG_ID, db)
+            second = rbac_active_for(ORG_ID, db)
+
+        assert first is True
+        assert second is True
+        db.query.assert_called_once()
+
+    def test_different_orgs_are_cached_independently(self):
+        from unittest.mock import patch
+
+        from rhesis.backend.app.features import FeatureRegistry
+
+        db = MagicMock()
+        db.query.return_value.filter_by.return_value.first.return_value = MagicMock()
+
+        with patch.object(FeatureRegistry, "is_available", side_effect=[True, False]):
+            result_a = rbac_active_for(ORG_ID, db)
+            result_b = rbac_active_for(OTHER_ORG_ID, db)
+
+        assert result_a is True
+        assert result_b is False
+        assert db.query.call_count == 2
+
+
+# ---------------------------------------------------------------------------
 # Capabilities module
 # ---------------------------------------------------------------------------
 
@@ -533,12 +820,8 @@ class TestCapabilities:
 
         # "app1_sentinel" and "app2_sentinel" are deliberately not in the
         # Permission enum, so their presence/absence reflects only routes.
-        app1 = self._make_app(
-            [("/app1_sentinel", {"GET"}, {"x-rhesis-resource": "app1_sentinel"})]
-        )
-        app2 = self._make_app(
-            [("/app2_sentinel", {"GET"}, {"x-rhesis-resource": "app2_sentinel"})]
-        )
+        app1 = self._make_app([("/app1_sentinel", {"GET"}, {"x-rhesis-resource": "app1_sentinel"})])
+        app2 = self._make_app([("/app2_sentinel", {"GET"}, {"x-rhesis-resource": "app2_sentinel"})])
 
         register_capabilities(app1)
         assert "app1_sentinel:read" in get_all_capabilities()

@@ -18,7 +18,6 @@ import { InsightsBehaviorOption } from '../utils/insights-filter-utils';
 interface TestResultsFiltersProps {
   filters: InsightsFilters;
   onFiltersChange: (filters: InsightsFilters) => void;
-  sessionToken: string;
   projectEndpoints: Endpoint[];
   endpointsLoading: boolean;
   behaviorOptions: InsightsBehaviorOption[];
@@ -37,7 +36,6 @@ interface TestResultsFiltersProps {
 export default function TestResultsFilters({
   filters,
   onFiltersChange,
-  sessionToken,
   projectEndpoints,
   endpointsLoading,
   behaviorOptions,
@@ -115,7 +113,6 @@ export default function TestResultsFilters({
         open={filterDrawerOpen}
         onClose={() => setFilterDrawerOpen(false)}
         filters={drawerFilters}
-        sessionToken={sessionToken}
         projectEndpoints={projectEndpoints}
         endpointsLoading={endpointsLoading}
         behaviorOptions={behaviorOptions}

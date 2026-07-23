@@ -65,21 +65,18 @@ describe('EndpointsClient', () => {
       expect(result.pagination.totalCount).toBe(2);
     });
 
-    it('sends Authorization header', async () => {
+    it('omits Authorization header client-side (proxy injects it)', async () => {
       fetchMock.mockResolvedValue(
         makeFetchResponse([], 200, { 'x-total-count': '0' })
       );
 
       await client.getEndpoints();
 
-      expect(fetchMock).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.objectContaining({
-          headers: expect.objectContaining({
-            Authorization: 'Bearer test-token',
-          }),
-        })
-      );
+      const headers = fetchMock.mock.calls[0][1].headers as Record<
+        string,
+        string
+      >;
+      expect(headers['Authorization']).toBeUndefined();
     });
 
     it('respects custom pagination parameters', async () => {

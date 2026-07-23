@@ -1,12 +1,6 @@
 'use client';
 
-import React, {
-  useEffect,
-  useState,
-  useCallback,
-  useContext,
-  useMemo,
-} from 'react';
+import React, { useState, useCallback, useContext, useMemo } from 'react';
 import {
   GridColDef,
   GridRowParams,
@@ -16,7 +10,7 @@ import {
   GridToolbarDensitySelector,
   GridToolbarExport,
 } from '@mui/x-data-grid';
-import BaseDataGrid from '@/components/common/BaseDataGrid';
+import BaseDataGrid, { GRID_PAPER_SX } from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
 import { combineTestSetFiltersToOData } from '@/utils/odata-filter';
 import {
@@ -26,8 +20,20 @@ import {
 import { gridSortToApiParams } from '@/utils/grid-sort';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import { Tag } from '@/utils/api-client/interfaces/tag';
-import { Box, Tooltip, Typography, Avatar, Alert, Chip } from '@mui/material';
-import { ChatIcon, DescriptionIcon } from '@/components/icons';
+import {
+  Box,
+  Tooltip,
+  Typography,
+  Avatar,
+  Alert,
+  Chip,
+  Paper,
+} from '@mui/material';
+import {
+  ChatIcon,
+  DescriptionIcon,
+  HorizontalSplitIcon,
+} from '@/components/icons';
 import InsertDriveFileOutlined from '@mui/icons-material/InsertDriveFileOutlined';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import DeleteIcon from '@mui/icons-material/DeleteOutlined';
@@ -57,10 +63,14 @@ import { useQueryClient } from '@tanstack/react-query';
 import { testSetKeys } from '@/constants/query-keys';
 import { useGridState } from '@/hooks/useGridState';
 import { useGridQuery } from '@/hooks/useGridQuery';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import GridStateGate from '@/components/common/GridStateGate';
+import EntityEmptyState from '@/components/common/EntityEmptyState';
+import { getEntityEmptyStateEnrichment } from '@/constants/entity-empty-state-env';
 
 interface TestSetsGridProps {
-  sessionToken?: string;
-  onTotalCountChange?: (count: number) => void;
+  canCreate?: boolean;
+  onCreateClick?: () => void;
 }
 
 // ─── Toolbar context ────────────────────────────────────────────────────────────
@@ -156,17 +166,15 @@ const ChipContainer = ({ items }: { items: string[] }) => {
 };
 
 export default function TestSetsGrid({
-  sessionToken: sessionTokenProp,
-  onTotalCountChange,
+  canCreate,
+  onCreateClick,
 }: TestSetsGridProps) {
   const router = useRouter();
-  const { data: session } = useSession();
+  const { status } = useSession();
   const notifications = useNotifications();
   const canEditTestSet = useCan(Capability.TestSet.UPDATE);
   const canDeleteTestSet = useCan(Capability.TestSet.DELETE);
   const queryClient = useQueryClient();
-
-  const sessionToken = sessionTokenProp || session?.session_token || '';
 
   // ── Search + type filter ────────────────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState('');
@@ -258,7 +266,7 @@ export default function TestSetsGrid({
     ),
     errorFallbackMessage: 'Failed to load test sets',
     queryFn: () => {
-      const client = new ApiClientFactory(sessionToken).getTestSetsClient();
+      const client = new ApiClientFactory().getTestSetsClient();
       return client.getTestSets({
         skip: paginationModel.page * paginationModel.pageSize,
         limit: paginationModel.pageSize,
@@ -267,27 +275,10 @@ export default function TestSetsGrid({
         ...(filterString && { $filter: filterString }),
       });
     },
-    enabled: !!sessionToken,
+    enabled: isAuthenticated(status),
   });
   const testSets = testSetsData?.data ?? [];
   const totalCount = testSetsData?.pagination.totalCount ?? 0;
-
-  // ── onTotalCountChange side effect ───────────────────────────────────────────
-  useEffect(() => {
-    if (!testSetsData) return;
-    const filtersActive =
-      filterModel.items.length > 0 ||
-      !!searchQuery ||
-      hasActiveTestSetFilters(drawerFilters);
-    if (!filtersActive) onTotalCountChange?.(totalCount);
-  }, [
-    testSetsData,
-    filterModel.items.length,
-    searchQuery,
-    drawerFilters,
-    onTotalCountChange,
-    totalCount,
-  ]);
 
   // ── Row + selection handlers ─────────────────────────────────────────────────
 
@@ -319,7 +310,7 @@ export default function TestSetsGrid({
 
     try {
       setIsDeleting(true);
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const testSetsClient = clientFactory.getTestSetsClient();
 
       await Promise.all(
@@ -343,7 +334,7 @@ export default function TestSetsGrid({
       setIsDeleting(false);
       setDeleteModalOpen(false);
     }
-  }, [pendingDeleteId, selectedRows, sessionToken, notifications, queryClient]);
+  }, [pendingDeleteId, selectedRows, notifications, queryClient]);
 
   const handleDeleteCancel = useCallback(() => {
     setDeleteModalOpen(false);
@@ -626,114 +617,136 @@ export default function TestSetsGrid({
     ];
   }, [handleRowEditAction, handleRowDeleteAction]);
 
-  return (
-    <TestSetsToolbarContext.Provider
-      value={{
-        searchQuery,
-        setSearchQuery,
-        typeFilter,
-        setTypeFilter,
-        openFilterDrawer: () => setFilterDrawerOpen(true),
-        hasActiveDrawerFilters: hasActiveTestSetFilters(drawerFilters),
-        activeFilterCount: countActiveTestSetFilters(drawerFilters),
-      }}
-    >
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={dismissError}>
-          {error}
-        </Alert>
-      )}
+  const filtersActive =
+    filterModel.items.length > 0 ||
+    !!searchQuery ||
+    hasActiveTestSetFilters(drawerFilters);
 
-      {selectedRows.length > 0 && (
-        <Box
-          sx={{
-            px: 2,
-            py: 1,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 2,
-            borderBottom: theme =>
-              `1px solid ${theme.palette.greyscale.border}`,
+  return (
+    <GridStateGate
+      data={testSetsData}
+      error={error}
+      isEmpty={totalCount === 0 && !filtersActive}
+      emptyState={
+        <EntityEmptyState
+          card
+          icon={HorizontalSplitIcon}
+          title="No test sets yet"
+          description="Group related tests into a test set to version, share, and run them together."
+          actionLabel={canCreate ? 'Create test set' : undefined}
+          onAction={canCreate ? onCreateClick : undefined}
+          enrichment={getEntityEmptyStateEnrichment('test-sets')}
+        />
+      }
+    >
+      <Paper sx={GRID_PAPER_SX}>
+        <TestSetsToolbarContext.Provider
+          value={{
+            searchQuery,
+            setSearchQuery,
+            typeFilter,
+            setTypeFilter,
+            openFilterDrawer: () => setFilterDrawerOpen(true),
+            hasActiveDrawerFilters: hasActiveTestSetFilters(drawerFilters),
+            activeFilterCount: countActiveTestSetFilters(drawerFilters),
           }}
         >
-          <Typography variant="subtitle1" color="primary">
-            {selectedRows.length} selected
-          </Typography>
-        </Box>
-      )}
+          {error && (
+            <Alert severity="error" sx={{ mb: 2 }} onClose={dismissError}>
+              {error}
+            </Alert>
+          )}
 
-      <BaseDataGrid
-        columns={columns}
-        rows={processedTestSets}
-        loading={loading}
-        getRowId={row => row.id}
-        showToolbar={true}
-        onRowClick={handleRowClick}
-        getRowUrl={row => `/test-sets/${row.id}`}
-        paginationModel={paginationModel}
-        onPaginationModelChange={handlePaginationModelChange}
-        actionButtons={getActionButtons()}
-        serverSidePagination={true}
-        totalRows={totalCount}
-        pageSizeOptions={[10, 25, 50]}
-        serverSideFiltering={true}
-        filterModel={filterModel}
-        onFilterModelChange={handleFilterModelChange}
-        sortingMode="server"
-        sortModel={sortModel}
-        onSortModelChange={handleSortModelChange}
-        toolbarSlot={TestSetsUnifiedToolbar}
-        disablePaperWrapper={true}
-        persistState
-        initialState={{
-          columns: {
-            columnVisibilityModel: {
-              sources: false,
-            },
-          },
-        }}
-        sx={rowActionsHoverSx}
-      />
+          {selectedRows.length > 0 && (
+            <Box
+              sx={{
+                px: 2,
+                py: 1,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 2,
+                borderBottom: theme =>
+                  `1px solid ${theme.palette.greyscale.border}`,
+              }}
+            >
+              <Typography variant="subtitle1" color="primary">
+                {selectedRows.length} selected
+              </Typography>
+            </Box>
+          )}
 
-      {/* Test Run Drawer */}
-      {sessionToken && (
-        <>
-          <RunDrawer
-            mode="createFromGrid"
-            open={testRunDrawerOpen}
-            onClose={() => setTestRunDrawerOpen(false)}
-            sessionToken={sessionToken}
-            data={{ selectedTestSetIds: selectedRows as string[] }}
-            onSuccess={() => setTestRunDrawerOpen(false)}
+          <BaseDataGrid
+            columns={columns}
+            rows={processedTestSets}
+            loading={loading}
+            getRowId={row => row.id}
+            showToolbar={true}
+            onRowClick={handleRowClick}
+            getRowUrl={row => `/test-sets/${row.id}`}
+            paginationModel={paginationModel}
+            onPaginationModelChange={handlePaginationModelChange}
+            actionButtons={getActionButtons()}
+            serverSidePagination={true}
+            totalRows={totalCount}
+            pageSizeOptions={[10, 25, 50]}
+            serverSideFiltering={true}
+            filterModel={filterModel}
+            onFilterModelChange={handleFilterModelChange}
+            sortingMode="server"
+            sortModel={sortModel}
+            onSortModelChange={handleSortModelChange}
+            toolbarSlot={TestSetsUnifiedToolbar}
+            disablePaperWrapper={true}
+            persistState
+            initialState={{
+              columns: {
+                columnVisibilityModel: {
+                  sources: false,
+                },
+              },
+            }}
+            sx={rowActionsHoverSx}
           />
-          <DeleteModal
-            open={deleteModalOpen}
-            onClose={handleDeleteCancel}
-            onConfirm={handleDeleteConfirm}
-            isLoading={isDeleting}
-            title={pendingDeleteId ? 'Delete Test Set' : 'Delete Test Sets'}
-            message={
-              pendingDeleteId
-                ? 'Are you sure you want to delete this test set? Related data will not be deleted.'
-                : `Are you sure you want to delete ${selectedRows.length} ${selectedRows.length === 1 ? 'test set' : 'test sets'}? Don't worry, related data will not be deleted, only ${selectedRows.length === 1 ? 'this record' : 'these records'}.`
-            }
-            itemType="test sets"
-          />
-        </>
-      )}
 
-      {/* Filter drawer */}
-      <TestSetFilterDrawer
-        open={filterDrawerOpen}
-        onClose={() => setFilterDrawerOpen(false)}
-        filters={drawerFilters}
-        sessionToken={sessionToken}
-        onApply={f => {
-          setDrawerFilters(f);
-          if (f.testSetType) setTypeFilter(f.testSetType);
-          else if (!drawerFilters.testSetType) setTypeFilter('all');
-        }}
-      />
-    </TestSetsToolbarContext.Provider>
+          {/* Test Run Drawer */}
+          {isAuthenticated(status) && (
+            <>
+              <RunDrawer
+                mode="createFromGrid"
+                open={testRunDrawerOpen}
+                onClose={() => setTestRunDrawerOpen(false)}
+                data={{ selectedTestSetIds: selectedRows as string[] }}
+                onSuccess={() => setTestRunDrawerOpen(false)}
+              />
+              <DeleteModal
+                open={deleteModalOpen}
+                onClose={handleDeleteCancel}
+                onConfirm={handleDeleteConfirm}
+                isLoading={isDeleting}
+                title={pendingDeleteId ? 'Delete Test Set' : 'Delete Test Sets'}
+                message={
+                  pendingDeleteId
+                    ? 'Are you sure you want to delete this test set? Related data will not be deleted.'
+                    : `Are you sure you want to delete ${selectedRows.length} ${selectedRows.length === 1 ? 'test set' : 'test sets'}? Don't worry, related data will not be deleted, only ${selectedRows.length === 1 ? 'this record' : 'these records'}.`
+                }
+                itemType="test sets"
+              />
+            </>
+          )}
+
+          {/* Filter drawer */}
+          <TestSetFilterDrawer
+            open={filterDrawerOpen}
+            onClose={() => setFilterDrawerOpen(false)}
+            filters={drawerFilters}
+            onApply={f => {
+              setDrawerFilters(f);
+              if (f.testSetType) setTypeFilter(f.testSetType);
+              else if (!drawerFilters.testSetType) setTypeFilter('all');
+            }}
+          />
+        </TestSetsToolbarContext.Provider>
+      </Paper>
+    </GridStateGate>
   );
 }

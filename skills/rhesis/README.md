@@ -4,6 +4,8 @@ Design, run, and analyze AI test suites on the [Rhesis](https://rhesis.ai) platf
 
 This skill teaches your agent how to explore an AI endpoint's capabilities, design a test suite, create behaviors and metrics, generate tests, execute them, and analyze the results. All platform operations run through the Rhesis MCP server.
 
+**Skill layout:** `SKILL.md` is a thin router. Deep guidance lives under `references/` — start with `workflow-index.md`. Requirements plans should match the fictional golden example in `use-case-bracketfeld.md` (City of Bracketfeld PermitDesk — not a real product).
+
 > **Note:** This is different from Rhesis's inbound MCP connector (where the platform consumes tools like Notion or GitHub). Here, an external AI agent calls *into* Rhesis to drive the testing platform.
 
 ---

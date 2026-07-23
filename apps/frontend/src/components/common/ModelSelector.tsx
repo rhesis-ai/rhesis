@@ -24,7 +24,6 @@ type ModelPurpose = 'generation' | 'evaluation' | 'execution' | 'embedding';
 const EMPTY_MODELS: Model[] = [];
 
 interface ModelSelectorProps {
-  sessionToken: string;
   value: string;
   onChange: (modelId: string) => void;
   label: string;
@@ -91,7 +90,6 @@ function ProviderIcon({ icon }: { icon?: string }) {
 }
 
 export default function ModelSelector({
-  sessionToken,
   value,
   onChange,
   label,
@@ -109,7 +107,6 @@ export default function ModelSelector({
   const theme = useTheme();
   const { data: userSettings } = useUserSettings(enabled);
   const { data: fetchedModels, isLoading: isFetching } = useModels(
-    sessionToken,
     enabled && preloadedModels === undefined
   );
 

@@ -18,13 +18,11 @@ interface TagsDraft {
 }
 
 interface TestSetTagsMetricsCardProps {
-  sessionToken: string;
   testSet: TestSet;
   onUpdate?: () => void;
 }
 
 export default function TestSetTagsMetricsCard({
-  sessionToken,
   testSet,
   onUpdate: _onUpdate,
 }: TestSetTagsMetricsCardProps) {
@@ -35,7 +33,7 @@ export default function TestSetTagsMetricsCard({
   const initialDraft: TagsDraft = { tagNames: initialTagNames };
 
   const handleSave = async (draft: TagsDraft) => {
-    const tagsClient = new TagsClient(sessionToken);
+    const tagsClient = new TagsClient();
     const currentNames = initialTagNames;
     const newNames = draft.tagNames;
 
@@ -108,10 +106,7 @@ export default function TestSetTagsMetricsCard({
             >
               Evaluation metrics linked to this test set
             </Typography>
-            <TestSetMetrics
-              testSetId={testSet.id as string}
-              sessionToken={sessionToken}
-            />
+            <TestSetMetrics testSetId={testSet.id as string} />
           </Box>
 
           {/* Tags */}

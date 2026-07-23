@@ -16,18 +16,23 @@ from rhesis.backend.app.dependencies import (
 )
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.routers.base import RhesisRouter
-from rhesis.backend.app.schemas.metric import MetricDetail as MetricDetailSchema
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.odata import apply_select
 
 logger = logging.getLogger(__name__)
 
-# Create behavior schema with full metric details (includes score_type and metric_scope)
+# Behavior's associated metrics only need Metric's own fields (name, description,
+# backend_type, metric_type, score_type, metric_scope) -- confirmed against actual
+# frontend usage (BehaviorCard/BehaviorsClient/BehaviorMetricsViewer/BehaviorDetailTabs,
+# and the standalone GET /behaviors/{id}/metrics/ compare-page caller). None of
+# MetricDetail's relationship fields (status/assignee/owner/model/behaviors/
+# test_sets/organization/project) are read here, so this stays on the base
+# Metric schema rather than sharing MetricDetail with routers/metric.py.
 BehaviorWithMetricsSchema = create_model(
     "BehaviorWithMetrics",
     __base__=schemas.Behavior,
-    metrics=(List[MetricDetailSchema], []),
+    metrics=(List[schemas.Metric], []),
 )
 
 router = RhesisRouter(
@@ -157,7 +162,7 @@ def update_behavior(
     return db_behavior
 
 
-@router.get("/{behavior_id}/metrics/", response_model=List[MetricDetailSchema])
+@router.get("/{behavior_id}/metrics/", response_model=List[schemas.Metric])
 @with_count_header(model=models.Metric)
 def read_behavior_metrics(
     response: Response,

@@ -1,7 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from rhesis.backend.app.routers.base import RhesisRouter
+from fastapi import Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
@@ -11,13 +10,10 @@ from rhesis.backend.app.dependencies import (
     get_tenant_db_session,
 )
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.odata import combine_entity_type_filter
-from rhesis.backend.app.utils.schema_factory import create_detailed_schema
-
-# Create the detailed schema for Test
-StatusDetailSchema = create_detailed_schema(schemas.Status, models.Status)
 
 router = RhesisRouter(
     prefix="/statuses",
@@ -28,7 +24,7 @@ router = RhesisRouter(
 )
 
 
-@router.post("/", response_model=StatusDetailSchema)
+@router.post("/", response_model=schemas.StatusDetail)
 @handle_database_exceptions(
     entity_name="status", custom_unique_message="Status with this name already exists"
 )
@@ -45,7 +41,7 @@ def create_status(
     )
 
 
-@router.get("/", response_model=list[StatusDetailSchema])
+@router.get("/", response_model=list[schemas.StatusDetail])
 @with_count_header(model=models.Status)
 def read_statuses(
     response: Response,
@@ -75,7 +71,7 @@ def read_statuses(
     )
 
 
-@router.get("/{status_id}", response_model=StatusDetailSchema)
+@router.get("/{status_id}", response_model=schemas.StatusDetail)
 def read_status(
     status_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),

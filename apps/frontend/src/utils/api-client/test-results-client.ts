@@ -231,6 +231,7 @@ export class TestResultsClient extends BaseApiClient {
       status_id?: string;
       comments?: string;
       target?: ReviewTarget;
+      resolved?: boolean;
     }
   ): Promise<Review> {
     return this.fetch<Review>(

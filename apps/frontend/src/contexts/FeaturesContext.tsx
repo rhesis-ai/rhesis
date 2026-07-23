@@ -27,6 +27,7 @@ import type {
 import { useQuery } from '@tanstack/react-query';
 import { useSession } from 'next-auth/react';
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface FeaturesState {
   license: LicenseInfo | null;
@@ -61,17 +62,12 @@ export function FeaturesProvider({
   initialFeatures?: FeaturesResponse | null;
 }) {
   const { data: session, status } = useSession();
-  const sessionToken =
-    status === 'authenticated' ? session?.session_token : undefined;
-  // Prefer the stable user id, but fall back to the per-user session token so
-  // the cache key is never shared across users even if `user.id` is missing.
-  const userScope = session?.user?.id ?? sessionToken ?? '';
+  const userScope = session?.user?.id ?? '';
 
   const { data, isLoading, error } = useQuery({
     queryKey: featureKeys.all(userScope),
-    queryFn: () =>
-      new ApiClientFactory(sessionToken!).getFeaturesClient().getFeatures(),
-    enabled: !!sessionToken,
+    queryFn: () => new ApiClientFactory().getFeaturesClient().getFeatures(),
+    enabled: isAuthenticated(status),
     staleTime: 5 * 60_000,
     ...(initialFeatures ? { initialData: initialFeatures } : {}),
   });
@@ -79,10 +75,10 @@ export function FeaturesProvider({
   const value = useMemo<FeaturesState>(() => {
     // Fail-closed while the session is still resolving or the query is idle/
     // in-flight. A disabled react-query (enabled: false) reports isLoading=false
-    // with data=undefined, so we must gate on sessionToken explicitly --
+    // with data=undefined, so we must gate on the auth status explicitly --
     // otherwise the idle state would be mistaken for "loaded, no features" and
     // gated UI (and downstream RBAC permissions) would flash permissive.
-    if (!sessionToken || isLoading) return DEFAULT_STATE;
+    if (!isAuthenticated(status) || isLoading) return DEFAULT_STATE;
     if (error)
       return {
         license: null,
@@ -99,7 +95,7 @@ export function FeaturesProvider({
       loading: false,
       error: null,
     };
-  }, [sessionToken, data, isLoading, error]);
+  }, [data, isLoading, error, status]);
 
   return (
     <FeaturesContext.Provider value={value}>

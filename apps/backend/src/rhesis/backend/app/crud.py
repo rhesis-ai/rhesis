@@ -36,7 +36,7 @@ from rhesis.backend.app.utils.crud_utils import (
     update_item,
 )
 from rhesis.backend.app.utils.name_generator import generate_memorable_name
-from rhesis.backend.app.utils.query_utils import QueryBuilder
+from rhesis.backend.app.utils.query_utils import QueryBuilder, include
 
 logger = logging.getLogger(__name__)
 
@@ -389,11 +389,33 @@ def delete_category(
 
 
 # Behavior CRUD
+# Relationships serialized by schemas.Behavior/BehaviorDetail (status, project,
+# organization, user) -- see get_status for the same shape on a simpler model.
+_BEHAVIOR_RELATED_FIELDS = (
+    include(models.Behavior.status),
+    include(models.Behavior.project),
+    include(models.Behavior.organization),
+    include(models.Behavior.user),
+)
+
+
 def get_behavior(
     db: Session, behavior_id: uuid.UUID, organization_id: str = None, user_id: str = None
 ) -> Optional[models.Behavior]:
-    """Get behavior."""
-    return get_item(db, models.Behavior, behavior_id, organization_id, user_id)
+    """Get behavior with relationships eagerly loaded."""
+    from rhesis.backend.app.utils.crud_utils import _check_and_raise_if_deleted
+    from rhesis.backend.app.utils.query_utils import QueryBuilder
+
+    item = (
+        QueryBuilder(db, models.Behavior)
+        .with_deleted()
+        .with_related(*_BEHAVIOR_RELATED_FIELDS)
+        .with_default_derived_field_loads()
+        .with_organization_filter(organization_id)
+        .with_visibility_filter(user_id)
+        .filter_by_id(behavior_id)
+    )
+    return _check_and_raise_if_deleted(item, models.Behavior, behavior_id, False)
 
 
 def get_behaviors(
@@ -511,6 +533,23 @@ def get_test_set(
     )
 
 
+# Relationships serialized by TestSetDetailSchema. All many-to-one -- excludes
+# collection relationships (prompts, tests, metrics, test_configurations)
+# because those produce cartesian-product joins or lazy fan-out and none of
+# these endpoints serialize them. comments/tasks/files/tags ARE serialized
+# (via CountsMixin.counts / TagsMixin.tags) -- see with_default_derived_field_loads.
+_TEST_SET_RELATED_FIELDS = (
+    include(models.TestSet.status),
+    include(models.TestSet.license_type),
+    include(models.TestSet.test_set_type),
+    include(models.TestSet.user),
+    include(models.TestSet.owner),
+    include(models.TestSet.assignee),
+    include(models.TestSet.organization),
+    include(models.TestSet.project),
+)
+
+
 def get_test_sets(
     db: Session,
     skip: int = 0,
@@ -529,20 +568,7 @@ def get_test_sets(
     """
     query_builder = (
         QueryBuilder(db, models.TestSet)
-        # Eager-load the many-to-one relationships referenced by TestSetDetailSchema.
-        # Excludes collection relationships (prompts, tests, metrics, test_configurations)
-        # because those produce cartesian-product joins or lazy fan-out and the list
-        # endpoint does not serialize them. comments/tasks/files/tags ARE serialized
-        # (via CountsMixin.counts / TagsMixin.tags) -- see with_default_derived_field_loads.
-        .with_joined(
-            "status",
-            "license_type",
-            "test_set_type",
-            "user",
-            "owner",
-            "assignee",
-            "organization",
-        )
+        .with_related(*_TEST_SET_RELATED_FIELDS)
         .with_default_derived_field_loads()
         .with_organization_filter(organization_id)  # Apply organization filtering
         .with_visibility_filter(user_id)
@@ -634,17 +660,7 @@ def get_test_set_by_nano_id_or_slug(
     """
     return (
         QueryBuilder(db, models.TestSet)
-        # See get_test_sets() for rationale: load only the M2O relationships that
-        # TestSetDetailSchema serializes.
-        .with_joined(
-            "status",
-            "license_type",
-            "test_set_type",
-            "user",
-            "owner",
-            "assignee",
-            "organization",
-        )
+        .with_related(*_TEST_SET_RELATED_FIELDS)
         .with_organization_filter(organization_id)
         .with_visibility_filter(user_id)
         .with_custom_filter(
@@ -713,15 +729,7 @@ def get_test_sets_for_test(
     """
     query_builder = (
         QueryBuilder(db, models.TestSet)
-        .with_joined(
-            "status",
-            "license_type",
-            "test_set_type",
-            "user",
-            "owner",
-            "assignee",
-            "organization",
-        )
+        .with_related(*_TEST_SET_RELATED_FIELDS)
         .with_organization_filter(organization_id)
         .with_visibility_filter(user_id)
         .with_custom_filter(
@@ -769,24 +777,26 @@ def get_test_set_tests(
     """
     query_builder = (
         QueryBuilder(db, models.Test)
-        # Eager-load the many-to-one relationships TestDetailSchema serializes.
-        # Crucially DOES NOT load Test.test_results / Test.test_contexts / Test.trace:
-        # those are one-to-many with very large JSONB payloads and previously
-        # produced a 22-join cartesian product on this endpoint that materialized
-        # multi-GB intermediate result sets.
-        .with_joined(
-            "prompt",
-            "test_type",
-            "user",
-            "assignee",
-            "owner",
-            "parent",
-            "topic",
-            "behavior",
-            "category",
-            "status",
-            "source",
-            "organization",
+        # Eager-load the relationships TestDetailSchema serializes. with_related
+        # picks the strategy per name from its own cardinality, so this can never
+        # regress into the 22-join cartesian product that previously materialized
+        # multi-GB intermediate result sets on this endpoint -- accidentally adding
+        # a one-to-many name here (e.g. test_results/test_contexts/trace) would
+        # route through selectin, not joinedload.
+        .with_related(
+            include(models.Test.prompt),
+            include(models.Test.test_type),
+            include(models.Test.user),
+            include(models.Test.assignee),
+            include(models.Test.owner),
+            include(models.Test.parent),
+            include(models.Test.topic),
+            include(models.Test.behavior),
+            include(models.Test.category),
+            include(models.Test.status),
+            include(models.Test.source),
+            include(models.Test.organization),
+            include(models.Test.project),
         )
         .with_visibility_filter()
         .with_custom_filter(
@@ -942,7 +952,12 @@ def get_status(
     item = (
         QueryBuilder(db, models.Status)
         .with_deleted()
-        .with_optimized_loads(skip_one_to_many=True)
+        .with_related(
+            include(models.Status.entity_type),
+            include(models.Status.project),
+            include(models.Status.organization),
+            include(models.Status.user),
+        )
         .with_organization_filter(organization_id)
         .with_visibility_filter(user_id)
         .filter_by_id(status_id)
@@ -1991,7 +2006,12 @@ def get_projects(
     with bypass_tenant_filter():
         builder = (
             QueryBuilder(db, models.Project)
-            .with_optimized_loads(skip_many_to_many=False, skip_one_to_many=True)
+            .with_related(
+                include(models.Project.user),
+                include(models.Project.owner),
+                include(models.Project.organization),
+                include(models.Project.status),
+            )
             .with_default_derived_field_loads()
             .with_organization_filter(organization_id)
             .with_visibility_filter(user_id)
@@ -2276,14 +2296,29 @@ def delete_test_context(
 
 # Test Run CRUD
 
-# Nested relationship loading spec for TestRun detail responses.
-# Matches the schema defined by TestRunDetailSchema in routers/test_run.py.
-_TEST_RUN_NESTED_RELS = {
-    "test_configuration": {
-        "endpoint": ["project"],
-        "test_set": ["test_set_type"],
-    }
-}
+# Relationships loaded for TestRun detail responses. Matches the schema defined
+# by schemas.TestRunDetail.
+_TEST_RUN_RELATED_FIELDS = (
+    include(models.TestRun.status),
+    include(models.TestRun.assignee),
+    include(models.TestRun.owner),
+    include(models.TestRun.user),
+    include(models.TestRun.organization),
+    include(models.TestRun.experiment),
+    include(models.TestRun.project),
+    include(models.TestRun.test_configuration, models.TestConfiguration.endpoint),
+    include(
+        models.TestRun.test_configuration,
+        models.TestConfiguration.endpoint,
+        models.Endpoint.project,
+    ),
+    include(models.TestRun.test_configuration, models.TestConfiguration.test_set),
+    include(
+        models.TestRun.test_configuration,
+        models.TestConfiguration.test_set,
+        models.TestSet.test_set_type,
+    ),
+)
 
 
 def _defer_endpoint_last_token(q):
@@ -2304,11 +2339,7 @@ def get_test_run(
     item = (
         QueryBuilder(db, models.TestRun)
         .with_deleted()
-        .with_optimized_loads(
-            skip_many_to_many=False,
-            skip_one_to_many=True,
-            nested_relationships=_TEST_RUN_NESTED_RELS,
-        )
+        .with_related(*_TEST_RUN_RELATED_FIELDS)
         .with_default_derived_field_loads()
         .with_custom_filter(_defer_endpoint_last_token)
         .with_organization_filter(organization_id)
@@ -2368,11 +2399,7 @@ def get_test_runs(
 
     return (
         QueryBuilder(db, models.TestRun)
-        .with_optimized_loads(
-            skip_many_to_many=False,
-            skip_one_to_many=True,
-            nested_relationships=_TEST_RUN_NESTED_RELS,
-        )
+        .with_related(*_TEST_RUN_RELATED_FIELDS)
         .with_default_derived_field_loads()
         .with_custom_filter(_defer_endpoint_last_token)
         .with_custom_filter(experiment_filter)
@@ -2556,7 +2583,14 @@ def get_test_result(
     db: Session, test_result_id: uuid.UUID, organization_id: str = None, user_id: str = None
 ) -> Optional[models.TestResult]:
     """Get test_result with relationships (tags, tasks, comments) using optimized approach."""
-    return get_item_detail(db, models.TestResult, test_result_id, organization_id, user_id)
+    return get_item_detail(
+        db,
+        models.TestResult,
+        test_result_id,
+        organization_id,
+        user_id,
+        nested_relationships={"test": ["prompt", "behavior", "topic"]},
+    )
 
 
 def get_test_results(
@@ -2805,24 +2839,25 @@ def get_type_lookup_by_name_and_value(
 
 
 # Metric CRUD
-# Many-to-one relationships serialized by MetricDetailSchema. Joined-loading these
-# adds at most one row per metric (1:1 join), so it's cheap.
-_METRIC_M2O_RELATIONSHIPS = (
-    "metric_type",
-    "status",
-    "assignee",
-    "owner",
-    "model",
-    "backend_type",
-    "user",
-    "organization",
+# Relationships serialized by schemas.MetricDetail. with_related picks joinedload
+# for the many-to-one ones (metric_type, status, ...) and selectinload for the
+# many-to-many ones (behaviors, test_sets) automatically -- joinedload on the
+# M2M pair previously produced a cartesian product (one row per
+# (metric, behavior, test_set) tuple) that bloated the response by orders of
+# magnitude.
+_METRIC_RELATED_FIELDS = (
+    include(models.Metric.metric_type),
+    include(models.Metric.status),
+    include(models.Metric.assignee),
+    include(models.Metric.owner),
+    include(models.Metric.model),
+    include(models.Metric.backend_type),
+    include(models.Metric.user),
+    include(models.Metric.organization),
+    include(models.Metric.project),
+    include(models.Metric.behaviors),
+    include(models.Metric.test_sets),
 )
-
-# Many-to-many relationships serialized by MetricDetailSchema. These MUST use
-# selectinload — joinedload on M2M produces a cartesian product (one row per
-# (metric, behavior, test_set) tuple), which previously bloated the response by
-# orders of magnitude.
-_METRIC_M2M_RELATIONSHIPS = ("behaviors", "test_sets")
 
 
 def get_metric(
@@ -2831,8 +2866,7 @@ def get_metric(
     """Get a specific metric by ID with its related objects, including many-to-many relationships"""
     return (
         QueryBuilder(db, models.Metric)
-        .with_joined(*_METRIC_M2O_RELATIONSHIPS)
-        .with_selectin(*_METRIC_M2M_RELATIONSHIPS)
+        .with_related(*_METRIC_RELATED_FIELDS)
         .with_default_derived_field_loads()
         .with_organization_filter(organization_id)
         .with_visibility_filter(user_id)
@@ -2854,8 +2888,7 @@ def get_metrics(
     """Get all metrics with their related objects, including many-to-many relationships"""
     return (
         QueryBuilder(db, models.Metric)
-        .with_joined(*_METRIC_M2O_RELATIONSHIPS)
-        .with_selectin(*_METRIC_M2M_RELATIONSHIPS)
+        .with_related(*_METRIC_RELATED_FIELDS)
         .with_default_derived_field_loads()
         .with_organization_filter(organization_id)
         .with_visibility_filter(user_id)

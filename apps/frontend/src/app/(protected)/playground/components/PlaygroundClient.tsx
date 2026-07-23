@@ -16,7 +16,6 @@ import CloseIcon from '@mui/icons-material/Close';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import PlaygroundIcon from '@/components/PlaygroundIcon';
 import EndpointsIcon from '@/components/EndpointsIcon';
-import { useSession } from 'next-auth/react';
 import { useSearchParams } from 'next/navigation';
 import { useEndpointOptions } from '@/hooks/useEndpoints';
 import { useCanWithStatus } from '@/components/common/Can';
@@ -126,7 +125,6 @@ function ChatPlaceholder({
  * Allows users to select an endpoint and chat with it interactively.
  */
 export default function PlaygroundClient() {
-  const { data: session } = useSession();
   const searchParams = useSearchParams();
   const { allowed: canUsePlayground, loading: permsLoading } = useCanWithStatus(
     Capability.Playground.USE
@@ -136,10 +134,7 @@ export default function PlaygroundClient() {
     options: endpointOptions,
     isLoading,
     error: optionsError,
-  } = useEndpointOptions(
-    session?.session_token ?? '',
-    !permsLoading && canUsePlayground
-  );
+  } = useEndpointOptions(!permsLoading && canUsePlayground);
   const error = optionsError
     ? 'Failed to load endpoints. Please try again.'
     : null;

@@ -1,6 +1,7 @@
 import React, {
   useState,
   useEffect,
+  useLayoutEffect,
   useCallback,
   ReactNode,
   useRef,
@@ -67,6 +68,21 @@ import {
   useRowActionsGridRootProps,
 } from '@/components/common/createRowActionsColumn';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
+
+/**
+ * Shared "grid card" look — the bordered, rounded, shadowed Paper every grid
+ * page wraps its toolbar + DataGrid (+ alerts, selection banners, etc.) in.
+ * Exported so grid components that need more inside the card than just the
+ * DataGrid (and so pass `disablePaperWrapper`) can reuse the exact same sx
+ * instead of re-declaring it.
+ */
+export const GRID_PAPER_SX = {
+  width: '100%',
+  borderRadius: BORDER_RADIUS.md,
+  boxShadow: ELEVATION.xs,
+  border: (theme: Theme) => `1px solid ${theme.palette.greyscale.border}`,
+  overflow: 'hidden',
+} as const;
 
 interface FilterOption {
   value: string;
@@ -724,18 +740,15 @@ export default function BaseDataGrid({
   const isMountedRef = useRef(false);
   const [isInitialized, setIsInitialized] = useState(false);
 
-  // Initialization effect
-  useEffect(() => {
+  // Initialization effect — runs before paint (useLayoutEffect) so the
+  // ready-gate below never actually reaches the screen on a normal mount;
+  // a setTimeout(0)-delayed useEffect would let the browser paint the
+  // fallback spinner first, then swap to the grid, causing a visible flash.
+  useLayoutEffect(() => {
     isMountedRef.current = true;
-    // Delay DataGrid initialization to prevent state update on unmounted component
-    const initTimer = setTimeout(() => {
-      if (isMountedRef.current) {
-        setIsInitialized(true);
-      }
-    }, 0);
+    setIsInitialized(true);
 
     return () => {
-      clearTimeout(initTimer);
       isMountedRef.current = false;
     };
   }, []);
@@ -1421,17 +1434,7 @@ export default function BaseDataGrid({
                 </PaginationSizeContext.Provider>
               </HideRowsPerPageBelowContext.Provider>
             ) : (
-              <Paper
-                elevation={0}
-                sx={{
-                  width: '100%',
-                  borderRadius: BORDER_RADIUS.md,
-                  border: theme =>
-                    `1px solid ${theme.palette.greyscale.border}`,
-                  boxShadow: ELEVATION.xs,
-                  overflow: 'hidden',
-                }}
-              >
+              <Paper elevation={0} sx={GRID_PAPER_SX}>
                 <HideRowsPerPageBelowContext.Provider
                   value={hideRowsPerPageBelow}
                 >

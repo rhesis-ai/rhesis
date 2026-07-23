@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
-import { useSession } from 'next-auth/react';
 import { PlaygroundIcon } from '@/components/icons';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { Can } from '@/components/common/Can';
@@ -16,11 +15,10 @@ import { useEndpointDetailContext } from './EndpointDetailContext';
 
 export default function EndpointHeaderActions() {
   const router = useRouter();
-  const { data: session } = useSession();
   const notifications = useNotifications();
   const { endpoint, duplicateEndpoint, isDuplicating } =
     useEndpointDetailContext();
-  const deleteMutation = useDeleteEndpoint(session?.session_token ?? '');
+  const deleteMutation = useDeleteEndpoint();
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 

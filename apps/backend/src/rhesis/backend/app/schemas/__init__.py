@@ -7,10 +7,10 @@ from .architect import (
     ArchitectSessionUpdate,
 )
 from .base import Base
-from .behavior import Behavior, BehaviorBase, BehaviorCreate, BehaviorUpdate
-from .category import Category, CategoryBase, CategoryCreate, CategoryUpdate
+from .behavior import Behavior, BehaviorBase, BehaviorCreate, BehaviorDetail, BehaviorUpdate
+from .category import Category, CategoryBase, CategoryCreate, CategoryDetail, CategoryUpdate
 from .chunk import Chunk, ChunkBase, ChunkCreate, ChunkUpdate
-from .comment import Comment, CommentBase, CommentCreate, CommentUpdate
+from .comment import Comment, CommentBase, CommentCreate, CommentDetail, CommentUpdate
 from .embedding import (
     Embedding,
     EmbeddingBase,
@@ -26,6 +26,7 @@ from .endpoint import (
     Endpoint,
     EndpointBase,
     EndpointCreate,
+    EndpointDetail,
     EndpointTestRequest,
     EndpointUpdate,
 )
@@ -40,7 +41,7 @@ from .metric import (
     MetricUpdate,
     ScoreType,
 )
-from .model import Model, ModelBase, ModelCreate, ModelRead, ModelUpdate
+from .model import Model, ModelBase, ModelCreate, ModelDetail, ModelRead, ModelUpdate
 from .organization import Organization, OrganizationBase, OrganizationCreate, OrganizationUpdate
 from .parameters import (
     ENVIRONMENT_NAME_MAX_LENGTH,
@@ -77,7 +78,7 @@ from .parameters import (
     validate_environment_name,
     validate_values_against_schema,
 )
-from .project import Project, ProjectBase, ProjectCreate, ProjectUpdate
+from .project import Project, ProjectBase, ProjectCreate, ProjectDetail, ProjectUpdate
 from .project_membership import ProjectMember, ProjectMemberCreate, ProjectMemberUser
 from .prompt import Prompt, PromptBase, PromptCreate, PromptUpdate, PromptView
 from .prompt_template import (
@@ -116,7 +117,7 @@ from .stats import (
     TestRunSummary,
     TimelineData,
 )
-from .status import Status, StatusBase, StatusCreate, StatusUpdate
+from .status import Status, StatusBase, StatusCreate, StatusDetail, StatusUpdate
 from .tag import Tag, TagBase, TagCreate, TagUpdate
 from .task import (
     HealthCheck,
@@ -129,7 +130,7 @@ from .task import (
     WorkerStats,
     WorkerStatus,
 )
-from .task_management import Task, TaskBase, TaskCreate, TaskUpdate
+from .task_management import Task, TaskBase, TaskCreate, TaskDetail, TaskUpdate
 from .test import (
     ConversationMessage,
     ConversationTestExtractionResponse,
@@ -155,6 +156,7 @@ from .test_configuration import (
     TestConfiguration,
     TestConfigurationBase,
     TestConfigurationCreate,
+    TestConfigurationDetail,
     TestConfigurationExecutionRequest,
     TestConfigurationUpdate,
 )
@@ -167,9 +169,10 @@ from .test_result import (
     TestResult,
     TestResultBase,
     TestResultCreate,
+    TestResultDetail,
     TestResultUpdate,
 )
-from .test_run import TestRun, TestRunBase, TestRunCreate, TestRunUpdate
+from .test_run import TestRun, TestRunBase, TestRunCreate, TestRunDetail, TestRunUpdate
 from .test_set import (
     ExplorerTestSetCreate,
     TestData,
@@ -184,12 +187,13 @@ from .test_set import (
     TestSetBulkDisassociateResponse,
     TestSetBulkResponse,
     TestSetCreate,
+    TestSetDetail,
     TestSetExecutionRequest,
     TestSetUpdate,
 )
 from .token import Token, TokenBase, TokenCreate, TokenUpdate
-from .tool import Tool, ToolBase, ToolCreate, ToolUpdate
-from .topic import Topic, TopicBase, TopicCreate, TopicUpdate
+from .tool import Tool, ToolBase, ToolCreate, ToolDetail, ToolUpdate
+from .topic import Topic, TopicBase, TopicCreate, TopicDetail, TopicUpdate
 from .type_lookup import TypeLookup, TypeLookupBase, TypeLookupCreate, TypeLookupUpdate
 from .use_case import UseCase, UseCaseBase, UseCaseCreate, UseCaseUpdate
 from .user import User, UserBase, UserCreate, UserUpdate
@@ -209,14 +213,17 @@ __all__ = [
     "Behavior",
     "BehaviorBase",
     "BehaviorCreate",
+    "BehaviorDetail",
     "BehaviorUpdate",
     "Category",
     "CategoryBase",
     "CategoryCreate",
+    "CategoryDetail",
     "CategoryUpdate",
     "Comment",
     "CommentBase",
     "CommentCreate",
+    "CommentDetail",
     "CommentUpdate",
     "Chunk",
     "ChunkBase",
@@ -233,11 +240,13 @@ __all__ = [
     "Endpoint",
     "EndpointBase",
     "EndpointCreate",
+    "EndpointDetail",
     "EndpointTestRequest",
     "EndpointUpdate",
     "Model",
     "ModelBase",
     "ModelCreate",
+    "ModelDetail",
     "ModelRead",
     "ModelUpdate",
     "PromptTemplate",
@@ -256,11 +265,13 @@ __all__ = [
     "TestConfiguration",
     "TestConfigurationBase",
     "TestConfigurationCreate",
+    "TestConfigurationDetail",
     "TestConfigurationUpdate",
     "TestConfigurationExecutionRequest",
     "TestResult",
     "TestResultBase",
     "TestResultCreate",
+    "TestResultDetail",
     "TestResultUpdate",
     "ReviewCreate",
     "ReviewUpdate",
@@ -270,6 +281,7 @@ __all__ = [
     "TestSet",
     "TestSetBase",
     "TestSetCreate",
+    "TestSetDetail",
     "TestSetUpdate",
     "TestPrompt",
     "TestData",
@@ -283,6 +295,7 @@ __all__ = [
     "TestRun",
     "TestRunBase",
     "TestRunCreate",
+    "TestRunDetail",
     "TestRunUpdate",
     "UseCase",
     "UseCaseBase",
@@ -291,6 +304,7 @@ __all__ = [
     "Status",
     "StatusBase",
     "StatusCreate",
+    "StatusDetail",
     "StatusUpdate",
     "Source",
     "SourceBase",
@@ -300,6 +314,7 @@ __all__ = [
     "Topic",
     "TopicBase",
     "TopicCreate",
+    "TopicDetail",
     "TopicUpdate",
     "Embedding",
     "EmbeddingBase",
@@ -320,6 +335,7 @@ __all__ = [
     "Task",
     "TaskBase",
     "TaskCreate",
+    "TaskDetail",
     "TaskUpdate",
     "Token",
     "TokenBase",
@@ -328,6 +344,7 @@ __all__ = [
     "Tool",
     "ToolBase",
     "ToolCreate",
+    "ToolDetail",
     "ToolUpdate",
     "Organization",
     "OrganizationBase",
@@ -336,6 +353,7 @@ __all__ = [
     "Project",
     "ProjectBase",
     "ProjectCreate",
+    "ProjectDetail",
     "ProjectUpdate",
     "ProjectMember",
     "ProjectMemberCreate",

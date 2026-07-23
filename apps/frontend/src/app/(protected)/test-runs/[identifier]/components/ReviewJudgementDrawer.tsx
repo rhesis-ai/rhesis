@@ -7,6 +7,7 @@ import {
   ToggleButtonGroup,
   Typography,
 } from '@mui/material';
+import { useSession } from 'next-auth/react';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 import BaseDrawer from '@/components/common/BaseDrawer';
@@ -20,12 +21,12 @@ import MentionTextInput, {
   inferReviewTarget,
   InferredTarget,
 } from '@/components/common/MentionTextInput';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface ReviewJudgementDrawerProps {
   open: boolean;
   onClose: () => void;
   test: TestResultDetail | null;
-  sessionToken: string;
   onSave: (testId: string) => Promise<void>;
   initialComment?: string;
   initialStatus?: 'passed' | 'failed';
@@ -37,13 +38,13 @@ export default function ReviewJudgementDrawer({
   open,
   onClose,
   test,
-  sessionToken,
   onSave,
   initialComment,
   initialStatus,
   mentionableMetrics = [],
   mentionableTurns = [],
 }: ReviewJudgementDrawerProps) {
+  const { status } = useSession();
   const [selectedStatusId, setSelectedStatusId] = useState('');
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
@@ -69,10 +70,10 @@ export default function ReviewJudgementDrawer({
   // Fetch statuses for TestResult entity type when first opened
   useEffect(() => {
     const fetchStatuses = async () => {
-      if (!open || !sessionToken || statuses.length > 0) return;
+      if (!open || !isAuthenticated(status) || statuses.length > 0) return;
       try {
         setLoadingStatuses(true);
-        const clientFactory = new ApiClientFactory(sessionToken);
+        const clientFactory = new ApiClientFactory();
         const statusClient = clientFactory.getStatusClient();
         const fetched = await statusClient.getStatuses({
           entity_type: EntityType.TEST_RESULT,
@@ -85,7 +86,7 @@ export default function ReviewJudgementDrawer({
       }
     };
     fetchStatuses();
-  }, [open, sessionToken, statuses.length]);
+  }, [open, statuses.length, status]);
 
   // Reset form when drawer opens (intentionally excludes initialComment/initialStatus
   // from deps so parent state resets don't clear a form the user is actively filling)
@@ -121,13 +122,13 @@ export default function ReviewJudgementDrawer({
       return;
     }
 
-    if (!test || !sessionToken) return;
+    if (!test || !isAuthenticated(status)) return;
 
     try {
       setSubmitting(true);
       setError('');
 
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const testResultsClient = clientFactory.getTestResultsClient();
 
       await testResultsClient.createReview(

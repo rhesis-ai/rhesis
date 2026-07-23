@@ -26,6 +26,7 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 import TrackChangesIcon from '@mui/icons-material/TrackChanges';
+import { useQueryClient } from '@tanstack/react-query';
 import { BORDER_RADIUS } from '@/styles/theme';
 import {
   SpanNode,
@@ -42,20 +43,20 @@ import StatusChip from '@/components/common/StatusChip';
 import { Capability } from '@/constants/capabilities';
 import { can, Can } from '@/components/common/Can';
 import { EntityType } from '@/types/entity-type';
+import { annotationKeys } from '@/constants/query-keys';
 import {
   findStatusByCategory,
   isPassedStatusName,
 } from '@/utils/test-result-status';
 import MentionTextInput, {
   MentionOption,
-  renderMentionText,
+  MentionText,
   inferReviewTarget,
 } from '@/components/common/MentionTextInput';
 
 interface TraceReviewsTabProps {
   selectedSpan: SpanNode;
   trace: TraceDetailResponse;
-  sessionToken: string;
   onTraceUpdated: () => void;
   mentionableMetrics?: MentionOption[];
   mentionableTurns?: MentionOption[];
@@ -67,7 +68,6 @@ interface TraceReviewsTabProps {
 export default function TraceReviewsTab({
   selectedSpan,
   trace: _trace,
-  sessionToken,
   onTraceUpdated,
   mentionableMetrics = [],
   mentionableTurns = [],
@@ -76,6 +76,11 @@ export default function TraceReviewsTab({
   onCommentUsed,
 }: TraceReviewsTabProps) {
   const theme = useTheme();
+  const queryClient = useQueryClient();
+
+  const invalidateAnnotations = () => {
+    void queryClient.invalidateQueries({ queryKey: annotationKeys.all() });
+  };
 
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [newStatus, setNewStatus] = useState<'passed' | 'failed'>('passed');
@@ -104,7 +109,7 @@ export default function TraceReviewsTab({
   useEffect(() => {
     const fetchStatuses = async () => {
       try {
-        const clientFactory = new ApiClientFactory(sessionToken);
+        const clientFactory = new ApiClientFactory();
         const statusClient = clientFactory.getStatusClient();
         const statusList = await statusClient.getStatuses({
           entity_type: EntityType.TEST_RESULT,
@@ -118,7 +123,7 @@ export default function TraceReviewsTab({
     if (showReviewForm) {
       fetchStatuses();
     }
-  }, [sessionToken, showReviewForm]);
+  }, [showReviewForm]);
 
   const handleSubmitReview = async () => {
     if (reason.trim().length < 10) {
@@ -145,7 +150,7 @@ export default function TraceReviewsTab({
       setSubmitting(true);
       setError('');
 
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const telemetryClient = clientFactory.getTelemetryClient();
 
       const reviewTarget = inferReviewTarget(reason);
@@ -168,6 +173,7 @@ export default function TraceReviewsTab({
       );
 
       onTraceUpdated();
+      invalidateAnnotations();
 
       setReason('');
       setShowReviewForm(false);
@@ -189,13 +195,35 @@ export default function TraceReviewsTab({
     setDeleteDialogOpen(true);
   };
 
+  const [resolvingReviewId, setResolvingReviewId] = useState<string | null>(
+    null
+  );
+
+  const handleToggleResolved = async (review: TraceReview) => {
+    if (!selectedSpan.id) return;
+    try {
+      setResolvingReviewId(review.review_id);
+      const clientFactory = new ApiClientFactory();
+      const telemetryClient = clientFactory.getTelemetryClient();
+      await telemetryClient.updateReview(selectedSpan.id, review.review_id, {
+        resolved: !review.resolved,
+      });
+      onTraceUpdated();
+      invalidateAnnotations();
+    } catch (error) {
+      console.error('Failed to update review resolution:', error);
+    } finally {
+      setResolvingReviewId(null);
+    }
+  };
+
   const handleConfirmDelete = async () => {
     if (!reviewToDelete || !selectedSpan.id) return;
 
     try {
       setDeleting(true);
 
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const telemetryClient = clientFactory.getTelemetryClient();
 
       await telemetryClient.deleteReview(
@@ -204,6 +232,7 @@ export default function TraceReviewsTab({
       );
 
       onTraceUpdated();
+      invalidateAnnotations();
 
       setDeleteDialogOpen(false);
       setReviewToDelete(null);
@@ -259,7 +288,7 @@ export default function TraceReviewsTab({
   const lastReview = selectedSpan.last_review ?? null;
 
   let hasConflict = false;
-  if (lastReview && lastReview.status?.name) {
+  if (lastReview && lastReview.status?.name && !lastReview.resolved) {
     const reviewPassed = isPassedStatusName(lastReview.status.name);
     hasConflict = reviewPassed !== automatedStatus.passed;
   }
@@ -461,12 +490,52 @@ export default function TraceReviewsTab({
                               sx={{ mr: 1 }}
                             />
                           )}
+                          {review.resolved && (
+                            <Chip
+                              label="Resolved"
+                              size="small"
+                              variant="outlined"
+                              sx={{
+                                height: 24,
+                                fontSize: theme =>
+                                  theme.typography.caption.fontSize,
+                                borderRadius: BORDER_RADIUS.pill,
+                                borderColor: 'success.main',
+                                color: 'success.main',
+                              }}
+                            />
+                          )}
                           <StatusChip
                             passed={display.passed}
                             label={display.label}
                             size="small"
                             variant="outlined"
                           />
+                          {can(review, Capability.TestResult.UPDATE) && (
+                            <Button
+                              size="small"
+                              variant="text"
+                              disabled={resolvingReviewId === review.review_id}
+                              onClick={e => {
+                                e.stopPropagation();
+                                void handleToggleResolved(review);
+                              }}
+                              sx={{
+                                minWidth: 0,
+                                px: 1,
+                                textTransform: 'none',
+                                fontWeight: 600,
+                                fontSize: 13,
+                                color: 'text.secondary',
+                                '&:hover': {
+                                  color: 'text.primary',
+                                  bgcolor: 'action.hover',
+                                },
+                              }}
+                            >
+                              {review.resolved ? 'Reopen' : 'Resolve'}
+                            </Button>
+                          )}
                           {can(review, Capability.TestResult.DELETE) && (
                             <Tooltip title="Delete review">
                               <IconButton
@@ -477,6 +546,7 @@ export default function TraceReviewsTab({
                                 }}
                                 sx={{
                                   ml: 0.5,
+                                  color: 'text.secondary',
                                   '&:hover': {
                                     backgroundColor: alpha(
                                       theme.palette.error.main,
@@ -513,28 +583,7 @@ export default function TraceReviewsTab({
                               wordBreak: 'break-word',
                             }}
                           >
-                            {renderMentionText(
-                              review.comments,
-                              {
-                                user: theme.palette.success.main,
-                                metric: theme.palette.secondary.main,
-                                turn: theme.palette.info.main,
-                              },
-                              {
-                                user: alpha(
-                                  theme.palette.success.main,
-                                  theme.palette.action.disabledOpacity
-                                ),
-                                metric: alpha(
-                                  theme.palette.secondary.main,
-                                  theme.palette.action.disabledOpacity
-                                ),
-                                turn: alpha(
-                                  theme.palette.info.main,
-                                  theme.palette.action.disabledOpacity
-                                ),
-                              }
-                            )}
+                            <MentionText text={review.comments} />
                           </Typography>
                         </Paper>
                       </Box>

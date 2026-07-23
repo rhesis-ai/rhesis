@@ -3,7 +3,6 @@
 import * as React from 'react';
 import { Alert } from '@mui/material';
 import { PageLayout } from '@/components/layout/PageLayout';
-import { useSession } from 'next-auth/react';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { OrgSettingsProvider } from '@/contexts/OrgSettingsContext';
 import OrganizationSettingsTabs from './components/OrganizationSettingsTabs';
@@ -13,7 +12,6 @@ import { useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 
 export default function OrganizationSettingsPage() {
-  const { data: session } = useSession();
   const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
     Capability.Organization.READ
   );
@@ -51,13 +49,11 @@ export default function OrganizationSettingsPage() {
       <OrgSettingsProvider
         value={{
           organization,
-          sessionToken: session?.session_token || '',
           onUpdate: refresh,
         }}
       >
         <OrganizationSettingsTabs
           organization={organization}
-          sessionToken={session?.session_token || ''}
           onUpdate={refresh}
         />
       </OrgSettingsProvider>

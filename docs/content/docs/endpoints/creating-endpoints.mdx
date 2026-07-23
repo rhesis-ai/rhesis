@@ -150,7 +150,7 @@ Click **Show probe response** to see the raw JSON your endpoint returned — use
 
 Click **Apply to Endpoint** to populate the Mapping tab, then switch to **Test** to verify end-to-end.
 
-If only some fields were mapped, apply the partial result as a starting point and fill in the missing fields manually. Even partial results save significant time compared to configuring from scratch.
+If only some fields were mapped, apply the partial result as a starting point and fill in the missing fields manually.
 </Steps>
 
 ### Troubleshooting
@@ -160,8 +160,6 @@ If only some fields were mapped, apply the partial result as a starting point an
 **"Could not parse input"** — paste a working curl command with a real request body, or include both a request and response example.
 
 **"Mapping generated but unverified"** — the probe failed; use the **Test** tab to debug manually. Common causes: API requires specific field values, rate limits block the probe, or the endpoint expects pre-existing state (e.g., a valid session).
-
-**Partial results** — when only some fields were mapped, apply as a starting point and fill in the rest manually.
 
 ### Tips for best results
 

@@ -29,7 +29,7 @@ flowchart TD
     domainProbing -->|"findings passed in"| boundaryDiscovery
 ```
 
-**Comprehensive mode** chains all three, passing what it learned in each step into the next.
+**Comprehensive mode** runs domain probing first, then capability mapping and boundary discovery in parallel — both seeded with the domain findings.
 
 ### Domain probing
 

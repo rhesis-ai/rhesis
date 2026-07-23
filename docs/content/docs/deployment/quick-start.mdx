@@ -1,37 +1,32 @@
 import { CodeBlock } from '@/components/CodeBlock'
 import { Table } from '@/components/Table'
-import { FileTree } from '@/components/FileTree'
 
 # Quick Start
 
-Get Rhesis running on your local machine in under 5 minutes without setup. The setup is intended
-for quickly testing Rhesis locally.
+Get Rhesis running locally in under 5 minutes. This setup is for local testing only.
 
 
 <Callout type="warning">
 **Local Development Only**
 
-This configuration is **NOT suitable for production**. It includes hardcoded secrets and disabled security features for ease of local development.
+This configuration is **NOT suitable for production**. It uses generated secrets and enables local authentication bypass (`QUICK_START=true`).
 </Callout>
 
 
-## Get Rhesis running in under 5 minutes:
-
 <CodeBlock filename="Terminal" language="bash">
-{`# 1. Clone the repository
-git clone https://github.com/rhesis-ai/rhesis.git
+{`git clone https://github.com/rhesis-ai/rhesis.git
 cd rhesis
 
-# 2. Start all services with one command (pulls prebuilt images from GHCR)
+# pulls prebuilt images from GHCR
 ./rh start
 
-# To build backend, worker, and frontend images locally instead:
+# build backend, worker, and frontend images locally instead:
 ./rh start --build
 `}
 </CodeBlock>
 
 
-### Default Access
+## Default Access
 
 Once running, access the platform at:
 
@@ -48,7 +43,7 @@ Once running, access the platform at:
 
 ### Managing Services
 
-Use the `./rh` CLI for easy service management:
+Use the `./rh` CLI to manage services:
 
 <CodeBlock filename="Terminal" language="bash">
 {`
@@ -60,9 +55,10 @@ Use the `./rh` CLI for easy service management:
 
 `}
 </CodeBlock>
+
 ### Enable Test Generation
 
-Test generation needs an AI provider. Quick Start can use Rhesis-hosted models, or you can configure your own provider in the platform. `./rh start` prompts for a Rhesis API key when one is missing.
+Test generation needs an AI provider. Quick Start can use Rhesis-hosted models, or you can configure your own provider [in the platform](/docs/models). `./rh start` prompts for a Rhesis API key when one is missing.
 
 1. Get a key from [app.rhesis.ai/tokens](https://app.rhesis.ai/tokens).
 2. Run `./rh start` in an interactive terminal and paste the key when prompted.
@@ -90,7 +86,7 @@ FRONTEND_URL=http://localhost:16000`}
 <Callout type="info">
 **Ready for Production?**
 
-This local setup is great for testing and development. When you are ready to deploy to production, see the [Docker Compose Guide](/deployment/docker-compose) for security configuration and production deployment.
+For production deployment, see the [Docker Compose Guide](/docs/deployment/docker-compose).
 </Callout>
 
 For local development setup without Docker (for contributing to Rhesis), see the [Environment Setup Guide](/contribute/development-setup).

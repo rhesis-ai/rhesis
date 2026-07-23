@@ -2,7 +2,7 @@ import { CodeBlock } from "@/components/CodeBlock";
 
 # Getting Started
 
-Get Penelope installed and run your first test in minutes.
+Install Penelope and run your first test.
 
 ## Installation
 
@@ -10,8 +10,7 @@ Penelope is part of the Rhesis monorepo and uses `uv` for dependency management.
 
 ### Prerequisites
 
-- **Python 3.10+**
-- **uv** package manager
+- Python 3.10+
 - **RHESIS_API_KEY** for accessing Rhesis endpoints ([Get your key](https://app.rhesis.ai))
 
 ### Install Penelope
@@ -157,29 +156,8 @@ agent = PenelopeAgent(
 
 </CodeBlock>
 
-## Development Setup
+## Next steps
 
-For contributing or running tests:
-
-<CodeBlock filename="Terminal" language="bash">
-{`# Install dev dependencies
-uv sync --extra all
-
-# Run tests
-uv run pytest
-
-# Run linting
-make lint
-
-# Type checking
-uv run pyright`}
-
-</CodeBlock>
-
----
-
-<Callout type="info">
-  **Next Steps:** Explore [Examples](/conversation-simulation/examples) for real-world testing
-  scenarios, learn about [Configuration](/conversation-simulation/configuration) options, or
-  understand how to [Extend](/conversation-simulation/extending) Penelope.
-</Callout>
+- Explore [Examples](/docs/tests/conversation-simulation/examples) for real-world testing scenarios
+- Review [Configuration](/docs/tests/conversation-simulation/configuration) options
+- Learn how to [Extend](/docs/tests/conversation-simulation/extending) Penelope with custom tools

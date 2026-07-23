@@ -4,10 +4,10 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { Prompt } from '@/utils/api-client/interfaces/prompt';
 import { Behavior } from '@/utils/api-client/interfaces/behavior';
+import { useIsAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface UseTestRunDataProps {
   testRunId: string;
-  sessionToken: string;
   paginationModel: GridPaginationModel;
   enabled?: boolean;
 }
@@ -24,10 +24,10 @@ interface UseTestRunDataReturn {
 
 export function useTestRunData({
   testRunId,
-  sessionToken,
   paginationModel,
   enabled = true,
 }: UseTestRunDataProps): UseTestRunDataReturn {
+  const isAuthenticated = useIsAuthenticated();
   const [testResults, setTestResults] = useState<TestResultDetail[]>([]);
   const [prompts, setPrompts] = useState<Record<string, Prompt>>({});
   const [behaviors, setBehaviors] = useState<Behavior[]>([]);
@@ -38,9 +38,9 @@ export function useTestRunData({
 
   // Fetch static data (behaviors + metrics) once per test run — not affected by pagination
   const fetchStaticData = useCallback(async () => {
-    if (!enabled || !sessionToken || !testRunId) return;
+    if (!enabled || !isAuthenticated || !testRunId) return;
 
-    const apiFactory = new ApiClientFactory(sessionToken);
+    const apiFactory = new ApiClientFactory();
     const testRunsClient = apiFactory.getTestRunsClient();
 
     try {
@@ -54,17 +54,17 @@ export function useTestRunData({
       setBehaviors([]);
       setAvailableMetrics([]);
     }
-  }, [testRunId, sessionToken, enabled]);
+  }, [testRunId, enabled, isAuthenticated]);
 
   // Fetch paginated test results — re-runs when pagination changes
   const fetchTestResults = useCallback(async () => {
-    if (!enabled || !sessionToken || !testRunId) return;
+    if (!enabled || !isAuthenticated || !testRunId) return;
 
     try {
       setLoading(true);
       setError(null);
 
-      const apiFactory = new ApiClientFactory(sessionToken);
+      const apiFactory = new ApiClientFactory();
       const testResultsClient = apiFactory.getTestResultsClient();
 
       const skip = paginationModel.page * paginationModel.pageSize;
@@ -105,7 +105,7 @@ export function useTestRunData({
     } finally {
       setLoading(false);
     }
-  }, [testRunId, sessionToken, paginationModel, enabled]);
+  }, [testRunId, paginationModel, enabled, isAuthenticated]);
 
   useEffect(() => {
     fetchStaticData();

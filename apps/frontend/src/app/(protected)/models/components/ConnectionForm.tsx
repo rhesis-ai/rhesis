@@ -45,6 +45,7 @@ import {
   providerSupportsModelListing,
 } from '@/config/model-providers';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 export interface ConnectionFormHandle {
   submit: () => void;
@@ -237,16 +238,16 @@ export const ConnectionForm = forwardRef<
     }
   }, [modelName, apiKey, endpoint, isEditMode]);
 
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const queryClient = useQueryClient();
-  const userScope = session?.user?.id ?? session?.session_token ?? '';
+  const userScope = session?.user?.id ?? '';
 
   // Fetch available models for the provider
   useEffect(() => {
     const fetchModels = async () => {
       const currentProvider =
         isEditMode && model?.provider_type ? model.provider_type : provider;
-      if (!currentProvider || !session?.session_token) return;
+      if (!currentProvider || !isAuthenticated(status)) return;
 
       if (
         !providerSupportsModelListing(currentProvider.type_value, modelType)
@@ -258,7 +259,7 @@ export const ConnectionForm = forwardRef<
 
       setLoadingModels(true);
       try {
-        const apiFactory = new ApiClientFactory(session.session_token);
+        const apiFactory = new ApiClientFactory();
         const modelsClient = apiFactory.getModelsClient();
 
         let models: string[];
@@ -282,13 +283,13 @@ export const ConnectionForm = forwardRef<
     if (open) {
       fetchModels();
     }
-  }, [open, provider, model, isEditMode, session, modelType]);
+  }, [open, provider, model, isEditMode, session, modelType, status]);
 
   const updateUserSettingsDefaults = async (modelId: UUID) => {
-    if (!session?.session_token) return;
+    if (!isAuthenticated(status)) return;
 
     try {
-      const apiFactory = new ApiClientFactory(session.session_token);
+      const apiFactory = new ApiClientFactory();
       const usersClient = apiFactory.getUsersClient();
       const updates: { models: Record<string, { model_id: string | null }> } = {
         models: {},
@@ -361,7 +362,7 @@ export const ConnectionForm = forwardRef<
       return;
     }
 
-    if (!session?.session_token) {
+    if (!isAuthenticated(status)) {
       setTestResult({
         success: false,
         message: 'No session token available',
@@ -375,7 +376,7 @@ export const ConnectionForm = forwardRef<
     setShowFullError(false);
 
     try {
-      const apiFactory = new ApiClientFactory(session.session_token);
+      const apiFactory = new ApiClientFactory();
       const modelsClient = apiFactory.getModelsClient();
 
       const requestBody: TestModelConnectionRequest = {

@@ -199,14 +199,28 @@ async function waitForGrid() {
 describe('TestSetsGrid', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    // Default: fetch returns empty so tests that don't care about rows stay fast
-    mockGetTestSets.mockResolvedValue(makePaginatedResponse([]));
+    // Default: one row, so tests that don't care about emptiness exercise the
+    // populated (grid) branch rather than the empty-state branch.
+    mockGetTestSets.mockResolvedValue(
+      makePaginatedResponse([
+        makeTestSet('00000000-0000-0000-0000-000000000000' as UUID),
+      ])
+    );
   });
 
-  it('shows loading state while fetching', () => {
+  it('shows a loading state while the first fetch is in flight', () => {
     mockGetTestSets.mockReturnValue(new Promise(() => {}));
-    render(<TestSetsGrid sessionToken="tok" />);
-    expect(screen.getByTestId('grid-loading')).toBeInTheDocument();
+    render(<TestSetsGrid />);
+    expect(screen.getByRole('progressbar')).toBeInTheDocument();
+    expect(screen.queryByTestId('base-data-grid')).not.toBeInTheDocument();
+  });
+
+  it('renders the empty state directly, without ever mounting the grid, when there are zero test sets', async () => {
+    mockGetTestSets.mockResolvedValue(makePaginatedResponse([]));
+    render(<TestSetsGrid />);
+    expect(await screen.findByText('No test sets yet')).toBeInTheDocument();
+    expect(screen.queryByTestId('base-data-grid')).not.toBeInTheDocument();
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
   });
 
   it('renders rows returned by the fetch', async () => {
@@ -216,7 +230,7 @@ describe('TestSetsGrid', () => {
         makeTestSet('00000000-0000-0000-0000-000000000002' as UUID),
       ])
     );
-    render(<TestSetsGrid sessionToken="tok" />);
+    render(<TestSetsGrid />);
     await waitFor(() =>
       expect(
         screen.getByTestId('row-00000000-0000-0000-0000-000000000001')
@@ -233,7 +247,7 @@ describe('TestSetsGrid', () => {
         makeTestSet('00000000-0000-0000-0000-000000000099' as UUID),
       ])
     );
-    render(<TestSetsGrid sessionToken="tok" />);
+    render(<TestSetsGrid />);
     await waitFor(() =>
       expect(
         screen.getByTestId('row-00000000-0000-0000-0000-000000000099')
@@ -248,7 +262,7 @@ describe('TestSetsGrid', () => {
   });
 
   it('does not show "New Test Set" or import buttons in the grid (moved to page header)', async () => {
-    render(<TestSetsGrid sessionToken="tok" />);
+    render(<TestSetsGrid />);
     await waitForGrid();
     expect(screen.queryByTestId('action-New Test Set')).not.toBeInTheDocument();
     expect(

@@ -24,7 +24,6 @@ interface TaskDetailTabsProps {
   statuses: Status[];
   priorities: Priority[];
   users: User[];
-  sessionToken: string;
   currentUserId: string;
   currentUserName: string;
   currentUserPicture?: string;
@@ -40,7 +39,6 @@ export default function TaskDetailTabs({
   statuses,
   priorities,
   users,
-  sessionToken,
   currentUserId,
   currentUserName,
   currentUserPicture,
@@ -86,7 +84,6 @@ export default function TaskDetailTabs({
         <CommentsWrapper
           entityType="Task"
           entityId={task.id}
-          sessionToken={sessionToken}
           currentUserId={currentUserId}
           currentUserName={currentUserName}
           currentUserPicture={currentUserPicture}

@@ -8,15 +8,9 @@ import { YouTubeEmbed } from "@/components/YouTubeEmbed";
 
 # Test Execution
 
-Execute test sets against your AI endpoints to evaluate model performance, safety, and reliability. This guide explains the different configuration options available when running tests.
+Executing a test set runs it against an endpoint to evaluate your LLM application. Each execution creates a [Test Run](/docs/test-runs) containing all individual test results with detailed metrics and evaluation data. This guide covers the configuration options available when running tests.
 
 <YouTubeEmbed videoId="vdbWfqhQpZs" />
-
-Run-specific metrics let you choose a metric configuration for a single run without changing your defaults. Reuse outputs on re-run lets you apply new metrics to existing responses — no new endpoint calls, no extra cost.
-
-<Callout type="default">
-  **What is Test Execution?** Test execution is the process of running a test set against an endpoint to evaluate your AI system. Each execution creates a test run containing all individual test results with detailed metrics and evaluation data.
-</Callout>
 
 ## Execution Overview
 
@@ -126,7 +120,7 @@ Select which model evaluates test responses using your configured [Metrics](/doc
 
 ### Execution Model (Multi-Turn Only)
 
-For multi-turn test sets, select the model that drives the [Penelope](/conversation-simulation) conversation agent. This option is only visible when executing a multi-turn test set.
+For multi-turn test sets, select the model that drives the [Penelope](/docs/tests/conversation-simulation) conversation agent. This option is only visible when executing a multi-turn test set.
 
 - **Default model**: Uses the default execution model configured in your [Model settings](/docs/models).
 - **Specific model**: Choose any model connected to your organization.
@@ -224,32 +218,8 @@ When re-running with **Reuse Outputs** selected as the scoring target, the outpu
   Re-running creates a new test run with the same test set and endpoint. This is useful for regression testing, validating fixes, or re-scoring existing outputs with updated metrics.
 </Callout>
 
-## Best Practices
+## Next steps
 
-### Choosing Metrics
-
-- **Start with behavior defaults**: Let behavior metrics provide consistent evaluation across test sets
-- **Use test set metrics for specialization**: Configure metrics on test sets with specific requirements
-- **Use execution-time metrics sparingly**: Best for experiments, not production workflows
-
-### Organizing Test Runs
-
-- **Use meaningful tags**: Tag runs with sprint names, feature branches, or experiment IDs
-- **Compare against baselines**: Regularly compare new runs against established baselines
-- **Review failed tests**: Don't just look at pass rates - review individual failures
-
-### Performance Considerations
-
-- **Use parallel mode** for large test sets (100+ tests)
-- **Use sequential mode** when debugging or with rate-limited APIs
-- **Monitor endpoint health** during execution
-
----
-
-<Callout type="default">
-  **Related Pages**
-  - [Test Sets](/docs/test-sets) - Create and manage test collections
-  - [Test Runs](/docs/test-runs) - View and analyze execution results
-  - [Endpoints](/docs/endpoints) - Configure AI endpoints
-  - [Metrics](/docs/metrics) - Define evaluation criteria
-</Callout>
+- View and analyze results in [Test Runs](/docs/test-runs)
+- Define evaluation criteria in [Metrics](/docs/metrics)
+- Configure [Endpoints](/docs/endpoints) to run tests against

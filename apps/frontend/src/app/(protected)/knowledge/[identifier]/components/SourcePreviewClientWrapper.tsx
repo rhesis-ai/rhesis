@@ -28,6 +28,7 @@ import CheckIcon from '@mui/icons-material/Check';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import type { UUID } from 'crypto';
 import {
   formatFileSize,
@@ -39,10 +40,10 @@ import SourceTagsCard from './SourceTagsCard';
 import CommentsWrapper from '@/components/comments/CommentsWrapper';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface SourcePreviewClientWrapperProps {
   source: Source;
-  sessionToken: string;
   currentUserId: string;
   currentUserName: string;
   currentUserPicture?: string;
@@ -116,7 +117,6 @@ function InfoRow({
  */
 export default function SourcePreviewClientWrapper({
   source,
-  sessionToken,
   currentUserId,
   currentUserName,
   currentUserPicture,
@@ -128,6 +128,7 @@ export default function SourcePreviewClientWrapper({
   );
   const notifications = useNotifications();
   const theme = useTheme();
+  const { status } = useSession();
   const canEditSource = useCan(Capability.Source.UPDATE);
   const [isEditing, setIsEditing] = useState<EditableSectionType | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -194,7 +195,7 @@ export default function SourcePreviewClientWrapper({
 
   const handleDownloadFile = async () => {
     try {
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const sourcesClient = clientFactory.getSourcesClient();
 
       // Get file content as blob to preserve binary data
@@ -225,7 +226,7 @@ export default function SourcePreviewClientWrapper({
 
   // fetch updated source after tag update and refresh local state
   const handleTagsUpdate = async () => {
-    const clientFactory = new ApiClientFactory(sessionToken);
+    const clientFactory = new ApiClientFactory();
     const sourcesClient = clientFactory.getSourcesClient();
     const updatedSource = await sourcesClient.getSourceWithContent(
       localSource.id
@@ -235,7 +236,7 @@ export default function SourcePreviewClientWrapper({
   };
 
   const handleUpdateFromTool = async () => {
-    if (!sessionToken || isUpdating) return;
+    if (!isAuthenticated(status) || isUpdating) return;
 
     // Check if this is a tool source
     if (localSource.source_type?.type_value !== 'Tool') {
@@ -257,7 +258,7 @@ export default function SourcePreviewClientWrapper({
 
     setIsUpdating(true);
     try {
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const servicesClient = clientFactory.getServicesClient();
       const sourcesClient = clientFactory.getSourcesClient();
 
@@ -373,11 +374,11 @@ export default function SourcePreviewClientWrapper({
   }, []);
 
   const handleConfirmEdit = useCallback(async () => {
-    if (!sessionToken) return;
+    if (!isAuthenticated(status)) return;
 
     setIsSaving(true);
     try {
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const sourcesClient = clientFactory.getSourcesClient();
 
       // Collect values from refs
@@ -406,7 +407,7 @@ export default function SourcePreviewClientWrapper({
     } finally {
       setIsSaving(false);
     }
-  }, [sessionToken, localSource, collectFieldValues, notifications]);
+  }, [status, localSource, collectFieldValues, notifications]);
 
   return (
     <PageLayout
@@ -787,7 +788,6 @@ export default function SourcePreviewClientWrapper({
         )}
 
         <SourceTagsCard
-          sessionToken={sessionToken}
           source={localSource}
           userId={currentUserId ? (currentUserId as UUID) : undefined}
           onUpdate={handleTagsUpdate}
@@ -797,7 +797,6 @@ export default function SourcePreviewClientWrapper({
         <CommentsWrapper
           entityType="Source"
           entityId={localSource.id}
-          sessionToken={sessionToken}
           currentUserId={currentUserId}
           currentUserName={currentUserName}
           currentUserPicture={currentUserPicture}

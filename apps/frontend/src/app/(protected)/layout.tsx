@@ -27,10 +27,10 @@ export default async function ProtectedLayout({
   let initialFeatures: FeaturesResponse | null = null;
   let initialPermissions: string[] | null = null;
 
-  if (session?.session_token) {
+  if (session && !session.error) {
     try {
       const projectId = await getServerActiveProjectId();
-      const factory = await createServerApiFactory(session.session_token);
+      const factory = await createServerApiFactory();
 
       initialFeatures = await factory.getFeaturesClient().getFeatures();
 

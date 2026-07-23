@@ -16,7 +16,7 @@ export class BehaviorClient extends BaseApiClient {
   ): Promise<BehaviorWithMetrics[]> {
     const {
       skip = 0,
-      limit = 10,
+      limit = 100,
       sort_by = 'created_at',
       sort_order = 'desc',
       $filter,
@@ -40,6 +40,29 @@ export class BehaviorClient extends BaseApiClient {
     return this.fetch<BehaviorWithMetrics[]>(url, {
       cache: 'no-store',
     });
+  }
+
+  /** Paginate through all behaviors (page size 100) for lookups / filter drawers. */
+  async getAllBehaviors(
+    params: Omit<BehaviorsQueryParams, 'skip' | 'limit'> = {}
+  ): Promise<BehaviorWithMetrics[]> {
+    const pageSize = 100;
+    const allData: BehaviorWithMetrics[] = [];
+    let skip = 0;
+
+    while (true) {
+      const page = await this.getBehaviors({
+        ...params,
+        skip,
+        limit: pageSize,
+      });
+      if (page.length === 0) break;
+      allData.push(...page);
+      if (page.length < pageSize) break;
+      skip += pageSize;
+    }
+
+    return allData;
   }
 
   async getBehavior(id: UUID): Promise<Behavior> {

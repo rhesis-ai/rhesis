@@ -8,7 +8,7 @@ import React, {
   useMemo,
 } from 'react';
 import { useRouter } from 'next/navigation';
-import { Box, Typography, useTheme, Alert } from '@mui/material';
+import { Box, Typography, useTheme, Alert, Paper } from '@mui/material';
 import GridBadge from '@/components/common/GridBadge';
 import GridToolbar from '@/components/common/GridToolbar';
 import {
@@ -18,7 +18,7 @@ import {
   GridToolbarDensitySelector,
   GridToolbarExport,
 } from '@mui/x-data-grid';
-import BaseDataGrid from '@/components/common/BaseDataGrid';
+import BaseDataGrid, { GRID_PAPER_SX } from '@/components/common/BaseDataGrid';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { useSession } from 'next-auth/react';
@@ -43,11 +43,23 @@ import { useQueryClient } from '@tanstack/react-query';
 import { endpointKeys } from '@/constants/query-keys';
 import { useGridState } from '@/hooks/useGridState';
 import { useGridQuery } from '@/hooks/useGridQuery';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import GridStateGate from '@/components/common/GridStateGate';
+import EntityEmptyState from '@/components/common/EntityEmptyState';
+import { getEntityEmptyStateEnrichment } from '@/constants/entity-empty-state-env';
+import EndpointsIcon from '@/components/EndpointsIcon';
 
 interface EndpointsGridProps {
-  sessionToken?: string;
-  onTotalCountChange?: (count: number) => void;
   projectId?: string;
+  /**
+   * Only supplied by the top-level Endpoints list page. When present, the
+   * grid renders a full loading/empty-state experience of its own; when
+   * absent (e.g. the embedded Project > Endpoints tab), it renders exactly
+   * as before — BaseDataGrid's own loading skeleton and no-rows overlay,
+   * unchanged.
+   */
+  canCreate?: boolean;
+  onCreateClick?: () => void;
 }
 
 interface EndpointsToolbarState {
@@ -101,19 +113,17 @@ function EndpointsUnifiedToolbar() {
 }
 
 export default function EndpointsGrid({
-  sessionToken: sessionTokenProp,
-  onTotalCountChange,
   projectId,
+  canCreate,
+  onCreateClick,
 }: EndpointsGridProps) {
   const theme = useTheme();
   const router = useRouter();
-  const { data: session } = useSession();
+  const { status } = useSession();
   const notifications = useNotifications();
   const canEditEndpoint = useCan(Capability.Endpoint.UPDATE);
   const canDeleteEndpoint = useCan(Capability.Endpoint.DELETE);
   const queryClient = useQueryClient();
-
-  const sessionToken = sessionTokenProp || session?.session_token || '';
 
   const [searchQuery, setSearchQuery] = useState('');
   const [drawerFilters, setDrawerFilters] = useState<EndpointFilters>(
@@ -198,7 +208,7 @@ export default function EndpointsGrid({
     ),
     errorFallbackMessage: 'Failed to load endpoints',
     queryFn: () => {
-      const client = new ApiClientFactory(sessionToken).getEndpointsClient();
+      const client = new ApiClientFactory().getEndpointsClient();
       return client.getEndpoints({
         skip: paginationModel.page * paginationModel.pageSize,
         limit: paginationModel.pageSize,
@@ -207,35 +217,19 @@ export default function EndpointsGrid({
         ...(filterString && { $filter: filterString }),
       });
     },
-    enabled: !!sessionToken,
+    enabled: isAuthenticated(status),
   });
 
   const endpoints = endpointsData?.data ?? [];
   const totalCount = endpointsData?.pagination.totalCount ?? 0;
 
   useEffect(() => {
-    if (!endpointsData) return;
-    const filtersActive =
-      filterModel.items.length > 0 ||
-      !!searchQuery ||
-      hasActiveEndpointFilters(drawerFilters);
-    if (!filtersActive) onTotalCountChange?.(totalCount);
-  }, [
-    endpointsData,
-    filterModel.items.length,
-    searchQuery,
-    drawerFilters,
-    onTotalCountChange,
-    totalCount,
-  ]);
-
-  useEffect(() => {
     const fetchProjects = async () => {
       try {
         setLoadingProjects(true);
-        if (!sessionToken) return;
+        if (!isAuthenticated(status)) return;
 
-        const client = new ApiClientFactory(sessionToken).getProjectsClient();
+        const client = new ApiClientFactory().getProjectsClient();
         const response = await client.getProjects();
         const projectMap: Record<string, Project> = {};
         const projectsArray = Array.isArray(response)
@@ -257,24 +251,22 @@ export default function EndpointsGrid({
       }
     };
 
-    if (sessionToken) {
+    if (isAuthenticated(status)) {
       fetchProjects();
     }
-  }, [sessionToken]);
+  }, [status]);
 
   const handleRefresh = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: endpointKeys.all() });
   }, [queryClient]);
 
   const handleDeleteEndpoints = async () => {
-    if (!sessionToken || !pendingDeleteId) return;
+    if (!isAuthenticated(status) || !pendingDeleteId) return;
     const idsToDelete = [pendingDeleteId];
 
     try {
       setDeleting(true);
-      const endpointsClient = new ApiClientFactory(
-        sessionToken
-      ).getEndpointsClient();
+      const endpointsClient = new ApiClientFactory().getEndpointsClient();
 
       await Promise.all(
         idsToDelete.map(id => endpointsClient.deleteEndpoint(id))
@@ -382,7 +374,13 @@ export default function EndpointsGrid({
     [searchQuery, hasActiveDrawerFilters, activeFilterCount]
   );
 
-  return (
+  // Only the top-level Endpoints page passes `onCreateClick` — that's when
+  // this grid owns its own loading/empty presentation and Paper wrapper.
+  const isStandalone = onCreateClick !== undefined;
+  const filtersActive =
+    filterModel.items.length > 0 || !!searchQuery || hasActiveDrawerFilters;
+
+  const content = (
     <EndpointsToolbarContext.Provider value={toolbarContextValue}>
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={dismissError}>
@@ -435,5 +433,27 @@ export default function EndpointsGrid({
         onApply={setDrawerFilters}
       />
     </EndpointsToolbarContext.Provider>
+  );
+
+  return (
+    <GridStateGate
+      active={isStandalone}
+      data={endpointsData}
+      error={error}
+      isEmpty={totalCount === 0 && !filtersActive}
+      emptyState={
+        <EntityEmptyState
+          card
+          icon={EndpointsIcon}
+          title="No endpoints yet"
+          description="Create your first endpoint to connect your application under test and start running tests and evaluations."
+          actionLabel={canCreate ? 'Create endpoint' : undefined}
+          onAction={canCreate ? onCreateClick : undefined}
+          enrichment={getEntityEmptyStateEnrichment('endpoints')}
+        />
+      }
+    >
+      {isStandalone ? <Paper sx={GRID_PAPER_SX}>{content}</Paper> : content}
+    </GridStateGate>
   );
 }

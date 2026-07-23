@@ -3,7 +3,6 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import Box from '@mui/material/Box';
-import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import { useQueryClient } from '@tanstack/react-query';
 import { testSetKeys } from '@/constants/query-keys';
@@ -13,23 +12,20 @@ import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import { useSession } from 'next-auth/react';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
-import EntityEmptyState from '@/components/common/EntityEmptyState';
-import { getEntityEmptyStateEnrichment } from '@/constants/entity-empty-state-env';
-import { HorizontalSplitIcon } from '@/components/icons';
 import TestSetsGrid from './components/TestSetsGrid';
 import TestSetDrawer from './components/TestSetDrawer';
 import FileImportDrawer from './components/FileImportDrawer';
 import GarakImportDrawer from './components/GarakImportDrawer';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
-import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { Can, useCan, useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import AccessDenied from '@/components/common/AccessDenied';
 import PageLoadingState from '@/components/common/PageLoadingState';
+import { isAuthenticated, isSessionLoading } from '@/hooks/useIsAuthenticated';
 
 export default function TestSetsPage() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const router = useRouter();
   const queryClient = useQueryClient();
   const notifications = useNotifications();
@@ -39,15 +35,12 @@ export default function TestSetsPage() {
   const canCreate = useCan(Capability.TestSet.CREATE);
   const canGenerate = useCan(Capability.TestSet.GENERATE);
 
-  const [testSetCount, setTestSetCount] = React.useState<number | null>(null);
   const [createDrawerOpen, setCreateDrawerOpen] = React.useState(false);
   const [fileImportDrawerOpen, setFileImportDrawerOpen] = React.useState(false);
   const [garakImportDrawerOpen, setGarakImportDrawerOpen] =
     React.useState(false);
 
   useDocumentTitle('Test Sets');
-
-  const sessionToken = session?.session_token ?? '';
 
   const handleCreateSuccess = React.useCallback(() => {
     setCreateDrawerOpen(false);
@@ -79,7 +72,7 @@ export default function TestSetsPage() {
     [queryClient, notifications, router]
   );
 
-  if (status === 'loading') {
+  if (isSessionLoading(status)) {
     return (
       <PageLayout title="Test Sets" breadcrumbs={[]}>
         <Box sx={{ p: 3 }}>
@@ -92,7 +85,7 @@ export default function TestSetsPage() {
   if (permsLoading) return <PageLoadingState />;
   if (!canRead) return <AccessDenied resource="test sets" />;
 
-  if (!sessionToken) {
+  if (!isAuthenticated(status)) {
     return (
       <PageLayout title="Test Sets" breadcrumbs={[]}>
         <Box sx={{ p: 3 }}>
@@ -144,53 +137,28 @@ export default function TestSetsPage() {
         }
       >
         <Box sx={{ mt: 2, mb: 2 }}>
-          {testSetCount === 0 ? (
-            <EntityEmptyState
-              card
-              icon={HorizontalSplitIcon}
-              title="No test sets yet"
-              description="Group related tests into a test set to version, share, and run them together."
-              actionLabel={canCreate ? 'Create test set' : undefined}
-              onAction={canCreate ? () => setCreateDrawerOpen(true) : undefined}
-              enrichment={getEntityEmptyStateEnrichment('test-sets')}
-            />
-          ) : (
-            <Paper
-              sx={{
-                width: '100%',
-                borderRadius: BORDER_RADIUS.md,
-                boxShadow: ELEVATION.xs,
-                border: theme => `1px solid ${theme.palette.greyscale.border}`,
-                overflow: 'hidden',
-              }}
-            >
-              <TestSetsGrid
-                sessionToken={sessionToken}
-                onTotalCountChange={setTestSetCount}
-              />
-            </Paper>
-          )}
+          <TestSetsGrid
+            canCreate={canCreate}
+            onCreateClick={() => setCreateDrawerOpen(true)}
+          />
         </Box>
       </PageLayout>
 
       <TestSetDrawer
         open={createDrawerOpen}
         onClose={() => setCreateDrawerOpen(false)}
-        sessionToken={sessionToken}
         onSuccess={handleCreateSuccess}
       />
 
       <FileImportDrawer
         open={fileImportDrawerOpen}
         onClose={() => setFileImportDrawerOpen(false)}
-        sessionToken={sessionToken}
         onSuccess={handleFileImportSuccess}
       />
 
       <GarakImportDrawer
         open={garakImportDrawerOpen}
         onClose={() => setGarakImportDrawerOpen(false)}
-        sessionToken={sessionToken}
         onSuccess={handleGarakImportSuccess}
       />
     </>

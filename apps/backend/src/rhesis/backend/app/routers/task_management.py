@@ -18,7 +18,6 @@ from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.services.task_management import validate_task_organization_constraints
 from rhesis.backend.app.services.task_notification import send_task_assignment_notification
 from rhesis.backend.app.utils.decorators import with_count_header
-from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 from rhesis.backend.telemetry import (
     is_telemetry_enabled,
     set_telemetry_enabled,
@@ -26,9 +25,6 @@ from rhesis.backend.telemetry import (
 )
 
 logger = logging.getLogger(__name__)
-
-# Create the detailed schema for Task
-TaskDetailSchema = create_detailed_schema(schemas.Task, models.Task)
 
 
 router = RhesisRouter(
@@ -95,7 +91,7 @@ def create_task(
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
-@router.get("/", response_model=list[TaskDetailSchema])
+@router.get("/", response_model=list[schemas.TaskDetail])
 @with_count_header(model=models.Task)
 def list_tasks(
     skip: int = 0,
@@ -125,7 +121,7 @@ def list_tasks(
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
-@router.get("/{task_id}", response_model=TaskDetailSchema)
+@router.get("/{task_id}", response_model=schemas.TaskDetail)
 def get_task(
     task_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),
@@ -143,7 +139,7 @@ def get_task(
     return task
 
 
-@router.get("/{entity_type}/{entity_id}", response_model=list[TaskDetailSchema])
+@router.get("/{entity_type}/{entity_id}", response_model=list[schemas.TaskDetail])
 @with_count_header(model=models.Task)
 def get_tasks_by_entity(
     entity_type: str,

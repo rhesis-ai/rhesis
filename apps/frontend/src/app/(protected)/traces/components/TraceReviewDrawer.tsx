@@ -13,6 +13,7 @@ import {
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 import RateReviewOutlinedIcon from '@mui/icons-material/RateReviewOutlined';
+import { useSession } from 'next-auth/react';
 import TrackChangesIcon from '@mui/icons-material/TrackChanges';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import {
@@ -31,12 +32,14 @@ import MentionTextInput, {
   inferReviewTarget,
   InferredTarget,
 } from '@/components/common/MentionTextInput';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import { useQueryClient } from '@tanstack/react-query';
+import { annotationKeys } from '@/constants/query-keys';
 
 interface TraceReviewDrawerProps {
   open: boolean;
   onClose: () => void;
   selectedSpan: SpanNode | null;
-  sessionToken: string;
   onSave: () => Promise<void>;
   initialComment?: string;
   initialStatus?: 'passed' | 'failed';
@@ -68,7 +71,6 @@ export default function TraceReviewDrawer({
   open,
   onClose,
   selectedSpan,
-  sessionToken,
   onSave,
   initialComment,
   initialStatus,
@@ -76,6 +78,8 @@ export default function TraceReviewDrawer({
   mentionableTurns = [],
 }: TraceReviewDrawerProps) {
   const theme = useTheme();
+  const { status } = useSession();
+  const queryClient = useQueryClient();
   const [newStatus, setNewStatus] = useState<'passed' | 'failed'>('passed');
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
@@ -167,10 +171,10 @@ export default function TraceReviewDrawer({
 
   useEffect(() => {
     const fetchStatuses = async () => {
-      if (!open || !sessionToken || statuses.length > 0) return;
+      if (!open || !isAuthenticated(status) || statuses.length > 0) return;
       try {
         setLoadingStatuses(true);
-        const clientFactory = new ApiClientFactory(sessionToken);
+        const clientFactory = new ApiClientFactory();
         const statusClient = clientFactory.getStatusClient();
         const fetchedStatuses = await statusClient.getStatuses({
           entity_type: EntityType.TEST_RESULT,
@@ -183,7 +187,7 @@ export default function TraceReviewDrawer({
       }
     };
     fetchStatuses();
-  }, [open, sessionToken, statuses.length]);
+  }, [open, statuses.length, status]);
 
   useEffect(() => {
     if (open && selectedSpan) {
@@ -220,7 +224,7 @@ export default function TraceReviewDrawer({
       return;
     }
 
-    if (!selectedSpan?.id || !sessionToken) return;
+    if (!selectedSpan?.id || !isAuthenticated(status)) return;
 
     if (traceTarget.type === 'trace' || traceTarget.type === 'turn') {
       const hasExistingReview = !!selectedSpan.last_review;
@@ -247,7 +251,7 @@ export default function TraceReviewDrawer({
       setSubmitting(true);
       setError('');
 
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const telemetryClient = clientFactory.getTelemetryClient();
 
       await telemetryClient.createReview(
@@ -257,6 +261,7 @@ export default function TraceReviewDrawer({
         traceTarget
       );
 
+      void queryClient.invalidateQueries({ queryKey: annotationKeys.all() });
       await onSave();
       onClose();
     } catch (_err) {

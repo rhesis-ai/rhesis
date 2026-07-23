@@ -101,7 +101,7 @@ def create_test_user(
 
 
 def create_test_api_token(
-    db: Session, user: models.User, name: str = "Test API Token"
+    db: Session, user: models.User, name: str = "Test API Token", set_env_var: bool = False
 ) -> models.Token:
     """
     Create a test API token for the user.
@@ -110,6 +110,15 @@ def create_test_api_token(
         db: Database session
         user: User to create token for
         name: Token name
+        set_env_var: Whether to point the shared ``RHESIS_API_KEY`` env var at
+            this token. Only the one-time session-auth setup
+            (``create_session_authentication``) should do this — every other
+            caller (e.g. ``owner_client``, which authenticates via the token
+            object directly) must pass ``False``. The env var is shared,
+            process-global state read by code that looks up "the" authenticated
+            user by env var alone (bypassing any per-test fixture); clobbering
+            it from a one-off token orphans that lookup for every later test
+            once this token's row is cleaned up.
 
     Returns:
         Token: Created token
@@ -131,9 +140,10 @@ def create_test_api_token(
     masked_token = f"{token_value[:3]}...{token_value[-4:]}"
     print(f"✅ Created test API token: {token.name} (Token: {masked_token})")
 
-    # Set the token value in environment for tests to use
-    os.environ["RHESIS_API_KEY"] = token_value
-    print(f"🔑 Set RHESIS_API_KEY environment variable: {masked_token}")
+    if set_env_var:
+        # Set the token value in environment for tests to use
+        os.environ["RHESIS_API_KEY"] = token_value
+        print(f"🔑 Set RHESIS_API_KEY environment variable: {masked_token}")
 
     return token
 
@@ -213,6 +223,13 @@ def ensure_owner_membership(db: Session, organization_id: uuid.UUID, user_id: uu
         elif member.role_id != owner_role.id:
             member.role_id = owner_role.id
             db.flush()
+            # Defensive: a prior test may have left this row demoted (e.g. a
+            # bug bypassing temporarily_set_org_role's own bust_user calls)
+            # while a "denied" decision for the old role is still cached.
+            # Busting here means the fix-up above is never served stale.
+            from rhesis.backend.app.services.permission_cache import get_permission_cache
+
+            get_permission_cache().bust_user(user_id, organization_id)
 
 
 @contextmanager
@@ -276,6 +293,7 @@ def create_test_organization_and_user(
     org_name: str = "Test Organization",
     user_email: str = "test@rhesis.ai",
     user_name: str = "Test User",
+    set_env_var: bool = False,
 ) -> Tuple[models.Organization, models.User, models.Token]:
     """
     Create test organization, user, and API token with proper setup.
@@ -285,6 +303,10 @@ def create_test_organization_and_user(
         org_name: Organization name
         user_email: User email
         user_name: User name
+        set_env_var: Whether to point the shared ``RHESIS_API_KEY`` env var at
+            the newly created token. Defaults to ``False`` — only the one-time
+            session-auth setup (``create_session_authentication``) should pass
+            ``True``. See ``create_test_api_token`` for why.
 
     Returns:
         Tuple[Organization, User, Token]: Created organization, user, and API token
@@ -305,7 +327,7 @@ def create_test_organization_and_user(
         print(f"👑 Set org owner to user {user.id}")
 
         # Create API token for the user
-        api_token = create_test_api_token(db, user)
+        api_token = create_test_api_token(db, user, set_env_var=set_env_var)
 
         # Load initial data (uses get_db() with direct tenant context passing)
         print(f"🔧 Loading initial data for organization {organization.id}")
@@ -467,8 +489,12 @@ def setup_test_environment() -> Tuple[models.Organization, models.User, models.T
                     print(f"🔑 Set RHESIS_API_KEY environment variable: {existing_token.token}")
                     return existing_org, existing_user, existing_token
                 else:
-                    # Create new API token for existing user
-                    api_token = create_test_api_token(db, existing_user)
+                    # Create new API token for existing user. This is the
+                    # standalone `python test_setup.py setup` CLI entrypoint,
+                    # not a pytest fixture — it's meant to point RHESIS_API_KEY
+                    # at this environment for manual/dev use, matching the
+                    # existing_token branch above.
+                    api_token = create_test_api_token(db, existing_user, set_env_var=True)
                     return existing_org, existing_user, api_token
 
         # Create new test organization, user, and API token

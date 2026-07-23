@@ -32,7 +32,6 @@ const paperSx = {
 
 interface TestSetLinkedTestsSectionProps {
   testSetId: string;
-  sessionToken: string;
   testSetType?: string;
   testCount: number;
   isGenerating?: boolean;
@@ -40,7 +39,6 @@ interface TestSetLinkedTestsSectionProps {
 
 export default function TestSetLinkedTestsSection({
   testSetId,
-  sessionToken,
   testSetType,
   testCount: initialTestCount,
   isGenerating: initialIsGenerating = false,
@@ -63,7 +61,7 @@ export default function TestSetLinkedTestsSection({
 
     const checkStatus = async () => {
       try {
-        const factory = new ApiClientFactory(sessionToken);
+        const factory = new ApiClientFactory();
         const testSetsClient = factory.getTestSetsClient();
         const response = await testSetsClient.getTestSets({
           limit: 1,
@@ -97,7 +95,7 @@ export default function TestSetLinkedTestsSection({
         pollRef.current = null;
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- sessionToken and testSetId are stable; router is stable
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- testSetId is stable; router is stable
   }, [isGenerating]);
 
   const handleRefresh = useCallback(() => {
@@ -107,7 +105,7 @@ export default function TestSetLinkedTestsSection({
   const handleAssignTests = async (tests: TestDetail[]) => {
     if (tests.length === 0) return;
     try {
-      const factory = new ApiClientFactory(sessionToken);
+      const factory = new ApiClientFactory();
       const testSetsClient = factory.getTestSetsClient();
       await testSetsClient.associateTestsWithTestSet(
         testSetId,
@@ -234,7 +232,6 @@ export default function TestSetLinkedTestsSection({
           <EmbeddingTestsPanel
             key={refreshKey}
             testSetId={testSetId}
-            sessionToken={sessionToken}
             testSetType={testSetType}
             onTotalCountChange={setTotalCount}
           />
@@ -245,7 +242,6 @@ export default function TestSetLinkedTestsSection({
         <AssignTestsDrawer
           open={drawerOpen}
           onClose={() => setDrawerOpen(false)}
-          sessionToken={sessionToken}
           testSetId={testSetId}
           testSetType={testSetType}
           onAssign={handleAssignTests}

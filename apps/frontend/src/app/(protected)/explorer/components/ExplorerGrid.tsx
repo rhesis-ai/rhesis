@@ -17,6 +17,7 @@ import {
   GridToolbarExport,
 } from '@mui/x-data-grid';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useSession } from 'next-auth/react';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import GridToolbar from '@/components/common/GridToolbar';
 import { useRouter } from 'next/navigation';
@@ -30,9 +31,9 @@ import { DeleteModal } from '@/components/common/DeleteModal';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { formatDate } from '@/utils/date';
 import { explorerKeys } from '@/constants/query-keys';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface ExplorerGridProps {
-  sessionToken: string;
   onTotalCountChange?: (count: number) => void;
 }
 
@@ -66,10 +67,10 @@ function ExplorerUnifiedToolbar() {
 }
 
 export default function ExplorerGrid({
-  sessionToken,
   onTotalCountChange,
 }: ExplorerGridProps) {
   const router = useRouter();
+  const { status } = useSession();
   const queryClient = useQueryClient();
   const notifications = useNotifications();
   const [searchQuery, setSearchQuery] = useState('');
@@ -85,10 +86,8 @@ export default function ExplorerGrid({
   const { data: allRows = [], isLoading: loading } = useQuery({
     queryKey: explorerKeys.all(),
     queryFn: () =>
-      new ApiClientFactory(sessionToken)
-        .getExplorerClient()
-        .getExplorerTestSets(),
-    enabled: !!sessionToken,
+      new ApiClientFactory().getExplorerClient().getExplorerTestSets(),
+    enabled: isAuthenticated(status),
   });
 
   useEffect(() => {
@@ -185,7 +184,7 @@ export default function ExplorerGrid({
 
     setIsExporting(true);
     try {
-      const client = new ApiClientFactory(sessionToken).getExplorerClient();
+      const client = new ApiClientFactory().getExplorerClient();
       const result = await client.exportRegularTestSetFromExplorer(
         String(selectedRows[0])
       );
@@ -210,14 +209,14 @@ export default function ExplorerGrid({
     } finally {
       setIsExporting(false);
     }
-  }, [notifications, router, selectedRows, sessionToken]);
+  }, [notifications, router, selectedRows]);
 
   const handleDeleteConfirm = async () => {
     if (selectedRows.length === 0) return;
 
     try {
       setIsDeleting(true);
-      const client = new ApiClientFactory(sessionToken).getExplorerClient();
+      const client = new ApiClientFactory().getExplorerClient();
       await Promise.all(
         selectedRows.map(id => client.deleteExplorerTestSet(String(id)))
       );

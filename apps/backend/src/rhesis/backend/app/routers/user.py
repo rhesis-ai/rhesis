@@ -26,7 +26,11 @@ from rhesis.backend.app.schemas.polyphemus import (
     PolyphemusAccessRequest,
     PolyphemusAccessResponse,
 )
-from rhesis.backend.app.schemas.user import UserSettings, UserSettingsRead, UserSettingsUpdate
+from rhesis.backend.app.schemas.user import (
+    UserSettingsOutput,
+    UserSettingsRead,
+    UserSettingsUpdate,
+)
 from rhesis.backend.app.services import polyphemus as polyphemus_service
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
@@ -242,7 +246,7 @@ def get_user_settings(
     return _user_settings_read_payload(db_user, request, current_user, db)
 
 
-@router.patch("/settings", response_model=UserSettings)
+@router.patch("/settings", response_model=UserSettingsOutput)
 @handle_database_exceptions(entity_name="user settings")
 def update_user_settings(
     settings_update: UserSettingsUpdate,

@@ -377,6 +377,29 @@ class TestSDKEndpointSync:
             },
         ]
 
+    @pytest.fixture(autouse=True)
+    def mock_llm_mapping(self):
+        """Prevent real LLM calls during SDK-sync mapping generation.
+
+        sample_functions_data's parameter names (a, b, user_id) don't match
+        the auto-mapper's input/session heuristics (patterns.py), so mapping
+        generation always falls through to LLMMapper.generate_mappings, which
+        otherwise makes a real network call per function per sync — this was
+        costing 28-49s per test here (~5 minutes combined across the class).
+        """
+        mock_model = Mock()
+        mock_model.generate.return_value = {
+            "request_mapping": {},
+            "response_mapping": {},
+            "confidence": 0.9,
+            "reasoning": "mocked for test speed",
+        }
+        with patch(
+            "rhesis.backend.app.services.connector.mapping.llm_mapper.get_user_generation_model",
+            return_value=mock_model,
+        ):
+            yield
+
     @pytest.mark.asyncio
     async def test_sync_sdk_endpoints_create_new(
         self, test_db: Session, sdk_project_context, sample_functions_data

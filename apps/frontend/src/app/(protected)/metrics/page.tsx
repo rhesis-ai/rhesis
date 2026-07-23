@@ -15,10 +15,6 @@ export default function MetricsPage() {
     Capability.Metric.READ
   );
 
-  const sessionToken = React.useMemo(
-    () => session?.session_token ?? '',
-    [session?.session_token]
-  );
   const organizationId = React.useMemo(
     () => session?.user?.organization_id as UUID,
     [session?.user?.organization_id]
@@ -29,7 +25,6 @@ export default function MetricsPage() {
 
   return (
     <MetricsClientComponent
-      sessionToken={sessionToken}
       organizationId={organizationId}
       sessionStatus={status}
     />

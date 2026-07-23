@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useSession } from 'next-auth/react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { Alert, Box, Typography } from '@mui/material';
@@ -19,6 +20,7 @@ import {
   sanitizeTraceDrawerFiltersForTestRunScope,
   type TraceDrawerFilters,
 } from './trace-filter-params';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 const TRACE_PAGE_SIZE_OPTIONS = [25, 50, 100];
 
@@ -27,7 +29,6 @@ function normalizePageSize(size: number): number {
 }
 
 interface TracesClientProps {
-  sessionToken: string;
   currentUserId?: string;
   currentUserName?: string;
   currentUserPicture?: string;
@@ -38,7 +39,6 @@ interface TracesClientProps {
 }
 
 export default function TracesClient({
-  sessionToken,
   currentUserId = '',
   currentUserName = '',
   currentUserPicture,
@@ -47,6 +47,7 @@ export default function TracesClient({
   fixedTestRunId,
   onUnfilteredEmpty,
 }: TracesClientProps) {
+  const { status } = useSession();
   const router = useRouter();
   const pathname = usePathname();
   const queryClient = useQueryClient();
@@ -113,10 +114,10 @@ export default function TracesClient({
     queryFn: () => {
       if (!scopedProjectId)
         return Promise.reject(new Error('No active project'));
-      const clientFactory = new ApiClientFactory(sessionToken, scopedProjectId);
+      const clientFactory = new ApiClientFactory(undefined, scopedProjectId);
       return clientFactory.getTelemetryClient().listTraces(queryParams);
     },
-    enabled: !!sessionToken && !projectLoading && !!scopedProjectId,
+    enabled: isAuthenticated(status) && !projectLoading && !!scopedProjectId,
   });
 
   const traces = data?.traces ?? [];
@@ -219,7 +220,6 @@ export default function TracesClient({
         filterDrawerOpen={filterDrawerOpen}
         onFilterDrawerOpen={() => setFilterDrawerOpen(true)}
         onFilterDrawerClose={() => setFilterDrawerOpen(false)}
-        sessionToken={sessionToken}
         fixedTestRunId={fixedTestRunId}
       />
 
@@ -240,7 +240,6 @@ export default function TracesClient({
         onClose={handleCloseDrawer}
         traceId={selectedTraceId}
         projectId={selectedProjectId || ''}
-        sessionToken={sessionToken}
         currentUserId={currentUserId}
         currentUserName={currentUserName}
         currentUserPicture={currentUserPicture}

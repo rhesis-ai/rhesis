@@ -1,12 +1,7 @@
 'use client';
 
-import React, {
-  useEffect,
-  useState,
-  useCallback,
-  useContext,
-  useMemo,
-} from 'react';
+import React, { useState, useCallback, useContext, useMemo } from 'react';
+import { useSession } from 'next-auth/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { testRunKeys } from '@/constants/query-keys';
 import { useGridState } from '@/hooks/useGridState';
@@ -23,7 +18,7 @@ import {
   GridToolbarDensitySelector,
   GridToolbarExport,
 } from '@mui/x-data-grid';
-import BaseDataGrid from '@/components/common/BaseDataGrid';
+import BaseDataGrid, { GRID_PAPER_SX } from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
 import {
   Typography,
@@ -34,12 +29,14 @@ import {
   Button,
   ButtonGroup,
   Tooltip,
+  Paper,
 } from '@mui/material';
 import {
   ChatIcon,
   DescriptionIcon,
   ScienceIcon,
   BiotechIcon,
+  PlayArrowIcon,
 } from '@/components/icons';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import PersonIcon from '@mui/icons-material/Person';
@@ -66,8 +63,17 @@ import {
   createRowActionsColumn,
   rowActionsHoverSx,
 } from '@/components/common/createRowActionsColumn';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import GridStateGate from '@/components/common/GridStateGate';
+import EntityEmptyState from '@/components/common/EntityEmptyState';
+import { getEntityEmptyStateEnrichment } from '@/constants/entity-empty-state-env';
 
 type RunKindFilter = 'all' | 'tests' | 'experiments';
+
+interface TestRunsGridProps {
+  canCreate?: boolean;
+  onCreateClick?: () => void;
+}
 
 function formatReviewTooltip(reviewed: number, corrected: number): string {
   const reviewedLabel = `${reviewed} test${reviewed === 1 ? '' : 's'} reviewed`;
@@ -148,12 +154,8 @@ function TestRunsUnifiedToolbar() {
 
 // ── Grid component ────────────────────────────────────────────────────────────
 
-interface TestRunsGridProps {
-  sessionToken: string;
-  onTotalCountChange?: (count: number) => void;
-}
-
-function TestRunsGrid({ sessionToken, onTotalCountChange }: TestRunsGridProps) {
+function TestRunsGrid({ canCreate, onCreateClick }: TestRunsGridProps) {
+  const { status } = useSession();
   const queryClient = useQueryClient();
   const router = useRouter();
   const notifications = useNotifications();
@@ -264,7 +266,7 @@ function TestRunsGrid({ sessionToken, onTotalCountChange }: TestRunsGridProps) {
     ],
     errorFallbackMessage: 'Failed to load test runs',
     queryFn: () => {
-      const client = new ApiClientFactory(sessionToken).getTestRunsClient();
+      const client = new ApiClientFactory().getTestRunsClient();
       return client.getTestRuns({
         skip: paginationModel.page * paginationModel.pageSize,
         limit: paginationModel.pageSize,
@@ -277,29 +279,11 @@ function TestRunsGrid({ sessionToken, onTotalCountChange }: TestRunsGridProps) {
         ...(drawerFilters.reviews === 'without' && { has_reviews: false }),
       });
     },
-    enabled: !!sessionToken,
+    enabled: isAuthenticated(status),
   });
 
   const testRuns = testRunsData?.data ?? [];
   const totalCount = testRunsData?.pagination.totalCount ?? 0;
-
-  // ── Side effect: notify parent of total count ─────────────────────────────
-
-  useEffect(() => {
-    if (!testRunsData) return;
-    const filtersActive =
-      filterModel.items.length > 0 ||
-      !!searchQuery ||
-      hasActiveTestRunFilters(drawerFilters);
-    if (!filtersActive) onTotalCountChange?.(totalCount);
-  }, [
-    testRunsData,
-    filterModel.items.length,
-    searchQuery,
-    drawerFilters,
-    onTotalCountChange,
-    totalCount,
-  ]);
 
   // ── Row action handlers ────────────────────────────────────────────────────
 
@@ -665,7 +649,7 @@ function TestRunsGrid({ sessionToken, onTotalCountChange }: TestRunsGridProps) {
 
     try {
       setIsDeleting(true);
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const testRunsClient = clientFactory.getTestRunsClient();
 
       await testRunsClient.deleteTestRun(pendingDeleteId);
@@ -682,7 +666,7 @@ function TestRunsGrid({ sessionToken, onTotalCountChange }: TestRunsGridProps) {
       setIsDeleting(false);
       setDeleteModalOpen(false);
     }
-  }, [pendingDeleteId, sessionToken, notifications, queryClient]);
+  }, [pendingDeleteId, notifications, queryClient]);
 
   const handleDeleteCancel = useCallback(() => {
     setDeleteModalOpen(false);
@@ -699,7 +683,7 @@ function TestRunsGrid({ sessionToken, onTotalCountChange }: TestRunsGridProps) {
 
     try {
       setIsCancelling(true);
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const testRunsClient = clientFactory.getTestRunsClient();
       await testRunsClient.cancelTestRun(pendingCancelId);
       notifications.show('Successfully cancelled test run', {
@@ -713,7 +697,7 @@ function TestRunsGrid({ sessionToken, onTotalCountChange }: TestRunsGridProps) {
       setIsCancelling(false);
       setCancelModalOpen(false);
     }
-  }, [pendingCancelId, sessionToken, notifications, queryClient]);
+  }, [pendingCancelId, notifications, queryClient]);
 
   const handleCancelClose = useCallback(() => {
     setCancelModalOpen(false);
@@ -757,83 +741,107 @@ function TestRunsGrid({ sessionToken, onTotalCountChange }: TestRunsGridProps) {
     [runKindFilter, handleRunKindFilterChange]
   );
 
+  const filtersActive =
+    filterModel.items.length > 0 ||
+    !!searchQuery ||
+    hasActiveTestRunFilters(drawerFilters);
+
   return (
-    <TestRunsToolbarContext.Provider
-      value={{
-        searchQuery,
-        setSearchQuery,
-        statusFilter,
-        setStatusFilter,
-        openFilterDrawer: () => setFilterDrawerOpen(true),
-        hasActiveDrawerFilters: hasActiveTestRunFilters(drawerFilters),
-        activeFilterCount: countActiveTestRunFilters(drawerFilters),
-      }}
+    <GridStateGate
+      data={testRunsData}
+      error={error}
+      isEmpty={totalCount === 0 && !filtersActive}
+      emptyState={
+        <EntityEmptyState
+          card
+          icon={PlayArrowIcon}
+          title="No test runs yet"
+          description="Execute a test set against an AI endpoint to start your first test run. Test runs measure quality, safety, and reliability of your AI endpoints."
+          actionLabel={canCreate ? 'Create test run' : undefined}
+          onAction={canCreate ? onCreateClick : undefined}
+          enrichment={getEntityEmptyStateEnrichment('test-runs')}
+        />
+      }
     >
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={dismissError}>
-          {error}
-        </Alert>
-      )}
+      <Paper sx={GRID_PAPER_SX}>
+        <TestRunsToolbarContext.Provider
+          value={{
+            searchQuery,
+            setSearchQuery,
+            statusFilter,
+            setStatusFilter,
+            openFilterDrawer: () => setFilterDrawerOpen(true),
+            hasActiveDrawerFilters: hasActiveTestRunFilters(drawerFilters),
+            activeFilterCount: countActiveTestRunFilters(drawerFilters),
+          }}
+        >
+          {error && (
+            <Alert severity="error" sx={{ mb: 2 }} onClose={dismissError}>
+              {error}
+            </Alert>
+          )}
 
-      <BaseDataGrid
-        rows={testRuns}
-        columns={columns}
-        loading={loading}
-        getRowId={row => row.id}
-        paginationModel={paginationModel}
-        onPaginationModelChange={handlePaginationModelChange}
-        filterModel={filterModel}
-        onFilterModelChange={handleFilterModelChange}
-        sortingMode="server"
-        sortModel={sortModel}
-        onSortModelChange={handleSortModelChange}
-        serverSideFiltering={true}
-        onRowClick={handleRowClick}
-        getRowUrl={row => `/test-runs/${row.id}`}
-        serverSidePagination={true}
-        totalRows={totalCount}
-        pageSizeOptions={[10, 25, 50]}
-        gridToolbarExtra={runKindToolbar}
-        disablePaperWrapper={true}
-        showToolbar={true}
-        toolbarSlot={TestRunsUnifiedToolbar}
-        persistState
-        storageKey="test-runs-grid-v2"
-        sx={rowActionsHoverSx}
-      />
+          <BaseDataGrid
+            rows={testRuns}
+            columns={columns}
+            loading={loading}
+            getRowId={row => row.id}
+            paginationModel={paginationModel}
+            onPaginationModelChange={handlePaginationModelChange}
+            filterModel={filterModel}
+            onFilterModelChange={handleFilterModelChange}
+            sortingMode="server"
+            sortModel={sortModel}
+            onSortModelChange={handleSortModelChange}
+            serverSideFiltering={true}
+            onRowClick={handleRowClick}
+            getRowUrl={row => `/test-runs/${row.id}`}
+            serverSidePagination={true}
+            totalRows={totalCount}
+            pageSizeOptions={[10, 25, 50]}
+            gridToolbarExtra={runKindToolbar}
+            disablePaperWrapper={true}
+            showToolbar={true}
+            toolbarSlot={TestRunsUnifiedToolbar}
+            persistState
+            storageKey="test-runs-grid-v2"
+            sx={rowActionsHoverSx}
+          />
 
-      <DeleteModal
-        open={deleteModalOpen}
-        onClose={handleDeleteCancel}
-        onConfirm={handleDeleteConfirm}
-        isLoading={isDeleting}
-        title="Delete Test Run"
-        message="Are you sure you want to delete this test run? Related data will not be deleted."
-        itemType="test runs"
-      />
+          <DeleteModal
+            open={deleteModalOpen}
+            onClose={handleDeleteCancel}
+            onConfirm={handleDeleteConfirm}
+            isLoading={isDeleting}
+            title="Delete Test Run"
+            message="Are you sure you want to delete this test run? Related data will not be deleted."
+            itemType="test runs"
+          />
 
-      <DeleteModal
-        open={cancelModalOpen}
-        onClose={handleCancelClose}
-        onConfirm={handleCancelConfirm}
-        isLoading={isCancelling}
-        title="Cancel Test Run"
-        message="Are you sure you want to cancel this test run? It will be stopped and marked as Cancelled."
-        itemType="test run"
-        confirmButtonText={isCancelling ? 'Cancelling...' : 'Cancel Run'}
-        cancelButtonText="Keep Running"
-      />
+          <DeleteModal
+            open={cancelModalOpen}
+            onClose={handleCancelClose}
+            onConfirm={handleCancelConfirm}
+            isLoading={isCancelling}
+            title="Cancel Test Run"
+            message="Are you sure you want to cancel this test run? It will be stopped and marked as Cancelled."
+            itemType="test run"
+            confirmButtonText={isCancelling ? 'Cancelling...' : 'Cancel Run'}
+            cancelButtonText="Keep Running"
+          />
 
-      {/* Filter drawer */}
-      <TestRunFilterDrawer
-        open={filterDrawerOpen}
-        onClose={() => setFilterDrawerOpen(false)}
-        filters={drawerFilters}
-        onApply={f => {
-          setDrawerFilters(f);
-        }}
-      />
-    </TestRunsToolbarContext.Provider>
+          {/* Filter drawer */}
+          <TestRunFilterDrawer
+            open={filterDrawerOpen}
+            onClose={() => setFilterDrawerOpen(false)}
+            filters={drawerFilters}
+            onApply={f => {
+              setDrawerFilters(f);
+            }}
+          />
+        </TestRunsToolbarContext.Provider>
+      </Paper>
+    </GridStateGate>
   );
 }
 

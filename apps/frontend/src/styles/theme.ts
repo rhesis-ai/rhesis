@@ -294,32 +294,6 @@ const getDesignTokens = (mode: PaletteMode) => {
               color: gs.body,
               boxShadow: mode === 'light' ? ELEVATION.xs : 'none',
             },
-            '& .MuiSvgIcon-root': {
-              color: mode === 'light' ? gs.body : '#FFFFFF',
-            },
-            '& .MuiAvatar-root .MuiSvgIcon-root': {
-              color: 'inherit',
-            },
-            '& .MuiButton-icon .MuiSvgIcon-root, & .MuiButton-startIcon .MuiSvgIcon-root, & .MuiButton-endIcon .MuiSvgIcon-root':
-              {
-                color: 'inherit',
-              },
-            // Drawer sets all icons to body color; keep grid/checkbox selection primary.
-            '& .MuiCheckbox-root, & .MuiDataGrid-checkboxInput': {
-              color: mode === 'light' ? '#0080AF' : '#33A6CB',
-              '&.Mui-checked, &.MuiCheckbox-indeterminate': {
-                color: mode === 'light' ? '#0080AF' : '#33A6CB',
-              },
-            },
-            '& .MuiCheckbox-root .MuiSvgIcon-root, & .MuiDataGrid-checkboxInput .MuiSvgIcon-root':
-              {
-                color: 'inherit',
-              },
-            '& .MuiListItemButton-root.Mui-selected': {
-              backgroundColor: '#0080AF',
-              '& .MuiSvgIcon-root': { color: '#FFFFFF' },
-              '& .MuiTypography-root': { color: '#FFFFFF' },
-            },
             '& .MuiDivider-root': {
               margin: '16px 0',
               borderColor: mode === 'light' ? gs.border : '#2C2C2C',

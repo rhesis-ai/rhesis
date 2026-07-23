@@ -39,6 +39,7 @@ DATABASE_ENV_VARS = (
 FRONTEND_ENV_VARS = ("FRONTEND_URL",)
 APPLICATION_ENV_VARS = (
     "QUICK_START",
+    "DEV_MODE",
     "BACKEND_ENV",
     "API_BASE_URL",
     "GCP_PROJECT",
@@ -415,7 +416,7 @@ def test_auth_settings_uses_defaults(clean_auth_env, monkeypatch):
     assert settings.session_secret_key == "session-secret-key"
     assert settings.jwt_secret_key is None
     assert settings.jwt_algorithm == "HS256"
-    assert settings.jwt_access_token_expire_minutes == 10080
+    assert settings.jwt_access_token_expire_minutes == 15
     assert settings.google_enabled is False
     assert settings.github_enabled is False
 
@@ -665,6 +666,7 @@ def test_application_settings_defaults(minimal_application_env):
     settings = ApplicationSettings(_env_file=None)
 
     assert settings.quick_start is False
+    assert settings.dev_mode is False
     assert settings.backend_env == "development"
     assert settings.gcp_project is None
     assert settings.google_cloud_project is None
@@ -725,16 +727,40 @@ def test_application_settings_is_production(
 
 
 @pytest.mark.unit
+@pytest.mark.parametrize(
+    "dev_mode_value,expected_dev_mode",
+    [
+        ("true", True),
+        ("True", True),
+        ("1", True),
+        ("false", False),
+        ("0", False),
+        ("", False),
+    ],
+)
+def test_application_settings_dev_mode(
+    minimal_application_env, monkeypatch, dev_mode_value, expected_dev_mode
+):
+    """Process posture is driven exclusively by DEV_MODE."""
+    if dev_mode_value:
+        monkeypatch.setenv("DEV_MODE", dev_mode_value)
+
+    settings = ApplicationSettings(_env_file=None)
+
+    assert settings.dev_mode is expected_dev_mode
+
+
+@pytest.mark.unit
 def test_get_application_settings_cache_clear_allows_env_overrides(
     minimal_application_env, monkeypatch
 ):
-    assert get_application_settings().is_development is True
+    assert get_application_settings().dev_mode is False
 
-    monkeypatch.setenv("BACKEND_ENV", "production")
+    monkeypatch.setenv("DEV_MODE", "true")
     get_application_settings.cache_clear()
 
-    assert get_application_settings().is_development is False
-    assert get_application_settings().backend_env == "production"
+    assert get_application_settings().dev_mode is True
+    assert get_application_settings().backend_env == "development"
 
 
 @pytest.mark.unit

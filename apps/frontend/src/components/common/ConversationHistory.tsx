@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useState } from 'react';
+import { useSession } from 'next-auth/react';
 import {
   Box,
   Paper,
@@ -25,13 +26,43 @@ import {
 import type { FileResponse } from '@/utils/api-client/interfaces/file';
 import MarkdownContent from '@/components/common/MarkdownContent';
 import StatusChip from '@/components/common/StatusChip';
+import { JsonPreview } from '@/app/(protected)/endpoints/components/JsonPreview';
+import { testPreviewSx } from '@/app/(protected)/endpoints/components/endpoint-styles';
+import { looksLikeMarkdown, parseJsonString } from '@/utils/message-content';
 import { getProjectIconComponent } from '@/components/common/ProjectIcons';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 // Superhero (female) emoji built from code points to avoid linter emoji detection.
 // U+1F9B8 (superhero) + U+200D (ZWJ) + U+2640 (female sign) + U+FE0F (variation selector)
 const PENELOPE_ICON = String.fromCodePoint(0x1f9b8, 0x200d, 0x2640, 0xfe0f);
+
+function renderJsonPreview(value: unknown) {
+  return (
+    <Box component="pre" sx={{ ...testPreviewSx, minHeight: 'unset', m: 0 }}>
+      <JsonPreview value={value} />
+    </Box>
+  );
+}
+
+function renderMessageContent(content: string) {
+  const parsed = parseJsonString(content);
+  if (parsed !== null) {
+    return renderJsonPreview(parsed);
+  }
+  if (looksLikeMarkdown(content)) {
+    return <MarkdownContent content={content} variant="body2" />;
+  }
+  return (
+    <Typography
+      variant="body2"
+      sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', m: 0 }}
+    >
+      {content}
+    </Typography>
+  );
+}
 
 interface ConversationHistoryProps {
   conversationSummary: ConversationTurn[];
@@ -47,7 +78,6 @@ interface ConversationHistoryProps {
   maxHeight?: number | string;
   turnReviewMap?: Map<number, Review>;
   /** Required when turns carry penelope_files for authenticated downloads. */
-  sessionToken?: string;
 }
 
 /**
@@ -68,15 +98,15 @@ export default function ConversationHistory({
   isConfirmingReview = false,
   maxHeight = 600,
   turnReviewMap = new Map<number, Review>(),
-  sessionToken,
 }: ConversationHistoryProps) {
   const theme = useTheme();
+  const { status } = useSession();
 
   const handleDownloadFile = useCallback(
     async (file: FileResponse) => {
-      if (!sessionToken) return;
+      if (!isAuthenticated(status)) return;
       try {
-        const factory = new ApiClientFactory(sessionToken);
+        const factory = new ApiClientFactory();
         const client = factory.getFilesClient();
         const blob = await client.getFileContent(file.id);
         const url = URL.createObjectURL(blob);
@@ -89,7 +119,7 @@ export default function ConversationHistory({
         console.error('Failed to download file:', err);
       }
     },
-    [sessionToken]
+    [status]
   );
 
   // Get the project icon component
@@ -451,7 +481,7 @@ export default function ConversationHistory({
 
                 {turn.penelope_files &&
                   turn.penelope_files.length > 0 &&
-                  sessionToken && (
+                  isAuthenticated(status) && (
                     <Box
                       sx={{
                         display: 'flex',
@@ -625,10 +655,7 @@ export default function ConversationHistory({
                         : 0,
                   }}
                 >
-                  <MarkdownContent
-                    content={turn.target_response || ''}
-                    variant="body2"
-                  />
+                  {renderMessageContent(turn.target_response || '')}
                 </Box>
 
                 {/* Context (collapsible within response) */}
@@ -684,22 +711,25 @@ export default function ConversationHistory({
                         }}
                         onClick={e => e.stopPropagation()}
                       >
-                        {(turn.context as string[]).map((item, idx, arr) => (
-                          <Typography
-                            key={`ctx-${turn.turn}-${item}`}
-                            variant="body2"
-                            sx={{
-                              color: theme.palette.text.secondary,
-                              mb: idx < arr.length - 1 ? 1 : 0,
-                              pl: 1,
-                              borderLeft: `2px solid ${theme.palette.info.light}`,
-                            }}
-                          >
-                            {typeof item === 'string'
-                              ? item
-                              : JSON.stringify(item)}
-                          </Typography>
-                        ))}
+                        {(turn.context ?? []).map((item, idx, arr) => {
+                          const itemContent =
+                            typeof item === 'string'
+                              ? renderMessageContent(item)
+                              : renderJsonPreview(item);
+                          return (
+                            <Box
+                              key={`ctx-${turn.turn}-${typeof item === 'string' ? item : idx}`}
+                              sx={{
+                                color: theme.palette.text.secondary,
+                                mb: idx < arr.length - 1 ? 1 : 0,
+                                pl: 1,
+                                borderLeft: `2px solid ${theme.palette.info.light}`,
+                              }}
+                            >
+                              {itemContent}
+                            </Box>
+                          );
+                        })}
                       </Box>
                     </Collapse>
                   </>
@@ -761,20 +791,7 @@ export default function ConversationHistory({
                         }}
                         onClick={e => e.stopPropagation()}
                       >
-                        <Typography
-                          component="pre"
-                          variant="body2"
-                          sx={{
-                            fontFamily:
-                              theme.typography.fontFamilyCode ?? 'monospace',
-                            whiteSpace: 'pre-wrap',
-                            wordBreak: 'break-all',
-                            color: theme.palette.text.secondary,
-                            m: 0,
-                          }}
-                        >
-                          {JSON.stringify(turn.metadata, null, 2)}
-                        </Typography>
+                        {renderJsonPreview(turn.metadata)}
                       </Box>
                     </Collapse>
                   </>
@@ -836,20 +853,7 @@ export default function ConversationHistory({
                         }}
                         onClick={e => e.stopPropagation()}
                       >
-                        <Typography
-                          component="pre"
-                          variant="body2"
-                          sx={{
-                            fontFamily:
-                              theme.typography.fontFamilyCode ?? 'monospace',
-                            whiteSpace: 'pre-wrap',
-                            wordBreak: 'break-all',
-                            color: theme.palette.text.secondary,
-                            m: 0,
-                          }}
-                        >
-                          {JSON.stringify(turn.tool_calls, null, 2)}
-                        </Typography>
+                        {renderJsonPreview(turn.tool_calls)}
                       </Box>
                     </Collapse>
                   </>
