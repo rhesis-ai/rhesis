@@ -18,6 +18,7 @@ export { default as CodeIcon } from '@mui/icons-material/CodeOutlined';
 export { default as DataObjectIcon } from '@mui/icons-material/DataObjectOutlined';
 export { default as CloudIcon } from '@mui/icons-material/CloudOutlined';
 export { default as CloudSyncIcon } from '@mui/icons-material/CloudSyncOutlined';
+export { default as ScheduleIcon } from '@mui/icons-material/ScheduleOutlined';
 export { default as AnalyticsIcon } from '@mui/icons-material/AnalyticsOutlined';
 export { default as ShoppingCartIcon } from '@mui/icons-material/ShoppingCartOutlined';
 export { default as TerminalIcon } from '@mui/icons-material/TerminalOutlined';
@@ -92,6 +93,7 @@ export { default as VisibilityIcon } from '@mui/icons-material/VisibilityOutline
 export { default as VisibilityOffIcon } from '@mui/icons-material/VisibilityOffOutlined';
 export { default as LockIcon } from '@mui/icons-material/LockOutlined';
 export { default as SwapVertIcon } from '@mui/icons-material/SwapVertOutlined';
+export { default as SwapHorizIcon } from '@mui/icons-material/SwapHorizOutlined';
 export { default as MenuIcon } from '@mui/icons-material/MenuOutlined';
 export { default as MoreHorizIcon } from '@mui/icons-material/MoreHorizOutlined';
 export { default as FilterAltIcon } from '@mui/icons-material/FilterAltOutlined';

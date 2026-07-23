@@ -1,305 +1,663 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
-  Alert,
   Box,
   Button,
-  Checkbox,
   Chip,
-  CircularProgress,
+  Collapse,
   Divider,
-  FormControlLabel,
-  FormGroup,
-  Paper,
+  IconButton,
+  InputAdornment,
   Stack,
+  Switch,
   TextField,
+  ToggleButton,
+  ToggleButtonGroup,
+  Tooltip,
   Typography,
 } from '@mui/material';
-import { useSession } from 'next-auth/react';
+import { alpha, type Theme } from '@mui/material/styles';
 import { PageLayout } from '@/components/layout/PageLayout';
-import { CloudSyncIcon } from '@/components/icons';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { SectionCard } from '@/components/common/SectionCard';
 import { useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import AccessDenied from '@/components/common/AccessDenied';
 import PageLoadingState from '@/components/common/PageLoadingState';
-import { useNotifications } from '@/components/common/NotificationContext';
-import { isAuthenticated } from '@/hooks/useIsAuthenticated';
-import type {
-  PlatformSyncResource,
-  PlatformSyncSummary,
-} from '@/utils/api-client/interfaces/platform-sync';
+import {
+  AccountTreeIcon,
+  ArrowBackIcon,
+  ArrowForwardIcon,
+  BlockIcon,
+  BoltIcon,
+  CheckCircleIcon,
+  CloudIcon,
+  CloudSyncIcon,
+  EndpointsIcon,
+  GradingIcon,
+  MenuBookIcon,
+  ScheduleIcon,
+  SmartToyIcon,
+  StorageIcon,
+  SwapHorizIcon,
+  VisibilityIcon,
+  VisibilityOffIcon,
+} from '@/components/icons';
 
-const DEFAULT_BASE_URL = 'https://api.rhesis.ai';
-const DEFAULT_SELECTED = ['models', 'endpoints'];
+/* -------------------------------------------------------------------------- */
+/*  Sync direction model                                                       */
+/*                                                                             */
+/*  Orientation: this local deployment sits on the LEFT, the Rhesis platform   */
+/*  sits on the RIGHT. Each category picks how its data flows between them.    */
+/* -------------------------------------------------------------------------- */
 
-const IS_LOCAL =
-  process.env.NEXT_PUBLIC_FRONTEND_ENV?.toLowerCase() === 'local';
+type SyncDirection = 'pull' | 'both' | 'push' | 'off';
+
+interface DirectionOption {
+  value: SyncDirection;
+  label: string;
+  /** Full sentence shown in the tooltip so the meaning is unambiguous. */
+  hint: string;
+  icon: React.ReactNode;
+  /** Accent colour for the selected state. */
+  color: (theme: Theme) => string;
+}
+
+const DIRECTION_OPTIONS: DirectionOption[] = [
+  {
+    value: 'pull',
+    label: 'Pull',
+    hint: 'To the left — bring changes down from the platform into this deployment',
+    icon: <ArrowBackIcon fontSize="small" />,
+    color: theme => theme.palette.primary.main,
+  },
+  {
+    value: 'both',
+    label: 'Both ways',
+    hint: 'Both ways — keep this deployment and the platform in sync in both directions',
+    icon: <SwapHorizIcon fontSize="small" />,
+    color: theme => theme.palette.success.main,
+  },
+  {
+    value: 'push',
+    label: 'Push',
+    hint: 'To the right — send changes from this deployment up to the platform',
+    icon: <ArrowForwardIcon fontSize="small" />,
+    color: theme => theme.palette.secondary.main,
+  },
+  {
+    value: 'off',
+    label: 'Off',
+    hint: "Not at all — don't sync this category",
+    icon: <BlockIcon fontSize="small" />,
+    color: theme => theme.palette.text.disabled,
+  },
+];
+
+interface SyncCategory {
+  key: string;
+  label: string;
+  description: string;
+  icon: React.ReactNode;
+  default: SyncDirection;
+}
+
+const SYNC_CATEGORIES: SyncCategory[] = [
+  {
+    key: 'models',
+    label: 'Models',
+    description: 'Provider connections and model configurations',
+    icon: <SmartToyIcon />,
+    default: 'pull',
+  },
+  {
+    key: 'endpoints',
+    label: 'Endpoints',
+    description: 'Endpoints under test and their connection settings',
+    icon: <EndpointsIcon />,
+    default: 'pull',
+  },
+  {
+    key: 'test-sets',
+    label: 'Test Sets',
+    description: 'Test sets and the tests they contain',
+    icon: <MenuBookIcon />,
+    default: 'both',
+  },
+  {
+    key: 'evaluation',
+    label: 'Metrics & Behaviors',
+    description: 'Evaluation metrics and the behaviors they measure',
+    icon: <GradingIcon />,
+    default: 'both',
+  },
+  {
+    key: 'projects',
+    label: 'Projects',
+    description: 'Projects, tags and workspace structure',
+    icon: <AccountTreeIcon />,
+    default: 'off',
+  },
+];
+
+/* -------------------------------------------------------------------------- */
+/*  Direction selector — four options, all visible at once (no dropdown)       */
+/* -------------------------------------------------------------------------- */
+
+function SyncDirectionSelector({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: SyncDirection;
+  onChange: (value: SyncDirection) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <ToggleButtonGroup
+      exclusive
+      value={value}
+      disabled={disabled}
+      onChange={(_event, next: SyncDirection | null) => {
+        if (next) onChange(next);
+      }}
+      sx={{
+        gap: 0.5,
+        '& .MuiToggleButtonGroup-grouped': {
+          border: theme => `1px solid ${theme.palette.greyscale.border}`,
+          borderRadius: '10px !important',
+          px: 1.5,
+          py: 0.75,
+          textTransform: 'none',
+          color: 'text.secondary',
+          flexDirection: 'column',
+          gap: 0.25,
+          minWidth: 74,
+        },
+      }}
+    >
+      {DIRECTION_OPTIONS.map(option => (
+        <ToggleButton
+          key={option.value}
+          value={option.value}
+          aria-label={option.label}
+          sx={{
+            '&.Mui-selected': {
+              color: option.color,
+              bgcolor: theme => alpha(option.color(theme), 0.12),
+              borderColor: theme => alpha(option.color(theme), 0.5),
+              '&:hover': {
+                bgcolor: theme => alpha(option.color(theme), 0.18),
+              },
+            },
+          }}
+        >
+          <Tooltip title={option.hint} arrow placement="top">
+            <Box
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 0.25,
+              }}
+            >
+              {option.icon}
+              <Typography variant="caption" sx={{ fontWeight: 600 }}>
+                {option.label}
+              </Typography>
+            </Box>
+          </Tooltip>
+        </ToggleButton>
+      ))}
+    </ToggleButtonGroup>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Orientation legend — makes "left" and "right" concrete                     */
+/* -------------------------------------------------------------------------- */
+
+function OrientationLegend() {
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 2,
+        flexWrap: 'wrap',
+        p: 2,
+        mb: 3,
+        borderRadius: '10px',
+        border: theme => `1px dashed ${theme.palette.greyscale.border}`,
+        bgcolor: theme => alpha(theme.palette.primary.main, 0.03),
+      }}
+    >
+      <Stack direction="row" spacing={1} alignItems="center">
+        <StorageIcon fontSize="small" sx={{ color: 'text.secondary' }} />
+        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+          This deployment
+        </Typography>
+      </Stack>
+      <Stack direction="row" spacing={1.5} alignItems="center">
+        <Tooltip title="Pull — platform to here" arrow>
+          <ArrowBackIcon fontSize="small" sx={{ color: 'primary.main' }} />
+        </Tooltip>
+        <Tooltip title="Both ways" arrow>
+          <SwapHorizIcon fontSize="small" sx={{ color: 'success.main' }} />
+        </Tooltip>
+        <Tooltip title="Push — here to platform" arrow>
+          <ArrowForwardIcon fontSize="small" sx={{ color: 'secondary.main' }} />
+        </Tooltip>
+      </Stack>
+      <Stack direction="row" spacing={1} alignItems="center">
+        <CloudIcon fontSize="small" sx={{ color: 'text.secondary' }} />
+        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+          Rhesis platform
+        </Typography>
+      </Stack>
+    </Box>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Schedule model — run once on demand, or automatically on an interval       */
+/* -------------------------------------------------------------------------- */
+
+type ScheduleMode = 'manual' | 'scheduled';
+
+interface ScheduleModeOption {
+  value: ScheduleMode;
+  label: string;
+  caption: string;
+  icon: React.ReactNode;
+}
+
+const SCHEDULE_MODES: ScheduleModeOption[] = [
+  {
+    value: 'manual',
+    label: 'One-time',
+    caption: 'Runs only when you click Sync now',
+    icon: <BoltIcon />,
+  },
+  {
+    value: 'scheduled',
+    label: 'Scheduled',
+    caption: 'Runs automatically on a set interval',
+    icon: <ScheduleIcon />,
+  },
+];
+
+const INTERVAL_PRESETS: { minutes: number; label: string }[] = [
+  { minutes: 15, label: '15 min' },
+  { minutes: 30, label: '30 min' },
+  { minutes: 60, label: '1 hour' },
+  { minutes: 360, label: '6 hours' },
+  { minutes: 1440, label: '24 hours' },
+];
+
+function formatInterval(minutes: number): string {
+  if (minutes < 60) return `${minutes} minutes`;
+  const hours = minutes / 60;
+  if (hours < 24) return hours === 1 ? '1 hour' : `${hours} hours`;
+  const days = hours / 24;
+  return days === 1 ? '1 day' : `${days} days`;
+}
+
+function ScheduleModeSelector({
+  value,
+  onChange,
+}: {
+  value: ScheduleMode;
+  onChange: (value: ScheduleMode) => void;
+}) {
+  return (
+    <ToggleButtonGroup
+      exclusive
+      fullWidth
+      value={value}
+      onChange={(_event, next: ScheduleMode | null) => {
+        if (next) onChange(next);
+      }}
+      sx={{
+        gap: 1.5,
+        '& .MuiToggleButtonGroup-grouped': {
+          border: theme => `1px solid ${theme.palette.greyscale.border}`,
+          borderRadius: '10px !important',
+          p: 2,
+          gap: 1.5,
+          justifyContent: 'flex-start',
+          textTransform: 'none',
+          color: 'text.secondary',
+          '&.Mui-selected': {
+            color: 'primary.main',
+            bgcolor: theme => alpha(theme.palette.primary.main, 0.1),
+            borderColor: theme => alpha(theme.palette.primary.main, 0.5),
+            '&:hover': {
+              bgcolor: theme => alpha(theme.palette.primary.main, 0.16),
+            },
+          },
+        },
+      }}
+    >
+      {SCHEDULE_MODES.map(mode => (
+        <ToggleButton
+          key={mode.value}
+          value={mode.value}
+          aria-label={mode.label}
+        >
+          {mode.icon}
+          <Box sx={{ textAlign: 'left' }}>
+            <Typography variant="body1" sx={{ fontWeight: 600 }}>
+              {mode.label}
+            </Typography>
+            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+              {mode.caption}
+            </Typography>
+          </Box>
+        </ToggleButton>
+      ))}
+    </ToggleButtonGroup>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Page                                                                       */
+/* -------------------------------------------------------------------------- */
 
 export default function PlatformSyncPage() {
-  const { status } = useSession();
-  const { allowed: canCreate, loading: permsLoading } = useCanWithStatus(
+  const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
     Capability.Model.CREATE
   );
-  const notifications = useNotifications();
 
-  const [resources, setResources] = useState<PlatformSyncResource[]>([]);
-  const [resourcesLoading, setResourcesLoading] = useState(true);
+  const [enabled, setEnabled] = useState(false);
   const [apiKey, setApiKey] = useState('');
-  const [baseUrl, setBaseUrl] = useState(DEFAULT_BASE_URL);
-  const [selected, setSelected] = useState<Set<string>>(
-    new Set(DEFAULT_SELECTED)
+  const [showKey, setShowKey] = useState(false);
+  const [baseUrl, setBaseUrl] = useState('https://api.rhesis.ai');
+  const [directions, setDirections] = useState<Record<string, SyncDirection>>(
+    () =>
+      Object.fromEntries(
+        SYNC_CATEGORIES.map(c => [c.key, c.default])
+      ) as Record<string, SyncDirection>
   );
-  const [syncing, setSyncing] = useState(false);
-  const [summary, setSummary] = useState<PlatformSyncSummary | null>(null);
 
-  const loadResources = useCallback(async () => {
-    try {
-      setResourcesLoading(true);
-      const client = new ApiClientFactory().getPlatformSyncClient();
-      setResources(await client.getResources());
-    } catch (err) {
-      notifications.show(
-        err instanceof Error ? err.message : 'Failed to load sync options',
-        { severity: 'error' }
-      );
-    } finally {
-      setResourcesLoading(false);
-    }
-  }, [notifications]);
+  const [scheduleMode, setScheduleMode] = useState<ScheduleMode>('scheduled');
+  const [intervalMinutes, setIntervalMinutes] = useState(60);
 
-  useEffect(() => {
-    if (IS_LOCAL && isAuthenticated(status) && canCreate) {
-      loadResources();
-    }
-  }, [status, canCreate, loadResources]);
+  const activeCount = Object.values(directions).filter(d => d !== 'off').length;
 
-  const toggleResource = (key: string) => {
-    setSelected(prev => {
-      const next = new Set(prev);
-      if (next.has(key)) {
-        next.delete(key);
-      } else {
-        next.add(key);
-      }
-      return next;
-    });
-  };
-
-  const handleSync = useCallback(async () => {
-    if (!apiKey.trim()) {
-      notifications.show('Enter a Rhesis API key', { severity: 'warning' });
-      return;
-    }
-    if (selected.size === 0) {
-      notifications.show('Select at least one resource to sync', {
-        severity: 'warning',
-      });
-      return;
-    }
-    try {
-      setSyncing(true);
-      setSummary(null);
-      const client = new ApiClientFactory().getPlatformSyncClient();
-      const result = await client.sync({
-        api_key: apiKey.trim(),
-        base_url: baseUrl.trim() || DEFAULT_BASE_URL,
-        resources: Array.from(selected),
-      });
-      setSummary(result);
-      notifications.show('Sync complete', { severity: 'success' });
-    } catch (err) {
-      notifications.show(err instanceof Error ? err.message : 'Sync failed', {
-        severity: 'error',
-      });
-    } finally {
-      setSyncing(false);
-    }
-  }, [apiKey, baseUrl, selected, notifications]);
-
-  if (!IS_LOCAL) {
-    return (
-      <PageLayout title="Platform Sync">
-        <Alert severity="info">
-          Platform Sync is only available in local development deployments.
-        </Alert>
-      </PageLayout>
-    );
-  }
-
-  if (permsLoading) {
-    return <PageLoadingState />;
-  }
-
-  if (!canCreate) {
-    return <AccessDenied resource="platform sync" />;
-  }
+  if (permsLoading) return <PageLoadingState />;
+  if (!canRead) return <AccessDenied resource="platform sync" />;
 
   return (
     <PageLayout
       title="Platform Sync"
-      description="Pull models, endpoints and other configuration from the Rhesis platform into this local deployment. Paste an API key, choose what to sync, and run it. Secrets (provider keys, endpoint auth) are never returned by the platform — those fields are left blank and reported below so you can fill them in."
+      description="Keep this deployment aligned with the Rhesis platform. Turn sync on, connect with an API key, then choose which direction each category flows."
     >
-      <Box sx={{ maxWidth: 720 }}>
-        <Paper variant="outlined" sx={{ p: 3 }}>
-          <Stack spacing={3}>
-            <TextField
-              label="Rhesis API key"
-              placeholder="rh-..."
-              type="password"
-              value={apiKey}
-              onChange={e => setApiKey(e.target.value)}
-              fullWidth
-              autoComplete="off"
-              helperText="Create one under API in the platform sidebar. Used only for this request; never stored."
-            />
-
-            <TextField
-              label="Platform URL"
-              value={baseUrl}
-              onChange={e => setBaseUrl(e.target.value)}
-              fullWidth
-            />
-
-            <Box>
-              <Typography variant="subtitle2" gutterBottom>
-                What to sync
-              </Typography>
-              {resourcesLoading ? (
-                <CircularProgress size={20} />
-              ) : (
-                <FormGroup>
-                  {resources.map(resource => (
-                    <FormControlLabel
-                      key={resource.key}
-                      control={
-                        <Checkbox
-                          checked={selected.has(resource.key)}
-                          onChange={() => toggleResource(resource.key)}
-                        />
-                      }
-                      label={
-                        <Box>
-                          <Typography variant="body2">
-                            {resource.label}
-                            {resource.dependencies.length > 0 && (
-                              <Typography
-                                component="span"
-                                variant="caption"
-                                sx={{ color: 'text.secondary', ml: 1 }}
-                              >
-                                (also pulls: {resource.dependencies.join(', ')})
-                              </Typography>
-                            )}
-                          </Typography>
-                          {resource.description && (
-                            <Typography
-                              variant="caption"
-                              sx={{ color: 'text.secondary' }}
-                            >
-                              {resource.description}
-                            </Typography>
-                          )}
-                        </Box>
-                      }
-                    />
-                  ))}
-                </FormGroup>
-              )}
-            </Box>
-
-            <Box>
-              <Button
-                variant="contained"
-                startIcon={
-                  syncing ? (
-                    <CircularProgress size={16} color="inherit" />
-                  ) : (
-                    <CloudSyncIcon />
-                  )
-                }
-                onClick={handleSync}
-                disabled={syncing || resourcesLoading}
+      <Box sx={{ width: '100%' }}>
+        {/* Master toggle ---------------------------------------------------- */}
+        <SectionCard>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 2,
+            }}
+          >
+            <Stack direction="row" spacing={2} alignItems="center">
+              <Box
+                sx={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: enabled ? 'primary.main' : 'text.disabled',
+                  bgcolor: theme =>
+                    alpha(
+                      enabled
+                        ? theme.palette.primary.main
+                        : theme.palette.text.disabled,
+                      0.1
+                    ),
+                }}
               >
-                {syncing ? 'Syncing…' : 'Sync'}
-              </Button>
-            </Box>
-          </Stack>
-        </Paper>
+                <CloudSyncIcon />
+              </Box>
+              <Box>
+                <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                  Platform Sync
+                </Typography>
+                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                  {enabled
+                    ? `On — ${activeCount} of ${SYNC_CATEGORIES.length} categories, ${
+                        scheduleMode === 'scheduled'
+                          ? `every ${formatInterval(intervalMinutes)}`
+                          : 'manual sync'
+                      }`
+                    : 'Off — this deployment runs standalone'}
+                </Typography>
+              </Box>
+            </Stack>
+            <Switch
+              checked={enabled}
+              onChange={e => setEnabled(e.target.checked)}
+              inputProps={{ 'aria-label': 'Enable platform sync' }}
+            />
+          </Box>
+        </SectionCard>
 
-        {summary && <SyncSummaryView summary={summary} />}
+        <Collapse in={enabled} unmountOnExit>
+          {/* Connection --------------------------------------------------- */}
+          <SectionCard
+            title="Connection"
+            subtitle="How this deployment reaches the Rhesis platform."
+          >
+            <Stack spacing={3}>
+              <TextField
+                label="API key"
+                placeholder="rh-..."
+                type={showKey ? 'text' : 'password'}
+                value={apiKey}
+                onChange={e => setApiKey(e.target.value)}
+                fullWidth
+                autoComplete="off"
+                helperText="Create one under API in the platform sidebar."
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        edge="end"
+                        aria-label={showKey ? 'Hide API key' : 'Show API key'}
+                        onClick={() => setShowKey(v => !v)}
+                      >
+                        {showKey ? (
+                          <VisibilityOffIcon fontSize="small" />
+                        ) : (
+                          <VisibilityIcon fontSize="small" />
+                        )}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
+              />
+              <TextField
+                label="Platform URL"
+                value={baseUrl}
+                onChange={e => setBaseUrl(e.target.value)}
+                fullWidth
+              />
+              <Stack direction="row" spacing={1.5} alignItems="center">
+                <Button variant="outlined" size="small">
+                  Test connection
+                </Button>
+                <Chip
+                  size="small"
+                  variant="outlined"
+                  color="success"
+                  icon={<CheckCircleIcon fontSize="small" />}
+                  label="Connected"
+                />
+              </Stack>
+            </Stack>
+          </SectionCard>
+
+          {/* Sync settings ------------------------------------------------ */}
+          <SectionCard
+            title="Sync settings"
+            subtitle="Pick a direction for each category. Choose one of the four — all shown at once."
+          >
+            <OrientationLegend />
+
+            <Stack divider={<Divider flexItem />} spacing={0}>
+              {SYNC_CATEGORIES.map(category => (
+                <Box
+                  key={category.key}
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 2,
+                    py: 2,
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <Stack
+                    direction="row"
+                    spacing={2}
+                    alignItems="center"
+                    sx={{ minWidth: 0, flex: '1 1 240px' }}
+                  >
+                    <Box
+                      sx={{
+                        color:
+                          directions[category.key] === 'off'
+                            ? 'text.disabled'
+                            : 'primary.main',
+                        display: 'flex',
+                      }}
+                    >
+                      {category.icon}
+                    </Box>
+                    <Box sx={{ minWidth: 0 }}>
+                      <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                        {category.label}
+                      </Typography>
+                      <Typography
+                        variant="body2"
+                        sx={{ color: 'text.secondary' }}
+                      >
+                        {category.description}
+                      </Typography>
+                    </Box>
+                  </Stack>
+                  <SyncDirectionSelector
+                    value={directions[category.key]}
+                    onChange={next =>
+                      setDirections(prev => ({
+                        ...prev,
+                        [category.key]: next,
+                      }))
+                    }
+                  />
+                </Box>
+              ))}
+            </Stack>
+          </SectionCard>
+
+          {/* Schedule ----------------------------------------------------- */}
+          <SectionCard
+            title="Schedule"
+            subtitle="Sync once on demand, or keep this deployment in sync automatically."
+          >
+            <ScheduleModeSelector
+              value={scheduleMode}
+              onChange={setScheduleMode}
+            />
+
+            <Collapse in={scheduleMode === 'scheduled'} unmountOnExit>
+              <Box sx={{ mt: 3 }}>
+                <Typography
+                  variant="subtitle2"
+                  sx={{ fontWeight: 600, mb: 1.5 }}
+                >
+                  Run every
+                </Typography>
+                <ToggleButtonGroup
+                  exclusive
+                  value={intervalMinutes}
+                  onChange={(_event, next: number | null) => {
+                    if (next) setIntervalMinutes(next);
+                  }}
+                  sx={{
+                    flexWrap: 'wrap',
+                    gap: 0.75,
+                    '& .MuiToggleButtonGroup-grouped': {
+                      border: theme =>
+                        `1px solid ${theme.palette.greyscale.border}`,
+                      borderRadius: '999px !important',
+                      px: 2,
+                      py: 0.5,
+                      textTransform: 'none',
+                      color: 'text.secondary',
+                      '&.Mui-selected': {
+                        color: 'primary.main',
+                        bgcolor: theme =>
+                          alpha(theme.palette.primary.main, 0.1),
+                        borderColor: theme =>
+                          alpha(theme.palette.primary.main, 0.5),
+                        '&:hover': {
+                          bgcolor: theme =>
+                            alpha(theme.palette.primary.main, 0.16),
+                        },
+                      },
+                    },
+                  }}
+                >
+                  {INTERVAL_PRESETS.map(preset => (
+                    <ToggleButton key={preset.minutes} value={preset.minutes}>
+                      {preset.label}
+                    </ToggleButton>
+                  ))}
+                </ToggleButtonGroup>
+                <Typography
+                  variant="body2"
+                  sx={{ mt: 2, color: 'text.secondary' }}
+                >
+                  Syncs automatically every {formatInterval(intervalMinutes)}.
+                  Only categories that aren&apos;t set to Off are included.
+                </Typography>
+              </Box>
+            </Collapse>
+          </SectionCard>
+
+          {/* Footer actions ----------------------------------------------- */}
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 2,
+              flexWrap: 'wrap',
+            }}
+          >
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+              Last synced 2 hours ago
+              {scheduleMode === 'scheduled' &&
+                ` · Next run in ~${formatInterval(intervalMinutes)}`}
+            </Typography>
+            <Button
+              variant="contained"
+              startIcon={<CloudSyncIcon />}
+              disabled={activeCount === 0}
+            >
+              Sync now
+            </Button>
+          </Box>
+        </Collapse>
       </Box>
     </PageLayout>
-  );
-}
-
-function SyncSummaryView({ summary }: { summary: PlatformSyncSummary }) {
-  return (
-    <Paper variant="outlined" sx={{ p: 3, mt: 3 }}>
-      <Typography variant="h6" gutterBottom>
-        Result
-      </Typography>
-      {summary.source_user_email && (
-        <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
-          Synced from {summary.source_user_email} at {summary.base_url}
-        </Typography>
-      )}
-
-      <Stack spacing={1}>
-        {summary.results.map(result => (
-          <Box
-            key={result.resource}
-            sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
-          >
-            <Typography variant="body2" sx={{ minWidth: 120 }}>
-              {result.label}
-            </Typography>
-            <Chip
-              size="small"
-              label={`${result.created} created`}
-              color={result.created > 0 ? 'success' : 'default'}
-              variant="outlined"
-            />
-            <Chip
-              size="small"
-              label={`${result.skipped} skipped`}
-              variant="outlined"
-            />
-            {result.errors.length > 0 && (
-              <Chip
-                size="small"
-                color="error"
-                variant="outlined"
-                label={result.errors.join('; ')}
-              />
-            )}
-          </Box>
-        ))}
-      </Stack>
-
-      {summary.gaps.length > 0 && (
-        <>
-          <Divider sx={{ my: 2 }} />
-          <Alert severity="warning" sx={{ mb: 1 }}>
-            The platform never returns secrets, so these were left blank — set
-            them locally to finish authenticating.
-          </Alert>
-          <Stack spacing={0.5}>
-            {summary.gaps.map((gap, index) => (
-              <Typography
-                // eslint-disable-next-line react/no-array-index-key -- display-only list, stable order
-                key={`${gap.resource}-${gap.name}-${gap.field}-${index}`}
-                variant="body2"
-                sx={{ color: 'text.secondary' }}
-              >
-                <strong>{gap.name}</strong> ({gap.resource}) — missing{' '}
-                {gap.field}
-              </Typography>
-            ))}
-          </Stack>
-        </>
-      )}
-    </Paper>
   );
 }
