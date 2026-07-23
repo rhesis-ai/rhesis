@@ -169,10 +169,18 @@ export function useGridState({
     [gridFilterMeta, managedFilterModel, reconciledColumnFilterItems]
   );
 
-  const gridFilterModel = useMemo(
-    () => ({ ...filterModel, items: filterModel.items.slice(0, 1) }),
-    [filterModel]
-  );
+  const gridFilterModel = useMemo(() => {
+    // Prefer a column-driven item (the DataGrid's own filter panel — see
+    // `SortOnlyColumnMenu` in BaseDataGrid.tsx, which currently hides that
+    // panel's entry point, but keep this correct in case it's re-enabled)
+    // over a managed one, so a user-added column filter isn't silently
+    // dropped just because a drawer/search/tab filter is also active.
+    const items = reconciledColumnFilterItems.slice(0, 1);
+    if (items.length === 0 && managedFilterModel.items.length > 0) {
+      items.push(managedFilterModel.items[0]);
+    }
+    return { ...filterModel, items };
+  }, [filterModel, reconciledColumnFilterItems, managedFilterModel]);
 
   useEffect(() => {
     setPaginationModel(prev => (prev.page === 0 ? prev : { ...prev, page: 0 }));
