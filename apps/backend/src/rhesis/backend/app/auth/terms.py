@@ -4,6 +4,12 @@ New users accept the active T&C version during onboarding (step 0). Acceptance
 is stored in ``user_settings.terms`` (``version`` + ``accepted_at``) so they
 are not prompted again until the version changes.
 
+Users who completed onboarding before server-side tracking existed (acceptance
+was localStorage-only) have no ``user_settings.terms`` record. They are
+grandfathered as having accepted ``BASELINE_TERMS_VERSION`` at signup — the
+post-login gate must not re-prompt them until ``CURRENT_TERMS_VERSION`` is
+bumped past that baseline.
+
 Bump ``CURRENT_TERMS_VERSION`` (and ``CURRENT_TERMS_EFFECTIVE_DATE``) when
 publishing new terms; users with an older accepted version must
 re-accept before continuing.
@@ -17,27 +23,49 @@ from rhesis.backend.app.models.user import User
 CURRENT_TERMS_VERSION = "1.0"
 CURRENT_TERMS_EFFECTIVE_DATE = date(2025, 9, 1)
 
+# Version that shipped with server-side tracking. Onboarded users without a
+# persisted record are treated as having accepted this version at signup.
+BASELINE_TERMS_VERSION = "1.0"
+
 
 def _user_terms(user: User) -> dict:
     return (user.user_settings or {}).get("terms") or {}
 
 
+def _is_grandfathered_baseline_acceptance(user: User) -> bool:
+    """Onboarded users with no terms row accepted baseline T&Cs at signup."""
+    if CURRENT_TERMS_VERSION != BASELINE_TERMS_VERSION:
+        return False
+    if _user_terms(user).get("accepted_at"):
+        return False
+    return bool(user.organization_id)
+
+
 def user_has_accepted_current_terms(user: User) -> bool:
     """Return whether the user accepted the currently active T&C version."""
     terms = _user_terms(user)
-    return bool(terms.get("accepted_at")) and terms.get("version") == CURRENT_TERMS_VERSION
+    if bool(terms.get("accepted_at")) and terms.get("version") == CURRENT_TERMS_VERSION:
+        return True
+    return _is_grandfathered_baseline_acceptance(user)
 
 
 def user_has_prior_terms_acceptance(user: User) -> bool:
-    """Return whether the user accepted any T&C version (possibly outdated)."""
-    return bool(_user_terms(user).get("accepted_at"))
+    """Return whether the user accepted any T&C version (possibly outdated).
+
+    Completed onboarding implies signup-time acceptance even when the record
+    was never persisted (pre-tracking accounts).
+    """
+    if bool(_user_terms(user).get("accepted_at")):
+        return True
+    return bool(user.organization_id)
 
 
 def record_terms_acceptance(user: User) -> None:
     """Persist acceptance of the current T&C version (no-op if already current)."""
-    if user_has_accepted_current_terms(user):
+    terms = _user_terms(user)
+    if bool(terms.get("accepted_at")) and terms.get("version") == CURRENT_TERMS_VERSION:
         return
-    settings = user.user_settings or {}
+    settings = dict(user.user_settings or {})
     settings["terms"] = {
         "accepted_at": datetime.now(timezone.utc).isoformat(),
         "version": CURRENT_TERMS_VERSION,
