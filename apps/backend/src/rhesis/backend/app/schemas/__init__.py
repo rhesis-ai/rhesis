@@ -11,8 +11,6 @@ from .behavior import Behavior, BehaviorBase, BehaviorCreate, BehaviorDetail, Be
 from .category import Category, CategoryBase, CategoryCreate, CategoryDetail, CategoryUpdate
 from .chunk import Chunk, ChunkBase, ChunkCreate, ChunkUpdate
 from .comment import Comment, CommentBase, CommentCreate, CommentDetail, CommentUpdate
-from .demographic import Demographic, DemographicBase, DemographicCreate, DemographicUpdate
-from .dimension import Dimension, DimensionBase, DimensionCreate, DimensionUpdate
 from .embedding import (
     Embedding,
     EmbeddingBase,
@@ -318,14 +316,6 @@ __all__ = [
     "TopicCreate",
     "TopicDetail",
     "TopicUpdate",
-    "Demographic",
-    "DemographicBase",
-    "DemographicCreate",
-    "DemographicUpdate",
-    "Dimension",
-    "DimensionBase",
-    "DimensionCreate",
-    "DimensionUpdate",
     "Embedding",
     "EmbeddingBase",
     "EmbeddingCreate",

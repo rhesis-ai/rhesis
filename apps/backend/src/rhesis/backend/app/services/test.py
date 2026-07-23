@@ -573,31 +573,6 @@ def create_prompt(
     if hasattr(prompt_data, "model_dump"):
         prompt_data = prompt_data.model_dump()
 
-    demographic = None
-    dimension_name = prompt_data.pop("dimension", None)
-    demographic_name = prompt_data.pop("demographic", None)
-    if dimension_name and demographic_name:
-        dimension = create_entity_with_status(
-            db=db,
-            model=models.Dimension,
-            name=dimension_name,
-            defaults=defaults,
-            entity_type=EntityType.DIMENSION,
-            organization_id=organization_id,
-            user_id=user_id,
-        )
-
-        demographic = create_entity_with_status(
-            db=db,
-            model=models.Demographic,
-            name=demographic_name,
-            defaults=defaults,
-            entity_type=EntityType.DEMOGRAPHIC,
-            organization_id=organization_id,
-            user_id=user_id,
-            dimension_id=dimension.id,
-        )
-
     if cache is not None:
         status = cache.get_or_create_status(
             db=db,
@@ -621,7 +596,6 @@ def create_prompt(
         "user_id": user_id,
         "status_id": status.id,
         "language_code": prompt_data.get("language_code", defaults["prompt"]["language_code"]),
-        "demographic_id": demographic.id if demographic else None,
         "expected_response": prompt_data.get("expected_response"),
     }
 

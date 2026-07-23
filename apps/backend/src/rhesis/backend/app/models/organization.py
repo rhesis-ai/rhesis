@@ -50,8 +50,6 @@ class Organization(Base, TagsMixin):
     projects = relationship("Project", back_populates="organization")
     behaviors = relationship("Behavior", back_populates="organization")
     categories = relationship("Category", back_populates="organization")
-    demographics = relationship("Demographic", back_populates="organization")
-    dimensions = relationship("Dimension", back_populates="organization")
     statuses = relationship("Status", back_populates="organization")
     test_configurations = relationship("TestConfiguration", back_populates="organization")
     test_results = relationship("TestResult", back_populates="organization")

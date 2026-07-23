@@ -6,8 +6,6 @@ from .behavior import Behavior
 from .category import Category
 from .chunk import Chunk
 from .comment import Comment
-from .demographic import Demographic
-from .dimension import Dimension
 from .embedding import Embedding
 from .endpoint import Endpoint
 from .experiment import Experiment
@@ -81,8 +79,6 @@ __all__ = [
     "Status",
     "Source",
     "Topic",
-    "Demographic",
-    "Dimension",
     "TestRun",
     "TypeLookup",
     "Tag",

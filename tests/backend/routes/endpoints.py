@@ -260,24 +260,6 @@ class HomeEndpoints:
 
 
 @dataclass
-class DimensionEndpoints(BaseEntityEndpoints):
-    """Dimension API endpoints"""
-
-    # Base entity configuration
-    _base_entity: str = "dimensions"
-    _id_param: str = "dimension_id"
-
-
-@dataclass
-class DemographicEndpoints(BaseEntityEndpoints):
-    """Demographic API endpoints"""
-
-    # Base entity configuration
-    _base_entity: str = "demographics"
-    _id_param: str = "demographic_id"
-
-
-@dataclass
 class EndpointEndpoints(BaseEntityEndpoints):
     """Endpoint API endpoints"""
 
@@ -341,8 +323,6 @@ class APIEndpoints:
     COMMENTS = CommentEndpoints()
     AUTH = AuthEndpoints()
     HOME = HomeEndpoints()
-    DIMENSIONS = DimensionEndpoints()
-    DEMOGRAPHICS = DemographicEndpoints()
     ENDPOINTS = EndpointEndpoints()
 
     # Project and Prompt endpoints
@@ -441,8 +421,6 @@ __all__ = [
     "CommentEndpoints",
     "AuthEndpoints",
     "HomeEndpoints",
-    "DimensionEndpoints",
-    "DemographicEndpoints",
     "EndpointEndpoints",
     "QueryParams",
     "HTTPStatus",
