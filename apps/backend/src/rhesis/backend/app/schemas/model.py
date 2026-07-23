@@ -83,6 +83,7 @@ class ModelRead(ModelBaseFields):
     owner_id: Optional[UUID4] = None
     assignee_id: Optional[UUID4] = None
     is_protected: bool = False
+    has_key: bool = False  # True when a provider API key is stored (key itself stays write-only)
     provider_type: Optional[TypeLookup] = None
     status: Optional[Status] = None
     owner: Optional[User] = None

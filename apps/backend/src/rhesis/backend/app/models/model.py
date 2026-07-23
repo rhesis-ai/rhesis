@@ -65,3 +65,14 @@ class Model(
 
     # Metrics relationship
     metrics = relationship("Metric", back_populates="model")
+
+    @property
+    def has_key(self) -> bool:
+        """Whether a provider API key is stored (write-only; never returned).
+
+        Mirrors ``Endpoint.has_auth_token`` so clients can surface an
+        authentication indicator without exposing the secret itself. System
+        models (rhesis/polyphemus) legitimately store an empty key and return
+        ``False`` here.
+        """
+        return bool(self.key)

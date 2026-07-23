@@ -32,6 +32,7 @@ from .parameters import (
 from .parameters import (
     router as parameters_router,
 )
+from .platform_sync import router as platform_sync_router
 from .preflight import router as preflight_router
 from .project import router as project_router
 from .prompt import router as prompt_router
@@ -93,6 +94,7 @@ __all__ = [
     "services",
     "organization",
     "parameters",
+    "platform_sync",
     "experiments",
     "project",
     "type_lookup",
@@ -146,6 +148,7 @@ routers = sorted(
         organization_router,
         preflight_router,
         parameters_router,
+        platform_sync_router,
         project_experiments_router,
         experiments_router,
         project_router,
