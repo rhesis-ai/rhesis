@@ -69,7 +69,7 @@ exclude-newer = "1 week"
 exclude-newer-package = { tornado = false, litellm = false, langsmith = false, langchain-core = false, cryptography = false, python-multipart = false }
 # Force minimum versions for transitive dependencies with security advisories
 constraint-dependencies = [
-    "pyasn1>=0.6.3",
+    "pyasn1>=0.6.4",
     "orjson>=3.11.7",
     "tornado>=6.5.7",
     "litellm>=1.84.0",
@@ -84,5 +84,8 @@ constraint-dependencies = [
     "python-multipart>=0.0.31",
     "pytest>=9.0.3",
     "cryptography>=48.0.1",
+    "soupsieve>=2.8.4",
+    "uv>=0.11.15",
+    "pillow>=12.3.0",
 ]
 
