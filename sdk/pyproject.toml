@@ -205,13 +205,8 @@ include = [
     "src/rhesis/sdk/synthesizers/assets/*.jinja",
 ]
 
-[tool.hatch.build.targets.sdist.force-include]
-# `python -m build` builds the sdist first, then builds the wheel from that
-# sdist in an isolated temp dir where "../skills" no longer exists. Vendor the
-# skill references into the sdist at their final wheel destination so the
-# wheel build (from either the sdist or a plain checkout) picks them up via
-# the normal `packages = ["src/rhesis"]` file selection below.
-"../skills/rhesis/references" = "src/rhesis/sdk/agents/architect/prompt_templates/skill_refs"
+[tool.hatch.build.hooks.custom]
+path = "hatch_build.py"
 
 [tool.hatch.metadata]
 allow-direct-references = true
