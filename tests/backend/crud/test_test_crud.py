@@ -218,3 +218,106 @@ class TestTestOperations:
         assert reloaded_explorer_test_set.attributes["metadata"]["behaviors"] == [
             ADAPTIVE_TESTING_BEHAVIOR
         ]
+
+
+@pytest.mark.unit
+@pytest.mark.crud
+class TestBulkDeleteTests:
+    """🧪 crud.bulk_delete_tests"""
+
+    def _make_test(self, test_db, test_org_id, authenticated_user_id, behavior_id, test_set_id):
+        db_test = models.Test(
+            behavior_id=behavior_id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+        test_db.add(db_test)
+        test_db.flush()
+        test_db.execute(
+            test_test_set_association.insert().values(
+                test_id=db_test.id,
+                test_set_id=test_set_id,
+                organization_id=test_org_id,
+                user_id=authenticated_user_id,
+            )
+        )
+        test_db.flush()
+        return db_test
+
+    def test_recomputes_each_affected_test_set_exactly_once(
+        self, test_db: Session, test_org_id: str, authenticated_user_id: str
+    ):
+        """Deleting several tests spread across 2 test sets recomputes each
+        test set's attributes exactly once, not once per deleted test."""
+        behavior = models.Behavior(
+            name="Compliance", organization_id=test_org_id, user_id=authenticated_user_id
+        )
+        test_db.add(behavior)
+        test_db.flush()
+
+        test_set_a = models.TestSet(
+            name="Set A", organization_id=test_org_id, user_id=authenticated_user_id
+        )
+        test_set_b = models.TestSet(
+            name="Set B", organization_id=test_org_id, user_id=authenticated_user_id
+        )
+        test_db.add_all([test_set_a, test_set_b])
+        test_db.flush()
+
+        # 2 tests in set A, 1 test in set B
+        tests_a = [
+            self._make_test(test_db, test_org_id, authenticated_user_id, behavior.id, test_set_a.id)
+            for _ in range(2)
+        ]
+        test_b = self._make_test(
+            test_db, test_org_id, authenticated_user_id, behavior.id, test_set_b.id
+        )
+        all_ids = [t.id for t in tests_a] + [test_b.id]
+
+        with patch(
+            "rhesis.backend.app.services.test_set.update_test_set_attributes"
+        ) as mock_refresh:
+            result = crud.bulk_delete_tests(
+                db=test_db,
+                test_ids=all_ids,
+                organization_id=test_org_id,
+                user_id=authenticated_user_id,
+            )
+
+        assert set(result["deleted_ids"]) == {str(i) for i in all_ids}
+        assert result["not_found_ids"] == []
+
+        # Exactly one recompute call per distinct affected test set, not per test.
+        assert mock_refresh.call_count == 2
+        recomputed_test_set_ids = {
+            call.kwargs["test_set_id"] for call in mock_refresh.call_args_list
+        }
+        assert recomputed_test_set_ids == {str(test_set_a.id), str(test_set_b.id)}
+
+        for test_id in all_ids:
+            deleted_test = test_db.query(models.Test).filter(models.Test.id == test_id).first()
+            assert deleted_test is None
+
+    def test_reports_not_found_ids(
+        self, test_db: Session, db_test_minimal, test_org_id: str, authenticated_user_id: str
+    ):
+        """A nonexistent id in the batch is reported back, not silently dropped."""
+        fake_id = uuid.uuid4()
+
+        result = crud.bulk_delete_tests(
+            db=test_db,
+            test_ids=[db_test_minimal.id, fake_id],
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+
+        assert result["deleted_ids"] == [str(db_test_minimal.id)]
+        assert result["not_found_ids"] == [str(fake_id)]
+
+    def test_empty_ids_is_a_noop(
+        self, test_db: Session, test_org_id: str, authenticated_user_id: str
+    ):
+        result = crud.bulk_delete_tests(
+            db=test_db, test_ids=[], organization_id=test_org_id, user_id=authenticated_user_id
+        )
+        assert result == {"deleted_ids": [], "not_found_ids": []}

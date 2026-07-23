@@ -144,6 +144,8 @@ from .test import (
     TestBulkCreate,
     TestBulkCreateRequest,
     TestBulkCreateResponse,
+    TestBulkDeleteRequest,
+    TestBulkDeleteResponse,
     TestBulkResponse,
     TestCreate,
     TestDetail,

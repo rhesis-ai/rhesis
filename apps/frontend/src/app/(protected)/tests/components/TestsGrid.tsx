@@ -722,7 +722,7 @@ export default function TestsTable({
       const clientFactory = new ApiClientFactory();
       const testsClient = clientFactory.getTestsClient();
 
-      await Promise.all(idsToDelete.map(id => testsClient.deleteTest(id)));
+      await testsClient.bulkDeleteTests(idsToDelete);
 
       notifications.show(
         `Successfully deleted ${idsToDelete.length} ${idsToDelete.length === 1 ? 'test' : 'tests'}`,

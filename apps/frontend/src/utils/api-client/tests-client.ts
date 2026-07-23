@@ -16,7 +16,7 @@ import {
   PriorityLevel,
 } from './interfaces/tests';
 import { TestSet } from './interfaces/test-set';
-import { StatsOptions } from './interfaces/common';
+import { BulkDeleteResponse, StatsOptions } from './interfaces/common';
 import { PaginatedResponse, PaginationParams } from './interfaces/pagination';
 import {
   IndividualTestStats,
@@ -170,6 +170,13 @@ export class TestsClient extends BaseApiClient {
   async deleteTest(id: string): Promise<Test> {
     return this.fetch<Test>(`${API_ENDPOINTS.tests}/${id}`, {
       method: 'DELETE',
+    });
+  }
+
+  async bulkDeleteTests(testIds: string[]): Promise<BulkDeleteResponse> {
+    return this.fetch<BulkDeleteResponse>(`${API_ENDPOINTS.tests}/bulk`, {
+      method: 'DELETE',
+      body: JSON.stringify({ test_ids: testIds }),
     });
   }
 

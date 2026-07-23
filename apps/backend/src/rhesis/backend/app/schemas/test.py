@@ -234,6 +234,15 @@ class TestBulkCreateResponse(BaseModel):
     message: str
 
 
+class TestBulkDeleteRequest(BaseModel):
+    test_ids: List[UUID4]
+
+
+class TestBulkDeleteResponse(BaseModel):
+    deleted_ids: List[str]
+    not_found_ids: List[str]
+
+
 # In-place test execution schemas
 class TestExecuteRequest(BaseModel):
     """

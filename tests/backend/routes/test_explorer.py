@@ -758,6 +758,47 @@ class TestDeleteExplorerTestSetEndpoint:
 
 @pytest.mark.integration
 @pytest.mark.routes
+class TestBulkDeleteExplorerTestSetsEndpoint:
+    """Test DELETE /explorer/bulk"""
+
+    def test_bulk_delete_returns_deleted_and_not_found_ids(
+        self,
+        authenticated_client: TestClient,
+        explorer_and_regular_test_sets,
+    ):
+        explorer_1_id = str(explorer_and_regular_test_sets["explorer_1"].id)
+        explorer_2_id = str(explorer_and_regular_test_sets["explorer_2"].id)
+        regular_id = str(explorer_and_regular_test_sets["regular"].id)
+        fake_id = str(uuid.uuid4())
+
+        response = authenticated_client.request(
+            "DELETE",
+            "/explorer/bulk",
+            json={"test_set_ids": [explorer_1_id, explorer_2_id, regular_id, fake_id]},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert set(data["deleted_ids"]) == {explorer_1_id, explorer_2_id}
+        assert set(data["not_found_ids"]) == {regular_id, fake_id}
+
+        list_resp = authenticated_client.get("/explorer")
+        ids = {item["id"] for item in list_resp.json()}
+        assert explorer_1_id not in ids
+        assert explorer_2_id not in ids
+
+    def test_bulk_delete_unauthenticated(self, client: TestClient):
+        response = client.request(
+            "DELETE", "/explorer/bulk", json={"test_set_ids": [str(uuid.uuid4())]}
+        )
+        assert response.status_code in [
+            status.HTTP_401_UNAUTHORIZED,
+            status.HTTP_403_FORBIDDEN,
+        ]
+
+
+@pytest.mark.integration
+@pytest.mark.routes
 class TestExplorerTreeEndpoint:
     """Test GET /explorer/{test_set_id}/tree"""
 

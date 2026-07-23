@@ -1,6 +1,7 @@
 import { BaseApiClient } from './base-client';
 import { API_ENDPOINTS } from './config';
 import { joinUrl } from '@/utils/url';
+import { BulkDeleteResponse } from './interfaces/common';
 import {
   DeleteTopicResponse,
   DeleteTestResponse,
@@ -129,6 +130,19 @@ export class ExplorerClient extends BaseApiClient {
   async deleteExplorerTestSet(testSetId: string): Promise<void> {
     return this.fetch<void>(`${API_ENDPOINTS.explorer}/${testSetId}`, {
       method: 'DELETE',
+    });
+  }
+
+  /**
+   * Delete multiple explorer test sets at once.
+   * @param testSetIds Test set IDs to delete
+   */
+  async bulkDeleteExplorerTestSets(
+    testSetIds: string[]
+  ): Promise<BulkDeleteResponse> {
+    return this.fetch<BulkDeleteResponse>(`${API_ENDPOINTS.explorer}/bulk`, {
+      method: 'DELETE',
+      body: JSON.stringify({ test_set_ids: testSetIds }),
     });
   }
 

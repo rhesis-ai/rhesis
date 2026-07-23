@@ -26,6 +26,7 @@ from rhesis.backend.app.schemas.telemetry import (
     TraceType,
 )
 from rhesis.backend.app.utils.crud_utils import (
+    bulk_delete_by_ids,
     create_item,
     delete_item,
     get_item,
@@ -2341,6 +2342,53 @@ def delete_test(
 
     # Return the soft-deleted test
     return db_test
+
+
+def bulk_delete_tests(
+    db: Session,
+    test_ids: List[uuid.UUID],
+    organization_id: str,
+    user_id: str,
+) -> Dict[str, List[str]]:
+    """
+    Soft delete multiple tests in one transaction and recompute test-set
+    attributes once per distinct affected test set (not once per deleted test).
+
+    Deleting the same 25 tests one at a time (25 DELETE /tests/{id} requests)
+    recomputes -- and re-UPDATEs -- a shared test set's attributes up to 25
+    times, and those concurrent UPDATEs to the same row serialize at the
+    database. Resolving the affected test sets across the whole batch up
+    front and recomputing each exactly once avoids both problems.
+    """
+    from rhesis.backend.app.services.test_set import update_test_set_attributes
+
+    if not test_ids:
+        return {"deleted_ids": [], "not_found_ids": []}
+
+    # Distinct test sets containing ANY of the tests being deleted, resolved once
+    # for the whole batch (contrast with delete_test's per-test lookup above).
+    rows = db.execute(
+        test_test_set_association.select().where(test_test_set_association.c.test_id.in_(test_ids))
+    ).fetchall()
+    affected_test_set_ids = {row.test_set_id for row in rows}
+
+    def _recompute_affected_test_sets(_deleted_ids: List[uuid.UUID]) -> None:
+        for test_set_id in affected_test_set_ids:
+            update_test_set_attributes(
+                db=db,
+                test_set_id=str(test_set_id),
+                organization_id=organization_id,
+                user_id=user_id,
+            )
+
+    return bulk_delete_by_ids(
+        db,
+        models.Test,
+        test_ids,
+        organization_id=organization_id,
+        user_id=user_id,
+        on_deleted=_recompute_affected_test_sets,
+    )
 
 
 # TestContext CRUD
