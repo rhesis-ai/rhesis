@@ -27,13 +27,12 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.exc import UnmappedClassError
 
-from rhesis.backend.app import models
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import temporary_project_scope
 from rhesis.backend.app.dependencies import get_project_context, get_tenant_db_session
 from rhesis.backend.app.models.base import Base
 from rhesis.backend.app.models.user import User
-from rhesis.backend.app.scope import bypass_tenant_filter
+from rhesis.backend.app.services.project_membership import list_other_member_projects
 
 router = APIRouter(prefix="/resolve", tags=["resolve"])
 
@@ -132,28 +131,8 @@ def resolve_entity(
 
     organization_id = str(current_user.organization_id)
     user_id = str(current_user.id)
-    active_project_id = project_id or ""
 
-    # List the caller's projects (id + name) in one org-scoped query. Wrapped
-    # in bypass_tenant_filter() because ProjectMembership carries a project_id
-    # column, so the ORM auto-filter would otherwise pin the result to the
-    # active project. Safe: project_membership has no DB-level project_isolation
-    # policy and both tables keep tenant_isolation (org), so RLS still applies.
-    with bypass_tenant_filter():
-        rows = (
-            db.query(models.Project.id, models.Project.name)
-            .join(
-                models.ProjectMembership,
-                models.ProjectMembership.project_id == models.Project.id,
-            )
-            .filter(
-                models.ProjectMembership.user_id == user_id,
-                models.ProjectMembership.organization_id == organization_id,
-            )
-            .all()
-        )
-
-    candidates = [(str(pid), name) for pid, name in rows if str(pid) != active_project_id]
+    candidates = list_other_member_projects(db, organization_id, user_id, project_id)
 
     # Probe candidate projects one at a time, stopping at the first match. A
     # UUID PK is globally unique, so at most one project can contain the entity.
