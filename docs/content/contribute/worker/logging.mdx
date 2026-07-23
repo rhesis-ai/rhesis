@@ -331,149 +331,15 @@ kubectl logs <pod-name> -c worker -n <namespace> --since=10m | grep -i "connecti
 kubectl logs <pod-name> -c worker -n <namespace> --since=1h | grep "GET /health" | grep -c "200 OK"`}
 </CodeBlock>
 
-#### Log-based Health Check
-<CodeBlock language="bash" isTerminal={true}>
-{`#!/bin/bash
-# Simple health check based on logs
-NAMESPACE="rhesis-worker-dev"
-POD=$(kubectl get pods -n $NAMESPACE -l app=rhesis-worker -o jsonpath='{.items[0].metadata.name}')
-
-# Check for recent errors
-ERROR_COUNT=$(kubectl logs $POD -c worker -n $NAMESPACE --tail=50 | grep -c ERROR)
-if [ $ERROR_COUNT -gt 5 ]; then
-    echo "WARNING: $ERROR_COUNT errors found in recent logs"
-fi
-
-# Check for Redis connectivity
-REDIS_ERRORS=$(kubectl logs $POD -c worker -n $NAMESPACE --since=5m | grep -c "Redis\|connection")
-if [ $REDIS_ERRORS -gt 0 ]; then
-    echo "WARNING: Redis connection issues detected"
-fi`}
-</CodeBlock>
-
 ## Debugging with Logs
 
-### Step-by-Step Debugging Process
-
-1. **Identify the Problem**
-
-<CodeBlock language="bash" isTerminal={true}>
-{`# Check pod status
-kubectl get pods -n <namespace>
-
-# Look for restart indicators
-kubectl describe pod <pod-name> -n <namespace>`}
-</CodeBlock>
-
-2. **Get Recent Logs**
+Correlate logs with the worker's health endpoints when diagnosing a problem: `/debug` shows system
+status including recent errors, and `/debug/redis` shows Redis connectivity details.
 
 <CodeBlock language="bash" isTerminal={true}>
-{`# Get current logs
-kubectl logs <pod-name> -c worker -n <namespace> --tail=100
-
-# Get crash logs if restarted
-kubectl logs <pod-name> -c worker -n <namespace> --previous`}
+{`kubectl exec -it <pod-name> -n <namespace> -- curl localhost:8080/debug | jq`}
 </CodeBlock>
 
-3. **Search for Specific Issues**
-
-<CodeBlock language="bash" isTerminal={true}>
-{`# Connection problems
-kubectl logs <pod-name> -c worker -n <namespace> | grep -i "connection\|redis\|timeout"
-
-# Task problems
-kubectl logs <pod-name> -c worker -n <namespace> | grep -i "task\|error\|failed"`}
-</CodeBlock>
-
-4. **Correlate with Health Endpoints**
-
-<CodeBlock language="bash" isTerminal={true}>
-{`# Check current system state
-kubectl exec -it <pod-name> -n <namespace> -- curl localhost:8080/debug | jq`}
-</CodeBlock>
-
-### Common Debugging Scenarios
-
-#### Scenario 1: Pod Won't Start
-
-<CodeBlock language="bash" isTerminal={true}>
-{`# Check startup logs
-kubectl logs <pod-name> -c worker -n <namespace>
-
-# Look for import errors, connection failures, configuration issues
-kubectl logs <pod-name> -c worker -n <namespace> | grep -E "(❌|ERROR|Failed)"`}
-</CodeBlock>
-
-#### Scenario 2: Health Checks Failing
-
-<CodeBlock language="bash" isTerminal={true}>
-{`# Check health endpoint logs
-kubectl logs <pod-name> -c worker -n <namespace> | grep -E "(GET /health|500|timeout)"
-
-# Test health endpoint directly
-kubectl exec -it <pod-name> -n <namespace> -- curl -w "%{time_total}" localhost:8080/health`}
-</CodeBlock>
-
-#### Scenario 3: Tasks Not Processing
-
-<CodeBlock language="bash" isTerminal={true}>
-{`# Check for task reception
-kubectl logs <pod-name> -c worker -n <namespace> | grep "Received task"
-
-# Check for task failures
-kubectl logs <pod-name> -c worker -n <namespace> | grep -E "(failed|exception|error)"
-
-# Check worker status
-kubectl exec -it <pod-name> -n <namespace> -- curl localhost:8080/debug | jq '.celery_status'`}
-</CodeBlock>
-
-## Best Practices
-
-### 1. Log Retention
-- Keep logs for at least 7 days for troubleshooting
-- Archive important logs before pod restarts
-- Use log aggregation systems for production
-
-### 2. Log Levels
-- Use `INFO` for production (balance of detail vs. noise)
-- Use `DEBUG` for development and troubleshooting
-- Use `ERROR` only for actual errors that need attention
-
-### 3. Structured Logging
-- Include relevant context (organization_id, user_id, task_id)
-- Use consistent log formats across tasks
-- Include timing information for performance monitoring
-
-### 4. Log Monitoring
-- Set up alerts for error rate increases
-- Monitor health check failure patterns
-- Track connection timeout frequencies
-
-### 5. Performance Considerations
-- Avoid excessive logging in tight loops
-- Use appropriate log levels to control verbosity
-- Consider log sampling for high-volume operations
-
-## Integration with Other Tools
-
-### Health Endpoints
-The logging system integrates with the health endpoints:
-- `/debug`: Shows system status including recent errors
-- `/debug/redis`: Shows Redis connectivity with error details
-- All endpoints log their usage for monitoring
-
-### Monitoring Systems
-Logs can be integrated with:
-- **Prometheus**: Metric extraction from log patterns
-- **Grafana**: Log visualization and dashboards
-- **ELK Stack**: Centralized log aggregation and search
-- **Google Cloud Logging**: Native GKE log collection
-
-### Alert Integration
-Example alert conditions based on logs:
-- Error rate > 10% over 5 minutes
-- Health check failure rate > 20% over 2 minutes
-- No successful task processing for 10 minutes
-- Redis connection timeouts > 5 in 5 minutes
-
-This comprehensive logging system provides visibility into all aspects of worker operation, from startup through task processing to health monitoring.
+For pod-level debugging scenarios (won't start, health checks failing, tasks not processing), see
+[GKE Troubleshooting](/contribute/worker/gke-troubleshooting) and
+[Troubleshooting](/contribute/worker/troubleshooting).
