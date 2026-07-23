@@ -321,3 +321,79 @@ class TestBulkDeleteTests:
             db=test_db, test_ids=[], organization_id=test_org_id, user_id=authenticated_user_id
         )
         assert result == {"deleted_ids": [], "not_found_ids": []}
+
+    def test_foreign_org_test_set_is_never_recomputed(
+        self, test_db: Session, test_org_id: str, authenticated_user_id: str
+    ):
+        """🔒 SECURITY: a guessed/foreign test id must not leak its org's test
+        set into the recompute set, even though it's reported as not_found.
+
+        The affected-test-sets lookup in bulk_delete_tests is a Core-style
+        db.execute(select(...)) query, which the ambient tenant-filter
+        listener does not auto-scope -- it must filter by organization_id
+        explicitly or a foreign org's test_set_id can leak into the batch.
+        """
+        other_org_id = str(uuid.uuid4())
+        test_db.add(models.Organization(id=uuid.UUID(other_org_id), name="Other Org"))
+        test_db.flush()
+
+        behavior = models.Behavior(
+            name="Compliance", organization_id=test_org_id, user_id=authenticated_user_id
+        )
+        test_db.add(behavior)
+        test_db.flush()
+
+        own_test_set = models.TestSet(
+            name="Own Set", organization_id=test_org_id, user_id=authenticated_user_id
+        )
+        foreign_test_set = models.TestSet(
+            name="Foreign Set", organization_id=other_org_id, user_id=authenticated_user_id
+        )
+        test_db.add_all([own_test_set, foreign_test_set])
+        test_db.flush()
+
+        own_test = self._make_test(
+            test_db, test_org_id, authenticated_user_id, behavior.id, own_test_set.id
+        )
+
+        foreign_test = models.Test(
+            behavior_id=behavior.id,
+            organization_id=other_org_id,
+            user_id=authenticated_user_id,
+        )
+        test_db.add(foreign_test)
+        test_db.flush()
+        test_db.execute(
+            test_test_set_association.insert().values(
+                test_id=foreign_test.id,
+                test_set_id=foreign_test_set.id,
+                organization_id=other_org_id,
+                user_id=authenticated_user_id,
+            )
+        )
+        test_db.flush()
+
+        with patch(
+            "rhesis.backend.app.services.test_set.update_test_set_attributes"
+        ) as mock_refresh:
+            result = crud.bulk_delete_tests(
+                db=test_db,
+                test_ids=[own_test.id, foreign_test.id],
+                organization_id=test_org_id,
+                user_id=authenticated_user_id,
+            )
+
+        # Foreign test is invisible to this org -- reported not_found, not deleted.
+        assert result["deleted_ids"] == [str(own_test.id)]
+        assert result["not_found_ids"] == [str(foreign_test.id)]
+
+        # And its test set must never be touched -- only the caller's own set.
+        recomputed_test_set_ids = {
+            call.kwargs["test_set_id"] for call in mock_refresh.call_args_list
+        }
+        assert recomputed_test_set_ids == {str(own_test_set.id)}
+
+        # The foreign test/test set must remain untouched in the database.
+        still_there = test_db.query(models.Test).filter(models.Test.id == foreign_test.id).first()
+        assert still_there is not None
+        assert still_there.deleted_at is None

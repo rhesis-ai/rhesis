@@ -2367,8 +2367,16 @@ def bulk_delete_tests(
 
     # Distinct test sets containing ANY of the tests being deleted, resolved once
     # for the whole batch (contrast with delete_test's per-test lookup above).
+    # This is a Core-style db.execute(select(...)) query, which the ambient
+    # tenant-filter listener does NOT auto-scope (ORM Query only) -- explicit
+    # organization_id filter required, since this runs against the raw
+    # caller-supplied test_ids before bulk_delete_by_ids has a chance to
+    # resolve which ones actually belong to this organization.
     rows = db.execute(
-        test_test_set_association.select().where(test_test_set_association.c.test_id.in_(test_ids))
+        test_test_set_association.select().where(
+            test_test_set_association.c.test_id.in_(test_ids),
+            test_test_set_association.c.organization_id == organization_id,
+        )
     ).fetchall()
     affected_test_set_ids = {row.test_set_id for row in rows}
 
