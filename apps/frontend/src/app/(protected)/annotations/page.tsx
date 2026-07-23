@@ -13,9 +13,10 @@ import PageLoadingState from '@/components/common/PageLoadingState';
 import AnnotationsGrid from './components/AnnotationsGrid';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
+import { isAuthenticated, isSessionLoading } from '@/hooks/useIsAuthenticated';
 
 export default function AnnotationsPage() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const { allowed: canReadResults, loading: resultsPermsLoading } =
     useCanWithStatus(Capability.TestResult.READ);
   const { allowed: canReadTelemetry, loading: telemetryPermsLoading } =
@@ -23,11 +24,10 @@ export default function AnnotationsPage() {
 
   useDocumentTitle('Annotations');
 
-  const sessionToken = session?.session_token ?? '';
   const canRead = canReadResults || canReadTelemetry;
   const permsLoading = resultsPermsLoading || telemetryPermsLoading;
 
-  if (status === 'loading') {
+  if (isSessionLoading(status)) {
     return (
       <PageLayout title="Annotations" breadcrumbs={[]}>
         <Box sx={{ p: 3 }}>
@@ -40,11 +40,11 @@ export default function AnnotationsPage() {
   if (permsLoading) return <PageLoadingState />;
   if (!canRead) return <AccessDenied resource="annotations" />;
 
-  if (!sessionToken) {
+  if (!isAuthenticated(status)) {
     return (
       <PageLayout title="Annotations" breadcrumbs={[]}>
         <Box sx={{ p: 3 }}>
-          <Typography color="error">No session token available</Typography>
+          <Typography color="error">You are not signed in</Typography>
         </Box>
       </PageLayout>
     );
@@ -66,7 +66,7 @@ export default function AnnotationsPage() {
             overflow: 'hidden',
           }}
         >
-          <AnnotationsGrid sessionToken={sessionToken} />
+          <AnnotationsGrid />
         </Paper>
       </Box>
     </PageLayout>

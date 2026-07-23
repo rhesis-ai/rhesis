@@ -39,7 +39,6 @@ import AnnotationFilterDrawer, {
 } from './AnnotationFilterDrawer';
 
 interface AnnotationsGridProps {
-  sessionToken: string;
   onTotalCountChange?: (count: number) => void;
 }
 
@@ -116,7 +115,6 @@ function formatTarget(item: AnnotationListItem): string {
 }
 
 export default function AnnotationsGrid({
-  sessionToken,
   onTotalCountChange,
 }: AnnotationsGridProps) {
   const theme = useTheme();
@@ -167,7 +165,7 @@ export default function AnnotationsGrid({
     ),
     errorFallbackMessage: 'Failed to load annotations',
     queryFn: () => {
-      const client = new ApiClientFactory(sessionToken).getAnnotationsClient();
+      const client = new ApiClientFactory().getAnnotationsClient();
       return client.getAnnotations({
         skip: paginationModel.page * paginationModel.pageSize,
         limit: paginationModel.pageSize,
@@ -178,7 +176,6 @@ export default function AnnotationsGrid({
         ...(targetTypeParam && { target_type: targetTypeParam }),
       });
     },
-    enabled: !!sessionToken,
     staleTime: 0,
   });
 
