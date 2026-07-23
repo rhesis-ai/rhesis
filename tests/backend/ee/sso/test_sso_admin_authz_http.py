@@ -165,3 +165,19 @@ class TestSsoAdminCrossOrgDenied:
                 headers=_auth(owner_token),
             )
         assert resp.status_code == 403, resp.text
+
+    def test_owner_cannot_delete_other_orgs_sso_config(self, client, test_db):
+        _owner_org, _owner_user, owner_token = _context(test_db, "Owner")
+        other_org, _other_user, _other_token = _context(test_db, "Owner")
+        with _ee_active():
+            resp = client.delete(f"/organizations/{other_org.id}/sso", headers=_auth(owner_token))
+        assert resp.status_code == 403, resp.text
+
+    def test_owner_cannot_test_connection_on_other_orgs_sso_config(self, client, test_db):
+        _owner_org, _owner_user, owner_token = _context(test_db, "Owner")
+        other_org, _other_user, _other_token = _context(test_db, "Owner")
+        with _ee_active():
+            resp = client.post(
+                f"/organizations/{other_org.id}/sso/test", headers=_auth(owner_token)
+            )
+        assert resp.status_code == 403, resp.text
