@@ -1,7 +1,7 @@
 import { BaseApiClient } from './base-client';
 import { getApiErrorStatus } from './is-not-found-error';
 
-export type EntityResolution = 'switchable' | 'no_access';
+export type EntityResolution = 'switchable';
 
 export interface ResolvedEntity {
   resolution: EntityResolution;
