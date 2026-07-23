@@ -18,14 +18,16 @@ import {
 } from '@mui/x-data-grid';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSession } from 'next-auth/react';
-import BaseDataGrid from '@/components/common/BaseDataGrid';
+import BaseDataGrid, { GRID_PAPER_SX } from '@/components/common/BaseDataGrid';
 import GridToolbar from '@/components/common/GridToolbar';
+import GridStateGate from '@/components/common/GridStateGate';
+import EntityEmptyState from '@/components/common/EntityEmptyState';
+import { AccountTreeIcon } from '@/components/icons';
 import { useRouter } from 'next/navigation';
-import { Box, Typography } from '@mui/material';
+import { Box, Paper, Typography } from '@mui/material';
 import GridBadge from '@/components/common/GridBadge';
 import DeleteIcon from '@mui/icons-material/Delete';
 import IosShareOutlinedIcon from '@mui/icons-material/IosShareOutlined';
-import type { ExplorerTestSet } from '@/utils/api-client/interfaces/explorer';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { useNotifications } from '@/components/common/NotificationContext';
@@ -34,7 +36,8 @@ import { explorerKeys } from '@/constants/query-keys';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface ExplorerGridProps {
-  onTotalCountChange?: (count: number) => void;
+  canCreate?: boolean;
+  onCreateClick?: () => void;
 }
 
 interface ExplorerToolbarState {
@@ -67,7 +70,8 @@ function ExplorerUnifiedToolbar() {
 }
 
 export default function ExplorerGrid({
-  onTotalCountChange,
+  canCreate,
+  onCreateClick,
 }: ExplorerGridProps) {
   const router = useRouter();
   const { status } = useSession();
@@ -83,16 +87,18 @@ export default function ExplorerGrid({
   const [isDeleting, setIsDeleting] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
-  const { data: allRows = [], isLoading: loading } = useQuery({
+  const {
+    data,
+    isLoading: loading,
+    error,
+  } = useQuery({
     queryKey: explorerKeys.all(),
     queryFn: () =>
       new ApiClientFactory().getExplorerClient().getExplorerTestSets(),
     enabled: isAuthenticated(status),
   });
 
-  useEffect(() => {
-    onTotalCountChange?.(allRows.length);
-  }, [allRows.length, onTotalCountChange]);
+  const allRows = data ?? [];
 
   useEffect(() => {
     setPaginationModel(prev => ({ ...prev, page: 0 }));
@@ -278,39 +284,59 @@ export default function ExplorerGrid({
   };
 
   return (
-    <ExplorerToolbarContext.Provider value={{ searchQuery, setSearchQuery }}>
-      <Box>
-        <BaseDataGrid
-          columns={columns}
-          rows={rows}
-          loading={loading}
-          getRowId={row => row.id}
-          showToolbar={true}
-          toolbarSlot={ExplorerUnifiedToolbar}
-          actionButtons={getActionButtons()}
-          onRowClick={handleRowClick}
-          paginationModel={paginationModel}
-          onPaginationModelChange={handlePaginationModelChange}
-          serverSidePagination={false}
-          totalRows={rows.length}
-          pageSizeOptions={[10, 25, 50]}
-          disablePaperWrapper={true}
-          persistState
-          checkboxSelection
-          disableRowSelectionOnClick
-          onRowSelectionModelChange={setSelectedRows}
-          rowSelectionModel={selectedRows}
+    <GridStateGate
+      data={data}
+      error={error ? 'Failed to load explorer sessions' : null}
+      isEmpty={allRows.length === 0 && !searchQuery.trim()}
+      emptyState={
+        <EntityEmptyState
+          card
+          icon={AccountTreeIcon}
+          title="No explorer sessions yet"
+          description="Start a new session to explore behaviors and generate tests, or load an existing test set."
+          actionLabel={canCreate ? 'New session' : undefined}
+          onAction={canCreate ? onCreateClick : undefined}
         />
-        <DeleteModal
-          open={deleteModalOpen}
-          onClose={handleDeleteCancel}
-          onConfirm={handleDeleteConfirm}
-          isLoading={isDeleting}
-          title="Delete explorer sessions"
-          message={`Are you sure you want to delete ${selectedRows.length} ${selectedRows.length === 1 ? 'session' : 'sessions'}? Related tests in the tree will be removed with this record.`}
-          itemType="explorer sessions"
-        />
-      </Box>
-    </ExplorerToolbarContext.Provider>
+      }
+    >
+      <Paper sx={GRID_PAPER_SX}>
+        <ExplorerToolbarContext.Provider
+          value={{ searchQuery, setSearchQuery }}
+        >
+          <Box>
+            <BaseDataGrid
+              columns={columns}
+              rows={rows}
+              loading={loading}
+              getRowId={row => row.id}
+              showToolbar={true}
+              toolbarSlot={ExplorerUnifiedToolbar}
+              actionButtons={getActionButtons()}
+              onRowClick={handleRowClick}
+              paginationModel={paginationModel}
+              onPaginationModelChange={handlePaginationModelChange}
+              serverSidePagination={false}
+              totalRows={rows.length}
+              pageSizeOptions={[10, 25, 50]}
+              disablePaperWrapper={true}
+              persistState
+              checkboxSelection
+              disableRowSelectionOnClick
+              onRowSelectionModelChange={setSelectedRows}
+              rowSelectionModel={selectedRows}
+            />
+            <DeleteModal
+              open={deleteModalOpen}
+              onClose={handleDeleteCancel}
+              onConfirm={handleDeleteConfirm}
+              isLoading={isDeleting}
+              title="Delete explorer sessions"
+              message={`Are you sure you want to delete ${selectedRows.length} ${selectedRows.length === 1 ? 'session' : 'sessions'}? Related tests in the tree will be removed with this record.`}
+              itemType="explorer sessions"
+            />
+          </Box>
+        </ExplorerToolbarContext.Provider>
+      </Paper>
+    </GridStateGate>
   );
 }
