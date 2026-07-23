@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import LinkedTestSetsSection from '../LinkedTestSetsSection';
 
 let mockCanEdit = true;
@@ -37,10 +38,13 @@ jest.mock('@/utils/api-client/test-sets-client', () => ({
   })),
 }));
 
+// Always render a marker (regardless of `open`) so tests can distinguish
+// "component gated out of the tree entirely" from "mounted but closed".
 jest.mock('@/components/common/AssignEntityDrawer', () => ({
   __esModule: true,
-  default: ({ open }: { open: boolean }) =>
-    open ? <div data-testid="assign-drawer" /> : null,
+  default: ({ open }: { open: boolean }) => (
+    <div data-testid="assign-drawer" data-open={String(open)} />
+  ),
 }));
 
 describe('LinkedTestSetsSection', () => {
@@ -65,7 +69,10 @@ describe('LinkedTestSetsSection', () => {
     expect(
       screen.queryByRole('button', { name: /assign to test set/i })
     ).not.toBeInTheDocument();
-    expect(screen.getByText('This test has no linked test sets yet.')).toBeInTheDocument();
+    expect(
+      screen.getByText('This test has no linked test sets yet.')
+    ).toBeInTheDocument();
+    // Drawer is gated out of the tree entirely for viewers, not just closed.
     expect(screen.queryByTestId('assign-drawer')).not.toBeInTheDocument();
   });
 
@@ -94,7 +101,7 @@ describe('LinkedTestSetsSection', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('shows Assign controls for Member/Admin/Owner', async () => {
+  it('shows Assign controls for Member/Admin/Owner and opens the drawer on click', async () => {
     mockCanEdit = true;
     mockGetLinkedTestSets.mockResolvedValue({
       data: [],
@@ -103,10 +110,23 @@ describe('LinkedTestSetsSection', () => {
 
     render(<LinkedTestSetsSection testId="test-1" />);
 
+    const assignButton = await screen.findByRole('button', {
+      name: /assign to test set/i,
+    });
+
+    // Drawer is mounted (gating allows it) but closed until clicked.
+    expect(screen.getByTestId('assign-drawer')).toHaveAttribute(
+      'data-open',
+      'false'
+    );
+
+    await userEvent.click(assignButton);
+
     await waitFor(() =>
-      expect(
-        screen.getByRole('button', { name: /assign to test set/i })
-      ).toBeInTheDocument()
+      expect(screen.getByTestId('assign-drawer')).toHaveAttribute(
+        'data-open',
+        'true'
+      )
     );
   });
 });
