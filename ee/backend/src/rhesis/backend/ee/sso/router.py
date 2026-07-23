@@ -384,12 +384,25 @@ class SSOTestResponse(BaseModel):
     message: str
 
 
-async def _require_org_admin(request: Request, org_id: str):
-    """Verify the current user is an admin of the specified org.
+async def _require_org_admin(request: Request, org_id: str, db: Session):
+    """Verify the current user may manage SSO for the specified org.
 
-    Supports both session cookies and Bearer token authentication
-    to work with the frontend API client.
+    Supports both session cookies and Bearer token authentication to work with
+    the frontend API client. Two distinct checks, both required:
+
+    1. **Same-org guard**: the caller's own ``organization_id`` must match the
+       ``org_id`` path parameter. The org-scoped ``sso:manage`` capability
+       (below) is evaluated against the caller's *own* org context — it says
+       nothing about the arbitrary ``org_id`` in this URL — so without this
+       guard an owner of org A could read/overwrite org B's SSO config
+       (including its ``client_secret``) simply by changing the path.
+    2. **Role check** via the RBAC PDP (``Permission.SSO.MANAGE``, owner-only
+       even in EE): defense-in-depth alongside the ``@capability(...)``-driven
+       authz backstop (``apply_authz_backstop`` in ``main.py``) already wired
+       on these routes, kept here so this function is correct standalone.
     """
+    from rhesis.backend.app.auth.principal import resolve_principal_from_request
+    from rhesis.backend.app.auth.rbac import authorize
     from rhesis.backend.app.auth.user_utils import (
         bearer_scheme,
         get_authenticated_user_with_context,
@@ -411,6 +424,13 @@ async def _require_org_admin(request: Request, org_id: str):
             detail="Not authorized to manage this organization's SSO",
         )
 
+    principal = resolve_principal_from_request(user, request)
+    if not authorize(principal, Permission.SSO.MANAGE, project_id=None, db=db):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to manage this organization's SSO",
+        )
+
     return user
 
 
@@ -423,7 +443,7 @@ async def get_sso_config(
 ):
     """Get SSO configuration for an organization (client_secret masked)."""
     # Authorization side-effect; the returned user isn't used in the response body.
-    await _require_org_admin(request, org_id)
+    await _require_org_admin(request, org_id, db)
 
     if not check_sso_available():
         raise HTTPException(
@@ -455,7 +475,7 @@ async def update_sso_config(
     db: Session = Depends(get_db_session),
 ):
     """Set or update SSO configuration for an organization."""
-    user = await _require_org_admin(request, org_id)
+    user = await _require_org_admin(request, org_id, db)
 
     if not check_sso_available():
         raise HTTPException(
@@ -577,7 +597,7 @@ async def delete_sso_config(
     Unlike get/update, delete intentionally works even when SSO encryption
     is unavailable so that admins can always clean up broken configurations.
     """
-    user = await _require_org_admin(request, org_id)
+    user = await _require_org_admin(request, org_id, db)
 
     org = _get_org_or_404(db, org_id)
     org.sso_config = None
@@ -602,7 +622,7 @@ async def test_sso_connection(
 ):
     """Test OIDC discovery for an org's SSO configuration."""
     # Authorization side-effect; the returned user isn't used in the response body.
-    await _require_org_admin(request, org_id)
+    await _require_org_admin(request, org_id, db)
 
     if not check_sso_available():
         return SSOTestResponse(success=False, message="SSO is not available")
