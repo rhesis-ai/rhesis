@@ -32,6 +32,7 @@ describe('useGridState', () => {
 
     expect(result.current.filterModel.items).toEqual([
       {
+        id: 'behavior.name',
         field: 'behavior.name',
         operator: 'equals',
         value: 'Active',
@@ -43,11 +44,13 @@ describe('useGridState', () => {
     expect(result.current.filterModel.items).toEqual(
       expect.arrayContaining([
         {
+          id: 'quickFilter',
           field: 'quickFilter',
           operator: 'contains',
           value: 'refund',
         },
         {
+          id: 'behavior.name',
           field: 'behavior.name',
           operator: 'equals',
           value: 'Active',
@@ -82,11 +85,13 @@ describe('useGridState', () => {
     expect(result.current.filterModel.items).toEqual(
       expect.arrayContaining([
         {
+          id: 'quickFilter',
           field: 'quickFilter',
           operator: 'contains',
           value: 'prompt text',
         },
         {
+          id: 'behavior.name',
           field: 'behavior.name',
           operator: 'equals',
           value: 'Safety',
@@ -111,16 +116,19 @@ describe('useGridState', () => {
     expect(result.current.filterModel.items).toEqual(
       expect.arrayContaining([
         {
+          id: 'quickFilter',
           field: 'quickFilter',
           operator: 'contains',
           value: 'invoice',
         },
         {
+          id: 'test_type.type_value',
           field: 'test_type.type_value',
           operator: 'equals',
           value: 'Single-Turn',
         },
         {
+          id: 'topic.name',
           field: 'topic.name',
           operator: 'equals',
           value: 'Billing',
@@ -177,6 +185,7 @@ describe('useGridState', () => {
 
     expect(result.current.filterModel.items).toEqual([
       {
+        id: 'behavior.name',
         field: 'behavior.name',
         operator: 'equals',
         value: 'Active',
