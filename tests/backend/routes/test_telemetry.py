@@ -9,10 +9,16 @@ This module tests the OpenTelemetry trace ingestion endpoints including:
 """
 
 import pytest
+from faker import Faker
 from fastapi import status
 from fastapi.testclient import TestClient
 
+from rhesis.backend.app import models
+from rhesis.backend.app.models.project import Project
+from rhesis.backend.app.models.project_membership import ProjectMembership
 from tests.backend.routes.fixtures.data_factories import TraceDataFactory
+
+fake = Faker()
 
 
 @pytest.mark.integration
@@ -180,6 +186,75 @@ class TestTraceAuthentication:
         response = authenticated_client.post("/telemetry/traces", json=trace_batch)
 
         assert response.status_code == status.HTTP_200_OK
+
+
+@pytest.mark.integration
+class TestLookupSpanCrossProject:
+    """A span whose trace lives in a project other than the caller's active
+    one must still resolve via /telemetry/spans/{id}/lookup, not silently
+    404 under project_isolation RLS (same root cause as routers/resolve.py).
+    """
+
+    def test_lookup_span_in_other_member_project(
+        self,
+        authenticated_client: TestClient,
+        test_db,
+        test_organization,
+        db_user,
+        db_owner_user,
+        db_status,
+        db_project,
+        authenticated_user_id,
+    ):
+        other_project = Project(
+            name="Telemetry Other Project",
+            description=fake.text(max_nb_chars=60),
+            icon="📡",
+            is_active=True,
+            user_id=db_user.id,
+            owner_id=db_owner_user.id,
+            organization_id=test_organization.id,
+            status_id=db_status.id,
+        )
+        test_db.add(other_project)
+        test_db.flush()
+        test_db.add(
+            ProjectMembership(
+                project_id=other_project.id,
+                user_id=authenticated_user_id,
+                organization_id=test_organization.id,
+            )
+        )
+        test_db.flush()
+
+        span_data = TraceDataFactory.minimal_data(project_id=str(other_project.id))
+        ingest_response = authenticated_client.post(
+            "/telemetry/traces",
+            json={"spans": [span_data]},
+            headers={"X-Project-Id": str(other_project.id)},
+        )
+        assert ingest_response.status_code == status.HTTP_200_OK
+
+        span_row = (
+            test_db.query(models.Trace).filter(models.Trace.trace_id == span_data["trace_id"]).one()
+        )
+
+        # Active scope is db_project — a different project than the span's own.
+        response = authenticated_client.get(
+            f"/telemetry/spans/{span_row.id}/lookup",
+            headers={"X-Project-Id": str(db_project.id)},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["trace_id"] == span_data["trace_id"]
+        assert data["project_id"] == str(other_project.id)
+
+    def test_lookup_span_not_found(self, authenticated_client: TestClient):
+        response = authenticated_client.get(
+            "/telemetry/spans/123e4567-e89b-12d3-a456-426614174000/lookup"
+        )
+        assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
 @pytest.mark.integration
