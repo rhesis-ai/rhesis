@@ -90,6 +90,19 @@ describe('applyProjectDeepLink — project deep-link switching (issue 2133)', ()
       expect(res).toBeNull();
       expect(req.cookies.get(ACTIVE_PROJECT_COOKIE)?.value).toBe(OTHER_UUID);
     });
+
+    it('returns null when path is outside the email deep-link scope (e.g. /traces)', () => {
+      // /traces legitimately carries ?project_id= as a list filter, not a
+      // cross-project navigation cue — silently switching the cookie there
+      // would surprise the user. See peqy's "Also" note in rev_01KY3WFCZWWWGH3EBN7W13WTGH.
+      const req = buildRequest('/traces', {
+        project_id: TARGET_UUID,
+        cookies: { [ACTIVE_PROJECT_COOKIE]: OTHER_UUID },
+      });
+      const res = applyProjectDeepLink(req);
+      expect(res).toBeNull();
+      expect(req.cookies.get(ACTIVE_PROJECT_COOKIE)?.value).toBe(OTHER_UUID);
+    });
   });
 
   describe('cookie switching (returns NextResponse with Set-Cookie)', () => {

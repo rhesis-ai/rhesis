@@ -150,6 +150,13 @@ async function createSessionClearingResponse(
 const UUID_PATTERN =
   /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
+// Email deep-link detail routes — the only paths whose `?project_id=` is a
+// cross-project navigation cue (backend templates always link to a specific
+// entity under one of these prefixes). Other routes may legitimately carry
+// `?project_id=` as a filter (e.g. /traces) where silently switching the
+// active project cookie would be surprising, so scope the switch here.
+const DEEP_LINK_PATH_PREFIXES = ['/test-runs/', '/test-sets/', '/tasks/'];
+
 // Cookie max-age must match writeActiveProjectId() so server- and
 // client-side writes produce identical cookies (no shadowing).
 const PROJECT_COOKIE_MAX_AGE = 60 * 60 * 24 * 365; // 1 year
@@ -186,6 +193,15 @@ export function applyProjectDeepLink(
   // A non-UUID value would otherwise overwrite the cookie with garbage and
   // break the user's session.
   if (!UUID_PATTERN.test(projectId)) {
+    return null;
+  }
+
+  // Scope the switch to email deep-link detail routes only. Other paths may
+  // carry a valid `?project_id=<uuid>` for a different purpose (e.g. /traces
+  // uses it as a list filter), where silently switching the active project
+  // would surprise the user.
+  const pathname = request.nextUrl.pathname;
+  if (!DEEP_LINK_PATH_PREFIXES.some(prefix => pathname.startsWith(prefix))) {
     return null;
   }
 
