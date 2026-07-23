@@ -16,7 +16,7 @@ jobs:
 
       - name: Generate a token
         id: generate-token
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349  # v2
         with:
           app-id: ${{ vars.RHEO_APP_ID }}
           private-key: ${{ secrets.RHEO_APP_PRIVATE_KEY }}
