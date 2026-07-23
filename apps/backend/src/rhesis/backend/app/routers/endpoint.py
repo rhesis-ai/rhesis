@@ -388,7 +388,7 @@ async def invoke_endpoint(
     response_model=ExploreEndpointResponse,
     dependencies=[Depends(validate_generation_model)],
 )
-async def explore_endpoint_route(
+def explore_endpoint_route(
     endpoint_id: uuid.UUID,
     request: ExploreEndpointRequest,
     db: Session = Depends(get_tenant_db_session),
