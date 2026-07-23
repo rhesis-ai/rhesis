@@ -7,9 +7,11 @@ GarakSyncService, the Celery tasks themselves) is covered by dedicated unit
 tests elsewhere; this file only verifies the router's dispatch wiring:
 - import/sync launch the right Celery task via task_launcher and return 202
   task-response shapes
-- import/sync read the probe cache via the non-enumerating get_cached_probes()
-  (never triggering enumeration on a miss) and filter it down to exactly the
-  probes/classes referenced by the request, passing None through when cold
+- import/sync pass only probe *identifiers* to the task (module/class or
+  test_set_id) and never ship probe data (prompts) through the Celery broker —
+  the task extracts the selected probes itself in the worker
+- sync validates the target synchronously so a bad request gets a 400 rather
+  than a background task that fails silently
 - preview endpoints preload the (enumerating) probe cache before calling into
   the service
 """
@@ -29,13 +31,11 @@ from rhesis.backend.app.schemas.garak import GarakImportRequest, GarakProbeSelec
 from rhesis.backend.app.services.garak.probes import GarakProbeInfo
 
 
-def _mock_probe_service(cached_probes_by_module):
-    """cached_probes_by_module=None simulates a cold cache."""
+def _mock_probe_service(probes_by_module):
+    """Mock GarakProbeService. Only the preview endpoints use it now (via the
+    enumerating cache read); import/sync dispatch no longer touch it."""
     service = MagicMock()
-    service.get_cached_probes = AsyncMock(return_value=cached_probes_by_module)
-    service.enumerate_probe_modules_cached = AsyncMock(
-        return_value=([], cached_probes_by_module or {})
-    )
+    service.enumerate_probe_modules_cached = AsyncMock(return_value=([], probes_by_module or {}))
     return service
 
 
@@ -43,10 +43,6 @@ def _mock_probe_service(cached_probes_by_module):
 class TestImportProbesDispatch:
     @pytest.mark.asyncio
     async def test_dispatches_import_task_and_returns_202_shape(self):
-        probe = GarakProbeInfo(
-            module_name="dan", class_name="Dan_11_0", full_name="dan.Dan_11_0", description="d"
-        )
-        probe_service = _mock_probe_service({"dan": [probe]})
         request = GarakImportRequest(
             probes=[GarakProbeSelection(module_name="dan", class_name="Dan_11_0")],
             name_prefix="Garak",
@@ -62,104 +58,27 @@ class TestImportProbesDispatch:
                 db=mock_db,
                 tenant_context=(str(current_user.organization_id), str(current_user.id)),
                 current_user=current_user,
-                probe_service=probe_service,
             )
 
         mock_launcher.assert_called_once()
         _, call_kwargs = mock_launcher.call_args
         assert call_kwargs["db"] is mock_db
         assert call_kwargs["current_user"] is current_user
-        assert call_kwargs["probes_by_module"]["dan"][0]["class_name"] == "Dan_11_0"
+        # Only identifiers are dispatched — the requested (module, class) pairs
+        # (GarakProbeSelection.model_dump also carries the optional custom_name).
+        assert call_kwargs["probes"] == [
+            {"module_name": "dan", "class_name": "Dan_11_0", "custom_name": None}
+        ]
+        assert "probes_by_module" not in call_kwargs
 
         assert response.task_id == "task-abc-123"
         assert response.probe_count == 1
 
     @pytest.mark.asyncio
-    async def test_filters_probes_to_only_requested_classes(self):
-        """Filtering must be exact-probe-class, not whole-module — a sibling
-        probe in the same module (e.g. a "Full" variant with thousands of
-        prompts) must not be serialized through the Celery dispatch."""
-        dan_probe = GarakProbeInfo(
-            module_name="dan", class_name="Dan_11_0", full_name="dan.Dan_11_0", description="d"
-        )
-        dan_full_probe = GarakProbeInfo(
-            module_name="dan",
-            class_name="Dan_11_0_Full",
-            full_name="dan.Dan_11_0_Full",
-            description="d",
-        )
-        encoding_probe = GarakProbeInfo(
-            module_name="encoding",
-            class_name="InjectBase64",
-            full_name="encoding.InjectBase64",
-            description="e",
-        )
-        probe_service = _mock_probe_service(
-            {"dan": [dan_probe, dan_full_probe], "encoding": [encoding_probe]}
-        )
-        request = GarakImportRequest(
-            probes=[GarakProbeSelection(module_name="dan", class_name="Dan_11_0")],
-            name_prefix="Garak",
-        )
-        current_user = MagicMock(id=uuid4(), organization_id=uuid4())
-
-        with patch("rhesis.backend.app.routers.garak.task_launcher") as mock_launcher:
-            mock_launcher.return_value = MagicMock(id="task-abc-123")
-
-            await import_probes(
-                request=request,
-                db=MagicMock(),
-                tenant_context=(str(current_user.organization_id), str(current_user.id)),
-                current_user=current_user,
-                probe_service=probe_service,
-            )
-
-        _, call_kwargs = mock_launcher.call_args
-        filtered = call_kwargs["probes_by_module"]
-        # Only "dan" module present, and only the requested Dan_11_0 class —
-        # not the sibling Dan_11_0_Full, and not the unrelated "encoding" module.
-        assert set(filtered.keys()) == {"dan"}
-        assert [p["class_name"] for p in filtered["dan"]] == ["Dan_11_0"]
-
-    @pytest.mark.asyncio
-    async def test_cold_cache_dispatches_with_no_preload_data(self):
-        """A cold cache must never trigger enumeration on the request thread —
-        get_cached_probes() returning None means the router passes
-        probes_by_module=None through so the task falls back to targeted
-        live extraction inside the worker."""
-        probe_service = _mock_probe_service(None)
-        request = GarakImportRequest(
-            probes=[GarakProbeSelection(module_name="dan", class_name="Dan_11_0")],
-            name_prefix="Garak",
-        )
-        current_user = MagicMock(id=uuid4(), organization_id=uuid4())
-
-        with patch("rhesis.backend.app.routers.garak.task_launcher") as mock_launcher:
-            mock_launcher.return_value = MagicMock(id="task-abc-123")
-
-            await import_probes(
-                request=request,
-                db=MagicMock(),
-                tenant_context=(str(current_user.organization_id), str(current_user.id)),
-                current_user=current_user,
-                probe_service=probe_service,
-            )
-
-        _, call_kwargs = mock_launcher.call_args
-        assert call_kwargs["probes_by_module"] is None
-
-    @pytest.mark.asyncio
-    async def test_warm_cache_missing_a_requested_probe_falls_back_to_none(self):
-        """Regression test: a warm cache that is MISSING one of the requested
-        probes (e.g. a Garak version bump renamed/removed it) must not
-        produce a partial preload dict — the importer would then silently
-        skip the missing probe instead of falling back to live extraction. The
-        whole request must fall back to probes_by_module=None instead."""
-        dan_probe = GarakProbeInfo(
-            module_name="dan", class_name="Dan_11_0", full_name="dan.Dan_11_0", description="d"
-        )
-        # Cache is warm and has "dan", but not the "encoding" probe requested below.
-        probe_service = _mock_probe_service({"dan": [dan_probe]})
+    async def test_does_not_ship_probe_data_through_broker(self):
+        """No probe payload (prompts) is serialized into the Celery dispatch —
+        the task extracts the selected probes itself. A single "Full" probe
+        would otherwise put thousands of prompts on the broker per dispatch."""
         request = GarakImportRequest(
             probes=[
                 GarakProbeSelection(module_name="dan", class_name="Dan_11_0"),
@@ -177,21 +96,20 @@ class TestImportProbesDispatch:
                 db=MagicMock(),
                 tenant_context=(str(current_user.organization_id), str(current_user.id)),
                 current_user=current_user,
-                probe_service=probe_service,
             )
 
         _, call_kwargs = mock_launcher.call_args
-        assert call_kwargs["probes_by_module"] is None
+        assert "probes_by_module" not in call_kwargs
+        assert call_kwargs["probes"] == [
+            {"module_name": "dan", "class_name": "Dan_11_0", "custom_name": None},
+            {"module_name": "encoding", "class_name": "InjectBase64", "custom_name": None},
+        ]
 
 
 @pytest.mark.unit
 class TestSyncTestSetDispatch:
     @pytest.mark.asyncio
     async def test_dispatches_sync_task_and_returns_202_shape(self):
-        probe = GarakProbeInfo(
-            module_name="dan", class_name="Dan_11_0", full_name="dan.Dan_11_0", description="d"
-        )
-        probe_service = _mock_probe_service({"dan": [probe]})
         current_user = MagicMock(id=uuid4(), organization_id=uuid4())
         test_set_id = str(uuid4())
 
@@ -207,150 +125,18 @@ class TestSyncTestSetDispatch:
                 db=MagicMock(),
                 tenant_context=(str(current_user.organization_id), str(current_user.id)),
                 current_user=current_user,
-                probe_service=probe_service,
             )
 
+        # Target is resolved up front for validation, even though its result is
+        # no longer used to filter a cache payload.
+        mock_sync_cls.return_value.resolve_sync_target.assert_called_once()
         mock_launcher.assert_called_once()
         _, call_kwargs = mock_launcher.call_args
         assert call_kwargs["test_set_id"] == test_set_id
-        assert call_kwargs["probes_by_module"]["dan"][0]["class_name"] == "Dan_11_0"
+        assert "probes_by_module" not in call_kwargs
 
         assert response.task_id == "task-xyz-789"
         assert response.test_set_id == test_set_id
-
-    @pytest.mark.asyncio
-    async def test_legacy_target_includes_every_probe_in_each_module(self):
-        """resolve_sync_target returning an empty class-name list for a module
-        (the legacy sentinel) must include every probe in that module, not
-        just the ones a naive single-class filter would keep."""
-        dan_probe = GarakProbeInfo(
-            module_name="dan", class_name="Dan_11_0", full_name="dan.Dan_11_0", description="d"
-        )
-        encoding_probe = GarakProbeInfo(
-            module_name="encoding",
-            class_name="InjectBase64",
-            full_name="encoding.InjectBase64",
-            description="e",
-        )
-        probe_service = _mock_probe_service({"dan": [dan_probe], "encoding": [encoding_probe]})
-        current_user = MagicMock(id=uuid4(), organization_id=uuid4())
-        test_set_id = str(uuid4())
-
-        with (
-            patch("rhesis.backend.app.routers.garak.GarakSyncService") as mock_sync_cls,
-            patch("rhesis.backend.app.routers.garak.task_launcher") as mock_launcher,
-        ):
-            mock_sync_cls.return_value.resolve_sync_target.return_value = {
-                "dan": [],
-                "encoding": [],
-            }
-            mock_launcher.return_value = MagicMock(id="task-xyz-789")
-
-            await sync_test_set(
-                test_set_id=test_set_id,
-                db=MagicMock(),
-                tenant_context=(str(current_user.organization_id), str(current_user.id)),
-                current_user=current_user,
-                probe_service=probe_service,
-            )
-
-        _, call_kwargs = mock_launcher.call_args
-        filtered = call_kwargs["probes_by_module"]
-        assert [p["class_name"] for p in filtered["dan"]] == ["Dan_11_0"]
-        assert [p["class_name"] for p in filtered["encoding"]] == ["InjectBase64"]
-
-    @pytest.mark.asyncio
-    async def test_cold_cache_dispatches_with_no_preload_data(self):
-        probe_service = _mock_probe_service(None)
-        current_user = MagicMock(id=uuid4(), organization_id=uuid4())
-        test_set_id = str(uuid4())
-
-        with (
-            patch("rhesis.backend.app.routers.garak.GarakSyncService") as mock_sync_cls,
-            patch("rhesis.backend.app.routers.garak.task_launcher") as mock_launcher,
-        ):
-            mock_sync_cls.return_value.resolve_sync_target.return_value = {"dan": ["Dan_11_0"]}
-            mock_launcher.return_value = MagicMock(id="task-xyz-789")
-
-            await sync_test_set(
-                test_set_id=test_set_id,
-                db=MagicMock(),
-                tenant_context=(str(current_user.organization_id), str(current_user.id)),
-                current_user=current_user,
-                probe_service=probe_service,
-            )
-
-        _, call_kwargs = mock_launcher.call_args
-        assert call_kwargs["probes_by_module"] is None
-
-    @pytest.mark.asyncio
-    async def test_warm_cache_missing_a_legacy_module_falls_back_to_none(self):
-        """Critical regression test (flagged in PR review): a warm cache that
-        is missing one of the legacy sync's target modules (e.g. a Garak
-        version bump renamed/removed it) must NOT produce a partial preload
-        dict with an empty list for that module. GarakSyncService's legacy
-        sync path treats "zero probes for a listed module" as "every existing
-        test in that module was removed upstream" and deletes them — so a
-        partial preload here would silently wipe the test set instead of
-        falling back to live extraction."""
-        dan_probe = GarakProbeInfo(
-            module_name="dan", class_name="Dan_11_0", full_name="dan.Dan_11_0", description="d"
-        )
-        # Cache is warm and has "dan", but the target also needs "encoding",
-        # which is absent from this (warm) cache.
-        probe_service = _mock_probe_service({"dan": [dan_probe]})
-        current_user = MagicMock(id=uuid4(), organization_id=uuid4())
-        test_set_id = str(uuid4())
-
-        with (
-            patch("rhesis.backend.app.routers.garak.GarakSyncService") as mock_sync_cls,
-            patch("rhesis.backend.app.routers.garak.task_launcher") as mock_launcher,
-        ):
-            mock_sync_cls.return_value.resolve_sync_target.return_value = {
-                "dan": [],
-                "encoding": [],
-            }
-            mock_launcher.return_value = MagicMock(id="task-xyz-789")
-
-            await sync_test_set(
-                test_set_id=test_set_id,
-                db=MagicMock(),
-                tenant_context=(str(current_user.organization_id), str(current_user.id)),
-                current_user=current_user,
-                probe_service=probe_service,
-            )
-
-        _, call_kwargs = mock_launcher.call_args
-        assert call_kwargs["probes_by_module"] is None
-
-    @pytest.mark.asyncio
-    async def test_warm_cache_missing_the_target_probe_class_falls_back_to_none(self):
-        """Same regression, modern single-probe format: the cache has the
-        module but not the specific probe class the test set references."""
-        dan_probe = GarakProbeInfo(
-            module_name="dan", class_name="Dan_10_0", full_name="dan.Dan_10_0", description="d"
-        )
-        probe_service = _mock_probe_service({"dan": [dan_probe]})
-        current_user = MagicMock(id=uuid4(), organization_id=uuid4())
-        test_set_id = str(uuid4())
-
-        with (
-            patch("rhesis.backend.app.routers.garak.GarakSyncService") as mock_sync_cls,
-            patch("rhesis.backend.app.routers.garak.task_launcher") as mock_launcher,
-        ):
-            mock_sync_cls.return_value.resolve_sync_target.return_value = {"dan": ["Dan_11_0"]}
-            mock_launcher.return_value = MagicMock(id="task-xyz-789")
-
-            await sync_test_set(
-                test_set_id=test_set_id,
-                db=MagicMock(),
-                tenant_context=(str(current_user.organization_id), str(current_user.id)),
-                current_user=current_user,
-                probe_service=probe_service,
-            )
-
-        _, call_kwargs = mock_launcher.call_args
-        assert call_kwargs["probes_by_module"] is None
 
     @pytest.mark.asyncio
     async def test_returns_400_when_target_resolution_fails(self):
@@ -369,7 +155,6 @@ class TestSyncTestSetDispatch:
                     db=MagicMock(),
                     tenant_context=(str(current_user.organization_id), str(current_user.id)),
                     current_user=current_user,
-                    probe_service=_mock_probe_service({}),
                 )
 
         assert exc_info.value.status_code == 400

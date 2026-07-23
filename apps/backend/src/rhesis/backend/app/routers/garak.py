@@ -36,7 +36,6 @@ from rhesis.backend.app.services.garak import (
     GarakSyncService,
     GarakTaxonomy,
 )
-from rhesis.backend.app.services.garak.cache import serialize_probes_by_module
 from rhesis.backend.app.services.garak.taxonomy import resolve_behavior
 from rhesis.backend.tasks import task_launcher
 from rhesis.backend.tasks.garak import import_garak_probes_task, sync_garak_test_set_task
@@ -262,7 +261,6 @@ async def import_probes(
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
-    probe_service: GarakProbeService = Depends(get_probe_service),
 ):
     """
     Import selected Garak probes as Rhesis test sets.
@@ -274,35 +272,15 @@ async def import_probes(
     via `GET /jobs/{task_id}`.
     """
     try:
-        # Read the probe cache without ever triggering enumeration on a miss —
-        # that path is CPU-heavy and must not run on the request thread. When
-        # warm, filter down to exactly the requested (module, class) pairs so
-        # only that data is serialized through the Celery dispatch (not whole
-        # modules or the full ~168-probe corpus). When cold — or when the
-        # cache is warm but is missing one of the requested probes (e.g. a
-        # Garak version bump renamed/removed it) — pass no preload data at
-        # all, rather than a partial dict: a partial preload would make the
-        # importer silently skip the missing probe instead of falling back to
-        # live extraction for it.
-        cached_probes_by_module = await probe_service.get_cached_probes()
-        filtered_probes_by_module = None
-        if cached_probes_by_module is not None:
-            needed = {(p.module_name, p.class_name) for p in request.probes}
-            filtered_probes_by_module = {}
-            for module_name, class_name in needed:
-                match = next(
-                    (
-                        p
-                        for p in cached_probes_by_module.get(module_name, [])
-                        if p.class_name == class_name
-                    ),
-                    None,
-                )
-                if match is None:
-                    filtered_probes_by_module = None
-                    break
-                filtered_probes_by_module.setdefault(module_name, []).append(match)
-
+        # Dispatch only the probe identifiers — the task extracts the selected
+        # probes itself in the background. We deliberately do NOT ship probe
+        # data (prompts) through the Celery broker: a single "Full" probe
+        # carries thousands of prompts, so a multi-probe import would push
+        # megabytes through the broker on one dispatch. Per-probe extraction in
+        # the worker is bounded to the selected classes and dwarfed by the
+        # test/prompt row writes the import does anyway. (The synchronous
+        # preview endpoints still reuse the warm cache — there blocking the
+        # request thread on enumeration is what we must avoid.)
         task_result = task_launcher(
             import_garak_probes_task,
             current_user=current_user,
@@ -310,11 +288,6 @@ async def import_probes(
             probes=[p.model_dump() for p in request.probes],
             name_prefix=request.name_prefix,
             description_template=request.description_template,
-            probes_by_module=(
-                serialize_probes_by_module(filtered_probes_by_module)
-                if filtered_probes_by_module is not None
-                else None
-            ),
         )
 
         return GarakImportTaskResponse(
@@ -385,7 +358,6 @@ async def sync_test_set(
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
-    probe_service: GarakProbeService = Depends(get_probe_service),
 ):
     """
     Sync a Garak-imported test set with the latest probes.
@@ -399,47 +371,19 @@ async def sync_test_set(
         organization_id, _ = tenant_context
 
         sync_service = GarakSyncService(db)
-        # Resolve which probe class(es) this test set needs, so we only
-        # serialize the relevant subset of the probe cache through the Celery
-        # task dispatch (not the entire ~168-probe corpus). Raises ValueError
-        # (-> 400 below) for the same conditions sync_test_set itself checks.
-        target = sync_service.resolve_sync_target(test_set_id, organization_id)
-
-        # Read the cache without ever triggering enumeration on a miss — that
-        # path is CPU-heavy and must not run on the request thread. When cold
-        # — or when the cache is warm but is missing one of the target
-        # module(s)/probe(s) (e.g. a Garak version bump renamed/removed it) —
-        # pass no preload data at all, rather than a partial dict: for the
-        # legacy multi-module sync path in particular, a partial preload
-        # (some modules resolving to zero probes) would make the diff below
-        # treat every existing prompt in that module as "no longer present"
-        # and delete it, instead of falling back to live extraction.
-        cached_probes_by_module = await probe_service.get_cached_probes()
-        filtered_probes_by_module = None
-        if cached_probes_by_module is not None:
-            filtered_probes_by_module = {}
-            for module_name, class_names in target.items():
-                module_probes = cached_probes_by_module.get(module_name, [])
-                filtered = (
-                    [p for p in module_probes if p.class_name in class_names]
-                    if class_names
-                    else module_probes
-                )
-                if not filtered:
-                    filtered_probes_by_module = None
-                    break
-                filtered_probes_by_module[module_name] = filtered
+        # Validate the test set is syncable up front so an invalid request
+        # gets a synchronous 400 (via the ValueError handler below) instead of
+        # a background task that fails silently. This is a cheap metadata read
+        # — no probe extraction. The task re-resolves and extracts the probes
+        # itself in the background; we deliberately don't ship probe data
+        # (prompts) through the Celery broker (see import_probes for why).
+        sync_service.resolve_sync_target(test_set_id, organization_id)
 
         task_result = task_launcher(
             sync_garak_test_set_task,
             current_user=current_user,
             db=db,
             test_set_id=test_set_id,
-            probes_by_module=(
-                serialize_probes_by_module(filtered_probes_by_module)
-                if filtered_probes_by_module is not None
-                else None
-            ),
         )
 
         return GarakSyncTaskResponse(

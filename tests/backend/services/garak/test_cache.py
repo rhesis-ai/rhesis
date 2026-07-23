@@ -5,12 +5,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from rhesis.backend.app.services.garak.cache import (
-    GarakProbeCache,
-    deserialize_probes_by_module,
-    serialize_probes_by_module,
-)
-from rhesis.backend.app.services.garak.probes import GarakProbeInfo
+from rhesis.backend.app.services.garak.cache import GarakProbeCache
 
 
 @pytest.fixture(autouse=True)
@@ -130,35 +125,3 @@ class TestGarakProbeCacheReadReplicaRuntime:
         await GarakProbeCache.get("0.1.0")
 
         assert cache_key in GarakProbeCache._memory_cache
-
-
-@pytest.mark.unit
-class TestProbesByModuleSerialization:
-    """Tests for serialize_probes_by_module / deserialize_probes_by_module."""
-
-    def test_round_trip_preserves_probe_data(self):
-        probes_by_module = {
-            "dan": [
-                GarakProbeInfo(
-                    module_name="dan",
-                    class_name="Dan_11_0",
-                    full_name="dan.Dan_11_0",
-                    description="DAN probe",
-                    tags=["jailbreak"],
-                    prompts=["p1", "p2"],
-                    prompt_count=2,
-                    detector="garak.detectors.mitigation.MitigationBypass",
-                )
-            ]
-        }
-
-        serialized = serialize_probes_by_module(probes_by_module)
-        # Must be plain JSON-serializable data (no dataclass instances).
-        json.dumps(serialized)
-
-        deserialized = deserialize_probes_by_module(serialized)
-
-        assert deserialized == probes_by_module
-
-    def test_empty_dict_round_trips(self):
-        assert deserialize_probes_by_module(serialize_probes_by_module({})) == {}

@@ -35,31 +35,29 @@ def import_garak_probes_task(
     probes: List[Dict[str, Any]],
     name_prefix: Optional[str],
     description_template: Optional[str],
-    probes_by_module: Optional[Dict[str, List[Dict]]],
 ) -> Dict[str, Any]:
     """
     Import selected Garak probes as Rhesis test sets.
+
+    The task extracts the selected probe classes itself (via the importer's
+    per-probe extraction). We deliberately do not ship pre-fetched probe data
+    through the Celery broker: a single "Full" probe carries thousands of
+    prompts, so passing the payload would put megabytes on the broker per
+    dispatch. Extraction here is bounded to the selected classes, runs in the
+    worker (not the request thread), and is dwarfed by the test/prompt row
+    writes the import performs anyway.
 
     Args:
         probes: List of probe selections (module_name, class_name, custom_name
             dicts, from GarakProbeSelection.model_dump())
         name_prefix: Prefix for auto-generated test set names
         description_template: Optional description template
-        probes_by_module: Pre-fetched probe data (from the Garak probe cache),
-            filtered to only the exact probes referenced by ``probes`` —
-            avoids re-instantiating Garak probe classes inside the task. May
-            be None when the router found the cache cold; the importer then
-            falls back to targeted per-probe extraction (its pre-cache
-            behavior), which is safe here since it runs in the worker rather
-            than on the request thread.
 
     Returns:
         dict: Same shape as GarakImporter.import_probes() — test_sets,
         total_test_sets, total_tests, garak_version. test_set_id is coerced
-        to str for a consistent, JSON-native result across both the preloaded
-        and live-extraction paths.
+        to str for a consistent, JSON-native result.
     """
-    from rhesis.backend.app.services.garak.cache import deserialize_probes_by_module
     from rhesis.backend.app.services.garak.importer import GarakImporter, ProbeSelection
 
     org_id, user_id, _ = self.get_tenant_context()
@@ -68,8 +66,6 @@ def import_garak_probes_task(
 
     with self.get_db_session() as db:
         importer = GarakImporter(db)
-        if probes_by_module is not None:
-            importer.preload_probes(deserialize_probes_by_module(probes_by_module))
         result = importer.import_probes(
             probes=probe_selections,
             name_prefix=name_prefix,
@@ -95,32 +91,27 @@ def import_garak_probes_task(
 def sync_garak_test_set_task(
     self,
     test_set_id: str,
-    probes_by_module: Optional[Dict[str, List[Dict]]],
 ) -> Dict[str, Any]:
     """
     Sync a Garak-imported test set with the latest probe.
 
+    The task extracts the test set's probe class(es) itself. As with
+    ``import_garak_probes_task``, probe data is deliberately not shipped
+    through the Celery broker (a "Full" probe's thousands of prompts would put
+    megabytes on the broker); extraction runs in the worker and is bounded to
+    the test set's own probe class(es).
+
     Args:
         test_set_id: ID of the test set to sync
-        probes_by_module: Pre-fetched probe data (from the Garak probe cache),
-            filtered to the probe class(es) referenced by the test set —
-            avoids re-instantiating Garak probe classes inside the task. May
-            be None when the router found the cache cold; the sync service
-            then falls back to live extraction (its pre-cache behavior),
-            which is safe here since it runs in the worker rather than on the
-            request thread.
 
     Returns:
         dict: Fields of GarakSyncService's SyncResult dataclass.
     """
-    from rhesis.backend.app.services.garak.cache import deserialize_probes_by_module
     from rhesis.backend.app.services.garak.sync import GarakSyncService
 
     org_id, user_id, _ = self.get_tenant_context()
 
     with self.get_db_session() as db:
         sync_service = GarakSyncService(db)
-        if probes_by_module is not None:
-            sync_service.preload_probes(deserialize_probes_by_module(probes_by_module))
         result = sync_service.sync_test_set(test_set_id, org_id, user_id)
         return asdict(result)

@@ -483,67 +483,6 @@ class TestGarakProbeServiceGetProbe:
 
 @pytest.mark.unit
 @pytest.mark.service
-class TestGarakProbeServiceGetCachedProbes:
-    """Tests for get_cached_probes — a GET-only cache read that must never
-    trigger enumeration on a miss, unlike enumerate_probe_modules_cached."""
-
-    @pytest.mark.asyncio
-    async def test_returns_none_on_cache_miss_without_enumerating(self):
-        service = GarakProbeService()
-
-        with (
-            patch(
-                "rhesis.backend.app.services.garak.cache.GarakProbeCache.initialize",
-                new=AsyncMock(),
-            ),
-            patch(
-                "rhesis.backend.app.services.garak.cache.GarakProbeCache.get",
-                new=AsyncMock(return_value=None),
-            ),
-            patch.object(service, "enumerate_probe_modules") as mock_enumerate,
-            patch.object(service, "extract_probes_from_module") as mock_extract,
-        ):
-            result = await service.get_cached_probes()
-
-        assert result is None
-        mock_enumerate.assert_not_called()
-        mock_extract.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_returns_deserialized_probes_on_cache_hit(self):
-        service = GarakProbeService()
-        cached_data = {
-            "modules": [],
-            "probes_by_module": {
-                "dan": [
-                    {
-                        "module_name": "dan",
-                        "class_name": "Dan_11_0",
-                        "full_name": "dan.Dan_11_0",
-                        "description": "d",
-                    }
-                ]
-            },
-        }
-
-        with (
-            patch(
-                "rhesis.backend.app.services.garak.cache.GarakProbeCache.initialize",
-                new=AsyncMock(),
-            ),
-            patch(
-                "rhesis.backend.app.services.garak.cache.GarakProbeCache.get",
-                new=AsyncMock(return_value=cached_data),
-            ),
-        ):
-            result = await service.get_cached_probes()
-
-        assert result is not None
-        assert result["dan"][0].class_name == "Dan_11_0"
-
-
-@pytest.mark.unit
-@pytest.mark.service
 class TestGarakProbeServiceEnumerateCachedConcurrency:
     """Regression test for a cache-stampede bug: enumerate_probe_modules_cached
     offloads the cold-cache "enumerate + populate" path to a worker thread so
@@ -639,4 +578,3 @@ class TestGarakProbeServiceEnumerateCachedConcurrency:
             new_loop.run_until_complete(_contend())
         finally:
             new_loop.close()
-

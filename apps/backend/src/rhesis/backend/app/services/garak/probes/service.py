@@ -625,34 +625,6 @@ class GarakProbeService:
 
             return modules, probes_by_module
 
-    async def get_cached_probes(self) -> Optional[Dict[str, List[GarakProbeInfo]]]:
-        """
-        Return cached probe data if present, WITHOUT enumerating on a miss.
-
-        Unlike ``enumerate_probe_modules_cached``, this never triggers the
-        expensive full-corpus enumeration — it is a plain Redis GET. Callers on
-        the request path (e.g. Garak import/sync dispatch) use this to reuse the
-        cache when it is warm while never blocking the event loop on a cold
-        cache; on a miss they fall back to targeted, background extraction.
-
-        Returns:
-            probes_by_module dict if the cache is warm, otherwise None.
-        """
-        from rhesis.backend.app.services.garak.cache import (
-            GarakProbeCache,
-            deserialize_probe_data,
-        )
-
-        # Idempotent; safe to call outside app lifespan (tests, workers, etc.).
-        await GarakProbeCache.initialize()
-
-        cached_data = await GarakProbeCache.get(self.garak_version)
-        if not cached_data:
-            return None
-
-        _, probes_by_module = deserialize_probe_data(cached_data)
-        return probes_by_module
-
     async def warm_cache(self) -> bool:
         """
         Pre-warm the probe cache.
