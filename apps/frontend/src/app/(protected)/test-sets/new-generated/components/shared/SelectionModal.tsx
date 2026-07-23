@@ -26,7 +26,12 @@ export interface SelectionCardConfig {
   buttonLabel: string;
   buttonVariant: 'contained' | 'outlined';
   buttonColor?:
-    'primary' | 'secondary' | 'warning' | 'error' | 'info' | 'success';
+    | 'primary'
+    | 'secondary'
+    | 'warning'
+    | 'error'
+    | 'info'
+    | 'success';
   onClick: () => void;
   preview?: ReactNode;
 }

@@ -260,7 +260,8 @@ export default function TraceReviewsTab({
 
     for (const section of ['turn_metrics', 'conversation_metrics']) {
       const sectionData = traceMetrics[section] as
-        Record<string, unknown> | undefined;
+        | Record<string, unknown>
+        | undefined;
       const metrics = (sectionData?.metrics ?? {}) as Record<
         string,
         { is_successful?: boolean }
