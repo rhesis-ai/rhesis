@@ -36,7 +36,7 @@ from rhesis.backend.app.utils.crud_utils import (
     update_item,
 )
 from rhesis.backend.app.utils.name_generator import generate_memorable_name
-from rhesis.backend.app.utils.query_utils import QueryBuilder, _resolve_chain, include
+from rhesis.backend.app.utils.query_utils import QueryBuilder, include, resolve_chain
 
 logger = logging.getLogger(__name__)
 
@@ -4210,7 +4210,7 @@ def get_trace_by_id(
     # Add eager loading if specified
     if eager_load:
         options = [
-            include(*_resolve_chain(models.Trace, relationship.split(".")))
+            include(*resolve_chain(models.Trace, relationship.split(".")))
             for relationship in eager_load
         ]
         builder = builder.with_related(*options)

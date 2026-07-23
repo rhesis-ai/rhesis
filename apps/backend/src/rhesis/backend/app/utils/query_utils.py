@@ -25,7 +25,7 @@ T = TypeVar("T")
 _MAX_EAGER_LOADS_WARN = 12
 
 
-def _resolve_chain(model: Type, names: list) -> tuple:
+def resolve_chain(model: Type, names: list) -> tuple:
     """Resolve a runtime ``[name, ...]`` relationship-name chain into a tuple of
     real attributes, one per hop, starting from ``model``.
 
@@ -178,12 +178,12 @@ class QueryBuilder:
             if issubclass(self.model, mixin):
                 _add(list(chain))
         for chain in chains:
-            # _resolve_chain turns the runtime [name, ...] chain into a tuple of
+            # resolve_chain turns the runtime [name, ...] chain into a tuple of
             # real attributes; include() picks joinedload vs. selectinload per hop
             # from each one's own cardinality, whether the chain is a single hop
             # (comments/tasks/files/tags) or multi-hop (_tags_relationship -> tag)
             # -- no special-casing needed for either length.
-            self.with_related(include(*_resolve_chain(self.model, chain)))
+            self.with_related(include(*resolve_chain(self.model, chain)))
 
         # Cascade one level into joined-in single-object relations (the ones
         # with_optimized_loads/with_related eager-load via joinedload) whose
