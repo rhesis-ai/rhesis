@@ -12,7 +12,7 @@ from typing import Union
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
-from rhesis.backend.app.config.settings import get_model_settings
+from rhesis.backend.app.config.settings import get_model_settings, get_rhesis_settings
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.model_errors import ModelConfigurationError
 from rhesis.sdk.models.base import BaseEmbedder, BaseLLM
@@ -428,9 +428,21 @@ def _fetch_and_configure_model(
     if _is_rhesis_system_model(provider, api_key):
         return default_model
 
-    # Special handling for Polyphemus models without API keys (use delegation tokens)
-    if provider == "polyphemus" and not api_key and user:
-        return _call_polyphemus_with_delegation(user, model_name)
+    # Special handling for Polyphemus models without a stored API key.
+    #
+    # - Self-hosted deployments configure a real RHESIS_API_KEY and call
+    #   Polyphemus directly with it (same path as any other provider below).
+    # - Rhesis-hosted (SaaS) deployments have no such key configured, so we
+    #   mint a short-lived delegation token on the user's behalf instead.
+    #   Delegation only validates because the backend and Polyphemus share
+    #   the same JWT_SECRET_KEY there; a self-hosted backend's secret would
+    #   be meaningless to the externally-hosted Polyphemus service, so a
+    #   configured RHESIS_API_KEY always takes precedence when present.
+    if provider == "polyphemus" and not api_key:
+        if get_rhesis_settings().api_key:
+            logger.debug("Using configured RHESIS_API_KEY for Polyphemus (self-hosted mode)")
+        elif user:
+            return _call_polyphemus_with_delegation(user, model_name)
 
     # Use SDK's get_model to create configured instance with error handling
     try:
