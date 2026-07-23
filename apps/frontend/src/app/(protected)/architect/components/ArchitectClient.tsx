@@ -16,6 +16,7 @@ import {
   pickResumableSessionId,
   writeResumeHint,
 } from '@/utils/architect-resume';
+import { takePendingHandoffMessage } from '@/utils/architect-handoff';
 import ArchitectSidebar from './ArchitectSidebar';
 import ArchitectChat from './ArchitectChat';
 import ArchitectWelcome from './ArchitectWelcome';
@@ -112,6 +113,16 @@ export default function ArchitectClient() {
     const selectFromQuery = async () => {
       const client = getClient();
       if (!client) return;
+
+      // Contextual handoffs (e.g. Insights → Summarize) stash their first
+      // message under the session id instead of starting the turn on the
+      // backend. Pick it up here and route it through the same auto-send path
+      // the welcome screen uses, so the Architect starts working as soon as
+      // this tab is connected — no lost events, no need for a manual "go".
+      const pendingHandoff = takePendingHandoffMessage(sessionFromQuery);
+      if (pendingHandoff) {
+        setPendingMessage(pendingHandoff);
+      }
 
       setActiveSessionId(sessionFromQuery);
       touchResumeHint(sessionFromQuery);
