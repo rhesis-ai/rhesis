@@ -7,7 +7,6 @@ import {
 
 export const TEST_DRAWER_FILTER_FIELDS = [
   'test_type.type_value',
-  'status.name',
   'behavior.name',
   'category.name',
   'topic.name',
@@ -67,13 +66,6 @@ export function applyTestDrawerFiltersToModel(
       field: 'test_type.type_value',
       operator: 'equals',
       value: drawerFilters.testType,
-    });
-  }
-  if (drawerFilters.status) {
-    drawerItems.push({
-      field: 'status.name',
-      operator: 'equals',
-      value: drawerFilters.status,
     });
   }
   if (drawerFilters.behavior) {
