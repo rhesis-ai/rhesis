@@ -1,5 +1,7 @@
 import {
+  clearPendingHandoffMessage,
   createAndOpenArchitectSession,
+  peekPendingHandoffMessage,
   takePendingHandoffMessage,
 } from '../architect-handoff';
 
@@ -120,6 +122,34 @@ describe('takePendingHandoffMessage', () => {
       JSON.stringify({ message: 'stale', createdAt: 0 })
     );
     expect(takePendingHandoffMessage('sess-old', storage)).toBeNull();
+  });
+});
+
+describe('peekPendingHandoffMessage / clearPendingHandoffMessage', () => {
+  it('peek is non-destructive: repeated peeks return the same message', () => {
+    const storage = createMockStorage();
+    createAndOpenArchitectSessionStash(storage);
+
+    expect(peekPendingHandoffMessage('sess-1', storage)).toBe('hello');
+    expect(peekPendingHandoffMessage('sess-1', storage)).toBe('hello');
+  });
+
+  it('clear removes the entry so a later peek returns null', () => {
+    const storage = createMockStorage();
+    createAndOpenArchitectSessionStash(storage);
+
+    expect(peekPendingHandoffMessage('sess-1', storage)).toBe('hello');
+    clearPendingHandoffMessage('sess-1', storage);
+    expect(peekPendingHandoffMessage('sess-1', storage)).toBeNull();
+  });
+
+  it('peek ignores an expired envelope', () => {
+    const storage = createMockStorage();
+    storage.setItem(
+      'architect:pendingHandoff:sess-old',
+      JSON.stringify({ message: 'stale', createdAt: 0 })
+    );
+    expect(peekPendingHandoffMessage('sess-old', storage)).toBeNull();
   });
 });
 

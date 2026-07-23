@@ -60,29 +60,27 @@ export function stashPendingHandoffMessage(
 }
 
 /**
- * Read and remove the pending handoff message for a session. Returns null when
- * absent, expired, or unreadable. Consuming it here (single-use) prevents the
- * message from being re-sent on a subsequent reload of the same session.
+ * Read (without removing) the pending handoff message for a session. Returns
+ * null when absent, expired, or unreadable.
+ *
+ * Reading is deliberately non-destructive: the entry is removed only once the
+ * message has actually been sent (see `clearPendingHandoffMessage`). This keeps
+ * it single-use *at send time*, so a failed session lookup leaves the message
+ * available for a retry, and a message that was already sent is never resent.
  */
-export function takePendingHandoffMessage(
+export function peekPendingHandoffMessage(
   sessionId: string,
   storage?: Storage | null
 ): string | null {
   const store = resolveStorage(storage);
   if (!store) return null;
-  const key = `${PENDING_HANDOFF_PREFIX}${sessionId}`;
   let raw: string | null;
   try {
-    raw = store.getItem(key);
+    raw = store.getItem(`${PENDING_HANDOFF_PREFIX}${sessionId}`);
   } catch {
     return null;
   }
   if (!raw) return null;
-  try {
-    store.removeItem(key);
-  } catch {
-    // Best effort — fall through and still try to return the message.
-  }
   try {
     const parsed = JSON.parse(raw) as PendingHandoffEnvelope;
     if (!parsed?.message) return null;
@@ -93,6 +91,36 @@ export function takePendingHandoffMessage(
   } catch {
     return null;
   }
+}
+
+/** Remove the pending handoff message for a session (call after it is sent). */
+export function clearPendingHandoffMessage(
+  sessionId: string,
+  storage?: Storage | null
+): void {
+  const store = resolveStorage(storage);
+  if (!store) return;
+  try {
+    store.removeItem(`${PENDING_HANDOFF_PREFIX}${sessionId}`);
+  } catch {
+    // Best effort.
+  }
+}
+
+/**
+ * Read and remove the pending handoff message in one step (single-use). Prefer
+ * `peekPendingHandoffMessage` + `clearPendingHandoffMessage` when the removal
+ * should be tied to the message actually being sent.
+ */
+export function takePendingHandoffMessage(
+  sessionId: string,
+  storage?: Storage | null
+): string | null {
+  const message = peekPendingHandoffMessage(sessionId, storage);
+  if (message !== null) {
+    clearPendingHandoffMessage(sessionId, storage);
+  }
+  return message;
 }
 
 /**
