@@ -76,6 +76,7 @@ export interface Endpoint {
   // Nested status object (when included in response)
   status?: Status;
 
+  auth_type?: 'bearer_token' | 'client_credentials' | 'api_key';
   has_auth_token?: boolean;
 
   // Note: auth_token, client_secret, last_token are write-only fields

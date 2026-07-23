@@ -33,6 +33,7 @@ import {
   AccountTreeIcon,
   EngineeringIcon,
   BuildIcon,
+  CloudSyncIcon,
 } from '@/components/icons';
 import { auth } from '../auth';
 import { handleSignIn, handleSignOut } from '../actions/auth';
@@ -228,6 +229,20 @@ async function getNavigationItems(session: Session | null): Promise<{
       icon: <VpnKeyIcon key="tokens-icon" />,
       requiredPermission: Capability.Token.MANAGE,
     },
+    // Platform Sync — local dev only. Pull models/endpoints/etc. from the
+    // platform into this local deployment. Hidden outside local mode; the
+    // backend also refuses these routes (404) on production/cloud.
+    ...(process.env.NEXT_PUBLIC_FRONTEND_ENV?.toLowerCase() === 'local'
+      ? [
+          {
+            kind: 'page',
+            segment: 'platform-sync',
+            title: 'Platform Sync',
+            icon: <CloudSyncIcon key="platform-sync-icon" />,
+            requiredPermission: Capability.Model.CREATE,
+          },
+        ]
+      : []),
     // Divider before footer links
     {
       kind: 'divider',

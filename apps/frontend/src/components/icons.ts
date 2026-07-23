@@ -17,6 +17,7 @@ export { default as StorageIcon } from '@mui/icons-material/StorageOutlined';
 export { default as CodeIcon } from '@mui/icons-material/CodeOutlined';
 export { default as DataObjectIcon } from '@mui/icons-material/DataObjectOutlined';
 export { default as CloudIcon } from '@mui/icons-material/CloudOutlined';
+export { default as CloudSyncIcon } from '@mui/icons-material/CloudSyncOutlined';
 export { default as AnalyticsIcon } from '@mui/icons-material/AnalyticsOutlined';
 export { default as ShoppingCartIcon } from '@mui/icons-material/ShoppingCartOutlined';
 export { default as TerminalIcon } from '@mui/icons-material/TerminalOutlined';

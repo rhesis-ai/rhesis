@@ -9,6 +9,7 @@ import React, {
 } from 'react';
 import { useRouter } from 'next/navigation';
 import { Box, Typography, useTheme, Alert } from '@mui/material';
+import { alpha } from '@mui/material/styles';
 import GridBadge from '@/components/common/GridBadge';
 import GridToolbar from '@/components/common/GridToolbar';
 import {
@@ -304,6 +305,27 @@ export default function EndpointsGrid({
         field: 'name',
         headerName: 'Name',
         flex: 1.2,
+        renderCell: params => {
+          const endpoint = params.row as Endpoint;
+          // Auth is configured but no token/secret is stored — e.g. after a
+          // platform sync, which never receives secrets.
+          const needsAuth =
+            !!endpoint.auth_type && endpoint.has_auth_token === false;
+          return (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography variant="body2">{endpoint.name}</Typography>
+              {needsAuth && (
+                <GridBadge
+                  label="Needs auth"
+                  sx={{
+                    color: 'warning.dark',
+                    bgcolor: theme => alpha(theme.palette.warning.main, 0.15),
+                  }}
+                />
+              )}
+            </Box>
+          );
+        },
       },
       {
         field: 'connection_type',

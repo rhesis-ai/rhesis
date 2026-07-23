@@ -37,6 +37,7 @@ export const API_ENDPOINTS = {
   tools: '/tools',
   telemetry: '/telemetry',
   files: '/files',
+  platformSync: '/platform-sync',
 } as const;
 
 export const ENTITY_TYPES = {

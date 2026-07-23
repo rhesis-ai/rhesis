@@ -62,7 +62,16 @@ export function ConnectedModelCard({
     model.name?.toLowerCase().includes('polyphemus');
 
   const polyphemusAccess = userSettings?.polyphemus_access;
-  const showPolyphemusRestricted = isPolyphemus && !isVerified;
+  // A Polyphemus model with a stored key authenticates with that key (not the
+  // verification-gated delegation path), so it is not access-restricted.
+  const showPolyphemusRestricted =
+    isPolyphemus && !isVerified && !model.has_key;
+
+  // rhesis/polyphemus models are legitimately keyless (empty key + service
+  // delegation); every other provider needs a stored API key to authenticate.
+  const isKeylessProvider =
+    isPolyphemus || model.provider_type?.type_value === 'rhesis';
+  const needsApiKey = !isKeylessProvider && model.has_key === false;
 
   const hasRequestedAccess =
     !!polyphemusAccess?.requested_at &&
@@ -122,6 +131,21 @@ export function ConnectedModelCard({
       <Chip
         icon={<CloseIcon />}
         label="Access Required"
+        size="small"
+        variant="outlined"
+        sx={{
+          width: '100%',
+          color: 'warning.main',
+          borderColor: 'warning.main',
+          '& .MuiChip-icon': { color: 'warning.main', opacity: 0.7 },
+        }}
+      />
+    </Box>
+  ) : needsApiKey ? (
+    <Box onClick={e => e.stopPropagation()}>
+      <Chip
+        icon={<VpnKeyIcon />}
+        label="Needs API key"
         size="small"
         variant="outlined"
         sx={{

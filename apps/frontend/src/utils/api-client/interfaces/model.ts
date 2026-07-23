@@ -13,6 +13,8 @@ export interface Model {
   model_type?: 'language' | 'embedding';
   endpoint: string;
   key: string;
+  /** True when a provider API key is stored. The key itself is write-only and never returned. */
+  has_key?: boolean;
   request_headers?: Record<string, string>;
   is_protected?: boolean;
   tags: string[];

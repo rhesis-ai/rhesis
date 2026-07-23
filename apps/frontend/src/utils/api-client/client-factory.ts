@@ -36,6 +36,7 @@ import { PermissionsClient } from './permissions-client';
 import { ParametersClient } from './parameters-client';
 import { PreflightClient } from './preflight-client';
 import { ResolveClient } from './resolve-client';
+import { PlatformSyncClient } from './platform-sync-client';
 
 export class ApiClientFactory {
   private sessionToken?: string;
@@ -61,6 +62,7 @@ export class ApiClientFactory {
   private parametersClient: ParametersClient | null = null;
   private preflightClient: PreflightClient | null = null;
   private resolveClient: ResolveClient | null = null;
+  private platformSyncClient: PlatformSyncClient | null = null;
 
   /**
    * @param sessionToken The user's session token. Server-side callers pass one
@@ -380,5 +382,16 @@ export class ApiClientFactory {
       );
     }
     return this.resolveClient;
+  }
+
+  getPlatformSyncClient(): PlatformSyncClient {
+    if (!this.platformSyncClient) {
+      this.platformSyncClient = new PlatformSyncClient(
+        this.sessionToken,
+        undefined,
+        this.projectId
+      );
+    }
+    return this.platformSyncClient;
   }
 }
