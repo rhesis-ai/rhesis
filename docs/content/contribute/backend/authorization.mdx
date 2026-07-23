@@ -75,8 +75,10 @@ per process; EE swaps it in at bootstrap.
 **EE — `PermissionAuthorizationProvider`** (`ee/backend/.../rbac/provider.py`):
 
 1. RBAC not licensed for the org → delegate to the community provider.
-2. Resolve the effective role: a project membership's `role_id` overrides the
-   org membership's `role_id` (override, not union).
+2. Resolve the effective role. Admin and Owner have implicit project access;
+   Member and Viewer require a project membership. When both org and explicit
+   project roles exist, the higher-level role wins, so a project role can
+   elevate access but cannot restrict the org role.
 3. No role at either tier → deny.
 4. Role lacks the permission → deny.
 5. Token carries `scopes` and the permission is not in them → deny (SP9).
@@ -157,7 +159,7 @@ migration. Their permission sets are computed from code
 | Role | Level | Permissions |
 |------|-------|-------------|
 | Owner | 100 | Everything |
-| Admin | 80 | Everything except `role:manage`, `role:read`, `sso:manage`, `api_clients:manage` |
+| Admin | 80 | Everything except `role:manage`, `sso:manage`, `api_clients:manage`; includes `role:read` for assigning roles |
 | Member | 60 | Viewer + create/update/delete/execute/generate/import/react on every project-scoped resource |
 | Viewer | 40 | Every `:read` except `role:read`/`token:read`, plus `recycle:view` |
 | None | 0 | Nothing |

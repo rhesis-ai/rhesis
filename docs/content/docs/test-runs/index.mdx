@@ -4,6 +4,17 @@ A test run is created when you execute a test set against an endpoint. It captur
 
 ![Test Runs Page](/screenshots/rhesis-ai-test-runs.png)
 
+## Test Runs List
+
+Use the list to compare status, pass rate, executor, and review activity across
+runs. The **Reviews** column shows how many tests received human reviews. Hover
+the value to see how many reviewed tests were corrected because the human verdict
+changed the automated result.
+
+Open the filter drawer and set **Reviews** to **With** or **Without** to include
+only runs that have reviews or runs that do not. This filter is applied by the
+`has_reviews` list parameter.
+
 By clicking on a test run, you'll see the overview of how the test run went. From here you can:
 
 - **Review**: Manually revise the automated test evaluation
@@ -101,6 +112,10 @@ effective status in the test run views.
   In review comments, type `@` to mention metrics or turns. The first metric or turn mention determines the
   review target automatically.
 </Callout>
+
+On a test run detail page, open the filter drawer and use **Review Status** to
+show reviewed, unreviewed, or conflicting results. **Conflicting** shows results
+where a human review disagrees with the automated verdict.
 
 <CodeBlock filename="review-mention-format.txt" language="text">
 {`@[Goal Achievement](metric:goal-achievement)
