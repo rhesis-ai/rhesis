@@ -74,7 +74,7 @@ For complex tests that need more executions:
 ```python
 agent = PenelopeAgent(
     max_iterations=20,  # Allow more turns
-    max_tool_executions=150  # Override default (20 × 5 = 100)
+    max_tool_executions=150,  # Override default (20 × 5 = 100)
 )
 ```
 
