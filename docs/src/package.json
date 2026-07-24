@@ -1,4 +1,7 @@
 {
+  "engines": {
+    "node": ">=20.9.0"
+  },
   "scripts": {
     "generate-glossary": "node ../scripts/generate-glossary-pages.js",
     "prebuild": "npm run generate-glossary",
