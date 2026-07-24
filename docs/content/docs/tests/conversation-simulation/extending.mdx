@@ -74,13 +74,37 @@ target = EndpointTarget(endpoint_id="your-endpoint-id")`}
 <CodeBlock filename="langchain_target.py" language="python">
 {`from rhesis.penelope import LangChainTarget
 
-target = LangChainTarget(chain=my_chain)`}
+target = LangChainTarget(
+    runnable=my_chain,
+    target_id="support-bot",
+    description="Customer support chatbot",
+)`}
 </CodeBlock>
 
 <CodeBlock filename="langgraph_target.py" language="python">
 {`from rhesis.penelope import LangGraphTarget
 
-target = LangGraphTarget(graph=my_graph)`}
+target = LangGraphTarget(
+    graph=my_graph,
+    target_id="support-agent",
+    description="Customer support agent",
+)`}
+</CodeBlock>
+
+<CodeBlock filename="pydantic_ai_target.py" language="python">
+{`from pydantic_ai import Agent
+from rhesis.penelope import PydanticAITarget
+
+pydantic_agent = Agent(
+    "openai:gpt-4o",
+    name="support-agent",
+    instructions="Help customers resolve support requests.",
+)
+target = PydanticAITarget(
+    agent=pydantic_agent,
+    target_id="support-agent",
+    description="Customer support agent",
+)`}
 </CodeBlock>
 
 <CodeBlock filename="maf_target.py" language="python">
@@ -96,6 +120,44 @@ target = MAFTarget(maf_agent, target_id="maf-bot")`}
 </CodeBlock>
 
 The MAF target preserves multi-turn context by keeping a MAF thread/session object per `conversation_id`, and bridges MAF's async `run()` to Penelope's synchronous target contract - so you can drive any MAF agent through Penelope's multi-turn testing without changing the agent.
+
+`PydanticAITarget` accepts these constructor parameters:
+
+| Parameter | Required | Description |
+|---|---|---|
+| `agent` | Yes | A Pydantic AI agent that provides `run_sync()` and `run()` |
+| `target_id` | Yes | A unique identifier for the system under test |
+| `description` | No | A human-readable description; defaults to a label containing the target ID |
+
+### Async and file-aware targets
+
+Use `a_execute_test()` when Penelope runs inside an event loop. LangChain and
+LangGraph targets call their native `ainvoke()` methods, while Pydantic AI calls
+`Agent.run()`. This avoids blocking the event loop during target execution.
+
+<CodeBlock filename="async_penelope.py" language="python">
+{`result = await agent.a_execute_test(
+    target=target,
+    goal="Resolve a customer's refund request",
+    files=attachments,
+)`}
+</CodeBlock>
+
+LangChain, LangGraph, and Pydantic AI targets accept file attachments as inline
+dictionaries or object-storage-backed `FileReference` objects. Text and PDF
+extractions are passed as text; other files become framework-native multimodal
+content blocks. The async path fetches object-storage bytes with `aread_bytes()`.
+
+<Callout type="info">
+  LangChain targets with attachments bypass string-based prompt templating so the
+  files remain real content blocks. Use a runnable that accepts a `HumanMessage`
+  or message list directly; extra template keyword arguments are not applied on
+  this path.
+</Callout>
+
+See [Multi-modal Testing](/docs/tests/multimodal-testing) for the platform workflow
+and [Connector File Attachments](/sdk/connector/files) for `FileReference` fields
+and byte access.
 
 ### Built-in Tools
 

@@ -39,7 +39,7 @@ test_set = synthesizer.generate(num_tests=20)`}
 </CodeBlock>
 
 <Callout type="info">
-  `OwaspSynthesizer` enables adversarial-only generation by default. For general-purpose synthesizers, pass `harmful=True` explicitly.
+  `OWASPSynthesizer` enables adversarial-only generation by default. For general-purpose synthesizers, pass `harmful=True` explicitly.
 </Callout>
 
 ## Available Synthesizers
@@ -137,6 +137,38 @@ for test in test_set.tests:
 `OWASPSynthesizer` always creates harmful single-turn tests. It spreads `num_tests`
 across the selected OWASP categories and tags each test with
 `metadata["owasp_category"]` and `metadata["owasp_name"]`.
+
+The synthesizer downloads the selected report when `generate()` first runs, splits
+the PDF into risk sections, and uses the official section text as generation
+context. It does not use a hardcoded attack list.
+
+| Parameter | Default | Description |
+|---|---|---|
+| `purpose` | Required | What the system under test does; used to tailor every attack |
+| `report_url` | OWASP LLM Top 10 v2025 PDF | Direct URL to a compatible OWASP Top 10 report |
+| `categories` | All report sections | Section IDs to include, such as `["llm01", "llm07"]` |
+| `subsection_exclusions` | `DEFAULT_SUBSECTION_EXCLUSIONS` | Headings to remove from each section; pass an empty collection to retain all subsections |
+| `batch_size` | `10` | Maximum attacks generated per model call for each section |
+| `model` | Default Rhesis model | Model name or `BaseLLM` used for generation |
+| `behavior` | `"OWASP LLM Top 10"` | Behavior label stored on generated tests for analytics |
+
+Use the Agentic Top 10 report by changing both the report and the behavior label:
+
+<CodeBlock filename="owasp_agentic_synthesizer.py" language="python">
+{`from rhesis.sdk.synthesizers import (
+    DEFAULT_OWASP_AGENTIC_PDF_URL,
+    OWASPSynthesizer,
+)
+
+synthesizer = OWASPSynthesizer(
+    purpose="Autonomous coding agent with shell access",
+    report_url=DEFAULT_OWASP_AGENTIC_PDF_URL,
+    categories=["asi01", "asi03"],
+    behavior="OWASP Agentic Top 10",
+)
+
+test_set = synthesizer.generate(num_tests=20)`}
+</CodeBlock>
 
 | Category ID | OWASP category |
 | --- | --- |
