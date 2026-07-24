@@ -4,6 +4,10 @@ New users accept the active T&C version during onboarding (step 0). Acceptance
 is stored in ``user_settings.terms`` (``version`` + ``accepted_at``) so they
 are not prompted again until the version changes.
 
+Existing onboarded users without a terms record are backfilled once at deploy
+by alembic revision ``b5c6d7e8f9a0`` (baseline version ``1.0``). After that,
+only an explicit accept or a version bump matters.
+
 Bump ``CURRENT_TERMS_VERSION`` (and ``CURRENT_TERMS_EFFECTIVE_DATE``) when
 publishing new terms; users with an older accepted version must
 re-accept before continuing.
@@ -37,7 +41,7 @@ def record_terms_acceptance(user: User) -> None:
     """Persist acceptance of the current T&C version (no-op if already current)."""
     if user_has_accepted_current_terms(user):
         return
-    settings = user.user_settings or {}
+    settings = dict(user.user_settings or {})
     settings["terms"] = {
         "accepted_at": datetime.now(timezone.utc).isoformat(),
         "version": CURRENT_TERMS_VERSION,

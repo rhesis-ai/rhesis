@@ -234,6 +234,7 @@ class VertexAILLM(VertexAICredentialsMixin, LiteLLM):
         credentials: Optional[str] = None,
         location: Optional[str] = None,
         project: Optional[str] = None,
+        timeout: Optional[float] = None,
     ):
         """
         VertexAILLM: Google Vertex AI LLM Provider
@@ -252,6 +253,9 @@ class VertexAILLM(VertexAICredentialsMixin, LiteLLM):
             project (Optional[str]): GCP project ID (usually auto-extracted from credentials)
                 - Priority: init parameter > VERTEX_AI_PROJECT env var > credentials file
                 - If not provided, will be extracted from credentials file automatically
+            timeout (Optional[float]): Per-request timeout in seconds passed through to LiteLLM.
+                Defaults to ``DEFAULT_LLM_TIMEOUT`` so a hung Vertex AI call fails loudly
+                instead of blocking the worker thread indefinitely.
 
         Environment Variables (used as fallback):
             GOOGLE_APPLICATION_CREDENTIALS: Service account credentials
@@ -280,7 +284,7 @@ class VertexAILLM(VertexAICredentialsMixin, LiteLLM):
 
         # Initialize parent LiteLLM with vertex_ai prefix
         # Don't pass api_key as Vertex AI uses credentials
-        super().__init__(f"{self.PROVIDER}/{model_name}", api_key=None)
+        super().__init__(f"{self.PROVIDER}/{model_name}", api_key=None, timeout=timeout)
 
     def load_model(self) -> dict:
         """
@@ -452,6 +456,7 @@ class VertexAIEmbedder(VertexAICredentialsMixin, LiteLLMEmbedder):
         location: Optional[str] = None,
         project: Optional[str] = None,
         dimensions: Optional[int] = None,
+        timeout: Optional[float] = None,
     ):
         self._init_vertex_credentials(credentials, location, project)
         self._vertex_config = self._load_vertex_config()
@@ -462,6 +467,7 @@ class VertexAIEmbedder(VertexAICredentialsMixin, LiteLLMEmbedder):
             model_name=f"{self.PROVIDER}/{model_name}",
             api_key=None,
             dimensions=dimensions,
+            timeout=timeout,
         )
 
     def _with_vertex_credentials(self, func, *args, **kwargs):

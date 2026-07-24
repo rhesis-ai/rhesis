@@ -115,7 +115,7 @@ async def analyze_file(
     "/{import_id}/parse",
     response_model=ParseResponse,
 )
-async def parse_file(
+def parse_file(
     import_id: str,
     request: ParseRequest,
     current_user: User = Depends(require_current_user_or_token),
@@ -153,7 +153,7 @@ async def parse_file(
     "/{import_id}/preview",
     response_model=PreviewPage,
 )
-async def preview_data(
+def preview_data(
     import_id: str,
     page: int = Query(1, ge=1, description="Page number (1-based)"),
     page_size: int = Query(50, ge=1, le=200, description="Rows per page"),
@@ -175,7 +175,7 @@ async def preview_data(
 
 
 @router.post("/{import_id}/confirm")
-async def confirm_import(
+def confirm_import(
     import_id: str,
     request: ConfirmRequest,
     db: Session = Depends(get_tenant_db_session),
@@ -230,7 +230,7 @@ async def confirm_import(
 
 
 @router.delete("/{import_id}")
-async def cancel_import(
+def cancel_import(
     import_id: str,
     current_user: User = Depends(require_current_user_or_token),
 ):
@@ -248,7 +248,7 @@ async def cancel_import(
     "/{import_id}/remap",
     response_model=RemapResponse,
 )
-async def remap_with_llm(
+def remap_with_llm(
     import_id: str,
     db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token),

@@ -244,7 +244,11 @@ export default function ArchitectChat({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading, streamingState]);
 
-  // Auto-send initial message when connection is ready
+  // Auto-send initial message when connection is ready. Only mark it sent (and
+  // let the parent clear any stashed handoff message) once sendMessage actually
+  // hands it to the WebSocket — otherwise a failed send (socket dropped, send()
+  // returned false) would be lost with no retry. Leaving the ref unset lets this
+  // effect re-run and retry when isConnected/sendMessage change (e.g. reconnect).
   const initialMessageSentRef = useRef<string | null>(null);
   useEffect(() => {
     if (
@@ -253,9 +257,11 @@ export default function ArchitectChat({
       sessionId &&
       initialMessageSentRef.current !== initialMessage
     ) {
-      initialMessageSentRef.current = initialMessage;
-      sendMessage(initialMessage);
-      onInitialMessageSent?.();
+      const sent = sendMessage(initialMessage);
+      if (sent) {
+        initialMessageSentRef.current = initialMessage;
+        onInitialMessageSent?.();
+      }
     }
   }, [
     initialMessage,

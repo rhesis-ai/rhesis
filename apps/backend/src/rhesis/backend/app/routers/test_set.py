@@ -100,7 +100,7 @@ def resolve_test_set_or_raise(identifier: str, db: Session, organization_id: str
 @router.post(
     "/generate", response_model=TestSetGenerationResponse, **capability(Permission.TestSet.GENERATE)
 )
-async def generate_test_set(
+def generate_test_set(
     request: services_schemas.GenerateTestsRequest,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
@@ -229,7 +229,7 @@ async def generate_test_set(
 
 
 @router.post("/bulk", response_model=schemas.TestSetBulkResponse)
-async def create_test_set_bulk(
+def create_test_set_bulk(
     test_set_data: schemas.TestSetBulkCreate,
     db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token),
@@ -299,7 +299,7 @@ async def create_test_set_bulk(
 @handle_database_exceptions(
     entity_name="test set", custom_unique_message="Test set with this name already exists"
 )
-async def create_test_set(
+def create_test_set(
     test_set: schemas.TestSetCreate,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
@@ -314,7 +314,7 @@ async def create_test_set(
 
 @router.get("/", response_model=list[schemas.TestSetDetail])
 @with_count_header(model=models.TestSet)
-async def read_test_sets(
+def read_test_sets(
     response: Response,
     skip: int = 0,
     limit: int = 10,
@@ -405,7 +405,7 @@ def generate_test_set_stats(
 
 
 @router.get("/{test_set_identifier}", response_model=schemas.TestSetDetail)
-async def read_test_set(
+def read_test_set(
     test_set_identifier: str,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
@@ -416,7 +416,7 @@ async def read_test_set(
 
 
 @router.delete("/{test_set_id}", response_model=schemas.TestSet)
-async def delete_test_set(
+def delete_test_set(
     test_set_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
@@ -435,7 +435,7 @@ async def delete_test_set(
 @handle_database_exceptions(
     entity_name="test set", custom_unique_message="Test set with this name already exists"
 )
-async def update_test_set(
+def update_test_set(
     test_set_identifier: str,
     test_set: schemas.TestSetUpdate,
     db: Session = Depends(get_tenant_db_session),
@@ -523,7 +523,7 @@ def get_test_set_prompts(
 
 
 @router.get("/{test_set_identifier}/tests", response_model=list[schemas.TestDetail])
-async def get_test_set_tests(
+def get_test_set_tests(
     test_set_identifier: str,
     response: Response,
     skip: int = 0,
@@ -555,7 +555,7 @@ async def get_test_set_tests(
 @router.post(
     "/{test_set_identifier}/execute/{endpoint_id}", **capability(Permission.TestSet.EXECUTE)
 )
-async def execute_test_set(
+def execute_test_set(
     test_set_identifier: str,
     endpoint_id: uuid.UUID,
     test_configuration_attributes: schemas.TestSetExecutionRequest = None,
@@ -744,7 +744,7 @@ def download_test_set_prompts_csv(
     response_model=schemas.TestSetBulkAssociateResponse,
     **capability(Permission.TestSet.UPDATE),
 )
-async def associate_tests_with_test_set(
+def associate_tests_with_test_set(
     test_set_id: uuid.UUID,
     request: schemas.TestSetBulkAssociateRequest,
     db: Session = Depends(get_tenant_db_session),
@@ -773,7 +773,7 @@ async def associate_tests_with_test_set(
     response_model=schemas.TestSetBulkDisassociateResponse,
     **capability(Permission.TestSet.UPDATE),
 )
-async def disassociate_tests_from_test_set(
+def disassociate_tests_from_test_set(
     test_set_id: uuid.UUID,
     request: schemas.TestSetBulkDisassociateRequest,
     db: Session = Depends(get_tenant_db_session),

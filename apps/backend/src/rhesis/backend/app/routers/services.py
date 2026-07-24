@@ -71,7 +71,7 @@ def _handle_generation_error(error: Exception) -> None:
 
 
 @router.get("/github/contents")
-async def get_github_contents(repo_url: str):
+def get_github_contents(repo_url: str):
     """
     Get the contents of a GitHub repository.
 
@@ -155,7 +155,7 @@ async def generate_content_endpoint(
 
 
 @router.post("/generate/embedding")
-async def generate_embedding_endpoint(
+def generate_embedding_endpoint(
     request: GenerateEmbeddingRequest,
     db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token),
@@ -313,7 +313,7 @@ async def generate_multiturn_tests_endpoint(
 
 
 @router.post("/generate/test_pipeline")
-async def test_pipeline_endpoint(
+def test_pipeline_endpoint(
     request: TestPipelineRequest,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),

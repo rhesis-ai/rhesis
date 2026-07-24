@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-07-23
+
+: fix: reject execution of empty test sets (#2173)**
+        *   *Backend:* Validate active tests before scheduling work; reject empty or soft-deleted test sets.
+        *   *Category:* **Fixed** (Validation for empty test set execution).
+
+    *   **Commit 21: refactor(auth): drop is_running_locally
+
+
 ## [0.10.0] - 2026-07-09
 
 ### Added

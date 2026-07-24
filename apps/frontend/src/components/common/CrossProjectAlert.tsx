@@ -8,7 +8,6 @@ import { ResolvedEntity } from '@/utils/api-client/resolve-client';
 import { NotFoundEntityData } from '@/utils/entity-error-handler';
 import {
   getResolveEntityIcon,
-  LockOutlinedIcon,
   SwapHorizOutlinedIcon,
 } from '@/utils/entity-detail-icons';
 import { writeActiveProjectId } from '@/utils/active-project';
@@ -30,21 +29,6 @@ export function CrossProjectAlert({
   const displayName =
     entityData.model_name_display || entityData.model_name || 'item';
   const EntityIcon = getResolveEntityIcon(entityData.table_name);
-
-  if (resolvedEntity.resolution === 'no_access') {
-    return (
-      <EntityMessageState
-        icon={LockOutlinedIcon}
-        title={`${displayName} is in another project`}
-        description={`This ${displayName.toLowerCase()} belongs to a project you don't have access to. Contact your administrator to request access.`}
-        secondaryAction={{
-          label: 'Back',
-          onClick: () => window.history.back(),
-          startIcon: <ArrowBackIcon />,
-        }}
-      />
-    );
-  }
 
   const handleSwitch = () => {
     setSwitching(true);

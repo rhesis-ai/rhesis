@@ -194,6 +194,7 @@ function TestRunsGrid({ canCreate, onCreateClick }: TestRunsGridProps) {
       const drawerItems: typeof prev.items = [];
       if (drawerFilters.testSet) {
         drawerItems.push({
+          id: 'test_configuration.test_set.name',
           field: 'test_configuration.test_set.name',
           operator: 'contains',
           value: drawerFilters.testSet,
@@ -201,6 +202,7 @@ function TestRunsGrid({ canCreate, onCreateClick }: TestRunsGridProps) {
       }
       if (drawerFilters.executor) {
         drawerItems.push({
+          id: 'user.name',
           field: 'user.name',
           operator: 'contains',
           value: drawerFilters.executor,
@@ -208,6 +210,7 @@ function TestRunsGrid({ canCreate, onCreateClick }: TestRunsGridProps) {
       }
       if (drawerFilters.tag) {
         drawerItems.push({
+          id: 'tags',
           field: 'tags',
           operator: 'contains',
           value: drawerFilters.tag,
@@ -228,6 +231,7 @@ function TestRunsGrid({ canCreate, onCreateClick }: TestRunsGridProps) {
 
   const {
     filterModel,
+    gridFilterModel,
     paginationModel,
     sortModel,
     setPaginationModel,
@@ -788,7 +792,7 @@ function TestRunsGrid({ canCreate, onCreateClick }: TestRunsGridProps) {
             getRowId={row => row.id}
             paginationModel={paginationModel}
             onPaginationModelChange={handlePaginationModelChange}
-            filterModel={filterModel}
+            filterModel={gridFilterModel}
             onFilterModelChange={handleFilterModelChange}
             sortingMode="server"
             sortModel={sortModel}

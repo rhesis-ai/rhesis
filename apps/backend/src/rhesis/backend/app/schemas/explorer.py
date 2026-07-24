@@ -60,6 +60,24 @@ class ExportExplorerTestSetResponse(Base):
 
 
 # ---------------------------------------------------------------------------
+# Bulk delete
+# ---------------------------------------------------------------------------
+
+
+class ExplorerTestSetBulkDeleteRequest(BaseModel):
+    """Request for DELETE /explorer/bulk."""
+
+    test_set_ids: List[UUID4]
+
+
+class ExplorerTestSetBulkDeleteResponse(BaseModel):
+    """Response for DELETE /explorer/bulk."""
+
+    deleted_ids: List[str]
+    not_found_ids: List[str]
+
+
+# ---------------------------------------------------------------------------
 # Generate outputs
 # ---------------------------------------------------------------------------
 

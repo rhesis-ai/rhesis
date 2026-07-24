@@ -37,6 +37,7 @@ from rhesis.backend.app.schemas.telemetry import (
     TraceType,
 )
 from rhesis.backend.app.services.async_service import BROKER_ERRORS
+from rhesis.backend.app.services.project_membership import list_other_member_projects
 from rhesis.backend.app.services.review import (
     apply_review_resolved,
     authorize_review_action,
@@ -485,14 +486,30 @@ def lookup_span(
     span_db_id: UUID,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
+    scope_project_id: Optional[str] = Depends(get_project_context),
 ):
     """
     Resolve a span's database UUID to its trace_id and project_id.
 
-    Used for navigation from tasks/comments linked to a Trace entity.
+    Used for navigation from tasks/comments linked to a Trace entity. The
+    span's ``trace`` row carries a FORCE-enabled ``project_isolation`` RLS
+    policy, so a lookup scoped to the caller's active project silently misses
+    a span whose trace lives in a different (but accessible) project — probe
+    the caller's other projects before giving up. See ``routers/resolve.py``
+    for the full rationale.
     """
-    organization_id, _ = tenant_context
+    organization_id, user_id = tenant_context
     span = crud.get_trace_by_db_id(db, str(span_db_id), organization_id)
+
+    if not span:
+        for candidate_project_id, _ in list_other_member_projects(
+            db, organization_id, user_id, scope_project_id
+        ):
+            with temporary_project_scope(db, organization_id, user_id, candidate_project_id):
+                span = crud.get_trace_by_db_id(db, str(span_db_id), organization_id)
+            if span:
+                break
+
     if not span:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -533,36 +550,21 @@ def get_trace(
     organization_id, user_id = tenant_context
 
     try:
-        # Fetch all spans for trace with eager loading of relationships
-        from sqlalchemy.orm import joinedload
-
+        # Fetch all spans for trace with eager loading of relationships, including
+        # the nested test_result.test_configuration.endpoint chain in the same query
         spans = crud.get_trace_by_id(
             db=db,
             trace_id=trace_id,
             project_id=project_id,
             organization_id=organization_id,
-            eager_load=["project", "test_run", "test_result", "test"],
+            eager_load=[
+                "project",
+                "test_run",
+                "test_result",
+                "test",
+                "test_result.test_configuration.endpoint",
+            ],
         )
-
-        # Additional eager load for endpoint via test_result.test_configuration.endpoint
-        # This is done separately since it's a nested relationship
-        if spans and spans[0].test_result_id:
-            from rhesis.backend.app.models.test_configuration import TestConfiguration
-            from rhesis.backend.app.models.test_result import TestResult
-
-            # Fetch test_result with nested eager loading and explicitly update the relationship
-            test_result_with_endpoint = (
-                db.query(TestResult)
-                .filter(TestResult.id == spans[0].test_result_id)
-                .options(
-                    joinedload(TestResult.test_configuration).joinedload(TestConfiguration.endpoint)
-                )
-                .first()
-            )
-
-            # Explicitly update the relationship instead of relying on identity map
-            if test_result_with_endpoint:
-                spans[0].test_result = test_result_with_endpoint
 
         if not spans:
             raise HTTPException(

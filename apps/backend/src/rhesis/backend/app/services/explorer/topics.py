@@ -2,7 +2,7 @@ import logging
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, contains_eager
 
 from rhesis.backend.app import crud, models
 from rhesis.backend.app.models.test import test_test_set_association
@@ -179,6 +179,7 @@ def update_topic_node(
             models.Test.id == test_test_set_association.c.test_id,
         )
         .join(models.Topic, models.Test.topic_id == models.Topic.id)
+        .options(contains_eager(models.Test.topic))
         .filter(
             test_test_set_association.c.test_set_id == test_set_id,
             models.Test.organization_id == organization_id,
@@ -260,6 +261,7 @@ def remove_topic_node(
             models.Test.id == test_test_set_association.c.test_id,
         )
         .join(models.Topic, models.Test.topic_id == models.Topic.id)
+        .options(contains_eager(models.Test.topic))
         .filter(
             test_test_set_association.c.test_set_id == test_set_id,
             models.Test.organization_id == organization_id,

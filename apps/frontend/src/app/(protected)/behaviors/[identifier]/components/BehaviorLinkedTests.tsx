@@ -123,17 +123,6 @@ export default function BehaviorLinkedTests({
             <GridBadge size="detail" label={params.value} />
           ) : null,
       },
-      {
-        field: 'status',
-        headerName: 'Status',
-        width: 130,
-        valueGetter: (_value: unknown, row: TestDetail) =>
-          row.status?.name ?? '',
-        renderCell: (params: GridRenderCellParams) =>
-          typeof params.value === 'string' && params.value ? (
-            <GridBadge size="detail" label={params.value} />
-          ) : null,
-      },
     ],
     []
   );

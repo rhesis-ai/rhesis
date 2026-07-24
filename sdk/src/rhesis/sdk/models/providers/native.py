@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 from rhesis.sdk.async_utils import run_sync
 from rhesis.sdk.clients import APIClient
+from rhesis.sdk.config import DEFAULT_LLM_TIMEOUT
 from rhesis.sdk.models.base import BaseEmbedder, BaseLLM
 from rhesis.sdk.models.defaults import (
     DEFAULT_EMBEDDING_MODELS,
@@ -22,7 +23,7 @@ DEFAULT_MODEL = DEFAULT_LANGUAGE_MODELS["rhesis"]
 DEFAULT_LANGUAGE_MODEL_NAME = model_name_from_id(DEFAULT_MODEL)
 DEFAULT_EMBEDDING_MODEL_NAME = model_name_from_id(DEFAULT_EMBEDDING_MODELS["rhesis"])
 API_ENDPOINT = "services/generate/content"
-DEFAULT_REQUEST_TIMEOUT = int(os.getenv("RHESIS_LLM_TIMEOUT", "300"))  # 5 minutes
+DEFAULT_REQUEST_TIMEOUT = DEFAULT_LLM_TIMEOUT  # 5 minutes
 
 
 class RhesisLLM(BaseLLM):

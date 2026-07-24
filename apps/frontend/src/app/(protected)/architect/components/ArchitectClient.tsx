@@ -16,6 +16,10 @@ import {
   pickResumableSessionId,
   writeResumeHint,
 } from '@/utils/architect-resume';
+import {
+  clearPendingHandoffMessage,
+  peekPendingHandoffMessage,
+} from '@/utils/architect-handoff';
 import ArchitectSidebar from './ArchitectSidebar';
 import ArchitectChat from './ArchitectChat';
 import ArchitectWelcome from './ArchitectWelcome';
@@ -113,6 +117,19 @@ export default function ArchitectClient() {
       const client = getClient();
       if (!client) return;
 
+      // Contextual handoffs (e.g. Insights → Summarize) stash their first
+      // message under the session id instead of starting the turn on the
+      // backend. Pick it up here and route it through the same auto-send path
+      // the welcome screen uses, so the Architect starts working as soon as
+      // this tab is connected — no lost events, no need for a manual "go".
+      // Peek (don't remove) so the prompt bubble renders immediately while the
+      // storage entry survives a failed getSession for a retry. It is removed
+      // only once the message is actually sent (handleInitialMessageSent).
+      const pendingHandoff = peekPendingHandoffMessage(sessionFromQuery);
+      if (pendingHandoff) {
+        setPendingMessage(pendingHandoff);
+      }
+
       setActiveSessionId(sessionFromQuery);
       touchResumeHint(sessionFromQuery);
 
@@ -129,6 +146,10 @@ export default function ArchitectClient() {
           console.error('Failed to load session from query:', err);
           if (!cancelled) {
             setActiveSessionId(null);
+            // Leave the storage entry in place (peek did not remove it) so a
+            // reload can retry; just drop the in-memory pending message so it
+            // cannot leak into another session.
+            setPendingMessage(null);
           }
           return;
         }
@@ -237,6 +258,9 @@ export default function ArchitectClient() {
   const handleInitialMessageSent = useCallback(() => {
     setPendingMessage(null);
     if (activeSessionId) {
+      // Remove the stashed handoff message only now that it has been sent, so
+      // a reload cannot resend it. No-op for welcome-screen sessions (no entry).
+      clearPendingHandoffMessage(activeSessionId);
       touchResumeHint(activeSessionId);
     }
   }, [activeSessionId, touchResumeHint]);

@@ -53,7 +53,7 @@ class TestImportProbesDispatch:
         with patch("rhesis.backend.app.routers.garak.task_launcher") as mock_launcher:
             mock_launcher.return_value = MagicMock(id="task-abc-123")
 
-            response = await import_probes(
+            response = import_probes(
                 request=request,
                 db=mock_db,
                 tenant_context=(str(current_user.organization_id), str(current_user.id)),
@@ -91,7 +91,7 @@ class TestImportProbesDispatch:
         with patch("rhesis.backend.app.routers.garak.task_launcher") as mock_launcher:
             mock_launcher.return_value = MagicMock(id="task-abc-123")
 
-            await import_probes(
+            import_probes(
                 request=request,
                 db=MagicMock(),
                 tenant_context=(str(current_user.organization_id), str(current_user.id)),
@@ -120,7 +120,7 @@ class TestSyncTestSetDispatch:
             mock_sync_cls.return_value.resolve_sync_target.return_value = {"dan": ["Dan_11_0"]}
             mock_launcher.return_value = MagicMock(id="task-xyz-789")
 
-            response = await sync_test_set(
+            response = sync_test_set(
                 test_set_id=test_set_id,
                 db=MagicMock(),
                 tenant_context=(str(current_user.organization_id), str(current_user.id)),
@@ -150,7 +150,7 @@ class TestSyncTestSetDispatch:
             from fastapi import HTTPException
 
             with pytest.raises(HTTPException) as exc_info:
-                await sync_test_set(
+                sync_test_set(
                     test_set_id="nope",
                     db=MagicMock(),
                     tenant_context=(str(current_user.organization_id), str(current_user.id)),

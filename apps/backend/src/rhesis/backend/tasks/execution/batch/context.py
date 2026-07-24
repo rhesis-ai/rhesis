@@ -98,7 +98,9 @@ def prefetch_execution_context(
     """Pre-fetch all shared data in a single session before async execution."""
     from rhesis.backend.app import crud
     from rhesis.backend.app.database import bind_scope_to_session
+    from rhesis.backend.app.models.behavior import Behavior
     from rhesis.backend.app.services.test_set import get_test_set
+    from rhesis.backend.app.utils.query_utils import QueryBuilder, include
     from rhesis.backend.tasks.execution.executors.data import get_test_metrics
 
     organization_id = str(test_config.organization_id) if test_config.organization_id else ""
@@ -167,6 +169,21 @@ def prefetch_execution_context(
             execution_model = model_settings.execution_model
         if evaluation_model is None:
             evaluation_model = model_settings.evaluation_model
+
+    # Warm the session identity map with prompt/behavior/behavior.metrics eager-loaded
+    # for every test in the batch, in one query. get_test_and_prompt/get_test_metrics
+    # below re-fetch each test by id from this same session -- SQLAlchemy's identity
+    # map returns the very same instance per row, so once these relationships are
+    # already populated here, those per-test lookups find them already loaded instead
+    # of issuing one extra lazy-load query per test per relationship (N+1).
+    test_ids = [test.id for test in tests]
+    if test_ids:
+        QueryBuilder(session, Test).with_custom_filter(
+            lambda q: q.filter(Test.id.in_(test_ids))
+        ).with_related(
+            include(Test.prompt),
+            include(Test.behavior, Behavior.metrics),
+        ).all()
 
     # Pre-fetch per-test data
     test_data: Dict[str, Any] = {}

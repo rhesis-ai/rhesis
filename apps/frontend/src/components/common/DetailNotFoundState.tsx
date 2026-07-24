@@ -76,9 +76,7 @@ export default function DetailNotFoundState({
       : getResolveEntityIcon(entityTableName);
 
   const pageTitle = crossProjectData
-    ? crossProjectData.resolution === 'no_access'
-      ? `${displayLabel} — No access`
-      : `${displayLabel} in another project`
+    ? `${displayLabel} in another project`
     : `${displayLabel} not found`;
 
   const contentWrapper = (children: ReactNode) => (

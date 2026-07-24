@@ -3,9 +3,10 @@
 from datetime import datetime, timezone
 from typing import Dict
 
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
+from rhesis.backend.app.utils.query_utils import QueryBuilder, include
 
 from .calculator import StatsCalculator
 from .common import build_pass_rate_stats, parse_date_range
@@ -84,30 +85,36 @@ def get_individual_test_stats(
         start_date_obj, end_date_obj = parse_date_range(start_date, end_date, months_val)
 
     # Base query for test results with eager loading
-    base_query = (
-        db.query(models.TestResult)
-        .options(
-            joinedload(models.TestResult.test_run),  # Eager load test run info
-            joinedload(models.TestResult.status),  # Eager load status for evaluation
+    builder = (
+        QueryBuilder(db, models.TestResult)
+        .with_custom_filter(lambda q: q.filter(models.TestResult.test_id == test_id))
+        .with_related(
+            include(models.TestResult.test_run),  # Eager load test run info
+            include(models.TestResult.status),  # Eager load status for evaluation
         )
-        .filter(models.TestResult.test_id == test_id)
     )
 
     # Apply organization filter (SECURITY CRITICAL)
     if organization_id:
-        base_query = base_query.filter(models.TestResult.organization_id == organization_id)
+        builder = builder.with_custom_filter(
+            lambda q: q.filter(models.TestResult.organization_id == organization_id)
+        )
 
     # Apply date range filters if specified
     if start_date_obj:
-        base_query = base_query.filter(models.TestResult.created_at >= start_date_obj)
+        builder = builder.with_custom_filter(
+            lambda q: q.filter(models.TestResult.created_at >= start_date_obj)
+        )
     if end_date_obj:
-        base_query = base_query.filter(models.TestResult.created_at <= end_date_obj)
+        builder = builder.with_custom_filter(
+            lambda q: q.filter(models.TestResult.created_at <= end_date_obj)
+        )
 
     # Order by created_at descending for recent runs
-    base_query = base_query.order_by(models.TestResult.created_at.desc())
+    builder = builder.with_sorting(sort_by="created_at", sort_order="desc")
 
     # Execute query
-    test_results = base_query.all()
+    test_results = builder.all()
 
     if not test_results:
         return _empty_individual_test_stats(

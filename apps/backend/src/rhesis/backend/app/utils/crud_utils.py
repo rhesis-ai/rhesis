@@ -4,7 +4,8 @@ Utility functions for CRUD operations with improved readability and maintainabil
 
 import logging
 import uuid
-from typing import Any, Dict, List, Optional, Type, TypeVar, Union
+from datetime import datetime, timezone
+from typing import Any, Callable, Dict, List, Optional, Type, TypeVar, Union
 
 from pydantic import BaseModel
 from sqlalchemy import inspect
@@ -701,6 +702,78 @@ def delete_item(
     except Exception:
         db.rollback()
         raise
+
+
+def bulk_delete_by_ids(
+    db: Session,
+    model: Type[T],
+    item_ids: List[uuid.UUID],
+    organization_id: str = None,
+    user_id: str = None,
+    on_deleted: Optional[Callable[[List[uuid.UUID]], None]] = None,
+) -> Dict[str, List[str]]:
+    """
+    Soft delete multiple items by ID in a single transaction.
+
+    Generic bulk counterpart to delete_item(): instead of one round trip per
+    id, resolves which ids exist/are visible, cascades and soft-deletes the
+    whole batch with one UPDATE per table (see cascade_soft_delete_bulk()),
+    and commits once. Use this instead of looping delete_item() per id when a
+    resource needs a real bulk-delete endpoint -- a loop still opens one
+    transaction per id and gains nothing over 25 individual requests.
+
+    Args:
+        db: Database session
+        model: SQLAlchemy model class
+        item_ids: IDs of items to delete
+        organization_id: Organization ID for tenant filtering
+        user_id: User ID for visibility filtering
+        on_deleted: Optional callback invoked once, after commit, with the
+            list of ids actually deleted. Use this for bespoke post-delete
+            side effects that should run once per batch rather than once per
+            id (e.g. Test's test-set-attribute recompute, keyed by the
+            *distinct* affected test sets, not by each deleted test).
+
+    Returns:
+        Dict with "deleted_ids" and "not_found_ids" (both lists of str ids).
+    """
+    from rhesis.backend.app.services import cascade as cascade_service
+
+    if not item_ids:
+        return {"deleted_ids": [], "not_found_ids": []}
+
+    existing_ids = {
+        row.id
+        for row in QueryBuilder(db, model)
+        .with_organization_filter(organization_id)
+        .with_visibility_filter(user_id)
+        .with_custom_filter(lambda q: q.filter(model.id.in_(item_ids)))
+        .all()
+    }
+    deleted_ids = [i for i in item_ids if i in existing_ids]
+    not_found_ids = [i for i in item_ids if i not in existing_ids]
+
+    if deleted_ids:
+        try:
+            cascade_service.cascade_soft_delete_bulk(db, model, deleted_ids, organization_id)
+
+            query = db.query(model).filter(model.id.in_(deleted_ids))
+            if organization_id and hasattr(model, "organization_id"):
+                query = query.filter(model.organization_id == organization_id)
+            query.update({"deleted_at": datetime.now(timezone.utc)}, synchronize_session=False)
+
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
+
+        if on_deleted:
+            on_deleted(deleted_ids)
+
+    return {
+        "deleted_ids": [str(i) for i in deleted_ids],
+        "not_found_ids": [str(i) for i in not_found_ids],
+    }
 
 
 def get_deleted_items(

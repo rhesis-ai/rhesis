@@ -197,7 +197,7 @@ def current_token_info(
 
 
 @router.get("/", response_model=List[TokenRead])
-async def read_tokens(
+def read_tokens(
     response: Response,
     skip: int = 0,
     limit: int = 100,

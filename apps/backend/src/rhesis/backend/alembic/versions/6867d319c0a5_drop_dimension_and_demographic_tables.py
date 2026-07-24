@@ -1,7 +1,7 @@
 """drop dimension and demographic tables
 
 Revision ID: 6867d319c0a5
-Revises: d4e7f2a9c1b8
+Revises: b5c6d7e8f9a0
 Create Date: 2026-07-16 18:00:00.000000
 
 This migration is DESTRUCTIVE: it drops the `dimension` and `demographic`
@@ -29,7 +29,7 @@ from rhesis.backend.app.models.guid import GUID
 
 # revision identifiers, used by Alembic.
 revision: str = "6867d319c0a5"
-down_revision: Union[str, None] = "d4e7f2a9c1b8"
+down_revision: Union[str, None] = "b5c6d7e8f9a0"
 branch_labels: Union[str, None] = None
 depends_on: Union[list[str], None] = None
 

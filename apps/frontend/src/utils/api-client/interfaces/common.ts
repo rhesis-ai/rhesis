@@ -18,6 +18,12 @@ export interface StatsOptions {
   mode?: StatsMode; // Default is 'entity' if not specified
 }
 
+// Shared shape for POST .../bulk-delete endpoints (see schemas/bulk.py on the backend)
+export interface BulkDeleteResponse {
+  deleted_ids: string[];
+  not_found_ids: string[];
+}
+
 // Comprehensive options for test results stats
 export interface TestResultsStatsOptions {
   // Data mode selection

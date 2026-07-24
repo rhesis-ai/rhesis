@@ -13,6 +13,33 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-07-23
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.11.0**
+- **Frontend 0.11.0**
+- **SDK 0.11.0**
+
+### Summary of Changes
+
+**Backend v0.11.0:**
+- Moved Garak probe import and synchronization to Celery background tasks to prevent backend timeouts and event loop
+
+**Frontend v0.11.0:**
+- **Asynchronous Garak Import & Sync:** Redesigned the Garak probe import and synchronization flow
+
+**SDK v0.11.0:**
+- Fixed a crash in Garak detector metric evaluation by adding support for generator and scalar results.
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+- [Frontend Changelog](apps/frontend/CHANGELOG.md)
+- [SDK Changelog](sdk/CHANGELOG.md)
+
+
+
 ## [0.10.0] - 2026-07-09
 
 ### Platform Release

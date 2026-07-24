@@ -3,7 +3,6 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import Box from '@mui/material/Box';
-import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import FileUploadIcon from '@mui/icons-material/FileUploadOutlined';
 import { useSession } from 'next-auth/react';
@@ -11,10 +10,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { explorerKeys } from '@/constants/query-keys';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
-import EntityEmptyState from '@/components/common/EntityEmptyState';
-import { AccountTreeIcon } from '@/components/icons';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
-import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import { Can, useCan, useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import AccessDenied from '@/components/common/AccessDenied';
@@ -31,7 +27,6 @@ export default function ExplorerClient() {
   const queryClient = useQueryClient();
   const notifications = useNotifications();
 
-  const [sessionCount, setSessionCount] = React.useState<number | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = React.useState(false);
   const [importDialogOpen, setImportDialogOpen] = React.useState(false);
 
@@ -106,29 +101,10 @@ export default function ExplorerClient() {
         }
       >
         <Box sx={{ mt: 2, mb: 2 }}>
-          {sessionCount === 0 ? (
-            <EntityEmptyState
-              icon={AccountTreeIcon}
-              title="No explorer sessions yet"
-              description="Start a new session to explore behaviors and generate tests, or load an existing test set."
-              actionLabel={canCreateSession ? 'New session' : undefined}
-              onAction={
-                canCreateSession ? () => setCreateDialogOpen(true) : undefined
-              }
-            />
-          ) : (
-            <Paper
-              sx={{
-                width: '100%',
-                borderRadius: BORDER_RADIUS.md,
-                boxShadow: ELEVATION.xs,
-                border: theme => `1px solid ${theme.palette.greyscale.border}`,
-                overflow: 'hidden',
-              }}
-            >
-              <ExplorerGrid onTotalCountChange={setSessionCount} />
-            </Paper>
-          )}
+          <ExplorerGrid
+            canCreate={canCreateSession}
+            onCreateClick={() => setCreateDialogOpen(true)}
+          />
         </Box>
       </PageLayout>
 

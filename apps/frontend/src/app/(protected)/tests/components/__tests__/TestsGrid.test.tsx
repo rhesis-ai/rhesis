@@ -33,7 +33,7 @@ jest.mock('@/components/common/NotificationContext', () => ({
 // ---- API client factory ----
 
 const mockGetTests = jest.fn();
-const mockDeleteTest = jest.fn();
+const mockBulkDeleteTests = jest.fn();
 const mockGetTestSetsForSelect = jest.fn();
 const mockAssociateTestsWithTestSet = jest.fn();
 
@@ -41,7 +41,7 @@ jest.mock('@/utils/api-client/client-factory', () => ({
   ApiClientFactory: jest.fn().mockImplementation(() => ({
     getTestsClient: () => ({
       getTests: mockGetTests,
-      deleteTest: mockDeleteTest,
+      bulkDeleteTests: mockBulkDeleteTests,
     }),
   })),
 }));
@@ -369,7 +369,7 @@ describe('TestsTable', () => {
 
   it('opens delete modal and confirms deletion', async () => {
     mockGetTests.mockResolvedValue(makePaginatedResponse([makeTest('t-1')]));
-    mockDeleteTest.mockResolvedValue(undefined);
+    mockBulkDeleteTests.mockResolvedValue(undefined);
     render(<TestsTableHarness />);
     await waitFor(() =>
       expect(screen.getByTestId('row-t-1')).toBeInTheDocument()
@@ -390,7 +390,9 @@ describe('TestsTable', () => {
     await userEvent.click(
       screen.getByRole('button', { name: /confirm delete/i })
     );
-    await waitFor(() => expect(mockDeleteTest).toHaveBeenCalledWith('t-1'));
+    await waitFor(() =>
+      expect(mockBulkDeleteTests).toHaveBeenCalledWith(['t-1'])
+    );
     await waitFor(() =>
       expect(mockShow).toHaveBeenCalledWith(
         expect.stringContaining('deleted'),
@@ -418,12 +420,12 @@ describe('TestsTable', () => {
     );
 
     await userEvent.click(screen.getByRole('button', { name: /cancel/i }));
-    expect(mockDeleteTest).not.toHaveBeenCalled();
+    expect(mockBulkDeleteTests).not.toHaveBeenCalled();
   });
 
   it('shows error notification when delete fails', async () => {
     mockGetTests.mockResolvedValue(makePaginatedResponse([makeTest('t-1')]));
-    mockDeleteTest.mockRejectedValue(new Error('Server error'));
+    mockBulkDeleteTests.mockRejectedValue(new Error('Server error'));
     render(<TestsTableHarness />);
     await waitFor(() =>
       expect(screen.getByTestId('row-t-1')).toBeInTheDocument()

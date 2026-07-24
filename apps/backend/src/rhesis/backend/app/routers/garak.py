@@ -138,7 +138,7 @@ async def list_probe_modules(
 
 
 @router.get("/probes/{module_name}", response_model=GarakProbeDetailResponse)
-async def get_probe_module_detail(
+def get_probe_module_detail(
     module_name: str,
     db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token),
@@ -256,7 +256,7 @@ async def preview_import(
 
 
 @router.post("/import", response_model=GarakImportTaskResponse, status_code=202)
-async def import_probes(
+def import_probes(
     request: GarakImportRequest,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
@@ -353,7 +353,7 @@ async def preview_sync(
 
 
 @router.post("/sync/{test_set_id}", response_model=GarakSyncTaskResponse, status_code=202)
-async def sync_test_set(
+def sync_test_set(
     test_set_id: str,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
@@ -407,7 +407,7 @@ async def sync_test_set(
 
 
 @router.post("/generate", response_model=GarakGenerateResponse, status_code=202)
-async def generate_dynamic_probe(
+def generate_dynamic_probe(
     request: GarakGenerateRequest,
     current_user: User = Depends(require_current_user_or_token),
     probe_service: GarakProbeService = Depends(get_probe_service),

@@ -3,7 +3,9 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 from pydantic import BaseModel
 
+from rhesis.sdk.config import DEFAULT_LLM_TIMEOUT
 from rhesis.sdk.models import LiteLLM
+from rhesis.sdk.models.providers.litellm import LiteLLMEmbedder
 
 
 class TestLiteLLM:
@@ -52,6 +54,7 @@ class TestLiteLLM:
             api_base=None,
             api_version=None,
             extra_headers={"Connection": "close"},
+            timeout=300,
         )
 
     @patch("rhesis.sdk.models.providers.litellm.acompletion")
@@ -79,6 +82,7 @@ class TestLiteLLM:
             api_base=None,
             api_version=None,
             extra_headers={"Connection": "close"},
+            timeout=300,
         )
 
     @patch("rhesis.sdk.models.providers.litellm.acompletion")
@@ -116,6 +120,7 @@ class TestLiteLLM:
             api_base=None,
             api_version=None,
             extra_headers={"Connection": "close"},
+            timeout=300,
         )
 
     @patch("rhesis.sdk.models.providers.litellm.acompletion")
@@ -154,6 +159,7 @@ class TestLiteLLM:
             api_base=None,
             api_version=None,
             extra_headers={"Connection": "close"},
+            timeout=300,
         )
 
     @patch("rhesis.sdk.models.providers.litellm.acompletion")
@@ -200,6 +206,7 @@ class TestLiteLLM:
             api_base=None,
             api_version=None,
             extra_headers={"Connection": "close"},
+            timeout=300,
             temperature=0.7,
             max_tokens=100,
         )
@@ -238,6 +245,7 @@ class TestLiteLLM:
             api_base=None,
             api_version=None,
             n=1,
+            timeout=300,
         )
 
     @patch("rhesis.sdk.models.providers.litellm.batch_completion")
@@ -264,6 +272,7 @@ class TestLiteLLM:
             api_base=None,
             api_version=None,
             n=1,
+            timeout=300,
         )
 
     @patch("rhesis.sdk.models.providers.litellm.batch_completion")
@@ -295,6 +304,7 @@ class TestLiteLLM:
             api_base=None,
             api_version=None,
             n=1,
+            timeout=300,
         )
 
     @patch("rhesis.sdk.models.providers.litellm.batch_completion")
@@ -336,6 +346,7 @@ class TestLiteLLM:
             api_base=None,
             api_version=None,
             n=1,
+            timeout=300,
         )
 
     @patch("rhesis.sdk.models.providers.litellm.batch_completion")
@@ -367,6 +378,7 @@ class TestLiteLLM:
             api_base=None,
             api_version=None,
             n=2,
+            timeout=300,
         )
 
     @patch("rhesis.sdk.models.providers.litellm.batch_completion")
@@ -441,6 +453,7 @@ class TestLiteLLM:
             api_base=None,
             api_version=None,
             n=1,
+            timeout=300,
             temperature=0.7,
             max_tokens=100,
         )
@@ -465,6 +478,7 @@ class TestLiteLLM:
             api_base=None,
             api_version=None,
             n=1,
+            timeout=300,
         )
 
     # Tests for Connection: close injection in async paths
@@ -567,4 +581,78 @@ class TestLiteLLM:
             api_base=None,
             api_version=None,
             n=1,
+            timeout=300,
         )
+
+
+class TestLiteLLMTimeout:
+    """A hung upstream call must not block a worker thread forever: every LiteLLM call
+    carries a request timeout (default DEFAULT_LLM_TIMEOUT), overridable per instance
+    and per call."""
+
+    def test_default_timeout(self):
+        assert LiteLLM("provider/model").timeout == DEFAULT_LLM_TIMEOUT
+
+    def test_explicit_instance_timeout(self):
+        assert LiteLLM("provider/model", timeout=5).timeout == 5
+
+    @patch("rhesis.sdk.models.providers.litellm.acompletion")
+    def test_default_timeout_passed_to_acompletion(self, mock_completion):
+        mock_completion.return_value = Mock(choices=[Mock(message=Mock(content="ok"))])
+        LiteLLM("provider/model").generate("hi")
+        assert mock_completion.call_args.kwargs["timeout"] == DEFAULT_LLM_TIMEOUT
+
+    @patch("rhesis.sdk.models.providers.litellm.acompletion")
+    def test_instance_timeout_passed_to_acompletion(self, mock_completion):
+        mock_completion.return_value = Mock(choices=[Mock(message=Mock(content="ok"))])
+        LiteLLM("provider/model", timeout=7).generate("hi")
+        assert mock_completion.call_args.kwargs["timeout"] == 7
+
+    @patch("rhesis.sdk.models.providers.litellm.acompletion")
+    def test_per_call_timeout_overrides_instance(self, mock_completion):
+        mock_completion.return_value = Mock(choices=[Mock(message=Mock(content="ok"))])
+        LiteLLM("provider/model", timeout=7).generate("hi", timeout=1)
+        assert mock_completion.call_args.kwargs["timeout"] == 1
+
+    @patch("rhesis.sdk.models.providers.litellm.batch_completion")
+    def test_timeout_passed_to_batch_completion(self, mock_batch):
+        mock_batch.return_value = [Mock(choices=[Mock(message=Mock(content="ok"))])]
+        LiteLLM("provider/model", timeout=8).generate_batch(["hi"])
+        assert mock_batch.call_args.kwargs["timeout"] == 8
+
+    @patch("rhesis.sdk.models.providers.litellm.acompletion")
+    def test_subclass_enforces_default_timeout(self, mock_completion):
+        """Thin LiteLLM subclasses (OpenAI, Gemini, …) inherit the default timeout on
+        every call, so a hung upstream call can never block indefinitely."""
+        from rhesis.sdk.models.providers.openai import OpenAILLM
+
+        mock_completion.return_value = Mock(choices=[Mock(message=Mock(content="ok"))])
+        OpenAILLM("gpt-4o", api_key="x").generate("hi")
+        assert mock_completion.call_args.kwargs["timeout"] == DEFAULT_LLM_TIMEOUT
+
+    @patch("rhesis.sdk.models.providers.litellm.acompletion")
+    def test_subclass_per_call_timeout_override(self, mock_completion):
+        """A per-call timeout overrides the default on any provider, including subclasses."""
+        from rhesis.sdk.models.providers.openai import OpenAILLM
+
+        mock_completion.return_value = Mock(choices=[Mock(message=Mock(content="ok"))])
+        OpenAILLM("gpt-4o", api_key="x").generate("hi", timeout=2)
+        assert mock_completion.call_args.kwargs["timeout"] == 2
+
+
+class TestLiteLLMEmbedderTimeout:
+    def test_default_timeout(self):
+        assert LiteLLMEmbedder("provider/embed").timeout == DEFAULT_LLM_TIMEOUT
+
+    @patch("rhesis.sdk.models.providers.litellm.embedding")
+    def test_timeout_passed_to_embedding(self, mock_embedding):
+        mock_embedding.return_value = {"data": [{"embedding": [0.1, 0.2]}]}
+        LiteLLMEmbedder("provider/embed", timeout=9).generate_batch(["hi"])
+        assert mock_embedding.call_args.kwargs["timeout"] == 9
+
+    @pytest.mark.asyncio
+    @patch("rhesis.sdk.models.providers.litellm.aembedding", new_callable=AsyncMock)
+    async def test_timeout_passed_to_aembedding(self, mock_aembedding):
+        mock_aembedding.return_value = {"data": [{"embedding": [0.1, 0.2]}]}
+        await LiteLLMEmbedder("provider/embed", timeout=4).a_generate("hi")
+        assert mock_aembedding.call_args.kwargs["timeout"] == 4

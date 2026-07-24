@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-07-23
+
+### Added
+
+- **Annotations Review Hub**: Introduced a new human review interface in the "Improve" section, featuring list views, search, filtering, resolution actions, and deep-linking to test results and traces.
+- **JSON-Aware Rendering**: Added structured JSON rendering (`JsonPreview`) with Markdown fallbacks in the test result drawer (overview and conversation tabs) and the Playground.
+-
+
 ## [0.10.0] - 2026-07-09
 
 ### Added

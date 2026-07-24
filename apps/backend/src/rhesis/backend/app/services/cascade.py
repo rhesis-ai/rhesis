@@ -18,7 +18,7 @@ Usage:
 
 import logging
 from datetime import datetime, timezone
-from typing import Optional, Type
+from typing import List, Optional, Type
 from uuid import UUID
 
 from sqlalchemy.orm import Session
@@ -89,6 +89,71 @@ def cascade_soft_delete(
 
         except Exception as e:
             logger.error(f"Error cascading soft delete to {rel.child_model.__name__}: {e}")
+            raise
+
+    return total_deleted
+
+
+def cascade_soft_delete_bulk(
+    db: Session,
+    parent_model: Type,
+    parent_ids: List[UUID],
+    organization_id: Optional[str] = None,
+) -> int:
+    """
+    Cascade soft delete to all configured child relationships for many parents at once.
+
+    Same configuration and per-relationship bulk UPDATE as cascade_soft_delete(),
+    but issues one UPDATE per relationship for the whole batch of parent_ids
+    instead of one per parent_id -- for bulk_delete_by_ids() in crud_utils.py.
+
+    Args:
+        db: Database session
+        parent_model: The parent model class (e.g., models.Test)
+        parent_ids: IDs of the parent records being deleted
+        organization_id: Optional organization ID for tenant filtering
+
+    Returns:
+        Total number of child records soft deleted across all relationships
+
+    Note:
+        This function does NOT commit - the caller is responsible for transaction management.
+    """
+    if not parent_ids:
+        return 0
+
+    total_deleted = 0
+    relationships = get_cascade_relationships(parent_model)
+
+    for rel in relationships:
+        if not rel.cascade_delete:
+            continue
+
+        try:
+            query = db.query(rel.child_model).filter(
+                getattr(rel.child_model, rel.foreign_key).in_(parent_ids)
+            )
+
+            for key, value in rel.extra_filters.items():
+                query = query.filter(getattr(rel.child_model, key) == value)
+
+            if organization_id and hasattr(rel.child_model, "organization_id"):
+                query = query.filter(rel.child_model.organization_id == organization_id)
+
+            count = query.update(
+                {"deleted_at": datetime.now(timezone.utc)}, synchronize_session=False
+            )
+
+            total_deleted += count
+
+            if count > 0:
+                logger.info(
+                    f"Bulk cascade soft delete: {count} {rel.child_model.__name__} "
+                    f"records for {len(parent_ids)} {parent_model.__name__} row(s)"
+                )
+
+        except Exception as e:
+            logger.error(f"Error bulk cascading soft delete to {rel.child_model.__name__}: {e}")
             raise
 
     return total_deleted

@@ -39,9 +39,11 @@ However, SDK functions can have **any parameter names** and **any return structu
 def chat(input: str, session_id: str = None):
     return {"output": "...", "session_id": session_id}
 
+
 # Example 2: Custom naming
 def process_query(user_message: str, conv_id: str = None, docs: list = None):
     return {"result": {"text": "..."}, "conversation": conv_id}
+
 
 # Example 3: Complex structure
 def analyze(question: str, conversation_thread: str = None):
@@ -79,24 +81,21 @@ Developer provides explicit mappings in the `@endpoint` decorator:
 ```python
 from rhesis.sdk import collaborate
 
+
 @endpoint(
     request_mapping={
         "user_query": "{{ input }}",
         "conv_id": "{{ session_id }}",
-        "docs": "{{ context }}"
+        "docs": "{{ context }}",
     },
     response_mapping={
         "output": "{{ jsonpath('$.result.text') }}",
         "session_id": "$.conv_id",
-        "context": "$.sources"
-    }
+        "context": "$.sources",
+    },
 )
 def chat(user_query: str, conv_id: str = None, docs: list = None):
-    return {
-        "result": {"text": "Hello!"},
-        "conv_id": conv_id,
-        "sources": docs
-    }
+    return {"result": {"text": "Hello!"}, "conv_id": conv_id, "sources": docs}
 ```
 
 **When to use:** Custom naming, nested structures, or domain-specific requirements.
@@ -140,11 +139,12 @@ confidence = (
 def chat(input: str, session_id: str = None, context: list = None):
     return {"output": "...", "session_id": session_id}
 
+
 # Generated mappings (confidence: 0.8)
 request_mapping = {
     "input": "{{ input }}",
     "session_id": "{{ session_id }}",
-    "context": "{{ context }}"
+    "context": "{{ context }}",
 }
 response_mapping = {
     "output": "{{ response or result or output or content }}",
@@ -169,20 +169,12 @@ When auto-mapping confidence is below 0.7, the system uses the user's configured
 ```python
 # Complex function signature
 def analyze_query(user_message: str, conversation_thread: str = None):
-    return {
-        "analysis": {"summary": "...", "confidence": 0.9},
-        "thread": conversation_thread
-    }
+    return {"analysis": {"summary": "...", "confidence": 0.9}, "thread": conversation_thread}
+
 
 # LLM generates:
-request_mapping = {
-    "user_message": "{{ input }}",
-    "conversation_thread": "{{ session_id }}"
-}
-response_mapping = {
-    "output": "{{ jsonpath('$.analysis.summary') }}",
-    "session_id": "$.thread"
-}
+request_mapping = {"user_message": "{{ input }}", "conversation_thread": "{{ session_id }}"}
+response_mapping = {"output": "{{ jsonpath('$.analysis.summary') }}", "session_id": "$.thread"}
 # confidence: 0.85, reasoning: "Mapped user_message to input..."
 ```
 
@@ -196,6 +188,7 @@ For functions with standard naming, no configuration needed:
 
 ```python
 from rhesis.sdk import collaborate
+
 
 @endpoint()  # That's it!
 def chat(input: str, session_id: str = None):
@@ -229,21 +222,21 @@ Complete control for complex scenarios:
         "q": "{{ input }}",
         "thread": "{{ session_id }}",
         "docs": "{{ context }}",
-        "meta": "{{ metadata }}"
+        "meta": "{{ metadata }}",
     },
     response_mapping={
         "output": "{{ jsonpath('$.result.response.text') }}",
         "session_id": "$.thread_info.id",
         "context": "$.retrieved_docs",
-        "metadata": "$.metrics"
-    }
+        "metadata": "$.metrics",
+    },
 )
 def complex_chat(q: str, thread: str = None, docs: list = None, meta: dict = None):
     return {
         "result": {"response": {"text": "..."}},
         "thread_info": {"id": thread},
         "retrieved_docs": docs,
-        "metrics": {"tokens": 100}
+        "metrics": {"tokens": 100},
     }
 ```
 
@@ -271,11 +264,12 @@ mapping/
 ```python
 @dataclass
 class FieldConfig:
-    name: str              # "input", "session_id", etc.
-    pattern_type: str      # Pattern lookup key
-    template_var: str      # Jinja2 template variable
+    name: str  # "input", "session_id", etc.
+    pattern_type: str  # Pattern lookup key
+    template_var: str  # Jinja2 template variable
     confidence_weight: float  # Weight for confidence calculation
     is_required: bool = False
+
 
 STANDARD_FIELDS = [
     FieldConfig("input", "input", "{{ input }}", 0.5, True),
@@ -394,7 +388,7 @@ Modify weights in `STANDARD_FIELDS` to change priority:
 
 ```python
 # Make session_id more important
-FieldConfig("session_id", "session", "{{ session_id }}", 0.3),  # was 0.2
+(FieldConfig("session_id", "session", "{{ session_id }}", 0.3),)  # was 0.2
 ```
 
 ### Changing LLM Threshold

@@ -50,7 +50,7 @@ success = email_service.send_task_completion_email(
     recipient_name="John Doe",
     task_name="Data Processing",
     task_id="task-123",
-    status="success"
+    status="success",
 )
 ```
 
@@ -69,7 +69,7 @@ success = email_service.send_test_execution_summary_email(
     test_set_name="Production API Tests",
     endpoint_name="User API",
     endpoint_url="https://api.example.com",
-    project_name="My Project"
+    project_name="My Project",
 )
 ```
 
