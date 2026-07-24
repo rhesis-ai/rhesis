@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { Fab } from '@/components/common/Fab';
 import { Can } from '@/components/common/Can';
 import { useNotifications } from '@/components/common/NotificationContext';
@@ -21,12 +21,15 @@ export default function TestRunSummarizeFab({
   testRun,
 }: TestRunSummarizeFabProps) {
   const [creating, setCreating] = useState(false);
+  const creatingRef = useRef(false);
   const { show: showNotification } = useNotifications();
 
   const isDisabled = creating || !testRun.id;
 
   const handleClick = useCallback(async () => {
-    if (isDisabled) return;
+    // Ref guard so a double-click before re-render cannot open multiple sessions.
+    if (creatingRef.current || !testRun.id) return;
+    creatingRef.current = true;
     setCreating(true);
     try {
       const testRunName = testRun.name || 'Test Run';
@@ -49,9 +52,10 @@ export default function TestRunSummarizeFab({
         severity: 'error',
       });
     } finally {
+      creatingRef.current = false;
       setCreating(false);
     }
-  }, [isDisabled, showNotification, testRun]);
+  }, [showNotification, testRun]);
 
   return (
     <Can capability={Capability.Architect.CREATE}>
