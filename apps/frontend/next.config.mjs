@@ -56,9 +56,20 @@ const nextConfig = {
   // Source maps: enable in prod for debugging, faster option in dev
   productionBrowserSourceMaps: isProd,
 
-  // Note: optimizePackageImports is no longer needed here because the heavy
-  // barrel-export libraries (@mui/material, @mui/icons-material, lucide-react,
-  // date-fns, recharts, etc.) are already optimized by Next.js by default.
+  // Next.js already modularizes the app's own barrel imports for the heavy
+  // libraries (@mui/material, @mui/icons-material, lucide-react, date-fns,
+  // recharts, …) via its default optimizePackageImports list. But that default
+  // does NOT reach the barrel imports inside our transpilePackages workspace
+  // package @rhesis/ee-frontend, so its `import { X } from '@mui/material'`
+  // still pulls in the full CJS barrel. Under Turbopack that barrel eagerly
+  // evaluates @mui/material/useMediaQuery, whose CJS→ESM interop of
+  // `unstable_createUseMediaQuery` breaks in MUI v7.3.x — crashing the whole
+  // app at module-eval time (see mui/material-ui#46688). Listing the packages
+  // explicitly forces the barrel-to-deep-import rewrite for the transpiled EE
+  // sources too, sidestepping the eager useMediaQuery evaluation.
+  experimental: {
+    optimizePackageImports: ['@mui/material', '@mui/icons-material'],
+  },
 
   // Environment variables available to the client
   // NEXT_PUBLIC_ prefix guarantees availability in client components
