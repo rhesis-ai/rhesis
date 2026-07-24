@@ -15,7 +15,7 @@ import pytest
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import models
+from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.utils import crud_utils
 from rhesis.backend.app.utils.query_utils import QueryBuilder, include
 from tests.backend.routes.fixtures.data_factories import BehaviorDataFactory, TestDataFactory
@@ -140,3 +140,132 @@ class TestWithRelatedColumnScoping:
         # Behavior.status may be None (not set by the data factory), but the chain
         # itself must compile and execute without error either way.
         assert _is_loaded(result.behavior, "status")
+
+
+@pytest.mark.unit
+@pytest.mark.crud
+class TestMetricBehaviorNestedM2MLoads:
+    """Regression coverage for the N+1 gap in nested many-to-many collections.
+
+    with_default_derived_field_loads() only cascades comments/tasks/tags into
+    joined single-object (many-to-one) relations -- it explicitly skips
+    many-to-many. schemas.MetricDetail.behaviors/test_sets (BehaviorReference/
+    TestSetReference) and schemas.Behavior/BehaviorWithMetricsSchema.metrics
+    (schemas.Metric) both read derived fields on their nested rows, so those
+    extra chains have to be requested explicitly in _METRIC_RELATED_FIELDS/
+    _BEHAVIOR_RELATED_FIELDS -- these tests assert that eager-loading actually
+    reaches those nested rows (no lazy load fires during serialization).
+    """
+
+    def test_get_metrics_loads_nested_behavior_and_test_set_derived_fields(
+        self, test_db: Session, test_org_id: str, authenticated_user_id: str
+    ):
+        from rhesis.backend.app.constants import EntityType
+        from tests.backend.routes.fixtures.data_factories import (
+            BehaviorDataFactory,
+            MetricDataFactory,
+        )
+
+        metric = crud_utils.create_item(
+            test_db,
+            models.Metric,
+            MetricDataFactory.sample_data(),
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+        behavior = crud_utils.create_item(
+            test_db,
+            models.Behavior,
+            BehaviorDataFactory.sample_data(),
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+        test_db.execute(
+            models.behavior_metric_association.insert().values(
+                metric_id=metric.id,
+                behavior_id=behavior.id,
+                organization_id=test_org_id,
+                user_id=authenticated_user_id,
+            )
+        )
+        crud.assign_tag(
+            db=test_db,
+            tag=schemas.TagCreate(name="nested-behavior-tag"),
+            entity_id=behavior.id,
+            entity_type=EntityType.BEHAVIOR,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+        test_db.flush()
+        test_db.expire_all()
+
+        results = crud.get_metrics(db=test_db, skip=0, limit=100, organization_id=test_org_id)
+        result = next(m for m in results if m.id == metric.id)
+
+        assert _is_loaded(result, "behaviors")
+        nested_behavior = next(b for b in result.behaviors if b.id == behavior.id)
+        assert _is_loaded(nested_behavior, "comments")
+        assert _is_loaded(nested_behavior, "tasks")
+        assert _is_loaded(nested_behavior, "_tags_relationship")
+        assert len(nested_behavior.tags) == 1
+        assert nested_behavior.tags[0].name == "nested-behavior-tag"
+
+    def test_get_behavior_and_get_behaviors_detail_load_nested_metric_fields(
+        self, test_db: Session, test_org_id: str, authenticated_user_id: str
+    ):
+        from rhesis.backend.app.constants import EntityType
+        from tests.backend.routes.fixtures.data_factories import (
+            BehaviorDataFactory,
+            MetricDataFactory,
+        )
+
+        behavior = crud_utils.create_item(
+            test_db,
+            models.Behavior,
+            BehaviorDataFactory.sample_data(),
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+        metric = crud_utils.create_item(
+            test_db,
+            models.Metric,
+            MetricDataFactory.sample_data(),
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+        test_db.execute(
+            models.behavior_metric_association.insert().values(
+                metric_id=metric.id,
+                behavior_id=behavior.id,
+                organization_id=test_org_id,
+                user_id=authenticated_user_id,
+            )
+        )
+        crud.assign_tag(
+            db=test_db,
+            tag=schemas.TagCreate(name="nested-metric-tag"),
+            entity_id=metric.id,
+            entity_type=EntityType.METRIC,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+        test_db.flush()
+        test_db.expire_all()
+
+        def _assert_nested_metric_loaded(behavior_result):
+            assert _is_loaded(behavior_result, "metrics")
+            nested_metric = next(m for m in behavior_result.metrics if m.id == metric.id)
+            assert _is_loaded(nested_metric, "metric_type")
+            assert _is_loaded(nested_metric, "backend_type")
+            assert _is_loaded(nested_metric, "_tags_relationship")
+            assert len(nested_metric.tags) == 1
+            assert nested_metric.tags[0].name == "nested-metric-tag"
+
+        single = crud.get_behavior(db=test_db, behavior_id=behavior.id, organization_id=test_org_id)
+        _assert_nested_metric_loaded(single)
+
+        test_db.expire_all()
+        listed = crud.get_behaviors_detail(
+            db=test_db, skip=0, limit=100, organization_id=test_org_id
+        )
+        _assert_nested_metric_loaded(next(b for b in listed if b.id == behavior.id))
