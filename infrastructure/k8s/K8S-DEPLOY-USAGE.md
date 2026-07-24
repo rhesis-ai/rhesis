@@ -12,32 +12,66 @@ The `k8s-deploy.sh` script is your one-stop tool for managing everything Kuberne
 
 ## Common Workflows
 
+### 🔐 Configure Secrets (before first deploy)
+
+```bash
+./generate-secrets.sh
+```
+
+Creates `manifests/secrets/rhesis-secrets.yaml` from the example template. The template mirrors
+`docker-compose.yml`'s approach: most values already have a working local default baked in
+(`APP_DB_PASS`, `REDIS_PASSWORD`, `STORAGE_SERVICE_URI`, ...) or ship as a safely-disabled empty
+string — a Kubernetes Secret must be valid base64 for every key, so unlike a `.env` file there's
+no "just leave it blank" placeholder text. Only four secrets have no safe default:
+`DB_ENCRYPTION_KEY`, `JWT_SECRET_KEY`, `NEXTAUTH_SECRET`, `SESSION_SECRET_KEY` — the script
+generates these. Re-running it is safe; it only fills keys still blank, never overwrites values
+you've already set, and blanks out any stale `<BASE64_ENCODED_*>` placeholder text left over from
+an older copy of the file (which isn't valid base64 and would make `kubectl apply` reject the
+whole secret).
+
+For anything else you want to configure (`RHESIS_API_KEY`, `OPENAI_API_KEY`, `SMTP_*`,
+`GOOGLE_CLIENT_*`, ...), encode it yourself and paste the result into
+`manifests/secrets/rhesis-secrets.yaml`:
+
+```bash
+./generate-secrets.sh encode "your-actual-value"
+```
+
+Non-sensitive configuration (URLs, model names, ports) lives separately in
+`manifests/configmaps/rhesis-config.yaml` — copy it from `rhesis-config.yaml.example` and edit
+directly, no encoding needed.
+
+**When to use**: Once, before your first deploy. Both files are gitignored — never commit them.
+
 ### 🆕 First Time Setup
 
 ```bash
-./k8s-deploy.sh clean
+./k8s-deploy.sh reset
 ```
 
 This does a complete fresh installation:
 - Deletes old images and volumes
 - Rebuilds all Docker images
 - Loads them into Minikube
-- Deploys everything
+- Applies secrets/configmaps and deploys everything
 
-**When to use**: First deployment, or when things are completely broken and you want to start fresh.
+**When to use**: First deployment (after configuring secrets above), or when things are completely
+broken and you want to start over. This wipes your database and Redis data — it's the only
+command that does.
 
-### 📝 Changed Configuration Files Only
+### 🔁 Apply Changes Without Rebuilding
 
 ```bash
-./k8s-deploy.sh update
+./k8s-deploy.sh apply
 ```
 
-Use this when you've modified:
-- `values-local.yaml` (resource limits, replicas, env vars)
-- `rhesis-config.yaml` (ConfigMap values)
-- `rhesis-secrets.yaml` (Secret values)
+Applies the namespace, secrets, configmaps, and Helm release (installing it if it doesn't exist
+yet), then restarts every service so it actually picks up whatever changed — using whatever
+images are already loaded into Minikube, no Docker build step. **Keeps your database data.**
 
-**What it does**: Updates Helm release with new values, no image rebuild, **keeps your database data**.
+**When to use**: You edited `values-local.yaml`, `rhesis-config.yaml`, or `rhesis-secrets.yaml`;
+Minikube restarted and the deployment needs re-applying; or anything just needs reapplying and you
+haven't changed application code.
 
 ### 🔨 Changed Application Code
 
@@ -67,7 +101,10 @@ Use this when you've modified:
 ./k8s-deploy.sh restart frontend
 ```
 
-Just restarts the pods without rebuilding. Useful for applying changes after a rebuild.
+Bounces one service's pods — nothing else. No manifests re-applied, no Helm, no images reloaded;
+the new pod just picks up whatever image/config the deployment already has. Useful for a
+stuck/crashed pod. If you actually changed config or secrets, use `apply` instead — `restart`
+alone won't pick those up.
 
 ## Debugging & Monitoring
 
@@ -202,24 +239,14 @@ killall kubectl
 ./k8s-deploy.sh logs frontend --follow
 ```
 
-### Scenario 3: I increased memory limits in values-local.yaml
+### Scenario 3: I changed values-local.yaml, rhesis-config.yaml, or rhesis-secrets.yaml
 
 ```bash
-./k8s-deploy.sh update
+./k8s-deploy.sh apply
 ./k8s-deploy.sh status
 ```
 
-### Scenario 4: I added a new environment variable to ConfigMap
-
-```bash
-# First apply the ConfigMap manually
-kubectl apply -f manifests/configmaps/rhesis-config.yaml -n rhesis
-
-# Then update and restart
-./k8s-deploy.sh update
-```
-
-### Scenario 5: Backend won't start, need to debug
+### Scenario 4: Backend won't start, need to debug
 
 ```bash
 # Check status
@@ -235,10 +262,10 @@ kubectl apply -f manifests/configmaps/rhesis-config.yaml -n rhesis
 ./k8s-deploy.sh db
 ```
 
-### Scenario 6: Everything is broken, start over
+### Scenario 5: Everything is broken, start over
 
 ```bash
-./k8s-deploy.sh clean
+./k8s-deploy.sh reset
 ```
 
 ## Tips & Tricks
@@ -289,7 +316,7 @@ If you want to completely reset Minikube (nuclear option):
 ```bash
 minikube delete
 minikube start --driver=docker --memory=8192 --cpus=2
-./k8s-deploy.sh clean
+./k8s-deploy.sh reset
 ```
 
 ## Troubleshooting
