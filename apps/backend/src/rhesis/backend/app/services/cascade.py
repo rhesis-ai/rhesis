@@ -73,11 +73,11 @@ def cascade_soft_delete(
             if organization_id and hasattr(rel.child_model, "organization_id"):
                 query = query.filter(rel.child_model.organization_id == organization_id)
 
-            # Bulk soft delete using UPDATE
-            # synchronize_session=False is safe since we're not using these objects after
-            count = query.update(
-                {"deleted_at": datetime.now(timezone.utc)}, synchronize_session=False
-            )
+            # Bulk soft delete using UPDATE. synchronize_session=False is safe
+            # since we're not using these objects after, but it also means the
+            # column-level updated_at onupdate never fires -- set it explicitly.
+            now = datetime.now(timezone.utc)
+            count = query.update({"deleted_at": now, "updated_at": now}, synchronize_session=False)
 
             total_deleted += count
 
@@ -140,9 +140,8 @@ def cascade_soft_delete_bulk(
             if organization_id and hasattr(rel.child_model, "organization_id"):
                 query = query.filter(rel.child_model.organization_id == organization_id)
 
-            count = query.update(
-                {"deleted_at": datetime.now(timezone.utc)}, synchronize_session=False
-            )
+            now = datetime.now(timezone.utc)
+            count = query.update({"deleted_at": now, "updated_at": now}, synchronize_session=False)
 
             total_deleted += count
 
@@ -205,9 +204,13 @@ def cascade_restore(
             if organization_id and hasattr(rel.child_model, "organization_id"):
                 query = query.filter(rel.child_model.organization_id == organization_id)
 
-            # Bulk restore using UPDATE
-            # synchronize_session=False is safe since we're not using these objects after
-            count = query.update({"deleted_at": None}, synchronize_session=False)
+            # Bulk restore using UPDATE. synchronize_session=False is safe
+            # since we're not using these objects after, but it also means the
+            # column-level updated_at onupdate never fires -- set it explicitly.
+            count = query.update(
+                {"deleted_at": None, "updated_at": datetime.now(timezone.utc)},
+                synchronize_session=False,
+            )
 
             total_restored += count
 

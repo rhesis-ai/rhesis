@@ -9,12 +9,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.11.0] - 2026-07-23
 
-: fix: reject execution of empty test sets (#2173)**
-        *   *Backend:* Validate active tests before scheduling work; reject empty or soft-deleted test sets.
-        *   *Category:* **Fixed** (Validation for empty test set execution).
+### Added
 
-    *   **Commit 21: refactor(auth): drop is_running_locally
+- Custom JSON schema support for chatbot JSON mode (#2207).
+- T&C acceptance is now stored in `user_settings.terms`, with a baseline backfill migration (#2144).
+- Bulk soft-delete endpoints for tests, with a route-order guard and test coverage.
+- Insights summarization via the Architect (Telemachus) agent (#2178).
 
+### Changed
+
+- Scoped `QueryBuilder` eager loads to specific columns and fixed several N+1 query patterns (#2214).
+- Retired the dynamic `create_detailed_schema` in favor of hand-authored Detail schemas (#2216).
+- Cut backend test suite run time (#2213).
+- Batched `effective_permissions` lookups instead of a per-capability loop (#2169).
+- Required `DB_ENCRYPTION_KEY` and dropped the plaintext fallback (#2181).
+- Removed environment-name-based feature gating in favor of explicit flags (#2171, #2175).
+- Skipped metric evaluation on HTTP error responses (#2186).
+- Unified `DEV_MODE` and worker log level configuration (#2187).
+- Replaced GCP-inferred logging gating with an explicit JSON logging flag (#2170).
+
+### Fixed
+
+- Fixed a crash/freeze when importing or syncing large Garak probes (#2212).
+- Fixed duplicated behavior metrics in test run batch execution (#2215).
+- Fixed session refresh with the BFF pattern and short-lived access tokens (#2183).
+- Fixed a 500 error on `GET /users/` for organizations with terms-accepted members (#2205).
+- Fixed Garak detector metrics leaking into hand-authored tests (#2204).
+- Rejected execution of empty or soft-deleted test sets instead of scheduling them (#2173).
+- Copied Architect skill references into the runtime image (#2200).
 
 ## [0.10.0] - 2026-07-09
 
