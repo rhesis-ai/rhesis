@@ -760,7 +760,11 @@ def bulk_delete_by_ids(
             query = db.query(model).filter(model.id.in_(deleted_ids))
             if organization_id and hasattr(model, "organization_id"):
                 query = query.filter(model.organization_id == organization_id)
-            query.update({"deleted_at": datetime.now(timezone.utc)}, synchronize_session=False)
+            # query.update() bypasses the ORM flush path that applies column
+            # onupdate for single-row soft_delete(), so updated_at needs to be
+            # set explicitly here or it stays stale after a bulk delete.
+            now = datetime.now(timezone.utc)
+            query.update({"deleted_at": now, "updated_at": now}, synchronize_session=False)
 
             db.commit()
         except Exception:
