@@ -10,6 +10,7 @@ import { DownloadIcon } from '@/components/icons';
 import { formatDate } from '@/utils/date';
 import { getTestRunDisplayTimestamp } from '@/utils/test-run-utils';
 import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
+import TestRunSummarizeFab from './TestRunSummarizeFab';
 
 interface TestRunDetailHeaderProps {
   testRun: TestRunDetail;
@@ -86,6 +87,7 @@ export default function TestRunDetailHeader({
       </Box>
 
       <FabGroup>
+        <TestRunSummarizeFab testRun={testRun} />
         <Fab
           icon={<CompareArrowsOutlinedIcon />}
           tooltip={
