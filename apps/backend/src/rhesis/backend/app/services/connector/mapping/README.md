@@ -388,7 +388,7 @@ Modify weights in `STANDARD_FIELDS` to change priority:
 
 ```python
 # Make session_id more important
-(FieldConfig("session_id", "session", "{{ session_id }}", 0.3),)  # was 0.2
+FieldConfig("session_id", "session", "{{ session_id }}", 0.3)  # was 0.2
 ```
 
 ### Changing LLM Threshold
