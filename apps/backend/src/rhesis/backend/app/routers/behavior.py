@@ -85,15 +85,13 @@ def read_behaviors(
     """Get all behaviors with automatic session variables for RLS."""
     organization_id, user_id = tenant_context
 
-    results = crud.get_items_detail(
+    results = crud.get_behaviors_detail(
         db=db,
-        model=models.Behavior,
         skip=skip,
         limit=limit,
         sort_by=sort_by,
         sort_order=sort_order,
         filter=filter,
-        nested_relationships={"metrics": ["metric_type", "backend_type"]},
         organization_id=organization_id,
         user_id=user_id,
     )

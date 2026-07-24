@@ -390,13 +390,23 @@ def delete_category(
 
 
 # Behavior CRUD
-# Relationships serialized by schemas.Behavior/BehaviorDetail (status, project,
-# organization, user) -- see get_status for the same shape on a simpler model.
+# Both read_behavior and read_behaviors return BehaviorWithMetricsSchema (routers/behavior.py),
+# = schemas.Behavior (tags, status, user) + metrics: List[schemas.Metric] (each needing
+# metric_type, backend_type, tags). organization/project are NOT read by this schema (only
+# BehaviorDetail has them) -- deliberately excluded here. Folding Behavior's own tags chain in
+# here means neither caller needs with_default_derived_field_loads (BehaviorWithMetricsSchema
+# has no counts/comments/tasks field), and metrics.tags is included explicitly since
+# selectinload's default cascade skips many-to-many relations -- omitting it would lazy-load
+# tags per nested metric (N+1). No cartesian product: each hop's own cardinality picks
+# selectinload for collections, joinedload for the final single-valued tag.
 _BEHAVIOR_RELATED_FIELDS = (
     include(models.Behavior.status),
-    include(models.Behavior.project),
-    include(models.Behavior.organization),
     include(models.Behavior.user),
+    include(models.Behavior._tags_relationship, models.TaggedItem.tag),
+    include(models.Behavior.metrics),
+    include(models.Behavior.metrics, models.Metric.metric_type),
+    include(models.Behavior.metrics, models.Metric.backend_type),
+    include(models.Behavior.metrics, models.Metric._tags_relationship, models.TaggedItem.tag),
 )
 
 
@@ -411,7 +421,6 @@ def get_behavior(
         QueryBuilder(db, models.Behavior)
         .with_deleted()
         .with_related(*_BEHAVIOR_RELATED_FIELDS)
-        .with_default_derived_field_loads()
         .with_organization_filter(organization_id)
         .with_visibility_filter(user_id)
         .filter_by_id(behavior_id)
@@ -433,6 +442,50 @@ def get_behaviors(
     return get_items(
         db, models.Behavior, skip, limit, sort_by, sort_order, filter, organization_id, user_id
     )
+
+
+def get_behaviors_detail(
+    db: Session,
+    skip: int = 0,
+    limit: int = 20,
+    sort_by: str = "created_at",
+    sort_order: str = "desc",
+    filter: str | None = None,
+    organization_id: str = None,
+    user_id: str = None,
+) -> List[models.Behavior]:
+    """Get behaviors with related objects for BehaviorWithMetricsSchema, including metrics.
+
+    Runs as two queries, mirroring get_metrics/crud_utils.get_items_detail: a joinless
+    query picks the page's IDs (filter + sort + LIMIT/OFFSET), then a second query
+    eager-loads _BEHAVIOR_RELATED_FIELDS scoped to just those IDs. Without this split,
+    Postgres would have to build every join for every matching row across the org before
+    it can sort and cut down to `limit`.
+    """
+    ordered_ids = (
+        QueryBuilder(db, models.Behavior)
+        .with_organization_filter(organization_id)
+        .with_visibility_filter(user_id)
+        .with_odata_filter(filter)
+        .with_sorting(sort_by, sort_order)
+        .with_pagination(skip, limit)
+        .ids()
+    )
+    if not ordered_ids:
+        return []
+
+    items = (
+        QueryBuilder(db, models.Behavior)
+        .with_related(*_BEHAVIOR_RELATED_FIELDS)
+        .with_organization_filter(organization_id)
+        .with_visibility_filter(user_id)
+        .query.filter(models.Behavior.id.in_(ordered_ids))
+        .all()
+    )
+
+    # WHERE id IN (...) does not preserve order -- re-apply the phase-1 sort.
+    items_by_id = {item.id: item for item in items}
+    return [items_by_id[item_id] for item_id in ordered_ids if item_id in items_by_id]
 
 
 def create_behavior(
@@ -3027,8 +3080,20 @@ _METRIC_RELATED_FIELDS = (
     include(models.Metric.user),
     include(models.Metric.organization),
     include(models.Metric.project),
+    # behaviors/test_sets serialize as BehaviorReference/TestSetReference, which
+    # both read `counts` (comments/tasks) and `tags`. with_default_derived_field_loads
+    # only cascades those into many-to-one relations -- it skips many-to-many -- so
+    # without these explicit chains each nested behavior/test_set would lazy-load its
+    # own comments/tasks/tags per row (N+1). include() picks selectinload for each
+    # collection hop and joinedload for the final tag, so no cartesian product.
     include(models.Metric.behaviors),
+    include(models.Metric.behaviors, models.Behavior.comments),
+    include(models.Metric.behaviors, models.Behavior.tasks),
+    include(models.Metric.behaviors, models.Behavior._tags_relationship, models.TaggedItem.tag),
     include(models.Metric.test_sets),
+    include(models.Metric.test_sets, models.TestSet.comments),
+    include(models.Metric.test_sets, models.TestSet.tasks),
+    include(models.Metric.test_sets, models.TestSet._tags_relationship, models.TaggedItem.tag),
 )
 
 
@@ -3057,18 +3122,41 @@ def get_metrics(
     organization_id: str = None,
     user_id: str = None,
 ) -> List[models.Metric]:
-    """Get all metrics with their related objects, including many-to-many relationships"""
-    return (
+    """Get all metrics with their related objects, including many-to-many relationships.
+
+    Runs as two queries, mirroring crud_utils.get_items_detail: a joinless
+    query picks the page's IDs (filter + sort + LIMIT/OFFSET), then a second
+    query eager-loads the metric relationships scoped to just those IDs.
+    Without this split, Postgres has to build all nine _METRIC_RELATED_FIELDS
+    joins for every matching row across the org before it can sort and cut
+    down to `limit`, so cost scales with total matching rows rather than
+    page size.
+    """
+    ordered_ids = (
+        QueryBuilder(db, models.Metric)
+        .with_organization_filter(organization_id)
+        .with_visibility_filter(user_id)
+        .with_odata_filter(filter)
+        .with_sorting(sort_by, sort_order)
+        .with_pagination(skip, limit)
+        .ids()
+    )
+    if not ordered_ids:
+        return []
+
+    items = (
         QueryBuilder(db, models.Metric)
         .with_related(*_METRIC_RELATED_FIELDS)
         .with_default_derived_field_loads()
         .with_organization_filter(organization_id)
         .with_visibility_filter(user_id)
-        .with_odata_filter(filter)
-        .with_pagination(skip, limit)
-        .with_sorting(sort_by, sort_order)
+        .query.filter(models.Metric.id.in_(ordered_ids))
         .all()
     )
+
+    # WHERE id IN (...) does not preserve order -- re-apply the phase-1 sort.
+    items_by_id = {item.id: item for item in items}
+    return [items_by_id[item_id] for item_id in ordered_ids if item_id in items_by_id]
 
 
 def _preprocess_metric_data(
