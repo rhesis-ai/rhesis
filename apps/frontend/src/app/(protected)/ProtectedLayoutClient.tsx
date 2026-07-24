@@ -100,7 +100,7 @@ export function ProtectedLayoutClient({
       <FeaturesProvider initialFeatures={initialFeatures}>
         <PermissionsProvider initialPermissions={initialPermissions}>
           <WebSocketProvider>
-            <TermsAcceptanceGate />
+            {!isOnboarding && <TermsAcceptanceGate />}
             {!isOnboarding && !chromeless && <VerificationBanner />}
             {content}
           </WebSocketProvider>
