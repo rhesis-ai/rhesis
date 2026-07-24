@@ -24,7 +24,7 @@ import GridStateGate from '@/components/common/GridStateGate';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { AccountTreeIcon } from '@/components/icons';
 import { useRouter } from 'next/navigation';
-import { Box, Paper, Typography } from '@mui/material';
+import { Alert, Box, Paper, Typography } from '@mui/material';
 import GridBadge from '@/components/common/GridBadge';
 import DeleteIcon from '@mui/icons-material/Delete';
 import IosShareOutlinedIcon from '@mui/icons-material/IosShareOutlined';
@@ -304,6 +304,11 @@ export default function ExplorerGrid({
           value={{ searchQuery, setSearchQuery }}
         >
           <Box>
+            {error && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                Failed to load explorer sessions
+              </Alert>
+            )}
             <BaseDataGrid
               columns={columns}
               rows={rows}

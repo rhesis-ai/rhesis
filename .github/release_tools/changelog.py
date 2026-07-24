@@ -13,11 +13,17 @@ from .utils import call_gemini_api, info, success, warn
 
 def generate_changelog_with_llm(api_key: str, component: str, version: str,
                                commits: List[Dict[str, str]], last_tag: Optional[str],
-                               max_tokens: int = 2048) -> Optional[str]:
+                               max_tokens: Optional[int] = None) -> Optional[str]:
     """Generate changelog using Gemini API"""
     if not api_key:
         warn(f"No Gemini API key available. Skipping LLM changelog generation for {component}")
         return None
+
+    if max_tokens is None:
+        # Scale with commit volume: a 20+ commit release previously exhausted
+        # the flat 2048-token budget mid-generation, producing truncated,
+        # broken markdown that still got committed to the changelog.
+        max_tokens = max(4096, 256 * len(commits))
 
     commits_text = "\n".join([
         f"- {commit['message']} ({commit['hash'][:8]}, {commit['author']})"

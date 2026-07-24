@@ -13,7 +13,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Annotations Review Hub**: Introduced a new human review interface in the "Improve" section, featuring list views, search, filtering, resolution actions, and deep-linking to test results and traces.
 - **JSON-Aware Rendering**: Added structured JSON rendering (`JsonPreview`) with Markdown fallbacks in the test result drawer (overview and conversation tabs) and the Playground.
--
+- Insights summarization via the Architect (Telemachus) agent.
+- App version is now shown in the support drawer.
+- Time range and test run filters on the Insights page.
+- Linked Tests on behaviors, and a fixed behavior filter list.
+
+### Changed
+
+- Removed the deprecated `@mui/lab` dependency.
+- Decluttered Tests, Test Sets, and Define/Generate docs.
+
+### Fixed
+
+- Fixed grid loading/empty-state flicker.
+- Allowed owners and admins to re-run test runs.
+- Preserved evaluation step fields when adding a new step.
+- Fixed drawer icons forced to body color.
+- Fixed AND logic for multiple Tests drawer filters.
+- Fixed search on the filtered Tests list.
+- Fixed backend and E2E test failures introduced in v0.10.0.
 
 ## [0.10.0] - 2026-07-09
 

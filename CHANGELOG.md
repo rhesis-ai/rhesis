@@ -25,13 +25,17 @@ This release includes the following component versions:
 ### Summary of Changes
 
 **Backend v0.11.0:**
-- Moved Garak probe import and synchronization to Celery background tasks to prevent backend timeouts and event loop
+- Moved Garak probe import and synchronization to Celery background tasks to prevent backend timeouts and event loop blocking on large probe sets.
+- Added bulk soft-delete endpoints for tests and scoped `QueryBuilder` eager loads to fix several N+1 query patterns.
+- Added an Annotations review hub and Insights summarization via the Architect (Telemachus) agent.
 
 **Frontend v0.11.0:**
-- **Asynchronous Garak Import & Sync:** Redesigned the Garak probe import and synchronization flow
+- **Asynchronous Garak Import & Sync:** Redesigned the Garak probe import and synchronization flow to run as a background task with progress feedback instead of blocking the UI.
+- Added an Annotations Review Hub and JSON-aware rendering in the test result drawer and Playground.
 
 **SDK v0.11.0:**
 - Fixed a crash in Garak detector metric evaluation by adding support for generator and scalar results.
+- Resolved a `prompt_loader` template resolution issue on cloud deployments.
 
 See individual component changelogs for detailed changes:
 - [Backend Changelog](apps/backend/CHANGELOG.md)
