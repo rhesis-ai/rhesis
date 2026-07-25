@@ -66,51 +66,53 @@ interface MetricsClientProps {
   initialTotalCount?: number;
 }
 
+interface MetricsOptionMaps {
+  behaviors: Map<string, ApiBehavior>;
+  backendTypes: Map<string, { type_value: string }>;
+  metricTypes: Map<string, { type_value: string; description: string }>;
+}
+
 /**
  * Extracts the behavior/backend/type dropdown options a page of metrics
- * contributes. Used both to seed state from the server-fetched first page
- * and to update state after each subsequent client-side fetch.
+ * contributes and merges them into the running accumulator maps. Mutating
+ * maps that persist across fetches -- rather than deriving from just the
+ * current page -- matters because pages are server-filtered: filtering by
+ * one backend type would otherwise make that fetch's response (and thus the
+ * dropdown) contain only that value, making every other option vanish from
+ * the filter UI the moment it's applied.
  */
-function deriveMetricsPageOptions(
-  data: MetricDetail[],
-  behaviorMap: Map<string, ApiBehavior>
-) {
+function deriveMetricsPageOptions(data: MetricDetail[], maps: MetricsOptionMaps) {
   data.forEach(metric => {
     metric.behaviors?.forEach(behavior => {
       if (behavior && typeof behavior !== 'string' && behavior.id) {
-        behaviorMap.set(behavior.id, {
+        maps.behaviors.set(behavior.id, {
           id: behavior.id,
           name: behavior.name || 'Unnamed Behavior',
           description: behavior.description ?? undefined,
         } as ApiBehavior);
       }
     });
-  });
-  const behaviorsData = Array.from(behaviorMap.values());
-  const behaviorOptions = behaviorsData.map(b => ({ id: b.id, name: b.name }));
-
-  const uniqueBackendTypes = new Map<string, { type_value: string }>();
-  const uniqueMetricTypes = new Map<
-    string,
-    { type_value: string; description: string }
-  >();
-
-  data.forEach(metric => {
     if (metric.backend_type) {
       const val = metric.backend_type.type_value;
-      uniqueBackendTypes.set(val, {
+      maps.backendTypes.set(val, {
         type_value: val.charAt(0).toUpperCase() + val.slice(1),
       });
     }
     if (metric.metric_type) {
-      uniqueMetricTypes.set(metric.metric_type.type_value, {
+      maps.metricTypes.set(metric.metric_type.type_value, {
         type_value: metric.metric_type.type_value,
         description: metric.metric_type.description || '',
       });
     }
   });
 
-  return { behaviorsData, behaviorOptions, uniqueBackendTypes, uniqueMetricTypes };
+  const behaviorsData = Array.from(maps.behaviors.values());
+  return {
+    behaviorsData,
+    behaviorOptions: behaviorsData.map(b => ({ id: b.id, name: b.name })),
+    backendTypeOptions: Array.from(maps.backendTypes.values()),
+    metricTypeOptions: Array.from(maps.metricTypes.values()),
+  };
 }
 
 export default function MetricsClientComponent({
@@ -124,14 +126,19 @@ export default function MetricsClientComponent({
 
   const assignMode = searchParams.get('assignMode') === 'true';
 
-  // Accumulate unique behaviors across page navigations for the dropdown
-  const behaviorMapRef = React.useRef(new Map<string, ApiBehavior>());
+  // Accumulate dropdown options across page/filter navigations (see
+  // deriveMetricsPageOptions) so filtering to one value doesn't erase the
+  // other options from the dropdowns.
+  const optionMapsRef = React.useRef<MetricsOptionMaps>({
+    behaviors: new Map(),
+    backendTypes: new Map(),
+    metricTypes: new Map(),
+  });
 
   // Data state — seeded from the server-fetched first page when available
   const [behaviors, setBehaviors] = React.useState<ApiBehavior[]>(() =>
     initialData
-      ? deriveMetricsPageOptions(initialData, behaviorMapRef.current)
-          .behaviorsData
+      ? deriveMetricsPageOptions(initialData, optionMapsRef.current).behaviorsData
       : []
   );
   const [_behaviorsWithMetrics, setBehaviorsWithMetrics] = React.useState<
@@ -151,22 +158,13 @@ export default function MetricsClientComponent({
   const [filterOptions, setFilterOptions] = React.useState<FilterOptions>(
     () => {
       if (!initialData) return initialFilterOptions;
-      const { behaviorOptions, uniqueBackendTypes, uniqueMetricTypes } =
-        deriveMetricsPageOptions(initialData, behaviorMapRef.current);
+      const { behaviorOptions, backendTypeOptions, metricTypeOptions } =
+        deriveMetricsPageOptions(initialData, optionMapsRef.current);
       return {
         ...initialFilterOptions,
-        backend:
-          uniqueBackendTypes.size > 0
-            ? Array.from(uniqueBackendTypes.values())
-            : initialFilterOptions.backend,
-        type:
-          uniqueMetricTypes.size > 0
-            ? Array.from(uniqueMetricTypes.values())
-            : initialFilterOptions.type,
-        behavior:
-          behaviorOptions.length > 0
-            ? behaviorOptions
-            : initialFilterOptions.behavior,
+        backend: backendTypeOptions,
+        type: metricTypeOptions,
+        behavior: behaviorOptions,
       };
     }
   );
@@ -253,22 +251,15 @@ export default function MetricsClientComponent({
         setMetrics(response.data);
         setTotalCount(response.pagination.totalCount);
 
-        const { behaviorsData, behaviorOptions, uniqueBackendTypes, uniqueMetricTypes } =
-          deriveMetricsPageOptions(response.data, behaviorMapRef.current);
+        const { behaviorsData, behaviorOptions, backendTypeOptions, metricTypeOptions } =
+          deriveMetricsPageOptions(response.data, optionMapsRef.current);
         setBehaviors(behaviorsData);
 
         setFilterOptions(prev => ({
           ...prev,
-          backend:
-            uniqueBackendTypes.size > 0
-              ? Array.from(uniqueBackendTypes.values())
-              : prev.backend,
-          type:
-            uniqueMetricTypes.size > 0
-              ? Array.from(uniqueMetricTypes.values())
-              : prev.type,
-          behavior:
-            behaviorOptions.length > 0 ? behaviorOptions : prev.behavior,
+          backend: backendTypeOptions,
+          type: metricTypeOptions,
+          behavior: behaviorOptions,
         }));
       } catch (err) {
         if (cancelled) return;
