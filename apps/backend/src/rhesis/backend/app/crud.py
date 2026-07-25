@@ -3043,6 +3043,24 @@ def get_metric(
     )
 
 
+def _apply_metric_scope_filter(builder: QueryBuilder, metric_scope: str | None) -> None:
+    """Parse a comma-separated metric_scope string and apply a JSONB @> filter."""
+    if not metric_scope:
+        return
+    from sqlalchemy import or_
+    from sqlalchemy.dialects.postgresql import JSONB as PG_JSONB
+    from sqlalchemy.sql.expression import cast
+
+    scopes = [s.strip() for s in metric_scope.split(",") if s.strip()]
+    if scopes:
+        builder.query = builder.query.filter(
+            or_(*[
+                models.Metric.metric_scope.op("@>")(cast([s], PG_JSONB))
+                for s in scopes
+            ])
+        )
+
+
 def get_metrics(
     db: Session,
     skip: int = 0,
@@ -3050,6 +3068,7 @@ def get_metrics(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
+    metric_scope: str | None = None,
     organization_id: str = None,
     user_id: str = None,
 ) -> List[models.Metric]:
@@ -3063,15 +3082,18 @@ def get_metrics(
     down to `limit`, so cost scales with total matching rows rather than
     page size.
     """
-    ordered_ids = (
+    builder = (
         QueryBuilder(db, models.Metric)
         .with_organization_filter(organization_id)
         .with_visibility_filter(user_id)
         .with_odata_filter(filter)
         .with_sorting(sort_by, sort_order)
         .with_pagination(skip, limit)
-        .ids()
     )
+
+    _apply_metric_scope_filter(builder, metric_scope)
+
+    ordered_ids = builder.ids()
     if not ordered_ids:
         return []
 

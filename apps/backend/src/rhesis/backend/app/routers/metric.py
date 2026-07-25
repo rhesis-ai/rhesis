@@ -202,6 +202,10 @@ def read_metrics(
         alias="$select",
         description="Comma-separated list of fields to return",
     ),
+    metric_scope: str | None = Query(
+        None,
+        description="Comma-separated metric scopes to filter by (JSONB array contains)",
+    ),
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
@@ -215,9 +219,26 @@ def read_metrics(
         sort_by=sort_by,
         sort_order=sort_order,
         filter=filter,
+        metric_scope=metric_scope,
         organization_id=organization_id,
         user_id=user_id,
     )
+
+    # The @with_count_header decorator computes a count using only the OData
+    # $filter.  When metric_scope is also active, override the header with an
+    # accurate count that includes the JSONB filter.
+    if metric_scope:
+        from rhesis.backend.app.utils.query_utils import QueryBuilder
+
+        cb = (
+            QueryBuilder(db, models.Metric)
+            .with_organization_filter(organization_id)
+            .with_visibility_filter(user_id)
+            .with_odata_filter(filter)
+        )
+        crud._apply_metric_scope_filter(cb, metric_scope)
+        response.headers["X-Total-Count"] = str(cb.count())
+
     if select:
         serialized = jsonable_encoder(results)
         return JSONResponse(content=apply_select(serialized, select))
