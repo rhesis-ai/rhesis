@@ -1315,6 +1315,128 @@ export function buildEndpointListFilter(
   return `(${parts.join(') and (')})`;
 }
 
+// ── Shared directory-filter helpers ───────────────────────────────────────────
+
+/**
+ * Joins an array of OData filter parts with `and`.
+ * Returns undefined when the array is empty (no active filters).
+ */
+function joinODataParts(parts: string[]): string | undefined {
+  if (parts.length === 0) return undefined;
+  if (parts.length === 1) return parts[0];
+  return parts.map(p => `(${p})`).join(' and ');
+}
+
+/**
+ * Pushes a multi-value OR condition onto `parts`.
+ * Each value is mapped to an OData expression via `toExpr`; if the result
+ * is a single expression it is added unwrapped, otherwise they are grouped
+ * inside parentheses with ` or `.
+ */
+function pushOrConditions(
+  parts: string[],
+  values: string[],
+  toExpr: (v: string) => string
+): void {
+  if (values.length === 0) return;
+  const conds = values.map(toExpr);
+  parts.push(conds.length === 1 ? conds[0] : `(${conds.join(' or ')})`);
+}
+
+// ── Metric directory filters ──────────────────────────────────────────────────
+
+export interface MetricDirectoryFilters {
+  search: string;
+  backend: string[];
+  type: string[];
+  scoreType: string[];
+  behavior: string;
+}
+
+/**
+ * Builds an OData $filter string for the metric list endpoint.
+ * Returns undefined when no filters are active.
+ *
+ * Note: `metricScope` is NOT handled here — it uses a dedicated backend
+ * query parameter because OData cannot filter Postgres JSONB arrays.
+ */
+export function buildMetricODataFilter(
+  f: MetricDirectoryFilters
+): string | undefined {
+  const parts: string[] = [];
+
+  const search = f.search.trim();
+  if (search) {
+    const q = escapeODataValue(search);
+    parts.push(
+      `(contains(tolower(name),tolower('${q}')) or contains(tolower(description),tolower('${q}')))`
+    );
+  }
+
+  pushOrConditions(parts, f.backend, b =>
+    `tolower(backend_type/type_value) eq '${escapeODataValue(b)}'`
+  );
+
+  pushOrConditions(parts, f.type, t =>
+    `tolower(metric_type/type_value) eq tolower('${escapeODataValue(t)}')`
+  );
+
+  pushOrConditions(parts, f.scoreType, s =>
+    `tolower(score_type) eq tolower('${escapeODataValue(s)}')`
+  );
+
+  if (f.behavior.trim()) {
+    const b = escapeODataValue(f.behavior.trim());
+    parts.push(
+      `behaviors/any(b: tolower(b/name) eq tolower('${b}'))`
+    );
+  }
+
+  return joinODataParts(parts);
+}
+
+// ── Behavior directory filters ────────────────────────────────────────────────
+
+export type BehaviorMetricCountFilter = 'all' | 'has_metrics' | 'no_metrics';
+
+export interface BehaviorDirectoryFilters {
+  search: string;
+  metricCount: BehaviorMetricCountFilter;
+  tagNames: string[];
+}
+
+/**
+ * Builds an OData $filter string for the behavior list endpoint.
+ * Returns undefined when no filters are active.
+ */
+export function buildBehaviorODataFilter(
+  f: BehaviorDirectoryFilters
+): string | undefined {
+  const parts: string[] = [];
+
+  const search = f.search.trim();
+  if (search) {
+    const q = escapeODataValue(search);
+    parts.push(
+      `(contains(tolower(name),tolower('${q}')) or contains(tolower(description),tolower('${q}')) or ` +
+        `metrics/any(m: contains(tolower(m/name),tolower('${q}')) or contains(tolower(m/description),tolower('${q}'))) or ` +
+        `_tags_relationship/any(tg: contains(tolower(tg/tag/name),tolower('${q}'))))`
+    );
+  }
+
+  if (f.metricCount === 'has_metrics') {
+    parts.push('metrics/any()');
+  } else if (f.metricCount === 'no_metrics') {
+    parts.push('not metrics/any()');
+  }
+
+  pushOrConditions(parts, f.tagNames, t =>
+    `_tags_relationship/any(tg: tolower(tg/tag/name) eq tolower('${escapeODataValue(t)}'))`
+  );
+
+  return joinODataParts(parts);
+}
+
 // ── Team member filters (organization team page) ─────────────────────────────
 
 export interface TeamFilters {

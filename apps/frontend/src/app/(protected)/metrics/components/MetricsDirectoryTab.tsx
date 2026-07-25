@@ -4,6 +4,7 @@ import * as React from 'react';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
+import LinearProgress from '@mui/material/LinearProgress';
 import TablePagination from '@mui/material/TablePagination';
 import GridToolbar, {
   PrimarySegmentedPills,
@@ -24,10 +25,7 @@ import MetricCard from './MetricCard';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import { MetricsClient } from '@/utils/api-client/metrics-client';
-import {
-  MetricDetail,
-  MetricScope,
-} from '@/utils/api-client/interfaces/metric';
+import { MetricDetail } from '@/utils/api-client/interfaces/metric';
 import type {
   Behavior as ApiBehavior,
   BehaviorWithMetrics,
@@ -67,6 +65,12 @@ interface MetricsDirectoryTabProps {
   organizationId: UUID;
   behaviors: ApiBehavior[];
   metrics: MetricDetail[];
+  totalCount: number;
+  page: number;
+  rowsPerPage: number;
+  onPageChange: (page: number) => void;
+  onRowsPerPageChange: (size: number) => void;
+  onRefresh: () => void;
   filters: FilterState;
   filterOptions: FilterOptions;
   isLoading: boolean;
@@ -77,7 +81,7 @@ interface MetricsDirectoryTabProps {
   setBehaviorsWithMetrics: React.Dispatch<
     React.SetStateAction<BehaviorWithMetrics[]>
   >;
-  assignMode?: boolean; // Whether we're in assign mode (coming from behaviors page)
+  assignMode?: boolean;
 }
 
 // Add type guard function
@@ -96,6 +100,12 @@ export default function MetricsDirectoryTab({
   organizationId: _organizationId,
   behaviors,
   metrics,
+  totalCount,
+  page,
+  rowsPerPage,
+  onPageChange,
+  onRowsPerPageChange,
+  onRefresh,
   filters,
   filterOptions,
   isLoading,
@@ -127,14 +137,10 @@ export default function MetricsDirectoryTab({
     React.useState<{ id: string; name: string } | null>(null);
   const [isDeletingMetric, setIsDeletingMetric] = React.useState(false);
 
-  // Pagination state
-  const [page, setPage] = React.useState(0);
-  const [rowsPerPage, setRowsPerPage] = React.useState(25);
-
   // Advanced filters drawer state
   const [filterDrawerOpen, setFilterDrawerOpen] = React.useState(false);
 
-  // Filter handlers
+  // Filter handlers — parent resets page to 0 when filters change
   const handleFilterChange = (
     filterType: keyof FilterState,
     value: string | string[]
@@ -143,7 +149,6 @@ export default function MetricsDirectoryTab({
       ...prev,
       [filterType]: value,
     }));
-    setPage(0);
   };
 
   // Count active advanced filters
@@ -155,84 +160,12 @@ export default function MetricsDirectoryTab({
     filters.metricScope.length +
     (behaviorStr.trim() !== '' ? 1 : 0);
 
+  // True empty = server returned zero results and no filters are active
   const isTrueEmpty =
-    metrics.length === 0 &&
+    totalCount === 0 &&
     !filters.search &&
     filters.backend.length === 0 &&
     activeAdvancedFilterCount === 0;
-
-  // Filter metrics based on search and filter criteria
-  const getFilteredMetrics = () => {
-    return metrics.filter(metric => {
-      // Search filter
-      const searchMatch =
-        !filters.search ||
-        (metric.name || '')
-          .toLowerCase()
-          .includes(filters.search.toLowerCase()) ||
-        (metric.description || '')
-          .toLowerCase()
-          .includes(filters.search.toLowerCase()) ||
-        (metric.metric_type?.type_value || '')
-          .toLowerCase()
-          .includes(filters.search.toLowerCase());
-
-      // Backend filter
-      const backendMatch =
-        filters.backend.length === 0 ||
-        (metric.backend_type &&
-          filters.backend.includes(
-            metric.backend_type.type_value.toLowerCase()
-          ));
-
-      // Type filter
-      const typeMatch =
-        filters.type.length === 0 ||
-        (metric.metric_type?.type_value &&
-          filters.type.includes(metric.metric_type.type_value));
-
-      // Score type filter
-      const scoreTypeMatch =
-        !filters.scoreType ||
-        filters.scoreType.length === 0 ||
-        (metric.score_type && filters.scoreType.includes(metric.score_type));
-
-      // Metric scope filter
-      const metricScopeMatch =
-        !filters.metricScope ||
-        filters.metricScope.length === 0 ||
-        (metric.metric_scope &&
-          filters.metricScope.some(scope =>
-            metric.metric_scope?.includes(scope as MetricScope)
-          ));
-
-      // Behavior filter — text match against assigned behavior names
-      const behaviorFilter =
-        typeof filters.behavior === 'string' ? filters.behavior : '';
-      const metricBehaviorIds = Array.isArray(metric.behaviors)
-        ? metric.behaviors.map((b: string | { id?: string }) =>
-            typeof b === 'string' ? b : b.id
-          )
-        : [];
-      const metricBehaviorNames = behaviors
-        .filter(b => metricBehaviorIds.includes(b.id as string))
-        .map(b => b.name || '');
-      const behaviorMatch =
-        behaviorFilter.trim() === '' ||
-        metricBehaviorNames.some(
-          name => name.toLowerCase() === behaviorFilter.toLowerCase()
-        );
-
-      return (
-        searchMatch &&
-        backendMatch &&
-        typeMatch &&
-        scoreTypeMatch &&
-        metricScopeMatch &&
-        behaviorMatch
-      );
-    });
-  };
 
   // Function to assign a metric to a behavior
   const handleAssignMetricToBehavior = async (
@@ -423,10 +356,7 @@ export default function MetricsDirectoryTab({
       const metricClient = new MetricsClient();
       await metricClient.deleteMetric(metricToDeleteCompletely.id as UUID);
 
-      // Remove the metric from local state
-      setMetrics(prevMetrics =>
-        prevMetrics.filter(m => m.id !== metricToDeleteCompletely.id)
-      );
+      onRefresh();
 
       notifications.show('Metric deleted successfully', {
         severity: 'success',
@@ -449,21 +379,12 @@ export default function MetricsDirectoryTab({
     setMetricToDeleteCompletely(null);
   };
 
-  const filteredMetrics = getFilteredMetrics();
   const activeBehaviors = behaviors.filter(b => b.name && b.name.trim() !== '');
 
-  // Clamp page when list shrinks (e.g. after delete/duplicate)
-  React.useEffect(() => {
-    const lastPage = Math.max(
-      0,
-      Math.ceil(filteredMetrics.length / rowsPerPage) - 1
-    );
-    if (page > lastPage) {
-      setPage(lastPage);
-    }
-  }, [filteredMetrics.length, rowsPerPage, page]);
+  // First load — no data at all yet, show a full-page spinner
+  const isInitialLoad = isLoading && metrics.length === 0 && totalCount === 0;
 
-  if (isLoading) {
+  if (isInitialLoad) {
     return (
       <PageLayout title="Metrics" breadcrumbs={[]}>
         <Box
@@ -484,7 +405,7 @@ export default function MetricsDirectoryTab({
     );
   }
 
-  if (error) {
+  if (error && metrics.length === 0) {
     return (
       <PageLayout title="Metrics" breadcrumbs={[]}>
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
@@ -606,26 +527,38 @@ export default function MetricsDirectoryTab({
                 metricScope: drawerFilters.metricScope,
                 behavior: drawerFilters.behavior,
               }));
-              setPage(0);
+            }}
+          />
+
+          {/* Subtle loading indicator for subsequent fetches — always
+              mounted so its height never shifts the grid below */}
+          <LinearProgress
+            sx={{
+              mb: 1,
+              borderRadius: theme => theme.shape.borderRadius,
+              visibility: isLoading ? 'visible' : 'hidden',
             }}
           />
 
           {/* Metrics grid */}
           <Box
-            sx={{
+            sx={theme => ({
               display: 'grid',
               gridTemplateColumns: {
                 xs: '1fr',
                 sm: '1fr 1fr',
                 md: 'repeat(3, 1fr)',
               },
-              gap: '24px',
+              gap: theme.spacing(3),
               mb: 4,
-            }}
+              opacity: isLoading ? theme.palette.action.disabledOpacity : 1,
+              pointerEvents: isLoading ? 'none' : 'auto',
+              transition: theme.transitions.create('opacity', {
+                duration: theme.transitions.duration.short,
+              }),
+            })}
           >
-            {filteredMetrics
-              .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-              .map(metric => {
+            {metrics.map(metric => {
                 const assignedBehaviors = activeBehaviors.filter(b => {
                   if (!Array.isArray(metric.behaviors)) return false;
                   // Check if behaviors is an array of strings (UUIDs) or BehaviorReference objects
@@ -679,16 +612,15 @@ export default function MetricsDirectoryTab({
                 );
               })}
           </Box>
-          {filteredMetrics.length > 0 && (
+          {totalCount > 0 && (
             <TablePagination
               component="div"
-              count={filteredMetrics.length}
+              count={totalCount}
               page={page}
-              onPageChange={(_event, newPage) => setPage(newPage)}
+              onPageChange={(_event, newPage) => onPageChange(newPage)}
               rowsPerPage={rowsPerPage}
               onRowsPerPageChange={event => {
-                setRowsPerPage(parseInt(event.target.value, 10));
-                setPage(0);
+                onRowsPerPageChange(parseInt(event.target.value, 10));
               }}
               rowsPerPageOptions={[25, 50, 100]}
               labelRowsPerPage="Metrics per page:"
