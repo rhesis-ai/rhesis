@@ -551,11 +551,6 @@ export default function MetricsDirectoryTab({
               },
               gap: theme.spacing(3),
               mb: 4,
-              opacity: isLoading ? theme.palette.action.disabledOpacity : 1,
-              pointerEvents: isLoading ? 'none' : 'auto',
-              transition: theme.transitions.create('opacity', {
-                duration: theme.transitions.duration.short,
-              }),
             })}
           >
             {metrics.map(metric => {

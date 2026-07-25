@@ -648,11 +648,6 @@ export default function BehaviorsClient({
             },
             gap: theme.spacing(3),
             mb: 4,
-            opacity: isLoading ? theme.palette.action.disabledOpacity : 1,
-            pointerEvents: isLoading ? 'none' : 'auto',
-            transition: theme.transitions.create('opacity', {
-              duration: theme.transitions.duration.short,
-            }),
           })}
         >
           {behaviors.map(behavior => (
