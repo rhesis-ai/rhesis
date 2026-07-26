@@ -166,13 +166,25 @@ export default function BehaviorsClient({
    * just-created item -- with server-side pagination, its name may sort
    * outside whatever page the user happens to be viewing.
    */
+  /**
+   * Only optimistically splices the new row into the *rendered* page when
+   * we're on page 0: with server-side name sorting, a row created/duplicated
+   * while viewing another page may not actually belong there, and we don't
+   * have the adjacent pages' boundary names to know where it really sorts.
+   * Elsewhere we still bump `totalCount` (so pagination controls reflect the
+   * new row existing) and rely on the next real fetch to reveal it. Slicing
+   * to `rowsPerPage` after inserting keeps the rendered page from exceeding
+   * what the pagination controls advertise.
+   */
   const insertBehaviorSorted = (behavior: BehaviorWithMetrics) => {
-    setBehaviors(prev => {
-      const next = [...prev, behavior];
-      next.sort((a, b) => a.name.localeCompare(b.name));
-      return next;
-    });
     setTotalCount(prev => prev + 1);
+    if (page !== 0) return;
+    setBehaviors(prev => {
+      const next = [...prev, behavior].sort((a, b) =>
+        a.name.localeCompare(b.name)
+      );
+      return next.slice(0, rowsPerPage);
+    });
   };
 
   const handleAddNewBehavior = () => {
