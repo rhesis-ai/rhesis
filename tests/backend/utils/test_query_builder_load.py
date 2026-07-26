@@ -346,6 +346,7 @@ class TestODataAnyNavigationFilter:
             limit=100,
             filter=odata_filter,
             organization_id=test_org_id,
+            user_id=authenticated_user_id,
         )
         result_ids = {m.id for m in results}
 
