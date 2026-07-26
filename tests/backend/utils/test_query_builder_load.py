@@ -269,3 +269,85 @@ class TestMetricBehaviorNestedM2MLoads:
             db=test_db, skip=0, limit=100, organization_id=test_org_id
         )
         _assert_nested_metric_loaded(next(b for b in listed if b.id == behavior.id))
+
+
+@pytest.mark.unit
+@pytest.mark.crud
+class TestODataAnyNavigationFilter:
+    """Regression coverage for OData $filter expressions that navigate a
+    many-to-many relationship with `any(...)`, e.g. the frontend's
+    `behaviors/any(b: tolower(b/name) eq tolower('...'))` used to filter the
+    metrics directory by behavior name. `odata_query`'s SQLAlchemy backend
+    compiles this to an `EXISTS` subquery through the association table --
+    this test locks in that it actually returns the right rows rather than
+    raising or silently matching everything.
+    """
+
+    def test_get_metrics_filters_by_behavior_name_via_any(
+        self, test_db: Session, test_org_id: str, authenticated_user_id: str
+    ):
+        from tests.backend.routes.fixtures.data_factories import (
+            BehaviorDataFactory,
+            MetricDataFactory,
+        )
+
+        matching_behavior = crud_utils.create_item(
+            test_db,
+            models.Behavior,
+            {**BehaviorDataFactory.sample_data(), "name": "Toxicity"},
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+        other_behavior = crud_utils.create_item(
+            test_db,
+            models.Behavior,
+            {**BehaviorDataFactory.sample_data(), "name": "Relevance"},
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+
+        matching_metric = crud_utils.create_item(
+            test_db,
+            models.Metric,
+            MetricDataFactory.sample_data(),
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+        other_metric = crud_utils.create_item(
+            test_db,
+            models.Metric,
+            MetricDataFactory.sample_data(),
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+        test_db.execute(
+            models.behavior_metric_association.insert().values(
+                metric_id=matching_metric.id,
+                behavior_id=matching_behavior.id,
+                organization_id=test_org_id,
+                user_id=authenticated_user_id,
+            )
+        )
+        test_db.execute(
+            models.behavior_metric_association.insert().values(
+                metric_id=other_metric.id,
+                behavior_id=other_behavior.id,
+                organization_id=test_org_id,
+                user_id=authenticated_user_id,
+            )
+        )
+        test_db.flush()
+        test_db.expire_all()
+
+        odata_filter = "behaviors/any(b: tolower(b/name) eq tolower('Toxicity'))"
+        results = crud.get_metrics(
+            db=test_db,
+            skip=0,
+            limit=100,
+            filter=odata_filter,
+            organization_id=test_org_id,
+        )
+        result_ids = {m.id for m in results}
+
+        assert matching_metric.id in result_ids
+        assert other_metric.id not in result_ids
