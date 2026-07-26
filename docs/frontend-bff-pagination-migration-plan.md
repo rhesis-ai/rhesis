@@ -30,7 +30,10 @@ PR #2267 replaced this with two reusable primitives:
   clamps the page when the result set shrinks, and re-fetches via a
   `fetchPage({ skip, limit })` callback the caller supplies (closing over OData
   filters). It's idempotent under React 18 Strict Mode's double-invoked mount
-  effects via a request-signature ref, rather than a one-shot flag.
+  effects via a request-signature ref, rather than a one-shot flag. It also takes
+  an `enabled` option (e.g. `!permsLoading && canRead`) so callers can withhold the
+  fetch entirely until the RBAC check resolves — added after review caught that the
+  hook would otherwise fire a list request for users about to see `<AccessDenied/>`.
 
 This plan scopes rolling the same pattern out to the rest of the app's directory/list
 pages.
@@ -119,9 +122,9 @@ below.
 
 ### 5.1 Already migrated
 
-| Entity | Notes |
-|---|---|
-| Metrics | Reference implementation — `page.tsx` + `prefetchList`, `MetricsClient.tsx` + `usePaginatedList`, `buildMetricODataFilter`. |
+| Entity    | Notes                                                                                                                                                       |
+| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Metrics   | Reference implementation — `page.tsx` + `prefetchList`, `MetricsClient.tsx` + `usePaginatedList`, `buildMetricODataFilter`.                                 |
 | Behaviors | Same pattern; CRUD uses local sorted insert/update/remove (`insertBehaviorSorted`) instead of blind refetch — this is the template for CRUD-safe mutations. |
 
 ### 5.2 True pagination gaps (client fetches everything or a hardcoded cap, filters in memory)
@@ -129,13 +132,13 @@ below.
 These are the highest-value targets — real data-over-fetching and no filter/pagination
 push-down to the backend.
 
-| Entity | Route | Current fetch | API method available | OData helper | Effort |
-|---|---|---|---|---|---|
-| Projects | `/projects` | `getAllProjects()` + client `.filter()`/`.slice()` | `getProjects` (paginated) exists, unused | Missing — needs `buildProjectODataFilter` | Medium |
-| Models | `/models` | `getModels()` capped at 50, client filter | `getModels` supports `$filter`/pagination | Missing | Medium–large |
-| Tools | `/tools` | `getTools({ limit: 100 })`, client filter | Already paginated/`$filter`-capable | Missing | Small–medium |
-| Tokens (API keys) | `/tokens` | `listTokens({ limit: 100 })`, client filter + pagination | Paginated, but **no `$filter`** yet | Missing / needs backend | Medium |
-| Explorer | `/explorer` | `getExplorerTestSets()` returns a bare array (no total count), client search + pagination | Needs API shape change to `PaginatedResponse` | Missing | Large |
+| Entity            | Route       | Current fetch                                                                             | API method available                          | OData helper                              | Effort       |
+| ----------------- | ----------- | ----------------------------------------------------------------------------------------- | --------------------------------------------- | ----------------------------------------- | ------------ |
+| Projects          | `/projects` | `getAllProjects()` + client `.filter()`/`.slice()`                                        | `getProjects` (paginated) exists, unused      | Missing — needs `buildProjectODataFilter` | Medium       |
+| Models            | `/models`   | `getModels()` capped at 50, client filter                                                 | `getModels` supports `$filter`/pagination     | Missing                                   | Medium–large |
+| Tools             | `/tools`    | `getTools({ limit: 100 })`, client filter                                                 | Already paginated/`$filter`-capable           | Missing                                   | Small–medium |
+| Tokens (API keys) | `/tokens`   | `listTokens({ limit: 100 })`, client filter + pagination                                  | Paginated, but **no `$filter`** yet           | Missing / needs backend                   | Medium       |
+| Explorer          | `/explorer` | `getExplorerTestSets()` returns a bare array (no total count), client search + pagination | Needs API shape change to `PaginatedResponse` | Missing                                   | Large        |
 
 **Risks:** Projects has sort-sensitive create (name-sorted) — apply the behaviors
 CRUD fix directly. Models' 50-item cap can silently hide models and affects
@@ -150,17 +153,17 @@ Query, or a manual paginated fetch), so the primary win is adding `prefetchList`
 their `page.tsx` to remove the first-load spinner. They can keep React Query for
 subsequent client-side fetching/caching/invalidation — no hook migration needed.
 
-| Entity | Route | Current client fetch | Response shape | OData helper |
-|---|---|---|---|---|
-| Endpoints | `/endpoints` | `useGridQuery` + `getEndpoints` | `PaginatedResponse` | `buildEndpointListFilter` |
-| Tests | `/tests` | Page-scoped + OData | `PaginatedResponse` | `combineTestFiltersToOData` |
-| Test sets | `/test-sets` | Page-scoped + OData | `PaginatedResponse` | `combineTestSetFiltersToOData` |
-| Knowledge (sources) | `/knowledge` | Page-scoped + OData | `PaginatedResponse` | `combineSourceFiltersToOData` |
-| Test runs | `/test-runs` | Page-scoped + OData | `PaginatedResponse` | `combineTestRunFiltersToOData` |
-| Tasks | `/tasks` | `useGridQuery` + OData | `{ data, totalCount }` — needs adapter | `combineTaskFiltersToOData` |
-| Experiments | `/experiments` | Manual paginated fetch + OData | `PaginatedResponse` | `combineExperimentFiltersToOData` |
-| Annotations | `/annotations` | Page-scoped, dedicated query params (not OData) | `{ data, totalCount }` — needs adapter | N/A (query params) |
-| Team members (org settings) | `/organizations/settings?tab=team` | `getUsers({ skip, limit, $filter })` | `{ data, total }` — needs adapter | `combineTeamFiltersToOData` |
+| Entity                      | Route                              | Current client fetch                            | Response shape                         | OData helper                      |
+| --------------------------- | ---------------------------------- | ----------------------------------------------- | -------------------------------------- | --------------------------------- |
+| Endpoints                   | `/endpoints`                       | `useGridQuery` + `getEndpoints`                 | `PaginatedResponse`                    | `buildEndpointListFilter`         |
+| Tests                       | `/tests`                           | Page-scoped + OData                             | `PaginatedResponse`                    | `combineTestFiltersToOData`       |
+| Test sets                   | `/test-sets`                       | Page-scoped + OData                             | `PaginatedResponse`                    | `combineTestSetFiltersToOData`    |
+| Knowledge (sources)         | `/knowledge`                       | Page-scoped + OData                             | `PaginatedResponse`                    | `combineSourceFiltersToOData`     |
+| Test runs                   | `/test-runs`                       | Page-scoped + OData                             | `PaginatedResponse`                    | `combineTestRunFiltersToOData`    |
+| Tasks                       | `/tasks`                           | `useGridQuery` + OData                          | `{ data, totalCount }` — needs adapter | `combineTaskFiltersToOData`       |
+| Experiments                 | `/experiments`                     | Manual paginated fetch + OData                  | `PaginatedResponse`                    | `combineExperimentFiltersToOData` |
+| Annotations                 | `/annotations`                     | Page-scoped, dedicated query params (not OData) | `{ data, totalCount }` — needs adapter | N/A (query params)                |
+| Team members (org settings) | `/organizations/settings?tab=team` | `getUsers({ skip, limit, $filter })`            | `{ data, total }` — needs adapter      | `combineTeamFiltersToOData`       |
 
 **Risks:** Test runs shows near-real-time status (in-progress runs) — depends more
 on React Query's refetch/polling than a one-time SSR prefetch buys much; low
@@ -172,8 +175,8 @@ can consume it directly.
 
 ### 5.4 Special cases (defer)
 
-| Entity | Route | Why deferred |
-|---|---|---|
+| Entity | Route     | Why deferred                                                                                                                                                                                                     |
+| ------ | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Traces | `/traces` | Custom telemetry query model (`buildTraceQueryParams`), not standard OData; project-scoped fail-closed permissions. SSR prefetch alone is feasible; full pattern unification is medium–large and lower priority. |
 
 ## 6. Guardrails learned from the behaviors CRUD bug
@@ -196,6 +199,10 @@ locally":
 3. Add or extend an E2E test for each migrated page's create flow that asserts the
    created row becomes visible without a manual page reload — this is what caught
    the original regression.
+4. Wire `usePaginatedList`'s `enabled` option to the page's RBAC gate (e.g.
+   `enabled: !permsLoading && canRead`) so a user who will render `<AccessDenied/>`
+   never issues the underlying list request — caught in review on #2267 after the
+   client-side read gate was initially wired to the render only, not the fetch.
 
 ## 7. Suggested execution order
 
@@ -209,11 +216,13 @@ locally":
 
 Each item should land as its own small PR (per repo convention), following the
 metrics/behaviors PR as the reference implementation, and should include:
+
 - The `prefetchList` addition to `page.tsx` (and a capability-gated fallback to
   client fetching, matching the existing pattern).
 - A `buildXODataFilter` helper if the page currently filters in memory.
 - CRUD state updates audited against the guardrails in §6.
 - An E2E assertion that a newly created row becomes visible without a reload.
+- `usePaginatedList`'s `enabled` option wired to the page's RBAC gate (§6.4).
 
 ## 8. Open questions
 
