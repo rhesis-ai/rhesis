@@ -214,6 +214,7 @@ export default function MetricsClientComponent({
     filterFingerprint,
     initialData,
     initialTotalCount,
+    enabled: !permsLoading && canRead,
     onData: data => {
       const {
         behaviorsData,

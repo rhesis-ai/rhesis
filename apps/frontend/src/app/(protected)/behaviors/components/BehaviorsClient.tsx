@@ -142,6 +142,7 @@ export default function BehaviorsClient({
     filterFingerprint,
     initialData,
     initialTotalCount,
+    enabled: !permsLoading && canRead,
     onData: data => {
       data.forEach(behavior => {
         (behavior.tags ?? []).forEach(tag => tagNamesRef.current.add(tag.name));
