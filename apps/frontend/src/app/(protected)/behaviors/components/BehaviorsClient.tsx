@@ -139,9 +139,14 @@ export default function BehaviorsClient({
   // double-invoke of mount effects -- both invocations compute the same
   // signature and both no-op, instead of the second one slipping through a
   // "consumed" ref.
+  //
+  // `sessionStatus` is part of the key so a run that lands while the session
+  // is still `loading` doesn't "claim" the same key a later `authenticated`
+  // run would use -- otherwise that later run would see a match and skip the
+  // fetch entirely, leaving the page stuck.
   const loadedRequestKeyRef = React.useRef<string | null>(
     initialData !== undefined
-      ? `${page}|${rowsPerPage}|${filterFingerprint}|${refreshKey}`
+      ? `${page}|${rowsPerPage}|${filterFingerprint}|${refreshKey}|${sessionStatus}`
       : null
   );
 
@@ -150,7 +155,7 @@ export default function BehaviorsClient({
   }, [filterFingerprint]);
 
   React.useEffect(() => {
-    const requestKey = `${page}|${rowsPerPage}|${filterFingerprint}|${refreshKey}`;
+    const requestKey = `${page}|${rowsPerPage}|${filterFingerprint}|${refreshKey}|${sessionStatus}`;
     if (loadedRequestKeyRef.current === requestKey) {
       return;
     }

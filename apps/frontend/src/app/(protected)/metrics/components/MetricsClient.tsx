@@ -15,6 +15,10 @@ import type { UUID } from 'crypto';
 import { TEST_TYPES } from '@/constants/test-types';
 import { buildMetricODataFilter } from '@/utils/odata-filter';
 import { METRICS_SELECT } from './metrics-constants';
+import { useCanWithStatus } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
+import AccessDenied from '@/components/common/AccessDenied';
+import PageLoadingState from '@/components/common/PageLoadingState';
 
 import MetricsDirectoryTab, { type FilterState } from './MetricsDirectoryTab';
 import { isAuthenticated, isSessionLoading } from '@/hooks/useIsAuthenticated';
@@ -123,6 +127,9 @@ export default function MetricsClientComponent({
   const searchParams = useSearchParams();
   const notifications = useNotifications();
   const { status: sessionStatus } = useSession();
+  const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
+    Capability.Metric.READ
+  );
 
   const assignMode = searchParams.get('assignMode') === 'true';
 
@@ -199,9 +206,14 @@ export default function MetricsClientComponent({
   // stays correct under React 18 Strict Mode's dev-only double-invoke of
   // mount effects -- both invocations compute the same signature and both
   // no-op, instead of the second one slipping through a "consumed" ref.
+  //
+  // `sessionStatus` is part of the key so a run that lands while the session
+  // is still `loading` doesn't "claim" the same key a later `authenticated`
+  // run would use -- otherwise that later run would see a match and skip the
+  // fetch entirely, leaving the page stuck.
   const loadedRequestKeyRef = React.useRef<string | null>(
     initialData !== undefined
-      ? `${page}|${rowsPerPage}|${filterFingerprint}|${refreshKey}`
+      ? `${page}|${rowsPerPage}|${filterFingerprint}|${refreshKey}|${sessionStatus}`
       : null
   );
 
@@ -211,7 +223,7 @@ export default function MetricsClientComponent({
 
   // Main data-fetching effect — runs on page, rowsPerPage, or filter change
   React.useEffect(() => {
-    const requestKey = `${page}|${rowsPerPage}|${filterFingerprint}|${refreshKey}`;
+    const requestKey = `${page}|${rowsPerPage}|${filterFingerprint}|${refreshKey}|${sessionStatus}`;
     if (loadedRequestKeyRef.current === requestKey) {
       return;
     }
@@ -306,6 +318,9 @@ export default function MetricsClientComponent({
     setRowsPerPage(newSize);
     setPage(0);
   }, []);
+
+  if (permsLoading) return <PageLoadingState />;
+  if (!canRead) return <AccessDenied resource="metrics" />;
 
   return (
     <ErrorBoundary>
