@@ -121,11 +121,7 @@ export default function BehaviorsClient({
   // Reset to page 0 whenever filters change
   const filterFingerprint = React.useMemo(
     () =>
-      JSON.stringify([
-        searchQuery,
-        metricCountFilter,
-        drawerFilters.tagNames,
-      ]),
+      JSON.stringify([searchQuery, metricCountFilter, drawerFilters.tagNames]),
     [searchQuery, metricCountFilter, drawerFilters.tagNames]
   );
 
@@ -197,7 +193,9 @@ export default function BehaviorsClient({
         setTotalCount(response.pagination.totalCount);
 
         response.data.forEach(behavior => {
-          (behavior.tags ?? []).forEach(tag => tagNamesRef.current.add(tag.name));
+          (behavior.tags ?? []).forEach(tag =>
+            tagNamesRef.current.add(tag.name)
+          );
         });
         setAvailableTagNames(
           Array.from(tagNamesRef.current).sort((a, b) => a.localeCompare(b))
@@ -224,7 +222,14 @@ export default function BehaviorsClient({
     };
     // filterFingerprint captures search/metricCount/tagNames; no need to list them individually
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, rowsPerPage, filterFingerprint, refreshKey, sessionStatus, notifications]);
+  }, [
+    page,
+    rowsPerPage,
+    filterFingerprint,
+    refreshKey,
+    sessionStatus,
+    notifications,
+  ]);
 
   // Clamp page when the result set shrinks below the current page (e.g. after delete)
   React.useEffect(() => {

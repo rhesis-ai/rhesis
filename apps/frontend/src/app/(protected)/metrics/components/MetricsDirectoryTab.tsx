@@ -554,58 +554,57 @@ export default function MetricsDirectoryTab({
             })}
           >
             {metrics.map(metric => {
-                const assignedBehaviors = activeBehaviors.filter(b => {
-                  if (!Array.isArray(metric.behaviors)) return false;
-                  // Check if behaviors is an array of strings (UUIDs) or BehaviorReference objects
-                  const behaviorIds = metric.behaviors.map(behavior =>
-                    typeof behavior === 'string' ? behavior : behavior.id
-                  );
-                  return behaviorIds.includes(b.id as string);
-                });
-                const behaviorNames = assignedBehaviors.map(
-                  b => b.name || 'Unnamed Behavior'
+              const assignedBehaviors = activeBehaviors.filter(b => {
+                if (!Array.isArray(metric.behaviors)) return false;
+                // Check if behaviors is an array of strings (UUIDs) or BehaviorReference objects
+                const behaviorIds = metric.behaviors.map(behavior =>
+                  typeof behavior === 'string' ? behavior : behavior.id
                 );
+                return behaviorIds.includes(b.id as string);
+              });
+              const behaviorNames = assignedBehaviors.map(
+                b => b.name || 'Unnamed Behavior'
+              );
 
-                const isCustomMetric =
-                  metric.backend_type?.type_value?.toLowerCase() === 'custom';
+              const isCustomMetric =
+                metric.backend_type?.type_value?.toLowerCase() === 'custom';
 
-                return (
-                  <MetricCard
-                    key={metric.id}
-                    type={
-                      isValidMetricType(metric.metric_type?.type_value)
-                        ? metric.metric_type.type_value
+              return (
+                <MetricCard
+                  key={metric.id}
+                  type={
+                    isValidMetricType(metric.metric_type?.type_value)
+                      ? metric.metric_type.type_value
+                      : undefined
+                  }
+                  title={metric.name}
+                  description={metric.description}
+                  backend={metric.backend_type?.type_value}
+                  metricType={metric.metric_type?.type_value}
+                  scoreType={metric.score_type}
+                  metricScope={metric.metric_scope}
+                  usedIn={behaviorNames}
+                  showUsage={true}
+                  onClick={
+                    assignMode
+                      ? () => {
+                          setSelectedMetric(metric);
+                          setAssignDialogOpen(true);
+                        }
+                      : isCustomMetric
+                        ? () => router.push(`/metrics/${metric.id}`)
                         : undefined
-                    }
-                    title={metric.name}
-                    description={metric.description}
-                    backend={metric.backend_type?.type_value}
-                    metricType={metric.metric_type?.type_value}
-                    scoreType={metric.score_type}
-                    metricScope={metric.metric_scope}
-                    usedIn={behaviorNames}
-                    showUsage={true}
-                    onClick={
-                      assignMode
-                        ? () => {
-                            setSelectedMetric(metric);
-                            setAssignDialogOpen(true);
-                          }
-                        : isCustomMetric
-                          ? () => router.push(`/metrics/${metric.id}`)
-                          : undefined
-                    }
-                    onDelete={
-                      canDelete &&
-                      assignedBehaviors.length === 0 &&
-                      metric.backend_type?.type_value?.toLowerCase() ===
-                        'custom'
-                        ? () => handleDeleteMetric(metric.id, metric.name)
-                        : undefined
-                    }
-                  />
-                );
-              })}
+                  }
+                  onDelete={
+                    canDelete &&
+                    assignedBehaviors.length === 0 &&
+                    metric.backend_type?.type_value?.toLowerCase() === 'custom'
+                      ? () => handleDeleteMetric(metric.id, metric.name)
+                      : undefined
+                  }
+                />
+              );
+            })}
           </Box>
           {totalCount > 0 && (
             <TablePagination

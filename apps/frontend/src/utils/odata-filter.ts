@@ -1373,23 +1373,27 @@ export function buildMetricODataFilter(
     );
   }
 
-  pushOrConditions(parts, f.backend, b =>
-    `tolower(backend_type/type_value) eq '${escapeODataValue(b)}'`
+  pushOrConditions(
+    parts,
+    f.backend,
+    b => `tolower(backend_type/type_value) eq '${escapeODataValue(b)}'`
   );
 
-  pushOrConditions(parts, f.type, t =>
-    `tolower(metric_type/type_value) eq tolower('${escapeODataValue(t)}')`
+  pushOrConditions(
+    parts,
+    f.type,
+    t => `tolower(metric_type/type_value) eq tolower('${escapeODataValue(t)}')`
   );
 
-  pushOrConditions(parts, f.scoreType, s =>
-    `tolower(score_type) eq tolower('${escapeODataValue(s)}')`
+  pushOrConditions(
+    parts,
+    f.scoreType,
+    s => `tolower(score_type) eq tolower('${escapeODataValue(s)}')`
   );
 
   if (f.behavior.trim()) {
     const b = escapeODataValue(f.behavior.trim());
-    parts.push(
-      `behaviors/any(b: tolower(b/name) eq tolower('${b}'))`
-    );
+    parts.push(`behaviors/any(b: tolower(b/name) eq tolower('${b}'))`);
   }
 
   return joinODataParts(parts);
@@ -1430,8 +1434,11 @@ export function buildBehaviorODataFilter(
     parts.push('not metrics/any()');
   }
 
-  pushOrConditions(parts, f.tagNames, t =>
-    `_tags_relationship/any(tg: tolower(tg/tag/name) eq tolower('${escapeODataValue(t)}'))`
+  pushOrConditions(
+    parts,
+    f.tagNames,
+    t =>
+      `_tags_relationship/any(tg: tolower(tg/tag/name) eq tolower('${escapeODataValue(t)}'))`
   );
 
   return joinODataParts(parts);

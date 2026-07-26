@@ -4,7 +4,10 @@ import { hasServerCapability } from '@/utils/server-permissions';
 import { Capability } from '@/constants/capabilities';
 import MetricsClientComponent from './components/MetricsClient';
 import type { UUID } from 'crypto';
-import { METRICS_SELECT, DEFAULT_METRICS_PAGE_SIZE } from './components/metrics-constants';
+import {
+  METRICS_SELECT,
+  DEFAULT_METRICS_PAGE_SIZE,
+} from './components/metrics-constants';
 
 /**
  * Server component: fetches the first page of metrics before rendering so

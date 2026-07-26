@@ -85,7 +85,10 @@ interface MetricsOptionMaps {
  * dropdown) contain only that value, making every other option vanish from
  * the filter UI the moment it's applied.
  */
-function deriveMetricsPageOptions(data: MetricDetail[], maps: MetricsOptionMaps) {
+function deriveMetricsPageOptions(
+  data: MetricDetail[],
+  maps: MetricsOptionMaps
+) {
   data.forEach(metric => {
     metric.behaviors?.forEach(behavior => {
       if (behavior && typeof behavior !== 'string' && behavior.id) {
@@ -145,7 +148,8 @@ export default function MetricsClientComponent({
   // Data state — seeded from the server-fetched first page when available
   const [behaviors, setBehaviors] = React.useState<ApiBehavior[]>(() =>
     initialData
-      ? deriveMetricsPageOptions(initialData, optionMapsRef.current).behaviorsData
+      ? deriveMetricsPageOptions(initialData, optionMapsRef.current)
+          .behaviorsData
       : []
   );
   const [_behaviorsWithMetrics, setBehaviorsWithMetrics] = React.useState<
@@ -263,8 +267,12 @@ export default function MetricsClientComponent({
         setMetrics(response.data);
         setTotalCount(response.pagination.totalCount);
 
-        const { behaviorsData, behaviorOptions, backendTypeOptions, metricTypeOptions } =
-          deriveMetricsPageOptions(response.data, optionMapsRef.current);
+        const {
+          behaviorsData,
+          behaviorOptions,
+          backendTypeOptions,
+          metricTypeOptions,
+        } = deriveMetricsPageOptions(response.data, optionMapsRef.current);
         setBehaviors(behaviorsData);
 
         setFilterOptions(prev => ({
@@ -295,7 +303,14 @@ export default function MetricsClientComponent({
     };
     // filterFingerprint captures all filter state; no need to list individual fields
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, rowsPerPage, filterFingerprint, refreshKey, sessionStatus, notifications]);
+  }, [
+    page,
+    rowsPerPage,
+    filterFingerprint,
+    refreshKey,
+    sessionStatus,
+    notifications,
+  ]);
 
   // Clamp page when the result set shrinks below the current page (e.g. after delete)
   React.useEffect(() => {

@@ -12,7 +12,9 @@ import { FeatureName } from '@/constants/features';
  * active project. Fails closed (returns `false`) on any error, since the
  * caller uses this to decide whether it's safe to fetch and expose data.
  */
-export async function hasServerCapability(capability: string): Promise<boolean> {
+export async function hasServerCapability(
+  capability: string
+): Promise<boolean> {
   try {
     const factory = await createServerApiFactory();
     const features = await factory.getFeaturesClient().getFeatures();
