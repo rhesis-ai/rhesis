@@ -85,7 +85,7 @@ def batch_test_data():
 # === PARAMETERIZED FIXTURES ===
 
 
-@pytest.fixture(params=["behavior", "topic", "category", "metric", "dimension"])
+@pytest.fixture(params=["behavior", "topic", "category", "metric"])
 def entity_type(request):
     """
     🎯 Parameterized entity type for testing multiple entities

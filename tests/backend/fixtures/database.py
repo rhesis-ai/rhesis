@@ -212,8 +212,6 @@ _ORG_SCOPED_TABLES = [
     "behavior",
     "category",
     "topic",
-    "demographic",
-    "dimension",
     "tag",
     "type_lookup",
     "status",

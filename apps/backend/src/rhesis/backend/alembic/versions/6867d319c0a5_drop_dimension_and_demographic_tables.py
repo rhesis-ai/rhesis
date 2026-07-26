@@ -103,13 +103,13 @@ def upgrade() -> None:
         "dimension:read",
         "dimension:update",
     ]
-    op.execute(
+    bind.execute(
         sa.text("UPDATE permission SET is_retired = true WHERE name IN :caps").bindparams(
             sa.bindparam("caps", expanding=True)
         ),
         {"caps": _RETIRED_CAPS},
     )
-    op.execute(
+    bind.execute(
         sa.text(
             "DELETE FROM role_permission "
             "WHERE permission_id IN ("
@@ -244,7 +244,7 @@ def downgrade() -> None:
         "dimension:read",
         "dimension:update",
     ]
-    op.execute(
+    bind.execute(
         sa.text("UPDATE permission SET is_retired = false WHERE name IN :caps").bindparams(
             sa.bindparam("caps", expanding=True)
         ),
