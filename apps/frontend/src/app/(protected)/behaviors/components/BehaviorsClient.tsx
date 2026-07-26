@@ -39,7 +39,8 @@ import BehaviorFilterDrawer, {
   hasActiveBehaviorFilters,
   countActiveBehaviorFilters,
 } from './BehaviorFilterDrawer';
-import { isAuthenticated, isSessionLoading } from '@/hooks/useIsAuthenticated';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import { usePaginatedList } from '@/hooks/usePaginatedList';
 import { buildBehaviorODataFilter } from '@/utils/odata-filter';
 
 interface BehaviorsClientProps {
@@ -66,18 +67,6 @@ export default function BehaviorsClient({
 
   // Accumulate tag names seen across page navigations for the filter drawer
   const tagNamesRef = React.useRef(new Set<string>());
-
-  // Data state — seeded from the server-fetched first page when available
-  const [behaviors, setBehaviors] = React.useState<BehaviorWithMetrics[]>(
-    initialData ?? []
-  );
-  const [totalCount, setTotalCount] = React.useState(initialTotalCount);
-  const [isLoading, setIsLoading] = React.useState(initialData === undefined);
-  const [error, setError] = React.useState<string | null>(null);
-
-  // Pagination
-  const [page, setPage] = React.useState(0);
-  const [rowsPerPage, setRowsPerPage] = React.useState(25);
 
   const [availableTagNames, setAvailableTagNames] = React.useState<string[]>(
     () => {
@@ -115,9 +104,6 @@ export default function BehaviorsClient({
     EMPTY_BEHAVIOR_FILTERS
   );
 
-  // Refresh key for manual refresh
-  const [refreshKey, setRefreshKey] = React.useState(0);
-
   // Reset to page 0 whenever filters change
   const filterFingerprint = React.useMemo(
     () =>
@@ -125,120 +111,68 @@ export default function BehaviorsClient({
     [searchQuery, metricCountFilter, drawerFilters.tagNames]
   );
 
-  // Identifies the request whose result is currently reflected in
-  // `behaviors`/`totalCount`. Seeded with the server-fetched first page's
-  // signature (page 0, default size, no filters, refreshKey 0 -- exactly
-  // what `page`/`rowsPerPage`/`filterFingerprint`/`refreshKey` hold on this
-  // first render) when the server provided initial data. The fetch effect
-  // below compares against this on every run rather than consuming a
-  // one-shot flag, so it stays correct under React 18 Strict Mode's dev-only
-  // double-invoke of mount effects -- both invocations compute the same
-  // signature and both no-op, instead of the second one slipping through a
-  // "consumed" ref.
-  //
-  // `sessionStatus` is part of the key so a run that lands while the session
-  // is still `loading` doesn't "claim" the same key a later `authenticated`
-  // run would use -- otherwise that later run would see a match and skip the
-  // fetch entirely, leaving the page stuck.
-  const loadedRequestKeyRef = React.useRef<string | null>(
-    initialData !== undefined
-      ? `${page}|${rowsPerPage}|${filterFingerprint}|${refreshKey}|${sessionStatus}`
-      : null
-  );
-
-  React.useEffect(() => {
-    setPage(0);
-  }, [filterFingerprint]);
-
-  React.useEffect(() => {
-    const requestKey = `${page}|${rowsPerPage}|${filterFingerprint}|${refreshKey}|${sessionStatus}`;
-    if (loadedRequestKeyRef.current === requestKey) {
-      return;
-    }
-    loadedRequestKeyRef.current = requestKey;
-
-    let cancelled = false;
-
-    const fetchBehaviors = async () => {
-      if (!isAuthenticated(sessionStatus)) {
-        // Keep spinner while session is still loading; stop it on auth failure
-        if (!isSessionLoading(sessionStatus)) {
-          setIsLoading(false);
-        }
-        return;
-      }
-
-      try {
-        setIsLoading(true);
-        setError(null);
-
-        const behaviorClient = new BehaviorClient();
-        const odataFilter = buildBehaviorODataFilter({
-          search: searchQuery,
-          metricCount: metricCountFilter,
-          tagNames: drawerFilters.tagNames,
-        });
-
-        const response = await behaviorClient.getBehaviorsPage({
-          skip: page * rowsPerPage,
-          limit: rowsPerPage,
-          sort_by: 'name',
-          sort_order: 'asc',
-          $filter: odataFilter,
-        });
-
-        if (cancelled) return;
-
-        setBehaviors(response.data);
-        setTotalCount(response.pagination.totalCount);
-
-        response.data.forEach(behavior => {
-          (behavior.tags ?? []).forEach(tag =>
-            tagNamesRef.current.add(tag.name)
-          );
-        });
-        setAvailableTagNames(
-          Array.from(tagNamesRef.current).sort((a, b) => a.localeCompare(b))
-        );
-      } catch (err) {
-        if (cancelled) return;
-        const errorMessage =
-          err instanceof Error ? err.message : 'Failed to fetch behaviors';
-        setError(errorMessage);
-        notifications.show('Failed to load behaviors data', {
-          severity: 'error',
-          autoHideDuration: 4000,
-        });
-      } finally {
-        if (!cancelled) {
-          setIsLoading(false);
-        }
-      }
-    };
-
-    fetchBehaviors();
-    return () => {
-      cancelled = true;
-    };
-    // filterFingerprint captures search/metricCount/tagNames; no need to list them individually
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
+  const {
+    data: behaviors,
+    setData: setBehaviors,
+    totalCount,
+    setTotalCount,
+    isLoading,
+    error,
     page,
     rowsPerPage,
+    onPageChange: setPage,
+    onRowsPerPageChange: handleRowsPerPageChange,
+    refresh: handleRefresh,
+  } = usePaginatedList<BehaviorWithMetrics>({
+    fetchPage: ({ skip, limit }) => {
+      const behaviorClient = new BehaviorClient();
+      const odataFilter = buildBehaviorODataFilter({
+        search: searchQuery,
+        metricCount: metricCountFilter,
+        tagNames: drawerFilters.tagNames,
+      });
+      return behaviorClient.getBehaviorsPage({
+        skip,
+        limit,
+        sort_by: 'name',
+        sort_order: 'asc',
+        $filter: odataFilter,
+      });
+    },
     filterFingerprint,
-    refreshKey,
-    sessionStatus,
-    notifications,
-  ]);
+    initialData,
+    initialTotalCount,
+    onData: data => {
+      data.forEach(behavior => {
+        (behavior.tags ?? []).forEach(tag => tagNamesRef.current.add(tag.name));
+      });
+      setAvailableTagNames(
+        Array.from(tagNamesRef.current).sort((a, b) => a.localeCompare(b))
+      );
+    },
+    onError: () => {
+      notifications.show('Failed to load behaviors data', {
+        severity: 'error',
+        autoHideDuration: 4000,
+      });
+    },
+  });
 
-  // Clamp page when the result set shrinks below the current page (e.g. after delete)
-  React.useEffect(() => {
-    if (totalCount === 0) return;
-    const lastPage = Math.max(0, Math.ceil(totalCount / rowsPerPage) - 1);
-    if (page > lastPage) {
-      setPage(lastPage);
-    }
-  }, [totalCount, rowsPerPage, page]);
+  /**
+   * Inserts a behavior into the current page in name order (matching the
+   * directory's default sort) rather than relying on a re-fetch to reveal
+   * it. A re-fetch of the current page can't be trusted to surface a
+   * just-created item -- with server-side pagination, its name may sort
+   * outside whatever page the user happens to be viewing.
+   */
+  const insertBehaviorSorted = (behavior: BehaviorWithMetrics) => {
+    setBehaviors(prev => {
+      const next = [...prev, behavior];
+      next.sort((a, b) => a.name.localeCompare(b.name));
+      return next;
+    });
+    setTotalCount(prev => prev + 1);
+  };
 
   const handleAddNewBehavior = () => {
     setEditingBehavior({ id: null, name: '', description: '', tagNames: [] });
@@ -344,10 +278,10 @@ export default function BehaviorsClient({
           }
         }
 
-        // Re-fetch the current page rather than splicing the new item into
-        // local state -- with server-side pagination/sorting, the new
-        // behavior may not belong on the page the user is viewing.
-        handleRefresh();
+        const createdWithMetrics = await behaviorClient.getBehaviorWithMetrics(
+          created.id
+        );
+        insertBehaviorSorted(createdWithMetrics);
 
         notifications.show(
           tagSyncFailed
@@ -361,7 +295,7 @@ export default function BehaviorsClient({
       } else if (editingBehavior && editingBehavior.id) {
         const editingId = editingBehavior.id;
         const existing = behaviors.find(b => b.id === editingId);
-        await behaviorClient.updateBehavior(editingId, {
+        const updated = await behaviorClient.updateBehavior(editingId, {
           name: name.trim(),
           description: description?.trim() || null,
         });
@@ -372,7 +306,22 @@ export default function BehaviorsClient({
           tagSyncFailed = true;
         }
 
-        handleRefresh();
+        const refreshed =
+          await behaviorClient.getBehaviorWithMetrics(editingId);
+        setBehaviors(prev =>
+          prev
+            .map(b =>
+              b.id === editingId
+                ? {
+                    ...b,
+                    name: updated.name,
+                    description: updated.description,
+                    tags: refreshed.tags ?? [],
+                  }
+                : b
+            )
+            .sort((a, b) => a.name.localeCompare(b.name))
+        );
 
         notifications.show(
           tagSyncFailed
@@ -406,13 +355,16 @@ export default function BehaviorsClient({
 
       const behaviorClient = new BehaviorClient();
 
-      await behaviorClient.createBehavior({
+      const created = await behaviorClient.createBehavior({
         name: generateCopyName(name),
         description: description || null,
         organization_id: organizationId,
       });
 
-      handleRefresh();
+      const createdWithMetrics = await behaviorClient.getBehaviorWithMetrics(
+        created.id
+      );
+      insertBehaviorSorted(createdWithMetrics);
 
       notifications.show('Behavior duplicated successfully', {
         severity: 'success',
@@ -451,7 +403,8 @@ export default function BehaviorsClient({
 
         await behaviorClient.deleteBehavior(editingBehavior.id);
 
-        handleRefresh();
+        setBehaviors(prev => prev.filter(b => b.id !== editingBehavior.id));
+        setTotalCount(prev => Math.max(0, prev - 1));
 
         notifications.show('Behavior deleted successfully', {
           severity: 'success',
@@ -467,10 +420,6 @@ export default function BehaviorsClient({
     } else {
       setDrawerOpen(false);
     }
-  };
-
-  const handleRefresh = () => {
-    setRefreshKey(prev => prev + 1);
   };
 
   const handleViewMetrics = (behavior: BehaviorWithMetrics) => {
@@ -511,7 +460,7 @@ export default function BehaviorsClient({
         return prev;
       });
     } else {
-      setRefreshKey(prev => prev + 1);
+      handleRefresh();
     }
   };
 
@@ -693,10 +642,9 @@ export default function BehaviorsClient({
           page={page}
           onPageChange={(_event, newPage) => setPage(newPage)}
           rowsPerPage={rowsPerPage}
-          onRowsPerPageChange={event => {
-            setRowsPerPage(parseInt(event.target.value, 10));
-            setPage(0);
-          }}
+          onRowsPerPageChange={event =>
+            handleRowsPerPageChange(parseInt(event.target.value, 10))
+          }
           rowsPerPageOptions={[25, 50, 100]}
           labelRowsPerPage="Behaviors per page:"
           sx={{ mb: 2 }}
