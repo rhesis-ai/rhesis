@@ -21,6 +21,13 @@ export interface UsePaginatedListOptions<T> {
   initialTotalCount?: number;
   defaultPageSize?: number;
   /**
+   * Gates fetching, e.g. `!permsLoading && canRead`. Defaults to `true`.
+   * While `false`, no request is issued and `isLoading` is cleared -- use
+   * this so a user who will render `<AccessDenied />` never triggers a
+   * list request (and resulting 403 + error toast) in the first place.
+   */
+  enabled?: boolean;
+  /**
    * Called with each successful page's data, in addition to `data` being
    * updated. Use this to accumulate filter-dropdown options or other
    * derived state that shouldn't reset every fetch.
@@ -53,13 +60,13 @@ export interface UsePaginatedListResult<T> {
  * changes.
  *
  * Fetches are keyed by a request signature (page, rowsPerPage,
- * filterFingerprint, refreshKey, sessionStatus) rather than a one-shot
- * "skip the first fetch" flag, so it stays correct under React 18 Strict
- * Mode's dev-only double-invoke of mount effects: both invocations compute
- * the same signature and both no-op, instead of the second slipping through
- * a "consumed" ref. `sessionStatus` is part of the key so a run that lands
- * while the session is still `loading` doesn't "claim" the same key a later
- * `authenticated` run would use.
+ * filterFingerprint, refreshKey, sessionStatus, enabled) rather than a
+ * one-shot "skip the first fetch" flag, so it stays correct under React 18
+ * Strict Mode's dev-only double-invoke of mount effects: both invocations
+ * compute the same signature and both no-op, instead of the second slipping
+ * through a "consumed" ref. `sessionStatus` is part of the key so a run that
+ * lands while the session is still `loading` doesn't "claim" the same key a
+ * later `authenticated` run would use.
  */
 export function usePaginatedList<T>({
   fetchPage,
@@ -67,6 +74,7 @@ export function usePaginatedList<T>({
   initialData,
   initialTotalCount = 0,
   defaultPageSize = 25,
+  enabled = true,
   onData,
   onError,
 }: UsePaginatedListOptions<T>): UsePaginatedListResult<T> {
@@ -83,7 +91,7 @@ export function usePaginatedList<T>({
 
   const loadedRequestKeyRef = React.useRef<string | null>(
     initialData !== undefined
-      ? `${page}|${rowsPerPage}|${filterFingerprint}|${refreshKey}|${sessionStatus}`
+      ? `${page}|${rowsPerPage}|${filterFingerprint}|${refreshKey}|${sessionStatus}|${enabled}`
       : null
   );
 
@@ -92,7 +100,15 @@ export function usePaginatedList<T>({
   }, [filterFingerprint]);
 
   React.useEffect(() => {
-    const requestKey = `${page}|${rowsPerPage}|${filterFingerprint}|${refreshKey}|${sessionStatus}`;
+    if (!enabled) {
+      // Don't record a request key while disabled: leaves the last real
+      // signature in place so the fetch fires as soon as `enabled` flips
+      // back to `true`, rather than being treated as already-satisfied.
+      setIsLoading(false);
+      return;
+    }
+
+    const requestKey = `${page}|${rowsPerPage}|${filterFingerprint}|${refreshKey}|${sessionStatus}|${enabled}`;
     if (loadedRequestKeyRef.current === requestKey) {
       return;
     }
@@ -144,7 +160,14 @@ export function usePaginatedList<T>({
     // fires, so omitting them here is intentional -- adding them would only
     // cause spurious re-runs on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, rowsPerPage, filterFingerprint, refreshKey, sessionStatus]);
+  }, [
+    page,
+    rowsPerPage,
+    filterFingerprint,
+    refreshKey,
+    sessionStatus,
+    enabled,
+  ]);
 
   // Clamp page when the result set shrinks below the current page (e.g. after delete)
   React.useEffect(() => {
