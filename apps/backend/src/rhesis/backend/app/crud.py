@@ -3054,10 +3054,7 @@ def _apply_metric_scope_filter(builder: QueryBuilder, metric_scope: str | None) 
     scopes = [s.strip() for s in metric_scope.split(",") if s.strip()]
     if scopes:
         builder.query = builder.query.filter(
-            or_(*[
-                models.Metric.metric_scope.op("@>")(cast([s], PG_JSONB))
-                for s in scopes
-            ])
+            or_(*[models.Metric.metric_scope.op("@>")(cast([s], PG_JSONB)) for s in scopes])
         )
 
 
