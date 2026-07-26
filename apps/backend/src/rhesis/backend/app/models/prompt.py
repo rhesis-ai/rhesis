@@ -31,9 +31,6 @@ class Prompt(
 ):
     __tablename__ = "prompt"
     content = Column(Text, nullable=False)
-    demographic_id = Column(
-        GUID(), ForeignKey("demographic.id"), comment="The demographic for this prompt"
-    )
     category_id = Column(GUID(), ForeignKey("category.id"))
     attack_category_id = Column(GUID(), ForeignKey("category.id"))
     topic_id = Column(GUID(), ForeignKey("topic.id"))
@@ -61,7 +58,6 @@ class Prompt(
     topic = relationship("Topic", back_populates="prompts")
     status = relationship("Status", back_populates="prompts")
     source = relationship("Source", back_populates="prompts")
-    demographic = relationship("Demographic", back_populates="prompts")
     prompt_template = relationship("PromptTemplate", back_populates="prompts")
     test_sets = relationship(
         "TestSet", secondary=prompt_test_set_association, back_populates="prompts"
@@ -81,7 +77,6 @@ class Prompt(
         return {
             "nano_id": self.nano_id,
             "content": self.content,
-            "demographic": self.demographic.name if self.demographic else None,
             "category": self.category.name if self.category else None,
             "attack_category": self.attack_category.name if self.attack_category else None,
             "topic": self.topic.name if self.topic else None,

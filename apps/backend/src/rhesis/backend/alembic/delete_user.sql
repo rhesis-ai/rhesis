@@ -111,55 +111,47 @@
         DELETE FROM category 
         WHERE organization_id = ANY(org_ids);
 
-        -- Step 21: Delete demographics
-        DELETE FROM demographic 
-        WHERE organization_id = ANY(org_ids);
-
-        -- Step 22: Delete dimensions
-        DELETE FROM dimension 
-        WHERE organization_id = ANY(org_ids);
-
-        -- Step 23: Delete topics
+        -- Step 21: Delete topics
         DELETE FROM topic 
         WHERE organization_id = ANY(org_ids);
 
-        -- Step 24: Delete subscriptions
+        -- Step 22: Delete subscriptions
         DELETE FROM subscription 
         WHERE organization_id = ANY(org_ids);
 
-        -- Step 25: Delete statuses
+        -- Step 23: Delete statuses
         DELETE FROM status 
         WHERE organization_id = ANY(org_ids);
 
-        -- Step 26: Delete tokens
+        -- Step 24: Delete tokens
         DELETE FROM token 
         WHERE organization_id = ANY(org_ids);
 
-        -- Step 27: Delete type_lookups
+        -- Step 25: Delete type_lookups
         DELETE FROM type_lookup 
         WHERE organization_id = ANY(org_ids);
 
-        -- Step 27a: Delete tagged_items for these organizations
+        -- Step 25a: Delete tagged_items for these organizations
         DELETE FROM tagged_item 
         WHERE organization_id = ANY(org_ids);
 
-        -- Step 27b: Delete tags for these organizations
+        -- Step 25b: Delete tags for these organizations
         DELETE FROM tag 
         WHERE organization_id = ANY(org_ids);
 
-        -- Step 28: Update organizations to remove user references
+        -- Step 26: Update organizations to remove user references
         UPDATE organization 
         SET user_id = NULL, owner_id = NULL 
         WHERE id = ANY(org_ids);
         
-        -- Step 29: Update user to remove organization reference
+        -- Step 27: Update user to remove organization reference
         UPDATE "user" 
         SET organization_id = NULL 
         WHERE id = target_user_id;
 
-        -- Step 30: Delete organizations that were linked to this user
+        -- Step 28: Delete organizations that were linked to this user
         DELETE FROM organization WHERE id = ANY(org_ids);
 
-        -- Step 31: Delete the user
+        -- Step 29: Delete the user
         DELETE FROM "user" WHERE id = target_user_id;
     END $$;

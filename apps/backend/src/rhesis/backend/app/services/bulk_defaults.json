@@ -34,11 +34,5 @@
     "category": {
         "status": "Active",
         "entity_type": "Test"
-    },
-    "dimension": {
-        "status": "Active"
-    },
-    "demographic": {
-        "status": "Active"
     }
-} 
+}

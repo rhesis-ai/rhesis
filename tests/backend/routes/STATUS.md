@@ -15,8 +15,6 @@ This document tracks the testing status of all backend routes/routers in the app
 | auth | `auth.py` | ✅ | `test_auth.py` | Authentication and authorization endpoints |
 | behavior | `behavior.py` | ✅ | `test_behavior.py` | Behavior management endpoints |
 | category | `category.py` | ✅ | `test_category.py` | Category CRUD operations |
-| demographic | `demographic.py` | ✅ | `test_demographic.py` | Demographic data endpoints |
-| dimension | `dimension.py` | ✅ | `test_dimension.py` | Dimension management endpoints |
 | endpoint | `endpoint.py` | ✅ | `test_endpoint.py` | Endpoint configuration management |
 | home | `home.py` | ✅ | `test_home.py` | Home/dashboard endpoints |
 | metric | `metric.py` | ✅ | `test_metric.py` | Metrics and analytics endpoints |
@@ -51,29 +49,27 @@ This document tracks the testing status of all backend routes/routers in the app
 
 ## Summary
 
-- **Total Routers**: 29
-- **Tests Completed**: 17 (✅)
+- **Total Routers**: 27
+- **Tests Completed**: 15 (✅)
 - **Tests Missing**: 12 (❌)
-- **Completion Rate**: 58.6%
+- **Completion Rate**: 55.6%
 
 ### Completed Tests
 1. **auth** - Authentication and authorization functionality
 2. **behavior** - Behavior management functionality
 3. **category** - Category CRUD operations  
-4. **demographic** - Demographic data management with dimension relationships
-5. **dimension** - Dimension management functionality
-6. **endpoint** - Endpoint configuration management and invocation
-7. **home** - Home/dashboard endpoints with authentication scenarios
-8. **metric** - Metrics and analytics functionality with behavior relationships
-9. **model** - Model management functionality with connection testing
-10. **organization** - Organization management with onboarding and domain verification
-11. **project** - Project management functionality with ownership and authorization
-12. **prompt** - Prompt management functionality with multiturn conversations and relationships
-13. **prompt_template** - Prompt template management with multilingual support and content validation
-14. **response_pattern** - Response pattern management with behavior relationships and type classification
-15. **source** - Source management with URL validation, citations, and entity type support
-16. **status** - Status management with workflow support and entity type relationships
-17. **topic** - Topic management functionality
+4. **endpoint** - Endpoint configuration management and invocation
+5. **home** - Home/dashboard endpoints with authentication scenarios
+6. **metric** - Metrics and analytics functionality with behavior relationships
+7. **model** - Model management functionality with connection testing
+8. **organization** - Organization management with onboarding and domain verification
+9. **project** - Project management functionality with ownership and authorization
+10. **prompt** - Prompt management functionality with multiturn conversations and relationships
+11. **prompt_template** - Prompt template management with multilingual support and content validation
+12. **response_pattern** - Response pattern management with behavior relationships and type classification
+13. **source** - Source management with URL validation, citations, and entity type support
+14. **status** - Status management with workflow support and entity type relationships
+15. **topic** - Topic management functionality
 
 ### Priority for Next Tests
 Consider implementing tests for these critical routes first:

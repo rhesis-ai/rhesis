@@ -6,9 +6,9 @@ Fixtures are organized into logical packages for better maintainability.
 
 Structure:
 - entities/: Individual business entity fixtures organized by domain
-  - dimensions.py, categories.py, topics.py, behaviors.py, endpoints.py, metrics.py
+  - categories.py, topics.py, behaviors.py, endpoints.py, metrics.py
 - relationships/: Complex fixtures with entity relationships
-  - demographics.py, hierarchies.py, associations.py
+  - hierarchies.py, associations.py
 - utilities/: Common test utilities and helpers
   - identifiers.py, generators.py, helpers.py
 - mocks/: Service and external dependency mocks
@@ -34,8 +34,6 @@ __all__ = [
     "category_factory",
     "metric_factory",
     "model_factory",
-    "dimension_factory",
-    "demographic_factory",
     "endpoint_factory",
     "project_factory",
     "prompt_factory",
@@ -49,7 +47,6 @@ __all__ = [
     "category_data",
     "metric_data",
     "model_data",
-    "dimension_data",
     "project_data",
     "minimal_project_data",
     "project_update_data",
@@ -94,8 +91,6 @@ __all__ = [
     "admin_and_user",
     # === LEGACY FIXTURES (Backward Compatibility) ===
     # Entity fixtures (deprecated - use factory fixtures instead)
-    "sample_dimension",
-    "sample_dimensions",
     "sample_category",
     "parent_category",
     "sample_topic",
@@ -114,7 +109,6 @@ __all__ = [
     "db_authenticated_user",
     "db_admin_user",
     # Legacy relationship fixtures (deprecated - use composite fixtures instead)
-    "dimension_with_demographics",
     "topic_with_children",
     # Status and project fixtures
     "test_type_lookup",

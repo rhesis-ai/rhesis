@@ -43,8 +43,7 @@ def get_test_set(db: Session, test_set_id: uuid.UUID, organization_id: str = Non
             # TestSet.prompts is one-to-many -- include() picks selectinload for
             # it automatically, avoiding the cartesian-product blowup a plain
             # joinedload(TestSet.prompts) would cause once fanned out across
-            # six nested joinedload(Prompt.*) chains.
-            include(TestSet.prompts, Prompt.demographic),
+            # nested joinedload(Prompt.*) chains.
             include(TestSet.prompts, Prompt.category),
             include(TestSet.prompts, Prompt.attack_category),
             include(TestSet.prompts, Prompt.topic),

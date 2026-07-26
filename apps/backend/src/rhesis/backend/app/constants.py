@@ -15,8 +15,6 @@ class EntityType(Enum):
     BEHAVIOR = "Behavior"
     CATEGORY = "Category"
     TOPIC = "Topic"
-    DIMENSION = "Dimension"
-    DEMOGRAPHIC = "Demographic"
     TASK = "Task"
     PROJECT = "Project"
     SOURCE = "Source"

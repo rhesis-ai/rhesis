@@ -26,7 +26,6 @@ from ..endpoints import APIEndpoints
 from .data_factories import (
     BehaviorDataFactory,
     CategoryDataFactory,
-    DimensionDataFactory,
     MetricDataFactory,
     ModelDataFactory,
     ProjectDataFactory,
@@ -101,22 +100,6 @@ def comment_factory(authenticated_client: TestClient) -> Generator[EntityFactory
 def metric_factory(authenticated_client: TestClient) -> Generator[EntityFactory, None, None]:
     """Metric factory with automatic cleanup"""
     factory = create_generic_factory(authenticated_client, APIEndpoints.METRICS)
-    yield factory
-    factory.cleanup()
-
-
-@pytest.fixture
-def dimension_factory(authenticated_client: TestClient) -> Generator[EntityFactory, None, None]:
-    """Dimension factory with automatic cleanup"""
-    factory = create_generic_factory(authenticated_client, APIEndpoints.DIMENSIONS)
-    yield factory
-    factory.cleanup()
-
-
-@pytest.fixture
-def demographic_factory(authenticated_client: TestClient) -> Generator[EntityFactory, None, None]:
-    """👥 Demographic factory with automatic cleanup"""
-    factory = create_generic_factory(authenticated_client, APIEndpoints.DEMOGRAPHICS)
     yield factory
     factory.cleanup()
 
@@ -202,12 +185,6 @@ def category_data():
 def metric_data():
     """Standard metric test data"""
     return MetricDataFactory.sample_data()
-
-
-@pytest.fixture
-def dimension_data():
-    """Standard dimension test data"""
-    return DimensionDataFactory.sample_data()
 
 
 @pytest.fixture
@@ -391,8 +368,6 @@ __all__ = [
     "comment_factory",
     "metric_factory",
     "model_factory",
-    "dimension_factory",
-    "demographic_factory",
     "endpoint_factory",
     "project_factory",
     "prompt_factory",
@@ -406,7 +381,6 @@ __all__ = [
     "category_data",
     "metric_data",
     "model_data",
-    "dimension_data",
     "project_data",
     "minimal_project_data",
     "project_update_data",

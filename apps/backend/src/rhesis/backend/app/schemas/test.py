@@ -49,8 +49,6 @@ class TestBase(Base):
 class TestPromptCreate(BaseModel):
     content: str
     language_code: str = "en"
-    demographic: Optional[str] = None
-    dimension: Optional[str] = None
     expected_response: Optional[str] = None
 
 
