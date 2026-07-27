@@ -40,7 +40,6 @@ interface IdentityDraft {
 interface ExperimentOverviewTabProps {
   experiment: ExperimentDetail;
   environments: ProjectEnvironments | null;
-  sessionToken: string;
   onUpdated: (updated: ExperimentDetail) => void;
   onUnbindEnvironment: (name: string) => void;
 }
@@ -48,16 +47,12 @@ interface ExperimentOverviewTabProps {
 export default function ExperimentOverviewTab({
   experiment,
   environments,
-  sessionToken,
   onUpdated,
   onUnbindEnvironment,
 }: ExperimentOverviewTabProps) {
   const notifications = useNotifications();
 
-  const apiFactory = useMemo(
-    () => new ApiClientFactory(sessionToken),
-    [sessionToken]
-  );
+  const apiFactory = useMemo(() => new ApiClientFactory(), []);
 
   const identityInitial: IdentityDraft = useMemo(
     () => ({

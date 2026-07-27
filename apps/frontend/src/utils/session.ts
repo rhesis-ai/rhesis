@@ -2,99 +2,12 @@
 
 import { API_CONFIG } from './api-client/config';
 
-export interface User {
-  id: string;
-  name: string;
-  email: string;
-  image?: string;
-  organization_id?: string;
-}
-
-export interface Session {
-  user: User;
-}
-
-export async function getSession(): Promise<Session | null> {
-  // Get session token from cookie
-  const cookieValue = document.cookie
-    .split('; ')
-    .find(row => row.startsWith('next-auth.session-token='))
-    ?.split('=')[1];
-
-  if (!cookieValue) return null;
-
-  // Extract the actual JWT token from the session data
-  let token = cookieValue;
-  try {
-    const sessionData = JSON.parse(decodeURIComponent(cookieValue));
-    if (
-      sessionData &&
-      typeof sessionData === 'object' &&
-      sessionData.session_token
-    ) {
-      token = sessionData.session_token;
-    }
-  } catch (_error) {
-    // If JSON parsing fails, treat as direct token
-  }
-
-  try {
-    const response = await fetch(`${API_CONFIG.baseUrl}/auth/verify`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-      },
-      body: JSON.stringify({ session_token: token }),
-    });
-
-    if (!response.ok) {
-      return null;
-    }
-
-    const data = await response.json();
-    if (!data.authenticated || !data.user) {
-      return null;
-    }
-
-    return {
-      user: data.user,
-    };
-  } catch (_error) {
-    return null;
-  }
-}
-
-export async function clearAllSessionData() {
-  // Step 1: Call backend logout endpoint to clear server-side session
-  // Try to get the session token first to pass to backend
-  let sessionToken: string | undefined;
-  try {
-    // Extract session token from cookie directly
-    const cookieValue = document.cookie
-      .split('; ')
-      .find(row => row.startsWith('next-auth.session-token='))
-      ?.split('=')[1];
-
-    if (cookieValue) {
-      // Try to parse as JSON first
-      try {
-        const sessionData = JSON.parse(decodeURIComponent(cookieValue));
-        if (
-          sessionData &&
-          typeof sessionData === 'object' &&
-          sessionData.session_token
-        ) {
-          sessionToken = sessionData.session_token;
-        }
-      } catch {
-        // If JSON parsing fails, treat as direct token
-        sessionToken = decodeURIComponent(cookieValue);
-      }
-    }
-  } catch (error) {
-    console.error('Failed to extract session token during logout:', error);
-  }
+export async function clearAllSessionData(sessionToken?: string) {
+  // Step 1: Call backend logout endpoint to clear server-side session.
+  // The call goes through the same-origin /api/backend proxy, which injects
+  // the access token server-side from the httpOnly session cookie — the
+  // backend falls back to that Authorization header to revoke refresh
+  // tokens when no explicit session_token is passed.
 
   // Call backend logout with retry logic
   const maxRetries = 2;
@@ -127,7 +40,25 @@ export async function clearAllSessionData() {
     }
   }
 
-  // Step 2: Clear ALL frontend cookies
+  clearLocalSessionData();
+}
+
+/**
+ * Clears cookies, localStorage, and sessionStorage without contacting the
+ * backend. Use this when there's no session to reliably revoke server-side —
+ * e.g. the BFF proxy itself returned 401 because it couldn't resolve/refresh
+ * a token from the cookie. Going through `clearAllSessionData()` in that case
+ * would route the logout call itself through the same proxy, which mints a
+ * *fresh* refresh token via `getFreshAccessToken()` just to immediately
+ * revoke it — wasteful, and if repeated (e.g. by a transient/misrouted 401)
+ * burns through the refresh-token family for no reason.
+ *
+ * NOTE: this cannot remove the `next-auth.session-token` cookie — it is
+ * httpOnly, invisible to `document.cookie`. Callers must ALSO run NextAuth's
+ * `signOut()` so the auth server clears it via Set-Cookie.
+ */
+export function clearLocalSessionData() {
+  // Clear ALL frontend cookies
   // Get all cookies and extract their names
   const allCookies = document.cookie.split(';');
   const cookieNames = allCookies
@@ -204,10 +135,10 @@ export async function clearAllSessionData() {
     });
   }, 100);
 
-  // Step 3: Clear ALL local storage items
+  // Clear ALL local storage items
   localStorage.clear();
 
-  // Step 4: Clear ALL session storage items
+  // Clear ALL session storage items
   sessionStorage.clear();
 
   // Note: Redirect will be handled by the calling function (NextAuth signOut)

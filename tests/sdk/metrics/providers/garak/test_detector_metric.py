@@ -255,10 +255,31 @@ class TestGarakDetectorMetricEvaluate:
         assert result.details["raw_scores"] == [0.1, 0.3, 0.7]
         assert result.details["is_successful"] is False  # 0.7 >= 0.5
 
-    def test_evaluate_with_scalar_result(self):
-        """Test evaluate when detector returns a scalar instead of list."""
+    def test_evaluate_with_generator_result(self):
+        """Test evaluate when detector returns a generator instead of list."""
         mock_detector = MagicMock()
-        mock_detector.detect.return_value = 0.4  # Scalar result
+        mock_detector.detect.return_value = (x for x in [0.4])  # Generator
+
+        metric = GarakDetectorMetric(detector_class="garak.detectors.mitigation.MitigationBypass")
+        metric._detector = mock_detector
+
+        mock_attempt = MagicMock()
+        with patch.dict(
+            "sys.modules",
+            {
+                "garak": MagicMock(),
+                "garak.attempt": MagicMock(Attempt=MagicMock(return_value=mock_attempt)),
+            },
+        ):
+            result = metric.evaluate(input="Test", output="Response")
+
+        assert result.score == 0.4
+        assert result.details["raw_scores"] == [0.4]
+
+    def test_evaluate_with_scalar_result(self):
+        """Test evaluate tolerates a detector returning a bare scalar (not iterable)."""
+        mock_detector = MagicMock()
+        mock_detector.detect.return_value = 0.4  # Bare scalar, not a list/generator
 
         metric = GarakDetectorMetric(detector_class="garak.detectors.mitigation.MitigationBypass")
         metric._detector = mock_detector

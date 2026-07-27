@@ -57,21 +57,18 @@ describe('TestRunsClient', () => {
       expect(result.pagination.totalCount).toBe(2);
     });
 
-    it('sends Authorization header', async () => {
+    it('omits Authorization header client-side (proxy injects it)', async () => {
       fetchMock.mockResolvedValue(
         makeFetchResponse([], 200, { 'x-total-count': '0' })
       );
 
       await client.getTestRuns();
 
-      expect(fetchMock).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.objectContaining({
-          headers: expect.objectContaining({
-            Authorization: 'Bearer test-token',
-          }),
-        })
-      );
+      const headers = fetchMock.mock.calls[0][1].headers as Record<
+        string,
+        string
+      >;
+      expect(headers['Authorization']).toBeUndefined();
     });
 
     it('filters by test_configuration_id when provided', async () => {
@@ -257,19 +254,16 @@ describe('TestRunsClient', () => {
       expect(calledUrl).toContain('/test_runs/run-dl/download');
     });
 
-    it('sends the Authorization header', async () => {
+    it('omits Authorization header client-side (proxy injects it)', async () => {
       fetchMock.mockResolvedValue(makeFetchResponse('', 200));
 
       await client.downloadTestRun('run-dl');
 
-      expect(fetchMock).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.objectContaining({
-          headers: expect.objectContaining({
-            Authorization: 'Bearer test-token',
-          }),
-        })
-      );
+      const headers = fetchMock.mock.calls[0][1].headers as Record<
+        string,
+        string
+      >;
+      expect(headers['Authorization']).toBeUndefined();
     });
 
     it('does not include credentials: include (unlike regular fetch calls)', async () => {
@@ -318,7 +312,7 @@ describe('TestRunsClient', () => {
       expect(result[0]).toMatchObject({ id: 'beh-1', name: 'Behavior A' });
     });
 
-    it('sends credentials and Authorization header', async () => {
+    it('sends credentials but omits Authorization header client-side', async () => {
       fetchMock.mockResolvedValue(makeFetchResponse([]));
 
       await client.getTestRunBehaviors('run-123');
@@ -327,11 +321,13 @@ describe('TestRunsClient', () => {
         expect.any(String),
         expect.objectContaining({
           credentials: 'include',
-          headers: expect.objectContaining({
-            Authorization: 'Bearer test-token',
-          }),
         })
       );
+      const headers = fetchMock.mock.calls[0][1].headers as Record<
+        string,
+        string
+      >;
+      expect(headers['Authorization']).toBeUndefined();
     });
 
     it('returns an empty array when there are no behaviors', async () => {

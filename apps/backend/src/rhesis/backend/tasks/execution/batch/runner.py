@@ -13,6 +13,7 @@ from typing import Any, Dict, List
 from rhesis.backend.tasks.execution.batch.context import ExecutionContext
 from rhesis.backend.tasks.execution.batch.evaluation import evaluate_metrics
 from rhesis.backend.tasks.execution.batch.invocation import is_multi_turn_test, run_test
+from rhesis.backend.tasks.execution.response_extractor import has_http_error_in_result
 
 logger = logging.getLogger(__name__)
 
@@ -168,7 +169,7 @@ async def run_batch(
 
     # Create a single MetricEvaluator for the batch (stateless, safe to share).
     evaluator = None
-    if ctx.metric_configs:
+    if ctx.has_metrics:
         from rhesis.backend.metrics.evaluator import MetricEvaluator
 
         evaluator = MetricEvaluator(
@@ -318,8 +319,11 @@ async def _execute_single_test(
                 }
 
             # --- Async metric evaluation ---
-            metrics_results = dict(penelope_metrics)
-            if evaluator and ctx.metric_configs:
+            if has_http_error_in_result(output):
+                # Discard Penelope goal metrics when the first target call was HTTP error.
+                metrics_results = {}
+                logger.info(f"[BATCH] HTTP error for test {test_id}; skipping metrics")
+            elif evaluator and ctx.get_metric_configs_for_test(test_id):
                 metrics_results = await evaluate_metrics(
                     ctx,
                     evaluator,
@@ -331,6 +335,8 @@ async def _execute_single_test(
                     is_multi_turn,
                     penelope_metrics,
                 )
+            else:
+                metrics_results = dict(penelope_metrics)
 
             execution_time = (time.monotonic() - start_time) * 1000
 

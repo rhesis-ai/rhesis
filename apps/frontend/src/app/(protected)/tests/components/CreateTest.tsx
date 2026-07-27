@@ -48,7 +48,6 @@ interface UserOption extends User {
 }
 
 interface CreateTestProps {
-  sessionToken: string;
   onSuccess?: () => void;
   onError?: (error: string) => void;
   defaultOwnerId?: UUID;
@@ -70,7 +69,6 @@ const defaultFormData: TestFormData = {
 };
 
 export default function CreateTest({
-  sessionToken,
   onSuccess,
   onError,
   defaultOwnerId,
@@ -123,7 +121,7 @@ export default function CreateTest({
   useEffect(() => {
     const loadOptions = async () => {
       try {
-        const apiFactory = new ApiClientFactory(sessionToken);
+        const apiFactory = new ApiClientFactory();
         const behaviorClient = apiFactory.getBehaviorClient();
         const topicClient = apiFactory.getTopicClient();
         const categoryClient = apiFactory.getCategoryClient();
@@ -178,7 +176,7 @@ export default function CreateTest({
     };
 
     loadOptions();
-  }, [sessionToken, onError]);
+  }, [onError]);
 
   // Update form data with autocomplete value (either string or option)
   const handleFieldChange =
@@ -233,7 +231,7 @@ export default function CreateTest({
           throw new Error('Prompt content is required');
         }
 
-        const apiFactory = new ApiClientFactory(sessionToken);
+        const apiFactory = new ApiClientFactory();
         const testsClient = apiFactory.getTestsClient();
 
         // Format prompt data
@@ -331,7 +329,6 @@ export default function CreateTest({
     [
       formData,
       pendingFiles,
-      sessionToken,
       onSuccess,
       onError,
       behaviors,

@@ -67,26 +67,27 @@ const HOVER_LIST_WIDTH = '38%';
 const LIST_VIEW_TAB = 0;
 const CLUSTER_VIEW_TAB = 1;
 
+// TODO: re-enable once embedding cluster view issues are resolved
+const CLUSTER_VIEW_ENABLED = false;
+
 interface EmbeddingTestsPanelProps {
   testSetId: string;
-  sessionToken: string;
   testSetType?: string;
   onTotalCountChange?: (count: number) => void;
 }
 
 export default function EmbeddingTestsPanel({
   testSetId,
-  sessionToken,
   testSetType,
   onTotalCountChange,
 }: EmbeddingTestsPanelProps) {
   const theme = useTheme();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState(LIST_VIEW_TAB);
-  const clustersActive = activeTab === CLUSTER_VIEW_TAB;
+  const clustersActive = CLUSTER_VIEW_ENABLED && activeTab === CLUSTER_VIEW_TAB;
 
   const { graph, isLoading, isComputing, error, computeGraph } =
-    useEmbeddingGraph(testSetId, sessionToken, { enabled: clustersActive });
+    useEmbeddingGraph(testSetId, { enabled: clustersActive });
 
   const [tests, setTests] = useState<TestDetail[]>([]);
   const [testsLoading, setTestsLoading] = useState(false);
@@ -124,7 +125,7 @@ export default function EmbeddingTestsPanel({
     async function fetchAll() {
       setTestsLoading(true);
       setTestsError(null);
-      const client = new ApiClientFactory(sessionToken).getTestSetsClient();
+      const client = new ApiClientFactory().getTestSetsClient();
       const accumulated: TestDetail[] = [];
       let skip = 0;
 
@@ -161,7 +162,7 @@ export default function EmbeddingTestsPanel({
     return () => {
       cancelled = true;
     };
-  }, [clustersActive, sessionToken, testSetId, filterModel]);
+  }, [clustersActive, testSetId, filterModel]);
 
   const embeddingColors = useMemo(
     () => getEmbeddingChartColors(theme),
@@ -279,30 +280,31 @@ export default function EmbeddingTestsPanel({
             : undefined,
       }}
     >
-      <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-        <Tabs
-          value={activeTab}
-          onChange={(_, tabIndex: number) => setActiveTab(tabIndex)}
-          aria-label="Tests view"
-        >
-          <Tab
-            label="List View"
-            icon={<ViewListIcon fontSize="small" />}
-            iconPosition="start"
-          />
-          <Tab
-            label="Cluster View"
-            icon={<BubbleChartOutlinedIcon fontSize="small" />}
-            iconPosition="start"
-          />
-        </Tabs>
-      </Box>
+      {CLUSTER_VIEW_ENABLED && (
+        <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+          <Tabs
+            value={activeTab}
+            onChange={(_, tabIndex: number) => setActiveTab(tabIndex)}
+            aria-label="Tests view"
+          >
+            <Tab
+              label="List View"
+              icon={<ViewListIcon fontSize="small" />}
+              iconPosition="start"
+            />
+            <Tab
+              label="Cluster View"
+              icon={<BubbleChartOutlinedIcon fontSize="small" />}
+              iconPosition="start"
+            />
+          </Tabs>
+        </Box>
+      )}
 
-      {activeTab === LIST_VIEW_TAB && (
+      {(!CLUSTER_VIEW_ENABLED || activeTab === LIST_VIEW_TAB) && (
         <Box sx={{ p: 2.5, width: '100%', minHeight: 400 }}>
           <TestSetTestsGrid
             testSetId={testSetId}
-            sessionToken={sessionToken}
             testSetType={testSetType}
             embedded
             onTotalCountChange={onTotalCountChange}
@@ -310,7 +312,7 @@ export default function EmbeddingTestsPanel({
         </Box>
       )}
 
-      {activeTab === CLUSTER_VIEW_TAB && (
+      {CLUSTER_VIEW_ENABLED && activeTab === CLUSTER_VIEW_TAB && (
         <Box
           sx={{
             p: 2.5,

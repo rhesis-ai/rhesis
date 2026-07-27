@@ -34,12 +34,29 @@ def create_session(
     current_user: User = Depends(require_current_user_or_token),
 ):
     organization_id, user_id = tenant_context
-    return crud.create_architect_session(
+    initial_message = (session.initial_message or "").strip() or None
+
+    db_session = crud.create_architect_session(
         db=db,
         session=session,
         organization_id=organization_id,
         user_id=user_id,
     )
+
+    if initial_message:
+        from rhesis.backend.app.services.architect.session_start import (
+            start_session_with_message,
+        )
+
+        start_session_with_message(
+            db=db,
+            db_session=db_session,
+            user_message=initial_message,
+            organization_id=organization_id,
+            user_id=user_id,
+        )
+
+    return db_session
 
 
 @router.get("/", response_model=list[schemas.ArchitectSession])

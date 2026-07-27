@@ -35,7 +35,6 @@ import type { OrgMemberRead, RoleRead } from '../types';
 
 interface OrgRoleChipProps {
   userId: string;
-  sessionToken: string;
   onRoleChanged?: () => void;
 }
 
@@ -45,7 +44,6 @@ interface OrgRoleChipProps {
 
 export default function OrgRoleChip({
   userId,
-  sessionToken,
   onRoleChanged,
 }: OrgRoleChipProps) {
   const rbacEnabled = useFeature(FeatureName.RBAC);
@@ -59,9 +57,8 @@ export default function OrgRoleChip({
   const [assigning, setAssigning] = useState(false);
 
   useEffect(() => {
-    if (!sessionToken) return;
     let cancelled = false;
-    fetchOrgMembers(sessionToken)
+    fetchOrgMembers()
       .then(data => {
         if (!cancelled) {
           setMembers(data);
@@ -78,12 +75,12 @@ export default function OrgRoleChip({
     return () => {
       cancelled = true;
     };
-  }, [sessionToken]);
+  }, []);
 
   useEffect(() => {
-    if (!rbacEnabled || !sessionToken || !canManage) return;
+    if (!rbacEnabled || !canManage) return;
     let cancelled = false;
-    fetchRoles(sessionToken)
+    fetchRoles()
       .then(data => {
         if (!cancelled) setRoles(data);
       })
@@ -91,12 +88,10 @@ export default function OrgRoleChip({
     return () => {
       cancelled = true;
     };
-  }, [rbacEnabled, sessionToken, canManage]);
+  }, [rbacEnabled, canManage]);
 
-  const { level: myLevel, permissionNames: myPermissions } = useActorAuthority(
-    sessionToken,
-    'org'
-  );
+  const { level: myLevel, permissionNames: myPermissions } =
+    useActorAuthority('org');
   const member = members.find(m => m.user_id === userId);
   const assignableRoles = roles.filter(
     r =>
@@ -117,10 +112,10 @@ export default function OrgRoleChip({
       if (!roleId || roleId === member?.role_id) return;
       setAssigning(true);
       try {
-        const client = new RbacClient(sessionToken);
+        const client = new RbacClient();
         await client.assignOrgRole(userId, { role_id: roleId });
         invalidateOrgMembers();
-        const fresh = await fetchOrgMembers(sessionToken);
+        const fresh = await fetchOrgMembers();
         setMembers(fresh);
         onRoleChanged?.();
         notifications.show('Role updated', { severity: 'success' });
@@ -136,7 +131,7 @@ export default function OrgRoleChip({
         setAssigning(false);
       }
     },
-    [sessionToken, userId, member?.role_id, onRoleChanged, notifications]
+    [userId, member?.role_id, onRoleChanged, notifications]
   );
 
   if (loading) {

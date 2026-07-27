@@ -1,7 +1,7 @@
 import { FilesClient } from '../files-client';
 import { EntityType } from '@/types/entity-type';
 
-const BASE_URL = 'http://127.0.0.1:8080/api/v1';
+const BASE_URL = 'http://localhost/api/backend';
 
 function makeFetchResponse(
   body: unknown,
@@ -72,11 +72,13 @@ describe('FilesClient', () => {
         expect.objectContaining({
           method: 'POST',
           credentials: 'include',
-          headers: expect.objectContaining({
-            Authorization: 'Bearer test-token',
-          }),
         })
       );
+      const uploadHeaders = fetchMock.mock.calls[0][1].headers as Record<
+        string,
+        string
+      >;
+      expect(uploadHeaders['Authorization']).toBeUndefined();
 
       // Verify entity_id and entity_type are in query params
       const calledUrl = fetchMock.mock.calls[0][0] as string;
@@ -191,7 +193,7 @@ describe('FilesClient', () => {
   });
 
   describe('getFileContent', () => {
-    it('fetches file content as blob with auth headers', async () => {
+    it('fetches file content as blob without an Authorization header (proxy injects it)', async () => {
       const mockBlob = new Blob(['png data'], { type: 'image/png' });
       fetchMock.mockResolvedValue({
         ok: true,
@@ -203,12 +205,14 @@ describe('FilesClient', () => {
       expect(fetchMock).toHaveBeenCalledWith(
         expect.stringContaining('/files/file-img/content'),
         expect.objectContaining({
-          headers: expect.objectContaining({
-            Authorization: 'Bearer test-token',
-          }),
           credentials: 'include',
         })
       );
+      const contentHeaders = fetchMock.mock.calls[0][1].headers as Record<
+        string,
+        string
+      >;
+      expect(contentHeaders['Authorization']).toBeUndefined();
       expect(result).toBe(mockBlob);
     });
 
@@ -290,19 +294,16 @@ describe('FilesClient', () => {
       );
     });
 
-    it('sends Authorization header', async () => {
+    it('omits Authorization header client-side (proxy injects it)', async () => {
       fetchMock.mockResolvedValue(makeFetchResponse([]) as unknown as Response);
 
       await client.getTestFiles('test-1');
 
-      expect(fetchMock).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.objectContaining({
-          headers: expect.objectContaining({
-            Authorization: 'Bearer test-token',
-          }),
-        })
-      );
+      const headers = fetchMock.mock.calls[0][1].headers as Record<
+        string,
+        string
+      >;
+      expect(headers['Authorization']).toBeUndefined();
     });
   });
 });

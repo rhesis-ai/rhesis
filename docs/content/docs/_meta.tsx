@@ -122,6 +122,7 @@ const meta: MetaRecord = {
   'results-overview': 'Insights',
   'test-runs': 'Test Runs',
   experiments: 'Experiments',
+  annotations: 'Annotations',
   tasks: 'Tasks',
 
   '---connect': {
@@ -135,7 +136,7 @@ const meta: MetaRecord = {
   },
   tracing: 'Traces',
   endpoints: 'Endpoints',
-  mcp: 'MCP',
+  tools: 'Tools',
   models: 'Models',
   integrations: 'Integrations',
   'api-tokens': 'API Tokens',

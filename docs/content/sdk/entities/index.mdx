@@ -2,11 +2,9 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 # Entities
 
-Entities are the SDK's interface to the Rhesis platform. They provide typed Python objects that map directly to platform resources, enabling you to create, read, update, and delete data programmatically. Entities are used throughout the SDK—for example, synthesizers generate a `TestSet` entity that contains multiple `Test` entities.
+Entities are typed Python objects that map to platform resources, letting you create, read, update, and delete data programmatically. They appear throughout the SDK—for example, synthesizers return a `TestSet` entity containing multiple `Test` entities.
 
-<Callout type="info">
-  **Prerequisites**: To work with entities from [app.rhesis.ai](https://app.rhesis.ai), ensure you have [configured the SDK](/sdk/installation) with your API key.
-</Callout>
+Working with entities requires a [configured API key](/sdk/installation).
 
 ## Available Entities
 
@@ -23,42 +21,25 @@ Entities are the SDK's interface to the Rhesis platform. They provide typed Pyth
 | [TestRun](/sdk/entities/test-runs#testrun) | Execution records for test batches |
 | [TestResult](/sdk/entities/test-runs#testresult) | Individual test execution results |
 | [TestConfiguration](/sdk/entities/test-runs#testconfiguration) | Settings for test execution |
-| [Endpoint](/sdk/entities/endpoints) | AI services to test against |
+| [Endpoint](/sdk/entities/endpoints) | LLM applications and APIs tests run against |
 
 ## Entity vs Collection Classes
 
-The SDK uses two class patterns:
+Each entity comes as two classes:
 
-- **Entity classes** (`TestSet`, `Test`, `Endpoint`): Represent single records. Use for creating, updating, and deleting individual items.
-- **Collection classes** (`TestSets`, `Tests`, `Endpoints`): Provide query methods. Use for fetching and searching records.
+- **Entity classes** (`TestSet`, `Test`, `Endpoint`) represent a single record. Use them to create, update, and delete individual items.
+- **Collection classes** (`TestSets`, `Tests`, `Endpoints`) provide query methods. Use them to fetch and search records.
 
-<CodeBlock filename="entity_vs_collection.py" language="python">
-{`from rhesis.sdk.entities import TestSet, TestSets
+All entities share the interface below. Per-entity pages document only what is specific to that entity.
 
-# Collection: query operations
-all_sets = TestSets.all()                    # Get all
-one_set = TestSets.pull(id="abc123")         # Get by ID
-exists = TestSets.exists("abc123")           # Check existence
+## Fetching entities
 
-# Entity: instance operations
-test_set = TestSet(name="New Set", ...)      # Create new
-test_set.push()                              # Save to platform
-test_set.pull()                              # Refresh from platform
-test_set.delete()                            # Remove from platform`}
-</CodeBlock>
-
-## Common Operations
-
-All entities share a consistent interface for CRUD operations. Each entity class has a corresponding collection class (e.g., `TestSet` and `TestSets`) for querying multiple records.
-
-### Fetching Entities
-
-Retrieve entities from the platform using the collection class:
+Retrieve records using the collection class:
 
 <CodeBlock filename="fetch_entities.py" language="python">
-{`from rhesis.sdk.entities import TestSets, TestSet
+{`from rhesis.sdk.entities import TestSets
 
-# Get all test sets
+# Get all
 all_test_sets = TestSets.all()
 for ts in all_test_sets:
     print(f"{ts.name}: {ts.test_count} tests")
@@ -66,16 +47,18 @@ for ts in all_test_sets:
 # Get by ID
 test_set = TestSets.pull(id="abc123")
 
-# Get by name (case-insensitive)
+# Get by name (case-insensitive, must be unique)
 test_set = TestSets.pull(name="My Test Set")
 
 # Get first record
 first = TestSets.first()`}
 </CodeBlock>
 
-### Filtering Results
+`pull(name=...)` raises `ValueError` if the name matches no record or more than one.
 
-Use OData filter syntax to query specific records:
+## Filtering results
+
+Pass an OData filter string to `all()`:
 
 <CodeBlock filename="filter_entities.py" language="python">
 {`from rhesis.sdk.entities import TestSets, Tests
@@ -87,102 +70,59 @@ test_sets = TestSets.all(filter="contains(tolower(name), 'safety')")
 tests = Tests.all(filter="category eq 'security'")`}
 </CodeBlock>
 
-### Creating Entities
+## Creating and updating
 
-Create new entities locally and save them to the platform with `push()`:
+Instantiate an entity and call `push()` to save it. `push()` creates a record when `id` is unset and updates it otherwise:
 
-<CodeBlock filename="create_entity.py" language="python">
-{`from rhesis.sdk.entities import Category
+<CodeBlock filename="create_update.py" language="python">
+{`from rhesis.sdk.entities import Category, Categories
 
-category = Category(
-    name="Safety",
-    description="Tests for safety-critical behaviors"
-)
-
-# Save to platform
+# Create
+category = Category(name="Safety", description="Safety-critical behaviors")
 category.push()
-print(f"Created with ID: {category.id}")`}
-</CodeBlock>
+print(f"Created with ID: {category.id}")
 
-### Updating Entities
-
-Modify entity attributes and call `push()` to save changes:
-
-<CodeBlock filename="update_entity.py" language="python">
-{`from rhesis.sdk.entities import Categories
-
-# Fetch existing entity
+# Update
 category = Categories.pull(name="Safety")
-
-# Modify and save
-category.description = "Updated description for safety tests"
+category.description = "Updated description"
 category.push()`}
 </CodeBlock>
 
-### Refreshing from Platform
+## Refreshing from the platform
 
-Use `pull()` on an instance to refresh its data from the platform:
+Call `pull()` on an instance to overwrite its fields with the current server state:
 
 <CodeBlock filename="refresh_entity.py" language="python">
-{`from rhesis.sdk.entities import TestSets
-
-test_set = TestSets.pull(id="abc123")
-
-# ... time passes, data may have changed on platform ...
-
-# Refresh from platform
+{`test_set = TestSets.pull(id="abc123")
+# ... data may change on the platform ...
 test_set.pull()
 print(f"Updated test count: {test_set.test_count}")`}
 </CodeBlock>
 
-### Deleting Entities
+## Checking existence and deleting
 
-Remove entities from the platform:
-
-<CodeBlock filename="delete_entity.py" language="python">
+<CodeBlock filename="exists_delete.py" language="python">
 {`from rhesis.sdk.entities import Categories
 
-category = Categories.pull(name="Deprecated Category")
-deleted = category.delete()
+# exists() returns a bool without loading the full record
+if Categories.exists("abc123"):
+    category = Categories.pull(id="abc123")
 
-if deleted:
-    print("Category removed")`}
+# delete() returns True on success, False if the record was not found
+deleted = category.delete()`}
 </CodeBlock>
 
-### Checking Existence
+## Exporting
 
-Verify if an entity exists without fetching full data:
-
-<CodeBlock filename="check_exists.py" language="python">
-{`from rhesis.sdk.entities import TestSets
-
-if TestSets.exists("abc123"):
-    test_set = TestSets.pull(id="abc123")
-else:
-    print("Test set not found")`}
-</CodeBlock>
-
-## Data Export
-
-Entities support conversion to dictionaries and CSV files:
+Entities convert to dictionaries and single-row CSV files:
 
 <CodeBlock filename="export_data.py" language="python">
-{`from rhesis.sdk.entities import Categories
+{`category = Categories.pull(name="Safety")
 
-category = Categories.pull(name="Safety")
-
-# Convert to dictionary
 data = category.to_dict()
-print(data)
-
-# Export to CSV
 category.to_csv("category.csv")`}
 </CodeBlock>
 
 ---
 
-<Callout type="default">
-  **Next Steps** - Create and manage [Test Sets](/sdk/entities/test-sets) for evaluation
-  - Configure [Endpoints](/sdk/entities/endpoints) to test your AI services
-  - Track execution with [Test Runs](/sdk/entities/test-runs)
-</Callout>
+Next: [create a project](/sdk/entities/projects), [register an endpoint](/sdk/entities/endpoints), or [build test sets](/sdk/entities/test-sets).

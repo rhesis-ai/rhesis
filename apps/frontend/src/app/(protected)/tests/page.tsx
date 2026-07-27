@@ -4,19 +4,17 @@ import * as React from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
-import Paper from '@mui/material/Paper';
 import { useSession } from 'next-auth/react';
+import { useQueryClient } from '@tanstack/react-query';
 import EditNoteIcon from '@mui/icons-material/EditNote';
 import DownloadOutlinedIcon from '@mui/icons-material/DownloadOutlined';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabGroup } from '@/components/common/Fab';
-import EntityEmptyState from '@/components/common/EntityEmptyState';
-import { getEntityEmptyStateEnrichment } from '@/constants/entity-empty-state-env';
-import { CategoryIcon, ScienceIcon } from '@/components/icons';
+import { CategoryIcon } from '@/components/icons';
 import TestsGrid, { type TestsBulkActionsState } from './components/TestsGrid';
+import FileImportDrawer from '@/app/(protected)/test-sets/components/FileImportDrawer';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
-import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { parseInsightsFailedTestsSearchParams } from '@/app/(protected)/insights/utils/insights-failed-tests';
 import { useEndpoint } from '@/hooks/useEndpoints';
@@ -24,12 +22,17 @@ import { Can, useCan, useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import AccessDenied from '@/components/common/AccessDenied';
 import PageLoadingState from '@/components/common/PageLoadingState';
+import { useNotifications } from '@/components/common/NotificationContext';
+import { testKeys, testSetKeys } from '@/constants/query-keys';
+import { isAuthenticated, isSessionLoading } from '@/hooks/useIsAuthenticated';
 
 export default function TestsPage() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [testCount, setTestCount] = React.useState<number | null>(null);
+  const queryClient = useQueryClient();
+  const notifications = useNotifications();
+  const [fileImportDrawerOpen, setFileImportDrawerOpen] = React.useState(false);
   const [bulkActions, setBulkActions] = React.useState<
     Pick<TestsBulkActionsState, 'visible' | 'assignDisabled'>
   >({ visible: false, assignDisabled: false });
@@ -65,9 +68,8 @@ export default function TestsPage() {
     [searchParams]
   );
   const { data: insightsEndpoint } = useEndpoint(
-    session?.session_token ?? '',
     insightsFailedFilter?.endpointId ?? '',
-    !!insightsFailedFilter && !!session?.session_token
+    !!insightsFailedFilter
   );
   const insightsEndpointName = insightsEndpoint?.name;
 
@@ -102,6 +104,19 @@ export default function TestsPage() {
     router.push('/tests/new-manual');
   }, [activeTour, router]);
 
+  const handleFileImportSuccess = React.useCallback(
+    (testSetId: string) => {
+      setFileImportDrawerOpen(false);
+      queryClient.invalidateQueries({ queryKey: testKeys.all() });
+      queryClient.invalidateQueries({ queryKey: testSetKeys.all() });
+      notifications.show('Tests imported successfully', {
+        severity: 'success',
+      });
+      router.push(`/test-sets/${testSetId}`);
+    },
+    [queryClient, notifications, router]
+  );
+
   React.useEffect(() => {
     const handleTourOpenModal = () => {
       router.push('/test-sets/new-generated');
@@ -112,7 +127,7 @@ export default function TestsPage() {
     };
   }, [router]);
 
-  if (status === 'loading') {
+  if (isSessionLoading(status)) {
     return (
       <PageLayout title="Tests" breadcrumbs={[]}>
         <Box sx={{ p: 3 }}>
@@ -125,7 +140,7 @@ export default function TestsPage() {
   if (permsLoading) return <PageLoadingState />;
   if (!canRead) return <AccessDenied resource="tests" />;
 
-  if (!session?.session_token) {
+  if (!isAuthenticated(status)) {
     return (
       <PageLayout title="Tests" breadcrumbs={[]}>
         <Box sx={{ p: 3 }}>
@@ -136,97 +151,78 @@ export default function TestsPage() {
   }
 
   return (
-    <PageLayout
-      title="Tests"
-      description="Individual test cases that evaluate your AI endpoints for quality, safety, and reliability."
-      breadcrumbs={[]}
-      actions={
-        <FabGroup>
-          {bulkActions.visible && (
-            <>
+    <>
+      <PageLayout
+        title="Tests"
+        description="Individual test cases that evaluate your AI endpoints for quality, safety, and reliability."
+        breadcrumbs={[]}
+        actions={
+          <FabGroup>
+            {bulkActions.visible && (
+              <>
+                <Can capability={Capability.TestSet.UPDATE}>
+                  <Fab
+                    icon={<CategoryIcon sx={{ fontSize: 28 }} />}
+                    tooltip={
+                      bulkActions.assignDisabled
+                        ? 'Select tests with the same test type'
+                        : 'Assign to Test Set'
+                    }
+                    aria-label="Assign to Test Set"
+                    onClick={() => bulkHandlersRef.current.onAssign()}
+                    disabled={bulkActions.assignDisabled}
+                  />
+                </Can>
+                <Can capability={Capability.Test.DELETE}>
+                  <Fab
+                    icon={<DeleteOutlineIcon sx={{ fontSize: 28 }} />}
+                    tooltip="Delete Tests"
+                    aria-label="Delete Tests"
+                    onClick={() => bulkHandlersRef.current.onDelete()}
+                    sx={{
+                      bgcolor: 'error.main',
+                      '&:hover': { bgcolor: 'error.dark' },
+                    }}
+                  />
+                </Can>
+              </>
+            )}
+            <Can capability={Capability.File.IMPORT}>
               <Fab
-                icon={<CategoryIcon sx={{ fontSize: 28 }} />}
-                tooltip={
-                  bulkActions.assignDisabled
-                    ? 'Select tests with the same test type'
-                    : 'Assign to Test Set'
-                }
-                aria-label="Assign to Test Set"
-                onClick={() => bulkHandlersRef.current.onAssign()}
-                disabled={bulkActions.assignDisabled}
+                icon={<DownloadOutlinedIcon />}
+                tooltip="Import tests"
+                onClick={() => setFileImportDrawerOpen(true)}
               />
+            </Can>
+            <Can capability={Capability.Test.CREATE}>
               <Fab
-                icon={<DeleteOutlineIcon sx={{ fontSize: 28 }} />}
-                tooltip="Delete Tests"
-                aria-label="Delete Tests"
-                onClick={() => bulkHandlersRef.current.onDelete()}
-                sx={{
-                  bgcolor: 'error.main',
-                  '&:hover': { bgcolor: 'error.dark' },
-                }}
+                icon={<EditNoteIcon />}
+                tooltip="Manual test"
+                aria-label="Manual test"
+                onClick={handleCreateManual}
+                disabled={shouldDisableAddButton}
               />
-            </>
-          )}
-          <Fab
-            icon={<DownloadOutlinedIcon />}
-            tooltip="Import tests"
-            onClick={() => {}}
-          />
-          <Can capability={Capability.Test.CREATE}>
-            <Fab
-              icon={<EditNoteIcon />}
-              tooltip="Manual test"
-              aria-label="Manual test"
-              onClick={handleCreateManual}
-              disabled={shouldDisableAddButton}
-            />
-          </Can>
-        </FabGroup>
-      }
-    >
-      <Box sx={{ mt: 2, mb: 2 }}>
-        <Paper
-          sx={{
-            width: '100%',
-            borderRadius: BORDER_RADIUS.md,
-            boxShadow: ELEVATION.xs,
-            border: theme => `1px solid ${theme.palette.greyscale.border}`,
-            overflow: 'hidden',
-            position: 'relative',
-          }}
-        >
+            </Can>
+          </FabGroup>
+        }
+      >
+        <Box sx={{ mt: 2, mb: 2 }}>
           <TestsGrid
-            sessionToken={session.session_token}
             onNewTest={handleCreateManual}
             disableAddButton={shouldDisableAddButton}
+            canCreate={canCreate}
             insightsFailedFilter={insightsFailedFilter}
             insightsEndpointName={insightsEndpointName}
-            onTotalCountChange={setTestCount}
             onBulkActionsChange={handleBulkActionsChange}
           />
-          {testCount === 0 && (
-            <Box
-              sx={{
-                position: 'absolute',
-                inset: 0,
-                zIndex: 1,
-                bgcolor: 'background.paper',
-              }}
-            >
-              <EntityEmptyState
-                card
-                icon={ScienceIcon}
-                title="No test yet"
-                description="Create your first test to start evaluating your AI endpoints. Tests let you measure quality, safety, and reliability across single-turn and multi-turn interactions."
-                actionLabel={canCreate ? 'Create test' : undefined}
-                onAction={canCreate ? handleCreateManual : undefined}
-                actionDisabled={shouldDisableAddButton}
-                enrichment={getEntityEmptyStateEnrichment('tests')}
-              />
-            </Box>
-          )}
-        </Paper>
-      </Box>
-    </PageLayout>
+        </Box>
+      </PageLayout>
+
+      <FileImportDrawer
+        open={fileImportDrawerOpen}
+        onClose={() => setFileImportDrawerOpen(false)}
+        onSuccess={handleFileImportSuccess}
+      />
+    </>
   );
 }

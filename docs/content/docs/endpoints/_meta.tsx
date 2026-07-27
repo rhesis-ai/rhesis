@@ -8,10 +8,6 @@ const meta: MetaRecord = {
   "mapping-examples": "Examples",
   management: "Management",
   "sdk-endpoints": "SDK Endpoints",
-
-  // Hidden — content absorbed into the pages above
-  "auto-configure": { display: "hidden" },
-  "multi-turn-conversations": { display: "hidden" },
 };
 
 export default meta;

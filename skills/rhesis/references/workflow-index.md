@@ -1,0 +1,95 @@
+# Workflow index
+
+Read this file first when routing a request. Do **not** answer platform mechanics from memory — open the listed references before planning or creating.
+
+---
+
+## Shared skeleton (every full workflow)
+
+```text
+resolve by name → list_behaviors + list_metrics once → plan → user approval → create in order → optional execute → analyze
+```
+
+Creation order: behaviors → metrics (with metric_scope) → mappings → tags (if planned) → generate_test_set → verify.
+
+Details: `phases/creation.md`, `entity-model.md`, `metric-scope.md`.
+
+---
+
+## Route by user intent
+
+| Intent | Read first | Then | Skip |
+|---|---|---|---|
+| Vague `/rhesis` or "help me test" | This file → `SKILL.md` intake | Matching path below | — |
+| Named endpoint + explore/test | `phases/discovery.md` | `exploration-strategies.md` → `phases/planning.md` | Requirements workflow |
+| Pasted PRD / spec / FRs | `requirements-workflow.md` | `use-case-bracketfeld.md` (target shape) → `metric-scope.md` | `explore_endpoint` unless user asks |
+| "Run tests" / "analyze" / "compare runs" / Insights summarize | `phases/execution.md` → `phases/analysis.md` | `result-analysis.md`, `insights-summary.md` (Insights handoff) | New plan |
+| Single action ("list test sets", "fix metric X") | `phases/direct-requests.md` | `tool-catalog.md` if needed | Full phases |
+| Entity / OData / tool questions | `entity-model.md` | `odata-patterns.md`, `tool-catalog.md` | — |
+| Terminology / "what is X?" | [Glossary](https://docs.rhesis.ai/glossary.md) (`glossary/<id>.md`) | `definitions.md` if concepts are mixed up | — |
+
+---
+
+## Context detection (before showing menu)
+
+| Signal | Default path |
+|---|---|
+| PRD paste, numbered FRs, "requirements doc" | Requirements → test foundation |
+| Endpoint name + "test" / "explore" | Exploration (Quick unless they said comprehensive) |
+| Test run id, "compare runs", "last run", "summarize insights" | Run / analyze |
+| OpenAPI, `AGENTS.md`, agent code in repo | Quick exploration of implied endpoint |
+| None of the above | Four-path menu below |
+
+## Four-path menu (ambiguous start)
+
+When intent is unclear, present **one** menu and wait for the user's choice:
+
+```text
+What would you like to do?
+
+1. Quick exploration — fast scan of an endpoint's domain and boundaries
+2. Comprehensive exploration — full capability and boundary analysis
+3. Build test foundation from requirements — behaviors, metrics, and test sets
+4. Run or analyze existing tests — execute a test set or review/compare past runs
+```
+
+| Choice | Next |
+|---|---|
+| 1 Quick | `phases/discovery.md` → Quick strategy |
+| 2 Comprehensive | `phases/discovery.md` → Comprehensive strategy |
+| 3 Requirements | `requirements-workflow.md` — match `use-case-bracketfeld.md` |
+| 4 Run / analyze | `phases/execution.md`, `phases/analysis.md` |
+
+Skip the menu when intent is already clear. Requirements and run/analyze paths skip exploration unless the user asks later.
+
+**Write gate:** No `create_*` / `generate_*` until the user approves the plan.
+
+---
+
+## Reference catalog
+
+| File | Contents |
+|---|---|
+| [Glossary](https://docs.rhesis.ai/glossary.md) | Canonical terms — `glossary/behavior.md`, `glossary/test-result.md`, `glossary/tag.md`, … |
+| `definitions.md` | Confusions and requirements traceability only (glossary first) |
+| `entity-model.md` | Entity graph and tool chains |
+| `metric-scope.md` | Single-Turn vs Multi-Turn alignment |
+| `requirements-workflow.md` | Requirements → test foundation pipeline |
+| `use-case-bracketfeld.md` | **Golden example** — full plan shape (fictional requirements doc) |
+| `exploration-strategies.md` | `explore_endpoint` strategies |
+| `phases/discovery.md` | Discovery phase |
+| `phases/planning.md` | Planning and reuse |
+| `phases/creation.md` | Creation order and field constraints |
+| `phases/execution.md` | Running tests |
+| `phases/analysis.md` | Results and comparison |
+| `phases/direct-requests.md` | One-off commands |
+| `odata-patterns.md` | `$filter`, `$select`, batch lookups |
+| `result-analysis.md` | Stats modes and presentation |
+| `insights-summary.md` | Insights page → Telemachus handoff |
+| `tool-catalog.md` | MCP tool listing |
+
+---
+
+## Grounding rule
+
+Before citing **metric_scope**, **creation order**, **field constraints**, or **requirements extraction rules**, read the reference above — do not paraphrase from memory. For requirements plans, match the section structure in `use-case-bracketfeld.md`.

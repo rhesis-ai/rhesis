@@ -251,10 +251,12 @@ class TestEscalationGuard:
 @pytest.mark.ee
 @pytest.mark.integration
 class TestRolePrecedence:
-    """Project role must override org role (not union)."""
+    """Project role can elevate but never restrict below the org role (Model A)."""
 
-    def test_project_role_overrides_org_role(self, test_db: Session, test_org_id: str):
-        """A Viewer project role → deny create even when org role is Admin."""
+    def test_lower_project_role_does_not_restrict_higher_org_role(
+        self, test_db: Session, test_org_id: str
+    ):
+        """A Viewer project role must not deny create when org role is Admin."""
         from unittest.mock import patch
 
         from sqlalchemy import text
@@ -327,8 +329,8 @@ class TestRolePrecedence:
             )
 
         assert can_read is True, "Viewer can read"
-        assert can_create is False, (
-            "Viewer cannot create (project role should override Admin org role)"
+        assert can_create is True, (
+            "Admin org role should still apply; a lower project role can't restrict it"
         )
 
 

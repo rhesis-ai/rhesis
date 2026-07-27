@@ -19,7 +19,7 @@ The platform provides predefined statuses for different entity types:
 | Entity Type | Statuses | Description |
 |-------------|----------|-------------|
 | **General** | `Active`, `Inactive`, `Archived` | Common states for most entities |
-| **TestRun** | `Pending`, `Running`, `Progress`, `Completed`, `Failed` | Test run execution states |
+| **TestRun** | `Pending`, `Running`, `Progress`, `Completed`, `Failed`, `Cancelled` | Test run execution states |
 | **TestResult** | `Pass`, `Fail`, `Error`, `Review` | Individual test outcomes |
 | **Test** | `New`, `Test`, `Review` | Test lifecycle states |
 | **TestSet** | `New`, `Review`, `Approved` | Test set approval workflow |
@@ -67,7 +67,6 @@ completed_runs = TestRuns.all(filter="status/name eq 'Completed'")`}
 ---
 
 <Callout type="default">
-  **Next Steps** - Track execution with [Test Runs](/sdk/entities/test-runs)
-  - Review [Test Attributes](/sdk/entities/test-attributes) for organizing tests
-  - See the [Entities Overview](/sdk/entities) for common operations
+  **Next Steps** - Filter [Test Runs](/sdk/entities/test-runs) and results by status
+  - Organize tests with [Test Attributes](/sdk/entities/test-attributes)
 </Callout>

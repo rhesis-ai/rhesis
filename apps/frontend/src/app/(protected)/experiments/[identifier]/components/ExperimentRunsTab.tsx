@@ -18,6 +18,7 @@ import {
   GridRowParams,
 } from '@mui/x-data-grid';
 import Link from 'next/link';
+import { useSession } from 'next-auth/react';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import GridToolbar from '@/components/common/GridToolbar';
@@ -33,27 +34,24 @@ import {
 } from '@/utils/api-client/interfaces/parameters';
 import { BORDER_RADIUS } from '@/styles/theme';
 import { formatDate } from '@/utils/date';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface ExperimentRunsTabProps {
   experimentId: string;
-  sessionToken: string;
   onRunExperiment?: () => void;
 }
 
 export default function ExperimentRunsTab({
   experimentId,
-  sessionToken,
   onRunExperiment,
 }: ExperimentRunsTabProps) {
+  const { status } = useSession();
   const [drawerRun, setDrawerRun] = useState<ExperimentResultsRunItem | null>(
     null
   );
   const [searchQuery, setSearchQuery] = useState('');
 
-  const apiFactory = useMemo(
-    () => new ApiClientFactory(sessionToken),
-    [sessionToken]
-  );
+  const apiFactory = useMemo(() => new ApiClientFactory(), []);
 
   const {
     data,
@@ -63,7 +61,7 @@ export default function ExperimentRunsTab({
     queryKey: [...experimentKeys.detail(experimentId), 'runs'],
     queryFn: () =>
       apiFactory.getParametersClient().getExperimentResultsByRun(experimentId),
-    enabled: !!sessionToken && !!experimentId,
+    enabled: isAuthenticated(status) && !!experimentId,
   });
 
   const runs = data?.items ?? [];

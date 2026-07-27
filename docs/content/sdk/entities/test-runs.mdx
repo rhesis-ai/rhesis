@@ -4,6 +4,8 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 Test runs track the execution of tests against endpoints. Each run produces test results containing the endpoint's response, evaluation metrics, and review status.
 
+These entities use the shared [entity interface](/sdk/entities) for fetching, filtering, updating, and deleting.
+
 ## TestRun
 
 A `TestRun` represents a batch execution of tests. When you execute a test set against an endpoint, a test run is created to track the execution.
@@ -15,7 +17,7 @@ A `TestRun` represents a batch execution of tests. When you execute a test set a
 | `id` | `str` | Unique identifier |
 | `name` | `str` | Display name |
 | `test_configuration_id` | `str` | Associated test configuration |
-| `status_id` | `str` | Current execution status |
+| `status` | `RunStatus` | Execution status: `Progress`, `Completed`, `Partial`, or `Failed` |
 | `user_id` | `str` | User who initiated the run |
 | `organization_id` | `str` | Organization ID |
 | `owner_id` | `str` | Owner of the test run |
@@ -29,13 +31,13 @@ A `TestRun` represents a batch execution of tests. When you execute a test set a
 
 # List all test runs
 for run in TestRuns.all():
-    print(f"{run.name}: {run.status_id}")
+    print(f"{run.name}: {run.status}")
 
 # Get by ID
 run = TestRuns.pull(id="run-123")
 
 # Filter by status
-completed_runs = TestRuns.all(filter="status_id eq 'completed'")`}
+completed_runs = TestRuns.all(filter="status/name eq 'Completed'")`}
 </CodeBlock>
 
 ### Getting Test Results
@@ -161,46 +163,5 @@ for run in runs:
     print(f"Run: {run['id']} - Status: {run['status_id']}")`}
 </CodeBlock>
 
-## Complete Workflow Example
-
-<CodeBlock filename="complete_workflow.py" language="python">
-{`from rhesis.sdk.entities import TestSets, Endpoints, TestRuns, TestResults
-
-# 1. Get test set and endpoint
-test_set = TestSets.pull(name="Safety Evaluation")
-endpoint = Endpoints.pull(name="Production Chatbot")
-
-# 2. Execute tests (creates a test run)
-execution = test_set.execute(endpoint)
-print(f"Execution started: {execution}")
-
-# 3. Inspect the last completed run
-last = test_set.last_run(endpoint)
-if last:
-    print(f"Last run: {last['name']} — pass rate: {last['pass_rate']}")
-
-    # 4. Re-score with different metrics (reuses existing outputs)
-    rescore_result = test_set.rescore(endpoint, metrics=["Strictness"])
-    print(f"Re-score submitted: {rescore_result}")
-
-# 5. Fetch a specific test run and its results
-runs = TestRuns.all(filter="contains(name, 'Safety')")
-latest_run = runs[0] if runs else None
-
-if latest_run:
-    results = latest_run.get_test_results()
-    passed = sum(1 for r in results if r.get('status_id') == 'passed')
-    failed = sum(1 for r in results if r.get('status_id') == 'failed')
-    print(f"Passed: {passed}, Failed: {failed}")`}
-</CodeBlock>
-
 For the full execution API — including execution modes, metric overrides, re-scoring, and test
 set metric management — see [Test Execution](/sdk/execution).
-
----
-
-<Callout type="default">
-  **Next Steps** - Create [Test Sets](/sdk/entities/test-sets) for evaluation
-  - Configure [Endpoints](/sdk/entities/endpoints) to test against
-  - Use [Metrics](/sdk/metrics) to evaluate test results
-</Callout>

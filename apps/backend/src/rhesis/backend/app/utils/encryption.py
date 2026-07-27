@@ -2,7 +2,6 @@
 
 import hashlib
 import logging
-import os
 from functools import lru_cache
 from typing import Optional
 
@@ -18,12 +17,6 @@ logger = logging.getLogger(__name__)
 # - Fernet (EncryptedString): Reversible encryption for secrets that need retrieval
 # - bcrypt (password hashing): One-way hashing for passwords (irreversible by design)
 _pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-
-class EncryptionKeyNotFoundError(Exception):
-    """Raised when DB_ENCRYPTION_KEY environment variable is not set."""
-
-    pass
 
 
 class EncryptionError(Exception):
@@ -103,26 +96,6 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 # =============================================================================
 
 
-def get_encryption_key() -> bytes:
-    """
-    Get encryption key from environment variable.
-
-    Returns:
-        bytes: The encryption key
-
-    Raises:
-        EncryptionKeyNotFoundError: If DB_ENCRYPTION_KEY is not set
-    """
-    key = os.getenv("DB_ENCRYPTION_KEY")
-    if not key:
-        raise EncryptionKeyNotFoundError(
-            "DB_ENCRYPTION_KEY environment variable is not set. "
-            "Generate one with: python -c "
-            '"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"'
-        )
-    return key.encode()
-
-
 @lru_cache(maxsize=1)
 def _get_fernet() -> Fernet:
     """Return a cached Fernet instance built from the encryption key.
@@ -135,7 +108,11 @@ def _get_fernet() -> Fernet:
     restarting the process is not supported. If rotation is needed, the
     backend service must be restarted to clear this cache.
     """
-    return Fernet(get_encryption_key())
+    # Imported lazily to avoid a circular import (settings has no runtime need
+    # for encryption, but encryption is imported broadly across the app).
+    from rhesis.backend.app.config.settings import get_security_settings
+
+    return Fernet(get_security_settings().db_encryption_key.encode())
 
 
 def encrypt(plaintext: Optional[str]) -> Optional[str]:
@@ -256,7 +233,8 @@ class EncryptedString(TypeDecorator):
     - Automatically encrypts on write
     - Automatically decrypts on read
     - Handles None values
-    - Backward compatible (handles plaintext during migration)
+    - Fails loudly on read if a value cannot be decrypted (plaintext or a
+      wrong/rotated key) rather than returning the raw stored value
     """
 
     impl = String
@@ -309,20 +287,14 @@ class EncryptedString(TypeDecorator):
 
         Returns:
             Decrypted plaintext value for application
+
+        Raises:
+            DecryptionError: If the stored value cannot be decrypted (e.g. it is
+                plaintext or was encrypted with a different key). We fail loudly
+                rather than returning the raw stored value, so a wrong or rotated
+                key surfaces immediately instead of leaking ciphertext to callers.
         """
         if value is None:
             return None
 
-        # Try to decrypt
-        try:
-            decrypted = decrypt(value)
-            return decrypted
-        except DecryptionError:
-            # BACKWARD COMPATIBILITY: During migration, some values may still be plaintext
-            # Log warning and return plaintext value
-            logger.warning(
-                "Found unencrypted value in encrypted column. "
-                "This should only happen during migration. "
-                "Run data migration script to encrypt all values."
-            )
-            return value  # Return as-is (plaintext)
+        return decrypt(value)

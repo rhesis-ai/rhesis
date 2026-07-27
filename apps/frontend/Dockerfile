@@ -51,17 +51,20 @@ ARG FRONTEND_ENV=production
 # Git metadata injected by CI pipeline (NEXT_PUBLIC_ prefix for client-side access)
 ARG GIT_BRANCH
 ARG GIT_COMMIT
+ARG NEXT_PUBLIC_ONBOARDING_VIDEO_URL
 ENV GIT_BRANCH=${GIT_BRANCH}
 ENV GIT_COMMIT=${GIT_COMMIT}
 ENV NEXT_PUBLIC_GIT_BRANCH=${GIT_BRANCH}
 ENV NEXT_PUBLIC_GIT_COMMIT=${GIT_COMMIT}
+ENV NEXT_PUBLIC_ONBOARDING_VIDEO_URL=${NEXT_PUBLIC_ONBOARDING_VIDEO_URL}
 
 # Create a temporary .env file for build-time server configuration.
 RUN echo "NEXTAUTH_SECRET=temporary-build-secret-not-for-production" > apps/frontend/.env && \
     echo "BACKEND_URL=${BACKEND_URL}" >> apps/frontend/.env && \
     echo "GOOGLE_CLIENT_ID=placeholder-client-id" >> apps/frontend/.env && \
     echo "GOOGLE_CLIENT_SECRET=placeholder-client-secret" >> apps/frontend/.env && \
-    echo "AUTH_SECRET=placeholder-auth-secret" >> apps/frontend/.env
+    echo "AUTH_SECRET=placeholder-auth-secret" >> apps/frontend/.env && \
+    echo "NEXT_PUBLIC_ONBOARDING_VIDEO_URL=${NEXT_PUBLIC_ONBOARDING_VIDEO_URL}" >> apps/frontend/.env
 
 # Set environment variables for better Next.js performance
 ENV NEXT_TELEMETRY_DISABLED=1

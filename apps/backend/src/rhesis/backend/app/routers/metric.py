@@ -2,8 +2,7 @@ import logging
 from typing import List
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from rhesis.backend.app.routers.base import RhesisRouter
+from fastapi import Depends, HTTPException, Query, Response
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
@@ -16,18 +15,12 @@ from rhesis.backend.app.dependencies import (
     get_tenant_db_session,
 )
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.odata import apply_select
-from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 
 logger = logging.getLogger(__name__)
-
-# Create the detailed schema for Metric with many-to-many relationships included
-MetricDetailSchema = create_detailed_schema(
-    schemas.Metric, models.Metric, include_many_to_many=True
-)
-BehaviorDetailSchema = create_detailed_schema(schemas.Behavior, models.Behavior)
 
 router = RhesisRouter(
     prefix="/metrics",
@@ -195,7 +188,7 @@ def improve_metric(
         )
 
 
-@router.get("/", response_model=list[MetricDetailSchema])
+@router.get("/", response_model=list[schemas.MetricDetail])
 @with_count_header(model=models.Metric)
 def read_metrics(
     response: Response,
@@ -231,7 +224,7 @@ def read_metrics(
     return results
 
 
-@router.get("/{metric_id}", response_model=MetricDetailSchema)
+@router.get("/{metric_id}", response_model=schemas.MetricDetail)
 def read_metric(
     metric_id: UUID,
     db: Session = Depends(get_tenant_db_session),
@@ -340,7 +333,7 @@ def remove_behavior_from_metric(
         raise HTTPException(status_code=404, detail=str(e))
 
 
-@router.get("/{metric_id}/behaviors/", response_model=List[BehaviorDetailSchema])
+@router.get("/{metric_id}/behaviors/", response_model=List[schemas.BehaviorDetail])
 @with_count_header(model=models.Behavior)
 def read_metric_behaviors(
     response: Response,

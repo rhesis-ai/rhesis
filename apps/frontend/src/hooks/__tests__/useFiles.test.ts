@@ -8,6 +8,13 @@ import { EntityType } from '@/types/entity-type';
 
 // Mock dependencies
 jest.mock('../../utils/api-client/client-factory');
+const mockUseSession = jest.fn(() => ({
+  data: { session_token: 'tok' },
+  status: 'authenticated',
+}));
+jest.mock('next-auth/react', () => ({
+  useSession: () => mockUseSession(),
+}));
 const mockShow = jest.fn();
 const mockNotifications = { show: mockShow };
 jest.mock('../../components/common/NotificationContext', () => ({
@@ -38,7 +45,6 @@ describe('useFiles', () => {
   const mockProps = {
     entityId: 'test-123',
     entityType: 'Test' as const,
-    sessionToken: 'mock-session-token',
   };
 
   const mockFilesClient = {
@@ -163,10 +169,13 @@ describe('useFiles', () => {
     });
 
     it('handles missing session token', async () => {
-      const { result } = renderHook(
-        () => useFiles({ ...mockProps, sessionToken: '' }),
-        { wrapper: createWrapper() }
-      );
+      mockUseSession.mockReturnValueOnce({
+        data: null,
+        status: 'unauthenticated',
+      } as unknown as ReturnType<typeof mockUseSession>);
+      const { result } = renderHook(() => useFiles(mockProps), {
+        wrapper: createWrapper(),
+      });
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false);
@@ -307,16 +316,19 @@ describe('useFiles', () => {
     });
 
     it('handles missing session token for upload', async () => {
-      const { result } = renderHook(
-        () => useFiles({ ...mockProps, sessionToken: '' }),
-        { wrapper: createWrapper() }
-      );
+      mockUseSession.mockReturnValueOnce({
+        data: null,
+        status: 'unauthenticated',
+      } as unknown as ReturnType<typeof mockUseSession>);
+      const { result } = renderHook(() => useFiles(mockProps), {
+        wrapper: createWrapper(),
+      });
 
       await expect(
         result.current.uploadFiles([
           new File(['x'], 'x.png', { type: 'image/png' }),
         ])
-      ).rejects.toThrow('No session token available');
+      ).rejects.toThrow('Not authenticated');
     });
   });
 
@@ -390,13 +402,16 @@ describe('useFiles', () => {
     });
 
     it('handles missing session token for delete', async () => {
-      const { result } = renderHook(
-        () => useFiles({ ...mockProps, sessionToken: '' }),
-        { wrapper: createWrapper() }
-      );
+      mockUseSession.mockReturnValueOnce({
+        data: null,
+        status: 'unauthenticated',
+      } as unknown as ReturnType<typeof mockUseSession>);
+      const { result } = renderHook(() => useFiles(mockProps), {
+        wrapper: createWrapper(),
+      });
 
       await expect(result.current.deleteFile('file-1')).rejects.toThrow(
-        'No session token available'
+        'Not authenticated'
       );
     });
   });

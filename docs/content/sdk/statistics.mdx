@@ -2,12 +2,10 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 # Statistics
 
-The SDK provides built-in methods for querying aggregated statistics across test runs and test results. Use these to build dashboards, generate reports, or analyze trends without writing manual API calls.
+Two collection methods return aggregated statistics across your organization's test runs and test results, for building dashboards or reports:
 
-Two collection-level methods are available:
-
-- `TestRuns.stats()` -- aggregated test run statistics (status distribution, result breakdown, timeline, top executors)
-- `TestResults.stats()` -- aggregated test result statistics (pass rates by metric, behavior, category, topic, timeline)
+- `TestRuns.stats()` -- status distribution, result breakdown, timeline, top executors
+- `TestResults.stats()` -- pass rates by metric, behavior, category, topic, and timeline
 
 ## Test Run Statistics
 
@@ -153,8 +151,7 @@ print(topic_df)
 ---
 
 <Callout type="default">
-  **Next Steps**
-  - Review [Test Runs & Results](/sdk/entities/test-runs) for entity-level operations
-  - Explore [SDK Metrics](/sdk/metrics) for evaluation metric details
-  - See [Test Execution](/sdk/execution) for running tests programmatically
+  **Related** — [Test Runs & Results](/sdk/entities/test-runs) |
+  [SDK Metrics](/sdk/metrics) |
+  [Test Execution](/sdk/execution)
 </Callout>

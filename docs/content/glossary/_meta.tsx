@@ -54,6 +54,9 @@ export default {
   "topic": {
     display: "hidden",
   },
+  "tag": {
+    display: "hidden",
+  },
   "penelope": {
     display: "hidden",
   },

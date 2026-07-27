@@ -54,9 +54,8 @@ describe('RoleSelectField', () => {
   it('shows a loading skeleton before the roles fetch resolves', async () => {
     // Resolved at the end of the test, not left dangling: role-cache.ts's
     // module-level `_rolesPending` is only cleared when the promise it
-    // wraps settles, and `invalidateRoles()` does not touch it — an
-    // eternally-pending mock here would starve every later test in this
-    // file of a fresh fetch.
+    // wraps settles, and `invalidateRoles()` clears it when the catalog
+    // must be refreshed after role CRUD.
     let resolveRoles!: (roles: ReturnType<typeof makeRole>[]) => void;
     rbacClientInstanceMock.getRoles.mockReturnValue(
       new Promise(resolve => {
@@ -64,13 +63,7 @@ describe('RoleSelectField', () => {
       })
     );
 
-    render(
-      <RoleSelectField
-        sessionToken={SESSION_TOKEN}
-        value={null}
-        onChange={jest.fn()}
-      />
-    );
+    render(<RoleSelectField value={null} onChange={jest.fn()} />);
 
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
     expect(screen.queryByText('Default (Member)')).not.toBeInTheDocument();
@@ -85,13 +78,7 @@ describe('RoleSelectField', () => {
     rbacClientInstanceMock.getRoles.mockResolvedValue([NONE_ROLE]);
 
     const user = userEvent.setup();
-    render(
-      <RoleSelectField
-        sessionToken={SESSION_TOKEN}
-        value={null}
-        onChange={jest.fn()}
-      />
-    );
+    render(<RoleSelectField value={null} onChange={jest.fn()} />);
 
     await user.click(await screen.findByRole('combobox'));
     expect(screen.getAllByRole('option')).toHaveLength(1);
@@ -107,13 +94,7 @@ describe('RoleSelectField', () => {
     ]);
     const user = userEvent.setup();
 
-    render(
-      <RoleSelectField
-        sessionToken={SESSION_TOKEN}
-        value={null}
-        onChange={jest.fn()}
-      />
-    );
+    render(<RoleSelectField value={null} onChange={jest.fn()} />);
 
     await user.click(await screen.findByRole('combobox'));
     expect(
@@ -129,19 +110,46 @@ describe('RoleSelectField', () => {
     const onChange = jest.fn();
     const user = userEvent.setup();
 
-    render(
-      <RoleSelectField
-        sessionToken={SESSION_TOKEN}
-        value={null}
-        onChange={onChange}
-      />
-    );
+    render(<RoleSelectField value={null} onChange={onChange} />);
 
     await user.click(await screen.findByRole('combobox'));
     await user.click(await screen.findByRole('option', { name: 'Viewer' }));
 
     await waitFor(() => {
       expect(onChange).toHaveBeenCalledWith(VIEWER_ROLE.id);
+    });
+  });
+
+  it('refetches when active becomes true', async () => {
+    rbacClientInstanceMock.getRoles.mockResolvedValue([
+      VIEWER_ROLE,
+      MEMBER_ROLE,
+    ]);
+
+    const { rerender } = render(
+      <RoleSelectField value={null} onChange={jest.fn()} active={false} />
+    );
+
+    expect(rbacClientInstanceMock.getRoles).not.toHaveBeenCalled();
+
+    rerender(<RoleSelectField value={null} onChange={jest.fn()} active />);
+
+    await waitFor(() => {
+      expect(rbacClientInstanceMock.getRoles).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('clears a selected role that is no longer assignable', async () => {
+    const onChange = jest.fn();
+    rbacClientInstanceMock.getRoles.mockResolvedValue([
+      VIEWER_ROLE,
+      MEMBER_ROLE,
+    ]);
+
+    render(<RoleSelectField value="role-deleted" onChange={onChange} />);
+
+    await waitFor(() => {
+      expect(onChange).toHaveBeenCalledWith(null);
     });
   });
 });

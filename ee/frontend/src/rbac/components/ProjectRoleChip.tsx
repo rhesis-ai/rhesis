@@ -37,7 +37,6 @@ import type { ProjectMemberRoleRead, RoleRead } from '../types';
 interface ProjectRoleChipProps {
   userId: string;
   projectId: string;
-  sessionToken: string;
   onRoleChanged?: () => void;
 }
 
@@ -48,25 +47,22 @@ interface ProjectRoleChipProps {
 export default function ProjectRoleChip({
   userId,
   projectId,
-  sessionToken,
   onRoleChanged,
 }: ProjectRoleChipProps) {
   const rbacEnabled = useFeature(FeatureName.RBAC);
   const canManage = useCan(Capability.ProjectMember.MANAGE);
   const notifications = useNotifications();
   const [members, setMembers] = useState<ProjectMemberRoleRead[]>(
-    getCachedProjectMembers(sessionToken, projectId)
+    getCachedProjectMembers(projectId)
   );
   const [roles, setRoles] = useState<RoleRead[]>([]);
-  const [loading, setLoading] = useState(
-    !hasProjectMembers(sessionToken, projectId)
-  );
+  const [loading, setLoading] = useState(!hasProjectMembers(projectId));
   const [assigning, setAssigning] = useState(false);
 
   useEffect(() => {
-    if (!sessionToken || !projectId) return;
+    if (!projectId) return;
     let cancelled = false;
-    fetchProjectMembers(sessionToken, projectId)
+    fetchProjectMembers(projectId)
       .then(data => {
         if (!cancelled) {
           setMembers(data);
@@ -79,12 +75,12 @@ export default function ProjectRoleChip({
     return () => {
       cancelled = true;
     };
-  }, [sessionToken, projectId]);
+  }, [projectId]);
 
   useEffect(() => {
-    if (!rbacEnabled || !sessionToken || !canManage) return;
+    if (!rbacEnabled || !canManage) return;
     let cancelled = false;
-    fetchRoles(sessionToken)
+    fetchRoles()
       .then(data => {
         if (!cancelled) setRoles(data);
       })
@@ -92,10 +88,9 @@ export default function ProjectRoleChip({
     return () => {
       cancelled = true;
     };
-  }, [rbacEnabled, sessionToken, canManage]);
+  }, [rbacEnabled, canManage]);
 
   const { level: myLevel, permissionNames: myPermissions } = useActorAuthority(
-    sessionToken,
     'project',
     projectId
   );
@@ -121,10 +116,10 @@ export default function ProjectRoleChip({
       if (!roleId || roleId === memberEntry?.role_id) return;
       setAssigning(true);
       try {
-        const client = new RbacClient(sessionToken);
+        const client = new RbacClient();
         await client.assignProjectRole(projectId, userId, { role_id: roleId });
-        invalidateProjectMembers(sessionToken, projectId);
-        const fresh = await fetchProjectMembers(sessionToken, projectId);
+        invalidateProjectMembers(projectId);
+        const fresh = await fetchProjectMembers(projectId);
         setMembers(fresh);
         onRoleChanged?.();
         notifications.show('Project role updated', { severity: 'success' });
@@ -137,14 +132,7 @@ export default function ProjectRoleChip({
         setAssigning(false);
       }
     },
-    [
-      sessionToken,
-      projectId,
-      userId,
-      memberEntry?.role_id,
-      onRoleChanged,
-      notifications,
-    ]
+    [projectId, userId, memberEntry?.role_id, onRoleChanged, notifications]
   );
 
   if (loading) {

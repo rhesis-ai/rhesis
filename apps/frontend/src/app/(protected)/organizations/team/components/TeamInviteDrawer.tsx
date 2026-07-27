@@ -45,6 +45,7 @@ export default function TeamInviteDrawer({
       <TeamInviteForm
         ref={formRef}
         embedded
+        drawerOpen={open}
         onInvitesSent={handleInvitesSent}
         disableDuringTour={disableDuringTour}
         onSubmittingChange={setIsSubmitting}

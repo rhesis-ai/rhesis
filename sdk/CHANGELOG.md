@@ -13,6 +13,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-07-23
+
+### Changed
+
+- Revised telemetry, SDK, and setup documentation for clarity, including privacy notes on data hashing and filtering of sensitive information.
+
+### Fixed
+
+- Fixed a crash in `GarakDetectorMetric.evaluate()` by adding support for generator results (introduced in Garak v0.14+) and tolerating scalar fallbacks.
+- Resolved a runtime template resolution issue where `prompt_loader` failed to find skill references on cloud deployments by marking includes to ignore missing.
+- Copied Architect skill references into the runtime image.
+
+## [0.10.0] - 2026-07-09
+
+### Added
+- **Pydantic AI Integration**: Added `PydanticAIIntegration` for auto-instrumentation and `PydanticAITarget` for Penelope.
+- **Native Telemetry Translation**: Migrated Pydantic AI to a native OpenTelemetry translating exporter (`PydanticAITranslatingExporter`), supporting `run()`, `run_sync()`, and `run_stream()` with automatic translation of agent, LLM, tool, and handoff spans.
+- **Native Async Targets**: Added native async paths (`a_send_message()`) for `LangChainTarget` and `LangGraphTarget` utilizing native `ainvoke()` execution.
+- **Multimodal File Attachments**: Added support for file attachments and multimodal content blocks in LangChain, LangGraph, and Pydantic AI targets, including support for object-storage-backed `FileReference` resolution.
+- **OWASP Synthesizer**: Added `OWASPSynthesizer` for report-based generation and security evaluation (defaulting to "OWASP LLM Top 10").
+
+
 ## [0.9.1] - 2026-06-25
 
 ### Added

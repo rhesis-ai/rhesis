@@ -6,6 +6,7 @@ or custom agents) can interact with.  This is the canonical location of
 the interface; Penelope re-exports it for backward compatibility.
 """
 
+import asyncio
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
 
@@ -93,6 +94,26 @@ class Target(ABC):
             Tuple of (is_valid, error_message)
         """
         pass
+
+    async def a_send_message(
+        self,
+        message: str,
+        conversation_id: Optional[str] = None,
+        files: Optional[List[Dict[str, str]]] = None,
+        **kwargs,
+    ) -> TargetResponse:
+        """
+        Async version of send_message with a default to_thread fallback.
+
+        Targets with native async implementations should override this method.
+        Others automatically get async support via the thread-pool fallback.
+
+        This default existed on the original Penelope base class (see the
+        ``rhesis.penelope.targets.base`` shim) but was not carried over when
+        ``Target`` moved here, leaving async callers of sync-only targets to
+        fail with ``AttributeError``.
+        """
+        return await asyncio.to_thread(self.send_message, message, conversation_id, files, **kwargs)
 
     def get_tool_documentation(self) -> str:
         """

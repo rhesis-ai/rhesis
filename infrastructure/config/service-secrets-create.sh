@@ -100,6 +100,7 @@ function show_usage() {
   echo "  BROKER_READ_URL               Redis read replica URL (optional, falls back to BROKER_URL)"
   echo "  CELERY_RESULT_BACKEND         Celery result backend URL"
   echo "  CELERY_WORKER_CONCURRENCY     Worker concurrency (number of threads)"
+  echo "  CELERY_ARCHITECT_CONCURRENCY  Architect worker concurrency (number of threads)"
   echo "  CELERY_WORKER_PREFETCH_MULTIPLIER Worker prefetch multiplier"
   echo "  BATCH_CONCURRENCY             Async LLM fan-out within a single batch task"
   echo "  STORAGE_SERVICE_URI           Google Cloud Storage bucket URI"
@@ -107,7 +108,6 @@ function show_usage() {
   echo "  LOCAL_STORAGE_PATH            Local storage path for temporary files"
   echo ""
   echo "  # Frontend variables"
-  echo "  NEXTAUTH_URL                  NextAuth URL"
   echo "  NEXTAUTH_SECRET               NextAuth secret"
   echo "  API_BASE_URL                  API base URL for frontend"
   echo "  NEXT_PUBLIC_SUPPORT_EMAIL     Support email for frontend"
@@ -306,6 +306,7 @@ SERVICE_VARS=(
   "BROKER_READ_URL"
   "CELERY_RESULT_BACKEND"
   "CELERY_WORKER_CONCURRENCY"
+  "CELERY_ARCHITECT_CONCURRENCY"
   "CELERY_WORKER_PREFETCH_MULTIPLIER"
   "BATCH_CONCURRENCY"
   "STORAGE_SERVICE_URI"
@@ -313,7 +314,6 @@ SERVICE_VARS=(
   "LOCAL_STORAGE_PATH"
 
   # Frontend variables
-  "NEXTAUTH_URL"
   "NEXTAUTH_SECRET"
   "API_BASE_URL"
   "NEXT_PUBLIC_SUPPORT_EMAIL"
@@ -389,17 +389,6 @@ for env in "${ENV_ARRAY[@]}"; do
       fi
       echo -e "${YELLOW}Warning:${NC} ${env_upper}_FRONTEND_URL not set, using default: $frontend_url"
       set_secret "$env" "FRONTEND_URL" "$frontend_url"
-    fi
-
-    # Set default NextAuth URL if not provided
-    if [[ -z "${!env_upper}_NEXTAUTH_URL" ]]; then
-      if [[ "$env" == "prd" ]]; then
-        nextauth_url="https://app.rhesis.ai"
-      else
-        nextauth_url="https://$env-app.rhesis.ai"
-      fi
-      echo -e "${YELLOW}Warning:${NC} ${env_upper}_NEXTAUTH_URL not set, using default: $nextauth_url"
-      set_secret "$env" "NEXTAUTH_URL" "$nextauth_url"
     fi
 
     # Set default API URL if not provided

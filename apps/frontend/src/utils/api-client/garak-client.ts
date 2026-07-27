@@ -102,26 +102,6 @@ export interface GarakImportPreviewResponse {
 }
 
 /**
- * Imported test set information
- */
-export interface GarakImportedTestSet {
-  test_set_id: string;
-  test_set_name: string;
-  probe_full_name: string;
-  test_count: number;
-}
-
-/**
- * Import response
- */
-export interface GarakImportResponse {
-  test_sets: GarakImportedTestSet[];
-  total_test_sets: number;
-  total_tests: number;
-  garak_version: string;
-}
-
-/**
  * Sync preview response
  */
 export interface GarakSyncPreviewResponse {
@@ -139,14 +119,23 @@ export interface GarakSyncPreviewResponse {
 }
 
 /**
- * Sync response
+ * Response from launching an import (async task) — POST /garak/import runs
+ * in the background since some probes produce thousands of tests.
  */
-export interface GarakSyncResponse {
-  added: number;
-  removed: number;
-  unchanged: number;
-  new_garak_version: string;
-  old_garak_version: string;
+export interface GarakImportTaskResponse {
+  task_id: string;
+  probe_count: number;
+  message: string;
+}
+
+/**
+ * Response from launching a sync (async task) — POST /garak/sync/{id} runs
+ * in the background for the same reason as import.
+ */
+export interface GarakSyncTaskResponse {
+  task_id: string;
+  test_set_id: string;
+  message: string;
 }
 
 /**
@@ -202,12 +191,16 @@ export class GarakClient extends BaseApiClient {
   }
 
   /**
-   * Import selected Garak probe modules as a test set
+   * Import selected Garak probe modules as a test set.
+   *
+   * Runs as a background task (some probes produce thousands of tests) —
+   * returns immediately with a task_id; the resulting test set(s) appear in
+   * the test sets list once the task completes.
    */
   async importProbes(
     request: GarakImportRequest
-  ): Promise<GarakImportResponse> {
-    return this.fetch<GarakImportResponse>('/garak/import', {
+  ): Promise<GarakImportTaskResponse> {
+    return this.fetch<GarakImportTaskResponse>('/garak/import', {
       method: 'POST',
       body: JSON.stringify(request),
     });
@@ -223,10 +216,14 @@ export class GarakClient extends BaseApiClient {
   }
 
   /**
-   * Sync a Garak-imported test set with latest probes
+   * Sync a Garak-imported test set with latest probes.
+   *
+   * Runs as a background task (some probes produce thousands of tests) —
+   * returns immediately with a task_id; the test set updates once the task
+   * completes.
    */
-  async syncTestSet(testSetId: string): Promise<GarakSyncResponse> {
-    return this.fetch<GarakSyncResponse>(`/garak/sync/${testSetId}`, {
+  async syncTestSet(testSetId: string): Promise<GarakSyncTaskResponse> {
+    return this.fetch<GarakSyncTaskResponse>(`/garak/sync/${testSetId}`, {
       method: 'POST',
     });
   }

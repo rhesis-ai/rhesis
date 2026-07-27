@@ -51,3 +51,68 @@ def test_send_message_with_files_builds_content_blocks(echo_graph):
     assert stored.content[0]["type"] == "text"
     assert stored.content[1]["type"] == "image"
     assert stored.content[1]["mime_type"] == "image/png"
+
+
+# --- Native async path (a_send_message via ainvoke) ---
+
+
+def test_a_send_message_uses_native_ainvoke(echo_graph):
+    import asyncio
+    from unittest.mock import patch
+
+    target = LangGraphTarget(echo_graph, "test-target")
+
+    # a_send_message must go through the graph's native ainvoke, never the
+    # sync invoke (which the base-class thread-pool fallback would call).
+    with patch.object(
+        type(echo_graph), "invoke", side_effect=AssertionError("sync invoke must not be called")
+    ):
+        response = asyncio.run(target.a_send_message("hello"))
+
+    assert response.success is True
+    assert "echo:" in response.content
+
+
+def test_a_send_message_maintains_session_state(echo_graph):
+    import asyncio
+
+    target = LangGraphTarget(echo_graph, "test-target")
+
+    asyncio.run(target.a_send_message("first", conversation_id="s1"))
+    response = asyncio.run(target.a_send_message("second", conversation_id="s1"))
+
+    assert response.success is True
+    # user+ai per turn, accumulated across both turns
+    assert response.metadata["session_messages_count"] == 4
+
+
+def test_a_send_message_with_files_builds_content_blocks(echo_graph):
+    import asyncio
+
+    target = LangGraphTarget(echo_graph, "test-target")
+
+    response = asyncio.run(target.a_send_message("What is this?", files=SAMPLE_FILES))
+
+    assert response.success is True
+    stored: HumanMessage = target._session_states["default"][0]
+    assert isinstance(stored.content, list)
+    assert stored.content[0]["type"] == "text"
+    assert stored.content[1]["type"] == "image"
+
+
+def test_a_send_message_falls_back_without_ainvoke():
+    """Regression: validate_configuration only requires invoke(), so a
+    duck-typed graph without ainvoke() must fall back to the thread-pool
+    path instead of raising AttributeError."""
+    import asyncio
+
+    class _SyncOnlyGraph:
+        def invoke(self, state):
+            return {"messages": [*state["messages"], AIMessage(content="sync ok")]}
+
+    target = LangGraphTarget(_SyncOnlyGraph(), "test-target")
+
+    response = asyncio.run(target.a_send_message("hello"))
+
+    assert response.success is True
+    assert response.content == "sync ok"

@@ -499,7 +499,7 @@ class TestPipelineStream:
 
         test_events = [e for e in events if e["type"] == "test"]
         assert len(test_events) == 2
-        assert all(e["test_type"] == "single_turn" for e in test_events)
+        assert all(e["test_type"] == "Single-Turn" for e in test_events)
 
         done_event = next(e for e in events if e["type"] == "tests_done")
         assert done_event["total"] == 2
@@ -552,6 +552,54 @@ class TestPipelineStream:
                     user=user,
                     prompt="test chatbot",
                     organization_id=org_id,
+                    test_type="Multi-Turn",
+                    num_tests=1,
+                )
+            )
+
+        test_events = [e for e in events if e["type"] == "test"]
+        assert len(test_events) == 1
+        assert test_events[0]["test_type"] == "Multi-Turn"
+        mock_gen.assert_called_once()
+
+    async def test_multi_turn_pipeline_accepts_legacy_snake_case_alias(self):
+        """Direct pipeline calls normalize legacy multi_turn to Multi-Turn."""
+        user = _make_user()
+        mock_db = MagicMock()
+        org_id = str(uuid.uuid4())
+
+        llm = _streaming_llm(
+            behaviors=[{"name": "B", "description": "d", "active": True}],
+            topics=[{"name": "T", "description": "d", "active": True}],
+            categories=[{"name": "C", "description": "d", "active": True}],
+        )
+
+        fake_tests = [{"test_configuration": {"goal": "test goal"}, "behavior": "B"}]
+
+        async def _fake_stream(**kwargs):
+            for t in fake_tests:
+                yield t
+
+        with (
+            patch(
+                "rhesis.backend.app.services.test_generation_pipeline._resolve_config_llm",
+                return_value=llm,
+            ),
+            patch(
+                "rhesis.backend.app.services.test_generation_pipeline._fetch_db_context",
+                return_value=_db_context(),
+            ),
+            patch(
+                "rhesis.backend.app.services.test_generation_pipeline.generate_multiturn_tests_stream",
+                side_effect=_fake_stream,
+            ) as mock_gen,
+        ):
+            events = await _collect_ndjson(
+                test_generation_pipeline_stream(
+                    db=mock_db,
+                    user=user,
+                    prompt="test chatbot",
+                    organization_id=org_id,
                     test_type="multi_turn",
                     num_tests=1,
                 )
@@ -559,7 +607,7 @@ class TestPipelineStream:
 
         test_events = [e for e in events if e["type"] == "test"]
         assert len(test_events) == 1
-        assert test_events[0]["test_type"] == "multi_turn"
+        assert test_events[0]["test_type"] == "Multi-Turn"
         mock_gen.assert_called_once()
 
     async def test_config_failure_aborts_pipeline(self):

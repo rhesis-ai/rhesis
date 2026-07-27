@@ -1,6 +1,6 @@
 import { PromptsClient } from '../prompts-client';
 
-const BASE_URL = 'http://127.0.0.1:8080/api/v1';
+const BASE_URL = 'http://localhost/api/backend';
 
 function makeFetch(
   body: unknown,

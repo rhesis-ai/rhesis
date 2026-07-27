@@ -92,6 +92,21 @@ AUTHZ_EXEMPT_ROUTES: frozenset[tuple[str, str]] = frozenset(
         # they first complete their profile (name, picture, etc.) after OAuth sign-in.
         # Cross-user update authorization is enforced by the in-handler authorize() call.
         ("PUT", "/users/{user_id}"),
+        # Onboarding: new users accept T&C before they have an organization.
+        ("POST", "/auth/accept-terms"),
+        ("GET", "/auth/terms-status"),
+        # Cross-project entity resolution: spans multiple resource types
+        # (test, endpoint, metric, ...) so no single resource+verb capability
+        # applies. Authorization is enforced in-handler: the lookup is always
+        # organization_id-scoped, and project-level access is resolved to
+        # "no_access" (details withheld) when the caller lacks a
+        # ProjectMembership row for the entity's project.
+        ("GET", "/resolve"),
+        # Annotations hub: dual-gates test_result:read and telemetry:read in
+        # the handler and returns only the sources the caller can read. A
+        # single PEP capability would exclude telemetry-only (or result-only)
+        # users. Authentication still runs; authorize() is enforced in-handler.
+        ("GET", "/annotations/"),
     }
 )
 

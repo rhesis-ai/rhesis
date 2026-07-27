@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { LoadingButton } from '@mui/lab';
+import { Button } from '@mui/material';
 import { PlayArrowIcon } from '@/components/icons';
 import { SectionCard } from '@/components/common/SectionCard';
 import EndpointTestWorkbench from './EndpointTestWorkbench';
@@ -138,7 +138,7 @@ export default function TabTest({
       title="Test"
       subtitle="Fire a live request and see exactly what your API returns and how Rhesis maps it."
       actions={
-        <LoadingButton
+        <Button
           variant="contained"
           onClick={handleTest}
           loading={isTestingEndpoint}
@@ -146,7 +146,7 @@ export default function TabTest({
           startIcon={<PlayArrowIcon />}
         >
           Check connection
-        </LoadingButton>
+        </Button>
       }
     >
       <EndpointTestWorkbench

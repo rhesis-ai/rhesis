@@ -2,14 +2,7 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 # Parameter Binding
 
-The `bind` parameter allows you to inject infrastructure dependencies (database connections, configuration, auth context) into your endpoint functions without exposing them in the remote function signature.
-
-## Why Use Parameter Binding?
-
-When your endpoint needs dependencies like database connections or authentication context, you have two options:
-
-1. **Framework DI** (e.g., FastAPI's `Depends()`): Use this for HTTP endpoints where the framework manages the request lifecycle
-2. **`bind` parameter**: Use this for SDK endpoints that need dependencies in both local execution and remote testing
+The `bind` parameter injects infrastructure dependencies (database connections, configuration, auth context) into your endpoint functions without exposing them in the remote function signature.
 
 ## Basic Usage
 
@@ -45,49 +38,6 @@ async def authenticated_query(db, user, input: str) -> dict:
 
     results = db.query_for_user(user.id, input)
     return {"output": format_results(results)}`}
-</CodeBlock>
-
-## Real-World Example
-
-<CodeBlock filename="bind_example.py" language="python">
-{`from rhesis.sdk import RhesisClient, endpoint
-from myapp.database import get_db_with_tenant
-from myapp.config import AppConfig
-from myapp.auth import get_current_user
-
-client = RhesisClient(
-    api_key="your-api-key",
-    project_id="your-project-id",
-    environment="development"
-)
-
-@endpoint(
-    bind={
-        "db": lambda: get_db_with_tenant(org_id="org_123"),
-        "config": AppConfig(),
-        "user": lambda: get_current_user(),
-    }
-)
-async def query_mcp(db, config, user, input: str) -> dict:
-    """
-    All infrastructure dependencies are bound.
-    Remote signature only shows: query_mcp(input: str)
-    """
-    # Validate permissions
-    if not user.has_permission("query_mcp"):
-        return {"output": "Permission denied"}
-
-    # Use injected dependencies
-    results = await db.query(
-        table=config.mcp_table,
-        query=input,
-        user_id=user.id
-    )
-
-    return {
-        "output": format_results(results),
-        "session_id": user.session_id,
-    }`}
 </CodeBlock>
 
 ## Key Concepts
@@ -160,19 +110,7 @@ async def query_with_cleanup(db, input: str) -> dict:
 
 ## When to Use `bind` vs Framework DI
 
-**Use `bind` when:**
-- Building SDK endpoints for remote testing
-- Need same dependencies in local execution and remote tests
-- Working outside web framework context
-- Want dependencies to work seamlessly with Rhesis platform
-
-**Use Framework DI (e.g., FastAPI `Depends()`) when:**
-- Building HTTP endpoints only
-- Framework manages request lifecycle
-- Need framework-specific features (request context, middleware)
-- Not using Rhesis SDK connector
-
-**Can use both:**
+Use `bind` for SDK endpoints that need the same dependencies in local execution and remote tests, or when working outside a web framework. Use framework DI (e.g., FastAPI's `Depends()`) for HTTP endpoints where the framework manages the request lifecycle. The two can coexist on the same dependency:
 
 <CodeBlock filename="bind_with_fastapi.py" language="python">
 {`from fastapi import FastAPI, Depends
@@ -194,8 +132,7 @@ def sdk_chat(db, input: str):
     return process_chat(db, input)`}
 </CodeBlock>
 
----
+## Next steps
 
-<Callout type="default">
-  **Next Steps** - See [Examples](./examples) for complete working examples - Learn about [Mapping](./mapping) for input/output transformations
-</Callout>
+- [Map inputs and outputs](./mapping) for the business parameters that remain in the remote signature.
+- See [Examples](./examples) for a database-backed endpoint using `bind`.

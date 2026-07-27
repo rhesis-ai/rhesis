@@ -53,7 +53,6 @@ const customJestConfig = {
     '!src/app/layout.tsx',
     '!src/app/page.tsx',
     '!src/auth.ts',
-    '!src/middleware.ts',
   ],
   testPathIgnorePatterns: [
     '<rootDir>/.next/',

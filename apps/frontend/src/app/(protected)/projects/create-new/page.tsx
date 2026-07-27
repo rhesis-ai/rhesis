@@ -9,7 +9,7 @@ export default async function CreateProjectPage() {
 
   // Debug session information
 
-  if (!session?.session_token) {
+  if (!session || session.error) {
     throw new Error('No session token available');
   }
 
@@ -24,7 +24,7 @@ export default async function CreateProjectPage() {
   } else {
     try {
       // Fetch user data to get organization ID
-      const apiFactory = await createServerApiFactory(session.session_token);
+      const apiFactory = await createServerApiFactory();
       const usersClient = apiFactory.getUsersClient();
       const userData = await usersClient.getUser(session.user.id);
       organizationId = userData.organization_id;
@@ -39,7 +39,6 @@ export default async function CreateProjectPage() {
   return (
     <Box sx={{ p: 0 }}>
       <CreateProjectClient
-        sessionToken={session.session_token}
         userId={session.user.id as UUID}
         organizationId={organizationId}
         userName={session.user.name || ''}

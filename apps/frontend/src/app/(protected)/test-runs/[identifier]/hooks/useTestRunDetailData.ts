@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { Prompt } from '@/utils/api-client/interfaces/prompt';
+import { useIsAuthenticated } from '@/hooks/useIsAuthenticated';
 
 export interface BehaviorWithMetrics {
   id: string;
@@ -12,7 +13,6 @@ export interface BehaviorWithMetrics {
 
 interface UseTestRunDetailDataOptions {
   testRunId: string;
-  sessionToken: string;
   enabled?: boolean;
 }
 
@@ -27,12 +27,9 @@ interface UseTestRunDetailDataReturn {
 }
 
 async function fetchAllTestResults(
-  testRunId: string,
-  sessionToken: string
+  testRunId: string
 ): Promise<TestResultDetail[]> {
-  const testResultsClient = new ApiClientFactory(
-    sessionToken
-  ).getTestResultsClient();
+  const testResultsClient = new ApiClientFactory().getTestResultsClient();
 
   let testResults: TestResultDetail[] = [];
   let skip = 0;
@@ -131,9 +128,9 @@ function extractBehaviorsWithMetrics(results: TestResultDetail[]): {
 
 export function useTestRunDetailData({
   testRunId,
-  sessionToken,
   enabled = true,
 }: UseTestRunDetailDataOptions): UseTestRunDetailDataReturn {
+  const isAuthenticated = useIsAuthenticated();
   const [testResults, setTestResults] = useState<TestResultDetail[]>([]);
   const [prompts, setPrompts] = useState<Record<string, Prompt>>({});
   const [behaviors, setBehaviors] = useState<BehaviorWithMetrics[]>([]);
@@ -147,7 +144,7 @@ export function useTestRunDetailData({
   }, []);
 
   useEffect(() => {
-    if (!enabled || !sessionToken || !testRunId) {
+    if (!enabled || !isAuthenticated || !testRunId) {
       setLoading(false);
       return;
     }
@@ -159,7 +156,7 @@ export function useTestRunDetailData({
       setError(null);
 
       try {
-        const results = await fetchAllTestResults(testRunId, sessionToken);
+        const results = await fetchAllTestResults(testRunId);
 
         if (cancelled) return;
 
@@ -190,7 +187,7 @@ export function useTestRunDetailData({
     return () => {
       cancelled = true;
     };
-  }, [testRunId, sessionToken, enabled, reloadToken]);
+  }, [testRunId, enabled, reloadToken, isAuthenticated]);
 
   return {
     testResults,

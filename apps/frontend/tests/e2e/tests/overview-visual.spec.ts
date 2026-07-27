@@ -226,7 +226,7 @@ test('Org Settings — visual baseline @visual', async ({ page }) => {
 test('Org Team — visual baseline @visual', async ({ page }) => {
   // Org team page loads members from the API — mask member rows so user-specific
   // names/emails don't break the baseline.
-  await page.goto('/organizations/team');
+  await page.goto('/organizations/settings?tab=team');
   await page.waitForLoadState('networkidle');
 
   await expect(page).toHaveScreenshot('org-team.png', {

@@ -165,6 +165,47 @@ class TestResponseMapper:
         assert result["test2"] == "fallback"
         assert result["test3"] == "text"
 
+    def test_map_response_preserves_dict_for_simple_variable_template(self):
+        """A bare {{ var }} template should return the dict itself, not its repr."""
+        mapper = ResponseMapper()
+        response_data = {"message": {"classification": "billing", "confidence": "high"}}
+        mappings = {"output": "{{ message }}"}
+
+        result = mapper.map_response(response_data, mappings)
+
+        assert result["output"] == {"classification": "billing", "confidence": "high"}
+
+    def test_map_response_preserves_list_for_simple_variable_template(self):
+        """A bare {{ var }} template should return the list itself, not its repr."""
+        mapper = ResponseMapper()
+        response_data = {"context": ["a", "b", "c"]}
+        mappings = {"output": "{{ context }}"}
+
+        result = mapper.map_response(response_data, mappings)
+
+        assert result["output"] == ["a", "b", "c"]
+
+    def test_map_response_preserves_nested_dict_via_dotted_path(self):
+        """A bare {{ var.attr }} template should also preserve complex nested values."""
+        mapper = ResponseMapper()
+        response_data = {"metadata": {"intent": {"intent": "support", "confidence": "low"}}}
+        mappings = {"intent": "{{ metadata.intent }}"}
+
+        result = mapper.map_response(response_data, mappings)
+
+        assert result["intent"] == {"intent": "support", "confidence": "low"}
+
+    def test_map_response_still_stringifies_non_simple_dict_template(self):
+        """Templates that aren't a bare variable reference keep prior string behavior."""
+        mapper = ResponseMapper()
+        response_data = {"message": {"a": 1}, "fallback": "text"}
+        mappings = {"output": "{{ message or fallback }}"}
+
+        result = mapper.map_response(response_data, mappings)
+
+        # Not a simple single-variable template, so Jinja2 renders it as a string
+        assert result["output"] == "{'a': 1}"
+
     def test_jsonpath_extract_with_invalid_path(self):
         """Test _jsonpath_extract with invalid JSONPath."""
         mapper = ResponseMapper()

@@ -1,25 +1,32 @@
-import { TestResultsStatsOptions } from '@/utils/api-client/interfaces/common';
-
 export type InsightsTimeRange = '1d' | '7d' | '1m' | '3m';
+export type InsightsRunFilterMode = 'timeRange' | 'testRuns';
 
 export interface InsightsFilters {
-  timeRange: InsightsTimeRange;
   endpointId: string;
   /** Empty means all behaviors are visible. */
   behaviorIds: string[];
+  /** Filter by time window or by explicit test runs — never both. */
+  runFilterMode: InsightsRunFilterMode;
+  timeRange: InsightsTimeRange;
+  /**
+   * Used when `runFilterMode` is `testRuns`. Empty means all test runs for the
+   * endpoint.
+   */
+  testRunIds: string[];
 }
 
 export const DEFAULT_INSIGHTS_TIME_RANGE: InsightsTimeRange = '1m';
 
 export const DEFAULT_INSIGHTS_FILTERS: InsightsFilters = {
-  timeRange: DEFAULT_INSIGHTS_TIME_RANGE,
   endpointId: '',
   behaviorIds: [],
+  runFilterMode: 'timeRange',
+  timeRange: DEFAULT_INSIGHTS_TIME_RANGE,
+  testRunIds: [],
 };
 
 const VALID_TIME_RANGES = new Set<InsightsTimeRange>(['1d', '7d', '1m', '3m']);
 
-/** Ensure the toolbar always has a valid selection (defaults to 1M). */
 export function resolveInsightsTimeRange(
   timeRange: InsightsTimeRange | undefined
 ): InsightsTimeRange {
@@ -30,20 +37,45 @@ export function resolveInsightsTimeRange(
 }
 
 export function normalizeInsightsFilters(
-  filters: Partial<InsightsFilters> & { months?: number }
+  filters: Partial<InsightsFilters> & {
+    months?: number;
+    /** Legacy field from the toolbar-only time range UI. */
+    useDefaultTestRunWindow?: boolean;
+  }
 ): InsightsFilters {
-  let timeRange = filters.timeRange;
-  if (!timeRange && typeof filters.months === 'number') {
+  let runFilterMode = filters.runFilterMode ?? 'timeRange';
+  let timeRange = resolveInsightsTimeRange(filters.timeRange);
+  let testRunIds = filters.testRunIds ?? [];
+
+  if (
+    typeof filters.months === 'number' &&
+    filters.runFilterMode === undefined
+  ) {
     const legacy: Partial<Record<number, InsightsTimeRange>> = {
       1: '1m',
       3: '3m',
     };
-    timeRange = legacy[filters.months];
+    timeRange = legacy[filters.months] ?? DEFAULT_INSIGHTS_TIME_RANGE;
+    runFilterMode = 'timeRange';
+    testRunIds = [];
   }
+
+  if (
+    filters.useDefaultTestRunWindow !== undefined &&
+    filters.runFilterMode === undefined
+  ) {
+    runFilterMode = filters.useDefaultTestRunWindow ? 'timeRange' : 'testRuns';
+    if (runFilterMode === 'timeRange') {
+      testRunIds = [];
+    }
+  }
+
   return {
-    timeRange: resolveInsightsTimeRange(timeRange),
     endpointId: filters.endpointId ?? '',
     behaviorIds: filters.behaviorIds ?? [],
+    runFilterMode,
+    timeRange,
+    testRunIds,
   };
 }
 
@@ -64,7 +96,10 @@ function toIsoDate(date: Date): string {
 /** Map UI time-range pills to stats API query parameters. */
 export function timeRangeToStatsParams(
   timeRange: InsightsTimeRange
-): Pick<TestResultsStatsOptions, 'months' | 'start_date' | 'end_date'> {
+): Pick<
+  import('@/utils/api-client/interfaces/common').TestResultsStatsOptions,
+  'months' | 'start_date' | 'end_date'
+> {
   switch (timeRange) {
     case '1d': {
       const end = new Date();

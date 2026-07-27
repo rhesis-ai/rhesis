@@ -34,6 +34,7 @@ import {
   parseBodyMapping,
   parseResMapping,
 } from './mappingUtils';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 export interface FormData {
   name: string;
@@ -131,10 +132,10 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [autoConfigureOpen, setAutoConfigureOpen] = useState(false);
 
-    const { data: session } = useSession();
+    const { data: session, status } = useSession();
     const notifications = useNotifications();
     const { markStepComplete } = useOnboarding();
-    const testEndpointMutation = useTestEndpoint(session?.session_token ?? '');
+    const testEndpointMutation = useTestEndpoint();
 
     const [formData, setFormData] = useState<FormData>({
       name: '',
@@ -171,15 +172,13 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
       }
 
       const fetchProjects = async () => {
-        if (!session?.session_token) {
+        if (!isAuthenticated(status)) {
           setLoadingProjects(false);
           return;
         }
         try {
           setLoadingProjects(true);
-          const client = new ApiClientFactory(
-            session.session_token
-          ).getProjectsClient();
+          const client = new ApiClientFactory().getProjectsClient();
           const data = await client.getProjects();
           setProjects(Array.isArray(data) ? data : data?.data || []);
         } catch {
@@ -190,7 +189,7 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
         }
       };
       fetchProjects();
-    }, [session, hideProjectSelect]);
+    }, [session, hideProjectSelect, status]);
 
     const handleChange = (field: keyof FormData, value: unknown) => {
       setFormData(prev => ({ ...prev, [field]: value }));
@@ -257,7 +256,7 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
         if (!formData.url || !validateUrl(formData.url)) {
           throw new Error('Please enter a valid URL in step 1');
         }
-        if (!session?.session_token) {
+        if (!isAuthenticated(status)) {
           throw new Error('Session token not available');
         }
 

@@ -4,7 +4,8 @@ Utility functions for CRUD operations with improved readability and maintainabil
 
 import logging
 import uuid
-from typing import Any, Dict, List, Optional, Type, TypeVar, Union
+from datetime import datetime, timezone
+from typing import Any, Callable, Dict, List, Optional, Type, TypeVar, Union
 
 from pydantic import BaseModel
 from sqlalchemy import inspect
@@ -343,6 +344,7 @@ def get_item_detail(
     user_id: str = None,
     include_deleted: bool = False,
     project_id: str = None,
+    nested_relationships: dict = None,
 ) -> Optional[T]:
     """
     Get a single item with all first-level relationships eagerly loaded.
@@ -360,6 +362,10 @@ def get_item_detail(
             the session auto-filter).  When provided the predicate is
             ``project_id = :pid OR project_id IS NULL`` so org-level rows
             remain visible.  ``None`` skips the filter.
+        nested_relationships: Dict specifying nested relationships to load.
+            Format: {"relationship_name": ["nested_rel1", "nested_rel2"]}. Mirrors
+            get_items_detail's parameter of the same name, for parity between the
+            single-item and list paths when a schema nests fields two levels deep.
 
     Returns:
         Item with relationships loaded or None if not found
@@ -371,7 +377,7 @@ def get_item_detail(
     item = (
         QueryBuilder(db, model)
         .with_deleted()  # Always include deleted to check status
-        .with_optimized_loads(skip_one_to_many=True)
+        .with_optimized_loads(skip_one_to_many=True, nested_relationships=nested_relationships)
         .with_default_derived_field_loads()
         .with_organization_filter(organization_id)
         .with_project_filter(project_id)
@@ -487,26 +493,48 @@ def get_items_detail(
                             Format: {"relationship_name": ["nested_rel1", "nested_rel2"]}
         selectin_chains: Extra relationship-name chains to load with nested selectinload,
                         beyond the defaults above. Format: [["rel", "nested_rel"], ...]
+
+    Runs as two queries rather than one: a joinless query picks the page's IDs
+    (filter + sort + LIMIT/OFFSET), then a second query eager-loads
+    relationships scoped to just those IDs. Without this split, Postgres has
+    to build every eager-loaded join for every matching row across the whole
+    org before it can sort and cut down to `limit` -- for a model joined
+    against a dozen tables, that cost scales with total matching rows, not
+    with the page size actually returned.
     """
-    builder = QueryBuilder(db, model).with_optimized_loads(
-        skip_many_to_many=False,
-        skip_one_to_many=True,
-        nested_relationships=nested_relationships,
-    )
-    builder = builder.with_default_derived_field_loads(selectin_chains)
-    return (
-        builder.with_organization_filter(organization_id)
+    ordered_ids = (
+        QueryBuilder(db, model)
+        .with_organization_filter(organization_id)
         .with_visibility_filter(user_id)
         .with_odata_filter(filter)
-        .with_pagination(skip, limit)
         .with_sorting(
             sort_by,
             sort_order,
             secondary_sort_by=secondary_sort_by,
             secondary_sort_order=secondary_sort_order,
         )
+        .with_pagination(skip, limit)
+        .ids()
+    )
+    if not ordered_ids:
+        return []
+
+    builder = QueryBuilder(db, model).with_optimized_loads(
+        skip_many_to_many=False,
+        skip_one_to_many=True,
+        nested_relationships=nested_relationships,
+    )
+    builder = builder.with_default_derived_field_loads(selectin_chains)
+    items = (
+        builder.with_organization_filter(organization_id)
+        .with_visibility_filter(user_id)
+        .query.filter(model.id.in_(ordered_ids))
         .all()
     )
+
+    # WHERE id IN (...) does not preserve order -- re-apply the phase-1 sort.
+    items_by_id = {item.id: item for item in items}
+    return [items_by_id[item_id] for item_id in ordered_ids if item_id in items_by_id]
 
 
 def create_item(
@@ -674,6 +702,82 @@ def delete_item(
     except Exception:
         db.rollback()
         raise
+
+
+def bulk_delete_by_ids(
+    db: Session,
+    model: Type[T],
+    item_ids: List[uuid.UUID],
+    organization_id: str = None,
+    user_id: str = None,
+    on_deleted: Optional[Callable[[List[uuid.UUID]], None]] = None,
+) -> Dict[str, List[str]]:
+    """
+    Soft delete multiple items by ID in a single transaction.
+
+    Generic bulk counterpart to delete_item(): instead of one round trip per
+    id, resolves which ids exist/are visible, cascades and soft-deletes the
+    whole batch with one UPDATE per table (see cascade_soft_delete_bulk()),
+    and commits once. Use this instead of looping delete_item() per id when a
+    resource needs a real bulk-delete endpoint -- a loop still opens one
+    transaction per id and gains nothing over 25 individual requests.
+
+    Args:
+        db: Database session
+        model: SQLAlchemy model class
+        item_ids: IDs of items to delete
+        organization_id: Organization ID for tenant filtering
+        user_id: User ID for visibility filtering
+        on_deleted: Optional callback invoked once, after commit, with the
+            list of ids actually deleted. Use this for bespoke post-delete
+            side effects that should run once per batch rather than once per
+            id (e.g. Test's test-set-attribute recompute, keyed by the
+            *distinct* affected test sets, not by each deleted test).
+
+    Returns:
+        Dict with "deleted_ids" and "not_found_ids" (both lists of str ids).
+    """
+    from rhesis.backend.app.services import cascade as cascade_service
+
+    if not item_ids:
+        return {"deleted_ids": [], "not_found_ids": []}
+
+    existing_ids = {
+        row.id
+        for row in QueryBuilder(db, model)
+        .with_organization_filter(organization_id)
+        .with_visibility_filter(user_id)
+        .with_custom_filter(lambda q: q.filter(model.id.in_(item_ids)))
+        .all()
+    }
+    deleted_ids = [i for i in item_ids if i in existing_ids]
+    not_found_ids = [i for i in item_ids if i not in existing_ids]
+
+    if deleted_ids:
+        try:
+            cascade_service.cascade_soft_delete_bulk(db, model, deleted_ids, organization_id)
+
+            query = db.query(model).filter(model.id.in_(deleted_ids))
+            if organization_id and hasattr(model, "organization_id"):
+                query = query.filter(model.organization_id == organization_id)
+            # query.update() bypasses the ORM flush path that applies column
+            # onupdate for single-row soft_delete(), so updated_at needs to be
+            # set explicitly here or it stays stale after a bulk delete.
+            now = datetime.now(timezone.utc)
+            query.update({"deleted_at": now, "updated_at": now}, synchronize_session=False)
+
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
+
+        if on_deleted:
+            on_deleted(deleted_ids)
+
+    return {
+        "deleted_ids": [str(i) for i in deleted_ids],
+        "not_found_ids": [str(i) for i in not_found_ids],
+    }
 
 
 def get_deleted_items(

@@ -2,7 +2,7 @@ import { CodeBlock } from "@/components/CodeBlock";
 
 # Conversation Tracing
 
-See every conversation turn, every agent handoff, in one place. Rhesis groups traces into full conversation threads and visualizes the full multi-agent interaction graph — so you can find problems in seconds, not hours.
+Conversation tracing groups the traces from a multi-turn session into a single thread, so you can navigate every turn and agent handoff in one view alongside the full multi-agent interaction graph.
 
 <YouTubeEmbed videoId="KWnFfA-K2YA" />
 
@@ -31,7 +31,7 @@ Standard OpenTelemetry views — span hierarchy with timing for Tree, chronologi
 
 Visualizes the full multi-agent interaction as a directed graph. Nodes represent agents and tools; edges represent invocation and handoff relationships. Graph playback controls let you replay execution over time, with turn markers (T1, T2, ...) showing when each conversation turn occurred.
 
-Use the Graph View when debugging complex agent interactions — it makes routing decisions and handoff sequences immediately visible. See [Multi-Agent Tracing](/tracing/multi-agent) for an example of what the graph looks like.
+Use the Graph View when debugging complex agent interactions — it makes routing decisions and handoff sequences immediately visible. See [Multi-Agent Tracing](/docs/tracing/multi-agent) for an example of what the graph looks like.
 
 ## Enabling Conversation Grouping
 
@@ -56,7 +56,7 @@ In the Traces dashboard, use the **trace type filter** to focus on conversation 
 
 <Callout type="info">
   **Related:**
-  - [Multi-Agent Tracing](/tracing/multi-agent) — instrument agent handoffs
-  - [Decorators](/tracing/decorators) — `@observe` and `@endpoint`
-  - [Auto-Instrumentation](/tracing/auto-instrumentation) — zero-config tracing for LangGraph
+  - [Multi-Agent Tracing](/docs/tracing/multi-agent) — instrument agent handoffs
+  - [Decorators](/docs/tracing/decorators) — `@observe` and `@endpoint`
+  - [Auto-Instrumentation](/docs/tracing/auto-instrumentation) — zero-config tracing for LangGraph
 </Callout>

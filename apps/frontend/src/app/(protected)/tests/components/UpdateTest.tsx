@@ -47,7 +47,6 @@ interface UserOption extends User {
 }
 
 interface UpdateTestProps {
-  sessionToken: string;
   onSuccess?: () => void;
   onError?: (error: string) => void;
   submitRef?: React.MutableRefObject<(() => Promise<void>) | undefined>;
@@ -63,7 +62,6 @@ const isValidUUID = (str: string): boolean => {
 };
 
 export default function UpdateTest({
-  sessionToken,
   onSuccess,
   onError,
   submitRef,
@@ -119,7 +117,7 @@ export default function UpdateTest({
   useEffect(() => {
     const loadOptions = async () => {
       try {
-        const apiFactory = new ApiClientFactory(sessionToken);
+        const apiFactory = new ApiClientFactory();
         const behaviorClient = apiFactory.getBehaviorClient();
         const topicClient = apiFactory.getTopicClient();
         const categoryClient = apiFactory.getCategoryClient();
@@ -175,7 +173,6 @@ export default function UpdateTest({
 
     loadOptions();
   }, [
-    sessionToken,
     onError,
     setBehaviors,
     setTopics,
@@ -241,7 +238,7 @@ export default function UpdateTest({
   const getOrCreateBehavior = useCallback(
     async (name: string) => {
       const behaviorName = validateEntityName(name);
-      const apiFactory = new ApiClientFactory(sessionToken);
+      const apiFactory = new ApiClientFactory();
       const behaviorClient = apiFactory.getBehaviorClient();
 
       // First check if it's a UUID
@@ -278,14 +275,14 @@ export default function UpdateTest({
         );
       }
     },
-    [sessionToken, behaviors, setBehaviors]
+    [behaviors, setBehaviors]
   );
 
   // Helper function to create a new topic if needed
   const getOrCreateTopic = useCallback(
     async (name: string) => {
       const topicName = validateEntityName(name);
-      const apiFactory = new ApiClientFactory(sessionToken);
+      const apiFactory = new ApiClientFactory();
       const topicClient = apiFactory.getTopicClient();
 
       // First check if it's a UUID
@@ -317,14 +314,14 @@ export default function UpdateTest({
         throw new Error(`Failed to create topic: ${(error as Error).message}`);
       }
     },
-    [sessionToken, topics, setTopics]
+    [topics, setTopics]
   );
 
   // Helper function to create a new category if needed
   const getOrCreateCategory = useCallback(
     async (name: string) => {
       const categoryName = validateEntityName(name);
-      const apiFactory = new ApiClientFactory(sessionToken);
+      const apiFactory = new ApiClientFactory();
       const categoryClient = apiFactory.getCategoryClient();
 
       // First check if it's a UUID
@@ -361,7 +358,7 @@ export default function UpdateTest({
         );
       }
     },
-    [sessionToken, categories, setCategories]
+    [categories, setCategories]
   );
 
   const handleSubmit = useCallback(async () => {
@@ -373,7 +370,7 @@ export default function UpdateTest({
         throw new Error('Prompt content is required');
       }
 
-      const apiFactory = new ApiClientFactory(sessionToken);
+      const apiFactory = new ApiClientFactory();
       const testsClient = apiFactory.getTestsClient();
       const promptsClient = apiFactory.getPromptsClient();
 
@@ -456,7 +453,6 @@ export default function UpdateTest({
   }, [
     formData,
     test,
-    sessionToken,
     onSuccess,
     onError,
     behaviors,

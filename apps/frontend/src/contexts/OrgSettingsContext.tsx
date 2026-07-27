@@ -21,7 +21,6 @@ import type { Organization } from '@/utils/api-client/interfaces/organization';
 
 export interface OrgSettingsContextValue {
   organization: Organization;
-  sessionToken: string;
   onUpdate: () => void;
 }
 

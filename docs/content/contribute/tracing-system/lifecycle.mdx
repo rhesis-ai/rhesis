@@ -11,13 +11,13 @@ This page covers the complete trace lifecycle, including the race condition prob
 <CodeBlock filename="Fast Test Timeline" language="text">
 {`T=0ms     Test starts
 T=2000ms  Test completes → create test_result
-T=2010ms  Linking attempt #1 → Finds 0 traces ❌ (not exported yet)
+T=2010ms  Linking attempt #1 → Finds 0 traces (not exported yet)
 T=5000ms  BatchSpanProcessor exports spans → backend receives
 T=5015ms  Spans stored in database
-T=5020ms  Linking attempt #2 → Finds test_result, links traces ✅
-T=5030ms  Enrichment queued (Celery) or runs sync
+T=5020ms  post_ingest_link dispatched → linking attempt #2 finds test_result
+T=5030ms  Enrichment chain dispatched (Celery)
 T=5080ms  Enrichment cached
-T=5090ms  User queries trace → 10ms (cached) ✅
+T=5090ms  User queries trace → 10ms (cached)
 
 Total: ~5 seconds from test start to queryable enriched trace`}
 </CodeBlock>
@@ -45,16 +45,15 @@ Total: ~5 seconds from test start to queryable enriched trace`}
     subgraph Phase4["4. Backend Processing"]
         I["Validate OTLP format"]
         J["Store in PostgreSQL"]
-        K["Trigger linking #2"]
-        L["Enqueue enrichment"]
+        K["Dispatch post_ingest_link"]
+        L["Linking + enrichment"]
     end
 
     A --> B --> C
     B --> D --> E --> F
     F --> G --> H
     H --> I --> J
-    J --> K
-    J --> L`} />
+    J --> K --> L`} />
 
 ## The Race Condition Problem
 
@@ -100,50 +99,48 @@ T=10s: test_result created ← Too late for linking attempt #2!`}
 
 ### Point #1: After Test Result Creation
 
-**Location**: `results.py` → `link_traces_for_test_result()`
+**Location**: `tasks/execution/executors/results.py` → `link_traces_for_test_result()`
 
 **Purpose**: Catch traces that arrived BEFORE test result (slow tests)
 
 <CodeBlock filename="Linking Point #1" language="python">
-{`# After creating test_result in results.py
+{`linking_service = TraceLinkingService(db)
 linking_service.link_traces_for_test_result(
     test_run_id=test_run_id,
     test_id=test_id,
+    test_configuration_id=test_config_id,
     test_result_id=str(result_id),
     organization_id=organization_id,
-)
-# This catches traces from slow tests (>5s)
-# where spans arrived before the test result was created`}
+)`}
 </CodeBlock>
 
 ### Point #2: After Span Ingestion
 
-**Location**: `telemetry.py` → `link_traces_for_incoming_batch()`
+**Location**: `tasks/telemetry/post_ingest.py` → `link_traces_for_incoming_batch()`, run inside the async `post_ingest_link` task dispatched by the ingestion endpoint
 
 **Purpose**: Catch traces that arrived AFTER test result (fast tests)
 
 <CodeBlock filename="Linking Point #2" language="python">
-{`# After storing spans in telemetry.py
-linking_service.link_traces_for_incoming_batch(
+{`linking_service.link_traces_for_incoming_batch(
     spans=stored_spans,
     organization_id=organization_id,
 )
-# This catches traces from fast tests (<5s)
-# where test result was created before spans arrived`}
+# Extracts test_run_id/test_id/test_configuration_id from the first span's
+# attributes, finds the matching test result, then links.`}
 </CodeBlock>
 
 ## Idempotency
 
-Both linking points use the same CRUD operation with **idempotency check**:
+Both linking points call `crud.update_traces_with_test_result_id()`, which only updates traces that aren't linked yet:
 
-<CodeBlock filename="Idempotent Update" language="sql">
-{`-- Only update traces where test_result_id is NULL
-UPDATE traces
-SET test_result_id = :new_test_result_id
-WHERE test_run_id = :test_run_id
-  AND test_id = :test_id
-  AND test_result_id IS NULL  -- Idempotency check
-  AND organization_id = :organization_id`}
+<CodeBlock filename="Idempotent Update" language="python">
+{`db.query(models.Trace).filter(
+    models.Trace.test_run_id == test_run_uuid,
+    models.Trace.test_id == test_id_uuid,
+    models.Trace.organization_id == org_uuid,
+    models.Trace.attributes["rhesis.test.configuration_id"].astext == str(test_config_uuid),
+    models.Trace.test_result_id.is_(None),  # Idempotency check
+).update({"test_result_id": test_result_uuid})`}
 </CodeBlock>
 
 **Safe to call multiple times:**
@@ -185,7 +182,7 @@ This context is stored as span attributes:
 | BatchSpanProcessor delay | 5 seconds | Largest delay, unavoidable |
 | Test execution | Variable | Determines which scenario |
 | Span ingestion | ~10-20ms | Fast |
-| Enrichment | ~50-100ms | Background |
+| Linking + enrichment | ~50-100ms | Background (Celery) |
 | Query | ~10ms | Cached |
 
 ### Why 5 Seconds?
@@ -207,23 +204,29 @@ OpenTelemetry's default of 5 seconds optimizes for **production efficiency** ove
 
 ## Error Handling
 
-### Workers Unavailable
+### Broker Unreachable at Dispatch
 
-**Detection**: `celery_app.control.inspect()`
+**Detection**: `post_ingest_link.delay(...)` raises a broker error (Redis/kombu unreachable)
 
-**Fallback**: Sync enrichment
+**Handling**: Caught and logged as a warning; ingestion still returns 200
 
-**Impact**: Slower ingestion, no data loss
+**Impact**: Linking and enrichment are skipped for that batch — this is fire-and-forget, not retried by the ingestion request itself
+
+### Task Failure After Dispatch
+
+**Handling**: `post_ingest_link` retries up to 3 times (`max_retries=3`, 30s delay) on uncaught exceptions
+
+**Impact**: Transient failures (e.g. a momentarily locked row) self-heal; exhausted retries are logged
 
 ### Database Failure
 
 **Handling**: Return 500 error
 
-**Impact**: Spans lost (SDK retries once)
+**Impact**: Spans lost (SDK retries the export)
 
 ### Linking Failure
 
-**Handling**: Log error, don't fail ingestion
+**Handling**: Log error, don't fail the task
 
 **Impact**: Traces stored but not linked
 
@@ -239,13 +242,13 @@ OpenTelemetry's default of 5 seconds optimizes for **production efficiency** ove
 
 1. Check SDK export: Is `BatchSpanProcessor` configured?
 2. Check backend: Is `/telemetry/traces` receiving requests?
-3. Check database: Are spans stored in `traces` table?
+3. Check database: Are spans stored in the `trace` table?
 4. Wait 5 seconds for batching delay
 
 ### Traces Not Linked to Test Results?
 
 1. Check test context: Are spans created with `rhesis.test.*` attributes?
-2. Check linking logs: Are both linking attempts running?
+2. Check Celery: Is `post_ingest_link` running (broker reachable)?
 3. Check database: Is `test_result_id` NULL or set?
 
 <CodeBlock filename="Debug Query" language="sql">
@@ -253,7 +256,7 @@ OpenTelemetry's default of 5 seconds optimizes for **production efficiency** ove
 SELECT trace_id, span_name,
        attributes->>'rhesis.test.run_id' as test_run_id,
        test_result_id
-FROM traces
+FROM trace
 WHERE attributes->>'rhesis.test.run_id' IS NOT NULL
   AND test_result_id IS NULL
 ORDER BY created_at DESC
@@ -263,15 +266,15 @@ LIMIT 10;`}
 ### Enrichment Not Happening?
 
 1. Check workers: Are Celery workers running?
-2. Check logs: Is enrichment being queued or run sync?
-3. Check database: Is `enriched_data` column populated?
+2. Check logs: Did `post_ingest_link` dispatch successfully?
+3. Check database: Is `enriched_data` populated and `processed_at` set?
 
 <CodeBlock filename="Check Enrichment" language="sql">
 {`-- Check enrichment status
 SELECT trace_id,
        enriched_data IS NOT NULL as is_enriched,
-       enriched_data->>'enriched_at' as enriched_at
-FROM traces
+       processed_at
+FROM trace
 WHERE created_at > NOW() - INTERVAL '1 hour'
 ORDER BY created_at DESC
 LIMIT 10;`}

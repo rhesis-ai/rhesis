@@ -29,7 +29,6 @@ import { useNotifications } from '@/components/common/NotificationContext';
 interface PromoteEnvironmentDialogProps {
   open: boolean;
   onClose: () => void;
-  sessionToken: string;
   projectId: string;
   experimentId: string;
   experimentName: string;
@@ -53,7 +52,6 @@ interface PromoteEnvironmentDialogProps {
 export default function PromoteEnvironmentDialog({
   open,
   onClose,
-  sessionToken,
   projectId,
   experimentId,
   experimentName,
@@ -75,10 +73,7 @@ export default function PromoteEnvironmentDialog({
     setEnvironment(defaultEnvironment ?? BuiltInEnvironment.DEFAULT);
   }, [open, defaultVersion, defaultEnvironment, versions]);
 
-  const apiFactory = useMemo(
-    () => new ApiClientFactory(sessionToken),
-    [sessionToken]
-  );
+  const apiFactory = useMemo(() => new ApiClientFactory(), []);
 
   const environmentOptions = useMemo(() => {
     const set = new Set<string>([...BuiltInEnvironment.ALL]);

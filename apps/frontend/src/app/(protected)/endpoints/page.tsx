@@ -3,27 +3,23 @@
 import * as React from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Box from '@mui/material/Box';
-import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import { useSession } from 'next-auth/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { endpointKeys } from '@/constants/query-keys';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
-import EntityEmptyState from '@/components/common/EntityEmptyState';
-import { getEntityEmptyStateEnrichment } from '@/constants/entity-empty-state-env';
-import EndpointsIcon from '@/components/EndpointsIcon';
 import EndpointsGrid from './components/EndpointsGrid';
 import EndpointCreateDrawer from './components/EndpointCreateDrawer';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
-import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import { Can, useCan, useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import AccessDenied from '@/components/common/AccessDenied';
 import PageLoadingState from '@/components/common/PageLoadingState';
+import { isAuthenticated, isSessionLoading } from '@/hooks/useIsAuthenticated';
 
 export default function EndpointsPage() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const router = useRouter();
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
@@ -31,15 +27,12 @@ export default function EndpointsPage() {
     Capability.Endpoint.READ
   );
   const canCreate = useCan(Capability.Endpoint.CREATE);
-  const [endpointCount, setEndpointCount] = React.useState<number | null>(null);
   const [createDrawerOpen, setCreateDrawerOpen] = React.useState(false);
   const [createProjectId, setCreateProjectId] = React.useState<
     string | undefined
   >();
 
   useDocumentTitle('Endpoints');
-
-  const sessionToken = session?.session_token ?? '';
 
   React.useEffect(() => {
     if (searchParams.get('create') !== '1') return;
@@ -61,7 +54,7 @@ export default function EndpointsPage() {
     queryClient.invalidateQueries({ queryKey: endpointKeys.all() });
   }, [queryClient]);
 
-  if (status === 'loading') {
+  if (isSessionLoading(status)) {
     return (
       <PageLayout title="Endpoints" breadcrumbs={[]}>
         <Box sx={{ p: 3 }}>
@@ -74,7 +67,7 @@ export default function EndpointsPage() {
   if (permsLoading) return <PageLoadingState />;
   if (!canRead) return <AccessDenied resource="endpoints" />;
 
-  if (!sessionToken) {
+  if (!isAuthenticated(status)) {
     return (
       <PageLayout title="Endpoints" breadcrumbs={[]}>
         <Box sx={{ p: 3 }}>
@@ -104,32 +97,7 @@ export default function EndpointsPage() {
         }
       >
         <Box sx={{ mt: 2, mb: 2 }}>
-          {endpointCount === 0 ? (
-            <EntityEmptyState
-              card
-              icon={EndpointsIcon}
-              title="No endpoints yet"
-              description="Create your first endpoint to connect your application under test and start running tests and evaluations."
-              actionLabel={canCreate ? 'Create endpoint' : undefined}
-              onAction={canCreate ? handleCreate : undefined}
-              enrichment={getEntityEmptyStateEnrichment('endpoints')}
-            />
-          ) : (
-            <Paper
-              sx={{
-                width: '100%',
-                borderRadius: BORDER_RADIUS.md,
-                boxShadow: ELEVATION.xs,
-                border: theme => `1px solid ${theme.palette.greyscale.border}`,
-                overflow: 'hidden',
-              }}
-            >
-              <EndpointsGrid
-                sessionToken={sessionToken}
-                onTotalCountChange={setEndpointCount}
-              />
-            </Paper>
-          )}
+          <EndpointsGrid canCreate={canCreate} onCreateClick={handleCreate} />
         </Box>
       </PageLayout>
 

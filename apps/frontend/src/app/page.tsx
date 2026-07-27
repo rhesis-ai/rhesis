@@ -10,6 +10,11 @@ import AuthPageShell from '../components/auth/AuthPageShell';
 import { getClientApiBaseUrl } from '../utils/url-resolver';
 import RocketLaunchIcon from '@mui/icons-material/RocketLaunchOutlined';
 import { fetchQuickStartEnabled } from '@/utils/quick_start';
+import {
+  isAuthenticated,
+  isSessionLoading,
+  isSessionUnauthenticated,
+} from '@/hooks/useIsAuthenticated';
 
 export default function LandingPage() {
   const { data: session, status } = useSession();
@@ -41,7 +46,7 @@ export default function LandingPage() {
     if (
       quickStartLoaded &&
       isQuickStartMode &&
-      status === 'unauthenticated' &&
+      isSessionUnauthenticated(status) &&
       !autoLoggingIn
     ) {
       const urlParams = new URLSearchParams(window.location.search);
@@ -60,8 +65,7 @@ export default function LandingPage() {
               const data = await response.json();
               const { signIn } = await import('next-auth/react');
               await signIn('credentials', {
-                session_token: data.session_token,
-                refresh_token: data.refresh_token || '',
+                code: data.auth_code,
                 redirect: true,
                 callbackUrl: '/architect',
               });
@@ -91,60 +95,47 @@ export default function LandingPage() {
       newUrl.searchParams.delete('force_logout');
       window.history.replaceState({}, '', newUrl.toString());
 
-      if (status === 'authenticated') {
+      if (isAuthenticated(status)) {
         signOut({ redirect: false, callbackUrl: '/' });
       }
       return;
     }
 
     if (
-      status === 'authenticated' &&
+      isAuthenticated(status) &&
       session &&
       !sessionExpired &&
       backendSessionValid === null
     ) {
-      const validateBackendSession = async () => {
-        try {
-          const response = await fetch(`${getClientApiBaseUrl()}/auth/verify`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Accept: 'application/json',
-            },
-            body: JSON.stringify({ session_token: session.session_token }),
-          });
-
-          if (response.ok) {
-            const data = await response.json();
-            if (data.authenticated && data.user) {
-              setBackendSessionValid(true);
-              router.replace('/architect');
-              return;
-            }
-          }
-
+      // The access token never reaches this client component (BFF proxy
+      // injects it server-side), so we can no longer POST it to /auth/verify
+      // directly. `session.error` is the equivalent signal: the `jwt`
+      // callback already sets it whenever a refresh attempt fails, which
+      // only happens when the backend has actually rejected the refresh
+      // token — the same condition /auth/verify used to detect explicitly.
+      if (session.error) {
+        (async () => {
           try {
             await fetch(`${getClientApiBaseUrl()}/auth/logout`, {
               method: 'GET',
               headers: { Accept: 'application/json' },
             });
-          } catch (_logoutError) {}
+          } catch (_logoutError) {
+            // Ignore — signOut below still clears the local session.
+          }
 
           setBackendSessionValid(false);
           setSessionExpired(true);
           signOut({ redirect: false, callbackUrl: '/' });
-        } catch (_error) {
-          setBackendSessionValid(false);
-          setSessionExpired(true);
-          signOut({ redirect: false, callbackUrl: '/' });
-        }
-      };
-
-      validateBackendSession();
+        })();
+      } else {
+        setBackendSessionValid(true);
+        router.replace('/architect');
+      }
     }
   }, [session, status, router, sessionExpired, backendSessionValid]);
 
-  if (status === 'loading' || autoLoggingIn) {
+  if (isSessionLoading(status) || autoLoggingIn) {
     return (
       <Box
         sx={{
@@ -167,7 +158,7 @@ export default function LandingPage() {
   }
 
   if (
-    status === 'authenticated' &&
+    isAuthenticated(status) &&
     session &&
     !sessionExpired &&
     backendSessionValid === true

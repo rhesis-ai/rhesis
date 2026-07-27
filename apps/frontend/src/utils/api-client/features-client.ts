@@ -9,6 +9,8 @@ export interface FeaturesResponse {
   license: LicenseInfo;
   /** Wire type is string[] to tolerate unknown feature names from newer backends. */
   enabled: string[];
+  /** Per-feature warnings for features that are licensed but not operationally ready. */
+  warnings?: Record<string, string>;
 }
 
 /**

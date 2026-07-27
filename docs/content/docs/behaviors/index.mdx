@@ -1,39 +1,25 @@
 # Behaviors
 
-Define what good looks like for your AI system and attach metrics to measure it.
-
-<Callout type="default">
-  **What are behaviors?** Behaviors are expectations for how your application should perform — for example, response quality, safety, or brand voice. You can group different [Metrics](/docs/metrics) by behavior.
-</Callout>
+Behaviors are the expectations for how your LLM application should perform — response
+quality, safety, brand voice, and so on. You attach metrics to a behavior to measure it,
+and tag tests with a behavior so results roll up by expectation.
 
 ## Behaviors and metrics
 
-Rhesis uses a two-layer model: **behaviors** state what you expect; **metrics** verify it. One behavior can have multiple metrics so you can measure the same expectation from different angles.
-
-
-Tests are tagged with a behavior so results roll up by expectation. See [Tests](/docs/tests) and [Test Results](/docs/test-results).
+Rhesis uses a two-layer model: **behaviors** state what you expect; **metrics** verify it.
+One behavior can carry multiple metrics, so you can measure the same expectation from
+different angles. See [Tests](/docs/tests) and [Test Results](/docs/test-results).
 
 ## Behavior tags
 
-Behavior tags are optional labels for organizing and filtering behavior records.
-Use them when multiple behaviors belong to the same feature area, risk theme, or
-team workflow.
+Behavior tags are optional labels for organizing and filtering behaviors — use them when
+several behaviors share a feature area, risk theme, or team workflow. Add them while
+creating or editing a behavior: type in the Tags field and press Enter, or pick an existing
+tag from the suggestions. Tags are organization-scoped and reusable across behaviors, and
+the behavior grid can filter by them.
 
-You can add tags while creating or editing a behavior. Start typing in the tags
-field, select an existing tag from suggestions, or press Enter to create a new
-tag value. Tags are organization-scoped and can be reused across behaviors.
-
-| Where | What tags do |
-| --- | --- |
-| Behavior grid | Filter behaviors by one or more tag chips |
-| Behavior cards | Show the tags attached to each behavior |
-| Behavior detail | Review and update tags alongside the behavior's metrics |
-
-<Callout type="info">
-  Behavior tags are different from test category and topic fields. Tags organize
-  behavior definitions; category and topic classify individual tests.
-</Callout>
-
+Behavior tags are distinct from a test's category and topic: tags organize behavior
+definitions, while category and topic classify individual tests.
 
 <div style={{ position: "relative", paddingBottom: "56.25%", height: 0, overflow: "hidden", marginBottom: "2rem" }}>
   <iframe
@@ -45,10 +31,8 @@ tag value. Tags are organization-scoped and can be reused across behaviors.
   />
 </div>
 
+## Next steps
 
-
----
-
-<Callout type="default">
-  **Next Steps** — Create [Metrics](/docs/metrics) — Generate [Tests](/docs/tests) — Review results by behavior
-</Callout>
+- Create [Metrics](/docs/metrics) for your behaviors
+- Generate [Tests](/docs/tests)
+- Review results grouped by behavior

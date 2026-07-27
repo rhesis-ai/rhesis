@@ -126,7 +126,7 @@ describe('getStatuses', () => {
   it('returns filtered statuses from the API on first call', async () => {
     mockGetStatuses.mockResolvedValue(API_STATUSES);
 
-    const result = await getStatuses('tok');
+    const result = await getStatuses();
 
     // Only allowed names should be returned (Archived/Cancelled are filtered out)
     expect(result).toHaveLength(3);
@@ -142,8 +142,8 @@ describe('getStatuses', () => {
   it('returns cached result on second call without re-fetching', async () => {
     mockGetStatuses.mockResolvedValue(API_STATUSES);
 
-    await getStatuses('tok');
-    await getStatuses('tok');
+    await getStatuses();
+    await getStatuses();
 
     // API should only have been called once
     expect(mockGetStatuses).toHaveBeenCalledTimes(1);
@@ -152,7 +152,7 @@ describe('getStatuses', () => {
   it('falls back to default statuses when the API throws', async () => {
     mockGetStatuses.mockRejectedValue(new Error('API error'));
 
-    const result = await getStatuses('tok');
+    const result = await getStatuses();
 
     expect(result).toHaveLength(3);
     expect(result.map(s => s.name)).toEqual([
@@ -167,8 +167,8 @@ describe('getStatuses', () => {
   it('caches default statuses so subsequent calls skip the API', async () => {
     mockGetStatuses.mockRejectedValue(new Error('API error'));
 
-    await getStatuses('tok');
-    await getStatuses('tok');
+    await getStatuses();
+    await getStatuses();
 
     expect(mockGetStatuses).toHaveBeenCalledTimes(1);
   });
@@ -182,7 +182,7 @@ describe('getPriorities', () => {
   it('returns filtered priorities from the API', async () => {
     mockGetTypeLookups.mockResolvedValue(API_PRIORITIES);
 
-    const result = await getPriorities('tok');
+    const result = await getPriorities();
 
     expect(result).toHaveLength(3);
     expect(result.map(p => p.type_value)).toEqual(['Low', 'Medium', 'High']);
@@ -192,8 +192,8 @@ describe('getPriorities', () => {
   it('returns cached result on second call', async () => {
     mockGetTypeLookups.mockResolvedValue(API_PRIORITIES);
 
-    await getPriorities('tok');
-    await getPriorities('tok');
+    await getPriorities();
+    await getPriorities();
 
     expect(mockGetTypeLookups).toHaveBeenCalledTimes(1);
   });
@@ -201,7 +201,7 @@ describe('getPriorities', () => {
   it('falls back to default priorities on API error', async () => {
     mockGetTypeLookups.mockRejectedValue(new Error('API error'));
 
-    const result = await getPriorities('tok');
+    const result = await getPriorities();
 
     expect(result).toHaveLength(3);
     expect(result.map(p => p.type_value)).toEqual(['Low', 'Medium', 'High']);
@@ -217,14 +217,14 @@ describe('getStatusByName', () => {
   it('returns the matching status by name', async () => {
     mockGetStatuses.mockResolvedValue(API_STATUSES);
 
-    const status = await getStatusByName('In Progress', 'tok');
+    const status = await getStatusByName('In Progress');
     expect(status?.id).toBe('s2');
   });
 
   it('returns null when name is not found', async () => {
     mockGetStatuses.mockResolvedValue(API_STATUSES);
 
-    const status = await getStatusByName('Unknown', 'tok');
+    const status = await getStatusByName('Unknown');
     expect(status).toBeNull();
   });
 });
@@ -233,14 +233,14 @@ describe('getPriorityByName', () => {
   it('returns the matching priority by type_value', async () => {
     mockGetTypeLookups.mockResolvedValue(API_PRIORITIES);
 
-    const priority = await getPriorityByName('High', 'tok');
+    const priority = await getPriorityByName('High');
     expect(priority?.id).toBe('p3');
   });
 
   it('returns null when name is not found', async () => {
     mockGetTypeLookups.mockResolvedValue(API_PRIORITIES);
 
-    const priority = await getPriorityByName('Critical', 'tok');
+    const priority = await getPriorityByName('Critical');
     expect(priority).toBeNull();
   });
 });
@@ -254,7 +254,7 @@ describe('getStatusesForTask', () => {
     mockGetStatuses.mockResolvedValue(API_STATUSES);
 
     // 's1' is already in the allowed list
-    const result = await getStatusesForTask('tok', 's1');
+    const result = await getStatusesForTask('s1');
 
     expect(result).toHaveLength(3);
     expect(mockGetStatus).not.toHaveBeenCalled();
@@ -269,7 +269,7 @@ describe('getStatusesForTask', () => {
       entity_type: EntityType.TASK,
     });
 
-    const result = await getStatusesForTask('tok', 'extra-id');
+    const result = await getStatusesForTask('extra-id');
 
     // 3 allowed + 1 extra = 4
     expect(result).toHaveLength(4);
@@ -281,7 +281,7 @@ describe('getStatusesForTask', () => {
     mockGetStatuses.mockResolvedValue(API_STATUSES);
     mockGetStatus.mockRejectedValue(new Error('not found'));
 
-    const result = await getStatusesForTask('tok', 'missing-id');
+    const result = await getStatusesForTask('missing-id');
 
     expect(result).toHaveLength(3);
   });
@@ -289,7 +289,7 @@ describe('getStatusesForTask', () => {
   it('returns base statuses when no existingTaskStatusId is provided', async () => {
     mockGetStatuses.mockResolvedValue(API_STATUSES);
 
-    const result = await getStatusesForTask('tok');
+    const result = await getStatusesForTask();
 
     expect(result).toHaveLength(3);
     expect(mockGetStatus).not.toHaveBeenCalled();
@@ -310,7 +310,7 @@ describe('getPrioritiesForTask', () => {
       description: 'critical',
     });
 
-    const result = await getPrioritiesForTask('tok', 'extra-p');
+    const result = await getPrioritiesForTask('extra-p');
 
     expect(result).toHaveLength(4);
     expect(result[3]).toMatchObject({ id: 'extra-p', type_value: 'Critical' });
@@ -319,7 +319,7 @@ describe('getPrioritiesForTask', () => {
   it('returns base priorities when existingTaskPriorityId is already in the list', async () => {
     mockGetTypeLookups.mockResolvedValue(API_PRIORITIES);
 
-    const result = await getPrioritiesForTask('tok', 'p1');
+    const result = await getPrioritiesForTask('p1');
 
     expect(result).toHaveLength(3);
     expect(mockGetTypeLookup).not.toHaveBeenCalled();
@@ -334,9 +334,9 @@ describe('clearCache', () => {
   it('forces a fresh API call after the cache is cleared', async () => {
     mockGetStatuses.mockResolvedValue(API_STATUSES);
 
-    await getStatuses('tok'); // populates cache
+    await getStatuses(); // populates cache
     clearCache();
-    await getStatuses('tok'); // should hit API again
+    await getStatuses(); // should hit API again
 
     expect(mockGetStatuses).toHaveBeenCalledTimes(2);
   });

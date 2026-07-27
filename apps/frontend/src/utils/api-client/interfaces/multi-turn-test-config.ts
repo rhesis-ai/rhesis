@@ -2,7 +2,7 @@
  * Multi-turn test configuration interfaces.
  *
  * These define the structure stored in test.test_configuration JSON
- * for multi-turn tests (when test_type is multi-turn).
+ * for multi-turn tests (when test_type is Multi-Turn).
  */
 
 export interface MultiTurnTestConfig {

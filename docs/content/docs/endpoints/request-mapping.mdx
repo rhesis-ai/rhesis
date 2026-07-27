@@ -56,7 +56,7 @@ If your template renders to a JSON object with a `__body__` key, Rhesis unwraps 
 
 ## File Format Filters
 
-When tests include file attachments, the `files` variable contains an array of objects with `filename`, `content_type`, and `data` (base64-encoded). See [Multi-modal Testing](/docs/multimodal-testing) for the full type and size matrix.
+When tests include file attachments, the `files` variable contains an array of objects with `filename`, `content_type`, and `data` (base64-encoded). See [Multi-modal Testing](/docs/tests/multimodal-testing) for the full type and size matrix.
 
 Most provider APIs expect the user message `content` field to contain both the text and the files together. Use the **content filters** for this — they combine `input` and `files` into a single content array automatically:
 
@@ -231,8 +231,7 @@ For both patterns, Rhesis captures response fields on every turn. These are avai
 
 ---
 
-<Callout type="default">
-  **Next Steps**
-  - See [Response Mapping](/docs/endpoints/response-mapping) to extract values from API responses
-  - Browse [Examples](/docs/endpoints/mapping-examples) for complete provider configurations
-</Callout>
+## Next steps
+
+- [Response Mapping](/docs/endpoints/response-mapping) — extract values from API responses
+- [Examples](/docs/endpoints/mapping-examples) — complete provider configurations

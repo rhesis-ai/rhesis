@@ -33,7 +33,11 @@ from rhesis.backend.app.auth.user_utils import (
     require_current_user_or_token,
     require_current_user_or_token_without_context,
 )
-from rhesis.backend.app.config.settings import get_auth_settings, get_frontend_settings
+from rhesis.backend.app.config.settings import (
+    get_application_settings,
+    get_auth_settings,
+    get_frontend_settings,
+)
 from rhesis.backend.app.database import Base, engine, get_db
 from rhesis.backend.app.error_handlers import (
     create_validation_error_response,
@@ -213,13 +217,16 @@ def _response_carries_affordances(response_model) -> bool:
     """True if *response_model* is, contains, or wraps a ``WithPermittedActions`` schema.
 
     Unwraps typing generics (``List[X]``, ``Optional[X]``, ``Union[...]``) so list
-    and optional response models are detected, not just bare model classes.
+    and optional response models are detected, not just bare model classes. Warns
+    if a matching schema left ``__resource_type__`` unset, since that silently
+    yields empty ``permitted_actions`` for every response using it.
     """
     from typing import get_args
 
     from rhesis.backend.app.schemas.affordances import WithPermittedActions
 
     seen: set = set()
+    found = False
     stack = [response_model]
     while stack:
         tp = stack.pop()
@@ -232,10 +239,16 @@ def _response_carries_affordances(response_model) -> bool:
             continue
         try:
             if isinstance(tp, type) and issubclass(tp, WithPermittedActions):
-                return True
+                found = True
+                if tp.__resource_type__ is None:
+                    logger.warning(
+                        "%s mixes in WithPermittedActions but has no __resource_type__ "
+                        "set; permitted_actions will always be empty for this schema",
+                        tp.__name__,
+                    )
         except TypeError:
             continue
-    return False
+    return found
 
 
 def apply_affordance_backstop(app: FastAPI) -> None:
@@ -406,31 +419,44 @@ async def lifespan(app: FastAPI):
     # This ensures the first user request doesn't have to wait for probe enumeration
     import asyncio
 
-    async def warm_garak_cache():
-        """Background task to pre-warm Garak probe cache."""
-        try:
-            from rhesis.backend.app.services.garak import GarakProbeService
+    # Skip the pre-warm entirely under the test suite. It's a production-only
+    # optimization, but the test suite creates a fresh TestClient (hence a
+    # fresh app lifespan) per test, so every one of the ~hundreds of route
+    # tests would launch its own full-corpus enumeration. Those run in
+    # non-cancellable worker threads (anyio.to_thread) that outlive the test,
+    # and until the first one warms the shared Redis cache they all race on a
+    # cold cache — a CPU-bound pile-up that snowballs across pytest-xdist
+    # workers and hangs the run. Tests that need probe data mock the service
+    # or use the (bounded, integration-marked) live-garak tests instead.
+    if os.environ.get("RHESIS_SKIP_GARAK_WARM_CACHE", "").lower() in ("1", "true", "yes"):
+        logger.info("Garak cache pre-warming skipped (RHESIS_SKIP_GARAK_WARM_CACHE set)")
+    else:
 
-            service = GarakProbeService()
-            await service.warm_cache()
-            # Logging is handled by enumerate_probe_modules_cached
-        except Exception as e:
-            logger.warning(f"Garak cache pre-warming failed (non-fatal): {e}")
+        async def warm_garak_cache():
+            """Background task to pre-warm Garak probe cache."""
+            try:
+                from rhesis.backend.app.services.garak import GarakProbeService
 
-    # Launch as background task - store reference to prevent GC before completion
-    # (per Python asyncio docs, tasks without references may be garbage collected)
-    garak_cache_task = asyncio.create_task(warm_garak_cache())
+                service = GarakProbeService()
+                await service.warm_cache()
+                # Logging is handled by enumerate_probe_modules_cached
+            except Exception as e:
+                logger.warning(f"Garak cache pre-warming failed (non-fatal): {e}")
 
-    # Add exception handler to log errors (task runs in background, errors would be silent)
-    def _log_task_exception(t: asyncio.Task) -> None:
-        try:
-            t.result()
-        except asyncio.CancelledError:
-            pass  # Expected during shutdown
-        except Exception as e:
-            logger.error(f"Garak cache pre-warming task failed: {e}", exc_info=True)
+        # Launch as background task - store reference to prevent GC before completion
+        # (per Python asyncio docs, tasks without references may be garbage collected)
+        garak_cache_task = asyncio.create_task(warm_garak_cache())
 
-    garak_cache_task.add_done_callback(_log_task_exception)
+        # Add exception handler to log errors (task runs in background, errors would be silent)
+        def _log_task_exception(t: asyncio.Task) -> None:
+            try:
+                t.result()
+            except asyncio.CancelledError:
+                pass  # Expected during shutdown
+            except Exception as e:
+                logger.error(f"Garak cache pre-warming task failed: {e}", exc_info=True)
+
+        garak_cache_task.add_done_callback(_log_task_exception)
 
     if getattr(app.state, "mcp_server", None) is None:
         from rhesis.backend.app.mcp_server import setup_mcp_server
@@ -591,23 +617,16 @@ _frontend_settings = get_frontend_settings()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_frontend_settings.cors_origins,
-    allow_origin_regex=_frontend_settings.loopback_cors_regex,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=["X-Total-Count", "X-Test-Header"],
 )
 
-# Get session secret securely without default fallback in production
+# SESSION_SECRET_KEY is a required setting (see AuthSettings), so this fails
+# fast at startup if it is missing — no insecure hardcoded fallback. Run
+# `./rh dev init` to generate one for local development.
 session_secret = get_auth_settings().session_secret_key
-
-from rhesis.backend.app.routers.auth import is_running_locally
-
-if not session_secret:
-    if is_running_locally():
-        session_secret = "fallback-secret-for-development"
-    else:
-        raise ValueError("CRITICAL: SESSION_SECRET_KEY must be set in production environments")
 
 # Add session middleware
 # For OAuth state preservation, we need proper cookie configuration
@@ -617,7 +636,7 @@ app.add_middleware(
     session_cookie="session",
     max_age=3600,  # 1 hour session lifetime
     same_site="lax",  # Required for OAuth flows
-    https_only=not is_running_locally(),  # Enforce HTTPS outside local development
+    https_only=get_application_settings().secure_cookies,
 )
 
 

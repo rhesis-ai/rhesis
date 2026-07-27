@@ -46,7 +46,13 @@ from uuid import UUID
 from fastapi import Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app.auth.capabilities import Permission, get_all_capabilities
+from rhesis.backend.app.auth.capabilities import (
+    SCOPE_ORGANIZATION,
+    SCOPE_PROJECT,
+    Permission,
+    capability_scope,
+    get_all_capabilities,
+)
 from rhesis.backend.app.auth.principal import (
     Principal,
     resolve_principal_from_request,
@@ -93,6 +99,61 @@ class AuthorizationProvider:
         """
         return False
 
+    def get_effective_permissions(
+        self,
+        principal: Principal,
+        *,
+        project_id: Optional[UUID],
+        db: Session,
+    ) -> set[str]:
+        """Return every capability *principal* holds in *project_id*.
+
+        Default implementation: check the full catalog one capability at a
+        time via :meth:`is_authorized`. Correct for any provider, but O(N) in
+        the number of registered capabilities — override with a batch
+        resolution (role/membership looked up once) where possible, as
+        :class:`DefaultAuthorizationProvider` does.
+        """
+        return {
+            cap
+            for cap in get_all_capabilities()
+            if self.is_authorized(principal, cap, project_id=project_id, db=db)
+        }
+
+
+def rbac_active_for(organization_id: Optional[UUID], db: Session) -> bool:
+    """Return ``True`` iff granular, per-user RBAC is licensed and active for
+    *organization_id*. Community is never RBAC-active.
+
+    Single source of truth so callers outside the provider (e.g. token scope
+    validation) don't have to re-derive it. Cached (same store/TTL as
+    permission decisions, no explicit bust — no bust hook exists yet for a
+    plan/license change) since this runs on every ``authorize()`` call.
+    """
+    from rhesis.backend.app.features import FeatureName, FeatureRegistry
+    from rhesis.backend.app.models.organization import Organization
+    from rhesis.backend.app.scope import bypass_tenant_filter
+    from rhesis.backend.app.services.permission_cache import get_permission_cache
+
+    if organization_id is None:
+        return False
+
+    _cache = get_permission_cache()
+    cached = _cache.get_rbac_active(organization_id)
+    if cached is not None:
+        return cached
+
+    with bypass_tenant_filter():
+        org = db.query(Organization).filter_by(id=organization_id).first()
+    result = org is not None and FeatureRegistry.is_available(FeatureName.RBAC, org)
+
+    try:
+        _cache.set_rbac_active(organization_id, result)
+    except Exception as exc:
+        logger.warning("rbac_active_for: cache set failed (non-fatal): %s", exc)
+
+    return result
+
 
 # Capabilities that require org ownership even when no project scope is present.
 # Any other capability is accessible to any authenticated org member when
@@ -101,7 +162,7 @@ class AuthorizationProvider:
 # EE overrides the whole provider; this set only drives community-tier decisions.
 #
 # ProjectMember.MANAGE is included here so that managing project membership
-# (add/remove/list members) requires org ownership in the community tier.  When
+# (add/remove members) requires org ownership in the community tier.  When
 # a project IS in the ambient scope the DefaultAuthorizationProvider would
 # normally allow any project member — but membership management is sensitive
 # enough that we restrict it to org owners (and, in EE Phase 2, project admins
@@ -135,6 +196,34 @@ class DefaultAuthorizationProvider(AuthorizationProvider):
        (any org member may perform standard CRUD; the ORM scope limits rows to their org).
     """
 
+    @staticmethod
+    def _is_org_owner(principal: Principal, db: Session) -> bool:
+        """One query: is *principal* the owner of their organization?"""
+        from rhesis.backend.app.models.organization import Organization
+
+        return (
+            db.query(Organization)
+            .filter_by(id=principal.organization_id, owner_id=principal.user_id)
+            .first()
+            is not None
+        )
+
+    @staticmethod
+    def _is_project_member(principal: Principal, project_id: UUID, db: Session) -> bool:
+        """One query: does *principal* have a ``ProjectMembership`` row for *project_id*?"""
+        from rhesis.backend.app.models.project_membership import ProjectMembership
+
+        return (
+            db.query(ProjectMembership)
+            .filter_by(
+                project_id=project_id,
+                user_id=principal.user_id,
+                organization_id=principal.organization_id,
+            )
+            .first()
+            is not None
+        )
+
     def is_authorized(
         self,
         principal: Principal,
@@ -143,20 +232,12 @@ class DefaultAuthorizationProvider(AuthorizationProvider):
         project_id: Optional[UUID],
         db: Session,
     ) -> bool:
-        from rhesis.backend.app.models.organization import Organization
-        from rhesis.backend.app.models.project_membership import ProjectMembership
-
         if principal.organization_id is None:
             logger.debug("authorize: deny — no organization on principal %s", principal.user_id)
             return False
 
         # 1. Org owner bypass — allowed for every permission.
-        org = (
-            db.query(Organization)
-            .filter_by(id=principal.organization_id, owner_id=principal.user_id)
-            .first()
-        )
-        if org is not None:
+        if self._is_org_owner(principal, db):
             logger.debug(
                 "authorize: allow — org owner %s for org %s",
                 principal.user_id,
@@ -166,16 +247,7 @@ class DefaultAuthorizationProvider(AuthorizationProvider):
 
         # 2. Project-scoped permission: require project membership.
         if project_id is not None:
-            membership = (
-                db.query(ProjectMembership)
-                .filter_by(
-                    project_id=project_id,
-                    user_id=principal.user_id,
-                    organization_id=principal.organization_id,
-                )
-                .first()
-            )
-            if membership is not None:
+            if self._is_project_member(principal, project_id, db):
                 logger.debug(
                     "authorize: allow — project member %s in project %s",
                     principal.user_id,
@@ -203,6 +275,29 @@ class DefaultAuthorizationProvider(AuthorizationProvider):
             permission,
         )
         return True
+
+    def get_effective_permissions(
+        self,
+        principal: Principal,
+        *,
+        project_id: Optional[UUID],
+        db: Session,
+    ) -> set[str]:
+        """Single-context batch version of :meth:`is_authorized` — not
+        scope-aware; see :func:`effective_permissions` for the org/project split.
+        """
+        if principal.organization_id is None:
+            return set()
+
+        if self._is_org_owner(principal, db):
+            return set(get_all_capabilities())
+
+        if project_id is not None:
+            if self._is_project_member(principal, project_id, db):
+                return set(get_all_capabilities())
+            return set()
+
+        return {cap for cap in get_all_capabilities() if cap not in _OWNER_ONLY_CAPABILITIES}
 
 
 # ---------------------------------------------------------------------------
@@ -303,10 +398,15 @@ def authorize(
     perm_str = str(permission)
 
     # --- Token project boundary (deterministic, no DB, never cached) ---
-    # A project-scoped token may only act within its own project.  Enforced here
-    # in the PDP so the rule holds for every transport (HTTP, WebSocket, future
-    # callers), not just the HTTP get_project_context dependency.  Org-scoped
-    # checks (project_id is None) are intentionally not blocked.
+    # A project-scoped token may only act within its own project. Checked here,
+    # against the *unnormalized* project_id, before the org-scope normalization
+    # below can null it out — otherwise a token minted for project A could reach
+    # org-scoped capabilities while the ambient request context is project B
+    # (a mismatch this check exists to catch) simply because org-scoped caps get
+    # their project_id cleared first. Enforced here in the PDP so the rule holds
+    # for every transport (HTTP, WebSocket, future callers), not just the HTTP
+    # get_project_context dependency. Org-scoped checks (project_id is None from
+    # the start) are intentionally not blocked.
     if (
         principal.token_project_id is not None
         and project_id is not None
@@ -318,6 +418,18 @@ def authorize(
             project_id,
         )
         return False
+
+    # Org-scoped capabilities (sso:manage, role:manage, member:manage, ...) must
+    # never be narrowed by an ambient project context. require_permission's
+    # auto-injected dependency reads project_id from the request's active
+    # project (e.g. an X-Project-Id header), which is meaningful for
+    # project-scoped actions but not for org-wide admin actions — a caller
+    # whose explicit *project* role is lower than their *org* role would
+    # otherwise be incorrectly denied an org-level action while that project
+    # happens to be active. Force project_id=None here so the PDP always
+    # resolves org-scoped permissions against the org role.
+    if project_id is not None and capability_scope(perm_str) == SCOPE_ORGANIZATION:
+        project_id = None
 
     # Cache is keyed on org context; skip entirely when the org is absent
     # (those are always denies — no value in caching them).
@@ -447,6 +559,25 @@ def authorize_object(
     return authorize(principal, own_perm_str, project_id=project_id, db=db)
 
 
+def _get_effective_permissions_safe(
+    provider: AuthorizationProvider,
+    principal: Principal,
+    *,
+    project_id: Optional[UUID],
+    db: Session,
+) -> set[str]:
+    """Call ``provider.get_effective_permissions``, fail-closed on exception."""
+    try:
+        return provider.get_effective_permissions(principal, project_id=project_id, db=db)
+    except Exception:
+        logger.exception(
+            "effective_permissions: provider error for principal %s (project=%s) — denying",
+            principal.user_id,
+            project_id,
+        )
+        return set()
+
+
 def effective_permissions(
     principal: Principal,
     *,
@@ -455,17 +586,46 @@ def effective_permissions(
 ) -> list[str]:
     """Return every capability *principal* effectively holds in the given scope.
 
-    Runs the full capability catalog through :func:`authorize`, so the result
-    reflects the active authorization provider (community in Phase 1, EE in
-    Phase 2). This is the single implementation behind both ``GET /me/permissions``
-    and the server-driven affordances resolver — each ``authorize`` call is
-    Redis-cached, so repeated calls within a request are cheap.
+    Delegates to the active provider's ``get_effective_permissions`` instead of
+    running the catalog through :func:`authorize` one capability at a time.
+    Single implementation behind ``GET /me/permissions`` and the affordances
+    resolver.
+
+    A provider resolves one project_id context per call (e.g. EE may return a
+    merged role that outranks the plain org role), so when *project_id* is
+    given, this calls the provider twice — once at ``project_id=None``, once
+    at the ambient *project_id* — and keeps only the org-scoped capabilities
+    from the former and project-scoped ones from the latter, per
+    :func:`capability_scope`. This mirrors :func:`authorize`'s own org-scope
+    normalization; do not collapse it to a single call.
+
+    Also enforces the token-project-boundary rule up front: nothing is
+    permitted if *project_id* doesn't match a project-scoped token's own
+    ``token_project_id``.
+
+    Fail-closed like :func:`authorize`: a provider exception is logged and
+    treated as an empty result rather than propagating into a 500 on
+    ``GET /me/permissions`` or any affordance-bearing response.
     """
-    return [
-        cap
-        for cap in get_all_capabilities()
-        if authorize(principal, cap, project_id=project_id, db=db)
-    ]
+    if (
+        principal.token_project_id is not None
+        and project_id is not None
+        and project_id != principal.token_project_id
+    ):
+        return []
+
+    provider = _AuthorizationRegistry.get_authorization_provider()
+    org_context = _get_effective_permissions_safe(provider, principal, project_id=None, db=db)
+    if project_id is None:
+        return sorted(org_context)
+
+    project_context = _get_effective_permissions_safe(
+        provider, principal, project_id=project_id, db=db
+    )
+    result = {cap for cap in org_context if capability_scope(cap) == SCOPE_ORGANIZATION} | {
+        cap for cap in project_context if capability_scope(cap) == SCOPE_PROJECT
+    }
+    return sorted(result)
 
 
 def project_id_from_scope(db: Session) -> Optional[UUID]:

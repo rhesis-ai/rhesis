@@ -28,6 +28,7 @@ import CheckIcon from '@mui/icons-material/Check';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import type { UUID } from 'crypto';
 import {
   formatFileSize,
@@ -37,10 +38,12 @@ import {
 import { formatDate } from '@/utils/date';
 import SourceTagsCard from './SourceTagsCard';
 import CommentsWrapper from '@/components/comments/CommentsWrapper';
+import { useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface SourcePreviewClientWrapperProps {
   source: Source;
-  sessionToken: string;
   currentUserId: string;
   currentUserName: string;
   currentUserPicture?: string;
@@ -114,7 +117,6 @@ function InfoRow({
  */
 export default function SourcePreviewClientWrapper({
   source,
-  sessionToken,
   currentUserId,
   currentUserName,
   currentUserPicture,
@@ -126,6 +128,8 @@ export default function SourcePreviewClientWrapper({
   );
   const notifications = useNotifications();
   const theme = useTheme();
+  const { status } = useSession();
+  const canEditSource = useCan(Capability.Source.UPDATE);
   const [isEditing, setIsEditing] = useState<EditableSectionType | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -191,7 +195,7 @@ export default function SourcePreviewClientWrapper({
 
   const handleDownloadFile = async () => {
     try {
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const sourcesClient = clientFactory.getSourcesClient();
 
       // Get file content as blob to preserve binary data
@@ -222,7 +226,7 @@ export default function SourcePreviewClientWrapper({
 
   // fetch updated source after tag update and refresh local state
   const handleTagsUpdate = async () => {
-    const clientFactory = new ApiClientFactory(sessionToken);
+    const clientFactory = new ApiClientFactory();
     const sourcesClient = clientFactory.getSourcesClient();
     const updatedSource = await sourcesClient.getSourceWithContent(
       localSource.id
@@ -232,7 +236,7 @@ export default function SourcePreviewClientWrapper({
   };
 
   const handleUpdateFromTool = async () => {
-    if (!sessionToken || isUpdating) return;
+    if (!isAuthenticated(status) || isUpdating) return;
 
     // Check if this is a tool source
     if (localSource.source_type?.type_value !== 'Tool') {
@@ -254,7 +258,7 @@ export default function SourcePreviewClientWrapper({
 
     setIsUpdating(true);
     try {
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const servicesClient = clientFactory.getServicesClient();
       const sourcesClient = clientFactory.getSourcesClient();
 
@@ -338,6 +342,8 @@ export default function SourcePreviewClientWrapper({
 
   const handleEdit = useCallback(
     (section: EditableSectionType) => {
+      if (!canEditSource) return;
+
       setIsEditing(section);
       // Populate refs with current values when entering edit mode
       if (section === 'general') {
@@ -349,7 +355,7 @@ export default function SourcePreviewClientWrapper({
         }
       }
     },
-    [localSource]
+    [canEditSource, localSource]
   );
 
   const handleCancelEdit = useCallback(() => {
@@ -368,11 +374,11 @@ export default function SourcePreviewClientWrapper({
   }, []);
 
   const handleConfirmEdit = useCallback(async () => {
-    if (!sessionToken) return;
+    if (!isAuthenticated(status)) return;
 
     setIsSaving(true);
     try {
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const sourcesClient = clientFactory.getSourcesClient();
 
       // Collect values from refs
@@ -401,7 +407,7 @@ export default function SourcePreviewClientWrapper({
     } finally {
       setIsSaving(false);
     }
-  }, [sessionToken, localSource, collectFieldValues, notifications]);
+  }, [status, localSource, collectFieldValues, notifications]);
 
   return (
     <PageLayout
@@ -438,31 +444,33 @@ export default function SourcePreviewClientWrapper({
                 <>
                   {localSource.source_type?.type_value === 'Tool' ? (
                     <>
-                      <Button
-                        startIcon={
-                          isUpdating ? (
-                            <CircularProgress size={16} />
-                          ) : (
-                            <RefreshIcon />
-                          )
-                        }
-                        onClick={handleUpdateFromTool}
-                        variant="outlined"
-                        size="small"
-                        disabled={isUpdating || isConnectionInvalid}
-                        sx={{
-                          color: theme.palette.text.secondary,
-                          borderColor: theme.palette.divider,
-                          '&:hover': {
-                            borderColor: theme.palette.text.secondary,
-                          },
-                          '&:disabled': {
-                            opacity: 0.6,
-                          },
-                        }}
-                      >
-                        {isUpdating ? 'Updating...' : 'Update'}
-                      </Button>
+                      {canEditSource && (
+                        <Button
+                          startIcon={
+                            isUpdating ? (
+                              <CircularProgress size={16} />
+                            ) : (
+                              <RefreshIcon />
+                            )
+                          }
+                          onClick={handleUpdateFromTool}
+                          variant="outlined"
+                          size="small"
+                          disabled={isUpdating || isConnectionInvalid}
+                          sx={{
+                            color: theme.palette.text.secondary,
+                            borderColor: theme.palette.divider,
+                            '&:hover': {
+                              borderColor: theme.palette.text.secondary,
+                            },
+                            '&:disabled': {
+                              opacity: 0.6,
+                            },
+                          }}
+                        >
+                          {isUpdating ? 'Updating...' : 'Update'}
+                        </Button>
+                      )}
                       {localSource.source_metadata?.url &&
                         localSource.source_metadata?.provider && (
                           <Button
@@ -505,22 +513,24 @@ export default function SourcePreviewClientWrapper({
                       Download
                     </Button>
                   )}
-                  <Button
-                    startIcon={<EditIcon />}
-                    onClick={() => handleEdit('general')}
-                    variant="outlined"
-                    size="small"
-                    sx={{
-                      color: theme.palette.primary.main,
-                      borderColor: theme.palette.primary.main,
-                      '&:hover': {
-                        backgroundColor: theme.palette.primary.light,
+                  {canEditSource && (
+                    <Button
+                      startIcon={<EditIcon />}
+                      onClick={() => handleEdit('general')}
+                      variant="outlined"
+                      size="small"
+                      sx={{
+                        color: theme.palette.primary.main,
                         borderColor: theme.palette.primary.main,
-                      },
-                    }}
-                  >
-                    Edit Section
-                  </Button>
+                        '&:hover': {
+                          backgroundColor: theme.palette.primary.light,
+                          borderColor: theme.palette.primary.main,
+                        },
+                      }}
+                    >
+                      Edit Section
+                    </Button>
+                  )}
                 </>
               )}
             </Box>
@@ -688,13 +698,6 @@ export default function SourcePreviewClientWrapper({
           )}
         </Paper>
 
-        <SourceTagsCard
-          sessionToken={sessionToken}
-          source={localSource}
-          userId={currentUserId ? (currentUserId as UUID) : undefined}
-          onUpdate={handleTagsUpdate}
-        />
-
         {/* Extracted Content Section */}
         {content && (
           <Paper
@@ -784,24 +787,20 @@ export default function SourcePreviewClientWrapper({
           </Paper>
         )}
 
+        <SourceTagsCard
+          source={localSource}
+          userId={currentUserId ? (currentUserId as UUID) : undefined}
+          onUpdate={handleTagsUpdate}
+        />
+
         {/* Comments Section */}
-        <Paper
-          sx={{
-            p: theme.spacing(3),
-            borderRadius: theme.spacing(1),
-            bgcolor: theme.palette.background.paper,
-            boxShadow: theme.shadows[1],
-          }}
-        >
-          <CommentsWrapper
-            entityType="Source"
-            entityId={localSource.id}
-            sessionToken={sessionToken}
-            currentUserId={currentUserId}
-            currentUserName={currentUserName}
-            currentUserPicture={currentUserPicture}
-          />
-        </Paper>
+        <CommentsWrapper
+          entityType="Source"
+          entityId={localSource.id}
+          currentUserId={currentUserId}
+          currentUserName={currentUserName}
+          currentUserPicture={currentUserPicture}
+        />
       </Stack>
     </PageLayout>
   );

@@ -65,13 +65,7 @@ beforeEach(() => {
 
 describe('TokenScopeField', () => {
   it('renders nothing while roles are loading, then the full/restricted toggle', async () => {
-    render(
-      <TokenScopeField
-        sessionToken={SESSION_TOKEN}
-        value={null}
-        onChange={jest.fn()}
-      />
-    );
+    render(<TokenScopeField value={null} onChange={jest.fn()} />);
 
     expect(await screen.findByText('Token permissions')).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: /full access/i })).toBeChecked();
@@ -84,13 +78,7 @@ describe('TokenScopeField', () => {
     const onChange = jest.fn();
     const user = userEvent.setup();
 
-    render(
-      <TokenScopeField
-        sessionToken={SESSION_TOKEN}
-        value={null}
-        onChange={onChange}
-      />
-    );
+    render(<TokenScopeField value={null} onChange={onChange} />);
 
     await screen.findByText('Token permissions');
     await user.click(screen.getByRole('radio', { name: /restricted/i }));
@@ -102,13 +90,7 @@ describe('TokenScopeField', () => {
     const onChange = jest.fn();
     const user = userEvent.setup();
 
-    render(
-      <TokenScopeField
-        sessionToken={SESSION_TOKEN}
-        value={[]}
-        onChange={onChange}
-      />
-    );
+    render(<TokenScopeField value={[]} onChange={onChange} />);
 
     await user.click(await screen.findByRole('combobox'));
     await user.click(await screen.findByRole('option', { name: 'Auditor' }));
@@ -127,11 +109,7 @@ describe('TokenScopeField', () => {
     rbacClientInstanceMock.getRoles.mockResolvedValue([]);
 
     const { container } = render(
-      <TokenScopeField
-        sessionToken={SESSION_TOKEN}
-        value={null}
-        onChange={jest.fn()}
-      />
+      <TokenScopeField value={null} onChange={jest.fn()} />
     );
 
     await waitFor(() => {

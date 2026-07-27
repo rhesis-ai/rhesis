@@ -116,7 +116,6 @@ function makeBehavior(overrides = {}): BehaviorWithMetrics {
 const DEFAULT_PROPS = {
   behavior: makeBehavior(),
   onRefresh: jest.fn(),
-  sessionToken: 'tok',
 };
 
 function renderCard(props = DEFAULT_PROPS) {

@@ -2,7 +2,6 @@
  * Tests for src/utils/session.ts
  *
  * Covers:
- *  - getSession: cookie parsing (JSON wrapper vs plain token), API call, error paths
  *  - clearAllSessionData: backend logout retry loop, cookie clearing strategies,
  *    localhost vs deployed branching, localStorage/sessionStorage clearing
  */
@@ -16,7 +15,7 @@ jest.mock('../api-client/config', () => ({
 // jsdom's window.location is non-configurable, but individual properties on the
 // underlying Location object (like hostname) can be redefined on the instance.
 
-import { getSession, clearAllSessionData } from '../session';
+import { clearAllSessionData } from '../session';
 
 function makeFetchResponse(body: unknown, status = 200): Response {
   return {
@@ -53,112 +52,6 @@ afterEach(() => {
 });
 
 // ---------------------------------------------------------------------------
-// getSession
-// ---------------------------------------------------------------------------
-
-describe('getSession', () => {
-  it('returns null when no session cookie exists', async () => {
-    const result = await getSession();
-    expect(result).toBeNull();
-    expect(global.fetch).not.toHaveBeenCalled();
-  });
-
-  it('uses the plain token when cookie value is not valid JSON', async () => {
-    cookieGetterValue = 'next-auth.session-token=plain-jwt-token';
-
-    (global.fetch as jest.Mock).mockResolvedValueOnce(
-      makeFetchResponse({
-        authenticated: true,
-        user: { id: 'u1', name: 'Alice', email: 'alice@example.com' },
-      })
-    );
-
-    const session = await getSession();
-
-    expect(global.fetch).toHaveBeenCalledWith(
-      'http://127.0.0.1:8080/api/v1/auth/verify',
-      expect.objectContaining({
-        method: 'POST',
-        body: JSON.stringify({ session_token: 'plain-jwt-token' }),
-      })
-    );
-    expect(session?.user.name).toBe('Alice');
-  });
-
-  it('extracts session_token from JSON-encoded cookie', async () => {
-    const jsonPayload = encodeURIComponent(
-      JSON.stringify({ session_token: 'extracted-token' })
-    );
-    cookieGetterValue = `next-auth.session-token=${jsonPayload}`;
-
-    (global.fetch as jest.Mock).mockResolvedValueOnce(
-      makeFetchResponse({
-        authenticated: true,
-        user: { id: 'u2', name: 'Bob', email: 'bob@example.com' },
-      })
-    );
-
-    await getSession();
-
-    expect(global.fetch).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.objectContaining({
-        body: JSON.stringify({ session_token: 'extracted-token' }),
-      })
-    );
-  });
-
-  it('returns null when the API response is not ok', async () => {
-    cookieGetterValue = 'next-auth.session-token=some-token';
-
-    (global.fetch as jest.Mock).mockResolvedValueOnce(
-      makeFetchResponse({}, 401)
-    );
-
-    const result = await getSession();
-    expect(result).toBeNull();
-  });
-
-  it('returns null when authenticated is false in response', async () => {
-    cookieGetterValue = 'next-auth.session-token=some-token';
-
-    (global.fetch as jest.Mock).mockResolvedValueOnce(
-      makeFetchResponse({ authenticated: false, user: null })
-    );
-
-    const result = await getSession();
-    expect(result).toBeNull();
-  });
-
-  it('returns null when fetch throws', async () => {
-    cookieGetterValue = 'next-auth.session-token=some-token';
-
-    (global.fetch as jest.Mock).mockRejectedValueOnce(
-      new Error('Network error')
-    );
-
-    const result = await getSession();
-    expect(result).toBeNull();
-  });
-
-  it('returns the full session object on success', async () => {
-    cookieGetterValue = 'next-auth.session-token=valid-token';
-
-    (global.fetch as jest.Mock).mockResolvedValueOnce(
-      makeFetchResponse({
-        authenticated: true,
-        user: { id: 'u42', name: 'Charlie', email: 'charlie@example.com' },
-      })
-    );
-
-    const session = await getSession();
-    expect(session).toEqual({
-      user: { id: 'u42', name: 'Charlie', email: 'charlie@example.com' },
-    });
-  });
-});
-
-// ---------------------------------------------------------------------------
 // clearAllSessionData
 // ---------------------------------------------------------------------------
 
@@ -174,12 +67,12 @@ describe('clearAllSessionData', () => {
     );
   });
 
-  it('includes session_token query param when cookie is present', async () => {
-    cookieGetterValue = 'next-auth.session-token=my-token';
-
+  it('includes session_token query param when a token is passed', async () => {
+    // The JWE cookie is opaque to client JS, so the token is now supplied
+    // by the caller (from the NextAuth session) rather than read from cookie.
     (global.fetch as jest.Mock).mockResolvedValue(makeFetchResponse({}, 200));
 
-    await clearAllSessionData();
+    await clearAllSessionData('my-token');
 
     const calledUrl = (global.fetch as jest.Mock).mock.calls[0][0] as string;
     expect(calledUrl).toContain('session_token=my-token');

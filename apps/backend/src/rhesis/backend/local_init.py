@@ -12,8 +12,11 @@ from datetime import datetime, timezone
 from typing import Any, Mapping
 
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 
 from rhesis.backend.app import crud, models
+from rhesis.backend.app.auth.terms import record_terms_acceptance
+from rhesis.backend.app.database import set_session_variables
 from rhesis.backend.app.services.organization import load_initial_data
 from rhesis.backend.app.utils.encryption import hash_token
 from rhesis.backend.app.utils.quick_start import is_quick_start_enabled
@@ -58,7 +61,9 @@ def initialize_local_environment(db: Session) -> None:
                 # so the RBAC default-org-role hook never fired for pre-existing
                 # local envs. Seed it now — no-op if RBAC is unavailable or the
                 # row already exists.
+                set_session_variables(db, str(org.id), str(user.id))
                 _ensure_local_admin_org_role(db, user.id, org.id)
+                _ensure_local_admin_terms_accepted(user)
                 db.commit()
 
                 # Check if token exists
@@ -90,6 +95,9 @@ def initialize_local_environment(db: Session) -> None:
                     default_model_ids = load_initial_data(db, str(org.id), str(user.id))
                     _apply_default_model_ids_to_user(user, default_model_ids)
                     db.flush()
+                    # Seed data enrolls the admin in projects after the org-role
+                    # hook may have already run — re-fire so project roles sync.
+                    _ensure_local_admin_org_role(db, user.id, org.id)
                     db.commit()
                     logger.info("✅ Initial seed data loaded successfully!")
                 else:
@@ -145,12 +153,15 @@ def initialize_local_environment(db: Session) -> None:
 
         # Update user with organization_id
         user.organization_id = org_id
+        user.joined_at = current_time
+        record_terms_acceptance(user)
         db.flush()
 
         # Direct ORM construction above bypasses crud.create_user, so the RBAC
         # default-org-role hook never fires on its own. owner_id is already set
         # on the org, so this resolves the admin to Owner (mirrors
         # routers/organization.py's post-onboarding hook invocation).
+        set_session_variables(db, str(org_id), str(user_id))
         _ensure_local_admin_org_role(db, user_id, org_id)
 
         # Create API token
@@ -162,6 +173,10 @@ def initialize_local_environment(db: Session) -> None:
         default_model_ids = load_initial_data(db, str(org_id), str(user_id))
         _apply_default_model_ids_to_user(user, default_model_ids)
         db.flush()
+
+        # enroll_user_in_project runs inside load_initial_data after the org-role
+        # hook above — re-fire so project_membership.role_id is backfilled.
+        _ensure_local_admin_org_role(db, user_id, org_id)
 
         db.commit()
 
@@ -176,6 +191,12 @@ def initialize_local_environment(db: Session) -> None:
         db.rollback()
 
 
+def _ensure_local_admin_terms_accepted(user: models.User) -> None:
+    """Ensure the Quick Start admin has accepted the current T&C version."""
+    record_terms_acceptance(user)
+    flag_modified(user, "user_settings")
+
+
 def _ensure_local_admin_org_role(
     db: Session, user_id: uuid.UUID, organization_id: uuid.UUID
 ) -> None:
@@ -184,7 +205,12 @@ def _ensure_local_admin_org_role(
     ``initialize_local_environment`` builds the org/user via direct ORM
     construction rather than ``crud.create_user``/the onboarding endpoint, so
     the hook that seeds the ``organization_member`` row never runs on its own.
-    No-op when RBAC is unavailable or a row already exists (idempotent).
+    No-op when RBAC is unavailable or a row already exists (idempotent). The
+    EE handler (``assign_default_org_role``) logs the outcome itself, so core
+    does not re-query the EE-owned ``organization_member`` table here — doing
+    so would violate the core/EE import boundary (``community-boundary`` CI job).
+
+    Caller must set RLS session variables before invoking this function.
     """
     from rhesis.backend.app.auth.org_membership_hook import on_user_org_assigned
 

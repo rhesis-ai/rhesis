@@ -536,6 +536,29 @@ Most recent completed run for a test set + endpoint pair.
 **Key parameters:** `test_set_identifier`, `endpoint_id` (required)
 
 ---
+
+## Tags
+
+### `list_tags`
+List organization tags. Reuse existing names before assigning.
+
+**Typical call:** `$select=id,name`
+
+---
+
+### `assign_tag`
+Assign a tag to a behavior or metric. Creates the tag if missing.
+
+**Request shape:** `POST /tags/{entity_type}/{entity_id}` with JSON body `{"name": "safety"}`. Path params are case-sensitive: `"Behavior"` or `"Metric"`.
+
+**Key parameters:**
+- `entity_type` (path, required) — `"Behavior"` or `"Metric"` (case-sensitive)
+- `entity_id` (path, required) — UUID
+- `name` (JSON body, required) — tag name string
+
+**CHAIN:** `create_behavior` / `create_metric` → `assign_tag`
+
+---
 ## Playbooks
 
 See `references/entity-model.md` for the full entity graph and tool chains by intent.

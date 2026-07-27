@@ -23,13 +23,11 @@ interface DetailsDraft {
 // ── Main component ─────────────────────────────────────────────────────────────
 
 interface TestSetDetailsCardProps {
-  sessionToken: string;
   testSet: TestSet;
   onUpdate?: () => void;
 }
 
 export default function TestSetDetailsCard({
-  sessionToken,
   testSet,
   onUpdate,
 }: TestSetDetailsCardProps) {
@@ -49,7 +47,7 @@ export default function TestSetDetailsCard({
   };
 
   const handleSave = async (draft: DetailsDraft) => {
-    const factory = new ApiClientFactory(sessionToken);
+    const factory = new ApiClientFactory();
     await factory.getTestSetsClient().updateTestSet(testSet.id as string, {
       name: draft.name,
       description: draft.description || undefined,

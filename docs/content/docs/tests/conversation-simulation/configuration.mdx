@@ -143,7 +143,7 @@ If `min_turns` exceeds `max_turns`, it is automatically capped to `max_turns`.
 <Callout type="info">
   **Choosing Max Turns:** Start with 10 for simple tests. Use 15-20 for
   social engineering or multi-turn attack scenarios. Use 25-30 for
-  comprehensive exploratory testing.
+  wide-ranging exploratory testing.
 </Callout>
 
 ### Tool Execution Limit
@@ -196,18 +196,6 @@ agent = PenelopeAgent(
 # Results only - no execution details
 agent = PenelopeAgent(verbose=False)`}
 
-</CodeBlock>
-
-## Test-Level Configuration
-
-Override `max_turns` per test:
-
-<CodeBlock filename="test_config.py" language="python">
-{`result = agent.execute_test(
-    target=target,
-    goal="Short simple test",
-    max_turns=5,  # Override agent default for this test
-)`}
 </CodeBlock>
 
 ## Log Level
@@ -264,10 +252,7 @@ result = agent.execute_test(
 
 </CodeBlock>
 
----
+## Next steps
 
-<Callout type="default">
-  **Next:** Learn how to [Extend](/conversation-simulation/extending) Penelope with custom
-  tools and architecture details, or explore [Examples](/conversation-simulation/examples) for
-  practical use cases.
-</Callout>
+- Learn how to [Extend](/docs/tests/conversation-simulation/extending) Penelope with custom tools
+- Explore [Examples](/docs/tests/conversation-simulation/examples) for practical use cases

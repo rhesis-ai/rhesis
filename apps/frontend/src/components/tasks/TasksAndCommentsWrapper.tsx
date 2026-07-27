@@ -14,7 +14,6 @@ import { TaskCreationDrawer } from './TaskCreationDrawer';
 interface TasksAndCommentsWrapperProps {
   entityType: EntityType;
   entityId: string;
-  sessionToken: string;
   currentUserId: string;
   currentUserName: string;
   currentUserPicture?: string;
@@ -25,7 +24,6 @@ interface TasksAndCommentsWrapperProps {
 export function TasksAndCommentsWrapper({
   entityType,
   entityId,
-  sessionToken,
   currentUserId,
   currentUserName,
   currentUserPicture,
@@ -113,7 +111,6 @@ export function TasksAndCommentsWrapper({
         <TasksSection
           entityType={entityType}
           entityId={entityId}
-          sessionToken={sessionToken}
           onCreateTask={handleCreateTask}
           onEditTask={handleEditTask}
           onDeleteTask={handleDeleteTask}
@@ -123,7 +120,6 @@ export function TasksAndCommentsWrapper({
         <CommentsWrapper
           entityType={entityType}
           entityId={entityId}
-          sessionToken={sessionToken}
           currentUserId={currentUserId}
           currentUserName={currentUserName}
           currentUserPicture={currentUserPicture}

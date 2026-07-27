@@ -8,7 +8,7 @@ import { ConversationTurn } from '@/utils/api-client/interfaces/test-results';
 /**
  * Test type selection
  */
-export type TestType = 'single_turn' | 'multi_turn';
+export type TestType = 'Single-Turn' | 'Multi-Turn';
 
 /**
  * Multi-turn prompt structure
@@ -55,7 +55,7 @@ export interface ChipState {
  */
 export interface TestSample {
   id: string;
-  testType: 'single_turn';
+  testType: 'Single-Turn';
   prompt: string;
   response?: string;
   behavior: string;
@@ -72,7 +72,7 @@ export interface TestSample {
  */
 export interface MultiTurnTestSample {
   id: string;
-  testType: 'multi_turn';
+  testType: 'Multi-Turn';
   prompt: MultiTurnPrompt;
   response?: string;
   behavior: string;
@@ -112,7 +112,7 @@ export interface GenerationConfig {
   project: Project | null;
   behaviors: string[];
   purposes: string[];
-  testType: 'single_turn' | 'multi_turn';
+  testType: 'Single-Turn' | 'Multi-Turn';
   responseGeneration: 'prompt_only' | 'prompt_and_response';
   testCoverage: 'focused' | 'standard' | 'comprehensive';
   tags: string[];

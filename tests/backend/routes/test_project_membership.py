@@ -210,6 +210,37 @@ class TestProjectListingMembership:
         # assertable here because mine may include more projects than the page holds.
         assert all_ids.issubset(mine_ids)
 
+    def test_mine_excludes_inactive_project(
+        self, authenticated_client, test_db, test_org_id, authenticated_user_id
+    ):
+        """An inactive project the user is enrolled in must not appear in
+        GET /projects/mine — the switcher (and /resolve's candidate probing,
+        which shares this filter) must never offer switching into it."""
+        project = _make_project(test_db, test_org_id)
+        _enroll(test_db, str(authenticated_user_id), str(project.id), test_org_id)
+        project.is_active = False
+        test_db.flush()
+
+        response = authenticated_client.get("/projects/mine")
+        assert response.status_code == status.HTTP_200_OK
+        ids = [p["id"] for p in response.json()]
+        assert str(project.id) not in ids
+
+    def test_mine_excludes_soft_deleted_project(
+        self, authenticated_client, test_db, test_org_id, authenticated_user_id
+    ):
+        """A soft-deleted project the user is enrolled in must not appear in
+        GET /projects/mine."""
+        project = _make_project(test_db, test_org_id)
+        _enroll(test_db, str(authenticated_user_id), str(project.id), test_org_id)
+        project.soft_delete()
+        test_db.flush()
+
+        response = authenticated_client.get("/projects/mine")
+        assert response.status_code == status.HTTP_200_OK
+        ids = [p["id"] for p in response.json()]
+        assert str(project.id) not in ids
+
 
 # ---------------------------------------------------------------------------
 # 2. Creator auto-enrollment on POST /projects/

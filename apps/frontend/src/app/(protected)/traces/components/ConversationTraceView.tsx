@@ -29,7 +29,6 @@ import {
 
 interface ConversationTraceViewProps {
   trace: TraceDetailResponse;
-  sessionToken: string;
   onSpanSelect?: (span: SpanNode) => void;
   rootSpans?: SpanNode[];
   onReviewTurn?: (turnNumber: number, turnSuccess: boolean) => void;
@@ -87,7 +86,6 @@ function deletedTestResultFallback(testResultId: string): DeletedEntityData {
 
 export default function ConversationTraceView({
   trace,
-  sessionToken,
   onSpanSelect,
   rootSpans,
   onReviewTurn,
@@ -107,7 +105,7 @@ export default function ConversationTraceView({
     setTestResult(null);
 
     const load = async () => {
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       let result: TestResultDetail | null = null;
       let deleted: DeletedEntityData | null = null;
       let fetchError: string | null = null;
@@ -159,7 +157,7 @@ export default function ConversationTraceView({
     // trace.trace_id changes — which is already a dep. Adding rootSpans would
     // trigger a re-fetch on every render (new array reference each time).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trace.trace_id, trace.test_result?.id, sessionToken]);
+  }, [trace.trace_id, trace.test_result?.id]);
 
   const turnReviewMap = useMemo(() => {
     const map = new Map<number, Review>();
@@ -207,10 +205,7 @@ export default function ConversationTraceView({
 
   const deletedTestWarning = deletedTestResult ? (
     <Box sx={{ p: 2, flexShrink: 0 }}>
-      <DeletedEntityAlert
-        entityData={deletedTestResult}
-        sessionToken={sessionToken}
-      />
+      <DeletedEntityAlert entityData={deletedTestResult} />
     </Box>
   ) : null;
 
@@ -303,7 +298,6 @@ export default function ConversationTraceView({
           }
           onReviewTurn={onReviewTurn}
           maxHeight="100%"
-          sessionToken={sessionToken}
           turnReviewMap={turnReviewMap}
         />
       </Box>

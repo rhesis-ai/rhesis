@@ -128,6 +128,7 @@ class TargetInteractionTool(Tool):
                     success=False,
                     output={},
                     error=response.error or "Target interaction failed",
+                    metadata=response.metadata or {},
                 )
 
         except Exception as e:
@@ -185,6 +186,7 @@ class TargetInteractionTool(Tool):
                     success=False,
                     output={},
                     error=response.error or "Target interaction failed",
+                    metadata=response.metadata or {},
                 )
 
         except Exception as e:

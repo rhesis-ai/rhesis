@@ -6,7 +6,7 @@ to use the new direct parameter passing approach.
 """
 
 import uuid
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from sqlalchemy.orm import Session
@@ -107,9 +107,7 @@ class TestBulkCreateTests:
 
             # Verify the tests exist in the DB with expected relationships
             for test_id in result:
-                test_obj = test_db.query(models.Test).filter(
-                    models.Test.id == test_id
-                ).first()
+                test_obj = test_db.query(models.Test).filter(models.Test.id == test_id).first()
                 assert test_obj is not None
                 assert str(test_obj.organization_id) == test_org_id
                 assert str(test_obj.user_id) == authenticated_user_id
@@ -159,9 +157,7 @@ class TestBulkCreateTests:
 
         # Verify the tests exist in the DB with expected relationships
         for test_id in result:
-            test_obj = test_db.query(models.Test).filter(
-                models.Test.id == test_id
-            ).first()
+            test_obj = test_db.query(models.Test).filter(models.Test.id == test_id).first()
             assert test_obj is not None
             assert str(test_obj.organization_id) == test_org_id
             assert str(test_obj.user_id) == authenticated_user_id
@@ -185,6 +181,148 @@ class TestBulkCreateTests:
                 organization_id="invalid-uuid",
                 user_id=authenticated_user_id,
             )
+
+    def test_create_prompt_with_cache_reuses_status_lookup(self, test_db: Session):
+        """create_prompt(cache=...) must reuse a cached status lookup across
+        calls instead of re-querying the DB for every prompt (the N+1 this
+        fix addresses in bulk_create_tests's per-test loop)."""
+        cache = test_service._BulkEntityCache()
+        fake_status = MagicMock(id=uuid.uuid4())
+        defaults = {"prompt": {"status": "New", "language_code": "en-US"}}
+
+        with (
+            patch(
+                "rhesis.backend.app.services.test.get_or_create_status",
+                return_value=fake_status,
+            ) as mock_status,
+            patch("rhesis.backend.app.services.test.get_or_create_entity") as mock_entity,
+        ):
+            for content in ("hello", "world", "again"):
+                test_service.create_prompt(
+                    db=test_db,
+                    prompt_data={"content": content},
+                    defaults=defaults,
+                    organization_id="org-id",
+                    user_id="user-id",
+                    cache=cache,
+                )
+
+        mock_status.assert_called_once()
+        assert mock_entity.call_count == 3
+
+    def test_create_prompt_skip_duplicate_check_uses_create_item(self, test_db: Session):
+        """skip_duplicate_check=True must bypass get_or_create_entity's
+        duplicate-content SELECT and create the Prompt directly — bulk
+        imports (e.g. Garak) always have unique content, so that lookup is
+        wasted work."""
+        defaults = {"prompt": {"status": "New", "language_code": "en-US"}}
+
+        with (
+            patch(
+                "rhesis.backend.app.services.test.get_or_create_status",
+                return_value=MagicMock(id=uuid.uuid4()),
+            ),
+            patch("rhesis.backend.app.services.test.get_or_create_entity") as mock_entity,
+            patch("rhesis.backend.app.services.test.create_item") as mock_create_item,
+        ):
+            test_service.create_prompt(
+                db=test_db,
+                prompt_data={"content": "hello"},
+                defaults=defaults,
+                organization_id="org-id",
+                user_id="user-id",
+                skip_duplicate_check=True,
+            )
+
+        mock_entity.assert_not_called()
+        mock_create_item.assert_called_once()
+
+    def test_create_prompt_default_uses_get_or_create_entity(self, test_db: Session):
+        """Without skip_duplicate_check, existing dedup behavior is unchanged."""
+        defaults = {"prompt": {"status": "New", "language_code": "en-US"}}
+
+        with (
+            patch(
+                "rhesis.backend.app.services.test.get_or_create_status",
+                return_value=MagicMock(id=uuid.uuid4()),
+            ),
+            patch("rhesis.backend.app.services.test.get_or_create_entity") as mock_entity,
+            patch("rhesis.backend.app.services.test.create_item") as mock_create_item,
+        ):
+            test_service.create_prompt(
+                db=test_db,
+                prompt_data={"content": "hello"},
+                defaults=defaults,
+                organization_id="org-id",
+                user_id="user-id",
+            )
+
+        mock_entity.assert_called_once()
+        mock_create_item.assert_not_called()
+
+    def test_bulk_create_tests_skip_prompt_dedup_creates_separate_prompts(
+        self,
+        test_db: Session,
+        authenticated_user_id,
+        test_org_id,
+        test_organization,
+        test_type_lookup,
+        db_status,
+        db_user,
+    ):
+        """skip_prompt_dedup=True must skip the duplicate-content lookup, so
+        identical prompt content creates a distinct Prompt row per test
+        rather than reusing an existing one."""
+        shared_prompt = PromptDataFactory.minimal_data()
+        test_data_list = [
+            create_bulk_test_data(prompt=dict(shared_prompt)),
+            create_bulk_test_data(prompt=dict(shared_prompt)),
+        ]
+
+        result = test_service.bulk_create_tests(
+            db=test_db,
+            tests_data=test_data_list,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            skip_prompt_dedup=True,
+        )
+
+        prompt_ids = {
+            test_db.query(models.Test).filter(models.Test.id == tid).first().prompt_id
+            for tid in result
+        }
+        assert len(prompt_ids) == 2  # not deduped despite identical content
+
+    def test_bulk_create_tests_dedups_prompts_by_default(
+        self,
+        test_db: Session,
+        authenticated_user_id,
+        test_org_id,
+        test_organization,
+        test_type_lookup,
+        db_status,
+        db_user,
+    ):
+        """Without skip_prompt_dedup, identical prompt content reuses the
+        existing Prompt row (unchanged default behavior)."""
+        shared_prompt = PromptDataFactory.minimal_data()
+        test_data_list = [
+            create_bulk_test_data(prompt=dict(shared_prompt)),
+            create_bulk_test_data(prompt=dict(shared_prompt)),
+        ]
+
+        result = test_service.bulk_create_tests(
+            db=test_db,
+            tests_data=test_data_list,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+
+        prompt_ids = {
+            test_db.query(models.Test).filter(models.Test.id == tid).first().prompt_id
+            for tid in result
+        }
+        assert len(prompt_ids) == 1  # deduped as before
 
 
 @pytest.mark.unit

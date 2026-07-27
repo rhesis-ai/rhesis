@@ -39,6 +39,7 @@ import {
 } from '@mui/icons-material';
 import Switch from '@mui/material/Switch';
 import Link from 'next/link';
+import { useSession } from 'next-auth/react';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import BaseTag from '@/components/common/BaseTag';
 import FormSectionDivider from '@/components/common/FormSectionDivider';
@@ -52,6 +53,7 @@ import { PreflightDialog } from '@/components/common/PreflightDialog';
 import SelectExperimentsDrawer from '@/components/common/SelectExperimentsDrawer';
 import SelectMetricsDialog from '@/components/common/SelectMetricsDialog';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { safeRandomUUID } from '@/utils/uuid';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { useEndpoints } from '@/hooks/useEndpoints';
 import type {
@@ -76,6 +78,7 @@ import { BORDER_RADIUS } from '@/styles/theme';
 import type { UUID } from 'crypto';
 import { readActiveProjectId } from '@/utils/active-project';
 import { formatDate } from '@/utils/date';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 // ---------------------------------------------------------------------------
 // Shared local types
@@ -156,7 +159,6 @@ type RunDrawerModeProps =
 type RunDrawerProps = {
   open: boolean;
   onClose: () => void;
-  sessionToken: string;
   onSuccess?: () => void;
 } & RunDrawerModeProps;
 
@@ -270,9 +272,10 @@ const EXPERIMENT_SECTION_DESCRIPTION =
 // ---------------------------------------------------------------------------
 
 export default function RunDrawer(props: RunDrawerProps) {
-  const { open, onClose, sessionToken, onSuccess, mode } = props;
+  const { open, onClose, onSuccess, mode } = props;
   const cfg = MODE_CONFIGS[mode];
   const notifications = useNotifications();
+  const { status } = useSession();
 
   // ---- Core state ----
   const [loading, setLoading] = useState(false);
@@ -282,7 +285,6 @@ export default function RunDrawer(props: RunDrawerProps) {
   // ---- Project / Endpoint ----
   const [projects, setProjects] = useState<ProjectOption[]>([]);
   const { data: rawEndpoints, isLoading: endpointsLoading } = useEndpoints(
-    sessionToken,
     { sort_by: 'name', sort_order: 'asc', limit: 100 },
     open && (cfg.projectEditable || mode === 'runExperiment')
   );
@@ -370,10 +372,7 @@ export default function RunDrawer(props: RunDrawerProps) {
     }>
   >([]);
 
-  const apiFactory = useMemo(
-    () => new ApiClientFactory(sessionToken),
-    [sessionToken]
-  );
+  const apiFactory = useMemo(() => new ApiClientFactory(), []);
 
   // -----------------------------------------------------------------------
   // Derived helpers
@@ -446,7 +445,7 @@ export default function RunDrawer(props: RunDrawerProps) {
   // -----------------------------------------------------------------------
 
   useEffect(() => {
-    if (!open || !sessionToken) return;
+    if (!open || !isAuthenticated(status)) return;
     if (!cfg.projectEditable && mode !== 'runExperiment') return;
 
     let mounted = true;
@@ -492,7 +491,7 @@ export default function RunDrawer(props: RunDrawerProps) {
       mounted = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, sessionToken, mode]);
+  }, [open, mode]);
 
   // `runExperiment` mode filters endpoints to the experiment's project as
   // soon as the shared endpoints list resolves (the general
@@ -817,7 +816,7 @@ export default function RunDrawer(props: RunDrawerProps) {
     const endpointId = resolveEndpointId();
     if (!endpointId || testSetIds.length === 0) return;
 
-    const correlationId = crypto.randomUUID();
+    const correlationId = safeRandomUUID();
     setPreflightCorrelationId(correlationId);
 
     preflightRequestRef.current = {
@@ -883,7 +882,7 @@ export default function RunDrawer(props: RunDrawerProps) {
     const endpointId = resolveEndpointId();
     if (!endpointId || testSetIds.length === 0) return;
 
-    const newCorrelationId = crypto.randomUUID();
+    const newCorrelationId = safeRandomUUID();
     setPreflightCorrelationId(newCorrelationId);
     setPreflightChecks([]);
 
@@ -968,7 +967,6 @@ export default function RunDrawer(props: RunDrawerProps) {
           await assignTagsToRuns({
             outcome,
             testRunsClient: apiFactory.getTestRunsClient(),
-            sessionToken,
             tags,
             organizationId,
           });
@@ -1662,7 +1660,6 @@ export default function RunDrawer(props: RunDrawerProps) {
               open={metricsDialogOpen}
               onClose={() => setMetricsDialogOpen(false)}
               onSelect={handleAddMetric}
-              sessionToken={sessionToken}
               excludeMetricIds={selectedMetrics.map(m => m.id)}
               title="Add Metric to Execution"
               subtitle="Select a metric to use for this test run"
@@ -1785,7 +1782,6 @@ export default function RunDrawer(props: RunDrawerProps) {
                 open={metricsDialogOpen}
                 onClose={() => setMetricsDialogOpen(false)}
                 onSelect={handleAddMetric}
-                sessionToken={sessionToken}
                 excludeMetricIds={selectedMetrics.map(m => m.id)}
                 title="Add Metric to Execution"
                 subtitle="Select a metric to use for this test run"
@@ -1801,7 +1797,6 @@ export default function RunDrawer(props: RunDrawerProps) {
         <FormSectionDivider headline="Model Settings" />
         <Box sx={RERUN_FIELDS_SX}>
           <ModelSelector
-            sessionToken={sessionToken}
             value={selectedEvaluationModelId}
             onChange={setSelectedEvaluationModelId}
             label="Evaluation Model"
@@ -1814,7 +1809,6 @@ export default function RunDrawer(props: RunDrawerProps) {
 
           {effectiveTestSetType === 'Multi-Turn' && (
             <ModelSelector
-              sessionToken={sessionToken}
               value={selectedExecutionModelId}
               onChange={setSelectedExecutionModelId}
               label="Execution Model"
@@ -1981,7 +1975,6 @@ export default function RunDrawer(props: RunDrawerProps) {
               {renderScoringTarget()}
               {cfg.showMetrics && renderMetrics()}
               <ModelSelector
-                sessionToken={sessionToken}
                 value={selectedEvaluationModelId}
                 onChange={setSelectedEvaluationModelId}
                 label="Evaluation Model"
@@ -1994,7 +1987,6 @@ export default function RunDrawer(props: RunDrawerProps) {
               {(effectiveTestSetType === 'Multi-Turn' ||
                 mode === 'createFromGrid') && (
                 <ModelSelector
-                  sessionToken={sessionToken}
                   value={selectedExecutionModelId}
                   onChange={setSelectedExecutionModelId}
                   label="Execution Model"
@@ -2085,7 +2077,6 @@ export default function RunDrawer(props: RunDrawerProps) {
           open={experimentsDrawerOpen}
           onClose={() => setExperimentsDrawerOpen(false)}
           onConfirm={setSelectedExperiments}
-          sessionToken={sessionToken}
           projectId={effectiveProjectId}
           initialSelection={selectedExperiments}
           title={`Experiments for this ${mode === 'rerunTestRun' ? 're-run' : 'run'}`}

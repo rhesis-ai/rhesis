@@ -3,6 +3,7 @@ import { Box, Button, CircularProgress } from '@mui/material';
 import { Metadata } from 'next';
 import { auth } from '@/auth';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
+import { notFoundIfEntityMissing } from '@/utils/entity-not-found-server';
 import Link from 'next/link';
 import { format } from 'date-fns';
 
@@ -36,16 +37,22 @@ export async function generateMetadata({
 export default async function TestDetailPage({ params }: PageProps) {
   const session = await auth();
 
-  if (!session?.session_token) {
+  if (!session || session.error) {
     throw new Error('No session token available');
   }
 
-  const apiFactory = await createServerApiFactory(session.session_token);
+  const apiFactory = await createServerApiFactory();
   const testsClient = apiFactory.getTestsClient();
   const promptsClient = apiFactory.getPromptsClient();
   const { identifier } = await params;
 
-  const test = await testsClient.getTest(identifier);
+  let test;
+  try {
+    test = await testsClient.getTest(identifier);
+  } catch (error) {
+    notFoundIfEntityMissing(error);
+    throw error;
+  }
 
   if (test.prompt_id) {
     const promptData = await promptsClient.getPrompt(test.prompt_id);
@@ -89,7 +96,6 @@ export default async function TestDetailPage({ params }: PageProps) {
 
   const pageActions = (
     <TestToTestSet
-      sessionToken={session.session_token}
       testId={identifier}
       parentButton={
         test.parent_id ? (
@@ -125,7 +131,6 @@ export default async function TestDetailPage({ params }: PageProps) {
         >
           <TestDetailTabs
             test={test}
-            sessionToken={session.session_token}
             currentUserId={session.user?.id || ''}
             currentUserName={session.user?.name || ''}
             currentUserPicture={session.user?.picture || undefined}

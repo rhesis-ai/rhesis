@@ -41,13 +41,9 @@ import { format } from 'date-fns';
 
 interface TestResultTabProps {
   trace: TraceDetailResponse;
-  sessionToken: string;
 }
 
-export default function TestResultTab({
-  trace,
-  sessionToken,
-}: TestResultTabProps) {
+export default function TestResultTab({ trace }: TestResultTabProps) {
   const theme = useTheme();
   const [testResult, setTestResult] = useState<TestResultDetail | null>(null);
   const [loading, setLoading] = useState(false);
@@ -64,7 +60,7 @@ export default function TestResultTab({
     setTestResult(null);
 
     try {
-      const apiFactory = new ApiClientFactory(sessionToken);
+      const apiFactory = new ApiClientFactory();
       const testResultsClient = apiFactory.getTestResultsClient();
       const result = await testResultsClient.getTestResult(
         trace.test_result.id
@@ -93,7 +89,7 @@ export default function TestResultTab({
     } finally {
       setLoading(false);
     }
-  }, [trace.test_result?.id, sessionToken]);
+  }, [trace.test_result?.id]);
 
   useEffect(() => {
     if (trace.test_result?.id) {
@@ -137,10 +133,7 @@ export default function TestResultTab({
   if (deletedTestResult) {
     return (
       <Box sx={{ p: 3 }}>
-        <DeletedEntityAlert
-          entityData={deletedTestResult}
-          sessionToken={sessionToken}
-        />
+        <DeletedEntityAlert entityData={deletedTestResult} />
       </Box>
     );
   }

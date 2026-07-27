@@ -4,10 +4,8 @@ import pytest
 
 from rhesis.backend.app.schemas.garak import (
     GarakErrorResponse,
-    GarakImportedTestSet,
     GarakImportPreviewResponse,
     GarakImportRequest,
-    GarakImportResponse,
     GarakProbeClassResponse,
     GarakProbeDetailResponse,
     GarakProbeModuleResponse,
@@ -15,7 +13,6 @@ from rhesis.backend.app.schemas.garak import (
     GarakProbeSelection,
     GarakProbesListResponse,
     GarakSyncPreviewResponse,
-    GarakSyncResponse,
 )
 
 
@@ -247,47 +244,6 @@ class TestGarakImportPreviewResponse:
 
 
 @pytest.mark.unit
-class TestGarakImportedTestSet:
-    """Tests for GarakImportedTestSet schema."""
-
-    def test_imported_test_set_creation(self):
-        """Test creating an imported test set response."""
-        imported = GarakImportedTestSet(
-            test_set_id="123e4567-e89b-12d3-a456-426614174000",
-            test_set_name="Garak: Dan 11 0",
-            probe_full_name="dan.Dan_11_0",
-            test_count=50,
-        )
-
-        assert imported.test_set_id == "123e4567-e89b-12d3-a456-426614174000"
-        assert imported.test_count == 50
-
-
-@pytest.mark.unit
-class TestGarakImportResponse:
-    """Tests for GarakImportResponse schema."""
-
-    def test_import_response_creation(self):
-        """Test creating an import response."""
-        test_set = GarakImportedTestSet(
-            test_set_id="123",
-            test_set_name="Test",
-            probe_full_name="dan.Dan_11_0",
-            test_count=50,
-        )
-
-        response = GarakImportResponse(
-            test_sets=[test_set],
-            total_test_sets=1,
-            total_tests=50,
-            garak_version="0.9.5",
-        )
-
-        assert len(response.test_sets) == 1
-        assert response.total_test_sets == 1
-
-
-@pytest.mark.unit
 class TestGarakSyncPreviewResponse:
     """Tests for GarakSyncPreviewResponse schema."""
 
@@ -339,27 +295,6 @@ class TestGarakSyncPreviewResponse:
         )
 
         assert response.modules == ["dan", "encoding", "xss"]
-
-
-@pytest.mark.unit
-class TestGarakSyncResponse:
-    """Tests for GarakSyncResponse schema."""
-
-    def test_sync_response_creation(self):
-        """Test creating a sync response."""
-        response = GarakSyncResponse(
-            added=5,
-            removed=2,
-            unchanged=10,
-            new_garak_version="0.9.5",
-            old_garak_version="0.9.0",
-        )
-
-        assert response.added == 5
-        assert response.removed == 2
-        assert response.unchanged == 10
-        assert response.new_garak_version == "0.9.5"
-        assert response.old_garak_version == "0.9.0"
 
 
 @pytest.mark.unit

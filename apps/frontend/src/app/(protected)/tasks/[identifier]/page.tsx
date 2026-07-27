@@ -25,8 +25,11 @@ import CreateJiraIssueButton from '../components/CreateJiraIssueButton';
 import TaskDetailTabs from './components/TaskDetailTabs';
 import AccessDenied from '@/components/common/AccessDenied';
 import PageLoadingState from '@/components/common/PageLoadingState';
+import DetailEntityMissingState from '@/components/common/DetailEntityMissingState';
+import DetailNotFoundState from '@/components/common/DetailNotFoundState';
 import { useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface PageProps {
   params: Promise<{ identifier: string }>;
@@ -177,62 +180,9 @@ function TaskDetailErrorState({
   );
 }
 
-function TaskDetailNotFoundState({
-  taskId,
-  isRetrying,
-  onBack,
-  onRetry,
-}: {
-  taskId: string;
-  isRetrying: boolean;
-  onBack: () => void;
-  onRetry: () => void;
-}) {
-  return (
-    <PageLayout
-      title="Task Not Found"
-      breadcrumbs={[
-        { label: 'Tasks', href: '/tasks' },
-        { label: 'Not Found', href: `/tasks/${taskId}` },
-      ]}
-    >
-      <Box sx={{ flexGrow: 1, pt: 3 }}>
-        <Alert severity="warning" sx={{ mb: 3 }}>
-          <Typography variant="h6" sx={{ mb: 1 }}>
-            Sorry, we couldn&apos;t load this task
-          </Typography>
-          <Typography variant="body2" sx={{ mb: 2 }}>
-            The task you&apos;re looking for might have been deleted, moved,
-            belongs to a different project, or you may not have permission to
-            view it.
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Task ID: {taskId}
-          </Typography>
-        </Alert>
-        <Box sx={{ display: 'flex', gap: 2 }}>
-          <Button variant="contained" onClick={onBack}>
-            Back to Tasks
-          </Button>
-          <Button variant="outlined" onClick={onRetry} disabled={isRetrying}>
-            {isRetrying ? (
-              <>
-                <CircularProgress color="inherit" size={16} sx={{ mr: 1 }} />
-                Retrying...
-              </>
-            ) : (
-              'Try Again'
-            )}
-          </Button>
-        </Box>
-      </Box>
-    </PageLayout>
-  );
-}
-
 export default function TaskDetailPage({ params }: PageProps) {
   const router = useRouter();
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
     Capability.Task.READ
   );
@@ -241,7 +191,7 @@ export default function TaskDetailPage({ params }: PageProps) {
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isTaskNotFound, setIsTaskNotFound] = useState(false);
+  const [missingError, setMissingError] = useState<unknown>(null);
   const [hasInitialLoad, setHasInitialLoad] = useState(false);
   const [isRetrying, setIsRetrying] = useState(false);
   const [loadingTimeout, setLoadingTimeout] = useState(false);
@@ -278,27 +228,26 @@ export default function TaskDetailPage({ params }: PageProps) {
           setIsLoading(true);
         }
         setError(null);
-        setIsTaskNotFound(false);
+        setMissingError(null);
 
         if (!taskId) {
           throw new Error('No task ID provided');
         }
 
-        if (!session?.session_token) {
+        if (!isAuthenticated(status)) {
           throw new Error('No session token available');
         }
 
-        const sessionToken = session.session_token;
-        const clientFactory = new ApiClientFactory(sessionToken);
+        const clientFactory = new ApiClientFactory();
         const tasksClient = clientFactory.getTasksClient();
         const taskData = await tasksClient.getTask(taskId);
 
         const [fetchedStatuses, fetchedPriorities, fetchedUsers] =
           await Promise.all([
-            getStatusesForTask(sessionToken, taskData.status_id),
-            getPrioritiesForTask(sessionToken, taskData.priority_id),
+            getStatusesForTask(taskData.status_id),
+            getPrioritiesForTask(taskData.priority_id),
             (async () => {
-              const clientFactory = new ApiClientFactory(sessionToken);
+              const clientFactory = new ApiClientFactory();
               const usersClient = clientFactory.getUsersClient();
               const response = await usersClient.getUsers();
               return response.data || [];
@@ -312,7 +261,7 @@ export default function TaskDetailPage({ params }: PageProps) {
         setHasInitialLoad(true);
       } catch (err) {
         if (isNotFoundApiError(err)) {
-          setIsTaskNotFound(true);
+          setMissingError(err);
           setHasInitialLoad(true);
           return;
         }
@@ -331,19 +280,19 @@ export default function TaskDetailPage({ params }: PageProps) {
         setIsRetrying(false);
       }
     },
-    [taskId, session?.session_token, show, hasInitialLoad]
+    [taskId, show, hasInitialLoad, status]
   );
 
   useEffect(() => {
-    if (taskId && session?.session_token) {
+    if (taskId && isAuthenticated(status)) {
       loadInitialData();
     }
-  }, [taskId, session?.session_token, loadInitialData]);
+  }, [taskId, loadInitialData, status]);
 
   useEffect(() => {
     let timeoutId: NodeJS.Timeout;
 
-    if (isLoading || (!hasInitialLoad && taskId && session?.session_token)) {
+    if (isLoading || (!hasInitialLoad && taskId && isAuthenticated(status))) {
       timeoutId = setTimeout(() => {
         setLoadingTimeout(true);
       }, 10000);
@@ -356,21 +305,21 @@ export default function TaskDetailPage({ params }: PageProps) {
         clearTimeout(timeoutId);
       }
     };
-  }, [isLoading, hasInitialLoad, taskId, session?.session_token]);
+  }, [isLoading, hasInitialLoad, taskId, status]);
 
   // Keep the last loaded task visible while retrying so transient failures
   // still show cached data instead of flashing back to the loading state.
   const handleRetry = () => {
     setLoadingTimeout(false);
     setHasInitialLoad(false);
-    setIsTaskNotFound(false);
+    setMissingError(null);
     loadInitialData(true);
   };
 
   if (permsLoading) return <PageLoadingState />;
   if (!canRead) return <AccessDenied resource="tasks" />;
 
-  if (isLoading || (!hasInitialLoad && taskId && session?.session_token)) {
+  if (isLoading || (!hasInitialLoad && taskId && isAuthenticated(status))) {
     return (
       <TaskDetailLoadingState
         taskId={taskId}
@@ -381,13 +330,39 @@ export default function TaskDetailPage({ params }: PageProps) {
     );
   }
 
-  if (isTaskNotFound) {
+  if (missingError) {
     return (
-      <TaskDetailNotFoundState
-        taskId={taskId}
-        isRetrying={isRetrying}
+      <DetailEntityMissingState
+        error={missingError}
+        entityLabel="Task"
+        entityId={taskId}
+        entityTableName="task"
+        listUrl="/tasks"
+        breadcrumbs={[
+          { label: 'Tasks', href: '/tasks' },
+          { label: 'Not Found', href: `/tasks/${taskId}` },
+        ]}
         onBack={() => router.push('/tasks')}
         onRetry={handleRetry}
+        isRetrying={isRetrying}
+      />
+    );
+  }
+
+  if (!task && hasInitialLoad && !error) {
+    return (
+      <DetailNotFoundState
+        entityLabel="Task"
+        entityId={taskId}
+        entityTableName="task"
+        listUrl="/tasks"
+        breadcrumbs={[
+          { label: 'Tasks', href: '/tasks' },
+          { label: 'Not Found', href: `/tasks/${taskId}` },
+        ]}
+        onBack={() => router.push('/tasks')}
+        onRetry={handleRetry}
+        isRetrying={isRetrying}
       />
     );
   }
@@ -405,14 +380,7 @@ export default function TaskDetailPage({ params }: PageProps) {
   }
 
   if (!task) {
-    return (
-      <TaskDetailNotFoundState
-        taskId={taskId}
-        isRetrying={isRetrying}
-        onBack={() => router.push('/tasks')}
-        onRetry={handleRetry}
-      />
-    );
+    return null;
   }
 
   const metadataStrip = (
@@ -487,7 +455,6 @@ export default function TaskDetailPage({ params }: PageProps) {
         statuses={statuses}
         priorities={priorities}
         users={users}
-        sessionToken={session?.session_token || ''}
         currentUserId={session?.user?.id || ''}
         currentUserName={session?.user?.name || 'Unknown User'}
         currentUserPicture={session?.user?.picture || undefined}

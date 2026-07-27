@@ -2,10 +2,10 @@ export const dynamic = 'force-dynamic';
 
 import { auth } from '@/auth';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
+import { notFoundIfEntityMissing } from '@/utils/entity-not-found-server';
 import SourcePreviewClientWrapper from './components/SourcePreviewClientWrapper';
 import { Alert, Paper } from '@mui/material';
 import styles from '@/styles/Knowledge.module.css';
-import { notFound } from 'next/navigation';
 
 interface SourcePreviewPageProps {
   params: Promise<{
@@ -23,7 +23,7 @@ export default async function SourcePreviewPage({
   try {
     const session = await auth();
 
-    if (!session?.session_token) {
+    if (!session || session.error) {
       return (
         <Paper className={styles.errorContainer}>
           <Alert severity="error">
@@ -33,7 +33,7 @@ export default async function SourcePreviewPage({
       );
     }
 
-    const apiFactory = await createServerApiFactory(session.session_token);
+    const apiFactory = await createServerApiFactory();
     const sourcesClient = apiFactory.getSourcesClient();
 
     // Await params before using its properties (Next.js 15 requirement)
@@ -47,19 +47,14 @@ export default async function SourcePreviewPage({
     return (
       <SourcePreviewClientWrapper
         source={source}
-        sessionToken={session.session_token}
         currentUserId={session.user?.id || ''}
         currentUserName={session.user?.name || ''}
         currentUserPicture={session.user?.picture || undefined}
       />
     );
   } catch (error) {
-    // If source not found, return 404
-    if (error instanceof Error && error.message.includes('404')) {
-      notFound();
-    }
+    notFoundIfEntityMissing(error);
 
-    // Show error state for other errors
     return (
       <Paper className={styles.errorContainer}>
         <Alert severity="error">

@@ -19,6 +19,7 @@ config:
   environment: "development"
   # INFO reduces API log I/O under load; use DEBUG only when actively tracing.
   logLevel: "INFO"
+  jsonLoggerEnabled: true
 
   # App DB name (ConfigMap DB_NAME) and Bitnami PostgreSQL bootstrap database.
   dbName: &rhesis_db_name "rhesis-dev-db"
@@ -28,9 +29,8 @@ config:
   # Frontend
   apiBaseUrl: "https://dev-api.rhesis.ai"
   nextPublicAppUrl: "https://dev-app.rhesis.ai"
-  nextauthUrl: "https://dev-app.rhesis.ai"
   nextPublicSupportEmail: "hello@rhesis.ai"
-  nextPublicOnboardingVideoUrl: "https://youtu.be/fNtxqGtBu2Y"
+  onboardingVideoUrl: "https://youtu.be/fNtxqGtBu2Y"
   # Backend
   rhesisBaseUrl: "https://dev-api.rhesis.ai"
   frontendUrl: "https://dev-app.rhesis.ai"
@@ -76,6 +76,7 @@ backend:
     annotations:
       cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/proxy-body-size: "25m"
   # Observed startup time: ~93s after container start (StatReload + Garak/LiteLLM imports).
   # Image pull adds ~90s before container start but doesn't count toward probe delay.
   # Helm replaces nested maps — keep full blocks.
@@ -211,7 +212,9 @@ workers:
       failureThreshold: 90
     env:
       - name: CELERY_WORKER_CONCURRENCY
-        value: "2"
+        value: "16"
+      - name: CELERY_ARCHITECT_CONCURRENCY
+        value: "8"
 
 telemetryProcessor:
   enabled: true

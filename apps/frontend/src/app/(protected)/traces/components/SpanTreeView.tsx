@@ -137,15 +137,7 @@ function SpanTreeNode({
           component={SpanIcon}
           sx={{
             fontSize: theme => theme.spacing(2.25),
-            color: theme => {
-              // Parse theme path (e.g., 'success.main' -> theme.palette.success.main)
-              const parts = colorPath.split('.');
-              if (parts.length === 2) {
-                const [category, shade] = parts;
-                return `${(theme.palette as unknown as Record<string, Record<string, string>>)[category]?.[shade] || colorPath} !important`;
-              }
-              return `${colorPath} !important`;
-            },
+            color: colorPath,
             mr: 1,
             flexShrink: 0,
           }}

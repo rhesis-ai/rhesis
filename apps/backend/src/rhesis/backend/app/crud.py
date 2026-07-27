@@ -26,6 +26,7 @@ from rhesis.backend.app.schemas.telemetry import (
     TraceType,
 )
 from rhesis.backend.app.utils.crud_utils import (
+    bulk_delete_by_ids,
     create_item,
     delete_item,
     get_item,
@@ -36,7 +37,7 @@ from rhesis.backend.app.utils.crud_utils import (
     update_item,
 )
 from rhesis.backend.app.utils.name_generator import generate_memorable_name
-from rhesis.backend.app.utils.query_utils import QueryBuilder
+from rhesis.backend.app.utils.query_utils import QueryBuilder, include, resolve_chain
 
 logger = logging.getLogger(__name__)
 
@@ -389,11 +390,42 @@ def delete_category(
 
 
 # Behavior CRUD
+# Both read_behavior and read_behaviors return BehaviorWithMetricsSchema (routers/behavior.py),
+# = schemas.Behavior (tags, status, user) + metrics: List[schemas.Metric] (each needing
+# metric_type, backend_type, tags). organization/project are NOT read by this schema (only
+# BehaviorDetail has them) -- deliberately excluded here. Folding Behavior's own tags chain in
+# here means neither caller needs with_default_derived_field_loads (BehaviorWithMetricsSchema
+# has no counts/comments/tasks field), and metrics.tags is included explicitly since
+# selectinload's default cascade skips many-to-many relations -- omitting it would lazy-load
+# tags per nested metric (N+1). No cartesian product: each hop's own cardinality picks
+# selectinload for collections, joinedload for the final single-valued tag.
+_BEHAVIOR_RELATED_FIELDS = (
+    include(models.Behavior.status),
+    include(models.Behavior.user),
+    include(models.Behavior._tags_relationship, models.TaggedItem.tag),
+    include(models.Behavior.metrics),
+    include(models.Behavior.metrics, models.Metric.metric_type),
+    include(models.Behavior.metrics, models.Metric.backend_type),
+    include(models.Behavior.metrics, models.Metric._tags_relationship, models.TaggedItem.tag),
+)
+
+
 def get_behavior(
     db: Session, behavior_id: uuid.UUID, organization_id: str = None, user_id: str = None
 ) -> Optional[models.Behavior]:
-    """Get behavior."""
-    return get_item(db, models.Behavior, behavior_id, organization_id, user_id)
+    """Get behavior with relationships eagerly loaded."""
+    from rhesis.backend.app.utils.crud_utils import _check_and_raise_if_deleted
+    from rhesis.backend.app.utils.query_utils import QueryBuilder
+
+    item = (
+        QueryBuilder(db, models.Behavior)
+        .with_deleted()
+        .with_related(*_BEHAVIOR_RELATED_FIELDS)
+        .with_organization_filter(organization_id)
+        .with_visibility_filter(user_id)
+        .filter_by_id(behavior_id)
+    )
+    return _check_and_raise_if_deleted(item, models.Behavior, behavior_id, False)
 
 
 def get_behaviors(
@@ -410,6 +442,50 @@ def get_behaviors(
     return get_items(
         db, models.Behavior, skip, limit, sort_by, sort_order, filter, organization_id, user_id
     )
+
+
+def get_behaviors_detail(
+    db: Session,
+    skip: int = 0,
+    limit: int = 20,
+    sort_by: str = "created_at",
+    sort_order: str = "desc",
+    filter: str | None = None,
+    organization_id: str = None,
+    user_id: str = None,
+) -> List[models.Behavior]:
+    """Get behaviors with related objects for BehaviorWithMetricsSchema, including metrics.
+
+    Runs as two queries, mirroring get_metrics/crud_utils.get_items_detail: a joinless
+    query picks the page's IDs (filter + sort + LIMIT/OFFSET), then a second query
+    eager-loads _BEHAVIOR_RELATED_FIELDS scoped to just those IDs. Without this split,
+    Postgres would have to build every join for every matching row across the org before
+    it can sort and cut down to `limit`.
+    """
+    ordered_ids = (
+        QueryBuilder(db, models.Behavior)
+        .with_organization_filter(organization_id)
+        .with_visibility_filter(user_id)
+        .with_odata_filter(filter)
+        .with_sorting(sort_by, sort_order)
+        .with_pagination(skip, limit)
+        .ids()
+    )
+    if not ordered_ids:
+        return []
+
+    items = (
+        QueryBuilder(db, models.Behavior)
+        .with_related(*_BEHAVIOR_RELATED_FIELDS)
+        .with_organization_filter(organization_id)
+        .with_visibility_filter(user_id)
+        .query.filter(models.Behavior.id.in_(ordered_ids))
+        .all()
+    )
+
+    # WHERE id IN (...) does not preserve order -- re-apply the phase-1 sort.
+    items_by_id = {item.id: item for item in items}
+    return [items_by_id[item_id] for item_id in ordered_ids if item_id in items_by_id]
 
 
 def create_behavior(
@@ -511,6 +587,23 @@ def get_test_set(
     )
 
 
+# Relationships serialized by TestSetDetailSchema. All many-to-one -- excludes
+# collection relationships (prompts, tests, metrics, test_configurations)
+# because those produce cartesian-product joins or lazy fan-out and none of
+# these endpoints serialize them. comments/tasks/files/tags ARE serialized
+# (via CountsMixin.counts / TagsMixin.tags) -- see with_default_derived_field_loads.
+_TEST_SET_RELATED_FIELDS = (
+    include(models.TestSet.status),
+    include(models.TestSet.license_type),
+    include(models.TestSet.test_set_type),
+    include(models.TestSet.user),
+    include(models.TestSet.owner),
+    include(models.TestSet.assignee),
+    include(models.TestSet.organization),
+    include(models.TestSet.project),
+)
+
+
 def get_test_sets(
     db: Session,
     skip: int = 0,
@@ -529,20 +622,7 @@ def get_test_sets(
     """
     query_builder = (
         QueryBuilder(db, models.TestSet)
-        # Eager-load the many-to-one relationships referenced by TestSetDetailSchema.
-        # Excludes collection relationships (prompts, tests, metrics, test_configurations)
-        # because those produce cartesian-product joins or lazy fan-out and the list
-        # endpoint does not serialize them. comments/tasks/files/tags ARE serialized
-        # (via CountsMixin.counts / TagsMixin.tags) -- see with_default_derived_field_loads.
-        .with_joined(
-            "status",
-            "license_type",
-            "test_set_type",
-            "user",
-            "owner",
-            "assignee",
-            "organization",
-        )
+        .with_related(*_TEST_SET_RELATED_FIELDS)
         .with_default_derived_field_loads()
         .with_organization_filter(organization_id)  # Apply organization filtering
         .with_visibility_filter(user_id)
@@ -634,17 +714,7 @@ def get_test_set_by_nano_id_or_slug(
     """
     return (
         QueryBuilder(db, models.TestSet)
-        # See get_test_sets() for rationale: load only the M2O relationships that
-        # TestSetDetailSchema serializes.
-        .with_joined(
-            "status",
-            "license_type",
-            "test_set_type",
-            "user",
-            "owner",
-            "assignee",
-            "organization",
-        )
+        .with_related(*_TEST_SET_RELATED_FIELDS)
         .with_organization_filter(organization_id)
         .with_visibility_filter(user_id)
         .with_custom_filter(
@@ -713,15 +783,7 @@ def get_test_sets_for_test(
     """
     query_builder = (
         QueryBuilder(db, models.TestSet)
-        .with_joined(
-            "status",
-            "license_type",
-            "test_set_type",
-            "user",
-            "owner",
-            "assignee",
-            "organization",
-        )
+        .with_related(*_TEST_SET_RELATED_FIELDS)
         .with_organization_filter(organization_id)
         .with_visibility_filter(user_id)
         .with_custom_filter(
@@ -769,24 +831,26 @@ def get_test_set_tests(
     """
     query_builder = (
         QueryBuilder(db, models.Test)
-        # Eager-load the many-to-one relationships TestDetailSchema serializes.
-        # Crucially DOES NOT load Test.test_results / Test.test_contexts / Test.trace:
-        # those are one-to-many with very large JSONB payloads and previously
-        # produced a 22-join cartesian product on this endpoint that materialized
-        # multi-GB intermediate result sets.
-        .with_joined(
-            "prompt",
-            "test_type",
-            "user",
-            "assignee",
-            "owner",
-            "parent",
-            "topic",
-            "behavior",
-            "category",
-            "status",
-            "source",
-            "organization",
+        # Eager-load the relationships TestDetailSchema serializes. with_related
+        # picks the strategy per name from its own cardinality, so this can never
+        # regress into the 22-join cartesian product that previously materialized
+        # multi-GB intermediate result sets on this endpoint -- accidentally adding
+        # a one-to-many name here (e.g. test_results/test_contexts/trace) would
+        # route through selectin, not joinedload.
+        .with_related(
+            include(models.Test.prompt),
+            include(models.Test.test_type),
+            include(models.Test.user),
+            include(models.Test.assignee),
+            include(models.Test.owner),
+            include(models.Test.parent),
+            include(models.Test.topic),
+            include(models.Test.behavior),
+            include(models.Test.category),
+            include(models.Test.status),
+            include(models.Test.source),
+            include(models.Test.organization),
+            include(models.Test.project),
         )
         .with_visibility_filter()
         .with_custom_filter(
@@ -942,7 +1006,12 @@ def get_status(
     item = (
         QueryBuilder(db, models.Status)
         .with_deleted()
-        .with_optimized_loads(skip_one_to_many=True)
+        .with_related(
+            include(models.Status.entity_type),
+            include(models.Status.project),
+            include(models.Status.organization),
+            include(models.Status.user),
+        )
         .with_organization_filter(organization_id)
         .with_visibility_filter(user_id)
         .filter_by_id(status_id)
@@ -1318,128 +1387,6 @@ def delete_topic(
 ) -> Optional[models.Topic]:
     """Delete topic."""
     return delete_item(db, models.Topic, topic_id, organization_id, user_id)
-
-
-# Demographic CRUD
-def get_demographic(
-    db: Session, demographic_id: uuid.UUID, organization_id: str = None, user_id: str = None
-) -> Optional[models.Demographic]:
-    """Get demographic."""
-    return get_item(db, models.Demographic, demographic_id, organization_id, user_id)
-
-
-def get_demographics(
-    db: Session,
-    skip: int = 0,
-    limit: int = 10,
-    sort_by: str = "created_at",
-    sort_order: str = "desc",
-    filter: str | None = None,
-    organization_id: str = None,
-    user_id: str = None,
-) -> List[models.Demographic]:
-    return get_items(
-        db,
-        models.Demographic,
-        skip,
-        limit,
-        sort_by,
-        sort_order,
-        filter,
-        organization_id=organization_id,
-        user_id=user_id,
-    )
-
-
-def create_demographic(
-    db: Session,
-    demographic: schemas.DemographicCreate,
-    organization_id: str = None,
-    user_id: str = None,
-) -> models.Demographic:
-    """Create demographic."""
-    return create_item(db, models.Demographic, demographic, organization_id, user_id)
-
-
-def update_demographic(
-    db: Session,
-    demographic_id: uuid.UUID,
-    demographic: schemas.DemographicUpdate,
-    organization_id: str = None,
-    user_id: str = None,
-) -> Optional[models.Demographic]:
-    """Update demographic."""
-    return update_item(
-        db, models.Demographic, demographic_id, demographic, organization_id, user_id
-    )
-
-
-def delete_demographic(
-    db: Session, demographic_id: uuid.UUID, organization_id: str, user_id: str
-) -> Optional[models.Demographic]:
-    return delete_item(
-        db, models.Demographic, demographic_id, organization_id=organization_id, user_id=user_id
-    )
-
-
-# Dimension CRUD
-def get_dimension(
-    db: Session, dimension_id: uuid.UUID, organization_id: str = None, user_id: str = None
-) -> Optional[models.Dimension]:
-    """Get dimension."""
-    return get_item(db, models.Dimension, dimension_id, organization_id, user_id)
-
-
-def get_dimensions(
-    db: Session,
-    skip: int = 0,
-    limit: int = 10,
-    sort_by: str = "created_at",
-    sort_order: str = "desc",
-    filter: str | None = None,
-    organization_id: str = None,
-    user_id: str = None,
-) -> List[models.Dimension]:
-    return get_items(
-        db,
-        models.Dimension,
-        skip,
-        limit,
-        sort_by,
-        sort_order,
-        filter,
-        organization_id=organization_id,
-        user_id=user_id,
-    )
-
-
-def create_dimension(
-    db: Session,
-    dimension: schemas.DimensionCreate,
-    organization_id: str = None,
-    user_id: str = None,
-) -> models.Dimension:
-    """Create dimension."""
-    return create_item(db, models.Dimension, dimension, organization_id, user_id)
-
-
-def update_dimension(
-    db: Session,
-    dimension_id: uuid.UUID,
-    dimension: schemas.DimensionUpdate,
-    organization_id: str = None,
-    user_id: str = None,
-) -> Optional[models.Dimension]:
-    """Update dimension."""
-    return update_item(db, models.Dimension, dimension_id, dimension, organization_id, user_id)
-
-
-def delete_dimension(
-    db: Session, dimension_id: uuid.UUID, organization_id: str, user_id: str
-) -> Optional[models.Dimension]:
-    return delete_item(
-        db, models.Dimension, dimension_id, organization_id=organization_id, user_id=user_id
-    )
 
 
 # User CRUD
@@ -2113,7 +2060,12 @@ def get_projects(
     with bypass_tenant_filter():
         builder = (
             QueryBuilder(db, models.Project)
-            .with_optimized_loads(skip_many_to_many=False, skip_one_to_many=True)
+            .with_related(
+                include(models.Project.user),
+                include(models.Project.owner),
+                include(models.Project.organization),
+                include(models.Project.status),
+            )
             .with_default_derived_field_loads()
             .with_organization_filter(organization_id)
             .with_visibility_filter(user_id)
@@ -2323,6 +2275,53 @@ def delete_test(
     return db_test
 
 
+def bulk_delete_tests(
+    db: Session,
+    test_ids: List[uuid.UUID],
+    organization_id: str,
+    user_id: str,
+) -> Dict[str, List[str]]:
+    """
+    Soft delete multiple tests in one transaction and recompute test-set
+    attributes once per distinct affected test set (not once per deleted test).
+
+    Deleting the same 25 tests one at a time (25 DELETE /tests/{id} requests)
+    recomputes -- and re-UPDATEs -- a shared test set's attributes up to 25
+    times, and those concurrent UPDATEs to the same row serialize at the
+    database. Resolving the affected test sets across the whole batch up
+    front and recomputing each exactly once avoids both problems.
+    """
+    from rhesis.backend.app.services.test_set import update_test_set_attributes
+
+    if not test_ids:
+        return {"deleted_ids": [], "not_found_ids": []}
+
+    def _recompute_affected_test_sets(deleted_ids: List[uuid.UUID]) -> None:
+        rows = db.execute(
+            test_test_set_association.select().where(
+                test_test_set_association.c.test_id.in_(deleted_ids),
+                test_test_set_association.c.organization_id == organization_id,
+            )
+        ).fetchall()
+        affected_test_set_ids = {row.test_set_id for row in rows}
+        for test_set_id in affected_test_set_ids:
+            update_test_set_attributes(
+                db=db,
+                test_set_id=str(test_set_id),
+                organization_id=organization_id,
+                user_id=user_id,
+            )
+
+    return bulk_delete_by_ids(
+        db,
+        models.Test,
+        test_ids,
+        organization_id=organization_id,
+        user_id=user_id,
+        on_deleted=_recompute_affected_test_sets,
+    )
+
+
 # TestContext CRUD
 def get_test_context(
     db: Session, test_context_id: uuid.UUID, organization_id: str = None, user_id: str = None
@@ -2398,14 +2397,29 @@ def delete_test_context(
 
 # Test Run CRUD
 
-# Nested relationship loading spec for TestRun detail responses.
-# Matches the schema defined by TestRunDetailSchema in routers/test_run.py.
-_TEST_RUN_NESTED_RELS = {
-    "test_configuration": {
-        "endpoint": ["project"],
-        "test_set": ["test_set_type"],
-    }
-}
+# Relationships loaded for TestRun detail responses. Matches the schema defined
+# by schemas.TestRunDetail.
+_TEST_RUN_RELATED_FIELDS = (
+    include(models.TestRun.status),
+    include(models.TestRun.assignee),
+    include(models.TestRun.owner),
+    include(models.TestRun.user),
+    include(models.TestRun.organization),
+    include(models.TestRun.experiment),
+    include(models.TestRun.project),
+    include(models.TestRun.test_configuration, models.TestConfiguration.endpoint),
+    include(
+        models.TestRun.test_configuration,
+        models.TestConfiguration.endpoint,
+        models.Endpoint.project,
+    ),
+    include(models.TestRun.test_configuration, models.TestConfiguration.test_set),
+    include(
+        models.TestRun.test_configuration,
+        models.TestConfiguration.test_set,
+        models.TestSet.test_set_type,
+    ),
+)
 
 
 def _defer_endpoint_last_token(q):
@@ -2426,11 +2440,7 @@ def get_test_run(
     item = (
         QueryBuilder(db, models.TestRun)
         .with_deleted()
-        .with_optimized_loads(
-            skip_many_to_many=False,
-            skip_one_to_many=True,
-            nested_relationships=_TEST_RUN_NESTED_RELS,
-        )
+        .with_related(*_TEST_RUN_RELATED_FIELDS)
         .with_default_derived_field_loads()
         .with_custom_filter(_defer_endpoint_last_token)
         .with_organization_filter(organization_id)
@@ -2490,11 +2500,7 @@ def get_test_runs(
 
     return (
         QueryBuilder(db, models.TestRun)
-        .with_optimized_loads(
-            skip_many_to_many=False,
-            skip_one_to_many=True,
-            nested_relationships=_TEST_RUN_NESTED_RELS,
-        )
+        .with_related(*_TEST_RUN_RELATED_FIELDS)
         .with_default_derived_field_loads()
         .with_custom_filter(_defer_endpoint_last_token)
         .with_custom_filter(experiment_filter)
@@ -2678,7 +2684,14 @@ def get_test_result(
     db: Session, test_result_id: uuid.UUID, organization_id: str = None, user_id: str = None
 ) -> Optional[models.TestResult]:
     """Get test_result with relationships (tags, tasks, comments) using optimized approach."""
-    return get_item_detail(db, models.TestResult, test_result_id, organization_id, user_id)
+    return get_item_detail(
+        db,
+        models.TestResult,
+        test_result_id,
+        organization_id,
+        user_id,
+        nested_relationships={"test": ["prompt", "behavior", "topic"]},
+    )
 
 
 def get_test_results(
@@ -2776,7 +2789,7 @@ def get_project_members(
 
 
 def get_my_projects(db: Session, user_id: uuid.UUID, organization_id: str) -> List[models.Project]:
-    """Return all projects the given user is a member of."""
+    """Return all ACTIVE, non-deleted projects the given user is a member of."""
     from rhesis.backend.app.models.project_membership import ProjectMembership
 
     return (
@@ -2785,6 +2798,8 @@ def get_my_projects(db: Session, user_id: uuid.UUID, organization_id: str) -> Li
         .filter(
             ProjectMembership.user_id == user_id,
             ProjectMembership.organization_id == organization_id,
+            models.Project.deleted_at.is_(None),
+            models.Project.is_active.is_(True),
         )
         .all()
     )
@@ -2927,24 +2942,37 @@ def get_type_lookup_by_name_and_value(
 
 
 # Metric CRUD
-# Many-to-one relationships serialized by MetricDetailSchema. Joined-loading these
-# adds at most one row per metric (1:1 join), so it's cheap.
-_METRIC_M2O_RELATIONSHIPS = (
-    "metric_type",
-    "status",
-    "assignee",
-    "owner",
-    "model",
-    "backend_type",
-    "user",
-    "organization",
+# Relationships serialized by schemas.MetricDetail. with_related picks joinedload
+# for the many-to-one ones (metric_type, status, ...) and selectinload for the
+# many-to-many ones (behaviors, test_sets) automatically -- joinedload on the
+# M2M pair previously produced a cartesian product (one row per
+# (metric, behavior, test_set) tuple) that bloated the response by orders of
+# magnitude.
+_METRIC_RELATED_FIELDS = (
+    include(models.Metric.metric_type),
+    include(models.Metric.status),
+    include(models.Metric.assignee),
+    include(models.Metric.owner),
+    include(models.Metric.model),
+    include(models.Metric.backend_type),
+    include(models.Metric.user),
+    include(models.Metric.organization),
+    include(models.Metric.project),
+    # behaviors/test_sets serialize as BehaviorReference/TestSetReference, which
+    # both read `counts` (comments/tasks) and `tags`. with_default_derived_field_loads
+    # only cascades those into many-to-one relations -- it skips many-to-many -- so
+    # without these explicit chains each nested behavior/test_set would lazy-load its
+    # own comments/tasks/tags per row (N+1). include() picks selectinload for each
+    # collection hop and joinedload for the final tag, so no cartesian product.
+    include(models.Metric.behaviors),
+    include(models.Metric.behaviors, models.Behavior.comments),
+    include(models.Metric.behaviors, models.Behavior.tasks),
+    include(models.Metric.behaviors, models.Behavior._tags_relationship, models.TaggedItem.tag),
+    include(models.Metric.test_sets),
+    include(models.Metric.test_sets, models.TestSet.comments),
+    include(models.Metric.test_sets, models.TestSet.tasks),
+    include(models.Metric.test_sets, models.TestSet._tags_relationship, models.TaggedItem.tag),
 )
-
-# Many-to-many relationships serialized by MetricDetailSchema. These MUST use
-# selectinload — joinedload on M2M produces a cartesian product (one row per
-# (metric, behavior, test_set) tuple), which previously bloated the response by
-# orders of magnitude.
-_METRIC_M2M_RELATIONSHIPS = ("behaviors", "test_sets")
 
 
 def get_metric(
@@ -2953,8 +2981,7 @@ def get_metric(
     """Get a specific metric by ID with its related objects, including many-to-many relationships"""
     return (
         QueryBuilder(db, models.Metric)
-        .with_joined(*_METRIC_M2O_RELATIONSHIPS)
-        .with_selectin(*_METRIC_M2M_RELATIONSHIPS)
+        .with_related(*_METRIC_RELATED_FIELDS)
         .with_default_derived_field_loads()
         .with_organization_filter(organization_id)
         .with_visibility_filter(user_id)
@@ -2973,19 +3000,41 @@ def get_metrics(
     organization_id: str = None,
     user_id: str = None,
 ) -> List[models.Metric]:
-    """Get all metrics with their related objects, including many-to-many relationships"""
-    return (
+    """Get all metrics with their related objects, including many-to-many relationships.
+
+    Runs as two queries, mirroring crud_utils.get_items_detail: a joinless
+    query picks the page's IDs (filter + sort + LIMIT/OFFSET), then a second
+    query eager-loads the metric relationships scoped to just those IDs.
+    Without this split, Postgres has to build all nine _METRIC_RELATED_FIELDS
+    joins for every matching row across the org before it can sort and cut
+    down to `limit`, so cost scales with total matching rows rather than
+    page size.
+    """
+    ordered_ids = (
         QueryBuilder(db, models.Metric)
-        .with_joined(*_METRIC_M2O_RELATIONSHIPS)
-        .with_selectin(*_METRIC_M2M_RELATIONSHIPS)
-        .with_default_derived_field_loads()
         .with_organization_filter(organization_id)
         .with_visibility_filter(user_id)
         .with_odata_filter(filter)
-        .with_pagination(skip, limit)
         .with_sorting(sort_by, sort_order)
+        .with_pagination(skip, limit)
+        .ids()
+    )
+    if not ordered_ids:
+        return []
+
+    items = (
+        QueryBuilder(db, models.Metric)
+        .with_related(*_METRIC_RELATED_FIELDS)
+        .with_default_derived_field_loads()
+        .with_organization_filter(organization_id)
+        .with_visibility_filter(user_id)
+        .query.filter(models.Metric.id.in_(ordered_ids))
         .all()
     )
+
+    # WHERE id IN (...) does not preserve order -- re-apply the phase-1 sort.
+    items_by_id = {item.id: item for item in items}
+    return [items_by_id[item_id] for item_id in ordered_ids if item_id in items_by_id]
 
 
 def _preprocess_metric_data(
@@ -4151,32 +4200,38 @@ def get_trace_by_id(
         trace_id: OpenTelemetry trace ID
         project_id: Project ID for access control
         organization_id: Organization ID for multi-tenant security
-        eager_load: Optional list of relationship names to eager load
+        eager_load: Optional list of relationship names to eager load. Each
+            entry may be a single name ("test_result") or a dotted chain
+            ("test_result.test_configuration.endpoint") to eager-load a
+            nested relationship in the same query.
 
     Returns:
         List of Trace models ordered by start_time
     """
     from uuid import UUID
 
-    from sqlalchemy.orm import joinedload
-
     # Convert organization_id to UUID
     org_uuid = UUID(organization_id)
 
-    query = db.query(models.Trace).filter(
-        and_(
-            models.Trace.trace_id == trace_id,
-            models.Trace.project_id == project_id,
-            models.Trace.organization_id == org_uuid,
+    builder = QueryBuilder(db, models.Trace).with_custom_filter(
+        lambda q: q.filter(
+            and_(
+                models.Trace.trace_id == trace_id,
+                models.Trace.project_id == project_id,
+                models.Trace.organization_id == org_uuid,
+            )
         )
     )
 
     # Add eager loading if specified
     if eager_load:
-        for relationship in eager_load:
-            query = query.options(joinedload(getattr(models.Trace, relationship)))
+        options = [
+            include(*resolve_chain(models.Trace, relationship.split(".")))
+            for relationship in eager_load
+        ]
+        builder = builder.with_related(*options)
 
-    return query.order_by(models.Trace.start_time).all()
+    return builder.with_sorting(sort_by="start_time").all()
 
 
 def get_trace_id_for_conversation(

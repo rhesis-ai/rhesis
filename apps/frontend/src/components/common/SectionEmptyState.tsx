@@ -4,7 +4,15 @@ import React from 'react';
 import { Box, Button, Typography } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import type { SvgIconComponent } from '@mui/icons-material';
-import { BORDER_RADIUS } from '@/styles/theme-constants';
+import {
+  EMPTY_STATE,
+  emptyStateCompactTitleSx,
+  emptyStateContainedActionSx,
+  emptyStateDescriptionSx,
+  emptyStateHeaderStackSx,
+  emptyStateIconSx,
+  emptyStateSectionInsetSx,
+} from '@/components/common/entityEmptyStateSx';
 
 export interface SectionEmptyStateProps {
   /** MUI SvgIcon component class (not an element). */
@@ -42,39 +50,10 @@ export default function SectionEmptyState({
   inset = true,
 }: SectionEmptyStateProps) {
   return (
-    <Box
-      sx={{
-        ...(inset && {
-          border: theme => `1px solid ${theme.palette.greyscale.border}`,
-          borderRadius: BORDER_RADIUS.md,
-        }),
-        px: { xs: 2, sm: 4, md: '200px' },
-        py: inset ? '40px' : 0,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        textAlign: 'center',
-        gap: '20px',
-      }}
-    >
-      <Box
-        sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: '10px',
-        }}
-      >
-        <Icon sx={{ fontSize: 32, color: 'primary.main' }} />
-        <Typography
-          variant="h6"
-          sx={{
-            fontWeight: 600,
-            fontSize: 20,
-            lineHeight: '24px',
-            color: 'primary.main',
-          }}
-        >
+    <Box sx={emptyStateSectionInsetSx(inset)}>
+      <Box sx={emptyStateHeaderStackSx(true)}>
+        <Icon sx={emptyStateIconSx(EMPTY_STATE.iconSize.compact)} />
+        <Typography variant="h6" sx={emptyStateCompactTitleSx}>
           {title}
         </Typography>
       </Box>
@@ -82,11 +61,7 @@ export default function SectionEmptyState({
       {description && (
         <Typography
           variant="body2"
-          sx={{
-            color: 'text.secondary',
-            maxWidth: 480,
-            lineHeight: '22px',
-          }}
+          sx={emptyStateDescriptionSx({ compact: true })}
         >
           {description}
         </Typography>
@@ -98,15 +73,7 @@ export default function SectionEmptyState({
           startIcon={showAddIcon ? <AddIcon /> : undefined}
           onClick={onAction}
           disabled={actionDisabled}
-          sx={{
-            fontWeight: 700,
-            fontSize: 18,
-            lineHeight: '25px',
-            borderRadius: BORDER_RADIUS.md,
-            textTransform: 'none',
-            px: '20px',
-            py: '12px',
-          }}
+          sx={emptyStateContainedActionSx}
         >
           {actionLabel}
         </Button>

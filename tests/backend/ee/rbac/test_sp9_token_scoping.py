@@ -222,6 +222,32 @@ class TestTokenProjectBoundary:
             # Org-scoped permission with project_id=None — boundary does not apply.
             assert authorize(principal, "organization:update", project_id=None, db=db) is True
 
+    def test_org_scoped_request_still_denied_on_project_mismatch(self, test_db):
+        """A token scoped to project A must not reach org-scoped caps while the
+        ambient request context is a *different* project B — the org-scope
+        normalization in authorize() must not bypass the token boundary check."""
+        db = test_db
+        org_id = _create_org(db)
+        user_id = _create_user(db, org_id)
+        _set_owner(db, org_id, user_id)
+        _point_session_at_org(db, org_id)
+        token_project = uuid.uuid4()
+        other_project = uuid.uuid4()
+        principal = Principal(
+            user_id=user_id,
+            organization_id=org_id,
+            kind="token",
+            token_project_id=token_project,
+        )
+        with _rbac_on(db, org_id, user_id, "Owner"):
+            # Ambient project (other_project) mismatches the token's own project
+            # boundary (token_project) — must deny even though the permission
+            # is org-scoped and the owner's role would otherwise allow it.
+            assert (
+                authorize(principal, "organization:update", project_id=other_project, db=db)
+                is False
+            )
+
 
 # ---------------------------------------------------------------------------
 # Unit-level: token scopes are immutable on update

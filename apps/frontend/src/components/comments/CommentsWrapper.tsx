@@ -8,7 +8,6 @@ import { EntityType } from '@/types/comments';
 interface CommentsWrapperProps {
   entityType: EntityType;
   entityId: string;
-  sessionToken: string;
   currentUserId: string;
   currentUserName: string;
   currentUserPicture?: string;
@@ -20,7 +19,6 @@ interface CommentsWrapperProps {
 export default function CommentsWrapper({
   entityType,
   entityId,
-  sessionToken,
   currentUserId,
   currentUserName,
   currentUserPicture,
@@ -40,7 +38,6 @@ export default function CommentsWrapper({
   } = useComments({
     entityType,
     entityId,
-    sessionToken,
     currentUserId,
     currentUserName,
     currentUserPicture,

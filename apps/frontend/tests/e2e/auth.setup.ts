@@ -1,6 +1,7 @@
 import fs from 'fs';
 import { test as setup, expect } from '@playwright/test';
 import { LoginPage } from './pages/LoginPage';
+import { acceptTermsViaApi } from './helpers/TermsHelper';
 import { seedAuthWithoutBackend } from './helpers/seed-auth';
 
 /**
@@ -30,7 +31,15 @@ setup('authenticate via Quick Start', async ({ page, browser }) => {
   // Mark the onboarding checklist as dismissed so it never overlays test
   // interactions. The checklist is a fixed-position overlay that intercepts
   // pointer events; dismissing it here means all tests inherit a clean state.
-  await page.evaluate(() => {
+  //
+  // OnboardingContext reconciles localStorage with the server on mount: it
+  // reads localStorage once into React state, then asynchronously fetches
+  // /users/settings and writes `mergeProgress(reactState, dbProgress)` back
+  // to localStorage. Because `mergeProgress` uses OR for every boolean flag,
+  // seeding `dismissed: true` in BOTH localStorage AND the database
+  // guarantees the merge result is `true` regardless of timing or hydration
+  // order.
+  await page.evaluate(async () => {
     try {
       const key = 'rhesis_onboarding_progress';
       const stored = localStorage.getItem(key);
@@ -42,7 +51,27 @@ setup('authenticate via Quick Start', async ({ page, browser }) => {
     } catch (_) {
       // Non-fatal — tests will still work; the overlay may appear
     }
+
+    // Seed the database too so the merge always produces dismissed: true.
+    try {
+      await fetch('/api/backend/users/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          onboarding: { dismissed: true },
+        }),
+      });
+    } catch (_) {
+      // Non-fatal — localStorage seed is the primary mechanism
+    }
   });
+
+  await page.reload();
+  await page.waitForLoadState('networkidle');
+
+  // Accept current T&C so TermsAcceptanceGate does not block test interactions.
+  await acceptTermsViaApi(page);
 
   // Ensure the .auth directory exists — it is gitignored so it won't be
   // present on a fresh checkout or in CI without an explicit mkdir step.

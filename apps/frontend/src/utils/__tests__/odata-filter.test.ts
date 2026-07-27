@@ -16,6 +16,8 @@ import {
   convertTestSetQuickFilterToOData,
   combineTestSetFiltersToOData,
   combineTaskFiltersToOData,
+  combineTeamFiltersToOData,
+  EMPTY_TEAM_FILTERS,
 } from '../odata-filter';
 
 describe('createTaskWildcardSearchFilter', () => {
@@ -530,5 +532,23 @@ describe('combineTestSetFiltersToOData', () => {
     });
     expect(result).toContain('comments/any()');
     expect(result).toContain('not tasks/any()');
+  });
+});
+
+describe('combineTeamFiltersToOData', () => {
+  it('maps active member status to joined_at OData checks', () => {
+    const result = combineTeamFiltersToOData('', {
+      ...EMPTY_TEAM_FILTERS,
+      memberStatus: 'active',
+    });
+    expect(result).toBe('joined_at ne null');
+  });
+
+  it('maps invited member status to missing joined_at OData checks', () => {
+    const result = combineTeamFiltersToOData('', {
+      ...EMPTY_TEAM_FILTERS,
+      memberStatus: 'invited',
+    });
+    expect(result).toBe('joined_at eq null');
   });
 });

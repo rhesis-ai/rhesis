@@ -200,6 +200,40 @@ export const sectionCardGridBleedSx: SxProps<Theme> = {
   width: 'calc(100% + 60px)',
 };
 
+/** Shared 30px horizontal inset for grids/tables embedded in a bleeded section card. */
+export const SECTION_CARD_GRID_INSET_PX = '30px';
+
+/** Table horizontal padding inside a bleeded section-card grid area. */
+export const sectionCardGridTableInsetSx: SxProps<Theme> = {
+  px: SECTION_CARD_GRID_INSET_PX,
+};
+
+/** Clears edge cell padding when the table container already provides horizontal inset. */
+export const sectionCardGridTableEdgeCellResetSx: SxProps<Theme> = {
+  '& .MuiTableCell-root:first-of-type': {
+    pl: 0,
+  },
+  '& .MuiTableCell-root:last-of-type': {
+    pr: 0,
+  },
+};
+
+/** DataGrid column/footer horizontal inset inside a bleeded section-card grid area. */
+export const sectionCardGridDataGridInsetSx: SxProps<Theme> = {
+  '&& .MuiDataGrid-columnHeader--first': {
+    paddingLeft: SECTION_CARD_GRID_INSET_PX,
+  },
+  '&& .MuiDataGrid-columnHeader--last': {
+    paddingRight: SECTION_CARD_GRID_INSET_PX,
+  },
+  '&& .MuiDataGrid-cell:first-child': {
+    paddingLeft: SECTION_CARD_GRID_INSET_PX,
+  },
+  '&& .MuiDataGrid-cell:last-of-type': {
+    paddingRight: SECTION_CARD_GRID_INSET_PX,
+  },
+};
+
 /** 48px row/header height matching Figma linked-data table rows. */
 export const linkedDataGridRowSx: SxProps<Theme> = {
   '& .MuiDataGrid-columnHeaders': {

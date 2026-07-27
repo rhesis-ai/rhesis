@@ -173,11 +173,11 @@ export default function TestConfigurationConfirmation({
                 </Typography>
                 <Chip
                   label={
-                    testType === 'single_turn'
+                    testType === 'Single-Turn'
                       ? 'Single-Turn Tests'
                       : 'Multi-Turn Tests'
                   }
-                  color={testType === 'single_turn' ? 'primary' : 'secondary'}
+                  color={testType === 'Single-Turn' ? 'primary' : 'secondary'}
                 />
               </Box>
 

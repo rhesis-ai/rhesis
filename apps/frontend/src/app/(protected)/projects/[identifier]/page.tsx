@@ -10,20 +10,14 @@ interface PageProps {
 export default async function ProjectDetailPage({ params }: PageProps) {
   const session = await auth();
 
-  if (!session?.session_token) {
+  if (!session || session.error) {
     throw new Error('No session token available');
   }
 
-  const apiFactory = await createServerApiFactory(session.session_token);
+  const apiFactory = await createServerApiFactory();
   const projectsClient = apiFactory.getProjectsClient();
   const resolvedParams = await params;
   const project = await projectsClient.getProject(resolvedParams.identifier);
 
-  return (
-    <ClientWrapper
-      project={project}
-      sessionToken={session.session_token}
-      projectId={project.id}
-    />
-  );
+  return <ClientWrapper project={project} projectId={project.id} />;
 }

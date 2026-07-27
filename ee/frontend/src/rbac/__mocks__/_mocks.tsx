@@ -63,7 +63,6 @@ export const orgSettingsMock = {
       owner_id: '00000000-0000-0000-0000-0000000000ff',
       user_id: '00000000-0000-0000-0000-0000000000ff',
     },
-    sessionToken: FAKE_SESSION_TOKEN,
     onUpdate: jest.fn(),
   })),
 };
@@ -103,7 +102,7 @@ export const nextAuthMock = {
 };
 
 // ---------------------------------------------------------------------------
-// RbacClient — component tests construct `new RbacClient(sessionToken)`
+// RbacClient — component tests construct `new RbacClient()`
 // themselves, so the mock module must export a jest.fn() *constructor* whose
 // instances share one set of method mocks.
 // ---------------------------------------------------------------------------
@@ -165,7 +164,6 @@ export function resetRbacMocks() {
       owner_id: '00000000-0000-0000-0000-0000000000ff',
       user_id: '00000000-0000-0000-0000-0000000000ff',
     },
-    sessionToken: FAKE_SESSION_TOKEN,
     onUpdate: jest.fn(),
   });
   notificationsMock.useNotifications

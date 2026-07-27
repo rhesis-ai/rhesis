@@ -7,7 +7,6 @@ export type { RerunConfig };
 interface RerunTestRunDrawerProps {
   open: boolean;
   onClose: () => void;
-  sessionToken: string;
   data: RerunConfig;
   onSuccess?: () => void;
 }
@@ -15,7 +14,6 @@ interface RerunTestRunDrawerProps {
 export default function RerunTestRunDrawer({
   open,
   onClose,
-  sessionToken,
   data,
   onSuccess,
 }: RerunTestRunDrawerProps) {
@@ -24,7 +22,6 @@ export default function RerunTestRunDrawer({
       mode="rerunTestRun"
       open={open}
       onClose={onClose}
-      sessionToken={sessionToken}
       data={data}
       onSuccess={onSuccess}
     />

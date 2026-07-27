@@ -93,7 +93,6 @@ Your API key will be in the format `rh-XXXXXXXXXXXXXXXXXXXX`. Keep this key secu
 
 
 ```python
-
 from pprint import pprint
 
 from rhesis.sdk.entities import TestSet

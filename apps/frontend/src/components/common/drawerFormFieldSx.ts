@@ -4,6 +4,9 @@ import { BORDER_RADIUS } from '@/styles/theme';
 /** Default drawer shell width — 518px content + 30px padding each side (Figma 1641:16598). */
 export const DRAWER_WIDTH = 578;
 
+/** Wider drawer for the RBAC role editor permission matrix. */
+export const ROLE_EDITOR_DRAWER_WIDTH = 880;
+
 /** 40px gap between top-level drawer sections (Figma "Drawer Create" Section spacing). */
 export const drawerSectionSx: SxProps<Theme> = {
   display: 'flex',

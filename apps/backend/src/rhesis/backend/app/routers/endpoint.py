@@ -2,13 +2,13 @@ import logging
 import uuid
 from typing import Any, Dict
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from rhesis.backend.app.routers.base import RhesisRouter
+from fastapi import Depends, HTTPException, Query, Response
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app.auth.capabilities import Permission, capability
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.dependencies import (
     get_endpoint_service,
@@ -16,6 +16,7 @@ from rhesis.backend.app.dependencies import (
     get_tenant_db_session,
 )
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.endpoint import (
     AutoConfigureRequest,
     AutoConfigureResult,
@@ -30,15 +31,10 @@ from rhesis.backend.app.utils.database_exceptions import handle_database_excepti
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.execution_validation import validate_generation_model
 from rhesis.backend.app.utils.odata import apply_select
-from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 from rhesis.backend.tasks import task_launcher
 from rhesis.backend.tasks.endpoint.explore import run_exploration_task
 
 logger = logging.getLogger(__name__)
-
-
-# Create the detailed schema for Endpoint
-EndpointDetailSchema = create_detailed_schema(schemas.Endpoint, models.Endpoint)
 
 
 router = RhesisRouter(
@@ -87,7 +83,7 @@ def create_endpoint(
     )
 
 
-@router.get("/", response_model=list[EndpointDetailSchema])
+@router.get("/", response_model=list[schemas.EndpointDetail])
 @with_count_header(model=models.Endpoint)
 def read_endpoints(
     response: Response,
@@ -270,7 +266,7 @@ async def test_endpoint_mapping(
     )
 
 
-@router.get("/{endpoint_id}", response_model=EndpointDetailSchema)
+@router.get("/{endpoint_id}", response_model=schemas.EndpointDetail)
 def read_endpoint(
     endpoint_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),
@@ -323,7 +319,7 @@ def update_endpoint(
     return db_endpoint
 
 
-@router.post("/{endpoint_id}/invoke")
+@router.post("/{endpoint_id}/invoke", **capability(Permission.Endpoint.UPDATE))
 async def invoke_endpoint(
     endpoint_id: uuid.UUID,
     input_data: Dict[str, Any],
@@ -392,7 +388,7 @@ async def invoke_endpoint(
     response_model=ExploreEndpointResponse,
     dependencies=[Depends(validate_generation_model)],
 )
-async def explore_endpoint_route(
+def explore_endpoint_route(
     endpoint_id: uuid.UUID,
     request: ExploreEndpointRequest,
     db: Session = Depends(get_tenant_db_session),

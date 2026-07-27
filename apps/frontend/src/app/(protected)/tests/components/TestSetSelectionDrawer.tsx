@@ -23,7 +23,6 @@ interface TestSetSelectionDrawerProps {
   open: boolean;
   onClose: () => void;
   onSelect: (testSets: TestSet[]) => Promise<void>;
-  sessionToken: string;
   testTypeValue?: string;
 }
 
@@ -31,7 +30,6 @@ export default function TestSetSelectionDrawer({
   open,
   onClose,
   onSelect,
-  sessionToken,
   testTypeValue,
 }: TestSetSelectionDrawerProps) {
   const [testSets, setTestSets] = useState<TestSet[]>([]);
@@ -40,7 +38,6 @@ export default function TestSetSelectionDrawer({
 
   const escapedTestTypeValue = testTypeValue?.replace(/'/g, "''");
   const { data: resolvedTypes } = useTypeLookups(
-    sessionToken,
     escapedTestTypeValue
       ? `type_name eq '${TYPE_NAMES.TEST_SET_TYPE}' and type_value eq '${escapedTestTypeValue}'`
       : '',
@@ -53,9 +50,7 @@ export default function TestSetSelectionDrawer({
 
     setLoading(true);
     try {
-      const testSetsClient = new ApiClientFactory(
-        sessionToken
-      ).getTestSetsClient();
+      const testSetsClient = new ApiClientFactory().getTestSetsClient();
       const typeFilter = resolvedTestSetTypeId
         ? `test_set_type_id eq '${resolvedTestSetTypeId}'`
         : undefined;
@@ -75,7 +70,7 @@ export default function TestSetSelectionDrawer({
     } finally {
       setLoading(false);
     }
-  }, [sessionToken, open, notifications, resolvedTestSetTypeId]);
+  }, [open, notifications, resolvedTestSetTypeId]);
 
   useEffect(() => {
     if (open) {

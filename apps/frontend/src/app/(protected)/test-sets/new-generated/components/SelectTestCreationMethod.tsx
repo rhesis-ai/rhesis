@@ -39,7 +39,7 @@ export default function SelectTestCreationMethod({
   onSelectAI,
   onSelectManual,
   onSelectTemplate,
-  testType = 'single_turn',
+  testType = 'Single-Turn',
 }: SelectTestCreationMethodProps) {
   const [showAllTemplates, setShowAllTemplates] = useState(false);
   const visibleTemplates = showAllTemplates ? TEMPLATES : TEMPLATES.slice(0, 4);
@@ -53,7 +53,7 @@ export default function SelectTestCreationMethod({
   }, [open, markStepComplete]);
 
   const testTypeLabel =
-    testType === 'single_turn' ? TEST_TYPES.SINGLE_TURN : TEST_TYPES.MULTI_TURN;
+    testType === 'Single-Turn' ? TEST_TYPES.SINGLE_TURN : TEST_TYPES.MULTI_TURN;
 
   const cards: SelectionCardConfig[] = [
     {

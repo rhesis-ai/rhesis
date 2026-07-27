@@ -1,10 +1,6 @@
 # Test Sets
 
-<Callout type="default">
-  **What are Test Sets?** Test Sets are groups of tests that can be executed together.
-</Callout>
-
-Test sets organize related tests into collections for batch execution. When you [generate tests](/docs/tests-generation), all created tests are automatically grouped into a single test set. You can also manually assign tests to test sets or remove them as needed.
+Test sets group related tests into collections for batch execution. When you [generate tests](/docs/test-sets/tests-generation), all created tests are automatically grouped into a single test set. You can also manually assign tests to test sets or remove them as needed.
 
 Test sets inherit shared types, behaviors, categories, topics and sources from their tests.
 
@@ -52,7 +48,7 @@ The test set type is set when the test set is created and determines which metri
 
 ## Executing Test Sets
 
-Executing a test set runs all its tests against your AI application endpoint to see how your application responds. This creates a [Test Run](/docs/test-runs) that captures all results.
+Executing a test set runs all its tests against your LLM application endpoint to see how your application responds. This creates a [Test Run](/docs/test-runs) that captures all results.
 
 To execute a test set, select it from the [Test Sets page](https://app.rhesis.ai/test-sets) and configure:
 
@@ -68,17 +64,14 @@ To execute a test set, select it from the [Test Sets page](https://app.rhesis.ai
 - **Evaluation Model**: Override the default evaluation model for this run
 - **Execution Model** (multi-turn only): Override the default execution model used by Penelope
 
-For details on all execution options, see [Test Execution](/docs/test-execution).
+For details on all execution options, see [Test Execution](/docs/test-runs/execution).
 
 **Tags**: Optional tags to categorize and find this test run
 
----
+## Next steps
 
-<Callout type="default">
-  **Next Steps**
-  - [Import from File](/docs/test-sets/import-from-file) to create a test set from CSV, Excel, JSON, or JSONL
-  - [Import from Garak](/docs/test-sets/import-from-garak) to import Garak vulnerability probes
-  - [Generate tests](/docs/tests-generation) to create test sets with AI
-  - View execution progress in [Results Overview](/docs/results-overview)
-  - Track historical performance in [Test Runs](/docs/test-runs)
-</Callout>
+- [Import from File](/docs/test-sets/import-from-file) to create a test set from CSV, Excel, JSON, or JSONL
+- [Import from Garak](/docs/test-sets/import-from-garak) to import Garak vulnerability probes
+- [Generate tests](/docs/test-sets/tests-generation) to create test sets automatically
+- View execution progress in [Results Overview](/docs/results-overview)
+- Track historical performance in [Test Runs](/docs/test-runs)

@@ -78,7 +78,7 @@ def _get_or_create_status(db, name, org_id, user_id):
 
 @pytest.fixture
 def db_test_set(test_db, test_org_id, authenticated_user_id):
-    """Create a test set with a test set type."""
+    """Create a test set with one associated test."""
     ts_type = _create_type_lookup(
         test_db,
         "TestSetType",
@@ -93,6 +93,23 @@ def db_test_set(test_db, test_org_id, authenticated_user_id):
         test_set_type_id=ts_type.id,
     )
     test_db.add(test_set)
+    test_db.flush()
+
+    test = models.Test(
+        test_configuration={},
+        organization_id=test_org_id,
+        user_id=authenticated_user_id,
+    )
+    test_db.add(test)
+    test_db.flush()
+    test_db.execute(
+        models.test_test_set_association.insert().values(
+            test_id=test.id,
+            test_set_id=test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+    )
     test_db.flush()
     return test_set
 

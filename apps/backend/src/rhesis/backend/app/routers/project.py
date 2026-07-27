@@ -1,24 +1,21 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from rhesis.backend.app.routers.base import RhesisRouter
-from rhesis.backend.app.auth.capabilities import Permission, capability
+from fastapi import Depends, HTTPException, Query, Response
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app import crud, schemas
+from rhesis.backend.app.auth.capabilities import Permission, capability
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
 )
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.odata import apply_select
-from rhesis.backend.app.utils.schema_factory import create_detailed_schema
-
-ProjectDetailSchema = create_detailed_schema(schemas.Project, models.Project)
 
 router = RhesisRouter(
     prefix="/projects",
@@ -33,7 +30,7 @@ router = RhesisRouter(
 @handle_database_exceptions(
     entity_name="project", custom_unique_message="Project with this name already exists"
 )
-async def create_project(
+def create_project(
     project: schemas.ProjectCreate,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
@@ -67,7 +64,7 @@ async def create_project(
     return new_project
 
 
-@router.get("/mine", response_model=list[ProjectDetailSchema])
+@router.get("/mine", response_model=list[schemas.ProjectDetail])
 def read_my_projects(
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
@@ -82,8 +79,8 @@ def read_my_projects(
     )
 
 
-@router.get("/", response_model=list[ProjectDetailSchema])
-async def read_projects(
+@router.get("/", response_model=list[schemas.ProjectDetail])
+def read_projects(
     response: Response,
     skip: int = 0,
     limit: int = 10,
@@ -127,7 +124,7 @@ async def read_projects(
 @router.get(
     "/{project_id}/members",
     response_model=list[schemas.ProjectMember],
-    **capability(Permission.ProjectMember.MANAGE),
+    **capability(Permission.ProjectMember.READ),
 )
 def read_project_members(
     project_id: uuid.UUID,
@@ -242,7 +239,7 @@ def remove_project_member(
         raise HTTPException(status_code=404, detail="Membership not found")
 
 
-@router.get("/{project_id}", response_model=ProjectDetailSchema)
+@router.get("/{project_id}", response_model=schemas.ProjectDetail)
 def read_project(
     project_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),

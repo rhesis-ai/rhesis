@@ -6,6 +6,7 @@ invoking endpoints and returning responses with trace information.
 
 import logging
 from typing import TYPE_CHECKING
+from uuid import UUID
 
 from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.models.user import User
@@ -41,6 +42,7 @@ async def handle_chat_message(
         {
             "endpoint_id": "uuid-of-endpoint",
             "message": "User's message to the endpoint",
+            "project_id": "uuid-of-active-project",
             "conversation_id": "optional-id"  # Also accepts: session_id, thread_id, chat_id
         }
 
@@ -70,7 +72,7 @@ async def handle_chat_message(
     # Extract required fields
     endpoint_id = payload.get("endpoint_id")
     user_message = payload.get("message")
-    client_project_id = payload.get("project_id") or ""
+    client_project_id = payload.get("project_id")
 
     if not endpoint_id:
         await _send_chat_error(manager, conn_id, correlation_id, "Missing endpoint_id in payload")
@@ -78,6 +80,16 @@ async def handle_chat_message(
 
     if not user_message:
         await _send_chat_error(manager, conn_id, correlation_id, "Missing message in payload")
+        return
+
+    if not client_project_id:
+        await _send_chat_error(manager, conn_id, correlation_id, "Missing project_id in payload")
+        return
+
+    try:
+        authz_project_id = UUID(str(client_project_id))
+    except (ValueError, TypeError):
+        await _send_chat_error(manager, conn_id, correlation_id, "Invalid project_id in payload")
         return
 
     logger.info(
@@ -88,9 +100,28 @@ async def handle_chat_message(
     )
 
     try:
+        from rhesis.backend.app.auth.capabilities import Permission
+        from rhesis.backend.app.auth.principal import resolve_principal
+        from rhesis.backend.app.auth.rbac import authorize
+
         with get_db_with_tenant_variables(
-            str(user.organization_id), str(user.id), client_project_id
+            str(user.organization_id), str(user.id), str(authz_project_id)
         ) as db:
+            principal = manager._principals.get(conn_id) or resolve_principal(user)
+            if not authorize(
+                principal,
+                Permission.Playground.USE,
+                project_id=authz_project_id,
+                db=db,
+            ):
+                await _send_chat_error(
+                    manager,
+                    conn_id,
+                    correlation_id,
+                    "Not authorized to use the playground",
+                )
+                return
+
             # Create endpoint service and invoke
             endpoint_service = EndpointService()
 

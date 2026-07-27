@@ -48,6 +48,7 @@ from rhesis.backend.ee.sso.rate_limits import (
     SSO_LOGIN_RATE_LIMIT,
     SSO_TEST_CONNECTION_RATE_LIMIT,
 )
+from rhesis.backend.ee.sso.runtime_check import sso_runtime_check
 from rhesis.backend.ee.sso.schemas import SSOConfig
 from rhesis.backend.ee.sso.user_utils import SSOLoginError, find_or_create_sso_user
 
@@ -65,16 +66,20 @@ def check_sso_available(organization: Optional[Organization] = None) -> bool:
     """Return ``True`` iff SSO can be served at all.
 
     With ``organization`` set, this is the full per-tenant check
-    (registered + licensed + runtime ready). Without it, only the
-    runtime/registration half is checked — which is what the OIDC
-    callback needs as an early bailout *before* the signed state has
-    been validated and the org resolved. The license decision is then
-    made downstream once the org is in hand (typically by reading the
-    SSO config from the DB; full per-tenant gating arrives with the
-    JWT license provider).
+    (registered + licensed + runtime ready). Without it, this checks
+    registration plus the runtime precondition directly — which is what
+    the OIDC callback needs as an early bailout *before* the signed state
+    has been validated and the org resolved. ``is_registered`` alone does
+    not run the runtime check (it is the cheapest, license/runtime-agnostic
+    tier), so it is paired with an explicit ``sso_runtime_check()`` call
+    here. The license decision is made downstream once the org is in hand
+    (typically by reading the SSO config from the DB; full per-tenant
+    gating arrives with the JWT license provider).
     """
     if organization is None:
-        return FeatureRegistry.is_registered(FeatureName.SSO)
+        if not FeatureRegistry.is_registered(FeatureName.SSO):
+            return False
+        return sso_runtime_check()
     return FeatureRegistry.is_available(FeatureName.SSO, organization)
 
 
@@ -161,19 +166,8 @@ def _generate_pkce() -> tuple:
     return code_verifier, code_challenge
 
 
-def _get_sso_callback_url(request: Request) -> str:
-    """Build the SSO callback URL."""
-    from rhesis.backend.app.routers.auth import is_running_locally
-
-    api_base_url = get_application_settings().api_base_url
-
-    if is_running_locally() and not api_base_url:
-        base_url = str(request.base_url).rstrip("/")
-    elif api_base_url:
-        base_url = api_base_url.rstrip("/")
-    else:
-        base_url = str(request.base_url).rstrip("/")
-
+def _get_sso_callback_url() -> str:
+    base_url = get_application_settings().api_base_url.rstrip("/")
     return f"{base_url}/auth/sso/callback"
 
 
@@ -238,7 +232,7 @@ async def sso_callback(
         logger.warning("SSO callback missing code_verifier in session")
         return RedirectResponse(url=error_redirect, status_code=302)
 
-    redirect_uri = _get_sso_callback_url(request)
+    redirect_uri = _get_sso_callback_url()
 
     # Authenticate with OIDC provider
     provider = OIDCProvider(sso_config)
@@ -341,7 +335,7 @@ async def sso_login(
         request.session["original_frontend"] = original_frontend
     request.session["return_to"] = return_to
 
-    redirect_uri = _get_sso_callback_url(request)
+    redirect_uri = _get_sso_callback_url()
 
     provider = OIDCProvider(sso_config)
     try:
@@ -390,12 +384,25 @@ class SSOTestResponse(BaseModel):
     message: str
 
 
-async def _require_org_admin(request: Request, org_id: str):
-    """Verify the current user is an admin of the specified org.
+async def _require_org_admin(request: Request, org_id: str, db: Session):
+    """Verify the current user may manage SSO for the specified org.
 
-    Supports both session cookies and Bearer token authentication
-    to work with the frontend API client.
+    Supports both session cookies and Bearer token authentication to work with
+    the frontend API client. Two distinct checks, both required:
+
+    1. **Same-org guard**: the caller's own ``organization_id`` must match the
+       ``org_id`` path parameter. The org-scoped ``sso:manage`` capability
+       (below) is evaluated against the caller's *own* org context — it says
+       nothing about the arbitrary ``org_id`` in this URL — so without this
+       guard an owner of org A could read/overwrite org B's SSO config
+       (including its ``client_secret``) simply by changing the path.
+    2. **Role check** via the RBAC PDP (``Permission.SSO.MANAGE``, owner-only
+       even in EE): defense-in-depth alongside the ``@capability(...)``-driven
+       authz backstop (``apply_authz_backstop`` in ``main.py``) already wired
+       on these routes, kept here so this function is correct standalone.
     """
+    from rhesis.backend.app.auth.principal import resolve_principal_from_request
+    from rhesis.backend.app.auth.rbac import authorize
     from rhesis.backend.app.auth.user_utils import (
         bearer_scheme,
         get_authenticated_user_with_context,
@@ -417,6 +424,13 @@ async def _require_org_admin(request: Request, org_id: str):
             detail="Not authorized to manage this organization's SSO",
         )
 
+    principal = resolve_principal_from_request(user, request)
+    if not authorize(principal, Permission.SSO.MANAGE, project_id=None, db=db):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to manage this organization's SSO",
+        )
+
     return user
 
 
@@ -429,7 +443,7 @@ async def get_sso_config(
 ):
     """Get SSO configuration for an organization (client_secret masked)."""
     # Authorization side-effect; the returned user isn't used in the response body.
-    await _require_org_admin(request, org_id)
+    await _require_org_admin(request, org_id, db)
 
     if not check_sso_available():
         raise HTTPException(
@@ -461,7 +475,7 @@ async def update_sso_config(
     db: Session = Depends(get_db_session),
 ):
     """Set or update SSO configuration for an organization."""
-    user = await _require_org_admin(request, org_id)
+    user = await _require_org_admin(request, org_id, db)
 
     if not check_sso_available():
         raise HTTPException(
@@ -583,7 +597,7 @@ async def delete_sso_config(
     Unlike get/update, delete intentionally works even when SSO encryption
     is unavailable so that admins can always clean up broken configurations.
     """
-    user = await _require_org_admin(request, org_id)
+    user = await _require_org_admin(request, org_id, db)
 
     org = _get_org_or_404(db, org_id)
     org.sso_config = None
@@ -608,7 +622,7 @@ async def test_sso_connection(
 ):
     """Test OIDC discovery for an org's SSO configuration."""
     # Authorization side-effect; the returned user isn't used in the response body.
-    await _require_org_admin(request, org_id)
+    await _require_org_admin(request, org_id, db)
 
     if not check_sso_available():
         return SSOTestResponse(success=False, message="SSO is not available")

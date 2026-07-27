@@ -42,24 +42,24 @@ import { TagsClient } from '@/utils/api-client/tags-client';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import BehaviorDrawer from '../../components/BehaviorDrawer';
+import BehaviorLinkedTests from './BehaviorLinkedTests';
 import type { UUID } from 'crypto';
 
-const TAB_KEYS = ['basic', 'linked-metrics'] as const;
+const TAB_KEYS = ['basic', 'linked-metrics', 'linked-tests'] as const;
 
 const NAV_LABELS: Record<(typeof TAB_KEYS)[number], string> = {
   basic: 'Basic Information',
   'linked-metrics': 'Linked Metrics',
+  'linked-tests': 'Linked Tests',
 };
 
 interface BehaviorDetailTabsProps {
   behavior: BehaviorWithMetrics;
-  sessionToken: string;
   onUpdated: (updated: BehaviorWithMetrics) => void;
 }
 
 export default function BehaviorDetailTabs({
   behavior,
-  sessionToken,
   onUpdated,
 }: BehaviorDetailTabsProps) {
   const { activeTab, handleTabChange } = useDetailTabNav(TAB_KEYS);
@@ -81,18 +81,15 @@ export default function BehaviorDetailTabs({
       />
 
       <DetailTabPanel value={activeTab} index={0} prefix="behavior-detail">
-        <BehaviorBasicInfo
-          behavior={behavior}
-          sessionToken={sessionToken}
-          onUpdated={onUpdated}
-        />
+        <BehaviorBasicInfo behavior={behavior} onUpdated={onUpdated} />
       </DetailTabPanel>
 
       <DetailTabPanel value={activeTab} index={1} prefix="behavior-detail">
-        <BehaviorLinkedMetrics
-          behavior={behavior}
-          sessionToken={sessionToken}
-        />
+        <BehaviorLinkedMetrics behavior={behavior} />
+      </DetailTabPanel>
+
+      <DetailTabPanel value={activeTab} index={2} prefix="behavior-detail">
+        <BehaviorLinkedTests behavior={behavior} />
       </DetailTabPanel>
     </Box>
   );
@@ -100,11 +97,9 @@ export default function BehaviorDetailTabs({
 
 function BehaviorBasicInfo({
   behavior,
-  sessionToken,
   onUpdated,
 }: {
   behavior: BehaviorWithMetrics;
-  sessionToken: string;
   onUpdated: (updated: BehaviorWithMetrics) => void;
 }) {
   const [editOpen, setEditOpen] = useState(false);
@@ -123,13 +118,13 @@ function BehaviorBasicInfo({
       setSaving(true);
       setSaveError(undefined);
 
-      const client = new BehaviorClient(sessionToken);
+      const client = new BehaviorClient();
       await client.updateBehavior(behavior.id as UUID, {
         name: name.trim(),
         description: description.trim() || null,
       });
 
-      const tagsClient = new TagsClient(sessionToken);
+      const tagsClient = new TagsClient();
       const normalizeTag = (s: string) => s.trim().toLowerCase();
       const initialTagMap = new Map(tags.map(t => [normalizeTag(t.name), t]));
       const nextNorm = new Set(
@@ -175,7 +170,7 @@ function BehaviorBasicInfo({
   };
 
   const handleTagsSave = async (draft: { tagNames: string[] }) => {
-    const tagsClient = new TagsClient(sessionToken);
+    const tagsClient = new TagsClient();
     const normalizeTag = (s: string) => s.trim().toLowerCase();
     const initialTagMap = new Map(tags.map(t => [normalizeTag(t.name), t]));
     const nextNorm = new Set(
@@ -206,7 +201,7 @@ function BehaviorBasicInfo({
       )
     );
 
-    const client = new BehaviorClient(sessionToken);
+    const client = new BehaviorClient();
     const updated = await client.getBehaviorWithMetrics(behavior.id as UUID);
     onUpdated(updated);
   };
@@ -268,10 +263,8 @@ function BehaviorBasicInfo({
 
 function BehaviorLinkedMetrics({
   behavior,
-  sessionToken,
 }: {
   behavior: BehaviorWithMetrics;
-  sessionToken: string;
 }) {
   const router = useRouter();
   const notifications = useNotifications();
@@ -307,7 +300,7 @@ function BehaviorLinkedMetrics({
   const fetchLinked = useCallback(async () => {
     setLoading(true);
     try {
-      const client = new BehaviorClient(sessionToken);
+      const client = new BehaviorClient();
       const result = await client.getBehaviorWithMetrics(behavior.id as UUID);
       setMetrics(result.metrics ?? []);
     } catch {
@@ -315,17 +308,17 @@ function BehaviorLinkedMetrics({
     } finally {
       setLoading(false);
     }
-  }, [behavior.id, sessionToken]);
+  }, [behavior.id]);
 
   useEffect(() => {
     fetchLinked();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only on mount / id change
-  }, [behavior.id, sessionToken]);
+  }, [behavior.id]);
 
   const handleUnassign = useCallback(
     async (metricId: string) => {
       try {
-        const client = new MetricsClient(sessionToken);
+        const client = new MetricsClient();
         await client.removeBehaviorFromMetric(
           metricId as UUID,
           behavior.id as UUID
@@ -344,7 +337,7 @@ function BehaviorLinkedMetrics({
         );
       }
     },
-    [behavior.id, sessionToken, notifications]
+    [behavior.id, notifications]
   );
 
   // Linked metrics columns (with unassign action)
@@ -453,7 +446,7 @@ function BehaviorLinkedMetrics({
     setAssignScorePill('all');
     setAssignFilters({ backend: [], score_type: [], status: [] });
     try {
-      const client = new MetricsClient(sessionToken);
+      const client = new MetricsClient();
       const result = await client.getAllMetrics();
       setAvailable(result);
     } catch {
@@ -461,11 +454,11 @@ function BehaviorLinkedMetrics({
     } finally {
       setLoadingAvailable(false);
     }
-  }, [sessionToken]);
+  }, []);
 
   const handleAssign = useCallback(
     async (selectedIds: string[]) => {
-      const client = new MetricsClient(sessionToken);
+      const client = new MetricsClient();
       await Promise.all(
         selectedIds.map(id =>
           client.addBehaviorToMetric(id as UUID, behavior.id as UUID)
@@ -474,7 +467,7 @@ function BehaviorLinkedMetrics({
       await fetchLinked();
       setAssignOpen(false);
     },
-    [behavior.id, sessionToken, fetchLinked]
+    [behavior.id, fetchLinked]
   );
 
   // Score Type pill tabs

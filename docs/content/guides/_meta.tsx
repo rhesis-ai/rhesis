@@ -6,6 +6,7 @@ const meta: MetaRecord = {
   'custom-metrics': 'Building Custom Metrics with the Rhesis SDK',
   'ci-cd-integration': 'Integrating Rhesis SDK into CI/CD',
   'testing-user-journeys': 'Testing User Journeys of AI Agents',
+  'telemetry-configuration': 'Configuring Telemetry for Your AI Application',
 }
 
 export default meta

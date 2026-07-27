@@ -2,11 +2,7 @@ import { CodeBlock } from "@/components/CodeBlock";
 
 # API Tokens
 
-Generate and manage API tokens for programmatic access to Rhesis. You can manage them at [app.rhesis.ai/tokens](https://app.rhesis.ai/tokens).
-
-<Callout type="default">
-  **What are API Tokens?** API Tokens authenticate programmatic access to Rhesis via the REST API or Python SDK. The token is shown only once at creation — copy it immediately.
-</Callout>
+API tokens authenticate programmatic access to Rhesis via the REST API or Python SDK. Generate and manage them at [app.rhesis.ai/tokens](https://app.rhesis.ai/tokens). The token is shown only once at creation — copy it immediately.
 
 ![Token Overview](/screenshots/rhesis-ai-tokens.png)
 
@@ -18,7 +14,7 @@ Include the token in the Authorization header:
 
 <CodeBlock filename="Terminal" language="bash">
   {`curl -H "Authorization: Bearer YOUR_TOKEN_HERE" \\
-  https://api.rhesis.com/v1/tests`}
+  https://api.rhesis.ai/tests`}
 </CodeBlock>
 
 ### With Python SDK
@@ -29,9 +25,9 @@ Initialize the SDK with your token:
   filename="client.py"
   language="python"
 >
-{`from rhesis import RhesisClient
+{`from rhesis.sdk import RhesisClient
 
-client = RhesisClient(api_token="YOUR_TOKEN_HERE")`}
+client = RhesisClient(api_key="YOUR_TOKEN_HERE")`}
 
 </CodeBlock>
 

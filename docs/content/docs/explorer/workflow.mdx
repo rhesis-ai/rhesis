@@ -23,15 +23,6 @@ flowchart LR
     review -->|"iterate"| build
 ```
 
-## Two benefits of Test Explorer
-
-Test Explorer is built around two things:
-
-1. **Interactive endpoint play** — author a prompt, invoke the endpoint, evaluate against your metrics, all in one place; iterate until the metric passes.
-2. **Exploration via suggestions** — given the tests you already have, an LLM generates a batch of new ones, embeddings rank that batch by diversity so the most varied prompts surface first, and the endpoint plus metrics run concurrently to score each row. You review the ranked results and accept only what is worth keeping.
-
-For the full mechanics (10 example tests, 20 suggestions, topic scope, dialog controls), see [Building and Evaluating — Suggestions](/docs/explorer/building-and-evaluating#suggestions-explore-the-space-automatically).
-
 ## Setup
 
 Create a new explorer session (or load an existing test set), then choose:

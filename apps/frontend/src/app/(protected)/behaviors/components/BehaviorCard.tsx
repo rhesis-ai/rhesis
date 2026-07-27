@@ -13,7 +13,6 @@ import { Capability } from '@/constants/capabilities';
 interface BehaviorCardProps {
   behavior: BehaviorWithMetrics;
   onRefresh: () => void;
-  sessionToken: string;
   onClick?: () => void;
   /** Retained for backward compatibility — no longer used in the card UI. */
   onEdit?: () => void;
@@ -26,7 +25,6 @@ interface BehaviorCardProps {
 export default function BehaviorCard({
   behavior,
   onRefresh,
-  sessionToken,
   onClick,
 }: BehaviorCardProps) {
   const notifications = useNotifications();
@@ -36,7 +34,7 @@ export default function BehaviorCard({
   const handleConfirmDelete = async () => {
     try {
       setIsDeleting(true);
-      const behaviorClient = new BehaviorClient(sessionToken);
+      const behaviorClient = new BehaviorClient();
       await behaviorClient.deleteBehavior(behavior.id as UUID);
 
       notifications.show('Behavior deleted successfully', {

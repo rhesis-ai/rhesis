@@ -235,10 +235,8 @@ BEGIN
     -- Delete response_pattern
     DELETE FROM response_pattern WHERE organization_id = ANY(org_ids) OR user_id = target_user_id;
 
-    -- Delete category, demographic, dimension, topic, source
+    -- Delete category, topic, source
     DELETE FROM category WHERE organization_id = ANY(org_ids) OR user_id = target_user_id;
-    DELETE FROM demographic WHERE organization_id = ANY(org_ids) OR user_id = target_user_id;
-    DELETE FROM dimension WHERE organization_id = ANY(org_ids) OR user_id = target_user_id;
     DELETE FROM topic WHERE organization_id = ANY(org_ids) OR user_id = target_user_id;
     DELETE FROM source WHERE organization_id = ANY(org_ids) OR user_id = target_user_id;
 

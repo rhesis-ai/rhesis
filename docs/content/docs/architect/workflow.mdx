@@ -1,6 +1,6 @@
 # Workflow
 
-An Architect session follows five phases. You stay in control throughout — Architect proposes and waits; it never creates or modifies anything without your confirmation.
+An Architect session follows four phases — discovery, planning, creating, executing — with an explicit review gate before anything is created. You stay in control throughout: Architect proposes and waits; it never creates or modifies anything without your confirmation.
 
 ```mermaid
 flowchart LR
@@ -32,7 +32,7 @@ Architect explores your endpoint first — before asking you questions. It figur
 
 Architect proposes a structured plan: behaviors to test, test sets to generate, metrics to evaluate with, and how they connect. It checks what already exists on the platform and reuses it where possible.
 
-**What you see:** The plan panel opens on the right. Behaviors and metrics are labelled **(reuse)**, **(improve)**, or **(new)**.
+**What you see:** The plan panel appears between the chat and the input. Behaviors and metrics are labelled **(reuse)**, **(improve)**, or **(new)**.
 
 **What you do:** Read the plan. Ask for changes — "add a robustness test set", "use the existing Accuracy metric instead". Architect updates the plan and waits again.
 
@@ -43,12 +43,12 @@ Architect proposes a structured plan: behaviors to test, test sets to generate, 
 Before creating anything, Architect presents its proposal and asks for your explicit go-ahead. **Accept** runs the plan. **Change** returns focus to the input so you can redirect.
 
 <Callout type="info">
-  You can turn on **Auto-approve** in the chat header to skip per-action confirmation for an entire session. See [Chat Features](/docs/architect/chat-features#auto-approve).
+  You can turn on **Auto-approve** in the chat header to skip per-action confirmation until you turn it off. See [Chat Features](/docs/architect/chat-features#auto-approve).
 </Callout>
 
 ## Creating
 
-Architect creates entities in order: behaviors first, then test sets (AI-generated), then metrics, then behavior-metric links. It reports each step as it completes.
+Architect creates entities in order: behaviors first, then metrics, then behavior-metric links — and generates test sets last, once every prerequisite is in place. It reports each step as it completes.
 
 **What you see:** The plan panel checkboxes tick off as each item is done. The mode chip reads `creating`.
 
@@ -62,13 +62,4 @@ Once everything is set up, Architect offers to run the tests. Confirm, and it ex
 
 → [Running and Analyzing](/docs/architect/execution-and-analysis) covers the result format and comparison workflow.
 
-## Phase indicator
-
-The mode chip in the chat header shows the current phase at a glance:
-
-| Chip label | Phase |
-| --- | --- |
-| `discovery` | Exploring the endpoint |
-| `planning` | Formulating the test suite plan |
-| `creating` | Building entities on the platform |
-| `executing` | Running tests and waiting for results |
+→ The [mode chip](/docs/architect/chat-features#mode-chip) in the chat header shows the current phase at a glance.

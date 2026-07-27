@@ -172,12 +172,12 @@ class TestRoleIdColumn:
 
 @pytest.mark.routes
 class TestMemberEndpointGating:
-    """GET/POST/DELETE /projects/{id}/members require org ownership.
+    """GET/POST/DELETE /projects/{id}/members authorization.
 
     In the community tier ``Permission.ProjectMember.MANAGE`` is in
-    ``_OWNER_ONLY_CAPABILITIES`` and gates all three member endpoints
-    (list/add/remove, plan §1.5), so any caller who is NOT the org owner
-    receives 403.  The org owner continues to work normally.
+    ``_OWNER_ONLY_CAPABILITIES`` and gates add/remove (plan §1.5). Listing
+    uses ``Permission.ProjectMember.READ``, which any enrolled project member
+    may exercise.  The org owner continues to work normally for all three.
     """
 
     # The tests temporarily strip the org's owner_id so the authenticated_client
@@ -196,7 +196,7 @@ class TestMemberEndpointGating:
         test_org_id,
         authenticated_user_id,
     ):
-        """GET /projects/{id}/members → 403 for a caller without ProjectMember.MANAGE."""
+        """GET /projects/{id}/members → 403 for a caller without ProjectMember.READ."""
         project = _make_project(test_db, test_org_id, owner_id=authenticated_user_id)
         _enroll(test_db, str(authenticated_user_id), str(project.id), test_org_id)
 
@@ -395,13 +395,15 @@ class TestRecoverOrgOwnerCLI:
     """
 
     def test_dry_run_does_not_mutate_owner(
-        self, test_db: Session, test_org_id, authenticated_user_id
+        self, real_commit_test_db: Session, test_org_id, authenticated_user_id
     ):
         """dry_run=True prints intent and rolls back — owner_id unchanged."""
         from rhesis.backend.app.management.recover_org_owner import run
 
+        test_db = real_commit_test_db
         # Create a second user to be the "new owner" in dry-run mode.
         new_owner = _unique_user(test_db, test_org_id)
+        test_db.info["_owned_user_ids"].append(str(new_owner.id))
         test_db.commit()  # commit so the CLI's independent session can see it
 
         org_before = test_db.query(models.Organization).filter_by(id=test_org_id).first()
@@ -417,11 +419,15 @@ class TestRecoverOrgOwnerCLI:
             "dry_run=True must not mutate organization.owner_id"
         )
 
-    def test_real_run_reassigns_owner(self, test_db: Session, test_org_id, authenticated_user_id):
+    def test_real_run_reassigns_owner(
+        self, real_commit_test_db: Session, test_org_id, authenticated_user_id
+    ):
         """dry_run=False reassigns organization.owner_id to the target user."""
         from rhesis.backend.app.management.recover_org_owner import run
 
+        test_db = real_commit_test_db
         new_owner = _unique_user(test_db, test_org_id)
+        test_db.info["_owned_user_ids"].append(str(new_owner.id))
         test_db.commit()
 
         org = test_db.query(models.Organization).filter_by(id=test_org_id).first()

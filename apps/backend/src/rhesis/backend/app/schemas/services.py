@@ -176,11 +176,24 @@ class TestPipelineRequest(BaseModel):
     prompt: str
     project_id: Optional[UUID4] = None
     previous_messages: Optional[List[IterationMessage]] = None
-    test_type: str = "single_turn"
+    test_type: str = TestSetType.SINGLE_TURN.value
     num_tests: int = Field(default=5, ge=1, le=20)
     sources: Optional[List[SourceData]] = None
     model_id: Optional[UUID4] = None
     config: Optional[TestConfigResponse] = None
+
+    @field_validator("test_type", mode="before")
+    @classmethod
+    def normalize_test_type(cls, v: Optional[str]) -> Optional[str]:
+        """Normalize test_type to canonical form, accepting snake_case (single_turn) or
+        hyphenated (Single-Turn) from any client."""
+        if v is None:
+            return TestSetType.SINGLE_TURN.value
+        resolved = TestSetType.from_string(v)
+        if resolved is None:
+            valid = [t.value for t in TestSetType]
+            raise ValueError(f"Unsupported test_type {v!r}. Valid values: {valid}")
+        return resolved.value
 
 
 class TestConfigRequest(BaseModel):

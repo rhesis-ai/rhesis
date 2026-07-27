@@ -3,16 +3,37 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Box } from '@mui/material';
 import { useSession } from 'next-auth/react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { ArchitectSession } from '@/utils/api-client/architect-client';
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
+import { useCanWithStatus } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
+import AccessDenied from '@/components/common/AccessDenied';
+import PageLoadingState from '@/components/common/PageLoadingState';
+import {
+  clearResumeHint,
+  pickResumableSessionId,
+  writeResumeHint,
+} from '@/utils/architect-resume';
+import {
+  clearPendingHandoffMessage,
+  peekPendingHandoffMessage,
+} from '@/utils/architect-handoff';
 import ArchitectSidebar from './ArchitectSidebar';
 import ArchitectChat from './ArchitectChat';
 import ArchitectWelcome from './ArchitectWelcome';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 export default function ArchitectClient() {
-  const { data: session } = useSession();
+  const { status } = useSession();
   const { activeProject } = useActiveProject();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
+    Capability.Architect.READ
+  );
   const [sessions, setSessions] = useState<ArchitectSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [isLoadingSessions, setIsLoadingSessions] = useState(true);
@@ -21,9 +42,28 @@ export default function ArchitectClient() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
 
   const getClient = useCallback(() => {
-    if (!session?.session_token) return null;
-    return new ApiClientFactory(session.session_token).getArchitectClient();
-  }, [session?.session_token]);
+    if (!isAuthenticated(status)) return null;
+    return new ApiClientFactory().getArchitectClient();
+  }, [status]);
+
+  const touchResumeHint = useCallback(
+    (sessionId: string) => {
+      if (activeProject?.id) {
+        writeResumeHint(activeProject.id, sessionId);
+      }
+    },
+    [activeProject?.id]
+  );
+
+  const sessionFromQuery = searchParams.get('session');
+
+  const clearSessionQueryParam = useCallback(() => {
+    if (!searchParams.has('session')) return;
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete('session');
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [pathname, router, searchParams]);
 
   // Reload sessions whenever the active project changes so the sidebar always
   // shows only sessions belonging to the current project. The backend already
@@ -31,21 +71,119 @@ export default function ArchitectClient() {
   // when the project scope switches.
   useEffect(() => {
     const loadSessions = async () => {
+      if (permsLoading || !canRead) return;
       const client = getClient();
       if (!client) return;
       setIsLoadingSessions(true);
-      setActiveSessionId(null);
+      // Keep a pending ?session= selection while the list reloads.
+      if (!searchParams.get('session')) {
+        setActiveSessionId(null);
+      }
+      setSessions([]);
       try {
         const data = await client.getSessions();
         setSessions(data);
+        // Skip resume when a ?session= handoff is pending — the query effect
+        // prefers that id over the resume hint.
+        if (searchParams.get('session')) {
+          return;
+        }
+        const projectId = activeProject?.id;
+        if (projectId) {
+          setActiveSessionId(pickResumableSessionId(projectId, data));
+        } else {
+          setActiveSessionId(null);
+        }
       } catch (err) {
         console.error('Failed to load architect sessions:', err);
+        setActiveSessionId(null);
       } finally {
         setIsLoadingSessions(false);
       }
     };
     loadSessions();
-  }, [getClient, activeProject?.id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- project/token drive reload
+  }, [getClient, activeProject?.id, permsLoading, canRead]);
+
+  // Prefer ?session= over resume (contextual handoffs). Separate from the list
+  // reload so in-app navigations to /architect?session= still work without a
+  // remount (peqy).
+  useEffect(() => {
+    if (!sessionFromQuery || permsLoading || !canRead) return;
+
+    let cancelled = false;
+
+    const selectFromQuery = async () => {
+      const client = getClient();
+      if (!client) return;
+
+      // Contextual handoffs (e.g. Insights → Summarize) stash their first
+      // message under the session id instead of starting the turn on the
+      // backend. Pick it up here and route it through the same auto-send path
+      // the welcome screen uses, so the Architect starts working as soon as
+      // this tab is connected — no lost events, no need for a manual "go".
+      // Peek (don't remove) so the prompt bubble renders immediately while the
+      // storage entry survives a failed getSession for a retry. It is removed
+      // only once the message is actually sent (handleInitialMessageSent).
+      const pendingHandoff = peekPendingHandoffMessage(sessionFromQuery);
+      if (pendingHandoff) {
+        setPendingMessage(pendingHandoff);
+      }
+
+      setActiveSessionId(sessionFromQuery);
+      touchResumeHint(sessionFromQuery);
+
+      const alreadyListed = sessions.some(s => s.id === sessionFromQuery);
+      if (!alreadyListed) {
+        try {
+          const detail = await client.getSession(sessionFromQuery);
+          if (cancelled) return;
+          setSessions(prev => [
+            detail,
+            ...prev.filter(s => s.id !== detail.id),
+          ]);
+        } catch (err) {
+          console.error('Failed to load session from query:', err);
+          if (!cancelled) {
+            setActiveSessionId(null);
+            // Leave the storage entry in place (peek did not remove it) so a
+            // reload can retry; just drop the in-memory pending message so it
+            // cannot leak into another session.
+            setPendingMessage(null);
+          }
+          return;
+        }
+      }
+
+      clearSessionQueryParam();
+    };
+
+    selectFromQuery();
+    return () => {
+      cancelled = true;
+    };
+    // sessions intentionally omitted — we only need the id from the URL;
+    // re-running on every list change would clear the param twice.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- query-driven select
+  }, [
+    sessionFromQuery,
+    permsLoading,
+    canRead,
+    getClient,
+    touchResumeHint,
+    clearSessionQueryParam,
+  ]);
+
+  // Bump last-activity when navigating away mid-conversation.
+  useEffect(() => {
+    const projectId = activeProject?.id;
+    const sessionId = activeSessionId;
+    return () => {
+      if (projectId && sessionId) {
+        writeResumeHint(projectId, sessionId);
+      }
+    };
+  }, [activeProject?.id, activeSessionId]);
 
   const handleNewSession = useCallback(async () => {
     const client = getClient();
@@ -54,10 +192,11 @@ export default function ArchitectClient() {
       const newSession = await client.createSession();
       setSessions(prev => [newSession, ...prev]);
       setActiveSessionId(newSession.id);
+      touchResumeHint(newSession.id);
     } catch (err) {
       console.error('Failed to create session:', err);
     }
-  }, [getClient]);
+  }, [getClient, touchResumeHint]);
 
   const handleNewSessionWithMessage = useCallback(
     async (message: string) => {
@@ -70,17 +209,22 @@ export default function ArchitectClient() {
         setSessions(prev => [newSession, ...prev]);
         setPendingMessage(message);
         setActiveSessionId(newSession.id);
+        touchResumeHint(newSession.id);
       } catch (err) {
         console.error('Failed to create session:', err);
         setIsCreatingSession(false);
       }
     },
-    [getClient]
+    [getClient, touchResumeHint]
   );
 
-  const handleSelectSession = useCallback(async (id: string) => {
-    setActiveSessionId(id);
-  }, []);
+  const handleSelectSession = useCallback(
+    (id: string) => {
+      setActiveSessionId(id);
+      touchResumeHint(id);
+    },
+    [touchResumeHint]
+  );
 
   const handleDeleteSession = useCallback(
     async (id: string) => {
@@ -91,12 +235,15 @@ export default function ArchitectClient() {
         setSessions(prev => prev.filter(s => s.id !== id));
         if (activeSessionId === id) {
           setActiveSessionId(null);
+          if (activeProject?.id) {
+            clearResumeHint(activeProject.id);
+          }
         }
       } catch (err) {
         console.error('Failed to delete session:', err);
       }
     },
-    [getClient, activeSessionId]
+    [getClient, activeSessionId, activeProject?.id]
   );
 
   const handleSessionTitleUpdate = useCallback(
@@ -110,7 +257,22 @@ export default function ArchitectClient() {
 
   const handleInitialMessageSent = useCallback(() => {
     setPendingMessage(null);
-  }, []);
+    if (activeSessionId) {
+      // Remove the stashed handoff message only now that it has been sent, so
+      // a reload cannot resend it. No-op for welcome-screen sessions (no entry).
+      clearPendingHandoffMessage(activeSessionId);
+      touchResumeHint(activeSessionId);
+    }
+  }, [activeSessionId, touchResumeHint]);
+
+  const handleUserActivity = useCallback(() => {
+    if (activeSessionId) {
+      touchResumeHint(activeSessionId);
+    }
+  }, [activeSessionId, touchResumeHint]);
+
+  if (permsLoading) return <PageLoadingState />;
+  if (!canRead) return <AccessDenied resource="architect sessions" />;
 
   return (
     <Box
@@ -135,10 +297,10 @@ export default function ArchitectClient() {
         {activeSessionId ? (
           <ArchitectChat
             sessionId={activeSessionId}
-            sessionToken={session?.session_token}
             onSessionTitleUpdate={handleSessionTitleUpdate}
             initialMessage={pendingMessage}
             onInitialMessageSent={handleInitialMessageSent}
+            onUserActivity={handleUserActivity}
             sessionProjectId={
               sessions.find(s => s.id === activeSessionId)?.project_id
             }

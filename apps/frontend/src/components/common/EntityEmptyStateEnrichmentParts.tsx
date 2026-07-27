@@ -4,7 +4,11 @@ import React from 'react';
 import { Box, Button, Paper, Skeleton, Typography } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import { ArrowOutwardIcon } from '@/components/icons';
-import { BORDER_RADIUS, ELEVATION } from '@/styles/theme-constants';
+import { BORDER_RADIUS } from '@/styles/theme-constants';
+import {
+  emptyStateCardShellSx,
+  emptyStateEnrichedActionSx,
+} from '@/components/common/entityEmptyStateSx';
 import type {
   EmptyStateAction,
   EmptyStateArticle,
@@ -75,20 +79,7 @@ function EnrichmentActionButton({
   showAddIcon?: boolean;
   enriched?: boolean;
 }) {
-  const commonSx = enriched
-    ? {
-        fontWeight: 700,
-        fontSize: 14,
-        lineHeight: '22px',
-        borderRadius: BORDER_RADIUS.sm,
-        textTransform: 'none' as const,
-        px: '16px',
-        py: '8px',
-        ...(variant === 'outlined'
-          ? { borderWidth: 2, '&:hover': { borderWidth: 2 } }
-          : {}),
-      }
-    : undefined;
+  const commonSx = enriched ? emptyStateEnrichedActionSx(variant) : undefined;
 
   if (action.href) {
     return (
@@ -467,16 +458,7 @@ export function EntityEmptyStateCardShell({
   children: React.ReactNode;
 }) {
   return (
-    <Paper
-      elevation={0}
-      sx={{
-        border: theme => `1px solid ${theme.palette.greyscale.border}`,
-        borderRadius: BORDER_RADIUS.md,
-        boxShadow: ELEVATION.xs,
-        px: '30px',
-        py: '40px',
-      }}
-    >
+    <Paper elevation={0} sx={emptyStateCardShellSx}>
       {children}
     </Paper>
   );

@@ -3,6 +3,8 @@
 import * as React from 'react';
 import EditableSection from '@/components/common/EditableSection';
 import TagsField from '@/components/common/TagsField';
+import { useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 import { Source } from '@/utils/api-client/interfaces/source';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { EntityType, Tag, TagCreate } from '@/utils/api-client/interfaces/tag';
@@ -26,25 +28,24 @@ interface TagsDraft {
 }
 
 interface SourceTagsCardProps {
-  sessionToken: string;
   source: Source;
   userId?: UUID;
   onUpdate?: () => void;
 }
 
 export default function SourceTagsCard({
-  sessionToken,
   source,
   userId,
   onUpdate,
 }: SourceTagsCardProps) {
   const notifications = useNotifications();
+  const canEditSource = useCan(Capability.Source.UPDATE);
 
   const initialTagNames = (source.tags ?? []).map((t: Tag) => t.name);
   const initialDraft: TagsDraft = { tagNames: initialTagNames };
 
   const handleSave = async (draft: TagsDraft) => {
-    const tagsClient = new TagsClient(sessionToken);
+    const tagsClient = new TagsClient();
     const currentNames = initialTagNames;
     const newNames = draft.tagNames;
 
@@ -88,6 +89,7 @@ export default function SourceTagsCard({
   return (
     <EditableSection
       title="Tags"
+      editable={canEditSource}
       initialValue={initialDraft}
       onSave={handleSave}
       isDirty={(draft, initial) =>

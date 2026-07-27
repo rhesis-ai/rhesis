@@ -219,4 +219,12 @@ def bootstrap(app: "FastAPI") -> None:
         r.route_class = app.router.route_class
         app.include_router(r)
 
+    # ---- Startup diagnostics -----------------------------------------------
+    if not sso_runtime_check():
+        logger.warning(
+            "SSO_ENCRYPTION_KEY not detected — SSO and API Clients features "
+            "are licensed but not operationally ready. Set the key to enable "
+            "SSO configuration and token exchange."
+        )
+
     logger.info("EE bootstrap complete - registered features: [sso, api_clients, rbac]")

@@ -20,7 +20,7 @@ const webServerEnv = {
   FRONTEND_ENV: process.env.FRONTEND_ENV || 'development',
   NEXTAUTH_SECRET:
     process.env.NEXTAUTH_SECRET || 'test-secret-for-e2e-tests-only',
-  NEXTAUTH_URL: process.env.NEXTAUTH_URL || baseURL,
+  FRONTEND_URL: process.env.FRONTEND_URL || baseURL,
 };
 
 const webServer = isNoDocker
@@ -50,7 +50,7 @@ const webServer = isNoDocker
         BACKEND_URL: process.env.BACKEND_URL || 'http://localhost:8080',
         NEXTAUTH_SECRET:
           process.env.NEXTAUTH_SECRET || 'test-secret-for-e2e-tests-only',
-        NEXTAUTH_URL: process.env.NEXTAUTH_URL || 'http://localhost:3000',
+        FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:3000',
       },
     };
 

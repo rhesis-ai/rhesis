@@ -6,16 +6,10 @@ Register Python functions as testable endpoints using the Rhesis SDK. Instead of
 configuring endpoints manually in the dashboard, you decorate your functions and
 the SDK handles registration, mapping, and synchronization automatically.
 
-<Callout type="default">
-  **Code-first approach**: Decorate your functions with `@endpoint` and they
-  become testable endpoints in Rhesis. No manual URL configuration, request
-  templates, or response mappings needed.
-</Callout>
-
 <Callout type="info">
-  This page provides a summary of SDK endpoint capabilities. For the complete
-  reference including advanced patterns, parameter binding, serializers, and
-  working examples, see the [SDK Connector documentation](/sdk/connector).
+  This page summarizes SDK endpoint capabilities. For the complete
+  reference — advanced patterns, parameter binding, serializers, and
+  working examples — see the [SDK Connector documentation](/sdk/connector).
 </Callout>
 
 ## How It Works
@@ -93,7 +87,7 @@ def chat(input: str, conversation_id: str = None) -> dict:
 
 For functions with custom parameter names or complex structures, provide explicit
 mappings using the same Jinja2 and JSONPath syntax as
-[REST endpoint mappings](/docs/endpoints/single-turn):
+[REST endpoint mappings](/docs/endpoints/request-mapping):
 
 <CodeBlock filename="manual_mapped.py" language="python">
 {`@endpoint(
@@ -233,11 +227,10 @@ WebSocket connection is established.
 
 ---
 
-<Callout type="default">
-  **Learn More**
-  - [SDK Connector](/sdk/connector) — Full reference with advanced patterns
-  - [Input/Output Mapping](/sdk/connector/mapping) — Detailed mapping guide
-  - [Parameter Binding](/sdk/connector/binding) — Dependency injection patterns
-  - [Advanced Mapping](/sdk/connector/serializers) — Complex type serialization
-  - [Examples](/sdk/connector/examples) — Complete working examples
-</Callout>
+## Learn more
+
+- [SDK Connector](/sdk/connector) — full reference with advanced patterns
+- [Input/Output Mapping](/sdk/connector/mapping) — mapping guide
+- [Parameter Binding](/sdk/connector/binding) — dependency injection patterns
+- [Advanced Mapping](/sdk/connector/serializers) — complex type serialization
+- [Examples](/sdk/connector/examples) — complete working examples

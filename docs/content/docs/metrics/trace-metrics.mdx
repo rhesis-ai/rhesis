@@ -2,7 +2,7 @@ import { CodeBlock } from "@/components/CodeBlock";
 
 # Trace Metrics
 
-Trace Metrics let you run evaluation metrics against live production traces automatically. Every time your endpoint handles a request, Rhesis can evaluate the response for safety, relevance, coherence, or any custom criteria you define — giving you continuous quality signals without writing additional test cases.
+Trace Metrics let you run evaluation metrics against live production traces automatically. Every time your endpoint handles a request, Rhesis can evaluate the response for safety, relevance, coherence, or any custom criteria you define — with no extra test cases.
 
 ## When Evaluation Runs
 
@@ -53,7 +53,7 @@ coherence = NumericJudge(
 coherence.push()`}
 </CodeBlock>
 
-If you set the scope to just `["Trace"]` without specifying Single-Turn or Multi-Turn, the metric adapts automatically based on the presence of a `conversation_id`: 
+If you set the scope to only `["Trace"]` without specifying Single-Turn or Multi-Turn, the metric adapts automatically based on the presence of a `conversation_id`:
 * **If there is no conversation ID:** It runs immediately (per-turn).
 * **If there is a conversation ID:** It skips the immediate evaluation and waits to run per-conversation once the timeout expires.
 
@@ -209,6 +209,7 @@ This metric runs during test execution (single-turn and multi-turn tests) and al
   - [SDK Metrics](/sdk/metrics) — create and configure evaluation metrics
   - [Tracing](/docs/tracing) — trace list filters and detail views
   - [Conversation Tracing](/docs/tracing/conversation-tracing) — multi-turn trace grouping
-  - [Test Reviews](/docs/test-reviews) — review model and override patterns
+  - [Test Reviews](/docs/tasks/test-reviews) — review model and override patterns
+  - [Annotations](/docs/annotations) — browse reviews across test results and traces
   - [Decorators](/docs/tracing/decorators) — `@observe` and `@endpoint`
 </Callout>

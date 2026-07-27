@@ -10,16 +10,132 @@ This is the aggregated changelog for the entire Rhesis repository. For detailed 
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-07-09
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.10.0**
+- **Frontend 0.10.0**
+- **SDK 0.10.0**
+
+### Summary
+
+Enterprise Edition gets a **roles and permissions UI** for custom RBAC, including member assignment and scoped API tokens. The SDK adds **Pydantic AI** auto-instrumentation and a Penelope target. List and detail APIs are faster after fixing N+1 query patterns. Test runs pick up a **Reviews** column, and test detail pages show **execution history**.
+
+### Featured Capabilities
+
+**Enterprise RBAC (EE)**
+
+Manage who can do what without leaving Organization Settings:
+
+- **Roles tab**: view built-in roles and create custom ones
+- **Graded permissions**: set access per area (Test Resources, Observability, Infrastructure, Administration) at View / Edit / Manage
+- **Member assignment**: set org and project roles from the team and project member grids
+- **Scoped tokens**: limit API tokens to a role's permissions
+- **Server-driven affordances**: create/edit/delete controls only show when the caller is allowed to use them
+- **Viewer enforcement**: Viewer stays read-only across the UI
+
+See [Roles & Permissions](/docs/organizations/roles).
+
+**Pydantic AI and target updates**
+
+- **Auto-instrumentation**: `PydanticAIIntegration` turns agent runs into Rhesis spans (agent, LLM, tools, handoffs) without `@observe`
+- **Penelope target**: `PydanticAITarget` for multi-turn conversation simulation
+- **Async targets**: native `ainvoke` paths for LangChain and LangGraph
+- **Multimodal attachments**: file / content-block support for LangChain, LangGraph, and Pydantic AI targets
+
+**API performance**
+
+List and detail endpoints were doing far too many round trips (lazy-loaded comments, tasks, tags, files per row). Those N+1 patterns are gone, and a few expensive `ORDER BY` / join paths were split so pages like `/tests` load in a more reasonable time.
+
+**Test run reviews and history**
+
+- Reviews column on the test runs grid, with conflict detection
+- Execution history tab on the test detail page
+
+### Backend Highlights
+- RBAC project/org role scope, precedence, and Viewer read-only enforcement
+- Faster list/detail queries (N+1 fixes, split detail fetches, lookup indexes)
+- Metric–endpoint compatibility preflight check
+- Assorted RBAC onboarding and membership edge-case fixes
+
+### Frontend Highlights
+- EE Roles tab, role editor, member role chips, and token scope picker
+- Affordances-aware UI (actions gated by `permitted_actions`)
+- Reviews column on test runs; execution history on test detail
+- Grids and detail pages moved onto shared React Query hooks
+- Playground endpoint selection and other small UX polish
+
 ### SDK Highlights
+- Pydantic AI integration and native OpenTelemetry span translation
+- `PydanticAITarget` for Penelope
+- Native async send paths for LangChain and LangGraph targets
+- Multimodal file attachments via `FileReference` resolution
+
+## [0.9.1] - 2026-06-25
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.9.1**
+- **Frontend 0.9.1**
+- **SDK 0.9.1**
+
+### Summary
+
+This release adds **Microsoft Agent Framework (MAF) tracing**, redesigns **Insights** around behavior pass rates, lands the **RBAC backend** (UI follows in 0.10), and expands **MCP tool integrations** (Azure DevOps, Linear, GitLab, Asana, Shortcut). Also includes a Figma-aligned onboarding wizard, vLLM as an LLM provider, and tighter TestSet visibility rules.
+
+### Featured Capabilities
 
 **Microsoft Agent Framework (MAF) tracing**
 
-- **One-line auto-instrumentation**: `auto_instrument("agent_framework")` (alias `"maf"`) translates MAF GenAI spans into the Rhesis schema - agents, model calls, tools, embeddings, and workflows - with no agent code changes.
-- **Native handoff tracing**: handoffs in `HandoffBuilder` workflows are synthesized into `ai.agent.handoff` spans for the Graph View.
-- **Privacy controls**: `RHESIS_DISABLE_CONTENT_CAPTURE` omits prompt/completion/tool payloads; `RHESIS_MAF_VERBOSE_WORKFLOW_SPANS` keeps full workflow infrastructure spans.
-- **Penelope MAF target**: `MAFTarget` drives any MAF agent through multi-turn conversation simulation.
+- **One-line auto-instrumentation**: `auto_instrument("agent_framework")` (alias `"maf"`) translates MAF GenAI spans into the Rhesis schema — agents, model calls, tools, embeddings, and workflows — with no agent code changes
+- **Native handoff tracing**: handoffs in `HandoffBuilder` workflows become `ai.agent.handoff` spans for the Graph View
+- **Privacy controls**: `RHESIS_DISABLE_CONTENT_CAPTURE` omits prompt/completion/tool payloads; `RHESIS_MAF_VERBOSE_WORKFLOW_SPANS` keeps full workflow infrastructure spans
+- **Penelope MAF target**: `MAFTarget` drives any MAF agent through multi-turn conversation simulation
 
 The legacy `autogen` integration is now a deprecated no-op; use `agent_framework` instead.
+
+See [Microsoft Agent Framework](/docs/tracing/agent-framework).
+
+**Insights redesign**
+
+Insights is now a behavior-centric pass rate view:
+
+- Behavior columns with expandable metric and topic rows
+- Behavior filter and clearer failed-test counts
+- Empty states aligned with the Figma card layout
+
+**RBAC backend (EE)**
+
+Role-based access control lands on the backend: built-in and custom roles, permission catalogs, and project-scoped membership. The authoring UI ships in 0.10.
+
+**MCP tools and knowledge**
+
+- Integrations for Azure DevOps, Linear, GitLab, Asana, and Shortcut
+- `create_endpoint` / `update_endpoint` tools for agent registration
+- Knowledge import from MCP extract providers, scoped by project
+- Tools page redesigned as a provider card grid
+
+### Backend Highlights
+- RBAC policy engine, migrations, and project-scoped token resolution
+- Removed public TestSet visibility (organization and user ownership only)
+- Timezone / `timestamptz` migration and handling fixes
+- Faster test run detail and summary paths
+- vLLM provider support; pass model endpoint as `api_base` to the SDK
+
+### Frontend Highlights
+- Insights behavior-centric redesign and empty-state polish
+- Onboarding wizard aligned with Figma V2
+- Tools page provider grid and endpoint UI improvements
+- Knowledge tool import UX fixes
+
+### SDK Highlights
+- Microsoft Agent Framework telemetry integration and `MAFTarget`
+- MCP inspection tools and additional provider integrations
+- Metric evaluation resilience for weak-JSON models
+- Examples for OpenAI/Anthropic, Pydantic AI, LlamaIndex, and CrewAI telemetry
 
 ## [0.9.0] - 2026-06-11
 

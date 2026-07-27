@@ -22,10 +22,7 @@ export class FilesClient extends BaseApiClient {
     }
 
     // Omit Content-Type so browser sets multipart boundary
-    const headers: Record<string, string> = {};
-    if (this.sessionToken) {
-      headers['Authorization'] = `Bearer ${this.sessionToken}`;
-    }
+    const headers: Record<string, string> = { ...this.buildAuthHeaders() };
 
     const response = await fetch(url.toString(), {
       method: 'POST',
@@ -77,10 +74,7 @@ export class FilesClient extends BaseApiClient {
    */
   async getFileContent(fileId: string): Promise<Blob> {
     const url = this.getFileContentUrl(fileId);
-    const headers: Record<string, string> = {};
-    if (this.sessionToken) {
-      headers['Authorization'] = `Bearer ${this.sessionToken}`;
-    }
+    const headers: Record<string, string> = { ...this.buildAuthHeaders() };
 
     const response = await fetch(url, {
       headers,

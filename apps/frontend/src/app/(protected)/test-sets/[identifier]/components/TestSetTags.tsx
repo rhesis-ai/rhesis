@@ -8,14 +8,10 @@ import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import { useTheme } from '@mui/material/styles';
 
 interface TestSetTagsProps {
-  sessionToken: string;
   testSet: TestSet;
 }
 
-export default function TestSetTags({
-  sessionToken,
-  testSet,
-}: TestSetTagsProps) {
+export default function TestSetTags({ testSet }: TestSetTagsProps) {
   const [tagNames, setTagNames] = useState<string[]>([]);
   const _theme = useTheme();
 
@@ -40,7 +36,6 @@ export default function TestSetTags({
         size="small"
         margin="normal"
         fullWidth
-        sessionToken={sessionToken}
         entityType={EntityType.TEST_SET}
         entity={testSet}
         className="test-set-tags"

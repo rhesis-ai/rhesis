@@ -36,13 +36,13 @@ A robust adversarial testing strategy requires:
 
 Generating a diverse dataset of adversarial test cases is difficult. Commercial LLMs like ChatGPT or Gemini are heavily optimized for safety. When tasked with generating adversarial or policy-violating prompts, they usually refuse. This creates a generation gap, leaving blind spots in robustness evaluations because the tests themselves are sanitized.
 
-Rhesis provides **Polyphemus**, a managed model built for adversarial test generation. It produces the realistic, challenging prompts that commercial models routinely refuse. It integrates directly with the SDK as a drop-in model provider.
+Rhesis provides **Polyphemus**, a managed model built for adversarial test generation. It produces the realistic, challenging prompts that commercial models routinely refuse, and integrates with the SDK as a drop-in model provider.
 
-Note: Polyphemus requires approved access. See [Requesting Access](/adversarial-testing/requesting-access).
+Note: Polyphemus requires approved access. See [Requesting Access](/docs/tests/adversarial-testing/requesting-access).
 
 ## Next Steps
 
 - [Import from Garak](/docs/test-sets/import-from-garak): probe library for vulnerability scanning
-- [Polyphemus](/adversarial-testing/polyphemus): model details and capabilities
-- [Requesting Access](/adversarial-testing/requesting-access): get approved
-- [Using Polyphemus with the SDK](/adversarial-testing/sdk-usage): integration examples
+- [Polyphemus](/docs/tests/adversarial-testing/polyphemus): model details and capabilities
+- [Requesting Access](/docs/tests/adversarial-testing/requesting-access): get approved
+- [Using Polyphemus with the SDK](/docs/tests/adversarial-testing/sdk-usage): integration examples

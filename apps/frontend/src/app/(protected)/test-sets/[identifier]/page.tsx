@@ -3,6 +3,7 @@ import { Box, CircularProgress } from '@mui/material';
 import { Metadata } from 'next';
 import { auth } from '@/auth';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
+import { notFoundIfEntityMissing } from '@/utils/entity-not-found-server';
 import { format } from 'date-fns';
 
 import { PageLayout } from '@/components/layout/PageLayout';
@@ -32,25 +33,20 @@ export async function generateMetadata({
 export default async function TestSetPage({ params }: PageProps) {
   const session = await auth();
 
-  if (!session?.session_token) {
+  if (!session || session.error) {
     throw new Error('Authentication required');
   }
 
   const { identifier } = await params;
-  const apiFactory = await createServerApiFactory(session.session_token);
+  const apiFactory = await createServerApiFactory();
   const testSetsClient = apiFactory.getTestSetsClient();
 
-  const response = await testSetsClient.getTestSets({
-    limit: 1,
-    $filter: `id eq ${identifier}`,
-  } as {
-    limit: number;
-    $filter: string;
-  });
-
-  let testSet = response.data[0];
-  if (!testSet) {
-    throw new Error('Test set not found');
+  let testSet;
+  try {
+    testSet = await testSetsClient.getTestSet(identifier);
+  } catch (error) {
+    notFoundIfEntityMissing(error);
+    throw error;
   }
 
   if (testSet.test_set_type_id) {
@@ -106,7 +102,6 @@ export default async function TestSetPage({ params }: PageProps) {
 
   const pageActions = (
     <TestSetHeaderActions
-      sessionToken={session.session_token}
       testSetId={identifier}
       testSetName={testSet.name}
       testCount={testCount}
@@ -133,7 +128,6 @@ export default async function TestSetPage({ params }: PageProps) {
             testSet={serializedTestSet}
             testCount={testCount}
             isGenerating={isGenerating}
-            sessionToken={session.session_token}
             currentUserId={session.user?.id || ''}
             currentUserName={session.user?.name || ''}
             currentUserPicture={session.user?.picture || undefined}

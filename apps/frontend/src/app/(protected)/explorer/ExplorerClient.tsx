@@ -3,7 +3,6 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import Box from '@mui/material/Box';
-import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import FileUploadIcon from '@mui/icons-material/FileUploadOutlined';
 import { useSession } from 'next-auth/react';
@@ -11,32 +10,32 @@ import { useQueryClient } from '@tanstack/react-query';
 import { explorerKeys } from '@/constants/query-keys';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
-import EntityEmptyState from '@/components/common/EntityEmptyState';
-import { AccountTreeIcon } from '@/components/icons';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
-import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
-import { Can, useCan } from '@/components/common/Can';
+import { Can, useCan, useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
+import AccessDenied from '@/components/common/AccessDenied';
 import { useNotifications } from '@/components/common/NotificationContext';
 import type { ImportExplorerTestSetResponse } from '@/utils/api-client/interfaces/explorer';
 import ExplorerGrid from './components/ExplorerGrid';
 import ExplorerCreateDialog from './components/ExplorerCreateDialog';
 import ImportExplorerTestSetDialog from './components/ImportExplorerTestSetDialog';
+import { isAuthenticated, isSessionLoading } from '@/hooks/useIsAuthenticated';
 
 export default function ExplorerClient() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const router = useRouter();
   const queryClient = useQueryClient();
   const notifications = useNotifications();
 
-  const [sessionCount, setSessionCount] = React.useState<number | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = React.useState(false);
   const [importDialogOpen, setImportDialogOpen] = React.useState(false);
 
   useDocumentTitle('Explorer');
 
-  const sessionToken = session?.session_token ?? '';
   const canCreateSession = useCan(Capability.Explorer.CREATE);
+  const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
+    Capability.Explorer.READ
+  );
 
   const handleImportedExplorerSet = React.useCallback(
     (result: ImportExplorerTestSetResponse) => {
@@ -56,7 +55,7 @@ export default function ExplorerClient() {
     [queryClient, notifications, router]
   );
 
-  if (status === 'loading') {
+  if (isSessionLoading(status) || permsLoading) {
     return (
       <PageLayout title="Explorer" breadcrumbs={[]}>
         <Box sx={{ p: 3 }}>
@@ -66,7 +65,7 @@ export default function ExplorerClient() {
     );
   }
 
-  if (!sessionToken) {
+  if (!isAuthenticated(status)) {
     return (
       <PageLayout title="Explorer" breadcrumbs={[]}>
         <Box sx={{ p: 3 }}>
@@ -75,6 +74,8 @@ export default function ExplorerClient() {
       </PageLayout>
     );
   }
+
+  if (!canRead) return <AccessDenied resource="explorer sessions" />;
 
   return (
     <>
@@ -100,39 +101,16 @@ export default function ExplorerClient() {
         }
       >
         <Box sx={{ mt: 2, mb: 2 }}>
-          {sessionCount === 0 ? (
-            <EntityEmptyState
-              icon={AccountTreeIcon}
-              title="No explorer sessions yet"
-              description="Start a new session to explore behaviors and generate tests, or load an existing test set."
-              actionLabel={canCreateSession ? 'New session' : undefined}
-              onAction={
-                canCreateSession ? () => setCreateDialogOpen(true) : undefined
-              }
-            />
-          ) : (
-            <Paper
-              sx={{
-                width: '100%',
-                borderRadius: BORDER_RADIUS.md,
-                boxShadow: ELEVATION.xs,
-                border: theme => `1px solid ${theme.palette.greyscale.border}`,
-                overflow: 'hidden',
-              }}
-            >
-              <ExplorerGrid
-                sessionToken={sessionToken}
-                onTotalCountChange={setSessionCount}
-              />
-            </Paper>
-          )}
+          <ExplorerGrid
+            canCreate={canCreateSession}
+            onCreateClick={() => setCreateDialogOpen(true)}
+          />
         </Box>
       </PageLayout>
 
       <ExplorerCreateDialog
         open={createDialogOpen}
         onClose={() => setCreateDialogOpen(false)}
-        sessionToken={sessionToken}
         onCreated={() =>
           queryClient.invalidateQueries({ queryKey: explorerKeys.all() })
         }
@@ -145,7 +123,6 @@ export default function ExplorerClient() {
         open={importDialogOpen}
         onClose={() => setImportDialogOpen(false)}
         onImported={handleImportedExplorerSet}
-        sessionToken={sessionToken}
       />
     </>
   );

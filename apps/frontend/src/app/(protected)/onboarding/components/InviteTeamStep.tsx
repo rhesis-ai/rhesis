@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { safeRandomUUID } from '@/utils/uuid';
 import {
   Box,
   TextField,
@@ -143,7 +144,7 @@ export default function InviteTeamStep({
     }
 
     updateFormData({
-      invites: [...formData.invites, { id: crypto.randomUUID(), email: '' }],
+      invites: [...formData.invites, { id: safeRandomUUID(), email: '' }],
     });
   };
 

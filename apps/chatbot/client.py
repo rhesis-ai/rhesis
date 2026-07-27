@@ -454,6 +454,7 @@ class ChatRequest(BaseModel):
     temperature: Optional[float] = None
     max_tokens: Optional[int] = None
     mode: Optional[str] = None  # Output mode: "text" or "json"
+    response_schema: Optional[dict] = None  # Custom JSON Schema, applied when mode == "json"
     context_strategy: Optional[str] = None
     files: Optional[List[FileInput]] = None
     rhesis: Optional[dict] = None
@@ -531,6 +532,9 @@ def extract_file_content(file_input: FileInput) -> dict:
         "temperature": "{{ params.temperature | default(0.7) }}",
         "max_tokens": "{{ params.max_tokens | default(1024) }}",
         "output_mode": "{{ params.output_mode | default(mode | default('text')) }}",
+        # Bare variable reference (no filter) so TemplateRenderer's simple-variable
+        # passthrough preserves the dict as-is instead of stringifying it via Jinja.
+        "response_schema": "{{ params.response_schema }}",
         "context_strategy": "{{ params.context_strategy | default('heuristic') }}",
         "use_case": "{{ params.use_case | default('insurance') }}",
         "conversation_history": "{{ conversation_history | default(none) }}",
@@ -559,6 +563,7 @@ async def chat(
     temperature: float = 0.7,
     max_tokens: int = 1024,
     output_mode: str = "text",
+    response_schema: Optional[dict] = None,
     context_strategy: str = "heuristic",
     conversation_history: Optional[List[dict]] = None,
     files: Optional[List[dict]] = None,
@@ -576,6 +581,9 @@ async def chat(
         message: User's message
         session_id: Session identifier (reuse to continue a conversation)
         use_case: Use case for system prompt
+        response_schema: Custom JSON Schema for the assistant's reply. Only
+            applied when ``output_mode == "json"``; when omitted, falls back
+            to the default ``{"response": str}`` schema.
         conversation_history: Explicit conversation history; when ``None``
             the history is looked up from the in-memory session store.
         files: Raw file dicts from the backend (each has filename, content_type,
@@ -595,6 +603,10 @@ async def chat(
     context_strategy = _optional_string(context_strategy) or "heuristic"
     temperature = _float_or_default(temperature, 0.7)
     max_tokens = _int_or_default(max_tokens, 1024)
+    # Guard against the literal "None" string / empty string Jinja2 can render
+    # when the template variable is absent (see conversation_history below).
+    if not isinstance(response_schema, dict) or not response_schema:
+        response_schema = None
 
     # Resolve session – reuse existing or create new
     session_id = session_id or str(uuid.uuid4())
@@ -711,6 +723,7 @@ async def chat(
         temperature=temperature,
         max_tokens=max_tokens,
         context_strategy=context_strategy,
+        response_schema=response_schema,
     )
     tool_calls = []
 
@@ -837,6 +850,7 @@ async def chat_endpoint(
             "temperature": chat_request.temperature,
             "max_tokens": chat_request.max_tokens,
             "context_strategy": chat_request.context_strategy,
+            "response_schema": chat_request.response_schema,
         }
         params.update(
             {
@@ -875,6 +889,7 @@ async def chat_endpoint(
             temperature=params.get("temperature", 0.7),
             max_tokens=params.get("max_tokens", 1024),
             output_mode=output_mode,
+            response_schema=params.get("response_schema"),
             context_strategy=params.get("context_strategy", "heuristic"),
             file_contents=file_contents,
             rhesis=chat_request.rhesis,

@@ -243,6 +243,10 @@ class TestTestSetExecution:
                 "rhesis.backend.app.services.test_set._validate_user_access"
             ) as mock_validate_access,
             patch(
+                "rhesis.backend.app.services.test_set.count_test_set_tests",
+                return_value=1,
+            ),
+            patch(
                 "rhesis.backend.app.services.test_set._create_test_configuration"
             ) as mock_create_config,
             patch(
@@ -378,6 +382,108 @@ class TestTestSetExecution:
                 db=test_db, test_set_identifier="test_set_id", endpoint_id=None, current_user=user
             )
 
+    def test_count_test_set_tests_excludes_soft_deleted_tests(
+        self, test_db: Session, authenticated_user_id, test_org_id
+    ):
+        """Stale associations to soft-deleted tests do not make a test set executable."""
+        test_set = models.TestSet(
+            **create_test_set_data(),
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+        test = models.Test(
+            **create_test_data(),
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+        test_db.add_all([test_set, test])
+        test_db.flush()
+        test_db.execute(
+            models.test_test_set_association.insert().values(
+                test_id=test.id,
+                test_set_id=test_set.id,
+                organization_id=test_org_id,
+                user_id=authenticated_user_id,
+            )
+        )
+        test_db.commit()
+
+        assert test_set_service.count_test_set_tests(test_db, test_set.id) == 1
+
+        test.soft_delete()
+        test_db.commit()
+
+        assert test_set_service.count_test_set_tests(test_db, test_set.id) == 0
+
+    def test_execute_test_set_on_endpoint_empty_test_set(
+        self, test_db: Session, authenticated_user_id, test_org_id, db_user, test_organization
+    ):
+        """Empty test sets are rejected before configuration or task submission."""
+        test_set = models.TestSet(
+            **create_test_set_data(),
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+        test_db.add(test_set)
+        test_db.commit()
+
+        project = models.Project(
+            name="Empty Test Set Project",
+            organization_id=test_organization.id,
+            user_id=db_user.id,
+        )
+        test_db.add(project)
+        test_db.commit()
+        test_db.refresh(project)
+
+        endpoint = models.Endpoint(
+            **create_endpoint_data(),
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            project_id=project.id,
+        )
+        test_db.add(endpoint)
+        test_db.commit()
+
+        user = test_db.query(models.User).filter(models.User.id == authenticated_user_id).first()
+
+        with (
+            patch("rhesis.backend.app.crud.resolve_test_set", return_value=test_set),
+            patch("rhesis.backend.app.crud.get_endpoint", return_value=endpoint),
+            patch(
+                "rhesis.backend.app.services.test_set._validate_user_access",
+                return_value=None,
+            ),
+            patch(
+                "rhesis.backend.app.services.test_set._create_test_configuration"
+            ) as mock_create_config,
+            patch(
+                "rhesis.backend.app.services.test_set._submit_test_configuration_for_execution"
+            ) as mock_submit,
+        ):
+            with pytest.raises(ValueError, match="Cannot execute test set with 0 tests"):
+                test_set_service.execute_test_set_on_endpoint(
+                    db=test_db,
+                    test_set_identifier=str(test_set.id),
+                    endpoint_id=endpoint.id,
+                    current_user=user,
+                )
+
+            mock_create_config.assert_not_called()
+            mock_submit.assert_not_called()
+
+    def test_execute_test_set_on_endpoint_empty_returns_http_400(self):
+        """Empty-test ValueError is converted to HTTP 400 by handle_execution_error."""
+        from rhesis.backend.app.utils.execution_validation import handle_execution_error
+
+        error = ValueError(
+            "Cannot execute test set with 0 tests. Please add tests before executing."
+        )
+        result = handle_execution_error(error, operation="execute test set")
+
+        assert result.status_code == 400
+        assert "cannot execute test set with 0 tests" in str(result.detail).lower()
+
     def test_execute_test_set_on_endpoint_with_metrics(
         self, test_db: Session, authenticated_user_id, test_org_id, db_user, test_organization
     ):
@@ -427,6 +533,10 @@ class TestTestSetExecution:
             patch(
                 "rhesis.backend.app.services.test_set._validate_user_access"
             ) as mock_validate_access,
+            patch(
+                "rhesis.backend.app.services.test_set.count_test_set_tests",
+                return_value=1,
+            ),
             patch(
                 "rhesis.backend.app.services.test_set._create_test_configuration"
             ) as mock_create_config,

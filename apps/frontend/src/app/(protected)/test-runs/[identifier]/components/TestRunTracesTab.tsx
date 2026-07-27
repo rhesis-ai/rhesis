@@ -9,7 +9,6 @@ import TracesClient from '@/app/(protected)/traces/components/TracesClient';
 
 interface TestRunTracesTabProps {
   testRunId: string;
-  sessionToken: string;
   currentUserId: string;
   currentUserName: string;
   currentUserPicture?: string;
@@ -17,7 +16,6 @@ interface TestRunTracesTabProps {
 
 export default function TestRunTracesTab({
   testRunId,
-  sessionToken,
   currentUserId,
   currentUserName,
   currentUserPicture,
@@ -60,7 +58,6 @@ export default function TestRunTracesTab({
           }}
         >
           <TracesClient
-            sessionToken={sessionToken}
             currentUserId={currentUserId}
             currentUserName={currentUserName}
             currentUserPicture={currentUserPicture}

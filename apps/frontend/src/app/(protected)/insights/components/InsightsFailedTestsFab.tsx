@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useRouter } from 'next/navigation';
-import { Fab, FabGroup } from '@/components/common/Fab';
+import { Fab } from '@/components/common/Fab';
 import { ScienceIcon } from '@/components/icons';
 import { InsightsFilters } from '../types';
 import { buildInsightsFailedTestsUrl } from '../utils/insights-failed-tests';
@@ -31,18 +31,16 @@ export default function InsightsFailedTestsFab({
   };
 
   return (
-    <FabGroup>
-      <Fab
-        icon={<ScienceIcon />}
-        tooltip={
-          failedCount > 0
-            ? `View ${failedCount} failed test case${failedCount === 1 ? '' : 's'}`
-            : 'No failed test cases in this view'
-        }
-        aria-label="View failed test cases"
-        onClick={handleClick}
-        disabled={isDisabled}
-      />
-    </FabGroup>
+    <Fab
+      icon={<ScienceIcon />}
+      tooltip={
+        failedCount > 0
+          ? `View ${failedCount} failed test case${failedCount === 1 ? '' : 's'}`
+          : 'No failed test cases in this view'
+      }
+      aria-label="View failed test cases"
+      onClick={handleClick}
+      disabled={isDisabled}
+    />
   );
 }

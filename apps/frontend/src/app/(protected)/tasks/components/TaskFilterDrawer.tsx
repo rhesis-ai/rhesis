@@ -2,7 +2,6 @@
 
 import * as React from 'react';
 import { Box, FormControl, InputLabel, MenuItem, Select } from '@mui/material';
-import { useSession } from 'next-auth/react';
 import {
   FilterDrawerShell,
   FilterSection,
@@ -61,7 +60,6 @@ export default function TaskFilterDrawer({
   filters,
   onApply,
 }: TaskFilterDrawerProps) {
-  const { data: session } = useSession();
   const { draft, setDraft, handleReset, handleApply } = useFilterDrawerDraft(
     open,
     filters,
@@ -69,15 +67,9 @@ export default function TaskFilterDrawer({
     onApply,
     onClose
   );
-  const sessionToken = session?.session_token ?? '';
-  const { data: priorities = [], isLoading: loadingPriorities } = usePriorities(
-    sessionToken,
-    open
-  );
-  const { data: rawUsers, isLoading: loadingUsers } = useUsers(
-    sessionToken,
-    open
-  );
+  const { data: priorities = [], isLoading: loadingPriorities } =
+    usePriorities(open);
+  const { data: rawUsers, isLoading: loadingUsers } = useUsers(open);
   const users = React.useMemo(
     () => (rawUsers ?? []).filter(user => user.id && user.name),
     [rawUsers]

@@ -5,8 +5,6 @@ import {
   Typography,
   Button,
   Divider,
-  Checkbox,
-  FormControlLabel,
   TextField,
   CircularProgress,
   Alert,
@@ -59,9 +57,6 @@ interface AuthFormProps {
 }
 
 export default function AuthForm({ isRegistration = false }: AuthFormProps) {
-  const [termsAccepted, setTermsAccepted] = useState(false);
-  const [showTermsWarning, setShowTermsWarning] = useState(false);
-  const [previouslyAccepted, setPreviouslyAccepted] = useState(false);
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
   const [passwordPolicy, setPasswordPolicy] = useState<PasswordPolicy | null>(
     null
@@ -104,15 +99,6 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
     }, 0);
   };
 
-  // Check local storage for previous acceptance on component mount
-  useEffect(() => {
-    const hasAcceptedTerms = localStorage.getItem('termsAccepted') === 'true';
-    if (hasAcceptedTerms) {
-      setTermsAccepted(true);
-      setPreviouslyAccepted(true);
-    }
-  }, []);
-
   useEffect(() => {
     const fetchProviders = async () => {
       try {
@@ -143,29 +129,7 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
     fetchProviders();
   }, []);
 
-  const handleTermsAcceptance = (
-    event: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    const accepted = event.target.checked;
-    setTermsAccepted(accepted);
-    if (accepted) {
-      localStorage.setItem('termsAccepted', 'true');
-      setShowTermsWarning(false);
-    }
-  };
-
-  const checkTerms = (): boolean => {
-    if (!termsAccepted) {
-      setShowTermsWarning(true);
-      return false;
-    }
-    setShowTermsWarning(false);
-    return true;
-  };
-
   const handleOAuthLogin = async (provider: ProviderInfo) => {
-    if (!checkTerms()) return;
-
     const searchParams = new URLSearchParams(window.location.search);
     const returnTo = searchParams.get('return_to') || '/architect';
 
@@ -185,7 +149,6 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!checkTerms()) return;
 
     if (isRegistration) {
       const policy = passwordPolicy ?? DEFAULT_PASSWORD_POLICY;
@@ -245,11 +208,11 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
         throw new Error(message || fallback);
       }
 
-      // Use NextAuth to establish session with tokens from backend
-      if (data.session_token) {
+      // Establish the NextAuth session via a single-use auth code. The
+      // exchange (and the refresh token) stays server-side in authorize().
+      if (data.auth_code) {
         const result = await signIn('credentials', {
-          session_token: data.session_token,
-          refresh_token: data.refresh_token || '',
+          code: data.auth_code,
           redirect: false,
         });
 
@@ -273,7 +236,6 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
 
   const handleMagicLink = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!checkTerms()) return;
 
     setFormLoading(true);
     setFormError(null);
@@ -805,74 +767,6 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
           >
             Back to all sign-in options
           </Button>
-        )}
-
-        {/* Terms and Conditions */}
-        {previouslyAccepted ? (
-          <Typography
-            variant="body2"
-            align="center"
-            sx={{ mt: 1, color: 'text.secondary' }}
-          >
-            By continuing, you confirm your agreement to our&nbsp;
-            <a
-              href="https://www.rhesis.ai/terms-conditions"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ color: 'inherit' }}
-            >
-              Terms and Conditions
-            </a>
-            &nbsp;&amp;&nbsp;
-            <a
-              href="https://www.rhesis.ai/privacy-policy"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ color: 'inherit' }}
-            >
-              Privacy Policy
-            </a>
-            .
-          </Typography>
-        ) : (
-          <Box sx={{ mt: 1 }}>
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={termsAccepted}
-                  onChange={handleTermsAcceptance}
-                  color="primary"
-                />
-              }
-              label={
-                <Typography variant="body2">
-                  I agree to the{' '}
-                  <a
-                    href="https://www.rhesis.ai/terms-conditions"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ color: 'inherit' }}
-                  >
-                    Terms
-                  </a>
-                  {' & '}
-                  <a
-                    href="https://www.rhesis.ai/privacy-policy"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ color: 'inherit' }}
-                  >
-                    Privacy Policy
-                  </a>
-                </Typography>
-              }
-            />
-            {showTermsWarning && (
-              <Typography variant="body2" color="error" sx={{ ml: 4 }}>
-                Please accept the Terms and Conditions to continue.
-              </Typography>
-            )}
-          </Box>
         )}
       </Box>
     </Box>

@@ -31,7 +31,7 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
     title: 'Invite team members',
     description: 'Collaborate with your team',
     optional: true,
-    targetPath: '/organizations/team?tour=invite',
+    targetPath: '/organizations/settings?tab=team&tour=invite',
     tourId: 'invite',
   },
 ];

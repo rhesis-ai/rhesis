@@ -20,7 +20,6 @@ interface BehaviorMetricsViewerProps {
   open: boolean;
   onClose: () => void;
   behavior: BehaviorWithMetrics | null;
-  sessionToken: string;
   onRefresh: (removedMetricId?: string) => void;
 }
 
@@ -40,7 +39,6 @@ export default function BehaviorMetricsViewer({
   open,
   onClose,
   behavior,
-  sessionToken,
   onRefresh,
 }: BehaviorMetricsViewerProps) {
   const router = useRouter();
@@ -58,7 +56,7 @@ export default function BehaviorMetricsViewer({
 
     try {
       setIsRemoving(metricId);
-      const metricClient = new MetricsClient(sessionToken);
+      const metricClient = new MetricsClient();
 
       await metricClient.removeBehaviorFromMetric(
         metricId as UUID,

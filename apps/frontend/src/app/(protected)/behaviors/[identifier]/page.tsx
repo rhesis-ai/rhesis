@@ -1,8 +1,8 @@
 import * as React from 'react';
 import { Metadata } from 'next';
 import { auth } from '@/auth';
-import { BehaviorClient } from '@/utils/api-client/behavior-client';
-import { getServerActiveProjectId } from '@/utils/server-active-project';
+import { createServerApiFactory } from '@/utils/api-client/server-factory';
+import { notFoundIfEntityMissing } from '@/utils/entity-not-found-server';
 import BehaviorDetailClient from './components/BehaviorDetailClient';
 import type { UUID } from 'crypto';
 
@@ -25,22 +25,23 @@ export async function generateMetadata({
 export default async function BehaviorDetailPage({ params }: PageProps) {
   const session = await auth();
 
-  if (!session?.session_token) {
+  if (!session || session.error) {
     throw new Error('Authentication required');
   }
 
   const { identifier } = await params;
-  const projectId = await getServerActiveProjectId();
-  const client = new BehaviorClient(
-    session.session_token,
-    undefined,
-    projectId
-  );
+  // Server-side calls must go through createServerApiFactory: the session
+  // object no longer exposes the access token (session.session_token is
+  // always undefined post-BFF), and the factory also threads the active
+  // project header.
+  const client = (await createServerApiFactory()).getBehaviorClient();
 
-  const behavior = await client.getBehaviorWithMetrics(identifier as UUID);
-
-  if (!behavior) {
-    throw new Error('Behavior not found');
+  let behavior;
+  try {
+    behavior = await client.getBehaviorWithMetrics(identifier as UUID);
+  } catch (error) {
+    notFoundIfEntityMissing(error);
+    throw error;
   }
 
   const serializedBehavior = JSON.parse(JSON.stringify(behavior));
@@ -48,7 +49,6 @@ export default async function BehaviorDetailPage({ params }: PageProps) {
   return (
     <BehaviorDetailClient
       behavior={serializedBehavior}
-      sessionToken={session.session_token}
       identifier={identifier}
     />
   );

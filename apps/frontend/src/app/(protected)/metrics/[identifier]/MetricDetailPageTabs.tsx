@@ -36,6 +36,7 @@ import type {
 } from '@/utils/api-client/interfaces/behavior';
 import type { Status } from '@/utils/api-client/interfaces/status';
 import type { UUID } from 'crypto';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 /** Linked behaviors come back with the status relationship at runtime. */
 type LinkedBehaviorRow = BehaviorReference & { status?: Status | null };
@@ -49,7 +50,7 @@ const NAV_LABELS: Record<(typeof TAB_KEYS)[number], string> = {
 
 export default function MetricDetailPageTabs() {
   const params = useParams();
-  const { data: session } = useSession();
+  const { status } = useSession();
   const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
     Capability.Metric.READ
   );
@@ -63,8 +64,6 @@ export default function MetricDetailPageTabs() {
     id: `metric-detail-tab-${index}`,
     'aria-controls': `metric-detail-tabpanel-${index}`,
   }));
-
-  const sessionToken = session?.session_token ?? '';
 
   if (permsLoading) return <PageLoadingState />;
   if (!canRead) return <AccessDenied resource="metrics" />;
@@ -85,10 +84,7 @@ export default function MetricDetailPageTabs() {
       tabNav={tabNav}
       tabBody={
         activeTab === 1 ? (
-          <MetricLinkedBehaviors
-            metricId={metricId}
-            sessionToken={sessionToken}
-          />
+          <MetricLinkedBehaviors metricId={metricId} sessionStatus={status} />
         ) : undefined
       }
     />
@@ -97,10 +93,10 @@ export default function MetricDetailPageTabs() {
 
 function MetricLinkedBehaviors({
   metricId,
-  sessionToken,
+  sessionStatus,
 }: {
   metricId: string;
-  sessionToken: string;
+  sessionStatus: 'loading' | 'authenticated' | 'unauthenticated';
 }) {
   const router = useRouter();
   const notifications = useNotifications();
@@ -126,10 +122,10 @@ function MetricLinkedBehaviors({
   });
 
   const fetchLinked = useCallback(async () => {
-    if (!sessionToken) return;
+    if (!isAuthenticated(sessionStatus)) return;
     setLoading(true);
     try {
-      const client = new MetricsClient(sessionToken);
+      const client = new MetricsClient();
       const result = await client.getMetricBehaviors(metricId as UUID);
       const data =
         (result as unknown as { data: LinkedBehaviorRow[] }).data ?? [];
@@ -139,17 +135,17 @@ function MetricLinkedBehaviors({
     } finally {
       setLoading(false);
     }
-  }, [metricId, sessionToken]);
+  }, [metricId, sessionStatus]);
 
   useEffect(() => {
     fetchLinked();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only on mount / id change
-  }, [metricId, sessionToken]);
+  }, [metricId]);
 
   const handleUnassign = useCallback(
     async (behaviorId: string) => {
       try {
-        const client = new MetricsClient(sessionToken);
+        const client = new MetricsClient();
         await client.removeBehaviorFromMetric(
           metricId as UUID,
           behaviorId as UUID
@@ -168,7 +164,7 @@ function MetricLinkedBehaviors({
         );
       }
     },
-    [metricId, sessionToken, notifications]
+    [metricId, notifications]
   );
 
   // Linked behaviors columns
@@ -232,7 +228,7 @@ function MetricLinkedBehaviors({
     setAssignOpen(true);
     setAssignFilters({ status: [] });
     try {
-      const client = new BehaviorClient(sessionToken);
+      const client = new BehaviorClient();
       const result = await client.getBehaviors({ skip: 0, limit: 100 });
       setAvailable(result);
     } catch {
@@ -240,11 +236,11 @@ function MetricLinkedBehaviors({
     } finally {
       setLoadingAvailable(false);
     }
-  }, [sessionToken]);
+  }, []);
 
   const handleAssign = useCallback(
     async (selectedIds: string[]) => {
-      const client = new MetricsClient(sessionToken);
+      const client = new MetricsClient();
       await Promise.all(
         selectedIds.map(id =>
           client.addBehaviorToMetric(metricId as UUID, id as UUID)
@@ -253,7 +249,7 @@ function MetricLinkedBehaviors({
       await fetchLinked();
       setAssignOpen(false);
     },
-    [metricId, sessionToken, fetchLinked]
+    [metricId, fetchLinked]
   );
 
   // Filter drawer: Status only (linked behaviors have no other filterable field)

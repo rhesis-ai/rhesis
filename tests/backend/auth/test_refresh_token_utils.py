@@ -23,6 +23,7 @@ from rhesis.backend.app.auth.refresh_token_utils import (
     cleanup_expired_tokens,
     create_refresh_token,
     revoke_all_for_user,
+    verify_and_refresh_token,
     verify_and_rotate_refresh_token,
 )
 from rhesis.backend.app.models.refresh_token import RefreshToken
@@ -244,6 +245,255 @@ class TestVerifyAndRotate:
             .first()
         )
         assert str(new_row.family_id) == original_family
+
+
+# =============================================================================
+# Verify and refresh (rotation policy dispatch)
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestVerifyAndRefresh:
+    """Tests for verify_and_refresh_token.
+
+    UI/SSO tokens (client_id IS NULL) are stable (no rotation);
+    token-exchange tokens (client_id set) keep per-use rotation + reuse
+    detection by delegating to verify_and_rotate_refresh_token.
+    """
+
+    def test_ui_token_is_not_rotated(self, test_db):
+        """A UI/SSO token comes back unchanged and stays valid."""
+        org = create_test_organization(test_db, "Stable Org")
+        user = create_test_user(
+            test_db, org.id, _unique_email("stable"), "Stable User"
+        )
+        test_db.flush()
+
+        raw = create_refresh_token(test_db, str(user.id))
+        test_db.commit()
+
+        row, returned = verify_and_refresh_token(test_db, raw)
+        test_db.commit()
+
+        assert returned == raw
+        assert row.is_revoked is False
+        assert row.is_valid is True
+
+    def test_ui_token_slides_expiry(self, test_db):
+        """Each refresh pushes the UI token's expiry forward."""
+        org = create_test_organization(test_db, "Slide Org")
+        user = create_test_user(
+            test_db, org.id, _unique_email("slide"), "Slide User"
+        )
+        test_db.flush()
+
+        raw = create_refresh_token(test_db, str(user.id))
+        test_db.commit()
+
+        row = (
+            test_db.query(RefreshToken)
+            .filter(RefreshToken.token_hash == _hash_token(raw))
+            .first()
+        )
+        # Back-date expiry to a near-term value, then refresh.
+        row.expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
+        test_db.commit()
+
+        verify_and_refresh_token(test_db, raw)
+        test_db.commit()
+
+        refreshed = (
+            test_db.query(RefreshToken)
+            .filter(RefreshToken.token_hash == _hash_token(raw))
+            .first()
+        )
+        # New expiry should be well beyond the 1-hour we set.
+        assert refreshed.expires_at > datetime.now(timezone.utc) + timedelta(days=1)
+
+    def test_ui_token_reusable(self, test_db):
+        """A UI/SSO token can be presented repeatedly (idempotent)."""
+        org = create_test_organization(test_db, "Reuse OK Org")
+        user = create_test_user(
+            test_db, org.id, _unique_email("reuseok"), "Reuse OK User"
+        )
+        test_db.flush()
+
+        raw = create_refresh_token(test_db, str(user.id))
+        test_db.commit()
+
+        _, r1 = verify_and_refresh_token(test_db, raw)
+        test_db.commit()
+        _, r2 = verify_and_refresh_token(test_db, raw)
+        test_db.commit()
+
+        assert r1 == raw
+        assert r2 == raw
+
+    def test_revoked_ui_token_rejected_without_family_nuke(self, test_db):
+        """A revoked UI token is a plain 401 (not reuse detection)."""
+        org = create_test_organization(test_db, "RevUI Org")
+        user = create_test_user(
+            test_db, org.id, _unique_email("revui"), "RevUI User"
+        )
+        test_db.flush()
+
+        raw = create_refresh_token(test_db, str(user.id))
+        test_db.commit()
+
+        revoke_all_for_user(test_db, str(user.id))
+        test_db.commit()
+
+        with pytest.raises(HTTPException) as exc_info:
+            verify_and_refresh_token(test_db, raw)
+
+        assert exc_info.value.status_code == 401
+        assert "invalid" in exc_info.value.detail.lower()
+        assert "reuse" not in exc_info.value.detail.lower()
+
+    def test_expired_ui_token_rejected(self, test_db):
+        org = create_test_organization(test_db, "ExpUI Org")
+        user = create_test_user(
+            test_db, org.id, _unique_email("expui"), "ExpUI User"
+        )
+        test_db.flush()
+
+        raw = create_refresh_token(test_db, str(user.id))
+        test_db.commit()
+
+        row = (
+            test_db.query(RefreshToken)
+            .filter(RefreshToken.token_hash == _hash_token(raw))
+            .first()
+        )
+        row.expires_at = datetime.now(timezone.utc) - timedelta(hours=1)
+        test_db.commit()
+
+        with pytest.raises(HTTPException) as exc_info:
+            verify_and_refresh_token(test_db, raw)
+
+        assert exc_info.value.status_code == 401
+        assert "expired" in exc_info.value.detail.lower()
+
+    def test_unknown_token_rejected(self, test_db):
+        with pytest.raises(HTTPException) as exc_info:
+            verify_and_refresh_token(test_db, "never-issued-token")
+        assert exc_info.value.status_code == 401
+
+    def test_absolute_cap_rejects_old_family(self, test_db):
+        """A session older than the absolute cap is rejected even if the
+        token's own expiry is still in the future."""
+        from rhesis.backend.app.auth.constants import (
+            AUTH_ABSOLUTE_SESSION_MAX_DAYS,
+        )
+
+        org = create_test_organization(test_db, "AbsCap Org")
+        user = create_test_user(
+            test_db, org.id, _unique_email("abscap"), "AbsCap User"
+        )
+        test_db.flush()
+
+        raw = create_refresh_token(test_db, str(user.id))
+        test_db.commit()
+
+        row = (
+            test_db.query(RefreshToken)
+            .filter(RefreshToken.token_hash == _hash_token(raw))
+            .first()
+        )
+        # Family started just past the absolute cap; token itself not expired.
+        row.created_at = datetime.now(timezone.utc) - timedelta(
+            days=AUTH_ABSOLUTE_SESSION_MAX_DAYS + 1
+        )
+        test_db.commit()
+
+        with pytest.raises(HTTPException) as exc_info:
+            verify_and_refresh_token(test_db, raw)
+
+        assert exc_info.value.status_code == 401
+        assert "session expired" in exc_info.value.detail.lower()
+
+    def test_absolute_cap_bounds_slid_expiry(self, test_db):
+        """Near the cap, the slid expiry is clamped to the absolute
+        deadline rather than the full inactivity window."""
+        from rhesis.backend.app.auth.constants import (
+            AUTH_ABSOLUTE_SESSION_MAX_DAYS,
+        )
+
+        org = create_test_organization(test_db, "AbsClamp Org")
+        user = create_test_user(
+            test_db, org.id, _unique_email("absclamp"), "AbsClamp User"
+        )
+        test_db.flush()
+
+        raw = create_refresh_token(test_db, str(user.id))
+        test_db.commit()
+
+        row = (
+            test_db.query(RefreshToken)
+            .filter(RefreshToken.token_hash == _hash_token(raw))
+            .first()
+        )
+        # 1 day before the cap: slid expiry (7d) would overshoot the
+        # absolute deadline, so it must clamp to ~1 day out.
+        row.created_at = datetime.now(timezone.utc) - timedelta(
+            days=AUTH_ABSOLUTE_SESSION_MAX_DAYS - 1
+        )
+        test_db.commit()
+
+        verify_and_refresh_token(test_db, raw)
+        test_db.commit()
+
+        refreshed = (
+            test_db.query(RefreshToken)
+            .filter(RefreshToken.token_hash == _hash_token(raw))
+            .first()
+        )
+        # Clamped: well under the full REFRESH_TOKEN_EXPIRE_DAYS window.
+        assert refreshed.expires_at < datetime.now(timezone.utc) + timedelta(days=2)
+
+    def test_token_exchange_token_still_rotates(self, test_db):
+        """A token-exchange token (client_id set) is rotated, not stable."""
+        org = create_test_organization(test_db, "TxRotate Org")
+        user = create_test_user(
+            test_db, org.id, _unique_email("txrotate"), "TxRotate User"
+        )
+        test_db.flush()
+
+        raw = create_refresh_token(
+            test_db, str(user.id), client_id="client-abc", scope="read"
+        )
+        test_db.commit()
+
+        row, returned = verify_and_refresh_token(test_db, raw)
+        test_db.commit()
+
+        assert returned != raw  # rotated
+        assert row.is_revoked  # old token revoked
+
+    def test_token_exchange_reuse_revokes_family(self, test_db):
+        """Reusing a rotated token-exchange token revokes the family."""
+        org = create_test_organization(test_db, "TxReuse Org")
+        user = create_test_user(
+            test_db, org.id, _unique_email("txreuse"), "TxReuse User"
+        )
+        test_db.flush()
+
+        raw = create_refresh_token(
+            test_db, str(user.id), client_id="client-xyz", scope="read"
+        )
+        test_db.commit()
+
+        _, new_raw = verify_and_refresh_token(test_db, raw)
+        test_db.commit()
+
+        with pytest.raises(HTTPException) as exc_info:
+            verify_and_refresh_token(test_db, raw)
+        assert exc_info.value.status_code == 401
+        assert "reuse" in exc_info.value.detail.lower()
+
+        # The successor is revoked too (family-wide).
+        with pytest.raises(HTTPException):
+            verify_and_refresh_token(test_db, new_raw)
 
 
 # =============================================================================

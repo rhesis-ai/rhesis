@@ -65,6 +65,27 @@ def resolve_review_owner_uuid(review: dict) -> Optional[UUID]:
         return None
 
 
+def apply_review_resolved(
+    review: dict,
+    *,
+    resolved: bool,
+    current_user: "User",
+) -> None:
+    """Set or clear resolution fields on a review JSONB entry."""
+    now = datetime.now(timezone.utc).isoformat()
+    review["resolved"] = resolved
+    review["updated_at"] = now
+    if resolved:
+        review["resolved_at"] = now
+        review["resolved_by"] = {
+            "user_id": str(current_user.id),
+            "name": current_user.name or current_user.email,
+        }
+    else:
+        review["resolved_at"] = None
+        review["resolved_by"] = None
+
+
 ENTITY_REVIEW_TARGET_TYPES = ("test_result", "test")
 
 
@@ -111,10 +132,15 @@ def classify_test_result_review_counts(
     )
     review_status = last_review.get("status") or {}
     review_status_id = review_status.get("status_id")
-    if not review_status_id or not status_id:
+    # Prefer the pre-review snapshot over the live status_id: applying a
+    # review overwrites the live status to match the verdict, so comparing
+    # against it would always match and hide genuine disagreements.
+    metadata = test_reviews.get("metadata") or {}
+    original_status_id = metadata.get("original_status_id") or status_id
+    if not review_status_id or not original_status_id:
         return is_reviewed, False
 
-    is_corrected = str(review_status_id) != str(status_id)
+    is_corrected = str(review_status_id) != str(original_status_id)
     return is_reviewed, is_corrected
 
 

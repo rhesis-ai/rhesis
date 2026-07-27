@@ -1,5 +1,10 @@
 import { GridFilterModel, GridFilterItem } from '@mui/x-data-grid';
 
+import {
+  memberJoinStatusActiveODataFilter,
+  memberJoinStatusInvitedODataFilter,
+} from './member-join-status';
+
 /**
  * Creates a wildcard search filter for tasks that searches across all major text fields
  * This simulates a $search functionality by using OR conditions across multiple fields
@@ -1313,7 +1318,7 @@ export function buildEndpointListFilter(
 // ── Team member filters (organization team page) ─────────────────────────────
 
 export interface TeamFilters {
-  /** Joined vs pending invite — mapped to auth0_id OData checks */
+  /** Joined vs pending invite — mapped to joined_at OData checks */
   memberStatus: '' | 'active' | 'invited';
   /** Account enabled flag — null means no filter */
   accountStatus: boolean | null;
@@ -1377,9 +1382,9 @@ export function combineTeamFiltersToOData(
   }
 
   if (drawerFilters.memberStatus === 'active') {
-    parts.push("auth0_id ne null and auth0_id ne ''");
+    parts.push(memberJoinStatusActiveODataFilter());
   } else if (drawerFilters.memberStatus === 'invited') {
-    parts.push("(auth0_id eq null or auth0_id eq '')");
+    parts.push(memberJoinStatusInvitedODataFilter());
   }
 
   if (drawerFilters.accountStatus === true) {

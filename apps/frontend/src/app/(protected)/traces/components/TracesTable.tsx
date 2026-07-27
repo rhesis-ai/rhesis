@@ -22,6 +22,7 @@ import { isPassedStatusName } from '@/utils/test-result-status';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { formatDuration } from '@/utils/format-duration';
 import { formatDate } from '@/utils/date';
+import { TEST_TYPE_PILL_TABS } from '@/constants/test-types';
 import TraceFilterDrawer, {
   type TraceDrawerFilters,
 } from './TraceFilterDrawer';
@@ -30,11 +31,7 @@ import {
   countActiveTraceDrawerFilters,
 } from './trace-filter-params';
 
-const PILL_TABS = [
-  { label: 'All', value: 'all' },
-  { label: 'Single Turn', value: 'single_turn' },
-  { label: 'Multi Turn', value: 'multi_turn' },
-];
+const PILL_TABS = TEST_TYPE_PILL_TABS;
 
 interface TracesToolbarState {
   searchQuery: string;
@@ -117,7 +114,6 @@ interface TracesTableProps {
   filterDrawerOpen: boolean;
   onFilterDrawerOpen: () => void;
   onFilterDrawerClose: () => void;
-  sessionToken: string;
   fixedTestRunId?: string;
 }
 
@@ -139,7 +135,6 @@ export default function TracesTable({
   filterDrawerOpen,
   onFilterDrawerOpen,
   onFilterDrawerClose,
-  sessionToken,
   fixedTestRunId,
 }: TracesTableProps) {
   const hasActiveDrawerFilters = hasActiveTraceDrawerFilters(drawerFilters, {
@@ -446,7 +441,6 @@ export default function TracesTable({
         onClose={onFilterDrawerClose}
         filters={drawerFilters}
         onApply={onApplyDrawerFilters}
-        sessionToken={sessionToken}
         fixedTestRunId={fixedTestRunId}
       />
     </TracesToolbarContext.Provider>

@@ -11,11 +11,15 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd';
 import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import AssignTestsDrawer from './AssignTestsDrawer';
 import EmbeddingTestsPanel from './EmbeddingTestsPanel';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TestDetail } from '@/utils/api-client/interfaces/tests';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
+import { testSetKeys } from '@/constants/query-keys';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import type { Theme } from '@mui/material/styles';
 
@@ -30,7 +34,6 @@ const paperSx = {
 
 interface TestSetLinkedTestsSectionProps {
   testSetId: string;
-  sessionToken: string;
   testSetType?: string;
   testCount: number;
   isGenerating?: boolean;
@@ -38,13 +41,14 @@ interface TestSetLinkedTestsSectionProps {
 
 export default function TestSetLinkedTestsSection({
   testSetId,
-  sessionToken,
   testSetType,
   testCount: initialTestCount,
   isGenerating: initialIsGenerating = false,
 }: TestSetLinkedTestsSectionProps) {
   const { show: showNotification } = useNotifications();
+  const canEditTestSet = useCan(Capability.TestSet.UPDATE);
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [totalCount, setTotalCount] = useState(initialTestCount);
@@ -60,7 +64,7 @@ export default function TestSetLinkedTestsSection({
 
     const checkStatus = async () => {
       try {
-        const factory = new ApiClientFactory(sessionToken);
+        const factory = new ApiClientFactory();
         const testSetsClient = factory.getTestSetsClient();
         const response = await testSetsClient.getTestSets({
           limit: 1,
@@ -94,7 +98,7 @@ export default function TestSetLinkedTestsSection({
         pollRef.current = null;
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- sessionToken and testSetId are stable; router is stable
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- testSetId is stable; router is stable
   }, [isGenerating]);
 
   const handleRefresh = useCallback(() => {
@@ -104,7 +108,7 @@ export default function TestSetLinkedTestsSection({
   const handleAssignTests = async (tests: TestDetail[]) => {
     if (tests.length === 0) return;
     try {
-      const factory = new ApiClientFactory(sessionToken);
+      const factory = new ApiClientFactory();
       const testSetsClient = factory.getTestSetsClient();
       await testSetsClient.associateTestsWithTestSet(
         testSetId,
@@ -115,7 +119,17 @@ export default function TestSetLinkedTestsSection({
         { severity: 'success', autoHideDuration: 4000 }
       );
       setDrawerOpen(false);
+      // Optimistically grow the count so the empty state gives way to the grid
+      // immediately after the first assignment.
+      setTotalCount(prev => prev + tests.length);
+      // Drop cached test-list pages so the grid refetches with the new rows
+      // (React Query keeps them fresh for 5 min otherwise).
+      await queryClient.invalidateQueries({
+        queryKey: [...testSetKeys.detail(testSetId), 'tests'],
+      });
       handleRefresh();
+      // Sync the server-rendered testCount prop for this page.
+      router.refresh();
     } catch (error) {
       const msg = error instanceof Error ? error.message : '';
       if (msg.includes('already associated')) {
@@ -132,7 +146,7 @@ export default function TestSetLinkedTestsSection({
 
   const isEmpty = totalCount === 0;
 
-  const assignButton = (
+  const assignButton = canEditTestSet ? (
     <Button
       variant="outlined"
       startIcon={<AddIcon />}
@@ -140,7 +154,7 @@ export default function TestSetLinkedTestsSection({
     >
       Assign
     </Button>
-  );
+  ) : null;
 
   return (
     <>
@@ -190,15 +204,19 @@ export default function TestSetLinkedTestsSection({
               No tests yet
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Assign tests to this test set to group related cases together.
+              {canEditTestSet
+                ? 'Assign tests to this test set to group related cases together.'
+                : 'This test set has no tests yet.'}
             </Typography>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => setDrawerOpen(true)}
-            >
-              Assign tests
-            </Button>
+            {canEditTestSet && (
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={() => setDrawerOpen(true)}
+              >
+                Assign tests
+              </Button>
+            )}
           </Box>
         </Paper>
       ) : (
@@ -227,21 +245,21 @@ export default function TestSetLinkedTestsSection({
           <EmbeddingTestsPanel
             key={refreshKey}
             testSetId={testSetId}
-            sessionToken={sessionToken}
             testSetType={testSetType}
             onTotalCountChange={setTotalCount}
           />
         </>
       )}
 
-      <AssignTestsDrawer
-        open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-        sessionToken={sessionToken}
-        testSetId={testSetId}
-        testSetType={testSetType}
-        onAssign={handleAssignTests}
-      />
+      {canEditTestSet && (
+        <AssignTestsDrawer
+          open={drawerOpen}
+          onClose={() => setDrawerOpen(false)}
+          testSetId={testSetId}
+          testSetType={testSetType}
+          onAssign={handleAssignTests}
+        />
+      )}
     </>
   );
 }

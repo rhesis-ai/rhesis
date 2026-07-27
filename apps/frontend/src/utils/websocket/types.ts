@@ -321,7 +321,7 @@ export interface ChatMessagePayload {
  * Chat response payload (received from server).
  */
 export interface ChatResponsePayload {
-  output: string;
+  output: string | Record<string, unknown> | unknown[];
   trace_id?: string;
   endpoint_id: string;
   /** Conversation ID for multi-turn conversations (canonical name) */

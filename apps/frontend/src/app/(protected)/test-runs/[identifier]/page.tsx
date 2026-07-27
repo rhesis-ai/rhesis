@@ -1,9 +1,8 @@
 import { Metadata } from 'next';
 import { PageLayout } from '@/components/layout/PageLayout';
-import { notFound } from 'next/navigation';
 import { auth } from '@/auth';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
-import { isNotFoundApiError } from '@/utils/api-client/is-not-found-error';
+import { notFoundIfEntityMissing } from '@/utils/entity-not-found-server';
 import TestRunMainView from './components/TestRunMainViewClient';
 
 interface _PageProps {
@@ -40,23 +39,22 @@ export default async function TestRunPage({
   const resolvedSearchParams = await Promise.resolve(searchParams);
   const identifier = resolvedParams.identifier;
   const selectedResult = resolvedSearchParams?.selectedresult;
+  const detailTab = resolvedSearchParams?.detailTab;
 
   const session = await auth();
 
-  if (!session?.session_token) {
+  if (!session || session.error) {
     throw new Error('Authentication required');
   }
 
-  const apiFactory = await createServerApiFactory(session.session_token);
+  const apiFactory = await createServerApiFactory();
   const testRunsClient = apiFactory.getTestRunsClient();
 
   let testRun;
   try {
     testRun = await testRunsClient.getTestRun(identifier);
   } catch (error) {
-    if (isNotFoundApiError(error)) {
-      notFound();
-    }
+    notFoundIfEntityMissing(error);
     throw error;
   }
 
@@ -82,13 +80,13 @@ export default async function TestRunPage({
           test_configuration_id: testRun.test_configuration_id,
         }}
         testRun={testRun}
-        sessionToken={session.session_token}
         currentUserId={session.user?.id || ''}
         currentUserName={session.user?.name || ''}
         currentUserPicture={session.user?.picture || undefined}
         initialSelectedTestId={
           typeof selectedResult === 'string' ? selectedResult : undefined
         }
+        initialDetailTab={typeof detailTab === 'string' ? detailTab : undefined}
       />
     </PageLayout>
   );

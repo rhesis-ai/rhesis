@@ -38,7 +38,7 @@ const perfRoutes = [
   { path: '/endpoints', name: 'Endpoints' },
   { path: '/tokens', name: 'API Tokens' },
   { path: '/organizations/settings', name: 'Org Settings' },
-  { path: '/organizations/team', name: 'Org Team' },
+  { path: '/organizations/settings?tab=team', name: 'Org Team' },
 ];
 
 for (const route of perfRoutes) {

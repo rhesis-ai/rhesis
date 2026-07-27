@@ -594,32 +594,6 @@ class OrganizationDataFactory(BaseDataFactory):
 
 
 @dataclass
-class DimensionDataFactory(BaseDataFactory):
-    """Factory for generating dimension test data"""
-
-    @classmethod
-    def minimal_data(cls) -> Dict[str, Any]:
-        """Generate minimal dimension data"""
-        return {"name": fake.word().title() + " Dimension"}
-
-    @classmethod
-    def sample_data(cls) -> Dict[str, Any]:
-        """Generate sample dimension data"""
-        return {
-            "name": fake.word().title() + " Dimension",
-            "description": fake.text(max_nb_chars=180),
-        }
-
-    @classmethod
-    def update_data(cls) -> Dict[str, Any]:
-        """Generate dimension update data"""
-        return {
-            "name": fake.catch_phrase() + " Dimension",
-            "description": fake.paragraph(nb_sentences=1),
-        }
-
-
-@dataclass
 class ProjectDataFactory(BaseDataFactory):
     """Factory for generating project test data"""
 
@@ -718,8 +692,8 @@ class PromptDataFactory(BaseDataFactory):
         if include_expected_response:
             data["expected_response"] = fake.paragraph(nb_sentences=2)
 
-        # Note: Relationship fields (demographic_id, category_id, etc.)
-        # are typically set by fixtures or test setup, not in sample data
+        # Note: Relationship fields (category_id, etc.) are typically set by
+        # fixtures or test setup, not in sample data
 
         return data
 
@@ -965,7 +939,6 @@ FACTORY_REGISTRY = {
     "metric": MetricDataFactory,
     "model": ModelDataFactory,
     "organization": OrganizationDataFactory,
-    "dimension": DimensionDataFactory,
     "project": ProjectDataFactory,
     "prompt": PromptDataFactory,
     "endpoint": EndpointDataFactory,
@@ -1427,10 +1400,13 @@ class UseCaseDataFactory(BaseDataFactory):
     def edge_case_data(cls, case_type: str) -> Dict[str, Any]:
         """Generate use case edge case data"""
         if case_type == "long_name":
-            # Generate a name that's guaranteed to be >100 characters
-            long_name = " ".join([fake.sentence(nb_words=5) for _ in range(4)])
+            # Generate a name that's guaranteed to be >100 characters.
+            # fake.sentence() length varies; a fixed number of sentences can be ≤100.
+            long_name = fake.text(max_nb_chars=500).replace("\n", " ")
+            while len(long_name) <= 100:
+                long_name += " " + fake.sentence(nb_words=10).replace("\n", " ")
             return {
-                "name": long_name[:200],  # Ensure we don't exceed 200 chars
+                "name": long_name[:200],  # Cap to avoid excessive length
                 "description": fake.paragraph(nb_sentences=5),
                 "industry": "Technology",
                 "application": "Complex System Integration",
@@ -2509,7 +2485,6 @@ __all__ = [
     "MetricDataFactory",
     "ModelDataFactory",
     "OrganizationDataFactory",
-    "DimensionDataFactory",
     "PromptTemplateDataFactory",
     "ResponsePatternDataFactory",
     "RiskDataFactory",

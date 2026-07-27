@@ -5,6 +5,7 @@ import { Box, Button, Paper, Typography } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import RouteOutlinedIcon from '@mui/icons-material/RouteOutlined';
 import Link from 'next/link';
+import { useSession } from 'next-auth/react';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import AssignEntityDrawer from '@/components/common/AssignEntityDrawer';
 import {
@@ -17,17 +18,20 @@ import { TestSetsClient } from '@/utils/api-client/test-sets-client';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { formatDate } from '@/utils/date';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import { useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 
 interface LinkedTestSetsSectionProps {
   testId: string;
-  sessionToken: string;
 }
 
 export default function LinkedTestSetsSection({
   testId,
-  sessionToken,
 }: LinkedTestSetsSectionProps) {
   const { show: showNotification } = useNotifications();
+  const { status } = useSession();
+  const canEditTest = useCan(Capability.TestSet.UPDATE);
 
   const [testSets, setTestSets] = useState<TestSet[]>([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -43,10 +47,10 @@ export default function LinkedTestSetsSection({
   const [loadingAvailable, setLoadingAvailable] = useState(false);
 
   const fetchLinkedTestSets = useCallback(async () => {
-    if (!testId || !sessionToken) return;
+    if (!testId || !isAuthenticated(status)) return;
     setLoading(true);
     try {
-      const apiFactory = new ApiClientFactory(sessionToken);
+      const apiFactory = new ApiClientFactory();
       const testsClient = apiFactory.getTestsClient();
       const response = await testsClient.getLinkedTestSets(testId, {
         skip: paginationModel.page * paginationModel.pageSize,
@@ -65,10 +69,10 @@ export default function LinkedTestSetsSection({
     }
   }, [
     testId,
-    sessionToken,
     paginationModel.page,
     paginationModel.pageSize,
     showNotification,
+    status,
   ]);
 
   useEffect(() => {
@@ -79,7 +83,7 @@ export default function LinkedTestSetsSection({
     setLoadingAvailable(true);
     setAssignOpen(true);
     try {
-      const testSetsClient = new TestSetsClient(sessionToken);
+      const testSetsClient = new TestSetsClient();
       const response = await testSetsClient.getTestSets({
         limit: 500,
         sort_by: 'name',
@@ -91,7 +95,7 @@ export default function LinkedTestSetsSection({
     } finally {
       setLoadingAvailable(false);
     }
-  }, [sessionToken]);
+  }, []);
 
   const linkedIds = useMemo(
     () => new Set(testSets.map(ts => String(ts.id))),
@@ -105,7 +109,7 @@ export default function LinkedTestSetsSection({
 
   const handleAssign = useCallback(
     async (selectedIds: string[]) => {
-      const testSetsClient = new TestSetsClient(sessionToken);
+      const testSetsClient = new TestSetsClient();
       const errors: string[] = [];
       await Promise.all(
         selectedIds.map(async id => {
@@ -132,7 +136,7 @@ export default function LinkedTestSetsSection({
       setAssignOpen(false);
       await fetchLinkedTestSets();
     },
-    [sessionToken, testId, showNotification, fetchLinkedTestSets]
+    [testId, showNotification, fetchLinkedTestSets]
   );
 
   const columns: GridColDef[] = [
@@ -218,15 +222,19 @@ export default function LinkedTestSetsSection({
               No test sets assigned yet
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Assign this test to a test set to group related cases together.
+              {canEditTest
+                ? 'Assign this test to a test set to group related cases together.'
+                : 'This test has no linked test sets yet.'}
             </Typography>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={handleAssignClick}
-            >
-              Assign to test set
-            </Button>
+            {canEditTest && (
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={handleAssignClick}
+              >
+                Assign to test set
+              </Button>
+            )}
           </Box>
         </Paper>
       ) : (
@@ -248,13 +256,15 @@ export default function LinkedTestSetsSection({
             >
               Linked Test Sets ({totalCount})
             </Typography>
-            <Button
-              variant="outlined"
-              startIcon={<AddIcon />}
-              onClick={handleAssignClick}
-            >
-              Assign
-            </Button>
+            {canEditTest && (
+              <Button
+                variant="outlined"
+                startIcon={<AddIcon />}
+                onClick={handleAssignClick}
+              >
+                Assign
+              </Button>
+            )}
           </Box>
 
           <BaseDataGrid
@@ -274,17 +284,19 @@ export default function LinkedTestSetsSection({
         </Paper>
       )}
 
-      <AssignEntityDrawer
-        open={assignOpen}
-        onClose={() => setAssignOpen(false)}
-        title="Assign Test Set"
-        rows={availableFiltered}
-        columns={drawerColumns}
-        loading={loadingAvailable}
-        getRowId={row => String(row.id)}
-        onAssign={handleAssign}
-        searchPlaceholder="Search test sets…"
-      />
+      {canEditTest && (
+        <AssignEntityDrawer
+          open={assignOpen}
+          onClose={() => setAssignOpen(false)}
+          title="Assign Test Set"
+          rows={availableFiltered}
+          columns={drawerColumns}
+          loading={loadingAvailable}
+          getRowId={row => String(row.id)}
+          onAssign={handleAssign}
+          searchPlaceholder="Search test sets…"
+        />
+      )}
     </>
   );
 }

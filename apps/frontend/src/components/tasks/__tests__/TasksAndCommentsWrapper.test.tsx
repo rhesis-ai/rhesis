@@ -73,7 +73,6 @@ jest.mock('@/components/comments/CommentsWrapper', () => ({
 const DEFAULT_PROPS = {
   entityType: 'Test' as const,
   entityId: 'e1',
-  sessionToken: 'tok',
   currentUserId: 'u1',
   currentUserName: 'Alice',
 };

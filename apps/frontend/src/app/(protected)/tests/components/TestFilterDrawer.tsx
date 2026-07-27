@@ -9,14 +9,8 @@ import {
   filterDrawerTextFieldSx,
 } from '@/components/common/FilterDrawer';
 import { filterUniqueValidOptions } from '@/components/common/BaseDrawer';
-import { ENTITY_TYPES } from '@/utils/api-client/config';
-import { TEST_TYPES } from '@/constants/test-types';
-import {
-  useStatuses,
-  useBehaviors,
-  useCategories,
-  useTopics,
-} from '@/hooks/useLookups';
+import { TEST_TYPE_FILTER_OPTIONS } from '@/constants/test-types';
+import { useBehaviors, useCategories, useTopics } from '@/hooks/useLookups';
 import ActivityPresenceFiltersSection from '@/components/common/ActivityPresenceFilters';
 import { EntityType } from '@/types/entity-type';
 import {
@@ -29,13 +23,11 @@ import {
 export interface TestFilters {
   /** test_type/type_value equals: Single-Turn | Multi-Turn | '' */
   testType: string;
-  /** status/name contains */
-  status: string;
-  /** behavior/name contains */
+  /** behavior/name equals */
   behavior: string;
-  /** category/name contains */
+  /** category/name equals */
   category: string;
-  /** topic/name contains */
+  /** topic/name equals */
   topic: string;
   tags: ActivityPresenceFilters['tags'];
   comments: ActivityPresenceFilters['comments'];
@@ -44,7 +36,6 @@ export interface TestFilters {
 
 export const EMPTY_TEST_FILTERS: TestFilters = {
   testType: '',
-  status: '',
   behavior: '',
   category: '',
   topic: '',
@@ -54,7 +45,6 @@ export const EMPTY_TEST_FILTERS: TestFilters = {
 export function hasActiveTestFilters(f: TestFilters): boolean {
   return (
     f.testType !== '' ||
-    f.status !== '' ||
     f.behavior !== '' ||
     f.category !== '' ||
     f.topic !== '' ||
@@ -65,7 +55,6 @@ export function hasActiveTestFilters(f: TestFilters): boolean {
 export function countActiveTestFilters(f: TestFilters): number {
   return (
     (f.testType !== '' ? 1 : 0) +
-    (f.status !== '' ? 1 : 0) +
     (f.behavior !== '' ? 1 : 0) +
     (f.category !== '' ? 1 : 0) +
     (f.topic !== '' ? 1 : 0) +
@@ -73,18 +62,12 @@ export function countActiveTestFilters(f: TestFilters): number {
   );
 }
 
-const TEST_TYPE_OPTIONS = [
-  { label: 'Single Turn', value: TEST_TYPES.SINGLE_TURN },
-  { label: 'Multi Turn', value: TEST_TYPES.MULTI_TURN },
-] as const;
-
 const textFieldSx = filterDrawerTextFieldSx;
 
 interface TestFilterDrawerProps {
   open: boolean;
   onClose: () => void;
   filters: TestFilters;
-  sessionToken?: string;
   onApply: (filters: TestFilters) => void;
 }
 
@@ -92,38 +75,22 @@ export default function TestFilterDrawer({
   open,
   onClose,
   filters,
-  sessionToken,
   onApply,
 }: TestFilterDrawerProps) {
   const [draft, setDraft] = React.useState<TestFilters>(filters);
-  const token = sessionToken ?? '';
 
-  const { data: rawStatuses, isLoading: loadingStatuses } = useStatuses(
-    token,
-    ENTITY_TYPES.test,
-    open
-  );
-  const { data: rawBehaviors, isLoading: loadingBehaviors } = useBehaviors(
-    token,
-    open
-  );
+  const { data: rawBehaviors, isLoading: loadingBehaviors } =
+    useBehaviors(open);
   const { data: rawCategories, isLoading: loadingCategories } = useCategories(
-    token,
     EntityType.TEST,
     open
   );
   const { data: rawTopics, isLoading: loadingTopics } = useTopics(
-    token,
     EntityType.TEST,
     open
   );
-  const loadingOptions =
-    loadingStatuses || loadingBehaviors || loadingCategories || loadingTopics;
+  const loadingOptions = loadingBehaviors || loadingCategories || loadingTopics;
 
-  const statusOptions = React.useMemo(
-    () => filterUniqueValidOptions(rawStatuses ?? []).map(s => s.name),
-    [rawStatuses]
-  );
   const behaviorOptions = React.useMemo(
     () => filterUniqueValidOptions(rawBehaviors ?? []).map(b => b.name),
     [rawBehaviors]
@@ -150,10 +117,7 @@ export default function TestFilterDrawer({
 
   const renderAutocomplete = (
     title: string,
-    field: keyof Pick<
-      TestFilters,
-      'status' | 'behavior' | 'category' | 'topic'
-    >,
+    field: keyof Pick<TestFilters, 'behavior' | 'category' | 'topic'>,
     options: string[],
     placeholder: string
   ) => (
@@ -185,7 +149,7 @@ export default function TestFilterDrawer({
     >
       <FilterSection title="Test Type">
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-          {TEST_TYPE_OPTIONS.map(opt => (
+          {TEST_TYPE_FILTER_OPTIONS.map(opt => (
             <Box
               key={opt.value}
               component="button"
@@ -204,7 +168,6 @@ export default function TestFilterDrawer({
         </Box>
       </FilterSection>
 
-      {renderAutocomplete('Status', 'status', statusOptions, 'Select status…')}
       {renderAutocomplete(
         'Behavior',
         'behavior',

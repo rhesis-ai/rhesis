@@ -183,14 +183,31 @@ class TestGetTraceIdForConversation:
 
     def test_returns_earliest_trace_id(self, authenticated_client: TestClient, db_project, test_db):
         """When multiple traces exist for a conversation, returns the earliest."""
-        from rhesis.backend.app import crud
+        from datetime import datetime, timedelta, timezone
+
+        from rhesis.backend.app import crud, models
 
         project_id = str(db_project.id)
         conversation_id = "crud-test-earliest"
 
         # Ingest two spans with same conversation but different trace_ids
         first_trace_id = self._ingest_and_get_db(authenticated_client, project_id, conversation_id)
-        self._ingest_and_get_db(authenticated_client, project_id, conversation_id)
+        second_trace_id = self._ingest_and_get_db(authenticated_client, project_id, conversation_id)
+
+        # Trace.created_at is a server-side `now()` default, which Postgres scopes
+        # to the current transaction, not the statement. Both inserts above run
+        # inside this test's single SAVEPOINT-wrapped transaction (see test_db),
+        # so they land with an identical created_at and "earliest" becomes
+        # ambiguous. Pin distinct timestamps explicitly so the ordering this test
+        # actually exercises is deterministic.
+        now = datetime.now(timezone.utc)
+        test_db.query(models.Trace).filter(models.Trace.trace_id == first_trace_id).update(
+            {"created_at": now - timedelta(seconds=10)}
+        )
+        test_db.query(models.Trace).filter(models.Trace.trace_id == second_trace_id).update(
+            {"created_at": now}
+        )
+        test_db.flush()
 
         org_id = str(db_project.organization_id)
         result = crud.get_trace_id_for_conversation(

@@ -123,4 +123,21 @@ export const overviewTablePaperSx = {
   overflow: 'hidden' as const,
 };
 
+/**
+ * Figma node 1640:23151 — table grid nested inside SectionCard. The section
+ * card supplies the outer border/shadow; this only styles the inner rows.
+ */
+export const overviewTableInnerSx = {
+  width: '100%',
+  overflow: 'hidden' as const,
+  '& .MuiTable-root': {
+    tableLayout: 'fixed',
+    borderCollapse: 'separate',
+    borderSpacing: 0,
+  },
+  '& .MuiTableCell-root': {
+    borderBottom: 'none',
+  },
+} as const;
+
 export default SectionCard;

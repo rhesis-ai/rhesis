@@ -26,6 +26,7 @@ from .suggestions import (
     suggestion_pipeline_stream,
 )
 from .tests import (
+    bulk_delete_explorer_test_sets,
     create_explorer_test_set,
     create_test_node,
     delete_explorer_test_set,
@@ -47,6 +48,7 @@ from .topics import (
 __all__ = [
     "a_generate_embedding_vectors_batch",
     "create_test_embedding",
+    "bulk_delete_explorer_test_sets",
     "create_explorer_test_set",
     "create_test_node",
     "create_topic_node",

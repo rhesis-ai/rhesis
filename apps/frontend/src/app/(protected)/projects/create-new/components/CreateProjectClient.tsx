@@ -32,7 +32,6 @@ interface FormData {
 const steps = ['Project Details', 'Finish'];
 
 interface CreateProjectClientProps {
-  sessionToken: string;
   userId: UUID;
   organizationId?: UUID;
   userName: string;
@@ -40,7 +39,6 @@ interface CreateProjectClientProps {
 }
 
 export default function CreateProjectClient({
-  sessionToken,
   userId,
   organizationId,
   userName,
@@ -59,7 +57,7 @@ export default function CreateProjectClient({
     owner_id: userId,
   });
 
-  const projectsClient = new ApiClientFactory(sessionToken).getProjectsClient();
+  const projectsClient = new ApiClientFactory().getProjectsClient();
 
   const handleNext = () => {
     setActiveStep(prevActiveStep => prevActiveStep + 1);
@@ -157,7 +155,6 @@ export default function CreateProjectClient({
             onNext={handleNext}
             userName={userName}
             userImage={userImage}
-            sessionToken={sessionToken}
             userId={userId}
           />
         );
@@ -168,7 +165,6 @@ export default function CreateProjectClient({
             onComplete={handleComplete}
             onBack={handleBack}
             isSubmitting={isSubmitting}
-            sessionToken={sessionToken}
           />
         );
       default:

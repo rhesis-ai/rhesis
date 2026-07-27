@@ -3,7 +3,7 @@
 import { Box, Typography, CircularProgress } from '@mui/material';
 import { PageLayout } from '@/components/layout/PageLayout';
 import DetailMetadataStrip from '@/components/common/DetailMetadataStrip';
-import DetailNotFoundState from '@/components/common/DetailNotFoundState';
+import DetailEntityMissingState from '@/components/common/DetailEntityMissingState';
 import { use } from 'react';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
@@ -14,6 +14,10 @@ import EndpointDetailView from './components/EndpointDetailView';
 import EndpointHeaderActions from './components/EndpointHeaderActions';
 import { useEndpoint, useProject } from '@/hooks/useEndpoints';
 import { isNotFoundApiError } from '@/utils/api-client/is-not-found-error';
+import {
+  isSessionLoading,
+  isSessionUnauthenticated,
+} from '@/hooks/useIsAuthenticated';
 
 interface PageProps {
   params: Promise<{ identifier: string }>;
@@ -27,8 +31,7 @@ export default function EndpointPage({ params }: PageProps) {
   const { identifier } = use(params);
   const router = useRouter();
 
-  const { data: session, status } = useSession();
-  const sessionToken = session?.session_token ?? '';
+  const { status } = useSession();
 
   const isValidId = !!identifier && UUID_REGEX.test(identifier);
 
@@ -38,20 +41,15 @@ export default function EndpointPage({ params }: PageProps) {
     isFetching,
     error: fetchError,
     refetch,
-  } = useEndpoint(
-    sessionToken,
-    identifier,
-    status === 'authenticated' && !!sessionToken && isValidId
-  );
+  } = useEndpoint(identifier, isValidId);
   const { data: project } = useProject(
-    sessionToken,
     endpoint?.project_id ?? '',
     !!endpoint?.project_id
   );
 
   useDocumentTitle(endpoint?.name || null);
 
-  const loading = status === 'loading' || isLoading;
+  const loading = isSessionLoading(status) || isLoading;
   const error = !isValidId
     ? 'Invalid endpoint identifier format'
     : fetchError instanceof Error
@@ -60,7 +58,7 @@ export default function EndpointPage({ params }: PageProps) {
         ? 'Failed to load endpoint'
         : null;
 
-  if (status === 'unauthenticated') {
+  if (isSessionUnauthenticated(status)) {
     return (
       <Box sx={{ p: 3 }}>
         <Typography color="error">
@@ -88,9 +86,12 @@ export default function EndpointPage({ params }: PageProps) {
 
   if (fetchError && isNotFoundApiError(fetchError)) {
     return (
-      <DetailNotFoundState
+      <DetailEntityMissingState
+        error={fetchError}
         entityLabel="Endpoint"
         entityId={identifier}
+        entityTableName="endpoint"
+        listUrl="/endpoints"
         breadcrumbs={[
           { label: 'Endpoints', href: '/endpoints' },
           { label: 'Not Found', href: `/endpoints/${identifier}` },
@@ -135,14 +136,11 @@ export default function EndpointPage({ params }: PageProps) {
   const metadataStrip = (
     <DetailMetadataStrip
       items={[
-        { label: 'created by:', value: '—' },
+        { label: 'created by:', value: endpoint.user?.name || '—' },
         {
           label: 'created on:',
-          value: endpoint.endpoint_metadata?.created_at
-            ? format(
-                new Date(endpoint.endpoint_metadata.created_at),
-                'dd/MM/yyyy'
-              )
+          value: endpoint.created_at
+            ? format(new Date(endpoint.created_at), 'dd/MM/yyyy')
             : '—',
         },
       ]}

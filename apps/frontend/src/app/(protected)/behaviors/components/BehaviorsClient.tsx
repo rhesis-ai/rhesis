@@ -36,16 +36,15 @@ import BehaviorFilterDrawer, {
   hasActiveBehaviorFilters,
   countActiveBehaviorFilters,
 } from './BehaviorFilterDrawer';
+import { isAuthenticated, isSessionLoading } from '@/hooks/useIsAuthenticated';
 
 interface BehaviorsClientProps {
-  sessionToken: string;
   organizationId: UUID;
   userId?: UUID;
   sessionStatus?: 'loading' | 'authenticated' | 'unauthenticated';
 }
 
 export default function BehaviorsClient({
-  sessionToken,
   organizationId,
   userId,
   sessionStatus,
@@ -91,35 +90,27 @@ export default function BehaviorsClient({
   // Refresh key for manual refresh
   const [refreshKey, setRefreshKey] = React.useState(0);
 
-  const lastSessionTokenRef = React.useRef<string | null>(null);
   const hasFetchedRef = React.useRef(false);
 
   React.useEffect(() => {
     const fetchBehaviors = async () => {
-      if (!sessionToken) {
+      if (!isAuthenticated(sessionStatus)) {
         // Keep spinner while session is still loading; stop it on auth failure
-        if (sessionStatus !== 'loading') {
+        if (!isSessionLoading(sessionStatus)) {
           setIsLoading(false);
         }
         return;
       }
 
-      if (
-        refreshKey === 0 &&
-        lastSessionTokenRef.current !== null &&
-        lastSessionTokenRef.current === sessionToken &&
-        hasFetchedRef.current
-      ) {
+      if (refreshKey === 0 && hasFetchedRef.current) {
         return;
       }
-
-      lastSessionTokenRef.current = sessionToken;
 
       try {
         setIsLoading(true);
         setError(null);
 
-        const behaviorClient = new BehaviorClient(sessionToken);
+        const behaviorClient = new BehaviorClient();
         const behaviorsList = await behaviorClient.getBehaviorsWithMetrics({
           limit: 100,
         });
@@ -136,7 +127,7 @@ export default function BehaviorsClient({
     };
 
     fetchBehaviors();
-  }, [sessionToken, refreshKey, sessionStatus]);
+  }, [refreshKey, sessionStatus]);
 
   const handleAddNewBehavior = () => {
     setEditingBehavior({ id: null, name: '', description: '', tagNames: [] });
@@ -196,7 +187,7 @@ export default function BehaviorsClient({
       return;
     }
 
-    const tagsClient = new TagsClient(sessionToken);
+    const tagsClient = new TagsClient();
 
     await Promise.all(
       toRemove.map(tag =>
@@ -224,7 +215,7 @@ export default function BehaviorsClient({
       setDrawerLoading(true);
       setDrawerError(undefined);
 
-      const behaviorClient = new BehaviorClient(sessionToken);
+      const behaviorClient = new BehaviorClient();
       let tagSyncFailed = false;
 
       if (isNewBehavior) {
@@ -317,7 +308,7 @@ export default function BehaviorsClient({
       setDrawerLoading(true);
       setDrawerError(undefined);
 
-      const behaviorClient = new BehaviorClient(sessionToken);
+      const behaviorClient = new BehaviorClient();
 
       const created = await behaviorClient.createBehavior({
         name: generateCopyName(name),
@@ -353,7 +344,7 @@ export default function BehaviorsClient({
   const handleDeleteBehavior = async () => {
     if (!isNewBehavior && editingBehavior && editingBehavior.id) {
       try {
-        const behaviorClient = new BehaviorClient(sessionToken);
+        const behaviorClient = new BehaviorClient();
 
         const behaviorToDelete = behaviors.find(
           b => b.id === editingBehavior.id
@@ -522,7 +513,7 @@ export default function BehaviorsClient({
   }
 
   // Auth error state
-  if (!sessionToken) {
+  if (!isAuthenticated(sessionStatus)) {
     return (
       <PageLayout title="Behaviors" breadcrumbs={[]}>
         <Alert severity="error" sx={{ mb: 3 }}>
@@ -640,7 +631,6 @@ export default function BehaviorsClient({
                 }
                 onViewMetrics={() => handleViewMetrics(behavior)}
                 onRefresh={handleRefresh}
-                sessionToken={sessionToken}
               />
             ))}
         </Box>
@@ -684,7 +674,6 @@ export default function BehaviorsClient({
         open={metricsViewerOpen}
         onClose={handleMetricsViewerClose}
         behavior={viewingBehavior}
-        sessionToken={sessionToken}
         onRefresh={handleMetricsViewerRefresh}
       />
 

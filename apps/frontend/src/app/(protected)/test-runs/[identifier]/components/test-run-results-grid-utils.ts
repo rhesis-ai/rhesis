@@ -6,6 +6,7 @@ import {
   getTestEvaluationSummary,
   isPassedStatusName,
 } from '@/utils/test-result-status';
+import { getLatestMetricReviewForResult } from './test-run-summary-utils';
 
 export type TestResultDisplayStatus = {
   passed: boolean;
@@ -124,6 +125,28 @@ export function getTestResultDisplayStatus(
       };
     }
 
+    // No entity-level review, but a metric-targeted review may still exist.
+    const latestMetricReview = getLatestMetricReviewForResult(test);
+    if (latestMetricReview?.status?.name) {
+      const reviewPassed = isPassedStatusName(latestMetricReview.status.name);
+
+      return {
+        passed: originalPassed,
+        label: originalPassed ? 'Passed' : 'Failed',
+        count: `${metCriteria}/${totalCriteria}`,
+        isOverruled: true,
+        hasConflict: false,
+        automatedPassed: originalPassed,
+        hasExecutionError: false,
+        reviewData: {
+          reviewer: latestMetricReview.user?.name || 'Unknown',
+          comments: latestMetricReview.comments ?? '',
+          updated_at: latestMetricReview.updated_at,
+          newStatus: reviewPassed ? 'passed' : 'failed',
+        },
+      };
+    }
+
     return {
       passed: originalPassed,
       label: originalPassed ? 'Passed' : 'Failed',
@@ -171,6 +194,31 @@ export function getTestResultDisplayStatus(
         reviewer: lastReview.user?.name || 'Unknown',
         comments: lastReview.comments,
         updated_at: lastReview.updated_at,
+        newStatus: reviewPassed ? 'passed' : 'failed',
+      },
+    };
+  }
+
+  // No entity-level review, but a metric-targeted review may still exist
+  // (e.g. an @mention review left on a specific metric). last_review only
+  // tracks entity-level reviews, so without this the "Review" column would
+  // show "No manual review yet" even though the test has been reviewed.
+  const latestMetricReview = getLatestMetricReviewForResult(test);
+  if (latestMetricReview?.status?.name) {
+    const reviewPassed = isPassedStatusName(latestMetricReview.status.name);
+
+    return {
+      passed: originalPassed,
+      label: originalPassed ? 'Passed' : 'Failed',
+      count: `${passedMetrics}/${totalMetrics}`,
+      isOverruled: true,
+      hasConflict: false,
+      automatedPassed: originalPassed,
+      hasExecutionError: false,
+      reviewData: {
+        reviewer: latestMetricReview.user?.name || 'Unknown',
+        comments: latestMetricReview.comments ?? '',
+        updated_at: latestMetricReview.updated_at,
         newStatus: reviewPassed ? 'passed' : 'failed',
       },
     };

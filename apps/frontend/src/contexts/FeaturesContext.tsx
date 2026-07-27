@@ -20,14 +20,19 @@
 import { FeatureName } from '@/constants/features';
 import { featureKeys } from '@/constants/query-keys';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import type { LicenseInfo } from '@/utils/api-client/features-client';
+import type {
+  LicenseInfo,
+  FeaturesResponse,
+} from '@/utils/api-client/features-client';
 import { useQuery } from '@tanstack/react-query';
 import { useSession } from 'next-auth/react';
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface FeaturesState {
   license: LicenseInfo | null;
   enabled: ReadonlySet<string>;
+  warnings: Readonly<Record<string, string>>;
   loading: boolean;
   error: Error | null;
 }
@@ -35,39 +40,50 @@ interface FeaturesState {
 const DEFAULT_STATE: FeaturesState = {
   license: null,
   enabled: new Set<string>(),
+  warnings: {},
   loading: true,
   error: null,
 };
 
 const FeaturesContext = createContext<FeaturesState>(DEFAULT_STATE);
 
-export function FeaturesProvider({ children }: { children: ReactNode }) {
+export function FeaturesProvider({
+  children,
+  initialFeatures = null,
+}: {
+  children: ReactNode;
+  /**
+   * Server-fetched `GET /features` result (see `(protected)/layout.tsx`),
+   * seeded as this query's `initialData` so `loading` is already `false` on
+   * the very first client render instead of flashing "no features enabled"
+   * for one round trip. `null` (no session server-side, or the fetch failed)
+   * falls back to the normal client-side fetch.
+   */
+  initialFeatures?: FeaturesResponse | null;
+}) {
   const { data: session, status } = useSession();
-  const sessionToken =
-    status === 'authenticated' ? session?.session_token : undefined;
-  // Prefer the stable user id, but fall back to the per-user session token so
-  // the cache key is never shared across users even if `user.id` is missing.
-  const userScope = session?.user?.id ?? sessionToken ?? '';
+  const userScope = session?.user?.id ?? '';
 
   const { data, isLoading, error } = useQuery({
     queryKey: featureKeys.all(userScope),
-    queryFn: () =>
-      new ApiClientFactory(sessionToken!).getFeaturesClient().getFeatures(),
-    enabled: !!sessionToken,
+    queryFn: () => new ApiClientFactory().getFeaturesClient().getFeatures(),
+    enabled: isAuthenticated(status),
     staleTime: 5 * 60_000,
+    ...(initialFeatures ? { initialData: initialFeatures } : {}),
   });
 
   const value = useMemo<FeaturesState>(() => {
     // Fail-closed while the session is still resolving or the query is idle/
     // in-flight. A disabled react-query (enabled: false) reports isLoading=false
-    // with data=undefined, so we must gate on sessionToken explicitly --
+    // with data=undefined, so we must gate on the auth status explicitly --
     // otherwise the idle state would be mistaken for "loaded, no features" and
     // gated UI (and downstream RBAC permissions) would flash permissive.
-    if (!sessionToken || isLoading) return DEFAULT_STATE;
+    if (!isAuthenticated(status) || isLoading) return DEFAULT_STATE;
     if (error)
       return {
         license: null,
         enabled: new Set<string>(),
+        warnings: {},
         loading: false,
         error: error instanceof Error ? error : new Error(String(error)),
       };
@@ -75,10 +91,11 @@ export function FeaturesProvider({ children }: { children: ReactNode }) {
     return {
       license: data.license,
       enabled: new Set<string>(data.enabled),
+      warnings: data.warnings ?? {},
       loading: false,
       error: null,
     };
-  }, [sessionToken, data, isLoading, error]);
+  }, [data, isLoading, error, status]);
 
   return (
     <FeaturesContext.Provider value={value}>
@@ -95,6 +112,17 @@ export function useFeature(name: FeatureName): boolean {
   const { enabled, loading } = useContext(FeaturesContext);
   if (loading) return false;
   return enabled.has(name);
+}
+
+/**
+ * Returns the warning message for a feature, or null if the feature
+ * is fully operational. Use this to show a banner when a feature is
+ * licensed but its backing infrastructure is not yet configured.
+ */
+export function useFeatureWarning(name: FeatureName): string | null {
+  const { warnings, loading } = useContext(FeaturesContext);
+  if (loading) return null;
+  return warnings[name] ?? null;
 }
 
 /**

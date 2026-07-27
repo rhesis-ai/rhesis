@@ -6,15 +6,18 @@ point where license validation plugs in (by swapping
 :class:`DefaultLicenseProvider` for :class:`JwtLicenseProvider` via
 :meth:`FeatureRegistry.set_license_provider`).
 
-Two query methods, both fail-closed:
+Three query tiers, all fail-closed:
 
-- :meth:`is_registered` — registered + runtime check passes. Does NOT consult
-  the license provider. Use this for early-bailout checks before an
-  organization has been resolved (e.g. inside an OIDC callback before
-  validating the signed state).
-- :meth:`is_available` — registered + license provider allows it for the
-  given organization + runtime check passes. The organization argument is
-  required; this is the call you want for any per-tenant gating.
+- :meth:`is_registered` — in the registry. Does NOT consult the license
+  provider or runtime checks. Use as an early bailout when an organization
+  has not yet been resolved (e.g. inside an OIDC callback).
+- :meth:`is_licensed` — registered + license provider allows it for the
+  given organization. Does NOT run the runtime check. Use for UI visibility
+  (the ``GET /features`` endpoint) so licensed features always appear even
+  when their backing infrastructure is not yet configured.
+- :meth:`is_available` — registered + licensed + runtime check passes.
+  The strictest gate; use for route-level enforcement via
+  ``require_feature`` / ``has_feature``.
 
 :class:`FeatureName` is the canonical source of truth for EE feature
 identifiers. Add new members here when adding a new EE feature, then register
@@ -122,8 +125,9 @@ class FeatureRegistry:
     """Singleton registry of EE features.
 
     Holds the installed :class:`LicenseProvider` and the map of registered
-    :class:`Feature` instances. Two queries: :meth:`is_registered` (no
-    license check) and :meth:`is_available` (full check, requires org).
+    :class:`Feature` instances. Three query tiers: :meth:`is_registered`
+    (cheapest), :meth:`is_licensed` (license only, no runtime check), and
+    :meth:`is_available` (strictest, includes runtime check).
     """
 
     _features: dict[FeatureName, Feature] = {}
@@ -151,33 +155,26 @@ class FeatureRegistry:
 
     @classmethod
     def is_registered(cls, name: FeatureNameLike) -> bool:
-        """Return ``True`` iff the feature is registered and its runtime check passes.
+        """Return ``True`` iff the feature is in the registry.
 
-        Does NOT consult the license provider. Use as an early bailout when
-        an organization has not yet been resolved — for example inside an
-        OIDC callback before the signed state has been validated. License
-        enforcement happens via :meth:`is_available` (or the
-        ``require_feature`` route dependency) once the org is in hand.
+        Does NOT consult the license provider or run the runtime check.
+        Use as an early bailout when an organization has not yet been
+        resolved — for example inside an OIDC callback before the signed
+        state has been validated.
         """
         key = cls._coerce(name)
         if key is None:
             return False
-        feature = cls._features.get(key)
-        if feature is None:
-            return False
-        if feature.runtime_check is not None and not feature.runtime_check():
-            return False
-        return True
+        return key in cls._features
 
     @classmethod
-    def is_available(cls, name: FeatureNameLike, org: Optional[Organization]) -> bool:
-        """Return ``True`` iff *name* is registered, licensed for *org*, and
-        passes its runtime check.
+    def is_licensed(cls, name: FeatureNameLike, org: Optional[Organization]) -> bool:
+        """Return ``True`` iff *name* is registered and licensed for *org*.
 
-        Organization is required: feature gating without org context cannot
-        consult the license provider, which is precisely what
-        :meth:`is_registered` exists for. Passing ``None`` fails closed —
-        a user with no associated organization is never granted EE features.
+        Does NOT run the feature's runtime check. Use this for UI
+        visibility decisions (e.g. the ``GET /features`` endpoint) so
+        that licensed features always appear even when their backing
+        infrastructure is not yet configured.
         """
         if org is None:
             return False
@@ -189,14 +186,45 @@ class FeatureRegistry:
             return False
         if not cls._license.allows_feature(feature, org):
             return False
+        return True
+
+    @classmethod
+    def is_available(cls, name: FeatureNameLike, org: Optional[Organization]) -> bool:
+        """Return ``True`` iff *name* is registered, licensed for *org*, and
+        passes its runtime check.
+
+        This is the strictest gate. Use for route-level enforcement via
+        ``require_feature`` / ``has_feature``. For UI visibility, use
+        :meth:`is_licensed` instead.
+        """
+        if not cls.is_licensed(name, org):
+            return False
+        feature = cls._features[cls._coerce(name)]  # type: ignore[index]
         if feature.runtime_check is not None and not feature.runtime_check():
             return False
         return True
 
     @classmethod
+    def licensed_features(cls, org: Optional[Organization]) -> list[Feature]:
+        """Return all EE features licensed for *org* (ignoring runtime checks)."""
+        return [f for f in cls._features.values() if cls.is_licensed(f.name, org)]
+
+    @classmethod
     def enabled_features(cls, org: Optional[Organization]) -> list[Feature]:
-        """Return all EE features currently available for *org*."""
+        """Return all EE features fully available for *org* (including runtime checks)."""
         return [f for f in cls._features.values() if cls.is_available(f.name, org)]
+
+    @classmethod
+    def feature_warnings(cls, org: Optional[Organization]) -> dict[str, str]:
+        """Return warnings for features licensed but not operationally ready."""
+        warnings: dict[str, str] = {}
+        for f in cls.licensed_features(org):
+            if f.runtime_check is not None and not f.runtime_check():
+                warnings[f.name.value] = (
+                    f"{f.display_name} is licensed but not yet configured. "
+                    f"Contact your administrator to complete the setup."
+                )
+        return warnings
 
     @classmethod
     def license_info(cls) -> dict:

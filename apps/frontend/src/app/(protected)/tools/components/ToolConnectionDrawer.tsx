@@ -33,6 +33,7 @@ import {
   formatToolProviderDisplayName,
 } from '@/config/tool-providers';
 import { getErrorMessage } from '@/utils/entity-error-handler';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 /** Resolve the provider TypeLookup for a tool in edit mode. */
 function resolveToolProvider(
@@ -134,7 +135,7 @@ export function ToolConnectionDrawer({
   onConnect,
   onUpdate,
 }: ToolConnectionDrawerProps) {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [authToken, setAuthToken] = useState('');
@@ -579,7 +580,7 @@ export function ToolConnectionDrawer({
   };
 
   const handleTestConnection = async () => {
-    if (!session?.session_token) {
+    if (!isAuthenticated(status)) {
       setError('Session not available. Please try again.');
       return;
     }
@@ -603,7 +604,7 @@ export function ToolConnectionDrawer({
     setTestResult(null);
 
     try {
-      const apiFactory = new ApiClientFactory(session.session_token);
+      const apiFactory = new ApiClientFactory();
       const servicesClient = apiFactory.getServicesClient();
 
       let testRequest: {

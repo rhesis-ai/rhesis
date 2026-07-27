@@ -14,8 +14,10 @@ logging_settings = get_logging_settings()
 LOG_LEVEL = logging_settings.log_level
 LOG_DIR = logging_settings.log_dir
 ENVIRONMENT = application_settings.backend_env
-IS_GOOGLE_CLOUD = application_settings.is_google_cloud
-LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+JSON_LOGGER_ENABLED = application_settings.json_logger_enabled
+DEV_MODE = application_settings.dev_mode
+# role_prefix is "" for API; Celery workers get "[MAIN] - " via the filter.
+LOG_FORMAT = "%(asctime)s - %(role_prefix)s%(name)s - %(levelname)s - %(message)s"
 LOG_DATE_FORMAT = "%m/%d/%Y %I:%M:%S%p"
 
 
@@ -173,13 +175,27 @@ class JsonLogFormatter(logging.Formatter):
     """Format log records as Google Cloud-compatible structured JSON."""
 
     def format(self, record: logging.LogRecord) -> str:
-        return json.dumps(
-            {
-                "severity": record.levelname,
-                "module": record.name,
-                "message": f"{record.name}: {record.getMessage()}",
-            }
-        )
+        payload = {
+            "severity": record.levelname,
+            "module": record.name,
+            "message": f"{record.name}: {record.getMessage()}",
+        }
+        if role := getattr(record, "worker_role", None):
+            payload["worker_role"] = role
+        return json.dumps(payload)
+
+
+class _WorkerContextFilter(logging.Filter):
+    """Stamp ``worker_role`` / ``role_prefix`` on every record (empty for API)."""
+
+    def __init__(self, worker_role: str | None = None):
+        super().__init__()
+        self.worker_role = worker_role
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        record.worker_role = self.worker_role
+        record.role_prefix = f"[{self.worker_role}] - " if self.worker_role else ""
+        return True
 
 
 class ColorFormatter(logging.Formatter):
@@ -203,26 +219,16 @@ class ColorFormatter(logging.Formatter):
         return result
 
 
-def _create_formatter():
-    return logging.Formatter(LOG_FORMAT, datefmt=LOG_DATE_FORMAT)
-
-
-def _create_color_formatter():
-    return ColorFormatter(LOG_FORMAT, datefmt=LOG_DATE_FORMAT)
-
-
 _configured = False
 
 
-def set_logger():
-    """Configure the root logger for the application.
+def set_logger(worker_role: str | None = None):
+    """Configure the root logger once at startup.
 
-    Sets up JSON console output with extra local-development output.
-    All handlers use RedactingFormatter to ensure sensitive data is scrubbed
-    from the final output without mutating shared LogRecord objects.
-
-    Must be called once during application startup (e.g. in main.py).
-    Subsequent calls are no-ops to prevent duplicate handlers.
+    Console: JSON if ``JSON_LOGGER_ENABLED``, else color on a TTY, else plain text.
+    When ``DEV_MODE=true``, also write a timestamped plain-text file under
+    ``LOG_DIR``. Optional ``worker_role`` (e.g. MAIN/ARCHITECT from Celery's
+    node name) is included in JSON and as a plain-text prefix.
     """
     global _configured
     if _configured:
@@ -236,28 +242,42 @@ def set_logger():
     # default lastResort handler) so we control all output.
     root_logger.handlers.clear()
 
-    if IS_GOOGLE_CLOUD:
-        json_console_handler = logging.StreamHandler(stream=sys.stdout)
-        json_console_handler.setLevel(LOG_LEVEL)
-        json_console_handler.setFormatter(RedactingFormatter(JsonLogFormatter()))
-        root_logger.addHandler(json_console_handler)
+    if JSON_LOGGER_ENABLED:
+        formatter: logging.Formatter = RedactingFormatter(JsonLogFormatter())
+    elif sys.stdout.isatty():
+        formatter = RedactingFormatter(ColorFormatter(LOG_FORMAT, datefmt=LOG_DATE_FORMAT))
+    else:
+        formatter = RedactingFormatter(logging.Formatter(LOG_FORMAT, datefmt=LOG_DATE_FORMAT))
 
-    if ENVIRONMENT == "local":
-        color_console_handler = logging.StreamHandler(stream=sys.stdout)
-        color_console_handler.setLevel(LOG_LEVEL)
-        color_console_handler.setFormatter(RedactingFormatter(_create_color_formatter()))
-        root_logger.addHandler(color_console_handler)
+    console_handler = logging.StreamHandler(stream=sys.stdout)
+    console_handler.setLevel(LOG_LEVEL)
+    console_handler.setFormatter(formatter)
+    root_logger.addHandler(console_handler)
 
+    if DEV_MODE:
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         Path(LOG_DIR).mkdir(parents=True, exist_ok=True)
 
-        log_file_path = os.path.join(LOG_DIR, f"rhesis_{timestamp}.log")
-        file_handler = logging.FileHandler(log_file_path)
+        file_handler = logging.FileHandler(os.path.join(LOG_DIR, f"rhesis_{timestamp}.log"))
         file_handler.setLevel(LOG_LEVEL)
-        file_handler.setFormatter(RedactingFormatter(_create_formatter()))
+        file_handler.setFormatter(
+            RedactingFormatter(logging.Formatter(LOG_FORMAT, datefmt=LOG_DATE_FORMAT))
+        )
         root_logger.addHandler(file_handler)
 
-    for name in ("uvicorn", "uvicorn.access", "uvicorn.error", "websockets", "fastapi"):
+    context_filter = _WorkerContextFilter(worker_role)
+    for handler in root_logger.handlers:
+        handler.addFilter(context_filter)
+
+    for name in (
+        "uvicorn",
+        "uvicorn.access",
+        "uvicorn.error",
+        "websockets",
+        "fastapi",
+        "celery",
+        "celery.worker",
+    ):
         logger = logging.getLogger(name)
         logger.handlers.clear()
         logger.propagate = True

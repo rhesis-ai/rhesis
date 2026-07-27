@@ -51,6 +51,7 @@ import {
   useInvokeEndpoint,
 } from '@/hooks/useEndpoints';
 import { TEST_TYPES } from '@/constants/test-types';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 function extractResponseText(response: unknown): string {
   if (typeof response === 'string') return response;
@@ -128,17 +129,13 @@ export default function TestGenerationInterface({
   );
   const [fetchTrigger, setFetchTrigger] = useState(0);
   const [showEndpointModal, setShowEndpointModal] = useState(false);
-  const { data: session } = useSession();
-  const invokeEndpointMutation = useInvokeEndpoint(
-    session?.session_token ?? ''
-  );
+  const { status } = useSession();
+  const invokeEndpointMutation = useInvokeEndpoint();
   const { data: selectedEndpoint } = useEndpoint(
-    session?.session_token ?? '',
     selectedEndpointId ?? '',
     !!selectedEndpointId
   );
   const { data: selectedEndpointProject } = useProject(
-    session?.session_token ?? '',
     selectedEndpoint?.project_id ?? '',
     !!selectedEndpoint?.project_id
   );
@@ -193,8 +190,8 @@ export default function TestGenerationInterface({
 
         // Preserve conversation data for multi-turn
         if (
-          existingSample.testType === 'multi_turn' &&
-          newSample.testType === 'multi_turn'
+          existingSample.testType === 'Multi-Turn' &&
+          newSample.testType === 'Multi-Turn'
         ) {
           const mergedMultiTurn = merged as MultiTurnTestSample;
           if (existingSample.conversation) {
@@ -261,7 +258,7 @@ export default function TestGenerationInterface({
     const fetchResponses = async () => {
       if (
         !selectedEndpointId ||
-        !session?.session_token ||
+        !isAuthenticated(status) ||
         localTestSamples.length === 0 ||
         isFetchingResponses
       ) {
@@ -281,14 +278,14 @@ export default function TestGenerationInterface({
 
       setIsFetchingResponses(true);
 
-      const apiFactory = new ApiClientFactory(session.session_token);
+      const apiFactory = new ApiClientFactory();
       const testsClient = apiFactory.getTestsClient();
 
       // Mark all samples as loading
       setLocalTestSamples(prev =>
         prev.map(sample => {
           if (!samplesToFetch.some(s => s.id === sample.id)) return sample;
-          if (sample.testType === 'single_turn') {
+          if (sample.testType === 'Single-Turn') {
             const s = { ...sample, isLoadingResponse: true };
             delete s.response;
             delete s.responseError;
@@ -306,7 +303,7 @@ export default function TestGenerationInterface({
       // Fire all requests in parallel, updating each card as it resolves
       const promises = samplesToFetch.map(async sample => {
         try {
-          if (sample.testType === 'single_turn') {
+          if (sample.testType === 'Single-Turn') {
             const response = await invokeEndpointMutation.mutateAsync({
               id: selectedEndpointId,
               inputData: { input: sample.prompt },
@@ -377,7 +374,7 @@ export default function TestGenerationInterface({
           setLocalTestSamples(prev =>
             prev.map(s => {
               if (s.id !== sample.id) return s;
-              if (s.testType === 'single_turn') {
+              if (s.testType === 'Single-Turn') {
                 return {
                   ...s,
                   isLoadingResponse: false,
@@ -465,22 +462,22 @@ export default function TestGenerationInterface({
   // Manual fetch for a single sample (for multi-turn "Simulate Response" button)
   const handleFetchSampleResponse = useCallback(
     async (sampleId: string) => {
-      if (!selectedEndpointId || !session?.session_token) return;
+      if (!selectedEndpointId || !isAuthenticated(status)) return;
 
       const sample = localTestSamples.find(s => s.id === sampleId);
       if (!sample) return;
       if (processedSampleIds.has(sampleId) || sample.isLoadingResponse) return;
-      if (sample.testType === 'multi_turn' && sample.isLoadingConversation)
+      if (sample.testType === 'Multi-Turn' && sample.isLoadingConversation)
         return;
 
-      const apiFactory = new ApiClientFactory(session.session_token);
+      const apiFactory = new ApiClientFactory();
       const testsClient = apiFactory.getTestsClient();
 
       // Mark sample as loading
       setLocalTestSamples(prev =>
         prev.map(s => {
           if (s.id !== sampleId) return s;
-          return s.testType === 'single_turn'
+          return s.testType === 'Single-Turn'
             ? {
                 ...s,
                 isLoadingResponse: true,
@@ -499,7 +496,7 @@ export default function TestGenerationInterface({
       );
 
       try {
-        if (sample.testType === 'single_turn') {
+        if (sample.testType === 'Single-Turn') {
           const response = await invokeEndpointMutation.mutateAsync({
             id: selectedEndpointId,
             inputData: { input: sample.prompt },
@@ -569,7 +566,7 @@ export default function TestGenerationInterface({
         setLocalTestSamples(prev =>
           prev.map(s => {
             if (s.id !== sampleId) return s;
-            return s.testType === 'single_turn'
+            return s.testType === 'Single-Turn'
               ? {
                   ...s,
                   isLoadingResponse: false,
@@ -590,10 +587,10 @@ export default function TestGenerationInterface({
     },
     [
       selectedEndpointId,
-      session?.session_token,
       localTestSamples,
       processedSampleIds,
       invokeEndpointMutation,
+      status,
     ]
   );
 
@@ -953,13 +950,13 @@ export default function TestGenerationInterface({
                     </Typography>
                     <Chip
                       label={
-                        testType === 'single_turn'
+                        testType === 'Single-Turn'
                           ? TEST_TYPES.SINGLE_TURN
                           : TEST_TYPES.MULTI_TURN
                       }
                       size="small"
                       color={
-                        testType === 'single_turn' ? 'primary' : 'secondary'
+                        testType === 'Single-Turn' ? 'primary' : 'secondary'
                       }
                       sx={{ ml: 1 }}
                     />
@@ -1018,7 +1015,7 @@ export default function TestGenerationInterface({
                     >
                       {endpointInfo
                         ? endpointInfo.name
-                        : testType === 'multi_turn'
+                        : testType === 'Multi-Turn'
                           ? 'Show Live Responses'
                           : 'Show Live Responses'}
                     </Button>
@@ -1081,8 +1078,8 @@ export default function TestGenerationInterface({
                         projectName={endpointInfo?.projectName}
                         projectIcon={endpointInfo?.projectIcon}
                         actionButton={
-                          testType === 'multi_turn' &&
-                          sample.testType === 'multi_turn' &&
+                          testType === 'Multi-Turn' &&
+                          sample.testType === 'Multi-Turn' &&
                           selectedEndpointId ? (
                             <Button
                               variant="contained"

@@ -1,0 +1,92 @@
+import { CodeBlock } from '@/components/CodeBlock'
+import { Table } from '@/components/Table'
+
+# Quick Start
+
+Get Rhesis running locally in under 5 minutes. This setup is for local testing only.
+
+
+<Callout type="warning">
+**Local Development Only**
+
+This configuration is **NOT suitable for production**. It uses generated secrets and enables local authentication bypass (`QUICK_START=true`).
+</Callout>
+
+
+<CodeBlock filename="Terminal" language="bash">
+{`git clone https://github.com/rhesis-ai/rhesis.git
+cd rhesis
+
+# pulls prebuilt images from GHCR
+./rh start
+
+# build backend, worker, and frontend images locally instead:
+./rh start --build
+`}
+</CodeBlock>
+
+
+## Default Access
+
+Once running, access the platform at:
+
+<Table
+  headers={['Service', 'URL', 'Credentials']}
+  rows={[
+    ['Frontend', 'http://localhost:3000', 'Auto-login (no credentials needed)'],
+    ['Backend API', 'http://localhost:8080/docs', 'API documentation'],
+  ]}
+  align={['left', 'left', 'left']}
+/>
+
+## Optional Configuration
+
+### Managing Services
+
+Use the `./rh` CLI to manage services:
+
+<CodeBlock filename="Terminal" language="bash">
+{`
+./rh stop # Stop all services
+./rh logs # View logs for all services
+./rh restart # Restart all services
+./rh delete # Remove all containers, volumes, images, and data (fresh start)
+./rh # Display help for all commands
+
+`}
+</CodeBlock>
+
+### Enable Test Generation
+
+Test generation needs an AI provider. Quick Start can use Rhesis-hosted models, or you can configure your own provider [in the platform](/docs/models). `./rh start` prompts for a Rhesis API key when one is missing.
+
+1. Get a key from [app.rhesis.ai/tokens](https://app.rhesis.ai/tokens).
+2. Run `./rh start` in an interactive terminal and paste the key when prompted.
+3. If you skipped the prompt, add it to `.env.docker.local`:
+
+<CodeBlock filename=".env.docker.local" language="bash">
+{`RHESIS_API_KEY=your-actual-rhesis-api-key-here`}
+</CodeBlock>
+
+
+
+### Changing the ports
+
+The first `./rh start` prompts for backend and frontend ports (defaults: `8080`, `3000`) and writes them to `.env.docker.local`. To change them later, edit `.env.docker.local` — the port and the port in its URL must stay in sync (`BACKEND_PORT` with `API_BASE_URL`, `FRONTEND_PORT` with `FRONTEND_URL`). Then run `./rh restart`:
+
+<CodeBlock filename=".env.docker.local" language="bash">
+{`BACKEND_PORT=15000
+API_BASE_URL=http://localhost:15000
+FRONTEND_PORT=16000
+FRONTEND_URL=http://localhost:16000`}
+</CodeBlock>
+
+## Next Steps
+
+<Callout type="info">
+**Ready for Production?**
+
+For production deployment, see the [Docker Compose Guide](/docs/deployment/docker-compose).
+</Callout>
+
+For local development setup without Docker (for contributing to Rhesis), see the [Environment Setup Guide](/contribute/development-setup).

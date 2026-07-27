@@ -12,12 +12,13 @@ set -e
 : "${CELERY_ARCHITECT_CONCURRENCY:=2}"         # threads for the architect worker
 : "${CELERY_WORKER_PREFETCH_MULTIPLIER:=4}"    # prefetch multiplier for the main worker
 : "${CELERY_ARCHITECT_PREFETCH_MULTIPLIER:=4}" # prefetch multiplier for the architect worker
-: "${CELERY_WORKER_LOGLEVEL:=WARNING}"         # overridden to DEBUG in dev below
+: "${LOG_LEVEL:=INFO}"                         # application logs (set_logger() root logger)
+: "${CELERY_WORKER_LOGLEVEL:=$LOG_LEVEL}"      # celery's own task-lifecycle logger; defaults to LOG_LEVEL
 : "${CELERY_WORKER_OPTS:=}"                   # extra flags passed to both workers
 : "${ENABLE_FLOWER:=no}"
 export CELERY_WORKER_CONCURRENCY CELERY_ARCHITECT_CONCURRENCY \
     CELERY_WORKER_PREFETCH_MULTIPLIER CELERY_ARCHITECT_PREFETCH_MULTIPLIER \
-    CELERY_WORKER_LOGLEVEL CELERY_WORKER_OPTS ENABLE_FLOWER
+    LOG_LEVEL CELERY_WORKER_LOGLEVEL CELERY_WORKER_OPTS ENABLE_FLOWER
 
 # Print environment variables for debugging (excluding sensitive info)
 echo "=== Environment Configuration Debug ==="
@@ -33,16 +34,8 @@ echo "Celery worker prefetch multiplier: $CELERY_WORKER_PREFETCH_MULTIPLIER"
 echo "Celery architect prefetch multiplier: $CELERY_ARCHITECT_PREFETCH_MULTIPLIER"
 echo "Celery worker pool: threads"
 
-# Set log level: DEBUG when DEV_MODE=true (local dev) or WORKER_ENV=development (cloud dev tier)
-if [ "${DEV_MODE:-false}" = "true" ] || [ "${WORKER_ENV}" = "development" ]; then
-    export CELERY_WORKER_LOGLEVEL="DEBUG"
-    echo "🔧 Debug logging enabled (DEV_MODE=${DEV_MODE:-false}, WORKER_ENV=${WORKER_ENV:-not_set}) - setting log level to DEBUG"
-else
-    export CELERY_WORKER_LOGLEVEL="${CELERY_WORKER_LOGLEVEL:-WARNING}"
-    echo "🔧 Using log level: ${CELERY_WORKER_LOGLEVEL}"
-fi
-
-echo "Celery worker log level: $CELERY_WORKER_LOGLEVEL"
+echo "🔧 Application log level: ${LOG_LEVEL}"
+echo "🔧 Celery log level: ${CELERY_WORKER_LOGLEVEL}"
 
 # Enhanced TLS detection and debugging
 if [[ "$BROKER_URL" == rediss://* ]]; then
@@ -121,7 +114,7 @@ import os
 try:
     from rhesis.backend.worker import app
     print(f'Broker URL type: {\"TLS\" if os.getenv(\"BROKER_URL\", \"\").startswith(\"rediss://\") else \"standard\"}')
-    
+
     # Test basic broker connection (lighter than worker ping)
     with app.connection() as conn:
         conn.connect()
@@ -154,18 +147,18 @@ for i in {1..10}; do
         ps aux | grep health_server.py | grep -v grep || echo "No health server processes found"
         break
     fi
-    
+
     # Test basic endpoint
     if curl -f -s http://localhost:8080/health/basic > /dev/null 2>&1; then
         echo "✅ Health server is responding to /health/basic"
-        
+
         # Also test the ping endpoint
         if curl -f -s http://localhost:8080/ping > /dev/null 2>&1; then
             echo "✅ Health server is responding to /ping"
         else
             echo "⚠️ Health server not responding to /ping"
         fi
-        
+
         # Test debug endpoint availability
         if curl -f -s http://localhost:8080/debug > /dev/null 2>&1; then
             echo "✅ Debug endpoints are available"
@@ -174,7 +167,7 @@ for i in {1..10}; do
         fi
         break
     fi
-    
+
     echo "Waiting for health server... attempt $i/10"
     sleep 1
 done
@@ -202,17 +195,17 @@ fi
 # Function to forward signals to children
 forward_signal() {
     echo "Received shutdown signal, stopping processes..."
-    
+
     if [ ! -z "$HEALTH_SERVER_PID" ] && kill -0 $HEALTH_SERVER_PID 2>/dev/null; then
         echo "Stopping health check server (PID: $HEALTH_SERVER_PID)..."
         kill -TERM $HEALTH_SERVER_PID || true
     fi
-    
+
     if [ ! -z "$FLOWER_PID" ] && kill -0 $FLOWER_PID 2>/dev/null; then
         echo "Stopping Flower (PID: $FLOWER_PID)..."
         kill -TERM $FLOWER_PID || true
     fi
-    
+
     if [ ! -z "$MAIN_PID" ] && kill -0 $MAIN_PID 2>/dev/null; then
         echo "Stopping main Celery worker (PID: $MAIN_PID)..."
         kill -TERM $MAIN_PID || true
@@ -224,7 +217,7 @@ forward_signal() {
         kill -TERM $ARCHITECT_PID || true
         wait $ARCHITECT_PID 2>/dev/null || true
     fi
-    
+
     exit 0
 }
 
@@ -331,7 +324,7 @@ echo "Waiting for worker to fully initialize before connectivity test..."
 # Give the worker time to fully start up
 sleep 5
 
-# Use same timeout logic as broker test  
+# Use same timeout logic as broker test
 if [[ "$BROKER_URL" == rediss://* ]]; then
     CONNECTIVITY_TIMEOUT=20
     echo "Using TLS timeout: ${CONNECTIVITY_TIMEOUT}s"
@@ -343,16 +336,16 @@ fi
 # Try multiple times with increasing delays
 for attempt in {1..3}; do
     echo "Connectivity test attempt $attempt/3..."
-    
+
     timeout $CONNECTIVITY_TIMEOUT python -c "
 import sys
 import time
 try:
     from rhesis.backend.worker import app
-    
+
     # Give a moment for workers to register
     time.sleep(2)
-    
+
     # Both workers (main@ and architect@) should respond
     result = app.control.inspect().ping()
     if result:
@@ -426,4 +419,4 @@ if [ ! -z "$FLOWER_PID" ] && kill -0 $FLOWER_PID 2>/dev/null; then
     wait $FLOWER_PID 2>/dev/null || true
 fi
 
-exit $EXIT_CODE 
+exit $EXIT_CODE

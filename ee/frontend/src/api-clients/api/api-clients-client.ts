@@ -35,7 +35,7 @@ function basePath(orgId: string): string {
 }
 
 export class ApiClientsClient extends BaseApiClient {
-  constructor(sessionToken: string) {
+  constructor(sessionToken?: string) {
     super(sessionToken);
   }
 

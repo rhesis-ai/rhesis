@@ -10,14 +10,10 @@ import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 
 interface TestRunTagsProps {
-  sessionToken: string;
   testRun: TestRunDetail;
 }
 
-export default function TestRunTags({
-  sessionToken,
-  testRun,
-}: TestRunTagsProps) {
+export default function TestRunTags({ testRun }: TestRunTagsProps) {
   const [tagNames, setTagNames] = useState<string[]>([]);
 
   useEffect(() => {
@@ -70,7 +66,6 @@ export default function TestRunTags({
         size="small"
         margin="none"
         fullWidth
-        sessionToken={sessionToken}
         entityType={EntityType.TEST_RUN}
         entity={testRun}
         sx={drawerTagFieldSx}

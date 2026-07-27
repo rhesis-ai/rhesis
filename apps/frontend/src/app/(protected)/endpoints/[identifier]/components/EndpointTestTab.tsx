@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { LoadingButton } from '@mui/lab';
+import { Button } from '@mui/material';
 import { PlayArrowIcon } from '@/components/icons';
 import { SectionCard } from '@/components/common/SectionCard';
 import { useEndpointDetailContext } from './EndpointDetailContext';
@@ -112,12 +112,33 @@ export default function EndpointTestTab() {
         );
       }
       const result = await invokeEndpoint(endpoint.id, inputData);
+      if (!result.success) {
+        throw new Error(result.error ?? 'Test failed');
+      }
       const data = result.data as Record<string, unknown>;
       const raw = data?.raw_response ?? data;
       setRawResponse(raw);
-      setStatusCode(
-        String(data?.status_code ?? (result.success ? '200' : 'error'))
-      );
+
+      // The backend returns HTTP 200 even when the endpoint invocation
+      // itself failed (e.g. a connection error to the target URL) — the
+      // failure is encoded in the body as `error: true` instead of the
+      // HTTP status, so it must be checked explicitly rather than assumed
+      // to be a 200 success just because the request reached the server.
+      if (data?.error === true) {
+        const message =
+          (typeof data.message === 'string' && data.message) ||
+          (typeof data.output === 'string' && data.output) ||
+          'Endpoint invocation failed';
+        setStatusCode(
+          typeof data.status_code === 'number'
+            ? String(data.status_code)
+            : 'error'
+        );
+        setError(message);
+        return;
+      }
+
+      setStatusCode(String(data?.status_code ?? '200'));
       if (responseMapping.conversation_id) {
         const convId = applyJsonPath(raw, responseMapping.conversation_id);
         if (typeof convId === 'string') {
@@ -137,7 +158,7 @@ export default function EndpointTestTab() {
       subtitle="Fire a live request and see exactly what your API returns and how Rhesis maps it."
       actions={
         canInvoke ? (
-          <LoadingButton
+          <Button
             variant="contained"
             onClick={handleTest}
             loading={isTestingEndpoint}
@@ -145,7 +166,7 @@ export default function EndpointTestTab() {
             startIcon={<PlayArrowIcon />}
           >
             Check connection
-          </LoadingButton>
+          </Button>
         ) : undefined
       }
     >

@@ -23,9 +23,9 @@ Rhesis controls what each member can do through roles, assigned at the organizat
 
 | Role | Level | Access |
 |---|---|---|
-| Owner | 100 | Full control, including billing, deletion, and ownership transfer |
-| Admin | 80 | Manage members, roles, projects, and org settings. Cannot delete the org |
-| Member | 60 | Create, edit, and run evaluations across their projects. Manage own API tokens |
+| Owner | 100 | Full control, including deletion and ownership transfer |
+| Admin | 80 | Manage members, projects, and org settings, and assign roles. Cannot delete the org or create custom roles |
+| Member | 60 | Create, edit, and run evaluations across their projects |
 | Viewer | 40 | Read-only access. Can browse and export but not change anything |
 | None | 0 | No access. Used to explicitly revoke a member while keeping them in the org |
 
@@ -33,37 +33,54 @@ Built-in roles are fixed and cannot be edited or deleted.
 
 ## Organization roles vs. project roles
 
+A project-level role can only **add** to what your organization role already grants — it can never take access away. This mirrors how GitLab and Google Cloud IAM handle nested scopes: a narrower scope (project) can elevate access above a broader scope (organization), but it never restricts what the broader scope already grants. If you have both an organization role and an explicit role on a specific project, the **higher-level role always wins** for that project.
+
 ```mermaid
 %%{init: {'flowchart': {'nodeSpacing': 30, 'rankSpacing': 50}}}%%
 graph TB
-    A["Has an explicit project role?"]
-    B["Use the project role"]
-    C["Org role is Admin or Owner?"]
-    D["Implicit access to the project"]
-    E["Is a project member?"]
-    F["Inherit the org role"]
-    G["Denied"]
+    A["Has an org role?"]
+    Z["Has an explicit project role?"]
+    K["Use the explicit project role"]
+    D["Denied"]
+    B["Org role is Admin or Owner?"]
+    E["Has an explicit project role?"]
+    F["Use the higher of org role and project role"]
+    G["Use the org role"]
+    C["Is a project member?"]
+    H["Has an explicit project role?"]
+    I["Use the higher of org role and project role"]
+    J["Inherit the org role"]
 
+    A -- "No" --> Z
+    Z -- "Yes" --> K
+    Z -- "No" --> D
     A -- "Yes" --> B
-    A -- "No" --> C
-    C -- "Yes" --> D
-    C -- "No" --> E
+    B -- "Yes" --> E
     E -- "Yes" --> F
     E -- "No" --> G
+    B -- "No" --> C
+    C -- "No" --> D
+    C -- "Yes" --> H
+    H -- "Yes" --> I
+    H -- "No" --> J
 
-    style B fill:#4caf50,color:#fff
-    style D fill:#4caf50,color:#fff
+    style K fill:#4caf50,color:#fff
     style F fill:#4caf50,color:#fff
-    style G fill:#9c27b0,color:#fff
+    style G fill:#4caf50,color:#fff
+    style I fill:#4caf50,color:#fff
+    style J fill:#4caf50,color:#fff
+    style D fill:#9c27b0,color:#fff
 ```
 
-- A project-level role, if assigned, fully overrides the org role for that project (not additive).
-- Org Members and Viewers need to be added to a project to inherit their org role there.
+- No organization role at all: the explicit project role (if any) is the whole answer — there's no broader role to compare it against.
+- Org Admin or Owner: implicit access to every project already. An explicit project role only matters if it's *higher*, in which case it elevates further for that one project.
+- Org Member or Viewer: must be added to a project (given a project role, or added as a plain member) before they get any access there. Once added, the higher of their org role and any explicit project role applies.
 
 **Examples**
 
-- A contractor is added to one project only, with a Member role on that project. They have no access to any other project, regardless of their org role.
-- An org Viewer is promoted to Admin on a single project. They keep Viewer access everywhere else and gain full Admin access on that one project.
+- A contractor with no organization role is added to one project only, with a Member role on that project. They have no access to any other project — there's no org role to fall back on.
+- An org Viewer is granted an explicit Owner role on a single project. They keep Viewer access everywhere else and gain full Owner access on that one project (elevation).
+- An org Owner is also explicitly assigned a lower Admin role on one project (for example, from a default project setup). Their access on that project stays at Owner level — the lower project role does not restrict them.
 - An org Admin never needs to be added to a project explicitly. Admin and Owner get implicit access to every project.
 
 ## Custom roles
@@ -80,6 +97,24 @@ Owners can create custom roles with a hand-picked set of permissions (`role:mana
 2. Review the Built-in Roles card (read-only "Details" view) and the Custom Roles table.
 3. Click "New role": name it, add a description, optionally copy permissions from a built-in template, then set access per area (**Test Resources**, **Observability**, **Infrastructure**, **Administration**) using the View / Edit / Manage graded control. A live "This role can" summary shows the effective permissions.
 4. Assign roles from the Team page (role column or member drawer for org roles), from a project's Members tab (project-level roles), or inline during the invite flow.
+
+## Scoped API tokens
+
+When creating an API token, choose one of these permission modes:
+
+| Mode | Behavior |
+|---|---|
+| **Full access** | Inherits the permissions of the user who creates the token |
+| **Restricted** | Copies the capabilities from a selected built-in or custom role |
+
+For a restricted token, select a **Role template** and review the permission
+summary for Test Resources, Observability, Infrastructure, and Administration.
+The selected capabilities are stored on the token. At request time, the backend
+intersects them with the user's current role, so a token can narrow access but
+can never widen it. A later user-role downgrade automatically limits existing
+tokens as well.
+
+See [API Tokens](/docs/api-tokens) for token creation and authentication.
 
 ## Manage roles via API
 
@@ -113,6 +148,10 @@ Owners can create custom roles with a hand-picked set of permissions (`role:mana
 
 Assign the **None** role at the org tier to revoke a member while keeping them in the organization. **None** is not a valid project-tier assignment (the API returns a 422 error), since it has no meaning there.
 
+<Callout type="warning">
+  Because project roles can elevate but never restrict, setting a member's org role to **None** does not by itself remove any *higher* explicit role they still hold on individual projects — that project role now outranks None and still applies there. To fully revoke someone, also remove or downgrade their project-level role assignments.
+</Callout>
+
 ## Notes
 
 - Role changes can take up to 45 seconds to propagate (permission cache TTL). Not a bug.
@@ -124,4 +163,4 @@ Assign the **None** role at the org tier to revoke a member while keeping them i
 - [Single Sign-On](/docs/organizations/sso)
 - [API Clients](/docs/organizations/api-clients)
 - [Organizations & Team](/docs/organizations)
-- [Self-Hosting](/docs/deployment/self-hosting)
+- [Self-Hosting](/docs/deployment/docker-compose)

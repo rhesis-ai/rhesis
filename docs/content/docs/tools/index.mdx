@@ -1,0 +1,110 @@
+# Tools
+
+Tools connect external services to Rhesis so you can export their content into your [Knowledge](/docs/knowledge) base for use in test generation and other workflows.
+
+<Callout type="info">
+  This page covers importing knowledge into Rhesis from tools like Notion, GitHub, and Jira. If you want to call Rhesis from Cursor or Claude Code to explore endpoints and run tests, see [Agent Skill](/docs/agent-skill) instead.
+</Callout>
+
+![Tools Page](/screenshots/rhesis-ai-mcp.png)
+
+## Setting Up a Tool Connection
+
+Every connection follows the same flow in Rhesis: on the **Tools** page, click **Add tool connection**, pick the provider, fill in the connection name, token, and any provider-specific fields listed below, then **Test the connection** and **Save**. Each provider below covers only how to generate its token and which extra fields it needs.
+
+<details>
+<summary id="notion"><img src="/integrations/providers/notion.svg" width="20" height="20" alt="" style={{ display: "inline", verticalAlign: "middle", marginRight: "6px" }} /> Notion</summary>
+
+<ToolPurposeChip text="Export knowledge into Rhesis" />
+
+1. Create a Notion integration at [notion.so/profile/integrations/internal](https://www.notion.so/profile/integrations/internal/).
+2. In the "Content access" tab, grant access to the pages and teamspaces you want to export from — required for the integration to reach your content.
+3. In Rhesis, paste the token (starts with `ntn...`).
+</details>
+
+<details>
+<summary id="github"><img src="/integrations/providers/github.svg" width="20" height="20" alt="" style={{ display: "inline", verticalAlign: "middle", marginRight: "6px" }} /> GitHub</summary>
+
+<ToolPurposeChip text="Export knowledge into Rhesis" />
+
+1. On GitHub, go to Settings → Developer Settings → Personal Access Tokens → Tokens (classic).
+2. Generate a classic token with the `repo` scope (full repository access).
+3. In Rhesis, add the repository URL and paste the token (starts with `ghp...`).
+</details>
+
+<details>
+<summary id="jira"><img src="/integrations/providers/jira.svg" width="20" height="20" alt="" style={{ display: "inline", verticalAlign: "middle", marginRight: "6px" }} /> Jira</summary>
+
+<ToolPurposeChip text="Create an issue from a Rhesis task" />
+
+1. Go to [id.atlassian.com/manage-profile/security](https://id.atlassian.com/manage-profile/security).
+2. Under API tokens, click "Create API token" (not "Create API token with scopes" — Rhesis needs the classic unscoped token). Verify your identity, name the token, and set an expiration.
+3. In Rhesis, also enter your Atlassian email and workspace URL (`yourorg.atlassian.net`), then paste the token.
+</details>
+
+<details>
+<summary id="gitlab"><img src="/integrations/providers/gitlab.svg" width="20" height="20" alt="" style={{ display: "inline", verticalAlign: "middle", marginRight: "6px" }} /> GitLab</summary>
+
+<ToolPurposeChip text="Export knowledge into Rhesis" />
+
+1. Go to avatar → Edit profile → Access → Personal access tokens.
+2. Generate a "Legacy token" (not "Fine-grained token") with the `api` scope (or `read_api` for read-only). Name it and set an expiration.
+3. In Rhesis, add the project namespace (`group/project`, or a full project URL) and paste the token (starts with `glpat-`). Self-managed instances also need the GitLab API URL.
+</details>
+
+<details>
+<summary id="asana"><img src="/integrations/providers/asana.svg" width="20" height="20" alt="" style={{ display: "inline", verticalAlign: "middle", marginRight: "6px" }} /> Asana</summary>
+
+<ToolPurposeChip text="Export knowledge into Rhesis" />
+
+1. Go to profile photo → My Settings → Apps → "Manage Developer Apps".
+2. Under "Personal access tokens", create a new token and copy it (shown only once).
+3. In Rhesis, paste the token. Optionally add a workspace GID to scope search and import.
+</details>
+
+<details>
+<summary id="azure-devops"><img src="/integrations/providers/azure-devops.svg" width="20" height="20" alt="" style={{ display: "inline", verticalAlign: "middle", marginRight: "6px" }} /> Azure DevOps</summary>
+
+<ToolPurposeChip text="Export knowledge into Rhesis" />
+
+1. Sign in at `https://dev.azure.com/{your_organization}`, then go to user settings → Personal access tokens.
+2. Create a token with the required scopes (e.g. Work Items (Read)) or Full access, set an expiration, and copy it (shown only once).
+3. In Rhesis, enter your organization name (not the full URL), your Azure DevOps email, and the project, then paste the token.
+</details>
+
+<details>
+<summary id="linear"><img src="/integrations/providers/linear.svg" width="20" height="20" alt="" style={{ display: "inline", verticalAlign: "middle", marginRight: "6px" }} /> Linear</summary>
+
+<ToolPurposeChip text="Export knowledge into Rhesis" />
+
+1. In Linear, go to Settings → Account → Security & access.
+2. Under "Personal API keys", create an API key with an access level and copy it (shown only once, starts with `lin_api_`).
+3. In Rhesis, paste the token.
+</details>
+
+<details>
+<summary id="shortcut"><img src="/integrations/providers/shortcut.svg" width="20" height="20" alt="" style={{ display: "inline", verticalAlign: "middle", marginRight: "6px" }} /> Shortcut</summary>
+
+<ToolPurposeChip text="Export knowledge into Rhesis" />
+
+1. In Shortcut, go to Settings → Your Account → API Tokens.
+2. Generate a token and copy it (grants full workspace access).
+3. In Rhesis, paste the token.
+</details>
+
+Watch this video to see how to connect your Notion workspace and export pages as knowledge sources:
+
+<div style={{ position: "relative", paddingBottom: "56.25%", height: 0, overflow: "hidden", marginBottom: "2rem" }}>
+  <iframe
+    src="https://www.youtube.com/embed/7OI7RQSKvkc"
+    style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }}
+    frameBorder="0"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+    allowFullScreen
+  />
+</div>
+
+## Next steps
+
+- Export sources from a connected tool into [Knowledge](/docs/knowledge).
+- Generate tests from exported sources in [Test Generation](/docs/test-sets/tests-generation).

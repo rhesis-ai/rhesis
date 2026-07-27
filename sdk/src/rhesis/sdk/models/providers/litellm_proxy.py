@@ -8,6 +8,7 @@ import requests
 from litellm.llms.base_llm.base_utils import type_to_response_format_param
 from pydantic import BaseModel
 
+from rhesis.sdk.config import DEFAULT_LLM_TIMEOUT
 from rhesis.sdk.errors import NO_MODEL_NAME_PROVIDED
 from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.models.utils import validate_llm_response
@@ -15,7 +16,7 @@ from rhesis.sdk.models.utils import validate_llm_response
 logger = logging.getLogger(__name__)
 
 DEFAULT_API_BASE = "http://localhost:4000"
-DEFAULT_REQUEST_TIMEOUT = int(os.getenv("LITELLM_PROXY_TIMEOUT", "300"))
+DEFAULT_REQUEST_TIMEOUT = DEFAULT_LLM_TIMEOUT
 
 
 class LiteLLMProxy(BaseLLM):
@@ -94,6 +95,10 @@ class LiteLLMProxy(BaseLLM):
             messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": prompt})
 
+        # Pop the request timeout before building the payload so it configures the
+        # HTTP call rather than leaking into the JSON body sent to the proxy.
+        timeout = kwargs.pop("timeout", DEFAULT_REQUEST_TIMEOUT)
+
         payload: Dict[str, Any] = {
             "model": self.model_name,
             "messages": messages,
@@ -122,7 +127,7 @@ class LiteLLMProxy(BaseLLM):
             url,
             headers=self._build_headers(),
             json=payload,
-            timeout=DEFAULT_REQUEST_TIMEOUT,
+            timeout=timeout,
         )
         response.raise_for_status()
 

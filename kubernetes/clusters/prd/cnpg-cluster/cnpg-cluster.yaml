@@ -27,11 +27,13 @@ spec:
   resources:
     requests:
       memory: 1Gi
-      cpu: 500m
+      cpu: "1"
     limits:
       memory: 4Gi
       # cpu limit intentionally omitted: databases benefit from absorbing CPU bursts.
-      # cpu request above ensures correct scheduler placement.
+      # cpu request above ensures correct scheduler placement and a higher relative
+      # CPU share under node contention (raised from 500m — k6 stress testing showed
+      # the primary's query latency degrading under concurrent backend HPA scale-out).
   postgresql:
     parameters:
       max_connections: "300"

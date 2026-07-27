@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { signIn } from 'next-auth/react';
 import { CircularProgress, Box, Typography } from '@mui/material';
-import { getClientApiBaseUrl } from '@/utils/url-resolver';
 import AuthPageShell from '@/components/auth/AuthPageShell';
 
 export default function SignIn() {
@@ -35,41 +34,14 @@ export default function SignIn() {
         }
 
         const authCode = searchParams.get('code');
-        const incomingToken = searchParams.get('session_token');
 
-        let sessionToken = incomingToken;
-        let refreshToken: string | null = null;
-
-        if (authCode && !sessionToken) {
-          setStatus('Exchanging auth code...');
-
-          const exchangeResponse = await fetch(
-            `${getClientApiBaseUrl()}/auth/exchange-code`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ code: authCode }),
-            }
-          );
-
-          if (!exchangeResponse.ok) {
-            setError(
-              'Authentication code expired or invalid. Please try again.'
-            );
-            return;
-          }
-
-          const exchangeData = await exchangeResponse.json();
-          sessionToken = exchangeData.session_token;
-          refreshToken = exchangeData.refresh_token || null;
-        }
-
-        if (sessionToken) {
+        if (authCode) {
           setStatus('Verifying session...');
 
+          // Hand the code to NextAuth; authorize() exchanges it
+          // server-side so the refresh token never reaches the browser.
           const result = await signIn('credentials', {
-            session_token: sessionToken,
-            refresh_token: refreshToken || '',
+            code: authCode,
             redirect: false,
           });
 

@@ -50,20 +50,26 @@ COPY ee/backend/pyproject.toml ee/backend/README.md /app/ee/backend/
 WORKDIR /app/apps/backend
 COPY apps/backend/uv.lock apps/backend/pyproject.toml apps/backend/README.md ./
 
+# torch comes in via garak but isn't used at runtime; skip installing it.
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --no-install-project --no-install-local --extra all --extra cpu --extra ee
+    uv sync --no-install-project --no-install-local --extra all --extra cpu --extra ee \
+    --no-install-package torch
 
 # Layer 2: full sources, then install local packages
 WORKDIR /app
 COPY sdk /app/sdk/
+# Hatch force-includes skill refs into the SDK wheel (see sdk/pyproject.toml).
+COPY skills /app/skills/
 COPY penelope /app/penelope/
 COPY packages/rhesis /app/packages/rhesis/
+# Hatch force-includes skill refs into the SDK wheel (see sdk/pyproject.toml).
+COPY skills/rhesis/references /app/skills/rhesis/references/
 COPY ee/backend /app/ee/backend/
 COPY apps/backend/src /app/apps/backend/src/
 
 WORKDIR /app/apps/backend
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --extra all --extra cpu --extra ee
+    uv sync --extra all --extra cpu --extra ee --no-install-package torch
 
 
 # ============================================================================

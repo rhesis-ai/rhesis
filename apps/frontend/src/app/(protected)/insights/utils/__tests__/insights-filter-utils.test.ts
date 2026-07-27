@@ -2,6 +2,7 @@ import {
   behaviorIdsFromCheckedSelection,
   checkedBehaviorIdsFromFilter,
   filterColumnsByBehaviorIds,
+  isRunFilterActive,
 } from '../insights-filter-utils';
 
 describe('insights-filter-utils', () => {
@@ -39,5 +40,37 @@ describe('insights-filter-utils', () => {
     expect(behaviorIdsFromCheckedSelection(['b1', 'b2', 'b3'], ['b2'])).toEqual(
       ['b2']
     );
+  });
+
+  describe('isRunFilterActive', () => {
+    it('is inactive for default time range mode', () => {
+      expect(
+        isRunFilterActive({
+          runFilterMode: 'timeRange',
+          timeRange: '1m',
+          testRunIds: [],
+        })
+      ).toBe(false);
+    });
+
+    it('is active for non-default time ranges', () => {
+      expect(
+        isRunFilterActive({
+          runFilterMode: 'timeRange',
+          timeRange: '7d',
+          testRunIds: [],
+        })
+      ).toBe(true);
+    });
+
+    it('is active for testRuns mode even with empty allowlist', () => {
+      expect(
+        isRunFilterActive({
+          runFilterMode: 'testRuns',
+          timeRange: '1m',
+          testRunIds: [],
+        })
+      ).toBe(true);
+    });
   });
 });

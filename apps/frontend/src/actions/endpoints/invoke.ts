@@ -15,11 +15,11 @@ export async function invokeEndpoint(
 ): Promise<InvokeEndpointResult> {
   try {
     const session = await auth();
-    if (!session?.session_token) {
+    if (!session || session.error) {
       throw new Error('No session token available');
     }
 
-    const apiFactory = await createServerApiFactory(session.session_token);
+    const apiFactory = await createServerApiFactory();
     const endpointsClient = apiFactory.getEndpointsClient();
     const response = await endpointsClient.invokeEndpoint(
       endpointId,

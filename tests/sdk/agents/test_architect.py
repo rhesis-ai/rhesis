@@ -1250,6 +1250,56 @@ class TestArchitectNameResolutionGuidance:
 
 
 @pytest.mark.unit
+class TestArchitectSkillIncludes:
+    """Verify Telemachus loads shared skill references (lazy per phase)."""
+
+    @pytest.fixture
+    def mock_model(self):
+        return _mock_model()
+
+    def test_workflow_menu_in_prompt(self, mock_model):
+        prompt = _make_agent(mock_model).system_prompt
+        assert "Quick exploration" in prompt
+        assert "Build test foundation from requirements" in prompt
+
+    def test_exploration_not_in_system_prompt(self, mock_model):
+        """Heavy phase content loads per iteration, not in the fixed system prompt."""
+        system = _make_agent(mock_model).system_prompt
+        assert "domain_probing" not in system.lower()
+        assert "save_plan is strictly validated" not in system
+
+    def test_discovery_phase_in_iteration_prompt(self, mock_model):
+        from rhesis.sdk.agents.architect.workflow import WorkflowPath
+
+        agent = _make_agent(mock_model)
+        agent._workflow_path = WorkflowPath.EXPLORE
+        iteration = agent._build_prompt("explore my endpoint", [])
+        assert "domain_probing" in iteration.lower() or "explore_endpoint" in iteration
+
+    def test_planning_phase_in_iteration_prompt(self, mock_model):
+        from rhesis.sdk.agents.architect.workflow import WorkflowPath
+        from rhesis.sdk.agents.constants import AgentMode
+
+        agent = _make_agent(mock_model)
+        agent._mode = AgentMode.PLANNING
+        agent._workflow_path = WorkflowPath.PRD
+        iteration = agent._build_prompt("plan the suite", [])
+        assert "save_plan is strictly validated" in iteration
+        assert "PRD" in iteration or "acceptance criteria" in iteration.lower()
+
+    def test_rendered_system_prompt_smaller_than_eager_load(self, mock_model):
+        """Fixed prompt stays lean vs old ~1400-line eager load.
+
+        Always-on guidelines and OData patterns are hoisted into the system
+        prompt (~530 lines); phase-specific content still loads per iteration.
+        """
+        agent = _make_agent(mock_model)
+        lines = agent.system_prompt.splitlines()
+        assert len(lines) < 600, f"system prompt still {len(lines)} lines"
+        assert len(lines) < 900, "should remain well under the old eager-load size"
+
+
+@pytest.mark.unit
 class TestArchitectArgumentValidation:
     """Test structural argument validation (Phase 09)."""
 

@@ -111,7 +111,7 @@ docker-clean:
 E2E_DOCKER_ENV = API_BASE_URL=http://localhost:$(BACKEND_E2E_PORT) \
 	BACKEND_URL=http://localhost:$(BACKEND_E2E_PORT) \
 	NEXTAUTH_SECRET=test-secret-for-e2e-tests-only \
-	NEXTAUTH_URL=http://localhost:3000
+	FRONTEND_URL=http://localhost:3000
 
 # Live-backend Playwright args — @mocked specs run only via test-e2e-local
 E2E_DOCKER_GREP = --grep "@sanity|@crud" --grep-invert "@mocked"
@@ -142,5 +142,5 @@ test-e2e-local:
 	E2E_NO_DOCKER=1 \
 	FRONTEND_ENV=development \
 	NEXTAUTH_SECRET=test-secret-for-e2e-tests-only \
-	NEXTAUTH_URL=http://localhost:3100 \
+	FRONTEND_URL=http://localhost:3100 \
 	npx playwright test --grep "@mocked" --project=mocked

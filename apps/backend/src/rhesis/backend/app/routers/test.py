@@ -2,20 +2,21 @@ import logging
 from typing import List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from rhesis.backend.app.routers.base import RhesisRouter
+from fastapi import Depends, HTTPException, Query, Response
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app.auth.capabilities import Permission, capability
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
 )
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.services.stats import get_individual_test_stats, get_test_stats
 from rhesis.backend.app.services.test import (
     bulk_create_tests,
@@ -30,12 +31,8 @@ from rhesis.backend.app.utils.execution_validation import (
     validate_execution_model,
 )
 from rhesis.backend.app.utils.odata import apply_select
-from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 
 logger = logging.getLogger(__name__)
-
-# Create the detailed schema for Test
-TestDetailSchema = create_detailed_schema(schemas.Test, models.Test)
 
 router = RhesisRouter(
     prefix="/tests", tags=["tests"], responses={404: {"description": "Not found"}}, resource="test"
@@ -74,8 +71,6 @@ def create_tests_bulk(
                 "prompt": {
                     "content": "Prompt text",
                     "language_code": "en",
-                    "demographic": "Optional demographic",
-                    "dimension": "Optional dimension",
                     "expected_response": "Optional expected response"
                 },
                 "behavior": "Behavior name",
@@ -134,6 +129,28 @@ def create_tests_bulk(
             raise HTTPException(
                 status_code=500, detail=f"An error occurred while creating tests: {error_message}"
             )
+
+
+@router.delete("/bulk", response_model=schemas.TestBulkDeleteResponse)
+def bulk_delete_tests(
+    request: schemas.TestBulkDeleteRequest,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Delete multiple tests at once.
+
+    Soft-deletes every test in one transaction and recomputes each affected
+    test set's attributes once, rather than once per deleted test.
+
+    Registered before /{test_id} routes below -- FastAPI matches routes in
+    registration order, so a literal /bulk path must come first or a
+    /{test_id}-shaped route would swallow it (treating "bulk" as an id).
+    """
+    organization_id, user_id = tenant_context
+    return crud.bulk_delete_tests(
+        db=db, test_ids=request.test_ids, organization_id=organization_id, user_id=user_id
+    )
 
 
 @router.post(
@@ -226,7 +243,7 @@ def generate_test_stats(
     return get_test_stats(db, current_user.organization_id, top, months)
 
 
-@router.get("/", response_model=List[TestDetailSchema])
+@router.get("/", response_model=List[schemas.TestDetail])
 @with_count_header(model=models.Test)
 def read_tests(
     response: Response,
@@ -350,7 +367,7 @@ def get_individual_test_statistics(
     )
 
 
-@router.get("/{test_id}", response_model=TestDetailSchema)
+@router.get("/{test_id}", response_model=schemas.TestDetail)
 def read_test(
     test_id: UUID,
     db: Session = Depends(get_tenant_db_session),
@@ -407,7 +424,11 @@ def delete_test(
     )
 
 
-@router.post("/execute", response_model=schemas.TestExecuteResponse)
+@router.post(
+    "/execute",
+    response_model=schemas.TestExecuteResponse,
+    **capability(Permission.TestSet.EXECUTE),
+)
 async def execute_test_endpoint(
     request: schemas.TestExecuteRequest,
     db: Session = Depends(get_tenant_db_session),

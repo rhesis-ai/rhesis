@@ -9,7 +9,6 @@ import {
   Button,
   TextField,
   Tooltip,
-  type Theme,
 } from '@mui/material';
 import {
   EditIcon,
@@ -133,13 +132,6 @@ export function CommentItem({
       return formatDistanceToNow(date, { addSuffix: true }).toUpperCase();
     }
     return format(date, 'dd MMM yyyy HH:mm').toUpperCase();
-  };
-
-  const actionIconSx = {
-    p: 0,
-    '& .MuiSvgIcon-root': {
-      color: (theme: Theme) => `${theme.palette.primary.main} !important`,
-    },
   };
 
   return (
@@ -308,8 +300,9 @@ export function CommentItem({
               <Tooltip title="Add reaction">
                 <IconButton
                   size="small"
+                  color="primary"
                   onClick={e => setEmojiAnchorEl(e.currentTarget)}
-                  sx={actionIconSx}
+                  sx={{ p: 0 }}
                 >
                   <EmojiIcon sx={{ fontSize: 20 }} />
                 </IconButton>

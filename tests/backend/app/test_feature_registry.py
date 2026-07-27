@@ -49,7 +49,7 @@ class _AllowingProvider:
 
 
 class TestIsRegistered:
-    """The cheap check: in the registry + runtime check passes. No license."""
+    """Cheapest check: is the feature in the registry? No license, no runtime."""
 
     def test_unknown_feature_is_not_registered(self, clean_registry):
         assert FeatureRegistry.is_registered("nonsense") is False
@@ -65,7 +65,7 @@ class TestIsRegistered:
         FeatureRegistry.register(Feature(name=FeatureName.SSO, display_name="SSO"))
         assert FeatureRegistry.is_registered("sso") is True
 
-    def test_runtime_check_failure_makes_unavailable(self, clean_registry):
+    def test_ignores_runtime_check(self, clean_registry):
         FeatureRegistry.register(
             Feature(
                 name=FeatureName.SSO,
@@ -73,7 +73,7 @@ class TestIsRegistered:
                 runtime_check=lambda: False,
             )
         )
-        assert FeatureRegistry.is_registered(FeatureName.SSO) is False
+        assert FeatureRegistry.is_registered(FeatureName.SSO) is True
 
     def test_does_not_consult_license_provider(self, clean_registry):
         """is_registered ignores the license provider entirely.
@@ -86,8 +86,52 @@ class TestIsRegistered:
         assert FeatureRegistry.is_registered(FeatureName.SSO) is True
 
 
+class TestIsLicensed:
+    """Middle tier: registered + license allows. No runtime check."""
+
+    def test_unknown_feature_returns_false(self, clean_registry):
+        assert FeatureRegistry.is_licensed("nonsense", org=object()) is False
+
+    def test_unregistered_known_enum_returns_false(self, clean_registry):
+        assert FeatureRegistry.is_licensed(FeatureName.SSO, org=object()) is False
+
+    def test_none_org_fails_closed(self, clean_registry):
+        FeatureRegistry.register(Feature(name=FeatureName.SSO, display_name="SSO"))
+        assert FeatureRegistry.is_licensed(FeatureName.SSO, org=None) is False
+
+    def test_default_provider_allows(self, clean_registry):
+        FeatureRegistry.register(Feature(name=FeatureName.SSO, display_name="SSO"))
+        assert FeatureRegistry.is_licensed(FeatureName.SSO, org=object()) is True
+
+    def test_denying_provider_blocks(self, clean_registry):
+        FeatureRegistry.register(Feature(name=FeatureName.SSO, display_name="SSO"))
+        FeatureRegistry.set_license_provider(_DenyingProvider())
+        assert FeatureRegistry.is_licensed(FeatureName.SSO, org=object()) is False
+
+    def test_ignores_runtime_check(self, clean_registry):
+        FeatureRegistry.register(
+            Feature(
+                name=FeatureName.SSO,
+                display_name="SSO",
+                runtime_check=lambda: False,
+            )
+        )
+        assert FeatureRegistry.is_licensed(FeatureName.SSO, org=object()) is True
+
+    def test_ignores_runtime_check_with_real_license(self, clean_registry):
+        FeatureRegistry.set_license_provider(_AllowingProvider())
+        FeatureRegistry.register(
+            Feature(
+                name=FeatureName.SSO,
+                display_name="SSO",
+                runtime_check=lambda: False,
+            )
+        )
+        assert FeatureRegistry.is_licensed(FeatureName.SSO, org=object()) is True
+
+
 class TestIsAvailable:
-    """The full check: registered + licensed for org + runtime check."""
+    """Strictest check: registered + licensed + runtime check passes."""
 
     def test_unknown_feature_returns_false(self, clean_registry):
         assert FeatureRegistry.is_available("nonsense", org=object()) is False
@@ -97,7 +141,6 @@ class TestIsAvailable:
 
     def test_registered_and_default_provider_returns_true(self, clean_registry):
         FeatureRegistry.register(Feature(name=FeatureName.SSO, display_name="SSO"))
-        # DefaultLicenseProvider allows everything; org is just a sentinel here.
         assert FeatureRegistry.is_available(FeatureName.SSO, org=object()) is True
 
     def test_accepts_raw_string_equivalent(self, clean_registry):
@@ -119,6 +162,17 @@ class TestIsAvailable:
         )
         assert FeatureRegistry.is_available(FeatureName.SSO, org=object()) is False
 
+    def test_runtime_check_failure_blocks_with_real_license(self, clean_registry):
+        FeatureRegistry.set_license_provider(_AllowingProvider())
+        FeatureRegistry.register(
+            Feature(
+                name=FeatureName.SSO,
+                display_name="SSO",
+                runtime_check=lambda: False,
+            )
+        )
+        assert FeatureRegistry.is_available(FeatureName.SSO, org=object()) is False
+
     def test_provider_swap_changes_behaviour(self, clean_registry):
         FeatureRegistry.register(Feature(name=FeatureName.SSO, display_name="SSO"))
         org = object()
@@ -130,7 +184,34 @@ class TestIsAvailable:
         assert FeatureRegistry.is_available(FeatureName.SSO, org=org) is True
 
 
+class TestLicensedFeatures:
+    """licensed_features ignores runtime checks — drives GET /features."""
+
+    def test_lists_licensed_features(self, clean_registry):
+        FeatureRegistry.register(Feature(name=FeatureName.SSO, display_name="SSO"))
+        licensed = FeatureRegistry.licensed_features(org=object())
+        assert [f.name for f in licensed] == [FeatureName.SSO]
+
+    def test_includes_features_with_failing_runtime_check(self, clean_registry):
+        FeatureRegistry.register(
+            Feature(
+                name=FeatureName.SSO,
+                display_name="SSO",
+                runtime_check=lambda: False,
+            )
+        )
+        licensed = FeatureRegistry.licensed_features(org=object())
+        assert [f.name for f in licensed] == [FeatureName.SSO]
+
+    def test_excludes_unlicensed_features(self, clean_registry):
+        FeatureRegistry.set_license_provider(_DenyingProvider())
+        FeatureRegistry.register(Feature(name=FeatureName.SSO, display_name="SSO"))
+        assert FeatureRegistry.licensed_features(org=object()) == []
+
+
 class TestEnabledFeatures:
+    """enabled_features checks runtime — the strict operational set."""
+
     def test_lists_only_available_features(self, clean_registry):
         FeatureRegistry.register(Feature(name=FeatureName.SSO, display_name="SSO"))
         enabled = FeatureRegistry.enabled_features(org=object())

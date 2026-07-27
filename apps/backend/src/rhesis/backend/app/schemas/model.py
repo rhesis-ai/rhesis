@@ -5,15 +5,21 @@ Security: API keys are write-only. They can be set via POST/PUT but are never
 returned in responses to prevent exposure through logs, caches, or clients.
 """
 
-from typing import Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import UUID4, BaseModel, ConfigDict, Field, field_validator
 
 from .base import Base
+from .references import (
+    OrganizationReference,
+    ProjectReference,
+    StatusReference,
+    TypeLookupReference,
+)
 from .status import Status
-from .tag import Tag
+from .tag import Tag, TagRead
 from .type_lookup import TypeLookup
-from .user import User
+from .user import User, UserReference
 
 
 class ModelBaseFields(Base):
@@ -108,6 +114,21 @@ class Model(ModelBase):
     tags: Optional[List[Tag]] = []
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# The detailed model with expanded relations
+class ModelDetail(ModelRead):
+    name: Optional[str] = None
+    model_name: Optional[str] = None
+    provider_type: Optional[TypeLookupReference] = None
+    status: Optional[StatusReference] = None
+    owner: Optional[UserReference] = None
+    assignee: Optional[UserReference] = None
+    tags: Optional[List[TagRead]] = None
+    counts: Optional[Dict[str, Any]] = None
+    project: Optional[ProjectReference] = None
+    organization: Optional[OrganizationReference] = None
+    user: Optional[UserReference] = None
 
 
 class TestModelConnectionRequest(BaseModel):

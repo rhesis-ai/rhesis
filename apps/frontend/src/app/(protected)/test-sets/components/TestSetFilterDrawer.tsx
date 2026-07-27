@@ -9,7 +9,7 @@ import {
   filterDrawerTextFieldSx,
 } from '@/components/common/FilterDrawer';
 import { filterUniqueValidOptions } from '@/components/common/BaseDrawer';
-import { TEST_TYPES } from '@/constants/test-types';
+import { TEST_TYPE_FILTER_OPTIONS } from '@/constants/test-types';
 import { ENTITY_TYPES } from '@/utils/api-client/config';
 import { useStatuses, useUsers, useTags } from '@/hooks/useLookups';
 import ActivityPresenceFiltersSection from '@/components/common/ActivityPresenceFilters';
@@ -62,18 +62,12 @@ export function countActiveTestSetFilters(f: TestSetFilters): number {
   );
 }
 
-const TEST_SET_TYPE_OPTIONS = [
-  { label: 'Single Turn', value: TEST_TYPES.SINGLE_TURN },
-  { label: 'Multi Turn', value: TEST_TYPES.MULTI_TURN },
-] as const;
-
 const textFieldSx = filterDrawerTextFieldSx;
 
 interface TestSetFilterDrawerProps {
   open: boolean;
   onClose: () => void;
   filters: TestSetFilters;
-  sessionToken?: string;
   onApply: (filters: TestSetFilters) => void;
 }
 
@@ -81,19 +75,16 @@ export default function TestSetFilterDrawer({
   open,
   onClose,
   filters,
-  sessionToken,
   onApply,
 }: TestSetFilterDrawerProps) {
   const [draft, setDraft] = React.useState<TestSetFilters>(filters);
-  const token = sessionToken ?? '';
 
   const { data: rawStatuses, isLoading: loadingStatuses } = useStatuses(
-    token,
     ENTITY_TYPES.testSet,
     open
   );
-  const { data: rawUsers, isLoading: loadingUsers } = useUsers(token, open);
-  const { data: rawTags, isLoading: loadingTags } = useTags(token, open);
+  const { data: rawUsers, isLoading: loadingUsers } = useUsers(open);
+  const { data: rawTags, isLoading: loadingTags } = useTags(open);
   const loadingOptions = loadingStatuses || loadingUsers || loadingTags;
 
   const statusOptions = React.useMemo(
@@ -163,7 +154,7 @@ export default function TestSetFilterDrawer({
     >
       <FilterSection title="Test Set Type">
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-          {TEST_SET_TYPE_OPTIONS.map(opt => (
+          {TEST_TYPE_FILTER_OPTIONS.map(opt => (
             <Box
               key={opt.value}
               component="button"

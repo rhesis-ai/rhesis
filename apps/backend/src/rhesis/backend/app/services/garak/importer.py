@@ -23,7 +23,7 @@ from rhesis.backend.app.schemas import test_set as test_set_schemas
 from rhesis.backend.app.services.test_set import bulk_create_test_set
 
 from .probes import GarakProbeInfo, GarakProbeService
-from .taxonomy import GarakTaxonomy
+from .taxonomy import GarakTaxonomy, resolve_behavior
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +48,19 @@ class GarakImporter:
         self.db = db
         self.probe_service = GarakProbeService()
         self._garak_version = self.probe_service.garak_version
+        self._probes_by_module: Optional[Dict[str, List[GarakProbeInfo]]] = None
+
+    def preload_probes(self, probes_by_module: Dict[str, List[GarakProbeInfo]]) -> None:
+        """
+        Inject pre-fetched (cached) probe data instead of re-extracting per probe.
+
+        When set, ``_get_probe_info`` looks up probes from this dict instead of
+        calling ``GarakProbeService.extract_probes_from_module`` — which
+        re-instantiates every Garak probe class from scratch. Callers should
+        populate this from ``GarakProbeService.enumerate_probe_modules_cached()``
+        before calling ``import_probes``/``get_import_preview``.
+        """
+        self._probes_by_module = probes_by_module
 
     def import_probes(
         self,
@@ -121,12 +134,15 @@ class GarakImporter:
                 tests=tests_data,
             )
 
-            # Use bulk creation infrastructure
+            # Use bulk creation infrastructure. skip_prompt_dedup=True: Garak prompt
+            # content is always unique per import, so the duplicate-check SELECT
+            # get_or_create_entity would otherwise do per prompt is wasted work.
             test_set = bulk_create_test_set(
                 db=self.db,
                 test_set_data=test_set_data,
                 organization_id=organization_id,
                 user_id=user_id,
+                skip_prompt_dedup=True,
             )
 
             # Store Garak attributes directly in the test set
@@ -135,6 +151,10 @@ class GarakImporter:
                 **(test_set.attributes or {}),
                 **garak_metadata,
             }
+
+            # Tag Garak-created behaviors so they are distinguishable from
+            # hand-authored behaviors in the UI and queries.
+            self._tag_garak_behaviors(test_set, organization_id, user_id)
 
             # Associate metric with test set
             detector = probe_info.detector or mapping.default_detector
@@ -193,6 +213,7 @@ class GarakImporter:
         Each prompt from the Garak probe becomes a test with proper
         category, behavior, topic, and metadata.
         """
+        behavior = resolve_behavior(probe.tags)
         tests_data = []
 
         for idx, prompt_content in enumerate(probe.prompts):
@@ -223,7 +244,7 @@ class GarakImporter:
                     content=prompt_content,
                     language_code="en",
                 ),
-                behavior=mapping.behavior,
+                behavior=behavior,
                 category=mapping.category,
                 topic=mapping.topic,
                 test_type="Single-Turn",
@@ -235,10 +256,7 @@ class GarakImporter:
 
     def _get_probe_info(self, module_name: str, class_name: str) -> Optional[GarakProbeInfo]:
         """Get probe info for a specific probe class."""
-        probes = self.probe_service.extract_probes_from_module(
-            module_name, probe_class_names=[class_name]
-        )
-        return probes[0] if probes else None
+        return self.probe_service.get_probe(module_name, class_name, self._probes_by_module)
 
     def _generate_test_set_name(self, probe: GarakProbeInfo, prefix: Optional[str]) -> str:
         """Generate a test set name from probe info."""
@@ -402,6 +420,59 @@ class GarakImporter:
                     user_id=user_uuid,
                 )
             )
+
+    def _tag_garak_behaviors(
+        self,
+        test_set: TestSet,
+        organization_id: str,
+        user_id: str,
+    ) -> None:
+        """Ensure every ``Garak (...)`` behavior in the test set carries a ``garak`` tag.
+
+        Behaviors are shared across probes/test sets (e.g. many probes resolve to the
+        same ``Garak (...)`` behavior), so this can run multiple times against the same
+        behavior within one import call. We check for an existing ``TaggedItem`` by its
+        unique-constraint keys (not the possibly-stale ``behavior.tags`` relationship)
+        and flush immediately after inserting, so a later iteration in the same session
+        sees it and skips re-inserting -- avoiding a ``uq_tagged_item_assignment``
+        violation.
+        """
+        from rhesis.backend.app.models.tag import Tag, TaggedItem
+
+        tag = self.db.query(Tag).filter_by(name="garak", organization_id=organization_id).first()
+        if not tag:
+            tag = Tag(name="garak", organization_id=organization_id, user_id=user_id)
+            self.db.add(tag)
+            self.db.flush()
+
+        seen_behavior_ids: set = set()
+        for test in test_set.tests:
+            if not test.behavior_id or test.behavior_id in seen_behavior_ids:
+                continue
+            seen_behavior_ids.add(test.behavior_id)
+
+            already_tagged = (
+                self.db.query(TaggedItem)
+                .filter_by(
+                    tag_id=tag.id,
+                    entity_id=test.behavior_id,
+                    entity_type="Behavior",
+                    organization_id=organization_id,
+                )
+                .first()
+            )
+            if already_tagged:
+                continue
+
+            tagged_item = TaggedItem(
+                tag_id=tag.id,
+                entity_id=test.behavior_id,
+                entity_type="Behavior",
+                organization_id=organization_id,
+                user_id=user_id,
+            )
+            self.db.add(tagged_item)
+            self.db.flush()
 
     def get_import_preview(
         self,

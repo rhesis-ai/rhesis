@@ -45,10 +45,9 @@ export default function VerifyEmailPage() {
           throw new Error(data.detail || 'Verification failed');
         }
 
-        if (data.session_token) {
+        if (data.auth_code) {
           await signIn('credentials', {
-            session_token: data.session_token,
-            refresh_token: data.refresh_token || '',
+            code: data.auth_code,
             redirect: false,
           });
         }

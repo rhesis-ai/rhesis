@@ -50,7 +50,6 @@ import { BACKDROP_COLORS, BORDER_RADIUS } from '@/styles/theme';
 interface FileImportDrawerProps {
   open: boolean;
   onClose: () => void;
-  sessionToken: string;
   onSuccess?: (testSetId: string) => void;
 }
 
@@ -61,7 +60,6 @@ const ACCEPTED_EXTENSIONS = '.json,.jsonl,.csv,.xlsx,.xls';
 export default function FileImportDrawer({
   open,
   onClose,
-  sessionToken,
   onSuccess,
 }: FileImportDrawerProps) {
   const theme = useTheme();
@@ -107,10 +105,7 @@ export default function FileImportDrawer({
   // AbortController ref — aborts in-flight requests on unmount/close/new file
   const abortRef = React.useRef<AbortController | null>(null);
 
-  const clientFactory = React.useMemo(
-    () => new ApiClientFactory(sessionToken),
-    [sessionToken]
-  );
+  const clientFactory = React.useMemo(() => new ApiClientFactory(), []);
 
   // Abort any pending request and create a fresh controller
   const freshSignal = React.useCallback(() => {

@@ -9,20 +9,22 @@ Detailed architecture of the Rhesis tracing system.
 <Mermaid chart={`flowchart TD
     TE["Test Executor<br/>(Celery worker)"]
     SE["SDK Endpoint<br/>(@observe instrumented)"]
-    OT["OpenTelemetry Tracer<br/>(spans with test context)"]
+    OT["OpenTelemetry Tracer"]
     BP["BatchSpanProcessor<br/>(5s batching)"]
     API["Backend API<br/>POST /telemetry/traces"]
-    PG["PostgreSQL<br/>(traces table + JSONB)"]
-    CW["Celery Worker<br/>(cost/anomaly enrichment)"]
+    PG["PostgreSQL<br/>(trace table + JSONB)"]
+    PIL["post_ingest_link<br/>(Celery task)"]
+    CW["enrich_trace_async<br/>(cost/anomaly enrichment)"]
     ED["enriched_data<br/>(JSONB cache)"]
-    QA["Query API<br/>GET /traces/{id}"]
+    QA["Query API<br/>GET /telemetry/traces/{id}"]
 
     TE -->|"invokes"| SE
     SE -->|"creates"| OT
     OT -->|"batches (5s)"| BP
     BP -->|"OTLP/HTTP"| API
-    API -->|"stores + links"| PG
-    PG -->|"enriches"| CW
+    API -->|"stores"| PG
+    API -->|"delay()"| PIL
+    PIL -->|"link + dispatch"| CW
     CW -->|"caches"| ED
     ED -->|"queries"| QA`} />
 
@@ -30,238 +32,148 @@ Detailed architecture of the Rhesis tracing system.
 
 ### OpenTelemetry Integration
 
-The SDK wraps standard OpenTelemetry components:
+The `TracerProvider` and `BatchSpanProcessor` are set up once, in the shared `packages/rhesis/src/rhesis/telemetry/provider.py` package (imported by both the SDK and the backend):
 
-<CodeBlock filename="SDK Tracer Setup" language="python">
-{`from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
-
-# Create tracer provider
-provider = TracerProvider(resource=Resource.create({
-    "service.name": "your-service",
+<CodeBlock filename="packages/rhesis/src/rhesis/telemetry/provider.py" language="python">
+{`resource = Resource.create({
+    "service.name": service_name,
+    "service.namespace": "rhesis",
     "deployment.environment": environment,
-}))
+})
 
-# Add batch processor with OTLP exporter
+_TRACER_PROVIDER = TracerProvider(resource=resource)
+exporter = RhesisOTLPExporter(api_key=api_key, base_url=base_url, project_id=project_id, environment=environment)
+
 span_processor = BatchSpanProcessor(
-    RhesisOTLPExporter(api_key, base_url, project_id),
+    exporter,
     max_queue_size=2048,        # Max spans in memory
     max_export_batch_size=512,  # Spans per HTTP request
     schedule_delay_millis=5000, # Export every 5 seconds
 )
-provider.add_span_processor(span_processor)`}
+_TRACER_PROVIDER.add_span_processor(span_processor)`}
 </CodeBlock>
 
-### Decorator Flow
+### Span Creation
 
-When a decorated function executes:
+`@observe` (`sdk/src/rhesis/sdk/decorators/observe.py`) wraps sync, async, and generator functions, starting a span on each call and setting attributes passed to the decorator. `@endpoint` (`sdk/src/rhesis/sdk/decorators/endpoint.py`) does the same and additionally registers the function for remote invocation over WebSocket.
 
-<CodeBlock filename="observe Decorator Flow" language="python">
-{`@wraps(func)
-def wrapper(*args, **kwargs):
-    tracer = trace.get_tracer(__name__)
-
-    with tracer.start_as_current_span(
-        name=final_span_name,
-        kind=SpanKind.INTERNAL,
-    ) as span:
-        # Set attributes from decorator parameters
-        span.set_attribute("function.name", func_name)
-        for key, value in attributes.items():
-            span.set_attribute(key, value)
-
-        try:
-            result = func(*args, **kwargs)
-            span.set_status(Status(StatusCode.OK))
-            return result
-        except Exception as e:
-            span.set_status(Status(StatusCode.ERROR, str(e)))
-            span.record_exception(e)
-            raise`}
-</CodeBlock>
+Span names are validated server-side (`packages/rhesis/src/rhesis/telemetry/schemas.py`) against the pattern `ai.<domain>.<action>` (e.g. `ai.llm.invoke`) or `function.<name>`. The domains `chain`, `workflow`, and `pipeline` are rejected in favor of primitive operations; `agent` is allowed via the dedicated `ai.agent.invoke` / `ai.agent.handoff` operations for multi-agent tracing.
 
 ### OTLP Exporter
 
-The custom exporter sends spans via HTTP POST:
+`RhesisOTLPExporter` (`packages/rhesis/src/rhesis/telemetry/exporter.py`) subclasses OpenTelemetry's `OTLPSpanExporter`:
 
-<CodeBlock filename="OTLP Export" language="python">
-{`class RhesisOTLPExporter(SpanExporter):
-    def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
-        # Convert OTEL spans to SDK schemas
-        sdk_spans = [self._convert_span(span) for span in spans]
-
-        # Create batch
-        batch = SpanBatch(spans=sdk_spans)
-
-        # Send via HTTP POST
-        response = self._session.post(
-            f"{self.base_url}/telemetry/traces",
-            json=batch.model_dump(mode="json"),
-            headers={"Authorization": f"Bearer {self.api_key}"},
-            timeout=self._timeout,
-        )
-
-        return SpanExportResult.SUCCESS if response.ok else SpanExportResult.FAILURE`}
+<CodeBlock filename="Exporter Setup" language="python">
+{`class RhesisOTLPExporter(OTLPSpanExporter):
+    def __init__(self, api_key, base_url, project_id, environment,
+                 timeout=10, max_attempts=3, max_chunk_size=100):
+        self.endpoint = f"{base_url.rstrip('/')}/telemetry/traces"
+        super().__init__(endpoint=self.endpoint, timeout=timeout)
+        self._session.headers.update({
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        })`}
 </CodeBlock>
+
+`export()` converts OTEL spans to the shared `OTELSpan` schema, splits batches larger than `max_chunk_size` (100) into separate requests, and retries transient failures (connection errors, timeouts, 408/429/5xx) with exponential-jitter backoff bounded by a wall-clock deadline. Root spans are always placed in the first chunk. After 5 consecutive export failures it logs a warning with the endpoint and success rate.
 
 ## Backend Components
 
 ### Ingestion Endpoint
 
-The `/telemetry/traces` endpoint:
+`ingest_trace()` in `routers/telemetry.py` (`POST /telemetry/traces`):
 
-1. Validates the OTLP JSON payload
-2. Extracts organization/project from API key
-3. Stores spans in PostgreSQL (bulk insert)
-4. Enqueues enrichment (async) or runs sync
-5. Triggers trace linking
+1. Resolves `project_id` — prefers the span's `project_id`, falls back to the request's project scope, otherwise returns 422
+2. Validates the OTLP payload (Pydantic `OTELTraceBatch`, including span-name conventions)
+3. Stores spans via `crud.create_trace_spans()`, commits, and releases the DB session
+4. Dispatches `post_ingest_link.delay(...)` — fire-and-forget
 
-<CodeBlock filename="Ingestion Flow" language="python">
-{`@router.post("/telemetry/traces")
-async def ingest_traces(batch: SpanBatch, db: Session):
-    # 1. Validate spans
-    validated_spans = validate_spans(batch.spans)
+<CodeBlock filename="Dispatch" language="python">
+{`try:
+    post_ingest_link.delay(**dispatch_kwargs)
+except BROKER_ERRORS as broker_err:
+    logger.warning(f"Broker unavailable, post-processing deferred | error={broker_err}")
 
-    # 2. Store in database
-    stored_spans = crud.create_trace_spans(db, validated_spans)
-
-    # 3. Enrich (async or sync)
-    if workers_available():
-        enrich_trace_async.delay(trace_id, project_id)
-    else:
-        enricher.enrich_trace(trace_id, project_id)
-
-    # 4. Link traces (if test context present)
-    linking_service.link_traces_for_incoming_batch(stored_spans)
-
-    return {"status": "ok", "count": len(stored_spans)}`}
+return TraceResponse(status="received", span_count=stored_count, trace_id=trace_id)`}
 </CodeBlock>
+
+If the broker is unreachable, the request still returns 200 — linking and enrichment for that batch simply do not run. This differs from a separate code path used by direct SDK-endpoint invocation (`services/invokers/tracing.py`), which enqueues enrichment via `AsyncService.execute_with_fallback`: it tries the async Celery dispatch first and only falls back to running enrichment synchronously, in-process, when the broker raises a connection error.
+
+The `post_ingest_link` task itself (`tasks/telemetry/post_ingest.py`) performs test-result linking, conversation-id linking, input-file linking, and dispatches an enrichment → evaluation chain per root span. See [Worker: Trace Ingestion Pipeline](/contribute/worker/trace-ingestion-pipeline) for the full breakdown, including metric evaluation.
 
 ### Linking Service
 
-The linking service connects traces to test results using a hybrid strategy:
+`TraceLinkingService` (`services/telemetry/linking_service.py`) has two entry points that share one implementation:
 
 <CodeBlock filename="Linking Service" language="python">
 {`class TraceLinkingService:
     def link_traces_for_test_result(
-        self,
-        test_run_id: str,
-        test_id: str,
-        test_result_id: str,
-        organization_id: str,
-    ):
+        self, test_run_id, test_id, test_configuration_id, test_result_id, organization_id,
+    ) -> int:
         """Called after test result creation (catches slow tests)."""
-        crud.update_traces_with_test_result_id(
-            db=self.db,
-            test_run_id=test_run_id,
-            test_id=test_id,
-            test_result_id=test_result_id,
-            organization_id=organization_id,
-        )
+        return crud.update_traces_with_test_result_id(...)
 
-    def link_traces_for_incoming_batch(
-        self,
-        spans: List[Span],
-        organization_id: str,
-    ):
-        """Called after span ingestion (catches fast tests)."""
-        # Extract test context from span attributes
-        for span in spans:
-            test_run_id = span.attributes.get("rhesis.test.run_id")
-            if test_run_id:
-                # Find corresponding test_result
-                test_result = find_test_result(test_run_id, span.trace_id)
-                if test_result:
-                    crud.update_traces_with_test_result_id(...)`}
+    def link_traces_for_incoming_batch(self, spans, organization_id) -> int:
+        """Called from post_ingest_link (catches fast tests)."""
+        # Extracts test_run_id/test_id/test_configuration_id from the first
+        # span's attributes, finds the matching TestResult, then links.`}
 </CodeBlock>
 
-### Enrichment Service
+### Enrichment
 
-Enrichment calculates costs and detects anomalies:
+`TraceEnricher` (`services/telemetry/enrichment/processor.py`) computes costs, anomalies, and metadata from a trace's spans:
 
-<CodeBlock filename="Enrichment" language="python">
-{`class TraceEnricher:
-    def enrich_trace(self, trace_id: str, project_id: str):
-        # Fetch all spans for trace
-        spans = crud.get_spans_by_trace_id(trace_id)
+- **Costs** — `calculate_token_costs()` uses `litellm.cost_per_token()` on spans with `ai.operation.type = llm.invoke`, in USD and EUR
+- **Anomalies** — `detect_anomalies()` flags spans over 10 seconds (`slow_span`), LLM spans over 10,000 total tokens (`high_token_usage`), and error-status spans (`error`)
+- **Metadata** — `extract_metadata()` collects unique models, tools, and operation types, plus the root span's name
 
-        enriched_data = {
-            "costs": self._calculate_costs(spans),
-            "anomalies": self._detect_anomalies(spans),
-            "metadata": self._extract_metadata(spans),
-            "enriched_at": datetime.utcnow().isoformat(),
-        }
+The result is cached in the `enriched_data` JSONB column:
 
-        # Cache in enriched_data column
-        crud.update_trace_enrichment(trace_id, enriched_data)
-
-    def _calculate_costs(self, spans):
-        """Use LiteLLM for token cost calculation."""
-        total_cost = 0.0
-        for span in spans:
-            if span.span_name == "ai.llm.invoke":
-                model = span.attributes.get("ai.model.name")
-                tokens_in = span.attributes.get("ai.llm.tokens.input", 0)
-                tokens_out = span.attributes.get("ai.llm.tokens.output", 0)
-                cost = litellm.cost_per_token(model, tokens_in, tokens_out)
-                total_cost += cost
-        return {"total_cost_usd": total_cost}`}
+<CodeBlock filename="Enrichment Shape" language="json">
+{`{
+    "costs": {
+        "total_cost_usd": 0.023,
+        "total_cost_eur": 0.021,
+        "breakdown": [
+            { "span_id": "...", "model_name": "gpt-4", "input_tokens": 150,
+              "output_tokens": 80, "total_cost_usd": 0.023, "total_cost_eur": 0.021 }
+        ]
+    },
+    "anomalies": [
+        { "type": "slow_span", "span_id": "...", "span_name": "ai.llm.invoke",
+          "duration_ms": 12340, "message": "Span took 12.3s (threshold: 10s)" }
+    ],
+    "metrics": { "total_duration_ms": 12500, "span_count": 5, "error_count": 0 },
+    "models_used": ["gpt-4"],
+    "tools_used": ["search"],
+    "operation_types": ["llm.invoke", "tool.invoke"],
+    "root_operation": "ai.llm.invoke"
+}`}
 </CodeBlock>
 
-## Enrichment Strategy
-
-### Async-First with Graceful Fallback
-
-<CodeBlock filename="Enrichment Decision" language="python">
-{`if workers_available():
-    # Production path: Async enrichment
-    enrich_trace_async.delay(trace_id, project_id)
-    # → Ingestion returns immediately (~10ms)
-    # → Enrichment happens in background (~50-100ms)
-else:
-    # Development path: Sync enrichment
-    enricher.enrich_trace(trace_id, project_id)
-    # → Enrichment happens inline (~50-100ms)
-    # → Ingestion takes longer but still works`}
-</CodeBlock>
-
-**Benefits:**
-- ✅ Production optimal (async)
-- ✅ Development simple (no workers needed)
-- ✅ Automatic detection (no config)
-- ✅ Graceful degradation (workers crash → sync fallback)
-
-### Enrichment Timing
-
-| Mode | Ingestion | Enrichment | Query |
-|------|-----------|------------|-------|
-| **Async** (production) | ~10ms | Background (~50-100ms) | ~10ms |
-| **Sync** (development) | ~60-110ms | Inline | ~10ms |
-
-Both modes produce the same result, just different timing.
+Re-enrichment is skipped once every span in the trace has a non-null `processed_at` — new child spans (later LLM calls, tool calls) trigger a re-run so multi-turn traces stay up to date as they arrive.
 
 ## Query API
 
 ### Trace Retrieval
 
 <CodeBlock filename="Query Endpoint" language="python">
-{`@router.get("/traces/{trace_id}")
-async def get_trace(trace_id: str, db: Session):
-    # 1. Fetch all spans for trace_id
-    spans = crud.get_spans_by_trace_id(db, trace_id)
-
-    # 2. Build span tree (parent-child relationships)
-    span_tree = build_span_tree(spans)
-
-    # 3. Return with cached enrichment
-    root_span = spans[0]
-    return {
-        "trace_id": trace_id,
-        "spans": span_tree,
-        "enriched_data": root_span.enriched_data,
-        "test_result_id": root_span.test_result_id,
-    }`}
+{`@router.get("/traces/{trace_id}", response_model=TraceDetailResponse)
+def get_trace(trace_id: str, project_id: str, db: Session, tenant_context):
+    spans = crud.get_trace_by_id(db, trace_id, project_id, organization_id,
+                                  eager_load=["project", "test_run", "test_result", "test"])
+    root_spans = build_span_tree(spans)
+    ...`}
 </CodeBlock>
+
+`GET /telemetry/traces/{trace_id}` (`project_id` is a required query param) returns the span tree plus trace-level rollups and linked entities:
+
+| Field | Description |
+|-------|-------------|
+| `root_spans` | Spans arranged as a parent-child tree |
+| `span_count`, `error_count`, `total_tokens`, `total_cost_usd` | Computed across all spans in the trace |
+| `trace_metrics_status`, `trace_reviews` | LLM-based metric evaluation status and human review state |
+| `project`, `endpoint`, `test_run`, `test_result`, `test` | Linked entities, populated where applicable |
 
 ## Configuration
 
@@ -278,24 +190,35 @@ async def get_trace(trace_id: str, db: Session):
 ### Environment Variables
 
 <CodeBlock filename=".env" language="bash">
-{`# Backend
-DATABASE_URL=postgresql://user:pass@localhost:5432/rhesis
-CELERY_BROKER_URL=redis://localhost:6379/0
+{`# Backend database (component vars, not a single DATABASE_URL)
+DB_HOST=localhost
+DB_NAME=rhesis-db
+APP_DB_USER=app-user
+APP_DB_PASS=secure-password
 
-# Enrichment
+# Celery broker
+BROKER_URL=redis://localhost:6379/0
+CELERY_RESULT_BACKEND=redis://localhost:6379/1
+
+# Enrichment (fallback rate; a live rate is fetched and cached normally)
 USD_TO_EUR_RATE=0.92
 
 # SDK
 RHESIS_API_KEY=your_api_key
-RHESIS_BACKEND_URL=http://localhost:8080`}
+RHESIS_BASE_URL=http://localhost:8080
+RHESIS_PROJECT_ID=your_project_id   # fallback when no project-scoped token is used`}
 </CodeBlock>
+
+See [Environment Variables](/contribute/environment-variables) for the full reference.
 
 ### Celery Workers
 
-<CodeBlock filename="Start Workers" language="bash">
-{`# Start workers
-celery -A rhesis.backend.app.main worker --concurrency=4
+Traces are processed by the same worker(s) that run test execution — see [Worker: Background Tasks](/contribute/worker/background-tasks) for queue and concurrency configuration.
 
-# Autoscale
-celery -A rhesis.backend.app.main worker --autoscale=10,2`}
+<CodeBlock filename="Start Workers" language="bash">
+{`celery -A rhesis.backend.worker.app worker --pool threads -n main@%h \\
+  --queues=celery,execution,telemetry \\
+  --concurrency=$CELERY_WORKER_CONCURRENCY \\
+  --prefetch-multiplier=$CELERY_WORKER_PREFETCH_MULTIPLIER \\
+  --optimization=fair`}
 </CodeBlock>

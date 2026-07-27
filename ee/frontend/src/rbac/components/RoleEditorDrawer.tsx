@@ -4,21 +4,26 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, Box, Link, Stack, TextField, Typography } from '@mui/material';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import { DeleteModal } from '@/components/common/DeleteModal';
-import { drawerOutlinedFieldSx } from '@/components/common/drawerFormFieldSx';
+import {
+  drawerOutlinedFieldSx,
+  ROLE_EDITOR_DRAWER_WIDTH,
+} from '@/components/common/drawerFormFieldSx';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { useOrgSettings } from '@/contexts/OrgSettingsContext';
 import { RbacClient } from '../api/rbac-client';
+import { invalidateRoles } from '../api/role-cache';
 import { useActorAuthority } from '../hooks/useActorAuthority';
 import { isCopyableRole } from '../role-display';
 import type { RoleRead } from '../types';
 import {
   CapabilityLevel,
   RESOURCE_AREAS,
+  applyCapabilityToggle,
   applyLevel,
+  areaCapabilitySet,
   levelForArea,
 } from '../capability-groups';
 import PermissionGroupControl from './PermissionGroupControl';
-import RoleSummary from './RoleSummary';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -49,7 +54,6 @@ export default function RoleEditorDrawer({
   onSaved,
   onDeleted,
 }: RoleEditorDrawerProps) {
-  const { sessionToken } = useOrgSettings();
   const notifications = useNotifications();
   const readOnly = mode === 'view';
   const isCreate = mode === 'create';
@@ -64,10 +68,7 @@ export default function RoleEditorDrawer({
   // Org-tier actor authority (matches the backend's project_id=None escalation
   // check for create_role/update_role) — drives the per-area maxLevel below so
   // an over-grant is disabled in the UI instead of rejected at save time.
-  const { permissionNames: actorPermissions } = useActorAuthority(
-    sessionToken,
-    'org'
-  );
+  const { permissionNames: actorPermissions } = useActorAuthority('org');
 
   // Reset form when drawer opens or role changes
   useEffect(() => {
@@ -96,17 +97,16 @@ export default function RoleEditorDrawer({
     []
   );
 
-  const handleToggleCapability = useCallback((cap: string) => {
-    setPermissions(prev => {
-      const next = new Set(prev);
-      if (next.has(cap)) {
-        next.delete(cap);
-      } else {
-        next.add(cap);
-      }
-      return next;
-    });
-  }, []);
+  const handleToggleCapability = useCallback(
+    (cap: string, area: (typeof RESOURCE_AREAS)[number]) => {
+      setPermissions(prev => {
+        const next = new Set(prev);
+        applyCapabilityToggle(next, cap, areaCapabilitySet(area));
+        return next;
+      });
+    },
+    []
+  );
 
   const handleCopyFrom = useCallback(
     (roleId: string) => {
@@ -124,7 +124,7 @@ export default function RoleEditorDrawer({
     if (!canSave) return;
     setSubmitting(true);
     setError(undefined);
-    const client = new RbacClient(sessionToken);
+    const client = new RbacClient();
 
     try {
       let saved: RoleRead;
@@ -145,6 +145,7 @@ export default function RoleEditorDrawer({
         return;
       }
       onSaved?.(saved);
+      invalidateRoles();
       onClose();
       notifications.show(isCreate ? 'Role created' : 'Role updated', {
         severity: 'success',
@@ -167,10 +168,11 @@ export default function RoleEditorDrawer({
     if (!role || readOnly || role.is_built_in) return;
     setSubmitting(true);
     setError(undefined);
-    const client = new RbacClient(sessionToken);
+    const client = new RbacClient();
 
     try {
       await client.deleteRole(role.id);
+      invalidateRoles();
       setDeleteConfirmOpen(false);
       onDeleted?.(role.id);
       onClose();
@@ -196,6 +198,7 @@ export default function RoleEditorDrawer({
       open={open}
       onClose={onClose}
       title={title}
+      width={ROLE_EDITOR_DRAWER_WIDTH}
       onSave={readOnly ? undefined : handleSave}
       saveButtonText={
         submitting ? 'Saving...' : isCreate ? 'Create role' : 'Save changes'
@@ -257,17 +260,9 @@ export default function RoleEditorDrawer({
 
       {/* Access by area */}
       <Box>
-        <Stack
-          direction="row"
-          justifyContent="space-between"
-          alignItems="baseline"
-          mb={1.5}
-        >
-          <Typography variant="subtitle2">Access by area</Typography>
-          <Typography variant="caption" color="text.secondary">
-            View = read · Edit = read + write · Manage = full control
-          </Typography>
-        </Stack>
+        <Typography variant="subtitle2" sx={{ mb: 1.5 }}>
+          Access by area
+        </Typography>
         {isCreate && copyFromRoles.length > 0 && (
           <Stack
             direction="row"
@@ -302,16 +297,13 @@ export default function RoleEditorDrawer({
               currentLevel={levelForArea(permissions, area)}
               onLevelChange={lvl => handleLevelChange(area, lvl)}
               permissions={permissions}
-              onToggleCapability={handleToggleCapability}
+              onToggleCapability={cap => handleToggleCapability(cap, area)}
               readOnly={readOnly}
               maxLevel={levelForArea(actorPermissions, area)}
             />
           ))}
         </Stack>
       </Box>
-
-      {/* Live summary */}
-      <RoleSummary permissions={permissions} />
 
       {role && (
         <DeleteModal

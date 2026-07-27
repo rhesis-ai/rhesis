@@ -28,6 +28,7 @@ import AddIcon from '@mui/icons-material/Add';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { safeRandomUUID } from '@/utils/uuid';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { Tool } from '@/utils/api-client/interfaces/tool';
 import { UUID } from 'crypto';
@@ -69,7 +70,6 @@ interface ToolImportPanelProps {
   open: boolean;
   onClose: () => void;
   onSuccess?: () => void;
-  sessionToken: string;
   tool?: Tool | null;
   onFooterStateChange: (state: PanelFooterState) => void;
 }
@@ -118,7 +118,7 @@ function getProviderLabel(provider: string): {
 
 const ToolImportPanel = forwardRef<ToolImportPanelHandle, ToolImportPanelProps>(
   function ToolImportPanel(
-    { open, onClose, onSuccess, sessionToken, tool, onFooterStateChange },
+    { open, onClose, onSuccess, tool, onFooterStateChange },
     ref
   ) {
     const [importing, setImporting] = useState(false);
@@ -131,13 +131,12 @@ const ToolImportPanel = forwardRef<ToolImportPanelHandle, ToolImportPanelProps>(
     const notifications = useNotifications();
 
     const [urlItems, setUrlItems] = useState<UrlItem[]>([
-      { id: crypto.randomUUID(), url: '', status: 'pending' },
+      { id: safeRandomUUID(), url: '', status: 'pending' },
     ]);
 
     const { data: toolSourceTypes } = useTypeLookups(
-      sessionToken ?? '',
       "type_name eq 'SourceType' and type_value eq 'Tool'",
-      open && !!sessionToken
+      open
     );
     const toolSourceTypeId = toolSourceTypes?.[0]?.id as UUID | undefined;
 
@@ -163,7 +162,7 @@ const ToolImportPanel = forwardRef<ToolImportPanelHandle, ToolImportPanelProps>(
           }))
         );
       } else {
-        setUrlItems([{ id: crypto.randomUUID(), url: '', status: 'pending' }]);
+        setUrlItems([{ id: safeRandomUUID(), url: '', status: 'pending' }]);
         setError(null);
         setIncludeChildren(false);
         setPreviewItems(null);
@@ -190,7 +189,7 @@ const ToolImportPanel = forwardRef<ToolImportPanelHandle, ToolImportPanelProps>(
     const handleAddUrl = () => {
       setUrlItems(prev => [
         ...prev,
-        { id: crypto.randomUUID(), url: '', status: 'pending' },
+        { id: safeRandomUUID(), url: '', status: 'pending' },
       ]);
     };
 
@@ -210,7 +209,7 @@ const ToolImportPanel = forwardRef<ToolImportPanelHandle, ToolImportPanelProps>(
         setImporting(true);
         setError(null);
 
-        const clientFactory = new ApiClientFactory(sessionToken);
+        const clientFactory = new ApiClientFactory();
         const sourcesClient = clientFactory.getSourcesClient();
 
         const provider = tool.tool_provider_type?.type_value ?? 'tool';
@@ -277,7 +276,7 @@ const ToolImportPanel = forwardRef<ToolImportPanelHandle, ToolImportPanelProps>(
         }
         if (successCount > 0 && errorCount === 0) onSuccess?.();
       },
-      [tool, sessionToken, toolSourceTypeId, notifications, onSuccess]
+      [tool, toolSourceTypeId, notifications, onSuccess]
     );
 
     const handleImportOrPreview = useCallback(async () => {
@@ -305,7 +304,7 @@ const ToolImportPanel = forwardRef<ToolImportPanelHandle, ToolImportPanelProps>(
       setPreviewing(true);
       setError(null);
 
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const servicesClient = clientFactory.getServicesClient();
 
       const fetched: PreviewItem[] = [];
@@ -344,7 +343,7 @@ const ToolImportPanel = forwardRef<ToolImportPanelHandle, ToolImportPanelProps>(
       } else {
         await commitImport(fetched);
       }
-    }, [tool, pendingItems, includeChildren, sessionToken, commitImport]);
+    }, [tool, pendingItems, includeChildren, commitImport]);
 
     useImperativeHandle(
       ref,

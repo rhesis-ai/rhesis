@@ -10,7 +10,6 @@ import BehaviorColumn from './BehaviorColumn';
 import BehaviorInsightsRow from './BehaviorInsightsRow';
 
 interface BehaviorInsightsViewProps {
-  sessionToken: string;
   filters: InsightsFilters;
   insights: Pick<
     BehaviorInsightsData,
@@ -35,7 +34,6 @@ const BEHAVIOR_GRID_COLUMNS = {
 } as const;
 
 export default function BehaviorInsightsView({
-  sessionToken: _sessionToken,
   filters,
   insights,
   searchQuery = '',

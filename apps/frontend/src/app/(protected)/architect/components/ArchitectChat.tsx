@@ -23,13 +23,16 @@ import PlanDisplay from './PlanDisplay';
 import ArchitectChatInput, {
   ArchitectChatInputHandle,
 } from './ArchitectChatInput';
+import { useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface ArchitectChatProps {
   sessionId: string | null;
-  sessionToken?: string;
   onSessionTitleUpdate?: (sessionId: string, title: string) => void;
   initialMessage?: string | null;
   onInitialMessageSent?: () => void;
+  onUserActivity?: () => void;
   /** The project_id the session was created under (from the session object). */
   sessionProjectId?: string | null;
 }
@@ -123,13 +126,14 @@ const SUGGESTED_PROMPTS = [
 
 export default function ArchitectChat({
   sessionId,
-  sessionToken,
   onSessionTitleUpdate: _onSessionTitleUpdate,
   initialMessage,
   onInitialMessageSent,
+  onUserActivity,
   sessionProjectId,
 }: ArchitectChatProps) {
-  const { data: authSession } = useSession();
+  const { data: authSession, status } = useSession();
+  const canCreate = useCan(Capability.Architect.CREATE);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<ArchitectChatInputHandle>(null);
 
@@ -165,12 +169,12 @@ export default function ArchitectChat({
 
   // Load existing messages when session changes
   useEffect(() => {
-    if (!sessionId || !sessionToken) return;
+    if (!sessionId || !isAuthenticated(status)) return;
     if (skipLoadRef.current.has(sessionId)) return;
 
     const loadMessages = async () => {
       try {
-        const client = new ApiClientFactory(sessionToken).getArchitectClient();
+        const client = new ApiClientFactory().getArchitectClient();
         const session = await client.getSession(sessionId);
 
         // Restore auto-approve toggle from persisted agent state
@@ -228,11 +232,11 @@ export default function ArchitectChat({
     loadMessages();
   }, [
     sessionId,
-    sessionToken,
     setMessages,
     setAutoApproveAll,
     setCurrentMode,
     setCurrentPlan,
+    status,
   ]);
 
   // Scroll to bottom on new messages
@@ -240,7 +244,11 @@ export default function ArchitectChat({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading, streamingState]);
 
-  // Auto-send initial message when connection is ready
+  // Auto-send initial message when connection is ready. Only mark it sent (and
+  // let the parent clear any stashed handoff message) once sendMessage actually
+  // hands it to the WebSocket — otherwise a failed send (socket dropped, send()
+  // returned false) would be lost with no retry. Leaving the ref unset lets this
+  // effect re-run and retry when isConnected/sendMessage change (e.g. reconnect).
   const initialMessageSentRef = useRef<string | null>(null);
   useEffect(() => {
     if (
@@ -249,9 +257,11 @@ export default function ArchitectChat({
       sessionId &&
       initialMessageSentRef.current !== initialMessage
     ) {
-      initialMessageSentRef.current = initialMessage;
-      sendMessage(initialMessage);
-      onInitialMessageSent?.();
+      const sent = sendMessage(initialMessage);
+      if (sent) {
+        initialMessageSentRef.current = initialMessage;
+        onInitialMessageSent?.();
+      }
     }
   }, [
     initialMessage,
@@ -263,15 +273,17 @@ export default function ArchitectChat({
 
   const handleSend = useCallback(
     (message: string, attachments?: ChatAttachments) => {
+      if (!canCreate) return;
       sendMessage(message, attachments);
+      onUserActivity?.();
     },
-    [sendMessage]
+    [canCreate, sendMessage, onUserActivity]
   );
 
   const handleSuggestedPrompt = (prompt: string) => {
-    if (!isLoading) {
-      sendMessage(prompt);
-    }
+    if (!canCreate || isLoading) return;
+    sendMessage(prompt);
+    onUserActivity?.();
   };
 
   if (!sessionId) {
@@ -331,6 +343,7 @@ export default function ArchitectChat({
                   size="small"
                   checked={autoApproveAll}
                   onChange={e => setAutoApproveAll(e.target.checked)}
+                  disabled={!canCreate}
                 />
               }
               label={
@@ -382,7 +395,8 @@ export default function ArchitectChat({
                   label={prompt}
                   variant="outlined"
                   onClick={() => handleSuggestedPrompt(prompt)}
-                  sx={{ cursor: 'pointer' }}
+                  disabled={!canCreate || isLoading}
+                  sx={{ cursor: canCreate ? 'pointer' : 'default' }}
                 />
               ))}
             </Box>
@@ -422,7 +436,8 @@ export default function ArchitectChat({
                 }
               }
 
-              const showActions = isLastContentAssistant && pendingConfirmation;
+              const showActions =
+                canCreate && isLastContentAssistant && pendingConfirmation;
 
               const showWaitingSpinner =
                 isLastContentAssistant && !showActions && isAwaitingTask;
@@ -446,7 +461,10 @@ export default function ArchitectChat({
                   streamingState={
                     message.isStreaming ? streamingState : undefined
                   }
-                  onAccept={() => sendMessage('Yes, go ahead.')}
+                  onAccept={() => {
+                    sendMessage('Yes, go ahead.');
+                    onUserActivity?.();
+                  }}
                   onReject={() => chatInputRef.current?.focus()}
                 />
               );
@@ -475,10 +493,10 @@ export default function ArchitectChat({
         ref={chatInputRef}
         key={sessionId}
         onSend={handleSend}
-        disabled={isLoading}
+        disabled={isLoading || !canCreate}
         isLoading={isLoading}
         isConnected={isConnected}
-        sessionToken={sessionToken}
+        readOnly={!canCreate}
       />
     </Paper>
   );

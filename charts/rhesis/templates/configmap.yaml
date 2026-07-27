@@ -28,6 +28,7 @@ data:
   BACKEND_ENV: {{ .Values.config.environment | quote }}
   WORKER_ENV: {{ .Values.config.environment | quote }}
   LOG_LEVEL: {{ .Values.config.logLevel | quote }}
+  JSON_LOGGER_ENABLED: {{ .Values.config.jsonLoggerEnabled | quote }}
 
   # -------------------------------------------------------------------------
   # Frontend
@@ -35,10 +36,9 @@ data:
   API_BASE_URL: {{ .Values.config.apiBaseUrl | quote }}
   NEXT_PUBLIC_APP_URL: {{ .Values.config.nextPublicAppUrl | quote }}
   NEXT_TELEMETRY_DISABLED: {{ .Values.config.nextTelemetryDisabled | quote }}
-  NEXTAUTH_URL: {{ .Values.config.nextauthUrl | quote }}
   NEXT_PUBLIC_QUICK_START: {{ .Values.config.nextPublicQuickStart | quote }}
   NEXT_PUBLIC_SUPPORT_EMAIL: {{ .Values.config.nextPublicSupportEmail | quote }}
-  NEXT_PUBLIC_ONBOARDING_VIDEO_URL: {{ .Values.config.nextPublicOnboardingVideoUrl | quote }}
+  ONBOARDING_VIDEO_URL: {{ .Values.config.onboardingVideoUrl | quote }}
 
   # -------------------------------------------------------------------------
   # Backend
@@ -68,6 +68,7 @@ data:
   # Celery
   # -------------------------------------------------------------------------
   CELERY_WORKER_CONCURRENCY: {{ .Values.config.celeryWorkerConcurrency | quote }}
+  CELERY_ARCHITECT_CONCURRENCY: {{ .Values.config.celeryArchitectConcurrency | quote }}
   CELERY_WORKER_PREFETCH_MULTIPLIER: {{ .Values.config.celeryWorkerPrefetchMultiplier | quote }}
   CELERY_WORKER_MAX_TASKS_PER_CHILD: {{ .Values.config.celeryWorkerMaxTasksPerChild | quote }}
   CELERY_WORKER_LOGLEVEL: {{ .Values.config.celeryWorkerLogLevel | quote }}

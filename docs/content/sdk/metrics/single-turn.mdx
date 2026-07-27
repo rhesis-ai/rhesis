@@ -2,39 +2,9 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 # Single-Turn Metrics
 
-## Overview
+Single-turn metrics evaluate an individual exchange between a user input and a system output — standalone responses, RAG systems, and classification tasks.
 
-Single-turn metrics evaluate individual exchanges between user input and system output. These metrics are ideal for assessing the quality of standalone responses, RAG systems, and classification tasks.
-
-<Callout type="info">
-
-**API Key Required**: All examples in this documentation require a valid Rhesis API key. Set your API key using:
-
-<CodeBlock filename="setup.py" language="python">
-{`import os
-os.environ["RHESIS_API_KEY"] = "your-api-key"`}
-</CodeBlock>
-
-For more information, see the [Installation & Setup](../installation) guide.
-
-</Callout>
-
-<Callout type="info">
-
-Rhesis integrates with the following open-source evaluation frameworks:
-
-- **[DeepEval](https://github.com/confident-ai/deepeval)** - Apache License 2.0
-  The LLM Evaluation Framework by Confident AI
-- **[DeepTeam](https://github.com/confident-ai/deepteam)** - Apache License 2.0
-  The LLM Red Teaming Framework by Confident AI
-- **[Ragas](https://github.com/explodinggradients/ragas)** - Apache License 2.0
-  Supercharge Your LLM Application Evaluations by Exploding Gradients
-- **[Garak](https://github.com/NVIDIA/garak)** - Apache License 2.0
-  LLM Vulnerability Scanner by NVIDIA
-
-These tools are used through their public APIs. The original licenses and copyright notices can be found in their respective repositories. Rhesis is not affiliated with these projects.
-
-</Callout>
+The examples below require a Rhesis API key (`RHESIS_API_KEY`); see [Installation & Setup](../installation).
 
 ## Supported Metrics
 
@@ -225,7 +195,7 @@ You can create custom metrics using the `NumericJudge` and `CategoricalJudge` cl
 
 #### Numeric Judge
 
-`NumericJudge` returns a numeric score (e.g., from 0 to 10) and requires four specific parameters: `min_score`, `max_score`, `threshold`, and `threshold_operator`.
+`NumericJudge` returns a numeric score (e.g., from 0 to 10), configured with `min_score`, `max_score`, `threshold`, and `threshold_operator` (which defaults to `>=`).
 
 <CodeBlock filename="numeric_judge.py" language="python">
 {`from rhesis.sdk.metrics import NumericJudge
@@ -410,9 +380,7 @@ To pull metrics from the platform, use the `pull` method and specify the metric 
 {`metric = NumericJudge.pull(name="response_clarity")`}
 </CodeBlock>
 
-## See Also
+## Next steps
 
-- [Conversational Metrics](./conversational) - Multi-turn conversation evaluation
-- [Models Documentation](../models) - Configure LLM models for evaluation
-- [Installation & Setup](../installation) - Setup instructions
-- [GitHub Repository](https://github.com/rhesis-ai/rhesis) - Source code and examples
+- [Evaluate multi-turn conversations](./conversational)
+- [Configure the evaluation model](../models)

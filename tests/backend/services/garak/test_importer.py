@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.services.garak.importer import GarakImporter, ProbeSelection
 from rhesis.backend.app.services.garak.probes import GarakProbeInfo
-from rhesis.backend.app.services.garak.taxonomy import GarakMapping
+from rhesis.backend.app.services.garak.taxonomy import FALLBACK_BEHAVIOR, GarakMapping
 
 fake = Faker()
 
@@ -104,7 +104,6 @@ class TestGarakImporterMetadataBuilding:
         mapping = GarakMapping(
             category="Harmful",
             topic="Jailbreak",
-            behavior="Robustness",
             default_detector="garak.detectors.mitigation.MitigationBypass",
             description="DAN mapping",
         )
@@ -113,7 +112,8 @@ class TestGarakImporterMetadataBuilding:
 
         assert len(tests_data) == 2
         assert tests_data[0].prompt.content == "Prompt 1"
-        assert tests_data[0].behavior == "Robustness"
+        # probe.tags=["jailbreak"] has no quality:* tag, so resolve_behavior falls back
+        assert tests_data[0].behavior == FALLBACK_BEHAVIOR
         assert tests_data[0].category == "Harmful"
         assert tests_data[0].topic == "Jailbreak"
         assert tests_data[0].test_type == "Single-Turn"
@@ -136,7 +136,6 @@ class TestGarakImporterMetadataBuilding:
         mapping = GarakMapping(
             category="Harmful",
             topic="Jailbreak",
-            behavior="Robustness",
             default_detector="detector",
             description="desc",
         )
@@ -255,6 +254,24 @@ class TestGarakImporterProbeRetrieval:
 
             assert result is None
 
+    def test_get_probe_info_uses_preloaded_probes_without_extraction(self, test_db: Session):
+        """preload_probes() must short-circuit live extraction entirely."""
+        importer = GarakImporter(test_db)
+
+        preloaded_probe = GarakProbeInfo(
+            module_name="dan",
+            class_name="Dan_11_0",
+            full_name="dan.Dan_11_0",
+            description="preloaded",
+        )
+        importer.preload_probes({"dan": [preloaded_probe]})
+
+        with patch.object(importer.probe_service, "extract_probes_from_module") as mock_extract:
+            result = importer._get_probe_info("dan", "Dan_11_0")
+
+        assert result is preloaded_probe
+        mock_extract.assert_not_called()
+
 
 @pytest.mark.unit
 @pytest.mark.service
@@ -360,3 +377,76 @@ class TestGarakImporterMetricCreation:
         """Test GarakImporter metric class constants."""
         assert GarakImporter.GARAK_METRIC_CLASS_NAME == "GarakDetectorMetric"
         assert GarakImporter.GARAK_METRIC_BACKEND == "garak"
+
+
+@pytest.mark.unit
+@pytest.mark.service
+class TestGarakImporterTagBehaviors:
+    """Tests for _tag_garak_behaviors idempotency."""
+
+    def _make_test_set(self, behavior_id):
+        mock_test = MagicMock()
+        mock_test.behavior_id = behavior_id
+        mock_test_set = MagicMock()
+        mock_test_set.tests = [mock_test]
+        return mock_test_set
+
+    def test_tags_behavior(self, test_db: Session, test_org_id, authenticated_user_id):
+        """Test _tag_garak_behaviors creates a single garak TaggedItem for a behavior."""
+        from rhesis.backend.app.models.behavior import Behavior
+        from rhesis.backend.app.models.tag import TaggedItem
+
+        behavior = Behavior(
+            name="Garak (Test Behavior)",
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+        test_db.add(behavior)
+        test_db.flush()
+
+        importer = GarakImporter(test_db)
+        importer._tag_garak_behaviors(
+            self._make_test_set(behavior.id), test_org_id, authenticated_user_id
+        )
+
+        tagged = (
+            test_db.query(TaggedItem)
+            .filter_by(entity_id=behavior.id, entity_type="Behavior", organization_id=test_org_id)
+            .all()
+        )
+        assert len(tagged) == 1
+
+    def test_tagging_same_behavior_across_calls_is_idempotent(
+        self, test_db: Session, test_org_id, authenticated_user_id
+    ):
+        """Regression test: multiple probes resolving to the same Garak (...) behavior
+        within one import call must not violate the uq_tagged_item_assignment unique
+        constraint (tag_id, entity_id, entity_type, organization_id)."""
+        from rhesis.backend.app.models.behavior import Behavior
+        from rhesis.backend.app.models.tag import TaggedItem
+
+        behavior = Behavior(
+            name="Garak (Shared Behavior)",
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+        test_db.add(behavior)
+        test_db.flush()
+
+        importer = GarakImporter(test_db)
+
+        # Simulate two different probes/test sets resolving to the same behavior
+        # within the same import call (same session, no commit in between).
+        importer._tag_garak_behaviors(
+            self._make_test_set(behavior.id), test_org_id, authenticated_user_id
+        )
+        importer._tag_garak_behaviors(
+            self._make_test_set(behavior.id), test_org_id, authenticated_user_id
+        )
+
+        tagged = (
+            test_db.query(TaggedItem)
+            .filter_by(entity_id=behavior.id, entity_type="Behavior", organization_id=test_org_id)
+            .all()
+        )
+        assert len(tagged) == 1

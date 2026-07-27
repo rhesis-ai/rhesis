@@ -42,19 +42,14 @@ function authorityFromRole(role: RoleRead | undefined): ActorAuthority {
   };
 }
 
-export function useActorAuthority(
-  sessionToken: string,
-  tier: 'org'
-): ActorAuthority;
+export function useActorAuthority(tier: 'org'): ActorAuthority;
 
 export function useActorAuthority(
-  sessionToken: string,
   tier: 'project',
   projectId: string
 ): ActorAuthority;
 
 export function useActorAuthority(
-  sessionToken: string,
   tier: 'org' | 'project',
   projectId?: string
 ): ActorAuthority {
@@ -64,13 +59,13 @@ export function useActorAuthority(
   const [authority, setAuthority] = useState<ActorAuthority>(EMPTY);
 
   useEffect(() => {
-    if (!sessionToken || !myUserId) return;
+    if (!myUserId) return;
     let cancelled = false;
 
     async function resolve() {
       const [orgMembers, roles] = await Promise.all([
-        fetchOrgMembers(sessionToken),
-        fetchRoles(sessionToken),
+        fetchOrgMembers(),
+        fetchRoles(),
       ]);
 
       const findRole = (
@@ -87,7 +82,7 @@ export function useActorAuthority(
         return;
       }
 
-      const projectMembers = await fetchProjectMembers(sessionToken, projectId);
+      const projectMembers = await fetchProjectMembers(projectId);
       const myProjectMember = projectMembers.find(m => m.user_id === myUserId);
 
       // Explicit project role takes precedence; otherwise fall back to the org
@@ -104,7 +99,7 @@ export function useActorAuthority(
     return () => {
       cancelled = true;
     };
-  }, [sessionToken, myUserId, tier, projectId]);
+  }, [myUserId, tier, projectId]);
 
   return authority;
 }

@@ -98,11 +98,14 @@ describe('getBaseUrl', () => {
     window.__ENV__ = originalRuntimeEnv;
   });
 
-  it('returns client URL when window is defined (browser)', () => {
-    // window is defined in jsdom
+  it('returns the same-origin BFF proxy path when window is defined (browser)', () => {
+    // window is defined in jsdom. Client-side requests always go through the
+    // same-origin `/api/backend` proxy (see auth.ts's getFreshAccessToken()
+    // and app/api/backend/[...path]/route.ts) — never the runtime-config
+    // apiBaseUrl, which is reserved for unauthenticated `/auth/*` flows.
     window.__ENV__ = {
       apiBaseUrl: 'http://localhost:5000',
     };
-    expect(getBaseUrl()).toBe('http://127.0.0.1:5000');
+    expect(getBaseUrl()).toBe(`${window.location.origin}/api/backend`);
   });
 });

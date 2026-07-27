@@ -5,7 +5,14 @@ from typing import Any, Dict, List, Optional, Union
 from pydantic import UUID4, BaseModel, ConfigDict, Field, field_validator
 
 from rhesis.backend.app.schemas import Base
-from rhesis.backend.app.schemas.tag import Tag
+from rhesis.backend.app.schemas.references import (
+    OrganizationReference,
+    ProjectReference,
+    StatusReference,
+    TypeLookupReference,
+)
+from rhesis.backend.app.schemas.tag import Tag, TagRead
+from rhesis.backend.app.schemas.user import UserReference
 
 
 class MetricsSource(str, Enum):
@@ -59,12 +66,27 @@ class TestSet(TestSetBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+# The detailed model with expanded relations
+class TestSetDetail(TestSet):
+    name: Optional[str] = None
+    tags: Optional[List[TagRead]] = None
+    attributes: Optional[Dict[str, Any]] = None
+    counts: Optional[Dict[str, Any]] = None
+
+    status: Optional[StatusReference] = None
+    license_type: Optional[TypeLookupReference] = None
+    test_set_type: Optional[TypeLookupReference] = None
+    user: Optional[UserReference] = None
+    owner: Optional[UserReference] = None
+    assignee: Optional[UserReference] = None
+    organization: Optional[OrganizationReference] = None
+    project: Optional[ProjectReference] = None
+
+
 # Bulk creation models
 class TestPrompt(BaseModel):
     content: str
     language_code: str = "en"
-    demographic: Optional[str] = None
-    dimension: Optional[str] = None
     expected_response: Optional[str] = None
 
 

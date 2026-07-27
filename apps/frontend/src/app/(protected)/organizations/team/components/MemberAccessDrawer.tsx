@@ -31,6 +31,7 @@ import {
   projectNameSx,
   truncateSx,
 } from './memberCardSx';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface ProjectAccess {
   project: Pick<Project, 'id' | 'name' | 'description' | 'icon'>;
@@ -73,20 +74,20 @@ export default function MemberAccessDrawer({
   onClose,
   user,
 }: MemberAccessDrawerProps) {
-  const { data: session } = useSession();
+  const { status } = useSession();
   const [projectAccess, setProjectAccess] = useState<ProjectAccess[]>([]);
   const [loading, setLoading] = useState(false);
   const { OrgRoleCell, ProjectRoleCell, fetchUserProjectMemberships } =
     getMemberRoleExtensions();
 
   useEffect(() => {
-    if (!open || !user || !session?.session_token) return;
+    if (!open || !user || !isAuthenticated(status)) return;
 
     setLoading(true);
     setProjectAccess([]);
 
     if (fetchUserProjectMemberships) {
-      fetchUserProjectMemberships(session.session_token, user.id)
+      fetchUserProjectMemberships(user.id)
         .then(memberships => {
           setProjectAccess(
             memberships
@@ -99,18 +100,19 @@ export default function MemberAccessDrawer({
       return;
     }
 
-    const factory = new ApiClientFactory(session.session_token);
-    const projectsClient = factory.getProjectsClient();
-
-    projectsClient
+    new ApiClientFactory()
+      .getProjectsClient()
       .getAllProjects()
       .then(async projects => {
         const results = await Promise.all(
           projects.map(async project => {
             try {
-              const members = await projectsClient.getProjectMembers(
+              const members = await new ApiClientFactory(
+                undefined,
                 project.id as string
-              );
+              )
+                .getProjectsClient()
+                .getProjectMembers(project.id as string);
               const row = members.find(m => m.user_id === user.id);
               return row ? ({ project, member: row } as ProjectAccess) : null;
             } catch {
@@ -125,10 +127,9 @@ export default function MemberAccessDrawer({
         );
       })
       .finally(() => setLoading(false));
-  }, [open, user?.id, session?.session_token, fetchUserProjectMemberships]);
+  }, [open, user?.id, fetchUserProjectMemberships, status, user]);
 
   const displayName = user ? getDisplayName(user) : '';
-  const sessionToken = session?.session_token ?? '';
   const count = projectAccess.length;
 
   return (
@@ -183,7 +184,7 @@ export default function MemberAccessDrawer({
                 <Typography variant="overline" color="text.secondary">
                   Org Role
                 </Typography>
-                <OrgRoleCell userId={user.id} sessionToken={sessionToken} />
+                <OrgRoleCell userId={user.id} />
               </Box>
             )}
           </Box>
@@ -249,7 +250,6 @@ export default function MemberAccessDrawer({
                           <ProjectRoleCell
                             userId={user.id}
                             projectId={projectId}
-                            sessionToken={sessionToken}
                           />
                         </Box>
                       ) : (

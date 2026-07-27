@@ -1,0 +1,202 @@
+# Environment Variables
+
+Complete reference for configuring a self-hosted Rhesis deployment. For a guided walkthrough of the
+essentials, see the [Docker Compose](/docs/deployment/docker-compose) guide.
+
+Set variables in the `.env.docker` file you pass to Docker Compose:
+
+```bash
+docker compose --env-file .env.docker up -d
+```
+
+Empty values are treated as unset — the built-in default applies. In `.env.example`, commented lines show
+the default each variable falls back to, so you only uncomment a line to override it.
+
+## Required
+
+These four secrets have no default; the stack refuses to start if any is unset.
+
+| Variable | Description | Generate with |
+|---|---|---|
+| `DB_ENCRYPTION_KEY` | Encrypts sensitive fields (such as stored provider credentials) at rest | `openssl rand -base64 32 \| tr '+/' '-_'` |
+| `JWT_SECRET_KEY` | Signs backend-issued JWTs | `openssl rand -hex 32` |
+| `NEXTAUTH_SECRET` | Signs NextAuth (frontend) sessions | `openssl rand -hex 32` |
+| `SESSION_SECRET_KEY` | Signs backend session cookies | `openssl rand -hex 32` |
+
+## Public URLs and ports
+
+| Variable | Description | Default |
+|---|---|---|
+| `FRONTEND_URL` | Public origin of the frontend; an `https://` value enables secure cookies | `http://localhost:3000` |
+| `API_BASE_URL` | Public origin of the backend API; an `https://` value enables secure cookies | `http://localhost:8080` |
+| `FRONTEND_PORT` | Host port Docker publishes for the frontend | `3000` |
+| `BACKEND_PORT` | Host port Docker publishes for the backend | `8080` |
+
+Ports are the host bind ports and are independent of the URLs — behind a reverse proxy the published port
+and the public URL usually differ.
+
+## Database
+
+Defaults point at the built-in `postgres` container. Set these to use your own database (see
+[Database](/docs/deployment/docker-compose#database)). `DB_NAME` and `APP_DB_USER` are **fixed** and
+cannot be changed — SQL scripts reference them by name, so your database and role must use exactly these
+values.
+
+| Variable | Description | Default |
+|---|---|---|
+| `DB_HOST` | Database host | `postgres` |
+| `DB_PORT` | Database port | `5432` |
+| `DB_NAME` | Database name — fixed, cannot be changed | `rhesis-db` |
+| `APP_DB_USER` | Runtime backend and worker role — fixed, cannot be changed | `rhesis-user` |
+| `APP_DB_PASS` | Password for the runtime role | `rhesis-password` |
+| `ADMIN_DB_USER` | Migration role; falls back to the app role when unset | *(unset)* |
+| `ADMIN_DB_PASS` | Password for the migration role | *(unset)* |
+
+## Redis and Celery
+
+Defaults point at the built-in `redis` container. Set these to use an external Redis.
+
+| Variable | Description | Default |
+|---|---|---|
+| `BROKER_URL` | Celery broker connection URL | `redis://:rhesis-redis-pass@redis:6379/0` |
+| `CELERY_RESULT_BACKEND` | Celery result backend URL | `redis://:rhesis-redis-pass@redis:6379/1` |
+
+## AI models
+
+Generation, evaluation, execution, and embeddings use Rhesis-hosted models by default, which require a
+`RHESIS_API_KEY` (get one at [app.rhesis.ai](https://app.rhesis.ai/)). To use your own provider, set that
+provider's key **and** point the matching `DEFAULT_*_MODEL` at it.
+
+| Variable | Description | Default |
+|---|---|---|
+| `RHESIS_API_KEY` | API key for Rhesis-hosted models | *(unset)* |
+| `DEFAULT_GENERATION_MODEL` | Model for test generation | `rhesis/rhesis-default` |
+| `DEFAULT_EVALUATION_MODEL` | Model for evaluation / judging | `rhesis/rhesis-default` |
+| `DEFAULT_EXECUTION_MODEL` | Model for multi-turn execution | `rhesis/rhesis-default` |
+| `DEFAULT_EMBEDDING_MODEL` | Model for embeddings | `rhesis/rhesis-embedding` |
+
+Provider keys, read at runtime when a `DEFAULT_*_MODEL` targets that provider:
+
+| Variable | Provider |
+|---|---|
+| `OPENAI_API_KEY` | OpenAI |
+| `GEMINI_API_KEY`, `GOOGLE_API_KEY` | Google Gemini |
+| `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_DEPLOYMENT_NAME`, `AZURE_OPENAI_API_VERSION` | Azure OpenAI |
+
+Supported model-provider prefixes: `openai`, `gemini`, `azure`, `anthropic`, `groq`, `mistral`,
+`together_ai`, `perplexity`, `replicate`, `openrouter`, `cohere`, `ollama`. Supported embedding prefixes:
+`rhesis`, `openai`, `gemini`, `vertex_ai`.
+
+## Authentication and OAuth
+
+Without OAuth credentials, only email/password authentication is available.
+
+| Variable | Description | Default |
+|---|---|---|
+| `AUTH_EMAIL_PASSWORD_ENABLED` | Allow email/password sign-in | `true` |
+| `AUTH_REGISTRATION_ENABLED` | Allow new-user registration | `true` |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Enable Google sign-in (set both) | *(unset)* |
+| `GH_CLIENT_ID`, `GH_CLIENT_SECRET` | Enable GitHub sign-in (set both) | *(unset)* |
+
+## SMTP and email
+
+Email (notifications, invitations) is disabled until `SMTP_HOST` is set.
+
+| Variable | Description | Default |
+|---|---|---|
+| `SMTP_HOST` | SMTP server host | *(unset)* |
+| `SMTP_PORT` | SMTP server port | `587` |
+| `SMTP_USER` | SMTP username | *(unset)* |
+| `SMTP_PASSWORD` | SMTP password | *(unset)* |
+| `FROM_EMAIL` | Default From address | `noreply@example.com` |
+
+## Object storage
+
+| Variable | Description | Default |
+|---|---|---|
+| `STORAGE_SERVICE_URI` | Storage backend URI (`file://`, `gs://`, or `s3://`) | `file:///app/storage` |
+| `STORAGE_SERVICE_ACCOUNT_KEY` | Base64 service-account credentials for GCS | *(unset)* |
+| `LOCAL_STORAGE_PATH` | Filesystem path for the `file://` backend | `/tmp/rhesis-files` |
+
+## Enterprise features
+
+Only used when the Enterprise package is installed (see
+[Enterprise Features](/docs/deployment/docker-compose#enterprise-features)). Each feature stays
+disabled until its secret is set and valid.
+
+| Variable | Description | Generate with |
+|---|---|---|
+| `SSO_ENCRYPTION_KEY` | Encrypts stored SSO `client_secret`s; required for Single Sign-On. Must stay stable once set — changing it makes stored SSO credentials undecryptable | `openssl rand -base64 32 \| tr '+/' '-_'` |
+| `AUDIT_HASH_KEY` | HMAC key for hashing emails in API-client audit logs; required for API Clients | `openssl rand -hex 32` |
+
+## Telemetry
+
+| Variable | Description | Default |
+|---|---|---|
+| `OTEL_RHESIS_TELEMETRY_ENABLED` | Self-hosted telemetry (opt-out; set `false` to disable) | `true` |
+
+See [Telemetry System Documentation](/contribute/telemetry) for what is collected.
+
+## Logging and tuning
+
+| Variable | Description | Default |
+|---|---|---|
+| `LOG_LEVEL` | Log verbosity | `INFO` |
+| `QUICK_START` | Enable Quick Start mode (auto-login; not for production) | `false` |
+| `CELERY_WORKER_CONCURRENCY` | Worker process concurrency | `8` |
+| `CELERY_WORKER_PREFETCH_MULTIPLIER` | Tasks prefetched per worker process | `4` |
+
+## Advanced
+
+Rarely changed; the defaults are correct for most deployments.
+
+| Variable | Description | Default |
+|---|---|---|
+| `JWT_ALGORITHM` | JWT signing algorithm | `HS256` |
+| `JWT_ACCESS_TOKEN_EXPIRE_MINUTES` | Access-token lifetime (minutes) | `10080` |
+| `RHESIS_BASE_URL` | Base URL for Rhesis-hosted models | `https://api.rhesis.ai` |
+| `DB_DRIVER` | SQLAlchemy database driver | `postgresql` |
+| `BROKER_READ_URL` | Optional read-replica broker URL | *(unset)* |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP collector endpoint for telemetry export | `https://telemetry.rhesis.ai` |
+| `OTEL_SERVICE_NAME` | Reported service name | `rhesis` |
+| `OTEL_DEPLOYMENT_TYPE` | `cloud` or `self-hosted` label | `self-hosted` |
+
+## Cloud-only variables
+
+<Callout type="warning">
+**For the Rhesis-hosted SaaS, not self-hosting.** These drive the managed platform and are listed here
+for reference only — a self-hosted deployment does not need any of them.
+</Callout>
+
+**Onboarding and lifecycle emails** — the hosted SendGrid drip campaign and welcome flow.
+
+| Variable | Purpose |
+|---|---|
+| `SENDGRID_API_KEY` | SendGrid API key |
+| `SENDGRID_DAY_1_EMAIL_TEMPLATE_ID`, `SENDGRID_DAY_2_EMAIL_TEMPLATE_ID`, `SENDGRID_DAY_3_EMAIL_TEMPLATE_ID` | Drip-campaign template IDs |
+| `WELCOME_FROM_EMAIL`, `WELCOME_CALENDAR_LINK`, `AGENT_EMAIL_BCC`, `DEMO_USER_EMAIL` | Welcome-email sender, calendar link, BCC, and demo recipient |
+
+**Hosted UI enrichment** — frontend `NEXT_PUBLIC_*` values baked in at build time. When unset the UI simply
+omits the extra media, so self-hosting is unaffected.
+
+| Variable | Purpose |
+|---|---|
+| `NEXT_PUBLIC_SUPPORT_EMAIL` | Support address in the UI (falls back to `hello@rhesis.ai`) |
+| `ONBOARDING_VIDEO_URL`, `NEXT_PUBLIC_ONBOARDING_VIDEO_URL` | Onboarding welcome video |
+| `NEXT_PUBLIC_<ENTITY>_EMPTY_STATE_VIDEO_URL` | Empty-state demo video per entity |
+| `NEXT_PUBLIC_<ENTITY>_EMPTY_STATE_ARTICLE_URLS` | Empty-state help-article links per entity (comma-separated) |
+
+The empty-state pair exists for each of `TESTS`, `PROJECTS`, `TEST_SETS`, `TEST_RUNS`, `ENDPOINTS`,
+`BEHAVIORS`, `METRICS`, and `EXPERIMENTS`.
+
+**Enterprise and GCP-hosted infrastructure** — specific to Rhesis's managed environment.
+
+| Variable | Purpose |
+|---|---|
+| `AUTH_SECRET`, `DATABASE_URL` | Hosted frontend auth secret and direct database URL |
+| `VERTEX_AI_LOCATION`, `VERTEX_AI_PROJECT`, `GOOGLE_APPLICATION_CREDENTIALS` | Vertex AI / GCP model access |
+| `PERSPECTIVE_API_KEY`, `CHATBOT_API_KEY` | Hosted third-party API keys |
+| `DEFAULT_POLYPHEMUS_URL` | Internal Rhesis access-review service |
+| `SKIP_MIGRATIONS` | Hosted runs migrations as a separate job |
+| `RHESIS_CONNECTOR_DISABLED`, `RHESIS_PROJECT_ID` | SDK connector settings |
+| `WORKER_API_URL` | External worker service URL |

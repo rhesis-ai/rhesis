@@ -4,7 +4,7 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 This document covers common issues you may encounter with the Rhesis worker system and how to resolve them.
 
-Test runs use the **async batch engine** (one Celery task per run with internal `asyncio` fan-out). For how that works and how to debug it, see [Test Execution](test-execution.md), [Execution Modes](execution-modes.md), and [Background Tasks](background-tasks.md).
+Test runs use the **async batch engine** (one Celery task per run with internal `asyncio` fan-out). For how that works and how to debug it, see [Test Execution](/contribute/worker/test-execution), [Execution Modes](/contribute/worker/execution-modes), and [Background Tasks](/contribute/worker/background-tasks).
 
 ## Dealing with Stuck Tasks
 
@@ -32,7 +32,7 @@ celery -A rhesis.backend.worker control revoke <task_id>`}
 {`celery -A rhesis.backend.worker purge -f`}
 </CodeBlock>
 
-Celery configuration for brokers, retries, and execution task time limits lives in `apps/backend/src/rhesis/backend/celery/config.py`. For test-run-specific behavior (cancellation watchdog, batch concurrency), see [Test Execution](test-execution.md).
+Celery configuration for brokers, retries, and execution task time limits lives in `apps/backend/src/rhesis/backend/celery/config.py`. For test-run-specific behavior (cancellation watchdog, batch concurrency), see [Test Execution](/contribute/worker/test-execution).
 
 ## Tenant Context Issues
 
@@ -75,7 +75,7 @@ organization_id = organization_id or request_org_id`}
 3. For TLS connections (`rediss://`), ensure `ssl_cert_reqs=CERT_NONE` parameter is included
 4. Test Redis connectivity: `redis-cli -u "$BROKER_URL" ping`
 5. Check firewall rules if running in a cloud environment
-6. For GKE deployments, see the [GKE Troubleshooting Guide](gke-troubleshooting.md)
+6. For GKE deployments, see the [GKE Troubleshooting Guide](/contribute/worker/gke-troubleshooting)
 
 ### Error: Missing API Keys for Model Evaluation
 
@@ -277,6 +277,6 @@ Include broker reachability and worker liveness (for example HTTP `/health` or `
 
 ## Related Documentation
 
-- **[GKE Troubleshooting Guide](gke-troubleshooting.md)**: Debugging workers in Google Kubernetes Engine
-- [Background Tasks and Processing](./background-tasks.md): General task management information
-- [Architecture and Dependencies](architecture.md): System integration details
+- [GKE Troubleshooting Guide](/contribute/worker/gke-troubleshooting): Debugging workers in Google Kubernetes Engine
+- [Background Tasks](/contribute/worker/background-tasks): Celery configuration and task patterns
+- [Architecture](/contribute/worker/architecture): System integration details

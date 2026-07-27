@@ -170,21 +170,32 @@ const makePaginatedResponse = <T,>(data: T[], total?: number) => ({
 describe('TestRunsGrid', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockGetTestRuns.mockResolvedValue(makePaginatedResponse([]));
+    // Default: one row, so tests that don't care about emptiness exercise
+    // the populated (grid) branch rather than the empty-state branch.
+    mockGetTestRuns.mockResolvedValue(
+      makePaginatedResponse([makeTestRun('r-0')])
+    );
     mockGetProject.mockResolvedValue({ id: 'p1', name: 'Project A' });
   });
 
-  it('shows loading state while fetching', () => {
+  it('shows a loading state while the first fetch is in flight', () => {
     mockGetTestRuns.mockReturnValue(new Promise(() => {}));
-    render(<TestRunsGrid sessionToken="tok" />);
-    expect(screen.getByTestId('grid-loading')).toBeInTheDocument();
+    render(<TestRunsGrid />);
+    expect(screen.getByRole('progressbar')).toBeInTheDocument();
+    expect(screen.queryByTestId('base-data-grid')).not.toBeInTheDocument();
+  });
+
+  it('renders the empty state directly, without ever mounting the grid, when there are zero test runs', async () => {
+    mockGetTestRuns.mockResolvedValue(makePaginatedResponse([]));
+    render(<TestRunsGrid />);
+    expect(await screen.findByText('No test runs yet')).toBeInTheDocument();
+    expect(screen.queryByTestId('base-data-grid')).not.toBeInTheDocument();
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
   });
 
   it('does NOT render a "New Test Run" action button (creation moved to page FAB)', async () => {
-    render(<TestRunsGrid sessionToken="tok" />);
-    await waitFor(() =>
-      expect(screen.queryByTestId('grid-loading')).not.toBeInTheDocument()
-    );
+    render(<TestRunsGrid />);
+    await screen.findByTestId('base-data-grid');
     expect(screen.queryByTestId('action-New Test Run')).not.toBeInTheDocument();
   });
 
@@ -192,7 +203,7 @@ describe('TestRunsGrid', () => {
     mockGetTestRuns.mockResolvedValue(
       makePaginatedResponse([makeTestRun('r-1'), makeTestRun('r-2')])
     );
-    render(<TestRunsGrid sessionToken="tok" />);
+    render(<TestRunsGrid />);
     await waitFor(() =>
       expect(screen.getByTestId('row-r-1')).toBeInTheDocument()
     );
@@ -201,14 +212,14 @@ describe('TestRunsGrid', () => {
 
   it('shows error alert when fetch fails', async () => {
     mockGetTestRuns.mockRejectedValue(new Error('Network error'));
-    render(<TestRunsGrid sessionToken="tok" />);
+    render(<TestRunsGrid />);
     await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
     expect(screen.getByText(/network error/i)).toBeInTheDocument();
   });
 
   it('dismisses the error alert on close', async () => {
     mockGetTestRuns.mockRejectedValue(new Error('Network error'));
-    render(<TestRunsGrid sessionToken="tok" />);
+    render(<TestRunsGrid />);
     await screen.findByRole('alert');
     await userEvent.click(screen.getByLabelText(/close/i));
     await waitFor(() =>
@@ -220,7 +231,7 @@ describe('TestRunsGrid', () => {
     mockGetTestRuns.mockResolvedValue(
       makePaginatedResponse([makeTestRun('r-99')])
     );
-    render(<TestRunsGrid sessionToken="tok" />);
+    render(<TestRunsGrid />);
     await waitFor(() =>
       expect(screen.getByTestId('row-r-99')).toBeInTheDocument()
     );
@@ -232,7 +243,7 @@ describe('TestRunsGrid', () => {
     mockGetTestRuns.mockResolvedValue(
       makePaginatedResponse([makeTestRun('r-1')])
     );
-    render(<TestRunsGrid sessionToken="tok" />);
+    render(<TestRunsGrid />);
     await waitFor(() =>
       expect(screen.getByTestId('row-r-1')).toBeInTheDocument()
     );
@@ -244,7 +255,7 @@ describe('TestRunsGrid', () => {
     mockGetTestRuns.mockResolvedValue(
       makePaginatedResponse([makeTestRun('r-1', 'Test Run', 'Completed')])
     );
-    render(<TestRunsGrid sessionToken="tok" />);
+    render(<TestRunsGrid />);
     await waitFor(() =>
       expect(screen.getByTestId('row-r-1')).toBeInTheDocument()
     );
@@ -255,7 +266,7 @@ describe('TestRunsGrid', () => {
     mockGetTestRuns.mockResolvedValue(
       makePaginatedResponse([makeTestRun('r-1', 'Test Run', 'queued')])
     );
-    render(<TestRunsGrid sessionToken="tok" />);
+    render(<TestRunsGrid />);
     await waitFor(() =>
       expect(screen.getByTestId('row-r-1')).toBeInTheDocument()
     );
@@ -266,7 +277,7 @@ describe('TestRunsGrid', () => {
     mockGetTestRuns.mockResolvedValue(
       makePaginatedResponse([makeTestRun('r-1')])
     );
-    render(<TestRunsGrid sessionToken="tok" />);
+    render(<TestRunsGrid />);
     await waitFor(() =>
       expect(screen.getByTestId('row-r-1')).toBeInTheDocument()
     );
@@ -280,7 +291,7 @@ describe('TestRunsGrid', () => {
       makePaginatedResponse([makeTestRun('r-1')])
     );
     mockDeleteTestRun.mockResolvedValue(undefined);
-    render(<TestRunsGrid sessionToken="tok" />);
+    render(<TestRunsGrid />);
     await waitFor(() =>
       expect(screen.getByTestId('row-r-1')).toBeInTheDocument()
     );
@@ -304,7 +315,7 @@ describe('TestRunsGrid', () => {
       makePaginatedResponse([makeTestRun('r-1')])
     );
     mockDeleteTestRun.mockRejectedValue(new Error('Server error'));
-    render(<TestRunsGrid sessionToken="tok" />);
+    render(<TestRunsGrid />);
     await waitFor(() =>
       expect(screen.getByTestId('row-r-1')).toBeInTheDocument()
     );
@@ -322,26 +333,9 @@ describe('TestRunsGrid', () => {
     );
   });
 
-  it('calls onTotalCountChange with the total count', async () => {
-    mockGetTestRuns.mockResolvedValue(
-      makePaginatedResponse([makeTestRun('r-1'), makeTestRun('r-2')], 42)
-    );
-    const onTotalCountChange = jest.fn();
-    render(
-      <TestRunsGrid
-        sessionToken="tok"
-        onTotalCountChange={onTotalCountChange}
-      />
-    );
-    await waitFor(() => expect(onTotalCountChange).toHaveBeenCalledWith(42));
-  });
-
   it('passes showToolbar and toolbarSlot props to BaseDataGrid', async () => {
-    render(<TestRunsGrid sessionToken="tok" />);
-    await waitFor(() =>
-      expect(screen.queryByTestId('grid-loading')).not.toBeInTheDocument()
-    );
+    render(<TestRunsGrid />);
     // The grid renders without error, confirming toolbarSlot prop is accepted
-    expect(screen.getByTestId('base-data-grid')).toBeInTheDocument();
+    expect(await screen.findByTestId('base-data-grid')).toBeInTheDocument();
   });
 });

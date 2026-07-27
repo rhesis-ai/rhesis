@@ -50,8 +50,8 @@ test.describe('Organization Team @sanity', () => {
     await team.expectMembersAreaVisible();
   });
 
-  test('org team page has a valid page title', async ({ page }) => {
-    await page.goto('/organizations/team');
+  test('org team tab has a valid page title', async ({ page }) => {
+    await page.goto('/organizations/settings?tab=team');
     const title = await page.title();
     expect(title.length).toBeGreaterThan(0);
   });

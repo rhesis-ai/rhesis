@@ -8,13 +8,11 @@ import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 
 interface TestResultTagsProps {
-  sessionToken: string;
   testResult: TestResultDetail;
   onUpdate: (updatedTest: TestResultDetail) => void;
 }
 
 export default function TestResultTags({
-  sessionToken,
   testResult,
   onUpdate,
 }: TestResultTagsProps) {
@@ -41,7 +39,7 @@ export default function TestResultTags({
     // We use a small delay to ensure API calls have completed
     setTimeout(async () => {
       try {
-        const apiFactory = new ApiClientFactory(sessionToken);
+        const apiFactory = new ApiClientFactory();
         const testResultsClient = apiFactory.getTestResultsClient();
         const updatedTestResult = await testResultsClient.getTestResult(
           testResult.id
@@ -67,7 +65,6 @@ export default function TestResultTags({
         size="small"
         margin="normal"
         fullWidth
-        sessionToken={sessionToken}
         entityType={EntityType.TEST_RESULT}
         entity={testResult}
       />

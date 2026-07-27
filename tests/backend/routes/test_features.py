@@ -93,7 +93,11 @@ class TestFeaturesEndpoint:
         body = response.json()
         assert body["enabled"] == ["sso"]
 
-    def test_omits_feature_when_runtime_check_fails(self, client: TestClient, mock_current_user):
+    def test_includes_feature_with_failing_runtime_check(
+        self, client: TestClient, mock_current_user
+    ):
+        """GET /features uses licensed_features, so a failing runtime check
+        does not hide the feature from the UI but produces a warning."""
         FeatureRegistry.reset()
         FeatureRegistry.register(
             Feature(
@@ -105,9 +109,18 @@ class TestFeaturesEndpoint:
         try:
             response = client.get("/features")
             assert response.status_code == status.HTTP_200_OK
-            assert response.json()["enabled"] == []
+            body = response.json()
+            assert body["enabled"] == ["sso"]
+            assert "sso" in body["warnings"]
         finally:
             FeatureRegistry.reset()
+
+    def test_no_warnings_when_runtime_check_passes(
+        self, client: TestClient, registered_sso, mock_current_user
+    ):
+        response = client.get("/features")
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["warnings"] == {}
 
     def test_omits_feature_when_license_denies(self, client: TestClient, mock_current_user):
         class _Deny:
@@ -130,7 +143,8 @@ class TestFeaturesEndpoint:
     def test_response_shape_is_stable(self, client: TestClient, registered_sso, mock_current_user):
         response = client.get("/features")
         body = response.json()
-        assert set(body.keys()) == {"license", "enabled"}
+        assert set(body.keys()) == {"license", "enabled", "warnings"}
         assert set(body["license"].keys()) == {"edition", "licensed"}
         assert isinstance(body["enabled"], list)
         assert all(isinstance(name, str) for name in body["enabled"])
+        assert isinstance(body["warnings"], dict)

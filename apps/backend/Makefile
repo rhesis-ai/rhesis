@@ -38,11 +38,11 @@ type-check:
 
 # Tests (starts docker automatically)
 test: docker-up
-	uv run --extra cpu pytest ../../tests/backend --ignore=../../tests/backend/integration
+	uv run --extra cpu pytest ../../tests/backend --ignore=../../tests/backend/integration -n 4 --timeout=120 --timeout-method=thread --reruns=1
 
 # Re-run only failed tests (starts docker automatically)
 test-lf: docker-up
-	uv run --extra cpu pytest ../../tests/backend --lf --ignore=../../tests/backend/integration
+	uv run --extra cpu pytest ../../tests/backend --lf --ignore=../../tests/backend/integration --timeout=120 --timeout-method=thread
 
 # Docker management for integration tests
 docker-up:

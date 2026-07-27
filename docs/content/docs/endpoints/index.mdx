@@ -1,7 +1,7 @@
 ---
 title: Endpoints – Rhesis
 description: Configure and manage API endpoints that Rhesis tests execute against. Connect single-turn and multi-turn LLM applications for automated evaluation.
-keywords: [AI endpoint configuration, LLM API endpoint, test endpoint, AI application testing]
+keywords: [AI endpoint configuration, LLM API endpoint, test endpoint, LLM application testing]
 ---
 
 import { CodeBlock } from "@/components/CodeBlock";
@@ -39,7 +39,7 @@ Available in request body templates via Jinja2 syntax (`{{ variable }}`).
 
 <Callout type="info">
   Provider-specific Jinja filters such as `to_anthropic`, `to_openai`, and `to_gemini` are documented in
-  [Single-Turn Endpoints](/docs/endpoints/single-turn#file-format-filters).
+  [Request Mapping](/docs/endpoints/request-mapping#file-format-filters).
 </Callout>
 
 ### Response Variables
@@ -121,23 +121,14 @@ Both endpoint types receive the same resolved parameters:
 - **SDK connector endpoints** should access parameters through `\{\{ params.* \}\}` in `request_mapping`, or read the test-run snapshot through `Parameters.get()` from inside the function. The legacy `@endpoint(parameters=...)` kwarg-merging path is deprecated. See [Connector Injection](/docs/experiments/connector-injection) for details.
 
 
-## Managing Endpoints
+## Managing endpoints
 
-- **Edit** — Open the detail page, click **Edit**, update any fields, click **Save**.
-- **Duplicate** — Click **Duplicate** on the detail page to copy the full configuration. "(Copy)" is appended to the name. You can also bulk-duplicate from the grid.
-- **Delete** — Select one or more endpoints from the grid and click **Delete**. Historical test results are preserved.
+After creation, endpoints can be edited, duplicated, deleted, and tested from the detail page, and reused across tests. See [Management](/docs/endpoints/management) for the detail-page tabs, grid actions, and environment organization.
 
-The detail page uses the same configuration structure as the creation wizard:
-**Overview** (name, URL, protocol, method, environment, and tracing toggle),
-**Connection** (auth token, OAuth client credentials, and custom headers),
-**Mapping** (request template and response mapping), and **Test**
-(interactive test-and-map workbench). Test execution history is available from
-the Test Runs pages and grids rather than an endpoint detail tab.
+## Next steps
 
-<Callout type="default">
-  **Next Steps**
-  - [Create an Endpoint](/docs/endpoints/creating-endpoints) — wizard walkthrough and Auto-Configure
-  - [Request Mapping](/docs/endpoints/request-mapping) — Jinja2 syntax, filters, multi-turn patterns
-  - [Response Mapping](/docs/endpoints/response-mapping) — JSONPath and Jinja2 extraction
-  - [Examples](/docs/endpoints/mapping-examples) — real-world provider configurations
-</Callout>
+- [Create an Endpoint](/docs/endpoints/creating-endpoints) — wizard walkthrough and Auto-Configure
+- [Request Mapping](/docs/endpoints/request-mapping) — Jinja2 syntax, filters, multi-turn patterns
+- [Response Mapping](/docs/endpoints/response-mapping) — JSONPath and Jinja2 extraction
+- [Examples](/docs/endpoints/mapping-examples) — provider configurations
+- [Management](/docs/endpoints/management) — testing, detail tabs, and environments

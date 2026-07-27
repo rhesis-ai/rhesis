@@ -47,14 +47,12 @@ function normalizeTabParam(param: string | null): ProjectTabKey {
 interface ProjectDetailTabsProps {
   project: Project;
   projectId: string;
-  sessionToken: string;
   onProjectUpdate: (updatedProject: Partial<Project>) => Promise<boolean>;
 }
 
 export default function ProjectDetailTabs({
   project,
   projectId,
-  sessionToken,
   onProjectUpdate,
 }: ProjectDetailTabsProps) {
   const router = useRouter();
@@ -94,31 +92,25 @@ export default function ProjectDetailTabs({
       <DetailTabPanel value={activeTab} index={0} prefix="project-detail">
         <ProjectOverviewTab
           project={project}
-          sessionToken={sessionToken}
           onProjectUpdate={onProjectUpdate}
         />
       </DetailTabPanel>
 
       <DetailTabPanel value={activeTab} index={1} prefix="project-detail">
-        <ProjectMembersTab
-          project={project}
-          projectId={projectId}
-          sessionToken={sessionToken}
-        />
+        <ProjectMembersTab project={project} projectId={projectId} />
       </DetailTabPanel>
 
       <DetailTabPanel value={activeTab} index={2} prefix="project-detail">
         <Alert severity="info" sx={{ mb: 3 }}>
           {ENDPOINTS_ALERT}
         </Alert>
-        <ProjectEndpoints projectId={projectId} sessionToken={sessionToken} />
+        <ProjectEndpoints projectId={projectId} />
       </DetailTabPanel>
 
       <DetailTabPanel value={activeTab} index={3} prefix="project-detail">
         <ProjectConfigurationTab
           project={project}
           projectId={projectId}
-          sessionToken={sessionToken}
           onProjectUpdate={onProjectUpdate}
         />
       </DetailTabPanel>

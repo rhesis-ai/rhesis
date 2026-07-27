@@ -54,47 +54,7 @@ The SDK automatically detects and handles common serialization patterns:
 | `to_dict`/`from_dict` | `to_dict()` | `from_dict()` |
 | Primitives | pass through | pass through |
 
-## Using with Pydantic Models
-
-### mlflow Agent Example
-
-For mlflow's ChatAgent framework:
-
-<CodeBlock filename="mlflow_agent.py" language="python">
-{`from mlflow.types.agent import ChatAgentRequest, ChatAgentResponse, ChatAgentMessage, ChatContext
-import uuid
-
-@endpoint(
-    name="mlflow_chat_agent",
-    request_mapping={
-        "request": {
-            "messages": [{"role": "user", "content": "{{ input }}"}],
-            "context": {"conversation_id": "{{ session_id }}"},
-        },
-    },
-    response_mapping={
-        "output": "$.messages[-1].content",
-        "session_id": "$.messages[-1].id",
-        "metadata": "$.custom_outputs",
-    },
-)
-def my_mlflow_agent(request: ChatAgentRequest) -> ChatAgentResponse:
-    """Native mlflow agent signature - no wrapper needed."""
-    user_content = request.messages[-1].content
-    conv_id = request.context.conversation_id if request.context else None
-    
-    return ChatAgentResponse(
-        messages=[
-            ChatAgentMessage(
-                id=str(uuid.uuid4()),
-                role="assistant",
-                content=f"Response to: {user_content}",
-            )
-        ],
-        finish_reason="stop",
-        custom_outputs={"conversation_id": conv_id},
-    )`}
-</CodeBlock>
+For a framework-specific case (mlflow's ChatAgent), see the [mlflow integration example](./examples#mlflow-agent-integration).
 
 ## Using with Dataclasses
 
@@ -185,43 +145,9 @@ serializers={
 }
 ```
 
-You can provide just `dump`, just `load`, or both depending on your needs.
+Provide `dump`, `load`, or both, depending on your needs.
 
-## Backward Compatibility
+## Next steps
 
-The serialization system is fully backward compatible. Functions with simple parameters work exactly as before:
-
-<CodeBlock filename="backward_compat.py" language="python">
-{`# Still works - no changes needed
-@endpoint(request_mapping={"message": "{{ input }}"})
-def simple_function(message: str) -> dict:
-    return {"output": message.upper()}
-
-# Also still works
-@endpoint()
-def auto_mapped(input: str, session_id: str = None) -> dict:
-    return {"output": process(input), "session_id": session_id}`}
-</CodeBlock>
-
-## How It Works Internally
-
-All values flow through the same serialization path:
-
-```
-Input Flow:
-  Rhesis Request → request_mapping → TypeSerializer.load() → Function Parameter
-
-Output Flow:
-  Function Return → TypeSerializer.dump() → response_mapping → Rhesis Response
-```
-
-The serializer automatically:
-- Detects the appropriate method based on object type
-- Recursively handles nested structures  
-- Falls back gracefully for unknown types
-
----
-
-<Callout type="default">
-  **Next Steps** - See [Mapping](./mapping) for request/response mapping syntax - Explore [Examples](./examples) for complete working examples
-</Callout>
+- Review the [mapping syntax](./mapping) that feeds these serializers.
+- See the [mlflow integration example](./examples#mlflow-agent-integration) for a Pydantic-based endpoint.

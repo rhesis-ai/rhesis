@@ -26,6 +26,7 @@ import {
   CartesianGrid,
 } from 'recharts';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { useSession } from 'next-auth/react';
 import { useQuery } from '@tanstack/react-query';
 import { testKeys } from '@/constants/query-keys';
 import { formatDuration } from '@/utils/format-duration';
@@ -34,10 +35,10 @@ import BasePieChart from '@/components/common/BasePieChart';
 import BaseChartsGrid from '@/components/common/BaseChartsGrid';
 import { useChartColors } from '@/components/layout/BaseChartColors';
 import { formatDate } from '@/utils/date';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface TestDetailChartsProps {
   testId: string;
-  sessionToken: string;
 }
 
 interface LastTestRunCardProps {
@@ -469,11 +470,9 @@ function SinglePointChart({
   );
 }
 
-export default function TestDetailCharts({
-  testId,
-  sessionToken,
-}: TestDetailChartsProps) {
+export default function TestDetailCharts({ testId }: TestDetailChartsProps) {
   const _theme = useTheme();
+  const { status } = useSession();
 
   const {
     data: stats,
@@ -482,10 +481,10 @@ export default function TestDetailCharts({
   } = useQuery({
     queryKey: [...testKeys.detail(testId), 'stats'],
     queryFn: () =>
-      new ApiClientFactory(sessionToken)
+      new ApiClientFactory()
         .getTestsClient()
         .getIndividualTestStats(testId, { recent_runs_limit: 5 }),
-    enabled: !!sessionToken && !!testId,
+    enabled: isAuthenticated(status) && !!testId,
   });
 
   const error = fetchError

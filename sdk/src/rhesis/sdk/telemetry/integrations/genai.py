@@ -523,6 +523,125 @@ def translate_events(
 
 
 # ---------------------------------------------------------------------------
+# Span ancestry registry for handoff from-agent resolution
+# ---------------------------------------------------------------------------
+
+
+class AncestryRegistry:
+    """Persistent (process-lifetime) span ancestry index for handoff edges.
+
+    A batch-local parent walk fails when a delegated/handed-off span and its
+    enclosing agent spans are exported in different batches. That is the
+    common case under ``BatchSpanProcessor``: a child span ends (and is
+    enqueued) *before* its parent, so on long runs the agent ancestor lands in
+    a later batch than the span that needs it.
+
+    This registry sidesteps batching entirely by recording ancestry at span
+    *start* time (a parent always starts before its children, and both MAF and
+    Pydantic AI embed the agent name in the ``invoke_agent <name>`` span name
+    from the start). The exporter then resolves the calling agent against this
+    index regardless of which batch each span exports in.
+
+    ``track_siblings`` covers MAF's ``HandoffBuilder`` layout, where the
+    ``invoke_agent`` span and the ``chat`` span are SIBLINGS sharing the same
+    ``executor.process`` parent, so the plain parent-chain walk can't see the
+    agent. It must stay **off** for frameworks with properly nested delegation
+    (like Pydantic AI, where the chain is ``invoke_agent (child) ->
+    execute_tool -> invoke_agent (parent)``): with siblings on, a delegated
+    agent span would resolve *itself* through its own parent entry and report
+    its own name as the calling agent.
+
+    All stores are bounded; the oldest entries are evicted once the cap is hit.
+    """
+
+    def __init__(
+        self,
+        *,
+        agent_name_prefix: str = "invoke_agent ",
+        track_siblings: bool = False,
+        max_entries: int = 8192,
+    ) -> None:
+        self._agent_name_prefix = agent_name_prefix
+        self._track_siblings = track_siblings
+        self._parent_by_span_id: dict[int, int] = {}
+        self._agent_by_span_id: dict[int, str] = {}
+        # Agent name indexed by its *parent* span id (sibling layout, see
+        # class docstring). Only populated when ``track_siblings`` is on.
+        self._agent_by_parent_span_id: dict[int, str] = {}
+        self._max_entries = max_entries
+
+    @staticmethod
+    def _span_id(span: Any) -> int | None:
+        ctx = getattr(span, "context", None)
+        if ctx is None:
+            try:
+                ctx = span.get_span_context()
+            except Exception:  # noqa: BLE001
+                return None
+        return getattr(ctx, "span_id", None)
+
+    def _evict_if_needed(self, store: dict[int, Any]) -> None:
+        if len(store) < self._max_entries:
+            return
+        try:
+            first = next(iter(store))
+            store.pop(first, None)
+        except StopIteration:  # pragma: no cover - racy but harmless
+            pass
+
+    def record(self, span: Any) -> None:
+        """Index a span's parent link and (if an agent span) its name.
+
+        Safe to call from a span processor's ``on_start``; never raises.
+        """
+        try:
+            span_id = self._span_id(span)
+            if span_id is None:
+                return
+            parent_ctx = getattr(span, "parent", None)
+            parent_sid = getattr(parent_ctx, "span_id", None)
+            if parent_sid is not None:
+                self._evict_if_needed(self._parent_by_span_id)
+                self._parent_by_span_id[span_id] = parent_sid
+            name = getattr(span, "name", "") or ""
+            if name.startswith(self._agent_name_prefix):
+                agent_name = name[len(self._agent_name_prefix) :].strip()
+                if agent_name:
+                    self._evict_if_needed(self._agent_by_span_id)
+                    self._agent_by_span_id[span_id] = agent_name
+                    if self._track_siblings and parent_sid is not None:
+                        self._evict_if_needed(self._agent_by_parent_span_id)
+                        self._agent_by_parent_span_id[parent_sid] = agent_name
+        except Exception:  # noqa: BLE001 - recording must never break tracing
+            logger.debug("Failed to record span ancestry", exc_info=True)
+
+    def find_ancestor_agent(self, span: Any) -> str | None:
+        """Resolve the calling agent for a delegated/handoff span.
+
+        Walks the persistent parent chain and, at each hop, checks an ancestor
+        agent span; when ``track_siblings`` is on it also checks a *sibling*
+        agent span sharing the current parent. The bounded loop guard
+        guarantees termination even in the face of a malformed parent cycle.
+        """
+        cur_sid = self._span_id(span)
+        for _ in range(64):
+            if cur_sid is None:
+                return None
+            parent_sid = self._parent_by_span_id.get(cur_sid)
+            if parent_sid is None:
+                return None
+            agent = self._agent_by_span_id.get(parent_sid)
+            if agent is not None:
+                return agent
+            if self._track_siblings:
+                sibling_agent = self._agent_by_parent_span_id.get(parent_sid)
+                if sibling_agent is not None:
+                    return sibling_agent
+            cur_sid = parent_sid
+        return None
+
+
+# ---------------------------------------------------------------------------
 # Exporter swapping on existing span processors
 # ---------------------------------------------------------------------------
 

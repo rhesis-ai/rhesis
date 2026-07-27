@@ -24,14 +24,12 @@ const CONFIGURATION_ALERT =
 interface ProjectConfigurationTabProps {
   project: Project;
   projectId: string;
-  sessionToken: string;
   onProjectUpdate: (updatedProject: Partial<Project>) => Promise<boolean>;
 }
 
 export default function ProjectConfigurationTab({
   project,
   projectId,
-  sessionToken,
   onProjectUpdate,
 }: ProjectConfigurationTabProps) {
   const canUpdateProject = useCan(Capability.Project.UPDATE);
@@ -63,16 +61,11 @@ export default function ProjectConfigurationTab({
         <ProjectTraceMetrics
           ref={traceMetricsRef}
           project={project}
-          sessionToken={sessionToken}
           onProjectUpdate={onProjectUpdate}
         />
       </SectionCard>
 
-      <ProjectParameters
-        projectId={projectId}
-        sessionToken={sessionToken}
-        embedInSectionCard
-      />
+      <ProjectParameters projectId={projectId} embedInSectionCard />
 
       <SectionCard
         title="Environments"
@@ -93,7 +86,6 @@ export default function ProjectConfigurationTab({
         <ProjectEnvironments
           ref={environmentsRef}
           projectId={projectId}
-          sessionToken={sessionToken}
           hideToolbarAddButton
         />
       </SectionCard>

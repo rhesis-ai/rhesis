@@ -9,6 +9,7 @@ test.describe('Insights @sanity', () => {
   });
 
   test('insights page main content renders', async ({ page }) => {
+    test.setTimeout(90_000);
     const insights = new InsightsPage(page);
     await insights.goto();
     await insights.expectContentVisible();

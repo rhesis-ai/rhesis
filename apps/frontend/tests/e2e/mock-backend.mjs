@@ -28,6 +28,7 @@ const fixtures = {
   endpoints: loadJson('endpoints.json'),
   endpointDetail: loadJson('endpoint-detail.json'),
   knowledgeDetail: loadJson('knowledge-detail.json'),
+  sources: loadJson('sources.json'),
   behaviors: loadJson('behaviors.json'),
   tasks: loadJson('tasks.json'),
   tokens: loadJson('tokens.json'),
@@ -67,16 +68,27 @@ const listByResource = {
   test_runs: fixtures.testRuns,
   test_results: fixtures.testResults,
   endpoints: fixtures.endpoints,
+  sources: fixtures.sources,
   behaviors: fixtures.behaviors,
   tasks: fixtures.tasks,
   tokens: fixtures.tokens,
 };
+
+/** Sources created during a local no-docker E2E run. */
+const uploadedSources = [];
 
 const e2eUser = {
   ...loadJson('e2e-user.json'),
   is_superuser: false,
   is_email_verified: true,
 };
+
+function drainRequestBody(req) {
+  return new Promise(resolve => {
+    req.on('data', () => {});
+    req.on('end', resolve);
+  });
+}
 
 function sendJson(res, status, body, extraHeaders = {}) {
   const payload = JSON.stringify(body);
@@ -149,6 +161,16 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  if (method === 'GET' && pathname === '/auth/terms-status') {
+    sendJson(res, 200, { terms_accepted: true, has_prior_acceptance: true });
+    return;
+  }
+
+  if (method === 'POST' && pathname === '/auth/accept-terms') {
+    sendJson(res, 200, { success: true, terms_accepted: true });
+    return;
+  }
+
   if (method === 'GET' && pathname === '/features') {
     // Shape must match FeaturesResponse (utils/api-client/features-client.ts):
     // {license: {edition, licensed}, enabled: string[]}. Individual specs
@@ -173,6 +195,22 @@ const server = http.createServer((req, res) => {
 
   if (method === 'GET' && pathname === '/projects/mine') {
     sendList(res, fixtures.projects);
+    return;
+  }
+
+  if (method === 'POST' && pathname === '/sources/upload') {
+    drainRequestBody(req).then(() => {
+      const source = {
+        ...fixtures.knowledgeDetail,
+        id: `e2e-upload-${Date.now()}`,
+        title: 'E2E Uploaded Source',
+        content: fixtures.knowledgeDetail.content,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      uploadedSources.push(source);
+      sendJson(res, 200, source);
+    });
     return;
   }
 
@@ -223,12 +261,14 @@ const server = http.createServer((req, res) => {
       (pathname === `/${resource}` || pathname.startsWith(`/${resource}?`))
     ) {
       const filterId = parseFilterId(url.searchParams);
+      const allItems =
+        resource === 'sources' ? [...items, ...uploadedSources] : items;
       if (filterId) {
-        const match = items.find(item => String(item.id) === filterId);
+        const match = allItems.find(item => String(item.id) === filterId);
         sendList(res, match ? [match] : []);
         return;
       }
-      sendList(res, items);
+      sendList(res, allItems);
       return;
     }
   }

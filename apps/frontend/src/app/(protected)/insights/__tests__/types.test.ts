@@ -13,14 +13,32 @@ describe('resolveInsightsTimeRange', () => {
 });
 
 describe('normalizeInsightsFilters', () => {
-  it('migrates legacy months field to 1m', () => {
+  it('migrates legacy months field to time range mode', () => {
     expect(normalizeInsightsFilters({ months: 1, endpointId: 'ep-1' })).toEqual(
       {
-        timeRange: '1m',
         endpointId: 'ep-1',
         behaviorIds: [],
+        runFilterMode: 'timeRange',
+        timeRange: '1m',
+        testRunIds: [],
       }
     );
+  });
+
+  it('migrates legacy useDefaultTestRunWindow to run filter mode', () => {
+    expect(
+      normalizeInsightsFilters({
+        endpointId: 'ep-1',
+        useDefaultTestRunWindow: false,
+        testRunIds: ['run-1'],
+      })
+    ).toEqual({
+      endpointId: 'ep-1',
+      behaviorIds: [],
+      runFilterMode: 'testRuns',
+      timeRange: '1m',
+      testRunIds: ['run-1'],
+    });
   });
 });
 

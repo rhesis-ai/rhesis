@@ -110,3 +110,39 @@ resource "google_compute_firewall" "gke_lb_health_checks" {
   source_ranges = ["35.191.0.0/16", "130.211.0.0/22"]
   target_tags   = ["gke-${var.environment}"]
 }
+
+# Live Cloudflare edge IP ranges, fetched at plan/apply time. Only queried when
+# actually needed so environments that don't proxy through Cloudflare aren't
+# forced to configure the cloudflare provider's credentials for nothing.
+data "cloudflare_ip_ranges" "this" {
+  count = var.use_cloudflare_source_ranges ? 1 : 0
+}
+
+locals {
+  public_ingress_source_ranges = var.use_cloudflare_source_ranges ? concat(
+    data.cloudflare_ip_ranges.this[0].ipv4_cidr_blocks,
+    data.cloudflare_ip_ranges.this[0].ipv6_cidr_blocks,
+  ) : var.public_ingress_source_ranges
+}
+
+# Public ingress-nginx-external LoadBalancer traffic (web only). Without this,
+# GKE's auto-created per-Service allow rule for the external LB ties in priority
+# with deny_ingress (both 1000) and GCP breaks the tie in favor of deny — so the
+# LB is unreachable from the internet until this explicit, lower-priority allow
+# exists. Opt-in per environment via enable_public_ingress_firewall.
+resource "google_compute_firewall" "gke_public_ingress" {
+  count = var.enable_public_ingress_firewall ? 1 : 0
+
+  name     = "gke-public-ingress-${var.environment}"
+  network  = var.vpc_name
+  project  = var.project_id
+  priority = 900
+
+  allow {
+    protocol = "tcp"
+    ports    = ["80", "443"]
+  }
+
+  source_ranges = local.public_ingress_source_ranges
+  target_tags   = ["gke-${var.environment}"]
+}

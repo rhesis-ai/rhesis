@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import UUID4, BaseModel, ConfigDict, field_validator
@@ -10,6 +11,13 @@ from rhesis.backend.app.models.enums import (
     EndpointResponseFormat,
 )
 from rhesis.backend.app.schemas import Base
+from rhesis.backend.app.schemas.references import (
+    OrganizationReference,
+    ProjectReference,
+    StatusReference,
+)
+from rhesis.backend.app.schemas.tag import TagRead
+from rhesis.backend.app.schemas.user import UserReference
 
 
 # Endpoint metadata schemas
@@ -222,6 +230,9 @@ class Endpoint(Base):
     user_id: Optional[UUID4] = None
     organization_id: Optional[UUID4] = None
 
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
     # Tracing control
     disable_tracing: bool = False
 
@@ -235,6 +246,16 @@ class Endpoint(Base):
     scopes: Optional[List[str]] = None
     audience: Optional[str] = None
     extra_payload: Optional[Dict[str, Any]] = None
+
+
+# The detailed model with expanded relations
+class EndpointDetail(Endpoint):
+    name: Optional[str] = None
+    tags: Optional[List[TagRead]] = None
+    status: Optional[StatusReference] = None
+    user: Optional[UserReference] = None
+    organization: Optional[OrganizationReference] = None
+    project: Optional[ProjectReference] = None
 
 
 # Auto-configure schemas — use BaseModel (not Base) since these are

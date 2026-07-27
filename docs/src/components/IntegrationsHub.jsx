@@ -1,14 +1,14 @@
 'use client'
 
 /**
- * Integrations overview: Observability, Frameworks, MCPs, Model providers.
+ * Integrations overview: Observability, Frameworks, Tools, Model providers.
  * Implementation lives in FrameworkIntegrationsShowcase.jsx; this module is the preferred import path.
  */
 export {
   IntegrationsHub,
   ObservabilitySection,
   TestsSection,
-  McpSection,
+  ToolsSection,
   ModelProvidersSection,
   ConnectorSection,
   EvaluationSection,

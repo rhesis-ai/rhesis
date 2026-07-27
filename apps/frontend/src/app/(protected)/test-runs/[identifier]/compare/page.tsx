@@ -1,7 +1,6 @@
 import { Box } from '@mui/material';
 import { Metadata } from 'next';
-import { notFound } from 'next/navigation';
-import { isNotFoundApiError } from '@/utils/api-client/is-not-found-error';
+import { notFoundIfEntityMissing } from '@/utils/entity-not-found-server';
 import { auth } from '@/auth';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
@@ -34,11 +33,11 @@ export default async function TestRunComparePage({
     typeof baselineParam === 'string' ? baselineParam : undefined;
 
   const session = await auth();
-  if (!session?.session_token) {
+  if (!session || session.error) {
     throw new Error('Authentication required');
   }
 
-  const apiFactory = await createServerApiFactory(session.session_token);
+  const apiFactory = await createServerApiFactory();
   const testRunsClient = apiFactory.getTestRunsClient();
   const testResultsClient = apiFactory.getTestResultsClient();
   const behaviorClient = apiFactory.getBehaviorClient();
@@ -47,9 +46,7 @@ export default async function TestRunComparePage({
   try {
     testRun = await testRunsClient.getTestRun(identifier);
   } catch (error) {
-    if (isNotFoundApiError(error)) {
-      notFound();
-    }
+    notFoundIfEntityMissing(error);
     throw error;
   }
 
@@ -220,7 +217,6 @@ export default async function TestRunComparePage({
           availableTestRuns={availableTestRuns}
           prompts={promptsMap}
           behaviors={behaviors}
-          sessionToken={session.session_token}
           initialBaselineId={initialBaselineId}
           testSetType={
             testRun.test_configuration?.test_set?.test_set_type?.type_value

@@ -40,7 +40,6 @@ import { Capability } from '@/constants/capabilities';
 
 interface ProjectParametersProps {
   projectId: string;
-  sessionToken: string;
   title?: string;
   headerAction?: React.ReactNode;
   /** Wrap content in a SectionCard with actions aligned in the header. */
@@ -55,7 +54,6 @@ interface ProjectParametersProps {
  */
 export default function ProjectParameters({
   projectId,
-  sessionToken,
   title,
   headerAction,
   embedInSectionCard = false,
@@ -73,7 +71,7 @@ export default function ProjectParameters({
     move,
     handleSave,
     handleRevert,
-  } = useParameterSchema(projectId, sessionToken);
+  } = useParameterSchema(projectId);
 
   const canUpdate = useCan(Capability.Project.UPDATE);
   const [drawerKey, setDrawerKey] = useState<string | null>(null);

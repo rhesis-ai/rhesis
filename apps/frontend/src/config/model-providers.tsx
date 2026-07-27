@@ -153,6 +153,27 @@ export const PROVIDER_ICONS: Record<string, React.ReactNode> = {
   azure: <CloudIcon sx={{ fontSize: theme => theme.iconSizes.large }} />,
 };
 
+// User-facing display names keyed by provider type_value. Overrides the
+// backend-provided description where the stored text uses outdated branding
+// (e.g. "Azure AI Studio" was renamed by Microsoft to "Azure AI Foundry").
+export const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
+  azure_ai: 'Azure AI Foundry',
+  azure: 'Azure OpenAI',
+};
+
+// Resolve the label to show for a provider: display-name override first, then
+// the backend description, then the raw type_value as a last resort.
+export function getProviderDisplayName(provider: {
+  type_value: string;
+  description?: string;
+}): string {
+  return (
+    PROVIDER_DISPLAY_NAMES[provider.type_value] ||
+    provider.description ||
+    provider.type_value
+  );
+}
+
 // Provider information interface
 export interface ProviderInfo {
   id: string;

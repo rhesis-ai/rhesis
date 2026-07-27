@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useRef } from 'react';
+import { useSession } from 'next-auth/react';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import { TestDetail } from '@/utils/api-client/interfaces/tests';
 import CreateTest from './CreateTest';
@@ -9,7 +10,6 @@ import UpdateTest from './UpdateTest';
 interface TestDrawerProps {
   open: boolean;
   onClose: () => void;
-  sessionToken: string;
   test?: TestDetail;
   onSuccess?: () => void;
 }
@@ -17,7 +17,6 @@ interface TestDrawerProps {
 export default function TestDrawer({
   open,
   onClose,
-  sessionToken,
   test,
   onSuccess,
 }: TestDrawerProps) {
@@ -25,23 +24,13 @@ export default function TestDrawer({
   const [loading, setLoading] = React.useState(false);
   const submitRef = useRef<(() => Promise<void>) | undefined>(undefined);
 
-  // Get current user from token
-  const getCurrentUserId = () => {
-    try {
-      const [, payloadBase64] = sessionToken.split('.');
-      // Add padding if needed
-      const base64 = payloadBase64.replace(/-/g, '+').replace(/_/g, '/');
-      const pad = base64.length % 4;
-      const paddedBase64 = pad ? base64 + '='.repeat(4 - pad) : base64;
-
-      const payload = JSON.parse(
-        Buffer.from(paddedBase64, 'base64').toString('utf-8')
-      );
-      return payload.user?.id;
-    } catch (_err) {
-      return undefined;
-    }
-  };
+  // Current user from the session (the access token never reaches the
+  // browser, so there is no JWT to decode client-side).
+  const { data: session } = useSession();
+  const getCurrentUserId = () =>
+    session?.user?.id as
+      | `${string}-${string}-${string}-${string}-${string}`
+      | undefined;
 
   const handleSave = async () => {
     try {
@@ -66,7 +55,6 @@ export default function TestDrawer({
       {open &&
         (test ? (
           <UpdateTest
-            sessionToken={sessionToken}
             onSuccess={onSuccess}
             onError={setError}
             submitRef={submitRef}
@@ -74,7 +62,6 @@ export default function TestDrawer({
           />
         ) : (
           <CreateTest
-            sessionToken={sessionToken}
             onSuccess={onSuccess}
             onError={setError}
             defaultOwnerId={getCurrentUserId()}

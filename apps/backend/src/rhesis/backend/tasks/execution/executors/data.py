@@ -1,7 +1,7 @@
 """Data retrieval utilities for test execution."""
 
 import logging
-from typing import TYPE_CHECKING, List, Optional, Tuple
+from typing import TYPE_CHECKING, List, Literal, Optional, Tuple, Union, overload
 from uuid import UUID
 
 from sqlalchemy.orm import Session
@@ -77,6 +77,10 @@ def get_test_and_prompt(
         return test, prompt.content, prompt.expected_response or ""
 
 
+MetricSource = Literal["execution_time", "test_set", "behavior", "none"]
+
+
+@overload
 def get_test_metrics(
     test: Test,
     db: Session,
@@ -84,7 +88,32 @@ def get_test_metrics(
     user_id: Optional[str] = None,
     test_set: Optional["TestSet"] = None,
     test_configuration: Optional["TestConfiguration"] = None,
-) -> List:
+    return_source: Literal[False] = False,
+) -> List: ...
+
+
+@overload
+def get_test_metrics(
+    test: Test,
+    db: Session,
+    organization_id: Optional[str] = None,
+    user_id: Optional[str] = None,
+    test_set: Optional["TestSet"] = None,
+    test_configuration: Optional["TestConfiguration"] = None,
+    *,
+    return_source: Literal[True],
+) -> Tuple[List, MetricSource]: ...
+
+
+def get_test_metrics(
+    test: Test,
+    db: Session,
+    organization_id: Optional[str] = None,
+    user_id: Optional[str] = None,
+    test_set: Optional["TestSet"] = None,
+    test_configuration: Optional["TestConfiguration"] = None,
+    return_source: bool = False,
+) -> "Union[List, Tuple[List, MetricSource]]":
     """
     Retrieve and validate metrics for a test.
 
@@ -99,6 +128,13 @@ def get_test_metrics(
     - Garak-imported test sets to use their detector metrics
     - Default behavior-level metrics as fallback
 
+    Note that a configured priority level (e.g. execution-time metrics present in
+    test_configuration.attributes) can still fall through to a lower priority if it
+    resolves to zero valid metrics (missing/invalid IDs, or every candidate filtered
+    out for lacking a class_name). Callers that need to know which level actually won
+    (e.g. to decide whether metrics are shared across a batch or vary per test) should
+    pass return_source=True rather than inferring it from raw config presence.
+
     Args:
         test: Test model instance
         db: Database session (needed for RLS context and metric queries)
@@ -106,9 +142,11 @@ def get_test_metrics(
         user_id: User ID for RLS policies
         test_set: Optional TestSet model instance for metric override
         test_configuration: Optional TestConfiguration for execution-time metric override
+        return_source: If True, return (metrics, source) where source is one of
+            "execution_time", "test_set", "behavior", or "none".
 
     Returns:
-        List of valid Metric models
+        List of valid Metric models, or (metrics, source) if return_source is True.
     """
     from rhesis.backend.app.models.metric import Metric
 
@@ -153,7 +191,7 @@ def get_test_metrics(
                             f"Using {len(metrics)} execution-time metrics for test {test.id} "
                             f"(overriding test set and behavior metrics)"
                         )
-                        return metrics
+                        return (metrics, "execution_time") if return_source else metrics
                 except Exception as e:
                     logger.warning(f"Failed to load execution-time metrics for test {test.id}: {e}")
 
@@ -171,7 +209,7 @@ def get_test_metrics(
                     f"Filtered out {invalid_count} test set metrics without class_name "
                     f"for test {test.id}"
                 )
-            return metrics
+            return (metrics, "test_set") if return_source else metrics
 
     # Priority 3: Fall back to behavior metrics
     behavior = test.behavior
@@ -188,6 +226,6 @@ def get_test_metrics(
     # Return empty list if no valid metrics found (no defaults in SDK)
     if not metrics:
         logger.warning(f"No valid metrics found for test {test.id}, returning empty list")
-        return []
+        return ([], "none") if return_source else []
 
-    return metrics
+    return (metrics, "behavior") if return_source else metrics

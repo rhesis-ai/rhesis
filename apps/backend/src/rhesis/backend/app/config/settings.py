@@ -18,9 +18,9 @@ class DatabaseSettings(BaseSettings):
     model_config = SettingsConfigDict(env_ignore_empty=True)
 
     driver: str = Field(default="postgresql", alias="DB_DRIVER")
-    host: str = Field(alias="DB_HOST")
+    host: str = Field(default="localhost", alias="DB_HOST")
     port: int = Field(default=5432, alias="DB_PORT")
-    name: str = Field(alias="DB_NAME")
+    name: str = Field(default="rhesis-db", alias="DB_NAME")
 
     app_user: str | None = Field(default=None, alias="APP_DB_USER")
     app_password: str | None = Field(default=None, alias="APP_DB_PASS")
@@ -62,7 +62,7 @@ class FrontendSettings(BaseSettings):
 
     model_config = SettingsConfigDict(env_ignore_empty=True)
 
-    url: str = Field(alias="FRONTEND_URL")
+    url: str = Field(default="http://localhost:3000", alias="FRONTEND_URL")
 
     @field_validator("url")
     @classmethod
@@ -79,12 +79,6 @@ class FrontendSettings(BaseSettings):
     def allowed_domain(self) -> str:
         return urlparse(self.url).netloc
 
-    @property
-    def loopback_cors_regex(self) -> str | None:
-        if get_application_settings().is_development:
-            return r"^http://(localhost|127\.0\.0\.1|\[::1\])(:\d{1,5})?$"
-        return None
-
 
 class ApplicationSettings(BaseSettings):
     """General application runtime configuration."""
@@ -92,6 +86,7 @@ class ApplicationSettings(BaseSettings):
     model_config = SettingsConfigDict(env_ignore_empty=True)
 
     quick_start: bool = Field(default=False, alias="QUICK_START")
+    dev_mode: bool = Field(default=False, alias="DEV_MODE")
     backend_env: Literal["production", "development", "staging", "local"] = Field(
         default="development", alias="BACKEND_ENV"
     )
@@ -100,7 +95,8 @@ class ApplicationSettings(BaseSettings):
     google_cloud_project: str | None = Field(default=None, alias="GOOGLE_CLOUD_PROJECT")
     cloud_run_service: str | None = Field(default=None, alias="K_SERVICE")
     cloud_run_revision: str | None = Field(default=None, alias="K_REVISION")
-    api_base_url: str = Field(alias="API_BASE_URL")
+    json_logger_enabled: bool = Field(default=False, alias="JSON_LOGGER_ENABLED")
+    api_base_url: str = Field(default="http://localhost:8080", alias="API_BASE_URL")
 
     @field_validator("api_base_url")
     @classmethod
@@ -126,14 +122,19 @@ class ApplicationSettings(BaseSettings):
         return bool(self.cloud_run_service or self.cloud_run_revision)
 
     @property
+    def secure_cookies(self) -> bool:
+        return urlparse(self.api_base_url).scheme == "https"
+
+    @property
     def quick_start_allowed_by_env(self) -> bool:
         """Whether process-level configuration permits Quick Start mode.
 
         This is the deployment-static portion of the Quick Start gate: it is
         fail-secure and returns False if QUICK_START is not explicitly enabled,
         if BACKEND_ENV is production, or if any Google Cloud signal is present.
-        Request-scoped signals
-        (hostname, headers) are evaluated separately in
+        Deliberately independent of DEV_MODE: Quick Start must not imply hot
+        reload, which slows the app down. Request-scoped signals (hostname,
+        headers) are evaluated separately in
         ``rhesis.backend.app.utils.quick_start.is_quick_start_enabled``.
         """
         if not self.quick_start:
@@ -184,7 +185,7 @@ class AuthSettings(BaseSettings):
     google_client_secret: str | None = Field(default=None, alias="GOOGLE_CLIENT_SECRET")
     github_client_id: str | None = Field(default=None, alias="GH_CLIENT_ID")
     github_client_secret: str | None = Field(default=None, alias="GH_CLIENT_SECRET")
-    session_secret_key: str | None = Field(default=None, alias="SESSION_SECRET_KEY")
+    session_secret_key: str = Field(alias="SESSION_SECRET_KEY")
     jwt_secret_key: str | None = Field(default=None, alias="JWT_SECRET_KEY")
     jwt_algorithm: str = Field(default="HS256", alias="JWT_ALGORITHM")
     jwt_access_token_expire_minutes: int = Field(
@@ -199,6 +200,28 @@ class AuthSettings(BaseSettings):
     @property
     def github_enabled(self) -> bool:
         return bool(self.github_client_id and self.github_client_secret)
+
+
+class SecuritySettings(BaseSettings):
+    model_config = SettingsConfigDict(env_ignore_empty=True)
+
+    db_encryption_key: str = Field(alias="DB_ENCRYPTION_KEY")
+    sso_encryption_key: str | None = Field(default=None, alias="SSO_ENCRYPTION_KEY")
+
+    @field_validator("db_encryption_key")
+    @classmethod
+    def validate_encryption_key(cls, value: str) -> str:
+        try:
+            from cryptography.fernet import Fernet
+
+            Fernet(value.encode())
+        except Exception as exc:
+            raise ValueError(
+                "DB_ENCRYPTION_KEY is not a valid Fernet key. Generate one with: "
+                'python -c "from cryptography.fernet import Fernet; '
+                'print(Fernet.generate_key().decode())"'
+            ) from exc
+        return value
 
 
 class RedisSettings(BaseSettings):
@@ -290,7 +313,12 @@ def get_logging_settings() -> LoggingSettings:
 
 @lru_cache
 def get_auth_settings() -> AuthSettings:
-    return AuthSettings()
+    return AuthSettings()  # pyright: ignore[reportCallIssue]
+
+
+@lru_cache
+def get_security_settings() -> SecuritySettings:
+    return SecuritySettings()  # pyright: ignore[reportCallIssue]
 
 
 @lru_cache

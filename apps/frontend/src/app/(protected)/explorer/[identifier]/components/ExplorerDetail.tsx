@@ -39,6 +39,7 @@ import TuneOutlinedIcon from '@mui/icons-material/TuneOutlined';
 import { alpha, useTheme } from '@mui/material/styles';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import {
   GridColDef,
   GridPaginationModel,
@@ -79,6 +80,7 @@ import type { MetricDetail } from '@/utils/api-client/interfaces/metric';
 import SuggestionsDialog from './SuggestionsDialog';
 import { ScoreMetricsTooltip } from './scoreMetricsTooltip';
 import { METRIC_SCOPES } from '@/constants/metric-scopes';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 const GENERATE_PROGRESS_NOTIFICATION_KEY = 'explorer-generate-progress';
 const EVALUATE_PROGRESS_NOTIFICATION_KEY = 'explorer-evaluate-progress';
@@ -101,7 +103,6 @@ interface ExplorerDetailProps {
   topics: Topic[];
   testSetName: string;
   testSetId: string;
-  sessionToken: string;
 }
 
 const NO_TOPIC_FILTER = '__NO_TOPIC__';
@@ -1869,7 +1870,6 @@ export default function ExplorerDetail({
   topics: initialTopics,
   testSetName,
   testSetId,
-  sessionToken,
 }: ExplorerDetailProps) {
   const formatEnvironment = (env: Endpoint['environment']) =>
     env.charAt(0).toUpperCase() + env.slice(1);
@@ -1918,7 +1918,7 @@ export default function ExplorerDetail({
   const [generateOutputsDialogOpen, setGenerateOutputsDialogOpen] =
     useState(false);
   const { options: endpointOptions, isLoading: endpointsLoading } =
-    useEndpointOptions(sessionToken);
+    useEndpointOptions();
   const [generateSubmitting, setGenerateSubmitting] = useState(false);
   const [generateOutputsTopic, setGenerateOutputsTopic] = useState<
     string | null
@@ -1964,6 +1964,7 @@ export default function ExplorerDetail({
   const [exportSubmitting, setExportSubmitting] = useState(false);
 
   const theme = useTheme();
+  const { status } = useSession();
   const notifications = useNotifications();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -1983,7 +1984,7 @@ export default function ExplorerDetail({
   );
 
   const loadExplorerSettings = useCallback(async () => {
-    const clientFactory = new ApiClientFactory(sessionToken);
+    const clientFactory = new ApiClientFactory();
     const explorerClient = clientFactory.getExplorerClient();
     const metricsClient = clientFactory.getMetricsClient();
     try {
@@ -2040,7 +2041,7 @@ export default function ExplorerDetail({
         metrics: [],
       });
     }
-  }, [endpointOptions, metrics, sessionToken, testSetId]);
+  }, [endpointOptions, metrics, testSetId]);
 
   useEffect(() => {
     if (endpointOptions.length === 0 && metrics.length === 0) return;
@@ -2062,10 +2063,10 @@ export default function ExplorerDetail({
 
   // Load metrics on mount for the metric selector
   useEffect(() => {
-    if (!sessionToken) return;
+    if (!isAuthenticated(status)) return;
     let cancelled = false;
     setMetricsLoading(true);
-    const clientFactory = new ApiClientFactory(sessionToken);
+    const clientFactory = new ApiClientFactory();
     const metricsClient = clientFactory.getMetricsClient();
     metricsClient
       .getMetrics({
@@ -2097,7 +2098,7 @@ export default function ExplorerDetail({
     return () => {
       cancelled = true;
     };
-  }, [sessionToken]);
+  }, [status]);
 
   const handleGenerateOutputsClose = () => {
     if (!generateSubmitting) {
@@ -2116,7 +2117,7 @@ export default function ExplorerDetail({
       severity: 'info',
       autoHideDuration: 300000,
     });
-    const clientFactory = new ApiClientFactory(sessionToken);
+    const clientFactory = new ApiClientFactory();
     const client = clientFactory.getExplorerClient();
     const effectiveTopic = options?.topic ?? generateOutputsTopic;
     const effectiveIncludeSubtopics =
@@ -2188,7 +2189,7 @@ export default function ExplorerDetail({
       severity: 'info',
       autoHideDuration: 300000,
     });
-    const clientFactory = new ApiClientFactory(sessionToken);
+    const clientFactory = new ApiClientFactory();
     const client = clientFactory.getExplorerClient();
     const effectiveTopic = options?.topic ?? evaluateTopic;
     const effectiveIncludeSubtopics =
@@ -2268,7 +2269,7 @@ export default function ExplorerDetail({
     setTopics(prev => [...prev, optimisticTopic]);
 
     // Fire API call in background (not awaited)
-    const clientFactory = new ApiClientFactory(sessionToken);
+    const clientFactory = new ApiClientFactory();
     const client = clientFactory.getExplorerClient();
 
     client.createTopic(testSetId, { path: topicPath }).catch(() => {
@@ -2302,7 +2303,7 @@ export default function ExplorerDetail({
       return next;
     });
 
-    const clientFactory = new ApiClientFactory(sessionToken);
+    const clientFactory = new ApiClientFactory();
     const client = clientFactory.getExplorerClient();
 
     try {
@@ -2380,7 +2381,7 @@ export default function ExplorerDetail({
     });
     setNewTestProcessing(true);
     try {
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const client = clientFactory.getExplorerClient();
 
       const created = await client.createTest(testSetId, {
@@ -2438,7 +2439,7 @@ export default function ExplorerDetail({
   };
 
   const handleSuggestionAccepted = useCallback(async () => {
-    const clientFactory = new ApiClientFactory(sessionToken);
+    const clientFactory = new ApiClientFactory();
     const client = clientFactory.getExplorerClient();
     const [treeNodes, updatedTopics] = await Promise.all([
       client.getTree(testSetId),
@@ -2446,7 +2447,7 @@ export default function ExplorerDetail({
     ]);
     setTests(treeNodes.filter(node => node.label !== 'topic_marker'));
     setTopics(updatedTopics);
-  }, [sessionToken, testSetId]);
+  }, [testSetId]);
 
   const openSuggestionGuidance = useCallback(() => {
     setSuggestionGuidanceDraft('');
@@ -2506,7 +2507,7 @@ export default function ExplorerDetail({
     setTests(prev => prev.map(t => (t.id === testId ? { ...t, ...data } : t)));
 
     // Fire API call in background (not awaited)
-    const clientFactory = new ApiClientFactory(sessionToken);
+    const clientFactory = new ApiClientFactory();
     const client = clientFactory.getExplorerClient();
 
     client.updateTest(testSetId, testId, data).catch(() => {
@@ -2532,7 +2533,7 @@ export default function ExplorerDetail({
       );
 
       // Fire API call in background
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const client = clientFactory.getExplorerClient();
 
       client
@@ -2551,7 +2552,7 @@ export default function ExplorerDetail({
           });
         });
     },
-    [tests, sessionToken, testSetId, notifications]
+    [tests, testSetId, notifications]
   );
 
   const handleEditTopicOpen = (topicPath: string) => {
@@ -2601,7 +2602,7 @@ export default function ExplorerDetail({
     setDeletingTopicPath(null);
 
     // Fire API call in background
-    const clientFactory = new ApiClientFactory(sessionToken);
+    const clientFactory = new ApiClientFactory();
     const client = clientFactory.getExplorerClient();
 
     client.deleteTopic(testSetId, removedTopicPath).catch(err => {
@@ -2688,7 +2689,7 @@ export default function ExplorerDetail({
     }
 
     // Fire API call in background (not awaited)
-    const clientFactory = new ApiClientFactory(sessionToken);
+    const clientFactory = new ApiClientFactory();
     const client = clientFactory.getExplorerClient();
 
     client
@@ -2728,7 +2729,7 @@ export default function ExplorerDetail({
     }
 
     // Fire API call in background
-    const clientFactory = new ApiClientFactory(sessionToken);
+    const clientFactory = new ApiClientFactory();
     const client = clientFactory.getExplorerClient();
 
     client.deleteTest(testSetId, removedTest.id).catch(() => {
@@ -2753,7 +2754,7 @@ export default function ExplorerDetail({
     setTests(prev => prev.filter(t => !testsToDelete.includes(t.id)));
     setBulkDeleteConfirmOpen(false);
 
-    const clientFactory = new ApiClientFactory(sessionToken);
+    const clientFactory = new ApiClientFactory();
     const client = clientFactory.getExplorerClient();
 
     try {
@@ -2826,7 +2827,7 @@ export default function ExplorerDetail({
     setSettingsSaving(true);
     setSettingsError(null);
     try {
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory();
       const explorerClient = clientFactory.getExplorerClient();
       await explorerClient.updateExplorerSettings(testSetId, {
         default_endpoint_id: settingsEndpoint.endpointId,
@@ -2862,7 +2863,7 @@ export default function ExplorerDetail({
   };
 
   const handleExportToTestSet = useCallback(async () => {
-    const clientFactory = new ApiClientFactory(sessionToken);
+    const clientFactory = new ApiClientFactory();
     const client = clientFactory.getExplorerClient();
     setExportSubmitting(true);
     try {
@@ -2888,7 +2889,7 @@ export default function ExplorerDetail({
     } finally {
       setExportSubmitting(false);
     }
-  }, [sessionToken, testSetId, notifications, router]);
+  }, [testSetId, notifications, router]);
 
   return (
     <PageLayout
@@ -3815,7 +3816,6 @@ export default function ExplorerDetail({
           open={suggestionsDialogOpen}
           onClose={handleSuggestionsDialogClose}
           testSetId={testSetId}
-          sessionToken={sessionToken}
           topic={selectedTopicForApi}
           userFeedback={suggestionsUserFeedback}
           onTestAccepted={handleSuggestionAccepted}

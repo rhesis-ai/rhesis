@@ -7,8 +7,6 @@ import { MetricsClient } from '@/utils/api-client/metrics-client';
 
 jest.mock('@/utils/api-client/metrics-client');
 
-const SESSION_TOKEN = 'test-token';
-
 // A stable (module-level) reference avoids re-triggering the useCallback/useEffect
 // cycle that would happen with a default `[]` created on each render.
 const STABLE_EMPTY_IDS: never[] = [];
@@ -46,7 +44,6 @@ function renderDialog(
     open: true,
     onClose: jest.fn(),
     onSelect: jest.fn(),
-    sessionToken: SESSION_TOKEN,
     excludeMetricIds: STABLE_EMPTY_IDS,
   };
   return render(<SelectMetricsDialog {...defaults} {...props} />);

@@ -27,12 +27,12 @@ import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useSession } from 'next-auth/react';
-import { auth } from '@/auth';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { readActiveProjectId } from '@/utils/active-project';
 
 import { getProjectIcon, ENVIRONMENTS } from './endpoint-icon-utils';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 export default function SwaggerEndpointForm() {
   const router = useRouter();
@@ -44,7 +44,7 @@ export default function SwaggerEndpointForm() {
   const [swaggerUrl, setSwaggerUrl] = useState('');
   const [projects, setProjects] = useState<Project[]>([]);
   const [loadingProjects, setLoadingProjects] = useState<boolean>(true);
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const { markStepComplete } = useOnboarding();
   const notifications = useNotifications();
 
@@ -73,20 +73,9 @@ export default function SwaggerEndpointForm() {
     const fetchProjects = async () => {
       try {
         setLoadingProjects(true);
-        let sessionToken = session?.session_token;
 
-        // Fallback to server-side auth if client-side session is not available
-        if (!sessionToken) {
-          try {
-            const serverSession = await auth();
-            sessionToken = serverSession?.session_token;
-          } catch {
-            // Failed to get session from server-side auth
-          }
-        }
-
-        if (sessionToken) {
-          const client = new ApiClientFactory(sessionToken).getProjectsClient();
+        if (isAuthenticated(status)) {
+          const client = new ApiClientFactory().getProjectsClient();
           const data = await client.getProjects();
           setProjects(data.data);
         } else {
@@ -100,7 +89,7 @@ export default function SwaggerEndpointForm() {
     };
 
     fetchProjects();
-  }, [session]);
+  }, [session, status]);
 
   const handleChange = (field: string, value: unknown) => {
     setFormData(prev => ({

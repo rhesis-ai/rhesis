@@ -27,15 +27,12 @@ import {
 } from '@/utils/api-client/interfaces/test-set';
 import { Model } from '@/utils/api-client/interfaces/model';
 import { Source } from '@/utils/api-client/interfaces/source';
+import { normalizeTestType } from '@/constants/test-types';
 import TestInputScreen from './TestInputScreen';
 import TestGenerationInterface from './TestGenerationInterface';
 import TestConfigurationConfirmation from './TestConfigurationConfirmation';
 import { TEMPLATES } from '@/config/test-templates';
 import { getApiErrorMessage } from '@/utils/error-utils';
-
-interface TestGenerationFlowProps {
-  sessionToken: string;
-}
 
 // Initial empty chip configurations
 const createEmptyChips = (): ConfigChips => {
@@ -100,7 +97,7 @@ const generateSamplesForTestType = async (
   numTests: number = 5,
   modelId?: string | null
 ): Promise<AnyTestSample[]> => {
-  if (testType === 'multi_turn') {
+  if (testType === 'Multi-Turn') {
     // Generate multi-turn tests
     const response = await servicesClient.generateMultiTurnTests({
       generation_prompt: description,
@@ -117,7 +114,7 @@ const generateSamplesForTestType = async (
           const t = test as GeneratedMultiTurnTest;
           return {
             id: `sample-${Date.now()}-${index}`,
-            testType: 'multi_turn',
+            testType: 'Multi-Turn',
             prompt: {
               goal: t.test_configuration.goal,
               instructions: t.test_configuration.instructions,
@@ -162,7 +159,7 @@ const generateSamplesForTestType = async (
         const t = test as GeneratedSingleTurnTest;
         return {
           id: `sample-${Date.now()}-${index}`,
-          testType: 'single_turn',
+          testType: 'Single-Turn',
           prompt: t.prompt.content,
           behavior: t.behavior,
           topic: t.topic,
@@ -208,11 +205,11 @@ const categoryColorVariant: Record<
 const convertTestEventToSample = (
   event: Extract<TestPipelineEvent, { type: 'test' }>
 ): AnyTestSample => {
-  if (event.test_type === 'multi_turn') {
+  if (event.test_type === 'Multi-Turn') {
     const t = event.test as unknown as GeneratedMultiTurnTest;
     return {
       id: `sample-${Date.now()}-${event.index}`,
-      testType: 'multi_turn',
+      testType: 'Multi-Turn',
       prompt: {
         goal: t.test_configuration.goal,
         instructions: t.test_configuration.instructions,
@@ -230,7 +227,7 @@ const convertTestEventToSample = (
   const t = event.test as unknown as GeneratedSingleTurnTest;
   return {
     id: `sample-${Date.now()}-${event.index}`,
-    testType: 'single_turn',
+    testType: 'Single-Turn',
     prompt: t.prompt.content,
     behavior: t.behavior,
     topic: t.topic,
@@ -250,9 +247,7 @@ const convertTestEventToSample = (
  * TestGenerationFlow Component
  * Main orchestrator for the test generation flow
  */
-export default function TestGenerationFlow({
-  sessionToken,
-}: TestGenerationFlowProps) {
+export default function TestGenerationFlow() {
   const router = useRouter();
   const { show } = useNotifications();
 
@@ -261,11 +256,8 @@ export default function TestGenerationFlow({
     typeof window !== 'undefined' &&
     sessionStorage.getItem('selectedTemplateId') !== null;
 
-  // Get test type from sessionStorage
   const storedTestType =
-    typeof window !== 'undefined'
-      ? (sessionStorage.getItem('testType') as TestType | null)
-      : null;
+    typeof window !== 'undefined' ? sessionStorage.getItem('testType') : null;
 
   // Navigation State - start with null to prevent premature rendering
   const [currentScreen, setCurrentScreen] = useState<FlowStep | null>(
@@ -275,7 +267,7 @@ export default function TestGenerationFlow({
     hasTemplate ? 'template' : 'ai'
   );
   const [testType, setTestType] = useState<TestType>(
-    storedTestType || 'single_turn'
+    normalizeTestType(storedTestType) as TestType
   );
 
   // Data State
@@ -313,7 +305,7 @@ export default function TestGenerationFlow({
   const [isLoadingSources, setIsLoadingSources] = useState(true);
 
   useEffect(() => {
-    const factory = new ApiClientFactory(sessionToken);
+    const factory = new ApiClientFactory();
 
     factory
       .getModelsClient()
@@ -330,7 +322,7 @@ export default function TestGenerationFlow({
       )
       .catch(() => setPrefetchedSources([]))
       .finally(() => setIsLoadingSources(false));
-  }, [sessionToken]);
+  }, []);
 
   const handleTestTypeChange = useCallback((newType: TestType) => {
     setTestType(newType);
@@ -412,7 +404,7 @@ export default function TestGenerationFlow({
         setIsLoadingConfig(true);
         setIsLoadingSamples(true);
 
-        const apiFactory = new ApiClientFactory(sessionToken);
+        const apiFactory = new ApiClientFactory();
         const servicesClient = apiFactory.getServicesClient();
 
         await servicesClient.generateTestPipelineStream(
@@ -438,7 +430,7 @@ export default function TestGenerationFlow({
     initializeFromTemplate();
     // selectedProjectId, selectedSources, testType, selectedModelId intentionally excluded - template init runs once on mount
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionToken, show, handlePipelineEvent]);
+  }, [show, handlePipelineEvent]);
 
   // Input Screen Handler
   const handleContinueFromInput = useCallback(
@@ -454,7 +446,7 @@ export default function TestGenerationFlow({
 
       let apiFactory: ApiClientFactory;
       try {
-        apiFactory = new ApiClientFactory(sessionToken);
+        apiFactory = new ApiClientFactory();
       } catch (_error) {
         setIsLoadingConfig(false);
         setIsLoadingSamples(false);
@@ -497,14 +489,7 @@ export default function TestGenerationFlow({
         setIsLoadingSamples(false);
       }
     },
-    [
-      sessionToken,
-      show,
-      testType,
-      selectedProjectId,
-      selectedModelId,
-      handlePipelineEvent,
-    ]
+    [show, testType, selectedProjectId, selectedModelId, handlePipelineEvent]
   );
 
   // Generate test samples
@@ -513,7 +498,7 @@ export default function TestGenerationFlow({
     setIsLoadingSamples(true);
 
     try {
-      const apiFactory = new ApiClientFactory(sessionToken);
+      const apiFactory = new ApiClientFactory();
       const servicesClient = apiFactory.getServicesClient();
 
       const pipelineConfig = {
@@ -551,7 +536,6 @@ export default function TestGenerationFlow({
       setIsLoadingSamples(false);
     }
   }, [
-    sessionToken,
     description,
     selectedProjectId,
     selectedSources,
@@ -572,7 +556,7 @@ export default function TestGenerationFlow({
       setRegeneratingSampleId(sampleId);
 
       try {
-        const apiFactory = new ApiClientFactory(sessionToken);
+        const apiFactory = new ApiClientFactory();
         const servicesClient = apiFactory.getServicesClient();
 
         // Build config from configuration with feedback
@@ -587,7 +571,7 @@ export default function TestGenerationFlow({
           .map(c => c.label);
 
         // For single-turn tests, use rated samples
-        if (testType === 'single_turn' && sample.testType === 'single_turn') {
+        if (testType === 'Single-Turn' && sample.testType === 'Single-Turn') {
           const generationPrompt = `Generate an improved test case based on feedback: ${feedback}`;
 
           const ratedSample = {
@@ -621,7 +605,7 @@ export default function TestGenerationFlow({
             const t = response.tests[0] as GeneratedSingleTurnTest;
             const newSample: TestSample = {
               id: `sample-${Date.now()}-regenerated`,
-              testType: 'single_turn',
+              testType: 'Single-Turn',
               prompt: t?.prompt?.content || '',
               behavior: t?.behavior || '',
               topic: t?.topic || '',
@@ -670,7 +654,6 @@ export default function TestGenerationFlow({
       }
     },
     [
-      sessionToken,
       description,
       configChips,
       selectedSources,
@@ -757,7 +740,7 @@ export default function TestGenerationFlow({
       setIsLoadingSamples(true);
 
       try {
-        const apiFactory = new ApiClientFactory(sessionToken);
+        const apiFactory = new ApiClientFactory();
         const servicesClient = apiFactory.getServicesClient();
 
         const previousMessages = chatMessages
@@ -807,7 +790,6 @@ export default function TestGenerationFlow({
       }
     },
     [
-      sessionToken,
       description,
       selectedProjectId,
       selectedSources,
@@ -842,7 +824,7 @@ export default function TestGenerationFlow({
   const handleLoadMoreSamples = useCallback(async () => {
     setIsLoadingMore(true);
     try {
-      const apiFactory = new ApiClientFactory(sessionToken);
+      const apiFactory = new ApiClientFactory();
       const servicesClient = apiFactory.getServicesClient();
 
       const activeBehaviors = configChips.behavior
@@ -875,7 +857,6 @@ export default function TestGenerationFlow({
       setIsLoadingMore(false);
     }
   }, [
-    sessionToken,
     description,
     configChips,
     selectedSources,
@@ -895,7 +876,7 @@ export default function TestGenerationFlow({
     }
     setIsFinishing(true);
     try {
-      const apiFactory = new ApiClientFactory(sessionToken);
+      const apiFactory = new ApiClientFactory();
       const testSetsClient = apiFactory.getTestSetsClient();
 
       const activeBehaviors = configChips.behavior
@@ -972,7 +953,6 @@ export default function TestGenerationFlow({
       setIsFinishing(false);
     }
   }, [
-    sessionToken,
     configChips.behavior,
     configChips.topics,
     configChips.category,
@@ -1046,7 +1026,6 @@ export default function TestGenerationFlow({
       case 'input':
         return (
           <TestInputScreen
-            sessionToken={sessionToken}
             testType={testType}
             onTestTypeChange={handleTestTypeChange}
             onContinue={handleContinueFromInput}

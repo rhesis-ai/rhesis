@@ -20,6 +20,7 @@ import DescriptionIcon from '@mui/icons-material/Description';
 import CloseIcon from '@mui/icons-material/Close';
 
 import { SourceData } from '@/utils/api-client/interfaces/test-set';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface SourceSelectorProps {
   selectedSourceIds: string[];
@@ -44,7 +45,7 @@ export default function SourceSelector({
   const [fetchedSources, setFetchedSources] = useState<Source[]>([]);
   const [isFetching, setIsFetching] = useState(preloadedSources === undefined);
   const [error, setError] = useState<string | null>(null);
-  const { data: session } = useSession();
+  const { status } = useSession();
 
   // Use preloaded data when available; otherwise fall back to internal fetch
   const sources = preloadedSources ?? fetchedSources;
@@ -57,7 +58,7 @@ export default function SourceSelector({
     // Skip internal fetch when the parent supplies preloaded data.
     if (preloadedSources !== undefined) return;
 
-    if (!session?.session_token) {
+    if (!isAuthenticated(status)) {
       setIsFetching(false);
       return;
     }
@@ -66,7 +67,7 @@ export default function SourceSelector({
       setIsFetching(true);
       setError(null);
 
-      const apiFactory = new ApiClientFactory(session.session_token);
+      const apiFactory = new ApiClientFactory();
       const sourcesClient = apiFactory.getSourcesClient();
 
       // Fetch all sources
@@ -86,7 +87,7 @@ export default function SourceSelector({
     } finally {
       setIsFetching(false);
     }
-  }, [session, preloadedSources]);
+  }, [preloadedSources, status]);
 
   useEffect(() => {
     loadSources();

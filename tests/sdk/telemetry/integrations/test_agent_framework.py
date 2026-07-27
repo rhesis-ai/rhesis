@@ -1690,6 +1690,38 @@ def test_integration_disable_neutralizes_dedup_at_runtime(
     assert is_llm_observation_active() is False
 
 
+def test_dedup_flag_restored_even_without_operation_attribute(
+    session_provider, reset_llm_observation_flag, reset_observability_settings
+):
+    """Regression: on_end restores based on what on_start recorded, so a
+    chat-named span missing gen_ai.operation.name cannot leave the flag
+    stuck True."""
+    provider, _captured, _bsp = session_provider
+    proc = MAFLLMDedupSpanProcessor()
+    proc.activate()
+
+    tracer = provider.get_tracer("agent_framework.test")
+    span = tracer.start_span("chat gpt-4")  # no operation attribute set
+    proc.on_start(span)
+    assert is_llm_observation_active() is True
+    span.end()
+    proc.on_end(span)
+    assert is_llm_observation_active() is False
+
+
+def test_enable_fails_without_wrappable_exporter(monkeypatch, reset_observability_settings):
+    """Regression: enable() fails closed when translation cannot be installed,
+    instead of turning on instrumentation whose spans the backend would
+    reject. MAF has no off switch, so wrapping is checked before enabling."""
+    bare_provider = TracerProvider()  # no span processors attached
+    monkeypatch.setattr(otel_trace, "get_tracer_provider", lambda: bare_provider)
+
+    integ = MAFIntegration()
+    assert integ.enable() is False
+    assert integ.enabled is False
+    assert integ._patched_processors == []
+
+
 def test_integration_returns_false_when_provider_is_not_rhesis(
     monkeypatch, reset_observability_settings
 ):

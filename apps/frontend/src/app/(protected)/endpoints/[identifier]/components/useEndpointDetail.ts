@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { useTheme } from '@mui/material/styles';
 import { useSession } from 'next-auth/react';
 import {
@@ -13,13 +14,16 @@ import { createEndpoint } from '@/actions/endpoints';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { BORDER_RADIUS } from '@/styles/theme-constants';
+import { endpointKeys } from '@/constants/query-keys';
 import { patchEndpointFields } from './endpointPatch';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 export function useEndpointDetail(initialEndpoint: Endpoint) {
   const theme = useTheme();
   const router = useRouter();
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const notifications = useNotifications();
+  const queryClient = useQueryClient();
 
   const [endpoint, setEndpoint] = useState<Endpoint>(initialEndpoint);
   const [isDuplicating, setIsDuplicating] = useState(false);
@@ -49,10 +53,9 @@ export function useEndpointDetail(initialEndpoint: Endpoint) {
     const fetchProjects = async () => {
       try {
         setLoadingProjects(true);
-        const sessionToken = session?.session_token || '';
-        if (!sessionToken) return;
+        if (!isAuthenticated(status)) return;
 
-        const client = new ApiClientFactory(sessionToken).getProjectsClient();
+        const client = new ApiClientFactory().getProjectsClient();
         const response = await client.getProjects();
         const projectMap: Record<string, Project> = {};
         const projectsArray = Array.isArray(response)
@@ -73,14 +76,14 @@ export function useEndpointDetail(initialEndpoint: Endpoint) {
     };
 
     if (session) fetchProjects();
-  }, [session]);
+  }, [session, status]);
 
   const saveFields = useCallback(
     async (payload: EndpointEditData) => {
       try {
         await patchEndpointFields(endpoint.id, payload);
         const { auth_token, ...rest } = payload;
-        setEndpoint(prev => {
+        const applyUpdate = (prev: Endpoint) => {
           const next: Endpoint = { ...prev, ...rest };
           // auth_token is write-only; keep the derived has_auth_token flag in
           // sync so the UI reflects a newly set or removed token without a
@@ -90,7 +93,15 @@ export function useEndpointDetail(initialEndpoint: Endpoint) {
               typeof auth_token === 'string' && auth_token.trim() !== '';
           }
           return next;
-        });
+        };
+        setEndpoint(applyUpdate);
+        // Keep the React Query cache in sync too — otherwise switching tabs
+        // (which re-reads the cached endpoint into local state) reverts the
+        // just-saved change until a full page reload refetches from the server.
+        queryClient.setQueryData<Endpoint>(
+          endpointKeys.detail(endpoint.id),
+          prev => (prev ? applyUpdate(prev) : prev)
+        );
         notifications.show('Endpoint updated successfully', {
           severity: 'success',
         });
@@ -102,7 +113,7 @@ export function useEndpointDetail(initialEndpoint: Endpoint) {
         throw error;
       }
     },
-    [endpoint.id, notifications]
+    [endpoint.id, notifications, queryClient]
   );
 
   const duplicateEndpoint = useCallback(async () => {

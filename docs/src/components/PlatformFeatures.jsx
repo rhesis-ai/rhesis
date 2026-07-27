@@ -100,7 +100,7 @@ const features = [
     icon: RocketLaunchIcon,
     title: 'Test Execution',
     description: 'Run tests against your endpoints and configure execution parameters.',
-    link: '/docs/test-execution',
+    link: '/docs/test-runs/execution',
   },
   {
     icon: PlayArrowIcon,
@@ -144,9 +144,9 @@ const features = [
   },
   {
     icon: SettingsInputComponentIcon,
-    title: 'MCP',
-    description: 'Connect to Model Context Protocol servers to import knowledge sources.',
-    link: '/docs/mcp',
+    title: 'Tools',
+    description: 'Connect external tools and services to import knowledge sources.',
+    link: '/docs/tools',
   },
 ]
 

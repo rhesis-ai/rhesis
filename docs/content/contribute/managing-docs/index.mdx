@@ -4,22 +4,15 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 How to run, extend, and maintain the Rhesis docs site (Nextra + Next.js). Source lives under `docs/`; MDX content is in `docs/content/`.
 
-<Callout type="default">
-  **Scope** Run the dev server, add pages, respect MDX rules, and know where search
-  (Pagefind) comes from.
-</Callout>
-
 ## Run the site
 
-**Recommended** — from the repo root:
+From the repo root:
 
 <CodeBlock language="bash" isTerminal={true}>
 {`./rh dev docs`}
 </CodeBlock>
 
-That runs `docs/src/start.sh` (installs dependencies if needed, then `npm run dev`).
-
-**Manual** — from `docs/src`:
+Or manually, from `docs/src`:
 
 <CodeBlock language="bash" isTerminal={true}>
 {`cd docs/src
@@ -63,9 +56,4 @@ If search looks wrong or empty, rebuild from `docs/src` and confirm `public/_pag
 - **Dependencies:** From `docs/src`, try `rm -rf node_modules package-lock.json && npm install`.
 - **Stale Next cache:** `rm -rf .next` in `docs/src`, then `npm run dev` again.
 
----
-
-<Callout type="default">
-  **More help:** [Nextra documentation](https://nextra.site/docs), the [Contributing
-  overview](/contribute), and [GitHub Discussions](https://github.com/rhesis-ai/rhesis/discussions).
-</Callout>
+See the [Nextra documentation](https://nextra.site/docs) for framework details.

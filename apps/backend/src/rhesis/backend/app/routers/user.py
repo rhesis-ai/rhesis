@@ -26,7 +26,11 @@ from rhesis.backend.app.schemas.polyphemus import (
     PolyphemusAccessRequest,
     PolyphemusAccessResponse,
 )
-from rhesis.backend.app.schemas.user import UserSettings, UserSettingsUpdate
+from rhesis.backend.app.schemas.user import (
+    UserSettingsOutput,
+    UserSettingsRead,
+    UserSettingsUpdate,
+)
 from rhesis.backend.app.services import polyphemus as polyphemus_service
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
@@ -49,6 +53,32 @@ def _settings_patch_forbids_embedding_update(settings_dict: dict) -> bool:
     return isinstance(models, dict) and "embedding" in models
 
 
+def _user_settings_permitted_actions(
+    request: Request,
+    current_user: User,
+    db: Session,
+) -> list[str]:
+    """Resolve self-service affordances broadcast on GET /users/settings."""
+    principal = resolve_principal_from_request(current_user, request)
+    actions: list[str] = []
+    if authorize(principal, Permission.Polyphemus.REQUEST, project_id=None, db=db):
+        actions.append(str(Permission.Polyphemus.REQUEST))
+    return actions
+
+
+def _user_settings_read_payload(
+    db_user: models.User,
+    request: Request,
+    current_user: User,
+    db: Session,
+) -> dict:
+    return {
+        **db_user.user_settings,
+        "is_verified": db_user.is_verified,
+        "permitted_actions": _user_settings_permitted_actions(request, current_user, db),
+    }
+
+
 router = RhesisRouter(
     prefix="/users",
     tags=["users"],
@@ -62,7 +92,7 @@ router = RhesisRouter(
 @handle_database_exceptions(
     entity_name="user", custom_unique_message="User with this email already exists"
 )
-async def create_user(
+def create_user(
     request: Request,
     user: schemas.UserCreate,
     db: Session = Depends(get_tenant_db_session),
@@ -170,7 +200,7 @@ async def create_user(
 
 @router.get("/", response_model=list[schemas.User])
 @with_count_header(model=models.User)
-async def read_users(
+def read_users(
     response: Response,
     skip: int = 0,
     limit: int = 10,
@@ -195,8 +225,9 @@ async def read_users(
     )
 
 
-@router.get("/settings", response_model=UserSettings)
+@router.get("/settings", response_model=UserSettingsRead)
 def get_user_settings(
+    request: Request,
     db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token),
 ):
@@ -212,13 +243,10 @@ def get_user_settings(
     if db_user is None:
         raise HTTPException(status_code=404, detail="User not found")
 
-    return {
-        **db_user.user_settings,
-        "is_verified": db_user.is_verified,
-    }
+    return _user_settings_read_payload(db_user, request, current_user, db)
 
 
-@router.patch("/settings", response_model=UserSettings)
+@router.patch("/settings", response_model=UserSettingsOutput)
 @handle_database_exceptions(entity_name="user settings")
 def update_user_settings(
     settings_update: UserSettingsUpdate,
@@ -402,8 +430,51 @@ def update_user(
         if not authorize(principal, Permission.Member.MANAGE, project_id=None, db=db):
             raise HTTPException(status_code=403, detail="Not authorized to update this user")
 
+    had_no_organization = db_user.organization_id is None
+
+    # SECURITY: this endpoint accepts a client-supplied organization_id (needed
+    # so a fresh onboarding user can attach the org they just created). Without
+    # this check, any orgless user could self-assign an arbitrary organization_id
+    # here, and — since a self-update returns a freshly minted session token —
+    # get immediate ambient tenant-scope access to that organization's data. The
+    # only legitimate case is the org creator attaching to the org they own;
+    # everything else (joining someone else's org, reassigning an existing org,
+    # doing this on another user's behalf) is rejected. Leaving an org has its
+    # own dedicated endpoint and goes through crud.update_user unaffected since
+    # it sets organization_id to None, not a new value.
+    requested_org_id = getattr(user, "organization_id", None)
+    if requested_org_id is not None and str(requested_org_id) != str(db_user.organization_id):
+        if str(db_user.id) != str(current_user.id) or not had_no_organization:
+            raise HTTPException(
+                status_code=403, detail="Cannot assign an organization via this endpoint"
+            )
+        organization = (
+            db.query(models.Organization).filter(models.Organization.id == requested_org_id).first()
+        )
+        if organization is None or str(organization.owner_id) != str(db_user.id):
+            raise HTTPException(
+                status_code=403, detail="You may only join an organization you created"
+            )
+
     # Update the user
     updated_user = crud.update_user(db, user_id=user_id, user=user)
+
+    # Joining an org for the first time (e.g. the creator attaching to their own
+    # org during onboarding) — seed the default RBAC role now, not later. Every
+    # subsequent onboarding call (invite teammates, load-initial-data, the
+    # frontend's org-context fetch) is capability-gated on this role existing;
+    # deferring assignment locks the creator out of their own onboarding flow
+    # once RBAC is enabled. This route runs on a plain (non-tenant) session, so
+    # session variables must be set explicitly — organization_member RLS
+    # requires app.current_organization for the INSERT to succeed.
+    if had_no_organization and updated_user.organization_id is not None:
+        from rhesis.backend.app.auth.org_membership_hook import on_user_org_assigned
+        from rhesis.backend.app.auth.user_utils import mark_user_joined_if_needed
+        from rhesis.backend.app.database import set_session_variables
+
+        set_session_variables(db, str(updated_user.organization_id), str(updated_user.id))
+        on_user_org_assigned(db, updated_user.id, updated_user.organization_id)
+        mark_user_joined_if_needed(updated_user)
 
     # If this is the current user being updated, refresh their session token
     if str(updated_user.id) == str(current_user.id):
@@ -421,7 +492,7 @@ def update_user(
 @router.post(
     "/request-polyphemus-access",
     response_model=PolyphemusAccessResponse,
-    **capability(Permission.Member.UPDATE),
+    **capability(Permission.Polyphemus.REQUEST),
 )
 def request_polyphemus_access(
     request_data: PolyphemusAccessRequest,

@@ -2,60 +2,23 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 # Test Result Status
 
-This guide explains how individual test result statuses are determined and what they represent in the Rhesis backend.
+A test result's status records whether the test passed its metric evaluations. It is computed once at execution time and stored on the `TestResult.status` relationship, which is then the source of truth for stats, email, UI, and API.
 
-## Overview
+## Status values
 
-A test result's status reflects whether the test **passed all its metric evaluations**. A test is only considered "Pass" if **ALL** its metrics are successful.
+`TestResultStatus` (`app/constants.py`) has three values:
 
-## Status Types
+| Status | Meaning |
+| ------ | ------- |
+| `Pass` | At least one metric exists and every metric has `is_successful: true`. |
+| `Fail` | At least one metric has `is_successful: false`. |
+| `Error` | No metrics were evaluated (missing/empty `test_metrics`) or the endpoint returned an HTTP error. Counted as an execution error, not a pass or fail. |
 
-### Pass
+A single failed metric fails the whole test.
 
-**Definition:** All metrics evaluated successfully
+## Test metrics structure
 
-**When assigned:**
-
-- Every metric in `test_metrics.metrics` has `is_successful: true`
-- At least one metric exists
-
-### Fail
-
-**Definition:** One or more metrics failed
-
-**When assigned:**
-
-- At least one metric in `test_metrics.metrics` has `is_successful: false`
-- Metrics exist but not all passed
-
----
-
-## Status Determination Logic
-
-### Initial Status Assignment (During Execution)
-
-The status is determined **once** by analyzing the `test_metrics` field when creating or updating a test result:
-
-<CodeBlock filename="status-determination.py" language="python">
-{`# Check if ALL metrics passed
-all_metrics_passed = all(
-    metric_data.get('is_successful', False)
-    for metric_data in metrics.values()
-    if isinstance(metric_data, dict)
-)
-
-status = "Pass" if all_metrics_passed else "Fail"`}
-</CodeBlock>
-
-**Key principle:** A single failed metric causes the entire test to fail.
-
-### Status as Source of Truth
-
-After write, the stored Pass/Fail drives stats, email, UI, and API. Do **not** rederive Pass/Fail from `test_metrics` for those paths; keep metrics for drill-down, debugging, and per-metric analytics.
-
-## Test Metrics Structure
-
-Test results contain a `test_metrics` field with the following structure:
+The status is derived from the `test_metrics` JSON stored on the result:
 
 <CodeBlock filename="test-metrics-structure.json" language="json">
 {`{
@@ -72,300 +35,58 @@ Test results contain a `test_metrics` field with the following structure:
       "score": 0.65,
       "threshold": 0.7,
       "reason": "Failed to recall sufficient context"
-    },
-    "Answer Fluency": {
-      "is_successful": true,
-      "score": 0.92,
-      "threshold": 0.7
     }
   }
 }`}
 </CodeBlock>
 
-In this example:
+Two metrics with `is_successful: true` and one `false` yields status `Fail`. All `true` yields `Pass`. Missing or empty `metrics` yields `Error`.
 
-- 2 metrics passed (`is_successful: true`)
-- 1 metric failed (`is_successful: false`)
-- **Result:** Test status = **Fail**
+## Determination logic
 
----
+`determine_status_from_metrics` (`tasks/execution/executors/metrics.py`) and `create_test_result_record` (`tasks/execution/executors/results.py`) apply the same rule:
 
-## Examples
-
-### Example 1: All Metrics Pass
-
-<CodeBlock filename="example-all-pass.json" language="json">
-{`{
-  "test_metrics": {
-    "metrics": {
-      "Answer Relevancy": { "is_successful": true },
-      "Contextual Recall": { "is_successful": true },
-      "Answer Fluency": { "is_successful": true }
-    }
-  }
-}`}
-</CodeBlock>
-
-**Status:** Pass
-**Reason:** All 3 metrics passed
-
-### Example 2: One Metric Fails
-
-<CodeBlock filename="example-one-fail.json" language="json">
-{`{
-  "test_metrics": {
-    "metrics": {
-      "Answer Relevancy": { "is_successful": true },
-      "Contextual Recall": { "is_successful": false },
-      "Answer Fluency": { "is_successful": true }
-    }
-  }
-}`}
-</CodeBlock>
-
-**Status:** Fail
-**Reason:** 1 out of 3 metrics failed
-
-### Example 3: All Metrics Fail
-
-<CodeBlock filename="example-all-fail.json" language="json">
-{`{
-  "test_metrics": {
-    "metrics": {
-      "Answer Relevancy": { "is_successful": false },
-      "Contextual Recall": { "is_successful": false },
-      "Answer Fluency": { "is_successful": false }
-    }
-  }
-}`}
-</CodeBlock>
-
-**Status:** Fail
-**Reason:** All metrics failed
-
-### Example 4: Single Metric Test
-
-<CodeBlock filename="example-single-metric.json" language="json">
-{`{
-  "test_metrics": {
-    "metrics": {
-      "Refusal Detection": { "is_successful": true }
-    }
-  }
-}`}
-</CodeBlock>
-
-**Status:** Pass
-**Reason:** The only metric passed
-
----
-
-## Automatic Status Setting
-
-The test result status is automatically set in three scenarios:
-
-### 1. Automated Test Execution
-
-When tests run automatically via the worker:
-
-<CodeBlock filename="automated-test-execution.py" language="python">
-{`# apps/backend/src/rhesis/backend/tasks/execution/test_execution.py
-def create_test_result_record(..., metrics_results, ...):
-    # Determine status based on whether all metrics passed
+<CodeBlock filename="status-determination.py" language="python">
+{`if has_http_error_in_result(processed_result):
+    status_value = TestResultStatus.ERROR.value
+elif not metrics_results:
+    status_value = TestResultStatus.ERROR.value
+else:
     all_metrics_passed = all(
-        metric_data.get('is_successful', False)
-        for metric_data in metrics_results.values()
-        if isinstance(metric_data, dict)
+        m.get("is_successful", False)
+        for m in metrics_results.values()
+        if isinstance(m, dict)
     )
-
-    status_value = "Pass" if all_metrics_passed else "Fail"`}
+    status_value = (
+        TestResultStatus.PASS.value if all_metrics_passed else TestResultStatus.FAIL.value
+    )`}
 </CodeBlock>
 
-### 2. API POST /test_results
+Status is set in three places:
 
-When creating a test result via API:
+- **Automated execution** by the worker (`executors/results.py`).
+- **`POST /test_results`** and **`PUT /test_results/\{id\}`** (`app/routers/test_result.py`) — auto-set from `test_metrics` when `status_id` is not provided. Pass an explicit `status_id` to override.
 
-<CodeBlock filename="api-post-test-results.py" language="python">
-{`# apps/backend/src/rhesis/backend/app/routers/test_result.py
-@router.post("/")
-def create_test_result(test_result: schemas.TestResultCreate, ...):
-    # Auto-set status if not provided
-    if not test_result.status_id and test_result.test_metrics:
-        metrics = test_result.test_metrics.get('metrics', {})
-        if metrics:
-            all_metrics_passed = all(...)
-            status = "Pass" if all_metrics_passed else "Fail"`}
-</CodeBlock>
+## Source of truth
 
-### 3. API PUT /test_results/\{id\}
+After execution the stored `status` is authoritative. Statistics and reporting read it through `categorize_test_result_status()` (`app/constants.py`), which collapses the status name into a pass/fail/error bucket — they do **not** re-derive pass/fail from `test_metrics`. Deriving once at execution time keeps every surface consistent and avoids re-parsing JSONB.
 
-When updating test metrics via API:
+Read `test_metrics` directly only for per-metric analytics, drill-down, and debugging — never to recompute overall pass/fail. Note that human [reviews](/contribute/backend/test-reviews) can override the stored status or individual metric outcomes; [statistics](/contribute/backend/test-result-stats) account for those overrides.
 
-<CodeBlock filename="api-put-test-results.py" language="python">
-{`# apps/backend/src/rhesis/backend/app/routers/test_result.py
-@router.put("/{test_result_id}")
-def update_test_result(test_result: schemas.TestResultUpdate, ...):
-    # Auto-update status if metrics changed but status not provided
-    if test_result.test_metrics and not test_result.status_id:
-        metrics = test_result.test_metrics.get('metrics', {})
-        all_metrics_passed = all(...)
-        status = "Pass" if all_metrics_passed else "Fail"`}
-</CodeBlock>
+## Test result status vs test run status
 
-**Note:** You can manually override the status by explicitly providing `status_id` in API calls.
+| Aspect | Test Result Status | Test Run Status |
+| ------ | ------------------ | --------------- |
+| Scope | Individual test | Entire test run |
+| Question | Did this test pass its metrics? | Did the tests execute? |
+| Values | Pass, Fail, Error | Queued, Progress, Completed, Partial, Failed, Cancelled |
+| Based on | Metric success | Execution completion |
 
----
+A test can `Fail` (a metric didn't pass) yet still have executed successfully. See [Test Run Status](/contribute/backend/test-run-status) for how run status is determined.
 
-## Status in Statistics
+## Related documentation
 
-All statistics and reporting use the **stored `status` field** as the source of truth:
-
-### Email Notifications
-
-Counts tests by using stored status:
-
-<CodeBlock filename="email-notifications-status.py" language="python">
-{`# apps/backend/src/rhesis/backend/tasks/execution/result_processor.py
-from rhesis.backend.app.constants import (
-    categorize_test_result_status,
-    STATUS_CATEGORY_PASSED,
-    STATUS_CATEGORY_FAILED,
-)
-
-for result in test_results:
-    status_category = categorize_test_result_status(result.status.name)
-    if status_category == STATUS_CATEGORY_PASSED:
-        tests_passed += 1
-    elif status_category == STATUS_CATEGORY_FAILED:
-        tests_failed += 1`}
-</CodeBlock>
-
-### Test Result Stats API
-
-Returns pass/fail counts based on stored status:
-
-<CodeBlock filename="stats-api-status.py" language="python">
-{`# apps/backend/src/rhesis/backend/app/services/stats/test_result.py
-from rhesis.backend.app.constants import (
-    categorize_test_result_status,
-    STATUS_CATEGORY_PASSED,
-)
-
-# Uses stored test status as source of truth
-status_category = categorize_test_result_status(result.status.name)
-test_passed_overall = status_category == STATUS_CATEGORY_PASSED
-
-GET /test_results/stats
-{
-  "overall_pass_rates": {
-    "total": 100,
-    "passed": 75,    // Tests with status "Pass"
-    "failed": 25,    // Tests with status "Fail"
-    "pass_rate": 75.0
-  }
-}`}
-</CodeBlock>
-
-**Note:** Per-metric statistics still analyze the `test_metrics` field to show which specific metrics passed or failed.
-
-### Frontend Display
-
-The frontend also analyzes `test_metrics` to determine pass/fail:
-
-<CodeBlock filename="frontend-display.ts" language="typescript">
-{`// apps/frontend/src/app/(protected)/test-runs/[identifier]/components/TestsTableView.tsx
-const originalPassed = passedMetrics === totalMetrics;`}
-</CodeBlock>
-
----
-
-## Execution Errors
-
-If a test has no metrics or empty metrics, it's counted as an **execution error** (not Pass or Fail):
-
-<CodeBlock filename="execution-error.json" language="json">
-{`{
-  "test_metrics": null // or missing entirely
-}`}
-</CodeBlock>
-
-**Treatment:**
-
-- **In test run stats:** Counted as `execution_errors`
-- **In email:** May show as "Execution Errors" if any exist
-- **Run status impact:** May cause test run to be "Partial" or "Failed"
-
----
-
-## Key Distinctions
-
-### Test Result Status vs Test Run Status
-
-| Aspect       | Test Result Status  | Test Run Status            |
-| ------------ | ------------------- | -------------------------- |
-| **Scope**    | Individual test     | Entire test run            |
-| **Question** | Did this test pass? | Did tests execute?         |
-| **Values**   | Pass, Fail          | COMPLETED, PARTIAL, FAILED |
-| **Based on** | Metric success      | Execution completion       |
-
-### Pass/Fail vs Execution Success
-
-| Scenario           | Test Result Status | Execution Status      |
-| ------------------ | ------------------ | --------------------- |
-| All metrics pass   | Pass               | Executed successfully |
-| Some metrics fail  | Fail               | Executed successfully |
-| No metrics (error) | (none)             | Execution error       |
-
-A test that **failed** (some metrics didn't pass) still **executed successfully** (it ran and returned results).
-
----
-
-## Source of Truth
-
-### The Stored Status Field
-
-**The `status` field in `TestResult` is the single source of truth** for test pass/fail status after execution.
-
-- **During execution:** Status is computed from `test_metrics.metrics[].is_successful`
-- **After execution:** The stored `status` field is used for all operations
-- **Statistics:** Use `status` field via `categorize_test_result_status()`
-- **Displays:** Use `status` field for consistent reporting
-
-### Why This Matters
-
-Using the stored status field ensures:
-
-1. **Consistency:** All parts of the system report the same status
-2. **Performance:** No need to re-parse JSONB metrics repeatedly
-3. **Reliability:** Status is determined once at execution time
-4. **Historical accuracy:** Reflects the evaluation logic that was active when the test ran
-
-### When to Use Metrics Directly
-
-The `test_metrics` field should still be accessed for:
-
-- **Per-metric statistics:** Breaking down which specific metrics passed/failed
-- **Detailed analysis:** Understanding why a test failed
-- **Debugging:** Investigating metric evaluation logic
-
-**Do not** recalculate overall test pass/fail from metrics in statistics or display logic.
-
----
-
-## Related Documentation
-
-- [Test Run Status](/contribute/backend/test-run-status) - How test run statuses are determined
-- [Test Result Statistics](/contribute/backend/test-result-stats) - Statistics APIs
-- [Background Tasks](/contribute/backend/background-tasks) - Test execution flow
-- [Email Notifications](/contribute/backend/email-notifications) - Email system
-
----
-
-## Implementation Files
-
-| File                                  | Purpose                                   |
-| ------------------------------------- | ----------------------------------------- |
-| `tasks/execution/test_execution.py`   | Automated test execution & status setting |
-| `app/routers/test_result.py`          | API endpoints with auto-status setting    |
-| `app/constants.py`                    | Status mapping constants                  |
-| `tasks/execution/result_processor.py` | Statistics calculation from metrics       |
+- [Test Run Status](/contribute/backend/test-run-status)
+- [Test Result Statistics](/contribute/backend/test-result-stats)
+- [Test Reviews](/contribute/backend/test-reviews)
+- [Background Tasks](/contribute/backend/background-tasks)

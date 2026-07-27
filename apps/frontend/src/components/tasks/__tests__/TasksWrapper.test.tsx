@@ -51,7 +51,6 @@ jest.mock('../TaskCreationDrawer', () => ({
 const DEFAULT_PROPS = {
   entityType: 'Test' as const,
   entityId: 'e1',
-  sessionToken: 'tok',
 };
 
 describe('TasksWrapper', () => {

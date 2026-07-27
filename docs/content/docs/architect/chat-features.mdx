@@ -16,7 +16,7 @@ You can attach documents to any message. Architect extracts the text and uses it
 
 **Limit:** 5 MB per file. Multiple files per message are supported.
 
-To attach a file, click the paperclip icon in the input bar or drag and drop directly into the chat.
+To attach a file, click the paperclip icon in the input bar.
 
 <Callout type="info">
   Attachment content only applies to the message it's attached to. If you want to reference the same document in a later message, attach it again.
@@ -24,23 +24,21 @@ To attach a file, click the paperclip icon in the input bar or drag and drop dir
 
 ## Auto-approve
 
-By default, Architect asks for confirmation before each action that modifies the platform (creating an entity, running a test set). The **Auto-approve** toggle, visible in the chat header, skips these confirmations for the rest of the session.
+By default, Architect asks for confirmation before each action that modifies the platform (creating an entity, running a test set). The **Auto-approve** toggle, visible in the chat header, skips these confirmations until you turn it off.
 
 Use auto-approve when you trust the plan and want to move quickly. Architect still reports each step as it happens — you just don't need to confirm them individually.
 
 The **Accept** and **Change** buttons appear only when Architect actually tried to call a confirmable tool in the current turn and the backend blocked it for your approval. They do not appear on informational replies or auto-resumed task summaries.
 
 <Callout type="warning">
-  Auto-approve applies to the current session only. It resets when you start a new conversation.
+  The auto-approve toggle does not reset automatically when you start a new conversation — switch it off when you no longer want actions to run unconfirmed.
 </Callout>
 
 ## Plan panel
 
-The plan panel opens on the right side of the chat when Architect enters the planning phase. It shows the proposed test suite as a checklist.
+The plan panel appears between the chat and the input when Architect proposes a plan. It shows the test suite as a collapsible checklist with a progress bar.
 
-As Architect creates each entity, the corresponding checkbox is ticked. The panel gives a live view of creation progress without scrolling through tool activity in the chat. Architect also tracks whether prerequisites are ready or blocked before it generates test sets, so the checklist reflects behaviors, metrics, and behavior-metric mappings before generation starts.
-
-The panel collapses automatically after execution completes and the results summary is shown.
+As Architect creates each entity, the corresponding checkbox is ticked. The panel gives a live view of creation progress without scrolling through tool activity in the chat. Architect also tracks whether prerequisites are ready or blocked before it generates test sets, so the checklist reflects behaviors, metrics, and behavior-metric mappings before generation starts. When everything is done, the panel shows a **Plan Complete** badge.
 
 ## Live task progress
 
@@ -63,10 +61,10 @@ The mode chip in the chat header shows the current phase:
 
 ## Session sidebar
 
-Past sessions appear in the left sidebar under the Architect heading. Each session is named automatically based on the initial request. Click any session to restore it and continue the conversation.
+Past sessions appear in the left column of the Architect page. Each session is named automatically based on the initial request. Click any session to restore it and continue the conversation.
 
 <Callout type="info">
-  Sessions are per-organization. Members of the same organization see the same session list.
+  Sessions are scoped to the organization and the active project. Members of the same organization see the same session list within a project.
 </Callout>
 
 ## Suggested prompts

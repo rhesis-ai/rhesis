@@ -39,7 +39,10 @@ jest.mock('@/components/common/NotificationContext', () => ({
 }));
 
 jest.mock('next-auth/react', () => ({
-  useSession: () => ({ data: { session_token: 'tok' } }),
+  useSession: () => ({
+    data: { session_token: 'tok' },
+    status: 'authenticated',
+  }),
 }));
 
 jest.mock('@/auth', () => ({

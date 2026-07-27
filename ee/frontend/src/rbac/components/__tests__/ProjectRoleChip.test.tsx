@@ -41,7 +41,6 @@ import type { ProjectMemberRoleRead } from '../../types';
 
 import ProjectRoleChip from '../ProjectRoleChip';
 
-const SESSION_TOKEN = 'session-token';
 const USER_ID = 'user-1';
 const PROJECT_ID = 'project-1';
 
@@ -86,11 +85,11 @@ function useRealCanImplementation() {
 
 beforeEach(() => {
   resetRbacMocks();
-  invalidateProjectMembers(SESSION_TOKEN, PROJECT_ID);
+  invalidateProjectMembers(PROJECT_ID);
   invalidateRoles();
   rbacClientInstanceMock.getRoles.mockResolvedValue([VIEWER_ROLE, ADMIN_ROLE]);
   // Sanity: the cache really is empty between tests, so `loading` starts true.
-  expect(getCachedProjectMembers(SESSION_TOKEN, PROJECT_ID)).toEqual([]);
+  expect(getCachedProjectMembers(PROJECT_ID)).toEqual([]);
 });
 
 describe('ProjectRoleChip', () => {
@@ -99,13 +98,7 @@ describe('ProjectRoleChip', () => {
       new Error('Not Found')
     );
 
-    render(
-      <ProjectRoleChip
-        userId={USER_ID}
-        projectId={PROJECT_ID}
-        sessionToken={SESSION_TOKEN}
-      />
-    );
+    render(<ProjectRoleChip userId={USER_ID} projectId={PROJECT_ID} />);
 
     // Falls through to the assignable Select instead of hanging forever.
     expect(await screen.findByText('Assign role')).toBeInTheDocument();
@@ -124,13 +117,7 @@ describe('ProjectRoleChip', () => {
       }),
     ]);
 
-    render(
-      <ProjectRoleChip
-        userId={USER_ID}
-        projectId={PROJECT_ID}
-        sessionToken={SESSION_TOKEN}
-      />
-    );
+    render(<ProjectRoleChip userId={USER_ID} projectId={PROJECT_ID} />);
 
     expect(await screen.findByText('Admin')).toBeInTheDocument();
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
@@ -142,13 +129,7 @@ describe('ProjectRoleChip', () => {
       member({ permitted_actions: ['member:manage'] }),
     ]);
 
-    render(
-      <ProjectRoleChip
-        userId={USER_ID}
-        projectId={PROJECT_ID}
-        sessionToken={SESSION_TOKEN}
-      />
-    );
+    render(<ProjectRoleChip userId={USER_ID} projectId={PROJECT_ID} />);
 
     expect(await screen.findByRole('combobox')).toBeInTheDocument();
   });
@@ -164,13 +145,7 @@ describe('ProjectRoleChip', () => {
     const show = jest.fn();
     notificationsMock.useNotifications.mockReturnValue({ show });
 
-    render(
-      <ProjectRoleChip
-        userId={USER_ID}
-        projectId={PROJECT_ID}
-        sessionToken={SESSION_TOKEN}
-      />
-    );
+    render(<ProjectRoleChip userId={USER_ID} projectId={PROJECT_ID} />);
 
     await user.click(await screen.findByText('Assign role'));
     await user.click(await screen.findByRole('option', { name: 'Admin' }));
@@ -197,13 +172,7 @@ describe('ProjectRoleChip', () => {
     const show = jest.fn();
     notificationsMock.useNotifications.mockReturnValue({ show });
 
-    render(
-      <ProjectRoleChip
-        userId={USER_ID}
-        projectId={PROJECT_ID}
-        sessionToken={SESSION_TOKEN}
-      />
-    );
+    render(<ProjectRoleChip userId={USER_ID} projectId={PROJECT_ID} />);
 
     await user.click(await screen.findByText('Assign role'));
     await user.click(await screen.findByRole('option', { name: 'Admin' }));

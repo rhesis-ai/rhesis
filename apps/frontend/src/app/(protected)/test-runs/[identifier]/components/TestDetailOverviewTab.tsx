@@ -18,6 +18,10 @@ import TestResultTags from './TestResultTags';
 import StatusChip from '@/components/common/StatusChip';
 import ViewField from '@/components/common/ViewField';
 import FileAttachmentList from '@/components/common/FileAttachmentList';
+import MarkdownContent from '@/components/common/MarkdownContent';
+import { JsonPreview } from '@/app/(protected)/endpoints/components/JsonPreview';
+import { testPreviewSx } from '@/app/(protected)/endpoints/components/endpoint-styles';
+import { looksLikeMarkdown, parseJsonString } from '@/utils/message-content';
 import { useFiles } from '@/hooks/useFiles';
 import { getEffectiveTestResultStatus } from '@/utils/test-result-status';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme-constants';
@@ -28,26 +32,9 @@ interface TestDetailOverviewTabProps {
     string,
     { content: string; name?: string; expected_response?: string }
   >;
-  sessionToken: string;
   onTestResultUpdate: (updatedTest: TestResultDetail) => void;
   testSetType?: string; // e.g., "Multi-turn" or "Single-turn"
 }
-
-// Try to parse a string as JSON and pretty-print it; returns null if not JSON
-const tryFormatJson = (text: string): string | null => {
-  const trimmed = text.trim();
-  if (
-    (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
-    (trimmed.startsWith('[') && trimmed.endsWith(']'))
-  ) {
-    try {
-      return JSON.stringify(JSON.parse(trimmed), null, 2);
-    } catch {
-      return null;
-    }
-  }
-  return null;
-};
 
 // Helper function to render text with proper list formatting
 const renderFormattedText = (text: string) => {
@@ -105,7 +92,6 @@ const renderFormattedText = (text: string) => {
 export default function TestDetailOverviewTab({
   test,
   prompts,
-  sessionToken,
   onTestResultUpdate,
   testSetType,
 }: TestDetailOverviewTabProps) {
@@ -118,38 +104,38 @@ export default function TestDetailOverviewTab({
   const { files: testFiles, isLoading: testFilesLoading } = useFiles({
     entityId: (test.test_id as string) || '',
     entityType: 'Test',
-    sessionToken,
   });
 
   const { files: outputFiles, isLoading: outputFilesLoading } = useFiles({
     entityId: test.id as string,
     entityType: 'TestResult',
-    sessionToken,
   });
 
-  // Render text content, formatting JSON when detected
   const renderTextContent = (text: string) => {
-    const formatted = tryFormatJson(text);
-    if (formatted) {
+    const parsed = parseJsonString(text);
+    if (parsed !== null) {
       return (
-        <Typography
+        <Box
           component="pre"
-          variant="body2"
           sx={{
+            fontFamily: 'monospace',
+            fontSize: 12,
             whiteSpace: 'pre-wrap',
             wordBreak: 'break-word',
-            fontFamily: theme.typography.fontFamilyCode,
             m: 0,
+            p: 0,
           }}
         >
-          {formatted}
-        </Typography>
+          <JsonPreview value={parsed} />
+        </Box>
       );
     }
-    return (
+    return looksLikeMarkdown(text) ? (
+      <MarkdownContent content={text} variant="body2" />
+    ) : (
       <Typography
         variant="body2"
-        sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+        sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', m: 0 }}
       >
         {text}
       </Typography>
@@ -300,11 +286,7 @@ export default function TestDetailOverviewTab({
             )}
 
             {/* Tags */}
-            <TestResultTags
-              sessionToken={sessionToken}
-              testResult={test}
-              onUpdate={onTestResultUpdate}
-            />
+            <TestResultTags testResult={test} onUpdate={onTestResultUpdate} />
           </Box>
         </Paper>
 
@@ -349,18 +331,12 @@ export default function TestDetailOverviewTab({
                     overflow: 'auto',
                   }}
                 >
-                  <Typography
+                  <Box
                     component="pre"
-                    variant="body2"
-                    sx={{
-                      whiteSpace: 'pre-wrap',
-                      wordBreak: 'break-word',
-                      fontFamily: theme.typography.fontFamilyCode,
-                      m: 0,
-                    }}
+                    sx={{ ...testPreviewSx, minHeight: 'unset' }}
                   >
-                    {JSON.stringify(test.test_output.metadata, null, 2)}
-                  </Typography>
+                    <JsonPreview value={test.test_output.metadata} />
+                  </Box>
                 </Paper>
               </Collapse>
             </Box>
@@ -397,7 +373,6 @@ export default function TestDetailOverviewTab({
             <Collapse in={filesExpanded} timeout="auto" unmountOnExit>
               <FileAttachmentList
                 files={testFiles}
-                sessionToken={sessionToken}
                 isLoading={testFilesLoading}
               />
             </Collapse>
@@ -437,7 +412,6 @@ export default function TestDetailOverviewTab({
             <Collapse in={outputFilesExpanded} timeout="auto" unmountOnExit>
               <FileAttachmentList
                 files={outputFiles}
-                sessionToken={sessionToken}
                 isLoading={outputFilesLoading}
               />
             </Collapse>
@@ -586,11 +560,7 @@ export default function TestDetailOverviewTab({
           )}
 
           {/* Tags */}
-          <TestResultTags
-            sessionToken={sessionToken}
-            testResult={test}
-            onUpdate={onTestResultUpdate}
-          />
+          <TestResultTags testResult={test} onUpdate={onTestResultUpdate} />
         </Box>
       </Paper>
 
@@ -625,7 +595,6 @@ export default function TestDetailOverviewTab({
           <Collapse in={filesExpanded} timeout="auto" unmountOnExit>
             <FileAttachmentList
               files={testFiles}
-              sessionToken={sessionToken}
               isLoading={testFilesLoading}
             />
           </Collapse>
@@ -665,7 +634,6 @@ export default function TestDetailOverviewTab({
           <Collapse in={outputFilesExpanded} timeout="auto" unmountOnExit>
             <FileAttachmentList
               files={outputFiles}
-              sessionToken={sessionToken}
               isLoading={outputFilesLoading}
             />
           </Collapse>

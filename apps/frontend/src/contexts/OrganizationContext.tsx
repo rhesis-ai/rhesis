@@ -10,6 +10,7 @@ import React, {
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import type { Organization } from '@/utils/api-client/interfaces/organization';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface OrganizationContextValue {
   organization: Organization | null;
@@ -28,22 +29,22 @@ export function OrganizationProvider({
   children: React.ReactNode;
   initialOrganization?: Organization | null;
 }) {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const [organization, setOrganization] = useState<Organization | null>(
     initialOrganization
   );
 
   const refresh = useCallback(async () => {
-    if (!session?.session_token || !session?.user?.organization_id) return;
+    if (!isAuthenticated(status) || !session?.user?.organization_id) return;
     try {
-      const org = await new ApiClientFactory(session.session_token)
+      const org = await new ApiClientFactory()
         .getOrganizationsClient()
         .getOrganization(session.user.organization_id);
       setOrganization(org);
     } catch {
       // leave stale data in place; callers handle their own error state
     }
-  }, [session?.session_token, session?.user?.organization_id]);
+  }, [status, session?.user?.organization_id]);
 
   // If the server-rendered organization was unavailable (null) but a session is
   // now present, fetch it client-side rather than leaving the page stuck on a
@@ -52,17 +53,12 @@ export function OrganizationProvider({
   useEffect(() => {
     if (
       !organization &&
-      session?.session_token &&
+      isAuthenticated(status) &&
       session?.user?.organization_id
     ) {
       void refresh();
     }
-  }, [
-    organization,
-    session?.session_token,
-    session?.user?.organization_id,
-    refresh,
-  ]);
+  }, [organization, status, session?.user?.organization_id, refresh]);
 
   return (
     <OrganizationContext.Provider value={{ organization, refresh }}>

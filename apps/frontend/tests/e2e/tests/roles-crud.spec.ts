@@ -71,10 +71,9 @@ test.describe('RBAC Roles — CRUD @mocked', () => {
     await orgSettings.goto();
     await orgSettings.openRolesTab();
 
-    await page
-      .locator('tr', { hasText: 'Auditor' })
-      .getByRole('button', { name: /^edit$/i })
-      .click();
+    const auditorRow = page.locator('tr', { hasText: 'Auditor' });
+    await auditorRow.hover();
+    await auditorRow.getByRole('button', { name: /^edit$/i }).click();
 
     const drawer = openDrawer(page);
     await drawer.getByLabel(/role name/i).fill('Compliance Auditor');
@@ -91,15 +90,10 @@ test.describe('RBAC Roles — CRUD @mocked', () => {
     await orgSettings.goto();
     await orgSettings.openRolesTab();
 
-    await page
-      .locator('tr', { hasText: 'Auditor' })
-      .getByRole('button', { name: /^edit$/i })
-      .click();
-
-    const drawer = openDrawer(page);
-    await drawer.getByRole('button', { name: /delete role/i }).click();
+    const auditorRow = page.locator('tr', { hasText: 'Auditor' });
+    await auditorRow.hover();
+    await auditorRow.getByRole('button', { name: /^delete$/i }).click();
     await confirmDeleteDialog(page);
-    await waitForDrawerClosed(page);
 
     await expect(page.getByText('Auditor')).not.toBeVisible({
       timeout: 10_000,

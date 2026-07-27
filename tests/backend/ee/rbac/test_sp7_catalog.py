@@ -316,6 +316,8 @@ class TestPermissionsForBuiltInRole:
         "api_clients:manage",
         "comment:react",
         "file:import",
+        "playground:use",
+        "test_set:export",
     ]
 
     def test_owner_gets_everything(self):
@@ -357,6 +359,8 @@ class TestPermissionsForBuiltInRole:
         assert "test_set:read" in result
         assert "recycle:view" in result
         assert "test_set:create" not in result
+        assert "test_set:export" not in result
+        assert "playground:use" not in result
         assert "organization:update" not in result
         assert "member:manage" not in result
 
@@ -382,6 +386,8 @@ class TestPermissionsForBuiltInRole:
         assert "test_set:execute" in result
         assert "comment:react" in result
         assert "file:import" in result
+        assert "playground:use" in result
+        assert "test_set:export" in result
         assert "organization:update" not in result
         assert "member:manage" not in result
         assert "recycle:restore" not in result

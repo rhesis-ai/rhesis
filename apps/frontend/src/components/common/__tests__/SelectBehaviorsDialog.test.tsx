@@ -7,8 +7,6 @@ import { BehaviorClient } from '@/utils/api-client/behavior-client';
 
 jest.mock('@/utils/api-client/behavior-client');
 
-const SESSION_TOKEN = 'test-token';
-
 const STABLE_EMPTY_IDS: never[] = [];
 
 function makeBehavior(overrides: Record<string, unknown> = {}) {
@@ -41,7 +39,6 @@ function renderDialog(
     open: true,
     onClose: jest.fn(),
     onSelect: jest.fn(),
-    sessionToken: SESSION_TOKEN,
     excludeBehaviorIds: STABLE_EMPTY_IDS,
   };
   return render(<SelectBehaviorsDialog {...defaults} {...props} />);

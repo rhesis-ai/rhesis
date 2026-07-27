@@ -222,9 +222,13 @@ describe('usePlaygroundChat', () => {
     });
 
     expect(result.current.messages).toHaveLength(2);
-    expect(result.current.messages[1].role).toBe('assistant');
-    expect(result.current.messages[1].content).toBe('Hi there!');
-    expect(result.current.messages[1].traceId).toBe('trace-123');
+    const assistantMessage = result.current.messages[1];
+    expect(assistantMessage.role).toBe('assistant');
+    if (assistantMessage.role !== 'assistant') {
+      throw new Error('expected assistant message');
+    }
+    expect(assistantMessage.content).toBe('Hi there!');
+    expect(assistantMessage.traceId).toBe('trace-123');
     expect(result.current.isLoading).toBe(false);
     expect(result.current.sessionId).toBe('sess-1');
   });

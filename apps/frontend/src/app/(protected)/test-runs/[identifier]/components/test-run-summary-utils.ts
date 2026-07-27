@@ -111,10 +111,13 @@ export function findMetricKey(
   return Object.keys(metrics).find(key => metricNameMatches(key, metricName));
 }
 
-interface ResultReview {
+export interface ResultReview {
   status?: { name?: string };
   target?: { type?: string; reference?: string | null };
   comments?: string;
+  user?: { name?: string };
+  updated_at?: string;
+  resolved?: boolean;
 }
 
 function isTestResultReviewTarget(review: ResultReview): boolean {

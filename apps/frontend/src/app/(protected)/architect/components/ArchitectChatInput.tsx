@@ -61,7 +61,8 @@ interface ArchitectChatInputProps {
   disabled?: boolean;
   isLoading?: boolean;
   isConnected?: boolean;
-  sessionToken?: string;
+  /** When true, input is disabled due to missing architect:create (viewer). */
+  readOnly?: boolean;
 }
 
 function formatFileSize(bytes: number): string {
@@ -79,7 +80,7 @@ const ArchitectChatInput = forwardRef<
     disabled = false,
     isLoading = false,
     isConnected = true,
-    sessionToken: _sessionToken,
+    readOnly = false,
   },
   ref
 ) {
@@ -227,9 +228,11 @@ const ArchitectChatInput = forwardRef<
             multiline
             fullWidth
             placeholder={
-              isConnected
-                ? 'Describe what you want to test...'
-                : 'Waiting for connection...'
+              readOnly
+                ? 'View-only access — you cannot send messages'
+                : isConnected
+                  ? 'Describe what you want to test...'
+                  : 'Waiting for connection...'
             }
             sx={theme => ({
               fontSize: theme.typography.body2.fontSize,

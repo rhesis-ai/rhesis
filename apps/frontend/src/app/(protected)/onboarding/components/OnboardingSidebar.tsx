@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { Box, Typography } from '@mui/material';
+import { DEFAULT_AUTHENTICATED_PATH } from '@/constants/paths';
 import { ONBOARDING_STEPS } from './onboarding-steps';
 import { onboardingSidebarSx } from './onboarding-styles';
 
@@ -141,9 +142,7 @@ export default function OnboardingSidebar({
 
       <Box
         component="a"
-        href="https://www.rhesis.ai"
-        target="_blank"
-        rel="noopener noreferrer"
+        href={DEFAULT_AUTHENTICATED_PATH}
         sx={{
           display: 'inline-flex',
           alignItems: 'center',

@@ -2,389 +2,108 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 # Email Notification System
 
-## Overview
-
-The worker can email users when selected Celery tasks finish. SMTP is pluggable (SendGrid and others). Sending is non-blocking and respects tenant context.
-
-## Features
-
-- Optional per-task via `@email_notification` (avoids noisy mail when many parallel tasks run)
-- HTML and plain text bodies with links into the app when results include IDs
-- Graceful no-op if SMTP is misconfigured
+The worker emails users when selected Celery tasks finish. Only tasks decorated with
+`@email_notification` send mail, so parallel subtasks stay silent and a run produces one summary
+email rather than many. Sending is non-blocking, runs on both success and permanent failure, and
+no-ops if SMTP is not configured.
 
 ## Configuration
 
-### Environment Variables
-
-The following environment variables must be configured in the worker deployment:
+Set these in the worker deployment. Any SMTP provider works; the example is SendGrid:
 
 <CodeBlock filename=".env" language="bash">
-{`# SMTP Configuration (e.g., SendGrid)
-SMTP_HOST=smtp.sendgrid.net
+{`SMTP_HOST=smtp.sendgrid.net
 SMTP_PORT=587
-SMTP_USER=apikey
-SMTP_PASSWORD=your_sendgrid_api_key
+SMTP_USER=apikey            # literal "apikey" for SendGrid
+SMTP_PASSWORD=your_api_key
 
-# Frontend URL for generating links
-FRONTEND_URL=https://app.rhesis.ai`}
+FRONTEND_URL=https://app.rhesis.ai   # base URL for result links`}
 </CodeBlock>
 
-### SendGrid Setup
+If any SMTP variable is missing, `EmailService.is_configured` is false and notifications are
+skipped with a log line rather than an error.
 
-For SendGrid specifically:
+## Opting a task in
 
-1. Create a SendGrid account and verify your sender domain
-2. Generate an API key with "Mail Send" permissions
-3. Use these settings:
-   - `SMTP_HOST`: `smtp.sendgrid.net`
-   - `SMTP_PORT`: `587`
-   - `SMTP_USER`: `apikey`
-   - `SMTP_PASSWORD`: Your SendGrid API key
+Decorate a task with `@email_notification`, choosing a template. Without the decorator, no mail is
+sent.
 
-### Other SMTP Providers
-
-The system works with any SMTP provider. Common configurations:
-
-<CodeBlock filename="smtp-providers.env" language="bash">
-{`# Gmail SMTP
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=your-email@gmail.com
-SMTP_PASSWORD=your-app-password
-
-# AWS SES
-SMTP_HOST=email-smtp.us-east-1.amazonaws.com
-SMTP_PORT=587
-SMTP_USER=your-ses-smtp-username
-SMTP_PASSWORD=your-ses-smtp-password
-
-# Mailgun
-SMTP_HOST=smtp.mailgun.org
-SMTP_PORT=587
-SMTP_USER=your-mailgun-smtp-login
-SMTP_PASSWORD=your-mailgun-smtp-password`}
-</CodeBlock>
-
-## How It Works
-
-### Opt-in: `@email_notification`
-
-Only tasks decorated with `@email_notification` send mail (parallel subtasks usually stay silent; use a chord callback for one summary email).
-
-<CodeBlock filename="email-notification-decorator.py" language="python">
+<CodeBlock filename="task.py" language="python">
 {`from rhesis.backend.tasks.base import BaseTask, with_tenant_context, email_notification
-from rhesis.backend.notifications.email.template_service import EmailTemplate
+from rhesis.backend.notifications import EmailTemplate
 from rhesis.backend.worker import app
 
 @email_notification(
     template=EmailTemplate.TASK_COMPLETION,
-    subject_template="Task Complete: {task_name} - {status.title()}"
+    subject_template="Task Complete: {task_name} - {status.title()}",
 )
 @app.task(base=BaseTask, name="your.user.facing.task", bind=True)
 @with_tenant_context
 def user_facing_task(self, params, db=None):
-    # Your task logic here
     return {"result": "success", "test_run_id": "optional-for-links"}`}
 </CodeBlock>
 
-Templates: `EmailTemplate.TASK_COMPLETION` (generic) or `EmailTemplate.TEST_EXECUTION_SUMMARY` (runs). Optional `subject_template=` uses the same context variables.
+Templates: `EmailTemplate.TASK_COMPLETION` (generic) or `EmailTemplate.TEST_EXECUTION_SUMMARY`
+(runs). The optional `subject_template` uses the same context variables.
 
-**Without the decorator:** no notification. **Legacy:** `EmailEnabledTask` still sends basic completion emails.
-
-<CodeBlock filename="silent-task.py" language="python">
-{`from rhesis.backend.tasks.base import BaseTask, with_tenant_context
-from rhesis.backend.worker import app
-
-@app.task(base=BaseTask, name="your.background.task", bind=True)
-@with_tenant_context
-def background_task(self, params, db=None):
-    return {"result": "success"}`}
-</CodeBlock>
-
-### Async batch and summary email
-
-Parallel test execution uses an **async batch** inside one Celery task; it does not use Celery `chord`. When the batch finishes, `trigger_results_collection` schedules `collect_results` with the result list so the same summary path (including `@email_notification`) runs as for sequential runs. See `apps/backend/src/rhesis/backend/tasks/execution/shared.py` and `batch/__init__.py`.
-
-### Current Task Configuration
+Current usage:
 
 - `collect_results` — `TEST_EXECUTION_SUMMARY`
 - `email_notification_test` — `TASK_COMPLETION`
-- Per-test execution and utility tasks — no decorator (no mail)
+- per-test execution and utility tasks — no decorator
 
-### Automatic Integration
+Parallel test execution runs an async batch inside one Celery task (not a Celery `chord`). When the
+batch finishes, `trigger_results_collection` schedules `collect_results` with the result list, so
+the summary email path is the same as for sequential runs. See `tasks/execution/shared.py` and
+`tasks/execution/results.py`.
 
-On success or final failure, the worker loads the user from task context (skips placeholder addresses), renders the template with task return values and timing, sends via `EmailService`, and logs errors without failing the task.
+## Template variables
 
-### Template Variables
+The decorator provides these to every template:
 
-The decorator automatically provides these variables to templates:
+- `recipient_name` — user's display name
+- `task_name` — human-readable task name
+- `task_id`
+- `status` — `success` or `failed`
+- `execution_time` — formatted duration
+- `error_message` — for failed tasks
+- `frontend_url`
+- `completed_at`
 
-- `recipient_name`: User's display name
-- `task_name`: Human-readable task name
-- `task_id`: Unique task identifier
-- `status`: Task completion status ('success' or 'failed')
-- `execution_time`: Formatted execution duration
-- `error_message`: Error details (for failed tasks)
-- `frontend_url`: Base URL for links
-- `completed_at`: Completion timestamp
-
-Additional variables can be provided by returning them from the task:
+Anything the task returns is merged in, so a summary template can use extra fields:
 
 <CodeBlock filename="template-variables.py" language="python">
 {`@email_notification(template=EmailTemplate.TEST_EXECUTION_SUMMARY)
 @app.task(base=BaseTask, bind=True)
 def test_task(self):
-    # Task logic here
     return {
         'total_tests': 10,
         'tests_passed': 8,
         'tests_failed': 2,
         'test_set_name': 'API Tests',
-        'project_name': 'My Project'
+        'project_name': 'My Project',
     }`}
 </CodeBlock>
 
-## Email Service Architecture
+## How it works
 
-### EmailService Class
-
-The core `EmailService` class in `tasks/email_service.py` handles:
-
-<CodeBlock filename="email-service.py" language="python">
-{`class EmailService:
-    def __init__(self):
-        # Loads SMTP configuration from environment
-        # Validates configuration completeness
-
-    def send_task_completion_email(
-        self,
-        recipient_email: str,
-        recipient_name: Optional[str],
-        task_name: str,
-        task_id: str,
-        status: str,
-        execution_time: Optional[str] = None,
-        error_message: Optional[str] = None,
-        test_run_id: Optional[str] = None,
-        frontend_url: Optional[str] = None
-    ) -> bool:
-        # Sends HTML and plain text email
-        # Returns success/failure status`}
-</CodeBlock>
-
-### BaseTask Integration
-
-The `BaseTask` class includes:
-
-- `_get_user_info()`: Retrieves user email and name from database
-- `_send_task_completion_email()`: Handles email sending with error handling
-- `on_success()`: Sends success notifications
-- `on_failure()`: Sends failure notifications (only for permanent failures)
-
-## User Experience
-
-### What Users Receive
-
-When users submit tasks through the API (e.g., test configurations), they automatically receive:
-
-1. **Immediate API response** with task ID
-2. **Email notification** when the task completes with:
-   - Clear status indication
-   - Task details and timing
-   - Direct link to results (if applicable)
-   - Professional branding
-
-### Email Examples
-
-#### Success Email
-
-<CodeBlock filename="success-email-example.txt" language="text">
-{`Subject: Task Completed: Execute Test Configuration - Success
-
-Task completed
-
-Hello John Doe,
-
-Your task has completed with status: SUCCESS
-
-Task Details:
-- Task Name: Execute Test Configuration
-- Task ID: 12345678-1234-5678-9012-123456789012
-- Status: Success
-- Completed at: 2024-01-15 14:30:25 UTC
-- Execution Time: 2m 45s
-- Test Run ID: abcd1234-5678-9012-efgh-567890123456
-
-[View Results]
-
-Best regards,
-Rhesis AI Team`}
-</CodeBlock>
-
-## Testing
-
-### Test Endpoint
-
-Use the test endpoint to verify email functionality:
-
-<CodeBlock filename="test-endpoint.sh" language="bash">
-{`POST /api/tasks/email-notification-test
-Authorization: Bearer <your-token>
-Content-Type: application/json
-
-{
-  "message": "Testing email notifications"
-}`}
-</CodeBlock>
-
-### Manual Testing
-
-<CodeBlock filename="manual-testing.py" language="python">
-{`# In your development environment
-from rhesis.backend.tasks.email_service import email_service
-
-success = email_service.send_task_completion_email(
-    recipient_email="test@example.com",
-    recipient_name="Test User",
-    task_name="Test Task",
-    task_id="test-123",
-    status="success",
-    frontend_url="https://app.rhesis.ai"
-)
-print(f"Email sent: {success}")`}
-</CodeBlock>
+`EmailService` (`notifications/email/service.py`, exported as the `email_service` singleton from
+`rhesis.backend.notifications`) loads SMTP config from the environment and renders Jinja2 templates.
+On success or permanent failure, `BaseTask` (in its `on_success` / `on_failure` hooks) loads the
+task owner from the database, renders the template with the task's return values and timing, and
+calls `email_service.send_email(...)`. Users with placeholder addresses (`*@placeholder.rhesis.ai`)
+are skipped, and send errors are logged without failing the task.
 
 ## Troubleshooting
 
-### Common Issues
+- **No emails** — check worker logs for `SMTP configuration incomplete`, confirm the `SMTP_*`
+  variables reach the worker pods, and verify the recipient has a real (non-placeholder) address.
+- **Auth errors** — recheck `SMTP_USER`/`SMTP_PASSWORD` (SendGrid uses the literal `apikey` as the
+  username) and that port 587 is reachable from the worker.
+- **Missing result links** — set `FRONTEND_URL` and return `test_run_id` from the task.
 
-#### No Emails Being Sent
+## Security
 
-1. **Check SMTP configuration**:
-
-<CodeBlock filename="check-smtp-logs.sh" language="bash">
-{`# In worker logs, look for:
-"SMTP configuration incomplete. Email notifications will be disabled."`}
-</CodeBlock>
-
-2. **Verify environment variables**:
-
-<CodeBlock filename="verify-env-vars.sh" language="bash">
-{`kubectl exec -it deployment/rhesis-worker -- env | grep SMTP`}
-</CodeBlock>
-
-3. **Check user emails**:
-   - Ensure users have valid email addresses
-   - System skips placeholder emails (`*@placeholder.rhesis.ai`)
-
-#### SMTP Authentication Errors
-
-1. **Verify credentials**:
-   - Double-check SMTP username and password
-   - For SendGrid, ensure you're using `apikey` as username
-
-2. **Check firewall/network**:
-   - Ensure port 587 is accessible from worker pods
-   - Some networks block SMTP ports
-
-#### Email Content Issues
-
-1. **Missing links**:
-   - Verify `FRONTEND_URL` is set correctly
-   - Check that `test_run_id` is included in task results
-
-2. **Formatting problems**:
-   - Check logs for email generation errors
-   - Verify HTML content in email client
-
-### Monitoring
-
-Monitor email notifications through:
-
-1. **Worker logs**:
-
-<CodeBlock filename="worker-logs.sh" language="bash">
-{`kubectl logs deployment/rhesis-worker | grep "email"`}
-</CodeBlock>
-
-2. **Success indicators**:
-
-<CodeBlock filename="success-indicator.txt" language="text">
-{`Task completion email sent successfully to user@example.com for task 12345`}
-</CodeBlock>
-
-3. **Error indicators**:
-
-<CodeBlock filename="error-indicator.txt" language="text">
-{`Failed to send task completion email to user@example.com: SMTP error`}
-</CodeBlock>
-
-## Security Considerations
-
-### Email Content
-
-- **No sensitive data**: Task results are not included in emails
-- **Secure links**: Frontend URLs use HTTPS
-- **User privacy**: Only the task owner receives notifications
-
-### SMTP Security
-
-- **TLS encryption**: All SMTP connections use STARTTLS
-- **Credential protection**: SMTP passwords stored as Kubernetes secrets
-- **Network security**: SMTP traffic encrypted in transit
-
-### Access Control
-
-- **User context**: Emails only sent to the user who submitted the task
-- **Organization isolation**: Multi-tenant architecture prevents cross-organization emails
-
-## Deployment
-
-### Worker Deployment
-
-Ensure your worker deployment includes the SMTP environment variables:
-
-<CodeBlock filename="deployment.yaml" language="yaml">
-{`# apps/worker/k8s/deployment.yaml
-env:
-  - name: SMTP_HOST
-    valueFrom:
-      secretKeyRef:
-        name: rhesis-worker-secrets
-        key: SMTP_HOST
-  - name: SMTP_PORT
-    valueFrom:
-      secretKeyRef:
-        name: rhesis-worker-secrets
-        key: SMTP_PORT
-  - name: SMTP_USER
-    valueFrom:
-      secretKeyRef:
-        name: rhesis-worker-secrets
-        key: SMTP_USER
-  - name: SMTP_PASSWORD
-    valueFrom:
-      secretKeyRef:
-        name: rhesis-worker-secrets
-        key: SMTP_PASSWORD
-  - name: FRONTEND_URL
-    valueFrom:
-      secretKeyRef:
-        name: rhesis-worker-secrets
-        key: FRONTEND_URL`}
-</CodeBlock>
-
-### CI/CD Pipeline
-
-The GitHub Actions workflow automatically includes SMTP secrets:
-
-<CodeBlock filename="worker-workflow.yaml" language="yaml">
-{`# .github/workflows/worker.yml
---from-literal=SMTP_HOST="\${{ secrets.SMTP_HOST }}" \\
---from-literal=SMTP_PORT="\${{ secrets.SMTP_PORT }}" \\
---from-literal=SMTP_USER="\${{ secrets.SMTP_USER }}" \\
---from-literal=SMTP_PASSWORD="\${{ secrets.SMTP_PASSWORD }}" \\
---from-literal=FRONTEND_URL="\${{ secrets.FRONTEND_URL }}" \\`}
-</CodeBlock>
-
-Remember to set these secrets in your GitHub repository settings for each environment (dev, stg, prd).
+Emails go only to the task owner, and multi-tenant scoping prevents cross-organization delivery.
+Bodies carry status and timing, not task result data. SMTP connections use STARTTLS and credentials
+are stored as worker secrets.

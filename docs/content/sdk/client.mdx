@@ -43,18 +43,11 @@ If a project-scoped token is used and an explicit `project_id` is also provided,
 
 Organization-scoped tokens (without a project boundary) require an explicit `project_id` via the constructor or environment variable.
 
-## What It Does
-
-When you create a `RhesisClient`, it:
-
-1. **Resolves project scope** - Determines the project from explicit config or token introspection
-2. **Initializes telemetry** - Sets up OpenTelemetry for tracing
-3. **Registers as default** - Becomes the default client for `@endpoint` and `@observe` decorators
-4. **Lazy-loads connector** - WebSocket connector is initialized only when `@endpoint` is used
-
 <Callout type="warning">
   The `RhesisClient` must be initialized before using `@observe` or `@endpoint` decorators. Without it, a `RuntimeError` is raised.
 </Callout>
+
+The WebSocket connector is lazy: it is created only when `@endpoint` is used.
 
 ## Environment Variables
 
@@ -83,10 +76,6 @@ The `environment` parameter determines where your endpoints and traces are regis
 | `development` | Local development and testing |
 | `staging` | Pre-production validation |
 | `production` | Live systems |
-
-<Callout type="info">
-  Changes in `production` take effect immediately. Always test in `development` or `staging` first.
-</Callout>
 
 ## Disabling the Client
 
@@ -143,11 +132,8 @@ def chat(input: str, conversation_id: str = None) -> dict:
     return {"output": process(input), "conversation_id": conversation_id}`}
 </CodeBlock>
 
----
+## Next steps
 
-<Callout type="default">
-  **Next Steps**
-  - [Connector](/sdk/connector) - Register functions as remote endpoints
-  - [Tracing](/tracing) - Learn about observability and the `@observe` decorator
-  - [Entities](/sdk/entities) - Work with tests, test sets, and projects
-</Callout>
+- Register a function as a remote endpoint with the [connector](/sdk/connector)
+- Instrument LLM calls with the `@observe` decorator, covered in [tracing](/docs/tracing)
+- Work with tests and test sets through [entities](/sdk/entities)

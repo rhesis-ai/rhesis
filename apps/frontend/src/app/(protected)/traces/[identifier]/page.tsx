@@ -20,7 +20,7 @@ export default async function TraceByIdPage({ params }: TraceByIdPageProps) {
 
   try {
     const session = await auth();
-    if (!session?.session_token) {
+    if (!session || session.error) {
       return (
         <Paper sx={{ p: 3 }}>
           <Alert severity="error">
@@ -30,7 +30,7 @@ export default async function TraceByIdPage({ params }: TraceByIdPageProps) {
       );
     }
 
-    const clientFactory = await createServerApiFactory(session.session_token);
+    const clientFactory = await createServerApiFactory();
     const client = clientFactory.getTelemetryClient();
     const lookup = await client.lookupSpan(identifier);
 

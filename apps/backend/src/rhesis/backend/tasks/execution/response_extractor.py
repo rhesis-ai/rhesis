@@ -7,9 +7,146 @@ using a fallback hierarchy system.
 
 import json
 import logging
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Optional, Union
 
 logger = logging.getLogger(__name__)
+
+
+def _as_response_dict(result: Union[Dict, Any]) -> Dict[str, Any]:
+    """Normalize invoker results (dict or ErrorResponse) to a plain dict."""
+    if not result:
+        return {}
+    if isinstance(result, dict):
+        return result
+    if hasattr(result, "to_dict"):
+        return result.to_dict()
+    if hasattr(result, "model_dump"):
+        return result.model_dump(exclude_none=True)
+    if hasattr(result, "dict"):
+        return result.dict(exclude_none=True)
+    try:
+        return dict(result)
+    except (TypeError, ValueError):
+        return {}
+
+
+def _coerce_http_status_code(value: Any) -> Optional[int]:
+    """Normalize status codes from int or numeric string; reject bools."""
+    if isinstance(value, bool) or value is None:
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        try:
+            return int(value.strip())
+        except ValueError:
+            return None
+    return None
+
+
+def is_http_error_response(result: Union[Dict, Any]) -> bool:
+    """Return True when the endpoint response is an HTTP error (4xx/5xx).
+
+    Detects structured invoker failures (``error_type == "http_error"`` or
+    ``error`` with ``status_code >= 400``). Does not match on free-text
+    messages.
+    """
+    data = _as_response_dict(result)
+    if not data:
+        return False
+
+    if data.get("error_type") == "http_error":
+        return True
+
+    status_code = _coerce_http_status_code(data.get("status_code"))
+    if data.get("error") and status_code is not None and status_code >= 400:
+        return True
+
+    return False
+
+
+def get_http_error_status_code(result: Union[Dict, Any]) -> Optional[int]:
+    """Return HTTP status from a flat response or multi-turn first-turn error_details."""
+    data = _as_response_dict(result)
+    if not data:
+        return None
+
+    status_code = _coerce_http_status_code(data.get("status_code"))
+    if status_code is not None:
+        return status_code
+
+    target_interaction = _first_send_message_interaction(data.get("history"))
+    if target_interaction is None:
+        return None
+
+    error_details = _error_details_from_tool_execution(target_interaction)
+    return _coerce_http_status_code(error_details.get("status_code"))
+
+
+def _error_details_from_tool_execution(target_interaction: Dict[str, Any]) -> Dict[str, Any]:
+    """Extract invoker ``error_details`` from a Penelope target_interaction dict."""
+    tool_message = target_interaction.get("tool_message")
+    if not isinstance(tool_message, dict):
+        return {}
+
+    content = tool_message.get("content")
+    if isinstance(content, str):
+        try:
+            parsed = json.loads(content)
+        except json.JSONDecodeError:
+            return {}
+    elif isinstance(content, dict):
+        parsed = content
+    else:
+        return {}
+
+    if not isinstance(parsed, dict):
+        return {}
+
+    metadata = parsed.get("metadata")
+    if not isinstance(metadata, dict):
+        return {}
+
+    error_details = metadata.get("error_details")
+    return error_details if isinstance(error_details, dict) else {}
+
+
+def _first_send_message_interaction(history: Any) -> Optional[Dict[str, Any]]:
+    """Return the first ``send_message_to_target`` interaction in a Penelope history.
+
+    Penelope turns always carry ``target_interaction``, but history entries may
+    include other target tools. Scan rather than assuming ``history[0]``.
+    """
+    if not isinstance(history, list):
+        return None
+
+    for turn in history:
+        if not isinstance(turn, dict):
+            continue
+        target_interaction = turn.get("target_interaction")
+        if not isinstance(target_interaction, dict):
+            continue
+        if target_interaction.get("tool_name") == "send_message_to_target":
+            return target_interaction
+
+    return None
+
+
+def has_http_error_in_result(result: Union[Dict, Any]) -> bool:
+    """Return True for single-turn HTTP errors or multi-turn first-message HTTP errors.
+
+    Multi-turn: only the first ``send_message_to_target`` interaction is checked.
+    Later turns with HTTP failures are left to normal Pass/Fail scoring.
+    """
+    if is_http_error_response(result):
+        return True
+
+    data = _as_response_dict(result)
+    target_interaction = _first_send_message_interaction(data.get("history"))
+    if target_interaction is None:
+        return False
+
+    return is_http_error_response(_error_details_from_tool_execution(target_interaction))
 
 
 def extract_response_with_fallback(result: Union[Dict, Any]) -> str:

@@ -17,7 +17,6 @@ interface TestSetSelectionDialogProps {
   open: boolean;
   onClose: () => void;
   onSelect: (testSet: TestSet) => void;
-  sessionToken: string;
   testTypeValue?: string;
 }
 
@@ -25,7 +24,6 @@ export default function TestSetSelectionDialog({
   open,
   onClose,
   onSelect,
-  sessionToken,
   testTypeValue,
 }: TestSetSelectionDialogProps) {
   const [testSets, setTestSets] = React.useState<TestSet[]>([]);
@@ -41,7 +39,6 @@ export default function TestSetSelectionDialog({
   // Resolve the test set type ID from the test type value name
   const escapedTestTypeValue = testTypeValue?.replace(/'/g, "''");
   const { data: resolvedTypes } = useTypeLookups(
-    sessionToken,
     escapedTestTypeValue
       ? `type_name eq '${TYPE_NAMES.TEST_SET_TYPE}' and type_value eq '${escapedTestTypeValue}'`
       : '',
@@ -73,7 +70,7 @@ export default function TestSetSelectionDialog({
       }
 
       try {
-        const clientFactory = new ApiClientFactory(sessionToken);
+        const clientFactory = new ApiClientFactory();
         const testSetsClient = clientFactory.getTestSetsClient();
 
         const searchFilter = createSearchFilter(searchValue);
@@ -118,13 +115,7 @@ export default function TestSetSelectionDialog({
         }
       }
     },
-    [
-      sessionToken,
-      open,
-      notifications,
-      createSearchFilter,
-      resolvedTestSetTypeId,
-    ]
+    [open, notifications, createSearchFilter, resolvedTestSetTypeId]
   );
 
   // Initial load when dialog opens

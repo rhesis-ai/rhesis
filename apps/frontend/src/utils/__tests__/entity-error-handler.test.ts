@@ -5,6 +5,9 @@ import {
   getNotFoundEntityData,
   getDeletedEntityData,
   getErrorMessage,
+  parseEntityFromPathname,
+  urlSegmentToResolveEntityType,
+  buildNotFoundEntityData,
 } from '../entity-error-handler';
 
 // ============================================================================
@@ -232,5 +235,81 @@ describe('getErrorMessage', () => {
     expect(getErrorMessage(42)).toBe('An unexpected error occurred');
     expect(getErrorMessage(null)).toBe('An unexpected error occurred');
     expect(getErrorMessage({})).toBe('An unexpected error occurred');
+  });
+});
+
+describe('parseEntityFromPathname', () => {
+  it('parses standard detail routes', () => {
+    const result = parseEntityFromPathname(
+      '/test-sets/694490e0-55a7-40ff-9785-527c15d6a602'
+    );
+
+    expect(result).toEqual({
+      entityType: 'test_set',
+      entityId: '694490e0-55a7-40ff-9785-527c15d6a602',
+      listUrl: '/test-sets',
+      entityLabel: 'Test Set',
+    });
+  });
+
+  it('maps knowledge routes to source entities', () => {
+    const result = parseEntityFromPathname(
+      '/knowledge/694490e0-55a7-40ff-9785-527c15d6a602'
+    );
+
+    expect(result?.entityType).toBe('source');
+    expect(result?.listUrl).toBe('/knowledge');
+  });
+
+  it('parses nested project endpoint routes', () => {
+    const result = parseEntityFromPathname(
+      '/projects/11111111-1111-1111-1111-111111111111/endpoints/22222222-2222-2222-2222-222222222222'
+    );
+
+    expect(result).toEqual({
+      entityType: 'endpoint',
+      entityId: '22222222-2222-2222-2222-222222222222',
+      listUrl: '/projects/11111111-1111-1111-1111-111111111111',
+      entityLabel: 'Endpoint',
+    });
+  });
+
+  it('maps explorer routes to test_set entities', () => {
+    const result = parseEntityFromPathname(
+      '/explorer/694490e0-55a7-40ff-9785-527c15d6a602'
+    );
+
+    expect(result?.entityType).toBe('test_set');
+    expect(result?.entityLabel).toBe('Session');
+    expect(result?.listUrl).toBe('/explorer');
+  });
+
+  it('returns null for list pages', () => {
+    expect(parseEntityFromPathname('/test-sets')).toBeNull();
+  });
+});
+
+describe('urlSegmentToResolveEntityType', () => {
+  it('applies knowledge override', () => {
+    expect(urlSegmentToResolveEntityType('knowledge')).toBe('source');
+  });
+
+  it('applies explorer override', () => {
+    expect(urlSegmentToResolveEntityType('explorer')).toBe('test_set');
+  });
+});
+
+describe('buildNotFoundEntityData', () => {
+  it('builds structured not-found data', () => {
+    const result = buildNotFoundEntityData({
+      entityLabel: 'Test Set',
+      entityId: 'abc-123',
+      tableName: 'test_set',
+      listUrl: '/test-sets',
+    });
+
+    expect(result.model_name).toBe('TestSet');
+    expect(result.table_name).toBe('test_set');
+    expect(result.list_url).toBe('/test-sets');
   });
 });

@@ -17,7 +17,6 @@ import { BORDER_RADIUS } from '@/styles/theme-constants';
 interface TestDetailHistoryTabProps {
   test: TestResultDetail;
   testRunId: string;
-  sessionToken: string;
 }
 
 type StatColor = 'primary' | 'success' | 'error';
@@ -25,11 +24,9 @@ type StatColor = 'primary' | 'success' | 'error';
 export default function TestDetailHistoryTab({
   test,
   testRunId,
-  sessionToken,
 }: TestDetailHistoryTabProps) {
   const { rows, loading, error } = useTestExecutionHistory({
     testId: test.test_id,
-    sessionToken,
   });
 
   const stats = useMemo(() => {

@@ -128,7 +128,6 @@ interface ProjectEditDrawerProps {
   onClose: () => void;
   project: Project;
   onSave: (updatedProject: Partial<Project>) => Promise<void>;
-  sessionToken: string;
 }
 
 export default function ProjectEditDrawer({
@@ -136,7 +135,6 @@ export default function ProjectEditDrawer({
   onClose,
   project,
   onSave,
-  sessionToken,
 }: ProjectEditDrawerProps) {
   const [users, setUsers] = React.useState<User[]>([]);
   const [loading, setLoading] = React.useState(false);
@@ -153,7 +151,7 @@ export default function ProjectEditDrawer({
   React.useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const usersClient = new UsersClient(sessionToken);
+        const usersClient = new UsersClient();
         const fetchedUsers = await usersClient.getUsers();
         setUsers(fetchedUsers.data);
       } catch (error) {
@@ -164,7 +162,7 @@ export default function ProjectEditDrawer({
     if (open) {
       fetchUsers();
     }
-  }, [open, sessionToken]);
+  }, [open]);
 
   const handleTextChange =
     (field: string) =>

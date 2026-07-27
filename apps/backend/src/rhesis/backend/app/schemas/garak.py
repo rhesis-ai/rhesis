@@ -132,24 +132,6 @@ class GarakImportPreviewResponse(BaseModel):
     probes: List[GarakProbePreview] = Field(..., description="Probe-level breakdown")
 
 
-class GarakImportedTestSet(BaseModel):
-    """Response schema for a single imported test set."""
-
-    test_set_id: str = Field(..., description="ID of the created test set")
-    test_set_name: str = Field(..., description="Name of the created test set")
-    probe_full_name: str = Field(..., description="Garak probe full name")
-    test_count: int = Field(..., description="Number of tests created")
-
-
-class GarakImportResponse(BaseModel):
-    """Response schema for successful import."""
-
-    test_sets: List[GarakImportedTestSet] = Field(..., description="List of created test sets")
-    total_test_sets: int = Field(..., description="Number of test sets created")
-    total_tests: int = Field(..., description="Total number of tests created")
-    garak_version: str = Field(..., description="Garak version used for import")
-
-
 class GarakSyncPreviewResponse(BaseModel):
     """Response schema for sync preview."""
 
@@ -164,16 +146,6 @@ class GarakSyncPreviewResponse(BaseModel):
     modules: Optional[List[str]] = Field(None, description="Modules (legacy format)")
     error: Optional[str] = Field(None, description="Error message if sync not possible")
     last_synced_at: Optional[str] = Field(None, description="Last sync timestamp")
-
-
-class GarakSyncResponse(BaseModel):
-    """Response schema for successful sync."""
-
-    added: int = Field(..., description="Number of tests added")
-    removed: int = Field(..., description="Number of tests removed")
-    unchanged: int = Field(..., description="Number of unchanged tests")
-    new_garak_version: str = Field(..., description="New Garak version")
-    old_garak_version: str = Field(..., description="Previous Garak version")
 
 
 class GarakErrorResponse(BaseModel):
@@ -227,6 +199,28 @@ class GarakGenerateResponse(BaseModel):
         ..., description="Full probe identifier (e.g., 'fitd.FITD') for reference."
     )
     num_tests: int = Field(..., description="Number of tests that will be generated.")
+    message: str = Field(
+        ...,
+        description="Human-readable status message.",
+    )
+
+
+class GarakImportTaskResponse(BaseModel):
+    """Response schema for a launched Garak import task."""
+
+    task_id: str = Field(..., description="Celery task ID — use to poll for completion.")
+    probe_count: int = Field(..., description="Number of probes queued for import.")
+    message: str = Field(
+        ...,
+        description="Human-readable status message.",
+    )
+
+
+class GarakSyncTaskResponse(BaseModel):
+    """Response schema for a launched Garak sync task."""
+
+    task_id: str = Field(..., description="Celery task ID — use to poll for completion.")
+    test_set_id: str = Field(..., description="ID of the test set being synced.")
     message: str = Field(
         ...,
         description="Human-readable status message.",

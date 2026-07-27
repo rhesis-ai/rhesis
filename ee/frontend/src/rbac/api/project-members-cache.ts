@@ -19,17 +19,15 @@ const _pending = new Map<string, Promise<ProjectMemberRoleRead[]>>();
 
 const TTL_MS = 30_000;
 
-// Keyed by sessionToken:projectId so a session/account change never reuses a
-// prior user's member/role data for the same project.
-function cacheKey(sessionToken: string, projectId: string): string {
-  return `${sessionToken}:${projectId}`;
-}
-
+// Keyed by projectId alone. Not keyed by account: an account change always
+// goes through a full-page logout redirect that tears down this module's
+// state, and the 30s TTL bounds any residual staleness. (Requests
+// authenticate via the BFF proxy's httpOnly cookie — no token is available
+// client-side to key by.)
 export function fetchProjectMembers(
-  sessionToken: string,
   projectId: string
 ): Promise<ProjectMemberRoleRead[]> {
-  const key = cacheKey(sessionToken, projectId);
+  const key = projectId;
   const cached = _cache.get(key);
   if (cached && Date.now() - cached.ts < TTL_MS) {
     return Promise.resolve(cached.data);
@@ -37,7 +35,7 @@ export function fetchProjectMembers(
   const pending = _pending.get(key);
   if (pending) return pending;
 
-  const promise = new RbacClient(sessionToken)
+  const promise = new RbacClient()
     .getProjectMembers(projectId)
     .then(data => {
       _cache.set(key, { data, ts: Date.now() });
@@ -52,23 +50,16 @@ export function fetchProjectMembers(
   return promise;
 }
 
-export function invalidateProjectMembers(
-  sessionToken: string,
-  projectId: string
-): void {
-  _cache.delete(cacheKey(sessionToken, projectId));
+export function invalidateProjectMembers(projectId: string): void {
+  _cache.delete(projectId);
 }
 
-export function hasProjectMembers(
-  sessionToken: string,
-  projectId: string
-): boolean {
-  return _cache.has(cacheKey(sessionToken, projectId));
+export function hasProjectMembers(projectId: string): boolean {
+  return _cache.has(projectId);
 }
 
 export function getCachedProjectMembers(
-  sessionToken: string,
   projectId: string
 ): ProjectMemberRoleRead[] {
-  return _cache.get(cacheKey(sessionToken, projectId))?.data ?? [];
+  return _cache.get(projectId)?.data ?? [];
 }

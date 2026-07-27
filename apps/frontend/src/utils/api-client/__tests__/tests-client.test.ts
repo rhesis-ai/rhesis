@@ -1,6 +1,6 @@
 import { TestsClient } from '../tests-client';
 
-const BASE_URL = 'http://127.0.0.1:8080/api/v1';
+const BASE_URL = 'http://localhost/api/backend';
 
 function makeFetchResponse(
   body: unknown,
@@ -172,7 +172,7 @@ describe('TestsClient', () => {
       expect(calledUrl).toContain('safety');
     });
 
-    it('sends Authorization header with session token', async () => {
+    it('omits Authorization header client-side (proxy injects it)', async () => {
       fetchMock.mockResolvedValue(
         makeFetchResponse([], 200, {
           'x-total-count': '0',
@@ -181,14 +181,11 @@ describe('TestsClient', () => {
 
       await client.getTests();
 
-      expect(fetchMock).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.objectContaining({
-          headers: expect.objectContaining({
-            Authorization: 'Bearer test-token',
-          }),
-        })
-      );
+      const headers = fetchMock.mock.calls[0][1].headers as Record<
+        string,
+        string
+      >;
+      expect(headers['Authorization']).toBeUndefined();
     });
 
     it('returns pagination metadata with correct page numbers', async () => {

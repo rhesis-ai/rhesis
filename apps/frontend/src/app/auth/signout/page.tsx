@@ -12,6 +12,9 @@ export default function SignOut() {
   const _searchParams = useSearchParams();
 
   useEffect(() => {
+    // The backend logout call goes through the /api/backend proxy, which
+    // injects the access token server-side from the httpOnly cookie — no
+    // token is available (or needed) in browser JS.
     handleClientSignOut();
   }, []);
 

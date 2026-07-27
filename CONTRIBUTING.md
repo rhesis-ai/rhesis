@@ -12,7 +12,7 @@ cd rhesis
 
 2. **Set up local development environment:**
 ```bash
-./rh dev init         # Initialize env files (one-time setup)
+./rh dev init         # Initialize env files (one-time setup) - apps/backend/.env and apps/frontend/.env.local
 ./rh dev up           # Start dev infrastructure (postgres + redis)
 ./rh dev backend      # Start backend server (auto-login enabled)
 ./rh dev worker       # Start worker for background tasks
@@ -21,7 +21,10 @@ cd rhesis
 
 3. **Access the application** at http://localhost:3000
 
-Run `./rh help` to see all available commands.
+Run `./rh dev` to see all available commands.
+
+- [Development Setup](https://docs.rhesis.ai/development/contributing/development-setup) — Full environment setup guide, including LLM access options and mock servers
+- [Coding Standards](https://docs.rhesis.ai/development/contributing/coding-standards) — Python and TypeScript standards
 
 ## Component Guides
 
@@ -77,11 +80,6 @@ We follow [Conventional Commits](https://www.conventionalcommits.org/):
 - [ ] Documentation updated if needed
 - [ ] All CI checks pass
 
-## Learn More
-
-- [Development Setup](https://docs.rhesis.ai/development/contributing/development-setup) — Full environment setup guide
-- [Coding Standards](https://docs.rhesis.ai/development/contributing/coding-standards) — Python and TypeScript standards
-- [Release Process](RELEASING.md) — Versioning and release workflow
 
 ## Questions or Need Help?
 

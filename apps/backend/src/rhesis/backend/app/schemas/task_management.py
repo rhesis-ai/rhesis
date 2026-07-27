@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 from pydantic import UUID4, BaseModel, ConfigDict
 
@@ -7,9 +7,16 @@ from rhesis.backend.app.auth.capabilities import ResourceType
 
 from .affordances import WithPermittedActions
 from .base import Base
+from .references import (
+    OrganizationReference,
+    ProjectReference,
+    StatusReference,
+    TypeLookupReference,
+)
 from .status import Status
+from .tag import TagRead
 from .type_lookup import TypeLookup
-from .user import User
+from .user import User, UserReference
 
 
 class TaskBase(BaseModel):
@@ -92,3 +99,20 @@ class Task(Base, WithPermittedActions):
     # comment_id is now stored in task_metadata
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# The detailed model with expanded relations
+class TaskDetail(Task):
+    id: UUID4
+    title: Optional[str] = None
+    user_id: Optional[UUID4] = None
+    status_id: Optional[UUID4] = None
+    organization_id: Optional[UUID4] = None
+    tags: Optional[List[TagRead]] = None
+
+    user: Optional[UserReference] = None
+    assignee: Optional[UserReference] = None
+    status: Optional[StatusReference] = None
+    priority: Optional[TypeLookupReference] = None
+    project: Optional[ProjectReference] = None
+    organization: Optional[OrganizationReference] = None

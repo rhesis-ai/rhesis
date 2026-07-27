@@ -59,6 +59,8 @@ export interface OnboardingProgress {
   last_updated?: string;
 }
 
+import type { WithPermittedActions } from '@/types/affordances';
+
 export interface PolyphemusAccess {
   granted_at?: string;
   revoked_at?: string;
@@ -70,7 +72,7 @@ export interface DefaultProjectSetting {
   name: string;
 }
 
-export interface UserSettings {
+export interface UserSettings extends WithPermittedActions {
   version: number;
   models?: ModelsSettings;
   ui?: UISettings;
@@ -105,7 +107,12 @@ export interface User {
   picture?: string;
   is_active?: boolean;
   is_verified?: boolean;
+  is_email_verified?: boolean;
   organization_id?: UUID;
+  last_login_at?: string | null;
+  joined_at?: string | null;
+  provider_type?: string;
+  external_provider_id?: string;
   user_settings?: UserSettings;
 }
 

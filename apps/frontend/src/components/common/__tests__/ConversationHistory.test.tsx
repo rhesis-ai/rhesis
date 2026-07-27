@@ -6,6 +6,13 @@ import { ThemeProvider } from '@mui/material/styles';
 import lightTheme from '@/styles/theme';
 import ConversationHistory from '../ConversationHistory';
 
+jest.mock('next-auth/react', () => ({
+  useSession: () => ({
+    data: { session_token: 'tok' },
+    status: 'authenticated',
+  }),
+}));
+
 jest.mock('@/components/common/StatusChip', () => ({
   __esModule: true,
   default: ({ status }: { status: string }) => (

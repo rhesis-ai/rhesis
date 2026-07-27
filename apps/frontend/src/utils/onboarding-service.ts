@@ -146,15 +146,10 @@ function toFrontendFormat(
  */
 export async function loadProgressFromDatabase(
   queryClient: QueryClient,
-  sessionToken: string,
   userScope: string
 ): Promise<OnboardingProgress> {
   try {
-    const settings = await fetchUserSettings(
-      queryClient,
-      sessionToken,
-      userScope
-    );
+    const settings = await fetchUserSettings(queryClient, userScope);
 
     if (settings.onboarding) {
       return toFrontendFormat(settings.onboarding);
@@ -173,12 +168,11 @@ export async function loadProgressFromDatabase(
  */
 export async function syncProgressToDatabase(
   queryClient: QueryClient,
-  sessionToken: string,
   userScope: string,
   progress: OnboardingProgress
 ): Promise<boolean> {
   try {
-    const usersClient = new ApiClientFactory(sessionToken).getUsersClient();
+    const usersClient = new ApiClientFactory().getUsersClient();
     const updated = await usersClient.updateUserSettings({
       onboarding: toBackendFormat(progress),
     });

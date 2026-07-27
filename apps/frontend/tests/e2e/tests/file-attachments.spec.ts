@@ -1,5 +1,6 @@
 import path from 'path';
 import { test, expect } from '@playwright/test';
+import { PlaygroundPage } from '../pages/PlaygroundPage';
 
 /**
  * Multi-file attachment tests — NEW feature #1441.
@@ -201,19 +202,9 @@ test.describe('File Attachments — playground @new-feature', () => {
     await page.waitForLoadState('networkidle');
 
     // Select an endpoint if available
-    const endpointSelect = page.locator('[aria-haspopup="listbox"]').first();
-    const hasEndpointSelect = await endpointSelect
-      .isVisible({ timeout: 5_000 })
-      .catch(() => false);
-    if (hasEndpointSelect) {
-      await endpointSelect.click();
-      const firstOption = page.getByRole('option').first();
-      const hasOption = await firstOption
-        .isVisible({ timeout: 5_000 })
-        .catch(() => false);
-      if (hasOption) await firstOption.click();
-      else await page.keyboard.press('Escape');
-    }
+    const playgroundPage = new PlaygroundPage(page);
+    await playgroundPage.waitForEndpointsReady();
+    await playgroundPage.selectFirstEndpointInDrawer().catch(() => false);
 
     // Try to attach a file via the hidden file input
     try {

@@ -34,7 +34,6 @@ interface ProjectAddMemberDrawerProps {
   open: boolean;
   onClose: () => void;
   projectId: string;
-  sessionToken: string;
   memberUserIds: string[];
   onMemberAdded: () => void;
 }
@@ -43,7 +42,6 @@ export default function ProjectAddMemberDrawer({
   open,
   onClose,
   projectId,
-  sessionToken,
   memberUserIds,
   onMemberAdded,
 }: ProjectAddMemberDrawerProps) {
@@ -75,7 +73,7 @@ export default function ProjectAddMemberDrawer({
       setUsersLoading(true);
       setUsersError(null);
       try {
-        const usersClient = new UsersClient(sessionToken, undefined, '');
+        const usersClient = new UsersClient(undefined, undefined, '');
         const $filter =
           memberUserIds.length > 0
             ? memberUserIds.map(id => `id ne '${id}'`).join(' and ')
@@ -95,7 +93,7 @@ export default function ProjectAddMemberDrawer({
     return () => {
       cancelled = true;
     };
-  }, [open, sessionToken, memberUserIds, resetForm]);
+  }, [open, memberUserIds, resetForm]);
 
   const memberIdSet = new Set(memberUserIds);
   const addableUsers = orgUsers.filter(u => !memberIdSet.has(u.id));
@@ -104,7 +102,7 @@ export default function ProjectAddMemberDrawer({
     if (!selectedUser) return;
     setAdding(true);
     try {
-      const factory = new ApiClientFactory(sessionToken);
+      const factory = new ApiClientFactory();
       // A single atomic request: the backend applies the escalation guard
       // before creating the membership row, so there is no window where the
       // member exists with a role other than the one selected here.
@@ -216,7 +214,6 @@ export default function ProjectAddMemberDrawer({
           />
           {AddMemberRoleField && (
             <AddMemberRoleField
-              sessionToken={sessionToken}
               value={selectedRoleId}
               onChange={setSelectedRoleId}
             />

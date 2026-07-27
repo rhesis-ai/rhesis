@@ -249,19 +249,3 @@ To verify multi-worker routing:
 6. Backend worker forwards request to SDK via WebSocket
 7. SDK result is published to response channel
 8. Celery worker receives result and returns it
-
-## Benefits of Direct Routing
-
-**Compared to broadcast-based approaches:**
-
-- **Efficiency**: Only the relevant worker receives requests (no wasted processing)
-- **Fail-fast**: Immediate error if SDK is disconnected (no timeout waiting)
-- **No race conditions**: Single source of truth for which worker has the connection
-- **Scalability**: O(1) routing lookup regardless of number of workers
-- **Simplicity**: No complex coordination logic or connection location checking
-
-**Reliability:**
-- Heartbeat keeps routing fresh (30s TTL, 10s refresh)
-- Stale entries expire automatically
-- BLPOP queuing ensures no dropped requests
-- Worker-specific queues prevent message interference
