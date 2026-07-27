@@ -288,6 +288,32 @@ def _metric_stats(base_q):
     return build_metric_pass_rate_stats(normalized)
 
 
+def _test_ids_by_metric(base_q, metric_name: str, outcome: str) -> List[str]:
+    """Return test_ids where a specific metric matches the requested outcome
+    ('pass', 'fail', or 'all'). Reuses effective_metric_success so human-review
+    overrides are handled the same way as in _metric_stats."""
+    rows = base_q.with_entities(V.test_id, V.test_metrics, V.result).all()
+    matched = []
+    for test_id, metrics_json, overall_result in rows:
+        if not metrics_json or not isinstance(metrics_json, dict):
+            continue
+        metrics = metrics_json.get("metrics")
+        if not isinstance(metrics, dict):
+            continue
+        data = metrics.get(metric_name)
+        if not isinstance(data, dict) or "is_successful" not in data:
+            continue
+        if outcome == "all":
+            matched.append(test_id)
+            continue
+        effective = effective_metric_success(
+            overall_result, bool(data["is_successful"]), bool(data.get("override"))
+        )
+        if effective == (outcome == "pass"):
+            matched.append(test_id)
+    return matched
+
+
 def get_test_result_stats(
     db: Session,
     organization_id: str | None = None,
