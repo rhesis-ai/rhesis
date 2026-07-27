@@ -320,8 +320,20 @@ def _print_summary(org_id: str, kid: str, token: str, *, dry_run: bool) -> None:
     try:
         # Decode without verification just to extract readable claims for the
         # summary.  We already signed/verified the token in mint_token.
+        # All verify_* options are disabled explicitly rather than relying on
+        # PyJWT's verify_signature=False cascade default -- this decode must
+        # never raise on a valid token's aud/exp/iss just because no
+        # audience=/issuer= was supplied for a display-only read.
         header = _jwt.get_unverified_header(token)
-        payload = _jwt.decode(token, options={"verify_signature": False})
+        payload = _jwt.decode(
+            token,
+            options={
+                "verify_signature": False,
+                "verify_exp": False,
+                "verify_aud": False,
+                "verify_iss": False,
+            },
+        )
         exp_ts = payload.get("exp")
         exp_str = (
             datetime.fromtimestamp(exp_ts, tz=timezone.utc).isoformat()
