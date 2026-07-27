@@ -454,9 +454,20 @@ class QueryBuilder:
             apply_virtual_count_sort,
             is_virtual_count_sort,
         )
+        from rhesis.backend.app.utils.relationship_sort import (
+            apply_virtual_relationship_sort,
+            is_virtual_relationship_sort,
+        )
 
         if self._sort_by and is_virtual_count_sort(self._sort_by):
             self.query = apply_virtual_count_sort(
+                self.query,
+                self.model,
+                self._sort_by,
+                self._sort_order,
+            )
+        elif self._sort_by and is_virtual_relationship_sort(self._sort_by):
+            self.query = apply_virtual_relationship_sort(
                 self.query,
                 self.model,
                 self._sort_by,
