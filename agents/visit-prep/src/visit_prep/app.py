@@ -8,6 +8,7 @@ from __future__ import annotations  # noqa: I001 - tracing must import before se
 
 import functools
 import logging
+import uuid
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -24,6 +25,7 @@ from visit_prep.tracing import (  # noqa: E402
     enable_rhesis_tracing,
     flush_rhesis_tracing,
     is_rhesis_tracing_configured,
+    set_trace_session,
 )
 from visit_prep.session import default_store, run_chat_turn  # noqa: E402
 from visit_prep.state import Phase  # noqa: E402
@@ -152,13 +154,19 @@ async def chat_endpoint_traced(
     message: str,
     conversation_id: str | None = None,
 ) -> ChatResponse:
-    logger.info("Visit-Prep chat turn (conversation=%s)", conversation_id)
+    # Resolve the conversation id up front (instead of letting run_chat_turn mint
+    # one) so we can group this turn's Haystack spans under the same session. The
+    # SDK @endpoint sets ai.session.id on its own span, but the Haystack tracer
+    # reads it from tracing_context_var, which set_trace_session populates.
+    conv_id = conversation_id or str(uuid.uuid4())
+    set_trace_session(conv_id)
+    logger.info("Visit-Prep chat turn (conversation=%s)", conv_id)
     # run_chat_turn drives the Haystack pipeline + Gemini calls synchronously
     # (blocking I/O). Offload to a worker thread so this async handler does not
     # block the event loop. anyio copies the current contextvars into the worker,
-    # preserving the active trace/span context for the SDK @endpoint span.
+    # preserving the active trace/span context (including the session set above).
     result = await anyio.to_thread.run_sync(
-        functools.partial(run_chat_turn, message, conversation_id=conversation_id)
+        functools.partial(run_chat_turn, message, conversation_id=conv_id)
     )
     return _chat_response_from_result(result)
 
