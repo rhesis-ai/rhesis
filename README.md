@@ -109,7 +109,8 @@ from rhesis.sdk.decorators import endpoint
 
 @endpoint(name="my-chatbot")
 def chat(message: str) -> str:
-    return response
+    # Call your LLM application here
+    return my_llm(message)
 ```
 
 See the [SDK README](sdk/README.md) for install, environments, and tracing.
@@ -120,7 +121,7 @@ Language-agnostic access for CI/CD and custom integrations: manage test sets, tr
 
 ### MCP and skills
 
-Use Rhesis from MCP-capable clients (Cursor, Claude Code, and others): design suites, pull sets, trigger runs, and keep expert context in the tools engineers already use.
+Use Rhesis from MCP-capable clients (Cursor, Claude Code, and others): design suites, pull sets, trigger runs, and keep expert context in the tools engineers already use. Install with the [skills](https://github.com/vercel-labs/skills) CLI:
 
 ```bash
 npx skills add rhesis-ai/rhesis
