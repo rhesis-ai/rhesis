@@ -153,7 +153,7 @@ Rarely changed; the defaults are correct for most deployments.
 | Variable | Description | Default |
 |---|---|---|
 | `JWT_ALGORITHM` | JWT signing algorithm | `HS256` |
-| `JWT_ACCESS_TOKEN_EXPIRE_MINUTES` | Access-token lifetime (minutes) | `10080` |
+| `JWT_ACCESS_TOKEN_EXPIRE_MINUTES` | Access-token lifetime (minutes); refreshed automatically, and the window in which a deactivated user's token stays valid | `15` |
 | `RHESIS_BASE_URL` | Base URL for Rhesis-hosted models | `https://api.rhesis.ai` |
 | `DB_DRIVER` | SQLAlchemy database driver | `postgresql` |
 | `BROKER_READ_URL` | Optional read-replica broker URL | *(unset)* |
