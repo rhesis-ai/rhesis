@@ -47,6 +47,7 @@ class TestResultStatsMode(str, Enum):
     TEST_RUNS = "test_runs"
     SUMMARY = "summary"  # Overall + metadata only (lightweight)
     IDS = "ids"  # test_ids matching a specific metric outcome
+    BEHAVIOR_DETAIL = "behavior_detail"  # per-behavior overall/metric/topic, keyed by behavior_id
 
 
 router = RhesisRouter(
@@ -153,7 +154,8 @@ def generate_test_result_stats(
         description="Data mode: 'summary' (lightweight), 'metrics' (individual metrics), "
         "'behavior/category/topic' (dimensional), 'timeline' (trends), "
         "'test_runs' (by run), 'ids' (test_ids matching a metric outcome), "
-        "'all' (complete)",
+        "'behavior_detail' (per-behavior metric/topic breakdown for multiple "
+        "behavior_ids in one call), 'all' (complete)",
     ),
     top: Optional[int] = Query(
         None, description="Max items per dimension (e.g., top 10 behaviors)"
@@ -175,10 +177,14 @@ def generate_test_result_stats(
     test_run_ids: Optional[List[UUID]] = Query(None, description="Filter by multiple test run IDs"),
     # mode='ids' filters
     metric_name: Optional[str] = Query(
-        None, description="Metric name to filter by (required for mode='ids')"
+        None,
+        description="Metric name to narrow mode='ids' to; omit to match the overall test result",
     ),
     outcome: Literal["pass", "fail", "all"] = Query(
         "all", description="Outcome to match for mode='ids': 'pass', 'fail', or 'all'"
+    ),
+    topic_name: Optional[str] = Query(
+        None, description="Topic name to narrow mode='ids' by (case-insensitive)"
     ),
     # User-related filters
     user_ids: Optional[List[UUID]] = Query(None, description="Filter by test creator user IDs"),
@@ -376,9 +382,6 @@ def generate_test_result_stats(
     Returns:
         Dict: Response structure varies by mode (see examples above)
     """
-    if mode == TestResultStatsMode.IDS and not metric_name:
-        raise HTTPException(status_code=400, detail="metric_name is required for mode='ids'")
-
     return get_test_result_stats(
         db=db,
         organization_id=str(current_user.organization_id) if current_user.organization_id else None,
@@ -396,6 +399,7 @@ def generate_test_result_stats(
         test_run_ids=[str(id) for id in test_run_ids] if test_run_ids else None,
         metric_name=metric_name,
         outcome=outcome,
+        topic_name=topic_name,
         # User-related filters
         user_ids=[str(id) for id in user_ids] if user_ids else None,
         assignee_ids=[str(id) for id in assignee_ids] if assignee_ids else None,

@@ -177,6 +177,14 @@ export class TestResultsClient extends BaseApiClient {
       options.tags.forEach(tag => queryParams.append('tags', tag));
     }
 
+    // mode='ids' filters
+    if (options.metric_name !== undefined)
+      queryParams.append('metric_name', options.metric_name);
+    if (options.outcome !== undefined)
+      queryParams.append('outcome', options.outcome);
+    if (options.topic_name !== undefined)
+      queryParams.append('topic_name', options.topic_name);
+
     const queryString = queryParams.toString();
     const url = queryString
       ? `${API_ENDPOINTS.testResults}/stats?${queryString}`

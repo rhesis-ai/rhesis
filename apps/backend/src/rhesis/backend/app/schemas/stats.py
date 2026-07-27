@@ -150,6 +150,21 @@ class TestResultStatsIds(BaseModel):
     metadata: TestResultStatsMetadata
 
 
+class BehaviorDetailStats(BaseModel):
+    """Overall/metric/topic pass rates for a single behavior_id."""
+
+    overall_pass_rates: OverallStats
+    metric_pass_rates: Dict[str, MetricStats]
+    topic_pass_rates: Dict[str, MetricStats]
+
+
+class TestResultStatsBehaviorDetail(BaseModel):
+    """Per-behavior overall/metric/topic breakdown, keyed by behavior_id"""
+
+    behavior_detail: Dict[str, BehaviorDetailStats]
+    metadata: TestResultStatsMetadata
+
+
 # Union type for all possible responses
 TestResultStatsResponse = Union[
     TestResultStatsAll,
@@ -162,6 +177,7 @@ TestResultStatsResponse = Union[
     TestResultStatsTimeline,
     TestResultStatsTestRuns,
     TestResultStatsIds,
+    TestResultStatsBehaviorDetail,
 ]
 
 

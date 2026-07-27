@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
+  BehaviorDetailStats,
   PassFailStats,
   TestResultsStatsMetadata,
 } from '@/utils/api-client/interfaces/test-results';
@@ -140,22 +141,16 @@ export function useBehaviorInsightsData(
             b => behaviorPassRates[b.name] !== undefined
           );
 
-          let perBehaviorResults: Awaited<
-            ReturnType<
-              typeof testResultsClient.getComprehensiveTestResultsStats
-            >
-          >[] = [];
+          let behaviorDetail: Record<string, BehaviorDetailStats> = {};
 
           if (behaviorsWithData.length > 0) {
-            perBehaviorResults = await Promise.all(
-              behaviorsWithData.map(b =>
-                testResultsClient.getComprehensiveTestResultsStats({
-                  ...statsParams,
-                  mode: 'all',
-                  behavior_ids: [b.id],
-                })
-              )
-            );
+            const detailResult =
+              await testResultsClient.getComprehensiveTestResultsStats({
+                ...statsParams,
+                mode: 'behavior_detail',
+                behavior_ids: behaviorsWithData.map(b => b.id),
+              });
+            behaviorDetail = detailResult.behavior_detail ?? {};
           }
 
           if (!isCurrentRequest(requestId)) return;
@@ -170,7 +165,7 @@ export function useBehaviorInsightsData(
             buildBehaviorColumns(
               behaviorsWithData.map(b => ({ id: b.id, name: b.name })),
               behaviorPassRates,
-              perBehaviorResults
+              behaviorDetail
             )
           );
 

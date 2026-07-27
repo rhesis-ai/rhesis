@@ -1,9 +1,9 @@
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
+  BehaviorDetailStats,
   BehaviorPassRates,
   MetricPassRates,
   PassFailStats,
-  TestResultsStats,
   TopicPassRates,
 } from '@/utils/api-client/interfaces/test-results';
 import {
@@ -228,29 +228,26 @@ export async function resolveInsightsQueryTestRunIds(
 export function buildBehaviorColumns(
   behaviorsWithData: Array<{ id: string; name: string }>,
   behaviorPassRates: BehaviorPassRates,
-  perBehaviorResults: TestResultsStats[]
+  behaviorDetail: Record<string, BehaviorDetailStats>
 ): BehaviorInsightColumn[] {
-  const columns: BehaviorInsightColumn[] = perBehaviorResults.map(
-    (result, index) => {
-      const behavior = behaviorsWithData[index];
-      const name = behavior?.name ?? '';
-      const overall = result.overall_pass_rates ??
-        behaviorPassRates[name] ?? {
-          total: 0,
-          passed: 0,
-          failed: 0,
-          pass_rate: 0,
-        };
-
-      return {
-        id: behavior?.id ?? name,
-        name,
-        overall,
-        metrics: sortByPassRateAsc(passRatesToItems(result.metric_pass_rates)),
-        topics: sortByPassRateAsc(passRatesToItems(result.topic_pass_rates)),
+  const columns: BehaviorInsightColumn[] = behaviorsWithData.map(behavior => {
+    const detail = behaviorDetail[behavior.id];
+    const overall = detail?.overall_pass_rates ??
+      behaviorPassRates[behavior.name] ?? {
+        total: 0,
+        passed: 0,
+        failed: 0,
+        pass_rate: 0,
       };
-    }
-  );
+
+    return {
+      id: behavior.id,
+      name: behavior.name,
+      overall,
+      metrics: sortByPassRateAsc(passRatesToItems(detail?.metric_pass_rates)),
+      topics: sortByPassRateAsc(passRatesToItems(detail?.topic_pass_rates)),
+    };
+  });
 
   return sortBehaviorColumns(columns);
 }
