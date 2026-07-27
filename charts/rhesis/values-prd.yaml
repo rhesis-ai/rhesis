@@ -262,3 +262,14 @@ valkey:
   primary:
     persistence:
       size: 5Gi
+    # Base chart default (100m/200m) throttles under real prod load — cgroup
+    # cpu.stat showed 8k+ throttle events, which causes intermittent
+    # "Connection refused" to the auth-code token store (/auth/exchange-code
+    # 503s) and flaky readiness probes. Bumped to match observed load.
+    resources:
+      requests:
+        memory: "128Mi"
+        cpu: "250m"
+      limits:
+        memory: "256Mi"
+        cpu: "500m"
