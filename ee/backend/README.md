@@ -212,3 +212,12 @@ License` workflow in the private `rhesis-ee` repo uses; an approver
 retrieves the token from Secret Manager and delivers it to the customer
 out of band (manual for now — a self-service portal may replace this
 later).
+
+**A blanket token is not bound to the customer it was minted for.** Since
+`sub` is always `"*"`, `SignedTokenLicenseProvider` has no way to tell
+"the deployment this was issued to" apart from any other deployment that
+happens to have the same `RHESIS_LICENSE` value set. If a customer shares
+their token, it works elsewhere too. This was a deliberate decision, not
+an oversight — see `provider.py`'s module docstring for the tradeoff
+against the no-phone-home design. Reuse is a contract/license-agreement
+concern, not something this codebase technically enforces.

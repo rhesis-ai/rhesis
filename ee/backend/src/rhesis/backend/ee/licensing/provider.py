@@ -16,6 +16,21 @@ default, the same way the rest of the open-core model already works.
 
 Fail-closed on missing keys: if no public keys are loaded, the provider
 denies all features and logs a one-time warning.
+
+Blanket tokens are not bound to a specific customer or deployment. The
+only checks are signature, expiry, status, and ``sub == "*"`` — nothing
+ties the token to *which* deployment presents it. A self-hosted customer
+who copies their ``RHESIS_LICENSE`` value to a second, unrelated
+deployment gets the same entitlements there too, with nothing in this
+provider to detect or prevent it. This is a deliberate scope decision, not
+an oversight: the alternative (a domain- or installation-ID-binding claim,
+checked locally) was considered and explicitly rejected in favor of
+relying on the license agreement — the same tradeoff a lot of on-prem
+enterprise software makes, and consistent with this provider's "no
+phone-home" design (see the licensing package's issuance-side workflow
+docs). Per-org tokens (``organization.license``, via :func:`~rhesis.
+backend.ee.licensing.mint.issue`) are unaffected: their ``sub`` must match
+the org's UUID, so those already can't be replayed onto a different org.
 """
 
 from __future__ import annotations
