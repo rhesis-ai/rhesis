@@ -158,11 +158,20 @@ class TelemetrySettings(BaseSettings):
         alias="OTEL_EXPORTER_OTLP_ENDPOINT",
     )
     service_name: str = Field(default="rhesis", alias="OTEL_SERVICE_NAME")
-    deployment_type: str = Field(default="self-hosted", alias="OTEL_DEPLOYMENT_TYPE")
+    deployment_type: Literal["cloud", "self-hosted"] = Field(
+        default="self-hosted", alias="OTEL_DEPLOYMENT_TYPE"
+    )
     rhesis_telemetry_enabled: bool = Field(
-        default=True,
+        default=False,
         alias="OTEL_RHESIS_TELEMETRY_ENABLED",
     )
+
+    @property
+    def is_telemetry_enabled(self) -> bool:
+        """Cloud is always on; self-hosted is opt-in via OTEL_RHESIS_TELEMETRY_ENABLED."""
+        if self.deployment_type == "cloud":
+            return True
+        return self.rhesis_telemetry_enabled  # self-hosted
 
 
 class LoggingSettings(BaseSettings):

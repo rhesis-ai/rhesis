@@ -9,7 +9,7 @@ from rhesis.backend.app.auth.capabilities import Permission
 from rhesis.backend.app.auth.principal import resolve_principal_from_request
 from rhesis.backend.app.auth.rbac import authorize_object, project_id_from_scope
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
-from rhesis.backend.app.config.settings import get_frontend_settings
+from rhesis.backend.app.config.settings import get_frontend_settings, get_telemetry_settings
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
@@ -19,7 +19,6 @@ from rhesis.backend.app.services.task_management import validate_task_organizati
 from rhesis.backend.app.services.task_notification import send_task_assignment_notification
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.telemetry import (
-    is_telemetry_enabled,
     set_telemetry_enabled,
     track_feature_usage,
 )
@@ -45,7 +44,7 @@ def create_task(
     """Create a new task"""
     try:
         # Set telemetry context for this request (if telemetry is enabled)
-        if is_telemetry_enabled() and current_user:
+        if get_telemetry_settings().is_telemetry_enabled and current_user:
             set_telemetry_enabled(
                 enabled=True,
                 user_id=str(current_user.id) if current_user.id else None,
@@ -184,7 +183,7 @@ def update_task(
     """Update a task"""
     try:
         # Set telemetry context for this request (if telemetry is enabled)
-        if is_telemetry_enabled() and current_user:
+        if get_telemetry_settings().is_telemetry_enabled and current_user:
             set_telemetry_enabled(
                 enabled=True,
                 user_id=str(current_user.id) if current_user.id else None,

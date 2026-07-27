@@ -57,6 +57,7 @@ from rhesis.backend.app.auth.user_utils import (
 from rhesis.backend.app.config.settings import (
     get_application_settings,
     get_frontend_settings,
+    get_telemetry_settings,
 )
 from rhesis.backend.app.dependencies import (
     get_db_session,
@@ -74,7 +75,6 @@ from rhesis.backend.app.utils.rate_limit import (
 )
 from rhesis.backend.app.utils.redact import redact_email
 from rhesis.backend.telemetry import (
-    is_telemetry_enabled,
     set_telemetry_enabled,
     track_user_activity,
 )
@@ -477,7 +477,7 @@ async def auth_callback(request: Request, db: Session = Depends(get_db_session))
         request.session["return_to"] = return_to
 
         # Track login activity
-        if is_telemetry_enabled():
+        if get_telemetry_settings().is_telemetry_enabled:
             set_telemetry_enabled(
                 enabled=True,
                 user_id=str(user.id),
@@ -553,7 +553,7 @@ async def login_with_email(
         auth_code = await create_auth_code(access_token, refresh_tok)
 
         # Track login activity
-        if is_telemetry_enabled():
+        if get_telemetry_settings().is_telemetry_enabled:
             set_telemetry_enabled(
                 enabled=True,
                 user_id=str(user.id),
@@ -666,7 +666,7 @@ async def register_with_email(
             logger.warning(f"Failed to send verification email: {email_err}")
 
         # Track registration activity
-        if is_telemetry_enabled():
+        if get_telemetry_settings().is_telemetry_enabled:
             set_telemetry_enabled(
                 enabled=True,
                 user_id=str(user.id),
@@ -1023,7 +1023,7 @@ async def verify_magic_link(
     auth_code = await create_auth_code(access_token, refresh_tok)
 
     # Track login activity
-    if is_telemetry_enabled():
+    if get_telemetry_settings().is_telemetry_enabled:
         set_telemetry_enabled(
             enabled=True,
             user_id=str(user.id),
@@ -1273,7 +1273,7 @@ def logout(
                         logger.warning("Failed to bust permission cache on logout: %s", cache_err)
 
                 # Track logout activity
-                if is_telemetry_enabled():
+                if get_telemetry_settings().is_telemetry_enabled:
                     org_id = user_info.get("organization_id")
                     set_telemetry_enabled(
                         enabled=True,
@@ -1430,7 +1430,7 @@ async def local_login(request: Request, db: Session = Depends(get_db_session)):
             redact_email(user.email),
         )
 
-        if is_telemetry_enabled():
+        if get_telemetry_settings().is_telemetry_enabled:
             set_telemetry_enabled(
                 enabled=True,
                 user_id=str(user.id),
