@@ -129,7 +129,7 @@ USER rhesis-user
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONPATH=/app/apps/backend/src \
-    PATH="/usr/local/bin:/app/apps/backend/.venv/bin:$PATH"
+    PATH="/app/apps/backend/.venv/bin:/usr/local/bin:$PATH"
 
 # Expose port
 EXPOSE 8080

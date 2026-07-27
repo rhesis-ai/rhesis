@@ -230,7 +230,7 @@ RUN mkdir -p logs && chown rhesis-user:rhesis-user logs
 USER rhesis-user
 
 ENV PYTHONPATH=/app/apps/backend/src \
-    PATH="/usr/local/bin:/app/apps/backend/.venv/bin:$PATH"
+    PATH="/app/apps/backend/.venv/bin:/usr/local/bin:$PATH"
 
 CMD ["./start.sh"]
 
