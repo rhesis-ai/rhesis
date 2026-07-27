@@ -4,14 +4,16 @@ x-host:
   api_base_url:  &api_base_url  ${API_BASE_URL:-http://localhost:8080}
   frontend_url:  &frontend_url  ${FRONTEND_URL:-http://localhost:3000}
 
+# Non-secret defaults are owned by settings.py: pass ${VAR:-} so an unset var
+# arrives empty and env_ignore_empty falls back to the application default.
 x-common-storage: &common-storage
-  STORAGE_SERVICE_URI: ${STORAGE_SERVICE_URI:-file:///app/storage}
+  STORAGE_SERVICE_URI: ${STORAGE_SERVICE_URI:-}
   STORAGE_SERVICE_ACCOUNT_KEY: ${STORAGE_SERVICE_ACCOUNT_KEY:-}
-  LOCAL_STORAGE_PATH: ${LOCAL_STORAGE_PATH:-/tmp/rhesis-files}
+  LOCAL_STORAGE_PATH: ${LOCAL_STORAGE_PATH:-}
 
 x-common-auth: &common-auth
-  AUTH_EMAIL_PASSWORD_ENABLED: ${AUTH_EMAIL_PASSWORD_ENABLED:-true}
-  AUTH_REGISTRATION_ENABLED: ${AUTH_REGISTRATION_ENABLED:-true}
+  AUTH_EMAIL_PASSWORD_ENABLED: ${AUTH_EMAIL_PASSWORD_ENABLED:-}
+  AUTH_REGISTRATION_ENABLED: ${AUTH_REGISTRATION_ENABLED:-}
   # Google OAuth (optional)
   GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
   GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
@@ -21,11 +23,12 @@ x-common-auth: &common-auth
   SESSION_SECRET_KEY: ${SESSION_SECRET_KEY:?SESSION_SECRET_KEY is required, no safe default}
 
 
+# No placeholder host/credentials: email stays disabled until SMTP_HOST is set.
 x-common-smtp: &common-smtp
-  SMTP_HOST: ${SMTP_HOST:-smtp.example.com}
-  SMTP_PORT: ${SMTP_PORT:-587}
-  SMTP_USER: ${SMTP_USER:-user@example.com}
-  SMTP_PASSWORD: ${SMTP_PASSWORD:-your-smtp-password}
+  SMTP_HOST: ${SMTP_HOST:-}
+  SMTP_PORT: ${SMTP_PORT:-}
+  SMTP_USER: ${SMTP_USER:-}
+  SMTP_PASSWORD: ${SMTP_PASSWORD:-}
   FROM_EMAIL: ${FROM_EMAIL:-noreply@example.com}
 
 x-common-jwt: &common-jwt
@@ -35,20 +38,20 @@ x-common-environment: &common-environment
   BACKEND_ENV: local
   FRONTEND_ENV: local
   WORKER_ENV: local
-  LOG_LEVEL: ${LOG_LEVEL:-INFO}
-  QUICK_START: ${QUICK_START:-false}
+  LOG_LEVEL: ${LOG_LEVEL:-}
+  QUICK_START: ${QUICK_START:-}
 
 x-rhesis-config: &rhesis-config
   API_BASE_URL: *api_base_url
-  RHESIS_BASE_URL: https://api.rhesis.ai
-  RHESIS_API_KEY: ${RHESIS_API_KEY:-your-rhesis-api-key}
+  RHESIS_BASE_URL: ${RHESIS_BASE_URL:-}
+  RHESIS_API_KEY: ${RHESIS_API_KEY:-}
   RHESIS_CONNECTOR_DISABLED: true
   FRONTEND_URL: *frontend_url
   BACKEND_URL: http://backend:8080
-  DEFAULT_GENERATION_MODEL: ${DEFAULT_GENERATION_MODEL:-rhesis/rhesis-default}
-  DEFAULT_EVALUATION_MODEL: ${DEFAULT_EVALUATION_MODEL:-rhesis/rhesis-default}
-  DEFAULT_EXECUTION_MODEL: ${DEFAULT_EXECUTION_MODEL:-rhesis/rhesis-default}
-  DEFAULT_EMBEDDING_MODEL: ${DEFAULT_EMBEDDING_MODEL:-rhesis/rhesis-embedding}
+  DEFAULT_GENERATION_MODEL: ${DEFAULT_GENERATION_MODEL:-}
+  DEFAULT_EVALUATION_MODEL: ${DEFAULT_EVALUATION_MODEL:-}
+  DEFAULT_EXECUTION_MODEL: ${DEFAULT_EXECUTION_MODEL:-}
+  DEFAULT_EMBEDDING_MODEL: ${DEFAULT_EMBEDDING_MODEL:-}
 
 x-telemetry-config: &telemetry-config
   OTEL_RHESIS_TELEMETRY_ENABLED: ${OTEL_RHESIS_TELEMETRY_ENABLED:-true}  # Self-hosted: opt-out via env var
@@ -98,8 +101,9 @@ services:
       <<: [*common-auth, *common-smtp, *common-jwt, *common-environment, *rhesis-config, *telemetry-config, *common-storage]
       # DB/Redis default to the built-in postgres/redis services above; set
       # these in your .env file to point at an external database or Redis.
+      # DB_NAME keeps a literal default because migrate.sh reads $DB_NAME directly.
       DB_HOST: ${DB_HOST:-postgres}
-      DB_PORT: ${DB_PORT:-5432}
+      DB_PORT: ${DB_PORT:-}
       DB_NAME: ${DB_NAME:-rhesis-db}
       APP_DB_USER: ${APP_DB_USER:-rhesis-user}
       APP_DB_PASS: ${APP_DB_PASS:-rhesis-password}
@@ -143,8 +147,9 @@ services:
       <<: [*common-auth,  *common-smtp, *common-jwt, *common-environment, *rhesis-config, *common-storage]
       # DB/Redis default to the built-in postgres/redis services above; set
       # these in your .env file to point at an external database or Redis.
+      # DB_NAME keeps a literal default because migrate.sh reads $DB_NAME directly.
       DB_HOST: ${DB_HOST:-postgres}
-      DB_PORT: ${DB_PORT:-5432}
+      DB_PORT: ${DB_PORT:-}
       DB_NAME: ${DB_NAME:-rhesis-db}
       APP_DB_USER: ${APP_DB_USER:-rhesis-user}
       APP_DB_PASS: ${APP_DB_PASS:-rhesis-password}
@@ -153,10 +158,10 @@ services:
       DB_ENCRYPTION_KEY: ${DB_ENCRYPTION_KEY:?DB_ENCRYPTION_KEY is required, no safe default}
       BROKER_URL: ${BROKER_URL:-redis://:rhesis-redis-pass@redis:6379/0}
       CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://:rhesis-redis-pass@redis:6379/1}
-      LOG_LEVEL: ${LOG_LEVEL:-INFO}
       CELERY_WORKER_CONCURRENCY: ${CELERY_WORKER_CONCURRENCY:-8}
       CELERY_WORKER_PREFETCH_MULTIPLIER: ${CELERY_WORKER_PREFETCH_MULTIPLIER:-4}
-      CELERY_WORKER_LOGLEVEL: ${CELERY_WORKER_LOGLEVEL:-INFO}
+      # Unset falls back to LOG_LEVEL in apps/worker/start.sh.
+      CELERY_WORKER_LOGLEVEL: ${CELERY_WORKER_LOGLEVEL:-}
       ENABLE_FLOWER: no
     volumes:
       - rhesis-storage:/app/storage
