@@ -84,7 +84,7 @@ backend:
   ingress:
     enabled: true
     host: "api.rhesis.ai"
-    className: internal
+    className: external
     annotations:
       cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
@@ -116,7 +116,7 @@ frontend:
   ingress:
     enabled: true
     host: "app.rhesis.ai"
-    className: internal
+    className: external
     annotations:
       cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
