@@ -35,6 +35,12 @@ class Organization(Base, TagsMixin):
     # (e.g. SSO). The schema is owned by the consumer; core stores it
     # as opaque JSON and never inspects its keys.
     sso_config = Column(JSON, nullable=True)
+
+    # Opaque signed license token consumed by the EE licensing layer.
+    # Core never inspects its contents; the EE SignedTokenLicenseProvider
+    # decodes and validates it. Modeled on sso_config.
+    license = Column(Text, nullable=True)
+
     slug = Column(String(50), unique=True, index=True, nullable=True)
 
     # Relationships with explicit UUID columns

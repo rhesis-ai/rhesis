@@ -62,7 +62,7 @@ def list_features(
         )
     enabled = [f.name.value for f in FeatureRegistry.licensed_features(org)]
     warnings = FeatureRegistry.feature_warnings(org)
-    info = FeatureRegistry.license_info()
+    info = FeatureRegistry.license_info(org=org)
     return FeaturesResponse(
         license=LicenseInfo(
             edition=str(info.get("edition", "community")),
