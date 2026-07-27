@@ -122,13 +122,6 @@ class TestResultStatsTopic(BaseModel):
     metadata: TestResultStatsMetadata
 
 
-class TestResultStatsOverall(BaseModel):
-    """Overall pass/fail rates only"""
-
-    overall_pass_rates: OverallStats
-    metadata: TestResultStatsMetadata
-
-
 class TestResultStatsTimeline(BaseModel):
     """Timeline data only"""
 
@@ -173,7 +166,6 @@ TestResultStatsResponse = Union[
     TestResultStatsBehavior,
     TestResultStatsCategory,
     TestResultStatsTopic,
-    TestResultStatsOverall,
     TestResultStatsTimeline,
     TestResultStatsTestRuns,
     TestResultStatsIds,
