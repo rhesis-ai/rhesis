@@ -10,9 +10,8 @@ jest.mock('../behavior-insights-utils', () => ({
 jest.mock('@/utils/api-client/client-factory', () => ({
   ApiClientFactory: jest.fn().mockImplementation(() => ({
     getTestResultsClient: () => ({
-      getTestResults: jest.fn().mockResolvedValue({
-        data: [{ test_id: 'test-1' }],
-        pagination: { totalCount: 1 },
+      getComprehensiveTestResultsStats: jest.fn().mockResolvedValue({
+        test_ids: ['test-1'],
       }),
     }),
   })),
