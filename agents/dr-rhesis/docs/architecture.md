@@ -39,7 +39,8 @@ flowchart TB
 
 | File | Responsibility |
 |---|---|
-| `app.py` | FastAPI surface, Rhesis `@endpoint` tracing (serving boundary). |
+| `app.py` | FastAPI surface, Rhesis `@endpoint` (traced server boundary). |
+| `tracing.py` | Tracing gate + global Haystack tracer bootstrap; only `app.py` and traced scripts import it. |
 | `pipeline.py` | Builds the per-turn Haystack `Pipeline` + `ConditionalRouter`. |
 | `session.py` | `StateStore` + `run_chat_turn` for multi-turn continuity. |
 | `client.py` | Single Gemini `GoogleGenAIChatGenerator` factory. |
@@ -101,14 +102,26 @@ sequenceDiagram
 
 ## Rhesis Integration
 
-Rhesis imports (`RhesisClient`, `@endpoint`) live only in `app.py`. Haystack tracing uses `RhesisConnector` in the pipeline when `RHESIS_API_KEY` and `RHESIS_PROJECT_ID` are set. The FastAPI dev server (`python -m dr_rhesis`) registers the SDK endpoint and opens the WebSocket connector via uvicorn's event loop, so the Rhesis Playground can invoke `dr_rhesis_chat` without a separate serve script.
+Tracing is opt-in at the entrypoint boundary — business modules never import Rhesis or Haystack tracing.
+
+| Entrypoint | Tracing |
+|---|---|
+| `chat_terminal/chat.py`, `examples/run_scenarios.py` | None — runs standalone even when `RHESIS_*` creds are set |
+| `python -m dr_rhesis`, `chat_terminal/chat_traced.py`, `examples/run_scenarios_traced.py` | `tracing.py` bootstraps the global `RhesisTracer` via `RhesisConnector.__init__` (not as a pipeline component) |
+
+`app.py` imports `RhesisClient` and `@endpoint` for the served path. The FastAPI dev server (`python -m dr_rhesis`) registers the SDK endpoint and opens the WebSocket connector via uvicorn's event loop, so the Rhesis Playground can invoke `dr_rhesis_chat` without a separate serve script.
+
+When the SDK Haystack integration lands (PR #2009), `enable_rhesis_tracing()` in `tracing.py` can be swapped for `auto_instrument("haystack")`.
 
 ## Trace Surface
 
 | Span | Source |
 |---|---|
-| `ai.endpoint.invoke` | Rhesis `@endpoint` on `/chat` |
-| `function.haystack.pipeline.run` | `RhesisConnector` + Haystack pipeline |
+| `ai.endpoint.invoke` | Rhesis `@endpoint` on `/chat` (served path only) |
+| `function.haystack.pipeline.run` | Global `RhesisTracer` enabled at traced entrypoints |
 | Haystack component spans | `router`, `gathering`, `summary`, `critic`, etc. |
 
-Multi-turn grouping uses `session_id` passed to `RhesisConnector` via `run_chat_turn`.
+Multi-turn grouping:
+
+- **Served path** (`python -m dr_rhesis`): SDK `@endpoint` `session_id` mapping groups turns by `conversation_id`.
+- **Script path** (`chat_traced.py`, `run_scenarios_traced.py`): `set_trace_session()` sets `ai.session.id` on the root span before each conversation or scenario.

@@ -26,6 +26,21 @@ uv sync
 uv run python chat_terminal/chat.py
 ```
 
+### Run without tracing
+
+No Rhesis credentials needed — the agent runs standalone:
+
+- **Terminal chat:** `uv run python chat_terminal/chat.py`
+- **Batch scenarios:** `uv run python examples/run_scenarios.py`
+
+### Run with tracing
+
+Requires `RHESIS_API_KEY` and `RHESIS_PROJECT_ID` in `.env`:
+
+- **Dev server + Playground:** `uv run python -m dr_rhesis`
+- **Traced terminal chat:** `uv run python chat_terminal/chat_traced.py`
+- **Traced batch scenarios:** `uv run python examples/run_scenarios_traced.py`
+
 ### Terminal chat
 
 Interactive REPL in an isolated folder:
@@ -69,8 +84,8 @@ Unit tests use mocked generators and do not require an API key.
 |---|---|---|
 | `GOOGLE_API_KEY` | Yes | Gemini API key (also accepts `GEMINI_API_KEY`) |
 | `DR_RHESIS_MODEL` | No | Model id (default: `gemini-3.1-flash-lite`) |
-| `RHESIS_API_KEY` | No | Rhesis tracing (set with `RHESIS_PROJECT_ID`) |
-| `RHESIS_PROJECT_ID` | No | Rhesis project id |
+| `RHESIS_API_KEY` | For tracing only | Rhesis tracing (set with `RHESIS_PROJECT_ID`) |
+| `RHESIS_PROJECT_ID` | For tracing only | Rhesis project id |
 
 ## Safety Constraints
 
