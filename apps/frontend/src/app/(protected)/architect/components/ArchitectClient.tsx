@@ -1,6 +1,12 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  useMemo,
+} from 'react';
 import { Box } from '@mui/material';
 import { useSession } from 'next-auth/react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -44,7 +50,12 @@ export default function ArchitectClient() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
 
   const projectKey = activeProject?.id ?? '';
-  const sessionsQueryKey = architectSessionKeys.list(userScope, projectKey);
+  // Memoize so `updateSessions` (and the ?session= effect that depends on it)
+  // stay stable across renders while scope/project are unchanged.
+  const sessionsQueryKey = useMemo(
+    () => architectSessionKeys.list(userScope, projectKey),
+    [userScope, projectKey]
+  );
 
   const updateSessions = useCallback(
     (updater: (prev: ArchitectSession[]) => ArchitectSession[]) => {
@@ -59,7 +70,12 @@ export default function ArchitectClient() {
   const { data: sessions = [], isLoading: isLoadingSessions } = useQuery({
     queryKey: sessionsQueryKey,
     queryFn: () => new ApiClientFactory().getArchitectClient().getSessions(),
-    enabled: !permsLoading && canRead && isAuthenticated(status) && !!userScope,
+    enabled:
+      !permsLoading &&
+      canRead &&
+      isAuthenticated(status) &&
+      !!userScope &&
+      !!projectKey,
     staleTime: 30_000,
   });
 
@@ -116,7 +132,15 @@ export default function ArchitectClient() {
   // reload so in-app navigations to /architect?session= still work without a
   // remount (peqy).
   useEffect(() => {
-    if (!sessionFromQuery || permsLoading || !canRead) return;
+    if (
+      !sessionFromQuery ||
+      permsLoading ||
+      !canRead ||
+      !userScope ||
+      !projectKey
+    ) {
+      return;
+    }
 
     let cancelled = false;
 
@@ -177,10 +201,11 @@ export default function ArchitectClient() {
     sessionFromQuery,
     permsLoading,
     canRead,
+    userScope,
+    projectKey,
     getClient,
     touchResumeHint,
     clearSessionQueryParam,
-    projectKey,
     updateSessions,
   ]);
 

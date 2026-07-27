@@ -55,8 +55,11 @@ export default function TermsAcceptanceGate({
       return;
     }
 
-    // Already seeded server-side — skip the client-side round trip entirely.
+    // Seeded server-side — sync local state when the prop is present/updates
+    // (layout refetch, navigation) and skip the client-side round trip.
     if (initialTermsStatus) {
+      setHasPriorAcceptance(initialTermsStatus.has_prior_acceptance);
+      setOpen(!initialTermsStatus.terms_accepted);
       setLoading(false);
       return;
     }
