@@ -8,7 +8,6 @@ export type TestResultsStatsMode =
   | 'behavior'
   | 'category'
   | 'topic'
-  | 'overall'
   | 'timeline'
   | 'test_runs';
 

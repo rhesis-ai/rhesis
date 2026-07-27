@@ -43,7 +43,6 @@ class TestResultStatsMode(str, Enum):
     BEHAVIOR = "behavior"
     CATEGORY = "category"
     TOPIC = "topic"
-    OVERALL = "overall"
     TIMELINE = "timeline"
     TEST_RUNS = "test_runs"
     SUMMARY = "summary"  # Overall + metadata only (lightweight)
@@ -152,7 +151,7 @@ def generate_test_result_stats(
         TestResultStatsMode.ALL,
         description="Data mode: 'summary' (lightweight), 'metrics' (individual metrics), "
         "'behavior/category/topic' (dimensional), 'timeline' (trends), "
-        "'test_runs' (by run), 'overall' (aggregate), 'all' (complete)",
+        "'test_runs' (by run), 'all' (complete)",
     ),
     top: Optional[int] = Query(
         None, description="Max items per dimension (e.g., top 10 behaviors)"
@@ -223,11 +222,6 @@ def generate_test_result_stats(
     - Returns: `topic_pass_rates` + `metadata`
     - Contains: Pass/fail rates grouped by topic (Healthcare, Finance, Technology, etc.)
     - Use case: Topic performance insights, domain expertise evaluation
-
-    **`overall`** - High-level overview (~10% of full data size)
-    - Returns: `overall_pass_rates` + `metadata`
-    - Contains: Aggregate pass/fail rates (test passes only if ALL metrics pass)
-    - Use case: Executive dashboards, KPI tracking
 
     **`timeline`** - Trend analysis (~40% of full data size)
     - Returns: `timeline` + `metadata`

@@ -32,7 +32,6 @@ MODE_DEFINITIONS = {
     "behavior": ["behavior_pass_rates"],
     "category": ["category_pass_rates"],
     "topic": ["topic_pass_rates"],
-    "overall": ["overall_pass_rates"],
     "timeline": ["timeline"],
     "test_runs": ["test_run_summary"],
     "summary": ["overall_pass_rates"],
@@ -349,7 +348,7 @@ def get_test_result_stats(
     timeline: list = []
     test_run_summary: list = []
 
-    if mode in ("all", "overall", "summary"):
+    if mode in ("all", "summary"):
         overall_pass_rates = _overall_stats(db, base_q)
     if mode in ("all", "metrics"):
         metric_pass_rates = _metric_stats(base_q)

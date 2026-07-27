@@ -27,7 +27,6 @@ class TestResultStatsMode(str, Enum):
     BEHAVIOR = "behavior"
     CATEGORY = "category"
     TOPIC = "topic"
-    OVERALL = "overall"
     TIMELINE = "timeline"
     TEST_RUNS = "test_runs"
 
