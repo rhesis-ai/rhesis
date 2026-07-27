@@ -413,11 +413,11 @@ def _behavior_breakdown(base_q) -> Dict[str, Dict]:
 
 
 def _test_ids_by_metric(base_q, metric_name: str, outcome: str) -> List[str]:
-    """Return test_ids where a specific metric matches the requested outcome
-    ('pass', 'fail', or 'all'). Reuses effective_metric_success so human-review
-    overrides are handled the same way as in _metric_stats."""
+    """Return distinct test_ids where a specific metric matches the requested
+    outcome ('pass', 'fail', or 'all'). Reuses effective_metric_success so
+    human-review overrides are handled the same way as in _metric_stats."""
     rows = base_q.with_entities(V.test_id, V.test_metrics, V.result).all()
-    matched = []
+    matched: Dict[str, None] = {}
     for test_id, metrics_json, overall_result in rows:
         if not metrics_json or not isinstance(metrics_json, dict):
             continue
@@ -428,14 +428,14 @@ def _test_ids_by_metric(base_q, metric_name: str, outcome: str) -> List[str]:
         if not isinstance(data, dict) or "is_successful" not in data:
             continue
         if outcome == "all":
-            matched.append(test_id)
+            matched[test_id] = None
             continue
         effective = effective_metric_success(
             overall_result, bool(data["is_successful"]), bool(data.get("override"))
         )
         if effective == (outcome == "pass"):
-            matched.append(test_id)
-    return matched
+            matched[test_id] = None
+    return list(matched)
 
 
 def _test_ids_overall(base_q, outcome: str) -> List[str]:
