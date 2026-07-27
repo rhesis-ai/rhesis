@@ -13,8 +13,17 @@ import {
 } from '@mui/material';
 import { useSession } from 'next-auth/react';
 import TermsAcceptanceField from './TermsAcceptanceField';
-import { acceptTerms, fetchTermsStatus } from '@/utils/api-client/auth-client';
-import { fetchQuickStartEnabled } from '@/utils/quick_start';
+import {
+  acceptTerms,
+  fetchTermsStatus,
+  type TermsStatus,
+} from '@/utils/api-client/auth-client';
+import { useQuickStart } from '@/contexts/QuickStartContext';
+
+interface TermsAcceptanceGateProps {
+  /** Server-fetched terms status (see `fetchTermsStatusServer`), seeded from the `(protected)` layout so no client-side fetch is needed on the happy path. Null when the server fetch failed/was skipped — falls back to a client fetch. */
+  initialTermsStatus?: TermsStatus | null;
+}
 
 /**
  * Global post-login gate: if the active terms version changed since the user last
@@ -22,42 +31,37 @@ import { fetchQuickStartEnabled } from '@/utils/quick_start';
  *
  * Skipped in Quick Start mode — local dev auto-login should not be blocked.
  */
-export default function TermsAcceptanceGate() {
+export default function TermsAcceptanceGate({
+  initialTermsStatus = null,
+}: TermsAcceptanceGateProps) {
   const { status } = useSession();
+  const quickStart = useQuickStart();
 
-  const [quickStart, setQuickStart] = React.useState<boolean | null>(null);
-  const [loading, setLoading] = React.useState(true);
-  const [open, setOpen] = React.useState(false);
+  const [loading, setLoading] = React.useState(!initialTermsStatus);
+  const [open, setOpen] = React.useState(
+    initialTermsStatus ? !initialTermsStatus.terms_accepted : false
+  );
   const [checked, setChecked] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [showWarning, setShowWarning] = React.useState(false);
-  const [hasPriorAcceptance, setHasPriorAcceptance] = React.useState(false);
+  const [hasPriorAcceptance, setHasPriorAcceptance] = React.useState(
+    initialTermsStatus?.has_prior_acceptance ?? false
+  );
 
   React.useEffect(() => {
-    let cancelled = false;
-
-    fetchQuickStartEnabled().then(enabled => {
-      if (!cancelled) {
-        setQuickStart(enabled);
-      }
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  React.useEffect(() => {
-    if (quickStart === true) {
+    if (quickStart) {
       setLoading(false);
       return;
     }
 
-    if (quickStart === null || status !== 'authenticated') {
-      if (quickStart !== null) {
-        setLoading(false);
-      }
+    // Already seeded server-side — skip the client-side round trip entirely.
+    if (initialTermsStatus) {
+      setLoading(false);
+      return;
+    }
+
+    if (status !== 'authenticated') {
       return;
     }
 
@@ -83,14 +87,9 @@ export default function TermsAcceptanceGate() {
     return () => {
       cancelled = true;
     };
-  }, [status, quickStart]);
+  }, [status, quickStart, initialTermsStatus]);
 
-  if (
-    loading ||
-    quickStart === null ||
-    quickStart ||
-    status !== 'authenticated'
-  ) {
+  if (loading || quickStart || status !== 'authenticated') {
     return null;
   }
 

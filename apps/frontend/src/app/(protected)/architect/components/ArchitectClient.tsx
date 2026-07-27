@@ -1,14 +1,16 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Box } from '@mui/material';
 import { useSession } from 'next-auth/react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { ArchitectSession } from '@/utils/api-client/architect-client';
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
 import { useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
+import { architectSessionKeys } from '@/constants/query-keys';
 import AccessDenied from '@/components/common/AccessDenied';
 import PageLoadingState from '@/components/common/PageLoadingState';
 import {
@@ -23,10 +25,12 @@ import {
 import ArchitectSidebar from './ArchitectSidebar';
 import ArchitectChat from './ArchitectChat';
 import ArchitectWelcome from './ArchitectWelcome';
-import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import { isAuthenticated, useUserScope } from '@/hooks/useIsAuthenticated';
 
 export default function ArchitectClient() {
   const { status } = useSession();
+  const userScope = useUserScope();
+  const queryClient = useQueryClient();
   const { activeProject } = useActiveProject();
   const router = useRouter();
   const pathname = usePathname();
@@ -34,12 +38,31 @@ export default function ArchitectClient() {
   const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
     Capability.Architect.READ
   );
-  const [sessions, setSessions] = useState<ArchitectSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
-  const [isLoadingSessions, setIsLoadingSessions] = useState(true);
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
   const [isCreatingSession, setIsCreatingSession] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
+
+  const projectKey = activeProject?.id ?? '';
+  const sessionsQueryKey = architectSessionKeys.list(userScope, projectKey);
+
+  const updateSessions = useCallback(
+    (updater: (prev: ArchitectSession[]) => ArchitectSession[]) => {
+      queryClient.setQueryData<ArchitectSession[]>(sessionsQueryKey, prev =>
+        updater(prev ?? [])
+      );
+    },
+    [queryClient, sessionsQueryKey]
+  );
+
+  // react-query dedupes Strict Mode remounts and project-scoped refetches.
+  const { data: sessions = [], isLoading: isLoadingSessions } = useQuery({
+    queryKey: sessionsQueryKey,
+    queryFn: () => new ApiClientFactory().getArchitectClient().getSessions(),
+    enabled:
+      !permsLoading && canRead && isAuthenticated(status) && !!userScope,
+    staleTime: 30_000,
+  });
 
   const getClient = useCallback(() => {
     if (!isAuthenticated(status)) return null;
@@ -65,45 +88,30 @@ export default function ArchitectClient() {
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   }, [pathname, router, searchParams]);
 
-  // Reload sessions whenever the active project changes so the sidebar always
-  // shows only sessions belonging to the current project. The backend already
-  // filters by project via RLS (X-Project-Id header); we just need to re-fetch
-  // when the project scope switches.
+  // When the project scope changes (or the list first resolves), clear / resume
+  // selection. Skip while a ?session= handoff is pending — that effect wins.
+  const resumeForProjectRef = useRef<string | null>(null);
   useEffect(() => {
-    const loadSessions = async () => {
-      if (permsLoading || !canRead) return;
-      const client = getClient();
-      if (!client) return;
-      setIsLoadingSessions(true);
-      // Keep a pending ?session= selection while the list reloads.
-      if (!searchParams.get('session')) {
-        setActiveSessionId(null);
-      }
-      setSessions([]);
-      try {
-        const data = await client.getSessions();
-        setSessions(data);
-        // Skip resume when a ?session= handoff is pending — the query effect
-        // prefers that id over the resume hint.
-        if (searchParams.get('session')) {
-          return;
-        }
-        const projectId = activeProject?.id;
-        if (projectId) {
-          setActiveSessionId(pickResumableSessionId(projectId, data));
-        } else {
-          setActiveSessionId(null);
-        }
-      } catch (err) {
-        console.error('Failed to load architect sessions:', err);
-        setActiveSessionId(null);
-      } finally {
-        setIsLoadingSessions(false);
-      }
-    };
-    loadSessions();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- project/token drive reload
-  }, [getClient, activeProject?.id, permsLoading, canRead]);
+    if (sessionFromQuery) return;
+
+    // Project switched — drop the previous selection until the new list resolves.
+    if (resumeForProjectRef.current !== projectKey) {
+      setActiveSessionId(null);
+    }
+
+    if (permsLoading || !canRead || isLoadingSessions) return;
+    if (resumeForProjectRef.current === projectKey) return;
+    resumeForProjectRef.current = projectKey;
+
+    if (projectKey) {
+      setActiveSessionId(pickResumableSessionId(projectKey, sessions));
+    } else {
+      setActiveSessionId(null);
+    }
+    // sessions read once when the project key first resolves — intentionally
+    // not a dep, so title/create/delete cache writes don't re-run resume.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectKey, permsLoading, canRead, isLoadingSessions, sessionFromQuery]);
 
   // Prefer ?session= over resume (contextual handoffs). Separate from the list
   // reload so in-app navigations to /architect?session= still work without a
@@ -132,13 +140,14 @@ export default function ArchitectClient() {
 
       setActiveSessionId(sessionFromQuery);
       touchResumeHint(sessionFromQuery);
+      resumeForProjectRef.current = projectKey;
 
       const alreadyListed = sessions.some(s => s.id === sessionFromQuery);
       if (!alreadyListed) {
         try {
           const detail = await client.getSession(sessionFromQuery);
           if (cancelled) return;
-          setSessions(prev => [
+          updateSessions(prev => [
             detail,
             ...prev.filter(s => s.id !== detail.id),
           ]);
@@ -172,6 +181,8 @@ export default function ArchitectClient() {
     getClient,
     touchResumeHint,
     clearSessionQueryParam,
+    projectKey,
+    updateSessions,
   ]);
 
   // Bump last-activity when navigating away mid-conversation.
@@ -190,13 +201,13 @@ export default function ArchitectClient() {
     if (!client) return;
     try {
       const newSession = await client.createSession();
-      setSessions(prev => [newSession, ...prev]);
+      updateSessions(prev => [newSession, ...prev]);
       setActiveSessionId(newSession.id);
       touchResumeHint(newSession.id);
     } catch (err) {
       console.error('Failed to create session:', err);
     }
-  }, [getClient, touchResumeHint]);
+  }, [getClient, touchResumeHint, updateSessions]);
 
   const handleNewSessionWithMessage = useCallback(
     async (message: string) => {
@@ -206,7 +217,7 @@ export default function ArchitectClient() {
       setIsCreatingSession(true);
       try {
         const newSession = await client.createSession();
-        setSessions(prev => [newSession, ...prev]);
+        updateSessions(prev => [newSession, ...prev]);
         setPendingMessage(message);
         setActiveSessionId(newSession.id);
         touchResumeHint(newSession.id);
@@ -215,7 +226,7 @@ export default function ArchitectClient() {
         setIsCreatingSession(false);
       }
     },
-    [getClient, touchResumeHint]
+    [getClient, touchResumeHint, updateSessions]
   );
 
   const handleSelectSession = useCallback(
@@ -232,7 +243,7 @@ export default function ArchitectClient() {
       if (!client) return;
       try {
         await client.deleteSession(id);
-        setSessions(prev => prev.filter(s => s.id !== id));
+        updateSessions(prev => prev.filter(s => s.id !== id));
         if (activeSessionId === id) {
           setActiveSessionId(null);
           if (activeProject?.id) {
@@ -243,16 +254,16 @@ export default function ArchitectClient() {
         console.error('Failed to delete session:', err);
       }
     },
-    [getClient, activeSessionId, activeProject?.id]
+    [getClient, activeSessionId, activeProject?.id, updateSessions]
   );
 
   const handleSessionTitleUpdate = useCallback(
     (sessionId: string, title: string) => {
-      setSessions(prev =>
+      updateSessions(prev =>
         prev.map(s => (s.id === sessionId ? { ...s, title } : s))
       );
     },
-    []
+    [updateSessions]
   );
 
   const handleInitialMessageSent = useCallback(() => {

@@ -23,7 +23,7 @@ import {
 } from '@/utils/active-project';
 import type { UUID } from 'crypto';
 import { Project } from '@/utils/api-client/interfaces/project';
-import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import { isAuthenticated, useUserScope } from '@/hooks/useIsAuthenticated';
 
 interface ActiveProjectContextValue {
   /** Projects the current user is a member of. */
@@ -52,27 +52,33 @@ const ActiveProjectContext = createContext<ActiveProjectContextValue>({
 export function ActiveProjectProvider({
   children,
   initialActiveProject = null,
+  initialProjects = null,
 }: {
   children: React.ReactNode;
   initialActiveProject?: Project | null;
+  /** Server-fetched `GET /projects/mine` result. When present, the initial mount effect reuses it instead of re-fetching client-side. */
+  initialProjects?: Project[] | null;
 }) {
   const { data: session, status } = useSession();
   const queryClient = useQueryClient();
-  const userScope = session?.user?.id ?? '';
+  const userScope = useUserScope();
   const pathname = usePathname();
   const pathnameRef = useRef(pathname);
   pathnameRef.current = pathname;
   const [projects, setProjects] = useState<Project[]>(
-    initialActiveProject ? [initialActiveProject] : []
+    initialProjects ?? (initialActiveProject ? [initialActiveProject] : [])
   );
   const [activeProject, setActiveProjectState] = useState<Project | null>(
     initialActiveProject
   );
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!initialProjects);
+  // Only the very first mount effect run may reuse the server-seeded list —
+  // any later call (org switch, explicit refresh()) must hit the network.
+  const hasConsumedInitialRef = useRef(false);
 
   const fetchProjects = useCallback(
     async (options?: { listOnly?: boolean }) => {
-      if (!isAuthenticated(status)) return;
+      if (!isAuthenticated(status) || !userScope) return;
       if (
         pathnameRef.current.startsWith('/onboarding') ||
         !session?.user?.organization_id
@@ -82,11 +88,21 @@ export function ActiveProjectProvider({
         setLoading(false);
         return;
       }
+
+      const canReuseInitialProjects =
+        initialProjects !== null && !hasConsumedInitialRef.current;
+      hasConsumedInitialRef.current = true;
+
       setLoading(true);
       try {
-        const factory = new ApiClientFactory();
-        const projectsClient = factory.getProjectsClient();
-        const data = await projectsClient.getMyProjects();
+        let data: Project[];
+        if (canReuseInitialProjects) {
+          data = initialProjects as Project[];
+        } else {
+          const factory = new ApiClientFactory();
+          const projectsClient = factory.getProjectsClient();
+          data = await projectsClient.getMyProjects();
+        }
         setProjects(data);
 
         if (options?.listOnly) {
@@ -152,7 +168,7 @@ export function ActiveProjectProvider({
         setLoading(false);
       }
     },
-    [session?.user?.organization_id, queryClient, userScope, status]
+    [session?.user?.organization_id, queryClient, userScope, status, initialProjects]
   );
 
   useEffect(() => {
@@ -168,7 +184,7 @@ export function ActiveProjectProvider({
         writeActiveProjectId(nextId as string);
 
         // Persist as default_project so the selection survives logout/login.
-        if (isAuthenticated(status)) {
+        if (isAuthenticated(status) && userScope) {
           try {
             const factory = new ApiClientFactory();
             const updated = await factory.getUsersClient().updateUserSettings({

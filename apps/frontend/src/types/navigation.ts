@@ -3,6 +3,7 @@ import { type Theme } from '@mui/material/styles';
 import { type Session } from 'next-auth';
 import { type Project } from '@/utils/api-client/interfaces/project';
 import { type Organization } from '@/utils/api-client/interfaces/organization';
+import { type UserSettings } from '@/utils/api-client/interfaces/user';
 
 export interface NavigationPageItem {
   kind: 'page';
@@ -81,5 +82,11 @@ export interface LayoutProps {
   authentication: AuthenticationProps;
   theme: Theme;
   initialActiveProject?: Project | null;
+  /** Server-fetched `GET /projects/mine` result — seeds `ActiveProjectProvider` so the switcher list and active-project resolution don't need a client-side fetch on mount. */
+  initialProjects?: Project[] | null;
+  /** Server-fetched `GET /users/settings` result — seeds the `useUserSettings` cache and the `default_project` fallback lookup inside `ActiveProjectProvider`. */
+  initialUserSettings?: UserSettings | null;
   initialOrganization?: Organization | null;
+  /** Server-fetched Quick Start flag — see `fetchQuickStartEnabledServer`. */
+  initialQuickStart?: boolean;
 }
