@@ -143,6 +143,13 @@ class TestResultStatsTestRuns(BaseModel):
     metadata: TestResultStatsMetadata
 
 
+class TestResultStatsIds(BaseModel):
+    """Test IDs matching a specific metric outcome only"""
+
+    test_ids: List[str]
+    metadata: TestResultStatsMetadata
+
+
 # Union type for all possible responses
 TestResultStatsResponse = Union[
     TestResultStatsAll,
@@ -154,6 +161,7 @@ TestResultStatsResponse = Union[
     TestResultStatsOverall,
     TestResultStatsTimeline,
     TestResultStatsTestRuns,
+    TestResultStatsIds,
 ]
 
 

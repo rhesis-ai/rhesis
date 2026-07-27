@@ -35,6 +35,7 @@ MODE_DEFINITIONS = {
     "timeline": ["timeline"],
     "test_runs": ["test_run_summary"],
     "summary": ["overall_pass_rates"],
+    "ids": ["test_ids"],
 }
 
 V = TestResultStatsView
@@ -337,6 +338,8 @@ def get_test_result_stats(
     tags: List[str] | None = None,
     start_date: str | None = None,
     end_date: str | None = None,
+    metric_name: str | None = None,
+    outcome: str = "all",
 ) -> Dict:
     """Get test result statistics. Signature kept identical for backward compatibility."""
 
@@ -373,7 +376,12 @@ def get_test_result_stats(
     topic_pass_rates: dict = {}
     timeline: list = []
     test_run_summary: list = []
+    test_ids: list = []
 
+    if mode == "ids":
+        if not metric_name:
+            raise ValueError("metric_name is required for mode='ids'")
+        test_ids = _test_ids_by_metric(base_q, metric_name, outcome)
     if mode in ("all", "summary"):
         overall_pass_rates = _overall_stats(db, base_q)
     if mode in ("all", "metrics"):
