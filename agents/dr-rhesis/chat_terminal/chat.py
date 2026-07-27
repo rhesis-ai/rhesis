@@ -1,4 +1,6 @@
-"""Terminal chat REPL for Dr-Rhesis.
+"""Terminal chat REPL for Dr-Rhesis (no Rhesis tracing).
+
+For traced interactive chat, use ``chat_traced.py`` instead.
 
 Run from anywhere inside the dr-rhesis project:
 
