@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 import sys
-import uuid
 
 from dotenv import load_dotenv
 from haystack import Pipeline
@@ -47,10 +46,7 @@ def run_scenario(
     components: TurnComponents | None = None,
 ) -> DrRhesisState:
     state = DrRhesisState()
-    # A fresh conversation id per scenario keeps each scenario's turns grouped
-    # together in Rhesis while staying separate from other scenarios.
-    conv_id = str(uuid.uuid4())
-    logger.info("=== Scenario: %s (%s) ===", name, conv_id)
+    logger.info("=== Scenario: %s ===", name)
 
     for message in messages:
         result = run_turn(
@@ -58,7 +54,6 @@ def run_scenario(
             state,
             pipeline=pipeline,
             components=components,
-            session_id=conv_id,
         )
         state = result["state"]
         logger.info("User: %s", message)
@@ -82,8 +77,7 @@ def main() -> int:
 
     # Build the pipeline once and reuse it across scenarios: Haystack forbids
     # sharing the same component instances across multiple pipelines, and the
-    # generator is expensive to construct. Conversations stay isolated via a
-    # per-scenario session_id, not via separate pipelines.
+    # generator is expensive to construct.
     pipeline = build_intent_pipeline(components)
 
     for name, messages in SCENARIOS.items():

@@ -129,8 +129,6 @@ def run_chat_turn(
     with active_store.conversation_lock(conv_id):
         state = active_store.get(conv_id)
 
-        # ``conv_id`` is passed as the trace ``session_id`` so the RhesisConnector
-        # groups every span for this conversation under one thread in Rhesis.
         # Callers supplying explicit components (e.g. tests injecting a mock
         # generator) get a pipeline cached per bundle — never rebuilt per turn,
         # since Haystack forbids re-adding the same component instances.
@@ -139,7 +137,7 @@ def run_chat_turn(
         else:
             pipeline = get_default_pipeline()
         with _pipeline_run_lock:
-            result = run_turn(message, state, pipeline=pipeline, session_id=conv_id)
+            result = run_turn(message, state, pipeline=pipeline)
         active_store.set(conv_id, result["state"])
 
     result["conversation_id"] = conv_id

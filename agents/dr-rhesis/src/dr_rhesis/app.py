@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import functools
 import logging
-import os
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -20,12 +19,12 @@ from pydantic import BaseModel, Field
 from rhesis.sdk import RhesisClient, endpoint
 from rhesis.sdk.clients import DisabledClient
 
-# Must be set before any `haystack` import (pulled in transitively by
-# dr_rhesis.session) so span input/output content is captured, not dropped.
-# None of the imports above pull in haystack, so this is early enough.
-os.environ.setdefault("HAYSTACK_CONTENT_TRACING_ENABLED", "true")
-
-from dr_rhesis.pipeline import is_rhesis_tracing_configured  # noqa: E402
+# tracing.py sets HAYSTACK_CONTENT_TRACING_ENABLED before any haystack import.
+from dr_rhesis.tracing import (  # noqa: E402
+    enable_rhesis_tracing,
+    flush_rhesis_tracing,
+    is_rhesis_tracing_configured,
+)
 from dr_rhesis.session import default_store, run_chat_turn  # noqa: E402
 from dr_rhesis.state import Phase  # noqa: E402
 
@@ -47,6 +46,7 @@ load_dotenv()
 # missing.
 if is_rhesis_tracing_configured():
     rhesis_client = RhesisClient.from_environment()
+    enable_rhesis_tracing("Dr-Rhesis")
 else:
     logger.info(
         "RHESIS_API_KEY/RHESIS_PROJECT_ID not set; using DisabledClient. "
@@ -54,8 +54,8 @@ else:
     )
     rhesis_client = DisabledClient()
 
-# Pending: SDK Haystack integration is not on main yet.
-# auto_instrument("haystack")
+# Pending: swap enable_rhesis_tracing() for auto_instrument("haystack") when the
+# SDK Haystack integration (PR #2009 or equivalent) lands.
 
 _startup_validated: bool = False
 
@@ -74,15 +74,7 @@ async def lifespan(app: FastAPI):
     )
     yield
     _startup_validated = False
-    # Flush any pending Haystack/Rhesis spans before the process exits.
-    try:
-        from haystack.tracing import tracer as haystack_tracer
-
-        actual = getattr(haystack_tracer, "actual_tracer", None)
-        if actual is not None and hasattr(actual, "flush"):
-            actual.flush()
-    except Exception:  # pragma: no cover - best-effort shutdown flush
-        logger.debug("No Haystack tracer to flush on shutdown", exc_info=True)
+    flush_rhesis_tracing()
 
 
 app = FastAPI(

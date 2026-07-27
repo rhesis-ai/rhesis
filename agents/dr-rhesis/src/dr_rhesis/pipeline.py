@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 from typing import Any
 
@@ -17,15 +16,6 @@ from dr_rhesis.client import build_chat_generator
 from dr_rhesis.safety import has_red_flag
 from dr_rhesis.state import DrRhesisState, Phase, missing_core_slots
 from dr_rhesis.terminals import escalate, terminal_reply
-
-
-def is_rhesis_tracing_configured() -> bool:
-    """Return True when both Rhesis credentials needed for tracing are set.
-
-    Matches the gate in ``app.py``: ``RhesisClient`` and ``RhesisConnector`` both
-    need ``RHESIS_API_KEY`` and ``RHESIS_PROJECT_ID`` to ship spans reliably.
-    """
-    return bool(os.getenv("RHESIS_API_KEY") and os.getenv("RHESIS_PROJECT_ID"))
 
 
 # eq=False keeps identity hashing so a bundle can key the per-components
@@ -250,29 +240,11 @@ def _build_intent_conditional_router() -> ConditionalRouter:
     return ConditionalRouter(routes=routes, unsafe=True)
 
 
-def build_intent_pipeline(
-    components: TurnComponents | None = None,
-    *,
-    enable_tracing: bool | None = None,
-) -> Pipeline:
-    """Build the per-turn Haystack pipeline with ConditionalRouter intent branching.
-
-    When ``enable_tracing`` is ``None`` (the default) the :class:`RhesisConnector`
-    tracer is added only when both ``RHESIS_API_KEY`` and ``RHESIS_PROJECT_ID``
-    are set (same gate as ``app.py``), so unit tests without credentials build a
-    plain pipeline while real runs ship spans to Rhesis. The connector is
-    standalone — it needs no connections to other components.
-    """
+def build_intent_pipeline(components: TurnComponents | None = None) -> Pipeline:
+    """Build the per-turn Haystack pipeline with ConditionalRouter intent branching."""
     parts = components or build_turn_components()
 
-    if enable_tracing is None:
-        enable_tracing = is_rhesis_tracing_configured()
-
     pipe = Pipeline()
-    if enable_tracing:
-        from haystack_integrations.components.connectors.rhesis import RhesisConnector
-
-        pipe.add_component("tracer", RhesisConnector("Dr-Rhesis"))
     pipe.add_component("prepare", PrepareTurn())
     pipe.add_component("router", parts.router)
     pipe.add_component("intent_router", _build_intent_conditional_router())
@@ -309,31 +281,13 @@ def run_turn(
     *,
     pipeline: Pipeline | None = None,
     components: TurnComponents | None = None,
-    session_id: str | None = None,
 ) -> dict[str, Any]:
-    """Run one conversation turn and return reply plus updated state.
-
-    When the pipeline includes the ``tracer`` component and ``session_id`` is
-    provided, it is passed as the trace ``invocation_context`` so all spans for
-    the turn are grouped under the same conversation in Rhesis. If tracing is
-    active, ``trace_url`` and ``trace_id`` are included in the returned dict.
-    """
+    """Run one conversation turn and return reply plus updated state."""
     current_state = state or DrRhesisState()
     pipe = pipeline or build_intent_pipeline(components)
 
     run_data: dict[str, Any] = {"prepare": {"message": message, "state": current_state}}
-    tracing_enabled = pipe.graph.has_node("tracer")
-    if tracing_enabled and session_id:
-        run_data["tracer"] = {"invocation_context": {"session_id": session_id}}
-
     result = pipe.run(data=run_data)
-
-    trace_meta: dict[str, Any] = {}
-    if tracing_enabled and "tracer" in result:
-        trace_meta = {
-            "trace_url": result["tracer"].get("trace_url"),
-            "trace_id": result["tracer"].get("trace_id"),
-        }
 
     for branch in ("health", "emergency", "greet", "redirect"):
         if branch in result and "reply" in result[branch]:
@@ -341,7 +295,6 @@ def run_turn(
                 "response": result[branch]["reply"],
                 "state": result[branch]["state"],
                 "intent": result[branch].get("intent") or _branch_intent(branch),
-                **trace_meta,
             }
 
     raise RuntimeError(f"Pipeline completed without a terminal reply: {list(result.keys())}")
@@ -367,6 +320,5 @@ __all__ = [
     "_build_intent_conditional_router",
     "build_intent_pipeline",
     "build_turn_components",
-    "is_rhesis_tracing_configured",
     "run_turn",
 ]
