@@ -69,6 +69,7 @@ dependencies = [
     # --- MCP server bits (small) ---
     "mcp>=1.2.0",
     "google-cloud-storage>=3.8.0",
+    "google-cloud-secret-manager>=2.20.0",
     "pydantic-settings>=2.14.2",
     "sendgrid>=6.12.5",
 ]

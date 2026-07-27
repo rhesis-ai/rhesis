@@ -2,7 +2,8 @@
 
 This module is the single implementation of license signing. All entry points
 (CLI, GitHub Action / Cloud Run Job, future self-service endpoint) call
-:func:`mint_token` or :func:`issue` rather than duplicating signing logic.
+:func:`mint_token`, :func:`issue`, or :func:`deliver_to_secret_manager` rather
+than duplicating signing logic.
 
 Design notes
 ------------
@@ -22,6 +23,11 @@ Design notes
 * **``sub="*"`` is mint-only.** Blanket tokens have no ``organization`` row to
   write to; they are delivered as the ``RHESIS_LICENSE`` env var on the backend
   service. :func:`issue` refuses blanket subjects.
+* **Self-hosted deliveries have no DB to write to either.** A self-hosted
+  customer's ``organization`` row lives in their own database, not ours.
+  :func:`deliver_to_secret_manager` is the delivery path for that case: it
+  writes the minted (always blanket) token to a GCP Secret Manager secret
+  instead of printing it to a log an operator has to scrape.
 """
 
 from __future__ import annotations
@@ -273,8 +279,62 @@ def issue(
     return token
 
 
+# ---------------------------------------------------------------------------
+# Secret Manager delivery — for self-hosted deployments (no DB to write to)
+# ---------------------------------------------------------------------------
+
+
+def deliver_to_secret_manager(token: str, *, project_id: str, secret_name: str) -> str:
+    """Write *token* as a new version of an existing Secret Manager secret.
+
+    For self-hosted deployments there is no ``organization`` row to write
+    to (see :func:`issue`) — the token itself, handed to the customer, is
+    the deliverable. Landing it in Secret Manager instead of a CLI/CI log
+    keeps it inside an access-controlled, audit-logged store rather than a
+    log stream that anyone with log-viewer permissions can read.
+
+    The secret must already exist; this function only adds a version to
+    it, so a typo in *secret_name* fails loudly instead of silently
+    creating a stray secret. Authentication is Application Default
+    Credentials — when running as a Cloud Run job, that's the job's own
+    runtime service account, which needs ``roles/secretmanager.
+    secretVersionAdder`` on *secret_name*. No credential is threaded
+    through this function's arguments.
+
+    :param token: The signed JWT to store. Never logged.
+    :param project_id: GCP project containing the secret.
+    :param secret_name: Short secret name (not the full
+        ``projects/.../secrets/...`` resource path).
+    :returns: The created version's resource name — safe to log, since it
+        contains only the project/secret/version identifiers, never the
+        secret payload.
+    :raises RuntimeError: if the secret doesn't exist or the caller lacks
+        permission to add a version.
+    """
+    from google.api_core.exceptions import GoogleAPICallError
+    from google.cloud import secretmanager
+
+    client = secretmanager.SecretManagerServiceClient()
+    parent = f"projects/{project_id}/secrets/{secret_name}"
+    try:
+        response = client.add_secret_version(
+            request={"parent": parent, "payload": {"data": token.encode("utf-8")}}
+        )
+    except GoogleAPICallError as exc:
+        raise RuntimeError(
+            f"Failed to deliver license token to Secret Manager secret "
+            f"'{secret_name}' in project '{project_id}': {exc}. Confirm the "
+            "secret already exists and the caller holds "
+            "roles/secretmanager.secretVersionAdder on it."
+        ) from exc
+
+    logger.info("Delivered license token to Secret Manager: %s", response.name)
+    return response.name
+
+
 __all__ = [
     "DEFAULT_TTL_DAYS",
+    "deliver_to_secret_manager",
     "issue",
     "mint_token",
 ]

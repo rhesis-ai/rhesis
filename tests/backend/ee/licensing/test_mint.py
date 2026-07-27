@@ -442,3 +442,53 @@ class TestIssue:
         assert ent is not None
         assert ent.edition is LicenseEdition.TRIAL
         assert ent.sub == self.ORG_ID
+
+
+class TestDeliverToSecretManager:
+    """deliver_to_secret_manager -- self-hosted delivery, no DB involved."""
+
+    def test_writes_token_as_new_version_and_returns_version_name(self):
+        from rhesis.backend.ee.licensing.mint import deliver_to_secret_manager
+
+        client = MagicMock()
+        client.add_secret_version.return_value.name = (
+            "projects/my-proj/secrets/my-secret/versions/7"
+        )
+        with patch(
+            "google.cloud.secretmanager.SecretManagerServiceClient",
+            return_value=client,
+        ):
+            result = deliver_to_secret_manager(
+                "the-token-value",
+                project_id="my-proj",
+                secret_name="my-secret",
+            )
+
+        assert result == "projects/my-proj/secrets/my-secret/versions/7"
+        client.add_secret_version.assert_called_once_with(
+            request={
+                "parent": "projects/my-proj/secrets/my-secret",
+                "payload": {"data": b"the-token-value"},
+            }
+        )
+
+    def test_api_error_raises_runtime_error_without_leaking_token(self):
+        from google.api_core.exceptions import PermissionDenied
+
+        from rhesis.backend.ee.licensing.mint import deliver_to_secret_manager
+
+        client = MagicMock()
+        client.add_secret_version.side_effect = PermissionDenied("denied")
+        with patch(
+            "google.cloud.secretmanager.SecretManagerServiceClient",
+            return_value=client,
+        ):
+            with pytest.raises(RuntimeError) as exc_info:
+                deliver_to_secret_manager(
+                    "super-secret-token",
+                    project_id="my-proj",
+                    secret_name="missing-secret",
+                )
+
+        assert "super-secret-token" not in str(exc_info.value)
+        assert "missing-secret" in str(exc_info.value)

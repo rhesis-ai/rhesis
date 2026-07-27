@@ -192,3 +192,23 @@ development, staging, production, and self-hosted deployments. To
 exercise EE features locally, mint a real non-prod token with the CLI
 (`python -m rhesis.backend.ee.licensing.cli mint --org "*" --edition
 enterprise --kid rhesis-nonprod-v1`) and set it as `RHESIS_LICENSE`.
+
+### Licensing self-hosted deployments
+
+Self-hosted customers run their own database, so `issue` (which writes to
+`organization.license`) doesn't apply — there's no org row of ours to
+write to. They always get a blanket (`sub:"*"`) token minted with `mint`,
+signed with `--kid rhesis-prod-v1` (the key already baked into every
+shipped image, so they configure nothing beyond `RHESIS_LICENSE`), and
+delivered to them directly since we have no channel into their
+environment.
+
+`mint --secret-name <name> --secret-project <project>` delivers the token
+to a Secret Manager secret (via `deliver_to_secret_manager`) instead of
+printing it — the token never touches stdout or CI logs. The secret must
+already exist, and the caller needs `roles/secretmanager.
+secretVersionAdder` on it. This is what the `[EE] Mint Self-Hosted
+License` workflow in the private `rhesis-ee` repo uses; an approver
+retrieves the token from Secret Manager and delivers it to the customer
+out of band (manual for now — a self-service portal may replace this
+later).

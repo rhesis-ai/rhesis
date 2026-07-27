@@ -27,7 +27,11 @@ Subcommands
 
 ``mint``
     Mint a signed JWT for an org (or blanket ``*``) and print it to stdout.
-    Requires ``RHESIS_LICENSE_PRIVATE_KEY`` in the environment.
+    Requires ``RHESIS_LICENSE_PRIVATE_KEY`` in the environment. Pass
+    ``--secret-name``/``--secret-project`` to deliver it to a GCP Secret
+    Manager secret instead of stdout — the token then never reaches stdout
+    or logs at all. Intended for self-hosted deliveries, which have no
+    ``organization`` row to write to (see ``issue`` below).
 
 ``issue``
     Mint + write the token to ``organization.license`` for the target org.
@@ -41,6 +45,11 @@ Security notes
 * ``issue`` never prints the token to stdout or logs — only an issuance
   summary (org, kid, exp, jti) is emitted. This avoids leaking the signed
   token into CI/CD logs or terminal history.
+* ``mint --secret-name ...`` behaves the same way: the token goes straight
+  to Secret Manager and only a delivery confirmation (the version's
+  resource name, no secret material) is printed. Plain ``mint`` (no
+  ``--secret-name``) still prints the raw token to stdout — that mode is
+  for local/manual use where the caller is the intended recipient.
 * The private key is read from the environment, not from CLI args, so it
   never appears in ``ps`` output or shell history.
 """
@@ -175,8 +184,21 @@ def cmd_keygen(args: argparse.Namespace) -> None:
 
 
 def cmd_mint(args: argparse.Namespace) -> None:
-    """Mint a signed license JWT and print it to stdout."""
+    """Mint a signed license JWT.
+
+    Prints the token to stdout by default. When ``--secret-name`` (with
+    ``--secret-project``) is given, delivers it to Secret Manager instead
+    and prints only a delivery confirmation — the token itself never
+    reaches stdout or logs in that mode.
+    """
     _require_private_key()
+
+    if bool(args.secret_name) != bool(args.secret_project):
+        print(
+            "Error: --secret-name and --secret-project must be used together.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
     from rhesis.backend.ee.licensing.mint import mint_token
 
@@ -201,6 +223,16 @@ def cmd_mint(args: argparse.Namespace) -> None:
         custom_features=custom_features,
         custom_limits=custom_limits,
     )
+
+    if args.secret_name:
+        from rhesis.backend.ee.licensing.mint import deliver_to_secret_manager
+
+        version_name = deliver_to_secret_manager(
+            token, project_id=args.secret_project, secret_name=args.secret_name
+        )
+        print(f"Token delivered to Secret Manager: {version_name}")
+        return
+
     print(token)
 
 
@@ -394,6 +426,22 @@ def _build_parser() -> argparse.ArgumentParser:
     # --- mint ---
     m = sub.add_parser("mint", help="Mint a signed JWT and print it to stdout.")
     _add_common(m)
+    m.add_argument(
+        "--secret-name",
+        default=None,
+        metavar="NAME",
+        help=(
+            "Deliver the token to this Secret Manager secret (adds a new "
+            "version) instead of printing it to stdout. The secret must "
+            "already exist. Requires --secret-project."
+        ),
+    )
+    m.add_argument(
+        "--secret-project",
+        default=None,
+        metavar="PROJECT_ID",
+        help="GCP project containing --secret-name. Required together with --secret-name.",
+    )
     m.set_defaults(func=cmd_mint)
 
     # --- issue ---
