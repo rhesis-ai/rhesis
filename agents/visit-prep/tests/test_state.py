@@ -8,6 +8,13 @@ def test_missing_core_slots():
     assert "location" in missing
 
 
+def test_missing_core_slots_treats_blank_as_missing():
+    state = VisitPrepState(slots=Slots(onset="", location="   "))
+    missing = missing_core_slots(state)
+    assert "onset" in missing
+    assert "location" in missing
+
+
 def test_core_slots_excludes_context():
     assert "context" not in CORE_SLOTS
 
@@ -17,6 +24,16 @@ def test_apply_slot_updates():
 
     state = VisitPrepState()
     updated = apply_slot_updates(state, {"onset": "2 days ago", "location": None})
+    assert updated.slots.onset == "2 days ago"
+    assert updated.slots.location is None
+
+
+def test_apply_slot_updates_ignores_blank_values():
+    from visit_prep.state import apply_slot_updates
+
+    state = VisitPrepState(slots=Slots(onset="2 days ago"))
+    updated = apply_slot_updates(state, {"onset": "", "location": "   "})
+    # Blank updates must not overwrite a filled slot or fill an empty one.
     assert updated.slots.onset == "2 days ago"
     assert updated.slots.location is None
 

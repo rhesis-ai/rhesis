@@ -25,11 +25,19 @@ SLOT_FIELDS = frozenset(
 
 
 def normalize_slot_payload(payload: dict[str, Any]) -> dict[str, Any]:
-    """Coerce slot field values to strings so LLM JSON with numeric severity etc. validates."""
+    """Coerce slot values to strings and treat blank/whitespace-only values as unknown.
+
+    The model sometimes returns ``""`` (or whitespace) for a field it does not know
+    instead of ``null``. Left as-is, an empty string would count as a "filled" slot
+    and let the agent finish early with no real content, so blanks are mapped to
+    ``None``.
+    """
     normalized = dict(payload)
     for key, value in normalized.items():
-        if key in SLOT_FIELDS and value is not None and not isinstance(value, str):
-            normalized[key] = str(value)
+        if key not in SLOT_FIELDS or value is None:
+            continue
+        text = value if isinstance(value, str) else str(value)
+        normalized[key] = text if text.strip() else None
     return normalized
 
 
@@ -67,7 +75,10 @@ def format_history(history: list[dict[str, str]], *, limit: int = 12) -> str:
 
 def format_slots(slots: dict[str, str | None]) -> str:
     """Format slot state for prompts."""
-    lines = [f"- {key}: {value if value is not None else '(missing)'}" for key, value in slots.items()]
+    lines = [
+        f"- {key}: {value if value is not None else '(missing)'}"
+        for key, value in slots.items()
+    ]
     return "\n".join(lines)
 
 

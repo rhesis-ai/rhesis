@@ -49,16 +49,25 @@ class VisitPrepState(BaseModel):
     red_flag: bool = False
 
 
+def _is_blank(value: str | None) -> bool:
+    """True when a slot value is unset or only whitespace (i.e. not real content)."""
+    return value is None or not value.strip()
+
+
 def missing_core_slots(state: VisitPrepState) -> list[str]:
-    """Return core slot names that are still unset."""
-    return [name for name in CORE_SLOTS if getattr(state.slots, name) is None]
+    """Return core slot names that are still unset (``None`` or blank/whitespace)."""
+    return [name for name in CORE_SLOTS if _is_blank(getattr(state.slots, name))]
 
 
 def apply_slot_updates(state: VisitPrepState, updates: dict[str, str | None]) -> VisitPrepState:
-    """Merge non-null slot updates into a copy of state."""
+    """Merge non-blank slot updates into a copy of state.
+
+    Blank/whitespace values are ignored so the model cannot overwrite a filled slot
+    with an empty string.
+    """
     new_state = state.model_copy(deep=True)
     for key, value in updates.items():
-        if value is not None and hasattr(new_state.slots, key):
+        if not _is_blank(value) and hasattr(new_state.slots, key):
             setattr(new_state.slots, key, value)
     return new_state
 
