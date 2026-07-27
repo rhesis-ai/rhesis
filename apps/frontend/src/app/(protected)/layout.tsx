@@ -1,21 +1,17 @@
-import { auth } from '@/auth';
+import { auth, getFreshAccessToken } from '@/auth';
+import { headers } from 'next/headers';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { getServerActiveProjectId } from '@/utils/server-active-project';
 import { FeatureName } from '@/constants/features';
 import type { FeaturesResponse } from '@/utils/api-client/features-client';
+import { fetchTermsStatusServer } from '@/utils/api-client/auth-client.server';
+import type { TermsStatus } from '@/utils/api-client/auth-client';
 import { ProtectedLayoutClient } from './ProtectedLayoutClient';
 
 /**
- * Server-side counterpart of `ProtectedLayoutClient`. Fetches `GET /features`
- * and, when RBAC is on, `GET /me/permissions` for the active project — the
- * same two calls `FeaturesProvider`/`PermissionsProvider` would otherwise make
- * on mount — so the nav-gating capability set is already known on first paint.
- * Without this, `useCan` reports "unknown" (fail-closed) for one round trip on
- * every hard load, hiding every gated nav item until the client fetch resolves.
- *
- * Mirrors the `initialActiveProject`/`initialOrganization` seeding already
- * done in the root `app/layout.tsx`. Failures here are swallowed — the client
- * providers fall back to fetching normally, same as that existing pattern.
+ * Server-side layout that seeds `FeaturesProvider`, `PermissionsProvider`, and
+ * `TermsAcceptanceGate` with data so they don't need a client-side fetch on
+ * mount. Failures are swallowed — client providers fall back to fetching.
  */
 export default async function ProtectedLayout({
   children,
@@ -26,21 +22,37 @@ export default async function ProtectedLayout({
 
   let initialFeatures: FeaturesResponse | null = null;
   let initialPermissions: string[] | null = null;
+  let initialTermsStatus: TermsStatus | null = null;
 
   if (session && !session.error) {
-    try {
-      const projectId = await getServerActiveProjectId();
-      const factory = await createServerApiFactory();
+    const [projectId, { accessToken }] = await Promise.all([
+      getServerActiveProjectId(),
+      getFreshAccessToken({ headers: await headers() }),
+    ]);
 
-      initialFeatures = await factory.getFeaturesClient().getFeatures();
+    const factory = await createServerApiFactory();
+
+    const [featuresResult, termsResult] = await Promise.allSettled([
+      factory.getFeaturesClient().getFeatures(),
+      accessToken ? fetchTermsStatusServer(accessToken) : Promise.resolve(null),
+    ]);
+
+    if (featuresResult.status === 'fulfilled') {
+      initialFeatures = featuresResult.value;
 
       if (initialFeatures.enabled.includes(FeatureName.RBAC)) {
-        initialPermissions = await factory
-          .getPermissionsClient()
-          .getMyPermissions(projectId);
+        try {
+          initialPermissions = await factory
+            .getPermissionsClient()
+            .getMyPermissions(projectId);
+        } catch {
+          // Ignore — PermissionsProvider falls back to fetching on mount.
+        }
       }
-    } catch {
-      // Ignore — client providers will fetch on mount.
+    }
+
+    if (termsResult.status === 'fulfilled') {
+      initialTermsStatus = termsResult.value;
     }
   }
 
@@ -48,6 +60,7 @@ export default async function ProtectedLayout({
     <ProtectedLayoutClient
       initialFeatures={initialFeatures}
       initialPermissions={initialPermissions}
+      initialTermsStatus={initialTermsStatus}
     >
       {children}
     </ProtectedLayoutClient>

@@ -27,7 +27,7 @@ import type {
 import { useQuery } from '@tanstack/react-query';
 import { useSession } from 'next-auth/react';
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
-import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import { isAuthenticated, useUserScope } from '@/hooks/useIsAuthenticated';
 
 interface FeaturesState {
   license: LicenseInfo | null;
@@ -61,13 +61,16 @@ export function FeaturesProvider({
    */
   initialFeatures?: FeaturesResponse | null;
 }) {
-  const { data: session, status } = useSession();
-  const userScope = session?.user?.id ?? '';
+  const { status } = useSession();
+  const userScope = useUserScope();
 
   const { data, isLoading, error } = useQuery({
     queryKey: featureKeys.all(userScope),
     queryFn: () => new ApiClientFactory().getFeaturesClient().getFeatures(),
-    enabled: isAuthenticated(status),
+    // `!!userScope` closes the gap where `status` flips to 'authenticated'
+    // before `userScope` reflects the real user id — without it the query
+    // could run (and cache) under the `''` scope key.
+    enabled: isAuthenticated(status) && !!userScope,
     staleTime: 5 * 60_000,
     ...(initialFeatures ? { initialData: initialFeatures } : {}),
   });

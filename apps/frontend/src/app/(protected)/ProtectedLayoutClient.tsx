@@ -14,6 +14,7 @@ import { Sidebar } from '@/components/navigation/Sidebar';
 import { WebSocketProvider } from '@/contexts/WebSocketContext';
 import NoProjectAccess from '@/components/common/NoProjectAccess';
 import TermsAcceptanceGate from '@/components/auth/TermsAcceptanceGate';
+import type { TermsStatus } from '@/utils/api-client/auth-client';
 
 interface ExtendedUser {
   id: string;
@@ -70,12 +71,15 @@ export function ProtectedLayoutClient({
   children,
   initialFeatures,
   initialPermissions,
+  initialTermsStatus,
 }: {
   children: React.ReactNode;
   /** Server-fetched `GET /features` result, seeds FeaturesProvider so nav-gating capabilities are known on first paint (no client-side loading window). Null on fetch failure — client falls back to its own fetch. */
   initialFeatures: FeaturesResponse | null;
   /** Server-fetched `GET /me/permissions` result for the active project, seeds PermissionsProvider for the same reason. Null when RBAC is off or the fetch failed. */
   initialPermissions: string[] | null;
+  /** Server-fetched `GET /auth/terms-status` result, passed to `TermsAcceptanceGate` so it can decide without its own client-side fetch. Null on fetch failure — the gate falls back to fetching on mount. */
+  initialTermsStatus: TermsStatus | null;
 }) {
   const { data: session } = useSession();
   const pathname = usePathname();
@@ -100,7 +104,9 @@ export function ProtectedLayoutClient({
       <FeaturesProvider initialFeatures={initialFeatures}>
         <PermissionsProvider initialPermissions={initialPermissions}>
           <WebSocketProvider>
-            {!isOnboarding && <TermsAcceptanceGate />}
+            {!isOnboarding && (
+              <TermsAcceptanceGate initialTermsStatus={initialTermsStatus} />
+            )}
             {!isOnboarding && !chromeless && <VerificationBanner />}
             {content}
           </WebSocketProvider>

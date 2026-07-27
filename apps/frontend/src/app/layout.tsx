@@ -39,6 +39,7 @@ import { handleSignIn, handleSignOut } from '../actions/auth';
 import { LayoutContent } from '../components/layout/LayoutContent';
 import { createServerApiFactory } from '../utils/api-client/server-factory';
 import { getServerActiveProjectId } from '../utils/server-active-project';
+import { fetchQuickStartEnabledServer } from '../utils/quick_start.server';
 import {
   type NavigationItem,
   type BrandingProps,
@@ -46,6 +47,7 @@ import {
 } from '../types/navigation';
 import { type Project } from '../utils/api-client/interfaces/project';
 import { type Organization } from '../utils/api-client/interfaces/organization';
+import { type UserSettings } from '../utils/api-client/interfaces/user';
 import { type Session } from 'next-auth';
 import ThemeContextProvider from '../components/providers/ThemeProvider';
 import { Capability } from '../constants/capabilities';
@@ -292,20 +294,46 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
     apiBaseUrl: process.env.API_BASE_URL ?? 'http://localhost:8080',
   }).replace(/</g, '\\u003c')};`;
 
-  // Fetch the active project server-side so the sidebar can render the
-  // project name on first paint without a flash.
+  // Fetch the active project, and the full member-project list for the
+  // switcher, server-side so the sidebar/switcher render on first paint
+  // without a flash. Without `initialProjects`, `ActiveProjectProvider`
+  // always issued a client-side `GET /projects/mine` on mount even though
+  // the active project itself was already known here — this seeds that list
+  // too so the client effect can skip the network round trip entirely on
+  // the common case (falling back to fetching itself if this failed).
   let initialActiveProject: Project | null = null;
+  let initialProjects: Project[] | null = null;
+  // Seeds `useUserSettings`'s cache too (see `ActiveProjectProvider`), so
+  // the `default_project` fallback lookup it otherwise does with a client
+  // `GET /users/settings` — needed whenever there's no active-project cookie
+  // yet, e.g. a brand-new session — is already answered.
+  let initialUserSettings: UserSettings | null = null;
   const projectId = await getServerActiveProjectId();
-  if (projectId && session && !session.error) {
-    try {
-      const factory = await createServerApiFactory();
-      initialActiveProject = await factory
-        .getProjectsClient()
-        .getProject(projectId);
-    } catch {
-      // Ignore — client will fetch on mount
+  if (session && !session.error && session.user?.organization_id) {
+    const factory = await createServerApiFactory();
+    const [projectsResult, settingsResult] = await Promise.allSettled([
+      factory.getProjectsClient().getMyProjects(),
+      factory.getUsersClient().getUserSettings(),
+    ]);
+
+    if (projectsResult.status === 'fulfilled') {
+      initialProjects = projectsResult.value;
+      if (projectId) {
+        initialActiveProject =
+          projectsResult.value.find(p => String(p.id) === projectId) ?? null;
+      }
+    }
+    if (settingsResult.status === 'fulfilled') {
+      initialUserSettings = settingsResult.value;
     }
   }
+
+  // Fetched once here (unauthenticated `GET /auth/providers`) and threaded
+  // down via `QuickStartProvider` — see `fetchQuickStartEnabledServer`'s
+  // docstring for why this replaced two separate client-side `/api/auth-config`
+  // calls (one from `LayoutContent`, one from whichever consumer — the
+  // landing page or `TermsAcceptanceGate` — was also mounted).
+  const initialQuickStart = await fetchQuickStartEnabledServer();
 
   return (
     <html lang="en" suppressHydrationWarning data-theme-mode={initialThemeMode}>
@@ -323,7 +351,10 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
             branding={branding}
             authentication={AUTHENTICATION}
             initialActiveProject={initialActiveProject}
+            initialProjects={initialProjects}
+            initialUserSettings={initialUserSettings}
             initialOrganization={organization}
+            initialQuickStart={initialQuickStart}
           >
             {props.children}
           </LayoutContent>

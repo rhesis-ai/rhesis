@@ -24,7 +24,7 @@ import {
   mergeProgress,
 } from '@/utils/onboarding-service';
 import { getTourSteps, driverConfig } from '@/config/onboarding-tours';
-import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import { isAuthenticated, useUserScope } from '@/hooks/useIsAuthenticated';
 
 const OnboardingContext = createContext<OnboardingContextValue | undefined>(
   undefined
@@ -53,7 +53,7 @@ interface OnboardingProviderProps {
 export function OnboardingProvider({ children }: OnboardingProviderProps) {
   const { data: session, status } = useSession();
   const queryClient = useQueryClient();
-  const userScope = session?.user?.id ?? '';
+  const userScope = useUserScope();
   // Initialize with localStorage data immediately to avoid flash
   const [progress, setProgress] = useState<OnboardingProgress>(() => {
     // Load synchronously during initialization to prevent flash
@@ -85,6 +85,7 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
     // the org-attach step) has none yet, and the fetch would 403.
     if (
       !isAuthenticated(status) ||
+      !userScope ||
       !session?.user?.organization_id ||
       loadStartedRef.current
     ) {
@@ -142,7 +143,7 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
 
     saveProgress(progress);
 
-    if (!dbLoadedRef.current || !isAuthenticated(status)) return;
+    if (!dbLoadedRef.current || !isAuthenticated(status) || !userScope) return;
 
     // Skip the write when progress already matches what the database holds.
     // This suppresses the redundant PATCH the initial load's merge would
@@ -381,7 +382,11 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
   }, [driverInstance]);
 
   const forceSyncToDatabase = useCallback(async () => {
-    if (isAuthenticated(status) && session?.user?.organization_id) {
+    if (
+      isAuthenticated(status) &&
+      userScope &&
+      session?.user?.organization_id
+    ) {
       try {
         await syncProgressToDatabase(queryClient, userScope, progress);
       } catch (error) {
