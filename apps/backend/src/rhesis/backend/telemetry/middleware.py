@@ -9,11 +9,11 @@ from typing import Callable
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
+from rhesis.backend.app.config.settings import get_telemetry_settings
 from rhesis.backend.telemetry.instrumentation import (
     _telemetry_org_id,
     _telemetry_user_id,
     get_tracer,
-    is_telemetry_enabled,
     set_telemetry_enabled,
 )
 
@@ -46,7 +46,7 @@ class TelemetryMiddleware(BaseHTTPMiddleware):
                 return await call_next(request)
 
         # Check if telemetry is globally enabled (based on deployment type + env var)
-        telemetry_enabled = is_telemetry_enabled()
+        telemetry_enabled = get_telemetry_settings().is_telemetry_enabled
 
         if not telemetry_enabled:
             # Telemetry disabled, just process request normally

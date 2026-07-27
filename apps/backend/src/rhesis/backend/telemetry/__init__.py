@@ -8,7 +8,6 @@ from .instrumentation import (
     _set_telemetry_enabled_for_testing,
     get_tracer,
     initialize_telemetry,
-    is_telemetry_enabled,
     set_telemetry_enabled,
     track_feature_usage,
     track_user_activity,
@@ -17,7 +16,6 @@ from .instrumentation import (
 __all__ = [
     "initialize_telemetry",
     "get_tracer",
-    "is_telemetry_enabled",
     "set_telemetry_enabled",
     "track_user_activity",
     "track_feature_usage",
