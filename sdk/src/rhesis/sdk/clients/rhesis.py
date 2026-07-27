@@ -210,8 +210,8 @@ class RhesisClient:
         return cls(
             project_id=os.getenv("RHESIS_PROJECT_ID"),
             api_key=os.getenv("RHESIS_API_KEY"),
-            environment=os.getenv("RHESIS_ENVIRONMENT", "development"),
-            base_url=os.getenv("RHESIS_BASE_URL", "http://localhost:8080"),
+            environment=os.getenv("RHESIS_ENVIRONMENT") or "development",
+            base_url=os.getenv("RHESIS_BASE_URL") or "http://localhost:8080",
         )
 
     def _init_telemetry(self) -> None:
