@@ -34,9 +34,7 @@ export default async function ProtectedLayout({
 
     const [featuresResult, termsResult] = await Promise.allSettled([
       factory.getFeaturesClient().getFeatures(),
-      accessToken
-        ? fetchTermsStatusServer(accessToken)
-        : Promise.resolve(null),
+      accessToken ? fetchTermsStatusServer(accessToken) : Promise.resolve(null),
     ]);
 
     if (featuresResult.status === 'fulfilled') {

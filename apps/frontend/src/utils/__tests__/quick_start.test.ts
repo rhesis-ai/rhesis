@@ -2,7 +2,8 @@ import { fetchQuickStartEnabled } from '../quick_start';
 import { fetchQuickStartEnabledServer } from '../quick_start.server';
 
 jest.mock('../server-fetch', () => ({
-  serverFetch: (path: string) => global.fetch(`http://backend.internal:8080${path}`),
+  serverFetch: (path: string) =>
+    global.fetch(`http://backend.internal:8080${path}`),
 }));
 
 function makeResponse(body: unknown, ok = true): Response {
@@ -74,7 +75,9 @@ describe('quick_start', () => {
 
       await expect(fetchQuickStartEnabledServer()).resolves.toBe(true);
       const [target] = fetchMock.mock.calls[0];
-      expect(String(target)).toBe('http://backend.internal:8080/auth/providers');
+      expect(String(target)).toBe(
+        'http://backend.internal:8080/auth/providers'
+      );
     });
 
     it('returns false when the backend request fails', async () => {

@@ -168,7 +168,13 @@ export function ActiveProjectProvider({
         setLoading(false);
       }
     },
-    [session?.user?.organization_id, queryClient, userScope, status, initialProjects]
+    [
+      session?.user?.organization_id,
+      queryClient,
+      userScope,
+      status,
+      initialProjects,
+    ]
   );
 
   useEffect(() => {

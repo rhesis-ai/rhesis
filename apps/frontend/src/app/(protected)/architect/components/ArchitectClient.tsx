@@ -59,8 +59,7 @@ export default function ArchitectClient() {
   const { data: sessions = [], isLoading: isLoadingSessions } = useQuery({
     queryKey: sessionsQueryKey,
     queryFn: () => new ApiClientFactory().getArchitectClient().getSessions(),
-    enabled:
-      !permsLoading && canRead && isAuthenticated(status) && !!userScope,
+    enabled: !permsLoading && canRead && isAuthenticated(status) && !!userScope,
     staleTime: 30_000,
   });
 

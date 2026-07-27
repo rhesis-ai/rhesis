@@ -382,7 +382,11 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
   }, [driverInstance]);
 
   const forceSyncToDatabase = useCallback(async () => {
-    if (isAuthenticated(status) && userScope && session?.user?.organization_id) {
+    if (
+      isAuthenticated(status) &&
+      userScope &&
+      session?.user?.organization_id
+    ) {
       try {
         await syncProgressToDatabase(queryClient, userScope, progress);
       } catch (error) {
