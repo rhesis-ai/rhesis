@@ -2,7 +2,7 @@
   <img src="https://github.com/user-attachments/assets/ff43ca6a-ffde-4aff-9ff9-eec3897d0d02" alt="Rhesis AI Logo" height="80">
 </p>
 
-# Rhesis: Get the knowledge you need to improve your agents
+# Rhesis: Get the feedback you need to improve your agents
 
 <p align="center">
   <a href="https://github.com/rhesis-ai/rhesis/blob/main/LICENSE">
@@ -38,11 +38,11 @@
   <a href="https://github.com/rhesis-ai/rhesis/blob/main/CHANGELOG.md"><strong>Changelog</strong></a>
 </p>
 
-<h3 align="center">Collaborative platform for continuous AI improvement.<br>
+<h3 align="center">Structured feedback and evals for AI agents.<br>
 <strong>Open source · SaaS or self-hosted · UI, SDK, and MCP</strong></h3>
 
 <p align="center">
-A shared workspace where domain experts annotate behavior and engineers get the feedback they need to improve the agent.
+Connect the agent you are building, share the link with your team, and get structured feedback from the people who know the right answers.
 </p>
 
 <p align="center">
@@ -58,19 +58,45 @@ A shared workspace where domain experts annotate behavior and engineers get the 
 
 ## Why Rhesis?
 
-Many tools start with tests or traces. Rhesis starts with the collaboration problem: getting domain-expert knowledge into agent development.
+Most tools start with tests or traces. Rhesis starts one step earlier: the people who know what the
+agent should answer are not the people building it, and their feedback rarely arrives in a form you
+can act on.
 
-- **Capture expert judgment** — Reviews and expected behavior stay attached to the case and agent version, not buried in Slack
-- **One definition of good** — Annotated sets the whole team shares and measures against
-- **UI for experts, SDK & MCP for builders** — Same record, three interfaces
-- **From review to CI** — Expand coverage with generation and simulation; run checks engineers already use
+- **Feedback that stays attached** — Every review sits on the test case and the agent version that produced it, not in a Slack thread
+- **One pass/fail bar** — The whole team reviews against the same tests, and you measure against them
+- **UI for reviewers, SDK and MCP for builders** — Same data, three ways in
+- **From feedback to CI** — Recurring feedback becomes tests and metrics that run on every change
 
 <p align="center">
   <img src=".github/images/GH_Collaboration_Hub.jpg"
        loading="lazy"
        width="1080"
-       alt="Rhesis collaboration hub — domain knowledge in, agent progress out">
+       alt="Rhesis collaboration hub: feedback in, agent improvements out">
 </p>
+
+---
+
+## How it works
+
+**1. Connect the agent you are building.** If it already serves a public REST endpoint, paste the
+URL and you are done. Otherwise, and for most projects, use the SDK connector: your process opens
+an outbound WebSocket, so the agent works from your laptop or your VPC with no public URL.
+
+**2. Share the Rhesis link with your stakeholders.** Domain experts, product managers, and
+reviewers open it in a browser. Nothing to install, no code.
+
+**3. They put the agent to work.** In the playground they chat with the live agent and turn
+interesting conversations into tests. They create and run test sets, simulate multi-turn
+conversations, and leave structured feedback on what came back: pass/fail verdicts and comments,
+down to the individual metric or conversation turn.
+
+**4. Pull that feedback back into development.** Read it from the SDK or the REST API, or work
+with it from Cursor, Claude Code, and other MCP clients through the Rhesis skill. Fix the agent,
+run the same tests again.
+
+**5. Agree on what the agent has to get right.** Each cycle, feedback that arrived as prose becomes
+tests and metrics that check the same thing automatically. Reviews on a handful of cases end up as
+evals that run on every change.
 
 ---
 
@@ -78,76 +104,94 @@ Many tools start with tests or traces. Rhesis starts with the collaboration prob
 
 | Role | How they use Rhesis |
 |------|---------------------|
-| **Domain experts** | Review outputs, annotate cases, define what good means — UI, no code |
-| **Product managers** | Structure expert feedback and see whether the agent improves against the PRD — UI / MCP |
-| **AI engineers** | Pull annotated sets into SDK, CI, and MCP while you build |
+| **AI engineers** | Connect the agent, pull feedback and reviewed test sets into the SDK, CI, and MCP while you build |
+| **Domain experts** | Try the agent, review its answers, say what is wrong and what a correct answer looks like. UI, no code |
+| **Product managers** | Turn scattered feedback into tests, and see whether the agent improves against the PRD. UI or MCP |
 
 ---
 
-## How it works
+## Connect your agent
 
-| Step | What you do |
-|------|-------------|
-| **Connect** | Start from the PRD and context your team already uses; link your LLM application |
-| **Annotate** | Capture expected behavior and edge cases from domain experts in reusable test sets |
-| **Evaluate** | Run annotated sets against agent changes; catch regressions before they ship |
-| **Review** | Keep experts in the loop on hard, novel cases; automate routine checks over time |
-| **Improve** | Measure progress against the same definition of good every cycle |
+Rhesis needs a way to invoke the agent under test. Two ways to do it: we recommend the SDK
+connector, but if your agent already has a public REST endpoint, that is the fastest way to get
+started.
 
----
+### SDK connector (recommended)
 
-## Connect your app
-
-Rhesis needs a way to invoke your LLM application under test.
-
-### SDK connector (recommended for local and private apps)
-
-Your app opens a persistent outbound WebSocket. Rhesis sends test inputs down that connection — no public URL required.
+Your process opens a persistent outbound WebSocket. Rhesis sends test inputs down that connection,
+so the agent needs no public URL and can stay on your laptop or inside your VPC. You write a
+function instead of describing a payload, and the same SDK carries tracing.
 
 ```python
 from rhesis.sdk.decorators import endpoint
 
 @endpoint(name="my-chatbot")
 def chat(message: str) -> str:
-    # Call your LLM application here
-    return my_llm(message)
+    # Call your agent here
+    return my_agent(message)
 ```
 
-See the [SDK README](sdk/README.md) for install, environments, and tracing.
+Run it, and the endpoint registers itself in Rhesis. See the [SDK README](sdk/README.md) for
+install, environments, and tracing.
 
-### REST API
+### Your agent's REST endpoint (fastest start if it is public)
 
-Language-agnostic access for CI/CD and custom integrations: manage test sets, trigger runs, fetch results. [OpenAPI spec](https://api.rhesis.ai/docs).
+Already serving HTTP on a reachable URL? Register it in the UI, no code and nothing to deploy. You
+supply auth headers plus request and response mapping, or let Rhesis derive the configuration from
+an OpenAPI spec or by exploring the endpoint. See
+[Creating endpoints](https://docs.rhesis.ai/docs/endpoints/creating-endpoints).
+
+Either way, the next step is the same: share the link, and let your team start using the agent
+through the [playground](https://docs.rhesis.ai/docs/playground) and test runs.
+
+---
+
+## Work from your own tools
+
+Feedback lands in Rhesis, but you do not have to leave your editor to act on it.
 
 ### MCP and skills
 
-Use Rhesis from MCP-capable clients (Cursor, Claude Code, and others): design suites, pull sets, trigger runs, and keep expert context in the tools engineers already use. Install with the [skills](https://github.com/vercel-labs/skills) CLI:
+Use Rhesis from MCP-capable clients (Cursor, Claude Code, and others): design suites, pull sets and
+results, trigger runs, and read the feedback in the tools you already work in. Install with the
+[skills](https://github.com/vercel-labs/skills) CLI:
 
 ```bash
 npx skills add rhesis-ai/rhesis
 ```
 
-Connect knowledge sources (Notion, GitHub, Jira, Confluence) so generation and review stay grounded. See the [skills README](skills/rhesis/README.md).
+See the [skills README](skills/rhesis/README.md).
 
-> Tracing (OpenTelemetry) and LLM providers for synthesis/judges are documented separately — see [Tracing](https://docs.rhesis.ai/tracing) and [Models](https://docs.rhesis.ai/sdk/models). They are not how you connect the app under test.
+### SDK and REST API
+
+Pull test runs, results, and the reviews attached to them from Python, or hit the API directly from
+CI in any language: [OpenAPI spec](https://api.rhesis.ai/docs).
+
+> Tracing (OpenTelemetry) and LLM providers for synthesis and judges are documented separately. See
+> [Tracing](https://docs.rhesis.ai/docs/tracing) and [Models](https://docs.rhesis.ai/sdk/models).
+> Neither is how you connect the agent under test.
 
 ---
 
 ## Capabilities
 
-Once knowledge is in the shared record, you can expand and harden coverage:
+Nobody can review every case by hand. Once the first feedback is in, you can grow coverage from it:
 
-- **Test generation** from requirements and knowledge (files or MCP)
+- **Test generation** from your requirements, a PRD, or an uploaded file
 - **Conversation simulation** with Penelope; **adversarial probing** with Polyphemus and [garak](https://github.com/leondz/garak)
 - **60+ metrics** — RAGAS, DeepEval, garak, and custom LLM-as-Judge evaluators
 - **Traces** linked to test results via OpenTelemetry
 
+Generated tests are only as good as the requirements behind them. Instead of retyping a spec into a
+prompt, connect the tools your requirements already live in (Notion, GitHub, Jira, Confluence) and
+Rhesis writes tests from the real thing. See [Tools](https://docs.rhesis.ai/docs/tools).
+
 | Use case | What you validate |
 |----------|-------------------|
 | **Conversational & support agents** | Role adherence, policy citation, escalation |
-| **RAG / knowledge assistants** | Faithfulness, grounding, retrieval quality |
+| **RAG / document Q&A** | Faithfulness, grounding, retrieval quality |
 | **Tool-using & multi-agent systems** | Tool choice, goal completion, handoffs |
-| **Regulated / high-stakes domains** | Expert-defined must / must-not behaviors |
+| **Regulated / high-stakes domains** | Must and must-not behaviors your reviewers defined |
 
 Details: [docs.rhesis.ai](https://docs.rhesis.ai)
 
@@ -157,7 +201,7 @@ Details: [docs.rhesis.ai](https://docs.rhesis.ai)
 
 ### Cloud
 
-[app.rhesis.ai](https://app.rhesis.ai) — managed service, connect your app.
+[app.rhesis.ai](https://app.rhesis.ai) — managed service, connect your agent and invite your team.
 
 ### Local (Docker)
 
@@ -173,7 +217,7 @@ git clone https://github.com/rhesis-ai/rhesis.git && cd rhesis && ./rh start
 
 > This setup enables auto-login for local testing. For production self-hosting (including Kubernetes), see [Self-hosting docs](https://docs.rhesis.ai/deployment/self-hosting).
 
-Once the platform is running, connect your app with the SDK:
+Once the platform is running, connect your agent with the SDK:
 
 ```bash
 pip install rhesis-sdk
@@ -205,7 +249,7 @@ See [sdk/README.md](sdk/README.md).
 
 [MIT licensed](LICENSE). No plans to relicense core features. Enterprise features live in `ee/` and remain separate.
 
-We built Rhesis because expert knowledge kept getting stuck outside the agent loop. If you face the same challenge, contributions are welcome.
+We built Rhesis because the feedback that mattered most kept getting stuck outside the development loop. If you face the same problem, contributions are welcome.
 
 ---
 
