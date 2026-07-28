@@ -6,6 +6,7 @@ import { ThemeProvider } from '@mui/material/styles';
 import Image from 'next/image';
 import BackgroundDecoration from './BackgroundDecoration';
 import { lightTheme } from '@/styles/theme';
+import { scaledVh } from '@/styles/viewport-scaling';
 
 const MUTED_TEXT = '#6B7280'; // Intentional: landing page muted text
 const FEATURE_TEXT = '#374151'; // Intentional: landing page feature text
@@ -25,7 +26,7 @@ export default function AuthPageShell({ children }: AuthPageShellProps) {
     <ThemeProvider theme={lightTheme}>
       <Box
         sx={{
-          minHeight: '100vh',
+          minHeight: scaledVh(),
           display: 'flex',
           flexDirection: 'column',
           bgcolor: 'background.default',

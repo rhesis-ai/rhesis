@@ -30,6 +30,7 @@ import DetailNotFoundState from '@/components/common/DetailNotFoundState';
 import { useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import { scaledVh } from '@/styles/viewport-scaling';
 
 interface PageProps {
   params: Promise<{ identifier: string }>;
@@ -63,7 +64,7 @@ function TaskDetailLoadingState({
           flexDirection: 'column',
           justifyContent: 'center',
           alignItems: 'center',
-          minHeight: '50vh',
+          minHeight: scaledVh(50),
           gap: 3,
         }}
       >

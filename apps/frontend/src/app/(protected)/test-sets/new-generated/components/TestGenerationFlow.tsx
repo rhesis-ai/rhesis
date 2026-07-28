@@ -33,6 +33,7 @@ import TestGenerationInterface from './TestGenerationInterface';
 import TestConfigurationConfirmation from './TestConfigurationConfirmation';
 import { TEMPLATES } from '@/config/test-templates';
 import { getApiErrorMessage } from '@/utils/error-utils';
+import { scaledVh } from '@/styles/viewport-scaling';
 
 // Initial empty chip configurations
 const createEmptyChips = (): ConfigChips => {
@@ -1012,7 +1013,7 @@ export default function TestGenerationFlow() {
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            height: '100vh',
+            height: scaledVh(),
             bgcolor: 'background.default',
           }}
         >

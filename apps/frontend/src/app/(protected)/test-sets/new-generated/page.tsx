@@ -4,6 +4,7 @@ import { Box, CircularProgress, Typography } from '@mui/material';
 import { useSession } from 'next-auth/react';
 import TestGenerationFlow from './components/TestGenerationFlow';
 import { isAuthenticated, isSessionLoading } from '@/hooks/useIsAuthenticated';
+import { scaledVh } from '@/styles/viewport-scaling';
 
 export default function GenerateTestsPage() {
   const { status } = useSession();
@@ -16,7 +17,7 @@ export default function GenerateTestsPage() {
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          height: '100vh',
+          height: scaledVh(),
         }}
       >
         <CircularProgress sx={{ mb: 2 }} />

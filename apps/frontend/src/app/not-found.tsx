@@ -5,6 +5,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBackOutlined';
 import HomeOutlinedIcon from '@mui/icons-material/HomeOutlined';
 import TravelExploreOutlinedIcon from '@mui/icons-material/TravelExploreOutlined';
 import Link from 'next/link';
+import { scaledVh } from '@/styles/viewport-scaling';
 
 /**
  * Root not-found page — shown when no route matches the URL at all.
@@ -18,7 +19,7 @@ export default function RootNotFound() {
       flexDirection="column"
       alignItems="center"
       justifyContent="center"
-      minHeight="80vh"
+      minHeight={scaledVh(80)}
       textAlign="center"
       px={3}
     >

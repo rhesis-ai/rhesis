@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Box, CircularProgress } from '@mui/material';
+import { scaledVh } from '@/styles/viewport-scaling';
 
 /**
  * This is a catch-all route for handling external link navigation.
@@ -29,7 +30,7 @@ export default function LinkRedirectPage() {
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
-        minHeight: '100vh',
+        minHeight: scaledVh(),
       }}
     >
       <CircularProgress />

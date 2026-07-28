@@ -15,6 +15,7 @@ import {
   isSessionLoading,
   isSessionUnauthenticated,
 } from '@/hooks/useIsAuthenticated';
+import { scaledVh } from '@/styles/viewport-scaling';
 
 export default function LandingPage() {
   const { data: session, status } = useSession();
@@ -125,7 +126,7 @@ export default function LandingPage() {
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
-          height: '100vh',
+          height: scaledVh(),
           flexDirection: 'column',
           gap: 2,
         }}
@@ -152,7 +153,7 @@ export default function LandingPage() {
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
-          height: '100vh',
+          height: scaledVh(),
           flexDirection: 'column',
           gap: 2,
         }}

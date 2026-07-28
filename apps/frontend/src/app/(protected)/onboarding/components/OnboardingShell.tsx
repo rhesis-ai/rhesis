@@ -3,6 +3,7 @@
 import { Box } from '@mui/material';
 import OnboardingSidebar from './OnboardingSidebar';
 import OnboardingProgressBar from './OnboardingProgressBar';
+import { scaledVh } from '@/styles/viewport-scaling';
 
 interface OnboardingShellProps {
   activeStep: number;
@@ -16,7 +17,7 @@ export default function OnboardingShell({
   return (
     <Box
       sx={{
-        minHeight: '100vh',
+        minHeight: scaledVh(),
         bgcolor: 'background.default',
         display: 'flex',
         flexDirection: { xs: 'column', md: 'row' },
@@ -33,7 +34,7 @@ export default function OnboardingShell({
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'space-between',
-          minHeight: { xs: 'auto', md: 'calc(100vh - 40px)' },
+          minHeight: { xs: 'auto', md: `calc(${scaledVh()} - 40px)` },
           pt: { xs: 2, md: '100px' },
           pb: { xs: 3, md: '50px' },
           px: { xs: 0, md: 2 },
