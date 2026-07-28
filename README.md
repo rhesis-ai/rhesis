@@ -1,4 +1,9 @@
-# Rhesis: Get the feedback you need to improve your agents
+<p align="center">
+  <img src=".github/images/GH_Collaboration_Hub.jpg"
+       loading="lazy"
+       width="1080"
+       alt="Rhesis: Get the feedback you need to improve your agents">
+</p>
 
 <p align="center">
   <a href="https://github.com/rhesis-ai/rhesis/blob/main/LICENSE">
@@ -44,13 +49,6 @@ Connect the agent you are building, share the link with your team, and get struc
 ---
 
 ## Why Rhesis?
-
-<p align="center">
-  <img src=".github/images/GH_Collaboration_Hub.jpg"
-       loading="lazy"
-       width="1080"
-       alt="Rhesis collaboration hub: feedback in, agent improvements out">
-</p>
 
 Most tools start with tests or traces. Rhesis starts one step earlier: the people who know what the
 agent should answer are not the people building it, and their feedback rarely arrives in a form you
