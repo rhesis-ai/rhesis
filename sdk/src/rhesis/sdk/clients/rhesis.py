@@ -207,9 +207,21 @@ class RhesisClient:
             logger.info("Connector explicitly disabled (RHESIS_CONNECTOR_DISABLED=true)")
             return DisabledClient()
 
+        project_id = os.getenv("RHESIS_PROJECT_ID") or None
+        api_key = os.getenv("RHESIS_API_KEY") or None
+
+        # Gate before construction: __init__ eagerly installs the OTEL provider and
+        # starts exporting, so a missing key would ship spans with "Bearer None".
+        if not api_key or not project_id:
+            logger.info(
+                "RHESIS_API_KEY/RHESIS_PROJECT_ID not set; using DisabledClient. "
+                "Traces will NOT be shipped to the backend."
+            )
+            return DisabledClient()
+
         return cls(
-            project_id=os.getenv("RHESIS_PROJECT_ID") or None,
-            api_key=os.getenv("RHESIS_API_KEY") or None,
+            project_id=project_id,
+            api_key=api_key,
             environment=os.getenv("RHESIS_ENVIRONMENT") or "development",
             base_url=os.getenv("RHESIS_BASE_URL") or "http://localhost:8080",
         )
