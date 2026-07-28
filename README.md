@@ -1,5 +1,5 @@
 <p align="center">
-  <img src=".github/images/GH_Collaboration_Hub.jpg"
+  <img src=".github/images/GH-collaborate.png"
        loading="lazy"
        width="1920"
        alt="Rhesis: Get the feedback you need to improve your agents">
@@ -161,7 +161,7 @@ CI in any language: [OpenAPI spec](https://api.rhesis.ai/docs).
 ## Capabilities
 
 <p align="center">
-  <img src=".github/images/GH_Capabilities.jpg"
+  <img src=".github/images/GH-capabilities.png"
        loading="lazy"
        width="1920"
        alt="Start with the feedback you already have and expand from there — review test results, inspect annotations, gain insights">
