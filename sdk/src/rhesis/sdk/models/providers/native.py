@@ -60,7 +60,7 @@ class RhesisLLM(BaseLLM):
         self.api_key = api_key or os.getenv("RHESIS_API_KEY")
         self.base_url = base_url or os.getenv("RHESIS_BASE_URL")
 
-        if self.api_key is None:
+        if not self.api_key:
             raise ValueError("RHESIS_API_KEY is not set")
 
         super().__init__(model_name, **kwargs)
@@ -257,7 +257,7 @@ class RhesisEmbedder(BaseEmbedder):
         self.api_key = api_key or os.getenv("RHESIS_API_KEY")
         self.base_url = base_url or os.getenv("RHESIS_BASE_URL")
 
-        if self.api_key is None:
+        if not self.api_key:
             raise ValueError("RHESIS_API_KEY is not set")
 
         self.client = APIClient(api_key=self.api_key, base_url=self.base_url)
