@@ -95,6 +95,46 @@ evals that run on every change.
 
 ---
 
+## Capabilities
+
+<p align="center">
+  <img src=".github/images/GH-capabilities.png"
+       loading="lazy"
+       width="1920"
+       alt="Start with the feedback you already have and expand from there — review test results, inspect annotations, gain insights">
+</p>
+
+Nobody can review every case by hand. Once the first feedback is in, you can grow coverage from it:
+
+- **Test generation** from your requirements, a PRD, or an uploaded file
+- **Conversation simulation** with Penelope; **adversarial probing** with Polyphemus and [garak](https://github.com/leondz/garak)
+- **60+ metrics** — RAGAS, DeepEval, garak, and custom LLM-as-Judge evaluators
+- **Traces** linked to test results via OpenTelemetry
+
+Generated tests are only as good as the requirements behind them. Instead of retyping a spec into a
+prompt, connect the tools your requirements already live in (Notion, GitHub, Jira, Confluence) and
+Rhesis writes tests from the real thing. See [Tools](https://docs.rhesis.ai/docs/tools).
+
+<p align="center">
+  <a href="https://rhesis.ai/?video=open" target="_blank">
+    <img src=".github/images/GH_Short_Demo.png"
+         loading="lazy"
+         width="1920"
+         alt="Rhesis Platform Overview - Click to watch demo">
+  </a>
+</p>
+
+| Use case | What you validate |
+|----------|-------------------|
+| **Conversational & support agents** | Role adherence, policy citation, escalation |
+| **RAG / document Q&A** | Faithfulness, grounding, retrieval quality |
+| **Tool-using & multi-agent systems** | Tool choice, goal completion, handoffs |
+| **Regulated / high-stakes domains** | Must and must-not behaviors your reviewers defined |
+
+Details: [docs.rhesis.ai](https://docs.rhesis.ai)
+
+---
+
 ## Connect your agent
 
 Rhesis needs a way to invoke the agent under test. Two ways to do it: we recommend the SDK
@@ -155,46 +195,6 @@ CI in any language: [OpenAPI spec](https://api.rhesis.ai/docs).
 > Tracing (OpenTelemetry) and LLM providers for synthesis and judges are documented separately. See
 > [Tracing](https://docs.rhesis.ai/docs/tracing) and [Models](https://docs.rhesis.ai/sdk/models).
 > Neither is how you connect the agent under test.
-
----
-
-## Capabilities
-
-<p align="center">
-  <img src=".github/images/GH-capabilities.png"
-       loading="lazy"
-       width="1920"
-       alt="Start with the feedback you already have and expand from there — review test results, inspect annotations, gain insights">
-</p>
-
-Nobody can review every case by hand. Once the first feedback is in, you can grow coverage from it:
-
-- **Test generation** from your requirements, a PRD, or an uploaded file
-- **Conversation simulation** with Penelope; **adversarial probing** with Polyphemus and [garak](https://github.com/leondz/garak)
-- **60+ metrics** — RAGAS, DeepEval, garak, and custom LLM-as-Judge evaluators
-- **Traces** linked to test results via OpenTelemetry
-
-Generated tests are only as good as the requirements behind them. Instead of retyping a spec into a
-prompt, connect the tools your requirements already live in (Notion, GitHub, Jira, Confluence) and
-Rhesis writes tests from the real thing. See [Tools](https://docs.rhesis.ai/docs/tools).
-
-<p align="center">
-  <a href="https://rhesis.ai/?video=open" target="_blank">
-    <img src=".github/images/GH_Short_Demo.png"
-         loading="lazy"
-         width="1920"
-         alt="Rhesis Platform Overview - Click to watch demo">
-  </a>
-</p>
-
-| Use case | What you validate |
-|----------|-------------------|
-| **Conversational & support agents** | Role adherence, policy citation, escalation |
-| **RAG / document Q&A** | Faithfulness, grounding, retrieval quality |
-| **Tool-using & multi-agent systems** | Tool choice, goal completion, handoffs |
-| **Regulated / high-stakes domains** | Must and must-not behaviors your reviewers defined |
-
-Details: [docs.rhesis.ai](https://docs.rhesis.ai)
 
 ---
 
