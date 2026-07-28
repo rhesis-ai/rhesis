@@ -1,7 +1,7 @@
 <p align="center">
   <img src=".github/images/GH_Collaboration_Hub.jpg"
        loading="lazy"
-       width="1080"
+       width="1920"
        alt="Rhesis: Get the feedback you need to improve your agents">
 </p>
 
@@ -163,7 +163,7 @@ CI in any language: [OpenAPI spec](https://api.rhesis.ai/docs).
 <p align="center">
   <img src=".github/images/GH_Capabilities.jpg"
        loading="lazy"
-       width="1080"
+       width="1920"
        alt="Start with the feedback you already have and expand from there — review test results, inspect annotations, gain insights">
 </p>
 
@@ -182,7 +182,7 @@ Rhesis writes tests from the real thing. See [Tools](https://docs.rhesis.ai/docs
   <a href="https://rhesis.ai/?video=open" target="_blank">
     <img src=".github/images/GH_Short_Demo.png"
          loading="lazy"
-         width="1080"
+         width="1920"
          alt="Rhesis Platform Overview - Click to watch demo">
   </a>
 </p>
