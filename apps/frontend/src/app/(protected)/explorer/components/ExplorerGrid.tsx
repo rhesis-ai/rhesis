@@ -34,6 +34,9 @@ import { useNotifications } from '@/components/common/NotificationContext';
 import { formatDate } from '@/utils/date';
 import { explorerKeys } from '@/constants/query-keys';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import { UserAvatar } from '@/components/common/UserAvatar';
+import { AVATAR_SIZES } from '@/constants/avatar-sizes';
+import type { UserReference } from '@/utils/api-client/interfaces/tests';
 
 interface ExplorerGridProps {
   canCreate?: boolean;
@@ -66,6 +69,17 @@ function ExplorerUnifiedToolbar() {
         </>
       }
     />
+  );
+}
+
+/** Same name cascade the other grids use, so sorting and export match the cell. */
+function userDisplayName(user?: UserReference): string {
+  if (!user) return '';
+  return (
+    user.name ||
+    `${user.given_name || ''} ${user.family_name || ''}`.trim() ||
+    user.email ||
+    ''
   );
 }
 
@@ -152,10 +166,10 @@ export default function ExplorerGrid({
         field: 'status',
         headerName: 'Status',
         width: 120,
+        valueGetter: (_, row) => row.status?.name || '',
         renderCell: params => {
-          const status = params.value;
-          if (!status) return '-';
-          return <GridBadge label={status} />;
+          if (!params.value) return '-';
+          return <GridBadge label={params.value} />;
         },
       },
       {
@@ -166,6 +180,26 @@ export default function ExplorerGrid({
           if (!params.value) return '-';
           return (
             <Typography variant="body2">{formatDate(params.value)}</Typography>
+          );
+        },
+      },
+      {
+        field: 'user',
+        headerName: 'Creator',
+        width: 160,
+        minWidth: 120,
+        valueGetter: (_, row) => userDisplayName(row.user),
+        renderCell: params => {
+          if (!params.value) return '-';
+          return (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <UserAvatar
+                userName={params.value}
+                userPicture={params.row.user?.picture}
+                size={AVATAR_SIZES.SMALL}
+              />
+              <Typography variant="body2">{params.value}</Typography>
+            </Box>
           );
         },
       },

@@ -199,7 +199,7 @@ def export_regular_test_set_from_explorer_endpoint(
 
 @router.get(
     "/",
-    response_model=List[schemas.TestSet],
+    response_model=List[schemas.TestSetDetail],
 )
 def list_explorer_test_sets(
     skip: int = 0,

@@ -1,6 +1,7 @@
 import uuid
 
 import pytest
+from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models
@@ -294,6 +295,30 @@ class TestGetExplorerTestSets:
         )
 
         assert all(isinstance(ts, models.TestSet) for ts in result)
+
+    def test_eager_loads_creator(
+        self,
+        test_db,
+        explorer_and_regular_test_sets,
+        test_org_id,
+        authenticated_user_id,
+    ):
+        """`user` must come back already loaded -- GET /explorer/ serializes it.
+
+        Asserts it is not in `unloaded`, so a lazy fallback (N+1 per row) fails here
+        rather than silently working.
+        """
+        result = get_explorer_test_sets(
+            db=test_db,
+            organization_id=test_org_id,
+        )
+
+        explorer_id = str(explorer_and_regular_test_sets["explorer_1"].id)
+        test_set = next(ts for ts in result if str(ts.id) == explorer_id)
+
+        assert "user" not in sa_inspect(test_set).unloaded
+        assert test_set.user is not None
+        assert str(test_set.user.id) == str(authenticated_user_id)
 
     def test_pagination_skip_and_limit(
         self,

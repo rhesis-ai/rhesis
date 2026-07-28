@@ -3,10 +3,15 @@
  * Matches the backend schemas in apps/backend/src/rhesis/backend/app/schemas/explorer.py
  */
 
+import { Status } from './status';
+import { Tag } from './tag';
+import { UserReference } from './tests';
+
 // =============================================================================
 // Explorer test set (TestSet JSON from GET /explorer)
 // =============================================================================
 
+/** Bare schemas.TestSet -- what create, detail, import and export return. */
 export interface ExplorerTestSet {
   id: string;
   name: string;
@@ -14,11 +19,24 @@ export interface ExplorerTestSet {
   slug?: string;
   nano_id?: string;
   status_id?: string;
-  status?: string;
   test_set_type_id?: string;
   attributes?: Record<string, unknown>;
   created_at?: string;
   updated_at?: string;
+}
+
+/** schemas.TestSetDetail -- only GET /explorer/ expands these relations. */
+export interface ExplorerTestSetDetail extends ExplorerTestSet {
+  user?: UserReference;
+  owner?: UserReference;
+  assignee?: UserReference;
+  status?: Status;
+  tags?: Tag[];
+  counts?: {
+    comments?: number;
+    tasks?: number;
+    files?: number;
+  };
 }
 
 /** Response from POST /explorer/import/{source_test_set_id} */
