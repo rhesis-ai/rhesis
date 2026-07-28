@@ -1,0 +1,51 @@
+# Lets the stg-arc-runner-set's default ServiceAccount (arc-runners/default)
+# run one-off Kubernetes Jobs in this namespace on behalf of rhesis-ee's
+# license-issue.yml workflow. That workflow issues signed license tokens by
+# running the EE licensing CLI as a Job here instead of a Cloud Run Job,
+# because this namespace's Postgres (CloudNativePG, Service "rhesis-stg-rw")
+# only resolves via cluster-internal DNS -- Cloud Run cannot reach it.
+#
+# Blast-radius note: "create Jobs" implicitly allows a Job's pod spec to
+# mount any Secret already in this namespace (rhesis-app-secrets included) --
+# Kubernetes RBAC has no way to grant Job-creation without that. The real
+# access boundary is who can dispatch license-issue.yml in the private
+# rhesis-ee repo, not this Role.
+#
+# secrets get/update/delete are scoped via resourceNames to the one Secret
+# the workflow actually manages. Kubernetes RBAC cannot apply resourceNames
+# to "create" (the object doesn't exist yet at authorization time), so this
+# Role can still create a Secret under any name -- it just can't read,
+# change, or remove anything other than "license-issue-signing" afterward.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: license-issuer
+  namespace: rhesis
+rules:
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["create", "get", "list", "watch", "delete"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: ["license-issue-signing"]
+    verbs: ["create", "get", "update", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: license-issuer
+  namespace: rhesis
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: license-issuer
+subjects:
+  - kind: ServiceAccount
+    name: default
+    namespace: arc-runners
