@@ -175,6 +175,13 @@ CI in any language: [OpenAPI spec](https://api.rhesis.ai/docs).
 
 ## Capabilities
 
+<p align="center">
+  <img src=".github/images/GH_Capabilities.jpg"
+       loading="lazy"
+       width="1080"
+       alt="Start with the feedback you already have and expand from there — review test results, inspect annotations, gain insights">
+</p>
+
 Nobody can review every case by hand. Once the first feedback is in, you can grow coverage from it:
 
 - **Test generation** from your requirements, a PRD, or an uploaded file
