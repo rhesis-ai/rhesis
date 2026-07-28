@@ -528,7 +528,7 @@ def get_test_result_stats(
         )
     if mode == "behavior_detail":
         behavior_detail = _behavior_breakdown(base_q)
-    if mode in ("all", "summary"):
+    if mode in ("all", "summary", "behavior_detail"):
         overall_pass_rates = _overall_stats(db, base_q)
     if mode in ("all", "metrics"):
         metric_pass_rates = _metric_stats(base_q)
@@ -543,7 +543,7 @@ def get_test_result_stats(
     if mode in ("all", "test_runs"):
         test_run_summary = _test_run_summary(base_q)
 
-    total_tests = overall_pass_rates.get("total", 0)
+    total_tests = len(matched_test_ids) if mode == "ids" else overall_pass_rates.get("total", 0)
     metadata = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "organization_id": organization_id,
