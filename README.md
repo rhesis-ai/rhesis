@@ -178,15 +178,6 @@ Generated tests are only as good as the requirements behind them. Instead of ret
 prompt, connect the tools your requirements already live in (Notion, GitHub, Jira, Confluence) and
 Rhesis writes tests from the real thing. See [Tools](https://docs.rhesis.ai/docs/tools).
 
-| Use case | What you validate |
-|----------|-------------------|
-| **Conversational & support agents** | Role adherence, policy citation, escalation |
-| **RAG / document Q&A** | Faithfulness, grounding, retrieval quality |
-| **Tool-using & multi-agent systems** | Tool choice, goal completion, handoffs |
-| **Regulated / high-stakes domains** | Must and must-not behaviors your reviewers defined |
-
-Details: [docs.rhesis.ai](https://docs.rhesis.ai)
-
 <p align="center">
   <a href="https://rhesis.ai/?video=open" target="_blank">
     <img src=".github/images/GH_Short_Demo.png"
@@ -195,6 +186,15 @@ Details: [docs.rhesis.ai](https://docs.rhesis.ai)
          alt="Rhesis Platform Overview - Click to watch demo">
   </a>
 </p>
+
+| Use case | What you validate |
+|----------|-------------------|
+| **Conversational & support agents** | Role adherence, policy citation, escalation |
+| **RAG / document Q&A** | Faithfulness, grounding, retrieval quality |
+| **Tool-using & multi-agent systems** | Tool choice, goal completion, handoffs |
+| **Regulated / high-stakes domains** | Must and must-not behaviors your reviewers defined |
+
+Details: [docs.rhesis.ai](https://docs.rhesis.ai)
 
 ---
 
