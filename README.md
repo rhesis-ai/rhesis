@@ -167,15 +167,6 @@ CI in any language: [OpenAPI spec](https://api.rhesis.ai/docs).
        alt="Start with the feedback you already have and expand from there — review test results, inspect annotations, gain insights">
 </p>
 
-<p align="center">
-  <a href="https://rhesis.ai/?video=open" target="_blank">
-    <img src=".github/images/GH_Short_Demo.png"
-         loading="lazy"
-         width="1080"
-         alt="Rhesis Platform Overview - Click to watch demo">
-  </a>
-</p>
-
 Nobody can review every case by hand. Once the first feedback is in, you can grow coverage from it:
 
 - **Test generation** from your requirements, a PRD, or an uploaded file
@@ -195,6 +186,15 @@ Rhesis writes tests from the real thing. See [Tools](https://docs.rhesis.ai/docs
 | **Regulated / high-stakes domains** | Must and must-not behaviors your reviewers defined |
 
 Details: [docs.rhesis.ai](https://docs.rhesis.ai)
+
+<p align="center">
+  <a href="https://rhesis.ai/?video=open" target="_blank">
+    <img src=".github/images/GH_Short_Demo.png"
+         loading="lazy"
+         width="1080"
+         alt="Rhesis Platform Overview - Click to watch demo">
+  </a>
+</p>
 
 ---
 
