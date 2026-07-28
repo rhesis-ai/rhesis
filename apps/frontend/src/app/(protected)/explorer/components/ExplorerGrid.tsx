@@ -37,6 +37,9 @@ import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 import { UserAvatar } from '@/components/common/UserAvatar';
 import { AVATAR_SIZES } from '@/constants/avatar-sizes';
 import type { UserReference } from '@/utils/api-client/interfaces/tests';
+import { createRowActionsColumn } from '@/components/common/createRowActionsColumn';
+import { useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 
 interface ExplorerGridProps {
   canCreate?: boolean;
@@ -98,8 +101,10 @@ export default function ExplorerGrid({
   });
   const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>([]);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const canDeleteSession = useCan(Capability.Explorer.DELETE);
 
   const {
     data,
@@ -134,6 +139,11 @@ export default function ExplorerGrid({
     },
     []
   );
+
+  const handleRowDeleteAction = useCallback((id: string) => {
+    setPendingDeleteId(id);
+    setDeleteModalOpen(true);
+  }, []);
 
   const columns = useMemo<GridColDef[]>(
     () => [
@@ -203,8 +213,14 @@ export default function ExplorerGrid({
           );
         },
       },
+      createRowActionsColumn({
+        onDelete: id => handleRowDeleteAction(id),
+        canDelete: () => canDeleteSession,
+        deleteTooltip: 'Delete session',
+        width: 56,
+      }),
     ],
-    []
+    [canDeleteSession, handleRowDeleteAction]
   );
 
   const handleRowClick = (params: GridRowParams) => {
@@ -212,11 +228,13 @@ export default function ExplorerGrid({
   };
 
   const handleDeleteTestSets = () => {
+    setPendingDeleteId(null);
     setDeleteModalOpen(true);
   };
 
   const handleDeleteCancel = () => {
     setDeleteModalOpen(false);
+    setPendingDeleteId(null);
   };
 
   const handleExportSelected = useCallback(async () => {
@@ -252,15 +270,22 @@ export default function ExplorerGrid({
   }, [notifications, router, selectedRows]);
 
   const handleDeleteConfirm = async () => {
-    if (selectedRows.length === 0) return;
+    const idsToDelete = pendingDeleteId
+      ? [pendingDeleteId]
+      : selectedRows.map(String);
+    if (idsToDelete.length === 0) return;
 
     try {
       setIsDeleting(true);
       const client = new ApiClientFactory().getExplorerClient();
-      await client.bulkDeleteExplorerTestSets(selectedRows.map(String));
+      if (pendingDeleteId) {
+        await client.deleteExplorerTestSet(pendingDeleteId);
+      } else {
+        await client.bulkDeleteExplorerTestSets(idsToDelete);
+      }
 
       notifications.show(
-        `Successfully deleted ${selectedRows.length} ${selectedRows.length === 1 ? 'session' : 'sessions'}`,
+        `Successfully deleted ${idsToDelete.length} ${idsToDelete.length === 1 ? 'session' : 'sessions'}`,
         { severity: 'success', autoHideDuration: 4000 }
       );
 
@@ -274,6 +299,8 @@ export default function ExplorerGrid({
     } finally {
       setIsDeleting(false);
       setDeleteModalOpen(false);
+      // Clear here, not on success only: a stale id would retarget the next bulk delete.
+      setPendingDeleteId(null);
     }
   };
 
@@ -306,13 +333,15 @@ export default function ExplorerGrid({
       });
     }
 
-    buttons.push({
-      label: selectedRows.length > 1 ? 'Delete sessions' : 'Delete session',
-      icon: <DeleteIcon />,
-      variant: 'outlined' as const,
-      color: 'error' as const,
-      onClick: handleDeleteTestSets,
-    });
+    if (canDeleteSession) {
+      buttons.push({
+        label: selectedRows.length > 1 ? 'Delete sessions' : 'Delete session',
+        icon: <DeleteIcon />,
+        variant: 'outlined' as const,
+        color: 'error' as const,
+        onClick: handleDeleteTestSets,
+      });
+    }
 
     return buttons;
   };
@@ -369,8 +398,16 @@ export default function ExplorerGrid({
               onClose={handleDeleteCancel}
               onConfirm={handleDeleteConfirm}
               isLoading={isDeleting}
-              title="Delete explorer sessions"
-              message={`Are you sure you want to delete ${selectedRows.length} ${selectedRows.length === 1 ? 'session' : 'sessions'}? Related tests in the tree will be removed with this record.`}
+              title={
+                pendingDeleteId || selectedRows.length === 1
+                  ? 'Delete explorer session'
+                  : 'Delete explorer sessions'
+              }
+              message={
+                pendingDeleteId
+                  ? 'Are you sure you want to delete this session? Its tests and topics are deleted with it.'
+                  : `Are you sure you want to delete ${selectedRows.length} ${selectedRows.length === 1 ? 'session' : 'sessions'}? Their tests and topics are deleted with them.`
+              }
               itemType="explorer sessions"
             />
           </Box>
