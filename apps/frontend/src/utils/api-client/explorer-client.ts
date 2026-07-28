@@ -12,6 +12,7 @@ import {
   ExplorerSettings,
   ExplorerSettingsUpdateRequest,
   ExplorerTestSet,
+  ExplorerTestSetDetail,
   ExportExplorerTestSetResponse,
   GenerateOutputsRequest,
   GenerateOutputsResponse,
@@ -92,14 +93,14 @@ export class ExplorerClient extends BaseApiClient {
     limit: number = 100,
     sortBy: string = 'created_at',
     sortOrder: string = 'desc'
-  ): Promise<ExplorerTestSet[]> {
+  ): Promise<ExplorerTestSetDetail[]> {
     const params = new URLSearchParams({
       skip: skip.toString(),
       limit: limit.toString(),
       sort_by: sortBy,
       sort_order: sortOrder,
     });
-    return this.fetch<ExplorerTestSet[]>(
+    return this.fetch<ExplorerTestSetDetail[]>(
       `${API_ENDPOINTS.explorer}/?${params.toString()}`,
       { cache: 'no-store' }
     );
