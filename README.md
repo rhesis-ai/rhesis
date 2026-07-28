@@ -274,9 +274,9 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 We take data security seriously. See our [Privacy Policy](https://rhesis.ai/privacy-policy) for details.
 
-**Telemetry:** Rhesis can collect basic, anonymized usage statistics to improve the product. No sensitive data is collected or shared with third parties.
+**Telemetry:** Rhesis collects basic, anonymized usage statistics to improve the product. No sensitive data is collected or shared with third parties.
 
-- **Self-hosted:** Opt in by setting `OTEL_RHESIS_TELEMETRY_ENABLED=true` (off by default)
+- **Self-hosted:** Opt out by setting `OTEL_RHESIS_TELEMETRY_ENABLED=false`
 - **Cloud:** Telemetry enabled as part of Terms & Conditions
 
 ---
