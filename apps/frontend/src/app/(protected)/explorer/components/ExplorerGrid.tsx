@@ -228,6 +228,7 @@ export default function ExplorerGrid({
   };
 
   const handleDeleteTestSets = () => {
+    setPendingDeleteId(null);
     setDeleteModalOpen(true);
   };
 
@@ -288,7 +289,6 @@ export default function ExplorerGrid({
         { severity: 'success', autoHideDuration: 4000 }
       );
 
-      setPendingDeleteId(null);
       setSelectedRows([]);
       queryClient.invalidateQueries({ queryKey: explorerKeys.all() });
     } catch {
@@ -299,6 +299,8 @@ export default function ExplorerGrid({
     } finally {
       setIsDeleting(false);
       setDeleteModalOpen(false);
+      // Clear here, not on success only: a stale id would retarget the next bulk delete.
+      setPendingDeleteId(null);
     }
   };
 
