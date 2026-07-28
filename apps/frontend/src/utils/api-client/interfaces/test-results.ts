@@ -447,6 +447,13 @@ export interface TestResultsStatsMetadata {
   available_topics?: string[];
 }
 
+// mode='behavior_detail': per-behavior overall/metric/topic breakdown
+export interface BehaviorDetailStats {
+  overall_pass_rates: PassFailStats;
+  metric_pass_rates: MetricPassRates;
+  topic_pass_rates: TopicPassRates;
+}
+
 // Main comprehensive stats interface
 export interface TestResultsStats {
   // Core pass/fail statistics
@@ -465,6 +472,12 @@ export interface TestResultsStats {
 
   // Test run comparison
   test_run_summary?: TestRunSummaryItem[];
+
+  // mode='ids': test_ids matching a metric/overall outcome
+  test_ids?: string[];
+
+  // mode='behavior_detail': keyed by behavior_id
+  behavior_detail?: Record<string, BehaviorDetailStats>;
 
   // Metadata
   metadata: TestResultsStatsMetadata;

@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from enum import Enum
-from typing import List, Optional
+from typing import List, Literal, Optional
 from uuid import UUID, uuid4
 
 from fastapi import Depends, HTTPException, Query, Request, Response
@@ -43,10 +43,11 @@ class TestResultStatsMode(str, Enum):
     BEHAVIOR = "behavior"
     CATEGORY = "category"
     TOPIC = "topic"
-    OVERALL = "overall"
     TIMELINE = "timeline"
     TEST_RUNS = "test_runs"
     SUMMARY = "summary"  # Overall + metadata only (lightweight)
+    IDS = "ids"  # test_ids matching a specific metric outcome
+    BEHAVIOR_DETAIL = "behavior_detail"  # per-behavior overall/metric/topic, keyed by behavior_id
 
 
 router = RhesisRouter(
@@ -152,7 +153,9 @@ def generate_test_result_stats(
         TestResultStatsMode.ALL,
         description="Data mode: 'summary' (lightweight), 'metrics' (individual metrics), "
         "'behavior/category/topic' (dimensional), 'timeline' (trends), "
-        "'test_runs' (by run), 'overall' (aggregate), 'all' (complete)",
+        "'test_runs' (by run), 'ids' (test_ids matching a metric outcome), "
+        "'behavior_detail' (per-behavior metric/topic breakdown for multiple "
+        "behavior_ids in one call), 'all' (complete)",
     ),
     top: Optional[int] = Query(
         None, description="Max items per dimension (e.g., top 10 behaviors)"
@@ -172,6 +175,17 @@ def generate_test_result_stats(
     test_ids: Optional[List[UUID]] = Query(None, description="Filter by specific test IDs"),
     test_type_ids: Optional[List[UUID]] = Query(None, description="Filter by test type IDs"),
     test_run_ids: Optional[List[UUID]] = Query(None, description="Filter by multiple test run IDs"),
+    # mode='ids' filters
+    metric_name: Optional[str] = Query(
+        None,
+        description="Metric name to narrow mode='ids' to; omit to match the overall test result",
+    ),
+    outcome: Literal["pass", "fail", "all"] = Query(
+        "all", description="Outcome to match for mode='ids': 'pass', 'fail', or 'all'"
+    ),
+    topic_name: Optional[str] = Query(
+        None, description="Topic name to narrow mode='ids' by (case-insensitive)"
+    ),
     # User-related filters
     user_ids: Optional[List[UUID]] = Query(None, description="Filter by test creator user IDs"),
     assignee_ids: Optional[List[UUID]] = Query(None, description="Filter by assignee user IDs"),
@@ -223,11 +237,6 @@ def generate_test_result_stats(
     - Returns: `topic_pass_rates` + `metadata`
     - Contains: Pass/fail rates grouped by topic (Healthcare, Finance, Technology, etc.)
     - Use case: Topic performance insights, domain expertise evaluation
-
-    **`overall`** - High-level overview (~10% of full data size)
-    - Returns: `overall_pass_rates` + `metadata`
-    - Contains: Aggregate pass/fail rates (test passes only if ALL metrics pass)
-    - Use case: Executive dashboards, KPI tracking
 
     **`timeline`** - Trend analysis (~40% of full data size)
     - Returns: `timeline` + `metadata`
@@ -388,6 +397,9 @@ def generate_test_result_stats(
         test_ids=[str(id) for id in test_ids] if test_ids else None,
         test_type_ids=[str(id) for id in test_type_ids] if test_type_ids else None,
         test_run_ids=[str(id) for id in test_run_ids] if test_run_ids else None,
+        metric_name=metric_name,
+        outcome=outcome,
+        topic_name=topic_name,
         # User-related filters
         user_ids=[str(id) for id in user_ids] if user_ids else None,
         assignee_ids=[str(id) for id in assignee_ids] if assignee_ids else None,

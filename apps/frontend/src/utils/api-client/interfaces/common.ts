@@ -8,9 +8,10 @@ export type TestResultsStatsMode =
   | 'behavior'
   | 'category'
   | 'topic'
-  | 'overall'
   | 'timeline'
-  | 'test_runs';
+  | 'test_runs'
+  | 'ids'
+  | 'behavior_detail';
 
 export interface StatsOptions {
   top?: number;
@@ -57,6 +58,11 @@ export interface TestResultsStatsOptions {
   priority_min?: number;
   priority_max?: number;
   tags?: string[];
+
+  // mode='ids' filters
+  metric_name?: string;
+  outcome?: 'pass' | 'fail' | 'all';
+  topic_name?: string;
 }
 
 export interface PaginationParams {

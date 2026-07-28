@@ -80,11 +80,10 @@ import {
 } from './test-filter-model';
 import { gridSortToApiParams } from '@/utils/grid-sort';
 import {
-  fetchFailedTestIdsForInsights,
   formatInsightsFailedTestsBanner,
-  insightsFailedFilterToRunContext,
   type InsightsFailedTestsFilter,
 } from '@/app/(protected)/insights/utils/insights-failed-tests';
+import { useInsightsFailedTestIds } from '@/hooks/useInsightsFailedTestIds';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 import GridStateGate from '@/components/common/GridStateGate';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
@@ -243,22 +242,34 @@ export default function TestsTable({
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
   const [testSetDrawerOpen, setTestSetDrawerOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [insightsFailedTestIds, setInsightsFailedTestIds] = useState<
-    string[] | null
-  >(null);
-  const [insightsFilterLoading, setInsightsFilterLoading] = useState(false);
-  const [insightsFilterError, setInsightsFilterError] = useState<string | null>(
-    null
-  );
   const [isDeleting, setIsDeleting] = useState(false);
 
+  const {
+    data: insightsFailedTestIds,
+    isLoading: insightsFilterLoading,
+    isError: insightsFilterIsError,
+    isSuccess: insightsFilterSuccess,
+  } = useInsightsFailedTestIds(
+    insightsFailedFilter,
+    !!insightsFailedFilter && isAuthenticated(status)
+  );
+
+  const insightsFilterError = insightsFilterIsError
+    ? 'Failed to load test cases from Insights.'
+    : null;
+
+  // Ready once IDs resolve (success or error with empty fallback for the grid).
   const insightsFilterReady =
-    !insightsFailedFilter || insightsFailedTestIds !== null;
+    !insightsFailedFilter || insightsFilterSuccess || insightsFilterIsError;
+
+  const resolvedInsightsFailedTestIds = insightsFilterIsError
+    ? []
+    : (insightsFailedTestIds ?? null);
 
   const gridFilterString = combineTestFiltersToOData(filterModel);
   const insightsIdFilter =
-    insightsFailedFilter && insightsFailedTestIds !== null
-      ? buildTestIdsODataFilter(insightsFailedTestIds)
+    insightsFailedFilter && resolvedInsightsFailedTestIds !== null
+      ? buildTestIdsODataFilter(resolvedInsightsFailedTestIds)
       : '';
   const filterString = combineODataFilterExpressions(
     gridFilterString,
@@ -310,58 +321,6 @@ export default function TestsTable({
         typeValues.size === 1 ? ([...typeValues][0] ?? undefined) : undefined,
     };
   }, [selectedRows, tests]);
-
-  // Apply Insights failed-test filter from URL params
-  useEffect(() => {
-    if (!insightsFailedFilter || !isAuthenticated(status)) {
-      setInsightsFailedTestIds(null);
-      setInsightsFilterError(null);
-      setInsightsFilterLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-
-    const loadFailedTestIds = async () => {
-      setInsightsFailedTestIds(null);
-      setInsightsFilterLoading(true);
-      setInsightsFilterError(null);
-      try {
-        const ids = await fetchFailedTestIdsForInsights({
-          ...insightsFailedFilterToRunContext(insightsFailedFilter),
-          behaviorId: insightsFailedFilter.behaviorId,
-          behaviorName: insightsFailedFilter.behaviorName,
-          metricName: insightsFailedFilter.metricName,
-          topicName: insightsFailedFilter.topicName,
-          outcome: insightsFailedFilter.outcome,
-        });
-        if (!cancelled) {
-          setInsightsFailedTestIds(ids);
-        }
-      } catch {
-        if (!cancelled) {
-          setInsightsFilterError('Failed to load test cases from Insights.');
-          setInsightsFailedTestIds([]);
-        }
-      } finally {
-        if (!cancelled) {
-          setInsightsFilterLoading(false);
-        }
-      }
-    };
-
-    void loadFailedTestIds();
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    insightsFailedFilter?.endpointId,
-    insightsFailedFilter?.runFilterMode,
-    insightsFailedFilter?.timeRange,
-    insightsFailedFilter?.testRunIds,
-    insightsFailedFilter,
-    status,
-  ]);
 
   // Row action handlers
   const handleRowDeleteAction = useCallback((id: string) => {
@@ -855,7 +814,7 @@ export default function TestsTable({
                 : insightsFilterError ||
                   formatInsightsFailedTestsBanner(
                     insightsFailedFilter,
-                    insightsFailedTestIds?.length ?? 0,
+                    resolvedInsightsFailedTestIds?.length ?? 0,
                     insightsEndpointName
                   )}
             </Alert>

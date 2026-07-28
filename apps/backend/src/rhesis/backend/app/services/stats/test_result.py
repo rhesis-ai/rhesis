@@ -32,10 +32,11 @@ MODE_DEFINITIONS = {
     "behavior": ["behavior_pass_rates"],
     "category": ["category_pass_rates"],
     "topic": ["topic_pass_rates"],
-    "overall": ["overall_pass_rates"],
     "timeline": ["timeline"],
     "test_runs": ["test_run_summary"],
     "summary": ["overall_pass_rates"],
+    "ids": ["test_ids"],
+    "behavior_detail": ["behavior_detail"],
 }
 
 V = TestResultStatsView
@@ -81,6 +82,9 @@ def _apply_filters(query, db, **f):
         query = query.filter(V.priority >= f["priority_min"])
     if f.get("priority_max") is not None:
         query = query.filter(V.priority <= f["priority_max"])
+
+    if f.get("topic_name"):
+        query = query.filter(func.lower(V.topic_name) == f["topic_name"].lower())
 
     # test_set_ids: many-to-many via association table (subquery)
     if f.get("test_set_ids"):
@@ -289,6 +293,162 @@ def _metric_stats(base_q):
     return build_metric_pass_rate_stats(normalized)
 
 
+def _behavior_overall_stats(base_q) -> Dict[str, Dict]:
+    """Overall pass/fail counts grouped by behavior_id, in one query."""
+    q = base_q.with_entities(
+        V.behavior_id,
+        func.count().filter(V.result == OverallTestResult.PASSED).label("passed"),
+        func.count().filter(V.result == OverallTestResult.FAILED).label("failed"),
+    ).group_by(V.behavior_id)
+
+    result = {}
+    for r in q.all():
+        if r.behavior_id is None:
+            continue
+        passed, failed = r.passed or 0, r.failed or 0
+        total = passed + failed
+        result[str(r.behavior_id)] = {
+            "total": total,
+            "passed": passed,
+            "failed": failed,
+            "pass_rate": round((passed / total) * 100, 2) if total > 0 else 0,
+        }
+    return result
+
+
+def _behavior_dimensional_stats(base_q, name_col) -> Dict[str, Dict]:
+    """Pass rate grouped by behavior_id + a name column (e.g. topic_name), in one query."""
+    q = base_q.with_entities(
+        V.behavior_id,
+        name_col.label("name"),
+        func.count().filter(V.result == OverallTestResult.PASSED).label("passed"),
+        func.count().filter(V.result == OverallTestResult.FAILED).label("failed"),
+    ).group_by(V.behavior_id, name_col)
+
+    grouped: Dict[str, dict] = {}
+    for r in q.all():
+        if r.behavior_id is None:
+            continue
+        bid = str(r.behavior_id)
+        grouped.setdefault(bid, {})[r.name or "Unknown"] = {
+            "passed": r.passed or 0,
+            "failed": r.failed or 0,
+        }
+    return {bid: build_pass_rate_stats(stats) for bid, stats in grouped.items()}
+
+
+def _behavior_metric_stats(base_q) -> Dict[str, Dict]:
+    """Per-metric pass rates grouped by behavior_id. Same JSONB-unpacking
+    approach as _metric_stats, split into one bucket per behavior_id."""
+    rows = base_q.with_entities(V.behavior_id, V.test_metrics, V.result).all()
+    P, F = OverallTestResult.PASSED, OverallTestResult.FAILED
+    per_behavior: Dict[str, dict] = {}
+
+    for behavior_id, metrics_json, overall_result in rows:
+        if behavior_id is None or not metrics_json or not isinstance(metrics_json, dict):
+            continue
+        metrics = metrics_json.get("metrics")
+        if not isinstance(metrics, dict):
+            continue
+        metric_agg = per_behavior.setdefault(str(behavior_id), {})
+        for name, data in metrics.items():
+            if not isinstance(data, dict) or "is_successful" not in data:
+                continue
+            if name not in metric_agg:
+                metric_agg[name] = {
+                    P: 0,
+                    F: 0,
+                    "automated_passed": 0,
+                    "automated_failed": 0,
+                    "human_review_count": 0,
+                }
+            bucket = metric_agg[name]
+            has_metric_override = bool(data.get("override"))
+            reviewed = bool(data["is_successful"])
+            automated = automated_metric_success(data)
+            effective = effective_metric_success(overall_result, reviewed, has_metric_override)
+            if effective:
+                bucket[P] += 1
+            else:
+                bucket[F] += 1
+            if automated:
+                bucket["automated_passed"] += 1
+            else:
+                bucket["automated_failed"] += 1
+            if has_metric_override:
+                bucket["human_review_count"] += 1
+
+    result = {}
+    for bid, metric_agg in per_behavior.items():
+        normalized = {
+            name: {
+                "passed": stats[P],
+                "failed": stats[F],
+                "automated_passed": stats["automated_passed"],
+                "automated_failed": stats["automated_failed"],
+                "human_review_count": stats["human_review_count"],
+            }
+            for name, stats in metric_agg.items()
+        }
+        result[bid] = build_metric_pass_rate_stats(normalized)
+    return result
+
+
+def _behavior_breakdown(base_q) -> Dict[str, Dict]:
+    """Per-behavior overall/metric/topic pass rates in 3 queries total,
+    regardless of how many behavior_ids are requested."""
+    overall = _behavior_overall_stats(base_q)
+    metrics = _behavior_metric_stats(base_q)
+    topics = _behavior_dimensional_stats(base_q, V.topic_name)
+    empty_overall = {"total": 0, "passed": 0, "failed": 0, "pass_rate": 0}
+
+    return {
+        bid: {
+            "overall_pass_rates": overall.get(bid, empty_overall),
+            "metric_pass_rates": metrics.get(bid, {}),
+            "topic_pass_rates": topics.get(bid, {}),
+        }
+        for bid in set(overall) | set(metrics) | set(topics)
+    }
+
+
+def _test_ids_by_metric(base_q, metric_name: str, outcome: str) -> List[str]:
+    """Return distinct test_ids where a specific metric matches the requested
+    outcome ('pass', 'fail', or 'all'). Reuses effective_metric_success so
+    human-review overrides are handled the same way as in _metric_stats."""
+    rows = base_q.with_entities(V.test_id, V.test_metrics, V.result).all()
+    matched: Dict[str, None] = {}
+    for test_id, metrics_json, overall_result in rows:
+        if not metrics_json or not isinstance(metrics_json, dict):
+            continue
+        metrics = metrics_json.get("metrics")
+        if not isinstance(metrics, dict):
+            continue
+        data = metrics.get(metric_name)
+        if not isinstance(data, dict) or "is_successful" not in data:
+            continue
+        if outcome == "all":
+            matched[test_id] = None
+            continue
+        effective = effective_metric_success(
+            overall_result, bool(data["is_successful"]), bool(data.get("override"))
+        )
+        if effective == (outcome == "pass"):
+            matched[test_id] = None
+    return list(matched)
+
+
+def _test_ids_overall(base_q, outcome: str) -> List[str]:
+    """Return distinct test_ids matching the requested overall outcome
+    ('pass', 'fail', or 'all'), without narrowing to a specific metric."""
+    q = base_q.with_entities(V.test_id).distinct()
+    if outcome == "pass":
+        q = q.filter(V.result == OverallTestResult.PASSED)
+    elif outcome == "fail":
+        q = q.filter(V.result == OverallTestResult.FAILED)
+    return [row.test_id for row in q.all()]
+
+
 def get_test_result_stats(
     db: Session,
     organization_id: str | None = None,
@@ -312,8 +472,16 @@ def get_test_result_stats(
     tags: List[str] | None = None,
     start_date: str | None = None,
     end_date: str | None = None,
+    metric_name: str | None = None,
+    outcome: str = "all",
+    topic_name: str | None = None,
 ) -> Dict:
-    """Get test result statistics. Signature kept identical for backward compatibility."""
+    """Get test result statistics. Signature kept identical for backward compatibility.
+
+    metric_name/outcome/topic_name are only used by mode="ids": metric_name
+    narrows to one metric's pass/fail outcome; without it, outcome applies to
+    the overall test result instead. topic_name further narrows by topic.
+    """
 
     start_date_obj, end_date_obj = parse_date_range(start_date, end_date, months)
 
@@ -337,6 +505,7 @@ def get_test_result_stats(
         "priority_min": priority_min,
         "priority_max": priority_max,
         "tags": tags,
+        "topic_name": topic_name,
     }
 
     base_q = _apply_filters(db.query(V), db, **filter_params)
@@ -348,8 +517,18 @@ def get_test_result_stats(
     topic_pass_rates: dict = {}
     timeline: list = []
     test_run_summary: list = []
+    matched_test_ids: list = []
+    behavior_detail: dict = {}
 
-    if mode in ("all", "overall", "summary"):
+    if mode == "ids":
+        matched_test_ids = (
+            _test_ids_by_metric(base_q, metric_name, outcome)
+            if metric_name
+            else _test_ids_overall(base_q, outcome)
+        )
+    if mode == "behavior_detail":
+        behavior_detail = _behavior_breakdown(base_q)
+    if mode in ("all", "summary", "behavior_detail"):
         overall_pass_rates = _overall_stats(db, base_q)
     if mode in ("all", "metrics"):
         metric_pass_rates = _metric_stats(base_q)
@@ -364,7 +543,7 @@ def get_test_result_stats(
     if mode in ("all", "test_runs"):
         test_run_summary = _test_run_summary(base_q)
 
-    total_tests = overall_pass_rates.get("total", 0)
+    total_tests = len(matched_test_ids) if mode == "ids" else overall_pass_rates.get("total", 0)
     metadata = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "organization_id": organization_id,
@@ -391,5 +570,7 @@ def get_test_result_stats(
         overall_pass_rates=overall_pass_rates,
         timeline=timeline,
         test_run_summary=test_run_summary,
+        test_ids=[str(tid) for tid in matched_test_ids],
+        behavior_detail=behavior_detail,
         metadata=metadata,
     )
