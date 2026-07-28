@@ -61,6 +61,7 @@ import json
 import os
 import sys
 from datetime import datetime, timezone
+from typing import Any
 
 from rhesis.backend.ee.licensing.entitlements import (
     ENV_LICENSE_KID,
@@ -294,6 +295,7 @@ def cmd_issue(args: argparse.Namespace) -> None:
     admin_engine = create_engine(db_settings.admin_url)
     AdminSession = sessionmaker(bind=admin_engine, autocommit=False, autoflush=False)
     db = AdminSession()
+    org_name: str | None = None
     try:
         token = issue(
             db,
@@ -306,14 +308,35 @@ def cmd_issue(args: argparse.Namespace) -> None:
             custom_features=custom_features,
             custom_limits=custom_limits,
         )
+        # Best-effort: the license write above already succeeded, so a lookup
+        # failure here should degrade to an unlabeled summary, not fail the
+        # command outright.
+        org_name = _lookup_org_name(db, args.org)
     finally:
         db.close()
         admin_engine.dispose()
 
-    _print_summary(args.org, args.kid, token, dry_run=False)
+    _print_summary(args.org, args.kid, token, dry_run=False, org_name=org_name)
 
 
-def _print_summary(org_id: str, kid: str, token: str, *, dry_run: bool) -> None:
+def _lookup_org_name(db: Any, org_id: str) -> str | None:
+    """Best-effort org name lookup for the issuance summary.
+
+    Never raises -- called after the license has already been written, so a
+    display-only lookup failure must not surface as a command failure.
+    """
+    try:
+        from rhesis.backend.app.models.organization import Organization
+
+        org = db.query(Organization).filter(Organization.id == org_id).first()
+        return org.name if org is not None else None
+    except Exception:
+        return None
+
+
+def _print_summary(
+    org_id: str, kid: str, token: str, *, dry_run: bool, org_name: str | None = None
+) -> None:
     """Print an issuance summary without leaking the token value."""
     import jwt as _jwt  # PyJWT — already in the venv
 
@@ -346,9 +369,10 @@ def _print_summary(org_id: str, kid: str, token: str, *, dry_run: bool) -> None:
         exp_str = jti = edition = "n/a"
 
     label = "[DRY-RUN] " if dry_run else ""
+    org_display = f"{org_id} ({org_name})" if org_name else org_id
     print(
         f"\n{label}Issuance summary",
-        f"  org      : {org_id}",
+        f"  org      : {org_display}",
         f"  edition  : {edition}",
         f"  kid      : {kid}",
         f"  exp      : {exp_str}",
