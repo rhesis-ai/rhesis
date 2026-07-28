@@ -1,0 +1,96 @@
+/* ========================================
+   VIEWPORT SCALING (laptop correction)
+   ========================================
+
+   The desktop design is frozen above ~1024px. Measured across /architect,
+   /test-runs, /metrics and /behaviors at 1024/1280/1440/1512/1600/1728/1800/
+   1920/2560, the root font size, every heading and all body copy render at
+   byte-identical sizes — the app has no `theme.breakpoints` usage at all and
+   no `responsiveFontSizes`. So a 14" MacBook (1512 logical px) draws the same
+   type and spacing as a 1920px display and reads as noticeably too large.
+
+   Rather than duplicate every size for a laptop tier — which token-level
+   scaling cannot do anyway, since ~461 hardcoded px values in the component
+   tree would silently not follow — scale the whole app subtree down until the
+   effective layout width lands nearer the ~1920px the design was drawn for:
+
+     < 1400px  -> 1     (small laptops and below stay exactly as they were)
+     1512px    -> 0.85  (effective 1779)
+     1728px    -> 0.9   (effective 1920)
+     1920px+   -> 1     (unchanged)
+
+   `zoom` scales layout, so text stays vector-crisp (this is not a raster
+   transform) and no element can drift out of proportion with its neighbours.
+   Browsers without support (pre-Chrome 128 / Safari 18 / Firefox 126) ignore
+   the declaration and get the previous rendering.
+
+   `screen and` keeps print out of it.
+
+   --- Why 0.85 and not 0.8 ---
+
+   The type scale here already runs small: the theme defines a 0.625rem (10px)
+   variant and buttons compute to 13.3px. At 0.8 those land at 8px and 10.7px
+   visually, which is too small to read comfortably. 0.85 keeps them at 8.5px
+   and 11.3px. Tuning is one number per breakpoint if that proves wrong.
+
+   --- Why the app subtree and not :root ---
+
+   MUI reads an anchor's `getBoundingClientRect()` (which returns *visual* px,
+   already multiplied by the zoom) and then writes that number back as a CSS px
+   `top`/`left` on the popover. If the popover is inside the zoomed subtree the
+   zoom applies a second time. With `:root { zoom }` this was measured and
+   confirmed: the account menu asked for `top: 620px` and painted at 620 * 0.8
+   = 496px, roughly 224px above the button that opened it.
+
+   Scoping the zoom to `[data-ui-scale-root]` — a wrapper *inside* `<body>` —
+   means MUI's portals (Popover, Menu, Select, Tooltip, Autocomplete, Dialog,
+   Drawer, Snackbar all portal to `document.body` by default) land outside the
+   zoomed subtree, where the visual px they were handed are already correct.
+   Re-measured after the change: the same menu asks for 620px and paints at
+   620px, flush to its anchor.
+
+   The trade-off is that those portalled surfaces render at 100% while the app
+   is at 85%, so their text is slightly larger than the page behind them. That
+   is deliberate, and preferable to a mispositioned menu.
+
+   --- Caveat: vw/vh ---
+
+   `vw`/`vh` are NOT compensated for zoom, so an uncompensated `height: 100vh`
+   inside the subtree renders at 85% of the screen and leaves a dead strip at
+   the bottom. Anything in the subtree that must track the real viewport
+   divides the viewport term — and only that term — by `--ui-scale`; see
+   `scaledVh` in `viewport-scaling.ts`. Percentages, `inset` and fixed
+   positioning all resolve correctly on their own, and viewport units on
+   body-portalled surfaces are already correct because those are not zoomed.
+   ======================================== */
+
+:root {
+  --ui-scale: 1;
+}
+
+@media screen and (min-width: 1400px) {
+  :root {
+    --ui-scale: 0.85;
+  }
+  [data-ui-scale-root] {
+    zoom: 0.85;
+  }
+}
+
+@media screen and (min-width: 1700px) {
+  :root {
+    --ui-scale: 0.9;
+  }
+  [data-ui-scale-root] {
+    zoom: 0.9;
+  }
+}
+
+@media screen and (min-width: 1920px) {
+  :root {
+    --ui-scale: 1;
+  }
+  [data-ui-scale-root] {
+    zoom: 1;
+  }
+}

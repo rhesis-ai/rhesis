@@ -17,6 +17,7 @@ import { OrganizationProvider } from '@/contexts/OrganizationContext';
 import { QuickStartProvider } from '@/contexts/QuickStartContext';
 import { useSessionGuard } from '@/hooks/useSessionGuard';
 import { userSettingsKeys } from '@/constants/query-keys';
+import { scaledVh } from '@/styles/viewport-scaling';
 // Side-effect import: pulls ee_bootstrap into the *client* bundle so
 // EE feature registrations land in the client-side registry as well as
 // the server-side one. Layout.tsx imports the same module for the
@@ -94,7 +95,7 @@ export function LayoutContent({
     const baseStyles = {
       display: 'flex',
       flexDirection: 'column',
-      minHeight: '100vh',
+      minHeight: scaledVh(),
     };
 
     if (initialQuickStart) {
@@ -138,20 +139,28 @@ export function LayoutContent({
                 <OrganizationProvider initialOrganization={initialOrganization}>
                   <NotificationProvider>
                     <OnboardingProvider>
-                      <Box sx={boxSx}>
-                        <Box sx={{ flex: 1 }}>
-                          <NavigationProvider
-                            navigation={navigation}
-                            branding={branding}
-                            session={session}
-                            authentication={authentication}
-                            theme={theme}
-                          >
-                            {children}
-                          </NavigationProvider>
+                      {/* Root of the laptop zoom ladder — see
+                          `styles/viewport-scaling.css`. Everything the app
+                          renders itself lives in here so it scales as one
+                          piece; MUI's body-level portals deliberately stay
+                          outside it so their JS-computed positions are not
+                          scaled a second time. */}
+                      <div data-ui-scale-root>
+                        <Box sx={boxSx}>
+                          <Box sx={{ flex: 1 }}>
+                            <NavigationProvider
+                              navigation={navigation}
+                              branding={branding}
+                              session={session}
+                              authentication={authentication}
+                              theme={theme}
+                            >
+                              {children}
+                            </NavigationProvider>
+                          </Box>
                         </Box>
-                      </Box>
-                      {session && isProtectedRoute && <OnboardingChecklist />}
+                        {session && isProtectedRoute && <OnboardingChecklist />}
+                      </div>
                     </OnboardingProvider>
                   </NotificationProvider>
                 </OrganizationProvider>

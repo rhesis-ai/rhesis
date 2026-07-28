@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import Box from '@mui/material/Box';
 import { usePathname } from 'next/navigation';
 import { SIDEBAR_WIDTH, SIDEBAR_COLLAPSED_WIDTH } from './sidebar-constants';
+import { scaledVh } from '@/styles/viewport-scaling';
 
 /** Routes that use the full main column (no AppShell content padding). */
 const FULL_BLEED_PATH_PREFIXES = ['/architect'] as const;
@@ -59,7 +60,7 @@ export function AppShell({ children, sidebar, topBar }: AppShellProps) {
         sx={{
           display: 'grid',
           gridTemplateColumns: `${sidebarWidth}px 1fr`,
-          minHeight: '100vh',
+          minHeight: scaledVh(),
           transition: 'grid-template-columns 0.2s ease',
         }}
       >
@@ -72,7 +73,7 @@ export function AppShell({ children, sidebar, topBar }: AppShellProps) {
             flexShrink: 0,
             position: 'sticky',
             top: 0,
-            height: '100vh',
+            height: scaledVh(),
             overflow: 'hidden',
             transition: 'width 0.2s ease',
             zIndex: theme => theme.zIndex.drawer,
@@ -88,7 +89,7 @@ export function AppShell({ children, sidebar, topBar }: AppShellProps) {
           sx={{
             display: 'flex',
             flexDirection: 'column',
-            minHeight: '100vh',
+            minHeight: scaledVh(),
             minWidth: 0,
             bgcolor: 'background.default',
           }}
