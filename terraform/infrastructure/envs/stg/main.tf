@@ -80,6 +80,21 @@ module "gke_stg" {
   depends_on = [module.stg]
 }
 
+module "connect_gateway_stg" {
+  source = "../../modules/connect-gateway/gcp"
+
+  project_id  = var.project_id
+  environment = "stg"
+  cluster_id  = module.gke_stg.cluster_id
+  # terraform-stg is the same identity GitHub Actions authenticates as for
+  # this project (terraform-infrastructure.yml via WIF, and the GCP_SA_KEY
+  # secrets rhesis-ee's licensing workflows use) -- see kubernetes/README.md
+  # for how it's used to reach this cluster without VPN access.
+  ci_service_account_email = "terraform-stg@${var.project_id}.iam.gserviceaccount.com"
+
+  depends_on = [module.gke_stg]
+}
+
 module "eso_stg" {
   source = "../../modules/external-secrets/gcp"
 

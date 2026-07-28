@@ -1,9 +1,17 @@
-# Lets the dev-arc-runner-set's default ServiceAccount (arc-runners/default)
-# run one-off Kubernetes Jobs in this namespace on behalf of rhesis-ee's
-# license-issue.yml workflow. That workflow issues signed license tokens by
-# running the EE licensing CLI as a Job here instead of a Cloud Run Job,
-# because this namespace's Postgres (Bitnami chart, Service "rhesis-postgresql")
-# only resolves via cluster-internal DNS -- Cloud Run cannot reach it.
+# Lets the "terraform-dev" GCP service account run one-off Kubernetes Jobs in
+# this namespace on behalf of rhesis-ee's license-issue.yml workflow. That
+# workflow issues signed license tokens by running the EE licensing CLI as a
+# Job here instead of a Cloud Run Job, because this namespace's Postgres
+# (Bitnami chart, Service "rhesis-postgresql") only resolves via
+# cluster-internal DNS -- Cloud Run cannot reach it.
+#
+# The workflow reaches this cluster via GKE Connect Gateway (see
+# terraform/infrastructure/modules/connect-gateway/gcp), not a VPN or a
+# self-hosted runner -- Connect Gateway proxies the call over HTTPS using the
+# GCP IAM identity's credentials, and GKE maps that identity onto this
+# RoleBinding's "User" subject by email. terraform-dev is also what
+# terraform-infrastructure.yml already authenticates as for this project, so
+# no new service account was created for this.
 #
 # Blast-radius note: "create Jobs" implicitly allows a Job's pod spec to
 # mount any Secret already in this namespace (rhesis-app-secrets included) --
@@ -46,6 +54,6 @@ roleRef:
   kind: Role
   name: license-issuer
 subjects:
-  - kind: ServiceAccount
-    name: default
-    namespace: arc-runners
+  - kind: User
+    name: terraform-dev@rhesis-dev-494712.iam.gserviceaccount.com
+    apiGroup: rbac.authorization.k8s.io
