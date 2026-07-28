@@ -14,7 +14,7 @@ export class OrganizationsClient extends BaseApiClient {
   }
 
   async getOrganizations(): Promise<Organization[]> {
-    return this.fetch<Organization[]>(API_ENDPOINTS.organizations, {
+    return this.fetch<Organization[]>(`${API_ENDPOINTS.organizations}/`, {
       cache: 'no-store',
     });
   }

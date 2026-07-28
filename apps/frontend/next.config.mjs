@@ -95,6 +95,8 @@ const nextConfig = {
   // into .next/routes-manifest.json at build time and cannot be overridden
   // by runtime environment variables.
 
+  skipTrailingSlashRedirect: true,
+
   // Development-specific: configure on-demand entries to reduce caching
   ...(isDev && {
     onDemandEntries: {

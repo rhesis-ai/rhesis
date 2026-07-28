@@ -50,14 +50,14 @@ export class ArchitectClient extends BaseApiClient {
 
   async getSessions(skip = 0, limit = 20): Promise<ArchitectSession[]> {
     return this.fetch<ArchitectSession[]>(
-      `${this.basePath}?skip=${skip}&limit=${limit}&sort_by=updated_at&sort_order=desc`
+      `${this.basePath}/?skip=${skip}&limit=${limit}&sort_by=updated_at&sort_order=desc`
     );
   }
 
   async createSession(
     data?: ArchitectSessionCreateRequest
   ): Promise<ArchitectSession> {
-    return this.fetch<ArchitectSession>(this.basePath, {
+    return this.fetch<ArchitectSession>(`${this.basePath}/`, {
       method: 'POST',
       body: JSON.stringify(data || {}),
     });
