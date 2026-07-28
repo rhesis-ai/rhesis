@@ -208,6 +208,9 @@ polyphemus:
     limits:
       memory: "2Gi"
       cpu: "1000m"
+  env:
+    - name: POLYPHEMUS_LOCATION
+      value: "europe-west4"
   hpa:
     enabled: true
     minReplicas: 2
