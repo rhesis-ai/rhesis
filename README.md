@@ -45,18 +45,16 @@
 Connect the agent you are building, share the link with your team, and get structured feedback from the people who know the right answers.
 </p>
 
-<p align="center">
-  <a href="https://rhesis.ai/?video=open" target="_blank">
-    <img src=".github/images/GH_Short_Demo.png"
-         loading="lazy"
-         width="1080"
-         alt="Rhesis Platform Overview - Click to watch demo">
-  </a>
-</p>
-
 ---
 
 ## Why Rhesis?
+
+<p align="center">
+  <img src=".github/images/GH_Collaboration_Hub.jpg"
+       loading="lazy"
+       width="1080"
+       alt="Rhesis collaboration hub: feedback in, agent improvements out">
+</p>
 
 Most tools start with tests or traces. Rhesis starts one step earlier: the people who know what the
 agent should answer are not the people building it, and their feedback rarely arrives in a form you
@@ -66,13 +64,6 @@ can act on.
 - **One pass/fail bar** — The whole team reviews against the same tests, and you measure against them
 - **UI for reviewers, SDK and MCP for builders** — Same data, three ways in
 - **From feedback to CI** — Recurring feedback becomes tests and metrics that run on every change
-
-<p align="center">
-  <img src=".github/images/GH_Collaboration_Hub.jpg"
-       loading="lazy"
-       width="1080"
-       alt="Rhesis collaboration hub: feedback in, agent improvements out">
-</p>
 
 ---
 
@@ -180,6 +171,15 @@ CI in any language: [OpenAPI spec](https://api.rhesis.ai/docs).
        loading="lazy"
        width="1080"
        alt="Start with the feedback you already have and expand from there — review test results, inspect annotations, gain insights">
+</p>
+
+<p align="center">
+  <a href="https://rhesis.ai/?video=open" target="_blank">
+    <img src=".github/images/GH_Short_Demo.png"
+         loading="lazy"
+         width="1080"
+         alt="Rhesis Platform Overview - Click to watch demo">
+  </a>
 </p>
 
 Nobody can review every case by hand. Once the first feedback is in, you can grow coverage from it:
