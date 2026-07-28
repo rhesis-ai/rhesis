@@ -400,6 +400,25 @@ class TestListExplorerTestSetsEndpoint:
         for item in data:
             assert expected_fields.issubset(item.keys())
 
+    def test_returns_expanded_creator(
+        self,
+        authenticated_client: TestClient,
+        explorer_and_regular_test_sets,
+        authenticated_user_id,
+    ):
+        """`user` must be expanded -- the sessions grid renders a Creator column from it.
+
+        Only TestSetDetail carries it; the bare TestSet schema would drop the key.
+        """
+        response = authenticated_client.get("/explorer")
+
+        assert response.status_code == status.HTTP_200_OK
+        explorer_id = str(explorer_and_regular_test_sets["explorer_1"].id)
+        item = next(i for i in response.json() if i["id"] == explorer_id)
+
+        assert item["user"] is not None
+        assert item["user"]["id"] == str(authenticated_user_id)
+
     def test_pagination_limit(
         self,
         authenticated_client: TestClient,

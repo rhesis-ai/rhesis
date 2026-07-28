@@ -2,8 +2,6 @@ import logging
 from typing import List, Optional
 from uuid import UUID
 
-from sqlalchemy import cast
-from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
@@ -108,24 +106,14 @@ def get_explorer_test_sets(
     List[models.TestSet]
         Test sets configured for Explorer (Adaptive Testing behavior)
     """
-    target = cast(
-        [ADAPTIVE_TESTING_BEHAVIOR],
-        JSONB,
+    test_sets = crud.get_explorer_test_sets(
+        db=db,
+        organization_id=organization_id,
+        skip=skip,
+        limit=limit,
+        sort_by=sort_by,
+        sort_order=sort_order,
     )
-    query = (
-        db.query(models.TestSet)
-        .filter(models.TestSet.organization_id == organization_id)
-        .filter(models.TestSet.attributes["metadata"]["behaviors"].contains(target))
-    )
-
-    # Apply sorting with id tiebreaker for stable pagination
-    sort_column = getattr(models.TestSet, sort_by, models.TestSet.created_at)
-    if sort_order == "asc":
-        query = query.order_by(sort_column.asc(), models.TestSet.id.asc())
-    else:
-        query = query.order_by(sort_column.desc(), models.TestSet.id.asc())
-
-    test_sets = query.offset(skip).limit(limit).all()
 
     logger.info(f"Found {len(test_sets)} explorer test sets for organization={organization_id}")
 
