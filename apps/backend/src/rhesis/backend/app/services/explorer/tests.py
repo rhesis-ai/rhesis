@@ -189,13 +189,37 @@ def _is_explorer_test_set(test_set: models.TestSet) -> bool:
     return ADAPTIVE_TESTING_BEHAVIOR in behaviors
 
 
+def _delete_session_tests(
+    db: Session,
+    test_set_ids: List[UUID],
+    organization_id: str,
+    user_id: str,
+) -> None:
+    """Soft-delete the tests belonging to Explorer sessions that are being deleted.
+
+    Explorer tests -- including the topic-marker rows that carry the tree -- are
+    owned by their session: both import and export copy rows rather than share
+    them, so no other test set references them. Leaving them behind strands them
+    in the global /tests list with no session to reach them from.
+    """
+    test_ids = crud.get_test_ids_in_test_sets(db, test_set_ids, organization_id)
+    if not test_ids:
+        return
+    crud.bulk_delete_tests(
+        db,
+        test_ids,
+        organization_id=organization_id,
+        user_id=user_id,
+    )
+
+
 def delete_explorer_test_set(
     db: Session,
     test_set_identifier: str,
     organization_id: str,
     user_id: str,
 ) -> models.TestSet:
-    """Delete a test set that is configured for Explorer.
+    """Delete a test set that is configured for Explorer, along with its tests.
 
     Resolves the test set by UUID, nano_id, or slug. Raises ValueError if the
     set is missing or does not include the Adaptive Testing behavior.
@@ -209,6 +233,8 @@ def delete_explorer_test_set(
     # Build the response payload before deleting to avoid response serialization
     # touching an expired/deleted SQLAlchemy instance after commit.
     payload = schemas.TestSet.model_validate(db_test_set)
+
+    _delete_session_tests(db, [db_test_set.id], organization_id, user_id)
 
     deleted = crud.delete_test_set(
         db,
@@ -227,7 +253,7 @@ def bulk_delete_explorer_test_sets(
     organization_id: str,
     user_id: str,
 ) -> dict:
-    """Delete multiple Explorer test sets at once.
+    """Delete multiple Explorer test sets at once, along with their tests.
 
     Any id that doesn't resolve to a test set with the Adaptive Testing
     behavior is reported back in "not_found_ids" rather than deleted -- same
@@ -244,6 +270,8 @@ def bulk_delete_explorer_test_sets(
         .all()
     )
     valid_ids = [ts.id for ts in candidates if _is_explorer_test_set(ts)]
+
+    _delete_session_tests(db, valid_ids, organization_id, user_id)
 
     result = bulk_delete_by_ids(
         db,

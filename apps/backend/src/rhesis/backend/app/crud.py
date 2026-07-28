@@ -741,6 +741,24 @@ def delete_test_set(
     )
 
 
+def get_test_ids_in_test_sets(
+    db: Session, test_set_ids: List[uuid.UUID], organization_id: str
+) -> List[uuid.UUID]:
+    """Distinct ids of the tests associated with any of the given test sets."""
+    if not test_set_ids:
+        return []
+
+    rows = db.execute(
+        select(test_test_set_association.c.test_id)
+        .where(
+            test_test_set_association.c.test_set_id.in_(test_set_ids),
+            test_test_set_association.c.organization_id == organization_id,
+        )
+        .distinct()
+    ).fetchall()
+    return [row.test_id for row in rows]
+
+
 def get_test_set_by_nano_id_or_slug(
     db: Session, identifier: str, organization_id: str = None, user_id: str = None
 ) -> Optional[models.TestSet]:

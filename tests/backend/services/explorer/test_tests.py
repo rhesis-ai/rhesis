@@ -5,6 +5,7 @@ from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models
+from rhesis.backend.app.database import without_soft_delete_filter
 from rhesis.backend.app.services.explorer import (
     bulk_delete_explorer_test_sets,
     create_explorer_test_set,
@@ -478,6 +479,39 @@ class TestDeleteExplorerTestSet:
         listed = get_explorer_test_sets(db=test_db, organization_id=test_org_id, limit=500)
         assert all(str(ts.id) != created_id for ts in listed)
 
+    def test_delete_cascades_to_session_tests(self, test_db, test_org_id, authenticated_user_id):
+        """Session tests and topic markers are soft-deleted with the session."""
+        created = create_explorer_test_set(
+            db=test_db,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            name=f"Cascade Delete {uuid.uuid4().hex[:6]}",
+        )
+        create_test_node(
+            db=test_db,
+            test_set_id=created.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            topic="Safety",
+            input="Is this harmful?",
+        )
+        test_ids = crud.get_test_ids_in_test_sets(test_db, [created.id], test_org_id)
+        # The test plus the "Safety" topic marker.
+        assert len(test_ids) == 2
+
+        delete_explorer_test_set(
+            db=test_db,
+            test_set_identifier=str(created.id),
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+
+        assert test_db.query(models.Test).filter(models.Test.id.in_(test_ids)).all() == []
+        with without_soft_delete_filter():
+            rows = test_db.query(models.Test).filter(models.Test.id.in_(test_ids)).all()
+        assert len(rows) == 2
+        assert all(row.deleted_at is not None for row in rows)
+
     def test_delete_nonexistent_set(self, test_db, test_org_id, authenticated_user_id):
         """Fake UUID raises ValueError."""
         fake_id = str(uuid.uuid4())
@@ -550,6 +584,63 @@ class TestBulkDeleteExplorerTestSets:
             test_db.query(models.TestSet).filter(models.TestSet.id == regular.id).first()
         )
         assert still_there is not None
+
+    def test_cascades_to_session_tests(self, test_db, test_org_id, authenticated_user_id):
+        """Every deleted session's tests are soft-deleted along with it."""
+        sessions = []
+        for i in range(2):
+            created = create_explorer_test_set(
+                db=test_db,
+                organization_id=test_org_id,
+                user_id=authenticated_user_id,
+                name=f"Bulk Cascade {i} {uuid.uuid4().hex[:6]}",
+            )
+            create_test_node(
+                db=test_db,
+                test_set_id=created.id,
+                organization_id=test_org_id,
+                user_id=authenticated_user_id,
+                topic="Safety",
+                input=f"Prompt {i}",
+            )
+            sessions.append(created)
+
+        session_ids = [s.id for s in sessions]
+        test_ids = crud.get_test_ids_in_test_sets(test_db, session_ids, test_org_id)
+        assert len(test_ids) == 4  # 2 tests + 2 topic markers
+
+        bulk_delete_explorer_test_sets(
+            db=test_db,
+            test_set_ids=session_ids,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+
+        assert test_db.query(models.Test).filter(models.Test.id.in_(test_ids)).all() == []
+        with without_soft_delete_filter():
+            rows = test_db.query(models.Test).filter(models.Test.id.in_(test_ids)).all()
+        assert len(rows) == 4
+        assert all(row.deleted_at is not None for row in rows)
+
+    def test_skipped_ids_keep_their_tests(
+        self, test_db, regular_test_set_for_import, test_org_id, authenticated_user_id
+    ):
+        """A non-explorer id is skipped without touching its tests."""
+        regular = regular_test_set_for_import
+        test_ids = crud.get_test_ids_in_test_sets(test_db, [regular.id], test_org_id)
+        assert test_ids
+
+        result = bulk_delete_explorer_test_sets(
+            db=test_db,
+            test_set_ids=[regular.id],
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+
+        assert result["deleted_ids"] == []
+        rows = test_db.query(models.Test).filter(models.Test.id.in_(test_ids)).all()
+        assert len(rows) == len(test_ids)
+        assert all(row.deleted_at is None for row in rows)
 
     def test_empty_ids_is_a_noop(self, test_db, test_org_id, authenticated_user_id):
         result = bulk_delete_explorer_test_sets(
