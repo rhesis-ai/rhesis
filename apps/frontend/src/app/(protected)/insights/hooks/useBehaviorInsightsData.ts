@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useSession } from 'next-auth/react';
+import { useQueryClient } from '@tanstack/react-query';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
   BehaviorDetailStats,
@@ -16,9 +17,12 @@ import {
 import {
   BehaviorInsightColumn,
   buildBehaviorColumns,
-  resolveInsightsQueryTestRunIds,
 } from '../utils/behavior-insights-utils';
-import { fetchFailedTestIdsForInsights } from '../utils/insights-failed-tests';
+import {
+  fetchInsightsFailedTestIds,
+  fetchInsightsQueryTestRunIds,
+  insightsOverallFailedScope,
+} from '@/hooks/useInsightsFailedTestIds';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 const EMPTY_SUMMARY: PassFailStats = {
@@ -55,6 +59,7 @@ export function useBehaviorInsightsData(
   const [error, setError] = useState<string | null>(null);
   const [noRuns, setNoRuns] = useState(false);
   const { status } = useSession();
+  const queryClient = useQueryClient();
   const requestIdRef = useRef(0);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -89,7 +94,16 @@ export function useBehaviorInsightsData(
     debounceRef.current = setTimeout(() => {
       void (async () => {
         try {
-          const testRunIds = await resolveInsightsQueryTestRunIds(filters);
+          const runContext = {
+            endpointId: filters.endpointId,
+            runFilterMode: filters.runFilterMode,
+            timeRange: resolveInsightsTimeRange(filters.timeRange),
+            testRunIds: filters.testRunIds,
+          };
+          const testRunIds = await fetchInsightsQueryTestRunIds(
+            queryClient,
+            runContext
+          );
 
           if (!isCurrentRequest(requestId)) return;
 
@@ -112,9 +126,7 @@ export function useBehaviorInsightsData(
           const statsParams = {
             test_run_ids: testRunIds,
             ...(filters.runFilterMode === 'timeRange'
-              ? timeRangeToStatsParams(
-                  resolveInsightsTimeRange(filters.timeRange)
-                )
+              ? timeRangeToStatsParams(runContext.timeRange)
               : {}),
           };
 
@@ -174,12 +186,10 @@ export function useBehaviorInsightsData(
           if ((overallSummary.failed ?? 0) > 0) {
             void (async () => {
               try {
-                const failedIds = await fetchFailedTestIdsForInsights({
-                  endpointId: filters.endpointId,
-                  runFilterMode: filters.runFilterMode,
-                  timeRange: resolveInsightsTimeRange(filters.timeRange),
-                  testRunIds,
-                });
+                const failedIds = await fetchInsightsFailedTestIds(
+                  queryClient,
+                  insightsOverallFailedScope(runContext)
+                );
                 if (!isCurrentRequest(requestId)) return;
                 setFailedTestCaseCount(failedIds.length);
               } catch {
@@ -208,6 +218,7 @@ export function useBehaviorInsightsData(
   }, [
     enabled,
     status,
+    queryClient,
     filters.endpointId,
     filters.runFilterMode,
     filters.timeRange,

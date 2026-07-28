@@ -1,4 +1,6 @@
+import React from 'react';
 import { renderHook, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { DEFAULT_INSIGHTS_FILTERS } from '../../types';
 import { useBehaviorInsightsData } from '../useBehaviorInsightsData';
 
@@ -44,6 +46,19 @@ import { fetchFailedTestIdsForInsights } from '../../utils/insights-failed-tests
 const mockResolveTestRunIds = resolveInsightsQueryTestRunIds as jest.Mock;
 const mockFetchFailedIds = fetchFailedTestIdsForInsights as jest.Mock;
 
+function createWrapper() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return function Wrapper({ children }: { children: React.ReactNode }) {
+    return React.createElement(
+      QueryClientProvider,
+      { client: queryClient },
+      children
+    );
+  };
+}
+
 describe('useBehaviorInsightsData', () => {
   beforeEach(() => {
     jest.useFakeTimers();
@@ -70,7 +85,9 @@ describe('useBehaviorInsightsData', () => {
       endpointId: 'ep-1',
     };
 
-    const { result } = renderHook(() => useBehaviorInsightsData(filters));
+    const { result } = renderHook(() => useBehaviorInsightsData(filters), {
+      wrapper: createWrapper(),
+    });
 
     jest.advanceTimersByTime(300);
 
@@ -87,6 +104,7 @@ describe('useBehaviorInsightsData', () => {
       runFilterMode: 'timeRange',
       timeRange: '1m',
       testRunIds: ['run-1', 'run-2'],
+      outcome: 'failed',
     });
   });
 
@@ -100,11 +118,13 @@ describe('useBehaviorInsightsData', () => {
         })
     );
 
-    const { result } = renderHook(() =>
-      useBehaviorInsightsData({
-        ...DEFAULT_INSIGHTS_FILTERS,
-        endpointId: 'ep-1',
-      })
+    const { result } = renderHook(
+      () =>
+        useBehaviorInsightsData({
+          ...DEFAULT_INSIGHTS_FILTERS,
+          endpointId: 'ep-1',
+        }),
+      { wrapper: createWrapper() }
     );
 
     jest.advanceTimersByTime(300);
@@ -124,11 +144,13 @@ describe('useBehaviorInsightsData', () => {
     mockResolveTestRunIds.mockResolvedValue(['run-1']);
     mockFetchFailedIds.mockRejectedValue(new Error('network'));
 
-    const { result } = renderHook(() =>
-      useBehaviorInsightsData({
-        ...DEFAULT_INSIGHTS_FILTERS,
-        endpointId: 'ep-1',
-      })
+    const { result } = renderHook(
+      () =>
+        useBehaviorInsightsData({
+          ...DEFAULT_INSIGHTS_FILTERS,
+          endpointId: 'ep-1',
+        }),
+      { wrapper: createWrapper() }
     );
 
     jest.advanceTimersByTime(300);
@@ -168,11 +190,13 @@ describe('useBehaviorInsightsData', () => {
 
     mockResolveTestRunIds.mockResolvedValue(['run-1']);
 
-    const { result } = renderHook(() =>
-      useBehaviorInsightsData({
-        ...DEFAULT_INSIGHTS_FILTERS,
-        endpointId: 'ep-1',
-      })
+    const { result } = renderHook(
+      () =>
+        useBehaviorInsightsData({
+          ...DEFAULT_INSIGHTS_FILTERS,
+          endpointId: 'ep-1',
+        }),
+      { wrapper: createWrapper() }
     );
 
     jest.advanceTimersByTime(300);
@@ -188,14 +212,16 @@ describe('useBehaviorInsightsData', () => {
   it('does not fetch when enabled is false, even with a valid endpointId', async () => {
     mockResolveTestRunIds.mockResolvedValue(['run-1']);
 
-    const { result } = renderHook(() =>
-      useBehaviorInsightsData(
-        {
-          ...DEFAULT_INSIGHTS_FILTERS,
-          endpointId: 'ep-1',
-        },
-        false
-      )
+    const { result } = renderHook(
+      () =>
+        useBehaviorInsightsData(
+          {
+            ...DEFAULT_INSIGHTS_FILTERS,
+            endpointId: 'ep-1',
+          },
+          false
+        ),
+      { wrapper: createWrapper() }
     );
 
     jest.advanceTimersByTime(300);
@@ -215,7 +241,7 @@ describe('useBehaviorInsightsData', () => {
 
     const { result, rerender } = renderHook(
       ({ enabled }) => useBehaviorInsightsData(filters, enabled),
-      { initialProps: { enabled: false } }
+      { initialProps: { enabled: false }, wrapper: createWrapper() }
     );
 
     jest.advanceTimersByTime(300);
@@ -227,6 +253,11 @@ describe('useBehaviorInsightsData', () => {
     await waitFor(() => {
       expect(result.current.loading).toBe(false);
     });
-    expect(mockResolveTestRunIds).toHaveBeenCalledWith(filters);
+    expect(mockResolveTestRunIds).toHaveBeenCalledWith({
+      endpointId: 'ep-1',
+      runFilterMode: 'timeRange',
+      timeRange: '1m',
+      testRunIds: [],
+    });
   });
 });
