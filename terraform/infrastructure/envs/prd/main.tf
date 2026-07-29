@@ -133,11 +133,21 @@ module "external_dns_prd" {
 # run against prd that this exact identity is what google-github-actions/auth
 # authenticates as here. If TF_SA_PRD is ever rotated to a different SA,
 # update this to match -- it will not follow automatically.
+#
+# prevent_destroy: terraform-infrastructure.yml's "Fetch Cloudflare API token"
+# step runs before `terraform init`, with no error handling, so if this grant
+# is ever destroyed Terraform can never recreate it for itself -- every
+# subsequent prd plan/apply dies on a 403 before Terraform even runs. This is
+# a bootstrap prerequisite, not an ordinary managed resource.
 resource "google_secret_manager_secret_iam_member" "terraform_cloudflare_token_accessor" {
   project   = var.project_id
   secret_id = module.external_dns_prd.cloudflare_api_token_secret_id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:terraform-prd@${var.project_id}.iam.gserviceaccount.com"
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 module "arc_gha_prd" {
