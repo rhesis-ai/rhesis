@@ -47,7 +47,7 @@ export const InfoCardHorizontal = ({
       gap: '1.25rem',
       padding: '1.5rem',
       border: '1px solid',
-      borderColor: 'var(--border-color, #e5e7eb)',
+      borderColor: 'var(--border-color, var(--rh-border))',
       borderRadius: '0.75rem',
       backgroundColor: 'var(--card-bg, #ffffff)',
       transition: 'all 0.2s ease',
@@ -65,7 +65,7 @@ export const InfoCardHorizontal = ({
       justifyContent: 'center',
     },
     icon: {
-      color: 'var(--accent-color, #2AA1CE)',
+      color: 'var(--accent-color, var(--rh-blue-cta))',
       fontSize: '1.5rem',
     },
     content: {
@@ -75,20 +75,20 @@ export const InfoCardHorizontal = ({
     title: {
       fontSize: '1.125rem',
       fontWeight: '600',
-      fontFamily: 'Sora, sans-serif',
-      color: 'var(--text-primary, #3D3D3D)',
+      fontFamily: 'var(--rh-font-display)',
+      color: 'var(--text-primary, var(--rh-text))',
       margin: '0 0 0.5rem 0',
       lineHeight: '1.4',
     },
     description: {
       fontSize: '0.9375rem',
-      color: 'var(--text-secondary, #6B7280)',
+      color: 'var(--text-secondary, var(--rh-text-secondary))',
       lineHeight: '1.6',
-      fontFamily: 'Be Vietnam Pro, sans-serif',
+      fontFamily: 'var(--rh-font-sans)',
       margin: hasLink ? '0 0 0.75rem 0' : '0',
     },
     link: {
-      color: '#2AA1CE',
+      color: 'var(--rh-blue-cta)',
       textDecoration: 'none',
       fontWeight: '500',
       fontSize: '0.875rem',

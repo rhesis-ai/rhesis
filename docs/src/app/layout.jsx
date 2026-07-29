@@ -1,9 +1,9 @@
 import { Layout, Navbar } from 'nextra-theme-docs'
 import { Head } from 'nextra/components'
 import { getPageMap } from 'nextra/page-map'
-import ThemeAwareLogo from '../components/ThemeAwareLogo'
+import NavLogo from '../components/NavLogo'
+import GradientBackdrop from '../components/GradientBackdrop'
 import Footer from '../components/Footer'
-import GitHubStarBanner from '../components/GitHubStarBanner'
 import CollapsibleSidebar from '../components/CollapsibleSidebar'
 import { siteConfig } from '../lib/site-config'
 import { generateOrganizationSchema, generateWebsiteSchema } from '../lib/metadata'
@@ -116,7 +116,7 @@ export const viewport = {
 
 const navbar = (
   <Navbar
-    logo={<ThemeAwareLogo />}
+    logo={<NavLogo />}
     projectLink="https://github.com/rhesis-ai/rhesis"
     chatLink="https://discord.rhesis.ai"
   />
@@ -132,7 +132,27 @@ export default async function RootLayout({ children }) {
 
   return (
     <html lang="en" dir="ltr" suppressHydrationWarning>
-      <Head />
+      {/*
+        Nextra's accent colour and page background. `Head` emits these as an
+        inline <style>, so it beats any stylesheet — configuring them here is the
+        only thing that actually takes effect, and it survives Nextra upgrades in
+        a way that overriding the generated `x:bg-primary-*` classes would not.
+
+        Nextra derives its whole primary ramp from these HSL values: the active
+        sidebar link is `bg-primary-100` (lightness + 49%) with
+        `text-primary-800` (lightness - 13%). Desaturating to a cool grey is the
+        "neutral primary" case the Nextra docs call out, and it is what takes the
+        chrome off the old tinted-blue selection. Dark lightness of 100 clamps the
+        ramp to white, so the selected row lands on white @ 10%.
+      */}
+      <Head
+        color={{
+          hue: 220,
+          saturation: { light: 15, dark: 0 },
+          lightness: { light: 42, dark: 100 },
+        }}
+        backgroundColor={{ light: '#ffffff', dark: '#030712' }}
+      />
       <body>
         {/* Structured Data */}
         <script
@@ -143,7 +163,7 @@ export default async function RootLayout({ children }) {
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
         />
-        <GitHubStarBanner />
+        <GradientBackdrop />
         <CollapsibleSidebar />
         <Layout
           navbar={navbar}

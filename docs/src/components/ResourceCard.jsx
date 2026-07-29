@@ -32,7 +32,7 @@ export const ResourceCard = ({ icon: Icon, title, description, link, linkText })
     alignItems: 'center',
     textAlign: 'center',
     padding: '1rem',
-    border: '1px solid var(--border-color, #e5e7eb)',
+    border: '1px solid var(--border-color, var(--rh-border))',
     borderRadius: '0.5rem',
     backgroundColor: 'var(--card-bg, #ffffff)',
     transition: 'all 0.2s ease',
@@ -57,14 +57,14 @@ export const ResourceCard = ({ icon: Icon, title, description, link, linkText })
           marginBottom: '0.75rem',
         }}
       >
-        <Icon style={{ fontSize: '20px', color: 'var(--primary-color, #2AA1CE)' }} />
+        <Icon style={{ fontSize: '20px', color: 'var(--primary-color, var(--rh-blue-cta))' }} />
       </div>
       <h3
         style={{
           fontSize: '0.9375rem',
           fontWeight: '600',
           margin: '0 0 0.375rem 0',
-          color: 'var(--text-primary, #111827)',
+          color: 'var(--text-primary, var(--rh-heading))',
         }}
       >
         {title}
@@ -72,7 +72,7 @@ export const ResourceCard = ({ icon: Icon, title, description, link, linkText })
       <p
         style={{
           fontSize: '0.8125rem',
-          color: 'var(--text-secondary, #6B7280)',
+          color: 'var(--text-secondary, var(--rh-text-secondary))',
           lineHeight: '1.5',
           margin: '0 0 0.75rem 0',
           flex: 1,
@@ -83,7 +83,7 @@ export const ResourceCard = ({ icon: Icon, title, description, link, linkText })
       <span
         style={{
           fontSize: '0.8125rem',
-          color: 'var(--primary-color, #2AA1CE)',
+          color: 'var(--primary-color, var(--rh-blue-cta))',
           textDecoration: 'none',
           fontWeight: '500',
         }}
@@ -99,11 +99,11 @@ export const ResourceCard = ({ icon: Icon, title, description, link, linkText })
       style={cardStyles}
       className="resource-card"
       onMouseEnter={e => {
-        e.currentTarget.style.borderColor = 'var(--primary-color, #2AA1CE)'
+        e.currentTarget.style.borderColor = 'var(--primary-color, var(--rh-blue-cta))'
         e.currentTarget.style.boxShadow = '0 4px 12px rgba(42, 161, 206, 0.15)'
       }}
       onMouseLeave={e => {
-        e.currentTarget.style.borderColor = 'var(--border-color, #e5e7eb)'
+        e.currentTarget.style.borderColor = 'var(--border-color, var(--rh-border))'
         e.currentTarget.style.boxShadow = 'none'
       }}
     >

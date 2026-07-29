@@ -22,7 +22,7 @@ export function CopyButton({ code }) {
       border: '1px solid #30363D',
       borderRadius: '4px',
       padding: '4px 8px',
-      color: '#A9B1BB',
+      color: 'var(--rh-text-secondary)',
       cursor: 'pointer',
       fontSize: '11px',
       display: 'flex',
@@ -32,7 +32,7 @@ export function CopyButton({ code }) {
     },
     copyButtonHover: {
       background: '#30363D',
-      color: '#E6EDF3',
+      color: 'var(--rh-text)',
     },
     copyButtonCopied: {
       background: '#238636',

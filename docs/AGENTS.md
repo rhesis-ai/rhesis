@@ -134,6 +134,24 @@ MDX files cannot directly import Material-UI icons — module resolution fails. 
 Examples already following this pattern: `FeatureOverview.jsx`, `ArchitectureOverview.jsx`,
 `PlatformFeatures.jsx`.
 
+### Colour, type, and design tokens
+
+Design tokens live in `src/styles/tokens.css` as `--rh-*` custom properties, synced by hand from the
+marketing site's `@theme` block (`website/src/styles/tailwind.css`). Rules:
+
+- **Never hardcode a hex in a component or in `globals.css`.** Use a token. If no token fits, add
+  one to `tokens.css` rather than inlining a value. The `--rhesis-*` names are legacy aliases kept
+  pointing at `--rh-*`; prefer `--rh-*` in new code.
+- **Colour is neutral by default.** Chrome (navbar, sidebar, footer, body copy, headings, primary
+  buttons) sits on the neutral scale; the brand blues are for accents and links. Orange is for CTAs
+  only — don't reintroduce it as an icon or card accent.
+- **Fonts**: Sora for display/headings, Geist for UI and body, Geist Mono for code and the uppercase
+  eyebrow labels. All self-hosted woff2 in `public/fonts/`.
+- **Nextra's own accent ramp is not set in CSS.** It comes from the `color` prop on `<Head>` in
+  `src/app/layout.jsx`, which Nextra emits as an inline `<style>` that beats any stylesheet. Nextra
+  derives `primary-50` … `primary-800` from those HSL values, and the active sidebar link is
+  `bg-primary-100` + `text-primary-800`. Change the prop; do not override the generated `x:` classes.
+
 ### Files and structure
 
 - Kebab-case file names (`test-result-status.mdx`); organize by feature/topic, not file type.
