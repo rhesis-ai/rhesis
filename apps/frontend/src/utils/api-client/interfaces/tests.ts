@@ -1,7 +1,6 @@
 import { UUID } from 'crypto';
 import { Prompt } from './prompt';
 import { Tag } from './tag';
-import { Source } from './source';
 import { TestTypeValue } from '@/constants/test-types';
 
 // Priority level enum
@@ -105,13 +104,10 @@ export interface TestDetail extends Test {
   user?: UserReference;
   assignee?: UserReference;
   owner?: UserReference;
-  parent?: TestDetail;
   topic?: Topic;
   behavior?: Behavior;
   category?: Category;
   status?: Status;
-  source?: Source;
-  organization?: Organization;
   priorityLevel?: PriorityLevel;
   counts?: {
     comments?: number;

@@ -21,9 +21,7 @@ export type BehaviorUpdate = Partial<BehaviorBase>;
 export interface Behavior extends BehaviorBase {
   id: UUID;
   nano_id?: string | null;
-  status?: Status | null;
   user?: User | null;
-  organization?: Organization | null;
   metrics?: MetricWithRelationships[]; // Optional metrics when using include=metrics
   tags?: Tag[];
 }
@@ -46,49 +44,6 @@ export interface BehaviorReference {
   user_id?: UUID | null;
   organization_id: UUID;
   status_id: UUID;
-}
-
-export interface MetricWithBehaviors {
-  id: UUID;
-  nano_id?: string | null;
-  name: string;
-  description: string;
-  evaluation_prompt: string;
-  evaluation_steps: string;
-  reasoning: string;
-  score_type: string;
-  min_score?: number | null;
-  max_score?: number | null;
-  reference_score?: string;
-  threshold?: number | null;
-  threshold_operator: string;
-  explanation: string;
-  metric_type_id: UUID;
-  backend_type_id: UUID;
-  model_id?: UUID | null;
-  status_id?: UUID | null;
-  assignee_id?: UUID | null;
-  owner_id?: UUID | null;
-  class_name?: string;
-  context_required: boolean;
-  ground_truth_required?: boolean; // Add missing property
-  evaluation_examples?: string;
-  created_at: string;
-  updated_at: string;
-  tags: Tag[];
-  user_id?: UUID | null;
-  organization_id: UUID;
-
-  // Related entities
-  metric_type: TypeLookup;
-  status?: Status | null;
-  assignee?: User | null;
-  owner?: User | null;
-  model?: Model | null;
-  backend_type: TypeLookup;
-  behaviors: BehaviorReference[];
-  user?: User | null;
-  organization: Organization;
 }
 
 export interface BehaviorWithMetrics extends BehaviorBase {
