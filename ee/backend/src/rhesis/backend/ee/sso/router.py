@@ -253,42 +253,60 @@ async def sso_callback(
         )
         return RedirectResponse(url=error_redirect, status_code=302)
 
-    # Org-scoped user resolution
+    # Org-scoped user resolution, token creation, and redirect.
+    # Wrapped in a catch-all so unhandled exceptions (DB constraint
+    # violations, missing migrations, etc.) surface as a redirect to
+    # the SSO error page with a logged traceback, not a raw 500.
     try:
-        user = find_or_create_sso_user(db, auth_user, org, sso_config)
-    except SSOLoginError as e:
+        try:
+            user = find_or_create_sso_user(db, auth_user, org, sso_config)
+        except SSOLoginError as e:
+            audit_log(
+                SSOAuditEvent.LOGIN_FAILED,
+                org_id,
+                email=auth_user.email,
+                reason_code=e.reason_code,
+            )
+            return RedirectResponse(url=error_redirect, status_code=302)
+
+        # Create tokens
+        clear_user_logout(str(user.id))
+        session_token = create_session_token(user)
+        refresh_tok = create_refresh_token(db, str(user.id))
+        db.commit()
+
+        # Capture redirect context before session rotation discards it
+        original_frontend = request.session.get("original_frontend", "")
+
+        # Regenerate session (prevents session fixation)
+        regenerate_session(request, {"user_id": str(user.id)})
+        # Restore redirect context for build_redirect_url
+        request.session["return_to"] = state_return_to
+        if original_frontend:
+            request.session["original_frontend"] = original_frontend
+
+        audit_log(
+            SSOAuditEvent.LOGIN_SUCCESS,
+            org_id,
+            email=auth_user.email,
+        )
+
+        redirect_url = await build_redirect_url(request, session_token, refresh_tok)
+        return RedirectResponse(url=redirect_url, status_code=302)
+
+    except Exception:
+        logger.exception(
+            "SSO callback failed for org %s, email %s",
+            org_id,
+            auth_user.email,
+        )
         audit_log(
             SSOAuditEvent.LOGIN_FAILED,
             org_id,
             email=auth_user.email,
-            reason_code=e.reason_code,
+            reason_code="internal_error",
         )
         return RedirectResponse(url=error_redirect, status_code=302)
-
-    # Create tokens
-    clear_user_logout(str(user.id))
-    session_token = create_session_token(user)
-    refresh_tok = create_refresh_token(db, str(user.id))
-    db.commit()
-
-    # Capture redirect context before session rotation discards it
-    original_frontend = request.session.get("original_frontend", "")
-
-    # Regenerate session (prevents session fixation)
-    regenerate_session(request, {"user_id": str(user.id)})
-    # Restore redirect context for build_redirect_url
-    request.session["return_to"] = state_return_to
-    if original_frontend:
-        request.session["original_frontend"] = original_frontend
-
-    audit_log(
-        SSOAuditEvent.LOGIN_SUCCESS,
-        org_id,
-        email=auth_user.email,
-    )
-
-    redirect_url = await build_redirect_url(request, session_token, refresh_tok)
-    return RedirectResponse(url=redirect_url, status_code=302)
 
 
 @router.get("/auth/sso/{org_id}")
