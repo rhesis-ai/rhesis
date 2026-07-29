@@ -115,6 +115,15 @@ module "external_dns_prd" {
 # -- roles/editor (already held broadly) does NOT cover Secret Manager's
 # "access secret payload" permission, that's deliberately excluded from
 # primitive roles and requires this explicit, secret-scoped grant.
+#
+# member is hardcoded to the terraform-prd@... naming convention rather than
+# driven by the TF_SA_PRD GitHub secret (Terraform's root modules have no
+# access to GitHub secrets) -- confirmed empirically via
+# `gcloud iam service-accounts list` that this is the only custom SA in this
+# project matching that pattern, and via an actual `workflow_dispatch` plan
+# run against prd that this exact identity is what google-github-actions/auth
+# authenticates as here. If TF_SA_PRD is ever rotated to a different SA,
+# update this to match -- it will not follow automatically.
 resource "google_secret_manager_secret_iam_member" "terraform_cloudflare_token_accessor" {
   project   = var.project_id
   secret_id = module.external_dns_prd.cloudflare_api_token_secret_id
