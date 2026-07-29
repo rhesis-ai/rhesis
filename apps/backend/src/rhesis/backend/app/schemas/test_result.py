@@ -67,9 +67,6 @@ class TestResult(TestResultBase, WithPermittedActions):
     model_config = ConfigDict(from_attributes=True)
 
 
-# Lightweight reference schemas below are specific to TestResultDetail's
-# nested chain (test -> prompt / behavior / topic) -- richer than the shared
-# references, so they stay local rather than living in schemas/references.py.
 class TestReference(Base):
     id: UUID4
     content: Optional[str] = None

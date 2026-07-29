@@ -41,9 +41,6 @@ class TestConfiguration(TestConfigurationBase):
     pass
 
 
-# Lightweight reference schemas below are specific to TestConfigurationDetail
-# (use_case/test_set/endpoint have consumer-specific shapes elsewhere, so
-# stay local rather than living in the shared schemas/references.py module).
 class UseCaseReference(Base):
     id: UUID4
     name: Optional[str] = None

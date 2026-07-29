@@ -334,9 +334,7 @@ class GarakSyncService:
 
         # Queried by ID rather than via test_set.tests -- callers don't
         # guarantee that many-to-many relationship is eager-loaded.
-        tests = (
-            self.db.query(Test).filter(Test.test_sets.any(id=test_set.id)).all()
-        )
+        tests = self.db.query(Test).filter(Test.test_sets.any(id=test_set.id)).all()
         for test in tests:
             if test.test_metadata and test.test_metadata.get("source") == "garak":
                 probe_id = test.test_metadata.get("garak_probe_id")

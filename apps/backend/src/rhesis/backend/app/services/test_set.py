@@ -192,9 +192,7 @@ def generate_test_set_attributes(
     # test_set isn't guaranteed to have that many-to-many relationship loaded.
     tests = (
         QueryBuilder(db, models.Test)
-        .with_custom_filter(
-            lambda q: q.filter(models.Test.test_sets.any(id=test_set.id))
-        )
+        .with_custom_filter(lambda q: q.filter(models.Test.test_sets.any(id=test_set.id)))
         .with_related(
             include(models.Test.topic),
             include(models.Test.behavior),

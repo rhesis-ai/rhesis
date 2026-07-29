@@ -3500,8 +3500,10 @@ def get_model(
     db: Session, model_id: uuid.UUID, organization_id: str = None, user_id: str = None
 ) -> Optional[models.Model]:
     """Get a specific model by ID with its related objects and organization filtering"""
-    query = db.query(models.Model).options(include(models.Model.provider_type)).filter(
-        models.Model.id == model_id
+    query = (
+        db.query(models.Model)
+        .options(include(models.Model.provider_type))
+        .filter(models.Model.id == model_id)
     )
 
     # Apply organization filtering (SECURITY CRITICAL)
