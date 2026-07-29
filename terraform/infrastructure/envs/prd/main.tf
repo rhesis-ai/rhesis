@@ -110,6 +110,18 @@ module "external_dns_prd" {
   depends_on = [module.eso_prd]
 }
 
+# terraform-prd needs to read the actual Cloudflare token to plan/apply the
+# cloudflare provider config (see the comment on provider "cloudflare" above)
+# -- roles/editor (already held broadly) does NOT cover Secret Manager's
+# "access secret payload" permission, that's deliberately excluded from
+# primitive roles and requires this explicit, secret-scoped grant.
+resource "google_secret_manager_secret_iam_member" "terraform_cloudflare_token_accessor" {
+  project   = var.project_id
+  secret_id = module.external_dns_prd.cloudflare_api_token_secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:terraform-prd@${var.project_id}.iam.gserviceaccount.com"
+}
+
 module "arc_gha_prd" {
   source = "../../modules/arc-gha/gcp"
 
