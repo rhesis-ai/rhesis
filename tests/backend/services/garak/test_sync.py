@@ -7,7 +7,7 @@ import pytest
 from faker import Faker
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app.models.test import Test
+from rhesis.backend.app.models.test import Test, test_test_set_association
 from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.app.services.garak.probes import GarakProbeInfo
 from rhesis.backend.app.services.garak.sync import GarakSyncService, SyncResult
@@ -168,9 +168,26 @@ class TestGarakSyncServiceProbeIds:
         test_db.add_all([test1, test2])
         test_db.commit()
 
-        # Associate tests with test set
-        test_set.tests.append(test1)
-        test_set.tests.append(test2)
+        # Associate tests with test set (tests/TestSet.tests is viewonly --
+        # insert into the association table directly, not via .append()).
+        test_db.execute(
+            test_test_set_association.insert().values(
+                [
+                    {
+                        "test_id": test1.id,
+                        "test_set_id": test_set.id,
+                        "organization_id": test_org_id,
+                        "user_id": authenticated_user_id,
+                    },
+                    {
+                        "test_id": test2.id,
+                        "test_set_id": test_set.id,
+                        "organization_id": test_org_id,
+                        "user_id": authenticated_user_id,
+                    },
+                ]
+            )
+        )
         test_db.commit()
 
         probe_ids = service._get_existing_probe_ids(test_set)
@@ -204,7 +221,14 @@ class TestGarakSyncServiceProbeIds:
         test_db.add(test1)
         test_db.commit()
 
-        test_set.tests.append(test1)
+        test_db.execute(
+            test_test_set_association.insert().values(
+                test_id=test1.id,
+                test_set_id=test_set.id,
+                organization_id=test_org_id,
+                user_id=authenticated_user_id,
+            )
+        )
         test_db.commit()
 
         probe_ids = service._get_existing_probe_ids(test_set)

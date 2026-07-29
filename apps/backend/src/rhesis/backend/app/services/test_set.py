@@ -7,7 +7,7 @@ from typing import Any, Dict, List
 from uuid import UUID
 
 from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, contains_eager
 
 from rhesis.backend.app import models, schemas
 from rhesis.backend.app.constants import (
@@ -188,10 +188,13 @@ def generate_test_set_attributes(
     """
     # Eager-load per-test relationships in one query instead of lazily fetching
     # topic/behavior/category/prompt for each test in test_set.tests (N+1).
-    test_ids = [test.id for test in test_set.tests]
+    # Filtered by test_sets.any(...) rather than test_set.tests -- the caller's
+    # test_set isn't guaranteed to have that many-to-many relationship loaded.
     tests = (
         QueryBuilder(db, models.Test)
-        .with_custom_filter(lambda q: q.filter(models.Test.id.in_(test_ids)))
+        .with_custom_filter(
+            lambda q: q.filter(models.Test.test_sets.any(id=test_set.id))
+        )
         .with_related(
             include(models.Test.topic),
             include(models.Test.behavior),
@@ -199,8 +202,6 @@ def generate_test_set_attributes(
             include(models.Test.prompt),
         )
         .all()
-        if test_ids
-        else []
     )
 
     # Get all unique IDs and names for each dimension (skip tests with None values)
@@ -680,6 +681,7 @@ def get_last_completed_test_run(
             TestRun.test_configuration_id == TestConfiguration.id,
         )
         .join(Status, TestRun.status_id == Status.id)
+        .options(contains_eager(TestRun.status))
         .filter(
             TestConfiguration.test_set_id == db_test_set.id,
             TestConfiguration.endpoint_id == uuid.UUID(str(endpoint_id)),
@@ -821,12 +823,20 @@ def execute_test_set_on_endpoint(
     if metrics and len(metrics) > 0:
         metrics_source = MetricsSource.EXECUTION_TIME.value
         logger.debug("Metrics source: execution_time (user-provided metrics)")
-    elif db_test_set.metrics and len(db_test_set.metrics) > 0:
-        metrics_source = MetricsSource.TEST_SET.value
-        logger.debug(f"Metrics source: test_set ({len(db_test_set.metrics)} metrics on test set)")
     else:
-        metrics_source = MetricsSource.BEHAVIOR.value
-        logger.debug("Metrics source: behavior (fallback to test behaviors)")
+        # Queried by ID rather than via db_test_set.metrics -- that many-to-many
+        # relationship isn't guaranteed eager-loaded on the resolved test set.
+        test_set_metrics_count = (
+            db.query(models.Metric.id)
+            .filter(models.Metric.test_sets.any(id=db_test_set.id))
+            .count()
+        )
+        if test_set_metrics_count > 0:
+            metrics_source = MetricsSource.TEST_SET.value
+            logger.debug(f"Metrics source: test_set ({test_set_metrics_count} metrics on test set)")
+        else:
+            metrics_source = MetricsSource.BEHAVIOR.value
+            logger.debug("Metrics source: behavior (fallback to test behaviors)")
 
     parameters_ref: Dict[str, Any] | None = None
     has_version = bool(experiment_version and str(experiment_version).strip())

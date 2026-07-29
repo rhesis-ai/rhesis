@@ -49,12 +49,15 @@ def resolve_metric_names(
     organization_id: str,
     request_metric_names: Optional[List[str]],
 ) -> List[str]:
-    # Kept for API symmetry with endpoint resolver usage from routers.
-    _ = db, organization_id
+    _ = organization_id
     if request_metric_names:
         return request_metric_names
 
-    metric_names = [metric.name for metric in (test_set.metrics or []) if metric.name]
+    # Queried by ID rather than via test_set.metrics -- callers of this
+    # resolver (routers/explorer.py) don't guarantee that many-to-many
+    # relationship is eager-loaded on the passed-in test_set.
+    metrics = db.query(models.Metric).filter(models.Metric.test_sets.any(id=test_set.id)).all()
+    metric_names = [metric.name for metric in metrics if metric.name]
     if not metric_names:
         raise ValueError("No metrics specified and no metrics configured in settings")
 
@@ -82,10 +85,9 @@ def get_explorer_settings(
         if endpoint is not None:
             endpoint_ref = ExplorerSettingsEndpoint(id=endpoint.id, name=endpoint.name)
 
-    metrics = [
-        ExplorerSettingsMetric(id=metric.id, name=metric.name)
-        for metric in (test_set.metrics or [])
-    ]
+    # Queried by ID rather than via test_set.metrics -- see resolve_metric_names.
+    db_metrics = db.query(models.Metric).filter(models.Metric.test_sets.any(id=test_set.id)).all()
+    metrics = [ExplorerSettingsMetric(id=metric.id, name=metric.name) for metric in db_metrics]
 
     return ExplorerSettingsResponse(default_endpoint=endpoint_ref, metrics=metrics)
 
@@ -120,7 +122,13 @@ def update_explorer_settings(
 
     if metric_ids is not None:
         # Replace metrics atomically by removing existing and adding requested.
-        existing_metric_ids = [metric.id for metric in (test_set.metrics or [])]
+        # Queried by ID rather than via test_set.metrics -- see resolve_metric_names.
+        existing_metric_ids = [
+            metric.id
+            for metric in db.query(models.Metric)
+            .filter(models.Metric.test_sets.any(id=test_set.id))
+            .all()
+        ]
         desired_metric_ids = list(dict.fromkeys(metric_ids))
 
         for metric_id in existing_metric_ids:
