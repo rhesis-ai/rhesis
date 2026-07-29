@@ -4,7 +4,6 @@ import * as React from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useNotifications } from '@/components/common/NotificationContext';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
-import { BehaviorClient } from '@/utils/api-client/behavior-client';
 import { MetricsClient } from '@/utils/api-client/metrics-client';
 import { MetricDetail } from '@/utils/api-client/interfaces/metric';
 import type {
@@ -13,9 +12,15 @@ import type {
 } from '@/utils/api-client/interfaces/behavior';
 import type { UUID } from 'crypto';
 import { TEST_TYPES } from '@/constants/test-types';
+import { buildMetricODataFilter } from '@/utils/odata-filter';
+import { METRICS_SELECT } from './metrics-constants';
+import { useCanWithStatus } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
+import AccessDenied from '@/components/common/AccessDenied';
+import PageLoadingState from '@/components/common/PageLoadingState';
+import { usePaginatedList } from '@/hooks/usePaginatedList';
 
 import MetricsDirectoryTab, { type FilterState } from './MetricsDirectoryTab';
-import { isAuthenticated, isSessionLoading } from '@/hooks/useIsAuthenticated';
 
 const initialFilterState: FilterState = {
   search: '',
@@ -59,172 +64,183 @@ interface BehaviorMetrics {
 
 interface MetricsClientProps {
   organizationId: UUID;
-  sessionStatus?: 'loading' | 'authenticated' | 'unauthenticated';
+  /** Server-fetched first page — when present, skips the initial client fetch. */
+  initialData?: MetricDetail[];
+  initialTotalCount?: number;
+}
+
+interface MetricsOptionMaps {
+  behaviors: Map<string, ApiBehavior>;
+  backendTypes: Map<string, { type_value: string }>;
+  metricTypes: Map<string, { type_value: string; description: string }>;
+}
+
+/**
+ * Extracts the behavior/backend/type dropdown options a page of metrics
+ * contributes and merges them into the running accumulator maps. Mutating
+ * maps that persist across fetches -- rather than deriving from just the
+ * current page -- matters because pages are server-filtered: filtering by
+ * one backend type would otherwise make that fetch's response (and thus the
+ * dropdown) contain only that value, making every other option vanish from
+ * the filter UI the moment it's applied.
+ */
+function deriveMetricsPageOptions(
+  data: MetricDetail[],
+  maps: MetricsOptionMaps
+) {
+  data.forEach(metric => {
+    metric.behaviors?.forEach(behavior => {
+      if (behavior && typeof behavior !== 'string' && behavior.id) {
+        maps.behaviors.set(behavior.id, {
+          id: behavior.id,
+          name: behavior.name || 'Unnamed Behavior',
+          description: behavior.description ?? undefined,
+        } as ApiBehavior);
+      }
+    });
+    if (metric.backend_type) {
+      const val = metric.backend_type.type_value;
+      maps.backendTypes.set(val, {
+        type_value: val.charAt(0).toUpperCase() + val.slice(1),
+      });
+    }
+    if (metric.metric_type) {
+      maps.metricTypes.set(metric.metric_type.type_value, {
+        type_value: metric.metric_type.type_value,
+        description: metric.metric_type.description || '',
+      });
+    }
+  });
+
+  const behaviorsData = Array.from(maps.behaviors.values());
+  return {
+    behaviorsData,
+    behaviorOptions: behaviorsData.map(b => ({ id: b.id, name: b.name })),
+    backendTypeOptions: Array.from(maps.backendTypes.values()),
+    metricTypeOptions: Array.from(maps.metricTypes.values()),
+  };
 }
 
 export default function MetricsClientComponent({
   organizationId,
-  sessionStatus,
+  initialData,
+  initialTotalCount = 0,
 }: MetricsClientProps) {
   const searchParams = useSearchParams();
   const notifications = useNotifications();
+  const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
+    Capability.Metric.READ
+  );
 
-  // Check if we're in assign mode (coming from behaviors page)
   const assignMode = searchParams.get('assignMode') === 'true';
 
-  // Data state
-  const [behaviors, setBehaviors] = React.useState<ApiBehavior[]>([]);
+  // Accumulate dropdown options across page/filter navigations (see
+  // deriveMetricsPageOptions) so filtering to one value doesn't erase the
+  // other options from the dropdowns.
+  const optionMapsRef = React.useRef<MetricsOptionMaps>({
+    behaviors: new Map(),
+    backendTypes: new Map(),
+    metricTypes: new Map(),
+  });
+
+  const [behaviors, setBehaviors] = React.useState<ApiBehavior[]>(() =>
+    initialData
+      ? deriveMetricsPageOptions(initialData, optionMapsRef.current)
+          .behaviorsData
+      : []
+  );
   const [_behaviorsWithMetrics, setBehaviorsWithMetrics] = React.useState<
     BehaviorWithMetrics[]
   >([]);
-  const [metrics, setMetrics] = React.useState<MetricDetail[]>([]);
-
-  // Loading states
-  const [isLoading, setIsLoading] = React.useState(true);
-  const [error, setError] = React.useState<string | null>(null);
 
   // Filter state
   const [filters, setFilters] = React.useState<FilterState>(initialFilterState);
-  const [filterOptions, setFilterOptions] =
-    React.useState<FilterOptions>(initialFilterOptions);
+  const [filterOptions, setFilterOptions] = React.useState<FilterOptions>(
+    () => {
+      if (!initialData) return initialFilterOptions;
+      const { behaviorOptions, backendTypeOptions, metricTypeOptions } =
+        deriveMetricsPageOptions(initialData, optionMapsRef.current);
+      return {
+        ...initialFilterOptions,
+        backend: backendTypeOptions,
+        type: metricTypeOptions,
+        behavior: behaviorOptions,
+      };
+    }
+  );
   const [_behaviorMetrics, setBehaviorMetrics] =
     React.useState<BehaviorMetrics>({});
 
-  // Refresh key for manual refresh
-  const [refreshKey] = React.useState(0);
+  const filterFingerprint = React.useMemo(
+    () =>
+      JSON.stringify([
+        filters.search,
+        filters.backend,
+        filters.type,
+        filters.scoreType,
+        filters.metricScope,
+        filters.behavior,
+      ]),
+    [filters]
+  );
 
-  const hasFetchedRef = React.useRef(false);
+  const {
+    data: metrics,
+    setData: setMetrics,
+    totalCount,
+    isLoading,
+    error,
+    page,
+    rowsPerPage,
+    onPageChange: handlePageChange,
+    onRowsPerPageChange: handleRowsPerPageChange,
+    refresh: handleRefresh,
+  } = usePaginatedList<MetricDetail>({
+    fetchPage: ({ skip, limit }) => {
+      const metricsClient = new MetricsClient();
+      const odataFilter = buildMetricODataFilter(filters);
+      return metricsClient.getMetrics({
+        skip,
+        limit,
+        sort_by: 'created_at',
+        sort_order: 'desc',
+        $filter: odataFilter,
+        $select: METRICS_SELECT,
+        ...(filters.metricScope.length > 0 && {
+          metric_scope: filters.metricScope.join(','),
+        }),
+      });
+    },
+    filterFingerprint,
+    initialData,
+    initialTotalCount,
+    enabled: !permsLoading && canRead,
+    onData: data => {
+      const {
+        behaviorsData,
+        behaviorOptions,
+        backendTypeOptions,
+        metricTypeOptions,
+      } = deriveMetricsPageOptions(data, optionMapsRef.current);
+      setBehaviors(behaviorsData);
 
-  // Fetch behaviors, metrics, and filter options - using same pattern as test runs
-  React.useEffect(() => {
-    const fetchData = async () => {
-      if (!isAuthenticated(sessionStatus)) {
-        if (!isSessionLoading(sessionStatus)) {
-          setIsLoading(false);
-        }
-        return;
-      }
+      setFilterOptions(prev => ({
+        ...prev,
+        backend: backendTypeOptions,
+        type: metricTypeOptions,
+        behavior: behaviorOptions,
+      }));
+    },
+    onError: () => {
+      notifications.show('Failed to load metrics data', {
+        severity: 'error',
+        autoHideDuration: 4000,
+      });
+    },
+  });
 
-      const isRefresh = refreshKey > 0;
-      const isFirstLoad = !hasFetchedRef.current;
-
-      if (!isRefresh && !isFirstLoad) {
-        return;
-      }
-
-      hasFetchedRef.current = true;
-
-      try {
-        setIsLoading(true);
-        setError(null);
-
-        const behaviorClient = new BehaviorClient();
-        const metricsClient = new MetricsClient();
-
-        const [behaviorsWithMetricsData, allMetricsData] = await Promise.all([
-          behaviorClient.getBehaviorsWithMetrics({
-            skip: 0,
-            limit: 100,
-            sort_by: 'created_at',
-            sort_order: 'desc',
-          }),
-          metricsClient.getAllMetrics({
-            sort_by: 'created_at',
-            sort_order: 'desc',
-          }),
-        ]);
-
-        // Extract behaviors from the optimized response
-        const behaviorsData = behaviorsWithMetricsData;
-
-        // Use all metrics from the dedicated metrics endpoint
-        const metricsData = allMetricsData;
-
-        // Add behavior IDs to each metric for compatibility
-        const metricsWithBehaviors = metricsData.map(metric => {
-          const behaviorIds = behaviorsWithMetricsData
-            .filter(behavior => behavior.metrics?.some(m => m.id === metric.id))
-            .map(behavior => behavior.id);
-
-          return {
-            ...metric,
-            behaviors: behaviorIds,
-          };
-        });
-
-        // Set the data
-        setBehaviorsWithMetrics(behaviorsWithMetricsData);
-        setBehaviors(behaviorsData);
-        setMetrics(metricsWithBehaviors as MetricDetail[]);
-
-        // Initialize behavior metrics state
-        const initialBehaviorMetrics: BehaviorMetrics = {};
-        behaviorsWithMetricsData.forEach(behavior => {
-          initialBehaviorMetrics[behavior.id] = {
-            metrics: (behavior.metrics || []) as MetricDetail[],
-            isLoading: false,
-            error: null,
-          };
-        });
-        setBehaviorMetrics(initialBehaviorMetrics);
-
-        // Extract backend types and metric types from the metrics in the response
-        const uniqueBackendTypes = new Map<string, { type_value: string }>();
-        const uniqueMetricTypes = new Map<
-          string,
-          { type_value: string; description: string }
-        >();
-
-        metricsWithBehaviors.forEach(metric => {
-          // Extract backend types from metric.backend_type
-          if (metric.backend_type) {
-            const backendTypeValue =
-              metric.backend_type.type_value.charAt(0).toUpperCase() +
-              metric.backend_type.type_value.slice(1);
-            uniqueBackendTypes.set(metric.backend_type.type_value, {
-              type_value: backendTypeValue,
-            });
-          }
-
-          // Extract metric types from metric.metric_type
-          if (metric.metric_type) {
-            uniqueMetricTypes.set(metric.metric_type.type_value, {
-              type_value: metric.metric_type.type_value,
-              description: metric.metric_type.description || '',
-            });
-          }
-        });
-
-        const backendTypes = Array.from(uniqueBackendTypes.values());
-        const metricTypes = Array.from(uniqueMetricTypes.values());
-
-        // Create behavior filter options
-        const behaviorOptions = behaviorsWithMetricsData.map(behavior => ({
-          id: behavior.id,
-          name: behavior.name,
-        }));
-
-        setFilterOptions(prev => ({
-          ...prev,
-          backend: backendTypes,
-          type: metricTypes,
-          behavior: behaviorOptions,
-        }));
-      } catch (err) {
-        const errorMessage =
-          err instanceof Error ? err.message : 'An error occurred';
-        setError(errorMessage);
-        notifications.show('Failed to load metrics data', {
-          severity: 'error',
-          autoHideDuration: 4000,
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [refreshKey, notifications, sessionStatus]);
+  if (permsLoading) return <PageLoadingState />;
+  if (!canRead) return <AccessDenied resource="metrics" />;
 
   return (
     <ErrorBoundary>
@@ -232,6 +248,12 @@ export default function MetricsClientComponent({
         organizationId={organizationId}
         behaviors={behaviors}
         metrics={metrics}
+        totalCount={totalCount}
+        page={page}
+        rowsPerPage={rowsPerPage}
+        onPageChange={handlePageChange}
+        onRowsPerPageChange={handleRowsPerPageChange}
+        onRefresh={handleRefresh}
         filters={filters}
         filterOptions={filterOptions}
         isLoading={isLoading}

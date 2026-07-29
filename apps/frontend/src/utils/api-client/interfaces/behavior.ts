@@ -157,7 +157,7 @@ export interface BehaviorsQueryParams {
   skip?: number;
   limit?: number;
   sort_by?: string;
-  sort_order?: string;
+  sort_order?: 'asc' | 'desc';
   $filter?: string;
-  include?: string; // New: for including relationships like 'metrics'
+  include?: string;
 }

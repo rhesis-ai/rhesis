@@ -133,4 +133,15 @@ export interface MetricsResponse {
 export interface MetricQueryParams extends PaginationParams {
   status?: string;
   type?: string;
+  /**
+   * OData $select expression -- comma-separated top-level field names to
+   * return (id is always included). Trims the response to only what the
+   * caller renders; see backend utils/odata.py::apply_select.
+   */
+  $select?: string;
+  /**
+   * Comma-separated metric scopes (JSONB array contains filter).
+   * Matches metrics whose metric_scope array contains any of the values.
+   */
+  metric_scope?: string;
 }
