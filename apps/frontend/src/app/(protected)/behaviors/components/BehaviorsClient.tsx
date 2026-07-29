@@ -42,6 +42,7 @@ import BehaviorFilterDrawer, {
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 import { usePaginatedList } from '@/hooks/usePaginatedList';
 import { buildBehaviorODataFilter } from '@/utils/odata-filter';
+import { BEHAVIORS_READ_CAPABILITY } from './behaviors-constants';
 
 interface BehaviorsClientProps {
   organizationId: UUID;
@@ -61,7 +62,7 @@ export default function BehaviorsClient({
   const notifications = useNotifications();
   const { status: sessionStatus } = useSession();
   const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
-    Capability.Behavior.READ
+    BEHAVIORS_READ_CAPABILITY
   );
   const canCreateBehavior = useCan(Capability.Behavior.CREATE);
 
