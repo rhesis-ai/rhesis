@@ -14,10 +14,6 @@ terraform {
       source  = "hashicorp/null"
       version = "~> 3.0"
     }
-    cloudflare = {
-      source  = "cloudflare/cloudflare"
-      version = "~> 4.0"
-    }
   }
   backend "gcs" {
     prefix = "terraform/infrastructure/envs/stg"
@@ -27,19 +23,6 @@ terraform {
 provider "google" {
   project = var.project_id
   region  = var.region
-}
-
-# stg's networking/DNS is managed internally via WireGuard, not Cloudflare --
-# it never sets enable_public_ingress_firewall/use_cloudflare_source_ranges,
-# so the cloudflare_ip_ranges data source in modules/kubernetes/gcp always has
-# count = 0 here and never makes a real API call. But that module's
-# required_providers still demands a valid cloudflare provider configuration
-# in this root module regardless -- Terraform validates provider config for
-# the whole module graph, not just resources with a non-zero count. A literal
-# placeholder satisfies that schema requirement without needing real
-# Cloudflare access for an environment that doesn't integrate with it.
-provider "cloudflare" {
-  api_token = "unused-stg-has-no-cloudflare-integration"
 }
 
 # Read WireGuard server's reserved external IP from its Terraform state.

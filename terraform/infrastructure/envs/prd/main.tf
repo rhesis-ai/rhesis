@@ -16,7 +16,7 @@ terraform {
     }
     cloudflare = {
       source  = "cloudflare/cloudflare"
-      version = "~> 4.0"
+      version = "4.52.8" # no committed lock file yet (terraform CLI unavailable locally) -- pin exactly
     }
   }
   backend "gcs" {
@@ -44,6 +44,12 @@ provider "google" {
 # (fetched via gcloud immediately before plan/apply, never written to a file
 # or committed) -- the provider reads it automatically when unset here.
 provider "cloudflare" {}
+
+# Live Cloudflare edge IP ranges, fetched at plan/apply time and passed into
+# gke_prd's public_ingress_source_ranges below. Lives here (not in
+# modules/kubernetes/gcp) so only the one root module that has a real
+# Cloudflare credential needs the provider at all -- dev/stg never touch it.
+data "cloudflare_ip_ranges" "edge" {}
 
 module "prd" {
   source = "../../modules/network/gcp"
@@ -87,7 +93,10 @@ module "gke_prd" {
   # polyphemus (test-polyphemus.rhesis.ai) is served via ingress-nginx-external,
   # proxied through Cloudflare — restrict to Cloudflare's live edge IP ranges.
   enable_public_ingress_firewall = true
-  use_cloudflare_source_ranges   = true
+  public_ingress_source_ranges = concat(
+    data.cloudflare_ip_ranges.edge.ipv4_cidr_blocks,
+    data.cloudflare_ip_ranges.edge.ipv6_cidr_blocks,
+  )
 
   depends_on = [module.prd]
 }
