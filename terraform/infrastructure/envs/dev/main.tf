@@ -29,20 +29,17 @@ provider "google" {
   region  = var.region
 }
 
-# dev doesn't use enable_public_ingress_firewall/use_cloudflare_source_ranges
-# (so the cloudflare_ip_ranges data source in modules/kubernetes/gcp always
-# has count = 0 here), but that module's required_providers still demands a
-# valid cloudflare provider configuration in this root module regardless --
-# Terraform validates provider config for the whole module graph, not just
-# resources with a non-zero count. Reuses the token external-dns already
-# keeps in Secret Manager rather than adding a separate credential path.
-data "google_secret_manager_secret_version" "cloudflare_api_token" {
-  secret  = "cloudflare-api-token-dev"
-  project = var.project_id
-}
-
+# dev's networking/DNS is managed internally via WireGuard, not Cloudflare --
+# it never sets enable_public_ingress_firewall/use_cloudflare_source_ranges,
+# so the cloudflare_ip_ranges data source in modules/kubernetes/gcp always has
+# count = 0 here and never makes a real API call. But that module's
+# required_providers still demands a valid cloudflare provider configuration
+# in this root module regardless -- Terraform validates provider config for
+# the whole module graph, not just resources with a non-zero count. A literal
+# placeholder satisfies that schema requirement without needing real
+# Cloudflare access for an environment that doesn't integrate with it.
 provider "cloudflare" {
-  api_token = data.google_secret_manager_secret_version.cloudflare_api_token.secret_data
+  api_token = "unused-dev-has-no-cloudflare-integration"
 }
 
 # Read WireGuard server's reserved external IP from its Terraform state.
