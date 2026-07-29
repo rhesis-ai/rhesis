@@ -496,6 +496,30 @@ def bound_scope():
 
 
 @pytest.fixture(autouse=True)
+def forbid_implicit_lazy_loads():
+    """Raise instead of silently lazy-loading any relationship not eager-loaded via include().
+
+    Catches the N+1 pattern fixed in #2244, where a relationship missing from
+    QueryBuilder.with_related()/include() lazy-loads transparently on first
+    access. Injects raiseload('*', sql_only=True) into every query via
+    Query.before_compile; already eager-loaded relationships are unaffected.
+
+    Autouse set as true: every test uses this.
+    """
+    from sqlalchemy import event
+    from sqlalchemy.orm import Query, raiseload
+
+    def _raise_on_unloaded(query):
+        return query.options(raiseload("*", sql_only=True))
+
+    event.listen(Query, "before_compile", _raise_on_unloaded, retval=True)
+    try:
+        yield
+    finally:
+        event.remove(Query, "before_compile", _raise_on_unloaded)
+
+
+@pytest.fixture(autouse=True)
 def disable_enrichment(request, monkeypatch):
     """
     Disable trace enrichment for all tests by default.
