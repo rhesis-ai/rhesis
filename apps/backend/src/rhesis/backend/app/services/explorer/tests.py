@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.constants import ADAPTIVE_TESTING_BEHAVIOR
 from rhesis.backend.app.models.test import test_test_set_association
+from rhesis.backend.app.schemas.explorer import TestTreeNode, TopicNode
 from rhesis.backend.app.services.test import create_test_set_associations
 from rhesis.backend.app.utils.crud_utils import (
     bulk_delete_by_ids,
@@ -15,10 +16,9 @@ from rhesis.backend.app.utils.crud_utils import (
     get_or_create_type_lookup,
 )
 from rhesis.backend.app.utils.query_utils import QueryBuilder
-from rhesis.sdk.adaptive_testing.schemas import TestTreeNode, TopicNode
 
 from .topics import create_topic_node
-from .utils import _db_test_to_node, convert_to_sdk_tree
+from .utils import _db_test_to_node, build_test_tree
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ def get_tree_nodes(
 
     Returns the complete tree as a flat list of TestTreeNode objects.
     """
-    tree_data = convert_to_sdk_tree(db, test_set_id, organization_id, user_id)
+    tree_data = build_test_tree(db, test_set_id, organization_id, user_id)
     return list(tree_data)
 
 
@@ -51,7 +51,7 @@ def get_tree_tests(
     topic : str, optional
         If provided, only returns tests under this topic path.
     """
-    tree_data = convert_to_sdk_tree(db, test_set_id, organization_id, user_id)
+    tree_data = build_test_tree(db, test_set_id, organization_id, user_id)
 
     if topic:
         return tree_data.topics.get_tests(TopicNode(path=topic), recursive=True)
@@ -69,7 +69,7 @@ def get_tree_topics(
 
     Returns the hierarchical topic structure derived from topic markers.
     """
-    tree_data = convert_to_sdk_tree(db, test_set_id, organization_id, user_id)
+    tree_data = build_test_tree(db, test_set_id, organization_id, user_id)
     return tree_data.topics.get_all()
 
 

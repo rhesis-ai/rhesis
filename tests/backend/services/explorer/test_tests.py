@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models
 from rhesis.backend.app.database import without_soft_delete_filter
+from rhesis.backend.app.schemas.explorer import TestTreeNode, TopicNode
 from rhesis.backend.app.services.explorer import (
     bulk_delete_explorer_test_sets,
     create_explorer_test_set,
@@ -20,7 +21,6 @@ from rhesis.backend.app.services.explorer import (
     import_explorer_test_set_from_source,
     update_test_node,
 )
-from rhesis.sdk.adaptive_testing.schemas import TestTreeNode, TopicNode
 
 # ============================================================================
 # Helpers and Fixtures for get_explorer_test_sets
@@ -580,9 +580,7 @@ class TestBulkDeleteExplorerTestSets:
         assert set(result["not_found_ids"]) == {str(regular.id), str(fake_id)}
 
         # The regular (non-explorer) test set must still exist, untouched.
-        still_there = (
-            test_db.query(models.TestSet).filter(models.TestSet.id == regular.id).first()
-        )
+        still_there = test_db.query(models.TestSet).filter(models.TestSet.id == regular.id).first()
         assert still_there is not None
 
     def test_cascades_to_session_tests(self, test_db, test_org_id, authenticated_user_id):
