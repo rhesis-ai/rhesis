@@ -287,7 +287,7 @@ async def sso_callback(
         email=auth_user.email,
     )
 
-    redirect_url = build_redirect_url(request, session_token, refresh_tok)
+    redirect_url = await build_redirect_url(request, session_token, refresh_tok)
     return RedirectResponse(url=redirect_url, status_code=302)
 
 
