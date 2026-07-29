@@ -80,9 +80,24 @@ jobs:
           workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
           service_account: ${{ steps.ctx.outputs.service_account }}
 
+      - uses: google-github-actions/setup-gcloud@v2
+
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ env.TF_VERSION }}
+
+      # prd's cloudflare provider (envs/prd/main.tf) needs a real credential
+      # to initialize (used by the cloudflare_ip_ranges data source). Fetched
+      # here rather than via a Terraform data source so the token never
+      # flows through Terraform state -- see the comment in envs/prd/main.tf.
+      - name: Fetch Cloudflare API token (prd only)
+        if: steps.ctx.outputs.target_env == 'prd'
+        run: |
+          TOKEN=$(gcloud secrets versions access latest \
+            --secret=cloudflare-api-token-prd \
+            --project="${{ steps.ctx.outputs.project_id }}")
+          echo "::add-mask::$TOKEN"
+          echo "CLOUDFLARE_API_TOKEN=$TOKEN" >> "$GITHUB_ENV"
 
       - name: Init
         working-directory: terraform/infrastructure/envs/${{ steps.ctx.outputs.target_env }}
@@ -178,6 +193,19 @@ jobs:
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ env.TF_VERSION }}
+
+      # prd's cloudflare provider (envs/prd/main.tf) needs a real credential
+      # to initialize (used by the cloudflare_ip_ranges data source). Fetched
+      # here rather than via a Terraform data source so the token never
+      # flows through Terraform state -- see the comment in envs/prd/main.tf.
+      - name: Fetch Cloudflare API token (prd only)
+        if: needs.plan.outputs.target_env == 'prd'
+        run: |
+          TOKEN=$(gcloud secrets versions access latest \
+            --secret=cloudflare-api-token-prd \
+            --project="${{ steps.ctx.outputs.project_id }}")
+          echo "::add-mask::$TOKEN"
+          echo "CLOUDFLARE_API_TOKEN=$TOKEN" >> "$GITHUB_ENV"
 
       - uses: actions/download-artifact@v8
         with:

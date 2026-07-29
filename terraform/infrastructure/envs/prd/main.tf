@@ -33,16 +33,17 @@ provider "google" {
 # not for managing Cloudflare resources -- but the provider mandates some
 # credential to initialize regardless of which data source/resource actually
 # ends up used, even ip_ranges (which is otherwise a public, unauthenticated
-# endpoint). Reuses the token external-dns already keeps in Secret Manager
-# rather than adding a separate credential path.
-data "google_secret_manager_secret_version" "cloudflare_api_token" {
-  secret  = "cloudflare-api-token-prd"
-  project = var.project_id
-}
-
-provider "cloudflare" {
-  api_token = data.google_secret_manager_secret_version.cloudflare_api_token.secret_data
-}
+# endpoint). No value set here deliberately: reading the real token via a
+# Terraform data source would persist it in plaintext in the state file
+# (the provider schema's Sensitive flag only redacts CLI output, not the
+# state itself) -- a real secret flowing through Terraform state at all
+# breaks this codebase's own pattern elsewhere (ESO, arc-gha: Terraform only
+# ever manages placeholders, real values are populated out-of-band via
+# `gcloud secrets versions add` and never touch state). CLOUDFLARE_API_TOKEN
+# is instead injected as a CI-only env var by terraform-infrastructure.yml
+# (fetched via gcloud immediately before plan/apply, never written to a file
+# or committed) -- the provider reads it automatically when unset here.
+provider "cloudflare" {}
 
 module "prd" {
   source = "../../modules/network/gcp"
