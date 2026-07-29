@@ -29,9 +29,20 @@ provider "google" {
   region  = var.region
 }
 
-# No credentials: only used for the public, unauthenticated cloudflare_ip_ranges
-# data source (modules/kubernetes/gcp), not for managing Cloudflare resources.
-provider "cloudflare" {}
+# Only used for the cloudflare_ip_ranges data source (modules/kubernetes/gcp),
+# not for managing Cloudflare resources -- but the provider mandates some
+# credential to initialize regardless of which data source/resource actually
+# ends up used, even ip_ranges (which is otherwise a public, unauthenticated
+# endpoint). Reuses the token external-dns already keeps in Secret Manager
+# rather than adding a separate credential path.
+data "google_secret_manager_secret_version" "cloudflare_api_token" {
+  secret  = "cloudflare-api-token-prd"
+  project = var.project_id
+}
+
+provider "cloudflare" {
+  api_token = data.google_secret_manager_secret_version.cloudflare_api_token.secret_data
+}
 
 module "prd" {
   source = "../../modules/network/gcp"

@@ -14,6 +14,10 @@ terraform {
       source  = "hashicorp/null"
       version = "~> 3.0"
     }
+    cloudflare = {
+      source  = "cloudflare/cloudflare"
+      version = "~> 4.0"
+    }
   }
   backend "gcs" {
     prefix = "terraform/infrastructure/envs/stg"
@@ -23,6 +27,22 @@ terraform {
 provider "google" {
   project = var.project_id
   region  = var.region
+}
+
+# stg doesn't use enable_public_ingress_firewall/use_cloudflare_source_ranges
+# (so the cloudflare_ip_ranges data source in modules/kubernetes/gcp always
+# has count = 0 here), but that module's required_providers still demands a
+# valid cloudflare provider configuration in this root module regardless --
+# Terraform validates provider config for the whole module graph, not just
+# resources with a non-zero count. Reuses the token external-dns already
+# keeps in Secret Manager rather than adding a separate credential path.
+data "google_secret_manager_secret_version" "cloudflare_api_token" {
+  secret  = "cloudflare-api-token-stg"
+  project = var.project_id
+}
+
+provider "cloudflare" {
+  api_token = data.google_secret_manager_secret_version.cloudflare_api_token.secret_data
 }
 
 # Read WireGuard server's reserved external IP from its Terraform state.
