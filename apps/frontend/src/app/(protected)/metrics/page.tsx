@@ -1,12 +1,12 @@
 import { auth } from '@/auth';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { prefetchList } from '@/utils/server-prefetch';
+import { Capability } from '@/constants/capabilities';
 import MetricsClientComponent from './components/MetricsClient';
 import type { UUID } from 'crypto';
 import {
   METRICS_SELECT,
   DEFAULT_METRICS_PAGE_SIZE,
-  METRICS_READ_CAPABILITY,
 } from './components/metrics-constants';
 
 /**
@@ -25,7 +25,7 @@ export default async function MetricsPage() {
   const client = (await createServerApiFactory()).getMetricsClient();
 
   const { initialData, initialTotalCount } = await prefetchList(
-    METRICS_READ_CAPABILITY,
+    Capability.Metric.READ,
     () =>
       client.getMetrics({
         skip: 0,

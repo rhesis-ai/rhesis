@@ -1,11 +1,9 @@
 import { auth } from '@/auth';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { prefetchList } from '@/utils/server-prefetch';
+import { Capability } from '@/constants/capabilities';
 import BehaviorsClient from './components/BehaviorsClient';
-import {
-  DEFAULT_BEHAVIORS_PAGE_SIZE,
-  BEHAVIORS_READ_CAPABILITY,
-} from './components/behaviors-constants';
+import { DEFAULT_BEHAVIORS_PAGE_SIZE } from './components/behaviors-constants';
 import type { UUID } from 'crypto';
 
 /**
@@ -25,7 +23,7 @@ export default async function BehaviorsPage() {
   const client = (await createServerApiFactory()).getBehaviorClient();
 
   const { initialData, initialTotalCount } = await prefetchList(
-    BEHAVIORS_READ_CAPABILITY,
+    Capability.Behavior.READ,
     () =>
       client.getBehaviorsPage({
         skip: 0,

@@ -13,8 +13,9 @@ import type {
 import type { UUID } from 'crypto';
 import { TEST_TYPES } from '@/constants/test-types';
 import { buildMetricODataFilter } from '@/utils/odata-filter';
-import { METRICS_SELECT, METRICS_READ_CAPABILITY } from './metrics-constants';
+import { METRICS_SELECT } from './metrics-constants';
 import { useCanWithStatus } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 import AccessDenied from '@/components/common/AccessDenied';
 import PageLoadingState from '@/components/common/PageLoadingState';
 import { usePaginatedList } from '@/hooks/usePaginatedList';
@@ -128,7 +129,7 @@ export default function MetricsClientComponent({
   const searchParams = useSearchParams();
   const notifications = useNotifications();
   const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
-    METRICS_READ_CAPABILITY
+    Capability.Metric.READ
   );
 
   const assignMode = searchParams.get('assignMode') === 'true';
