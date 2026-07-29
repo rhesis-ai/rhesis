@@ -129,3 +129,32 @@ class TestBuildReplayKey:
         a = _build_replay_key("jti", "https://idp-a/")
         b = _build_replay_key("jti", "https://idp-b/")
         assert a != b
+
+
+@pytest.mark.unit
+class TestRedisRecovery:
+    """End-to-end recovery path: startup failure → cooldown → reconnect."""
+
+    @pytest.mark.asyncio
+    async def test_claim_token_jti_triggers_reconnect(self):
+        """claim_token_jti calls initialize() to opportunistically reconnect."""
+        mock_redis = MagicMock()
+        mock_redis.set = AsyncMock(return_value=True)
+
+        with patch(_REDIS_MGR) as mock_mgr:
+            # Start unavailable (simulating startup failure)
+            mock_mgr.is_available = False
+            mock_mgr.initialize = AsyncMock()
+            mock_mgr.client = mock_redis
+
+            # After initialize() runs, is_available becomes True
+            async def _fake_init():
+                mock_mgr.is_available = True
+
+            mock_mgr.initialize.side_effect = _fake_init
+
+            result = await claim_token_jti("jti-recovery", ttl_seconds=60)
+
+        assert result is True
+        mock_mgr.initialize.assert_called_once()
+        mock_redis.set.assert_called_once()
