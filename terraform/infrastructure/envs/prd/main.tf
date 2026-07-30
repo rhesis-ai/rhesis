@@ -16,7 +16,7 @@ terraform {
     }
     cloudflare = {
       source  = "cloudflare/cloudflare"
-      version = "~> 4.0"
+      version = "4.52.8" # no committed lock file yet (terraform CLI unavailable locally) -- pin exactly
     }
   }
   backend "gcs" {
@@ -29,9 +29,27 @@ provider "google" {
   region  = var.region
 }
 
-# No credentials: only used for the public, unauthenticated cloudflare_ip_ranges
-# data source (modules/kubernetes/gcp), not for managing Cloudflare resources.
+# Only used for the cloudflare_ip_ranges data source (modules/kubernetes/gcp),
+# not for managing Cloudflare resources -- but the provider mandates some
+# credential to initialize regardless of which data source/resource actually
+# ends up used, even ip_ranges (which is otherwise a public, unauthenticated
+# endpoint). No value set here deliberately: reading the real token via a
+# Terraform data source would persist it in plaintext in the state file
+# (the provider schema's Sensitive flag only redacts CLI output, not the
+# state itself) -- a real secret flowing through Terraform state at all
+# breaks this codebase's own pattern elsewhere (ESO, arc-gha: Terraform only
+# ever manages placeholders, real values are populated out-of-band via
+# `gcloud secrets versions add` and never touch state). CLOUDFLARE_API_TOKEN
+# is instead injected as a CI-only env var by terraform-infrastructure.yml
+# (fetched via gcloud immediately before plan/apply, never written to a file
+# or committed) -- the provider reads it automatically when unset here.
 provider "cloudflare" {}
+
+# Live Cloudflare edge IP ranges, fetched at plan/apply time and passed into
+# gke_prd's public_ingress_source_ranges below. Lives here (not in
+# modules/kubernetes/gcp) so only the one root module that has a real
+# Cloudflare credential needs the provider at all -- dev/stg never touch it.
+data "cloudflare_ip_ranges" "edge" {}
 
 module "prd" {
   source = "../../modules/network/gcp"
@@ -74,8 +92,12 @@ module "gke_prd" {
 
   # polyphemus (test-polyphemus.rhesis.ai) is served via ingress-nginx-external,
   # proxied through Cloudflare — restrict to Cloudflare's live edge IP ranges.
+  # IPv4 only: this VPC/subnets have no stack_type/dual-stack config anywhere
+  # in modules/network or modules/kubernetes, so they're IPv4-only -- adding
+  # ipv6_cidr_blocks here would be untested dead weight at best (no IPv6
+  # traffic can reach this network to match them).
   enable_public_ingress_firewall = true
-  use_cloudflare_source_ranges   = true
+  public_ingress_source_ranges   = data.cloudflare_ip_ranges.edge.ipv4_cidr_blocks
 
   depends_on = [module.prd]
 }
@@ -96,6 +118,44 @@ module "external_dns_prd" {
   environment = "prd"
 
   depends_on = [module.eso_prd]
+}
+
+# terraform-prd needs to read the actual Cloudflare token to plan/apply the
+# cloudflare provider config (see the comment on provider "cloudflare" above)
+# -- roles/editor (already held broadly) does NOT cover Secret Manager's
+# "access secret payload" permission, that's deliberately excluded from
+# primitive roles and requires this explicit, secret-scoped grant.
+#
+# member is hardcoded to the terraform-prd@... naming convention rather than
+# driven by the TF_SA_PRD GitHub secret (Terraform's root modules have no
+# access to GitHub secrets) -- confirmed empirically via
+# `gcloud iam service-accounts list` that this is the only custom SA in this
+# project matching that pattern, and via an actual `workflow_dispatch` plan
+# run against prd that this exact identity is what google-github-actions/auth
+# authenticates as here. If TF_SA_PRD is ever rotated to a different SA,
+# update this to match -- it will not follow automatically.
+#
+# prevent_destroy: terraform-infrastructure.yml's "Fetch Cloudflare API token"
+# step runs before `terraform init`, with no error handling, so if this grant
+# is ever destroyed Terraform can never recreate it for itself -- every
+# subsequent prd plan/apply dies on a 403 before Terraform even runs. This is
+# a bootstrap prerequisite, not an ordinary managed resource.
+#
+# This also blocks *replacement*, not just deletion -- e.g. if TF_SA_PRD is
+# ever rotated to a different SA and `member` above needs to change. If that
+# happens: either grant the new SA's identity out-of-band via `gcloud` first
+# (so nothing is ever missing the access), then update `member` and remove
+# `prevent_destroy` for that one apply, or temporarily comment it out here.
+# Don't just delete this block -- re-add prevent_destroy afterwards.
+resource "google_secret_manager_secret_iam_member" "terraform_cloudflare_token_accessor" {
+  project   = var.project_id
+  secret_id = module.external_dns_prd.cloudflare_api_token_secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:terraform-prd@${var.project_id}.iam.gserviceaccount.com"
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 module "arc_gha_prd" {
