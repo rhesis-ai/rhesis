@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models
 
-from .utils import _get_test_set_tests_from_db
+from .utils import _build_eligible_tests, _get_test_set_tests_from_db
 
 logger = logging.getLogger(__name__)
 
@@ -78,32 +78,13 @@ async def generate_outputs_for_tests(
 
     tests = _get_test_set_tests_from_db(db, db_test_set.id, organization_id, user_id)
 
-    # Exclude topic markers; only tests with prompt content
+    # Skip tests that already have an output unless overwriting
     eligible = []
     skipped = 0
-    for t in tests:
-        meta = t.test_metadata or {}
-        if meta.get("label") == "topic_marker":
-            continue
-        if not t.prompt or not (t.prompt.content or "").strip():
-            continue
-        if test_ids is not None and t.id not in test_ids:
-            continue
-        # Filter by topic when provided
-        if topic is not None and topic != "":
-            t_topic = (t.topic.name if t.topic and hasattr(t.topic, "name") else "") or ""
-            if include_subtopics:
-                if t_topic != topic and not t_topic.startswith(topic + "/"):
-                    continue
-            else:
-                if t_topic != topic:
-                    continue
-
-        # Filter out tests that already have an output if overwrite is False
-        if not overwrite and meta.get("output", "").strip():
+    for t in _build_eligible_tests(tests, test_ids, topic, include_subtopics):
+        if not overwrite and (t.test_metadata or {}).get("output", "").strip():
             skipped += 1
             continue
-
         eligible.append(t)
 
     updated: List[Dict[str, str]] = []
