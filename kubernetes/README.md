@@ -132,6 +132,8 @@ Dev and stg's root Applications track `targetRevision: main` directly, so config
 
 The SHA is bumped automatically, not by hand: the `promote-prd-config` job in `.github/workflows/publish-release.yml` runs `argocd app set prd-base --revision "$GITHUB_SHA"` (the tip of the release branch — the exact commit already validated on stg) and syncs, as part of the same manual, deliberate "publish this release to prd" action that already ships the backend/frontend/worker images. No separate manual manifest edit is needed, and prd only ever advances when that workflow runs.
 
+That same job also commits the newly-promoted SHA back into `kubernetes/clusters/prd/base.yaml` on `main` (using the same GitHub App bot token already used elsewhere in that workflow to merge the release PR). This keeps the checked-in `targetRevision` truthful: it isn't just a one-time bootstrap value, it always reflects the last commit actually promoted to prd. That matters for disaster recovery — the bootstrap step below (`kubectl apply -f ./kubernetes/clusters/prd/base.yaml`) reads `targetRevision` straight from this file, so a stale value would resurrect prd at an old release instead of the latest one.
+
 This is a variant of the manual stg→prd promotion pattern used below for the CNPG operator Application (validate on stg, then bump the ref on prd) — here the "bump the ref" step is automated because it happens at a moment a human already triggered on purpose.
 
 ### CloudNativePG operator (`cnpg-system`)
