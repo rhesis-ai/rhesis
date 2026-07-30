@@ -66,6 +66,8 @@ runs:
                      echo "service_account=$TF_SA_PRD" >> "$GITHUB_OUTPUT" ;;
           wireguard) echo "project_id=$TF_PROJECT_ID_WIREGUARD" >> "$GITHUB_OUTPUT"
                      echo "service_account=$TF_SA_WIREGUARD" >> "$GITHUB_OUTPUT" ;;
+          *)         echo "::error::Unknown environment '$ENV' -- expected dev, stg, prd, or wireguard/admin."
+                     exit 1 ;;
         esac
 
     - uses: google-github-actions/auth@v2

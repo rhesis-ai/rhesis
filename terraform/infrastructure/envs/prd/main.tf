@@ -92,11 +92,12 @@ module "gke_prd" {
 
   # polyphemus (test-polyphemus.rhesis.ai) is served via ingress-nginx-external,
   # proxied through Cloudflare — restrict to Cloudflare's live edge IP ranges.
+  # IPv4 only: this VPC/subnets have no stack_type/dual-stack config anywhere
+  # in modules/network or modules/kubernetes, so they're IPv4-only -- adding
+  # ipv6_cidr_blocks here would be untested dead weight at best (no IPv6
+  # traffic can reach this network to match them).
   enable_public_ingress_firewall = true
-  public_ingress_source_ranges = concat(
-    data.cloudflare_ip_ranges.edge.ipv4_cidr_blocks,
-    data.cloudflare_ip_ranges.edge.ipv6_cidr_blocks,
-  )
+  public_ingress_source_ranges   = data.cloudflare_ip_ranges.edge.ipv4_cidr_blocks
 
   depends_on = [module.prd]
 }
@@ -139,6 +140,13 @@ module "external_dns_prd" {
 # is ever destroyed Terraform can never recreate it for itself -- every
 # subsequent prd plan/apply dies on a 403 before Terraform even runs. This is
 # a bootstrap prerequisite, not an ordinary managed resource.
+#
+# This also blocks *replacement*, not just deletion -- e.g. if TF_SA_PRD is
+# ever rotated to a different SA and `member` above needs to change. If that
+# happens: either grant the new SA's identity out-of-band via `gcloud` first
+# (so nothing is ever missing the access), then update `member` and remove
+# `prevent_destroy` for that one apply, or temporarily comment it out here.
+# Don't just delete this block -- re-add prevent_destroy afterwards.
 resource "google_secret_manager_secret_iam_member" "terraform_cloudflare_token_accessor" {
   project   = var.project_id
   secret_id = module.external_dns_prd.cloudflare_api_token_secret_id
