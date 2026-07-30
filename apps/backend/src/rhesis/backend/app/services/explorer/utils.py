@@ -5,7 +5,9 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models
-from rhesis.sdk.adaptive_testing.schemas import TestTreeData, TestTreeNode
+from rhesis.backend.app.schemas.explorer import TestTreeNode
+
+from .tree import TestTreeData
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +15,7 @@ logger = logging.getLogger(__name__)
 def _db_test_to_node(db_test: models.Test) -> TestTreeNode | None:
     """Convert a backend Test model to a TestTreeNode.
 
-    Maps DB fields to the SDK node format:
+    Maps DB fields to the node format:
     - test.topic.name -> node.topic
     - test.prompt.content -> node.input
     - test.test_metadata -> output, label, labeler, model_score, metrics
@@ -82,7 +84,7 @@ def _get_test_set_tests_from_db(
     return all_tests
 
 
-def convert_to_sdk_tree(
+def build_test_tree(
     db: Session,
     test_set_id: UUID,
     organization_id: str,

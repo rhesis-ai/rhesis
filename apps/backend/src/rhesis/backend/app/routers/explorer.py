@@ -11,7 +11,7 @@ import logging
 from typing import List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Query
+from fastapi import Body, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -45,6 +45,8 @@ from rhesis.backend.app.schemas.explorer import (
     ImportExplorerTestSetResponse,
     SuggestedTest,
     SuggestionPipelineRequest,
+    TestTreeNode,
+    TopicNode,
 )
 from rhesis.backend.app.services.explorer import (
     bulk_delete_explorer_test_sets,
@@ -73,7 +75,6 @@ from rhesis.backend.app.services.explorer import (
     update_test_node,
     update_topic_node,
 )
-from rhesis.sdk.adaptive_testing.schemas import TestTreeNode, TopicNode
 
 logger = logging.getLogger(__name__)
 

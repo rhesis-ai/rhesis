@@ -6,11 +6,11 @@ from sqlalchemy.orm import Session, contains_eager
 
 from rhesis.backend.app import crud, models
 from rhesis.backend.app.models.test import test_test_set_association
+from rhesis.backend.app.schemas.explorer import TopicNode
 from rhesis.backend.app.services.test import create_test_set_associations
 from rhesis.backend.app.utils.crud_utils import get_or_create_topic
-from rhesis.sdk.adaptive_testing.schemas import TopicNode
 
-from .utils import convert_to_sdk_tree
+from .utils import build_test_tree
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +52,7 @@ def create_topic_node(
         The created (or already existing) topic node
     """
     # Build the current tree to check which markers already exist
-    tree_data = convert_to_sdk_tree(db, test_set_id, organization_id, user_id)
+    tree_data = build_test_tree(db, test_set_id, organization_id, user_id)
 
     # Collect paths that still need a topic_marker
     topic_node = TopicNode(path=topic)
@@ -154,13 +154,13 @@ def update_topic_node(
     if "/" in new_name:
         raise ValueError("new_name must not contain '/'")
 
-    # Build the SDK tree to validate the topic exists
-    tree_data = convert_to_sdk_tree(db, test_set_id, organization_id, user_id)
+    # Build the tree to validate the topic exists
+    tree_data = build_test_tree(db, test_set_id, organization_id, user_id)
     existing_topic = tree_data.topics.get(topic_path)
     if existing_topic is None:
         return None
 
-    # Compute the new path using the SDK helper
+    # Compute the new path using the topic-tree helper
     old_topic = TopicNode(path=topic_path)
     new_topic = tree_data.topics.rename(old_topic, new_name)
     new_path = new_topic.path
@@ -246,7 +246,7 @@ def remove_topic_node(
     bool
         True if the topic existed and was removed, False if not found.
     """
-    tree_data = convert_to_sdk_tree(db, test_set_id, organization_id, user_id)
+    tree_data = build_test_tree(db, test_set_id, organization_id, user_id)
     existing = tree_data.topics.get(topic_path)
     if existing is None:
         return False
