@@ -56,9 +56,19 @@ const LEFT_PANEL_PATH =
   'M8 19V5H5.30775C5.23075 5 5.16025 5.03208 5.09625 5.09625C5.03208 5.16025 5 5.23075 5 5.30775V18.6923C5 18.7692 5.03208 18.8398 5.09625 18.9038C5.16025 18.9679 5.23075 19 5.30775 19H8Z' +
   'M9.5 19H18.6923C18.7692 19 18.8398 18.9679 18.9038 18.9038C18.9679 18.8398 19 18.7692 19 18.6923V5.30775C19 5.23075 18.9679 5.16025 18.9038 5.09625C18.8398 5.03208 18.7692 5 18.6923 5H9.5V19Z';
 
+// Collapse-toggle geometry. TOGGLE_LIFT_PX pulls the expanded toggle out of the
+// brand row by its own full height so it clears the project name — it is derived
+// from the two values below rather than hard-coded, and both are applied to the
+// icon and the button, so the alignment holds if either changes.
+const TOGGLE_ICON_PX = 24;
+const TOGGLE_BUTTON_PADDING_PX = 6;
+const TOGGLE_LIFT_PX = TOGGLE_ICON_PX + TOGGLE_BUTTON_PADDING_PX;
+// Nudge toward the sidebar edge, into its 26px side padding.
+const TOGGLE_NUDGE_RIGHT_PX = 8;
+
 function LeftPanelCloseIcon() {
   return (
-    <SvgIcon viewBox="0 0 24 24">
+    <SvgIcon viewBox="0 0 24 24" sx={{ fontSize: TOGGLE_ICON_PX }}>
       <path d={LEFT_PANEL_PATH} fill="currentColor" />
     </SvgIcon>
   );
@@ -67,7 +77,10 @@ function LeftPanelCloseIcon() {
 function LeftPanelOpenIcon() {
   // Mirror horizontally: arrow now points right, indicating "open left panel"
   return (
-    <SvgIcon viewBox="0 0 24 24" sx={{ transform: 'scaleX(-1)' }}>
+    <SvgIcon
+      viewBox="0 0 24 24"
+      sx={{ fontSize: TOGGLE_ICON_PX, transform: 'scaleX(-1)' }}
+    >
       <path d={LEFT_PANEL_PATH} fill="currentColor" />
     </SvgIcon>
   );
@@ -165,7 +178,7 @@ export function Sidebar() {
                 size="small"
                 aria-label="Expand sidebar"
                 sx={{
-                  p: '6px',
+                  p: `${TOGGLE_BUTTON_PADDING_PX}px`,
                   borderRadius: BORDER_RADIUS.md,
                   color: theme => theme.palette.greyscale.label,
                   '&:hover': {
@@ -292,17 +305,15 @@ export function Sidebar() {
                 </Typography>
               </Box>
             </ButtonBase>
-            {/* Collapse toggle — inline, right of brand row.
-                -30px = the IconButton's own 6px padding plus a full 24px icon
-                height, lifting the glyph clear of the project name into the
-                section's top padding. -8px right eats into the sidebar's 26px
-                side padding. */}
+            {/* Collapse toggle — inline, right of brand row. Lifted a full icon
+                height clear of the project name, into the scrolling section's
+                top padding. */}
             <Box
               sx={{
                 alignSelf: 'flex-start',
                 flexShrink: 0,
-                mt: '-30px',
-                mr: '-8px',
+                mt: `-${TOGGLE_LIFT_PX}px`,
+                mr: `-${TOGGLE_NUDGE_RIGHT_PX}px`,
               }}
             >
               <Tooltip title="Collapse sidebar" placement="right">
@@ -311,7 +322,7 @@ export function Sidebar() {
                   size="small"
                   aria-label="Collapse sidebar"
                   sx={{
-                    p: '6px',
+                    p: `${TOGGLE_BUTTON_PADDING_PX}px`,
                     borderRadius: BORDER_RADIUS.md,
                     color: theme => theme.palette.greyscale.label,
                     '&:hover': {
