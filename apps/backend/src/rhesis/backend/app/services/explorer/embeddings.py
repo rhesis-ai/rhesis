@@ -13,14 +13,17 @@ import numpy as np
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app.crud.explorer import (
+    get_default_embedding_model,
+    get_test_for_embedding,
+)
 from rhesis.backend.app.models.embedding import EmbeddingConfig
-from rhesis.backend.app.models.enums import EmbeddingStatus, ModelType
+from rhesis.backend.app.models.enums import EmbeddingStatus
 from rhesis.backend.app.models.test import Test
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.services.explorer.diversity_strategies import (
     DEFAULT_EMBEDDING_DIVERSITY_STRATEGY,
 )
-from rhesis.backend.app.utils.query_utils import QueryBuilder, include
 from rhesis.backend.app.utils.user_model_utils import get_user_embedding_model
 from rhesis.sdk.models.factory import get_model
 
@@ -119,7 +122,7 @@ def resolve_embedder(db: Session, user_id: str):
     result to :func:`generate_embedding_vector`, :func:`a_generate_embedding_vector`,
     or :func:`a_generate_embedding_vectors_batch` to avoid repeated DB lookups.
     """
-    user = db.query(User).filter(User.id == user_id).first()
+    user = crud.get_user_by_id(db, user_id)
     if not user:
         raise ValueError(f"User not found: {user_id}")
 
@@ -259,50 +262,12 @@ async def a_generate_embedding_vectors_batch(
 
 
 def load_test_for_embedding(db: Session, test_id: str, organization_id: str) -> Optional[Test]:
-    """Load a Test with relationships required for ``to_searchable_text()``."""
-    return (
-        QueryBuilder(db, Test)
-        .with_custom_filter(
-            lambda q: q.filter(Test.id == test_id, Test.organization_id == organization_id)
-        )
-        .with_related(
-            include(Test.prompt),
-            include(Test.topic),
-            include(Test.behavior),
-            include(Test.category),
-            include(Test.test_type),
-        )
-        .first()
-    )
+    """Load a Test with relationships required for ``to_searchable_text()``.
 
-
-def _organization_default_embedding_model(
-    db: Session, organization_id: str
-) -> Optional[models.Model]:
-    """Fallback row for embedding.model_id when user settings omit embedding model_id."""
-    org_uuid = UUIDType(organization_id)
-    by_name = (
-        db.query(models.Model)
-        .filter(
-            models.Model.organization_id == org_uuid,
-            models.Model.name == "Rhesis Default Embedding",
-            models.Model.model_type == ModelType.EMBEDDING.value,
-        )
-        .first()
-    )
-    if by_name:
-        return by_name
-    return (
-        db.query(models.Model)
-        .join(models.TypeLookup, models.Model.provider_type_id == models.TypeLookup.id)
-        .filter(
-            models.Model.organization_id == org_uuid,
-            models.TypeLookup.type_value == "rhesis",
-            models.Model.is_protected.is_(True),
-            models.Model.model_type == ModelType.EMBEDDING.value,
-        )
-        .first()
-    )
+    Kept as a service-level name because ``routers/explorer.py`` and this package's
+    ``__init__`` both export it.
+    """
+    return get_test_for_embedding(db, test_id, organization_id)
 
 
 def create_test_embedding(
@@ -329,7 +294,7 @@ def create_test_embedding(
     if model_id_setting:
         model_id = str(model_id_setting)
     else:
-        fallback = _organization_default_embedding_model(db, organization_id)
+        fallback = get_default_embedding_model(db, organization_id)
         if not fallback:
             logger.info(
                 "Skipping explorer test embedding persistence: no embedding model_id in user "

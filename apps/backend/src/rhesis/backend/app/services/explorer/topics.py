@@ -2,9 +2,10 @@ import logging
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy.orm import Session, contains_eager
+from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models
+from rhesis.backend.app.crud.explorer import get_tests_under_topic
 from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.schemas.explorer import TopicNode
 from rhesis.backend.app.services.explorer.utils import build_test_tree
@@ -169,23 +170,7 @@ def update_topic_node(
         return TopicNode(path=topic_path)
 
     # Find all tests in this test set and update their topic FKs.
-    # We need tests whose topic.name == old_path or starts with
-    # old_path + "/" (descendants).
-    db_tests = (
-        db.query(models.Test)
-        .join(
-            test_test_set_association,
-            models.Test.id == test_test_set_association.c.test_id,
-        )
-        .join(models.Topic, models.Test.topic_id == models.Topic.id)
-        .options(contains_eager(models.Test.topic))
-        .filter(
-            test_test_set_association.c.test_set_id == test_set_id,
-            models.Test.organization_id == organization_id,
-        )
-        .filter((models.Topic.name == topic_path) | (models.Topic.name.like(topic_path + "/%")))
-        .all()
-    )
+    db_tests = get_tests_under_topic(db, test_set_id, organization_id, topic_path)
 
     for db_test in db_tests:
         old_name = db_test.topic.name
@@ -253,21 +238,7 @@ def remove_topic_node(
     parent_path = existing.parent_path or ""
 
     # All tests in this test set under this topic or any subtopic
-    db_tests = (
-        db.query(models.Test)
-        .join(
-            test_test_set_association,
-            models.Test.id == test_test_set_association.c.test_id,
-        )
-        .join(models.Topic, models.Test.topic_id == models.Topic.id)
-        .options(contains_eager(models.Test.topic))
-        .filter(
-            test_test_set_association.c.test_set_id == test_set_id,
-            models.Test.organization_id == organization_id,
-        )
-        .filter((models.Topic.name == topic_path) | (models.Topic.name.like(topic_path + "/%")))
-        .all()
-    )
+    db_tests = get_tests_under_topic(db, test_set_id, organization_id, topic_path)
 
     parent_topic = None
     if parent_path:

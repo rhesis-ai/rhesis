@@ -6,6 +6,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models
+from rhesis.backend.app.crud.explorer import get_test_set_metrics
 from rhesis.backend.app.schemas.explorer import (
     ExplorerSettingsEndpoint,
     ExplorerSettingsMetric,
@@ -52,10 +53,7 @@ def resolve_metric_names(
     if request_metric_names:
         return request_metric_names
 
-    # Queried by ID rather than via test_set.metrics -- callers of this
-    # resolver (routers/explorer.py) don't guarantee that many-to-many
-    # relationship is eager-loaded on the passed-in test_set.
-    metrics = db.query(models.Metric).filter(models.Metric.test_sets.any(id=test_set.id)).all()
+    metrics = get_test_set_metrics(db, test_set.id)
     metric_names = [metric.name for metric in metrics if metric.name]
     if not metric_names:
         raise ValueError("No metrics specified and no metrics configured in settings")
@@ -84,8 +82,7 @@ def get_explorer_settings(
         if endpoint is not None:
             endpoint_ref = ExplorerSettingsEndpoint(id=endpoint.id, name=endpoint.name)
 
-    # Queried by ID rather than via test_set.metrics -- see resolve_metric_names.
-    db_metrics = db.query(models.Metric).filter(models.Metric.test_sets.any(id=test_set.id)).all()
+    db_metrics = get_test_set_metrics(db, test_set.id)
     metrics = [ExplorerSettingsMetric(id=metric.id, name=metric.name) for metric in db_metrics]
 
     return ExplorerSettingsResponse(default_endpoint=endpoint_ref, metrics=metrics)
@@ -121,13 +118,7 @@ def update_explorer_settings(
 
     if metric_ids is not None:
         # Replace metrics atomically by removing existing and adding requested.
-        # Queried by ID rather than via test_set.metrics -- see resolve_metric_names.
-        existing_metric_ids = [
-            metric.id
-            for metric in db.query(models.Metric)
-            .filter(models.Metric.test_sets.any(id=test_set.id))
-            .all()
-        ]
+        existing_metric_ids = [metric.id for metric in get_test_set_metrics(db, test_set.id)]
         desired_metric_ids = list(dict.fromkeys(metric_ids))
 
         for metric_id in existing_metric_ids:

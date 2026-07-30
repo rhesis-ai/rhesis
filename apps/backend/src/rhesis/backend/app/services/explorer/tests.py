@@ -2,10 +2,14 @@ import logging
 from typing import List, Optional
 from uuid import UUID
 
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.constants import ADAPTIVE_TESTING_BEHAVIOR
+
+# Imported as a module rather than by name: this file's own public
+# get_explorer_test_sets() wraps the crud function of the same name.
+from rhesis.backend.app.crud import explorer as crud_explorer
 from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.schemas.explorer import TestTreeNode, TopicNode
 from rhesis.backend.app.services.explorer.topics import create_topic_node
@@ -17,7 +21,6 @@ from rhesis.backend.app.utils.crud_utils import (
     get_or_create_topic,
     get_or_create_type_lookup,
 )
-from rhesis.backend.app.utils.query_utils import QueryBuilder
 
 logger = logging.getLogger(__name__)
 
@@ -105,7 +108,7 @@ def get_explorer_test_sets(
     List[models.TestSet]
         Test sets configured for Explorer (Adaptive Testing behavior)
     """
-    test_sets = crud.get_explorer_test_sets(
+    test_sets = crud_explorer.get_explorer_test_sets(
         db=db,
         organization_id=organization_id,
         skip=skip,
@@ -201,7 +204,7 @@ def _delete_session_tests(
     them, so no other test set references them. Leaving them behind strands them
     in the global /tests list with no session to reach them from.
     """
-    test_ids = crud.get_test_ids_in_test_sets(db, test_set_ids, organization_id)
+    test_ids = crud_explorer.get_test_ids_in_test_sets(db, test_set_ids, organization_id)
     if not test_ids:
         return
     crud.bulk_delete_tests(
@@ -262,12 +265,7 @@ def bulk_delete_explorer_test_sets(
     if not test_set_ids:
         return {"deleted_ids": [], "not_found_ids": []}
 
-    candidates = (
-        QueryBuilder(db, models.TestSet)
-        .with_organization_filter(organization_id)
-        .with_custom_filter(lambda q: q.filter(models.TestSet.id.in_(test_set_ids)))
-        .all()
-    )
+    candidates = crud_explorer.get_test_sets_by_ids(db, test_set_ids, organization_id)
     valid_ids = [ts.id for ts in candidates if _is_explorer_test_set(ts)]
 
     _delete_session_tests(db, valid_ids, organization_id, user_id)
@@ -283,25 +281,6 @@ def bulk_delete_explorer_test_sets(
     skipped_ids = [str(i) for i in test_set_ids if str(i) not in valid_id_strs]
     result["not_found_ids"] = result["not_found_ids"] + skipped_ids
     return result
-
-
-def _unique_explorer_import_name(db: Session, organization_id: str, base_name: str) -> str:
-    """Pick a test set name that does not collide within the organization."""
-    candidate = base_name
-    counter = 0
-    while True:
-        existing = (
-            db.query(models.TestSet)
-            .filter(
-                models.TestSet.organization_id == organization_id,
-                models.TestSet.name == candidate,
-            )
-            .first()
-        )
-        if existing is None:
-            return candidate
-        counter += 1
-        candidate = f"{base_name} ({counter})"
 
 
 def import_explorer_test_set_from_source(
@@ -345,7 +324,7 @@ def import_explorer_test_set_from_source(
         raise ValueError("Source test set is already configured for Explorer")
 
     base_name = f"{db_source.name} (Adaptive)"
-    new_name = _unique_explorer_import_name(db, organization_id, base_name)
+    new_name = crud_explorer.find_unused_test_set_name(db, organization_id, base_name)
 
     new_set = create_explorer_test_set(
         db=db,
@@ -486,7 +465,7 @@ def export_regular_test_set_from_explorer(
         )
 
     base_name = f"{db_source.name} (Exported)"
-    new_name = _unique_explorer_import_name(db, organization_id, base_name)
+    new_name = crud_explorer.find_unused_test_set_name(db, organization_id, base_name)
 
     test_set_type_lookup = get_or_create_type_lookup(
         db=db,
@@ -771,21 +750,7 @@ def update_test_node(
         The updated test node, or None if test not found in the
         given test set.
     """
-    # Look up the test and verify it belongs to the test set
-    db_test = (
-        db.query(models.Test)
-        .options(joinedload(models.Test.prompt))
-        .join(
-            test_test_set_association,
-            models.Test.id == test_test_set_association.c.test_id,
-        )
-        .filter(
-            models.Test.id == test_id,
-            test_test_set_association.c.test_set_id == test_set_id,
-            models.Test.organization_id == organization_id,
-        )
-        .first()
-    )
+    db_test = crud_explorer.get_test_in_test_set(db, test_set_id, test_id, organization_id)
 
     if db_test is None:
         return None
@@ -866,20 +831,7 @@ def delete_test_node(
     bool
         True if the test was found and deleted, False otherwise.
     """
-    # Look up the test and verify it belongs to the test set
-    db_test = (
-        db.query(models.Test)
-        .join(
-            test_test_set_association,
-            models.Test.id == test_test_set_association.c.test_id,
-        )
-        .filter(
-            models.Test.id == test_id,
-            test_test_set_association.c.test_set_id == test_set_id,
-            models.Test.organization_id == organization_id,
-        )
-        .first()
-    )
+    db_test = crud_explorer.get_test_in_test_set(db, test_set_id, test_id, organization_id)
 
     if db_test is None:
         return False
