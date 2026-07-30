@@ -18,10 +18,10 @@ See root `AGENTS.md` for repo-wide rules (commits, PRs, testing overview, tech s
 siblings:
 
 ```python
-from rhesis.backend.app.schemas.explorer import TestTreeNode          # yes
+from rhesis.backend.app.schemas.explorer import TestTreeNode  # yes
 from rhesis.backend.app.services.explorer.utils import build_test_tree  # yes
-from .utils import build_test_tree                                    # no
-from ..database import get_db                                         # no
+from .utils import build_test_tree  # no
+from ..database import get_db  # no
 ```
 
 This holds inside a package's own `__init__.py` too. Existing relative imports are being converted
