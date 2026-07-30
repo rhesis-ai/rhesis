@@ -121,7 +121,10 @@ export function Sidebar() {
         justifyContent: 'space-between',
         bgcolor: theme => theme.palette.greyscale.surface1,
         px: collapsed ? '12px' : '26px',
-        py: '30px',
+        // Top padding lives on the scrolling section below, not here, so the
+        // collapse toggle can be pulled up into it without being clipped.
+        pt: 0,
+        pb: '30px',
         transition: 'width 0.2s ease, padding 0.2s ease',
         overflowX: 'hidden',
         boxSizing: 'border-box',
@@ -134,6 +137,7 @@ export function Sidebar() {
           flexDirection: 'column',
           gap: '28px',
           flex: 1,
+          pt: '30px',
           overflowY: 'auto',
           overflowX: 'hidden',
           scrollbarWidth: 'none',
@@ -225,8 +229,11 @@ export function Sidebar() {
                 gap: '8px',
                 flex: 1,
                 minWidth: 0,
-                // Reclaim ~2 characters of width (chevron removed) before ellipsis
-                mr: '-2ch',
+                // The toggle now sits a full icon height above this row, so the
+                // name can run under it. Reclaim most of its footprint but stop
+                // short of the sidebar's right padding — the full 44px pushed
+                // the ellipsis past the edge, where overflowX hid it.
+                mr: '-28px',
                 borderRadius: BORDER_RADIUS.pill,
                 '&:hover': {
                   bgcolor: theme => theme.palette.greyscale.surface2,
@@ -256,9 +263,9 @@ export function Sidebar() {
                 {activeProject && (
                   <Typography
                     sx={{
-                      fontSize: 18,
+                      fontSize: 14,
                       fontWeight: 700,
-                      lineHeight: '25px',
+                      lineHeight: '20px',
                       color: theme => theme.palette.greyscale.title,
                       whiteSpace: 'nowrap',
                       overflow: 'hidden',
@@ -285,8 +292,19 @@ export function Sidebar() {
                 </Typography>
               </Box>
             </ButtonBase>
-            {/* Collapse toggle — inline, right of brand row */}
-            <Box sx={{ alignSelf: 'flex-start', flexShrink: 0 }}>
+            {/* Collapse toggle — inline, right of brand row.
+                -30px = the IconButton's own 6px padding plus a full 24px icon
+                height, lifting the glyph clear of the project name into the
+                section's top padding. -8px right eats into the sidebar's 26px
+                side padding. */}
+            <Box
+              sx={{
+                alignSelf: 'flex-start',
+                flexShrink: 0,
+                mt: '-30px',
+                mr: '-8px',
+              }}
+            >
               <Tooltip title="Collapse sidebar" placement="right">
                 <IconButton
                   onClick={toggle}
