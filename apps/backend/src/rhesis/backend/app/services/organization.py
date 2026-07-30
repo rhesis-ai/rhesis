@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional, Type
 
 from sqlalchemy import inspect
 from sqlalchemy.exc import InvalidRequestError
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, with_parent
 from sqlalchemy.orm.attributes import flag_modified
 
 from rhesis.backend.app import crud, models
@@ -1218,10 +1218,18 @@ def _load_relationship_via_core(db: Session, entity, rel):
     """Fetch a relationship's related row(s) via an explicit top-level query,
     instead of the implicit lazy-load triggered by plain attribute access --
     see the call site in _get_nested_entities for why this fallback exists.
+
+    Uses with_parent() rather than rel.local_remote_pairs so that relationships
+    with extra primaryjoin predicates (polymorphic entity_type discriminators,
+    soft-delete filters) are honored, not just the FK-equality part of the join.
     """
     target_model = rel.mapper.class_
-    conditions = [remote == getattr(entity, local.name) for local, remote in rel.local_remote_pairs]
-    rows = QueryBuilder(db, target_model).build().filter(*conditions).all()
+    rows = (
+        QueryBuilder(db, target_model)
+        .build()
+        .filter(with_parent(entity, getattr(entity.__class__, rel.key)))
+        .all()
+    )
     return rows if rel.uselist else (rows[0] if rows else None)
 
 
