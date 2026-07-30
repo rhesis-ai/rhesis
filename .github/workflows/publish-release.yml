@@ -53,9 +53,33 @@ jobs:
           ARGOCD_SERVER: ${{ secrets.ARGOCD_SERVER_PRD }}
           ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN_PRD }}
         run: |
-          argocd app set prd-base --revision "$GITHUB_SHA" \
+          # Retry up to 5 times with 30s back-off: `argocd app set`/`app sync` can
+          # transiently fail with "another operation is already in progress" if
+          # prd-base's own selfHeal reconcile is mid-flight when this runs (observed
+          # in testing against stg) — not caught by the concurrency group above.
+          retry_argocd() {
+            for attempt in $(seq 1 5); do
+              EXIT_CODE=0
+              OUTPUT=$("$@" 2>&1) || EXIT_CODE=$?
+              echo "$OUTPUT"
+              [ "$EXIT_CODE" -eq 0 ] && return 0
+              if ! echo "$OUTPUT" | grep -qi "another operation"; then
+                echo "Non-retryable error — failing fast."
+                return 1
+              fi
+              if [ "$attempt" -lt 5 ]; then
+                echo "Attempt $attempt failed (concurrent operation) — waiting 30s before retry..."
+                sleep 30
+              else
+                echo "All 5 attempts failed."
+                return 1
+              fi
+            done
+          }
+
+          retry_argocd argocd app set prd-base --revision "$GITHUB_SHA" \
             --server "$ARGOCD_SERVER" --auth-token "$ARGOCD_AUTH_TOKEN" --grpc-web
-          argocd app sync prd-base \
+          retry_argocd argocd app sync prd-base \
             --server "$ARGOCD_SERVER" --auth-token "$ARGOCD_AUTH_TOKEN" --grpc-web --timeout 300
 
   publish:
