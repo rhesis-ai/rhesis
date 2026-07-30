@@ -8,7 +8,7 @@ export const siteConfig = {
   siteUrl: 'https://docs.rhesis.ai',
   siteName: 'Rhesis Documentation',
   siteDescription:
-    'Rhesis: AI-powered testing and evaluation platform for Gen AI applications. Collaborative testing that brings together developers, domain experts, and stakeholders.',
+    'Structured feedback and evals for AI agents. Connect the agent you are building, share it with your team, and turn their feedback into tests and metrics that run on every change.',
 
   // Social media
   twitterHandle: '@rhesis_ai',
@@ -16,14 +16,14 @@ export const siteConfig = {
 
   // Default images for social sharing
   defaultImage: '/GH_Short_Demo.png',
-  defaultImageAlt: 'Rhesis - AI-powered testing and evaluation platform',
+  defaultImageAlt: 'Rhesis - structured feedback and evals for AI agents',
 
   // Organization information
   organization: {
     name: 'Rhesis',
     url: 'https://www.rhesis.ai',
     logo: 'https://docs.rhesis.ai/logo/rhesis-Logo-rgb-main-logo.png',
-    description: 'AI-powered testing and evaluation platform',
+    description: 'Structured feedback and evals for AI agents',
   },
 
   // Author information
@@ -34,19 +34,19 @@ export const siteConfig = {
 
   // Additional metadata
   keywords: [
-    'AI testing',
-    'Gen AI evaluation',
-    'LLM testing',
-    'AI quality assurance',
-    'conversational AI testing',
+    'AI agent evaluation',
+    'LLM evaluation',
+    'structured feedback',
+    'domain expert review',
+    'agent testing',
     'collaborative testing',
     'test generation',
+    'LLM as a judge',
     'AI metrics',
-    'prompt testing',
   ],
 
   // Theme and appearance
-  themeColor: '#0ea5e9',
+  themeColor: '#111827',
   backgroundColor: '#ffffff',
 
   // Locale

@@ -14,41 +14,41 @@ const Button = ({
   const getVariantStyles = () => {
     const variants = {
       primary: {
-        color: '#ffffff',
-        background: '#2AA1CE', // Primary CTA Blue
-        border: '1px solid #2AA1CE',
-        hoverBackground: '#50B9E0', // Primary Blue on hover
-        disabledBackground: '#9ca3af',
-        disabledBorder: '#9ca3af',
+        color: 'var(--rh-on-accent)',
+        background: 'var(--rh-blue-cta)', // Primary CTA Blue
+        border: '1px solid var(--rh-blue-cta)',
+        hoverBackground: 'var(--rh-blue)', // Primary Blue on hover
+        disabledBackground: 'var(--rh-text-muted)',
+        disabledBorder: 'var(--rh-text-muted)',
       },
       secondary: {
-        color: '#ffffff',
-        background: '#FD6E12', // Secondary CTA Orange
-        border: '1px solid #FD6E12',
-        hoverBackground: '#FDD803', // Accent Yellow on hover
-        hoverColor: '#1A1A1A', // Dark text on yellow hover
-        disabledBackground: '#f3f4f6',
-        disabledBorder: '#e5e7eb',
-        disabledColor: '#9ca3af',
+        color: 'var(--rh-on-accent)',
+        background: 'var(--rh-orange)', // Secondary CTA Orange
+        border: '1px solid var(--rh-orange)',
+        hoverBackground: 'var(--rh-yellow)', // Accent Yellow on hover
+        hoverColor: 'var(--rh-heading)', // Dark text on yellow hover
+        disabledBackground: 'var(--rh-surface-sunken)',
+        disabledBorder: 'var(--rh-border)',
+        disabledColor: 'var(--rh-text-muted)',
       },
       outline: {
-        color: '#2AA1CE', // Primary CTA Blue
+        color: 'var(--rh-blue-cta)', // Primary CTA Blue
         background: 'transparent',
-        border: '1px solid #2AA1CE',
-        hoverBackground: '#2AA1CE', // Fill with primary on hover
-        hoverColor: '#ffffff',
+        border: '1px solid var(--rh-blue-cta)',
+        hoverBackground: 'var(--rh-blue-cta)', // Fill with primary on hover
+        hoverColor: 'var(--rh-on-accent)',
         disabledBackground: 'transparent',
-        disabledBorder: '#e5e7eb',
-        disabledColor: '#9ca3af',
+        disabledBorder: 'var(--rh-border)',
+        disabledColor: 'var(--rh-text-muted)',
       },
       ghost: {
-        color: '#2AA1CE', // Primary CTA Blue
+        color: 'var(--rh-blue-cta)', // Primary CTA Blue
         background: 'transparent',
         border: '1px solid transparent',
         hoverBackground: 'rgba(42, 161, 206, 0.1)', // Light blue hover
         disabledBackground: 'transparent',
         disabledBorder: 'transparent',
-        disabledColor: '#9ca3af',
+        disabledColor: 'var(--rh-text-muted)',
       },
     }
     return variants[variant] || variants.primary
@@ -85,7 +85,7 @@ const Button = ({
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
-    fontFamily: '"Be Vietnam Pro", sans-serif',
+    fontFamily: 'var(--rh-font-sans)',
     fontWeight: '600',
     boxShadow: disabled ? 'none' : '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
     cursor: disabled ? 'not-allowed' : 'pointer',
