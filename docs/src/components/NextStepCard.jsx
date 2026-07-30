@@ -37,7 +37,7 @@ export const NextStepCard = ({ emoji, title, description, link, linkText, extern
       border: '1px solid',
       borderColor: isHovered ? 'var(--rh-blue-cta)' : 'var(--border-color, var(--rh-border))',
       borderRadius: '0.75rem',
-      backgroundColor: 'var(--card-bg, #ffffff)',
+      backgroundColor: 'var(--card-bg, var(--rh-surface))',
       transition: 'all 0.2s ease',
       textDecoration: 'none',
       boxShadow: isHovered

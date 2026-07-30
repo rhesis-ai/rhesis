@@ -34,7 +34,7 @@ export const ResourceCard = ({ icon: Icon, title, description, link, linkText })
     padding: '1rem',
     border: '1px solid var(--border-color, var(--rh-border))',
     borderRadius: '0.5rem',
-    backgroundColor: 'var(--card-bg, #ffffff)',
+    backgroundColor: 'var(--card-bg, var(--rh-surface))',
     transition: 'all 0.2s ease',
     minHeight: '160px',
     position: 'relative',

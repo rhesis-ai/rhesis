@@ -17,9 +17,9 @@ const footerColumns = [
     key: 'features',
     title: 'Features',
     links: [
-      { name: 'Generation', href: '/docs/tests-generation' },
+      { name: 'Generation', href: '/docs/test-sets/tests-generation' },
       { name: 'Metrics', href: '/docs/metrics' },
-      { name: 'Conversations', href: '/docs/conversation-simulation' },
+      { name: 'Conversations', href: '/docs/tests/conversation-simulation' },
       { name: 'Observability', href: '/docs/tracing' },
     ],
   },

@@ -14,7 +14,7 @@ const Button = ({
   const getVariantStyles = () => {
     const variants = {
       primary: {
-        color: '#ffffff',
+        color: 'var(--rh-on-accent)',
         background: 'var(--rh-blue-cta)', // Primary CTA Blue
         border: '1px solid var(--rh-blue-cta)',
         hoverBackground: 'var(--rh-blue)', // Primary Blue on hover
@@ -22,7 +22,7 @@ const Button = ({
         disabledBorder: 'var(--rh-text-muted)',
       },
       secondary: {
-        color: '#ffffff',
+        color: 'var(--rh-on-accent)',
         background: 'var(--rh-orange)', // Secondary CTA Orange
         border: '1px solid var(--rh-orange)',
         hoverBackground: 'var(--rh-yellow)', // Accent Yellow on hover
@@ -36,7 +36,7 @@ const Button = ({
         background: 'transparent',
         border: '1px solid var(--rh-blue-cta)',
         hoverBackground: 'var(--rh-blue-cta)', // Fill with primary on hover
-        hoverColor: '#ffffff',
+        hoverColor: 'var(--rh-on-accent)',
         disabledBackground: 'transparent',
         disabledBorder: 'var(--rh-border)',
         disabledColor: 'var(--rh-text-muted)',

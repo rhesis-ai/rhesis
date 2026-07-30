@@ -63,6 +63,9 @@
   --rh-codeblock-border: #2c2c2c;
   --rh-codeblock-text: #e6edf3;
   --rh-codeblock-text-muted: #a9b1bb;
+  /* Copy button: outline/hover fill, and the confirmed-copy state */
+  --rh-codeblock-control-border: #30363d;
+  --rh-codeblock-success: #238636;
 
   /**
    * Nav selection states. Translucent neutrals rather than a tinted fill: the

@@ -49,7 +49,7 @@ export const Table = ({
       margin: '1.5rem 0',
       borderRadius: '0.75rem',
       border: '1px solid var(--table-border, var(--rh-border))',
-      backgroundColor: 'var(--table-wrapper-bg, #ffffff)',
+      backgroundColor: 'var(--table-wrapper-bg, var(--rh-surface))',
       boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
     },
     table: {

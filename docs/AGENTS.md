@@ -139,9 +139,17 @@ Examples already following this pattern: `FeatureOverview.jsx`, `ArchitectureOve
 Design tokens live in `src/styles/tokens.css` as `--rh-*` custom properties, synced by hand from the
 marketing site's `@theme` block (`website/src/styles/tailwind.css`). Rules:
 
-- **Never hardcode a hex in a component or in `globals.css`.** Use a token. If no token fits, add
-  one to `tokens.css` rather than inlining a value. The `--rhesis-*` names are legacy aliases kept
-  pointing at `--rh-*`; prefer `--rh-*` in new code.
+- **No hex for anything on the theme or brand scale** — surfaces, text, borders, accents, CTAs — in
+  components or in `globals.css`. Use a token; if none fits, add one to `tokens.css` rather than
+  inlining a value. That includes CSS-variable *fallbacks*: write
+  `var(--card-bg, var(--rh-surface))`, not `var(--card-bg, #ffffff)`, or the fallback silently
+  renders a light surface in dark mode.
+- **Literal hex is correct for fixed decorative artwork**, and tokenising it would be wrong: the
+  German flag in `FooterOriginBadge`, the macOS window dots in `CodeBlock`/`FileTree`, and the
+  terminal palette and tint ramps in `FileTree`/`ChatExchange`/`ToolPurposeChip`. These carry meaning
+  independent of the theme. If a value would look broken in the other theme, it wants a token; if it
+  would look broken in any *other colour*, it wants to stay literal.
+- The `--rhesis-*` names are legacy aliases kept pointing at `--rh-*`; prefer `--rh-*` in new code.
 - **Colour is neutral by default.** Chrome (navbar, sidebar, footer, body copy, headings, primary
   buttons) sits on the neutral scale; the brand blues are for accents and links. Orange is for CTAs
   only — don't reintroduce it as an icon or card accent.

@@ -17,7 +17,6 @@ import { YouTubeEmbed } from './components/YouTubeEmbed'
 import { ChatExchange, ChatUser, ChatArchitect, EngineeringIcon } from './components/ChatExchange'
 import { PlatformStructureMap } from './components/PlatformStructureMap'
 import { ToolPurposeChip } from './components/ToolPurposeChip'
-import { GradientBackdrop } from './components/GradientBackdrop'
 // Get the default MDX components
 const themeComponents = getThemeComponents()
 
@@ -51,6 +50,5 @@ export function useMDXComponents(components) {
     EngineeringIcon,
     PlatformStructureMap,
     ToolPurposeChip,
-    GradientBackdrop,
   }
 }
