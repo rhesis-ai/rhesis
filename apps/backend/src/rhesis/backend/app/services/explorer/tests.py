@@ -1,5 +1,6 @@
 import logging
-from typing import List, Optional
+from dataclasses import dataclass
+from typing import Callable, List, Optional, Tuple
 from uuid import UUID
 
 from sqlalchemy.orm import Session
@@ -282,6 +283,113 @@ def bulk_delete_explorer_test_sets(
     return result
 
 
+@dataclass(frozen=True)
+class _TestCopy:
+    """One source test, parsed into the fields both copy directions write.
+
+    ``topic_name`` and ``topic_id`` are both carried because the two writers
+    address the topic differently: import needs the slash path so it can build
+    the topic markers, export needs the FK.
+    """
+
+    content: str
+    topic_name: str
+    topic_id: Optional[UUID]
+    output: str
+    label: str
+    labeler: str
+    model_score: float
+
+
+def _parse_test_for_copy(db_test: models.Test, default_labeler: str) -> Optional[_TestCopy]:
+    """Parse a source test into a ``_TestCopy``, or None if it can't be copied.
+
+    Returns None for topic-marker rows and for tests with no prompt content
+    (e.g. multi-turn-only); both are counted as skipped by the caller.
+    """
+    meta = db_test.test_metadata or {}
+    if meta.get("label") == "topic_marker":
+        return None
+
+    prompt = db_test.prompt
+    content = (prompt.content or "").strip() if prompt else ""
+    if not content:
+        return None
+
+    topic_name = ""
+    if db_test.topic is not None and getattr(db_test.topic, "name", None):
+        topic_name = str(db_test.topic.name) or ""
+
+    label_raw = meta.get("label", "") or ""
+
+    try:
+        model_score = float(meta.get("model_score", 0.0) or 0.0)
+    except (TypeError, ValueError):
+        model_score = 0.0
+
+    return _TestCopy(
+        content=content,
+        topic_name=topic_name,
+        topic_id=db_test.topic_id,
+        output=str(meta.get("output", "") or ""),
+        label=label_raw if label_raw in ("", "pass", "fail") else "",
+        labeler=str(meta.get("labeler", default_labeler) or default_labeler),
+        model_score=model_score,
+    )
+
+
+def _copy_test_set_tests(
+    db: Session,
+    source_test_set_id: UUID,
+    default_labeler: str,
+    write: Callable[[_TestCopy], None],
+) -> Tuple[int, int, List[str]]:
+    """Walk a test set's tests and hand each copyable one to ``write``.
+
+    Shared by import and export -- the two differ only in what ``write`` does
+    with each parsed test.
+
+    Returns
+    -------
+    tuple
+        ``(copied, skipped, skipped_test_ids)``
+    """
+    copied = 0
+    skipped = 0
+    skipped_test_ids: List[str] = []
+    # Must stay within crud.get_test_set_tests pagination max (100).
+    batch_size = 100
+    skip = 0
+
+    while True:
+        items, total = crud.get_test_set_tests(
+            db=db,
+            test_set_id=source_test_set_id,
+            skip=skip,
+            limit=batch_size,
+            sort_by="created_at",
+            sort_order="asc",
+        )
+        if not items:
+            break
+
+        for db_test in items:
+            test_copy = _parse_test_for_copy(db_test, default_labeler)
+            if test_copy is None:
+                skipped += 1
+                skipped_test_ids.append(str(db_test.id))
+                continue
+
+            write(test_copy)
+            copied += 1
+
+        skip += len(items)
+        if skip >= total:
+            break
+
+    return copied, skipped, skipped_test_ids
+
+
 def import_explorer_test_set_from_source(
     db: Session,
     source_test_set_identifier: str,
@@ -339,70 +447,28 @@ def import_explorer_test_set_from_source(
     if explorer_settings_src and isinstance(explorer_settings_src, dict):
         crud_explorer.replace_test_set_adaptive_settings(db, new_set, explorer_settings_src)
 
-    imported = 0
-    skipped = 0
-    skipped_test_ids: List[str] = []
-    # Must stay within crud.get_test_set_tests pagination max (100).
-    batch_size = 100
-    skip = 0
-
-    while True:
-        items, total = crud.get_test_set_tests(
+    def write(test_copy: _TestCopy) -> None:
+        # create_test_node() takes the topic path, not the FK: it builds the
+        # topic markers the tree is read from before resolving the topic row.
+        create_test_node(
             db=db,
-            test_set_id=db_source.id,
-            skip=skip,
-            limit=batch_size,
-            sort_by="created_at",
-            sort_order="asc",
+            test_set_id=new_set.id,
+            organization_id=organization_id,
+            user_id=user_id,
+            topic=test_copy.topic_name,
+            input=test_copy.content,
+            output=test_copy.output,
+            labeler=test_copy.labeler,
+            label=test_copy.label,
+            model_score=test_copy.model_score,
         )
-        if not items:
-            break
 
-        for db_test in items:
-            meta = db_test.test_metadata or {}
-            if meta.get("label") == "topic_marker":
-                skipped += 1
-                skipped_test_ids.append(str(db_test.id))
-                continue
-
-            prompt = db_test.prompt
-            content = (prompt.content or "").strip() if prompt else ""
-            if not content:
-                skipped += 1
-                skipped_test_ids.append(str(db_test.id))
-                continue
-
-            topic_name = ""
-            if db_test.topic is not None and getattr(db_test.topic, "name", None):
-                topic_name = str(db_test.topic.name) or ""
-
-            label_raw = meta.get("label", "") or ""
-            label = label_raw if label_raw in ("", "pass", "fail") else ""
-
-            output_val = meta.get("output", "") or ""
-            labeler_val = meta.get("labeler", "imported") or "imported"
-            try:
-                model_score_val = float(meta.get("model_score", 0.0) or 0.0)
-            except (TypeError, ValueError):
-                model_score_val = 0.0
-
-            create_test_node(
-                db=db,
-                test_set_id=new_set.id,
-                organization_id=organization_id,
-                user_id=user_id,
-                topic=topic_name,
-                input=content,
-                output=str(output_val),
-                labeler=str(labeler_val),
-                label=label,
-                model_score=model_score_val,
-            )
-            imported += 1
-
-        skip += len(items)
-        if skip >= total:
-            break
+    imported, skipped, skipped_test_ids = _copy_test_set_tests(
+        db,
+        source_test_set_id=db_source.id,
+        default_labeler="imported",
+        write=write,
+    )
 
     crud_explorer.refresh_test_set(db, new_set)
     return {
@@ -480,88 +546,47 @@ def export_regular_test_set_from_explorer(
         user_id=user_id,
     )
 
-    exported = 0
-    skipped = 0
-    skipped_test_ids: List[str] = []
-    batch_size = 100
-    skip = 0
-
-    while True:
-        items, total = crud.get_test_set_tests(
-            db=db,
-            test_set_id=db_source.id,
-            skip=skip,
-            limit=batch_size,
-            sort_by="created_at",
-            sort_order="asc",
-        )
-        if not items:
-            break
-
-        for db_test in items:
-            meta = db_test.test_metadata or {}
-            if meta.get("label") == "topic_marker":
-                skipped += 1
-                skipped_test_ids.append(str(db_test.id))
-                continue
-
-            prompt = db_test.prompt
-            content = (prompt.content or "").strip() if prompt else ""
-            if not content:
-                skipped += 1
-                skipped_test_ids.append(str(db_test.id))
-                continue
-
-            topic_id = db_test.topic_id
-            if topic_id is None:
-                topic_name = ""
-                if db_test.topic is not None and getattr(db_test.topic, "name", None):
-                    topic_name = str(db_test.topic.name) or ""
-                if topic_name:
-                    db_topic = get_or_create_topic(
-                        db=db,
-                        name=topic_name,
-                        organization_id=organization_id,
-                        user_id=user_id,
-                    )
-                    topic_id = db_topic.id
-
-            label_raw = meta.get("label", "") or ""
-            label = label_raw if label_raw in ("", "pass", "fail") else ""
-
-            output_val = meta.get("output", "") or ""
-            labeler_val = meta.get("labeler", "exported") or "exported"
-            try:
-                model_score_val = float(meta.get("model_score", 0.0) or 0.0)
-            except (TypeError, ValueError):
-                model_score_val = 0.0
-
-            new_test = crud_explorer.create_explorer_test(
-                db,
-                organization_id=organization_id,
-                user_id=user_id,
-                topic_id=topic_id,
-                content=content,
-                metadata={
-                    "output": str(output_val),
-                    "label": label,
-                    "labeler": str(labeler_val),
-                    "model_score": model_score_val,
-                },
-            )
-
-            create_test_set_associations(
+    def write(test_copy: _TestCopy) -> None:
+        # The exported set gets no topic markers, so the topic is carried by FK
+        # alone -- resolved from the path only when the source row had none.
+        topic_id = test_copy.topic_id
+        if topic_id is None and test_copy.topic_name:
+            db_topic = get_or_create_topic(
                 db=db,
-                test_set_id=str(new_set.id),
-                test_ids=[str(new_test.id)],
+                name=test_copy.topic_name,
                 organization_id=organization_id,
                 user_id=user_id,
             )
-            exported += 1
+            topic_id = db_topic.id
 
-        skip += len(items)
-        if skip >= total:
-            break
+        new_test = crud_explorer.create_explorer_test(
+            db,
+            organization_id=organization_id,
+            user_id=user_id,
+            topic_id=topic_id,
+            content=test_copy.content,
+            metadata={
+                "output": test_copy.output,
+                "label": test_copy.label,
+                "labeler": test_copy.labeler,
+                "model_score": test_copy.model_score,
+            },
+        )
+
+        create_test_set_associations(
+            db=db,
+            test_set_id=str(new_set.id),
+            test_ids=[str(new_test.id)],
+            organization_id=organization_id,
+            user_id=user_id,
+        )
+
+    exported, skipped, skipped_test_ids = _copy_test_set_tests(
+        db,
+        source_test_set_id=db_source.id,
+        default_labeler="exported",
+        write=write,
+    )
 
     crud_explorer.refresh_test_set(db, new_set)
     return {
