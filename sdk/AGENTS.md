@@ -20,9 +20,9 @@ for repo-wide rules.
 siblings:
 
 ```python
-from rhesis.sdk.metrics.providers.native import NativeMetric   # yes
-from .providers.native import NativeMetric                     # no
-from ..client import RhesisClient                              # no
+from rhesis.sdk.metrics.providers.native import NativeMetric  # yes
+from .providers.native import NativeMetric  # no
+from ..client import RhesisClient  # no
 ```
 
 This holds inside a package's own `__init__.py` too. Existing relative imports are being converted
