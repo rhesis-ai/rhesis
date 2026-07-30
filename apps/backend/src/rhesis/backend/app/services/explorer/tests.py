@@ -10,7 +10,6 @@ from rhesis.backend.app.constants import ADAPTIVE_TESTING_BEHAVIOR
 # Imported as a module rather than by name: this file's own public
 # get_explorer_test_sets() wraps the crud function of the same name.
 from rhesis.backend.app.crud import explorer as crud_explorer
-from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.schemas.explorer import TestTreeNode, TopicNode
 from rhesis.backend.app.services.explorer.topics import create_topic_node
 from rhesis.backend.app.services.explorer.utils import _db_test_to_node, build_test_tree
@@ -333,18 +332,12 @@ def import_explorer_test_set_from_source(
         name=new_name,
         description=db_source.description,
     )
-    db.flush()
-    db.refresh(new_set)
 
     # Copy adaptive_settings from source (e.g. default endpoint) if present
     src_attrs = db_source.attributes or {}
     explorer_settings_src = src_attrs.get("adaptive_settings")
     if explorer_settings_src and isinstance(explorer_settings_src, dict):
-        attrs = dict(new_set.attributes or {})
-        attrs["adaptive_settings"] = dict(explorer_settings_src)
-        new_set.attributes = attrs
-        db.add(new_set)
-        db.flush()
+        crud_explorer.replace_test_set_adaptive_settings(db, new_set, explorer_settings_src)
 
     imported = 0
     skipped = 0
@@ -411,7 +404,7 @@ def import_explorer_test_set_from_source(
         if skip >= total:
             break
 
-    db.refresh(new_set)
+    crud_explorer.refresh_test_set(db, new_set)
     return {
         "test_set": new_set,
         "imported": imported,
@@ -486,8 +479,6 @@ def export_regular_test_set_from_explorer(
         organization_id=organization_id,
         user_id=user_id,
     )
-    db.flush()
-    db.refresh(new_set)
 
     exported = 0
     skipped = 0
@@ -545,28 +536,19 @@ def export_regular_test_set_from_explorer(
             except (TypeError, ValueError):
                 model_score_val = 0.0
 
-            db_prompt = models.Prompt(
-                content=content,
+            new_test = crud_explorer.create_explorer_test(
+                db,
                 organization_id=organization_id,
                 user_id=user_id,
-            )
-            db.add(db_prompt)
-            db.flush()
-
-            new_test = models.Test(
                 topic_id=topic_id,
-                prompt_id=db_prompt.id,
-                test_metadata={
+                content=content,
+                metadata={
                     "output": str(output_val),
                     "label": label,
                     "labeler": str(labeler_val),
                     "model_score": model_score_val,
                 },
-                organization_id=organization_id,
-                user_id=user_id,
             )
-            db.add(new_test)
-            db.flush()
 
             create_test_set_associations(
                 db=db,
@@ -581,7 +563,7 @@ def export_regular_test_set_from_explorer(
         if skip >= total:
             break
 
-    db.refresh(new_set)
+    crud_explorer.refresh_test_set(db, new_set)
     return {
         "test_set": new_set,
         "exported": exported,
@@ -660,30 +642,20 @@ def create_test_node(
         else None
     )
 
-    # Create the prompt (input text)
-    db_prompt = models.Prompt(
-        content=input,
+    # Create the prompt (input text) and the test record
+    db_test = crud_explorer.create_explorer_test(
+        db,
         organization_id=organization_id,
         user_id=user_id,
-    )
-    db.add(db_prompt)
-    db.flush()
-
-    # Create the test record
-    db_test = models.Test(
         topic_id=db_topic.id if db_topic else None,
-        prompt_id=db_prompt.id,
-        test_metadata={
+        content=input,
+        metadata={
             "output": output,
             "label": label,
             "labeler": labeler,
             "model_score": model_score,
         },
-        organization_id=organization_id,
-        user_id=user_id,
     )
-    db.add(db_test)
-    db.flush()
 
     # Associate the test with the test set
     create_test_set_associations(
@@ -694,8 +666,9 @@ def create_test_node(
         user_id=user_id,
     )
 
-    # Refresh to load relationships for _db_test_to_node
-    db.refresh(db_test)
+    # Re-read so the relationships _db_test_to_node walks are loaded, and so the
+    # association is confirmed to have landed.
+    db_test = crud_explorer.get_test_in_test_set(db, test_set_id, db_test.id, organization_id)
 
     node = _db_test_to_node(db_test)
 
@@ -755,11 +728,6 @@ def update_test_node(
     if db_test is None:
         return None
 
-    # Update input -> Prompt.content
-    if input is not None and db_test.prompt:
-        db_test.prompt.content = input
-        db.add(db_test.prompt)
-
     # Update metadata fields (output, label, model_score)
     meta = dict(db_test.test_metadata or {})
     if output is not None:
@@ -768,10 +736,9 @@ def update_test_node(
         meta["label"] = label
     if model_score is not None:
         meta["model_score"] = model_score
-    if meta != (db_test.test_metadata or {}):
-        db_test.test_metadata = meta
 
     # Update topic
+    topic_id = None
     if topic is not None:
         # Ensure topic markers exist
         create_topic_node(
@@ -787,11 +754,15 @@ def update_test_node(
             organization_id=organization_id,
             user_id=user_id,
         )
-        db_test.topic_id = db_topic.id
+        topic_id = db_topic.id
 
-    db.add(db_test)
-    db.flush()
-    db.refresh(db_test)
+    db_test = crud_explorer.update_explorer_test(
+        db,
+        db_test,
+        prompt_content=input,
+        metadata=meta,
+        topic_id=topic_id,
+    )
 
     node = _db_test_to_node(db_test)
 
@@ -836,13 +807,9 @@ def delete_test_node(
     if db_test is None:
         return False
 
-    # Remove the test-test_set association
-    db.execute(
-        test_test_set_association.delete().where(
-            test_test_set_association.c.test_id == test_id,
-            test_test_set_association.c.test_set_id == test_set_id,
-        )
-    )
+    # Detach before deleting: crud.delete_test reads the association table to decide
+    # which test sets to recalculate, and this one is going away regardless.
+    crud_explorer.remove_tests_from_test_set(db, test_set_id, [test_id])
 
     # Soft-delete the test via the existing CRUD helper
     crud.delete_test(
@@ -851,8 +818,6 @@ def delete_test_node(
         organization_id=organization_id,
         user_id=user_id,
     )
-
-    db.flush()
 
     logger.info(f"Deleted test node {test_id} from test_set={test_set_id}")
 

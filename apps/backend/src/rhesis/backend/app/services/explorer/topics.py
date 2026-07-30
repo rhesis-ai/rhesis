@@ -4,9 +4,13 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models
-from rhesis.backend.app.crud.explorer import get_tests_under_topic
-from rhesis.backend.app.models.test import test_test_set_association
+from rhesis.backend.app import crud
+from rhesis.backend.app.crud.explorer import (
+    create_explorer_test,
+    get_tests_under_topic,
+    reassign_tests_topic,
+    remove_tests_from_test_set,
+)
 from rhesis.backend.app.schemas.explorer import TopicNode
 from rhesis.backend.app.services.explorer.utils import build_test_tree
 from rhesis.backend.app.services.test import create_test_set_associations
@@ -74,18 +78,17 @@ def create_topic_node(
         )
 
         # 2. Create a test record flagged as a topic marker
-        db_test = models.Test(
+        db_test = create_explorer_test(
+            db,
+            organization_id=organization_id,
+            user_id=user_id,
             topic_id=db_topic.id,
-            test_metadata={
+            metadata={
                 "label": "topic_marker",
                 "labeler": "user",
                 "output": "",
             },
-            organization_id=organization_id,
-            user_id=user_id,
         )
-        db.add(db_test)
-        db.flush()
 
         # 3. Associate the test with the test set
         create_test_set_associations(
@@ -172,6 +175,7 @@ def update_topic_node(
     # Find all tests in this test set and update their topic FKs.
     db_tests = get_tests_under_topic(db, test_set_id, organization_id, topic_path)
 
+    reassignments = []
     for db_test in db_tests:
         old_name = db_test.topic.name
         if old_name == topic_path:
@@ -186,10 +190,9 @@ def update_topic_node(
             organization_id=organization_id,
             user_id=user_id,
         )
-        db_test.topic = new_db_topic
-        db.add(db_test)
+        reassignments.append((db_test, new_db_topic))
 
-    db.flush()
+    reassign_tests_topic(db, reassignments)
 
     logger.info(
         f"Renamed topic '{topic_path}' to '{new_path}' "
@@ -250,32 +253,26 @@ def remove_topic_node(
         )
 
     topic_marker_ids = []
+    orphaned = []
     for db_test in db_tests:
         is_marker = (db_test.test_metadata or {}).get("label") == "topic_marker"
         if is_marker:
             topic_marker_ids.append(db_test.id)
         else:
-            if parent_topic:
-                db_test.topic = parent_topic
-            else:
-                db_test.topic = None
-            db.add(db_test)
+            orphaned.append((db_test, parent_topic))
 
+    reassign_tests_topic(db, orphaned)
+
+    # Detach before deleting: crud.delete_test reads the association table to decide
+    # which test sets to recalculate, and this one is going away regardless.
+    remove_tests_from_test_set(db, test_set_id, topic_marker_ids)
     for test_id in topic_marker_ids:
-        db.execute(
-            test_test_set_association.delete().where(
-                test_test_set_association.c.test_id == test_id,
-                test_test_set_association.c.test_set_id == test_set_id,
-            )
-        )
         crud.delete_test(
             db=db,
             test_id=test_id,
             organization_id=organization_id,
             user_id=user_id,
         )
-
-    db.flush()
 
     logger.info(
         f"Removed topic '{topic_path}' from test_set={test_set_id}: "

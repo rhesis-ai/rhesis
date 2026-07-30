@@ -6,7 +6,10 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models
-from rhesis.backend.app.crud.explorer import get_test_set_metrics
+from rhesis.backend.app.crud.explorer import (
+    get_test_set_metrics,
+    set_test_set_default_endpoint,
+)
 from rhesis.backend.app.schemas.explorer import (
     ExplorerSettingsEndpoint,
     ExplorerSettingsMetric,
@@ -109,12 +112,7 @@ def update_explorer_settings(
         if endpoint is None:
             raise ValueError(f"Endpoint not found: {default_endpoint_id}")
 
-        attrs = dict(test_set.attributes or {})
-        explorer_settings = dict(attrs.get("adaptive_settings") or {})
-        explorer_settings["default_endpoint_id"] = str(default_endpoint_id)
-        attrs["adaptive_settings"] = explorer_settings
-        test_set.attributes = attrs
-        db.add(test_set)
+        set_test_set_default_endpoint(db, test_set, default_endpoint_id)
 
     if metric_ids is not None:
         # Replace metrics atomically by removing existing and adding requested.
@@ -142,8 +140,9 @@ def update_explorer_settings(
                 if not added:
                     continue
 
-    db.flush()
-    db.refresh(test_set)
+    # No flush needed for the metric branch: the association add/remove go through Core
+    # statements, so a subsequent read in this transaction already sees them. The
+    # attributes write above flushes and refreshes itself.
     return get_explorer_settings(
         db=db,
         test_set=test_set,
