@@ -6,4 +6,3 @@ metadata:
   name: rhesis
   annotations:
     argocd.argoproj.io/sync-wave: "0"
-    rhesis.ai/promotion-gate-test: "should-not-auto-deploy"
