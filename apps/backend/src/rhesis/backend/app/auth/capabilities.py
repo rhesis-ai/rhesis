@@ -241,6 +241,17 @@ class Permission:
         UPDATE = "telemetry:update"
         DELETE = "telemetry:delete"
 
+    # --- Insights / analytics (project-scoped) -------------------------------
+
+    class Insights(_PermissionEnum):
+        """Generic aggregation dashboard over test_result/metric/test_run/test
+        data (``GET /insights``). One permission gates the whole endpoint
+        regardless of the requested ``entity`` -- the response is aggregate
+        counts/rates, not individual rows, so there's no per-entity boundary
+        to enforce beyond the existing project scope."""
+
+        READ = "insights:read"
+
     # --- Files (project/org) ------------------------------------------------
 
     class File(_PermissionEnum):

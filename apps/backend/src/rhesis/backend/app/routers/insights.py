@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import schemas
+from rhesis.backend.app.auth.capabilities import Permission, capability
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.dependencies import get_tenant_db_session
 from rhesis.backend.app.models.user import User
@@ -14,11 +15,9 @@ from rhesis.backend.app.services.stats.common import parse_date_range
 router = APIRouter(prefix="/insights", tags=["insights"])
 
 
-@router.get("/", response_model=schemas.InsightsResponse)
+@router.get("/", response_model=schemas.InsightsResponse, **capability(Permission.Insights.READ))
 def get_insights(
-    entity: str = Query(
-        ..., description="Registry entity: test_result, metric, test_run, or test"
-    ),
+    entity: str = Query(..., description="Registry entity: test_result, metric, test_run, or test"),
     group_by: List[str] = Query(default=[], description="Dimensions to group by"),
     measures: List[str] = Query(default=["count"], description="Measures to compute"),
     months: int = Query(6, description="Months of historical data to include (default: 6)"),

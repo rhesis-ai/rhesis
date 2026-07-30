@@ -21,9 +21,7 @@ class InsightsValidationError(ValueError):
 def _entry(entity: str) -> dict:
     entry = REGISTRY.get(entity)
     if entry is None:
-        raise InsightsValidationError(
-            f"Unknown entity '{entity}'. Available: {sorted(REGISTRY)}"
-        )
+        raise InsightsValidationError(f"Unknown entity '{entity}'. Available: {sorted(REGISTRY)}")
     return entry
 
 
