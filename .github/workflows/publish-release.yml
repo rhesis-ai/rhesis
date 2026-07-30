@@ -27,9 +27,40 @@ jobs:
       reason: "Release deployment to prd"
     secrets: inherit
 
+  # Promotes the prd root ArgoCD Application (prd-base) to this release's exact
+  # commit. targetRevision is pinned to a commit SHA (see kubernetes/clusters/prd/base.yaml),
+  # not the release branch, so it survives the branch being deleted on merge and
+  # never picks up unrelated main changes until the next release runs this job.
+  promote-prd-config:
+    if: startsWith(github.ref, 'refs/heads/release/')
+    runs-on: arc-runner-prd
+    permissions:
+      contents: none
+    steps:
+      - name: Install ArgoCD CLI
+        run: |
+          ARGOCD_VERSION="v2.14.4"
+          ARGOCD_SHA256="ed774771701f8e5a9330918e4f905f2f171e2181906aec792c9ff6907a4c480f"
+          mkdir -p "$HOME/bin"
+          curl -sSL -o "$HOME/bin/argocd" \
+            "https://github.com/argoproj/argo-cd/releases/download/${ARGOCD_VERSION}/argocd-linux-amd64"
+          echo "${ARGOCD_SHA256}  $HOME/bin/argocd" | sha256sum -c -
+          chmod +x "$HOME/bin/argocd"
+          echo "$HOME/bin" >> "$GITHUB_PATH"
+
+      - name: Pin prd-base to this release's commit and sync
+        env:
+          ARGOCD_SERVER: ${{ secrets.ARGOCD_SERVER_PRD }}
+          ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN_PRD }}
+        run: |
+          argocd app set prd-base --revision "$GITHUB_SHA" \
+            --server "$ARGOCD_SERVER" --auth-token "$ARGOCD_AUTH_TOKEN" --grpc-web
+          argocd app sync prd-base \
+            --server "$ARGOCD_SERVER" --auth-token "$ARGOCD_AUTH_TOKEN" --grpc-web --timeout 300
+
   publish:
     if: startsWith(github.ref, 'refs/heads/release/')
-    needs: [backend-deploy, frontend-deploy, worker-deploy]
+    needs: [backend-deploy, frontend-deploy, worker-deploy, promote-prd-config]
     runs-on: ubuntu-latest
     steps:
       - name: Generate a token

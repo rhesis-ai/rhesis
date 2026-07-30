@@ -7,7 +7,11 @@ spec:
   project: default
   source:
     repoURL: https://github.com/rhesis-ai/rhesis.git
-    targetRevision: release/v0.11.0
+    # Pinned to a commit SHA, not a branch, so this Application never dangles when
+    # the release branch is deleted after merge (delete_branch_on_merge is on for
+    # this repo). Bumped automatically by the "promote-prd-config" job in
+    # publish-release.yml on every prd release — see kubernetes/README.md.
+    targetRevision: 77268ef22e501f4257c409c437790f43c69a6c7f
     path: kubernetes/clusters/prd
   destination:
     server: https://kubernetes.default.svc

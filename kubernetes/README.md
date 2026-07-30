@@ -122,6 +122,18 @@ kubernetes/
 
 Any YAML added under `clusters/<env>/` and pushed to `main` is automatically deployed by the root `*-base` Application (unless you change that Application’s sync policy).
 
+### Production promotion gate (`prd-base`)
+
+Dev and stg's root Applications track `targetRevision: main` directly, so config changes roll out as soon as they merge. Prod is different: `kubernetes/clusters/prd/base.yaml` pins `targetRevision` to a **commit SHA**, not `main` and not a release branch name.
+
+- **Why not `main`:** `syncPolicy.automated` (prune + selfHeal) is on, so if prd tracked `main` any merge touching `kubernetes/clusters/prd/**` would deploy immediately — there'd be no way to hold a change until an intended release.
+- **Why not a release branch name (the old approach):** this repo has `delete_branch_on_merge` enabled, and `.github/workflows/publish-release.yml` merges the release PR as its last step — which deletes the `release/vX.Y.Z` branch immediately after. An Application pinned to that branch name would be left pointing at a dangling ref. A branch name also has to be hand-edited every sprint.
+- **Why a commit SHA works:** it's immutable and stays reachable (and therefore never garbage-collected) once merged into `main`, even after the branch that carried it is deleted. Promotion becomes "point at a specific commit," decoupled entirely from branch lifecycle.
+
+The SHA is bumped automatically, not by hand: the `promote-prd-config` job in `.github/workflows/publish-release.yml` runs `argocd app set prd-base --revision "$GITHUB_SHA"` (the tip of the release branch — the exact commit already validated on stg) and syncs, as part of the same manual, deliberate "publish this release to prd" action that already ships the backend/frontend/worker images. No separate manual manifest edit is needed, and prd only ever advances when that workflow runs.
+
+This is a variant of the manual stg→prd promotion pattern used below for the CNPG operator Application (validate on stg, then bump the ref on prd) — here the "bump the ref" step is automated because it happens at a moment a human already triggered on purpose.
+
 ### CloudNativePG operator (`cnpg-system`)
 
 - **Dev:** CNPG is **not** installed. Rhesis in dev uses the Bitnami PostgreSQL subchart (`charts/rhesis/values-dev.yaml`); the operator is unnecessary and was removed from the dev root kustomization to avoid a failing sync and extra operators on the cluster.
