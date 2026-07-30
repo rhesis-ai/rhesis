@@ -1,4 +1,9 @@
-"""Tests for mode='ids' test_id resolution (metric-scoped and overall)."""
+"""Tests for mode='ids' test_id resolution (metric-scoped and overall).
+
+_test_ids_by_metric now filters v_metric_stats directly via SQL, so its
+tests use real Test/TestResult rows. _test_ids_overall is unchanged (still
+a plain distinct() filter on v_test_result_stats) and keeps its query stub.
+"""
 
 from types import SimpleNamespace
 
@@ -7,18 +12,6 @@ from rhesis.backend.app.services.stats.test_result import (
     _test_ids_by_metric,
     _test_ids_overall,
 )
-
-
-class _MetricRowsQueryStub:
-    def __init__(self, rows):
-        # rows: list of (test_id, test_metrics, result) tuples matching SQLAlchemy .all()
-        self._rows = rows
-
-    def with_entities(self, *_args):
-        return self
-
-    def all(self):
-        return self._rows
 
 
 class _OverallQueryStub:
@@ -56,62 +49,74 @@ class _OverallQueryStub:
 
 
 class TestTestIdsByMetric:
-    def test_matches_metric_pass_outcome(self):
-        rows = [
-            ("t1", {"metrics": {"Accuracy": {"is_successful": True}}}, OverallTestResult.PASSED),
-            ("t2", {"metrics": {"Accuracy": {"is_successful": False}}}, OverallTestResult.FAILED),
-        ]
+    def test_matches_metric_pass_outcome(self, test_db, base_q, make_test_result, passed_status,
+                                          failed_status):
+        r1 = make_test_result(passed_status, {"metrics": {"Accuracy": {"is_successful": True}}})
+        r2 = make_test_result(failed_status, {"metrics": {"Accuracy": {"is_successful": False}}})
 
-        assert _test_ids_by_metric(_MetricRowsQueryStub(rows), "Accuracy", "pass") == ["t1"]
-        assert _test_ids_by_metric(_MetricRowsQueryStub(rows), "Accuracy", "fail") == ["t2"]
+        assert _test_ids_by_metric(test_db, base_q, "Accuracy", "pass") == [r1.test_id]
+        assert _test_ids_by_metric(test_db, base_q, "Accuracy", "fail") == [r2.test_id]
 
-    def test_outcome_all_ignores_success_value(self):
-        rows = [
-            ("t1", {"metrics": {"Accuracy": {"is_successful": True}}}, OverallTestResult.PASSED),
-            ("t2", {"metrics": {"Accuracy": {"is_successful": False}}}, OverallTestResult.FAILED),
-        ]
+    def test_outcome_all_ignores_success_value(self, test_db, base_q, make_test_result,
+                                                passed_status, failed_status):
+        r1 = make_test_result(passed_status, {"metrics": {"Accuracy": {"is_successful": True}}})
+        r2 = make_test_result(failed_status, {"metrics": {"Accuracy": {"is_successful": False}}})
 
-        assert set(_test_ids_by_metric(_MetricRowsQueryStub(rows), "Accuracy", "all")) == {
-            "t1",
-            "t2",
+        assert set(_test_ids_by_metric(test_db, base_q, "Accuracy", "all")) == {
+            r1.test_id,
+            r2.test_id,
         }
 
-    def test_metric_override_uses_effective_success(self):
-        rows = [
-            (
-                "t1",
-                {
-                    "metrics": {
-                        "Accuracy": {
-                            "is_successful": True,
-                            "override": {"original_value": False},
-                        }
+    def test_metric_override_uses_effective_success(self, test_db, base_q, make_test_result,
+                                                      failed_status):
+        r1 = make_test_result(
+            failed_status,
+            {
+                "metrics": {
+                    "Accuracy": {
+                        "is_successful": True,
+                        "override": {"original_value": False},
                     }
-                },
-                OverallTestResult.FAILED,
-            )
-        ]
+                }
+            },
+        )
 
-        assert _test_ids_by_metric(_MetricRowsQueryStub(rows), "Accuracy", "pass") == ["t1"]
-        assert _test_ids_by_metric(_MetricRowsQueryStub(rows), "Accuracy", "fail") == []
+        assert _test_ids_by_metric(test_db, base_q, "Accuracy", "pass") == [r1.test_id]
+        assert _test_ids_by_metric(test_db, base_q, "Accuracy", "fail") == []
 
-    def test_rows_missing_requested_metric_are_skipped(self):
-        rows = [("t1", {"metrics": {"Other": {"is_successful": True}}}, OverallTestResult.PASSED)]
+    def test_rows_missing_requested_metric_are_skipped(self, test_db, base_q, make_test_result,
+                                                         passed_status):
+        make_test_result(passed_status, {"metrics": {"Other": {"is_successful": True}}})
 
-        assert _test_ids_by_metric(_MetricRowsQueryStub(rows), "Accuracy", "all") == []
+        assert _test_ids_by_metric(test_db, base_q, "Accuracy", "all") == []
 
-    def test_rows_without_test_metrics_are_skipped(self):
-        rows = [("t1", None, OverallTestResult.PASSED), ("t2", {}, OverallTestResult.PASSED)]
+    def test_rows_without_test_metrics_are_skipped(self, test_db, base_q, make_test_result,
+                                                    passed_status):
+        make_test_result(passed_status, None)
+        make_test_result(passed_status, {})
 
-        assert _test_ids_by_metric(_MetricRowsQueryStub(rows), "Accuracy", "all") == []
+        assert _test_ids_by_metric(test_db, base_q, "Accuracy", "all") == []
 
-    def test_duplicate_test_id_rows_deduplicate(self):
-        rows = [
-            ("t1", {"metrics": {"Accuracy": {"is_successful": True}}}, OverallTestResult.PASSED),
-            ("t1", {"metrics": {"Accuracy": {"is_successful": True}}}, OverallTestResult.PASSED),
-        ]
+    def test_duplicate_test_id_rows_deduplicate(self, test_db, base_q, make_test_result,
+                                                 passed_status, test_organization, db_user,
+                                                 db_test_run, db_test_configuration):
+        from rhesis.backend.app import models
 
-        assert _test_ids_by_metric(_MetricRowsQueryStub(rows), "Accuracy", "all") == ["t1"]
+        r1 = make_test_result(passed_status, {"metrics": {"Accuracy": {"is_successful": True}}})
+        # A second run of the same test -- same test_id, different test_result row.
+        r2 = models.TestResult(
+            test_id=r1.test_id,
+            test_run_id=db_test_run.id,
+            test_configuration_id=db_test_configuration.id,
+            user_id=db_user.id,
+            organization_id=test_organization.id,
+            status_id=passed_status.id,
+            test_metrics={"metrics": {"Accuracy": {"is_successful": True}}},
+        )
+        test_db.add(r2)
+        test_db.flush()
+
+        assert _test_ids_by_metric(test_db, base_q, "Accuracy", "all") == [r1.test_id]
 
 
 class TestTestIdsOverall:
