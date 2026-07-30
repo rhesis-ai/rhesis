@@ -258,12 +258,15 @@ def prefetch_execution_context(
             metric_configs = _convert_metrics(models, f"test {sample_test.id}")
         else:
             # P3 (or no metrics at all) — resolution can differ per test since each
-            # test may belong to a different behavior. Reuse the sample test's
-            # already-resolved metrics instead of querying it twice.
+            # test may belong to a different behavior. Cache by behavior_id so tests
+            # sharing a behavior don't each re-query get_behavior_metrics() (N+1).
+            metrics_by_behavior_id: Dict[Any, List] = {sample_test.behavior_id: sample_metrics}
             for test in tests:
                 tid = str(test.id)
                 if test is sample_test:
                     metrics = sample_metrics
+                elif test.behavior_id in metrics_by_behavior_id:
+                    metrics = metrics_by_behavior_id[test.behavior_id]
                 else:
                     metrics = get_test_metrics(
                         test,
@@ -273,6 +276,7 @@ def prefetch_execution_context(
                         test_set=test_set,
                         test_configuration=test_config,
                     )
+                    metrics_by_behavior_id[test.behavior_id] = metrics
                 models = prepare_metric_configs(metrics, tid)
                 per_test_metric_configs[tid] = _convert_metrics(models, f"test {tid}")
     except Exception as e:
