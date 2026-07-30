@@ -23,10 +23,11 @@ def clear_application_settings_cache():
 # _validate_return_to
 # ---------------------------------------------------------------------------
 
-class TestValidateReturnTo:
 
+class TestValidateReturnTo:
     def _validate(self, val):
         from rhesis.backend.ee.sso.router import _validate_return_to
+
         return _validate_return_to(val)
 
     def test_none_defaults_to_dashboard(self):
@@ -70,8 +71,8 @@ class TestValidateReturnTo:
 # _generate_pkce
 # ---------------------------------------------------------------------------
 
-class TestGeneratePkce:
 
+class TestGeneratePkce:
     def test_returns_verifier_and_challenge(self):
         from rhesis.backend.ee.sso.router import _generate_pkce
 
@@ -94,10 +95,11 @@ class TestGeneratePkce:
 # check_sso_available
 # ---------------------------------------------------------------------------
 
-class TestCheckSSOAvailable:
 
+class TestCheckSSOAvailable:
     def test_available_with_encryption_key(self):
         from rhesis.backend.ee.sso.router import check_sso_available
+
         assert check_sso_available() is True
 
     @patch(
@@ -106,6 +108,7 @@ class TestCheckSSOAvailable:
     )
     def test_unavailable_without_encryption(self, _mock):
         from rhesis.backend.ee.sso.router import check_sso_available
+
         assert check_sso_available() is False
 
 
@@ -113,8 +116,8 @@ class TestCheckSSOAvailable:
 # SSOConfigRequest with slug
 # ---------------------------------------------------------------------------
 
-class TestSSOConfigRequestSlug:
 
+class TestSSOConfigRequestSlug:
     def test_slug_included(self):
         from rhesis.backend.ee.sso.router import SSOConfigRequest
 
@@ -139,8 +142,8 @@ class TestSSOConfigRequestSlug:
 # _get_sso_config - decryption and parsing
 # ---------------------------------------------------------------------------
 
-class TestGetSSOConfig:
 
+class TestGetSSOConfig:
     def test_no_config_returns_none(self):
         from rhesis.backend.ee.sso.router import _get_sso_config
 
@@ -207,3 +210,144 @@ class TestGetSSOConfig:
             sso_config={"issuer_url": "not-valid", "client_id": "x"},
         )
         assert _get_sso_config(org) is None
+
+
+# ---------------------------------------------------------------------------
+# sso_callback -- tenant GUC setup
+# ---------------------------------------------------------------------------
+
+
+class TestSSOCallbackTenantContext:
+    """The callback must set the RLS GUCs before provisioning a user.
+
+    The route runs on ``get_db_session``, which sets no tenant GUCs (the user's
+    identity is unknown until the IdP responds).  Auto-provisioning a new user
+    writes RLS-protected tenant tables via the org-membership hook, and those
+    policies read ``app.current_organization``.  Without the GUCs, a first-time
+    SSO login dies with ``unrecognized configuration parameter
+    "app.current_organization"``.  Same contract every other
+    ``on_user_org_assigned`` caller follows (``routers/organization.py``,
+    ``local_init.py``).
+    """
+
+    ORG_SLUG = "netgo"
+
+    @pytest.fixture
+    def callback_env(self, monkeypatch):
+        """Patch out everything the callback touches, recording call order."""
+        from rhesis.backend.app.utils.rate_limit import limiter
+        from rhesis.backend.ee.sso import router as sso_router
+
+        # The route is rate limited; the decorator short-circuits on `enabled`
+        # so the coroutine can be awaited directly.
+        monkeypatch.setattr(limiter, "enabled", False)
+
+        org = SimpleNamespace(id=uuid4())
+        user = SimpleNamespace(id=uuid4())
+        auth_user = SimpleNamespace(email="new.user@netgo.example")
+        calls = []
+
+        def _record(name, retval=None):
+            def _fn(*args, **kwargs):
+                calls.append((name, args, kwargs))
+                return retval
+
+            return _fn
+
+        async def _authenticate(*args, **kwargs):
+            return auth_user
+
+        monkeypatch.setattr(
+            sso_router,
+            "verify_signed_state",
+            lambda _s: {"org_id": self.ORG_SLUG, "nonce": "n", "return_to": "/architect"},
+        )
+        monkeypatch.setattr(sso_router, "check_sso_available", lambda: True)
+        monkeypatch.setattr(sso_router, "_get_org_or_404", lambda _db, _slug: org)
+        monkeypatch.setattr(
+            sso_router, "_get_sso_config", lambda _org: SimpleNamespace(enabled=True)
+        )
+        monkeypatch.setattr(
+            sso_router, "_get_sso_callback_url", lambda: "https://api.example/auth/sso/callback"
+        )
+        monkeypatch.setattr(
+            sso_router,
+            "OIDCProvider",
+            lambda _cfg: SimpleNamespace(authenticate=_authenticate),
+        )
+
+        # raising=False so that removing the call (or its import) surfaces as the
+        # assertion below rather than an AttributeError in this fixture.
+        monkeypatch.setattr(
+            sso_router,
+            "set_session_variables",
+            _record("set_session_variables"),
+            raising=False,
+        )
+        monkeypatch.setattr(
+            sso_router, "find_or_create_sso_user", _record("find_or_create_sso_user", user)
+        )
+
+        monkeypatch.setattr(sso_router, "audit_log", _record("audit_log"))
+        monkeypatch.setattr(sso_router, "clear_user_logout", _record("clear_user_logout"))
+        monkeypatch.setattr(
+            sso_router, "create_session_token", _record("create_session_token", "sess")
+        )
+        monkeypatch.setattr(
+            sso_router, "create_refresh_token", _record("create_refresh_token", "refresh")
+        )
+        monkeypatch.setattr(sso_router, "regenerate_session", _record("regenerate_session"))
+
+        async def _build_redirect_url(*args, **kwargs):
+            calls.append(("build_redirect_url", args, kwargs))
+            return "https://app.example/auth/signin?code=abc"
+
+        monkeypatch.setattr(sso_router, "build_redirect_url", _build_redirect_url)
+
+        request = SimpleNamespace(
+            session={"sso_code_verifier": "verifier", "sso_org_id": self.ORG_SLUG},
+        )
+        db = SimpleNamespace(commit=lambda: calls.append(("commit", (), {})))
+
+        return SimpleNamespace(
+            org=org,
+            user=user,
+            calls=calls,
+            request=request,
+            db=db,
+            names=lambda: [c[0] for c in calls],
+        )
+
+    async def _run(self, env):
+        from rhesis.backend.ee.sso.router import sso_callback
+
+        return await sso_callback(
+            request=env.request, code="authcode", state="signedstate", db=env.db
+        )
+
+    @pytest.mark.asyncio
+    async def test_guc_set_before_user_provisioning(self, callback_env):
+        await self._run(callback_env)
+
+        names = callback_env.names()
+        assert "set_session_variables" in names, (
+            "callback never set the tenant GUCs; first-time SSO login will fail "
+            "with 'unrecognized configuration parameter'"
+        )
+        assert names.index("set_session_variables") < names.index("find_or_create_sso_user"), (
+            "GUCs must be set before provisioning, which writes RLS-protected tables"
+        )
+
+    @pytest.mark.asyncio
+    async def test_guc_uses_resolved_org_uuid_not_slug(self, callback_env):
+        await self._run(callback_env)
+
+        matches = [c for c in callback_env.calls if c[0] == "set_session_variables"]
+        assert matches, "callback never set the tenant GUCs"
+        _name, args, _kwargs = matches[0]
+
+        assert args[0] is callback_env.db
+        # The org UUID, not the slug from the signed state -- RLS compares
+        # organization_id against this value.
+        assert args[1] == str(callback_env.org.id)
+        assert args[1] != self.ORG_SLUG
