@@ -42,27 +42,19 @@ dependencies = [
     "ragas>=0.3.7,<0.4",
     "mcp>=1.28.1",
     "websockets>=12.0",
-    "ipython>=8.37.0",
-    "ipykernel>=7.1.0",
     "rhesis[telemetry]",
     "aiohttp>=3.14.1",
-    "aiohttp_security",
-    "aiohttp_session",
-    "appdirs",
     "cryptography>=48.0.1",
     "pillow>=12.3.0",
     "marshmallow>=3.26.2",
     "mammoth>=1.11.0",
-    # NOTE: diskcache has unsafe pickle deserialization (CVE-2025-69872).
-    # No patch available. Ensure only trusted data is cached.
-    "diskcache",
-    "nest_asyncio",
-    "numpy",
-    "scikit-learn",
     "torch",
     "jsonfinder>=0.4.2",
     "chonkie>=1.6.1",
     "pdfminer.six>=20231228",
+    # NOTE: diskcache is still installed transitively via ragas and has unsafe
+    # pickle deserialization (CVE-2025-69872). No patch available. Ensure only
+    # trusted data is cached.
 ]
 
 [project.license]

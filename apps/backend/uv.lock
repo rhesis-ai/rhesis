@@ -39,7 +39,7 @@ conflicts = [[
 ]]
 
 [options]
-exclude-newer = "2026-07-20T18:12:49.043367Z"
+exclude-newer = "2026-07-23T09:26:18.696825Z"
 exclude-newer-span = "P1W"
 
 [options.exclude-newer-package]
@@ -239,30 +239,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/7b/3c/bb4a7cba26956cb3da4553cc2056cf67be5b5ff6e6d8fa4fbdff73bfb7ae/aiohttp-3.14.1-cp314-cp314t-win32.whl", hash = "sha256:47ddf841cdecc810749921d25606dee45857d12d2ad5ddb7b5bd7eab12e4b365", size = 494166, upload-time = "2026-06-07T21:09:28.505Z" },
     { url = "https://files.pythonhosted.org/packages/8a/84/ec80c2c1f66a952555a9f86df6b33af65108a6febfa0471b69013a12f807/aiohttp-3.14.1-cp314-cp314t-win_amd64.whl", hash = "sha256:5e78b522b7a6e27e0b25d19b247b75039ac4c94f99823e3c9e53ae1603a9f7e9", size = 530255, upload-time = "2026-06-07T21:09:30.843Z" },
     { url = "https://files.pythonhosted.org/packages/2a/71/6e22be134a4061ada85a92951b842f2657f17d926b727f3f94c56ae963d6/aiohttp-3.14.1-cp314-cp314t-win_arm64.whl", hash = "sha256:90d53f1609c29ccc2193945ef732428382a28f78d0456ae4d3daf0d48b74f0f6", size = 469640, upload-time = "2026-06-07T21:09:33.028Z" },
-]
-
-[[package]]
-name = "aiohttp-security"
-version = "0.5.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "aiohttp" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/31/49/56c131fe3dead875ab5907b154dac7fb6ee727662de80b7da0ff045030d4/aiohttp-security-0.5.0.tar.gz", hash = "sha256:50cb724d310e1d0289798bb98ae852c3b75b77e8f51ce5159c57b7261d0638bd", size = 55500, upload-time = "2023-11-18T20:10:32.735Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/f7/c4/9abee42a0c438f531a66906fb678eb1946c55c08e623b42c05f6f2fc616e/aiohttp_security-0.5.0-py3-none-any.whl", hash = "sha256:791ecbb4bbdb95b3a2033bda345231628ea42903b2d33b6a3bf8737ed68c6072", size = 25168, upload-time = "2023-11-18T20:10:30.743Z" },
-]
-
-[[package]]
-name = "aiohttp-session"
-version = "2.12.1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "aiohttp" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/c2/c4/d73a7f19b1bd3149ba5bccd22e3ab580c19e4d9fcb83114309e8385ab807/aiohttp_session-2.12.1.tar.gz", hash = "sha256:15e6e0288e9bcccd4b1d0c28aae9c20e19a252b12d0cb682223ca9c83180e899", size = 92775, upload-time = "2024-09-25T15:15:45.458Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/13/81/a9ff9032bbe7632fce8812487efe32cee3c76bc0b3221561cd5b6954d876/aiohttp_session-2.12.1-py3-none-any.whl", hash = "sha256:654df46c3c9b73294312795f558c3bca4a85bfd3b01a8b744d984ae3958dce5f", size = 12464, upload-time = "2024-09-25T15:15:43.716Z" },
 ]
 
 [[package]]
@@ -6899,6 +6875,7 @@ all = [
     { name = "huggingface-hub" },
     { name = "mcp-atlassian" },
     { name = "mirascope" },
+    { name = "numpy" },
     { name = "rhesis-penelope" },
     { name = "rhesis-sdk" },
     { name = "sendgrid" },
@@ -6963,6 +6940,7 @@ requires-dist = [
     { name = "mcp-atlassian", marker = "extra == 'all'", specifier = ">=0.13.0" },
     { name = "mirascope", marker = "extra == 'all'", specifier = "==1.24.0" },
     { name = "nanoid" },
+    { name = "numpy", marker = "extra == 'all'" },
     { name = "odata-query", specifier = "==0.10.0" },
     { name = "openpyxl" },
     { name = "opentelemetry-api", specifier = ">=1.32.1" },
@@ -7107,16 +7085,10 @@ version = "0.11.0"
 source = { editable = "../../sdk" }
 dependencies = [
     { name = "aiohttp" },
-    { name = "aiohttp-security" },
-    { name = "aiohttp-session" },
-    { name = "appdirs" },
     { name = "chonkie" },
     { name = "cryptography" },
     { name = "deepeval" },
     { name = "deepteam" },
-    { name = "diskcache" },
-    { name = "ipykernel" },
-    { name = "ipython" },
     { name = "jinja2" },
     { name = "jsonfinder" },
     { name = "langchain-google-genai" },
@@ -7125,8 +7097,6 @@ dependencies = [
     { name = "markitdown", extra = ["docx", "pdf", "pptx", "xlsx"] },
     { name = "marshmallow" },
     { name = "mcp" },
-    { name = "nest-asyncio" },
-    { name = "numpy" },
     { name = "pandas" },
     { name = "pdfminer-six" },
     { name = "pillow" },
@@ -7136,7 +7106,6 @@ dependencies = [
     { name = "ragas" },
     { name = "requests" },
     { name = "rhesis", extra = ["telemetry"] },
-    { name = "scikit-learn" },
     { name = "tenacity" },
     { name = "tiktoken" },
     { name = "torch", version = "2.10.0+cu128", source = { registry = "https://download.pytorch.org/whl/cu128" }, marker = "(sys_platform == 'linux' and extra == 'extra-14-rhesis-backend-gpu') or (sys_platform == 'win32' and extra == 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
@@ -7161,19 +7130,13 @@ requires-dist = [
     { name = "agent-framework-orchestrations", marker = "extra == 'all'", specifier = ">=1.0.0b260421" },
     { name = "agent-framework-orchestrations", marker = "extra == 'all-integrations'", specifier = ">=1.0.0b260421" },
     { name = "aiohttp", specifier = ">=3.14.1" },
-    { name = "aiohttp-security" },
-    { name = "aiohttp-session" },
-    { name = "appdirs" },
     { name = "bitsandbytes", marker = "extra == 'all'", specifier = ">=0.45.0" },
     { name = "bitsandbytes", marker = "extra == 'huggingface'", specifier = ">=0.45.0" },
     { name = "chonkie", specifier = ">=1.6.1" },
     { name = "cryptography", specifier = ">=48.0.1" },
     { name = "deepeval", specifier = "==3.7.0" },
     { name = "deepteam", specifier = ">=0.2.5" },
-    { name = "diskcache" },
     { name = "garak", marker = "extra == 'garak'", specifier = ">=0.14.0" },
-    { name = "ipykernel", specifier = ">=7.1.0" },
-    { name = "ipython", specifier = ">=8.37.0" },
     { name = "jinja2", specifier = ">=3.1.6" },
     { name = "jsonfinder", specifier = ">=0.4.2" },
     { name = "langchain", marker = "extra == 'all'", specifier = ">=1.3.9" },
@@ -7196,8 +7159,6 @@ requires-dist = [
     { name = "markitdown", extras = ["pdf", "docx", "pptx", "xlsx"], specifier = ">=0.1.0" },
     { name = "marshmallow", specifier = ">=3.26.2" },
     { name = "mcp", specifier = ">=1.28.1" },
-    { name = "nest-asyncio" },
-    { name = "numpy" },
     { name = "pandas", specifier = ">=2.2.2" },
     { name = "pdfminer-six", specifier = ">=20231228" },
     { name = "pillow", specifier = ">=12.3.0" },
@@ -7213,7 +7174,6 @@ requires-dist = [
     { name = "ragas", specifier = ">=0.3.7,<0.4" },
     { name = "requests", specifier = ">=2.31.0" },
     { name = "rhesis", extras = ["telemetry"], directory = "../../packages/rhesis" },
-    { name = "scikit-learn" },
     { name = "tenacity", specifier = ">=8.2.3" },
     { name = "tiktoken", specifier = ">=0.9.0" },
     { name = "torch" },

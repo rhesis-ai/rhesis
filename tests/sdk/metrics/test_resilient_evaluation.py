@@ -60,7 +60,7 @@ class TestResilientEvaluationAsync:
             async def a_evaluate(self, **kwargs):
                 return expected
 
-        result = asyncio.get_event_loop().run_until_complete(M().a_evaluate())
+        result = asyncio.run(M().a_evaluate())
         assert result is expected
 
     def test_catches_exception_returns_inconclusive(self):
@@ -69,7 +69,7 @@ class TestResilientEvaluationAsync:
             async def a_evaluate(self, **kwargs):
                 raise RuntimeError("model output parse failed")
 
-        result = asyncio.get_event_loop().run_until_complete(M().a_evaluate())
+        result = asyncio.run(M().a_evaluate())
         assert result.score is None
         assert result.details["inconclusive"] is True
         assert result.details["is_successful"] is None
@@ -82,7 +82,7 @@ class TestResilientEvaluationAsync:
                 raise ValueError("x")
 
         m = M(name="faithfulness")
-        result = asyncio.get_event_loop().run_until_complete(m.a_evaluate())
+        result = asyncio.run(m.a_evaluate())
         assert "faithfulness" in result.details["reason"]
 
     def test_propagates_args_to_wrapped_function(self):
@@ -91,7 +91,7 @@ class TestResilientEvaluationAsync:
             async def a_evaluate(self, input, output):
                 return MetricResult(score=1.0, details={"input": input, "output": output})
 
-        result = asyncio.get_event_loop().run_until_complete(M().a_evaluate("hello", "world"))
+        result = asyncio.run(M().a_evaluate("hello", "world"))
         assert result.details["input"] == "hello"
         assert result.details["output"] == "world"
 
@@ -181,7 +181,7 @@ class TestResilientEvaluationPassthrough:
                 raise ConnectionError("connection refused")
 
         with pytest.raises(ConnectionError):
-            asyncio.get_event_loop().run_until_complete(M().a_evaluate())
+            asyncio.run(M().a_evaluate())
 
     def test_reraises_timeout_error_async(self):
         class M(_StubMetric):
@@ -190,7 +190,7 @@ class TestResilientEvaluationPassthrough:
                 raise TimeoutError("timed out")
 
         with pytest.raises(TimeoutError):
-            asyncio.get_event_loop().run_until_complete(M().a_evaluate())
+            asyncio.run(M().a_evaluate())
 
     def test_reraises_os_error_async(self):
         class M(_StubMetric):
@@ -199,7 +199,7 @@ class TestResilientEvaluationPassthrough:
                 raise OSError("network unreachable")
 
         with pytest.raises(OSError):
-            asyncio.get_event_loop().run_until_complete(M().a_evaluate())
+            asyncio.run(M().a_evaluate())
 
     def test_reraises_keyboard_interrupt_async(self):
         class M(_StubMetric):
@@ -208,7 +208,7 @@ class TestResilientEvaluationPassthrough:
                 raise KeyboardInterrupt()
 
         with pytest.raises(KeyboardInterrupt):
-            asyncio.get_event_loop().run_until_complete(M().a_evaluate())
+            asyncio.run(M().a_evaluate())
 
     def test_reraises_cancelled_error_async(self):
         class M(_StubMetric):
@@ -217,7 +217,7 @@ class TestResilientEvaluationPassthrough:
                 raise asyncio.CancelledError()
 
         with pytest.raises(asyncio.CancelledError):
-            asyncio.get_event_loop().run_until_complete(M().a_evaluate())
+            asyncio.run(M().a_evaluate())
 
     def test_non_transient_errors_still_caught(self):
         """ValueError/RuntimeError are not transient — should return inconclusive."""
@@ -239,7 +239,7 @@ class TestResilientEvaluationLogging:
                 raise ValueError("bad output")
 
         with caplog.at_level("WARNING"):
-            asyncio.get_event_loop().run_until_complete(M(name="bias").a_evaluate())
+            asyncio.run(M(name="bias").a_evaluate())
 
         assert any("bias" in r.message and "ValueError" in r.message for r in caplog.records)
 
@@ -252,7 +252,7 @@ class TestResilientEvaluationLogging:
                 raise ValueError(sensitive)
 
         with caplog.at_level("WARNING"):
-            asyncio.get_event_loop().run_until_complete(M().a_evaluate())
+            asyncio.run(M().a_evaluate())
 
         for record in caplog.records:
             assert sensitive not in record.message
