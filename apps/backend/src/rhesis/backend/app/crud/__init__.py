@@ -683,41 +683,6 @@ def get_test_sets(
     return query_builder.all()
 
 
-def get_explorer_test_sets(
-    db: Session,
-    organization_id: str,
-    skip: int = 0,
-    limit: int = 100,
-    sort_by: str = "created_at",
-    sort_order: str = "desc",
-) -> List[models.TestSet]:
-    """
-    Get Explorer test sets -- the inverse of get_test_sets' exclusion clause.
-
-    Eager-loads what TestSetDetail serializes, since GET /explorer/ returns that schema.
-    """
-    explorer_marker = cast([ADAPTIVE_TESTING_BEHAVIOR], JSONB)
-
-    def only_explorer_test_sets(query):
-        return query.filter(
-            models.TestSet.attributes["metadata"]["behaviors"].contains(explorer_marker)
-        )
-
-    # Paginated outside the builder on purpose: with_pagination caps limit at 100
-    # (validate_pagination) and this endpoint has never capped. with_sorting already
-    # appends id ASC as a tiebreaker, so pagination stays stable.
-    query = (
-        QueryBuilder(db, models.TestSet)
-        .with_related(*_TEST_SET_RELATED_FIELDS)
-        .with_default_derived_field_loads()
-        .with_organization_filter(organization_id)
-        .with_custom_filter(only_explorer_test_sets)
-        .with_sorting(sort_by, sort_order)
-        .build()
-    )
-    return query.offset(skip).limit(limit).all()
-
-
 def create_test_set(
     db: Session, test_set: schemas.TestSetCreate, organization_id: str = None, user_id: str = None
 ) -> models.TestSet:
@@ -742,24 +707,6 @@ def delete_test_set(
     return delete_item(
         db, models.TestSet, test_set_id, organization_id=organization_id, user_id=user_id
     )
-
-
-def get_test_ids_in_test_sets(
-    db: Session, test_set_ids: List[uuid.UUID], organization_id: str
-) -> List[uuid.UUID]:
-    """Distinct ids of the tests associated with any of the given test sets."""
-    if not test_set_ids:
-        return []
-
-    rows = db.execute(
-        select(test_test_set_association.c.test_id)
-        .where(
-            test_test_set_association.c.test_set_id.in_(test_set_ids),
-            test_test_set_association.c.organization_id == organization_id,
-        )
-        .distinct()
-    ).fetchall()
-    return [row.test_id for row in rows]
 
 
 def get_test_set_by_nano_id_or_slug(

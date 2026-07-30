@@ -5,6 +5,7 @@ from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models
+from rhesis.backend.app.crud.explorer import get_test_ids_in_test_sets
 from rhesis.backend.app.database import without_soft_delete_filter
 from rhesis.backend.app.schemas.explorer import TestTreeNode, TopicNode
 from rhesis.backend.app.services.explorer import (
@@ -495,7 +496,7 @@ class TestDeleteExplorerTestSet:
             topic="Safety",
             input="Is this harmful?",
         )
-        test_ids = crud.get_test_ids_in_test_sets(test_db, [created.id], test_org_id)
+        test_ids = get_test_ids_in_test_sets(test_db, [created.id], test_org_id)
         # The test plus the "Safety" topic marker.
         assert len(test_ids) == 2
 
@@ -604,7 +605,7 @@ class TestBulkDeleteExplorerTestSets:
             sessions.append(created)
 
         session_ids = [s.id for s in sessions]
-        test_ids = crud.get_test_ids_in_test_sets(test_db, session_ids, test_org_id)
+        test_ids = get_test_ids_in_test_sets(test_db, session_ids, test_org_id)
         assert len(test_ids) == 4  # 2 tests + 2 topic markers
 
         bulk_delete_explorer_test_sets(
@@ -625,7 +626,7 @@ class TestBulkDeleteExplorerTestSets:
     ):
         """A non-explorer id is skipped without touching its tests."""
         regular = regular_test_set_for_import
-        test_ids = crud.get_test_ids_in_test_sets(test_db, [regular.id], test_org_id)
+        test_ids = get_test_ids_in_test_sets(test_db, [regular.id], test_org_id)
         assert test_ids
 
         result = bulk_delete_explorer_test_sets(
