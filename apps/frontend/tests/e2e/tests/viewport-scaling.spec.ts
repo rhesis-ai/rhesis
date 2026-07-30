@@ -58,7 +58,10 @@ test('zoom ladder matches the breakpoints and adds no overflow', async ({
     expect(`${parseFloat(m.uiScale)} @${width}`).toBe(
       `${parseFloat(expectedZoom)} @${width}`
     );
-    expect(m.overflowX, `horizontal overflow at ${width}px`).toBeLessThanOrEqual(0);
+    expect(
+      m.overflowX,
+      `horizontal overflow at ${width}px`
+    ).toBeLessThanOrEqual(0);
   }
 });
 
@@ -79,7 +82,9 @@ test('full-height shell tracks the real viewport under zoom', async ({
 
   // Uncompensated this was 786 against a 982px window — a visible dead strip.
   expect(m.navHeight).not.toBeNull();
-  expect(Math.abs((m.navHeight as number) - m.innerHeight)).toBeLessThanOrEqual(2);
+  expect(Math.abs((m.navHeight as number) - m.innerHeight)).toBeLessThanOrEqual(
+    2
+  );
 });
 
 test('portalled overlays stay outside the zoomed subtree', async ({ page }) => {
@@ -88,7 +93,9 @@ test('portalled overlays stay outside the zoomed subtree', async ({ page }) => {
   await page.waitForTimeout(1500);
 
   // The Next.js dev-overlay portal sits above the sidebar and swallows clicks.
-  await page.addStyleTag({ content: 'nextjs-portal { display: none !important }' });
+  await page.addStyleTag({
+    content: 'nextjs-portal { display: none !important }',
+  });
 
   const account = page
     .locator('button, [role="button"]')
