@@ -13,6 +13,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- **BREAKING:** Removed `rhesis.sdk.adaptive_testing`, including `TestTree.from_test_set`, `serve`,
+  `TestTreeBrowser` and `embed_with_cache`. Explorer is server-side only; use the backend
+  `/explorer` routes.
+- Dropped dependencies that only the removed package needed: `aiohttp_security`, `aiohttp_session`,
+  `appdirs`, `diskcache`, `nest_asyncio`, `numpy`, `scikit-learn`, `ipython`, `ipykernel`. Importing
+  the SDK no longer calls `nest_asyncio.apply()`, so it stops patching the caller's event loop.
+
 ## [0.11.0] - 2026-07-23
 
 ### Changed

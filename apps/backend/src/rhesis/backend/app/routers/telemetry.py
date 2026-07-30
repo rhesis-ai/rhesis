@@ -563,6 +563,7 @@ def get_trace(
                 "test_result",
                 "test",
                 "test_result.test_configuration.endpoint",
+                "trace_metrics_status",
             ],
         )
 

@@ -168,7 +168,6 @@ const makeTestSet = (id: UUID, name = 'Test Set'): TestSet => ({
   is_published: false,
   name,
   description: 'A test set',
-  owner: { id: 'u1', name: 'Alice', email: 'alice@example.com' },
   tags: [],
   counts: { comments: 0, tasks: 0 },
   created_at: '2024-01-01T00:00:00Z',

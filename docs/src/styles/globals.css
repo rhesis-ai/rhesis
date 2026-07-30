@@ -1,29 +1,7 @@
-/* Rhesis Brand Colors */
+/* Design tokens — see tokens.css. Must stay first: @import precedes rules. */
+@import './tokens.css';
+
 :root {
-  /* Primary Blues */
-  --rhesis-primary-main: #50b9e0; /* RGB: 80, 185, 224 */
-  --rhesis-primary-light: #97d5ee; /* RGB: 151, 213, 238 */
-  --rhesis-primary-dark: #2aa1ce; /* CTA Blue */
-  --rhesis-primary-darker: #3bc4f2; /* Hover Blue */
-
-  /* Backgrounds */
-  --rhesis-bg-lightest: #f2f9fd;
-  --rhesis-bg-light: #e4f2fa;
-  --rhesis-bg-medium: #c2e5f5;
-  --rhesis-bg-blue: #97d5ee;
-  --rhesis-bg-white: #ffffff;
-
-  /* Text Colors */
-  --rhesis-text-primary: #3d3d3d; /* Main text color */
-  --rhesis-text-dark: #1a1a1a; /* RGB: 26, 26, 26 */
-
-  /* CTA Colors */
-  --rhesis-cta-blue: #2aa1ce;
-  --rhesis-cta-orange: #fd6e12; /* RGB: 253, 110, 18 */
-
-  /* Accent Colors */
-  --rhesis-accent-yellow: #fdd803; /* RGB: 253, 216, 3 */
-
   /* OKLCH Categorical Colors - Theme Invariant */
   /* Fixed lightness (65%) and chroma (0.25) for vivid, consistent colors across themes */
   --mermaid-cat-1: oklch(65% 0.25 220); /* Blue */
@@ -36,22 +14,22 @@
   --mermaid-cat-8: oklch(65% 0.25 170); /* Teal */
 
   /* Mermaid theme-aware backgrounds and text */
-  --mermaid-bg: #ffffff;
-  --mermaid-text: #3d3d3d;
+  --mermaid-bg: var(--rh-surface);
+  --mermaid-text: var(--rh-text);
   --mermaid-line: oklch(50% 0.05 220);
   --mermaid-text-light: #ffffff;
-  --mermaid-node-text: #1a1a1a; /* Dark text for nodes in light theme */
+  --mermaid-node-text: var(--rh-heading); /* Dark text for nodes in light theme */
 
   /* Framework integrations showcase — logo tile behind third-party icons */
-  --integration-icon-well-bg: #f1f5f9;
+  --integration-icon-well-bg: var(--rh-surface-sunken);
   --integration-icon-well-inset: inset 0 0 0 1px rgba(15, 23, 42, 0.12);
 
   /* Framework integrations showcase — copy, links, grid cards, provider chips */
   --integration-showcase-lede: var(--rhesis-text-primary);
-  --integration-showcase-link: #0284c7;
+  --integration-showcase-link: var(--rh-blue-cta);
   --integration-showcase-muted: rgba(100, 116, 139, 0.95);
-  --integration-showcase-code: #0f172a;
-  --integration-showcase-strong: #0f172a;
+  --integration-showcase-code: var(--rh-heading);
+  --integration-showcase-strong: var(--rh-heading);
   --integration-showcase-card-border: rgba(15, 23, 42, 0.18);
   --integration-showcase-card-bg: rgba(255, 255, 255, 0.92);
   --integration-showcase-card-shadow:
@@ -63,15 +41,12 @@
   --integration-showcase-chip-name: var(--rhesis-text-primary);
 }
 
-/* Dark mode brand colors */
+/* Dark mode — text/surface tokens come from tokens.css */
 [data-theme='dark'],
 .dark {
-  --rhesis-text-primary: #e6edf3;
-  --rhesis-text-dark: #ffffff;
-
   /* OKLCH colors remain identical - only bg/text change */
-  --mermaid-bg: #0d1117;
-  --mermaid-text: #e6edf3;
+  --mermaid-bg: var(--rh-canvas);
+  --mermaid-text: var(--rh-text);
   --mermaid-line: oklch(75% 0.05 220); /* Light arrows for dark mode visibility */
   --mermaid-text-light: #ffffff;
   --mermaid-node-text: #ffffff; /* Light text for nodes in dark theme */
@@ -80,17 +55,17 @@
   --integration-icon-well-inset: inset 0 0 0 1px rgba(15, 23, 42, 0.08);
 
   --integration-showcase-lede: rgba(203, 213, 225, 0.95);
-  --integration-showcase-link: #7dd3fc;
+  --integration-showcase-link: var(--rh-blue-hover);
   --integration-showcase-muted: rgba(148, 163, 184, 0.9);
-  --integration-showcase-code: #e2e8f0;
-  --integration-showcase-strong: #e2e8f0;
+  --integration-showcase-code: var(--rh-text);
+  --integration-showcase-strong: var(--rh-text);
   --integration-showcase-card-border: rgba(255, 255, 255, 0.1);
   --integration-showcase-card-bg: rgba(255, 255, 255, 0.04);
   --integration-showcase-card-shadow: 0 2px 10px rgba(0, 0, 0, 0.42);
   --integration-showcase-chip-border: rgba(255, 255, 255, 0.05);
   /* No white lift — reads darker and flatter than link cards */
   --integration-showcase-chip-bg: transparent;
-  --integration-showcase-name: #f9fafb;
+  --integration-showcase-name: var(--rh-heading);
   --integration-showcase-chip-name: rgba(226, 232, 240, 0.95);
 }
 
@@ -130,34 +105,66 @@
   outline-offset: 3px;
 }
 
-/* Local Font Definitions */
+/**
+ * Local font definitions — self-hosted woff2, same files the marketing site
+ * serves. Sora carries display/headings, Geist the UI and body, Geist Mono the
+ * code and the uppercase eyebrow labels.
+ */
+
+/* Geist — variable, one file covers 100–900 */
 @font-face {
-  font-family: 'Be Vietnam Pro';
-  src: url('/fonts/be-vietnam-pro/be-vietnam-pro-light.ttf') format('truetype');
-  font-weight: 300;
+  font-family: 'Geist';
+  src: url('/fonts/Geist-VariableFont_wght.woff2') format('woff2');
+  font-weight: 100 900;
   font-style: normal;
   font-display: swap;
 }
 
 @font-face {
-  font-family: 'Be Vietnam Pro';
-  src: url('/fonts/be-vietnam-pro/be-vietnam-pro-regular.ttf') format('truetype');
+  font-family: 'Geist';
+  src: url('/fonts/Geist-Italic-VariableFont_wght.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: italic;
+  font-display: swap;
+}
+
+/* Geist Mono — variable */
+@font-face {
+  font-family: 'Geist Mono';
+  src: url('/fonts/GeistMono-VariableFont_wght.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Geist Mono';
+  src: url('/fonts/GeistMono-Italic-VariableFont_wght.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: italic;
+  font-display: swap;
+}
+
+/* Sora — static weights 400–800 */
+@font-face {
+  font-family: 'Sora';
+  src: url('/fonts/Sora-400.woff2') format('woff2');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
 }
 
 @font-face {
-  font-family: 'Be Vietnam Pro';
-  src: url('/fonts/be-vietnam-pro/be-vietnam-pro-medium.ttf') format('truetype');
+  font-family: 'Sora';
+  src: url('/fonts/Sora-500.woff2') format('woff2');
   font-weight: 500;
   font-style: normal;
   font-display: swap;
 }
 
 @font-face {
-  font-family: 'Be Vietnam Pro';
-  src: url('/fonts/be-vietnam-pro/be-vietnam-pro-semibold.ttf') format('truetype');
+  font-family: 'Sora';
+  src: url('/fonts/Sora-600.woff2') format('woff2');
   font-weight: 600;
   font-style: normal;
   font-display: swap;
@@ -165,24 +172,16 @@
 
 @font-face {
   font-family: 'Sora';
-  src: url('/fonts/sora/sora-regular.ttf') format('truetype');
-  font-weight: 400;
+  src: url('/fonts/Sora-700.woff2') format('woff2');
+  font-weight: 700;
   font-style: normal;
   font-display: swap;
 }
 
 @font-face {
   font-family: 'Sora';
-  src: url('/fonts/sora/sora-medium.ttf') format('truetype');
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Sora';
-  src: url('/fonts/sora/sora-semibold.ttf') format('truetype');
-  font-weight: 600;
+  src: url('/fonts/Sora-800.woff2') format('woff2');
+  font-weight: 800;
   font-style: normal;
   font-display: swap;
 }
@@ -252,12 +251,7 @@ td,
 th,
 label,
 a {
-  font-family:
-    'Be Vietnam Pro',
-    -apple-system,
-    BlinkMacSystemFont,
-    'Segoe UI',
-    sans-serif !important;
+  font-family: var(--rh-font-sans) !important;
 }
 
 /* Headings use Sora font */
@@ -273,7 +267,15 @@ h6,
 .nextra-content h4,
 .nextra-content h5,
 .nextra-content h6 {
-  font-family: 'Sora', 'Be Vietnam Pro', sans-serif !important;
+  font-family: var(--rh-font-display) !important;
+}
+
+/* Code and the uppercase eyebrow labels use Geist Mono */
+code,
+kbd,
+pre,
+samp {
+  font-family: var(--rh-font-mono) !important;
 }
 
 /* Light mode text colors - matching frontend theme */
@@ -285,7 +287,7 @@ body,
 .nextra-content li,
 .nextra-sidebar a,
 .nextra-nav-container a {
-  color: #3d3d3d !important; /* Frontend theme text.primary */
+  color: var(--rh-text) !important; /* Frontend theme text.primary */
 }
 
 /* Headings color - matching frontend theme */
@@ -295,34 +297,20 @@ body,
 .nextra-content h4,
 .nextra-content h5,
 .nextra-content h6 {
-  color: #3d3d3d !important; /* Frontend theme text.primary */
+  color: var(--rh-text) !important; /* Frontend theme text.primary */
 }
 
 /* Links - matching frontend theme colors */
 .nextra-content a {
-  color: #3d3d3d !important;
+  color: var(--rh-text) !important;
   text-decoration: none;
 }
 
 .nextra-content a:hover,
 .nextra-sidebar a:hover,
 .nextra-nav-container a:hover {
-  color: #2aa1ce !important; /* Frontend theme primary.dark (CTA blue) */
+  color: var(--rh-blue-cta) !important; /* Frontend theme primary.dark (CTA blue) */
   text-decoration: underline;
-}
-
-/* Active sidebar links - matching frontend theme */
-.nextra-sidebar a[aria-current='page'],
-.nextra-sidebar a[data-active='true'] {
-  background-color: rgba(80, 185, 224, 0.15) !important; /* Visible blue background for active */
-  color: #2aa1ce !important; /* CTA blue text */
-  font-weight: 500;
-}
-
-/* Hover state for sidebar links */
-.nextra-sidebar a:hover:not([aria-current='page']):not([data-active='true']) {
-  background-color: rgba(80, 185, 224, 0.08) !important; /* Subtle hover state */
-  color: #2aa1ce !important; /* CTA blue text on hover */
 }
 
 /* Sidebar and navbar icon + label alignment */
@@ -357,7 +345,7 @@ nav .sidebar-icon-label,
   text-transform: none !important;
   margin-top: 0.375rem !important;
   padding-top: 0.25rem !important;
-  color: var(--rhesis-text-dark, #1a1a1a) !important;
+  color: var(--rhesis-text-dark, var(--rh-heading)) !important;
   text-decoration: none !important;
   pointer-events: auto;
   position: relative;
@@ -391,7 +379,7 @@ nav .sidebar-icon-label,
 
 [data-theme='dark'] .rhesis-sidebar-section-header,
 .dark .rhesis-sidebar-section-header {
-  color: var(--rhesis-text-primary, #e6edf3) !important;
+  color: var(--rhesis-text-primary, var(--rh-text)) !important;
 }
 
 /* Remove/hide sidebar submenu borders */
@@ -412,8 +400,8 @@ nav .sidebar-icon-label,
 /* Dark mode - matching frontend theme colors */
 [data-theme='dark'] body,
 .dark body {
-  color: #e6edf3 !important;
-  background-color: #0d1117; /* Frontend theme background.default */
+  color: var(--rh-text) !important;
+  background-color: var(--rh-canvas); /* Frontend theme background.default */
 }
 
 [data-theme='dark'] .nextra-content,
@@ -426,13 +414,13 @@ nav .sidebar-icon-label,
 [data-theme='dark'] .nextra-content li,
 .dark .nextra-content span,
 .dark .nextra-content li {
-  color: #e6edf3 !important;
+  color: var(--rh-text) !important;
 }
 
 /* Dark mode navbar links - no background boxes */
 [data-theme='dark'] .nextra-nav-container a,
 .dark .nextra-nav-container a {
-  color: #e6edf3 !important;
+  color: var(--rh-text) !important;
   background-color: transparent !important;
 }
 
@@ -453,7 +441,7 @@ nav .sidebar-icon-label,
 .dark .nextra-sidebar span,
 [data-theme='dark'] .nextra-sidebar div,
 .dark .nextra-sidebar div {
-  color: #e6edf3 !important; /* Frontend theme text.primary for dark mode */
+  color: var(--rh-text) !important; /* Frontend theme text.primary for dark mode */
 }
 
 /* Ensure submenu items match frontend theme */
@@ -467,7 +455,7 @@ nav .sidebar-icon-label,
 .dark .nextra-sidebar .nx-text-slate-500,
 [data-theme='dark'] .nextra-sidebar .nx-text-neutral-500,
 .dark .nextra-sidebar .nx-text-neutral-500 {
-  color: #e6edf3 !important; /* Frontend theme text.primary for dark mode */
+  color: var(--rh-text) !important; /* Frontend theme text.primary for dark mode */
 }
 
 /* Target Nextra's specific navigation classes */
@@ -479,7 +467,7 @@ nav .sidebar-icon-label,
 .dark .nextra-sidebar .nx-menu-item span,
 [data-theme='dark'] .nextra-sidebar .nx-menu-item div,
 .dark .nextra-sidebar .nx-menu-item div {
-  color: #e6edf3 !important; /* Frontend theme text.primary for dark mode */
+  color: var(--rh-text) !important; /* Frontend theme text.primary for dark mode */
 }
 
 /* Override any gray text classes in sidebar */
@@ -489,7 +477,7 @@ nav .sidebar-icon-label,
 .dark .nextra-sidebar [class*='text-slate'],
 [data-theme='dark'] .nextra-sidebar [class*='text-neutral'],
 .dark .nextra-sidebar [class*='text-neutral'] {
-  color: #e6edf3 !important; /* Frontend theme text.primary for dark mode */
+  color: var(--rh-text) !important; /* Frontend theme text.primary for dark mode */
 }
 
 /* Override Nextra's primary text classes that cause readability issues */
@@ -499,13 +487,13 @@ nav .sidebar-icon-label,
 .dark .nextra-sidebar .x\:dark\:text-primary-600,
 [data-theme='dark'] .nextra-sidebar .x\:text-primary-800,
 .dark .nextra-sidebar .x\:text-primary-800 {
-  color: #e6edf3 !important; /* Force readable text in dark mode */
+  color: var(--rh-text) !important; /* Force readable text in dark mode */
 }
 
 /* Target the specific problematic class combination */
 [data-theme='dark'] .nextra-sidebar a.x\:dark\:text-primary-600,
 .dark .nextra-sidebar a.x\:dark\:text-primary-600 {
-  color: #e6edf3 !important; /* Force readable text for navigation links */
+  color: var(--rh-text) !important; /* Force readable text for navigation links */
 }
 
 /* Comprehensive override for all Nextra primary color variants in dark mode */
@@ -515,7 +503,7 @@ nav .sidebar-icon-label,
 .dark .nextra-sidebar span[class*='primary'],
 [data-theme='dark'] .nextra-sidebar div[class*='primary'],
 .dark .nextra-sidebar div[class*='primary'] {
-  color: #e6edf3 !important; /* Force readable text for all primary color elements */
+  color: var(--rh-text) !important; /* Force readable text for all primary color elements */
 }
 
 /* Also target content area primary colors that might be hard to read - but NOT TOC */
@@ -531,7 +519,7 @@ nav .sidebar-icon-label,
   .dark
   .nextra-content
   [class*='text-primary-800']:not(.nextra-toc *):not(.nextra-toc a) {
-  color: #e6edf3 !important; /* Force readable text in content area */
+  color: var(--rh-text) !important; /* Force readable text in content area */
 }
 
 [data-theme='dark'] .nextra-content h1,
@@ -546,12 +534,12 @@ nav .sidebar-icon-label,
 .dark .nextra-content h5,
 [data-theme='dark'] .nextra-content h6,
 .dark .nextra-content h6 {
-  color: #ffffff !important; /* Frontend theme headings in dark mode */
+  color: var(--rh-heading) !important;
 }
 
 [data-theme='dark'] .nextra-content a,
 .dark .nextra-content a {
-  color: #e6edf3 !important; /* Frontend theme text.primary for dark mode */
+  color: var(--rh-text) !important; /* Frontend theme text.primary for dark mode */
 }
 
 [data-theme='dark'] .nextra-content a:hover,
@@ -560,23 +548,7 @@ nav .sidebar-icon-label,
 .dark .nextra-sidebar a:hover,
 [data-theme='dark'] .nextra-nav-container a:hover,
 .dark .nextra-nav-container a:hover {
-  color: #3bc4f2 !important; /* Frontend theme primary.light (hover blue) */
-}
-
-/* Active sidebar links in dark mode - matching frontend theme */
-[data-theme='dark'] .nextra-sidebar a[aria-current='page'],
-[data-theme='dark'] .nextra-sidebar a[data-active='true'],
-.dark .nextra-sidebar a[data-active='true'] {
-  background-color: rgba(42, 161, 206, 0.2) !important; /* Visible blue background for active */
-  color: #3bc4f2 !important; /* Brighter blue text */
-  font-weight: 500;
-}
-
-/* Hover state for sidebar links in dark mode */
-[data-theme='dark'] .nextra-sidebar a:hover:not([aria-current='page']):not([data-active='true']),
-.dark .nextra-sidebar a:hover:not([aria-current='page']):not([data-active='true']) {
-  background-color: rgba(42, 161, 206, 0.12) !important; /* Subtle blue background for hover */
-  color: #3bc4f2 !important; /* Brighter blue text on hover */
+  color: var(--rh-blue-hover) !important; /* Frontend theme primary.light (hover blue) */
 }
 
 /* Remove/hide sidebar submenu borders in dark mode */
@@ -600,40 +572,35 @@ nav .sidebar-icon-label,
   width: 0 !important;
 }
 
-/* Light mode backgrounds - clean white */
+/**
+ * Backgrounds.
+ *
+ * `html` owns the page colour and `body` stays transparent so the gradient
+ * backdrop (a fixed `z-index: -1` layer — see "GRADIENT BACKDROP" below) paints
+ * above the canvas but beneath every bit of content. Giving `body` an opaque
+ * colour here would bury it.
+ */
 body,
-.nextra-content,
+.nextra-content {
+  background-color: transparent !important;
+}
+
 .nextra-nav-container {
-  background-color: #ffffff !important; /* Clean white background */
+  background-color: var(--rh-canvas) !important;
 }
 
 .nextra-sidebar {
-  background-color: #ffffff !important; /* Clean white sidebar */
+  background-color: transparent !important;
   border-right: 0px !important; /* Remove border */
 }
 
 .nextra-sidebar-footer {
-  background-color: #ffffff !important; /* Clean white sidebar footer */
+  background-color: transparent !important;
 }
 
-/* Dark mode backgrounds - matching frontend theme */
-[data-theme='dark'] body,
-.dark body,
-[data-theme='dark'] .nextra-content,
-.dark .nextra-content,
 [data-theme='dark'] .nextra-nav-container,
 .dark .nextra-nav-container {
-  background-color: #0d1117 !important; /* Frontend theme background.default */
-}
-
-[data-theme='dark'] .nextra-sidebar,
-.dark .nextra-sidebar {
-  background-color: #161b22 !important; /* Frontend theme background.paper */
-}
-
-[data-theme='dark'] .nextra-sidebar-footer,
-.dark .nextra-sidebar-footer {
-  background-color: #161b22 !important; /* Frontend theme background.paper */
+  background-color: var(--rh-canvas) !important;
 }
 
 /* Target the specific sidebar footer with Nextra classes */
@@ -641,7 +608,7 @@ body,
 .dark .x\:bg-nextra-bg,
 [data-theme='dark'] div[class*='bg-nextra-bg'],
 .dark div[class*='bg-nextra-bg'] {
-  background-color: #161b22 !important; /* Frontend theme background.paper */
+  background-color: transparent !important;
 }
 
 /* Sidebar footer buttons styling in dark mode */
@@ -650,57 +617,49 @@ body,
 [data-theme='dark'] .nextra-sidebar button,
 .dark .nextra-sidebar button {
   background-color: transparent !important;
-  color: #e6edf3 !important; /* Frontend theme text.primary for dark mode */
+  color: var(--rh-text) !important; /* Frontend theme text.primary for dark mode */
 }
 
 [data-theme='dark'] .nextra-sidebar-footer button:hover,
 .dark .nextra-sidebar-footer button:hover,
 [data-theme='dark'] .nextra-sidebar button:hover,
 .dark .nextra-sidebar button:hover {
-  background-color: rgba(42, 161, 206, 0.12) !important; /* Frontend theme hover state */
-  color: #3bc4f2 !important; /* Frontend theme primary.light */
+  background-color: var(--rh-accent-bg-subtle) !important;
+  color: var(--rh-blue-hover) !important;
 }
 
-/* Code styling - matching frontend theme */
+/**
+ * Inline code. The tinted blue well is gone — the redesign puts code on a
+ * neutral surface and keeps the blue for the glyphs only.
+ */
 .nextra-content code {
-  background-color: #e4f2fa !important; /* Frontend theme light blue background */
-  color: #2aa1ce !important; /* Frontend theme primary.dark (CTA blue) */
+  background-color: var(--rh-code-bg) !important;
+  color: var(--rh-code-text) !important;
   padding: 2px 6px;
-  border-radius: 4px;
+  border-radius: var(--rh-radius-sm);
   font-size: 0.875em;
 }
 
-[data-theme='dark'] .nextra-content code,
-.dark .nextra-content code {
-  background-color: #1f242b !important; /* Frontend theme background.light3 */
-  color: #3bc4f2 !important; /* Frontend theme primary.light (hover blue) */
-}
-
-/* Nextra CSS variables for primary colors */
-:root {
-  --nextra-primary-hue: 200;
-  --nextra-primary-saturation: 70%;
-}
+/**
+ * Nextra's accent ramp and page background are configured on the `<Head>`
+ * component in app/layout.jsx — it emits them as an inline <style>, which beats
+ * any stylesheet, so setting --nextra-primary-* here would have no effect.
+ */
 
 /* Override Nextra's color variables - matching frontend theme */
 [data-theme='dark'],
 .dark {
-  /* Primary colors - matching frontend theme */
-  --nextra-primary-hue: 200;
-  --nextra-primary-saturation: 100%;
-  --nextra-primary-lightness: 60%;
-
   /* Neutral colors - matching frontend theme text colors */
-  --x-color-neutral-50: #e6edf3; /* Frontend theme text.primary for dark mode */
-  --x-color-neutral-100: #e6edf3; /* Frontend theme text.primary for dark mode */
-  --x-color-neutral-200: #e6edf3; /* Frontend theme text.primary for dark mode */
-  --x-color-neutral-300: #e6edf3; /* Frontend theme text.primary for dark mode */
-  --x-color-neutral-400: #e6edf3; /* Frontend theme text.primary for dark mode */
-  --x-color-neutral-500: #a9b1bb; /* Frontend theme text.secondary for dark mode */
-  --x-color-neutral-600: #a9b1bb; /* Frontend theme text.secondary for dark mode */
-  --x-color-neutral-700: #a9b1bb; /* Frontend theme text.secondary for dark mode */
-  --x-color-neutral-800: #a9b1bb; /* Frontend theme text.secondary for dark mode */
-  --x-color-neutral-900: #a9b1bb; /* Frontend theme text.secondary for dark mode */
+  --x-color-neutral-50: var(--rh-text); /* Frontend theme text.primary for dark mode */
+  --x-color-neutral-100: var(--rh-text); /* Frontend theme text.primary for dark mode */
+  --x-color-neutral-200: var(--rh-text); /* Frontend theme text.primary for dark mode */
+  --x-color-neutral-300: var(--rh-text); /* Frontend theme text.primary for dark mode */
+  --x-color-neutral-400: var(--rh-text); /* Frontend theme text.primary for dark mode */
+  --x-color-neutral-500: var(--rh-text-secondary); /* Frontend theme text.secondary for dark mode */
+  --x-color-neutral-600: var(--rh-text-secondary); /* Frontend theme text.secondary for dark mode */
+  --x-color-neutral-700: var(--rh-text-secondary); /* Frontend theme text.secondary for dark mode */
+  --x-color-neutral-800: var(--rh-text-secondary); /* Frontend theme text.secondary for dark mode */
+  --x-color-neutral-900: var(--rh-text-secondary); /* Frontend theme text.secondary for dark mode */
 }
 
 /* Apply custom fonts to navbar while keeping default styling */
@@ -708,54 +667,61 @@ body,
 .nextra-navbar *,
 .nextra-nav-container,
 .nextra-nav-container * {
-  font-family:
-    'Be Vietnam Pro',
-    -apple-system,
-    BlinkMacSystemFont,
-    'Segoe UI',
-    sans-serif !important;
+  font-family: var(--rh-font-sans) !important;
 }
 
-/* Ensure all main content areas have clean white background */
+/* Transparent so the gradient backdrop reads through the article column */
 .nextra-content main,
 .nextra-content article,
 .nextra-content section,
 .nextra-content .nx-prose {
-  background-color: #ffffff !important;
+  background-color: transparent !important;
 }
 
-/* Override any default grey backgrounds */
-html,
+/* `html` is the only opaque layer — see the backgrounds note above */
+html {
+  background-color: var(--rh-canvas) !important;
+}
+
 html body {
-  background-color: #ffffff !important;
+  background-color: transparent !important;
 }
 
-/* Dark mode html/body backgrounds */
-[data-theme='dark'] html,
-.dark html,
-[data-theme='dark'] html body,
-.dark html body {
-  background-color: #0d1117 !important;
-}
-
-/* Ensure navbar is also white */
+/**
+ * Navbar. Kept as Nextra's full-width bar rather than the website's floating
+ * rounded card — recoloured only, so Nextra upgrades stay uneventful.
+ */
 .nextra-navbar {
-  background-color: #ffffff !important;
-  border-bottom: 1px solid #e5e7eb;
+  background-color: var(--rh-canvas) !important;
+  border-bottom: 1px solid var(--rh-border);
+}
+
+/* The wordmark carries the same Sora ExtraBold treatment as the site header */
+.nextra-navbar a[href='/'],
+.nextra-navbar a[href='/docs'] {
+  font-family: var(--rh-font-display) !important;
+  font-weight: 800 !important;
+  color: var(--rh-heading) !important;
+}
+
+/* Nav links: Geist Medium, neutral until hovered */
+.nextra-navbar .x\:nextra-focus,
+.nextra-nav-container a {
+  font-weight: 500 !important;
 }
 
 /* Dark mode navbar */
 [data-theme='dark'] .nextra-navbar,
 .dark .nextra-navbar {
-  background-color: #161b22 !important;
-  border-bottom: 1px solid #2c2c2c;
+  background-color: var(--rh-canvas) !important;
+  border-bottom: 1px solid var(--rh-border);
 }
 
 /* Table of Contents (On This Page) Styling */
 .nextra-toc li a,
 nav[aria-labelledby='toc-heading'] a,
 .nextra-toc-content a {
-  color: #3d3d3d !important;
+  color: var(--rh-text) !important;
   text-decoration: none;
   transition: color 0.2s ease;
 }
@@ -763,7 +729,7 @@ nav[aria-labelledby='toc-heading'] a,
 .nextra-toc li a:hover,
 nav[aria-labelledby='toc-heading'] a:hover,
 .nextra-toc-content a:hover {
-  color: #2aa1ce !important;
+  color: var(--rh-blue-cta) !important;
 }
 
 /* Active/highlighted TOC item (currently scrolled to) */
@@ -776,7 +742,7 @@ nav[aria-labelledby='toc-heading'] a[data-active='true'],
 nav[class*='toc'] a[class*='text-primary'],
 aside nav a[class*='text-primary'],
 .nx-toc a[class*='text-primary'] {
-  color: #2aa1ce !important;
+  color: var(--rh-blue-cta) !important;
   font-weight: 600;
 }
 
@@ -787,7 +753,7 @@ aside nav a[class*='text-primary'],
 .dark nav[aria-labelledby='toc-heading'] a,
 [data-theme='dark'] .nextra-toc-content a,
 .dark .nextra-toc-content a {
-  color: #e6edf3 !important;
+  color: var(--rh-text) !important;
 }
 
 [data-theme='dark'] .nextra-toc li a:hover,
@@ -796,7 +762,7 @@ aside nav a[class*='text-primary'],
 .dark nav[aria-labelledby='toc-heading'] a:hover,
 [data-theme='dark'] .nextra-toc-content a:hover,
 .dark .nextra-toc-content a:hover {
-  color: #3bc4f2 !important;
+  color: var(--rh-blue-hover) !important;
 }
 
 /* Active/highlighted TOC item in dark mode */
@@ -818,67 +784,81 @@ aside nav a[class*='text-primary'],
 .dark aside nav a[class*='text-primary'],
 [data-theme='dark'] .nx-toc a[class*='text-primary'],
 .dark .nx-toc a[class*='text-primary'] {
-  color: #3bc4f2 !important;
+  color: var(--rh-blue-hover) !important;
   font-weight: 600;
 }
 
-/* Rhesis Brand Button Styles */
+/**
+ * Buttons.
+ *
+ * Primary is the website's black gradient pill (Figma 2351:1669), not the old
+ * solid-blue rectangle. Secondary is a neutral outline — the 2px blue border
+ * was the loudest remaining piece of the blue-dominant look.
+ */
+.btn-rhesis-primary,
+.btn-rhesis-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border-radius: var(--rh-radius-full) !important;
+  text-decoration: none !important;
+  cursor: pointer;
+}
+
 .btn-rhesis-primary {
-  background-color: #2aa1ce !important;
-  color: white !important;
-  transition: background-color 0.2s ease-in-out;
+  background: var(--rh-cta-gradient) !important;
+  border: 1px solid var(--rh-cta-border) !important;
+  color: var(--rh-cta-text) !important;
+  transition: opacity var(--rh-duration) var(--rh-ease-out);
 }
 
 .btn-rhesis-primary:hover {
-  background-color: #3bc4f2 !important;
-  color: white !important;
-}
-
-.btn-rhesis-secondary {
-  background-color: #ffffff !important;
-  border: 2px solid #2aa1ce !important;
-  color: #3d3d3d !important;
-  transition: all 0.2s ease-in-out;
-}
-
-.btn-rhesis-secondary:hover {
-  background-color: #f2f9fd !important;
-  color: #2aa1ce !important;
+  opacity: 0.9;
+  color: var(--rh-cta-text) !important;
   text-decoration: none !important;
 }
 
-/* Dark mode button styles */
-[data-theme='dark'] .btn-rhesis-primary,
-.dark .btn-rhesis-primary {
-  background-color: #2aa1ce !important;
-  color: white !important;
+.btn-rhesis-secondary {
+  background-color: transparent !important;
+  border: 1px solid var(--rh-border-strong) !important;
+  color: var(--rh-heading) !important;
+  border-radius: var(--rh-radius-full) !important;
+  transition: all var(--rh-duration) var(--rh-ease-out);
 }
 
-[data-theme='dark'] .btn-rhesis-primary:hover,
-.dark .btn-rhesis-primary:hover {
-  background-color: #3bc4f2 !important;
-  color: white !important;
+.btn-rhesis-secondary:hover {
+  background-color: var(--rh-surface-sunken) !important;
+  border-color: var(--rh-heading) !important;
+  color: var(--rh-heading) !important;
+  text-decoration: none !important;
 }
 
-[data-theme='dark'] .btn-rhesis-secondary,
-.dark .btn-rhesis-secondary {
-  background-color: #161b22 !important;
-  border: 2px solid #2aa1ce !important;
-  color: #e6edf3 !important;
+.button-group-rhesis {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin: 1.5rem 0;
 }
 
-[data-theme='dark'] .btn-rhesis-secondary:hover,
-.dark .btn-rhesis-secondary:hover {
-  background-color: #1f242b !important;
-  color: #3bc4f2 !important;
+@media (max-width: 640px) {
+  .button-group-rhesis {
+    flex-direction: column;
+  }
+
+  .button-group-rhesis > a {
+    width: 100%;
+  }
 }
 
 /* CodeBlock Component - Shiki Override */
 .rhesis-codeblock pre,
 .rhesis-codeblock code,
 .rhesis-codeblock span {
-  font-family:
-    ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace !important;
+  font-family: var(--rh-font-mono) !important;
   tab-size: 4 !important;
   letter-spacing: 0 !important;
   white-space: pre !important;
@@ -897,24 +877,24 @@ aside nav a[class*='text-primary'],
 
 /* InfoCard Component Styles */
 .info-card {
-  --border-color: #e5e7eb;
-  --card-bg: #ffffff;
-  --text-primary: #3d3d3d;
-  --text-secondary: #6b7280;
-  --text-tertiary: #9ca3af;
-  --accent-color: #fd6e12;
-  --icon-bg: #fff5f0;
+  --border-color: var(--rh-border);
+  --card-bg: var(--rh-surface);
+  --text-primary: var(--rh-text);
+  --text-secondary: var(--rh-text-secondary);
+  --text-tertiary: var(--rh-text-muted);
+  --accent-color: var(--rh-blue-cta);
+  --icon-bg: var(--rh-accent-bg);
 }
 
 [data-theme='dark'] .info-card,
 .dark .info-card {
-  --border-color: #2c2c2c !important;
-  --card-bg: #161b22 !important;
-  --text-primary: #e6edf3 !important;
-  --text-secondary: #a9b1bb !important;
-  --text-tertiary: #6b7280 !important;
-  --accent-color: #fd6e12 !important;
-  --icon-bg: rgba(253, 110, 18, 0.1) !important;
+  --border-color: var(--rh-border) !important;
+  --card-bg: var(--rh-surface) !important;
+  --text-primary: var(--rh-text) !important;
+  --text-secondary: var(--rh-text-secondary) !important;
+  --text-tertiary: var(--rh-text-secondary) !important;
+  --accent-color: var(--rh-blue-cta) !important;
+  --icon-bg: var(--rh-accent-bg) !important;
 }
 
 .info-card-linked:hover {
@@ -923,26 +903,26 @@ aside nav a[class*='text-primary'],
 }
 
 .info-card-link:hover {
-  color: #3bc4f2 !important;
+  color: var(--rh-blue-hover) !important;
 }
 
 /* InfoCardHorizontal Component Styles */
 .info-card-horizontal {
-  --border-color: #e5e7eb;
-  --card-bg: #ffffff;
-  --text-primary: #3d3d3d;
-  --text-secondary: #6b7280;
-  --accent-color: #2aa1ce;
-  --icon-bg: #eef6fb;
+  --border-color: var(--rh-border);
+  --card-bg: var(--rh-surface);
+  --text-primary: var(--rh-text);
+  --text-secondary: var(--rh-text-secondary);
+  --accent-color: var(--rh-blue-cta);
+  --icon-bg: var(--rh-accent-bg);
 }
 
 [data-theme='dark'] .info-card-horizontal,
 .dark .info-card-horizontal {
-  --border-color: #2c2c2c !important;
-  --card-bg: #161b22 !important;
-  --text-primary: #e6edf3 !important;
-  --text-secondary: #a9b1bb !important;
-  --accent-color: #2aa1ce !important;
+  --border-color: var(--rh-border) !important;
+  --card-bg: var(--rh-surface) !important;
+  --text-primary: var(--rh-text) !important;
+  --text-secondary: var(--rh-text-secondary) !important;
+  --accent-color: var(--rh-blue-cta) !important;
   --icon-bg: rgba(42, 161, 206, 0.1) !important;
 }
 
@@ -961,54 +941,54 @@ aside nav a[class*='text-primary'],
 
 /* PathCard Component Styles */
 .path-card {
-  --border-color: #e5e7eb;
-  --card-bg: #ffffff;
-  --text-primary: #3d3d3d;
-  --text-secondary: #6b7280;
+  --border-color: var(--rh-border);
+  --card-bg: var(--rh-surface);
+  --text-primary: var(--rh-text);
+  --text-secondary: var(--rh-text-secondary);
 }
 
 [data-theme='dark'] .path-card,
 .dark .path-card {
-  --border-color: #2c2c2c;
-  --card-bg: #161b22;
-  --text-primary: #e6edf3;
-  --text-secondary: #a9b1bb;
+  --border-color: var(--rh-border);
+  --card-bg: var(--rh-surface);
+  --text-primary: var(--rh-text);
+  --text-secondary: var(--rh-text-secondary);
 }
 
 /* ResourceCard / DevelopmentResourcesGrid — same surface tokens as path-card & info cards */
 .resource-card {
-  --border-color: #e5e7eb;
-  --card-bg: #ffffff;
-  --text-primary: #3d3d3d;
-  --text-secondary: #6b7280;
-  --primary-color: #2aa1ce;
+  --border-color: var(--rh-border);
+  --card-bg: var(--rh-surface);
+  --text-primary: var(--rh-text);
+  --text-secondary: var(--rh-text-secondary);
+  --primary-color: var(--rh-blue-cta);
   --primary-bg: rgba(42, 161, 206, 0.1);
 }
 
 [data-theme='dark'] .resource-card,
 .dark .resource-card {
-  --border-color: #2c2c2c;
-  --card-bg: #161b22;
-  --text-primary: #e6edf3;
-  --text-secondary: #a9b1bb;
-  --primary-color: #3bc4f2;
+  --border-color: var(--rh-border);
+  --card-bg: var(--rh-surface);
+  --text-primary: var(--rh-text);
+  --text-secondary: var(--rh-text-secondary);
+  --primary-color: var(--rh-blue-hover);
   --primary-bg: rgba(42, 161, 206, 0.15);
 }
 
 /* NextStepCard Component Styles */
 .next-step-card {
-  --border-color: #e5e7eb;
-  --card-bg: #ffffff;
-  --text-primary: #3d3d3d;
-  --text-secondary: #6b7280;
+  --border-color: var(--rh-border);
+  --card-bg: var(--rh-surface);
+  --text-primary: var(--rh-text);
+  --text-secondary: var(--rh-text-secondary);
 }
 
 [data-theme='dark'] .next-step-card,
 .dark .next-step-card {
-  --border-color: #2c2c2c;
-  --card-bg: #161b22;
-  --text-primary: #e6edf3;
-  --text-secondary: #a9b1bb;
+  --border-color: var(--rh-border);
+  --card-bg: var(--rh-surface);
+  --text-primary: var(--rh-text);
+  --text-secondary: var(--rh-text-secondary);
 }
 
 /* Platform Features Compact Styles */
@@ -1079,7 +1059,7 @@ aside nav a[class*='text-primary'],
 .nextra-callout.nx-callout-default,
 .nx-callout[data-type='default'],
 .nx-callout.nx-callout-default {
-  border-color: #2aa1ce !important;
+  border-color: var(--rh-blue-cta) !important;
   background-color: rgba(42, 161, 206, 0.1) !important;
 }
 
@@ -1087,96 +1067,96 @@ aside nav a[class*='text-primary'],
 .nextra-callout.nx-callout-default .nextra-callout-icon,
 .nx-callout[data-type='default'] .nx-callout-icon,
 .nx-callout.nx-callout-default .nx-callout-icon {
-  color: #2aa1ce !important;
+  color: var(--rh-blue-cta) !important;
 }
 
 /* Generic callout selectors */
 .callout[data-type='default'],
 .callout.default,
 .callout.callout-default {
-  border-color: #2aa1ce !important;
+  border-color: var(--rh-blue-cta) !important;
   background-color: rgba(42, 161, 206, 0.1) !important;
 }
 
 .callout[data-type='default'] .callout-icon,
 .callout.default .callout-icon,
 .callout.callout-default .callout-icon {
-  color: #2aa1ce !important;
+  color: var(--rh-blue-cta) !important;
 }
 
 /* Broad selector to catch any default callout */
 [class*='callout'][class*='default'] {
-  border-color: #2aa1ce !important;
+  border-color: var(--rh-blue-cta) !important;
   background-color: rgba(42, 161, 206, 0.1) !important;
 }
 
 [class*='callout'][class*='default'] [class*='icon'] {
-  color: #2aa1ce !important;
+  color: var(--rh-blue-cta) !important;
 }
 
 /* Very aggressive selector - target any element that looks like a default callout */
 div[class*='callout']:not([class*='error']):not([class*='warning']):not([class*='info']) {
-  border-color: #2aa1ce !important;
+  border-color: var(--rh-blue-cta) !important;
   background-color: rgba(42, 161, 206, 0.1) !important;
 }
 
 div[class*='callout']:not([class*='error']):not([class*='warning']):not([class*='info']) svg {
-  color: #2aa1ce !important;
+  color: var(--rh-blue-cta) !important;
 }
 
 /* Target the specific green color and override it */
 div[class*='callout'] {
-  border-color: #2aa1ce !important;
+  border-color: var(--rh-blue-cta) !important;
   background-color: rgba(42, 161, 206, 0.08) !important;
-  --callout-border: #2aa1ce !important;
+  --callout-border: var(--rh-blue-cta) !important;
   --callout-bg: rgba(42, 161, 206, 0.08) !important;
-  --callout-icon: #2aa1ce !important;
+  --callout-icon: var(--rh-blue-cta) !important;
 }
 
 div[class*='callout'] svg {
-  color: #2aa1ce !important;
+  color: var(--rh-blue-cta) !important;
 }
 
 /* Fix typography and styling */
 div[class*='callout'] p {
-  font-family: 'Be Vietnam Pro', sans-serif !important;
+  font-family: var(--rh-font-sans) !important;
   font-size: 0.9375rem !important;
   line-height: 1.6 !important;
-  color: var(--text-primary, #3d3d3d) !important;
+  color: var(--text-primary, var(--rh-text)) !important;
   margin: 0 !important;
 }
 
 div[class*='callout'] strong {
   font-weight: 600 !important;
-  color: var(--text-primary, #3d3d3d) !important;
+  color: var(--text-primary, var(--rh-text)) !important;
 }
 
 /* Dark mode styling for callouts */
 [data-theme='dark'] div[class*='callout'] p,
 .dark div[class*='callout'] p {
-  color: #ffffff !important;
+  color: var(--rh-heading) !important;
 }
 
 [data-theme='dark'] div[class*='callout'] strong,
 .dark div[class*='callout'] strong {
-  color: #ffffff !important;
+  color: var(--rh-heading) !important;
 }
 
 [data-theme='dark'] div[class*='callout'] a,
 .dark div[class*='callout'] a {
-  color: #60a5fa !important; /* Light blue for links in dark mode */
+  color: var(--rh-blue-hover) !important;
 }
 
 [data-theme='dark'] div[class*='callout'] a:hover,
 .dark div[class*='callout'] a:hover {
-  color: #93c5fd !important; /* Lighter blue on hover */
+  color: var(--rh-blue-light) !important;
 }
 
 /* Override any CSS custom properties that might be used */
 :root {
-  --nextra-callout-default-border: #2aa1ce !important;
+  --nextra-callout-default-border: var(--rh-blue-cta) !important;
   --nextra-callout-default-bg: rgba(42, 161, 206, 0.08) !important;
-  --nextra-callout-default-icon: #2aa1ce !important;
+  --nextra-callout-default-icon: var(--rh-blue-cta) !important;
 }
 
 /* Mermaid Diagram Theme Support - OKLCH Based */
@@ -1317,24 +1297,24 @@ div.mermaid svg {
 
 /* Table Component Styles */
 .rhesis-table {
-  --table-border: #e5e7eb;
-  --table-border-dark: #d1d5db;
-  --table-wrapper-bg: #ffffff;
-  --table-header-bg: #f9fafb;
-  --text-primary: #3d3d3d;
-  --code-bg: #f3f4f6;
-  --code-text: #2aa1ce;
+  --table-border: var(--rh-border);
+  --table-border-dark: var(--rh-border-strong);
+  --table-wrapper-bg: var(--rh-surface);
+  --table-header-bg: var(--rh-surface-alt);
+  --text-primary: var(--rh-text);
+  --code-bg: var(--rh-surface-sunken);
+  --code-text: var(--rh-blue-cta);
 }
 
 [data-theme='dark'] .rhesis-table,
 .dark .rhesis-table {
-  --table-border: #2c2c2c;
-  --table-border-dark: #3d3d3d;
-  --table-wrapper-bg: #161b22;
-  --table-header-bg: #1f242b;
-  --text-primary: #e6edf3;
-  --code-bg: #1f242b;
-  --code-text: #3bc4f2;
+  --table-border: var(--rh-border);
+  --table-border-dark: var(--rh-border-strong);
+  --table-wrapper-bg: var(--rh-surface);
+  --table-header-bg: var(--rh-surface-alt);
+  --text-primary: var(--rh-text);
+  --code-bg: var(--rh-surface-alt);
+  --code-text: var(--rh-blue-hover);
 }
 
 .rhesis-table .table-row-striped {
@@ -1368,60 +1348,6 @@ div.mermaid svg {
   }
 }
 
-/* GitHub Star Banner Styling */
-.nextra-banner {
-  font-family: 'Be Vietnam Pro', sans-serif !important;
-  background: linear-gradient(135deg, #2aa1ce 0%, #3bc4f2 100%) !important;
-  border: none !important;
-  padding: 4px 16px !important;
-  min-height: 28px !important;
-  display: flex !important;
-  align-items: center !important;
-  position: relative !important;
-}
-
-.nextra-banner a {
-  transition: opacity 0.2s ease-in-out;
-  color: #ffffff !important;
-  font-size: 13px !important;
-  font-weight: 500 !important;
-}
-
-.nextra-banner a:hover {
-  opacity: 0.9;
-  text-decoration: none !important;
-}
-
-/* Style the close button to match the banner - minimal overrides */
-.nextra-banner button,
-.nextra-banner [role='button'] {
-  color: #ffffff !important;
-  opacity: 0.8;
-  transition: all 0.2s ease-in-out;
-}
-
-.nextra-banner button:hover,
-.nextra-banner [role='button']:hover {
-  opacity: 1 !important;
-  background: rgba(255, 255, 255, 0.1) !important;
-}
-
-/* Ensure the X icon is white */
-.nextra-banner button svg,
-.nextra-banner [role='button'] svg {
-  color: #ffffff !important;
-  fill: #ffffff !important;
-}
-
-/* Override text color but preserve functionality */
-.nextra-banner a,
-.nextra-banner span,
-.nextra-banner div:not(button):not([role='button']) {
-  color: #ffffff !important;
-}
-
-/* Remove problematic overrides that might block functionality */
-
 /* Screenshot Utility */
 .screenshot {
   border: 2px solid var(--rhesis-primary-dark);
@@ -1433,24 +1359,24 @@ div.mermaid svg {
 /* Details/Summary Component Styles - Clean and Simple */
 .nextra-content details,
 details {
-  border: 1px solid #e5e7eb !important;
-  border-radius: 8px !important;
+  border: 1px solid var(--rh-border) !important;
+  border-radius: var(--rh-radius-lg) !important;
   padding: 1rem !important;
   margin: 1rem 0 !important;
-  background-color: #ffffff !important;
+  background-color: var(--rh-surface) !important;
   transition: all 0.2s ease !important;
 }
 
 .nextra-content details[open],
 details[open] {
-  border-color: #2aa1ce !important;
+  border-color: var(--rh-blue-cta) !important;
 }
 
 .nextra-content details summary,
 details summary {
   cursor: pointer !important;
   font-weight: 600 !important;
-  color: #3d3d3d !important;
+  color: var(--rh-text) !important;
   list-style: none !important;
   display: flex !important;
   align-items: center !important;
@@ -1461,7 +1387,7 @@ details summary {
 
 .nextra-content details[open] summary,
 details[open] summary {
-  color: #2aa1ce !important;
+  color: var(--rh-blue-cta) !important;
   margin-bottom: 0.75rem !important;
 }
 
@@ -1482,27 +1408,481 @@ details summary::-webkit-details-marker {
 [data-theme='dark'] details,
 .dark .nextra-content details,
 .dark details {
-  border-color: #2c2c2c !important;
-  background-color: #161b22 !important;
+  border-color: var(--rh-border) !important;
+  background-color: var(--rh-surface) !important;
 }
 
 [data-theme='dark'] .nextra-content details[open],
 [data-theme='dark'] details[open],
 .dark .nextra-content details[open],
 .dark details[open] {
-  border-color: #2aa1ce !important;
+  border-color: var(--rh-blue-cta) !important;
 }
 
 [data-theme='dark'] .nextra-content details summary,
 [data-theme='dark'] details summary,
 .dark .nextra-content details summary,
 .dark details summary {
-  color: #e6edf3 !important;
+  color: var(--rh-text) !important;
 }
 
 [data-theme='dark'] .nextra-content details[open] summary,
 [data-theme='dark'] details[open] summary,
 .dark .nextra-content details[open] summary,
 .dark details[open] summary {
-  color: #3bc4f2 !important;
+  color: var(--rh-blue-hover) !important;
+}
+
+/* ========================================
+   GRADIENT BACKDROP
+   ========================================
+
+   Ported from the website's SoftGradientWash / DarkAuroraGlow (Figma mask
+   groups 2351:1762 / 2351:2805). Both are reproduced as CSS radial gradients
+   rather than the site's rotated-and-blurred PNGs: the source art is two soft
+   colour blobs on near-white that get a 28px blur and a radial mask anyway, so
+   gradients land in the same place and save ~3.5MB of image payload. It also
+   avoids porting Tailwind arbitrary-value mask/blend classes into a repo that
+   has no Tailwind.
+
+   Layering: the element is `z-index: -1`, which paints above the `html` canvas
+   background and below all content. That only works while `body` and the Nextra
+   content wrappers stay transparent — see the "Backgrounds" note above.
+
+   Positioned `absolute` at the document origin rather than `fixed`, so it
+   scrolls away with the top of the page the way the site's hero wash does
+   instead of trailing the reader down every page.
+
+   Variants: `hero` (top-weighted, fades downward) and `band` (centred,
+   dissolves on all sides).
+   ======================================== */
+
+.rhesis-backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: min(900px, 95vh);
+  z-index: -1;
+  pointer-events: none;
+  overflow: hidden;
+  user-select: none;
+}
+
+/* Light canvas art. Blue bloom left of centre, warm bloom right. */
+.rhesis-backdrop::before {
+  content: '';
+  position: absolute;
+  inset: -10% -5% -10% -5%;
+  background-image:
+    radial-gradient(
+      44% 38% at 30% 42%,
+      rgba(80, 185, 224, 0.4) 0%,
+      rgba(80, 185, 224, 0.14) 46%,
+      transparent 72%
+    ),
+    radial-gradient(
+      34% 32% at 71% 55%,
+      rgba(253, 216, 3, 0.26) 0%,
+      rgba(253, 216, 3, 0.08) 50%,
+      transparent 74%
+    ),
+    radial-gradient(46% 40% at 50% 34%, rgba(151, 213, 238, 0.2) 0%, transparent 70%);
+  filter: blur(40px);
+  -webkit-mask-image:
+    radial-gradient(ellipse 72% 58% at 50% 28%, black 0%, black 28%, transparent 70%),
+    linear-gradient(to bottom, black 0%, black 55%, transparent 100%);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    radial-gradient(ellipse 72% 58% at 50% 28%, black 0%, black 28%, transparent 70%),
+    linear-gradient(to bottom, black 0%, black 55%, transparent 100%);
+  mask-composite: intersect;
+}
+
+/* Film grain — inline feTurbulence keeps this a few hundred bytes */
+.rhesis-backdrop::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Centred variant for mid-page bands */
+.rhesis-backdrop--band::before {
+  inset: 50% -5% auto -5%;
+  transform: translateY(-50%);
+  -webkit-mask-image: radial-gradient(
+    ellipse 78% 68% at 50% 50%,
+    black 0%,
+    black 30%,
+    transparent 72%
+  );
+  -webkit-mask-composite: source-over;
+  mask-image: radial-gradient(ellipse 78% 68% at 50% 50%, black 0%, black 30%, transparent 72%);
+  mask-composite: add;
+}
+
+/**
+ * Dark mode swaps the pastel wash for an aurora: the light art turns into a
+ * milky sheet on a near-black canvas and eats the headline, so the blooms are
+ * re-lit as saturated emitted colour instead.
+ */
+[data-theme='dark'] .rhesis-backdrop::before,
+.dark .rhesis-backdrop::before {
+  background-image:
+    radial-gradient(
+      58% 48% at 50% 24%,
+      rgba(0, 158, 215, 0.52) 0%,
+      rgba(0, 104, 148, 0.2) 44%,
+      transparent 74%
+    ),
+    radial-gradient(42% 38% at 82% 56%, rgba(255, 206, 0, 0.12) 0%, transparent 68%),
+    radial-gradient(50% 42% at 14% 66%, rgba(56, 132, 255, 0.16) 0%, transparent 70%);
+  filter: blur(10px);
+}
+
+[data-theme='dark'] .rhesis-backdrop--band::before,
+.dark .rhesis-backdrop--band::before {
+  background-image:
+    radial-gradient(
+      50% 56% at 50% 50%,
+      rgba(0, 158, 215, 0.5) 0%,
+      rgba(0, 104, 148, 0.18) 46%,
+      transparent 76%
+    ),
+    radial-gradient(38% 42% at 80% 38%, rgba(255, 206, 0, 0.1) 0%, transparent 70%),
+    radial-gradient(40% 46% at 20% 64%, rgba(56, 132, 255, 0.15) 0%, transparent 72%);
+}
+
+[data-theme='dark'] .rhesis-backdrop::after,
+.dark .rhesis-backdrop::after {
+  opacity: 0.05;
+}
+
+/* ========================================
+   FOOTER
+   ========================================
+
+   Figma 2351:1625. The old footer was a saturated blue slab; the redesign puts
+   it on the page canvas with a hairline top border, so it reads as the end of
+   the document rather than a separate band.
+   ======================================== */
+
+.rhesis-footer {
+  margin-top: auto;
+  border-top: 1px solid var(--rh-border);
+  background-color: transparent;
+}
+
+.rhesis-footer__inner {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 4rem 1.5rem 2.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 3.5rem;
+}
+
+.rhesis-footer__top {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 3rem;
+}
+
+/* ── Brand column (Figma w 300) ─────────────────────────────────── */
+
+.rhesis-footer__brand {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1rem;
+  max-width: 300px;
+}
+
+.rhesis-footer__logo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  text-decoration: none !important;
+}
+
+.rhesis-footer__logo img {
+  width: 56px;
+  height: 37px;
+  flex-shrink: 0;
+}
+
+.rhesis-footer__logo span {
+  font-family: var(--rh-font-display) !important;
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--rh-heading) !important;
+  white-space: nowrap;
+}
+
+.rhesis-footer__tagline {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--rh-text-secondary) !important;
+}
+
+.rhesis-footer__badges {
+  display: flex;
+  align-items: flex-start;
+  gap: 1.875rem;
+}
+
+.rhesis-footer__bmftr {
+  width: 163px;
+  height: 98px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+[data-theme='dark'] .rhesis-footer__bmftr,
+.dark .rhesis-footer__bmftr {
+  filter: brightness(0) invert(1);
+}
+
+/* ── Origin badge ───────────────────────────────────────────────── */
+
+.rhesis-footer__origin {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 106px;
+  flex-shrink: 0;
+}
+
+.rhesis-footer__origin-svg {
+  width: 65px;
+  height: 65px;
+  flex-shrink: 0;
+}
+
+.rhesis-footer__origin-ring {
+  stroke: transparent;
+}
+
+[data-theme='dark'] .rhesis-footer__origin-ring,
+.dark .rhesis-footer__origin-ring {
+  stroke: rgba(255, 255, 255, 0.3);
+}
+
+/* EU blue is unreadable on the dark footer */
+.rhesis-footer__origin-star {
+  fill: #003399;
+}
+
+[data-theme='dark'] .rhesis-footer__origin-star,
+.dark .rhesis-footer__origin-star {
+  fill: #8ab4ff;
+}
+
+.rhesis-footer__origin-text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  line-height: 1.15;
+}
+
+.rhesis-footer__origin-text span {
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  color: var(--rh-heading) !important;
+}
+
+/* ── Link columns ───────────────────────────────────────────────── */
+
+.rhesis-footer__columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2.5rem 2rem;
+  width: 100%;
+}
+
+.rhesis-footer__column {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+/* Geist Mono uppercase headers are a signature of the redesign */
+.rhesis-footer__column h3 {
+  margin: 0;
+  font-family: var(--rh-font-mono) !important;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--rh-heading) !important;
+}
+
+.rhesis-footer__column ul {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rhesis-footer__column a {
+  font-size: 14px;
+  color: var(--rh-text-secondary) !important;
+  text-decoration: none !important;
+  transition: color var(--rh-duration) var(--rh-ease-out);
+}
+
+.rhesis-footer__column a:hover {
+  color: var(--rh-heading) !important;
+}
+
+/* ── Bottom bar ─────────────────────────────────────────────────── */
+
+.rhesis-footer__bottom {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding-top: 2rem;
+  border-top: 1px solid var(--rh-border);
+}
+
+.rhesis-footer__bottom-left {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.rhesis-footer__bottom-left p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--rh-text-muted) !important;
+}
+
+.rhesis-footer__legal {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+}
+
+.rhesis-footer__legal a {
+  font-size: 14px;
+  color: var(--rh-text-muted) !important;
+  text-decoration: none !important;
+  transition: color var(--rh-duration) var(--rh-ease-out);
+}
+
+.rhesis-footer__legal a:hover {
+  color: var(--rh-heading) !important;
+}
+
+.rhesis-footer__socials {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+.rhesis-footer__socials a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--rh-heading) !important;
+  transition: opacity var(--rh-duration) var(--rh-ease-out);
+}
+
+.rhesis-footer__socials a:hover {
+  opacity: 0.7;
+}
+
+.rhesis-footer__socials svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* ── Responsive ─────────────────────────────────────────────────── */
+
+@media (min-width: 640px) {
+  .rhesis-footer__columns {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .rhesis-footer__bottom {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .rhesis-footer__bottom-left {
+    flex-direction: row;
+    align-items: center;
+    gap: 1.25rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .rhesis-footer__inner {
+    padding: 5rem 2.5rem 2.5rem;
+    gap: 5rem;
+  }
+
+  .rhesis-footer__top {
+    flex-direction: row;
+    gap: 0;
+  }
+
+  .rhesis-footer__columns {
+    width: auto;
+    flex-shrink: 0;
+    display: flex;
+    gap: 4rem;
+  }
+
+  .rhesis-footer__column {
+    width: 130px;
+    flex-shrink: 0;
+  }
+}
+
+@media print {
+  .rhesis-footer {
+    display: none;
+  }
+}
+
+/* ========================================
+   NAVBAR BRAND LOCKUP
+   ======================================== */
+
+.rhesis-navlogo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Nextra's navbar is ~64px tall against the site's 80px, so the mark is scaled
+   down from 56x37 to keep the same optical weight in a shorter bar. */
+.rhesis-navlogo img {
+  width: 34px;
+  height: 22px;
+  flex-shrink: 0;
+}
+
+.rhesis-navlogo__word {
+  font-family: var(--rh-font-display) !important;
+  font-size: 18px;
+  font-weight: 800;
+  line-height: normal;
+  white-space: nowrap;
+  color: var(--rh-heading) !important;
 }

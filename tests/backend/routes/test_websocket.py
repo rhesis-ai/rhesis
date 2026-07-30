@@ -180,9 +180,7 @@ class TestAuthenticateWebSocketToken:
             # Mock websocket
             mock_ws = MagicMock()
 
-            result = asyncio.get_event_loop().run_until_complete(
-                authenticate_websocket_token(mock_ws, "valid_token")
-            )
+            result = asyncio.run(authenticate_websocket_token(mock_ws, "valid_token"))
 
             # Returns a (user, Principal) tuple so token scopes reach channel authz.
             assert result is not None
@@ -199,9 +197,7 @@ class TestAuthenticateWebSocketToken:
 
         mock_ws = MagicMock()
 
-        result = asyncio.get_event_loop().run_until_complete(
-            authenticate_websocket_token(mock_ws, None)
-        )
+        result = asyncio.run(authenticate_websocket_token(mock_ws, None))
 
         assert result is None
 
@@ -218,9 +214,7 @@ class TestAuthenticateWebSocketToken:
 
             mock_ws = MagicMock()
 
-            result = asyncio.get_event_loop().run_until_complete(
-                authenticate_websocket_token(mock_ws, "invalid_token")
-            )
+            result = asyncio.run(authenticate_websocket_token(mock_ws, "invalid_token"))
 
             assert result is None
 

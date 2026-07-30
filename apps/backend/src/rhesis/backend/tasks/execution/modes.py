@@ -196,12 +196,31 @@ def get_test_type(test: Test) -> TestType:
     Returns:
         TestType: The test type (Single-Turn or Multi-Turn)
     """
-    if not test.test_type:
+    from sqlalchemy import inspect as sa_inspect
+    from sqlalchemy.orm import object_session
+    from sqlalchemy.orm.state import InstanceState
+
+    from rhesis.backend.app.models.type_lookup import TypeLookup
+
+    # Don't assume `test.test_type` is eager-loaded -- this also runs from ORM event
+    # listeners (e.g. Test.to_searchable_text), so fall back to a lookup by
+    # test_type_id. isinstance-guarded: tests pass plain Mock() doubles with no
+    # real load state.
+    state = sa_inspect(test, raiseerr=False)
+    if not isinstance(state, InstanceState) or "test_type" not in state.unloaded:
+        test_type = test.test_type
+    elif test.test_type_id and (sess := object_session(test)) is not None:
+        with sess.no_autoflush:
+            test_type = sess.get(TypeLookup, test.test_type_id)
+    else:
+        test_type = None
+
+    if not test_type:
         logger.debug(f"Test {test.id} has no test_type set, defaulting to Single-Turn")
         return TestType.SINGLE_TURN
 
     # Get the type_value from the TypeLookup relationship
-    test_type_value = test.test_type.type_value
+    test_type_value = test_type.type_value
 
     # Try to match against TestType enum values
     try:

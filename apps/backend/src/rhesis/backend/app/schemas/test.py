@@ -7,15 +7,11 @@ from rhesis.backend.app.schemas import Base
 from rhesis.backend.app.schemas.references import (
     BehaviorReference,
     CategoryReference,
-    OrganizationReference,
-    ProjectReference,
     PromptReference,
-    SourceReference,
     StatusReference,
     TopicReference,
     TypeLookupReference,
 )
-from rhesis.backend.app.schemas.tag import TagRead
 from rhesis.backend.app.schemas.user import UserReference
 
 
@@ -105,23 +101,7 @@ class Test(TestBase):
     model_config = ConfigDict(from_attributes=True)
 
 
-# Shallow self-reference for TestDetail.parent -- deliberately not recursive
-# (mirrors the factory's reference-only, one-level-deep behavior for parent).
-class TestReference(Base):
-    id: UUID4
-    nano_id: Optional[str] = None
-    content: Optional[str] = None
-    counts: Optional[Dict[str, Any]] = None
-    user_id: Optional[UUID4] = None
-    organization_id: Optional[UUID4] = None
-    status_id: Optional[UUID4] = None
-    project_id: Optional[UUID4] = None
-    tags: Optional[List[TagRead]] = None
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-# The detailed model with expanded relations
+# The detailed model with expanded relations. parent/source/organization/project: unused, excluded.
 class TestDetail(Test):
     # Include the full related objects instead of just IDs
     content: Optional[str] = None
@@ -131,15 +111,11 @@ class TestDetail(Test):
     user: Optional[UserReference] = None
     assignee: Optional[UserReference] = None
     owner: Optional[UserReference] = None
-    parent: Optional[TestReference] = None
     topic: Optional[TopicReference] = None
     behavior: Optional[BehaviorReference] = None
     category: Optional[CategoryReference] = None
     status: Optional[StatusReference] = None
-    source: Optional[SourceReference] = None
     tags: Optional[List[TestTag]] = []
-    organization: Optional[OrganizationReference] = None
-    project: Optional[ProjectReference] = None
 
 
 # Bulk creation models

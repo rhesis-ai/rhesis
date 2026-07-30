@@ -72,7 +72,8 @@ export interface TestNode {
   topic: string;
   input: string;
   output: string;
-  label: '' | 'topic_marker' | 'pass' | 'fail';
+  /** 'error' is set by the backend when a metric raises during evaluation. */
+  label: '' | 'topic_marker' | 'pass' | 'fail' | 'error';
   labeler: string;
   to_eval: boolean;
   model_score: number;

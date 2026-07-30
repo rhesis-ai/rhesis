@@ -21,7 +21,6 @@ export interface Task extends WithPermittedActions {
   task_metadata?: TaskMetadata;
   total_comments?: number;
   organization_id?: string;
-  tags?: Tag[];
   created_at?: string;
   updated_at?: string;
 
@@ -91,13 +90,6 @@ export interface Priority {
   type_name?: string;
   type_value?: string;
   description?: string;
-}
-
-export interface Tag {
-  id: string;
-  name: string;
-  description?: string;
-  color?: string;
 }
 
 // Entity types are defined canonically in `@/types/entity-type` and re-exported

@@ -5,7 +5,9 @@ from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models
+from rhesis.backend.app.crud.explorer import get_test_ids_in_test_sets
 from rhesis.backend.app.database import without_soft_delete_filter
+from rhesis.backend.app.schemas.explorer import TestTreeNode, TopicNode
 from rhesis.backend.app.services.explorer import (
     bulk_delete_explorer_test_sets,
     create_explorer_test_set,
@@ -20,7 +22,7 @@ from rhesis.backend.app.services.explorer import (
     import_explorer_test_set_from_source,
     update_test_node,
 )
-from rhesis.sdk.adaptive_testing.schemas import TestTreeNode, TopicNode
+from rhesis.backend.app.services.explorer.tests import _parse_test_for_copy
 
 # ============================================================================
 # Helpers and Fixtures for get_explorer_test_sets
@@ -495,7 +497,7 @@ class TestDeleteExplorerTestSet:
             topic="Safety",
             input="Is this harmful?",
         )
-        test_ids = crud.get_test_ids_in_test_sets(test_db, [created.id], test_org_id)
+        test_ids = get_test_ids_in_test_sets(test_db, [created.id], test_org_id)
         # The test plus the "Safety" topic marker.
         assert len(test_ids) == 2
 
@@ -580,9 +582,7 @@ class TestBulkDeleteExplorerTestSets:
         assert set(result["not_found_ids"]) == {str(regular.id), str(fake_id)}
 
         # The regular (non-explorer) test set must still exist, untouched.
-        still_there = (
-            test_db.query(models.TestSet).filter(models.TestSet.id == regular.id).first()
-        )
+        still_there = test_db.query(models.TestSet).filter(models.TestSet.id == regular.id).first()
         assert still_there is not None
 
     def test_cascades_to_session_tests(self, test_db, test_org_id, authenticated_user_id):
@@ -606,7 +606,7 @@ class TestBulkDeleteExplorerTestSets:
             sessions.append(created)
 
         session_ids = [s.id for s in sessions]
-        test_ids = crud.get_test_ids_in_test_sets(test_db, session_ids, test_org_id)
+        test_ids = get_test_ids_in_test_sets(test_db, session_ids, test_org_id)
         assert len(test_ids) == 4  # 2 tests + 2 topic markers
 
         bulk_delete_explorer_test_sets(
@@ -627,7 +627,7 @@ class TestBulkDeleteExplorerTestSets:
     ):
         """A non-explorer id is skipped without touching its tests."""
         regular = regular_test_set_for_import
-        test_ids = crud.get_test_ids_in_test_sets(test_db, [regular.id], test_org_id)
+        test_ids = get_test_ids_in_test_sets(test_db, [regular.id], test_org_id)
         assert test_ids
 
         result = bulk_delete_explorer_test_sets(
@@ -1215,3 +1215,93 @@ class TestExportRegularTestSetFromExplorer:
                 organization_id=test_org_id,
                 user_id=authenticated_user_id,
             )
+
+
+# ============================================================================
+# Tests for _parse_test_for_copy (shared by import and export)
+# ============================================================================
+
+
+def _copyable_test(metadata=None, content="Prompt", topic=None, topic_id=None):
+    """A detached models.Test standing in for a source row.
+
+    Not added to a session: _parse_test_for_copy only reads attributes.
+    """
+    return models.Test(
+        test_metadata=metadata,
+        prompt=models.Prompt(content=content) if content is not None else None,
+        topic=topic,
+        topic_id=topic_id,
+    )
+
+
+@pytest.mark.unit
+class TestParseTestForCopy:
+    """Test _parse_test_for_copy."""
+
+    def test_skips_topic_markers(self):
+        db_test = _copyable_test(metadata={"label": "topic_marker"})
+
+        assert _parse_test_for_copy(db_test, "imported") is None
+
+    def test_skips_missing_prompt(self):
+        assert _parse_test_for_copy(_copyable_test(content=None), "imported") is None
+
+    def test_skips_blank_prompt(self):
+        assert _parse_test_for_copy(_copyable_test(content="   "), "imported") is None
+
+    def test_strips_prompt_content(self):
+        parsed = _parse_test_for_copy(_copyable_test(content="  padded  "), "imported")
+
+        assert parsed.content == "padded"
+
+    def test_carries_both_topic_forms(self):
+        topic_id = uuid.uuid4()
+        db_test = _copyable_test(topic=models.Topic(name="Alpha/Beta"), topic_id=topic_id)
+
+        parsed = _parse_test_for_copy(db_test, "imported")
+
+        assert parsed.topic_name == "Alpha/Beta"
+        assert parsed.topic_id == topic_id
+
+    def test_defaults_when_metadata_absent(self):
+        parsed = _parse_test_for_copy(_copyable_test(metadata=None), "exported")
+
+        assert parsed.topic_name == ""
+        assert parsed.topic_id is None
+        assert parsed.output == ""
+        assert parsed.label == ""
+        assert parsed.labeler == "exported"
+        assert parsed.model_score == 0.0
+
+    @pytest.mark.parametrize("label,expected", [("pass", "pass"), ("fail", "fail"), ("", "")])
+    def test_keeps_verdict_labels(self, label, expected):
+        parsed = _parse_test_for_copy(_copyable_test(metadata={"label": label}), "imported")
+
+        assert parsed.label == expected
+
+    def test_drops_unrecognized_label(self):
+        parsed = _parse_test_for_copy(_copyable_test(metadata={"label": "error"}), "imported")
+
+        assert parsed.label == ""
+
+    def test_falls_back_to_default_labeler_when_blank(self):
+        parsed = _parse_test_for_copy(_copyable_test(metadata={"labeler": ""}), "imported")
+
+        assert parsed.labeler == "imported"
+
+    @pytest.mark.parametrize("raw", ["not a number", None, {}])
+    def test_coerces_unparseable_model_score_to_zero(self, raw):
+        parsed = _parse_test_for_copy(_copyable_test(metadata={"model_score": raw}), "imported")
+
+        assert parsed.model_score == 0.0
+
+    def test_coerces_numeric_string_model_score(self):
+        parsed = _parse_test_for_copy(_copyable_test(metadata={"model_score": "0.5"}), "imported")
+
+        assert parsed.model_score == 0.5
+
+    def test_stringifies_non_string_output(self):
+        parsed = _parse_test_for_copy(_copyable_test(metadata={"output": 42}), "imported")
+
+        assert parsed.output == "42"

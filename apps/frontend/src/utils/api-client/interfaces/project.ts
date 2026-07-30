@@ -63,17 +63,6 @@ export interface ProjectUser {
 }
 
 /**
- * Organization interface for nested objects in project responses
- */
-export interface ProjectOrganization {
-  id: UUID | string; // Allow string for mock data compatibility
-  name: string;
-  description: string;
-  email: string;
-  user_id: UUID | string; // Allow string for mock data compatibility
-}
-
-/**
  * System information for a project
  */
 export interface ProjectSystem {
@@ -129,9 +118,7 @@ export interface Project extends ProjectBase, ProjectFrontendFields {
   updated_at?: string;
 
   // Nested objects from API response
-  user: ProjectUser;
   owner: ProjectUser;
-  organization: ProjectOrganization;
 }
 
 /** Minimal user info embedded in project membership responses */

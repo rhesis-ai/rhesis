@@ -1,23 +1,42 @@
 ---
 title: Rhesis Documentation
-description: The AI testing platform for Gen AI teams. Connect your LLM apps, generate test sets, simulate adversarial conversations, and trace every failure to its root cause.
-keywords: [AI testing platform, LLM testing, Gen AI evaluation, AI quality assurance]
+description: Structured feedback and evals for AI agents. Connect the agent you are building, share it with your team, and turn their feedback into tests and metrics that run on every change.
+keywords:
+  [
+    AI agent evaluation,
+    LLM evaluation,
+    structured feedback,
+    domain expert review,
+    agent testing,
+  ]
 ---
 
-import { ButtonGroup } from '@/components/ButtonGroup'
-import { CommunitySupport } from '@/components/CommunitySupport'
+import { ButtonGroup } from "@/components/ButtonGroup";
+import { CommunitySupport } from "@/components/CommunitySupport";
 
 # Rhesis Documentation
 
-**More than just evals. The testing platform for AI teams.**
+**Structured feedback and evals for AI agents.**
 
-Connect directly to your LLM apps and AI agents. Bring engineers, PMs, and domain experts together to generate tests, simulate (adversarial) conversations, and trace every failure to its root cause.
+Rhesis is the collaboration layer between the people building an AI agent and the people who know
+what it should answer. Connect your agent, share the link with your team, and turn their feedback
+into tests and metrics that run on every change.
 
-<a href="https://youtu.be/QmiUd7j4fL0" target="_blank" rel="noopener noreferrer" style={{ display: 'block', margin: '24px 0' }}>
+<a
+  href="https://youtu.be/QmiUd7j4fL0"
+  target="_blank"
+  rel="noopener noreferrer"
+  style={{ display: "block", margin: "24px 0" }}
+>
   <img
     src="/GH_Short_Demo.png"
     alt="Rhesis Product Demo – Watch on YouTube"
-    style={{ width: '100%', borderRadius: '8px', display: 'block', cursor: 'pointer' }}
+    style={{
+      width: "100%",
+      borderRadius: "8px",
+      display: "block",
+      cursor: "pointer",
+    }}
   />
 </a>
 
@@ -32,16 +51,23 @@ Connect directly to your LLM apps and AI agents. Bring engineers, PMs, and domai
 
 <Steps>
 ### Setup Environment
-Choose how you want to run Rhesis: Cloud (fastest), Local, or Self-hosted.
+Run Rhesis as a managed service, locally with Docker, or self-hosted.
 [Setup Environment Guide →](/docs/getting-started/setup-environment)
 
 ### Connect Application
-Connect your LLM application to Rhesis via REST Endpoints or our Python SDK.
+
+Use the SDK connector and your process opens an outbound WebSocket, so the agent stays on your
+laptop or inside your VPC with no public URL. If it already serves a public REST endpoint, register
+that URL instead.
 [Connect Application Guide →](/docs/getting-started/connecting-application)
 
 ### Run Evaluations
-Generate test sets interactively and run automated evaluations against your application.
+
+Share the link with domain experts and product managers. They chat with the live agent, turn
+conversations into tests, and leave pass/fail verdicts and comments down to the individual metric or
+conversation turn — then you read it all back from the SDK, the API, or MCP.
 [Run Evaluations Guide →](/docs/getting-started/run-evaluations)
+
 </Steps>
 
 ## Community & Support

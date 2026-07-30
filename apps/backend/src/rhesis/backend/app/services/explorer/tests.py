@@ -1,12 +1,19 @@
 import logging
-from typing import List, Optional
+from dataclasses import dataclass
+from typing import Callable, List, Optional, Tuple
 from uuid import UUID
 
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.constants import ADAPTIVE_TESTING_BEHAVIOR
-from rhesis.backend.app.models.test import test_test_set_association
+
+# Imported as a module rather than by name: this file's own public
+# get_explorer_test_sets() wraps the crud function of the same name.
+from rhesis.backend.app.crud import explorer as crud_explorer
+from rhesis.backend.app.schemas.explorer import TestTreeNode, TopicNode
+from rhesis.backend.app.services.explorer.topics import create_topic_node
+from rhesis.backend.app.services.explorer.utils import _db_test_to_node, build_test_tree
 from rhesis.backend.app.services.test import create_test_set_associations
 from rhesis.backend.app.utils.crud_utils import (
     bulk_delete_by_ids,
@@ -14,11 +21,6 @@ from rhesis.backend.app.utils.crud_utils import (
     get_or_create_topic,
     get_or_create_type_lookup,
 )
-from rhesis.backend.app.utils.query_utils import QueryBuilder
-from rhesis.sdk.adaptive_testing.schemas import TestTreeNode, TopicNode
-
-from .topics import create_topic_node
-from .utils import _db_test_to_node, convert_to_sdk_tree
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +35,7 @@ def get_tree_nodes(
 
     Returns the complete tree as a flat list of TestTreeNode objects.
     """
-    tree_data = convert_to_sdk_tree(db, test_set_id, organization_id, user_id)
+    tree_data = build_test_tree(db, test_set_id, organization_id, user_id)
     return list(tree_data)
 
 
@@ -51,7 +53,7 @@ def get_tree_tests(
     topic : str, optional
         If provided, only returns tests under this topic path.
     """
-    tree_data = convert_to_sdk_tree(db, test_set_id, organization_id, user_id)
+    tree_data = build_test_tree(db, test_set_id, organization_id, user_id)
 
     if topic:
         return tree_data.topics.get_tests(TopicNode(path=topic), recursive=True)
@@ -69,7 +71,7 @@ def get_tree_topics(
 
     Returns the hierarchical topic structure derived from topic markers.
     """
-    tree_data = convert_to_sdk_tree(db, test_set_id, organization_id, user_id)
+    tree_data = build_test_tree(db, test_set_id, organization_id, user_id)
     return tree_data.topics.get_all()
 
 
@@ -106,7 +108,7 @@ def get_explorer_test_sets(
     List[models.TestSet]
         Test sets configured for Explorer (Adaptive Testing behavior)
     """
-    test_sets = crud.get_explorer_test_sets(
+    test_sets = crud_explorer.get_explorer_test_sets(
         db=db,
         organization_id=organization_id,
         skip=skip,
@@ -202,7 +204,7 @@ def _delete_session_tests(
     them, so no other test set references them. Leaving them behind strands them
     in the global /tests list with no session to reach them from.
     """
-    test_ids = crud.get_test_ids_in_test_sets(db, test_set_ids, organization_id)
+    test_ids = crud_explorer.get_test_ids_in_test_sets(db, test_set_ids, organization_id)
     if not test_ids:
         return
     crud.bulk_delete_tests(
@@ -263,12 +265,7 @@ def bulk_delete_explorer_test_sets(
     if not test_set_ids:
         return {"deleted_ids": [], "not_found_ids": []}
 
-    candidates = (
-        QueryBuilder(db, models.TestSet)
-        .with_organization_filter(organization_id)
-        .with_custom_filter(lambda q: q.filter(models.TestSet.id.in_(test_set_ids)))
-        .all()
-    )
+    candidates = crud_explorer.get_test_sets_by_ids(db, test_set_ids, organization_id)
     valid_ids = [ts.id for ts in candidates if _is_explorer_test_set(ts)]
 
     _delete_session_tests(db, valid_ids, organization_id, user_id)
@@ -286,23 +283,111 @@ def bulk_delete_explorer_test_sets(
     return result
 
 
-def _unique_explorer_import_name(db: Session, organization_id: str, base_name: str) -> str:
-    """Pick a test set name that does not collide within the organization."""
-    candidate = base_name
-    counter = 0
+@dataclass(frozen=True)
+class _TestCopy:
+    """One source test, parsed into the fields both copy directions write.
+
+    ``topic_name`` and ``topic_id`` are both carried because the two writers
+    address the topic differently: import needs the slash path so it can build
+    the topic markers, export needs the FK.
+    """
+
+    content: str
+    topic_name: str
+    topic_id: Optional[UUID]
+    output: str
+    label: str
+    labeler: str
+    model_score: float
+
+
+def _parse_test_for_copy(db_test: models.Test, default_labeler: str) -> Optional[_TestCopy]:
+    """Parse a source test into a ``_TestCopy``, or None if it can't be copied.
+
+    Returns None for topic-marker rows and for tests with no prompt content
+    (e.g. multi-turn-only); both are counted as skipped by the caller.
+    """
+    meta = db_test.test_metadata or {}
+    if meta.get("label") == "topic_marker":
+        return None
+
+    prompt = db_test.prompt
+    content = (prompt.content or "").strip() if prompt else ""
+    if not content:
+        return None
+
+    topic_name = ""
+    if db_test.topic is not None and getattr(db_test.topic, "name", None):
+        topic_name = str(db_test.topic.name) or ""
+
+    label_raw = meta.get("label", "") or ""
+
+    try:
+        model_score = float(meta.get("model_score", 0.0) or 0.0)
+    except (TypeError, ValueError):
+        model_score = 0.0
+
+    return _TestCopy(
+        content=content,
+        topic_name=topic_name,
+        topic_id=db_test.topic_id,
+        output=str(meta.get("output", "") or ""),
+        label=label_raw if label_raw in ("", "pass", "fail") else "",
+        labeler=str(meta.get("labeler", default_labeler) or default_labeler),
+        model_score=model_score,
+    )
+
+
+def _copy_test_set_tests(
+    db: Session,
+    source_test_set_id: UUID,
+    default_labeler: str,
+    write: Callable[[_TestCopy], None],
+) -> Tuple[int, int, List[str]]:
+    """Walk a test set's tests and hand each copyable one to ``write``.
+
+    Shared by import and export -- the two differ only in what ``write`` does
+    with each parsed test.
+
+    Returns
+    -------
+    tuple
+        ``(copied, skipped, skipped_test_ids)``
+    """
+    copied = 0
+    skipped = 0
+    skipped_test_ids: List[str] = []
+    # Must stay within crud.get_test_set_tests pagination max (100).
+    batch_size = 100
+    skip = 0
+
     while True:
-        existing = (
-            db.query(models.TestSet)
-            .filter(
-                models.TestSet.organization_id == organization_id,
-                models.TestSet.name == candidate,
-            )
-            .first()
+        items, total = crud.get_test_set_tests(
+            db=db,
+            test_set_id=source_test_set_id,
+            skip=skip,
+            limit=batch_size,
+            sort_by="created_at",
+            sort_order="asc",
         )
-        if existing is None:
-            return candidate
-        counter += 1
-        candidate = f"{base_name} ({counter})"
+        if not items:
+            break
+
+        for db_test in items:
+            test_copy = _parse_test_for_copy(db_test, default_labeler)
+            if test_copy is None:
+                skipped += 1
+                skipped_test_ids.append(str(db_test.id))
+                continue
+
+            write(test_copy)
+            copied += 1
+
+        skip += len(items)
+        if skip >= total:
+            break
+
+    return copied, skipped, skipped_test_ids
 
 
 def import_explorer_test_set_from_source(
@@ -346,7 +431,7 @@ def import_explorer_test_set_from_source(
         raise ValueError("Source test set is already configured for Explorer")
 
     base_name = f"{db_source.name} (Adaptive)"
-    new_name = _unique_explorer_import_name(db, organization_id, base_name)
+    new_name = crud_explorer.find_unused_test_set_name(db, organization_id, base_name)
 
     new_set = create_explorer_test_set(
         db=db,
@@ -355,85 +440,37 @@ def import_explorer_test_set_from_source(
         name=new_name,
         description=db_source.description,
     )
-    db.flush()
-    db.refresh(new_set)
 
     # Copy adaptive_settings from source (e.g. default endpoint) if present
     src_attrs = db_source.attributes or {}
     explorer_settings_src = src_attrs.get("adaptive_settings")
     if explorer_settings_src and isinstance(explorer_settings_src, dict):
-        attrs = dict(new_set.attributes or {})
-        attrs["adaptive_settings"] = dict(explorer_settings_src)
-        new_set.attributes = attrs
-        db.add(new_set)
-        db.flush()
+        crud_explorer.replace_test_set_adaptive_settings(db, new_set, explorer_settings_src)
 
-    imported = 0
-    skipped = 0
-    skipped_test_ids: List[str] = []
-    # Must stay within crud.get_test_set_tests pagination max (100).
-    batch_size = 100
-    skip = 0
-
-    while True:
-        items, total = crud.get_test_set_tests(
+    def write(test_copy: _TestCopy) -> None:
+        # create_test_node() takes the topic path, not the FK: it builds the
+        # topic markers the tree is read from before resolving the topic row.
+        create_test_node(
             db=db,
-            test_set_id=db_source.id,
-            skip=skip,
-            limit=batch_size,
-            sort_by="created_at",
-            sort_order="asc",
+            test_set_id=new_set.id,
+            organization_id=organization_id,
+            user_id=user_id,
+            topic=test_copy.topic_name,
+            input=test_copy.content,
+            output=test_copy.output,
+            labeler=test_copy.labeler,
+            label=test_copy.label,
+            model_score=test_copy.model_score,
         )
-        if not items:
-            break
 
-        for db_test in items:
-            meta = db_test.test_metadata or {}
-            if meta.get("label") == "topic_marker":
-                skipped += 1
-                skipped_test_ids.append(str(db_test.id))
-                continue
+    imported, skipped, skipped_test_ids = _copy_test_set_tests(
+        db,
+        source_test_set_id=db_source.id,
+        default_labeler="imported",
+        write=write,
+    )
 
-            prompt = db_test.prompt
-            content = (prompt.content or "").strip() if prompt else ""
-            if not content:
-                skipped += 1
-                skipped_test_ids.append(str(db_test.id))
-                continue
-
-            topic_name = ""
-            if db_test.topic is not None and getattr(db_test.topic, "name", None):
-                topic_name = str(db_test.topic.name) or ""
-
-            label_raw = meta.get("label", "") or ""
-            label = label_raw if label_raw in ("", "pass", "fail") else ""
-
-            output_val = meta.get("output", "") or ""
-            labeler_val = meta.get("labeler", "imported") or "imported"
-            try:
-                model_score_val = float(meta.get("model_score", 0.0) or 0.0)
-            except (TypeError, ValueError):
-                model_score_val = 0.0
-
-            create_test_node(
-                db=db,
-                test_set_id=new_set.id,
-                organization_id=organization_id,
-                user_id=user_id,
-                topic=topic_name,
-                input=content,
-                output=str(output_val),
-                labeler=str(labeler_val),
-                label=label,
-                model_score=model_score_val,
-            )
-            imported += 1
-
-        skip += len(items)
-        if skip >= total:
-            break
-
-    db.refresh(new_set)
+    crud_explorer.refresh_test_set(db, new_set)
     return {
         "test_set": new_set,
         "imported": imported,
@@ -487,7 +524,7 @@ def export_regular_test_set_from_explorer(
         )
 
     base_name = f"{db_source.name} (Exported)"
-    new_name = _unique_explorer_import_name(db, organization_id, base_name)
+    new_name = crud_explorer.find_unused_test_set_name(db, organization_id, base_name)
 
     test_set_type_lookup = get_or_create_type_lookup(
         db=db,
@@ -508,102 +545,50 @@ def export_regular_test_set_from_explorer(
         organization_id=organization_id,
         user_id=user_id,
     )
-    db.flush()
-    db.refresh(new_set)
 
-    exported = 0
-    skipped = 0
-    skipped_test_ids: List[str] = []
-    batch_size = 100
-    skip = 0
-
-    while True:
-        items, total = crud.get_test_set_tests(
-            db=db,
-            test_set_id=db_source.id,
-            skip=skip,
-            limit=batch_size,
-            sort_by="created_at",
-            sort_order="asc",
-        )
-        if not items:
-            break
-
-        for db_test in items:
-            meta = db_test.test_metadata or {}
-            if meta.get("label") == "topic_marker":
-                skipped += 1
-                skipped_test_ids.append(str(db_test.id))
-                continue
-
-            prompt = db_test.prompt
-            content = (prompt.content or "").strip() if prompt else ""
-            if not content:
-                skipped += 1
-                skipped_test_ids.append(str(db_test.id))
-                continue
-
-            topic_id = db_test.topic_id
-            if topic_id is None:
-                topic_name = ""
-                if db_test.topic is not None and getattr(db_test.topic, "name", None):
-                    topic_name = str(db_test.topic.name) or ""
-                if topic_name:
-                    db_topic = get_or_create_topic(
-                        db=db,
-                        name=topic_name,
-                        organization_id=organization_id,
-                        user_id=user_id,
-                    )
-                    topic_id = db_topic.id
-
-            label_raw = meta.get("label", "") or ""
-            label = label_raw if label_raw in ("", "pass", "fail") else ""
-
-            output_val = meta.get("output", "") or ""
-            labeler_val = meta.get("labeler", "exported") or "exported"
-            try:
-                model_score_val = float(meta.get("model_score", 0.0) or 0.0)
-            except (TypeError, ValueError):
-                model_score_val = 0.0
-
-            db_prompt = models.Prompt(
-                content=content,
-                organization_id=organization_id,
-                user_id=user_id,
-            )
-            db.add(db_prompt)
-            db.flush()
-
-            new_test = models.Test(
-                topic_id=topic_id,
-                prompt_id=db_prompt.id,
-                test_metadata={
-                    "output": str(output_val),
-                    "label": label,
-                    "labeler": str(labeler_val),
-                    "model_score": model_score_val,
-                },
-                organization_id=organization_id,
-                user_id=user_id,
-            )
-            db.add(new_test)
-            db.flush()
-
-            create_test_set_associations(
+    def write(test_copy: _TestCopy) -> None:
+        # The exported set gets no topic markers, so the topic is carried by FK
+        # alone -- resolved from the path only when the source row had none.
+        topic_id = test_copy.topic_id
+        if topic_id is None and test_copy.topic_name:
+            db_topic = get_or_create_topic(
                 db=db,
-                test_set_id=str(new_set.id),
-                test_ids=[str(new_test.id)],
+                name=test_copy.topic_name,
                 organization_id=organization_id,
                 user_id=user_id,
             )
-            exported += 1
+            topic_id = db_topic.id
 
-        skip += len(items)
-        if skip >= total:
-            break
+        new_test = crud_explorer.create_explorer_test(
+            db,
+            organization_id=organization_id,
+            user_id=user_id,
+            topic_id=topic_id,
+            content=test_copy.content,
+            metadata={
+                "output": test_copy.output,
+                "label": test_copy.label,
+                "labeler": test_copy.labeler,
+                "model_score": test_copy.model_score,
+            },
+        )
 
-    db.refresh(new_set)
+        create_test_set_associations(
+            db=db,
+            test_set_id=str(new_set.id),
+            test_ids=[str(new_test.id)],
+            organization_id=organization_id,
+            user_id=user_id,
+        )
+
+    exported, skipped, skipped_test_ids = _copy_test_set_tests(
+        db,
+        source_test_set_id=db_source.id,
+        default_labeler="exported",
+        write=write,
+    )
+
+    crud_explorer.refresh_test_set(db, new_set)
     return {
         "test_set": new_set,
         "exported": exported,
@@ -682,30 +667,20 @@ def create_test_node(
         else None
     )
 
-    # Create the prompt (input text)
-    db_prompt = models.Prompt(
-        content=input,
+    # Create the prompt (input text) and the test record
+    db_test = crud_explorer.create_explorer_test(
+        db,
         organization_id=organization_id,
         user_id=user_id,
-    )
-    db.add(db_prompt)
-    db.flush()
-
-    # Create the test record
-    db_test = models.Test(
         topic_id=db_topic.id if db_topic else None,
-        prompt_id=db_prompt.id,
-        test_metadata={
+        content=input,
+        metadata={
             "output": output,
             "label": label,
             "labeler": labeler,
             "model_score": model_score,
         },
-        organization_id=organization_id,
-        user_id=user_id,
     )
-    db.add(db_test)
-    db.flush()
 
     # Associate the test with the test set
     create_test_set_associations(
@@ -716,8 +691,9 @@ def create_test_node(
         user_id=user_id,
     )
 
-    # Refresh to load relationships for _db_test_to_node
-    db.refresh(db_test)
+    # Re-read so the relationships _db_test_to_node walks are loaded, and so the
+    # association is confirmed to have landed.
+    db_test = crud_explorer.get_test_in_test_set(db, test_set_id, db_test.id, organization_id)
 
     node = _db_test_to_node(db_test)
 
@@ -772,28 +748,10 @@ def update_test_node(
         The updated test node, or None if test not found in the
         given test set.
     """
-    # Look up the test and verify it belongs to the test set
-    db_test = (
-        db.query(models.Test)
-        .join(
-            test_test_set_association,
-            models.Test.id == test_test_set_association.c.test_id,
-        )
-        .filter(
-            models.Test.id == test_id,
-            test_test_set_association.c.test_set_id == test_set_id,
-            models.Test.organization_id == organization_id,
-        )
-        .first()
-    )
+    db_test = crud_explorer.get_test_in_test_set(db, test_set_id, test_id, organization_id)
 
     if db_test is None:
         return None
-
-    # Update input -> Prompt.content
-    if input is not None and db_test.prompt:
-        db_test.prompt.content = input
-        db.add(db_test.prompt)
 
     # Update metadata fields (output, label, model_score)
     meta = dict(db_test.test_metadata or {})
@@ -803,10 +761,9 @@ def update_test_node(
         meta["label"] = label
     if model_score is not None:
         meta["model_score"] = model_score
-    if meta != (db_test.test_metadata or {}):
-        db_test.test_metadata = meta
 
     # Update topic
+    topic_id = None
     if topic is not None:
         # Ensure topic markers exist
         create_topic_node(
@@ -822,11 +779,15 @@ def update_test_node(
             organization_id=organization_id,
             user_id=user_id,
         )
-        db_test.topic_id = db_topic.id
+        topic_id = db_topic.id
 
-    db.add(db_test)
-    db.flush()
-    db.refresh(db_test)
+    db_test = crud_explorer.update_explorer_test(
+        db,
+        db_test,
+        prompt_content=input,
+        metadata=meta,
+        topic_id=topic_id,
+    )
 
     node = _db_test_to_node(db_test)
 
@@ -866,31 +827,14 @@ def delete_test_node(
     bool
         True if the test was found and deleted, False otherwise.
     """
-    # Look up the test and verify it belongs to the test set
-    db_test = (
-        db.query(models.Test)
-        .join(
-            test_test_set_association,
-            models.Test.id == test_test_set_association.c.test_id,
-        )
-        .filter(
-            models.Test.id == test_id,
-            test_test_set_association.c.test_set_id == test_set_id,
-            models.Test.organization_id == organization_id,
-        )
-        .first()
-    )
+    db_test = crud_explorer.get_test_in_test_set(db, test_set_id, test_id, organization_id)
 
     if db_test is None:
         return False
 
-    # Remove the test-test_set association
-    db.execute(
-        test_test_set_association.delete().where(
-            test_test_set_association.c.test_id == test_id,
-            test_test_set_association.c.test_set_id == test_set_id,
-        )
-    )
+    # Detach before deleting: crud.delete_test reads the association table to decide
+    # which test sets to recalculate, and this one is going away regardless.
+    crud_explorer.remove_tests_from_test_set(db, test_set_id, [test_id])
 
     # Soft-delete the test via the existing CRUD helper
     crud.delete_test(
@@ -899,8 +843,6 @@ def delete_test_node(
         organization_id=organization_id,
         user_id=user_id,
     )
-
-    db.flush()
 
     logger.info(f"Deleted test node {test_id} from test_set={test_set_id}")
 

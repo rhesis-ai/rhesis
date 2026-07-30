@@ -14,7 +14,6 @@ from .references import (
     TypeLookupReference,
 )
 from .status import Status
-from .tag import TagRead
 from .type_lookup import TypeLookup
 from .user import User, UserReference
 
@@ -108,7 +107,6 @@ class TaskDetail(Task):
     user_id: Optional[UUID4] = None
     status_id: Optional[UUID4] = None
     organization_id: Optional[UUID4] = None
-    tags: Optional[List[TagRead]] = None
 
     user: Optional[UserReference] = None
     assignee: Optional[UserReference] = None

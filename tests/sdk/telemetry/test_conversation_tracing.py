@@ -344,9 +344,7 @@ class TestExecutorConversation:
             },
         }
 
-        result = asyncio.get_event_loop().run_until_complete(
-            executor.execute(mock_func, "mock_func", inputs)
-        )
+        result = asyncio.run(executor.execute(mock_func, "mock_func", inputs))
 
         assert result["status"] == "success"
         assert captured_conv_id == "session-exec-test"
@@ -375,9 +373,7 @@ class TestExecutorConversation:
             },
         }
 
-        asyncio.get_event_loop().run_until_complete(
-            executor.execute(mock_func, "mock_func", inputs)
-        )
+        asyncio.run(executor.execute(mock_func, "mock_func", inputs))
 
         assert ConvCtx.CONTEXT_KEY not in received_kwargs
         assert "prompt" in received_kwargs
@@ -388,9 +384,7 @@ class TestExecutorConversation:
 
         executor = TestExecutor()
 
-        result = asyncio.get_event_loop().run_until_complete(
-            executor.execute(lambda: "ok", "simple", {})
-        )
+        result = asyncio.run(executor.execute(lambda: "ok", "simple", {}))
         assert result["status"] == "success"
         assert result["output"] == "ok"
 
@@ -410,9 +404,7 @@ class TestExecutorConversation:
             },
         }
 
-        result = asyncio.get_event_loop().run_until_complete(
-            executor.execute(failing_func, "failing", inputs)
-        )
+        result = asyncio.run(executor.execute(failing_func, "failing", inputs))
 
         assert result["status"] == "error"
         assert get_conversation_id() is None

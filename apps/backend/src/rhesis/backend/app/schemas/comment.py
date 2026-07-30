@@ -10,7 +10,6 @@ from rhesis.backend.app.constants import EntityType
 from .affordances import WithPermittedActions
 from .base import Base
 from .emoji_reaction import EmojiReaction
-from .references import OrganizationReference, ProjectReference
 from .user import UserReference
 
 
@@ -78,10 +77,9 @@ class Comment(CommentBase, WithPermittedActions):
     model_config = ConfigDict(from_attributes=True)
 
 
-# The detailed model with expanded relations
+# The detailed model with expanded relations. organization: unused, excluded.
+# project isn't even a real relationship on the Comment ORM model (always None).
 class CommentDetail(Comment):
     content: Optional[str] = None
     user_id: Optional[UUID4] = None
     user: Optional[UserReference] = None
-    organization: Optional[OrganizationReference] = None
-    project: Optional[ProjectReference] = None

@@ -1891,7 +1891,7 @@ class TypeLookupDataFactory(BaseDataFactory):
         elif case_type == "long_values":
             return {
                 "type_name": f"long_type_{fake.word()}",
-                "type_value": fake.text(max_nb_chars=200).replace("\n", " "),
+                "type_value": f"long_value_{'x' * 150}_{fake.word()}",
                 "description": fake.paragraph(nb_sentences=3),
             }
         elif case_type == "special_characters":

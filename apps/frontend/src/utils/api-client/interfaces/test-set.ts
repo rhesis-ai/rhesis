@@ -18,20 +18,6 @@ export interface TestSetBase {
   test_set_type_id?: UUID;
 }
 
-// Organization interface for the nested organization data
-export interface Organization {
-  id: string;
-  name: string;
-  description?: string;
-  email?: string;
-  user_id?: string;
-  tags?: Array<{
-    id: string;
-    name: string;
-    icon_unicode?: string;
-  }>;
-}
-
 // User interface for the nested user data
 export interface User {
   id: string;
@@ -40,16 +26,6 @@ export interface User {
   family_name?: string;
   given_name?: string;
   picture?: string;
-  organization_id?: string;
-}
-
-// LicenseType interface for the nested license_type data
-export interface LicenseType {
-  id: string;
-  description?: string;
-  type_name?: string;
-  type_value?: string;
-  user_id?: string;
   organization_id?: string;
 }
 
@@ -97,7 +73,6 @@ export interface TestSet {
   status_details?: Status;
   tags?: Tag[];
   license_type_id?: UUID;
-  license_type?: LicenseType;
   test_set_type_id?: UUID;
   test_set_type?: TestSetType;
   attributes?: {
@@ -130,12 +105,9 @@ export interface TestSet {
   user_id?: UUID;
   user?: User;
   owner_id?: UUID;
-  owner?: User;
   assignee_id?: UUID;
-  assignee?: User;
   priority?: number;
   organization_id?: UUID;
-  organization?: Organization;
   is_published: boolean;
   visibility?: 'public' | 'organization' | 'user';
   counts?: {

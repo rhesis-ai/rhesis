@@ -540,8 +540,7 @@ class TestGarakProbeServiceEnumerateCachedConcurrency:
             assert modules == []
             assert probes_by_module == {}
 
-    @pytest.mark.asyncio
-    async def test_lock_survives_across_different_event_loops(self):
+    def test_lock_survives_across_different_event_loops(self):
         """Regression test flagged in PR review: a bare module-level
         asyncio.Lock() binds to whichever event loop first genuinely contends
         on it (waits, not just uncontended acquire/release), and raises
@@ -550,7 +549,12 @@ class TestGarakProbeServiceEnumerateCachedConcurrency:
         (function-scoped), so two different tests contending on the same
         process-wide single-flight lock would hit exactly this in CI.
         _get_enumeration_lock() must hand back a fresh, working lock whenever
-        the running loop differs from the one it was last bound to."""
+        the running loop differs from the one it was last bound to.
+
+        Deliberately a sync test driving two loops in sequence: the pair of
+        loops is the whole point, and running one from inside the other would
+        need nest_asyncio.
+        """
 
         async def _contend():
             lock = _get_enumeration_lock()
@@ -565,16 +569,12 @@ class TestGarakProbeServiceEnumerateCachedConcurrency:
 
             await asyncio.gather(holder(), waiter())
 
-        # Contends on the lock in the current (pytest-asyncio) event loop —
-        # this is what binds a bare asyncio.Lock() internally.
-        await _contend()
-
-        # Simulate a second, independent test function getting its own fresh
-        # event loop (exactly what pytest-asyncio's function-scoped loops do)
-        # and also contending on the same process-wide lock. Without the fix,
-        # this raises "... is bound to a different event loop".
-        new_loop = asyncio.new_event_loop()
-        try:
-            new_loop.run_until_complete(_contend())
-        finally:
-            new_loop.close()
+        # Two independent loops, exactly what pytest-asyncio's function-scoped
+        # loops give two consecutive tests. Contending in the second one raises
+        # "... is bound to a different event loop" without the rebinding fix.
+        for _ in range(2):
+            loop = asyncio.new_event_loop()
+            try:
+                loop.run_until_complete(_contend())
+            finally:
+                loop.close()

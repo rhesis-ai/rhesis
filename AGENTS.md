@@ -4,6 +4,17 @@ Read natively by Cursor and imported by Claude Code (`CLAUDE.md` → `@AGENTS.md
 rules that apply repo-wide. Scoped rules live in each area's own `AGENTS.md`:
 `apps/backend/AGENTS.md`, `apps/frontend/AGENTS.md`, `sdk/AGENTS.md`, `docs/AGENTS.md`.
 
+## Answering
+
+Write answers in simple, plain language. Short sentences, everyday words. Say what you did and what
+it means — skip the buildup.
+
+Technical terms are fine when they're the real name for something: codebase names
+(`bind_scope_to_session`, test set, affordances), everyday dev words (endpoint, migration, fixture,
+race condition), and framework/infra terms (GUC, RLS policy, `ContextVar`, Celery worker). Avoid
+abstract engineering-speak that carries no information — "leverage the abstraction", "surface area",
+"idiomatic", "orthogonal concerns", "non-trivial", "first-class citizen".
+
 ## Technology Stack
 
 Backend and Python SDK: Python 3.10+, `uv` with `pyproject.toml`, Pydantic 2.x, pytest.
@@ -35,6 +46,9 @@ requirements).
 
 ## Git Commits
 
+- **Never commit, push, or open a PR without asking first.** Show what changed, then wait for the
+  user to say go. An approved plan that mentions commits is not the confirmation — ask again when
+  the code is actually ready.
 - **Never commit on `main`.** Check `git branch --show-current` first; if on `main`, create a
   branch before committing: `git fetch origin && git checkout main && git pull origin main &&
 git checkout -b feature/short-description`.

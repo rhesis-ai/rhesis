@@ -2,15 +2,19 @@ import logging
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy.orm import Session, contains_eager
+from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models
-from rhesis.backend.app.models.test import test_test_set_association
+from rhesis.backend.app import crud
+from rhesis.backend.app.crud.explorer import (
+    create_explorer_test,
+    get_tests_under_topic,
+    reassign_tests_topic,
+    remove_tests_from_test_set,
+)
+from rhesis.backend.app.schemas.explorer import TopicNode
+from rhesis.backend.app.services.explorer.utils import build_test_tree
 from rhesis.backend.app.services.test import create_test_set_associations
 from rhesis.backend.app.utils.crud_utils import get_or_create_topic
-from rhesis.sdk.adaptive_testing.schemas import TopicNode
-
-from .utils import convert_to_sdk_tree
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +56,7 @@ def create_topic_node(
         The created (or already existing) topic node
     """
     # Build the current tree to check which markers already exist
-    tree_data = convert_to_sdk_tree(db, test_set_id, organization_id, user_id)
+    tree_data = build_test_tree(db, test_set_id, organization_id, user_id)
 
     # Collect paths that still need a topic_marker
     topic_node = TopicNode(path=topic)
@@ -74,18 +78,17 @@ def create_topic_node(
         )
 
         # 2. Create a test record flagged as a topic marker
-        db_test = models.Test(
+        db_test = create_explorer_test(
+            db,
+            organization_id=organization_id,
+            user_id=user_id,
             topic_id=db_topic.id,
-            test_metadata={
+            metadata={
                 "label": "topic_marker",
                 "labeler": "user",
                 "output": "",
             },
-            organization_id=organization_id,
-            user_id=user_id,
         )
-        db.add(db_test)
-        db.flush()
 
         # 3. Associate the test with the test set
         create_test_set_associations(
@@ -154,13 +157,13 @@ def update_topic_node(
     if "/" in new_name:
         raise ValueError("new_name must not contain '/'")
 
-    # Build the SDK tree to validate the topic exists
-    tree_data = convert_to_sdk_tree(db, test_set_id, organization_id, user_id)
+    # Build the tree to validate the topic exists
+    tree_data = build_test_tree(db, test_set_id, organization_id, user_id)
     existing_topic = tree_data.topics.get(topic_path)
     if existing_topic is None:
         return None
 
-    # Compute the new path using the SDK helper
+    # Compute the new path using the topic-tree helper
     old_topic = TopicNode(path=topic_path)
     new_topic = tree_data.topics.rename(old_topic, new_name)
     new_path = new_topic.path
@@ -170,24 +173,9 @@ def update_topic_node(
         return TopicNode(path=topic_path)
 
     # Find all tests in this test set and update their topic FKs.
-    # We need tests whose topic.name == old_path or starts with
-    # old_path + "/" (descendants).
-    db_tests = (
-        db.query(models.Test)
-        .join(
-            test_test_set_association,
-            models.Test.id == test_test_set_association.c.test_id,
-        )
-        .join(models.Topic, models.Test.topic_id == models.Topic.id)
-        .options(contains_eager(models.Test.topic))
-        .filter(
-            test_test_set_association.c.test_set_id == test_set_id,
-            models.Test.organization_id == organization_id,
-        )
-        .filter((models.Topic.name == topic_path) | (models.Topic.name.like(topic_path + "/%")))
-        .all()
-    )
+    db_tests = get_tests_under_topic(db, test_set_id, organization_id, topic_path)
 
+    reassignments = []
     for db_test in db_tests:
         old_name = db_test.topic.name
         if old_name == topic_path:
@@ -202,10 +190,9 @@ def update_topic_node(
             organization_id=organization_id,
             user_id=user_id,
         )
-        db_test.topic = new_db_topic
-        db.add(db_test)
+        reassignments.append((db_test, new_db_topic))
 
-    db.flush()
+    reassign_tests_topic(db, reassignments)
 
     logger.info(
         f"Renamed topic '{topic_path}' to '{new_path}' "
@@ -246,7 +233,7 @@ def remove_topic_node(
     bool
         True if the topic existed and was removed, False if not found.
     """
-    tree_data = convert_to_sdk_tree(db, test_set_id, organization_id, user_id)
+    tree_data = build_test_tree(db, test_set_id, organization_id, user_id)
     existing = tree_data.topics.get(topic_path)
     if existing is None:
         return False
@@ -254,21 +241,7 @@ def remove_topic_node(
     parent_path = existing.parent_path or ""
 
     # All tests in this test set under this topic or any subtopic
-    db_tests = (
-        db.query(models.Test)
-        .join(
-            test_test_set_association,
-            models.Test.id == test_test_set_association.c.test_id,
-        )
-        .join(models.Topic, models.Test.topic_id == models.Topic.id)
-        .options(contains_eager(models.Test.topic))
-        .filter(
-            test_test_set_association.c.test_set_id == test_set_id,
-            models.Test.organization_id == organization_id,
-        )
-        .filter((models.Topic.name == topic_path) | (models.Topic.name.like(topic_path + "/%")))
-        .all()
-    )
+    db_tests = get_tests_under_topic(db, test_set_id, organization_id, topic_path)
 
     parent_topic = None
     if parent_path:
@@ -280,32 +253,26 @@ def remove_topic_node(
         )
 
     topic_marker_ids = []
+    orphaned = []
     for db_test in db_tests:
         is_marker = (db_test.test_metadata or {}).get("label") == "topic_marker"
         if is_marker:
             topic_marker_ids.append(db_test.id)
         else:
-            if parent_topic:
-                db_test.topic = parent_topic
-            else:
-                db_test.topic = None
-            db.add(db_test)
+            orphaned.append((db_test, parent_topic))
 
+    reassign_tests_topic(db, orphaned)
+
+    # Detach before deleting: crud.delete_test reads the association table to decide
+    # which test sets to recalculate, and this one is going away regardless.
+    remove_tests_from_test_set(db, test_set_id, topic_marker_ids)
     for test_id in topic_marker_ids:
-        db.execute(
-            test_test_set_association.delete().where(
-                test_test_set_association.c.test_id == test_id,
-                test_test_set_association.c.test_set_id == test_set_id,
-            )
-        )
         crud.delete_test(
             db=db,
             test_id=test_id,
             organization_id=organization_id,
             user_id=user_id,
         )
-
-    db.flush()
 
     logger.info(
         f"Removed topic '{topic_path}' from test_set={test_set_id}: "

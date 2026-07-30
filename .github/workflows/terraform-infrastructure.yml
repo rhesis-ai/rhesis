@@ -39,72 +39,95 @@ env:
   TF_STATE_BUCKET: 'rhesis-platform-admin-tfstate'
 
 jobs:
-  plan:
-    name: Plan / ${{ inputs.environment || 'dev' }}
+  # workflow_dispatch plans exactly the one environment the user picked.
+  # push/pull_request plan dev, stg, and prd unconditionally -- previously
+  # only dev ever ran automatically, so a regression in stg/prd's Terraform
+  # (e.g. the cloudflare provider gap this workflow's PR #2292 fixed) was
+  # only ever caught by someone remembering to dispatch a manual plan.
+  # wireguard/admin is intentionally excluded: it takes bespoke inputs
+  # (wireguard_envs/wireguard_peers) that don't have sane defaults for an
+  # automatic plan, and it changes far less often than dev/stg/prd.
+  compute-matrix:
+    name: Compute plan matrix
     runs-on: ubuntu-latest
     outputs:
-      target_env: ${{ steps.ctx.outputs.target_env }}
+      environments: ${{ steps.set.outputs.environments }}
+    steps:
+      - id: set
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo 'environments=["${{ inputs.environment }}"]' >> "$GITHUB_OUTPUT"
+          else
+            echo 'environments=["dev","stg","prd"]' >> "$GITHUB_OUTPUT"
+          fi
+
+  plan:
+    name: Plan / ${{ matrix.environment }}
+    needs: compute-matrix
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        environment: ${{ fromJson(needs.compute-matrix.outputs.environments) }}
+    # GitHub Actions job-level outputs from a matrix job only reliably
+    # capture ONE matrix instance's value (in practice whichever completes
+    # last) -- it does not merge/namespace per-environment values. This is
+    # safe today only because `apply` (the sole consumer of target_env)
+    # runs exclusively on workflow_dispatch, where compute-matrix always
+    # produces a single-element array, so `plan` never actually runs as a
+    # multi-instance matrix on the one path that reads this output. If
+    # apply's trigger condition ever changes to also fire off a multi-env
+    # plan (push/pull_request), this output stops being trustworthy and
+    # needs to be reworked (e.g. a per-environment output via a fan-in
+    # job, or dropping the shared output in favor of passing environment
+    # through explicitly).
+    outputs:
+      target_env: ${{ steps.tf_setup.outputs.target_env }}
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Resolve context
-        id: ctx
-        env:
-          TF_PROJECT_ID_DEV: ${{ secrets.TF_PROJECT_ID_DEV }}
-          TF_PROJECT_ID_STG: ${{ secrets.TF_PROJECT_ID_STG }}
-          TF_PROJECT_ID_PRD: ${{ secrets.TF_PROJECT_ID_PRD }}
-          TF_PROJECT_ID_WIREGUARD: ${{ secrets.TF_PROJECT_ID_WIREGUARD }}
-          TF_SA_DEV: ${{ secrets.TF_SA_DEV }}
-          TF_SA_STG: ${{ secrets.TF_SA_STG }}
-          TF_SA_PRD: ${{ secrets.TF_SA_PRD }}
-          TF_SA_WIREGUARD: ${{ secrets.TF_SA_WIREGUARD }}
-        run: |
-          ENV="${{ inputs.environment || 'dev' }}"
-          # "admin" is the UI label for the wireguard environment
-          [[ "$ENV" == "admin" ]] && ENV="wireguard"
-          echo "target_env=$ENV" >> $GITHUB_OUTPUT
-          case "$ENV" in
-            dev)       echo "project_id=$TF_PROJECT_ID_DEV" >> $GITHUB_OUTPUT
-                       echo "service_account=$TF_SA_DEV" >> $GITHUB_OUTPUT ;;
-            stg)       echo "project_id=$TF_PROJECT_ID_STG" >> $GITHUB_OUTPUT
-                       echo "service_account=$TF_SA_STG" >> $GITHUB_OUTPUT ;;
-            prd)       echo "project_id=$TF_PROJECT_ID_PRD" >> $GITHUB_OUTPUT
-                       echo "service_account=$TF_SA_PRD" >> $GITHUB_OUTPUT ;;
-            wireguard) echo "project_id=$TF_PROJECT_ID_WIREGUARD" >> $GITHUB_OUTPUT
-                       echo "service_account=$TF_SA_WIREGUARD" >> $GITHUB_OUTPUT ;;
-          esac
-
-      - uses: google-github-actions/auth@v2
+      - uses: ./.github/actions/tf-setup
+        id: tf_setup
         with:
-          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
-          service_account: ${{ steps.ctx.outputs.service_account }}
-
-      - uses: hashicorp/setup-terraform@v3
-        with:
+          environment: ${{ matrix.environment }}
           terraform_version: ${{ env.TF_VERSION }}
+          wif_provider: ${{ secrets.WIF_PROVIDER }}
+          tf_project_id_dev: ${{ secrets.TF_PROJECT_ID_DEV }}
+          tf_project_id_stg: ${{ secrets.TF_PROJECT_ID_STG }}
+          tf_project_id_prd: ${{ secrets.TF_PROJECT_ID_PRD }}
+          tf_project_id_wireguard: ${{ secrets.TF_PROJECT_ID_WIREGUARD }}
+          tf_sa_dev: ${{ secrets.TF_SA_DEV }}
+          tf_sa_stg: ${{ secrets.TF_SA_STG }}
+          tf_sa_prd: ${{ secrets.TF_SA_PRD }}
+          tf_sa_wireguard: ${{ secrets.TF_SA_WIREGUARD }}
 
       - name: Init
-        working-directory: terraform/infrastructure/envs/${{ steps.ctx.outputs.target_env }}
+        working-directory: terraform/infrastructure/envs/${{ steps.tf_setup.outputs.target_env }}
         run: terraform init -input=false -backend-config="bucket=${{ env.TF_STATE_BUCKET }}"
 
       - name: Plan
-        working-directory: terraform/infrastructure/envs/${{ steps.ctx.outputs.target_env }}
+        working-directory: terraform/infrastructure/envs/${{ steps.tf_setup.outputs.target_env }}
         run: terraform plan -input=false -out=tfplan -no-color 2>&1 | tee plan.txt
         env:
-          TF_VAR_project_id: ${{ steps.ctx.outputs.project_id }}
+          TF_VAR_project_id: ${{ steps.tf_setup.outputs.project_id }}
           TF_VAR_region: ${{ secrets.TF_REGION }}
           TF_VAR_enabled_environments: ${{ inputs.environment == 'admin' && inputs.wireguard_envs || '[]' }}
           TF_VAR_wireguard_peers: ${{ inputs.environment == 'admin' && secrets.TF_WG_PEERS || '[]' }}
 
+      # prd is excluded from auto-posted PR comments: now that prd plans
+      # automatically on every PR (see compute-matrix above), pasting its
+      # full plan output into a public/shared PR comment isn't something we
+      # want by default (resource names, CIDRs, etc). Still runs and still
+      # uploaded as an artifact below -- just not broadcast to the PR thread.
       - name: Post plan to PR
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && steps.tf_setup.outputs.target_env != 'prd'
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
             const raw = fs.readFileSync(
-              'terraform/infrastructure/envs/${{ steps.ctx.outputs.target_env }}/plan.txt',
+              'terraform/infrastructure/envs/${{ steps.tf_setup.outputs.target_env }}/plan.txt',
               'utf8'
             );
             const body = raw.length > 65000 ? raw.slice(0, 65000) + '\n...(truncated)' : raw;
@@ -112,13 +135,13 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `<details><summary>Terraform Plan — <code>${{ steps.ctx.outputs.target_env }}</code></summary>\n\n\`\`\`\n${body}\n\`\`\`\n</details>`
+              body: `<details><summary>Terraform Plan — <code>${{ steps.tf_setup.outputs.target_env }}</code></summary>\n\n\`\`\`\n${body}\n\`\`\`\n</details>`
             });
 
       - uses: actions/upload-artifact@v7
         with:
-          name: tfplan-${{ steps.ctx.outputs.target_env }}
-          path: terraform/infrastructure/envs/${{ steps.ctx.outputs.target_env }}/tfplan
+          name: tfplan-${{ steps.tf_setup.outputs.target_env }}
+          path: terraform/infrastructure/envs/${{ steps.tf_setup.outputs.target_env }}/tfplan
           retention-days: 1
 
   apply:
@@ -138,46 +161,31 @@ jobs:
     #   gcloud compute instances update wireguard-server \
     #     --no-deletion-protection --zone=**-***-a \
     #     --project=rhesis-p*******
+    #
+    # needs.plan.outputs.target_env is only trustworthy because this job's
+    # own `if` below restricts it to workflow_dispatch -- see the comment
+    # on plan's `outputs:` above for why a matrix job's output can't be
+    # relied on in general.
     environment: ${{ needs.plan.outputs.target_env }}
     if: github.event_name == 'workflow_dispatch' && inputs.action == 'apply'
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Resolve context
-        id: ctx
-        env:
-          TF_PROJECT_ID_DEV: ${{ secrets.TF_PROJECT_ID_DEV }}
-          TF_PROJECT_ID_STG: ${{ secrets.TF_PROJECT_ID_STG }}
-          TF_PROJECT_ID_PRD: ${{ secrets.TF_PROJECT_ID_PRD }}
-          TF_PROJECT_ID_WIREGUARD: ${{ secrets.TF_PROJECT_ID_WIREGUARD }}
-          TF_SA_DEV: ${{ secrets.TF_SA_DEV }}
-          TF_SA_STG: ${{ secrets.TF_SA_STG }}
-          TF_SA_PRD: ${{ secrets.TF_SA_PRD }}
-          TF_SA_WIREGUARD: ${{ secrets.TF_SA_WIREGUARD }}
-        run: |
-          ENV="${{ needs.plan.outputs.target_env }}"
-          case "$ENV" in
-            dev)       echo "project_id=$TF_PROJECT_ID_DEV" >> $GITHUB_OUTPUT
-                       echo "service_account=$TF_SA_DEV" >> $GITHUB_OUTPUT ;;
-            stg)       echo "project_id=$TF_PROJECT_ID_STG" >> $GITHUB_OUTPUT
-                       echo "service_account=$TF_SA_STG" >> $GITHUB_OUTPUT ;;
-            prd)       echo "project_id=$TF_PROJECT_ID_PRD" >> $GITHUB_OUTPUT
-                       echo "service_account=$TF_SA_PRD" >> $GITHUB_OUTPUT ;;
-            wireguard) echo "project_id=$TF_PROJECT_ID_WIREGUARD" >> $GITHUB_OUTPUT
-                       echo "service_account=$TF_SA_WIREGUARD" >> $GITHUB_OUTPUT ;;
-          esac
-
-      - uses: google-github-actions/auth@v2
+      - uses: ./.github/actions/tf-setup
+        id: tf_setup
         with:
-          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
-          service_account: ${{ steps.ctx.outputs.service_account }}
-
-      - uses: google-github-actions/setup-gcloud@v2
-
-      - uses: hashicorp/setup-terraform@v3
-        with:
+          environment: ${{ inputs.environment }}
           terraform_version: ${{ env.TF_VERSION }}
+          wif_provider: ${{ secrets.WIF_PROVIDER }}
+          tf_project_id_dev: ${{ secrets.TF_PROJECT_ID_DEV }}
+          tf_project_id_stg: ${{ secrets.TF_PROJECT_ID_STG }}
+          tf_project_id_prd: ${{ secrets.TF_PROJECT_ID_PRD }}
+          tf_project_id_wireguard: ${{ secrets.TF_PROJECT_ID_WIREGUARD }}
+          tf_sa_dev: ${{ secrets.TF_SA_DEV }}
+          tf_sa_stg: ${{ secrets.TF_SA_STG }}
+          tf_sa_prd: ${{ secrets.TF_SA_PRD }}
+          tf_sa_wireguard: ${{ secrets.TF_SA_WIREGUARD }}
 
       - uses: actions/download-artifact@v8
         with:
@@ -192,7 +200,7 @@ jobs:
         working-directory: terraform/infrastructure/envs/${{ needs.plan.outputs.target_env }}
         run: terraform apply -input=false tfplan
         env:
-          TF_VAR_project_id: ${{ steps.ctx.outputs.project_id }}
+          TF_VAR_project_id: ${{ steps.tf_setup.outputs.project_id }}
           TF_VAR_region: ${{ secrets.TF_REGION }}
           TF_VAR_enabled_environments: ${{ needs.plan.outputs.target_env == 'wireguard' && inputs.wireguard_envs || '[]' }}
           TF_VAR_wireguard_peers: ${{ needs.plan.outputs.target_env == 'wireguard' && secrets.TF_WG_PEERS || '[]' }}

@@ -1,16 +1,33 @@
-import { ButtonGroup } from '@/components/ButtonGroup'
-import { CommunitySupport } from '@/components/CommunitySupport'
+import { ButtonGroup } from "@/components/ButtonGroup";
+import { CommunitySupport } from "@/components/CommunitySupport";
 
 # Rhesis Documentation
 
-**More than just evals. The testing platform for AI teams.**
+**Structured feedback and evals for AI agents.**
 
-Connect directly to your LLM apps and AI agents. Bring engineers, PMs, and domain experts together to generate tests, simulate (adversarial) conversations, and trace every failure to its root cause.
+Rhesis is the collaboration layer between the people building an AI agent and the people who know
+what it should answer. Connect your agent, share the link with your team, and turn their feedback
+into tests and metrics that run on every change.
 
-<div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, overflow: 'hidden', margin: '24px 0', borderRadius: '8px' }}>
+<div
+  style={{
+    position: "relative",
+    paddingBottom: "56.25%",
+    height: 0,
+    overflow: "hidden",
+    margin: "24px 0",
+    borderRadius: "8px",
+  }}
+>
   <iframe
     src="https://www.youtube.com/embed/txujgZ-CwIY"
-    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
+    style={{
+      position: "absolute",
+      top: 0,
+      left: 0,
+      width: "100%",
+      height: "100%",
+    }}
     title="Rhesis Product Tour"
     frameBorder="0"
     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
@@ -29,16 +46,23 @@ Connect directly to your LLM apps and AI agents. Bring engineers, PMs, and domai
 
 <Steps>
 ### Setup Environment
-Choose how you want to run Rhesis: Cloud (fastest), Local, or Self-hosted.
+Run Rhesis as a managed service, locally with Docker, or self-hosted.
 [Setup Environment Guide →](/getting-started/setup-environment)
 
 ### Connect Application
-Connect your LLM application to Rhesis via REST Endpoints or our Python SDK.
+
+Use the SDK connector and your process opens an outbound WebSocket, so the agent stays on your
+laptop or inside your VPC with no public URL. If it already serves a public REST endpoint, register
+that URL instead.
 [Connect Application Guide →](/getting-started/connecting-application)
 
 ### Run Evaluations
-Generate test sets interactively and run automated evaluations against your application.
+
+Share the link with domain experts and product managers. They chat with the live agent, turn
+conversations into tests, and leave pass/fail verdicts and comments down to the individual metric or
+conversation turn — then you read it all back from the SDK, the API, or MCP.
 [Run Evaluations Guide →](/getting-started/run-evaluations)
+
 </Steps>
 
 ## Community & Support

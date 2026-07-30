@@ -14,6 +14,20 @@ for repo-wide rules.
 - `synthesizers/` — test data generation
 - `telemetry/` — OpenTelemetry integration, incl. `integrations/` for LangChain/LangGraph/AutoGen
 
+## Imports
+
+**Always absolute, never relative.** Write the full dotted path, including for a module's own
+siblings:
+
+```python
+from rhesis.sdk.metrics.providers.native import NativeMetric  # yes
+from .providers.native import NativeMetric  # no
+from ..client import RhesisClient  # no
+```
+
+This holds inside a package's own `__init__.py` too. Existing relative imports are being converted
+as the files around them are touched.
+
 ## Testing
 
 Tests live in `<project_root>/tests/sdk`.
@@ -29,3 +43,6 @@ docker compose -f ../tests/docker-compose.test.yml --profile sdk logs sdk-test-b
 # run a single test:
 uv run pytest ../tests/sdk/integration/test_entities.py::test_endpoint
 ```
+
+Integration tests need Docker running. If they fail with connection or container errors, stop and
+ask the user to start Docker instead of trying to work around it or debug the test code.

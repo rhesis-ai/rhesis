@@ -5,15 +5,10 @@ from typing import Any, Dict, Optional, Union
 from pydantic import UUID4, ConfigDict, field_serializer
 
 from .base import Base
-from .references import (
-    OrganizationReference,
-    ProjectReference,
-    StatusReference,
-    TypeLookupReference,
-)
+from .references import TypeLookupReference
 from .status import Status
 from .type_lookup import TypeLookup
-from .user import User, UserReference
+from .user import User
 
 
 class ToolBase(Base):
@@ -93,12 +88,14 @@ class Tool(Base):
     model_config = ConfigDict(from_attributes=True)
 
 
-# The detailed model with expanded relations
-class ToolDetail(Tool):
+# Extends ToolBase, not Tool -- Tool declares status/user as full relationship
+# objects, which would leak back in through inheritance if this extended it instead.
+class ToolDetail(ToolBase):
+    id: UUID4
+    created_at: Union[datetime, str]
+    updated_at: Union[datetime, str]
     name: Optional[str] = None
 
     tool_provider_type: Optional[TypeLookupReference] = None
-    status: Optional[StatusReference] = None
-    user: Optional[UserReference] = None
-    organization: Optional[OrganizationReference] = None
-    project: Optional[ProjectReference] = None
+
+    model_config = ConfigDict(from_attributes=True)

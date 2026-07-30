@@ -10,6 +10,10 @@ from rhesis.backend.app.services.explorer import (
     get_tree_nodes,
     get_tree_tests,
 )
+from rhesis.backend.app.services.explorer.evaluation import (
+    MetricVerdict,
+    aggregate_metric_verdict,
+)
 
 _FACTORY_PATCH = "rhesis.sdk.metrics.factory.MetricFactory.create"
 _RUN_METRICS_PATCH = "rhesis.backend.app.services.explorer.evaluation._run_metrics_on_text"
@@ -34,6 +38,115 @@ def _mock_evaluator_result(metric_name, label, score):
     """Build a MetricEvaluator.evaluate()-shaped return dict."""
     is_successful = label == "pass"
     return {metric_name: {"score": score, "is_successful": is_successful}}
+
+
+@pytest.mark.unit
+class TestMetricVerdict:
+    """Test aggregate_metric_verdict and the MetricVerdict constructors."""
+
+    def test_all_metrics_passing_gives_pass(self):
+        results = {
+            "A": {"score": 1.0, "is_successful": True},
+            "B": {"score": 0.8, "is_successful": True},
+        }
+        verdict = aggregate_metric_verdict(results, ["A", "B"])
+
+        assert verdict is not None
+        assert verdict.label == "pass"
+
+    def test_any_metric_failing_gives_fail(self):
+        results = {
+            "A": {"score": 1.0, "is_successful": True},
+            "B": {"score": 0.2, "is_successful": False},
+        }
+        verdict = aggregate_metric_verdict(results, ["A", "B"])
+
+        assert verdict is not None
+        assert verdict.label == "fail"
+
+    def test_missing_is_successful_counts_as_failure(self):
+        verdict = aggregate_metric_verdict({"A": {"score": 1.0}}, ["A"])
+
+        assert verdict is not None
+        assert verdict.label == "fail"
+
+    def test_model_score_is_the_mean(self):
+        results = {
+            "A": {"score": 1.0, "is_successful": True},
+            "B": {"score": 0.5, "is_successful": True},
+        }
+        verdict = aggregate_metric_verdict(results, ["A", "B"])
+
+        assert verdict is not None
+        assert verdict.model_score == pytest.approx(0.75)
+
+    def test_missing_scores_default_to_zero(self):
+        verdict = aggregate_metric_verdict({"A": {"is_successful": True}}, ["A"])
+
+        assert verdict is not None
+        assert verdict.model_score == 0.0
+
+    def test_labeler_joins_metric_names_in_order(self):
+        results = {"A": {"score": 1.0, "is_successful": True}}
+        verdict = aggregate_metric_verdict(results, ["First", "Second"])
+
+        assert verdict is not None
+        assert verdict.labeler == "First, Second"
+
+    def test_non_dict_results_are_ignored(self):
+        results = {
+            "A": {"score": 0.4, "is_successful": True},
+            "B": "boom",
+            "C": None,
+        }
+        verdict = aggregate_metric_verdict(results, ["A", "B", "C"])
+
+        assert verdict is not None
+        assert verdict.label == "pass"
+        assert verdict.model_score == pytest.approx(0.4)
+        assert set(verdict.per_metric) == {"A"}
+        assert set(verdict.metrics or {}) == {"A"}
+
+    def test_no_usable_results_returns_none(self):
+        assert aggregate_metric_verdict({}, ["A"]) is None
+        assert aggregate_metric_verdict({"A": "boom", "B": None}, ["A", "B"]) is None
+
+    def test_metrics_summary_carries_score_and_reason(self):
+        results = {"A": {"score": 0.9, "is_successful": True, "reason": "looks fine"}}
+        verdict = aggregate_metric_verdict(results, ["A"])
+
+        assert verdict is not None
+        assert verdict.metrics == {
+            "A": {"score": 0.9, "is_successful": True, "reason": "looks fine"}
+        }
+
+    def test_unlabeled_verdict(self):
+        verdict = MetricVerdict.unlabeled()
+
+        assert verdict.as_payload() == {
+            "label": "",
+            "labeler": "",
+            "model_score": 0.0,
+            "metrics": None,
+        }
+        assert verdict.per_metric == {}
+
+    def test_error_verdict_names_the_metrics(self):
+        verdict = MetricVerdict.error(["A", "B"])
+
+        assert verdict.as_payload() == {
+            "label": "error",
+            "labeler": "A, B",
+            "model_score": 0.0,
+            "metrics": None,
+        }
+
+    def test_as_payload_exposes_only_the_four_written_fields(self):
+        results = {"A": {"score": 1.0, "is_successful": True}}
+        verdict = aggregate_metric_verdict(results, ["A"])
+
+        assert verdict is not None
+        assert set(verdict.as_payload()) == {"label", "labeler", "model_score", "metrics"}
 
 
 @pytest.mark.asyncio

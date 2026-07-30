@@ -5,7 +5,6 @@ from typing import Any, Dict, List, Optional, Union
 from pydantic import UUID4, ConfigDict, field_validator
 
 from rhesis.backend.app.schemas import Base
-from rhesis.backend.app.schemas.status import Status
 from rhesis.backend.app.schemas.tag import Tag
 from rhesis.backend.app.schemas.type_lookup import TypeLookup
 from rhesis.backend.app.schemas.user import User
@@ -84,7 +83,6 @@ class Source(SourceBase):
     counts: Optional[Dict[str, int]] = None  # Comment and task counts from CountsMixin
     # Related objects
     source_type: Optional[TypeLookup] = None
-    status: Optional[Status] = None
     user: Optional[User] = None
 
     model_config = ConfigDict(from_attributes=True)

@@ -11,12 +11,7 @@ from rhesis.backend.app.models.enums import (
     EndpointResponseFormat,
 )
 from rhesis.backend.app.schemas import Base
-from rhesis.backend.app.schemas.references import (
-    OrganizationReference,
-    ProjectReference,
-    StatusReference,
-)
-from rhesis.backend.app.schemas.tag import TagRead
+from rhesis.backend.app.schemas.references import ProjectReference, StatusReference
 from rhesis.backend.app.schemas.user import UserReference
 
 
@@ -251,10 +246,8 @@ class Endpoint(Base):
 # The detailed model with expanded relations
 class EndpointDetail(Endpoint):
     name: Optional[str] = None
-    tags: Optional[List[TagRead]] = None
     status: Optional[StatusReference] = None
     user: Optional[UserReference] = None
-    organization: Optional[OrganizationReference] = None
     project: Optional[ProjectReference] = None
 
 

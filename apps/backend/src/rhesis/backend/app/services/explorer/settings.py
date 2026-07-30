@@ -6,13 +6,16 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models
+from rhesis.backend.app.crud.explorer import (
+    get_test_set_metrics,
+    set_test_set_default_endpoint,
+)
 from rhesis.backend.app.schemas.explorer import (
     ExplorerSettingsEndpoint,
     ExplorerSettingsMetric,
     ExplorerSettingsResponse,
 )
-
-from .tests import _is_explorer_test_set
+from rhesis.backend.app.services.explorer.tests import _is_explorer_test_set
 
 
 def _get_default_endpoint_id_from_attributes(
@@ -49,12 +52,12 @@ def resolve_metric_names(
     organization_id: str,
     request_metric_names: Optional[List[str]],
 ) -> List[str]:
-    # Kept for API symmetry with endpoint resolver usage from routers.
-    _ = db, organization_id
+    _ = organization_id
     if request_metric_names:
         return request_metric_names
 
-    metric_names = [metric.name for metric in (test_set.metrics or []) if metric.name]
+    metrics = get_test_set_metrics(db, test_set.id)
+    metric_names = [metric.name for metric in metrics if metric.name]
     if not metric_names:
         raise ValueError("No metrics specified and no metrics configured in settings")
 
@@ -82,10 +85,8 @@ def get_explorer_settings(
         if endpoint is not None:
             endpoint_ref = ExplorerSettingsEndpoint(id=endpoint.id, name=endpoint.name)
 
-    metrics = [
-        ExplorerSettingsMetric(id=metric.id, name=metric.name)
-        for metric in (test_set.metrics or [])
-    ]
+    db_metrics = get_test_set_metrics(db, test_set.id)
+    metrics = [ExplorerSettingsMetric(id=metric.id, name=metric.name) for metric in db_metrics]
 
     return ExplorerSettingsResponse(default_endpoint=endpoint_ref, metrics=metrics)
 
@@ -111,16 +112,11 @@ def update_explorer_settings(
         if endpoint is None:
             raise ValueError(f"Endpoint not found: {default_endpoint_id}")
 
-        attrs = dict(test_set.attributes or {})
-        explorer_settings = dict(attrs.get("adaptive_settings") or {})
-        explorer_settings["default_endpoint_id"] = str(default_endpoint_id)
-        attrs["adaptive_settings"] = explorer_settings
-        test_set.attributes = attrs
-        db.add(test_set)
+        set_test_set_default_endpoint(db, test_set, default_endpoint_id)
 
     if metric_ids is not None:
         # Replace metrics atomically by removing existing and adding requested.
-        existing_metric_ids = [metric.id for metric in (test_set.metrics or [])]
+        existing_metric_ids = [metric.id for metric in get_test_set_metrics(db, test_set.id)]
         desired_metric_ids = list(dict.fromkeys(metric_ids))
 
         for metric_id in existing_metric_ids:
@@ -144,8 +140,9 @@ def update_explorer_settings(
                 if not added:
                     continue
 
-    db.flush()
-    db.refresh(test_set)
+    # No flush needed for the metric branch: the association add/remove go through Core
+    # statements, so a subsequent read in this transaction already sees them. The
+    # attributes write above flushes and refreshes itself.
     return get_explorer_settings(
         db=db,
         test_set=test_set,

@@ -3,14 +3,6 @@ from typing import Optional
 from pydantic import UUID4
 
 from rhesis.backend.app.schemas import Base
-from rhesis.backend.app.schemas.references import (
-    OrganizationReference,
-    ProjectReference,
-    StatusReference,
-    TopicReference,
-    TypeLookupReference,
-)
-from rhesis.backend.app.schemas.user import UserReference
 
 
 # Topic schemas
@@ -36,14 +28,8 @@ class Topic(TopicBase):
     pass
 
 
-# The detailed model with expanded relations
+# No nested relationships are actually consumed by any caller (backend, frontend,
+# or SDK) -- keep this flat rather than eager-loading data nobody reads.
 class TopicDetail(Topic):
     id: UUID4
     name: Optional[str] = None
-
-    status: Optional[StatusReference] = None
-    parent: Optional[TopicReference] = None
-    entity_type: Optional[TypeLookupReference] = None
-    project: Optional[ProjectReference] = None
-    organization: Optional[OrganizationReference] = None
-    user: Optional[UserReference] = None

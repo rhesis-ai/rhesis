@@ -16,9 +16,10 @@
    cuts it off in a normal window, and a width breakpoint can't tell those
    apart. 1200px sits just above the ~1133 the roomy spacing needs.
 
-   Trimmed, the nav fits down to ~845px of viewport height at 1512 wide. Below
-   that it still scrolls; going further would mean shrinking the 40x40 icon hit
-   targets.
+   Trimmed, the list needs 767px and fits down to ~850px of viewport height at
+   1512 wide. Below that it still scrolls; going further would mean shrinking
+   the 40x40 icon hit targets, or the sidebar's 30px top padding — which the
+   collapse toggle is lifted into and would be clipped by.
 
    Plain px consumed inside `[data-ui-scale-root]`, so the zoom ladder in
    `viewport-scaling.css` scales them too. Media queries ignore a descendant's
@@ -29,7 +30,6 @@
   --nav-group-gap: 28px;
   --nav-item-gap: 6px;
   --nav-item-pad-y: 8px;
-  --nav-rail-pad-y: 30px;
 }
 
 @media screen and (max-height: 1200px) {
@@ -37,6 +37,5 @@
     --nav-group-gap: 18px;
     --nav-item-gap: 4px;
     --nav-item-pad-y: 6px;
-    --nav-rail-pad-y: 22px;
   }
 }

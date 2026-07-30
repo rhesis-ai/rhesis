@@ -23,7 +23,7 @@ export const ToolPurposeChip = ({ text }) => {
       borderRadius: '999px',
       fontSize: '0.75rem',
       fontWeight: 500,
-      backgroundColor: 'var(--tool-purpose-chip-bg, #f2f9fd)',
+      backgroundColor: 'var(--tool-purpose-chip-bg, var(--rh-bg-lightest))',
       color: 'var(--tool-purpose-chip-color, #1c6f96)',
       border: '1px solid var(--tool-purpose-chip-border, #cfe9f5)',
       margin: '0.5rem 0 1rem 0',
@@ -47,7 +47,7 @@ export const ToolPurposeChip = ({ text }) => {
         }
 
         [data-theme='light'] .tool-purpose-chip-rhesis {
-          --tool-purpose-chip-bg: #f2f9fd;
+          --tool-purpose-chip-bg: var(--rh-bg-lightest);
           --tool-purpose-chip-color: #1c6f96;
           --tool-purpose-chip-border: #cfe9f5;
         }

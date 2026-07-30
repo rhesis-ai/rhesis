@@ -84,7 +84,7 @@ backend:
   ingress:
     enabled: true
     host: "api.rhesis.ai"
-    className: internal
+    className: external
     annotations:
       cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
@@ -116,7 +116,7 @@ frontend:
   ingress:
     enabled: true
     host: "app.rhesis.ai"
-    className: internal
+    className: external
     annotations:
       cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
@@ -159,7 +159,7 @@ docs:
   ingress:
     enabled: true
     host: "docs.rhesis.ai"
-    className: internal
+    className: external
     annotations:
       cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
@@ -182,7 +182,7 @@ chatbot:
   ingress:
     enabled: true
     host: "chatbot.rhesis.ai"
-    className: internal
+    className: external
     annotations:
       cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
@@ -191,7 +191,7 @@ otelCollector:
   ingress:
     enabled: true
     host: "telemetry.rhesis.ai"
-    className: internal
+    className: external
     annotations:
       cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
@@ -220,7 +220,7 @@ polyphemus:
   ingress:
     enabled: true
     host: "polyphemus.rhesis.ai"
-    className: internal
+    className: external
     annotations:
       cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
       nginx.ingress.kubernetes.io/ssl-redirect: "true"

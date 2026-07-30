@@ -1,4 +1,4 @@
-from sqlalchemy import Column, ForeignKey, Integer, Table, and_, case, select
+from sqlalchemy import Column, ForeignKey, Integer, Table, and_, case, inspect, select
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import object_session, relationship
@@ -129,21 +129,24 @@ class Test(
         test_type = get_test_type(self)
 
         sess = object_session(self)
+        state = inspect(self)
 
-        def _fk_obj(related, fk_id, model_cls):
-            """Resolve FK when relationship not populated (e.g. during flush/mapper events)."""
-            if related is not None:
-                return related
+        def _fk_obj(rel_name, fk_id, model_cls):
+            # Checks load state first: this also runs from after_insert/after_update
+            # ORM events, where a plain attribute access could trigger a lazy load.
+            if rel_name not in state.unloaded:
+                related = getattr(self, rel_name)
+                if related is not None:
+                    return related
             if fk_id is None or sess is None:
                 return None
-            # Avoid re-entrant flush: to_searchable_text runs from after_insert/after_update.
             with sess.no_autoflush:
                 return sess.get(model_cls, fk_id)
 
-        topic = _fk_obj(self.topic, self.topic_id, Topic)
-        behavior = _fk_obj(self.behavior, self.behavior_id, Behavior)
-        category = _fk_obj(self.category, self.category_id, Category)
-        prompt = _fk_obj(self.prompt, self.prompt_id, Prompt)
+        topic = _fk_obj("topic", self.topic_id, Topic)
+        behavior = _fk_obj("behavior", self.behavior_id, Behavior)
+        category = _fk_obj("category", self.category_id, Category)
+        prompt = _fk_obj("prompt", self.prompt_id, Prompt)
 
         # Common metadata for both types
         metadata = [

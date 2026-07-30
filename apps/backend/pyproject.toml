@@ -82,6 +82,7 @@ ee = ["rhesis-backend-ee"]
 # `migrate` image and out of Polyphemus.
 all = [
     "rhesis-sdk",
+    "numpy",
     "umap-learn>=0.5.7",
     "hdbscan>=0.8.39",
     "rhesis-penelope",

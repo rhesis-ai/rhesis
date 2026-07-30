@@ -1,11 +1,85 @@
 """Schemas for Explorer API (generate outputs, evaluate, etc.)."""
 
-from typing import Any, Dict, List, Optional
+import uuid
+from functools import cached_property
+from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import UUID4, BaseModel, ConfigDict, Field
+from pydantic import UUID4, BaseModel, ConfigDict, Field, computed_field
 
 from rhesis.backend.app.schemas import Base
 from rhesis.backend.app.schemas.test_set import TestSet as TestSetSchema
+
+# ---------------------------------------------------------------------------
+# Tree nodes — the response contract for the /explorer tree endpoints
+# ---------------------------------------------------------------------------
+
+
+class TestTreeNode(BaseModel):
+    """A single node in an Explorer test tree — either a test or a topic marker."""
+
+    id: str = Field(default_factory=lambda: uuid.uuid4().hex)
+    topic: str = ""
+    input: str = ""
+    output: str = ""
+    # "error" is written by the evaluation path when a metric raises.
+    label: Literal["", "topic_marker", "pass", "fail", "error"] = ""
+    labeler: str = ""
+    to_eval: bool = True
+    model_score: float = 0.0
+    metrics: Optional[Dict[str, Any]] = None
+
+
+class TopicNode(BaseModel):
+    """A hierarchical topic in an Explorer test tree, identified by its slash path."""
+
+    path: str  # Full path like "Safety/Violence"
+
+    model_config = {"frozen": True}  # Make it hashable
+
+    @computed_field
+    @cached_property
+    def name(self) -> str:
+        """The leaf name, e.g. 'Violence'."""
+        if not self.path:
+            return ""
+        return self.path.rsplit("/", 1)[-1]
+
+    @computed_field
+    @cached_property
+    def parent_path(self) -> Optional[str]:
+        """Parent path, or None for root-level topics."""
+        if "/" in self.path:
+            return self.path.rsplit("/", 1)[0]
+        return None
+
+    @computed_field
+    @cached_property
+    def depth(self) -> int:
+        """How deep in the hierarchy (0 = root level)."""
+        if not self.path:
+            return -1  # Root itself
+        return self.path.count("/")
+
+    def __str__(self) -> str:
+        return self.path
+
+    def __repr__(self) -> str:
+        return f"TopicNode(path={self.path!r})"
+
+    def get_all_parents(self) -> list["TopicNode"]:
+        """Get all parent TopicNodes from immediate parent up to the root.
+
+        ``TopicNode(path="A/B/C").get_all_parents()`` returns
+        ``[TopicNode(path="A/B"), TopicNode(path="A")]``.
+        """
+        parents: list["TopicNode"] = []
+        current = self
+        while current.parent_path is not None:
+            parent = TopicNode(path=current.parent_path)
+            parents.append(parent)
+            current = parent
+        return parents
+
 
 # ---------------------------------------------------------------------------
 # Create / update explorer test nodes

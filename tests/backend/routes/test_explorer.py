@@ -857,6 +857,44 @@ class TestExplorerTreeEndpoint:
         for node in nodes:
             assert expected_fields.issubset(node.keys())
 
+    def test_get_tree_with_error_label(
+        self,
+        authenticated_client: TestClient,
+        explorer_test_set,
+        test_db: Session,
+        test_org_id,
+        authenticated_user_id,
+    ):
+        """A test labelled 'error' by a failed evaluation must not break the tree read."""
+        errored = _create_test_with_metadata(
+            db=test_db,
+            topic_name="Safety",
+            prompt_content="Prompt whose evaluation raised",
+            metadata={
+                "label": "error",
+                "output": "some output",
+                "labeler": "answer_relevancy",
+                "model_score": 0.0,
+            },
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+        test_db.execute(
+            test_test_set_association.insert().values(
+                test_id=errored.id,
+                test_set_id=explorer_test_set.id,
+                organization_id=test_org_id,
+                user_id=authenticated_user_id,
+            )
+        )
+        test_db.commit()
+
+        response = authenticated_client.get(f"/explorer/{explorer_test_set.id}/tree")
+
+        assert response.status_code == status.HTTP_200_OK
+        labels = [node["label"] for node in response.json()]
+        assert "error" in labels
+
     def test_get_tree_not_found(
         self,
         authenticated_client: TestClient,

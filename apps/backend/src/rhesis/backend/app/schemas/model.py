@@ -5,21 +5,14 @@ Security: API keys are write-only. They can be set via POST/PUT but are never
 returned in responses to prevent exposure through logs, caches, or clients.
 """
 
-from typing import Any, Dict, List, Literal, Optional
+from typing import Dict, Literal, Optional
 
 from pydantic import UUID4, BaseModel, ConfigDict, Field, field_validator
 
 from .base import Base
-from .references import (
-    OrganizationReference,
-    ProjectReference,
-    StatusReference,
-    TypeLookupReference,
-)
+from .references import StatusReference, TypeLookupReference
 from .status import Status
-from .tag import Tag, TagRead
 from .type_lookup import TypeLookup
-from .user import User, UserReference
 
 
 class ModelBaseFields(Base):
@@ -80,6 +73,7 @@ class ModelUpdate(ModelBaseFields):
     assignee_id: Optional[UUID4] = None
 
 
+# owner/assignee/tags: unused, excluded (owner_id/assignee_id FK columns stay).
 class ModelRead(ModelBaseFields):
     """Schema for reading Model (excludes API key for security)"""
 
@@ -91,9 +85,6 @@ class ModelRead(ModelBaseFields):
     is_protected: bool = False
     provider_type: Optional[TypeLookup] = None
     status: Optional[Status] = None
-    owner: Optional[User] = None
-    assignee: Optional[User] = None
-    tags: Optional[List[Tag]] = []
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -109,26 +100,17 @@ class Model(ModelBase):
     is_protected: bool = False
     provider_type: Optional[TypeLookup] = None
     status: Optional[Status] = None
-    owner: Optional[User] = None
-    assignee: Optional[User] = None
-    tags: Optional[List[Tag]] = []
 
     model_config = ConfigDict(from_attributes=True)
 
 
-# The detailed model with expanded relations
+# The detailed model with expanded relations. owner/assignee/tags/counts/
+# project/organization/user: unused, excluded.
 class ModelDetail(ModelRead):
     name: Optional[str] = None
     model_name: Optional[str] = None
     provider_type: Optional[TypeLookupReference] = None
     status: Optional[StatusReference] = None
-    owner: Optional[UserReference] = None
-    assignee: Optional[UserReference] = None
-    tags: Optional[List[TagRead]] = None
-    counts: Optional[Dict[str, Any]] = None
-    project: Optional[ProjectReference] = None
-    organization: Optional[OrganizationReference] = None
-    user: Optional[UserReference] = None
 
 
 class TestModelConnectionRequest(BaseModel):
