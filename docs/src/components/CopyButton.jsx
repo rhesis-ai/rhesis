@@ -19,10 +19,10 @@ export function CopyButton({ code }) {
   const styles = {
     copyButton: {
       background: 'transparent',
-      border: '1px solid #30363D',
+      border: '1px solid var(--rh-codeblock-control-border)',
       borderRadius: '4px',
       padding: '4px 8px',
-      color: '#A9B1BB',
+      color: 'var(--rh-codeblock-text-muted)',
       cursor: 'pointer',
       fontSize: '11px',
       display: 'flex',
@@ -31,13 +31,13 @@ export function CopyButton({ code }) {
       transition: 'all 0.2s ease',
     },
     copyButtonHover: {
-      background: '#30363D',
-      color: '#E6EDF3',
+      background: 'var(--rh-codeblock-control-border)',
+      color: 'var(--rh-codeblock-text)',
     },
     copyButtonCopied: {
-      background: '#238636',
-      borderColor: '#238636',
-      color: '#FFFFFF',
+      background: 'var(--rh-codeblock-success)',
+      borderColor: 'var(--rh-codeblock-success)',
+      color: 'var(--rh-on-accent)',
     },
   }
 
