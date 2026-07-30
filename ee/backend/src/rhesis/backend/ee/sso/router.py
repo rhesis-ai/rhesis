@@ -30,6 +30,7 @@ from rhesis.backend.app.config.settings import (
     get_application_settings,
     get_frontend_settings,
 )
+from rhesis.backend.app.database import set_session_variables
 from rhesis.backend.app.dependencies import get_db_session
 from rhesis.backend.app.features import FeatureName, FeatureRegistry
 from rhesis.backend.app.models.organization import Organization
@@ -258,6 +259,17 @@ async def sso_callback(
     # violations, missing migrations, etc.) surface as a redirect to
     # the SSO error page with a logged traceback, not a raw 500.
     try:
+        # This route runs on get_db_session, which sets no tenant GUCs: the
+        # user's identity is unknown until the IdP responds, so
+        # get_tenant_db_session cannot be used. Auto-provisioning below writes
+        # RLS-protected tenant tables (organization_member, project_membership)
+        # via the org-membership hook, and those policies read
+        # app.current_organization. Set the GUCs now that org is resolved --
+        # same contract the other hook callers follow (routers/organization.py,
+        # local_init.py). Without this, provisioning a new user fails with
+        # 'unrecognized configuration parameter "app.current_organization"'.
+        set_session_variables(db, str(org.id), "")
+
         try:
             user = find_or_create_sso_user(db, auth_user, org, sso_config)
         except SSOLoginError as e:
