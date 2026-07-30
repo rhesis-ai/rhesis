@@ -171,9 +171,9 @@ The publishing feature automates the creation of git tags and GitHub releases ba
 7. **GitHub Releases**: Creates GitHub releases with auto-generated notes
 
 `.github/workflows/publish-release.yml` (Step 3 of the release workflow) runs this alongside deploying
-backend/frontend/worker images to prd, and also promotes the prd root ArgoCD Application (`prd-base`) by
-pinning its `targetRevision` to this release branch's exact commit — see
-[`kubernetes/README.md`](kubernetes/README.md#production-promotion-gate-prd-base) for why prd is pinned
+backend/frontend/worker images to prd, and also promotes every prd ArgoCD Application (root `prd-base`
+and its nested Applications) by pinning `targetRevision` to this release branch's exact commit — see
+[`kubernetes/README.md`](kubernetes/README.md#production-promotion-gate) for why prd is pinned
 to a commit instead of the release branch name.
 
 ### 📝 Branch Name Patterns
