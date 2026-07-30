@@ -7,11 +7,7 @@ spec:
   project: default
   source:
     repoURL: https://github.com/rhesis-ai/rhesis.git
-    # TEMPORARY: pinned to a commit SHA to test the prd promotion-gate mechanism
-    # (see kubernetes/clusters/prd/base.yaml) against stg before trusting it in prd.
-    # Revert this back to `main` once the test in .github/workflows/test-promote-stg-config.yml
-    # is confirmed working.
-    targetRevision: dcd952e1b44dbb8001e3ddba954a57408851e05f
+    targetRevision: main
     path: kubernetes/clusters/stg
   destination:
     server: https://kubernetes.default.svc
