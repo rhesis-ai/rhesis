@@ -32,8 +32,6 @@ const makeTestRun = (
   status: { id: u(2), name: 'Completed' },
   test_configuration: {
     id: u(6),
-    created_at: '2024-01-01T00:00:00Z',
-    updated_at: '2024-01-01T00:00:00Z',
     endpoint_id: u(5),
     test_set_id: u(3),
     user_id: u(7),
@@ -43,8 +41,6 @@ const makeTestRun = (
       status: 'active',
       is_published: false,
       test_set_type: {
-        id: u(4),
-        type_name: 'Evaluation',
         type_value: 'evaluation',
       },
     },

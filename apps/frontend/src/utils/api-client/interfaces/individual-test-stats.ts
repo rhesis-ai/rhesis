@@ -9,28 +9,9 @@ export interface IndividualTestStats {
     total_executions: number;
     passed: number;
     failed: number;
-    pass_rate: number;
     avg_execution_time_ms: number;
   };
-  metric_breakdown: {
-    [metricName: string]: {
-      total: number;
-      passed: number;
-      failed: number;
-      pass_rate: number;
-    };
-  };
   recent_runs: RecentTestRun[];
-  metadata: {
-    generated_at: string;
-    test_id: string;
-    organization_id: string;
-    start_date: string | null;
-    end_date: string | null;
-    period: string;
-    recent_runs_limit: number;
-    available_metrics: string[];
-  };
 }
 
 export interface RecentTestRun {
@@ -42,8 +23,6 @@ export interface RecentTestRun {
   metrics: {
     [metricName: string]: {
       is_successful: boolean;
-      score: number;
-      reason: string | null;
     };
   };
 }

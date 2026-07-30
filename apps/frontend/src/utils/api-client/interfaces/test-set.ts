@@ -2,41 +2,18 @@ import { UUID } from 'crypto';
 import { Status } from './status';
 import { Tag } from './tag';
 
-export interface TestSetBase {
-  name: string;
-  description?: string;
-  short_description?: string;
-  slug?: string;
-  status_id?: UUID;
-  tags?: Tag[];
-  attributes?: Record<string, unknown>;
-  priority?: number;
-  user_id?: UUID;
-  owner_id?: UUID;
-  assignee_id?: UUID;
-  organization_id?: UUID;
-  test_set_type_id?: UUID;
-}
-
 // User interface for the nested user data
 export interface User {
-  id: string;
   name?: string;
   email?: string;
   family_name?: string;
   given_name?: string;
   picture?: string;
-  organization_id?: string;
 }
 
 // TestSetType interface for the nested test_set_type data
 export interface TestSetType {
-  id: UUID;
-  type_name: string;
   type_value: string;
-  description?: string;
-  user_id?: UUID | null;
-  organization_id?: UUID | null;
 }
 
 /**
@@ -49,15 +26,7 @@ export interface TestSetMetric {
   score_type?: 'numeric' | 'categorical';
   threshold?: number;
   threshold_operator?: string;
-  class_name?: string;
   backend_type?: {
-    id: UUID;
-    type_name: string;
-    type_value: string;
-  };
-  metric_type?: {
-    id: UUID;
-    type_name: string;
     type_value: string;
   };
 }
@@ -66,13 +35,10 @@ export interface TestSet {
   id: UUID;
   name: string;
   description?: string;
-  short_description?: string;
-  slug?: string;
   status_id?: UUID;
   status: string | Status;
   status_details?: Status;
   tags?: Tag[];
-  license_type_id?: UUID;
   test_set_type_id?: UUID;
   test_set_type?: TestSetType;
   attributes?: {
@@ -80,42 +46,25 @@ export interface TestSet {
       total_tests?: number;
       categories?: string[];
       behaviors?: string[];
-      use_cases?: string[];
       topics?: string[];
-      sample?: string;
-      license_type?: string;
       sources?: Array<{ document: string; name: string; description: string }>;
       generation?: {
         status: 'in_progress' | 'completed' | 'failed';
-        task_id?: string;
-        requested_tests?: number;
-        error?: string;
       };
     };
-    topics?: string[];
-    behaviors?: string[];
-    use_cases?: string[];
-    categories?: string[];
     // Garak-specific attributes
     source?: string;
-    garak_version?: string;
-    garak_modules?: string[];
-    last_synced_at?: string;
   };
   user_id?: UUID;
   user?: User;
-  owner_id?: UUID;
-  assignee_id?: UUID;
   priority?: number;
   organization_id?: UUID;
   is_published: boolean;
-  visibility?: 'public' | 'organization' | 'user';
   counts?: {
     comments: number;
     tasks: number;
   };
   created_at?: string;
-  updated_at?: string;
 }
 
 export interface TestSetCreate {
@@ -130,136 +79,9 @@ export interface TestSetCreate {
   test_set_type_id?: UUID;
 }
 
-export interface TestSetStatsHistorical {
-  period: string;
-  start_date: string;
-  end_date: string;
-  monthly_counts: Record<string, number>;
-}
-
-export interface StatsOptions {
-  top?: number;
-  months?: number;
-  mode?: 'entity' | 'related_entity';
-}
-
-export interface TestSetStatsResponse {
-  total: number;
-  stats: {
-    [dimension: string]: {
-      dimension: string;
-      total: number;
-      breakdown: {
-        [key: string]: number;
-      };
-    };
-  };
-  metadata: {
-    generated_at: string;
-    organization_id: string;
-    entity_type: string;
-  };
-  history?: TestSetStatsHistorical;
-}
-
-export interface TestSetDetailStatsResponse {
-  total: number;
-  stats: {
-    [dimension: string]: {
-      dimension: string;
-      total: number;
-      breakdown: {
-        [key: string]: number;
-      };
-    };
-  };
-  metadata: {
-    generated_at: string;
-    organization_id: string;
-    entity_type: string;
-    source_entity_type: string;
-    source_entity_id: string;
-  };
-  history?: TestSetStatsHistorical;
-}
-
-// Test prompt creation model for bulk test set create
-export interface TestPromptCreate {
-  content: string;
-  language_code?: string;
-  demographic?: string;
-  dimension?: string;
-  expected_response?: string;
-}
-
-// Test data model for creating tests within a test set
-export interface TestData {
-  prompt: TestPromptCreate;
-  behavior: string;
-  category: string;
-  topic: string;
-  test_configuration?: Record<string, unknown>;
-  assignee_id?: UUID;
-  owner_id?: UUID;
-  status?: string;
-  priority?: number;
-  metadata?: Record<string, unknown>;
-}
-
-// Bulk test set creation request
-export interface TestSetBulkCreate {
-  name: string;
-  test_set_type: string;
-  description?: string;
-  short_description?: string;
-  owner_id?: UUID;
-  assignee_id?: UUID;
-  priority?: number;
-  tests: TestData[];
-}
-
-// Bulk test set creation response
-export interface TestSetBulkResponse {
-  id: UUID;
-  name: string;
-  description?: string;
-  short_description?: string;
-  status_id?: UUID;
-  license_type_id?: UUID;
-  user_id?: UUID;
-  organization_id?: UUID;
-  visibility?: string;
-  attributes?: Record<string, unknown>;
-}
-
 // Test set association request
 export interface TestSetBulkAssociateRequest {
   test_ids: UUID[];
-}
-
-// Test set association response
-export interface TestSetBulkAssociateResponse {
-  success: boolean;
-  total_tests: number;
-  message: string;
-  metadata: {
-    new_associations: number | null;
-    existing_associations: number | null;
-    invalid_associations: number | null;
-    existing_test_ids: string[] | null;
-    invalid_test_ids: string[] | null;
-  };
-}
-
-export interface TestSetBulkDisassociateRequest {
-  test_ids: UUID[];
-}
-
-export interface TestSetBulkDisassociateResponse {
-  success: boolean;
-  total_tests: number;
-  removed_associations: number;
-  message: string;
 }
 
 // Test set generation interfaces
@@ -307,10 +129,7 @@ export interface GenerateTestsResponse {
  * Response for bulk generation (async via worker)
  */
 export interface GenerateTestSetResponse {
-  task_id: string;
   test_set_id: string;
-  message: string;
-  estimated_tests: number;
 }
 
 // Legacy interfaces - kept for backwards compatibility during migration
@@ -381,14 +200,14 @@ export type TestPipelineEvent =
       description: string;
       active: boolean;
     }
-  | { type: 'config_done'; total: number }
+  | { type: 'config_done' }
   | {
       type: 'test';
       index: number;
       test: Record<string, unknown>;
       test_type: string;
     }
-  | { type: 'tests_done'; total: number }
+  | { type: 'tests_done' }
   | { type: 'error'; phase: string; message: string }
   | { type: 'done' };
 
@@ -397,7 +216,6 @@ export interface LastTestRunSummary {
   id: string;
   nano_id: string | null;
   name: string | null;
-  status: string | null;
   created_at: string | null;
   test_count: number;
   pass_rate: number;

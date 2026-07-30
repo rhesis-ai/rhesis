@@ -123,36 +123,6 @@ describe('TestResultsClient', () => {
   });
 
   // -------------------------------------------------------------------------
-  // getTestResultStats
-  // -------------------------------------------------------------------------
-
-  it('fetches stats at /test_results/stats', async () => {
-    fetchMock.mockResolvedValue(makeFetch({ total: 5 }));
-
-    await client.getTestResultStats();
-
-    expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining('/test_results/stats'),
-      expect.any(Object)
-    );
-  });
-
-  it('adds top/months/mode query params to stats URL', async () => {
-    fetchMock.mockResolvedValue(makeFetch({ total: 5 }));
-
-    await client.getTestResultStats({
-      top: 5,
-      months: 3,
-      mode: 'related_entity',
-    });
-
-    const calledUrl = fetchMock.mock.calls[0][0] as string;
-    expect(calledUrl).toContain('top=5');
-    expect(calledUrl).toContain('months=3');
-    expect(calledUrl).toContain('mode=related_entity');
-  });
-
-  // -------------------------------------------------------------------------
   // getComprehensiveTestResultsStats
   // -------------------------------------------------------------------------
 

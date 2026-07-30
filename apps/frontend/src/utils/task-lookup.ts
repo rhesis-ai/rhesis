@@ -190,8 +190,6 @@ export async function getStatusesForTask(
         const additionalStatus: Status = {
           id: specificStatus.id,
           name: specificStatus.name,
-          description: specificStatus.description,
-          entity_type_id: specificStatus.entity_type,
         };
         return [...allStatuses, additionalStatus];
       }
@@ -223,9 +221,7 @@ export async function getPrioritiesForTask(
       if (specificPriority) {
         const additionalPriority: Priority = {
           id: specificPriority.id,
-          type_name: specificPriority.type_name,
           type_value: specificPriority.type_value,
-          description: specificPriority.description,
         };
         return [...allPriorities, additionalPriority];
       }

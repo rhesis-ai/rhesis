@@ -21,11 +21,11 @@ import SmartToyIcon from '@mui/icons-material/SmartToy';
 import { useTheme } from '@mui/material/styles';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
 import {
   Tool,
   ToolCreate,
   ToolUpdate,
+  TypeLookup,
 } from '@/utils/api-client/interfaces/tool';
 import { UUID } from 'crypto';
 import {

@@ -2,7 +2,6 @@ import { BaseApiClient } from './base-client';
 import { TEST_TYPES, type TestTypeValue } from '@/constants/test-types';
 import type {
   AnalyzeResponse,
-  CancelResponse,
   ConfirmRequest,
   ConfirmResponse,
   ParseRequest,
@@ -116,8 +115,8 @@ export class ImportClient extends BaseApiClient {
   /**
    * Step 5: Cancel and clean up an import session.
    */
-  async cancelImport(importId: string): Promise<CancelResponse> {
-    return this.fetch<CancelResponse>(`${IMPORT_PREFIX}/${importId}`, {
+  async cancelImport(importId: string): Promise<void> {
+    await this.fetch<void>(`${IMPORT_PREFIX}/${importId}`, {
       method: 'DELETE',
     });
   }

@@ -11,17 +11,11 @@ export interface Model {
   model_name: string;
   model_type?: 'language' | 'embedding';
   endpoint: string;
-  key: string;
-  request_headers?: Record<string, string>;
   is_protected?: boolean;
-  tags: string[];
-  created_at: string;
-  updated_at: string;
 
   // References
   provider_type?: TypeLookup;
   status?: Status;
-  metrics?: UUID[];
 }
 
 export interface ModelCreate {
@@ -58,14 +52,7 @@ export interface ModelUpdate {
   assignee_id?: UUID;
 }
 
-export interface ModelDetail extends Model {
-  metrics: UUID[];
-}
-
-export interface ModelsResponse {
-  models: ModelDetail[];
-  totalCount: number;
-}
+export type ModelDetail = Model;
 
 export interface ModelQueryParams extends PaginationParams {
   status?: string;
@@ -84,6 +71,4 @@ export interface TestModelConnectionRequest {
 export interface TestModelConnectionResponse {
   success: boolean;
   message: string;
-  provider?: string;
-  model_name?: string;
 }

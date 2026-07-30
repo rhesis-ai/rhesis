@@ -42,12 +42,10 @@ export interface TraceReviewTarget {
 }
 
 export interface TraceReviewUser {
-  user_id: string;
   name: string;
 }
 
 export interface TraceReviewStatus {
-  status_id: string;
   name: string;
 }
 
@@ -60,30 +58,10 @@ export interface TraceReview extends WithPermittedActions {
   updated_at: string;
   target: TraceReviewTarget;
   resolved?: boolean;
-  resolved_at?: string | null;
-  resolved_by?: TraceReviewUser | null;
-}
-
-export interface TraceReviewsMetadata {
-  last_updated_at: string;
-  last_updated_by: TraceReviewUser;
-  total_reviews: number;
-  latest_status: TraceReviewStatus;
-  summary?: string;
 }
 
 export interface TraceReviews {
-  metadata: TraceReviewsMetadata;
   reviews: TraceReview[];
-}
-
-export interface TraceReviewSummaryEntry {
-  target_type: string;
-  reference: string | null;
-  status: TraceReviewStatus;
-  user: TraceReviewUser;
-  updated_at: string;
-  review_id: string;
 }
 
 /**
@@ -105,10 +83,6 @@ export interface SpanNode {
   trace_metrics?: Record<string, unknown>;
   trace_reviews?: TraceReviews;
   last_review?: TraceReview;
-  matches_review?: boolean;
-  review_summary?: Record<string, TraceReviewSummaryEntry>;
-  tags?: Array<{ id: string; name: string }>;
-  comments?: Array<{ id: string; content: string }>;
 }
 
 /**
@@ -124,16 +98,6 @@ export interface TraceSummary {
   duration_ms: number;
   span_count: number;
   root_operation: string;
-  status_code: string;
-  total_tokens?: number;
-  total_cost_usd?: number;
-  total_cost_eur?: number;
-  has_errors: boolean;
-
-  // Test execution context (optional)
-  test_run_id?: string;
-  test_result_id?: string;
-  test_id?: string;
 
   // Endpoint information (optional)
   endpoint_id?: string;
@@ -145,11 +109,6 @@ export interface TraceSummary {
   // Human reviews
   has_reviews?: boolean;
   last_review?: TraceReview;
-  matches_review?: boolean;
-
-  // Counts for UI
-  tags_count?: number;
-  comments_count?: number;
 }
 
 /**
@@ -157,55 +116,36 @@ export interface TraceSummary {
  */
 export interface TraceDetailResponse {
   trace_id: string;
-  project_id: string;
   environment: string;
   conversation_id?: string;
-  start_time: string;
-  end_time: string;
   duration_ms: number;
   span_count: number;
   error_count: number;
-  total_tokens: number;
-  total_cost_usd: number;
   root_spans: SpanNode[];
 
   // Trace metrics evaluation
   trace_metrics_status?: TraceMetricsStatus;
 
-  // Human reviews
-  trace_reviews?: TraceReviews;
-  last_review?: TraceReview;
-  matches_review?: boolean;
-  review_summary?: Record<string, TraceReviewSummaryEntry>;
-
   // Related entities (optional - populated via relationships)
   project?: {
     id: string;
     name: string;
-    description?: string;
   };
   endpoint?: {
     id: string;
     name: string;
-    description?: string;
-    url?: string;
-    environment?: string;
   };
   test_run?: {
     id: string;
     name?: string;
     nano_id?: string;
-    status_id?: string;
   };
   test_result?: {
     id: string;
-    test_id?: string;
-    test_run_id?: string;
   };
   test?: {
     id: string;
     nano_id?: string;
-    test_configuration?: Record<string, unknown>;
   };
 }
 
@@ -215,8 +155,6 @@ export interface TraceDetailResponse {
 export interface TraceListResponse {
   traces: TraceSummary[];
   total: number;
-  limit: number;
-  offset: number;
 }
 
 /**
@@ -245,17 +183,11 @@ export const TRACE_METRICS_STATUS = {
  */
 export interface TraceQueryParams {
   project_id?: string; // Optional - shows all projects if not specified
-  conversation_id?: string;
   environment?: string;
   /** Case-insensitive search across trace ID, operations, endpoint metadata, conversation text */
   search?: string;
-  /** Exact root span name (legacy API); prefer `search` in the UI */
-  span_name?: string;
-  status_code?: string;
   start_time_after?: string;
   start_time_before?: string;
-  duration_min_ms?: number; // Minimum duration in milliseconds
-  duration_max_ms?: number; // Maximum duration in milliseconds
   test_run_id?: string;
   test_result_id?: string;
   test_id?: string;
@@ -263,7 +195,6 @@ export interface TraceQueryParams {
   trace_source?: TraceSource; // Filter by trace source (all/test/operation)
   trace_type?: TraceType; // Filter by trace type (all/Single-Turn/Multi-Turn)
   trace_metrics_status?: TraceMetricsStatus;
-  root_spans_only?: boolean; // Return only root spans (defaults to true in backend)
   limit?: number;
   offset?: number;
 }

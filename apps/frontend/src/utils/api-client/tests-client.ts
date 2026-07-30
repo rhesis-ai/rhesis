@@ -11,12 +11,11 @@ import {
   TestExecuteRequest,
   TestExecuteResponse,
   ConversationToTestRequest,
-  ConversationToTestResponse,
   ConversationTestExtractionResponse,
   PriorityLevel,
 } from './interfaces/tests';
 import { TestSet } from './interfaces/test-set';
-import { BulkDeleteResponse, StatsOptions } from './interfaces/common';
+import { StatsOptions } from './interfaces/common';
 import { PaginatedResponse, PaginationParams } from './interfaces/pagination';
 import {
   IndividualTestStats,
@@ -173,8 +172,8 @@ export class TestsClient extends BaseApiClient {
     });
   }
 
-  async bulkDeleteTests(testIds: string[]): Promise<BulkDeleteResponse> {
-    return this.fetch<BulkDeleteResponse>(`${API_ENDPOINTS.tests}/bulk`, {
+  async bulkDeleteTests(testIds: string[]): Promise<void> {
+    await this.fetch<void>(`${API_ENDPOINTS.tests}/bulk`, {
       method: 'DELETE',
       body: JSON.stringify({ test_ids: testIds }),
     });
@@ -239,18 +238,6 @@ export class TestsClient extends BaseApiClient {
       method: 'POST',
       body: JSON.stringify(request),
     });
-  }
-
-  async createTestFromConversation(
-    request: ConversationToTestRequest
-  ): Promise<ConversationToTestResponse> {
-    return this.fetch<ConversationToTestResponse>(
-      `${API_ENDPOINTS.tests}/from-conversation`,
-      {
-        method: 'POST',
-        body: JSON.stringify(request),
-      }
-    );
   }
 
   async extractTestFromConversation(

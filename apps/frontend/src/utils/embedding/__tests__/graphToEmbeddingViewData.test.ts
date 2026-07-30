@@ -1,45 +1,36 @@
 import { graphToEmbeddingViewData } from '../graphToEmbeddingViewData';
 import type { Scatter2DGraph } from '@/utils/api-client/interfaces/embedding';
-import { EntityType } from '@/types/entity-type';
 
 const sampleGraph: Scatter2DGraph = {
   computed_at: '2026-01-01T00:00:00Z',
   clusters: [
-    { cluster_index: 0, label: 'Safety', size: 2 },
-    { cluster_index: 1, label: 'Finance', size: 1 },
+    { cluster_index: 0, label: 'Safety' },
+    { cluster_index: 1, label: 'Finance' },
   ],
   points: [
     {
-      embedding_id: 'e1',
       entity_id: 't1',
-      entity_type: EntityType.TEST,
       cluster_index: 0,
       searchable_text: 'prompt one',
       x: 0,
       y: 0,
     },
     {
-      embedding_id: 'e2',
       entity_id: 't2',
-      entity_type: EntityType.TEST,
       cluster_index: 0,
       searchable_text: 'prompt two',
       x: 1,
       y: 0,
     },
     {
-      embedding_id: 'e3',
       entity_id: 't3',
-      entity_type: EntityType.TEST,
       cluster_index: 1,
       searchable_text: 'prompt three',
       x: 5,
       y: 5,
     },
     {
-      embedding_id: 'e4',
       entity_id: 't4',
-      entity_type: EntityType.TEST,
       cluster_index: -1,
       searchable_text: 'noise',
       x: -2,
