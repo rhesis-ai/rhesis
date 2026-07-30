@@ -13,9 +13,10 @@ from rhesis.backend.app import crud
 
 from .evaluation import (
     _EVAL_MAX_CONCURRENCY,
+    MetricVerdict,
     _resolve_sdk_metrics,
     _run_metrics_on_text,
-    build_metrics_summary_for_response,
+    aggregate_metric_verdict,
 )
 from .utils import _build_eligible_tests, _get_test_set_tests_from_db
 
@@ -473,39 +474,26 @@ async def suggestion_pipeline_stream(
                     input_text,
                     output_text,
                 )
-                valid = {k: v for k, v in metric_results.items() if isinstance(v, dict)}
-                if not valid:
+                verdict = aggregate_metric_verdict(metric_results, metric_names)
+                if verdict is None:
                     await event_queue.put(
                         {
                             "type": "evaluation",
                             "index": index,
                             "input": input_text,
-                            "label": "",
-                            "labeler": "",
-                            "model_score": 0.0,
-                            "metrics": None,
+                            **MetricVerdict.unlabeled().as_payload(),
                             "error": "no metric results",
                         }
                     )
                     evals_failed += 1
                     return
 
-                all_passed = all(v.get("is_successful", False) for v in valid.values())
-                label = "pass" if all_passed else "fail"
-                labeler = ", ".join(metric_names)
-                scores = [v.get("score", 0.0) for v in valid.values()]
-                score = sum(scores) / len(scores) if scores else 0.0
-                metrics_summary = build_metrics_summary_for_response(valid)
-
                 await event_queue.put(
                     {
                         "type": "evaluation",
                         "index": index,
                         "input": input_text,
-                        "label": label,
-                        "labeler": labeler,
-                        "model_score": score,
-                        "metrics": metrics_summary,
+                        **verdict.as_payload(),
                         "error": None,
                     }
                 )
@@ -517,10 +505,7 @@ async def suggestion_pipeline_stream(
                         "type": "evaluation",
                         "index": index,
                         "input": input_text,
-                        "label": "error",
-                        "labeler": ", ".join(metric_names),
-                        "model_score": 0.0,
-                        "metrics": None,
+                        **MetricVerdict.error(metric_names).as_payload(),
                         "error": str(e),
                     }
                 )
@@ -793,10 +778,7 @@ async def evaluate_suggestions_stream(
                 index,
                 {
                     "input": input_text,
-                    "label": "",
-                    "labeler": "",
-                    "model_score": 0.0,
-                    "metrics": None,
+                    **MetricVerdict.unlabeled().as_payload(),
                     "error": "no output to evaluate",
                 },
             )
@@ -804,36 +786,22 @@ async def evaluate_suggestions_stream(
         try:
             metric_results = await _run_metrics_on_text(sdk_metrics, input_text, output_text)
 
-            valid = {k: v for k, v in metric_results.items() if isinstance(v, dict)}
-
-            if not valid:
+            verdict = aggregate_metric_verdict(metric_results, metric_names)
+            if verdict is None:
                 return (
                     index,
                     {
                         "input": input_text,
-                        "label": "",
-                        "labeler": "",
-                        "model_score": 0.0,
-                        "metrics": None,
+                        **MetricVerdict.unlabeled().as_payload(),
                         "error": "no metric results",
                     },
                 )
-
-            all_passed = all(v.get("is_successful", False) for v in valid.values())
-            label = "pass" if all_passed else "fail"
-            labeler = ", ".join(metric_names)
-            scores = [v.get("score", 0.0) for v in valid.values()]
-            score = sum(scores) / len(scores) if scores else 0.0
-            metrics_summary = build_metrics_summary_for_response(valid)
 
             return (
                 index,
                 {
                     "input": input_text,
-                    "label": label,
-                    "labeler": labeler,
-                    "model_score": score,
-                    "metrics": metrics_summary,
+                    **verdict.as_payload(),
                     "error": None,
                 },
             )
@@ -846,10 +814,7 @@ async def evaluate_suggestions_stream(
                 index,
                 {
                     "input": input_text,
-                    "label": "error",
-                    "labeler": ", ".join(metric_names),
-                    "model_score": 0.0,
-                    "metrics": None,
+                    **MetricVerdict.error(metric_names).as_payload(),
                     "error": str(e),
                 },
             )
