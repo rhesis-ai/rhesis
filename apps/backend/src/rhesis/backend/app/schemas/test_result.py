@@ -12,14 +12,10 @@ from rhesis.backend.app.schemas import Base
 from rhesis.backend.app.schemas.affordances import WithPermittedActions
 from rhesis.backend.app.schemas.references import (
     BehaviorReference,
-    OrganizationReference,
-    ProjectReference,
     PromptReference,
-    StatusReference,
     TopicReference,
 )
 from rhesis.backend.app.schemas.tag import TagRead
-from rhesis.backend.app.schemas.user import UserReference
 
 # Re-export for backward compatibility
 REVIEW_TARGET_TRACE = ReviewTarget.TRACE
@@ -82,17 +78,6 @@ class TestReference(Base):
     model_config = ConfigDict(from_attributes=True)
 
 
-class TestConfigurationReference(Base):
-    id: UUID4
-    user_id: Optional[UUID4] = None
-    organization_id: Optional[UUID4] = None
-    status_id: Optional[UUID4] = None
-    attributes: Optional[Dict[str, Any]] = None
-    endpoint_id: Optional[UUID4] = None
-
-    model_config = ConfigDict(from_attributes=True)
-
-
 class TestRunReference(Base):
     id: UUID4
     name: Optional[str] = None
@@ -111,13 +96,8 @@ class TestResultDetail(TestResult):
     id: UUID4
     counts: Optional[Dict[str, Any]] = None
     tags: Optional[List[TagRead]] = None
-    status: Optional[StatusReference] = None
-    user: Optional[UserReference] = None
     test: Optional[TestReference] = None
-    test_configuration: Optional[TestConfigurationReference] = None
     test_run: Optional[TestRunReference] = None
-    organization: Optional[OrganizationReference] = None
-    project: Optional[ProjectReference] = None
 
 
 # Review schemas

@@ -3,16 +3,7 @@ from typing import Any, Dict, List, Optional
 from pydantic import UUID4, BaseModel, Field
 
 from rhesis.backend.app.schemas import Base
-from rhesis.backend.app.schemas.references import (
-    CategoryReference,
-    OrganizationReference,
-    ProjectReference,
-    PromptReference,
-    StatusReference,
-    TopicReference,
-)
 from rhesis.backend.app.schemas.tag import TagRead
-from rhesis.backend.app.schemas.user import UserReference
 
 
 # TestConfiguration schemas
@@ -39,15 +30,6 @@ class TestConfigurationUpdate(TestConfigurationBase):
 
 class TestConfiguration(TestConfigurationBase):
     pass
-
-
-class UseCaseReference(Base):
-    id: UUID4
-    name: Optional[str] = None
-    description: Optional[str] = None
-    user_id: Optional[UUID4] = None
-    organization_id: Optional[UUID4] = None
-    status_id: Optional[UUID4] = None
 
 
 class TestSetReference(Base):
@@ -78,16 +60,8 @@ class TestConfigurationDetail(TestConfiguration):
     # base schema declares it required) -- preserved here for parity.
     id: UUID4
     endpoint_id: Optional[UUID4] = None
-    category: Optional[CategoryReference] = None
-    topic: Optional[TopicReference] = None
-    prompt: Optional[PromptReference] = None
-    use_case: Optional[UseCaseReference] = None
     test_set: Optional[TestSetReference] = None
-    user: Optional[UserReference] = None
-    status: Optional[StatusReference] = None
     endpoint: Optional[EndpointReference] = None
-    project: Optional[ProjectReference] = None
-    organization: Optional[OrganizationReference] = None
 
 
 class TestConfigurationExecutionRequest(BaseModel):
