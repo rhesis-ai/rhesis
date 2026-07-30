@@ -1,6 +1,6 @@
 """Unit tests for the Explorer in-memory tree.
 
-Ported from the SDK's ``tests/sdk/adaptive_testing/test_schemas.py`` when
+Ported from the SDK's since-removed tree test suite when
 ``TestTreeNode``/``TopicNode`` moved into ``app.schemas.explorer`` and
 ``TestTreeData``/``TopicTree`` into ``app.services.explorer.tree``. Only the surface the
 backend actually calls is covered — the unused SDK methods were dropped in the same move.
