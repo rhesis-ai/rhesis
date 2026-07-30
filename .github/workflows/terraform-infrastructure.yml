@@ -69,6 +69,18 @@ jobs:
       fail-fast: false
       matrix:
         environment: ${{ fromJson(needs.compute-matrix.outputs.environments) }}
+    # GitHub Actions job-level outputs from a matrix job only reliably
+    # capture ONE matrix instance's value (in practice whichever completes
+    # last) -- it does not merge/namespace per-environment values. This is
+    # safe today only because `apply` (the sole consumer of target_env)
+    # runs exclusively on workflow_dispatch, where compute-matrix always
+    # produces a single-element array, so `plan` never actually runs as a
+    # multi-instance matrix on the one path that reads this output. If
+    # apply's trigger condition ever changes to also fire off a multi-env
+    # plan (push/pull_request), this output stops being trustworthy and
+    # needs to be reworked (e.g. a per-environment output via a fan-in
+    # job, or dropping the shared output in favor of passing environment
+    # through explicitly).
     outputs:
       target_env: ${{ steps.tf_setup.outputs.target_env }}
 
@@ -149,6 +161,11 @@ jobs:
     #   gcloud compute instances update wireguard-server \
     #     --no-deletion-protection --zone=**-***-a \
     #     --project=rhesis-p*******
+    #
+    # needs.plan.outputs.target_env is only trustworthy because this job's
+    # own `if` below restricts it to workflow_dispatch -- see the comment
+    # on plan's `outputs:` above for why a matrix job's output can't be
+    # relied on in general.
     environment: ${{ needs.plan.outputs.target_env }}
     if: github.event_name == 'workflow_dispatch' && inputs.action == 'apply'
 
