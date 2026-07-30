@@ -12,7 +12,11 @@ from rhesis.backend.app import crud
 if TYPE_CHECKING:
     from rhesis.sdk.metrics import MetricConfig
 
-from .utils import _build_eligible_tests, _get_test_set_tests_from_db
+from rhesis.backend.app.services.explorer.invocation import NO_OUTPUT
+from rhesis.backend.app.services.explorer.utils import (
+    _build_eligible_tests,
+    _get_test_set_tests_from_db,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -318,7 +322,7 @@ async def evaluate_tests_for_explorer_set(
         input_text = (test.prompt.content or "").strip()
         output_text = (test.test_metadata or {}).get("output", "")
 
-        if not output_text or output_text == "[no output]":
+        if not output_text or output_text == NO_OUTPUT:
             logger.warning(
                 f"Test {test_id_str} has no output to evaluate — run generate_outputs first"
             )

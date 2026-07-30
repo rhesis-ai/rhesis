@@ -7,10 +7,9 @@ from sqlalchemy.orm import Session, contains_eager
 from rhesis.backend.app import crud, models
 from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.schemas.explorer import TopicNode
+from rhesis.backend.app.services.explorer.utils import build_test_tree
 from rhesis.backend.app.services.test import create_test_set_associations
 from rhesis.backend.app.utils.crud_utils import get_or_create_topic
-
-from .utils import build_test_tree
 
 logger = logging.getLogger(__name__)
 

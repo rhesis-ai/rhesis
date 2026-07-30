@@ -8,6 +8,8 @@ from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.constants import ADAPTIVE_TESTING_BEHAVIOR
 from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.schemas.explorer import TestTreeNode, TopicNode
+from rhesis.backend.app.services.explorer.topics import create_topic_node
+from rhesis.backend.app.services.explorer.utils import _db_test_to_node, build_test_tree
 from rhesis.backend.app.services.test import create_test_set_associations
 from rhesis.backend.app.utils.crud_utils import (
     bulk_delete_by_ids,
@@ -16,9 +18,6 @@ from rhesis.backend.app.utils.crud_utils import (
     get_or_create_type_lookup,
 )
 from rhesis.backend.app.utils.query_utils import QueryBuilder
-
-from .topics import create_topic_node
-from .utils import _db_test_to_node, build_test_tree
 
 logger = logging.getLogger(__name__)
 
