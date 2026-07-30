@@ -82,11 +82,13 @@ jobs:
           retry_argocd argocd app sync prd-base \
             --server "$ARGOCD_SERVER" --auth-token "$ARGOCD_AUTH_TOKEN" --grpc-web --timeout 300
 
-      # Keeps kubernetes/clusters/prd/base.yaml's targetRevision in sync with the
-      # commit actually promoted above. Without this, the checked-in value only
-      # reflects whatever was true at the last manual edit, and a disaster-recovery
-      # `kubectl apply` of this file (see kubernetes/README.md) would reset prd-base
-      # to a stale commit instead of the latest released one.
+      # Keeps every prd Application manifest's targetRevision in sync with the
+      # commit actually promoted above — not just the root prd-base. Every
+      # Application under kubernetes/clusters/prd/ that points at this repo has
+      # its own automated{prune,selfHeal} and its own source.targetRevision, so
+      # each one dangles on branch deletion independently of the root. The one
+      # documented exception is cnpg-operator.yaml, which has automated sync
+      # disabled on purpose (see kubernetes/README.md) and is promoted manually.
       - name: Generate a token
         id: generate-token
         uses: actions/create-github-app-token@v2
@@ -100,22 +102,45 @@ jobs:
           ref: main
           token: ${{ steps.generate-token.outputs.token }}
 
-      - name: Update prd-base targetRevision on main
+      - name: Update prd Application targetRevisions on main
         env:
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
         run: |
           git config user.name "rheo-app[bot]"
           git config user.email "237771051+rheo-app[bot]@users.noreply.github.com"
 
-          sed -i "s|targetRevision: .*|targetRevision: $GITHUB_SHA|" kubernetes/clusters/prd/base.yaml
+          # cnpg-operator.yaml is intentionally excluded — manual sync, manual promotion.
+          FILES=(
+            kubernetes/clusters/prd/base.yaml
+            kubernetes/clusters/prd/arc.yaml
+            kubernetes/clusters/prd/loki.yaml
+            kubernetes/clusters/prd/kube-prometheus-stack.yaml
+            kubernetes/clusters/prd/external-secrets.yaml
+            kubernetes/clusters/prd/ingress-nginx-external.yaml
+            kubernetes/clusters/prd/grafana-operator.yaml
+            kubernetes/clusters/prd/cnpg-cluster-application.yaml
+            kubernetes/clusters/prd/cert-manager.yaml
+            kubernetes/clusters/prd/ingress-nginx-internal.yaml
+            kubernetes/clusters/prd/internal-dns.yaml
+            kubernetes/clusters/prd/grafana-resources.yaml
+            kubernetes/clusters/prd/alloy.yaml
+            kubernetes/clusters/prd/cluster-dns-application.yaml
+            kubernetes/clusters/prd/external-dns.yaml
+            kubernetes/clusters/prd/argocd/argocd-application.yaml
+            kubernetes/clusters/prd/rhesis/rhesis-application.yaml
+          )
 
-          if git diff --quiet kubernetes/clusters/prd/base.yaml; then
-            echo "kubernetes/clusters/prd/base.yaml already pinned to $GITHUB_SHA — nothing to commit."
+          for f in "${FILES[@]}"; do
+            sed -i "s|targetRevision: .*|targetRevision: $GITHUB_SHA|" "$f"
+          done
+
+          if git diff --quiet -- "${FILES[@]}"; then
+            echo "All prd Applications already pinned to $GITHUB_SHA — nothing to commit."
             exit 0
           fi
 
-          git add kubernetes/clusters/prd/base.yaml
-          git commit -m "chore(prd): pin prd-base targetRevision to $GITHUB_SHA"
+          git add "${FILES[@]}"
+          git commit -m "chore(prd): pin prd Application targetRevisions to $GITHUB_SHA"
           git push origin HEAD:main
 
   publish:
