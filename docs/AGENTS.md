@@ -145,6 +145,10 @@ marketing site's `@theme` block (`website/src/styles/tailwind.css`). Rules:
 - **Colour is neutral by default.** Chrome (navbar, sidebar, footer, body copy, headings, primary
   buttons) sits on the neutral scale; the brand blues are for accents and links. Orange is for CTAs
   only — don't reintroduce it as an icon or card accent.
+- **Check whether a surface is theme-following before tokenising it.** `CodeBlock` and `FileTree`
+  render a dark terminal surface in *both* themes, with Shiki colours chosen for a dark background.
+  They use the theme-invariant `--rh-codeblock-*` tokens; pointing them at `--rh-surface`/`--rh-text`
+  turns them white in light mode and makes the syntax colours unreadable.
 - **Fonts**: Sora for display/headings, Geist for UI and body, Geist Mono for code and the uppercase
   eyebrow labels. All self-hosted woff2 in `public/fonts/`.
 - **Nextra's own accent ramp is not set in CSS.** It comes from the `color` prop on `<Head>` in

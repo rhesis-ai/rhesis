@@ -48,6 +48,23 @@
   --rh-on-accent: #ffffff;
 
   /**
+   * Code block / file tree surfaces — DELIBERATELY THEME-INVARIANT.
+   *
+   * `CodeBlock` and `FileTree` render a dark terminal surface on both themes,
+   * and their Shiki syntax colours are chosen for a dark background. Do not
+   * point these at --rh-surface/--rh-text or add a dark-mode override: on a
+   * light canvas the block turns white and the syntax colours become
+   * unreadable. That is why they are separate tokens rather than the general
+   * surface scale.
+   */
+  --rh-codeblock-bg: #0d1117;
+  --rh-codeblock-surface: #161b22;
+  --rh-codeblock-header: #1f242b;
+  --rh-codeblock-border: #2c2c2c;
+  --rh-codeblock-text: #e6edf3;
+  --rh-codeblock-text-muted: #a9b1bb;
+
+  /**
    * Nav selection states. Translucent neutrals rather than a tinted fill: the
    * sidebar sits over the gradient backdrop, so an opaque pill would read as a
    * grey block punched through the wash.
