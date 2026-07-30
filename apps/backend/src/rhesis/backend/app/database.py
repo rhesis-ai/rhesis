@@ -118,6 +118,21 @@ def _apply_scope_variables(db: Session, scope) -> None:
 # project window.  Writing _scope leaks the project filter into every
 # subsequent query on that session (silent empty-result bugs).
 # ---------------------------------------------------------------------------
+def scope_project_id(db: Session) -> str:
+    """Read the session's active ``project_id`` in the form the session factory wants.
+
+    Returns ``""`` when no project is in scope, matching the ``project_id`` default of
+    ``get_db_with_tenant_variables`` / ``bind_scope_to_session``. Use this when spawning
+    inner sessions for concurrent work so they inherit the caller's project scope.
+
+    ``auth.rbac.project_id_from_scope`` answers the same question for authorization
+    checks, but returns ``Optional[UUID]``.
+    """
+    scope = db.info.get(_SCOPE_KEY)
+    project_id = getattr(scope, "project_id", None)
+    return str(project_id) if project_id else ""
+
+
 def bind_scope_to_session(
     db: Session,
     organization_id: str = "",

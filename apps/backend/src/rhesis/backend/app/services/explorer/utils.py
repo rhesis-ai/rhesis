@@ -6,8 +6,8 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models
 from rhesis.backend.app.schemas.explorer import TestTreeNode
-
-from .tree import TestTreeData
+from rhesis.backend.app.services.explorer.invocation import NO_OUTPUT
+from rhesis.backend.app.services.explorer.tree import TestTreeData
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +43,7 @@ def _db_test_to_node(db_test: models.Test) -> TestTreeNode | None:
         id=str(db_test.id),
         topic=topic_name,
         input=db_test.prompt.content if db_test.prompt else "",
-        output=meta.get("output", "[no output]"),
+        output=meta.get("output", NO_OUTPUT),
         label=meta.get("label", ""),
         labeler=meta.get("labeler", "imported"),
         model_score=meta.get("model_score", 0.0),

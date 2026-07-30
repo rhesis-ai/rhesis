@@ -10,15 +10,18 @@ from pydantic import BaseModel, Field, create_model
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
-
-from .evaluation import (
+from rhesis.backend.app.services.explorer.evaluation import (
     _EVAL_MAX_CONCURRENCY,
     MetricVerdict,
     _resolve_sdk_metrics,
     _run_metrics_on_text,
     aggregate_metric_verdict,
 )
-from .utils import _build_eligible_tests, _get_test_set_tests_from_db
+from rhesis.backend.app.services.explorer.invocation import NO_OUTPUT, EndpointInvoker
+from rhesis.backend.app.services.explorer.utils import (
+    _build_eligible_tests,
+    _get_test_set_tests_from_db,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -393,14 +396,6 @@ async def suggestion_pipeline_stream(
       - ``{"type": "eval_summary", "evaluated": int, "total": int}``
       - ``{"type": "done"}``
     """
-    from rhesis.backend.app.database import _SCOPE_KEY, get_db_with_tenant_variables
-    from rhesis.backend.app.dependencies import get_endpoint_service
-    from rhesis.backend.tasks.execution.executors.results import process_endpoint_result
-
-    # Propagate the active project scope to inner sessions spawned for async parallel work.
-    _outer_scope = db.info.get(_SCOPE_KEY)
-    _project_id = str(_outer_scope.project_id) if _outer_scope and _outer_scope.project_id else ""
-
     pipeline_t0 = time.monotonic()
 
     def _ts() -> str:
@@ -422,7 +417,13 @@ async def suggestion_pipeline_stream(
     )
 
     # ── Resolve services once ──
-    svc = get_endpoint_service()
+    invoker = EndpointInvoker(
+        db=db,
+        endpoint_id=endpoint_id,
+        organization_id=organization_id,
+        user_id=user_id,
+        max_concurrency=10,
+    )
     sdk_metrics = _resolve_sdk_metrics(db, organization_id, user_id, metric_names)
 
     embedder = None
@@ -443,7 +444,6 @@ async def suggestion_pipeline_stream(
     invoke_tasks: set = set()
     eval_tasks: set = set()
 
-    output_semaphore = asyncio.Semaphore(10)
     eval_semaphore = asyncio.Semaphore(_EVAL_MAX_CONCURRENCY)
     event_queue: asyncio.Queue = asyncio.Queue()
 
@@ -516,25 +516,12 @@ async def suggestion_pipeline_stream(
     async def _invoke_one(index: int, input_text: str):
         nonlocal outputs_generated, outputs_failed
         logger.info("[%s] idx=%02d output_start", _ts(), index)
-        async with output_semaphore:
-            try:
-                with get_db_with_tenant_variables(organization_id, user_id, _project_id) as task_db:
-                    raw = await svc.invoke_endpoint(
-                        db=task_db,
-                        endpoint_id=endpoint_id,
-                        input_data={"input": input_text},
-                        organization_id=organization_id,
-                        user_id=user_id,
-                    )
-                processed = process_endpoint_result(raw)
-                output = (processed.get("output") or "").strip() or "[no output]"
-                error = None
-                outputs_generated += 1
-            except Exception as e:  # noqa: BLE001
-                logger.warning("Pipeline output failed for index %s: %s", index, e)
-                output = ""
-                error = str(e)
-                outputs_failed += 1
+        output, error = await invoker.invoke(input_text)
+        if error:
+            logger.warning("Pipeline output failed for index %s: %s", index, error)
+            outputs_failed += 1
+        else:
+            outputs_generated += 1
 
         logger.info("[%s] idx=%02d output_stop", _ts(), index)
 
@@ -548,7 +535,7 @@ async def suggestion_pipeline_stream(
             }
         )
 
-        if not error and output and output != "[no output]":
+        if not error and output and output != NO_OUTPUT:
             task = asyncio.create_task(_evaluate_one(index, input_text, output))
             eval_tasks.add(task)
             task.add_done_callback(eval_tasks.discard)
@@ -692,38 +679,19 @@ async def invoke_endpoint_for_suggestions_stream(
       - {"type": "item", "index": int, "input": str, "output": str, "error": str|null}
       - {"type": "summary", "generated": int, "total": int}
     """
-    from rhesis.backend.app.database import (
-        _SCOPE_KEY,
-        get_db_with_tenant_variables,
+    invoker = EndpointInvoker(
+        db=db,
+        endpoint_id=endpoint_id,
+        organization_id=organization_id,
+        user_id=user_id,
+        max_concurrency=10,
     )
-    from rhesis.backend.app.dependencies import get_endpoint_service
-    from rhesis.backend.tasks.execution.executors.results import (
-        process_endpoint_result,
-    )
-
-    _outer_scope = db.info.get(_SCOPE_KEY)
-    _project_id = str(_outer_scope.project_id) if _outer_scope and _outer_scope.project_id else ""
-
-    svc = get_endpoint_service()
-    semaphore = asyncio.Semaphore(10)
 
     async def _invoke_one(index: int, input_text: str) -> tuple:
-        async with semaphore:
-            try:
-                with get_db_with_tenant_variables(organization_id, user_id, _project_id) as task_db:
-                    result = await svc.invoke_endpoint(
-                        db=task_db,
-                        endpoint_id=endpoint_id,
-                        input_data={"input": input_text},
-                        organization_id=organization_id,
-                        user_id=user_id,
-                    )
-                processed = process_endpoint_result(result)
-                output = (processed.get("output") or "").strip() or "[no output]"
-                return (index, input_text, output, None)
-            except Exception as e:  # noqa: BLE001
-                logger.warning(f"Suggestion output generation failed: {e}")
-                return (index, input_text, "", str(e))
+        output, error = await invoker.invoke(input_text)
+        if error:
+            logger.warning(f"Suggestion output generation failed: {error}")
+        return (index, input_text, output, error)
 
     total = len(suggestions)
     tasks = [
@@ -773,7 +741,7 @@ async def evaluate_suggestions_stream(
         input_text = item["input"]
         output_text = item["output"]
 
-        if not output_text or output_text == "[no output]":
+        if not output_text or output_text == NO_OUTPUT:
             return (
                 index,
                 {
