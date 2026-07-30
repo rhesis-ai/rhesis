@@ -14,6 +14,20 @@ for repo-wide rules.
 - `synthesizers/` — test data generation
 - `telemetry/` — OpenTelemetry integration, incl. `integrations/` for LangChain/LangGraph/AutoGen
 
+## Imports
+
+**Always absolute, never relative.** Write the full dotted path, including for a module's own
+siblings:
+
+```python
+from rhesis.sdk.metrics.providers.native import NativeMetric   # yes
+from .providers.native import NativeMetric                     # no
+from ..client import RhesisClient                              # no
+```
+
+This holds inside a package's own `__init__.py` too. Existing relative imports are being converted
+as the files around them are touched.
+
 ## Testing
 
 Tests live in `<project_root>/tests/sdk`.

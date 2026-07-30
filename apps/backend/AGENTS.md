@@ -12,6 +12,36 @@ See root `AGENTS.md` for repo-wide rules (commits, PRs, testing overview, tech s
 - `tasks/` — Celery background tasks (`execution/`, `telemetry/`)
 - `metrics/` — evaluation metrics (DeepEval, RAGAS, native providers)
 
+## Imports
+
+**Always absolute, never relative.** Write the full dotted path, including for a module's own
+siblings:
+
+```python
+from rhesis.backend.app.schemas.explorer import TestTreeNode          # yes
+from rhesis.backend.app.services.explorer.utils import build_test_tree  # yes
+from .utils import build_test_tree                                    # no
+from ..database import get_db                                         # no
+```
+
+This holds inside a package's own `__init__.py` too. Existing relative imports are being converted
+as the files around them are touched.
+
+## CRUD layout
+
+`app/crud/` is a package mid-split. `crud/__init__.py` still holds the monolith; per-entity modules
+(`crud/explorer.py`, …) take over as the code around them is touched. **Anything that would add to
+`crud/__init__.py` goes into a per-entity module instead** — it only shrinks from here.
+
+Layering is routers → services → crud, and the same "split, don't grow" rule runs down it: touching
+a router means its business logic moves into a service; touching a service means its SQL moves into
+`crud/`. No SQL in routers.
+
+Import the function directly — `from rhesis.backend.app.crud.explorer import
+set_explorer_test_outputs`. Reaching through the parent (`from rhesis.backend.app import crud`, then
+`crud.explorer.foo()`) raises `AttributeError` unless some other module happens to have imported the
+submodule already, which makes it work by accident.
+
 ## Testing
 
 **Ask the user before running the whole backend suite.** It takes a very long time. Default to the
