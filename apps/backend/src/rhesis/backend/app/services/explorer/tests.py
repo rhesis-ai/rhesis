@@ -11,7 +11,12 @@ from rhesis.backend.app.constants import ADAPTIVE_TESTING_BEHAVIOR
 # Imported as a module rather than by name: this file's own public
 # get_explorer_test_sets() wraps the crud function of the same name.
 from rhesis.backend.app.crud import explorer as crud_explorer
-from rhesis.backend.app.schemas.explorer import TestTreeNode, TopicNode
+from rhesis.backend.app.schemas.explorer import (
+    ExportExplorerTestSetResponse,
+    ImportExplorerTestSetResponse,
+    TestTreeNode,
+    TopicNode,
+)
 from rhesis.backend.app.services.explorer.topics import create_topic_node
 from rhesis.backend.app.services.explorer.utils import _db_test_to_node, build_test_tree
 from rhesis.backend.app.services.test import create_test_set_associations
@@ -395,7 +400,7 @@ def import_explorer_test_set_from_source(
     source_test_set_identifier: str,
     organization_id: str,
     user_id: str,
-) -> dict:
+) -> ImportExplorerTestSetResponse:
     """Create a new explorer test set by copying tests from a regular test set.
 
     Topic hierarchy is rebuilt via topic markers. Tests without prompt content
@@ -414,9 +419,8 @@ def import_explorer_test_set_from_source(
 
     Returns
     -------
-    dict
-        ``test_set`` (``models.TestSet``), ``imported``, ``skipped``,
-        ``skipped_test_ids``
+    ImportExplorerTestSetResponse
+        The new test set plus the copy counts.
 
     Raises
     ------
@@ -471,12 +475,12 @@ def import_explorer_test_set_from_source(
     )
 
     crud_explorer.refresh_test_set(db, new_set)
-    return {
-        "test_set": new_set,
-        "imported": imported,
-        "skipped": skipped,
-        "skipped_test_ids": skipped_test_ids,
-    }
+    return ImportExplorerTestSetResponse(
+        test_set=new_set,
+        imported=imported,
+        skipped=skipped,
+        skipped_test_ids=skipped_test_ids,
+    )
 
 
 def export_regular_test_set_from_explorer(
@@ -484,7 +488,7 @@ def export_regular_test_set_from_explorer(
     source_test_set_identifier: str,
     organization_id: str,
     user_id: str,
-) -> dict:
+) -> ExportExplorerTestSetResponse:
     """Create a new regular test set by copying tests from an explorer test set.
 
     Skips topic-marker rows and tests without prompt content. Does not copy
@@ -505,9 +509,8 @@ def export_regular_test_set_from_explorer(
 
     Returns
     -------
-    dict
-        ``test_set`` (``models.TestSet``), ``exported``, ``skipped``,
-        ``skipped_test_ids``
+    ExportExplorerTestSetResponse
+        The new test set plus the copy counts.
 
     Raises
     ------
@@ -589,12 +592,12 @@ def export_regular_test_set_from_explorer(
     )
 
     crud_explorer.refresh_test_set(db, new_set)
-    return {
-        "test_set": new_set,
-        "exported": exported,
-        "skipped": skipped,
-        "skipped_test_ids": skipped_test_ids,
-    }
+    return ExportExplorerTestSetResponse(
+        test_set=new_set,
+        exported=exported,
+        skipped=skipped,
+        skipped_test_ids=skipped_test_ids,
+    )
 
 
 def create_test_node(

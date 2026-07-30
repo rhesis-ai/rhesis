@@ -13,6 +13,11 @@ from rhesis.backend.app.crud.explorer import set_explorer_test_metadata
 if TYPE_CHECKING:
     from rhesis.sdk.metrics import MetricConfig
 
+from rhesis.backend.app.schemas.explorer import (
+    EvaluateFailedItem,
+    EvaluateResponse,
+    EvaluateResultItem,
+)
 from rhesis.backend.app.services.explorer.invocation import NO_OUTPUT
 from rhesis.backend.app.services.explorer.utils import (
     _build_eligible_tests,
@@ -260,7 +265,7 @@ async def evaluate_tests_for_explorer_set(
     topic: Optional[str] = None,
     include_subtopics: bool = True,
     overwrite: bool = False,
-) -> Dict[str, Any]:
+) -> EvaluateResponse:
     """Evaluate explorer test-set tests with the specified metrics.
 
     Uses SDK metric instances directly via ``a_evaluate`` with up to
@@ -289,11 +294,8 @@ async def evaluate_tests_for_explorer_set(
 
     Returns
     -------
-    dict
-        - evaluated: number of tests evaluated
-        - skipped: number of tests skipped due to existing results
-        - results: list of {test_id, label, labeler, model_score, metrics?}
-        - failed: list of {test_id, error}
+    EvaluateResponse
+        Counts plus the per-test ``results`` and ``failed`` items.
 
     Raises
     ------
@@ -396,18 +398,18 @@ async def evaluate_tests_for_explorer_set(
     all_outcomes = [outcome for outcome, _ in evaluated]
 
     results = [
-        {
-            "test_id": o["test_id"],
-            "label": o["label"],
-            "labeler": o["labeler"],
-            "model_score": o["model_score"],
-            "metrics": o.get("metrics"),
-        }
+        EvaluateResultItem(
+            test_id=o["test_id"],
+            label=o["label"],
+            labeler=o["labeler"],
+            model_score=o["model_score"],
+            metrics=o.get("metrics"),
+        )
         for o in all_outcomes
         if o["status"] == "ok"
     ]
     failed = [
-        {"test_id": o["test_id"], "error": o["error"]}
+        EvaluateFailedItem(test_id=o["test_id"], error=o["error"])
         for o in all_outcomes
         if o["status"] == "failed"
     ]
@@ -418,9 +420,9 @@ async def evaluate_tests_for_explorer_set(
         f"evaluated={len(results)}, skipped={skipped}, failed={len(failed)}"
     )
 
-    return {
-        "evaluated": len(results),
-        "skipped": skipped,
-        "results": results,
-        "failed": failed,
-    }
+    return EvaluateResponse(
+        evaluated=len(results),
+        skipped=skipped,
+        results=results,
+        failed=failed,
+    )
