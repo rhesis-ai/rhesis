@@ -11,7 +11,7 @@ spec:
     # the release branch is deleted after merge (delete_branch_on_merge is on for
     # this repo). Bumped automatically by the "promote-prd-config" job in
     # publish-release.yml on every prd release — see kubernetes/README.md.
-    targetRevision: 77268ef22e501f4257c409c437790f43c69a6c7f
+    targetRevision: d90f5937d04fc03401af1ab39f0ed1868ebf51ed
     path: kubernetes/clusters/prd
   destination:
     server: https://kubernetes.default.svc
