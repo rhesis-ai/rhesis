@@ -4,6 +4,17 @@ Read natively by Cursor and imported by Claude Code (`CLAUDE.md` → `@AGENTS.md
 rules that apply repo-wide. Scoped rules live in each area's own `AGENTS.md`:
 `apps/backend/AGENTS.md`, `apps/frontend/AGENTS.md`, `sdk/AGENTS.md`, `docs/AGENTS.md`.
 
+## Answering
+
+Write answers in simple, plain language. Short sentences, everyday words. Say what you did and what
+it means — skip the buildup.
+
+Technical terms are fine when they're the real name for something: codebase names
+(`bind_scope_to_session`, test set, affordances), everyday dev words (endpoint, migration, fixture,
+race condition), and framework/infra terms (GUC, RLS policy, `ContextVar`, Celery worker). Avoid
+abstract engineering-speak that carries no information — "leverage the abstraction", "surface area",
+"idiomatic", "orthogonal concerns", "non-trivial", "first-class citizen".
+
 ## Technology Stack
 
 Backend and Python SDK: Python 3.10+, `uv` with `pyproject.toml`, Pydantic 2.x, pytest.

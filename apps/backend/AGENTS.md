@@ -14,6 +14,10 @@ See root `AGENTS.md` for repo-wide rules (commits, PRs, testing overview, tech s
 
 ## Testing
 
+**Ask the user before running the whole backend suite.** It takes a very long time. Default to the
+narrowest selection that covers the change (single test, class, or file); only run
+`../../tests/backend/` in full once the user says to.
+
 Backend tests must run from `apps/backend` — its `pyproject.toml` sets
 `testpaths = ["../../tests/backend"]` and `pythonpath = ["src"]`, so paths/imports only resolve
 from that directory. Never run `uv run pytest tests/backend/...` from the repo root.
@@ -24,6 +28,10 @@ uv run pytest ../../tests/backend/ -v
 # single test class:
 uv run pytest ../../tests/backend/services/explorer/test_tests.py::TestCreateExplorerTestSet -v
 ```
+
+Backend tests need Docker running (they use a real database). If tests fail with connection or
+container errors, stop and ask the user to start Docker instead of trying to work around it or
+debug the test code.
 
 ## Debugging
 
