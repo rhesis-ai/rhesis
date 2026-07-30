@@ -16,6 +16,7 @@ from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.crud.explorer import (
     get_default_embedding_model,
     get_test_for_embedding,
+    upsert_test_embedding,
 )
 from rhesis.backend.app.models.embedding import EmbeddingConfig
 from rhesis.backend.app.models.enums import EmbeddingStatus
@@ -424,26 +425,9 @@ def create_test_embedding(
         embedding=embedding_vector,
     )
 
-    from sqlalchemy.exc import IntegrityError
-
-    try:
-        with db.begin_nested():
-            return crud.create_embedding(
-                db,
-                embedding=embedding_create,
-                organization_id=organization_id,
-                user_id=user_id,
-            )
-    except IntegrityError:
-        existing_after = crud.get_embedding_by_hash(
-            db,
-            entity_id=entity_id,
-            entity_type=entity_type,
-            organization_id=organization_id,
-            config_hash=config_hash,
-            text_hash=text_hash,
-            status_id=active_status.id,
-        )
-        if existing_after:
-            return existing_after
-        raise
+    return upsert_test_embedding(
+        db,
+        embedding=embedding_create,
+        organization_id=organization_id,
+        user_id=user_id,
+    )

@@ -8,6 +8,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
+from rhesis.backend.app.crud.explorer import set_explorer_test_metadata
 
 if TYPE_CHECKING:
     from rhesis.sdk.metrics import MetricConfig
@@ -317,7 +318,13 @@ async def evaluate_tests_for_explorer_set(
             continue
         eligible.append(t)
 
-    async def _evaluate_test(test) -> Dict[str, Any]:
+    async def _evaluate_test(test) -> Tuple[Dict[str, Any], Optional[Dict[str, Any]]]:
+        """Evaluate one test, returning its outcome and the metadata to persist.
+
+        Returns the metadata rather than assigning it: these run concurrently on the
+        shared request session, so the writes are applied together once all have landed.
+        A None metadata means this outcome writes nothing.
+        """
         test_id_str = str(test.id)
         input_text = (test.prompt.content or "").strip()
         output_text = (test.test_metadata or {}).get("output", "")
@@ -326,7 +333,7 @@ async def evaluate_tests_for_explorer_set(
             logger.warning(
                 f"Test {test_id_str} has no output to evaluate — run generate_outputs first"
             )
-            return {"status": "failed", "test_id": test_id_str, "error": "no output"}
+            return {"status": "failed", "test_id": test_id_str, "error": "no output"}, None
 
         try:
             metric_results = await _run_metrics_on_text(sdk_metrics, input_text, output_text)
@@ -338,7 +345,7 @@ async def evaluate_tests_for_explorer_set(
                     "status": "failed",
                     "test_id": test_id_str,
                     "error": "no metric results",
-                }
+                }, None
 
             meta = dict(test.test_metadata or {})
             meta.update(verdict.as_payload())
@@ -353,13 +360,12 @@ async def evaluate_tests_for_explorer_set(
                 ]
             elif "evaluation" in meta:
                 del meta["evaluation"]
-            test.test_metadata = meta
 
             return {
                 "status": "ok",
                 "test_id": test_id_str,
                 **verdict.as_payload(),
-            }
+            }, meta
 
         except Exception as e:
             logger.warning(
@@ -369,12 +375,11 @@ async def evaluate_tests_for_explorer_set(
             meta = dict(test.test_metadata or {})
             meta.update(MetricVerdict.error(metric_names).as_payload())
             meta.pop("metrics", None)  # absent, not null — matches what readers expect
-            test.test_metadata = meta
             return {
                 "status": "failed",
                 "test_id": test_id_str,
                 "error": str(e),
-            }
+            }, meta
 
     semaphore = asyncio.Semaphore(_EVAL_MAX_CONCURRENCY)
 
@@ -382,9 +387,13 @@ async def evaluate_tests_for_explorer_set(
         async with semaphore:
             return await _evaluate_test(test)
 
-    all_outcomes = list(await asyncio.gather(*(_bounded(t) for t in eligible)))
+    evaluated = list(await asyncio.gather(*(_bounded(t) for t in eligible)))
 
-    db.flush()
+    # gather preserves order, so each outcome still lines up with its test.
+    set_explorer_test_metadata(
+        db, [(test, meta) for test, (_, meta) in zip(eligible, evaluated) if meta is not None]
+    )
+    all_outcomes = [outcome for outcome, _ in evaluated]
 
     results = [
         {
