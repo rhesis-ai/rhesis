@@ -20,8 +20,8 @@ const ZoneHeader = ({ title, subtitle }) => (
         fontWeight: 700,
         letterSpacing: '0.08em',
         textTransform: 'uppercase',
-        color: 'var(--accent-color, #FD6E12)',
-        fontFamily: 'Sora, sans-serif',
+        color: 'var(--accent-color, var(--rh-blue-cta))',
+        fontFamily: 'var(--rh-font-display)',
       }}
     >
       {title}
@@ -30,7 +30,7 @@ const ZoneHeader = ({ title, subtitle }) => (
       <div
         style={{
           fontSize: '0.8125rem',
-          color: 'var(--text-secondary, #6B7280)',
+          color: 'var(--text-secondary, var(--rh-text-secondary))',
           marginTop: '0.15rem',
         }}
       >
@@ -45,9 +45,9 @@ const SubsectionLabel = ({ children }) => (
     style={{
       fontSize: '0.8125rem',
       fontWeight: 600,
-      color: 'var(--text-primary, #3D3D3D)',
+      color: 'var(--text-primary, var(--rh-text))',
       margin: '0.75rem 0 0.5rem',
-      fontFamily: 'Sora, sans-serif',
+      fontFamily: 'var(--rh-font-display)',
     }}
   >
     {children}
@@ -61,7 +61,7 @@ const FlowArrow = ({ direction = 'right', fullWidth = false }) => (
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      color: 'var(--text-tertiary, #9CA3AF)',
+      color: 'var(--text-tertiary, var(--rh-text-muted))',
       fontSize: direction === 'down' ? '2rem' : '1.5rem',
       padding: direction === 'down' ? '0.25rem 0' : '0 0.5rem',
       flexShrink: 0,
@@ -81,7 +81,7 @@ const cardGridStyle = {
 export const PlatformStructureMap = () => {
   const zoneStyle = {
     padding: '0.75rem',
-    border: '1px solid var(--border-color, #e5e7eb)',
+    border: '1px solid var(--border-color, var(--rh-border))',
     borderRadius: '0.75rem',
     backgroundColor: 'var(--nextra-bg, #fafafa)',
   }
@@ -160,7 +160,7 @@ export const PlatformStructureMap = () => {
             style={{
               marginTop: '0.75rem',
               paddingTop: '0.75rem',
-              borderTop: '1px solid var(--border-color, #e5e7eb)',
+              borderTop: '1px solid var(--border-color, var(--rh-border))',
             }}
           >
             <SubsectionLabel style={{ marginTop: 0 }}>Connection options</SubsectionLabel>
@@ -207,7 +207,7 @@ export const PlatformStructureMap = () => {
         style={{
           margin: '0.75rem 0 0',
           fontSize: '0.8125rem',
-          color: 'var(--text-secondary, #6B7280)',
+          color: 'var(--text-secondary, var(--rh-text-secondary))',
           lineHeight: 1.5,
         }}
       >

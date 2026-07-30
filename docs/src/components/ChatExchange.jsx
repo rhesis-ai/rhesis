@@ -94,19 +94,19 @@ export const ChatArchitect = ({ children }) => (
       style={{
         ...avatarBase,
         backgroundColor: 'var(--chat-architect-avatar-bg, #e8f4f8)',
-        color: 'var(--chat-architect-avatar-text, #2AA1CE)',
+        color: 'var(--chat-architect-avatar-text, var(--rh-blue-cta))',
         border: '1px solid var(--chat-architect-avatar-border, #b8dff0)',
       }}
     >
-      <EngineeringIcon color="var(--chat-architect-avatar-text, #2AA1CE)" />
+      <EngineeringIcon color="var(--chat-architect-avatar-text, var(--rh-blue-cta))" />
     </div>
     <div
       style={{
         ...bubbleBase,
-        backgroundColor: 'var(--chat-architect-bg, #f3f4f6)',
+        backgroundColor: 'var(--chat-architect-bg, var(--rh-surface-sunken))',
         color: 'var(--chat-architect-text, #374151)',
         borderBottomLeftRadius: '0.2rem',
-        border: '1px solid var(--chat-architect-border, #e5e7eb)',
+        border: '1px solid var(--chat-architect-border, var(--rh-border))',
       }}
     >
       {children}
@@ -117,7 +117,7 @@ export const ChatArchitect = ({ children }) => (
 export const ChatExchange = ({ children, title }) => (
   <div
     style={{
-      border: '1px solid var(--chat-container-border, #e5e7eb)',
+      border: '1px solid var(--chat-container-border, var(--rh-border))',
       borderRadius: '0.75rem',
       padding: '1rem 1rem 0.25rem',
       marginTop: '1.25rem',
@@ -129,7 +129,7 @@ export const ChatExchange = ({ children, title }) => (
       <div
         style={{
           fontSize: '0.72rem',
-          color: 'var(--chat-title-color, #9ca3af)',
+          color: 'var(--chat-title-color, var(--rh-text-muted))',
           marginBottom: '0.85rem',
         }}
       >
