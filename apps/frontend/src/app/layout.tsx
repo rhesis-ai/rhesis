@@ -5,6 +5,7 @@ import { cookies } from 'next/headers';
 import ThemeAwareLogo from '../components/common/ThemeAwareLogo';
 import '../styles/fonts.css';
 import '../styles/viewport-scaling.css';
+import '../styles/nav-density.css';
 // Side-effect import: registers EE features into core's extension
 // registries at module load. The actual @rhesis/ee-frontend import is
 // contained in ee_bootstrap.ts (the only file allowed to do so). This

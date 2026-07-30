@@ -1,0 +1,42 @@
+/* ========================================
+   SIDEBAR NAV DENSITY (short-viewport correction)
+   ========================================
+
+   The nav list needs 901px with its Figma spacing (28px between groups, 6px
+   between items, 8px above/below each item), which only fits a sidebar ~1133px
+   tall. Real windows are shorter, so the bottom of the list is cut off — and
+   the column hides its scrollbar, so nothing says the list continues:
+
+     1512 x 982  (14" MacBook, full screen)   fits
+     1512 x 860  (same MacBook, real window)  121px cut off
+     1920 x 1080 (external display)           53px cut off
+
+   Trim the spacing when the viewport is too short for the roomy version. The
+   trigger is height, not width: the same MacBook fits the nav full-screen and
+   cuts it off in a normal window, and a width breakpoint can't tell those
+   apart. 1200px sits just above the ~1133 the roomy spacing needs.
+
+   Trimmed, the nav fits down to ~845px of viewport height at 1512 wide. Below
+   that it still scrolls; going further would mean shrinking the 40x40 icon hit
+   targets.
+
+   Plain px consumed inside `[data-ui-scale-root]`, so the zoom ladder in
+   `viewport-scaling.css` scales them too. Media queries ignore a descendant's
+   zoom, so the two compose without interfering.
+   ======================================== */
+
+:root {
+  --nav-group-gap: 28px;
+  --nav-item-gap: 6px;
+  --nav-item-pad-y: 8px;
+  --nav-rail-pad-y: 30px;
+}
+
+@media screen and (max-height: 1200px) {
+  :root {
+    --nav-group-gap: 18px;
+    --nav-item-gap: 4px;
+    --nav-item-pad-y: 6px;
+    --nav-rail-pad-y: 22px;
+  }
+}

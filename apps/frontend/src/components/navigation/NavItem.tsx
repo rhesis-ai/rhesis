@@ -57,7 +57,12 @@ export function NavItem({ item, collapsed, parentPath = '' }: NavItemProps) {
         alignItems: 'center',
         ...(collapsed
           ? collapsedNavItemSx
-          : { gap: '10px', px: '14px', py: '8px' }),
+          : {
+              gap: '10px',
+              px: '14px',
+              // Trimmed on short viewports — see styles/nav-density.css
+              py: 'var(--nav-item-pad-y)',
+            }),
         borderRadius: BORDER_RADIUS.sm,
         textDecoration: 'none',
         cursor: 'pointer',

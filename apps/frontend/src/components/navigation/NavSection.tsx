@@ -53,7 +53,7 @@ export function NavSection({ header, items, collapsed }: NavSectionProps) {
       sx={{
         display: 'flex',
         flexDirection: 'column',
-        gap: '6px',
+        gap: 'var(--nav-item-gap)',
         ...(collapsed ? collapsedNavGroupSx : {}),
       }}
     >
@@ -108,7 +108,7 @@ export function NavSection({ header, items, collapsed }: NavSectionProps) {
           sx={{
             display: 'flex',
             flexDirection: 'column',
-            gap: '6px',
+            gap: 'var(--nav-item-gap)',
             ...(collapsed ? collapsedNavGroupSx : {}),
           }}
         >

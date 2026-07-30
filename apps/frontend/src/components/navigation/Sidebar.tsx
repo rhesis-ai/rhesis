@@ -121,7 +121,8 @@ export function Sidebar() {
         justifyContent: 'space-between',
         bgcolor: theme => theme.palette.greyscale.surface1,
         px: collapsed ? '12px' : '26px',
-        py: '30px',
+        // Both trimmed on short viewports — see styles/nav-density.css
+        py: 'var(--nav-rail-pad-y)',
         transition: 'width 0.2s ease, padding 0.2s ease',
         overflowX: 'hidden',
         boxSizing: 'border-box',
@@ -132,7 +133,7 @@ export function Sidebar() {
         sx={{
           display: 'flex',
           flexDirection: 'column',
-          gap: '28px',
+          gap: 'var(--nav-group-gap)',
           flex: 1,
           overflowY: 'auto',
           overflowX: 'hidden',
@@ -444,7 +445,7 @@ export function Sidebar() {
                 sx={{
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: '6px',
+                  gap: 'var(--nav-item-gap)',
                   ...(collapsed ? collapsedNavGroupSx : {}),
                 }}
               >
