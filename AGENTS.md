@@ -46,6 +46,9 @@ requirements).
 
 ## Git Commits
 
+- **Never commit, push, or open a PR without asking first.** Show what changed, then wait for the
+  user to say go. An approved plan that mentions commits is not the confirmation — ask again when
+  the code is actually ready.
 - **Never commit on `main`.** Check `git branch --show-current` first; if on `main`, create a
   branch before committing: `git fetch origin && git checkout main && git pull origin main &&
 git checkout -b feature/short-description`.
