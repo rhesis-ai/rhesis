@@ -280,7 +280,6 @@ export interface TestReference {
   user_id: UUID;
   organization_id: UUID;
   status_id: UUID;
-  tags: Tag[];
   counts?: {
     comments: number;
     tasks: number;

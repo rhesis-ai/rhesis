@@ -13,7 +13,6 @@ from rhesis.backend.app.schemas.affordances import WithPermittedActions
 from rhesis.backend.app.schemas.references import (
     BehaviorReference,
     PromptReference,
-    TopicReference,
 )
 from rhesis.backend.app.schemas.tag import TagRead
 
@@ -65,15 +64,12 @@ class TestResult(TestResultBase, WithPermittedActions):
 
 class TestReference(Base):
     id: UUID4
-    content: Optional[str] = None
     counts: Optional[Dict[str, Any]] = None
     user_id: Optional[UUID4] = None
     organization_id: Optional[UUID4] = None
     status_id: Optional[UUID4] = None
-    tags: Optional[List[TagRead]] = None
     prompt: Optional[PromptReference] = None
     behavior: Optional[BehaviorReference] = None
-    topic: Optional[TopicReference] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -81,12 +77,10 @@ class TestReference(Base):
 class TestRunReference(Base):
     id: UUID4
     name: Optional[str] = None
-    counts: Optional[Dict[str, Any]] = None
     user_id: Optional[UUID4] = None
     organization_id: Optional[UUID4] = None
     status_id: Optional[UUID4] = None
     attributes: Optional[Dict[str, Any]] = None
-    experiment_summary: Optional[Dict[str, Any]] = None
     tags: Optional[List[TagRead]] = None
 
     model_config = ConfigDict(from_attributes=True)

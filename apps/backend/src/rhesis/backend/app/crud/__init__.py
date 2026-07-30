@@ -2689,7 +2689,6 @@ _TEST_RESULT_RELATED_FIELDS = (
     include(models.TestResult.test),
     include(models.TestResult.test, models.Test.prompt),
     include(models.TestResult.test, models.Test.behavior),
-    include(models.TestResult.test, models.Test.topic),
 )
 
 
