@@ -11,8 +11,7 @@ from rhesis.backend.app.schemas.explorer import (
     ExplorerSettingsMetric,
     ExplorerSettingsResponse,
 )
-
-from .tests import _is_explorer_test_set
+from rhesis.backend.app.services.explorer.tests import _is_explorer_test_set
 
 
 def _get_default_endpoint_id_from_attributes(
