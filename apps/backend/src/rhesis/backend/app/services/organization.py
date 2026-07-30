@@ -6,7 +6,8 @@ from contextlib import ExitStack
 from typing import Any, Dict, List, Optional, Type
 
 from sqlalchemy import inspect
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.exc import InvalidRequestError
+from sqlalchemy.orm import Session, joinedload, with_parent
 from sqlalchemy.orm.attributes import flag_modified
 
 from rhesis.backend.app import crud, models
@@ -1213,6 +1214,25 @@ def _sort_models_by_dependencies(models: List[Type]) -> List[Type]:
     return sorted_models
 
 
+def _load_relationship_via_core(db: Session, entity, rel):
+    """Fetch a relationship's related row(s) via an explicit top-level query,
+    instead of the implicit lazy-load triggered by plain attribute access --
+    see the call site in _get_nested_entities for why this fallback exists.
+
+    Uses with_parent() rather than rel.local_remote_pairs so that relationships
+    with extra primaryjoin predicates (polymorphic entity_type discriminators,
+    soft-delete filters) are honored, not just the FK-equality part of the join.
+    """
+    target_model = rel.mapper.class_
+    rows = (
+        QueryBuilder(db, target_model)
+        .build()
+        .filter(with_parent(entity, getattr(entity.__class__, rel.key)))
+        .all()
+    )
+    return rows if rel.uselist else (rows[0] if rows else None)
+
+
 def _get_nested_entities(db: Session, entity, organization_id: str, visited=None) -> List:
     """
     Recursively get all nested entities for a given entity.
@@ -1247,8 +1267,10 @@ def _get_nested_entities(db: Session, entity, organization_id: str, visited=None
         if rel.mapper.class_.__name__ in ["User", "Organization"]:
             continue
 
-        # Get the related attribute
-        related = getattr(entity, rel_name)
+        try:
+            related = getattr(entity, rel_name)
+        except InvalidRequestError:
+            related = _load_relationship_via_core(db, entity, rel)
 
         # Handle collections (one-to-many)
         if rel.uselist:

@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
 from rhesis.backend.app.models.test import Test
+from rhesis.backend.tasks.execution.metrics_utils import get_behavior_metrics
 
 logger = logging.getLogger(__name__)
 
@@ -196,32 +197,31 @@ def get_test_metrics(
                     logger.warning(f"Failed to load execution-time metrics for test {test.id}: {e}")
 
     # Priority 2: Test set metrics override behavior metrics
-    if test_set and hasattr(test_set, "metrics") and test_set.metrics:
-        metrics = [metric for metric in test_set.metrics if metric.class_name]
-        if metrics:
-            logger.debug(
-                f"Using {len(metrics)} test set metrics for test {test.id} "
-                f"(overriding behavior metrics)"
-            )
-            invalid_count = len(test_set.metrics) - len(metrics)
-            if invalid_count > 0:
-                logger.warning(
-                    f"Filtered out {invalid_count} test set metrics without class_name "
-                    f"for test {test.id}"
+    # Queried by ID rather than via test_set.metrics -- callers don't guarantee
+    # that many-to-many relationship is eager-loaded on the passed-in test_set.
+    if test_set:
+        ts_metrics = db.query(Metric).filter(Metric.test_sets.any(id=test_set.id)).all()
+        if ts_metrics:
+            metrics = [metric for metric in ts_metrics if metric.class_name]
+            if metrics:
+                logger.debug(
+                    f"Using {len(metrics)} test set metrics for test {test.id} "
+                    f"(overriding behavior metrics)"
                 )
-            return (metrics, "test_set") if return_source else metrics
+                invalid_count = len(ts_metrics) - len(metrics)
+                if invalid_count > 0:
+                    logger.warning(
+                        f"Filtered out {invalid_count} test set metrics without class_name "
+                        f"for test {test.id}"
+                    )
+                return (metrics, "test_set") if return_source else metrics
 
     # Priority 3: Fall back to behavior metrics
-    behavior = test.behavior
-    if behavior and behavior.metrics:
-        # Return Metric models directly - evaluator accepts them
-        metrics = [metric for metric in behavior.metrics if metric.class_name]
-
-        invalid_count = len(behavior.metrics) - len(metrics)
-        if invalid_count > 0:
-            logger.warning(
-                f"Filtered out {invalid_count} metrics without class_name for test {test.id}"
-            )
+    # Queried by ID rather than via test.behavior.metrics for the same reason.
+    if test.behavior_id:
+        behavior_metrics = get_behavior_metrics(db, test.behavior_id)
+        if behavior_metrics:
+            metrics = behavior_metrics
 
     # Return empty list if no valid metrics found (no defaults in SDK)
     if not metrics:

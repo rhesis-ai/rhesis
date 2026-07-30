@@ -1,5 +1,4 @@
 import { UUID } from 'crypto';
-import { User } from './user';
 import { TypeLookup } from './type-lookup';
 import { Status } from './status';
 import { PaginationParams } from './pagination';
@@ -22,8 +21,6 @@ export interface Model {
   // References
   provider_type?: TypeLookup;
   status?: Status;
-  owner?: User;
-  assignee?: User;
   metrics?: UUID[];
 }
 

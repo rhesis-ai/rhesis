@@ -4,15 +4,6 @@ import { TestConfigurationDetail } from './test-configuration';
 import { Tag } from './tag';
 import type { WithPermittedActions } from '@/types/affordances';
 
-// Define Organization interface based on API response
-export interface OrganizationReference {
-  id: string;
-  name: string;
-  description?: string;
-  email?: string;
-  user_id?: UUID;
-}
-
 // Base interfaces for TestRun
 export interface TestRunBase {
   name?: string;
@@ -42,10 +33,7 @@ export interface TestRunDetail extends TestRun {
   user?: UserReference;
   status?: Status;
   test_configuration?: TestConfigurationDetail;
-  organization?: OrganizationReference;
   priority?: number;
-  assignee?: UserReference;
-  owner?: UserReference;
   counts?: {
     comments: number;
     tasks: number;

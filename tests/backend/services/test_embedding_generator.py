@@ -5,7 +5,7 @@ import json
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from rhesis.backend.app import models
 from rhesis.backend.app.models.enums import EmbeddingStatus, ModelType
@@ -237,7 +237,12 @@ class TestEmbeddingGenerator:
         assert result["status"] == "success"
         assert "embedding_id" in result
 
-        embedding = test_db.query(models.Embedding).filter_by(id=result["embedding_id"]).first()
+        embedding = (
+            test_db.query(models.Embedding)
+            .options(joinedload(models.Embedding.status))
+            .filter_by(id=result["embedding_id"])
+            .first()
+        )
         assert embedding is not None
         assert str(embedding.entity_id) == str(test_entity.id)
         assert embedding.entity_type == "Test"
@@ -335,7 +340,14 @@ class TestEmbeddingGenerator:
             model_id=str(embedding_model.id),
         )
 
-        test_entity.prompt.content = "What is the capital of Spain?"
+        # generate() commits, which expires test_entity (SQLAlchemy's default
+        # expire_on_commit) -- look up the prompt by its FK rather than through
+        # the now-unloaded relationship, since re-loading it is exactly the
+        # lazy-load the raiseload trip-wire fixture forbids.
+        from rhesis.backend.app.models import Prompt
+
+        prompt = test_db.query(Prompt).filter_by(id=test_entity.prompt_id).first()
+        prompt.content = "What is the capital of Spain?"
         test_db.commit()
         test_db.refresh(test_entity)
 
@@ -349,14 +361,20 @@ class TestEmbeddingGenerator:
 
         assert result1["embedding_id"] != result2["embedding_id"]
 
-        old_embedding = test_db.query(models.Embedding).filter_by(
-            id=result1["embedding_id"]
-        ).first()
+        old_embedding = (
+            test_db.query(models.Embedding)
+            .options(joinedload(models.Embedding.status))
+            .filter_by(id=result1["embedding_id"])
+            .first()
+        )
         assert old_embedding.status.name.lower() == EmbeddingStatus.STALE.value.lower()
 
-        new_embedding = test_db.query(models.Embedding).filter_by(
-            id=result2["embedding_id"]
-        ).first()
+        new_embedding = (
+            test_db.query(models.Embedding)
+            .options(joinedload(models.Embedding.status))
+            .filter_by(id=result2["embedding_id"])
+            .first()
+        )
         assert new_embedding.status.name.lower() == EmbeddingStatus.ACTIVE.value.lower()
 
     def test_generate_entity_without_to_searchable_text(

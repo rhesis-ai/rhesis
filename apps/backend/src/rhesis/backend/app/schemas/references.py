@@ -111,17 +111,3 @@ class PromptReference(Base):
     tags: Optional[List[TagRead]] = None
 
     model_config = ConfigDict(from_attributes=True)
-
-
-class SourceReference(Base):
-    id: UUID4
-    title: Optional[str] = None
-    description: Optional[str] = None
-    content: Optional[str] = None
-    counts: Optional[Dict[str, Any]] = None
-    user_id: Optional[UUID4] = None
-    organization_id: Optional[UUID4] = None
-    status_id: Optional[UUID4] = None
-    tags: Optional[List[TagRead]] = None
-
-    model_config = ConfigDict(from_attributes=True)

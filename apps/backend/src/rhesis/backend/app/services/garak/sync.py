@@ -20,7 +20,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app.models.test import test_test_set_association
+from rhesis.backend.app.models.test import Test, test_test_set_association
 from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.app.schemas import test_set as test_set_schemas
 from rhesis.backend.app.services.test import bulk_create_tests
@@ -332,7 +332,10 @@ class GarakSyncService:
         """Get the set of Garak probe IDs currently in the test set."""
         probe_ids = set()
 
-        for test in test_set.tests:
+        # Queried by ID rather than via test_set.tests -- callers don't
+        # guarantee that many-to-many relationship is eager-loaded.
+        tests = self.db.query(Test).filter(Test.test_sets.any(id=test_set.id)).all()
+        for test in tests:
             if test.test_metadata and test.test_metadata.get("source") == "garak":
                 probe_id = test.test_metadata.get("garak_probe_id")
                 if probe_id:
@@ -418,7 +421,9 @@ class GarakSyncService:
         """Remove old prompts from the test set."""
         removed_count = 0
 
-        for test in list(test_set.tests):  # Create list copy to allow modification
+        # Queried by ID rather than via test_set.tests -- see _get_existing_probe_ids.
+        tests = self.db.query(Test).filter(Test.test_sets.any(id=test_set.id)).all()
+        for test in tests:
             if not test.test_metadata or test.test_metadata.get("source") != "garak":
                 continue
 

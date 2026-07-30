@@ -31,7 +31,6 @@ from rhesis.backend.app.utils.crud_utils import (
     delete_item,
     get_item,
     get_item_detail,
-    get_item_with_deferred,
     get_items,
     get_items_detail,
     update_item,
@@ -75,6 +74,13 @@ def get_session_variables(db: Session):
 
 
 # Endpoint CRUD
+_ENDPOINT_RELATED_FIELDS = (
+    include(models.Endpoint.status),
+    include(models.Endpoint.user),
+    include(models.Endpoint.project),
+)
+
+
 def get_endpoint(
     db: Session,
     endpoint_id: uuid.UUID,
@@ -83,9 +89,18 @@ def get_endpoint(
     project_id: str = None,
 ) -> Optional[models.Endpoint]:
     """Get endpoint with relationships eagerly loaded."""
-    return get_item_detail(
-        db, models.Endpoint, endpoint_id, organization_id, user_id, project_id=project_id
+    from rhesis.backend.app.utils.crud_utils import _check_and_raise_if_deleted
+
+    item = (
+        QueryBuilder(db, models.Endpoint)
+        .with_deleted()
+        .with_related(*_ENDPOINT_RELATED_FIELDS)
+        .with_organization_filter(organization_id)
+        .with_project_filter(project_id)
+        .with_visibility_filter(user_id)
+        .filter_by_id(endpoint_id)
     )
+    return _check_and_raise_if_deleted(item, models.Endpoint, endpoint_id, False)
 
 
 def get_endpoints(
@@ -98,16 +113,15 @@ def get_endpoints(
     organization_id: str = None,
     user_id: str = None,
 ) -> List[models.Endpoint]:
-    return get_items_detail(
-        db,
-        models.Endpoint,
-        skip,
-        limit,
-        sort_by,
-        sort_order,
-        filter,
-        organization_id=organization_id,
-        user_id=user_id,
+    return (
+        QueryBuilder(db, models.Endpoint)
+        .with_related(*_ENDPOINT_RELATED_FIELDS)
+        .with_organization_filter(organization_id)
+        .with_visibility_filter(user_id)
+        .with_odata_filter(filter)
+        .with_sorting(sort_by, sort_order)
+        .with_pagination(skip, limit)
+        .all()
     )
 
 
@@ -148,16 +162,15 @@ def get_experiments(
     organization_id: str = None,
     user_id: str = None,
 ) -> List[models.Experiment]:
-    return get_items_detail(
-        db,
-        models.Experiment,
-        skip,
-        limit,
-        sort_by,
-        sort_order,
-        filter,
-        organization_id=organization_id,
-        user_id=user_id,
+    return (
+        QueryBuilder(db, models.Experiment)
+        .with_related(include(models.Experiment.project))
+        .with_organization_filter(organization_id)
+        .with_visibility_filter(user_id)
+        .with_odata_filter(filter)
+        .with_sorting(sort_by, sort_order)
+        .with_pagination(skip, limit)
+        .all()
     )
 
 
@@ -336,8 +349,8 @@ def delete_prompt_template(
 def get_category(
     db: Session, category_id: uuid.UUID, organization_id: str = None, user_id: str = None
 ) -> Optional[models.Category]:
-    """Get category with relationships eagerly loaded."""
-    return get_item_detail(db, models.Category, category_id, organization_id, user_id)
+    """Get a single category by ID."""
+    return get_item(db, models.Category, category_id, organization_id, user_id)
 
 
 def get_categories(
@@ -350,7 +363,7 @@ def get_categories(
     organization_id: str = None,
     user_id: str = None,
 ) -> List[models.Category]:
-    return get_items_detail(
+    return get_items(
         db,
         models.Category,
         skip,
@@ -390,17 +403,11 @@ def delete_category(
 
 
 # Behavior CRUD
-# Both read_behavior and read_behaviors return BehaviorWithMetricsSchema (routers/behavior.py),
-# = schemas.Behavior (tags, status, user) + metrics: List[schemas.Metric] (each needing
-# metric_type, backend_type, tags). organization/project are NOT read by this schema (only
-# BehaviorDetail has them) -- deliberately excluded here. Folding Behavior's own tags chain in
-# here means neither caller needs with_default_derived_field_loads (BehaviorWithMetricsSchema
-# has no counts/comments/tasks field), and metrics.tags is included explicitly since
-# selectinload's default cascade skips many-to-many relations -- omitting it would lazy-load
-# tags per nested metric (N+1). No cartesian product: each hop's own cardinality picks
-# selectinload for collections, joinedload for the final single-valued tag.
+# read_behavior/read_behaviors return BehaviorWithMetricsSchema (tags, user, metrics with
+# metric_type/backend_type/tags); status/organization/project are unused, excluded. metrics.tags
+# is included explicitly since selectinload's default cascade skips many-to-many relations
+# (would otherwise lazy-load tags per nested metric).
 _BEHAVIOR_RELATED_FIELDS = (
-    include(models.Behavior.status),
     include(models.Behavior.user),
     include(models.Behavior._tags_relationship, models.TaggedItem.tag),
     include(models.Behavior.metrics),
@@ -592,15 +599,11 @@ def get_test_set(
 # because those produce cartesian-product joins or lazy fan-out and none of
 # these endpoints serialize them. comments/tasks/files/tags ARE serialized
 # (via CountsMixin.counts / TagsMixin.tags) -- see with_default_derived_field_loads.
+# license_type/owner/assignee/organization/project: unused, excluded.
 _TEST_SET_RELATED_FIELDS = (
     include(models.TestSet.status),
-    include(models.TestSet.license_type),
     include(models.TestSet.test_set_type),
     include(models.TestSet.user),
-    include(models.TestSet.owner),
-    include(models.TestSet.assignee),
-    include(models.TestSet.organization),
-    include(models.TestSet.project),
 )
 
 
@@ -896,14 +899,10 @@ def get_test_set_tests(
             include(models.Test.user),
             include(models.Test.assignee),
             include(models.Test.owner),
-            include(models.Test.parent),
             include(models.Test.topic),
             include(models.Test.behavior),
             include(models.Test.category),
             include(models.Test.status),
-            include(models.Test.source),
-            include(models.Test.organization),
-            include(models.Test.project),
         )
         .with_visibility_filter()
         .with_custom_filter(
@@ -924,16 +923,26 @@ def get_test_set_tests(
 
 
 # TestConfiguration CRUD
+_TEST_CONFIGURATION_RELATED_FIELDS = (
+    include(models.TestConfiguration.test_set),
+    include(models.TestConfiguration.endpoint),
+)
+
+
 def get_test_configuration(
     db: Session, test_configuration_id: uuid.UUID, organization_id: str = None, user_id: str = None
 ) -> Optional[models.TestConfiguration]:
-    return get_item_detail(
-        db,
-        models.TestConfiguration,
-        test_configuration_id,
-        organization_id=organization_id,
-        user_id=user_id,
+    from rhesis.backend.app.utils.crud_utils import _check_and_raise_if_deleted
+
+    item = (
+        QueryBuilder(db, models.TestConfiguration)
+        .with_deleted()
+        .with_related(*_TEST_CONFIGURATION_RELATED_FIELDS)
+        .with_organization_filter(organization_id)
+        .with_visibility_filter(user_id)
+        .filter_by_id(test_configuration_id)
     )
+    return _check_and_raise_if_deleted(item, models.TestConfiguration, test_configuration_id, False)
 
 
 def get_test_configurations(
@@ -946,16 +955,15 @@ def get_test_configurations(
     organization_id: str = None,
     user_id: str = None,
 ) -> List[models.TestConfiguration]:
-    return get_items_detail(
-        db,
-        models.TestConfiguration,
-        skip,
-        limit,
-        sort_by,
-        sort_order,
-        filter,
-        organization_id=organization_id,
-        user_id=user_id,
+    return (
+        QueryBuilder(db, models.TestConfiguration)
+        .with_related(*_TEST_CONFIGURATION_RELATED_FIELDS)
+        .with_organization_filter(organization_id)
+        .with_visibility_filter(user_id)
+        .with_odata_filter(filter)
+        .with_sorting(sort_by, sort_order)
+        .with_pagination(skip, limit)
+        .all()
     )
 
 
@@ -1052,24 +1060,8 @@ def delete_risk(
 def get_status(
     db: Session, status_id: uuid.UUID, organization_id: str = None, user_id: str = None
 ) -> Optional[models.Status]:
-    """Get a single status by ID without joining all its related entities."""
-    from rhesis.backend.app.utils.crud_utils import _check_and_raise_if_deleted
-    from rhesis.backend.app.utils.query_utils import QueryBuilder
-
-    item = (
-        QueryBuilder(db, models.Status)
-        .with_deleted()
-        .with_related(
-            include(models.Status.entity_type),
-            include(models.Status.project),
-            include(models.Status.organization),
-            include(models.Status.user),
-        )
-        .with_organization_filter(organization_id)
-        .with_visibility_filter(user_id)
-        .filter_by_id(status_id)
-    )
-    return _check_and_raise_if_deleted(item, models.Status, status_id, False)
+    """Get a single status by ID."""
+    return get_item(db, models.Status, status_id, organization_id, user_id)
 
 
 def get_statuses(
@@ -1259,6 +1251,12 @@ def mark_embeddings_stale(
 
 
 # Source CRUD
+_SOURCE_RELATED_FIELDS = (
+    include(models.Source.source_type),
+    include(models.Source.user),
+)
+
+
 def get_source(
     db: Session,
     source_id: uuid.UUID,
@@ -1269,9 +1267,20 @@ def get_source(
 
     Note: Content field is deferred and will not be loaded unless explicitly requested.
     Use get_source_with_content() to load the content field.
-    Relationships (source_type, status, user) are loaded for display.
+    Relationships (source_type, user) are loaded for display.
     """
-    return get_item_detail(db, models.Source, source_id, organization_id, user_id)
+    from rhesis.backend.app.utils.crud_utils import _check_and_raise_if_deleted
+
+    item = (
+        QueryBuilder(db, models.Source)
+        .with_deleted()
+        .with_related(*_SOURCE_RELATED_FIELDS)
+        .with_default_derived_field_loads()
+        .with_organization_filter(organization_id)
+        .with_visibility_filter(user_id)
+        .filter_by_id(source_id)
+    )
+    return _check_and_raise_if_deleted(item, models.Source, source_id, False)
 
 
 def get_source_with_content(
@@ -1281,19 +1290,22 @@ def get_source_with_content(
     user_id: str = None,
     include_deleted: bool = False,
 ) -> Optional[models.Source]:
-    """Get source with content field explicitly loaded.
+    """Get source with content field explicitly loaded (a deferred column)."""
+    from sqlalchemy.orm import undefer
 
-    This uses get_item_with_deferred from crud_utils to load the deferred content field.
-    """
-    return get_item_with_deferred(
-        db=db,
-        model=models.Source,
-        item_id=source_id,
-        deferred_fields=["content"],
-        organization_id=organization_id,
-        user_id=user_id,
-        include_deleted=include_deleted,
+    from rhesis.backend.app.utils.crud_utils import _check_and_raise_if_deleted
+
+    item = (
+        QueryBuilder(db, models.Source)
+        .with_deleted()
+        .with_related(*_SOURCE_RELATED_FIELDS)
+        .with_default_derived_field_loads()
+        .with_organization_filter(organization_id)
+        .with_visibility_filter(user_id)
     )
+    item.query = item.query.options(undefer(models.Source.content))
+    item = item.filter_by_id(source_id)
+    return _check_and_raise_if_deleted(item, models.Source, source_id, include_deleted)
 
 
 def get_sources(
@@ -1310,18 +1322,18 @@ def get_sources(
 
     Note: Content field is deferred and will not be loaded.
     Use get_source_with_content() for individual sources that need content.
-    Relationships (source_type, status, user) are loaded for display.
+    Relationships (source_type, user) are loaded for display.
     """
-    return get_items_detail(
-        db,
-        models.Source,
-        skip,
-        limit,
-        sort_by,
-        sort_order,
-        filter,
-        organization_id=organization_id,
-        user_id=user_id,
+    return (
+        QueryBuilder(db, models.Source)
+        .with_related(*_SOURCE_RELATED_FIELDS)
+        .with_default_derived_field_loads()
+        .with_organization_filter(organization_id)
+        .with_visibility_filter(user_id)
+        .with_odata_filter(filter)
+        .with_sorting(sort_by, sort_order)
+        .with_pagination(skip, limit)
+        .all()
     )
 
 
@@ -1390,8 +1402,8 @@ def get_chunk(
 def get_topic(
     db: Session, topic_id: uuid.UUID, organization_id: str = None, user_id: str = None
 ) -> Optional[models.Topic]:
-    """Get topic with relationships eagerly loaded."""
-    return get_item_detail(db, models.Topic, topic_id, organization_id, user_id)
+    """Get a single topic by ID."""
+    return get_item(db, models.Topic, topic_id, organization_id, user_id)
 
 
 def get_topics(
@@ -2113,12 +2125,7 @@ def get_projects(
     with bypass_tenant_filter():
         builder = (
             QueryBuilder(db, models.Project)
-            .with_related(
-                include(models.Project.user),
-                include(models.Project.owner),
-                include(models.Project.organization),
-                include(models.Project.status),
-            )
+            .with_related(include(models.Project.owner))
             .with_default_derived_field_loads()
             .with_organization_filter(organization_id)
             .with_visibility_filter(user_id)
@@ -2450,16 +2457,13 @@ def delete_test_context(
 
 # Test Run CRUD
 
-# Relationships loaded for TestRun detail responses. Matches the schema defined
-# by schemas.TestRunDetail.
+# Relationships loaded for TestRun detail responses. Matches schemas.TestRunDetail.
+# assignee/owner/organization/experiment/project (TestRun's own top-level fields) are
+# unused, excluded; the nested test_configuration.endpoint.project chain below is a
+# separate, still-used field.
 _TEST_RUN_RELATED_FIELDS = (
     include(models.TestRun.status),
-    include(models.TestRun.assignee),
-    include(models.TestRun.owner),
     include(models.TestRun.user),
-    include(models.TestRun.organization),
-    include(models.TestRun.experiment),
-    include(models.TestRun.project),
     include(models.TestRun.test_configuration, models.TestConfiguration.endpoint),
     include(
         models.TestRun.test_configuration,
@@ -2733,18 +2737,31 @@ def delete_test_run(
 
 
 # Test Result CRUD
+_TEST_RESULT_RELATED_FIELDS = (
+    include(models.TestResult.test_run),
+    include(models.TestResult.test),
+    include(models.TestResult.test, models.Test.prompt),
+    include(models.TestResult.test, models.Test.behavior),
+    include(models.TestResult.test, models.Test.topic),
+)
+
+
 def get_test_result(
     db: Session, test_result_id: uuid.UUID, organization_id: str = None, user_id: str = None
 ) -> Optional[models.TestResult]:
-    """Get test_result with relationships (tags, tasks, comments) using optimized approach."""
-    return get_item_detail(
-        db,
-        models.TestResult,
-        test_result_id,
-        organization_id,
-        user_id,
-        nested_relationships={"test": ["prompt", "behavior", "topic"]},
+    """Get test_result with relationships (tags, test, test_run) eagerly loaded."""
+    from rhesis.backend.app.utils.crud_utils import _check_and_raise_if_deleted
+
+    item = (
+        QueryBuilder(db, models.TestResult)
+        .with_deleted()
+        .with_related(*_TEST_RESULT_RELATED_FIELDS)
+        .with_default_derived_field_loads()
+        .with_organization_filter(organization_id)
+        .with_visibility_filter(user_id)
+        .filter_by_id(test_result_id)
     )
+    return _check_and_raise_if_deleted(item, models.TestResult, test_result_id, False)
 
 
 def get_test_results(
@@ -2757,18 +2774,17 @@ def get_test_results(
     organization_id: str = None,
     user_id: str = None,
 ) -> List[models.TestResult]:
-    """Get test_results with relationships (tags, tasks, comments) using optimized approach."""
-    return get_items_detail(
-        db,
-        models.TestResult,
-        skip,
-        limit,
-        sort_by,
-        sort_order,
-        filter,
-        nested_relationships={"test": ["prompt", "behavior", "topic"]},
-        organization_id=organization_id,
-        user_id=user_id,
+    """Get test_results with relationships (tags, test, test_run) eagerly loaded."""
+    return (
+        QueryBuilder(db, models.TestResult)
+        .with_related(*_TEST_RESULT_RELATED_FIELDS)
+        .with_default_derived_field_loads()
+        .with_organization_filter(organization_id)
+        .with_visibility_filter(user_id)
+        .with_odata_filter(filter)
+        .with_sorting(sort_by, sort_order)
+        .with_pagination(skip, limit)
+        .all()
     )
 
 
@@ -2847,6 +2863,7 @@ def get_my_projects(db: Session, user_id: uuid.UUID, organization_id: str) -> Li
 
     return (
         db.query(models.Project)
+        .options(include(models.Project.owner))
         .join(ProjectMembership, ProjectMembership.project_id == models.Project.id)
         .filter(
             ProjectMembership.user_id == user_id,
@@ -2996,35 +3013,20 @@ def get_type_lookup_by_name_and_value(
 
 # Metric CRUD
 # Relationships serialized by schemas.MetricDetail. with_related picks joinedload
-# for the many-to-one ones (metric_type, status, ...) and selectinload for the
-# many-to-many ones (behaviors, test_sets) automatically -- joinedload on the
-# M2M pair previously produced a cartesian product (one row per
-# (metric, behavior, test_set) tuple) that bloated the response by orders of
-# magnitude.
+# for many-to-one (metric_type, ...) and selectinload for the many-to-many
+# (behaviors) -- joinedload on an M2M would cartesian-product the rows.
+# status/assignee/owner/user/organization/project/test_sets: unused, excluded.
 _METRIC_RELATED_FIELDS = (
     include(models.Metric.metric_type),
-    include(models.Metric.status),
-    include(models.Metric.assignee),
-    include(models.Metric.owner),
     include(models.Metric.model),
     include(models.Metric.backend_type),
-    include(models.Metric.user),
-    include(models.Metric.organization),
-    include(models.Metric.project),
-    # behaviors/test_sets serialize as BehaviorReference/TestSetReference, which
-    # both read `counts` (comments/tasks) and `tags`. with_default_derived_field_loads
-    # only cascades those into many-to-one relations -- it skips many-to-many -- so
-    # without these explicit chains each nested behavior/test_set would lazy-load its
-    # own comments/tasks/tags per row (N+1). include() picks selectinload for each
-    # collection hop and joinedload for the final tag, so no cartesian product.
+    # behaviors serializes as BehaviorReference, which reads counts/tags;
+    # with_default_derived_field_loads only cascades those into many-to-one
+    # relations, so these chains are explicit to avoid an N+1 per behavior.
     include(models.Metric.behaviors),
     include(models.Metric.behaviors, models.Behavior.comments),
     include(models.Metric.behaviors, models.Behavior.tasks),
     include(models.Metric.behaviors, models.Behavior._tags_relationship, models.TaggedItem.tag),
-    include(models.Metric.test_sets),
-    include(models.Metric.test_sets, models.TestSet.comments),
-    include(models.Metric.test_sets, models.TestSet.tasks),
-    include(models.Metric.test_sets, models.TestSet._tags_relationship, models.TaggedItem.tag),
 )
 
 
@@ -3394,6 +3396,7 @@ def get_metric_behaviors(
 
     return (
         QueryBuilder(db, models.Behavior)
+        .with_related(include(models.Behavior._tags_relationship, models.TaggedItem.tag))
         .with_organization_filter(organization_id)
         .with_custom_filter(
             lambda q: q.join(models.behavior_metric_association).filter(
@@ -3570,7 +3573,11 @@ def get_model(
     db: Session, model_id: uuid.UUID, organization_id: str = None, user_id: str = None
 ) -> Optional[models.Model]:
     """Get a specific model by ID with its related objects and organization filtering"""
-    query = db.query(models.Model).filter(models.Model.id == model_id)
+    query = (
+        db.query(models.Model)
+        .options(include(models.Model.provider_type))
+        .filter(models.Model.id == model_id)
+    )
 
     # Apply organization filtering (SECURITY CRITICAL)
     if organization_id:
@@ -3704,11 +3711,24 @@ def test_model_connection(db: Session, model_id: uuid.UUID) -> bool:
 
 
 # Tool CRUD
+_TOOL_RELATED_FIELDS = (include(models.Tool.tool_provider_type),)
+
+
 def get_tool(
     db: Session, tool_id: uuid.UUID, organization_id: str, user_id: str = None
 ) -> Optional[models.Tool]:
     """Get a specific tool by ID with relationships loaded"""
-    return get_item_detail(db, models.Tool, tool_id, organization_id, user_id)
+    from rhesis.backend.app.utils.crud_utils import _check_and_raise_if_deleted
+
+    item = (
+        QueryBuilder(db, models.Tool)
+        .with_deleted()
+        .with_related(*_TOOL_RELATED_FIELDS)
+        .with_organization_filter(organization_id)
+        .with_visibility_filter(user_id)
+        .filter_by_id(tool_id)
+    )
+    return _check_and_raise_if_deleted(item, models.Tool, tool_id, False)
 
 
 def get_tools(
@@ -3722,16 +3742,15 @@ def get_tools(
     user_id: str = None,
 ) -> List[models.Tool]:
     """Get all tools for an organization with filtering and pagination"""
-    return get_items_detail(
-        db,
-        models.Tool,
-        skip,
-        limit,
-        sort_by,
-        sort_order,
-        filter,
-        organization_id=organization_id,
-        user_id=user_id,
+    return (
+        QueryBuilder(db, models.Tool)
+        .with_related(*_TOOL_RELATED_FIELDS)
+        .with_organization_filter(organization_id)
+        .with_visibility_filter(user_id)
+        .with_odata_filter(filter)
+        .with_sorting(sort_by, sort_order)
+        .with_pagination(skip, limit)
+        .all()
     )
 
 
@@ -3824,6 +3843,8 @@ def get_comments_by_entity(
     """Get all comments for a specific entity (test, test_set, test_run)"""
     return (
         QueryBuilder(db, models.Comment)
+        .with_related(include(models.Comment.user))
+        .with_default_derived_field_loads()
         .with_organization_filter(organization_id)
         .with_custom_filter(
             lambda q: q.filter(
@@ -3996,7 +4017,13 @@ def get_task(
     db: Session, task_id: uuid.UUID, organization_id: str = None, user_id: str = None
 ) -> Optional[models.Task]:
     """Get task with relationships eagerly loaded."""
-    return get_item_detail(db, models.Task, task_id, organization_id, user_id)
+    # Task.comments is a custom polymorphic relationship (viewonly, matched by
+    # entity_id/entity_type), not the CommentsMixin comments/tasks/files/tags
+    # default -- TaskDetail.comment_count reads it directly, so it needs its
+    # own explicit selectin_chains entry.
+    return get_item_detail(
+        db, models.Task, task_id, organization_id, user_id, selectin_chains=[["comments"]]
+    )
 
 
 def get_tasks(
@@ -4010,6 +4037,8 @@ def get_tasks(
     user_id: str = None,
 ) -> List[models.Task]:
     """Get tasks with filtering and sorting"""
+    # See get_task -- Task.comments is a custom polymorphic relationship, not
+    # covered by the CommentsMixin default, but TaskDetail.comment_count reads it.
     return get_items_detail(
         db,
         models.Task,
@@ -4018,6 +4047,7 @@ def get_tasks(
         sort_by,
         sort_order,
         filter,
+        selectin_chains=[["comments"]],
         organization_id=organization_id,
         user_id=user_id,
     )
@@ -4486,7 +4516,8 @@ def query_traces(
         .options(
             joinedload(models.Trace.test_result)
             .joinedload(models.TestResult.test_configuration)
-            .joinedload(models.TestConfiguration.endpoint)
+            .joinedload(models.TestConfiguration.endpoint),
+            joinedload(models.Trace.trace_metrics_status),
         )
     )
 
@@ -4983,7 +5014,18 @@ def get_architect_session_detail(
     organization_id: str = None,
     user_id: str = None,
 ) -> Optional[models.ArchitectSession]:
-    return get_item_detail(db, models.ArchitectSession, session_id, organization_id, user_id)
+    """Get an architect session with its messages eagerly loaded."""
+    from rhesis.backend.app.utils.crud_utils import _check_and_raise_if_deleted
+
+    item = (
+        QueryBuilder(db, models.ArchitectSession)
+        .with_deleted()
+        .with_related(include(models.ArchitectSession.messages))
+        .with_organization_filter(organization_id)
+        .with_visibility_filter(user_id)
+        .filter_by_id(session_id)
+    )
+    return _check_and_raise_if_deleted(item, models.ArchitectSession, session_id, False)
 
 
 def get_architect_sessions(

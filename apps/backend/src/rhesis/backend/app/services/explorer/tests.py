@@ -2,7 +2,7 @@ import logging
 from typing import List, Optional
 from uuid import UUID
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.constants import ADAPTIVE_TESTING_BEHAVIOR
@@ -775,6 +775,7 @@ def update_test_node(
     # Look up the test and verify it belongs to the test set
     db_test = (
         db.query(models.Test)
+        .options(joinedload(models.Test.prompt))
         .join(
             test_test_set_association,
             models.Test.id == test_test_set_association.c.test_id,

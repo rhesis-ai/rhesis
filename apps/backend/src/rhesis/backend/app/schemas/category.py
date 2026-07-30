@@ -1,16 +1,8 @@
-from typing import Any, Dict, Optional
+from typing import Optional
 
 from pydantic import UUID4
 
 from rhesis.backend.app.schemas import Base
-from rhesis.backend.app.schemas.references import (
-    CategoryReference,
-    OrganizationReference,
-    ProjectReference,
-    StatusReference,
-    TypeLookupReference,
-)
-from rhesis.backend.app.schemas.user import UserReference
 
 
 # Category schemas
@@ -36,14 +28,6 @@ class Category(CategoryBase):
     pass
 
 
-# The detailed model with expanded relations
 class CategoryDetail(Category):
     id: UUID4
     name: Optional[str] = None
-    counts: Optional[Dict[str, Any]] = None
-    status: Optional[StatusReference] = None
-    parent: Optional[CategoryReference] = None
-    entity_type: Optional[TypeLookupReference] = None
-    project: Optional[ProjectReference] = None
-    organization: Optional[OrganizationReference] = None
-    user: Optional[UserReference] = None
