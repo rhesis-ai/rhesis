@@ -25,6 +25,7 @@ import PageLoadingState from '@/components/common/PageLoadingState';
 import { playgroundPanelSx } from './playgroundPanelSx';
 import PlaygroundChat from './PlaygroundChat';
 import PlaygroundEndpointDrawer from './PlaygroundEndpointDrawer';
+import { scaledVh } from '@/styles/viewport-scaling';
 
 /**
  * Placeholder shown when no endpoint is selected.
@@ -234,7 +235,7 @@ export default function PlaygroundClient() {
       {/* Chat Area */}
       <Box
         sx={{
-          height: 'calc(100vh - 210px)',
+          height: `calc(${scaledVh()} - 210px)`,
           minHeight: 400,
           display: 'flex',
           flexDirection: 'row',

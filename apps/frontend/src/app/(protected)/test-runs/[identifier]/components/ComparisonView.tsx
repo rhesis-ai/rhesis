@@ -49,6 +49,7 @@ import {
   BACKDROP_COLORS,
   ELEVATION,
 } from '@/styles/theme-constants';
+import { scaledVh } from '@/styles/viewport-scaling';
 
 interface RunExperimentInfo {
   experiment_id?: string;
@@ -885,7 +886,9 @@ export default function ComparisonView({
             <Box
               sx={{
                 maxHeight:
-                  comparisonTests.length >= 5 ? 'calc(70vh * 1.5)' : '70vh',
+                  comparisonTests.length >= 5
+                    ? `calc(${scaledVh(70)} * 1.5)`
+                    : scaledVh(70),
                 overflow: 'auto',
               }}
             >

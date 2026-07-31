@@ -22,6 +22,7 @@ import { DEFAULT_PASSWORD_POLICY, validatePassword } from '@/utils/validation';
 import AuthPageShell from '@/components/auth/AuthPageShell';
 import BackgroundDecoration from '@/components/auth/BackgroundDecoration';
 import { lightTheme } from '@/styles/theme';
+import { scaledVh } from '@/styles/viewport-scaling';
 
 const SUBTLE_TEXT = '#6B7280'; // Intentional: auth form subtle text
 const BUTTON_HOVER = '#3aabcf'; // Intentional: auth form button hover
@@ -143,7 +144,7 @@ export default function ResetPasswordPage() {
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            minHeight: '100vh',
+            minHeight: scaledVh(),
             gap: 2,
             bgcolor: 'background.default',
             position: 'relative',

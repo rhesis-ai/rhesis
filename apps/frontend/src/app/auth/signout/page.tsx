@@ -7,6 +7,7 @@ import { ThemeProvider } from '@mui/material/styles';
 import { handleClientSignOut } from '@/utils/client-auth';
 import BackgroundDecoration from '@/components/auth/BackgroundDecoration';
 import { lightTheme } from '@/styles/theme';
+import { scaledVh } from '@/styles/viewport-scaling';
 
 export default function SignOut() {
   const _searchParams = useSearchParams();
@@ -26,7 +27,7 @@ export default function SignOut() {
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          minHeight: '100vh',
+          minHeight: scaledVh(),
           gap: 2,
           bgcolor: 'background.default',
           position: 'relative',

@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { Box } from '@mui/material';
 import { Metadata } from 'next';
+import { scaledVh } from '@/styles/viewport-scaling';
 
 export const metadata: Metadata = {
   title: 'Onboarding',
@@ -14,7 +15,7 @@ export default function OnboardingLayout({
   return (
     <Box
       sx={{
-        minHeight: '100vh',
+        minHeight: scaledVh(),
         bgcolor: 'background.default',
       }}
     >

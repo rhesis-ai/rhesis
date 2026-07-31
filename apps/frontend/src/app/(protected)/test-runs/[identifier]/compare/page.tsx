@@ -6,6 +6,7 @@ import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import type { UUID } from 'crypto';
 import ComparePageClient from './ComparePageClient';
+import { scaledVh } from '@/styles/viewport-scaling';
 
 export async function generateMetadata({
   params,
@@ -180,7 +181,7 @@ export default async function TestRunComparePage({
   }
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
+    <Box sx={{ minHeight: scaledVh(), bgcolor: 'background.default' }}>
       {/* Spacing per Figma "Content" frame (node 1645:25346):
           margins 120 (left/right) and 35 (bottom); padding 80 (top),
           37 (left/right), 30 (bottom). */}

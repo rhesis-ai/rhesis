@@ -13,6 +13,7 @@ import {
 } from '@mui/material';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import Image from 'next/image';
+import { scaledVh } from '@/styles/viewport-scaling';
 
 export default function DemoPage() {
   const [showCredentials, setShowCredentials] = useState(false);
@@ -51,7 +52,7 @@ export default function DemoPage() {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        minHeight: '100vh',
+        minHeight: scaledVh(),
         bgcolor: 'background.light1',
         p: { xs: 2, sm: 3 },
         position: 'relative',

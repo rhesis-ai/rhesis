@@ -148,8 +148,9 @@ export function Sidebar() {
         sx={{
           display: 'flex',
           flexDirection: 'column',
-          gap: '28px',
+          gap: 'var(--nav-group-gap)',
           flex: 1,
+          // Must stay >= the toggle's lift above, or the toggle is clipped.
           pt: '30px',
           overflowY: 'auto',
           overflowX: 'hidden',
@@ -473,7 +474,7 @@ export function Sidebar() {
                 sx={{
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: '6px',
+                  gap: 'var(--nav-item-gap)',
                   ...(collapsed ? collapsedNavGroupSx : {}),
                 }}
               >
