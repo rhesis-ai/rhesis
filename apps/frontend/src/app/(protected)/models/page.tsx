@@ -20,7 +20,7 @@ import { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
 import { UserSettings } from '@/utils/api-client/interfaces/user';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { UUID } from 'crypto';
-import { ConnectedModelCard } from './components';
+import { ConnectedModelCard, RhesisPlatformKeyCard } from './components';
 import { ModelConnectionDrawer } from './components/ModelConnectionDrawer';
 import ModelFilterDrawer, {
   EMPTY_MODEL_FILTERS,
@@ -40,6 +40,11 @@ export type { ValidationStatus } from './types';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 type ModelTypeFilter = 'all' | 'language' | 'embedding';
+
+// Local/self-hosted deployments expose the Rhesis platform key settings; the
+// backend endpoints 404 elsewhere. Same signal used in ProviderSelectionPanel.
+const isLocalMode =
+  process.env.NEXT_PUBLIC_FRONTEND_ENV?.toLowerCase() === 'local';
 
 export default function ModelsPage() {
   const { data: session, status } = useSession();
@@ -162,6 +167,20 @@ export default function ModelsPage() {
       console.error('Failed to refresh user settings:', error);
     }
   };
+
+  // Re-fetch models so availability greying re-resolves after the platform key
+  // is set or cleared (the grid reads from local state, not the models query).
+  const reloadModels = useCallback(async () => {
+    if (!isAuthenticated(status)) return;
+    try {
+      const modelsResponse = await new ApiClientFactory()
+        .getModelsClient()
+        .getModels();
+      setConnectedModels(modelsResponse.data);
+    } catch (err) {
+      console.error('Failed to reload models:', err);
+    }
+  }, [status]);
 
   const validateModel = useCallback(
     async (modelId: UUID) => {
@@ -397,6 +416,8 @@ export default function ModelsPage() {
           {error}
         </Alert>
       )}
+
+      {isLocalMode && <RhesisPlatformKeyCard onChange={reloadModels} />}
 
       <GridToolbar
         searchQuery={searchQuery}
