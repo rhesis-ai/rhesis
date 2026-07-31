@@ -56,6 +56,9 @@ SELECT
     t.prompt_id,
     t.priority,
     t.status_id     AS test_status_id,
+    b.name          AS behavior_name,
+    c.name          AS category_name,
+    tp.name         AS topic_name,
     t.created_at,
     EXTRACT(YEAR  FROM t.created_at)::int AS year,
     EXTRACT(MONTH FROM t.created_at)::int AS month,
@@ -70,6 +73,9 @@ SELECT
     agg.last_run_at
 FROM test t
 LEFT JOIN agg ON agg.test_id = t.id
+LEFT JOIN behavior b ON t.behavior_id = b.id
+LEFT JOIN category c ON t.category_id = c.id
+LEFT JOIN topic tp   ON t.topic_id    = tp.id
 WHERE t.deleted_at IS NULL
 """
 
