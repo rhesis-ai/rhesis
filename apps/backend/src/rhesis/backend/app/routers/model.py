@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
+from rhesis.backend.app.config.settings import get_application_settings
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
@@ -19,6 +20,11 @@ from rhesis.backend.app.schemas.model import (
     TestModelConnectionResponse,
 )
 from rhesis.backend.app.services.model_connection import ModelConnectionService
+from rhesis.backend.app.services.platform_key import (
+    get_cached_key_valid,
+    get_cached_polyphemus_authorized,
+    is_platform_key_present,
+)
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.sdk.models.factory import get_available_embedding_models, get_available_language_models
@@ -32,6 +38,76 @@ router = RhesisRouter(
     dependencies=[Depends(require_current_user_or_token)],
     resource="model",
 )
+
+# Providers whose models depend on the Rhesis platform key in local mode.
+_PLATFORM_PROVIDERS = ("rhesis", "polyphemus")
+
+
+def _provider_of(model) -> str | None:
+    """Return a model's provider type value, guarding a missing provider_type."""
+    provider_type = getattr(model, "provider_type", None)
+    return getattr(provider_type, "type_value", None) if provider_type else None
+
+
+def _annotate_model_availability(db: Session, organization_id, models_list) -> None:
+    """Attach transient ``available``/``availability_reason`` attrs to ORM models.
+
+    Read by Pydantic (``from_attributes=True``) at serialization time. Platform
+    key state is computed ONCE per request, never per model, and this helper
+    performs ZERO network calls and ZERO commits (safe on the GET /models hot
+    path):
+
+    - Outside local/self-hosted mode every model is available (no behavior
+      change on hosted deployments).
+    - In local mode, presence is the cheap ``is_platform_key_present`` check
+      (DB-stored key OR the ``RHESIS_API_KEY`` env var -- same source the model
+      resolver authenticates with). Key validity and Polyphemus authorization
+      are read from the cached ``rhesis_key_valid`` /
+      ``rhesis_key_polyphemus_authorized`` columns (populated on key writes and
+      refreshes), never probed here. An unknown/None validity or authorization
+      fails open (available=True) so an unprobed ``RHESIS_API_KEY`` env key is
+      never greyed.
+
+    Precedence when a platform key is present: a known-invalid key greys ALL
+    rhesis/polyphemus models (including the defaults -- they cannot
+    authenticate either), which takes priority over the narrower
+    Polyphemus-authorization reason.
+
+    Reason slugs are a frozen contract: ``"rhesis_key_missing"``,
+    ``"rhesis_key_invalid"`` and ``"polyphemus_not_authorized"``.
+    """
+    if not get_application_settings().is_local:
+        for model in models_list:
+            model.available = True
+            model.availability_reason = None
+        return
+
+    present = is_platform_key_present(db, organization_id)
+
+    key_valid = None  # unknown => fail-open
+    poly_authorized = None  # unknown => fail-open
+    if present:
+        key_valid = get_cached_key_valid(db, organization_id)
+        if any(_provider_of(m) == "polyphemus" for m in models_list):
+            poly_authorized = get_cached_polyphemus_authorized(db, organization_id)
+
+    for model in models_list:
+        provider = _provider_of(model)
+        if provider not in _PLATFORM_PROVIDERS:
+            model.available = True
+            model.availability_reason = None
+        elif not present:
+            model.available = False
+            model.availability_reason = "rhesis_key_missing"
+        elif key_valid is False:
+            model.available = False
+            model.availability_reason = "rhesis_key_invalid"
+        elif provider == "polyphemus" and poly_authorized is False:
+            model.available = False
+            model.availability_reason = "polyphemus_not_authorized"
+        else:
+            model.available = True
+            model.availability_reason = None
 
 
 @router.post("/", response_model=ModelRead)
@@ -119,7 +195,7 @@ def read_models(
 ):
     """Get all models with their related objects"""
     organization_id, user_id = tenant_context
-    return crud.get_models(
+    db_models = crud.get_models(
         db=db,
         skip=skip,
         limit=limit,
@@ -129,6 +205,8 @@ def read_models(
         organization_id=organization_id,
         user_id=user_id,
     )
+    _annotate_model_availability(db, organization_id, db_models)
+    return db_models
 
 
 @router.get("/{model_id}", response_model=schemas.ModelDetail)
@@ -146,6 +224,7 @@ def read_model(
     db_model = get_item_detail(db, models.Model, model_id, organization_id, user_id)
     if db_model is None:
         raise HTTPException(status_code=404, detail="Model not found")
+    _annotate_model_availability(db, organization_id, [db_model])
     return db_model
 
 
