@@ -107,6 +107,13 @@ AUTHZ_EXEMPT_ROUTES: frozenset[tuple[str, str]] = frozenset(
         # single PEP capability would exclude telemetry-only (or result-only)
         # users. Authentication still runs; authorize() is enforced in-handler.
         ("GET", "/annotations/"),
+        # Local-mode platform key management: gated by require_local_mode (404s
+        # off local) plus require_current_user_or_token, and always scoped to the
+        # caller's own organization. It manages deployment-level configuration
+        # rather than an org resource, so no resource:action capability applies.
+        ("GET", "/platform/rhesis-key"),
+        ("PUT", "/platform/rhesis-key"),
+        ("DELETE", "/platform/rhesis-key"),
     }
 )
 
