@@ -220,7 +220,8 @@ pythonpath = [
     "src",
 ]
 asyncio_default_fixture_loop_scope = "function"
-addopts = "-o asyncio_default_fixture_loop_scope=function"
+# no:plugins disables deepeval's autoloaded pytest plugin (entry point name "plugins")
+addopts = "-o asyncio_default_fixture_loop_scope=function -p no:plugins"
 filterwarnings = [
     "ignore::pytest.PytestDeprecationWarning:pytest_asyncio.plugin",
 ]
