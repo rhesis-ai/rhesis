@@ -77,6 +77,16 @@ module "gke_dev" {
   depends_on = [module.dev]
 }
 
+module "connect_gateway_dev" {
+  source = "../../modules/connect-gateway/gcp"
+
+  project_id  = var.project_id
+  environment = "dev"
+  cluster_id  = module.gke_dev.cluster_id
+
+  depends_on = [module.gke_dev]
+}
+
 module "eso_dev" {
   source = "../../modules/external-secrets/gcp"
 

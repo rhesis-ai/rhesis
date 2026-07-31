@@ -13,6 +13,46 @@
  # Switch to a different cluster (GKE example)                
 - `gcloud container clusters get-credentials CLUSTER_NAME --region REGION --project PROJECT_ID` 
 
+The command above only works from the WireGuard VPN -- dev/stg/prd clusters
+are private, with `master_authorized_networks_config` locked to the VPN CIDR
+(see `terraform/infrastructure/modules/kubernetes/gcp`). For interactive/local
+use, connect to the VPN first.
+
+### CI access without a VPN: Connect Gateway
+
+CI workflows (including ones in other repos, e.g. `rhesis-ai/rhesis-ee`) can't
+join the VPN, and per-repo self-hosted runners (`arc-runner-<env>`, see
+`terraform/infrastructure/modules/arc-gha`) only pick up jobs dispatched from
+the repo they're registered against -- a workflow in a different repo can
+never reach them. `terraform/infrastructure/modules/connect-gateway/gcp`
+registers each cluster with GKE Hub (Fleet) and creates a dedicated
+`license-ci-<env>` service account granted `roles/gkehub.gatewayReader`, so
+CI can fetch working credentials over HTTPS with no network-level access to
+the cluster at all:
+
+`license-ci-<env>` is a purpose-built identity, not `terraform-<env>` (the
+infra-admin identity `terraform-infrastructure.yml` authenticates as via
+WIF). `terraform-<env>` holds `roles/editor` +
+`roles/iam.securityAdmin` + `roles/resourcemanager.projectIamAdmin` on the
+whole project; `rhesis-ee`'s licensing workflows authenticate with a static,
+long-lived `GCP_SA_KEY` stored in a *different* repository's secrets, not
+WIF, so a leaked key needs to matter a lot less than "near-owner access to
+the project." `license-ci-<env>` is scoped to exactly what those workflows
+do: reach the cluster via Connect Gateway, read/manage the two licensing
+Secret Manager entries per environment, resolve the latest image tag from
+Artifact Registry, and deploy/execute the self-hosted mint Cloud Run Job
+(see the module's `main.tf` for the exact role grants).
+
+```bash
+gcloud container fleet memberships get-credentials <dev|stg|prd> --project=PROJECT_ID
+kubectl get pods -n rhesis   # ordinary kubectl from here on
+```
+
+This only grants *reachability* -- what the caller can actually do once
+connected is still governed entirely by normal Kubernetes RBAC
+(`Role`/`RoleBinding`), same as any other identity. See
+`kubernetes/clusters/<env>/rhesis/license-issuer-rbac.yaml` for an example
+consumer (`rhesis-ee`'s `license-issue.yml`).
 
 ## Bootstrap ArgoCD
 
