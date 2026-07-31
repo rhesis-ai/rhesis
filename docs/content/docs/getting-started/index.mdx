@@ -5,6 +5,7 @@ keywords: [getting started, AI testing setup, LLM evaluation quickstart, connect
 ---
 
 import { NextStepCard, NextStepCardGrid } from '@/components/NextStepCard'
+import { CodeBlock } from '@/components/CodeBlock'
 
 # Getting Started
 
@@ -14,18 +15,18 @@ This guide takes you from a fresh environment to your first automated evaluation
 
 Prefer code first? Install the SDK and list your test sets in a few lines:
 
-```bash
-pip install rhesis-sdk
-```
+<CodeBlock filename="Terminal" language="bash">
+{`pip install rhesis-sdk`}
+</CodeBlock>
 
-```python
-import os
+<CodeBlock filename="Python" language="python">
+{`import os
 from rhesis.sdk.entities import TestSets
 
 os.environ["RHESIS_API_KEY"] = "rh-your-api-key"  # from app.rhesis.ai
 for ts in TestSets.all():
-    print(ts.name)
-```
+    print(ts.name)`}
+</CodeBlock>
 
 For full SDK docs, see [SDK installation](/sdk/installation).
 
