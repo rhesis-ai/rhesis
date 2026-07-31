@@ -64,7 +64,20 @@ class TestInvitationSSOLink:
 
         sent = _sent_vars(service)
         assert sent["sso_enabled"] is True
-        assert sent["sso_login_url"] == "https://app.rhesis.ai/auth/signin?org=netgo"
+        assert sent["sso_login_url"] == "https://app.rhesis.ai/?org=netgo"
+
+    # Regression: /auth/signin looks like the login form but is the auth-code
+    # callback. With no `code` it redirects to `/` forwarding only `return_to`,
+    # so `org` is dropped and the org's provider is never resolved. AuthForm is
+    # mounted at `/` via LoginSection.
+    def test_link_does_not_target_the_auth_code_callback(self):
+        service = _service()
+
+        service.send_team_invitation_email(
+            **BASE_KWARGS, organization_slug="netgo", sso_enabled=True
+        )
+
+        assert "/auth/signin" not in _sent_vars(service)["sso_login_url"]
 
     def test_non_sso_org_gets_no_sso_messaging(self):
         service = _service()
@@ -108,7 +121,7 @@ class TestInvitationSSOLink:
 
         sent = _sent_vars(service)
         # Single slash after the host, and the slug escaped.
-        assert sent["sso_login_url"] == "https://app.rhesis.ai/auth/signin?org=acme%20corp%26co"
+        assert sent["sso_login_url"] == "https://app.rhesis.ai/?org=acme%20corp%26co"
 
 
 @pytest.mark.unit
@@ -131,10 +144,10 @@ class TestInvitationTemplateRendering:
     def test_sso_variant_links_to_the_org_signin_page(self):
         html = self._render(
             sso_enabled=True,
-            sso_login_url="https://app.rhesis.ai/auth/signin?org=netgo",
+            sso_login_url="https://app.rhesis.ai/?org=netgo",
         )
 
-        assert "auth/signin?org=netgo" in html
+        assert "https://app.rhesis.ai/?org=netgo" in html
         assert "single sign-on" in html.lower()
         # The email-address instruction is what misleads SSO users.
         assert "Sign in with your email address" not in html
@@ -144,7 +157,7 @@ class TestInvitationTemplateRendering:
 
         assert "Sign in with your email address" in html
         assert "single sign-on" not in html.lower()
-        assert "auth/signin?org=" not in html
+        assert "?org=" not in html
 
     # Missing required vars are filled with the string "N/A", which is truthy.
     # sso_enabled must therefore never be a declared required var, or every org

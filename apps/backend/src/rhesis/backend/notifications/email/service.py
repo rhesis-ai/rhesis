@@ -170,12 +170,18 @@ class EmailService:
 
         subject = f"You're invited to join {organization_name} on Rhesis AI!"
 
-        # Deep-link to the org's sign-in page so it offers that org's identity
-        # provider. The `org` param is what AuthForm reads to fetch the org's
-        # auth config; without it the page cannot know which IdP to show.
+        # Deep-link to the login page so it offers that org's identity provider.
+        # The `org` param is what AuthForm reads to fetch the org's auth config;
+        # without it the page cannot know which IdP to show.
+        #
+        # Target the site root, NOT /auth/signin. Despite the name, /auth/signin
+        # is the auth-code callback, not the login form: with no `code` param it
+        # redirects to `/` and forwards only `return_to`, so `org` is dropped and
+        # the provider is never resolved. AuthForm is mounted via LoginSection at
+        # `/` (app/page.tsx) and `/auth/register`.
         sso_login_url = ""
         if sso_enabled and organization_slug:
-            sso_login_url = f"{frontend_url.rstrip('/')}/auth/signin?org={quote(organization_slug)}"
+            sso_login_url = f"{frontend_url.rstrip('/')}/?org={quote(organization_slug)}"
 
         template_variables = {
             "recipient_email": recipient_email,
