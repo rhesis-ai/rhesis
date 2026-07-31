@@ -803,10 +803,9 @@ Consistent, isolated test environments are crucial for reliable testing.
 
 ### 🐳 Containerized Testing
 
-All test infrastructure lives in a single unified Compose file (`tests/docker-compose.test.yml`) that uses **profiles** to select the right services per test suite:
+**Backend tests** start their own Postgres and Redis via [Testcontainers](https://testcontainers.com/) — one pair per pytest-xdist worker, on random host ports resolved at runtime (see `tests/backend/testcontainers_setup.py`). No compose file, no Make target, no manual setup — just run `pytest` from `apps/backend` with Docker running.
 
-- `--profile sdk` — PostgreSQL (10001), Redis (10002), Backend (10003)
-- `--profile backend` — PostgreSQL (12001), Redis (12002)
+**SDK tests** still use `tests/docker-compose.test.yml`'s `--profile sdk` (PostgreSQL 10001, Redis 10002, Backend 10003):
 
 ```yaml
 # tests/docker-compose.test.yml (simplified)
@@ -816,25 +815,14 @@ services:
     profiles: ["sdk"]
     ports:
       - "10001:5432"
-
-  backend-test-postgres:
-    image: mirror.gcr.io/pgvector/pgvector:pg16
-    profiles: ["backend"]
-    ports:
-      - "12001:5432"
 ```
 
 ### ⚙️ Environment Configuration
 
-Use the provided **Make targets** to manage test Docker services rather than calling `docker compose` directly:
-
 ```bash
-# Backend tests — start services, run tests, tear down
+# Backend tests — Postgres/Redis start automatically
 cd apps/backend
-make docker-up       # starts PostgreSQL + Redis for backend profile
-make test            # runs docker-up automatically, then pytest
-make docker-down     # stops services
-make docker-clean    # stops services and removes volumes
+make test            # runs pytest directly
 
 # SDK tests — start services, run tests, tear down
 cd sdk
