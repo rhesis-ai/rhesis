@@ -44,7 +44,11 @@ test('zoom ladder matches the breakpoints and adds no overflow', async ({
       return {
         found: !!root,
         zoom: root ? getComputedStyle(root).zoom : null,
-        uiScale: getComputedStyle(de).getPropertyValue('--ui-scale').trim(),
+        // Declared on the scale root, not :root, so the `1` fallback in
+        // var(--ui-scale, 1) holds outside the zoomed subtree.
+        uiScale: root
+          ? getComputedStyle(root).getPropertyValue('--ui-scale').trim()
+          : null,
         overflowX: de.scrollWidth - de.clientWidth,
       };
     });
@@ -55,7 +59,7 @@ test('zoom ladder matches the breakpoints and adds no overflow', async ({
     );
     // --ui-scale must track the zoom, or every scaledVh() is wrong.
     // (Compared numerically — the CSS minifier rewrites `0.85` to `.85`.)
-    expect(`${parseFloat(m.uiScale)} @${width}`).toBe(
+    expect(`${parseFloat(String(m.uiScale))} @${width}`).toBe(
       `${parseFloat(expectedZoom)} @${width}`
     );
     expect(
@@ -97,10 +101,9 @@ test('portalled overlays stay outside the zoomed subtree', async ({ page }) => {
     content: 'nextjs-portal { display: none !important }',
   });
 
-  const account = page
-    .locator('button, [role="button"]')
-    .filter({ hasText: /Local Admin/i })
-    .first();
+  // Targeted by aria-label, not the seeded user's display name — the name comes
+  // from the backend's Quick Start seed and is not guaranteed across envs.
+  const account = page.getByLabel('Open user menu').first();
   await expect(account).toBeVisible();
   const anchor = await account.boundingBox();
   expect(anchor).not.toBeNull();

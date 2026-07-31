@@ -62,35 +62,49 @@
    `scaledVh` in `viewport-scaling.ts`. Percentages, `inset` and fixed
    positioning all resolve correctly on their own, and viewport units on
    body-portalled surfaces are already correct because those are not zoomed.
+
+   --- Why @supports, and why the var is not on :root ---
+
+   `--ui-scale` and `zoom` must move together or not at all. A browser that
+   ignores `zoom` but honours custom properties and `calc()` — Firefox before
+   126 — would otherwise still pick up `--ui-scale: 0.85` and resolve every
+   `scaledVh()` to `calc(100vh / 0.85)`, about 118vh: a scrollbar on every page,
+   which is worse than not scaling at all. `@supports (zoom: 1)` gates both, so
+   those browsers keep `--ui-scale: 1` and get the previous rendering, as
+   intended.
+
+   Declaring the var on `[data-ui-scale-root]` rather than `:root` means the
+   `1` fallback in `var(--ui-scale, 1)` does the right thing everywhere the zoom
+   does not reach. Body-portalled surfaces sit outside the subtree and render at
+   zoom 1, so a `scaledVh()` that ends up in a Dialog's `PaperProps` resolves to
+   a plain `100vh` instead of inheriting a scale that was never applied to it.
+   Keeping the var and the `zoom` in one rule also makes it impossible for the
+   two to drift apart.
    ======================================== */
 
-:root {
+[data-ui-scale-root] {
   --ui-scale: 1;
 }
 
-@media screen and (min-width: 1400px) {
-  :root {
-    --ui-scale: 0.85;
+@supports (zoom: 1) {
+  @media screen and (min-width: 1400px) {
+    [data-ui-scale-root] {
+      --ui-scale: 0.85;
+      zoom: 0.85;
+    }
   }
-  [data-ui-scale-root] {
-    zoom: 0.85;
-  }
-}
 
-@media screen and (min-width: 1700px) {
-  :root {
-    --ui-scale: 0.9;
+  @media screen and (min-width: 1700px) {
+    [data-ui-scale-root] {
+      --ui-scale: 0.9;
+      zoom: 0.9;
+    }
   }
-  [data-ui-scale-root] {
-    zoom: 0.9;
-  }
-}
 
-@media screen and (min-width: 1920px) {
-  :root {
-    --ui-scale: 1;
-  }
-  [data-ui-scale-root] {
-    zoom: 1;
+  @media screen and (min-width: 1920px) {
+    [data-ui-scale-root] {
+      --ui-scale: 1;
+      zoom: 1;
+    }
   }
 }
