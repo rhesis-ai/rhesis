@@ -86,15 +86,56 @@ resource "google_project_iam_member" "ci_gateway_reader" {
   depends_on = [google_project_service.connectgateway]
 }
 
-# Read the signing key + kid (license-issue.yml, license-mint-selfhosted.yml),
-# and create/manage the self-hosted mint destination secret
-# (license-mint-selfhosted.yml's "Ensure destination secret exists..." step
-# -- the secret doesn't exist on first use, so this can't be scoped to a
-# specific secret resource the way a plain secretAccessor grant could be).
-resource "google_project_iam_member" "ci_secretmanager_admin" {
-  project = var.project_id
-  role    = "roles/secretmanager.admin"
-  member  = "serviceAccount:${google_service_account.license_ci.email}"
+# Secret Manager access is scoped per-secret, not project-wide -- peqy
+# correctly flagged an earlier version of this module granting
+# roles/secretmanager.admin at the project level as still too broad a blast
+# radius for a long-lived key sitting in a different repository's secrets.
+# The signing key + kid are managed entirely out-of-band (not Terraform
+# resources anywhere in this repo -- `gcloud secrets create`/`versions add`,
+# manually), so they're referenced here by their literal, predictable
+# secret_id rather than a resource reference; that's fine, IAM bindings
+# don't require the target to be Terraform-managed.
+resource "google_secret_manager_secret_iam_member" "ci_read_private_key" {
+  project   = var.project_id
+  secret_id = "${var.environment}-rhesis-rhesis-license-private-key"
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.license_ci.email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "ci_read_kid" {
+  project   = var.project_id
+  secret_id = "${var.environment}-rhesis-rhesis-license-kid"
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.license_ci.email}"
+}
+
+# license-mint-selfhosted.yml's destination secret. Pre-created here
+# (Terraform-managed, no initial version -- the Cloud Run job writes the
+# actual token at runtime) specifically so the CI identity never needs
+# project-wide secretmanager.secrets.create: the workflow's own "Ensure
+# destination secret exists" step already checks `gcloud secrets describe`
+# first and only creates on a cache miss, so once this exists that branch is
+# permanently a no-op.
+resource "google_secret_manager_secret" "mint_destination" {
+  project   = var.project_id
+  secret_id = "${var.environment}-rhesis-selfhosted-license-mint"
+
+  replication {
+    auto {}
+  }
+}
+
+# admin (not just accessor), scoped to this one Terraform-created secret --
+# the workflow's "Ensure destination secret exists" step also calls
+# `gcloud secrets add-iam-policy-binding` on every run (granting the Cloud
+# Run job's runtime SA secretVersionAdder), which needs setIamPolicy. Bound
+# at the secret level, not the project level, so this grants no access to
+# any other secret.
+resource "google_secret_manager_secret_iam_member" "ci_manage_mint_destination" {
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.mint_destination.secret_id
+  role      = "roles/secretmanager.admin"
+  member    = "serviceAccount:${google_service_account.license_ci.email}"
 }
 
 # Resolve the "latest" backend image tag (both workflows' "Resolve image
