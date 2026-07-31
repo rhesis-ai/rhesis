@@ -67,6 +67,11 @@ git checkout -b feature/short-description`.
 - Branch from latest `main`: `git fetch origin && git checkout main && git pull origin main &&
 git checkout -b feature/your-feature-name`.
 - Title: action verb first (Add/Fix/Update/Remove), under 72 characters.
+- Write each paragraph as one continuous line — don't hard-wrap at a column width. `gh pr create
+  --body`/`--body-file` sends newlines through verbatim, and GitHub renders each one as a line
+  break, so a paragraph wrapped at ~100 characters shows up as choppy fragments instead of flowing
+  text. Only break lines for real markdown structure: blank lines between sections, list items,
+  headers, code blocks.
 - Description must include these sections:
 
   ```markdown
