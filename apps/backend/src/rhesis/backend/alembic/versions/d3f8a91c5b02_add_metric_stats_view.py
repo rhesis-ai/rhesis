@@ -25,8 +25,6 @@ WITH unnested AS (
         trs.test_run_id,
         trs.test_id,
         t.behavior_id,
-        t.category_id,
-        t.topic_id,
         trs.created_at,
         EXTRACT(YEAR  FROM trs.created_at)::int AS year,
         EXTRACT(MONTH FROM trs.created_at)::int AS month,
@@ -54,14 +52,10 @@ SELECT
     test_run_id,
     test_id,
     behavior_id,
-    category_id,
-    topic_id,
     created_at,
     year,
     month,
-    overall_result,
     metric_name,
-    is_successful,
     has_override,
     -- Pre-review automated outcome: the override's stashed original value if
     -- present, otherwise the current (possibly overridden) is_successful.
