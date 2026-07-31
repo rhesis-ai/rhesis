@@ -7,6 +7,7 @@ import os
 import re
 from email.mime.text import MIMEText
 from typing import Any, Dict, List, Optional
+from urllib.parse import quote
 
 from rhesis.backend.app.config.settings import get_frontend_settings
 
@@ -134,6 +135,8 @@ class EmailService:
         inviter_name: str,
         inviter_email: str,
         frontend_url: Optional[str] = None,
+        organization_slug: Optional[str] = None,
+        sso_enabled: bool = False,
     ) -> bool:
         """
         Send a team invitation email to a new user.
@@ -146,6 +149,11 @@ class EmailService:
             inviter_name: Name of the person sending the invitation
             inviter_email: Email of the person sending the invitation
             frontend_url: URL to the frontend application
+            organization_slug: Org slug, used to build the SSO sign-in link
+            sso_enabled: True when the org has SSO configured and licensed. The
+                sign-in instructions differ: an SSO org's users authenticate
+                through their identity provider, not with an email address, so
+                pointing them at the generic sign-in page is misleading.
 
         Returns:
             bool: True if email was sent successfully, False otherwise
@@ -162,6 +170,13 @@ class EmailService:
 
         subject = f"You're invited to join {organization_name} on Rhesis AI!"
 
+        # Deep-link to the org's sign-in page so it offers that org's identity
+        # provider. The `org` param is what AuthForm reads to fetch the org's
+        # auth config; without it the page cannot know which IdP to show.
+        sso_login_url = ""
+        if sso_enabled and organization_slug:
+            sso_login_url = f"{frontend_url.rstrip('/')}/auth/signin?org={quote(organization_slug)}"
+
         template_variables = {
             "recipient_email": recipient_email,
             "recipient_name": recipient_name or "",
@@ -170,6 +185,12 @@ class EmailService:
             "inviter_name": inviter_name,
             "inviter_email": inviter_email,
             "frontend_url": frontend_url,
+            # Deliberately NOT declared in TemplateService.template_variables:
+            # missing required vars are filled with the string "N/A", which is
+            # truthy and would switch the SSO copy on for every org. Left
+            # undefined instead, which Jinja treats as falsy.
+            "sso_enabled": bool(sso_login_url),
+            "sso_login_url": sso_login_url,
         }
 
         return self.send_email(

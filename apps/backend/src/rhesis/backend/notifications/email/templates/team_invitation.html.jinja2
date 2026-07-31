@@ -53,19 +53,35 @@
             Your account has been created and you can start using Rhesis AI right away:
         </p>
         <ol style="margin: 0; padding-left: 20px;">
+            {% if sso_enabled -%}
+            <li style="margin-bottom: 8px;">Click the "Sign in with single sign-on" button below</li>
+            <li style="margin-bottom: 8px;">Sign in with your {{ organization_name }} account (single sign-on)</li>
+            {%- else -%}
             <li style="margin-bottom: 8px;">Click the "Get Started" button below</li>
             <li style="margin-bottom: 8px;">Sign in with your email address ({{ recipient_email }})</li>
+            {%- endif %}
             <li style="margin-bottom: 8px;">Complete your profile setup</li>
             <li>Start collaborating with your team!</li>
         </ol>
     </div>
 
-    {% if frontend_url -%}
+    {% if sso_enabled -%}
+    <div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+        <h3 style="color: #1D2939; margin-top: 0;">Single sign-on is enabled</h3>
+        <p style="margin: 0;">
+            {{ organization_name }} uses single sign-on, so you do not need a separate
+            Rhesis AI password. The button below takes you to your organization's
+            sign-in page. Use your usual work account.
+        </p>
+    </div>
+    {%- endif %}
+
+    {% if sso_enabled or frontend_url -%}
     <div style="text-align: center; margin: 30px 0;">
-        <a href="{{ frontend_url }}" 
-           style="display: inline-block; background-color: #F38755; color: white; padding: 12px 30px; 
+        <a href="{{ sso_login_url if sso_enabled else frontend_url }}"
+           style="display: inline-block; background-color: #F38755; color: white; padding: 12px 30px;
                   text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 16px;">
-            Get Started
+            {{ 'Sign in with single sign-on' if sso_enabled else 'Get Started' }}
         </a>
     </div>
     {%- endif %}
