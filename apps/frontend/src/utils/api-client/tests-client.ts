@@ -11,7 +11,6 @@ import {
   TestExecuteRequest,
   TestExecuteResponse,
   ConversationToTestRequest,
-  ConversationToTestResponse,
   ConversationTestExtractionResponse,
   PriorityLevel,
 } from './interfaces/tests';
@@ -239,18 +238,6 @@ export class TestsClient extends BaseApiClient {
       method: 'POST',
       body: JSON.stringify(request),
     });
-  }
-
-  async createTestFromConversation(
-    request: ConversationToTestRequest
-  ): Promise<ConversationToTestResponse> {
-    return this.fetch<ConversationToTestResponse>(
-      `${API_ENDPOINTS.tests}/from-conversation`,
-      {
-        method: 'POST',
-        body: JSON.stringify(request),
-      }
-    );
   }
 
   async extractTestFromConversation(

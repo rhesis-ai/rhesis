@@ -16,7 +16,6 @@ export interface Comment extends WithPermittedActions {
   entity_id: string;
   entity_type: EntityType;
   user_id: string;
-  organization_id?: string;
   created_at: string;
   updated_at: string;
   emojis: Record<string, EmojiReaction[]>;

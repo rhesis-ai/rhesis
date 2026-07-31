@@ -248,11 +248,6 @@ export interface ConversationToTestRequest {
   test_type?: TestTypeValue;
 }
 
-export interface ConversationToTestResponse {
-  test_id: string;
-  message: string;
-}
-
 export interface ConversationTestExtractionResponse {
   test_type: TestTypeValue;
   behavior: string;
