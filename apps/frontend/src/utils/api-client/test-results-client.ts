@@ -8,10 +8,9 @@ import {
   TestResultCreate,
   TestResultUpdate,
   TestResultDetail,
-  TestResultStats,
   TestResultsStats,
 } from './interfaces/test-results';
-import { StatsOptions, TestResultsStatsOptions } from './interfaces/common';
+import { TestResultsStatsOptions } from './interfaces/common';
 import { PaginatedResponse, PaginationParams } from './interfaces/pagination';
 
 const DEFAULT_PAGINATION: PaginationParams = {
@@ -71,27 +70,6 @@ export class TestResultsClient extends BaseApiClient {
   async deleteTestResult(id: string): Promise<TestResult> {
     return this.fetch<TestResult>(`${API_ENDPOINTS.testResults}/${id}`, {
       method: 'DELETE',
-    });
-  }
-
-  // Legacy method for backward compatibility
-  async getTestResultStats(
-    options: StatsOptions = {}
-  ): Promise<TestResultStats> {
-    const queryParams = new URLSearchParams();
-    if (options.top !== undefined)
-      queryParams.append('top', options.top.toString());
-    if (options.months !== undefined)
-      queryParams.append('months', options.months.toString());
-    if (options.mode !== undefined) queryParams.append('mode', options.mode);
-
-    const queryString = queryParams.toString();
-    const url = queryString
-      ? `${API_ENDPOINTS.testResults}/stats?${queryString}`
-      : `${API_ENDPOINTS.testResults}/stats`;
-
-    return this.fetch<TestResultStats>(url, {
-      cache: 'no-store',
     });
   }
 

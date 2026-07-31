@@ -342,25 +342,18 @@ describe('TestsClient', () => {
   describe('getTestStats', () => {
     it('fetches test stats without parameters', async () => {
       const mockStats = {
-        total: 100,
         stats: {},
-        metadata: {
-          generated_at: '2024-01-01',
-          organization_id: 'org-1',
-          entity_type: 'test',
-        },
       };
       fetchMock.mockResolvedValue(
         makeFetchResponse(mockStats) as unknown as Response
       );
 
-      const result = await client.getTestStats();
+      await client.getTestStats();
 
       expect(fetchMock).toHaveBeenCalledWith(
         expect.stringContaining(`${BASE_URL}/tests/stats`),
         expect.anything()
       );
-      expect(result.total).toBe(100);
     });
 
     it('includes query parameters when provided', async () => {

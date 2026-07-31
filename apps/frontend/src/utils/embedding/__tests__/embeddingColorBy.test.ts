@@ -1,6 +1,5 @@
 import type { UUID } from 'crypto';
 import { lightTheme } from '@/styles/theme';
-import { EntityType } from '@/types/entity-type';
 import {
   buildEmbeddingChartColorConfig,
   getEmbeddingChartColors,
@@ -15,32 +14,26 @@ const uuid = (n: number) =>
 const sampleGraph: Scatter2DGraph = {
   computed_at: '2026-01-01T00:00:00Z',
   clusters: [
-    { cluster_index: 0, label: 'Safety', size: 2 },
-    { cluster_index: 1, label: 'Finance', size: 1 },
+    { cluster_index: 0, label: 'Safety' },
+    { cluster_index: 1, label: 'Finance' },
   ],
   points: [
     {
-      embedding_id: 'e1',
       entity_id: uuid(1),
-      entity_type: EntityType.TEST,
       cluster_index: 0,
       searchable_text: 'one',
       x: 0,
       y: 0,
     },
     {
-      embedding_id: 'e2',
       entity_id: uuid(2),
-      entity_type: EntityType.TEST,
       cluster_index: 0,
       searchable_text: 'two',
       x: 1,
       y: 0,
     },
     {
-      embedding_id: 'e3',
       entity_id: uuid(3),
-      entity_type: EntityType.TEST,
       cluster_index: 1,
       searchable_text: 'three',
       x: 5,

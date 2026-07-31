@@ -5,8 +5,6 @@ export interface TypeLookupBase {
   type_name: string;
   type_value: string;
   description?: string;
-  organization_id?: UUID;
-  user_id?: UUID | null;
 }
 
 export type TypeLookupCreate = TypeLookupBase;

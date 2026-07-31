@@ -28,7 +28,6 @@ interface _Test {
   metadata: TestMetadata;
 }
 
-import { RecentActivitiesResponse } from './interfaces/activities';
 import {
   GenerateTestsRequest,
   GenerateTestsResponse,
@@ -291,25 +290,6 @@ export class ServicesClient extends BaseApiClient {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(request),
-      }
-    );
-  }
-
-  /**
-   * Get recent activities across all trackable entities
-   * @param limit - Maximum number of activities to return (default 50, max 200)
-   * @returns Promise with activities list and total count
-   */
-  async getRecentActivities(
-    limit: number = 50
-  ): Promise<RecentActivitiesResponse> {
-    return this.fetch<RecentActivitiesResponse>(
-      `${API_ENDPOINTS.services}/recent-activities?limit=${limit}`,
-      {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
       }
     );
   }

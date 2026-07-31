@@ -15,20 +15,6 @@ export interface PaginationParams {
 }
 
 /**
- * Metadata about the current pagination state
- */
-export interface PaginationMetadata {
-  /** Total number of items available */
-  totalCount: number;
-  /** Current page number (0-based) */
-  currentPage: number;
-  /** Number of items per page */
-  pageSize: number;
-  /** Total number of pages available */
-  totalPages: number;
-}
-
-/**
  * Generic interface for paginated API responses
  */
 export interface PaginatedResponse<T> {

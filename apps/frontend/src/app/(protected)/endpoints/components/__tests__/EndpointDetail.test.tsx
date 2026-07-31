@@ -103,15 +103,12 @@ const baseEndpoint: Endpoint = {
   request_mapping: { input: '{{ input }}' },
   response_mapping: { output: '{{ message }}' },
   request_headers: { 'x-custom': 'value' },
-  status_id: 'status-1',
-  user_id: 'user-1',
   organization_id: 'org-1',
   project_id: 'proj-1',
   status: {
     id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
     name: 'Active',
     entity_type: 'endpoint',
-    organization_id: 'a1b2c3d4-0000-0000-0000-000000000001',
   },
 };
 

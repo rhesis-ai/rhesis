@@ -171,7 +171,6 @@ const makeTestSet = (id: UUID, name = 'Test Set'): TestSet => ({
   tags: [],
   counts: { comments: 0, tasks: 0 },
   created_at: '2024-01-01T00:00:00Z',
-  updated_at: '2024-01-01T00:00:00Z',
 });
 
 const makePaginatedResponse = <T,>(data: T[], total?: number) => ({

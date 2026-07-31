@@ -2,10 +2,6 @@ import { UUID } from 'crypto';
 
 export interface CategoryBase {
   name: string;
-  description?: string | null;
-  status_id?: UUID | null;
-  user_id?: UUID | null;
-  organization_id?: UUID | null;
 }
 
 export type CategoryCreate = CategoryBase;

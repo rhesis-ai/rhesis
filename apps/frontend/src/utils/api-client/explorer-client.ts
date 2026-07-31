@@ -1,14 +1,9 @@
 import { BaseApiClient } from './base-client';
 import { API_ENDPOINTS } from './config';
 import { joinUrl } from '@/utils/url';
-import { BulkDeleteResponse } from './interfaces/common';
 import {
-  DeleteTopicResponse,
-  DeleteTestResponse,
   EvaluateRequest,
   EvaluateResponse,
-  EvaluateSuggestionsRequest,
-  EvaluateSuggestionsResponse,
   ExplorerSettings,
   ExplorerSettingsUpdateRequest,
   ExplorerTestSet,
@@ -16,13 +11,7 @@ import {
   ExportExplorerTestSetResponse,
   GenerateOutputsRequest,
   GenerateOutputsResponse,
-  GenerateSuggestionOutputsRequest,
-  GenerateSuggestionOutputsResponse,
-  GenerateSuggestionsRequest,
-  GenerateSuggestionsResponse,
   ImportExplorerTestSetResponse,
-  SuggestionEvalStreamEvent,
-  SuggestionOutputStreamEvent,
   SuggestionPipelineEvent,
   SuggestionPipelineRequest,
   TestNode,
@@ -138,10 +127,8 @@ export class ExplorerClient extends BaseApiClient {
    * Delete multiple explorer test sets at once.
    * @param testSetIds Test set IDs to delete
    */
-  async bulkDeleteExplorerTestSets(
-    testSetIds: string[]
-  ): Promise<BulkDeleteResponse> {
-    return this.fetch<BulkDeleteResponse>(`${API_ENDPOINTS.explorer}/bulk`, {
+  async bulkDeleteExplorerTestSets(testSetIds: string[]): Promise<void> {
+    await this.fetch<void>(`${API_ENDPOINTS.explorer}/bulk`, {
       method: 'DELETE',
       body: JSON.stringify({ test_set_ids: testSetIds }),
     });
@@ -259,12 +246,9 @@ export class ExplorerClient extends BaseApiClient {
    * @param testSetId The test set identifier
    * @param topicPath The topic path to delete (e.g. "Safety/Violence")
    */
-  async deleteTopic(
-    testSetId: string,
-    topicPath: string
-  ): Promise<DeleteTopicResponse> {
+  async deleteTopic(testSetId: string, topicPath: string): Promise<void> {
     const basePath = this.getBasePath(testSetId);
-    return this.fetch<DeleteTopicResponse>(`${basePath}/topics/${topicPath}`, {
+    await this.fetch<void>(`${basePath}/topics/${topicPath}`, {
       method: 'DELETE',
     });
   }
@@ -334,12 +318,9 @@ export class ExplorerClient extends BaseApiClient {
    * @param testSetId The test set identifier
    * @param testId The test node ID
    */
-  async deleteTest(
-    testSetId: string,
-    testId: string
-  ): Promise<DeleteTestResponse> {
+  async deleteTest(testSetId: string, testId: string): Promise<void> {
     const basePath = this.getBasePath(testSetId);
-    return this.fetch<DeleteTestResponse>(`${basePath}/tests/${testId}`, {
+    await this.fetch<void>(`${basePath}/tests/${testId}`, {
       method: 'DELETE',
     });
   }
@@ -389,174 +370,6 @@ export class ExplorerClient extends BaseApiClient {
   // ===========================================================================
   // Suggestions (non-persisted)
   // ===========================================================================
-
-  /**
-   * Generate test suggestions using an LLM.
-   * @param testSetId The test set identifier
-   * @param body Topic and generation parameters
-   */
-  async generateSuggestions(
-    testSetId: string,
-    body: GenerateSuggestionsRequest
-  ): Promise<GenerateSuggestionsResponse> {
-    const basePath = this.getBasePath(testSetId);
-    return this.fetch<GenerateSuggestionsResponse>(
-      `${basePath}/generate_suggestions`,
-      {
-        method: 'POST',
-        body: JSON.stringify(body),
-        headers: { 'Content-Type': 'application/json' },
-      }
-    );
-  }
-
-  /**
-   * Generate outputs for non-persisted suggestions by invoking an endpoint.
-   * @param testSetId The test set identifier
-   * @param body Endpoint ID and suggestion inputs
-   */
-  async generateSuggestionOutputsStream(
-    testSetId: string,
-    body: GenerateSuggestionOutputsRequest,
-    handlers: {
-      onEvent: (event: SuggestionOutputStreamEvent) => void;
-    }
-  ): Promise<void> {
-    const basePath = this.getBasePath(testSetId);
-    const url = joinUrl(
-      this.baseUrl,
-      `${basePath}/generate_suggestion_outputs`
-    );
-    const headers = this.getHeaders();
-
-    const response = await fetch(url, {
-      method: 'POST',
-      body: JSON.stringify(body),
-      headers: {
-        ...headers,
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include',
-    });
-
-    if (!response.ok) {
-      // Defer to the existing error parsing by calling JSON fetch.
-      // This will throw a rich Error with status/message.
-      await this.fetch<GenerateSuggestionOutputsResponse>(
-        `${basePath}/generate_suggestion_outputs`,
-        {
-          method: 'POST',
-          body: JSON.stringify(body),
-          headers: { 'Content-Type': 'application/json' },
-        }
-      );
-      return;
-    }
-
-    for await (const event of this.readNdjsonStream(response)) {
-      handlers.onEvent(event as SuggestionOutputStreamEvent);
-    }
-  }
-
-  async generateSuggestionOutputs(
-    testSetId: string,
-    body: GenerateSuggestionOutputsRequest
-  ): Promise<GenerateSuggestionOutputsResponse> {
-    const results: GenerateSuggestionOutputsResponse['results'] = [];
-    let generated = 0;
-
-    await this.generateSuggestionOutputsStream(testSetId, body, {
-      onEvent: event => {
-        if (event.type === 'item') {
-          results[event.index] = {
-            input: event.input,
-            output: event.output,
-            error: event.error,
-          };
-        } else if (event.type === 'summary') {
-          generated = event.generated;
-        }
-      },
-    });
-
-    return {
-      generated,
-      results: results.filter(Boolean),
-    };
-  }
-
-  /**
-   * Evaluate non-persisted suggestions with the specified metrics.
-   * @param testSetId The test set identifier
-   * @param body Metric names and suggestion input/output pairs
-   */
-  async evaluateSuggestions(
-    testSetId: string,
-    body: EvaluateSuggestionsRequest
-  ): Promise<EvaluateSuggestionsResponse> {
-    const results: EvaluateSuggestionsResponse['results'] = [];
-    let evaluated = 0;
-
-    await this.evaluateSuggestionsStream(testSetId, body, {
-      onEvent: event => {
-        if (event.type === 'item') {
-          results[event.index] = {
-            input: event.input,
-            label: event.label,
-            labeler: event.labeler,
-            model_score: event.model_score,
-            metrics: event.metrics,
-            error: event.error,
-          };
-        } else if (event.type === 'summary') {
-          evaluated = event.evaluated;
-        }
-      },
-    });
-
-    return {
-      evaluated,
-      results: results.filter(Boolean),
-    };
-  }
-
-  async evaluateSuggestionsStream(
-    testSetId: string,
-    body: EvaluateSuggestionsRequest,
-    handlers: {
-      onEvent: (event: SuggestionEvalStreamEvent) => void;
-    }
-  ): Promise<void> {
-    const basePath = this.getBasePath(testSetId);
-    const url = joinUrl(this.baseUrl, `${basePath}/evaluate_suggestions`);
-    const headers = this.getHeaders();
-
-    const response = await fetch(url, {
-      method: 'POST',
-      body: JSON.stringify(body),
-      headers: {
-        ...headers,
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include',
-    });
-
-    if (!response.ok) {
-      await this.fetch<EvaluateSuggestionsResponse>(
-        `${basePath}/evaluate_suggestions`,
-        {
-          method: 'POST',
-          body: JSON.stringify(body),
-          headers: { 'Content-Type': 'application/json' },
-        }
-      );
-      return;
-    }
-
-    for await (const event of this.readNdjsonStream(response)) {
-      handlers.onEvent(event as SuggestionEvalStreamEvent);
-    }
-  }
 
   /**
    * Unified suggestion pipeline: generate, invoke endpoint, and evaluate

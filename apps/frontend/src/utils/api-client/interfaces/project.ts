@@ -59,34 +59,6 @@ export interface ProjectUser {
   family_name: string;
   given_name: string;
   picture: string;
-  organization_id: UUID | string; // Allow string for mock data compatibility
-}
-
-/**
- * System information for a project
- */
-export interface ProjectSystem {
-  name: string;
-  description: string;
-  primary_goals: string[];
-  key_capabilities: string[];
-}
-
-/**
- * Agent definition for a project
- */
-export interface ProjectAgent {
-  name: string;
-  description: string;
-  responsibilities: string[];
-}
-
-/**
- * Generic project entity used for requirements, scenarios, and personas
- */
-export interface ProjectEntity {
-  name: string;
-  description: string;
 }
 
 /**
@@ -99,11 +71,6 @@ export interface ProjectFrontendFields {
   icon?: string;
   tags?: string[];
   createdAt?: string; // For backward compatibility
-  system?: ProjectSystem;
-  agents?: ProjectAgent[];
-  requirements?: ProjectEntity[];
-  scenarios?: ProjectEntity[];
-  personas?: ProjectEntity[];
 }
 
 /**
@@ -115,7 +82,6 @@ export interface Project extends ProjectBase, ProjectFrontendFields {
 
   // Include standard timestamps if they exist in the API response
   created_at?: string;
-  updated_at?: string;
 
   // Nested objects from API response
   owner: ProjectUser;
@@ -123,7 +89,6 @@ export interface Project extends ProjectBase, ProjectFrontendFields {
 
 /** Minimal user info embedded in project membership responses */
 export interface ProjectMemberUser {
-  id: string;
   name?: string | null;
   given_name?: string | null;
   family_name?: string | null;
@@ -135,7 +100,6 @@ export interface ProjectMemberUser {
 export interface ProjectMember {
   project_id: string;
   user_id: string;
-  organization_id: string;
   role?: string | null;
   user?: ProjectMemberUser | null;
 }
