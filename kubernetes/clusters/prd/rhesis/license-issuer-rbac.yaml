@@ -1,5 +1,5 @@
-# Lets the "terraform-prd" GCP service account run one-off Kubernetes Jobs in
-# this namespace on behalf of rhesis-ee's license-issue.yml workflow. That
+# Lets the "license-ci-prd" GCP service account run one-off Kubernetes Jobs
+# in this namespace on behalf of rhesis-ee's license-issue.yml workflow. That
 # workflow issues signed license tokens by running the EE licensing CLI as a
 # Job here instead of a Cloud Run Job, because this namespace's Postgres
 # (CloudNativePG, Service "rhesis-prd-rw") only resolves via cluster-internal
@@ -9,9 +9,12 @@
 # terraform/infrastructure/modules/connect-gateway/gcp), not a VPN or a
 # self-hosted runner -- Connect Gateway proxies the call over HTTPS using the
 # GCP IAM identity's credentials, and GKE maps that identity onto this
-# RoleBinding's "User" subject by email. terraform-prd is also what
-# terraform-infrastructure.yml already authenticates as for this project, so
-# no new service account was created for this.
+# RoleBinding's "User" subject by email. license-ci-prd is a dedicated
+# service account created by that module specifically for this purpose --
+# not terraform-prd, which holds roles/editor + iam.securityAdmin +
+# resourcemanager.projectIamAdmin on the whole project and would be far too
+# powerful an identity for a different repo's CI workflow to hold a static
+# key for.
 #
 # Blast-radius note: "create Jobs" implicitly allows a Job's pod spec to
 # mount any Secret already in this namespace (rhesis-app-secrets included) --
@@ -56,5 +59,5 @@ roleRef:
   name: license-issuer
 subjects:
   - kind: User
-    name: terraform-prd@rhesis-prd.iam.gserviceaccount.com
+    name: license-ci-prd@rhesis-prd.iam.gserviceaccount.com
     apiGroup: rbac.authorization.k8s.io

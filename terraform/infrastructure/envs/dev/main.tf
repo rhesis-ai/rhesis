@@ -83,11 +83,6 @@ module "connect_gateway_dev" {
   project_id  = var.project_id
   environment = "dev"
   cluster_id  = module.gke_dev.cluster_id
-  # terraform-dev is the same identity GitHub Actions authenticates as for
-  # this project (terraform-infrastructure.yml via WIF, and the GCP_SA_KEY
-  # secrets rhesis-ee's licensing workflows use) -- see kubernetes/README.md
-  # for how it's used to reach this cluster without VPN access.
-  ci_service_account_email = "terraform-dev@${var.project_id}.iam.gserviceaccount.com"
 
   depends_on = [module.gke_dev]
 }

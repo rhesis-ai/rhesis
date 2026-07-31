@@ -108,13 +108,6 @@ module "connect_gateway_prd" {
   project_id  = var.project_id
   environment = "prd"
   cluster_id  = module.gke_prd.cluster_id
-  # terraform-prd is the same identity GitHub Actions authenticates as for
-  # this project (terraform-infrastructure.yml via WIF, and the GCP_SA_KEY
-  # secrets rhesis-ee's licensing workflows use) -- see kubernetes/README.md
-  # for how it's used to reach this cluster without VPN access. This is the
-  # only path by which "prd" GitHub Environment approvers can act on
-  # license-issue.yml against production without a VPN connection.
-  ci_service_account_email = "terraform-prd@${var.project_id}.iam.gserviceaccount.com"
 
   depends_on = [module.gke_prd]
 }

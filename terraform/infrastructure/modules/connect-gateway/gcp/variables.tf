@@ -21,13 +21,3 @@ variable "cluster_id" {
   EOT
   type        = string
 }
-
-variable "ci_service_account_email" {
-  description = <<-EOT
-    Email of the service account CI workflows authenticate as (the one behind
-    the GCP_SA_KEY / WIF-bound identity used by GitHub Actions). Granted
-    roles/gkehub.gatewayReader so `gcloud container fleet memberships
-    get-credentials` works for it without VPN access to the cluster.
-  EOT
-  type        = string
-}
