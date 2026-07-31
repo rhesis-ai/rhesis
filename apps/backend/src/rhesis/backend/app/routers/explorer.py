@@ -553,41 +553,9 @@ def create_explorer_test(
         labeler=body.labeler,
         label=body.label or "",
         model_score=body.model_score,
+        generate_embedding=body.generate_embedding,
+        current_user=current_user,
     )
-
-    if body.generate_embedding:
-        try:
-            from rhesis.backend.app.services.explorer.embeddings import (
-                create_test_embedding,
-                generate_embedding_vector,
-                load_test_for_embedding,
-            )
-
-            db_test = load_test_for_embedding(db, node.id, str(organization_id))
-            if not db_test:
-                logger.warning(
-                    "Explorer test embedding skipped: Test row not found after create "
-                    "(test_id=%s, organization_id=%s)",
-                    node.id,
-                    organization_id,
-                )
-            else:
-                text = db_test.to_searchable_text()
-                vector = generate_embedding_vector(text, db, str(user_id))
-                stored = create_test_embedding(db, db_test, vector, current_user)
-                if stored is None:
-                    logger.warning(
-                        "Explorer test embedding not persisted (test_id=%s); "
-                        "see earlier create_test_embedding logs for the reason",
-                        node.id,
-                    )
-        except Exception as e:
-            logger.warning(
-                "Explorer test embedding skipped after create (test_id=%s): %s",
-                node.id,
-                e,
-                exc_info=True,
-            )
 
     return node
 

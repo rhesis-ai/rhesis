@@ -1308,7 +1308,7 @@ class TestCreateExplorerTestEndpoint:
         ]
 
     @patch(
-        "rhesis.backend.app.services.explorer.embeddings.generate_embedding_vector",
+        "rhesis.backend.app.services.explorer.tests.generate_embedding_vector",
         return_value=[0.01] * 384,
     )
     def test_create_test_with_generate_embedding_persists_embedding_row(

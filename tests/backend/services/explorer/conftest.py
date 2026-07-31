@@ -83,6 +83,32 @@ def _associate_tests_with_test_set(db, test_set, tests, organization_id, user_id
 
 
 @pytest.fixture
+def explorer_embedding_model(test_db: Session, test_org_id, authenticated_user_id):
+    """Create a minimal 'Rhesis Default Embedding' model so create_test_embedding can persist rows.
+
+    The model uses dimension=384 so it matches the [0.01]*384 mock vector tests use to avoid a
+    real embedding API call.
+    """
+    from rhesis.backend.app.models.enums import ModelType
+
+    model = models.Model(
+        name="Rhesis Default Embedding",
+        model_name="rhesis/rhesis-embedding",
+        model_type=ModelType.EMBEDDING.value,
+        key="test-key-not-used",
+        dimension=384,
+        is_protected=True,
+        organization_id=test_org_id,
+        user_id=authenticated_user_id,
+        owner_id=authenticated_user_id,
+    )
+    test_db.add(model)
+    test_db.flush()
+    test_db.refresh(model)
+    return model
+
+
+@pytest.fixture
 def explorer_test_set(test_db: Session, test_org_id, authenticated_user_id):
     """Create a test set with adaptive testing data.
 
