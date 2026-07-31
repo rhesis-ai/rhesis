@@ -579,7 +579,7 @@ class TestImportExplorerTestSetEndpoint:
 
         new_id = data["test_set"]["id"]
         assert new_id != str(src.id)
-        assert "(Adaptive)" in data["test_set"]["name"]
+        assert "(Explorer)" in data["test_set"]["name"]
 
         tests_resp = authenticated_client.get(f"/explorer/{new_id}/tests")
         assert tests_resp.status_code == status.HTTP_200_OK

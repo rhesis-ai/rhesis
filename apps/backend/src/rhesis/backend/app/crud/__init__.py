@@ -15,7 +15,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Session, joinedload
 
 from rhesis.backend.app import models, schemas
-from rhesis.backend.app.constants import ADAPTIVE_TESTING_BEHAVIOR, TestExecutionContext
+from rhesis.backend.app.constants import EXPLORER_BEHAVIOR_NAME, TestExecutionContext
 from rhesis.backend.app.database import reset_session_context
 from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.schemas.tag import EntityType
@@ -666,7 +666,7 @@ def get_test_sets(
         query_builder = query_builder.with_custom_filter(has_runs_filter)
 
     # Exclude explorer test sets (they use the dedicated /explorer API)
-    explorer_marker = cast([ADAPTIVE_TESTING_BEHAVIOR], JSONB)
+    explorer_marker = cast([EXPLORER_BEHAVIOR_NAME], JSONB)
     behaviors_json = models.TestSet.attributes["metadata"]["behaviors"]
 
     def exclude_explorer_test_sets(query):

@@ -6,7 +6,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
-from rhesis.backend.app.constants import ADAPTIVE_TESTING_BEHAVIOR
+from rhesis.backend.app.constants import EXPLORER_BEHAVIOR_NAME
 
 # Imported as a module rather than by name: this file's own public
 # get_explorer_test_sets() wraps the crud function of the same name.
@@ -159,13 +159,13 @@ def create_explorer_test_set(
     """
     behavior = get_or_create_behavior(
         db=db,
-        name=ADAPTIVE_TESTING_BEHAVIOR,
+        name=EXPLORER_BEHAVIOR_NAME,
         organization_id=organization_id,
         user_id=user_id,
     )
     attributes = {
         "behaviors": [str(behavior.id)],
-        "metadata": {"behaviors": [ADAPTIVE_TESTING_BEHAVIOR]},
+        "metadata": {"behaviors": [EXPLORER_BEHAVIOR_NAME]},
     }
     test_set_type_lookup = get_or_create_type_lookup(
         db=db,
@@ -189,11 +189,11 @@ def create_explorer_test_set(
 
 
 def _is_explorer_test_set(test_set: models.TestSet) -> bool:
-    """True if the test set has Adaptive Testing in metadata.behaviors."""
+    """True if the test set has the Explorer marker behavior in metadata.behaviors."""
     attrs = test_set.attributes or {}
     metadata = attrs.get("metadata") or {}
     behaviors = metadata.get("behaviors") or []
-    return ADAPTIVE_TESTING_BEHAVIOR in behaviors
+    return EXPLORER_BEHAVIOR_NAME in behaviors
 
 
 def _delete_session_tests(
@@ -434,7 +434,7 @@ def import_explorer_test_set_from_source(
     if _is_explorer_test_set(db_source):
         raise ValueError("Source test set is already configured for Explorer")
 
-    base_name = f"{db_source.name} (Adaptive)"
+    base_name = f"{db_source.name} (Explorer)"
     new_name = crud_explorer.find_unused_test_set_name(db, organization_id, base_name)
 
     new_set = create_explorer_test_set(
@@ -449,7 +449,7 @@ def import_explorer_test_set_from_source(
     src_attrs = db_source.attributes or {}
     explorer_settings_src = src_attrs.get("adaptive_settings")
     if explorer_settings_src and isinstance(explorer_settings_src, dict):
-        crud_explorer.replace_test_set_adaptive_settings(db, new_set, explorer_settings_src)
+        crud_explorer.replace_test_set_explorer_settings(db, new_set, explorer_settings_src)
 
     def write(test_copy: _TestCopy) -> None:
         # create_test_node() takes the topic path, not the FK: it builds the

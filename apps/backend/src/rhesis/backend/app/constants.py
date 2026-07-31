@@ -108,8 +108,11 @@ class MetricType:
     CUSTOM_PROMPT = "custom-prompt"
 
 
-# Display name stored in test_set.attributes["metadata"]["behaviors"] for explorer test sets
-ADAPTIVE_TESTING_BEHAVIOR = "Adaptive Testing"
+# Marker behavior name stored in test_set.attributes["metadata"]["behaviors"] for Explorer
+# test sets. "Explorer" is the settled vocabulary (see explorer-roadmap.md 2.1) -- the value
+# itself is legacy ("Adaptive Testing", the module's old name) and must not change: it is
+# already persisted in existing test_set rows and matched via JSONB containment.
+EXPLORER_BEHAVIOR_NAME = "Adaptive Testing"
 
 
 # Error messages
