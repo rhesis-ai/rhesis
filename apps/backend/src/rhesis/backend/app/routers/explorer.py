@@ -11,6 +11,7 @@ import logging
 from typing import List, Optional
 from uuid import UUID
 
+import pydantic
 from fastapi import Body, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
@@ -141,6 +142,8 @@ def import_explorer_test_set_endpoint(
             organization_id=str(organization_id),
             user_id=str(user_id),
         )
+    except pydantic.ValidationError:
+        raise
     except ValueError as exc:
         msg = str(exc).lower()
         if "not found" in msg:
@@ -172,6 +175,8 @@ def export_regular_test_set_from_explorer_endpoint(
             organization_id=str(organization_id),
             user_id=str(user_id),
         )
+    except pydantic.ValidationError:
+        raise
     except ValueError as exc:
         msg = str(exc).lower()
         if "not found" in msg:
@@ -702,6 +707,8 @@ async def generate_outputs(
             include_subtopics=body.include_subtopics,
             overwrite=body.overwrite,
         )
+    except pydantic.ValidationError:
+        raise
     except ValueError as e:
         msg = str(e).lower()
         if "no endpoint specified" in msg:
@@ -746,6 +753,8 @@ async def evaluate_tests(
             include_subtopics=body.include_subtopics,
             overwrite=body.overwrite,
         )
+    except pydantic.ValidationError:
+        raise
     except ValueError as e:
         msg = str(e).lower()
         if "no metrics specified" in msg:
@@ -790,6 +799,8 @@ async def generate_suggestions_endpoint(
             user_feedback=body.user_feedback,
             generate_embeddings=body.generate_embeddings,
         )
+    except pydantic.ValidationError:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
