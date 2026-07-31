@@ -143,7 +143,13 @@ main() {
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --port) LOCAL_PORT="$2"; shift 2 ;;
+      --port)
+        if [[ $# -lt 2 || ! "$2" =~ ^[0-9]+$ ]]; then
+          echo "Error: --port requires a numeric value"
+          show_usage
+          exit 1
+        fi
+        LOCAL_PORT="$2"; shift 2 ;;
       --no-context-switch) SWITCH_CONTEXT=false; shift ;;
       --print-password) PRINT_PASSWORD=true; shift ;;
       -h|--help) show_usage; exit 0 ;;
