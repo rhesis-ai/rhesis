@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field, create_model
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
+from rhesis.backend.app.schemas.explorer import GenerateSuggestionsResponse, SuggestedTest
 from rhesis.backend.app.services.explorer.evaluation import (
     _EVAL_MAX_CONCURRENCY,
     MetricVerdict,
@@ -245,7 +246,7 @@ async def generate_suggestions(
     user_feedback: Optional[str] = None,
     generate_embeddings: bool = False,
     stream: bool = False,
-) -> Union[Dict[str, Any], AsyncGenerator[Dict[str, Any], None]]:
+) -> Union[GenerateSuggestionsResponse, AsyncGenerator[Dict[str, Any], None]]:
     """Generate test suggestions using an LLM.
 
     Randomly selects existing tests as examples, builds a prompt,
@@ -281,8 +282,8 @@ async def generate_suggestions(
 
     Returns
     -------
-    dict (stream=False)
-        ``{"suggestions": [...], "num_examples_used": int}``
+    GenerateSuggestionsResponse (stream=False)
+        The suggestions plus how many examples were sampled.
     AsyncGenerator (stream=True)
         Yields typed dicts as described above.
     """
@@ -304,7 +305,7 @@ async def generate_suggestions(
                 yield {"type": "meta", "num_examples_used": 0}
 
             return _empty_stream()
-        return {"suggestions": [], "num_examples_used": 0}
+        return GenerateSuggestionsResponse(suggestions=[], num_examples_used=0)
 
     if stream:
         return _generate_suggestions_stream(ctx)
@@ -357,10 +358,12 @@ async def generate_suggestions(
         f"examples_used={sample_size}"
     )
 
-    return {
-        "suggestions": suggestions,
-        "num_examples_used": sample_size,
-    }
+    # Typed only at the end: sort_by_diversity() reads and writes the embedding /
+    # diversity_score keys in place, so the pipeline above works on plain dicts.
+    return GenerateSuggestionsResponse(
+        suggestions=[SuggestedTest(**s) for s in suggestions],
+        num_examples_used=sample_size,
+    )
 
 
 async def suggestion_pipeline_stream(

@@ -1051,9 +1051,9 @@ class TestImportExplorerTestSetFromSource:
             user_id=authenticated_user_id,
         )
 
-        assert result["imported"] == 2
-        assert result["skipped"] == 1
-        new_set = result["test_set"]
+        assert result.imported == 2
+        assert result.skipped == 1
+        new_set = result.test_set
         assert "Adaptive Testing" in ((new_set.attributes or {}).get("metadata") or {}).get(
             "behaviors", []
         )
@@ -1162,9 +1162,9 @@ class TestExportRegularTestSetFromExplorer:
             user_id=authenticated_user_id,
         )
 
-        assert result["exported"] == 2
-        assert result["skipped"] == 2
-        new_set = result["test_set"]
+        assert result.exported == 2
+        assert result.skipped == 2
+        new_set = result.test_set
         assert "(Exported)" in new_set.name
         meta_behaviors = ((new_set.attributes or {}).get("metadata") or {}).get("behaviors") or []
         assert "Adaptive Testing" not in meta_behaviors

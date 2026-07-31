@@ -181,21 +181,13 @@ class TestEvaluateTestsForExplorerSet:
                 overwrite=True,
             )
 
-        assert "evaluated" in result
-        assert "results" in result
-        assert "failed" in result
-        assert result["evaluated"] == 3
-        assert len(result["results"]) == 3
-        for item in result["results"]:
-            assert "test_id" in item
-            assert "label" in item
-            assert "labeler" in item
-            assert "model_score" in item
-            assert "metrics" in item
-            assert item["metrics"]["TestMetric"]["score"] == 0.9
-            assert item["metrics"]["TestMetric"]["is_successful"] is True
-            assert item["label"] in ("pass", "fail")
-            assert item["labeler"] == metric.name
+        assert result.evaluated == 3
+        assert len(result.results) == 3
+        for item in result.results:
+            assert item.metrics["TestMetric"].score == 0.9
+            assert item.metrics["TestMetric"].is_successful is True
+            assert item.label in ("pass", "fail")
+            assert item.labeler == metric.name
 
     async def test_evaluate_persists_metadata(
         self,
@@ -228,8 +220,8 @@ class TestEvaluateTestsForExplorerSet:
                 overwrite=True,
             )
 
-        for item in result["results"]:
-            db_test = test_db.query(models.Test).filter(models.Test.id == item["test_id"]).first()
+        for item in result.results:
+            db_test = test_db.query(models.Test).filter(models.Test.id == item.test_id).first()
             meta = db_test.test_metadata or {}
             assert meta["label"] == "fail"
             assert meta["labeler"] == "PersistMetric"
@@ -306,9 +298,9 @@ class TestEvaluateTestsForExplorerSet:
                 overwrite=True,
             )
 
-        assert result["evaluated"] == 1
-        assert len(result["results"]) == 1
-        assert result["results"][0]["test_id"] == one_id
+        assert result.evaluated == 1
+        assert len(result.results) == 1
+        assert result.results[0].test_id == one_id
 
     async def test_evaluate_filter_by_topic_include_subtopics(
         self,
@@ -338,7 +330,7 @@ class TestEvaluateTestsForExplorerSet:
                 overwrite=True,
             )
 
-        assert result["evaluated"] == 3
+        assert result.evaluated == 3
 
     async def test_evaluate_filter_by_topic_exclude_subtopics(
         self,
@@ -373,7 +365,7 @@ class TestEvaluateTestsForExplorerSet:
                 overwrite=True,
             )
 
-        assert result["evaluated"] == 1
+        assert result.evaluated == 1
 
     async def test_evaluate_skips_topic_markers(
         self,
@@ -401,7 +393,7 @@ class TestEvaluateTestsForExplorerSet:
                 overwrite=True,
             )
 
-        result_ids = {r["test_id"] for r in result["results"]}
+        result_ids = {r.test_id for r in result.results}
         tree = get_tree_nodes(
             db=test_db,
             test_set_id=explorer_test_set.id,
@@ -439,8 +431,8 @@ class TestEvaluateTestsForExplorerSet:
             )
 
         # The fixture has 3 tests, but 2 already have labels ("pass" and "fail")
-        assert result["evaluated"] == 1
-        assert result["skipped"] == 2
+        assert result.evaluated == 1
+        assert result.skipped == 2
 
     async def test_evaluate_overwrite_relabels(
         self,
@@ -469,5 +461,5 @@ class TestEvaluateTestsForExplorerSet:
                 overwrite=True,
             )
 
-        assert result["evaluated"] == 3
-        assert result["skipped"] == 0
+        assert result.evaluated == 3
+        assert result.skipped == 0
