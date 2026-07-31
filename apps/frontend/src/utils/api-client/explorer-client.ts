@@ -33,8 +33,32 @@ export class ExplorerClient extends BaseApiClient {
     return `${API_ENDPOINTS.explorer}/${testSetId}`;
   }
 
+  /** Reads one chunk, erroring out if none arrives within `idleTimeoutMs`. */
+  private async readChunkWithTimeout(
+    reader: ReadableStreamDefaultReader<Uint8Array>,
+    idleTimeoutMs: number
+  ): Promise<ReadableStreamReadResult<Uint8Array>> {
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(() => {
+        reader.cancel().catch(() => {});
+        reject(
+          new Error(
+            `Stream stalled: no data received for ${idleTimeoutMs / 1000}s.`
+          )
+        );
+      }, idleTimeoutMs);
+    });
+    try {
+      return await Promise.race([reader.read(), timeout]);
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
   private async *readNdjsonStream(
-    response: Response
+    response: Response,
+    idleTimeoutMs = 150_000
   ): AsyncGenerator<unknown, void, void> {
     const reader = response.body?.getReader();
     if (!reader) {
@@ -45,7 +69,10 @@ export class ExplorerClient extends BaseApiClient {
     let buffer = '';
 
     while (true) {
-      const { value, done } = await reader.read();
+      const { value, done } = await this.readChunkWithTimeout(
+        reader,
+        idleTimeoutMs
+      );
       if (done) break;
       buffer += decoder.decode(value, { stream: true });
 

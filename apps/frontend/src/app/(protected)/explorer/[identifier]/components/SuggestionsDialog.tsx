@@ -473,6 +473,8 @@ export default function SuggestionsDialog({
       );
     } catch (err) {
       setTestGenStatus('idle');
+      setOutputsStatus('idle');
+      setMetricsStatus('idle');
       setError(
         err instanceof Error ? err.message : 'Failed to generate suggestions.'
       );
