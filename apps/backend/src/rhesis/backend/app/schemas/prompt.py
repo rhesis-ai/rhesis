@@ -1,27 +1,18 @@
-from typing import List, Optional
+from typing import Optional
 
 from pydantic import UUID4
 
 from rhesis.backend.app.schemas.base import Base
-from rhesis.backend.app.schemas.tag import Tag
 
 
 # Base Prompt Schema
 class PromptBase(Base):
     content: str
     category_id: Optional[UUID4] = None
-    attack_category_id: Optional[UUID4] = None
     topic_id: Optional[UUID4] = None
     language_code: str
     behavior_id: Optional[UUID4] = None
-    parent_id: Optional[UUID4] = None  # for multiturn scenarios
-    prompt_template_id: Optional[UUID4] = None
     expected_response: Optional[str] = None
-    source_id: Optional[UUID4] = None
-    user_id: Optional[UUID4] = None
-    organization_id: Optional[UUID4] = None
-    status_id: Optional[UUID4] = None
-    tags: Optional[List[Tag]] = None
 
 
 # Prompt Create schema

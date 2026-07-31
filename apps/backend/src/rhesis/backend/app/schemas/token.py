@@ -61,16 +61,6 @@ class TokenRead(TokenBase):
     scopes: Optional[List[str]] = None
 
 
-class Token(TokenBase):
-    id: UUID4
-    token: str
-    token_obfuscated: str
-    last_used_at: Optional[datetime]
-    last_refreshed_at: Optional[datetime]
-    created_at: datetime
-    updated_at: datetime
-
-
 class TokenInfoResponse(Base):
     """Lightweight introspection response for the calling token."""
 

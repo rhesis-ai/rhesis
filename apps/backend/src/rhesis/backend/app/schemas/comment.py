@@ -70,7 +70,6 @@ class Comment(CommentBase, WithPermittedActions):
 
     id: UUID
     user_id: UUID
-    organization_id: Optional[UUID] = None
     created_at: Union[datetime.datetime, str]
     updated_at: Union[datetime.datetime, str]
 

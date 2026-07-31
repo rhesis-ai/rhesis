@@ -101,8 +101,6 @@ async def test_model_connection_endpoint(
     return TestModelConnectionResponse(
         success=result.success,
         message=result.message,
-        provider=result.provider,
-        model_name=result.model_name,
     )
 
 

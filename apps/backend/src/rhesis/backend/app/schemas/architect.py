@@ -10,7 +10,6 @@ from .base import Base
 class ArchitectMessageBase(Base):
     role: str
     content: Optional[str] = None
-    metadata_: Optional[Dict[str, Any]] = None
     attachments: Optional[Dict[str, Any]] = None
 
     model_config = ConfigDict(
@@ -51,8 +50,6 @@ class ArchitectSessionUpdate(ArchitectSessionBase):
 
 
 class ArchitectSession(ArchitectSessionBase):
-    user_id: Optional[UUID4] = None
-    organization_id: Optional[UUID4] = None
     project_id: Optional[UUID4] = None
     plan_data: Optional[Dict[str, Any]] = None
     agent_state: Optional[Dict[str, Any]] = None

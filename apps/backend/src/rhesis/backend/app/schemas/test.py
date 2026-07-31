@@ -18,7 +18,6 @@ from rhesis.backend.app.schemas.user import UserReference
 class TestTag(Base):
     id: UUID4
     name: str
-    icon_unicode: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -37,7 +36,6 @@ class TestBase(Base):
     behavior_id: Optional[UUID4] = None
     category_id: Optional[UUID4] = None
     status_id: Optional[UUID4] = None
-    source_id: Optional[UUID4] = None
     organization_id: Optional[UUID4] = None
     test_metadata: Optional[Dict[str, Any]] = None
 
@@ -104,7 +102,6 @@ class Test(TestBase):
 # The detailed model with expanded relations. parent/source/organization/project: unused, excluded.
 class TestDetail(Test):
     # Include the full related objects instead of just IDs
-    content: Optional[str] = None
     counts: Optional[Dict[str, Any]] = None
     prompt: Optional[PromptReference] = None
     test_type: Optional[TypeLookupReference] = None
@@ -183,23 +180,6 @@ class TestBulkCreate(BaseModel):
 class TestBulkCreateRequest(BaseModel):
     tests: List[TestBulkCreate]
     test_set_id: Optional[UUID4] = None
-
-
-class TestBulkResponse(BaseModel):
-    id: UUID4
-    prompt_id: UUID4
-    test_type_id: UUID4
-    priority: int
-    user_id: UUID4
-    topic_id: UUID4
-    behavior_id: UUID4
-    category_id: UUID4
-    status_id: UUID4
-    organization_id: UUID4
-    test_configuration: Optional[Dict[str, Any]] = None
-    prompt: Optional[Dict[str, Any]] = None
-
-    model_config = ConfigDict(from_attributes=True)
 
 
 class TestBulkCreateResponse(BaseModel):
@@ -359,10 +339,3 @@ class ConversationTestExtractionResponse(BaseModel):
     expected_response: Optional[str] = None
     # Multi-turn fields
     test_configuration: Optional[Dict[str, Any]] = None
-
-
-class ConversationToTestResponse(BaseModel):
-    """Response after creating a test from a conversation."""
-
-    test_id: UUID4
-    message: str

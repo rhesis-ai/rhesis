@@ -5,7 +5,7 @@ Security: API keys are write-only. They can be set via POST/PUT but are never
 returned in responses to prevent exposure through logs, caches, or clients.
 """
 
-from typing import Dict, Literal, Optional
+from typing import Literal, Optional
 
 from pydantic import UUID4, BaseModel, ConfigDict, Field, field_validator
 
@@ -29,12 +29,9 @@ class ModelBaseFields(Base):
     endpoint: Optional[str] = Field(
         default=None, description="API endpoint URL (optional for cloud providers)"
     )
-    request_headers: Optional[Dict] = None
     is_protected: Optional[bool] = Field(
         default=False, description="System models are protected and cannot be deleted"
     )
-    organization_id: Optional[UUID4] = None
-    user_id: Optional[UUID4] = None
 
     @field_validator("endpoint")
     @classmethod
@@ -73,15 +70,12 @@ class ModelUpdate(ModelBaseFields):
     assignee_id: Optional[UUID4] = None
 
 
-# owner/assignee/tags: unused, excluded (owner_id/assignee_id FK columns stay).
+# owner/assignee/tags/owner_id/assignee_id/provider_type_id/status_id: unused, excluded
+# (the FK columns stay on the model; only the response-schema fields are trimmed).
 class ModelRead(ModelBaseFields):
     """Schema for reading Model (excludes API key for security)"""
 
     id: UUID4
-    provider_type_id: Optional[UUID4] = None
-    status_id: Optional[UUID4] = None
-    owner_id: Optional[UUID4] = None
-    assignee_id: Optional[UUID4] = None
     is_protected: bool = False
     provider_type: Optional[TypeLookup] = None
     status: Optional[Status] = None
@@ -93,10 +87,6 @@ class Model(ModelBase):
     """Complete Model schema with relationships (includes key - internal use only)"""
 
     id: UUID4
-    provider_type_id: Optional[UUID4] = None
-    status_id: Optional[UUID4] = None
-    owner_id: Optional[UUID4] = None
-    assignee_id: Optional[UUID4] = None
     is_protected: bool = False
     provider_type: Optional[TypeLookup] = None
     status: Optional[Status] = None
@@ -149,5 +139,3 @@ class TestModelConnectionResponse(BaseModel):
 
     success: bool
     message: str
-    provider: str
-    model_name: str

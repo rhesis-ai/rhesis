@@ -148,13 +148,6 @@ class GarakSyncPreviewResponse(BaseModel):
     last_synced_at: Optional[str] = Field(None, description="Last sync timestamp")
 
 
-class GarakErrorResponse(BaseModel):
-    """Error response schema."""
-
-    error: str = Field(..., description="Error message")
-    detail: Optional[str] = Field(None, description="Detailed error information")
-
-
 class GarakGenerateRequest(BaseModel):
     """
     Request schema for dynamically generating a test set from a dynamic garak probe.

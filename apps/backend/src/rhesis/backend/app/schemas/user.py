@@ -203,10 +203,8 @@ class UserBase(Base):
     name: Optional[str] = None
     given_name: Optional[str] = None
     family_name: Optional[str] = None
-    auth0_id: Optional[str] = None  # Legacy, kept for backward compatibility
     picture: Optional[str] = None
     is_active: Optional[bool] = None
-    is_verified: Optional[bool] = None
     is_email_verified: Optional[bool] = None
     organization_id: Optional[UUID4] = None
     last_login_at: Optional[datetime] = None

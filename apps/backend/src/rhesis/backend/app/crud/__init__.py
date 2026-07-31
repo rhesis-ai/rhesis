@@ -870,12 +870,6 @@ def get_test_set_tests(
 
 
 # TestConfiguration CRUD
-_TEST_CONFIGURATION_RELATED_FIELDS = (
-    include(models.TestConfiguration.test_set),
-    include(models.TestConfiguration.endpoint),
-)
-
-
 def get_test_configuration(
     db: Session, test_configuration_id: uuid.UUID, organization_id: str = None, user_id: str = None
 ) -> Optional[models.TestConfiguration]:
@@ -884,7 +878,6 @@ def get_test_configuration(
     item = (
         QueryBuilder(db, models.TestConfiguration)
         .with_deleted()
-        .with_related(*_TEST_CONFIGURATION_RELATED_FIELDS)
         .with_organization_filter(organization_id)
         .with_visibility_filter(user_id)
         .filter_by_id(test_configuration_id)
@@ -904,7 +897,6 @@ def get_test_configurations(
 ) -> List[models.TestConfiguration]:
     return (
         QueryBuilder(db, models.TestConfiguration)
-        .with_related(*_TEST_CONFIGURATION_RELATED_FIELDS)
         .with_organization_filter(organization_id)
         .with_visibility_filter(user_id)
         .with_odata_filter(filter)
@@ -3342,7 +3334,6 @@ def get_metric_behaviors(
 
     return (
         QueryBuilder(db, models.Behavior)
-        .with_related(include(models.Behavior._tags_relationship, models.TaggedItem.tag))
         .with_organization_filter(organization_id)
         .with_custom_filter(
             lambda q: q.join(models.behavior_metric_association).filter(
