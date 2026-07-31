@@ -11,7 +11,7 @@ own dev/stg/prd environments).
 <Callout type="info">
 **Part 2 of 2**
 
-This guide assumes a working cluster from [GCP (Terraform)](/deployment/gcp-terraform), or
+This guide assumes a working cluster from [GCP (Terraform)](/docs/deployment/gcp-terraform), or
 any GKE cluster with Workload Identity enabled. It deploys the app; it does not provision
 infrastructure.
 </Callout>
@@ -70,6 +70,7 @@ Replace `<your-org>/rhesis` in every manifest below with your fork's path.
   headers={["Requirement", "Notes"]}
   rows={[
     ["`kubectl`", "Pointed at your cluster (see the Terraform guide's connect step)"],
+    ["`argocd` CLI", "[Install](https://argo-cd.readthedocs.io/en/stable/cli_installation/) it; used for verification, upgrades, and troubleshooting later in this guide"],
     ["A Kubernetes cluster", "From the GCP (Terraform) guide, or any cluster with Workload Identity"],
     ["ESO service account", "From the Terraform guide's `external-secrets/gcp` module output"],
     ["A domain (optional)", "For public ingress hostnames; skip if you'll smoke-test via port-forward only"],
@@ -89,16 +90,19 @@ This is the exact command Rhesis's own environments run: ArgoCD is bootstrapped 
 per cluster (`kubectl apply -k kubernetes/bootstrap/argocd/`, not a Terraform module), then
 manages itself and everything else declaratively from there.
 
-Retrieve the initial admin password and access the UI:
+Retrieve the initial admin password, then port-forward and log in with the `argocd` CLI (also
+used for verification and upgrades later in this guide):
 
 <CodeBlock filename="Terminal" language="bash">
 {`kubectl -n argocd get secret argocd-initial-admin-secret \\
   -o jsonpath="{.data.password}" | base64 -d; echo
 
-kubectl -n argocd port-forward svc/argocd-server 8080:443`}
+kubectl -n argocd port-forward svc/argocd-server 8080:443 &
+argocd login localhost:8080 --username admin --password <password-from-above> --insecure`}
 </CodeBlock>
 
-Open `https://localhost:8080` and log in as `admin` with the password above.
+Open `https://localhost:8080` in a browser to use the UI, or continue with `argocd` CLI commands
+against this same port-forward.
 
 ## Set up your cluster overlay
 
@@ -461,7 +465,7 @@ flowchart LR
 
 <Callout type="info">
 This is a minimal set. Optional features documented on the
-[Environment Variables](/deployment/environment-variables) page (OAuth sign-in, SMTP,
+[Environment Variables](/docs/deployment/environment-variables) page (OAuth sign-in, SMTP,
 your own AI provider instead of `RHESIS_API_KEY`, SSO) each add their own keys to this same
 `ExternalSecret`. See `kubernetes/clusters/dev/external-secrets/rhesis-app-secrets.yaml` in the
 repo for the full ~50-key reference Rhesis's own environments use.
@@ -493,7 +497,7 @@ Point your domain's DNS `A` record at the ingress-nginx `LoadBalancer` external 
 (`kubectl get svc -n ingress-nginx`), then, once TLS certificates issue:
 
 <CodeBlock filename="Terminal" language="bash">
-{`curl -I https://your-api-domain/health`}
+{`curl -I https://your-api-domain.com/health`}
 </CodeBlock>
 
 Or skip DNS/ingress entirely for a first smoke test:
@@ -589,13 +593,13 @@ replacements:
 The base Application already sets `ingressClassFilters: [external]`, so it only publishes records
 for the ingress class from [Configure public hostnames](#configure-public-hostnames); anything
 on `internal` stays unpublished. `cloudflare-api-token-customer` is the Secret Manager key from
-the [Terraform guide](/deployment/gcp-terraform#optional-automate-public-dns-with-cloudflare).
+the [Terraform guide](/docs/deployment/gcp-terraform#optional-automate-public-dns-with-cloudflare).
 
 ### Add internal DNS
 
 For hostnames on the `internal` ingress class to resolve to anything, you need a DNS server that
 answers for them: Rhesis's BIND9-on-the-WireGuard-VM, covered in the
-[Terraform guide](/deployment/gcp-terraform#optional-gate-control-plane-access-with-a-wireguard-vpn).
+[Terraform guide](/docs/deployment/gcp-terraform#optional-gate-control-plane-access-with-a-wireguard-vpn).
 `kubernetes/base/internal-dns` bundles a second, independent ExternalDNS instance that keeps that
 zone in sync; overlay it the same way as
 `kubernetes/clusters/dev/internal-dns/kustomization.yaml`:
@@ -642,7 +646,7 @@ replacements:
 </CodeBlock>
 
 The TSIG key comes from the Terraform guide's
-[internal DNS module](/deployment/gcp-terraform#optional-add-self-hosted-internal-dns).
+[internal DNS module](/docs/deployment/gcp-terraform#optional-add-self-hosted-internal-dns).
 
 ### Put ArgoCD behind the internal ingress
 

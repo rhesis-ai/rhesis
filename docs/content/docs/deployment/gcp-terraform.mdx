@@ -11,7 +11,7 @@ supporting services) using the same Terraform modules Rhesis uses internally.
 **Part 1 of 2**
 
 This guide provisions infrastructure only. Once your cluster is up, continue to the
-[Kubernetes (Helm)](/deployment/kubernetes-helm) guide to deploy the Rhesis application onto it.
+[Kubernetes (Helm)](/docs/deployment/kubernetes-helm) guide to deploy the Rhesis application onto it.
 </Callout>
 
 ## Overview
@@ -54,7 +54,7 @@ flowchart TD
 - A private-nodes GKE cluster with Workload Identity enabled
 - A GCS bucket for Rhesis's file storage backend
 - A service account for External Secrets Operator (ESO), which the
-  [Kubernetes (Helm)](/deployment/kubernetes-helm) guide uses to sync application secrets
+  [Kubernetes (Helm)](/docs/deployment/kubernetes-helm) guide uses to sync application secrets
 
 **Rhesis's own environments add, on top of this, all optional and covered later on this page:**
 
@@ -68,7 +68,7 @@ flowchart TD
 - GitHub Actions Runner Controller (ARC) secrets, for running self-hosted CI runners in-cluster:
   out of scope for this guide
 
-ArgoCD itself is bootstrapped in the [Kubernetes (Helm)](/deployment/kubernetes-helm) guide, not
+ArgoCD itself is bootstrapped in the [Kubernetes (Helm)](/docs/deployment/kubernetes-helm) guide, not
 here; this page stops once you have a working cluster.
 
 ## Prerequisites
@@ -220,7 +220,7 @@ module "storage" {
   force_destroy            = var.force_destroy
   file_storage_iam_members = [
     {
-      member = "serviceAccount:\${module.storage_identity.email}"
+      member = "serviceAccount:\${google_service_account.storage_identity.email}"
       role   = "roles/storage.objectAdmin"
     }
   ]
@@ -343,7 +343,7 @@ Cloudflare; ExternalDNS supports most major providers if you use a different one
 
 The Terraform side needs a place to hold the Cloudflare API token so External Secrets
 Operator can sync it into the cluster; the ExternalDNS deployment itself is covered in the
-[Kubernetes (Helm)](/deployment/kubernetes-helm#automate-public-dns) guide.
+[Kubernetes (Helm)](/docs/deployment/kubernetes-helm#automate-public-dns) guide.
 
 <CodeBlock filename="envs/customer/main.tf" language="hcl">
 {`module "external_dns" {
@@ -477,13 +477,13 @@ bind9_allowed_names = {
 </CodeBlock>
 
 `bind9_allowed_names` scopes the TSIG key so it can only create records under the hostnames you
-list, not the whole zone. The [Kubernetes (Helm)](/deployment/kubernetes-helm#add-internal-dns)
+list, not the whole zone. The [Kubernetes (Helm)](/docs/deployment/kubernetes-helm#add-internal-dns)
 guide covers deploying the in-cluster `internal-dns` ExternalDNS instance and pointing an internal
 ingress class at these hostnames.
 
 ## Next step
 
-Continue to [Kubernetes (Helm)](/deployment/kubernetes-helm) to bootstrap ArgoCD and deploy the
+Continue to [Kubernetes (Helm)](/docs/deployment/kubernetes-helm) to bootstrap ArgoCD and deploy the
 Rhesis application onto this cluster.
 
 ## Tearing down
