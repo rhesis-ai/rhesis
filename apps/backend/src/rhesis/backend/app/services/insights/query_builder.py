@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
+from rhesis.backend.app.scope import is_tenant_filter_disabled
 from rhesis.backend.app.services.stats.common import parse_date_range
 
 from .registry import REGISTRY
@@ -58,6 +59,12 @@ def build_query(
 
     view = entry["view"]
     q = db.query(view)
+
+    if not is_tenant_filter_disabled():
+        scope = db.info.get("_scope")
+        organization_id = getattr(scope, "organization_id", None)
+        if organization_id is not None:
+            q = q.filter(view.organization_id == organization_id)
 
     for key, values in (filters or {}).items():
         if not values:
