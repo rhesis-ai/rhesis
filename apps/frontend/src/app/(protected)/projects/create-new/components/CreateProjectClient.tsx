@@ -187,7 +187,7 @@ export default function CreateProjectClient({
   // the built-in Member role does not hold it. Without this the wizard renders
   // fine and only fails with a 403 on submit, after the form is filled in.
   if (permsLoading) return <PageLoadingState />;
-  if (!canCreate) return <AccessDenied resource="project creation" />;
+  if (!canCreate) return <AccessDenied resource="the project creation page" />;
 
   return (
     <Container
