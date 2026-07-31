@@ -14,7 +14,7 @@ Functions tested:
 - update_explorer_test: selective field application, and the topic reload it depends on
 - reassign_tests_topic: per-test topic moves, including orphaning
 - remove_tests_from_test_set: batched association detach
-- replace_test_set_adaptive_settings / set_test_set_default_endpoint: replace vs patch
+- replace_test_set_explorer_settings / set_test_set_default_endpoint: replace vs patch
 - set_explorer_test_metadata: batched metadata writes
 
 Run with: python -m pytest tests/backend/crud/test_explorer_crud.py -v
@@ -33,7 +33,7 @@ from rhesis.backend.app.crud.explorer import (
     get_tests_under_topic,
     reassign_tests_topic,
     remove_tests_from_test_set,
-    replace_test_set_adaptive_settings,
+    replace_test_set_explorer_settings,
     set_explorer_test_metadata,
     set_test_set_default_endpoint,
     update_explorer_test,
@@ -624,7 +624,7 @@ class TestAdaptiveSettingsWrites:
         }
         test_db.flush()
 
-        replace_test_set_adaptive_settings(test_db, test_set, {"default_endpoint_id": "fresh"})
+        replace_test_set_explorer_settings(test_db, test_set, {"default_endpoint_id": "fresh"})
 
         assert test_set.attributes["adaptive_settings"] == {"default_endpoint_id": "fresh"}
         # Everything outside adaptive_settings survives.

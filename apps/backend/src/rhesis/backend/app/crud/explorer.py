@@ -18,7 +18,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, contains_eager, joinedload
 
 from rhesis.backend.app import models, schemas
-from rhesis.backend.app.constants import ADAPTIVE_TESTING_BEHAVIOR
+from rhesis.backend.app.constants import EXPLORER_BEHAVIOR_NAME
 
 # _TEST_SET_RELATED_FIELDS is imported rather than relocated: three other functions in
 # the monolith use the same tuple, and moving it would mean deciding a new home for a
@@ -70,9 +70,9 @@ def get_explorer_test_sets(
     Returns
     -------
     list of models.TestSet
-        Test sets carrying the Adaptive Testing behavior.
+        Test sets carrying the Explorer marker behavior.
     """
-    explorer_marker = cast([ADAPTIVE_TESTING_BEHAVIOR], JSONB)
+    explorer_marker = cast([EXPLORER_BEHAVIOR_NAME], JSONB)
 
     def only_explorer_test_sets(query):
         return query.filter(
@@ -160,10 +160,14 @@ def get_test_ids_in_test_sets(
     return [row.test_id for row in rows]
 
 
-def replace_test_set_adaptive_settings(
+def replace_test_set_explorer_settings(
     db: Session, test_set: models.TestSet, settings: Dict[str, Any]
 ) -> models.TestSet:
     """Overwrite a test set's ``attributes["adaptive_settings"]`` wholesale.
+
+    The JSONB key itself stays ``adaptive_settings`` -- it's already persisted on existing
+    test sets, and renaming it would silently drop settings written under the old key
+    without a data migration (tracked with the rest of the blob in Phase 3).
 
     Used by import, which copies the source set's settings across as a unit. Contrast
     :func:`set_test_set_default_endpoint`, which patches a single key.

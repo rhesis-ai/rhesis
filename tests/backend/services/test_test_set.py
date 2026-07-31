@@ -13,7 +13,7 @@ from faker import Faker
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
-from rhesis.backend.app.constants import ADAPTIVE_TESTING_BEHAVIOR
+from rhesis.backend.app.constants import EXPLORER_BEHAVIOR_NAME
 from rhesis.backend.app.services import test_set as test_set_service
 
 # Use existing data factories from the established pattern
@@ -663,7 +663,7 @@ class TestGetTestSetsExcludesExplorer:
             organization_id=test_org_id,
             user_id=authenticated_user_id,
             visibility="organization",
-            attributes={"metadata": {"behaviors": [ADAPTIVE_TESTING_BEHAVIOR]}},
+            attributes={"metadata": {"behaviors": [EXPLORER_BEHAVIOR_NAME]}},
         )
         test_db.add_all([regular, explorer])
         test_db.commit()
