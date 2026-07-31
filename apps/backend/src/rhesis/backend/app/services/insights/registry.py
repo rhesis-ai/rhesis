@@ -1,14 +1,10 @@
 """Declarative registry of what GET /insights can query.
 
 Each entity names the view backing it, the columns valid as group_by
-dimensions, the measures computable over it (all as SQL aggregate
-expressions -- no Python-side aggregation), and the filters accepted.
+dimensions, the measures computable over it, and the filters accepted.
 query_builder.py validates every incoming param against this before
 touching the database and turns a validated request into one GROUP BY
 query.
-
-test_run is not backed by a JSONB-metrics column so it has no "metric"
-counterpart.
 """
 
 from sqlalchemy import Float, case, cast, func
@@ -74,8 +70,11 @@ REGISTRY = {
         "date_column": TR.created_at,
         "dimensions": {
             "behavior": TR.behavior_name,
+            "behavior_id": TR.behavior_id,
             "category": TR.category_name,
+            "category_id": TR.category_id,
             "topic": TR.topic_name,
+            "topic_id": TR.topic_id,
             "test_run": TR.run_id,
             "status": TR.status_name,
             "year": TR.year,
@@ -114,8 +113,6 @@ REGISTRY = {
         "dimensions": {
             "metric_name": ME.metric_name,
             "behavior_id": ME.behavior_id,
-            "category_id": ME.category_id,
-            "topic_id": ME.topic_id,
             "year": ME.year,
             "month": ME.month,
         },
@@ -136,8 +133,6 @@ REGISTRY = {
         "filters": {
             "test_run_ids": ME.test_run_id,
             "behavior_ids": ME.behavior_id,
-            "category_ids": ME.category_id,
-            "topic_ids": ME.topic_id,
             "test_ids": ME.test_id,
             "metric_names": ME.metric_name,
         },
@@ -174,8 +169,11 @@ REGISTRY = {
         "view": TS,
         "date_column": TS.created_at,
         "dimensions": {
+            "behavior": TS.behavior_name,
             "behavior_id": TS.behavior_id,
+            "category": TS.category_name,
             "category_id": TS.category_id,
+            "topic": TS.topic_name,
             "topic_id": TS.topic_id,
             "test_type_id": TS.test_type_id,
             "status": TS.test_status_id,
