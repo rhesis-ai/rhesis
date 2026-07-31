@@ -19,13 +19,13 @@ from rhesis.backend.notifications.email.template_service import (
 )
 
 BASE_KWARGS = {
-    "recipient_email": "new.hire@netgo.example",
+    "recipient_email": "new.hire@example.com",
     "recipient_name": "New Hire",
-    "organization_name": "netgo",
+    "organization_name": "Example Org",
     "organization_website": None,
     "inviter_name": "Admin",
-    "inviter_email": "admin@netgo.example",
-    "frontend_url": "https://app.rhesis.ai",
+    "inviter_email": "admin@example.com",
+    "frontend_url": "https://app.example.com",
 }
 
 
@@ -59,12 +59,12 @@ class TestInvitationSSOLink:
         service = _service()
 
         service.send_team_invitation_email(
-            **BASE_KWARGS, organization_slug="netgo", sso_enabled=True
+            **BASE_KWARGS, organization_slug="example-org", sso_enabled=True
         )
 
         sent = _sent_vars(service)
         assert sent["sso_enabled"] is True
-        assert sent["sso_login_url"] == "https://app.rhesis.ai/?org=netgo"
+        assert sent["sso_login_url"] == "https://app.example.com/?org=example-org"
 
     # Regression: /auth/signin looks like the login form but is the auth-code
     # callback. With no `code` it redirects to `/` forwarding only `return_to`,
@@ -74,7 +74,7 @@ class TestInvitationSSOLink:
         service = _service()
 
         service.send_team_invitation_email(
-            **BASE_KWARGS, organization_slug="netgo", sso_enabled=True
+            **BASE_KWARGS, organization_slug="example-org", sso_enabled=True
         )
 
         assert "/auth/signin" not in _sent_vars(service)["sso_login_url"]
@@ -83,7 +83,7 @@ class TestInvitationSSOLink:
         service = _service()
 
         service.send_team_invitation_email(
-            **BASE_KWARGS, organization_slug="netgo", sso_enabled=False
+            **BASE_KWARGS, organization_slug="example-org", sso_enabled=False
         )
 
         sent = _sent_vars(service)
@@ -114,14 +114,14 @@ class TestInvitationSSOLink:
         service = _service()
 
         service.send_team_invitation_email(
-            **{**BASE_KWARGS, "frontend_url": "https://app.rhesis.ai/"},
+            **{**BASE_KWARGS, "frontend_url": "https://app.example.com/"},
             organization_slug="acme corp&co",
             sso_enabled=True,
         )
 
         sent = _sent_vars(service)
         # Single slash after the host, and the slug escaped.
-        assert sent["sso_login_url"] == "https://app.rhesis.ai/?org=acme%20corp%26co"
+        assert sent["sso_login_url"] == "https://app.example.com/?org=acme%20corp%26co"
 
 
 @pytest.mark.unit
@@ -130,13 +130,13 @@ class TestInvitationTemplateRendering:
 
     def _render(self, **overrides):
         variables = {
-            "recipient_email": "new.hire@netgo.example",
+            "recipient_email": "new.hire@example.com",
             "recipient_name": "New Hire",
-            "organization_name": "netgo",
+            "organization_name": "Example Org",
             "organization_website": "",
             "inviter_name": "Admin",
-            "inviter_email": "admin@netgo.example",
-            "frontend_url": "https://app.rhesis.ai",
+            "inviter_email": "admin@example.com",
+            "frontend_url": "https://app.example.com",
         }
         variables.update(overrides)
         return TemplateService().render_template(EmailTemplate.TEAM_INVITATION, variables)
@@ -144,10 +144,10 @@ class TestInvitationTemplateRendering:
     def test_sso_variant_links_to_the_org_signin_page(self):
         html = self._render(
             sso_enabled=True,
-            sso_login_url="https://app.rhesis.ai/?org=netgo",
+            sso_login_url="https://app.example.com/?org=example-org",
         )
 
-        assert "https://app.rhesis.ai/?org=netgo" in html
+        assert "https://app.example.com/?org=example-org" in html
         assert "single sign-on" in html.lower()
         # The email-address instruction is what misleads SSO users.
         assert "Sign in with your email address" not in html
