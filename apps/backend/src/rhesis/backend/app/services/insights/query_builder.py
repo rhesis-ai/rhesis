@@ -10,7 +10,6 @@ from typing import Any, Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app.scope import is_tenant_filter_disabled
 from rhesis.backend.app.services.stats.common import parse_date_range
 
 from .registry import REGISTRY
@@ -38,6 +37,7 @@ def build_query(
     filters: Optional[Dict[str, list]] = None,
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
+    organization_id: Optional[str] = None,
 ):
     """Return a validated, filtered, grouped SQLAlchemy query to be executed."""
     entry = _entry(entity)
@@ -60,11 +60,8 @@ def build_query(
     view = entry["view"]
     q = db.query(view)
 
-    if not is_tenant_filter_disabled():
-        scope = db.info.get("_scope")
-        organization_id = getattr(scope, "organization_id", None)
-        if organization_id is not None:
-            q = q.filter(view.organization_id == organization_id)
+    if organization_id is not None:
+        q = q.filter(view.organization_id == organization_id)
 
     for key, values in (filters or {}).items():
         if not values:
@@ -104,10 +101,13 @@ def run_query(
     months: int = 6,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
+    organization_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Execute the query and shape results into the uniform insights envelope."""
     start_date_obj, end_date_obj = parse_date_range(start_date, end_date, months)
-    q = build_query(db, entity, group_by, measures, filters, start_date_obj, end_date_obj)
+    q = build_query(
+        db, entity, group_by, measures, filters, start_date_obj, end_date_obj, organization_id
+    )
 
     rows = []
     for r in q.all():
@@ -123,7 +123,9 @@ def run_query(
     }
 
 
-def run_batch(db: Session, queries: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+def run_batch(
+    db: Session, queries: Dict[str, Any], organization_id: Optional[str] = None
+) -> Dict[str, Dict[str, Any]]:
     """Run several named sub-queries in one call and return one envelope per label.
 
     Callers combine the per-label envelopes themselves (e.g. zipping a test_result-grain
@@ -146,6 +148,7 @@ def run_batch(db: Session, queries: Dict[str, Any]) -> Dict[str, Dict[str, Any]]
             months=q.months,
             start_date=q.start_date,
             end_date=q.end_date,
+            organization_id=organization_id,
         )
         for label, q in queries.items()
     }

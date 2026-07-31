@@ -78,6 +78,7 @@ def get_insights(
             months=months,
             start_date=start_date,
             end_date=end_date,
+            organization_id=current_user.organization_id,
         )
     except InsightsValidationError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -111,7 +112,7 @@ def get_insights_batch(
         }}
     """
     try:
-        results = run_batch(db, request.queries)
+        results = run_batch(db, request.queries, organization_id=current_user.organization_id)
     except InsightsValidationError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return schemas.InsightsBatchResponse(results=results)
