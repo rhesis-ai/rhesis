@@ -10,7 +10,11 @@ from typing import Any, Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
+from rhesis.backend.app.services.stats.common import parse_date_range
+
 from .registry import REGISTRY
+
+MAX_BATCH_QUERIES = 10
 
 
 class InsightsValidationError(ValueError):
@@ -34,7 +38,7 @@ def build_query(
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
 ):
-    """Return a validated, filtered, grouped SQLAlchemy query -- not yet executed."""
+    """Return a validated, filtered, grouped SQLAlchemy query to be executed."""
     entry = _entry(entity)
 
     unknown_dims = set(group_by) - set(entry["dimensions"])
@@ -90,11 +94,13 @@ def run_query(
     group_by: List[str],
     measures: List[str],
     filters: Optional[Dict[str, list]] = None,
-    start_date: Optional[datetime] = None,
-    end_date: Optional[datetime] = None,
+    months: int = 6,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Execute the query and shape results into the uniform insights envelope."""
-    q = build_query(db, entity, group_by, measures, filters, start_date, end_date)
+    start_date_obj, end_date_obj = parse_date_range(start_date, end_date, months)
+    q = build_query(db, entity, group_by, measures, filters, start_date_obj, end_date_obj)
 
     rows = []
     for r in q.all():
@@ -107,4 +113,32 @@ def run_query(
         "dimensions": group_by,
         "measures": measures,
         "rows": rows,
+    }
+
+
+def run_batch(db: Session, queries: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+    """Run several named sub-queries in one call and return one envelope per label.
+
+    Callers combine the per-label envelopes themselves (e.g. zipping a test_result-grain
+    breakdown with a metric-grain one by a shared dimension like behavior).
+    """
+    if not queries:
+        raise InsightsValidationError("At least one query is required")
+    if len(queries) > MAX_BATCH_QUERIES:
+        raise InsightsValidationError(
+            f"Too many queries ({len(queries)}); max {MAX_BATCH_QUERIES} per request"
+        )
+
+    return {
+        label: run_query(
+            db,
+            entity=q.entity,
+            group_by=q.group_by,
+            measures=q.measures,
+            filters=q.filters,
+            months=q.months,
+            start_date=q.start_date,
+            end_date=q.end_date,
+        )
+        for label, q in queries.items()
     }
