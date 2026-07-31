@@ -44,8 +44,12 @@ class EventFanout:
 
     def _on_done(self, task: "asyncio.Task") -> None:
         self._outstanding -= 1
-        if not task.cancelled() and (exc := task.exception()) is not None:
-            logger.error("EventFanout task failed: %s", exc, exc_info=exc)
+        try:
+            task.result()
+        except asyncio.CancelledError:
+            pass
+        except Exception:  # noqa: BLE001
+            logger.exception("EventFanout task failed")
         if self._outstanding == 0:
             self._queue.put_nowait(_FANOUT_DONE)
 
