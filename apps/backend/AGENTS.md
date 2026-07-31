@@ -59,7 +59,9 @@ uv run pytest ../../tests/backend/ -v
 uv run pytest ../../tests/backend/services/explorer/test_tests.py::TestCreateExplorerTestSet -v
 ```
 
-Backend tests need Docker running (they use a real database). If tests fail with connection or
+Backend tests need Docker running — `tests/backend/conftest.py` starts an ephemeral Postgres and
+Redis container per pytest-xdist worker via Testcontainers (see
+`tests/backend/testcontainers_setup.py`), no manual setup needed. If tests fail with connection or
 container errors, stop and ask the user to start Docker instead of trying to work around it or
 debug the test code.
 
