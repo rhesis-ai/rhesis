@@ -109,6 +109,14 @@ resource "google_project_iam_member" "ci_gkehub_viewer" {
 # manually), so they're referenced here by their literal, predictable
 # secret_id rather than a resource reference; that's fine, IAM bindings
 # don't require the target to be Terraform-managed.
+#
+# Both secretAccessor AND viewer are needed, confirmed via a live run:
+# secretAccessor only includes secretmanager.versions.access (reads the
+# actual value, license-issue.yml's "Fetch signing key" step) -- it does
+# NOT include secretmanager.secrets.get, which "Verify Secret Manager
+# entries exist" needs for `gcloud secrets describe`. viewer covers
+# secrets.get/list but not versions.access, so neither role alone is
+# sufficient.
 resource "google_secret_manager_secret_iam_member" "ci_read_private_key" {
   project   = var.project_id
   secret_id = "${var.environment}-rhesis-rhesis-license-private-key"
@@ -116,10 +124,24 @@ resource "google_secret_manager_secret_iam_member" "ci_read_private_key" {
   member    = "serviceAccount:${google_service_account.license_ci.email}"
 }
 
+resource "google_secret_manager_secret_iam_member" "ci_view_private_key" {
+  project   = var.project_id
+  secret_id = "${var.environment}-rhesis-rhesis-license-private-key"
+  role      = "roles/secretmanager.viewer"
+  member    = "serviceAccount:${google_service_account.license_ci.email}"
+}
+
 resource "google_secret_manager_secret_iam_member" "ci_read_kid" {
   project   = var.project_id
   secret_id = "${var.environment}-rhesis-rhesis-license-kid"
   role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.license_ci.email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "ci_view_kid" {
+  project   = var.project_id
+  secret_id = "${var.environment}-rhesis-rhesis-license-kid"
+  role      = "roles/secretmanager.viewer"
   member    = "serviceAccount:${google_service_account.license_ci.email}"
 }
 
