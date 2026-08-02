@@ -26,9 +26,12 @@ join the VPN, and per-repo self-hosted runners (`arc-runner-<env>`, see
 the repo they're registered against -- a workflow in a different repo can
 never reach them. `terraform/infrastructure/modules/connect-gateway/gcp`
 registers each cluster with GKE Hub (Fleet) and creates a dedicated
-`license-ci-<env>` service account granted `roles/gkehub.gatewayReader`, so
-CI can fetch working credentials over HTTPS with no network-level access to
-the cluster at all:
+`license-ci-<env>` service account granted `roles/gkehub.gatewayReader` +
+`roles/gkehub.viewer` (the latter read-only, needed because
+`gatewayReader` alone doesn't cover `gkehub.memberships.list`, which
+`gcloud container fleet memberships get-credentials` requires), so CI can
+fetch working credentials over HTTPS with no network-level access to the
+cluster at all:
 
 `license-ci-<env>` is a purpose-built identity, not `terraform-<env>` (the
 infra-admin identity `terraform-infrastructure.yml` authenticates as via

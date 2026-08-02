@@ -77,10 +77,24 @@ resource "google_gke_hub_membership" "cluster" {
   depends_on = [google_project_service.gkehub]
 }
 
-# Reach the cluster via Connect Gateway.
+# Reach the cluster via Connect Gateway. gatewayReader alone
+# (gkehub.gateway.generateCredentials/get + gkehub.memberships.get) is not
+# sufficient -- `gcloud container fleet memberships get-credentials` also
+# needs gkehub.memberships.list, confirmed empirically against a live
+# license-issue.yml run (PERMISSION_DENIED on 'gkehub.memberships.list').
+# gkehub.viewer covers that; it's read-only (no mutation permissions on
+# Fleet/membership resources), so this adds visibility, not write access.
 resource "google_project_iam_member" "ci_gateway_reader" {
   project = var.project_id
   role    = "roles/gkehub.gatewayReader"
+  member  = "serviceAccount:${google_service_account.license_ci.email}"
+
+  depends_on = [google_project_service.connectgateway]
+}
+
+resource "google_project_iam_member" "ci_gkehub_viewer" {
+  project = var.project_id
+  role    = "roles/gkehub.viewer"
   member  = "serviceAccount:${google_service_account.license_ci.email}"
 
   depends_on = [google_project_service.connectgateway]
