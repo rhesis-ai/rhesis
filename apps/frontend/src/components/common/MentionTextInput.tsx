@@ -1,6 +1,12 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { MentionsInput, Mention, SuggestionDataItem } from 'react-mentions';
 import { Box, Typography, useTheme, FormHelperText } from '@mui/material';
 import { alpha } from '@mui/material/styles';
@@ -188,6 +194,11 @@ export default function MentionTextInput({
   );
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const [portalHost, setPortalHost] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    setPortalHost(document.body);
+  }, []);
 
   const mentionTypeMap = useMemo(() => {
     const map = new Map<string, 'user' | 'metric' | 'turn'>();
@@ -242,6 +253,9 @@ export default function MentionTextInput({
 
   const verticalPadding = theme.spacing(1.5);
   const minHeight = `calc(${minRows} * ${theme.typography.body2.lineHeight}em + ${verticalPadding} * 2)`;
+  // Fixed border width (color-only change on focus) avoids the 1px layout
+  // shift that previously caused a visible jump when the field gained focus.
+  const borderWidth = theme.spacing(0.25);
 
   return (
     <Box ref={containerRef}>
@@ -259,6 +273,7 @@ export default function MentionTextInput({
         onChange={handleChange}
         placeholder={placeholder}
         disabled={disabled}
+        suggestionsPortalHost={portalHost ?? undefined}
         style={{
           control: {
             fontSize: theme.typography.body1.fontSize,
@@ -267,7 +282,7 @@ export default function MentionTextInput({
           },
           input: {
             padding: `${theme.spacing(1.5)} ${theme.spacing(1.75)}`,
-            border: `1px solid ${borderColor}`,
+            border: `${borderWidth} solid ${borderColor}`,
             borderRadius: `${theme.shape.borderRadius}px`,
             outline: 'none',
             fontSize: theme.typography.body2.fontSize,
@@ -280,7 +295,7 @@ export default function MentionTextInput({
           },
           highlighter: {
             padding: `${theme.spacing(1.5)} ${theme.spacing(1.75)}`,
-            border: '1px solid transparent',
+            border: `${borderWidth} solid transparent`,
             borderRadius: `${theme.shape.borderRadius}px`,
             fontSize: theme.typography.body2.fontSize,
             fontFamily: theme.typography.fontFamily,
@@ -340,18 +355,16 @@ export default function MentionTextInput({
           </Box>
         )}
         a11ySuggestionsListLabel="Mention suggestions"
-        onFocus={e => {
+        onFocus={(e: React.FocusEvent<HTMLElement>) => {
           const target = e.target as HTMLElement;
           if (target.style) {
             target.style.borderColor = focusBorderColor;
-            target.style.borderWidth = '2px';
           }
         }}
-        onBlur={e => {
+        onBlur={(e: React.FocusEvent<HTMLElement>) => {
           const target = e.target as HTMLElement;
           if (target.style) {
             target.style.borderColor = borderColor;
-            target.style.borderWidth = '1px';
           }
         }}
       >
@@ -436,7 +449,7 @@ export function renderMentionText(
       <Box
         component="span"
         key={`mention-${match.index}`}
-        sx={theme => ({
+        sx={{
           color: typeColors[type] || 'inherit',
           backgroundColor: typeBackgrounds[type] || 'transparent',
           borderRadius: BORDER_RADIUS.pill,
@@ -446,7 +459,7 @@ export function renderMentionText(
           fontSize: 'inherit',
           whiteSpace: 'nowrap',
           lineHeight: 1.4,
-        })}
+        }}
       >
         @{display}
       </Box>
