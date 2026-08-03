@@ -57,6 +57,12 @@ spec:
         bypassrls: false
         passwordSecret:
           name: rhesis-analytics-user-credentials
+      - name: grafana-viewer
+        ensure: present
+        login: true
+        bypassrls: false
+        passwordSecret:
+          name: grafana-viewer-credentials
   bootstrap:
     initdb:
       database: rhesis-stg-db
