@@ -10,6 +10,12 @@ Conversation tracing groups the traces from a multi-turn session into a single t
 
 When your application runs a multi-turn test or a live chat session, Rhesis links all spans from that session using a shared `conversation_id`. The trace viewer then surfaces a dedicated **Conversation** tab that lets you navigate the full interaction thread — turn by turn, with the underlying span hierarchy always one click away.
 
+<ThemeAwareImage
+  lightSrc="/screenshots/rhesis-ai-tracing-conversation.webp"
+  darkSrc="/screenshots/rhesis-ai-tracing-conversation-dark.webp"
+  alt="Conversation tab of a trace — each turn with its user message, agent reply and evaluation status"
+/>
+
 This works for two scenarios:
 
 - **Test-linked traces** — when a conversation is executed as a Rhesis test, the conversation summary and goal evaluation are loaded from the test result
