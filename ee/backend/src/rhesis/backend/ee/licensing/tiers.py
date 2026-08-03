@@ -171,8 +171,36 @@ def _load_tier_config() -> dict[LicenseEdition, TierSpec]:
             logger.warning("Unknown edition %r in tier config, skipping", edition_key)
             continue
 
-        limits = _parse_limits(spec_raw.get("limits", {}))
-        features = _parse_features(spec_raw.get("features", []))
+        if not isinstance(spec_raw, dict):
+            logger.warning(
+                "Tier config entry %r is not a mapping (got %s), skipping",
+                edition_key,
+                type(spec_raw).__name__,
+            )
+            continue
+
+        raw_limits = spec_raw.get("limits", {})
+        if not isinstance(raw_limits, dict):
+            logger.warning(
+                "Tier config entry %r has a non-mapping `limits` (got %s), skipping",
+                edition_key,
+                type(raw_limits).__name__,
+            )
+            continue
+
+        raw_features = spec_raw.get("features", [])
+        if not isinstance(raw_features, list):
+            # A string would otherwise iterate per-character in _parse_features
+            # and silently resolve to an empty feature set instead of failing.
+            logger.warning(
+                "Tier config entry %r has a non-list `features` (got %s), skipping",
+                edition_key,
+                type(raw_features).__name__,
+            )
+            continue
+
+        limits = _parse_limits(raw_limits)
+        features = _parse_features(raw_features)
 
         # Only pass fields the YAML actually sets; TierSpec's own dataclass
         # defaults apply for the rest. Hardcoding e.g. `retention_days=14`

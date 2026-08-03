@@ -12,6 +12,7 @@ import pytest
 from rhesis.backend.app.features import FeatureName
 from rhesis.backend.app.quota import FREE_TIER_LIMITS, QuotaResource
 from rhesis.backend.ee.licensing.entitlements import (
+    ENV_TIER_CONFIG,
     LIC_ALL_FEATURES,
     LIC_EDITION,
     LIC_FEATURES,
@@ -23,6 +24,7 @@ from rhesis.backend.ee.licensing.entitlements import (
 from rhesis.backend.ee.licensing.tiers import (
     EDITION_ENTITLEMENTS,
     TierSpec,
+    _load_tier_config,
     is_sellable,
     resolve_limits,
     resolve_tier,
@@ -79,6 +81,59 @@ class TestCatalogShape:
                 assert isinstance(key, QuotaResource), (
                     f"Limit key {key!r} in {edition} is not a QuotaResource"
                 )
+
+
+class TestLoadTierConfig:
+    """_load_tier_config() must degrade gracefully on malformed input --
+    a bad entry should skip just that tier, never crash the whole loader
+    or silently misparse into a wrong-but-valid-looking TierSpec."""
+
+    def _load_from(self, tmp_path, monkeypatch, content: str) -> dict:
+        config_file = tmp_path / "tier_config.yaml"
+        config_file.write_text(content)
+        monkeypatch.setenv(ENV_TIER_CONFIG, str(config_file))
+        return _load_tier_config()
+
+    def test_null_edition_value_is_skipped_not_crashed(self, tmp_path, monkeypatch):
+        """`team:` with no value parses to None, not a dict."""
+        catalog = self._load_from(
+            tmp_path,
+            monkeypatch,
+            "community:\n  limits:\n    seats: 3\nteam: null\n",
+        )
+        assert LicenseEdition.COMMUNITY in catalog
+        assert LicenseEdition.TEAM not in catalog
+
+    def test_non_mapping_limits_is_skipped(self, tmp_path, monkeypatch):
+        catalog = self._load_from(
+            tmp_path,
+            monkeypatch,
+            "community:\n  limits:\n    seats: 3\nenterprise:\n  limits: not_a_mapping\n",
+        )
+        assert LicenseEdition.COMMUNITY in catalog
+        assert LicenseEdition.ENTERPRISE not in catalog
+
+    def test_non_list_features_is_skipped(self, tmp_path, monkeypatch):
+        """A string `features` value would otherwise iterate per-character
+        and silently resolve to an empty feature set instead of failing."""
+        catalog = self._load_from(
+            tmp_path,
+            monkeypatch,
+            "community:\n  limits:\n    seats: 3\n"
+            "master:\n  features: not_a_list\n  limits:\n    seats: null\n",
+        )
+        assert LicenseEdition.COMMUNITY in catalog
+        assert LicenseEdition.MASTER not in catalog
+
+    def test_valid_entries_still_load_alongside_malformed_ones(self, tmp_path, monkeypatch):
+        catalog = self._load_from(
+            tmp_path,
+            monkeypatch,
+            "community:\n  limits:\n    seats: 3\n"
+            "team: null\n"
+            "enterprise:\n  all_features: true\n  limits:\n    seats: null\n",
+        )
+        assert set(catalog.keys()) == {LicenseEdition.COMMUNITY, LicenseEdition.ENTERPRISE}
 
 
 class TestTierToLicClaim:
