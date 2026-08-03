@@ -23,8 +23,16 @@ from rhesis.backend.app.services.explorer.utils import (
     _build_eligible_tests,
     _get_test_set_tests_from_db,
 )
+from rhesis.backend.app.services.streaming_utils import (
+    EventFanout,
+    IncrementalJsonArrayParser,
+)
+from rhesis.backend.app.services.streaming_utils import ndjson as _ndjson
 
 logger = logging.getLogger(__name__)
+
+# Keep the private alias for backward compatibility within this module
+_IncrementalJsonArrayParser = IncrementalJsonArrayParser
 
 
 class _GeneratedTestSuggestionItem(BaseModel):
@@ -76,18 +84,6 @@ def _resolve_llm_model(model_or_provider: Any):
     if isinstance(model_or_provider, str):
         return get_model(model_or_provider, model_type="language")
     return model_or_provider
-
-
-from rhesis.backend.app.services.streaming_utils import (
-    EventFanout,
-    IncrementalJsonArrayParser,
-)
-from rhesis.backend.app.services.streaming_utils import (
-    ndjson as _ndjson,
-)
-
-# Keep the private alias for backward compatibility within this module
-_IncrementalJsonArrayParser = IncrementalJsonArrayParser
 
 
 def _build_suggestion_prompt(
