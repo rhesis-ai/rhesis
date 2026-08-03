@@ -47,7 +47,7 @@ def get_insights(
     Every param is checked against the registry entry for `entity` before it
     reaches SQL -- an unknown group_by/measure/filter returns 400, not a query.
 
-    Example: `GET /insights?entity=test_result&group_by=behavior&measures=count,pass_rate`
+    Example: `GET /insights/?entity=test_result&group_by=behavior&measures=count&measures=pass_rate`
     """
     filters = {
         "test_run_ids": test_run_ids,
