@@ -58,6 +58,13 @@ spec:
         bypassrls: false
         passwordSecret:
           name: rhesis-analytics-user-credentials
+      # This only creates the role and sets its password — it does NOT grant any table
+      # access. Grafana queries will fail until the read-only GRANTs are applied once,
+      # by hand, against rhesis-prd-db (see PR description / runbook for the exact SQL):
+      #   GRANT CONNECT ON DATABASE, GRANT USAGE ON SCHEMA public,
+      #   GRANT SELECT ON ALL TABLES IN SCHEMA public, ALTER DEFAULT PRIVILEGES ...
+      # postInitApplicationSQL only runs on a fresh initdb, so it can't backfill this on
+      # an already-initialized cluster (same limitation rhesis-user's grants have above).
       - name: grafana-viewer
         ensure: present
         login: true
