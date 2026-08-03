@@ -1,116 +1,64 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Task Completion Notification</title>
-</head>
-<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-    <div style="background: #f8f9fa; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
-        <h2 style="color: #2c3e50; margin-top: 0;">
-            {% if status.lower() == 'success' -%}
-            ✅ Task Completed
-            {%- else -%}
-            ❌ Task Completed
-            {%- endif %}
-        </h2>
-        <p>
-            {%- if recipient_name -%}
-            Hello {{ recipient_name }},
-            {%- else -%}
-            Hello,
-            {%- endif %}
-        </p>
-        <p>Your task has completed with status: 
-            <strong style="color: {% if status.lower() == 'success' %}#28a745{% else %}#dc3545{% endif %};">
-                {{ status.upper() }}
-            </strong>
-        </p>
-    </div>
-    
-    <div style="background: white; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px;">
-        <h3 style="color: #495057; margin-top: 0;">Task Details</h3>
-        <table style="width: 100%; border-collapse: collapse;">
-            <tr>
-                <td style="padding: 8px 0; font-weight: bold;">Task Name:</td>
-                <td style="padding: 8px 0;">{{ task_name }}</td>
-            </tr>
-            <tr>
-                <td style="padding: 8px 0; font-weight: bold;">Task ID:</td>
-                <td style="padding: 8px 0; font-family: monospace; font-size: 0.9em;">{{ task_id }}</td>
-            </tr>
-            <tr>
-                <td style="padding: 8px 0; font-weight: bold;">Status:</td>
-                <td style="padding: 8px 0; color: {% if status.lower() == 'success' %}#28a745{% else %}#dc3545{% endif %}; font-weight: bold;">
-                    {{ status.title() }}
-                </td>
-            </tr>
-            <tr>
-                <td style="padding: 8px 0; font-weight: bold;">Completed at:</td>
-                <td style="padding: 8px 0;">{{ completed_at }} UTC</td>
-            </tr>
-            {%- if execution_time %}
-            <tr>
-                <td style="padding: 8px 0; font-weight: bold;">Execution Time:</td>
-                <td style="padding: 8px 0;">{{ execution_time }}</td>
-            </tr>
-            {%- endif %}
-            {%- if test_run_id and test_run_id != "N/A" %}
-            <tr>
-                <td style="padding: 8px 0; font-weight: bold;">Test Run ID:</td>
-                <td style="padding: 8px 0; font-family: monospace; font-size: 0.9em;">{{ test_run_id }}</td>
-            </tr>
-            {%- endif %}
-            {%- if test_set_id and test_set_id != "N/A" %}
-            <tr>
-                <td style="padding: 8px 0; font-weight: bold;">Test Set ID:</td>
-                <td style="padding: 8px 0; font-family: monospace; font-size: 0.9em;">{{ test_set_id }}</td>
-            </tr>
-            {%- endif %}
-            {%- if test_set_name %}
-            <tr>
-                <td style="padding: 8px 0; font-weight: bold;">Test Set Name:</td>
-                <td style="padding: 8px 0;">{{ test_set_name }}</td>
-            </tr>
-            {%- endif %}
-            {%- if num_tests_generated %}
-            <tr>
-                <td style="padding: 8px 0; font-weight: bold;">Tests Generated:</td>
-                <td style="padding: 8px 0;">{{ num_tests_generated }}</td>
-            </tr>
-            {%- endif %}
-        </table>
-    </div>
+{% extends '_base.html.jinja2' %}
+{% import '_components.html.jinja2' as c %}
 
-    {%- if status.lower() == 'failed' and error_message %}
-    <div style="background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 8px; padding: 20px; margin-top: 20px;">
-        <h3 style="color: #721c24; margin-top: 0;">Error Details</h3>
-        <pre style="color: #721c24; white-space: pre-wrap; font-family: monospace; font-size: 0.9em;">{{ error_message }}</pre>
-    </div>
-    {%- endif %}
+{% block title %}Task Completion Notification - Rhesis AI{% endblock %}
+{% block preheader %}{{ task_name }} finished with status {{ status | upper }}.{% endblock %}
 
-    {%- if frontend_url %}
-        {%- if test_run_id and test_run_id != "N/A" %}
-        <div style="text-align: center; margin: 30px 0;">
-            <a href="{{ frontend_url }}/test-runs/{{ test_run_id }}" 
-               style="background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">
-                View Test Run
-            </a>
-        </div>
-        {%- elif test_set_id and test_set_id != "N/A" %}
-        <div style="text-align: center; margin: 30px 0;">
-            <a href="{{ frontend_url }}/test-sets/{{ test_set_id }}" 
-               style="background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">
-                View Test Set
-            </a>
-        </div>
-        {%- endif %}
-    {%- endif %}
-    
-    <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #dee2e6; color: #6c757d; font-size: 0.9em;">
-        <p>Best regards,<br>Rhesis AI Team</p>
-        
-        {% include '_imprint.html.jinja2' %}
-    </div>
-</body>
-</html> 
+{% block content %}
+{%- set ok = status.lower() == 'success' %}
+
+{{ c.row_header('Task', accent='completed' if ok else 'failed', label='Background task') }}
+
+{% call c.row_prose() %}
+    {{ c.p('Hello' ~ (' ' ~ recipient_name if recipient_name and recipient_name != 'N/A' else '') ~ ',') }}
+    <p style="margin: 0; font-family: {{ brand.font.sans }}; font-size: {{ brand.type.body }}px; line-height: 1.6; color: {{ brand.color.body }};">
+        Your task has completed with status
+        <span style="font-weight: 700; color: {{ brand.color.success if ok else brand.color.error }};">{{ status.upper() }}</span>.
+    </p>
+{% endcall %}
+
+{% call c.row_card() %}
+    {{ c.card_title('Task details') }}
+    {%- set rows = [
+        {'label': 'Task name', 'value': task_name, 'bold': True},
+        {'label': 'Task ID', 'value': task_id, 'mono': True},
+        {'label': 'Status', 'value': status.title(), 'color': brand.color.success if ok else brand.color.error, 'bold': True},
+        {'label': 'Completed at', 'value': (completed_at | datetime_format) ~ ' UTC'},
+    ] -%}
+    {%- if execution_time and execution_time != 'N/A' -%}
+    {%- set rows = rows + [{'label': 'Execution time', 'value': execution_time}] -%}
+    {%- endif -%}
+    {%- if test_run_id is defined and test_run_id and test_run_id != 'N/A' -%}
+    {%- set rows = rows + [{'label': 'Test run ID', 'value': test_run_id, 'mono': True}] -%}
+    {%- endif -%}
+    {%- if test_set_id is defined and test_set_id and test_set_id != 'N/A' -%}
+    {%- set rows = rows + [{'label': 'Test set ID', 'value': test_set_id, 'mono': True}] -%}
+    {%- endif -%}
+    {%- if test_set_name is defined and test_set_name and test_set_name != 'N/A' -%}
+    {%- set rows = rows + [{'label': 'Test set name', 'value': test_set_name}] -%}
+    {%- endif -%}
+    {%- if num_tests_generated is defined and num_tests_generated -%}
+    {%- set rows = rows + [{'label': 'Tests generated', 'value': num_tests_generated}] -%}
+    {%- endif -%}
+    {{ c.kv_table(rows) }}
+{% endcall %}
+
+{% if status.lower() in ('failed', 'failure') and error_message and error_message != 'N/A' %}
+<tr>
+    <td style="padding: 0 0 20px 0;">
+        {% call c.card() %}
+            {{ c.card_title('Error details') }}
+            {{ c.code_block(error_message, tone='error') }}
+        {% endcall %}
+    </td>
+</tr>
+{% endif %}
+
+{% if frontend_url and frontend_url != 'N/A' %}
+    {% if test_run_id is defined and test_run_id and test_run_id != 'N/A' %}
+    {{ c.row_button(frontend_url ~ '/test-runs/' ~ test_run_id, 'View test run') }}
+    {% elif test_set_id is defined and test_set_id and test_set_id != 'N/A' %}
+    {{ c.row_button(frontend_url ~ '/test-sets/' ~ test_set_id, 'View test set') }}
+    {% endif %}
+{% endif %}
+{% endblock %}

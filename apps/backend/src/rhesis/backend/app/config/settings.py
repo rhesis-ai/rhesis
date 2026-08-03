@@ -266,6 +266,9 @@ class SMTPSettings(BaseSettings):
     user: str | None = Field(default=None, alias="SMTP_USER")
     password: str | None = Field(default=None, alias="SMTP_PASSWORD")
     from_email: str = Field(default="engineering@rhesis.ai", alias="FROM_EMAIL")
+    # Where email templates load their logo, header wash, and web fonts from.
+    # Must be publicly reachable — mail clients fetch these directly.
+    asset_base_url: str = Field(default="https://rhesis.ai", alias="EMAIL_ASSET_BASE_URL")
 
 
 class ModelSettings(BaseSettings):

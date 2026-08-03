@@ -10,6 +10,8 @@ from typing import Any, Dict
 
 import jinja2
 
+from rhesis.backend.notifications.email.brand import get_brand
+
 logger = logging.getLogger(__name__)
 
 
@@ -47,6 +49,10 @@ class TemplateService:
         # Add custom filters
         self.jinja_env.filters["datetime_format"] = self._datetime_format
         self.jinja_env.filters["format_number"] = lambda value: f"{int(value):,}"
+
+        # Brand tokens are a global so every template and macro reads the same
+        # palette, font stacks, and asset URLs. See brand.py.
+        self.jinja_env.globals["brand"] = get_brand()
 
         # Define required variables for each template
         self.template_variables = {
