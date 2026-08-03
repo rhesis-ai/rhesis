@@ -29,10 +29,16 @@ class LicenseEdition(str, Enum):
     rather than raising, keeping verification fail-soft on cosmetic fields.
 
     Adding a sellable tier is a two-step change: add a member here, then add
-    its entitlement spec to the tier config YAML
-    (``tier_config.yaml``).  ``COMMUNITY`` and ``UNKNOWN`` are
-    non-sellable sentinels and are intentionally absent from the
-    sellable catalog.
+    its entitlement spec to the tier config YAML (``tier_config.yaml``).
+    Both steps are enforced -- ``tiers._assert_catalog_complete()`` refuses
+    to start if a member declared here has no config entry, and
+    ``tiers._parse_edition()`` rejects a config entry naming an edition not
+    declared here. Neither half can ship alone.
+
+    ``COMMUNITY`` and ``UNKNOWN`` are non-sellable sentinels and are
+    intentionally absent from the sellable catalog. ``COMMUNITY`` still
+    carries free-tier limits for unlicensed orgs; ``UNKNOWN`` is a
+    decode-time sentinel only and must never appear in the config.
     """
 
     COMMUNITY = "community"

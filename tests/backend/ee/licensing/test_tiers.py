@@ -23,8 +23,11 @@ from rhesis.backend.ee.licensing.entitlements import (
 )
 from rhesis.backend.ee.licensing.tiers import (
     EDITION_ENTITLEMENTS,
+    SELLABLE_EDITIONS,
     TierSpec,
+    _assert_catalog_complete,
     _load_tier_config,
+    all_sellable,
     is_sellable,
     resolve_limits,
     resolve_tier,
@@ -57,11 +60,13 @@ class TestCatalogShape:
                 resolve_tier(edition)
 
     def test_sellable_editions_present(self):
-        for edition in (
-            LicenseEdition.TEAM,
-            LicenseEdition.ENTERPRISE,
-            LicenseEdition.MASTER,
-        ):
+        """Every sellable edition has a catalog entry.
+
+        Driven off all_sellable() rather than a literal list so adding a
+        tier does not require editing this test -- the startup gate in
+        _assert_catalog_complete() enforces the same invariant, and this
+        confirms it holds for the real bundled config."""
+        for edition in all_sellable():
             assert is_sellable(edition)
 
     def test_community_entry_exists_for_limits_lookup(self):
@@ -134,6 +139,67 @@ class TestLoadTierConfig:
             "enterprise:\n  all_features: true\n  limits:\n    seats: null\n",
         )
         assert set(catalog.keys()) == {LicenseEdition.COMMUNITY, LicenseEdition.ENTERPRISE}
+
+    def test_undeclared_edition_key_raises(self, tmp_path, monkeypatch):
+        """A config naming a tier that isn't in LicenseEdition must fail loud.
+
+        LicenseEdition._missing_ coerces unrecognized values to UNKNOWN
+        instead of raising, so a naive ``LicenseEdition(key)`` would bind
+        the undeclared tier's limits onto the UNKNOWN sentinel -- and every
+        org whose license carries an unrecognized edition resolves to
+        UNKNOWN, so it would silently inherit those limits.
+        """
+        with pytest.raises(ValueError, match="pro"):
+            self._load_from(
+                tmp_path,
+                monkeypatch,
+                "community:\n  limits:\n    seats: 3\npro:\n  limits:\n    seats: 25\n",
+            )
+
+    def test_unknown_sentinel_cannot_be_configured(self, tmp_path, monkeypatch):
+        """UNKNOWN is a decode-time sentinel, never a configurable tier."""
+        with pytest.raises(ValueError, match="unknown"):
+            self._load_from(
+                tmp_path,
+                monkeypatch,
+                "community:\n  limits:\n    seats: 3\nunknown:\n  limits:\n    seats: 999\n",
+            )
+
+
+class TestCatalogCompleteness:
+    """The enum and the tier config must agree; neither half ships alone."""
+
+    def test_declared_edition_without_config_entry_raises(self):
+        """A LicenseEdition member with no YAML entry fails at startup
+        rather than late, with a KeyError, the first time someone mints it."""
+        partial = {
+            LicenseEdition.COMMUNITY: TierSpec(edition=LicenseEdition.COMMUNITY),
+            LicenseEdition.TEAM: TierSpec(edition=LicenseEdition.TEAM),
+        }
+        with pytest.raises(RuntimeError, match="missing an entry"):
+            _assert_catalog_complete(partial)
+
+    def test_error_names_the_missing_editions(self):
+        partial = {
+            LicenseEdition.COMMUNITY: TierSpec(edition=LicenseEdition.COMMUNITY),
+            LicenseEdition.TEAM: TierSpec(edition=LicenseEdition.TEAM),
+        }
+        with pytest.raises(RuntimeError) as exc_info:
+            _assert_catalog_complete(partial)
+        message = str(exc_info.value)
+        for missing in SELLABLE_EDITIONS - {LicenseEdition.TEAM}:
+            assert missing.value in message
+
+    def test_community_only_fallback_is_exempt(self):
+        """_fallback_catalog() is community-only by design; the gate must
+        not turn a degraded-but-working config into a boot failure."""
+        fallback = {LicenseEdition.COMMUNITY: TierSpec(edition=LicenseEdition.COMMUNITY)}
+        _assert_catalog_complete(fallback)
+
+    def test_real_bundled_config_is_complete(self):
+        """The shipped tier_config.yaml satisfies the gate."""
+        _assert_catalog_complete(EDITION_ENTITLEMENTS)
+        assert all_sellable() <= set(EDITION_ENTITLEMENTS)
 
 
 class TestTierToLicClaim:

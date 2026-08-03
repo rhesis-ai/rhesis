@@ -54,6 +54,50 @@ _BUNDLED_CONFIG = Path(__file__).parent / "tier_config.yaml"
 # minted a token for it).
 NON_SELLABLE_EDITIONS = frozenset({LicenseEdition.COMMUNITY, LicenseEdition.UNKNOWN})
 
+# Editions the config is required to define. Derived from the enum rather
+# than listed by hand so adding a member to LicenseEdition automatically
+# extends what _assert_catalog_complete() demands of the YAML.
+SELLABLE_EDITIONS = frozenset(LicenseEdition) - NON_SELLABLE_EDITIONS
+
+# Every edition the catalog is allowed to contain: the sellable tiers plus
+# COMMUNITY, which carries free-tier limits for unlicensed orgs but is never
+# minted. UNKNOWN is excluded -- it is a decode-time sentinel, not a tier,
+# and must never pick up limits from a config entry.
+CATALOG_EDITIONS = SELLABLE_EDITIONS | {LicenseEdition.COMMUNITY}
+
+
+def all_sellable() -> frozenset[LicenseEdition]:
+    """Return every edition that can be minted a license token.
+
+    Single source of truth for "what tiers exist" -- prefer this over
+    hardcoding edition lists in callers and tests, so adding a tier does
+    not require hunting down literal lists.
+    """
+    return SELLABLE_EDITIONS
+
+
+def _parse_edition(edition_key: object) -> Optional[LicenseEdition]:
+    """Strictly resolve a YAML edition key to a :class:`LicenseEdition`.
+
+    ``LicenseEdition(value)`` cannot be used directly here: its
+    :meth:`~LicenseEdition._missing_` coerces anything unrecognized to
+    ``UNKNOWN`` instead of raising, which would silently bind a typo'd or
+    not-yet-declared tier's limits onto the ``UNKNOWN`` sentinel -- and
+    every org whose license carries an unrecognized edition resolves to
+    ``UNKNOWN``. Match against real member values instead, so an unknown
+    key is reported rather than absorbed.
+
+    :returns: the matching member, or ``None`` if *edition_key* is not a
+        declared edition (or is the ``UNKNOWN`` sentinel, which the config
+        must never define).
+    """
+    if not isinstance(edition_key, str):
+        return None
+    for edition in CATALOG_EDITIONS:
+        if edition.value == edition_key:
+            return edition
+    return None
+
 
 @dataclass(frozen=True)
 class TierSpec:
@@ -165,11 +209,13 @@ def _load_tier_config() -> dict[LicenseEdition, TierSpec]:
 
     catalog: dict[LicenseEdition, TierSpec] = {}
     for edition_key, spec_raw in raw.items():
-        try:
-            edition = LicenseEdition(edition_key)
-        except ValueError:
-            logger.warning("Unknown edition %r in tier config, skipping", edition_key)
-            continue
+        edition = _parse_edition(edition_key)
+        if edition is None:
+            raise ValueError(
+                f"Unknown edition {edition_key!r} in tier config at {config_path}. "
+                f"Declare it in LicenseEdition first. "
+                f"Valid keys: {sorted(e.value for e in CATALOG_EDITIONS)}"
+            )
 
         if not isinstance(spec_raw, dict):
             logger.warning(
@@ -221,10 +267,39 @@ def _load_tier_config() -> dict[LicenseEdition, TierSpec]:
     return catalog
 
 
+def _assert_catalog_complete(catalog: dict[LicenseEdition, TierSpec]) -> None:
+    """Fail loud if the enum and the tier config disagree.
+
+    Adding a tier is a two-step change (declare it in
+    :class:`LicenseEdition`, then define it in ``tier_config.yaml``). This
+    gate makes it impossible to ship it half-done: a declared-but-undefined
+    tier would otherwise fail late and cryptically with a ``KeyError`` the
+    first time someone tried to mint it, and the reverse case is caught by
+    :func:`_parse_edition`.
+
+    Skipped when the catalog is the free-tier fallback, which is by design
+    community-only -- see :func:`_fallback_catalog`.
+
+    :raises RuntimeError: naming exactly which editions are missing.
+    """
+    if set(catalog) == {LicenseEdition.COMMUNITY}:
+        return
+
+    missing = sorted(e.value for e in SELLABLE_EDITIONS - set(catalog))
+    if missing:
+        raise RuntimeError(
+            f"Tier config is missing an entry for declared edition(s): {missing}. "
+            f"Every LicenseEdition member except "
+            f"{sorted(e.value for e in NON_SELLABLE_EDITIONS)} "
+            f"must have a corresponding entry in tier_config.yaml."
+        )
+
+
 # ---------------------------------------------------------------------------
 # THE CATALOG — loaded from tier_config.yaml at import time.
 # ---------------------------------------------------------------------------
 EDITION_ENTITLEMENTS: dict[LicenseEdition, TierSpec] = _load_tier_config()
+_assert_catalog_complete(EDITION_ENTITLEMENTS)
 
 
 def is_sellable(edition: LicenseEdition) -> bool:
@@ -284,9 +359,12 @@ def tier_to_lic_claim(
 
 
 __all__ = [
+    "CATALOG_EDITIONS",
     "EDITION_ENTITLEMENTS",
     "NON_SELLABLE_EDITIONS",
+    "SELLABLE_EDITIONS",
     "TierSpec",
+    "all_sellable",
     "is_sellable",
     "resolve_limits",
     "resolve_tier",
