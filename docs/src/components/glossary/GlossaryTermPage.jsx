@@ -6,6 +6,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import LabelIcon from '@mui/icons-material/Label'
 import LinkIcon from '@mui/icons-material/Link'
 import { CodeBlock } from '../CodeBlock'
+import { ThemeAwareImage } from '../ThemeAwareImage'
 import { InteractiveLink } from './InteractiveLink'
 import glossaryDataRaw from '../../../content/glossary/glossary-terms.jsonl'
 
@@ -82,6 +83,10 @@ async function renderMarkdownWithCodeBlocks(markdown) {
  *
  * Displays an individual glossary term with full details on its own page.
  * Used for SEO-optimized individual term pages.
+ *
+ * A term may carry an optional `screenshot` of `{ light, dark, alt }` in
+ * glossary-terms.jsonl. Terms that name a page in the platform read better with
+ * the page itself in view, so it renders directly under the definition.
  *
  * @param {Object} props - Component props
  * @param {string} props.termId - The ID of the term to display
@@ -246,6 +251,16 @@ export const GlossaryTermPage = async ({ termId }) => {
 
       {term.aliases && term.aliases.length > 0 && (
         <div style={aliasesStyles}>Also known as: {term.aliases.join(', ')}</div>
+      )}
+
+      {term.screenshot && (
+        <div style={{ margin: '2rem 0' }}>
+          <ThemeAwareImage
+            lightSrc={term.screenshot.light}
+            darkSrc={term.screenshot.dark}
+            alt={term.screenshot.alt}
+          />
+        </div>
       )}
 
       {term.extendedContent && (
