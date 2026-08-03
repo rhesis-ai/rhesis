@@ -1,11 +1,6 @@
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import {
-  BehaviorDetailStats,
-  BehaviorPassRates,
-  MetricPassRates,
-  PassFailStats,
-  TopicPassRates,
-} from '@/utils/api-client/interfaces/test-results';
+import { PassFailStats } from '@/utils/api-client/interfaces/test-results';
+import { InsightsRow } from '@/utils/api-client/interfaces/insights';
 import {
   readInsightsEndpointId,
   writeInsightsEndpointId,
@@ -64,14 +59,21 @@ export function sortBehaviorColumns(
   );
 }
 
-export function passRatesToItems(
-  rates: MetricPassRates | TopicPassRates | BehaviorPassRates | undefined
-): DimensionItem[] {
-  if (!rates) return [];
-  return Object.entries(rates).map(([name, stats]) => ({
-    name,
-    ...stats,
-  }));
+/**
+ * One `/insights/batch` row -> the `PassFailStats` shape used across the Insights UI.
+ * `total` is `passed + failed`, not the row's raw `count` -- `count` also includes
+ * pending/errored results that never got evaluated, which would make "X/Y passed"
+ * text count them in the denominator without them showing up as either passed or failed.
+ */
+export function rowToPassFailStats(row: InsightsRow): PassFailStats {
+  const passed = Number(row.passed ?? 0);
+  const failed = Number(row.failed ?? 0);
+  return {
+    total: passed + failed,
+    passed,
+    failed,
+    pass_rate: Number(row.pass_rate ?? 0),
+  };
 }
 
 export function isBehaviorColumnExpandable(
@@ -225,29 +227,49 @@ export async function resolveInsightsQueryTestRunIds(
   return testRunIds;
 }
 
-export function buildBehaviorColumns(
-  behaviorsWithData: Array<{ id: string; name: string }>,
-  behaviorPassRates: BehaviorPassRates,
-  behaviorDetail: Record<string, BehaviorDetailStats>
-): BehaviorInsightColumn[] {
-  const columns: BehaviorInsightColumn[] = behaviorsWithData.map(behavior => {
-    const detail = behaviorDetail[behavior.id];
-    const overall = detail?.overall_pass_rates ??
-      behaviorPassRates[behavior.name] ?? {
-        total: 0,
-        passed: 0,
-        failed: 0,
-        pass_rate: 0,
-      };
+/** Group rows sharing a `behavior_id` into `DimensionItem[]`, keyed by `nameKey` (e.g. `topic`). */
+function groupRowsByBehaviorId(
+  rows: InsightsRow[],
+  nameKey: string
+): Map<string, DimensionItem[]> {
+  const grouped = new Map<string, DimensionItem[]>();
+  for (const row of rows) {
+    const behaviorId = row.behavior_id;
+    const name = row[nameKey];
+    if (typeof behaviorId !== 'string' || typeof name !== 'string') continue;
+    const items = grouped.get(behaviorId) ?? [];
+    items.push({ name, ...rowToPassFailStats(row) });
+    grouped.set(behaviorId, items);
+  }
+  return grouped;
+}
 
-    return {
-      id: behavior.id,
-      name: behavior.name,
-      overall,
-      metrics: sortByPassRateAsc(passRatesToItems(detail?.metric_pass_rates)),
-      topics: sortByPassRateAsc(passRatesToItems(detail?.topic_pass_rates)),
-    };
-  });
+/**
+ * Build behavior columns straight from `/insights/batch` rows: `behaviorRows`
+ * (group_by=[behavior_id,behavior]) already are "behaviors with data" -- no
+ * separate behavior list fetch needed. `topicRows`/`metricRows` are grouped
+ * by behavior_id to fill each column's breakdown lists.
+ */
+export function buildBehaviorColumns(
+  behaviorRows: InsightsRow[],
+  topicRows: InsightsRow[],
+  metricRows: InsightsRow[]
+): BehaviorInsightColumn[] {
+  const topicsByBehavior = groupRowsByBehaviorId(topicRows, 'topic');
+  const metricsByBehavior = groupRowsByBehaviorId(metricRows, 'metric_name');
+
+  const columns: BehaviorInsightColumn[] = behaviorRows
+    .filter(
+      (row): row is InsightsRow & { behavior_id: string; behavior: string } =>
+        typeof row.behavior_id === 'string' && typeof row.behavior === 'string'
+    )
+    .map(row => ({
+      id: row.behavior_id,
+      name: row.behavior,
+      overall: rowToPassFailStats(row),
+      metrics: sortByPassRateAsc(metricsByBehavior.get(row.behavior_id) ?? []),
+      topics: sortByPassRateAsc(topicsByBehavior.get(row.behavior_id) ?? []),
+    }));
 
   return sortBehaviorColumns(columns);
 }

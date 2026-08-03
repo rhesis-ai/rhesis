@@ -14,28 +14,65 @@ jest.mock('next-auth/react', () => ({
 jest.mock('../../utils/behavior-insights-utils', () => ({
   resolveInsightsQueryTestRunIds: jest.fn(),
   buildBehaviorColumns: jest.fn(() => []),
+  rowToPassFailStats: jest.fn(row => ({
+    total: Number(row.count ?? 0),
+    passed: Number(row.passed ?? 0),
+    failed: Number(row.failed ?? 0),
+    pass_rate: Number(row.pass_rate ?? 0),
+  })),
 }));
 
 jest.mock('../../utils/insights-failed-tests', () => ({
   fetchFailedTestIdsForInsights: jest.fn(),
 }));
 
+function mockInsightsBatchResponse(summaryRow: {
+  count: number;
+  passed: number;
+  failed: number;
+  pass_rate: number;
+}) {
+  return {
+    results: {
+      summary: {
+        entity: 'test_result',
+        dimensions: [],
+        measures: ['count', 'passed', 'failed', 'pass_rate'],
+        rows: [summaryRow],
+      },
+      behaviors: {
+        entity: 'test_result',
+        dimensions: ['behavior_id', 'behavior'],
+        measures: ['count', 'passed', 'failed', 'pass_rate'],
+        rows: [],
+      },
+      topics: {
+        entity: 'test_result',
+        dimensions: ['behavior_id', 'topic'],
+        measures: ['count', 'passed', 'failed', 'pass_rate'],
+        rows: [],
+      },
+      metrics: {
+        entity: 'metric',
+        dimensions: ['behavior_id', 'metric_name'],
+        measures: ['count', 'passed', 'failed', 'pass_rate'],
+        rows: [],
+      },
+    },
+  };
+}
+
 jest.mock('@/utils/api-client/client-factory', () => ({
   ApiClientFactory: jest.fn().mockImplementation(() => ({
-    getTestResultsClient: () => ({
-      getComprehensiveTestResultsStats: jest.fn().mockResolvedValue({
-        overall_pass_rates: {
-          total: 20,
+    getInsightsClient: () => ({
+      getInsightsBatch: jest.fn().mockResolvedValue(
+        mockInsightsBatchResponse({
+          count: 20,
           passed: 10,
           failed: 10,
           pass_rate: 50,
-        },
-        behavior_pass_rates: {},
-        metadata: null,
-      }),
-    }),
-    getBehaviorClient: () => ({
-      getBehaviors: jest.fn().mockResolvedValue([]),
+        })
+      ),
     }),
   })),
 }));
@@ -171,20 +208,15 @@ describe('useBehaviorInsightsData', () => {
       '@/utils/api-client/client-factory'
     );
     ApiClientFactory.mockImplementation(() => ({
-      getTestResultsClient: () => ({
-        getComprehensiveTestResultsStats: jest.fn().mockResolvedValue({
-          overall_pass_rates: {
-            total: 10,
+      getInsightsClient: () => ({
+        getInsightsBatch: jest.fn().mockResolvedValue(
+          mockInsightsBatchResponse({
+            count: 10,
             passed: 10,
             failed: 0,
             pass_rate: 100,
-          },
-          behavior_pass_rates: {},
-          metadata: null,
-        }),
-      }),
-      getBehaviorClient: () => ({
-        getBehaviors: jest.fn().mockResolvedValue([]),
+          })
+        ),
       }),
     }));
 

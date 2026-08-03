@@ -16,7 +16,7 @@ describe('InsightsSummaryBar', () => {
     expect(screen.getByText(/50\.0%/)).toBeInTheDocument();
     expect(
       screen.getByText(
-        /\(10\/20 test results passed, 10 failed · 5 unique test cases failed\) · Insurance Chatbot/
+        /\(10\/20 tests passed, 10\/20 failed · 5 unique test cases failed\) · Insurance Chatbot/
       )
     ).toBeInTheDocument();
   });
@@ -30,7 +30,7 @@ describe('InsightsSummaryBar', () => {
     );
 
     expect(
-      screen.getByText(/\(7\/10 test results passed, 3 failed\)/)
+      screen.getByText(/\(7\/10 tests passed, 3\/10 failed\)/)
     ).toBeInTheDocument();
     expect(
       screen.queryByText(/unique test cases failed/)

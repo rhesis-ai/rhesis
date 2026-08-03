@@ -4,11 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import {
-  BehaviorDetailStats,
-  PassFailStats,
-  TestResultsStatsMetadata,
-} from '@/utils/api-client/interfaces/test-results';
+import { PassFailStats } from '@/utils/api-client/interfaces/test-results';
 import {
   InsightsFilters,
   resolveInsightsTimeRange,
@@ -17,6 +13,7 @@ import {
 import {
   BehaviorInsightColumn,
   buildBehaviorColumns,
+  rowToPassFailStats,
 } from '../utils/behavior-insights-utils';
 import {
   fetchInsightsFailedTestIds,
@@ -34,7 +31,6 @@ const EMPTY_SUMMARY: PassFailStats = {
 
 export interface BehaviorInsightsData {
   summary: PassFailStats | null;
-  metadata: TestResultsStatsMetadata | null;
   columns: BehaviorInsightColumn[];
   /** Unique failed test case count; null while resolving or after filter change. */
   failedTestCaseCount: number | null;
@@ -48,9 +44,6 @@ export function useBehaviorInsightsData(
   enabled = true
 ): BehaviorInsightsData {
   const [summary, setSummary] = useState<PassFailStats | null>(null);
-  const [metadata, setMetadata] = useState<TestResultsStatsMetadata | null>(
-    null
-  );
   const [columns, setColumns] = useState<BehaviorInsightColumn[]>([]);
   const [failedTestCaseCount, setFailedTestCaseCount] = useState<number | null>(
     null
@@ -74,7 +67,6 @@ export function useBehaviorInsightsData(
     if (!enabled || !isAuthenticated(status) || !filters.endpointId) {
       setLoading(false);
       setSummary(null);
-      setMetadata(null);
       setColumns([]);
       setFailedTestCaseCount(0);
       setNoRuns(false);
@@ -109,7 +101,6 @@ export function useBehaviorInsightsData(
 
           if (testRunIds.length === 0) {
             setSummary(EMPTY_SUMMARY);
-            setMetadata(null);
             setColumns([]);
             setFailedTestCaseCount(0);
             setNoRuns(true);
@@ -119,65 +110,59 @@ export function useBehaviorInsightsData(
 
           setNoRuns(false);
 
-          const factory = new ApiClientFactory();
-          const testResultsClient = factory.getTestResultsClient();
-          const behaviorClient = factory.getBehaviorClient();
+          const insightsClient = new ApiClientFactory().getInsightsClient();
 
-          const statsParams = {
-            test_run_ids: testRunIds,
-            ...(filters.runFilterMode === 'timeRange'
+          const timeParams =
+            filters.runFilterMode === 'timeRange'
               ? timeRangeToStatsParams(runContext.timeRange)
-              : {}),
+              : {};
+          const measures = ['passed', 'failed', 'pass_rate'];
+          const baseQuery = {
+            filters: { test_run_ids: testRunIds },
+            ...timeParams,
           };
 
-          const [summaryResult, behaviorResult, behaviors] = await Promise.all([
-            testResultsClient.getComprehensiveTestResultsStats({
-              ...statsParams,
-              mode: 'summary',
-            }),
-            testResultsClient.getComprehensiveTestResultsStats({
-              ...statsParams,
-              mode: 'behavior',
-            }),
-            behaviorClient.getBehaviors({
-              limit: 100,
-              sort_by: 'name',
-              sort_order: 'asc',
-            }),
-          ]);
+          const batch = await insightsClient.getInsightsBatch({
+            queries: {
+              summary: {
+                entity: 'test_result',
+                group_by: [],
+                measures,
+                ...baseQuery,
+              },
+              behaviors: {
+                entity: 'test_result',
+                group_by: ['behavior_id', 'behavior'],
+                measures,
+                ...baseQuery,
+              },
+              topics: {
+                entity: 'test_result',
+                group_by: ['behavior_id', 'topic'],
+                measures,
+                ...baseQuery,
+              },
+              metrics: {
+                entity: 'metric',
+                group_by: ['behavior_id', 'metric_name'],
+                measures,
+                ...baseQuery,
+              },
+            },
+          });
 
           if (!isCurrentRequest(requestId)) return;
 
-          const behaviorPassRates = behaviorResult.behavior_pass_rates ?? {};
-          const behaviorsWithData = behaviors.filter(
-            b => behaviorPassRates[b.name] !== undefined
-          );
-
-          let behaviorDetail: Record<string, BehaviorDetailStats> = {};
-
-          if (behaviorsWithData.length > 0) {
-            const detailResult =
-              await testResultsClient.getComprehensiveTestResultsStats({
-                ...statsParams,
-                mode: 'behavior_detail',
-                behavior_ids: behaviorsWithData.map(b => b.id),
-              });
-            behaviorDetail = detailResult.behavior_detail ?? {};
-          }
-
-          if (!isCurrentRequest(requestId)) return;
-
-          const overallSummary =
-            summaryResult.overall_pass_rates ?? EMPTY_SUMMARY;
+          const summaryRow = batch.results.summary.rows[0];
+          const overallSummary = summaryRow
+            ? rowToPassFailStats(summaryRow)
+            : EMPTY_SUMMARY;
           setSummary(overallSummary);
-          setMetadata(
-            summaryResult.metadata ?? behaviorResult.metadata ?? null
-          );
           setColumns(
             buildBehaviorColumns(
-              behaviorsWithData.map(b => ({ id: b.id, name: b.name })),
-              behaviorPassRates,
-              behaviorDetail
+              batch.results.behaviors.rows,
+              batch.results.topics.rows,
+              batch.results.metrics.rows
             )
           );
 
@@ -227,7 +212,6 @@ export function useBehaviorInsightsData(
 
   return {
     summary,
-    metadata,
     columns,
     failedTestCaseCount,
     loading,

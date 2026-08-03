@@ -219,9 +219,9 @@ export function formatInsightsSummaryDetail(
   failed: number,
   failedTestCaseCount?: number
 ): string {
-  let detail = `(${passed}/${total} test results passed`;
+  let detail = `(${passed}/${total} tests passed`;
   if (failed > 0) {
-    detail += `, ${failed} failed`;
+    detail += `, ${failed}/${total} failed`;
     if (
       failedTestCaseCount !== undefined &&
       failedTestCaseCount > 0 &&
