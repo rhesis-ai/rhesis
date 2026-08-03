@@ -49,7 +49,7 @@ The documentation site will be available at `http://localhost:3001`.
 
 - [Full Documentation](https://docs.rhesis.ai)
 - [Getting Started](https://docs.rhesis.ai/docs/getting-started)
-- [Product tour](https://docs.rhesis.ai/docs/product-tour)
+- [Tour](https://docs.rhesis.ai/docs/tour)
 - [Contribute](https://docs.rhesis.ai/contribute)
 
 Please refer to [docs.rhesis.ai](https://docs.rhesis.ai) for the complete and up-to-date documentation. Each section has detailed information with guides, tutorials, and API references.

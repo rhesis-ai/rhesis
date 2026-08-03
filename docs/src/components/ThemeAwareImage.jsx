@@ -32,40 +32,27 @@ export const ThemeAwareImage = ({ lightSrc, darkSrc, alt, className = '' }) => {
     setMounted(true)
   }, [])
 
+  // The shadow tokens already flip with the theme, so the same style works in both.
+  // A black shadow disappears against the dark canvas, hence the border to keep the
+  // screenshot's edge readable there.
+  const imageStyle = {
+    width: '100%',
+    height: 'auto',
+    marginTop: '1.5rem',
+    borderRadius: '8px',
+    border: '1px solid var(--rh-border)',
+    boxShadow: 'var(--rh-shadow-card)',
+  }
+
   // Show light image during SSR and initial render
   if (!mounted) {
-    return (
-      <img
-        src={lightSrc}
-        alt={alt}
-        className={className}
-        style={{ width: '100%', height: 'auto', borderRadius: '8px' }}
-      />
-    )
+    return <img src={lightSrc} alt={alt} className={className} style={imageStyle} />
   }
 
   const isDark = resolvedTheme === 'dark' || theme === 'dark'
 
   return (
-    <div
-      className={className}
-      style={{
-        backdropFilter: isDark ? 'drop-shadow(0 4px 8px rgba(255, 255, 255, 0.1))' : 'none',
-        filter: isDark
-          ? 'drop-shadow(0 4px 12px rgba(255, 255, 255, 0.15)) drop-shadow(0 2px 4px rgba(255, 255, 255, 0.1))'
-          : 'none',
-      }}
-    >
-      <img
-        src={isDark ? darkSrc : lightSrc}
-        alt={alt}
-        style={{
-          width: '100%',
-          height: 'auto',
-          borderRadius: '8px',
-        }}
-      />
-    </div>
+    <img src={isDark ? darkSrc : lightSrc} alt={alt} className={className} style={imageStyle} />
   )
 }
 

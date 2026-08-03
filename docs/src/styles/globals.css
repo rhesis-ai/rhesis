@@ -1035,21 +1035,6 @@ aside nav a[class*='text-primary'],
   }
 }
 
-/* FeatureOverview Component Styles */
-
-@media (max-width: 900px) {
-  .rhesis-feature-overview .featuresGrid {
-    grid-template-columns: repeat(2, 1fr) !important;
-    max-width: 600px !important;
-  }
-}
-
-@media (max-width: 600px) {
-  .rhesis-feature-overview .featuresGrid {
-    grid-template-columns: 1fr !important;
-  }
-}
-
 /* Callout Component Styles */
 /* Override Nextra's default callout styling to use our theme blue */
 /* Try multiple selector patterns to ensure we catch the right elements */

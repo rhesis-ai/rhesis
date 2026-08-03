@@ -21,7 +21,7 @@ import React from 'react'
  * <NextStepCard
  *   emoji="📚"
  *   title="Core Concepts"
- *   description="Understand the fundamental concepts of Gen AI testing with Rhesis."
+ *   description="Understand the fundamental concepts of evaluating LLM applications with Rhesis."
  *   link="/docs/concepts"
  *   linkText="Learn Core Concepts →"
  * />

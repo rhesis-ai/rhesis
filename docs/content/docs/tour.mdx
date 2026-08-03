@@ -1,0 +1,134 @@
+---
+title: Tour – Rhesis
+description: A walk through the Rhesis screens, from connecting an agent to reading the team's verdicts back from code.
+keywords: [Rhesis tour, AI agent review, domain expert feedback, agent evaluation workflow]
+---
+
+import { CodeBlock } from '@/components/CodeBlock'
+
+# Tour
+
+Rhesis is where the people building an AI agent and the people who know what it should answer work
+on the same test cases. This page shows the screens they meet along the way, and links to the page
+that covers each one in depth.
+
+For what each object is called and how they relate, see [Core Concepts](/docs/concepts). To run this
+yourself, start with [Getting Started](/docs/getting-started).
+
+## Connect the agent you are building
+
+Everything else needs a live agent to talk to. An [endpoint](/docs/endpoints) is that connection.
+Register a public REST URL, or use the SDK connector so the agent keeps running on your laptop or
+inside your VPC and opens an outbound WebSocket instead.
+
+<ThemeAwareImage
+  lightSrc="/screenshots/rhesis-ai-endpoints.webp"
+  darkSrc="/screenshots/rhesis-ai-endpoints-dark.webp"
+  alt="Endpoints page — each connected agent with its project, environment, and connection status"
+/>
+
+See [Connect your application](/docs/getting-started/connecting-application) for both routes.
+
+## Let the people who know the domain talk to it
+
+Once an endpoint is connected, anyone you invite can chat with the agent in the
+[Playground](/docs/playground). No local setup, no code, no waiting for an engineer to reproduce
+something. They can attach files, open the trace behind any reply to see which tools and retrieval
+steps ran, and put two conversations side by side to compare configurations.
+
+This is where domain knowledge first enters Rhesis: as a real conversation with the real agent,
+rather than a description of one in a Slack thread.
+
+Invite them from [Organizations & Team](/docs/organizations).
+
+## Turn those conversations into tests
+
+Any Playground conversation can be saved as a [test](/docs/tests) from the conversation window. The
+test keeps the full message context, including attached files, so it replays exactly later. Tests
+carry a behavior, topic, and category, and group into [test sets](/docs/test-sets) for batch runs.
+
+<ThemeAwareImage
+  lightSrc="/screenshots/rhesis-ai-tests.webp"
+  darkSrc="/screenshots/rhesis-ai-tests-dark.webp"
+  alt="Tests page — saved cases with their behavior, topic, category, and type"
+/>
+
+Conversations are one source. You can also [generate tests](/docs/test-sets/tests-generation) from
+your requirements, or [import an existing set](/docs/test-sets/import-from-file).
+
+## Write down what good looks like
+
+A saved conversation says what happened. [Behaviors](/docs/behaviors) and
+[metrics](/docs/metrics) say what should happen: a behavior is the expectation, and the metrics
+attached to it are the judges that score responses against it. Results roll up by behavior, so you
+can see which expectation is slipping rather than only which test failed.
+
+<ThemeAwareImage
+  lightSrc="/screenshots/rhesis-ai-metrics.webp"
+  darkSrc="/screenshots/rhesis-ai-metrics-dark.webp"
+  alt="Metrics page — each metric card shows the behaviors it measures and its backend"
+/>
+
+## Disagree with the machine
+
+Automated scores are a signal, not the last word. A response can be technically correct and wrong
+for your brand, and a refusal that reads as a failure is sometimes the right call. A
+[review](/docs/tasks/test-reviews) is a human verdict that overrides the automated one, at the
+target that matters: the whole result, one metric, or a single conversation turn. The original score
+stays on record.
+
+<ThemeAwareImage
+  lightSrc="/screenshots/rhesis-ai-test-run-reviews.webp"
+  darkSrc="/screenshots/rhesis-ai-test-run-reviews-dark.webp"
+  alt="Reviewing a test run — human Pass or Fail verdicts with comments alongside the automated scores"
+/>
+
+Every verdict written anywhere lands in the [Annotations](/docs/annotations) hub, filtered by open
+or resolved, so disagreements stay visible until the prompt, the model, or the metric is fixed.
+Anything needing follow-up becomes a [task](/docs/tasks).
+
+## Run the same set on every change
+
+Executing a test set against an endpoint creates a [test run](/docs/test-runs). Each run keeps its
+results, metric scores, conversation history, and review activity, so "is it getting better" becomes
+a comparison between runs instead of an opinion.
+
+<ThemeAwareImage
+  lightSrc="/screenshots/rhesis-ai-test-runs.webp"
+  darkSrc="/screenshots/rhesis-ai-test-runs-dark.webp"
+  alt="Test Runs page — pass rate, status, executor, and review count for each run"
+/>
+
+## Three ways in
+
+The same workspace, reached in whichever way suits the person using it.
+
+| Way in                                 | Who it fits                                 | What you do there                                                                           |
+| -------------------------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Web app                                | Domain experts, product managers            | Chat with the agent, save tests, review results, annotate, assign follow-ups. No code.      |
+| [Python SDK](/sdk/installation)        | Engineers                                   | Pull test sets, run them from CI, read results and the team's verdicts back into your code. |
+| [Agent skill](/docs/agent-skill) (MCP) | Engineers working inside an AI coding agent | Drive the same workflow from Cursor or Claude Code through the Rhesis MCP server.           |
+
+### Reading the feedback back from code
+
+Reviews are attached to the test results they judge, so a script can pick up what the team decided:
+
+<CodeBlock filename="read_reviews.py" language="python">
+{`from rhesis.sdk.entities import TestRuns
+
+run = TestRuns.all()[0]
+
+for result in run.get_test_results():
+    for review in (result.get("test_reviews") or {}).get("reviews", []):
+        target = review["target"].get("reference") or review["target"]["type"]
+        print(target, review["status"]["name"], review["user"]["name"])
+        print(review["comments"])`}
+
+</CodeBlock>
+
+## Next steps
+
+- [Connect the agent you are building](/docs/getting-started/connecting-application), then open it
+  in the Playground
+- [Invite the people who know the domain](/docs/organizations) and share the endpoint with them
+- [Generate a first test set](/docs/test-sets/tests-generation) from your requirements and run it

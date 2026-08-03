@@ -69,11 +69,11 @@ const meta: MetaRecord = {
       </span>
     ),
   },
-  'product-tour': {
+  tour: {
     title: (
       <span className="sidebar-icon-label">
         <Explore />
-        Product Tour
+        Tour
       </span>
     ),
   },
