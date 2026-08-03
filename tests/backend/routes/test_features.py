@@ -143,14 +143,25 @@ class TestFeaturesEndpoint:
     def test_response_shape_is_stable(self, client: TestClient, registered_sso, mock_current_user):
         response = client.get("/features")
         body = response.json()
-        assert set(body.keys()) == {"license", "enabled", "warnings"}
+        assert set(body.keys()) == {"license", "enabled", "warnings", "limits"}
         assert set(body["license"].keys()) == {"edition", "licensed"}
         assert isinstance(body["enabled"], list)
         assert all(isinstance(name, str) for name in body["enabled"])
         assert isinstance(body["warnings"], dict)
+        assert isinstance(body["limits"], dict)
 
     def test_license_info_reflects_org(self, client: TestClient, registered_sso, mock_current_user):
-        """license_info() must receive the org object, not None."""
+        """license_info() must always receive the org object, never None.
+
+        May fire more than once per request: QuotaRegistry's
+        ConfigQuotaProvider (installed by ee.bootstrap()) also resolves the
+        org's edition via FeatureRegistry.license_info() to look up quota
+        limits, independent of the router's own call for the ``license``
+        field. That's fine in production -- SignedTokenLicenseProvider.info()
+        bottoms out in the lru_cache'd verify_token(), so a repeat call is a
+        cache hit, not re-verification. The invariant that actually matters
+        is that every call gets the real org, never None.
+        """
         received_orgs: list = []
 
         class _CapturingProvider:
@@ -165,9 +176,9 @@ class TestFeaturesEndpoint:
         try:
             response = client.get("/features")
             assert response.status_code == status.HTTP_200_OK
-            # Provider must have been called with the org, not None
-            assert len(received_orgs) == 1
-            assert received_orgs[0] is not None
+            # Provider must always be called with the org, never None
+            assert len(received_orgs) >= 1
+            assert all(org is not None for org in received_orgs)
             assert response.json()["license"] == {"edition": "enterprise", "licensed": True}
         finally:
             FeatureRegistry.reset()

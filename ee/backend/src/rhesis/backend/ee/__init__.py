@@ -109,10 +109,16 @@ def bootstrap(app: "FastAPI") -> None:
                 "the API Clients audit log relies on it for hashed_email"
             )
 
+    from rhesis.backend.app.quota import QuotaRegistry
+    from rhesis.backend.ee.licensing.quota_provider import ConfigQuotaProvider
+
     # ---- License provider -----------------------------------------------
     # Install before feature registration so any is_available() call that
     # races during bootstrap already sees the correct provider.
     FeatureRegistry.set_license_provider(SignedTokenLicenseProvider())
+
+    # ---- Quota provider -------------------------------------------------
+    QuotaRegistry.set_quota_provider(ConfigQuotaProvider())
 
     # ---- Feature registry -----------------------------------------------
     FeatureRegistry.register(

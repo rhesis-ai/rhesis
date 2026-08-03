@@ -1,0 +1,57 @@
+# Tier configuration -- the single source of truth for what each edition
+# is entitled to.  Keys under `limits` must match QuotaResource enum
+# values defined in rhesis.backend.app.quota.
+#
+# null = unlimited.  Unlicensed orgs resolve to the `community` entry.
+# Override at runtime via RHESIS_TIER_CONFIG env var pointing to a
+# different YAML file (e.g. mounted from a K8s ConfigMap).
+
+community:
+  all_features: false
+  features: []
+  limits:
+    test_executions: 1000
+    tracing_spans: 50000
+    test_generation: 500
+    hosted_model_tokens: 5000000
+    seats: 3
+    projects: 1
+    endpoints: 1
+  retention_days: 14
+  overage: hard
+
+team:
+  all_features: false
+  features:
+    - rbac
+  limits:
+    test_executions: 100000
+    tracing_spans: 5000000
+    test_generation: 50000
+    hosted_model_tokens: 250000000
+    seats: null
+    projects: null
+    endpoints: null
+  retention_days: 90
+  overage: soft
+
+enterprise: &unlimited_tier
+  all_features: true
+  features: []
+  limits:
+    test_executions: null
+    tracing_spans: null
+    test_generation: null
+    hosted_model_tokens: null
+    seats: null
+    projects: null
+    endpoints: null
+  retention_days: 365
+  overage: soft
+
+# Internal tier (see LicenseEdition docstring). Currently identical to
+# enterprise; the merge key keeps that fact explicit instead of two
+# copies of the same block silently drifting apart. Add sibling keys
+# below the merge to override specific fields if master ever diverges.
+master:
+  <<: *unlimited_tier
