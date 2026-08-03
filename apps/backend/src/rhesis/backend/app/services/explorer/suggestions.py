@@ -23,6 +23,11 @@ from rhesis.backend.app.services.explorer.utils import (
     _build_eligible_tests,
     _get_test_set_tests_from_db,
 )
+from rhesis.backend.app.services.streaming_utils import (
+    EventFanout,
+    IncrementalJsonArrayParser,
+)
+from rhesis.backend.app.services.streaming_utils import ndjson as _ndjson
 
 logger = logging.getLogger(__name__)
 
@@ -76,18 +81,6 @@ def _resolve_llm_model(model_or_provider: Any):
     if isinstance(model_or_provider, str):
         return get_model(model_or_provider, model_type="language")
     return model_or_provider
-
-
-from rhesis.backend.app.services.streaming_utils import (
-    EventFanout,
-    IncrementalJsonArrayParser,
-)
-from rhesis.backend.app.services.streaming_utils import (
-    ndjson as _ndjson,
-)
-
-# Keep the private alias for backward compatibility within this module
-_IncrementalJsonArrayParser = IncrementalJsonArrayParser
 
 
 def _build_suggestion_prompt(
@@ -228,7 +221,7 @@ async def _generate_suggestions_stream(
         logger.error("LLM streaming generation failed: %s", e, exc_info=True)
         raise ValueError(f"LLM generation failed: {e}") from e
 
-    parser = _IncrementalJsonArrayParser()
+    parser = IncrementalJsonArrayParser()
 
     async for chunk in token_stream:
         for item in parser.feed(chunk):

@@ -1,18 +1,15 @@
 import asyncio
+import dataclasses
 import json
 import logging
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID
 
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
 from rhesis.backend.app.crud.explorer import set_explorer_test_metadata
-
-if TYPE_CHECKING:
-    from rhesis.sdk.metrics import MetricConfig
-
 from rhesis.backend.app.schemas.explorer import (
     EvaluateFailedItem,
     EvaluateResponse,
@@ -24,6 +21,8 @@ from rhesis.backend.app.services.explorer.utils import (
     _get_test_set_tests_from_db,
 )
 from rhesis.backend.app.utils.user_model_utils import get_evaluation_model
+from rhesis.backend.metrics.metric_config import metric_model_to_config
+from rhesis.sdk.metrics import MetricConfig, MetricFactory
 
 logger = logging.getLogger(__name__)
 
@@ -119,7 +118,7 @@ def _resolve_sdk_metrics(
     organization_id: str,
     user_id: str,
     metric_names: List[str],
-) -> List[Tuple[Any, "MetricConfig"]]:
+) -> List[Tuple[Any, MetricConfig]]:
     """Resolve metric names from the DB and instantiate SDK metric objects.
 
     Returns a list of tuples containing the ready-to-use SDK ``BaseMetric`` instances
@@ -128,11 +127,6 @@ def _resolve_sdk_metrics(
     Raises ``ValueError`` when a requested metric name does not exist
     or none of the resolved metrics could be instantiated.
     """
-    import dataclasses
-
-    from rhesis.backend.metrics.metric_config import metric_model_to_config
-    from rhesis.sdk.metrics import MetricConfig, MetricFactory
-
     name_clauses = " or ".join(f"name eq '{n}'" for n in metric_names)
     resolved = crud.get_metrics(
         db,
@@ -174,7 +168,7 @@ def _resolve_sdk_metrics(
 
 
 async def _run_metrics_on_text(
-    sdk_metrics: List[Tuple[Any, "MetricConfig"]],
+    sdk_metrics: List[Tuple[Any, MetricConfig]],
     input_text: str,
     output_text: str,
 ) -> Dict[str, Any]:
