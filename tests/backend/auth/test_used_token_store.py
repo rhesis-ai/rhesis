@@ -29,6 +29,7 @@ class TestClaimTokenJti:
         mock_redis.set = AsyncMock(return_value=True)
 
         with patch(_REDIS_MGR) as mock_mgr:
+            mock_mgr.initialize = AsyncMock()
             mock_mgr.is_available = True
             mock_mgr.client = mock_redis
 
@@ -47,6 +48,7 @@ class TestClaimTokenJti:
         mock_redis.set = AsyncMock(return_value=False)
 
         with patch(_REDIS_MGR) as mock_mgr:
+            mock_mgr.initialize = AsyncMock()
             mock_mgr.is_available = True
             mock_mgr.client = mock_redis
 
@@ -58,6 +60,7 @@ class TestClaimTokenJti:
     async def test_claim_raises_when_redis_unavailable(self):
         """When Redis is not available, raises TokenStoreUnavailableError."""
         with patch(_REDIS_MGR) as mock_mgr:
+            mock_mgr.initialize = AsyncMock()
             mock_mgr.is_available = False
 
             with pytest.raises(TokenStoreUnavailableError) as exc_info:
@@ -72,6 +75,7 @@ class TestClaimTokenJti:
         mock_redis.set = AsyncMock(side_effect=ConnectionError("redis down"))
 
         with patch(_REDIS_MGR) as mock_mgr:
+            mock_mgr.initialize = AsyncMock()
             mock_mgr.is_available = True
             mock_mgr.client = mock_redis
 
@@ -91,6 +95,7 @@ class TestClaimTokenJti:
         mock_redis.set = AsyncMock(return_value=True)
 
         with patch(_REDIS_MGR) as mock_mgr:
+            mock_mgr.initialize = AsyncMock()
             mock_mgr.is_available = True
             mock_mgr.client = mock_redis
 
