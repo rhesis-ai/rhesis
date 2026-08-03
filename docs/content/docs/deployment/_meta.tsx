@@ -1,6 +1,12 @@
-export default {
+import type { MetaRecord } from 'nextra'
+
+const meta: MetaRecord = {
   index: 'Overview',
   'quick-start': 'Quick Start',
   'docker-compose': 'Docker Compose',
-  'environment-variables': 'Environment Variables'
+  'gcp-terraform': 'GCP (Terraform)',
+  'kubernetes-helm': 'Kubernetes (Helm)',
+  'environment-variables': 'Environment Variables',
 }
+
+export default meta
