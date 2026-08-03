@@ -8,16 +8,16 @@ import pytest
 from rhesis.backend.app.constants import TestResultStatus
 from rhesis.backend.app.services.invokers.common.errors import EndpointInvocationError
 from rhesis.backend.app.services.invokers.common.schemas import ErrorResponse
+from rhesis.backend.app.utils.response_extractor import (
+    get_http_error_status_code,
+    has_http_error_in_result,
+    is_http_error_response,
+)
 from rhesis.backend.tasks.execution.batch.evaluation import evaluate_metrics
 from rhesis.backend.tasks.execution.executors.metrics import determine_status_from_metrics
 from rhesis.backend.tasks.execution.executors.output_providers import TestOutput
 from rhesis.backend.tasks.execution.executors.runners import MultiTurnRunner, SingleTurnRunner
 from rhesis.backend.tasks.execution.penelope_target import BackendEndpointTarget
-from rhesis.backend.tasks.execution.response_extractor import (
-    get_http_error_status_code,
-    has_http_error_in_result,
-    is_http_error_response,
-)
 
 
 def _multi_turn_trace_with_first_http_error(status_code: int = 503) -> dict:

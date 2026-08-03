@@ -12,6 +12,8 @@ from typing import Optional, Tuple
 
 from sqlalchemy.orm import Session
 
+from rhesis.backend.app.services.endpoint.result_processing import process_endpoint_result
+
 logger = logging.getLogger(__name__)
 
 # Endpoint output when the endpoint responded but said nothing. Callers treat this as
@@ -64,10 +66,6 @@ class EndpointInvoker:
             endpoint returned nothing. ``("", error_message)`` on failure.
         """
         from rhesis.backend.app.database import get_db_with_tenant_variables
-
-        # Kept local as well: importing this pulls in rhesis.backend.tasks and the whole
-        # Celery task registry, which this service does not otherwise need.
-        from rhesis.backend.tasks.execution.executors.results import process_endpoint_result
 
         async with self._semaphore:
             try:

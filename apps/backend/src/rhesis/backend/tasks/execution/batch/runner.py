@@ -10,10 +10,10 @@ import logging
 import time
 from typing import Any, Dict, List
 
+from rhesis.backend.app.utils.response_extractor import has_http_error_in_result
 from rhesis.backend.tasks.execution.batch.context import ExecutionContext
 from rhesis.backend.tasks.execution.batch.evaluation import evaluate_metrics
 from rhesis.backend.tasks.execution.batch.invocation import is_multi_turn_test, run_test
-from rhesis.backend.tasks.execution.response_extractor import has_http_error_in_result
 
 logger = logging.getLogger(__name__)
 

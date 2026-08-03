@@ -510,13 +510,11 @@ class TestBatchEvaluationPerTestMetrics:
 
         with (
             patch(
-                "rhesis.backend.tasks.execution.response_extractor"
-                ".extract_response_with_fallback",
+                "rhesis.backend.app.utils.response_extractor.extract_response_with_fallback",
                 return_value="response text",
             ),
             patch(
-                "rhesis.backend.tasks.execution.response_extractor"
-                ".normalize_context_to_list",
+                "rhesis.backend.app.utils.response_extractor.normalize_context_to_list",
                 return_value=[],
             ),
             patch(

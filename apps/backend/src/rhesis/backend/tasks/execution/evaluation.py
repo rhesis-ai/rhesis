@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Union
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.test import Test
+from rhesis.backend.app.utils.response_extractor import extract_response_with_fallback
 from rhesis.backend.metrics.evaluator import MetricEvaluator
 from rhesis.backend.tasks.execution.constants import (
     CONVERSATION_SUMMARY_KEY,
@@ -28,8 +29,6 @@ from rhesis.backend.tasks.execution.constants import (
     TURN_TOOL_CALLS_KEY,
     MetricScope,
 )
-
-from .response_extractor import extract_response_with_fallback
 
 if TYPE_CHECKING:
     from rhesis.sdk.metrics import MetricConfig

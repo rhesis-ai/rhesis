@@ -23,6 +23,7 @@ from rhesis.backend.app.services.explorer.utils import (
     _build_eligible_tests,
     _get_test_set_tests_from_db,
 )
+from rhesis.backend.app.utils.user_model_utils import get_evaluation_model
 
 logger = logging.getLogger(__name__)
 
@@ -130,7 +131,6 @@ def _resolve_sdk_metrics(
     import dataclasses
 
     from rhesis.backend.metrics.metric_config import metric_model_to_config
-    from rhesis.backend.tasks.execution.test import get_evaluation_model
     from rhesis.sdk.metrics import MetricConfig, MetricFactory
 
     name_clauses = " or ".join(f"name eq '{n}'" for n in metric_names)
