@@ -23,11 +23,12 @@
 # rhesis-ee repo, not this Role -- for prd, that's gated by required
 # reviewer approval on the "prd" GitHub Environment (see license-issue.yml).
 #
-# secrets get/update/delete are scoped via resourceNames to the one Secret
-# the workflow actually manages. Kubernetes RBAC cannot apply resourceNames
-# to "create" (the object doesn't exist yet at authorization time), so this
-# Role can still create a Secret under any name -- it just can't read,
-# change, or remove anything other than "license-issue-signing" afterward.
+# secrets: split into two rules because resourceNames silently blocks
+# "create" -- K8s RBAC checks the resource name at admission time, and a
+# create request has no name to match, so the verb never fires. The
+# unrestricted create rule lets the workflow create the signing Secret
+# under any name (harmless -- the namespace is already the blast radius);
+# get/update/patch/delete are scoped to the one Secret it actually manages.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -45,8 +46,11 @@ rules:
     verbs: ["get"]
   - apiGroups: [""]
     resources: ["secrets"]
+    verbs: ["create"]
+  - apiGroups: [""]
+    resources: ["secrets"]
     resourceNames: ["license-issue-signing"]
-    verbs: ["create", "get", "update", "delete"]
+    verbs: ["get", "update", "patch", "delete"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
