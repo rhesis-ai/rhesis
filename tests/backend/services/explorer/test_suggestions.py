@@ -17,8 +17,8 @@ _DB_CTX_PATCH = "rhesis.backend.app.database.get_db_with_tenant_variables"
 _SVC_PATCH = "rhesis.backend.app.dependencies.get_endpoint_service"
 
 # Imported by name into suggestions.py, so patched there rather than at their source module.
-_RESOLVE_METRICS_PATCH = "rhesis.backend.app.services.explorer.suggestions._resolve_sdk_metrics"
-_RUN_METRICS_PATCH = "rhesis.backend.app.services.explorer.suggestions._run_metrics_on_text"
+_RESOLVE_METRICS_PATCH = "rhesis.backend.app.services.explorer.suggestions.resolve_sdk_metrics"
+_RUN_METRICS_PATCH = "rhesis.backend.app.services.explorer.suggestions.run_metrics_on_text"
 _GENERATE_SUGGESTIONS_PATCH = (
     "rhesis.backend.app.services.explorer.suggestions.generate_suggestions"
 )

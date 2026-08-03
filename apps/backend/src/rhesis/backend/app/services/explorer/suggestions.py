@@ -12,11 +12,11 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud
 from rhesis.backend.app.schemas.explorer import GenerateSuggestionsResponse, SuggestedTest
 from rhesis.backend.app.services.explorer.evaluation import (
-    _EVAL_MAX_CONCURRENCY,
+    EVAL_MAX_CONCURRENCY,
     MetricVerdict,
-    _resolve_sdk_metrics,
-    _run_metrics_on_text,
     aggregate_metric_verdict,
+    resolve_sdk_metrics,
+    run_metrics_on_text,
 )
 from rhesis.backend.app.services.explorer.invocation import NO_OUTPUT, EndpointInvoker
 from rhesis.backend.app.services.explorer.utils import (
@@ -421,7 +421,7 @@ async def suggestion_pipeline_stream(
         user_id=user_id,
         max_concurrency=10,
     )
-    sdk_metrics = _resolve_sdk_metrics(db, organization_id, user_id, metric_names)
+    sdk_metrics = resolve_sdk_metrics(db, organization_id, user_id, metric_names)
 
     embedder = None
     if generate_embeddings:
@@ -437,7 +437,7 @@ async def suggestion_pipeline_stream(
     num_examples_used = 0
 
     embed_results: Dict[int, Optional[List[float]]] = {}
-    eval_semaphore = asyncio.Semaphore(_EVAL_MAX_CONCURRENCY)
+    eval_semaphore = asyncio.Semaphore(EVAL_MAX_CONCURRENCY)
     fanout = EventFanout()
 
     outputs_generated = 0
@@ -462,7 +462,7 @@ async def suggestion_pipeline_stream(
         logger.info("[%s] idx=%02d evaluation_start", _ts(), index)
         async with eval_semaphore:
             try:
-                metric_results = await _run_metrics_on_text(
+                metric_results = await run_metrics_on_text(
                     sdk_metrics,
                     input_text,
                     output_text,
@@ -707,8 +707,8 @@ async def evaluate_suggestions_stream(
          "model_score": float, "metrics": dict|null, "error": str|null}
       - {"type": "summary", "evaluated": int, "total": int}
     """
-    sdk_metrics = _resolve_sdk_metrics(db, organization_id, user_id, metric_names)
-    semaphore = asyncio.Semaphore(_EVAL_MAX_CONCURRENCY)
+    sdk_metrics = resolve_sdk_metrics(db, organization_id, user_id, metric_names)
+    semaphore = asyncio.Semaphore(EVAL_MAX_CONCURRENCY)
     fanout = EventFanout()
     evaluated = 0
     total = len(suggestions)
@@ -727,9 +727,7 @@ async def evaluate_suggestions_stream(
                 }
             else:
                 try:
-                    metric_results = await _run_metrics_on_text(
-                        sdk_metrics, input_text, output_text
-                    )
+                    metric_results = await run_metrics_on_text(sdk_metrics, input_text, output_text)
                     verdict = aggregate_metric_verdict(metric_results, metric_names)
                     if verdict is None:
                         result = {
