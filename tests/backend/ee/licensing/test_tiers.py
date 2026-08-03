@@ -10,13 +10,13 @@ from __future__ import annotations
 import pytest
 
 from rhesis.backend.app.features import FeatureName
+from rhesis.backend.app.quota import FREE_TIER_LIMITS, QuotaResource
 from rhesis.backend.ee.licensing.entitlements import (
     LIC_ALL_FEATURES,
     LIC_EDITION,
     LIC_FEATURES,
     LIC_LIMITS,
     LIC_STATUS,
-    LIMIT_SEATS,
     LicenseEdition,
     LicenseStatus,
 )
@@ -24,6 +24,7 @@ from rhesis.backend.ee.licensing.tiers import (
     EDITION_ENTITLEMENTS,
     TierSpec,
     is_sellable,
+    resolve_limits,
     resolve_tier,
     tier_to_lic_claim,
 )
@@ -46,48 +47,60 @@ class TestCatalogShape:
             assert isinstance(spec, TierSpec)
 
     def test_non_sellable_editions_absent(self):
-        for edition in (
-            LicenseEdition.COMMUNITY,
-            LicenseEdition.UNKNOWN,
-        ):
+        """COMMUNITY and UNKNOWN are never mintable, even though COMMUNITY
+        has a catalog entry (needed for limits lookups on unlicensed orgs)."""
+        for edition in (LicenseEdition.COMMUNITY, LicenseEdition.UNKNOWN):
             assert not is_sellable(edition)
             with pytest.raises(KeyError):
                 resolve_tier(edition)
 
     def test_sellable_editions_present(self):
         for edition in (
-            LicenseEdition.STARTER,
-            LicenseEdition.PREMIUM,
+            LicenseEdition.TEAM,
             LicenseEdition.ENTERPRISE,
             LicenseEdition.MASTER,
-            LicenseEdition.TRIAL,
         ):
             assert is_sellable(edition)
 
+    def test_community_entry_exists_for_limits_lookup(self):
+        """COMMUNITY is in the catalog (for resolve_limits) despite being non-sellable."""
+        assert LicenseEdition.COMMUNITY in EDITION_ENTITLEMENTS
+
+    def test_community_limits_match_core_free_tier_defaults(self):
+        """The YAML's community entry must stay in sync with core's
+        FREE_TIER_LIMITS -- the two are duplicated by necessity (core can't
+        import EE), so drift between them would only show up here."""
+        assert resolve_limits(LicenseEdition.COMMUNITY) == FREE_TIER_LIMITS
+
+    def test_limit_keys_are_quota_resources(self):
+        """All limit keys in every tier spec are QuotaResource members."""
+        for edition, spec in EDITION_ENTITLEMENTS.items():
+            for key in spec.limits:
+                assert isinstance(key, QuotaResource), (
+                    f"Limit key {key!r} in {edition} is not a QuotaResource"
+                )
+
 
 class TestTierToLicClaim:
-    def test_starter_claim_lists_only_sso(self):
-        claim = tier_to_lic_claim(LicenseEdition.STARTER)
-        assert claim[LIC_EDITION] == "starter"
+    def test_team_claim_lists_rbac(self):
+        claim = tier_to_lic_claim(LicenseEdition.TEAM)
+        assert claim[LIC_EDITION] == "team"
         assert claim[LIC_STATUS] == "active"
         assert claim[LIC_ALL_FEATURES] is False
-        assert claim[LIC_FEATURES] == [FeatureName.SSO.value]
-        assert claim[LIC_LIMITS] == {LIMIT_SEATS: 5}
+        assert claim[LIC_FEATURES] == [FeatureName.RBAC.value]
 
-    def test_premium_claim_lists_both_features(self):
-        claim = tier_to_lic_claim(LicenseEdition.PREMIUM)
-        assert set(claim[LIC_FEATURES]) == {
-            FeatureName.SSO.value,
-            FeatureName.API_CLIENTS.value,
-        }
-        assert claim[LIC_ALL_FEATURES] is False
+    def test_team_claim_has_quota_limits(self):
+        claim = tier_to_lic_claim(LicenseEdition.TEAM)
+        limits = claim[LIC_LIMITS]
+        assert limits[str(QuotaResource.TEST_EXECUTIONS)] == 100_000
+        assert limits[str(QuotaResource.SEATS)] is None
 
     def test_enterprise_claim_is_all_features(self):
         claim = tier_to_lic_claim(LicenseEdition.ENTERPRISE)
         assert claim[LIC_ALL_FEATURES] is True
 
     def test_status_override(self):
-        claim = tier_to_lic_claim(LicenseEdition.PREMIUM, status=LicenseStatus.PAST_DUE)
+        claim = tier_to_lic_claim(LicenseEdition.TEAM, status=LicenseStatus.PAST_DUE)
         assert claim[LIC_STATUS] == "past_due"
 
 
@@ -106,27 +119,17 @@ class TestMintVerifyRoundTrip:
             limits=claim[LIC_LIMITS],
         )
 
-    def test_starter_grants_sso_only(self, mint_token):
-        token = self._mint_from_tier(mint_token, LicenseEdition.STARTER)
+    def test_team_grants_rbac(self, mint_token):
+        token = self._mint_from_tier(mint_token, LicenseEdition.TEAM)
         ent = verify_token(token)
         assert ent is not None
-        assert ent.edition is LicenseEdition.STARTER
-        assert ent.allows(FeatureName.SSO.value) is True
-        assert ent.allows(FeatureName.API_CLIENTS.value) is False
-        assert ent.limits == {LIMIT_SEATS: 5}
-
-    def test_premium_grants_both(self, mint_token):
-        token = self._mint_from_tier(mint_token, LicenseEdition.PREMIUM)
-        ent = verify_token(token)
-        assert ent is not None
-        assert ent.allows(FeatureName.SSO.value) is True
-        assert ent.allows(FeatureName.API_CLIENTS.value) is True
+        assert ent.edition is LicenseEdition.TEAM
+        assert ent.allows(FeatureName.RBAC.value) is True
+        assert ent.allows(FeatureName.SSO.value) is False
 
     def test_enterprise_grants_everything(self, mint_token):
         token = self._mint_from_tier(mint_token, LicenseEdition.ENTERPRISE)
         ent = verify_token(token)
         assert ent is not None
         assert ent.all_features is True
-        # all_features short-circuits allows() for any feature, including ones
-        # not yet registered — future-proof against new EE features.
         assert ent.allows("some_future_feature") is True

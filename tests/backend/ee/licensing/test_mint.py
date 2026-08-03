@@ -1,6 +1,6 @@
 """Tests for :mod:`rhesis.backend.ee.licensing.mint`.
 
-Round-trip tests: mint_token → verify_token → assert entitlements match the
+Round-trip tests: mint_token -> verify_token -> assert entitlements match the
 tier catalog. Also covers edge cases for private-key absence, blanket-subject
 rejection, custom overrides, and the dry-run flag.
 
@@ -14,7 +14,6 @@ keypair; here we additionally expose the *private* key as
 from __future__ import annotations
 
 import base64
-import os
 from datetime import datetime, timezone
 from typing import Any
 from unittest.mock import MagicMock, patch
@@ -27,14 +26,14 @@ from cryptography.hazmat.primitives.serialization import (
 )
 
 from rhesis.backend.app.features import FeatureName
+from rhesis.backend.app.quota import QuotaResource
 from rhesis.backend.ee.licensing.entitlements import (
     BLANKET_SUBJECT,
     ENV_LICENSE_PRIVATE_KEY,
     LicenseEdition,
     LicenseStatus,
-    LIMIT_SEATS,
 )
-from rhesis.backend.ee.licensing.tiers import EDITION_ENTITLEMENTS
+from rhesis.backend.ee.licensing.tiers import EDITION_ENTITLEMENTS, is_sellable
 from rhesis.backend.ee.licensing.verify import verify_token
 
 pytestmark = pytest.mark.skipif(
@@ -68,12 +67,12 @@ def private_key_env(ed25519_keypair, monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# mint_token — round-trip tests per sellable edition
+# mint_token -- round-trip tests per sellable edition
 # ---------------------------------------------------------------------------
 
 
 class TestMintTokenRoundTrip:
-    """mint_token → verify_token produces entitlements that match the catalog."""
+    """mint_token -> verify_token produces entitlements that match the catalog."""
 
     ORG_ID = "00000000-0000-0000-0000-000000000042"
 
@@ -83,28 +82,20 @@ class TestMintTokenRoundTrip:
         token = mint_token(
             org_id=self.ORG_ID,
             edition=edition,
-            kid="test-v1",  # matches the throwaway key registered in conftest.py
+            kid="test-v1",
         )
         ent = verify_token(token)
         assert ent is not None, f"verify_token returned None for edition={edition}"
         return ent
 
-    def test_starter_round_trip(self, private_key_env):
-        ent = self._mint_and_verify(LicenseEdition.STARTER)
-        assert ent.edition is LicenseEdition.STARTER
+    def test_team_round_trip(self, private_key_env):
+        ent = self._mint_and_verify(LicenseEdition.TEAM)
+        assert ent.edition is LicenseEdition.TEAM
         assert ent.status is LicenseStatus.ACTIVE
         assert ent.all_features is False
-        assert ent.allows(FeatureName.SSO.value) is True
-        assert ent.allows(FeatureName.API_CLIENTS.value) is False
-        assert ent.limits == {LIMIT_SEATS: 5}
+        assert ent.allows(FeatureName.RBAC.value) is True
+        assert ent.allows(FeatureName.SSO.value) is False
         assert ent.sub == self.ORG_ID
-
-    def test_premium_round_trip(self, private_key_env):
-        ent = self._mint_and_verify(LicenseEdition.PREMIUM)
-        assert ent.edition is LicenseEdition.PREMIUM
-        assert ent.allows(FeatureName.SSO.value) is True
-        assert ent.allows(FeatureName.API_CLIENTS.value) is True
-        assert ent.limits == {LIMIT_SEATS: 50}
 
     def test_enterprise_round_trip(self, private_key_env):
         ent = self._mint_and_verify(LicenseEdition.ENTERPRISE)
@@ -117,22 +108,15 @@ class TestMintTokenRoundTrip:
         assert ent.edition is LicenseEdition.MASTER
         assert ent.all_features is True
 
-    def test_trial_round_trip(self, private_key_env):
-        ent = self._mint_and_verify(LicenseEdition.TRIAL)
-        assert ent.edition is LicenseEdition.TRIAL
-        assert ent.all_features is True
-        assert ent.limits == {LIMIT_SEATS: 10}
-
     def test_all_sellable_editions_covered(self, private_key_env):
-        """Ensure every edition in the catalog has been exercised above."""
+        """Ensure every sellable edition in the catalog has been exercised above."""
         covered = {
-            LicenseEdition.STARTER,
-            LicenseEdition.PREMIUM,
+            LicenseEdition.TEAM,
             LicenseEdition.ENTERPRISE,
             LicenseEdition.MASTER,
-            LicenseEdition.TRIAL,
         }
-        assert covered == set(EDITION_ENTITLEMENTS.keys())
+        sellable = {e for e in EDITION_ENTITLEMENTS if is_sellable(e)}
+        assert covered == sellable
 
 
 class TestMintTokenBlanket:
@@ -158,21 +142,15 @@ class TestMintTokenStandardClaims:
     def test_sub_is_org_id(self, private_key_env):
         from rhesis.backend.ee.licensing.mint import mint_token
 
-        ent = verify_token(
-            mint_token(self.ORG_ID, LicenseEdition.ENTERPRISE, kid="test-v1")
-        )
+        ent = verify_token(mint_token(self.ORG_ID, LicenseEdition.ENTERPRISE, kid="test-v1"))
         assert ent is not None
         assert ent.sub == self.ORG_ID
 
     def test_jti_is_set_and_unique(self, private_key_env):
         from rhesis.backend.ee.licensing.mint import mint_token
 
-        ent1 = verify_token(
-            mint_token(self.ORG_ID, LicenseEdition.ENTERPRISE, kid="test-v1")
-        )
-        ent2 = verify_token(
-            mint_token(self.ORG_ID, LicenseEdition.ENTERPRISE, kid="test-v1")
-        )
+        ent1 = verify_token(mint_token(self.ORG_ID, LicenseEdition.ENTERPRISE, kid="test-v1"))
+        ent2 = verify_token(mint_token(self.ORG_ID, LicenseEdition.ENTERPRISE, kid="test-v1"))
         assert ent1 is not None and ent2 is not None
         assert ent1.jti is not None
         assert ent2.jti is not None
@@ -182,13 +160,17 @@ class TestMintTokenStandardClaims:
         from rhesis.backend.ee.licensing.mint import mint_token
 
         ent = verify_token(
-            mint_token(self.ORG_ID, LicenseEdition.ENTERPRISE, ttl_days=30, kid="test-v1")
+            mint_token(
+                self.ORG_ID,
+                LicenseEdition.ENTERPRISE,
+                ttl_days=30,
+                kid="test-v1",
+            )
         )
         assert ent is not None
         assert ent.expires_at is not None
         now = datetime.now(tz=timezone.utc)
         delta = ent.expires_at - now
-        # Allow ±60s clock slop but confirm the order-of-magnitude is 30 days.
         assert 29 * 86400 < delta.total_seconds() < 31 * 86400
 
     def test_status_is_passed_through(self, private_key_env):
@@ -197,7 +179,7 @@ class TestMintTokenStandardClaims:
         ent = verify_token(
             mint_token(
                 self.ORG_ID,
-                LicenseEdition.PREMIUM,
+                LicenseEdition.TEAM,
                 status=LicenseStatus.PAST_DUE,
                 kid="test-v1",
             )
@@ -220,7 +202,7 @@ class TestMintTokenOverrides:
         ent = verify_token(
             mint_token(
                 self.ORG_ID,
-                LicenseEdition.STARTER,
+                LicenseEdition.TEAM,
                 kid="test-v1",
                 custom_features=["sso", "api_clients"],
             )
@@ -236,7 +218,7 @@ class TestMintTokenOverrides:
         ent = verify_token(
             mint_token(
                 self.ORG_ID,
-                LicenseEdition.PREMIUM,
+                LicenseEdition.TEAM,
                 kid="test-v1",
                 custom_limits={"seats": 200, "extra_quota": 50},
             )
@@ -251,13 +233,13 @@ class TestMintTokenOverrides:
         ent = verify_token(
             mint_token(
                 self.ORG_ID,
-                LicenseEdition.STARTER,
+                LicenseEdition.TEAM,
                 kid="test-v1",
-                custom_limits={LIMIT_SEATS: 99},
+                custom_limits={str(QuotaResource.SEATS): 99},
             )
         )
         assert ent is not None
-        assert ent.limits[LIMIT_SEATS] == 99
+        assert ent.limits[str(QuotaResource.SEATS)] == 99
 
 
 # ---------------------------------------------------------------------------
@@ -314,7 +296,7 @@ class TestMintTokenErrors:
         assert ent.edition == LicenseEdition.ENTERPRISE
 
     def test_invalid_base64_content_raises(self, monkeypatch):
-        """A non-PEM string that is valid base64 but decodes to garbage raises RuntimeError."""
+        """A non-PEM string that is valid base64 but decodes to garbage."""
         junk_b64 = base64.b64encode(b"this is not a pem").decode()
         monkeypatch.setenv(ENV_LICENSE_PRIVATE_KEY, junk_b64)
         from rhesis.backend.ee.licensing.mint import mint_token
@@ -322,21 +304,24 @@ class TestMintTokenErrors:
         with pytest.raises(RuntimeError):
             mint_token(self.ORG_ID, LicenseEdition.ENTERPRISE, kid="test-v1")
 
-    def test_non_sellable_edition_raises(self, private_key_env):
-        from rhesis.backend.ee.licensing.mint import mint_token
-
-        with pytest.raises(KeyError):
-            mint_token(self.ORG_ID, LicenseEdition.COMMUNITY, kid="test-v1")
-
     def test_unknown_edition_raises(self, private_key_env):
         from rhesis.backend.ee.licensing.mint import mint_token
 
         with pytest.raises(KeyError):
             mint_token(self.ORG_ID, LicenseEdition.UNKNOWN, kid="test-v1")
 
+    def test_community_edition_raises(self, private_key_env):
+        """COMMUNITY has a catalog entry (for limits lookups) but must
+        never be minted -- self-hosted/unlicensed orgs get free-tier
+        defaults without a signed token, not a "community" license."""
+        from rhesis.backend.ee.licensing.mint import mint_token
+
+        with pytest.raises(KeyError):
+            mint_token(self.ORG_ID, LicenseEdition.COMMUNITY, kid="test-v1")
+
 
 # ---------------------------------------------------------------------------
-# issue() — DB write path
+# issue() -- DB write path
 # ---------------------------------------------------------------------------
 
 
@@ -368,7 +353,6 @@ class TestIssue:
         ent = verify_token(token)
         assert ent is not None
         assert ent.sub == self.ORG_ID
-        # DB must not have been touched
         db.commit.assert_not_called()
         assert org.license is None
 
@@ -377,11 +361,7 @@ class TestIssue:
 
         db, org = self._make_db()
 
-        # bind_scope_to_session is imported lazily inside issue() so we patch
-        # it at its source module rather than on the mint module namespace.
-        with patch(
-            "rhesis.backend.app.database.bind_scope_to_session"
-        ) as mock_bind:
+        with patch("rhesis.backend.app.database.bind_scope_to_session") as mock_bind:
             token = issue(
                 db,
                 org_id=self.ORG_ID,
@@ -395,7 +375,7 @@ class TestIssue:
         db.commit.assert_called_once()
 
     def test_live_issue_is_idempotent(self, private_key_env):
-        """Calling issue twice overwrites the token — no uniqueness error."""
+        """Calling issue twice overwrites the token."""
         from rhesis.backend.ee.licensing.mint import issue
 
         db, org = self._make_db()
@@ -413,7 +393,6 @@ class TestIssue:
                 edition=LicenseEdition.ENTERPRISE,
                 kid="test-v1",
             )
-        # Both tokens are valid; jti differs so they are distinct
         ent1 = verify_token(token1)
         ent2 = verify_token(token2)
         assert ent1 is not None and ent2 is not None
@@ -435,12 +414,12 @@ class TestIssue:
             token = issue(
                 db,
                 org_id=self.ORG_ID,
-                edition=LicenseEdition.TRIAL,
+                edition=LicenseEdition.TEAM,
                 kid="test-v1",
             )
         ent = verify_token(token)
         assert ent is not None
-        assert ent.edition is LicenseEdition.TRIAL
+        assert ent.edition is LicenseEdition.TEAM
         assert ent.sub == self.ORG_ID
 
 
