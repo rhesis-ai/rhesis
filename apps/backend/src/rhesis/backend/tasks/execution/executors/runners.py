@@ -7,6 +7,12 @@ from typing import Any, Dict, Optional, Tuple
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.test import Test
+from rhesis.backend.app.utils.response_extractor import (
+    get_http_error_status_code,
+    has_http_error_in_result,
+    is_http_error_response,
+    normalize_context_to_list,
+)
 from rhesis.backend.metrics.evaluator import MetricEvaluator
 from rhesis.backend.tasks.execution.constants import PENELOPE_EVALUATED_METRICS, MetricScope
 from rhesis.backend.tasks.execution.evaluation import (
@@ -17,12 +23,6 @@ from rhesis.backend.tasks.execution.executors.output_providers import (
     MultiTurnOutput,
     OutputProvider,
     SingleTurnOutput,
-)
-from rhesis.backend.tasks.execution.response_extractor import (
-    get_http_error_status_code,
-    has_http_error_in_result,
-    is_http_error_response,
-    normalize_context_to_list,
 )
 
 from .data import get_test_metrics

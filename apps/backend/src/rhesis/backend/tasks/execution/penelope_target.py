@@ -19,7 +19,7 @@ from rhesis.backend.app.dependencies import get_endpoint_service
 from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.app.services.invokers.common.errors import EndpointInvocationError
 from rhesis.backend.app.services.invokers.common.schemas import ErrorResponse
-from rhesis.backend.tasks.execution.response_extractor import is_http_error_response
+from rhesis.backend.app.utils.response_extractor import is_http_error_response
 from rhesis.penelope.targets.base import Target, TargetResponse
 
 logger = logging.getLogger(__name__)

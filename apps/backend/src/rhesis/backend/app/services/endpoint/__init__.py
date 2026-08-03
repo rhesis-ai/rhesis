@@ -18,6 +18,7 @@ Internal Modules (not part of public API):
     - mapper - Mapping service integration
     - validation - Endpoint validation logic
     - cli - Command-line interface
+    - result_processing - Normalizes raw invocation results (output-field fallback)
 """
 
 from typing import Any, Dict

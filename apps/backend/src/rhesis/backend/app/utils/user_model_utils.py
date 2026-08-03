@@ -109,6 +109,34 @@ def get_user_evaluation_model(db: Session, user: User) -> Union[str, BaseLLM]:
     return _get_user_model(db, user, "evaluation", _default_evaluation_model())
 
 
+def get_evaluation_model(db: Session, user_id: str) -> Union[str, BaseLLM]:
+    """
+    Get the evaluation model for the user, with fallback to default.
+
+    Args:
+        db: Database session
+        user_id: User ID string
+
+    Returns:
+        Model instance (string or BaseLLM)
+    """
+    try:
+        default_model = _default_evaluation_model()
+        user = crud.get_user_by_id(db, user_id)
+        if user:
+            return get_user_evaluation_model(db, user)
+        logger.warning(
+            f"[MODEL_SELECTION] User {user_id} not found, using default: {default_model}"
+        )
+        return default_model
+    except Exception as e:
+        default_model = _default_evaluation_model()
+        logger.warning(
+            f"[MODEL_SELECTION] Error fetching user model: {str(e)}, using default: {default_model}"
+        )
+        return default_model
+
+
 def get_user_execution_model(db: Session, user: User) -> Union[str, BaseLLM]:
     """
     Get the user's configured default execution model or fall back to the system setting.
@@ -124,6 +152,34 @@ def get_user_execution_model(db: Session, user: User) -> Union[str, BaseLLM]:
         Either a string (provider name) or a configured BaseLLM instance
     """
     return _get_user_model(db, user, "execution", _default_execution_model())
+
+
+def get_execution_model(db: Session, user_id: str) -> Union[str, BaseLLM]:
+    """
+    Get the execution model for the user, with fallback to default.
+
+    Args:
+        db: Database session
+        user_id: User ID string
+
+    Returns:
+        Model instance (string or BaseLLM)
+    """
+    try:
+        default_model = _default_execution_model()
+        user = crud.get_user_by_id(db, user_id)
+        if user:
+            return get_user_execution_model(db, user)
+        logger.warning(
+            f"[MODEL_SELECTION] User {user_id} not found, using default: {default_model}"
+        )
+        return default_model
+    except Exception as e:
+        default_model = _default_execution_model()
+        logger.warning(
+            f"[MODEL_SELECTION] Error fetching user model: {str(e)}, using default: {default_model}"
+        )
+        return default_model
 
 
 def get_execution_model_with_override(

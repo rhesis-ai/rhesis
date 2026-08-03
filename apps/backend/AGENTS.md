@@ -42,6 +42,18 @@ set_explorer_test_outputs`. Reaching through the parent (`from rhesis.backend.ap
 `crud.explorer.foo()`) raises `AttributeError` unless some other module happens to have imported the
 submodule already, which makes it work by accident.
 
+## Tasks layout
+
+`tasks/` is Celery orchestration only — no business logic. Anything reusable outside a Celery
+context (model resolution, response parsing, error detection) belongs in `app/services/` or
+`app/utils/`; `tasks/` depends on those, never the reverse. Importing anything under
+`rhesis.backend.tasks` builds the whole Celery app first (`tasks/__init__.py` eagerly imports every
+task module), so a `services/` import from `tasks/` silently drags all of that in.
+
+Use `app/utils/` over `app/services/<domain>/` when more than one unrelated service needs the
+helper — e.g. `app/utils/response_extractor.py` is used by explorer's invocation *and* by metric
+evaluation, batch execution, and Penelope, none of which are endpoint-specific.
+
 ## Testing
 
 **Ask the user before running the whole backend suite.** It takes a very long time. Default to the

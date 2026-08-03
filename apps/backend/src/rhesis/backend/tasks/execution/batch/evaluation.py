@@ -6,12 +6,12 @@ import logging
 from typing import Any, Dict, Optional
 
 from rhesis.backend.app.models.test import Test
-from rhesis.backend.tasks.execution.batch.context import ExecutionContext
-from rhesis.backend.tasks.execution.constants import PENELOPE_EVALUATED_METRICS
-from rhesis.backend.tasks.execution.response_extractor import (
+from rhesis.backend.app.utils.response_extractor import (
     get_http_error_status_code,
     has_http_error_in_result,
 )
+from rhesis.backend.tasks.execution.batch.context import ExecutionContext
+from rhesis.backend.tasks.execution.constants import PENELOPE_EVALUATED_METRICS
 
 logger = logging.getLogger(__name__)
 
@@ -111,7 +111,7 @@ async def _evaluate_single_turn_metrics(
     expected_response: str,
     metric_configs: list,
 ) -> Dict[str, Any]:
-    from rhesis.backend.tasks.execution.response_extractor import (
+    from rhesis.backend.app.utils.response_extractor import (
         extract_response_with_fallback,
         normalize_context_to_list,
     )
