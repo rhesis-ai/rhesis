@@ -104,7 +104,10 @@ def run_query(
     organization_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Execute the query and shape results into the uniform insights envelope."""
-    start_date_obj, end_date_obj = parse_date_range(start_date, end_date, months)
+    try:
+        start_date_obj, end_date_obj = parse_date_range(start_date, end_date, months)
+    except ValueError as exc:
+        raise InsightsValidationError(f"Invalid start_date/end_date: {exc}") from exc
     q = build_query(
         db, entity, group_by, measures, filters, start_date_obj, end_date_obj, organization_id
     )
