@@ -26,7 +26,7 @@ from rhesis.sdk.metrics import MetricConfig, MetricFactory
 
 logger = logging.getLogger(__name__)
 
-_EVAL_MAX_CONCURRENCY = 20
+EVAL_MAX_CONCURRENCY = 20
 
 
 def _serialize_details_for_api(details: Dict[str, Any]) -> Dict[str, Any]:
@@ -113,7 +113,7 @@ def aggregate_metric_verdict(
     )
 
 
-def _resolve_sdk_metrics(
+def resolve_sdk_metrics(
     db: Session,
     organization_id: str,
     user_id: str,
@@ -167,7 +167,7 @@ def _resolve_sdk_metrics(
     return sdk_metrics
 
 
-async def _run_metrics_on_text(
+async def run_metrics_on_text(
     sdk_metrics: List[Tuple[Any, MetricConfig]],
     input_text: str,
     output_text: str,
@@ -263,7 +263,7 @@ async def evaluate_tests_for_explorer_set(
     """Evaluate explorer test-set tests with the specified metrics.
 
     Uses SDK metric instances directly via ``a_evaluate`` with up to
-    ``_EVAL_MAX_CONCURRENCY`` items evaluated concurrently.
+    ``EVAL_MAX_CONCURRENCY`` items evaluated concurrently.
 
     Parameters
     ----------
@@ -296,7 +296,7 @@ async def evaluate_tests_for_explorer_set(
     ValueError
         If any metric name does not exist or the test set is not found.
     """
-    sdk_metrics = _resolve_sdk_metrics(db, organization_id, user_id, metric_names)
+    sdk_metrics = resolve_sdk_metrics(db, organization_id, user_id, metric_names)
 
     db_test_set = crud.resolve_test_set(test_set_identifier, db, organization_id=organization_id)
     if db_test_set is None:
@@ -332,7 +332,7 @@ async def evaluate_tests_for_explorer_set(
             return {"status": "failed", "test_id": test_id_str, "error": "no output"}, None
 
         try:
-            metric_results = await _run_metrics_on_text(sdk_metrics, input_text, output_text)
+            metric_results = await run_metrics_on_text(sdk_metrics, input_text, output_text)
 
             verdict = aggregate_metric_verdict(metric_results, metric_names)
             if verdict is None:
@@ -377,7 +377,7 @@ async def evaluate_tests_for_explorer_set(
                 "error": str(e),
             }, meta
 
-    semaphore = asyncio.Semaphore(_EVAL_MAX_CONCURRENCY)
+    semaphore = asyncio.Semaphore(EVAL_MAX_CONCURRENCY)
 
     async def _bounded(test):
         async with semaphore:

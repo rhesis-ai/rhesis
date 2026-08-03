@@ -194,7 +194,7 @@ def create_explorer_test_set(
     )
 
 
-def _is_explorer_test_set(test_set: models.TestSet) -> bool:
+def is_explorer_test_set(test_set: models.TestSet) -> bool:
     """True if the test set has the Explorer marker behavior in metadata.behaviors."""
     attrs = test_set.attributes or {}
     metadata = attrs.get("metadata") or {}
@@ -240,7 +240,7 @@ def delete_explorer_test_set(
     db_test_set = crud.resolve_test_set(test_set_identifier, db, organization_id)
     if db_test_set is None:
         raise ValueError("Test set not found with provided identifier")
-    if not _is_explorer_test_set(db_test_set):
+    if not is_explorer_test_set(db_test_set):
         raise ValueError("Test set is not configured for Explorer (Adaptive Testing behavior)")
 
     # Build the response payload before deleting to avoid response serialization
@@ -277,7 +277,7 @@ def bulk_delete_explorer_test_sets(
         return {"deleted_ids": [], "not_found_ids": []}
 
     candidates = crud_explorer.get_test_sets_by_ids(db, test_set_ids, organization_id)
-    valid_ids = [ts.id for ts in candidates if _is_explorer_test_set(ts)]
+    valid_ids = [ts.id for ts in candidates if is_explorer_test_set(ts)]
 
     _delete_session_tests(db, valid_ids, organization_id, user_id)
 
@@ -437,7 +437,7 @@ def import_explorer_test_set_from_source(
     if db_source is None:
         raise ValueError("Test set not found with provided identifier")
 
-    if _is_explorer_test_set(db_source):
+    if is_explorer_test_set(db_source):
         raise ValueError("Source test set is already configured for Explorer")
 
     base_name = f"{db_source.name} (Explorer)"
@@ -527,7 +527,7 @@ def export_regular_test_set_from_explorer(
     if db_source is None:
         raise ValueError("Test set not found with provided identifier")
 
-    if not _is_explorer_test_set(db_source):
+    if not is_explorer_test_set(db_source):
         raise ValueError(
             "Source test set is not configured for Explorer (Adaptive Testing behavior)"
         )
