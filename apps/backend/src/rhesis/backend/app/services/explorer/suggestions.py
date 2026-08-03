@@ -31,9 +31,6 @@ from rhesis.backend.app.services.streaming_utils import ndjson as _ndjson
 
 logger = logging.getLogger(__name__)
 
-# Keep the private alias for backward compatibility within this module
-_IncrementalJsonArrayParser = IncrementalJsonArrayParser
-
 
 class _GeneratedTestSuggestionItem(BaseModel):
     """One LLM-generated test input (shape enforced via structured output)."""
@@ -224,7 +221,7 @@ async def _generate_suggestions_stream(
         logger.error("LLM streaming generation failed: %s", e, exc_info=True)
         raise ValueError(f"LLM generation failed: {e}") from e
 
-    parser = _IncrementalJsonArrayParser()
+    parser = IncrementalJsonArrayParser()
 
     async for chunk in token_stream:
         for item in parser.feed(chunk):
