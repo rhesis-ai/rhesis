@@ -77,16 +77,22 @@ resource "google_gke_hub_membership" "cluster" {
   depends_on = [google_project_service.gkehub]
 }
 
-# Reach the cluster via Connect Gateway. gatewayReader alone
-# (gkehub.gateway.generateCredentials/get + gkehub.memberships.get) is not
-# sufficient -- `gcloud container fleet memberships get-credentials` also
-# needs gkehub.memberships.list, confirmed empirically against a live
-# license-issue.yml run (PERMISSION_DENIED on 'gkehub.memberships.list').
-# gkehub.viewer covers that; it's read-only (no mutation permissions on
-# Fleet/membership resources), so this adds visibility, not write access.
-resource "google_project_iam_member" "ci_gateway_reader" {
+# Reach the cluster via Connect Gateway. gatewayEditor (not Reader) is
+# required because the workflow creates and deletes K8s resources (Secrets,
+# Jobs). gatewayReader only includes gkehub.gateway.get, which proxies
+# read-only kubectl calls; write operations (create/update/delete) need
+# gkehub.gateway.post/put/patch/delete, which only gatewayEditor and
+# gatewayAdmin carry. Confirmed: gatewayReader caused "(Forbidden): unknown"
+# on kubectl create secret through Connect Gateway even though the K8s RBAC
+# (SubjectAccessReview) returned allowed=true -- the gateway's own IAM
+# check blocked the write before it reached the cluster.
+#
+# gkehub.viewer (below) is still needed for gkehub.memberships.list, which
+# `gcloud container fleet memberships get-credentials` requires and neither
+# gatewayReader nor gatewayEditor includes.
+resource "google_project_iam_member" "ci_gateway_editor" {
   project = var.project_id
-  role    = "roles/gkehub.gatewayReader"
+  role    = "roles/gkehub.gatewayEditor"
   member  = "serviceAccount:${google_service_account.license_ci.email}"
 
   depends_on = [google_project_service.connectgateway]
