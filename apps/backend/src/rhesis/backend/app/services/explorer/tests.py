@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from typing import Callable, List, Optional, Tuple
 from uuid import UUID
 
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
@@ -391,8 +392,16 @@ def _copy_test_set_tests(
                 skipped_test_ids.append(str(db_test.id))
                 continue
 
-            write(test_copy)
-            copied += 1
+            try:
+                with db.begin_nested():
+                    write(test_copy)
+                copied += 1
+            except SQLAlchemyError:
+                logger.warning(
+                    "Skipping test %s during copy: write failed", db_test.id, exc_info=True
+                )
+                skipped += 1
+                skipped_test_ids.append(str(db_test.id))
 
         skip += len(items)
         if skip >= total:

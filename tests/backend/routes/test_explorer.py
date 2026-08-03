@@ -18,9 +18,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
+from rhesis.backend.app.crud.explorer import create_explorer_test
 from rhesis.backend.app.models.test import test_test_set_association
 
 
@@ -591,6 +593,36 @@ class TestImportExplorerTestSetEndpoint:
         assert "Alpha" in paths
         assert "Alpha/Beta" in paths
 
+    def test_import_partial_failure_returns_201_with_skipped_test(
+        self,
+        authenticated_client: TestClient,
+        regular_source_test_set_for_import,
+    ):
+        """A write failure for one test is a 201 with it skipped, not a 500."""
+        src = regular_source_test_set_for_import
+
+        def flaky_create_explorer_test(db, **kwargs):
+            if kwargs.get("content") == "Second prompt":
+                raise IntegrityError("stmt", {}, Exception("dup key"))
+            return create_explorer_test(db, **kwargs)
+
+        with patch(
+            "rhesis.backend.app.crud.explorer.create_explorer_test",
+            side_effect=flaky_create_explorer_test,
+        ):
+            response = authenticated_client.post(f"/explorer/import/{src.id}")
+
+        assert response.status_code == status.HTTP_201_CREATED
+        data = response.json()
+        assert data["imported"] == 1
+        assert data["skipped"] == 2
+        assert len(data["skipped_test_ids"]) == 2
+
+        new_id = data["test_set"]["id"]
+        tests_resp = authenticated_client.get(f"/explorer/{new_id}/tests")
+        assert tests_resp.status_code == status.HTTP_200_OK
+        assert len(tests_resp.json()) == 1
+
     def test_import_explorer_source_returns_400(
         self,
         authenticated_client: TestClient,
@@ -680,6 +712,54 @@ class TestExportRegularTestSetFromExplorerEndpoint:
         for row in tests:
             meta_t = row.get("test_metadata") or {}
             assert meta_t.get("label") != "topic_marker"
+
+    def test_export_partial_failure_returns_201_with_skipped_test(
+        self,
+        authenticated_client: TestClient,
+    ):
+        """A write failure for one test is a 201 with it skipped, not a 500."""
+        create_resp = authenticated_client.post(
+            "/explorer",
+            json={"name": f"Export Src {uuid.uuid4().hex[:8]}", "description": None},
+        )
+        assert create_resp.status_code == status.HTTP_201_CREATED
+        adaptive_id = create_resp.json()["id"]
+
+        for content in ("First prompt", "Second prompt", "Third prompt"):
+            t_resp = authenticated_client.post(
+                f"/explorer/{adaptive_id}/tests",
+                json={
+                    "topic": "Alpha/Beta",
+                    "input": content,
+                    "output": "out",
+                    "labeler": "human",
+                    "label": "pass",
+                    "model_score": 1.0,
+                },
+            )
+            assert t_resp.status_code == status.HTTP_201_CREATED
+
+        def flaky_create_explorer_test(db, **kwargs):
+            if kwargs.get("content") == "Second prompt":
+                raise IntegrityError("stmt", {}, Exception("dup key"))
+            return create_explorer_test(db, **kwargs)
+
+        with patch(
+            "rhesis.backend.app.crud.explorer.create_explorer_test",
+            side_effect=flaky_create_explorer_test,
+        ):
+            response = authenticated_client.post(f"/explorer/export/{adaptive_id}")
+
+        assert response.status_code == status.HTTP_201_CREATED
+        data = response.json()
+        assert data["exported"] == 2
+        assert data["skipped"] == 3
+        assert len(data["skipped_test_ids"]) == 3
+
+        new_id = data["test_set"]["id"]
+        tests_resp = authenticated_client.get(f"/test_sets/{new_id}/tests?limit=100")
+        assert tests_resp.status_code == status.HTTP_200_OK
+        assert len(tests_resp.json()) == 2
 
     def test_export_regular_source_returns_400(
         self,
