@@ -31,6 +31,7 @@ from .endpoint import (
     EndpointUpdate,
 )
 from .file import FileCreate, FileEntityType, FileResponse, FileUpdate
+from .insights import InsightsBatchRequest, InsightsBatchResponse, InsightsQuery, InsightsResponse
 from .metric import (
     GenerateMetricRequest,
     ImproveMetricRequest,

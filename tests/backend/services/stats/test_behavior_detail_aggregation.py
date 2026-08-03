@@ -3,7 +3,6 @@
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from rhesis.backend.app.constants import OverallTestResult
 from rhesis.backend.app.models.stats_views import TestResultStatsView as V
 from rhesis.backend.app.services.stats.test_result import (
     _behavior_breakdown,
@@ -23,17 +22,6 @@ class _GroupedRowsQueryStub:
         return self
 
     def group_by(self, *_args):
-        return self
-
-    def all(self):
-        return self._rows
-
-
-class _MetricRowsQueryStub:
-    def __init__(self, rows):
-        self._rows = rows
-
-    def with_entities(self, *_args):
         return self
 
     def all(self):
@@ -96,53 +84,53 @@ class TestBehaviorDimensionalStats:
 
 
 class TestBehaviorMetricStats:
-    def test_splits_metric_stats_per_behavior(self):
-        rows = [
-            (
-                "b1",
-                {"metrics": {"Accuracy": {"is_successful": True}}},
-                OverallTestResult.PASSED,
-            ),
-            (
-                "b2",
-                {"metrics": {"Accuracy": {"is_successful": False}}},
-                OverallTestResult.FAILED,
-            ),
-        ]
+    """_behavior_metric_stats runs a SQL GROUP BY on v_metric_stats, so these
+    use real Test/TestResult rows rather than a stubbed query object."""
 
-        stats = _behavior_metric_stats(_MetricRowsQueryStub(rows))
+    def test_splits_metric_stats_per_behavior(self, test_db, base_q, make_test_result,
+                                               passed_status, failed_status, db_behavior,
+                                               db_behavior_2):
+        make_test_result(
+            passed_status,
+            {"metrics": {"Accuracy": {"is_successful": True}}},
+            behavior_id=db_behavior.id,
+        )
+        make_test_result(
+            failed_status,
+            {"metrics": {"Accuracy": {"is_successful": False}}},
+            behavior_id=db_behavior_2.id,
+        )
 
-        assert stats["b1"]["Accuracy"]["passed"] == 1
-        assert stats["b2"]["Accuracy"]["failed"] == 1
-        assert "Accuracy" not in stats.get("b3", {})
+        stats = _behavior_metric_stats(test_db, base_q)
 
-    def test_null_behavior_id_is_skipped(self):
-        rows = [
-            (None, {"metrics": {"Accuracy": {"is_successful": True}}}, OverallTestResult.PASSED)
-        ]
+        assert stats[str(db_behavior.id)]["Accuracy"]["passed"] == 1
+        assert stats[str(db_behavior_2.id)]["Accuracy"]["failed"] == 1
 
-        assert _behavior_metric_stats(_MetricRowsQueryStub(rows)) == {}
+    def test_null_behavior_id_is_skipped(self, test_db, base_q, make_test_result, passed_status):
+        make_test_result(passed_status, {"metrics": {"Accuracy": {"is_successful": True}}})
 
-    def test_metric_override_uses_original_value_for_automated_counts(self):
-        rows = [
-            (
-                "b1",
-                {
-                    "metrics": {
-                        "Accuracy": {
-                            "is_successful": True,
-                            "override": {"original_value": False},
-                        }
+        assert _behavior_metric_stats(test_db, base_q) == {}
+
+    def test_metric_override_uses_original_value_for_automated_counts(
+        self, test_db, base_q, make_test_result, failed_status, db_behavior
+    ):
+        make_test_result(
+            failed_status,
+            {
+                "metrics": {
+                    "Accuracy": {
+                        "is_successful": True,
+                        "override": {"original_value": False},
                     }
-                },
-                OverallTestResult.FAILED,
-            )
-        ]
+                }
+            },
+            behavior_id=db_behavior.id,
+        )
 
-        stats = _behavior_metric_stats(_MetricRowsQueryStub(rows))
+        stats = _behavior_metric_stats(test_db, base_q)
 
-        assert stats["b1"]["Accuracy"]["automated_passed"] == 0
-        assert stats["b1"]["Accuracy"]["human_review_count"] == 1
+        assert stats[str(db_behavior.id)]["Accuracy"]["automated_passed"] == 0
+        assert stats[str(db_behavior.id)]["Accuracy"]["human_review_count"] == 1
 
 
 class TestBehaviorBreakdown:
@@ -161,7 +149,7 @@ class TestBehaviorBreakdown:
                 return_value={"b3": {"Healthcare": {"total": 1}}},
             ),
         ):
-            result = _behavior_breakdown(base_q=None)
+            result = _behavior_breakdown(db=None, base_q=None)
 
         assert set(result.keys()) == {"b1", "b2", "b3"}
         assert result["b1"]["overall_pass_rates"]["passed"] == 2

@@ -16,6 +16,7 @@ from .file import router as file_router
 from .file_import import router as file_import_router
 from .garak import router as garak_router
 from .home import router as home_router
+from .insights import router as insights_router
 
 # ... other imports
 # Import new routers
@@ -134,6 +135,7 @@ routers = sorted(
         auth_router,
         token_router,
         home_router,
+        insights_router,
         services_router,
         organization_router,
         preflight_router,
