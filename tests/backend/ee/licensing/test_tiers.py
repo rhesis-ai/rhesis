@@ -22,6 +22,7 @@ from rhesis.backend.ee.licensing.entitlements import (
     LicenseStatus,
 )
 from rhesis.backend.ee.licensing.tiers import (
+    _BUNDLED_CONFIG,
     EDITION_ENTITLEMENTS,
     SELLABLE_EDITIONS,
     TierSpec,
@@ -165,6 +166,42 @@ class TestLoadTierConfig:
                 "community:\n  limits:\n    seats: 3\nunknown:\n  limits:\n    seats: 999\n",
             )
 
+    @pytest.mark.parametrize(
+        "value,description",
+        [
+            ('"100"', "string"),
+            ("-1", "negative"),
+            ("true", "bool"),
+            ("1.5", "float"),
+            ("[]", "list"),
+        ],
+    )
+    def test_invalid_limit_values_are_rejected(self, tmp_path, monkeypatch, value, description):
+        """yaml.safe_load accepts these happily, but none is a usable quota.
+
+        A string limit raises TypeError the first time enforcement compares
+        `used >= limit`, `true` silently means a limit of 1 (bool is an int
+        subclass), and a negative limit blocks every request. They also flow
+        into the JWT lic.limits claim and the /features response.
+        """
+        with pytest.raises(ValueError, match="[Ii]nvalid limit"):
+            self._load_from(
+                tmp_path,
+                monkeypatch,
+                f"community:\n  limits:\n    seats: {value}\n",
+            )
+
+    def test_zero_and_null_limits_are_valid(self, tmp_path, monkeypatch):
+        """0 is a legitimate limit (nothing allowed); null means unlimited."""
+        catalog = self._load_from(
+            tmp_path,
+            monkeypatch,
+            "community:\n  limits:\n    seats: 0\n    projects: null\n",
+        )
+        limits = catalog[LicenseEdition.COMMUNITY].limits
+        assert limits[QuotaResource.SEATS] == 0
+        assert limits[QuotaResource.PROJECTS] is None
+
 
 class TestCatalogCompleteness:
     """The enum and the tier config must agree; neither half ships alone."""
@@ -196,9 +233,42 @@ class TestCatalogCompleteness:
         fallback = {LicenseEdition.COMMUNITY: TierSpec(edition=LicenseEdition.COMMUNITY)}
         _assert_catalog_complete(fallback)
 
+    def test_missing_community_entry_raises(self):
+        """A catalog with every paid tier but no community entry must fail.
+
+        resolve_limits() falls back to the community entry for unlicensed
+        orgs; without it that returns an empty dict, which reads downstream
+        as unlimited. This is the fail-open case the gate exists to stop."""
+        paid_only = {e: TierSpec(edition=e) for e in SELLABLE_EDITIONS}
+        with pytest.raises(RuntimeError, match="community"):
+            _assert_catalog_complete(paid_only)
+
     def test_real_bundled_config_is_complete(self):
         """The shipped tier_config.yaml satisfies the gate."""
         _assert_catalog_complete(EDITION_ENTITLEMENTS)
+        assert all_sellable() <= set(EDITION_ENTITLEMENTS)
+
+
+class TestBundledConfigIsPackaged:
+    """The bundled YAML must ship as package data, not just exist in the repo.
+
+    _BUNDLED_CONFIG resolves relative to the module file, so if a future
+    build-config change stops including non-Python files in the EE wheel,
+    _load_tier_config() silently falls back to the community-only catalog
+    and every paid tier becomes unsellable. That failure is quiet, so guard
+    it here.
+    """
+
+    def test_bundled_config_file_exists(self):
+        assert _BUNDLED_CONFIG.is_file(), (
+            f"{_BUNDLED_CONFIG} is missing. If the EE build config changed, "
+            f"confirm tier_config.yaml is still included as package data."
+        )
+
+    def test_default_catalog_is_not_the_fallback(self):
+        """Loading with no override must yield the real multi-tier catalog,
+        not the community-only safety net."""
+        assert set(EDITION_ENTITLEMENTS) != {LicenseEdition.COMMUNITY}
         assert all_sellable() <= set(EDITION_ENTITLEMENTS)
 
 

@@ -146,12 +146,23 @@ def _parse_features(raw: list[str]) -> frozenset[FeatureName]:
 
 
 def _parse_limits(raw: dict[str, int | None]) -> dict[QuotaResource, int | None]:
-    """Coerce raw YAML limit keys to ``QuotaResource`` members.
+    """Coerce and validate raw YAML limits into ``QuotaResource`` members.
 
-    :raises ValueError: on an unrecognized key. Deliberately not caught by
-        :func:`_load_tier_config`'s fallback -- a config that parses as YAML
-        but names a resource that doesn't exist is a real bug that must
-        surface at startup, not degrade into a silently-unmetered resource.
+    Both the key and the value are checked. ``yaml.safe_load`` happily
+    returns strings, booleans and negative numbers, none of which are a
+    meaningful quota: a string limit raises ``TypeError`` the first time
+    enforcement compares ``used >= limit``, ``True`` silently means a limit
+    of 1 (``bool`` is an ``int`` subclass), and a negative limit blocks every
+    request. These flow straight into the JWT ``lic.limits`` claim and the
+    ``/features`` response, so they are rejected here rather than surfacing
+    far from their cause.
+
+    :raises ValueError: on an unrecognized key, or a value that is neither
+        ``None`` (unlimited) nor a non-negative ``int``. Deliberately not
+        caught by :func:`_load_tier_config`'s fallback -- a config that
+        parses as YAML but is semantically wrong is a real bug that must
+        surface at startup, not degrade into a silently-unmetered or
+        permanently-blocked resource.
     """
     result: dict[QuotaResource, int | None] = {}
     for key, value in raw.items():
@@ -162,6 +173,19 @@ def _parse_limits(raw: dict[str, int | None]) -> dict[QuotaResource, int | None]
                 f"Unknown limit key {key!r} in tier config. "
                 f"Valid keys: {[r.value for r in QuotaResource]}"
             )
+
+        # bool must be rejected explicitly: it passes isinstance(v, int).
+        if value is not None and (isinstance(value, bool) or not isinstance(value, int)):
+            raise ValueError(
+                f"Invalid limit for {key!r} in tier config: {value!r} "
+                f"({type(value).__name__}). Expected an integer, or null for unlimited."
+            )
+        if value is not None and value < 0:
+            raise ValueError(
+                f"Invalid limit for {key!r} in tier config: {value!r}. "
+                f"Limits must be non-negative (use null for unlimited)."
+            )
+
         result[resource] = value
     return result
 
@@ -277,6 +301,12 @@ def _assert_catalog_complete(catalog: dict[LicenseEdition, TierSpec]) -> None:
     first time someone tried to mint it, and the reverse case is caught by
     :func:`_parse_edition`.
 
+    Checks COMMUNITY as well as the sellable tiers. A malformed community
+    entry is dropped by the shape checks in :func:`_load_tier_config`, and
+    without it :func:`resolve_limits` returns an empty dict for every
+    unlicensed org -- which reads downstream as *unlimited*. Requiring it
+    here turns that fail-open into a startup failure.
+
     Skipped when the catalog is the free-tier fallback, which is by design
     community-only -- see :func:`_fallback_catalog`.
 
@@ -285,13 +315,14 @@ def _assert_catalog_complete(catalog: dict[LicenseEdition, TierSpec]) -> None:
     if set(catalog) == {LicenseEdition.COMMUNITY}:
         return
 
-    missing = sorted(e.value for e in SELLABLE_EDITIONS - set(catalog))
+    missing = sorted(e.value for e in CATALOG_EDITIONS - set(catalog))
     if missing:
         raise RuntimeError(
             f"Tier config is missing an entry for declared edition(s): {missing}. "
             f"Every LicenseEdition member except "
-            f"{sorted(e.value for e in NON_SELLABLE_EDITIONS)} "
-            f"must have a corresponding entry in tier_config.yaml."
+            f"{sorted(e.value for e in NON_SELLABLE_EDITIONS - {LicenseEdition.COMMUNITY})} "
+            f"must have a corresponding entry in tier_config.yaml "
+            f"(community included -- it carries the free-tier limits)."
         )
 
 
