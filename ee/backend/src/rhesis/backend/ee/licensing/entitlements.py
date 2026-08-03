@@ -29,19 +29,17 @@ class LicenseEdition(str, Enum):
     rather than raising, keeping verification fail-soft on cosmetic fields.
 
     Adding a sellable tier is a two-step change: add a member here, then add
-    its entitlement spec to
-    :data:`~rhesis.backend.ee.licensing.tiers.EDITION_ENTITLEMENTS`.
-    ``COMMUNITY`` and ``UNKNOWN`` are non-sellable sentinels and are
-    intentionally absent from that catalog.
+    its entitlement spec to the tier config YAML
+    (``tier_config.yaml``).  ``COMMUNITY`` and ``UNKNOWN`` are
+    non-sellable sentinels and are intentionally absent from the
+    sellable catalog.
     """
 
     COMMUNITY = "community"
     # --- Sellable tiers (see tiers.EDITION_ENTITLEMENTS) ---
-    STARTER = "starter"
-    PREMIUM = "premium"
+    TEAM = "team"
     ENTERPRISE = "enterprise"
     MASTER = "master"
-    TRIAL = "trial"
     UNKNOWN = "unknown"
 
     @classmethod
@@ -99,11 +97,9 @@ LIC_ALL_FEATURES = "all_features"
 LIC_FEATURES = "features"
 LIC_LIMITS = "limits"
 
-# Well-known keys inside the ``limits`` map. Limits are open-ended; these are
-# just the names the platform understands today.
-LIMIT_SEATS = "seats"
-
 # --- Environment variable names --------------------------------------------
+ENV_TIER_CONFIG = "RHESIS_TIER_CONFIG"
+
 ENV_LICENSE = "RHESIS_LICENSE"
 ENV_LICENSE_PUBLIC_KEY = "RHESIS_LICENSE_PUBLIC_KEY"
 # Private key for the minting/issuance side only — never set on the running
@@ -214,6 +210,7 @@ __all__ = [
     "CLAIM_LICENSE",
     "CLAIM_SUBJECT",
     "Entitlements",
+    "ENV_TIER_CONFIG",
     "EXPIRY_LEEWAY_SECONDS",
     "ENV_LICENSE",
     "ENV_LICENSE_KID",
@@ -229,6 +226,5 @@ __all__ = [
     "LIC_FEATURES",
     "LIC_LIMITS",
     "LIC_STATUS",
-    "LIMIT_SEATS",
     "REQUIRED_CLAIMS",
 ]
