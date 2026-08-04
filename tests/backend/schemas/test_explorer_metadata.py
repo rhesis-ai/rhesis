@@ -210,21 +210,8 @@ class TestExplorerAdaptiveSettings:
 
 @pytest.mark.unit
 class TestExplorerTestSetAttributes:
-    def test_is_explorer_true_when_behavior_present(self):
-        attrs = parse_explorer_test_set_attributes(
-            {"metadata": {"behaviors": ["Adaptive Testing", "Safety"]}}
-        )
-
-        assert attrs.is_explorer is True
-
-    def test_is_explorer_false_without_marker_behavior(self):
-        attrs = parse_explorer_test_set_attributes({"metadata": {"behaviors": ["Safety"]}})
-
-        assert attrs.is_explorer is False
-
-    def test_is_explorer_false_when_metadata_absent(self):
-        assert parse_explorer_test_set_attributes({}).is_explorer is False
-        assert parse_explorer_test_set_attributes(None).is_explorer is False
+    """Explorer ownership is read from models.TestSet.explorer_row, not this blob --
+    this model only exists to read adaptive_settings off the shared attributes column."""
 
     def test_default_endpoint_id_reads_through_adaptive_settings(self):
         endpoint_id = uuid.uuid4()
@@ -243,7 +230,6 @@ class TestExplorerTestSetAttributes:
             {"source": "garak", "garak_module": "dan", "garak_probe_class": "Dan_11_0"}
         )
 
-        assert attrs.is_explorer is False
         assert attrs.default_endpoint_id is None
 
     def test_garbage_input_does_not_raise(self):

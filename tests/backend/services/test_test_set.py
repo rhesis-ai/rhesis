@@ -664,6 +664,7 @@ class TestGetTestSetsExcludesExplorer:
             user_id=authenticated_user_id,
             visibility="organization",
             attributes={"metadata": {"behaviors": [EXPLORER_BEHAVIOR_NAME]}},
+            explorer_row=True,
         )
         test_db.add_all([regular, explorer])
         test_db.commit()

@@ -289,7 +289,7 @@ def regular_source_test_set_for_import(test_db: Session, test_org_id, authentica
     return test_set
 
 
-def _make_test_set_with_attrs(db, name, attributes, organization_id, user_id):
+def _make_test_set_with_attrs(db, name, attributes, organization_id, user_id, explorer_row=False):
     """Create a test set with given attributes."""
     ts = models.TestSet(
         name=name,
@@ -297,6 +297,7 @@ def _make_test_set_with_attrs(db, name, attributes, organization_id, user_id):
         organization_id=organization_id,
         user_id=user_id,
         attributes=attributes,
+        explorer_row=explorer_row,
     )
     db.add(ts)
     db.flush()
@@ -308,7 +309,7 @@ def explorer_and_regular_test_sets(test_db: Session, test_org_id, authenticated_
     """Create a mix of explorer and non-explorer test sets for route tests.
 
     Creates:
-    - 2 test sets WITH ``Adaptive Testing`` behavior in metadata
+    - 2 test sets with ``explorer_row=True``
     - 1 test set with a different behavior
     - 1 test set with no attributes
     """
@@ -318,6 +319,7 @@ def explorer_and_regular_test_sets(test_db: Session, test_org_id, authenticated_
         {"metadata": {"behaviors": ["Adaptive Testing"]}},
         test_org_id,
         authenticated_user_id,
+        explorer_row=True,
     )
     ts_adaptive_2 = _make_test_set_with_attrs(
         test_db,
@@ -327,6 +329,7 @@ def explorer_and_regular_test_sets(test_db: Session, test_org_id, authenticated_
         },
         test_org_id,
         authenticated_user_id,
+        explorer_row=True,
     )
     ts_regular = _make_test_set_with_attrs(
         test_db,
@@ -365,7 +368,7 @@ class TestListExplorerTestSetsEndpoint:
         authenticated_client: TestClient,
         explorer_and_regular_test_sets,
     ):
-        """Should return only test sets with Adaptive Testing behavior."""
+        """Should return only test sets flagged as Explorer-owned."""
         response = authenticated_client.get("/explorer")
 
         assert response.status_code == status.HTTP_200_OK
@@ -509,10 +512,7 @@ class TestCreateExplorerTestSetEndpoint:
         assert "id" in data
         assert data["name"] == "My Adaptive Set"
         assert data["description"] == "Optional"
-        assert "attributes" in data
-        assert "metadata" in data["attributes"]
-        assert "behaviors" in data["attributes"]["metadata"]
-        assert "Adaptive Testing" in data["attributes"]["metadata"]["behaviors"]
+        assert data["explorer_row"] is True
         assert "created_at" in data
         assert "updated_at" in data
 
@@ -699,9 +699,8 @@ class TestExportRegularTestSetFromExplorerEndpoint:
         assert new_id != adaptive_id
         assert "(Exported)" in data["test_set"]["name"]
 
+        assert data["test_set"]["explorer_row"] is False
         attrs = data["test_set"].get("attributes") or {}
-        meta = attrs.get("metadata") or {}
-        assert "Adaptive Testing" not in (meta.get("behaviors") or [])
         assert attrs.get("adaptive_settings") is None
 
         tests_resp = authenticated_client.get(f"/test_sets/{new_id}/tests?limit=100")

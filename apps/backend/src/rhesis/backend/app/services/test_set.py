@@ -20,7 +20,6 @@ from rhesis.backend.app.constants import (
 )
 from rhesis.backend.app.models import Prompt, TestSet
 from rhesis.backend.app.models.test import test_test_set_association
-from rhesis.backend.app.schemas.explorer_metadata import parse_explorer_test_set_attributes
 from rhesis.backend.app.services.stats import StatsCalculator
 from rhesis.backend.app.services.test import bulk_create_test_set_associations, bulk_create_tests
 from rhesis.backend.app.utils.crud_utils import get_or_create_status, get_or_create_type_lookup
@@ -621,7 +620,7 @@ def update_test_set_attributes(
         return
 
     # Explorer test sets manage their own attributes; skip regeneration.
-    if parse_explorer_test_set_attributes(test_set.attributes).is_explorer:
+    if test_set.explorer_row:
         return
 
     # Get defaults and license type - use test_set's organization context

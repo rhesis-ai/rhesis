@@ -58,7 +58,7 @@ def get_explorer_settings(
     user_id: str,
 ) -> ExplorerSettingsResponse:
     if not is_explorer_test_set(test_set):
-        raise ValueError("Test set is not configured for Explorer (Adaptive Testing behavior)")
+        raise ValueError("Test set is not configured for Explorer")
 
     endpoint_ref = None
     endpoint_id = parse_explorer_test_set_attributes(test_set.attributes).default_endpoint_id
@@ -87,7 +87,7 @@ def update_explorer_settings(
     metric_ids: Optional[list[UUID]] = None,
 ) -> ExplorerSettingsResponse:
     if not is_explorer_test_set(test_set):
-        raise ValueError("Test set is not configured for Explorer (Adaptive Testing behavior)")
+        raise ValueError("Test set is not configured for Explorer")
 
     if default_endpoint_id is not None:
         endpoint = crud.get_endpoint(

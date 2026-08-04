@@ -31,7 +31,7 @@ from rhesis.backend.app.services.explorer.tests import _parse_test_for_copy
 # ============================================================================
 
 
-def _make_test_set(db, name, attributes, organization_id, user_id):
+def _make_test_set(db, name, attributes, organization_id, user_id, explorer_row=False):
     """Helper to create a test set with given attributes."""
     ts = models.TestSet(
         name=name,
@@ -39,6 +39,7 @@ def _make_test_set(db, name, attributes, organization_id, user_id):
         organization_id=organization_id,
         user_id=user_id,
         attributes=attributes,
+        explorer_row=explorer_row,
     )
     db.add(ts)
     db.flush()
@@ -50,7 +51,7 @@ def explorer_and_regular_test_sets(test_db: Session, test_org_id, authenticated_
     """Create a mix of adaptive and non-adaptive test sets.
 
     Creates:
-    - 2 test sets WITH ``Adaptive Testing`` in metadata.behaviors
+    - 2 test sets with ``explorer_row=True``
     - 1 test set with different behavior
     - 1 test set with no attributes at all
     """
@@ -60,6 +61,7 @@ def explorer_and_regular_test_sets(test_db: Session, test_org_id, authenticated_
         {"metadata": {"behaviors": ["Adaptive Testing"]}},
         test_org_id,
         authenticated_user_id,
+        explorer_row=True,
     )
     ts_adaptive_2 = _make_test_set(
         test_db,
@@ -70,6 +72,7 @@ def explorer_and_regular_test_sets(test_db: Session, test_org_id, authenticated_
         },
         test_org_id,
         authenticated_user_id,
+        explorer_row=True,
     )
     ts_regular = _make_test_set(
         test_db,
@@ -265,7 +268,7 @@ class TestExplorerTreeTopics:
 @pytest.mark.integration
 @pytest.mark.service
 class TestGetExplorerTestSets:
-    """Test get_explorer_test_sets - returns test sets with Adaptive Testing."""
+    """Test get_explorer_test_sets - returns test sets flagged as Explorer-owned."""
 
     def test_returns_only_adaptive_test_sets(
         self,
@@ -273,7 +276,7 @@ class TestGetExplorerTestSets:
         explorer_and_regular_test_sets,
         test_org_id,
     ):
-        """Should return only the 2 test sets with Adaptive Testing behavior."""
+        """Should return only the 2 test sets flagged as Explorer-owned."""
         result = get_explorer_test_sets(
             db=test_db,
             organization_id=test_org_id,
@@ -414,20 +417,15 @@ class TestCreateExplorerTestSet:
         assert result.name == "My Adaptive Set"
         assert result.description == "Optional description"
 
-    def test_attributes_contain_adaptive_testing_behavior(
-        self, test_db, test_org_id, authenticated_user_id
-    ):
-        """Created test set has attributes.metadata.behaviors containing Adaptive Testing."""
+    def test_is_flagged_as_explorer_owned(self, test_db, test_org_id, authenticated_user_id):
+        """Created test set is flagged via explorer_row."""
         result = create_explorer_test_set(
             db=test_db,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
             name=f"Adaptive Set {uuid.uuid4().hex[:6]}",
         )
-        assert result.attributes is not None
-        assert "metadata" in result.attributes
-        assert "behaviors" in result.attributes["metadata"]
-        assert "Adaptive Testing" in result.attributes["metadata"]["behaviors"]
+        assert result.explorer_row is True
 
     def test_has_correct_organization_and_user(self, test_db, test_org_id, authenticated_user_id):
         """Created test set has correct organization_id and user_id."""
@@ -530,7 +528,7 @@ class TestDeleteExplorerTestSet:
     def test_delete_non_adaptive_set(
         self, test_db, explorer_and_regular_test_sets, test_org_id, authenticated_user_id
     ):
-        """Regular test set without Adaptive Testing behavior raises ValueError."""
+        """Regular test set not flagged as Explorer-owned raises ValueError."""
         regular = explorer_and_regular_test_sets["regular"]
         with pytest.raises(ValueError, match="not configured for Explorer"):
             delete_explorer_test_set(
@@ -1109,9 +1107,7 @@ class TestImportExplorerTestSetFromSource:
         assert result.imported == 2
         assert result.skipped == 1
         new_set = result.test_set
-        assert "Adaptive Testing" in ((new_set.attributes or {}).get("metadata") or {}).get(
-            "behaviors", []
-        )
+        assert new_set.explorer_row is True
 
         tests = get_tree_tests(
             db=test_db,
@@ -1292,8 +1288,7 @@ class TestExportRegularTestSetFromExplorer:
         assert result.skipped == 2
         new_set = result.test_set
         assert "(Exported)" in new_set.name
-        meta_behaviors = ((new_set.attributes or {}).get("metadata") or {}).get("behaviors") or []
-        assert "Adaptive Testing" not in meta_behaviors
+        assert new_set.explorer_row is False
         assert (new_set.attributes or {}).get("adaptive_settings") is None
 
         items, total = crud.get_test_set_tests(

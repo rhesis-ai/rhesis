@@ -336,8 +336,8 @@ def read_test_sets(
     """
     Get test sets with flexible filtering.
 
-    Explorer test sets (metadata.behaviors includes
-    "Adaptive Testing") are omitted; list those via GET /explorer/.
+    Explorer test sets (flagged via explorer_row) are omitted; list those
+    via GET /explorer/.
 
     Args:
         skip: Number of items to skip

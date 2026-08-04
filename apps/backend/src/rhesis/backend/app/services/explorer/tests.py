@@ -7,7 +7,6 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
-from rhesis.backend.app.constants import EXPLORER_BEHAVIOR_NAME
 
 # Imported as a module rather than by name: this file's own public
 # get_explorer_test_sets() wraps the crud function of the same name.
@@ -34,7 +33,6 @@ from rhesis.backend.app.services.explorer.utils import _db_test_to_node, build_t
 from rhesis.backend.app.services.test import create_test_set_associations
 from rhesis.backend.app.utils.crud_utils import (
     bulk_delete_by_ids,
-    get_or_create_behavior,
     get_or_create_topic,
     get_or_create_type_lookup,
 )
@@ -100,10 +98,9 @@ def get_explorer_test_sets(
     sort_by: str = "created_at",
     sort_order: str = "desc",
 ) -> List[models.TestSet]:
-    """Get all test sets that have the Adaptive Testing behavior.
+    """Get all test sets flagged as Explorer-owned.
 
-    Queries test sets whose ``attributes -> 'metadata' -> 'behaviors'``
-    JSONB array contains the ``"Adaptive Testing"`` string.
+    Queries test sets whose ``explorer_row`` column is ``true``.
 
     Parameters
     ----------
@@ -123,7 +120,7 @@ def get_explorer_test_sets(
     Returns
     -------
     List[models.TestSet]
-        Test sets configured for Explorer (Adaptive Testing behavior)
+        Test sets flagged as Explorer-owned
     """
     test_sets = crud_explorer.get_explorer_test_sets(
         db=db,
@@ -148,8 +145,7 @@ def create_explorer_test_set(
 ) -> models.TestSet:
     """Create a new test set for Explorer.
 
-    The created test set has attributes.metadata.behaviors containing
-    "Adaptive Testing" so it appears in get_explorer_test_sets.
+    Flagged via ``mark_test_set_as_explorer`` (``explorer_row``).
 
     Parameters
     ----------
@@ -169,16 +165,6 @@ def create_explorer_test_set(
     models.TestSet
         The created test set
     """
-    behavior = get_or_create_behavior(
-        db=db,
-        name=EXPLORER_BEHAVIOR_NAME,
-        organization_id=organization_id,
-        user_id=user_id,
-    )
-    attributes = {
-        "behaviors": [str(behavior.id)],
-        "metadata": {"behaviors": [EXPLORER_BEHAVIOR_NAME]},
-    }
     test_set_type_lookup = get_or_create_type_lookup(
         db=db,
         type_name="TestType",
@@ -189,23 +175,20 @@ def create_explorer_test_set(
     test_set_data = schemas.TestSetCreate(
         name=name,
         description=description,
-        attributes=attributes,
         test_set_type_id=test_set_type_lookup.id,
     )
-    return crud.create_test_set(
+    new_set = crud.create_test_set(
         db=db,
         test_set=test_set_data,
         organization_id=organization_id,
         user_id=user_id,
     )
+    return crud_explorer.mark_test_set_as_explorer(db, new_set)
 
 
 def is_explorer_test_set(test_set: models.TestSet) -> bool:
-    """True if the test set has the Explorer marker behavior in metadata.behaviors."""
-    attrs = test_set.attributes or {}
-    metadata = attrs.get("metadata") or {}
-    behaviors = metadata.get("behaviors") or []
-    return EXPLORER_BEHAVIOR_NAME in behaviors
+    """True if the test set is Explorer-owned."""
+    return bool(test_set.explorer_row)
 
 
 def _delete_session_tests(
@@ -241,13 +224,13 @@ def delete_explorer_test_set(
     """Delete a test set that is configured for Explorer, along with its tests.
 
     Resolves the test set by UUID, nano_id, or slug. Raises ValueError if the
-    set is missing or does not include the Adaptive Testing behavior.
+    set is missing or is not flagged as Explorer-owned.
     """
     db_test_set = crud.resolve_test_set(test_set_identifier, db, organization_id)
     if db_test_set is None:
         raise ValueError("Test set not found with provided identifier")
     if not is_explorer_test_set(db_test_set):
-        raise ValueError("Test set is not configured for Explorer (Adaptive Testing behavior)")
+        raise ValueError("Test set is not configured for Explorer")
 
     # Build the response payload before deleting to avoid response serialization
     # touching an expired/deleted SQLAlchemy instance after commit.
@@ -274,9 +257,9 @@ def bulk_delete_explorer_test_sets(
 ) -> dict:
     """Delete multiple Explorer test sets at once, along with their tests.
 
-    Any id that doesn't resolve to a test set with the Adaptive Testing
-    behavior is reported back in "not_found_ids" rather than deleted -- same
-    guard delete_explorer_test_set() enforces per-item, applied to the batch
+    Any id that doesn't resolve to a test set flagged as Explorer-owned is
+    reported back in "not_found_ids" rather than deleted -- same guard
+    delete_explorer_test_set() enforces per-item, applied to the batch
     up front so bulk_delete_by_ids() only ever touches valid ids.
     """
     if not test_set_ids:
@@ -537,9 +520,7 @@ def export_regular_test_set_from_explorer(
         raise ValueError("Test set not found with provided identifier")
 
     if not is_explorer_test_set(db_source):
-        raise ValueError(
-            "Source test set is not configured for Explorer (Adaptive Testing behavior)"
-        )
+        raise ValueError("Source test set is not configured for Explorer")
 
     base_name = f"{db_source.name} (Exported)"
     new_name = crud_explorer.find_unused_test_set_name(db, organization_id, base_name)
@@ -577,6 +558,8 @@ def export_regular_test_set_from_explorer(
             )
             topic_id = db_topic.id
 
+        # explorer_row left at its False default -- this copies the test OUT to a
+        # regular test set, so marking it Explorer-owned would mislabel it.
         new_test = crud_explorer.create_explorer_test(
             db,
             organization_id=organization_id,
@@ -747,6 +730,7 @@ def create_test_node(
             labeler=labeler,
             model_score=model_score,
         ),
+        explorer_row=True,
     )
 
     # Associate the test with the test set

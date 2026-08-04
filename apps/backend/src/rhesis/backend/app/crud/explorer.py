@@ -12,13 +12,11 @@ import logging
 import uuid
 from typing import Dict, List, Optional, Sequence, Tuple
 
-from sqlalchemy import cast, select
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, contains_eager, joinedload
 
 from rhesis.backend.app import models, schemas
-from rhesis.backend.app.constants import EXPLORER_BEHAVIOR_NAME
 
 # _TEST_SET_RELATED_FIELDS is imported rather than relocated: three other functions in
 # the monolith use the same tuple, and moving it would mean deciding a new home for a
@@ -76,14 +74,11 @@ def get_explorer_test_sets(
     Returns
     -------
     list of models.TestSet
-        Test sets carrying the Explorer marker behavior.
+        Test sets flagged as Explorer-owned.
     """
-    explorer_marker = cast([EXPLORER_BEHAVIOR_NAME], JSONB)
 
     def only_explorer_test_sets(query):
-        return query.filter(
-            models.TestSet.attributes["metadata"]["behaviors"].contains(explorer_marker)
-        )
+        return query.filter(models.TestSet.explorer_row.is_(True))
 
     # Paginated outside the builder on purpose: with_pagination caps limit at 100
     # (validate_pagination) and this endpoint has never capped. with_sorting already
@@ -98,6 +93,29 @@ def get_explorer_test_sets(
         .build()
     )
     return query.offset(skip).limit(limit).all()
+
+
+def mark_test_set_as_explorer(db: Session, test_set: models.TestSet) -> models.TestSet:
+    """Flag a test set as Explorer-owned via the ``explorer_row`` column.
+
+    Not client-settable -- called only from ``create_explorer_test_set``.
+
+    Parameters
+    ----------
+    db : Session
+        Database session
+    test_set : models.TestSet
+        Test set to flag
+
+    Returns
+    -------
+    models.TestSet
+        The same instance, flushed.
+    """
+    test_set.explorer_row = True
+    db.add(test_set)
+    db.flush()
+    return test_set
 
 
 def get_test_sets_by_ids(
@@ -395,6 +413,7 @@ def create_explorer_test(
     topic_id: Optional[uuid.UUID] = None,
     content: Optional[str] = None,
     metadata: Optional[ExplorerTestMetadata] = None,
+    explorer_row: bool = False,
 ) -> models.Test:
     """Insert an Explorer test, plus the prompt holding its input when it has one.
 
@@ -417,6 +436,9 @@ def create_explorer_test(
         Prompt text; when None no prompt row is created
     metadata : ExplorerTestMetadata, optional
         Value for ``test_metadata``
+    explorer_row : bool, default False
+        Whether this test is Explorer-owned. Defaults false so a caller that
+        forgets can't mislabel a test copied out to a regular test set.
 
     Returns
     -------
@@ -442,6 +464,7 @@ def create_explorer_test(
         ),
         organization_id=organization_id,
         user_id=user_id,
+        explorer_row=explorer_row,
     )
     db.add(db_test)
     db.flush()

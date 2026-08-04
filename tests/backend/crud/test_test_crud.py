@@ -186,6 +186,7 @@ class TestTestOperations:
             organization_id=test_org_id,
             user_id=authenticated_user_id,
             attributes={"metadata": {"behaviors": [EXPLORER_BEHAVIOR_NAME]}},
+            explorer_row=True,
         )
         test_db.add_all([db_test, explorer_test_set])
         test_db.flush()
