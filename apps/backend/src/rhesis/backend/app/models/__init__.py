@@ -45,6 +45,7 @@ from .tool import Tool
 from .topic import Topic
 from .trace import Trace
 from .type_lookup import TypeLookup
+from .usage import Usage
 from .use_case import UseCase
 from .user import User
 
@@ -100,6 +101,7 @@ __all__ = [
     "test_set_metric_association",
     "TestRunStatsView",
     "TestResultStatsView",
+    "Usage",
 ]
 
 # Set up soft delete event listener
