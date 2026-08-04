@@ -161,3 +161,87 @@ class TestGenerateContentEndpointUsageForwarding:
 
             assert result == "hi there"
             assert "X-Rhesis-Usage" not in http_response.headers
+
+    @pytest.mark.asyncio
+    async def test_sums_usage_across_multiple_emissions_in_one_call(self):
+        """`captured_usage` must accumulate, not `dict.update()`: a model
+        that emits on_usage more than once in a single a_generate() call
+        (e.g. a future streaming provider) must not have its earlier
+        emission overwritten by a later, smaller one."""
+        mock_request = GenerateContentRequest(prompt="hello")
+        mock_db = MagicMock()
+        mock_user = MagicMock()
+        http_response = Response()
+
+        with patch(
+            "rhesis.backend.app.utils.user_model_utils.get_generation_model_with_override"
+        ) as mock_get_gen:
+            mock_model = MagicMock()
+            mock_model.on_usage = None
+
+            async def fake_a_generate(*args, **kwargs):
+                mock_model.on_usage({"total_tokens": 10})
+                mock_model.on_usage({"total_tokens": 5})
+                return "hi there"
+
+            mock_model.a_generate = fake_a_generate
+            mock_get_gen.return_value = mock_model
+
+            await generate_content_endpoint(
+                mock_request, http_response, db=mock_db, current_user=mock_user
+            )
+
+            assert json.loads(http_response.headers["X-Rhesis-Usage"]) == {"total_tokens": 15}
+
+    @pytest.mark.asyncio
+    async def test_restores_original_on_usage_after_the_call(self):
+        """The override must not leak past this request: a model that
+        outlives the request (e.g. a future caching layer) must be left
+        with its original callback, not a closure over this request's
+        now-stale captured_usage dict."""
+        mock_request = GenerateContentRequest(prompt="hello")
+        mock_db = MagicMock()
+        mock_user = MagicMock()
+        http_response = Response()
+
+        def original_callback(usage):
+            pass
+
+        with patch(
+            "rhesis.backend.app.utils.user_model_utils.get_generation_model_with_override"
+        ) as mock_get_gen:
+            mock_model = MagicMock()
+            mock_model.on_usage = original_callback
+            mock_model.a_generate = AsyncMock(return_value="hi there")
+            mock_get_gen.return_value = mock_model
+
+            await generate_content_endpoint(
+                mock_request, http_response, db=mock_db, current_user=mock_user
+            )
+
+            assert mock_model.on_usage is original_callback
+
+    @pytest.mark.asyncio
+    async def test_restores_original_on_usage_even_if_a_generate_raises(self):
+        mock_request = GenerateContentRequest(prompt="hello")
+        mock_db = MagicMock()
+        mock_user = MagicMock()
+        http_response = Response()
+
+        def original_callback(usage):
+            pass
+
+        with patch(
+            "rhesis.backend.app.utils.user_model_utils.get_generation_model_with_override"
+        ) as mock_get_gen:
+            mock_model = MagicMock()
+            mock_model.on_usage = original_callback
+            mock_model.a_generate = AsyncMock(side_effect=RuntimeError("boom"))
+            mock_get_gen.return_value = mock_model
+
+            with pytest.raises(HTTPException):
+                await generate_content_endpoint(
+                    mock_request, http_response, db=mock_db, current_user=mock_user
+                )
+
+            assert mock_model.on_usage is original_callback

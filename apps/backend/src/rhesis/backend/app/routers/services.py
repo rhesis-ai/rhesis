@@ -173,17 +173,33 @@ async def generate_content_endpoint(
             model = get_model(model, model_type="language")
 
         captured_usage: dict = {}
-        if hasattr(model, "on_usage"):
-            original_on_usage = model.on_usage
+        has_on_usage = hasattr(model, "on_usage")
+        original_on_usage = model.on_usage if has_on_usage else None
 
-            def _capture_and_forward(usage: dict) -> None:
-                captured_usage.update(usage)
-                if original_on_usage:
-                    original_on_usage(usage)
+        def _capture_and_forward(usage: dict) -> None:
+            # Sum rather than `dict.update()`: if `on_usage` ever fires more
+            # than once for a single call, `update()` would replace the
+            # running totals with the latest emission instead of adding to
+            # them, undercounting what gets forwarded via the header.
+            for key, value in usage.items():
+                captured_usage[key] = captured_usage.get(key, 0) + value
+            if original_on_usage:
+                original_on_usage(usage)
 
+        if has_on_usage:
             model.on_usage = _capture_and_forward
 
-        result = await model.a_generate(request.prompt, schema=request.schema_)
+        try:
+            result = await model.a_generate(request.prompt, schema=request.schema_)
+        finally:
+            # Restore the original callback: `model` is a fresh instance
+            # resolved for this request today, but this handler must not
+            # assume that stays true. Leaving the override in place on a
+            # model that outlives the request (e.g. a future caching layer)
+            # would nest a new `_capture_and_forward` on every reuse, firing
+            # `original_on_usage` once per layer of nesting per real event.
+            if has_on_usage:
+                model.on_usage = original_on_usage
 
         if captured_usage:
             http_response.headers[USAGE_HEADER] = json.dumps(captured_usage)
