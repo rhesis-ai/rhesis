@@ -2,6 +2,7 @@
 
 import { PageLayout } from '@/components/layout/PageLayout';
 import { useOrganization } from '@/contexts/OrganizationContext';
+import { UsageProvider } from '@/contexts/UsageContext';
 import UsageDetailTabs from './components/UsageDetailTabs';
 import AccessDenied from '@/components/common/AccessDenied';
 import PageLoadingState from '@/components/common/PageLoadingState';
@@ -35,7 +36,16 @@ export default function OrganizationUsagePage() {
 
   return (
     <PageLayout {...pageHeader}>
-      <UsageDetailTabs />
+      {/*
+        Mounted here rather than in the protected layout: this is the only
+        page that reads usage, and `GET /usage` costs a license lookup plus
+        a counting query per stock resource -- not worth paying on every
+        protected navigation. Inside the `canRead` guard, so a user without
+        the capability never fires a request that would only 403.
+      */}
+      <UsageProvider>
+        <UsageDetailTabs />
+      </UsageProvider>
     </PageLayout>
   );
 }

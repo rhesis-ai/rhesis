@@ -4,10 +4,14 @@
  * Read-only usage accounting: per-resource counters, limits, and the
  * current billing period, for the org usage dashboard tab.
  *
- * Mirrors `FeaturesContext`'s caching and SSR-seeding pattern: `useQuery`
- * scoped by `userScope`, `staleTime` matching the other ambient providers,
- * and an `initialUsage` prop so the very first client render already has
- * data instead of flashing a loading state for one round trip.
+ * Mirrors `FeaturesContext`'s caching pattern: `useQuery` scoped by
+ * `userScope`, with `staleTime` matching the other ambient providers.
+ *
+ * Unlike `FeaturesProvider`, this is mounted by the Usage page itself rather
+ * than the protected layout -- nothing else reads usage, and `GET /usage`
+ * is too costly to issue on every protected navigation. That also means
+ * there is no SSR-seeded `initialData`: the page shows its loading
+ * skeleton for one round trip instead.
  *
  * Fail-closed, same as `FeaturesContext`/`PermissionsContext`: `resources`
  * is empty during the initial fetch and on error, never a stale/default
@@ -16,10 +20,7 @@
 
 import { usageKeys } from '@/constants/query-keys';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import type {
-  UsageResponse,
-  UsageResourceItem,
-} from '@/utils/api-client/usage-client';
+import type { UsageResourceItem } from '@/utils/api-client/usage-client';
 import { useQuery } from '@tanstack/react-query';
 import { useSession } from 'next-auth/react';
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
@@ -41,19 +42,7 @@ const DEFAULT_STATE: UsageState = {
 
 const UsageContext = createContext<UsageState>(DEFAULT_STATE);
 
-export function UsageProvider({
-  children,
-  initialUsage = null,
-}: {
-  children: ReactNode;
-  /**
-   * Server-fetched `GET /usage` result (see `(protected)/layout.tsx`),
-   * seeded as this query's `initialData` so `loading` is already `false`
-   * on the very first client render. `null` (no session server-side, or
-   * the fetch failed) falls back to the normal client-side fetch.
-   */
-  initialUsage?: UsageResponse | null;
-}) {
+export function UsageProvider({ children }: { children: ReactNode }) {
   const { status } = useSession();
   const userScope = useUserScope();
 
@@ -65,7 +54,6 @@ export function UsageProvider({
     // could run (and cache) under the `''` scope key.
     enabled: isAuthenticated(status) && !!userScope,
     staleTime: 5 * 60_000,
-    ...(initialUsage ? { initialData: initialUsage } : {}),
   });
 
   const value = useMemo<UsageState>(() => {
