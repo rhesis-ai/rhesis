@@ -38,10 +38,18 @@ class TemplateService:
         # Get template directory path
         self.template_dir = Path(__file__).parent / "templates"
 
-        # Initialize Jinja2 environment
+        # Initialize Jinja2 environment.
+        #
+        # autoescape is unconditional, not select_autoescape(["html", "xml"]).
+        # select_autoescape matches on the filename's suffix, and every template
+        # here ends in `.jinja2` rather than `.html`, so it returned False for
+        # all of them and escaping never engaged. Recipient-controlled fields
+        # (feedback, justification, task_description, organization_name, entity
+        # names) rendered as live HTML, which lets someone inject a link into a
+        # Rhesis-branded email.
         self.jinja_env = jinja2.Environment(
             loader=jinja2.FileSystemLoader(str(self.template_dir)),
-            autoescape=jinja2.select_autoescape(["html", "xml"]),
+            autoescape=True,
             trim_blocks=True,
             lstrip_blocks=True,
         )

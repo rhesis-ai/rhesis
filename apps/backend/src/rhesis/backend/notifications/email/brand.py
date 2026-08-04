@@ -25,6 +25,8 @@ Email constrains what can be expressed:
 
 from dataclasses import dataclass
 
+from markupsafe import Markup
+
 from rhesis.backend.app.config.settings import get_smtp_settings
 
 
@@ -82,12 +84,19 @@ class Colors:
 
 @dataclass(frozen=True)
 class Fonts:
-    """Font stacks. The first family only resolves where @font-face survives."""
+    """Font stacks. The first family only resolves where @font-face survives.
 
-    sans: str = (
+    Wrapped in `Markup` because the environment autoescapes unconditionally,
+    which would turn the quotes around multi-word family names into `&#39;`.
+    These are developer-controlled constants, never user input, so marking them
+    safe is sound — nothing else on `brand` needs it, since hex values, URLs and
+    shadow values contain no escapable characters.
+    """
+
+    sans: str = Markup(
         "'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif"
     )
-    mono: str = "'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+    mono: str = Markup("'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace")
 
 
 @dataclass(frozen=True)

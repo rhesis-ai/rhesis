@@ -147,3 +147,62 @@ def test_no_literal_none_or_undefined_leaks(rendered: dict[str, str], name: str)
     html = rendered[name]
     assert ">None<" not in html, f"{name} rendered a bare None"
     assert "Undefined" not in html
+
+
+# Fields a user or another tenant can set, per template. Each renders into the
+# body, so each is a place someone could inject markup.
+INJECTABLE = [
+    (EmailTemplate.FEEDBACK, "feedback"),
+    (EmailTemplate.FEEDBACK, "user_name"),
+    (EmailTemplate.POLYPHEMUS_ACCESS_REQUEST, "justification"),
+    (EmailTemplate.POLYPHEMUS_ACCESS_REQUEST, "organization_name"),
+    (EmailTemplate.TASK_ASSIGNMENT, "task_description"),
+    (EmailTemplate.TASK_ASSIGNMENT, "task_title"),
+    (EmailTemplate.TASK_ASSIGNMENT, "entity_name"),
+    (EmailTemplate.TEAM_INVITATION, "organization_name"),
+    (EmailTemplate.TEAM_INVITATION, "inviter_name"),
+    (EmailTemplate.TEST_EXECUTION_SUMMARY, "status_details"),
+    (EmailTemplate.TEST_EXECUTION_SUMMARY, "endpoint_name"),
+    (EmailTemplate.TASK_COMPLETION, "task_name"),
+    # WELCOME is absent on purpose: it is a founder letter that interpolates no
+    # user-supplied field into its body, so there is nothing to inject into.
+]
+
+PAYLOAD = '<a href="https://evil.example/reset">Reset your password</a>'
+
+
+@pytest.mark.parametrize(
+    ("template", "field"), INJECTABLE, ids=[f"{t.name}.{f}" for t, f in INJECTABLE]
+)
+def test_user_fields_are_escaped(template: EmailTemplate, field: str):
+    """No user-supplied field may render as live HTML.
+
+    The environment escapes unconditionally. It used to use
+    select_autoescape(["html", "xml"]), which matches on the filename suffix —
+    and these templates end in `.jinja2`, not `.html`, so escaping never
+    engaged and every field below rendered as markup. A link injected into,
+    say, a feedback message arrives inside a Rhesis-branded email.
+    """
+    variables = dict(FIXTURES[template])
+    variables[field] = PAYLOAD
+    html = TemplateService().render_template(template, variables)
+
+    assert PAYLOAD not in html, f"{template.name}.{field} rendered raw HTML"
+    assert "&lt;a href=" in html, f"{template.name}.{field} did not render the escaped payload"
+
+
+def test_font_stacks_survive_escaping():
+    """The quotes in multi-word family names must not become entities.
+
+    brand.Fonts wraps its stacks in Markup for exactly this reason; without it
+    `'Geist'` renders as `&#39;Geist&#39;`.
+    """
+    html = TemplateService().render_template(
+        EmailTemplate.MAGIC_LINK, dict(FIXTURES[EmailTemplate.MAGIC_LINK])
+    )
+    assert "font-family: 'Geist'" in html
+    assert "font-family: 'Geist Mono'" in html
+    # Scoped to the family names. A bare `&#39;` check would fail on copy that
+    # legitimately contains an apostrophe ("you didn't request this link"),
+    # where escaping is doing its job.
+    assert "&#39;Geist" not in html
