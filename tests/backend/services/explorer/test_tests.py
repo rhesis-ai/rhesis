@@ -1124,6 +1124,37 @@ class TestImportExplorerTestSetFromSource:
         assert "Prompt one" in inputs
         assert "Prompt two" in inputs
 
+    def test_import_copies_adaptive_settings_from_source_without_crashing(
+        self,
+        test_db: Session,
+        test_org_id,
+        authenticated_user_id,
+    ):
+        """A source set whose attributes already carry an adaptive_settings block (e.g. a
+        previously exported-then-reimported set) must copy it, not crash on a raw dict."""
+        endpoint_id = uuid.uuid4()
+        src = models.TestSet(
+            name=f"Import With Settings {uuid.uuid4().hex[:8]}",
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            attributes={
+                "metadata": {"behaviors": ["Safety"]},
+                "adaptive_settings": {"default_endpoint_id": str(endpoint_id)},
+            },
+        )
+        test_db.add(src)
+        test_db.flush()
+
+        result = import_explorer_test_set_from_source(
+            db=test_db,
+            source_test_set_identifier=str(src.id),
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+
+        new_attrs = result.test_set.attributes or {}
+        assert new_attrs.get("adaptive_settings") == {"default_endpoint_id": str(endpoint_id)}
+
     def test_skips_test_that_fails_to_write_and_keeps_the_rest(
         self,
         test_db: Session,

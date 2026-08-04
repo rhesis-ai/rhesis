@@ -1,11 +1,12 @@
 import logging
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 from uuid import UUID
 
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models
 from rhesis.backend.app.schemas.explorer import TestTreeNode
+from rhesis.backend.app.schemas.explorer_metadata import parse_explorer_test_metadata
 from rhesis.backend.app.services.explorer.invocation import NO_OUTPUT
 from rhesis.backend.app.services.explorer.tree import TestTreeData
 
@@ -22,32 +23,26 @@ def _db_test_to_node(db_test: models.Test) -> TestTreeNode | None:
 
     Returns None for tests without prompts (unless they are topic markers).
     """
-    meta = db_test.test_metadata or {}
-    is_topic_marker = meta.get("label") == "topic_marker"
+    meta = parse_explorer_test_metadata(db_test.test_metadata)
 
     # Skip tests without prompts (e.g., multi-turn tests)
     # But allow topic markers which have empty prompts
-    if not is_topic_marker and (not db_test.prompt or not db_test.prompt.content):
+    if not meta.is_topic_marker and (not db_test.prompt or not db_test.prompt.content):
         return None
 
     topic_name = ""
     if db_test.topic:
         topic_name = db_test.topic.name if hasattr(db_test.topic, "name") else ""
 
-    raw_metrics = meta.get("metrics")
-    metrics: Optional[Dict[str, Any]] = None
-    if isinstance(raw_metrics, dict):
-        metrics = raw_metrics
-
     return TestTreeNode(
         id=str(db_test.id),
         topic=topic_name,
         input=db_test.prompt.content if db_test.prompt else "",
-        output=meta.get("output", NO_OUTPUT),
-        label=meta.get("label", ""),
-        labeler=meta.get("labeler", "imported"),
-        model_score=meta.get("model_score", 0.0),
-        metrics=metrics,
+        output=meta.output if meta.output is not None else NO_OUTPUT,
+        label=meta.label,
+        labeler=meta.labeler if meta.labeler is not None else "imported",
+        model_score=meta.model_score,
+        metrics=meta.metrics,
     )
 
 
@@ -140,8 +135,8 @@ def _build_eligible_tests(
     """
     eligible: List[models.Test] = []
     for t in tests:
-        meta = t.test_metadata or {}
-        if meta.get("label") == "topic_marker":
+        meta = parse_explorer_test_metadata(t.test_metadata)
+        if meta.is_topic_marker:
             continue
         if not t.prompt or not (t.prompt.content or "").strip():
             continue

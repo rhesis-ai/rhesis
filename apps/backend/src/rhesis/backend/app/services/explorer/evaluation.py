@@ -15,6 +15,11 @@ from rhesis.backend.app.schemas.explorer import (
     EvaluateResponse,
     EvaluateResultItem,
 )
+from rhesis.backend.app.schemas.explorer_metadata import (
+    ExplorerMetricEvalDetail,
+    ExplorerTestMetadata,
+    parse_explorer_test_metadata,
+)
 from rhesis.backend.app.services.explorer.invocation import NO_OUTPUT
 from rhesis.backend.app.services.explorer.utils import (
     _build_eligible_tests,
@@ -45,16 +50,13 @@ def build_metrics_summary_for_response(
     """Build per-metric payload for HTTP responses and ``test_metadata.metrics``."""
     out: Dict[str, Dict[str, Any]] = {}
     for name, v in valid.items():
-        row: Dict[str, Any] = {
-            "score": v.get("score"),
-            "is_successful": v.get("is_successful"),
-        }
-        if v.get("reason") is not None:
-            row["reason"] = v["reason"]
-        det = v.get("details")
-        if det:
-            row["details"] = det
-        out[name] = row
+        detail = ExplorerMetricEvalDetail(
+            score=v.get("score") or 0.0,
+            is_successful=bool(v.get("is_successful")),
+            reason=v.get("reason"),
+            details=v.get("details") or None,
+        )
+        out[name] = detail.model_dump(mode="json", exclude_none=True)
     return out
 
 
@@ -314,7 +316,7 @@ async def evaluate_tests_for_explorer_set(
             continue
         eligible.append(t)
 
-    async def _evaluate_test(test) -> Tuple[Dict[str, Any], Optional[Dict[str, Any]]]:
+    async def _evaluate_test(test) -> Tuple[Dict[str, Any], Optional[ExplorerTestMetadata]]:
         """Evaluate one test, returning its outcome and the metadata to persist.
 
         Returns the metadata rather than assigning it: these run concurrently on the
@@ -323,7 +325,8 @@ async def evaluate_tests_for_explorer_set(
         """
         test_id_str = str(test.id)
         input_text = (test.prompt.content or "").strip()
-        output_text = (test.test_metadata or {}).get("output", "")
+        existing_meta = parse_explorer_test_metadata(test.test_metadata)
+        output_text = existing_meta.output or ""
 
         if not output_text or output_text == NO_OUTPUT:
             logger.warning(
@@ -343,10 +346,13 @@ async def evaluate_tests_for_explorer_set(
                     "error": "no metric results",
                 }, None
 
-            meta = dict(test.test_metadata or {})
-            meta.update(verdict.as_payload())
+            meta = existing_meta.model_copy()
+            meta.label = verdict.label
+            meta.labeler = verdict.labeler
+            meta.model_score = verdict.model_score
+            meta.metrics = verdict.metrics
             if len(sdk_metrics) > 1:
-                meta["evaluation"] = [
+                meta.evaluation = [
                     {
                         "label": "pass" if r.get("is_successful") else "fail",
                         "labeler": key,
@@ -354,8 +360,8 @@ async def evaluate_tests_for_explorer_set(
                     }
                     for key, r in verdict.per_metric.items()
                 ]
-            elif "evaluation" in meta:
-                del meta["evaluation"]
+            else:
+                meta.evaluation = None
 
             return {
                 "status": "ok",
@@ -368,9 +374,12 @@ async def evaluate_tests_for_explorer_set(
                 f"Evaluation failed for test {test_id_str}: {e}",
                 exc_info=True,
             )
-            meta = dict(test.test_metadata or {})
-            meta.update(MetricVerdict.error(metric_names).as_payload())
-            meta.pop("metrics", None)  # absent, not null — matches what readers expect
+            error_verdict = MetricVerdict.error(metric_names)
+            meta = existing_meta.model_copy()
+            meta.label = error_verdict.label
+            meta.labeler = error_verdict.labeler
+            meta.model_score = error_verdict.model_score
+            meta.metrics = None  # absent, not null — matches what readers expect
             return {
                 "status": "failed",
                 "test_id": test_id_str,

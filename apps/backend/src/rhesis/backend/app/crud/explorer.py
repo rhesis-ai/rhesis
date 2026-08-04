@@ -10,7 +10,7 @@ Every function here flushes and never commits -- the request session owns the co
 
 import logging
 import uuid
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 from sqlalchemy import cast, select
 from sqlalchemy.dialects.postgresql import JSONB
@@ -31,6 +31,12 @@ from rhesis.backend.app.crud import (
 )
 from rhesis.backend.app.models.enums import ModelType
 from rhesis.backend.app.models.test import test_test_set_association
+from rhesis.backend.app.schemas.explorer_metadata import (
+    ExplorerAdaptiveSettings,
+    ExplorerTestMetadata,
+    parse_explorer_adaptive_settings,
+    parse_explorer_test_metadata,
+)
 from rhesis.backend.app.utils.query_utils import QueryBuilder, include
 
 logger = logging.getLogger(__name__)
@@ -161,7 +167,7 @@ def get_test_ids_in_test_sets(
 
 
 def replace_test_set_explorer_settings(
-    db: Session, test_set: models.TestSet, settings: Dict[str, Any]
+    db: Session, test_set: models.TestSet, settings: ExplorerAdaptiveSettings
 ) -> models.TestSet:
     """Overwrite a test set's ``attributes["adaptive_settings"]`` wholesale.
 
@@ -178,7 +184,7 @@ def replace_test_set_explorer_settings(
         Database session
     test_set : models.TestSet
         Test set to write to
-    settings : dict
+    settings : ExplorerAdaptiveSettings
         The new ``adaptive_settings`` value
 
     Returns
@@ -187,7 +193,7 @@ def replace_test_set_explorer_settings(
         The same instance, flushed.
     """
     attrs = dict(test_set.attributes or {})
-    attrs["adaptive_settings"] = dict(settings)
+    attrs["adaptive_settings"] = settings.model_dump(mode="json", exclude_none=True)
     test_set.attributes = attrs
     db.add(test_set)
     db.flush()
@@ -216,9 +222,9 @@ def set_test_set_default_endpoint(
         The same instance, flushed and refreshed.
     """
     attrs = dict(test_set.attributes or {})
-    explorer_settings = dict(attrs.get("adaptive_settings") or {})
-    explorer_settings["default_endpoint_id"] = str(endpoint_id)
-    attrs["adaptive_settings"] = explorer_settings
+    explorer_settings = parse_explorer_adaptive_settings(attrs.get("adaptive_settings"))
+    explorer_settings.default_endpoint_id = endpoint_id
+    attrs["adaptive_settings"] = explorer_settings.model_dump(mode="json", exclude_none=True)
     test_set.attributes = attrs
     db.add(test_set)
     db.flush()
@@ -388,7 +394,7 @@ def create_explorer_test(
     user_id: str,
     topic_id: Optional[uuid.UUID] = None,
     content: Optional[str] = None,
-    metadata: Optional[Dict[str, Any]] = None,
+    metadata: Optional[ExplorerTestMetadata] = None,
 ) -> models.Test:
     """Insert an Explorer test, plus the prompt holding its input when it has one.
 
@@ -409,7 +415,7 @@ def create_explorer_test(
         Topic to file the test under
     content : str, optional
         Prompt text; when None no prompt row is created
-    metadata : dict, optional
+    metadata : ExplorerTestMetadata, optional
         Value for ``test_metadata``
 
     Returns
@@ -431,7 +437,9 @@ def create_explorer_test(
     db_test = models.Test(
         topic_id=topic_id,
         prompt_id=prompt_id,
-        test_metadata=metadata,
+        test_metadata=(
+            metadata.model_dump(mode="json", exclude_none=True) if metadata is not None else None
+        ),
         organization_id=organization_id,
         user_id=user_id,
     )
@@ -445,7 +453,7 @@ def update_explorer_test(
     db_test: models.Test,
     *,
     prompt_content: Optional[str] = None,
-    metadata: Optional[Dict[str, Any]] = None,
+    metadata: Optional[ExplorerTestMetadata] = None,
     topic_id: Optional[uuid.UUID] = None,
 ) -> models.Test:
     """Apply the given changes to a test, then flush and refresh it.
@@ -463,7 +471,7 @@ def update_explorer_test(
         Test to update
     prompt_content : str, optional
         New prompt text; ignored when the test has no prompt
-    metadata : dict, optional
+    metadata : ExplorerTestMetadata, optional
         Replacement ``test_metadata``, written only when it differs
     topic_id : uuid.UUID, optional
         New topic
@@ -477,8 +485,10 @@ def update_explorer_test(
         db_test.prompt.content = prompt_content
         db.add(db_test.prompt)
 
-    if metadata is not None and metadata != (db_test.test_metadata or {}):
-        db_test.test_metadata = metadata
+    if metadata is not None:
+        dumped = metadata.model_dump(mode="json", exclude_none=True)
+        if dumped != (db_test.test_metadata or {}):
+            db_test.test_metadata = dumped
 
     if topic_id is not None:
         db_test.topic_id = topic_id
@@ -547,7 +557,7 @@ def remove_tests_from_test_set(
 
 
 def set_explorer_test_metadata(
-    db: Session, updates: Sequence[Tuple[models.Test, Dict[str, Any]]]
+    db: Session, updates: Sequence[Tuple[models.Test, ExplorerTestMetadata]]
 ) -> None:
     """Write new ``test_metadata`` onto already-loaded tests, flushing once.
 
@@ -559,14 +569,14 @@ def set_explorer_test_metadata(
     ----------
     db : Session
         Database session
-    updates : sequence of (models.Test, dict)
+    updates : sequence of (models.Test, ExplorerTestMetadata)
         Tests paired with their replacement metadata
     """
     if not updates:
         return
 
     for db_test, metadata in updates:
-        db_test.test_metadata = metadata
+        db_test.test_metadata = metadata.model_dump(mode="json", exclude_none=True)
 
     db.flush()
 
@@ -597,9 +607,9 @@ def set_explorer_test_outputs(db: Session, outputs: Dict[str, str]) -> List[str]
     written: List[str] = []
     for db_test in db_tests:
         test_id_str = str(db_test.id)
-        meta = dict(db_test.test_metadata or {})
-        meta["output"] = outputs[test_id_str]
-        db_test.test_metadata = meta
+        meta = parse_explorer_test_metadata(db_test.test_metadata)
+        meta.output = outputs[test_id_str]
+        db_test.test_metadata = meta.model_dump(mode="json", exclude_none=True)
         written.append(test_id_str)
 
     db.flush()
