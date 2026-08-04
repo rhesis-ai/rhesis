@@ -18,13 +18,33 @@ export interface UsageResponse {
   edition: string;
 }
 
+export interface UsageHistoryPoint {
+  period_start: string;
+  used: number;
+}
+
+export interface UsageHistoryResponse {
+  /**
+   * Flow resources only -- stock resources (seats/projects/endpoints) are
+   * live counts with no historical row to report, so they're absent here
+   * rather than repeating today's count at every point.
+   */
+  resources: Record<string, UsageHistoryPoint[]>;
+}
+
 /**
- * Client for the `/usage` endpoint. Returns per-resource usage counters,
+ * Client for the `/usage` endpoints. Returns per-resource usage counters,
  * limits, and the current billing period for the current user's organization.
  */
 export class UsageClient extends BaseApiClient {
   async getUsage(): Promise<UsageResponse> {
     return this.fetch<UsageResponse>('/usage', {
+      cache: 'no-store',
+    });
+  }
+
+  async getUsageHistory(months: number): Promise<UsageHistoryResponse> {
+    return this.fetch<UsageHistoryResponse>(`/usage/history?months=${months}`, {
       cache: 'no-store',
     });
   }

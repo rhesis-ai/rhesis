@@ -75,6 +75,8 @@ export const featureKeys = {
 
 export const usageKeys = {
   all: (userScope: string) => ['usage', userScope] as const,
+  history: (userScope: string, months: number) =>
+    ['usage', userScope, 'history', months] as const,
 };
 
 export const permissionKeys = {
