@@ -10,10 +10,12 @@ import { useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 
 export default function OrganizationUsagePage() {
-  // Same gate as Org Settings -- usage/quota data is org-scoped in exactly
-  // the same way, and there's no separate usage/billing capability yet.
+  // Not Organization.READ: every Viewer holds that one for basic org
+  // context, so it would not gate anything. Usage is billing data, so it
+  // has its own admin-only capability, matching what the backend now
+  // requires on GET /usage.
   const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
-    Capability.Organization.READ
+    Capability.Usage.READ
   );
   const { organization } = useOrganization();
 

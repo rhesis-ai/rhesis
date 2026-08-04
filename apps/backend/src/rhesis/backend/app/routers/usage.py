@@ -14,9 +14,14 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from rhesis.backend.app.auth.capabilities import Permission, capability
 from rhesis.backend.app.dependencies import get_current_organization, get_tenant_db_session
 from rhesis.backend.app.models.organization import Organization
-from rhesis.backend.app.services.usage import get_usage_history, get_usage_summary
+from rhesis.backend.app.services.usage import (
+    InvalidPeriodError,
+    get_usage_history,
+    get_usage_summary,
+)
 
 router = APIRouter(prefix="/usage", tags=["usage"])
 
@@ -43,7 +48,7 @@ class UsageHistoryResponse(BaseModel):
     resources: Dict[str, List[UsageHistoryPoint]] = Field(default_factory=dict)
 
 
-@router.get("", response_model=UsageResponse)
+@router.get("", response_model=UsageResponse, **capability(Permission.Usage.READ))
 def get_usage(
     period: date | None = Query(
         None,
@@ -60,7 +65,7 @@ def get_usage(
     """Return per-resource usage, limits, and the billing period."""
     try:
         summary = get_usage_summary(db, str(org.id), org, period_start=period)
-    except ValueError as exc:
+    except InvalidPeriodError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return UsageResponse(
         resources={k: UsageResourceItem(**v) for k, v in summary["resources"].items()},
@@ -68,7 +73,11 @@ def get_usage(
     )
 
 
-@router.get("/history", response_model=UsageHistoryResponse)
+@router.get(
+    "/history",
+    response_model=UsageHistoryResponse,
+    **capability(Permission.Usage.READ),
+)
 def get_usage_history_endpoint(
     months: int = Query(6, ge=1, le=24, description="Trailing calendar months to include"),
     org: Organization = Depends(get_current_organization),

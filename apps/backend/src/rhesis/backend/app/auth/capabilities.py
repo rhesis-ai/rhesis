@@ -283,6 +283,17 @@ class Permission:
         READ = "organization:read"
         UPDATE = "organization:update"
 
+    class Usage(_PermissionEnum):
+        """Metered-consumption reporting for the org (``GET /usage``).
+
+        Deliberately *not* covered by ``organization:read``: that one is part
+        of the read-only Viewer baseline (basic org context), whereas usage
+        totals and plan limits are billing data. Restricted to org admins --
+        Owner/Admin in EE, the org owner in community.
+        """
+
+        READ = "usage:read"
+
     class Member(_PermissionEnum):
         READ = "member:read"
         #: Add a member to the org (route-derived companion of MANAGE).
@@ -362,6 +373,7 @@ SCOPE_PROJECT = "project"
 _ORG_SCOPED_RESOURCES: frozenset[str] = frozenset(
     {
         "organization",
+        "usage",
         "member",
         "role",
         "token",
