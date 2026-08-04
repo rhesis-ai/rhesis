@@ -14,12 +14,10 @@ from __future__ import annotations
 
 from typing import Dict, List
 
-from fastapi import APIRouter, Depends, HTTPException
-from fastapi import status as http_status
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
-from sqlalchemy.orm import Session
 
-from rhesis.backend.app.dependencies import get_tenant_context, get_tenant_db_session
+from rhesis.backend.app.dependencies import get_current_organization
 from rhesis.backend.app.features import FeatureRegistry
 from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.quota import QuotaRegistry, limits_to_wire
@@ -41,27 +39,9 @@ class FeaturesResponse(BaseModel):
 
 @router.get("", response_model=FeaturesResponse)
 def list_features(
-    tenant_context: tuple = Depends(get_tenant_context),
-    db: Session = Depends(get_tenant_db_session),
+    org: Organization = Depends(get_current_organization),
 ) -> FeaturesResponse:
-    """Return license info and the set of features enabled for the current user's org.
-
-    Both dependencies resolve through the same ``require_current_user_or_token``
-    call (FastAPI deduplicates it). ``tenant_context`` provides the
-    authenticated organization ID so we never accept user-supplied input.
-    """
-    organization_id, _user_id = tenant_context
-    if not organization_id:
-        raise HTTPException(
-            status_code=http_status.HTTP_403_FORBIDDEN,
-            detail="Organization context required",
-        )
-    org = db.get(Organization, organization_id)
-    if org is None:
-        raise HTTPException(
-            status_code=http_status.HTTP_403_FORBIDDEN,
-            detail="Organization not found",
-        )
+    """Return license info and the set of features enabled for the current user's org."""
     enabled = [f.name.value for f in FeatureRegistry.licensed_features(org)]
     warnings = FeatureRegistry.feature_warnings(org)
     info = FeatureRegistry.license_info(org=org)
