@@ -77,6 +77,39 @@ class TestUsageEndpoint:
         assert body["resources"][QuotaResource.SEATS.value]["used"] >= 1
 
 
+class TestUsagePeriodFilter:
+    def test_defaults_to_current_period_when_omitted(self, authenticated_client: TestClient):
+        default_response = authenticated_client.get("/usage")
+        explicit_response = authenticated_client.get(
+            f"/usage?period={default_response.json()['resources'][QuotaResource.SEATS.value]['period_start']}"
+        )
+
+        assert explicit_response.status_code == status.HTTP_200_OK
+        assert (
+            explicit_response.json()["resources"].keys()
+            == default_response.json()["resources"].keys()
+        )
+
+    def test_still_includes_stock_resources_for_a_past_period(
+        self, authenticated_client: TestClient
+    ):
+        response = authenticated_client.get("/usage?period=2026-01-01")
+        body = response.json()
+
+        assert response.status_code == status.HTTP_200_OK
+        assert body["resources"][QuotaResource.SEATS.value]["used"] >= 1
+
+    def test_rejects_a_period_that_is_not_the_first_of_the_month(
+        self, authenticated_client: TestClient
+    ):
+        response = authenticated_client.get("/usage?period=2026-01-15")
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    def test_rejects_a_period_in_the_future(self, authenticated_client: TestClient):
+        response = authenticated_client.get("/usage?period=2099-01-01")
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
 class TestUsageHistoryEndpoint:
     def test_requires_authentication(self, client: TestClient):
         response = client.get("/usage/history")

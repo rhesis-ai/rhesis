@@ -238,6 +238,84 @@ class TestGetUsageSummary:
             assert item["kind"] == expected_kind
 
 
+class TestGetUsageSummaryForPastPeriod:
+    def test_reports_a_past_month_s_flow_usage(self, test_db, test_org_id):
+        org = test_db.get(Organization, test_org_id)
+        past_start, past_end = _current_period(date(2026, 1, 15))
+        test_db.add(
+            Usage(
+                organization_id=test_org_id,
+                resource=QuotaResource.TEST_EXECUTIONS.value,
+                period_start=past_start,
+                period_end=past_end,
+                used=99,
+            )
+        )
+        test_db.commit()
+
+        summary = get_usage_summary(test_db, test_org_id, org, period_start=past_start)
+
+        item = summary["resources"][QuotaResource.TEST_EXECUTIONS.value]
+        assert item["used"] == 99
+        assert item["period_start"] == past_start.isoformat()
+        assert item["period_end"] == past_end.isoformat()
+
+    def test_includes_stock_resources_for_a_past_period(self, test_db, test_org_id):
+        org = test_db.get(Organization, test_org_id)
+        past_start, _ = _current_period(date(2026, 1, 15))
+
+        summary = get_usage_summary(test_db, test_org_id, org, period_start=past_start)
+
+        assert summary["resources"][QuotaResource.SEATS.value]["used"] >= 1
+
+    def test_stock_resources_report_the_current_period_not_the_requested_one(
+        self, test_db, test_org_id
+    ):
+        org = test_db.get(Organization, test_org_id)
+        past_start, _ = _current_period(date(2026, 1, 15))
+        current_start, current_end = _current_period()
+
+        summary = get_usage_summary(test_db, test_org_id, org, period_start=past_start)
+
+        seats = summary["resources"][QuotaResource.SEATS.value]
+        assert seats["period_start"] == current_start.isoformat()
+        assert seats["period_end"] == current_end.isoformat()
+
+    def test_zero_fills_a_past_month_with_no_accrual(self, test_db, test_org_id):
+        org = test_db.get(Organization, test_org_id)
+        past_start, _ = _current_period(date(2026, 1, 15))
+
+        summary = get_usage_summary(test_db, test_org_id, org, period_start=past_start)
+
+        assert summary["resources"][QuotaResource.TRACING_SPANS.value]["used"] == 0
+
+    def test_current_period_start_is_treated_as_current(self, test_db, test_org_id):
+        org = test_db.get(Organization, test_org_id)
+        current_start, _ = _current_period()
+
+        summary = get_usage_summary(test_db, test_org_id, org, period_start=current_start)
+
+        assert set(summary["resources"].keys()) == {r.value for r in QuotaResource}
+
+    def test_rejects_a_period_start_that_is_not_the_first_of_the_month(self, test_db, test_org_id):
+        org = test_db.get(Organization, test_org_id)
+
+        with pytest.raises(ValueError, match="first day of a month"):
+            get_usage_summary(test_db, test_org_id, org, period_start=date(2026, 1, 15))
+
+    def test_rejects_a_period_start_in_the_future(self, test_db, test_org_id):
+        org = test_db.get(Organization, test_org_id)
+        current_start, _ = _current_period()
+        next_month = date(
+            current_start.year + (1 if current_start.month == 12 else 0),
+            1 if current_start.month == 12 else current_start.month + 1,
+            1,
+        )
+
+        with pytest.raises(ValueError, match="later than the current period"):
+            get_usage_summary(test_db, test_org_id, org, period_start=next_month)
+
+
 class TestRecentPeriodStarts:
     def test_returns_months_oldest_first_ending_at_today(self):
         starts = _recent_period_starts(3, today=date(2026, 3, 15))

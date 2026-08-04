@@ -209,17 +209,43 @@ _STOCK_COUNTERS = {
 }
 
 
-def get_usage_summary(db: Session, org_id: str, org: Optional[Organization]) -> dict:
+def get_usage_summary(
+    db: Session,
+    org_id: str,
+    org: Optional[Organization],
+    period_start: Optional[date] = None,
+) -> dict:
     """Return ``{resources: {<resource>: {used, limit, period_start, period_end, kind}}, edition}``.
 
     Flow resources report cumulative usage from the ``usage`` table for the
-    current billing period. Stock resources report a live entity count.
-    Every :class:`QuotaResource` member is present in the response, even
-    when its usage is zero. ``kind`` (``"flow"`` or ``"stock"``) lets the
-    frontend group resources without duplicating the flow/stock split as a
-    second, hand-maintained list.
+    requested billing period (the current one by default). ``kind``
+    (``"flow"`` or ``"stock"``) lets the frontend group resources without
+    duplicating the flow/stock split as a second, hand-maintained list.
+
+    Pass *period_start* (first day of a month) to report a past month
+    instead of the current one -- this only affects flow resources. Stock
+    resources (seats, projects, endpoints) are live entity counts with no
+    historical row behind them, so they always report *today's* count
+    against the *current* period regardless of which month was requested:
+    there is no "seats in July" to look up, only "seats right now." Every
+    :class:`QuotaResource` member is present in the response regardless of
+    *period_start*, even when its usage is zero.
+
+    Raises ``ValueError`` if *period_start* is not the first of a month, or
+    is later than the current period -- both are caller errors, not
+    "no data yet."
     """
-    period_start, period_end = _current_period()
+    current_start, current_end = _current_period()
+    if period_start is None:
+        period_start, period_end = current_start, current_end
+    else:
+        if period_start.day != 1:
+            raise ValueError("period_start must be the first day of a month")
+        if period_start > current_start:
+            raise ValueError("period_start cannot be later than the current period")
+        last_day = monthrange(period_start.year, period_start.month)[1]
+        period_end = period_start.replace(day=last_day)
+
     limits = QuotaRegistry.get_limits(org)
 
     with bypass_tenant_filter():
@@ -234,12 +260,17 @@ def get_usage_summary(db: Session, org_id: str, org: Optional[Organization]) -> 
     resources: dict[str, dict] = {}
     for resource in QuotaResource:
         counter = _STOCK_COUNTERS.get(resource)
-        used = counter(db, org_id) if counter is not None else flow_used.get(resource.value, 0)
+        if counter is not None:
+            used = counter(db, org_id)
+            item_start, item_end = current_start, current_end
+        else:
+            used = flow_used.get(resource.value, 0)
+            item_start, item_end = period_start, period_end
         resources[resource.value] = {
             "used": used,
             "limit": limits.get(resource),
-            "period_start": period_start.isoformat(),
-            "period_end": period_end.isoformat(),
+            "period_start": item_start.isoformat(),
+            "period_end": item_end.isoformat(),
             "kind": STOCK_KIND if counter is not None else FLOW_KIND,
         }
 

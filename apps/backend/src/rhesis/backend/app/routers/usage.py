@@ -7,9 +7,10 @@ dependency planned for a later sub-plan).
 
 from __future__ import annotations
 
+from datetime import date
 from typing import Dict, List
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -44,11 +45,23 @@ class UsageHistoryResponse(BaseModel):
 
 @router.get("", response_model=UsageResponse)
 def get_usage(
+    period: date | None = Query(
+        None,
+        description=(
+            "First day of the month to report; defaults to the current month. "
+            "Only affects flow resources -- stock resources (seats, projects, "
+            "endpoints) always report today's live count, since they have no "
+            "history to look up for a past month."
+        ),
+    ),
     org: Organization = Depends(get_current_organization),
     db: Session = Depends(get_tenant_db_session),
 ) -> UsageResponse:
-    """Return per-resource usage, limits, and the current billing period."""
-    summary = get_usage_summary(db, str(org.id), org)
+    """Return per-resource usage, limits, and the billing period."""
+    try:
+        summary = get_usage_summary(db, str(org.id), org, period_start=period)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     return UsageResponse(
         resources={k: UsageResourceItem(**v) for k, v in summary["resources"].items()},
         edition=summary["edition"],
