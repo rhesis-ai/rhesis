@@ -180,17 +180,27 @@ def downgrade() -> None:
 
     # Restore the marker on every row explorer_row still flags -- read it now,
     # before dropping the column erases that information for good.
+    #
+    # jsonb_set() raises "cannot set path in scalar" if the value already at
+    # its target path exists but isn't an object/array (e.g. attributes.metadata
+    # is a string). The two CASE guards below fall back to an empty object/array
+    # in that situation instead of passing the scalar straight through -- same
+    # "not a byte-for-byte inverse, just good enough to re-recognize the row"
+    # philosophy as the null/malformed handling on the upgrade() side.
     conn.execute(
         sa.text(
             """
             UPDATE test_set
             SET attributes = jsonb_set(
-                COALESCE(attributes, '{}'::jsonb),
+                CASE WHEN jsonb_typeof(attributes) = 'object'
+                     THEN attributes ELSE '{}'::jsonb END,
                 '{metadata}',
                 jsonb_set(
-                    COALESCE(attributes -> 'metadata', '{}'::jsonb),
+                    CASE WHEN jsonb_typeof(attributes -> 'metadata') = 'object'
+                         THEN attributes -> 'metadata' ELSE '{}'::jsonb END,
                     '{behaviors}',
-                    COALESCE(attributes #> '{metadata,behaviors}', '[]'::jsonb)
+                    (CASE WHEN jsonb_typeof(attributes #> '{metadata,behaviors}') = 'array'
+                          THEN attributes #> '{metadata,behaviors}' ELSE '[]'::jsonb END)
                         || CAST(:behavior_marker AS jsonb)
                 )
             )

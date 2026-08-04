@@ -470,6 +470,34 @@ class TestDowngradeRestoresMarker:
         attrs = _test_set_attributes(conn, ts_id)
         assert attrs["metadata"]["behaviors"] == ["Safety"]
 
+    @pytest.mark.parametrize(
+        "attributes",
+        [
+            {"metadata": "not-an-object"},
+            "not-an-object",
+            {"metadata": {"behaviors": "not-an-array"}},
+        ],
+    )
+    def test_restores_the_marker_without_raising_when_attributes_shape_is_malformed(
+        self, test_db, migration_ops, test_org_id, authenticated_user_id, attributes
+    ):
+        """jsonb_set() errors on a scalar target ("cannot set path in scalar") --
+        the restore UPDATE must fall back to an empty object/array instead of
+        raising when metadata (or attributes itself) isn't the expected shape."""
+        conn = test_db.connection()
+        ts_id = _insert_test_set(
+            conn, org_id=test_org_id, user_id=authenticated_user_id, attributes=attributes
+        )
+        conn.execute(
+            sa.text("UPDATE test_set SET explorer_row = true WHERE id = CAST(:id AS uuid)"),
+            {"id": ts_id},
+        )
+
+        _migration.downgrade()  # must not raise
+
+        attrs = _test_set_attributes(conn, ts_id)
+        assert attrs["metadata"]["behaviors"] == [_EXPLORER_BEHAVIOR_NAME]
+
     def test_column_is_dropped(self, test_db, migration_ops):
         conn = test_db.connection()
 
