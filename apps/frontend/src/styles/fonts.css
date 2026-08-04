@@ -82,3 +82,22 @@
   font-style: normal;
   font-display: swap;
 }
+
+/* Geist — used only on the auth pages (src/components/auth/*), where the
+   sign-in screen mirrors rhesis.ai. The rest of the app is Be Vietnam Pro;
+   see AUTH_FONT_SANS in src/components/auth/authTokens.ts. */
+@font-face {
+  font-family: 'Geist';
+  src: url('/fonts/geist/geist-variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Geist Mono';
+  src: url('/fonts/geist/geist-mono-variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
