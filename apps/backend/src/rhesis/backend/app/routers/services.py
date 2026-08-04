@@ -1,6 +1,7 @@
+import json
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import Depends, HTTPException, Query, Response
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -39,6 +40,7 @@ from rhesis.backend.app.services.tool.mcp import (
 )
 from rhesis.backend.app.utils.execution_validation import validate_generation_model
 from rhesis.sdk.context import EndpointContext
+from rhesis.sdk.models.providers.native import USAGE_HEADER
 
 logger = logging.getLogger(__name__)
 
@@ -96,6 +98,7 @@ def get_github_contents(repo_url: str):
 @router.post("/generate/content")
 async def generate_content_endpoint(
     request: GenerateContentRequest,
+    http_response: Response,
     db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token),
 ):
@@ -138,6 +141,28 @@ async def generate_content_endpoint(
 
     Note: Plain JSON schemas are not supported. The schema must include the
     "type": "json_schema" wrapper with name, schema, and strict fields.
+
+    Usage forwarding: this endpoint has two kinds of caller. A developer (or
+    any HTTP client) can call it directly with their own API key -- in that
+    case `current_user` here is the real org to bill, and the normal
+    accrual wired by `get_generation_model_with_override` covers it with no
+    extra work needed. It's also reached indirectly, via `RhesisLLM` acting
+    as a relay: a self-hosted deployment's own "Rhesis Default" model
+    delegating out to this platform instance, or (for SaaS-direct
+    customers) this same deployment calling itself in a loopback. For that
+    second case, whoever originated the call already resolved the
+    *calling* org and wants its own local usage counter to reflect this
+    request too -- accrual here (against `current_user`, the delegation
+    identity) and accrual there (against the calling org) are two separate,
+    legitimate books, not a duplicate of the same one, so both proceed:
+    this handler accrues normally *and* additionally captures the usage and
+    forwards it via the ``X-Rhesis-Usage`` response header (not the body --
+    the body's contract is bare content, str or a schema-validated dict,
+    and embedding usage there would collide with dict-shaped content or
+    require a schema-breaking envelope). ``RhesisLLM.create_completion()``
+    reads that header and emits it through its own ``on_usage`` when
+    present; a direct/curl caller has no such reader and simply never sees
+    the header, which is fine -- their accrual already happened here.
     """
     try:
         from rhesis.backend.app.utils.user_model_utils import get_generation_model_with_override
@@ -146,8 +171,24 @@ async def generate_content_endpoint(
         model = get_generation_model_with_override(db, current_user)
         if isinstance(model, str):
             model = get_model(model, model_type="language")
-        response = await model.a_generate(request.prompt, schema=request.schema_)
-        return response
+
+        captured_usage: dict = {}
+        if hasattr(model, "on_usage"):
+            original_on_usage = model.on_usage
+
+            def _capture_and_forward(usage: dict) -> None:
+                captured_usage.update(usage)
+                if original_on_usage:
+                    original_on_usage(usage)
+
+            model.on_usage = _capture_and_forward
+
+        result = await model.a_generate(request.prompt, schema=request.schema_)
+
+        if captured_usage:
+            http_response.headers[USAGE_HEADER] = json.dumps(captured_usage)
+
+        return result
     except Exception as e:
         error_msg = str(e) if str(e) else "Unknown error"
         logger.error(f"Failed to generate content: {error_msg}", exc_info=True)
