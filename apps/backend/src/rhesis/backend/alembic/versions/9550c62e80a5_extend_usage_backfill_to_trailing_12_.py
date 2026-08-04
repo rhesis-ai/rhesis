@@ -13,11 +13,11 @@ because nothing happened. Observed directly against a real org with
 4,000+ historical test executions and its last activity dated three
 weeks before this migration's authoring date.
 
-This migration re-runs the same backfill for each of the trailing 12
-calendar months (matching the "Usage over Time" chart's own maximum
-lookback window, not further -- there's no filter option that would ever
-read past it), not just the current one. Same resources, same sourcing,
-same caveats as 91607f0dd412:
+This migration re-runs the same backfill for each of the 12 calendar
+months immediately *preceding* the current one -- together with
+91607f0dd412's own coverage of the current month, that's the full
+window the "Usage over Time" chart's maximum lookback can ever show, and
+no further. Same resources, same sourcing, same caveats as 91607f0dd412:
 
 - TEST_EXECUTIONS / TRACING_SPANS: exact `test_result` / `trace` row
   counts.
@@ -63,6 +63,14 @@ What's different from 91607f0dd412, beyond the month range:
   migration's own connection, not contention with concurrent traffic --
   an acceptable trade for a one-time correction, accepted explicitly
   over leaving 11 months permanently unbackfilled.
+- The current month is deliberately excluded from the backfilled range
+  (see the comment on `months` in `upgrade()`): it's already covered by
+  91607f0dd412 and by ongoing live accrual, and this migration's single
+  surrounding Alembic transaction would otherwise hold a row lock on
+  each org's current-period `usage` row for as long as the migration
+  keeps running -- for orgs processed early, that could mean blocking
+  their live `increment_usage()` calls for the migration's entire
+  remaining duration across every other org.
 
 Revision ID: 9550c62e80a5
 Revises: 91607f0dd412
@@ -164,7 +172,18 @@ def upgrade() -> None:
     conn = op.get_bind()
 
     today = datetime.now(timezone.utc).date()
-    months = _trailing_months(_MONTHS_TO_BACKFILL, today)
+    # Request one extra month, then drop the current one: the current
+    # month's usage row is already owned by 91607f0dd412 and by ongoing
+    # live accrual, both of which keep writing to it throughout this
+    # migration's run. Alembic wraps this whole function in one
+    # transaction, so an upsert into that row here would hold its row
+    # lock until the migration finishes -- potentially minutes, across
+    # every org -- blocking any concurrent `increment_usage()` for that
+    # org's current period the entire time. Excluding it isn't a
+    # workaround: this migration's job is the completed months the
+    # original one never touched, not the in-progress one it already
+    # owns.
+    months = _trailing_months(_MONTHS_TO_BACKFILL + 1, today)[:-1]
 
     org_ids = [
         str(row[0])
