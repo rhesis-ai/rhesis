@@ -50,5 +50,6 @@ git checkout -b feature/short-description`.
 
 ## Task-specific workflows
 
-Opening a pull request, filing a GitHub issue, and writing playground scripts each have their own
-skill — invoke `pull-request`, `github-issue`, or `playground-script` when doing that task.
+Opening a pull request, filing a GitHub issue, writing playground scripts, and linting Python each
+have their own skill — invoke `pull-request`, `github-issue`, `playground-script`, or
+`python-linting` when doing that task.
