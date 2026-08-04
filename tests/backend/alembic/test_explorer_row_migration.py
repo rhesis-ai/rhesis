@@ -161,6 +161,24 @@ class TestColumnShape:
         assert is_nullable == "NO"
         assert column_default is not None and "false" in column_default.lower()
 
+    @pytest.mark.parametrize(
+        "table,index_name",
+        [("test_set", "ix_test_set_explorer_row"), ("test", "ix_test_explorer_row")],
+    )
+    def test_explorer_row_is_indexed(self, test_db, table, index_name):
+        row = (
+            test_db.connection()
+            .execute(
+                sa.text(
+                    "SELECT 1 FROM pg_indexes "
+                    "WHERE schemaname = 'public' AND tablename = :t AND indexname = :n"
+                ),
+                {"t": table, "n": index_name},
+            )
+            .fetchone()
+        )
+        assert row is not None, f"{index_name} missing on {table}"
+
 
 @pytest.mark.integration
 class TestBackfillLogic:
@@ -342,11 +360,14 @@ class TestBackfillLogic:
 
 
 @pytest.mark.integration
-class TestMarkerStripping:
-    """upgrade() removes the "Adaptive Testing" marker from attributes once
-    explorer_row is verified."""
+class TestMarkerIsNotStripped:
+    """upgrade() leaves the "Adaptive Testing" marker in attributes untouched --
+    only explorer_row is written. Stripping it would delete a real Behavior tag
+    from any unrelated test set that happens to be named "Adaptive Testing";
+    leaving it is a one-time wart on pre-migration rows, not new ones (see
+    module docstring)."""
 
-    def test_marker_only_drops_the_whole_behaviors_key(
+    def test_marker_only_set_stays_in_attributes(
         self, test_db, migration_ops, test_org_id, authenticated_user_id
     ):
         conn = test_db.connection()
@@ -361,9 +382,9 @@ class TestMarkerStripping:
 
         assert _explorer_row(conn, "test_set", ts_id) is True
         attrs = _test_set_attributes(conn, ts_id)
-        assert "behaviors" not in attrs.get("metadata", {})
+        assert attrs["metadata"]["behaviors"] == [_EXPLORER_BEHAVIOR_NAME]
 
-    def test_marker_among_other_behaviors_only_removes_the_marker(
+    def test_marker_among_other_behaviors_stays_in_attributes(
         self, test_db, migration_ops, test_org_id, authenticated_user_id
     ):
         conn = test_db.connection()
@@ -377,7 +398,7 @@ class TestMarkerStripping:
         _migration.upgrade()
 
         attrs = _test_set_attributes(conn, ts_id)
-        assert attrs["metadata"]["behaviors"] == ["Safety"]
+        assert attrs["metadata"]["behaviors"] == ["Safety", _EXPLORER_BEHAVIOR_NAME]
 
     def test_regular_test_set_attributes_are_untouched(
         self, test_db, migration_ops, test_org_id, authenticated_user_id
@@ -395,7 +416,7 @@ class TestMarkerStripping:
         attrs = _test_set_attributes(conn, ts_id)
         assert attrs["metadata"]["behaviors"] == ["Safety"]
 
-    def test_idempotent_rerun_does_not_error_once_marker_is_gone(
+    def test_idempotent_rerun_does_not_error(
         self, test_db, migration_ops, test_org_id, authenticated_user_id
     ):
         conn = test_db.connection()
@@ -407,9 +428,11 @@ class TestMarkerStripping:
         )
 
         _migration.upgrade()
-        _migration.upgrade()  # marker is already gone; must not raise
+        _migration.upgrade()  # already flagged; must not raise or change anything
 
         assert _explorer_row(conn, "test_set", ts_id) is True
+        attrs = _test_set_attributes(conn, ts_id)
+        assert attrs["metadata"]["behaviors"] == [_EXPLORER_BEHAVIOR_NAME]
 
 
 @pytest.mark.integration
@@ -436,6 +459,23 @@ class TestDowngradeRestoresMarker:
 
         attrs = _test_set_attributes(conn, ts_id)
         assert attrs["metadata"]["behaviors"] == ["Safety", _EXPLORER_BEHAVIOR_NAME]
+
+    def test_is_a_noop_when_upgrade_left_the_marker_in_place(
+        self, test_db, migration_ops, test_org_id, authenticated_user_id
+    ):
+        conn = test_db.connection()
+        ts_id = _insert_test_set(
+            conn,
+            org_id=test_org_id,
+            user_id=authenticated_user_id,
+            attributes={"metadata": {"behaviors": [_EXPLORER_BEHAVIOR_NAME]}},
+        )
+
+        _migration.upgrade()  # flags explorer_row; marker stays (see module docstring)
+        _migration.downgrade()  # marker's already there; must not duplicate it
+
+        attrs = _test_set_attributes(conn, ts_id)
+        assert attrs["metadata"]["behaviors"] == [_EXPLORER_BEHAVIOR_NAME]
 
     def test_restores_the_marker_from_scratch_when_attributes_is_null(
         self, test_db, migration_ops, test_org_id, authenticated_user_id
@@ -481,9 +521,6 @@ class TestDowngradeRestoresMarker:
     def test_restores_the_marker_without_raising_when_attributes_shape_is_malformed(
         self, test_db, migration_ops, test_org_id, authenticated_user_id, attributes
     ):
-        """jsonb_set() errors on a scalar target ("cannot set path in scalar") --
-        the restore UPDATE must fall back to an empty object/array instead of
-        raising when metadata (or attributes itself) isn't the expected shape."""
         conn = test_db.connection()
         ts_id = _insert_test_set(
             conn, org_id=test_org_id, user_id=authenticated_user_id, attributes=attributes
@@ -508,6 +545,17 @@ class TestDowngradeRestoresMarker:
                 "SELECT 1 FROM information_schema.columns "
                 "WHERE table_name = 'test_set' AND column_name = 'explorer_row'"
             )
+        ).fetchone()
+        assert exists is None
+
+    @pytest.mark.parametrize("index_name", ["ix_test_set_explorer_row", "ix_test_explorer_row"])
+    def test_index_is_dropped(self, test_db, migration_ops, index_name):
+        conn = test_db.connection()
+
+        _migration.downgrade()
+
+        exists = conn.execute(
+            sa.text("SELECT 1 FROM pg_indexes WHERE indexname = :n"), {"n": index_name}
         ).fetchone()
         assert exists is None
 
@@ -540,3 +588,44 @@ class TestDowngradeUpgradeRoundTrip:
 
         assert _explorer_row(conn, "test_set", ts_id) is True
         assert _explorer_row(conn, "test", t_id) is True
+
+
+@pytest.mark.integration
+class TestBypassRLSSkipsDisableEnable:
+    """_has_bypassrls() lets upgrade()/downgrade() skip the ALTER TABLE ...
+    ROW LEVEL SECURITY dance for a role that already ignores RLS (prod's
+    rhesis-admin) -- that dance takes an ACCESS EXCLUSIVE lock these hot tables
+    shouldn't need to pay for when the role never needed the bypass anyway."""
+
+    def test_has_bypassrls_reflects_the_role_attribute(self, test_db, migration_ops):
+        conn = test_db.connection()
+        # Testcontainers' superuser role has BYPASSRLS by default (see module docstring).
+        assert _migration._has_bypassrls(conn) is True
+
+        conn.execute(sa.text("ALTER ROLE CURRENT_USER NOBYPASSRLS"))
+        try:
+            assert _migration._has_bypassrls(conn) is False
+        finally:
+            conn.execute(sa.text("ALTER ROLE CURRENT_USER BYPASSRLS"))
+
+    def test_upgrade_and_downgrade_still_work_when_role_bypasses_rls(
+        self, test_db, migration_ops, test_org_id, authenticated_user_id
+    ):
+        conn = test_db.connection()
+        conn.execute(sa.text("ALTER ROLE CURRENT_USER BYPASSRLS"))
+        try:
+            ts_id = _insert_test_set(
+                conn,
+                org_id=test_org_id,
+                user_id=authenticated_user_id,
+                attributes={"metadata": {"behaviors": [_EXPLORER_BEHAVIOR_NAME]}},
+            )
+
+            _migration.upgrade()  # must not raise, must not touch RLS to succeed
+            assert _explorer_row(conn, "test_set", ts_id) is True
+
+            _migration.downgrade()  # must not raise either
+            attrs = _test_set_attributes(conn, ts_id)
+            assert attrs["metadata"]["behaviors"] == [_EXPLORER_BEHAVIOR_NAME]
+        finally:
+            conn.execute(sa.text("ALTER ROLE CURRENT_USER NOBYPASSRLS"))

@@ -71,7 +71,9 @@ class TestSet(
     attributes = Column(JSONB)
     is_published = Column(Boolean, default=False)
     # Set only by services/explorer/tests.py::create_explorer_test_set — not client-settable.
-    explorer_row = Column(Boolean, nullable=False, server_default="false", default=False)
+    explorer_row = Column(
+        Boolean, nullable=False, server_default="false", default=False, index=True
+    )
     visibility = Column(Text, default="organization")
     owner_id = Column(GUID(), ForeignKey("user.id"))
     assignee_id = Column(GUID(), ForeignKey("user.id"))
