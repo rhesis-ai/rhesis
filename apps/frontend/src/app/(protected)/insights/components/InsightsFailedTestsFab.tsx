@@ -43,10 +43,10 @@ export default function InsightsFailedTestsFab({
       icon={<ScienceIcon />}
       tooltip={
         failedCount > 0
-          ? `View ${failedCount} failed test case${failedCount === 1 ? '' : 's'}`
-          : 'No failed test cases in this view'
+          ? `View ${failedCount} failed test result${failedCount === 1 ? '' : 's'}`
+          : 'No failed test results in this view'
       }
-      aria-label="View failed test cases"
+      aria-label="View failed test results"
       onClick={handleClick}
       disabled={isDisabled}
     />

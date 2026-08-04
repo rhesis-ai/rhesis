@@ -216,20 +216,11 @@ export async function fetchFailedTestIdsForInsights(
 export function formatInsightsSummaryDetail(
   passed: number,
   total: number,
-  failed: number,
-  failedTestCaseCount?: number
+  failed: number
 ): string {
-  let detail = `(${passed}/${total} tests passed`;
+  let detail = `(${passed}/${total} test results passed`;
   if (failed > 0) {
     detail += `, ${failed}/${total} failed`;
-    if (
-      failedTestCaseCount !== undefined &&
-      failedTestCaseCount > 0 &&
-      failedTestCaseCount !== failed
-    ) {
-      const noun = failedTestCaseCount === 1 ? 'test case' : 'test cases';
-      detail += ` · ${failedTestCaseCount} unique ${noun} failed`;
-    }
   }
   detail += ')';
   return detail;

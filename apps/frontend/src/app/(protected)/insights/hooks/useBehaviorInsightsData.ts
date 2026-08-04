@@ -15,11 +15,7 @@ import {
   buildBehaviorColumns,
   rowToPassFailStats,
 } from '../utils/behavior-insights-utils';
-import {
-  fetchInsightsFailedTestIds,
-  fetchInsightsQueryTestRunIds,
-  insightsOverallFailedScope,
-} from '@/hooks/useInsightsFailedTestIds';
+import { fetchInsightsQueryTestRunIds } from '@/hooks/useInsightsFailedTestIds';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 const EMPTY_SUMMARY: PassFailStats = {
@@ -32,8 +28,6 @@ const EMPTY_SUMMARY: PassFailStats = {
 export interface BehaviorInsightsData {
   summary: PassFailStats | null;
   columns: BehaviorInsightColumn[];
-  /** Unique failed test case count; null while resolving or after filter change. */
-  failedTestCaseCount: number | null;
   loading: boolean;
   error: string | null;
   noRuns: boolean;
@@ -45,9 +39,6 @@ export function useBehaviorInsightsData(
 ): BehaviorInsightsData {
   const [summary, setSummary] = useState<PassFailStats | null>(null);
   const [columns, setColumns] = useState<BehaviorInsightColumn[]>([]);
-  const [failedTestCaseCount, setFailedTestCaseCount] = useState<number | null>(
-    null
-  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [noRuns, setNoRuns] = useState(false);
@@ -68,7 +59,6 @@ export function useBehaviorInsightsData(
       setLoading(false);
       setSummary(null);
       setColumns([]);
-      setFailedTestCaseCount(0);
       setNoRuns(false);
       setError(null);
       return;
@@ -76,7 +66,6 @@ export function useBehaviorInsightsData(
 
     const requestId = ++requestIdRef.current;
     setLoading(true);
-    setFailedTestCaseCount(null);
     setError(null);
 
     if (debounceRef.current) {
@@ -102,7 +91,6 @@ export function useBehaviorInsightsData(
           if (testRunIds.length === 0) {
             setSummary(EMPTY_SUMMARY);
             setColumns([]);
-            setFailedTestCaseCount(0);
             setNoRuns(true);
             setLoading(false);
             return;
@@ -167,24 +155,6 @@ export function useBehaviorInsightsData(
           );
 
           setLoading(false);
-
-          if ((overallSummary.failed ?? 0) > 0) {
-            void (async () => {
-              try {
-                const failedIds = await fetchInsightsFailedTestIds(
-                  queryClient,
-                  insightsOverallFailedScope(runContext)
-                );
-                if (!isCurrentRequest(requestId)) return;
-                setFailedTestCaseCount(failedIds.length);
-              } catch {
-                if (!isCurrentRequest(requestId)) return;
-                setFailedTestCaseCount(0);
-              }
-            })();
-          } else {
-            setFailedTestCaseCount(0);
-          }
         } catch (err) {
           if (!isCurrentRequest(requestId)) return;
           setError(
@@ -213,7 +183,6 @@ export function useBehaviorInsightsData(
   return {
     summary,
     columns,
-    failedTestCaseCount,
     loading,
     error,
     noRuns,

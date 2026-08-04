@@ -158,7 +158,7 @@ describe('insights-failed-tests', () => {
 
   it('formats summary detail with test results wording', () => {
     expect(formatInsightsSummaryDetail(10, 20, 10)).toBe(
-      '(10/20 tests passed, 10/20 failed)'
+      '(10/20 test results passed, 10/20 failed)'
     );
   });
 
