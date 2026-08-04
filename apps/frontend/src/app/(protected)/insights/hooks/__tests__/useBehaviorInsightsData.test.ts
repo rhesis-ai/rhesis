@@ -12,18 +12,12 @@ jest.mock('next-auth/react', () => ({
 }));
 
 jest.mock('../../utils/behavior-insights-utils', () => ({
+  ...jest.requireActual('../../utils/behavior-insights-utils'),
   resolveInsightsQueryTestRunIds: jest.fn(),
   buildBehaviorColumns: jest.fn(() => []),
-  rowToPassFailStats: jest.fn(row => ({
-    total: Number(row.count ?? 0),
-    passed: Number(row.passed ?? 0),
-    failed: Number(row.failed ?? 0),
-    pass_rate: Number(row.pass_rate ?? 0),
-  })),
 }));
 
 function mockInsightsBatchResponse(summaryRow: {
-  count: number;
   passed: number;
   failed: number;
   pass_rate: number;
@@ -63,7 +57,6 @@ jest.mock('@/utils/api-client/client-factory', () => ({
     getInsightsClient: () => ({
       getInsightsBatch: jest.fn().mockResolvedValue(
         mockInsightsBatchResponse({
-          count: 20,
           passed: 10,
           failed: 10,
           pass_rate: 50,
