@@ -60,6 +60,8 @@ export interface TestSet {
   priority?: number;
   organization_id?: UUID;
   is_published: boolean;
+  /** Explorer ownership flag. Response-only — not client-settable. */
+  explorer_row?: boolean;
   counts?: {
     comments: number;
     tasks: number;

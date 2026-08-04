@@ -1,36 +1,21 @@
-"""Pydantic validation for the two JSONB dicts Explorer reads and writes directly:
+"""Pydantic validation for the JSONB dicts Explorer reads and writes directly:
 ``Test.test_metadata`` and ``TestSet.attributes["adaptive_settings"]``.
 
-Both columns are shared with non-explorer writers (garak sync/import, general test-set
-attribute generation), so the models here use ``extra="allow"`` -- an unrecognized shape
-must round-trip losslessly, not raise and not silently drop keys.
+Both columns are shared with non-explorer writers (garak, general test-set attribute
+generation), so models here use ``extra="allow"`` to round-trip unrecognized keys
+losslessly instead of raising or dropping them.
 
-Pure schema module, no ORM imports, so it's importable from ``crud/``, ``services/explorer/``,
-and ``services/test_set.py`` without layering violations.
-
-Contract:
-
-- Every ``parse_*`` function is **total** -- it never raises. ``None``, ``{}``, a non-mapping,
-  or a garbage-shaped mapping all come back as an empty (all-defaults) model. The lenient
-  ``mode="before"`` validators on each model make a ``ValidationError`` unreachable in
-  practice; the ``try/except`` in each ``parse_*`` is the backstop that guarantees a
-  foreign-shaped row (e.g. garak) can never crash an explorer endpoint.
-- Dumping back to a JSONB-safe dict is always ``model.model_dump(mode="json", exclude_none=True)``,
-  done at the call site rather than through a wrapper. ``mode="json"`` turns non-JSON-native types
-  (e.g. ``UUID``) into strings. ``exclude_none=True`` makes "field is ``None``" round-trip as "key
-  absent", reproducing the ``del meta["evaluation"]`` / ``meta.pop("metrics", None)`` idioms the
-  call sites used before this module existed. This also means a foreign key explicitly set to
-  ``null`` today would come back absent after a round trip through here -- no known caller does
-  that, but it's worth knowing.
+Contract: every ``parse_*`` is total (never raises -- garbage input becomes an
+all-defaults model). Dumping is always ``model_dump(mode="json", exclude_none=True)``
+at the call site, so a ``None`` field comes back as an absent key, not ``null``.
 """
 
 import logging
 from typing import Any, Dict, Final, List, Literal, Mapping, Optional, get_args
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from pydantic import BaseModel, ConfigDict, ValidationError, field_validator
 
-from rhesis.backend.app.constants import EXPLORER_BEHAVIOR_NAME
 from rhesis.backend.app.utils.uuid_utils import sanitize_uuid_field
 
 logger = logging.getLogger(__name__)
@@ -96,10 +81,8 @@ class ExplorerEvaluationEntry(BaseModel):
 class ExplorerTestMetadata(BaseModel):
     """``Test.test_metadata`` for explorer-owned rows.
 
-    ``output``/``labeler`` are ``Optional[str]`` rather than ``str`` so that "key absent"
-    (``None``) stays distinguishable from "key present but empty" (``""``) -- callers that
-    need a default only for the missing case (e.g. ``NO_OUTPUT``, ``"imported"``) rely on
-    that distinction.
+    ``output``/``labeler`` are ``Optional[str]`` so "key absent" (``None``) stays
+    distinguishable from "key present but empty" (``""``).
     """
 
     model_config = ConfigDict(extra="allow", validate_assignment=True)
@@ -174,33 +157,15 @@ class ExplorerAdaptiveSettings(BaseModel):
         return sanitize_uuid_field(v)
 
 
-class ExplorerTestSetAttributeMetadata(BaseModel):
-    """``TestSet.attributes["metadata"]`` -- the general behaviors/metadata blob."""
-
-    model_config = ConfigDict(extra="allow")
-
-    behaviors: List[str] = Field(default_factory=list)
-
-    @field_validator("behaviors", mode="before")
-    @classmethod
-    def _validate_behaviors(cls, v: Any) -> List[str]:
-        if not isinstance(v, list):
-            return []
-        return [item for item in v if isinstance(item, str)]
-
-
 class ExplorerTestSetAttributes(BaseModel):
-    """Read-only view of ``TestSet.attributes`` -- never dumped/round-tripped as a whole."""
+    """Read-only view of ``TestSet.attributes``, for reading ``adaptive_settings``.
+
+    Explorer ownership itself lives on ``models.TestSet.explorer_row``, not here.
+    """
 
     model_config = ConfigDict(extra="allow")
 
-    metadata: Optional[ExplorerTestSetAttributeMetadata] = None
     adaptive_settings: Optional[ExplorerAdaptiveSettings] = None
-
-    @property
-    def is_explorer(self) -> bool:
-        behaviors = self.metadata.behaviors if self.metadata else []
-        return EXPLORER_BEHAVIOR_NAME in behaviors
 
     @property
     def default_endpoint_id(self) -> Optional[UUID]:

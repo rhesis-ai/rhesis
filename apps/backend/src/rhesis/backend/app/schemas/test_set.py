@@ -57,6 +57,9 @@ class TestSet(TestSetBase):
     id: UUID4
     created_at: Union[datetime, str]
     updated_at: Union[datetime, str]
+    # Response-only (not on TestSetBase) -- a client-settable flag would let anyone
+    # forge an Explorer set.
+    explorer_row: bool = False
 
     model_config = ConfigDict(from_attributes=True)
 

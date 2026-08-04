@@ -1,7 +1,7 @@
 """Router for Explorer test-tree HTTP endpoints.
 
 Provides views over test set data as explorer trees:
-- List explorer test sets (metadata includes Adaptive Testing behavior)
+- List explorer test sets (flagged via the explorer_row column)
 - Full tree (all nodes including topic markers)
 - Tests only (excludes topic markers)
 - Topics only (hierarchical topic structure)
@@ -165,7 +165,7 @@ def export_regular_test_set_from_explorer_endpoint(
     """Create a new regular test set by exporting from an explorer test set.
 
     Copies tests with prompts; skips topic markers and empty prompts. The new
-    set has no Adaptive Testing behavior or adaptive_settings.
+    set is not flagged as Explorer-owned and has no adaptive_settings.
     """
     organization_id, user_id = tenant_context
     try:
@@ -199,7 +199,7 @@ def list_explorer_test_sets(
 ):
     """List explorer test sets.
 
-    Returns test sets whose behavior includes Adaptive Testing.
+    Returns test sets flagged as Explorer-owned.
     """
     organization_id, _user_id = tenant_context
     return get_explorer_test_sets(
@@ -221,8 +221,8 @@ def bulk_delete_explorer_test_sets_endpoint(
 ):
     """Delete multiple Explorer test sets at once.
 
-    Ids that don't resolve to a test set with the Adaptive Testing behavior
-    are reported in `not_found_ids` rather than deleted.
+    Ids that don't resolve to a test set flagged as Explorer-owned are
+    reported in `not_found_ids` rather than deleted.
 
     Registered before /{test_set_identifier} below -- FastAPI matches routes
     in registration order, so a literal /bulk path must come first or the
@@ -249,8 +249,8 @@ def delete_explorer_test_set_endpoint(
 ):
     """Delete a test set configured for Explorer.
 
-    Only test sets that include the Adaptive Testing behavior can be removed
-    through this endpoint.
+    Only test sets flagged as Explorer-owned can be removed through this
+    endpoint.
     """
     organization_id, user_id = tenant_context
     try:

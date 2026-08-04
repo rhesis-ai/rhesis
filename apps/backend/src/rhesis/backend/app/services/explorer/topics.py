@@ -88,6 +88,7 @@ def create_topic_node(
             user_id=user_id,
             topic_id=db_topic.id,
             metadata=ExplorerTestMetadata.topic_marker(labeler="user"),
+            explorer_row=True,
         )
 
         # 3. Associate the test with the test set

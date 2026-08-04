@@ -19,8 +19,7 @@ import { useNotifications } from '@/components/common/NotificationContext';
 import type { ImportExplorerTestSetResponse } from '@/utils/api-client/interfaces/explorer';
 
 function isExplorerTestSet(testSet: TestSet): boolean {
-  const behaviors = testSet.attributes?.metadata?.behaviors;
-  return Array.isArray(behaviors) && behaviors.includes('Adaptive Testing');
+  return testSet.explorer_row === true;
 }
 
 interface ImportExplorerTestSetDialogProps {

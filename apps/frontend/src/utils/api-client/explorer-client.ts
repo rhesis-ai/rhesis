@@ -98,7 +98,7 @@ export class ExplorerClient extends BaseApiClient {
   // ===========================================================================
 
   /**
-   * List explorer test sets (Adaptive Testing behavior in metadata).
+   * List explorer test sets (flagged via explorer_row).
    * @param skip Pagination offset
    * @param limit Maximum number of records
    * @param sortBy Field to sort by

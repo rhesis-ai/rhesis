@@ -1,4 +1,4 @@
-from sqlalchemy import Column, ForeignKey, Integer, Table, and_, case, inspect, select
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, Table, and_, case, inspect, select
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import object_session, relationship
@@ -59,6 +59,8 @@ class Test(
     # Test source info (origin, inputs, context)
     # Named 'test_metadata' to avoid SQLAlchemy's reserved 'metadata' attribute
     test_metadata = Column(JSONB)
+    # Set only by services/explorer/{tests,topics}.py — not client-settable.
+    explorer_row = Column(Boolean, nullable=False, server_default="false", default=False)
 
     # Relationships
     prompt = relationship("Prompt", back_populates="tests")
