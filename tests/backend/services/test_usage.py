@@ -18,6 +18,7 @@ from rhesis.backend.app.models.project import Project
 from rhesis.backend.app.models.usage import Usage
 from rhesis.backend.app.quota import QuotaResource
 from rhesis.backend.app.services.usage import (
+    InvalidPeriodError,
     _current_period,
     _recent_period_starts,
     count_org_endpoints,
@@ -300,7 +301,7 @@ class TestGetUsageSummaryForPastPeriod:
     def test_rejects_a_period_start_that_is_not_the_first_of_the_month(self, test_db, test_org_id):
         org = test_db.get(Organization, test_org_id)
 
-        with pytest.raises(ValueError, match="first day of a month"):
+        with pytest.raises(InvalidPeriodError, match="first day of a month"):
             get_usage_summary(test_db, test_org_id, org, period_start=date(2026, 1, 15))
 
     def test_rejects_a_period_start_in_the_future(self, test_db, test_org_id):
@@ -312,7 +313,7 @@ class TestGetUsageSummaryForPastPeriod:
             1,
         )
 
-        with pytest.raises(ValueError, match="later than the current period"):
+        with pytest.raises(InvalidPeriodError, match="later than the current period"):
             get_usage_summary(test_db, test_org_id, org, period_start=next_month)
 
 
@@ -369,7 +370,10 @@ class TestGetUsageHistory:
         assert all(p["used"] == 0 for p in points[:-1])
 
     def test_includes_a_past_month_row_at_its_own_point(self, test_db, test_org_id):
-        past_period_start, past_period_end = _current_period(date(2026, 1, 15))
+        # Derived from today rather than hardcoded: a fixed date eventually
+        # falls outside the trailing 12-month window this queries, and the
+        # test would then fail for reasons unrelated to the code.
+        past_period_start, past_period_end = _current_period(_recent_period_starts(3)[0])
 
         db_row = Usage(
             organization_id=test_org_id,
@@ -386,12 +390,19 @@ class TestGetUsageHistory:
             test_org_id,
             months=12,
         )
-        history_at_jan = next(
+        point_at_past_month = next(
             p
             for p in history["resources"][QuotaResource.TEST_GENERATION.value]
             if p["period_start"] == past_period_start.isoformat()
         )
-        assert history_at_jan["used"] == 7
+        assert point_at_past_month["used"] == 7
+
+    @pytest.mark.parametrize("months", [0, -1])
+    def test_rejects_a_non_positive_month_count(self, months, test_db, test_org_id):
+        """Guarded in the service, not just by the router's ``Query(ge=1)``:
+        an empty period list would otherwise raise ``IndexError``."""
+        with pytest.raises(InvalidPeriodError, match="at least 1"):
+            get_usage_history(test_db, test_org_id, months=months)
 
     def test_points_are_ordered_oldest_first(self, test_db, test_org_id):
         history = get_usage_history(test_db, test_org_id, months=6)

@@ -45,6 +45,16 @@ FLOW_KIND = "flow"
 STOCK_KIND = "stock"
 
 
+class InvalidPeriodError(ValueError):
+    """A requested reporting period is not one this service can report on.
+
+    Distinct from a bare ``ValueError`` so callers can map *this* to a 4xx
+    without also swallowing unrelated ``ValueError``s raised deeper in the
+    call (tier-config parsing, for one), which are server faults and must
+    not be reported to the client as bad input.
+    """
+
+
 def _current_period(today: Optional[date] = None) -> tuple[date, date]:
     """Return ``(period_start, period_end)`` for the calendar month containing *today*.
 
@@ -231,18 +241,18 @@ def get_usage_summary(
     :class:`QuotaResource` member is present in the response regardless of
     *period_start*, even when its usage is zero.
 
-    Raises ``ValueError`` if *period_start* is not the first of a month, or
-    is later than the current period -- both are caller errors, not
-    "no data yet."
+    Raises :class:`InvalidPeriodError` if *period_start* is not the first of
+    a month, or is later than the current period -- both are caller errors,
+    not "no data yet."
     """
     current_start, current_end = _current_period()
     if period_start is None:
         period_start, period_end = current_start, current_end
     else:
         if period_start.day != 1:
-            raise ValueError("period_start must be the first day of a month")
+            raise InvalidPeriodError("period_start must be the first day of a month")
         if period_start > current_start:
-            raise ValueError("period_start cannot be later than the current period")
+            raise InvalidPeriodError("period_start cannot be later than the current period")
         last_day = monthrange(period_start.year, period_start.month)[1]
         period_end = period_start.replace(day=last_day)
 
@@ -308,7 +318,15 @@ def get_usage_history(db: Session, org_id: str, months: int = 6) -> dict:
     timezone risk that a raw-SQL migration comparing against a
     ``timestamptz`` column would -- see 91607f0dd412's fix for that
     specific class of bug, which does not apply to this comparison.
+
+    Raises :class:`InvalidPeriodError` if *months* is not positive. Checked
+    here rather than relying on the router's ``Query(ge=1)`` alone, so a
+    non-HTTP caller gets that instead of an ``IndexError`` off the empty
+    ``period_starts`` list below.
     """
+    if months < 1:
+        raise InvalidPeriodError("months must be at least 1")
+
     period_starts = _recent_period_starts(months)
 
     with bypass_tenant_filter():
