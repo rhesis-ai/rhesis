@@ -7,7 +7,7 @@ for different purposes (generation, evaluation, embedding, etc.)
 
 import logging
 import os
-from typing import Union
+from typing import Optional, Union
 
 from sqlalchemy.orm import Session
 
@@ -15,6 +15,7 @@ from rhesis.backend.app import crud
 from rhesis.backend.app.config.settings import get_model_settings, get_rhesis_settings
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.model_errors import ModelConfigurationError
+from rhesis.backend.app.utils.usage_tracking import make_usage_accrual_callback
 from rhesis.sdk.models.base import BaseEmbedder, BaseLLM
 from rhesis.sdk.models.factory import get_model
 
@@ -407,7 +408,69 @@ def _is_rhesis_system_model(provider: str, api_key: str) -> bool:
     return provider == "rhesis" and not api_key
 
 
-def _call_polyphemus_with_delegation(user: User, model_name: str, **kwargs):
+def _is_hosted_model(provider: str, api_key: Optional[str]) -> bool:
+    """
+    Check if a model runs on Rhesis-operated infrastructure.
+
+    Broader than `_is_rhesis_system_model`: also covers Polyphemus without a
+    user-supplied key (SaaS delegation, or self-hosted deployments using the
+    server's own RHESIS_API_KEY). Third-party providers called with the
+    org's own API key are never "hosted" -- that usage is billed directly
+    by the provider, not by Rhesis, so it is not tracked as MODEL_TOKENS.
+
+    Args:
+        provider: The provider type value (e.g., "rhesis", "polyphemus", "openai")
+        api_key: The API key stored for the model, e.g. `model_record.key`,
+            which is nullable
+
+    Returns:
+        True if this model's tokens should accrue against the org's
+        MODEL_TOKENS quota.
+    """
+    return provider in ("rhesis", "polyphemus") and not api_key
+
+
+def _resolve_default_hosted_model(default_model: str, organization_id: str) -> Union[str, BaseLLM]:
+    """
+    Instantiate the system default model with usage accrual when it names a hosted provider.
+
+    Several callers fall back to the bare `default_model` string (e.g.
+    "rhesis/rhesis-default") without ever calling `_fetch_and_configure_model`
+    -- most notably `_get_user_model` when the user has no model_id configured
+    for a purpose (execution model on a freshly onboarded org, for example).
+    Those calls would otherwise never accrue token usage, since the SDK only
+    resolves the string into an actual model instance much later (inside
+    synthesizers/agents, with no organization context available).
+
+    Construction here is cheap (no network call -- provider `__init__`s only
+    set up client config) so doing it eagerly costs nothing. On any
+    construction error (e.g. missing RHESIS_API_KEY), falls back to the bare
+    string so callers retain today's lazy-resolution behavior.
+
+    Args:
+        default_model: A "provider/model_name" string, e.g. "rhesis/rhesis-default"
+        organization_id: Org to attribute accrued tokens to
+
+    Returns:
+        A hosted-provider instance with `on_usage` wired for accrual when
+        `default_model` names a hosted provider and construction succeeds;
+        the original string otherwise.
+    """
+    provider = default_model.split("/", 1)[0] if "/" in default_model else ""
+    if provider not in ("rhesis", "polyphemus"):
+        return default_model
+
+    try:
+        return get_model(
+            default_model,
+            model_type="language",
+            on_usage=make_usage_accrual_callback(organization_id),
+        )
+    except ValueError:
+        return default_model
+
+
+def _call_polyphemus_with_delegation(user: User, model_name: str, organization_id: str, **kwargs):
     """
     Create Polyphemus client with delegation token.
 
@@ -417,10 +480,11 @@ def _call_polyphemus_with_delegation(user: User, model_name: str, **kwargs):
     Args:
         user: User on whose behalf the request is made
         model_name: Polyphemus model name (e.g., "default")
+        organization_id: Org to attribute accrued MODEL_TOKENS usage to
         **kwargs: Additional arguments to pass to PolyphemusLLM
 
     Returns:
-        Configured PolyphemusLLM instance
+        Configured PolyphemusLLM instance, with usage accrual wired
 
     Raises:
         ValueError: If user is not active or not verified
@@ -444,6 +508,7 @@ def _call_polyphemus_with_delegation(user: User, model_name: str, **kwargs):
         model_name=model_name,
         api_key=delegation_token,
         base_url=polyphemus_url,
+        on_usage=make_usage_accrual_callback(organization_id),
         **kwargs,
     )
 
@@ -473,7 +538,7 @@ def _fetch_and_configure_model(
 
     if not model or not model.provider_type:
         logger.warning("Model with id=%s not found or has no provider_type", model_id)
-        return default_model
+        return _resolve_default_hosted_model(default_model, organization_id)
 
     # Get provider configuration
     provider = model.provider_type.type_value
@@ -482,7 +547,7 @@ def _fetch_and_configure_model(
 
     # Special handling for Rhesis system models
     if _is_rhesis_system_model(provider, api_key):
-        return default_model
+        return _resolve_default_hosted_model(default_model, organization_id)
 
     # Special handling for Polyphemus models without a stored API key.
     #
@@ -498,13 +563,15 @@ def _fetch_and_configure_model(
         if get_rhesis_settings().api_key:
             logger.debug("Using configured RHESIS_API_KEY for Polyphemus (self-hosted mode)")
         elif user:
-            return _call_polyphemus_with_delegation(user, model_name)
+            return _call_polyphemus_with_delegation(user, model_name, organization_id)
 
     # Use SDK's get_model to create configured instance with error handling
     try:
         extra_params = {}
         if model.endpoint and model.endpoint.strip():
             extra_params["api_base"] = model.endpoint.strip()
+        if _is_hosted_model(provider, api_key):
+            extra_params["on_usage"] = make_usage_accrual_callback(organization_id)
         return get_model(
             provider=provider,
             model_name=model_name,
@@ -580,7 +647,7 @@ def _get_user_model(
     model_id = model_settings.model_id
 
     if not model_id:
-        return default_model
+        return _resolve_default_hosted_model(default_model, str(user.organization_id))
 
     return _fetch_and_configure_model(
         db=db,

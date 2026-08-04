@@ -662,13 +662,21 @@ def _resolve_metric_model(
         )
 
         if model_record and model_record.provider_type:
+            from rhesis.backend.app.utils.usage_tracking import make_usage_accrual_callback
+            from rhesis.backend.app.utils.user_model_utils import _is_hosted_model
+
+            provider = model_record.provider_type.type_value
+            api_key = model_record.key
+
             extra_params = {}
             if model_record.endpoint and model_record.endpoint.strip():
                 extra_params["api_base"] = model_record.endpoint.strip()
+            if organization_id and _is_hosted_model(provider, api_key):
+                extra_params["on_usage"] = make_usage_accrual_callback(organization_id)
             llm = get_model(
-                provider=model_record.provider_type.type_value,
+                provider=provider,
                 model_name=model_record.model_name,
-                api_key=model_record.key,
+                api_key=api_key,
                 **extra_params,
             )
             logger.info(

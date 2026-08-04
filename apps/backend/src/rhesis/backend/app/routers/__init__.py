@@ -58,6 +58,7 @@ from .token import router as token_router
 from .tools import router as tools_router
 from .topic import router as topic_router
 from .type_lookup import router as type_lookup_router
+from .usage import router as usage_router
 from .use_case import router as use_case_router
 from .user import router as user_router
 from .websocket import router as websocket_router
@@ -106,6 +107,7 @@ __all__ = [
     "explorer",
     "architect",
     "preflight",
+    "usage",
 ]
 
 # Export all routers for use in main.py
@@ -162,6 +164,7 @@ routers = sorted(
         explorer_router,
         architect_router,
         capabilities_router,
+        usage_router,
     ],
     key=lambda x: x.tags[0].lower() if x.tags else "",
 )

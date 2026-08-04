@@ -15,7 +15,10 @@ from rhesis.backend.app import crud
 from rhesis.backend.app.config.settings import get_model_settings
 from rhesis.backend.app.schemas.services import TestConfigResponse
 from rhesis.backend.app.utils.model_errors import ModelConfigurationError
-from rhesis.backend.app.utils.user_model_utils import get_user_generation_model
+from rhesis.backend.app.utils.user_model_utils import (
+    _resolve_default_hosted_model,
+    get_user_generation_model,
+)
 from rhesis.sdk.models.factory import get_model
 
 MAX_SAMPLE_SIZE = 6
@@ -67,7 +70,15 @@ class TestConfigGeneratorService:
                 "User generation model is Polyphemus; using fast system default for test config"
             )
             try:
-                return get_model(get_model_settings().generation_model)
+                resolved = _resolve_default_hosted_model(
+                    get_model_settings().generation_model, str(self.user.organization_id)
+                )
+                if isinstance(resolved, str):
+                    # Non-hosted default string (e.g. an ops override to a
+                    # third-party provider) -- construct it the same way the
+                    # pre-existing fallback below does.
+                    return get_model(resolved)
+                return resolved
             except ValueError as e:
                 logger.warning(
                     "Fast system default unavailable for test config (Polyphemus user); "

@@ -86,6 +86,10 @@ AUTHZ_EXEMPT_ROUTES: frozenset[tuple[str, str]] = frozenset(
         # Feature catalog: the frontend needs this before any RBAC context is set.
         # Authentication is still enforced; the response is org-filtered in the handler.
         ("GET", "/features"),
+        # Usage dashboard: read-only report of the authenticated org's own metered
+        # consumption, no different in shape or sensitivity from /features above.
+        # Authentication is still enforced; the response is org-scoped in the handler.
+        ("GET", "/usage"),
         # Demo / test endpoint — carries no meaningful permission boundary.
         ("GET", "/home/protected"),
         # Profile update during onboarding: the user may not have an org yet when

@@ -39,7 +39,7 @@ class QuotaResource(str, Enum):
     TEST_EXECUTIONS = "test_executions"
     TRACING_SPANS = "tracing_spans"
     TEST_GENERATION = "test_generation"
-    HOSTED_MODEL_TOKENS = "hosted_model_tokens"
+    MODEL_TOKENS = "model_tokens"
     SEATS = "seats"
     PROJECTS = "projects"
     ENDPOINTS = "endpoints"
@@ -57,7 +57,7 @@ FREE_TIER_LIMITS: dict[QuotaResource, int | None] = {
     QuotaResource.TEST_EXECUTIONS: 1_000,
     QuotaResource.TRACING_SPANS: 50_000,
     QuotaResource.TEST_GENERATION: 500,
-    QuotaResource.HOSTED_MODEL_TOKENS: 5_000_000,
+    QuotaResource.MODEL_TOKENS: 5_000_000,
     QuotaResource.SEATS: 3,
     QuotaResource.PROJECTS: 1,
     QuotaResource.ENDPOINTS: 1,

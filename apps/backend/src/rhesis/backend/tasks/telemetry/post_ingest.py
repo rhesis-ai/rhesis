@@ -14,6 +14,8 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
 from rhesis.backend.app.database import SessionLocal, bind_scope_to_session
+from rhesis.backend.app.quota import QuotaResource
+from rhesis.backend.app.services.usage import dispatch_accrual
 from rhesis.backend.celery.core import app
 
 logger = logging.getLogger(__name__)
@@ -143,6 +145,19 @@ def post_ingest_link(
                     logger.warning(
                         f"Failed to enqueue enrichment for trace {trace_id}: {enrich_error}"
                     )
+
+        # Accrue on definite success, not at the top of the function: this
+        # task retries the *entire* body on exception (see the except block
+        # below), so accruing early would double- (or triple-) count a
+        # batch that fails after linking but succeeds on retry. Placed here,
+        # accrual fires exactly once per successfully processed batch.
+        # Counts stored_spans (rows actually found/persisted), not
+        # stored_span_ids (ids requested -- some may not exist).
+        #
+        # Queued rather than written on `db`: a raised counter write inside
+        # this try block would be caught below and retry the whole body,
+        # re-dispatching enrichment for spans already linked above.
+        dispatch_accrual(organization_id, QuotaResource.TRACING_SPANS, len(stored_spans))
 
         return {
             "status": "success",
