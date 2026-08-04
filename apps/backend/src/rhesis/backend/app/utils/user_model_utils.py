@@ -7,7 +7,7 @@ for different purposes (generation, evaluation, embedding, etc.)
 
 import logging
 import os
-from typing import Union
+from typing import Optional, Union
 
 from sqlalchemy.orm import Session
 
@@ -408,7 +408,7 @@ def _is_rhesis_system_model(provider: str, api_key: str) -> bool:
     return provider == "rhesis" and not api_key
 
 
-def _is_hosted_model(provider: str, api_key: str) -> bool:
+def _is_hosted_model(provider: str, api_key: Optional[str]) -> bool:
     """
     Check if a model runs on Rhesis-operated infrastructure.
 
@@ -420,7 +420,8 @@ def _is_hosted_model(provider: str, api_key: str) -> bool:
 
     Args:
         provider: The provider type value (e.g., "rhesis", "polyphemus", "openai")
-        api_key: The API key stored for the model
+        api_key: The API key stored for the model, e.g. `model_record.key`,
+            which is nullable
 
     Returns:
         True if this model's tokens should accrue against the org's

@@ -115,6 +115,11 @@ def upgrade() -> None:
             ["organization_id"],
         )
 
+    # Not a duplicate of Base.deleted_at's `index=True`: raw op.create_table
+    # above does not honor that ORM-level flag, so nothing indexes this
+    # column until this explicit op.create_index runs. Same two-step
+    # (unindexed column in create_table, then this idempotent check) as
+    # c7f4d9b2e1a3_add_auth_client_table.py's ix_auth_client_deleted_at.
     deleted_at_index_exists = conn.execute(
         sa.text(
             "SELECT 1 FROM pg_indexes WHERE tablename='usage' AND indexname='ix_usage_deleted_at'"
