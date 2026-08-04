@@ -3,6 +3,8 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
+  # The root Application manages itself so selfHeal corrects manual targetRevision drift.
+  - base.yaml
   - argocd/argocd-application.yaml
   - argocd/argocd-ingress.yaml
   - external-secrets.yaml
