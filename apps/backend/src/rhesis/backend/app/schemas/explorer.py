@@ -2,11 +2,12 @@
 
 import uuid
 from functools import cached_property
-from typing import Any, Dict, List, Literal, Optional
+from typing import Dict, List, Optional
 
 from pydantic import UUID4, BaseModel, ConfigDict, Field, computed_field
 
 from rhesis.backend.app.schemas import Base
+from rhesis.backend.app.schemas.explorer_metadata import ExplorerLabel, ExplorerMetricEvalDetail
 from rhesis.backend.app.schemas.test_set import TestSet as TestSetSchema
 
 # ---------------------------------------------------------------------------
@@ -22,11 +23,11 @@ class TestTreeNode(BaseModel):
     input: str = ""
     output: str = ""
     # "error" is written by the evaluation path when a metric raises.
-    label: Literal["", "topic_marker", "pass", "fail", "error"] = ""
+    label: ExplorerLabel = ""
     labeler: str = ""
     to_eval: bool = True
     model_score: float = 0.0
-    metrics: Optional[Dict[str, Any]] = None
+    metrics: Optional[Dict[str, ExplorerMetricEvalDetail]] = None
 
 
 class TopicNode(BaseModel):
@@ -202,15 +203,6 @@ class EvaluateRequest(Base):
     topic: Optional[str] = None
     include_subtopics: bool = True
     overwrite: bool = False
-
-
-class ExplorerMetricEvalDetail(BaseModel):
-    """Per-metric evaluation row (keyed by metric name on the parent model)."""
-
-    score: float
-    is_successful: bool
-    reason: Optional[str] = None
-    details: Optional[Dict[str, Any]] = None
 
 
 class EvaluateResultItem(BaseModel):

@@ -15,21 +15,8 @@ from rhesis.backend.app.schemas.explorer import (
     ExplorerSettingsMetric,
     ExplorerSettingsResponse,
 )
+from rhesis.backend.app.schemas.explorer_metadata import parse_explorer_test_set_attributes
 from rhesis.backend.app.services.explorer.tests import is_explorer_test_set
-
-
-def _get_default_endpoint_id_from_attributes(
-    test_set: models.TestSet,
-) -> Optional[UUID]:
-    attrs = test_set.attributes or {}
-    explorer_settings = attrs.get("adaptive_settings") or {}
-    raw_id = explorer_settings.get("default_endpoint_id")
-    if not raw_id:
-        return None
-    try:
-        return UUID(str(raw_id))
-    except (ValueError, TypeError):
-        return None
 
 
 def resolve_endpoint_id(
@@ -39,7 +26,7 @@ def resolve_endpoint_id(
     if request_endpoint_id is not None:
         return str(request_endpoint_id)
 
-    endpoint_id = _get_default_endpoint_id_from_attributes(test_set)
+    endpoint_id = parse_explorer_test_set_attributes(test_set.attributes).default_endpoint_id
     if endpoint_id is None:
         raise ValueError("No endpoint specified and no default endpoint configured in settings")
 
@@ -74,7 +61,7 @@ def get_explorer_settings(
         raise ValueError("Test set is not configured for Explorer (Adaptive Testing behavior)")
 
     endpoint_ref = None
-    endpoint_id = _get_default_endpoint_id_from_attributes(test_set)
+    endpoint_id = parse_explorer_test_set_attributes(test_set.attributes).default_endpoint_id
     if endpoint_id is not None:
         endpoint = crud.get_endpoint(
             db=db,

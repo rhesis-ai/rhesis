@@ -54,7 +54,8 @@ class TestTestTreeNode:
         assert node.labeler == "user"
         assert node.to_eval is False
         assert node.model_score == 0.95
-        assert node.metrics == {"answer_relevancy": {"score": 0.95, "is_successful": True}}
+        assert node.metrics["answer_relevancy"].score == 0.95
+        assert node.metrics["answer_relevancy"].is_successful is True
 
     def test_missing_input_uses_default(self):
         """Should use empty string as default for input."""

@@ -12,6 +12,10 @@ from rhesis.backend.app.crud.explorer import (
     remove_tests_from_test_set,
 )
 from rhesis.backend.app.schemas.explorer import TopicNode
+from rhesis.backend.app.schemas.explorer_metadata import (
+    ExplorerTestMetadata,
+    parse_explorer_test_metadata,
+)
 from rhesis.backend.app.services.explorer.utils import build_test_tree
 from rhesis.backend.app.services.test import create_test_set_associations
 from rhesis.backend.app.utils.crud_utils import get_or_create_topic
@@ -83,11 +87,7 @@ def create_topic_node(
             organization_id=organization_id,
             user_id=user_id,
             topic_id=db_topic.id,
-            metadata={
-                "label": "topic_marker",
-                "labeler": "user",
-                "output": "",
-            },
+            metadata=ExplorerTestMetadata.topic_marker(labeler="user"),
         )
 
         # 3. Associate the test with the test set
@@ -255,7 +255,7 @@ def remove_topic_node(
     topic_marker_ids = []
     orphaned = []
     for db_test in db_tests:
-        is_marker = (db_test.test_metadata or {}).get("label") == "topic_marker"
+        is_marker = parse_explorer_test_metadata(db_test.test_metadata).is_topic_marker
         if is_marker:
             topic_marker_ids.append(db_test.id)
         else:

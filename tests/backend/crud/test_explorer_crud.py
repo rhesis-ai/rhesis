@@ -39,6 +39,10 @@ from rhesis.backend.app.crud.explorer import (
     update_explorer_test,
 )
 from rhesis.backend.app.models.test import test_test_set_association
+from rhesis.backend.app.schemas.explorer_metadata import (
+    ExplorerAdaptiveSettings,
+    ExplorerTestMetadata,
+)
 
 
 def _create_test_set(db: Session, name: str, organization_id: str, user_id: str) -> models.TestSet:
@@ -355,7 +359,9 @@ class TestCreateExplorerTest:
             user_id=authenticated_user_id,
             topic_id=topic.id,
             content="What is the capital of France?",
-            metadata={"output": "Paris", "label": "pass", "labeler": "user", "model_score": 1.0},
+            metadata=ExplorerTestMetadata(
+                output="Paris", label="pass", labeler="user", model_score=1.0
+            ),
         )
 
         assert db_test.id is not None
@@ -377,7 +383,7 @@ class TestCreateExplorerTest:
             organization_id=test_org_id,
             user_id=authenticated_user_id,
             topic_id=topic.id,
-            metadata={"label": "topic_marker", "labeler": "user", "output": ""},
+            metadata=ExplorerTestMetadata.topic_marker(labeler="user"),
         )
 
         assert db_test.id is not None
@@ -430,7 +436,9 @@ class TestUpdateExplorerTest:
             test_db,
             db_test,
             prompt_content="new input",
-            metadata={"output": "new", "label": "pass", "labeler": "model", "model_score": 0.9},
+            metadata=ExplorerTestMetadata(
+                output="new", label="pass", labeler="model", model_score=0.9
+            ),
             topic_id=new_topic.id,
         )
 
@@ -455,11 +463,13 @@ class TestUpdateExplorerTest:
         _, db_test, _ = existing_test
         original_topic_id = db_test.topic_id
 
-        updated = update_explorer_test(test_db, db_test, metadata={"output": "only this"})
+        updated = update_explorer_test(
+            test_db, db_test, metadata=ExplorerTestMetadata(output="only this")
+        )
 
         assert updated.prompt.content == "original input"
         assert updated.topic_id == original_topic_id
-        assert updated.test_metadata == {"output": "only this"}
+        assert updated.test_metadata == {"output": "only this", "label": "", "model_score": 0.0}
 
     def test_a_test_without_a_prompt_ignores_prompt_content(
         self, test_db: Session, test_org_id: str, authenticated_user_id: str
@@ -623,10 +633,15 @@ class TestAdaptiveSettingsWrites:
             "adaptive_settings": {"default_endpoint_id": "stale", "other": "dropped"},
         }
         test_db.flush()
+        fresh_endpoint_id = uuid.uuid4()
 
-        replace_test_set_explorer_settings(test_db, test_set, {"default_endpoint_id": "fresh"})
+        replace_test_set_explorer_settings(
+            test_db, test_set, ExplorerAdaptiveSettings(default_endpoint_id=fresh_endpoint_id)
+        )
 
-        assert test_set.attributes["adaptive_settings"] == {"default_endpoint_id": "fresh"}
+        assert test_set.attributes["adaptive_settings"] == {
+            "default_endpoint_id": str(fresh_endpoint_id)
+        }
         # Everything outside adaptive_settings survives.
         assert test_set.attributes["metadata"] == {"behaviors": ["Adaptive Testing"]}
 
@@ -690,8 +705,8 @@ class TestSetExplorerTestMetadata:
         set_explorer_test_metadata(
             test_db,
             [
-                (t1, {"output": "a-out", "label": "pass", "model_score": 0.9}),
-                (t2, {"output": "b-out", "label": "fail", "model_score": 0.1}),
+                (t1, ExplorerTestMetadata(output="a-out", label="pass", model_score=0.9)),
+                (t2, ExplorerTestMetadata(output="b-out", label="fail", model_score=0.1)),
             ],
         )
 

@@ -19,6 +19,11 @@ from rhesis.backend.app.schemas.explorer import (
     TestTreeNode,
     TopicNode,
 )
+from rhesis.backend.app.schemas.explorer_metadata import (
+    ExplorerTestMetadata,
+    parse_explorer_adaptive_settings,
+    parse_explorer_test_metadata,
+)
 from rhesis.backend.app.services.explorer.embeddings import (
     create_test_embedding,
     generate_embedding_vector,
@@ -319,8 +324,8 @@ def _parse_test_for_copy(db_test: models.Test, default_labeler: str) -> Optional
     Returns None for topic-marker rows and for tests with no prompt content
     (e.g. multi-turn-only); both are counted as skipped by the caller.
     """
-    meta = db_test.test_metadata or {}
-    if meta.get("label") == "topic_marker":
+    meta = parse_explorer_test_metadata(db_test.test_metadata)
+    if meta.is_topic_marker:
         return None
 
     prompt = db_test.prompt
@@ -332,21 +337,14 @@ def _parse_test_for_copy(db_test: models.Test, default_labeler: str) -> Optional
     if db_test.topic is not None and getattr(db_test.topic, "name", None):
         topic_name = str(db_test.topic.name) or ""
 
-    label_raw = meta.get("label", "") or ""
-
-    try:
-        model_score = float(meta.get("model_score", 0.0) or 0.0)
-    except (TypeError, ValueError):
-        model_score = 0.0
-
     return _TestCopy(
         content=content,
         topic_name=topic_name,
         topic_id=db_test.topic_id,
-        output=str(meta.get("output", "") or ""),
-        label=label_raw if label_raw in ("", "pass", "fail") else "",
-        labeler=str(meta.get("labeler", default_labeler) or default_labeler),
-        model_score=model_score,
+        output=meta.output if meta.output is not None else "",
+        label=meta.label if meta.label in ("", "pass", "fail") else "",
+        labeler=meta.labeler or default_labeler,
+        model_score=meta.model_score,
     )
 
 
@@ -464,7 +462,9 @@ def import_explorer_test_set_from_source(
     src_attrs = db_source.attributes or {}
     explorer_settings_src = src_attrs.get("adaptive_settings")
     if explorer_settings_src and isinstance(explorer_settings_src, dict):
-        crud_explorer.replace_test_set_explorer_settings(db, new_set, explorer_settings_src)
+        crud_explorer.replace_test_set_explorer_settings(
+            db, new_set, parse_explorer_adaptive_settings(explorer_settings_src)
+        )
 
     def write(test_copy: _TestCopy) -> None:
         # create_test_node() takes the topic path, not the FK: it builds the
@@ -583,12 +583,12 @@ def export_regular_test_set_from_explorer(
             user_id=user_id,
             topic_id=topic_id,
             content=test_copy.content,
-            metadata={
-                "output": test_copy.output,
-                "label": test_copy.label,
-                "labeler": test_copy.labeler,
-                "model_score": test_copy.model_score,
-            },
+            metadata=ExplorerTestMetadata(
+                output=test_copy.output,
+                label=test_copy.label,
+                labeler=test_copy.labeler,
+                model_score=test_copy.model_score,
+            ),
         )
 
         create_test_set_associations(
@@ -741,12 +741,12 @@ def create_test_node(
         user_id=user_id,
         topic_id=db_topic.id if db_topic else None,
         content=input,
-        metadata={
-            "output": output,
-            "label": label,
-            "labeler": labeler,
-            "model_score": model_score,
-        },
+        metadata=ExplorerTestMetadata(
+            output=output,
+            label=label,
+            labeler=labeler,
+            model_score=model_score,
+        ),
     )
 
     # Associate the test with the test set
@@ -826,13 +826,13 @@ def update_test_node(
         return None
 
     # Update metadata fields (output, label, model_score)
-    meta = dict(db_test.test_metadata or {})
+    meta = parse_explorer_test_metadata(db_test.test_metadata)
     if output is not None:
-        meta["output"] = output
+        meta.output = output
     if label is not None:
-        meta["label"] = label
+        meta.label = label
     if model_score is not None:
-        meta["model_score"] = model_score
+        meta.model_score = model_score
 
     # Update topic
     topic_id = None
