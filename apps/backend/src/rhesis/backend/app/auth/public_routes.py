@@ -90,6 +90,9 @@ AUTHZ_EXEMPT_ROUTES: frozenset[tuple[str, str]] = frozenset(
         # consumption, no different in shape or sensitivity from /features above.
         # Authentication is still enforced; the response is org-scoped in the handler.
         ("GET", "/usage"),
+        # Same rationale as /usage above -- the trailing-months history
+        # behind the dashboard's line charts, still org-scoped in the handler.
+        ("GET", "/usage/history"),
         # Demo / test endpoint — carries no meaningful permission boundary.
         ("GET", "/home/protected"),
         # Profile update during onboarding: the user may not have an org yet when

@@ -19,10 +19,12 @@ from rhesis.backend.app.models.usage import Usage
 from rhesis.backend.app.quota import QuotaResource
 from rhesis.backend.app.services.usage import (
     _current_period,
+    _recent_period_starts,
     count_org_endpoints,
     count_org_projects,
     count_org_seats,
     dispatch_accrual,
+    get_usage_history,
     get_usage_summary,
     increment_usage,
 )
@@ -234,3 +236,88 @@ class TestGetUsageSummary:
         for resource_value, item in summary["resources"].items():
             expected_kind = "stock" if resource_value in stock_resources else "flow"
             assert item["kind"] == expected_kind
+
+
+class TestRecentPeriodStarts:
+    def test_returns_months_oldest_first_ending_at_today(self):
+        starts = _recent_period_starts(3, today=date(2026, 3, 15))
+
+        assert starts == [date(2026, 1, 1), date(2026, 2, 1), date(2026, 3, 1)]
+
+    def test_crosses_a_year_boundary(self):
+        starts = _recent_period_starts(3, today=date(2026, 2, 10))
+
+        assert starts == [date(2025, 12, 1), date(2026, 1, 1), date(2026, 2, 1)]
+
+    def test_single_month_is_just_the_current_one(self):
+        starts = _recent_period_starts(1, today=date(2026, 6, 20))
+
+        assert starts == [date(2026, 6, 1)]
+
+
+class TestGetUsageHistory:
+    def test_excludes_stock_resources(self, test_db, test_org_id):
+        history = get_usage_history(test_db, test_org_id, months=3)
+
+        stock_resources = {
+            QuotaResource.SEATS.value,
+            QuotaResource.PROJECTS.value,
+            QuotaResource.ENDPOINTS.value,
+        }
+        assert stock_resources.isdisjoint(history["resources"].keys())
+        flow_resources = {
+            QuotaResource.TEST_EXECUTIONS.value,
+            QuotaResource.TRACING_SPANS.value,
+            QuotaResource.TEST_GENERATION.value,
+            QuotaResource.MODEL_TOKENS.value,
+        }
+        assert set(history["resources"].keys()) == flow_resources
+
+    def test_zero_fills_months_with_no_accrual(self, test_db, test_org_id):
+        history = get_usage_history(test_db, test_org_id, months=3)
+
+        points = history["resources"][QuotaResource.TEST_EXECUTIONS.value]
+        assert len(points) == 3
+        assert all(p["used"] == 0 for p in points)
+
+    def test_reflects_current_month_accrual_at_the_last_point(self, test_db, test_org_id):
+        increment_usage(test_db, test_org_id, QuotaResource.TRACING_SPANS, 15)
+
+        history = get_usage_history(test_db, test_org_id, months=3)
+
+        points = history["resources"][QuotaResource.TRACING_SPANS.value]
+        assert points[-1]["used"] == 15
+        assert points[-1]["period_start"] == _current_period()[0].isoformat()
+        assert all(p["used"] == 0 for p in points[:-1])
+
+    def test_includes_a_past_month_row_at_its_own_point(self, test_db, test_org_id):
+        past_period_start, past_period_end = _current_period(date(2026, 1, 15))
+
+        db_row = Usage(
+            organization_id=test_org_id,
+            resource=QuotaResource.TEST_GENERATION.value,
+            period_start=past_period_start,
+            period_end=past_period_end,
+            used=7,
+        )
+        test_db.add(db_row)
+        test_db.commit()
+
+        history = get_usage_history(
+            test_db,
+            test_org_id,
+            months=12,
+        )
+        history_at_jan = next(
+            p
+            for p in history["resources"][QuotaResource.TEST_GENERATION.value]
+            if p["period_start"] == past_period_start.isoformat()
+        )
+        assert history_at_jan["used"] == 7
+
+    def test_points_are_ordered_oldest_first(self, test_db, test_org_id):
+        history = get_usage_history(test_db, test_org_id, months=6)
+
+        points = history["resources"][QuotaResource.MODEL_TOKENS.value]
+        period_starts = [p["period_start"] for p in points]
+        assert period_starts == sorted(period_starts)

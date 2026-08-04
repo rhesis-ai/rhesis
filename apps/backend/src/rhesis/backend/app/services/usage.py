@@ -245,3 +245,58 @@ def get_usage_summary(db: Session, org_id: str, org: Optional[Organization]) -> 
 
     edition = str(FeatureRegistry.license_info(org=org).get("edition", "community"))
     return {"resources": resources, "edition": edition}
+
+
+def _recent_period_starts(months: int, today: Optional[date] = None) -> list[date]:
+    """Return the first-of-month date for each of the last *months* calendar
+    months, oldest first, ending with the month containing *today*."""
+    today = today or datetime.now(timezone.utc).date()
+    year, month = today.year, today.month
+    starts = []
+    for _ in range(months):
+        starts.append(date(year, month, 1))
+        month -= 1
+        if month == 0:
+            month, year = 12, year - 1
+    return list(reversed(starts))
+
+
+def get_usage_history(db: Session, org_id: str, months: int = 6) -> dict:
+    """Return ``{resources: {<flow resource>: [{period_start, used}, ...]}}``.
+
+    One point per calendar month for each flow resource, oldest first,
+    covering the trailing *months* months including the current one.
+    Stock resources are excluded: they are live counts with no historical
+    row to chart (see ``get_usage_summary``'s docstring for the flow/stock
+    split). Months with no accrual get an explicit ``used: 0`` point rather
+    than being omitted, so the frontend can plot a continuous line without
+    its own gap-filling logic.
+
+    Comparing ``Usage.period_start`` (a plain ``Date`` column) against
+    plain ``date`` objects here carries none of the timestamptz/session-
+    timezone risk that a raw-SQL migration comparing against a
+    ``timestamptz`` column would -- see 91607f0dd412's fix for that
+    specific class of bug, which does not apply to this comparison.
+    """
+    period_starts = _recent_period_starts(months)
+
+    with bypass_tenant_filter():
+        rows = db.query(Usage).filter(
+            Usage.organization_id == org_id,
+            Usage.period_start >= period_starts[0],
+        )
+        used_by_key = {(row.resource, row.period_start): row.used for row in rows}
+
+    history: dict[str, list[dict]] = {}
+    for resource in QuotaResource:
+        if resource in _STOCK_COUNTERS:
+            continue
+        history[resource.value] = [
+            {
+                "period_start": period_start.isoformat(),
+                "used": used_by_key.get((resource.value, period_start), 0),
+            }
+            for period_start in period_starts
+        ]
+
+    return {"resources": history}
