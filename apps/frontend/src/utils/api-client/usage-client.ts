@@ -37,8 +37,13 @@ export interface UsageHistoryResponse {
  * limits, and the current billing period for the current user's organization.
  */
 export class UsageClient extends BaseApiClient {
-  async getUsage(): Promise<UsageResponse> {
-    return this.fetch<UsageResponse>('/usage', {
+  /**
+   * @param periodStart First day of the month to report (`YYYY-MM-DD`).
+   * Omit for the current billing period.
+   */
+  async getUsage(periodStart?: string): Promise<UsageResponse> {
+    const query = periodStart ? `?period=${periodStart}` : '';
+    return this.fetch<UsageResponse>(`/usage${query}`, {
       cache: 'no-store',
     });
   }

@@ -45,6 +45,7 @@ describe('UsageOverTimeTab', () => {
     render(<UsageOverTimeTab />);
 
     expect(mockUseUsageHistory).toHaveBeenCalledWith(6);
+    expect(screen.getByText('Showing the last 6 months')).toBeInTheDocument();
   });
 
   it('switches the requested range when a different pill is clicked', () => {
@@ -53,6 +54,7 @@ describe('UsageOverTimeTab', () => {
     fireEvent.click(screen.getByText('12M'));
 
     expect(mockUseUsageHistory).toHaveBeenLastCalledWith(12);
+    expect(screen.getByText('Showing the last 12 months')).toBeInTheDocument();
   });
 
   it('shows a loading state instead of charts while history is loading', () => {

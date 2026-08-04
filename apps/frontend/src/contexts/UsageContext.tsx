@@ -25,7 +25,7 @@ import { useSession } from 'next-auth/react';
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
 import { isAuthenticated, useUserScope } from '@/hooks/useIsAuthenticated';
 
-interface UsageState {
+export interface UsageState {
   resources: Readonly<Record<string, UsageResourceItem>>;
   edition: string | null;
   loading: boolean;

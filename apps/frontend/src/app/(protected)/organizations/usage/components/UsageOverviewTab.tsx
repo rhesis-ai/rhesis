@@ -3,19 +3,59 @@
 import * as React from 'react';
 import {
   Box,
+  Button,
+  Chip,
   LinearProgress,
   Skeleton,
   Stack,
   Typography,
 } from '@mui/material';
 import { SectionCard } from '@/components/common/SectionCard';
-import { useUsage } from '@/contexts/UsageContext';
+import { FilterButton } from '@/components/common/FilterButton';
+import { useUsageForPeriod } from '@/hooks/useUsageForPeriod';
+import UsageOverviewFilterDrawer from './UsageOverviewFilterDrawer';
+import { BORDER_RADIUS } from '@/styles/theme';
 import {
   QUOTA_RESOURCE_LABELS,
   QUOTA_RESOURCE_ORDER,
   type QuotaResource,
 } from '@/constants/quota';
 import type { UsageResourceItem } from '@/utils/api-client/usage-client';
+
+const COMMUNITY_EDITION = 'community';
+const UPGRADE_URL = 'https://rhesis.ai/editions';
+
+function isCommunityEdition(edition: string): boolean {
+  return edition.toLowerCase() === COMMUNITY_EDITION;
+}
+
+function PlanChip({ edition }: { edition: string }) {
+  const label = `${edition.charAt(0).toUpperCase()}${edition.slice(1)} plan`;
+  return (
+    <Chip
+      label={label}
+      size="small"
+      color={isCommunityEdition(edition) ? 'default' : 'primary'}
+      sx={{ borderRadius: BORDER_RADIUS.pill, fontWeight: 600 }}
+    />
+  );
+}
+
+function UpgradeLink() {
+  return (
+    <Button
+      component="a"
+      href={UPGRADE_URL}
+      target="_blank"
+      rel="noopener noreferrer"
+      variant="outlined"
+      size="small"
+      sx={{ borderRadius: BORDER_RADIUS.sm, fontWeight: 600 }}
+    >
+      Upgrade
+    </Button>
+  );
+}
 
 function formatPeriodDate(isoDate: string): string {
   // period_start/period_end are date-only strings (YYYY-MM-DD), computed
@@ -80,28 +120,15 @@ function ResourceMeter({
   );
 }
 
-function ResourceGroup({
-  title,
-  kind,
+function ResourceList({
   usage,
 }: {
-  title: string;
-  kind: UsageResourceItem['kind'];
   usage: Readonly<Record<string, UsageResourceItem>>;
 }) {
-  const entries = QUOTA_RESOURCE_ORDER.filter(
-    resource => usage[resource]?.kind === kind
-  );
-  if (entries.length === 0) return null;
+  const entries = QUOTA_RESOURCE_ORDER.filter(resource => usage[resource]);
 
   return (
-    <Box sx={{ mb: 4, '&:last-child': { mb: 0 } }}>
-      <Typography
-        variant="subtitle2"
-        sx={{ mb: 2, color: 'text.secondary', textTransform: 'uppercase' }}
-      >
-        {title}
-      </Typography>
+    <Box>
       {entries.map(resource => (
         <ResourceMeter
           key={resource}
@@ -114,11 +141,30 @@ function ResourceGroup({
 }
 
 export default function UsageOverviewTab() {
-  const { resources, edition, loading, error } = useUsage();
+  const [periodStart, setPeriodStart] = React.useState<string | null>(null);
+  const [drawerOpen, setDrawerOpen] = React.useState(false);
+  const { resources, edition, loading, error } = useUsageForPeriod(periodStart);
+
+  const headerActions = (
+    <Stack direction="row" spacing={1.5} alignItems="center">
+      {edition && <PlanChip edition={edition} />}
+      {edition && isCommunityEdition(edition) && <UpgradeLink />}
+      <FilterButton
+        onClick={() => setDrawerOpen(true)}
+        hasActiveFilters={periodStart !== null}
+      />
+      <UsageOverviewFilterDrawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        periodStart={periodStart}
+        onApply={setPeriodStart}
+      />
+    </Stack>
+  );
 
   if (loading) {
     return (
-      <SectionCard title="Usage">
+      <SectionCard title="Usage" actions={headerActions}>
         <Stack spacing={2}>
           {Array.from({ length: 4 }).map((_, i) => (
             // eslint-disable-next-line react/no-array-index-key -- fixed-count skeleton placeholders, never reordered
@@ -131,7 +177,7 @@ export default function UsageOverviewTab() {
 
   if (error) {
     return (
-      <SectionCard title="Usage">
+      <SectionCard title="Usage" actions={headerActions}>
         <Typography color="error.main">
           Could not load usage data. Please try again later.
         </Typography>
@@ -143,18 +189,16 @@ export default function UsageOverviewTab() {
   const periodLabel = anyResource
     ? `${formatPeriodDate(anyResource.period_start)} – ${formatPeriodDate(anyResource.period_end)}`
     : null;
+  const periodPrefix =
+    periodStart === null ? 'Current billing period' : 'Billing period';
 
   return (
     <SectionCard
       title="Usage"
-      subtitle={
-        periodLabel
-          ? `Current billing period: ${periodLabel}${edition ? ` · ${edition} plan` : ''}`
-          : undefined
-      }
+      subtitle={periodLabel ? `${periodPrefix}: ${periodLabel}` : undefined}
+      actions={headerActions}
     >
-      <ResourceGroup title="Metered Resources" kind="flow" usage={resources} />
-      <ResourceGroup title="Resource Counts" kind="stock" usage={resources} />
+      <ResourceList usage={resources} />
     </SectionCard>
   );
 }

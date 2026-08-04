@@ -28,21 +28,21 @@ beforeEach(() => {
 });
 
 describe('UsageDetailTabs', () => {
-  it('defaults to the Overview tab when no ?tab= param is present', () => {
+  it('defaults to the Resources tab when no ?tab= param is present', () => {
     render(<UsageDetailTabs />);
 
     expect(screen.getByTestId('overview-tab')).toBeVisible();
   });
 
-  it('shows the Usage over Time tab when ?tab=history', () => {
-    mockSearchParams = new URLSearchParams('tab=history');
+  it('shows the Timeline tab when ?tab=timeline', () => {
+    mockSearchParams = new URLSearchParams('tab=timeline');
 
     render(<UsageDetailTabs />);
 
     expect(screen.getByTestId('history-tab')).toBeVisible();
   });
 
-  it('falls back to Overview for an unrecognized ?tab= value', () => {
+  it('falls back to Resources for an unrecognized ?tab= value', () => {
     mockSearchParams = new URLSearchParams('tab=nonsense');
 
     render(<UsageDetailTabs />);
@@ -50,18 +50,18 @@ describe('UsageDetailTabs', () => {
     expect(screen.getByTestId('overview-tab')).toBeVisible();
   });
 
-  it('pushes the history tab key when clicking "Usage over Time"', () => {
+  it('pushes the timeline tab key when clicking "Timeline"', () => {
     render(<UsageDetailTabs />);
 
-    fireEvent.click(screen.getByText('Usage over Time'));
+    fireEvent.click(screen.getByText('Timeline'));
 
-    expect(mockPush).toHaveBeenCalledWith('?tab=history', { scroll: false });
+    expect(mockPush).toHaveBeenCalledWith('?tab=timeline', { scroll: false });
   });
 
   it('renders both tab labels', () => {
     render(<UsageDetailTabs />);
 
-    expect(screen.getByText('Overview')).toBeInTheDocument();
-    expect(screen.getByText('Usage over Time')).toBeInTheDocument();
+    expect(screen.getByText('Resources')).toBeInTheDocument();
+    expect(screen.getByText('Timeline')).toBeInTheDocument();
   });
 });

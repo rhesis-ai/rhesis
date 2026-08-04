@@ -3,13 +3,13 @@ import { render, screen } from '@/test-utils';
 import '@testing-library/jest-dom';
 
 import UsageOverviewTab from '../UsageOverviewTab';
-import { useUsage } from '@/contexts/UsageContext';
+import { useUsageForPeriod } from '@/hooks/useUsageForPeriod';
 
-jest.mock('@/contexts/UsageContext', () => ({
-  useUsage: jest.fn(),
+jest.mock('@/hooks/useUsageForPeriod', () => ({
+  useUsageForPeriod: jest.fn(),
 }));
 
-const mockUseUsage = useUsage as jest.Mock;
+const mockUseUsage = useUsageForPeriod as jest.Mock;
 
 const USAGE_RESOURCES = {
   test_executions: {
@@ -56,7 +56,7 @@ describe('UsageOverviewTab', () => {
 
     render(<UsageOverviewTab />);
 
-    expect(screen.queryByText('Metered Resources')).not.toBeInTheDocument();
+    expect(screen.queryByText('Test Executions')).not.toBeInTheDocument();
   });
 
   it('shows an error message when usage fails to load', () => {
@@ -74,26 +74,50 @@ describe('UsageOverviewTab', () => {
     ).toBeInTheDocument();
   });
 
-  it('groups resources into Metered Resources (flow) and Resource Counts (stock)', () => {
+  it('renders every resource as a flat list, with no category headers', () => {
     render(<UsageOverviewTab />);
 
-    expect(screen.getByText('Metered Resources')).toBeInTheDocument();
-    expect(screen.getByText('Resource Counts')).toBeInTheDocument();
     expect(screen.getByText('Test Executions')).toBeInTheDocument();
     expect(screen.getByText('Seats')).toBeInTheDocument();
+    expect(screen.queryByText('Metered Resources')).not.toBeInTheDocument();
+    expect(screen.queryByText('Resource Counts')).not.toBeInTheDocument();
   });
 
-  it('shows the billing period and edition in the subtitle', () => {
+  it('shows the billing period in the subtitle', () => {
     render(<UsageOverviewTab />);
 
-    expect(
-      screen.getByText(/Current billing period:.*community plan/)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Current billing period:/)).toBeInTheDocument();
   });
 
   it('renders "Unlimited" for a resource with no limit', () => {
     render(<UsageOverviewTab />);
 
     expect(screen.getByText(/999.*\(Unlimited\)/)).toBeInTheDocument();
+  });
+
+  it('shows a plan chip and an upgrade link for the community edition', () => {
+    render(<UsageOverviewTab />);
+
+    expect(screen.getByText('Community plan')).toBeInTheDocument();
+    const upgradeLink = screen.getByRole('link', { name: 'Upgrade' });
+    expect(upgradeLink).toHaveAttribute('href', 'https://rhesis.ai/editions');
+    expect(upgradeLink).toHaveAttribute('target', '_blank');
+    expect(upgradeLink).toHaveAttribute('rel', 'noopener noreferrer');
+  });
+
+  it('hides the upgrade link for a paid edition', () => {
+    mockUseUsage.mockReturnValue({
+      resources: USAGE_RESOURCES,
+      edition: 'enterprise',
+      loading: false,
+      error: null,
+    });
+
+    render(<UsageOverviewTab />);
+
+    expect(screen.getByText('Enterprise plan')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: 'Upgrade' })
+    ).not.toBeInTheDocument();
   });
 });

@@ -4,7 +4,8 @@ import * as React from 'react';
 import { Box, Skeleton, Stack, Typography } from '@mui/material';
 import { SectionCard } from '@/components/common/SectionCard';
 import { BaseChartsGrid, BaseLineChart } from '@/components/common/BaseCharts';
-import { filterChipSx } from '@/components/common/FilterDrawer';
+import { FilterButton } from '@/components/common/FilterButton';
+import UsageOverTimeFilterDrawer from './UsageOverTimeFilterDrawer';
 import { useUsageHistory } from '@/hooks/useUsageHistory';
 import {
   QUOTA_RESOURCE_LABELS,
@@ -26,11 +27,6 @@ function formatMonthLabel(isoDate: string): string {
   });
 }
 
-const HISTORY_RANGE_OPTIONS: { months: number; label: string }[] = [
-  { months: 3, label: '3M' },
-  { months: 6, label: '6M' },
-  { months: 12, label: '12M' },
-];
 const DEFAULT_HISTORY_MONTHS = 6;
 
 function toChartData(
@@ -76,6 +72,7 @@ function NoHistoryCard({ title, height }: { title: string; height: number }) {
 
 export default function UsageOverTimeTab() {
   const [months, setMonths] = React.useState(DEFAULT_HISTORY_MONTHS);
+  const [drawerOpen, setDrawerOpen] = React.useState(false);
   const { resources: history, loading, error } = useUsageHistory(months);
 
   const flowResources = QUOTA_RESOURCE_ORDER.filter(
@@ -83,21 +80,24 @@ export default function UsageOverTimeTab() {
   );
 
   return (
-    <SectionCard title="Usage Over Time">
-      <Box sx={{ display: 'flex', gap: 1, mb: 3 }}>
-        {HISTORY_RANGE_OPTIONS.map(option => (
-          <Box
-            key={option.months}
-            component="button"
-            type="button"
-            onClick={() => setMonths(option.months)}
-            sx={filterChipSx(months === option.months)}
-          >
-            {option.label}
-          </Box>
-        ))}
-      </Box>
-
+    <SectionCard
+      title="Usage Over Time"
+      subtitle={`Showing the last ${months} months`}
+      actions={
+        <>
+          <FilterButton
+            onClick={() => setDrawerOpen(true)}
+            hasActiveFilters={months !== DEFAULT_HISTORY_MONTHS}
+          />
+          <UsageOverTimeFilterDrawer
+            open={drawerOpen}
+            onClose={() => setDrawerOpen(false)}
+            months={months}
+            onChange={setMonths}
+          />
+        </>
+      }
+    >
       {loading && (
         <Stack direction="row" spacing={2}>
           {Array.from({ length: 4 }).map((_, i) => (
@@ -119,20 +119,30 @@ export default function UsageOverTimeTab() {
       )}
 
       {!loading && !error && (
-        <BaseChartsGrid>
+        <BaseChartsGrid columns={{ xs: 12, md: 6 }}>
           {flowResources.map(resource => {
             const label = QUOTA_RESOURCE_LABELS[resource as QuotaResource];
             const points = history[resource];
-            return hasAnyUsage(points) ? (
-              <BaseLineChart
-                key={resource}
-                title={label}
-                data={toChartData(points)}
-                series={[{ dataKey: 'used', name: 'Used' }]}
-                height={180}
-              />
-            ) : (
-              <NoHistoryCard key={resource} title={label} height={180} />
+            return (
+              // BaseLineChart's Card relies on `height: 100%`, which only
+              // resolves against a flex row's cross-size if some sibling
+              // in that row has an explicit pixel height to stretch
+              // against. Two charts sharing a row (no NoHistoryCard
+              // sibling to anchor it) would otherwise both collapse to
+              // their title's intrinsic height -- so every cell gets an
+              // explicit height here instead of relying on a neighbor.
+              <Box key={resource} sx={{ height: 180 }}>
+                {hasAnyUsage(points) ? (
+                  <BaseLineChart
+                    title={label}
+                    data={toChartData(points)}
+                    series={[{ dataKey: 'used', name: 'Used' }]}
+                    height={180}
+                  />
+                ) : (
+                  <NoHistoryCard title={label} height={180} />
+                )}
+              </Box>
             );
           })}
         </BaseChartsGrid>
