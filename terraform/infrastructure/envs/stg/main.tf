@@ -80,6 +80,16 @@ module "gke_stg" {
   depends_on = [module.stg]
 }
 
+module "connect_gateway_stg" {
+  source = "../../modules/connect-gateway/gcp"
+
+  project_id  = var.project_id
+  environment = "stg"
+  cluster_id  = module.gke_stg.cluster_id
+
+  depends_on = [module.gke_stg]
+}
+
 module "eso_stg" {
   source = "../../modules/external-secrets/gcp"
 

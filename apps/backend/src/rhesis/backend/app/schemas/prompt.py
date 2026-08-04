@@ -13,6 +13,9 @@ class PromptBase(Base):
     language_code: str
     behavior_id: Optional[UUID4] = None
     expected_response: Optional[str] = None
+    user_id: Optional[UUID4] = None
+    organization_id: Optional[UUID4] = None
+    status_id: Optional[UUID4] = None
 
 
 # Prompt Create schema

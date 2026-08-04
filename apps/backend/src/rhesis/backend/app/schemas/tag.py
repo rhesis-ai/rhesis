@@ -9,6 +9,7 @@ from rhesis.backend.app.schemas import Base
 # Tag schemas
 class TagBase(Base):
     name: str
+    icon_unicode: Optional[str] = None
     organization_id: Optional[UUID4] = None
     user_id: Optional[UUID4] = None
 
@@ -44,6 +45,7 @@ class EntityType(str, Enum):
 class TagRead(Base):
     id: UUID4
     name: str
+    icon_unicode: Optional[str] = None
 
 
 class Tag(TagBase):

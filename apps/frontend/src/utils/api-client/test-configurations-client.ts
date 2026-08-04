@@ -5,7 +5,6 @@ import {
   TestConfigurationCreate,
   TestConfigurationUpdate,
   TestConfigurationDetail,
-  TestConfigurationExecuteResponse,
 } from './interfaces/test-configuration';
 import { TestRunDetail } from './interfaces/test-run';
 import { PaginatedResponse, PaginationParams } from './interfaces/pagination';
@@ -78,17 +77,6 @@ export class TestConfigurationsClient extends BaseApiClient {
       `${API_ENDPOINTS.testConfigurations}/${id}`,
       {
         method: 'DELETE',
-      }
-    );
-  }
-
-  async executeTestConfiguration(
-    id: string
-  ): Promise<TestConfigurationExecuteResponse> {
-    return this.fetch<TestConfigurationExecuteResponse>(
-      `${API_ENDPOINTS.testConfigurations}/${id}/execute`,
-      {
-        method: 'POST',
       }
     );
   }

@@ -3,15 +3,27 @@ from dataclasses import dataclass
 from typing import Callable, List, Optional, Tuple
 from uuid import UUID
 
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
-from rhesis.backend.app.constants import ADAPTIVE_TESTING_BEHAVIOR
+from rhesis.backend.app.constants import EXPLORER_BEHAVIOR_NAME
 
 # Imported as a module rather than by name: this file's own public
 # get_explorer_test_sets() wraps the crud function of the same name.
 from rhesis.backend.app.crud import explorer as crud_explorer
-from rhesis.backend.app.schemas.explorer import TestTreeNode, TopicNode
+from rhesis.backend.app.models.user import User
+from rhesis.backend.app.schemas.explorer import (
+    ExportExplorerTestSetResponse,
+    ImportExplorerTestSetResponse,
+    TestTreeNode,
+    TopicNode,
+)
+from rhesis.backend.app.services.explorer.embeddings import (
+    create_test_embedding,
+    generate_embedding_vector,
+    load_test_for_embedding,
+)
 from rhesis.backend.app.services.explorer.topics import create_topic_node
 from rhesis.backend.app.services.explorer.utils import _db_test_to_node, build_test_tree
 from rhesis.backend.app.services.test import create_test_set_associations
@@ -154,13 +166,13 @@ def create_explorer_test_set(
     """
     behavior = get_or_create_behavior(
         db=db,
-        name=ADAPTIVE_TESTING_BEHAVIOR,
+        name=EXPLORER_BEHAVIOR_NAME,
         organization_id=organization_id,
         user_id=user_id,
     )
     attributes = {
         "behaviors": [str(behavior.id)],
-        "metadata": {"behaviors": [ADAPTIVE_TESTING_BEHAVIOR]},
+        "metadata": {"behaviors": [EXPLORER_BEHAVIOR_NAME]},
     }
     test_set_type_lookup = get_or_create_type_lookup(
         db=db,
@@ -183,12 +195,12 @@ def create_explorer_test_set(
     )
 
 
-def _is_explorer_test_set(test_set: models.TestSet) -> bool:
-    """True if the test set has Adaptive Testing in metadata.behaviors."""
+def is_explorer_test_set(test_set: models.TestSet) -> bool:
+    """True if the test set has the Explorer marker behavior in metadata.behaviors."""
     attrs = test_set.attributes or {}
     metadata = attrs.get("metadata") or {}
     behaviors = metadata.get("behaviors") or []
-    return ADAPTIVE_TESTING_BEHAVIOR in behaviors
+    return EXPLORER_BEHAVIOR_NAME in behaviors
 
 
 def _delete_session_tests(
@@ -229,7 +241,7 @@ def delete_explorer_test_set(
     db_test_set = crud.resolve_test_set(test_set_identifier, db, organization_id)
     if db_test_set is None:
         raise ValueError("Test set not found with provided identifier")
-    if not _is_explorer_test_set(db_test_set):
+    if not is_explorer_test_set(db_test_set):
         raise ValueError("Test set is not configured for Explorer (Adaptive Testing behavior)")
 
     # Build the response payload before deleting to avoid response serialization
@@ -266,7 +278,7 @@ def bulk_delete_explorer_test_sets(
         return {"deleted_ids": [], "not_found_ids": []}
 
     candidates = crud_explorer.get_test_sets_by_ids(db, test_set_ids, organization_id)
-    valid_ids = [ts.id for ts in candidates if _is_explorer_test_set(ts)]
+    valid_ids = [ts.id for ts in candidates if is_explorer_test_set(ts)]
 
     _delete_session_tests(db, valid_ids, organization_id, user_id)
 
@@ -380,8 +392,16 @@ def _copy_test_set_tests(
                 skipped_test_ids.append(str(db_test.id))
                 continue
 
-            write(test_copy)
-            copied += 1
+            try:
+                with db.begin_nested():
+                    write(test_copy)
+                copied += 1
+            except SQLAlchemyError:
+                logger.warning(
+                    "Skipping test %s during copy: write failed", db_test.id, exc_info=True
+                )
+                skipped += 1
+                skipped_test_ids.append(str(db_test.id))
 
         skip += len(items)
         if skip >= total:
@@ -395,7 +415,7 @@ def import_explorer_test_set_from_source(
     source_test_set_identifier: str,
     organization_id: str,
     user_id: str,
-) -> dict:
+) -> ImportExplorerTestSetResponse:
     """Create a new explorer test set by copying tests from a regular test set.
 
     Topic hierarchy is rebuilt via topic markers. Tests without prompt content
@@ -414,9 +434,8 @@ def import_explorer_test_set_from_source(
 
     Returns
     -------
-    dict
-        ``test_set`` (``models.TestSet``), ``imported``, ``skipped``,
-        ``skipped_test_ids``
+    ImportExplorerTestSetResponse
+        The new test set plus the copy counts.
 
     Raises
     ------
@@ -427,10 +446,10 @@ def import_explorer_test_set_from_source(
     if db_source is None:
         raise ValueError("Test set not found with provided identifier")
 
-    if _is_explorer_test_set(db_source):
+    if is_explorer_test_set(db_source):
         raise ValueError("Source test set is already configured for Explorer")
 
-    base_name = f"{db_source.name} (Adaptive)"
+    base_name = f"{db_source.name} (Explorer)"
     new_name = crud_explorer.find_unused_test_set_name(db, organization_id, base_name)
 
     new_set = create_explorer_test_set(
@@ -445,7 +464,7 @@ def import_explorer_test_set_from_source(
     src_attrs = db_source.attributes or {}
     explorer_settings_src = src_attrs.get("adaptive_settings")
     if explorer_settings_src and isinstance(explorer_settings_src, dict):
-        crud_explorer.replace_test_set_adaptive_settings(db, new_set, explorer_settings_src)
+        crud_explorer.replace_test_set_explorer_settings(db, new_set, explorer_settings_src)
 
     def write(test_copy: _TestCopy) -> None:
         # create_test_node() takes the topic path, not the FK: it builds the
@@ -471,12 +490,12 @@ def import_explorer_test_set_from_source(
     )
 
     crud_explorer.refresh_test_set(db, new_set)
-    return {
-        "test_set": new_set,
-        "imported": imported,
-        "skipped": skipped,
-        "skipped_test_ids": skipped_test_ids,
-    }
+    return ImportExplorerTestSetResponse(
+        test_set=new_set,
+        imported=imported,
+        skipped=skipped,
+        skipped_test_ids=skipped_test_ids,
+    )
 
 
 def export_regular_test_set_from_explorer(
@@ -484,7 +503,7 @@ def export_regular_test_set_from_explorer(
     source_test_set_identifier: str,
     organization_id: str,
     user_id: str,
-) -> dict:
+) -> ExportExplorerTestSetResponse:
     """Create a new regular test set by copying tests from an explorer test set.
 
     Skips topic-marker rows and tests without prompt content. Does not copy
@@ -505,9 +524,8 @@ def export_regular_test_set_from_explorer(
 
     Returns
     -------
-    dict
-        ``test_set`` (``models.TestSet``), ``exported``, ``skipped``,
-        ``skipped_test_ids``
+    ExportExplorerTestSetResponse
+        The new test set plus the copy counts.
 
     Raises
     ------
@@ -518,7 +536,7 @@ def export_regular_test_set_from_explorer(
     if db_source is None:
         raise ValueError("Test set not found with provided identifier")
 
-    if not _is_explorer_test_set(db_source):
+    if not is_explorer_test_set(db_source):
         raise ValueError(
             "Source test set is not configured for Explorer (Adaptive Testing behavior)"
         )
@@ -589,12 +607,53 @@ def export_regular_test_set_from_explorer(
     )
 
     crud_explorer.refresh_test_set(db, new_set)
-    return {
-        "test_set": new_set,
-        "exported": exported,
-        "skipped": skipped,
-        "skipped_test_ids": skipped_test_ids,
-    }
+    return ExportExplorerTestSetResponse(
+        test_set=new_set,
+        exported=exported,
+        skipped=skipped,
+        skipped_test_ids=skipped_test_ids,
+    )
+
+
+def _generate_test_embedding(
+    db: Session,
+    test_id: UUID,
+    organization_id: str,
+    user_id: str,
+    current_user: User,
+) -> None:
+    """Best-effort embed + persist for a newly created explorer test.
+
+    Never raises: a test create must succeed even if embedding generation or
+    persistence fails, so failures are logged and swallowed here.
+    """
+    try:
+        db_test = load_test_for_embedding(db, test_id, organization_id)
+        if not db_test:
+            logger.warning(
+                "Explorer test embedding skipped: Test row not found after create "
+                "(test_id=%s, organization_id=%s)",
+                test_id,
+                organization_id,
+            )
+            return
+
+        text = db_test.to_searchable_text()
+        vector = generate_embedding_vector(text, db, user_id)
+        stored = create_test_embedding(db, db_test, vector, current_user)
+        if stored is None:
+            logger.warning(
+                "Explorer test embedding not persisted (test_id=%s); "
+                "see earlier create_test_embedding logs for the reason",
+                test_id,
+            )
+    except Exception as e:
+        logger.warning(
+            "Explorer test embedding skipped after create (test_id=%s): %s",
+            test_id,
+            e,
+            exc_info=True,
+        )
 
 
 def create_test_node(
@@ -608,6 +667,8 @@ def create_test_node(
     labeler: str = "user",
     label: str = "",
     model_score: float = 0.0,
+    generate_embedding: bool = False,
+    current_user: Optional[User] = None,
 ) -> TestTreeNode:
     """Create a test node in the explorer test tree.
 
@@ -639,6 +700,12 @@ def create_test_node(
         Label: 'pass', 'fail', or '' (default ``""``)
     model_score : float
         Model score for the test (default ``0.0``)
+    generate_embedding : bool
+        If true, embed the test input and persist it to the embedding table
+        on a best-effort basis (default ``False``)
+    current_user : User, optional
+        Required when ``generate_embedding`` is true; the ORM user object
+        embedding persistence reads settings from
 
     Returns
     -------
@@ -698,6 +765,11 @@ def create_test_node(
     node = _db_test_to_node(db_test)
 
     logger.info(f"Created test node in test_set={test_set_id} topic='{topic}'")
+
+    if generate_embedding:
+        if current_user is None:
+            raise ValueError("current_user is required when generate_embedding=True")
+        _generate_test_embedding(db, node.id, organization_id, user_id, current_user)
 
     return node
 

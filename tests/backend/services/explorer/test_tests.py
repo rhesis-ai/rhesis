@@ -1,11 +1,13 @@
 import uuid
+from unittest.mock import patch
 
 import pytest
 from sqlalchemy import inspect as sa_inspect
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models
-from rhesis.backend.app.crud.explorer import get_test_ids_in_test_sets
+from rhesis.backend.app.crud.explorer import create_explorer_test, get_test_ids_in_test_sets
 from rhesis.backend.app.database import without_soft_delete_filter
 from rhesis.backend.app.schemas.explorer import TestTreeNode, TopicNode
 from rhesis.backend.app.services.explorer import (
@@ -768,6 +770,59 @@ class TestCreateTestNode:
         # One new test node (topic already exists)
         assert len(nodes_after) == len(nodes_before) + 1
 
+    @patch(
+        "rhesis.backend.app.services.explorer.tests.generate_embedding_vector",
+        return_value=[0.01] * 384,
+    )
+    def test_generate_embedding_persists_embedding_row(
+        self,
+        _mock_embed,
+        test_db,
+        explorer_test_set,
+        test_org_id,
+        authenticated_user_id,
+        authenticated_user,
+        explorer_embedding_model,
+    ):
+        """generate_embedding=True should persist an embedding row for the created test."""
+        result = create_test_node(
+            db=test_db,
+            test_set_id=explorer_test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            topic="Safety",
+            input="Embedding persistence check prompt",
+            output="ok",
+            generate_embedding=True,
+            current_user=authenticated_user,
+        )
+
+        row = (
+            test_db.query(models.Embedding)
+            .filter(
+                models.Embedding.entity_id == uuid.UUID(result.id),
+                models.Embedding.entity_type == "Test",
+            )
+            .first()
+        )
+        assert row is not None, "expected embedding row for created explorer test"
+        assert row.embedding_config.get("source") == "explorer"
+
+    def test_generate_embedding_requires_current_user(
+        self, test_db, explorer_test_set, test_org_id, authenticated_user_id
+    ):
+        """generate_embedding=True without current_user is a caller error, not swallowed."""
+        with pytest.raises(ValueError, match="current_user is required"):
+            create_test_node(
+                db=test_db,
+                test_set_id=explorer_test_set.id,
+                organization_id=test_org_id,
+                user_id=authenticated_user_id,
+                topic="Safety",
+                input="Should not be created without current_user",
+                generate_embedding=True,
+            )
+
 
 # ============================================================================
 # Tests for update_test_node
@@ -1051,9 +1106,9 @@ class TestImportExplorerTestSetFromSource:
             user_id=authenticated_user_id,
         )
 
-        assert result["imported"] == 2
-        assert result["skipped"] == 1
-        new_set = result["test_set"]
+        assert result.imported == 2
+        assert result.skipped == 1
+        new_set = result.test_set
         assert "Adaptive Testing" in ((new_set.attributes or {}).get("metadata") or {}).get(
             "behaviors", []
         )
@@ -1068,6 +1123,46 @@ class TestImportExplorerTestSetFromSource:
         inputs = {t.input for t in tests}
         assert "Prompt one" in inputs
         assert "Prompt two" in inputs
+
+    def test_skips_test_that_fails_to_write_and_keeps_the_rest(
+        self,
+        test_db: Session,
+        test_org_id,
+        authenticated_user_id,
+        regular_test_set_for_import,
+    ):
+        """A write failure for one test is recorded as skipped, not a hard failure."""
+        src = regular_test_set_for_import
+
+        def flaky_create_explorer_test(db, **kwargs):
+            if kwargs.get("content") == "Prompt two":
+                raise IntegrityError("stmt", {}, Exception("dup key"))
+            return create_explorer_test(db, **kwargs)
+
+        with patch(
+            "rhesis.backend.app.crud.explorer.create_explorer_test",
+            side_effect=flaky_create_explorer_test,
+        ):
+            result = import_explorer_test_set_from_source(
+                db=test_db,
+                source_test_set_identifier=str(src.id),
+                organization_id=test_org_id,
+                user_id=authenticated_user_id,
+            )
+
+        # 1 copied ("Prompt one"), 2 skipped (the topic marker, plus the failed write).
+        assert result.imported == 1
+        assert result.skipped == 2
+        assert len(result.skipped_test_ids) == 2
+
+        tests = get_tree_tests(
+            db=test_db,
+            test_set_id=result.test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+        assert len(tests) == 1
+        assert tests[0].input == "Prompt one"
 
     def test_raises_when_source_is_adaptive(
         self,
@@ -1162,9 +1257,9 @@ class TestExportRegularTestSetFromExplorer:
             user_id=authenticated_user_id,
         )
 
-        assert result["exported"] == 2
-        assert result["skipped"] == 2
-        new_set = result["test_set"]
+        assert result.exported == 2
+        assert result.skipped == 2
+        new_set = result.test_set
         assert "(Exported)" in new_set.name
         meta_behaviors = ((new_set.attributes or {}).get("metadata") or {}).get("behaviors") or []
         assert "Adaptive Testing" not in meta_behaviors
@@ -1185,6 +1280,70 @@ class TestExportRegularTestSetFromExplorer:
             assert t.topic.name == "Alpha/Beta"
         inputs = {(t.prompt.content or "").strip() for t in items if t.prompt}
         assert inputs == {"First prompt", "Second prompt"}
+
+    def test_skips_test_that_fails_to_write_and_keeps_the_rest(
+        self,
+        test_db: Session,
+        test_org_id,
+        authenticated_user_id,
+    ):
+        """A write failure for one test is recorded as skipped, not a hard failure."""
+        adaptive = create_explorer_test_set(
+            db=test_db,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            name=f"Export source {uuid.uuid4().hex[:8]}",
+            description="adaptive source",
+        )
+        test_db.flush()
+        for content in ("First prompt", "Second prompt", "Third prompt"):
+            create_test_node(
+                db=test_db,
+                test_set_id=adaptive.id,
+                organization_id=test_org_id,
+                user_id=authenticated_user_id,
+                topic="Alpha/Beta",
+                input=content,
+                output="o",
+                labeler="human",
+                label="pass",
+                model_score=1.0,
+            )
+        test_db.commit()
+
+        def flaky_create_explorer_test(db, **kwargs):
+            if kwargs.get("content") == "Second prompt":
+                raise IntegrityError("stmt", {}, Exception("dup key"))
+            return create_explorer_test(db, **kwargs)
+
+        with patch(
+            "rhesis.backend.app.crud.explorer.create_explorer_test",
+            side_effect=flaky_create_explorer_test,
+        ):
+            result = export_regular_test_set_from_explorer(
+                db=test_db,
+                source_test_set_identifier=str(adaptive.id),
+                organization_id=test_org_id,
+                user_id=authenticated_user_id,
+            )
+
+        # 2 copied (First, Third), 3 skipped (the "Alpha" and "Alpha/Beta" topic
+        # markers, plus the failed write for "Second prompt").
+        assert result.exported == 2
+        assert result.skipped == 3
+        assert len(result.skipped_test_ids) == 3
+
+        items, total = crud.get_test_set_tests(
+            db=test_db,
+            test_set_id=result.test_set.id,
+            skip=0,
+            limit=100,
+            sort_by="created_at",
+            sort_order="asc",
+        )
+        assert total == 2
+        inputs = {(t.prompt.content or "").strip() for t in items if t.prompt}
+        assert inputs == {"First prompt", "Third prompt"}
 
     def test_raises_when_source_is_not_adaptive(
         self,

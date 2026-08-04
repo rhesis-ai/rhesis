@@ -1,45 +1,25 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Rhesis AI Feedback</title>
-</head>
-<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-    <div style="background: #e8f4fd; border-left: 4px solid #0ea5e9; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
-        <h2 style="color: #0369a1; margin-top: 0;">
-            User Feedback
-        </h2>
-        <p style="margin: 0; color: #0369a1;">
-            A user has submitted feedback for Rhesis AI.
-        </p>
-    </div>
+{% extends '_base.html.jinja2' %}
+{% import '_components.html.jinja2' as c %}
 
-    <div style="background: white; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
-        <h3 style="color: #1D2939; margin-top: 0;">User Information</h3>
-        <table style="width: 100%; border-collapse: collapse;">
-            <tr>
-                <td style="padding: 8px 0; font-weight: bold; width: 40%;">Name:</td>
-                <td style="padding: 8px 0;">{{ user_name }}</td>
-            </tr>
-            <tr>
-                <td style="padding: 8px 0; font-weight: bold;">Email:</td>
-                <td style="padding: 8px 0;">{{ user_email }}</td>
-            </tr>
-            {% if rating and rating != "N/A" %}
-            <tr>
-                <td style="padding: 8px 0; font-weight: bold;">Rating:</td>
-                <td style="padding: 8px 0;">{{ rating }}/5 stars</td>
-            </tr>
-            {% endif %}
-        </table>
-    </div>
+{% block title %}Rhesis AI Feedback{% endblock %}
+{% block preheader %}{{ user_name }} submitted feedback{% if rating and rating != 'N/A' %} ({{ rating }}/5){% endif %}.{% endblock %}
 
-    <div style="background: white; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
-        <h3 style="color: #1D2939; margin-top: 0;">Feedback</h3>
-        <p style="white-space: pre-wrap; margin: 0;">{{ feedback }}</p>
-    </div>
+{% block content %}
+{{ c.row_header('User', accent='feedback', lede='A user has submitted feedback for Rhesis AI.', label='Internal') }}
 
-    {% include '_imprint.html.jinja2' %}
-</body>
-</html>
+{% call c.row_card() %}
+    {%- set rows = [
+        {'label': 'Name', 'value': user_name, 'bold': True},
+        {'label': 'Email', 'value': user_email, 'url': 'mailto:' ~ user_email},
+    ] -%}
+    {%- if rating and rating != 'N/A' -%}
+    {%- set rows = rows + [{'label': 'Rating', 'value': rating ~ '/5 stars'}] -%}
+    {%- endif -%}
+    {{ c.kv_table(rows) }}
+{% endcall %}
+
+{% call c.row_prose() %}
+    {{ c.subhead('Feedback') }}
+    {{ c.quoted(feedback) }}
+{% endcall %}
+{% endblock %}

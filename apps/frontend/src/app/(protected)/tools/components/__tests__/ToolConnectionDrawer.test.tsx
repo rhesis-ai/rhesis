@@ -194,11 +194,8 @@ describe('ToolConnectionDrawer', () => {
   it('uses the tool provider in edit mode instead of a stale create selection', () => {
     const notionTool: Tool = {
       id: 'tool-1' as Tool['id'],
-      created_at: '2024-01-01T00:00:00Z',
-      updated_at: '2024-01-01T00:00:00Z',
       name: 'sgsr',
       description: 'sgpjwgwpirgjwrgo',
-      tool_provider_type_id: notionProvider.id,
       tool_provider_type: notionProvider,
     };
 

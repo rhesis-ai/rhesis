@@ -11,6 +11,7 @@ class TypeLookupBase(Base):
     type_value: str
     description: Optional[str] = None
     organization_id: Optional[UUID4] = None
+    user_id: Optional[UUID4] = None
 
 
 class TypeLookupCreate(TypeLookupBase):

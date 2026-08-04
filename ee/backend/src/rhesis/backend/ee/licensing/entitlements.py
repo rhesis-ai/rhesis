@@ -29,19 +29,23 @@ class LicenseEdition(str, Enum):
     rather than raising, keeping verification fail-soft on cosmetic fields.
 
     Adding a sellable tier is a two-step change: add a member here, then add
-    its entitlement spec to
-    :data:`~rhesis.backend.ee.licensing.tiers.EDITION_ENTITLEMENTS`.
+    its entitlement spec to the tier config YAML (``tier_config.yaml``).
+    Both steps are enforced -- ``tiers._assert_catalog_complete()`` refuses
+    to start if a member declared here has no config entry, and
+    ``tiers._parse_edition()`` rejects a config entry naming an edition not
+    declared here. Neither half can ship alone.
+
     ``COMMUNITY`` and ``UNKNOWN`` are non-sellable sentinels and are
-    intentionally absent from that catalog.
+    intentionally absent from the sellable catalog. ``COMMUNITY`` still
+    carries free-tier limits for unlicensed orgs; ``UNKNOWN`` is a
+    decode-time sentinel only and must never appear in the config.
     """
 
     COMMUNITY = "community"
     # --- Sellable tiers (see tiers.EDITION_ENTITLEMENTS) ---
-    STARTER = "starter"
-    PREMIUM = "premium"
+    TEAM = "team"
     ENTERPRISE = "enterprise"
     MASTER = "master"
-    TRIAL = "trial"
     UNKNOWN = "unknown"
 
     @classmethod
@@ -99,11 +103,9 @@ LIC_ALL_FEATURES = "all_features"
 LIC_FEATURES = "features"
 LIC_LIMITS = "limits"
 
-# Well-known keys inside the ``limits`` map. Limits are open-ended; these are
-# just the names the platform understands today.
-LIMIT_SEATS = "seats"
-
 # --- Environment variable names --------------------------------------------
+ENV_TIER_CONFIG = "RHESIS_TIER_CONFIG"
+
 ENV_LICENSE = "RHESIS_LICENSE"
 ENV_LICENSE_PUBLIC_KEY = "RHESIS_LICENSE_PUBLIC_KEY"
 # Private key for the minting/issuance side only — never set on the running
@@ -214,6 +216,7 @@ __all__ = [
     "CLAIM_LICENSE",
     "CLAIM_SUBJECT",
     "Entitlements",
+    "ENV_TIER_CONFIG",
     "EXPIRY_LEEWAY_SECONDS",
     "ENV_LICENSE",
     "ENV_LICENSE_KID",
@@ -229,6 +232,5 @@ __all__ = [
     "LIC_FEATURES",
     "LIC_LIMITS",
     "LIC_STATUS",
-    "LIMIT_SEATS",
     "REQUIRED_CLAIMS",
 ]

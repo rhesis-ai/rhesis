@@ -8,17 +8,24 @@ import { useRouter } from 'next/navigation';
 import { BORDER_RADIUS } from '@/styles/theme';
 import ProjectSwitcherDrawer from '@/components/navigation/ProjectSwitcherDrawer';
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
+import { useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 
 /**
  * Shown when the authenticated user belongs to an organization but has no
- * project memberships.  Offers two exits:
- *  1. Create a new project (which auto-enrolls them as owner).
+ * project memberships.  Offers up to two exits:
+ *  1. Create a new project (which auto-enrolls them as owner) — only when they
+ *     hold `project:create`. That capability is org-scoped and the built-in
+ *     Member role does not have it, so SSO-provisioned users land here without
+ *     it; offering the button anyway sends them into a wizard that 403s on
+ *     submit.
  *  2. Refresh the switcher in case an admin just added them.
  */
 export default function NoProjectAccess() {
   const router = useRouter();
   const { refresh } = useActiveProject();
   const [switcherOpen, setSwitcherOpen] = useState(false);
+  const canCreateProject = useCan(Capability.Project.CREATE);
 
   const handleRefresh = async () => {
     await refresh({ listOnly: false });
@@ -68,8 +75,9 @@ export default function NoProjectAccess() {
             No project access
           </Typography>
           <Typography variant="body1" color="text.secondary">
-            You are not a member of any project yet. Ask an administrator to add
-            you to a project, or create a new one.
+            {canCreateProject
+              ? 'You are not a member of any project yet. Ask an administrator to add you to a project, or create a new one.'
+              : 'You are not a member of any project yet. Ask an administrator to add you to a project.'}
           </Typography>
         </Box>
 
@@ -82,24 +90,28 @@ export default function NoProjectAccess() {
             width: '100%',
           }}
         >
-          <Button
-            variant="contained"
-            size="large"
-            startIcon={<AddIcon />}
-            onClick={() => router.push('/projects/create-new')}
-            sx={{ borderRadius: BORDER_RADIUS.sm }}
-          >
-            Create a new project
-          </Button>
+          {canCreateProject && (
+            <>
+              <Button
+                variant="contained"
+                size="large"
+                startIcon={<AddIcon />}
+                onClick={() => router.push('/projects/create-new')}
+                sx={{ borderRadius: BORDER_RADIUS.sm }}
+              >
+                Create a new project
+              </Button>
 
-          <Divider>
-            <Typography variant="caption" color="text.disabled">
-              or
-            </Typography>
-          </Divider>
+              <Divider>
+                <Typography variant="caption" color="text.disabled">
+                  or
+                </Typography>
+              </Divider>
+            </>
+          )}
 
           <Button
-            variant="outlined"
+            variant={canCreateProject ? 'outlined' : 'contained'}
             size="large"
             onClick={handleRefresh}
             sx={{ borderRadius: BORDER_RADIUS.sm }}

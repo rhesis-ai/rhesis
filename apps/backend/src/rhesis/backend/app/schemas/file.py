@@ -54,3 +54,16 @@ class FileCreate(BaseModel):
     extraction_status: str = "pending"
 
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
+
+
+class FileUpdate(BaseModel):
+    """Schema for updating file metadata."""
+
+    description: Optional[str] = None
+    position: Optional[int] = None
+    storage_path: Optional[str] = None
+    content_hash: Optional[str] = None
+    extracted_text: Optional[str] = None
+    extraction_status: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)

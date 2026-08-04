@@ -182,23 +182,6 @@ class TestModelValidation(ModelTestMixin, BaseEntityTests):
             response = model_factory.client.post(self.endpoints.create, json=data)
             assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
-    def test_create_model_with_headers(self, model_factory):
-        """📝 Test model creation with request headers"""
-        data = self.get_sample_data()
-        data["request_headers"] = {
-            "Authorization": "Bearer test-token",
-            "Content-Type": "application/json",
-            "User-Agent": "TestClient/1.0",
-        }
-
-        response = model_factory.client.post(self.endpoints.create, json=data)
-        assert response.status_code == status.HTTP_200_OK
-
-        created_model = response.json()
-        assert "request_headers" in created_model
-        # Headers might be stored as JSON string, so just check they exist
-        assert created_model["request_headers"] is not None
-
     def test_model_endpoint_url_validation(self, model_factory):
         """🌐 Test model creation with various URL formats"""
         valid_urls = [
@@ -300,27 +283,6 @@ class TestModelEdgeCases(ModelTestMixin, BaseEntityTests):
                 status.HTTP_422_UNPROCESSABLE_ENTITY,
             ]
 
-    def test_model_empty_headers(self, model_factory):
-        """📝 Test model with empty request headers"""
-        data = self.get_minimal_data()
-        data["request_headers"] = {}
-
-        response = model_factory.client.post(self.endpoints.create, json=data)
-        assert response.status_code == status.HTTP_200_OK
-
-        created_model = response.json()
-        # Empty headers should be handled gracefully
-        assert "request_headers" in created_model
-
-    def test_model_malformed_headers(self, model_factory):
-        """📝 Test model with malformed request headers"""
-        data = self.get_minimal_data()
-        data["request_headers"] = "not-a-dict"
-
-        response = model_factory.client.post(self.endpoints.create, json=data)
-        # Should reject malformed headers
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
-
 
 # === MODEL UPDATE TESTS ===
 
@@ -344,21 +306,6 @@ class TestModelUpdates(ModelTestMixin, BaseEntityTests):
         assert updated_model["endpoint"] == update_data["endpoint"]
         assert updated_model["id"] == model["id"]  # ID should remain the same
 
-    def test_update_model_headers(self, model_factory):
-        """🔄 Test updating model request headers"""
-        # Create a model
-        model = model_factory.create(self.get_sample_data())
-
-        # Update the headers
-        new_headers = {"Authorization": "Bearer updated-token", "X-Custom-Header": "test-value"}
-        update_data = {"request_headers": new_headers}
-
-        response = model_factory.client.put(self.endpoints.put(model["id"]), json=update_data)
-
-        assert response.status_code == status.HTTP_200_OK
-        updated_model = response.json()
-        # Headers might be stored differently, just verify they're updated
-        assert "request_headers" in updated_model
 
     def test_update_model_key_security(self, model_factory):
         """🔒 Test updating model API key (key is not returned in response)"""

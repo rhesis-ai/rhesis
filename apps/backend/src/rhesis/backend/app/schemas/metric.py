@@ -49,6 +49,7 @@ class MetricBase(Base):
     evaluation_examples: Optional[str] = None
     metric_scope: Optional[List[MetricScope]] = None
     organization_id: Optional[UUID4] = None
+    user_id: Optional[UUID4] = None
 
 
 class MetricCreate(MetricBase):

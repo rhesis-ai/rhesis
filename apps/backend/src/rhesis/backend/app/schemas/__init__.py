@@ -30,7 +30,8 @@ from .endpoint import (
     EndpointTestRequest,
     EndpointUpdate,
 )
-from .file import FileCreate, FileEntityType, FileResponse
+from .file import FileCreate, FileEntityType, FileResponse, FileUpdate
+from .insights import InsightsBatchRequest, InsightsBatchResponse, InsightsQuery, InsightsResponse
 from .metric import (
     GenerateMetricRequest,
     ImproveMetricRequest,
@@ -224,6 +225,7 @@ __all__ = [
     "FileCreate",
     "FileEntityType",
     "FileResponse",
+    "FileUpdate",
     "Endpoint",
     "EndpointBase",
     "EndpointCreate",

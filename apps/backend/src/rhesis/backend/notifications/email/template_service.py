@@ -10,6 +10,8 @@ from typing import Any, Dict
 
 import jinja2
 
+from rhesis.backend.notifications.email.brand import get_brand
+
 logger = logging.getLogger(__name__)
 
 
@@ -36,10 +38,18 @@ class TemplateService:
         # Get template directory path
         self.template_dir = Path(__file__).parent / "templates"
 
-        # Initialize Jinja2 environment
+        # Initialize Jinja2 environment.
+        #
+        # autoescape is unconditional, not select_autoescape(["html", "xml"]).
+        # select_autoescape matches on the filename's suffix, and every template
+        # here ends in `.jinja2` rather than `.html`, so it returned False for
+        # all of them and escaping never engaged. Recipient-controlled fields
+        # (feedback, justification, task_description, organization_name, entity
+        # names) rendered as live HTML, which lets someone inject a link into a
+        # Rhesis-branded email.
         self.jinja_env = jinja2.Environment(
             loader=jinja2.FileSystemLoader(str(self.template_dir)),
-            autoescape=jinja2.select_autoescape(["html", "xml"]),
+            autoescape=True,
             trim_blocks=True,
             lstrip_blocks=True,
         )
@@ -47,6 +57,10 @@ class TemplateService:
         # Add custom filters
         self.jinja_env.filters["datetime_format"] = self._datetime_format
         self.jinja_env.filters["format_number"] = lambda value: f"{int(value):,}"
+
+        # Brand tokens are a global so every template and macro reads the same
+        # palette, font stacks, and asset URLs. See brand.py.
+        self.jinja_env.globals["brand"] = get_brand()
 
         # Define required variables for each template
         self.template_variables = {

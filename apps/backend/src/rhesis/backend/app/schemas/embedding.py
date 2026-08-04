@@ -43,7 +43,9 @@ class Embedding(EmbeddingBase):
 
 
 class Point(Base):
+    embedding_id: UUID4
     entity_id: UUID4
+    entity_type: str
 
 
 class ScatterPoint2D(Point):
@@ -56,6 +58,7 @@ class ScatterPoint2D(Point):
 class Cluster(Base):
     cluster_index: int
     label: str  # A descriptive, LLM-generated label
+    size: int  # number of entities in the cluster
 
 
 class Scatter2DGraph(Base):
@@ -68,6 +71,7 @@ class EmbeddingGraphComputeResponse(Base):
     """Response when a background task to compute the embedding graph has been queued."""
 
     status: Literal["pending"] = "pending"
+    task_id: str
 
 
 class EmbeddingGraphPendingResponse(Base):

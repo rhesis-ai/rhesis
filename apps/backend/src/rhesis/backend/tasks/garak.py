@@ -13,6 +13,8 @@ import logging
 from dataclasses import asdict
 from typing import Any, Dict, List, Optional
 
+from rhesis.backend.app.quota import QuotaResource
+from rhesis.backend.app.services.usage import dispatch_accrual
 from rhesis.backend.celery.core import app
 from rhesis.backend.notifications.email.template_service import EmailTemplate
 from rhesis.backend.tasks.base import EmailEnabledTask, email_notification
@@ -75,7 +77,16 @@ def import_garak_probes_task(
         )
         for test_set in result["test_sets"]:
             test_set["test_set_id"] = str(test_set["test_set_id"])
-        return result
+
+    # Imported probes are generated tests same as the LLM generation path
+    # (both ultimately create rows via bulk_create_test_set/bulk_create_tests),
+    # so they count toward the same TEST_GENERATION quota -- see
+    # tasks/test_set.py's own dispatch_accrual call for the pattern this
+    # mirrors. No session needed here: the accrual is queued and the worker
+    # task opens its own.
+    dispatch_accrual(org_id, QuotaResource.TEST_GENERATION, result["total_tests"])
+
+    return result
 
 
 @email_notification(
@@ -114,4 +125,11 @@ def sync_garak_test_set_task(
     with self.get_db_session() as db:
         sync_service = GarakSyncService(db)
         result = sync_service.sync_test_set(test_set_id, org_id, user_id)
-        return asdict(result)
+
+    # Only `added` counts as generated tests -- `removed`/`unchanged` are not
+    # new rows, so accruing the whole result would overcount. See
+    # import_garak_probes_task's dispatch_accrual for why this counts the
+    # same way as the LLM generation path.
+    dispatch_accrual(org_id, QuotaResource.TEST_GENERATION, result.added)
+
+    return asdict(result)

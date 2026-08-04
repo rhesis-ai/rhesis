@@ -1,9 +1,20 @@
-# Lets the stg-arc-runner-set's default ServiceAccount (arc-runners/default)
-# run one-off Kubernetes Jobs in this namespace on behalf of rhesis-ee's
-# license-issue.yml workflow. That workflow issues signed license tokens by
-# running the EE licensing CLI as a Job here instead of a Cloud Run Job,
-# because this namespace's Postgres (CloudNativePG, Service "rhesis-stg-rw")
-# only resolves via cluster-internal DNS -- Cloud Run cannot reach it.
+# Lets the "license-ci-stg" GCP service account run one-off Kubernetes Jobs
+# in this namespace on behalf of rhesis-ee's license-issue.yml workflow. That
+# workflow issues signed license tokens by running the EE licensing CLI as a
+# Job here instead of a Cloud Run Job, because this namespace's Postgres
+# (CloudNativePG, Service "rhesis-stg-rw") only resolves via cluster-internal
+# DNS -- Cloud Run cannot reach it.
+#
+# The workflow reaches this cluster via GKE Connect Gateway (see
+# terraform/infrastructure/modules/connect-gateway/gcp), not a VPN or a
+# self-hosted runner -- Connect Gateway proxies the call over HTTPS using the
+# GCP IAM identity's credentials, and GKE maps that identity onto this
+# RoleBinding's "User" subject by email. license-ci-stg is a dedicated
+# service account created by that module specifically for this purpose --
+# not terraform-stg, which holds roles/editor + iam.securityAdmin +
+# resourcemanager.projectIamAdmin on the whole project and would be far too
+# powerful an identity for a different repo's CI workflow to hold a static
+# key for.
 #
 # Blast-radius note: "create Jobs" implicitly allows a Job's pod spec to
 # mount any Secret already in this namespace (rhesis-app-secrets included) --
@@ -11,11 +22,12 @@
 # access boundary is who can dispatch license-issue.yml in the private
 # rhesis-ee repo, not this Role.
 #
-# secrets get/update/delete are scoped via resourceNames to the one Secret
-# the workflow actually manages. Kubernetes RBAC cannot apply resourceNames
-# to "create" (the object doesn't exist yet at authorization time), so this
-# Role can still create a Secret under any name -- it just can't read,
-# change, or remove anything other than "license-issue-signing" afterward.
+# secrets: split into two rules because resourceNames silently blocks
+# "create" -- K8s RBAC checks the resource name at admission time, and a
+# create request has no name to match, so the verb never fires. The
+# unrestricted create rule lets the workflow create the signing Secret
+# under any name (harmless -- the namespace is already the blast radius);
+# get/update/patch/delete are scoped to the one Secret it actually manages.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -33,8 +45,11 @@ rules:
     verbs: ["get"]
   - apiGroups: [""]
     resources: ["secrets"]
+    verbs: ["create"]
+  - apiGroups: [""]
+    resources: ["secrets"]
     resourceNames: ["license-issue-signing"]
-    verbs: ["create", "get", "update", "delete"]
+    verbs: ["get", "update", "patch", "delete"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -46,6 +61,6 @@ roleRef:
   kind: Role
   name: license-issuer
 subjects:
-  - kind: ServiceAccount
-    name: default
-    namespace: arc-runners
+  - kind: User
+    name: license-ci-stg@rhesis-stg-494712.iam.gserviceaccount.com
+    apiGroup: rbac.authorization.k8s.io

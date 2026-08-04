@@ -176,7 +176,8 @@ export default function TestResultDrawer({
   const handleReviewTurn = (turnNumber: number, turnSuccess: boolean) => {
     setReviewInitialComment(`@[Turn ${turnNumber}](turn:${turnNumber}) `);
     setReviewInitialStatus(turnSuccess ? 'failed' : 'passed');
-    setActiveTab(TAB.reviews);
+    // Opens the review drawer as an overlay via TestDetailReviewsTab's own
+    // effect — the Conversation tab stays active so context isn't lost.
   };
 
   const mentionableMetrics: MentionOption[] = useMemo(() => {

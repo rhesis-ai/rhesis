@@ -115,6 +115,7 @@ dev = [
     "factory-boy>=3.3.0",
     "pytest-timeout>=2.3.1",
     "pytest-rerunfailures>=12.0",
+    "testcontainers[postgres,redis]>=4.13.3",
 ]
 
 # PyTorch index configuration for CPU and GPU variants
@@ -220,7 +221,8 @@ pythonpath = [
     "src",
 ]
 asyncio_default_fixture_loop_scope = "function"
-addopts = "-o asyncio_default_fixture_loop_scope=function"
+# no:plugins disables deepeval's autoloaded pytest plugin (entry point name "plugins")
+addopts = "-o asyncio_default_fixture_loop_scope=function -p no:plugins"
 filterwarnings = [
     "ignore::pytest.PytestDeprecationWarning:pytest_asyncio.plugin",
 ]

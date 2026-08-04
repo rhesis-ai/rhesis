@@ -11,6 +11,7 @@ import logging
 from typing import List, Optional
 from uuid import UUID
 
+import pydantic
 from fastapi import Body, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
@@ -25,25 +26,20 @@ from rhesis.backend.app.models.user import User
 from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.explorer import (
     CreateExplorerTestBody,
-    EvaluateFailedItem,
     EvaluateRequest,
     EvaluateResponse,
-    EvaluateResultItem,
     EvaluateSuggestionsRequest,
     ExplorerSettingsResponse,
     ExplorerSettingsUpdate,
     ExplorerTestSetBulkDeleteRequest,
     ExplorerTestSetBulkDeleteResponse,
     ExportExplorerTestSetResponse,
-    GenerateOutputsFailedItem,
     GenerateOutputsRequest,
     GenerateOutputsResponse,
-    GenerateOutputsUpdatedItem,
     GenerateSuggestionOutputsRequest,
     GenerateSuggestionsRequest,
     GenerateSuggestionsResponse,
     ImportExplorerTestSetResponse,
-    SuggestedTest,
     SuggestionPipelineRequest,
     TestTreeNode,
     TopicNode,
@@ -140,24 +136,19 @@ def import_explorer_test_set_endpoint(
     """
     organization_id, user_id = tenant_context
     try:
-        result = import_explorer_test_set_from_source(
+        return import_explorer_test_set_from_source(
             db=db,
             source_test_set_identifier=source_test_set_identifier,
             organization_id=str(organization_id),
             user_id=str(user_id),
         )
+    except pydantic.ValidationError:
+        raise
     except ValueError as exc:
         msg = str(exc).lower()
         if "not found" in msg:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-    return ImportExplorerTestSetResponse(
-        test_set=result["test_set"],
-        imported=result["imported"],
-        skipped=result["skipped"],
-        skipped_test_ids=result["skipped_test_ids"],
-    )
 
 
 @router.post(
@@ -178,24 +169,19 @@ def export_regular_test_set_from_explorer_endpoint(
     """
     organization_id, user_id = tenant_context
     try:
-        result = export_regular_test_set_from_explorer(
+        return export_regular_test_set_from_explorer(
             db=db,
             source_test_set_identifier=source_test_set_identifier,
             organization_id=str(organization_id),
             user_id=str(user_id),
         )
+    except pydantic.ValidationError:
+        raise
     except ValueError as exc:
         msg = str(exc).lower()
         if "not found" in msg:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-    return ExportExplorerTestSetResponse(
-        test_set=result["test_set"],
-        exported=result["exported"],
-        skipped=result["skipped"],
-        skipped_test_ids=result["skipped_test_ids"],
-    )
 
 
 @router.get(
@@ -567,41 +553,9 @@ def create_explorer_test(
         labeler=body.labeler,
         label=body.label or "",
         model_score=body.model_score,
+        generate_embedding=body.generate_embedding,
+        current_user=current_user,
     )
-
-    if body.generate_embedding:
-        try:
-            from rhesis.backend.app.services.explorer.embeddings import (
-                create_test_embedding,
-                generate_embedding_vector,
-                load_test_for_embedding,
-            )
-
-            db_test = load_test_for_embedding(db, node.id, str(organization_id))
-            if not db_test:
-                logger.warning(
-                    "Explorer test embedding skipped: Test row not found after create "
-                    "(test_id=%s, organization_id=%s)",
-                    node.id,
-                    organization_id,
-                )
-            else:
-                text = db_test.to_searchable_text()
-                vector = generate_embedding_vector(text, db, str(user_id))
-                stored = create_test_embedding(db, db_test, vector, current_user)
-                if stored is None:
-                    logger.warning(
-                        "Explorer test embedding not persisted (test_id=%s); "
-                        "see earlier create_test_embedding logs for the reason",
-                        node.id,
-                    )
-        except Exception as e:
-            logger.warning(
-                "Explorer test embedding skipped after create (test_id=%s): %s",
-                node.id,
-                e,
-                exc_info=True,
-            )
 
     return node
 
@@ -710,7 +664,7 @@ async def generate_outputs(
             test_set=db_test_set,
             request_endpoint_id=body.endpoint_id,
         )
-        result = await generate_outputs_for_tests(
+        return await generate_outputs_for_tests(
             db=db,
             test_set_identifier=test_set_identifier,
             endpoint_id=endpoint_id,
@@ -721,24 +675,13 @@ async def generate_outputs(
             include_subtopics=body.include_subtopics,
             overwrite=body.overwrite,
         )
+    except pydantic.ValidationError:
+        raise
     except ValueError as e:
         msg = str(e).lower()
         if "no endpoint specified" in msg:
             raise HTTPException(status_code=400, detail=str(e))
         raise HTTPException(status_code=404, detail=str(e))
-
-    return GenerateOutputsResponse(
-        generated=result["generated"],
-        skipped=result["skipped"],
-        failed=[
-            GenerateOutputsFailedItem(test_id=f["test_id"], error=f["error"])
-            for f in result["failed"]
-        ],
-        updated=[
-            GenerateOutputsUpdatedItem(test_id=u["test_id"], output=u["output"])
-            for u in result["updated"]
-        ],
-    )
 
 
 @router.post(
@@ -767,7 +710,7 @@ async def evaluate_tests(
             organization_id=str(organization_id),
             request_metric_names=body.metric_names,
         )
-        result = await evaluate_tests_for_explorer_set(
+        return await evaluate_tests_for_explorer_set(
             db=db,
             test_set_identifier=test_set_identifier,
             organization_id=str(organization_id),
@@ -778,6 +721,8 @@ async def evaluate_tests(
             include_subtopics=body.include_subtopics,
             overwrite=body.overwrite,
         )
+    except pydantic.ValidationError:
+        raise
     except ValueError as e:
         msg = str(e).lower()
         if "no metrics specified" in msg:
@@ -785,24 +730,6 @@ async def evaluate_tests(
         if "metric" in msg and "does not exist" in msg:
             raise HTTPException(status_code=400, detail=str(e))
         raise HTTPException(status_code=404, detail=str(e))
-
-    return EvaluateResponse(
-        evaluated=result["evaluated"],
-        skipped=result["skipped"],
-        results=[
-            EvaluateResultItem(
-                test_id=r["test_id"],
-                label=r["label"],
-                labeler=r["labeler"],
-                model_score=r["model_score"],
-                metrics=r.get("metrics"),
-            )
-            for r in result["results"]
-        ],
-        failed=[
-            EvaluateFailedItem(test_id=f["test_id"], error=f["error"]) for f in result["failed"]
-        ],
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -829,7 +756,7 @@ async def generate_suggestions_endpoint(
     """
     organization_id, user_id = tenant_context
     try:
-        result = await generate_suggestions(
+        return await generate_suggestions(
             db=db,
             test_set_identifier=test_set_identifier,
             organization_id=str(organization_id),
@@ -840,13 +767,10 @@ async def generate_suggestions_endpoint(
             user_feedback=body.user_feedback,
             generate_embeddings=body.generate_embeddings,
         )
+    except pydantic.ValidationError:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-
-    return GenerateSuggestionsResponse(
-        suggestions=[SuggestedTest(**s) for s in result["suggestions"]],
-        num_examples_used=result["num_examples_used"],
-    )
 
 
 @router.post(

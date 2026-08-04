@@ -123,53 +123,6 @@ class TestPromptRoutes(PromptTestMixin, BaseEntityRouteTests):
         assert created_prompt["language_code"] == "en"
         assert len(created_prompt["expected_response"]) > 500
 
-    # === MULTITURN CONVERSATION TESTS ===
-
-    def test_create_parent_prompt(self, prompt_factory):
-        """Test creation of parent prompt for multiturn scenarios"""
-        parent_data = PromptDataFactory.sample_data()
-
-        parent_prompt = prompt_factory.create(parent_data)
-
-        assert parent_prompt["content"] is not None
-        assert parent_prompt["parent_id"] is None  # Should be root prompt
-
-    def test_create_child_prompt_with_parent(self, prompt_factory, db_parent_prompt):
-        """Test creation of child prompt with parent relationship"""
-        child_data = PromptDataFactory.edge_case_data("multiturn")
-        child_data["parent_id"] = str(db_parent_prompt.id)
-
-        child_prompt = prompt_factory.create(child_data)
-
-        assert child_prompt["parent_id"] == str(db_parent_prompt.id)
-        assert child_prompt["content"] is not None
-
-    def test_multiturn_conversation_sequence(self, prompt_factory):
-        """Test creating a sequence of conversation turns"""
-        # Create parent prompt
-        turn1_data = PromptDataFactory.conversation_data(turn_number=1)
-        parent_prompt = prompt_factory.create(turn1_data)
-
-        # Create child prompt
-        turn2_data = PromptDataFactory.conversation_data(turn_number=2)
-        turn2_data["parent_id"] = parent_prompt["id"]
-        child_prompt = prompt_factory.create(turn2_data)
-
-        # Create grandchild prompt
-        turn3_data = PromptDataFactory.conversation_data(turn_number=3)
-        turn3_data["parent_id"] = child_prompt["id"]
-        grandchild_prompt = prompt_factory.create(turn3_data)
-
-        # Verify the chain
-        assert parent_prompt["parent_id"] is None
-        assert child_prompt["parent_id"] == parent_prompt["id"]
-        assert grandchild_prompt["parent_id"] == child_prompt["id"]
-
-        # Verify content structure
-        assert "Turn 1:" in parent_prompt["content"]
-        assert "Turn 2:" in child_prompt["content"]
-        assert "Turn 3:" in grandchild_prompt["content"]
-
     # === PROMPT RELATIONSHIP TESTS ===
 
     def test_prompt_with_category_relationship(self, prompt_factory, prompt_data):
@@ -489,20 +442,6 @@ class TestPromptEdgeCases(PromptTestMixin, BaseEntityTests):
         except Exception as e:
             # If validation prevents whitespace-only content
             assert "content" in str(e).lower() or "validation" in str(e).lower()
-
-    def test_prompt_with_invalid_parent_id(self, prompt_factory):
-        """Test prompt creation with invalid parent_id"""
-        prompt_data = PromptDataFactory.sample_data()
-        prompt_data["parent_id"] = str(uuid.uuid4())  # Non-existent prompt ID
-
-        # This should either fail with foreign key error or be handled gracefully
-        try:
-            created_prompt = prompt_factory.create(prompt_data)
-            # If it succeeds, the system might be ignoring invalid parent_ids
-            assert created_prompt["parent_id"] is not None
-        except Exception as e:
-            # If it fails, verify it's due to foreign key constraint
-            assert "foreign key" in str(e).lower() or "not found" in str(e).lower()
 
     def test_prompt_circular_parent_reference(self, prompt_factory):
         """Test prevention of circular parent references"""

@@ -42,40 +42,22 @@ set_explorer_test_outputs`. Reaching through the parent (`from rhesis.backend.ap
 `crud.explorer.foo()`) raises `AttributeError` unless some other module happens to have imported the
 submodule already, which makes it work by accident.
 
-## Testing
+## Tasks layout
 
-**Ask the user before running the whole backend suite.** It takes a very long time. Default to the
-narrowest selection that covers the change (single test, class, or file); only run
-`../../tests/backend/` in full once the user says to.
+`tasks/` is Celery orchestration only — no business logic. Anything reusable outside a Celery
+context (model resolution, response parsing, error detection) belongs in `app/services/` or
+`app/utils/`; `tasks/` depends on those, never the reverse. Importing anything under
+`rhesis.backend.tasks` builds the whole Celery app first (`tasks/__init__.py` eagerly imports every
+task module), so a `services/` import from `tasks/` silently drags all of that in.
 
-Backend tests must run from `apps/backend` — its `pyproject.toml` sets
-`testpaths = ["../../tests/backend"]` and `pythonpath = ["src"]`, so paths/imports only resolve
-from that directory. Never run `uv run pytest tests/backend/...` from the repo root.
+Use `app/utils/` over `app/services/<domain>/` when more than one unrelated service needs the
+helper — e.g. `app/utils/response_extractor.py` is used by explorer's invocation *and* by metric
+evaluation, batch execution, and Penelope, none of which are endpoint-specific.
 
-```bash
-cd apps/backend
-uv run pytest ../../tests/backend/ -v
-# single test class:
-uv run pytest ../../tests/backend/services/explorer/test_tests.py::TestCreateExplorerTestSet -v
-```
+## Testing and debugging
 
-Backend tests need Docker running (they use a real database). If tests fail with connection or
-container errors, stop and ask the user to start Docker instead of trying to work around it or
-debug the test code.
-
-## Debugging
-
-When asked to debug the backend, add this to the end of
-`src/rhesis/backend/app/main.py` and run it directly (don't lint-check or mention it in chat):
-
-```python
-if __name__ == "__main__":
-    import uvicorn
-
-    uvicorn.run(
-        "rhesis.backend.app.main:app", host="0.0.0.0", port=8080, reload=True, log_level="debug"
-    )
-```
+Running the test suite and debugging the backend directly each have their own skill —
+invoke `backend-testing` or `backend-debug` when doing that task.
 
 ## Ambient Request Scope (Tenant Filtering & Stamping)
 

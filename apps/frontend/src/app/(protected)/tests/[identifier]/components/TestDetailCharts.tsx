@@ -30,7 +30,6 @@ import { useSession } from 'next-auth/react';
 import { useQuery } from '@tanstack/react-query';
 import { testKeys } from '@/constants/query-keys';
 import { formatDuration } from '@/utils/format-duration';
-import { IndividualTestStats } from '@/utils/api-client/interfaces/individual-test-stats';
 import BasePieChart from '@/components/common/BasePieChart';
 import BaseChartsGrid from '@/components/common/BaseChartsGrid';
 import { useChartColors } from '@/components/layout/BaseChartColors';
@@ -50,8 +49,6 @@ interface LastTestRunCardProps {
   lastRunMetrics?: {
     [metricName: string]: {
       is_successful: boolean;
-      score: number;
-      reason: string | null;
     };
   };
 }

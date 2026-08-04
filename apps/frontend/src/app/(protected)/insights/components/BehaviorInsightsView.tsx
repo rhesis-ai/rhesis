@@ -13,12 +13,7 @@ interface BehaviorInsightsViewProps {
   filters: InsightsFilters;
   insights: Pick<
     BehaviorInsightsData,
-    | 'summary'
-    | 'columns'
-    | 'loading'
-    | 'error'
-    | 'noRuns'
-    | 'failedTestCaseCount'
+    'summary' | 'columns' | 'loading' | 'error' | 'noRuns'
   >;
   searchQuery?: string;
   endpointName?: string;
@@ -72,7 +67,6 @@ export default function BehaviorInsightsView({
         summary={summary}
         endpointName={endpointName}
         loading={isLoading}
-        failedTestCaseCount={insights.failedTestCaseCount}
       />
 
       {error && <Alert severity="error">{error}</Alert>}

@@ -102,6 +102,16 @@ module "gke_prd" {
   depends_on = [module.prd]
 }
 
+module "connect_gateway_prd" {
+  source = "../../modules/connect-gateway/gcp"
+
+  project_id  = var.project_id
+  environment = "prd"
+  cluster_id  = module.gke_prd.cluster_id
+
+  depends_on = [module.gke_prd]
+}
+
 module "eso_prd" {
   source = "../../modules/external-secrets/gcp"
 

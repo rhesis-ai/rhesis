@@ -10,18 +10,24 @@ from pydantic import BaseModel, Field, create_model
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
+from rhesis.backend.app.schemas.explorer import GenerateSuggestionsResponse, SuggestedTest
 from rhesis.backend.app.services.explorer.evaluation import (
-    _EVAL_MAX_CONCURRENCY,
+    EVAL_MAX_CONCURRENCY,
     MetricVerdict,
-    _resolve_sdk_metrics,
-    _run_metrics_on_text,
     aggregate_metric_verdict,
+    resolve_sdk_metrics,
+    run_metrics_on_text,
 )
 from rhesis.backend.app.services.explorer.invocation import NO_OUTPUT, EndpointInvoker
 from rhesis.backend.app.services.explorer.utils import (
     _build_eligible_tests,
     _get_test_set_tests_from_db,
 )
+from rhesis.backend.app.services.streaming_utils import (
+    EventFanout,
+    IncrementalJsonArrayParser,
+)
+from rhesis.backend.app.services.streaming_utils import ndjson as _ndjson
 
 logger = logging.getLogger(__name__)
 
@@ -75,17 +81,6 @@ def _resolve_llm_model(model_or_provider: Any):
     if isinstance(model_or_provider, str):
         return get_model(model_or_provider, model_type="language")
     return model_or_provider
-
-
-from rhesis.backend.app.services.streaming_utils import (
-    IncrementalJsonArrayParser,
-)
-from rhesis.backend.app.services.streaming_utils import (
-    ndjson as _ndjson,
-)
-
-# Keep the private alias for backward compatibility within this module
-_IncrementalJsonArrayParser = IncrementalJsonArrayParser
 
 
 def _build_suggestion_prompt(
@@ -226,7 +221,7 @@ async def _generate_suggestions_stream(
         logger.error("LLM streaming generation failed: %s", e, exc_info=True)
         raise ValueError(f"LLM generation failed: {e}") from e
 
-    parser = _IncrementalJsonArrayParser()
+    parser = IncrementalJsonArrayParser()
 
     async for chunk in token_stream:
         for item in parser.feed(chunk):
@@ -245,7 +240,7 @@ async def generate_suggestions(
     user_feedback: Optional[str] = None,
     generate_embeddings: bool = False,
     stream: bool = False,
-) -> Union[Dict[str, Any], AsyncGenerator[Dict[str, Any], None]]:
+) -> Union[GenerateSuggestionsResponse, AsyncGenerator[Dict[str, Any], None]]:
     """Generate test suggestions using an LLM.
 
     Randomly selects existing tests as examples, builds a prompt,
@@ -281,8 +276,8 @@ async def generate_suggestions(
 
     Returns
     -------
-    dict (stream=False)
-        ``{"suggestions": [...], "num_examples_used": int}``
+    GenerateSuggestionsResponse (stream=False)
+        The suggestions plus how many examples were sampled.
     AsyncGenerator (stream=True)
         Yields typed dicts as described above.
     """
@@ -304,7 +299,7 @@ async def generate_suggestions(
                 yield {"type": "meta", "num_examples_used": 0}
 
             return _empty_stream()
-        return {"suggestions": [], "num_examples_used": 0}
+        return GenerateSuggestionsResponse(suggestions=[], num_examples_used=0)
 
     if stream:
         return _generate_suggestions_stream(ctx)
@@ -357,10 +352,12 @@ async def generate_suggestions(
         f"examples_used={sample_size}"
     )
 
-    return {
-        "suggestions": suggestions,
-        "num_examples_used": sample_size,
-    }
+    # Typed only at the end: sort_by_diversity() reads and writes the embedding /
+    # diversity_score keys in place, so the pipeline above works on plain dicts.
+    return GenerateSuggestionsResponse(
+        suggestions=[SuggestedTest(**s) for s in suggestions],
+        num_examples_used=sample_size,
+    )
 
 
 async def suggestion_pipeline_stream(
@@ -424,7 +421,7 @@ async def suggestion_pipeline_stream(
         user_id=user_id,
         max_concurrency=10,
     )
-    sdk_metrics = _resolve_sdk_metrics(db, organization_id, user_id, metric_names)
+    sdk_metrics = resolve_sdk_metrics(db, organization_id, user_id, metric_names)
 
     embedder = None
     if generate_embeddings:
@@ -439,44 +436,40 @@ async def suggestion_pipeline_stream(
     suggestions: List[Dict[str, Any]] = []
     num_examples_used = 0
 
-    embedding_tasks: Dict[int, asyncio.Task] = {}
     embed_results: Dict[int, Optional[List[float]]] = {}
-    invoke_tasks: set = set()
-    eval_tasks: set = set()
-
-    eval_semaphore = asyncio.Semaphore(_EVAL_MAX_CONCURRENCY)
-    event_queue: asyncio.Queue = asyncio.Queue()
+    eval_semaphore = asyncio.Semaphore(EVAL_MAX_CONCURRENCY)
+    fanout = EventFanout()
 
     outputs_generated = 0
     outputs_failed = 0
     evals_done = 0
     evals_failed = 0
 
-    # ── Background task helpers (all push to the shared event_queue) ──
+    # ── Background task helpers (all push to the shared fanout) ──
 
     async def _embed_one(idx: int, text: str):
         try:
             vec = await a_generate_embedding_vector(text, db, user_id, embedder=embedder)
             embed_results[idx] = vec
-            await event_queue.put({"type": "embedding", "index": idx})
+            await fanout.emit({"type": "embedding", "index": idx})
         except Exception as e:  # noqa: BLE001
             logger.warning("Embedding failed for suggestion %s: %s", idx, e)
             embed_results[idx] = None
-            await event_queue.put({"type": "embedding", "index": idx})
+            await fanout.emit({"type": "embedding", "index": idx})
 
     async def _evaluate_one(index: int, input_text: str, output_text: str):
         nonlocal evals_done, evals_failed
         logger.info("[%s] idx=%02d evaluation_start", _ts(), index)
         async with eval_semaphore:
             try:
-                metric_results = await _run_metrics_on_text(
+                metric_results = await run_metrics_on_text(
                     sdk_metrics,
                     input_text,
                     output_text,
                 )
                 verdict = aggregate_metric_verdict(metric_results, metric_names)
                 if verdict is None:
-                    await event_queue.put(
+                    await fanout.emit(
                         {
                             "type": "evaluation",
                             "index": index,
@@ -488,7 +481,7 @@ async def suggestion_pipeline_stream(
                     evals_failed += 1
                     return
 
-                await event_queue.put(
+                await fanout.emit(
                     {
                         "type": "evaluation",
                         "index": index,
@@ -500,7 +493,7 @@ async def suggestion_pipeline_stream(
                 evals_done += 1
             except Exception as e:  # noqa: BLE001
                 logger.warning("Pipeline eval failed for index %s: %s", index, e)
-                await event_queue.put(
+                await fanout.emit(
                     {
                         "type": "evaluation",
                         "index": index,
@@ -525,7 +518,7 @@ async def suggestion_pipeline_stream(
 
         logger.info("[%s] idx=%02d output_stop", _ts(), index)
 
-        await event_queue.put(
+        await fanout.emit(
             {
                 "type": "output",
                 "index": index,
@@ -536,9 +529,7 @@ async def suggestion_pipeline_stream(
         )
 
         if not error and output and output != NO_OUTPUT:
-            task = asyncio.create_task(_evaluate_one(index, input_text, output))
-            eval_tasks.add(task)
-            task.add_done_callback(eval_tasks.discard)
+            fanout.spawn(_evaluate_one(index, input_text, output))
 
     # ── Stream suggestions, immediately spawning all background work ──
 
@@ -566,43 +557,24 @@ async def suggestion_pipeline_stream(
 
         # Spawn embedding task
         if embedder and text:
-            task = asyncio.create_task(_embed_one(idx, text))
-            embedding_tasks[idx] = task
+            fanout.spawn(_embed_one(idx, text))
 
         # Spawn endpoint invocation immediately
         if text:
-            t = asyncio.create_task(_invoke_one(idx, text))
-            invoke_tasks.add(t)
-            t.add_done_callback(invoke_tasks.discard)
+            fanout.spawn(_invoke_one(idx, text))
 
         # Drain any ready events (embedding, output, evaluation)
-        while not event_queue.empty():
-            yield _ndjson(await event_queue.get())
+        for ready_event in fanout.drain_ready():
+            yield _ndjson(ready_event)
             await anyio.sleep(0)
 
     logger.info("[%s] all generation_stop (%d suggestions)", _ts(), len(suggestions))
 
     # ── Drain all remaining background work ──
-    # Embedding tasks, invoke tasks, and eval tasks all push to event_queue.
-    all_bg_tasks = set(embedding_tasks.values()) | invoke_tasks | eval_tasks
-
-    while all_bg_tasks or not event_queue.empty():
-        while not event_queue.empty():
-            yield _ndjson(await event_queue.get())
-            await anyio.sleep(0)
-        # Recompute live set (eval_tasks grow dynamically from _invoke_one)
-        all_bg_tasks = set(embedding_tasks.values()) | invoke_tasks | eval_tasks
-        live = {t for t in all_bg_tasks if not t.done()}
-        if live:
-            await asyncio.wait(live, timeout=0.2, return_when=asyncio.FIRST_COMPLETED)
-        elif not event_queue.empty():
-            continue
-        else:
-            break
-
-    # Final flush
-    while not event_queue.empty():
-        yield _ndjson(await event_queue.get())
+    # Embedding, invoke, and eval tasks (the latter spawned dynamically from
+    # _invoke_one) all push their events through the same fanout.
+    async for event in fanout.stream():
+        yield _ndjson(event)
         await anyio.sleep(0)
 
     # ── suggestions_done with diversity order and scores ──
@@ -687,36 +659,36 @@ async def invoke_endpoint_for_suggestions_stream(
         max_concurrency=10,
     )
 
-    async def _invoke_one(index: int, input_text: str) -> tuple:
+    fanout = EventFanout()
+    generated = 0
+    total = len(suggestions)
+
+    async def _invoke_one(index: int, input_text: str) -> None:
+        nonlocal generated
         output, error = await invoker.invoke(input_text)
         if error:
             logger.warning(f"Suggestion output generation failed: {error}")
-        return (index, input_text, output, error)
-
-    total = len(suggestions)
-    tasks = [
-        asyncio.create_task(_invoke_one(i, s.input))  # type: ignore[attr-defined]
-        for i, s in enumerate(suggestions)
-    ]
-
-    generated = 0
-    for fut in asyncio.as_completed(tasks):
-        index, input_text, output, error = await fut
-        if error is None:
+        else:
             generated += 1
 
-        event = {
-            "type": "item",
-            "index": index,
-            "input": input_text,
-            "output": output,
-            "error": error,
-        }
-        yield (json.dumps(event) + "\n").encode("utf-8")
+        await fanout.emit(
+            {
+                "type": "item",
+                "index": index,
+                "input": input_text,
+                "output": output,
+                "error": error,
+            }
+        )
+
+    for i, s in enumerate(suggestions):
+        fanout.spawn(_invoke_one(i, s.input))  # type: ignore[attr-defined]
+
+    async for event in fanout.stream():
+        yield _ndjson(event)
         await anyio.sleep(0)
 
-    summary = {"type": "summary", "generated": generated, "total": total}
-    yield (json.dumps(summary) + "\n").encode("utf-8")
+    yield _ndjson({"type": "summary", "generated": generated, "total": total})
 
 
 async def evaluate_suggestions_stream(
@@ -735,85 +707,72 @@ async def evaluate_suggestions_stream(
          "model_score": float, "metrics": dict|null, "error": str|null}
       - {"type": "summary", "evaluated": int, "total": int}
     """
-    sdk_metrics = _resolve_sdk_metrics(db, organization_id, user_id, metric_names)
+    sdk_metrics = resolve_sdk_metrics(db, organization_id, user_id, metric_names)
+    semaphore = asyncio.Semaphore(EVAL_MAX_CONCURRENCY)
+    fanout = EventFanout()
+    evaluated = 0
+    total = len(suggestions)
 
-    async def _evaluate_one(index: int, item: Dict[str, str]) -> tuple:
+    async def _evaluate_one(index: int, item: Dict[str, str]) -> None:
+        nonlocal evaluated
         input_text = item["input"]
         output_text = item["output"]
 
-        if not output_text or output_text == NO_OUTPUT:
-            return (
-                index,
-                {
+        async with semaphore:
+            if not output_text or output_text == NO_OUTPUT:
+                result = {
                     "input": input_text,
                     **MetricVerdict.unlabeled().as_payload(),
                     "error": "no output to evaluate",
-                },
-            )
-
-        try:
-            metric_results = await _run_metrics_on_text(sdk_metrics, input_text, output_text)
-
-            verdict = aggregate_metric_verdict(metric_results, metric_names)
-            if verdict is None:
-                return (
-                    index,
-                    {
+                }
+            else:
+                try:
+                    metric_results = await run_metrics_on_text(sdk_metrics, input_text, output_text)
+                    verdict = aggregate_metric_verdict(metric_results, metric_names)
+                    if verdict is None:
+                        result = {
+                            "input": input_text,
+                            **MetricVerdict.unlabeled().as_payload(),
+                            "error": "no metric results",
+                        }
+                    else:
+                        result = {
+                            "input": input_text,
+                            **verdict.as_payload(),
+                            "error": None,
+                        }
+                except Exception as e:  # noqa: BLE001
+                    logger.warning(
+                        f"Suggestion evaluation failed: {e}",
+                        exc_info=True,
+                    )
+                    result = {
                         "input": input_text,
-                        **MetricVerdict.unlabeled().as_payload(),
-                        "error": "no metric results",
-                    },
-                )
+                        **MetricVerdict.error(metric_names).as_payload(),
+                        "error": str(e),
+                    }
 
-            return (
-                index,
-                {
-                    "input": input_text,
-                    **verdict.as_payload(),
-                    "error": None,
-                },
-            )
-        except Exception as e:  # noqa: BLE001
-            logger.warning(
-                f"Suggestion evaluation failed: {e}",
-                exc_info=True,
-            )
-            return (
-                index,
-                {
-                    "input": input_text,
-                    **MetricVerdict.error(metric_names).as_payload(),
-                    "error": str(e),
-                },
-            )
-
-    semaphore = asyncio.Semaphore(_EVAL_MAX_CONCURRENCY)
-
-    async def _bounded(index: int, item: Dict[str, str]) -> tuple:
-        async with semaphore:
-            return await _evaluate_one(index, item)
-
-    total = len(suggestions)
-    tasks = [asyncio.create_task(_bounded(i, s)) for i, s in enumerate(suggestions)]
-
-    evaluated = 0
-    for fut in asyncio.as_completed(tasks):
-        index, result = await fut
         if result.get("label") in ("pass", "fail"):
             evaluated += 1
 
-        event = {
-            "type": "item",
-            "index": index,
-            "input": result.get("input", ""),
-            "label": result.get("label", ""),
-            "labeler": result.get("labeler", ""),
-            "model_score": result.get("model_score", 0.0),
-            "metrics": result.get("metrics"),
-            "error": result.get("error"),
-        }
-        yield (json.dumps(event) + "\n").encode("utf-8")
+        await fanout.emit(
+            {
+                "type": "item",
+                "index": index,
+                "input": result.get("input", ""),
+                "label": result.get("label", ""),
+                "labeler": result.get("labeler", ""),
+                "model_score": result.get("model_score", 0.0),
+                "metrics": result.get("metrics"),
+                "error": result.get("error"),
+            }
+        )
+
+    for i, s in enumerate(suggestions):
+        fanout.spawn(_evaluate_one(i, s))
+
+    async for event in fanout.stream():
+        yield _ndjson(event)
         await anyio.sleep(0)
 
-    summary = {"type": "summary", "evaluated": evaluated, "total": total}
-    yield (json.dumps(summary) + "\n").encode("utf-8")
+    yield _ndjson({"type": "summary", "evaluated": evaluated, "total": total})

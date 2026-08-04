@@ -18,48 +18,27 @@ export interface UserReference {
 
 export interface TypeLookup {
   id: UUID;
-  type_name: string;
   type_value: string;
-  description?: string;
 }
 
 export interface Topic {
   id: UUID;
   name: string;
-  description?: string;
 }
 
 export interface Status {
   id: UUID;
   name: string;
-  description?: string;
 }
 
 export interface Behavior {
   id: UUID;
-  nano_id?: string;
   name: string;
-  description?: string;
-  user_id?: UUID;
-  organization_id?: UUID;
-  status_id?: UUID;
-  counts?: {
-    comments: number;
-    tasks: number;
-  };
 }
 
 export interface Category {
   id: UUID;
   name: string;
-  description?: string;
-}
-
-export interface Organization {
-  id: UUID;
-  name: string;
-  description?: string;
-  email?: string;
 }
 
 // Test interfaces
@@ -118,38 +97,17 @@ export interface TestDetail extends Test {
 
 // Test Stats interfaces
 export interface TestStatsDimensionBreakdown {
-  dimension: string;
-  total: number;
   breakdown: Record<string, number>;
 }
 
-export interface TestStatsHistorical {
-  period: string;
-  start_date: string;
-  end_date: string;
-  monthly_counts: Record<string, number>;
-}
-
 export interface TestStats {
-  total: number;
   stats: {
-    user: TestStatsDimensionBreakdown;
-    assignee: TestStatsDimensionBreakdown;
-    owner: TestStatsDimensionBreakdown;
     topic: TestStatsDimensionBreakdown;
     behavior: TestStatsDimensionBreakdown;
     category: TestStatsDimensionBreakdown;
     status: TestStatsDimensionBreakdown;
-    organization: TestStatsDimensionBreakdown;
-    priority: TestStatsDimensionBreakdown;
     [key: string]: TestStatsDimensionBreakdown;
   };
-  metadata: {
-    generated_at: string;
-    organization_id: UUID;
-    entity_type: string;
-  };
-  history?: TestStatsHistorical;
 }
 
 // Bulk creation interfaces
@@ -180,23 +138,7 @@ export interface TestBulkCreateRequest {
 
 export interface TestBulkCreateResponse {
   success: boolean;
-  total_tests: number;
   message: string;
-}
-
-export interface TestBulkResponse {
-  id: UUID;
-  prompt_id: UUID;
-  test_type_id: UUID;
-  priority: number;
-  user_id: UUID;
-  topic_id: UUID;
-  behavior_id: UUID;
-  category_id: UUID;
-  status_id: UUID;
-  organization_id: UUID;
-  test_configuration?: Record<string, unknown>;
-  prompt?: Record<string, unknown>;
 }
 
 // Test execution interfaces
@@ -227,13 +169,9 @@ export interface TestExecuteRequest {
 }
 
 export interface TestExecuteResponse {
-  test_id: string;
-  prompt_id?: string;
   execution_time: number; // Milliseconds
   test_output?: string | Record<string, unknown>; // Always returned
-  test_metrics?: Record<string, unknown>; // Only if evaluate_metrics=True
   status: 'Pass' | 'Fail' | 'Error' | 'Pending'; // Status
-  test_configuration?: Record<string, unknown>; // For multi-turn tests
 }
 
 // Conversation-to-test interfaces

@@ -3,7 +3,6 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { useEmbeddingGraph } from '../useEmbeddingGraph';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import type { Scatter2DGraph } from '@/utils/api-client/interfaces/embedding';
-import { EntityType } from '@/types/entity-type';
 
 jest.mock('@/utils/api-client/client-factory');
 
@@ -13,12 +12,10 @@ const mockApiClientFactory = ApiClientFactory as jest.MockedClass<
 
 const oldGraph: Scatter2DGraph = {
   computed_at: '2026-01-01T12:00:00Z',
-  clusters: [{ cluster_index: 0, label: 'a', size: 1 }],
+  clusters: [{ cluster_index: 0, label: 'a' }],
   points: [
     {
-      embedding_id: 'e1',
       entity_id: 't1',
-      entity_type: EntityType.TEST,
       cluster_index: 0,
       searchable_text: 'one',
       x: 0,
@@ -57,10 +54,7 @@ describe('useEmbeddingGraph', () => {
     mockTestSetsClient.getEmbeddingGraph
       .mockResolvedValueOnce({ status: 'ready', graph: oldGraph })
       .mockResolvedValue({ status: 'ready', graph: oldGraph });
-    mockTestSetsClient.computeEmbeddingGraph.mockResolvedValue({
-      status: 'pending',
-      task_id: 'task-1',
-    });
+    mockTestSetsClient.computeEmbeddingGraph.mockResolvedValue(undefined);
 
     const { result } = renderHook(() => useEmbeddingGraph('test-set-1'));
 
@@ -102,10 +96,7 @@ describe('useEmbeddingGraph', () => {
     mockTestSetsClient.getEmbeddingGraph
       .mockResolvedValueOnce({ status: 'ready', graph: oldGraph })
       .mockResolvedValue({ status: 'ready', graph: oldGraph });
-    mockTestSetsClient.computeEmbeddingGraph.mockResolvedValue({
-      status: 'pending',
-      task_id: 'task-1',
-    });
+    mockTestSetsClient.computeEmbeddingGraph.mockResolvedValue(undefined);
 
     const { result, rerender } = renderHook(
       ({ enabled }: { enabled: boolean }) =>
@@ -168,10 +159,7 @@ describe('useEmbeddingGraph', () => {
       .mockResolvedValueOnce({ status: 'ready', graph: oldGraph })
       .mockReturnValueOnce(secondFetch)
       .mockResolvedValue({ status: 'ready', graph: newGraph });
-    mockTestSetsClient.computeEmbeddingGraph.mockResolvedValue({
-      status: 'pending',
-      task_id: 'task-1',
-    });
+    mockTestSetsClient.computeEmbeddingGraph.mockResolvedValue(undefined);
 
     const { result, rerender } = renderHook(
       ({ enabled }: { enabled: boolean }) =>
@@ -209,10 +197,7 @@ describe('useEmbeddingGraph', () => {
     mockTestSetsClient.getEmbeddingGraph
       .mockResolvedValueOnce({ status: 'ready', graph: oldGraph })
       .mockResolvedValue({ status: 'ready', graph: oldGraph });
-    mockTestSetsClient.computeEmbeddingGraph.mockResolvedValue({
-      status: 'pending',
-      task_id: 'task-1',
-    });
+    mockTestSetsClient.computeEmbeddingGraph.mockResolvedValue(undefined);
 
     const { result, rerender } = renderHook(
       ({ enabled }: { enabled: boolean }) =>

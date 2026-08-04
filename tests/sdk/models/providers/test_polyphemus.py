@@ -805,3 +805,122 @@ class TestCreateBatchCompletion:
         result = llm.create_batch_completion([{"messages": [{"role": "user", "content": "hi"}]}])
 
         assert result == expected
+
+
+class TestPolyphemusOnUsage:
+    """`on_usage` accrual -- see rhesis.sdk.models.base.BaseLLM.on_usage.
+
+    Replaced an earlier `last_usage` side-channel attribute design (wrapped
+    by a proxy object in the backend to intercept generate()/a_generate())
+    that broke `isinstance(model, BaseLLM)` checks everywhere downstream and
+    never covered generate_batch. `on_usage` is a plain constructor kwarg
+    invoked inline wherever a provider parses usage out of its response, so
+    the returned object stays a real PolyphemusLLM/RhesisLLM instance.
+    """
+
+    @patch("rhesis.sdk.models.providers.polyphemus.requests.post")
+    def test_generate_invokes_on_usage_with_response_usage(self, mock_post):
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "choices": [{"message": {"content": "hi"}}],
+            "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+        }
+        mock_response.raise_for_status = Mock()
+        mock_post.return_value = mock_response
+
+        received = []
+        llm = PolyphemusLLM(api_key="test_key", on_usage=received.append)
+        llm.generate("hello")
+
+        # Normalized to TokenUsage field names by BaseLLM._emit_usage.
+        assert received == [{"input_tokens": 10, "output_tokens": 5, "total_tokens": 15}]
+
+    @patch("rhesis.sdk.models.providers.polyphemus.requests.post")
+    def test_generate_without_usage_in_response_skips_callback(self, mock_post):
+        mock_response = Mock()
+        mock_response.json.return_value = {"choices": [{"message": {"content": "hi"}}]}
+        mock_response.raise_for_status = Mock()
+        mock_post.return_value = mock_response
+
+        received = []
+        llm = PolyphemusLLM(api_key="test_key", on_usage=received.append)
+        llm.generate("hello")
+
+        assert received == []
+
+    @patch("rhesis.sdk.models.providers.polyphemus.requests.post")
+    def test_generate_without_on_usage_configured_does_not_raise(self, mock_post):
+        """Third-party/BYO-key models never get on_usage wired -- must no-op, not crash."""
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "choices": [{"message": {"content": "hi"}}],
+            "usage": {"total_tokens": 15},
+        }
+        mock_response.raise_for_status = Mock()
+        mock_post.return_value = mock_response
+
+        llm = PolyphemusLLM(api_key="test_key")
+        result = llm.generate("hello")
+
+        assert result == "hi"
+
+    @patch("rhesis.sdk.models.providers.polyphemus.requests.post")
+    def test_generate_batch_aggregates_usage_across_items(self, mock_post):
+        """generate_batch makes one HTTP call covering all prompts (bypassing
+        generate()/a_generate() entirely), so it needs its own on_usage
+        aggregation rather than inheriting it from generate()."""
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "responses": [
+                {
+                    "choices": [{"message": {"content": "A"}}],
+                    "usage": {"total_tokens": 10},
+                },
+                {
+                    "choices": [{"message": {"content": "B"}}],
+                    "usage": {"total_tokens": 20},
+                },
+            ]
+        }
+        mock_response.raise_for_status = Mock()
+        mock_post.return_value = mock_response
+
+        received = []
+        llm = PolyphemusLLM(api_key="test_key", on_usage=received.append)
+        llm.generate_batch(["P1", "P2"])
+
+        assert received == [{"input_tokens": 0, "output_tokens": 0, "total_tokens": 30}]
+
+    @patch("rhesis.sdk.models.providers.polyphemus.requests.post")
+    def test_generate_batch_without_any_usage_skips_callback(self, mock_post):
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "responses": [{"choices": [{"message": {"content": "A"}}]}]
+        }
+        mock_response.raise_for_status = Mock()
+        mock_post.return_value = mock_response
+
+        received = []
+        llm = PolyphemusLLM(api_key="test_key", on_usage=received.append)
+        llm.generate_batch(["P1"])
+
+        assert received == []
+
+    @patch("rhesis.sdk.models.providers.polyphemus.requests.post")
+    def test_on_usage_exception_does_not_break_generate(self, mock_post):
+        """A broken accrual callback must never break the underlying LLM call."""
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "choices": [{"message": {"content": "hi"}}],
+            "usage": {"total_tokens": 15},
+        }
+        mock_response.raise_for_status = Mock()
+        mock_post.return_value = mock_response
+
+        def boom(usage):
+            raise RuntimeError("accrual backend down")
+
+        llm = PolyphemusLLM(api_key="test_key", on_usage=boom)
+        result = llm.generate("hello")
+
+        assert result == "hi"

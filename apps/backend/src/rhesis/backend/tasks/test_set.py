@@ -5,6 +5,7 @@ from rhesis.backend.app import crud
 from rhesis.backend.app.constants import TestSetType
 from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.models.test_set import TestSet
+from rhesis.backend.app.quota import QuotaResource
 from rhesis.backend.app.schemas.services import GenerationConfig, SourceData
 from rhesis.backend.app.services.test import bulk_create_tests
 from rhesis.backend.app.services.test_set import (
@@ -12,6 +13,7 @@ from rhesis.backend.app.services.test_set import (
     generate_test_set_attributes,
     load_defaults,
 )
+from rhesis.backend.app.services.usage import dispatch_accrual
 from rhesis.backend.app.utils.user_model_utils import (
     get_generation_model_with_override,
 )
@@ -566,6 +568,12 @@ def generate_and_save_test_set(
             org_id,
             user_id,
         )
+
+        # No session needed here any more -- the accrual is queued and the
+        # worker task opens its own. dispatch_accrual no-ops on a count of
+        # zero, so the guard that used to protect the session checkout is
+        # gone too.
+        dispatch_accrual(org_id, QuotaResource.TEST_GENERATION, len(test_set.tests))
 
         self.log_with_context(
             "info",

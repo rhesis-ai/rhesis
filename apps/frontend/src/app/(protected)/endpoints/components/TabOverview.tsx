@@ -25,6 +25,8 @@ import { SectionCard } from '@/components/common/SectionCard';
 import FormSectionDivider from '@/components/common/FormSectionDivider';
 import { getProjectIcon } from '@/components/common/ProjectIcons';
 import { Project } from '@/utils/api-client/interfaces/project';
+import { useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 import type { FormData } from './EndpointForm';
 
 const ENVIRONMENTS = ['production', 'staging', 'development', 'local'];
@@ -44,23 +46,32 @@ function ProjectSelect({
   projects,
   loadingProjects,
 }: TabOverviewProps) {
+  const canCreateProject = useCan(Capability.Project.CREATE);
+
   if (projects.length === 0 && !loadingProjects) {
     return (
       <Alert
         severity="warning"
         sx={{ mb: 2 }}
+        // Only offer the shortcut to callers who hold project:create. The
+        // built-in Member role does not, so linking them to the wizard just
+        // produces a 403 once they reach the end of it.
         action={
-          <Button
-            color="inherit"
-            size="small"
-            component="a"
-            href="/projects/create-new"
-          >
-            Create Project
-          </Button>
+          canCreateProject ? (
+            <Button
+              color="inherit"
+              size="small"
+              component="a"
+              href="/projects/create-new"
+            >
+              Create Project
+            </Button>
+          ) : undefined
         }
       >
-        No projects available. Please create a project first.
+        {canCreateProject
+          ? 'No projects available. Please create a project first.'
+          : 'No projects available. Ask an administrator to add you to a project.'}
       </Alert>
     );
   }

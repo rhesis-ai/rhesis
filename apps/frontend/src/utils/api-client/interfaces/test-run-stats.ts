@@ -4,15 +4,12 @@
 export interface StatusDistribution {
   status: string;
   count: number;
-  percentage: number;
 }
 
 export interface ResultDistribution {
-  total: number;
   passed: number;
   failed: number;
   pending: number;
-  pass_rate: number;
 }
 
 export interface TestSetRunCount {
@@ -40,16 +37,7 @@ export interface TestRunOverallSummary {
 }
 
 export interface TestRunStatsMetadata {
-  generated_at: string;
-  organization_id?: string;
-  period: string;
-  start_date: string;
-  end_date: string;
   total_test_runs: number;
-  mode: string;
-  available_statuses: string[];
-  available_test_sets: string[];
-  available_executors: string[];
 }
 
 // Mode-specific response types

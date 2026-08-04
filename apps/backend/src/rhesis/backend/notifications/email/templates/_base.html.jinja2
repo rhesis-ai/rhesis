@@ -1,0 +1,169 @@
+{#-
+  Shared shell for every transactional email.
+
+  Children do:  {% extends '_base.html.jinja2' %}
+                {% block title %}...{% endblock %}
+                {% block preheader %}...{% endblock %}
+                {% block content %}<tr><td>...</td></tr>{% endblock %}
+
+  The content block sits inside a 600px <table>, so it must emit <tr> rows.
+  Use the macros in _components.html.jinja2 rather than hand-rolling styles.
+
+  Why it looks like 2005 HTML: Outlook Windows renders through Word, which
+  ignores <body> widths, most of the box model, and border-radius. Tables with
+  presentation roles and inline styles are the only reliably portable layout.
+  Light mode is locked (see the color-scheme meta) — there is no dark variant.
+-#}
+<!DOCTYPE html>
+<html lang="en" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    {#- Locked to light: clients that honour this skip their auto-invert pass,
+        which otherwise mangles the flattened header assets. -#}
+    <meta name="color-scheme" content="light">
+    <meta name="supported-color-schemes" content="light">
+    <title>{% block title %}Rhesis AI{% endblock %}</title>
+    <!--[if mso]>
+    <xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml>
+    <![endif]-->
+    <style>
+        /* Gmail, Outlook Windows, Outlook.com, and Yahoo strip @font-face, so
+           Geist is an enhancement. Every element also carries an inline
+           font-family stack that falls back to Helvetica/Arial. */
+        @font-face {
+            font-family: 'Geist';
+            font-style: normal;
+            font-weight: 100 900;
+            font-display: swap;
+            src: url('{{ brand.font_sans_url }}') format('woff2');
+        }
+        @font-face {
+            font-family: 'Geist Mono';
+            font-style: normal;
+            font-weight: 100 900;
+            font-display: swap;
+            src: url('{{ brand.font_mono_url }}') format('woff2');
+        }
+
+        :root { color-scheme: light; supported-color-schemes: light; }
+
+        body, table, td, a {
+            -webkit-text-size-adjust: 100%;
+            -ms-text-size-adjust: 100%;
+        }
+        table, td {
+            border-collapse: collapse;
+            mso-table-lspace: 0pt;
+            mso-table-rspace: 0pt;
+        }
+        img {
+            border: 0;
+            height: auto;
+            line-height: 100%;
+            outline: none;
+            text-decoration: none;
+            -ms-interpolation-mode: bicubic;
+        }
+        /* Stop iOS and Gmail auto-linking dates, addresses, and phone numbers
+           into blue underlined text that ignores our palette. */
+        a[x-apple-data-detectors], .unstyled-auto-detected a {
+            color: inherit !important;
+            text-decoration: none !important;
+            font-size: inherit !important;
+            font-weight: inherit !important;
+        }
+
+        @media only screen and (max-width: 620px) {
+            /* The copy reflows to more lines on a phone, pushing the CTA down,
+               so the wash needs its own offset to stay behind it. !important
+               because it has to beat the inline style on the table. */
+            .wash { background-position: center {{ brand.layout.wash_offset_mobile }}px !important; }
+            .sm-full { width: 100% !important; max-width: 100% !important; }
+            .sm-px { padding-left: 20px !important; padding-right: 20px !important; }
+            .sm-h1 { font-size: 26px !important; }
+            .sm-stat { font-size: 36px !important; }
+            .sm-stack {
+                display: block !important;
+                width: 100% !important;
+                padding-left: 0 !important;
+                padding-right: 0 !important;
+            }
+        }
+    </style>
+</head>
+<body style="margin: 0; padding: 0; width: 100%; background-color: {{ brand.color.canvas }};">
+
+    {#- Inbox preview line. Hidden in the body but read by most clients. -#}
+    <div style="display: none; font-size: 1px; color: {{ brand.color.canvas }}; line-height: 1px; max-height: 0; max-width: 0; opacity: 0; overflow: hidden;">
+        {% block preheader %}{% endblock %}
+    </div>
+
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="{{ brand.color.canvas }}" style="background-color: {{ brand.color.canvas }};">
+        <tr>
+            <td align="center" style="padding: 32px 12px;">
+                <!--[if mso]><table role="presentation" width="{{ brand.layout.width }}" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
+                {#- The wash rides the whole content table rather than any one
+                    cell. That lets it start below the logo and trail down past
+                    the headline into the first card, with no height floor
+                    anywhere to pad the layout out. Cards are opaque, so they
+                    sit over it the way they do on the site.
+
+                    Outlook Windows ignores background-image and shows the flat
+                    canvas instead. That is the intended degradation — the wash
+                    is decorative, and the VML alternative needs a hardcoded
+                    pixel height, which breaks as soon as content reflows. -#}
+                {#- background-size is fixed rather than `100% auto`: scaling it
+                    to the viewport shrank the wash to ~122px on a phone, which
+                    both shortened the bloom and lifted its centre well above
+                    the button. At 375px the 600px image is centre-cropped
+                    instead, which is fine — the bloom is centred and already
+                    bleeds off both sides. -#}
+                <table role="presentation" width="{{ brand.layout.width }}" cellpadding="0" cellspacing="0" border="0" class="sm-full wash"
+                       background="{{ brand.wash_url }}"
+                       style="width: {{ brand.layout.width }}px; max-width: {{ brand.layout.width }}px; background-image: url('{{ brand.wash_url }}'); background-position: center {{ brand.layout.wash_offset }}px; background-repeat: no-repeat; background-size: {{ brand.layout.width }}px {{ brand.layout.wash_height }}px;">
+
+                    {#- The lockup is a raster because on the site the wordmark
+                        is live Sora text, and Sora has no usable fallback in
+                        mail. The wash is not a row of its own — it is the
+                        background of the header cell that row_header() emits,
+                        so the bloom sits behind the headline. -#}
+                    <tr>
+                        <td align="center" style="padding: 0 0 6px 0;">
+                            <a href="https://rhesis.ai" style="text-decoration: none;">
+                                <img src="{{ brand.logo_url }}" alt="Rhesis AI"
+                                     width="{{ brand.layout.logo_width }}" height="{{ brand.layout.logo_height }}"
+                                     style="display: block; width: {{ brand.layout.logo_width }}px; height: auto; border: 0;">
+                            </a>
+                        </td>
+                    </tr>
+
+                    {% block content %}{% endblock %}
+
+                    {#- Sign-off. Templates that need their own (the founder
+                        letter) override the block. Its bottom padding is what
+                        separates the imprint's rule from the text above —
+                        without it the rule sits flush against the sign-off. -#}
+                    {% block signoff %}
+                    <tr>
+                        <td class="sm-px" style="padding: 8px 0 36px 0; font-family: {{ brand.font.sans }}; font-size: {{ brand.type.body }}px; line-height: 1.6; color: {{ brand.color.body }};">
+                            Best regards,<br>The Rhesis AI team
+                        </td>
+                    </tr>
+                    {% endblock %}
+
+                    <tr>
+                        <td style="padding: 0;">
+                            {% include '_imprint.html.jinja2' %}
+                        </td>
+                    </tr>
+
+                </table>
+                <!--[if mso]></td></tr></table><![endif]-->
+            </td>
+        </tr>
+    </table>
+
+</body>
+</html>

@@ -25,8 +25,9 @@ or restate what the page structure already shows.
 - **No decorative emojis** in prose or headings (✅ 🚀 📦 ℹ️) — use "Note:" / "Warning:" / "Tip:"
   or a `Callout`. Emojis passed as component props (e.g. `NextStepCard` icons) are a deliberate
   design element and stay.
-- **Marketing exception.** Product Tour, Welcome, and to a degree Core Concepts may keep
-  promotional copy; there, target redundancy and wrong facts, not tone.
+- **Marketing exception.** Welcome, and to a degree Core Concepts, may keep promotional copy;
+  there, target redundancy and wrong facts, not tone. The Tour is not an exception: it shows the
+  screens and states what each one is for, in the same voice as every other page.
 
 ### Redundancy
 
@@ -64,7 +65,7 @@ or restate what the page structure already shows.
   (deployment modes, storage-layout tables, backend config payloads, generic best-practices and
   troubleshooting boilerplate).
 - **"Next steps" are concrete actions, not page pointers** ("Group traces into sessions"), not card
-  grids restating navigation ("Explore the Product Tour →").
+  grids restating navigation ("Explore the Tour →").
 
 ### Terminology
 

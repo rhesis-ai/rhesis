@@ -230,7 +230,7 @@ class TestSSOCallbackTenantContext:
     ``local_init.py``).
     """
 
-    ORG_SLUG = "netgo"
+    ORG_SLUG = "example-org"
 
     @pytest.fixture
     def callback_env(self, monkeypatch):
@@ -244,7 +244,7 @@ class TestSSOCallbackTenantContext:
 
         org = SimpleNamespace(id=uuid4())
         user = SimpleNamespace(id=uuid4())
-        auth_user = SimpleNamespace(email="new.user@netgo.example")
+        auth_user = SimpleNamespace(email="new.user@example.com")
         calls = []
 
         def _record(name, retval=None):

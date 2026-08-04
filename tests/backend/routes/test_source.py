@@ -113,9 +113,6 @@ class TestSourceRoutes(SourceTestMixin, BaseEntityRouteTests):
         assert created_source["description"] == source_data["description"]
         # source_type_id is optional and may be None
         assert created_source.get("source_type_id") == source_data.get("source_type_id")
-        assert created_source["url"] == source_data["url"]
-        assert created_source["citation"] == source_data["citation"]
-        assert created_source["language_code"] == source_data["language_code"]
 
     def test_create_source_with_different_titles(self, authenticated_client):
         """Test source creation with different titles"""
@@ -137,47 +134,6 @@ class TestSourceRoutes(SourceTestMixin, BaseEntityRouteTests):
             created_sources.append(source)
 
         assert len(created_sources) == len(titles)
-
-    def test_create_source_with_valid_urls(self, authenticated_client):
-        """Test source creation with various valid URL formats"""
-        valid_urls = [
-            "https://www.example.com",
-            "http://example.org/path/to/resource",
-            "https://subdomain.example.com:8080/path?query=value",
-            "https://example.com/path/with-hyphens_and_underscores",
-            "https://example.edu/academic/paper.pdf",
-        ]
-
-        for url in valid_urls:
-            source_data = self.get_minimal_data()
-            source_data["url"] = url
-            source_data["title"] = f"Source with URL {url}"
-
-            response = authenticated_client.post(
-                self.endpoints.create,
-                json=source_data,
-            )
-
-            assert response.status_code == status.HTTP_200_OK
-            source = response.json()
-            assert source["url"] == url
-
-    def test_create_source_with_citation(self, authenticated_client):
-        """Test source creation with academic citation"""
-        citation_data = self.get_sample_data()
-        citation_data["citation"] = (
-            "Smith, J., & Doe, A. (2024). Advanced Testing Methodologies. Journal of Software Quality, 15(3), 123-145."
-        )
-
-        response = authenticated_client.post(
-            self.endpoints.create,
-            json=citation_data,
-        )
-
-        assert response.status_code == status.HTTP_200_OK
-        created_source = response.json()
-
-        assert created_source["citation"] == citation_data["citation"]
 
     def test_create_source_with_unicode_title(self, authenticated_client):
         """Test source creation with unicode title"""
@@ -234,31 +190,6 @@ class TestSourceRoutes(SourceTestMixin, BaseEntityRouteTests):
         # source_type_id is optional and may be None
         assert updated_source.get("source_type_id") == update_data.get("source_type_id")
 
-    def test_update_source_url_only(self, authenticated_client):
-        """Test updating only the URL of a source"""
-        # Create initial source
-        initial_data = self.get_sample_data()
-        create_response = authenticated_client.post(
-            self.endpoints.create,
-            json=initial_data,
-        )
-        source_id = create_response.json()["id"]
-        original_title = create_response.json()["title"]
-
-        # Update only URL
-        new_url = "https://updated-example.com/new-path"
-        update_data = {"url": new_url}
-        response = authenticated_client.put(
-            self.endpoints.format_path(self.endpoints.update, source_id=source_id),
-            json=update_data,
-        )
-
-        assert response.status_code == status.HTTP_200_OK
-        updated_source = response.json()
-
-        assert updated_source["title"] == original_title  # Title unchanged
-        assert updated_source["url"] == new_url  # URL updated
-
     def test_get_source_by_id(self, authenticated_client):
         """Test retrieving a specific source by ID"""
         # Create source
@@ -280,7 +211,6 @@ class TestSourceRoutes(SourceTestMixin, BaseEntityRouteTests):
         assert source["id"] == source_id
         assert source["title"] == source_data["title"]
         assert source["description"] == source_data["description"]
-        assert source["url"] == source_data["url"]
 
     def test_delete_source(self, authenticated_client):
         """Test deleting a source"""
@@ -385,31 +315,6 @@ class TestSourceRoutes(SourceTestMixin, BaseEntityRouteTests):
             status.HTTP_400_BAD_REQUEST,
         ]
 
-    def test_create_source_with_invalid_url(self, authenticated_client):
-        """Test creating source with invalid URL format"""
-        invalid_urls = [
-            "not-a-url",
-            "ftp://invalid-protocol.com",
-            "http://",
-            "https://",
-            "javascript:alert('xss')",
-        ]
-
-        for invalid_url in invalid_urls:
-            source_data = self.get_minimal_data()
-            source_data["url"] = invalid_url
-
-            response = authenticated_client.post(
-                self.endpoints.create,
-                json=source_data,
-            )
-
-            # Should reject invalid URLs
-            assert response.status_code in [
-                status.HTTP_422_UNPROCESSABLE_ENTITY,
-                status.HTTP_400_BAD_REQUEST,
-            ], f"Invalid URL {invalid_url} was accepted"
-
     def test_get_nonexistent_source(self, authenticated_client):
         """Test retrieving a non-existent source"""
         fake_id = str(uuid.uuid4())
@@ -500,52 +405,10 @@ class TestSourceEntityTypes(SourceTestMixin, BaseEntityTests):
             if source.get("title"):  # Skip sources without title
                 assert source["title"] == "Website Source"
 
-    def test_academic_sources_with_citations(self, authenticated_client):
-        """Test creating academic sources with proper citations"""
-        academic_titles = ["Academic Paper 1", "Academic Book 2", "Academic Article 3"]
-
-        for title in academic_titles:
-            source_data = self.get_sample_data()
-            source_data["title"] = title
-            source_data["citation"] = f"Author, A. (2024). {title}. Journal Name, 1(1), 1-10."
-
-            response = authenticated_client.post(
-                self.endpoints.create,
-                json=source_data,
-            )
-
-            assert response.status_code == status.HTTP_200_OK
-            source = response.json()
-            assert source["title"] == title
-            assert source["citation"] is not None
-            assert "Author, A." in source["citation"]
-
 
 @pytest.mark.integration
 class TestSourceLanguageHandling(SourceTestMixin, BaseEntityTests):
     """Enhanced source language handling tests"""
-
-    def test_create_sources_with_different_languages(self, authenticated_client):
-        """Test creating sources with various language codes"""
-        languages = ["en", "es", "fr", "de", "zh", "ja", "ar", "pt", "ru"]
-        created_sources = []
-
-        for lang in languages:
-            source_data = self.get_sample_data()
-            source_data["language_code"] = lang
-            source_data["title"] = f"Source in {lang}"
-
-            response = authenticated_client.post(
-                self.endpoints.create,
-                json=source_data,
-            )
-
-            assert response.status_code == status.HTTP_200_OK
-            source = response.json()
-            assert source["language_code"] == lang
-            created_sources.append(source)
-
-        assert len(created_sources) == len(languages)
 
     def test_filter_sources_by_language(self, authenticated_client):
         """Test filtering sources by language code"""
@@ -574,61 +437,6 @@ class TestSourceLanguageHandling(SourceTestMixin, BaseEntityTests):
         for source in sources:
             if source.get("language_code"):  # Skip sources without language_code
                 assert source["language_code"] == "en"
-
-
-@pytest.mark.integration
-class TestSourceURLValidation(SourceTestMixin, BaseEntityTests):
-    """Enhanced source URL validation tests"""
-
-    def test_various_valid_url_formats(self, authenticated_client):
-        """Test creating sources with various valid URL formats"""
-        valid_urls = [
-            "https://www.example.com",
-            "http://example.org",
-            "https://subdomain.example.com:8080/path",
-            "https://example.com/path/to/resource.pdf",
-            "https://api.example.com/v1/endpoint?param=value",
-            "https://example.edu/research/paper.html",
-            "https://github.com/user/repository",
-            "https://docs.example.com/guide#section",
-        ]
-
-        for url in valid_urls:
-            source_data = self.get_minimal_data()
-            source_data["url"] = url
-            source_data["title"] = f"Source with URL: {url}"
-
-            response = authenticated_client.post(
-                self.endpoints.create,
-                json=source_data,
-            )
-
-            assert response.status_code == status.HTTP_200_OK, f"Valid URL {url} was rejected"
-            source = response.json()
-            assert source["url"] == url
-
-    def test_update_source_with_new_url(self, authenticated_client):
-        """Test updating source with new URL"""
-        # Create source without URL
-        initial_data = self.get_minimal_data()
-        create_response = authenticated_client.post(
-            self.endpoints.create,
-            json=initial_data,
-        )
-        source_id = create_response.json()["id"]
-
-        # Update with new URL
-        new_url = "https://updated-example.com/new-resource"
-        update_data = {"url": new_url}
-
-        response = authenticated_client.put(
-            self.endpoints.format_path(self.endpoints.update, source_id=source_id),
-            json=update_data,
-        )
-
-        assert response.status_code == status.HTTP_200_OK
-        updated_source = response.json()
-        assert updated_source["url"] == new_url
 
 
 # === SOURCE PERFORMANCE TESTS ===

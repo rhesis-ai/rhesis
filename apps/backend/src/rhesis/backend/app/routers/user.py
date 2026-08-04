@@ -53,6 +53,33 @@ def _settings_patch_forbids_embedding_update(settings_dict: dict) -> bool:
     return isinstance(models, dict) and "embedding" in models
 
 
+def _org_sso_enabled(organization) -> bool:
+    """True when *organization* signs its users in through an identity provider.
+
+    Drives the invitation email's sign-in instructions: an SSO org's users have
+    no Rhesis password, so telling them to sign in with an email address sends
+    them down a path that cannot work.
+
+    Both halves matter. ``sso_config.enabled`` is the org's own switch, and the
+    SSO feature must also be licensed — an unlicensed org keeps its stored
+    config but the SSO routes 404, so the link would be a dead end.
+
+    Reads the ``sso_config`` column and the core feature registry rather than
+    EE's ``_get_sso_config``: this module is core and must not import EE (the
+    ``community-boundary`` CI job).
+    """
+    if organization is None:
+        return False
+
+    config = organization.sso_config
+    if not isinstance(config, dict) or not config.get("enabled"):
+        return False
+
+    from rhesis.backend.app.features import FeatureName, FeatureRegistry
+
+    return FeatureRegistry.is_available(FeatureName.SSO, organization)
+
+
 def _user_settings_permitted_actions(
     request: Request,
     current_user: User,
@@ -184,6 +211,8 @@ def create_user(
                 organization_website=organization_website,
                 inviter_name=inviter_name,
                 inviter_email=current_user.email,
+                organization_slug=organization.slug if organization else None,
+                sso_enabled=_org_sso_enabled(organization),
             )
 
             if success:

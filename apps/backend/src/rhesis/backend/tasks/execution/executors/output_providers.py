@@ -23,9 +23,7 @@ if TYPE_CHECKING:
 
 from rhesis.backend.app import crud
 from rhesis.backend.app.dependencies import get_endpoint_service
-from rhesis.backend.tasks.execution.executors.results import (
-    process_endpoint_result,
-)
+from rhesis.backend.app.services.endpoint.result_processing import process_endpoint_result
 
 logger = logging.getLogger(__name__)
 

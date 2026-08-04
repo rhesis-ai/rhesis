@@ -21,11 +21,14 @@ class EndpointBase(Base):
     description: Optional[str] = None
     connection_type: EndpointConnectionType
     url: Optional[str] = None
+    auth: Optional[Dict[str, Any]] = None
     environment: EndpointEnvironment = EndpointEnvironment.DEVELOPMENT
 
     # Configuration Source
     config_source: EndpointConfigSource = EndpointConfigSource.MANUAL
     openapi_spec_url: Optional[str] = None
+    openapi_spec: Optional[Dict[str, Any]] = None
+    llm_suggestions: Optional[Dict[str, Any]] = None
     endpoint_metadata: Optional[Dict[str, Any]] = None
 
     # Request Structure
@@ -34,13 +37,17 @@ class EndpointBase(Base):
     request_headers: Optional[Dict[str, str]] = None
     query_params: Optional[Dict[str, Any]] = None
     request_mapping: Optional[Dict[str, Any]] = None
+    input_mappings: Optional[Dict[str, Any]] = None
 
     # Response Handling
     response_format: EndpointResponseFormat = EndpointResponseFormat.JSON
     response_mapping: Optional[Dict[str, Any]] = None
+    validation_rules: Optional[Dict[str, Any]] = None
 
     project_id: Optional[UUID4] = None  # Inferred from X-Project-Id session scope when omitted
     status_id: Optional[UUID4] = None
+    user_id: Optional[UUID4] = None
+    organization_id: Optional[UUID4] = None
 
     # Tracing control
     disable_tracing: bool = False
@@ -142,11 +149,14 @@ class Endpoint(Base):
     description: Optional[str] = None
     connection_type: EndpointConnectionType
     url: Optional[str] = None
+    auth: Optional[Dict[str, Any]] = None
     environment: EndpointEnvironment = EndpointEnvironment.DEVELOPMENT
 
     # Configuration Source
     config_source: EndpointConfigSource = EndpointConfigSource.MANUAL
     openapi_spec_url: Optional[str] = None
+    openapi_spec: Optional[Dict[str, Any]] = None
+    llm_suggestions: Optional[Dict[str, Any]] = None
     endpoint_metadata: Optional[Dict[str, Any]] = None
 
     # Request Structure
@@ -155,13 +165,17 @@ class Endpoint(Base):
     request_headers: Optional[Dict[str, str]] = None
     query_params: Optional[Dict[str, Any]] = None
     request_mapping: Optional[Dict[str, Any]] = None
+    input_mappings: Optional[Dict[str, Any]] = None
 
     # Response Handling
     response_format: EndpointResponseFormat = EndpointResponseFormat.JSON
     response_mapping: Optional[Dict[str, Any]] = None
+    validation_rules: Optional[Dict[str, Any]] = None
 
     project_id: Optional[UUID4] = None
     status_id: Optional[UUID4] = None
+    user_id: Optional[UUID4] = None
+    organization_id: Optional[UUID4] = None
 
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None

@@ -14,12 +14,10 @@ from rhesis.backend.tasks.execution.run import (
     create_test_run,
     update_test_run_status,
 )
-from rhesis.backend.tasks.execution.test import get_evaluation_model
 from rhesis.backend.tasks.execution.test_execution import execute_test
 
 __all__ = [
     "get_test_configuration",
-    "get_evaluation_model",
     "create_test_run",
     "update_test_run_status",
     "TestExecutionError",

@@ -19,7 +19,7 @@ import pytest
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models
-from rhesis.backend.app.constants import ADAPTIVE_TESTING_BEHAVIOR
+from rhesis.backend.app.constants import EXPLORER_BEHAVIOR_NAME
 from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.services import test_set as test_set_service
 
@@ -185,7 +185,7 @@ class TestTestOperations:
             name="Explorer Test Set",
             organization_id=test_org_id,
             user_id=authenticated_user_id,
-            attributes={"metadata": {"behaviors": [ADAPTIVE_TESTING_BEHAVIOR]}},
+            attributes={"metadata": {"behaviors": [EXPLORER_BEHAVIOR_NAME]}},
         )
         test_db.add_all([db_test, explorer_test_set])
         test_db.flush()
@@ -216,7 +216,7 @@ class TestTestOperations:
         )
         assert reloaded_explorer_test_set is not None
         assert reloaded_explorer_test_set.attributes["metadata"]["behaviors"] == [
-            ADAPTIVE_TESTING_BEHAVIOR
+            EXPLORER_BEHAVIOR_NAME
         ]
 
 

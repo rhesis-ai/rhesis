@@ -12,10 +12,9 @@ from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 # Single source of truth for test environment variables.
 # The CI workflow (backend-test.yml) only sets PYTHONPATH; everything else
 # is configured here so there is no duplication to keep in sync.
+from tests.backend.testcontainers_setup import ensure_test_containers
 
-# Port constants (must match tests/docker-compose.test.yml --profile backend)
-DATABASE_PORT = 12001
-REDIS_PORT = 12002
+_containers = ensure_test_containers()
 
 # EE bootstrap installs SignedTokenLicenseProvider unconditionally (see
 # ee/backend/.../ee/__init__.py:bootstrap()), which enforces a real signed
@@ -56,8 +55,8 @@ _LICENSE_TEST_TOKEN = jwt.encode(
 
 _TEST_DB_USER = "rhesis-user"
 _TEST_DB_PASS = "your-secured-password"  # trufflehog:ignore
-_TEST_DB_HOST = "localhost"
-_TEST_DB_PORT = str(DATABASE_PORT)
+_TEST_DB_HOST = _containers["db_host"]
+_TEST_DB_PORT = str(_containers["db_port"])
 _TEST_DB_NAME = "rhesis-test-db"
 _TEST_DB_DRIVER = "postgresql"
 
@@ -74,8 +73,12 @@ _TEST_ENV_VARS = {
     "APP_DB_USER": _TEST_DB_USER,
     "APP_DB_PASS": _TEST_DB_PASS,
     "STORAGE_SERVICE_URI": f"file://{os.path.join(tempfile.gettempdir(), 'rhesis-test-storage')}",
-    "BROKER_URL": f"redis://:rhesis-redis-pass@localhost:{REDIS_PORT}/0",
-    "CELERY_RESULT_BACKEND": f"redis://:rhesis-redis-pass@localhost:{REDIS_PORT}/1",
+    "BROKER_URL": (
+        f"redis://:rhesis-redis-pass@{_containers['redis_host']}:{_containers['redis_port']}/0"
+    ),
+    "CELERY_RESULT_BACKEND": (
+        f"redis://:rhesis-redis-pass@{_containers['redis_host']}:{_containers['redis_port']}/1"
+    ),
     "JWT_SECRET_KEY": "test-jwt-secret-key-for-backend-tests",
     "SESSION_SECRET_KEY": "test-session-secret-key-for-backend-tests",
     "JWT_ALGORITHM": "HS256",
@@ -300,47 +303,18 @@ def _run_migrations() -> None:
 
 
 @pytest.fixture(scope="session", autouse=True)
-def run_migrations_once(tmp_path_factory, request):
+def run_migrations_once():
     """
     Run Alembic migrations once per test session.
 
     Idempotent: if the DB is already at head, this is a fast no-op.
     Set RHESIS_SKIP_MIGRATIONS=1 to skip (e.g. for unit-only runs without DB).
-
-    Under pytest-xdist, every worker is a separate process with its own
-    ``session``-scoped fixtures, so without coordination each worker would
-    race to run ``alembic upgrade`` concurrently against the same database.
-    A cross-process file lock (shared under xdist's own root temp dir, one
-    level above each worker's private tmp dir) plus a sentinel file makes
-    only the first worker to grab the lock actually run migrations; the rest
-    see the sentinel and skip.
-
-    The worker id is read from ``request.config.workerinput`` (set by xdist
-    only when it's actually active) rather than requesting the ``worker_id``
-    fixture directly, so this doesn't hard-depend on the ``pytest-xdist``
-    plugin being installed — a plain, non-xdist ``pytest`` run still works.
     """
     if os.environ.get("RHESIS_SKIP_MIGRATIONS", "").lower() in ("1", "true", "yes"):
         yield
         return
 
-    workerinput = getattr(request.config, "workerinput", None)
-    worker_id = workerinput["workerid"] if workerinput is not None else "master"
-
-    if worker_id == "master":
-        _run_migrations()
-        yield
-        return
-
-    from filelock import FileLock
-
-    root_tmp_dir = tmp_path_factory.getbasetemp().parent
-    with FileLock(str(root_tmp_dir / "migrations.lock")):
-        sentinel = root_tmp_dir / "migrations.done"
-        if not sentinel.exists():
-            _run_migrations()
-            sentinel.write_text("done")
-
+    _run_migrations()
     yield
 
 

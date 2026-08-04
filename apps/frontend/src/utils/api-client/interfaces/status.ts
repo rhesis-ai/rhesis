@@ -5,8 +5,6 @@ export interface Status {
   name: string;
   description?: string;
   entity_type: string;
-  user_id?: UUID | null;
-  organization_id: UUID;
 }
 
 export interface StatusesQueryParams {

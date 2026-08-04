@@ -99,18 +99,14 @@ export function emptyParameterSchema(): ParameterSchema {
  */
 export interface ExperimentVersion {
   version: string;
-  schema_fingerprint: string;
   values: Record<string, ParameterValue>;
-  parent_version?: string | null;
   message?: string | null;
   created_at: string;
-  created_by_user_id: string;
 }
 
 export type ExperimentVisibility = 'private' | 'shared';
 
 export interface ExperimentProject {
-  id: string;
   name: string;
 }
 
@@ -118,8 +114,6 @@ export interface ExperimentProject {
 export interface ExperimentRead extends WithPermittedActions {
   id: string;
   project_id: string;
-  owner_user_id: string;
-  organization_id?: string | null;
   project?: ExperimentProject | null;
   project_name?: string | null;
   name: string;
@@ -128,7 +122,6 @@ export interface ExperimentRead extends WithPermittedActions {
   versions_count: number;
   latest_version?: string | null;
   created_at?: string | null;
-  updated_at?: string | null;
 }
 
 /** Full detail shape including the versions array. */
@@ -293,13 +286,6 @@ export interface ExperimentResultsRunItem {
   attributes?: Record<string, unknown>;
   test_configuration?: TestConfigurationDetail;
   stats?: ExperimentRunStats;
-  experiment_summary?: {
-    id: string;
-    name: string;
-    version: string;
-    source_environment?: string | null;
-    visibility: ExperimentVisibility;
-  } | null;
 }
 
 export interface ExperimentResultsVersionItem {

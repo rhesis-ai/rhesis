@@ -1,12 +1,17 @@
 import asyncio
 import logging
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 from uuid import UUID
 
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
 from rhesis.backend.app.crud.explorer import set_explorer_test_outputs
+from rhesis.backend.app.schemas.explorer import (
+    GenerateOutputsFailedItem,
+    GenerateOutputsResponse,
+    GenerateOutputsUpdatedItem,
+)
 from rhesis.backend.app.services.explorer.invocation import EndpointInvoker
 from rhesis.backend.app.services.explorer.utils import (
     _build_eligible_tests,
@@ -26,7 +31,7 @@ async def generate_outputs_for_tests(
     topic: Optional[str] = None,
     include_subtopics: bool = True,
     overwrite: bool = False,
-) -> Dict[str, Any]:
+) -> GenerateOutputsResponse:
     """Generate outputs for explorer test-set tests by invoking an endpoint.
 
     For each test in the test set (with a prompt), invokes the given endpoint
@@ -59,11 +64,8 @@ async def generate_outputs_for_tests(
 
     Returns
     -------
-    dict
-        - generated: number of tests whose output was updated
-        - skipped: number of tests that already had an output (if overwrite=False)
-        - failed: list of {"test_id": str, "error": str}
-        - updated: list of {"test_id": str, "output": str}
+    GenerateOutputsResponse
+        Counts plus the per-test ``updated`` and ``failed`` items.
     """
     db_test_set = crud.resolve_test_set(test_set_identifier, db, organization_id=organization_id)
     if db_test_set is None:
@@ -80,8 +82,8 @@ async def generate_outputs_for_tests(
             continue
         eligible.append(t)
 
-    updated: List[Dict[str, str]] = []
-    failed: List[Dict[str, str]] = []
+    updated: List[GenerateOutputsUpdatedItem] = []
+    failed: List[GenerateOutputsFailedItem] = []
 
     # --- Phase A: extract plain data from ORM objects ---
     work_items = [(str(t.id), (t.prompt.content or "").strip()) for t in eligible]
@@ -112,9 +114,9 @@ async def generate_outputs_for_tests(
     # Reported in invocation order; tests whose row no longer exists are silently dropped.
     for test_id_str, output, error in results:
         if error:
-            failed.append({"test_id": test_id_str, "error": error})
+            failed.append(GenerateOutputsFailedItem(test_id=test_id_str, error=error))
         elif test_id_str in written:
-            updated.append({"test_id": test_id_str, "output": output})
+            updated.append(GenerateOutputsUpdatedItem(test_id=test_id_str, output=output))
 
     logger.info(
         f"Generate outputs: test_set={test_set_identifier}, endpoint={endpoint_id}, "
@@ -122,9 +124,9 @@ async def generate_outputs_for_tests(
         f"generated={len(updated)}, skipped={skipped}, failed={len(failed)}"
     )
 
-    return {
-        "generated": len(updated),
-        "skipped": skipped,
-        "failed": failed,
-        "updated": updated,
-    }
+    return GenerateOutputsResponse(
+        generated=len(updated),
+        skipped=skipped,
+        failed=failed,
+        updated=updated,
+    )

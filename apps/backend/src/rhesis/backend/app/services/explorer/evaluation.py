@@ -1,27 +1,32 @@
 import asyncio
+import dataclasses
 import json
 import logging
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID
 
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
 from rhesis.backend.app.crud.explorer import set_explorer_test_metadata
-
-if TYPE_CHECKING:
-    from rhesis.sdk.metrics import MetricConfig
-
+from rhesis.backend.app.schemas.explorer import (
+    EvaluateFailedItem,
+    EvaluateResponse,
+    EvaluateResultItem,
+)
 from rhesis.backend.app.services.explorer.invocation import NO_OUTPUT
 from rhesis.backend.app.services.explorer.utils import (
     _build_eligible_tests,
     _get_test_set_tests_from_db,
 )
+from rhesis.backend.app.utils.user_model_utils import get_evaluation_model
+from rhesis.backend.metrics.metric_config import metric_model_to_config
+from rhesis.sdk.metrics import MetricConfig, MetricFactory
 
 logger = logging.getLogger(__name__)
 
-_EVAL_MAX_CONCURRENCY = 20
+EVAL_MAX_CONCURRENCY = 20
 
 
 def _serialize_details_for_api(details: Dict[str, Any]) -> Dict[str, Any]:
@@ -108,12 +113,12 @@ def aggregate_metric_verdict(
     )
 
 
-def _resolve_sdk_metrics(
+def resolve_sdk_metrics(
     db: Session,
     organization_id: str,
     user_id: str,
     metric_names: List[str],
-) -> List[Tuple[Any, "MetricConfig"]]:
+) -> List[Tuple[Any, MetricConfig]]:
     """Resolve metric names from the DB and instantiate SDK metric objects.
 
     Returns a list of tuples containing the ready-to-use SDK ``BaseMetric`` instances
@@ -122,12 +127,6 @@ def _resolve_sdk_metrics(
     Raises ``ValueError`` when a requested metric name does not exist
     or none of the resolved metrics could be instantiated.
     """
-    import dataclasses
-
-    from rhesis.backend.metrics.metric_config import metric_model_to_config
-    from rhesis.backend.tasks.execution.test import get_evaluation_model
-    from rhesis.sdk.metrics import MetricConfig, MetricFactory
-
     name_clauses = " or ".join(f"name eq '{n}'" for n in metric_names)
     resolved = crud.get_metrics(
         db,
@@ -168,8 +167,8 @@ def _resolve_sdk_metrics(
     return sdk_metrics
 
 
-async def _run_metrics_on_text(
-    sdk_metrics: List[Tuple[Any, "MetricConfig"]],
+async def run_metrics_on_text(
+    sdk_metrics: List[Tuple[Any, MetricConfig]],
     input_text: str,
     output_text: str,
 ) -> Dict[str, Any]:
@@ -260,11 +259,11 @@ async def evaluate_tests_for_explorer_set(
     topic: Optional[str] = None,
     include_subtopics: bool = True,
     overwrite: bool = False,
-) -> Dict[str, Any]:
+) -> EvaluateResponse:
     """Evaluate explorer test-set tests with the specified metrics.
 
     Uses SDK metric instances directly via ``a_evaluate`` with up to
-    ``_EVAL_MAX_CONCURRENCY`` items evaluated concurrently.
+    ``EVAL_MAX_CONCURRENCY`` items evaluated concurrently.
 
     Parameters
     ----------
@@ -289,18 +288,15 @@ async def evaluate_tests_for_explorer_set(
 
     Returns
     -------
-    dict
-        - evaluated: number of tests evaluated
-        - skipped: number of tests skipped due to existing results
-        - results: list of {test_id, label, labeler, model_score, metrics?}
-        - failed: list of {test_id, error}
+    EvaluateResponse
+        Counts plus the per-test ``results`` and ``failed`` items.
 
     Raises
     ------
     ValueError
         If any metric name does not exist or the test set is not found.
     """
-    sdk_metrics = _resolve_sdk_metrics(db, organization_id, user_id, metric_names)
+    sdk_metrics = resolve_sdk_metrics(db, organization_id, user_id, metric_names)
 
     db_test_set = crud.resolve_test_set(test_set_identifier, db, organization_id=organization_id)
     if db_test_set is None:
@@ -336,7 +332,7 @@ async def evaluate_tests_for_explorer_set(
             return {"status": "failed", "test_id": test_id_str, "error": "no output"}, None
 
         try:
-            metric_results = await _run_metrics_on_text(sdk_metrics, input_text, output_text)
+            metric_results = await run_metrics_on_text(sdk_metrics, input_text, output_text)
 
             verdict = aggregate_metric_verdict(metric_results, metric_names)
             if verdict is None:
@@ -381,7 +377,7 @@ async def evaluate_tests_for_explorer_set(
                 "error": str(e),
             }, meta
 
-    semaphore = asyncio.Semaphore(_EVAL_MAX_CONCURRENCY)
+    semaphore = asyncio.Semaphore(EVAL_MAX_CONCURRENCY)
 
     async def _bounded(test):
         async with semaphore:
@@ -396,18 +392,18 @@ async def evaluate_tests_for_explorer_set(
     all_outcomes = [outcome for outcome, _ in evaluated]
 
     results = [
-        {
-            "test_id": o["test_id"],
-            "label": o["label"],
-            "labeler": o["labeler"],
-            "model_score": o["model_score"],
-            "metrics": o.get("metrics"),
-        }
+        EvaluateResultItem(
+            test_id=o["test_id"],
+            label=o["label"],
+            labeler=o["labeler"],
+            model_score=o["model_score"],
+            metrics=o.get("metrics"),
+        )
         for o in all_outcomes
         if o["status"] == "ok"
     ]
     failed = [
-        {"test_id": o["test_id"], "error": o["error"]}
+        EvaluateFailedItem(test_id=o["test_id"], error=o["error"])
         for o in all_outcomes
         if o["status"] == "failed"
     ]
@@ -418,9 +414,9 @@ async def evaluate_tests_for_explorer_set(
         f"evaluated={len(results)}, skipped={skipped}, failed={len(failed)}"
     )
 
-    return {
-        "evaluated": len(results),
-        "skipped": skipped,
-        "results": results,
-        "failed": failed,
-    }
+    return EvaluateResponse(
+        evaluated=len(results),
+        skipped=skipped,
+        results=results,
+        failed=failed,
+    )

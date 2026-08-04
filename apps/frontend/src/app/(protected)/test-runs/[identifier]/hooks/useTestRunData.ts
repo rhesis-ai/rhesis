@@ -87,8 +87,7 @@ export function useTestRunData({
               id: testResult.test.prompt.id,
               content: testResult.test.prompt.content,
               expected_response: testResult.test.prompt.expected_response,
-              nano_id: testResult.test.prompt.nano_id,
-              counts: testResult.test.prompt.counts,
+              language_code: '',
             } as Prompt;
           }
           return acc;
