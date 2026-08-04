@@ -67,8 +67,6 @@ __all__ = [
     "OTELSpan",
     "OTELTraceBatch",
     "TraceIngestResponse",
-    "OTELSpanResponse",
-    "OTELSpanDB",
     "TraceSummary",
     "TraceListResponse",
     "SpanNode",
@@ -80,71 +78,6 @@ __all__ = [
 
 # Alias for consistency with existing backend code
 OTELSpanCreate = OTELSpan
-
-
-# Backend-specific models (not in SDK)
-class OTELSpanResponse(BaseModel):
-    """Schema for returning a span from the database."""
-
-    id: str
-    trace_id: str
-    span_id: str
-    parent_span_id: Optional[str]
-    project_id: str
-    organization_id: str
-    environment: str
-    conversation_id: Optional[str] = None
-    span_name: str
-    span_kind: str
-    start_time: datetime
-    end_time: datetime
-    duration_ms: float
-    status_code: str
-    status_message: Optional[str]
-    attributes: Dict[str, Any]
-    events: List[Dict[str, Any]]
-    links: List[Dict[str, Any]]
-    resource: Dict[str, Any]
-    processed_at: Optional[datetime]
-    enriched_data: Dict[str, Any]
-    created_at: datetime
-    updated_at: datetime
-
-    # Trace metrics
-    trace_metrics: Optional[Dict[str, Any]] = None
-    trace_metrics_status: Optional[str] = Field(
-        default=None, description="Evaluation status name (Pass/Fail/Error)"
-    )
-
-    # Human reviews
-    trace_reviews: Optional[Dict[str, Any]] = None
-    last_review: Optional[Dict[str, Any]] = None
-    matches_review: bool = False
-    review_summary: Optional[Dict[str, Any]] = None
-
-    # Tags and comments
-    tags: Optional[List[TagRead]] = Field(
-        default_factory=list, description="Tags associated with this trace"
-    )
-    comments: Optional[List[Comment]] = Field(
-        default_factory=list, description="Comments associated with this trace"
-    )
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class OTELSpanDB(BaseModel):
-    """Database model with persistence fields."""
-
-    model_config = ConfigDict(from_attributes=True)
-
-    id: str
-    organization_id: str
-    processed_at: Optional[datetime] = None
-    enriched_data: Dict[str, Any] = Field(default_factory=dict)
-    created_at: datetime
-    updated_at: datetime
-    span_data: OTELSpan
 
 
 # Legacy alias (deprecated - use TraceIngestResponse)

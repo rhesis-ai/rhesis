@@ -40,9 +40,6 @@ export interface SourceCreate {
   description?: string;
   content?: string;
   source_type_id?: UUID;
-  url?: string;
-  citation?: string;
-  language_code?: string;
   source_metadata?: SourceMetadata;
   tags?: Tag[];
 }
@@ -52,9 +49,6 @@ export interface SourceUpdate {
   description?: string;
   content?: string;
   source_type_id?: UUID;
-  url?: string;
-  citation?: string;
-  language_code?: string;
   source_metadata?: SourceMetadata;
   tags?: Tag[];
 }

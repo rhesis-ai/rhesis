@@ -26,16 +26,13 @@ class TestSetBase(Base):
     slug: Optional[str] = None
     status_id: Optional[UUID4] = None
     tags: Optional[List[Tag]] = []
-    license_type_id: Optional[UUID4] = None
     test_set_type_id: Optional[UUID4] = None
     attributes: Optional[dict] = None
     user_id: Optional[UUID4] = None
     owner_id: Optional[UUID4] = None
     assignee_id: Optional[UUID4] = None
     priority: Optional[int] = 0
-    is_published: Optional[bool] = False
     organization_id: Optional[UUID4] = None
-    visibility: Optional[str] = None
 
 
 class TestSetCreate(TestSetBase):
@@ -187,10 +184,8 @@ class TestSetBulkResponse(BaseModel):
     description: Optional[str] = None
     short_description: Optional[str] = None
     status_id: Optional[UUID4] = None
-    license_type_id: Optional[UUID4] = None
     user_id: Optional[UUID4] = None
     organization_id: Optional[UUID4] = None
-    visibility: Optional[str] = None
     attributes: Optional[Dict[str, Any]] = None
 
     model_config = ConfigDict(from_attributes=True)

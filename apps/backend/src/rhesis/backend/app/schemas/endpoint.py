@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import UUID4, BaseModel, ConfigDict, field_validator
+from pydantic import UUID4, BaseModel, field_validator
 
 from rhesis.backend.app.models.enums import (
     EndpointAuthType,
@@ -13,54 +13,6 @@ from rhesis.backend.app.models.enums import (
 from rhesis.backend.app.schemas import Base
 from rhesis.backend.app.schemas.references import ProjectReference, StatusReference
 from rhesis.backend.app.schemas.user import UserReference
-
-
-# Endpoint metadata schemas
-class SDKConnectionInfo(Base):
-    """Information about the SDK connection for this endpoint."""
-
-    project_id: str
-    environment: str
-    function_name: str
-
-
-class FunctionSchemaInfo(Base):
-    """Schema information for the SDK function."""
-
-    parameters: Dict[str, Any]
-    return_type: str
-    description: Optional[str] = None
-
-
-class EndpointMetadataSchema(Base):
-    """
-    Schema for endpoint_metadata JSONB field.
-
-    Notes on mapping fields:
-    - parameter_mapping: Maps function parameters to backend fields (like request_mapping)
-      Example: {"location": "{{ input }}", "unit": "celsius"}
-    - output_mapping: Maps function output to backend fields (like response_mapping)
-      Example: {"temperature": "result.temp", "conditions": "result.weather[0].description"}
-    """
-
-    # SDK-specific fields
-    sdk_connection: Optional[SDKConnectionInfo] = None
-    function_schema: Optional[FunctionSchemaInfo] = None
-
-    # SDK function mappings (for future use with invocations)
-    parameter_mapping: Optional[Dict[str, Any]] = None
-    output_mapping: Optional[Dict[str, Any]] = None
-
-    # Timestamps
-    created_at: Optional[str] = None
-    last_registered: Optional[str] = None
-    last_connected_at: Optional[str] = None
-
-    # Legacy/other fields (for backwards compatibility)
-    created_via: Optional[str] = None
-    functions: Optional[List[Dict[str, Any]]] = None  # Deprecated
-
-    model_config = ConfigDict(extra="allow")  # Allow additional fields for extensibility
 
 
 # Endpoint schemas

@@ -66,13 +66,10 @@ class EndpointReference(Base):
 class TestSetReference(Base):
     id: UUID4
     name: Optional[str] = None
-    description: Optional[str] = None
-    counts: Optional[Dict[str, Any]] = None
     user_id: Optional[UUID4] = None
     organization_id: Optional[UUID4] = None
     status_id: Optional[UUID4] = None
     attributes: Optional[Dict[str, Any]] = None
-    tags: Optional[List[TagRead]] = None
     test_set_type: Optional[TypeLookupReference] = None
 
     model_config = ConfigDict(from_attributes=True)
@@ -80,11 +77,7 @@ class TestSetReference(Base):
 
 class TestConfigurationReference(Base):
     id: UUID4
-    user_id: Optional[UUID4] = None
-    organization_id: Optional[UUID4] = None
-    status_id: Optional[UUID4] = None
     attributes: Optional[Dict[str, Any]] = None
-    endpoint_id: Optional[UUID4] = None
     endpoint: Optional[EndpointReference] = None
     test_set: Optional[TestSetReference] = None
 

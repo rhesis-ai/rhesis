@@ -12,7 +12,6 @@ from rhesis.backend.app.schemas.user import UserReference
 class BehaviorBase(Base):
     name: str
     description: Optional[str] = None
-    status_id: Optional[UUID4] = None
     user_id: Optional[UUID4] = None
     organization_id: Optional[UUID4] = None
 

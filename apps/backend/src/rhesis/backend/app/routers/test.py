@@ -20,7 +20,6 @@ from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.services.stats import get_individual_test_stats, get_test_stats
 from rhesis.backend.app.services.test import (
     bulk_create_tests,
-    create_test_from_conversation,
     extract_test_from_conversation,
     resolve_test_entity_names,
 )
@@ -151,50 +150,6 @@ def bulk_delete_tests(
     return crud.bulk_delete_tests(
         db=db, test_ids=request.test_ids, organization_id=organization_id, user_id=user_id
     )
-
-
-@router.post(
-    "/from-conversation",
-    response_model=schemas.ConversationToTestResponse,
-)
-def create_test_from_conversation_endpoint(
-    request: schemas.ConversationToTestRequest,
-    db: Session = Depends(get_tenant_db_session),
-    current_user: User = Depends(require_current_user_or_token),
-):
-    """
-    Create a test by extracting metadata from a playground conversation.
-
-    For multi-turn: uses synthesizer to extract goal, instructions,
-    restrictions, scenario, behavior, category, and topic.
-
-    For single-turn: uses LLM to extract behavior, category, and topic,
-    with the user message as prompt and assistant response as expected output.
-    """
-    try:
-        test_id = create_test_from_conversation(
-            db=db,
-            messages=request.messages,
-            user=current_user,
-            test_type=request.test_type or "Multi-Turn",
-        )
-
-        return schemas.ConversationToTestResponse(
-            test_id=test_id,
-            message="Test created successfully from conversation",
-        )
-
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        logger.error(
-            f"Error creating test from conversation: {e}",
-            exc_info=True,
-        )
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to create test from conversation: {str(e)}",
-        )
 
 
 @router.post(

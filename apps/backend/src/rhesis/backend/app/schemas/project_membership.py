@@ -28,5 +28,4 @@ class ProjectMember(BaseModel):
     user_id: UUID4
     organization_id: UUID4
     role: Optional[str] = "member"
-    role_id: Optional[UUID] = None
     user: Optional[ProjectMemberUser] = None

@@ -3,7 +3,6 @@
 import pytest
 
 from rhesis.backend.app.schemas.garak import (
-    GarakErrorResponse,
     GarakImportPreviewResponse,
     GarakImportRequest,
     GarakProbeClassResponse,
@@ -295,25 +294,3 @@ class TestGarakSyncPreviewResponse:
         )
 
         assert response.modules == ["dan", "encoding", "xss"]
-
-
-@pytest.mark.unit
-class TestGarakErrorResponse:
-    """Tests for GarakErrorResponse schema."""
-
-    def test_error_response_creation(self):
-        """Test creating an error response."""
-        response = GarakErrorResponse(
-            error="Something went wrong",
-            detail="More details about the error",
-        )
-
-        assert response.error == "Something went wrong"
-        assert response.detail == "More details about the error"
-
-    def test_error_response_without_detail(self):
-        """Test error response without detail."""
-        response = GarakErrorResponse(error="Simple error")
-
-        assert response.error == "Simple error"
-        assert response.detail is None

@@ -6,9 +6,7 @@ from pydantic import UUID4, ConfigDict, field_serializer
 
 from .base import Base
 from .references import TypeLookupReference
-from .status import Status
 from .type_lookup import TypeLookup
-from .user import User
 
 
 class ToolBase(Base):
@@ -17,10 +15,7 @@ class ToolBase(Base):
     name: str
     description: Optional[str] = None
     tool_provider_type_id: UUID4
-    status_id: Optional[UUID4] = None
     tool_metadata: Optional[Dict[str, Any]] = None
-    organization_id: Optional[UUID4] = None
-    user_id: Optional[UUID4] = None
 
 
 class ToolCreate(ToolBase):
@@ -46,7 +41,6 @@ class ToolUpdate(ToolBase):
     tool_provider_type_id: Optional[UUID4] = None
     # Optional - only update if provided, will be re-encrypted
     credentials: Optional[Dict[str, str]] = None
-    user_id: Optional[UUID4] = None
 
     @field_serializer("credentials")
     def serialize_credentials(self, value: Optional[Dict[str, str]]) -> Optional[str]:
@@ -72,18 +66,13 @@ class Tool(Base):
     name: str
     description: Optional[str] = None
     tool_provider_type_id: UUID4
-    status_id: Optional[UUID4] = None
     tool_metadata: Optional[Dict[str, Any]] = None
-    organization_id: Optional[UUID4] = None
-    user_id: Optional[UUID4] = None
 
     # Sensitive field excluded from response:
     # credentials - can be set via Create/Update but is never returned
 
     # Relationships
     tool_provider_type: Optional[TypeLookup] = None
-    status: Optional[Status] = None
-    user: Optional[User] = None
 
     model_config = ConfigDict(from_attributes=True)
 

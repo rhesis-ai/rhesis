@@ -8,8 +8,6 @@ from rhesis.backend.app.auth.capabilities import ResourceType
 from .affordances import WithPermittedActions
 from .base import Base
 from .references import (
-    OrganizationReference,
-    ProjectReference,
     StatusReference,
     TypeLookupReference,
 )
@@ -112,5 +110,3 @@ class TaskDetail(Task):
     assignee: Optional[UserReference] = None
     status: Optional[StatusReference] = None
     priority: Optional[TypeLookupReference] = None
-    project: Optional[ProjectReference] = None
-    organization: Optional[OrganizationReference] = None

@@ -42,11 +42,6 @@ class EntityType(str, Enum):
     TRACE = "Trace"
 
 
-class TagAssignment(Base):
-    entity_id: UUID4
-    entity_type: EntityType
-
-
 class TagRead(Base):
     id: UUID4
     name: str
