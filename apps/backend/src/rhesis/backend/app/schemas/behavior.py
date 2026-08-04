@@ -4,7 +4,7 @@ from typing import List, Optional, Union
 from pydantic import UUID4, Field
 
 from rhesis.backend.app.schemas import Base
-from rhesis.backend.app.schemas.tag import Tag
+from rhesis.backend.app.schemas.tag import Tag, TagRead
 from rhesis.backend.app.schemas.user import UserReference
 
 
@@ -32,5 +32,8 @@ class Behavior(BehaviorBase):
 
 # The detailed model with expanded relations.
 class BehaviorDetail(Behavior):
+    # Override of the base schema's tags field to match the shape used for the
+    # detailed/expanded response (TagRead instead of Tag).
     id: UUID4
     name: Optional[str] = None
+    tags: Optional[List[TagRead]] = None

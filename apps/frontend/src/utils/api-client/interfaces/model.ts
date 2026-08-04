@@ -26,7 +26,6 @@ export interface ModelCreate {
   model_type?: 'language' | 'embedding';
   endpoint?: string;
   key: string;
-  request_headers?: Record<string, string>;
   is_protected?: boolean;
   tags: string[];
   provider_type_id?: UUID;
@@ -43,7 +42,6 @@ export interface ModelUpdate {
   model_type?: 'language' | 'embedding';
   endpoint?: string;
   key?: string;
-  request_headers?: Record<string, string>;
   is_protected?: boolean;
   tags?: string[];
   provider_type_id?: UUID;
