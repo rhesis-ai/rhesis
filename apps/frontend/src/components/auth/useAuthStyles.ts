@@ -33,8 +33,8 @@ export interface AuthStyles {
  *
  * Auth pages don't use the app's MUI theme colours — they mirror rhesis.ai via
  * `authTokens`. Without this hook each page grows its own copy of the button
- * and field styling, which is exactly how the old `#50B9E0` / `#3aabcf` pairs
- * ended up duplicated across five files.
+ * and field styling, which is exactly how the previous brand's accent and
+ * hover pair ended up duplicated across five files.
  */
 export function useAuthStyles(): AuthStyles {
   const mode = useTheme().palette.mode;

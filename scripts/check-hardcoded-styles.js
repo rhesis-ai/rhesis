@@ -105,6 +105,7 @@ const EXCLUDE_PATTERNS = [
   /coverage/,
   /\.next/,
   /theme\.ts$/, // Exclude the theme file itself
+  /authTokens\.ts$/, // Same reason as theme.ts: the auth pages' palette is defined here
   /globals\.css$/, // Exclude globals.css (contains theme definitions)
   /check-hardcoded-styles\.js$/, // Exclude this script itself
   /apps\/documentation\/components\//, // Temporarily exclude docs components (need refactoring)
