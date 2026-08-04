@@ -6,6 +6,7 @@ from uuid import uuid4
 
 import pytest
 
+from rhesis.backend.app.quota import QuotaResource
 from rhesis.backend.tasks.garak import import_garak_probes_task, sync_garak_test_set_task
 
 
@@ -39,6 +40,7 @@ class TestImportGarakProbesTask:
                 "rhesis.backend.app.services.garak.importer.GarakImporter",
                 return_value=mock_importer,
             ) as mock_importer_cls,
+            patch("rhesis.backend.tasks.garak.dispatch_accrual"),
         ):
             result = import_garak_probes_task(
                 probes=[{"module_name": "dan", "class_name": "Dan_11_0", "custom_name": None}],
@@ -93,6 +95,7 @@ class TestImportGarakProbesTask:
                 "rhesis.backend.app.services.garak.importer.GarakImporter",
                 return_value=mock_importer,
             ),
+            patch("rhesis.backend.tasks.garak.dispatch_accrual"),
         ):
             result = import_garak_probes_task(
                 probes=[{"module_name": "dan", "class_name": "Dan_11_0", "custom_name": None}],
@@ -102,6 +105,42 @@ class TestImportGarakProbesTask:
 
         assert result["test_sets"][0]["test_set_id"] == str(raw_uuid)
         assert isinstance(result["test_sets"][0]["test_set_id"], str)
+
+    def test_dispatches_test_generation_accrual(self):
+        """Imported probes create test rows the same way LLM generation
+        does, so they must accrue against the same TEST_GENERATION quota --
+        see tasks/test_set.py's own dispatch_accrual call."""
+        mock_db = MagicMock()
+        mock_importer = MagicMock()
+        mock_importer.import_probes.return_value = {
+            "test_sets": [],
+            "total_test_sets": 2,
+            "total_tests": 42,
+            "garak_version": "0.14.0",
+        }
+
+        with (
+            patch.object(
+                import_garak_probes_task,
+                "get_tenant_context",
+                return_value=("org-1", "user", None),
+            ),
+            patch.object(
+                import_garak_probes_task, "get_db_session", return_value=_fake_db_session(mock_db)
+            ),
+            patch(
+                "rhesis.backend.app.services.garak.importer.GarakImporter",
+                return_value=mock_importer,
+            ),
+            patch("rhesis.backend.tasks.garak.dispatch_accrual") as mock_dispatch_accrual,
+        ):
+            import_garak_probes_task(
+                probes=[{"module_name": "dan", "class_name": "Dan_11_0", "custom_name": None}],
+                name_prefix="Garak",
+                description_template=None,
+            )
+
+        mock_dispatch_accrual.assert_called_once_with("org-1", QuotaResource.TEST_GENERATION, 42)
 
 
 @pytest.mark.unit
@@ -133,6 +172,7 @@ class TestSyncGarakTestSetTask:
                 "rhesis.backend.app.services.garak.sync.GarakSyncService",
                 return_value=mock_sync_service,
             ) as mock_sync_cls,
+            patch("rhesis.backend.tasks.garak.dispatch_accrual"),
         ):
             result = sync_garak_test_set_task(test_set_id="test-set-id")
 
@@ -149,3 +189,39 @@ class TestSyncGarakTestSetTask:
             "new_garak_version": "0.14.0",
             "old_garak_version": "0.13.0",
         }
+
+    def test_dispatches_test_generation_accrual_for_added_only(self):
+        """Only newly-created rows count as generated tests -- `removed`/
+        `unchanged` don't create new `test` rows, so accruing the full
+        result would overcount."""
+        mock_db = MagicMock()
+        mock_sync_service = MagicMock()
+
+        from rhesis.backend.app.services.garak.sync import SyncResult
+
+        mock_sync_service.sync_test_set.return_value = SyncResult(
+            added=7,
+            removed=3,
+            unchanged=100,
+            new_garak_version="0.14.0",
+            old_garak_version="0.13.0",
+        )
+
+        with (
+            patch.object(
+                sync_garak_test_set_task,
+                "get_tenant_context",
+                return_value=("org-1", "user", None),
+            ),
+            patch.object(
+                sync_garak_test_set_task, "get_db_session", return_value=_fake_db_session(mock_db)
+            ),
+            patch(
+                "rhesis.backend.app.services.garak.sync.GarakSyncService",
+                return_value=mock_sync_service,
+            ),
+            patch("rhesis.backend.tasks.garak.dispatch_accrual") as mock_dispatch_accrual,
+        ):
+            sync_garak_test_set_task(test_set_id="test-set-id")
+
+        mock_dispatch_accrual.assert_called_once_with("org-1", QuotaResource.TEST_GENERATION, 7)
