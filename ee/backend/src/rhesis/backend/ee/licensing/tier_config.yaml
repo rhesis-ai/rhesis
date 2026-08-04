@@ -13,7 +13,7 @@ community:
     test_executions: 1000
     tracing_spans: 50000
     test_generation: 500
-    hosted_model_tokens: 5000000
+    model_tokens: 5000000
     seats: 3
     projects: 1
     endpoints: 1
@@ -28,7 +28,7 @@ team:
     test_executions: 100000
     tracing_spans: 5000000
     test_generation: 50000
-    hosted_model_tokens: 250000000
+    model_tokens: 250000000
     seats: null
     projects: null
     endpoints: null
@@ -42,7 +42,7 @@ enterprise: &unlimited_tier
     test_executions: null
     tracing_spans: null
     test_generation: null
-    hosted_model_tokens: null
+    model_tokens: null
     seats: null
     projects: null
     endpoints: null
