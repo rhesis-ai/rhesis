@@ -18,10 +18,16 @@ import {
 import type { UsageResourceItem } from '@/utils/api-client/usage-client';
 
 function formatPeriodDate(isoDate: string): string {
+  // period_start/period_end are date-only strings (YYYY-MM-DD), computed
+  // in UTC by the backend. `new Date(isoDate)` parses that as UTC
+  // midnight, so formatting must stay in UTC too -- otherwise
+  // toLocaleDateString() converts to the viewer's local time and users
+  // west of UTC see the previous day.
   return new Date(isoDate).toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
+    timeZone: 'UTC',
   });
 }
 
