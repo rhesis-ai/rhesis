@@ -7,6 +7,8 @@ from uuid import UUID
 
 from rhesis.backend.app import crud
 from rhesis.backend.app.database import get_db_with_tenant_variables
+from rhesis.backend.app.quota import QuotaResource
+from rhesis.backend.app.services.usage import dispatch_accrual
 from rhesis.backend.celery.core import app
 from rhesis.backend.tasks.base import SilentTask
 from rhesis.backend.tasks.enums import RunStatus
@@ -154,6 +156,16 @@ def execute_test_configuration(self, test_configuration_id: str, test_run_id: st
                 test_run,
                 reference_test_run_id=reference_test_run_id,
             )
+
+            # Accrue TEST_EXECUTIONS for the count actually processed by this
+            # run -- result["total_tests"] is computed once at the start of
+            # execute_test_cases from the same tests list it iterates, so it
+            # reflects what was billed for, not what the test set currently
+            # contains. Re-querying the test set's live count here instead
+            # would open a window between execution and accrual: tests
+            # added or removed from the set mid-run would shift what gets
+            # billed away from what was actually executed.
+            dispatch_accrual(org_id, QuotaResource.TEST_EXECUTIONS, result.get("total_tests", 0))
 
         # Use utility to create standardized result
         # Remove test_run_id from result if present to avoid duplicate parameter
