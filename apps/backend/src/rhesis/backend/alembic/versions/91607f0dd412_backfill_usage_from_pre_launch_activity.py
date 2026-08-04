@@ -74,6 +74,21 @@ Design notes:
   older org-loop migrations in this file (e.g. 41a9355b3991) that don't
   filter it -- there is no dashboard for a deleted org's members to see a
   backfilled number on, so there is nothing to gain from writing one.
+- The three COUNT queries bind an explicit UTC-aware `datetime` against
+  `created_at`, not the plain `date` used for the `usage` table's own
+  `period_start`/`period_end` (those are DATE columns with no timezone to
+  get wrong). Binding a bare `date` against a `timestamptz` column lets
+  Postgres cast it using the session's timezone setting rather than UTC,
+  which can shift the cutoff by that session's UTC offset -- see
+  `period_start_utc` in `upgrade()`.
+- `test_set.deleted_at` is deliberately NOT filtered in the TEST_GENERATION
+  join, even though the column exists. The live accrual path
+  (`dispatch_accrual` in tasks/test_set.py) counts at generation time and
+  has no mechanism to reconsider or decrement usage if the test_set is
+  later deleted -- there is no "give back the quota" path anywhere in this
+  feature. Filtering deleted test_sets here would make the backfill
+  disagree with how live accrual actually behaves for the same kind of
+  event, not just be independently more "correct."
 - Accepted, unaddressed edge case: a test execution (or span, or generated
   test) that lands in the narrow window between this migration's SELECT
   for an org and its own upsert landing could, if the live Celery accrual
@@ -149,6 +164,21 @@ def upgrade() -> None:
     period_start = today.replace(day=1)
     period_end = today.replace(day=monthrange(today.year, today.month)[1])
 
+    # Bound used against `created_at` (timestamptz) below, deliberately not
+    # `period_start` itself: PostgreSQL casts a bare `date` bind parameter to
+    # timestamptz by interpreting it as local midnight *in the connection's
+    # session timezone*, not UTC. This connection isn't guaranteed to run
+    # with a UTC session timezone in every environment, so a bare `date`
+    # bound here could silently shift the cutoff by the session's UTC
+    # offset -- e.g. under `America/Los_Angeles` this genuinely undercounts
+    # by missing everything from UTC midnight through 07:00 UTC. A
+    # timezone-aware `datetime` carries an explicit UTC offset in the literal
+    # itself, which Postgres parses as that exact instant regardless of the
+    # session's timezone setting.
+    period_start_utc = datetime(
+        period_start.year, period_start.month, period_start.day, tzinfo=timezone.utc
+    )
+
     org_ids = [
         str(row[0])
         for row in conn.execute(
@@ -165,7 +195,7 @@ def upgrade() -> None:
     for org_id in org_ids:
         conn.execute(_SET_ORG_GUC, {"org_id": org_id})
 
-        params = {"org_id": org_id, "period_start": period_start}
+        params = {"org_id": org_id, "period_start": period_start_utc}
         test_executions = conn.execute(_COUNT_TEST_EXECUTIONS, params).scalar() or 0
         tracing_spans = conn.execute(_COUNT_TRACING_SPANS, params).scalar() or 0
         test_generation = conn.execute(_COUNT_TEST_GENERATION, params).scalar() or 0
