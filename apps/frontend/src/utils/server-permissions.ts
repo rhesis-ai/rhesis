@@ -3,13 +3,15 @@ import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { getServerActiveProjectId } from '@/utils/server-active-project';
 import { FeatureName } from '@/constants/features';
 import type { FeaturesResponse } from '@/utils/api-client/features-client';
+import type { UsageResponse } from '@/utils/api-client/usage-client';
 import { can } from '@/utils/affordances';
 
 /**
- * Cached server-side fetchers for features and permissions. `React.cache()`
- * deduplicates within a single RSC render pass, so `layout.tsx` and
- * `page.tsx` (via `prefetchList` / `hasServerCapability`) share one
- * `GET /features` and one `GET /me/permissions` call instead of two each.
+ * Cached server-side fetchers for features, permissions, and usage.
+ * `React.cache()` deduplicates within a single RSC render pass, so
+ * `layout.tsx` and `page.tsx` (via `prefetchList` / `hasServerCapability`)
+ * share one `GET /features` and one `GET /me/permissions` call instead of
+ * two each.
  */
 export const getServerFeatures = cache(async (): Promise<FeaturesResponse> => {
   const factory = await createServerApiFactory();
@@ -20,6 +22,11 @@ export const getServerPermissions = cache(async (): Promise<string[]> => {
   const factory = await createServerApiFactory();
   const projectId = await getServerActiveProjectId();
   return factory.getPermissionsClient().getMyPermissions(projectId);
+});
+
+export const getServerUsage = cache(async (): Promise<UsageResponse> => {
+  const factory = await createServerApiFactory();
+  return factory.getUsageClient().getUsage();
 });
 
 /**

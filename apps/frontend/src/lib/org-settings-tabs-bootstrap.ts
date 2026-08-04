@@ -9,10 +9,20 @@
 
 import { registerOrgSettingsTab } from '@/lib/extension-registries';
 import TeamTab from '@/app/(protected)/organizations/settings/components/TeamTab';
+import UsageTab from '@/app/(protected)/organizations/settings/components/UsageTab';
 
 registerOrgSettingsTab({
   id: 'team',
   title: 'Team',
   order: 10,
   component: TeamTab,
+});
+
+registerOrgSettingsTab({
+  id: 'usage',
+  title: 'Usage',
+  // 25 sits between EE's Roles (20) and SSO (30) -- see ee/frontend/src/rbac/register.tsx
+  // and ee/frontend/src/sso/register.tsx.
+  order: 25,
+  component: UsageTab,
 });

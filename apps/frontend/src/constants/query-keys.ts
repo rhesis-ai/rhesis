@@ -73,6 +73,10 @@ export const featureKeys = {
   all: (userScope: string) => ['features', userScope] as const,
 };
 
+export const usageKeys = {
+  all: (userScope: string) => ['usage', userScope] as const,
+};
+
 export const permissionKeys = {
   all: (userScope: string, projectId: string) =>
     ['permissions', userScope, projectId] as const,

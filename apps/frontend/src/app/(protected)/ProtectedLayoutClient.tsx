@@ -7,6 +7,8 @@ import AuthErrorBoundary from './error-boundary';
 import VerificationBanner from '@/components/auth/VerificationBanner';
 import { FeaturesProvider } from '@/contexts/FeaturesContext';
 import type { FeaturesResponse } from '@/utils/api-client/features-client';
+import { UsageProvider } from '@/contexts/UsageContext';
+import type { UsageResponse } from '@/utils/api-client/usage-client';
 import { PermissionsProvider } from '@/contexts/PermissionsContext';
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
 import { AppShell } from '@/components/layout/AppShell';
@@ -72,6 +74,7 @@ export function ProtectedLayoutClient({
   initialFeatures,
   initialPermissions,
   initialTermsStatus,
+  initialUsage,
 }: {
   children: React.ReactNode;
   /** Server-fetched `GET /features` result, seeds FeaturesProvider so nav-gating capabilities are known on first paint (no client-side loading window). Null on fetch failure — client falls back to its own fetch. */
@@ -80,6 +83,8 @@ export function ProtectedLayoutClient({
   initialPermissions: string[] | null;
   /** Server-fetched `GET /auth/terms-status` result, passed to `TermsAcceptanceGate` so it can decide without its own client-side fetch. Null on fetch failure — the gate falls back to fetching on mount. */
   initialTermsStatus: TermsStatus | null;
+  /** Server-fetched `GET /usage` result, seeds UsageProvider for the same reason. Null on fetch failure — client falls back to its own fetch. */
+  initialUsage: UsageResponse | null;
 }) {
   const { data: session } = useSession();
   const pathname = usePathname();
@@ -102,15 +107,17 @@ export function ProtectedLayoutClient({
   return (
     <AuthErrorBoundary>
       <FeaturesProvider initialFeatures={initialFeatures}>
-        <PermissionsProvider initialPermissions={initialPermissions}>
-          <WebSocketProvider>
-            {!isOnboarding && (
-              <TermsAcceptanceGate initialTermsStatus={initialTermsStatus} />
-            )}
-            {!isOnboarding && !chromeless && <VerificationBanner />}
-            {content}
-          </WebSocketProvider>
-        </PermissionsProvider>
+        <UsageProvider initialUsage={initialUsage}>
+          <PermissionsProvider initialPermissions={initialPermissions}>
+            <WebSocketProvider>
+              {!isOnboarding && (
+                <TermsAcceptanceGate initialTermsStatus={initialTermsStatus} />
+              )}
+              {!isOnboarding && !chromeless && <VerificationBanner />}
+              {content}
+            </WebSocketProvider>
+          </PermissionsProvider>
+        </UsageProvider>
       </FeaturesProvider>
     </AuthErrorBoundary>
   );
