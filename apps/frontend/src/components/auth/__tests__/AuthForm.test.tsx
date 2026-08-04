@@ -62,9 +62,9 @@ function mockFetch(
 async function renderAndWaitForLoad(props: { isRegistration?: boolean } = {}) {
   mockFetch(makeProvidersResponse());
   render(<AuthForm {...props} />);
-  await screen.findByText(
-    props.isRegistration ? 'Create your account' : 'Welcome'
-  );
+  await screen.findByRole('heading', {
+    name: props.isRegistration ? 'Create your account' : 'Sign in',
+  });
 }
 
 beforeEach(() => {
@@ -93,7 +93,9 @@ describe('AuthForm — loading and error states', () => {
 describe('AuthForm — login mode', () => {
   it('renders the login headline and primary buttons after loading', async () => {
     await renderAndWaitForLoad();
-    expect(screen.getByText('Welcome')).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Sign in' })
+    ).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: /continue with email/i })
     ).toBeInTheDocument();
@@ -146,7 +148,7 @@ describe('AuthForm — login mode', () => {
       } as unknown as Response);
 
     render(<AuthForm />);
-    await screen.findByText('Welcome');
+    await screen.findByRole('heading', { name: 'Sign in' });
 
     await user.click(
       screen.getByRole('button', { name: /continue with email/i })
@@ -183,7 +185,7 @@ describe('AuthForm — login mode', () => {
       } as unknown as Response);
 
     render(<AuthForm />);
-    await screen.findByText('Welcome');
+    await screen.findByRole('heading', { name: 'Sign in' });
 
     await user.click(
       screen.getByRole('button', { name: /continue with email/i })
@@ -207,7 +209,9 @@ describe('AuthForm — registration mode', () => {
   it('renders the registration headline and name field', async () => {
     await renderAndWaitForLoad({ isRegistration: true });
 
-    expect(screen.getByText('Create your account')).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Create your account' })
+    ).toBeInTheDocument();
     expect(screen.getByLabelText(/^name/i)).toBeInTheDocument();
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
   });
