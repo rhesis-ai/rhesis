@@ -18,6 +18,17 @@ const LONG_RUNNING_PATH_PREFIXES = [
   '/garak/sync',
 ];
 
+/**
+ * Same idea, but for paths with a test-set id in the middle
+ * (`/explorer/{id}/suggestion_pipeline`), where a prefix match can't work.
+ */
+const LONG_RUNNING_PATH_SUFFIXES = [
+  '/suggestion_pipeline',
+  '/generate_outputs',
+  '/evaluate',
+  '/load-initial-data',
+];
+
 const LONG_RUNNING_TIMEOUT_MS = 300_000;
 
 /** Pick the timeout budget for a given backend-relative pathname. */
