@@ -26,6 +26,7 @@ const LONG_RUNNING_PATH_SUFFIXES = [
   '/suggestion_pipeline',
   '/generate_outputs',
   '/evaluate',
+  '/load-initial-data',
 ];
 
 const LONG_RUNNING_TIMEOUT_MS = 300_000;
