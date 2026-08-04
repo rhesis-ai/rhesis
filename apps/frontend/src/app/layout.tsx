@@ -57,6 +57,20 @@ import { Capability } from '../constants/capabilities';
 // Mark this layout as dynamic since it uses server-side authentication
 export const dynamic = 'force-dynamic';
 
+/**
+ * Sets `data-theme-mode` before first paint when the visitor has no stored
+ * preference, so the browser's `prefers-color-scheme` decides. Kept inline and
+ * render-blocking on purpose — deferring it would paint light first and flash.
+ */
+const THEME_MODE_SCRIPT = `(function(){try{
+  var el=document.documentElement;
+  if(el.getAttribute('data-theme-mode'))return;
+  var stored=localStorage.getItem('theme-mode');
+  var mode=(stored==='dark'||stored==='light')?stored:
+    (window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');
+  el.setAttribute('data-theme-mode',mode);
+}catch(e){}})();`;
+
 // This function will be used to get navigation items with dynamic data
 async function getNavigationItems(session: Session | null): Promise<{
   items: NavigationItem[];
@@ -277,8 +291,14 @@ const AUTHENTICATION: AuthenticationProps = {
 
 export default async function RootLayout(props: { children: React.ReactNode }) {
   const session = await auth().catch(() => null);
+  // Only an explicit choice pins the mode. When the cookie is absent we leave
+  // `data-theme-mode` off the <html> element so the pre-paint script below can
+  // resolve it from the browser's `prefers-color-scheme` — stamping 'light'
+  // here made `ThemeContextProvider`'s layout effect match the attribute and
+  // return early, so a first-time visitor never got their system dark mode.
   const themeCookie = (await cookies()).get('theme-mode')?.value;
-  const initialThemeMode = themeCookie === 'dark' ? 'dark' : 'light';
+  const storedThemeMode =
+    themeCookie === 'dark' || themeCookie === 'light' ? themeCookie : undefined;
 
   // Get navigation with dynamic organization name
   const {
@@ -338,14 +358,26 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
   const initialQuickStart = await fetchQuickStartEnabledServer();
 
   return (
-    <html lang="en" suppressHydrationWarning data-theme-mode={initialThemeMode}>
+    <html lang="en" suppressHydrationWarning data-theme-mode={storedThemeMode}>
+      <head>
+        {/*
+          Runs before first paint: when the visitor has made no explicit choice,
+          resolve the mode from the browser instead of defaulting to light.
+          `ThemeContextProvider` reads the attribute this sets, so the two agree
+          and there is no flash.
+        */}
+        <script
+          id="rhesis-theme-mode"
+          dangerouslySetInnerHTML={{ __html: THEME_MODE_SCRIPT }}
+        />
+      </head>
       <body suppressHydrationWarning>
         <Script id="rhesis-runtime-env" strategy="beforeInteractive">
           {runtimeEnvScript}
         </Script>
         <ThemeContextProvider
           disableTransitionOnChange
-          initialMode={initialThemeMode}
+          initialMode={storedThemeMode ?? 'light'}
         >
           <LayoutContent
             session={session}
