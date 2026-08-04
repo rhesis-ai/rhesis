@@ -1,114 +1,67 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Team Invitation - Rhesis AI</title>
-</head>
-<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-    <div style="background: #f8f9fa; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
-        <h2 style="color: #1D2939; margin-top: 0;">
-            🎉 You're Invited to Join {{ organization_name }}!
-        </h2>
-        <p>
-            Hello{{ ' ' + recipient_name if recipient_name else '' }},
-        </p>
-        <p>
-            <strong>{{ inviter_name }}</strong> has invited you to join their team on <strong>Rhesis AI</strong>, 
-            the comprehensive test management platform for Gen AI applications.
-        </p>
-    </div>
-    
-    <div style="background: white; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
-        <h3 style="color: #1D2939; margin-top: 0;">Organization Details</h3>
-        <table style="width: 100%; border-collapse: collapse;">
-            <tr>
-                <td style="padding: 8px 0; font-weight: bold;">Organization:</td>
-                <td style="padding: 8px 0;">{{ organization_name }}</td>
-            </tr>
-            <tr>
-                <td style="padding: 8px 0; font-weight: bold;">Invited by:</td>
-                <td style="padding: 8px 0;">{{ inviter_name }} ({{ inviter_email }})</td>
-            </tr>
-            <tr>
-                <td style="padding: 8px 0; font-weight: bold;">Your Email:</td>
-                <td style="padding: 8px 0;">{{ recipient_email }}</td>
-            </tr>
-            {% if organization_website -%}
-            <tr>
-                <td style="padding: 8px 0; font-weight: bold;">Website:</td>
-                <td style="padding: 8px 0;">
-                    <a href="{{ organization_website }}" style="color: #F38755; text-decoration: none;">
-                        {{ organization_website }}
-                    </a>
-                </td>
-            </tr>
-            {%- endif %}
-        </table>
-    </div>
+{% extends '_base.html.jinja2' %}
+{% import '_components.html.jinja2' as c %}
 
-    <div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
-        <h3 style="color: #1D2939; margin-top: 0;">What's Next?</h3>
-        <p style="margin-bottom: 15px;">
-            Your account has been created and you can start using Rhesis AI right away:
-        </p>
-        <ol style="margin: 0; padding-left: 20px;">
-            {% if sso_enabled -%}
-            <li style="margin-bottom: 8px;">Click the "Sign in with single sign-on" button below</li>
-            <li style="margin-bottom: 8px;">Sign in with your {{ organization_name }} account (single sign-on)</li>
-            {%- else -%}
-            <li style="margin-bottom: 8px;">Click the "Get Started" button below</li>
-            <li style="margin-bottom: 8px;">Sign in with your email address ({{ recipient_email }})</li>
-            {%- endif %}
-            <li style="margin-bottom: 8px;">Complete your profile setup</li>
-            <li>Start collaborating with your team!</li>
-        </ol>
-    </div>
+{% block title %}Team Invitation - Rhesis AI{% endblock %}
+{% block preheader %}{{ inviter_name }} invited you to join {{ organization_name }} on Rhesis AI.{% endblock %}
 
-    {% if sso_enabled -%}
-    <div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
-        <h3 style="color: #1D2939; margin-top: 0;">Single sign-on is enabled</h3>
-        <p style="margin: 0;">
-            {{ organization_name }} uses single sign-on, so you do not need a separate
-            Rhesis AI password. The button below takes you to your organization's
-            sign-in page. Use your usual work account.
-        </p>
-    </div>
-    {%- endif %}
+{% block content %}
+{{ c.row_header("You're invited to join", accent=organization_name, label='Team invitation') }}
 
-    {% if sso_enabled or frontend_url -%}
-    <div style="text-align: center; margin: 30px 0;">
-        <a href="{{ sso_login_url if sso_enabled else frontend_url }}"
-           style="display: inline-block; background-color: #F38755; color: white; padding: 12px 30px;
-                  text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 16px;">
-            {{ 'Sign in with single sign-on' if sso_enabled else 'Get Started' }}
-        </a>
-    </div>
-    {%- endif %}
+{% call c.row_prose() %}
+    {{ c.p("Hello" ~ (' ' ~ recipient_name if recipient_name and recipient_name != 'N/A' else '') ~ ",") }}
+    <p style="margin: 0; font-family: {{ brand.font.sans }}; font-size: {{ brand.type.body }}px; line-height: 1.6; color: {{ brand.color.body }};">
+        <span style="font-weight: 700;">{{ inviter_name }}</span> has invited you to join their team on <span style="font-weight: 700;">Rhesis AI</span>, the comprehensive test management platform for Gen AI applications.
+    </p>
+{% endcall %}
 
-    <div style="background: #f8f9fa; border-radius: 8px; padding: 15px; margin-top: 20px;">
-        <h4 style="color: #1D2939; margin-top: 0; margin-bottom: 10px;">About Rhesis AI</h4>
-        <p style="margin: 0; font-size: 14px; color: #6c757d;">
-            Rhesis AI is a comprehensive test management platform specifically designed for Gen AI applications. 
-            Evaluate, manage, and improve your AI systems with advanced testing frameworks, collaborative 
-            workflows, and detailed performance insights.
-        </p>
-    </div>
+{#- A card, because it is a details table — a tile, not prose. -#}
+{% call c.row_card() %}
+    {{ c.card_title('Organization details') }}
+    {%- set rows = [
+        {'label': 'Organization', 'value': organization_name, 'bold': True},
+        {'label': 'Invited by', 'value': inviter_name ~ ' (' ~ inviter_email ~ ')'},
+        {'label': 'Your email', 'value': recipient_email},
+    ] -%}
+    {%- if organization_website and organization_website != 'N/A' -%}
+    {%- set rows = rows + [{'label': 'Website', 'value': organization_website, 'url': organization_website}] -%}
+    {%- endif -%}
+    {{ c.kv_table(rows) }}
+{% endcall %}
 
-    <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #dee2e6; text-align: center;">
-        <p style="margin: 0; font-size: 12px; color: #6c757d;">
-            This invitation was sent by {{ inviter_name }} from {{ organization_name }}.
-            <br>
-            If you have any questions, please contact them directly or reach out to our support team.
-        </p>
-        <p style="margin: 10px 0 0 0; font-size: 12px; color: #6c757d;">
-            Best regards,<br>
-            <strong>The Rhesis AI Team</strong>
-        </p>
-        
-        <div style="text-align: left;">
-            {% include '_imprint.html.jinja2' %}
-        </div>
-    </div>
-</body>
-</html> 
+{% call c.row_prose() %}
+    {{ c.subhead("What's next?") }}
+    {{ c.p('Your account has been created and you can start using Rhesis AI right away:') }}
+    {% if sso_enabled %}
+    {{ c.bullets([
+        'Click the "Sign in with single sign-on" button below',
+        'Sign in with your ' ~ organization_name ~ ' account (single sign-on)',
+        'Complete your profile setup',
+        'Start collaborating with your team',
+    ], ordered=True) }}
+    {{ c.p(organization_name ~ " uses single sign-on, so you do not need a separate Rhesis AI password. The button below takes you to your organization's sign-in page — use your usual work account.", size=brand.type.small, color=brand.color.muted, bottom=0) }}
+    {% else %}
+    {{ c.bullets([
+        'Click the "Get started" button below',
+        'Sign in with your email address (' ~ recipient_email ~ ')',
+        'Complete your profile setup',
+        'Start collaborating with your team',
+    ], ordered=True) }}
+    {% endif %}
+{% endcall %}
+
+{% if sso_enabled or (frontend_url and frontend_url != 'N/A') %}
+{{ c.row_button(
+    sso_login_url if sso_enabled else frontend_url,
+    'Sign in with single sign-on' if sso_enabled else 'Get started',
+) }}
+{% endif %}
+
+{{ c.row_rule() }}
+
+{% call c.row_prose() %}
+    {{ c.subhead('About Rhesis AI') }}
+    {{ c.p('Rhesis AI is a comprehensive test management platform specifically designed for Gen AI applications. Evaluate, manage, and improve your AI systems with advanced testing frameworks, collaborative workflows, and detailed performance insights.', size=brand.type.small, bottom=0) }}
+{% endcall %}
+
+{{ c.row_note('This invitation was sent by ' ~ inviter_name ~ ' from ' ~ organization_name ~ '. If you have any questions, please contact them directly or reach out to our support team.') }}
+{% endblock %}

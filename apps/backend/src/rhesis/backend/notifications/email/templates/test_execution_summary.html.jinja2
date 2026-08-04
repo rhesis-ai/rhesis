@@ -1,131 +1,72 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Test Execution Summary</title>
-</head>
-<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-    <div style="background: #f8f9fa; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
-        <h2 style="color: #2c3e50; margin-top: 0;">
-            {% if execution_status == "Complete" -%}
-            ✅ Test Execution Complete
-            {%- elif execution_status == "Partial" -%}
-            ⚠️ Test Execution Partial
-            {%- else -%}
-            ❌ Test Execution Failed
-            {%- endif %}
-        </h2>
-        <p>
-            {%- if recipient_name -%}
-            Hello {{ recipient_name }},
-            {%- else -%}
-            Hello,
-            {%- endif %}
-        </p>
-        <p>Your test configuration execution has finished.</p>
-    </div>
+{% extends '_base.html.jinja2' %}
+{% import '_components.html.jinja2' as c %}
 
-    {%- set execution_errors = execution_errors | default(0) %}
-    {%- set tests_failed = tests_failed | default(0) %}
-    {%- set tests_passed = tests_passed | default(0) %}
-    {%- set total_tests = total_tests | default(0) %}
-    <div style="background: {% if tests_failed == 0 and execution_errors == 0 %}#d4edda{% else %}#f8d7da{% endif %}; border: 2px solid {% if tests_failed == 0 and execution_errors == 0 %}#28a745{% else %}#dc3545{% endif %}; border-radius: 8px; padding: 20px; margin-bottom: 20px; text-align: center;">
-        <h3 style="color: {% if tests_failed == 0 and execution_errors == 0 %}#155724{% else %}#721c24{% endif %}; margin-top: 0; margin-bottom: 10px;">Test Results</h3>
-        <div style="font-size: 36px; font-weight: bold; margin: 10px 0;">
-            {%- if tests_failed == 0 and execution_errors == 0 -%}
-            <span style="color: #28a745;">✓ {{ tests_passed }}/{{ total_tests }} Passed</span>
-            {%- else -%}
-            <span style="color: #dc3545;">✗ {{ tests_failed }}/{{ total_tests }} Failed</span>
-            {%- endif -%}
-        </div>
-        {%- if execution_errors > 0 %}
-        <div style="font-size: 18px; color: #856404; margin-top: 10px;">
-            ⚠ {{ execution_errors }} test{{ 's' if execution_errors != 1 else '' }} had execution errors
-        </div>
-        {%- endif %}
-    </div>
+{% block title %}Test Execution Summary - Rhesis AI{% endblock %}
+{% block preheader %}{{ tests_passed | default(0) }} of {{ total_tests | default(0) }} tests passed on {{ task_name }}.{% endblock %}
 
-    <div style="background: white; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
-        <h3 style="color: #495057; margin-top: 0;">Execution Details</h3>
-        <table style="width: 100%; border-collapse: collapse;">
-            <tr>
-                <td style="padding: 8px 0; font-weight: bold;">Test Configuration:</td>
-                <td style="padding: 8px 0;">{{ task_name }}</td>
-            </tr>
-            {%- if project_name %}
-            <tr>
-                <td style="padding: 8px 0; font-weight: bold;">Project:</td>
-                <td style="padding: 8px 0;">{{ project_name }}</td>
-            </tr>
-            {%- endif %}
-            {%- if test_set_name %}
-            <tr>
-                <td style="padding: 8px 0; font-weight: bold;">Test Set:</td>
-                <td style="padding: 8px 0;">{{ test_set_name }}</td>
-            </tr>
-            {%- endif %}
-            {%- if endpoint_name %}
-            <tr>
-                <td style="padding: 8px 0; font-weight: bold;">Endpoint:</td>
-                <td style="padding: 8px 0;">
-                    {%- if endpoint_url -%}
-                    <a href="{{ endpoint_url }}" style="color: #007bff; text-decoration: none;">{{ endpoint_name }}</a>
-                    {%- else -%}
-                    {{ endpoint_name }}
-                    {%- endif -%}
-                </td>
-            </tr>
-            {%- endif %}
-            <tr>
-                <td style="padding: 8px 0; font-weight: bold;">Total Tests:</td>
-                <td style="padding: 8px 0;">{{ total_tests }}</td>
-            </tr>
-            <tr>
-                <td style="padding: 8px 0; font-weight: bold;">Tests Passed:</td>
-                <td style="padding: 8px 0; color: #28a745; font-weight: bold;">{{ tests_passed }}</td>
-            </tr>
-            <tr>
-                <td style="padding: 8px 0; font-weight: bold;">Tests Failed:</td>
-                <td style="padding: 8px 0; color: #dc3545; font-weight: bold;">{{ tests_failed }}</td>
-            </tr>
-            {%- if execution_errors is defined and execution_errors > 0 %}
-            <tr>
-                <td style="padding: 8px 0; font-weight: bold;">Execution Errors:</td>
-                <td style="padding: 8px 0; color: #ff8c00; font-weight: bold;">{{ execution_errors }}</td>
-            </tr>
-            {%- endif %}
-            <tr>
-                <td style="padding: 8px 0; font-weight: bold;">Execution Time:</td>
-                <td style="padding: 8px 0;">{{ execution_time or "N/A" }}</td>
-            </tr>
-            <tr>
-                <td style="padding: 8px 0; font-weight: bold;">Completed at:</td>
-                <td style="padding: 8px 0;">{{ completed_at }} UTC</td>
-            </tr>
-        </table>
-    </div>
+{% block content %}
+{%- set execution_errors = execution_errors | default(0) | int %}
+{%- set tests_failed = tests_failed | default(0) | int %}
+{%- set tests_passed = tests_passed | default(0) | int %}
+{%- set total_tests = total_tests | default(0) | int %}
+{%- set clean = tests_failed == 0 and execution_errors == 0 %}
 
-    {%- if status_details %}
-    <div style="background: {% if status.lower() == 'success' %}#d4edda{% elif status.lower() == 'partial' %}#fff3cd{% else %}#f8d7da{% endif %}; border: 1px solid {% if status.lower() == 'success' %}#c3e6cb{% elif status.lower() == 'partial' %}#ffeaa7{% else %}#f5c6cb{% endif %}; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
-        <h3 style="color: {% if status.lower() == 'success' %}#155724{% elif status.lower() == 'partial' %}#856404{% else %}#721c24{% endif %}; margin-top: 0;">Result Details</h3>
-        <p style="color: {% if status.lower() == 'success' %}#155724{% elif status.lower() == 'partial' %}#856404{% else %}#721c24{% endif %}; margin: 0;">{{ status_details }}</p>
-    </div>
-    {%- endif %}
+{% if execution_status == 'Complete' %}
+{{ c.row_header('Test execution', accent='complete', lede='Your test configuration execution has finished.', label='Test run') }}
+{% elif execution_status == 'Partial' %}
+{{ c.row_header('Test execution', accent='partial', lede='Your test configuration execution has finished.', label='Test run') }}
+{% else %}
+{{ c.row_header('Test execution', accent='failed', lede='Your test configuration execution has finished.', label='Test run') }}
+{% endif %}
 
-    {%- if frontend_url and test_run_id %}
-    <div style="text-align: center; margin: 30px 0;">
-        <a href="{{ frontend_url }}/test-runs/{{ test_run_id }}"
-           style="background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">
-            View Test Run
-        </a>
-    </div>
-    {%- endif %}
+{#- The headline number, in the site's light-weight stat treatment. -#}
+{% if clean %}
+{{ c.row_stat(tests_passed ~ '/' ~ total_tests ~ ' passed', label='Every test passed.', tone='success') }}
+{% else %}
+{{ c.row_stat(
+    tests_failed ~ '/' ~ total_tests ~ ' failed',
+    label=(execution_errors ~ ' test' ~ ('s' if execution_errors != 1 else '') ~ ' also had execution errors.') if execution_errors > 0 else None,
+    tone='error',
+) }}
+{% endif %}
 
-    <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #dee2e6; color: #6c757d; font-size: 0.9em;">
-        <p>Best regards,<br>Rhesis AI Team</p>
+{% call c.row_card() %}
+    {{ c.card_title('Execution details') }}
+    {%- set rows = [{'label': 'Test configuration', 'value': task_name, 'bold': True}] -%}
+    {%- if project_name and project_name != 'N/A' -%}
+    {%- set rows = rows + [{'label': 'Project', 'value': project_name}] -%}
+    {%- endif -%}
+    {%- if test_set_name and test_set_name != 'N/A' -%}
+    {%- set rows = rows + [{'label': 'Test set', 'value': test_set_name}] -%}
+    {%- endif -%}
+    {%- if endpoint_name and endpoint_name != 'N/A' -%}
+    {%- set rows = rows + [{
+        'label': 'Endpoint',
+        'value': endpoint_name,
+        'url': endpoint_url if endpoint_url and endpoint_url != 'N/A' else None,
+    }] -%}
+    {%- endif -%}
+    {%- set rows = rows + [
+        {'label': 'Total tests', 'value': total_tests},
+        {'label': 'Tests passed', 'value': tests_passed, 'color': brand.color.success, 'bold': True},
+        {'label': 'Tests failed', 'value': tests_failed, 'color': brand.color.error, 'bold': True},
+    ] -%}
+    {%- if execution_errors > 0 -%}
+    {%- set rows = rows + [{'label': 'Execution errors', 'value': execution_errors, 'color': brand.color.warning, 'bold': True}] -%}
+    {%- endif -%}
+    {%- set rows = rows + [
+        {'label': 'Execution time', 'value': execution_time if execution_time and execution_time != 'N/A' else 'N/A'},
+        {'label': 'Completed at', 'value': (completed_at | datetime_format) ~ ' UTC'},
+    ] -%}
+    {{ c.kv_table(rows) }}
+{% endcall %}
 
-        {% include '_imprint.html.jinja2' %}
-    </div>
-</body>
-</html>
+{% if status_details and status_details != 'N/A' %}
+{%- set tone = 'success' if status.lower() == 'success' else ('warning' if status.lower() == 'partial' else 'error') %}
+{{ c.row_callout(status_details, kind=tone, title='Result details') }}
+{% endif %}
+
+{% if frontend_url and frontend_url != 'N/A' and test_run_id and test_run_id != 'N/A' %}
+{{ c.row_button(frontend_url ~ '/test-runs/' ~ test_run_id, 'View test run') }}
+{% endif %}
+{% endblock %}

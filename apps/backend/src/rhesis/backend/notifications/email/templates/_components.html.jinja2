@@ -1,0 +1,309 @@
+{#-
+  Email building blocks. Every macro emits inline styles built from `brand`,
+  because classes can't be relied on: Gmail strips some <style> rules and
+  Outlook Windows ignores most of the box model.
+
+  Macros whose name starts with `row_` emit a full <tr> and belong directly in
+  a template's {% block content %}. The rest emit fragments for use inside one.
+
+  ## Layout model — read this before adding a box
+
+  It follows the site, which has exactly two surfaces:
+
+  1. The canvas. Headlines, body copy, lists, sign-offs, and small print all
+     sit directly on it with no container. This is the default. On the site,
+     prose is never boxed.
+  2. One card. White, 24px radius, defined by the site's soft shadow with the
+     lightest possible border behind it for Outlook. Reserved for discrete
+     tiles — a details table, a stat, a code block. Never for a paragraph.
+
+  There is no third surface: no grey recessed panels, no bordered rectangles,
+  no blue-ruled quote blocks. Semantic tints (success / warning / error) are
+  the one exception, because they carry meaning rather than decoration, and
+  the app colour-codes status the same way.
+
+  Buttons are pills, matching the site's rounded-full CTAs. They are table
+  cells with border-radius, not VML roundrects: Outlook Windows squares the
+  corners, which still reads as an intentional solid button, whereas VML needs
+  a hardcoded pixel width per button that breaks whenever a label changes.
+-#}
+
+{#- ─────────────────────────── canvas-level type ─────────────────────────── -#}
+
+{#- Small uppercase mono label. Mirrors the site's hero badges and footer
+    column headers. -#}
+{% macro eyebrow(text) -%}
+<div style="font-family: {{ brand.font.mono }}; font-size: {{ brand.type.label }}px; font-weight: 400; line-height: 1.4; letter-spacing: 0.6px; text-transform: uppercase; color: {{ brand.color.muted }}; padding-bottom: 10px;">{{ text }}</div>
+{%- endmacro %}
+
+{#- Page headline. `accent` renders as the site's light-weight blue tail on an
+    otherwise bold black headline. -#}
+{% macro headline(text, accent=None) -%}
+<h1 class="sm-h1" style="margin: 0; font-family: {{ brand.font.sans }}; font-size: {{ brand.type.headline }}px; font-weight: 700; line-height: 1.15; letter-spacing: -0.01em; color: {{ brand.color.heading }};">{{ text }}{% if accent %} <span style="font-weight: 300; color: {{ brand.color.blue }};">{{ accent }}</span>{% endif %}</h1>
+{%- endmacro %}
+
+{% macro subhead(text) -%}
+<h2 style="margin: 0 0 10px 0; font-family: {{ brand.font.sans }}; font-size: {{ brand.type.lede }}px; font-weight: 700; line-height: 1.3; color: {{ brand.color.heading }};">{{ text }}</h2>
+{%- endmacro %}
+
+{% macro card_title(text) -%}
+<h3 style="margin: 0 0 14px 0; font-family: {{ brand.font.sans }}; font-size: {{ brand.type.body }}px; font-weight: 700; line-height: 1.3; color: {{ brand.color.heading }};">{{ text }}</h3>
+{%- endmacro %}
+
+{% macro p(text, size=None, color=None, top=0, bottom=16) -%}
+{%- set size = size or brand.type.body -%}
+<p style="margin: {{ top }}px 0 {{ bottom }}px 0; font-family: {{ brand.font.sans }}; font-size: {{ size }}px; font-weight: 400; line-height: 1.6; color: {{ color or brand.color.body }};">{{ text }}</p>
+{%- endmacro %}
+
+{#- Bulleted or numbered list. Email needs the margins stated explicitly. -#}
+{% macro bullets(items, ordered=False) -%}
+{%- set tag = 'ol' if ordered else 'ul' -%}
+<{{ tag }} style="margin: 0 0 16px 0; padding-left: 22px; font-family: {{ brand.font.sans }}; font-size: {{ brand.type.body }}px; font-weight: 400; line-height: 1.6; color: {{ brand.color.body }};">
+    {% for item in items %}
+    <li style="margin-bottom: 8px;">{{ item }}</li>
+    {% endfor %}
+</{{ tag }}>
+{%- endmacro %}
+
+{#- Inline link, so templates don't restate the colour. -#}
+{% macro link(url, label) -%}
+<a href="{{ url }}" style="color: {{ brand.color.blue }}; text-decoration: none; font-weight: 500;">{{ label }}</a>
+{%- endmacro %}
+
+{#- Inline monospace value: IDs, tokens, anything meant to be copied. -#}
+{% macro mono(text) -%}
+<span style="font-family: {{ brand.font.mono }}; font-size: {{ brand.type.small }}px; color: {{ brand.color.body }}; word-break: break-all;">{{ text }}</span>
+{%- endmacro %}
+
+{#- User-supplied prose that has to keep its own line breaks. -#}
+{% macro quoted(text) -%}
+<div style="font-family: {{ brand.font.sans }}; font-size: {{ brand.type.body }}px; font-weight: 400; line-height: 1.65; color: {{ brand.color.body }}; white-space: pre-wrap;">{{ text }}</div>
+{%- endmacro %}
+
+{#- ───────────────────────────── canvas rows ─────────────────────────────── -#}
+
+{#- Header block: eyebrow + headline + optional lede. The brand wash sits
+    behind this on the content table (see _base.html.jinja2), so nothing here
+    carries a background. -#}
+{% macro row_header(title, lede=None, accent=None, label=None) -%}
+<tr>
+    <td class="sm-px" style="padding: 18px 0 22px 0;">
+        {% if label %}{{ eyebrow(label) }}{% endif %}
+        {{ headline(title, accent) }}
+        {% if lede %}
+        <p style="margin: 14px 0 0 0; font-family: {{ brand.font.sans }}; font-size: {{ brand.type.lede }}px; font-weight: 400; line-height: 1.45; color: {{ brand.color.body }};">{{ lede }}</p>
+        {% endif %}
+    </td>
+</tr>
+{%- endmacro %}
+
+{#- Prose on the canvas. This is the default container for body copy — use it
+    instead of wrapping paragraphs in a card. -#}
+{% macro row_prose(bottom=22) %}
+<tr>
+    <td class="sm-px" style="padding: 0 0 {{ bottom }}px 0; font-family: {{ brand.font.sans }}; font-size: {{ brand.type.body }}px; line-height: 1.6; color: {{ brand.color.body }};">
+        {{ caller() }}
+    </td>
+</tr>
+{% endmacro %}
+
+{#- Small print: security notes, "ignore this if you didn't ask" lines. -#}
+{% macro row_note(text) -%}
+<tr>
+    <td class="sm-px" style="padding: 0 0 22px 0; font-family: {{ brand.font.sans }}; font-size: {{ brand.type.small }}px; font-weight: 400; line-height: 1.6; color: {{ brand.color.muted }};">{{ text }}</td>
+</tr>
+{%- endmacro %}
+
+{#- Copy-pasteable URL for when the button doesn't survive the client. Plain
+    small print on the canvas — it used to be a grey panel, which made a
+    fallback affordance louder than the button it backs up. -#}
+{% macro row_fallback_link(url, note='If the button does not work, copy and paste this link into your browser:') -%}
+<tr>
+    <td class="sm-px" style="padding: 0 0 22px 0; font-family: {{ brand.font.sans }}; font-size: {{ brand.type.small }}px; font-weight: 400; line-height: 1.6; color: {{ brand.color.muted }};">
+        {{ note }}<br>
+        <a href="{{ url }}" style="color: {{ brand.color.blue }}; text-decoration: none; word-break: break-all;">{{ url }}</a>
+    </td>
+</tr>
+{%- endmacro %}
+
+{% macro row_spacer(height=8) -%}
+<tr><td style="height: {{ height }}px; font-size: 0; line-height: 0;">&nbsp;</td></tr>
+{%- endmacro %}
+
+{#- Hairline rule, for separating canvas sections without boxing them. -#}
+{% macro row_rule(bottom=22) -%}
+<tr>
+    <td style="padding: 0 0 {{ bottom }}px 0;">
+        <div style="height: 1px; background-color: {{ brand.color.border }}; font-size: 0; line-height: 0;">&nbsp;</div>
+    </td>
+</tr>
+{%- endmacro %}
+
+{#- ──────────────────────────────── the card ─────────────────────────────── -#}
+
+{#- The one card. White, 24px, shadow-defined like the site's.
+    Use as {% call card() %}...{% endcall %} — and only for a tile, never for a
+    paragraph. -#}
+{% macro card(align='left') %}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width: 100%; background-color: {{ brand.color.surface }}; border: 1px solid {{ brand.color.card_edge }}; border-radius: {{ brand.layout.radius_card }}px; box-shadow: {{ brand.layout.shadow_card }};">
+    <tr>
+        <td class="sm-px" align="{{ align }}" style="padding: 26px {{ brand.layout.gutter - 4 }}px; font-family: {{ brand.font.sans }}; font-size: {{ brand.type.body }}px; line-height: 1.6; color: {{ brand.color.body }};">
+            {{ caller() }}
+        </td>
+    </tr>
+</table>
+{% endmacro %}
+
+{#- The card as a top-level row, with the vertical rhythm applied.
+    `caller()` has to be captured before the inner {% call %}, which rebinds
+    `caller` to its own (empty) block. -#}
+{% macro row_card(align='left') %}
+{%- set body = caller() -%}
+<tr>
+    <td style="padding: 0 0 22px 0;">
+        {% call card(align=align) %}{{ body }}{% endcall %}
+    </td>
+</tr>
+{% endmacro %}
+
+{#- ──────────────────────────────── content ──────────────────────────────── -#}
+
+{#- Label/value table. Belongs inside a card. Each row is a dict:
+      label  (str, required)
+      value  (str, required)
+      url    (str, optional)  renders the value as a link
+      color  (str, optional)  overrides the value colour
+      bold   (bool, optional)
+      mono   (bool, optional) monospace, for IDs and other copied values -#}
+{% macro kv_table(rows) -%}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width: 100%;">
+    {% for row in rows %}
+    <tr>
+        <td width="42%" valign="top" style="width: 42%; padding: 9px 12px 9px 0; {% if not loop.last %}border-bottom: 1px solid {{ brand.color.card_edge }};{% endif %} font-family: {{ brand.font.sans }}; font-size: {{ brand.type.small }}px; font-weight: 500; line-height: 1.5; color: {{ brand.color.muted }};">{{ row.label }}</td>
+        <td valign="top" style="padding: 9px 0; {% if not loop.last %}border-bottom: 1px solid {{ brand.color.card_edge }};{% endif %} font-family: {{ brand.font.mono if row.mono else brand.font.sans }}; font-size: {{ brand.type.small if row.mono else brand.type.body }}px; font-weight: {{ 700 if row.bold else 400 }}; line-height: 1.5; color: {{ row.color or brand.color.heading }}; word-break: break-word;">
+            {%- if row.url -%}
+            <a href="{{ row.url }}" style="color: {{ brand.color.blue }}; text-decoration: none; font-weight: {{ 700 if row.bold else 500 }};">{{ row.value }}</a>
+            {%- else -%}
+            {{ row.value }}
+            {%- endif -%}
+        </td>
+    </tr>
+    {% endfor %}
+</table>
+{%- endmacro %}
+
+{#- Preformatted block that keeps its line breaks. `tone`: dark (for commands)
+    or error (for stack traces and failure output). -#}
+{% macro code_block(text, tone='dark') -%}
+{%- if tone == 'error' -%}
+{%- set bg, fg = brand.color.error_tint, brand.color.error -%}
+{%- else -%}
+{%- set bg, fg = brand.color.heading, '#ffffff' -%}
+{%- endif -%}
+<div style="margin: 0 0 12px 0; padding: 14px 16px; background-color: {{ bg }}; border-radius: 10px; font-family: {{ brand.font.mono }}; font-size: {{ brand.type.small }}px; font-weight: 400; line-height: 1.5; color: {{ fg }}; white-space: pre-wrap; word-break: break-word;">{{ text }}</div>
+{%- endmacro %}
+
+{#- Call-to-action button. `variant`: primary (solid blue) or secondary
+    (outlined). -#}
+{% macro button(url, label, variant='primary', align='center') -%}
+{%- if variant == 'secondary' -%}
+{%- set bg = brand.color.canvas -%}
+{%- set fg = brand.color.button -%}
+{%- set border = '2px solid ' ~ brand.color.button -%}
+{%- set pad = '13px 28px' -%}
+{%- else -%}
+{%- set bg = brand.color.button -%}
+{%- set fg = brand.color.inverse -%}
+{%- set border = '0' -%}
+{%- set pad = '15px 30px' -%}
+{%- endif -%}
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="{{ align }}" style="{% if align == 'center' %}margin: 0 auto;{% endif %}">
+    <tr>
+        <td bgcolor="{{ bg }}" style="background-color: {{ bg }}; border: {{ border }}; border-radius: {{ brand.layout.radius_button }}px;">
+            <a href="{{ url }}" style="display: inline-block; padding: {{ pad }}; font-family: {{ brand.font.sans }}; font-size: {{ brand.type.body }}px; font-weight: 700; line-height: 1; color: {{ fg }}; text-decoration: none; white-space: nowrap;">{{ label }}</a>
+        </td>
+    </tr>
+</table>
+{%- endmacro %}
+
+{% macro row_button(url, label, variant='primary') -%}
+<tr>
+    <td align="center" style="padding: 2px 0 26px 0;">
+        {{ button(url, label, variant) }}
+    </td>
+</tr>
+{%- endmacro %}
+
+{#- ─────────────────── semantic tints (meaning, not decor) ────────────────── -#}
+
+{#- fill / edge / accent per tone. A module-level set is visible to the macros
+    below, and `brand` resolves because it is an environment global. -#}
+{% set TONES = {
+    'success': (brand.color.success_tint, brand.color.success_border, brand.color.success),
+    'warning': (brand.color.warning_tint, brand.color.warning_border, brand.color.warning),
+    'error': (brand.color.error_tint, brand.color.error_border, brand.color.error),
+    'neutral': (brand.color.surface, brand.color.card_edge, brand.color.blue),
+} %}
+
+{#- Headline number, in the site's light-weight stat style. `tone`:
+    success | error | warning | neutral. -#}
+{% macro row_stat(value, label=None, tone='neutral') -%}
+{%- set fill, edge, accent = TONES.get(tone, TONES['neutral']) -%}
+<tr>
+    <td style="padding: 0 0 22px 0;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width: 100%; background-color: {{ fill }}; border: 1px solid {{ edge }}; border-radius: {{ brand.layout.radius_card }}px; box-shadow: {{ brand.layout.shadow_card }};">
+            <tr>
+                <td align="center" class="sm-px" style="padding: 30px {{ brand.layout.gutter }}px;">
+                    <div class="sm-stat" style="font-family: {{ brand.font.sans }}; font-size: {{ brand.type.headline * 3 // 2 }}px; font-weight: 300; line-height: 1.05; color: {{ accent }};">{{ value }}</div>
+                    {% if label %}
+                    <div style="padding-top: 10px; font-family: {{ brand.font.sans }}; font-size: {{ brand.type.body }}px; font-weight: 500; line-height: 1.4; color: {{ brand.color.body }};">{{ label }}</div>
+                    {% endif %}
+                </td>
+            </tr>
+        </table>
+    </td>
+</tr>
+{%- endmacro %}
+
+{#- Tinted note. `kind`: success | warning | error. A neutral note is just
+    prose — use row_prose instead of asking for one here. -#}
+{% macro row_callout(text, kind='warning', title=None) -%}
+{%- set fill, edge, accent = TONES.get(kind, TONES['warning']) -%}
+<tr>
+    <td style="padding: 0 0 22px 0;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width: 100%; background-color: {{ fill }}; border: 1px solid {{ edge }}; border-radius: {{ brand.layout.radius_card }}px;">
+            <tr>
+                <td class="sm-px" style="padding: 20px {{ brand.layout.gutter - 4 }}px;">
+                    {% if title %}
+                    <div style="padding-bottom: 6px; font-family: {{ brand.font.sans }}; font-size: {{ brand.type.body }}px; font-weight: 700; line-height: 1.4; color: {{ accent }};">{{ title }}</div>
+                    {% endif %}
+                    <div style="font-family: {{ brand.font.sans }}; font-size: {{ brand.type.body }}px; font-weight: 400; line-height: 1.6; color: {{ brand.color.body }};">{{ text }}</div>
+                </td>
+            </tr>
+        </table>
+    </td>
+</tr>
+{%- endmacro %}
+
+{#- Inline pill, for status and priority values. `tone`: neutral | success |
+    warning | error — keeps the priority colour-coding the old templates had. -#}
+{% macro chip(text, tone='neutral') -%}
+{%- if tone == 'success' -%}
+{%- set bg, fg = brand.color.success_tint, brand.color.success -%}
+{%- elif tone == 'warning' -%}
+{%- set bg, fg = brand.color.warning_tint, brand.color.warning -%}
+{%- elif tone == 'error' -%}
+{%- set bg, fg = brand.color.error_tint, brand.color.error -%}
+{%- else -%}
+{%- set bg, fg = brand.color.surface_subtle, brand.color.blue -%}
+{%- endif -%}
+<span style="display: inline-block; padding: 4px 12px; background-color: {{ bg }}; border-radius: {{ brand.layout.radius_chip }}px; font-family: {{ brand.font.mono }}; font-size: {{ brand.type.label }}px; font-weight: 400; line-height: 1.5; letter-spacing: 0.6px; text-transform: uppercase; color: {{ fg }}; white-space: nowrap;">{{ text }}</span>
+{%- endmacro %}
+
+{#- Maps a priority name onto a chip tone. -#}
+{% macro priority_tone(name) -%}
+{%- if name and name.lower() == 'high' -%}error
+{%- elif name and name.lower() == 'medium' -%}warning
+{%- else -%}success
+{%- endif -%}
+{%- endmacro %}
