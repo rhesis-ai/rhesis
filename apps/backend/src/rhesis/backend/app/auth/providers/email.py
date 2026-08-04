@@ -8,6 +8,7 @@ including user registration and login.
 import logging
 from typing import Optional
 
+import anyio
 from fastapi import HTTPException, Request, status
 from sqlalchemy.orm import Session
 
@@ -213,9 +214,12 @@ class EmailProvider(AuthProvider):
         from rhesis.backend.app.schemas import UserCreate
         from rhesis.backend.app.utils.validation import validate_and_normalize_email
 
-        # Validate, normalize, and verify the email domain can receive mail
+        # Validate, normalize, and verify the email domain can receive mail.
+        # Runs in a thread since it does blocking DNS I/O and this is an async endpoint.
         try:
-            normalized_email = validate_and_normalize_email(email, check_deliverability=True)
+            normalized_email = await anyio.to_thread.run_sync(
+                validate_and_normalize_email, email, True
+            )
         except ValueError as e:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
