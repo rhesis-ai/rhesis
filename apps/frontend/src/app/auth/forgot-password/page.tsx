@@ -13,11 +13,10 @@ import EmailIcon from '@mui/icons-material/EmailOutlined';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { getClientApiBaseUrl } from '@/utils/url-resolver';
 import AuthPageShell from '@/components/auth/AuthPageShell';
-
-const SUBTLE_TEXT = '#6B7280'; // Intentional: auth form subtle text
-const BUTTON_HOVER = '#3aabcf'; // Intentional: auth form button hover
+import { useAuthStyles } from '@/components/auth/useAuthStyles';
 
 export default function ForgotPasswordPage() {
+  const { tokens, heading, subheading, primaryButton, field } = useAuthStyles();
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -62,25 +61,11 @@ export default function ForgotPasswordPage() {
             alignItems: 'center',
           }}
         >
-          <EmailIcon sx={{ fontSize: 48, color: 'primary.main' }} />
-          <Typography
-            sx={{
-              fontSize: 24,
-              fontWeight: 700,
-              color: 'secondary.dark',
-              textAlign: 'center',
-              letterSpacing: '-0.02em',
-            }}
-          >
+          <EmailIcon sx={{ fontSize: 48, color: tokens.accent }} />
+          <Typography sx={{ ...heading, textAlign: 'center' }}>
             Check your email
           </Typography>
-          <Typography
-            sx={{
-              fontSize: 14,
-              color: SUBTLE_TEXT,
-              textAlign: 'center',
-            }}
-          >
+          <Typography sx={{ ...subheading, textAlign: 'center' }}>
             If an account exists for <strong>{email}</strong>, we&apos;ve sent a
             password reset link. Check your inbox and spam folder.
           </Typography>
@@ -101,26 +86,10 @@ export default function ForgotPasswordPage() {
             gap: 2,
           }}
         >
-          <Typography
-            sx={{
-              fontSize: 24,
-              fontWeight: 700,
-              color: 'secondary.dark',
-              textAlign: 'center',
-              letterSpacing: '-0.02em',
-              mb: 0,
-            }}
-          >
+          <Typography sx={{ ...heading, textAlign: 'center' }}>
             Forgot your password?
           </Typography>
-          <Typography
-            sx={{
-              fontSize: 14,
-              color: SUBTLE_TEXT,
-              textAlign: 'center',
-              mb: 2,
-            }}
-          >
+          <Typography sx={{ ...subheading, textAlign: 'center', mb: 2 }}>
             Enter your email and we&apos;ll send you a reset link.
           </Typography>
 
@@ -143,6 +112,7 @@ export default function ForgotPasswordPage() {
               size="small"
               autoComplete="email"
               autoFocus
+              sx={field}
             />
             {error && (
               <Alert severity="error" sx={{ py: 0 }}>
@@ -158,15 +128,7 @@ export default function ForgotPasswordPage() {
               startIcon={
                 loading ? <CircularProgress size={20} /> : <EmailIcon />
               }
-              sx={{
-                height: 46,
-                borderRadius: '10px', // Intentional: button border radius
-                bgcolor: 'primary.main',
-                '&:hover': {
-                  bgcolor: BUTTON_HOVER,
-                  boxShadow: '0 4px 12px rgba(80,185,224,0.3)', // Intentional: button hover glow
-                },
-              }}
+              sx={primaryButton}
             >
               Send reset link
             </Button>

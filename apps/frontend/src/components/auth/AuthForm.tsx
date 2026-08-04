@@ -28,13 +28,8 @@ import {
   DEFAULT_PASSWORD_POLICY,
   validatePassword,
 } from '../../utils/validation';
-
-const SUBTLE_TEXT = '#6B7280'; // Intentional: auth form subtle text
-const FORM_TEXT = '#374151'; // Intentional: auth form text color
-const FORM_BORDER = '#E5E7EB'; // Intentional: auth form border color
-const HOVER_BORDER = '#D1D5DB'; // Intentional: auth form hover border
-const HOVER_BG = '#FAFBFC'; // Intentional: auth form hover background
-const BUTTON_HOVER = '#3aabcf'; // Intentional: auth form button hover
+import { AUTH_FONT_SANS } from './authTokens';
+import { useAuthStyles } from './useAuthStyles';
 
 interface ProviderInfo {
   name: string;
@@ -57,6 +52,16 @@ interface AuthFormProps {
 }
 
 export default function AuthForm({ isRegistration = false }: AuthFormProps) {
+  const {
+    tokens: t,
+    heading,
+    subheading,
+    primaryButton: primaryButtonSx,
+    outlinedButton: outlinedButtonSx,
+    field: fieldSx,
+    quietLink: quietLinkSx,
+  } = useAuthStyles();
+
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
   const [passwordPolicy, setPasswordPolicy] = useState<PasswordPolicy | null>(
     null
@@ -291,7 +296,7 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
           p: 4,
         }}
       >
-        <CircularProgress />
+        <CircularProgress sx={{ color: t.accent }} />
       </Box>
     );
   }
@@ -309,40 +314,26 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
     !isRegistration && (showEmailForm || showMagicLink || magicLinkSent);
 
   return (
-    <Box sx={{ width: '100%' }}>
+    <Box sx={{ width: '100%', fontFamily: AUTH_FONT_SANS }}>
       <Box
         sx={{
           display: 'flex',
           flexDirection: 'column',
-          gap: 2,
+          gap: 2.25,
         }}
       >
-        <Typography
-          sx={{
-            fontSize: 24,
-            fontWeight: 700,
-            color: 'secondary.dark',
-            textAlign: 'center',
-            letterSpacing: '-0.02em',
-            mb: 0,
-          }}
-        >
-          {isRegistration ? 'Create your account' : 'Welcome'}
-        </Typography>
-        <Typography
-          sx={{
-            fontSize: 14,
-            color: SUBTLE_TEXT,
-            textAlign: 'center',
-            mb: 2,
-          }}
-        >
-          {isRegistration
-            ? 'Get started with Rhesis AI'
-            : 'Sign in or create your account'}
-        </Typography>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+          <Typography component="h2" sx={heading}>
+            {isRegistration ? 'Create your account' : 'Sign in'}
+          </Typography>
+          <Typography sx={subheading}>
+            {isRegistration
+              ? 'Get started with Rhesis AI'
+              : 'Continue to your workspace.'}
+          </Typography>
+        </Box>
 
-        {/* ── Initial view: "Continue with Email" button ── */}
+        {/* ── Initial view: "Continue with email" button ── */}
         {emailProvider && !isRegistration && !emailFormActive && (
           <Button
             variant="contained"
@@ -350,18 +341,9 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
             size="large"
             startIcon={<EmailIcon />}
             onClick={() => setShowEmailForm(true)}
-            sx={{
-              height: 46,
-              borderRadius: '10px', // Intentional: button border radius
-              bgcolor: 'primary.main',
-              borderColor: 'primary.main',
-              '&:hover': {
-                bgcolor: BUTTON_HOVER,
-                boxShadow: '0 4px 12px rgba(80,185,224,0.3)', // Intentional: button hover glow
-              },
-            }}
+            sx={primaryButtonSx}
           >
-            Continue with Email
+            Continue with email
           </Button>
         )}
 
@@ -388,6 +370,7 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
                   fullWidth
                   size="small"
                   autoComplete="name"
+                  sx={fieldSx}
                 />
               )}
               <TextField
@@ -400,6 +383,7 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
                 size="small"
                 autoComplete="email"
                 autoFocus
+                sx={fieldSx}
               />
               <TextField
                 label="Password"
@@ -418,6 +402,7 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
                     : undefined
                 }
                 inputRef={passwordInputRef}
+                sx={fieldSx}
                 InputProps={{
                   endAdornment: (
                     <InputAdornment position="end">
@@ -426,6 +411,7 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
                         onClick={handleTogglePasswordVisibility}
                         edge="end"
                         size="small"
+                        sx={{ color: t.muted }}
                       >
                         {showPassword ? (
                           <VisibilityOffIcon />
@@ -489,17 +475,9 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
                 size="large"
                 disabled={formLoading}
                 startIcon={
-                  formLoading ? <CircularProgress size={20} /> : <EmailIcon />
+                  formLoading ? <CircularProgress size={20} /> : undefined
                 }
-                sx={{
-                  height: 46,
-                  borderRadius: '10px', // Intentional: button border radius
-                  bgcolor: 'primary.main',
-                  '&:hover': {
-                    bgcolor: BUTTON_HOVER,
-                    boxShadow: '0 4px 12px rgba(80,185,224,0.3)', // Intentional: button hover glow
-                  },
-                }}
+                sx={primaryButtonSx}
               >
                 {isRegistration ? 'Create Account' : 'Sign in'}
               </Button>
@@ -513,37 +491,29 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
                     alignItems: 'center',
                   }}
                 >
-                  <Typography variant="body2">
-                    <Link
-                      href="/auth/forgot-password"
-                      style={{
-                        color: 'inherit',
-                        textDecoration: 'none',
-                      }}
-                    >
-                      Forgot password?
-                    </Link>
-                  </Typography>
+                  <Box
+                    component={Link}
+                    href="/auth/forgot-password"
+                    sx={quietLinkSx}
+                  >
+                    Forgot password?
+                  </Box>
                   <Tooltip
                     title="We'll send you a link to sign in without typing your password"
                     arrow
                   >
-                    <Typography variant="body2">
-                      <a
-                        href="#"
-                        onClick={e => {
-                          e.preventDefault();
-                          setShowMagicLink(true);
-                          setFormError(null);
-                        }}
-                        style={{
-                          color: 'inherit',
-                          textDecoration: 'none',
-                        }}
-                      >
-                        Email me a link
-                      </a>
-                    </Typography>
+                    <Box
+                      component="a"
+                      href="#"
+                      onClick={(e: React.MouseEvent) => {
+                        e.preventDefault();
+                        setShowMagicLink(true);
+                        setFormError(null);
+                      }}
+                      sx={quietLinkSx}
+                    >
+                      Email me a link
+                    </Box>
                   </Tooltip>
                 </Box>
               )}
@@ -561,7 +531,9 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
               gap: 2,
             }}
           >
-            <Typography variant="body2" color="text.secondary" align="center">
+            <Typography
+              sx={{ fontFamily: AUTH_FONT_SANS, fontSize: 14, color: t.muted }}
+            >
               Enter your email and we&apos;ll send you a link to sign in
               instantly.
             </Typography>
@@ -575,6 +547,7 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
               size="small"
               autoComplete="email"
               autoFocus
+              sx={fieldSx}
             />
             {formError && (
               <Alert severity="error" sx={{ py: 0 }}>
@@ -594,31 +567,22 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
                   <AutoFixHighIcon />
                 )
               }
-              sx={{
-                height: 46,
-                borderRadius: '10px', // Intentional: button border radius
-                bgcolor: 'primary.main',
-                '&:hover': {
-                  bgcolor: BUTTON_HOVER,
-                  boxShadow: '0 4px 12px rgba(80,185,224,0.3)', // Intentional: button hover glow
-                },
-              }}
+              sx={primaryButtonSx}
             >
               Email me a link
             </Button>
-            <Typography variant="body2" align="center">
-              <a
-                href="#"
-                onClick={e => {
-                  e.preventDefault();
-                  setShowMagicLink(false);
-                  setFormError(null);
-                }}
-                style={{ color: 'inherit', textDecoration: 'none' }}
-              >
-                Sign in with password instead
-              </a>
-            </Typography>
+            <Box
+              component="a"
+              href="#"
+              onClick={(e: React.MouseEvent) => {
+                e.preventDefault();
+                setShowMagicLink(false);
+                setFormError(null);
+              }}
+              sx={{ ...quietLinkSx, textAlign: 'center' }}
+            >
+              Sign in with password instead
+            </Box>
           </Box>
         )}
 
@@ -628,15 +592,25 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
             sx={{
               display: 'flex',
               flexDirection: 'column',
-              gap: 2,
+              gap: 1.5,
               alignItems: 'center',
+              textAlign: 'center',
             }}
           >
-            <EmailIcon sx={{ fontSize: 48, color: 'primary.main' }} />
-            <Typography variant="body1" align="center">
+            <EmailIcon sx={{ fontSize: 44, color: t.accent }} />
+            <Typography
+              sx={{
+                fontFamily: AUTH_FONT_SANS,
+                fontSize: 16,
+                fontWeight: 600,
+                color: t.ink,
+              }}
+            >
               Check your email!
             </Typography>
-            <Typography variant="body2" color="text.secondary" align="center">
+            <Typography
+              sx={{ fontFamily: AUTH_FONT_SANS, fontSize: 14, color: t.muted }}
+            >
               We&apos;ve sent a sign-in link to <strong>{email}</strong>. Click
               the link in the email to sign in.
             </Typography>
@@ -648,6 +622,7 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
                 setShowMagicLink(false);
                 setFormError(null);
               }}
+              sx={{ textTransform: 'none', color: t.muted }}
             >
               Back to sign in
             </Button>
@@ -658,9 +633,15 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
         {oauthProviders.length > 0 && !emailFormActive && (
           <>
             {emailProvider && (
-              <Divider>
-                <Typography color="textSecondary" variant="body2">
-                  Or
+              <Divider sx={{ borderColor: t.hairline }}>
+                <Typography
+                  sx={{
+                    fontFamily: AUTH_FONT_SANS,
+                    fontSize: 12,
+                    color: t.muted,
+                  }}
+                >
+                  or
                 </Typography>
               </Divider>
             )}
@@ -669,7 +650,7 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
               sx={{
                 display: 'flex',
                 flexDirection: 'column',
-                gap: 1,
+                gap: 1.25,
               }}
             >
               {oauthProviders.map(provider => (
@@ -680,19 +661,7 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
                   size="large"
                   startIcon={getProviderIcon(provider.name)}
                   onClick={() => handleOAuthLogin(provider)}
-                  sx={{
-                    height: 46,
-                    borderRadius: '10px', // Intentional: button border radius
-                    color: FORM_TEXT,
-                    borderColor: FORM_BORDER,
-                    borderWidth: '1.5px',
-                    '&:hover': {
-                      borderColor: HOVER_BORDER,
-                      bgcolor: HOVER_BG,
-                      boxShadow: '0 2px 6px rgba(0,0,0,0.04)',
-                      borderWidth: '1.5px',
-                    },
-                  }}
+                  sx={outlinedButtonSx}
                 >
                   Continue with {provider.display_name}
                 </Button>
@@ -707,8 +676,14 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
           emailFormActive &&
           !magicLinkSent && (
             <>
-              <Divider>
-                <Typography color="textSecondary" variant="body2">
+              <Divider sx={{ borderColor: t.hairline }}>
+                <Typography
+                  sx={{
+                    fontFamily: AUTH_FONT_SANS,
+                    fontSize: 12,
+                    color: t.muted,
+                  }}
+                >
                   or
                 </Typography>
               </Divider>
@@ -719,18 +694,7 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
                 size="large"
                 component={Link}
                 href="/auth/register"
-                sx={{
-                  height: 46,
-                  borderRadius: '10px', // Intentional: button border radius
-                  color: FORM_TEXT,
-                  borderColor: FORM_BORDER,
-                  borderWidth: '1.5px',
-                  '&:hover': {
-                    borderColor: HOVER_BORDER,
-                    bgcolor: HOVER_BG,
-                    borderWidth: '1.5px',
-                  },
-                }}
+                sx={outlinedButtonSx}
               >
                 Create an account
               </Button>
@@ -740,12 +704,15 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
         {/* ── Already have an account (registration only) ── */}
         {isRegistration && (
           <Typography
-            variant="body2"
-            align="center"
-            sx={{ color: 'text.secondary' }}
+            sx={{
+              fontFamily: AUTH_FONT_SANS,
+              fontSize: 13,
+              textAlign: 'center',
+              color: t.muted,
+            }}
           >
             Already have an account?{' '}
-            <Link href="/" style={{ color: 'inherit' }}>
+            <Link href="/" style={{ color: t.accent, fontWeight: 600 }}>
               Sign in
             </Link>
           </Typography>
@@ -763,7 +730,12 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
               setMagicLinkSent(false);
               setFormError(null);
             }}
-            sx={{ alignSelf: 'center', color: 'text.secondary' }}
+            sx={{
+              alignSelf: 'center',
+              textTransform: 'none',
+              fontFamily: AUTH_FONT_SANS,
+              color: t.muted,
+            }}
           >
             Back to all sign-in options
           </Button>
