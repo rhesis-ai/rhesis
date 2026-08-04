@@ -5,6 +5,9 @@ description: Open a pull request in this repo — branch naming, title format, a
 
 # Pull Requests
 
+- **An open PR is not a standing approval for more commits.** Once a PR exists, every additional
+  commit or push to it — including small fixes requested after review — needs its own go-ahead
+  from the user before you run `git commit`/`git push`, same as the first one.
 - **Small PRs, one logical change each.** Ideal 1-200 lines, acceptable 200-400, break down 400+.
 - Branch from latest `main`: `git fetch origin && git checkout main && git pull origin main &&
 git checkout -b feature/your-feature-name`.
