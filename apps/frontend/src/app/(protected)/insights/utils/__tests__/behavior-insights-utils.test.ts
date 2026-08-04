@@ -1,9 +1,11 @@
 import type { Endpoint } from '@/utils/api-client/interfaces/endpoint';
+import type { InsightsRow } from '@/utils/api-client/interfaces/insights';
 import {
   assertInsightsTestRunIdsWithinLimit,
+  buildBehaviorColumns,
   MAX_INSIGHTS_TEST_RUN_IDS,
-  passRatesToItems,
   resolveEndpointId,
+  rowToPassFailStats,
   sortBehaviorColumns,
   sortByPassRateAsc,
 } from '../behavior-insights-utils';
@@ -62,14 +64,121 @@ describe('behavior-insights-utils', () => {
     });
   });
 
-  describe('passRatesToItems', () => {
-    it('converts pass rate map to items', () => {
-      const items = passRatesToItems({
-        Fluency: { total: 10, passed: 8, failed: 2, pass_rate: 80 },
+  describe('rowToPassFailStats', () => {
+    it('maps an insights row to PassFailStats', () => {
+      const stats = rowToPassFailStats({
+        count: 10,
+        passed: 8,
+        failed: 2,
+        pass_rate: 80,
       });
-      expect(items).toHaveLength(1);
-      expect(items[0].name).toBe('Fluency');
-      expect(items[0].pass_rate).toBe(80);
+      expect(stats).toEqual({ total: 10, passed: 8, failed: 2, pass_rate: 80 });
+    });
+
+    it('defaults missing measures to zero', () => {
+      expect(rowToPassFailStats({})).toEqual({
+        total: 0,
+        passed: 0,
+        failed: 0,
+        pass_rate: 0,
+      });
+    });
+
+    it('derives total from passed + failed, not the row count, so errored/pending results are excluded', () => {
+      const stats = rowToPassFailStats({
+        count: 5,
+        passed: 0,
+        failed: 2,
+        pass_rate: 0,
+      });
+      expect(stats).toEqual({ total: 2, passed: 0, failed: 2, pass_rate: 0 });
+    });
+  });
+
+  describe('buildBehaviorColumns', () => {
+    const behaviorRows: InsightsRow[] = [
+      {
+        behavior_id: 'b-1',
+        behavior: 'Robustness',
+        count: 10,
+        passed: 8,
+        failed: 2,
+        pass_rate: 80,
+      },
+      {
+        behavior_id: 'b-2',
+        behavior: 'Compliance',
+        count: 5,
+        passed: 5,
+        failed: 0,
+        pass_rate: 100,
+      },
+    ];
+    const topicRows: InsightsRow[] = [
+      {
+        behavior_id: 'b-1',
+        topic: 'Safety',
+        count: 6,
+        passed: 4,
+        failed: 2,
+        pass_rate: 66.67,
+      },
+    ];
+    const metricRows: InsightsRow[] = [
+      {
+        behavior_id: 'b-1',
+        metric_name: 'Fluency',
+        count: 10,
+        passed: 8,
+        failed: 2,
+        pass_rate: 80,
+      },
+    ];
+
+    it('builds one column per behavior row, sorted alphabetically', () => {
+      const columns = buildBehaviorColumns(behaviorRows, topicRows, metricRows);
+      expect(columns.map(c => c.name)).toEqual(['Compliance', 'Robustness']);
+    });
+
+    it('groups topic/metric rows onto the matching behavior_id', () => {
+      const [, robustness] = buildBehaviorColumns(
+        behaviorRows,
+        topicRows,
+        metricRows
+      );
+      expect(robustness.id).toBe('b-1');
+      expect(robustness.overall).toEqual({
+        total: 10,
+        passed: 8,
+        failed: 2,
+        pass_rate: 80,
+      });
+      expect(robustness.topics).toEqual([
+        { name: 'Safety', total: 6, passed: 4, failed: 2, pass_rate: 66.67 },
+      ]);
+      expect(robustness.metrics).toEqual([
+        { name: 'Fluency', total: 10, passed: 8, failed: 2, pass_rate: 80 },
+      ]);
+    });
+
+    it('leaves a behavior with no topic/metric rows empty', () => {
+      const [compliance] = buildBehaviorColumns(
+        behaviorRows,
+        topicRows,
+        metricRows
+      );
+      expect(compliance.name).toBe('Compliance');
+      expect(compliance.topics).toEqual([]);
+      expect(compliance.metrics).toEqual([]);
+    });
+
+    it('skips rows missing behavior_id or behavior', () => {
+      const columns = buildBehaviorColumns(
+        [{ behavior: 'NoId', count: 1, passed: 1, failed: 0, pass_rate: 100 }],
+        [],
+        []
+      );
+      expect(columns).toEqual([]);
     });
   });
 

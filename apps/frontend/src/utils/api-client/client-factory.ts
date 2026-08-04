@@ -35,6 +35,7 @@ import { PermissionsClient } from './permissions-client';
 import { ParametersClient } from './parameters-client';
 import { PreflightClient } from './preflight-client';
 import { ResolveClient } from './resolve-client';
+import { InsightsClient } from './insights-client';
 
 export class ApiClientFactory {
   private sessionToken?: string;
@@ -146,6 +147,10 @@ export class ApiClientFactory {
 
   getBehaviorClient(): BehaviorClient {
     return new BehaviorClient(this.sessionToken, undefined, this.projectId);
+  }
+
+  getInsightsClient(): InsightsClient {
+    return new InsightsClient(this.sessionToken, undefined, this.projectId);
   }
 
   getTopicClient(): TopicClient {

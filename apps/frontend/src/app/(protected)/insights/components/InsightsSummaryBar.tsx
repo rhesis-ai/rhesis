@@ -9,7 +9,6 @@ interface InsightsSummaryBarProps {
   summary: PassFailStats | null;
   endpointName?: string;
   loading?: boolean;
-  failedTestCaseCount?: number | null;
 }
 
 function progressColor(passRate: number): 'success' | 'warning' | 'error' {
@@ -22,7 +21,6 @@ export default function InsightsSummaryBar({
   summary,
   endpointName,
   loading = false,
-  failedTestCaseCount,
 }: InsightsSummaryBarProps) {
   const passRate = summary?.pass_rate ?? 0;
   const passed = summary?.passed ?? 0;
@@ -60,12 +58,7 @@ export default function InsightsSummaryBar({
               variant="caption"
               sx={{ color: 'text.disabled', fontWeight: 400 }}
             >
-              {formatInsightsSummaryDetail(
-                passed,
-                total,
-                failed,
-                failedTestCaseCount ?? undefined
-              )}
+              {formatInsightsSummaryDetail(passed, total, failed)}
               {endpointName ? ` · ${endpointName}` : ''}
             </Typography>
           </>
