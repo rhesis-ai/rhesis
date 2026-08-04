@@ -16,6 +16,7 @@ from rhesis.backend.app.dependencies import (
 )
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.routers.base import RhesisRouter
+from rhesis.backend.app.schemas.tag import TagRead
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.odata import apply_select
@@ -29,10 +30,15 @@ logger = logging.getLogger(__name__)
 # MetricDetail's relationship fields (status/assignee/owner/model/behaviors/
 # test_sets/organization/project) are read here, so this stays on the base
 # Metric schema rather than sharing MetricDetail with routers/metric.py.
+# tags is overridden to TagRead (not the base Tag) to match the minimal shape
+# used everywhere else tags are embedded in a read response (e.g. BehaviorDetail,
+# TestSetDetail) -- otherwise this endpoint alone leaks organization_id/user_id
+# per tag.
 BehaviorWithMetricsSchema = create_model(
     "BehaviorWithMetrics",
     __base__=schemas.Behavior,
     metrics=(List[schemas.Metric], []),
+    tags=(List[TagRead], []),
 )
 
 router = RhesisRouter(
