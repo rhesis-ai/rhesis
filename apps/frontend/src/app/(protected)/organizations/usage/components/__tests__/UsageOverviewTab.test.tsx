@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@/test-utils';
+import { render, screen, fireEvent } from '@/test-utils';
 import '@testing-library/jest-dom';
 
 import UsageOverviewTab from '../UsageOverviewTab';
@@ -103,6 +103,55 @@ describe('UsageOverviewTab', () => {
     expect(upgradeLink).toHaveAttribute('href', 'https://rhesis.ai/editions');
     expect(upgradeLink).toHaveAttribute('target', '_blank');
     expect(upgradeLink).toHaveAttribute('rel', 'noopener noreferrer');
+  });
+
+  it('does not mark stock resources as live counts for the current period', () => {
+    render(<UsageOverviewTab />);
+
+    expect(screen.queryByText('as of today')).not.toBeInTheDocument();
+  });
+
+  it('marks stock resources as live counts once a past period is selected', () => {
+    render(<UsageOverviewTab />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Filters' }));
+    fireEvent.mouseDown(screen.getByLabelText('Period'));
+    fireEvent.click(screen.getAllByRole('option')[1]);
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+
+    // One hint, on Seats (the only stock resource in the fixture) -- not on
+    // the flow resources, which do reflect the selected period.
+    expect(screen.getByText('as of today')).toBeInTheDocument();
+  });
+
+  it('labels the period from a flow resource, not whichever comes first', () => {
+    // Stock items carry the *current* period while flow items carry the
+    // requested one, so a stock-first response must not retitle the card.
+    mockUseUsage.mockReturnValue({
+      resources: {
+        seats: {
+          used: 3,
+          limit: 10,
+          period_start: '2026-08-01',
+          period_end: '2026-08-31',
+          kind: 'stock' as const,
+        },
+        test_executions: {
+          used: 5,
+          limit: 1000,
+          period_start: '2026-01-01',
+          period_end: '2026-01-31',
+          kind: 'flow' as const,
+        },
+      },
+      edition: 'community',
+      loading: false,
+      error: null,
+    });
+
+    render(<UsageOverviewTab />);
+
+    expect(screen.getByText(/Jan 1, 2026 – Jan 31, 2026/)).toBeInTheDocument();
   });
 
   it('hides the upgrade link for a paid edition', () => {

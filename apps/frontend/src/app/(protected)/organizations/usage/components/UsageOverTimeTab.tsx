@@ -5,6 +5,7 @@ import { Box, Skeleton, Stack, Typography } from '@mui/material';
 import { SectionCard } from '@/components/common/SectionCard';
 import { BaseChartsGrid, BaseLineChart } from '@/components/common/BaseCharts';
 import { FilterButton } from '@/components/common/FilterButton';
+import { BORDER_RADIUS } from '@/styles/theme';
 import UsageOverTimeFilterDrawer from './UsageOverTimeFilterDrawer';
 import { useUsageHistory } from '@/hooks/useUsageHistory';
 import {
@@ -28,6 +29,13 @@ function formatMonthLabel(isoDate: string): string {
 }
 
 const DEFAULT_HISTORY_MONTHS = 6;
+
+/**
+ * Shared by the loading skeletons, the chart cells, and the no-history
+ * cards. The three chart-cell uses must agree: see the wrapper `Box` in
+ * the grid below for why the cell needs an explicit pixel height.
+ */
+const CHART_HEIGHT = 180;
 
 function toChartData(
   points: UsageHistoryPoint[]
@@ -58,7 +66,7 @@ function NoHistoryCard({ title, height }: { title: string; height: number }) {
         justifyContent: 'center',
         gap: 0.5,
         border: theme => `1px solid ${theme.palette.divider}`,
-        borderRadius: 1,
+        borderRadius: BORDER_RADIUS.sm,
         p: 2,
       }}
     >
@@ -105,7 +113,7 @@ export default function UsageOverTimeTab() {
               // eslint-disable-next-line react/no-array-index-key -- fixed-count skeleton placeholders, never reordered
               key={i}
               variant="rectangular"
-              height={180}
+              height={CHART_HEIGHT}
               sx={{ flex: 1 }}
             />
           ))}
@@ -131,16 +139,16 @@ export default function UsageOverTimeTab() {
               // sibling to anchor it) would otherwise both collapse to
               // their title's intrinsic height -- so every cell gets an
               // explicit height here instead of relying on a neighbor.
-              <Box key={resource} sx={{ height: 180 }}>
+              <Box key={resource} sx={{ height: CHART_HEIGHT }}>
                 {hasAnyUsage(points) ? (
                   <BaseLineChart
                     title={label}
                     data={toChartData(points)}
                     series={[{ dataKey: 'used', name: 'Used' }]}
-                    height={180}
+                    height={CHART_HEIGHT}
                   />
                 ) : (
-                  <NoHistoryCard title={label} height={180} />
+                  <NoHistoryCard title={label} height={CHART_HEIGHT} />
                 )}
               </Box>
             );

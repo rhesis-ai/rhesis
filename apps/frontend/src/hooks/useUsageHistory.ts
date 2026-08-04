@@ -53,6 +53,12 @@ export function useUsageHistory(months: number): UsageHistoryState {
         error: error instanceof Error ? error : new Error(String(error)),
       };
     }
-    return { resources: data?.resources ?? {}, loading: false, error: null };
+    // Same guard as UsageContext/useUsageForPeriod: a *disabled* query
+    // reports `isLoading: false` with `data: undefined`, so without this
+    // the `userScope === ''` gap above would surface as
+    // `{resources: {}, loading: false}` -- which the charts render as an
+    // empty card rather than a loading state.
+    if (!data) return DEFAULT_STATE;
+    return { resources: data.resources, loading: false, error: null };
   }, [data, isLoading, error, status]);
 }

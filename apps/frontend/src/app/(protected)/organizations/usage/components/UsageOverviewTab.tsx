@@ -80,9 +80,15 @@ function progressColor(ratio: number): 'success' | 'warning' | 'error' {
 function ResourceMeter({
   label,
   item,
+  showLiveCountHint = false,
 }: {
   label: string;
   item: UsageResourceItem;
+  /**
+   * Marks this row as a live count that does *not* belong to the period in
+   * the card's heading -- see `ResourceList`.
+   */
+  showLiveCountHint?: boolean;
 }) {
   const { limit } = item;
   const ratio = limit === null ? 0 : limit === 0 ? 1 : item.used / limit;
@@ -95,9 +101,16 @@ function ResourceMeter({
         alignItems="baseline"
         sx={{ mb: 0.5 }}
       >
-        <Typography variant="body2" sx={{ fontWeight: 600 }}>
-          {label}
-        </Typography>
+        <Stack direction="row" spacing={0.75} alignItems="baseline">
+          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+            {label}
+          </Typography>
+          {showLiveCountHint && (
+            <Typography variant="caption" color="text.secondary">
+              as of today
+            </Typography>
+          )}
+        </Stack>
         <Typography variant="body2" color="text.secondary">
           {item.used.toLocaleString()}
           {limit === null ? ' (Unlimited)' : ` / ${limit.toLocaleString()}`}
@@ -109,10 +122,10 @@ function ResourceMeter({
         color={limit === null ? 'primary' : progressColor(ratio)}
         sx={{
           height: 6,
-          borderRadius: 2,
+          borderRadius: BORDER_RADIUS.xs,
           bgcolor: theme => theme.palette.action.hover,
           '& .MuiLinearProgress-bar': {
-            borderRadius: 2,
+            borderRadius: BORDER_RADIUS.xs,
           },
         }}
       />
@@ -122,8 +135,10 @@ function ResourceMeter({
 
 function ResourceList({
   usage,
+  isPastPeriod,
 }: {
   usage: Readonly<Record<string, UsageResourceItem>>;
+  isPastPeriod: boolean;
 }) {
   const entries = QUOTA_RESOURCE_ORDER.filter(resource => usage[resource]);
 
@@ -134,6 +149,11 @@ function ResourceList({
           key={resource}
           label={QUOTA_RESOURCE_LABELS[resource as QuotaResource]}
           item={usage[resource]}
+          // Stock resources have no historical row -- the backend always
+          // answers with today's live count, whichever period was asked
+          // for. Unlabelled under a past month's heading, "Seats 11 / 3"
+          // reads as that month's seat count, so say otherwise.
+          showLiveCountHint={isPastPeriod && usage[resource].kind === 'stock'}
         />
       ))}
     </Box>
@@ -185,12 +205,20 @@ export default function UsageOverviewTab() {
     );
   }
 
-  const anyResource = Object.values(resources)[0];
-  const periodLabel = anyResource
-    ? `${formatPeriodDate(anyResource.period_start)} – ${formatPeriodDate(anyResource.period_end)}`
+  // Specifically a *flow* resource: only those carry the requested
+  // period. Stock items always report the current one, so picking whatever
+  // resource happens to come first would silently start labelling the card
+  // with today's dates if the backend's QuotaResource order ever changed.
+  const periodSource = Object.values(resources).find(
+    item => item.kind === 'flow'
+  );
+  const periodLabel = periodSource
+    ? `${formatPeriodDate(periodSource.period_start)} – ${formatPeriodDate(periodSource.period_end)}`
     : null;
-  const periodPrefix =
-    periodStart === null ? 'Current billing period' : 'Billing period';
+  const isPastPeriod = periodStart !== null;
+  const periodPrefix = isPastPeriod
+    ? 'Billing period'
+    : 'Current billing period';
 
   return (
     <SectionCard
@@ -198,7 +226,7 @@ export default function UsageOverviewTab() {
       subtitle={periodLabel ? `${periodPrefix}: ${periodLabel}` : undefined}
       actions={headerActions}
     >
-      <ResourceList usage={resources} />
+      <ResourceList usage={resources} isPastPeriod={isPastPeriod} />
     </SectionCard>
   );
 }
