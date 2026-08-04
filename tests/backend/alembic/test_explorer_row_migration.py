@@ -436,89 +436,23 @@ class TestMarkerIsNotStripped:
 
 
 @pytest.mark.integration
-class TestDowngradeRestoresMarker:
-    """downgrade() writes the marker back onto every row explorer_row still
-    flags, reading that column before dropping it."""
-
-    def test_restores_the_marker_alongside_other_behaviors(
-        self, test_db, migration_ops, test_org_id, authenticated_user_id
-    ):
-        conn = test_db.connection()
-        ts_id = _insert_test_set(
-            conn,
-            org_id=test_org_id,
-            user_id=authenticated_user_id,
-            attributes={"metadata": {"behaviors": ["Safety"]}},
-        )
-        conn.execute(
-            sa.text("UPDATE test_set SET explorer_row = true WHERE id = CAST(:id AS uuid)"),
-            {"id": ts_id},
-        )
-
-        _migration.downgrade()
-
-        attrs = _test_set_attributes(conn, ts_id)
-        assert attrs["metadata"]["behaviors"] == ["Safety", _EXPLORER_BEHAVIOR_NAME]
-
-    def test_is_a_noop_when_upgrade_left_the_marker_in_place(
-        self, test_db, migration_ops, test_org_id, authenticated_user_id
-    ):
-        conn = test_db.connection()
-        ts_id = _insert_test_set(
-            conn,
-            org_id=test_org_id,
-            user_id=authenticated_user_id,
-            attributes={"metadata": {"behaviors": [_EXPLORER_BEHAVIOR_NAME]}},
-        )
-
-        _migration.upgrade()  # flags explorer_row; marker stays (see module docstring)
-        _migration.downgrade()  # marker's already there; must not duplicate it
-
-        attrs = _test_set_attributes(conn, ts_id)
-        assert attrs["metadata"]["behaviors"] == [_EXPLORER_BEHAVIOR_NAME]
-
-    def test_restores_the_marker_from_scratch_when_attributes_is_null(
-        self, test_db, migration_ops, test_org_id, authenticated_user_id
-    ):
-        conn = test_db.connection()
-        ts_id = _insert_test_set(
-            conn, org_id=test_org_id, user_id=authenticated_user_id, attributes=None
-        )
-        conn.execute(
-            sa.text("UPDATE test_set SET explorer_row = true WHERE id = CAST(:id AS uuid)"),
-            {"id": ts_id},
-        )
-
-        _migration.downgrade()
-
-        attrs = _test_set_attributes(conn, ts_id)
-        assert attrs["metadata"]["behaviors"] == [_EXPLORER_BEHAVIOR_NAME]
-
-    def test_leaves_non_explorer_rows_untouched(
-        self, test_db, migration_ops, test_org_id, authenticated_user_id
-    ):
-        conn = test_db.connection()
-        ts_id = _insert_test_set(
-            conn,
-            org_id=test_org_id,
-            user_id=authenticated_user_id,
-            attributes={"metadata": {"behaviors": ["Safety"]}},
-        )
-
-        _migration.downgrade()
-
-        attrs = _test_set_attributes(conn, ts_id)
-        assert attrs["metadata"]["behaviors"] == ["Safety"]
+class TestDowngradeDoesNotTouchAttributes:
+    """downgrade() only drops the column and its index -- it never writes to
+    attributes. A backend rolled back after this migration won't recognize as
+    Explorer any test set created since (see module docstring); this is a
+    deliberate tradeoff to keep downgrade() free of attributes/behaviors
+    mutation."""
 
     @pytest.mark.parametrize(
         "attributes",
         [
+            {"metadata": {"behaviors": ["Safety"]}},
+            {"metadata": {"behaviors": [_EXPLORER_BEHAVIOR_NAME]}},
+            None,
             {"metadata": "not-an-object"},
-            "not-an-object",
-            {"metadata": {"behaviors": "not-an-array"}},
         ],
     )
-    def test_restores_the_marker_without_raising_when_attributes_shape_is_malformed(
+    def test_attributes_are_unchanged_regardless_of_explorer_row(
         self, test_db, migration_ops, test_org_id, authenticated_user_id, attributes
     ):
         conn = test_db.connection()
@@ -529,11 +463,11 @@ class TestDowngradeRestoresMarker:
             sa.text("UPDATE test_set SET explorer_row = true WHERE id = CAST(:id AS uuid)"),
             {"id": ts_id},
         )
+        before = _test_set_attributes(conn, ts_id)
 
-        _migration.downgrade()  # must not raise
+        _migration.downgrade()  # must not raise, must not touch attributes
 
-        attrs = _test_set_attributes(conn, ts_id)
-        assert attrs["metadata"]["behaviors"] == [_EXPLORER_BEHAVIOR_NAME]
+        assert _test_set_attributes(conn, ts_id) == before
 
     def test_column_is_dropped(self, test_db, migration_ops):
         conn = test_db.connection()
@@ -592,10 +526,11 @@ class TestDowngradeUpgradeRoundTrip:
 
 @pytest.mark.integration
 class TestBypassRLSSkipsDisableEnable:
-    """_has_bypassrls() lets upgrade()/downgrade() skip the ALTER TABLE ...
-    ROW LEVEL SECURITY dance for a role that already ignores RLS (prod's
-    rhesis-admin) -- that dance takes an ACCESS EXCLUSIVE lock these hot tables
-    shouldn't need to pay for when the role never needed the bypass anyway."""
+    """_has_bypassrls() lets upgrade() skip the ALTER TABLE ... ROW LEVEL
+    SECURITY dance for a role that already ignores RLS (prod's rhesis-admin)
+    -- that dance takes an ACCESS EXCLUSIVE lock these hot tables shouldn't
+    need to pay for when the role never needed the bypass anyway. downgrade()
+    does no DML, so it never calls _has_bypassrls() at all."""
 
     def test_has_bypassrls_reflects_the_role_attribute(self, test_db, migration_ops):
         conn = test_db.connection()
@@ -625,7 +560,5 @@ class TestBypassRLSSkipsDisableEnable:
             assert _explorer_row(conn, "test_set", ts_id) is True
 
             _migration.downgrade()  # must not raise either
-            attrs = _test_set_attributes(conn, ts_id)
-            assert attrs["metadata"]["behaviors"] == [_EXPLORER_BEHAVIOR_NAME]
         finally:
             conn.execute(sa.text("ALTER ROLE CURRENT_USER NOBYPASSRLS"))
