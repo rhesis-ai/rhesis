@@ -39,7 +39,7 @@ from rhesis.backend.alembic.utils.idempotency import column_exists, index_exists
 
 # revision identifiers, used by Alembic.
 revision: str = "7dd69fe35db5"
-down_revision: Union[str, None] = "91607f0dd412"
+down_revision: Union[str, None] = "9550c62e80a5"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
