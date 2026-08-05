@@ -234,3 +234,20 @@ class TestEntityLinkGuidanceMatchesFrontend:
         text = (_TEMPLATES_DIR / template).read_text()
         assert "/behaviors/" in text, f"{template} never shows a behavior link"
         assert "/metrics/" in text, f"{template} never shows a metric link"
+
+    @pytest.mark.parametrize("template", TEMPLATES)
+    def test_trace_links_specify_the_resolvable_id(self, template):
+        """/traces/<id> resolves a span DB UUID, not the OTel trace_id.
+
+        The frontend route calls lookupSpan(identifier) against
+        GET /telemetry/spans/{span_db_id}/lookup, typed UUID. Since
+        list_annotations returns both ids, guidance that just says "id"
+        invites a broken link.
+        """
+        text = (_TEMPLATES_DIR / template).read_text()
+        if "/traces/" not in text:
+            pytest.skip(f"{template} does not document trace links")
+        assert "trace_db_id" in text, (
+            f"{template} documents trace links without naming trace_db_id — "
+            "the agent may use trace_id, which does not resolve"
+        )

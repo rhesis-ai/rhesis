@@ -1024,6 +1024,10 @@ tools:
       walk from a trace review back to the run — they are null only for
       traces recorded outside a test run.
 
+      When linking to a trace in the UI, use trace_db_id (a UUID) in the
+      URL path, not trace_id (a 32-char hex string). Only trace_db_id
+      resolves to a trace page.
+
       CHAIN: after get_test_result_stats shows failures, call this with the
       same test_run_id to see whether a human already diagnosed them — then
       use get_test_result on the ids it returns to read the full exchange.
