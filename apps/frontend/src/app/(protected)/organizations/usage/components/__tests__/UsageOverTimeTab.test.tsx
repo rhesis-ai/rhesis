@@ -97,7 +97,7 @@ describe('UsageOverTimeTab', () => {
     expect(screen.getByText('Tracing Spans')).toBeInTheDocument();
     expect(screen.getByText('No history for this period')).toBeInTheDocument();
     expect(
-      document.querySelector('.recharts-responsive-container')
+      document.querySelector('.MuiChartsSurface-root')
     ).not.toBeInTheDocument();
   });
 
@@ -120,7 +120,7 @@ describe('UsageOverTimeTab', () => {
       screen.queryByText('No history for this period')
     ).not.toBeInTheDocument();
     expect(
-      document.querySelector('.recharts-responsive-container')
+      document.querySelector('.MuiChartsSurface-root')
     ).toBeInTheDocument();
   });
 });
