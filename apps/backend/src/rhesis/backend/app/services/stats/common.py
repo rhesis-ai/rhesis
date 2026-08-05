@@ -7,20 +7,27 @@ from rhesis.backend.app.constants import OverallTestResult
 
 
 def parse_date_range(
-    start_date: str | None, end_date: str | None, months: int
-) -> tuple[datetime, datetime]:
-    """Parse and validate date range parameters.
+    start_date: str | None,
+    end_date: str | None,
+    months: int | None = None,
+) -> tuple[datetime | None, datetime | None]:
+    """Optional date bounds. None means open-ended / all time.
 
-    Returns (start_date_obj, end_date_obj). If explicit dates are provided they
-    take precedence; otherwise the range spans the last *months* months.
+    - months → last N months (cannot combine with start/end)
+    - start_date → from then onwards
+    - end_date → up to then
+    - both → closed range
+    - none → (None, None)
     """
-    if start_date and end_date:
-        start_date_obj = datetime.fromisoformat(start_date.replace("Z", "+00:00"))
-        end_date_obj = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
-    else:
-        end_date_obj = datetime.now(timezone.utc)
-        start_date_obj = end_date_obj - timedelta(days=30 * months)
-    return start_date_obj, end_date_obj
+    if months is not None:
+        if start_date is not None or end_date is not None:
+            raise ValueError("Use either months or start_date/end_date, not both")
+        end = datetime.now(timezone.utc)
+        return end - timedelta(days=30 * months), end
+
+    start = datetime.fromisoformat(start_date.replace("Z", "+00:00")) if start_date else None
+    end = datetime.fromisoformat(end_date.replace("Z", "+00:00")) if end_date else None
+    return start, end
 
 
 def build_pass_rate_stats(stats_dict: Dict[str, Dict[str, int]]) -> Dict[str, Dict[str, Any]]:
@@ -106,20 +113,26 @@ def build_response_data(
 
 def build_metadata(
     organization_id: str | None,
-    start_date_obj: datetime,
-    end_date_obj: datetime,
-    months: int,
+    start_date_obj: datetime | None,
+    end_date_obj: datetime | None,
+    months: int | None,
     mode: str,
     total_items: int,
     **additional_metadata,
 ) -> Dict[str, Any]:
     """Build the standard metadata dict attached to every stats response."""
+    if months is not None:
+        period = f"Last {months} months"
+    elif start_date_obj or end_date_obj:
+        period = "custom"
+    else:
+        period = "all time"
     metadata = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "organization_id": organization_id,
-        "period": f"Last {months} months",
-        "start_date": start_date_obj.isoformat(),
-        "end_date": end_date_obj.isoformat(),
+        "period": period,
+        "start_date": start_date_obj.isoformat() if start_date_obj else None,
+        "end_date": end_date_obj.isoformat() if end_date_obj else None,
         "total_items": total_items,
         "mode": mode,
     }
@@ -130,9 +143,9 @@ def build_metadata(
 def build_empty_stats_response(
     mode: str,
     mode_definitions: Dict[str, List[str]],
-    start_date_obj: datetime,
-    end_date_obj: datetime,
-    months: int,
+    start_date_obj: datetime | None,
+    end_date_obj: datetime | None,
+    months: int | None,
     organization_id: str | None,
     **additional_metadata,
 ) -> Dict[str, Any]:

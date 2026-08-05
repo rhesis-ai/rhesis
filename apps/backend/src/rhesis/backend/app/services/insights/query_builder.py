@@ -6,7 +6,7 @@ unknown entity, group_by, measure, or filter raises InsightsValidationError
 """
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
@@ -28,15 +28,6 @@ def _entry(entity: str) -> dict:
     if entry is None:
         raise InsightsValidationError(f"Unknown entity '{entity}'. Available: {sorted(REGISTRY)}")
     return entry
-
-
-def _parse_dates(
-    start_date: Optional[str], end_date: Optional[str], months: int
-) -> Tuple[Optional[datetime], Optional[datetime]]:
-    try:
-        return parse_date_range(start_date, end_date, months)
-    except ValueError as exc:
-        raise InsightsValidationError(f"Invalid start_date/end_date: {exc}") from exc
 
 
 def _apply_filters(q, db: Session, entity: str, entry: dict, filters: Optional[Dict[str, list]]):
@@ -133,13 +124,16 @@ def run_query(
     group_by: List[str],
     measures: List[str],
     filters: Optional[Dict[str, list]] = None,
-    months: int = 6,
+    months: Optional[int] = None,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     organization_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Execute the query and shape results into the uniform insights envelope."""
-    start_date_obj, end_date_obj = _parse_dates(start_date, end_date, months)
+    try:
+        start_date_obj, end_date_obj = parse_date_range(start_date, end_date, months)
+    except ValueError as exc:
+        raise InsightsValidationError(str(exc)) from exc
     q = build_query(
         db, entity, group_by, measures, filters, start_date_obj, end_date_obj, organization_id
     )
@@ -194,7 +188,7 @@ def run_ids(
     entity: str,
     filters: Optional[Dict[str, list]] = None,
     outcome: str = "all",
-    months: int = 6,
+    months: Optional[int] = None,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     organization_id: Optional[str] = None,
@@ -210,7 +204,10 @@ def run_ids(
             f"Invalid outcome '{outcome}'. Available: {sorted(VALID_OUTCOMES)}"
         )
 
-    start_date_obj, end_date_obj = _parse_dates(start_date, end_date, months)
+    try:
+        start_date_obj, end_date_obj = parse_date_range(start_date, end_date, months)
+    except ValueError as exc:
+        raise InsightsValidationError(str(exc)) from exc
     entry, view, q = _base_query(db, entity, filters, start_date_obj, end_date_obj, organization_id)
 
     id_column = entry.get("id_column")

@@ -58,13 +58,11 @@ def insights_filters(
 
 
 def insights_date_range(
-    months: int = Query(6, description="Months of historical data to include (default: 6)"),
-    start_date: Optional[str] = Query(
-        None, description="Start date (ISO format, overrides months)"
-    ),
-    end_date: Optional[str] = Query(None, description="End date (ISO format, overrides months)"),
+    months: Optional[int] = Query(None, description="Last N months (not with start/end)"),
+    start_date: Optional[str] = Query(None, description="From this ISO date onwards"),
+    end_date: Optional[str] = Query(None, description="Up to this ISO date"),
 ) -> dict:
-    """Shared date-range query params for GET /insights and GET /insights/ids."""
+    """Optional date window. Omit all for all time; start/end are independent bounds."""
     return {"months": months, "start_date": start_date, "end_date": end_date}
 
 

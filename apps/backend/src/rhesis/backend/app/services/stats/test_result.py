@@ -381,7 +381,7 @@ def _test_ids_overall(base_q, outcome: str) -> List[str]:
 def get_test_result_stats(
     db: Session,
     organization_id: str | None = None,
-    months: int = 6,
+    months: int | None = None,
     test_run_id: str | None = None,
     mode: str = "all",
     test_set_ids: List[str] | None = None,
@@ -477,7 +477,7 @@ def get_test_result_stats(
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "organization_id": organization_id,
         "test_run_id": test_run_id,
-        "period": f"Last {months} months",
+        "period": f"Last {months} months" if months is not None else "all time",
         "start_date": start_date_obj.isoformat() if start_date_obj else None,
         "end_date": end_date_obj.isoformat() if end_date_obj else None,
         "total_test_runs": len(test_run_summary) if test_run_summary else 0,

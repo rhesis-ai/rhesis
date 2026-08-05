@@ -20,7 +20,7 @@ class InsightsQuery(BaseModel):
     group_by: List[str] = Field(default_factory=list)
     measures: List[str] = Field(default_factory=lambda: ["count"])
     filters: Dict[str, List[str]] = Field(default_factory=dict)
-    months: int = 6
+    months: Optional[int] = None
     start_date: Optional[str] = None
     end_date: Optional[str] = None
 

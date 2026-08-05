@@ -166,7 +166,7 @@ def _get_stats(db: Session, filters: dict, mode: str, top: Optional[int]) -> Dic
 def get_test_run_stats(
     db: Session,
     organization_id: str | None = None,
-    months: int = 6,
+    months: int | None = None,
     mode: str = "all",
     top: int | None = None,
     test_run_ids: List[str] | None = None,

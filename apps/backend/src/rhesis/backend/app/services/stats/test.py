@@ -78,11 +78,7 @@ def get_individual_test_stats(
         - metadata: Test ID, generation timestamp, organization_id, date range
     """
     # Parse date range if provided
-    start_date_obj = None
-    end_date_obj = None
-    if start_date or end_date or months:
-        months_val = months if months else 999  # Default to all time if not specified
-        start_date_obj, end_date_obj = parse_date_range(start_date, end_date, months_val)
+    start_date_obj, end_date_obj = parse_date_range(start_date, end_date, months)
 
     # Base query for test results with eager loading
     builder = (
