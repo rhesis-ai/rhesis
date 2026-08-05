@@ -1,25 +1,22 @@
 #!/bin/bash
 # Manage git worktrees with symlinked .env files and shared directories
 #
-# Usage:
-#   scripts/create-worktree.sh <name>              Create a new worktree
-#   scripts/create-worktree.sh <name> --remove      Remove a worktree and its branch
-#   scripts/create-worktree.sh <name> --load        Launch shell in worktree
-#   scripts/create-worktree.sh --list               List all worktrees
+# Reached via `./rh worktree`, which runs this as a subprocess. Also runnable
+# directly:
+#   scripts/rh/worktree.sh <name>              Create a new worktree
+#   scripts/rh/worktree.sh <name> --remove     Remove a worktree and its branch
+#   scripts/rh/worktree.sh <name> --load       Launch shell in worktree
+#   scripts/rh/worktree.sh --list              List all worktrees
 
-# Color codes
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-PURPLE='\033[0;35m'
-CYAN='\033[0;36m'
-WHITE='\033[1;37m'
-NC='\033[0m' # No Color
+# Colors and shared helpers. common.sh sets SCRIPT_DIR to the repository root,
+# which is what this script calls SOURCE_DIR.
+# shellcheck source=scripts/rh/common.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh" || {
+    echo "❌ Failed to load scripts/rh/common.sh" >&2
+    exit 1
+}
 
-# Get the directory where this script is located
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SOURCE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+SOURCE_DIR="$SCRIPT_DIR"
 WORKTREES_BASE="$SOURCE_DIR/../../worktrees/rhesis"
 
 # ============================================================================
