@@ -14,6 +14,24 @@ from research_assistant.transfers import TRANSFER_TOOLS
 # =============================================================================
 
 
+def extract_text_content(content: str | list) -> str:
+    """Flatten an AIMessage.content value into plain text.
+
+    Some providers (e.g. ChatGoogleGenerativeAI) return content as a list of
+    blocks (``[{"type": "text", "text": "..."}]``) instead of a plain string.
+    """
+    if isinstance(content, str):
+        return content
+
+    parts = []
+    for block in content:
+        if isinstance(block, str):
+            parts.append(block)
+        elif isinstance(block, dict) and block.get("type") == "text":
+            parts.append(block.get("text", ""))
+    return "".join(parts)
+
+
 def get_tool_layer(tool_name: str) -> str:
     """Get the layer a tool belongs to."""
     retrieval_names = [t.name for t in RETRIEVAL_TOOLS]
