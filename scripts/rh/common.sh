@@ -1,9 +1,6 @@
 #!/bin/bash
-# Shared helpers for the ./rh CLI.
-#
-# Sourced by ./rh (see the loader at the top of that file) and directly by
-# scripts/rh/worktree.sh, which runs as its own process. Defines only variables
-# and functions — nothing here executes work or exits on its own.
+# Shared helpers for the ./rh CLI. Sourced by ./rh and, separately, by
+# worktree.sh, which runs as its own process.
 
 # ============================================================================
 # Colors
@@ -16,21 +13,20 @@ BLUE='\033[0;34m'
 PURPLE='\033[0;35m'
 CYAN='\033[0;36m'
 WHITE='\033[1;37m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
 # ============================================================================
 # Paths
 # ============================================================================
 
-# Repository root: two levels up from scripts/rh/. Kept named SCRIPT_DIR because
-# every command function refers to paths relative to the repo root by that name.
+# The repository root, despite the name — every command function builds paths
+# from it, and it was called SCRIPT_DIR when they all lived in ./rh.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 # ============================================================================
 # Output
 # ============================================================================
 
-# Plain colored lines. Use these instead of hand-writing echo -e "${COLOR}...".
 info() { echo -e "${BLUE}$*${NC}"; }
 step() { echo -e "${YELLOW}$*${NC}"; }
 note() { echo -e "${WHITE}$*${NC}"; }
@@ -40,12 +36,10 @@ ok() { echo -e "${GREEN}✅ $*${NC}"; }
 warn() { echo -e "${YELLOW}⚠️  $*${NC}"; }
 err() { echo -e "${RED}❌ $*${NC}"; }
 
-# Print an error and exit 1. The workhorse — replaces the ~50 hand-rolled
-# red-echo-then-exit pairs the script used to carry.
+# Args after the first become indented hint lines.
 die() {
     err "$1"
     shift
-    # Remaining args are indented hint lines (install instructions, next steps).
     local hint
     for hint in "$@"; do
         echo -e "${YELLOW}   ${hint}${NC}"
@@ -53,21 +47,16 @@ die() {
     exit 1
 }
 
-# A ═══ rule, used to frame the success banners.
 rule() { echo -e "${PURPLE}════════════════════════════════════════════════${NC}"; }
 
 # ============================================================================
 # Guards
 # ============================================================================
 
-# cd into a directory or exit with a labeled error.
-#   cd_or_die "$SCRIPT_DIR/apps/backend" "Backend"
 cd_or_die() {
     cd "$1" || die "Error: ${2:-Target} directory not found"
 }
 
-# Require a command on PATH. Extra args become indented install hints.
-#   require_cmd uv "Install uv with: curl -LsSf https://astral.sh/uv/install.sh | sh"
 require_cmd() {
     local cmd="$1"
     shift
@@ -94,9 +83,7 @@ check_node() {
 # Prompts
 # ============================================================================
 
-# Yes/no prompt, defaulting to no. Returns non-zero when declined or when there
-# is no tty to ask on.
-#   confirm "Overwrite?" && do_thing
+# Declines when there is no tty to ask on.
 confirm() {
     local prompt="$1"
     local reply=""
@@ -105,7 +92,6 @@ confirm() {
     [[ "$reply" =~ ^[Yy]$ ]]
 }
 
-# Same, but requires the word "yes" spelled out. For destructive commands.
 confirm_typed() {
     local prompt="$1"
     local reply=""
@@ -114,9 +100,7 @@ confirm_typed() {
     [[ "$reply" =~ ^[Yy][Ee][Ss]$ ]]
 }
 
-# Prompt for a host port, accepting a default when the user just presses Enter.
-# Usage: PORT=$(prompt_port "backend" 8080)
-# The prompt is written to stderr (via read -p) so it is not captured by $(...).
+# read -p writes the prompt to stderr, so $(prompt_port ...) captures only the port.
 prompt_port() {
     local label="$1"
     local default="$2"
@@ -124,7 +108,6 @@ prompt_port() {
     if [ -t 0 ]; then
         read -r -p "$(echo -e "${YELLOW}Enter ${label} port [default: ${default}]: ${NC}")" port
     fi
-    # Fall back to the default on empty input or a non-numeric entry.
     if ! [[ "$port" =~ ^[0-9]+$ ]]; then
         port="$default"
     fi
@@ -135,19 +118,17 @@ prompt_port() {
 # Secrets and env files
 # ============================================================================
 
-# Generate a Fernet key (32 random bytes, base64url-encoded) for
-# DB_ENCRYPTION_KEY, without needing Docker/Python to build it.
+# Fernet key for DB_ENCRYPTION_KEY: 32 random bytes, base64url-encoded.
 generate_encryption_key() {
     openssl rand -base64 32 | tr '+/' '-_'
 }
 
-# Generate a random hex secret (JWT/session/NextAuth secrets).
 generate_hex_secret() {
     openssl rand -hex 32
 }
 
-# Run a generator and fail if it produced nothing. Callers run this inside $(...),
-# so the complaint goes to stderr — otherwise it would be captured as the value.
+# Complains on stderr because callers run this inside $(...), which would
+# otherwise capture the error text as the secret.
 #   KEY=$(gen_secret generate_encryption_key "encryption key") || exit 1
 gen_secret() {
     local generator="$1"
@@ -161,9 +142,7 @@ gen_secret() {
     echo "$value"
 }
 
-# Set VAR_NAME=value in an env file, replacing an existing line or appending one.
-# Portable across macOS (BSD sed) and Linux (GNU sed).
-#   set_env_var .env.docker JWT_SECRET_KEY "$secret"
+# Replace-or-append, spelled out twice for BSD and GNU sed.
 set_env_var() {
     local file="$1"
     local var_name="$2"
@@ -179,8 +158,6 @@ set_env_var() {
     fi
 }
 
-# Ensure VAR_NAME has a non-empty value in the given env file, generating one
-# with the named generator function if it is missing or blank.
 #   ensure_env_secret .env.docker.local JWT_SECRET_KEY generate_hex_secret
 ensure_env_secret() {
     local file="$1"
@@ -202,10 +179,7 @@ ensure_env_secret() {
 # Service launchers
 # ============================================================================
 
-# cd into an app directory and run its start.sh. Replaces the five copies of
-# "cd, test -f start.sh, run it or error" this script used to carry.
-#   run_start_script apps/frontend "Frontend"
-#   run_start_script apps/developer-tools "Mock LLM" mock_llm/start.sh
+#   run_start_script apps/developer-tools developer-tools mock_llm/start.sh
 run_start_script() {
     local dir="$1"
     local label="$2"

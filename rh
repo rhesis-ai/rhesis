@@ -1,22 +1,12 @@
 #!/bin/bash
-# Rhesis CLI — development server manager.
+# Rhesis CLI. Dispatch only — the commands live in scripts/rh/.
 #
-# This file is dispatch only. The command implementations live in scripts/rh/:
-#
-#   common.sh      colors, paths, output helpers, guards, env-file writer
-#   help.sh        the help screens (one command table feeds both)
-#   dev.sh         ./rh dev — env files, infrastructure, status, tmux
-#   quickstart.sh  ./rh start|stop|restart|logs|delete|secrets
-#   services.sh    individual service launchers and ./rh test
-#   worktree.sh    ./rh worktree (runs as its own process)
-#
-# The libs are sourced, not executed, so the command functions can cd, exec,
-# install traps, and exit exactly as they would if they still lived here.
+# The libs are sourced rather than executed so the command functions can cd,
+# exec, install traps, and exit as they did when they all lived in this file.
 
 RH_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/scripts/rh"
 
-# dev.sh before help.sh is not required, but common.sh must come first — the
-# others use its helpers at load time.
+# common.sh first: the others use SCRIPT_DIR at load time.
 for rh_lib in common dev quickstart services help; do
     # shellcheck source=/dev/null
     source "$RH_LIB_DIR/$rh_lib.sh" || {

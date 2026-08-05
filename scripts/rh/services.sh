@@ -1,15 +1,12 @@
 #!/bin/bash
-# Individual service launchers for ./rh dev <service> and ./rh test.
-# These run in the foreground and generally end in exec or a blocking start.sh.
+# Service launchers for ./rh dev <service>, plus ./rh test.
 
 CELERY_WORKER_CONCURRENCY="${CELERY_WORKER_CONCURRENCY:-4}"
 CELERY_WORKER_PREFETCH_MULTIPLIER="${CELERY_WORKER_PREFETCH_MULTIPLIER:-4}"
 FLOWER_PORT="${FLOWER_PORT:-5555}"
 
-# The backend venv is shared by ./rh dev backend and ./rh dev worker, and matches
-# apps/backend/Dockerfile build-backend: full optional deps + CPU PyTorch index +
-# EE. The EE code ships in deployed images by default (license-based runtime
-# gating), so dev parity means installing it here too.
+# Mirrors apps/backend/Dockerfile build-backend. EE is included because deployed
+# images ship it by default and gate it at runtime on the license.
 BACKEND_UV_EXTRAS="--extra all --extra cpu --extra ee"
 
 sync_backend_venv() {
@@ -33,9 +30,8 @@ start_backend() {
     source .venv/bin/activate || die "Error: Failed to activate virtual environment"
     ok "Python environment activated"
 
-    # Seed local dev resources once the backend is healthy. Runs in the background
-    # (it waits for /health itself) so the foreground server below is not blocked;
-    # it exits on its own after seeding or a timeout.
+    # Backgrounded because it polls /health itself; it exits after seeding or a
+    # timeout, so the foreground server below is never blocked.
     ( seed_dev_resources ) &
 
     [ -f "start.sh" ] || die "Error: Backend start.sh not found"
@@ -72,7 +68,6 @@ start_mock_chatbot() {
 # Chatbot
 # ============================================================================
 
-# Announce where a uvicorn-hosted service will be reachable.
 announce_uvicorn() {
     local port="$1"
     echo -e "${BLUE}Service will be available at: http://localhost:${port}${NC}"
@@ -95,7 +90,6 @@ start_chatbot() {
 # Polyphemus
 # ============================================================================
 
-# uv pip install -e <path>, dying with a labeled message on failure.
 pip_install_editable() {
     local target="$1"
     local label="$2"
@@ -115,8 +109,7 @@ start_polyphemus() {
     # shellcheck disable=SC1091
     source .venv/bin/activate || die "Error: Failed to activate virtual environment"
 
-    # Order matters: polyphemus needs the SDK's huggingface extras, then Penelope,
-    # then the backend, before its own dependencies resolve.
+    # Order matters — polyphemus resolves only once these three are in place.
     step "Installing SDK with HuggingFace support..."
     uv pip install -e "sdk[huggingface]" || die "Error: Failed to install SDK"
     pip_install_editable penelope "Penelope"
@@ -136,15 +129,12 @@ start_polyphemus() {
 FLOWER_PID=""
 WORKER_PID=""
 
-# Matches this project's Celery processes only — both the worker and Flower run
-# with -A rhesis.backend.worker.app. A bare "celery" pattern would also match an
-# unrelated project's worker on the same machine.
-#
-# No leading dash: pgrep/pkill would parse "-A rhesis..." as an option.
+# Scoped to this project — a bare "celery" would match another project's worker.
+# Catches Flower too, which runs under the same -A. The leading "-A" is left off
+# because pgrep/pkill would parse it as an option.
 CELERY_APP_PATTERN='rhesis\.backend\.worker\.app'
 
-# Stop Celery processes left behind by an earlier ./rh dev worker. TERM first so
-# in-flight tasks can finish, escalating to KILL only for stragglers.
+# TERM first so in-flight tasks can finish; KILL only for stragglers.
 stop_existing_celery() {
     step "Checking for existing Celery workers..."
     if ! pgrep -f "$CELERY_APP_PATTERN" > /dev/null; then
@@ -170,7 +160,6 @@ stop_existing_celery() {
     ok "Existing workers stopped"
 }
 
-# Tear down both children on Ctrl+C, TERM, or a worker exit.
 cleanup_worker_stack() {
     if [ -n "${WORKER_PID:-}" ] && kill -0 "$WORKER_PID" 2>/dev/null; then
         echo -e "\n${YELLOW}Stopping Celery worker (PID ${WORKER_PID})...${NC}"
@@ -204,8 +193,8 @@ start_worker() {
     step "Press Ctrl+C to stop the worker and Flower"
     echo ""
 
-    # Flower is a backend dev dependency (default-groups includes dev).
-    # apps/worker has no Python deps — the Docker worker reuses the backend image.
+    # Run from the backend venv: apps/worker has no Python deps of its own, and
+    # the Docker worker likewise reuses the backend image.
     export PYTHONPATH="${SCRIPT_DIR}/apps/backend/src${PYTHONPATH:+:$PYTHONPATH}"
 
     trap 'cleanup_worker_stack; exit 130' INT
@@ -218,8 +207,7 @@ start_worker() {
     echo -e "${BLUE}Override the port with: ${WHITE}FLOWER_PORT=<port> ./rh dev worker${NC}"
     echo ""
 
-    # Unique worker name (hostname + short UUID) so rapid restarts never collide.
-    # Format: worker@hostname-uuid, e.g. worker@server1-a1b2c3d4
+    # UUID suffix so rapid restarts cannot collide: worker@server1-a1b2c3d4
     local worker_uuid
     worker_uuid=$(python3 -c "import uuid; print(str(uuid.uuid4())[:8])")
     export CELERY_WORKER_NAME="worker@$(hostname)-${worker_uuid}"

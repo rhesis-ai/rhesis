@@ -1,18 +1,14 @@
 #!/bin/bash
-# Help screens for ./rh.
-#
-# The dev command list lives in exactly one place (DEV_COMMANDS) and is rendered
-# by both `./rh help` and `./rh dev help`. Previously the two screens each had
-# their own hand-maintained copy and had already drifted apart.
+# Help screens for ./rh. The dev command list is defined once below and rendered
+# by both ./rh help and ./rh dev help, which used to keep separate copies.
 
-# Gutter widths, matching the hand-aligned columns the help screens used before.
+# Gutter widths, matching the columns these screens were hand-aligned to.
 RH_PAD_CMD=23      # command tables
 RH_PAD_WORKTREE=32 # the worktree table, whose commands are longer
 RH_PAD_EXAMPLE=25  # the top-level Examples block
 
-# Print one "  ./rh <command>   - <description>" row, padded so descriptions line
-# up. Color codes have no printable width, so the padding is computed from the
-# bare command and emitted outside the escapes.
+# Padding is computed from the bare command and emitted outside the color
+# escapes, which have no printable width.
 help_row() {
     local command="$1"
     local description="$2"
@@ -21,7 +17,7 @@ help_row() {
     printf "  ${GREEN}%s${NC}%*s- %s\n" "$command" "$pad" "" "$description"
 }
 
-# Same, but for the Examples blocks, which use "# comment" instead of "- text".
+# For the Examples blocks, which use "# comment" instead of "- text".
 help_example() {
     local command="$1"
     local comment="$2"
@@ -31,11 +27,11 @@ help_example() {
 }
 
 # ============================================================================
-# Command tables — the single source of truth for the help output
+# Command tables
 # ============================================================================
 
-# Each entry is "subcommand|description". Ports come from dev.sh so the help
-# text cannot drift from the ports the containers actually bind.
+# "subcommand|description". Ports come from dev.sh so the text cannot drift
+# from what the containers actually bind.
 rh_dev_setup_commands() {
     cat <<TABLE
 init|Initialize env files (one-time setup)
@@ -61,7 +57,6 @@ polyphemus|Start the Polyphemus service
 TABLE
 }
 
-# Render a table produced by one of the functions above.
 render_dev_table() {
     local line command description
     while IFS='|' read -r command description; do

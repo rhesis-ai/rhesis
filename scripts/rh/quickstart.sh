@@ -1,17 +1,15 @@
 #!/bin/bash
 # ./rh start | stop | restart | logs | delete | secrets — the Docker Compose
-# "quickstart" stack that runs the whole platform in containers.
+# stack that runs the whole platform in containers.
 
 # ============================================================================
 # Configuration
 # ============================================================================
 
-# A dedicated Compose project name keeps ./rh delete from touching containers
-# that were created outside this script.
+# A dedicated project name keeps ./rh delete off containers created elsewhere.
 PROJECT_NAME="rhesis-quickstart"
 
-# Written by ./rh start / ./rh restart so stop/logs/restart/delete reuse the same
-# compose merge (GHCR images vs. local builds).
+# Written by start/restart so the other commands reuse the same compose merge.
 QUICKSTART_COMPOSE_MODE_FILE="$SCRIPT_DIR/.rhesis-quickstart-compose.mode"
 
 QUICKSTART_ENV_FILE=".env.docker.local"
@@ -20,7 +18,6 @@ QUICKSTART_ENV_FILE=".env.docker.local"
 # Compose mode
 # ============================================================================
 
-# Returns ghcr or build (validated).
 quickstart_compose_mode_from_file() {
     local mode="ghcr"
     if [ -f "$QUICKSTART_COMPOSE_MODE_FILE" ]; then
@@ -33,7 +30,6 @@ quickstart_compose_mode_from_file() {
     fi
 }
 
-# Echoes docker compose -f ... flags for the given mode (ghcr = base + GHCR override).
 quickstart_compose_flags_for_mode() {
     local mode="$1"
     if [ "$mode" = "build" ]; then
@@ -47,28 +43,23 @@ quickstart_compose_flags_from_file() {
     quickstart_compose_flags_for_mode "$(quickstart_compose_mode_from_file)"
 }
 
-# Every compose call in this file goes through here. COMPOSE_FLAGS is set by
-# start_all/restart_all, which know the mode before it is written to disk;
-# everything else falls back to the mode recorded by the last successful start.
-# Unquoted on purpose — the flags are several words.
+# start_all/restart_all set COMPOSE_FLAGS, since they know the mode before it
+# reaches the file; everything else reads the last successful start's mode.
+# Flags are unquoted deliberately — they expand to several words.
 qs_compose() {
     # shellcheck disable=SC2086
     docker compose ${COMPOSE_FLAGS:-$(quickstart_compose_flags_from_file)} \
         -p "$PROJECT_NAME" --env-file "$QUICKSTART_ENV_FILE" "$@"
 }
 
-# The five services the quickstart stack brings up, in dependency order.
 QUICKSTART_SERVICES="postgres redis backend worker frontend"
-# Only these three are built locally; postgres and redis are always pulled.
+# postgres and redis are always pulled, never built.
 QUICKSTART_BUILD_SERVICES="backend worker frontend"
 
-# Build images from local Dockerfiles.
-#
-# Build and up are two separate calls rather than `up --build`: run together,
-# Compose can deadlock — after the BuildKit build finishes it keeps waiting on the
-# build result stream and never moves on to creating containers (the process sits
-# idle with no Docker activity). BUILDX_NO_DEFAULT_ATTESTATIONS disables the
-# provenance/attestation manifests whose export is what triggers the wedge.
+# Kept separate from `up` instead of using `up --build`, which can deadlock:
+# Compose finishes the BuildKit build, then waits forever on the build result
+# stream without creating containers. BUILDX_NO_DEFAULT_ATTESTATIONS disables
+# the provenance manifests whose export triggers the wedge.
 qs_build() {
     # Subshell so the export does not outlive the build.
     (
@@ -82,9 +73,8 @@ qs_build() {
 # ./rh secrets — fill an existing .env.docker (production flow)
 # ============================================================================
 
-# DB_ENCRYPTION_KEY is guarded: rotating it makes data already encrypted with the
-# old key undecryptable, so it is overwritten only on explicit confirmation
-# (default no). The other three are safe to rotate and are set unconditionally.
+# DB_ENCRYPTION_KEY needs confirmation to overwrite: rotating it makes anything
+# already encrypted with the old key undecryptable. The other three are safe.
 generate_docker_secrets() {
     if [ ! -f ".env.docker" ]; then
         err ".env.docker not found"
@@ -120,7 +110,6 @@ generate_docker_secrets() {
 # .env.docker.local — the quickstart's generated config
 # ============================================================================
 
-# Create .env.docker.local from scratch, asking which host ports to bind.
 quickstart_create_env_file() {
     local encryption_key="$1"
 
@@ -133,9 +122,8 @@ quickstart_create_env_file() {
     frontend_port=$(prompt_port "frontend" 3000)
     ok "Using backend port ${backend_port}, frontend port ${frontend_port}"
 
-    # Compose keeps the bind ports and the public URLs decoupled, but for
-    # localhost dev the public URL is just localhost on the chosen port, so
-    # derive and write both here.
+    # Compose keeps bind ports and public URLs separate, but on localhost the
+    # URL is just the chosen port, so both are derived here.
     cat > "$QUICKSTART_ENV_FILE" << EOF
 # Auto-generated local environment configuration
 
@@ -154,7 +142,6 @@ EOF
     ok "Created ${QUICKSTART_ENV_FILE} with local configuration"
 }
 
-# Ensure DB_ENCRYPTION_KEY and QUICK_START are present in an existing file.
 quickstart_update_env_file() {
     local encryption_key="$1"
     set_env_var "$QUICKSTART_ENV_FILE" "DB_ENCRYPTION_KEY" "$encryption_key"
@@ -164,7 +151,6 @@ quickstart_update_env_file() {
     ok "Local configuration updated in ${QUICKSTART_ENV_FILE}"
 }
 
-# Offer to store a Rhesis API key, which test generation needs.
 quickstart_prompt_api_key() {
     grep -q "^RHESIS_API_KEY=" "$QUICKSTART_ENV_FILE" 2>/dev/null && return 0
 
@@ -195,7 +181,6 @@ quickstart_prompt_api_key() {
     ok "RHESIS_API_KEY saved to ${QUICKSTART_ENV_FILE}"
 }
 
-# Bring .env.docker.local up to the state `docker compose up` expects.
 quickstart_prepare_env_file() {
     if [ ! -f "$QUICKSTART_ENV_FILE" ] || \
        ! grep -qE "^DB_ENCRYPTION_KEY=[^[:space:]]" "$QUICKSTART_ENV_FILE" 2>/dev/null; then
@@ -223,7 +208,6 @@ quickstart_prepare_env_file() {
 # ./rh start
 # ============================================================================
 
-# True when --build appears in the arguments.
 wants_build() {
     local arg
     for arg in "$@"; do
@@ -314,8 +298,7 @@ stop_all() {
     fi
 }
 
-# Recreates containers so .env.docker.local changes apply.
-# Optional: --build  Rebuild from local Dockerfiles and switch quickstart mode to build.
+# Force-recreates so .env.docker.local changes actually apply.
 restart_all() {
     step "Restarting all Rhesis services..."
 
@@ -393,11 +376,9 @@ delete_all() {
 
     cd_or_die "$SCRIPT_DIR" "Script"
 
-    # The explicit project name keeps this scoped to resources THIS script created,
-    # rather than containers with similar names from other projects.
     local compose_rc=0
     qs_compose down -v --rmi all 2>/dev/null || {
-        # Fallback: if the project name does not match, try without -p.
+        # Fall back to no -p in case the project name does not match.
         warn "Project-specific deletion failed, trying default method..."
         # shellcheck disable=SC2086
         docker compose ${COMPOSE_FLAGS:-$(quickstart_compose_flags_from_file)} \

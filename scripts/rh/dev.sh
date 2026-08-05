@@ -1,6 +1,5 @@
 #!/bin/bash
-# ./rh dev — local development environment: env files, infrastructure containers,
-# status, and the tmux session that runs every service at once.
+# ./rh dev — local development environment.
 
 # ============================================================================
 # Configuration
@@ -13,9 +12,8 @@ DEV_REDIS_PORT=11001
 DEV_POSTGRES_CONTAINER="rhesis-dev-postgres"
 DEV_REDIS_CONTAINER="rhesis-dev-redis"
 
-# Data lives in named volumes rather than the containers' writable layers, so
-# ./rh dev down can stop the containers without discarding the database. Only
-# ./rh dev clean removes these.
+# Named volumes, not the containers' writable layers, so ./rh dev down can stop
+# without discarding the database. Only ./rh dev clean removes them.
 DEV_POSTGRES_VOLUME="rhesis-dev-postgres-data"
 DEV_REDIS_VOLUME="rhesis-dev-redis-data"
 
@@ -27,7 +25,6 @@ DEV_FRONTEND_ENV="$SCRIPT_DIR/apps/frontend/.env.local"
 # Predicates
 # ============================================================================
 
-# True when the env file carries the marker ./rh dev init writes on line 1.
 is_dev_generated() {
     local file="$1"
     [ -f "$file" ] && head -n1 "$file" | grep -qF "$DEV_ENV_MARKER"
@@ -37,7 +34,6 @@ check_env_files_exist() {
     [ -f "$DEV_BACKEND_ENV" ] && [ -f "$DEV_FRONTEND_ENV" ]
 }
 
-# True when a container of this name is up.
 dev_container_running() {
     docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^$1\$"
 }
@@ -46,7 +42,6 @@ dev_container_running() {
 # Env file creation
 # ============================================================================
 
-# Confirm before clobbering an env file we did not write.
 prompt_overwrite() {
     local file="$1"
     warn "File exists: $file"
@@ -54,8 +49,7 @@ prompt_overwrite() {
     confirm "Overwrite?"
 }
 
-# Shared preamble for create_backend_env / create_frontend_env: bail out (0) when
-# the user declines to overwrite a hand-written file, otherwise announce and proceed.
+# Returns non-zero when the user declines to overwrite a hand-written file.
 dev_env_writable() {
     local env_file="$1"
     if [ -f "$env_file" ] && ! is_dev_generated "$env_file"; then
@@ -233,10 +227,8 @@ dev_up() {
 
     step "Starting dev containers (postgres:${DEV_POSTGRES_PORT}, redis:${DEV_REDIS_PORT})..."
 
-    # Restart the existing container if there is one, otherwise create it.
-    # A container created before the volumes were introduced keeps its data in
-    # its writable layer; docker start reuses it as-is, and it picks up the
-    # volume only once ./rh dev clean has removed it.
+    # A container predating the volumes keeps its writable-layer data: docker
+    # start reuses it, and it only picks up the volume after ./rh dev clean.
     docker start "$DEV_POSTGRES_CONTAINER" 2>/dev/null || \
     docker run -d \
         --name "$DEV_POSTGRES_CONTAINER" \
@@ -266,8 +258,8 @@ dev_up() {
         sleep 1
     done
 
-    # Without this the success banner below would print over a stack that never
-    # came up, and the first thing to fail would be the backend, far from the cause.
+    # Otherwise the success banner prints over a stack that never came up, and
+    # the first visible failure is the backend, far from the cause.
     if [ "$pg_ready" -eq 0 ]; then
         die "Error: PostgreSQL did not become ready within 30s" \
             "Check the logs: docker logs $DEV_POSTGRES_CONTAINER" \
@@ -299,8 +291,7 @@ dev_up() {
 # ./rh dev down / clean
 # ============================================================================
 
-# Stop only. The containers and their volumes stay, so ./rh dev up brings the
-# same database back. Removal is ./rh dev clean's job.
+# Stop only — removal is ./rh dev clean's job.
 dev_down() {
     step "Stopping Rhesis Development Infrastructure..."
     echo ""
@@ -342,9 +333,8 @@ dev_clean() {
     docker volume rm "$DEV_POSTGRES_VOLUME" 2>/dev/null || true
     docker volume rm "$DEV_REDIS_VOLUME" 2>/dev/null || true
 
-    # Sweep up any other rhesis-dev volumes, including anonymous ones left by
-    # containers created before the named volumes existed. Guarded rather than
-    # using xargs -r, which is a GNU extension.
+    # Catches anonymous volumes from containers that predate the named ones.
+    # Guarded instead of xargs -r, which is a GNU extension.
     local leftover_volumes
     leftover_volumes=$(docker volume ls -q --filter "name=rhesis-dev" 2>/dev/null)
     if [ -n "$leftover_volumes" ]; then
@@ -363,7 +353,6 @@ dev_clean() {
 # ./rh dev status
 # ============================================================================
 
-# One "✅ apps/backend/.env (initialized: …)" line.
 report_env_file() {
     local file="$1"
     local label="$2"
@@ -380,7 +369,6 @@ report_env_file() {
     fi
 }
 
-# One "PostgreSQL: ✅ Running (localhost:11000)" line.
 report_container() {
     local container="$1"
     local label="$2"
@@ -428,8 +416,7 @@ dev_status() {
 
 DEV_TMUX_SESSION="rhesis"
 
-# Open one tmux window running `./rh dev <service>`. Pass "new" as the third
-# argument for the first window, which creates the session.
+# Third argument "new" creates the session instead of adding a window to it.
 dev_tmux_window() {
     local name="$1"
     local service="$2"
@@ -481,9 +468,6 @@ dev_tmux() {
 # ./rh dev seed
 # ============================================================================
 
-# Create the mock LLM model + mock chatbot endpoint if they are missing.
-# Idempotent. Talks to the running backend over HTTP using the Quick Start local
-# token, so it touches no backend app code.
 seed_dev_resources() {
     local script="$SCRIPT_DIR/apps/developer-tools/seed_dev_resources.sh"
     if [ -f "$script" ]; then
