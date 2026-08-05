@@ -110,7 +110,7 @@ allow-direct-references = true
 [tool.uv]
 exclude-newer = "1 week"
 # Allow newer versions for packages with recent security patches (CVEs).
-exclude-newer-package = { jupyter-server = false, mistune = false, notebook = false, pydantic-settings = false, langsmith = false, langchain = false, langchain-core = false, litellm = false, aiohttp = false, tornado = false, starlette = false, pyjwt = false, pyarrow = false, bleach = false, cryptography = false, python-multipart = false, jupyterlab = false }
+exclude-newer-package = { jupyter-server = false, mistune = false, notebook = false, pydantic-settings = false, langsmith = false, langchain = false, langchain-core = false, litellm = false, aiohttp = false, tornado = false, starlette = false, pyjwt = false, pyarrow = false, bleach = false, cryptography = false, python-multipart = false, jupyterlab = false, gitpython = false }
 # Force minimum versions for transitive dependencies with security advisories
 constraint-dependencies = [
     "pyasn1>=0.6.4",
