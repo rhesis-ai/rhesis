@@ -5,9 +5,7 @@
 # Configuration
 # ============================================================================
 
-# Dev ports are deliberately distinct from prod (5432/6379) and test (10001/10002).
-DEV_POSTGRES_PORT=11000
-DEV_REDIS_PORT=11001
+# Ports live in ports.sh, which ./rh sources ahead of this file.
 
 DEV_POSTGRES_CONTAINER="rhesis-dev-postgres"
 DEV_REDIS_CONTAINER="rhesis-dev-redis"
@@ -77,6 +75,9 @@ $DEV_ENV_MARKER on $timestamp
 
 QUICK_START=true
 
+# Server (start.sh reads PORT from here)
+PORT=${DEV_BACKEND_PORT}
+
 # Database
 DB_HOST=localhost
 DB_NAME=rhesis-db
@@ -117,10 +118,14 @@ create_frontend_env() {
     cat > "$env_file" << EOF
 $DEV_ENV_MARKER on $timestamp
 
-API_BASE_URL=http://localhost:8080
+API_BASE_URL=http://localhost:${DEV_BACKEND_PORT}
 FRONTEND_ENV=local
-BACKEND_URL=http://localhost:8080
-FRONTEND_URL=http://localhost:3000
+BACKEND_URL=http://localhost:${DEV_BACKEND_PORT}
+
+# FRONTEND_URL is also NextAuth's base URL (src/auth.ts), so it tracks PORT.
+FRONTEND_URL=http://localhost:${DEV_FRONTEND_PORT}
+PORT=${DEV_FRONTEND_PORT}
+
 NEXTAUTH_SECRET=${nextauth_secret}
 NEXT_TELEMETRY_DISABLED=1
 EOF
@@ -471,7 +476,8 @@ dev_tmux() {
 seed_dev_resources() {
     local script="$SCRIPT_DIR/apps/developer-tools/seed_dev_resources.sh"
     if [ -f "$script" ]; then
-        bash "$script"
+        # The script has its own 8080 default; point it at our backend.
+        API_BASE_URL="${API_BASE_URL:-http://localhost:${DEV_BACKEND_PORT}}" bash "$script"
     else
         warn "Seed script not found: $script"
         return 1

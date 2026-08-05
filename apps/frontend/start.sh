@@ -54,10 +54,19 @@ ensure_dependencies() {
     fi
 }
 
+# next reads .env.local itself, but the port is a flag, needed before it starts.
+load_port() {
+    if [ -z "${PORT:-}" ] && [ -f ".env.local" ]; then
+        PORT=$(grep -m1 '^PORT=' .env.local | cut -d= -f2)
+        export PORT
+    fi
+}
+
 # Function to start the development server
 start_server() {
     log "${BLUE}📋 Server Configuration:${NC}"
     log "  Host: 0.0.0.0 (from npm run dev:turbo)"
+    log "  Port: ${PORT:-3000}"
     log "  Environment: development"
     echo ""
 
@@ -100,6 +109,8 @@ main() {
 
     # Ensure dependencies are installed
     ensure_dependencies
+
+    load_port
 
     # Start the server
     start_server

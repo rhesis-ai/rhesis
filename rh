@@ -6,8 +6,8 @@
 
 RH_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/scripts/rh"
 
-# common.sh first: the others use SCRIPT_DIR at load time.
-for rh_lib in common dev quickstart services help; do
+# common.sh and ports.sh first: the others read SCRIPT_DIR and the ports at load time.
+for rh_lib in common ports dev quickstart services help; do
     # shellcheck source=/dev/null
     source "$RH_LIB_DIR/$rh_lib.sh" || {
         echo "❌ Failed to load scripts/rh/$rh_lib.sh" >&2

@@ -3,7 +3,8 @@
 
 CELERY_WORKER_CONCURRENCY="${CELERY_WORKER_CONCURRENCY:-4}"
 CELERY_WORKER_PREFETCH_MULTIPLIER="${CELERY_WORKER_PREFETCH_MULTIPLIER:-4}"
-FLOWER_PORT="${FLOWER_PORT:-5555}"
+
+# Ports come from ports.sh, which ./rh sources ahead of this file.
 
 # Mirrors apps/backend/Dockerfile build-backend. EE is included because deployed
 # images ship it by default and gate it at runtime on the license.
@@ -44,6 +45,8 @@ start_backend() {
 
 start_frontend() {
     echo -e "${GREEN}Starting Rhesis Frontend...${NC}"
+    # The npm script passes PORT to next dev as -p.
+    export PORT="$DEV_FRONTEND_PORT"
     run_start_script apps/frontend "Frontend"
 }
 
@@ -81,9 +84,9 @@ start_chatbot() {
     cd_or_die "$SCRIPT_DIR/apps/chatbot" "Chatbot"
 
     echo -e "${GREEN}Starting Chatbot service...${NC}"
-    announce_uvicorn 8000
+    announce_uvicorn "$DEV_CHATBOT_PORT"
 
-    exec uv run uvicorn client:app --host 0.0.0.0 --port 8000 --reload
+    exec uv run uvicorn client:app --host 0.0.0.0 --port "$DEV_CHATBOT_PORT" --reload
 }
 
 # ============================================================================
@@ -117,9 +120,9 @@ start_polyphemus() {
     pip_install_editable apps/polyphemus "Polyphemus"
 
     echo -e "${GREEN}Starting Polyphemus service...${NC}"
-    announce_uvicorn 8082
+    announce_uvicorn "$DEV_POLYPHEMUS_PORT"
 
-    exec uvicorn rhesis.polyphemus.main:app --host 0.0.0.0 --port 8082 --reload
+    exec uvicorn rhesis.polyphemus.main:app --host 0.0.0.0 --port "$DEV_POLYPHEMUS_PORT" --reload
 }
 
 # ============================================================================
@@ -201,10 +204,10 @@ start_worker() {
     trap 'cleanup_worker_stack; exit 143' TERM
 
     echo -e "${GREEN}Starting Flower (Celery monitor)...${NC}"
-    uv run celery -A rhesis.backend.worker.app flower --port="$FLOWER_PORT" &
+    uv run celery -A rhesis.backend.worker.app flower --port="$DEV_FLOWER_PORT" &
     FLOWER_PID=$!
-    echo -e "${BLUE}Flower dashboard: http://127.0.0.1:${FLOWER_PORT}/${NC}"
-    echo -e "${BLUE}Override the port with: ${WHITE}FLOWER_PORT=<port> ./rh dev worker${NC}"
+    echo -e "${BLUE}Flower dashboard: http://127.0.0.1:${DEV_FLOWER_PORT}/${NC}"
+    echo -e "${BLUE}Override the port with: ${WHITE}DEV_FLOWER_PORT=<port> ./rh dev worker${NC}"
     echo ""
 
     # UUID suffix so rapid restarts cannot collide: worker@server1-a1b2c3d4
