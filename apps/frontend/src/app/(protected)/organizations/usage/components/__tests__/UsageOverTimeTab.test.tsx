@@ -48,6 +48,22 @@ describe('UsageOverTimeTab', () => {
     expect(screen.getByText('Showing the last 6 months')).toBeInTheDocument();
   });
 
+  it('shows no filter badge while the default timespan is selected', () => {
+    render(<UsageOverTimeTab />);
+
+    expect(screen.queryByLabelText(/active filters/i)).not.toBeInTheDocument();
+  });
+
+  it('counts the timespan filter on the badge once it differs from the default', () => {
+    render(<UsageOverTimeTab />);
+
+    fireEvent.click(screen.getByText('12M'));
+
+    // The count, not just a bare dot: FilterButton renders an empty circle
+    // when handed only hasActiveFilters.
+    expect(screen.getByLabelText('1 active filters')).toHaveTextContent('1');
+  });
+
   it('switches the requested range when a different pill is clicked', () => {
     render(<UsageOverTimeTab />);
 

@@ -146,6 +146,12 @@ export default function UsageOverTimeTab() {
     resource => resource in history
   );
 
+  // The timespan is the only filter here, so an active one is a count of 1.
+  // FilterButton needs the number as well as the boolean: given only the
+  // boolean it draws the badge with nothing inside, which reads as an empty
+  // circle rather than "1 filter applied".
+  const activeFilterCount = months !== DEFAULT_HISTORY_MONTHS ? 1 : 0;
+
   return (
     <SectionCard
       title="Usage Over Time"
@@ -154,7 +160,8 @@ export default function UsageOverTimeTab() {
         <>
           <FilterButton
             onClick={() => setDrawerOpen(true)}
-            hasActiveFilters={months !== DEFAULT_HISTORY_MONTHS}
+            hasActiveFilters={activeFilterCount > 0}
+            activeFilterCount={activeFilterCount}
           />
           <UsageOverTimeFilterDrawer
             open={drawerOpen}
