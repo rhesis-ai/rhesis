@@ -117,6 +117,7 @@ describe('behavior-insights-utils', () => {
     const topicRows: InsightsRow[] = [
       {
         behavior_id: 'b-1',
+        topic_id: 't-1',
         topic: 'Safety',
         count: 6,
         passed: 4,
@@ -154,7 +155,14 @@ describe('behavior-insights-utils', () => {
         pass_rate: 80,
       });
       expect(robustness.topics).toEqual([
-        { name: 'Safety', total: 6, passed: 4, failed: 2, pass_rate: 66.67 },
+        {
+          id: 't-1',
+          name: 'Safety',
+          total: 6,
+          passed: 4,
+          failed: 2,
+          pass_rate: 66.67,
+        },
       ]);
       expect(robustness.metrics).toEqual([
         { name: 'Fluency', total: 10, passed: 8, failed: 2, pass_rate: 80 },

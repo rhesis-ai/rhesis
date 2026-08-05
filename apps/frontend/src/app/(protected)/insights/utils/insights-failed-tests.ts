@@ -22,6 +22,7 @@ export interface InsightsFailedTestsScope {
   behaviorId?: string;
   behaviorName?: string;
   metricName?: string;
+  topicId?: string;
   topicName?: string;
   outcome?: InsightsTestOutcome;
 }
@@ -34,6 +35,7 @@ export interface InsightsFailedTestsFilter {
   behaviorId?: string;
   behaviorName?: string;
   metricName?: string;
+  topicId?: string;
   topicName?: string;
   outcome?: InsightsTestOutcome;
 }
@@ -71,6 +73,9 @@ export function buildInsightsFailedTestsUrl(
   }
   if (scope?.metricName) {
     params.set('metric', scope.metricName);
+  }
+  if (scope?.topicId) {
+    params.set('topicId', scope.topicId);
   }
   if (scope?.topicName) {
     params.set('topic', scope.topicName);
@@ -168,6 +173,7 @@ export function parseInsightsFailedTestsSearchParams(
     behaviorId: searchParams.get('behaviorId') || undefined,
     behaviorName: searchParams.get('behaviorName') || undefined,
     metricName: searchParams.get('metric') || undefined,
+    topicId: searchParams.get('topicId') || undefined,
     topicName: searchParams.get('topic') || undefined,
     outcome:
       searchParams.get('outcome') === INSIGHTS_OUTCOME_ALL ? 'all' : 'failed',
@@ -178,8 +184,8 @@ export function parseInsightsFailedTestsSearchParams(
  * Resolve test case IDs that failed for the selected Insights scope,
  * optionally scoped to a behavior, metric, or topic row.
  *
- * Delegates to GET /test_results/stats?mode=ids, which resolves matching
- * test_ids server-side (a Postgres query over the stats view) instead of
+ * Delegates to GET /insights/ids, which resolves matching test_ids
+ * server-side (a Postgres query over the stats view) instead of
  * paginating full TestResultDetail rows and filtering them here.
  */
 export async function fetchFailedTestIdsForInsights(
@@ -200,17 +206,17 @@ export async function fetchFailedTestIdsForInsights(
     return [];
   }
 
-  const client = new ApiClientFactory().getTestResultsClient();
-  const result = await client.getComprehensiveTestResultsStats({
-    mode: 'ids',
+  const client = new ApiClientFactory().getInsightsClient();
+  const result = await client.getInsightsIds({
+    entity: filters.metricName ? 'metric' : 'test_result',
     test_run_ids: testRunIds,
     outcome: filters.outcome === 'all' ? 'all' : 'fail',
     ...(filters.behaviorId ? { behavior_ids: [filters.behaviorId] } : {}),
-    ...(filters.metricName ? { metric_name: filters.metricName } : {}),
-    ...(filters.topicName ? { topic_name: filters.topicName } : {}),
+    ...(filters.metricName ? { metric_names: [filters.metricName] } : {}),
+    ...(filters.topicId ? { topic_ids: [filters.topicId] } : {}),
   });
 
-  return result.test_ids ?? [];
+  return result.ids ?? [];
 }
 
 export function formatInsightsSummaryDetail(

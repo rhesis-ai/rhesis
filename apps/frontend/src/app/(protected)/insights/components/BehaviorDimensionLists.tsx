@@ -87,7 +87,7 @@ function DimensionRows({
       outcome: 'all',
       ...(dimension === 'metric'
         ? { metricName: item.name }
-        : { topicName: item.name }),
+        : { topicId: item.id, topicName: item.name }),
     };
     const url = buildInsightsFailedTestsUrl(insightsFilters, scope);
     window.open(url, '_blank', 'noopener,noreferrer');

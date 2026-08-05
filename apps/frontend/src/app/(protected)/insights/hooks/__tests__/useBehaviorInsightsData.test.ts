@@ -17,37 +17,35 @@ jest.mock('../../utils/behavior-insights-utils', () => ({
   buildBehaviorColumns: jest.fn(() => []),
 }));
 
-function mockInsightsBatchResponse(summaryRow: {
+function mockInsightsQueryResponse(summaryRow: {
   passed: number;
   failed: number;
   pass_rate: number;
 }) {
   return {
-    results: {
-      summary: {
-        entity: 'test_result',
-        dimensions: [],
-        measures: ['count', 'passed', 'failed', 'pass_rate'],
-        rows: [summaryRow],
-      },
-      behaviors: {
-        entity: 'test_result',
-        dimensions: ['behavior_id', 'behavior'],
-        measures: ['count', 'passed', 'failed', 'pass_rate'],
-        rows: [],
-      },
-      topics: {
-        entity: 'test_result',
-        dimensions: ['behavior_id', 'topic'],
-        measures: ['count', 'passed', 'failed', 'pass_rate'],
-        rows: [],
-      },
-      metrics: {
-        entity: 'metric',
-        dimensions: ['behavior_id', 'metric_name'],
-        measures: ['count', 'passed', 'failed', 'pass_rate'],
-        rows: [],
-      },
+    summary: {
+      entity: 'test_result',
+      dimensions: [],
+      measures: ['count', 'passed', 'failed', 'pass_rate'],
+      rows: [summaryRow],
+    },
+    behaviors: {
+      entity: 'test_result',
+      dimensions: ['behavior_id', 'behavior'],
+      measures: ['count', 'passed', 'failed', 'pass_rate'],
+      rows: [],
+    },
+    topics: {
+      entity: 'test_result',
+      dimensions: ['behavior_id', 'topic_id', 'topic'],
+      measures: ['count', 'passed', 'failed', 'pass_rate'],
+      rows: [],
+    },
+    metrics: {
+      entity: 'metric',
+      dimensions: ['behavior_id', 'metric_name'],
+      measures: ['count', 'passed', 'failed', 'pass_rate'],
+      rows: [],
     },
   };
 }
@@ -55,8 +53,8 @@ function mockInsightsBatchResponse(summaryRow: {
 jest.mock('@/utils/api-client/client-factory', () => ({
   ApiClientFactory: jest.fn().mockImplementation(() => ({
     getInsightsClient: () => ({
-      getInsightsBatch: jest.fn().mockResolvedValue(
-        mockInsightsBatchResponse({
+      getInsightsQuery: jest.fn().mockResolvedValue(
+        mockInsightsQueryResponse({
           passed: 10,
           failed: 10,
           pass_rate: 50,
@@ -93,7 +91,7 @@ describe('useBehaviorInsightsData', () => {
     jest.useRealTimers();
   });
 
-  it('resolves summary from the batch response', async () => {
+  it('resolves summary from the query response', async () => {
     mockResolveTestRunIds.mockResolvedValue(['run-1', 'run-2']);
 
     const filters = {
