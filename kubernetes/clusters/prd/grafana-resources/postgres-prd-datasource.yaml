@@ -1,0 +1,31 @@
+# Read-only Postgres datasource for production dashboards. "grafana-viewer" (see
+# cnpg-cluster.yaml managed.roles) only has SELECT granted on public schema tables, and
+# rhesis-prd-ro routes to the hot-standby replica, so this cannot write to prd data.
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDatasource
+metadata:
+  name: rhesis-prd-postgres
+  namespace: monitoring
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  instanceSelector:
+    matchLabels:
+      dashboards: grafana
+  datasource:
+    name: "Rhesis PRD Postgres (RO)"
+    type: postgres
+    access: proxy
+    url: rhesis-prd-ro.rhesis.svc:5432
+    database: rhesis-prd-db
+    user: grafana-viewer
+    jsonData:
+      sslmode: disable
+      postgresVersion: 1700
+    editable: false
+  valuesFrom:
+    - targetPath: "secureJsonData.password"
+      valueFrom:
+        secretKeyRef:
+          name: grafana-viewer-credentials
+          key: password

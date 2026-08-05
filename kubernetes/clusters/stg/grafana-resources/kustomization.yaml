@@ -3,6 +3,10 @@ kind: Kustomization
 
 resources:
   - ../../../base/grafana-resources
+  # stg-only: reads a stg-scoped GSM secret, so this doesn't belong in
+  # base/grafana-resources (shared identically by dev/stg/prd).
+  - grafana-viewer-credentials.yaml
+  - postgres-stg-datasource.yaml
 
 configMapGenerator:
   - name: grafana-config
