@@ -78,8 +78,7 @@
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
     "react-mentions": "^4.4.10",
-    "reactflow": "^11.11.4",
-    "recharts": "^2.15.0"
+    "reactflow": "^11.11.4"
   },
   "overrides": {
     "glob": "^10.0.0",

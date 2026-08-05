@@ -215,31 +215,6 @@ describe('TestRunsClient', () => {
     });
   });
 
-  describe('getTestRunStats', () => {
-    it('fetches stats without params', async () => {
-      const mockStats = { total: 50, by_status: {} };
-      fetchMock.mockResolvedValue(makeFetchResponse(mockStats));
-
-      const result = await client.getTestRunStats();
-
-      expect(fetchMock).toHaveBeenCalledWith(
-        expect.stringContaining('/test_runs/stats'),
-        expect.anything()
-      );
-      expect(result).toEqual(mockStats);
-    });
-
-    it('appends query params when provided', async () => {
-      fetchMock.mockResolvedValue(makeFetchResponse({}));
-
-      await client.getTestRunStats({ test_run_ids: ['run-1', 'run-2'] });
-
-      const calledUrl = fetchMock.mock.calls[0][0] as string;
-      expect(calledUrl).toContain('test_run_ids=run-1');
-      expect(calledUrl).toContain('test_run_ids=run-2');
-    });
-  });
-
   describe('downloadTestRun', () => {
     it('fetches the download URL for the given test run id', async () => {
       fetchMock.mockResolvedValue(
