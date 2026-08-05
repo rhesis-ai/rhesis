@@ -524,3 +524,38 @@ class TestAvailableModels:
             from rhesis.sdk.models.factory import get_available_embedding_models
 
             get_available_embedding_models("anthropic")
+
+
+class TestGetModelUsageCallback:
+    """``on_usage`` must reach any provider, not only the few whose
+    constructors happen to accept ``**kwargs``.
+
+    Passing it down as a constructor kwarg raised TypeError for most of the
+    registry, so a backend wiring accrual for e.g. ``vertex_ai`` could not
+    get a callback attached at all.
+    """
+
+    @pytest.mark.parametrize(
+        ("model_id", "api_key"),
+        [
+            ("vertex_ai/gemini-2.5-flash", None),
+            ("gemini/gemini-2.0-flash", None),
+            ("openai/gpt-4o", "sk-test"),
+        ],
+    )
+    def test_callback_is_attached_for_providers_with_fixed_signatures(self, model_id, api_key):
+        from rhesis.sdk.models.factory import get_model
+
+        def callback(usage):
+            return None
+
+        model = get_model(model_id, api_key=api_key, model_type="language", on_usage=callback)
+
+        assert model.on_usage is callback
+
+    def test_absent_callback_leaves_the_default(self):
+        from rhesis.sdk.models.factory import get_model
+
+        model = get_model("vertex_ai/gemini-2.5-flash", model_type="language")
+
+        assert model.on_usage is None

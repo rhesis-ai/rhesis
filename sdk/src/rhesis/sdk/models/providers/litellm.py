@@ -138,6 +138,15 @@ class LiteLLM(BaseLLM):
             **kwargs,
         )
 
+        # Emitted for every LiteLLM-backed provider (vertex_ai, gemini,
+        # openai, anthropic, ...), not just the Rhesis-native ones: whether
+        # those tokens are billable is the caller's decision, expressed by
+        # whether it passed an ``on_usage`` callback at all. A deployment
+        # whose default model is, say, ``vertex_ai/gemini-2.5-flash`` runs on
+        # the server's own credentials, so its tokens do need reporting.
+        # ``_emit_usage`` no-ops when no callback is wired.
+        self._emit_usage(getattr(response, "usage", None))
+
         response_content = response.choices[0].message.content  # type: ignore
         if schema:
             response_content = json.loads(response_content)
@@ -248,6 +257,12 @@ class LiteLLM(BaseLLM):
             *args,
             **kwargs,
         )
+
+        # One aggregate emission for the whole batch rather than one per
+        # prompt -- see ``BaseLLM._emit_usage_batch`` for why (the callback
+        # queues a durable write). Bulk test generation runs through here,
+        # so it is the single largest token consumer to account for.
+        self._emit_usage_batch(getattr(r, "usage", None) for r in responses)
 
         # Extract content from responses (each response has n choices)
         results: List[Union[str, dict]] = []

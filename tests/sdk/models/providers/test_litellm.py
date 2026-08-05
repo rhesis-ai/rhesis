@@ -656,3 +656,79 @@ class TestLiteLLMEmbedderTimeout:
         mock_aembedding.return_value = {"data": [{"embedding": [0.1, 0.2]}]}
         await LiteLLMEmbedder("provider/embed", timeout=4).a_generate("hi")
         assert mock_aembedding.call_args.kwargs["timeout"] == 4
+
+
+class TestLiteLLMUsageEmission:
+    """Token usage must reach ``on_usage`` for every LiteLLM-backed provider.
+
+    Only the Rhesis-native and Polyphemus providers emitted before, so a
+    deployment whose default model is e.g. ``vertex_ai/gemini-2.5-flash``
+    (VertexAILLM subclasses LiteLLM) never reported any token usage.
+    """
+
+    @patch("rhesis.sdk.models.providers.litellm.acompletion")
+    def test_generate_emits_normalized_usage(self, mock_completion):
+        emitted = []
+        mock_response = Mock()
+        mock_response.choices = [Mock()]
+        mock_response.choices[0].message.content = "hi"
+        mock_response.usage = {
+            "prompt_tokens": 10,
+            "completion_tokens": 20,
+            "total_tokens": 30,
+        }
+        mock_completion.return_value = mock_response
+
+        llm = LiteLLM("vertex_ai/gemini-2.5-flash")
+        llm.on_usage = emitted.append  # what get_model() does after construction
+        llm.generate("hello")
+
+        assert emitted == [{"input_tokens": 10, "output_tokens": 20, "total_tokens": 30}]
+
+    @patch("rhesis.sdk.models.providers.litellm.acompletion")
+    def test_generate_without_callback_is_a_noop(self, mock_completion):
+        mock_response = Mock()
+        mock_response.choices = [Mock()]
+        mock_response.choices[0].message.content = "hi"
+        mock_response.usage = {"total_tokens": 30}
+        mock_completion.return_value = mock_response
+
+        assert LiteLLM("provider/model").generate("hello") == "hi"
+
+    @patch("rhesis.sdk.models.providers.litellm.acompletion")
+    def test_generate_tolerates_a_response_without_usage(self, mock_completion):
+        emitted = []
+        mock_response = Mock(spec=["choices"])
+        mock_response.choices = [Mock()]
+        mock_response.choices[0].message.content = "hi"
+        mock_completion.return_value = mock_response
+
+        llm = LiteLLM("provider/model")
+        llm.on_usage = emitted.append
+        llm.generate("hello")
+
+        assert emitted == []
+
+    @patch("rhesis.sdk.models.providers.litellm.batch_completion")
+    def test_generate_batch_emits_one_summed_callback(self, mock_batch_completion):
+        """One accrual per batch, not per prompt: the callback queues a
+        durable write. Bulk test generation runs through this path."""
+        emitted = []
+
+        def _resp(content, total):
+            r = Mock()
+            choice = Mock()
+            choice.message.content = content
+            r.choices = [choice]
+            r.usage = {"prompt_tokens": 1, "completion_tokens": total - 1}
+            return r
+
+        mock_batch_completion.return_value = [_resp("a", 30), _resp("b", 70)]
+
+        llm = LiteLLM("vertex_ai/gemini-2.5-flash")
+        llm.on_usage = emitted.append
+        results = llm.generate_batch(["p1", "p2"])
+
+        assert results == ["a", "b"]
+        assert len(emitted) == 1
+        assert emitted[0]["total_tokens"] == 100
