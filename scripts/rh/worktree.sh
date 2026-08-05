@@ -301,10 +301,8 @@ worktree_create() {
 
     local env_count=0
 
-    # Find all .env* files, excluding:
-    # - .env.example (tracked in git)
-    # - files inside playground/ and simulations/ (covered by dir symlinks)
-    # - files inside .git/, node_modules/, .venv/
+    # Skips .env.example (tracked), playground/ and simulations/ (already
+    # symlinked as directories), and the two port-bearing dev files.
     while IFS= read -r env_file; do
         # Get relative path
         local rel_path="${env_file#./}"
@@ -337,12 +335,12 @@ worktree_create() {
             echo -e "  ${YELLOW}${rel_path} (failed to create symlink, skipping)${NC}"
         fi
         env_count=$((env_count + 1))
-    done < <(find . -name '.env*' \
-        -not -path './.git/*' \
-        -not -path '*/node_modules/*' \
-        -not -path '*/.venv/*' \
-        -not -path './playground/*' \
-        -not -path './simulations/*' \
+    # -prune, not -not -path: filtering the output still walks every
+    # node_modules and .venv, which is ~650k files here for 10 hits.
+    done < <(find . \
+        \( -name .git -o -name node_modules -o -name .venv \
+           -o -path ./playground -o -path ./simulations \) -prune \
+        -o -name '.env*' -print \
         2>/dev/null | sort)
 
     if [ "$env_count" -eq 0 ]; then
