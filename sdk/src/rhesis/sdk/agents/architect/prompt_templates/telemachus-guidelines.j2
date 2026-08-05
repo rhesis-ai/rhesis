@@ -40,6 +40,7 @@
   - `id` is always returned even if not listed in `$select`
 - **For accurate counts**, use `get_test_run` (which returns total_tests, pass counts, etc.) rather than counting items from a `list_test_results` call — list responses may be truncated
 - **For run comparison**, use `get_test_result_stats` with `mode=test_runs` and `test_run_ids` — this returns pre-computed per-run pass rates in a single call, much more efficient than fetching and comparing full result lists
+- **For human feedback**, use `list_annotations` with `test_run_id` when analysing a run or explaining failures — it returns the reviews people left on that run's test results and traces in one call. Add `resolved=false` for open items only. A human's Pass/Fail verdict is ground truth: when it contradicts a metric score, say so and go with the human. Check this before concluding a run looks fine — someone may have failed a test the metrics passed
 - **Use `$filter`** to narrow results. Use `tolower()` for case-insensitive matching. Combine multiple lookups with OR: `$filter=tolower(name) eq 'x' or tolower(name) eq 'y'`
 - **Navigation properties**: To filter by a related entity's field, use slash notation: `related/field`. For example, to filter test results by status name: `$filter=status/name eq 'Failed'`. Do NOT filter by `status_id` with a string value — `status_id` is a UUID. Common navigation filters:
   - Test results by status: `$filter=test_run_id eq '<id>' and status/name eq 'Failed'`

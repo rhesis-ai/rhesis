@@ -956,6 +956,61 @@ tools:
       end_date:
         description: "End date in ISO format (overrides months)."
 
+  # ── Annotations (human reviews) ──────────────────────────
+  - name: list_annotations
+    label: Reading annotations
+    method: GET
+    path: /annotations/
+    page_size: 20
+    description: >
+      List human annotations — reviews a person left on a test result or on
+      a trace. Each annotation carries a Pass/Fail rating in status.name, a
+      free-text comment, who wrote it, and a resolved flag. This is ground
+      truth from a human, so it outranks automated metric scores when the
+      two disagree.
+
+      Use this to answer "what did people flag?", to explain why a test is
+      considered wrong when metrics say it passed, and to find work that is
+      still open. Pass resolved=false for open items only.
+
+      Scoping:
+      - test_run_id: everything reviewed in that run — both the run's test
+        results and the traces it produced. This is the main entry point.
+      - test_result_id: one result plus traces linked to it.
+      - trace_id (32-char OpenTelemetry hex id) or trace_db_id (internal
+        UUID): one trace only. Use whichever id you already have; both are
+        returned on every annotation.
+      - source: restrict to "test_result" or "trace" when you want one side.
+
+      Key response fields: comments (the human's actual words),
+      status.name (Pass/Fail), resolved, target.type (what was reviewed —
+      test_result, trace, metric, or turn), plus behavior_name and the
+      test_run_id/test_result_id/trace_id deep-link ids.
+
+      CHAIN: after get_test_result_stats shows failures, call this with the
+      same test_run_id to see whether a human already diagnosed them — then
+      use get_test_result on the ids it returns to read the full exchange.
+      NEVER: assume no annotations exist because a run looks clean; a human
+      can fail a test the metrics passed.
+    parameters:
+      search:
+        description: >
+          Free-text search across comments, annotator name, target
+          reference, rating, and behavior name.
+      resolved:
+        description: >
+          true for resolved reviews, false for still-open ones. Omit for
+          both.
+      rating:
+        description: >
+          "Pass" or "Fail" — the human's verdict, independent of the
+          automated status on the test result.
+      target_type:
+        description: >
+          What the review is attached to: "test_result", "trace", "metric"
+          (a specific metric on a result), or "turn" (one turn of a
+          conversation).
+
   # ── Knowledge Sources ────────────────────────────────────
   - name: list_sources
     label: Listing knowledge sources

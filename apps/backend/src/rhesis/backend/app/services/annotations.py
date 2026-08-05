@@ -65,6 +65,10 @@ def list_annotations(
     resolved: Optional[bool] = None,
     rating: Optional[AnnotationRating] = None,
     target_type: Optional[AnnotationTargetType] = None,
+    test_run_id: Optional[str] = None,
+    test_result_id: Optional[str] = None,
+    trace_id: Optional[str] = None,
+    trace_db_id: Optional[str] = None,
     skip: int = 0,
     limit: int = 50,
 ) -> tuple[list[AnnotationListItem], int]:
@@ -73,6 +77,12 @@ def list_annotations(
     Each source branch is included only when the corresponding flag is True.
     Explicit org/project predicates are required because this uses ``text()``
     SQL (ORM auto-filter does not apply).
+
+    ``test_run_id`` and ``test_result_id`` narrow *both* branches: ``trace``
+    carries its own ``test_run_id``/``test_result_id``, so scoping to a run
+    returns reviews on that run's test results and on the traces it produced.
+    ``trace_id``/``trace_db_id`` exist only on traces, so they narrow to the
+    trace branch.
     """
     # Narrow to the requested source by turning the other branch off.
     # Do not force the matching flag True — callers may have already
@@ -80,6 +90,10 @@ def list_annotations(
     if source == "test_result":
         include_traces = False
     elif source == "trace":
+        include_test_results = False
+
+    # Trace-only identifiers can never match a test_result row.
+    if trace_id is not None or trace_db_id is not None:
         include_test_results = False
 
     if not include_test_results and not include_traces:
@@ -121,6 +135,14 @@ def list_annotations(
                     CAST(:project_id AS uuid) IS NULL
                     OR tr.project_id = CAST(:project_id AS uuid)
                   )
+              AND (
+                    CAST(:test_run_id AS uuid) IS NULL
+                    OR tr.test_run_id = CAST(:test_run_id AS uuid)
+                  )
+              AND (
+                    CAST(:test_result_id AS uuid) IS NULL
+                    OR tr.id = CAST(:test_result_id AS uuid)
+                  )
             """
         )
     if include_traces:
@@ -149,6 +171,22 @@ def list_annotations(
               AND (
                     CAST(:project_id AS uuid) IS NULL
                     OR t.project_id = CAST(:project_id AS uuid)
+                  )
+              AND (
+                    CAST(:test_run_id AS uuid) IS NULL
+                    OR t.test_run_id = CAST(:test_run_id AS uuid)
+                  )
+              AND (
+                    CAST(:test_result_id AS uuid) IS NULL
+                    OR t.test_result_id = CAST(:test_result_id AS uuid)
+                  )
+              AND (
+                    CAST(:trace_id AS text) IS NULL
+                    OR t.trace_id = CAST(:trace_id AS text)
+                  )
+              AND (
+                    CAST(:trace_db_id AS uuid) IS NULL
+                    OR t.id = CAST(:trace_db_id AS uuid)
                   )
             """
         )
@@ -215,9 +253,16 @@ def list_annotations(
         "resolved": resolved,
         "rating": rating,
         "target_type": target_type,
+        "test_run_id": test_run_id,
+        "test_result_id": test_result_id,
         "limit": limit,
         "skip": skip,
     }
+    # The trace-only params appear in the SQL only when the trace branch is
+    # present; text() ignores extra keys, but keep the payload honest.
+    if include_traces:
+        params["trace_id"] = trace_id
+        params["trace_db_id"] = trace_db_id
 
     result = db.execute(sql, params)
     rows = result.fetchall()
