@@ -338,43 +338,4 @@ describe('TestsClient', () => {
       );
     });
   });
-
-  describe('getTestStats', () => {
-    it('fetches test stats without parameters', async () => {
-      const mockStats = {
-        stats: {},
-      };
-      fetchMock.mockResolvedValue(
-        makeFetchResponse(mockStats) as unknown as Response
-      );
-
-      await client.getTestStats();
-
-      expect(fetchMock).toHaveBeenCalledWith(
-        expect.stringContaining(`${BASE_URL}/tests/stats`),
-        expect.anything()
-      );
-    });
-
-    it('includes query parameters when provided', async () => {
-      fetchMock.mockResolvedValue(
-        makeFetchResponse({
-          total: 10,
-          stats: {},
-          metadata: {},
-        }) as unknown as Response
-      );
-
-      await client.getTestStats({ top: 5, months: 3 });
-
-      expect(fetchMock).toHaveBeenCalledWith(
-        expect.stringContaining('top=5'),
-        expect.anything()
-      );
-      expect(fetchMock).toHaveBeenCalledWith(
-        expect.stringContaining('months=3'),
-        expect.anything()
-      );
-    });
-  });
 });

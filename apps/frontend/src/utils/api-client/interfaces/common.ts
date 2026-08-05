@@ -1,5 +1,3 @@
-export type StatsMode = 'entity' | 'related_entity';
-
 // Test Results Stats specific modes based on API documentation
 export type TestResultsStatsMode =
   | 'all'
@@ -12,12 +10,6 @@ export type TestResultsStatsMode =
   | 'test_runs'
   | 'ids'
   | 'behavior_detail';
-
-export interface StatsOptions {
-  top?: number;
-  months?: number;
-  mode?: StatsMode; // Default is 'entity' if not specified
-}
 
 // Comprehensive options for test results stats
 export interface TestResultsStatsOptions {

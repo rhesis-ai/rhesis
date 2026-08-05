@@ -95,21 +95,6 @@ export interface TestDetail extends Test {
   };
 }
 
-// Test Stats interfaces
-export interface TestStatsDimensionBreakdown {
-  breakdown: Record<string, number>;
-}
-
-export interface TestStats {
-  stats: {
-    topic: TestStatsDimensionBreakdown;
-    behavior: TestStatsDimensionBreakdown;
-    category: TestStatsDimensionBreakdown;
-    status: TestStatsDimensionBreakdown;
-    [key: string]: TestStatsDimensionBreakdown;
-  };
-}
-
 // Bulk creation interfaces
 export interface TestPromptCreate {
   content: string;
