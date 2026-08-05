@@ -98,9 +98,9 @@ config:
   azureOpenAiApiVersion: ""
   openAiModelName: "gpt-4o"
   # Default LLM providers (format: provider/model). See apps/backend/.../constants.py
-  defaultGenerationModel: "rhesis/rhesis-default"
-  defaultEvaluationModel: "rhesis/rhesis-default"
-  defaultExecutionModel: "rhesis/rhesis-default"
+  defaultGenerationModel: "rhesis/rhesis-managed"
+  defaultEvaluationModel: "rhesis/rhesis-managed"
+  defaultExecutionModel: "rhesis/rhesis-managed"
   defaultEmbeddingModel: "vertex_ai/text-embedding-005"
 
   # SMTP

@@ -147,7 +147,7 @@ async def generate_content_endpoint(
     case `current_user` here is the real org to bill, and the normal
     accrual wired by `get_generation_model_with_override` covers it with no
     extra work needed. It's also reached indirectly, via `RhesisLLM` acting
-    as a relay: a self-hosted deployment's own "Rhesis Default" model
+    as a relay: a self-hosted deployment's own "Rhesis" model
     delegating out to this platform instance, or (for SaaS-direct
     customers) this same deployment calling itself in a loopback. For that
     second case, whoever originated the call already resolved the
