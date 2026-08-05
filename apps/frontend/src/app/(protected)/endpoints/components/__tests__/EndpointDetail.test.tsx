@@ -340,6 +340,37 @@ describe('EndpointDetail', () => {
       );
     });
 
+    it('keeps the project read-only while the details card is edited', async () => {
+      mockUpdateEndpoint.mockResolvedValue({ success: true });
+      renderEndpointDetail({
+        ...baseEndpoint,
+        project: { id: 'proj-1', name: 'Proj One' },
+      });
+
+      const editButtons = screen.getAllByRole('button', { name: /^edit$/i });
+      await userEvent.click(editButtons[0]);
+
+      // No project picker: an endpoint cannot be moved between projects.
+      expect(
+        screen.queryByRole('combobox', { name: /project/i })
+      ).not.toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'Proj One' })).toHaveAttribute(
+        'href',
+        '/projects/proj-1'
+      );
+
+      // Saving an unrelated change must not carry a project_id along.
+      await userEvent.type(screen.getByLabelText('Name'), ' v2');
+      await userEvent.click(screen.getByRole('button', { name: /save/i }));
+
+      await waitFor(() => {
+        expect(mockUpdateEndpoint).toHaveBeenCalledTimes(1);
+      });
+      const payload = mockUpdateEndpoint.mock.calls[0][1];
+      expect(payload.name).toBe('My Endpoint v2');
+      expect(payload).not.toHaveProperty('project_id');
+    });
+
     it('exits edit mode and restores Edit button', async () => {
       renderEndpointDetail(baseEndpoint);
 
