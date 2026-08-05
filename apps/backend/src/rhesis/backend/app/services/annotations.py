@@ -83,6 +83,13 @@ def list_annotations(
     returns reviews on that run's test results and on the traces it produced.
     ``trace_id``/``trace_db_id`` exist only on traces, so they narrow to the
     trace branch.
+
+    Trace rows project their real ``test_run_id``/``test_result_id`` rather
+    than NULL, so a caller can walk from a trace annotation back to the run
+    that produced it. Both stay NULL for traces outside a test execution,
+    which is the column's own meaning. This is not a disclosure the trace
+    branch did not already permit — ``TraceResponse`` exposes both ids to
+    the same ``telemetry:read`` holders.
     """
     # Narrow to the requested source by turning the other branch off.
     # Do not force the matching flag True — callers may have already
@@ -151,8 +158,8 @@ def list_annotations(
             SELECT
                 (elem->>'review_id') AS review_id,
                 'trace' AS source,
-                NULL::uuid AS test_result_id,
-                NULL::uuid AS test_run_id,
+                t.test_result_id AS test_result_id,
+                t.test_run_id AS test_run_id,
                 t.id AS trace_db_id,
                 t.trace_id AS trace_id,
                 t.project_id AS project_id,

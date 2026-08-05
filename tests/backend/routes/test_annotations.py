@@ -486,6 +486,57 @@ class TestAnnotationScoping:
         assert by_id[result_review["review_id"]]["test_result_id"] == str(test_result.id)
         assert by_id[trace_review["review_id"]]["trace_id"] == trace.trace_id
 
+        # A trace annotation carries the run/result it belongs to, so the
+        # agent can walk back to the run it was filtered by.
+        trace_item = by_id[trace_review["review_id"]]
+        assert trace_item["test_run_id"] == str(test_run.id)
+        assert trace_item["test_result_id"] == str(test_result.id)
+
+    def test_operation_trace_annotation_has_null_run_and_result(
+        self,
+        authenticated_client: TestClient,
+        test_db,
+        test_organization,
+        test_type_lookup,
+        db_user,
+        authenticated_user,
+        db_project,
+    ):
+        """A trace outside a test run has no run/result ids to report."""
+        pass_status, _ = _ensure_pass_fail_statuses(
+            test_db, test_organization, test_type_lookup, db_user
+        )
+        review = _review_payload(pass_status.id, authenticated_user.id, target_type="trace")
+        now = datetime.now(timezone.utc)
+        with _project_scope(test_db, test_organization.id, authenticated_user.id, db_project.id):
+            trace = Trace(
+                trace_id=uuid.uuid4().hex,
+                span_id=uuid.uuid4().hex[:16],
+                project_id=db_project.id,
+                organization_id=test_organization.id,
+                environment="development",
+                span_name="ai.llm.invoke",
+                span_kind="CLIENT",
+                start_time=now,
+                end_time=now + timedelta(seconds=1),
+                duration_ms=1000.0,
+                status_code="OK",
+                attributes={},
+                events=[],
+                links=[],
+                resource={},
+                trace_reviews={"metadata": {"total_reviews": 1}, "reviews": [review]},
+            )
+            test_db.add(trace)
+            test_db.commit()
+
+            response = authenticated_client.get(f"/annotations/?trace_id={trace.trace_id}")
+
+        assert response.status_code == status.HTTP_200_OK
+        item = next(i for i in response.json() if i["review_id"] == review["review_id"])
+        assert item["test_run_id"] is None
+        assert item["test_result_id"] is None
+
     def test_scope_by_test_result_id_includes_linked_traces(
         self,
         authenticated_client: TestClient,

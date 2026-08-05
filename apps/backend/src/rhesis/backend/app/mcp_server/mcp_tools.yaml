@@ -1013,13 +1013,16 @@ tools:
       - test_result_id: one result plus traces linked to it.
       - trace_id (32-char OpenTelemetry hex id) or trace_db_id (internal
         UUID): one trace only. Use whichever id you already have; both are
-        returned on every annotation.
+        returned on every trace annotation.
       - source: restrict to "test_result" or "trace" when you want one side.
 
       Key response fields: comments (the human's actual words),
       status.name (Pass/Fail), resolved, target.type (what was reviewed —
       test_result, trace, metric, or turn), plus behavior_name and the
-      test_run_id/test_result_id/trace_id deep-link ids.
+      test_run_id/test_result_id/trace_id deep-link ids. Annotations on a
+      test-execution trace carry the run and result ids too, so you can
+      walk from a trace review back to the run — they are null only for
+      traces recorded outside a test run.
 
       CHAIN: after get_test_result_stats shows failures, call this with the
       same test_run_id to see whether a human already diagnosed them — then
