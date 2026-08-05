@@ -161,7 +161,7 @@ def generate_test_result_stats(
         None, description="Max items per dimension (e.g., top 10 behaviors)"
     ),
     months: Optional[int] = Query(
-        6, description="Months of historical data to include (default: 6)"
+        None, description="Last N months (omit for all time; not with start/end)"
     ),
     test_run_id: UUID | None = Query(
         None, description="Filter by specific test run UUID (legacy, use test_run_ids for multiple)"

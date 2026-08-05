@@ -15,6 +15,7 @@ from rhesis.backend.app.services.stats.common import parse_date_range
 from .registry import REGISTRY
 
 MAX_BATCH_QUERIES = 10
+VALID_OUTCOMES = frozenset({"pass", "fail", "all"})
 
 
 class InsightsValidationError(ValueError):
@@ -29,6 +30,57 @@ def _entry(entity: str) -> dict:
     return entry
 
 
+def _apply_filters(q, db: Session, entity: str, entry: dict, filters: Optional[Dict[str, list]]):
+    """Apply registry-declared filters (and subquery filters) to a base query."""
+    for key, values in (filters or {}).items():
+        if not values:
+            continue
+        if key in entry["subquery_filters"]:
+            id_column, build_subquery = entry["subquery_filters"][key]
+            q = q.filter(id_column.in_(build_subquery(db, values)))
+        elif key in entry["filters"]:
+            q = q.filter(entry["filters"][key].in_(values))
+        else:
+            raise InsightsValidationError(
+                f"Unknown filter '{key}' for entity '{entity}'. "
+                f"Available: {sorted(set(entry['filters']) | set(entry['subquery_filters']))}"
+            )
+    return q
+
+
+def _apply_date_range(q, entry: dict, start_date: Optional[datetime], end_date: Optional[datetime]):
+    date_column = entry.get("date_column")
+    if start_date is not None and date_column is not None:
+        q = q.filter(date_column >= start_date)
+    if end_date is not None and date_column is not None:
+        q = q.filter(date_column <= end_date)
+    return q
+
+
+def _base_query(
+    db: Session,
+    entity: str,
+    filters: Optional[Dict[str, list]] = None,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
+    organization_id: Optional[str] = None,
+):
+    """Filtered view query shared by aggregation and ID resolution.
+
+    Returns (entry, view, query) — callers add GROUP BY / DISTINCT on top.
+    """
+    entry = _entry(entity)
+    view = entry["view"]
+    q = db.query(view)
+
+    if organization_id is not None:
+        q = q.filter(view.organization_id == organization_id)
+
+    q = _apply_filters(q, db, entity, entry, filters)
+    q = _apply_date_range(q, entry, start_date, end_date)
+    return entry, view, q
+
+
 def build_query(
     db: Session,
     entity: str,
@@ -40,7 +92,7 @@ def build_query(
     organization_id: Optional[str] = None,
 ):
     """Return a validated, filtered, grouped SQLAlchemy query to be executed."""
-    entry = _entry(entity)
+    entry, _view, q = _base_query(db, entity, filters, start_date, end_date, organization_id)
 
     unknown_dims = set(group_by) - set(entry["dimensions"])
     if unknown_dims:
@@ -57,32 +109,6 @@ def build_query(
             f"Available: {sorted(entry['measures'])}"
         )
 
-    view = entry["view"]
-    q = db.query(view)
-
-    if organization_id is not None:
-        q = q.filter(view.organization_id == organization_id)
-
-    for key, values in (filters or {}).items():
-        if not values:
-            continue
-        if key in entry["subquery_filters"]:
-            id_column, build_subquery = entry["subquery_filters"][key]
-            q = q.filter(id_column.in_(build_subquery(db, values)))
-        elif key in entry["filters"]:
-            q = q.filter(entry["filters"][key].in_(values))
-        else:
-            raise InsightsValidationError(
-                f"Unknown filter '{key}' for entity '{entity}'. "
-                f"Available: {sorted(set(entry['filters']) | set(entry['subquery_filters']))}"
-            )
-
-    date_column = entry.get("date_column")
-    if start_date is not None and date_column is not None:
-        q = q.filter(date_column >= start_date)
-    if end_date is not None and date_column is not None:
-        q = q.filter(date_column <= end_date)
-
     group_cols = [entry["dimensions"][g].label(g) for g in group_by]
     measure_cols = [entry["measures"][m]().label(m) for m in measures]
     q = q.with_entities(*group_cols, *measure_cols)
@@ -98,7 +124,7 @@ def run_query(
     group_by: List[str],
     measures: List[str],
     filters: Optional[Dict[str, list]] = None,
-    months: int = 6,
+    months: Optional[int] = None,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     organization_id: Optional[str] = None,
@@ -107,7 +133,7 @@ def run_query(
     try:
         start_date_obj, end_date_obj = parse_date_range(start_date, end_date, months)
     except ValueError as exc:
-        raise InsightsValidationError(f"Invalid start_date/end_date: {exc}") from exc
+        raise InsightsValidationError(str(exc)) from exc
     q = build_query(
         db, entity, group_by, measures, filters, start_date_obj, end_date_obj, organization_id
     )
@@ -126,7 +152,7 @@ def run_query(
     }
 
 
-def run_batch(
+def run_queries(
     db: Session, queries: Dict[str, Any], organization_id: Optional[str] = None
 ) -> Dict[str, Dict[str, Any]]:
     """Run several named sub-queries in one call and return one envelope per label.
@@ -154,4 +180,51 @@ def run_batch(
             organization_id=organization_id,
         )
         for label, q in queries.items()
+    }
+
+
+def run_ids(
+    db: Session,
+    entity: str,
+    filters: Optional[Dict[str, list]] = None,
+    outcome: str = "all",
+    months: Optional[int] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    organization_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Return distinct IDs matching the same filter universe as GET /insights.
+
+    outcome ('pass'/'fail'/'all') uses the entity's registry apply_outcome when set.
+    Dimension filters (behavior_ids, topic_ids, metric_names, …) go through the
+    normal registry filters — no name-based special cases.
+    """
+    if outcome not in VALID_OUTCOMES:
+        raise InsightsValidationError(
+            f"Invalid outcome '{outcome}'. Available: {sorted(VALID_OUTCOMES)}"
+        )
+
+    try:
+        start_date_obj, end_date_obj = parse_date_range(start_date, end_date, months)
+    except ValueError as exc:
+        raise InsightsValidationError(str(exc)) from exc
+    entry, view, q = _base_query(db, entity, filters, start_date_obj, end_date_obj, organization_id)
+
+    id_column = entry.get("id_column")
+    if id_column is None:
+        raise InsightsValidationError(f"Entity '{entity}' does not support /insights/ids")
+
+    if outcome != "all":
+        apply_outcome = entry.get("apply_outcome")
+        if apply_outcome is None:
+            raise InsightsValidationError(
+                f"outcome filter is not supported for entity '{entity}'. "
+                "Use entity=test_result or entity=metric."
+            )
+        q = q.filter(apply_outcome(view, outcome))
+
+    rows = q.with_entities(id_column).distinct().all()
+    return {
+        "entity": entity,
+        "ids": [str(row[0]) for row in rows if row[0] is not None],
     }

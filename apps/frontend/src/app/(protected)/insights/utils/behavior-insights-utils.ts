@@ -24,6 +24,8 @@ function endpointMatchesProject(
 
 export interface DimensionItem {
   name: string;
+  /** Present for dimensions that group by id (e.g. topics via topic_id). */
+  id?: string;
   total: number;
   passed: number;
   failed: number;
@@ -60,7 +62,7 @@ export function sortBehaviorColumns(
 }
 
 /**
- * One `/insights/batch` row -> the `PassFailStats` shape used across the Insights UI.
+ * One `/insights/query` row -> the `PassFailStats` shape used across the Insights UI.
  * `total` is `passed + failed`, not the row's raw `count` -- `count` also includes
  * pending/errored results that never got evaluated, which would make "X/Y passed"
  * text count them in the denominator without them showing up as either passed or failed.
@@ -188,7 +190,7 @@ export async function fetchTestRunIdsForEndpoint(
 }
 
 /**
- * Soft cap for `test_run_ids` query params on `/test_results/stats`.
+ * Soft cap for `test_run_ids` query params on Insights endpoints.
  * Beyond this, GET URLs risk proxy/browser length limits.
  */
 export const MAX_INSIGHTS_TEST_RUN_IDS = 100;
@@ -227,25 +229,31 @@ export async function resolveInsightsQueryTestRunIds(
   return testRunIds;
 }
 
-/** Group rows sharing a `behavior_id` into `DimensionItem[]`, keyed by `nameKey` (e.g. `topic`). */
+/** Group rows sharing a `behavior_id` into `DimensionItem[]`, keyed by `nameKey`. */
 function groupRowsByBehaviorId(
   rows: InsightsRow[],
-  nameKey: string
+  nameKey: string,
+  idKey?: string
 ): Map<string, DimensionItem[]> {
   const grouped = new Map<string, DimensionItem[]>();
   for (const row of rows) {
     const behaviorId = row.behavior_id;
     const name = row[nameKey];
     if (typeof behaviorId !== 'string' || typeof name !== 'string') continue;
+    const id = idKey != null ? row[idKey] : undefined;
     const items = grouped.get(behaviorId) ?? [];
-    items.push({ name, ...rowToPassFailStats(row) });
+    items.push({
+      name,
+      ...(typeof id === 'string' ? { id } : {}),
+      ...rowToPassFailStats(row),
+    });
     grouped.set(behaviorId, items);
   }
   return grouped;
 }
 
 /**
- * Build behavior columns straight from `/insights/batch` rows: `behaviorRows`
+ * Build behavior columns straight from `/insights/query` rows: `behaviorRows`
  * (group_by=[behavior_id,behavior]) already are "behaviors with data" -- no
  * separate behavior list fetch needed. `topicRows`/`metricRows` are grouped
  * by behavior_id to fill each column's breakdown lists.
@@ -255,7 +263,11 @@ export function buildBehaviorColumns(
   topicRows: InsightsRow[],
   metricRows: InsightsRow[]
 ): BehaviorInsightColumn[] {
-  const topicsByBehavior = groupRowsByBehaviorId(topicRows, 'topic');
+  const topicsByBehavior = groupRowsByBehaviorId(
+    topicRows,
+    'topic',
+    'topic_id'
+  );
   const metricsByBehavior = groupRowsByBehaviorId(metricRows, 'metric_name');
 
   const columns: BehaviorInsightColumn[] = behaviorRows

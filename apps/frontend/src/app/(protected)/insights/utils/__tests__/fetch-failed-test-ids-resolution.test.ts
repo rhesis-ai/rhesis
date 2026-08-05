@@ -7,12 +7,15 @@ jest.mock('../behavior-insights-utils', () => ({
   resolveInsightsQueryTestRunIds: jest.fn(),
 }));
 
+const mockGetInsightsIds = jest.fn().mockResolvedValue({
+  entity: 'test_result',
+  ids: ['test-1'],
+});
+
 jest.mock('@/utils/api-client/client-factory', () => ({
   ApiClientFactory: jest.fn().mockImplementation(() => ({
-    getTestResultsClient: () => ({
-      getComprehensiveTestResultsStats: jest.fn().mockResolvedValue({
-        test_ids: ['test-1'],
-      }),
+    getInsightsClient: () => ({
+      getInsightsIds: mockGetInsightsIds,
     }),
   })),
 }));
@@ -25,6 +28,11 @@ const mockResolve = resolveInsightsQueryTestRunIds as jest.Mock;
 describe('fetchFailedTestIdsForInsights resolution', () => {
   beforeEach(() => {
     mockResolve.mockReset();
+    mockGetInsightsIds.mockClear();
+    mockGetInsightsIds.mockResolvedValue({
+      entity: 'test_result',
+      ids: ['test-1'],
+    });
   });
 
   it('resolves empty testRunIds via resolveInsightsQueryTestRunIds', async () => {
@@ -43,6 +51,11 @@ describe('fetchFailedTestIdsForInsights resolution', () => {
       timeRange: '1m',
       testRunIds: [],
     });
+    expect(mockGetInsightsIds).toHaveBeenCalledWith({
+      entity: 'test_result',
+      test_run_ids: ['run-a', 'run-b'],
+      outcome: 'fail',
+    });
     expect(ids).toEqual(['test-1']);
   });
 
@@ -55,6 +68,32 @@ describe('fetchFailedTestIdsForInsights resolution', () => {
     });
 
     expect(mockResolve).not.toHaveBeenCalled();
+    expect(mockGetInsightsIds).toHaveBeenCalledWith({
+      entity: 'test_result',
+      test_run_ids: ['run-1'],
+      outcome: 'fail',
+    });
+    expect(ids).toEqual(['test-1']);
+  });
+
+  it('uses metric entity when metricName is set', async () => {
+    const ids = await fetchFailedTestIdsForInsights({
+      endpointId: 'ep-1',
+      runFilterMode: 'testRuns',
+      timeRange: '1m',
+      testRunIds: ['run-1'],
+      metricName: 'Accuracy',
+      behaviorId: 'beh-1',
+      outcome: 'all',
+    });
+
+    expect(mockGetInsightsIds).toHaveBeenCalledWith({
+      entity: 'metric',
+      test_run_ids: ['run-1'],
+      outcome: 'all',
+      behavior_ids: ['beh-1'],
+      metric_names: ['Accuracy'],
+    });
     expect(ids).toEqual(['test-1']);
   });
 });

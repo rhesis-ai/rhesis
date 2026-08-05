@@ -1,10 +1,13 @@
-"""Declarative registry of what GET /insights can query.
+"""Declarative registry of what Insights endpoints can query.
 
 Each entity names the view backing it, the columns valid as group_by
 dimensions, the measures computable over it, and the filters accepted.
 query_builder.py validates every incoming param against this before
-touching the database and turns a validated request into one GROUP BY
-query.
+touching the database.
+
+Optional keys used only by GET /insights/ids:
+  id_column     — column to SELECT DISTINCT
+  apply_outcome — (view, 'pass'|'fail') -> SQL expression
 """
 
 from sqlalchemy import Float, case, cast, func
@@ -64,10 +67,25 @@ def _tags_subquery(db, tags):
     )
 
 
+def _overall_result_outcome(view, outcome: str):
+    """Filter by overall test result ('pass' / 'fail')."""
+    target = OverallTestResult.PASSED if outcome == "pass" else OverallTestResult.FAILED
+    return view.result == target
+
+
+def _metric_success_outcome(view, outcome: str):
+    """Filter by metric effective_success ('pass' / 'fail')."""
+    return view.effective_success.is_(outcome == "pass")
+
+
 REGISTRY = {
     "test_result": {
         "view": TR,
         "date_column": TR.created_at,
+        # GET /insights/ids — which column to SELECT DISTINCT, plus optional
+        # outcome / topic_name predicates that only that endpoint uses.
+        "id_column": TR.test_id,
+        "apply_outcome": _overall_result_outcome,
         "dimensions": {
             "behavior": TR.behavior_name,
             "behavior_id": TR.behavior_id,
@@ -112,6 +130,8 @@ REGISTRY = {
     "metric": {
         "view": ME,
         "date_column": ME.created_at,
+        "id_column": ME.test_id,
+        "apply_outcome": _metric_success_outcome,
         "dimensions": {
             "metric_name": ME.metric_name,
             "behavior_id": ME.behavior_id,
@@ -140,6 +160,7 @@ REGISTRY = {
     "test_run": {
         "view": RN,
         "date_column": RN.created_at,
+        "id_column": RN.test_run_id,
         "dimensions": {
             "status": RN.status_name,
             "test_set": RN.test_set_name,
@@ -169,6 +190,7 @@ REGISTRY = {
         # are structurally invisible to a test until it has a result.
         "view": TS,
         "date_column": TS.created_at,
+        "id_column": TS.test_id,
         "dimensions": {
             "behavior": TS.behavior_name,
             "behavior_id": TS.behavior_id,

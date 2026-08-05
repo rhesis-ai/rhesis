@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field
 
 
 class InsightsResponse(BaseModel):
-    """Uniform envelope returned by GET /insights, regardless of entity."""
+    """Uniform envelope returned by GET /insights and each entry of POST /insights/query."""
 
     entity: str
     dimensions: List[str]
@@ -14,25 +14,23 @@ class InsightsResponse(BaseModel):
 
 class InsightsQuery(BaseModel):
     """One entity/group_by/measures request -- the body shape of a single
-    GET /insights call, reused as one entry in an InsightsBatchRequest."""
+    GET /insights call, reused as one entry in POST /insights/query."""
 
     entity: str
     group_by: List[str] = Field(default_factory=list)
     measures: List[str] = Field(default_factory=lambda: ["count"])
     filters: Dict[str, List[str]] = Field(default_factory=dict)
-    months: int = 6
+    months: Optional[int] = None
     start_date: Optional[str] = None
     end_date: Optional[str] = None
 
 
-class InsightsBatchRequest(BaseModel):
-    """Named sub-queries to run in one call. Each one still runs as its own
-    single-entity, single-grain query -- see services/insights/query_builder.py."""
+class InsightsIdsResponse(BaseModel):
+    """Distinct entity IDs matching Insights filters + optional outcome.
 
-    queries: Dict[str, InsightsQuery]
+    Same filter universe as GET /insights; different verb (resolve IDs, not
+    aggregate). Used for drill-down (e.g. failed-tests list under a chart slice).
+    """
 
-
-class InsightsBatchResponse(BaseModel):
-    """One InsightsResponse per label from the request."""
-
-    results: Dict[str, InsightsResponse]
+    entity: str
+    ids: List[str]

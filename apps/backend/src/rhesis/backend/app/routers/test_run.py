@@ -159,7 +159,7 @@ def generate_test_run_stats(
         None, description="Max items per dimension (e.g., top 10 executors)"
     ),
     months: Optional[int] = Query(
-        6, description="Months of historical data to include (default: 6)"
+        None, description="Last N months (omit for all time; not with start/end)"
     ),
     # Test run filters
     test_run_ids: Optional[List[UUID]] = Query(None, description="Filter by specific test run IDs"),

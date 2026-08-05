@@ -110,47 +110,45 @@ export function useBehaviorInsightsData(
             ...timeParams,
           };
 
-          const batch = await insightsClient.getInsightsBatch({
-            queries: {
-              summary: {
-                entity: 'test_result',
-                group_by: [],
-                measures,
-                ...baseQuery,
-              },
-              behaviors: {
-                entity: 'test_result',
-                group_by: ['behavior_id', 'behavior'],
-                measures,
-                ...baseQuery,
-              },
-              topics: {
-                entity: 'test_result',
-                group_by: ['behavior_id', 'topic'],
-                measures,
-                ...baseQuery,
-              },
-              metrics: {
-                entity: 'metric',
-                group_by: ['behavior_id', 'metric_name'],
-                measures,
-                ...baseQuery,
-              },
+          const results = await insightsClient.getInsightsQuery({
+            summary: {
+              entity: 'test_result',
+              group_by: [],
+              measures,
+              ...baseQuery,
+            },
+            behaviors: {
+              entity: 'test_result',
+              group_by: ['behavior_id', 'behavior'],
+              measures,
+              ...baseQuery,
+            },
+            topics: {
+              entity: 'test_result',
+              group_by: ['behavior_id', 'topic_id', 'topic'],
+              measures,
+              ...baseQuery,
+            },
+            metrics: {
+              entity: 'metric',
+              group_by: ['behavior_id', 'metric_name'],
+              measures,
+              ...baseQuery,
             },
           });
 
           if (!isCurrentRequest(requestId)) return;
 
-          const summaryRow = batch.results.summary.rows[0];
+          const summaryRow = results.summary.rows[0];
           const overallSummary = summaryRow
             ? rowToPassFailStats(summaryRow)
             : EMPTY_SUMMARY;
           setSummary(overallSummary);
           setColumns(
             buildBehaviorColumns(
-              batch.results.behaviors.rows,
-              batch.results.topics.rows,
-              batch.results.metrics.rows
+              results.behaviors.rows,
+              results.topics.rows,
+              results.metrics.rows
             )
           );
 
