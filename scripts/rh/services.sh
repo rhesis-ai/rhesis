@@ -136,6 +136,40 @@ start_polyphemus() {
 FLOWER_PID=""
 WORKER_PID=""
 
+# Matches this project's Celery processes only — both the worker and Flower run
+# with -A rhesis.backend.worker.app. A bare "celery" pattern would also match an
+# unrelated project's worker on the same machine.
+#
+# No leading dash: pgrep/pkill would parse "-A rhesis..." as an option.
+CELERY_APP_PATTERN='rhesis\.backend\.worker\.app'
+
+# Stop Celery processes left behind by an earlier ./rh dev worker. TERM first so
+# in-flight tasks can finish, escalating to KILL only for stragglers.
+stop_existing_celery() {
+    step "Checking for existing Celery workers..."
+    if ! pgrep -f "$CELERY_APP_PATTERN" > /dev/null; then
+        info "No existing workers found"
+        return 0
+    fi
+
+    step "Stopping existing Celery workers..."
+    pkill -TERM -f "$CELERY_APP_PATTERN" 2>/dev/null || true
+
+    local _
+    for _ in {1..10}; do
+        pgrep -f "$CELERY_APP_PATTERN" > /dev/null || break
+        sleep 1
+    done
+
+    if pgrep -f "$CELERY_APP_PATTERN" > /dev/null; then
+        warn "Workers did not stop gracefully — forcing"
+        pkill -9 -f "$CELERY_APP_PATTERN" 2>/dev/null || true
+        sleep 1
+    fi
+
+    ok "Existing workers stopped"
+}
+
 # Tear down both children on Ctrl+C, TERM, or a worker exit.
 cleanup_worker_stack() {
     if [ -n "${WORKER_PID:-}" ] && kill -0 "$WORKER_PID" 2>/dev/null; then
@@ -153,15 +187,7 @@ cleanup_worker_stack() {
 start_worker() {
     echo -e "${GREEN}Starting Rhesis Worker...${NC}"
 
-    step "Checking for existing Celery workers..."
-    if pgrep -f celery > /dev/null; then
-        step "Stopping existing Celery workers..."
-        pkill -9 -f celery
-        sleep 1
-        ok "Existing workers stopped"
-    else
-        info "No existing workers found"
-    fi
+    stop_existing_celery
 
     step "Clearing Python cache..."
     cd_or_die "$SCRIPT_DIR" "Script"

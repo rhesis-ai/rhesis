@@ -40,7 +40,7 @@ rh_dev_setup_commands() {
     cat <<TABLE
 init|Initialize env files (one-time setup)
 up|Start dev infrastructure (postgres:${DEV_POSTGRES_PORT}, redis:${DEV_REDIS_PORT})
-down|Stop dev infrastructure
+down|Stop dev infrastructure (database is kept)
 clean|Remove containers and volumes (resets database)
 status|Show dev environment status
 TABLE
