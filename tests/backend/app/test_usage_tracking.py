@@ -102,7 +102,7 @@ class TestIsHostedModel:
     conflated this function's job -- classifying an org's explicit
     choice -- with the system *default*'s job of running on whatever
     the deployment names as ``DEFAULT_*_MODEL``, which
-    ``_resolve_default_hosted_model`` already handles unconditionally,
+    ``resolve_default_hosted_model`` already handles unconditionally,
     with no provider check at all.)
     """
 
@@ -152,9 +152,9 @@ class TestResolveDefaultHostedModel:
 
         monkeypatch.setattr("rhesis.backend.app.utils.user_model_utils.get_model", fake_get_model)
 
-        from rhesis.backend.app.utils.user_model_utils import _resolve_default_hosted_model
+        from rhesis.backend.app.utils.user_model_utils import resolve_default_hosted_model
 
-        _resolve_default_hosted_model("vertex_ai/gemini-2.5-flash", "org-1")
+        resolve_default_hosted_model("vertex_ai/gemini-2.5-flash", "org-1")
 
         assert captured["name"] == "vertex_ai/gemini-2.5-flash"
         assert callable(captured["on_usage"])
@@ -173,9 +173,9 @@ class TestResolveDefaultHostedModel:
 
         monkeypatch.setattr("rhesis.backend.app.utils.user_model_utils.get_model", boom)
 
-        from rhesis.backend.app.utils.user_model_utils import _resolve_default_hosted_model
+        from rhesis.backend.app.utils.user_model_utils import resolve_default_hosted_model
 
-        result = _resolve_default_hosted_model("vertex_ai/gemini-2.5-flash", "org-1")
+        result = resolve_default_hosted_model("vertex_ai/gemini-2.5-flash", "org-1")
 
         assert result == "vertex_ai/gemini-2.5-flash"
 
@@ -186,9 +186,30 @@ class TestResolveDefaultHostedModel:
             lambda name, **kwargs: captured.setdefault("on_usage", kwargs.get("on_usage")),
         )
 
-        from rhesis.backend.app.utils.user_model_utils import _resolve_default_hosted_model
+        from rhesis.backend.app.utils.user_model_utils import resolve_default_hosted_model
 
-        _resolve_default_hosted_model("vertex_ai/gemini-2.5-flash", "org-42")
+        resolve_default_hosted_model("vertex_ai/gemini-2.5-flash", "org-42")
         captured["on_usage"](_usage(30))
 
         assert fake_delay == [("org-42", QuotaResource.MODEL_TOKENS.value, 30)]
+
+    @pytest.mark.parametrize("organization_id", ["", None])
+    def test_no_org_still_builds_the_model_but_wires_no_accrual(self, organization_id, monkeypatch):
+        """The test-execution paths derive organization_id from a nullable
+        column and can pass "". Booking those tokens against no org at all is
+        worse than not counting them, so the model is still built (execution
+        must not break) with no callback attached."""
+        captured = {}
+
+        def fake_get_model(name, **kwargs):
+            captured["kwargs"] = kwargs
+            return object()
+
+        monkeypatch.setattr("rhesis.backend.app.utils.user_model_utils.get_model", fake_get_model)
+
+        from rhesis.backend.app.utils.user_model_utils import resolve_default_hosted_model
+
+        result = resolve_default_hosted_model("vertex_ai/gemini-2.5-flash", organization_id)
+
+        assert result is not None
+        assert "on_usage" not in captured["kwargs"]

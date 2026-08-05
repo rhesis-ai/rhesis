@@ -23,7 +23,7 @@ Wired in two places, for two different reasons:
   ``RHESIS_API_KEY``. Any other provider an org picks (their own
   ``vertex_ai``, ``ollama``, ``openai``, ...) is their own infrastructure,
   never wired here regardless of whether they configured a key.
-- ``_resolve_default_hosted_model``, unconditionally, for the *system
+- ``resolve_default_hosted_model``, unconditionally, for the *system
   default* an org gets when it configures no model at all -- whatever a
   deployment names as its ``DEFAULT_*_MODEL`` (e.g.
   ``vertex_ai/gemini-2.5-flash`` in dev, calling the server's own
