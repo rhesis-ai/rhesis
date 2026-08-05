@@ -188,11 +188,16 @@ class LiteLLM(BaseLLM):
         # RuntimeError: Event loop is closed on teardown.
         extra_headers = {"Connection": "close", **(kwargs.pop("extra_headers", None) or {})}
         timeout = kwargs.pop("timeout", self.timeout)
+        # Without this, a streamed response never carries usage at all --
+        # OpenAI-compatible streaming only includes it when explicitly
+        # requested. A caller-supplied stream_options still wins.
+        stream_options = kwargs.pop("stream_options", None) or {"include_usage": True}
         response = await acompletion(
             model=self.model_name,
             messages=messages,
             response_format=schema,
             stream=True,
+            stream_options=stream_options,
             api_key=self.api_key,
             api_base=self.api_base,
             api_version=self.api_version,
@@ -202,6 +207,13 @@ class LiteLLM(BaseLLM):
             **kwargs,
         )
         async for chunk in response:  # type: ignore[union-attr]
+            # The chunk carrying usage (when stream_options requested it) is
+            # a final, content-free one -- choices is empty on it, per
+            # OpenAI streaming semantics. Emitted before the choices check
+            # below so it isn't skipped along with "nothing to yield".
+            self._emit_usage(getattr(chunk, "usage", None))
+            if not chunk.choices:
+                continue
             content = chunk.choices[0].delta.content
             if content:
                 yield content

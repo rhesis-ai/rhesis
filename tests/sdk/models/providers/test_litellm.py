@@ -535,6 +535,80 @@ class TestLiteLLM:
 
     @pytest.mark.asyncio
     @patch("rhesis.sdk.models.providers.litellm.acompletion", new_callable=AsyncMock)
+    async def test_a_generate_stream_requests_usage_by_default(self, mock_acompletion):
+        async def _fake_stream(*args, **kwargs):
+            yield Mock(choices=[Mock(delta=Mock(content="tok"))], usage=None)
+
+        mock_acompletion.return_value = _fake_stream()
+
+        llm = LiteLLM("provider/model")
+        async for _ in await llm.a_generate(prompt="hello", stream=True):
+            pass
+
+        _, kwargs = mock_acompletion.call_args
+        assert kwargs.get("stream_options") == {"include_usage": True}
+
+    @pytest.mark.asyncio
+    @patch("rhesis.sdk.models.providers.litellm.acompletion", new_callable=AsyncMock)
+    async def test_a_generate_stream_caller_stream_options_not_overwritten(self, mock_acompletion):
+        async def _fake_stream(*args, **kwargs):
+            yield Mock(choices=[Mock(delta=Mock(content="tok"))], usage=None)
+
+        mock_acompletion.return_value = _fake_stream()
+
+        llm = LiteLLM("provider/model")
+        async for _ in await llm.a_generate(
+            prompt="hello", stream=True, stream_options={"include_usage": False}
+        ):
+            pass
+
+        _, kwargs = mock_acompletion.call_args
+        assert kwargs.get("stream_options") == {"include_usage": False}
+
+    @pytest.mark.asyncio
+    @patch("rhesis.sdk.models.providers.litellm.acompletion", new_callable=AsyncMock)
+    async def test_a_generate_stream_emits_usage_from_the_final_chunk(self, mock_acompletion):
+        """Regression: streaming never called _emit_usage at all, so a fully
+        wired hosted model still reported zero MODEL_TOKENS when the caller
+        streamed (test-config generation, explorer suggestions)."""
+        emitted = []
+        usage_chunk = Mock(choices=[])
+        usage_chunk.usage = {"prompt_tokens": 5, "completion_tokens": 7, "total_tokens": 12}
+
+        async def _fake_stream(*args, **kwargs):
+            yield Mock(choices=[Mock(delta=Mock(content="tok"))], usage=None)
+            yield usage_chunk
+
+        mock_acompletion.return_value = _fake_stream()
+
+        llm = LiteLLM("provider/model")
+        llm.on_usage = emitted.append
+        chunks = [c async for c in await llm.a_generate(prompt="hello", stream=True)]
+
+        assert chunks == ["tok"]
+        assert emitted == [{"input_tokens": 5, "output_tokens": 7, "total_tokens": 12}]
+
+    @pytest.mark.asyncio
+    @patch("rhesis.sdk.models.providers.litellm.acompletion", new_callable=AsyncMock)
+    async def test_a_generate_stream_skips_the_choiceless_usage_chunk(self, mock_acompletion):
+        """The final usage-carrying chunk has no choices and must not raise
+        IndexError, and must not yield an empty/garbage token."""
+        usage_chunk = Mock(choices=[])
+        usage_chunk.usage = {"total_tokens": 1}
+
+        async def _fake_stream(*args, **kwargs):
+            yield Mock(choices=[Mock(delta=Mock(content="tok"))], usage=None)
+            yield usage_chunk
+
+        mock_acompletion.return_value = _fake_stream()
+
+        llm = LiteLLM("provider/model")
+        chunks = [c async for c in await llm.a_generate(prompt="hello", stream=True)]
+
+        assert chunks == ["tok"]
+
+    @pytest.mark.asyncio
+    @patch("rhesis.sdk.models.providers.litellm.acompletion", new_callable=AsyncMock)
     async def test_a_generate_caller_connection_header_not_overwritten(self, mock_acompletion):
         """A caller-supplied Connection header value is kept unchanged (setdefault semantics)."""
         mock_response = Mock()
