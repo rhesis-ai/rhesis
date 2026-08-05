@@ -216,9 +216,7 @@ export default function UsageOverviewTab() {
     ? `${formatPeriodDate(periodSource.period_start)} – ${formatPeriodDate(periodSource.period_end)}`
     : null;
   const isPastPeriod = periodStart !== null;
-  const periodPrefix = isPastPeriod
-    ? 'Billing period'
-    : 'Current billing period';
+  const periodPrefix = isPastPeriod ? 'Usage period' : 'Current usage period';
 
   return (
     <SectionCard

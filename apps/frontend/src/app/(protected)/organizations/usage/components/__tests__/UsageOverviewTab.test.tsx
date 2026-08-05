@@ -56,7 +56,7 @@ describe('UsageOverviewTab', () => {
 
     render(<UsageOverviewTab />);
 
-    expect(screen.queryByText('Test Executions')).not.toBeInTheDocument();
+    expect(screen.queryByText('Test Runs')).not.toBeInTheDocument();
   });
 
   it('shows an error message when usage fails to load', () => {
@@ -77,16 +77,16 @@ describe('UsageOverviewTab', () => {
   it('renders every resource as a flat list, with no category headers', () => {
     render(<UsageOverviewTab />);
 
-    expect(screen.getByText('Test Executions')).toBeInTheDocument();
+    expect(screen.getByText('Test Runs')).toBeInTheDocument();
     expect(screen.getByText('Seats')).toBeInTheDocument();
     expect(screen.queryByText('Metered Resources')).not.toBeInTheDocument();
     expect(screen.queryByText('Resource Counts')).not.toBeInTheDocument();
   });
 
-  it('shows the billing period in the subtitle', () => {
+  it('shows the usage period in the subtitle', () => {
     render(<UsageOverviewTab />);
 
-    expect(screen.getByText(/Current billing period:/)).toBeInTheDocument();
+    expect(screen.getByText(/Current usage period:/)).toBeInTheDocument();
   });
 
   it('renders "Unlimited" for a resource with no limit', () => {

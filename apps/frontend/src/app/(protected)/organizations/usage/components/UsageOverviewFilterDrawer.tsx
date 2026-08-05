@@ -40,7 +40,7 @@ export default function UsageOverviewFilterDrawer({
       onReset={handleReset}
       onApply={handleApply}
     >
-      <FilterSection title="Billing Period">
+      <FilterSection title="Usage Period">
         <FormControl fullWidth size="small">
           <InputLabel id="usage-overview-period-label">Period</InputLabel>
           <Select

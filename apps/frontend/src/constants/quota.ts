@@ -20,9 +20,15 @@ export const QuotaResource = {
 
 export type QuotaResource = (typeof QuotaResource)[keyof typeof QuotaResource];
 
-/** Human-readable labels for the usage dashboard. */
+/**
+ * Human-readable labels for the usage dashboard.
+ *
+ * TEST_EXECUTIONS displays as "Test Runs" -- the platform's own term for
+ * the thing being metered -- even though the resource key itself doesn't
+ * change (it's the wire value, not UI copy).
+ */
 export const QUOTA_RESOURCE_LABELS: Record<QuotaResource, string> = {
-  [QuotaResource.TEST_EXECUTIONS]: 'Test Executions',
+  [QuotaResource.TEST_EXECUTIONS]: 'Test Runs',
   [QuotaResource.TRACING_SPANS]: 'Tracing Spans',
   [QuotaResource.TEST_GENERATION]: 'Test Generation',
   [QuotaResource.MODEL_TOKENS]: 'Model Tokens',
