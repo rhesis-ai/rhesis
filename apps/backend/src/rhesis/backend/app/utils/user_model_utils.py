@@ -410,13 +410,29 @@ def _is_rhesis_system_model(provider: str, api_key: str) -> bool:
 
 def _is_hosted_model(provider: str, api_key: Optional[str]) -> bool:
     """
-    Check if a model runs on Rhesis-operated infrastructure.
+    Check if an explicitly-selected Model row runs on Rhesis-operated infrastructure.
 
-    Broader than `_is_rhesis_system_model`: also covers Polyphemus without a
-    user-supplied key (SaaS delegation, or self-hosted deployments using the
-    server's own RHESIS_API_KEY). Third-party providers called with the
-    org's own API key are never "hosted" -- that usage is billed directly
-    by the provider, not by Rhesis, so it is not tracked as MODEL_TOKENS.
+    Only ever reached for a Model row an org explicitly picked via
+    `model_id` -- `_fetch_and_configure_model`'s two callers are
+    `get_generation_model_with_override` (explicit override) and
+    `_get_user_model` (the org configured a `model_id` for this purpose).
+    Whichever *other* provider the org names there -- their own
+    `vertex_ai`, `ollama`, `openai`, self-hosted `vllm`, whatever -- is
+    their own infrastructure choice: never Rhesis's, regardless of whether
+    they happened to leave the key blank (self-hosted servers commonly need
+    none). Broadening this to a bare `not api_key` (tried and reverted) both
+    overcounted those and was solving a case that doesn't occur.
+
+    `rhesis`/`polyphemus` are the two provider values that mean "use
+    Rhesis's own hosted infrastructure" as a selectable option in the
+    Models UI, so those alone accrue when the row carries no org key.
+    Note the *system default* -- what an org gets when it configures no
+    `model_id` at all -- is a different path entirely
+    (`_resolve_default_hosted_model`), reached before this function and
+    unrestricted by provider: whatever a deployment names as its
+    `DEFAULT_*_MODEL` (`vertex_ai/gemini-2.5-flash`, in this dev
+    environment) *is* Rhesis's own infra cost for that deployment, by
+    definition of being the default.
 
     Args:
         provider: The provider type value (e.g., "rhesis", "polyphemus", "openai")
@@ -452,21 +468,33 @@ def _resolve_default_hosted_model(default_model: str, organization_id: str) -> U
         organization_id: Org to attribute accrued tokens to
 
     Returns:
-        A hosted-provider instance with `on_usage` wired for accrual when
-        `default_model` names a hosted provider and construction succeeds;
-        the original string otherwise.
+        An instance with `on_usage` wired for accrual when construction
+        succeeds; the original string otherwise.
     """
-    provider = default_model.split("/", 1)[0] if "/" in default_model else ""
-    if provider not in ("rhesis", "polyphemus"):
-        return default_model
-
+    # No provider restriction: the *system default* is by definition the
+    # model this deployment runs on its own credentials, whatever provider
+    # it names. A deployment configured with
+    # ``DEFAULT_GENERATION_MODEL=vertex_ai/gemini-2.5-flash`` calls Vertex
+    # from the backend using the server's GOOGLE_APPLICATION_CREDENTIALS,
+    # so Rhesis pays for those tokens exactly as it does for
+    # ``rhesis/...``. Restricting this to rhesis/polyphemus meant every such
+    # deployment reported zero MODEL_TOKENS forever.
     try:
         return get_model(
             default_model,
             model_type="language",
             on_usage=make_usage_accrual_callback(organization_id),
         )
-    except ValueError:
+    except Exception:
+        # Broad on purpose, not just ValueError: dropping the provider
+        # restriction above means this now runs `get_model` for *any*
+        # `DEFAULT_*_MODEL`, including providers whose modules raise other
+        # error types at import/construction time (e.g. huggingface.py
+        # raises ImportError when torch/transformers aren't installed).
+        # Falling back here doesn't hide the failure -- it only defers to
+        # the lazy resolution path this eager call is layered on top of,
+        # which will raise the same error when it actually tries to use
+        # the model.
         return default_model
 
 
