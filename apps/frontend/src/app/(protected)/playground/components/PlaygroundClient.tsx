@@ -156,18 +156,19 @@ export default function PlaygroundClient() {
     [endpointOptions, selectedEndpointId]
   );
 
-  // Apply initial endpoint from URL params after endpoints are loaded
+  // Apply initial endpoint after endpoints are loaded: URL param if it matches,
+  // otherwise the only endpoint when there is exactly one to choose from.
   useEffect(() => {
     if (!initialEndpointApplied && endpointOptions.length > 0) {
       const endpointIdParam = searchParams.get('endpointId');
-      if (endpointIdParam) {
-        const matchingOption = endpointOptions.find(
-          opt => opt.endpointId === endpointIdParam
-        );
-        if (matchingOption) {
-          setSelectedEndpointId(endpointIdParam);
-          setSelectedProjectId(matchingOption.projectId);
-        }
+      const initialOption = endpointIdParam
+        ? endpointOptions.find(opt => opt.endpointId === endpointIdParam)
+        : endpointOptions.length === 1
+          ? endpointOptions[0]
+          : undefined;
+      if (initialOption) {
+        setSelectedEndpointId(initialOption.endpointId);
+        setSelectedProjectId(initialOption.projectId);
       }
       setInitialEndpointApplied(true);
     }
