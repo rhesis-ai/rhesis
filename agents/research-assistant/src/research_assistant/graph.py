@@ -21,7 +21,12 @@ from research_assistant.agents import (
 from research_assistant.state import ALL_AGENTS, MultiAgentState
 from research_assistant.tools import ANALYSIS_TOOLS, RETRIEVAL_TOOLS, SYNTHESIS_TOOLS, UTILITY_TOOLS
 from research_assistant.transfers import TRANSFER_TOOL_TO_AGENT
-from research_assistant.utils import format_agent_workflow, format_tool_chain, track_tools_called
+from research_assistant.utils import (
+    extract_text_content,
+    format_agent_workflow,
+    format_tool_chain,
+    track_tools_called,
+)
 
 # =============================================================================
 # ROUTING LOGIC
@@ -290,10 +295,10 @@ def invoke_multi_agent(
     response_text = ""
     for msg in reversed(response_messages):
         if isinstance(msg, AIMessage) and not msg.tool_calls:
-            response_text = msg.content
+            response_text = extract_text_content(msg.content)
             break
         elif isinstance(msg, AIMessage) and msg.content:
-            response_text = msg.content
+            response_text = extract_text_content(msg.content)
             break
 
     return {
