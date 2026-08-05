@@ -126,7 +126,11 @@ export default function ForgotPasswordPage() {
               size="large"
               disabled={loading}
               startIcon={
-                loading ? <CircularProgress size={20} /> : <EmailIcon />
+                loading ? (
+                  <CircularProgress size={20} color="inherit" />
+                ) : (
+                  <EmailIcon />
+                )
               }
               sx={primaryButton}
             >

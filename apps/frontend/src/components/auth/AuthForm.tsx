@@ -475,7 +475,9 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
                 size="large"
                 disabled={formLoading}
                 startIcon={
-                  formLoading ? <CircularProgress size={20} /> : undefined
+                  formLoading ? (
+                    <CircularProgress size={20} color="inherit" />
+                  ) : undefined
                 }
                 sx={primaryButtonSx}
               >
@@ -562,7 +564,7 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
               disabled={formLoading}
               startIcon={
                 formLoading ? (
-                  <CircularProgress size={20} />
+                  <CircularProgress size={20} color="inherit" />
                 ) : (
                   <AutoFixHighIcon />
                 )

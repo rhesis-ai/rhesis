@@ -16,14 +16,10 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircleOutlined';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import { useSearchParams } from 'next/navigation';
-import { useTheme } from '@mui/material/styles';
 import { getClientApiBaseUrl } from '@/utils/url-resolver';
 import { DEFAULT_PASSWORD_POLICY, validatePassword } from '@/utils/validation';
 import AuthPageShell from '@/components/auth/AuthPageShell';
-import BackgroundDecoration from '@/components/auth/BackgroundDecoration';
-import { getAuthTokens } from '@/components/auth/authTokens';
 import { useAuthStyles } from '@/components/auth/useAuthStyles';
-import { scaledVh } from '@/styles/viewport-scaling';
 
 interface PasswordPolicy {
   min_length: number;
@@ -32,8 +28,8 @@ interface PasswordPolicy {
 }
 
 export default function ResetPasswordPage() {
-  const mode = useTheme().palette.mode;
-  const { tokens, heading, subheading, primaryButton, field } = useAuthStyles();
+  const { tokens, heading, subheading, primaryButton, outlinedButton, field } =
+    useAuthStyles();
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
 
@@ -137,26 +133,17 @@ export default function ResetPasswordPage() {
 
   if (!token) {
     return (
-      <Box
-        sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          minHeight: scaledVh(),
-          gap: 2,
-          bgcolor: getAuthTokens(mode).ground,
-          position: 'relative',
-        }}
-      >
-        <BackgroundDecoration />
-        <Box sx={{ position: 'relative', zIndex: 10 }}>
+      <AuthPageShell>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Typography sx={{ ...heading, textAlign: 'center' }}>
+            Reset link not valid
+          </Typography>
           <Alert severity="error">Invalid or missing reset token.</Alert>
-          <Button variant="text" href="/" sx={{ mt: 2 }}>
+          <Button variant="outlined" href="/" sx={outlinedButton}>
             Back to sign in
           </Button>
         </Box>
-      </Box>
+      </AuthPageShell>
     );
   }
 
@@ -279,7 +266,11 @@ export default function ResetPasswordPage() {
               size="large"
               disabled={loading}
               startIcon={
-                loading ? <CircularProgress size={20} /> : <LockResetIcon />
+                loading ? (
+                  <CircularProgress size={20} color="inherit" />
+                ) : (
+                  <LockResetIcon />
+                )
               }
               sx={primaryButton}
             >
