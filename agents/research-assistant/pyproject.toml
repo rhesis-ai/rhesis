@@ -48,7 +48,7 @@ packages = ["src/research_assistant"]
 
 [tool.uv]
 exclude-newer = "1 week"
-exclude-newer-package = { pydantic-settings = false, langsmith = false, litellm = false, aiohttp = false, tornado = false, starlette = false, pyjwt = false, pyarrow = false, cryptography = false, python-multipart = false }
+exclude-newer-package = { pydantic-settings = false, langsmith = false, litellm = false, aiohttp = false, tornado = false, starlette = false, pyjwt = false, pyarrow = false, cryptography = false, python-multipart = false, gitpython = false }
 # Force minimum versions for transitive dependencies with security advisories
 constraint-dependencies = [
     "pyasn1>=0.6.4",
