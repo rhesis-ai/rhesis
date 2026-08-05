@@ -200,6 +200,50 @@ class TestListAnnotationsTool:
 
 
 @pytest.mark.unit
+class TestCreateMetricDocumentsDescriptiveFields:
+    """A metric the architect creates must be rich, not just scoreable.
+
+    These fields exist on MetricCreate but carry no Pydantic descriptions,
+    so the YAML overrides are the only thing telling the agent to fill
+    them. Without them the agent sends name + evaluation_prompt only.
+    """
+
+    RICH_FIELDS = ("description", "evaluation_steps", "reasoning", "explanation")
+
+    def _cfg(self):
+        return {tc["name"]: tc for tc in load_tool_configs()}["create_metric"]
+
+    def test_descriptive_fields_are_documented(self):
+        params = self._cfg().get("parameters", {})
+        missing = [f for f in self.RICH_FIELDS if f not in params]
+        assert not missing, f"create_metric does not document: {missing}"
+
+    def test_descriptive_field_docs_are_substantive(self):
+        params = self._cfg()["parameters"]
+        for field in self.RICH_FIELDS:
+            text = (params[field] or {}).get("description", "")
+            assert len(text.strip()) > 40, f"{field} needs a real description, got: {text!r}"
+
+    def test_tool_description_demands_rich_metrics(self):
+        description = self._cfg()["description"]
+        for field in self.RICH_FIELDS:
+            assert field in description, f"description should name {field}"
+
+    def test_descriptive_fields_reach_the_tool_schema(self):
+        from rhesis.backend.app.main import app
+        from rhesis.backend.app.mcp_server.tools import build_tools_and_operations
+
+        tools, _ = build_tools_and_operations(app)
+        props = {t.name: t for t in tools}["create_metric"].inputSchema["properties"]
+        for field in self.RICH_FIELDS:
+            assert field in props, f"{field} absent from create_metric schema"
+            assert props[field].get("description"), (
+                f"{field} reached the schema with no description — the agent "
+                "has no reason to fill it"
+            )
+
+
+@pytest.mark.unit
 class TestMcpToolsYamlStructure:
     """Every tool entry must declare name, method, and path."""
 

@@ -505,9 +505,43 @@ tools:
       assignee_id, status_id, model_id, backend_type_id, metric_type_id).
       If you only have a natural-language description, prefer
       generate_metric instead.
+
+      ALWAYS send the descriptive fields alongside the scoring
+      configuration: description, evaluation_steps, reasoning, and
+      explanation. They are optional to the API but a metric without them
+      is a poor metric — reviewers cannot tell what it measures, and the
+      judge LLM has less to work with, so scores get less consistent.
+      Sending only name + evaluation_prompt + score_type produces a
+      threadbare metric and is a bug, not a shortcut. Fill every field you
+      have grounds to fill.
     parameters:
       name:
         description: "Metric name, unique within the organization (required, string)"
+      description:
+        description: >
+          REQUIRED IN PRACTICE. One or two sentences on what this metric
+          measures and why it matters, written for a human scanning a list
+          of metrics. Do not restate the name.
+      evaluation_steps:
+        description: >
+          REQUIRED IN PRACTICE. Numbered step-by-step instructions the
+          judge LLM should follow to reach a score (e.g. "1. Identify each
+          factual claim. 2. Check it against the provided context.
+          3. Count unsupported claims. 4. Map the count to the scale.").
+          Concrete steps make scoring far more repeatable than criteria
+          prose alone.
+      reasoning:
+        description: >
+          REQUIRED IN PRACTICE. Instructions for how the judge should
+          explain its verdict — what evidence to cite and how to justify
+          the score it gives. Surfaced in the UI as "Reasoning
+          Instructions".
+      explanation:
+        description: >
+          REQUIRED IN PRACTICE. What a passing versus failing result
+          actually means for the system under test, so someone reading a
+          result knows what to do about it. Surfaced in the UI as "Result
+          Explanation".
       metric_type:
         description: >
           Must be "custom-prompt" for user-defined metrics. Always

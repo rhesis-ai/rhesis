@@ -35,9 +35,28 @@ class GeneratedMetric(BaseModel):
             "progression, coherence across turns)."
         )
     )
-    evaluation_steps: Optional[str] = Field(
-        default=None,
-        description="Step-by-step evaluation instructions",
+    evaluation_steps: str = Field(
+        description=(
+            "Numbered step-by-step instructions the judge LLM follows to "
+            'reach a score (e.g. "1. Identify each factual claim. '
+            "2. Check it against the provided context. 3. Count "
+            'unsupported claims. 4. Map the count to the scale."). '
+            "Concrete steps make scoring far more repeatable than "
+            "criteria prose alone."
+        )
+    )
+    reasoning: str = Field(
+        description=(
+            "Instructions for how the judge should explain its verdict — "
+            "what evidence to cite and how to justify the score it gives."
+        )
+    )
+    explanation: str = Field(
+        description=(
+            "What a passing versus failing result means for the system "
+            "under test, so whoever reads a result knows what to do "
+            "about it."
+        )
     )
     score_type: str = Field(description='Must be exactly "numeric" or "categorical"')
     min_score: Optional[float] = Field(
