@@ -183,3 +183,54 @@ class TestBundledSkillReferences:
         assert any(n.endswith("prompt_templates/skill_refs/entity-model.md") for n in names), (
             f"skill refs missing from wheel: {[n for n in names if 'skill_refs' in n][:5]}"
         )
+
+
+_FRONTEND_ROUTES = _REPO_ROOT / "apps" / "frontend" / "src" / "app" / "(protected)"
+
+
+def _has_detail_page(segment: str) -> bool:
+    """True when the frontend has a dynamic detail route for this segment."""
+    return (_FRONTEND_ROUTES / segment / "[identifier]").is_dir()
+
+
+@pytest.mark.unit
+@pytest.mark.skipif(
+    not _FRONTEND_ROUTES.is_dir(),
+    reason="frontend tree not present (SDK checked out standalone)",
+)
+class TestEntityLinkGuidanceMatchesFrontend:
+    """Keep link guidance honest about which entities have detail pages.
+
+    Both templates previously told the agent that behaviors and metrics had
+    no detail pages. Both do, so the agent was suppressing links a user
+    could have followed — and the two files disagreed with each other.
+    """
+
+    TEMPLATES = ("telemachus-guidelines.j2", "streaming_response.j2")
+    # Entities the prompts tell the agent to link.
+    LINKED = ("test-sets", "tests", "endpoints", "projects", "test-runs", "behaviors", "metrics")
+
+    @pytest.mark.parametrize("segment", LINKED)
+    def test_linked_entities_really_have_detail_pages(self, segment):
+        assert _has_detail_page(segment), (
+            f"prompts link /{segment}/<id> but no [identifier] route exists"
+        )
+
+    def test_test_results_still_has_no_detail_page(self):
+        """The one negative claim the prompts make must stay true."""
+        assert not _has_detail_page("test-results")
+
+    @pytest.mark.parametrize("template", TEMPLATES)
+    def test_templates_do_not_deny_behavior_or_metric_pages(self, template):
+        text = (_TEMPLATES_DIR / template).read_text()
+        for stale in (
+            "Behaviors, metrics and test results do NOT have detail pages",
+            "Behaviors and test results do NOT have detail pages",
+        ):
+            assert stale not in text, f"{template} still carries stale claim: {stale!r}"
+
+    @pytest.mark.parametrize("template", TEMPLATES)
+    def test_templates_document_behavior_and_metric_links(self, template):
+        text = (_TEMPLATES_DIR / template).read_text()
+        assert "/behaviors/" in text, f"{template} never shows a behavior link"
+        assert "/metrics/" in text, f"{template} never shows a metric link"

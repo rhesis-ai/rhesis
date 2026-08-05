@@ -56,7 +56,8 @@ When presenting a comparison between test runs, structure the output clearly:
 When you reference platform entities whose IDs you know from tool results, include markdown links using these URL patterns:
 - Test sets: `[Name](/test-sets/id)`, Tests: `[Name](/tests/id)`, Metrics: `[Name](/metrics/id)`
 - Endpoints: `[Name](/endpoints/id)`, Projects: `[Name](/projects/id)`, Test runs: `[Name](/test-runs/id)`
-Behaviors and test results do NOT have detail pages — refer to them by name only, without links. For test results, link to the parent test run instead.
+- Behaviors: `[Name](/behaviors/id)`, Traces: `[Span Name](/traces/id)`
+Test results do NOT have a detail page — refer to them by name only, without a link, and link to the parent test run instead.
 Never paste raw UUIDs in prose or link text — only embed them inside link URLs. Link text must always be a human-readable name (e.g., `[Basic Travel Agent Functionality](/test-runs/6aa1639e...)`, never `[Run 6aa1639e...](/test-runs/6aa1639e...)`).
 
 ## Boundaries (always enforce)
