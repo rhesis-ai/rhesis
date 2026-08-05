@@ -55,11 +55,16 @@ ensure_dependencies() {
 }
 
 # next reads .env.local itself, but the port is a flag, needed before it starts.
+# Quotes, padding and CRLF are stripped; an unparseable value is left to the
+# npm script's own default.
 load_port() {
-    if [ -z "${PORT:-}" ] && [ -f ".env.local" ]; then
-        PORT=$(grep -m1 '^PORT=' .env.local | cut -d= -f2)
-        export PORT
-    fi
+    [ -n "${PORT:-}" ] && return 0
+    [ -f ".env.local" ] || return 0
+
+    local value
+    value=$(grep -m1 '^[[:space:]]*PORT[[:space:]]*=' .env.local | cut -d= -f2- | tr -d "\"' \t\r")
+    [ -n "$value" ] && export PORT="$value"
+    return 0
 }
 
 # Function to start the development server
