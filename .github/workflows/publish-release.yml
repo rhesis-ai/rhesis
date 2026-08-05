@@ -27,11 +27,24 @@ jobs:
       reason: "Release deployment to prd"
     secrets: inherit
 
-  # Promotes every prd ArgoCD Application (root prd-base and its nested apps) to
-  # this release's exact commit. targetRevision is pinned to a commit SHA (see
-  # kubernetes/clusters/prd/base.yaml), not the release branch, so it survives
-  # the branch being deleted on merge and never picks up unrelated main changes
-  # until the next release runs this job.
+  # Promotes prd-base (root app-of-apps) to this release's exact commit; every
+  # nested Application under kubernetes/clusters/prd/ cascades from prd-base's
+  # own sync (each has its own automated{prune,selfHeal}, see
+  # kubernetes/README.md). targetRevision is pinned to a commit SHA, not the
+  # release branch, so it survives the branch being deleted on merge and never
+  # picks up unrelated main changes until the next release runs this job.
+  #
+  # Order matters: the git write-back (pinning every child's own targetRevision
+  # to $GITHUB_SHA) runs BEFORE prd-base is synced, and prd-base is pinned to
+  # the resulting write-back commit rather than to $GITHUB_SHA directly. If
+  # prd-base were pinned to $GITHUB_SHA instead, its tree would still show
+  # whatever targetRevision was last committed for each child (the previous
+  # release's, since $GITHUB_SHA predates this run's write-back) — and because
+  # prd-base's own selfHeal continuously reconciles against that fixed,
+  # immutable commit, it would keep reverting any later fix-up to the live
+  # children indefinitely, not just in a brief race window. Committing first
+  # and pinning prd-base to that commit keeps prd-base's own source of truth
+  # self-consistent from the moment it's synced.
   promote-prd-config:
     if: startsWith(github.ref, 'refs/heads/release/')
     runs-on: arc-runner-prd
@@ -49,78 +62,6 @@ jobs:
           chmod +x "$HOME/bin/argocd"
           echo "$HOME/bin" >> "$GITHUB_PATH"
 
-      - name: Pin every prd Application to this release's commit and sync
-        env:
-          ARGOCD_SERVER: ${{ secrets.ARGOCD_SERVER_PRD }}
-          ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN_PRD }}
-        run: |
-          # Retry up to 5 times with 30s back-off: `argocd app set`/`app sync` can
-          # transiently fail with "another operation is already in progress" if
-          # an app's own selfHeal reconcile is mid-flight when this runs (observed
-          # in testing against stg) — not caught by the concurrency group above.
-          retry_argocd() {
-            for attempt in $(seq 1 5); do
-              EXIT_CODE=0
-              OUTPUT=$("$@" 2>&1) || EXIT_CODE=$?
-              echo "$OUTPUT"
-              [ "$EXIT_CODE" -eq 0 ] && return 0
-              if ! echo "$OUTPUT" | grep -qi "another operation"; then
-                echo "Non-retryable error — failing fast."
-                return 1
-              fi
-              if [ "$attempt" -lt 5 ]; then
-                echo "Attempt $attempt failed (concurrent operation) — waiting 30s before retry..."
-                sleep 30
-              else
-                echo "All 5 attempts failed."
-                return 1
-              fi
-            done
-          }
-
-          # Set/sync every app explicitly rather than relying on prd-base's sync to
-          # cascade the new revision to its children: prd-base's own git state (at
-          # $GITHUB_SHA) still carries whatever targetRevision was last committed,
-          # so applying it alone would leave children pinned to the previous
-          # release. prd-base first (root app-of-apps), then every nested app it
-          # manages. cnpg-operator is intentionally excluded — manual sync, manual
-          # promotion (see kubernetes/README.md).
-          APPS=(
-            prd-base
-            prd-arc
-            prd-loki
-            prd-kube-prometheus-stack
-            prd-external-secrets
-            prd-ingress-nginx-external
-            prd-grafana-operator
-            prd-cnpg-cluster
-            prd-cert-manager
-            prd-ingress-nginx-internal
-            prd-internal-dns
-            prd-grafana-resources
-            prd-alloy
-            prd-cluster-dns
-            prd-external-dns
-            argocd
-            rhesis
-          )
-
-          for app in "${APPS[@]}"; do
-            retry_argocd argocd app set "$app" --revision "$GITHUB_SHA" \
-              --server "$ARGOCD_SERVER" --auth-token "$ARGOCD_AUTH_TOKEN" --grpc-web
-            retry_argocd argocd app sync "$app" \
-              --server "$ARGOCD_SERVER" --auth-token "$ARGOCD_AUTH_TOKEN" --grpc-web --timeout 300
-          done
-
-      # Writes the promoted SHA back to git so the checked-in manifests match what
-      # was just synced above — this is what keeps disaster recovery correct (a
-      # `kubectl apply` of these files, see kubernetes/README.md) and what prd-base's
-      # own selfHeal will treat as desired state on its next reconcile. It does not
-      # itself perform the promotion (the explicit set/sync above does); run this
-      # promptly after so prd-base's selfHeal doesn't revert the live overrides
-      # before git catches up. The one documented exception is cnpg-operator.yaml,
-      # which has automated sync disabled on purpose (see kubernetes/README.md) and
-      # is promoted manually.
       - name: Generate a token
         id: generate-token
         uses: actions/create-github-app-token@v2
@@ -135,6 +76,7 @@ jobs:
           token: ${{ steps.generate-token.outputs.token }}
 
       - name: Update prd Application targetRevisions on main
+        id: write-back
         env:
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
         run: |
@@ -168,16 +110,20 @@ jobs:
 
           if git diff --quiet -- "${FILES[@]}"; then
             echo "All prd Applications already pinned to $GITHUB_SHA — nothing to commit."
+            echo "promoted_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
           git add "${FILES[@]}"
-          git commit -m "chore(prd): pin prd Application targetRevisions to $GITHUB_SHA"
+          git commit -m "chore(dev): pin prd Application targetRevisions to $GITHUB_SHA"
 
           # main can advance between the checkout above and this push; retry on
           # non-fast-forward by rebasing onto the new tip.
           for attempt in 1 2 3; do
-            git push origin HEAD:main && exit 0
+            if git push origin HEAD:main; then
+              echo "promoted_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
             echo "Push rejected (attempt $attempt) — rebasing onto origin/main and retrying..."
             git fetch origin main
             git rebase origin/main
@@ -185,6 +131,41 @@ jobs:
           done
           echo "Push failed after 3 attempts."
           exit 1
+
+      - name: Pin prd-base to the promoted commit and sync
+        env:
+          ARGOCD_SERVER: ${{ secrets.ARGOCD_SERVER_PRD }}
+          ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN_PRD }}
+          PROMOTED_SHA: ${{ steps.write-back.outputs.promoted_sha }}
+        run: |
+          # Retry up to 5 times with 30s back-off. Retries on any failure except
+          # a short list of clearly permanent errors (auth/permission/not-found),
+          # so transient issues like a sync exceeding the --timeout below or a
+          # network blip get retried instead of failing the whole job on attempt 1.
+          retry_argocd() {
+            for attempt in $(seq 1 5); do
+              EXIT_CODE=0
+              OUTPUT=$("$@" 2>&1) || EXIT_CODE=$?
+              echo "$OUTPUT"
+              [ "$EXIT_CODE" -eq 0 ] && return 0
+              if echo "$OUTPUT" | grep -qiE "permission denied|unauthorized|x509|not found|invalid argument"; then
+                echo "Non-retryable error — failing fast."
+                return 1
+              fi
+              if [ "$attempt" -lt 5 ]; then
+                echo "Attempt $attempt failed — waiting 30s before retry..."
+                sleep 30
+              else
+                echo "All 5 attempts failed."
+                return 1
+              fi
+            done
+          }
+
+          retry_argocd argocd app set prd-base --revision "$PROMOTED_SHA" \
+            --server "$ARGOCD_SERVER" --auth-token "$ARGOCD_AUTH_TOKEN" --grpc-web
+          retry_argocd argocd app sync prd-base \
+            --server "$ARGOCD_SERVER" --auth-token "$ARGOCD_AUTH_TOKEN" --grpc-web --timeout 300
 
   publish:
     if: startsWith(github.ref, 'refs/heads/release/')
