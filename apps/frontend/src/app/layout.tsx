@@ -52,6 +52,7 @@ import { type Organization } from '../utils/api-client/interfaces/organization';
 import { type UserSettings } from '../utils/api-client/interfaces/user';
 import { type Session } from 'next-auth';
 import ThemeContextProvider from '../components/providers/ThemeProvider';
+import { BACKGROUND_DEFAULT } from '../styles/theme-background';
 import { Capability } from '../constants/capabilities';
 
 // Mark this layout as dynamic since it uses server-side authentication
@@ -70,6 +71,28 @@ const THEME_MODE_SCRIPT = `(function(){try{
     (window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');
   el.setAttribute('data-theme-mode',mode);
 }catch(e){}})();`;
+
+/**
+ * Paints the page background from `data-theme-mode` before React hydrates.
+ *
+ * The script above fixes which mode the provider picks, but not the first
+ * paint: MUI's styles are server-rendered through `AppRouterCacheProvider`
+ * from `initialMode`, so without a cookie the served HTML is always light. A
+ * dark-OS visitor would see a white page until hydration swapped it — measured
+ * at over a second on a throttled CPU. These two rules are the only styling
+ * that has to be right before hydration; everything else is below the fold of
+ * perception.
+ *
+ * The values come from `theme-background.ts`, not `theme.ts` — that file is
+ * `'use client'`, and importing a value from it here (a Server Component)
+ * yields a client reference, which rendered `background-color:undefined`.
+ */
+const THEME_MODE_STYLE = (['dark', 'light'] as const)
+  .map(
+    mode => `html[data-theme-mode='${mode}']{color-scheme:${mode}}
+html[data-theme-mode='${mode}'],html[data-theme-mode='${mode}'] body{background-color:${BACKGROUND_DEFAULT[mode]}}`
+  )
+  .join('\n');
 
 // This function will be used to get navigation items with dynamic data
 async function getNavigationItems(session: Session | null): Promise<{
@@ -369,6 +392,10 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
         <script
           id="rhesis-theme-mode"
           dangerouslySetInnerHTML={{ __html: THEME_MODE_SCRIPT }}
+        />
+        <style
+          id="rhesis-theme-mode-paint"
+          dangerouslySetInnerHTML={{ __html: THEME_MODE_STYLE }}
         />
       </head>
       <body suppressHydrationWarning>
