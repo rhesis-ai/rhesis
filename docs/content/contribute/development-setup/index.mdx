@@ -20,6 +20,8 @@ Two paths: **local dev** (`./rh dev …`) for day-to-day work, or **all-in-one D
 | Mock LLM server (`./rh dev mock-llm`) | 18080 |
 | Mock Chatbot server (`./rh dev mock-chatbot`) | 18090 |
 
+`./rh worktree <name>` shifts the backend, frontend, Postgres, Redis and Flower ports by 10 per worktree and gives it its own Postgres and Redis containers, so several checkouts can run at the same time. The offset is recorded in `.rhesis-ports` at the worktree root; `./rh dev status` prints it. The mock servers, chatbot, Polyphemus and docs site keep the ports above — one instance serves every checkout.
+
 ## Clone the repo
 
 <CodeBlock filename="Terminal" language="bash" isTerminal={true}>
