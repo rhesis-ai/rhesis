@@ -65,9 +65,10 @@ case "$1" in
     "test")
         case "$2" in
             "frontend") test_frontend ;;
+            ""|"help") show_test_help ;;
             *)
                 err "Unknown test command: $2"
-                step "Available: ./rh test frontend"
+                show_test_help
                 exit 1
                 ;;
         esac

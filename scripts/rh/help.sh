@@ -103,6 +103,7 @@ show_help() {
     help_row "./rh worktree <name> --remove" "Remove worktree, its containers, and branch" "$RH_PAD_WORKTREE"
     help_row "./rh worktree <name> --load" "Launch shell in worktree" "$RH_PAD_WORKTREE"
     help_row "./rh worktree --list" "List all worktrees" "$RH_PAD_WORKTREE"
+    help_row "./rh worktree help" "Worktree commands in detail" "$RH_PAD_WORKTREE"
     echo ""
     step "Other:"
     help_row "./rh help" "Show this help message"

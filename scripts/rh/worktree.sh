@@ -31,13 +31,12 @@ WORKTREES_BASE="$SOURCE_DIR/../../worktrees/rhesis"
 # Usage
 # ============================================================================
 
-show_usage() {
-    local msg="${1:-Missing worktree name}"
-    echo -e "${RED}Error: $msg${NC}"
+show_worktree_help() {
+    head1 "Worktree Commands:"
     echo ""
     echo -e "${YELLOW}Usage:${NC}"
-    echo -e "  ${GREEN}./rh worktree <name>${NC}            Create a new worktree"
-    echo -e "  ${GREEN}./rh worktree <name> --remove${NC}   Remove worktree and branch"
+    echo -e "  ${GREEN}./rh worktree <name>${NC}            Create a worktree with its own dev ports"
+    echo -e "  ${GREEN}./rh worktree <name> --remove${NC}   Remove worktree, its dev containers, and branch"
     echo -e "  ${GREEN}./rh worktree <name> --load${NC}     Launch shell in worktree"
     echo -e "  ${GREEN}./rh worktree --list${NC}            List all worktrees"
     echo ""
@@ -46,6 +45,18 @@ show_usage() {
     echo -e "  ${BLUE}./rh worktree feat/my-feature --load${NC}"
     echo -e "  ${BLUE}./rh worktree feat/my-feature --remove${NC}"
     echo -e "  ${BLUE}./rh worktree --list${NC}"
+    echo ""
+    step "A new worktree branches from your current HEAD (committed work only), gets"
+    step "shared .env symlinks, and a free block of dev ports recorded in"
+    step ".rhesis-ports at its root. Inside it, ${GREEN}./rh dev up${NC}${YELLOW} and the other dev"
+    step "commands use those ports — run ${GREEN}./rh dev status${NC}${YELLOW} to see them."
+    echo ""
+}
+
+show_usage() {
+    echo -e "${RED}Error: ${1:-Missing worktree name}${NC}"
+    echo ""
+    show_worktree_help
     exit 1
 }
 
@@ -385,15 +396,18 @@ worktree_create() {
 # Argument parsing
 # ============================================================================
 
+# "help" before anything else: it would otherwise be taken as a worktree name.
+case "${1:-}" in
+    ""|help|--help|-h)
+        show_worktree_help
+        exit 0
+        ;;
+esac
+
 # Handle --list anywhere in args
 if [ "$1" = "--list" ] || [ "$2" = "--list" ]; then
     worktree_list
     exit 0
-fi
-
-# All other commands require a name
-if [ -z "$1" ]; then
-    show_usage
 fi
 
 NAME="$1"
