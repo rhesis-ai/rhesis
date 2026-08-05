@@ -37,8 +37,10 @@ dev_container_running() {
 }
 
 report_worktree() {
-    echo -e "   Worktree: ${WHITE}${RHESIS_WORKTREE_NAME:-main}${NC} (offset ${RHESIS_PORT_OFFSET})"
-    echo -e "   Apps:  backend ${WHITE}${DEV_BACKEND_PORT}${NC}, frontend ${WHITE}${DEV_FRONTEND_PORT}${NC}, flower ${WHITE}${DEV_FLOWER_PORT}${NC}"
+    echo -e "   Worktree:   ${WHITE}${RHESIS_WORKTREE_NAME:-main}${NC} (offset ${RHESIS_PORT_OFFSET})"
+    echo -e "   Frontend:   ${WHITE}http://localhost:${DEV_FRONTEND_PORT}${NC}"
+    echo -e "   Backend:    ${WHITE}http://localhost:${DEV_BACKEND_PORT}/docs${NC}"
+    echo -e "   Flower:     ${WHITE}http://localhost:${DEV_FLOWER_PORT}${NC}"
 }
 
 # A worktree made with bare `git worktree add` has no .rhesis-ports, so it would
