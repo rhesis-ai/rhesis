@@ -132,7 +132,7 @@ explicit = true
 [tool.uv]
 exclude-newer = "1 week"
 # Allow newer versions for packages with recent security patches (CVEs).
-exclude-newer-package = { torch = false, jupyter-server = false, mistune = false, notebook = false, pydantic-settings = false, langsmith = false, langchain = false, langchain-core = false, litellm = false, aiohttp = false, tornado = false, starlette = false, pyjwt = false, pyarrow = false, bleach = false, cryptography = false, python-multipart = false, jupyterlab = false }
+exclude-newer-package = { torch = false, jupyter-server = false, mistune = false, notebook = false, pydantic-settings = false, langsmith = false, langchain = false, langchain-core = false, litellm = false, aiohttp = false, tornado = false, starlette = false, pyjwt = false, pyarrow = false, bleach = false, cryptography = false, python-multipart = false, jupyterlab = false, gitpython = false }
 # Force minimum versions for transitive dependencies with security advisories
 # fastmcp: blocked at 2.14.x by mcp-atlassian (pins fastmcp<2.15.0).
 # v3.2.0 fixes 3 CVEs (GHSA-vv7q-7jx5-f767 critical, GHSA-rww4-4w9c-7733 high,

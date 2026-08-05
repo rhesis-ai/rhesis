@@ -43,7 +43,7 @@ crewai = [
 
 [tool.uv]
 exclude-newer = "1 week"
-exclude-newer-package = { pydantic-settings = false, langsmith = false, langchain = false, langchain-core = false, litellm = false, aiohttp = false, tornado = false, starlette = false, cryptography = false, python-multipart = false, pydantic-ai = false, pydantic-ai-slim = false }
+exclude-newer-package = { pydantic-settings = false, langsmith = false, langchain = false, langchain-core = false, litellm = false, aiohttp = false, tornado = false, starlette = false, cryptography = false, python-multipart = false, pydantic-ai = false, pydantic-ai-slim = false, gitpython = false }
 # Force minimum versions for transitive dependencies with security advisories
 constraint-dependencies = [
     "pyasn1>=0.6.4",
