@@ -1,8 +1,9 @@
 # Read-only Postgres datasource for staging dashboards. "grafana-viewer" (see
 # cnpg-cluster.yaml managed.roles) only has SELECT granted on public schema tables.
-# Note: stg runs a single CNPG instance (no replica), so rhesis-stg-ro resolves to the
-# same primary pod as rhesis-stg-rw — the SELECT-only grant is what enforces read-only
-# here, not replica routing (unlike prd, which has a physical hot-standby).
+# Uses rhesis-stg-rw, not rhesis-stg-ro: stg runs a single CNPG instance (no replica),
+# and CNPG's -ro service only routes to pods labeled "replica" — with none, it has zero
+# endpoints and refuses every connection. The SELECT-only grant is what enforces
+# read-only here, not replica routing (unlike prd, which has a physical hot-standby).
 apiVersion: grafana.integreatly.org/v1beta1
 kind: GrafanaDatasource
 metadata:
@@ -15,10 +16,10 @@ spec:
     matchLabels:
       dashboards: grafana
   datasource:
-    name: "Rhesis STG Postgres (RO)"
+    name: "Rhesis STG Postgres (RW)"
     type: postgres
     access: proxy
-    url: rhesis-stg-ro.rhesis.svc:5432
+    url: rhesis-stg-rw.rhesis.svc:5432
     database: rhesis-stg-db
     user: grafana-viewer
     jsonData:
