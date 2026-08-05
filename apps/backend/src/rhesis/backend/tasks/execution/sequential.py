@@ -50,6 +50,9 @@ def execute_tests_sequentially(
 
     # Resolve execution and evaluation models from test_config.attributes
     # overrides or user defaults (same logic as batch prefetch_execution_context).
+    # Read outside the try so the fallback paths below can attribute token usage
+    # even when model resolution itself is what failed.
+    seq_organization_id = str(test_config.organization_id) if test_config.organization_id else ""
     execution_model = None
     evaluation_model = None
     try:
@@ -58,6 +61,7 @@ def execute_tests_sequentially(
         from rhesis.backend.app.utils.user_model_utils import (
             get_evaluation_model_with_override,
             get_execution_model_with_override,
+            resolve_default_hosted_model,
         )
 
         model_settings = get_model_settings()
@@ -76,21 +80,38 @@ def execute_tests_sequentially(
                     session, user, model_id=override_evaluation_model_id
                 )
             else:
+                # Resolve rather than passing the bare default string on: the
+                # string is only turned into a model much later, inside
+                # Penelope / the metric judge, where no org context is left to
+                # attribute its tokens to. See resolve_default_hosted_model.
                 logger.warning(f"User {seq_user_id} not found, using default models")
-                execution_model = model_settings.execution_model
-                evaluation_model = model_settings.evaluation_model
+                execution_model = resolve_default_hosted_model(
+                    model_settings.execution_model, seq_organization_id
+                )
+                evaluation_model = resolve_default_hosted_model(
+                    model_settings.evaluation_model, seq_organization_id
+                )
         else:
-            execution_model = model_settings.execution_model
-            evaluation_model = model_settings.evaluation_model
+            execution_model = resolve_default_hosted_model(
+                model_settings.execution_model, seq_organization_id
+            )
+            evaluation_model = resolve_default_hosted_model(
+                model_settings.evaluation_model, seq_organization_id
+            )
     except Exception as e:
         from rhesis.backend.app.config.settings import get_model_settings
+        from rhesis.backend.app.utils.user_model_utils import resolve_default_hosted_model
 
         logger.warning(f"Failed to resolve execution/evaluation models: {e}")
         model_settings = get_model_settings()
         if execution_model is None:
-            execution_model = model_settings.execution_model
+            execution_model = resolve_default_hosted_model(
+                model_settings.execution_model, seq_organization_id
+            )
         if evaluation_model is None:
-            evaluation_model = model_settings.evaluation_model
+            evaluation_model = resolve_default_hosted_model(
+                model_settings.evaluation_model, seq_organization_id
+            )
 
     # Execute tests one by one
     for i, test in enumerate(tests, 1):

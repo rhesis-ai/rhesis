@@ -16,8 +16,8 @@ from rhesis.backend.app.config.settings import get_model_settings
 from rhesis.backend.app.schemas.services import TestConfigResponse
 from rhesis.backend.app.utils.model_errors import ModelConfigurationError
 from rhesis.backend.app.utils.user_model_utils import (
-    _resolve_default_hosted_model,
     get_user_generation_model,
+    resolve_default_hosted_model,
 )
 from rhesis.sdk.models.factory import get_model
 
@@ -70,7 +70,7 @@ class TestConfigGeneratorService:
                 "User generation model is Polyphemus; using fast system default for test config"
             )
             try:
-                resolved = _resolve_default_hosted_model(
+                resolved = resolve_default_hosted_model(
                     get_model_settings().generation_model, str(self.user.organization_id)
                 )
                 if isinstance(resolved, str):

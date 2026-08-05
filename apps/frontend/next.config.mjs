@@ -119,9 +119,18 @@ const nextConfig = {
   // `import`/`export` syntax unparsed for any test that imports it without
   // mocking it out. next/jest derives its transform-ignore allowlist from
   // this array (see next/dist/build/jest/jest.js), so it must be listed
-  // here, not in jest.config.js's transformIgnorePatterns — that option can
-  // only add more exclusions, never un-ignore what this array controls.
-  transpilePackages: ['@rhesis/ee-frontend', 'next-auth', '@auth/core'],
+  // here as well as there: next/jest turns this array into one pattern and
+  // jest.config.js's own pattern is a second, and a file is ignored if either
+  // matches, so an ESM-only dep must be allowed by both to get transformed.
+  // flatqueue is the same situation, reached transitively from @mui/x-charts
+  // (used by the usage history charts): ESM-only, so any test rendering a
+  // chart fails to parse it unless it is listed in both places.
+  transpilePackages: [
+    '@rhesis/ee-frontend',
+    'next-auth',
+    '@auth/core',
+    'flatqueue',
+  ],
 
   // embedding-atlas pulls in Mosaic/DuckDB WASM; keep it off the server bundle.
   // Do not also list these in transpilePackages — Turbopack rejects that conflict.

@@ -8,8 +8,10 @@ from typing import TYPE_CHECKING, Any, List, Set
 
 from sqlalchemy.orm import Session
 
+from rhesis.backend.app.quota import QuotaResource
 from rhesis.backend.app.services.async_service import AsyncService
 from rhesis.backend.app.services.telemetry.enrichment.processor import TraceEnricher
+from rhesis.backend.app.services.usage import dispatch_accrual
 
 if TYPE_CHECKING:
     from rhesis.backend.app import models
@@ -171,6 +173,20 @@ class EnrichmentService(AsyncService[dict | None]):
         if not stored_spans:
             logger.warning("No spans were stored")
             return [], 0, 0
+
+        # Accrued here as well as in ``post_ingest_link``: these are the two
+        # paths that create Trace rows, and metering only the ingestion
+        # router would miss every span Rhesis itself produces while invoking
+        # an endpoint during a test run -- the primary product flow. The two
+        # paths are disjoint (this one is the invoker, that one is inbound
+        # OTLP), so no span is counted twice.
+        #
+        # Placed right after the rows are persisted rather than at the end
+        # of the function: unlike ``post_ingest_link`` there is no retrying
+        # task wrapper here, so there is no double-count to guard against,
+        # and storing the spans is what makes them billable -- a failure to
+        # dispatch enrichment below should not silently drop the count.
+        dispatch_accrual(organization_id, QuotaResource.TRACING_SPANS, len(stored_spans))
 
         async_count = 0
         sync_count = 0

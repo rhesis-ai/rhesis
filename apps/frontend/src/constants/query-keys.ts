@@ -73,6 +73,14 @@ export const featureKeys = {
   all: (userScope: string) => ['features', userScope] as const,
 };
 
+export const usageKeys = {
+  all: (userScope: string) => ['usage', userScope] as const,
+  history: (userScope: string, months: number) =>
+    ['usage', userScope, 'history', months] as const,
+  forPeriod: (userScope: string, periodStart: string) =>
+    ['usage', userScope, 'period', periodStart] as const,
+};
+
 export const permissionKeys = {
   all: (userScope: string, projectId: string) =>
     ['permissions', userScope, projectId] as const,

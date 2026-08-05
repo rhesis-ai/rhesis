@@ -59,8 +59,13 @@ const customJestConfig = {
     '<rootDir>/node_modules/',
     '<rootDir>/out/',
   ],
+  // Jest ignores a file if ANY pattern here matches, and next/jest prepends
+  // its own `/node_modules/(?!<transpilePackages>)` pattern to this list. So
+  // un-ignoring an ESM-only dependency takes both: the package in
+  // next.config.mjs's transpilePackages (for next/jest's pattern) and in the
+  // allowlist below (for this one). Either alone leaves it ignored.
   transformIgnorePatterns: [
-    'node_modules/(?!(.*\\.mjs$|@mui|@toolpad|next-auth|@auth|msw|@mswjs))',
+    'node_modules/(?!(.*\\.mjs$|@mui|@toolpad|next-auth|@auth|msw|@mswjs|flatqueue))',
   ],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
   testMatch: [

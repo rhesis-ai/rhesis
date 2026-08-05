@@ -90,9 +90,7 @@ BUILT_IN_ROLE_DESCRIPTIONS: dict[str, str] = {
     "Member": (
         "Create, edit, and run evaluations across their projects. Manage their own API tokens."
     ),
-    "Viewer": (
-        "Read-only access to project resources. Can browse but cannot make changes."
-    ),
+    "Viewer": ("Read-only access to project resources. Can browse but cannot make changes."),
     "None": "No access. Explicitly revoke a member while keeping them in the organization.",
 }
 
@@ -125,10 +123,15 @@ def _primary_action(cap: str) -> str:
 # Org-level reads excluded from the read-only **Viewer** baseline.
 # ``role:read`` exposes the org's custom role catalog; only Owner and Admin
 # need it (Admin needs it to assign roles via member:manage).  ``token:read``
-# exposes API token metadata.  Everything else ending in ``:read`` — including
-# ``organization:read`` and ``member:read`` for basic org context — is fine
-# for a Viewer.
-_VIEWER_EXCLUDED_READS: frozenset[str] = frozenset({"role:read", "token:read"})
+# exposes API token metadata.  ``usage:read`` exposes metered consumption
+# against plan limits — billing data, not org context.  Everything else
+# ending in ``:read`` — including ``organization:read`` and ``member:read``
+# for basic org context — is fine for a Viewer.
+#
+# Excluding a read here also keeps it away from **Member**: that set is
+# ``project_actions | viewer_permissions``, and all three of these are
+# org-scoped, so they never enter ``project_actions``.
+_VIEWER_EXCLUDED_READS: frozenset[str] = frozenset({"role:read", "token:read", "usage:read"})
 
 
 def _viewer_permissions(cap_set: set[str]) -> set[str]:

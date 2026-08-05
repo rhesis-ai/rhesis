@@ -15,11 +15,20 @@ instance -- everything downstream keeps working unchanged -- and every
 provider method that parses a usage dict already has a natural place to
 invoke it.
 
-Only applied to models resolved as *hosted* (Rhesis or Polyphemus without a
-user-supplied API key) -- see ``_is_hosted_model`` in
-``rhesis.backend.app.utils.user_model_utils``. Third-party models called
-with the org's own API key (OpenAI, Gemini, etc.) never get a callback:
-that usage is billed directly to the org by the provider, not by Rhesis.
+Wired in two places, for two different reasons:
+
+- ``_is_hosted_model`` in ``rhesis.backend.app.utils.user_model_utils``,
+  for an explicitly-selected Model row: only ``rhesis``/``polyphemus``
+  with no org-supplied key, meaning the call goes out on
+  ``RHESIS_API_KEY``. Any other provider an org picks (their own
+  ``vertex_ai``, ``ollama``, ``openai``, ...) is their own infrastructure,
+  never wired here regardless of whether they configured a key.
+- ``resolve_default_hosted_model``, unconditionally, for the *system
+  default* an org gets when it configures no model at all -- whatever a
+  deployment names as its ``DEFAULT_*_MODEL`` (e.g.
+  ``vertex_ai/gemini-2.5-flash`` in dev, calling the server's own
+  ``GOOGLE_APPLICATION_CREDENTIALS``) is Rhesis's own infra cost for that
+  deployment, by definition of being the default.
 """
 
 from __future__ import annotations

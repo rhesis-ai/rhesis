@@ -389,6 +389,91 @@ class TestCreateAndEnrichSpansPerRootSpan:
         mock_build.assert_not_called()
 
 
+@pytest.mark.unit
+class TestCreateAndEnrichSpansUsageAccrual:
+    """Spans created by the invoker path must be metered.
+
+    ``post_ingest_link`` accrues for inbound OTLP, but this path -- the one
+    Rhesis itself uses while invoking an endpoint during a test run -- went
+    unmetered, so the primary product flow never touched TRACING_SPANS.
+    """
+
+    MODULE = "rhesis.backend.app.services.telemetry.enrichment.service"
+
+    @pytest.fixture
+    def service(self):
+        return EnrichmentService(Mock(spec=Session))
+
+    def _stored(self, count):
+        spans = []
+        for i in range(count):
+            s = Mock()
+            s.trace_id = f"T{i}"
+            s.id = f"span-{i}"
+            s.parent_span_id = None
+            spans.append(s)
+        return spans
+
+    def test_accrues_the_number_of_stored_spans(self, service):
+        stored = self._stored(3)
+        with (
+            patch(f"{self.MODULE}.build_enrichment_chain", return_value=Mock()),
+            patch("rhesis.backend.app.crud.create_trace_spans", return_value=stored),
+            patch(f"{self.MODULE}.dispatch_accrual") as mock_accrual,
+        ):
+            service.create_and_enrich_spans([], "org-1", "proj-1")
+
+        mock_accrual.assert_called_once()
+        org_id, resource, amount = mock_accrual.call_args.args
+        assert org_id == "org-1"
+        assert str(resource) == "tracing_spans"
+        assert amount == 3
+
+    def test_counts_stored_spans_not_requested_ones(self, service):
+        """Two of the three requested spans persisted; only those are billable."""
+        with (
+            patch(f"{self.MODULE}.build_enrichment_chain", return_value=Mock()),
+            patch(
+                "rhesis.backend.app.crud.create_trace_spans",
+                return_value=self._stored(2),
+            ),
+            patch(f"{self.MODULE}.dispatch_accrual") as mock_accrual,
+        ):
+            service.create_and_enrich_spans([Mock(), Mock(), Mock()], "org-1", "proj-1")
+
+        assert mock_accrual.call_args.args[2] == 2
+
+    def test_no_accrual_when_nothing_was_stored(self, service):
+        with (
+            patch("rhesis.backend.app.crud.create_trace_spans", return_value=[]),
+            patch(f"{self.MODULE}.dispatch_accrual") as mock_accrual,
+        ):
+            service.create_and_enrich_spans([], "org-1", "proj-1")
+
+        mock_accrual.assert_not_called()
+
+    def test_accrues_even_if_enrichment_dispatch_fails(self, service):
+        """The spans are persisted and billable regardless of enrichment."""
+        with (
+            patch(
+                f"{self.MODULE}.build_enrichment_chain",
+                side_effect=RuntimeError("broker down"),
+            ),
+            patch(
+                "rhesis.backend.app.crud.create_trace_spans",
+                return_value=self._stored(2),
+            ),
+            patch(f"{self.MODULE}.dispatch_accrual") as mock_accrual,
+        ):
+            try:
+                service.create_and_enrich_spans([], "org-1", "proj-1")
+            except RuntimeError:
+                pass
+
+        mock_accrual.assert_called_once()
+        assert mock_accrual.call_args.args[2] == 2
+
+
 @pytest.mark.integration
 class TestEnrichmentServiceIntegration:
     """Integration tests for EnrichmentService"""

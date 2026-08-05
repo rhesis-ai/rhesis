@@ -410,13 +410,29 @@ def _is_rhesis_system_model(provider: str, api_key: str) -> bool:
 
 def _is_hosted_model(provider: str, api_key: Optional[str]) -> bool:
     """
-    Check if a model runs on Rhesis-operated infrastructure.
+    Check if an explicitly-selected Model row runs on Rhesis-operated infrastructure.
 
-    Broader than `_is_rhesis_system_model`: also covers Polyphemus without a
-    user-supplied key (SaaS delegation, or self-hosted deployments using the
-    server's own RHESIS_API_KEY). Third-party providers called with the
-    org's own API key are never "hosted" -- that usage is billed directly
-    by the provider, not by Rhesis, so it is not tracked as MODEL_TOKENS.
+    Only ever reached for a Model row an org explicitly picked via
+    `model_id` -- `_fetch_and_configure_model`'s two callers are
+    `get_generation_model_with_override` (explicit override) and
+    `_get_user_model` (the org configured a `model_id` for this purpose).
+    Whichever *other* provider the org names there -- their own
+    `vertex_ai`, `ollama`, `openai`, self-hosted `vllm`, whatever -- is
+    their own infrastructure choice: never Rhesis's, regardless of whether
+    they happened to leave the key blank (self-hosted servers commonly need
+    none). Broadening this to a bare `not api_key` (tried and reverted) both
+    overcounted those and was solving a case that doesn't occur.
+
+    `rhesis`/`polyphemus` are the two provider values that mean "use
+    Rhesis's own hosted infrastructure" as a selectable option in the
+    Models UI, so those alone accrue when the row carries no org key.
+    Note the *system default* -- what an org gets when it configures no
+    `model_id` at all -- is a different path entirely
+    (`resolve_default_hosted_model`), reached before this function and
+    unrestricted by provider: whatever a deployment names as its
+    `DEFAULT_*_MODEL` (`vertex_ai/gemini-2.5-flash`, in this dev
+    environment) *is* Rhesis's own infra cost for that deployment, by
+    definition of being the default.
 
     Args:
         provider: The provider type value (e.g., "rhesis", "polyphemus", "openai")
@@ -430,17 +446,23 @@ def _is_hosted_model(provider: str, api_key: Optional[str]) -> bool:
     return provider in ("rhesis", "polyphemus") and not api_key
 
 
-def _resolve_default_hosted_model(default_model: str, organization_id: str) -> Union[str, BaseLLM]:
+def resolve_default_hosted_model(default_model: str, organization_id: str) -> Union[str, BaseLLM]:
     """
     Instantiate the system default model with usage accrual when it names a hosted provider.
 
     Several callers fall back to the bare `default_model` string (e.g.
     "rhesis/rhesis-default") without ever calling `_fetch_and_configure_model`
     -- most notably `_get_user_model` when the user has no model_id configured
-    for a purpose (execution model on a freshly onboarded org, for example).
+    for a purpose (execution model on a freshly onboarded org, for example),
+    and the execution/evaluation model resolution in the batch and sequential
+    test-execution paths when a test config carries no resolvable user.
     Those calls would otherwise never accrue token usage, since the SDK only
     resolves the string into an actual model instance much later (inside
-    synthesizers/agents, with no organization context available).
+    synthesizers/agents/metrics, with no organization context available).
+
+    Public rather than underscore-prefixed because those out-of-module
+    fallbacks are the point of it: anything that would otherwise hand a bare
+    `DEFAULT_*_MODEL` string downstream should route through here instead.
 
     Construction here is cheap (no network call -- provider `__init__`s only
     set up client config) so doing it eagerly costs nothing. On any
@@ -449,24 +471,46 @@ def _resolve_default_hosted_model(default_model: str, organization_id: str) -> U
 
     Args:
         default_model: A "provider/model_name" string, e.g. "rhesis/rhesis-default"
-        organization_id: Org to attribute accrued tokens to
+        organization_id: Org to attribute accrued tokens to. Falsy (the task
+            paths derive it from a nullable column and can pass "") skips
+            accrual rather than booking the tokens against no org.
 
     Returns:
-        A hosted-provider instance with `on_usage` wired for accrual when
-        `default_model` names a hosted provider and construction succeeds;
-        the original string otherwise.
+        An instance with `on_usage` wired for accrual when construction
+        succeeds; the original string otherwise.
     """
-    provider = default_model.split("/", 1)[0] if "/" in default_model else ""
-    if provider not in ("rhesis", "polyphemus"):
-        return default_model
-
+    # No provider restriction: the *system default* is by definition the
+    # model this deployment runs on its own credentials, whatever provider
+    # it names. A deployment configured with
+    # ``DEFAULT_GENERATION_MODEL=vertex_ai/gemini-2.5-flash`` calls Vertex
+    # from the backend using the server's GOOGLE_APPLICATION_CREDENTIALS,
+    # so Rhesis pays for those tokens exactly as it does for
+    # ``rhesis/...``. Restricting this to rhesis/polyphemus meant every such
+    # deployment reported zero MODEL_TOKENS forever.
     try:
+        extra_params = {}
+        if organization_id:
+            extra_params["on_usage"] = make_usage_accrual_callback(organization_id)
+        else:
+            logger.warning(
+                "No organization_id resolving default model %s; token usage will not accrue",
+                default_model,
+            )
         return get_model(
             default_model,
             model_type="language",
-            on_usage=make_usage_accrual_callback(organization_id),
+            **extra_params,
         )
-    except ValueError:
+    except Exception:
+        # Broad on purpose, not just ValueError: dropping the provider
+        # restriction above means this now runs `get_model` for *any*
+        # `DEFAULT_*_MODEL`, including providers whose modules raise other
+        # error types at import/construction time (e.g. huggingface.py
+        # raises ImportError when torch/transformers aren't installed).
+        # Falling back here doesn't hide the failure -- it only defers to
+        # the lazy resolution path this eager call is layered on top of,
+        # which will raise the same error when it actually tries to use
+        # the model.
         return default_model
 
 
@@ -538,7 +582,7 @@ def _fetch_and_configure_model(
 
     if not model or not model.provider_type:
         logger.warning("Model with id=%s not found or has no provider_type", model_id)
-        return _resolve_default_hosted_model(default_model, organization_id)
+        return resolve_default_hosted_model(default_model, organization_id)
 
     # Get provider configuration
     provider = model.provider_type.type_value
@@ -547,7 +591,7 @@ def _fetch_and_configure_model(
 
     # Special handling for Rhesis system models
     if _is_rhesis_system_model(provider, api_key):
-        return _resolve_default_hosted_model(default_model, organization_id)
+        return resolve_default_hosted_model(default_model, organization_id)
 
     # Special handling for Polyphemus models without a stored API key.
     #
@@ -647,7 +691,7 @@ def _get_user_model(
     model_id = model_settings.model_id
 
     if not model_id:
-        return _resolve_default_hosted_model(default_model, str(user.organization_id))
+        return resolve_default_hosted_model(default_model, str(user.organization_id))
 
     return _fetch_and_configure_model(
         db=db,

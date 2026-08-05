@@ -11,13 +11,17 @@ import {
 import { ProtectedLayoutClient } from './ProtectedLayoutClient';
 
 /**
- * Server-side layout that seeds `FeaturesProvider`, `PermissionsProvider`, and
- * `TermsAcceptanceGate` with data so they don't need a client-side fetch on
- * mount. Failures are swallowed -- client providers fall back to fetching.
+ * Server-side layout that seeds `FeaturesProvider`, `PermissionsProvider`,
+ * and `TermsAcceptanceGate` with data so they don't need a client-side fetch
+ * on mount. Failures are swallowed -- client providers fall back to fetching.
  *
  * Uses `getServerFeatures`/`getServerPermissions` (React.cache-wrapped) so
  * nested server components (page.tsx via prefetchList/hasServerCapability)
  * share the same responses without issuing duplicate requests.
+ *
+ * `GET /usage` is deliberately absent: only the Usage page reads it, so it
+ * mounts its own `UsageProvider` rather than making every protected
+ * navigation pay for a license lookup plus four counting queries.
  */
 export default async function ProtectedLayout({
   children,
