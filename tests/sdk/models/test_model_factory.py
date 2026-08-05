@@ -1,3 +1,5 @@
+import base64
+import json
 from unittest.mock import Mock, patch
 
 import pytest
@@ -534,6 +536,22 @@ class TestGetModelUsageCallback:
     registry, so a backend wiring accrual for e.g. ``vertex_ai`` could not
     get a callback attached at all.
     """
+
+    @pytest.fixture(autouse=True)
+    def fake_vertex_credentials(self, monkeypatch):
+        """VertexAILLM resolves credentials in ``__init__``, so these tests
+        pass only on a machine that happens to have real Google credentials
+        configured, and fail in CI otherwise.
+
+        The loader just base64-decodes and JSON-parses the value with no
+        network call and no auth, so a synthetic service-account blob is
+        enough to get past construction and reach what is actually under
+        test: whether ``get_model`` attaches ``on_usage`` to a provider
+        whose constructor takes fixed arguments rather than ``**kwargs``.
+        """
+        blob = base64.b64encode(json.dumps({"project_id": "test-project"}).encode()).decode()
+        monkeypatch.setenv("GOOGLE_APPLICATION_CREDENTIALS", blob)
+        monkeypatch.setenv("VERTEX_AI_LOCATION", "us-central1")
 
     @pytest.mark.parametrize(
         ("model_id", "api_key"),
