@@ -2,323 +2,393 @@
 
 import * as React from 'react';
 import { Box, Typography } from '@mui/material';
-import { ThemeProvider } from '@mui/material/styles';
+import { useTheme } from '@mui/material/styles';
 import Image from 'next/image';
 import BackgroundDecoration from './BackgroundDecoration';
-import { lightTheme } from '@/styles/theme';
+import {
+  AUTH_FONT_DISPLAY,
+  AUTH_FONT_MONO,
+  AUTH_FONT_SANS,
+  AUTH_SHAPE,
+  getAuthTokens,
+} from './authTokens';
 import { scaledVh } from '@/styles/viewport-scaling';
 
-const MUTED_TEXT = '#6B7280'; // Intentional: landing page muted text
-const FEATURE_TEXT = '#374151'; // Intentional: landing page feature text
-const CARD_BORDER = '#E5E7EB'; // Intentional: landing page card border
-const FOOTER_TEXT = '#9CA3AF'; // Intentional: landing page footer text
-const BADGE_BG = '#EBF7FC'; // Intentional: landing page badge background
-const BADGE_BORDER = 'rgba(80,185,224,0.15)'; // Intentional: landing page badge border
-const GRADIENT_END = '#3a9ec5'; // Intentional: landing page gradient end color
-const BRAND_BLUE = '#50B9E0'; // Intentional: brand color for SVG elements
+/**
+ * The frame around every auth page: nav, message column, auth card, footer.
+ *
+ * Copy in the message column is the rhesis.ai homepage hero, verbatim, so the
+ * two pages read as one product. Update it when the site's hero changes rather
+ * than writing a sign-in-specific variant that drifts.
+ *
+ * The shell deliberately does *not* wrap its children in a fixed theme — it
+ * follows the app's `ThemeContextProvider`, which falls back to the browser's
+ * `prefers-color-scheme` when the visitor has no stored preference. That is the
+ * normal case here, since nobody is signed in yet.
+ */
+
+const NAV_LINKS = [
+  { label: 'Documentation', href: 'https://docs.rhesis.ai' },
+  { label: 'Blog', href: 'https://rhesis.ai/blog' },
+];
+
+const EYEBROW = 'Collaborative platform for continuous AI improvement';
+
+const BENEFITS = [
+  'Expert knowledge becomes test coverage.',
+  'Every version measured against the same bar.',
+  'Made and hosted in Europe.',
+];
+
+const BADGES = ['Open Source', 'Public Preview', 'use it via UI, SDK, MCP'];
+
+const GITHUB_URL = 'https://github.com/rhesis-ai/rhesis';
+
+function CheckIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      width="17"
+      height="17"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      style={{ flexShrink: 0 }}
+    >
+      <path d="m4 12.5 5 5L20 6.5" />
+    </svg>
+  );
+}
+
+function GitHubIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+    >
+      <path d="M12 .5C5.7.5.5 5.7.5 12c0 5.1 3.3 9.4 7.9 10.9.6.1.8-.2.8-.6v-2c-3.2.7-3.9-1.5-3.9-1.5-.5-1.3-1.3-1.7-1.3-1.7-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.7 1.3 3.4 1 .1-.8.4-1.3.7-1.6-2.6-.3-5.3-1.3-5.3-5.8 0-1.3.5-2.3 1.2-3.2-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.2 1.2a11 11 0 0 1 5.8 0c2.2-1.5 3.2-1.2 3.2-1.2.6 1.6.2 2.8.1 3.1.8.9 1.2 1.9 1.2 3.2 0 4.5-2.7 5.5-5.3 5.8.4.4.8 1.1.8 2.2v3.3c0 .4.2.7.8.6 4.6-1.5 7.9-5.8 7.9-10.9C23.5 5.7 18.3.5 12 .5Z" />
+    </svg>
+  );
+}
 
 interface AuthPageShellProps {
   children: React.ReactNode;
 }
 
 export default function AuthPageShell({ children }: AuthPageShellProps) {
+  const mode = useTheme().palette.mode;
+  const t = getAuthTokens(mode);
+
   return (
-    <ThemeProvider theme={lightTheme}>
+    <Box
+      sx={{
+        minHeight: scaledVh(),
+        display: 'flex',
+        flexDirection: 'column',
+        bgcolor: t.ground,
+        color: t.body,
+        fontFamily: AUTH_FONT_SANS,
+        position: 'relative',
+        overflowX: 'hidden',
+      }}
+    >
+      <BackgroundDecoration />
+
+      {/* Top navigation */}
       <Box
+        component="nav"
         sx={{
-          minHeight: scaledVh(),
-          display: 'flex',
-          flexDirection: 'column',
-          bgcolor: 'background.default',
           position: 'relative',
-          overflowX: 'hidden',
+          zIndex: 10,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          px: { xs: 2.5, md: 5.5 },
+          py: 2.25,
         }}
       >
-        <BackgroundDecoration />
-
-        {/* Top navigation */}
         <Box
-          component="nav"
+          component="a"
+          href="https://www.rhesis.ai"
+          target="_blank"
+          rel="noopener noreferrer"
           sx={{
-            position: 'relative',
-            zIndex: 10,
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'space-between',
-            px: { xs: 2.5, md: 5 },
-            py: 2.5,
+            gap: 1.5,
+            textDecoration: 'none',
           }}
         >
+          <Image
+            src="/logos/rhesis-logo-favicon.svg"
+            alt="Rhesis AI"
+            width={44}
+            height={44}
+            priority
+          />
+          <Typography
+            sx={{
+              fontFamily: AUTH_FONT_DISPLAY,
+              fontSize: 20,
+              fontWeight: 800,
+              letterSpacing: '-0.01em',
+              color: mode === 'dark' ? '#fff' : '#111827',
+            }}
+          >
+            Rhesis AI
+          </Typography>
+        </Box>
+
+        <Box
+          sx={{
+            display: { xs: 'none', md: 'flex' },
+            alignItems: 'center',
+            gap: 3.25,
+          }}
+        >
+          {NAV_LINKS.map(link => (
+            <Typography
+              key={link.label}
+              component="a"
+              href={link.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              sx={{
+                fontSize: 14,
+                fontWeight: 500,
+                color: t.muted,
+                textDecoration: 'none',
+                transition: 'color 0.15s',
+                '&:hover': { color: t.ink },
+              }}
+            >
+              {link.label}
+            </Typography>
+          ))}
           <Box
             component="a"
-            href="https://www.rhesis.ai"
+            href={GITHUB_URL}
             target="_blank"
             rel="noopener noreferrer"
             sx={{
-              display: 'flex',
+              display: 'inline-flex',
               alignItems: 'center',
-              gap: 1.5,
+              gap: 0.875,
+              height: 34,
+              px: 1.5,
+              borderRadius: AUTH_SHAPE.button,
+              bgcolor: t.chip,
+              color: mode === 'dark' ? '#e5e7eb' : '#2c2c2c',
+              fontSize: 13,
+              fontWeight: 600,
               textDecoration: 'none',
+              transition: 'opacity 0.15s',
+              '&:hover': { opacity: 0.8 },
             }}
           >
-            <Box
-              sx={{
-                width: 44,
-                height: 44,
-                borderRadius: '12px', // Intentional: logo border radius
-                overflow: 'hidden',
-                flexShrink: 0,
-              }}
-            >
-              <Image
-                src="/logos/rhesis-logo-favicon.svg"
-                alt="Rhesis AI"
-                width={44}
-                height={44}
-                priority
-              />
-            </Box>
-            <Typography
-              sx={{
-                fontSize: 22,
-                fontWeight: 700,
-                color: 'secondary.dark',
-                letterSpacing: '-0.03em',
-                fontFamily: '"Sora", "Be Vietnam Pro", sans-serif',
-              }}
-            >
-              Rhesis AI
-            </Typography>
+            <GitHubIcon />
+            GitHub
           </Box>
-
-          <Box
-            sx={{
-              display: { xs: 'none', md: 'flex' },
-              alignItems: 'center',
-              gap: 3,
-            }}
-          >
-            {[
-              { label: 'Documentation', href: 'https://docs.rhesis.ai' },
-              { label: 'Blog', href: 'https://rhesis.ai/blog' },
-            ].map(link => (
-              <Typography
-                key={link.label}
-                component="a"
-                href={link.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                sx={{
-                  fontSize: 14,
-                  fontWeight: 500,
-                  color: MUTED_TEXT,
-                  textDecoration: 'none',
-                  transition: 'color 0.15s',
-                  '&:hover': { color: 'secondary.dark' },
-                }}
-              >
-                {link.label}
-              </Typography>
-            ))}
-          </Box>
-        </Box>
-
-        {/* Main content */}
-        <Box
-          component="main"
-          sx={{
-            position: 'relative',
-            zIndex: 10,
-            flex: 1,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            px: { xs: 2, md: 3 },
-            py: { xs: 3, md: 2 },
-            pb: { xs: 5, md: 7.5 },
-          }}
-        >
-          <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: { xs: 6, md: 16, lg: 20, xl: 24 },
-              maxWidth: 1100,
-              width: '100%',
-              flexDirection: { xs: 'column', md: 'row' },
-            }}
-          >
-            {/* Left — hero copy */}
-            <Box
-              sx={{
-                flex: 1,
-                maxWidth: 560,
-                textAlign: { xs: 'center', md: 'left' },
-              }}
-            >
-              <Box
-                sx={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 1,
-                  px: 1.75,
-                  py: 0.75,
-                  borderRadius: '100px', // Intentional: pill badge shape
-                  bgcolor: BADGE_BG,
-                  color: 'primary.main',
-                  fontSize: 13,
-                  fontWeight: 600,
-                  mb: 3.5,
-                  border: `1px solid ${BADGE_BORDER}`,
-                }}
-              >
-                <svg
-                  aria-hidden="true"
-                  focusable="false"
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke={BRAND_BLUE}
-                  strokeWidth="2.5"
-                >
-                  <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-                </svg>
-                Public Preview
-              </Box>
-
-              <Typography
-                sx={{
-                  fontSize: { xs: 30, sm: 38, md: 48 },
-                  fontWeight: 800,
-                  lineHeight: 1.1,
-                  color: 'secondary.dark',
-                  letterSpacing: '-0.04em',
-                  mb: 2.5,
-                  fontFamily: '"Sora", "Be Vietnam Pro", sans-serif',
-                }}
-              >
-                The testing platform{' '}
-                <Box
-                  component="br"
-                  sx={{ display: { xs: 'none', md: 'block' } }}
-                />
-                for{' '}
-                <Box
-                  component="span"
-                  sx={{
-                    background: `linear-gradient(135deg, ${BRAND_BLUE} 0%, ${GRADIENT_END} 100%)`,
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                    backgroundClip: 'text',
-                  }}
-                >
-                  AI teams.
-                </Box>
-              </Typography>
-
-              <Typography
-                sx={{
-                  fontSize: { xs: 16, md: 18 },
-                  lineHeight: 1.6,
-                  color: MUTED_TEXT,
-                  mb: 5.5,
-                  maxWidth: 420,
-                  mx: { xs: 'auto', md: 0 },
-                }}
-              >
-                Bring engineers, PMs, and domain experts together to generate
-                tests, simulate (adversarial) conversations, and trace every
-                failure to its root cause.
-              </Typography>
-
-              <Box
-                sx={{
-                  display: { xs: 'none', sm: 'flex' },
-                  flexDirection: 'column',
-                  gap: 2,
-                  alignItems: { xs: 'center', md: 'flex-start' },
-                }}
-              >
-                {[
-                  {
-                    color: 'primary.main',
-                    text: 'Conversation simulation & red-teaming',
-                  },
-                  {
-                    color: 'secondary.light',
-                    text: 'Collaborative test curation',
-                  },
-                  {
-                    color: 'secondary.main',
-                    text: 'Traces, reviews & monitoring',
-                  },
-                ].map(feature => (
-                  <Box
-                    key={feature.text}
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 1.75,
-                    }}
-                  >
-                    <Box
-                      sx={{
-                        width: 10,
-                        height: 10,
-                        borderRadius: '50%', // Intentional: circular dot
-                        bgcolor: feature.color,
-                        flexShrink: 0,
-                      }}
-                    />
-                    <Typography
-                      sx={{
-                        fontSize: 15,
-                        fontWeight: 500,
-                        color: FEATURE_TEXT,
-                      }}
-                    >
-                      {feature.text}
-                    </Typography>
-                  </Box>
-                ))}
-              </Box>
-            </Box>
-
-            {/* Right — auth card */}
-            <Box
-              sx={{
-                flex: '0 0 auto',
-                width: { xs: '100%', sm: 420 },
-                maxWidth: 420,
-                bgcolor: 'background.default',
-                border: `1px solid ${CARD_BORDER}`,
-                borderRadius: { xs: '16px', sm: '20px' }, // Intentional: auth card radius
-                p: { xs: '32px 24px', sm: '44px 40px' },
-                boxShadow:
-                  '0 1px 3px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.06), 0 24px 48px rgba(0,0,0,0.04)',
-              }}
-            >
-              {children}
-            </Box>
-          </Box>
-        </Box>
-
-        {/* Footer */}
-        <Box
-          component="footer"
-          sx={{
-            position: 'relative',
-            zIndex: 10,
-            textAlign: 'center',
-            py: 2.5,
-            fontSize: 12,
-            color: FOOTER_TEXT,
-          }}
-        >
-          © 2026 Rhesis AI
         </Box>
       </Box>
-    </ThemeProvider>
+
+      {/* Main content */}
+      <Box
+        component="main"
+        sx={{
+          position: 'relative',
+          zIndex: 10,
+          flex: 1,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          px: { xs: 2, md: 5.5 },
+          py: { xs: 3, md: 2 },
+          pb: { xs: 5, md: 3 },
+        }}
+      >
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: { xs: 5, md: 10, lg: 12 },
+            maxWidth: 1080,
+            width: '100%',
+            flexDirection: { xs: 'column', md: 'row' },
+          }}
+        >
+          {/* Left — message column, mirroring the rhesis.ai hero */}
+          <Box
+            sx={{
+              flex: 1,
+              maxWidth: 520,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: { xs: 'center', md: 'flex-start' },
+              textAlign: { xs: 'center', md: 'left' },
+              gap: 3.25,
+            }}
+          >
+            <Box
+              sx={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                minHeight: 28,
+                px: 2.25,
+                py: 0.5,
+                borderRadius: AUTH_SHAPE.pill,
+                border: `1px solid ${t.hairline}`,
+                bgcolor: t.pill,
+                boxShadow:
+                  mode === 'dark' ? 'none' : '0 2px 20px 0 rgba(21,21,22,0.07)',
+                fontSize: 12,
+                fontWeight: 300,
+                textTransform: 'uppercase',
+                letterSpacing: '0.6px',
+                color: t.ink,
+              }}
+            >
+              {EYEBROW}
+            </Box>
+
+            <Typography
+              component="h1"
+              sx={{
+                fontSize: { xs: 32, sm: 40, md: 46 },
+                fontWeight: 700,
+                lineHeight: 1.02,
+                letterSpacing: '-0.03em',
+                color: t.ink,
+                textWrap: 'balance',
+              }}
+            >
+              Get the{' '}
+              <Box component="span" sx={{ fontWeight: 300, color: t.accent }}>
+                knowledge
+              </Box>{' '}
+              you need{' '}
+              <Box component="span" sx={{ fontWeight: 300, color: t.accent }}>
+                to improve
+              </Box>{' '}
+              your agents.
+            </Typography>
+
+            <Typography
+              sx={{
+                fontSize: { xs: 16, md: 18 },
+                lineHeight: 1.45,
+                color: t.body,
+                maxWidth: '34ch',
+              }}
+            >
+              A shared workspace where domain experts annotate behavior and
+              engineers get the feedback they need to improve the agent.
+            </Typography>
+
+            <Box
+              component="ul"
+              sx={{
+                display: { xs: 'none', sm: 'flex' },
+                flexDirection: 'column',
+                gap: 1.625,
+                m: 0,
+                p: 0,
+                listStyle: 'none',
+              }}
+            >
+              {BENEFITS.map(benefit => (
+                <Box
+                  key={benefit}
+                  component="li"
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1.375,
+                    fontSize: 15.5,
+                    fontWeight: 500,
+                    color: t.ink,
+                  }}
+                >
+                  <Box sx={{ display: 'flex', color: t.accent }}>
+                    <CheckIcon />
+                  </Box>
+                  {benefit}
+                </Box>
+              ))}
+            </Box>
+
+            <Box
+              sx={{
+                display: { xs: 'none', sm: 'flex' },
+                flexWrap: 'wrap',
+                gap: 1.25,
+                justifyContent: { xs: 'center', md: 'flex-start' },
+              }}
+            >
+              {BADGES.map(badge => (
+                <Box
+                  key={badge}
+                  sx={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    px: 1.5,
+                    py: 0.75,
+                    borderRadius: AUTH_SHAPE.button,
+                    border: `1px solid ${t.hairline}`,
+                    bgcolor: t.badge,
+                    fontFamily: AUTH_FONT_MONO,
+                    fontSize: 11,
+                    color: t.muted,
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {badge}
+                </Box>
+              ))}
+            </Box>
+          </Box>
+
+          {/* Right — auth card */}
+          <Box
+            sx={{
+              flex: '0 0 auto',
+              width: { xs: '100%', sm: 404 },
+              maxWidth: 404,
+              bgcolor: t.surface,
+              border: `1px solid ${t.hairline}`,
+              borderRadius: AUTH_SHAPE.card,
+              p: { xs: '28px 22px', sm: '34px 32px' },
+              boxShadow: t.cardShadow,
+              backdropFilter: 'blur(6px)',
+            }}
+          >
+            {children}
+          </Box>
+        </Box>
+      </Box>
+
+      {/* Footer */}
+      <Box
+        component="footer"
+        sx={{
+          position: 'relative',
+          zIndex: 10,
+          textAlign: 'center',
+          py: 2.25,
+          fontSize: 12,
+          color: t.muted,
+        }}
+      >
+        © 2026 Rhesis AI
+      </Box>
+    </Box>
   );
 }
