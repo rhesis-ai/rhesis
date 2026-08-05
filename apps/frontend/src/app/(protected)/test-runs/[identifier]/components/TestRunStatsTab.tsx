@@ -31,12 +31,11 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import RateReviewIcon from '@mui/icons-material/RateReview';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useSession } from 'next-auth/react';
-import {
-  CategoryPassRates,
-  TestResultDetail,
-  TestResultsStats,
-  TopicPassRates,
-} from '@/utils/api-client/interfaces/test-results';
+import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
+import type {
+  InsightsQueryResponse,
+  InsightsRow,
+} from '@/utils/api-client/interfaces/insights';
 import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 import { BehaviorWithMetrics } from '../hooks/useTestRunDetailData';
 import TestRunHeader from './TestRunHeader';
@@ -52,6 +51,7 @@ import {
   metricShowsHumanCorrection,
   MetricStat,
 } from './test-run-summary-utils';
+import { rowToPassFailStats } from '@/app/(protected)/insights/utils/behavior-insights-utils';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface TestRunStatsTabProps {
@@ -541,31 +541,17 @@ function DimensionList({ items }: { items: DimensionItem[] }) {
 }
 
 function MoreBreakdownsSection({
-  categoryPassRates,
-  topicPassRates,
+  categories,
+  topics,
   isLoading,
 }: {
-  categoryPassRates?: CategoryPassRates;
-  topicPassRates?: TopicPassRates;
+  categories: DimensionItem[];
+  topics: DimensionItem[];
   isLoading: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
 
-  const categoryStats = useMemo((): DimensionItem[] => {
-    if (!categoryPassRates) return [];
-    return Object.entries(categoryPassRates)
-      .map(([name, s]) => ({ name, ...s }))
-      .sort((a, b) => a.pass_rate - b.pass_rate);
-  }, [categoryPassRates]);
-
-  const topicStats = useMemo((): DimensionItem[] => {
-    if (!topicPassRates) return [];
-    return Object.entries(topicPassRates)
-      .map(([name, s]) => ({ name, ...s }))
-      .sort((a, b) => a.pass_rate - b.pass_rate);
-  }, [topicPassRates]);
-
-  const hasData = categoryStats.length > 0 || topicStats.length > 0;
+  const hasData = categories.length > 0 || topics.length > 0;
 
   if (!isLoading && !hasData) return null;
 
@@ -591,7 +577,7 @@ function MoreBreakdownsSection({
           </Box>
         ) : (
           <Grid container spacing={4}>
-            {categoryStats.length > 0 && (
+            {categories.length > 0 && (
               <Grid size={{ xs: 12, md: 6 }}>
                 <Typography
                   variant="subtitle2"
@@ -600,10 +586,10 @@ function MoreBreakdownsSection({
                 >
                   Categories
                 </Typography>
-                <DimensionList items={categoryStats} />
+                <DimensionList items={categories} />
               </Grid>
             )}
-            {topicStats.length > 0 && (
+            {topics.length > 0 && (
               <Grid size={{ xs: 12, md: 6 }}>
                 <Typography
                   variant="subtitle2"
@@ -612,7 +598,7 @@ function MoreBreakdownsSection({
                 >
                   Topics
                 </Typography>
-                <DimensionList items={topicStats} />
+                <DimensionList items={topics} />
               </Grid>
             )}
           </Grid>
@@ -620,6 +606,19 @@ function MoreBreakdownsSection({
       </AccordionDetails>
     </Accordion>
   );
+}
+
+function namedDimensionItems(
+  rows: InsightsRow[],
+  nameKey: string
+): DimensionItem[] {
+  return rows
+    .flatMap(row => {
+      const name = row[nameKey];
+      if (typeof name !== 'string' || !name) return [];
+      return [{ name, ...rowToPassFailStats(row) }];
+    })
+    .sort((a, b) => a.pass_rate - b.pass_rate);
 }
 
 export default function TestRunStatsTab({
@@ -634,7 +633,7 @@ export default function TestRunStatsTab({
 }: TestRunStatsTabProps) {
   const { status } = useSession();
   const isMounted = useRef(false);
-  const [stats, setStats] = useState<TestResultsStats | null>(null);
+  const [insights, setInsights] = useState<InsightsQueryResponse | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
 
   const reviewRevision = useMemo(
@@ -653,13 +652,48 @@ export default function TestRunStatsTab({
     }
     try {
       setStatsLoading(true);
-      const client = new ApiClientFactory().getTestResultsClient();
-      const result = await client.getComprehensiveTestResultsStats({
-        test_run_ids: [testRunId],
-        mode: 'all',
+      const client = new ApiClientFactory().getInsightsClient();
+      const filters = { test_run_ids: [testRunId] };
+      const measures = ['passed', 'failed', 'pass_rate'];
+      const results = await client.getInsightsQuery({
+        summary: {
+          entity: 'test_result',
+          group_by: [],
+          measures,
+          filters,
+        },
+        behaviors: {
+          entity: 'test_result',
+          group_by: ['behavior'],
+          measures,
+          filters,
+        },
+        categories: {
+          entity: 'test_result',
+          group_by: ['category'],
+          measures,
+          filters,
+        },
+        topics: {
+          entity: 'test_result',
+          group_by: ['topic'],
+          measures,
+          filters,
+        },
+        metrics: {
+          entity: 'metric',
+          group_by: ['metric_name'],
+          measures: [
+            ...measures,
+            'automated_passed',
+            'automated_failed',
+            'human_review_count',
+          ],
+          filters,
+        },
       });
       if (isMounted.current) {
-        setStats(result);
+        setInsights(results);
         setStatsLoading(false);
       }
     } catch {
@@ -686,48 +720,76 @@ export default function TestRunStatsTab({
 
   const isDataLoading = statsLoading || loading;
 
+  const overallStats = useMemo(() => {
+    const row = insights?.summary?.rows[0];
+    return row ? rowToPassFailStats(row) : undefined;
+  }, [insights]);
+
+  const categoryItems = useMemo(
+    () => namedDimensionItems(insights?.categories?.rows ?? [], 'category'),
+    [insights]
+  );
+
+  const topicItems = useMemo(
+    () => namedDimensionItems(insights?.topics?.rows ?? [], 'topic'),
+    [insights]
+  );
+
   const behaviorStats = useMemo((): BehaviorStat[] => {
-    if (!stats?.behavior_pass_rates || loading) return [];
-    return Object.entries(stats.behavior_pass_rates).map(([name, s]) => {
+    if (!insights?.behaviors || loading) return [];
+    return (insights.behaviors.rows ?? []).flatMap(row => {
+      const name = row.behavior;
+      if (typeof name !== 'string' || !name) return [];
+      const s = rowToPassFailStats(row);
       const humanCorrectionCount = countBehaviorHumanCorrections(
         name,
         testResults
       );
-      return {
-        name,
-        total: s.total,
-        passed: s.passed,
-        failed: s.failed,
-        passRate: s.pass_rate,
-        hasHumanCorrection: humanCorrectionCount > 0,
-        humanCorrectionCount,
-        humanCorrectionTooltip: buildBehaviorCorrectionTooltip(
+      return [
+        {
           name,
-          testResults
-        ),
-      };
+          total: s.total,
+          passed: s.passed,
+          failed: s.failed,
+          passRate: s.pass_rate,
+          hasHumanCorrection: humanCorrectionCount > 0,
+          humanCorrectionCount,
+          humanCorrectionTooltip: buildBehaviorCorrectionTooltip(
+            name,
+            testResults
+          ),
+        },
+      ];
     });
-  }, [stats, testResults, loading]);
+  }, [insights, testResults, loading]);
 
   const metricStats = useMemo((): MetricStat[] => {
-    if (!stats?.metric_pass_rates || loading) return [];
-    return Object.entries(stats.metric_pass_rates).map(([name, s]) => ({
-      name,
-      total: s.total,
-      passed: s.passed,
-      failed: s.failed,
-      failRate: s.total > 0 ? ((s.total - s.passed) / s.total) * 100 : 0,
-      automatedPassed: s.automated_passed,
-      automatedFailed: s.automated_failed,
-      humanReviewCount: s.human_review_count,
-      hasHumanCorrection: metricShowsHumanCorrection(
-        name,
-        testResults,
-        stats?.metric_pass_rates
-      ),
-      hasMetricReview: metricHasHumanReview(name, testResults),
-    }));
-  }, [stats, testResults, loading]);
+    if (!insights?.metrics || loading) return [];
+    return (insights.metrics.rows ?? []).flatMap(row => {
+      const name = row.metric_name;
+      if (typeof name !== 'string' || !name) return [];
+      const s = rowToPassFailStats(row);
+      const humanReviewCount = Number(row.human_review_count ?? 0);
+      return [
+        {
+          name,
+          total: s.total,
+          passed: s.passed,
+          failed: s.failed,
+          failRate: s.total > 0 ? ((s.total - s.passed) / s.total) * 100 : 0,
+          automatedPassed: Number(row.automated_passed ?? 0),
+          automatedFailed: Number(row.automated_failed ?? 0),
+          humanReviewCount,
+          hasHumanCorrection: metricShowsHumanCorrection(
+            name,
+            testResults,
+            humanReviewCount
+          ),
+          hasMetricReview: metricHasHumanReview(name, testResults),
+        },
+      ];
+    });
+  }, [insights, testResults, loading]);
 
   const reviewSummary = useMemo(
     () => (loading ? undefined : computeReviewSummary(testResults)),
@@ -741,7 +803,7 @@ export default function TestRunStatsTab({
       <TestRunHeader
         testRun={testRun}
         testResults={testResults}
-        overallStats={stats?.overall_pass_rates}
+        overallStats={overallStats}
         reviewSummary={reviewSummary}
         loading={isDataLoading}
         onRefresh={onRefresh}
@@ -774,9 +836,9 @@ export default function TestRunStatsTab({
               />
             )}
             <MoreBreakdownsSection
-              categoryPassRates={stats?.category_pass_rates}
-              topicPassRates={stats?.topic_pass_rates}
-              isLoading={isDataLoading}
+              categories={categoryItems}
+              topics={topicItems}
+              isLoading={false}
             />
           </>
         )}

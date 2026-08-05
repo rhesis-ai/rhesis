@@ -210,62 +210,10 @@ export interface TestResultDetail extends TestResult {
   };
 }
 
-// Comprehensive stats interfaces based on API documentation
+// Shared pass/fail counts used by Insights UI and test-run summary cards.
 export interface PassFailStats {
   total: number;
   passed: number;
   failed: number;
   pass_rate: number;
-  automated_passed?: number;
-  automated_failed?: number;
-  human_review_count?: number;
-}
-
-export interface MetricPassRates {
-  [metricName: string]: PassFailStats;
-}
-
-export interface BehaviorPassRates {
-  [behaviorName: string]: PassFailStats;
-}
-
-export interface CategoryPassRates {
-  [categoryName: string]: PassFailStats;
-}
-
-export interface TopicPassRates {
-  [topicName: string]: PassFailStats;
-}
-
-/** Opaque passthrough — stored and displayed as-is, no field ever destructured. */
-export type TestResultsStatsMetadata = Record<string, unknown>;
-
-// mode='behavior_detail': per-behavior overall/metric/topic breakdown
-export interface BehaviorDetailStats {
-  overall_pass_rates: PassFailStats;
-  metric_pass_rates: MetricPassRates;
-  topic_pass_rates: TopicPassRates;
-}
-
-// Main comprehensive stats interface
-export interface TestResultsStats {
-  // Core pass/fail statistics
-  overall_pass_rates?: PassFailStats;
-
-  // Metric-level analysis
-  metric_pass_rates?: MetricPassRates;
-
-  // Dimensional analysis
-  behavior_pass_rates?: BehaviorPassRates;
-  category_pass_rates?: CategoryPassRates;
-  topic_pass_rates?: TopicPassRates;
-
-  // mode='ids': test_ids matching a metric/overall outcome
-  test_ids?: string[];
-
-  // mode='behavior_detail': keyed by behavior_id
-  behavior_detail?: Record<string, BehaviorDetailStats>;
-
-  // Metadata
-  metadata: TestResultsStatsMetadata;
 }

@@ -7,7 +7,6 @@ import {
   getLatestMetricReviewForResult,
   isMetricCorrected,
   metricHasHumanCorrection,
-  metricHasReviewCorrectionFromStats,
   metricNameMatches,
   metricShowsHumanCorrection,
   resultHasAnyHumanReview,
@@ -391,23 +390,9 @@ describe('metricHasHumanCorrection', () => {
     expect(summary.subtitle).toContain('1 corrected (test)');
   });
 
-  it('detects corrections from stats human_review_count', () => {
-    const rates = {
-      'Bias Detection': {
-        total: 5,
-        passed: 2,
-        failed: 3,
-        pass_rate: 40,
-        human_review_count: 1,
-      },
-    };
-
-    expect(metricHasReviewCorrectionFromStats(rates, 'Bias Detection')).toBe(
-      true
-    );
-    expect(metricHasReviewCorrectionFromStats(rates, 'bias-detection')).toBe(
-      true
-    );
+  it('detects corrections from insights human_review_count', () => {
+    expect(metricShowsHumanCorrection('Bias Detection', [], 1)).toBe(true);
+    expect(metricShowsHumanCorrection('Bias Detection', [], 0)).toBe(false);
   });
 });
 

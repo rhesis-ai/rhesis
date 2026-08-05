@@ -93,11 +93,11 @@ function toIsoDate(date: Date): string {
   return date.toISOString();
 }
 
-/** Map UI time-range pills to stats API query parameters. */
+/** Map UI time-range pills to Insights date query parameters. */
 export function timeRangeToStatsParams(
   timeRange: InsightsTimeRange
 ): Pick<
-  import('@/utils/api-client/interfaces/common').TestResultsStatsOptions,
+  import('@/utils/api-client/interfaces/insights').InsightsQuery,
   'months' | 'start_date' | 'end_date'
 > {
   switch (timeRange) {
