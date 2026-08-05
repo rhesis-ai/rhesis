@@ -277,15 +277,15 @@ class ModelSettings(BaseSettings):
     model_config = SettingsConfigDict(env_ignore_empty=True)
 
     generation_model: str = Field(
-        default="rhesis/rhesis-default",
+        default="rhesis/rhesis-managed",
         alias="DEFAULT_GENERATION_MODEL",
     )
     evaluation_model: str = Field(
-        default="rhesis/rhesis-default",
+        default="rhesis/rhesis-managed",
         alias="DEFAULT_EVALUATION_MODEL",
     )
     execution_model: str = Field(
-        default="rhesis/rhesis-default",
+        default="rhesis/rhesis-managed",
         alias="DEFAULT_EXECUTION_MODEL",
     )
     embedding_model: str = Field(
