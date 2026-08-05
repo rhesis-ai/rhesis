@@ -143,6 +143,8 @@ def improve_metric(
             "description": db_metric.description,
             "evaluation_prompt": db_metric.evaluation_prompt,
             "evaluation_steps": db_metric.evaluation_steps,
+            "reasoning": db_metric.reasoning,
+            "explanation": db_metric.explanation,
             "score_type": (
                 db_metric.score_type.value
                 if hasattr(db_metric.score_type, "value")

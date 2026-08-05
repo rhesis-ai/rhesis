@@ -4,6 +4,7 @@ import os
 from unittest.mock import Mock, patch
 
 import pytest
+from pydantic import ValidationError
 
 from rhesis.sdk.metrics.synthesizer import GeneratedMetric, MetricSynthesizer
 from rhesis.sdk.models.base import BaseLLM
@@ -78,6 +79,8 @@ _NUMERIC_RESPONSE = {
     "description": "Measures factual accuracy of the response.",
     "evaluation_prompt": "Evaluate {{response}} for factual accuracy.",
     "evaluation_steps": "1. Read the response.\n2. Assign a score.",
+    "reasoning": "Cite the specific claims that drove the score.",
+    "explanation": "A failing score means the endpoint states unsupported facts.",
     "score_type": "numeric",
     "min_score": 1.0,
     "max_score": 5.0,
@@ -92,7 +95,9 @@ _CATEGORICAL_RESPONSE = {
     "name": "Tone Appropriateness",
     "description": "Checks if the response tone is appropriate.",
     "evaluation_prompt": "Classify the tone of {{response}}.",
-    "evaluation_steps": None,
+    "evaluation_steps": "1. Read the response.\n2. Pick the closest category.",
+    "reasoning": "Quote the phrasing that determined the category.",
+    "explanation": "An inappropriate result means the tone breaches brand guidance.",
     "score_type": "categorical",
     "min_score": None,
     "max_score": None,
@@ -219,6 +224,56 @@ def test_generate_template_contains_single_turn_guidance():
     assert "Accuracy" in rendered
     assert "Relevance" in rendered
     assert "Safety" in rendered
+
+
+# ── Descriptive-field completeness ───────────────────────────────
+
+_RICH_FIELDS = ("description", "evaluation_steps", "reasoning", "explanation")
+
+
+def test_generated_metric_requires_descriptive_fields():
+    """These are required so a generated metric is never threadbare."""
+    for field in _RICH_FIELDS:
+        assert field in GeneratedMetric.model_fields, f"{field} missing from schema"
+        assert GeneratedMetric.model_fields[field].is_required(), (
+            f"{field} is optional — the LLM will skip it and the metric lands with an empty field"
+        )
+
+
+def test_generated_metric_descriptive_fields_guide_the_llm():
+    for field in _RICH_FIELDS:
+        text = GeneratedMetric.model_fields[field].description or ""
+        assert len(text.strip()) > 40, f"{field} needs a real description, got {text!r}"
+
+
+def test_omitting_a_descriptive_field_is_a_validation_error():
+    for field in _RICH_FIELDS:
+        payload = {k: v for k, v in _NUMERIC_RESPONSE.items() if k != field}
+        with pytest.raises(ValidationError):
+            GeneratedMetric(**payload)
+
+
+def test_generate_template_asks_for_descriptive_fields():
+    mock_model = Mock(spec=BaseLLM)
+    synth = MetricSynthesizer(model=mock_model)
+    rendered = synth.prompt_template.render(prompt="test")
+    for field in _RICH_FIELDS:
+        assert field in rendered, f"generation template never mentions {field}"
+
+
+def test_improve_template_shows_all_descriptive_fields():
+    """Rule 2 says preserve unmentioned fields — impossible if unshown."""
+    mock_model = Mock(spec=BaseLLM)
+    synth = MetricSynthesizer(model=mock_model)
+    rendered = synth.improve_template.render(
+        existing_metric=_NUMERIC_RESPONSE,
+        prompt="make the threshold stricter",
+    )
+    for field in _RICH_FIELDS:
+        assert f"**{field}**" in rendered, f"improve template hides {field}"
+    # The actual current values must be visible, not just the labels.
+    assert _NUMERIC_RESPONSE["reasoning"] in rendered
+    assert _NUMERIC_RESPONSE["explanation"] in rendered
 
 
 # ── Improve template ─────────────────────────────────────────────

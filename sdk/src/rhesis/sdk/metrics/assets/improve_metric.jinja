@@ -7,6 +7,11 @@ Apply the requested changes and return the complete updated metric.
 1. Return ALL fields, not just the ones that changed.
 2. Preserve any field the edit request does not mention.
 3. Follow the same naming, score type, and scope rules below.
+4. `description`, `evaluation_steps`, `reasoning` and `explanation` are
+   required in the result. If the existing metric shows one as empty or
+   "None", write it now from the metric's own criteria — do not carry the
+   blank forward. If the existing value is already good and the edit
+   request does not touch it, return it unchanged.
 
 ## Naming Convention
 
@@ -51,6 +56,8 @@ clearly applies to only one.
 - **description**: {{ existing_metric.description }}
 - **evaluation_prompt**: {{ existing_metric.evaluation_prompt }}
 - **evaluation_steps**: {{ existing_metric.evaluation_steps }}
+- **reasoning**: {{ existing_metric.reasoning }}
+- **explanation**: {{ existing_metric.explanation }}
 - **score_type**: {{ existing_metric.score_type }}
 - **min_score**: {{ existing_metric.min_score }}
 - **max_score**: {{ existing_metric.max_score }}

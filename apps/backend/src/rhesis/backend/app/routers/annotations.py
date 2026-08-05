@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import List, Literal, Optional
+from uuid import UUID
 
 from fastapi import Depends, HTTPException, Query, Request, Response
 from sqlalchemy.orm import Session
@@ -49,11 +50,42 @@ def read_annotations(
     target_type: Optional[Literal["test_result", "trace", "metric", "turn"]] = Query(
         None, description="Filter by review target type"
     ),
+    test_run_id: Optional[UUID] = Query(
+        None,
+        description=(
+            "Scope to one test run (UUID). Returns reviews on that run's test "
+            "results and on the traces the run produced."
+        ),
+    ),
+    test_result_id: Optional[UUID] = Query(
+        None,
+        description=(
+            "Scope to one test result (UUID). Returns reviews on the result "
+            "itself and on traces linked to it."
+        ),
+    ),
+    trace_id: Optional[str] = Query(
+        None,
+        description=(
+            "Scope to one trace by its OpenTelemetry trace id (32-char hex "
+            "string). Returns trace reviews only."
+        ),
+    ),
+    trace_db_id: Optional[UUID] = Query(
+        None,
+        description=(
+            "Scope to one trace span by its internal database id (UUID). "
+            "Returns trace reviews only."
+        ),
+    ),
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ) -> List[AnnotationListItem]:
     """List human annotations (reviews) across test results and traces.
+
+    Scope with ``test_run_id``/``test_result_id`` to cover both sources at
+    once, or with ``trace_id``/``trace_db_id`` for traces alone.
 
     Dual-gated: callers need ``test_result:read`` and/or ``telemetry:read``.
     Each source branch is included only when the matching permission is present.
@@ -94,6 +126,14 @@ def read_annotations(
             detail=f"Permission denied: {TELEMETRY_READ}",
             headers={"X-Accepted-Permissions": str(TELEMETRY_READ)},
         )
+    # trace_id/trace_db_id can only ever match traces. Deny explicitly rather
+    # than letting the empty-branch guard return a misleading empty list.
+    if (trace_id is not None or trace_db_id is not None) and not can_read_traces:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Permission denied: {TELEMETRY_READ}",
+            headers={"X-Accepted-Permissions": str(TELEMETRY_READ)},
+        )
 
     include_test_results = can_read_test_results and source in (None, "test_result")
     include_traces = can_read_traces and source in (None, "trace")
@@ -109,6 +149,10 @@ def read_annotations(
         resolved=resolved,
         rating=rating,
         target_type=target_type,
+        test_run_id=str(test_run_id) if test_run_id else None,
+        test_result_id=str(test_result_id) if test_result_id else None,
+        trace_id=trace_id,
+        trace_db_id=str(trace_db_id) if trace_db_id else None,
         skip=skip,
         limit=limit,
     )
