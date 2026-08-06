@@ -392,8 +392,11 @@ export default function SourcePreviewClientWrapper({
       // Update local source state
       setLocalSource(prev => ({
         ...prev,
-        title: fieldValues.title || prev.title,
-        description: fieldValues.description || prev.description,
+        title: fieldValues.title !== undefined ? fieldValues.title : prev.title,
+        description:
+          fieldValues.description !== undefined
+            ? fieldValues.description
+            : prev.description,
       }));
       setIsEditing(null);
 
