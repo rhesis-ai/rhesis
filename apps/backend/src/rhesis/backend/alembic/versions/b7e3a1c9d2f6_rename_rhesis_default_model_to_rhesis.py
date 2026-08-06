@@ -37,6 +37,10 @@ def upgrade() -> None:
                     description = 'Rhesis-managed language model.'
                 WHERE name = 'Rhesis Default'
                   AND is_protected = TRUE
+                  AND provider_type_id IN (
+                      SELECT id FROM type_lookup
+                      WHERE type_name = 'ProviderType' AND type_value = 'rhesis'
+                  )
                 """
             )
         )
@@ -49,6 +53,10 @@ def upgrade() -> None:
                     description = 'Rhesis-managed embedding model.'
                 WHERE name = 'Rhesis Default Embedding'
                   AND is_protected = TRUE
+                  AND provider_type_id IN (
+                      SELECT id FROM type_lookup
+                      WHERE type_name = 'ProviderType' AND type_value = 'rhesis'
+                  )
                 """
             )
         )
@@ -73,6 +81,10 @@ def downgrade() -> None:
                     description = 'Default Rhesis language model.'
                 WHERE name = 'Rhesis'
                   AND is_protected = TRUE
+                  AND provider_type_id IN (
+                      SELECT id FROM type_lookup
+                      WHERE type_name = 'ProviderType' AND type_value = 'rhesis'
+                  )
                 """
             )
         )
@@ -85,6 +97,10 @@ def downgrade() -> None:
                     description = 'Default Rhesis embedding model'
                 WHERE name = 'Rhesis Embedding'
                   AND is_protected = TRUE
+                  AND provider_type_id IN (
+                      SELECT id FROM type_lookup
+                      WHERE type_name = 'ProviderType' AND type_value = 'rhesis'
+                  )
                 """
             )
         )
