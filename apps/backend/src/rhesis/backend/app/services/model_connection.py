@@ -131,6 +131,7 @@ class ModelConnectionService:
     ) -> ModelConnectionTestResult:
         """Test a language model connection."""
         try:
+            from rhesis.backend.app.utils.usage_tracking import stamp_usage_provenance
             from rhesis.sdk.models.factory import ModelConfig, get_model
 
             # Build extra params for providers that need them
@@ -148,7 +149,11 @@ class ModelConnectionService:
 
             # Try to create the model instance
             try:
-                model = get_model(config=config)
+                # Never metered: this runs a real generation against
+                # credentials the user just supplied to be tested. Those
+                # tokens are billed to them by their provider, so charging
+                # them to their Rhesis quota as well would be double billing.
+                model = stamp_usage_provenance(get_model(config=config), metered=False)
             except ValueError as e:
                 # Provider not supported or invalid configuration
                 logger.warning(f"Language model configuration error: {str(e)}")

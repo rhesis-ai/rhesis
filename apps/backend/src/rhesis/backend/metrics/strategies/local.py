@@ -22,6 +22,7 @@ from tenacity import (
     wait_exponential,
 )
 
+from rhesis.backend.app.usage_attribution import with_usage_attribution
 from rhesis.backend.metrics.metric_config import build_metric_evaluate_params
 from rhesis.backend.metrics.result_builder import MetricResultBuilder
 from rhesis.backend.metrics.score_evaluator import ScoreEvaluator
@@ -324,8 +325,12 @@ class LocalStrategy:
         for (class_name, metric, metric_config, backend), unique_key in zip(
             metric_tasks, metric_keys
         ):
+            # ThreadPoolExecutor does not carry contextvars into its workers
+            # the way asyncio.to_thread does, and an LLM judge running here
+            # emits token usage that has to name an org. Without this the
+            # judge's tokens land in the unattributed bucket.
             future = executor.submit(
-                self._evaluate_metric_with_retry,
+                with_usage_attribution(self._evaluate_metric_with_retry),
                 metric,
                 input_text,
                 output_text,
@@ -662,7 +667,7 @@ def _resolve_metric_model(
         )
 
         if model_record and model_record.provider_type:
-            from rhesis.backend.app.utils.usage_tracking import make_usage_accrual_callback
+            from rhesis.backend.app.utils.usage_tracking import stamp_usage_provenance
             from rhesis.backend.app.utils.user_model_utils import _is_hosted_model
 
             provider = model_record.provider_type.type_value
@@ -671,13 +676,14 @@ def _resolve_metric_model(
             extra_params = {}
             if model_record.endpoint and model_record.endpoint.strip():
                 extra_params["api_base"] = model_record.endpoint.strip()
-            if organization_id and _is_hosted_model(provider, api_key):
-                extra_params["on_usage"] = make_usage_accrual_callback(organization_id)
-            llm = get_model(
-                provider=provider,
-                model_name=model_record.model_name,
-                api_key=api_key,
-                **extra_params,
+            llm = stamp_usage_provenance(
+                get_model(
+                    provider=provider,
+                    model_name=model_record.model_name,
+                    api_key=api_key,
+                    **extra_params,
+                ),
+                metered=_is_hosted_model(provider, api_key),
             )
             logger.info(
                 f"[METRIC_MODEL] Using metric-specific model for "
