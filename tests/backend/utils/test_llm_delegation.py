@@ -151,6 +151,18 @@ class TestPolyphemusModelConfiguration:
         yield
         get_rhesis_settings.cache_clear()
 
+    @pytest.fixture(autouse=True)
+    def not_local_mode(self):
+        """These tests cover SaaS delegation and self-hosted-via-env-var-only
+        behavior, not the per-org platform key (local-mode-only) path -- force
+        ``is_local=False`` so a developer's own ``BACKEND_ENV=local`` .env
+        doesn't change which branch runs."""
+        with patch(
+            "rhesis.backend.app.utils.user_model_utils.get_application_settings",
+            return_value=Mock(is_local=False),
+        ):
+            yield
+
     @pytest.fixture
     def test_user(self):
         """Create a mock user for testing."""
