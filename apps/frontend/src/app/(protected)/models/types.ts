@@ -19,9 +19,7 @@ export const AVAILABILITY_REASON_COPY: Record<string, string> = {
 export const GENERIC_UNAVAILABLE_COPY = 'This model is currently unavailable.';
 
 /** Maps an `availability_reason` slug to its user-facing message. */
-export function getAvailabilityReasonCopy(
-  reason?: string | null
-): string {
+export function getAvailabilityReasonCopy(reason?: string | null): string {
   if (reason && reason in AVAILABILITY_REASON_COPY) {
     return AVAILABILITY_REASON_COPY[reason];
   }

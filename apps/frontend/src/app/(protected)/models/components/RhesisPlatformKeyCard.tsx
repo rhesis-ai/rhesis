@@ -55,14 +55,24 @@ function StatusChip({
 function ValidityChip({ status }: { status: PlatformKeyStatus }) {
   if (status.valid === true) {
     return (
-      <StatusChip label="Key valid" color="success" icon={<CheckCircleIcon />} />
+      <StatusChip
+        label="Key valid"
+        color="success"
+        icon={<CheckCircleIcon />}
+      />
     );
   }
   if (status.valid === false) {
-    return <StatusChip label="Key invalid" color="error" icon={<ErrorIcon />} />;
+    return (
+      <StatusChip label="Key invalid" color="error" icon={<ErrorIcon />} />
+    );
   }
   return (
-    <StatusChip label="Not checked" color="default" icon={<HelpOutlineIcon />} />
+    <StatusChip
+      label="Not checked"
+      color="default"
+      icon={<HelpOutlineIcon />}
+    />
   );
 }
 
@@ -99,7 +109,9 @@ function PolyphemusChip({ status }: { status: PlatformKeyStatus }) {
  * Mount this ONLY in local mode (see the caller's `isLocalMode` gate) — the
  * backend endpoints 404 elsewhere.
  */
-export function RhesisPlatformKeyCard({ onChange }: RhesisPlatformKeyCardProps) {
+export function RhesisPlatformKeyCard({
+  onChange,
+}: RhesisPlatformKeyCardProps) {
   const { show } = useNotifications();
   const { query, setKey, clearKey } = usePlatformKey();
   const [keyInput, setKeyInput] = useState('');
@@ -137,9 +149,12 @@ export function RhesisPlatformKeyCard({ onChange }: RhesisPlatformKeyCardProps) 
       show('Rhesis platform API key cleared.', { severity: 'success' });
       onChange?.();
     } catch (error) {
-      show(error instanceof Error ? error.message : 'Failed to clear the key.', {
-        severity: 'error',
-      });
+      show(
+        error instanceof Error ? error.message : 'Failed to clear the key.',
+        {
+          severity: 'error',
+        }
+      );
     }
   };
 
@@ -277,7 +292,9 @@ export function RhesisPlatformKeyCard({ onChange }: RhesisPlatformKeyCardProps) 
                 onClick={handleClear}
                 disabled={mutating}
                 startIcon={
-                  clearKey.isPending ? <CircularProgress size={16} /> : undefined
+                  clearKey.isPending ? (
+                    <CircularProgress size={16} />
+                  ) : undefined
                 }
                 sx={{ height: 40, flexShrink: 0 }}
               >
