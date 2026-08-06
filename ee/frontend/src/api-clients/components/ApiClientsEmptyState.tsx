@@ -13,7 +13,7 @@ export default function ApiClientsEmptyState() {
       actionLabel="Learn about Enterprise"
       onAction={() =>
         window.open(
-          'https://rhesis.ai/pricing',
+          'https://rhesis.ai/editions',
           '_blank',
           'noopener,noreferrer'
         )
