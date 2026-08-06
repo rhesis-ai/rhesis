@@ -43,7 +43,8 @@ import contextvars
 import functools
 import logging
 from contextlib import contextmanager
-from typing import Callable, Iterator, Optional, TypeVar
+from typing import Callable, Iterator, Optional, TypeVar, Union
+from uuid import UUID
 
 logger = logging.getLogger(__name__)
 
@@ -67,17 +68,21 @@ def current_usage_org() -> Optional[str]:
 _NULL_ORG_STRINGS = frozenset({"none", "null", "nil", "undefined", ""})
 
 
-def bind_usage_org(organization_id: Optional[str]) -> contextvars.Token:
+def bind_usage_org(organization_id: Optional[Union[str, UUID]]) -> contextvars.Token:
     """Bind *organization_id* for the current context; returns a reset token.
 
     Prefer :func:`usage_attribution` where a ``with`` block fits. This exists
     for the two framework hooks that bind and reset in separate callbacks
     (FastAPI dependency teardown, Celery ``task_postrun``).
 
-    A stringified null binds as unattributed. Both real callers already guard
-    against it; this makes the next one safe too, and unattributed usage is
-    visible in the logs whereas a bogus org id is not.
+    Accepts a ``UUID`` as well as a string, since that is what the column
+    yields and a low-level helper should not make its callers remember to
+    stringify. A stringified null binds as unattributed: both real callers
+    already guard against it, but unattributed usage is visible in the logs
+    whereas a bogus org id is not.
     """
+    if organization_id is not None and not isinstance(organization_id, str):
+        organization_id = str(organization_id)
     if organization_id is not None and organization_id.strip().lower() in _NULL_ORG_STRINGS:
         logger.warning(
             "Ignoring stringified null organization id %r for usage attribution; "

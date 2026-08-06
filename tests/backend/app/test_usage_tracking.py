@@ -19,6 +19,7 @@ import pytest
 from rhesis.backend.app.quota import QuotaResource
 from rhesis.backend.app.usage_attribution import usage_attribution
 from rhesis.backend.app.utils.usage_tracking import (
+    _DEPLOYMENT_KEY_ENV_VARS,
     UNATTRIBUTED_MARKER,
     UNSTAMPED_MARKER,
     _warned_unstamped,
@@ -155,6 +156,52 @@ class TestAccrueModelTokens:
             accrue_model_tokens(_usage(70), model)
 
         assert fake_delay == [("org-1", QuotaResource.MODEL_TOKENS.value, 70)]
+
+    def test_an_unstamped_model_holding_another_deployment_key_is_still_billed(
+        self, fake_delay, monkeypatch
+    ):
+        """Not every key we supply is RHESIS_API_KEY. LiteLLMProxy falls back
+        to LITELLM_PROXY_API_KEY, so a deployment defaulting to that provider
+        would hold a key that is ours but does not match the Rhesis one.
+        Reading it as org-owned would silently stop billing that provider."""
+        monkeypatch.setattr(
+            "rhesis.backend.app.utils.usage_tracking.get_rhesis_settings",
+            lambda: SimpleNamespace(api_key="rh-ours"),
+        )
+        monkeypatch.setenv("LITELLM_PROXY_API_KEY", "proxy-ours")
+        model = _StubLLM("litellm_proxy/gpt-4o")
+        model.api_key = "proxy-ours"
+
+        with usage_attribution("org-1"):
+            accrue_model_tokens(_usage(80), model)
+
+        assert fake_delay == [("org-1", QuotaResource.MODEL_TOKENS.value, 80)]
+
+    def test_every_env_key_a_provider_reads_is_known_to_us(self):
+        """Keeps _DEPLOYMENT_KEY_ENV_VARS in step with the SDK.
+
+        A provider that starts reading a new environment variable into
+        ``self.api_key`` would otherwise make unstamped models on that
+        provider look org-owned, and they would silently stop being billed.
+        """
+        import re
+        from pathlib import Path
+
+        import rhesis.sdk.models.providers as providers_pkg
+
+        pattern = re.compile(r"self\.api_key\s*=\s*api_key\s+or\s+os\.getenv\(\s*[\"'](\w+)[\"']")
+        found = set()
+        for path in Path(providers_pkg.__path__[0]).glob("*.py"):
+            found.update(pattern.findall(path.read_text()))
+
+        assert found, "pattern matched nothing; the providers may have been restructured"
+        unknown = found - set(_DEPLOYMENT_KEY_ENV_VARS)
+        assert not unknown, (
+            f"SDK providers read {sorted(unknown)} into self.api_key, but "
+            f"usage_tracking._DEPLOYMENT_KEY_ENV_VARS does not list them. An "
+            f"unstamped model on that provider would look org-owned and stop "
+            f"being billed."
+        )
 
     def test_no_log_line_ever_contains_an_api_key(self, fake_delay, caplog):
         """Every branch that logs, with a key present, over both the

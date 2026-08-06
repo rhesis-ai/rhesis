@@ -91,11 +91,19 @@ def bind_usage_attribution_for_task(task_id=None, task=None, **kwargs):
     """
     from rhesis.backend.app.usage_attribution import bind_usage_org
 
+    if not task_id:
+        # Nothing to key the reset token by, so binding would leak into
+        # whatever task runs next in this process. Skipping leaves the usage
+        # unattributed, which is logged, rather than billed to the wrong org.
+        # Deliberately not falling back to id(task): Celery instantiates one
+        # task object per task type per worker, so concurrent runs of the
+        # same task would share a key and reset each other's tokens.
+        logger.warning("task_prerun without a task_id; usage will not be attributed")
+        return
+
     request = getattr(task, "request", None)
     organization_id = getattr(request, "organization_id", None) if request else None
-    _usage_attribution_tokens[task_id] = bind_usage_org(
-        str(organization_id) if organization_id else None
-    )
+    _usage_attribution_tokens[task_id] = bind_usage_org(organization_id)
 
 
 @task_postrun.connect

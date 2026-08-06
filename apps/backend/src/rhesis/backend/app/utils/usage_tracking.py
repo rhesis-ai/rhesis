@@ -39,6 +39,7 @@ silently discarded (:func:`_record_unattributed`).
 from __future__ import annotations
 
 import logging
+import os
 from typing import Optional, Set, Tuple
 
 from rhesis.backend.app.config.settings import get_rhesis_settings
@@ -68,6 +69,25 @@ def _model_identity(model: BaseLLM) -> Tuple[str, str]:
     )
 
 
+#: Environment variables an SDK provider reads into ``self.api_key`` when the
+#: caller passes none. A key matching one of these was supplied by the
+#: deployment, not by an org, so usage on it is ours to bill.
+#:
+#: Kept in step with the SDK by
+#: ``tests/backend/app/test_usage_tracking.py::test_every_env_key_a_provider_reads_is_known_to_us``,
+#: which fails if a provider starts reading one that is not listed here.
+#: A missing entry means an unstamped model on that provider looks
+#: org-owned and silently stops being billed.
+_DEPLOYMENT_KEY_ENV_VARS = ("RHESIS_API_KEY", "LITELLM_PROXY_API_KEY")
+
+
+def _our_api_keys() -> Set[str]:
+    """Every API key value this deployment supplies from its own config."""
+    candidates = {get_rhesis_settings().api_key}
+    candidates.update(os.getenv(name) for name in _DEPLOYMENT_KEY_ENV_VARS)
+    return {key for key in candidates if key}
+
+
 def _runs_on_someone_elses_key(model: BaseLLM) -> bool:
     """Does this model hold an API key that is not one of ours?
 
@@ -75,13 +95,14 @@ def _runs_on_someone_elses_key(model: BaseLLM) -> bool:
     found yet cannot bill an org for tokens their own provider already
     charged them for.
 
-    "Has a key" alone is not the test, and getting that wrong would be
-    expensive in the other direction: ``RhesisLLM`` and ``PolyphemusLLM``
-    both do ``api_key or os.getenv("RHESIS_API_KEY")``, so an unstamped
-    hosted default carries *our* key and must still be billed. Comparing
-    against the configured key separates the two -- which is the same
-    distinction ``_is_hosted_model`` draws, just made at emission time from
-    the instance rather than at resolution time from the Model row.
+    "Has a key" alone is not the test, and getting that wrong is expensive
+    in the other direction: several providers fall back to a deployment
+    environment variable when handed no key (``RhesisLLM`` and
+    ``PolyphemusLLM`` to ``RHESIS_API_KEY``, ``LiteLLMProxy`` to
+    ``LITELLM_PROXY_API_KEY``), so an unstamped model on one of those
+    carries *our* key and must still be billed. Reading it as the org's
+    would silently stop billing a hosted provider. Hence the comparison is
+    against every key we supply, not just the Rhesis one.
 
     Providers that authenticate from ambient credentials rather than a key
     (``vertex_ai`` via GOOGLE_APPLICATION_CREDENTIALS, ``ollama``) leave
@@ -92,7 +113,7 @@ def _runs_on_someone_elses_key(model: BaseLLM) -> bool:
     api_key = getattr(model, "api_key", None)
     if not api_key:
         return False
-    return api_key != get_rhesis_settings().api_key
+    return api_key not in _our_api_keys()
 
 
 def _warn_unstamped(model: BaseLLM, *, billing: bool) -> None:

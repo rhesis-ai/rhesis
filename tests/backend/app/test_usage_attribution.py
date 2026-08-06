@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
+from uuid import uuid4
 
 import pytest
 
@@ -48,6 +49,14 @@ class TestBinding:
         empty string must not become a literal org id of ""."""
         with usage_attribution(empty):
             assert current_usage_org() is None
+
+    def test_accepts_a_uuid_rather_than_requiring_the_caller_to_stringify(self):
+        """The column yields a UUID, and a low-level helper calling .strip()
+        on it would raise AttributeError."""
+        org_id = uuid4()
+
+        with usage_attribution(org_id):
+            assert current_usage_org() == str(org_id)
 
     @pytest.mark.parametrize("stringified_null", ["None", "none", "null", "NULL", " None "])
     def test_a_stringified_null_binds_as_unattributed(self, stringified_null):

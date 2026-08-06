@@ -131,6 +131,21 @@ class TestCeleryBinding:
 
         clear_usage_attribution_for_task(task_id="never-started")  # must not raise
 
+    def test_a_prerun_without_a_task_id_binds_nothing(self):
+        """Nothing to key the reset token by, so binding would leak into the
+        next task in this process. Not falling back to id(task) is deliberate:
+        Celery instantiates one task object per task type per worker, so
+        concurrent runs of the same task would share a key."""
+        from rhesis.backend.celery.signals import (
+            _usage_attribution_tokens,
+            bind_usage_attribution_for_task,
+        )
+
+        bind_usage_attribution_for_task(task_id=None, task=self._task("org-1"))
+
+        assert current_usage_org() is None
+        assert None not in _usage_attribution_tokens
+
     def test_a_taskless_signal_does_not_blow_up(self):
         from rhesis.backend.celery.signals import (
             bind_usage_attribution_for_task,
