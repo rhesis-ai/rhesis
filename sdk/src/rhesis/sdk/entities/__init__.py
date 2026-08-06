@@ -14,6 +14,7 @@ from .behavior import Behavior, Behaviors
 from .category import Categories, Category
 from .experiment import Experiment, Experiments
 from .file import File
+from .insights import Insights, InsightsIdsResponse, InsightsResponse
 from .model import Model, Models
 from .project import Project, Projects
 from .prompt import Prompt, Prompts
@@ -38,6 +39,9 @@ __all__ = [
     "Experiment",
     "Experiments",
     "File",
+    "Insights",
+    "InsightsIdsResponse",
+    "InsightsResponse",
     "Behavior",
     "Behaviors",
     "Category",
