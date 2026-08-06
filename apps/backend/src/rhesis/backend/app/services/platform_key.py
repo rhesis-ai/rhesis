@@ -114,6 +114,23 @@ def get_cached_key_valid(db: Session, organization_id) -> bool | None:
     return org.rhesis_key_valid if org else None
 
 
+def get_availability_signals(db: Session, organization_id) -> dict:
+    """Return presence + cached validation signals from a single org lookup.
+
+    Equivalent to calling ``is_platform_key_present``, ``get_cached_key_valid``,
+    and ``get_cached_polyphemus_authorized`` individually, but loads the
+    organization row once instead of three times -- for callers on a hot path
+    (e.g. the GET /models availability annotation) that need all three signals
+    together.
+    """
+    org = _load_org(db, organization_id)
+    return {
+        "present": bool(_resolve_key(org)),
+        "key_valid": org.rhesis_key_valid if org else None,
+        "polyphemus_authorized": org.rhesis_key_polyphemus_authorized if org else None,
+    }
+
+
 def set_platform_api_key(db: Session, organization_id, key: str) -> None:
     """Store *key* (encrypted) on the organization row and cache its status.
 

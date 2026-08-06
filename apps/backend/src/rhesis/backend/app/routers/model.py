@@ -20,11 +20,7 @@ from rhesis.backend.app.schemas.model import (
     TestModelConnectionResponse,
 )
 from rhesis.backend.app.services.model_connection import ModelConnectionService
-from rhesis.backend.app.services.platform_key import (
-    get_cached_key_valid,
-    get_cached_polyphemus_authorized,
-    is_platform_key_present,
-)
+from rhesis.backend.app.services.platform_key import get_availability_signals
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.sdk.models.factory import get_available_embedding_models, get_available_language_models
@@ -59,10 +55,10 @@ def _annotate_model_availability(db: Session, organization_id, models_list) -> N
 
     - Outside local/self-hosted mode every model is available (no behavior
       change on hosted deployments).
-    - In local mode, presence is the cheap ``is_platform_key_present`` check
+    - In local mode, presence is the cheap ``get_availability_signals`` check
       (DB-stored key OR the ``RHESIS_API_KEY`` env var -- same source the model
-      resolver authenticates with). Key validity and Polyphemus authorization
-      are read from the cached ``rhesis_key_valid`` /
+      resolver authenticates with), which loads the organization row once and
+      returns presence plus the cached ``rhesis_key_valid`` /
       ``rhesis_key_polyphemus_authorized`` columns (populated on key writes and
       refreshes), never probed here. An unknown/None validity or authorization
       fails open (available=True) so an unprobed ``RHESIS_API_KEY`` env key is
@@ -82,14 +78,10 @@ def _annotate_model_availability(db: Session, organization_id, models_list) -> N
             model.availability_reason = None
         return
 
-    present = is_platform_key_present(db, organization_id)
-
-    key_valid = None  # unknown => fail-open
-    poly_authorized = None  # unknown => fail-open
-    if present:
-        key_valid = get_cached_key_valid(db, organization_id)
-        if any(_provider_of(m) == "polyphemus" for m in models_list):
-            poly_authorized = get_cached_polyphemus_authorized(db, organization_id)
+    signals = get_availability_signals(db, organization_id)
+    present = signals["present"]
+    key_valid = signals["key_valid"]  # unknown => fail-open
+    poly_authorized = signals["polyphemus_authorized"]  # unknown => fail-open
 
     for model in models_list:
         provider = _provider_of(model)

@@ -72,6 +72,51 @@ def test_no_key_anywhere_is_absent():
 
 
 # --------------------------------------------------------------------------- #
+# get_availability_signals (single org lookup for presence + cached validation)
+# --------------------------------------------------------------------------- #
+def test_availability_signals_present_with_cached_validation():
+    org = _org("rh-stored")
+    org.rhesis_key_valid = True
+    org.rhesis_key_polyphemus_authorized = False
+    db = Mock(spec=Session)
+    with (
+        patch(f"{_MODULE}._load_org", return_value=org),
+        patch(f"{_MODULE}.get_rhesis_settings", return_value=Mock(api_key=None)),
+    ):
+        assert pk.get_availability_signals(db, "org-1") == {
+            "present": True,
+            "key_valid": True,
+            "polyphemus_authorized": False,
+        }
+
+
+def test_availability_signals_absent_when_no_key_anywhere():
+    db = Mock(spec=Session)
+    with (
+        patch(f"{_MODULE}._load_org", return_value=_org(None)),
+        patch(f"{_MODULE}.get_rhesis_settings", return_value=Mock(api_key=None)),
+    ):
+        assert pk.get_availability_signals(db, "org-1") == {
+            "present": False,
+            "key_valid": None,
+            "polyphemus_authorized": None,
+        }
+
+
+def test_availability_signals_missing_org_fails_open():
+    db = Mock(spec=Session)
+    with (
+        patch(f"{_MODULE}._load_org", return_value=None),
+        patch(f"{_MODULE}.get_rhesis_settings", return_value=Mock(api_key=None)),
+    ):
+        assert pk.get_availability_signals(db, "org-1") == {
+            "present": False,
+            "key_valid": None,
+            "polyphemus_authorized": None,
+        }
+
+
+# --------------------------------------------------------------------------- #
 # validate_platform_key
 # --------------------------------------------------------------------------- #
 def test_validate_empty_key_is_invalid():
