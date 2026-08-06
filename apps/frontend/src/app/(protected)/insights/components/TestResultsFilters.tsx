@@ -7,7 +7,7 @@ import GridToolbar, {
 } from '@/components/common/GridToolbar';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import { writeInsightsEndpointId } from '@/utils/insights-endpoint';
-import { InsightsFilters } from '../types';
+import { DEFAULT_INSIGHTS_FILTERS, InsightsFilters } from '../types';
 import InsightsFilterDrawer, {
   countActiveInsightsDrawerFilters,
   hasActiveInsightsDrawerFilters,
@@ -53,14 +53,14 @@ export default function TestResultsFilters({
     () => ({
       endpointId: filters.endpointId,
       behaviorIds: filters.behaviorIds,
-      runFilterMode: filters.runFilterMode,
+      statusIds: filters.statusIds,
       timeRange: filters.timeRange,
       testRunIds: filters.testRunIds,
     }),
     [
       filters.endpointId,
       filters.behaviorIds,
-      filters.runFilterMode,
+      filters.statusIds,
       filters.timeRange,
       filters.testRunIds,
     ]
@@ -74,10 +74,16 @@ export default function TestResultsFilters({
       ...filters,
       endpointId: next.endpointId,
       behaviorIds: next.behaviorIds,
-      runFilterMode: next.runFilterMode,
+      statusIds: next.statusIds,
       timeRange: next.timeRange,
       testRunIds: next.testRunIds,
     });
+  };
+
+  const hasActiveFilters = hasActiveInsightsDrawerFilters(drawerFilters);
+
+  const handleResetAllFilters = () => {
+    onFiltersChange(DEFAULT_INSIGHTS_FILTERS);
   };
 
   return (
@@ -88,11 +94,11 @@ export default function TestResultsFilters({
         searchPlaceholder="Search behaviors…"
         showSearch={!isCompact}
         onFilterClick={() => setFilterDrawerOpen(true)}
-        hasActiveFilters={hasActiveInsightsDrawerFilters(drawerFilters)}
+        hasActiveFilters={hasActiveFilters}
         activeFilterCount={countActiveInsightsDrawerFilters(drawerFilters)}
         {...directoryToolbarProps}
         middleContent={
-          showExpandToggle && onToggleAll ? (
+          (showExpandToggle && onToggleAll) || hasActiveFilters ? (
             <Box
               sx={{
                 display: 'flex',
@@ -101,9 +107,20 @@ export default function TestResultsFilters({
                 flexWrap: 'wrap',
               }}
             >
-              <Button size="small" variant="text" onClick={onToggleAll}>
-                {allExpanded ? 'Collapse all' : 'Expand all'}
-              </Button>
+              {showExpandToggle && onToggleAll ? (
+                <Button size="small" variant="text" onClick={onToggleAll}>
+                  {allExpanded ? 'Collapse all' : 'Expand all'}
+                </Button>
+              ) : null}
+              {hasActiveFilters ? (
+                <Button
+                  size="small"
+                  variant="text"
+                  onClick={handleResetAllFilters}
+                >
+                  Reset filters
+                </Button>
+              ) : null}
             </Box>
           ) : undefined
         }

@@ -3,7 +3,6 @@
 import * as React from 'react';
 import { Box, Checkbox, Link, Typography } from '@mui/material';
 import { FilterSection } from '@/components/common/FilterDrawer';
-import { InsightsBehaviorOption } from '../utils/insights-filter-utils';
 
 const DEFAULT_VISIBLE_COUNT = 5;
 
@@ -15,18 +14,23 @@ const checkboxSx = {
   },
 } as const;
 
-interface InsightsBehaviorFilterSectionProps {
-  options: InsightsBehaviorOption[];
+export interface InsightsStatusOption {
+  id: string;
+  name: string;
+}
+
+interface InsightsStatusFilterSectionProps {
+  options: InsightsStatusOption[];
   checkedIds: string[];
   onCheckedIdsChange: (ids: string[]) => void;
 }
 
-function BehaviorCheckboxRow({
+function StatusCheckboxRow({
   option,
   checked,
   onToggle,
 }: {
-  option: InsightsBehaviorOption;
+  option: InsightsStatusOption;
   checked: boolean;
   onToggle: () => void;
 }) {
@@ -35,58 +39,35 @@ function BehaviorCheckboxRow({
       sx={{
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'space-between',
         minHeight: 38,
         width: '100%',
       }}
     >
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          minWidth: 0,
-          flex: 1,
-        }}
-      >
-        <Checkbox
-          checked={checked}
-          onChange={onToggle}
-          sx={checkboxSx}
-          inputProps={{ 'aria-label': option.name }}
-        />
-        <Typography
-          sx={{
-            fontSize: 14,
-            lineHeight: '22px',
-            color: theme => theme.palette.greyscale.title,
-            wordBreak: 'break-word',
-          }}
-        >
-          {option.name}
-        </Typography>
-      </Box>
+      <Checkbox
+        checked={checked}
+        onChange={onToggle}
+        sx={checkboxSx}
+        inputProps={{ 'aria-label': option.name }}
+      />
       <Typography
         sx={{
           fontSize: 14,
           lineHeight: '22px',
-          color: theme => theme.palette.greyscale.subtitle,
-          flexShrink: 0,
-          pl: 2,
-          textAlign: 'right',
-          minWidth: 24,
+          color: theme => theme.palette.greyscale.title,
+          wordBreak: 'break-word',
         }}
       >
-        {option.count}
+        {option.name}
       </Typography>
     </Box>
   );
 }
 
-export default function InsightsBehaviorFilterSection({
+export default function InsightsStatusFilterSection({
   options,
   checkedIds,
   onCheckedIdsChange,
-}: InsightsBehaviorFilterSectionProps) {
+}: InsightsStatusFilterSectionProps) {
   const [showAll, setShowAll] = React.useState(false);
 
   if (options.length === 0) {
@@ -98,7 +79,7 @@ export default function InsightsBehaviorFilterSection({
       ? options
       : options.slice(0, DEFAULT_VISIBLE_COUNT);
 
-  const toggleBehavior = (id: string) => {
+  const toggleStatus = (id: string) => {
     onCheckedIdsChange(
       checkedIds.includes(id)
         ? checkedIds.filter(value => value !== id)
@@ -107,7 +88,7 @@ export default function InsightsBehaviorFilterSection({
   };
 
   return (
-    <FilterSection title="Behaviors">
+    <FilterSection title="Status">
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <Typography
@@ -117,16 +98,16 @@ export default function InsightsBehaviorFilterSection({
               color: theme => theme.palette.greyscale.body,
             }}
           >
-            Behavior
+            Status
           </Typography>
 
           <Box sx={{ display: 'flex', flexDirection: 'column' }}>
             {visibleOptions.map(option => (
-              <BehaviorCheckboxRow
+              <StatusCheckboxRow
                 key={option.id}
                 option={option}
                 checked={checkedIds.includes(option.id)}
-                onToggle={() => toggleBehavior(option.id)}
+                onToggle={() => toggleStatus(option.id)}
               />
             ))}
           </Box>
