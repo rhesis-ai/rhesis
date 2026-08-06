@@ -1,8 +1,6 @@
 import {
   REVIEW_TARGET_TYPES,
   TestResultDetail,
-  type MetricPassRates,
-  type PassFailStats,
 } from '@/utils/api-client/interfaces/test-results';
 import {
   getAutomatedMetricPass,
@@ -386,32 +384,6 @@ export function hasMetricTargetedReview(
   return iterMetricTargetReviews(result, metricName).length > 0;
 }
 
-export function findMetricPassRateKey(
-  metricPassRates: MetricPassRates | undefined,
-  name: string
-): string | undefined {
-  if (!metricPassRates) return undefined;
-  if (name in metricPassRates) return name;
-  return Object.keys(metricPassRates).find(key => metricNameMatches(key, name));
-}
-
-export function getMetricPassRateFromStats(
-  metricPassRates: MetricPassRates | undefined,
-  name: string
-): PassFailStats | undefined {
-  const key = findMetricPassRateKey(metricPassRates, name);
-  return key ? metricPassRates?.[key] : undefined;
-}
-
-/** True when backend stats report a metric-level human review override. */
-export function metricHasReviewCorrectionFromStats(
-  metricPassRates: MetricPassRates | undefined,
-  name: string
-): boolean {
-  const entry = getMetricPassRateFromStats(metricPassRates, name);
-  return (entry?.human_review_count ?? 0) > 0;
-}
-
 export function getResultBehaviorName(
   result: TestResultDetail
 ): string | undefined {
@@ -492,9 +464,9 @@ export function metricHasHumanReview(
 export function metricShowsHumanCorrection(
   metricName: string,
   testResults: TestResultDetail[],
-  metricPassRates?: MetricPassRates
+  humanReviewCount = 0
 ): boolean {
-  if (metricHasReviewCorrectionFromStats(metricPassRates, metricName)) {
+  if (humanReviewCount > 0) {
     return true;
   }
   return metricHasHumanCorrection(metricName, testResults);
