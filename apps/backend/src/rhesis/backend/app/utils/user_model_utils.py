@@ -562,6 +562,42 @@ def _call_polyphemus_with_delegation(user: User, model_name: str, organization_i
     )
 
 
+def _try_platform_key_model(
+    db: Session,
+    organization_id: str,
+    provider: str,
+    model_name: str,
+    model_type: str,
+    *,
+    with_usage_accrual: bool = False,
+) -> Optional[Union[BaseLLM, BaseEmbedder]]:
+    """Authenticate a Rhesis-hosted model with the org's platform key, in local mode only.
+
+    Returns a configured instance when local mode is active and a platform key
+    resolves; ``None`` otherwise, so callers fall through to their own
+    non-local default/delegation logic unchanged.
+
+    ``with_usage_accrual`` wires ``on_usage`` for language models (the SDK's
+    ``BaseEmbedder`` doesn't accept that constructor kwarg, so embedding
+    callers must leave it ``False``).
+    """
+    if not get_application_settings().is_local:
+        return None
+    key = get_platform_api_key(db, organization_id)
+    if not key:
+        return None
+    extra_params = {}
+    if with_usage_accrual:
+        extra_params["on_usage"] = make_usage_accrual_callback(organization_id)
+    return get_model(
+        provider=provider,
+        model_name=model_name,
+        api_key=key,
+        model_type=model_type,
+        **extra_params,
+    )
+
+
 def _fetch_and_configure_model(
     db: Session,
     model_id: str,
@@ -600,16 +636,16 @@ def _fetch_and_configure_model(
         # system models with the org-scoped platform key when one is configured,
         # accruing usage like any other hosted call. Non-local (SaaS) behavior
         # is unchanged: fall back to the accrual-wrapped default.
-        if get_application_settings().is_local:
-            key = get_platform_api_key(db, organization_id)
-            if key:
-                return get_model(
-                    provider="rhesis",
-                    model_name=model_name or "default",
-                    api_key=key,
-                    model_type="language",
-                    on_usage=make_usage_accrual_callback(organization_id),
-                )
+        hosted = _try_platform_key_model(
+            db,
+            organization_id,
+            "rhesis",
+            model_name or "default",
+            "language",
+            with_usage_accrual=True,
+        )
+        if hosted is not None:
+            return hosted
         return resolve_default_hosted_model(default_model, organization_id)
 
     # Special handling for Polyphemus models without a stored API key.
@@ -627,16 +663,11 @@ def _fetch_and_configure_model(
         # key when configured, accruing usage like any other hosted call.
         # Non-local (SaaS) behavior is unchanged: existing env-precedence and
         # delegation logic runs when no per-org key resolves.
-        if get_application_settings().is_local:
-            key = get_platform_api_key(db, organization_id)
-            if key:
-                return get_model(
-                    provider="polyphemus",
-                    model_name=model_name,
-                    api_key=key,
-                    model_type="language",
-                    on_usage=make_usage_accrual_callback(organization_id),
-                )
+        hosted = _try_platform_key_model(
+            db, organization_id, "polyphemus", model_name, "language", with_usage_accrual=True
+        )
+        if hosted is not None:
+            return hosted
         if get_rhesis_settings().api_key:
             logger.debug("Using configured RHESIS_API_KEY for Polyphemus (self-hosted mode)")
         elif user:
@@ -768,15 +799,11 @@ def _fetch_and_configure_embedder(
         # Local/self-hosted mode: authenticate the prepopulated Rhesis-hosted
         # embedding models with the org-scoped platform key when configured.
         # Non-local (SaaS) behavior is unchanged: fall back to default_model.
-        if get_application_settings().is_local:
-            key = get_platform_api_key(db, organization_id)
-            if key:
-                return get_model(
-                    provider="rhesis",
-                    model_name=model_name or "default",
-                    api_key=key,
-                    model_type="embedding",
-                )
+        hosted = _try_platform_key_model(
+            db, organization_id, "rhesis", model_name or "default", "embedding"
+        )
+        if hosted is not None:
+            return hosted
         return default_model
 
     # Use SDK's get_model to create configured instance with error handling
