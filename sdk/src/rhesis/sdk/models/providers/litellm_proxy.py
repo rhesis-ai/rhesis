@@ -132,6 +132,10 @@ class LiteLLMProxy(BaseLLM):
         response.raise_for_status()
 
         data = response.json()
+        # The proxy speaks OpenAI's response shape, so `usage` is right here
+        # alongside the content. `generate_batch` loops over this method, so
+        # emitting here covers the batch path too.
+        self._emit_usage(data.get("usage"))
         content = data["choices"][0]["message"]["content"]
 
         if schema:

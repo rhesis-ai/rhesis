@@ -8,7 +8,7 @@ from pydantic import BaseModel
 
 from rhesis.sdk.config import DEFAULT_LLM_TIMEOUT
 from rhesis.sdk.errors import NO_MODEL_NAME_PROVIDED
-from rhesis.sdk.models.base import BaseEmbedder, BaseLLM, Embedding
+from rhesis.sdk.models.base import BaseEmbedder, BaseLLM, Embedding, UsageCallback
 from rhesis.sdk.models.utils import validate_llm_response
 
 litellm.suppress_debug_info = True
@@ -33,6 +33,7 @@ class LiteLLM(BaseLLM):
         api_base: Optional[str] = None,
         api_version: Optional[str] = None,
         timeout: Optional[float] = None,
+        on_usage: Optional[UsageCallback] = None,
     ):
         """
         LiteLLM: LiteLLM Provider for Model inference
@@ -52,6 +53,10 @@ class LiteLLM(BaseLLM):
                 ``DEFAULT_LLM_TIMEOUT``. Prevents a hung upstream call from blocking the
                 worker thread indefinitely. A ``timeout`` kwarg passed to a ``generate``
                 call overrides this per request.
+            on_usage (Optional[UsageCallback]): Called with normalized token counts
+                after each call. Accepted here (rather than only settable as an
+                attribute after construction) so that every subclass in this family
+                takes it as a constructor argument like any other provider.
 
         Usage:
             >>> llm = LiteLLM(model_name="provider/model", api_key="your_api_key")
@@ -67,7 +72,7 @@ class LiteLLM(BaseLLM):
         self.timeout = timeout if timeout is not None else DEFAULT_LLM_TIMEOUT
         if not model_name or not isinstance(model_name, str) or model_name.strip() == "":
             raise ValueError(NO_MODEL_NAME_PROVIDED)
-        super().__init__(model_name)
+        super().__init__(model_name, on_usage=on_usage)
 
     def load_model(self):
         """

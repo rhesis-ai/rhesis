@@ -357,6 +357,19 @@ class HuggingFaceLLM(BaseLLM):
             "model_memory_gb": model_memory_gb,
         }
 
+        # Report the counts we just computed. Local inference, so a host
+        # metering hosted spend will almost certainly decide not to bill for
+        # these -- but that is the host's call to make (see
+        # ``BaseLLM.usage_metered``), and it cannot make it about tokens it
+        # never hears of.
+        self._emit_usage(
+            {
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens,
+                "total_tokens": input_tokens + output_tokens,
+            }
+        )
+
         # If schema was provided, parse and validate the JSON response
         if schema:
             response_dict = json.loads(completion)

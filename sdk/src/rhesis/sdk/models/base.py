@@ -42,6 +42,41 @@ class TokenUsage(TypedDict):
 
 UsageCallback = Callable[[TokenUsage], None]
 
+#: Signature of the process-wide sink registered via
+#: :func:`set_default_usage_callback`. Unlike the per-instance
+#: :attr:`BaseLLM.on_usage`, it also receives the model that produced the
+#: usage, because a host application deciding whether to bill for those
+#: tokens needs to know which model (and therefore whose credentials) ran
+#: the call. See :attr:`BaseLLM.usage_metered`.
+DefaultUsageCallback = Callable[[TokenUsage, "BaseLLM"], None]
+
+_default_usage_callback: Optional[DefaultUsageCallback] = None
+
+
+def set_default_usage_callback(callback: Optional[DefaultUsageCallback]) -> None:
+    """Register a process-wide sink invoked for *every* model's token usage.
+
+    The point of this over per-instance ``on_usage`` is that it cannot be
+    forgotten. A host application that meters tokens registers one sink at
+    startup and every model built anywhere in the process reports to it,
+    including models constructed by code that has never heard of usage
+    accounting. Wiring a callback per construction site is the same bug
+    waiting to happen once per site.
+
+    Fires *in addition to* any instance ``on_usage``, not instead of it, so
+    a caller that attaches its own listener to one model does not silently
+    detach that model from the host's accounting.
+
+    Pass ``None`` to uninstall (mainly useful in tests).
+    """
+    global _default_usage_callback
+    _default_usage_callback = callback
+
+
+def get_default_usage_callback() -> Optional[DefaultUsageCallback]:
+    """Return the sink registered by :func:`set_default_usage_callback`."""
+    return _default_usage_callback
+
 
 def _normalize_usage(usage: Any) -> Optional[TokenUsage]:
     """Parse a provider's raw usage payload into a :class:`TokenUsage`.
@@ -149,6 +184,15 @@ class BaseModel(ABC):
 class BaseLLM(BaseModel):
     MODEL_TYPE = "language"
 
+    # Class-level defaults so the usage machinery works even on a subclass
+    # that never chains to ``BaseLLM.__init__`` -- ``HuggingFaceLLM`` does
+    # exactly that, because its lazy ``auto_loading=False`` mode is
+    # incompatible with the base constructor eagerly calling ``load_model``.
+    # Without these, ``_emit_usage`` raises AttributeError on such a model
+    # instead of reporting its tokens. Instance assignment below shadows them.
+    on_usage: Optional[UsageCallback] = None
+    usage_metered: Optional[bool] = None
+
     def __init__(
         self,
         model_name,
@@ -176,6 +220,14 @@ class BaseLLM(BaseModel):
         # provider instance and each call's usage local to its own stack frame.
         self.on_usage = on_usage
 
+        # Whose credentials paid for this model's calls, for the benefit of a
+        # host application metering tokens. The SDK never sets or reads this
+        # itself -- it cannot know, since the same provider class is billable
+        # or not depending on where its API key came from. ``None`` means
+        # nobody stamped it, which a host should treat as "built outside my
+        # resolution path" rather than as a quiet "no".
+        self.usage_metered: Optional[bool] = None
+
         # # Only wrap generate with sync retry if the subclass overrides it.
         # # The base generate() delegates to a_generate() which already has
         # # retry, so wrapping both would cause double retry.
@@ -192,7 +244,7 @@ class BaseLLM(BaseModel):
         pass
 
     def _emit_usage(self, usage: Optional[Dict[str, Any]]) -> None:
-        """Invoke ``on_usage`` with normalized token counts for one call.
+        """Report normalized token counts for one call to every usage listener.
 
         Providers call this at the exact point they parse ``usage`` out of a
         raw API response -- see ``PolyphemusLLM.generate`` and
@@ -202,22 +254,18 @@ class BaseLLM(BaseModel):
         ``total_tokens``) still accrues correctly instead of being silently
         dropped.
         """
-        if self.on_usage is None:
-            return
-        normalized = _normalize_usage(usage)
-        if normalized is not None:
-            self._invoke_on_usage(normalized)
+        self._dispatch_usage(_normalize_usage(usage))
 
     def _emit_usage_batch(self, usages: Iterable[Optional[Dict[str, Any]]]) -> None:
-        """Sum usage across a batch's items and invoke ``on_usage`` once.
+        """Sum usage across a batch's items and report it once.
 
-        One aggregate emission rather than one per item: the callback
-        typically queues a durable write (see
+        One aggregate emission rather than one per item: listeners typically
+        queue a durable write (see
         ``rhesis.backend.app.services.usage.dispatch_accrual``), and a batch
         of N prompts should cost one of those, not N. Items with no usage
         payload contribute nothing.
         """
-        if self.on_usage is None:
+        if self.on_usage is None and _default_usage_callback is None:
             return
 
         totals = TokenUsage(input_tokens=0, output_tokens=0, total_tokens=0)
@@ -228,22 +276,42 @@ class BaseLLM(BaseModel):
             for key in totals:
                 totals[key] += normalized[key]  # type: ignore[literal-required]
 
-        if totals["total_tokens"]:
-            self._invoke_on_usage(totals)
+        self._dispatch_usage(totals if totals["total_tokens"] else None)
+
+    def _dispatch_usage(self, usage: Optional[TokenUsage]) -> None:
+        """Hand *usage* to the instance callback and the process-wide sink.
+
+        Both, not one or the other: ``on_usage`` belongs to whoever built
+        this particular model, while the sink belongs to the application and
+        is how it accounts for tokens it pays for. Letting an instance
+        callback suppress the sink would mean any caller attaching a listener
+        silently opts that model out of the host's accounting -- which is the
+        class of silent omission the sink exists to prevent.
+        """
+        if usage is None:
+            return
+        if self.on_usage is not None:
+            self._invoke_on_usage(usage)
+        if _default_usage_callback is not None:
+            self._invoke_default_usage(usage, _default_usage_callback)
 
     def _invoke_on_usage(self, usage: TokenUsage) -> None:
         """Call ``on_usage``, swallowing anything it raises.
 
-        ``on_usage`` is caller-supplied (e.g. a closure that queues a usage
-        accrual -- see
-        ``rhesis.backend.app.utils.usage_tracking.make_usage_accrual_callback``),
-        and a broken accrual callback must never break the LLM call that
-        produced the usage.
+        ``on_usage`` is caller-supplied, and a broken listener must never
+        break the LLM call that produced the usage.
         """
         try:
             self.on_usage(usage)  # type: ignore[misc]
         except Exception:
             logger.warning("on_usage callback raised; usage not recorded", exc_info=True)
+
+    def _invoke_default_usage(self, usage: TokenUsage, callback: DefaultUsageCallback) -> None:
+        """Call the process-wide sink, swallowing anything it raises."""
+        try:
+            callback(usage, self)
+        except Exception:
+            logger.warning("default usage callback raised; usage not recorded", exc_info=True)
 
     def generate(self, *args, **kwargs) -> Union[str, Dict[str, Any]]:
         """Runs the model to output LLM response.
