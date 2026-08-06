@@ -171,6 +171,22 @@ class RedactingFormatter(logging.Formatter):
         return self._inner.formatStack(stack_info)
 
 
+#: ``extra=`` keys copied onto the JSON payload. An allowlist rather than
+#: "everything not standard on LogRecord": log fields are a queryable
+#: interface, and letting any caller's stray kwarg become a field makes it
+#: one nobody can rely on. Add a key here when you want to query by it.
+_STRUCTURED_EXTRA_FIELDS = (
+    "worker_role",
+    # rhesis.backend.app.utils.usage_tracking -- token usage that could not be
+    # billed to an org, or came from a model with no provenance stamp. Alerting
+    # on these needs them as fields, not as prose inside `message`.
+    "usage_marker",
+    "provider",
+    "model",
+    "total_tokens",
+)
+
+
 class JsonLogFormatter(logging.Formatter):
     """Format log records as Google Cloud-compatible structured JSON."""
 
@@ -180,8 +196,10 @@ class JsonLogFormatter(logging.Formatter):
             "module": record.name,
             "message": f"{record.name}: {record.getMessage()}",
         }
-        if role := getattr(record, "worker_role", None):
-            payload["worker_role"] = role
+        for field in _STRUCTURED_EXTRA_FIELDS:
+            value = getattr(record, field, None)
+            if value is not None:
+                payload[field] = value
         return json.dumps(payload)
 
 

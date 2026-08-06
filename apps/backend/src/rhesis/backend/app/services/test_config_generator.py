@@ -15,6 +15,7 @@ from rhesis.backend.app import crud
 from rhesis.backend.app.config.settings import get_model_settings
 from rhesis.backend.app.schemas.services import TestConfigResponse
 from rhesis.backend.app.utils.model_errors import ModelConfigurationError
+from rhesis.backend.app.utils.usage_tracking import stamp_usage_provenance
 from rhesis.backend.app.utils.user_model_utils import (
     get_user_generation_model,
     resolve_default_hosted_model,
@@ -70,14 +71,13 @@ class TestConfigGeneratorService:
                 "User generation model is Polyphemus; using fast system default for test config"
             )
             try:
-                resolved = resolve_default_hosted_model(
-                    get_model_settings().generation_model, str(self.user.organization_id)
-                )
+                resolved = resolve_default_hosted_model(get_model_settings().generation_model)
                 if isinstance(resolved, str):
                     # Non-hosted default string (e.g. an ops override to a
                     # third-party provider) -- construct it the same way the
-                    # pre-existing fallback below does.
-                    return get_model(resolved)
+                    # pre-existing fallback below does. Still a system
+                    # default, so it still runs on our credentials.
+                    return stamp_usage_provenance(get_model(resolved), metered=True)
                 return resolved
             except ValueError as e:
                 logger.warning(

@@ -12,6 +12,7 @@ import logging
 import uuid
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 
+from rhesis.backend.app.usage_attribution import with_usage_attribution
 from rhesis.backend.metrics.result_builder import MetricResultBuilder
 from rhesis.backend.metrics.score_evaluator import ScoreEvaluator
 from rhesis.sdk.metrics import MetricConfig
@@ -228,7 +229,11 @@ def _call_connector_sender(
 
     if loop and loop.is_running():
         with concurrent.futures.ThreadPoolExecutor() as pool:
-            return pool.submit(asyncio.run, coro).result(timeout=CONNECTOR_METRIC_CALL_TIMEOUT)
+            # with_usage_attribution: a plain submit() drops contextvars, so
+            # any LLM call under this coroutine would emit usage with no org.
+            return pool.submit(with_usage_attribution(asyncio.run), coro).result(
+                timeout=CONNECTOR_METRIC_CALL_TIMEOUT
+            )
     return asyncio.run(coro)
 
 

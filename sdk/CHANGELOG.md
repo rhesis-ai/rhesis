@@ -13,6 +13,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `set_default_usage_callback()` / `get_default_usage_callback()`: register one process-wide sink
+  that receives token usage from *every* model, so a host application metering tokens no longer has
+  to pass `on_usage` at each construction site. The sink also receives the model, and fires in
+  addition to any per-instance `on_usage` rather than instead of it.
+- `BaseLLM.usage_metered`: an optional flag a host application stamps to record whose credentials
+  paid for a model's calls. The SDK never sets or reads it; `None` means unstamped.
+- `LiteLLM.__init__` now accepts `on_usage`, like every other provider.
+
+### Fixed
+
+- `LiteLLMProxy` parsed the `usage` field out of its response and discarded it, so its token counts
+  were never reported. It now emits them.
+- `HuggingFaceLLM` computed exact token counts and stored them only on `last_generation_metadata`.
+  It now also emits them.
+- `BaseLLM.on_usage` no longer raises `AttributeError` on a subclass that does not chain to
+  `BaseLLM.__init__` (as `HuggingFaceLLM` does not, because of its lazy-loading mode).
+
 ### Removed
 
 - **BREAKING:** Removed `rhesis.sdk.adaptive_testing`, including `TestTree.from_test_set`, `serve`,
