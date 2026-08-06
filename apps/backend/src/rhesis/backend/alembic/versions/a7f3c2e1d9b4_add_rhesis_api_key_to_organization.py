@@ -11,7 +11,7 @@ set the platform key per organization instead of only via the
 ``RHESIS_API_KEY`` env var.
 
 Revision ID: a7f3c2e1d9b4
-Revises: b5c6d7e8f9a0
+Revises: e90c29496562
 Create Date: 2026-07-29
 """
 
@@ -21,7 +21,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "a7f3c2e1d9b4"
-down_revision: Union[str, None] = "b5c6d7e8f9a0"
+down_revision: Union[str, None] = "e90c29496562"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
