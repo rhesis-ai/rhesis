@@ -26,16 +26,26 @@ This release includes the following component versions:
 ### Summary of Changes
 
 **Backend v0.12.0:**
-Key changes include: Add usage dashboard tab to organization settings (#2355), Add insights ids endpoint and flatten query API (#2378)....
+- Added usage accounting and metering for flow resources (test executions, tracing spans, model tokens) and stock resources (seats, projects, endpoints), with new `/usage` endpoints and a YAML-driven quota registry.
+- Added a flat Insights query API (`/insights/query`, `/insights/ids`) backed by new database views.
+- Added Enterprise licensing foundations (Ed25519-signed JWT license tokens) and SSO-aware team invitations.
+- Fixed N+1 query bottlenecks across 12 database entities, a Redis reconnect latch, and email deliverability in isolated clusters.
 
 **Frontend v0.12.0:**
-Key changes include: refactor(frontend): move TestRunStatsTab onto Insights query (#2381), Add usage dashboard tab to organization settings (#2355)....
+- Added a Usage dashboard (resource snapshot + historical timeline) gated to Organization Admins and Owners.
+- Migrated the Insights page and Test Run Stats tab onto the new flattened Insights query API.
+- Redesigned login/auth pages and migrated Metrics/Behaviors to server-driven pagination.
+- Fixed Explorer session deletion, 504 timeouts on slow LLM calls, and several test result drawer UX bugs.
 
 **SDK v0.12.0:**
-Key changes include: Add usage dashboard tab to organization settings (#2355), Let the architect read annotations and create complete metrics (#2374)....
+- Added token usage tracking via an `on_usage` callback, normalized across providers, plus default request timeouts to prevent hangs.
+- **Breaking:** removed the vendored adaptive-testing package (`rhesis.sdk.adaptive_testing`) — Explorer is now server-side only — and pruned its now-unused dependencies.
+- **Breaking:** non-admin API tokens calling `/usage` endpoints now receive a 403.
 
 **Polyphemus v0.5.0:**
-Key changes include: Chore/fixdeps direct bumps (#2367), Fix 318 Dependabot alerts across Python and npm dependencies (#2255)....
+- Integrated the OWASP Synthesizer for report-based test generation.
+- Upgraded `vllm` and renamed the model deployment CLI flag to `--structured-outputs-backend`.
+- Resolved multiple dependency CVEs (`aiohttp`, `cryptography`, `gitpython`, `mcp`).
 
 See individual component changelogs for detailed changes:
 - [Backend Changelog](apps/backend/CHANGELOG.md)
