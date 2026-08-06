@@ -26,6 +26,12 @@ def _org(stored_key=None):
     return org
 
 
+def _model(provider: str | None):
+    model = Mock()
+    model.provider_type = Mock(type_value=provider) if provider else None
+    return model
+
+
 # --------------------------------------------------------------------------- #
 # Masking
 # --------------------------------------------------------------------------- #
@@ -48,7 +54,6 @@ def test_stored_key_wins_over_env():
         patch(f"{_MODULE}.get_rhesis_settings", return_value=Mock(api_key="rh-env")),
     ):
         assert pk.get_platform_api_key(db, "org-1") == "rh-stored"
-        assert pk.is_platform_key_present(db, "org-1") is True
 
 
 def test_env_key_used_when_no_stored_key():
@@ -58,7 +63,6 @@ def test_env_key_used_when_no_stored_key():
         patch(f"{_MODULE}.get_rhesis_settings", return_value=Mock(api_key="rh-env")),
     ):
         assert pk.get_platform_api_key(db, "org-1") == "rh-env"
-        assert pk.is_platform_key_present(db, "org-1") is True
 
 
 def test_no_key_anywhere_is_absent():
@@ -68,7 +72,6 @@ def test_no_key_anywhere_is_absent():
         patch(f"{_MODULE}.get_rhesis_settings", return_value=Mock(api_key=None)),
     ):
         assert pk.get_platform_api_key(db, "org-1") is None
-        assert pk.is_platform_key_present(db, "org-1") is False
 
 
 # --------------------------------------------------------------------------- #
@@ -114,6 +117,102 @@ def test_availability_signals_missing_org_fails_open():
             "key_valid": None,
             "polyphemus_authorized": None,
         }
+
+
+# --------------------------------------------------------------------------- #
+# annotate_model_availability
+# --------------------------------------------------------------------------- #
+def test_annotate_availability_outside_local_mode_everything_available():
+    db = Mock(spec=Session)
+    models = [_model("rhesis"), _model("openai")]
+    with patch(f"{_MODULE}.get_application_settings", return_value=Mock(is_local=False)):
+        pk.annotate_model_availability(db, "org-1", models)
+    assert all(m.available is True and m.availability_reason is None for m in models)
+
+
+def test_annotate_availability_local_mode_key_missing_greys_platform_providers():
+    db = Mock(spec=Session)
+    rhesis_model, poly_model, openai_model = (
+        _model("rhesis"),
+        _model("polyphemus"),
+        _model("openai"),
+    )
+    with (
+        patch(f"{_MODULE}.get_application_settings", return_value=Mock(is_local=True)),
+        patch(f"{_MODULE}._load_org", return_value=_org(None)),
+        patch(f"{_MODULE}.get_rhesis_settings", return_value=Mock(api_key=None)),
+    ):
+        pk.annotate_model_availability(db, "org-1", [rhesis_model, poly_model, openai_model])
+
+    assert rhesis_model.available is False
+    assert rhesis_model.availability_reason == "rhesis_key_missing"
+    assert poly_model.available is False
+    assert poly_model.availability_reason == "rhesis_key_missing"
+    assert openai_model.available is True
+    assert openai_model.availability_reason is None
+
+
+def test_annotate_availability_local_mode_invalid_key_greys_platform_providers():
+    db = Mock(spec=Session)
+    org = _org("rh-stored")
+    org.rhesis_key_valid = False
+    rhesis_model = _model("rhesis")
+    with (
+        patch(f"{_MODULE}.get_application_settings", return_value=Mock(is_local=True)),
+        patch(f"{_MODULE}._load_org", return_value=org),
+    ):
+        pk.annotate_model_availability(db, "org-1", [rhesis_model])
+
+    assert rhesis_model.available is False
+    assert rhesis_model.availability_reason == "rhesis_key_invalid"
+
+
+def test_annotate_availability_local_mode_unauthorized_polyphemus_only():
+    db = Mock(spec=Session)
+    org = _org("rh-stored")
+    org.rhesis_key_valid = True
+    org.rhesis_key_polyphemus_authorized = False
+    rhesis_model, poly_model = _model("rhesis"), _model("polyphemus")
+    with (
+        patch(f"{_MODULE}.get_application_settings", return_value=Mock(is_local=True)),
+        patch(f"{_MODULE}._load_org", return_value=org),
+    ):
+        pk.annotate_model_availability(db, "org-1", [rhesis_model, poly_model])
+
+    assert rhesis_model.available is True
+    assert rhesis_model.availability_reason is None
+    assert poly_model.available is False
+    assert poly_model.availability_reason == "polyphemus_not_authorized"
+
+
+def test_annotate_availability_local_mode_valid_key_everything_available():
+    db = Mock(spec=Session)
+    org = _org("rh-stored")
+    org.rhesis_key_valid = True
+    org.rhesis_key_polyphemus_authorized = True
+    models = [_model("rhesis"), _model("polyphemus"), _model("openai")]
+    with (
+        patch(f"{_MODULE}.get_application_settings", return_value=Mock(is_local=True)),
+        patch(f"{_MODULE}._load_org", return_value=org),
+    ):
+        pk.annotate_model_availability(db, "org-1", models)
+
+    assert all(m.available is True and m.availability_reason is None for m in models)
+
+
+def test_annotate_availability_unknown_validity_fails_open():
+    """An unprobed RHESIS_API_KEY env key (valid=None) is never greyed."""
+    db = Mock(spec=Session)
+    rhesis_model = _model("rhesis")
+    with (
+        patch(f"{_MODULE}.get_application_settings", return_value=Mock(is_local=True)),
+        patch(f"{_MODULE}._load_org", return_value=_org(None)),
+        patch(f"{_MODULE}.get_rhesis_settings", return_value=Mock(api_key="rh-env")),
+    ):
+        pk.annotate_model_availability(db, "org-1", [rhesis_model])
+
+    assert rhesis_model.available is True
+    assert rhesis_model.availability_reason is None
 
 
 # --------------------------------------------------------------------------- #

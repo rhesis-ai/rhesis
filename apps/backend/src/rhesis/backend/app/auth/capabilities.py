@@ -338,6 +338,16 @@ class Permission:
 
         REQUEST = "polyphemus:request"
 
+    class Platform(_PermissionEnum):
+        """Local/self-hosted deployment configuration — community, not EE-gated.
+
+        The org-owner PDP fallback (``organization.owner_id == principal.user_id``
+        allows any permission) makes this correct on a community deployment with
+        no EE role provider installed, same as every other org-scoped permission.
+        """
+
+        MANAGE = "platform:manage"
+
 
 class ResourceType(_PermissionEnum):
     """Resource identifiers — the prefix of a ``resource:action`` capability.

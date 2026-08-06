@@ -5,13 +5,20 @@ deployments, preventing enumeration) and by ``require_current_user_or_token``.
 The organization is always resolved from the authenticated user, so a caller
 can only read or write their own organization's platform key. The raw key is
 never returned by any response.
+
+PUT/DELETE additionally require ``Permission.Platform.MANAGE`` (owner-only,
+even on a community deployment with no EE role provider -- see the PDP's
+org-owner fallback) via the ``apply_authz_backstop`` PEP, since they mutate a
+credential shared by the whole organization. GET is read-only and exposes no
+more than a masked key suffix, so it stays open to any authenticated member.
 """
 
 import logging
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from rhesis.backend.app.auth.capabilities import Permission, capability
 from rhesis.backend.app.auth.feature_gates import require_local_mode
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.dependencies import get_db_session
@@ -50,19 +57,27 @@ def read_rhesis_key_status(
     return PlatformKeyStatus(**status)
 
 
-@router.put("/rhesis-key", response_model=PlatformKeyStatus)
+@router.put(
+    "/rhesis-key", response_model=PlatformKeyStatus, **capability(Permission.Platform.MANAGE)
+)
 def set_rhesis_key(
     payload: PlatformKeyUpdate,
     db: Session = Depends(get_db_session),
     current_user: User = Depends(require_current_user_or_token),
 ) -> PlatformKeyStatus:
     """Store the org platform key (encrypted) and return its validated status."""
-    platform_key_service.set_platform_api_key(db, current_user.organization_id, payload.key)
-    status = platform_key_service.get_platform_key_status(db, current_user.organization_id)
+    try:
+        status = platform_key_service.set_platform_api_key(
+            db, current_user.organization_id, payload.key
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
     return PlatformKeyStatus(**status)
 
 
-@router.delete("/rhesis-key", response_model=PlatformKeyStatus)
+@router.delete(
+    "/rhesis-key", response_model=PlatformKeyStatus, **capability(Permission.Platform.MANAGE)
+)
 def delete_rhesis_key(
     db: Session = Depends(get_db_session),
     current_user: User = Depends(require_current_user_or_token),
@@ -74,6 +89,5 @@ def delete_rhesis_key(
     key. Returning the real status (instead of a hardcoded dict) keeps this
     consistent with ``set_rhesis_key`` and reflects that fallback correctly.
     """
-    platform_key_service.clear_platform_api_key(db, current_user.organization_id)
-    status = platform_key_service.get_platform_key_status(db, current_user.organization_id)
+    status = platform_key_service.clear_platform_api_key(db, current_user.organization_id)
     return PlatformKeyStatus(**status)
