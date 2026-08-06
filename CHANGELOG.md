@@ -13,6 +13,38 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-08-06
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.12.0**
+- **Frontend 0.12.0**
+- **SDK 0.12.0**
+- **Polyphemus 0.5.0**
+
+### Summary of Changes
+
+**Backend v0.12.0:**
+Key changes include: Add usage dashboard tab to organization settings (#2355), Add insights ids endpoint and flatten query API (#2378)....
+
+**Frontend v0.12.0:**
+Key changes include: refactor(frontend): move TestRunStatsTab onto Insights query (#2381), Add usage dashboard tab to organization settings (#2355)....
+
+**SDK v0.12.0:**
+Key changes include: Add usage dashboard tab to organization settings (#2355), Let the architect read annotations and create complete metrics (#2374)....
+
+**Polyphemus v0.5.0:**
+Key changes include: Chore/fixdeps direct bumps (#2367), Fix 318 Dependabot alerts across Python and npm dependencies (#2255)....
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+- [Frontend Changelog](apps/frontend/CHANGELOG.md)
+- [SDK Changelog](sdk/CHANGELOG.md)
+- [Polyphemus Changelog](apps/polyphemus/CHANGELOG.md)
+
+
+
 ## [0.11.0] - 2026-07-23
 
 ### Platform Release
