@@ -75,6 +75,26 @@ jobs:
           ref: main
           token: ${{ steps.generate-token.outputs.token }}
 
+      - name: Verify main hasn't drifted from the release commit
+        run: |
+          # $GITHUB_SHA (the release branch tip) is what actually got validated on
+          # stg. If main has picked up any other change to kubernetes/clusters/prd/**
+          # since the release branch was cut — e.g. an unrelated PR merged in the
+          # meantime — this write-back would carry it into prd unvalidated. Fail
+          # instead of silently promoting it. The release branch hasn't merged into
+          # main yet at this point in the workflow, so fetch its tip explicitly.
+          git fetch --depth=1 origin "$GITHUB_SHA"
+          UNEXPECTED=$(git diff "$GITHUB_SHA" HEAD -- kubernetes/clusters/prd \
+            | grep -E '^[+-][^+-]' \
+            | grep -v 'targetRevision:' || true)
+          if [ -n "$UNEXPECTED" ]; then
+            echo "main has diverged from the release commit ($GITHUB_SHA) with changes"
+            echo "to kubernetes/clusters/prd beyond targetRevision pins:"
+            echo "$UNEXPECTED"
+            echo "Refusing to promote — these changes were not validated on stg as part of this release."
+            exit 1
+          fi
+
       - name: Update prd Application targetRevisions on main
         id: write-back
         env:
@@ -103,6 +123,17 @@ jobs:
             kubernetes/clusters/prd/argocd/argocd-application.yaml
             kubernetes/clusters/prd/rhesis/rhesis-application.yaml
           )
+
+          # Fail fast if any file doesn't have exactly one targetRevision line — a
+          # blind sed would otherwise silently corrupt a file that later gains a
+          # second one (e.g. a multi-source Helm Application).
+          for f in "${FILES[@]}"; do
+            MATCHES=$(grep -c '^\s*targetRevision:' "$f")
+            if [ "$MATCHES" -ne 1 ]; then
+              echo "Expected exactly 1 targetRevision line in $f, found $MATCHES — aborting."
+              exit 1
+            fi
+          done
 
           for f in "${FILES[@]}"; do
             sed -i "s|targetRevision: .*|targetRevision: $GITHUB_SHA|" "$f"
