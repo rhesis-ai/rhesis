@@ -47,6 +47,12 @@ function mockInsightsQueryResponse(summaryRow: {
       measures: ['count', 'passed', 'failed', 'pass_rate'],
       rows: [],
     },
+    allBehaviors: {
+      entity: 'test_result',
+      dimensions: ['behavior_id', 'behavior'],
+      measures: ['count', 'passed', 'failed', 'pass_rate'],
+      rows: [],
+    },
   };
 }
 
@@ -160,8 +166,67 @@ describe('useBehaviorInsightsData', () => {
     expect(mockResolveTestRunIds).toHaveBeenCalledWith({
       endpointId: 'ep-1',
       runFilterMode: 'timeRange',
-      timeRange: '1m',
+      timeRange: 'always',
       testRunIds: [],
     });
+  });
+
+  it('shows zero data when behaviorIds is explicitly filtered to nothing', async () => {
+    mockResolveTestRunIds.mockResolvedValue(['run-1']);
+
+    const filters = {
+      ...DEFAULT_INSIGHTS_FILTERS,
+      endpointId: 'ep-1',
+      behaviorIds: [], // explicitly unchecked every behavior -- not "no filter"
+    };
+
+    const { result } = renderHook(() => useBehaviorInsightsData(filters), {
+      wrapper: createWrapper(),
+    });
+
+    jest.advanceTimersByTime(300);
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    // The mocked query response reports passed:10/failed:10 -- if these
+    // assertions ever pass because the hook forgot to call the API at all,
+    // that's still correct; the point is the *result* must be zero either way.
+    expect(result.current.summary).toEqual({
+      total: 0,
+      passed: 0,
+      failed: 0,
+      pass_rate: 0,
+    });
+    expect(result.current.columns).toEqual([]);
+  });
+
+  it('shows zero data when statusIds is explicitly filtered to nothing', async () => {
+    mockResolveTestRunIds.mockResolvedValue(['run-1']);
+
+    const filters = {
+      ...DEFAULT_INSIGHTS_FILTERS,
+      endpointId: 'ep-1',
+      statusIds: [], // explicitly unchecked every status
+    };
+
+    const { result } = renderHook(() => useBehaviorInsightsData(filters), {
+      wrapper: createWrapper(),
+    });
+
+    jest.advanceTimersByTime(300);
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    expect(result.current.summary).toEqual({
+      total: 0,
+      passed: 0,
+      failed: 0,
+      pass_rate: 0,
+    });
+    expect(result.current.columns).toEqual([]);
   });
 });

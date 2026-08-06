@@ -236,6 +236,8 @@ export function formatInsightsTimeRangeLabel(
   timeRange: InsightsTimeRange
 ): string {
   switch (timeRange) {
+    case 'always':
+      return 'all time';
     case '1d':
       return '1 day';
     case '7d':
@@ -254,9 +256,11 @@ export function formatInsightsRunFilterLabel(
   >
 ): string {
   if (filter.runFilterMode === 'timeRange') {
-    return `the last ${formatInsightsTimeRangeLabel(
-      resolveInsightsTimeRange(filter.timeRange)
-    )}`;
+    const timeRange = resolveInsightsTimeRange(filter.timeRange);
+    if (timeRange === 'always') {
+      return 'all time';
+    }
+    return `the last ${formatInsightsTimeRangeLabel(timeRange)}`;
   }
   if (filter.testRunIds.length === 0) {
     return 'all test runs';

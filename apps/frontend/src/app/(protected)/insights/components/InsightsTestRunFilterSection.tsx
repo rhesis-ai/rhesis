@@ -27,8 +27,6 @@ interface InsightsTestRunFilterSectionProps {
   onCheckedIdsChange: (ids: string[]) => void;
   loading?: boolean;
   disabled?: boolean;
-  /** When true, render only the list (parent supplies section chrome). */
-  embedded?: boolean;
 }
 
 function TestRunCheckboxRow({
@@ -78,7 +76,6 @@ export default function InsightsTestRunFilterSection({
   onCheckedIdsChange,
   loading = false,
   disabled = false,
-  embedded = false,
 }: InsightsTestRunFilterSectionProps) {
   const [showAll, setShowAll] = React.useState(false);
 
@@ -99,17 +96,15 @@ export default function InsightsTestRunFilterSection({
   const content = (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        {!embedded ? (
-          <Typography
-            sx={{
-              fontSize: 14,
-              lineHeight: '22px',
-              color: theme => theme.palette.greyscale.body,
-            }}
-          >
-            Test run
-          </Typography>
-        ) : null}
+        <Typography
+          sx={{
+            fontSize: 14,
+            lineHeight: '22px',
+            color: theme => theme.palette.greyscale.body,
+          }}
+        >
+          Test run
+        </Typography>
 
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
@@ -140,18 +135,6 @@ export default function InsightsTestRunFilterSection({
             ))}
           </Box>
         )}
-
-        <Typography
-          sx={{
-            fontSize: 12,
-            lineHeight: '18px',
-            color: 'text.secondary',
-            pt: '3px',
-          }}
-        >
-          All runs are included by default. Uncheck runs to narrow the view (up
-          to 100 runs can be queried at once).
-        </Typography>
       </Box>
 
       {!loading && !showAll && options.length > DEFAULT_VISIBLE_COUNT ? (
@@ -180,9 +163,5 @@ export default function InsightsTestRunFilterSection({
     </Box>
   );
 
-  if (embedded) {
-    return content;
-  }
-
-  return <FilterSection title="Test runs">{content}</FilterSection>;
+  return <FilterSection title="Test Runs">{content}</FilterSection>;
 }
