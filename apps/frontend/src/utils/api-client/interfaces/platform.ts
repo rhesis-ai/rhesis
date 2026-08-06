@@ -4,7 +4,7 @@
  * Only meaningful on a local/self-hosted deployment, where the prepopulated
  * Rhesis-hosted models (Rhesis Default, Rhesis Default Embedding, Rhesis
  * Polyphemus) require a Rhesis platform API key to function. Shape mirrors the
- * backend `GET/PUT /platform/rhesis-key` response.
+ * backend `GET/PUT/DELETE /platform/rhesis-key` response.
  */
 export interface PlatformKeyStatus {
   /** Whether a platform key is currently stored. */
@@ -17,9 +17,4 @@ export interface PlatformKeyStatus {
   masked_key: string | null;
   /** ISO timestamp of the last validation check, or null when never checked. */
   last_checked_at: string | null;
-}
-
-/** Response shape for a successful `DELETE /platform/rhesis-key`. */
-export interface PlatformKeyCleared {
-  configured: false;
 }

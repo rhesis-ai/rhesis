@@ -1,7 +1,4 @@
-import type {
-  PlatformKeyStatus,
-  PlatformKeyCleared,
-} from './interfaces/platform';
+import type { PlatformKeyStatus } from './interfaces/platform';
 
 /**
  * Typed client for the deployment-wide Rhesis platform API key.
@@ -58,7 +55,7 @@ export async function setRhesisPlatformKey(
   return parseResponse<PlatformKeyStatus>(response);
 }
 
-export async function clearRhesisPlatformKey(): Promise<PlatformKeyCleared> {
+export async function clearRhesisPlatformKey(): Promise<PlatformKeyStatus> {
   const response = await fetch(PLATFORM_KEY_ROUTE, { method: 'DELETE' });
-  return parseResponse<PlatformKeyCleared>(response);
+  return parseResponse<PlatformKeyStatus>(response);
 }

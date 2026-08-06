@@ -46,8 +46,8 @@ export function usePlatformKey(enabled = true) {
 
   const clearKey = useMutation({
     mutationFn: () => clearRhesisPlatformKey(),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: platformKeyKeys.all() });
+    onSuccess: status => {
+      queryClient.setQueryData(platformKeyKeys.all(), status);
       invalidateModels();
     },
   });

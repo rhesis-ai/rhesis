@@ -62,11 +62,18 @@ def set_rhesis_key(
     return PlatformKeyStatus(**status)
 
 
-@router.delete("/rhesis-key")
+@router.delete("/rhesis-key", response_model=PlatformKeyStatus)
 def delete_rhesis_key(
     db: Session = Depends(get_db_session),
     current_user: User = Depends(require_current_user_or_token),
-) -> dict:
-    """Clear the org platform key."""
+) -> PlatformKeyStatus:
+    """Clear the org's stored platform key and return the resulting status.
+
+    Clearing the DB-stored key does not guarantee ``configured=False``: a
+    process-wide ``RHESIS_API_KEY`` env var, if set, remains the effective
+    key. Returning the real status (instead of a hardcoded dict) keeps this
+    consistent with ``set_rhesis_key`` and reflects that fallback correctly.
+    """
     platform_key_service.clear_platform_api_key(db, current_user.organization_id)
-    return {"configured": False}
+    status = platform_key_service.get_platform_key_status(db, current_user.organization_id)
+    return PlatformKeyStatus(**status)
