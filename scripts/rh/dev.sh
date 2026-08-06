@@ -369,7 +369,7 @@ dev_clean() {
     # Filtered by this checkout's prefix so cleaning one spares the others.
     # Guarded instead of xargs -r, which is a GNU extension.
     local leftover_volumes
-    leftover_volumes=$(docker volume ls -q --filter "name=$RHESIS_DEV_PREFIX" 2>/dev/null)
+    leftover_volumes=$(dev_volumes_for_prefix "$RHESIS_DEV_PREFIX")
     if [ -n "$leftover_volumes" ]; then
         echo "$leftover_volumes" | xargs docker volume rm 2>/dev/null || true
     fi

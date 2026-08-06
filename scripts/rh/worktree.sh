@@ -144,7 +144,7 @@ remove_worktree_stack() {
     docker volume rm "${prefix}-postgres-data" "${prefix}-redis-data" 2>/dev/null || true
 
     local leftover
-    leftover=$(docker volume ls -q --filter "name=$prefix" 2>/dev/null)
+    leftover=$(dev_volumes_for_prefix "$prefix")
     if [ -n "$leftover" ]; then
         echo "$leftover" | xargs docker volume rm 2>/dev/null || true
     fi

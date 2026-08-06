@@ -54,6 +54,12 @@ dev_prefix_for() {
     fi
 }
 
+# Docker's name filter is a substring match, so rhesis-wt-test would also
+# catch rhesis-wt-test2's volumes.
+dev_volumes_for_prefix() {
+    docker volume ls -q --filter "name=$1" 2>/dev/null | grep -E "^$1(-|$)" || true
+}
+
 RHESIS_DEV_PREFIX="$(dev_prefix_for "$RHESIS_WORKTREE_NAME")"
 
 DEV_POSTGRES_PORT="${DEV_POSTGRES_PORT:-$(dev_port_for postgres)}"
