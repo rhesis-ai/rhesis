@@ -7,6 +7,8 @@ import ApiIcon from '@mui/icons-material/Api';
 export default function ApiClientsEmptyState() {
   return (
     <EntityEmptyState
+      card
+      showAddIcon={false}
       icon={ApiIcon}
       title="API Clients are an Enterprise feature"
       description="Issue scoped OAuth client credentials for machine-to-machine access to your organization's data."

@@ -7,6 +7,8 @@ import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
 export default function SSOEmptyState() {
   return (
     <EntityEmptyState
+      card
+      showAddIcon={false}
       icon={VerifiedUserIcon}
       title="Single Sign-On is an Enterprise feature"
       description="Let your team sign in with your identity provider (SAML, OIDC) instead of managing separate passwords."
