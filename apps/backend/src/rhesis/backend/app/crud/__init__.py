@@ -665,12 +665,7 @@ def get_test_sets(
         query_builder = query_builder.with_custom_filter(has_runs_filter)
 
     # Exclude explorer test sets (they use the dedicated /explorer API)
-    def exclude_explorer_test_sets(query):
-        return query.filter(models.TestSet.explorer_row.is_(False))
-
-    query_builder = query_builder.with_custom_filter(exclude_explorer_test_sets)
-
-    return query_builder.all()
+    return query_builder.with_explorer_rows_excluded().all()
 
 
 def create_test_set(
@@ -2149,6 +2144,7 @@ def get_tests(
     organization_id: str = None,
     user_id: str = None,
 ) -> List[models.Test]:
+    """Get tests, minus the Explorer-owned ones (those belong to the /explorer API)."""
     # NOTE: No secondary_sort_by: Test.content sorting is a slow correlated subquery
     return get_items_detail(
         db,
@@ -2160,6 +2156,7 @@ def get_tests(
         filter,
         organization_id=organization_id,
         user_id=user_id,
+        exclude_explorer_rows=True,
     )
 
 

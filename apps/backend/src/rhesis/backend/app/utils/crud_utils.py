@@ -487,6 +487,7 @@ def get_items_detail(
     user_id: str = None,
     secondary_sort_by: str | None = None,
     secondary_sort_order: str = "asc",
+    exclude_explorer_rows: bool = False,
 ) -> List[T]:
     """
     Get multiple items with relationships eagerly loaded, pagination, sorting, and filtering.
@@ -500,6 +501,8 @@ def get_items_detail(
                             Format: {"relationship_name": ["nested_rel1", "nested_rel2"]}
         selectin_chains: Extra relationship-name chains to load with nested selectinload,
                         beyond the defaults above. Format: [["rel", "nested_rel"], ...]
+        exclude_explorer_rows: Drop Explorer-owned rows. Only for models with an
+                        ``explorer_row`` column (Test, TestSet).
 
     Runs as two queries rather than one: a joinless query picks the page's IDs
     (filter + sort + LIMIT/OFFSET), then a second query eager-loads
@@ -509,12 +512,16 @@ def get_items_detail(
     against a dozen tables, that cost scales with total matching rows, not
     with the page size actually returned.
     """
-    ordered_ids = (
+    ids_builder = (
         QueryBuilder(db, model)
         .with_organization_filter(organization_id)
         .with_visibility_filter(user_id)
         .with_odata_filter(filter)
-        .with_sorting(
+    )
+    if exclude_explorer_rows:
+        ids_builder = ids_builder.with_explorer_rows_excluded()
+    ordered_ids = (
+        ids_builder.with_sorting(
             sort_by,
             sort_order,
             secondary_sort_by=secondary_sort_by,
@@ -908,15 +915,22 @@ def count_items(
     filter: str = None,
     organization_id: str = None,
     user_id: str = None,
+    exclude_explorer_rows: bool = False,
 ) -> int:
-    """Get the total count of items matching filters (without pagination)."""
-    return (
+    """Get the total count of items matching filters (without pagination).
+
+    ``exclude_explorer_rows`` must match the list endpoint's own filtering, otherwise
+    the count and the returned page disagree.
+    """
+    builder = (
         QueryBuilder(db, model)
         .with_organization_filter(organization_id)
         .with_visibility_filter(user_id)
         .with_odata_filter(filter)
-        .count()
     )
+    if exclude_explorer_rows:
+        builder = builder.with_explorer_rows_excluded()
+    return builder.count()
 
 
 # ============================================================================
