@@ -785,6 +785,7 @@ def get_default_embedding_model(db: Session, organization_id: str) -> Optional[m
             models.Model.organization_id == org_uuid,
             models.Model.name == "Rhesis Embedding",
             models.Model.model_type == ModelType.EMBEDDING.value,
+            models.Model.is_protected.is_(True),
         )
         .first()
     )
