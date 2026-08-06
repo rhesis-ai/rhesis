@@ -391,6 +391,7 @@ _ORG_SCOPED_RESOURCES: frozenset[str] = frozenset(
         "sso",
         "api_clients",
         "polyphemus",
+        "platform",
     }
 )
 
