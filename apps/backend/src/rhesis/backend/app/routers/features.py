@@ -17,6 +17,7 @@ from typing import Dict, List
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
+from rhesis.backend.app.config.settings import get_application_settings
 from rhesis.backend.app.dependencies import get_current_organization
 from rhesis.backend.app.features import FeatureRegistry
 from rhesis.backend.app.models.organization import Organization
@@ -35,6 +36,11 @@ class FeaturesResponse(BaseModel):
     enabled: List[str]
     warnings: Dict[str, str] = Field(default_factory=dict)
     limits: Dict[str, int | None] = Field(default_factory=dict)
+    #: Whether this deployment runs in local/self-hosted mode (BACKEND_ENV=local).
+    #: Single source of truth for local-only UI (e.g. the platform key card) --
+    #: the frontend derives this from here instead of its own env var so the two
+    #: can never drift apart.
+    is_local: bool = False
 
 
 @router.get("", response_model=FeaturesResponse)
@@ -54,4 +60,5 @@ def list_features(
         enabled=enabled,
         warnings=warnings,
         limits=limits,
+        is_local=get_application_settings().is_local,
     )

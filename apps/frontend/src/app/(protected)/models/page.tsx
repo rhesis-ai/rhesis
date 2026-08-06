@@ -38,17 +38,14 @@ import type { ValidationStatus } from './types';
 
 export type { ValidationStatus } from './types';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import { useIsLocalMode } from '@/contexts/FeaturesContext';
 
 type ModelTypeFilter = 'all' | 'language' | 'embedding';
-
-// Local/self-hosted deployments expose the Rhesis platform key settings; the
-// backend endpoints 404 elsewhere. Same signal used in ProviderSelectionPanel.
-const isLocalMode =
-  process.env.NEXT_PUBLIC_FRONTEND_ENV?.toLowerCase() === 'local';
 
 export default function ModelsPage() {
   const { data: session, status } = useSession();
   const queryClient = useQueryClient();
+  const isLocalMode = useIsLocalMode();
   const userScope = session?.user?.id ?? '';
   const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
     Capability.Model.READ

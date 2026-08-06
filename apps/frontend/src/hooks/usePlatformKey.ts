@@ -9,10 +9,7 @@ import {
 } from '@/utils/api-client/platform-client';
 import type { PlatformKeyStatus } from '@/utils/api-client/interfaces/platform';
 import { useIsAuthenticated } from '@/hooks/useIsAuthenticated';
-
-/** True on a local/self-hosted deployment, where the key settings apply. */
-const isLocalMode =
-  process.env.NEXT_PUBLIC_FRONTEND_ENV?.toLowerCase() === 'local';
+import { useIsLocalMode } from '@/contexts/FeaturesContext';
 
 /**
  * Status of, and mutations for, the deployment-wide Rhesis platform API key.
@@ -23,6 +20,7 @@ const isLocalMode =
  */
 export function usePlatformKey(enabled = true) {
   const isAuthenticated = useIsAuthenticated();
+  const isLocalMode = useIsLocalMode();
   const queryClient = useQueryClient();
 
   const query = useQuery<PlatformKeyStatus>({

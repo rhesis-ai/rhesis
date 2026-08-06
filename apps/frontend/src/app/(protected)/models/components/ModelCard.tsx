@@ -13,14 +13,7 @@ import { Model } from '@/utils/api-client/interfaces/model';
 import { UserSettings } from '@/utils/api-client/interfaces/user';
 import { PROVIDER_ICONS } from '@/config/model-providers';
 import { getAvailabilityReasonCopy, type ValidationStatus } from '../types';
-
-// Local/self-hosted deployments can't run the email-based Polyphemus access
-// request (mail isn't configured), so the "Request Access" affordance is hidden
-// there — backend availability (greyed with a reason) is the single source of
-// truth for whether a Rhesis/Polyphemus model can be used. Same signal as the
-// models page.
-const isLocalMode =
-  process.env.NEXT_PUBLIC_FRONTEND_ENV?.toLowerCase() === 'local';
+import { useIsLocalMode } from '@/contexts/FeaturesContext';
 
 interface ConnectedModelCardProps {
   model: Model;
@@ -44,6 +37,7 @@ export function ConnectedModelCard({
   onRequestAccess,
 }: ConnectedModelCardProps) {
   const theme = useTheme();
+  const isLocalMode = useIsLocalMode();
 
   const isGenerationDefault =
     userSettings?.models?.generation?.model_id === model.id;
