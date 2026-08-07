@@ -136,7 +136,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -150,16 +149,18 @@ jobs:
           node-version: '24'
 
       - name: Check for hardcoded styles
-        id: check
-        run: node scripts/check-hardcoded-styles.js
-
-      - name: Comment on PR
-        if: failure() && steps.check.outcome == 'failure' && github.event_name == 'pull_request'
-        run: node scripts/create-pr-comment.js
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-          GITHUB_EVENT_PATH: ${{ github.event_path }}
+        run: |
+          set -euo pipefail
+          git diff --name-only --diff-filter=ACMR HEAD~1 HEAD \
+            | grep -E '^(apps|ee)/frontend/src/.*\.(ts|tsx|js|jsx)$' \
+            > "$RUNNER_TEMP/style-files.txt" || true
+          if [ ! -s "$RUNNER_TEMP/style-files.txt" ]; then
+            echo "No frontend source files changed."
+            exit 0
+          fi
+          cat "$RUNNER_TEMP/style-files.txt"
+          tr '\n' '\0' < "$RUNNER_TEMP/style-files.txt" \
+            | xargs -0 node scripts/check-hardcoded-styles.js
 
   docs:
     needs: changes
