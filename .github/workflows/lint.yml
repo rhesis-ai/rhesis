@@ -34,6 +34,8 @@ jobs:
               - 'apps/backend/**'
             penelope:
               - 'penelope/**'
+            migrations:
+              - 'apps/backend/src/rhesis/backend/alembic/versions/**'
 
       - name: Resolve lint targets
         id: resolve
@@ -74,6 +76,29 @@ jobs:
       - name: Run lint
         run: make lint
         working-directory: ${{ matrix.dir }}
+
+  migrations:
+    needs: changes
+    # Needs a base ref to diff against, so pull_request only.
+    if: github.event_name == 'pull_request' && contains(fromJSON(needs.changes.outputs.targets), 'migrations')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+
+      - name: Install dependencies
+        run: uv sync --dev
+        working-directory: apps/backend
+
+      - name: Check migration chain
+        run: scripts/check-alembic-head.sh
+        env:
+          BASE_REF: origin/${{ github.base_ref }}
 
   frontend:
     needs: changes
@@ -161,7 +186,7 @@ jobs:
         run: make lint
 
   lint:
-    needs: [changes, python, frontend, styles, docs]
+    needs: [changes, python, migrations, frontend, styles, docs]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -171,6 +196,7 @@ jobs:
           FAILED=0
           for RESULT in "changes=${{ needs.changes.result }}" \
                         "python=${{ needs.python.result }}" \
+                        "migrations=${{ needs.migrations.result }}" \
                         "frontend=${{ needs.frontend.result }}" \
                         "styles=${{ needs.styles.result }}" \
                         "docs=${{ needs.docs.result }}"; do
