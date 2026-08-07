@@ -15,6 +15,7 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
+from rhesis.backend.app.crud.project import create_project
 from rhesis.backend.app.crud.telemetry import (
     create_trace_spans,
     get_trace_by_id,
@@ -1288,7 +1289,7 @@ class TestCrossOrganizationSecurity:
         crud.create_token(db=test_db, token=token_b_data)
 
         # Create a project for org A
-        project_a = crud.create_project(
+        project_a = create_project(
             test_db,
             {"name": f"Project A {uuid.uuid4()}", "description": "Test project"},
             organization_id=str(org_a.id),
@@ -1376,13 +1377,13 @@ class TestCrossOrganizationSecurity:
         )
 
         # Create projects for both orgs
-        project_a = crud.create_project(
+        project_a = create_project(
             test_db,
             {"name": f"Project A {uuid.uuid4()}", "description": "Test project A"},
             organization_id=str(org_a.id),
             user_id=str(user_a.id),
         )
-        project_b = crud.create_project(
+        project_b = create_project(
             test_db,
             {"name": f"Project B {uuid.uuid4()}", "description": "Test project B"},
             organization_id=str(org_b.id),
@@ -1485,13 +1486,13 @@ class TestCrossOrganizationSecurity:
         )
 
         # Create projects
-        project_a = crud.create_project(
+        project_a = create_project(
             test_db,
             {"name": f"Project A Metrics {uuid.uuid4()}", "description": "Test"},
             organization_id=str(org_a.id),
             user_id=str(user_a.id),
         )
-        project_b = crud.create_project(
+        project_b = create_project(
             test_db,
             {"name": f"Project B Metrics {uuid.uuid4()}", "description": "Test"},
             organization_id=str(org_b.id),
