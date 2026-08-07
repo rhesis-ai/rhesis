@@ -765,7 +765,7 @@ def upsert_test_embedding(
 def get_default_embedding_model(db: Session, organization_id: str) -> Optional[models.Model]:
     """Fallback row for ``embedding.model_id`` when user settings omit an embedding model.
 
-    Tries the organization's model named "Rhesis Default Embedding" first, then any
+    Tries the organization's model named "Rhesis Embedding" first, then any
     protected embedding model from the ``rhesis`` provider.
 
     Parameters
@@ -786,8 +786,9 @@ def get_default_embedding_model(db: Session, organization_id: str) -> Optional[m
         db.query(models.Model)
         .filter(
             models.Model.organization_id == org_uuid,
-            models.Model.name == "Rhesis Default Embedding",
+            models.Model.name == "Rhesis Embedding",
             models.Model.model_type == ModelType.EMBEDDING.value,
+            models.Model.is_protected.is_(True),
         )
         .first()
     )

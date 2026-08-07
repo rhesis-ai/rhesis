@@ -81,7 +81,7 @@ def _create_test_with_metadata(db, topic_name, prompt_content, metadata, organiz
 
 @pytest.fixture
 def explorer_embedding_model(test_db: Session, test_org_id, authenticated_user_id):
-    """Create a minimal 'Rhesis Default Embedding' model so create_test_embedding can persist rows.
+    """Create a minimal 'Rhesis Embedding' model so create_test_embedding can persist rows.
 
     The model uses dimension=384 so it matches the [0.01]*384 mock vector used in
     test_create_test_with_generate_embedding_persists_embedding_row without needing a
@@ -90,7 +90,7 @@ def explorer_embedding_model(test_db: Session, test_org_id, authenticated_user_i
     from rhesis.backend.app.models.enums import ModelType
 
     model = models.Model(
-        name="Rhesis Default Embedding",
+        name="Rhesis Embedding",
         model_name="rhesis/rhesis-embedding",
         model_type=ModelType.EMBEDDING.value,
         key="test-key-not-used",

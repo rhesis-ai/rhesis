@@ -1291,7 +1291,7 @@ def create_default_rhesis_model(
     commit: bool = False,
 ) -> Model:
     """
-    Create a default Rhesis-hosted model (e.g. Rhesis Default, Rhesis Embedding, Polyphemus).
+    Create a default Rhesis-hosted model (e.g. Rhesis, Rhesis Embedding, Polyphemus).
 
     Centralizes the creation logic for protected system models used during onboarding
     and data migrations.

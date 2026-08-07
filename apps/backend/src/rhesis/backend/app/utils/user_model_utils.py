@@ -456,7 +456,7 @@ def resolve_default_hosted_model(default_model: str, organization_id: str) -> Un
     Instantiate the system default model with usage accrual when it names a hosted provider.
 
     Several callers fall back to the bare `default_model` string (e.g.
-    "rhesis/rhesis-default") without ever calling `_fetch_and_configure_model`
+    "rhesis/rhesis-managed") without ever calling `_fetch_and_configure_model`
     -- most notably `_get_user_model` when the user has no model_id configured
     for a purpose (execution model on a freshly onboarded org, for example),
     and the execution/evaluation model resolution in the batch and sequential
@@ -475,7 +475,7 @@ def resolve_default_hosted_model(default_model: str, organization_id: str) -> Un
     string so callers retain today's lazy-resolution behavior.
 
     Args:
-        default_model: A "provider/model_name" string, e.g. "rhesis/rhesis-default"
+        default_model: A "provider/model_name" string, e.g. "rhesis/rhesis-managed"
         organization_id: Org to attribute accrued tokens to. Falsy (the task
             paths derive it from a nullable column and can pass "") skips
             accrual rather than booking the tokens against no org.
