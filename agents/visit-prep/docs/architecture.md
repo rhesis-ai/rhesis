@@ -114,7 +114,7 @@ Completeness itself is decided in Python (`missing_core_slots`), not by a model 
 
 ## Concurrency
 
-`session.py` keeps one process-wide pipeline. Concurrent turns share it safely: `Pipeline.run` keeps its per-run bookkeeping in locals and the Agent builds a fresh `State` for every run, so nothing turn-specific lives on either object.
+`session.py` keeps one process-wide pipeline. Concurrent turns share it safely, where the previous design serialized every turn behind a global run lock. Dropping that lock rests on all three shared objects holding no per-run state: `Pipeline.run` keeps its bookkeeping in locals, the Agent builds a fresh `State` per run and otherwise only flips idempotent warm-up flags, and `GoogleGenAIChatGenerator` assigns to `self` in `__init__` alone — its `run` reads configuration and calls the client. That client is `google-genai`'s, built on `httpx.Client`, which is safe to share across threads. If a future generator does carry per-run state, the lock belongs on the generator rather than the pipeline, so turns can still overlap everywhere else.
 
 Turns on **one** conversation still serialize, or two overlapping turns would read the same state and the second write would lose the first. The sync and async entry points cannot share one lock for this: a `threading.Lock` held across an `await` blocks the event loop thread, and the coroutine holding it can never resume — a permanent hang, not a slow request. `StateStore` therefore hands out a `threading.Lock` to `run_chat_turn` and an `asyncio.Lock` to `run_chat_turn_async`.
 

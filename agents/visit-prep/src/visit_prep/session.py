@@ -91,9 +91,13 @@ _pipeline_init_lock = Lock()
 def get_default_pipeline() -> Pipeline:
     """Return the process-wide coordinator pipeline, building it once on first use.
 
-    Concurrent turns share this one instance. That is safe: ``Pipeline.run`` keeps its
-    per-run bookkeeping in locals and the Agent builds a fresh ``State`` for every run, so
-    nothing turn-specific lives on either object.
+    Concurrent turns share this one instance, which the previous design serialized behind a
+    global run lock. Dropping that lock rests on all three shared objects holding no per-run
+    state: ``Pipeline.run`` keeps its bookkeeping in locals, the Agent builds a fresh
+    ``State`` per run and otherwise only flips idempotent warm-up flags, and
+    ``GoogleGenAIChatGenerator`` assigns to ``self`` in ``__init__`` alone — its ``run``
+    reads configuration and calls the client. That client is ``google-genai``'s, built on
+    ``httpx.Client``, which is safe to share across threads.
     """
     global _default_pipeline
     if _default_pipeline is None:
