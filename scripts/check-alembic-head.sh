@@ -18,6 +18,10 @@ ALEMBIC="$REPO_ROOT/apps/backend/.venv/bin/alembic"
 if [[ ! -x "$ALEMBIC" ]]; then
   ALEMBIC="alembic"
 fi
+if ! command -v "$ALEMBIC" >/dev/null 2>&1; then
+  echo "alembic not found. Run 'uv sync --dev' in apps/backend first." >&2
+  exit 1
+fi
 
 cd "$ALEMBIC_DIR"
 
@@ -134,18 +138,40 @@ echo "New migration(s) ($NEW_COUNT):"
 echo "$NEW_MIGRATIONS"
 
 BASE_WORKTREE=$(mktemp -d)
-trap 'git -C "$REPO_ROOT" worktree remove --force "$BASE_WORKTREE" 2>/dev/null || true' EXIT
+# Preserves the script's exit status; a bare trap can report a failure as 0.
+cleanup() {
+  local status=$?
+  git -C "$REPO_ROOT" worktree remove --force "$BASE_WORKTREE" 2>/dev/null || true
+  exit "$status"
+}
+trap cleanup EXIT
 git -C "$REPO_ROOT" worktree add --force "$BASE_WORKTREE" "$BASE_REF"
 
-BASE_HEADS=()
-while IFS= read -r line; do BASE_HEADS+=("$line"); done < <(
+# Command substitution, not process substitution: alembic_heads exits non-zero
+# on failure and that status has to reach us instead of dying in a subshell.
+BASE_HEADS_RAW=$(
   cd "$BASE_WORKTREE/apps/backend/src/rhesis/backend" && alembic_heads "Base ($BASE_REF)"
-)
+) || exit 1
+BASE_HEADS=()
+while IFS= read -r line; do
+  if [[ -n "$line" ]]; then BASE_HEADS+=("$line"); fi
+done <<<"$BASE_HEADS_RAW"
+if [[ ${#BASE_HEADS[@]} -eq 0 ]]; then
+  echo "Base ($BASE_REF): no migration heads found." >&2
+  exit 1
+fi
 
 echo "Base ($BASE_REF) head(s): ${BASE_HEADS[*]}"
 
+PR_HEADS_RAW=$(alembic_heads "PR branch") || exit 1
 PR_HEADS=()
-while IFS= read -r line; do PR_HEADS+=("$line"); done < <(alembic_heads "PR branch")
+while IFS= read -r line; do
+  if [[ -n "$line" ]]; then PR_HEADS+=("$line"); fi
+done <<<"$PR_HEADS_RAW"
+if [[ ${#PR_HEADS[@]} -eq 0 ]]; then
+  echo "PR branch: no migration heads found." >&2
+  exit 1
+fi
 if [[ ${#PR_HEADS[@]} -ne 1 ]]; then
   echo "This PR has ${#PR_HEADS[@]} Alembic heads: ${PR_HEADS[*]}" >&2
   echo "Base head(s): ${BASE_HEADS[*]}" >&2
