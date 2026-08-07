@@ -8,6 +8,7 @@ import {
   FeaturesProvider,
   useFeature,
   useFeaturesState,
+  useIsLocalMode,
 } from '../FeaturesContext';
 
 const mockGetFeatures = jest.fn();
@@ -202,6 +203,59 @@ describe('useFeature', () => {
     );
 
     expect(screen.getByTestId('probe')).toHaveTextContent('off');
+  });
+});
+
+function LocalModeProbe() {
+  const isLocalMode = useIsLocalMode();
+  return <div data-testid="local-mode">{String(isLocalMode)}</div>;
+}
+
+describe('useIsLocalMode', () => {
+  it('returns true when the backend reports is_local', async () => {
+    mockGetFeatures.mockResolvedValue({
+      license: LICENSE,
+      enabled: [],
+      is_local: true,
+    });
+
+    render(
+      <FeaturesProvider>
+        <LocalModeProbe />
+      </FeaturesProvider>
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId('local-mode')).toHaveTextContent('true')
+    );
+  });
+
+  it('defaults to false when is_local is absent (older backend)', async () => {
+    mockGetFeatures.mockResolvedValue({ license: LICENSE, enabled: [] });
+
+    render(
+      <FeaturesProvider>
+        <LocalModeProbe />
+      </FeaturesProvider>
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId('local-mode')).toHaveTextContent('false')
+    );
+  });
+
+  it('fails closed (false) while loading and on fetch error', async () => {
+    mockGetFeatures.mockRejectedValue(new Error('boom'));
+
+    render(
+      <FeaturesProvider>
+        <LocalModeProbe />
+      </FeaturesProvider>
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId('local-mode')).toHaveTextContent('false')
+    );
   });
 });
 
