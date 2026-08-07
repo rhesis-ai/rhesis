@@ -8,7 +8,6 @@ on:
 
 jobs:
   changes:
-    name: Detect changed areas
     runs-on: ubuntu-latest
     outputs:
       targets: ${{ steps.resolve.outputs.targets }}
@@ -18,8 +17,6 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Check for file changes
-        # Skipped on workflow_dispatch: no base ref to diff against, and a
-        # manual run lints everything anyway.
         if: github.event_name == 'pull_request'
         uses: dorny/paths-filter@v3
         id: filter
@@ -41,32 +38,29 @@ jobs:
       - name: Resolve lint targets
         id: resolve
         env:
-          # paths-filter's `changes` output is a JSON array of matched filters.
           CHANGED: ${{ github.event_name == 'workflow_dispatch' && '["backend","sdk","penelope","frontend","docs"]' || steps.filter.outputs.changes }}
         run: |
           set -euo pipefail
           echo "Changed areas: $CHANGED"
           echo "targets=$CHANGED" >> "$GITHUB_OUTPUT"
 
-          # The Python areas all lint the same way (uv + `make lint`), so they
-          # share one matrix. Frontend and docs have their own jobs.
           PYTHON=$(jq -nc --argjson changed "$CHANGED" '
-            [ {id: "backend",  name: "Backend",  dir: "apps/backend"},
-              {id: "sdk",      name: "SDK",      dir: "sdk"},
-              {id: "penelope", name: "Penelope", dir: "penelope"} ]
-            | map(select(.id as $id | $changed | index($id)))')
+            [ {id: "backend",  dir: "apps/backend"},
+              {id: "sdk",      dir: "sdk"},
+              {id: "penelope", dir: "penelope"} ]
+            | map(select(.id as $id | $changed | index($id)))
+            | map(.dir)')
           echo "python=$PYTHON" >> "$GITHUB_OUTPUT"
           echo "Python matrix: $PYTHON"
 
   python:
-    name: Lint ${{ matrix.target.name }}
     needs: changes
     if: needs.changes.outputs.python != '[]'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        target: ${{ fromJSON(needs.changes.outputs.python) }}
+        dir: ${{ fromJSON(needs.changes.outputs.python) }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -77,12 +71,11 @@ jobs:
           version: latest
           enable-cache: true
 
-      - name: Run ${{ matrix.target.name }} linting
+      - name: Run lint
         run: make lint
-        working-directory: ${{ matrix.target.dir }}
+        working-directory: ${{ matrix.dir }}
 
   frontend:
-    name: Lint Frontend
     needs: changes
     if: contains(fromJSON(needs.changes.outputs.targets), 'frontend')
     runs-on: ubuntu-latest
@@ -113,7 +106,6 @@ jobs:
         run: npm run type-check
 
   docs:
-    name: Lint Docs
     needs: changes
     if: contains(fromJSON(needs.changes.outputs.targets), 'docs')
     runs-on: ubuntu-latest
@@ -151,7 +143,6 @@ jobs:
                         "frontend=${{ needs.frontend.result }}" \
                         "docs=${{ needs.docs.result }}"; do
             echo "$RESULT"
-            # skipped = area not touched by this PR, which is a pass.
             case "${RESULT#*=}" in
               success|skipped) ;;
               *) FAILED=1 ;;
