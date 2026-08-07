@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 
-from haystack import component
+from haystack.dataclasses import ChatMessage
 
-from visit_prep.state import VisitPrepState
+from visit_prep.utils import user_texts
 
 # Rule-based patterns for potentially emergent presentations.
-# A future ``tools.py`` extension point could wire a "find care near me" lookup
-# only into the escalation path — not implemented in this draft.
 RED_FLAG_PATTERNS: tuple[re.Pattern[str], ...] = tuple(
     re.compile(pattern, re.IGNORECASE)
     for pattern in (
@@ -34,45 +33,22 @@ def text_suggests_red_flag(text: str) -> bool:
     return any(pattern.search(text) for pattern in RED_FLAG_PATTERNS)
 
 
-def has_red_flag(state: VisitPrepState) -> bool:
-    """Evaluate the accumulated picture for red-flag phrases."""
-    if state.red_flag:
-        return True
-    chunks: list[str] = []
-    if state.chief_complaint:
-        chunks.append(state.chief_complaint)
-    for slot_name in (
-        "onset",
-        "location",
-        "character",
-        "severity",
-        "timing",
-        "aggravating",
-        "relieving",
-        "associated",
-        "context",
-    ):
-        value = getattr(state.slots, slot_name)
-        if value:
-            chunks.append(value)
-    for message in state.history:
-        chunks.append(message.get("content", ""))
-    combined = "\n".join(chunks)
-    return text_suggests_red_flag(combined)
+def first_red_flag_text(messages: Iterable[ChatMessage]) -> str | None:
+    """Return the first user message that matches a red-flag pattern, or ``None``.
 
-
-@component
-class RedFlagChecker:
-    """Haystack component wrapper around :func:`has_red_flag`."""
-
-    @component.output_types(red_flag=bool)
-    def run(self, state: VisitPrepState) -> dict[str, bool]:
-        return {"red_flag": has_red_flag(state)}
+    Only the user's own words are scanned: the assistant's escalation wording and tool
+    results must not re-trigger the check. Because the coordinator replays the whole
+    conversation every turn, a red flag raised on an earlier turn keeps matching — which
+    is what makes escalation sticky.
+    """
+    for text in user_texts(messages):
+        if text_suggests_red_flag(text):
+            return text
+    return None
 
 
 __all__ = [
     "RED_FLAG_PATTERNS",
-    "RedFlagChecker",
-    "has_red_flag",
+    "first_red_flag_text",
     "text_suggests_red_flag",
 ]

@@ -1,6 +1,6 @@
 # Visit-Prep Agent
 
-A **Haystack 2.x** multi-agent assistant that helps you prepare for a doctor's appointment. It collects a structured symptom history one question at a time, then produces a timeline and a short list of questions to ask your clinician.
+A **Haystack 3.x** multi-agent assistant that helps you prepare for a doctor's appointment. It collects a structured symptom history one question at a time, then produces a timeline and a short list of questions to ask your clinician.
 
 **It does not diagnose or recommend treatment.**
 
@@ -8,10 +8,10 @@ A **Haystack 2.x** multi-agent assistant that helps you prepare for a doctor's a
 
 | Subagent | Role |
 |---|---|
-| Intent router | Classifies every message (greeting, meta, out_of_scope, emergency, health_concern). |
-| Gathering brain | Extracts OPQRST/SOCRATES slots and asks one question per turn. |
-| Summary writer | Produces a visit-prep hand-off from filled slots only. |
-| Safety critic | Independent reviewer with veto power over the summary. |
+| Coordinator | Routes every turn via tools (red-flag check first, then greet / redirect / gather / summarize). |
+| History specialist | Extracts OPQRST/SOCRATES slots and asks one question per turn. |
+| Summary specialist | Produces a visit-prep hand-off from filled slots only; hands off to the critic. |
+| Safety critic | Independent reviewer with veto power over the summary (`submit_verdict`). |
 
 > Full architecture: [docs/architecture.md](docs/architecture.md)
 
@@ -64,7 +64,7 @@ uv run python -m visit_prep
 
 ## Run Scenarios
 
-Scripted conversations per intent (requires API key):
+Scripted conversations covering each route (requires API key):
 
 ```bash
 uv run python examples/run_scenarios.py

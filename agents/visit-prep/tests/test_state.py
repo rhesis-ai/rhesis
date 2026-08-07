@@ -40,3 +40,40 @@ def test_apply_slot_updates_ignores_blank_values():
 
 def test_phase_values():
     assert Phase.GATHERING.value == "gathering"
+
+
+def test_describe_slots_reports_known_and_missing():
+    from visit_prep.state import describe_slots
+
+    state = VisitPrepState(chief_complaint="headache", slots=Slots(onset="3 days"))
+    text = describe_slots(state)
+    assert "Chief complaint: headache" in text
+    assert "- onset: 3 days" in text
+    assert "Still missing core slots:" in text
+    assert "location" in text
+
+
+def test_describe_slots_announces_a_complete_history():
+    from visit_prep.state import describe_slots
+
+    state = VisitPrepState(
+        chief_complaint="headache",
+        slots=Slots(
+            onset="3 days",
+            location="temples",
+            character="pressure",
+            severity="4/10",
+            timing="intermittent",
+            aggravating="screens",
+            relieving="rest",
+            associated="none",
+        ),
+    )
+    assert "the history is complete" in describe_slots(state)
+
+
+def test_state_from_slots_tolerates_a_non_dict_payload():
+    from visit_prep.state import state_from_slots
+
+    assert state_from_slots(None, None).slots.onset is None
+    assert state_from_slots("headache", {"onset": "2 days"}).chief_complaint == "headache"

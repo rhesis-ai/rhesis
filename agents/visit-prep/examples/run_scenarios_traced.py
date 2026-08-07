@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import sys
 import uuid
 from pathlib import Path
@@ -11,13 +12,12 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# tracing.py must load before any Haystack import (pipeline, run_scenarios).
-from visit_prep.tracing import (  # noqa: E402, I001 - must load before haystack import
-    enable_rhesis_tracing,
-    flush_rhesis_tracing,
-    set_trace_session,
-)
-from visit_prep.pipeline import build_intent_pipeline, build_turn_components  # noqa: E402
+# Must precede any Haystack import so span input/output content is captured.
+os.environ.setdefault("HAYSTACK_CONTENT_TRACING_ENABLED", "true")
+
+from haystack_integrations.tracing.rhesis import RhesisTracing  # noqa: E402
+
+from visit_prep.pipeline import build_coordinator_pipeline  # noqa: E402
 from visit_prep.state import Phase  # noqa: E402
 
 _EXAMPLES_DIR = Path(__file__).resolve().parent
@@ -31,25 +31,24 @@ logger = logging.getLogger("visit_prep.examples.run_scenarios_traced")
 
 
 def main() -> int:
-    if not enable_rhesis_tracing():
+    tracing = RhesisTracing("Visit-Prep", turn_span_name="function.visit_prep_turn")
+    if not tracing.enabled:
         logger.error(
-            "Rhesis tracing is not configured. Set RHESIS_API_KEY and "
-            "RHESIS_PROJECT_ID in .env (see .env.example)."
+            "Rhesis tracing is not configured. Set RHESIS_API_KEY in .env (see .env.example)."
         )
         return 1
 
     try:
-        components = build_turn_components()
+        pipeline = build_coordinator_pipeline()
     except RuntimeError as exc:
         logger.error("%s", exc)
         return 1
 
-    pipeline = build_intent_pipeline(components)
-
     try:
         for name, messages in SCENARIOS.items():
-            set_trace_session(str(uuid.uuid4()))
-            final_state = run_scenario(name, messages, pipeline=pipeline, components=components)
+            # One conversation per scenario, so each lands in its own trace.
+            tracing.start_conversation(str(uuid.uuid4()))
+            final_state = run_scenario(name, messages, pipeline=pipeline, turn_hook=tracing.turn)
             if name == "emergency" and final_state.phase != Phase.ESCALATED:
                 logger.error("Expected ESCALATED for emergency scenario")
                 return 1
@@ -59,7 +58,7 @@ def main() -> int:
         logger.info("All traced scenarios completed.")
         return 0
     finally:
-        flush_rhesis_tracing()
+        tracing.flush()
 
 
 if __name__ == "__main__":
