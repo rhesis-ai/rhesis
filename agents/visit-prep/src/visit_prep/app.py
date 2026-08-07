@@ -4,30 +4,25 @@ Rhesis concerns — client construction, auto_instrument, @endpoint — live onl
 Nothing else under ``visit_prep`` imports from ``rhesis.sdk``.
 """
 
-from __future__ import annotations  # noqa: I001 - tracing must import before session/haystack
+from __future__ import annotations  # noqa: I001 - content tracing must be set before haystack
 
-import functools
 import logging
+import os
 import uuid
 from contextlib import asynccontextmanager
 from typing import Any
 
-import anyio
-from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, Field
+# Must precede any Haystack import so span input/output content is captured.
+os.environ.setdefault("HAYSTACK_CONTENT_TRACING_ENABLED", "true")
 
-from rhesis.sdk import RhesisClient, endpoint
-from rhesis.sdk.clients import DisabledClient
+from dotenv import load_dotenv  # noqa: E402
+from fastapi import FastAPI, HTTPException  # noqa: E402
+from haystack_integrations.tracing.rhesis import RhesisTracing  # noqa: E402
+from pydantic import BaseModel, Field  # noqa: E402
 
-# tracing.py sets HAYSTACK_CONTENT_TRACING_ENABLED before any haystack import.
-from visit_prep.tracing import (  # noqa: E402
-    enable_rhesis_tracing,
-    flush_rhesis_tracing,
-    is_rhesis_tracing_configured,
-    set_trace_session,
-)
-from visit_prep.session import default_store, run_chat_turn  # noqa: E402
+from rhesis.sdk import RhesisClient, endpoint  # noqa: E402
+from rhesis.sdk.clients import DisabledClient  # noqa: E402
+from visit_prep.session import default_store, run_chat_turn_async  # noqa: E402
 from visit_prep.state import Phase  # noqa: E402
 
 logging.basicConfig(
@@ -46,9 +41,9 @@ load_dotenv()
 # providers and would export against an unknown project scope without
 # ``RHESIS_PROJECT_ID``. ``DisabledClient`` keeps telemetry off when either is
 # missing.
-if is_rhesis_tracing_configured():
+_tracing_configured = bool(os.getenv("RHESIS_API_KEY") and os.getenv("RHESIS_PROJECT_ID"))
+if _tracing_configured:
     rhesis_client = RhesisClient.from_environment()
-    enable_rhesis_tracing("Visit-Prep")
 else:
     logger.info(
         "RHESIS_API_KEY/RHESIS_PROJECT_ID not set; using DisabledClient. "
@@ -56,8 +51,9 @@ else:
     )
     rhesis_client = DisabledClient()
 
-# Pending: swap enable_rhesis_tracing() for auto_instrument("haystack") when the
-# SDK Haystack integration (PR #2009 or equivalent) lands.
+# The served path never opens a turn span: @endpoint already owns the conversation turn root.
+# This is here to enable Haystack tracing and to carry the conversation id onto its spans.
+tracing = RhesisTracing("Visit-Prep", enabled=_tracing_configured)
 
 _startup_validated: bool = False
 
@@ -71,12 +67,10 @@ async def lifespan(app: FastAPI):
     # Build the shared pipeline + generator once so per-turn requests reuse it.
     get_default_pipeline()
     _startup_validated = True
-    logger.info(
-        "Visit-Prep ready: intent_router + gathering_brain + summary_writer + safety_critic"
-    )
+    logger.info("Visit-Prep ready: coordinator + history + summary + critic specialists")
     yield
     _startup_validated = False
-    flush_rhesis_tracing()
+    tracing.flush()
 
 
 app = FastAPI(
@@ -157,17 +151,11 @@ async def chat_endpoint_traced(
     # Resolve the conversation id up front (instead of letting run_chat_turn mint
     # one) so we can group this turn's Haystack spans under the same session. The
     # SDK @endpoint sets ai.session.id on its own span, but the Haystack tracer
-    # reads it from tracing_context_var, which set_trace_session populates.
+    # reads it from the invocation context, which start_conversation populates.
     conv_id = conversation_id or str(uuid.uuid4())
-    set_trace_session(conv_id)
+    tracing.start_conversation(conv_id)
     logger.info("Visit-Prep chat turn (conversation=%s)", conv_id)
-    # run_chat_turn drives the Haystack pipeline + Gemini calls synchronously
-    # (blocking I/O). Offload to a worker thread so this async handler does not
-    # block the event loop. anyio copies the current contextvars into the worker,
-    # preserving the active trace/span context (including the session set above).
-    result = await anyio.to_thread.run_sync(
-        functools.partial(run_chat_turn, message, conversation_id=conv_id)
-    )
+    result = await run_chat_turn_async(message, conversation_id=conv_id)
     return _chat_response_from_result(result)
 
 

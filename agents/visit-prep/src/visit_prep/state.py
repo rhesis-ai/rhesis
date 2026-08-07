@@ -72,11 +72,45 @@ def apply_slot_updates(state: VisitPrepState, updates: dict[str, str | None]) ->
     return new_state
 
 
+def describe_slots(state: VisitPrepState) -> str:
+    """Render the slot picture for a prompt.
+
+    Agent ``State`` never reaches the model on its own — Haystack only feeds the model
+    messages and rendered prompt variables. This is how the coordinator and the history
+    specialist get to see what has already been collected.
+    """
+    filled = {
+        name: value for name, value in state.slots.model_dump().items() if not _is_blank(value)
+    }
+    lines = [f"Chief complaint: {state.chief_complaint or '(not recorded yet)'}"]
+    if filled:
+        lines.append("Recorded so far:")
+        lines.extend(f"- {name}: {value}" for name, value in filled.items())
+    else:
+        lines.append("Recorded so far: nothing yet.")
+    missing = missing_core_slots(state)
+    if missing:
+        lines.append(f"Still missing core slots: {', '.join(missing)}")
+    else:
+        lines.append("All core slots are filled — the history is complete.")
+    return "\n".join(lines)
+
+
+def state_from_slots(chief_complaint: str | None, slots: object) -> VisitPrepState:
+    """Rebuild a :class:`VisitPrepState` from an Agent ``State`` slot payload."""
+    return VisitPrepState(
+        chief_complaint=chief_complaint or None,
+        slots=Slots.model_validate(slots if isinstance(slots, dict) else {}),
+    )
+
+
 __all__ = [
     "CORE_SLOTS",
     "Phase",
     "Slots",
     "VisitPrepState",
     "apply_slot_updates",
+    "describe_slots",
     "missing_core_slots",
+    "state_from_slots",
 ]

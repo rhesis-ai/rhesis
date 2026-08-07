@@ -1,278 +1,124 @@
-"""Per-turn Haystack pipeline and turn orchestration."""
+"""Thin Haystack pipeline wrapping the Visit-Prep coordinator Agent."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Any
 
-from haystack import Pipeline, component
-from haystack.components.routers import ConditionalRouter
+from haystack import Pipeline
+from haystack.components.agents import Agent
+from haystack.dataclasses import ChatMessage, ChatRole
 
-from visit_prep.agents.critic import SafetyCritic, create_safety_critic
-from visit_prep.agents.gathering import GatheringBrain, create_gathering_brain
-from visit_prep.agents.router import IntentRouter, create_intent_router
-from visit_prep.agents.summary import SummaryWriter, create_summary_writer
+from visit_prep.agents.coordinator import create_coordinator_agent
 from visit_prep.client import build_chat_generator
-from visit_prep.safety import has_red_flag
-from visit_prep.state import Phase, VisitPrepState, missing_core_slots
-from visit_prep.terminals import escalate, terminal_reply
+from visit_prep.state import Phase, Slots, VisitPrepState, describe_slots
+from visit_prep.utils import as_text, tool_result_text
+
+COORDINATOR = "coordinator"
 
 
-# eq=False keeps identity hashing so a bundle can key the per-components
-# pipeline cache in ``session.py`` (a WeakKeyDictionary).
-@dataclass(eq=False)
-class TurnComponents:
-    """Bundle of subagent components for one turn."""
-
-    router: IntentRouter
-    gathering: GatheringBrain
-    summary: SummaryWriter
-    critic: SafetyCritic
+def build_coordinator_agent(generator=None) -> Agent:
+    """Build the coordinator Agent, sharing one chat generator with its specialists."""
+    return create_coordinator_agent(generator or build_chat_generator())
 
 
-def build_turn_components(generator=None) -> TurnComponents:
-    """Construct all subagent components sharing one generator."""
-    gen = generator or build_chat_generator()
-    return TurnComponents(
-        router=create_intent_router(gen),
-        gathering=create_gathering_brain(gen),
-        summary=create_summary_writer(gen),
-        critic=create_safety_critic(gen),
-    )
+def build_coordinator_pipeline(generator=None) -> Pipeline:
+    """Wrap the coordinator in a one-component pipeline, for the root tracing spans."""
+    pipe = Pipeline()
+    pipe.add_component(COORDINATOR, build_coordinator_agent(generator))
+    return pipe
 
 
-@component
-class PrepareTurn:
-    """Increment turn counter and append the user message to history."""
-
-    @component.output_types(state=VisitPrepState, message=str)
-    def run(self, message: str, state: VisitPrepState) -> dict[str, object]:
-        text = str(message)
-        updated = state.model_copy(deep=True)
-        updated.turn += 1
-        updated.history = [
-            *updated.history,
-            {"role": "user", "content": text},
-        ]
-        return {"state": updated, "message": text}
+def _history_to_chat_messages(history: list[dict[str, str]]) -> list[ChatMessage]:
+    messages: list[ChatMessage] = []
+    for item in history:
+        content = as_text(item.get("content", ""))
+        if item.get("role") == "assistant":
+            messages.append(ChatMessage.from_assistant(content))
+        else:
+            messages.append(ChatMessage.from_user(content))
+    return messages
 
 
-@component
-class EmergencyTerminal:
-    @component.output_types(reply=str, state=VisitPrepState)
-    def run(self, state: VisitPrepState) -> dict[str, object]:
-        reply, updated = terminal_reply("emergency", state)
-        updated.history = [*updated.history, {"role": "assistant", "content": reply}]
-        return {"reply": reply, "state": updated}
+def _run_data(message: str, state: VisitPrepState) -> dict[str, Any]:
+    """Build the pipeline input for one turn."""
+    return {
+        COORDINATOR: {
+            "messages": [
+                *_history_to_chat_messages(state.history),
+                ChatMessage.from_user(message),
+            ],
+            "slots": state.slots.model_dump(),
+            "chief_complaint": state.chief_complaint or "",
+            "slot_status": describe_slots(state),
+        }
+    }
 
 
-@component
-class GreetTerminal:
-    @component.output_types(reply=str, state=VisitPrepState)
-    def run(self, state: VisitPrepState) -> dict[str, object]:
-        reply, updated = terminal_reply("greeting", state)
-        updated.history = [*updated.history, {"role": "assistant", "content": reply}]
-        return {"reply": reply, "state": updated}
+def _extract_reply(result: dict[str, Any]) -> str:
+    """Return the user-facing reply for one coordinator run.
+
+    A critic-approved summary wins over anything the model says afterwards, so the reviewed
+    text reaches the user verbatim. Otherwise the run ended either on a terminal tool (whose
+    templated result is the reply) or on a plain text reply.
+    """
+    summary = result.get("summary")
+    if summary:
+        return str(summary)
+
+    last = result.get("last_message")
+    if isinstance(last, ChatMessage):
+        if last.is_from(ChatRole.TOOL):
+            return tool_result_text(last)
+        if last.text:
+            return last.text
+    return ""
 
 
-@component
-class RedirectTerminal:
-    @component.output_types(reply=str, state=VisitPrepState)
-    def run(self, state: VisitPrepState) -> dict[str, object]:
-        reply, updated = terminal_reply("out_of_scope", state)
-        updated.history = [*updated.history, {"role": "assistant", "content": reply}]
-        return {"reply": reply, "state": updated}
+def _apply_result_to_state(
+    state: VisitPrepState,
+    result: dict[str, Any],
+    reply: str,
+    user_message: str,
+) -> VisitPrepState:
+    updated = state.model_copy(deep=True)
+    updated.turn += 1
+    updated.history = [
+        *updated.history,
+        {"role": "user", "content": user_message},
+        {"role": "assistant", "content": reply},
+    ]
 
+    if isinstance(result.get("slots"), dict):
+        updated.slots = Slots.model_validate(result["slots"])
+    if result.get("chief_complaint"):
+        updated.chief_complaint = result["chief_complaint"]
 
-@component
-class HealthConcernHandler:
-    """Gathering path: extract slots, red-flag check, ask one question or finish."""
-
-    def __init__(
-        self,
-        gathering: GatheringBrain,
-        summary: SummaryWriter,
-        critic: SafetyCritic,
-    ) -> None:
-        self._gathering = gathering
-        self._summary = summary
-        self._critic = critic
-
-    @component.output_types(reply=str, state=VisitPrepState, intent=str)
-    def run(self, message: str, state: VisitPrepState) -> dict[str, object]:
-        text = str(message)
-        updated = state.model_copy(deep=True)
+    # Phase follows what actually happened, not merely which tools were called: a blocked
+    # write_summary leaves no approved summary behind and must not read as "done".
+    counts: dict[str, int] = result.get("tool_call_counts") or {}
+    if result.get("red_flag_warned"):
+        updated.red_flag = True
+    if counts.get("escalate"):
+        updated.phase = Phase.ESCALATED
+        updated.red_flag = True
+    elif result.get("summary"):
+        updated.phase = Phase.DONE
+    elif counts.get("gather_history"):
         updated.phase = Phase.GATHERING
 
-        updated = self._gathering.extract(text, updated)
-
-        if has_red_flag(updated):
-            updated.phase = Phase.ESCALATED
-            updated.red_flag = True
-            reply = escalate()
-            updated.history = [*updated.history, {"role": "assistant", "content": reply}]
-            return {"reply": reply, "state": updated, "intent": "health_concern"}
-
-        missing = missing_core_slots(updated)
-        if missing:
-            reply = self._gathering.ask(updated, missing)
-            if not reply:
-                reply = _fallback_question(missing[0])
-            updated.history = [*updated.history, {"role": "assistant", "content": reply}]
-            return {"reply": reply, "state": updated, "intent": "health_concern"}
-
-        reply, updated = _finish(updated, self._summary, self._critic)
-        return {"reply": reply, "state": updated, "intent": "health_concern"}
+    return updated
 
 
-def _fallback_question(slot_name: str) -> str:
-    prompts = {
-        "onset": "When did this start, and did it come on suddenly or gradually?",
-        "location": "Where do you feel it, and does it spread anywhere else?",
-        "character": "How would you describe what it feels like?",
-        "severity": "On a scale of 0–10, how severe is it, and how is it affecting daily life?",
-        "timing": "Is it constant or does it come and go? How often and how long does it last?",
-        "aggravating": "What makes it worse?",
-        "relieving": "What makes it better, if anything?",
-        "associated": "Have you noticed any other symptoms along with it?",
+def _finish_turn(state: VisitPrepState, raw: dict[str, Any], message: str) -> dict[str, Any]:
+    result = raw[COORDINATOR]
+    reply = _extract_reply(result)
+    if not reply:
+        raise RuntimeError(f"Coordinator completed without a reply: {list(result.keys())}")
+    return {
+        "response": reply,
+        "state": _apply_result_to_state(state, result, reply, message),
+        "raw": result,
     }
-    return prompts.get(slot_name, f"Can you tell me more about {slot_name.replace('_', ' ')}?")
-
-
-_FALLBACK_SLOT_LABELS: dict[str, str] = {
-    "onset": "Started",
-    "location": "Location",
-    "character": "What it feels like",
-    "severity": "Severity",
-    "timing": "Pattern",
-    "aggravating": "Makes it worse",
-    "relieving": "Makes it better",
-    "associated": "Other symptoms",
-    "context": "Background",
-}
-
-
-def _fallback_summary(state: VisitPrepState) -> str:
-    """Deterministic slot recap used when the critic rejects the rewrite too.
-
-    Built purely from user-stated slot values, so it cannot diagnose, suggest
-    treatment, or invent facts — safe by construction.
-    """
-    lines = ["Here is a recap of what you've told me, to bring to your appointment:", ""]
-    if state.chief_complaint:
-        lines.append(f"Main concern: {state.chief_complaint}")
-    for slot_name, label in _FALLBACK_SLOT_LABELS.items():
-        value = getattr(state.slots, slot_name)
-        if value:
-            lines.append(f"- {label}: {value}")
-    lines += [
-        "",
-        "Questions you could ask your clinician:",
-        "- What might explain these symptoms, and what would you want to check first?",
-        "- Are there warning signs that should bring me back sooner?",
-        "- Is there anything I can safely do to manage this in the meantime?",
-    ]
-    return "\n".join(lines)
-
-
-def _finish(
-    state: VisitPrepState,
-    summary_writer: SummaryWriter,
-    critic: SafetyCritic,
-) -> tuple[str, VisitPrepState]:
-    """Write the summary with a real critic veto.
-
-    The critic reviews the first draft; on rejection the writer gets one
-    rewrite, which is reviewed again. If the rewrite is also rejected, ship
-    the deterministic slot recap instead — an unreviewed rewrite must never
-    reach the user.
-    """
-    summary = summary_writer.run(state=state)["summary"]
-    verdict = critic.run(summary=summary, state=state)
-    if not verdict["approved"]:
-        summary = summary_writer.run(state=state, fix=verdict["feedback"])["summary"]
-        verdict = critic.run(summary=summary, state=state)
-    if not verdict["approved"]:
-        summary = _fallback_summary(state)
-    updated = state.model_copy(deep=True)
-    updated.phase = Phase.DONE
-    updated.history = [*updated.history, {"role": "assistant", "content": summary}]
-    return summary, updated
-
-
-def _build_intent_conditional_router() -> ConditionalRouter:
-    """Build the four-way intent :class:`ConditionalRouter`.
-
-    ``unsafe=True`` is required to pass the custom ``VisitPrepState`` object
-    through the router. For the health-concern branch the user message is emitted
-    via ``{{ message | tojson }}``: this produces an escaped JSON string literal
-    so native evaluation yields a real ``str`` without breaking on apostrophes,
-    quotes, or newlines, and without coercing numeric text like "9" to an int.
-    Manual single-quoting ("'{{ message }}'") was fragile — "I'm in pain" would
-    render to an invalid literal and crash the pipeline.
-    """
-    routes = [
-        {
-            "condition": "{{ intent == 'emergency' }}",
-            "output": "{{ state }}",
-            "output_name": "emergency_state",
-            "output_type": VisitPrepState,
-        },
-        {
-            "condition": "{{ intent in ['greeting', 'meta'] }}",
-            "output": "{{ state }}",
-            "output_name": "greet_state",
-            "output_type": VisitPrepState,
-        },
-        {
-            "condition": "{{ intent == 'out_of_scope' }}",
-            "output": "{{ state }}",
-            "output_name": "redirect_state",
-            "output_type": VisitPrepState,
-        },
-        {
-            "condition": "{{ intent == 'health_concern' }}",
-            "output": ["{{ message | tojson }}", "{{ state }}"],
-            "output_name": ["health_message", "health_state"],
-            "output_type": [str, VisitPrepState],
-        },
-    ]
-    return ConditionalRouter(routes=routes, unsafe=True)
-
-
-def build_intent_pipeline(components: TurnComponents | None = None) -> Pipeline:
-    """Build the per-turn Haystack pipeline with ConditionalRouter intent branching."""
-    parts = components or build_turn_components()
-
-    pipe = Pipeline()
-    pipe.add_component("prepare", PrepareTurn())
-    pipe.add_component("router", parts.router)
-    pipe.add_component("intent_router", _build_intent_conditional_router())
-    pipe.add_component("emergency", EmergencyTerminal())
-    pipe.add_component("greet", GreetTerminal())
-    pipe.add_component("redirect", RedirectTerminal())
-    pipe.add_component(
-        "health",
-        HealthConcernHandler(
-            gathering=parts.gathering,
-            summary=parts.summary,
-            critic=parts.critic,
-        ),
-    )
-
-    pipe.connect("prepare.state", "router.state")
-    pipe.connect("prepare.message", "router.message")
-    pipe.connect("router.intent", "intent_router.intent")
-    pipe.connect("prepare.state", "intent_router.state")
-    pipe.connect("prepare.message", "intent_router.message")
-
-    pipe.connect("intent_router.emergency_state", "emergency.state")
-    pipe.connect("intent_router.greet_state", "greet.state")
-    pipe.connect("intent_router.redirect_state", "redirect.state")
-    pipe.connect("intent_router.health_message", "health.message")
-    pipe.connect("intent_router.health_state", "health.state")
-
-    return pipe
 
 
 def run_turn(
@@ -280,45 +126,38 @@ def run_turn(
     state: VisitPrepState | None = None,
     *,
     pipeline: Pipeline | None = None,
-    components: TurnComponents | None = None,
 ) -> dict[str, Any]:
-    """Run one conversation turn and return reply plus updated state."""
-    current_state = state or VisitPrepState()
-    pipe = pipeline or build_intent_pipeline(components)
+    """Run one conversation turn through the coordinator pipeline.
 
-    run_data: dict[str, Any] = {"prepare": {"message": message, "state": current_state}}
-    result = pipe.run(data=run_data)
-
-    for branch in ("health", "emergency", "greet", "redirect"):
-        if branch in result and "reply" in result[branch]:
-            return {
-                "response": result[branch]["reply"],
-                "state": result[branch]["state"],
-                "intent": result[branch].get("intent") or _branch_intent(branch),
-            }
-
-    raise RuntimeError(f"Pipeline completed without a terminal reply: {list(result.keys())}")
+    ``as_text`` is the boundary for the whole turn: a ``ChatMessage`` does not validate its
+    content, so a message that is not a string would travel all the way into the red-flag
+    regexes before failing there.
+    """
+    current = state or VisitPrepState()
+    text = as_text(message)
+    pipe = pipeline or build_coordinator_pipeline()
+    raw = pipe.run(data=_run_data(text, current))
+    return _finish_turn(current, raw, text)
 
 
-def _branch_intent(branch: str) -> str:
-    mapping = {
-        "emergency": "emergency",
-        "greet": "greeting",
-        "redirect": "out_of_scope",
-        "health": "health_concern",
-    }
-    return mapping[branch]
+async def run_turn_async(
+    message: str,
+    state: VisitPrepState | None = None,
+    *,
+    pipeline: Pipeline | None = None,
+) -> dict[str, Any]:
+    """Async variant of :func:`run_turn`, sharing its input and result handling."""
+    current = state or VisitPrepState()
+    text = as_text(message)
+    pipe = pipeline or build_coordinator_pipeline()
+    raw = await pipe.run_async(data=_run_data(text, current))
+    return _finish_turn(current, raw, text)
 
 
 __all__ = [
-    "EmergencyTerminal",
-    "GreetTerminal",
-    "HealthConcernHandler",
-    "PrepareTurn",
-    "RedirectTerminal",
-    "TurnComponents",
-    "_build_intent_conditional_router",
-    "build_intent_pipeline",
-    "build_turn_components",
+    "COORDINATOR",
+    "build_coordinator_agent",
+    "build_coordinator_pipeline",
     "run_turn",
+    "run_turn_async",
 ]

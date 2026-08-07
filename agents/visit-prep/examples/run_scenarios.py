@@ -1,14 +1,15 @@
-"""Run canned per-intent conversations through Visit-Prep."""
+"""Run canned conversations through Visit-Prep."""
 
 from __future__ import annotations
 
 import logging
 import sys
+from contextlib import nullcontext
 
 from dotenv import load_dotenv
 from haystack import Pipeline
 
-from visit_prep.pipeline import TurnComponents, build_intent_pipeline, run_turn
+from visit_prep.pipeline import build_coordinator_pipeline, run_turn
 from visit_prep.state import Phase, VisitPrepState
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
@@ -43,21 +44,19 @@ def run_scenario(
     messages: list[str],
     *,
     pipeline: Pipeline,
-    components: TurnComponents | None = None,
+    turn_hook=None,
 ) -> VisitPrepState:
+    """Run one scenario. ``turn_hook`` optionally wraps each turn (see run_scenarios_traced)."""
     state = VisitPrepState()
     logger.info("=== Scenario: %s ===", name)
 
     for message in messages:
-        result = run_turn(
-            message,
-            state,
-            pipeline=pipeline,
-            components=components,
-        )
+        with turn_hook(message) if turn_hook else nullcontext(None) as turn:
+            result = run_turn(message, state, pipeline=pipeline)
+            if turn is not None:
+                turn.output = result["response"]
         state = result["state"]
         logger.info("User: %s", message)
-        logger.info("Intent: %s", result.get("intent"))
         logger.info("Assistant: %s", result["response"][:200])
         logger.info("Phase: %s", state.phase.value)
 
@@ -67,23 +66,16 @@ def run_scenario(
 def main() -> int:
     load_dotenv()
 
+    # Build the pipeline once and reuse it across scenarios: the generator and the
+    # four Agents only need constructing once.
     try:
-        from visit_prep.pipeline import build_turn_components
-
-        components = build_turn_components()
+        pipeline = build_coordinator_pipeline()
     except RuntimeError as exc:
         logger.error("%s", exc)
         return 1
 
-    # Build the pipeline once and reuse it across scenarios: Haystack forbids
-    # sharing the same component instances across multiple pipelines, and the
-    # generator is expensive to construct.
-    pipeline = build_intent_pipeline(components)
-
     for name, messages in SCENARIOS.items():
-        final_state = run_scenario(
-            name, messages, pipeline=pipeline, components=components
-        )
+        final_state = run_scenario(name, messages, pipeline=pipeline)
         if name == "emergency" and final_state.phase != Phase.ESCALATED:
             logger.error("Expected ESCALATED for emergency scenario")
             return 1

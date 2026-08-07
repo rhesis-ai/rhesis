@@ -12,6 +12,7 @@ Run from the visit-prep project root:
 from __future__ import annotations
 
 import atexit
+import os
 import sys
 import uuid
 from pathlib import Path
@@ -21,22 +22,22 @@ from dotenv import load_dotenv
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(PROJECT_ROOT / ".env")
 
-from visit_prep.tracing import (  # noqa: E402
-    enable_rhesis_tracing,
-    flush_rhesis_tracing,
-    set_trace_session,
-)
+# Must precede any Haystack import so span input/output content is captured.
+os.environ.setdefault("HAYSTACK_CONTENT_TRACING_ENABLED", "true")
 
-if not enable_rhesis_tracing():
+from haystack_integrations.tracing.rhesis import RhesisTracing  # noqa: E402
+
+tracing = RhesisTracing("Visit-Prep", turn_span_name="function.visit_prep_turn")
+if not tracing.enabled:
     print(
-        "Rhesis tracing is not configured. Set RHESIS_API_KEY and "
-        f"RHESIS_PROJECT_ID in {PROJECT_ROOT / '.env'} (see .env.example).",
+        f"Rhesis tracing is not configured. Set RHESIS_API_KEY in {PROJECT_ROOT / '.env'} "
+        "(see .env.example).",
         file=sys.stderr,
     )
     sys.exit(1)
 
-set_trace_session(str(uuid.uuid4()))
-atexit.register(flush_rhesis_tracing)
+tracing.start_conversation(str(uuid.uuid4()))
+atexit.register(tracing.flush)
 
 _CHAT_DIR = Path(__file__).resolve().parent
 if str(_CHAT_DIR) not in sys.path:
@@ -45,4 +46,6 @@ if str(_CHAT_DIR) not in sys.path:
 from chat import main  # noqa: E402
 
 if __name__ == "__main__":
-    sys.exit(main())
+    # Each turn gets its own root span, so the conversation view shows the message and the
+    # reply rather than the Haystack pipeline's raw input/output dicts.
+    sys.exit(main(turn_hook=tracing.turn))
