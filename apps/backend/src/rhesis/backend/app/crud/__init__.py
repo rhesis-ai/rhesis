@@ -13,26 +13,6 @@ from sqlalchemy import and_, func, select, text
 from sqlalchemy.orm import Session, joinedload
 
 from rhesis.backend.app import models, schemas
-
-# Trace/span CRUD now lives in crud/telemetry.py. Re-exported here so existing
-# ``crud.query_traces(...)`` callers keep working; import from the submodule
-# directly in new code and migrate callers as you touch them.
-from rhesis.backend.app.crud.telemetry import (
-    TraceRow,
-    create_trace_spans,
-    get_span_by_id,
-    get_trace_by_db_id,
-    get_trace_by_id,
-    get_trace_id_for_conversation,
-    get_trace_metrics_aggregated,
-    get_unprocessed_traces,
-    mark_trace_processed,
-    query_traces,
-    update_conversation_id_for_trace,
-    update_trace_conversation_metrics,
-    update_trace_turn_metrics,
-    update_traces_with_test_result_id,
-)
 from rhesis.backend.app.database import reset_session_context
 from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.schemas.tag import EntityType
