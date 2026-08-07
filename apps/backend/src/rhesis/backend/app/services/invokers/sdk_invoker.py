@@ -422,9 +422,11 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
             if existing_trace_id is None and db is not None:
                 # Lazy import: crud uses models that would cause a circular
                 # import at module level.
-                from rhesis.backend.app import crud
+                from rhesis.backend.app.crud.telemetry import (
+                    get_trace_id_for_conversation,
+                )
 
-                existing_trace_id = crud.get_trace_id_for_conversation(
+                existing_trace_id = get_trace_id_for_conversation(
                     db=db,
                     conversation_id=conversation_id,
                     project_id=str(endpoint.project_id),

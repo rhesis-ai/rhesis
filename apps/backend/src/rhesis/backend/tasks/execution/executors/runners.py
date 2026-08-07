@@ -291,12 +291,12 @@ def _signal_penelope_conversation_complete(
         return
 
     try:
-        from rhesis.backend.app import crud
+        from rhesis.backend.app.crud.telemetry import get_trace_id_for_conversation
         from rhesis.backend.app.services.telemetry.trace_metrics_cache import (
             signal_conversation_complete,
         )
 
-        trace_id = crud.get_trace_id_for_conversation(
+        trace_id = get_trace_id_for_conversation(
             db,
             conversation_id,
             project_id,

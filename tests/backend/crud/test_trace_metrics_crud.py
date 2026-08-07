@@ -7,7 +7,10 @@ from uuid import uuid4
 import pytest
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud
+from rhesis.backend.app.crud.telemetry import (
+    update_trace_conversation_metrics,
+    update_trace_turn_metrics,
+)
 
 
 @pytest.mark.unit
@@ -31,7 +34,7 @@ class TestUpdateTraceTurnMetrics:
         mock_query.filter.side_effect = [chain_first, chain_update]
         db.query.return_value = mock_query
 
-        result = crud.update_trace_turn_metrics(db, span_id, turn_metrics)
+        result = update_trace_turn_metrics(db, span_id, turn_metrics)
 
         assert result == 1
         chain_update.update.assert_called_once()
@@ -60,7 +63,7 @@ class TestUpdateTraceTurnMetrics:
         mock_query.filter.side_effect = [chain_first, chain_update]
         db.query.return_value = mock_query
 
-        crud.update_trace_turn_metrics(db, span_id, turn_metrics)
+        update_trace_turn_metrics(db, span_id, turn_metrics)
 
         update_values = chain_update.update.call_args[0][0]
         assert update_values["trace_metrics"]["conversation_metrics"] == preserved
@@ -76,7 +79,7 @@ class TestUpdateTraceTurnMetrics:
         mock_query.filter.return_value = chain_first
         db.query.return_value = mock_query
 
-        result = crud.update_trace_turn_metrics(db, span_id, {"x": 1})
+        result = update_trace_turn_metrics(db, span_id, {"x": 1})
 
         assert result == 0
         db.commit.assert_not_called()
@@ -98,7 +101,7 @@ class TestUpdateTraceTurnMetrics:
         mock_query.filter.side_effect = [chain_first, chain_update]
         db.query.return_value = mock_query
 
-        crud.update_trace_turn_metrics(db, span_id, {"k": "v"}, status_id=status_id)
+        update_trace_turn_metrics(db, span_id, {"k": "v"}, status_id=status_id)
 
         update_values = chain_update.update.call_args[0][0]
         assert update_values["trace_metrics_status_id"] == status_id
@@ -123,7 +126,7 @@ class TestUpdateTraceConversationMetrics:
         mock_query.filter.return_value = chain
         db.query.return_value = mock_query
 
-        result = crud.update_trace_conversation_metrics(db, trace_id, conversation_metrics)
+        result = update_trace_conversation_metrics(db, trace_id, conversation_metrics)
 
         assert result == 3
         for s in spans:
@@ -140,9 +143,7 @@ class TestUpdateTraceConversationMetrics:
         mock_query.filter.return_value = chain
         db.query.return_value = mock_query
 
-        result = crud.update_trace_conversation_metrics(
-            db, trace_id, {"conversation_metrics": {}}
-        )
+        result = update_trace_conversation_metrics(db, trace_id, {"conversation_metrics": {}})
 
         assert result == 0
         db.commit.assert_not_called()
@@ -163,7 +164,7 @@ class TestUpdateTraceConversationMetrics:
         mock_query.filter.return_value = chain
         db.query.return_value = mock_query
 
-        result = crud.update_trace_conversation_metrics(
+        result = update_trace_conversation_metrics(
             db,
             trace_id,
             {"c": 2},

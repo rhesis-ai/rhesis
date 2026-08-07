@@ -26,14 +26,13 @@ def _penelope_trace_with_conversation_id(conversation_id=CONVERSATION_ID):
 
 @pytest.mark.unit
 class TestSignalPenelopeConversationComplete:
-
     def test_extracts_conversation_id_and_signals(self):
         db = MagicMock()
         trace = _penelope_trace_with_conversation_id()
 
         with (
             patch(
-                "rhesis.backend.app.crud.get_trace_id_for_conversation",
+                "rhesis.backend.app.crud.telemetry.get_trace_id_for_conversation",
                 return_value=TRACE_ID,
             ) as mock_lookup,
             patch(
@@ -44,7 +43,10 @@ class TestSignalPenelopeConversationComplete:
             _signal_penelope_conversation_complete(db, trace, PROJECT_ID, ORG_ID)
 
         mock_lookup.assert_called_once_with(
-            db, CONVERSATION_ID, PROJECT_ID, ORG_ID,
+            db,
+            CONVERSATION_ID,
+            PROJECT_ID,
+            ORG_ID,
         )
         mock_signal.assert_called_once_with(TRACE_ID, PROJECT_ID, ORG_ID)
 
@@ -61,7 +63,7 @@ class TestSignalPenelopeConversationComplete:
 
         with (
             patch(
-                "rhesis.backend.app.crud.get_trace_id_for_conversation",
+                "rhesis.backend.app.crud.telemetry.get_trace_id_for_conversation",
                 return_value=TRACE_ID,
             ) as mock_lookup,
             patch(
@@ -72,14 +74,17 @@ class TestSignalPenelopeConversationComplete:
             _signal_penelope_conversation_complete(db, trace, PROJECT_ID, ORG_ID)
 
         mock_lookup.assert_called_once_with(
-            db, "conv-first", PROJECT_ID, ORG_ID,
+            db,
+            "conv-first",
+            PROJECT_ID,
+            ORG_ID,
         )
 
     def test_returns_silently_when_no_conversation_summary(self):
         db = MagicMock()
 
         with patch(
-            "rhesis.backend.app.crud.get_trace_id_for_conversation",
+            "rhesis.backend.app.crud.telemetry.get_trace_id_for_conversation",
         ) as mock_lookup:
             _signal_penelope_conversation_complete(db, {}, PROJECT_ID, ORG_ID)
 
@@ -95,7 +100,7 @@ class TestSignalPenelopeConversationComplete:
         }
 
         with patch(
-            "rhesis.backend.app.crud.get_trace_id_for_conversation",
+            "rhesis.backend.app.crud.telemetry.get_trace_id_for_conversation",
         ) as mock_lookup:
             _signal_penelope_conversation_complete(db, trace, PROJECT_ID, ORG_ID)
 
@@ -107,7 +112,7 @@ class TestSignalPenelopeConversationComplete:
 
         with (
             patch(
-                "rhesis.backend.app.crud.get_trace_id_for_conversation",
+                "rhesis.backend.app.crud.telemetry.get_trace_id_for_conversation",
                 return_value=None,
             ),
             patch(
@@ -124,7 +129,7 @@ class TestSignalPenelopeConversationComplete:
         trace = _penelope_trace_with_conversation_id()
 
         with patch(
-            "rhesis.backend.app.crud.get_trace_id_for_conversation",
+            "rhesis.backend.app.crud.telemetry.get_trace_id_for_conversation",
             side_effect=RuntimeError("db exploded"),
         ):
             _signal_penelope_conversation_complete(db, trace, PROJECT_ID, ORG_ID)

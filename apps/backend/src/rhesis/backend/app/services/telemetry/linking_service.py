@@ -13,8 +13,9 @@ from typing import List, Optional
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models
+from rhesis.backend.app import models
 from rhesis.backend.app.constants import TestExecutionContext
+from rhesis.backend.app.crud.telemetry import update_traces_with_test_result_id
 
 logger = logging.getLogger(__name__)
 
@@ -214,7 +215,7 @@ class TraceLinkingService:
         Returns:
             Number of traces linked
         """
-        return crud.update_traces_with_test_result_id(
+        return update_traces_with_test_result_id(
             db=self.db,
             test_run_id=test_run_id,
             test_id=test_id,

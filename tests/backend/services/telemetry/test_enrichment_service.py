@@ -322,7 +322,7 @@ class TestCreateAndEnrichSpansPerRootSpan:
                 f"{self.MODULE}.build_enrichment_chain",
                 return_value=mock_workflow,
             ) as mock_build,
-            patch("rhesis.backend.app.crud.create_trace_spans", return_value=stored),
+            patch("rhesis.backend.app.crud.telemetry.create_trace_spans", return_value=stored),
         ):
             spans_out, async_c, sync_c = service.create_and_enrich_spans(
                 [],
@@ -353,7 +353,7 @@ class TestCreateAndEnrichSpansPerRootSpan:
                 f"{self.MODULE}.build_enrichment_chain",
                 return_value=mock_workflow,
             ) as mock_build,
-            patch("rhesis.backend.app.crud.create_trace_spans", return_value=stored),
+            patch("rhesis.backend.app.crud.telemetry.create_trace_spans", return_value=stored),
         ):
             spans_out, async_c, sync_c = service.create_and_enrich_spans(
                 [],
@@ -375,7 +375,7 @@ class TestCreateAndEnrichSpansPerRootSpan:
             patch(
                 f"{self.MODULE}.build_enrichment_chain",
             ) as mock_build,
-            patch("rhesis.backend.app.crud.create_trace_spans", return_value=[]),
+            patch("rhesis.backend.app.crud.telemetry.create_trace_spans", return_value=[]),
         ):
             spans_out, async_c, sync_c = service.create_and_enrich_spans(
                 [],
@@ -418,7 +418,7 @@ class TestCreateAndEnrichSpansUsageAccrual:
         stored = self._stored(3)
         with (
             patch(f"{self.MODULE}.build_enrichment_chain", return_value=Mock()),
-            patch("rhesis.backend.app.crud.create_trace_spans", return_value=stored),
+            patch("rhesis.backend.app.crud.telemetry.create_trace_spans", return_value=stored),
             patch(f"{self.MODULE}.dispatch_accrual") as mock_accrual,
         ):
             service.create_and_enrich_spans([], "org-1", "proj-1")
@@ -434,7 +434,7 @@ class TestCreateAndEnrichSpansUsageAccrual:
         with (
             patch(f"{self.MODULE}.build_enrichment_chain", return_value=Mock()),
             patch(
-                "rhesis.backend.app.crud.create_trace_spans",
+                "rhesis.backend.app.crud.telemetry.create_trace_spans",
                 return_value=self._stored(2),
             ),
             patch(f"{self.MODULE}.dispatch_accrual") as mock_accrual,
@@ -445,7 +445,7 @@ class TestCreateAndEnrichSpansUsageAccrual:
 
     def test_no_accrual_when_nothing_was_stored(self, service):
         with (
-            patch("rhesis.backend.app.crud.create_trace_spans", return_value=[]),
+            patch("rhesis.backend.app.crud.telemetry.create_trace_spans", return_value=[]),
             patch(f"{self.MODULE}.dispatch_accrual") as mock_accrual,
         ):
             service.create_and_enrich_spans([], "org-1", "proj-1")
@@ -460,7 +460,7 @@ class TestCreateAndEnrichSpansUsageAccrual:
                 side_effect=RuntimeError("broker down"),
             ),
             patch(
-                "rhesis.backend.app.crud.create_trace_spans",
+                "rhesis.backend.app.crud.telemetry.create_trace_spans",
                 return_value=self._stored(2),
             ),
             patch(f"{self.MODULE}.dispatch_accrual") as mock_accrual,

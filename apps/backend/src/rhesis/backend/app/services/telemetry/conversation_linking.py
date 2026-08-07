@@ -47,7 +47,8 @@ from typing import Any, Dict, List, NamedTuple, Optional
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models
+from rhesis.backend.app import models
+from rhesis.backend.app.crud.telemetry import update_conversation_id_for_trace
 from rhesis.backend.app.services.cache import RedisBackedCache
 from rhesis.backend.app.services.redis_constants import RedisDatabase
 
@@ -394,7 +395,7 @@ def register_pending_conversation_link(
 ) -> None:
     """Park a conversation-id link for deferred application.
 
-    Called when ``crud.update_conversation_id_for_trace()`` returns 0
+    Called when ``update_conversation_id_for_trace()`` returns 0
     because the SDK's spans have not been ingested yet.
     """
     _cache.register_link(trace_id, conversation_id, organization_id)
@@ -455,9 +456,7 @@ def apply_pending_conversation_links(
     for trace_id, conversation_id, organization_id in matched:
         bind_scope_to_session(db, organization_id, "", project_by_trace.get(trace_id, ""))
 
-        count = crud.update_conversation_id_for_trace(
-            db, trace_id, conversation_id, organization_id
-        )
+        count = update_conversation_id_for_trace(db, trace_id, conversation_id, organization_id)
         total += count
         logger.info(
             f"[CONVERSATION_LINKING] Applied pending link: "

@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models
 from rhesis.backend.app.constants import TestExecutionContext
+from rhesis.backend.app.crud.telemetry import create_trace_spans
 from rhesis.backend.app.schemas.telemetry import OTELSpanCreate
 from rhesis.backend.app.services.telemetry.enrichment import EnrichmentService
 from rhesis.backend.app.services.telemetry.linking_service import TraceLinkingService
@@ -143,7 +144,7 @@ class TestTraceLinkingTiming:
         ]
 
         # Store spans
-        stored_spans = crud.create_trace_spans(test_db, spans, str(test_organization.id))
+        stored_spans = create_trace_spans(test_db, spans, str(test_organization.id))
 
         # Link via telemetry endpoint path
         count2 = linking_service.link_traces_for_incoming_batch(
@@ -185,7 +186,7 @@ class TestTraceLinkingTiming:
             for _ in range(2)
         ]
 
-        stored_early = crud.create_trace_spans(test_db, early_spans, str(test_organization.id))
+        stored_early = create_trace_spans(test_db, early_spans, str(test_organization.id))
 
         # Try linking early spans (no result yet)
         linking_service = TraceLinkingService(test_db)
@@ -229,7 +230,7 @@ class TestTraceLinkingTiming:
             for _ in range(3)
         ]
 
-        stored_late = crud.create_trace_spans(test_db, late_spans, str(test_organization.id))
+        stored_late = create_trace_spans(test_db, late_spans, str(test_organization.id))
 
         # Link late spans via telemetry path
         count3 = linking_service.link_traces_for_incoming_batch(
@@ -356,7 +357,7 @@ class TestTraceLinkingTiming:
             for _ in range(3)
         ]
 
-        stored1 = crud.create_trace_spans(test_db, batch1, str(test_organization.id))
+        stored1 = create_trace_spans(test_db, batch1, str(test_organization.id))
         count1 = linking_service.link_traces_for_incoming_batch(
             spans=stored1, organization_id=str(test_organization.id)
         )
@@ -376,7 +377,7 @@ class TestTraceLinkingTiming:
             for _ in range(2)
         ]
 
-        stored2 = crud.create_trace_spans(test_db, batch2, str(test_organization.id))
+        stored2 = create_trace_spans(test_db, batch2, str(test_organization.id))
         count2 = linking_service.link_traces_for_incoming_batch(
             spans=stored2, organization_id=str(test_organization.id)
         )
@@ -413,7 +414,7 @@ class TestTraceLinkingTiming:
             attributes={},  # No test context
         )
 
-        stored = crud.create_trace_spans(test_db, [regular_span], str(test_organization.id))
+        stored = create_trace_spans(test_db, [regular_span], str(test_organization.id))
 
         # Try linking
         linking_service = TraceLinkingService(test_db)
