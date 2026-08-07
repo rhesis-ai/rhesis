@@ -90,6 +90,11 @@ def red_flag_guard(state: State) -> None:
     if flagged is None:
         return
     state.set("red_flag_warned", True)
+    # `State.set` merges through the schema handler rather than assigning, and Haystack always
+    # installs `merge_lists` for `messages`, so this *appends* the override. The user's own
+    # words stay in the history, which `check_red_flags` still needs to read. Reads as a
+    # destructive overwrite otherwise, and swapping in an explicit prepend would duplicate the
+    # entire history instead of reordering it.
     state.set("messages", [ChatMessage.from_system(RED_FLAG_OVERRIDE.format(flagged=flagged))])
 
 

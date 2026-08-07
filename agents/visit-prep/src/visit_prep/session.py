@@ -98,6 +98,12 @@ def get_default_pipeline() -> Pipeline:
     ``GoogleGenAIChatGenerator`` assigns to ``self`` in ``__init__`` alone — its ``run``
     reads configuration and calls the client. That client is ``google-genai``'s, built on
     ``httpx.Client``, which is safe to share across threads.
+
+    Threads are not incidental on the async path: ``Tool.invoke_async`` runs a sync tool
+    ``function`` via ``asyncio.to_thread``, so the handoffs — and the specialist ``Agent.run``
+    calls inside them — execute on worker threads that share this one generator. The event
+    loop itself stays free: ``Agent.run_async`` prefers the generator's ``run_async``, which
+    awaits ``client.aio`` on an ``httpx.AsyncClient``.
     """
     global _default_pipeline
     if _default_pipeline is None:
