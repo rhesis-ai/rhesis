@@ -22,10 +22,12 @@ spec:
         target:
           type: Utilization
           averageUtilization: {{ .Values.backend.hpa.targetCPUUtilizationPercentage }}
+    {{- if .Values.backend.hpa.targetMemoryUtilizationPercentage }}
     - type: Resource
       resource:
         name: memory
         target:
           type: Utilization
           averageUtilization: {{ .Values.backend.hpa.targetMemoryUtilizationPercentage }}
+    {{- end }}
 {{- end }}
