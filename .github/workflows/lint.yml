@@ -7,159 +7,149 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      targets: ${{ steps.resolve.outputs.targets }}
+      python: ${{ steps.resolve.outputs.python }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Check for file changes
+        if: github.event_name == 'pull_request'
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            frontend:
+              - 'apps/frontend/**'
+              - 'ee/frontend/**'
+            docs:
+              - 'docs/src/**'
+              - 'docs/content/**'
+            sdk:
+              - 'sdk/**'
+            backend:
+              - 'apps/backend/**'
+            penelope:
+              - 'penelope/**'
+
+      - name: Resolve lint targets
+        id: resolve
+        env:
+          CHANGED: ${{ github.event_name == 'workflow_dispatch' && '["backend","sdk","penelope","frontend","docs"]' || steps.filter.outputs.changes }}
+        run: |
+          set -euo pipefail
+          echo "Changed areas: $CHANGED"
+          echo "targets=$CHANGED" >> "$GITHUB_OUTPUT"
+
+          PYTHON=$(jq -nc --argjson changed "$CHANGED" '
+            [ {id: "backend",  dir: "apps/backend"},
+              {id: "sdk",      dir: "sdk"},
+              {id: "penelope", dir: "penelope"} ]
+            | map(select(.id as $id | $changed | index($id)))
+            | map(.dir)')
+          echo "python=$PYTHON" >> "$GITHUB_OUTPUT"
+          echo "Python matrix: $PYTHON"
+
+  python:
+    needs: changes
+    if: needs.changes.outputs.python != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        dir: ${{ fromJSON(needs.changes.outputs.python) }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          version: latest
+          enable-cache: true
+
+      - name: Run lint
+        run: make lint
+        working-directory: ${{ matrix.dir }}
+
+  frontend:
+    needs: changes
+    if: contains(fromJSON(needs.changes.outputs.targets), 'frontend')
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/frontend
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: apps/frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Run format check
+        run: npm run format:check
+
+      - name: Run lint
+        run: npm run lint
+
+      - name: Run type check
+        run: npm run type-check
+
+  docs:
+    needs: changes
+    if: contains(fromJSON(needs.changes.outputs.targets), 'docs')
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: docs/src
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: docs/src/package-lock.json
+
+      - name: Install dependencies
+        run: make install
+
+      - name: Run lint
+        run: make lint
+
   lint:
+    needs: [changes, python, frontend, docs]
+    if: always()
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v6
-      with:
-        fetch-depth: 0  # Needed for paths-filter
-
-    - name: Check for file changes
-      uses: dorny/paths-filter@v3
-      id: filter
-      with:
-        filters: |
-          frontend:
-            - 'apps/frontend/**'
-            - 'ee/frontend/**'
-          docs:
-            - 'docs/src/**'
-            - 'docs/content/**'
-          sdk:
-            - 'sdk/**'
-          backend:
-            - 'apps/backend/**'
-          penelope:
-            - 'penelope/**'
-
-
-    - name: Install uv
-      if: steps.filter.outputs.sdk == 'true' || steps.filter.outputs.backend == 'true' || steps.filter.outputs.penelope == 'true' || github.event_name == 'workflow_dispatch'
-      uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
-      with:
-        version: latest
-        enable-cache: true
-
-    # - name: Check SDK uv.lock file
-    #   if: steps.filter.outputs.sdk == 'true' ||  github.event_name == 'workflow_dispatch'
-    #   run: |
-    #     cd sdk
-    #     uv lock --check
-
-    - name: Run SDK linting
-      if: steps.filter.outputs.sdk == 'true' || github.event_name == 'workflow_dispatch'
-      run: |
-        cd sdk
-        make lint
-      continue-on-error: false
-
-    # - name: Check Backend uv.lock file
-    #   if: steps.filter.outputs.backend == 'true' || github.event_name == 'workflow_dispatch'
-    #   run: |
-    #     cd apps/backend
-    #     uv lock --check
-
-    - name: Run Backend linting
-      if: steps.filter.outputs.backend == 'true' || github.event_name == 'workflow_dispatch'
-      run: |
-        cd apps/backend
-        make lint
-      continue-on-error: false
-
-    - name: Run Penelope linting
-      if: steps.filter.outputs.penelope == 'true' || github.event_name == 'workflow_dispatch'
-      run: |
-        cd penelope
-        make lint
-      continue-on-error: false
-
-    # Frontend & Docs Linting (both use Node.js)
-    - name: Set up Node.js for Frontend/Docs
-      if: steps.filter.outputs.frontend == 'true' || steps.filter.outputs.docs == 'true' || github.event_name == 'workflow_dispatch'
-      uses: actions/setup-node@v6
-      with:
-          node-version: '24'
-
-    - name: Install frontend dependencies
-      if: steps.filter.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch'
-      run: |
-        cd apps/frontend
-        npm ci --legacy-peer-deps
-
-    - name: Run frontend format check
-      if: steps.filter.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch'
-      run: |
-        cd apps/frontend
-        npm run format:check
-      continue-on-error: false
-
-    - name: Run frontend lint
-      if: steps.filter.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch'
-      run: |
-        cd apps/frontend
-        npm run lint
-      continue-on-error: false
-
-    - name: Run frontend type check
-      if: steps.filter.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch'
-      run: |
-        cd apps/frontend
-        npm run type-check
-      continue-on-error: false
-
-    # Documentation Linting
-    - name: Install docs dependencies
-      if: steps.filter.outputs.docs == 'true' || github.event_name == 'workflow_dispatch'
-      run: |
-        cd docs/src
-        make install
-
-    - name: Run docs linting
-      if: steps.filter.outputs.docs == 'true' || github.event_name == 'workflow_dispatch'
-      run: |
-        cd docs/src
-        make lint
-      continue-on-error: false
-
-    # Summary
-    - name: Lint Summary
-      if: always()
-      run: |
-        {
-          echo "## Lint Check Results ✅"
-          echo ""
-          echo "- **Branch**: ${{ github.ref_name }}"
-          echo ""
-          echo "### What was checked:"
-        } >> "$GITHUB_STEP_SUMMARY"
-
-        if [ "${{ steps.filter.outputs.sdk }}" == "true" ] || [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-          echo "- **SDK**: Code formatting and linting with ruff ✅" >> "$GITHUB_STEP_SUMMARY"
-        else
-          echo "- **SDK**: Skipped (no changes detected)" >> "$GITHUB_STEP_SUMMARY"
-        fi
-
-        # if [ "${{ steps.filter.outputs.backend }}" == "true" ] || [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-        #   echo "- **Backend**: Code formatting and linting with ruff ✅" >> "$GITHUB_STEP_SUMMARY"
-        # else
-        #   echo "- **Backend**: Skipped (no changes detected)" >> "$GITHUB_STEP_SUMMARY"
-        # fi
-
-        if [ "${{ steps.filter.outputs.penelope }}" == "true" ] || [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-          echo "- **Penelope**: Code formatting and linting with ruff ✅" >> "$GITHUB_STEP_SUMMARY"
-        else
-          echo "- **Penelope**: Skipped (no changes detected)" >> "$GITHUB_STEP_SUMMARY"
-        fi
-
-        if [ "${{ steps.filter.outputs.frontend }}" == "true" ] || [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-          echo "- **Frontend**: ESLint, Prettier formatting, TypeScript type checking, and build validation ✅" >> "$GITHUB_STEP_SUMMARY"
-        else
-          echo "- **Frontend**: Skipped (no changes detected)" >> "$GITHUB_STEP_SUMMARY"
-        fi
-
-        if [ "${{ steps.filter.outputs.docs }}" == "true" ] || [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-          echo "- **Docs**: ESLint and Prettier formatting ✅" >> "$GITHUB_STEP_SUMMARY"
-        else
-          echo "- **Docs**: Skipped (no changes detected)" >> "$GITHUB_STEP_SUMMARY"
-        fi
+      - name: Check lint results
+        run: |
+          set -euo pipefail
+          FAILED=0
+          for RESULT in "changes=${{ needs.changes.result }}" \
+                        "python=${{ needs.python.result }}" \
+                        "frontend=${{ needs.frontend.result }}" \
+                        "docs=${{ needs.docs.result }}"; do
+            echo "$RESULT"
+            case "${RESULT#*=}" in
+              success|skipped) ;;
+              *) FAILED=1 ;;
+            esac
+          done
+          if [ "$FAILED" -ne 0 ]; then
+            echo "One or more lint jobs failed." >&2
+            exit 1
+          fi
+          echo "All lint checks passed."

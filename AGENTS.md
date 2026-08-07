@@ -15,6 +15,12 @@ race condition), and framework/infra terms (GUC, RLS policy, `ContextVar`, Celer
 abstract engineering-speak that carries no information — "leverage the abstraction", "surface area",
 "idiomatic", "orthogonal concerns", "non-trivial", "first-class citizen".
 
+## Code Comments
+
+Keep comments concise — usually one line, and only where the code can't say it itself: a non-obvious
+"why", or a real trap. Multi-line is fine when the thing is genuinely complex or hard to follow, but
+not for ordinary code. Never restate what the next line does.
+
 ## Technology Stack
 
 Backend and Python SDK: Python 3.10+, `uv` with `pyproject.toml`, Pydantic 2.x, pytest.
