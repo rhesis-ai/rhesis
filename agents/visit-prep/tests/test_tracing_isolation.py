@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import inspect
 
-from tests.mocks import make_components
+from tests.mocks import stub_generator
 from visit_prep import pipeline, session
-from visit_prep.pipeline import build_intent_pipeline, run_turn
+from visit_prep.pipeline import build_coordinator_pipeline, run_turn
 
 
 def test_pipeline_has_no_tracer_node():
-    pipe = build_intent_pipeline(make_components([]))
+    pipe = build_coordinator_pipeline(generator=stub_generator())
     assert not pipe.graph.has_node("tracer")
 
 
@@ -19,8 +19,8 @@ def test_run_turn_has_no_session_id_param():
     assert "session_id" not in sig.parameters
 
 
-def test_build_intent_pipeline_has_no_enable_tracing_param():
-    sig = inspect.signature(build_intent_pipeline)
+def test_build_coordinator_pipeline_has_no_enable_tracing_param():
+    sig = inspect.signature(build_coordinator_pipeline)
     assert "enable_tracing" not in sig.parameters
 
 
