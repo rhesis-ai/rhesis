@@ -12,7 +12,8 @@ import { Capability } from '@/constants/capabilities';
 import { Model } from '@/utils/api-client/interfaces/model';
 import { UserSettings } from '@/utils/api-client/interfaces/user';
 import { PROVIDER_ICONS } from '@/config/model-providers';
-import type { ValidationStatus } from '../types';
+import { getAvailabilityReasonCopy, type ValidationStatus } from '../types';
+import { useIsLocalMode } from '@/contexts/FeaturesContext';
 
 interface ConnectedModelCardProps {
   model: Model;
@@ -36,6 +37,7 @@ export function ConnectedModelCard({
   onRequestAccess,
 }: ConnectedModelCardProps) {
   const theme = useTheme();
+  const isLocalMode = useIsLocalMode();
 
   const isGenerationDefault =
     userSettings?.models?.generation?.model_id === model.id;
@@ -51,7 +53,16 @@ export function ConnectedModelCard({
     isExecutionDefault ||
     isEmbeddingDefault;
 
+  // Backend-reported availability takes precedence over the client-side
+  // validation/polyphemus states below, so we never surface two conflicting
+  // reasons on the same card. `available` defaults to true when omitted.
+  const isUnavailable = model.available === false;
+  const availabilityReason = getAvailabilityReasonCopy(
+    model.availability_reason
+  );
+
   const showValidationError =
+    !isUnavailable &&
     validationStatus &&
     !validationStatus.isValid &&
     !validationStatus.isValidating;
@@ -62,7 +73,12 @@ export function ConnectedModelCard({
     model.name?.toLowerCase().includes('polyphemus');
 
   const polyphemusAccess = userSettings?.polyphemus_access;
-  const showPolyphemusRestricted = isPolyphemus && !isVerified;
+  // Suppress the polyphemus "request access" affordance when the backend has
+  // already greyed the card out (the availability tooltip is the single
+  // authoritative explanation then) and in local mode (no email to request
+  // through — availability alone gates the card).
+  const showPolyphemusRestricted =
+    !isLocalMode && !isUnavailable && isPolyphemus && !isVerified;
 
   const hasRequestedAccess =
     !!polyphemusAccess?.requested_at &&
@@ -153,7 +169,7 @@ export function ConnectedModelCard({
       title={model.name}
       description={model.description}
       onClick={
-        !showPolyphemusRestricted && onCardClick
+        !isUnavailable && !showPolyphemusRestricted && onCardClick
           ? () => onCardClick(model)
           : undefined
       }
@@ -166,6 +182,25 @@ export function ConnectedModelCard({
       borderColor={warningBorderColor}
     />
   );
+
+  if (isUnavailable) {
+    return (
+      <Tooltip title={availabilityReason} placement="top" arrow>
+        <Box
+          sx={{
+            height: '100%',
+            opacity: 0.5,
+            cursor: 'not-allowed',
+            // Block interaction with the greyed-out card while keeping the
+            // wrapper hoverable so the reason tooltip still appears.
+            '& *': { pointerEvents: 'none' },
+          }}
+        >
+          {card}
+        </Box>
+      </Tooltip>
+    );
+  }
 
   if (showValidationError) {
     return (

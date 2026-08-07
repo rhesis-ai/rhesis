@@ -445,13 +445,30 @@ def get_model(
             f"'{resolved_type.value}'. Supported types: {supported_types}"
         )
 
+    # Applied after construction rather than forwarded as a constructor
+    # kwarg: only a couple of providers take ``**kwargs`` through to
+    # ``BaseLLM.__init__``, and the rest declare fixed signatures, so
+    # passing it down would raise TypeError for most of the registry (and
+    # threading it through all ~20 constructors just to reach an attribute
+    # BaseLLM already owns buys nothing). ``on_usage`` is plain instance
+    # state that ``BaseLLM._emit_usage`` reads at call time, so setting it
+    # here behaves identically and works for every provider.
+    on_usage = kwargs.pop("on_usage", None)
+
     # Dispatch: _ProviderSpec uses generic creator, callables are invoked directly
     if isinstance(factory, _ProviderSpec):
-        return _create_from_spec(factory, resolved_type, model_name, api_key, dimensions, **kwargs)
+        model = _create_from_spec(factory, resolved_type, model_name, api_key, dimensions, **kwargs)
     elif resolved_type == ModelType.EMBEDDING:
-        return factory(model_name, api_key, dimensions, **kwargs)
+        model = factory(model_name, api_key, dimensions, **kwargs)
     else:
-        return factory(model_name, api_key, **kwargs)
+        model = factory(model_name, api_key, **kwargs)
+
+    if on_usage is not None:
+        # Embedders have no usage to emit, so this only ever matters for
+        # language models; setting it unconditionally keeps the branch out.
+        model.on_usage = on_usage
+
+    return model
 
 
 # =============================================================================

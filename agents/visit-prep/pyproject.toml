@@ -19,8 +19,8 @@ keywords = [
 ]
 dependencies = [
     "rhesis-sdk",
-    "haystack-ai>=2.0.0",
-    "google-genai-haystack>=2.0.0",
+    "haystack-ai>=3.0,<4",
+    "google-genai-haystack>=4.5.0",
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.34.0",
     "python-dotenv>=1.0.0",
@@ -94,3 +94,4 @@ indent-style = "space"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+asyncio_default_fixture_loop_scope = "function"

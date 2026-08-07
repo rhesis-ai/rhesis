@@ -118,6 +118,11 @@ class ApplicationSettings(BaseSettings):
         return not self.is_production
 
     @property
+    def is_local(self) -> bool:
+        """Whether the deployment runs in local/self-hosted mode (BACKEND_ENV=local)."""
+        return self.backend_env == "local"
+
+    @property
     def is_google_cloud(self) -> bool:
         return bool(self.cloud_run_service or self.cloud_run_revision)
 

@@ -16,11 +16,14 @@ import DarkModeOutlinedIcon from '@mui/icons-material/DarkModeOutlined';
 import ExitToAppOutlinedIcon from '@mui/icons-material/ExitToAppOutlined';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import AppsOutlinedIcon from '@mui/icons-material/AppsOutlined';
+import DataUsageOutlinedIcon from '@mui/icons-material/DataUsageOutlined';
 import SwapHorizOutlinedIcon from '@mui/icons-material/SwapHorizOutlined';
 import Divider from '@mui/material/Divider';
 import { useNavigationItems } from '@/contexts/NavigationItemsContext';
 import { useSidebarCollapse } from '@/components/layout/AppShell';
 import { UserAvatar } from '@/components/common/UserAvatar';
+import { Can } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 import { ColorModeContext } from '@/components/providers/ThemeProvider';
 import { handleSignOut } from '@/actions/auth';
 import {
@@ -421,6 +424,42 @@ export function Sidebar() {
               Projects
             </Typography>
           </MenuItem>
+          {/* Billing data -- hidden rather than shown-then-denied for
+              members without usage:read (the same capability GET /usage
+              requires). */}
+          <Can capability={Capability.Usage.READ}>
+            <MenuItem
+              onClick={() => {
+                router.push('/organizations/usage');
+                setOrgMenuAnchor(null);
+              }}
+              sx={{
+                gap: '10px',
+                px: '14px',
+                py: '8px',
+                '&:hover': {
+                  bgcolor: theme => theme.palette.greyscale.border,
+                },
+              }}
+            >
+              <DataUsageOutlinedIcon
+                sx={{
+                  fontSize: 24,
+                  color: theme => theme.palette.greyscale.body,
+                }}
+              />
+              <Typography
+                sx={{
+                  fontSize: 14,
+                  fontWeight: 700,
+                  lineHeight: '22px',
+                  color: theme => theme.palette.greyscale.body,
+                }}
+              >
+                Usage
+              </Typography>
+            </MenuItem>
+          </Can>
           <Divider
             sx={{
               my: '6px',

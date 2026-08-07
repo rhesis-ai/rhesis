@@ -19,6 +19,7 @@ from rhesis.backend.app.schemas.model import (
     TestModelConnectionResponse,
 )
 from rhesis.backend.app.services.model_connection import ModelConnectionService
+from rhesis.backend.app.services.platform_key import annotate_model_availability
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.sdk.models.factory import get_available_embedding_models, get_available_language_models
@@ -119,7 +120,7 @@ def read_models(
 ):
     """Get all models with their related objects"""
     organization_id, user_id = tenant_context
-    return crud.get_models(
+    db_models = crud.get_models(
         db=db,
         skip=skip,
         limit=limit,
@@ -129,6 +130,8 @@ def read_models(
         organization_id=organization_id,
         user_id=user_id,
     )
+    annotate_model_availability(db, organization_id, db_models)
+    return db_models
 
 
 @router.get("/{model_id}", response_model=schemas.ModelDetail)
@@ -146,6 +149,7 @@ def read_model(
     db_model = get_item_detail(db, models.Model, model_id, organization_id, user_id)
     if db_model is None:
         raise HTTPException(status_code=404, detail="Model not found")
+    annotate_model_availability(db, organization_id, [db_model])
     return db_model
 
 

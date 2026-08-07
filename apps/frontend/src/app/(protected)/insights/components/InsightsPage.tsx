@@ -25,10 +25,6 @@ import {
   chunkBehaviorColumns,
   isBehaviorRowExpandable,
 } from '../utils/behavior-insights-utils';
-import {
-  filterColumnsByBehaviorIds,
-  InsightsBehaviorOption,
-} from '../utils/insights-filter-utils';
 import { useBehaviorInsightsData } from '../hooks/useBehaviorInsightsData';
 import InsightsEmptyState from './InsightsEmptyState';
 import { resolveInsightsPageView } from '../utils/insights-page-view';
@@ -73,33 +69,17 @@ export default function InsightsPage() {
   const {
     summary,
     columns,
+    behaviorOptions,
     loading: insightsLoading,
     error,
     noRuns,
   } = useBehaviorInsightsData(filters, !permsLoading && canRead);
 
-  const behaviorOptions = useMemo<InsightsBehaviorOption[]>(
-    () =>
-      columns.map(column => ({
-        id: column.id,
-        name: column.name,
-        count: column.overall.total,
-      })),
-    [columns]
-  );
-
-  const behaviorFilteredColumns = useMemo(
-    () => filterColumnsByBehaviorIds(columns, filters.behaviorIds),
-    [columns, filters.behaviorIds]
-  );
-
   const filteredColumns = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
-    if (!query) return behaviorFilteredColumns;
-    return behaviorFilteredColumns.filter(column =>
-      column.name.toLowerCase().includes(query)
-    );
-  }, [behaviorFilteredColumns, searchQuery]);
+    if (!query) return columns;
+    return columns.filter(column => column.name.toLowerCase().includes(query));
+  }, [columns, searchQuery]);
 
   const columnRows = useMemo(
     () => chunkBehaviorColumns(filteredColumns),
@@ -122,6 +102,7 @@ export default function InsightsPage() {
     filters.timeRange,
     filters.testRunIds,
     filters.behaviorIds,
+    filters.statusIds,
     expandableRowIndices,
   ]);
 

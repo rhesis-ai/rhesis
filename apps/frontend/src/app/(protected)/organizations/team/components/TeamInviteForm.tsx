@@ -35,6 +35,8 @@ import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
+import { useFeature } from '@/contexts/FeaturesContext';
+import { FeatureName } from '@/constants/features';
 import { getMemberRoleExtensions } from '@/lib/extension-registries';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { safeRandomUUID } from '@/utils/uuid';
@@ -79,8 +81,20 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
     const { data: session, status } = useSession();
     const notifications = useNotifications();
     const { projects: availableProjects } = useActiveProject();
-    const { AddMemberRoleField, InviteOrgRoleField, assignOrgMemberRole } =
-      getMemberRoleExtensions();
+    const {
+      AddMemberRoleField,
+      InviteOrgRoleField,
+      assignOrgMemberRole: assignOrgRole,
+    } = getMemberRoleExtensions();
+    // The EE bundle registers the role extensions unconditionally, so their
+    // presence only means "EE code is loaded", not "this org licenses RBAC".
+    // Community has no graded roles — invitees always get the default member
+    // role — so hide the pickers (and skip the org-role assignment) when the
+    // RBAC feature is off, instead of rendering selects with an empty catalog.
+    const rbacEnabled = useFeature(FeatureName.RBAC);
+    const OrgRoleField = rbacEnabled ? InviteOrgRoleField : undefined;
+    const ProjectRoleField = rbacEnabled ? AddMemberRoleField : undefined;
+    const assignOrgMemberRole = rbacEnabled ? assignOrgRole : undefined;
 
     const [formData, setFormData] = useState<FormData>({
       invites: [createInvite()],
@@ -502,13 +516,13 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
                   variant="outlined"
                   sx={{
                     ...drawerOutlinedFieldSx,
-                    flex: InviteOrgRoleField ? 1.4 : 1,
+                    flex: OrgRoleField ? 1.4 : 1,
                   }}
                   data-tour={index === 0 ? 'invite-email-input' : undefined}
                 />
-                {InviteOrgRoleField && isAuthenticated(status) && (
+                {OrgRoleField && isAuthenticated(status) && (
                   <Box sx={{ flex: 1, minWidth: 0 }}>
-                    <InviteOrgRoleField
+                    <OrgRoleField
                       value={invite.orgRoleId}
                       onChange={roleId => handleOrgRoleChange(invite, roleId)}
                       active={drawerOpen}
@@ -621,10 +635,10 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
                             )}
                           </Box>
                           {isSelected &&
-                            AddMemberRoleField &&
+                            ProjectRoleField &&
                             isAuthenticated(status) && (
                               <Box sx={{ flexShrink: 0 }}>
-                                <AddMemberRoleField
+                                <ProjectRoleField
                                   value={projectRoles[projectId] ?? null}
                                   onChange={roleId =>
                                     setProjectRoles(prev => ({

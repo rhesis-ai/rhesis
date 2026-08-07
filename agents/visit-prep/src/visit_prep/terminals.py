@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from visit_prep.state import VisitPrepState
-
 
 def greet_and_explain() -> str:
     return (
@@ -37,20 +35,4 @@ def escalate() -> str:
     )
 
 
-def terminal_reply(intent: str, state: VisitPrepState) -> tuple[str, VisitPrepState]:
-    """Return a terminal response and updated state for non-gathering intents."""
-    from visit_prep.state import Phase
-
-    updated = state.model_copy(deep=True)
-    if intent == "emergency":
-        updated.phase = Phase.ESCALATED
-        updated.red_flag = True
-        return escalate(), updated
-    if intent in {"greeting", "meta"}:
-        return greet_and_explain(), updated
-    if intent == "out_of_scope":
-        return redirect_to_scope(), updated
-    raise ValueError(f"Not a terminal intent: {intent}")
-
-
-__all__ = ["escalate", "greet_and_explain", "redirect_to_scope", "terminal_reply"]
+__all__ = ["escalate", "greet_and_explain", "redirect_to_scope"]

@@ -123,24 +123,6 @@ describe('TestResultsClient', () => {
   });
 
   // -------------------------------------------------------------------------
-  // getComprehensiveTestResultsStats
-  // -------------------------------------------------------------------------
-
-  it('builds URL with array filter params', async () => {
-    fetchMock.mockResolvedValue(makeFetch({ metadata: {} }));
-
-    await client.getComprehensiveTestResultsStats({
-      test_set_ids: ['ts1', 'ts2'],
-      behavior_ids: ['b1'],
-    });
-
-    const calledUrl = fetchMock.mock.calls[0][0] as string;
-    expect(calledUrl).toContain('test_set_ids=ts1');
-    expect(calledUrl).toContain('test_set_ids=ts2');
-    expect(calledUrl).toContain('behavior_ids=b1');
-  });
-
-  // -------------------------------------------------------------------------
   // createReview
   // -------------------------------------------------------------------------
 

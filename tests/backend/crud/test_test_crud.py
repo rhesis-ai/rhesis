@@ -22,6 +22,7 @@ from rhesis.backend.app import crud, models
 from rhesis.backend.app.constants import EXPLORER_BEHAVIOR_NAME
 from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.services import test_set as test_set_service
+from rhesis.backend.app.utils.crud_utils import count_items
 
 
 @pytest.mark.unit
@@ -398,3 +399,61 @@ class TestBulkDeleteTests:
         still_there = test_db.query(models.Test).filter(models.Test.id == foreign_test.id).first()
         assert still_there is not None
         assert still_there.deleted_at is None
+
+
+@pytest.mark.unit
+@pytest.mark.crud
+class TestGetTestsExcludesExplorer:
+    """crud.get_tests must omit explorer tests (general test list API)."""
+
+    def test_get_tests_excludes_explorer_rows(
+        self, test_db: Session, test_org_id: str, authenticated_user_id: str
+    ):
+        regular = models.Test(
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+        explorer = models.Test(
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            explorer_row=True,
+        )
+        test_db.add_all([regular, explorer])
+        test_db.commit()
+
+        results = crud.get_tests(
+            test_db,
+            organization_id=str(test_org_id),
+            user_id=str(authenticated_user_id),
+            limit=100,
+        )
+        ids = {test.id for test in results}
+        assert regular.id in ids
+        assert explorer.id not in ids
+
+    def test_count_items_excludes_explorer_rows(
+        self, test_db: Session, test_org_id: str, authenticated_user_id: str
+    ):
+        """X-Total-Count must match the filtered list -- see with_count_header."""
+        explorer = models.Test(
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            explorer_row=True,
+        )
+        test_db.add(explorer)
+        test_db.commit()
+
+        counted = count_items(
+            test_db,
+            models.Test,
+            organization_id=str(test_org_id),
+            user_id=str(authenticated_user_id),
+            exclude_explorer_rows=True,
+        )
+        total = count_items(
+            test_db,
+            models.Test,
+            organization_id=str(test_org_id),
+            user_id=str(authenticated_user_id),
+        )
+        assert counted == total - 1

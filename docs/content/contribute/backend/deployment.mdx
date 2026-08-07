@@ -22,7 +22,7 @@ Run it with an env file (see [Environment configuration](/contribute/backend/env
 
 ## Migrations
 
-In cloud deployments, migrations run as a **separate job** (its image entrypoint is `migrate.sh`, running `alembic upgrade head`), and the API service sets `SKIP_MIGRATIONS=true` so it does not migrate on boot. This keeps schema changes to a single controlled step.
+The API applies migrations on boot: `start.sh` calls `migrate.sh`, which runs `alembic upgrade head`. Setting `SKIP_MIGRATIONS=true` on the service suppresses that, for deployments that apply schema changes as a separate step.
 
 Make migrations backward compatible so a new revision can run before the new code is fully rolled out. To roll a schema change back:
 
@@ -34,17 +34,9 @@ Make migrations backward compatible so a new revision can run before the new cod
 
 Celery workers deploy as their own service from the worker image, sharing the broker and result backend (`BROKER_URL`, `CELERY_RESULT_BACKEND`). Scale workers independently of the API. See [Background tasks](/contribute/backend/background-tasks).
 
-## Google Cloud Run
+## Kubernetes
 
-The production target is Cloud Run. Deploy the API service, run the migration job separately, and connect Cloud SQL:
-
-<CodeBlock filename="deploy-cloud-run.sh" language="bash">
-{`gcloud run deploy rhesis-backend \\
-  --image gcr.io/project-id/rhesis-backend \\
-  --region us-central1 \\
-  --add-cloudsql-instances project-id:region:instance \\
-  --set-env-vars "DB_HOST=/cloudsql/project-id:region:instance,SKIP_MIGRATIONS=true"`}
-</CodeBlock>
+The production target is Kubernetes. `.github/workflows/backend-k8s.yml` builds the image, pushes it to Artifact Registry, and syncs ArgoCD; the Helm chart lives in `charts/rhesis`. Environment comes from the chart's ConfigMap and `existingSecret`.
 
 The image is a standard container, so it also runs on other platforms (AWS ECS, Azure Container Apps, plain Docker) given the same environment variables.
 

@@ -1,7 +1,7 @@
 """Gemini ChatGenerator factory for Visit-Prep.
 
-All LLM calls in the agent share a single generator built here. Individual
-components must not construct their own generators.
+All LLM calls in the agent share a single generator built here. The coordinator
+and its specialists must not construct their own generators.
 """
 
 from __future__ import annotations

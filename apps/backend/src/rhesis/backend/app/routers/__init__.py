@@ -30,6 +30,7 @@ from .parameters import (
 from .parameters import (
     router as parameters_router,
 )
+from .platform import router as platform_router
 from .preflight import router as preflight_router
 from .project import router as project_router
 from .prompt import router as prompt_router
@@ -108,6 +109,7 @@ __all__ = [
     "architect",
     "preflight",
     "usage",
+    "platform",
 ]
 
 # Export all routers for use in main.py
@@ -165,6 +167,7 @@ routers = sorted(
         architect_router,
         capabilities_router,
         usage_router,
+        platform_router,
     ],
     key=lambda x: x.tags[0].lower() if x.tags else "",
 )

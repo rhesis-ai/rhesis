@@ -24,6 +24,10 @@ from rhesis.telemetry.schemas import OTELSpan, OTELTraceBatch, SpanEvent, SpanLi
 
 logger = logging.getLogger(__name__)
 
+# Hex form of the placeholder parent the tracer attaches to force trace_id inheritance across
+# conversation turns. Compared against, so only that fabricated parent is stripped on export.
+_SYNTHETIC_PARENT_SPAN_ID_HEX = format(ConvContextConstants.SYNTHETIC_PARENT_SPAN_ID, "016x")
+
 
 class RhesisOTLPExporter(OTLPSpanExporter):
     """
@@ -344,9 +348,18 @@ class RhesisOTLPExporter(OTLPSpanExporter):
             conversation_id = None
 
             if is_turn_root:
-                # Strip synthetic parent_span_id (from
-                # _build_conversation_parent_context)
-                parent_span_id = None
+                # Strip the synthetic parent_span_id (from
+                # _build_conversation_parent_context) so the turn root is stored
+                # as a root span. Only that fabricated parent is removed: a real
+                # parent means the span is nested inside another traced call, and
+                # cutting it would detach the whole subtree into its own turn.
+                #
+                # Caveat: this leaves a turn root that runs under unrelated
+                # ambient instrumentation (e.g. an auto-instrumented HTTP server
+                # span exported to Rhesis) stored as a child, where the backend's
+                # root-span queries would miss it. Nothing sets that up today.
+                if parent_span_id == _SYNTHETIC_PARENT_SPAN_ID_HEX:
+                    parent_span_id = None
                 conversation_id = attrs.get(ConvContextConstants.SpanAttributes.CONVERSATION_ID)
             elif trace_id in turn_root_conversations:
                 # Child span of a conversation turn: inherit

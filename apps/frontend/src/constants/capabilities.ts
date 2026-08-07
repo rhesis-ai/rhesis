@@ -186,6 +186,14 @@ export const Capability = {
     READ: 'organization:read',
     UPDATE: 'organization:update',
   },
+  /**
+   * Metered consumption against plan limits. Separate from
+   * `Organization.READ`, which every Viewer holds for basic org context --
+   * usage is billing data and is restricted to org admins.
+   */
+  Usage: {
+    READ: 'usage:read',
+  },
   Member: {
     READ: 'member:read',
     CREATE: 'member:create',

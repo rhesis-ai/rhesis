@@ -199,7 +199,7 @@ def generate_test_stats(
 
 
 @router.get("/", response_model=List[schemas.TestDetail])
-@with_count_header(model=models.Test)
+@with_count_header(model=models.Test, exclude_explorer_rows=True)
 def read_tests(
     response: Response,
     skip: int = 0,
@@ -216,7 +216,11 @@ def read_tests(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """Get all tests with their related objects"""
+    """Get all tests with their related objects.
+
+    Explorer tests (flagged via explorer_row) are omitted; they are reachable
+    through the /explorer API only.
+    """
     organization_id, user_id = tenant_context
     tests = crud.get_tests(
         db,

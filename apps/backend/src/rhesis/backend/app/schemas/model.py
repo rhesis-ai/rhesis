@@ -83,6 +83,8 @@ class ModelRead(ModelBaseFields):
     is_protected: bool = False
     provider_type: Optional[TypeLookup] = None
     status: Optional[Status] = None
+    available: bool = True
+    availability_reason: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 

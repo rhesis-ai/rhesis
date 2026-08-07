@@ -16,6 +16,7 @@ Or from this folder (uses the parent pyproject + .env):
 from __future__ import annotations
 
 import sys
+from contextlib import nullcontext
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -57,7 +58,8 @@ def _format_status(phase: Phase, turn: int) -> str:
     return f"[phase={phase.value}, turn={turn}]"
 
 
-def main() -> int:
+def main(turn_hook=None) -> int:
+    """Run the REPL. ``turn_hook`` optionally wraps each turn (see chat_traced.py)."""
     _print_banner()
 
     conversation_id: str | None = None
@@ -87,13 +89,15 @@ def main() -> int:
             continue
 
         try:
-            result = run_chat_turn(message, conversation_id=conversation_id)
+            with turn_hook(message) if turn_hook else nullcontext(None) as turn:
+                result = run_chat_turn(message, conversation_id=conversation_id)
+                if turn is not None:
+                    turn.output = result["response"]
         except RuntimeError as exc:
             print(f"\nError: {exc}\n", file=sys.stderr)
             if "GOOGLE_API_KEY" in str(exc) or "GEMINI_API_KEY" in str(exc):
                 print(
-                    f"Add your key to {PROJECT_ROOT / '.env'} "
-                    "(see .env.example).\n",
+                    f"Add your key to {PROJECT_ROOT / '.env'} (see .env.example).\n",
                     file=sys.stderr,
                 )
             return 1

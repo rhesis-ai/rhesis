@@ -33,6 +33,7 @@ interface FeaturesState {
   license: LicenseInfo | null;
   enabled: ReadonlySet<string>;
   warnings: Readonly<Record<string, string>>;
+  isLocalMode: boolean;
   loading: boolean;
   error: Error | null;
 }
@@ -41,6 +42,7 @@ const DEFAULT_STATE: FeaturesState = {
   license: null,
   enabled: new Set<string>(),
   warnings: {},
+  isLocalMode: false,
   loading: true,
   error: null,
 };
@@ -87,6 +89,7 @@ export function FeaturesProvider({
         license: null,
         enabled: new Set<string>(),
         warnings: {},
+        isLocalMode: false,
         loading: false,
         error: error instanceof Error ? error : new Error(String(error)),
       };
@@ -95,6 +98,7 @@ export function FeaturesProvider({
       license: data.license,
       enabled: new Set<string>(data.enabled),
       warnings: data.warnings ?? {},
+      isLocalMode: data.is_local ?? false,
       loading: false,
       error: null,
     };
@@ -134,6 +138,19 @@ export function useFeatureWarning(name: FeatureName): string | null {
  */
 export function useFeaturesState(): FeaturesState {
   return useContext(FeaturesContext);
+}
+
+/**
+ * Whether this deployment runs in local/self-hosted mode.
+ *
+ * Single source of truth for local-only UI (e.g. the Rhesis platform key
+ * card, greying Polyphemus in the provider picker) -- derived from the
+ * backend's `BACKEND_ENV` via `GET /features` instead of a separate
+ * frontend-only env var, so the two can never disagree. Fail-closed like
+ * every other flag on this context: `false` while loading or on error.
+ */
+export function useIsLocalMode(): boolean {
+  return useContext(FeaturesContext).isLocalMode;
 }
 
 /**

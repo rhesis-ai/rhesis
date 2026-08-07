@@ -39,6 +39,7 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Status } from '@/utils/api-client/interfaces/status';
 import { alpha } from '@mui/material/styles';
 import { DeleteModal } from '@/components/common/DeleteModal';
+import { useNotifications } from '@/components/common/NotificationContext';
 import StatusChip from '@/components/common/StatusChip';
 import { Capability } from '@/constants/capabilities';
 import { can, Can } from '@/components/common/Can';
@@ -77,6 +78,7 @@ export default function TraceReviewsTab({
 }: TraceReviewsTabProps) {
   const theme = useTheme();
   const queryClient = useQueryClient();
+  const notifications = useNotifications();
 
   const invalidateAnnotations = () => {
     void queryClient.invalidateQueries({ queryKey: annotationKeys.all() });
@@ -236,8 +238,9 @@ export default function TraceReviewsTab({
 
       setDeleteDialogOpen(false);
       setReviewToDelete(null);
-    } catch (_err) {
-      // Error handling
+    } catch (err) {
+      console.error('Failed to delete review:', err);
+      notifications.show('Failed to delete review', { severity: 'error' });
     } finally {
       setDeleting(false);
     }

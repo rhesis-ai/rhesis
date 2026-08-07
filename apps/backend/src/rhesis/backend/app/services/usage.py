@@ -45,6 +45,16 @@ FLOW_KIND = "flow"
 STOCK_KIND = "stock"
 
 
+class InvalidPeriodError(ValueError):
+    """A requested reporting period is not one this service can report on.
+
+    Distinct from a bare ``ValueError`` so callers can map *this* to a 4xx
+    without also swallowing unrelated ``ValueError``s raised deeper in the
+    call (tier-config parsing, for one), which are server faults and must
+    not be reported to the client as bad input.
+    """
+
+
 def _current_period(today: Optional[date] = None) -> tuple[date, date]:
     """Return ``(period_start, period_end)`` for the calendar month containing *today*.
 
@@ -209,17 +219,43 @@ _STOCK_COUNTERS = {
 }
 
 
-def get_usage_summary(db: Session, org_id: str, org: Optional[Organization]) -> dict:
+def get_usage_summary(
+    db: Session,
+    org_id: str,
+    org: Optional[Organization],
+    period_start: Optional[date] = None,
+) -> dict:
     """Return ``{resources: {<resource>: {used, limit, period_start, period_end, kind}}, edition}``.
 
     Flow resources report cumulative usage from the ``usage`` table for the
-    current billing period. Stock resources report a live entity count.
-    Every :class:`QuotaResource` member is present in the response, even
-    when its usage is zero. ``kind`` (``"flow"`` or ``"stock"``) lets the
-    frontend group resources without duplicating the flow/stock split as a
-    second, hand-maintained list.
+    requested billing period (the current one by default). ``kind``
+    (``"flow"`` or ``"stock"``) lets the frontend group resources without
+    duplicating the flow/stock split as a second, hand-maintained list.
+
+    Pass *period_start* (first day of a month) to report a past month
+    instead of the current one -- this only affects flow resources. Stock
+    resources (seats, projects, endpoints) are live entity counts with no
+    historical row behind them, so they always report *today's* count
+    against the *current* period regardless of which month was requested:
+    there is no "seats in July" to look up, only "seats right now." Every
+    :class:`QuotaResource` member is present in the response regardless of
+    *period_start*, even when its usage is zero.
+
+    Raises :class:`InvalidPeriodError` if *period_start* is not the first of
+    a month, or is later than the current period -- both are caller errors,
+    not "no data yet."
     """
-    period_start, period_end = _current_period()
+    current_start, current_end = _current_period()
+    if period_start is None:
+        period_start, period_end = current_start, current_end
+    else:
+        if period_start.day != 1:
+            raise InvalidPeriodError("period_start must be the first day of a month")
+        if period_start > current_start:
+            raise InvalidPeriodError("period_start cannot be later than the current period")
+        last_day = monthrange(period_start.year, period_start.month)[1]
+        period_end = period_start.replace(day=last_day)
+
     limits = QuotaRegistry.get_limits(org)
 
     with bypass_tenant_filter():
@@ -234,14 +270,82 @@ def get_usage_summary(db: Session, org_id: str, org: Optional[Organization]) -> 
     resources: dict[str, dict] = {}
     for resource in QuotaResource:
         counter = _STOCK_COUNTERS.get(resource)
-        used = counter(db, org_id) if counter is not None else flow_used.get(resource.value, 0)
+        if counter is not None:
+            used = counter(db, org_id)
+            item_start, item_end = current_start, current_end
+        else:
+            used = flow_used.get(resource.value, 0)
+            item_start, item_end = period_start, period_end
         resources[resource.value] = {
             "used": used,
             "limit": limits.get(resource),
-            "period_start": period_start.isoformat(),
-            "period_end": period_end.isoformat(),
+            "period_start": item_start.isoformat(),
+            "period_end": item_end.isoformat(),
             "kind": STOCK_KIND if counter is not None else FLOW_KIND,
         }
 
     edition = str(FeatureRegistry.license_info(org=org).get("edition", "community"))
     return {"resources": resources, "edition": edition}
+
+
+def _recent_period_starts(months: int, today: Optional[date] = None) -> list[date]:
+    """Return the first-of-month date for each of the last *months* calendar
+    months, oldest first, ending with the month containing *today*."""
+    today = today or datetime.now(timezone.utc).date()
+    year, month = today.year, today.month
+    starts = []
+    for _ in range(months):
+        starts.append(date(year, month, 1))
+        month -= 1
+        if month == 0:
+            month, year = 12, year - 1
+    return list(reversed(starts))
+
+
+def get_usage_history(db: Session, org_id: str, months: int = 6) -> dict:
+    """Return ``{resources: {<flow resource>: [{period_start, used}, ...]}}``.
+
+    One point per calendar month for each flow resource, oldest first,
+    covering the trailing *months* months including the current one.
+    Stock resources are excluded: they are live counts with no historical
+    row to chart (see ``get_usage_summary``'s docstring for the flow/stock
+    split). Months with no accrual get an explicit ``used: 0`` point rather
+    than being omitted, so the frontend can plot a continuous line without
+    its own gap-filling logic.
+
+    Comparing ``Usage.period_start`` (a plain ``Date`` column) against
+    plain ``date`` objects here carries none of the timestamptz/session-
+    timezone risk that a raw-SQL migration comparing against a
+    ``timestamptz`` column would -- see 91607f0dd412's fix for that
+    specific class of bug, which does not apply to this comparison.
+
+    Raises :class:`InvalidPeriodError` if *months* is not positive. Checked
+    here rather than relying on the router's ``Query(ge=1)`` alone, so a
+    non-HTTP caller gets that instead of an ``IndexError`` off the empty
+    ``period_starts`` list below.
+    """
+    if months < 1:
+        raise InvalidPeriodError("months must be at least 1")
+
+    period_starts = _recent_period_starts(months)
+
+    with bypass_tenant_filter():
+        rows = db.query(Usage).filter(
+            Usage.organization_id == org_id,
+            Usage.period_start >= period_starts[0],
+        )
+        used_by_key = {(row.resource, row.period_start): row.used for row in rows}
+
+    history: dict[str, list[dict]] = {}
+    for resource in QuotaResource:
+        if resource in _STOCK_COUNTERS:
+            continue
+        history[resource.value] = [
+            {
+                "period_start": period_start.isoformat(),
+                "used": used_by_key.get((resource.value, period_start), 0),
+            }
+            for period_start in period_starts
+        ]
+
+    return {"resources": history}

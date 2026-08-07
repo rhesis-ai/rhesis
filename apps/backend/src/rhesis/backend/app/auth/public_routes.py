@@ -86,10 +86,6 @@ AUTHZ_EXEMPT_ROUTES: frozenset[tuple[str, str]] = frozenset(
         # Feature catalog: the frontend needs this before any RBAC context is set.
         # Authentication is still enforced; the response is org-filtered in the handler.
         ("GET", "/features"),
-        # Usage dashboard: read-only report of the authenticated org's own metered
-        # consumption, no different in shape or sensitivity from /features above.
-        # Authentication is still enforced; the response is org-scoped in the handler.
-        ("GET", "/usage"),
         # Demo / test endpoint — carries no meaningful permission boundary.
         ("GET", "/home/protected"),
         # Profile update during onboarding: the user may not have an org yet when
@@ -111,6 +107,13 @@ AUTHZ_EXEMPT_ROUTES: frozenset[tuple[str, str]] = frozenset(
         # single PEP capability would exclude telemetry-only (or result-only)
         # users. Authentication still runs; authorize() is enforced in-handler.
         ("GET", "/annotations/"),
+        # Local-mode platform key status: gated by require_local_mode (404s off
+        # local) plus require_current_user_or_token, and always scoped to the
+        # caller's own organization. Read-only, never exposes the raw key (only
+        # a masked suffix), so any authenticated org member may read it — unlike
+        # PUT/DELETE below, which mutate the org-wide key and are gated by
+        # Permission.Platform.MANAGE (owner-only) instead of being exempt here.
+        ("GET", "/platform/rhesis-key"),
     }
 )
 

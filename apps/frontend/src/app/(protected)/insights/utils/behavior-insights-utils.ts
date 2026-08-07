@@ -258,6 +258,29 @@ function groupRowsByBehaviorId(
  * separate behavior list fetch needed. `topicRows`/`metricRows` are grouped
  * by behavior_id to fill each column's breakdown lists.
  */
+export interface BehaviorOption {
+  id: string;
+  name: string;
+  count: number;
+}
+
+/** Build the full (unfiltered) behavior list for the filter drawer's checkbox options. */
+export function buildBehaviorOptions(rows: InsightsRow[]): BehaviorOption[] {
+  return rows
+    .filter(
+      (row): row is InsightsRow & { behavior_id: string; behavior: string } =>
+        typeof row.behavior_id === 'string' && typeof row.behavior === 'string'
+    )
+    .map(row => ({
+      id: row.behavior_id,
+      name: row.behavior,
+      count: rowToPassFailStats(row).total,
+    }))
+    .sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+    );
+}
+
 export function buildBehaviorColumns(
   behaviorRows: InsightsRow[],
   topicRows: InsightsRow[],

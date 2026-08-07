@@ -12,7 +12,9 @@ import {
 } from '../types';
 import {
   BehaviorInsightColumn,
+  BehaviorOption,
   buildBehaviorColumns,
+  buildBehaviorOptions,
   rowToPassFailStats,
 } from '../utils/behavior-insights-utils';
 import { fetchInsightsQueryTestRunIds } from '@/hooks/useInsightsFailedTestIds';
@@ -28,6 +30,8 @@ const EMPTY_SUMMARY: PassFailStats = {
 export interface BehaviorInsightsData {
   summary: PassFailStats | null;
   columns: BehaviorInsightColumn[];
+  /** Full, unfiltered behavior list -- for the filter drawer's checkbox options. */
+  behaviorOptions: BehaviorOption[];
   loading: boolean;
   error: string | null;
   noRuns: boolean;
@@ -39,6 +43,7 @@ export function useBehaviorInsightsData(
 ): BehaviorInsightsData {
   const [summary, setSummary] = useState<PassFailStats | null>(null);
   const [columns, setColumns] = useState<BehaviorInsightColumn[]>([]);
+  const [behaviorOptions, setBehaviorOptions] = useState<BehaviorOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [noRuns, setNoRuns] = useState(false);
@@ -59,6 +64,7 @@ export function useBehaviorInsightsData(
       setLoading(false);
       setSummary(null);
       setColumns([]);
+      setBehaviorOptions([]);
       setNoRuns(false);
       setError(null);
       return;
@@ -91,6 +97,7 @@ export function useBehaviorInsightsData(
           if (testRunIds.length === 0) {
             setSummary(EMPTY_SUMMARY);
             setColumns([]);
+            setBehaviorOptions([]);
             setNoRuns(true);
             setLoading(false);
             return;
@@ -105,8 +112,59 @@ export function useBehaviorInsightsData(
               ? timeRangeToStatsParams(runContext.timeRange)
               : {};
           const measures = ['passed', 'failed', 'pass_rate'];
-          const baseQuery = {
-            filters: { test_run_ids: testRunIds },
+
+          // `null` means "no filter" (default); `[]` means the user
+          // explicitly unchecked every box -- a real, distinct state that
+          // should show zero data, not silently fall back to "all". The
+          // backend can't express "match zero" through an omitted filter
+          // (an empty list is dropped and treated as "no restriction"), so
+          // that case is handled client-side below instead of being sent
+          // as a query param.
+          const showsNoData =
+            (filters.behaviorIds !== null &&
+              filters.behaviorIds.length === 0) ||
+            (filters.statusIds !== null && filters.statusIds.length === 0);
+
+          // Status narrows every test_result query, including the "options"
+          // scope below -- unlike behaviorIds, this isn't a client-side
+          // column toggle, so the checkbox list itself should only offer
+          // behaviors that exist within the selected status.
+          const testResultFilterExtras: Record<string, string[]> = {};
+          if (filters.statusIds !== null && filters.statusIds.length > 0) {
+            testResultFilterExtras.status_ids = filters.statusIds;
+          }
+
+          // Unfiltered by behaviorIds -- used only to populate the drawer's
+          // full behavior checkbox list (with counts), independent of which
+          // behaviors are currently checked.
+          const optionsQuery = {
+            filters: { test_run_ids: testRunIds, ...testResultFilterExtras },
+            ...timeParams,
+          };
+
+          // Actual display/summary scope for the test_result entity -- also
+          // narrowed to the checked behaviors so the pass rate and columns
+          // reflect the filter, not just which columns are shown.
+          const testResultQuery = {
+            filters: {
+              ...optionsQuery.filters,
+              ...(filters.behaviorIds !== null && filters.behaviorIds.length > 0
+                ? { behavior_ids: filters.behaviorIds }
+                : {}),
+            },
+            ...timeParams,
+          };
+
+          // The `metric` entity's registry filters don't include
+          // topic_ids/status_ids (see services/insights/registry.py) --
+          // sending them would 400.
+          const metricQuery = {
+            filters: {
+              test_run_ids: testRunIds,
+              ...(filters.behaviorIds !== null && filters.behaviorIds.length > 0
+                ? { behavior_ids: filters.behaviorIds }
+                : {}),
+            },
             ...timeParams,
           };
 
@@ -115,42 +173,53 @@ export function useBehaviorInsightsData(
               entity: 'test_result',
               group_by: [],
               measures,
-              ...baseQuery,
+              ...testResultQuery,
             },
             behaviors: {
               entity: 'test_result',
               group_by: ['behavior_id', 'behavior'],
               measures,
-              ...baseQuery,
+              ...testResultQuery,
             },
             topics: {
               entity: 'test_result',
               group_by: ['behavior_id', 'topic_id', 'topic'],
               measures,
-              ...baseQuery,
+              ...testResultQuery,
             },
             metrics: {
               entity: 'metric',
               group_by: ['behavior_id', 'metric_name'],
               measures,
-              ...baseQuery,
+              ...metricQuery,
+            },
+            allBehaviors: {
+              entity: 'test_result',
+              group_by: ['behavior_id', 'behavior'],
+              measures,
+              ...optionsQuery,
             },
           });
 
           if (!isCurrentRequest(requestId)) return;
 
-          const summaryRow = results.summary.rows[0];
-          const overallSummary = summaryRow
-            ? rowToPassFailStats(summaryRow)
-            : EMPTY_SUMMARY;
-          setSummary(overallSummary);
-          setColumns(
-            buildBehaviorColumns(
-              results.behaviors.rows,
-              results.topics.rows,
-              results.metrics.rows
-            )
-          );
+          if (showsNoData) {
+            setSummary(EMPTY_SUMMARY);
+            setColumns([]);
+          } else {
+            const summaryRow = results.summary.rows[0];
+            setSummary(
+              summaryRow ? rowToPassFailStats(summaryRow) : EMPTY_SUMMARY
+            );
+            setColumns(
+              buildBehaviorColumns(
+                results.behaviors.rows,
+                results.topics.rows,
+                results.metrics.rows
+              )
+            );
+          }
+          setBehaviorOptions(buildBehaviorOptions(results.allBehaviors.rows));
 
           setLoading(false);
         } catch (err) {
@@ -176,11 +245,14 @@ export function useBehaviorInsightsData(
     filters.runFilterMode,
     filters.timeRange,
     filters.testRunIds,
+    filters.behaviorIds,
+    filters.statusIds,
   ]);
 
   return {
     summary,
     columns,
+    behaviorOptions,
     loading,
     error,
     noRuns,

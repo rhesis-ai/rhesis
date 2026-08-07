@@ -6,10 +6,11 @@ import type { FeaturesResponse } from '@/utils/api-client/features-client';
 import { can } from '@/utils/affordances';
 
 /**
- * Cached server-side fetchers for features and permissions. `React.cache()`
- * deduplicates within a single RSC render pass, so `layout.tsx` and
- * `page.tsx` (via `prefetchList` / `hasServerCapability`) share one
- * `GET /features` and one `GET /me/permissions` call instead of two each.
+ * Cached server-side fetchers for features and permissions.
+ * `React.cache()` deduplicates within a single RSC render pass, so
+ * `layout.tsx` and `page.tsx` (via `prefetchList` / `hasServerCapability`)
+ * share one `GET /features` and one `GET /me/permissions` call instead of
+ * two each.
  */
 export const getServerFeatures = cache(async (): Promise<FeaturesResponse> => {
   const factory = await createServerApiFactory();

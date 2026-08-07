@@ -1,7 +1,9 @@
-name: "[Release] 3. Publish and deploy (prd)"
+name: "[Release] 3. Publish"
 on:
   workflow_dispatch:  # Allows manual triggering
 
+# Does not deploy prd. Until a k8s prd deploy is wired in here, run
+# deploy-all-k8s.yml manually with environment: prd.
 jobs:
   backend-deploy:
     if: startsWith(github.ref, 'refs/heads/release/')
@@ -222,7 +224,7 @@ jobs:
             git config user.email "237771051+rheo-app[bot]@users.noreply.github.com"
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v6
         with:
           python-version: '3.11'
 

@@ -1,31 +1,52 @@
-export type InsightsTimeRange = '1d' | '7d' | '1m' | '3m';
+export type InsightsTimeRange = 'always' | '1d' | '7d' | '1m' | '3m';
 export type InsightsRunFilterMode = 'timeRange' | 'testRuns';
 
 export interface InsightsFilters {
   endpointId: string;
-  /** Empty means all behaviors are visible. */
-  behaviorIds: string[];
-  /** Filter by time window or by explicit test runs — never both. */
-  runFilterMode: InsightsRunFilterMode;
+  /**
+   * `null` = no filter (default, all behaviors visible). `[]` is a real,
+   * distinct state — the user explicitly unchecked every behavior, so
+   * nothing should show. A plain `string[]` can't represent "explicitly
+   * none" without colliding with "no filter", which is why this is
+   * nullable.
+   */
+  behaviorIds: string[] | null;
+  /** Same `null`/`[]`/`[...]` convention as `behaviorIds`. */
+  statusIds: string[] | null;
+  /** Narrows which test runs are in scope; testRunIds further narrows within it. */
   timeRange: InsightsTimeRange;
   /**
-   * Used when `runFilterMode` is `testRuns`. Empty means all test runs for the
-   * endpoint.
+   * Explicit test runs to narrow down to, within `timeRange`. Empty means all
+   * test runs in that window.
    */
   testRunIds: string[];
+  /**
+   * Derived from `testRunIds` (non-empty → 'testRuns') by
+   * `normalizeInsightsFilters` — not independently settable. Kept for
+   * consumers (drill-down URLs, cache keys, labels) that describe the scope
+   * as one of two modes.
+   */
+  runFilterMode: InsightsRunFilterMode;
 }
 
-export const DEFAULT_INSIGHTS_TIME_RANGE: InsightsTimeRange = '1m';
+export const DEFAULT_INSIGHTS_TIME_RANGE: InsightsTimeRange = 'always';
 
 export const DEFAULT_INSIGHTS_FILTERS: InsightsFilters = {
   endpointId: '',
-  behaviorIds: [],
+  behaviorIds: null,
+  statusIds: null,
   runFilterMode: 'timeRange',
   timeRange: DEFAULT_INSIGHTS_TIME_RANGE,
   testRunIds: [],
 };
 
-const VALID_TIME_RANGES = new Set<InsightsTimeRange>(['1d', '7d', '1m', '3m']);
+const VALID_TIME_RANGES = new Set<InsightsTimeRange>([
+  'always',
+  '1d',
+  '7d',
+  '1m',
+  '3m',
+]);
 
 export function resolveInsightsTimeRange(
   timeRange: InsightsTimeRange | undefined
@@ -43,7 +64,6 @@ export function normalizeInsightsFilters(
     useDefaultTestRunWindow?: boolean;
   }
 ): InsightsFilters {
-  let runFilterMode = filters.runFilterMode ?? 'timeRange';
   let timeRange = resolveInsightsTimeRange(filters.timeRange);
   let testRunIds = filters.testRunIds ?? [];
 
@@ -56,26 +76,24 @@ export function normalizeInsightsFilters(
       3: '3m',
     };
     timeRange = legacy[filters.months] ?? DEFAULT_INSIGHTS_TIME_RANGE;
-    runFilterMode = 'timeRange';
     testRunIds = [];
   }
 
   if (
     filters.useDefaultTestRunWindow !== undefined &&
-    filters.runFilterMode === undefined
+    filters.runFilterMode === undefined &&
+    filters.useDefaultTestRunWindow
   ) {
-    runFilterMode = filters.useDefaultTestRunWindow ? 'timeRange' : 'testRuns';
-    if (runFilterMode === 'timeRange') {
-      testRunIds = [];
-    }
+    testRunIds = [];
   }
 
   return {
     endpointId: filters.endpointId ?? '',
-    behaviorIds: filters.behaviorIds ?? [],
-    runFilterMode,
+    behaviorIds: filters.behaviorIds ?? null,
+    statusIds: filters.statusIds ?? null,
     timeRange,
     testRunIds,
+    runFilterMode: testRunIds.length > 0 ? 'testRuns' : 'timeRange',
   };
 }
 
@@ -83,6 +101,7 @@ export const INSIGHTS_TIME_RANGE_OPTIONS: {
   value: InsightsTimeRange;
   label: string;
 }[] = [
+  { value: 'always', label: 'Always' },
   { value: '1d', label: '1D' },
   { value: '7d', label: '7D' },
   { value: '1m', label: '1M' },
@@ -93,14 +112,16 @@ function toIsoDate(date: Date): string {
   return date.toISOString();
 }
 
-/** Map UI time-range pills to stats API query parameters. */
+/** Map UI time-range pills to Insights date query parameters. */
 export function timeRangeToStatsParams(
   timeRange: InsightsTimeRange
 ): Pick<
-  import('@/utils/api-client/interfaces/common').TestResultsStatsOptions,
+  import('@/utils/api-client/interfaces/insights').InsightsQuery,
   'months' | 'start_date' | 'end_date'
 > {
   switch (timeRange) {
+    case 'always':
+      return {};
     case '1d': {
       const end = new Date();
       const start = new Date(end);

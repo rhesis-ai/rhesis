@@ -108,15 +108,18 @@ Error: Error when reading or editing SQL User "rhesis" in instance "db-developme
 
 By splitting the deployment into stages, we ensure the SQL instance is fully running before attempting to create users.
 
-## GitHub Actions Deployment
+## Configuration Reference
 
-The repository includes a GitHub Actions workflow file (`infrastructure.yml`) in the `.github/workflows/` directory that can be used to automate deployments.
+> The `infrastructure.yml` workflow that automated these deployments has been removed along with the
+> Cloud Run setup. Live infrastructure is now managed by `terraform/infrastructure/` via the
+> `terraform-infrastructure.yml` workflow. The scripts below are run manually against this legacy
+> tree.
 
-### Setup
+### Variables
 
-1. Add your GCP service account key as a GitHub secret named `GCP_SA_KEY`
+1. A GCP service account key, as `GCP_SA_KEY`
 
-2. Add Terraform variables as GitHub secrets with the following naming convention:
+2. Terraform variables, following this naming convention:
    - Common variables for all environments:
      - `REGION`: The GCP region (e.g., "europe-west4")
      - `BILLING_ACCOUNT`: Your GCP billing account ID
@@ -145,7 +148,7 @@ The repository includes a GitHub Actions workflow file (`infrastructure.yml`) in
 
 ### Container Image Validation
 
-The workflow includes an image validation step using the `check-images.sh` script. This script performs the following important functions:
+The `check-images.sh` script validates container images before the Terraform plan. It performs the following important functions:
 
 1. **Validation**: Checks if specified container images actually exist in the artifact registry
 2. **Fallback Mechanism**: For images that don't exist, it sets empty values which cause Terraform to use default images
@@ -153,7 +156,7 @@ The workflow includes an image validation step using the `check-images.sh` scrip
 
 #### How Image Checking Works
 
-When the workflow runs, before the Terraform plan is generated:
+When the script runs, before the Terraform plan is generated:
 
 1. The script checks if the artifact registry for the environment exists in the GCP project
    - If the registry doesn't exist yet (common during initial deployment), all image variables are set to empty, allowing Terraform to use default public images
@@ -217,7 +220,7 @@ DATABASE_PASSWORD = "secure-password-value"
 
 4. **Environment-Specific Variables**:
    - With GitHub environments, variables are stored directly in each environment without prefixes
-   - The workflow references the correct environment based on the deployment target
+   - The correct environment is referenced based on the deployment target
    - This ensures proper variable isolation between environments
 
 5. **Validation and Fallbacks**:
