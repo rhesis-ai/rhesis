@@ -5,9 +5,14 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, schemas
+from rhesis.backend.app import schemas
 from rhesis.backend.app.auth.capabilities import Permission, capability
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
+
+# Imported as a module, not by name: the route handlers below are called
+# create_project, update_project, add_project_member, ... too, and a bare
+# function import would shadow them.
+from rhesis.backend.app.crud import project as project_crud
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
@@ -47,7 +52,7 @@ def create_project(
     if not project.owner_id:
         project.owner_id = current_user.id
 
-    new_project = crud.create_project(
+    new_project = project_crud.create_project(
         db=db, project=project, organization_id=organization_id, user_id=user_id
     )
 
@@ -72,7 +77,7 @@ def read_my_projects(
 ):
     """Return all projects the current user is a member of."""
     organization_id, _user_id = tenant_context
-    return crud.get_my_projects(
+    return project_crud.get_my_projects(
         db=db,
         user_id=current_user.id,
         organization_id=organization_id,
@@ -98,7 +103,7 @@ def read_projects(
 ):
     """Get all projects the current user is a member of."""
     organization_id, user_id = tenant_context
-    results = crud.get_projects(
+    results = project_crud.get_projects(
         db=db,
         skip=skip,
         limit=limit,
@@ -109,7 +114,7 @@ def read_projects(
         user_id=user_id,
     )
     # Count uses the same membership filter so X-Total-Count matches pagination.
-    total = crud.count_projects(
+    total = project_crud.count_projects(
         db=db, filter=filter, organization_id=organization_id, user_id=user_id
     )
     response.headers["X-Total-Count"] = str(total)
@@ -134,10 +139,14 @@ def read_project_members(
 ):
     """List all members of a project."""
     organization_id, _user_id = tenant_context
-    db_project = crud.get_project(db, project_id=project_id, organization_id=organization_id)
+    db_project = project_crud.get_project(
+        db, project_id=project_id, organization_id=organization_id
+    )
     if db_project is None:
         raise HTTPException(status_code=404, detail="Project not found")
-    return crud.get_project_members(db=db, project_id=project_id, organization_id=organization_id)
+    return project_crud.get_project_members(
+        db=db, project_id=project_id, organization_id=organization_id
+    )
 
 
 @router.post(
@@ -155,7 +164,9 @@ def add_project_member(
 ):
     """Add a user as a member of a project."""
     organization_id, _user_id = tenant_context
-    db_project = crud.get_project(db, project_id=project_id, organization_id=organization_id)
+    db_project = project_crud.get_project(
+        db, project_id=project_id, organization_id=organization_id
+    )
     if db_project is None:
         raise HTTPException(status_code=404, detail="Project not found")
 
@@ -186,7 +197,7 @@ def add_project_member(
             db=db, actor=current_user, role_id=body.role_id, project_id=project_id
         )
 
-    return crud.add_project_member(
+    return project_crud.add_project_member(
         db=db,
         project_id=project_id,
         user_id=body.user_id,
@@ -218,12 +229,14 @@ def remove_project_member(
     )
 
     organization_id, _tenant_user_id = tenant_context
-    db_project = crud.get_project(db, project_id=project_id, organization_id=organization_id)
+    db_project = project_crud.get_project(
+        db, project_id=project_id, organization_id=organization_id
+    )
     if db_project is None:
         raise HTTPException(status_code=404, detail="Project not found")
 
     try:
-        removed = crud.remove_project_member(
+        removed = project_crud.remove_project_member(
             db=db,
             project_id=project_id,
             user_id=user_id,
@@ -248,7 +261,7 @@ def read_project(
 ):
     """Get a project by ID."""
     organization_id, user_id = tenant_context
-    db_project = crud.get_project(
+    db_project = project_crud.get_project(
         db, project_id=project_id, organization_id=organization_id, user_id=user_id
     )
     if db_project is None:
@@ -266,13 +279,13 @@ def update_project(
 ):
     """Update a project by ID."""
     organization_id, user_id = tenant_context
-    db_project = crud.get_project(
+    db_project = project_crud.get_project(
         db, project_id=project_id, organization_id=organization_id, user_id=user_id
     )
     if db_project is None:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    return crud.update_project(
+    return project_crud.update_project(
         db, project_id=project_id, project=project, organization_id=organization_id, user_id=user_id
     )
 
@@ -286,12 +299,12 @@ def delete_project(
 ):
     """Delete a project by ID."""
     organization_id, user_id = tenant_context
-    db_project = crud.get_project(
+    db_project = project_crud.get_project(
         db, project_id=project_id, organization_id=organization_id, user_id=user_id
     )
     if db_project is None:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    return crud.delete_project(
+    return project_crud.delete_project(
         db, project_id=project_id, organization_id=organization_id, user_id=user_id
     )
