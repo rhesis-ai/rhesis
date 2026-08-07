@@ -1995,22 +1995,6 @@ def delete_organization(db: Session, organization_id: uuid.UUID) -> Optional[mod
     return delete_item(db, models.Organization, organization_id)
 
 
-# Transitional re-export: removed in the next commit, once callers import
-# from rhesis.backend.app.crud.project directly.
-from rhesis.backend.app.crud.project import (  # noqa: E402, F401
-    add_project_member,
-    count_projects,
-    create_project,
-    delete_project,
-    get_my_projects,
-    get_project,
-    get_project_members,
-    get_projects,
-    remove_project_member,
-    update_project,
-)
-
-
 def get_test(
     db: Session, test_id: uuid.UUID, organization_id: str = None, user_id: str = None
 ) -> Optional[models.Test]:

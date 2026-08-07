@@ -124,9 +124,14 @@ class TestFetchDbContext:
         project_id = str(uuid.uuid4())
         project = _make_project("MyProject", "A chatbot")
 
-        with patch("rhesis.backend.app.services.test_generation_pipeline.crud") as crud:
+        with (
+            patch("rhesis.backend.app.services.test_generation_pipeline.crud") as crud,
+            patch(
+                "rhesis.backend.app.services.test_generation_pipeline.get_project",
+                return_value=project,
+            ),
+        ):
             crud.get_behaviors.return_value = []
-            crud.get_project.return_value = project
             ctx = _fetch_db_context(
                 db=mock_db,
                 organization_id=org_id,
@@ -141,9 +146,14 @@ class TestFetchDbContext:
         mock_db = MagicMock()
         org_id = str(uuid.uuid4())
 
-        with patch("rhesis.backend.app.services.test_generation_pipeline.crud") as crud:
+        with (
+            patch("rhesis.backend.app.services.test_generation_pipeline.crud") as crud,
+            patch(
+                "rhesis.backend.app.services.test_generation_pipeline.get_project",
+                return_value=None,
+            ),
+        ):
             crud.get_behaviors.return_value = []
-            crud.get_project.return_value = None
             with pytest.raises(ValueError, match="not found"):
                 _fetch_db_context(
                     db=mock_db,
