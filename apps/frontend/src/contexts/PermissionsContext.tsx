@@ -32,7 +32,10 @@ import { useQuery } from '@tanstack/react-query';
 import { useSession } from 'next-auth/react';
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
 import type { WithPermittedActions } from '@/types/affordances';
-import { isAuthenticated as checkIsAuthenticated } from '@/hooks/useIsAuthenticated';
+import {
+  isAuthenticated as checkIsAuthenticated,
+  useUserScope,
+} from '@/hooks/useIsAuthenticated';
 
 export interface AmbientPermissions extends WithPermittedActions {
   permitted_actions: string[];
@@ -79,7 +82,7 @@ export function PermissionsProvider({
    */
   initialPermissions?: string[] | null;
 }) {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const { activeProject } = useActiveProject();
   const { loading: featuresLoading } = useFeaturesState();
   const rbacEnabled = useFeature(FeatureName.RBAC);
@@ -87,7 +90,7 @@ export function PermissionsProvider({
   // Scope the cache key by user id — the access token no longer reaches this
   // client component (BFF proxy injects it), so it can't double as a scope
   // key here anymore.
-  const userScope = session?.user?.id ?? '';
+  const userScope = useUserScope();
 
   const { data, isLoading, error, isSuccess } = useQuery({
     queryKey: permissionKeys.all(userScope, activeProject?.id ?? ''),
@@ -95,7 +98,9 @@ export function PermissionsProvider({
       new ApiClientFactory()
         .getPermissionsClient()
         .getMyPermissions(activeProject?.id ?? undefined),
-    enabled: !featuresLoading && rbacEnabled && isAuthenticated,
+    // `!!userScope` closes the gap where `status` flips to 'authenticated'
+    // before `userScope` reflects the real user id.
+    enabled: !featuresLoading && rbacEnabled && isAuthenticated && !!userScope,
     staleTime: 5 * 60_000,
     ...(initialPermissions ? { initialData: initialPermissions } : {}),
   });

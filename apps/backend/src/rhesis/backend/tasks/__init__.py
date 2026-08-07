@@ -13,9 +13,11 @@ from rhesis.backend.tasks import (
     example_task,  # noqa: F401
     execution,  # noqa: F401
     file,  # noqa: F401
+    garak,  # noqa: F401
     task_notifications,  # noqa: F401
     test_configuration,  # noqa: F401
     test_set,  # noqa: F401
+    usage,  # noqa: F401
 )
 from rhesis.backend.tasks.base import (
     BaseTask,
@@ -48,6 +50,7 @@ from rhesis.backend.tasks.example_task import (
 from rhesis.backend.tasks.execution.results import collect_results
 from rhesis.backend.tasks.test_configuration import execute_test_configuration
 from rhesis.backend.tasks.test_set import count_test_sets
+from rhesis.backend.tasks.usage import accrue_usage
 from rhesis.backend.tasks.utils import increment_test_run_progress
 
 logger = logging.getLogger(__name__)
@@ -82,6 +85,7 @@ __all__ = [
     "manual_db_example",
     "email_notification_test",
     "process_data",
+    "accrue_usage",
     # Constants
     "DEFAULT_METRIC_WORKERS",
     "DEFAULT_RESULT_STATUS",

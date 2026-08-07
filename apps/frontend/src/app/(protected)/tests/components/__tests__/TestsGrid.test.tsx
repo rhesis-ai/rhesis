@@ -33,7 +33,7 @@ jest.mock('@/components/common/NotificationContext', () => ({
 // ---- API client factory ----
 
 const mockGetTests = jest.fn();
-const mockDeleteTest = jest.fn();
+const mockBulkDeleteTests = jest.fn();
 const mockGetTestSetsForSelect = jest.fn();
 const mockAssociateTestsWithTestSet = jest.fn();
 
@@ -41,7 +41,7 @@ jest.mock('@/utils/api-client/client-factory', () => ({
   ApiClientFactory: jest.fn().mockImplementation(() => ({
     getTestsClient: () => ({
       getTests: mockGetTests,
-      deleteTest: mockDeleteTest,
+      bulkDeleteTests: mockBulkDeleteTests,
     }),
   })),
 }));
@@ -262,20 +262,29 @@ function TestsTableHarness(props: React.ComponentProps<typeof TestsTable>) {
 describe('TestsTable', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockGetTests.mockResolvedValue(makePaginatedResponse([]));
+    // Default: one row, so tests that don't care about emptiness exercise
+    // the populated (grid) branch rather than the empty-state branch.
+    mockGetTests.mockResolvedValue(makePaginatedResponse([makeTest('t-0')]));
   });
 
-  it('shows loading state while fetching', () => {
+  it('shows a loading state while the first fetch is in flight', () => {
     mockGetTests.mockReturnValue(new Promise(() => {}));
     render(<TestsTableHarness />);
-    expect(screen.getByTestId('grid-loading')).toBeInTheDocument();
+    expect(screen.getByRole('progressbar')).toBeInTheDocument();
+    expect(screen.queryByTestId('base-data-grid')).not.toBeInTheDocument();
+  });
+
+  it('renders the empty state directly, without ever mounting the grid, when there are zero tests', async () => {
+    mockGetTests.mockResolvedValue(makePaginatedResponse([]));
+    render(<TestsTableHarness />);
+    expect(await screen.findByText('No test yet')).toBeInTheDocument();
+    expect(screen.queryByTestId('base-data-grid')).not.toBeInTheDocument();
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
   });
 
   it('renders no action buttons when no rows are selected', async () => {
     render(<TestsTableHarness />);
-    await waitFor(() =>
-      expect(screen.queryByTestId('grid-loading')).not.toBeInTheDocument()
-    );
+    await screen.findByTestId('base-data-grid');
     expect(screen.queryByTestId('action-Add Tests')).not.toBeInTheDocument();
   });
 
@@ -360,7 +369,7 @@ describe('TestsTable', () => {
 
   it('opens delete modal and confirms deletion', async () => {
     mockGetTests.mockResolvedValue(makePaginatedResponse([makeTest('t-1')]));
-    mockDeleteTest.mockResolvedValue(undefined);
+    mockBulkDeleteTests.mockResolvedValue(undefined);
     render(<TestsTableHarness />);
     await waitFor(() =>
       expect(screen.getByTestId('row-t-1')).toBeInTheDocument()
@@ -381,7 +390,9 @@ describe('TestsTable', () => {
     await userEvent.click(
       screen.getByRole('button', { name: /confirm delete/i })
     );
-    await waitFor(() => expect(mockDeleteTest).toHaveBeenCalledWith('t-1'));
+    await waitFor(() =>
+      expect(mockBulkDeleteTests).toHaveBeenCalledWith(['t-1'])
+    );
     await waitFor(() =>
       expect(mockShow).toHaveBeenCalledWith(
         expect.stringContaining('deleted'),
@@ -409,12 +420,12 @@ describe('TestsTable', () => {
     );
 
     await userEvent.click(screen.getByRole('button', { name: /cancel/i }));
-    expect(mockDeleteTest).not.toHaveBeenCalled();
+    expect(mockBulkDeleteTests).not.toHaveBeenCalled();
   });
 
   it('shows error notification when delete fails', async () => {
     mockGetTests.mockResolvedValue(makePaginatedResponse([makeTest('t-1')]));
-    mockDeleteTest.mockRejectedValue(new Error('Server error'));
+    mockBulkDeleteTests.mockRejectedValue(new Error('Server error'));
     render(<TestsTableHarness />);
     await waitFor(() =>
       expect(screen.getByTestId('row-t-1')).toBeInTheDocument()

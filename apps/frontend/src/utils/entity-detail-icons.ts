@@ -1,6 +1,5 @@
 import type { SvgIconProps } from '@mui/material/SvgIcon';
 import FolderOffOutlinedIcon from '@mui/icons-material/FolderOffOutlined';
-import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import SwapHorizOutlinedIcon from '@mui/icons-material/SwapHorizOutlined';
 import {
   BehaviorsIcon,
@@ -37,4 +36,4 @@ export function getResolveEntityIcon(
   return RESOLVE_ENTITY_ICONS[tableName] ?? FolderOffOutlinedIcon;
 }
 
-export { FolderOffOutlinedIcon, LockOutlinedIcon, SwapHorizOutlinedIcon };
+export { FolderOffOutlinedIcon, SwapHorizOutlinedIcon };

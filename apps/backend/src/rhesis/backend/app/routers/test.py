@@ -2,8 +2,7 @@ import logging
 from typing import List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from rhesis.backend.app.routers.base import RhesisRouter
+from fastapi import Depends, HTTPException, Query, Response
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError
@@ -17,10 +16,10 @@ from rhesis.backend.app.dependencies import (
     get_tenant_db_session,
 )
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.services.stats import get_individual_test_stats, get_test_stats
 from rhesis.backend.app.services.test import (
     bulk_create_tests,
-    create_test_from_conversation,
     extract_test_from_conversation,
     resolve_test_entity_names,
 )
@@ -31,12 +30,8 @@ from rhesis.backend.app.utils.execution_validation import (
     validate_execution_model,
 )
 from rhesis.backend.app.utils.odata import apply_select
-from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 
 logger = logging.getLogger(__name__)
-
-# Create the detailed schema for Test
-TestDetailSchema = create_detailed_schema(schemas.Test, models.Test)
 
 router = RhesisRouter(
     prefix="/tests", tags=["tests"], responses={404: {"description": "Not found"}}, resource="test"
@@ -75,8 +70,6 @@ def create_tests_bulk(
                 "prompt": {
                     "content": "Prompt text",
                     "language_code": "en",
-                    "demographic": "Optional demographic",
-                    "dimension": "Optional dimension",
                     "expected_response": "Optional expected response"
                 },
                 "behavior": "Behavior name",
@@ -137,48 +130,26 @@ def create_tests_bulk(
             )
 
 
-@router.post(
-    "/from-conversation",
-    response_model=schemas.ConversationToTestResponse,
-)
-def create_test_from_conversation_endpoint(
-    request: schemas.ConversationToTestRequest,
+@router.delete("/bulk", response_model=schemas.TestBulkDeleteResponse)
+def bulk_delete_tests(
+    request: schemas.TestBulkDeleteRequest,
     db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
+    """Delete multiple tests at once.
+
+    Soft-deletes every test in one transaction and recomputes each affected
+    test set's attributes once, rather than once per deleted test.
+
+    Registered before /{test_id} routes below -- FastAPI matches routes in
+    registration order, so a literal /bulk path must come first or a
+    /{test_id}-shaped route would swallow it (treating "bulk" as an id).
     """
-    Create a test by extracting metadata from a playground conversation.
-
-    For multi-turn: uses synthesizer to extract goal, instructions,
-    restrictions, scenario, behavior, category, and topic.
-
-    For single-turn: uses LLM to extract behavior, category, and topic,
-    with the user message as prompt and assistant response as expected output.
-    """
-    try:
-        test_id = create_test_from_conversation(
-            db=db,
-            messages=request.messages,
-            user=current_user,
-            test_type=request.test_type or "Multi-Turn",
-        )
-
-        return schemas.ConversationToTestResponse(
-            test_id=test_id,
-            message="Test created successfully from conversation",
-        )
-
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        logger.error(
-            f"Error creating test from conversation: {e}",
-            exc_info=True,
-        )
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to create test from conversation: {str(e)}",
-        )
+    organization_id, user_id = tenant_context
+    return crud.bulk_delete_tests(
+        db=db, test_ids=request.test_ids, organization_id=organization_id, user_id=user_id
+    )
 
 
 @router.post(
@@ -227,8 +198,8 @@ def generate_test_stats(
     return get_test_stats(db, current_user.organization_id, top, months)
 
 
-@router.get("/", response_model=List[TestDetailSchema])
-@with_count_header(model=models.Test)
+@router.get("/", response_model=List[schemas.TestDetail])
+@with_count_header(model=models.Test, exclude_explorer_rows=True)
 def read_tests(
     response: Response,
     skip: int = 0,
@@ -245,7 +216,11 @@ def read_tests(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """Get all tests with their related objects"""
+    """Get all tests with their related objects.
+
+    Explorer tests (flagged via explorer_row) are omitted; they are reachable
+    through the /explorer API only.
+    """
     organization_id, user_id = tenant_context
     tests = crud.get_tests(
         db,
@@ -351,7 +326,7 @@ def get_individual_test_statistics(
     )
 
 
-@router.get("/{test_id}", response_model=TestDetailSchema)
+@router.get("/{test_id}", response_model=schemas.TestDetail)
 def read_test(
     test_id: UUID,
     db: Session = Depends(get_tenant_db_session),

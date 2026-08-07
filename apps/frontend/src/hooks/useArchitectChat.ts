@@ -109,7 +109,8 @@ interface UseArchitectChatResult {
   setAutoApproveAll: React.Dispatch<React.SetStateAction<boolean>>;
   setCurrentMode: React.Dispatch<React.SetStateAction<string>>;
   setCurrentPlan: React.Dispatch<React.SetStateAction<string | null>>;
-  sendMessage: (message: string, attachments?: ChatAttachments) => void;
+  /** Returns true when the message was handed to the WebSocket, false otherwise. */
+  sendMessage: (message: string, attachments?: ChatAttachments) => boolean;
   setMessages: React.Dispatch<React.SetStateAction<ArchitectChatMessage[]>>;
 }
 
@@ -689,11 +690,11 @@ export function useArchitectChat(
   }, [reconcileDismissedPlan, subscribe, sessionId]);
 
   const sendMessage = useCallback(
-    (message: string, attachments?: ChatAttachments) => {
-      if (!sessionId || !isConnected || isLoading) return;
+    (message: string, attachments?: ChatAttachments): boolean => {
+      if (!sessionId || !isConnected || isLoading) return false;
 
       const trimmed = message.trim();
-      if (!trimmed) return;
+      if (!trimmed) return false;
 
       setError(null);
       setIsAwaitingTask(false);
@@ -761,7 +762,9 @@ export function useArchitectChat(
         setIsLoading(false);
         setError('Failed to send message');
         pendingCorrelationRef.current = null;
+        return false;
       }
+      return true;
     },
     [sessionId, sessionProjectId, isConnected, isLoading, send]
   );

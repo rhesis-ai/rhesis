@@ -113,16 +113,15 @@ class TestConversationContextVars:
 class TestExporterConversation:
     """Test exporter conversation span handling."""
 
-    def test_turn_root_parent_stripped(self):
-        """Turn-root span should have parent_span_id set to None."""
+    def test_synthetic_turn_root_parent_is_stripped(self):
+        """Turn-root span should have the synthetic parent_span_id set to None."""
         exporter = _make_exporter()
         trace_id = int("aa" * 16, 16)
-        synthetic_parent_id = 0xDEADBEEF
 
         span = _make_mock_span(
             trace_id=trace_id,
             span_id=0x1234,
-            parent_span_id=synthetic_parent_id,
+            parent_span_id=ConvCtx.SYNTHETIC_PARENT_SPAN_ID,
             attributes={
                 ConvCtx.SpanAttributes.IS_TURN_ROOT: True,
                 ConvCtx.SpanAttributes.CONVERSATION_ID: "session-xyz",
@@ -135,7 +134,31 @@ class TestExporterConversation:
         assert converted.parent_span_id is None
         assert converted.conversation_id == "session-xyz"
 
-    def test_child_span_inherits_conversation_id(self):
+    def test_turn_root_real_parent_preserved(self):
+        """A turn-root span nested in a real span keeps its parent.
+
+        Only the synthetic placeholder is stripped. Cutting a real parent detaches the whole
+        subtree, which the UI then renders as an extra conversation turn.
+        """
+        exporter = _make_exporter()
+        trace_id = int("ee" * 16, 16)
+
+        span = _make_mock_span(
+            trace_id=trace_id,
+            span_id=0x5678,
+            parent_span_id=0xDEADBEEF,
+            attributes={
+                ConvCtx.SpanAttributes.IS_TURN_ROOT: True,
+                ConvCtx.SpanAttributes.CONVERSATION_ID: "session-nested",
+            },
+        )
+
+        batch = exporter._convert_spans([span])
+        converted = batch.spans[0]
+        assert converted.parent_span_id == format(0xDEADBEEF, "016x")
+        assert converted.conversation_id == "session-nested"
+
+    def test_child_span_inherits_the_conversation_id(self):
         """Child span sharing trace_id with a turn root inherits conversation_id."""
         exporter = _make_exporter()
         trace_id = int("bb" * 16, 16)
@@ -143,7 +166,7 @@ class TestExporterConversation:
         root = _make_mock_span(
             trace_id=trace_id,
             span_id=0x1111,
-            parent_span_id=0xDEADBEEF,
+            parent_span_id=ConvCtx.SYNTHETIC_PARENT_SPAN_ID,
             name="function.chat",
             attributes={
                 ConvCtx.SpanAttributes.IS_TURN_ROOT: True,
@@ -187,7 +210,7 @@ class TestExporterConversation:
         span = _make_mock_span(
             trace_id=trace_id,
             span_id=0x4444,
-            parent_span_id=0xDEADBEEF,
+            parent_span_id=ConvCtx.SYNTHETIC_PARENT_SPAN_ID,
             attributes={
                 ConvCtx.SpanAttributes.IS_TURN_ROOT: True,
                 ConvCtx.SpanAttributes.CONVERSATION_ID: "session-export-test",
@@ -344,9 +367,7 @@ class TestExecutorConversation:
             },
         }
 
-        result = asyncio.get_event_loop().run_until_complete(
-            executor.execute(mock_func, "mock_func", inputs)
-        )
+        result = asyncio.run(executor.execute(mock_func, "mock_func", inputs))
 
         assert result["status"] == "success"
         assert captured_conv_id == "session-exec-test"
@@ -375,9 +396,7 @@ class TestExecutorConversation:
             },
         }
 
-        asyncio.get_event_loop().run_until_complete(
-            executor.execute(mock_func, "mock_func", inputs)
-        )
+        asyncio.run(executor.execute(mock_func, "mock_func", inputs))
 
         assert ConvCtx.CONTEXT_KEY not in received_kwargs
         assert "prompt" in received_kwargs
@@ -388,9 +407,7 @@ class TestExecutorConversation:
 
         executor = TestExecutor()
 
-        result = asyncio.get_event_loop().run_until_complete(
-            executor.execute(lambda: "ok", "simple", {})
-        )
+        result = asyncio.run(executor.execute(lambda: "ok", "simple", {}))
         assert result["status"] == "success"
         assert result["output"] == "ok"
 
@@ -410,9 +427,7 @@ class TestExecutorConversation:
             },
         }
 
-        result = asyncio.get_event_loop().run_until_complete(
-            executor.execute(failing_func, "failing", inputs)
-        )
+        result = asyncio.run(executor.execute(failing_func, "failing", inputs))
 
         assert result["status"] == "error"
         assert get_conversation_id() is None

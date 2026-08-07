@@ -54,9 +54,7 @@ from rhesis.penelope.prompts import (
 first_turn = FIRST_TURN_PROMPT.render()
 
 # Rendering with variables
-instructions = DEFAULT_INSTRUCTIONS_TEMPLATE.render(
-    goal="Test multi-turn conversation"
-)
+instructions = DEFAULT_INSTRUCTIONS_TEMPLATE.render(goal="Test multi-turn conversation")
 
 # Complex assembly
 system_prompt = get_system_prompt(
@@ -64,7 +62,7 @@ system_prompt = get_system_prompt(
     goal="Verify chatbot provides accurate refund policy and processes requests correctly",  # WHAT to achieve
     scenario="Frustrated customer seeking refund",  # Optional: test persona/context
     context="Refund policy: 30 days, original payment method",  # Optional: reference information
-    available_tools="tool1, tool2"
+    available_tools="tool1, tool2",
 )
 ```
 
@@ -89,7 +87,7 @@ template = PromptTemplate(
     {% if context %}
     Context: {{ context }}
     {% endif %}
-    """
+    """,
 )
 rendered = template.render(test_name="Auth Test", context="User data")
 
@@ -99,12 +97,13 @@ template = PromptTemplate(
     name="my_prompt",
     description="Custom prompt from file",
     format=TemplateFormat.JINJA2_FILE,
-    template="my_template.j2"  # File in templates/ directory
+    template="my_template.j2",  # File in templates/ directory
 )
 rendered = template.render(var1="value1", var2="value2")
 
 # Direct template rendering
 from rhesis.penelope.prompts import render_template
+
 result = render_template("goal_evaluation.j2", goal="Test goal", conversation="...")
 ```
 
@@ -151,20 +150,15 @@ print(GOAL_EVALUATION_PROMPT.metadata["changelog"])
 2. **Define PromptTemplate**:
    ```python
    from rhesis.penelope.prompts.base import PromptTemplate
-   
+
    MY_NEW_PROMPT = PromptTemplate(
        version="1.0.0",
        name="my_prompt",
        description="What this prompt does",
-       metadata={
-           "author": "Your Name",
-           "changelog": {
-               "1.0.0": "Initial version"
-           }
-       },
+       metadata={"author": "Your Name", "changelog": {"1.0.0": "Initial version"}},
        template="""Your prompt text here
-       
-       Can use {placeholders} for variables."""
+
+       Can use {placeholders} for variables.""",
    )
    ```
 3. **Export** in `__init__.py`
@@ -183,7 +177,7 @@ metadata = {
     "changelog": {
         "1.0.0": "Initial version",
         "1.1.0": "Added criterion-by-criterion evaluation",
-        "2.0.0": "Changed response format (breaking change)"
+        "2.0.0": "Changed response format (breaking change)",
     }
 }
 ```
@@ -198,6 +192,7 @@ def test_first_turn_prompt():
     prompt = FIRST_TURN_PROMPT.render()
     assert "Begin executing" in prompt
     assert len(prompt) > 0
+
 
 def test_default_instructions():
     """Test default instructions include goal."""
@@ -240,7 +235,7 @@ Penelope supports three template formats:
    - Fast and lightweight
    - Good for simple prompts
    ```python
-   template="Hello {name}!"
+   template = "Hello {name}!"
    ```
 
 2. **Jinja2 Inline** (`TemplateFormat.JINJA2`):
@@ -248,7 +243,7 @@ Penelope supports three template formats:
    - Conditionals, loops, filters
    - Good for medium complexity
    ```python
-   template="Hello {{ name }}! {% if context %}Context: {{ context }}{% endif %}"
+   template = "Hello {{ name }}! {% if context %}Context: {{ context }}{% endif %}"
    ```
 
 3. **Jinja2 File** (`TemplateFormat.JINJA2_FILE`):
@@ -256,7 +251,7 @@ Penelope supports three template formats:
    - Best for complex prompts
    - Easier to edit and version
    ```python
-   template="my_template.j2"  # File in templates/ directory
+   template = "my_template.j2"  # File in templates/ directory
    ```
 
 ### Jinja2 Examples
@@ -321,22 +316,13 @@ from rhesis.penelope.prompts import get_loader
 loader = get_loader()
 
 # truncate_text: Shorten long strings
-result = loader.render_string(
-    "{{ text | truncate_text(50) }}",
-    text="Very long text..."
-)
+result = loader.render_string("{{ text | truncate_text(50) }}", text="Very long text...")
 
 # word_count: Count words
-result = loader.render_string(
-    "Words: {{ text | word_count }}",
-    text="Hello world from Penelope"
-)
+result = loader.render_string("Words: {{ text | word_count }}", text="Hello world from Penelope")
 
 # format_list: Format lists with bullets
-result = loader.render_string(
-    "{{ items | format_list('•') }}",
-    items=["First", "Second", "Third"]
-)
+result = loader.render_string("{{ items | format_list('•') }}", items=["First", "Second", "Third"])
 ```
 
 ### Creating Template Files
@@ -363,7 +349,7 @@ MY_PROMPT = PromptTemplate(
     name="my_prompt",
     description="Custom prompt with loops",
     format=TemplateFormat.JINJA2_FILE,
-    template="my_prompt.j2"
+    template="my_prompt.j2",
 )
 ```
 
@@ -373,7 +359,7 @@ result = MY_PROMPT.render(
     goal="Test authentication",
     instructions="Be thorough",
     steps=3,
-    step_descriptions=["Login", "Verify", "Logout"]
+    step_descriptions=["Login", "Verify", "Logout"],
 )
 ```
 

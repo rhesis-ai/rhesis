@@ -6,9 +6,11 @@ import {
 } from '../types';
 
 describe('resolveInsightsTimeRange', () => {
-  it('defaults to 1m', () => {
-    expect(resolveInsightsTimeRange(undefined)).toBe('1m');
-    expect(resolveInsightsTimeRange('invalid' as InsightsTimeRange)).toBe('1m');
+  it('defaults to always', () => {
+    expect(resolveInsightsTimeRange(undefined)).toBe('always');
+    expect(resolveInsightsTimeRange('invalid' as InsightsTimeRange)).toBe(
+      'always'
+    );
   });
 });
 
@@ -17,7 +19,8 @@ describe('normalizeInsightsFilters', () => {
     expect(normalizeInsightsFilters({ months: 1, endpointId: 'ep-1' })).toEqual(
       {
         endpointId: 'ep-1',
-        behaviorIds: [],
+        behaviorIds: null,
+        statusIds: null,
         runFilterMode: 'timeRange',
         timeRange: '1m',
         testRunIds: [],
@@ -34,9 +37,10 @@ describe('normalizeInsightsFilters', () => {
       })
     ).toEqual({
       endpointId: 'ep-1',
-      behaviorIds: [],
+      behaviorIds: null,
+      statusIds: null,
       runFilterMode: 'testRuns',
-      timeRange: '1m',
+      timeRange: 'always',
       testRunIds: ['run-1'],
     });
   });
@@ -57,6 +61,10 @@ describe('timeRangeToStatsParams', () => {
     ['3m', { months: 3 }],
   ])('maps %s to months param', (range, expected) => {
     expect(timeRangeToStatsParams(range)).toEqual(expected);
+  });
+
+  it('maps always to no date bounds', () => {
+    expect(timeRangeToStatsParams('always')).toEqual({});
   });
 
   it('maps 1d to a one-day date range', () => {

@@ -2,8 +2,7 @@ import uuid
 from typing import Any, Dict, List
 
 from celery.result import AsyncResult
-from fastapi import APIRouter, Depends, HTTPException
-from rhesis.backend.app.routers.base import RhesisRouter
+from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import schemas
@@ -11,6 +10,7 @@ from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.dependencies import (
     get_tenant_db_session,
 )
+from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.celery.core import app as celery_app
 from rhesis.backend.tasks import task_launcher
 from rhesis.backend.tasks.example_task import email_notification_test
@@ -24,7 +24,6 @@ router = RhesisRouter(
 )
 
 
-# @router.get("/", response_model=TaskList)
 async def list_tasks(
     current_user: schemas.User = Depends(require_current_user_or_token),
 ) -> Dict[str, List[str]]:
@@ -36,7 +35,6 @@ async def list_tasks(
     return {"tasks": sorted(user_tasks)}
 
 
-# @router.get("/active", response_model=WorkerInfo)
 async def list_active_tasks(current_user: schemas.User = Depends(require_current_user_or_token)):
     """List all currently running tasks."""
     inspector = celery_app.control.inspect()
@@ -47,7 +45,6 @@ async def list_active_tasks(current_user: schemas.User = Depends(require_current
     return {"active": active, "scheduled": scheduled, "reserved": reserved}
 
 
-# @router.get("/stats", response_model=WorkerStats)
 async def get_stats(current_user: schemas.User = Depends(require_current_user_or_token)):
     """Get statistics about the Celery workers and tasks."""
     inspector = celery_app.control.inspect()
@@ -57,7 +54,6 @@ async def get_stats(current_user: schemas.User = Depends(require_current_user_or
     return {"stats": stats, "registered_tasks": registered, "total_tasks": len(celery_app.tasks)}
 
 
-# @router.post("/email-notification-test", response_model=TaskResponse)
 async def test_email_notifications(
     message: str = "Test email notification",
     db: Session = Depends(get_tenant_db_session),
@@ -92,7 +88,6 @@ async def test_email_notifications(
         )
 
 
-# @router.post("/{task_name}", response_model=TaskResponse)
 async def create_task(
     task_name: str,
     payload: Dict[Any, Any],
@@ -136,7 +131,6 @@ async def get_task_status(
     }
 
 
-# @router.delete("/{task_id}", response_model=TaskRevoke)
 async def revoke_task(
     task_id: uuid.UUID,
     terminate: bool = False,
@@ -147,7 +141,6 @@ async def revoke_task(
     return {"message": f"Task {task_id} revoked"}
 
 
-# @router.get("/health", response_model=HealthCheck)
 async def health_check(current_user: schemas.User = Depends(require_current_user_or_token)):
     """Check if the Celery workers are running and responding."""
     try:
@@ -164,7 +157,6 @@ async def health_check(current_user: schemas.User = Depends(require_current_user
         raise HTTPException(status_code=503, detail=f"Celery health check failed: {str(e)}")
 
 
-# @router.get("/workers/status", response_model=WorkerStatus)
 async def get_workers_status(current_user: schemas.User = Depends(require_current_user_or_token)):
     """Get detailed status of all Celery workers and their tasks."""
     inspector = celery_app.control.inspect()

@@ -87,9 +87,11 @@ def create_session_authentication() -> Tuple[str, str, str]:
         test_user_email = f"session_{timestamp}_{session_suffix}@rhesis-test.com"
         test_user_name = "Test Session User"
 
-        # Create session auth data
+        # Create session auth data. set_env_var=True: this is the one-time,
+        # session-scoped identity every other test authenticates as by
+        # default, so RHESIS_API_KEY should point at it.
         organization, user, token = create_test_organization_and_user(
-            session, test_org_name, test_user_email, test_user_name
+            session, test_org_name, test_user_email, test_user_name, set_env_var=True
         )
 
         # Commit the session to make the organization and user available to other sessions

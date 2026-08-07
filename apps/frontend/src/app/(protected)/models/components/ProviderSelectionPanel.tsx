@@ -17,7 +17,9 @@ import {
   LOCAL_PROVIDERS,
   EMBEDDING_PROVIDERS,
   PROVIDER_ICONS,
+  getProviderDisplayName,
 } from '@/config/model-providers';
+import { useIsLocalMode } from '@/contexts/FeaturesContext';
 
 interface ProviderItem {
   provider: TypeLookup;
@@ -29,11 +31,9 @@ interface ProviderItem {
 
 function buildModelProviderItems(
   providers: TypeLookup[],
-  modelType: 'language' | 'embedding'
+  modelType: 'language' | 'embedding',
+  isLocalMode: boolean
 ): ProviderItem[] {
-  const fe = process.env.NEXT_PUBLIC_FRONTEND_ENV?.toLowerCase();
-  const isLocalMode = fe === 'local';
-
   const selectable = providers.filter(provider => {
     if (
       provider.type_value === 'rhesis' ||
@@ -74,7 +74,7 @@ function buildModelProviderItems(
 
     return {
       provider,
-      name: provider.description || provider.type_value,
+      name: getProviderDisplayName(provider),
       icon: PROVIDER_ICONS[provider.type_value] || (
         <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.large }} />
       ),
@@ -95,7 +95,8 @@ export function ProviderSelectionPanel({
   modelType,
   onSelectProvider,
 }: ProviderSelectionPanelProps) {
-  const items = buildModelProviderItems(providers, modelType);
+  const isLocalMode = useIsLocalMode();
+  const items = buildModelProviderItems(providers, modelType, isLocalMode);
 
   if (items.length === 0) {
     return (

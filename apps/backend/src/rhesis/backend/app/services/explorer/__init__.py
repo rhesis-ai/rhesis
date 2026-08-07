@@ -1,31 +1,32 @@
 """Explorer (test tree) service package."""
 
-from .embeddings import (
+from rhesis.backend.app.services.explorer.embeddings import (
     a_generate_embedding_vectors_batch,
     create_test_embedding,
     generate_embedding_vector,
     load_test_for_embedding,
     resolve_embedder,
 )
-from .evaluation import (
+from rhesis.backend.app.services.explorer.evaluation import (
     evaluate_tests_for_explorer_set,
 )
-from .responses import (
+from rhesis.backend.app.services.explorer.responses import (
     generate_outputs_for_tests,
 )
-from .settings import (
+from rhesis.backend.app.services.explorer.settings import (
     get_explorer_settings,
     resolve_endpoint_id,
     resolve_metric_names,
     update_explorer_settings,
 )
-from .suggestions import (
+from rhesis.backend.app.services.explorer.suggestions import (
     evaluate_suggestions_stream,
     generate_suggestions,
     invoke_endpoint_for_suggestions_stream,
     suggestion_pipeline_stream,
 )
-from .tests import (
+from rhesis.backend.app.services.explorer.tests import (
+    bulk_delete_explorer_test_sets,
     create_explorer_test_set,
     create_test_node,
     delete_explorer_test_set,
@@ -38,7 +39,7 @@ from .tests import (
     import_explorer_test_set_from_source,
     update_test_node,
 )
-from .topics import (
+from rhesis.backend.app.services.explorer.topics import (
     create_topic_node,
     remove_topic_node,
     update_topic_node,
@@ -47,6 +48,7 @@ from .topics import (
 __all__ = [
     "a_generate_embedding_vectors_batch",
     "create_test_embedding",
+    "bulk_delete_explorer_test_sets",
     "create_explorer_test_set",
     "create_test_node",
     "create_topic_node",

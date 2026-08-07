@@ -7,10 +7,10 @@ import { useSearchParams } from 'next/navigation';
 import { signIn } from 'next-auth/react';
 import { getClientApiBaseUrl } from '@/utils/url-resolver';
 import AuthPageShell from '@/components/auth/AuthPageShell';
-
-const BUTTON_HOVER = '#3aabcf'; // Intentional: auth form button hover
+import { useAuthStyles } from '@/components/auth/useAuthStyles';
 
 export default function MagicLinkPage() {
+  const { heading, primaryButton } = useAuthStyles();
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
 
@@ -80,15 +80,7 @@ export default function MagicLinkPage() {
       {status === 'error' && (
         <>
           <ErrorOutlineIcon sx={{ fontSize: 48, color: 'error.main' }} />
-          <Typography
-            sx={{
-              fontSize: 24,
-              fontWeight: 700,
-              color: 'secondary.dark',
-              textAlign: 'center',
-              letterSpacing: '-0.02em',
-            }}
-          >
+          <Typography sx={{ ...heading, textAlign: 'center' }}>
             Sign-in failed
           </Typography>
           <Alert severity="error" sx={{ width: '100%' }}>
@@ -101,16 +93,7 @@ export default function MagicLinkPage() {
             variant="contained"
             href="/"
             fullWidth
-            sx={{
-              mt: 1,
-              height: 46,
-              borderRadius: '10px', // Intentional: button border radius
-              bgcolor: 'primary.main',
-              '&:hover': {
-                bgcolor: BUTTON_HOVER,
-                boxShadow: '0 4px 12px rgba(80,185,224,0.3)', // Intentional: button hover glow
-              },
-            }}
+            sx={{ ...primaryButton, mt: 1 }}
           >
             Back to sign in
           </Button>

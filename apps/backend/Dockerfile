@@ -95,11 +95,10 @@ ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
     UV_NO_DEV=1
 
+# torch comes in via garak but isn't used at runtime; skip installing it.
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=cache,target=/root/.cargo/registry \
-    uv sync --extra all --extra cpu --extra ee
-
-RUN uv pip uninstall torch
+    uv sync --extra all --extra cpu --extra ee --no-install-package torch
 
 COPY apps/backend/src ./src
 
@@ -231,7 +230,7 @@ RUN mkdir -p logs && chown rhesis-user:rhesis-user logs
 USER rhesis-user
 
 ENV PYTHONPATH=/app/apps/backend/src \
-    PATH="/usr/local/bin:/app/apps/backend/.venv/bin:$PATH"
+    PATH="/app/apps/backend/.venv/bin:/usr/local/bin:$PATH"
 
 CMD ["./start.sh"]
 

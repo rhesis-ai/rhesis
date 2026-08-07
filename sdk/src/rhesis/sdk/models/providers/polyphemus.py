@@ -10,6 +10,7 @@ import jsonfinder
 import requests
 from pydantic import BaseModel
 
+from rhesis.sdk.config import DEFAULT_LLM_TIMEOUT
 from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.models.defaults import DEFAULT_LANGUAGE_MODELS, model_name_from_id
 from rhesis.sdk.models.utils import validate_llm_response
@@ -19,7 +20,7 @@ logger = logging.getLogger(__name__)
 DEFAULT_MODEL = DEFAULT_LANGUAGE_MODELS["polyphemus"]
 DEFAULT_MODEL_NAME = model_name_from_id(DEFAULT_MODEL)
 DEFAULT_POLYPHEMUS_URL = os.getenv("DEFAULT_POLYPHEMUS_URL") or "https://polyphemus.rhesis.ai"
-DEFAULT_REQUEST_TIMEOUT = int(os.getenv("RHESIS_LLM_TIMEOUT", "300"))  # 5 minutes
+DEFAULT_REQUEST_TIMEOUT = DEFAULT_LLM_TIMEOUT  # 5 minutes
 
 
 class PolyphemusLLM(BaseLLM):
@@ -123,6 +124,8 @@ class PolyphemusLLM(BaseLLM):
                 json_schema=schema.model_json_schema() if schema else None,
                 **kwargs,
             )
+
+            self._emit_usage(response.get("usage"))
 
             # Extract the assistant's message content from the response
             if "choices" in response and len(response["choices"]) > 0:
@@ -234,7 +237,10 @@ class PolyphemusLLM(BaseLLM):
             )
 
         results: List[Any] = []
+        batch_usage: List[Any] = []
         for item in batch_response.get("responses", []):
+            batch_usage.append(item.get("usage"))
+
             if item.get("error"):
                 results.append(err_placeholder(str(item["error"])))
                 continue
@@ -258,6 +264,14 @@ class PolyphemusLLM(BaseLLM):
                 if not include_reasoning:
                     content = self._strip_reasoning_tokens(content)
                 results.append(content)
+
+        # One aggregate accrual for the whole batch, rather than per-item.
+        # Summing is left to _emit_usage_batch so each item's payload goes
+        # through the same provider-agnostic normalization as a single call:
+        # reading item["usage"]["total_tokens"] directly here used to drop
+        # the whole item whenever the server reported only prompt/completion
+        # counts.
+        self._emit_usage_batch(batch_usage)
 
         # Guarantee result list length matches input length.
         # Fill any missing items (server returned fewer than requested).

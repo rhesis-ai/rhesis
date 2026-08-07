@@ -21,14 +21,14 @@ success = email_service.send_email(
     recipient_email="user@example.com",
     subject="Your Task Completed Successfully",
     template_variables={
-        'recipient_name': "John Doe",
-        'task_name': "API Test Suite",
-        'task_id': "task_12345",
-        'status': "success",
-        'execution_time': "2 minutes 30 seconds"
+        "recipient_name": "John Doe",
+        "task_name": "API Test Suite",
+        "task_id": "task_12345",
+        "status": "success",
+        "execution_time": "2 minutes 30 seconds",
         # Missing variables will be set to "N/A" automatically
     },
-    task_id="task_12345"
+    task_id="task_12345",
 )
 ```
 
@@ -75,11 +75,14 @@ class EmailTemplate(Enum):
     TEST_EXECUTION_SUMMARY = "test_execution_summary.html.jinja2"
     NEW_TEMPLATE = "new_template.html.jinja2"  # Add this
 
+
 # In TemplateService.__init__():
 self.template_variables = {
     # ... existing templates ...
     EmailTemplate.NEW_TEMPLATE: {
-        'recipient_name', 'message', 'timestamp'  # Define required vars
+        "recipient_name",
+        "message",
+        "timestamp",  # Define required vars
     }
 }
 ```

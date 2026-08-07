@@ -18,9 +18,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
+from rhesis.backend.app.crud.explorer import create_explorer_test
 from rhesis.backend.app.models.test import test_test_set_association
 
 
@@ -287,7 +289,7 @@ def regular_source_test_set_for_import(test_db: Session, test_org_id, authentica
     return test_set
 
 
-def _make_test_set_with_attrs(db, name, attributes, organization_id, user_id):
+def _make_test_set_with_attrs(db, name, attributes, organization_id, user_id, explorer_row=False):
     """Create a test set with given attributes."""
     ts = models.TestSet(
         name=name,
@@ -295,6 +297,7 @@ def _make_test_set_with_attrs(db, name, attributes, organization_id, user_id):
         organization_id=organization_id,
         user_id=user_id,
         attributes=attributes,
+        explorer_row=explorer_row,
     )
     db.add(ts)
     db.flush()
@@ -306,7 +309,7 @@ def explorer_and_regular_test_sets(test_db: Session, test_org_id, authenticated_
     """Create a mix of explorer and non-explorer test sets for route tests.
 
     Creates:
-    - 2 test sets WITH ``Adaptive Testing`` behavior in metadata
+    - 2 test sets with ``explorer_row=True``
     - 1 test set with a different behavior
     - 1 test set with no attributes
     """
@@ -316,6 +319,7 @@ def explorer_and_regular_test_sets(test_db: Session, test_org_id, authenticated_
         {"metadata": {"behaviors": ["Adaptive Testing"]}},
         test_org_id,
         authenticated_user_id,
+        explorer_row=True,
     )
     ts_adaptive_2 = _make_test_set_with_attrs(
         test_db,
@@ -325,6 +329,7 @@ def explorer_and_regular_test_sets(test_db: Session, test_org_id, authenticated_
         },
         test_org_id,
         authenticated_user_id,
+        explorer_row=True,
     )
     ts_regular = _make_test_set_with_attrs(
         test_db,
@@ -363,7 +368,7 @@ class TestListExplorerTestSetsEndpoint:
         authenticated_client: TestClient,
         explorer_and_regular_test_sets,
     ):
-        """Should return only test sets with Adaptive Testing behavior."""
+        """Should return only test sets flagged as Explorer-owned."""
         response = authenticated_client.get("/explorer")
 
         assert response.status_code == status.HTTP_200_OK
@@ -399,6 +404,25 @@ class TestListExplorerTestSetsEndpoint:
         }
         for item in data:
             assert expected_fields.issubset(item.keys())
+
+    def test_returns_expanded_creator(
+        self,
+        authenticated_client: TestClient,
+        explorer_and_regular_test_sets,
+        authenticated_user_id,
+    ):
+        """`user` must be expanded -- the sessions grid renders a Creator column from it.
+
+        Only TestSetDetail carries it; the bare TestSet schema would drop the key.
+        """
+        response = authenticated_client.get("/explorer")
+
+        assert response.status_code == status.HTTP_200_OK
+        explorer_id = str(explorer_and_regular_test_sets["explorer_1"].id)
+        item = next(i for i in response.json() if i["id"] == explorer_id)
+
+        assert item["user"] is not None
+        assert item["user"]["id"] == str(authenticated_user_id)
 
     def test_pagination_limit(
         self,
@@ -488,10 +512,7 @@ class TestCreateExplorerTestSetEndpoint:
         assert "id" in data
         assert data["name"] == "My Adaptive Set"
         assert data["description"] == "Optional"
-        assert "attributes" in data
-        assert "metadata" in data["attributes"]
-        assert "behaviors" in data["attributes"]["metadata"]
-        assert "Adaptive Testing" in data["attributes"]["metadata"]["behaviors"]
+        assert data["explorer_row"] is True
         assert "created_at" in data
         assert "updated_at" in data
 
@@ -560,7 +581,7 @@ class TestImportExplorerTestSetEndpoint:
 
         new_id = data["test_set"]["id"]
         assert new_id != str(src.id)
-        assert "(Adaptive)" in data["test_set"]["name"]
+        assert "(Explorer)" in data["test_set"]["name"]
 
         tests_resp = authenticated_client.get(f"/explorer/{new_id}/tests")
         assert tests_resp.status_code == status.HTTP_200_OK
@@ -571,6 +592,36 @@ class TestImportExplorerTestSetEndpoint:
         paths = {t["path"] for t in topics_resp.json()}
         assert "Alpha" in paths
         assert "Alpha/Beta" in paths
+
+    def test_import_partial_failure_returns_201_with_skipped_test(
+        self,
+        authenticated_client: TestClient,
+        regular_source_test_set_for_import,
+    ):
+        """A write failure for one test is a 201 with it skipped, not a 500."""
+        src = regular_source_test_set_for_import
+
+        def flaky_create_explorer_test(db, **kwargs):
+            if kwargs.get("content") == "Second prompt":
+                raise IntegrityError("stmt", {}, Exception("dup key"))
+            return create_explorer_test(db, **kwargs)
+
+        with patch(
+            "rhesis.backend.app.crud.explorer.create_explorer_test",
+            side_effect=flaky_create_explorer_test,
+        ):
+            response = authenticated_client.post(f"/explorer/import/{src.id}")
+
+        assert response.status_code == status.HTTP_201_CREATED
+        data = response.json()
+        assert data["imported"] == 1
+        assert data["skipped"] == 2
+        assert len(data["skipped_test_ids"]) == 2
+
+        new_id = data["test_set"]["id"]
+        tests_resp = authenticated_client.get(f"/explorer/{new_id}/tests")
+        assert tests_resp.status_code == status.HTTP_200_OK
+        assert len(tests_resp.json()) == 1
 
     def test_import_explorer_source_returns_400(
         self,
@@ -648,9 +699,8 @@ class TestExportRegularTestSetFromExplorerEndpoint:
         assert new_id != adaptive_id
         assert "(Exported)" in data["test_set"]["name"]
 
+        assert data["test_set"]["explorer_row"] is False
         attrs = data["test_set"].get("attributes") or {}
-        meta = attrs.get("metadata") or {}
-        assert "Adaptive Testing" not in (meta.get("behaviors") or [])
         assert attrs.get("adaptive_settings") is None
 
         tests_resp = authenticated_client.get(f"/test_sets/{new_id}/tests?limit=100")
@@ -661,6 +711,54 @@ class TestExportRegularTestSetFromExplorerEndpoint:
         for row in tests:
             meta_t = row.get("test_metadata") or {}
             assert meta_t.get("label") != "topic_marker"
+
+    def test_export_partial_failure_returns_201_with_skipped_test(
+        self,
+        authenticated_client: TestClient,
+    ):
+        """A write failure for one test is a 201 with it skipped, not a 500."""
+        create_resp = authenticated_client.post(
+            "/explorer",
+            json={"name": f"Export Src {uuid.uuid4().hex[:8]}", "description": None},
+        )
+        assert create_resp.status_code == status.HTTP_201_CREATED
+        adaptive_id = create_resp.json()["id"]
+
+        for content in ("First prompt", "Second prompt", "Third prompt"):
+            t_resp = authenticated_client.post(
+                f"/explorer/{adaptive_id}/tests",
+                json={
+                    "topic": "Alpha/Beta",
+                    "input": content,
+                    "output": "out",
+                    "labeler": "human",
+                    "label": "pass",
+                    "model_score": 1.0,
+                },
+            )
+            assert t_resp.status_code == status.HTTP_201_CREATED
+
+        def flaky_create_explorer_test(db, **kwargs):
+            if kwargs.get("content") == "Second prompt":
+                raise IntegrityError("stmt", {}, Exception("dup key"))
+            return create_explorer_test(db, **kwargs)
+
+        with patch(
+            "rhesis.backend.app.crud.explorer.create_explorer_test",
+            side_effect=flaky_create_explorer_test,
+        ):
+            response = authenticated_client.post(f"/explorer/export/{adaptive_id}")
+
+        assert response.status_code == status.HTTP_201_CREATED
+        data = response.json()
+        assert data["exported"] == 2
+        assert data["skipped"] == 3
+        assert len(data["skipped_test_ids"]) == 3
+
+        new_id = data["test_set"]["id"]
+        tests_resp = authenticated_client.get(f"/test_sets/{new_id}/tests?limit=100")
+        assert tests_resp.status_code == status.HTTP_200_OK
+        assert len(tests_resp.json()) == 2
 
     def test_export_regular_source_returns_400(
         self,
@@ -758,6 +856,47 @@ class TestDeleteExplorerTestSetEndpoint:
 
 @pytest.mark.integration
 @pytest.mark.routes
+class TestBulkDeleteExplorerTestSetsEndpoint:
+    """Test DELETE /explorer/bulk"""
+
+    def test_bulk_delete_returns_deleted_and_not_found_ids(
+        self,
+        authenticated_client: TestClient,
+        explorer_and_regular_test_sets,
+    ):
+        explorer_1_id = str(explorer_and_regular_test_sets["explorer_1"].id)
+        explorer_2_id = str(explorer_and_regular_test_sets["explorer_2"].id)
+        regular_id = str(explorer_and_regular_test_sets["regular"].id)
+        fake_id = str(uuid.uuid4())
+
+        response = authenticated_client.request(
+            "DELETE",
+            "/explorer/bulk",
+            json={"test_set_ids": [explorer_1_id, explorer_2_id, regular_id, fake_id]},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert set(data["deleted_ids"]) == {explorer_1_id, explorer_2_id}
+        assert set(data["not_found_ids"]) == {regular_id, fake_id}
+
+        list_resp = authenticated_client.get("/explorer")
+        ids = {item["id"] for item in list_resp.json()}
+        assert explorer_1_id not in ids
+        assert explorer_2_id not in ids
+
+    def test_bulk_delete_unauthenticated(self, client: TestClient):
+        response = client.request(
+            "DELETE", "/explorer/bulk", json={"test_set_ids": [str(uuid.uuid4())]}
+        )
+        assert response.status_code in [
+            status.HTTP_401_UNAUTHORIZED,
+            status.HTTP_403_FORBIDDEN,
+        ]
+
+
+@pytest.mark.integration
+@pytest.mark.routes
 class TestExplorerTreeEndpoint:
     """Test GET /explorer/{test_set_id}/tree"""
 
@@ -796,6 +935,44 @@ class TestExplorerTreeEndpoint:
         }
         for node in nodes:
             assert expected_fields.issubset(node.keys())
+
+    def test_get_tree_with_error_label(
+        self,
+        authenticated_client: TestClient,
+        explorer_test_set,
+        test_db: Session,
+        test_org_id,
+        authenticated_user_id,
+    ):
+        """A test labelled 'error' by a failed evaluation must not break the tree read."""
+        errored = _create_test_with_metadata(
+            db=test_db,
+            topic_name="Safety",
+            prompt_content="Prompt whose evaluation raised",
+            metadata={
+                "label": "error",
+                "output": "some output",
+                "labeler": "answer_relevancy",
+                "model_score": 0.0,
+            },
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+        test_db.execute(
+            test_test_set_association.insert().values(
+                test_id=errored.id,
+                test_set_id=explorer_test_set.id,
+                organization_id=test_org_id,
+                user_id=authenticated_user_id,
+            )
+        )
+        test_db.commit()
+
+        response = authenticated_client.get(f"/explorer/{explorer_test_set.id}/tree")
+
+        assert response.status_code == status.HTTP_200_OK
+        labels = [node["label"] for node in response.json()]
+        assert "error" in labels
 
     def test_get_tree_not_found(
         self,
@@ -1210,7 +1387,7 @@ class TestCreateExplorerTestEndpoint:
         ]
 
     @patch(
-        "rhesis.backend.app.services.explorer.embeddings.generate_embedding_vector",
+        "rhesis.backend.app.services.explorer.tests.generate_embedding_vector",
         return_value=[0.01] * 384,
     )
     def test_create_test_with_generate_embedding_persists_embedding_row(

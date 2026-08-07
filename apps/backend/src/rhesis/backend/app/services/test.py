@@ -1,7 +1,7 @@
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -15,6 +15,7 @@ from rhesis.backend.app.constants import (
 from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.crud_utils import (
+    create_item,
     get_or_create_entity,
     get_or_create_status,
     get_or_create_type_lookup,
@@ -545,9 +546,26 @@ def prepare_test_data(
 
 
 def create_prompt(
-    db: Session, prompt_data: Dict, defaults: Dict, organization_id: str, user_id: str
+    db: Session,
+    prompt_data: Dict,
+    defaults: Dict,
+    organization_id: str,
+    user_id: str,
+    cache: Optional["_BulkEntityCache"] = None,
+    skip_duplicate_check: bool = False,
 ) -> models.Prompt:
-    """Create a prompt with its associated entities"""
+    """Create a prompt with its associated entities.
+
+    Args:
+        cache: Optional bulk-entity cache. When provided, the prompt's status
+            lookup is cached across calls instead of re-querying the DB for
+            every prompt (dramatically fewer round-trips for bulk imports,
+            e.g. Garak).
+        skip_duplicate_check: When True, skip the SELECT that looks for an
+            existing Prompt with identical content before creating one. Bulk
+            imports (e.g. Garak) always create fresh, unique prompt content,
+            so that lookup never hits and is wasted work.
+    """
     # Multi-turn tests don't have prompts, return None
     if not prompt_data:
         return None
@@ -555,49 +573,45 @@ def create_prompt(
     if hasattr(prompt_data, "model_dump"):
         prompt_data = prompt_data.model_dump()
 
-    demographic = None
-    dimension_name = prompt_data.pop("dimension", None)
-    demographic_name = prompt_data.pop("demographic", None)
-    if dimension_name and demographic_name:
-        dimension = create_entity_with_status(
+    if cache is not None:
+        status = cache.get_or_create_status(
             db=db,
-            model=models.Dimension,
-            name=dimension_name,
-            defaults=defaults,
-            entity_type=EntityType.DIMENSION,
+            name=defaults["prompt"]["status"],
+            entity_type=EntityType.GENERAL,
+            organization_id=organization_id,
+            user_id=user_id,
+        )
+    else:
+        status = get_or_create_status(
+            db=db,
+            name=defaults["prompt"]["status"],
+            entity_type=EntityType.GENERAL,
             organization_id=organization_id,
             user_id=user_id,
         )
 
-        demographic = create_entity_with_status(
+    entity_data = {
+        **prompt_data,
+        "organization_id": organization_id,
+        "user_id": user_id,
+        "status_id": status.id,
+        "language_code": prompt_data.get("language_code", defaults["prompt"]["language_code"]),
+        "expected_response": prompt_data.get("expected_response"),
+    }
+
+    if skip_duplicate_check:
+        return create_item(
             db=db,
-            model=models.Demographic,
-            name=demographic_name,
-            defaults=defaults,
-            entity_type=EntityType.DEMOGRAPHIC,
+            model=models.Prompt,
+            item_data=entity_data,
             organization_id=organization_id,
             user_id=user_id,
-            dimension_id=dimension.id,
         )
 
     return get_or_create_entity(
         db=db,
         model=models.Prompt,
-        entity_data={
-            **prompt_data,
-            "organization_id": organization_id,
-            "user_id": user_id,
-            "status_id": get_or_create_status(
-                db=db,
-                name=defaults["prompt"]["status"],
-                entity_type=EntityType.GENERAL,
-                organization_id=organization_id,
-                user_id=user_id,
-            ).id,
-            "language_code": prompt_data.get("language_code", defaults["prompt"]["language_code"]),
-            "demographic_id": demographic.id if demographic else None,
-            "expected_response": prompt_data.get("expected_response"),
-        },
+        entity_data=entity_data,
         organization_id=organization_id,
         user_id=user_id,
     )
@@ -611,6 +625,7 @@ def bulk_create_tests(
     test_set_id: str | None = None,
     test_type_value: str | None = None,
     flush_interval: int = 100,
+    skip_prompt_dedup: bool = False,
 ) -> List[str]:
     """Bulk create tests from a list of test data dictionaries or TestData objects.
 
@@ -628,6 +643,9 @@ def bulk_create_tests(
         test_set_id: Optional test set ID
         test_type_value: Optional test type value (e.g., "Single-Turn", "Multi-Turn")
         flush_interval: Number of tests between flush+expunge cycles (default 100)
+        skip_prompt_dedup: Passed through to ``create_prompt`` — skip the
+            duplicate-content SELECT when the caller knows prompt content is
+            always unique (e.g. bulk Garak imports).
 
     Returns:
         List of created test ID strings.
@@ -704,6 +722,8 @@ def bulk_create_tests(
                     defaults=defaults,
                     organization_id=organization_id,
                     user_id=user_id,
+                    cache=cache,
+                    skip_duplicate_check=skip_prompt_dedup,
                 )
 
             # Create topic, behavior, and category (with caching for bulk operations)
@@ -1213,167 +1233,3 @@ def _extract_multi_turn_test(
         topic=test_dict["topic"],
         test_configuration=test_dict.get("test_configuration"),
     )
-
-
-def create_test_from_conversation(
-    db: Session,
-    messages: List[schemas.ConversationMessage],
-    user: User,
-    test_type: str = "Multi-Turn",
-) -> str:
-    """
-    Create a test by extracting metadata from a playground conversation.
-
-    For multi-turn: leverages the MultiTurnSynthesizer to generate a full
-    test case with goal, instructions, restrictions, and scenario.
-
-    For single-turn: uses an LLM call to extract behavior, category, and
-    topic, then creates a test with the user message as prompt and the
-    assistant response as expected_response.
-
-    Args:
-        db: Database session
-        messages: List of conversation messages (role + content)
-        user: Current authenticated user
-        test_type: "Single-Turn" or "Multi-Turn"
-
-    Returns:
-        The created test ID as a string
-
-    Raises:
-        ValueError: If messages are insufficient or synthesis fails
-    """
-    if not messages or len(messages) < 1:
-        raise ValueError("At least one message is required")
-
-    if test_type == "Single-Turn":
-        return _create_single_turn_test(db, messages, user)
-    else:
-        return _create_multi_turn_test(db, messages, user)
-
-
-def _create_single_turn_test(
-    db: Session,
-    messages: List[schemas.ConversationMessage],
-    user: User,
-) -> str:
-    """Create a single-turn test from a user message and optional assistant response."""
-    # Extract user message and optional assistant response
-    user_msg = next((m for m in messages if m.role == "user"), None)
-    assistant_msg = next((m for m in messages if m.role == "assistant"), None)
-
-    if not user_msg:
-        raise ValueError("A user message is required for single-turn tests")
-
-    model = _get_user_llm(db, user)
-
-    # Use LLM to extract behavior, category, topic
-    extraction_prompt = (
-        "Analyze the following user message sent to an AI assistant"
-        " and classify it.\n\n"
-        f"User message: {user_msg.content}\n"
-    )
-    if assistant_msg:
-        extraction_prompt += f"\nAssistant response: {assistant_msg.content}\n"
-
-    extraction_prompt += (
-        "\nExtract:\n"
-        "- behavior: The high-level behavior being tested (e.g., "
-        "Compliance, Reliability, Robustness, Fairness, Safety)\n"
-        "- category: Whether the scenario is Harmless or Harmful\n"
-        "- topic: The domain or subject area\n"
-    )
-
-    extraction = model.generate(
-        prompt=extraction_prompt,
-        schema=schemas.SingleTurnTestExtraction,
-        temperature=0.1,
-    )
-
-    # Build single-turn test data
-    test_data = schemas.TestBulkCreate(
-        prompt=schemas.TestPromptCreate(
-            content=user_msg.content,
-            language_code="en",
-            expected_response=assistant_msg.content if assistant_msg else None,
-        ),
-        behavior=extraction["behavior"],
-        category=extraction["category"],
-        topic=extraction["topic"],
-    )
-
-    test_ids = bulk_create_tests(
-        db=db,
-        tests_data=[test_data],
-        organization_id=str(user.organization_id),
-        user_id=str(user.id),
-    )
-
-    if not test_ids:
-        raise ValueError("Failed to create single-turn test")
-
-    return test_ids[0]
-
-
-def _create_multi_turn_test(
-    db: Session,
-    messages: List[schemas.ConversationMessage],
-    user: User,
-) -> str:
-    """Create a multi-turn test using the MultiTurnSynthesizer."""
-    from rhesis.sdk.synthesizers.multi_turn.base import (
-        GenerationConfig,
-        MultiTurnSynthesizer,
-    )
-
-    if len(messages) < 2:
-        raise ValueError(
-            "At least two messages (one user and one assistant) are required for multi-turn tests"
-        )
-
-    conversation_text = "\n".join(f"{msg.role.upper()}: {msg.content}" for msg in messages)
-
-    model = _get_user_llm(db, user)
-
-    config = GenerationConfig(
-        generation_prompt=(
-            "Based on the following real conversation between a user and an "
-            "AI assistant (provided in the additional context), create a "
-            "multi-turn test case that captures the interaction pattern, "
-            "intent, and behavior being demonstrated. The test should "
-            "reproduce the scenario observed in the conversation."
-        ),
-        additional_context=conversation_text,
-    )
-
-    synthesizer = MultiTurnSynthesizer(
-        config=config,
-        model=model,
-        batch_size=1,
-    )
-
-    generated_tests = synthesizer._generate_batch()
-
-    if not generated_tests:
-        raise ValueError("Synthesizer failed to generate a test from the conversation")
-
-    test_dict = generated_tests[0]
-
-    test_data = schemas.TestBulkCreate(
-        behavior=test_dict["behavior"],
-        category=test_dict["category"],
-        topic=test_dict["topic"],
-        test_configuration=test_dict["test_configuration"],
-    )
-
-    test_ids = bulk_create_tests(
-        db=db,
-        tests_data=[test_data],
-        organization_id=str(user.organization_id),
-        user_id=str(user.id),
-    )
-
-    if not test_ids:
-        raise ValueError("Failed to create multi-turn test")
-
-    return test_ids[0]

@@ -505,9 +505,43 @@ tools:
       assignee_id, status_id, model_id, backend_type_id, metric_type_id).
       If you only have a natural-language description, prefer
       generate_metric instead.
+
+      ALWAYS send the descriptive fields alongside the scoring
+      configuration: description, evaluation_steps, reasoning, and
+      explanation. They are optional to the API but a metric without them
+      is a poor metric — reviewers cannot tell what it measures, and the
+      judge LLM has less to work with, so scores get less consistent.
+      Sending only name + evaluation_prompt + score_type produces a
+      threadbare metric and is a bug, not a shortcut. Fill every field you
+      have grounds to fill.
     parameters:
       name:
         description: "Metric name, unique within the organization (required, string)"
+      description:
+        description: >
+          REQUIRED IN PRACTICE. One or two sentences on what this metric
+          measures and why it matters, written for a human scanning a list
+          of metrics. Do not restate the name.
+      evaluation_steps:
+        description: >
+          REQUIRED IN PRACTICE. Numbered step-by-step instructions the
+          judge LLM should follow to reach a score (e.g. "1. Identify each
+          factual claim. 2. Check it against the provided context.
+          3. Count unsupported claims. 4. Map the count to the scale.").
+          Concrete steps make scoring far more repeatable than criteria
+          prose alone.
+      reasoning:
+        description: >
+          REQUIRED IN PRACTICE. Instructions for how the judge should
+          explain its verdict — what evidence to cite and how to justify
+          the score it gives. Surfaced in the UI as "Reasoning
+          Instructions".
+      explanation:
+        description: >
+          REQUIRED IN PRACTICE. What a passing versus failing result
+          actually means for the system under test, so someone reading a
+          result knows what to do about it. Surfaced in the UI as "Result
+          Explanation".
       metric_type:
         description: >
           Must be "custom-prompt" for user-defined metrics. Always
@@ -955,6 +989,68 @@ tools:
         description: "Start date in ISO format (overrides months)."
       end_date:
         description: "End date in ISO format (overrides months)."
+
+  # ── Annotations (human reviews) ──────────────────────────
+  - name: list_annotations
+    label: Reading annotations
+    method: GET
+    path: /annotations/
+    page_size: 20
+    description: >
+      List human annotations — reviews a person left on a test result or on
+      a trace. Each annotation carries a Pass/Fail rating in status.name, a
+      free-text comment, who wrote it, and a resolved flag. This is ground
+      truth from a human, so it outranks automated metric scores when the
+      two disagree.
+
+      Use this to answer "what did people flag?", to explain why a test is
+      considered wrong when metrics say it passed, and to find work that is
+      still open. Pass resolved=false for open items only.
+
+      Scoping:
+      - test_run_id: everything reviewed in that run — both the run's test
+        results and the traces it produced. This is the main entry point.
+      - test_result_id: one result plus traces linked to it.
+      - trace_id (32-char OpenTelemetry hex id) or trace_db_id (internal
+        UUID): one trace only. Use whichever id you already have; both are
+        returned on every trace annotation.
+      - source: restrict to "test_result" or "trace" when you want one side.
+
+      Key response fields: comments (the human's actual words),
+      status.name (Pass/Fail), resolved, target.type (what was reviewed —
+      test_result, trace, metric, or turn), plus behavior_name and the
+      test_run_id/test_result_id/trace_id deep-link ids. Annotations on a
+      test-execution trace carry the run and result ids too, so you can
+      walk from a trace review back to the run — they are null only for
+      traces recorded outside a test run.
+
+      When linking to a trace in the UI, use trace_db_id (a UUID) in the
+      URL path, not trace_id (a 32-char hex string). Only trace_db_id
+      resolves to a trace page.
+
+      CHAIN: after get_test_result_stats shows failures, call this with the
+      same test_run_id to see whether a human already diagnosed them — then
+      use get_test_result on the ids it returns to read the full exchange.
+      NEVER: assume no annotations exist because a run looks clean; a human
+      can fail a test the metrics passed.
+    parameters:
+      search:
+        description: >
+          Free-text search across comments, annotator name, target
+          reference, rating, and behavior name.
+      resolved:
+        description: >
+          true for resolved reviews, false for still-open ones. Omit for
+          both.
+      rating:
+        description: >
+          "Pass" or "Fail" — the human's verdict, independent of the
+          automated status on the test result.
+      target_type:
+        description: >
+          What the review is attached to: "test_result", "trace", "metric"
+          (a specific metric on a result), or "turn" (one turn of a
+          conversation).
 
   # ── Knowledge Sources ────────────────────────────────────
   - name: list_sources

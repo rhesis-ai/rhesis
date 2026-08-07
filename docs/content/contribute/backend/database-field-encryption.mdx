@@ -1,260 +1,128 @@
 import { CodeBlock } from '@/components/CodeBlock'
 
-# Database Field Encryption for Sensitive Tokens
+# Database Field Encryption
 
-## Status
+Sensitive credentials (endpoint auth tokens and client secrets, model provider API keys, user
+tokens, tool credentials) are encrypted at rest in PostgreSQL using field-level encryption. This
+protects against exposure through database dumps, backups, or direct read access; it is not a
+substitute for network access control, least-privilege DB users, or protecting the key.
 
-Accepted
+## Library: `cryptography.fernet`
 
-## Context
+Fernet provides authenticated symmetric encryption (AES-128-CBC with HMAC) and returns URL-safe
+base64 ciphertext suitable for storage in text columns. It is already a backend dependency.
 
-The Rhesis backend currently stores sensitive credentials as plaintext in the PostgreSQL database, including:
+The application encrypts and decrypts through helpers in
+`rhesis.backend.app.utils.encryption` (`encrypt`, `decrypt`, `is_encrypted`), which use a single
+cached `Fernet` instance built from the configured key.
 
-- API keys and authentication tokens in the `endpoint` table
-- Model provider API keys in the `model` table
-- OAuth tokens and client secrets
+## Key management
 
-This creates security risks:
+The key is read from the `DB_ENCRYPTION_KEY` environment variable — 32 URL-safe base64-encoded
+bytes (Fernet's standard format), e.g. `ZmDfcTF7_60GrrY167zsiPd67pEvs0aGOv2oasOM92s=`. It is a
+required setting with no default: the backend refuses to start if it is missing or not a valid
+Fernet key.
 
-- Database dumps or backups could expose sensitive credentials
-- Log files or error messages might inadvertently include plaintext secrets
-- Unauthorized database access (via SQL injection or compromised credentials) could reveal all tokens
-- Compliance and security best practices require encryption at rest for sensitive data
-
-We need a transparent encryption solution that protects data at rest while remaining straightforward to implement and maintain.
-
-## Decision
-
-We will implement field-level encryption for sensitive database columns using **`cryptography.fernet`** for symmetric encryption with the following approach:
-
-### 1. Encryption Library: `cryptography.fernet`
-
-**Chosen library:** `cryptography.fernet`
-
-**Rationale:**
-
-- Part of the widely-used `cryptography` package in the Python ecosystem
-- Implements AES-128 in CBC mode with HMAC authentication
-- Provides authenticated encryption (prevents tampering and ensures integrity)
-- Simple, secure API: `Fernet(key).encrypt()` / `decrypt()`
-- Returns URL-safe base64-encoded ciphertext suitable for database storage
-- Well-documented and actively maintained
-- Battle-tested in production environments
-
-**Installation:**
-
-<CodeBlock filename="install-cryptography.sh" language="bash">
-{`cd apps/backend
-uv add cryptography`}
-</CodeBlock>
-
-**Basic Usage:**
-
-<CodeBlock filename="fernet-basic-usage.py" language="python">
-{`from cryptography.fernet import Fernet
-
-# Generate encryption key (one-time setup)
-key = Fernet.generate_key()  # Returns: b'32-byte-url-safe-base64-encoded-key'
-
-# Initialize cipher
-cipher = Fernet(key)
-
-# Encrypt
-plaintext = "my-api-key-12345"
-encrypted = cipher.encrypt(plaintext.encode())  # Returns: b'encrypted-base64-string'
-
-# Decrypt
-decrypted = cipher.decrypt(encrypted).decode()  # Returns: "my-api-key-12345"`}
-</CodeBlock>
-
-### 2. Key Management Strategy
-
-**Environment Variable:** `DB_ENCRYPTION_KEY`
-
-**Key Format:**
-
-- 32 URL-safe base64-encoded bytes (Fernet standard format)
-- Example: `ZmDfcTF7_60GrrY167zsiPd67pEvs0aGOv2oasOM92s=`
-
-**Key Generation:**
-Developers can generate keys locally using:
+Generate a key with:
 
 <CodeBlock filename="generate-key.sh" language="bash">
 {`python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`}
 </CodeBlock>
 
-**Key Storage by Environment:**
+Storage by environment:
 
-**Phase 1 (Initial Implementation) - Environment Secrets:**
+- Local development: `.env` (gitignored, never committed)
+- CI: GitHub Secrets
+- Deployed: Kubernetes secrets / GCP Secret Manager, injected as an environment variable
 
-- **Local Development:** `.env` file (gitignored, never committed)
-- **CI/CD:** GitHub Secrets for automated testing
-- **Staging/Production:**
-  - **Kubernetes:** Environment variables populated from Kubernetes secrets
-  - **Docker:** Environment variable injection at runtime
-  - **Google Cloud Run:** Environment variables with GCP Secret Manager reference
+Operational rules:
 
-**Phase 2 (Future Enhancement) - Cloud Secret Manager:**
+- Use the same key across all instances in an environment; use a separate key per environment.
+- Losing the key means permanent loss of access to the encrypted data. Back up production keys in
+  more than one secure location.
+- Rotation is not automatic: the cached cipher is built once per process, so changing the key
+  requires re-encrypting all stored values and restarting the backend.
 
-- Direct GCP Secret Manager integration
-- Automatic key rotation support
-- Centralized audit logging of key access
-- Per-environment key isolation with access controls
-- Versioned secrets with rollback capability
+## Implementation
 
-**Security Considerations:**
-
-- Keys must never be committed to version control (enforce with `.gitignore`)
-- The same key must be used across all application instances within a single environment
-- **Critical:** Losing the encryption key means permanent loss of access to encrypted data
-  - Document key backup procedures in deployment documentation
-  - Store production keys in multiple secure locations
-  - Consider key escrow for disaster recovery
-- Each environment (dev, staging, production) uses a separate encryption key
-- Key rotation strategy will be implemented in Phase 2
-
-### 3. Migration Strategy: In-Place Updates
-
-**Approach:** Update existing database columns in-place without schema changes
-
-**Rationale:** Same column names and ORM types; encrypt in place during a controlled rollout instead of maintaining parallel columns.
-
-**Migration Flow:**
-
-<CodeBlock filename="migration-flow.txt" language="text">
-{`1. Deploy application code with EncryptedString TypeDecorator
-2. Run data migration script to encrypt all existing plaintext values
-   - Processes each row: plaintext → encrypted in same column`}
-</CodeBlock>
-
-**Reads fail loudly:**
-
-The `EncryptedString` SQLAlchemy TypeDecorator does not fall back to returning
-the raw stored value. If a value cannot be decrypted — because it is still
-plaintext, or was encrypted with a different `DB_ENCRYPTION_KEY` — the read
-raises `DecryptionError` rather than silently leaking ciphertext or plaintext to
-callers. The one-time data migration must therefore run before the encrypted
-columns are read.
-
-<CodeBlock filename="decrypt-on-read.py" language="python">
-{`def process_result_value(self, value, dialect):
-    """Decrypt when reading from database"""
-    if value is None:
-        return None
-
-    # Raises DecryptionError on a plaintext value or a wrong/rotated key.
-    return decrypt(value)`}
-</CodeBlock>
-
-### 4. Database Schema: No Changes Required
-
-**Existing columns remain as-is:**
-
-- `endpoint.auth_token` (Text) → stores encrypted base64 string
-- `endpoint.client_secret` (Text) → stores encrypted base64 string
-- `endpoint.last_token` (Text) → stores encrypted base64 string
-- `model.key` (String) → stores encrypted base64 string
-
-**Size Considerations:**
-Fernet encryption adds overhead to the stored data:
-
-- **Overhead:** ~40-60 bytes plus the original length
-- **Example:**
-  - Original: `"my-api-key"` (10 characters)
-  - Encrypted: `"gAAAAABmV8x..."` (~120 characters base64-encoded)
-- **Impact:** Most token columns are already `Text` type (effectively unlimited), so no schema changes needed
-
-### 5. Implementation Architecture
-
-**SQLAlchemy TypeDecorator:**
-Encryption/decryption will be transparent to application code using SQLAlchemy's `TypeDecorator`:
+The `EncryptedString` SQLAlchemy `TypeDecorator` makes encryption transparent to application code —
+it encrypts on write and decrypts on read. Its backing type is `String` (unlimited by default, or
+`String(length)` when a length is passed).
 
 <CodeBlock filename="encrypted-string-type.py" language="python">
-{`from sqlalchemy import TypeDecorator, Text
-from cryptography.fernet import Fernet
-import os
-
-class EncryptedString(TypeDecorator):
-    """SQLAlchemy type for transparent field encryption"""
-
-    impl = Text
+{`class EncryptedString(TypeDecorator):
+    impl = String
     cache_ok = True
 
-    def __init__(self):
-        self.cipher = Fernet(os.getenv("DB_ENCRYPTION_KEY").encode())
-        super().__init__()
+    def __init__(self, length=None, **kwargs):
+        super().__init__(**kwargs)
+        if length:
+            self.impl = String(length)
 
     def process_bind_param(self, value, dialect):
-        """Encrypt when writing to database"""
-        if value is None:
-            return value
-        return self.cipher.encrypt(value.encode()).decode()
+        # Encrypt on write.
+        return None if value is None else encrypt(value)
 
     def process_result_value(self, value, dialect):
-        """Decrypt when reading from database"""
-        if value is None:
-            return value
-        return self.cipher.decrypt(value.encode()).decode()`}
+        # Decrypt on read.
+        return None if value is None else decrypt(value)`}
 </CodeBlock>
 
-**Usage in Models:**
+Use it as a column type:
 
 <CodeBlock filename="encrypted-model-usage.py" language="python">
-{`from sqlalchemy import Column, Integer, String
-from rhesis.backend.app.models.base import Base
-from rhesis.backend.app.utils.encryption import EncryptedString
+{`from rhesis.backend.app.utils.encryption import EncryptedString
 
 class Endpoint(Base):
     __tablename__ = "endpoint"
-
-    id = Column(Integer, primary_key=True)
-    name = Column(String)
-    auth_token = Column(EncryptedString)  # Transparently encrypted
-    client_secret = Column(EncryptedString)  # Transparently encrypted`}
+    auth_token = Column(EncryptedString(), nullable=True)
+    client_secret = Column(EncryptedString(), nullable=True)`}
 </CodeBlock>
 
-### 6. Security Model
+### Reads fail loudly
 
-**Threat model (stylized):** at-rest ciphertext helps against backup/SQL-dump style exposure; it does **not** substitute for network access control, least-privilege DB users, or protecting `DB_ENCRYPTION_KEY`. If both DB and key are lost to the same attacker, they can decrypt.
+`decrypt` does not fall back to the raw stored value. A value that cannot be decrypted — because it
+is still plaintext, or was encrypted with a different `DB_ENCRYPTION_KEY` — raises `DecryptionError`
+rather than leaking ciphertext or plaintext to callers. The one-time data migration must therefore
+run before any encrypted column is read.
 
-**Phase 1 (implemented):** Fernet via `EncryptedString`, key required in env, one-time data migration to encrypt pre-existing values.
+### Non-deterministic ciphertext and lookups
 
-**Later:** key rotation, Secret Manager/HSM, per-tenant keys, and decrypt audit trails are out of scope for phase 1.
+Fernet output is non-deterministic, so encrypted columns cannot be queried directly. For values
+that need indexed lookup (user tokens), a SHA-256 hash of the plaintext (`hash_token`) is stored
+alongside the encrypted value and used as the lookup key.
 
-## Consequences
+## Encrypted columns
 
-**Upside:** Transparent ORM encryption, no column rename, one-time in-place data migration to encrypt pre-existing values.
+Encryption is applied in place; column types and names are unchanged. Columns currently using
+`EncryptedString`:
 
-**Downside:** You must operate `DB_ENCRYPTION_KEY` like production credentials—loss of key is data loss; small per-field CPU cost during rollout.
+- `endpoint.auth_token`, `endpoint.client_secret`, `endpoint.last_token`
+- `model.key`
+- `token.token`
+- `tool.credentials`
 
-Every environment needs the key; document how you generate, store, and recover it.
+Fernet adds roughly 40-60 bytes plus the base64-expanded plaintext, well within the existing text
+columns.
 
-## Implementation Plan
+## Migration
 
-Track issues #496–501: TypeDecorator and utils, wire `Endpoint`/`Model` (and related CRUD), data backfill script, then integration tests and deployment notes.
+Existing plaintext values are encrypted by Alembic revision `da9164715ec2`:
 
-## Security and operations
+<CodeBlock filename="run-migration.sh" language="bash">
+{`alembic upgrade head`}
+</CodeBlock>
 
-Treat `DB_ENCRYPTION_KEY` like a production secret: gitignored locally, injected from CI/CD or a secret manager in deployed envs, backed up with clear recovery steps, rotated on a schedule, and monitored for decrypt failures or missing env.
+It processes `endpoint`, `model`, and `token` in batches and is idempotent — values already in
+Fernet format (prefix `gAAAAA`) are skipped, so it is safe to re-run. The `downgrade` reverses it,
+decrypting values back to plaintext for rollback only.
 
-## Future Work
-
-Possible next steps: dual-key rotation (snippet above), Secret Manager–backed keys, stricter audit of decrypt operations, and extending `EncryptedString` to other columns if threat model requires it.
+For diagnosing problems, see [Encryption Troubleshooting](/contribute/backend/encryption-troubleshooting)
+and the broader [Security](/contribute/backend/security) notes.
 
 ## References
 
-- [Cryptography Library Documentation](https://cryptography.io/)
-- [Fernet Specification](https://github.com/fernet/spec/)
+- [Cryptography library](https://cryptography.io/)
+- [Fernet specification](https://github.com/fernet/spec/)
 - [SQLAlchemy TypeDecorator](https://docs.sqlalchemy.org/en/20/core/custom_types.html#sqlalchemy.types.TypeDecorator)
 - [OWASP Cryptographic Storage Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Cryptographic_Storage_Cheat_Sheet.html)
-- [GCP Secret Manager Best Practices](https://cloud.google.com/secret-manager/docs/best-practices)
-
-## Related Issues
-
-- **Parent:** #495 Support for Encrypted Auth Tokens in DB
-- **Blocks:**
-  - #497 Implement Core Encryption Infrastructure
-  - #498 Add Encryption to Endpoint Model
-  - #499 Add Encryption to Model Table
-  - #500 Data Migration Script
-  - #501 Integration Testing & Documentation

@@ -2,13 +2,14 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 # Test Execution System
 
-## Overview
-
-The Rhesis test execution system provides a flexible and extensible architecture for running tests against endpoints. It supports multiple test types and execution modes, enabling you to test everything from simple API responses to complex multi-turn conversations.
+Tests run against endpoints through executors selected by test type, coordinated by an async batch
+engine. This page covers the executor architecture; for single-turn vs. multi-turn tests see
+[Test Types](/contribute/worker/test-types), and for parallel vs. sequential runs see
+[Execution Modes](/contribute/worker/execution-modes).
 
 ## Architecture
 
-The system uses the **Strategy Pattern** to route tests to appropriate executors based on their type:
+A factory routes each test to an executor based on its type:
 
 <CodeBlock language="text" isTerminal={false}>
 {`Test → Factory → Executor → Results
@@ -182,55 +183,15 @@ class TestType(str, Enum):
     IMAGE = "Image"  # New type`}
 </CodeBlock>
 
-## Design Principles
+## Async Batch Engine
 
-### Modularity
-
-Each executor is self-contained (~150-200 lines) and handles one test type.
-
-### Loose Coupling
-
-- Executors don't depend on each other
-- Multi-turn executor preserves Penelope trace as-is
-- No tight coupling to external frameworks
-
-### Backward Compatibility
-
-- Public API (`execute_test()`) unchanged
-- Helper functions re-exported for existing code
-- All existing tests work without modifications
-
-### Extensibility (Open/Closed Principle)
-
-- Add new test types without modifying existing code
-- Factory pattern enables clean routing
-- Easy to test executors independently
-
-## Performance Considerations
-
-### Execution Time Tracking
-
-All executors track execution time in milliseconds for monitoring and optimization.
-
-### Caching
-
-The system checks for existing results to avoid duplicate test execution.
-
-### Parallel Processing
-
-Use parallel execution mode for independent tests to maximize throughput.
-
-### Parallel Engine Notes (v0.6.12+)
-
-The parallel path now uses an internal async batch runner instead of Celery chord fan-out:
+The parallel path uses an internal async batch runner rather than Celery chord fan-out:
 
 - `execute_test_configuration` creates a single worker task per test run
 - `execute_tests_as_batch` prefetches execution context and runs `run_batch(...)`
-- `run_batch` uses `asyncio` tasks with semaphore-limited concurrency
+- `run_batch` runs each test as an `asyncio` task with semaphore-limited concurrency
 - cancellation is cooperative via Celery revoke checks and task cancellation
-- default per-test timeout is `1800` seconds (`30` minutes)
-
-This model reduces worker orchestration overhead and improves reliability for large runs.
+- per-test timeout defaults to `1800` seconds (30 minutes); batch concurrency defaults to `10`
 
 ## Module Location
 

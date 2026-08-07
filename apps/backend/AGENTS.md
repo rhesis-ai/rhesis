@@ -12,30 +12,52 @@ See root `AGENTS.md` for repo-wide rules (commits, PRs, testing overview, tech s
 - `tasks/` — Celery background tasks (`execution/`, `telemetry/`)
 - `metrics/` — evaluation metrics (DeepEval, RAGAS, native providers)
 
-## Testing
+## Imports
 
-Backend tests must run from `apps/backend` — its `pyproject.toml` sets
-`testpaths = ["../../tests/backend"]` and `pythonpath = ["src"]`, so paths/imports only resolve
-from that directory. Never run `uv run pytest tests/backend/...` from the repo root.
-
-```bash
-cd apps/backend
-uv run pytest ../../tests/backend/ -v
-# single test class:
-uv run pytest ../../tests/backend/services/explorer/test_tests.py::TestCreateExplorerTestSet -v
-```
-
-## Debugging
-
-When asked to debug the backend, add this to the end of
-`src/rhesis/backend/app/main.py` and run it directly (don't lint-check or mention it in chat):
+**Always absolute, never relative.** Write the full dotted path, including for a module's own
+siblings:
 
 ```python
-if __name__ == "__main__":
-    import uvicorn
-
-    uvicorn.run("rhesis.backend.app.main:app", host="0.0.0.0", port=8080, reload=True, log_level="debug")
+from rhesis.backend.app.schemas.explorer import TestTreeNode  # yes
+from rhesis.backend.app.services.explorer.utils import build_test_tree  # yes
+from .utils import build_test_tree  # no
+from ..database import get_db  # no
 ```
+
+This holds inside a package's own `__init__.py` too. Existing relative imports are being converted
+as the files around them are touched.
+
+## CRUD layout
+
+`app/crud/` is a package mid-split. `crud/__init__.py` still holds the monolith; per-entity modules
+(`crud/explorer.py`, …) take over as the code around them is touched. **Anything that would add to
+`crud/__init__.py` goes into a per-entity module instead** — it only shrinks from here.
+
+Layering is routers → services → crud, and the same "split, don't grow" rule runs down it: touching
+a router means its business logic moves into a service; touching a service means its SQL moves into
+`crud/`. No SQL in routers.
+
+Import the function directly — `from rhesis.backend.app.crud.explorer import
+set_explorer_test_outputs`. Reaching through the parent (`from rhesis.backend.app import crud`, then
+`crud.explorer.foo()`) raises `AttributeError` unless some other module happens to have imported the
+submodule already, which makes it work by accident.
+
+## Tasks layout
+
+`tasks/` is Celery orchestration only — no business logic. Anything reusable outside a Celery
+context (model resolution, response parsing, error detection) belongs in `app/services/` or
+`app/utils/`; `tasks/` depends on those, never the reverse. Importing anything under
+`rhesis.backend.tasks` builds the whole Celery app first (`tasks/__init__.py` eagerly imports every
+task module), so a `services/` import from `tasks/` silently drags all of that in.
+
+Use `app/utils/` over `app/services/<domain>/` when more than one unrelated service needs the
+helper — e.g. `app/utils/response_extractor.py` is used by explorer's invocation *and* by metric
+evaluation, batch execution, and Penelope, none of which are endpoint-specific.
+
+## Testing and debugging
+
+Running the test suite and debugging the backend directly each have their own skill —
+invoke `backend-testing` or `backend-debug` when doing that task.
 
 ## Ambient Request Scope (Tenant Filtering & Stamping)
 
@@ -72,6 +94,7 @@ needed.
 
 # Admin / cross-org read:
 from rhesis.backend.app.scope import bypass_tenant_filter
+
 with bypass_tenant_filter():
     all_rows = db.query(SomeModel).all()  # filter skipped; stamp still active
 
@@ -80,6 +103,7 @@ query._bypass_scope = True
 
 # Background scripts / migrations (scope is unbound outside get_db_with_tenant_variables):
 from rhesis.backend.app.scope import RequestScope, bind_scope, reset_scope
+
 token = bind_scope(RequestScope(organization_id="...", user_id="..."))
 try:
     ...

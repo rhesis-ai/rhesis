@@ -149,8 +149,8 @@ async def _run_single_turn(
     deferred_traces: list,
 ) -> Dict[str, Any]:
     from rhesis.backend.app.dependencies import get_endpoint_service
+    from rhesis.backend.app.services.endpoint.result_processing import process_endpoint_result
     from rhesis.backend.tasks.execution.batch.retry import invoke_with_retry
-    from rhesis.backend.tasks.execution.executors.results import process_endpoint_result
 
     input_data: Dict[str, Any] = {"input": prompt_content}
 

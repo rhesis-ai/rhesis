@@ -1,7 +1,6 @@
 """Result processing and storage utilities."""
 
 import base64
-import copy
 import hashlib
 import json
 import logging
@@ -16,10 +15,7 @@ from rhesis.backend.app import crud, schemas
 from rhesis.backend.app.constants import TestResultStatus
 from rhesis.backend.app.models.test import Test
 from rhesis.backend.app.utils.crud_utils import get_or_create_status
-from rhesis.backend.tasks.execution.response_extractor import (
-    extract_response_with_fallback,
-    has_http_error_in_result,
-)
+from rhesis.backend.app.utils.response_extractor import has_http_error_in_result
 
 logger = logging.getLogger(__name__)
 
@@ -87,48 +83,6 @@ def check_existing_result(
         "execution_time": existing_result.test_metrics.get("execution_time"),
         "metrics": existing_result.test_metrics.get("metrics", {}),
     }
-
-
-def process_endpoint_result(result: Any) -> Dict:
-    """
-    Process endpoint result to ensure output field is populated.
-
-    Uses fallback logic from response_extractor.
-    Handles both dict results and ErrorResponse Pydantic objects.
-
-    Returns:
-        Processed result with output field populated using the fallback hierarchy
-    """
-    if not result:
-        return {}
-
-    # Handle ErrorResponse Pydantic objects by converting to dict
-    if hasattr(result, "to_dict"):
-        # Use to_dict() method if available (ErrorResponse)
-        result_dict = result.to_dict()
-    elif hasattr(result, "model_dump"):
-        # Use model_dump() for Pydantic v2 models
-        result_dict = result.model_dump(exclude_none=True)
-    elif hasattr(result, "dict"):
-        # Fallback to dict() for Pydantic v1 models
-        result_dict = result.dict(exclude_none=True)
-    elif isinstance(result, dict):
-        # Already a dict
-        result_dict = result
-    else:
-        logger.warning(f"Unexpected result type: {type(result)}, attempting to convert")
-        result_dict = dict(result) if result else {}
-
-    # Create a DEEP copy of the result to avoid modifying the original or sharing references
-    processed_result = copy.deepcopy(result_dict)
-
-    # Use the existing fallback logic to get the processed output
-    processed_output = extract_response_with_fallback(processed_result)
-
-    # Set the output field to the processed response
-    processed_result["output"] = processed_output
-
-    return processed_result
 
 
 def _dedupe_target_interaction(processed_result: Dict) -> int:

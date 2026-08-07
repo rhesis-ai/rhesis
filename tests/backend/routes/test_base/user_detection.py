@@ -42,8 +42,6 @@ class UserFieldDetector:
             # Entities with OrganizationAndUserMixin (user_id only)
             "behavior": ["user_id"],
             "category": ["user_id"],
-            "demographic": ["user_id"],
-            "dimension": ["user_id"],
             "status": ["user_id"],
             "topic": ["user_id"],
             "type_lookup": ["user_id"],

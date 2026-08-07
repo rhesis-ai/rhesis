@@ -170,6 +170,9 @@ def rbac_active_for(organization_id: Optional[UUID], db: Session) -> bool:
 _OWNER_ONLY_CAPABILITIES: frozenset[str] = frozenset(
     {
         str(Permission.Organization.UPDATE),
+        # Billing data: org totals against plan limits. Community has no
+        # Admin role, so the owner is the only "admin" to scope this to.
+        str(Permission.Usage.READ),
         str(Permission.Member.MANAGE),
         str(Permission.ProjectMember.MANAGE),
         str(Permission.Role.MANAGE),
@@ -178,6 +181,9 @@ _OWNER_ONLY_CAPABILITIES: frozenset[str] = frozenset(
         str(Permission.ApiClients.MANAGE),
         str(Permission.Recycle.RESTORE),
         str(Permission.Recycle.PURGE),
+        # Local-mode platform key: mutating it affects every member's ability
+        # to use Rhesis-hosted models, same rationale as SSO.MANAGE above.
+        str(Permission.Platform.MANAGE),
     }
 )
 

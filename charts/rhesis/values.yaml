@@ -92,6 +92,7 @@ config:
 
   # Celery
   celeryWorkerConcurrency: "8"
+  celeryArchitectConcurrency: "2"
   celeryWorkerPrefetchMultiplier: "4"
   celeryWorkerMaxTasksPerChild: "1000"
   celeryWorkerLogLevel: "INFO"

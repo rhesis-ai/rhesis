@@ -32,10 +32,12 @@ import { OwaspClient } from './owasp-client';
 import { ImportClient } from './import-client';
 import { FilesClient } from './files-client';
 import { FeaturesClient } from './features-client';
+import { UsageClient } from './usage-client';
 import { PermissionsClient } from './permissions-client';
 import { ParametersClient } from './parameters-client';
 import { PreflightClient } from './preflight-client';
 import { ResolveClient } from './resolve-client';
+import { InsightsClient } from './insights-client';
 
 export class ApiClientFactory {
   private sessionToken?: string;
@@ -56,6 +58,7 @@ export class ApiClientFactory {
   private importClient: ImportClient | null = null;
   private filesClient: FilesClient | null = null;
   private featuresClient: FeaturesClient | null = null;
+  private usageClient: UsageClient | null = null;
   private permissionsClient: PermissionsClient | null = null;
   private architectClient: ArchitectClient | null = null;
   private parametersClient: ParametersClient | null = null;
@@ -148,6 +151,10 @@ export class ApiClientFactory {
 
   getBehaviorClient(): BehaviorClient {
     return new BehaviorClient(this.sessionToken, undefined, this.projectId);
+  }
+
+  getInsightsClient(): InsightsClient {
+    return new InsightsClient(this.sessionToken, undefined, this.projectId);
   }
 
   getTopicClient(): TopicClient {
@@ -329,6 +336,17 @@ export class ApiClientFactory {
       );
     }
     return this.featuresClient;
+  }
+
+  getUsageClient(): UsageClient {
+    if (!this.usageClient) {
+      this.usageClient = new UsageClient(
+        this.sessionToken,
+        undefined,
+        this.projectId
+      );
+    }
+    return this.usageClient;
   }
 
   getPermissionsClient(): PermissionsClient {

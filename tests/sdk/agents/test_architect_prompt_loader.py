@@ -53,7 +53,6 @@ class TestInferWorkflowPath:
         assert infer_workflow_path("insights summary — Chatbot") == WorkflowPath.RUN_ANALYZE
 
 
-
 @pytest.mark.unit
 class TestResolveWorkflowPathUpdate:
     def test_unset_to_inferred(self):
@@ -104,6 +103,19 @@ class TestPhaseIncludeNames:
         assert "insights-summary.md" in names
         assert "result-analysis.md" in names
         assert "phases/analysis.md" in names
+
+    def test_run_analyze_executing_keeps_insights_summary(self):
+        # The first get_test_result_stats call switches the mode to EXECUTING;
+        # the Insights handoff guidance must stay loaded so the agent keeps
+        # aggregating across all runs instead of falling back to single-run
+        # patterns.
+        names = phase_include_names(AgentMode.EXECUTING, WorkflowPath.RUN_ANALYZE)
+        assert "insights-summary.md" in names
+        assert "result-analysis.md" in names
+
+    def test_executing_non_run_analyze_omits_insights_summary(self):
+        names = phase_include_names(AgentMode.EXECUTING, WorkflowPath.EXPLORE)
+        assert "insights-summary.md" not in names
 
 
 @pytest.mark.unit
@@ -170,4 +182,72 @@ class TestBundledSkillReferences:
             names = zf.namelist()
         assert any(n.endswith("prompt_templates/skill_refs/entity-model.md") for n in names), (
             f"skill refs missing from wheel: {[n for n in names if 'skill_refs' in n][:5]}"
+        )
+
+
+_FRONTEND_ROUTES = _REPO_ROOT / "apps" / "frontend" / "src" / "app" / "(protected)"
+
+
+def _has_detail_page(segment: str) -> bool:
+    """True when the frontend has a dynamic detail route for this segment."""
+    return (_FRONTEND_ROUTES / segment / "[identifier]").is_dir()
+
+
+@pytest.mark.unit
+@pytest.mark.skipif(
+    not _FRONTEND_ROUTES.is_dir(),
+    reason="frontend tree not present (SDK checked out standalone)",
+)
+class TestEntityLinkGuidanceMatchesFrontend:
+    """Keep link guidance honest about which entities have detail pages.
+
+    Both templates previously told the agent that behaviors and metrics had
+    no detail pages. Both do, so the agent was suppressing links a user
+    could have followed — and the two files disagreed with each other.
+    """
+
+    TEMPLATES = ("telemachus-guidelines.j2", "streaming_response.j2")
+    # Entities the prompts tell the agent to link.
+    LINKED = ("test-sets", "tests", "endpoints", "projects", "test-runs", "behaviors", "metrics")
+
+    @pytest.mark.parametrize("segment", LINKED)
+    def test_linked_entities_really_have_detail_pages(self, segment):
+        assert _has_detail_page(segment), (
+            f"prompts link /{segment}/<id> but no [identifier] route exists"
+        )
+
+    def test_test_results_still_has_no_detail_page(self):
+        """The one negative claim the prompts make must stay true."""
+        assert not _has_detail_page("test-results")
+
+    @pytest.mark.parametrize("template", TEMPLATES)
+    def test_templates_do_not_deny_behavior_or_metric_pages(self, template):
+        text = (_TEMPLATES_DIR / template).read_text()
+        for stale in (
+            "Behaviors, metrics and test results do NOT have detail pages",
+            "Behaviors and test results do NOT have detail pages",
+        ):
+            assert stale not in text, f"{template} still carries stale claim: {stale!r}"
+
+    @pytest.mark.parametrize("template", TEMPLATES)
+    def test_templates_document_behavior_and_metric_links(self, template):
+        text = (_TEMPLATES_DIR / template).read_text()
+        assert "/behaviors/" in text, f"{template} never shows a behavior link"
+        assert "/metrics/" in text, f"{template} never shows a metric link"
+
+    @pytest.mark.parametrize("template", TEMPLATES)
+    def test_trace_links_specify_the_resolvable_id(self, template):
+        """/traces/<id> resolves a span DB UUID, not the OTel trace_id.
+
+        The frontend route calls lookupSpan(identifier) against
+        GET /telemetry/spans/{span_db_id}/lookup, typed UUID. Since
+        list_annotations returns both ids, guidance that just says "id"
+        invites a broken link.
+        """
+        text = (_TEMPLATES_DIR / template).read_text()
+        if "/traces/" not in text:
+            pytest.skip(f"{template} does not document trace links")
+        assert "trace_db_id" in text, (
+            f"{template} documents trace links without naming trace_db_id — "
+            "the agent may use trace_id, which does not resolve"
         )

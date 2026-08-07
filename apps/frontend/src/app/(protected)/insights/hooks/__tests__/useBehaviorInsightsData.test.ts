@@ -1,4 +1,6 @@
+import React from 'react';
 import { renderHook, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { DEFAULT_INSIGHTS_FILTERS } from '../../types';
 import { useBehaviorInsightsData } from '../useBehaviorInsightsData';
 
@@ -10,192 +12,126 @@ jest.mock('next-auth/react', () => ({
 }));
 
 jest.mock('../../utils/behavior-insights-utils', () => ({
+  ...jest.requireActual('../../utils/behavior-insights-utils'),
   resolveInsightsQueryTestRunIds: jest.fn(),
   buildBehaviorColumns: jest.fn(() => []),
 }));
 
-jest.mock('../../utils/insights-failed-tests', () => ({
-  fetchFailedTestIdsForInsights: jest.fn(),
-}));
+function mockInsightsQueryResponse(summaryRow: {
+  passed: number;
+  failed: number;
+  pass_rate: number;
+}) {
+  return {
+    summary: {
+      entity: 'test_result',
+      dimensions: [],
+      measures: ['count', 'passed', 'failed', 'pass_rate'],
+      rows: [summaryRow],
+    },
+    behaviors: {
+      entity: 'test_result',
+      dimensions: ['behavior_id', 'behavior'],
+      measures: ['count', 'passed', 'failed', 'pass_rate'],
+      rows: [],
+    },
+    topics: {
+      entity: 'test_result',
+      dimensions: ['behavior_id', 'topic_id', 'topic'],
+      measures: ['count', 'passed', 'failed', 'pass_rate'],
+      rows: [],
+    },
+    metrics: {
+      entity: 'metric',
+      dimensions: ['behavior_id', 'metric_name'],
+      measures: ['count', 'passed', 'failed', 'pass_rate'],
+      rows: [],
+    },
+    allBehaviors: {
+      entity: 'test_result',
+      dimensions: ['behavior_id', 'behavior'],
+      measures: ['count', 'passed', 'failed', 'pass_rate'],
+      rows: [],
+    },
+  };
+}
 
 jest.mock('@/utils/api-client/client-factory', () => ({
   ApiClientFactory: jest.fn().mockImplementation(() => ({
-    getTestResultsClient: () => ({
-      getComprehensiveTestResultsStats: jest.fn().mockResolvedValue({
-        overall_pass_rates: {
-          total: 20,
+    getInsightsClient: () => ({
+      getInsightsQuery: jest.fn().mockResolvedValue(
+        mockInsightsQueryResponse({
           passed: 10,
           failed: 10,
           pass_rate: 50,
-        },
-        behavior_pass_rates: {},
-        metadata: null,
-      }),
-    }),
-    getBehaviorClient: () => ({
-      getBehaviors: jest.fn().mockResolvedValue([]),
+        })
+      ),
     }),
   })),
 }));
 
 import { resolveInsightsQueryTestRunIds } from '../../utils/behavior-insights-utils';
-import { fetchFailedTestIdsForInsights } from '../../utils/insights-failed-tests';
 
 const mockResolveTestRunIds = resolveInsightsQueryTestRunIds as jest.Mock;
-const mockFetchFailedIds = fetchFailedTestIdsForInsights as jest.Mock;
+
+function createWrapper() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return function Wrapper({ children }: { children: React.ReactNode }) {
+    return React.createElement(
+      QueryClientProvider,
+      { client: queryClient },
+      children
+    );
+  };
+}
 
 describe('useBehaviorInsightsData', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     mockResolveTestRunIds.mockReset();
-    mockFetchFailedIds.mockReset();
   });
 
   afterEach(() => {
     jest.useRealTimers();
   });
 
-  it('resolves deduped failedTestCaseCount when summary has failures', async () => {
+  it('resolves summary from the query response', async () => {
     mockResolveTestRunIds.mockResolvedValue(['run-1', 'run-2']);
-    mockFetchFailedIds.mockResolvedValue([
-      'test-1',
-      'test-2',
-      'test-3',
-      'test-4',
-      'test-5',
-    ]);
 
     const filters = {
       ...DEFAULT_INSIGHTS_FILTERS,
       endpointId: 'ep-1',
     };
 
-    const { result } = renderHook(() => useBehaviorInsightsData(filters));
+    const { result } = renderHook(() => useBehaviorInsightsData(filters), {
+      wrapper: createWrapper(),
+    });
 
     jest.advanceTimersByTime(300);
 
     await waitFor(() => {
       expect(result.current.loading).toBe(false);
-    });
-    await waitFor(() => {
-      expect(result.current.failedTestCaseCount).toBe(5);
     });
 
     expect(result.current.summary?.failed).toBe(10);
-    expect(mockFetchFailedIds).toHaveBeenCalledWith({
-      endpointId: 'ep-1',
-      runFilterMode: 'timeRange',
-      timeRange: '1m',
-      testRunIds: ['run-1', 'run-2'],
-    });
-  });
-
-  it('finishes main loading before unique failed count resolves', async () => {
-    mockResolveTestRunIds.mockResolvedValue(['run-1']);
-    let resolveFailed!: (ids: string[]) => void;
-    mockFetchFailedIds.mockImplementation(
-      () =>
-        new Promise<string[]>(resolve => {
-          resolveFailed = resolve;
-        })
-    );
-
-    const { result } = renderHook(() =>
-      useBehaviorInsightsData({
-        ...DEFAULT_INSIGHTS_FILTERS,
-        endpointId: 'ep-1',
-      })
-    );
-
-    jest.advanceTimersByTime(300);
-
-    await waitFor(() => {
-      expect(result.current.loading).toBe(false);
-    });
-    expect(result.current.failedTestCaseCount).toBeNull();
-
-    resolveFailed(['test-1']);
-    await waitFor(() => {
-      expect(result.current.failedTestCaseCount).toBe(1);
-    });
-  });
-
-  it('still renders insights when unique failed count fetch fails', async () => {
-    mockResolveTestRunIds.mockResolvedValue(['run-1']);
-    mockFetchFailedIds.mockRejectedValue(new Error('network'));
-
-    const { result } = renderHook(() =>
-      useBehaviorInsightsData({
-        ...DEFAULT_INSIGHTS_FILTERS,
-        endpointId: 'ep-1',
-      })
-    );
-
-    jest.advanceTimersByTime(300);
-
-    await waitFor(() => {
-      expect(result.current.loading).toBe(false);
-    });
-
-    expect(result.current.error).toBeNull();
-    expect(result.current.summary?.failed).toBe(10);
-    await waitFor(() => {
-      expect(result.current.failedTestCaseCount).toBe(0);
-    });
-  });
-
-  it('skips failed ID fetch when summary has zero failures', async () => {
-    const { ApiClientFactory } = jest.requireMock(
-      '@/utils/api-client/client-factory'
-    );
-    ApiClientFactory.mockImplementation(() => ({
-      getTestResultsClient: () => ({
-        getComprehensiveTestResultsStats: jest.fn().mockResolvedValue({
-          overall_pass_rates: {
-            total: 10,
-            passed: 10,
-            failed: 0,
-            pass_rate: 100,
-          },
-          behavior_pass_rates: {},
-          metadata: null,
-        }),
-      }),
-      getBehaviorClient: () => ({
-        getBehaviors: jest.fn().mockResolvedValue([]),
-      }),
-    }));
-
-    mockResolveTestRunIds.mockResolvedValue(['run-1']);
-
-    const { result } = renderHook(() =>
-      useBehaviorInsightsData({
-        ...DEFAULT_INSIGHTS_FILTERS,
-        endpointId: 'ep-1',
-      })
-    );
-
-    jest.advanceTimersByTime(300);
-
-    await waitFor(() => {
-      expect(result.current.loading).toBe(false);
-    });
-
-    expect(result.current.failedTestCaseCount).toBe(0);
-    expect(mockFetchFailedIds).not.toHaveBeenCalled();
+    expect(result.current.summary?.passed).toBe(10);
   });
 
   it('does not fetch when enabled is false, even with a valid endpointId', async () => {
     mockResolveTestRunIds.mockResolvedValue(['run-1']);
 
-    const { result } = renderHook(() =>
-      useBehaviorInsightsData(
-        {
-          ...DEFAULT_INSIGHTS_FILTERS,
-          endpointId: 'ep-1',
-        },
-        false
-      )
+    const { result } = renderHook(
+      () =>
+        useBehaviorInsightsData(
+          {
+            ...DEFAULT_INSIGHTS_FILTERS,
+            endpointId: 'ep-1',
+          },
+          false
+        ),
+      { wrapper: createWrapper() }
     );
 
     jest.advanceTimersByTime(300);
@@ -215,7 +151,7 @@ describe('useBehaviorInsightsData', () => {
 
     const { result, rerender } = renderHook(
       ({ enabled }) => useBehaviorInsightsData(filters, enabled),
-      { initialProps: { enabled: false } }
+      { initialProps: { enabled: false }, wrapper: createWrapper() }
     );
 
     jest.advanceTimersByTime(300);
@@ -227,6 +163,70 @@ describe('useBehaviorInsightsData', () => {
     await waitFor(() => {
       expect(result.current.loading).toBe(false);
     });
-    expect(mockResolveTestRunIds).toHaveBeenCalledWith(filters);
+    expect(mockResolveTestRunIds).toHaveBeenCalledWith({
+      endpointId: 'ep-1',
+      runFilterMode: 'timeRange',
+      timeRange: 'always',
+      testRunIds: [],
+    });
+  });
+
+  it('shows zero data when behaviorIds is explicitly filtered to nothing', async () => {
+    mockResolveTestRunIds.mockResolvedValue(['run-1']);
+
+    const filters = {
+      ...DEFAULT_INSIGHTS_FILTERS,
+      endpointId: 'ep-1',
+      behaviorIds: [], // explicitly unchecked every behavior -- not "no filter"
+    };
+
+    const { result } = renderHook(() => useBehaviorInsightsData(filters), {
+      wrapper: createWrapper(),
+    });
+
+    jest.advanceTimersByTime(300);
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    // The mocked query response reports passed:10/failed:10 -- if these
+    // assertions ever pass because the hook forgot to call the API at all,
+    // that's still correct; the point is the *result* must be zero either way.
+    expect(result.current.summary).toEqual({
+      total: 0,
+      passed: 0,
+      failed: 0,
+      pass_rate: 0,
+    });
+    expect(result.current.columns).toEqual([]);
+  });
+
+  it('shows zero data when statusIds is explicitly filtered to nothing', async () => {
+    mockResolveTestRunIds.mockResolvedValue(['run-1']);
+
+    const filters = {
+      ...DEFAULT_INSIGHTS_FILTERS,
+      endpointId: 'ep-1',
+      statusIds: [], // explicitly unchecked every status
+    };
+
+    const { result } = renderHook(() => useBehaviorInsightsData(filters), {
+      wrapper: createWrapper(),
+    });
+
+    jest.advanceTimersByTime(300);
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    expect(result.current.summary).toEqual({
+      total: 0,
+      passed: 0,
+      failed: 0,
+      pass_rate: 0,
+    });
+    expect(result.current.columns).toEqual([]);
   });
 });

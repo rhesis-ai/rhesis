@@ -19,6 +19,8 @@ import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { formatDate } from '@/utils/date';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import { useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 
 interface LinkedTestSetsSectionProps {
   testId: string;
@@ -29,6 +31,7 @@ export default function LinkedTestSetsSection({
 }: LinkedTestSetsSectionProps) {
   const { show: showNotification } = useNotifications();
   const { status } = useSession();
+  const canEditTest = useCan(Capability.TestSet.UPDATE);
 
   const [testSets, setTestSets] = useState<TestSet[]>([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -219,15 +222,19 @@ export default function LinkedTestSetsSection({
               No test sets assigned yet
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Assign this test to a test set to group related cases together.
+              {canEditTest
+                ? 'Assign this test to a test set to group related cases together.'
+                : 'This test has no linked test sets yet.'}
             </Typography>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={handleAssignClick}
-            >
-              Assign to test set
-            </Button>
+            {canEditTest && (
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={handleAssignClick}
+              >
+                Assign to test set
+              </Button>
+            )}
           </Box>
         </Paper>
       ) : (
@@ -249,13 +256,15 @@ export default function LinkedTestSetsSection({
             >
               Linked Test Sets ({totalCount})
             </Typography>
-            <Button
-              variant="outlined"
-              startIcon={<AddIcon />}
-              onClick={handleAssignClick}
-            >
-              Assign
-            </Button>
+            {canEditTest && (
+              <Button
+                variant="outlined"
+                startIcon={<AddIcon />}
+                onClick={handleAssignClick}
+              >
+                Assign
+              </Button>
+            )}
           </Box>
 
           <BaseDataGrid
@@ -275,17 +284,19 @@ export default function LinkedTestSetsSection({
         </Paper>
       )}
 
-      <AssignEntityDrawer
-        open={assignOpen}
-        onClose={() => setAssignOpen(false)}
-        title="Assign Test Set"
-        rows={availableFiltered}
-        columns={drawerColumns}
-        loading={loadingAvailable}
-        getRowId={row => String(row.id)}
-        onAssign={handleAssign}
-        searchPlaceholder="Search test sets…"
-      />
+      {canEditTest && (
+        <AssignEntityDrawer
+          open={assignOpen}
+          onClose={() => setAssignOpen(false)}
+          title="Assign Test Set"
+          rows={availableFiltered}
+          columns={drawerColumns}
+          loading={loadingAvailable}
+          getRowId={row => String(row.id)}
+          onAssign={handleAssign}
+          searchPlaceholder="Search test sets…"
+        />
+      )}
     </>
   );
 }

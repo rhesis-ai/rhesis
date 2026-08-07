@@ -88,6 +88,10 @@ async def claim_token_jti(
         redis_manager,
     )
 
+    # Opportunistically reconnect if Redis was down at startup.
+    # The cooldown inside initialize() prevents hammering.
+    await redis_manager.initialize()
+
     if not redis_manager.is_available:
         logger.warning("Redis not available; cannot enforce single-use token")
         raise TokenStoreUnavailableError("Token store temporarily unavailable")
@@ -129,6 +133,9 @@ async def store_auth_code_tokens(
         redis_manager,
     )
 
+    # Opportunistically reconnect if Redis was down at startup.
+    await redis_manager.initialize()
+
     if not redis_manager.is_available:
         raise TokenStoreUnavailableError("Token store temporarily unavailable")
 
@@ -157,6 +164,9 @@ async def consume_auth_code_tokens(code: str) -> Optional[Dict[str, str]]:
     from rhesis.backend.app.services.connector.redis_client import (
         redis_manager,
     )
+
+    # Opportunistically reconnect if Redis was down at startup.
+    await redis_manager.initialize()
 
     if not redis_manager.is_available:
         raise TokenStoreUnavailableError("Token store temporarily unavailable")

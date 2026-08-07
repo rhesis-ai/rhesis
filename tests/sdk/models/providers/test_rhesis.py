@@ -21,15 +21,21 @@ class Continent(BaseModel):
     capitals: list[Capital]
 
 
-def _mock_aiohttp_session(response_json=None, status=200, raise_for_status=None):
+def _mock_aiohttp_session(response_json=None, status=200, raise_for_status=None, headers=None):
     """Build a mock aiohttp.ClientSession for use with ``async with``.
 
     aiohttp's session.post() returns a context manager synchronously,
     so we use MagicMock for the call and AsyncMock for __aenter__/__aexit__.
+
+    ``headers`` defaults to an empty real dict (not a MagicMock) so
+    ``response.headers.get("X-Rhesis-Usage")`` cleanly returns ``None`` for
+    tests that don't care about usage forwarding, rather than a truthy
+    MagicMock instance that would trip the ``if usage_header:`` check.
     """
     mock_response = MagicMock()
     mock_response.status = status
     mock_response.json = AsyncMock(return_value=response_json)
+    mock_response.headers = headers if headers is not None else {}
     if raise_for_status:
         mock_response.raise_for_status.side_effect = raise_for_status
     else:
@@ -322,3 +328,98 @@ class TestRhesisLLM:
 
         for call_kwargs in post_calls:
             assert "_session" not in call_kwargs["json"]
+
+
+class TestRhesisLLMUsageHeaderForwarding:
+    """`X-Rhesis-Usage` response header -- see
+    `apps/backend/.../routers/services.py:generate_content_endpoint`'s
+    docstring. The platform relay attaches this header (not a body field)
+    when it captured usage from its own model call; `create_completion` is
+    the one place with access to the raw response to read it.
+    """
+
+    @pytest.fixture
+    def mock_env_vars(self):
+        with patch.dict(
+            os.environ,
+            {
+                "RHESIS_API_KEY": "test_api_key",
+                "RHESIS_BASE_URL": "https://test.example.com",
+            },
+        ):
+            yield
+
+    @pytest.fixture
+    def mock_client(self):
+        with patch("rhesis.sdk.models.providers.native.APIClient") as mock_client_class:
+            mock_client = Mock()
+            mock_client.api_key = "test_api_key"
+            mock_client.get_url.return_value = "https://test.example.com/services/generate/content"
+            mock_client_class.return_value = mock_client
+            yield mock_client_class
+
+    @patch("aiohttp.ClientSession")
+    def test_emits_usage_from_header(self, mock_session_class, mock_env_vars, mock_client):
+        received = []
+        service = RhesisLLM(on_usage=received.append)
+        service.load_model()
+
+        session_ctx, _, _ = _mock_aiohttp_session(
+            response_json="hi there",
+            headers={"X-Rhesis-Usage": '{"total_tokens": 42}'},
+        )
+        mock_session_class.return_value = session_ctx
+
+        result = service.generate(prompt="Test prompt")
+
+        assert result == "hi there"
+        assert received == [{"input_tokens": 0, "output_tokens": 0, "total_tokens": 42}]
+
+    @patch("aiohttp.ClientSession")
+    def test_no_header_means_no_emission(self, mock_session_class, mock_env_vars, mock_client):
+        received = []
+        service = RhesisLLM(on_usage=received.append)
+        service.load_model()
+
+        session_ctx, _, _ = _mock_aiohttp_session(response_json="hi there")
+        mock_session_class.return_value = session_ctx
+
+        service.generate(prompt="Test prompt")
+
+        assert received == []
+
+    @patch("aiohttp.ClientSession")
+    def test_malformed_header_is_ignored_not_raised(
+        self, mock_session_class, mock_env_vars, mock_client
+    ):
+        received = []
+        service = RhesisLLM(on_usage=received.append)
+        service.load_model()
+
+        session_ctx, _, _ = _mock_aiohttp_session(
+            response_json="hi there",
+            headers={"X-Rhesis-Usage": "not-valid-json"},
+        )
+        mock_session_class.return_value = session_ctx
+
+        result = service.generate(prompt="Test prompt")
+
+        assert result == "hi there"
+        assert received == []
+
+    @patch("aiohttp.ClientSession")
+    def test_without_on_usage_configured_header_is_harmlessly_ignored(
+        self, mock_session_class, mock_env_vars, mock_client
+    ):
+        service = RhesisLLM()
+        service.load_model()
+
+        session_ctx, _, _ = _mock_aiohttp_session(
+            response_json="hi there",
+            headers={"X-Rhesis-Usage": '{"total_tokens": 42}'},
+        )
+        mock_session_class.return_value = session_ctx
+
+        result = service.generate(prompt="Test prompt")
+
+        assert result == "hi there"

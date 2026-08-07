@@ -7,8 +7,6 @@ from .capabilities import router as capabilities_router
 from .category import router as category_router
 from .comment import router as comment_router
 from .connector import router as connector_router
-from .demographic import router as demographic_router
-from .dimension import router as dimension_router
 from .endpoint import router as endpoint_router
 from .experiments import router as experiments_router
 from .explorer import router as explorer_router
@@ -18,6 +16,7 @@ from .file import router as file_router
 from .file_import import router as file_import_router
 from .garak import router as garak_router
 from .home import router as home_router
+from .insights import router as insights_router
 
 # ... other imports
 # Import new routers
@@ -32,6 +31,7 @@ from .parameters import (
 from .parameters import (
     router as parameters_router,
 )
+from .platform import router as platform_router
 from .preflight import router as preflight_router
 from .project import router as project_router
 from .prompt import router as prompt_router
@@ -60,6 +60,7 @@ from .token import router as token_router
 from .tools import router as tools_router
 from .topic import router as topic_router
 from .type_lookup import router as type_lookup_router
+from .usage import router as usage_router
 from .use_case import router as use_case_router
 from .user import router as user_router
 from .websocket import router as websocket_router
@@ -83,8 +84,6 @@ __all__ = [
     "risk",
     "topic",
     "user",
-    "demographic",
-    "dimension",
     "test_run",
     "tag",
     "auth",
@@ -111,6 +110,8 @@ __all__ = [
     "explorer",
     "architect",
     "preflight",
+    "usage",
+    "platform",
 ]
 
 # Export all routers for use in main.py
@@ -135,13 +136,12 @@ routers = sorted(
         risk_router,
         topic_router,
         user_router,
-        demographic_router,
-        dimension_router,
         test_run_router,
         tag_router,
         auth_router,
         token_router,
         home_router,
+        insights_router,
         services_router,
         organization_router,
         preflight_router,
@@ -169,6 +169,8 @@ routers = sorted(
         explorer_router,
         architect_router,
         capabilities_router,
+        usage_router,
+        platform_router,
     ],
     key=lambda x: x.tags[0].lower() if x.tags else "",
 )

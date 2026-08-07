@@ -1,0 +1,96 @@
+name: Terraform environment setup
+description: >
+  Resolve the target environment's project/service-account, authenticate to
+  GCP, install gcloud/terraform, and (prd only) fetch the Cloudflare API
+  token as a masked env var. Shared by terraform-infrastructure.yml's plan
+  and apply jobs so the two never drift out of sync.
+
+inputs:
+  environment:
+    description: 'Raw environment selector (dev/stg/prd/admin)'
+    required: true
+  terraform_version:
+    required: true
+  wif_provider:
+    required: true
+  tf_project_id_dev:
+    required: true
+  tf_project_id_stg:
+    required: true
+  tf_project_id_prd:
+    required: true
+  tf_project_id_wireguard:
+    required: true
+  tf_sa_dev:
+    required: true
+  tf_sa_stg:
+    required: true
+  tf_sa_prd:
+    required: true
+  tf_sa_wireguard:
+    required: true
+
+outputs:
+  target_env:
+    description: 'Resolved environment name (admin -> wireguard)'
+    value: ${{ steps.ctx.outputs.target_env }}
+  project_id:
+    value: ${{ steps.ctx.outputs.project_id }}
+
+runs:
+  using: composite
+  steps:
+    - name: Resolve context
+      id: ctx
+      shell: bash
+      env:
+        TF_PROJECT_ID_DEV: ${{ inputs.tf_project_id_dev }}
+        TF_PROJECT_ID_STG: ${{ inputs.tf_project_id_stg }}
+        TF_PROJECT_ID_PRD: ${{ inputs.tf_project_id_prd }}
+        TF_PROJECT_ID_WIREGUARD: ${{ inputs.tf_project_id_wireguard }}
+        TF_SA_DEV: ${{ inputs.tf_sa_dev }}
+        TF_SA_STG: ${{ inputs.tf_sa_stg }}
+        TF_SA_PRD: ${{ inputs.tf_sa_prd }}
+        TF_SA_WIREGUARD: ${{ inputs.tf_sa_wireguard }}
+      run: |
+        ENV="${{ inputs.environment }}"
+        # "admin" is the UI label for the wireguard environment
+        [[ "$ENV" == "admin" ]] && ENV="wireguard"
+        echo "target_env=$ENV" >> "$GITHUB_OUTPUT"
+        case "$ENV" in
+          dev)       echo "project_id=$TF_PROJECT_ID_DEV" >> "$GITHUB_OUTPUT"
+                     echo "service_account=$TF_SA_DEV" >> "$GITHUB_OUTPUT" ;;
+          stg)       echo "project_id=$TF_PROJECT_ID_STG" >> "$GITHUB_OUTPUT"
+                     echo "service_account=$TF_SA_STG" >> "$GITHUB_OUTPUT" ;;
+          prd)       echo "project_id=$TF_PROJECT_ID_PRD" >> "$GITHUB_OUTPUT"
+                     echo "service_account=$TF_SA_PRD" >> "$GITHUB_OUTPUT" ;;
+          wireguard) echo "project_id=$TF_PROJECT_ID_WIREGUARD" >> "$GITHUB_OUTPUT"
+                     echo "service_account=$TF_SA_WIREGUARD" >> "$GITHUB_OUTPUT" ;;
+          *)         echo "::error::Unknown environment '$ENV' -- expected dev, stg, prd, or wireguard/admin."
+                     exit 1 ;;
+        esac
+
+    - uses: google-github-actions/auth@v2
+      with:
+        workload_identity_provider: ${{ inputs.wif_provider }}
+        service_account: ${{ steps.ctx.outputs.service_account }}
+
+    - uses: google-github-actions/setup-gcloud@v2
+
+    - uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: ${{ inputs.terraform_version }}
+
+    # prd's cloudflare provider (envs/prd/main.tf) needs a real credential to
+    # initialize (used by the cloudflare_ip_ranges data source). Fetched here
+    # rather than via a Terraform data source so the token never flows
+    # through Terraform state -- see the comment in envs/prd/main.tf.
+    - name: Fetch Cloudflare API token (prd only)
+      if: steps.ctx.outputs.target_env == 'prd'
+      shell: bash
+      run: |
+        TOKEN=$(gcloud secrets versions access latest \
+          --secret=cloudflare-api-token-prd \
+          --project="${{ steps.ctx.outputs.project_id }}")
+        echo "::add-mask::$TOKEN"
+        echo "CLOUDFLARE_API_TOKEN=$TOKEN" >> "$GITHUB_ENV"

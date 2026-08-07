@@ -16,10 +16,6 @@ from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.odata import apply_select, combine_entity_type_filter
-from rhesis.backend.app.utils.schema_factory import create_detailed_schema
-
-# Create the detailed schema for Test
-CategoryDetailSchema = create_detailed_schema(schemas.Category, models.Category)
 
 router = RhesisRouter(
     prefix="/categories",
@@ -51,7 +47,7 @@ def create_category(
     )
 
 
-@router.get("/", response_model=list[CategoryDetailSchema])
+@router.get("/", response_model=list[schemas.CategoryDetail])
 @with_count_header(model=models.Category)
 def read_categories(
     response: Response,
@@ -90,7 +86,7 @@ def read_categories(
     return results
 
 
-@router.get("/{category_id}", response_model=CategoryDetailSchema)
+@router.get("/{category_id}", response_model=schemas.CategoryDetail)
 def read_category(
     category_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),
@@ -107,7 +103,7 @@ def read_category(
     return db_category
 
 
-@router.put("/{category_id}", response_model=CategoryDetailSchema)
+@router.put("/{category_id}", response_model=schemas.CategoryDetail)
 @handle_database_exceptions(
     entity_name="category",
     custom_field_messages={"parent_id": "Invalid parent category reference"},

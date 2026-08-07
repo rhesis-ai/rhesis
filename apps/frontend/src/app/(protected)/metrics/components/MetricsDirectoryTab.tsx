@@ -4,6 +4,7 @@ import * as React from 'react';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
+import LinearProgress from '@mui/material/LinearProgress';
 import TablePagination from '@mui/material/TablePagination';
 import GridToolbar, {
   PrimarySegmentedPills,
@@ -24,10 +25,7 @@ import MetricCard from './MetricCard';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import { MetricsClient } from '@/utils/api-client/metrics-client';
-import {
-  MetricDetail,
-  MetricScope,
-} from '@/utils/api-client/interfaces/metric';
+import { MetricDetail } from '@/utils/api-client/interfaces/metric';
 import type {
   Behavior as ApiBehavior,
   BehaviorWithMetrics,
@@ -36,6 +34,10 @@ import type { UUID } from 'crypto';
 import { Can, useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import {
+  OWASP_METRIC_FILTER_VALUE,
+  OWASP_METRIC_TAG_NAME,
+} from '@/utils/odata-filter';
 export interface FilterState {
   search: string;
   backend: string[];
@@ -51,6 +53,8 @@ interface FilterOptions {
   scoreType: { value: string; label: string }[];
   metricScope: { value: string; label: string }[];
   behavior: { id: string; name: string }[];
+  /** Whether any metric fetched so far carries the OWASP tag — gates the OWASP pill. */
+  hasOwasp: boolean;
 }
 
 interface BehaviorMetrics {
@@ -67,6 +71,12 @@ interface MetricsDirectoryTabProps {
   organizationId: UUID;
   behaviors: ApiBehavior[];
   metrics: MetricDetail[];
+  totalCount: number;
+  page: number;
+  rowsPerPage: number;
+  onPageChange: (page: number) => void;
+  onRowsPerPageChange: (size: number) => void;
+  onRefresh: () => void;
   filters: FilterState;
   filterOptions: FilterOptions;
   isLoading: boolean;
@@ -77,7 +87,7 @@ interface MetricsDirectoryTabProps {
   setBehaviorsWithMetrics: React.Dispatch<
     React.SetStateAction<BehaviorWithMetrics[]>
   >;
-  assignMode?: boolean; // Whether we're in assign mode (coming from behaviors page)
+  assignMode?: boolean;
 }
 
 // Add type guard function
@@ -92,15 +102,16 @@ function isValidMetricType(
   );
 }
 
-/** Tag applied to OWASP metrics by the tag_owasp migration. */
-const OWASP_TAG_NAME = 'OWASP';
-/** Pseudo-backend pill value for the OWASP tag — no real backend uses it. */
-const OWASP_PILL_VALUE = 'owasp';
-
 export default function MetricsDirectoryTab({
   organizationId: _organizationId,
   behaviors,
   metrics,
+  totalCount,
+  page,
+  rowsPerPage,
+  onPageChange,
+  onRowsPerPageChange,
+  onRefresh,
   filters,
   filterOptions,
   isLoading,
@@ -132,14 +143,10 @@ export default function MetricsDirectoryTab({
     React.useState<{ id: string; name: string } | null>(null);
   const [isDeletingMetric, setIsDeletingMetric] = React.useState(false);
 
-  // Pagination state
-  const [page, setPage] = React.useState(0);
-  const [rowsPerPage, setRowsPerPage] = React.useState(25);
-
   // Advanced filters drawer state
   const [filterDrawerOpen, setFilterDrawerOpen] = React.useState(false);
 
-  // Filter handlers
+  // Filter handlers — parent resets page to 0 when filters change
   const handleFilterChange = (
     filterType: keyof FilterState,
     value: string | string[]
@@ -148,7 +155,6 @@ export default function MetricsDirectoryTab({
       ...prev,
       [filterType]: value,
     }));
-    setPage(0);
   };
 
   // Count active advanced filters
@@ -160,94 +166,17 @@ export default function MetricsDirectoryTab({
     filters.metricScope.length +
     (behaviorStr.trim() !== '' ? 1 : 0);
 
+  // True empty = server returned zero results and no filters are active
   const isTrueEmpty =
-    metrics.length === 0 &&
+    totalCount === 0 &&
     !filters.search &&
     filters.backend.length === 0 &&
     activeAdvancedFilterCount === 0;
 
-  /** Whether any loaded metric carries the OWASP tag — gates the OWASP pill. */
-  const hasOwaspMetrics = React.useMemo(
-    () =>
-      metrics.some(m => (m.tags ?? []).some(t => t.name === OWASP_TAG_NAME)),
-    [metrics]
-  );
-
-  // Filter metrics based on search and filter criteria
-  const getFilteredMetrics = () => {
-    return metrics.filter(metric => {
-      // Search filter
-      const searchMatch =
-        !filters.search ||
-        (metric.name || '')
-          .toLowerCase()
-          .includes(filters.search.toLowerCase()) ||
-        (metric.description || '')
-          .toLowerCase()
-          .includes(filters.search.toLowerCase()) ||
-        (metric.metric_type?.type_value || '')
-          .toLowerCase()
-          .includes(filters.search.toLowerCase());
-
-      // Backend filter — pills are OR'd. The OWASP pill is a pseudo-backend
-      // that matches the OWASP tag instead of a backend_type.
-      const backendMatch =
-        filters.backend.length === 0 ||
-        (metric.backend_type &&
-          filters.backend.includes(
-            metric.backend_type.type_value.toLowerCase()
-          )) ||
-        (filters.backend.includes(OWASP_PILL_VALUE) &&
-          (metric.tags ?? []).some(t => t.name === OWASP_TAG_NAME));
-
-      // Type filter
-      const typeMatch =
-        filters.type.length === 0 ||
-        (metric.metric_type?.type_value &&
-          filters.type.includes(metric.metric_type.type_value));
-
-      // Score type filter
-      const scoreTypeMatch =
-        !filters.scoreType ||
-        filters.scoreType.length === 0 ||
-        (metric.score_type && filters.scoreType.includes(metric.score_type));
-
-      // Metric scope filter
-      const metricScopeMatch =
-        !filters.metricScope ||
-        filters.metricScope.length === 0 ||
-        (metric.metric_scope &&
-          filters.metricScope.some(scope =>
-            metric.metric_scope?.includes(scope as MetricScope)
-          ));
-
-      // Behavior filter — text match against assigned behavior names
-      const behaviorFilter =
-        typeof filters.behavior === 'string' ? filters.behavior : '';
-      const metricBehaviorIds = Array.isArray(metric.behaviors)
-        ? metric.behaviors.map((b: string | { id?: string }) =>
-            typeof b === 'string' ? b : b.id
-          )
-        : [];
-      const metricBehaviorNames = behaviors
-        .filter(b => metricBehaviorIds.includes(b.id as string))
-        .map(b => b.name || '');
-      const behaviorMatch =
-        behaviorFilter.trim() === '' ||
-        metricBehaviorNames.some(
-          name => name.toLowerCase() === behaviorFilter.toLowerCase()
-        );
-
-      return (
-        searchMatch &&
-        backendMatch &&
-        typeMatch &&
-        scoreTypeMatch &&
-        metricScopeMatch &&
-        behaviorMatch
-      );
-    });
-  };
+  // Whether the OWASP pill should appear — filtering itself now happens
+  // server-side via buildMetricODataFilter, which maps this pseudo-backend
+  // value to a tag-based OData clause (see MetricsClient's option-derivation).
+  const hasOwaspMetrics = filterOptions.hasOwasp;
 
   // Function to assign a metric to a behavior
   const handleAssignMetricToBehavior = async (
@@ -438,10 +367,7 @@ export default function MetricsDirectoryTab({
       const metricClient = new MetricsClient();
       await metricClient.deleteMetric(metricToDeleteCompletely.id as UUID);
 
-      // Remove the metric from local state
-      setMetrics(prevMetrics =>
-        prevMetrics.filter(m => m.id !== metricToDeleteCompletely.id)
-      );
+      onRefresh();
 
       notifications.show('Metric deleted successfully', {
         severity: 'success',
@@ -464,21 +390,12 @@ export default function MetricsDirectoryTab({
     setMetricToDeleteCompletely(null);
   };
 
-  const filteredMetrics = getFilteredMetrics();
   const activeBehaviors = behaviors.filter(b => b.name && b.name.trim() !== '');
 
-  // Clamp page when list shrinks (e.g. after delete/duplicate)
-  React.useEffect(() => {
-    const lastPage = Math.max(
-      0,
-      Math.ceil(filteredMetrics.length / rowsPerPage) - 1
-    );
-    if (page > lastPage) {
-      setPage(lastPage);
-    }
-  }, [filteredMetrics.length, rowsPerPage, page]);
+  // First load — no data at all yet, show a full-page spinner
+  const isInitialLoad = isLoading && metrics.length === 0 && totalCount === 0;
 
-  if (isLoading) {
+  if (isInitialLoad) {
     return (
       <PageLayout title="Metrics" breadcrumbs={[]}>
         <Box
@@ -499,7 +416,7 @@ export default function MetricsDirectoryTab({
     );
   }
 
-  if (error) {
+  if (error && metrics.length === 0) {
     return (
       <PageLayout title="Metrics" breadcrumbs={[]}>
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
@@ -589,7 +506,12 @@ export default function MetricsDirectoryTab({
                     label: o.type_value,
                   })),
                   ...(hasOwaspMetrics
-                    ? [{ value: OWASP_PILL_VALUE, label: OWASP_TAG_NAME }]
+                    ? [
+                        {
+                          value: OWASP_METRIC_FILTER_VALUE,
+                          label: OWASP_METRIC_TAG_NAME,
+                        },
+                      ]
                     : []),
                 ]}
                 selectedValues={filters.backend}
@@ -624,89 +546,94 @@ export default function MetricsDirectoryTab({
                 metricScope: drawerFilters.metricScope,
                 behavior: drawerFilters.behavior,
               }));
-              setPage(0);
+            }}
+          />
+
+          {/* Subtle loading indicator for subsequent fetches — always
+              mounted so its height never shifts the grid below */}
+          <LinearProgress
+            sx={{
+              mb: 1,
+              borderRadius: theme => theme.shape.borderRadius,
+              visibility: isLoading ? 'visible' : 'hidden',
             }}
           />
 
           {/* Metrics grid */}
           <Box
-            sx={{
+            sx={theme => ({
               display: 'grid',
               gridTemplateColumns: {
                 xs: '1fr',
                 sm: '1fr 1fr',
                 md: 'repeat(3, 1fr)',
               },
-              gap: '24px',
+              gap: theme.spacing(3),
               mb: 4,
-            }}
+            })}
           >
-            {filteredMetrics
-              .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-              .map(metric => {
-                const assignedBehaviors = activeBehaviors.filter(b => {
-                  if (!Array.isArray(metric.behaviors)) return false;
-                  // Check if behaviors is an array of strings (UUIDs) or BehaviorReference objects
-                  const behaviorIds = metric.behaviors.map(behavior =>
-                    typeof behavior === 'string' ? behavior : behavior.id
-                  );
-                  return behaviorIds.includes(b.id as string);
-                });
-                const behaviorNames = assignedBehaviors.map(
-                  b => b.name || 'Unnamed Behavior'
+            {metrics.map(metric => {
+              const assignedBehaviors = activeBehaviors.filter(b => {
+                if (!Array.isArray(metric.behaviors)) return false;
+                // Check if behaviors is an array of strings (UUIDs) or BehaviorReference objects
+                const behaviorIds = metric.behaviors.map(behavior =>
+                  typeof behavior === 'string' ? behavior : behavior.id
                 );
+                return behaviorIds.includes(b.id as string);
+              });
+              const behaviorNames = assignedBehaviors.map(
+                b => b.name || 'Unnamed Behavior'
+              );
 
-                const isCustomMetric =
-                  metric.backend_type?.type_value?.toLowerCase() === 'custom';
+              const isCustomMetric =
+                metric.backend_type?.type_value?.toLowerCase() === 'custom';
 
-                return (
-                  <MetricCard
-                    key={metric.id}
-                    type={
-                      isValidMetricType(metric.metric_type?.type_value)
-                        ? metric.metric_type.type_value
+              return (
+                <MetricCard
+                  key={metric.id}
+                  type={
+                    isValidMetricType(metric.metric_type?.type_value)
+                      ? metric.metric_type.type_value
+                      : undefined
+                  }
+                  title={metric.name}
+                  description={metric.description}
+                  backend={metric.backend_type?.type_value}
+                  metricType={metric.metric_type?.type_value}
+                  scoreType={metric.score_type}
+                  metricScope={metric.metric_scope}
+                  usedIn={behaviorNames}
+                  showUsage={true}
+                  onClick={
+                    assignMode
+                      ? () => {
+                          setSelectedMetric(metric);
+                          setAssignDialogOpen(true);
+                        }
+                      : isCustomMetric
+                        ? () => router.push(`/metrics/${metric.id}`)
                         : undefined
-                    }
-                    title={metric.name}
-                    description={metric.description}
-                    backend={metric.backend_type?.type_value}
-                    metricType={metric.metric_type?.type_value}
-                    scoreType={metric.score_type}
-                    metricScope={metric.metric_scope}
-                    usedIn={behaviorNames}
-                    showUsage={true}
-                    onClick={
-                      assignMode
-                        ? () => {
-                            setSelectedMetric(metric);
-                            setAssignDialogOpen(true);
-                          }
-                        : isCustomMetric
-                          ? () => router.push(`/metrics/${metric.id}`)
-                          : undefined
-                    }
-                    onDelete={
-                      canDelete &&
-                      assignedBehaviors.length === 0 &&
-                      metric.backend_type?.type_value?.toLowerCase() ===
-                        'custom'
-                        ? () => handleDeleteMetric(metric.id, metric.name)
-                        : undefined
-                    }
-                  />
-                );
-              })}
+                  }
+                  onDelete={
+                    canDelete &&
+                    assignedBehaviors.length === 0 &&
+                    metric.backend_type?.type_value?.toLowerCase() === 'custom'
+                      ? () => handleDeleteMetric(metric.id, metric.name)
+                      : undefined
+                  }
+                />
+              );
+            })}
           </Box>
-          {filteredMetrics.length > 0 && (
+          {totalCount > 0 && (
             <TablePagination
               component="div"
-              count={filteredMetrics.length}
+              count={totalCount}
               page={page}
-              onPageChange={(_event, newPage) => setPage(newPage)}
+              onPageChange={(_event, newPage) => onPageChange(newPage)}
               rowsPerPage={rowsPerPage}
               onRowsPerPageChange={event => {
-                setRowsPerPage(parseInt(event.target.value, 10));
-                setPage(0);
+                onRowsPerPageChange(parseInt(event.target.value, 10));
               }}
               rowsPerPageOptions={[25, 50, 100]}
               labelRowsPerPage="Metrics per page:"

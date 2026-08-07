@@ -4,7 +4,6 @@ export type {
   TaskUpdate,
   TasksQueryParams,
   EntityType,
-  TaskStats,
   User,
   Status,
   Priority,

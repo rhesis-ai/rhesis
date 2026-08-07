@@ -26,8 +26,6 @@ describe('member join status', () => {
       name: 'Invited Viewer',
       given_name: 'Invited',
       family_name: 'Viewer',
-      last_login_at: null,
-      external_provider_id: undefined,
     });
     expect(hasJoinedOrganization(user)).toBe(false);
     expect(getMemberJoinStatus(user)).toBe('invited');

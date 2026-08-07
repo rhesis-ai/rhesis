@@ -1,21 +1,37 @@
 import asyncio
+import dataclasses
 import json
 import logging
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID
 
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
-
-if TYPE_CHECKING:
-    from rhesis.sdk.metrics import MetricConfig
-
-from .utils import _build_eligible_tests, _get_test_set_tests_from_db
+from rhesis.backend.app.crud.explorer import set_explorer_test_metadata
+from rhesis.backend.app.schemas.explorer import (
+    EvaluateFailedItem,
+    EvaluateResponse,
+    EvaluateResultItem,
+)
+from rhesis.backend.app.schemas.explorer_metadata import (
+    ExplorerMetricEvalDetail,
+    ExplorerTestMetadata,
+    parse_explorer_test_metadata,
+)
+from rhesis.backend.app.services.explorer.invocation import NO_OUTPUT
+from rhesis.backend.app.services.explorer.utils import (
+    _build_eligible_tests,
+    _get_test_set_tests_from_db,
+)
+from rhesis.backend.app.utils.user_model_utils import get_evaluation_model
+from rhesis.backend.metrics.metric_config import metric_model_to_config
+from rhesis.sdk.metrics import MetricConfig, MetricFactory
 
 logger = logging.getLogger(__name__)
 
-_EVAL_MAX_CONCURRENCY = 20
+EVAL_MAX_CONCURRENCY = 20
 
 
 def _serialize_details_for_api(details: Dict[str, Any]) -> Dict[str, Any]:
@@ -34,25 +50,77 @@ def build_metrics_summary_for_response(
     """Build per-metric payload for HTTP responses and ``test_metadata.metrics``."""
     out: Dict[str, Dict[str, Any]] = {}
     for name, v in valid.items():
-        row: Dict[str, Any] = {
-            "score": v.get("score"),
-            "is_successful": v.get("is_successful"),
-        }
-        if v.get("reason") is not None:
-            row["reason"] = v["reason"]
-        det = v.get("details")
-        if det:
-            row["details"] = det
-        out[name] = row
+        detail = ExplorerMetricEvalDetail(
+            score=v.get("score") or 0.0,
+            is_successful=bool(v.get("is_successful")),
+            reason=v.get("reason"),
+            details=v.get("details") or None,
+        )
+        out[name] = detail.model_dump(mode="json", exclude_none=True)
     return out
 
 
-def _resolve_sdk_metrics(
+@dataclass(frozen=True)
+class MetricVerdict:
+    """Aggregated outcome of running several metrics on one (input, output) pair."""
+
+    label: str
+    labeler: str
+    model_score: float
+    metrics: Optional[Dict[str, Dict[str, Any]]] = None
+    # Raw valid per-metric results, kept for callers that need a per-metric breakdown.
+    per_metric: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+
+    @classmethod
+    def unlabeled(cls) -> "MetricVerdict":
+        """Nothing was evaluated — no output, or no usable metric result."""
+        return cls(label="", labeler="", model_score=0.0)
+
+    @classmethod
+    def error(cls, metric_names: List[str]) -> "MetricVerdict":
+        """Evaluation raised."""
+        return cls(label="error", labeler=", ".join(metric_names), model_score=0.0)
+
+    def as_payload(self) -> Dict[str, Any]:
+        """The four fields every caller writes, whether to an event or to ``test_metadata``."""
+        return {
+            "label": self.label,
+            "labeler": self.labeler,
+            "model_score": self.model_score,
+            "metrics": self.metrics,
+        }
+
+
+def aggregate_metric_verdict(
+    metric_results: Dict[str, Any],
+    metric_names: List[str],
+) -> Optional[MetricVerdict]:
+    """Aggregate raw per-metric results into one verdict.
+
+    Passes only when every metric passed; the score is the mean across metrics. Returns
+    ``None`` when no result is usable, which every caller treats as "no metric results".
+    """
+    valid = {k: v for k, v in metric_results.items() if isinstance(v, dict)}
+    if not valid:
+        return None
+
+    scores = [v.get("score", 0.0) for v in valid.values()]
+    all_passed = all(v.get("is_successful", False) for v in valid.values())
+    return MetricVerdict(
+        label="pass" if all_passed else "fail",
+        labeler=", ".join(metric_names),
+        model_score=sum(scores) / len(scores) if scores else 0.0,
+        metrics=build_metrics_summary_for_response(valid),
+        per_metric=valid,
+    )
+
+
+def resolve_sdk_metrics(
     db: Session,
     organization_id: str,
     user_id: str,
     metric_names: List[str],
-) -> List[Tuple[Any, "MetricConfig"]]:
+) -> List[Tuple[Any, MetricConfig]]:
     """Resolve metric names from the DB and instantiate SDK metric objects.
 
     Returns a list of tuples containing the ready-to-use SDK ``BaseMetric`` instances
@@ -61,12 +129,6 @@ def _resolve_sdk_metrics(
     Raises ``ValueError`` when a requested metric name does not exist
     or none of the resolved metrics could be instantiated.
     """
-    import dataclasses
-
-    from rhesis.backend.metrics.metric_config import metric_model_to_config
-    from rhesis.backend.tasks.execution.test import get_evaluation_model
-    from rhesis.sdk.metrics import MetricConfig, MetricFactory
-
     name_clauses = " or ".join(f"name eq '{n}'" for n in metric_names)
     resolved = crud.get_metrics(
         db,
@@ -107,8 +169,8 @@ def _resolve_sdk_metrics(
     return sdk_metrics
 
 
-async def _run_metrics_on_text(
-    sdk_metrics: List[Tuple[Any, "MetricConfig"]],
+async def run_metrics_on_text(
+    sdk_metrics: List[Tuple[Any, MetricConfig]],
     input_text: str,
     output_text: str,
 ) -> Dict[str, Any]:
@@ -199,11 +261,11 @@ async def evaluate_tests_for_explorer_set(
     topic: Optional[str] = None,
     include_subtopics: bool = True,
     overwrite: bool = False,
-) -> Dict[str, Any]:
+) -> EvaluateResponse:
     """Evaluate explorer test-set tests with the specified metrics.
 
     Uses SDK metric instances directly via ``a_evaluate`` with up to
-    ``_EVAL_MAX_CONCURRENCY`` items evaluated concurrently.
+    ``EVAL_MAX_CONCURRENCY`` items evaluated concurrently.
 
     Parameters
     ----------
@@ -228,18 +290,15 @@ async def evaluate_tests_for_explorer_set(
 
     Returns
     -------
-    dict
-        - evaluated: number of tests evaluated
-        - skipped: number of tests skipped due to existing results
-        - results: list of {test_id, label, labeler, model_score, metrics?}
-        - failed: list of {test_id, error}
+    EvaluateResponse
+        Counts plus the per-test ``results`` and ``failed`` items.
 
     Raises
     ------
     ValueError
         If any metric name does not exist or the test set is not found.
     """
-    sdk_metrics = _resolve_sdk_metrics(db, organization_id, user_id, metric_names)
+    sdk_metrics = resolve_sdk_metrics(db, organization_id, user_id, metric_names)
 
     db_test_set = crud.resolve_test_set(test_set_identifier, db, organization_id=organization_id)
     if db_test_set is None:
@@ -257,104 +316,103 @@ async def evaluate_tests_for_explorer_set(
             continue
         eligible.append(t)
 
-    async def _evaluate_test(test) -> Dict[str, Any]:
+    async def _evaluate_test(test) -> Tuple[Dict[str, Any], Optional[ExplorerTestMetadata]]:
+        """Evaluate one test, returning its outcome and the metadata to persist.
+
+        Returns the metadata rather than assigning it: these run concurrently on the
+        shared request session, so the writes are applied together once all have landed.
+        A None metadata means this outcome writes nothing.
+        """
         test_id_str = str(test.id)
         input_text = (test.prompt.content or "").strip()
-        output_text = (test.test_metadata or {}).get("output", "")
+        existing_meta = parse_explorer_test_metadata(test.test_metadata)
+        output_text = existing_meta.output or ""
 
-        if not output_text or output_text == "[no output]":
+        if not output_text or output_text == NO_OUTPUT:
             logger.warning(
                 f"Test {test_id_str} has no output to evaluate — run generate_outputs first"
             )
-            return {"status": "failed", "test_id": test_id_str, "error": "no output"}
+            return {"status": "failed", "test_id": test_id_str, "error": "no output"}, None
 
         try:
-            metric_results = await _run_metrics_on_text(sdk_metrics, input_text, output_text)
+            metric_results = await run_metrics_on_text(sdk_metrics, input_text, output_text)
 
-            valid = {k: v for k, v in metric_results.items() if isinstance(v, dict)}
-
-            if not valid:
+            verdict = aggregate_metric_verdict(metric_results, metric_names)
+            if verdict is None:
                 logger.warning(f"No valid metric results for test {test_id_str}")
                 return {
                     "status": "failed",
                     "test_id": test_id_str,
                     "error": "no metric results",
-                }
+                }, None
 
-            all_passed = all(v.get("is_successful", False) for v in valid.values())
-            agg_label = "pass" if all_passed else "fail"
-            agg_labeler = ", ".join(metric_names)
-            scores = [v.get("score", 0.0) for v in valid.values()]
-            agg_score = sum(scores) / len(scores) if scores else 0.0
-            metrics_summary = build_metrics_summary_for_response(valid)
-
-            meta = dict(test.test_metadata or {})
-            meta["label"] = agg_label
-            meta["labeler"] = agg_labeler
-            meta["model_score"] = agg_score
-            meta["metrics"] = metrics_summary
+            meta = existing_meta.model_copy()
+            meta.label = verdict.label
+            meta.labeler = verdict.labeler
+            meta.model_score = verdict.model_score
+            meta.metrics = verdict.metrics
             if len(sdk_metrics) > 1:
-                meta["evaluation"] = [
+                meta.evaluation = [
                     {
                         "label": "pass" if r.get("is_successful") else "fail",
                         "labeler": key,
                         "model_score": r.get("score", 0.0),
                     }
-                    for key, r in valid.items()
+                    for key, r in verdict.per_metric.items()
                 ]
-            elif "evaluation" in meta:
-                del meta["evaluation"]
-            test.test_metadata = meta
+            else:
+                meta.evaluation = None
 
             return {
                 "status": "ok",
                 "test_id": test_id_str,
-                "label": agg_label,
-                "labeler": agg_labeler,
-                "model_score": agg_score,
-                "metrics": metrics_summary,
-            }
+                **verdict.as_payload(),
+            }, meta
 
         except Exception as e:
             logger.warning(
                 f"Evaluation failed for test {test_id_str}: {e}",
                 exc_info=True,
             )
-            meta = dict(test.test_metadata or {})
-            meta["label"] = "error"
-            meta["labeler"] = ", ".join(metric_names)
-            meta["model_score"] = 0.0
-            meta.pop("metrics", None)
-            test.test_metadata = meta
+            error_verdict = MetricVerdict.error(metric_names)
+            meta = existing_meta.model_copy()
+            meta.label = error_verdict.label
+            meta.labeler = error_verdict.labeler
+            meta.model_score = error_verdict.model_score
+            meta.metrics = None  # absent, not null — matches what readers expect
             return {
                 "status": "failed",
                 "test_id": test_id_str,
                 "error": str(e),
-            }
+            }, meta
 
-    semaphore = asyncio.Semaphore(_EVAL_MAX_CONCURRENCY)
+    semaphore = asyncio.Semaphore(EVAL_MAX_CONCURRENCY)
 
     async def _bounded(test):
         async with semaphore:
             return await _evaluate_test(test)
 
-    all_outcomes = list(await asyncio.gather(*(_bounded(t) for t in eligible)))
+    evaluated = list(await asyncio.gather(*(_bounded(t) for t in eligible)))
 
-    db.flush()
+    # gather preserves order, so each outcome still lines up with its test.
+    set_explorer_test_metadata(
+        db, [(test, meta) for test, (_, meta) in zip(eligible, evaluated) if meta is not None]
+    )
+    all_outcomes = [outcome for outcome, _ in evaluated]
 
     results = [
-        {
-            "test_id": o["test_id"],
-            "label": o["label"],
-            "labeler": o["labeler"],
-            "model_score": o["model_score"],
-            "metrics": o.get("metrics"),
-        }
+        EvaluateResultItem(
+            test_id=o["test_id"],
+            label=o["label"],
+            labeler=o["labeler"],
+            model_score=o["model_score"],
+            metrics=o.get("metrics"),
+        )
         for o in all_outcomes
         if o["status"] == "ok"
     ]
     failed = [
-        {"test_id": o["test_id"], "error": o["error"]}
+        EvaluateFailedItem(test_id=o["test_id"], error=o["error"])
         for o in all_outcomes
         if o["status"] == "failed"
     ]
@@ -365,9 +423,9 @@ async def evaluate_tests_for_explorer_set(
         f"evaluated={len(results)}, skipped={skipped}, failed={len(failed)}"
     )
 
-    return {
-        "evaluated": len(results),
-        "skipped": skipped,
-        "results": results,
-        "failed": failed,
-    }
+    return EvaluateResponse(
+        evaluated=len(results),
+        skipped=skipped,
+        results=results,
+        failed=failed,
+    )

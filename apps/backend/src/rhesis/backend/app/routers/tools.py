@@ -50,12 +50,8 @@ from rhesis.backend.app.services.tool.rest import (
 )
 from rhesis.backend.app.services.tool.rest.config import validate_base_url
 from rhesis.backend.app.utils.decorators import with_count_header
-from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 
 logger = logging.getLogger(__name__)
-
-# Create the detailed schema for Tool
-ToolDetailSchema = create_detailed_schema(schemas.Tool, models.Tool)
 
 router = RhesisRouter(
     prefix="/tools",
@@ -292,7 +288,7 @@ def create_tool(
     return crud.create_tool(db=db, tool=tool, organization_id=organization_id, user_id=user_id)
 
 
-@router.get("/", response_model=List[ToolDetailSchema])
+@router.get("/", response_model=List[schemas.ToolDetail])
 @with_count_header(model=models.Tool)
 def read_tools(
     response: Response,
@@ -324,7 +320,7 @@ def read_tools(
     return tools
 
 
-@router.get("/{tool_id}", response_model=ToolDetailSchema)
+@router.get("/{tool_id}", response_model=schemas.ToolDetail)
 def read_tool(
     tool_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),

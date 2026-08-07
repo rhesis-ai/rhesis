@@ -10,12 +10,10 @@ The Rhesis frontend uses Next.js App Router, which provides a file-system based 
 
 - Folders define routes
 - Files define UI
-- Special files handle specific functionality (layout, page, loading, etc.)
+- Special files handle specific functionality (layout, page, error, not-found, etc.)
 - Dynamic segments are supported with brackets notation
 
 ## Route Structure
-
-The main route structure is organized as follows:
 
 <FileTree
   title="App Router Structure"
@@ -27,19 +25,12 @@ The main route structure is organized as follows:
         {
           name: "(protected)",
           type: "folder",
-          description: "Route group for authenticated pages",
+          description: "Route group for authenticated pages (24 top-level routes)",
           children: [
             {
               name: "dashboard",
               type: "folder",
               description: "Dashboard route",
-              children: [
-                {
-                  name: "page.tsx",
-                  type: "file",
-                  description: "Dashboard page component",
-                },
-              ],
             },
             {
               name: "projects",
@@ -47,16 +38,9 @@ The main route structure is organized as follows:
               description: "Projects route",
               children: [
                 {
-                  name: "[id]",
+                  name: "[identifier]",
                   type: "folder",
                   description: "Dynamic project route",
-                  children: [
-                    {
-                      name: "page.tsx",
-                      type: "file",
-                      description: "Project detail page",
-                    },
-                  ],
                 },
                 {
                   name: "page.tsx",
@@ -66,45 +50,46 @@ The main route structure is organized as follows:
               ],
             },
             {
-              name: "tests",
+              name: "architect",
               type: "folder",
-              description: "Tests route",
-              children: [
-                {
-                  name: "[id]",
-                  type: "folder",
-                  description: "Dynamic test route",
-                  children: [
-                    {
-                      name: "page.tsx",
-                      type: "file",
-                      description: "Test detail page",
-                    },
-                  ],
-                },
-                {
-                  name: "page.tsx",
-                  type: "file",
-                  description: "Tests list page",
-                },
-              ],
+              description: "Architect chat route",
+            },
+            {
+              name: "...",
+              type: "folder",
+              description: "tests, test-runs, traces, endpoints, playground, and other routes",
             },
             {
               name: "layout.tsx",
               type: "file",
-              description: "Protected layout with auth check",
+              description: "Protected layout with session check",
+            },
+            {
+              name: "error.tsx",
+              type: "file",
+              description: "Shared error boundary for protected routes",
+            },
+            {
+              name: "not-found.tsx",
+              type: "file",
+              description: "Shared 404 for protected routes",
             },
           ],
         },
         {
           name: "api",
           type: "folder",
-          description: "API routes",
+          description: "Route handlers, including the backend proxy",
           children: [
             {
-              name: "[...]",
+              name: "backend/[...path]",
               type: "folder",
-              description: "API endpoints",
+              description: "BFF proxy — injects auth from the session cookie",
+            },
+            {
+              name: "[...path]",
+              type: "folder",
+              description: "Catch-all proxy for routes without a dedicated handler",
             },
           ],
         },
@@ -114,33 +99,19 @@ The main route structure is organized as follows:
           description: "Authentication routes",
           children: [
             {
-              name: "login",
+              name: "signin",
               type: "folder",
-              description: "Login route",
-              children: [
-                {
-                  name: "page.tsx",
-                  type: "file",
-                  description: "Login page",
-                },
-              ],
+              description: "OAuth/auth-code callback handling",
             },
             {
               name: "register",
               type: "folder",
-              description: "Register route",
-              children: [
-                {
-                  name: "page.tsx",
-                  type: "file",
-                  description: "Register page",
-                },
-              ],
+              description: "Registration route",
             },
             {
-              name: "layout.tsx",
-              type: "file",
-              description: "Auth layout",
+              name: "magic-link",
+              type: "folder",
+              description: "Magic-link verification",
             },
           ],
         },
@@ -152,7 +123,12 @@ The main route structure is organized as follows:
         {
           name: "page.tsx",
           type: "file",
-          description: "Home page",
+          description: "Home page (Quick Start / unified login landing)",
+        },
+        {
+          name: "not-found.tsx",
+          type: "file",
+          description: "Root 404",
         },
       ],
     },
@@ -161,30 +137,14 @@ The main route structure is organized as follows:
 
 ## Route Groups
 
-Route groups are used to organize routes without affecting the URL structure. In our application, we use route groups for:
-
-- `(protected)`: Pages that require authentication
-- `(public)`: Pages that are publicly accessible
+The `(protected)` route group organizes authenticated pages without affecting the URL structure. There is no separate `(public)` group — public routes (`/`, `/auth/*`) simply live outside `(protected)`.
 
 ## Layouts
 
-Layouts are used to share UI between multiple pages. Our application uses several levels of layouts:
+Layouts share UI between multiple pages:
 
-1. **Root Layout (`app/layout.tsx`)**: Applied to all pages, contains:
-   - Theme provider
-   - Global styles
-   - Top-level metadata
-
-2. **Auth Layout (`app/auth/layout.tsx`)**: Applied to authentication pages, contains:
-   - Centered card layout
-   - Brand elements
-   - No navigation
-
-3. **Protected Layout (`app/(protected)/layout.tsx`)**: Applied to authenticated pages, contains:
-   - Authentication check
-   - Main navigation (sidebar)
-   - Header
-   - User menu
+1. **Root Layout (`app/layout.tsx`)**: theme provider, global providers, top-level metadata, and the runtime `window.__ENV__` injection script
+2. **Protected Layout (`app/(protected)/layout.tsx`)**: session check, main navigation (`AppShell`/`Sidebar`), feature-flag provider
 
 ## Navigation
 
@@ -195,7 +155,7 @@ For client-side navigation, use the Next.js `Link` component:
 <CodeBlock filename="navigation.tsx" language="typescript">
 {`import Link from 'next/link';
 
-<Link href="/docs/projects">Projects</Link>`}
+<Link href="/projects">Projects</Link>`}
 </CodeBlock>
 
 ### Programmatic Navigation
@@ -207,53 +167,41 @@ For programmatic navigation, use the `useRouter` hook:
 
 const router = useRouter();
 router.push('/projects');`}
-
 </CodeBlock>
 
 ## Route Protection
 
-Routes under the `(protected)` route group are protected by authentication middleware:
+Next.js 16 renamed the edge middleware convention from `middleware.ts` to `src/proxy.ts`. Route protection happens in two layers:
 
-1. **Middleware Check**: The `middleware.ts` file checks for authentication on protected routes
-2. **Session Validation**: If no valid session exists, the user is redirected to the login page
-3. **Role-Based Access**: Some routes may have additional role-based access controls
+1. **`src/proxy.ts`**: runs on every matched request (see its `config.matcher`), decodes the session JWT locally, refreshes the access token via `POST /auth/refresh` only when it's within 60 seconds of expiry, and redirects to `/onboarding` if the decoded token has no organization. Public paths are defined in `src/constants/paths.ts` (`isPublicPath()`), not a `(public)` route group.
+2. **Protected layout / page checks**: `app/(protected)/layout.tsx` and `app/layout.tsx` call NextAuth's `auth()` server-side to gate rendering.
+
+There is no `auth-token` cookie check — the session is a NextAuth JWE cookie, decoded rather than looked up by name. See [Frontend Authentication](/contribute/frontend/authentication) for the full session/token-refresh flow.
 
 ## Dynamic Routes
 
-Dynamic routes use parameters in the URL, defined with brackets notation:
+Dynamic routes use parameters in the URL, defined with brackets notation. This codebase uses `[identifier]`, not `[id]`:
 
-- `/projects/[id]`: Project detail page, where `[id]` is the project identifier
-- `/tests/[id]`: Test detail page, where `[id]` is the test identifier
+- `/projects/[identifier]`: Project detail page
+- `/tests/[identifier]`: Test detail page
 
 Access parameters in the page component:
 
 <CodeBlock filename="dynamic-route.tsx" language="typescript">
-  {`// app/(protected)/projects/[id]/page.tsx
-export default function ProjectPage({ params }: { params: { id: string } }) {
-  const { id } = params;
-  // Use the ID to fetch project data
-  return <div>Project {id}</div>;
-}`}
-</CodeBlock>
-
-## Loading States
-
-Loading states are defined using special `loading.tsx` files:
-
-<CodeBlock language="tsx" filename="app/(protected)/projects/loading.tsx">
-{`// app/(protected)/projects/loading.tsx
-export default function Loading() {
-  return <div>Loading projects...</div>;
+{`// app/(protected)/projects/[identifier]/page.tsx
+export default async function ProjectPage({ params }: { params: Promise<{ identifier: string }> }) {
+  const { identifier } = await params;
+  // Use the identifier to fetch project data
+  return <div>Project {identifier}</div>;
 }`}
 </CodeBlock>
 
 ## Error Handling
 
-Error states are defined using special `error.tsx` files:
+`app/(protected)/error.tsx` is a shared client-side error boundary for every route under `(protected)` (there is no per-route `error.tsx` in this app):
 
-<CodeBlock language="tsx" filename="app/(protected)/projects/error.tsx">
-{`// app/(protected)/projects/error.tsx
-"use client";
+<CodeBlock language="tsx" filename="app/(protected)/error.tsx">
+{`"use client";
 
 export default function Error({
   error,
@@ -273,37 +221,27 @@ export default function Error({
 
 ## Not Found Pages
 
-Not found pages are defined using special `not-found.tsx` files:
-
-<CodeBlock language="tsx" filename="app/(protected)/projects/[id]/not-found.tsx">
-{`// app/(protected)/projects/[id]/not-found.tsx
-export default function NotFound() {
-  return <div>Project not found</div>;
-}`}
-</CodeBlock>
+`app/not-found.tsx` (root) and `app/(protected)/not-found.tsx` (protected routes) handle 404s — both shared, not defined per dynamic route.
 
 ## Metadata
 
-Page metadata is defined using the `metadata` export:
+Page metadata is defined using the `metadata` export, typically in a route's `layout.tsx`:
 
-<CodeBlock language="tsx" filename="app/(protected)/projects/page.tsx">
-{`// app/(protected)/projects/page.tsx
-import { Metadata } from "next";
+<CodeBlock language="tsx" filename="app/(protected)/projects/layout.tsx">
+{`import { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Projects | Rhesis",
-  description: "Manage your Rhesis projects",
 };
 
-export default function ProjectsPage() {
-  // ...
+export default function ProjectsLayout({ children }: { children: React.ReactNode }) {
+  return children;
 }`}
 </CodeBlock>
 
 ## Best Practices
 
 1. **Keep Pages Thin**: Page components should focus on data fetching and layout, with most UI logic in components
-2. **Use Server Components**: Leverage server components for data fetching where possible
-3. **Client Components**: Use the `'use client'` directive only when needed for interactivity
-4. **Parallel Routes**: Use parallel routes for complex layouts with independent navigation
-5. **Intercepting Routes**: Use intercepting routes for modals and overlays
+2. **Client Components**: Use the `'use client'` directive only when needed for interactivity
+3. **Parallel Routes**: Consider parallel routes for complex layouts with independent navigation
+4. **Intercepting Routes**: Consider intercepting routes for modals and overlays

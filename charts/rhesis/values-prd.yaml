@@ -84,7 +84,7 @@ backend:
   ingress:
     enabled: true
     host: "api.rhesis.ai"
-    className: internal
+    className: external
     annotations:
       cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
@@ -116,7 +116,7 @@ frontend:
   ingress:
     enabled: true
     host: "app.rhesis.ai"
-    className: internal
+    className: external
     annotations:
       cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
@@ -141,7 +141,11 @@ workers:
       maxReplicas: 6
       targetCPUUtilizationPercentage: 70
       targetMemoryUtilizationPercentage: 80
-    env: []
+    env:
+      - name: CELERY_WORKER_CONCURRENCY
+        value: "16"
+      - name: CELERY_ARCHITECT_CONCURRENCY
+        value: "8"
 
 docs:
   replicas: 2
@@ -155,7 +159,7 @@ docs:
   ingress:
     enabled: true
     host: "docs.rhesis.ai"
-    className: internal
+    className: external
     annotations:
       cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
@@ -178,7 +182,7 @@ chatbot:
   ingress:
     enabled: true
     host: "chatbot.rhesis.ai"
-    className: internal
+    className: external
     annotations:
       cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
@@ -187,7 +191,7 @@ otelCollector:
   ingress:
     enabled: true
     host: "telemetry.rhesis.ai"
-    className: internal
+    className: external
     annotations:
       cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
@@ -204,6 +208,9 @@ polyphemus:
     limits:
       memory: "2Gi"
       cpu: "1000m"
+  env:
+    - name: POLYPHEMUS_LOCATION
+      value: "europe-west4"
   hpa:
     enabled: true
     minReplicas: 2
@@ -213,7 +220,7 @@ polyphemus:
   ingress:
     enabled: true
     host: "polyphemus.rhesis.ai"
-    className: internal
+    className: external
     annotations:
       cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
@@ -258,3 +265,14 @@ valkey:
   primary:
     persistence:
       size: 5Gi
+    # Base chart default (100m/200m) throttles under real prod load — cgroup
+    # cpu.stat showed 8k+ throttle events, which causes intermittent
+    # "Connection refused" to the auth-code token store (/auth/exchange-code
+    # 503s) and flaky readiness probes. Bumped to match observed load.
+    resources:
+      requests:
+        memory: "128Mi"
+        cpu: "250m"
+      limits:
+        memory: "256Mi"
+        cpu: "500m"

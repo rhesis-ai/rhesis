@@ -269,15 +269,16 @@ class TestRescoreEndpoint:
 
     def test_endpoint_calls_service(self):
         """Endpoint delegates to rescore_test_run service."""
-        # Verify the router function signature and wiring
-        # Verify the endpoint exists and is async
+        # Verify the router function signature and wiring.
+        # The endpoint is sync (no await inside), running in the threadpool
+        # rather than the event loop, matching the rest of the sync DB layer.
         import inspect
 
         from rhesis.backend.app.routers.test_run import (
             rescore_test_run_endpoint,
         )
 
-        assert inspect.iscoroutinefunction(rescore_test_run_endpoint)
+        assert not inspect.iscoroutinefunction(rescore_test_run_endpoint)
 
     def test_endpoint_converts_metrics_to_dicts(self):
         """The endpoint converts ExecutionMetric schema objects to dicts."""

@@ -2,7 +2,7 @@ import datetime
 from typing import Dict, List, Optional, Union
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import UUID4, BaseModel, ConfigDict, Field
 
 from rhesis.backend.app.auth.capabilities import ResourceType
 from rhesis.backend.app.constants import EntityType
@@ -10,6 +10,7 @@ from rhesis.backend.app.constants import EntityType
 from .affordances import WithPermittedActions
 from .base import Base
 from .emoji_reaction import EmojiReaction
+from .user import UserReference
 
 
 class CommentBase(Base):
@@ -69,8 +70,15 @@ class Comment(CommentBase, WithPermittedActions):
 
     id: UUID
     user_id: UUID
-    organization_id: Optional[UUID] = None
     created_at: Union[datetime.datetime, str]
     updated_at: Union[datetime.datetime, str]
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# The detailed model with expanded relations. organization: unused, excluded.
+# project isn't even a real relationship on the Comment ORM model (always None).
+class CommentDetail(Comment):
+    content: Optional[str] = None
+    user_id: Optional[UUID4] = None
+    user: Optional[UserReference] = None

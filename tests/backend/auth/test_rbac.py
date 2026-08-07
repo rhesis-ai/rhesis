@@ -52,6 +52,27 @@ OTHER_ORG_ID = uuid.uuid4()
 OTHER_PROJECT_ID = uuid.uuid4()
 
 
+@pytest.fixture(autouse=True)
+def _isolate_this_files_permission_cache():
+    """Clear the (real, Redis-backed) permission cache around every test here.
+
+    This file's tests share fixed module-level principal UUIDs by design (a
+    PDP truth-table matrix) and repeatedly swap the active authorization
+    provider mid-file — the opposite of the "one principal per test" shape the
+    suite-wide cache assumes elsewhere. Without this, an earlier test's cached
+    ``authorize()`` decision for (ORG_ID, USER_ID, PROJECT_ID, permission) gets
+    served to a later test expecting a different provider/outcome for that
+    same tuple. Scoped to this file rather than suite-wide: every other test
+    file uses per-test-random principal UUIDs (see conftest.py's removed
+    ``isolate_permission_cache`` for the prior suite-wide version of this).
+    """
+    from rhesis.backend.app.services.permission_cache import get_permission_cache
+
+    get_permission_cache().clear_all()
+    yield
+    get_permission_cache().clear_all()
+
+
 def _principal(
     user_id=USER_ID,
     organization_id=ORG_ID,

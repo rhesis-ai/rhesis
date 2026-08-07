@@ -3,22 +3,25 @@
  * Matches the backend schemas in apps/backend/src/rhesis/backend/app/schemas/explorer.py
  */
 
+import { Status } from './status';
+import { UserReference } from './tests';
+
 // =============================================================================
 // Explorer test set (TestSet JSON from GET /explorer)
 // =============================================================================
 
+/** Bare schemas.TestSet -- what create, detail, import and export return. */
 export interface ExplorerTestSet {
   id: string;
   name: string;
   description?: string;
-  slug?: string;
-  nano_id?: string;
-  status_id?: string;
-  status?: string;
-  test_set_type_id?: string;
-  attributes?: Record<string, unknown>;
   created_at?: string;
-  updated_at?: string;
+}
+
+/** schemas.TestSetDetail -- only GET /explorer/ expands these relations. */
+export interface ExplorerTestSetDetail extends ExplorerTestSet {
+  user?: UserReference;
+  status?: Status;
 }
 
 /** Response from POST /explorer/import/{source_test_set_id} */
@@ -26,7 +29,6 @@ export interface ImportExplorerTestSetResponse {
   test_set: ExplorerTestSet;
   imported: number;
   skipped: number;
-  skipped_test_ids: string[];
 }
 
 /** Response from POST /explorer/export/{source_test_set_id} */
@@ -34,7 +36,6 @@ export interface ExportExplorerTestSetResponse {
   test_set: ExplorerTestSet;
   exported: number;
   skipped: number;
-  skipped_test_ids: string[];
 }
 
 // =============================================================================
@@ -43,8 +44,6 @@ export interface ExportExplorerTestSetResponse {
 
 /** Per-metric evaluation row (tree/API key is metric name). */
 export interface ExplorerMetricEvalDetail {
-  score: number;
-  is_successful: boolean;
   reason?: string | null;
   details?: Record<string, unknown> | null;
 }
@@ -54,7 +53,8 @@ export interface TestNode {
   topic: string;
   input: string;
   output: string;
-  label: '' | 'topic_marker' | 'pass' | 'fail';
+  /** 'error' is set by the backend when a metric raises during evaluation. */
+  label: '' | 'topic_marker' | 'pass' | 'fail' | 'error';
   labeler: string;
   to_eval: boolean;
   model_score: number;
@@ -111,16 +111,6 @@ export interface TopicUpdate {
 // Response Interfaces
 // =============================================================================
 
-export interface DeleteTopicResponse {
-  deleted: boolean;
-  topic_path: string;
-}
-
-export interface DeleteTestResponse {
-  deleted: boolean;
-  test_id: string;
-}
-
 // =============================================================================
 // Generate Outputs
 // =============================================================================
@@ -133,21 +123,10 @@ export interface GenerateOutputsRequest {
   overwrite?: boolean;
 }
 
-export interface GenerateOutputsUpdatedItem {
-  test_id: string;
-  output: string;
-}
-
-export interface GenerateOutputsFailedItem {
-  test_id: string;
-  error: string;
-}
-
 export interface GenerateOutputsResponse {
   generated: number;
   skipped: number;
-  failed: GenerateOutputsFailedItem[];
-  updated: GenerateOutputsUpdatedItem[];
+  failed: unknown[];
 }
 
 // =============================================================================
@@ -162,37 +141,10 @@ export interface EvaluateRequest {
   overwrite?: boolean;
 }
 
-export interface EvaluateResultItem {
-  test_id: string;
-  label: string;
-  labeler: string;
-  model_score: number;
-  metrics?: Record<string, ExplorerMetricEvalDetail> | null;
-}
-
-export interface EvaluateFailedItem {
-  test_id: string;
-  error: string;
-}
-
 export interface EvaluateResponse {
   evaluated: number;
   skipped: number;
-  results: EvaluateResultItem[];
-  failed: EvaluateFailedItem[];
-}
-
-// =============================================================================
-// Generate Suggestions
-// =============================================================================
-
-export interface GenerateSuggestionsRequest {
-  topic?: string | null;
-  num_examples?: number;
-  num_suggestions?: number;
-  user_feedback?: string | null;
-  /** When true, API returns embedding vectors per suggestion input (not saved) */
-  generate_embeddings?: boolean;
+  failed: unknown[];
 }
 
 export interface SuggestedTest {
@@ -209,89 +161,6 @@ export interface SuggestedTest {
    */
   diversity_score?: number | null;
 }
-
-export interface GenerateSuggestionsResponse {
-  suggestions: SuggestedTest[];
-  num_examples_used: number;
-}
-
-// =============================================================================
-// Generate Suggestion Outputs (non-persisted)
-// =============================================================================
-
-export interface SuggestionInput {
-  input: string;
-  topic?: string;
-}
-
-export interface GenerateSuggestionOutputsRequest {
-  endpoint_id?: string | null;
-  suggestions: SuggestionInput[];
-}
-
-export interface SuggestionOutputItem {
-  input: string;
-  output: string;
-  error?: string | null;
-}
-
-export interface GenerateSuggestionOutputsResponse {
-  generated: number;
-  results: SuggestionOutputItem[];
-}
-
-export interface SuggestionOutputStreamItemEvent {
-  type: 'item';
-  index: number;
-  input: string;
-  output: string;
-  error: string | null;
-}
-
-export interface SuggestionOutputStreamSummaryEvent {
-  type: 'summary';
-  generated: number;
-  total: number;
-}
-
-export type SuggestionOutputStreamEvent =
-  | SuggestionOutputStreamItemEvent
-  | SuggestionOutputStreamSummaryEvent;
-
-// =============================================================================
-// Evaluate Suggestions (non-persisted)
-// =============================================================================
-
-export interface SuggestionForEval {
-  input: string;
-  output: string;
-}
-
-export interface EvaluateSuggestionsRequest {
-  metric_names?: string[] | null;
-  suggestions: SuggestionForEval[];
-}
-
-export interface SuggestionEvalStreamItemEvent {
-  type: 'item';
-  index: number;
-  input: string;
-  label: string;
-  labeler: string;
-  model_score: number;
-  metrics?: Record<string, ExplorerMetricEvalDetail> | null;
-  error: string | null;
-}
-
-export interface SuggestionEvalStreamSummaryEvent {
-  type: 'summary';
-  evaluated: number;
-  total: number;
-}
-
-export type SuggestionEvalStreamEvent =
-  | SuggestionEvalStreamItemEvent
-  | SuggestionEvalStreamSummaryEvent;
 
 // =============================================================================
 // Unified Suggestion Pipeline (single stream)
@@ -406,18 +275,4 @@ export interface ExplorerSettings {
 export interface ExplorerSettingsUpdateRequest {
   default_endpoint_id?: string | null;
   metric_ids?: string[] | null;
-}
-
-export interface SuggestionEvalItem {
-  input: string;
-  label: string;
-  labeler: string;
-  model_score: number;
-  metrics?: Record<string, ExplorerMetricEvalDetail> | null;
-  error?: string | null;
-}
-
-export interface EvaluateSuggestionsResponse {
-  evaluated: number;
-  results: SuggestionEvalItem[];
 }

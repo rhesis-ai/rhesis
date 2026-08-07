@@ -19,26 +19,23 @@ The tracing system captures OpenTelemetry-compliant traces from SDK-instrumented
 
 <Mermaid chart={`flowchart TD
     subgraph SDK["SDK (Client)"]
-        D["@endpoint / @observe"]
+        D["@observe / @endpoint"]
         T["OpenTelemetry Tracer"]
         B["BatchSpanProcessor<br/>(5s batching)"]
-        E["OTLP Exporter"]
+        E["RhesisOTLPExporter"]
     end
 
     subgraph Backend["Backend (Server)"]
         I["POST /telemetry/traces"]
-        S["PostgreSQL"]
-        L["Linking Service"]
-        EN["Enrichment"]
+        S["PostgreSQL (trace table)"]
+        P["post_ingest_link<br/>(Celery task)"]
     end
 
     D --> T --> B --> E
     E -->|"OTLP/HTTP"| I
     I --> S
-    I --> L
-    I --> EN
-    EN --> S
-    L --> S`} />
+    I -->|"delay()"| P
+    P -->|"link + enrich"| S`} />
 
 ## Key Technologies
 
@@ -46,10 +43,10 @@ The tracing system captures OpenTelemetry-compliant traces from SDK-instrumented
 |-----------|------------|---------|
 | SDK Tracer | OpenTelemetry Python | Span creation with AI semantic conventions |
 | Batch Processor | OTEL BatchSpanProcessor | Batches spans, exports every 5 seconds |
-| Transport | OTLP/HTTP | JSON payload to `/telemetry/traces` |
-| Storage | PostgreSQL + JSONB | Flexible span storage with full-text search |
-| Enrichment | Celery + LiteLLM | Cost calculation, anomaly detection |
-| Linking | Service Layer | Hybrid strategy for test context linking |
+| Transport | OTLP/HTTP | Chunked (100 spans/request), retried with backoff, to `/telemetry/traces` |
+| Storage | PostgreSQL + JSONB | Flexible span storage, GIN-indexed attributes |
+| Post-processing | Celery | Test-result linking, cost/anomaly enrichment, metric evaluation |
+| Linking | Service layer | Hybrid strategy for test-context linking |
 
 ## Communication Channels
 
@@ -62,8 +59,8 @@ The SDK uses **two independent channels**:
 
 <Mermaid chart={`flowchart TD
     subgraph App["Your Application"]
-        O["@observe()<br/>trace_only()"]
-        E["@endpoint()<br/>remote_testable()"]
+        O["@observe()"]
+        E["@endpoint()"]
     end
 
     subgraph Backend["Backend (localhost:8080)"]
@@ -78,11 +75,11 @@ The SDK uses **two independent channels**:
 ## Design Principles
 
 1. **OpenTelemetry Standard** - Industry-standard OTLP protocol for interoperability
-2. **Async-First with Sync Fallback** - Optimal in production, works without workers in development
-3. **Hybrid Linking** - Two strategic linking points to handle race conditions
-4. **Idempotent Operations** - Safe to call linking multiple times
-5. **Cache Enrichment** - Compute once, query fast
-6. **Graceful Degradation** - System works even when components fail
+2. **Hybrid Linking** - Two strategic linking points to handle race conditions
+3. **Idempotent Operations** - Safe to call linking multiple times
+4. **Cache Enrichment** - Enrichment is skipped when every span in a trace is already processed
+5. **Async Post-Processing** - Ingestion never blocks on linking, enrichment, or metric evaluation
+6. **Fire-and-Forget Dispatch** - If the Celery broker is unreachable at dispatch time, ingestion still succeeds; post-processing for that batch is skipped and logged as a warning
 
 ## Performance Characteristics
 
@@ -91,8 +88,8 @@ The SDK uses **two independent channels**:
 | Span creation (SDK) | ~0.1ms | Per span, negligible overhead |
 | BatchProcessor delay | 5000ms | Fixed by OpenTelemetry design |
 | Span export (OTLP) | ~10ms | Network call |
-| Backend ingestion | ~10-20ms | With async enrichment |
-| Enrichment calculation | ~50-100ms | Background (Celery) |
+| Backend ingestion | ~10-20ms | Spans stored before async dispatch |
+| Linking + enrichment | ~50-100ms | Background (Celery, `post_ingest_link`) |
 | Trace query | ~10ms | Cached enrichment |
 | **End-to-end** | **~5 seconds** | Test start to queryable trace |
 
@@ -102,9 +99,11 @@ The SDK uses **two independent channels**:
 
 | File | Purpose |
 |------|---------|
-| `sdk/src/rhesis/sdk/telemetry/tracer.py` | Core `Tracer` class |
-| `sdk/src/rhesis/sdk/telemetry/exporter.py` | OTLP HTTP exporter |
-| `sdk/src/rhesis/sdk/telemetry/attributes.py` | AI semantic conventions |
+| `sdk/src/rhesis/sdk/telemetry/tracer.py` | `Tracer` class — creates spans via the shared OTEL provider |
+| `packages/rhesis/src/rhesis/telemetry/provider.py` | `TracerProvider` + `BatchSpanProcessor` setup |
+| `packages/rhesis/src/rhesis/telemetry/exporter.py` | `RhesisOTLPExporter` — chunked, retrying OTLP HTTP export |
+| `packages/rhesis/src/rhesis/telemetry/schemas.py` | Canonical span schema, span-name validation |
+| `sdk/src/rhesis/sdk/telemetry/attributes.py` | AI semantic convention attribute constants |
 | `sdk/src/rhesis/sdk/decorators/observe.py` | `@observe` decorator |
 | `sdk/src/rhesis/sdk/decorators/endpoint.py` | `@endpoint` decorator |
 
@@ -112,11 +111,12 @@ The SDK uses **two independent channels**:
 
 | File | Purpose |
 |------|---------|
-| `apps/backend/.../routers/telemetry.py` | Ingestion endpoint |
-| `apps/backend/.../services/telemetry/linking_service.py` | Hybrid linking logic |
-| `apps/backend/.../services/telemetry/enricher.py` | Cost/anomaly enrichment |
-| `apps/backend/.../tasks/execution/executors/results.py` | Test result processing |
-| `apps/backend/.../crud.py` | `create_trace_spans()`, `update_traces_with_test_result_id()` |
+| `apps/backend/.../routers/telemetry.py` | Ingestion (`POST /telemetry/traces`) and query endpoints |
+| `apps/backend/.../tasks/telemetry/post_ingest.py` | `post_ingest_link` — linking + enrichment dispatch |
+| `apps/backend/.../services/telemetry/linking_service.py` | `TraceLinkingService` |
+| `apps/backend/.../services/telemetry/enrichment/` | Cost/anomaly enrichment (`core.py`, `processor.py`) |
+| `apps/backend/.../models/trace.py` | `Trace` SQLAlchemy model |
+| `apps/backend/.../crud.py` | `create_trace_spans()`, `update_traces_with_test_result_id()`, `get_trace_by_id()`, `mark_trace_processed()` |
 
 ## Next Steps
 

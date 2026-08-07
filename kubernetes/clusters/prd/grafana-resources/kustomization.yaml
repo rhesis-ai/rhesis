@@ -3,6 +3,10 @@ kind: Kustomization
 
 resources:
   - ../../../base/grafana-resources
+  # prd-only: reads a physical hot-standby replica and a prd-scoped GSM secret, so this
+  # doesn't belong in base/grafana-resources (shared identically by dev/stg/prd).
+  - grafana-viewer-credentials.yaml
+  - postgres-prd-datasource.yaml
 
 configMapGenerator:
   - name: grafana-config

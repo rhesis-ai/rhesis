@@ -1,11 +1,80 @@
+import logging
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, AsyncGenerator, AsyncIterator, Dict, List, Optional, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    AsyncGenerator,
+    AsyncIterator,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    TypedDict,
+    Union,
+)
 
 from rhesis.sdk.async_utils import run_sync
 from rhesis.sdk.models.utils import llm_retry
 
 if TYPE_CHECKING:
     from rhesis.sdk.entities.model import Model
+
+logger = logging.getLogger(__name__)
+
+
+class TokenUsage(TypedDict):
+    """Token counts for one LLM call, normalized across providers.
+
+    Field names follow the OpenAI Responses API ``usage`` object, which is
+    also what OpenTelemetry's GenAI semantic conventions use
+    (``gen_ai.usage.input_tokens`` / ``gen_ai.usage.output_tokens``).
+    Providers report these under a dozen different spellings
+    (``prompt_tokens``, ``prompt_token_count``, ``promptTokenCount``, ...);
+    :func:`_normalize_usage` maps all of them onto these three keys so
+    consumers never have to guess which dialect a provider speaks.
+    """
+
+    input_tokens: int
+    output_tokens: int
+    total_tokens: int
+
+
+UsageCallback = Callable[[TokenUsage], None]
+
+
+def _normalize_usage(usage: Any) -> Optional[TokenUsage]:
+    """Parse a provider's raw usage payload into a :class:`TokenUsage`.
+
+    Returns ``None`` when there is nothing worth reporting (no payload, or
+    a payload that yields zero total tokens), so callers can treat the
+    result as a simple "emit or skip" decision.
+
+    Delegates the actual key-name matching to
+    :func:`~rhesis.sdk.telemetry.utils.token_extraction.extract_token_usage`,
+    which already handles every provider dialect and is used by the
+    LangChain tracing integration -- there is no reason for the accrual
+    path to grow a second, thinner copy of that logic. Imported lazily
+    because ``rhesis.sdk.telemetry`` builds the OTel tracer and exporter
+    on package init, and this module is on the import path of every SDK
+    user; the ``on_usage is None`` guard in the callers means the import
+    only ever happens for callers that actually wired up accrual.
+    """
+    if not usage:
+        return None
+
+    from rhesis.sdk.telemetry.utils.token_extraction import extract_token_usage
+
+    input_tokens, output_tokens, total_tokens = extract_token_usage(usage)
+    if not total_tokens:
+        return None
+
+    return TokenUsage(
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        total_tokens=total_tokens,
+    )
+
 
 # Type alias for embeddings
 Embedding = List[float]
@@ -80,10 +149,32 @@ class BaseModel(ABC):
 class BaseLLM(BaseModel):
     MODEL_TYPE = "language"
 
-    def __init__(self, model_name, *args, **kwargs):
+    def __init__(
+        self,
+        model_name,
+        *args,
+        on_usage: Optional[UsageCallback] = None,
+        **kwargs,
+    ):
+        # `on_usage` is consumed here (keyword-only, not absorbed into
+        # `**kwargs`) so it never reaches `load_model(*args, **kwargs)` --
+        # provider `load_model()` implementations take no such parameter and
+        # would raise TypeError if it leaked through.
         super().__init__(model_name, *args, **kwargs)
         self.model = self.load_model(*args, **kwargs)
         self.a_generate = llm_retry(self.a_generate)
+
+        # Optional callback invoked with a normalized :class:`TokenUsage` at
+        # the point a provider parses usage out of its API response --
+        # inline, in the same call, rather than stashed on a shared attribute
+        # for an external caller to poll afterward. That side-channel-attribute
+        # design was tried and dropped: concurrent calls against one instance
+        # (agents, batch executors) would race on it, and wrapping the
+        # instance to intercept generate()/a_generate() broke every
+        # ``isinstance(model, BaseLLM)`` check elsewhere in the stack. A
+        # constructor-supplied callback keeps the returned object a real
+        # provider instance and each call's usage local to its own stack frame.
+        self.on_usage = on_usage
 
         # # Only wrap generate with sync retry if the subclass overrides it.
         # # The base generate() delegates to a_generate() which already has
@@ -99,6 +190,60 @@ class BaseLLM(BaseModel):
             A model object
         """
         pass
+
+    def _emit_usage(self, usage: Optional[Dict[str, Any]]) -> None:
+        """Invoke ``on_usage`` with normalized token counts for one call.
+
+        Providers call this at the exact point they parse ``usage`` out of a
+        raw API response -- see ``PolyphemusLLM.generate`` and
+        ``RhesisLLM.create_completion`` for call sites. The raw payload is
+        run through :func:`_normalize_usage` first, so a provider that
+        reports only ``prompt_tokens``/``completion_tokens`` (no
+        ``total_tokens``) still accrues correctly instead of being silently
+        dropped.
+        """
+        if self.on_usage is None:
+            return
+        normalized = _normalize_usage(usage)
+        if normalized is not None:
+            self._invoke_on_usage(normalized)
+
+    def _emit_usage_batch(self, usages: Iterable[Optional[Dict[str, Any]]]) -> None:
+        """Sum usage across a batch's items and invoke ``on_usage`` once.
+
+        One aggregate emission rather than one per item: the callback
+        typically queues a durable write (see
+        ``rhesis.backend.app.services.usage.dispatch_accrual``), and a batch
+        of N prompts should cost one of those, not N. Items with no usage
+        payload contribute nothing.
+        """
+        if self.on_usage is None:
+            return
+
+        totals = TokenUsage(input_tokens=0, output_tokens=0, total_tokens=0)
+        for usage in usages:
+            normalized = _normalize_usage(usage)
+            if normalized is None:
+                continue
+            for key in totals:
+                totals[key] += normalized[key]  # type: ignore[literal-required]
+
+        if totals["total_tokens"]:
+            self._invoke_on_usage(totals)
+
+    def _invoke_on_usage(self, usage: TokenUsage) -> None:
+        """Call ``on_usage``, swallowing anything it raises.
+
+        ``on_usage`` is caller-supplied (e.g. a closure that queues a usage
+        accrual -- see
+        ``rhesis.backend.app.utils.usage_tracking.make_usage_accrual_callback``),
+        and a broken accrual callback must never break the LLM call that
+        produced the usage.
+        """
+        try:
+            self.on_usage(usage)  # type: ignore[misc]
+        except Exception:
+            logger.warning("on_usage callback raised; usage not recorded", exc_info=True)
 
     def generate(self, *args, **kwargs) -> Union[str, Dict[str, Any]]:
         """Runs the model to output LLM response.

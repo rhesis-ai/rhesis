@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import os
 import time
@@ -9,6 +10,7 @@ from pydantic import BaseModel
 
 from rhesis.sdk.async_utils import run_sync
 from rhesis.sdk.clients import APIClient
+from rhesis.sdk.config import DEFAULT_LLM_TIMEOUT
 from rhesis.sdk.models.base import BaseEmbedder, BaseLLM
 from rhesis.sdk.models.defaults import (
     DEFAULT_EMBEDDING_MODELS,
@@ -22,7 +24,17 @@ DEFAULT_MODEL = DEFAULT_LANGUAGE_MODELS["rhesis"]
 DEFAULT_LANGUAGE_MODEL_NAME = model_name_from_id(DEFAULT_MODEL)
 DEFAULT_EMBEDDING_MODEL_NAME = model_name_from_id(DEFAULT_EMBEDDING_MODELS["rhesis"])
 API_ENDPOINT = "services/generate/content"
-DEFAULT_REQUEST_TIMEOUT = int(os.getenv("RHESIS_LLM_TIMEOUT", "300"))  # 5 minutes
+DEFAULT_REQUEST_TIMEOUT = DEFAULT_LLM_TIMEOUT  # 5 minutes
+
+# Response header carrying the token usage for a `services/generate/content`
+# call, as a JSON object using the field names of `BaseLLM`'s TokenUsage.
+# Usage travels out-of-band because that endpoint's body contract is bare
+# content (a str, or a schema-validated dict) with no envelope to put a
+# sibling `usage` field in, the way an OpenAI-compatible response would.
+# Defined here, next to API_ENDPOINT, because this module owns the client
+# half of that wire contract; the server half imports this same constant
+# (see `rhesis.backend.app.routers.services.generate_content_endpoint`).
+USAGE_HEADER = "X-Rhesis-Usage"
 
 
 class RhesisLLM(BaseLLM):
@@ -59,7 +71,7 @@ class RhesisLLM(BaseLLM):
         self.api_key = api_key or os.getenv("RHESIS_API_KEY")
         self.base_url = base_url or os.getenv("RHESIS_BASE_URL")
 
-        if self.api_key is None:
+        if not self.api_key:
             raise ValueError("RHESIS_API_KEY is not set")
 
         super().__init__(model_name, **kwargs)
@@ -99,6 +111,11 @@ class RhesisLLM(BaseLLM):
             if system_prompt:
                 combined_prompt = f"{system_prompt}\n\n{prompt}"
 
+            # Usage is emitted inside create_completion() from USAGE_HEADER,
+            # not read off `result`: this endpoint returns bare content, so a
+            # dict result is the caller's own schema-validated payload. A
+            # `usage` key in there belongs to their schema and must not be
+            # mistaken for token counts.
             return await self.create_completion(
                 prompt=combined_prompt,
                 schema=schema,
@@ -213,6 +230,18 @@ class RhesisLLM(BaseLLM):
                     request_elapsed,
                 )
 
+                # This deployment is acting as a relay: the platform side ran
+                # the model and reported what it cost via USAGE_HEADER, so
+                # the calling org's own counter reflects the call too.
+                # Emitted here rather than in a_generate() because this is
+                # the one place with access to the raw response headers.
+                usage_header = response.headers.get(USAGE_HEADER)
+                if usage_header:
+                    try:
+                        self._emit_usage(json.loads(usage_header))
+                    except (json.JSONDecodeError, TypeError):
+                        logger.warning("[RhesisLLM] Malformed %s header, ignoring", USAGE_HEADER)
+
                 result: Dict[str, Any] = await response.json()
                 return result
 
@@ -256,7 +285,7 @@ class RhesisEmbedder(BaseEmbedder):
         self.api_key = api_key or os.getenv("RHESIS_API_KEY")
         self.base_url = base_url or os.getenv("RHESIS_BASE_URL")
 
-        if self.api_key is None:
+        if not self.api_key:
             raise ValueError("RHESIS_API_KEY is not set")
 
         self.client = APIClient(api_key=self.api_key, base_url=self.base_url)

@@ -73,6 +73,14 @@ export const featureKeys = {
   all: (userScope: string) => ['features', userScope] as const,
 };
 
+export const usageKeys = {
+  all: (userScope: string) => ['usage', userScope] as const,
+  history: (userScope: string, months: number) =>
+    ['usage', userScope, 'history', months] as const,
+  forPeriod: (userScope: string, periodStart: string) =>
+    ['usage', userScope, 'period', periodStart] as const,
+};
+
 export const permissionKeys = {
   all: (userScope: string, projectId: string) =>
     ['permissions', userScope, projectId] as const,
@@ -80,4 +88,39 @@ export const permissionKeys = {
 
 export const userSettingsKeys = {
   all: (userScope: string) => ['user-settings', userScope] as const,
+};
+
+export const architectSessionKeys = {
+  list: (userScope: string, projectId: string) =>
+    ['architect-sessions', userScope, projectId] as const,
+};
+
+export const insightsTestRunIdsKeys = {
+  all: () => ['insights-test-run-ids'] as const,
+  scope: (filters: {
+    endpointId: string;
+    runFilterMode: string;
+    timeRange: string;
+    testRunIds: readonly string[];
+  }) => [...insightsTestRunIdsKeys.all(), filters] as const,
+};
+
+export const insightsFailedTestIdsKeys = {
+  all: () => ['insights-failed-test-ids'] as const,
+  scope: (filters: {
+    endpointId: string;
+    runFilterMode: string;
+    timeRange: string;
+    testRunIds: readonly string[];
+    behaviorId?: string;
+    metricName?: string;
+    topicName?: string;
+    outcome?: string;
+  }) => [...insightsFailedTestIdsKeys.all(), filters] as const,
+};
+
+// Deployment-wide (not user-scoped): status of the Rhesis platform API key on
+// a local/self-hosted deployment. A single value shared across the app.
+export const platformKeyKeys = {
+  all: () => ['platform-rhesis-key'] as const,
 };

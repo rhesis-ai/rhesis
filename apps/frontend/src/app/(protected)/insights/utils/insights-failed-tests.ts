@@ -1,12 +1,9 @@
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
-import { TEST_RESULT_STATUS_NAMES } from '@/utils/test-result-status';
 import {
   InsightsFilters,
   InsightsRunFilterMode,
   InsightsTimeRange,
   resolveInsightsTimeRange,
-  timeRangeToStatsParams,
 } from '../types';
 import { resolveInsightsQueryTestRunIds } from './behavior-insights-utils';
 
@@ -25,6 +22,7 @@ export interface InsightsFailedTestsScope {
   behaviorId?: string;
   behaviorName?: string;
   metricName?: string;
+  topicId?: string;
   topicName?: string;
   outcome?: InsightsTestOutcome;
 }
@@ -37,12 +35,9 @@ export interface InsightsFailedTestsFilter {
   behaviorId?: string;
   behaviorName?: string;
   metricName?: string;
+  topicId?: string;
   topicName?: string;
   outcome?: InsightsTestOutcome;
-}
-
-function escapeODataValue(value: string): string {
-  return value.replace(/'/g, "''");
 }
 
 export type InsightsRunContextFilters = Pick<
@@ -78,6 +73,9 @@ export function buildInsightsFailedTestsUrl(
   }
   if (scope?.metricName) {
     params.set('metric', scope.metricName);
+  }
+  if (scope?.topicId) {
+    params.set('topicId', scope.topicId);
   }
   if (scope?.topicName) {
     params.set('topic', scope.topicName);
@@ -175,91 +173,20 @@ export function parseInsightsFailedTestsSearchParams(
     behaviorId: searchParams.get('behaviorId') || undefined,
     behaviorName: searchParams.get('behaviorName') || undefined,
     metricName: searchParams.get('metric') || undefined,
+    topicId: searchParams.get('topicId') || undefined,
     topicName: searchParams.get('topic') || undefined,
     outcome:
       searchParams.get('outcome') === INSIGHTS_OUTCOME_ALL ? 'all' : 'failed',
   };
 }
 
-function buildCreatedAtFilter(timeRange: InsightsTimeRange): string {
-  const params = timeRangeToStatsParams(timeRange);
-  if (params.start_date) {
-    return `created_at ge '${params.start_date}'`;
-  }
-  if (params.months) {
-    const end = new Date();
-    const start = new Date(end);
-    start.setUTCDate(start.getUTCDate() - 30 * params.months);
-    return `created_at ge '${start.toISOString()}'`;
-  }
-  return '';
-}
-
-function normalizeId(value: unknown): string | null {
-  if (value === undefined || value === null) {
-    return null;
-  }
-  return String(value);
-}
-
-function matchesMetricScope(
-  result: TestResultDetail,
-  behaviorId: string,
-  metricName: string,
-  failedOnly: boolean
-): boolean {
-  if (normalizeId(result.test?.behavior?.id) !== behaviorId) {
-    return false;
-  }
-  const metric = result.test_metrics?.metrics?.[metricName];
-  if (metric === undefined) {
-    return false;
-  }
-  return failedOnly ? metric.is_successful === false : true;
-}
-
-function matchesBehaviorScope(
-  result: TestResultDetail,
-  behaviorId: string
-): boolean {
-  return normalizeId(result.test?.behavior?.id) === behaviorId;
-}
-
-async function filterTestIdsByTopic(
-  testIds: string[],
-  topicName: string
-): Promise<string[]> {
-  if (testIds.length === 0) {
-    return [];
-  }
-
-  const client = new ApiClientFactory().getTestsClient();
-  const escapedTopic = escapeODataValue(topicName);
-  const matched = new Set<string>();
-  const chunkSize = 40;
-
-  for (let i = 0; i < testIds.length; i += chunkSize) {
-    const chunk = testIds.slice(i, i + chunkSize);
-    const idExpr = chunk
-      .map(id => `id eq '${escapeODataValue(id)}'`)
-      .join(' or ');
-    const filter = `(${idExpr}) and tolower(topic/name) eq tolower('${escapedTopic}')`;
-    const response = await client.getTests({
-      filter,
-      skip: 0,
-      limit: chunkSize,
-    });
-    response.data.forEach(test => matched.add(String(test.id)));
-  }
-
-  return [...matched];
-}
-
-const TEST_RUN_ID_CHUNK = 15;
-
 /**
  * Resolve test case IDs that failed for the selected Insights scope,
  * optionally scoped to a behavior, metric, or topic row.
+ *
+ * Delegates to GET /insights/ids, which resolves matching test_ids
+ * server-side (a Postgres query over the stats view) instead of
+ * paginating full TestResultDetail rows and filtering them here.
  */
 export async function fetchFailedTestIdsForInsights(
   filters: InsightsRunContextFilters & InsightsFailedTestsScope
@@ -279,96 +206,27 @@ export async function fetchFailedTestIdsForInsights(
     return [];
   }
 
-  const client = new ApiClientFactory().getTestResultsClient();
-  const ids = new Set<string>();
-  const createdAtFilter =
-    filters.runFilterMode === 'timeRange'
-      ? buildCreatedAtFilter(resolveInsightsTimeRange(filters.timeRange))
-      : '';
-  const failedOnly = filters.outcome !== 'all';
-  const statusFilter = `status/name eq '${TEST_RESULT_STATUS_NAMES.FAILED}'`;
+  const client = new ApiClientFactory().getInsightsClient();
+  const result = await client.getInsightsIds({
+    entity: filters.metricName ? 'metric' : 'test_result',
+    test_run_ids: testRunIds,
+    outcome: filters.outcome === 'all' ? 'all' : 'fail',
+    ...(filters.behaviorId ? { behavior_ids: [filters.behaviorId] } : {}),
+    ...(filters.metricName ? { metric_names: [filters.metricName] } : {}),
+    ...(filters.topicId ? { topic_ids: [filters.topicId] } : {}),
+  });
 
-  for (let i = 0; i < testRunIds.length; i += TEST_RUN_ID_CHUNK) {
-    const chunk = testRunIds.slice(i, i + TEST_RUN_ID_CHUNK);
-    const runExpr = chunk.map(id => `test_run_id eq '${id}'`).join(' or ');
-    const parts = [`(${runExpr})`];
-    if (failedOnly) {
-      parts.push(statusFilter);
-    }
-    if (filters.behaviorId) {
-      parts.push(
-        `test/behavior_id eq '${escapeODataValue(filters.behaviorId)}'`
-      );
-    }
-    if (createdAtFilter) {
-      parts.push(createdAtFilter);
-    }
-    const filter = parts.join(' and ');
-
-    let skip = 0;
-    const limit = 100;
-
-    while (skip < 10_000) {
-      const response = await client.getTestResults({ filter, skip, limit });
-      response.data.forEach(result => {
-        if (!result.test_id) {
-          return;
-        }
-
-        if (filters.metricName && filters.behaviorId) {
-          if (
-            !matchesMetricScope(
-              result,
-              filters.behaviorId,
-              filters.metricName,
-              failedOnly
-            )
-          ) {
-            return;
-          }
-        } else if (filters.behaviorId) {
-          if (!matchesBehaviorScope(result, filters.behaviorId)) {
-            return;
-          }
-        }
-
-        ids.add(String(result.test_id));
-      });
-
-      const total = response.pagination?.totalCount ?? 0;
-      skip += limit;
-      if (skip >= total || response.data.length === 0) {
-        break;
-      }
-    }
-  }
-
-  let testIds = [...ids];
-
-  if (filters.topicName) {
-    testIds = await filterTestIdsByTopic(testIds, filters.topicName);
-  }
-
-  return testIds;
+  return result.ids ?? [];
 }
 
 export function formatInsightsSummaryDetail(
   passed: number,
   total: number,
-  failed: number,
-  failedTestCaseCount?: number
+  failed: number
 ): string {
   let detail = `(${passed}/${total} test results passed`;
   if (failed > 0) {
-    detail += `, ${failed} failed`;
-    if (
-      failedTestCaseCount !== undefined &&
-      failedTestCaseCount > 0 &&
-      failedTestCaseCount !== failed
-    ) {
-      const noun = failedTestCaseCount === 1 ? 'test case' : 'test cases';
-      detail += ` · ${failedTestCaseCount} unique ${noun} failed`;
-    }
+    detail += `, ${failed}/${total} failed`;
   }
   detail += ')';
   return detail;
@@ -378,6 +236,8 @@ export function formatInsightsTimeRangeLabel(
   timeRange: InsightsTimeRange
 ): string {
   switch (timeRange) {
+    case 'always':
+      return 'all time';
     case '1d':
       return '1 day';
     case '7d':
@@ -396,9 +256,11 @@ export function formatInsightsRunFilterLabel(
   >
 ): string {
   if (filter.runFilterMode === 'timeRange') {
-    return `the last ${formatInsightsTimeRangeLabel(
-      resolveInsightsTimeRange(filter.timeRange)
-    )}`;
+    const timeRange = resolveInsightsTimeRange(filter.timeRange);
+    if (timeRange === 'always') {
+      return 'all time';
+    }
+    return `the last ${formatInsightsTimeRangeLabel(timeRange)}`;
   }
   if (filter.testRunIds.length === 0) {
     return 'all test runs';

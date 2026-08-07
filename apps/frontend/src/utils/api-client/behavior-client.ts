@@ -7,10 +7,40 @@ import {
   BehaviorsQueryParams,
   BehaviorWithMetrics,
 } from './interfaces/behavior';
+import { PaginatedResponse } from './interfaces/pagination';
 import { UUID } from 'crypto';
 import { MetricDetail } from './interfaces/metric';
 
 export class BehaviorClient extends BaseApiClient {
+  /**
+   * Fetch a single page of behaviors along with the total matching count
+   * (via the X-Total-Count header). Use this for server-side pagination
+   * instead of getAllBehaviors()/getBehaviors(), which fetch everything.
+   */
+  async getBehaviorsPage(
+    params: BehaviorsQueryParams = {}
+  ): Promise<PaginatedResponse<BehaviorWithMetrics>> {
+    const {
+      skip = 0,
+      limit = 25,
+      sort_by = 'created_at',
+      sort_order = 'desc',
+      $filter,
+    } = params;
+
+    return this.fetchPaginated<BehaviorWithMetrics>(
+      API_ENDPOINTS.behaviors,
+      {
+        skip,
+        limit,
+        sort_by,
+        sort_order,
+        $filter,
+      },
+      { cache: 'no-store' }
+    );
+  }
+
   async getBehaviors(
     params: BehaviorsQueryParams = {}
   ): Promise<BehaviorWithMetrics[]> {

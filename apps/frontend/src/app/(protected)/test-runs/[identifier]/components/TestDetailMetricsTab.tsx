@@ -41,6 +41,7 @@ import {
   MetricsSource,
   getMetricsSourceLabel,
 } from '@/utils/api-client/interfaces/test-configuration';
+import { BORDER_RADIUS, ELEVATION } from '@/styles/theme-constants';
 
 interface TestDetailMetricsTabProps {
   test: TestResultDetail;
@@ -118,8 +119,17 @@ export default function TestDetailMetricsTab({
       !isMultiTurn;
 
     if (useBehaviorGrouping) {
-      // Handle behavior-based metrics (single-turn tests with behavior source)
-      behaviors.forEach(behavior => {
+      // Filter to only the behavior belonging to this test result to avoid
+      // duplicating metrics shared across different behaviors in the run.
+      // If this test has no known behavior, don't fall back to the full run-wide
+      // behaviors list either — that would reintroduce the same duplication for
+      // this test. The direct-metrics branch below picks up the slack instead.
+      const testBehaviorId = test.test?.behavior?.id;
+      const relevantBehaviors = testBehaviorId
+        ? behaviors.filter(b => b.id === testBehaviorId)
+        : [];
+
+      relevantBehaviors.forEach(behavior => {
         behavior.metrics.forEach(metric => {
           const metricResult = testMetrics[metric.name];
           if (metricResult) {
@@ -327,7 +337,7 @@ export default function TestDetailMetricsTab({
             onChange={handleFilterChange}
             aria-label="metric status filter"
             sx={{
-              borderRadius: '999px',
+              borderRadius: BORDER_RADIUS.pill,
               border: '1px solid',
               borderColor: 'primary.main',
               overflow: 'hidden',
@@ -340,7 +350,7 @@ export default function TestDetailMetricsTab({
                 px: 2,
                 py: 1,
                 fontWeight: 700,
-                fontSize: '14px',
+                fontSize: theme.typography.body2.fontSize,
                 lineHeight: '22px',
                 textTransform: 'none',
                 color: 'primary.main',
@@ -386,9 +396,9 @@ export default function TestDetailMetricsTab({
           <Card
             variant="outlined"
             sx={{
-              borderRadius: '12px',
+              borderRadius: BORDER_RADIUS.md,
               borderColor: 'divider',
-              boxShadow: '0px 2px 2px rgba(84,90,101,0.25)',
+              boxShadow: ELEVATION.xs,
             }}
           >
             <CardContent>
@@ -416,9 +426,9 @@ export default function TestDetailMetricsTab({
               <Card
                 variant="outlined"
                 sx={{
-                  borderRadius: '12px',
+                  borderRadius: BORDER_RADIUS.md,
                   borderColor: 'divider',
-                  boxShadow: '0px 2px 2px rgba(84,90,101,0.25)',
+                  boxShadow: ELEVATION.xs,
                 }}
               >
                 <CardContent>
@@ -452,9 +462,9 @@ export default function TestDetailMetricsTab({
               <Card
                 variant="outlined"
                 sx={{
-                  borderRadius: '12px',
+                  borderRadius: BORDER_RADIUS.md,
                   borderColor: 'divider',
-                  boxShadow: '0px 2px 2px rgba(84,90,101,0.25)',
+                  boxShadow: ELEVATION.xs,
                 }}
               >
                 <CardContent>
@@ -489,9 +499,9 @@ export default function TestDetailMetricsTab({
             <Card
               variant="outlined"
               sx={{
-                borderRadius: '12px',
+                borderRadius: BORDER_RADIUS.md,
                 borderColor: 'divider',
-                boxShadow: '0px 2px 2px rgba(84,90,101,0.25)',
+                boxShadow: ELEVATION.xs,
               }}
             >
               <CardContent>
@@ -527,9 +537,9 @@ export default function TestDetailMetricsTab({
             <Card
               sx={{
                 mb: 3,
-                borderRadius: '12px',
+                borderRadius: BORDER_RADIUS.md,
                 borderColor: 'divider',
-                boxShadow: '0px 2px 2px rgba(84,90,101,0.25)',
+                boxShadow: ELEVATION.xs,
                 ...(goalIsOverruled && {
                   borderLeft: `${theme.spacing(0.375)} solid ${theme.palette.warning.main}`,
                 }),
@@ -847,9 +857,9 @@ export default function TestDetailMetricsTab({
         <Paper
           variant="outlined"
           sx={{
-            borderRadius: '12px',
+            borderRadius: BORDER_RADIUS.md,
             borderColor: 'divider',
-            boxShadow: '0px 2px 2px rgba(84,90,101,0.25)',
+            boxShadow: ELEVATION.xs,
             bgcolor: 'background.paper',
             overflow: 'hidden',
           }}

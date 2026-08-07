@@ -77,22 +77,24 @@ class TestInputSchemaPropertyNames:
 
 @pytest.mark.unit
 class TestNewMcpToolsPresent:
-    NEW_TOOLS = frozenset({
-        "get_test_set",
-        "list_test_set_tests",
-        "get_endpoint",
-        "get_metric",
-        "create_source",
-        "update_metric",
-        "remove_behavior_from_metric",
-        "update_test_set",
-        "get_test",
-        "update_test",
-        "get_behavior",
-        "get_test_set_last_run",
-        "get_test_set_metrics",
-        "get_project",
-    })
+    NEW_TOOLS = frozenset(
+        {
+            "get_test_set",
+            "list_test_set_tests",
+            "get_endpoint",
+            "get_metric",
+            "create_source",
+            "update_metric",
+            "remove_behavior_from_metric",
+            "update_test_set",
+            "get_test",
+            "update_test",
+            "get_behavior",
+            "get_test_set_last_run",
+            "get_test_set_metrics",
+            "get_project",
+        }
+    )
 
     def test_new_tools_in_yaml(self):
         names = {tc["name"] for tc in load_tool_configs()}
@@ -123,6 +125,122 @@ class TestTagMcpToolsPresent:
     def test_assign_tag_requires_confirmation(self):
         by_name = {tc["name"]: tc for tc in load_tool_configs()}
         assert by_name["assign_tag"].get("requires_confirmation") is True
+
+
+@pytest.mark.unit
+class TestListAnnotationsTool:
+    """The annotations tool is how the architect sees human review feedback."""
+
+    def _cfg(self):
+        return {tc["name"]: tc for tc in load_tool_configs()}["list_annotations"]
+
+    def test_list_annotations_in_yaml(self):
+        names = {tc["name"] for tc in load_tool_configs()}
+        assert "list_annotations" in names
+
+    def test_list_annotations_is_read_only_get(self):
+        cfg = self._cfg()
+        assert cfg["method"].upper() == "GET"
+        # GET gets readOnlyHint automatically, so it must not be confirmation-gated.
+        assert "requires_confirmation" not in cfg
+
+    def test_list_annotations_path_has_trailing_slash(self):
+        # Must match the OpenAPI path key exactly or the tool is silently skipped.
+        assert self._cfg()["path"] == "/annotations/"
+
+    def test_list_annotations_declares_page_size(self):
+        page_size = self._cfg().get("page_size")
+        assert page_size is not None
+        # peek-ahead sends limit=page_size+1, which must stay within the
+        # endpoint's le=100 cap.
+        assert page_size + 1 <= 100
+
+    def test_list_annotations_description_documents_scoping(self):
+        description = self._cfg()["description"]
+        for token in ("test_run_id", "test_result_id", "trace_id", "trace_db_id"):
+            assert token in description, f"description should explain {token}"
+
+    def test_list_annotations_input_schema_exposes_filters(self):
+        """Build the schema from the real app so a path/param drift fails here."""
+        from rhesis.backend.app.main import app
+        from rhesis.backend.app.mcp_server.tools import build_tools_and_operations
+
+        tools, operations = build_tools_and_operations(app)
+        by_name = {t.name: t for t in tools}
+        assert "list_annotations" in by_name, (
+            "tool absent — path likely does not match any OpenAPI route"
+        )
+
+        props = by_name["list_annotations"].inputSchema["properties"]
+        for param in (
+            "test_run_id",
+            "test_result_id",
+            "trace_id",
+            "trace_db_id",
+            "resolved",
+            "rating",
+            "source",
+            "target_type",
+            "skip",
+        ):
+            assert param in props, f"{param} missing from tool schema"
+
+        # page_size means the server owns pagination.
+        assert "limit" not in props
+        assert operations["list_annotations"]["method"] == "GET"
+
+    def test_list_annotations_is_readonly_hinted(self):
+        from rhesis.backend.app.main import app
+        from rhesis.backend.app.mcp_server.tools import build_tools_and_operations
+
+        tools, _ = build_tools_and_operations(app)
+        tool = {t.name: t for t in tools}["list_annotations"]
+        assert tool.annotations.readOnlyHint is True
+        assert tool.annotations.destructiveHint is False
+
+
+@pytest.mark.unit
+class TestCreateMetricDocumentsDescriptiveFields:
+    """A metric the architect creates must be rich, not just scoreable.
+
+    These fields exist on MetricCreate but carry no Pydantic descriptions,
+    so the YAML overrides are the only thing telling the agent to fill
+    them. Without them the agent sends name + evaluation_prompt only.
+    """
+
+    RICH_FIELDS = ("description", "evaluation_steps", "reasoning", "explanation")
+
+    def _cfg(self):
+        return {tc["name"]: tc for tc in load_tool_configs()}["create_metric"]
+
+    def test_descriptive_fields_are_documented(self):
+        params = self._cfg().get("parameters", {})
+        missing = [f for f in self.RICH_FIELDS if f not in params]
+        assert not missing, f"create_metric does not document: {missing}"
+
+    def test_descriptive_field_docs_are_substantive(self):
+        params = self._cfg()["parameters"]
+        for field in self.RICH_FIELDS:
+            text = (params[field] or {}).get("description", "")
+            assert len(text.strip()) > 40, f"{field} needs a real description, got: {text!r}"
+
+    def test_tool_description_demands_rich_metrics(self):
+        description = self._cfg()["description"]
+        for field in self.RICH_FIELDS:
+            assert field in description, f"description should name {field}"
+
+    def test_descriptive_fields_reach_the_tool_schema(self):
+        from rhesis.backend.app.main import app
+        from rhesis.backend.app.mcp_server.tools import build_tools_and_operations
+
+        tools, _ = build_tools_and_operations(app)
+        props = {t.name: t for t in tools}["create_metric"].inputSchema["properties"]
+        for field in self.RICH_FIELDS:
+            assert field in props, f"{field} absent from create_metric schema"
+            assert props[field].get("description"), (
+                f"{field} reached the schema with no description — the agent "
+                "has no reason to fill it"
+            )
 
 
 @pytest.mark.unit

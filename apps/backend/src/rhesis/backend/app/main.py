@@ -419,31 +419,44 @@ async def lifespan(app: FastAPI):
     # This ensures the first user request doesn't have to wait for probe enumeration
     import asyncio
 
-    async def warm_garak_cache():
-        """Background task to pre-warm Garak probe cache."""
-        try:
-            from rhesis.backend.app.services.garak import GarakProbeService
+    # Skip the pre-warm entirely under the test suite. It's a production-only
+    # optimization, but the test suite creates a fresh TestClient (hence a
+    # fresh app lifespan) per test, so every one of the ~hundreds of route
+    # tests would launch its own full-corpus enumeration. Those run in
+    # non-cancellable worker threads (anyio.to_thread) that outlive the test,
+    # and until the first one warms the shared Redis cache they all race on a
+    # cold cache — a CPU-bound pile-up that snowballs across pytest-xdist
+    # workers and hangs the run. Tests that need probe data mock the service
+    # or use the (bounded, integration-marked) live-garak tests instead.
+    if os.environ.get("RHESIS_SKIP_GARAK_WARM_CACHE", "").lower() in ("1", "true", "yes"):
+        logger.info("Garak cache pre-warming skipped (RHESIS_SKIP_GARAK_WARM_CACHE set)")
+    else:
 
-            service = GarakProbeService()
-            await service.warm_cache()
-            # Logging is handled by enumerate_probe_modules_cached
-        except Exception as e:
-            logger.warning(f"Garak cache pre-warming failed (non-fatal): {e}")
+        async def warm_garak_cache():
+            """Background task to pre-warm Garak probe cache."""
+            try:
+                from rhesis.backend.app.services.garak import GarakProbeService
 
-    # Launch as background task - store reference to prevent GC before completion
-    # (per Python asyncio docs, tasks without references may be garbage collected)
-    garak_cache_task = asyncio.create_task(warm_garak_cache())
+                service = GarakProbeService()
+                await service.warm_cache()
+                # Logging is handled by enumerate_probe_modules_cached
+            except Exception as e:
+                logger.warning(f"Garak cache pre-warming failed (non-fatal): {e}")
 
-    # Add exception handler to log errors (task runs in background, errors would be silent)
-    def _log_task_exception(t: asyncio.Task) -> None:
-        try:
-            t.result()
-        except asyncio.CancelledError:
-            pass  # Expected during shutdown
-        except Exception as e:
-            logger.error(f"Garak cache pre-warming task failed: {e}", exc_info=True)
+        # Launch as background task - store reference to prevent GC before completion
+        # (per Python asyncio docs, tasks without references may be garbage collected)
+        garak_cache_task = asyncio.create_task(warm_garak_cache())
 
-    garak_cache_task.add_done_callback(_log_task_exception)
+        # Add exception handler to log errors (task runs in background, errors would be silent)
+        def _log_task_exception(t: asyncio.Task) -> None:
+            try:
+                t.result()
+            except asyncio.CancelledError:
+                pass  # Expected during shutdown
+            except Exception as e:
+                logger.error(f"Garak cache pre-warming task failed: {e}", exc_info=True)
+
+        garak_cache_task.add_done_callback(_log_task_exception)
 
     if getattr(app.state, "mcp_server", None) is None:
         from rhesis.backend.app.mcp_server import setup_mcp_server

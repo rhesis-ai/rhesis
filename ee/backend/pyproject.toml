@@ -4,7 +4,13 @@ version = "0.7.0"
 description = "Rhesis enterprise edition backend package"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    # Used by deliver_to_secret_manager() (licensing/mint.py) to write
+    # self-hosted license tokens to Secret Manager. EE-only -- kept out of
+    # apps/backend/pyproject.toml so community installs (no [ee] extra)
+    # don't pull it in for nothing.
+    "google-cloud-secret-manager>=2.20.0",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = [

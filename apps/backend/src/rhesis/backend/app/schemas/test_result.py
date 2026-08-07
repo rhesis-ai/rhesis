@@ -10,6 +10,11 @@ from rhesis.backend.app.constants import (
 )
 from rhesis.backend.app.schemas import Base
 from rhesis.backend.app.schemas.affordances import WithPermittedActions
+from rhesis.backend.app.schemas.references import (
+    BehaviorReference,
+    PromptReference,
+)
+from rhesis.backend.app.schemas.tag import TagRead
 
 # Re-export for backward compatibility
 REVIEW_TARGET_TRACE = ReviewTarget.TRACE
@@ -57,6 +62,28 @@ class TestResult(TestResultBase, WithPermittedActions):
     model_config = ConfigDict(from_attributes=True)
 
 
+class TestReference(Base):
+    id: UUID4
+    prompt: Optional[PromptReference] = None
+    behavior: Optional[BehaviorReference] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TestRunReference(Base):
+    id: UUID4
+    name: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TestResultDetail(TestResult):
+    id: UUID4
+    tags: Optional[List[TagRead]] = None
+    test: Optional[TestReference] = None
+    test_run: Optional[TestRunReference] = None
+
+
 # Review schemas
 class ReviewTargetCreate(Base):
     type: ReviewTarget = Field(
@@ -102,6 +129,4 @@ class ReviewResponse(Base):
     updated_at: str
     target: Dict[str, Any]
     resolved: bool = False
-    resolved_at: Optional[str] = None
-    resolved_by: Optional[Dict[str, Any]] = None
     permitted_actions: List[str] = Field(default_factory=list)

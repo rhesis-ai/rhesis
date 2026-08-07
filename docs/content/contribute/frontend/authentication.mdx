@@ -6,48 +6,65 @@ This document explains the authentication system used in the Rhesis frontend app
 
 ## Authentication Architecture
 
-The Rhesis frontend uses NextAuth.js to manage authentication sessions. The backend provides a native authentication system with support for:
+The Rhesis frontend uses NextAuth.js (`src/auth.ts`) to manage authentication sessions. The backend provides a native authentication system with support for:
 
 - Email/password login and registration
-- OAuth login (Google, GitHub)
+- OAuth login (Google, GitHub) — the OAuth handshake is owned entirely by the backend
 - Magic link (passwordless) login
 - Automatic access token refresh via refresh token rotation
 
-All sensitive tokens (refresh tokens) are stored inside NextAuth's httpOnly cookie and are never exposed to client-side JavaScript. Only the short-lived access token (15 minutes) is accessible to frontend components for API calls.
+All sensitive tokens (access token, refresh token) are stored inside NextAuth's httpOnly, encrypted session cookie and are never exposed to client-side JavaScript or passed through a NextAuth client call directly.
 
 ## Authentication Flow
+
+Every login path — email/password, OAuth, and magic link — ends the same way: the backend hands the frontend a short-lived, single-use **auth code** (60-second TTL), which the frontend exchanges server-side for the real tokens. Raw tokens never appear in a `signIn()` call or a redirect URL.
 
 ### Email/Password Login
 
 1. User submits credentials via the `AuthForm` component
-2. Frontend calls `POST /auth/login/email` on the backend
-3. Backend validates credentials and returns an access token and refresh token
-4. Frontend calls `signIn('credentials', \{ session_token, refresh_token \})` to establish the session
-5. NextAuth stores both tokens in an httpOnly cookie
+2. Frontend calls `POST /auth/login/email`, receiving an `auth_code`
+3. Frontend calls `signIn('credentials', { code: auth_code, redirect: false })`
+4. NextAuth's `authorize()` callback exchanges the code server-side via `POST /auth/exchange-code`, gets back `{ session_token, refresh_token }`, and decodes the JWT locally to build the session
+5. NextAuth stores both tokens in its httpOnly session cookie
 
 ### OAuth Login (Google, GitHub)
 
 1. User clicks "Sign in with Google" or "Sign in with GitHub"
-2. Frontend redirects to `GET /auth/login/\{provider\}`
-3. Backend redirects to the OAuth provider
-4. After authentication, provider redirects to `GET /auth/callback`
-5. Backend wraps the tokens in a short-lived auth code (60 seconds) and redirects to the frontend
-6. Frontend exchanges the auth code via `POST /auth/exchange-code`
-7. Frontend calls `signIn('credentials', \{ session_token, refresh_token \})` to establish the session
+2. Frontend redirects to `GET /auth/login/{provider}`
+3. Backend redirects to the OAuth provider, then handles the callback at `GET /auth/callback`
+4. Backend wraps the tokens in the same short-lived auth code and redirects to the frontend
+5. Frontend calls `signIn('credentials', { code: auth_code })`, which exchanges the code exactly as in the email/password flow
 
 ### Magic Link Login
 
 1. User enters their email address
 2. Frontend calls `POST /auth/magic-link`
 3. Backend sends a single-use login link via email
-4. User clicks the link, frontend calls `POST /auth/magic-link/verify`
-5. Backend returns tokens, frontend establishes session via `signIn()`
+4. User clicks the link; frontend calls `POST /auth/magic-link/verify`, receiving an `auth_code`
+5. Frontend calls `signIn('credentials', { code: auth_code })`
 
 ## Session Management
 
-### httpOnly Cookie Security
+### Credentials Provider
 
-NextAuth stores its internal JWT (containing the access token, refresh token, and user data) in an httpOnly cookie:
+NextAuth's `CredentialsProvider` takes only an opaque `code`, never raw tokens:
+
+<CodeBlock language="typescript" filename="src/auth.ts">
+{`CredentialsProvider({
+  credentials: { code: { type: 'text' } },
+  async authorize(credentials) {
+    const response = await fetch(\`\${BACKEND_URL}/auth/exchange-code\`, {
+      method: 'POST',
+      body: JSON.stringify({ code: credentials?.code }),
+    });
+    const { session_token, refresh_token } = await response.json();
+    const claims = decodeJwtUser(session_token); // decoded locally, no extra network call
+    return { id: claims.id, session_token, refresh_token, ...claims };
+  },
+})`}
+</CodeBlock>
+
+### httpOnly Cookie Security
 
 <CodeBlock language="typescript" filename="src/auth.ts">
 {`cookies: {
@@ -57,8 +74,8 @@ NextAuth stores its internal JWT (containing the access token, refresh token, an
       httpOnly: true,      // Cannot be read by JavaScript (XSS protection)
       sameSite: 'lax',
       path: '/',
-      secure: FRONTEND_ENV !== 'development',
-      maxAge: SESSION_DURATION_SECONDS,
+      secure: shouldUseSecureCookies(), // true when FRONTEND_URL starts with https://
+      maxAge: SESSION_DURATION_SECONDS, // 7 days
     },
   },
 },`}
@@ -66,87 +83,68 @@ NextAuth stores its internal JWT (containing the access token, refresh token, an
 
 ### Automatic Token Refresh
 
-The NextAuth `jwt` callback handles automatic access token refresh:
-
-1. On every request, NextAuth checks if the access token is within 60 seconds of expiry
-2. If so, it calls `POST /auth/refresh` with the stored refresh token
+1. On every request, the token is refreshed if it's within 60 seconds of expiry
+2. If so, `POST /auth/refresh` is called with the stored refresh token
 3. The new access token and rotated refresh token replace the old values in the cookie
-4. This is transparent to the user -- sessions are maintained for up to 7 days
+4. This is transparent to the user — access tokens last 15 minutes, sessions up to 7 days
 
-If the refresh fails, `token.error = 'RefreshTokenError'` is set, which downstream components use to trigger re-authentication.
+If the refresh fails, `token.error = 'RefreshTokenError'` is set on the JWT and propagated to the session object; `src/proxy.ts` reacts to it by clearing the session and redirecting home with `force_logout=true`.
 
 ## Route Protection
 
-Routes are protected using middleware in `src/middleware.ts`:
+Next.js 16 renamed the edge middleware convention from `middleware.ts` to `src/proxy.ts`:
 
-- **Public routes**: `/auth/*`, Quick Start landing page
-- **Protected routes**: All routes under `/(protected)/` require a valid session
-- **Onboarding redirect**: Users without an organization are redirected to the onboarding flow
+- **Public paths**: driven by `isPublicPath()` in `src/constants/paths.ts` (`/`, `/auth/*`, static assets)
+- **Protected routes**: everything under `(protected)/` requires a session
+- **Onboarding redirect**: if the decoded token has no organization, the user is redirected to `/onboarding`
 
-The middleware reads the NextAuth session cookie, verifies the session token with the backend via `GET /auth/verify`, and enforces route protection.
+`proxy.ts` decodes the session JWT locally rather than calling the backend on every request — it only makes a network call (`POST /auth/refresh`) when the token is close to expiry. `POST /auth/verify` is a real backend endpoint, but it isn't called on this request path.
 
 ## Authentication Components
 
 ### AuthForm
 
-The `AuthForm` component (`components/auth/AuthForm.tsx`) handles both login and registration:
+`components/auth/AuthForm.tsx` handles both login and registration:
 
 - Email/password form with validation
-- OAuth provider buttons (Google, GitHub) -- shown only when providers are enabled
+- OAuth provider buttons (Google, GitHub) — shown only when the provider is enabled, per `GET /auth/providers` (fetched via the same-origin `/api/auth-config` route on mount, not literally at app startup)
 - Magic link option
 - Toggle between login and registration modes
 
-### Provider Discovery
-
-The frontend queries `GET /auth/providers` at startup to discover which authentication providers are enabled. OAuth buttons are only shown when the corresponding provider is configured on the backend.
-
 ### Session Establishment Pattern
 
-Every place that establishes a session uses NextAuth's `signIn()` function:
+Every place that establishes a session calls `signIn('credentials', { code })` with the auth code, never with raw tokens:
 
 <CodeBlock language="typescript" filename="example">
 {`const result = await signIn('credentials', {
-  session_token: tokenFromBackend,
-  refresh_token: refreshTokenFromBackend,
+  code: authCodeFromBackend,
   redirect: false,
 });`}
 </CodeBlock>
 
-This calls NextAuth's server-side `authorize` callback, which:
-1. Sends `POST /auth/verify` with the access token to the backend
-2. Backend validates the JWT and returns user info
-3. NextAuth stores both tokens in the httpOnly cookie
-
 Files that use this pattern:
-- `components/auth/AuthForm.tsx` -- Email/password login and registration
-- `app/auth/signin/page.tsx` -- OAuth callback (exchanges auth code for tokens)
-- `app/auth/magic-link/page.tsx` -- Magic link verification
-- `app/auth/verify-email/page.tsx` -- Email verification
+- `components/auth/AuthForm.tsx` — Email/password login and registration
+- `app/auth/signin/page.tsx` — OAuth callback (exchanges auth code for a session)
+- `app/auth/magic-link/page.tsx` — Magic link verification
+- `app/auth/verify-email/page.tsx` — Email verification
 
 ## Environment Variables
-
-The frontend requires these authentication-related variables:
 
 <CodeBlock filename=".env.local" language="bash">
 {`# Required
 NEXTAUTH_SECRET=your-nextauth-secret
 FRONTEND_URL=http://localhost:3000
-AUTH_SECRET=your-auth-secret
 API_BASE_URL=http://localhost:8080
-
-# OAuth Providers (optional -- enables social login buttons)
-GOOGLE_CLIENT_ID=your-google-client-id
-GOOGLE_CLIENT_SECRET=your-google-client-secret
-GH_CLIENT_ID=your-github-client-id
-GH_CLIENT_SECRET=your-github-client-secret`}
+BACKEND_URL=http://localhost:8080`}
 </CodeBlock>
+
+Google/GitHub OAuth client credentials (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GH_CLIENT_ID`, `GH_CLIENT_SECRET`) are **backend** environment variables — the frontend never talks to the OAuth providers itself, it only redirects the browser to the backend's `GET /auth/login/{provider}`, which owns the whole handshake.
 
 ## Security Considerations
 
-1. **httpOnly cookies**: Refresh tokens are never exposed to client-side JavaScript
-2. **Short-lived access tokens**: Access tokens expire in 15 minutes, limiting the impact of XSS
-3. **HTTPS**: Always use HTTPS in production to protect cookies in transit
-4. **Token refresh**: Automatic refresh ensures seamless sessions without long-lived tokens
-5. **CORS**: Backend CORS configuration restricts which origins can make API requests
-6. **Error handling**: Generic error messages prevent information leakage
-7. **Auth code pattern**: OAuth callbacks use a short-lived JWT auth code instead of exposing raw tokens in redirect URLs
+1. **httpOnly cookies**: tokens are never exposed to client-side JavaScript
+2. **Auth-code exchange**: OAuth/email/magic-link flows hand off a short-lived (60s), single-use code instead of raw tokens, so tokens never appear in a redirect URL or client-side `signIn()` call
+3. **Short-lived access tokens**: access tokens expire in 15 minutes, limiting the impact of XSS
+4. **HTTPS**: always use HTTPS in production to protect cookies in transit
+5. **Token refresh**: automatic refresh (within 60s of expiry) maintains sessions without long-lived tokens
+6. **CORS**: backend CORS configuration restricts which origins can make API requests

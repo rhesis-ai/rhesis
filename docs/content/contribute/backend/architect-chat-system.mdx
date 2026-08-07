@@ -4,25 +4,16 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 The backend Architect system combines REST session APIs, WebSocket event streaming, Celery orchestration, and in-process MCP tool dispatch to support conversational test-suite design.
 
-## Overview
-
-The Architect workflow is split into four backend layers:
-
-1. **Session management API** (`/architect/sessions/*`)
-2. **WebSocket ingress and event fanout** (`/ws`, `architect:*` event types)
-3. **Celery chat execution task** (`architect_chat_task`)
-4. **Tool execution via local provider + MCP server** (`LocalToolProvider`, `/mcp`)
-
 ## REST API surface
 
 Architect session routes are exposed under:
 
 - `POST /architect/sessions/`
 - `GET /architect/sessions/`
-- `GET /architect/sessions/{session_id}`
-- `PUT /architect/sessions/{session_id}`
-- `DELETE /architect/sessions/{session_id}`
-- `GET /architect/sessions/{session_id}/messages`
+- `GET /architect/sessions/\{session_id\}`
+- `PUT /architect/sessions/\{session_id\}`
+- `DELETE /architect/sessions/\{session_id\}`
+- `GET /architect/sessions/\{session_id\}/messages`
 
 Source:
 
@@ -83,7 +74,7 @@ Endpoint exploration publishes this event from `run_exploration_task` through `p
 
 The main worker entrypoint is:
 
-- `apps/backend/src/rhesis/backend/tasks/architect.py`
+- `apps/backend/src/rhesis/backend/tasks/architect/chat.py`
 - task name: `rhesis.backend.tasks.architect.architect_chat_task`
 
 For each user message, the task:
@@ -110,7 +101,7 @@ This prevents confirmation loops and enables resumed execution after async jobs 
 
 When the agent calls `await_task`, pending IDs are registered in Redis via:
 
-- `apps/backend/src/rhesis/backend/tasks/architect_monitor.py`
+- `apps/backend/src/rhesis/backend/tasks/architect/monitor.py`
 
 Completion is event-driven through Celery `task_postrun` rather than polling. Once all awaited tasks complete, the monitor re-dispatches `architect_chat_task` with a synthetic `[TASK_COMPLETED]` message so the agent can continue the same session.
 

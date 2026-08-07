@@ -2,8 +2,7 @@ import logging
 from typing import List
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from rhesis.backend.app.routers.base import RhesisRouter
+from fastapi import Depends, HTTPException, Query, Response
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
@@ -16,18 +15,12 @@ from rhesis.backend.app.dependencies import (
     get_tenant_db_session,
 )
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.odata import apply_select
-from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 
 logger = logging.getLogger(__name__)
-
-# Create the detailed schema for Metric with many-to-many relationships included
-MetricDetailSchema = create_detailed_schema(
-    schemas.Metric, models.Metric, include_many_to_many=True
-)
-BehaviorDetailSchema = create_detailed_schema(schemas.Behavior, models.Behavior)
 
 router = RhesisRouter(
     prefix="/metrics",
@@ -150,6 +143,8 @@ def improve_metric(
             "description": db_metric.description,
             "evaluation_prompt": db_metric.evaluation_prompt,
             "evaluation_steps": db_metric.evaluation_steps,
+            "reasoning": db_metric.reasoning,
+            "explanation": db_metric.explanation,
             "score_type": (
                 db_metric.score_type.value
                 if hasattr(db_metric.score_type, "value")
@@ -195,7 +190,7 @@ def improve_metric(
         )
 
 
-@router.get("/", response_model=list[MetricDetailSchema])
+@router.get("/", response_model=list[schemas.MetricDetail])
 @with_count_header(model=models.Metric)
 def read_metrics(
     response: Response,
@@ -208,6 +203,10 @@ def read_metrics(
         None,
         alias="$select",
         description="Comma-separated list of fields to return",
+    ),
+    metric_scope: str | None = Query(
+        None,
+        description="Comma-separated metric scopes to filter by (JSONB array contains)",
     ),
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
@@ -222,16 +221,33 @@ def read_metrics(
         sort_by=sort_by,
         sort_order=sort_order,
         filter=filter,
+        metric_scope=metric_scope,
         organization_id=organization_id,
         user_id=user_id,
     )
+
+    # The @with_count_header decorator computes a count using only the OData
+    # $filter.  When metric_scope is also active, override the header with an
+    # accurate count that includes the JSONB filter.
+    if metric_scope:
+        from rhesis.backend.app.utils.query_utils import QueryBuilder
+
+        cb = (
+            QueryBuilder(db, models.Metric)
+            .with_organization_filter(organization_id)
+            .with_visibility_filter(user_id)
+            .with_odata_filter(filter)
+        )
+        crud._apply_metric_scope_filter(cb, metric_scope)
+        response.headers["X-Total-Count"] = str(cb.count())
+
     if select:
         serialized = jsonable_encoder(results)
         return JSONResponse(content=apply_select(serialized, select))
     return results
 
 
-@router.get("/{metric_id}", response_model=MetricDetailSchema)
+@router.get("/{metric_id}", response_model=schemas.MetricDetail)
 def read_metric(
     metric_id: UUID,
     db: Session = Depends(get_tenant_db_session),
@@ -240,11 +256,21 @@ def read_metric(
 ):
     """Get a specific metric by ID with its related objects"""
     organization_id, user_id = tenant_context
-    # Use get_item_detail which properly handles soft-deleted items (raises ItemDeletedException)
-    from rhesis.backend.app.utils.crud_utils import get_item_detail
-
-    db_metric = get_item_detail(db, models.Metric, metric_id, organization_id, user_id)
+    db_metric = crud.get_metric(db, metric_id, organization_id, user_id)
     if db_metric is None:
+        # crud.get_metric's query silently excludes soft-deleted rows (like most
+        # plain getters); check separately here so a deleted metric still gets
+        # its own 410, matching the other standard entity routes' contract.
+        from rhesis.backend.app.utils.crud_utils import _check_and_raise_if_deleted
+        from rhesis.backend.app.utils.query_utils import QueryBuilder
+
+        deleted_check = (
+            QueryBuilder(db, models.Metric)
+            .with_deleted()
+            .with_organization_filter(organization_id)
+            .filter_by_id(metric_id)
+        )
+        _check_and_raise_if_deleted(deleted_check, models.Metric, metric_id, False)
         raise HTTPException(status_code=404, detail="Metric not found")
     return db_metric
 
@@ -340,7 +366,7 @@ def remove_behavior_from_metric(
         raise HTTPException(status_code=404, detail=str(e))
 
 
-@router.get("/{metric_id}/behaviors/", response_model=List[BehaviorDetailSchema])
+@router.get("/{metric_id}/behaviors/", response_model=List[schemas.BehaviorDetail])
 @with_count_header(model=models.Behavior)
 def read_metric_behaviors(
     response: Response,

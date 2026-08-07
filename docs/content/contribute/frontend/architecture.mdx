@@ -6,10 +6,10 @@ This document provides a high-level overview of the Rhesis frontend architecture
 
 ## Tech Stack
 
-- **Framework:** [Next.js](https://nextjs.org/) 15.3.0 with App Router
+- **Framework:** [Next.js](https://nextjs.org/) 16 with App Router
 - **Language:** [TypeScript](https://www.typescriptlang.org/) 5.8.3
-- **UI:** [Material UI (MUI)](https://mui.com/) v6
-- **Authentication:** [NextAuth.js](https://next-auth.js.org/) 5.0.0-beta.25
+- **UI:** [Material UI (MUI)](https://mui.com/) v7
+- **Authentication:** [NextAuth.js](https://next-auth.js.org/) 5.0.0-beta.30
 - **State Management:** React Context API
 - **Styling:** MUI theming with Emotion
 - **Data Visualization:** [Recharts](https://recharts.org/) 2.15.0
@@ -172,9 +172,9 @@ The application follows these data flow patterns:
 
 Authentication is handled by NextAuth.js with:
 
-- Route protection via middleware
-- Session management
-- Multiple authentication providers (email/password, Google, GitHub)
+- Route protection via `src/proxy.ts` (Next.js 16's edge convention, replacing `middleware.ts`) plus per-layout session checks
+- Session management with automatic access-token refresh
+- Multiple authentication providers (email/password, magic link, Google, GitHub)
 - Role-based access control
 
 ### Styling Approach

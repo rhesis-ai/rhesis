@@ -1,421 +1,104 @@
 import { CodeBlock } from '@/components/CodeBlock'
 
-# Human Reviews for Test Results
+# Test Reviews
 
-## Overview
+Human reviews let a reviewer record a verdict on a test result alongside the automated [metric outcome](/contribute/backend/test-result-status) — to confirm it, disagree with it, or comment on a specific metric. Reviews are stored in the `test_reviews` JSONB column on `test_result`; a metric- or test-level review can override the stored status, which is why [statistics](/contribute/backend/test-result-stats) read the effective (post-review) result.
 
-Human **reviews** on each test result sit beside automated `test_metrics`: multiple reviewers, metric- or whole-test scope, and CRUD via the API. Nested `metadata` holds rollups for quick list views.
+## Structure
 
-## Design goals
+`test_reviews` holds a `metadata` summary (kept current on every operation, for fast list views) and a `reviews` array:
 
-Separate machine vs human judgements, support several rounds, keep reviewer and status IDs traceable, and refresh top-level metadata when reviews change.
-
-## Top-Level Structure
-
-The `test_reviews` field is stored as a JSON object with two parts:
-
-- `metadata`: Summary information about the reviews collection.
-- `reviews`: List of individual review objects.
-
-## JSON Schema
-
-<CodeBlock filename="test-reviews-schema.json" language="json">
+<CodeBlock filename="test-reviews.json" language="json">
 {`{
   "metadata": {
     "last_updated_at": "2025-10-10T14:15:00Z",
-    "last_updated_by": {
-      "user_id": "a1e2d3c4-5678-90ab-cdef-1234567890ab",
-      "name": "Alice"
-    },
-    "total_reviews": 3,
-    "latest_status": {
-      "status_id": "b6f1a2e3-9c4d-4f12-8b3f-123456789abc",
-      "name": "success"
-    },
-    "summary": "The latest review marks the test as successful after human validation."
+    "last_updated_by": { "user_id": "a1e2...", "name": "Alice" },
+    "total_reviews": 1,
+    "latest_status": { "status_id": "b6f1...", "name": "Pass" },
+    "summary": "Last updated by Alice"
   },
   "reviews": [
     {
       "review_id": "e9b5a2c7-13f2-4a91-94d0-4df8c1c5f0a1",
-      "status": {
-        "status_id": "b6f1a2e3-9c4d-4f12-8b3f-123456789abc",
-        "name": "success"
-      },
-      "user": {
-        "user_id": "a1e2d3c4-5678-90ab-cdef-1234567890ab",
-        "name": "Alice"
-      },
-      "comments": "LLM refusal was appropriate for this case. Marking as successful.",
+      "status": { "status_id": "b6f1...", "name": "Pass" },
+      "user": { "user_id": "a1e2...", "name": "Alice" },
+      "comments": "LLM refusal was appropriate. Marking as passed.",
       "created_at": "2025-10-10T14:10:00Z",
       "updated_at": "2025-10-10T14:15:00Z",
-      "target": {
-        "type": "metric",
-        "reference": "Refusal Detection"
-      }
+      "target": { "type": "metric", "reference": "Refusal Detection" }
     }
   ]
 }`}
 </CodeBlock>
 
----
+### Fields
 
-## Field Reference
+| Field | Type | Description |
+| ----- | ---- | ----------- |
+| `review_id` | UUID | Unique ID, auto-generated on create. |
+| `status` | object | `status_id` (UUID) and `name`, resolved from the Status model. |
+| `user` | object | `user_id` (UUID) and `name` of the reviewer. |
+| `comments` | string | Free-text reviewer note. |
+| `created_at` / `updated_at` | ISO 8601 | Set on create; `updated_at` refreshed on edit. |
+| `target` | object | What the review applies to (see below). |
 
-### **metadata**
+`metadata` mirrors the latest state: `last_updated_at`, `last_updated_by`, `total_reviews`, `latest_status`, and a `summary`.
 
-| Field             | Type              | Description                                             |
-| ----------------- | ----------------- | ------------------------------------------------------- |
-| `last_updated_at` | string (ISO 8601) | Timestamp when any review was last modified.            |
-| `last_updated_by` | object            | Contains the user ID and name of the last editor.       |
-| `total_reviews`   | integer           | Total number of reviews in the list.                    |
-| `latest_status`   | object            | Status of the most recent review (for quick summaries). |
-| `summary`         | string            | Optional short description or aggregated summary.       |
+### Target
 
-### **reviews[]**
-
-| Field        | Type              | Description                                                       |
-| ------------ | ----------------- | ----------------------------------------------------------------- |
-| `review_id`  | UUID              | Unique ID for this review entry.                                  |
-| `status`     | object            | Contains a `status_id` (UUID) and `name` (string).                |
-| `user`       | object            | Contains a `user_id` (UUID) and `name` (string).                  |
-| `comments`   | string            | Free-text explanation from the reviewer.                          |
-| `created_at` | string (ISO 8601) | Timestamp when the review was first created.                      |
-| `updated_at` | string (ISO 8601) | Timestamp when the review was last modified.                      |
-| `target`     | object            | Defines whether the review applies to a metric or the whole test. |
-
-#### Example `target` values
+`target.type` is a `ReviewTarget` value. For test results it is `test_result` (the whole result) or `metric` (a single metric, named in `reference`). The legacy value `test` is accepted and normalized to `test_result`.
 
 <CodeBlock filename="target-values.json" language="json">
-{`{ "type": "test", "reference": null }
+{`{ "type": "test_result", "reference": null }
 { "type": "metric", "reference": "Refusal Detection" }`}
 </CodeBlock>
 
-## Implementation Details
+## API
 
-### Database
+All four endpoints are on `app/routers/test_result.py` and update `metadata` automatically.
 
-**Column**: `test_reviews` (JSONB, nullable)
-**Table**: `test_result`
+| Method & path | Purpose |
+| ------------- | ------- |
+| `POST /test_results/\{test_result_id\}/reviews` | Create a review (201). Auto-fills `review_id`, timestamps, and reviewer from the authenticated user; embeds status details from the Status model. |
+| `PUT /test_results/\{test_result_id\}/reviews/\{review_id\}` | Update a review. All body fields optional; preserves `created_at`, refreshes `updated_at`. |
+| `DELETE /test_results/\{test_result_id\}/reviews/\{review_id\}` | Remove a review; returns the deleted entry. Clears `latest_status` when the last review is removed. |
+| `GET /test_results/\{test_result_id\}` | Returns the result with `test_reviews` plus the derived `last_review` and `matches_review`. |
 
-The column stores the complete review structure as JSON, providing flexibility for complex review scenarios without additional tables.
+### Create request
 
-### Backend Models
-
-**File**: `apps/backend/src/rhesis/backend/app/models/test_result.py`
-
-<CodeBlock filename="test-result-model.py" language="python">
-{`class TestResult(Base, ...):
-    test_reviews = Column(JSONB)
-
-    @property
-    def last_review(self) -> Optional[Dict[str, Any]]:
-        """Returns the most recent review based on updated_at timestamp"""
-        # Returns latest review or None
-
-    @property
-    def matches_review(self) -> bool:
-        """Check if test result status_id matches latest review status_id"""
-        # Returns True/False`}
-</CodeBlock>
-
-**Derived Properties:**
-
-- `last_review`: Returns the most recent review by `updated_at` timestamp
-- `matches_review`: Boolean indicating if the test result's status_id matches the latest review's status_id
-
-### Pydantic Schemas
-
-**File**: `apps/backend/src/rhesis/backend/app/schemas/test_result.py`
-
-<CodeBlock filename="review-schemas.py" language="python">
-{`# Review schemas
-class ReviewTargetCreate(Base):
-    type: str  # "test" or "metric"
-    reference: Optional[str] = None  # metric name or null
-
-class ReviewCreate(Base):
-    status_id: UUID4
-    comments: str
-    target: ReviewTargetCreate
-
-class ReviewUpdate(Base):
-    status_id: Optional[UUID4] = None
-    comments: Optional[str] = None
-    target: Optional[ReviewTargetCreate] = None
-
-class ReviewResponse(Base):
-    review_id: str
-    status: Dict[str, Any]
-    user: Dict[str, Any]
-    comments: str
-    created_at: str
-    updated_at: str
-    target: Dict[str, Any]`}
-</CodeBlock>
-
----
-
-## API Endpoints
-
-All endpoints follow REST conventions and automatically manage metadata.
-
-### 1. Create Review
-
-**Endpoint**: `POST /test_results/{test_result_id}/reviews`
-
-**Request Body**:
-
-<CodeBlock filename="create-review-request.json" language="json">
+<CodeBlock filename="create-review.json" language="json">
 {`{
   "status_id": "735acfa0-cca2-48a1-bb90-ba10b16f1cdb",
-  "comments": "Test review - looks good after manual inspection",
-  "target": {
-    "type": "test",
-    "reference": null
-  }
+  "comments": "Looks good after manual inspection",
+  "target": { "type": "test_result", "reference": null }
 }`}
 </CodeBlock>
 
-**Response** (201 Created):
+Schemas: `ReviewCreate`, `ReviewUpdate`, `ReviewResponse`, `ReviewTargetCreate` in `app/schemas/test_result.py`.
 
-<CodeBlock filename="create-review-response.json" language="json">
-{`{
-  "review_id": "c370e2d7-f526-41c4-94f0-a6f25735a9b9",
-  "status": {
-    "status_id": "735acfa0-cca2-48a1-bb90-ba10b16f1cdb",
-    "name": "Pass"
-  },
-  "user": {
-    "user_id": "d7834188-a9aa-410c-a63d-89d6f487aed8",
-    "name": "Harry Cruz"
-  },
-  "comments": "Test review - looks good after manual inspection",
-  "created_at": "2025-10-10T13:18:16.310822",
-  "updated_at": "2025-10-10T13:18:16.310822",
-  "target": {
-    "type": "test",
-    "reference": null
-  }
-}`}
-</CodeBlock>
+## Derived properties
 
-**Features**:
+`ReviewsMixin` (`app/models/mixins.py`) exposes read-only properties on `TestResult`:
 
-- Auto-generates unique `review_id`
-- Sets both `created_at` and `updated_at` to current time
-- Auto-populates user info from authenticated user
-- Fetches and embeds status details from Status model
-- Updates test_reviews metadata automatically
+- `last_review` — the most recent review by `updated_at`, or `None`.
+- `matches_review` — whether the result's `status_id` matches the latest review's status.
+- `review_summary` — the metadata summary string.
 
-### 2. Update Review
+## Implementation notes
 
-**Endpoint**: `PUT /test_results/{test_result_id}/reviews/{review_id}`
-
-**Request Body** (all fields optional):
-
-<CodeBlock filename="update-review-request.json" language="json">
-{`{
-  "comments": "UPDATED: After further review, this test passes all criteria"
-}`}
-</CodeBlock>
-
-**Response** (200 OK):
-
-<CodeBlock filename="update-review-response.json" language="json">
-{`{
-  "review_id": "c370e2d7-f526-41c4-94f0-a6f25735a9b9",
-  "status": {
-    "status_id": "735acfa0-cca2-48a1-bb90-ba10b16f1cdb",
-    "name": "Pass"
-  },
-  "user": {
-    "user_id": "d7834188-a9aa-410c-a63d-89d6f487aed8",
-    "name": "Harry Cruz"
-  },
-  "comments": "UPDATED: After further review, this test passes all criteria",
-  "created_at": "2025-10-10T13:18:16.310822",
-  "updated_at": "2025-10-10T13:18:41.168149",
-  "target": {
-    "type": "test",
-    "reference": null
-  }
-}`}
-</CodeBlock>
-
-**Features**:
-
-- Preserves `created_at` timestamp
-- Updates `updated_at` to current time
-- Updates only provided fields
-- Updates metadata automatically
-
-### 3. Delete Review
-
-**Endpoint**: `DELETE /test_results/{test_result_id}/reviews/{review_id}`
-
-**Response** (200 OK):
-
-<CodeBlock filename="delete-review-response.json" language="json">
-{`{
-  "message": "Review deleted successfully",
-  "review_id": "c370e2d7-f526-41c4-94f0-a6f25735a9b9",
-  "deleted_review": {
-    "review_id": "c370e2d7-f526-41c4-94f0-a6f25735a9b9",
-    "status": {...},
-    "user": {...},
-    "comments": "UPDATED: After further review, this test passes all criteria",
-    "created_at": "2025-10-10T13:18:16.310822",
-    "updated_at": "2025-10-10T13:18:41.168149",
-    "target": {...}
-  }
-}`}
-</CodeBlock>
-
-**Features**:
-
-- Removes review from reviews array
-- Updates metadata automatically
-- Handles empty state (when last review deleted, sets `latest_status: null`)
-- Returns deleted review data
-
-### 4. Get Test Result with Reviews
-
-**Endpoint**: `GET /test_results/{test_result_id}`
-
-**Response** includes:
-
-<CodeBlock filename="get-test-result-response.json" language="json">
-{`{
-  "id": "fe647ace-5364-4158-b634-9bc7c53d7905",
-  "status_id": "735acfa0-cca2-48a1-bb90-ba10b16f1cdb",
-  "test_reviews": {
-    "metadata": {
-      "last_updated_at": "2025-10-10T13:18:16.310860",
-      "last_updated_by": {
-        "user_id": "d7834188-a9aa-410c-a63d-89d6f487aed8",
-        "name": "Harry Cruz"
-      },
-      "total_reviews": 1,
-      "latest_status": {
-        "status_id": "735acfa0-cca2-48a1-bb90-ba10b16f1cdb",
-        "name": "Pass"
-      },
-      "summary": "Last updated by Harry Cruz"
-    },
-    "reviews": [
-      {
-        "review_id": "c370e2d7-f526-41c4-94f0-a6f25735a9b9",
-        "status": {...},
-        "user": {...},
-        "comments": "...",
-        "created_at": "2025-10-10T13:18:16.310822",
-        "updated_at": "2025-10-10T13:18:16.310822",
-        "target": {...}
-      }
-    ]
-  },
-  "last_review": {
-    "review_id": "c370e2d7-f526-41c4-94f0-a6f25735a9b9",
-    "status": {...},
-    "user": {...},
-    "comments": "...",
-    "created_at": "2025-10-10T13:18:16.310822",
-    "updated_at": "2025-10-10T13:18:16.310822",
-    "target": {...}
-  },
-  "matches_review": true
-}`}
-</CodeBlock>
-
-**Derived Properties**:
-
-- `last_review`: Most recent review by `updated_at` timestamp
-- `matches_review`: Boolean indicating if test result status matches latest review status
-
----
-
-## Use Cases
-
-### 1. **Override Automated Metrics**
-
-A human reviewer disagrees with an automated pass/fail and adds a review with a different status.
-
-### 2. **Multi-Reviewer Workflow**
-
-Multiple team members review the same test result, each adding their perspective.
-
-### 3. **Metric-Specific Reviews**
-
-Review specific metrics (e.g., "Answer Relevancy") separately from overall test.
-
-### 4. **Audit Trail**
-
-Track who reviewed what and when, with full edit history via timestamps.
-
-### 5. **Status Conflict Detection**
-
-Use `matches_review` to identify cases where human review disagrees with automated result.
-
----
-
-## Implementation Notes
-
-### Metadata Management
-
-The `metadata` section is automatically updated on every review operation:
-
-- **Create**: Initializes metadata with first review's information
-- **Update**: Updates `last_updated_at`, `last_updated_by`, and `latest_status`
-- **Delete**: Updates metadata or clears `latest_status` if no reviews remain
-
-### JSONB Column Updates
-
-When modifying reviews, use SQLAlchemy's `flag_modified` to ensure changes are detected:
+The column stores the whole structure as JSONB, so no extra tables are needed. When mutating it, flag the change so SQLAlchemy persists it:
 
 <CodeBlock filename="flag-modified.py" language="python">
 {`from sqlalchemy.orm.attributes import flag_modified
 
-# After modifying test_reviews
 flag_modified(test_result, "test_reviews")
 db.commit()`}
 </CodeBlock>
 
-### Empty State Handling
+When the last review is deleted, `reviews` becomes empty, `total_reviews` is 0, `latest_status` is null, `last_review` returns `None`, and `matches_review` returns `False`.
 
-When the last review is deleted:
+## Related documentation
 
-- `reviews` array becomes empty
-- `total_reviews` = 0
-- `latest_status` = null
-- `summary` = "All reviews removed"
-- `last_review` derived property returns None
-- `matches_review` returns False
-
----
-
-## Testing
-
-All functionality has been tested and verified:
-
-✅ Create review with auto-generated ID and timestamps
-✅ Update review with preserved `created_at`
-✅ Delete review with metadata updates
-✅ Multiple reviews support
-✅ Both "test" and "metric" target types
-✅ Empty state handling
-✅ Derived properties (`last_review`, `matches_review`)
-✅ Automatic metadata synchronization
-
----
-
-## Future Extensions
-
-Potential enhancements:
-
-- `confidence`: Reviewer confidence score (0–1)
-- `attachments`: File attachments for evidence
-- `review_type`: Categorize reviews (approval, rejection, follow-up)
-- `tags`: Categorize reviews with tags
-- Review workflows and approval chains
-
----
+- [Test Result Status](/contribute/backend/test-result-status)
+- [Test Result Statistics](/contribute/backend/test-result-stats)
+- [Test Run Status](/contribute/backend/test-run-status)

@@ -1,4 +1,4 @@
-.PHONY: all format lint lint_diff format_diff type-check test test-lf docs docker-up docker-down docker-clean
+.PHONY: all format lint lint_diff format_diff type-check test test-lf docs
 
 all: format_diff lint_diff type-check test docs
 
@@ -36,20 +36,10 @@ type-check:
 	PYTHONPATH=src mypy --install-types --non-interactive
 	PYTHONPATH=src mypy --package rhesis.backend
 
-# Tests (starts docker automatically)
-test: docker-up
-	uv run --extra cpu pytest ../../tests/backend --ignore=../../tests/backend/integration
+# Tests (Postgres/Redis start automatically via Testcontainers)
+test:
+	uv run --extra cpu pytest ../../tests/backend --ignore=../../tests/backend/integration -n 4 --timeout=120 --timeout-method=thread --reruns=1
 
-# Re-run only failed tests (starts docker automatically)
-test-lf: docker-up
-	uv run --extra cpu pytest ../../tests/backend --lf --ignore=../../tests/backend/integration
-
-# Docker management for integration tests
-docker-up:
-	docker compose -f ../../tests/docker-compose.test.yml --profile backend up -d --wait
-
-docker-down:
-	docker compose -f ../../tests/docker-compose.test.yml --profile backend down
-
-docker-clean:
-	docker compose -f ../../tests/docker-compose.test.yml --profile backend down -v
+# Re-run only failed tests
+test-lf:
+	uv run --extra cpu pytest ../../tests/backend --lf --ignore=../../tests/backend/integration --timeout=120 --timeout-method=thread

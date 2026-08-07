@@ -10,14 +10,26 @@ from .config import COMPONENTS, PLATFORM_CHANGELOG, format_component_name
 from .git_ops import get_commits_since_tag, get_last_tag
 from .utils import call_gemini_api, info, success, warn
 
+# gemini-3.5-flash's documented output ceiling. Clamp the commit-scaled budget
+# to this so a very large release requests a valid maxOutputTokens instead of
+# paying for an API call that only fails once the generic HTTPError fallback
+# catches the 400 from an out-of-range value.
+GEMINI_MAX_OUTPUT_TOKENS = 8192
+
 
 def generate_changelog_with_llm(api_key: str, component: str, version: str,
                                commits: List[Dict[str, str]], last_tag: Optional[str],
-                               max_tokens: int = 2048) -> Optional[str]:
+                               max_tokens: Optional[int] = None) -> Optional[str]:
     """Generate changelog using Gemini API"""
     if not api_key:
         warn(f"No Gemini API key available. Skipping LLM changelog generation for {component}")
         return None
+
+    if max_tokens is None:
+        # Scale with commit volume: a 20+ commit release previously exhausted
+        # the flat 2048-token budget mid-generation, producing truncated,
+        # broken markdown that still got committed to the changelog.
+        max_tokens = min(max(4096, 256 * len(commits)), GEMINI_MAX_OUTPUT_TOKENS)
 
     commits_text = "\n".join([
         f"- {commit['message']} ({commit['hash'][:8]}, {commit['author']})"

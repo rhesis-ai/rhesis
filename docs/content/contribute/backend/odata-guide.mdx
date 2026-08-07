@@ -2,267 +2,99 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 # OData Query Guide
 
-How to use OData-style query parameters such as `$filter`, `$select`, `skip`, and
-`limit` with the Rhesis backend API.
+List endpoints accept OData-style query parameters — `$filter`, `$select` — alongside `sort_by`,
+`sort_order`, `skip`, and `limit`. Filtering is handled by the [`odata-query`](https://pypi.org/project/odata-query/)
+library against the SQLAlchemy models (`app/utils/odata.py`).
 
-## Basic Concepts
-
-OData (Open Data Protocol) is a REST-based protocol for querying and updating data. In Rhesis, you can use OData filters with the `$filter` query parameter.
-
-### URL Format
-
-<CodeBlock filename="url-format.txt" language="text">
-{`GET /endpoint?$filter=<odata-expression>`}
+<CodeBlock filename="request.sh" language="bash">
+{`curl -H "Authorization: Bearer YOUR_API_KEY" "https://api.rhesis.ai/tests?$filter=priority eq 1"`}
 </CodeBlock>
 
-### Authentication
-
-All requests require a Bearer token:
-
-<CodeBlock filename="authentication.sh" language="bash">
-{`curl -H "Authorization: Bearer YOUR_API_KEY" "URL"`}
-</CodeBlock>
-
-### Common query parameters
-
-Use the following parameters together to shape list responses:
+## Query parameters
 
 | Parameter | Purpose | Example |
 |---|---|---|
 | `$filter` | Filter rows with OData expressions | `$filter=status/name eq 'Active'` |
-| `$select` | Return only selected top-level fields (`id` is always included) | `$select=name,score_type,threshold` |
-| `sort_by` | Choose sort field | `sort_by=created_at` |
-| `sort_order` | Set sort direction (`asc` or `desc`) | `sort_order=desc` |
-| `skip` | Offset for pagination | `skip=20` |
-| `limit` | Max rows returned by REST list endpoints | `limit=50` |
+| `$select` | Return only selected fields (`id` always included) | `$select=name,score_type,threshold` |
+| `sort_by` | Sort field | `sort_by=created_at` |
+| `sort_order` | Sort direction (`asc` or `desc`) | `sort_order=desc` |
+| `skip` | Pagination offset | `skip=20` |
+| `limit` | Max rows returned | `limit=50` |
 
-## Comparison Operators
+## Comparison operators
 
-### Equality Operators
+`eq`, `ne`, `gt`, `lt`, `ge`, `le`:
 
-**Equal (`eq`)**
-
-<CodeBlock filename="equal-operator.sh" language="bash">
-{`# Find tests with priority = 1
-GET /tests?$filter=priority eq 1
-
-# Find behaviors with specific name
-GET /behaviors?$filter=name eq 'Test Behavior'`}
-</CodeBlock>
-
-**Not Equal (`ne`)**
-
-<CodeBlock filename="not-equal-operator.sh" language="bash">
-{`# Find tests where priority is not null
+<CodeBlock filename="comparison.sh" language="bash">
+{`GET /tests?$filter=priority eq 1
 GET /tests?$filter=priority ne null
-
-# Find behaviors not named 'Test'
-GET /behaviors?$filter=name ne 'Test'`}
-</CodeBlock>
-
-### Comparison Operators
-
-**Greater Than (`gt`)**
-
-<CodeBlock filename="greater-than.sh" language="bash">
-{`# Find tests with priority > 0
-GET /tests?$filter=priority gt 0`}
-</CodeBlock>
-
-**Less Than (`lt`)**
-
-<CodeBlock filename="less-than.sh" language="bash">
-{`# Find tests with priority < 5
-GET /tests?$filter=priority lt 5`}
-</CodeBlock>
-
-**Greater Than or Equal (`ge`)**
-
-<CodeBlock filename="greater-equal.sh" language="bash">
-{`# Find tests with priority >= 1
-GET /tests?$filter=priority ge 1`}
-</CodeBlock>
-
-**Less Than or Equal (`le`)**
-
-<CodeBlock filename="less-equal.sh" language="bash">
-{`# Find tests with priority <= 5
+GET /tests?$filter=priority gt 0
 GET /tests?$filter=priority le 5`}
 </CodeBlock>
 
-## String Functions
+## String functions
 
-All string functions use function-style syntax: `function(field, value)`
+Function-style syntax: `function(field, value)`.
 
-### Contains
+<CodeBlock filename="string-functions.sh" language="bash">
+{`GET /behaviors?$filter=contains(name,'Test')
+GET /behaviors?$filter=startswith(name,'Test')
+GET /behaviors?$filter=endswith(name,'Behavior')
 
-<CodeBlock filename="contains-function.sh" language="bash">
-{`# Find behaviors containing 'Test' in name
-GET /behaviors?$filter=contains(name,'Test')
-
-# Case-insensitive search
+# Case-insensitive search with tolower / toupper
 GET /behaviors?$filter=contains(tolower(name),'test')`}
 </CodeBlock>
 
-### Starts With
+## Navigation properties
 
-<CodeBlock filename="startswith-function.sh" language="bash">
-{`# Find behaviors starting with 'Test'
-GET /behaviors?$filter=startswith(name,'Test')`}
-</CodeBlock>
+Traverse relationships with `/`: `relationship/field`. This resolves related data in a single
+request instead of chaining calls.
 
-### Ends With
-
-<CodeBlock filename="endswith-function.sh" language="bash">
-{`# Find behaviors ending with 'Behavior'
-GET /behaviors?$filter=endswith(name,'Behavior')`}
-</CodeBlock>
-
-### Case Conversion
-
-**To Lower Case (`tolower`)**
-
-<CodeBlock filename="tolower-function.sh" language="bash">
-{`# Case-insensitive search using tolower
-GET /behaviors?$filter=contains(tolower(name),'test')`}
-</CodeBlock>
-
-**To Upper Case (`toupper`)**
-
-<CodeBlock filename="toupper-function.sh" language="bash">
-{`# Case-insensitive search using toupper
-GET /behaviors?$filter=contains(toupper(name),'TEST')`}
-</CodeBlock>
-
-## Navigation Properties
-
-Navigate through relationships using the `/` operator: `relationship/field`
-
-### Behavior Navigation
-
-<CodeBlock filename="behavior-navigation.sh" language="bash">
-{`# Find tests by behavior name
-GET /tests?$filter=behavior/name eq 'Test Behavior'
-
-# Case-insensitive behavior search
+<CodeBlock filename="navigation.sh" language="bash">
+{`GET /tests?$filter=behavior/name eq 'Test Behavior'
+GET /tests?$filter=status/name eq 'New'
+GET /tests?$filter=topic/name eq 'Security'
+GET /tests?$filter=contains(prompt/content,'test')
 GET /tests?$filter=contains(tolower(behavior/name),'rel')`}
 </CodeBlock>
 
-### Status Navigation
+## Logical operators
 
-<CodeBlock filename="status-navigation.sh" language="bash">
-{`# Find tests by status
-GET /tests?$filter=status/name eq 'New'
+Combine conditions with `and`, `or`, `not`, and group with parentheses:
 
-# Find active behaviors
-GET /behaviors?$filter=status/name eq 'Active'`}
-</CodeBlock>
-
-### Prompt Navigation
-
-<CodeBlock filename="prompt-navigation.sh" language="bash">
-{`# Find tests by prompt content
-GET /tests?$filter=contains(prompt/content,'test')`}
-</CodeBlock>
-
-### Topic Navigation
-
-<CodeBlock filename="topic-navigation.sh" language="bash">
-{`# Find tests by topic
-GET /tests?$filter=topic/name eq 'Security'`}
-</CodeBlock>
-
-### Category Navigation
-
-<CodeBlock filename="category-navigation.sh" language="bash">
-{`# Find tests by category
-GET /tests?$filter=category/name eq 'Performance'`}
-</CodeBlock>
-
-## Logical Operators
-
-### AND Operator
-
-<CodeBlock filename="and-operator.sh" language="bash">
-{`# Multiple conditions must be true
-GET /tests?$filter=status/name eq 'New' and priority ne null`}
-</CodeBlock>
-
-### OR Operator
-
-<CodeBlock filename="or-operator.sh" language="bash">
-{`# Either condition can be true
-GET /tests?$filter=priority eq 1 or priority eq 2`}
-</CodeBlock>
-
-### NOT Operator
-
-<CodeBlock filename="not-operator.sh" language="bash">
-{`# Negate a condition (use parentheses)
-GET /tests?$filter=not (priority eq 1)`}
-</CodeBlock>
-
-### Complex Expressions with Parentheses
-
-<CodeBlock filename="complex-expressions.sh" language="bash">
-{`# Group conditions with parentheses
+<CodeBlock filename="logical.sh" language="bash">
+{`GET /tests?$filter=status/name eq 'New' and priority ne null
+GET /tests?$filter=priority eq 1 or priority eq 2
+GET /tests?$filter=not (priority eq 1)
 GET /tests?$filter=(status/name eq 'New' and priority ne null) or contains(prompt/content,'test')`}
 </CodeBlock>
 
-## Advanced Features
+## Sorting and pagination
 
-### Sorting
-
-Use `sort_by` and `sort_order` parameters:
-
-<CodeBlock filename="sorting.sh" language="bash">
-{`# Sort by creation date, newest first
-GET /tests?sort_by=created_at&sort_order=desc
-
-# Sort by priority, lowest first
-GET /tests?sort_by=priority&sort_order=asc`}
-</CodeBlock>
-
-### Pagination
-
-Use `skip` and `limit` parameters:
-
-<CodeBlock filename="pagination.sh" language="bash">
-{`# Get 10 items starting from item 20
-GET /tests?skip=20&limit=10
-
-# Combine with filtering
+<CodeBlock filename="sort-paginate.sh" language="bash">
+{`GET /tests?sort_by=created_at&sort_order=desc
 GET /tests?$filter=status/name eq 'New'&skip=0&limit=50`}
 </CodeBlock>
 
-### Field Selection with `$select`
+## Field selection with `$select`
 
-Use `$select` to return only the fields you need from list endpoints.
+`$select` takes a comma-separated list of top-level fields and filters the serialized response
+after the query runs. `id` is always included so entities stay addressable. It reduces payload
+size but does not change which rows match `$filter`.
 
-`id` is always included by the backend even when omitted from `$select`.
-
-<CodeBlock filename="field-selection.sh" language="bash">
-{`# Return only metric name and scope (id is included automatically)
-GET /metrics?$select=name,metric_scope
-
-# Return lightweight test result rows
+<CodeBlock filename="select.sh" language="bash">
+{`GET /metrics?$select=name,metric_scope
 GET /test_results?$filter=test_run_id eq 'run-uuid'&$select=status,prompt,metric_scores`}
 </CodeBlock>
 
-`$select` works across all standard list endpoints generated through the backend routers
-(`tests`, `behaviors`, `categories`, `topics`, `test_sets`, `test_runs`, `test_results`,
-`metrics`, `projects`, `sources`, and related list routes).
+`$select` works on all standard list endpoints generated through the backend routers.
 
 ### MCP server-managed pagination
 
-When list operations are called through MCP tools (instead of direct REST), some tools define
-a server-managed `page_size` in `mcp_tools.yaml`.
-
-In those cases:
-
-- the MCP tool schema hides `limit` from the model
-- the server applies a fixed page size with peek-ahead (`limit = page_size + 1`)
-- list responses are wrapped with `_pagination` metadata
+When list operations are called through MCP tools rather than direct REST, some tools define a
+server-managed `page_size` in `mcp_tools.yaml`. In those cases `limit` is hidden from the model, the
+server applies a fixed page size with peek-ahead (`limit = page_size + 1`), and responses are
+wrapped with `_pagination` metadata:
 
 <CodeBlock filename="mcp-pagination-response.json" language="json">
 {`{
@@ -279,170 +111,29 @@ In those cases:
 }`}
 </CodeBlock>
 
-For direct REST API calls, `limit` and `skip` remain fully client-controlled.
+For direct REST calls, `limit` and `skip` remain client-controlled.
 
-### Combining Parameters
+## URL encoding
 
-<CodeBlock filename="combining-parameters.sh" language="bash">
-{`# Filter + Sort + Paginate
-GET /tests?$filter=contains(tolower(behavior/name),'rel')&sort_by=created_at&sort_order=desc&skip=0&limit=25`}
+Encode filter values in query strings: space becomes `%20`, `/` becomes `%2F`, `'` becomes `%27`.
+
+<CodeBlock filename="url-encoding.sh" language="bash">
+{`GET /tests?%24filter=contains(behavior%2Fname,%27Test%27)`}
 </CodeBlock>
 
-### Field Selection
+## Error responses
 
-Use `$select` to return only the fields a list view or tool call needs. The backend accepts a
-comma-separated list of serialized response fields and always includes `id` so each entity remains
-addressable.
+Invalid fields or unparseable expressions return `400` with a `detail` message:
 
-<CodeBlock filename="select-fields.sh" language="bash">
-{`# Return only id, name, and description for metrics
-GET /metrics?$select=name,description
-
-# Combine field selection with filtering and pagination
-GET /test_sets?$filter=contains(tolower(name),'safety')&$select=name,created_at&limit=10`}
+<CodeBlock filename="errors.json" language="json">
+{`{ "detail": "Error processing filter: Failed to parse at: Token(...)" }`}
 </CodeBlock>
 
-<Callout type="info">
-  `$select` filters serialized response objects after the query runs. It reduces payload size for
-  list responses, but it does not change which rows match `$filter`.
-</Callout>
+Use function-style syntax for string operations — `contains(behavior/name,'test')`, not
+`behavior/name contains 'test'`.
 
-## Complete Examples
+## Endpoints supporting OData filtering
 
-### Example 1: Case-Insensitive Behavior Search
-
-<CodeBlock filename="example-case-insensitive.sh" language="bash">
-{`# Find all tests where behavior name contains 'rel' (case-insensitive)
-GET /tests?$filter=contains(tolower(behavior/name),'rel')`}
-</CodeBlock>
-
-### Example 2: Complex Multi-Condition Filter
-
-<CodeBlock filename="example-multi-condition.sh" language="bash">
-{`# Find tests that are either:
-# - New status with non-null priority, OR
-# - Have 'test' in prompt content
-GET /tests?$filter=(status/name eq 'New' and priority ne null) or contains(prompt/content,'test')`}
-</CodeBlock>
-
-### Example 3: Advanced Search with Sorting
-
-<CodeBlock filename="example-advanced-search.sh" language="bash">
-{`# Find active behaviors, sort by name
-GET /behaviors?$filter=status/name eq 'Active'&sort_by=name&sort_order=asc`}
-</CodeBlock>
-
-### Example 4: Navigation with String Functions
-
-<CodeBlock filename="example-navigation.sh" language="bash">
-{`# Find tests where behavior description contains 'robust' (case-insensitive)
-GET /tests?$filter=contains(tolower(behavior/description),'robust')`}
-</CodeBlock>
-
-## Best Practices
-
-### 1. Use Case-Insensitive Searches
-
-For user-friendly searches, always use `tolower()` or `toupper()`:
-
-<CodeBlock filename="best-practice-case-insensitive.sh" language="bash">
-{`# Good: Case-insensitive
-GET /behaviors?$filter=contains(tolower(name),'reliability')
-
-# Avoid: Case-sensitive (user must know exact case)
-GET /behaviors?$filter=contains(name,'Reliability')`}
-</CodeBlock>
-
-### 2. Use Navigation Properties for Related Data
-
-Instead of multiple API calls, use navigation:
-
-<CodeBlock filename="best-practice-navigation.sh" language="bash">
-{`# Good: Single request with navigation
-GET /tests?$filter=behavior/name eq 'Reliability'
-
-# Avoid: Multiple requests (less efficient)
-# 1. GET /behaviors?$filter=name eq 'Reliability'
-# 2. GET /tests?$filter=behavior_id eq 'uuid-from-step-1'`}
-</CodeBlock>
-
-### 3. Use Parentheses for Complex Logic
-
-Make complex expressions clear with parentheses:
-
-<CodeBlock filename="best-practice-parentheses.sh" language="bash">
-{`# Good: Clear precedence
-GET /tests?$filter=(status/name eq 'New' or status/name eq 'Active') and priority gt 0
-
-# Avoid: Ambiguous precedence
-GET /tests?$filter=status/name eq 'New' or status/name eq 'Active' and priority gt 0`}
-</CodeBlock>
-
-### 4. Combine Filtering with Pagination
-
-Always use pagination for potentially large result sets:
-
-<CodeBlock filename="best-practice-pagination.sh" language="bash">
-{`# Good: Paginated results
-GET /tests?$filter=status/name eq 'New'&limit=50
-
-# Avoid: Potentially huge response
-GET /tests?$filter=status/name eq 'New'`}
-</CodeBlock>
-
-### 5. URL Encoding
-
-Remember to URL-encode your queries:
-
-<CodeBlock filename="best-practice-url-encoding.sh" language="bash">
-{`# Space becomes %20, / becomes %2F, ' becomes %27
-GET /tests?%24filter=contains(behavior%2Fname,%27Test%27)`}
-</CodeBlock>
-
-## Error Handling
-
-### Common Errors
-
-**Invalid Field Names**
-
-<CodeBlock filename="error-invalid-field.json" language="json">
-{`{
-  "detail": "Invalid filter. Must use valid fields: field1, field2, ..."
-}`}
-</CodeBlock>
-
-**Parse Errors**
-
-<CodeBlock filename="error-parse.json" language="json">
-{`{
-  "detail": "Error processing filter: Failed to parse at: Token(...)"
-}`}
-</CodeBlock>
-
-**Invalid Syntax**
-Use function-style syntax for string operations:
-
-<CodeBlock filename="error-invalid-syntax.sh" language="bash">
-{`# Correct
-GET /tests?$filter=contains(behavior/name,'test')
-
-# Incorrect (will cause parse error)
-GET /tests?$filter=behavior/name contains 'test'`}
-</CodeBlock>
-
-## Available Endpoints
-
-The following endpoints support OData filtering:
-
-- `/tests` - Test entities
-- `/behaviors` - Behavior entities
-- `/topics` - Topic entities
-- `/categories` - Category entities
-- `/test-sets` - Test set entities
-- `/test-runs` - Test run entities
-- `/test-results` - Test result entities
-- `/prompts` - Prompt entities
-- `/metrics` - Metric entities
-- `/projects` - Project entities
-
-Each endpoint supports the navigation properties defined in its model relationships.
+`/tests`, `/behaviors`, `/topics`, `/categories`, `/test_sets`, `/test_runs`, `/test_results`,
+`/prompts`, `/metrics`, `/projects`, and related list routes. Each supports the navigation
+properties defined by its model relationships.

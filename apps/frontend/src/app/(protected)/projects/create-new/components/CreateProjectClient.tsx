@@ -20,6 +20,10 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { ProjectCreate } from '@/utils/api-client/interfaces/project';
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
 import { writeActiveProjectId } from '@/utils/active-project';
+import { useCanWithStatus } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
+import AccessDenied from '@/components/common/AccessDenied';
+import PageLoadingState from '@/components/common/PageLoadingState';
 import type { UUID } from 'crypto';
 
 interface FormData {
@@ -47,6 +51,9 @@ export default function CreateProjectClient({
   const router = useRouter();
   const theme = useTheme();
   const { refresh: refreshActiveProjects } = useActiveProject();
+  const { allowed: canCreate, loading: permsLoading } = useCanWithStatus(
+    Capability.Project.CREATE
+  );
   const [activeStep, setActiveStep] = React.useState(0);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -175,6 +182,12 @@ export default function CreateProjectClient({
   const handleCloseError = () => {
     setError(null);
   };
+
+  // Final defence against direct URL access: project:create is org-scoped, and
+  // the built-in Member role does not hold it. Without this the wizard renders
+  // fine and only fails with a 403 on submit, after the form is filled in.
+  if (permsLoading) return <PageLoadingState />;
+  if (!canCreate) return <AccessDenied resource="the project creation page" />;
 
   return (
     <Container

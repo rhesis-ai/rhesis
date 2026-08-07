@@ -15,12 +15,12 @@ Uses the bulk creation infrastructure to ensure proper metadata is set
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import List, Optional, Set
+from typing import Dict, List, Optional, Set
 from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app.models.test import test_test_set_association
+from rhesis.backend.app.models.test import Test, test_test_set_association
 from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.app.schemas import test_set as test_set_schemas
 from rhesis.backend.app.services.test import bulk_create_tests
@@ -48,6 +48,17 @@ class GarakSyncService:
     def __init__(self, db: Session):
         self.db = db
         self.probe_service = GarakProbeService()
+        self._probes_by_module: Optional[Dict[str, List[GarakProbeInfo]]] = None
+
+    def preload_probes(self, probes_by_module: Dict[str, List[GarakProbeInfo]]) -> None:
+        """
+        Inject pre-fetched (cached) probe data instead of re-extracting per probe.
+
+        See ``GarakImporter.preload_probes`` for rationale — same pattern, used
+        by both the single-probe (``_get_probe``) and legacy multi-module
+        lookup paths below.
+        """
+        self._probes_by_module = probes_by_module
 
     def sync_test_set(
         self,
@@ -172,10 +183,66 @@ class GarakSyncService:
 
     def _get_probe(self, module_name: str, class_name: str) -> Optional[GarakProbeInfo]:
         """Get a specific probe from Garak."""
-        probes = self.probe_service.extract_probes_from_module(
-            module_name, probe_class_names=[class_name]
+        return self.probe_service.get_probe(module_name, class_name, self._probes_by_module)
+
+    def resolve_sync_target(self, test_set_id: str, organization_id: str) -> Dict[str, List[str]]:
+        """
+        Validate a test set is syncable and resolve which probe class(es) it
+        needs, without touching the probe cache/corpus.
+
+        Used by the router to (a) surface the same ``ValueError``/400
+        conditions synchronously before dispatching the background sync task,
+        and (b) know exactly which probe classes to filter a pre-fetched cache
+        down to, so only the necessary data is serialized through Celery.
+
+        The branching mirrors ``sync_test_set`` exactly: the modern
+        single-probe format requires BOTH ``garak_module`` and
+        ``garak_probe_class`` to be set — otherwise the legacy
+        ``garak_modules`` list is used. Matching this exactly (rather than
+        treating ``garak_module`` alone as sufficient) matters: a mismatch
+        here would make the router filter the cache to the wrong module set,
+        and a background sync that finds none of its expected probes in an
+        (incorrectly) empty cache slice deletes every existing prompt instead
+        of erroring.
+
+        Returns:
+            Dict mapping module name to the list of probe class names needed
+            from it. An empty list value means "every probe in this module"
+            (the legacy multi-module sync path).
+
+        Raises:
+            ValueError: If test set not found, not a Garak-imported test set,
+                or has no Garak probe information (same conditions/messages as
+                ``sync_test_set``).
+        """
+        test_set = (
+            self.db.query(TestSet)
+            .filter(
+                TestSet.id == UUID(test_set_id),
+                TestSet.organization_id == UUID(organization_id),
+            )
+            .first()
         )
-        return probes[0] if probes else None
+
+        if not test_set:
+            raise ValueError(f"Test set not found: {test_set_id}")
+
+        if not test_set.attributes or test_set.attributes.get("source") != "garak":
+            raise ValueError(f"Test set {test_set_id} is not a Garak-imported test set")
+
+        module_name = test_set.attributes.get("garak_module")
+        probe_class = test_set.attributes.get("garak_probe_class")
+
+        # Modern single-probe format: only this exact probe class is needed.
+        if module_name and probe_class:
+            return {module_name: [probe_class]}
+
+        # Legacy format: the sync loops over every probe in each listed module.
+        modules = test_set.attributes.get("garak_modules", [])
+        if modules:
+            return {m: [] for m in modules}
+
+        raise ValueError(f"No Garak probe information found in test set {test_set_id}")
 
     def _sync_legacy_test_set(
         self,
@@ -201,8 +268,20 @@ class GarakSyncService:
         # Get all latest probes from all modules
         all_probes = []
         for module_name in modules:
-            probes = self.probe_service.extract_probes_from_module(module_name)
+            probes = self.probe_service.get_probes_for_module(module_name, self._probes_by_module)
             all_probes.extend(probes)
+
+        # Guard against a broken invariant: if every listed module resolved to
+        # zero probes (e.g. preloaded cache data missing a module — see
+        # preload_probes), the diff below would treat every existing prompt as
+        # "no longer present" and delete the entire test set. That is never a
+        # legitimate outcome for a non-empty module list, so fail loudly
+        # instead of silently wiping the test set.
+        if not all_probes:
+            raise ValueError(
+                f"No probes resolved for any of the modules {modules} — refusing to "
+                "sync (this would otherwise remove every existing test)"
+            )
 
         # Build latest probe IDs
         latest_probe_ids = set()
@@ -253,7 +332,10 @@ class GarakSyncService:
         """Get the set of Garak probe IDs currently in the test set."""
         probe_ids = set()
 
-        for test in test_set.tests:
+        # Queried by ID rather than via test_set.tests -- callers don't
+        # guarantee that many-to-many relationship is eager-loaded.
+        tests = self.db.query(Test).filter(Test.test_sets.any(id=test_set.id)).all()
+        for test in tests:
             if test.test_metadata and test.test_metadata.get("source") == "garak":
                 probe_id = test.test_metadata.get("garak_probe_id")
                 if probe_id:
@@ -315,7 +397,10 @@ class GarakSyncService:
         if not tests_data:
             return 0
 
-        # Use bulk creation with the test set ID to automatically associate
+        # Use bulk creation with the test set ID to automatically associate.
+        # skip_prompt_dedup=True: Garak prompt content is always unique per
+        # sync, so the duplicate-check SELECT get_or_create_entity would
+        # otherwise do per prompt is wasted work.
         created_tests = bulk_create_tests(
             db=self.db,
             tests_data=tests_data,
@@ -323,6 +408,7 @@ class GarakSyncService:
             user_id=user_id,
             test_set_id=str(test_set.id),
             test_type_value="Single-Turn",
+            skip_prompt_dedup=True,
         )
 
         return len(created_tests)
@@ -335,7 +421,9 @@ class GarakSyncService:
         """Remove old prompts from the test set."""
         removed_count = 0
 
-        for test in list(test_set.tests):  # Create list copy to allow modification
+        # Queried by ID rather than via test_set.tests -- see _get_existing_probe_ids.
+        tests = self.db.query(Test).filter(Test.test_sets.any(id=test_set.id)).all()
+        for test in tests:
             if not test.test_metadata or test.test_metadata.get("source") != "garak":
                 continue
 
@@ -475,7 +563,7 @@ class GarakSyncService:
         # Get all latest probes from all modules
         latest_probe_ids = set()
         for module_name in modules:
-            probes = self.probe_service.extract_probes_from_module(module_name)
+            probes = self.probe_service.get_probes_for_module(module_name, self._probes_by_module)
             for probe in probes:
                 for idx in range(len(probe.prompts)):
                     latest_probe_ids.add(f"{probe.full_name}.{idx}")

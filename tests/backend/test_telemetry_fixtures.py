@@ -6,10 +6,10 @@ telemetry state in tests and ensure proper test isolation.
 """
 
 import pytest
+from pydantic import ValidationError
 
 from rhesis.backend.app.config.settings import get_telemetry_settings
 from rhesis.backend.telemetry import (
-    is_telemetry_enabled,
     track_feature_usage,
     track_user_activity,
 )
@@ -99,15 +99,15 @@ class TestTelemetryDeploymentTypes:
         monkeypatch.setenv("OTEL_DEPLOYMENT_TYPE", "cloud")
         get_telemetry_settings.cache_clear()
 
-        assert is_telemetry_enabled() is True
+        assert get_telemetry_settings().is_telemetry_enabled is True
 
-    def test_self_hosted_default_enabled(self, monkeypatch):
-        """Test that self-hosted deployment has telemetry enabled by default"""
+    def test_self_hosted_default_disabled(self, monkeypatch):
+        """Test that self-hosted deployment has telemetry disabled by default (opt-in)"""
         monkeypatch.setenv("OTEL_DEPLOYMENT_TYPE", "self-hosted")
         monkeypatch.delenv("OTEL_RHESIS_TELEMETRY_ENABLED", raising=False)
         get_telemetry_settings.cache_clear()
 
-        assert is_telemetry_enabled() is True
+        assert get_telemetry_settings().is_telemetry_enabled is False
 
     def test_self_hosted_can_enable(self, monkeypatch):
         """Test that self-hosted deployment can enable telemetry via env var"""
@@ -115,7 +115,7 @@ class TestTelemetryDeploymentTypes:
         monkeypatch.setenv("OTEL_RHESIS_TELEMETRY_ENABLED", "true")
         get_telemetry_settings.cache_clear()
 
-        assert is_telemetry_enabled() is True
+        assert get_telemetry_settings().is_telemetry_enabled is True
 
     def test_self_hosted_can_disable(self, monkeypatch):
         """Test that self-hosted deployment can disable telemetry via env var"""
@@ -123,14 +123,15 @@ class TestTelemetryDeploymentTypes:
         monkeypatch.setenv("OTEL_RHESIS_TELEMETRY_ENABLED", "false")
         get_telemetry_settings.cache_clear()
 
-        assert is_telemetry_enabled() is False
+        assert get_telemetry_settings().is_telemetry_enabled is False
 
-    def test_unknown_deployment_disabled(self, monkeypatch):
-        """Test that unknown deployment types have telemetry disabled"""
+    def test_unknown_deployment_type_rejected(self, monkeypatch):
+        """Test that an unknown deployment type is a load-time validation error"""
         monkeypatch.setenv("OTEL_DEPLOYMENT_TYPE", "unknown")
         get_telemetry_settings.cache_clear()
 
-        assert is_telemetry_enabled() is False
+        with pytest.raises(ValidationError):
+            get_telemetry_settings()
 
 
 @pytest.mark.parametrize(

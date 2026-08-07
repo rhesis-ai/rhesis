@@ -6,6 +6,7 @@ import { Box, Typography } from '@mui/material';
 import { DEFAULT_AUTHENTICATED_PATH } from '@/constants/paths';
 import { ONBOARDING_STEPS } from './onboarding-steps';
 import { onboardingSidebarSx } from './onboarding-styles';
+import { scaledVh } from '@/styles/viewport-scaling';
 
 interface OnboardingSidebarProps {
   activeStep: number;
@@ -24,7 +25,7 @@ export default function OnboardingSidebar({
         ...onboardingSidebarSx,
         px: 5,
         py: '50px',
-        minHeight: { xs: 'auto', md: 'calc(100vh - 40px)' },
+        minHeight: { xs: 'auto', md: `calc(${scaledVh()} - 40px)` },
         width: { xs: '100%', md: 400 },
         flexShrink: 0,
       }}

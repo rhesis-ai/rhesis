@@ -30,6 +30,7 @@ from rhesis.backend.app.config.settings import (
     get_application_settings,
     get_frontend_settings,
 )
+from rhesis.backend.app.database import set_session_variables
 from rhesis.backend.app.dependencies import get_db_session
 from rhesis.backend.app.features import FeatureName, FeatureRegistry
 from rhesis.backend.app.models.organization import Organization
@@ -253,42 +254,71 @@ async def sso_callback(
         )
         return RedirectResponse(url=error_redirect, status_code=302)
 
-    # Org-scoped user resolution
+    # Org-scoped user resolution, token creation, and redirect.
+    # Wrapped in a catch-all so unhandled exceptions (DB constraint
+    # violations, missing migrations, etc.) surface as a redirect to
+    # the SSO error page with a logged traceback, not a raw 500.
     try:
-        user = find_or_create_sso_user(db, auth_user, org, sso_config)
-    except SSOLoginError as e:
+        # This route runs on get_db_session, which sets no tenant GUCs: the
+        # user's identity is unknown until the IdP responds, so
+        # get_tenant_db_session cannot be used. Auto-provisioning below writes
+        # RLS-protected tenant tables (organization_member, project_membership)
+        # via the org-membership hook, and those policies read
+        # app.current_organization. Set the GUCs now that org is resolved --
+        # same contract the other hook callers follow (routers/organization.py,
+        # local_init.py). Without this, provisioning a new user fails with
+        # 'unrecognized configuration parameter "app.current_organization"'.
+        set_session_variables(db, str(org.id), "")
+
+        try:
+            user = find_or_create_sso_user(db, auth_user, org, sso_config)
+        except SSOLoginError as e:
+            audit_log(
+                SSOAuditEvent.LOGIN_FAILED,
+                org_id,
+                email=auth_user.email,
+                reason_code=e.reason_code,
+            )
+            return RedirectResponse(url=error_redirect, status_code=302)
+
+        # Create tokens
+        clear_user_logout(str(user.id))
+        session_token = create_session_token(user)
+        refresh_tok = create_refresh_token(db, str(user.id))
+        db.commit()
+
+        # Capture redirect context before session rotation discards it
+        original_frontend = request.session.get("original_frontend", "")
+
+        # Regenerate session (prevents session fixation)
+        regenerate_session(request, {"user_id": str(user.id)})
+        # Restore redirect context for build_redirect_url
+        request.session["return_to"] = state_return_to
+        if original_frontend:
+            request.session["original_frontend"] = original_frontend
+
+        audit_log(
+            SSOAuditEvent.LOGIN_SUCCESS,
+            org_id,
+            email=auth_user.email,
+        )
+
+        redirect_url = await build_redirect_url(request, session_token, refresh_tok)
+        return RedirectResponse(url=redirect_url, status_code=302)
+
+    except Exception:
+        logger.exception(
+            "SSO callback failed for org %s, email %s",
+            org_id,
+            auth_user.email,
+        )
         audit_log(
             SSOAuditEvent.LOGIN_FAILED,
             org_id,
             email=auth_user.email,
-            reason_code=e.reason_code,
+            reason_code="internal_error",
         )
         return RedirectResponse(url=error_redirect, status_code=302)
-
-    # Create tokens
-    clear_user_logout(str(user.id))
-    session_token = create_session_token(user)
-    refresh_tok = create_refresh_token(db, str(user.id))
-    db.commit()
-
-    # Capture redirect context before session rotation discards it
-    original_frontend = request.session.get("original_frontend", "")
-
-    # Regenerate session (prevents session fixation)
-    regenerate_session(request, {"user_id": str(user.id)})
-    # Restore redirect context for build_redirect_url
-    request.session["return_to"] = state_return_to
-    if original_frontend:
-        request.session["original_frontend"] = original_frontend
-
-    audit_log(
-        SSOAuditEvent.LOGIN_SUCCESS,
-        org_id,
-        email=auth_user.email,
-    )
-
-    redirect_url = build_redirect_url(request, session_token, refresh_tok)
-    return RedirectResponse(url=redirect_url, status_code=302)
 
 
 @router.get("/auth/sso/{org_id}")
@@ -384,12 +414,25 @@ class SSOTestResponse(BaseModel):
     message: str
 
 
-async def _require_org_admin(request: Request, org_id: str):
-    """Verify the current user is an admin of the specified org.
+async def _require_org_admin(request: Request, org_id: str, db: Session):
+    """Verify the current user may manage SSO for the specified org.
 
-    Supports both session cookies and Bearer token authentication
-    to work with the frontend API client.
+    Supports both session cookies and Bearer token authentication to work with
+    the frontend API client. Two distinct checks, both required:
+
+    1. **Same-org guard**: the caller's own ``organization_id`` must match the
+       ``org_id`` path parameter. The org-scoped ``sso:manage`` capability
+       (below) is evaluated against the caller's *own* org context — it says
+       nothing about the arbitrary ``org_id`` in this URL — so without this
+       guard an owner of org A could read/overwrite org B's SSO config
+       (including its ``client_secret``) simply by changing the path.
+    2. **Role check** via the RBAC PDP (``Permission.SSO.MANAGE``, owner-only
+       even in EE): defense-in-depth alongside the ``@capability(...)``-driven
+       authz backstop (``apply_authz_backstop`` in ``main.py``) already wired
+       on these routes, kept here so this function is correct standalone.
     """
+    from rhesis.backend.app.auth.principal import resolve_principal_from_request
+    from rhesis.backend.app.auth.rbac import authorize
     from rhesis.backend.app.auth.user_utils import (
         bearer_scheme,
         get_authenticated_user_with_context,
@@ -411,6 +454,13 @@ async def _require_org_admin(request: Request, org_id: str):
             detail="Not authorized to manage this organization's SSO",
         )
 
+    principal = resolve_principal_from_request(user, request)
+    if not authorize(principal, Permission.SSO.MANAGE, project_id=None, db=db):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to manage this organization's SSO",
+        )
+
     return user
 
 
@@ -423,7 +473,7 @@ async def get_sso_config(
 ):
     """Get SSO configuration for an organization (client_secret masked)."""
     # Authorization side-effect; the returned user isn't used in the response body.
-    await _require_org_admin(request, org_id)
+    await _require_org_admin(request, org_id, db)
 
     if not check_sso_available():
         raise HTTPException(
@@ -455,7 +505,7 @@ async def update_sso_config(
     db: Session = Depends(get_db_session),
 ):
     """Set or update SSO configuration for an organization."""
-    user = await _require_org_admin(request, org_id)
+    user = await _require_org_admin(request, org_id, db)
 
     if not check_sso_available():
         raise HTTPException(
@@ -577,7 +627,7 @@ async def delete_sso_config(
     Unlike get/update, delete intentionally works even when SSO encryption
     is unavailable so that admins can always clean up broken configurations.
     """
-    user = await _require_org_admin(request, org_id)
+    user = await _require_org_admin(request, org_id, db)
 
     org = _get_org_or_404(db, org_id)
     org.sso_config = None
@@ -602,7 +652,7 @@ async def test_sso_connection(
 ):
     """Test OIDC discovery for an org's SSO configuration."""
     # Authorization side-effect; the returned user isn't used in the response body.
-    await _require_org_admin(request, org_id)
+    await _require_org_admin(request, org_id, db)
 
     if not check_sso_available():
         return SSOTestResponse(success=False, message="SSO is not available")

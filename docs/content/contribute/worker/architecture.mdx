@@ -2,11 +2,10 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 # Worker Architecture and Dependencies
 
-This document explains the relationships and dependencies between the Rhesis worker system, the backend API, and the SDK components.
+The worker shares code, models, and the database with the backend API, connected through a Redis
+broker.
 
 ## Component Relationships
-
-The Rhesis platform consists of several interrelated components:
 
 <CodeBlock language="text" isTerminal={false}>
 {`┌───────────┐     ┌───────────┐     ┌───────────┐
@@ -93,14 +92,6 @@ CELERY_RESULT_BACKEND=rediss://:password@redis-host:6378/1?ssl_cert_reqs=CERT_NO
 CELERY_WORKER_CONCURRENCY=8
 CELERY_WORKER_PREFETCH_MULTIPLIER=4`}
 </CodeBlock>
-
-### Development Workflow
-
-When developing tasks, you need to:
-
-1. Write code in the backend repository
-2. Ensure both backend and worker containers have access to the latest code
-3. Test tasks using both API-triggered execution and direct worker execution
 
 ## Managing Circular Dependencies
 

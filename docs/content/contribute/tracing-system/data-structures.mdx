@@ -6,9 +6,9 @@ Schemas, database design, and data formats for the tracing system.
 
 ## Span Structure
 
-### OTLP Span Format
+### Canonical Span Schema
 
-Spans sent from SDK to backend follow the OTLP/JSON format:
+Spans sent from SDK to backend follow the shared `OTELSpan` schema (`packages/rhesis/src/rhesis/telemetry/schemas.py`), serialized as JSON:
 
 <CodeBlock filename="Span Payload" language="json">
 {`{
@@ -17,6 +17,7 @@ Spans sent from SDK to backend follow the OTLP/JSON format:
     "parent_span_id": null,
     "project_id": "my-project",
     "environment": "development",
+    "conversation_id": null,
     "span_name": "ai.llm.invoke",
     "span_kind": "CLIENT",
     "start_time": "2024-01-01T00:00:00.000000Z",
@@ -57,6 +58,8 @@ Spans sent from SDK to backend follow the OTLP/JSON format:
 }`}
 </CodeBlock>
 
+`span_name` must match `ai.<domain>.<action>` (domains `chain`, `workflow`, `pipeline` rejected) or `function.<name>`.
+
 ### Test Execution Context
 
 Context attributes added to spans during test execution:
@@ -66,104 +69,106 @@ Context attributes added to spans during test execution:
     "rhesis.test.run_id": "uuid",              # Which test run
     "rhesis.test.id": "uuid",                  # Which test definition
     "rhesis.test.configuration_id": "uuid",    # Which configuration
-    # test_result_id is linked after creation
+    # rhesis.test.result_id is linked after creation
 }`}
 </CodeBlock>
 
 ## Database Schema
 
-### traces Table
+### trace Table
 
-<CodeBlock filename="SQL Schema" language="sql">
-{`CREATE TABLE traces (
-    -- Identity
-    id UUID PRIMARY KEY,
-    trace_id VARCHAR(32) NOT NULL,      -- OTEL trace ID
-    span_id VARCHAR(16) NOT NULL,       -- OTEL span ID
-    parent_span_id VARCHAR(16),
+<CodeBlock filename="SQLAlchemy Model" language="python">
+{`class Trace(Base, EmbeddableMixin, TagsMixin, CommentsMixin, TasksMixin, FilesMixin, ReviewsMixin):
+    __tablename__ = "trace"
 
-    -- Span data
-    span_name VARCHAR(255) NOT NULL,
-    start_time TIMESTAMP WITH TIME ZONE NOT NULL,
-    end_time TIMESTAMP WITH TIME ZONE NOT NULL,
-    duration_ms FLOAT NOT NULL,
-    status_code VARCHAR(50) NOT NULL,
+    # id, nano_id, created_at, updated_at, deleted_at come from Base
 
-    -- Multi-tenancy
-    organization_id UUID NOT NULL REFERENCES organization(id),
-    project_id UUID NOT NULL REFERENCES project(id),
+    trace_id = Column(String(32), nullable=False, index=True)      # OTEL trace ID
+    span_id = Column(String(16), nullable=False, index=True)       # OTEL span ID
+    parent_span_id = Column(String(16), nullable=True, index=True)
 
-    -- Test execution (FKs for linking)
-    test_run_id UUID REFERENCES test_run(id) ON DELETE SET NULL,
-    test_result_id UUID REFERENCES test_result(id) ON DELETE SET NULL,
-    test_id UUID REFERENCES test(id) ON DELETE SET NULL,
+    project_id = Column(GUID(), ForeignKey("project.id", ondelete="CASCADE"), nullable=False, index=True)
+    organization_id = Column(GUID(), nullable=False, index=True)    # not a FK
+    environment = Column(String(50), nullable=False, index=True)
+    conversation_id = Column(String(255), nullable=True)
 
-    -- JSONB columns (flexible schema)
-    attributes JSONB NOT NULL DEFAULT '{}',
-    events JSONB NOT NULL DEFAULT '[]',
-    enriched_data JSONB,                -- Cached enrichment
+    test_run_id = Column(GUID(), ForeignKey("test_run.id", ondelete="SET NULL"), nullable=True, index=True)
+    test_result_id = Column(GUID(), ForeignKey("test_result.id", ondelete="SET NULL"), nullable=True, index=True)
+    test_id = Column(GUID(), ForeignKey("test.id", ondelete="SET NULL"), nullable=True, index=True)
 
-    -- Timestamps
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);`}
+    span_name = Column(String(255), nullable=False, index=True)
+    span_kind = Column(String(20), nullable=False)
+
+    start_time = Column(DateTime(timezone=True), nullable=False, index=True)
+    end_time = Column(DateTime(timezone=True), nullable=False)
+    duration_ms = Column(Float, nullable=False)
+
+    status_code = Column(String(20), nullable=False, index=True)
+    status_message = Column(Text, nullable=True)
+
+    attributes = Column(JSONB, nullable=False, default=dict)
+    events = Column(JSONB, nullable=False, default=list)
+    links = Column(JSONB, nullable=False, default=list)
+    resource = Column(JSONB, nullable=False, default=dict)
+
+    processed_at = Column(DateTime(timezone=True), nullable=True)  # set once enrichment runs
+    enriched_data = Column(JSONB, default=dict)
+
+    trace_metrics = Column(JSONB, nullable=True)                   # LLM-based metric evaluation
+    trace_metrics_status_id = Column(GUID(), ForeignKey("status.id"), nullable=True, index=True)
+    trace_metrics_processed_at = Column(DateTime(timezone=True), nullable=True)
+
+    trace_reviews = Column(JSONB, nullable=True)                   # human review state`}
 </CodeBlock>
 
 ### Column Details
 
 | Column | Type | Description |
 |--------|------|-------------|
-| `id` | UUID | Primary key (internal) |
+| `id` | UUID | Primary key |
 | `trace_id` | VARCHAR(32) | OpenTelemetry trace ID (groups spans) |
 | `span_id` | VARCHAR(16) | OpenTelemetry span ID (unique per span) |
 | `parent_span_id` | VARCHAR(16) | Parent span for hierarchy |
+| `project_id` | UUID | Project isolation, FK with `ON DELETE CASCADE` |
+| `organization_id` | UUID | Multi-tenancy isolation (no FK) |
+| `environment` | VARCHAR(50) | e.g. `development`, `production` |
+| `conversation_id` | VARCHAR(255) | Groups turns of a multi-turn conversation |
+| `test_run_id` / `test_result_id` / `test_id` | UUID | Linked test execution entities |
 | `span_name` | VARCHAR(255) | Operation name (`ai.llm.invoke`) |
-| `start_time` | TIMESTAMP | Span start time |
-| `end_time` | TIMESTAMP | Span end time |
+| `span_kind` | VARCHAR(20) | OTEL span kind (`CLIENT`, `INTERNAL`, ...) |
 | `duration_ms` | FLOAT | Calculated duration |
-| `status_code` | VARCHAR(50) | OK, ERROR, UNSET |
-| `organization_id` | UUID | Multi-tenancy isolation |
-| `project_id` | UUID | Project isolation |
-| `test_run_id` | UUID | Linked test run |
-| `test_result_id` | UUID | Linked test result |
-| `test_id` | UUID | Linked test definition |
-| `attributes` | JSONB | Span attributes |
-| `events` | JSONB | Span events (prompts, completions) |
+| `status_code` | VARCHAR(20) | `OK`, `ERROR`, `UNSET` |
+| `attributes` / `events` / `links` / `resource` | JSONB | Span data |
+| `processed_at` | TIMESTAMP | Set when enrichment last ran; `NULL` triggers re-enrichment |
 | `enriched_data` | JSONB | Cached enrichment results |
+| `trace_metrics` / `trace_metrics_status_id` / `trace_metrics_processed_at` | JSONB / UUID / TIMESTAMP | LLM-based metric evaluation results and status |
+| `trace_reviews` | JSONB | Human review annotations |
 
 ## Indexes
 
 <CodeBlock filename="Critical Indexes" language="sql">
-{`-- Get all spans for a trace (primary query)
-CREATE INDEX idx_trace_trace_id ON traces(trace_id, start_time DESC);
-
--- Test execution queries
-CREATE INDEX idx_trace_test_run ON traces(test_run_id, start_time DESC);
-CREATE INDEX idx_trace_test_result ON traces(test_result_id);
+{`CREATE INDEX idx_trace_trace_id ON trace(trace_id, start_time);       -- get all spans for a trace
+CREATE INDEX idx_trace_project_time ON trace(project_id, start_time DESC);
+CREATE INDEX idx_trace_org_time ON trace(organization_id, start_time DESC);
+CREATE INDEX idx_trace_span_name_time ON trace(span_name, start_time DESC);
+CREATE INDEX idx_trace_environment_time ON trace(environment, start_time DESC);
+CREATE INDEX idx_trace_status_time ON trace(status_code, start_time DESC);
+CREATE INDEX idx_trace_test_run ON trace(test_run_id, start_time DESC);
+CREATE INDEX idx_trace_test_result ON trace(test_result_id);
+CREATE INDEX idx_trace_test ON trace(test_id);
+CREATE INDEX idx_trace_conversation ON trace(conversation_id, start_time DESC);
 
 -- JSONB attribute queries
-CREATE INDEX idx_trace_attributes ON traces USING GIN(attributes jsonb_path_ops);
+CREATE INDEX idx_trace_attributes ON trace USING GIN(attributes jsonb_path_ops);
 
--- Organization/project filtering
-CREATE INDEX idx_trace_org_project ON traces(organization_id, project_id, created_at DESC);
-
--- Status code filtering
-CREATE INDEX idx_trace_status ON traces(status_code, created_at DESC);`}
+-- Partial indexes for background workers scanning unprocessed rows
+CREATE INDEX idx_trace_unprocessed ON trace(created_at) WHERE processed_at IS NULL;
+CREATE INDEX idx_trace_metrics_unprocessed ON trace(created_at) WHERE trace_metrics_processed_at IS NULL;`}
 </CodeBlock>
-
-### Index Usage
-
-| Query | Index Used |
-|-------|------------|
-| Get spans by trace_id | `idx_trace_trace_id` |
-| Get traces for test run | `idx_trace_test_run` |
-| Query by attribute (model, provider) | `idx_trace_attributes` |
-| Filter by organization | `idx_trace_org_project` |
-| Find error traces | `idx_trace_status` |
 
 ## Enrichment Data
 
-The `enriched_data` JSONB column caches computed values:
+The `enriched_data` JSONB column caches computed values (`EnrichedTraceData`, `schemas/enrichment.py`):
 
 <CodeBlock filename="Enrichment Structure" language="json">
 {`{
@@ -173,33 +178,32 @@ The `enriched_data` JSONB column caches computed values:
         "breakdown": [
             {
                 "span_id": "1234567890abcdef",
-                "model": "gpt-4",
-                "tokens_input": 150,
-                "tokens_output": 80,
-                "cost_usd": 0.023,
-                "cost_eur": 0.021
+                "model_name": "gpt-4",
+                "input_tokens": 150,
+                "output_tokens": 80,
+                "total_cost_usd": 0.023,
+                "total_cost_eur": 0.021
             }
         ]
     },
     "anomalies": [
         {
-            "type": "high_latency",
+            "type": "slow_span",
             "span_id": "1234567890abcdef",
-            "threshold_ms": 1000,
-            "actual_ms": 2340,
-            "severity": "warning"
+            "span_name": "ai.llm.invoke",
+            "duration_ms": 12340,
+            "message": "Span took 12.3s (threshold: 10s)"
         }
     ],
-    "metadata": {
-        "models_used": ["gpt-4"],
-        "total_tokens_input": 150,
-        "total_tokens_output": 80,
-        "total_tokens": 230,
+    "metrics": {
+        "total_duration_ms": 12500,
         "span_count": 5,
-        "llm_call_count": 2,
-        "tool_call_count": 1
+        "error_count": 0
     },
-    "enriched_at": "2025-01-01T10:00:00Z"
+    "models_used": ["gpt-4"],
+    "tools_used": ["search"],
+    "operation_types": ["llm.invoke", "tool.invoke"],
+    "root_operation": "ai.llm.invoke"
 }`}
 </CodeBlock>
 
@@ -207,21 +211,19 @@ The `enriched_data` JSONB column caches computed values:
 
 | Field | Description |
 |-------|-------------|
-| `costs.total_cost_usd` | Total cost in USD |
-| `costs.total_cost_eur` | Total cost in EUR |
+| `costs.total_cost_usd` / `total_cost_eur` | Total cost across all LLM spans |
 | `costs.breakdown` | Per-span cost breakdown |
-| `anomalies` | Detected anomalies |
-| `metadata.models_used` | Unique models in trace |
-| `metadata.total_tokens` | Sum of all tokens |
-| `metadata.span_count` | Number of spans |
-| `enriched_at` | Enrichment timestamp |
+| `anomalies` | Detected anomalies: `slow_span` (>10s), `high_token_usage` (>10,000 tokens), `error` |
+| `metrics` | Trace-level duration, span count, error count |
+| `models_used` / `tools_used` / `operation_types` | Unique values seen across the trace's spans |
+| `root_operation` | The root span's `span_name` |
 
 ## Common Query Patterns
 
 ### Get Trace by ID
 
 <CodeBlock filename="Query" language="sql">
-{`SELECT * FROM traces
+{`SELECT * FROM trace
 WHERE trace_id = 'abc123...'
 ORDER BY start_time ASC;
 -- Uses: idx_trace_trace_id`}
@@ -231,7 +233,7 @@ ORDER BY start_time ASC;
 
 <CodeBlock filename="Query" language="sql">
 {`SELECT DISTINCT trace_id, MIN(start_time) as trace_start
-FROM traces
+FROM trace
 WHERE test_run_id = 'uuid'
 GROUP BY trace_id
 ORDER BY trace_start DESC;
@@ -241,7 +243,7 @@ ORDER BY trace_start DESC;
 ### Get LLM Calls with Specific Model
 
 <CodeBlock filename="Query" language="sql">
-{`SELECT * FROM traces
+{`SELECT * FROM trace
 WHERE attributes @> '{"ai.model.name": "gpt-4"}'
   AND project_id = 'uuid'
 ORDER BY created_at DESC;
@@ -252,12 +254,12 @@ ORDER BY created_at DESC;
 
 <CodeBlock filename="Query" language="sql">
 {`SELECT DISTINCT trace_id, span_name, status_code
-FROM traces
+FROM trace
 WHERE status_code = 'ERROR'
   AND project_id = 'uuid'
 ORDER BY created_at DESC
 LIMIT 100;
--- Uses: idx_trace_status`}
+-- Uses: idx_trace_status_time`}
 </CodeBlock>
 
 ### Get High-Cost Traces
@@ -265,8 +267,8 @@ LIMIT 100;
 <CodeBlock filename="Query" language="sql">
 {`SELECT trace_id,
        enriched_data->'costs'->>'total_cost_usd' as cost_usd,
-       enriched_data->'metadata'->>'models_used' as models
-FROM traces
+       enriched_data->>'models_used' as models
+FROM trace
 WHERE enriched_data IS NOT NULL
   AND (enriched_data->'costs'->>'total_cost_usd')::float > 0.10
   AND project_id = 'uuid'
@@ -302,10 +304,10 @@ Content-Type: application/json`}
 
 | Status | Meaning | Action |
 |--------|---------|--------|
-| 200 | Success | Spans ingested |
+| 200 | Success | Spans ingested (post-processing dispatched separately) |
 | 401 | Unauthorized | Check API key |
-| 422 | Validation Error | Fix span names/attributes |
-| 500 | Server Error | Retry with backoff |
+| 422 | Validation error, or no `project_id` could be resolved | Fix span format, or pass a project-scoped token / `X-Project-Id` header |
+| 500 | Server error | Retry with backoff |
 
 ### Validation Errors
 
@@ -316,7 +318,7 @@ Common 422 errors:
     "detail": [
         {
             "loc": ["spans", 0, "span_name"],
-            "msg": "span_name cannot use framework concept 'agent'. Use primitive operations: llm, tool, retrieval, embedding",
+            "msg": "span_name cannot use framework concept 'chain'. Use primitive operations: llm, tool, retrieval, embedding",
             "type": "value_error"
         }
     ]

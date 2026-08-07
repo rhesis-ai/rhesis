@@ -1,7 +1,7 @@
 """Router for Explorer test-tree HTTP endpoints.
 
 Provides views over test set data as explorer trees:
-- List explorer test sets (metadata includes Adaptive Testing behavior)
+- List explorer test sets (flagged via the explorer_row column)
 - Full tree (all nodes including topic markers)
 - Tests only (excludes topic markers)
 - Topics only (hierarchical topic structure)
@@ -11,8 +11,8 @@ import logging
 from typing import List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Query
-from rhesis.backend.app.routers.base import RhesisRouter
+import pydantic
+from fastapi import Body, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -23,28 +23,29 @@ from rhesis.backend.app.dependencies import (
     get_tenant_db_session,
 )
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.explorer import (
     CreateExplorerTestBody,
-    EvaluateFailedItem,
     EvaluateRequest,
     EvaluateResponse,
-    EvaluateResultItem,
     EvaluateSuggestionsRequest,
     ExplorerSettingsResponse,
     ExplorerSettingsUpdate,
+    ExplorerTestSetBulkDeleteRequest,
+    ExplorerTestSetBulkDeleteResponse,
     ExportExplorerTestSetResponse,
-    GenerateOutputsFailedItem,
     GenerateOutputsRequest,
     GenerateOutputsResponse,
-    GenerateOutputsUpdatedItem,
     GenerateSuggestionOutputsRequest,
     GenerateSuggestionsRequest,
     GenerateSuggestionsResponse,
     ImportExplorerTestSetResponse,
-    SuggestedTest,
     SuggestionPipelineRequest,
+    TestTreeNode,
+    TopicNode,
 )
 from rhesis.backend.app.services.explorer import (
+    bulk_delete_explorer_test_sets,
     create_explorer_test_set,
     create_test_node,
     create_topic_node,
@@ -70,7 +71,6 @@ from rhesis.backend.app.services.explorer import (
     update_test_node,
     update_topic_node,
 )
-from rhesis.sdk.adaptive_testing.schemas import TestTreeNode, TopicNode
 
 logger = logging.getLogger(__name__)
 
@@ -136,24 +136,19 @@ def import_explorer_test_set_endpoint(
     """
     organization_id, user_id = tenant_context
     try:
-        result = import_explorer_test_set_from_source(
+        return import_explorer_test_set_from_source(
             db=db,
             source_test_set_identifier=source_test_set_identifier,
             organization_id=str(organization_id),
             user_id=str(user_id),
         )
+    except pydantic.ValidationError:
+        raise
     except ValueError as exc:
         msg = str(exc).lower()
         if "not found" in msg:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-    return ImportExplorerTestSetResponse(
-        test_set=result["test_set"],
-        imported=result["imported"],
-        skipped=result["skipped"],
-        skipped_test_ids=result["skipped_test_ids"],
-    )
 
 
 @router.post(
@@ -170,33 +165,28 @@ def export_regular_test_set_from_explorer_endpoint(
     """Create a new regular test set by exporting from an explorer test set.
 
     Copies tests with prompts; skips topic markers and empty prompts. The new
-    set has no Adaptive Testing behavior or adaptive_settings.
+    set is not flagged as Explorer-owned and has no adaptive_settings.
     """
     organization_id, user_id = tenant_context
     try:
-        result = export_regular_test_set_from_explorer(
+        return export_regular_test_set_from_explorer(
             db=db,
             source_test_set_identifier=source_test_set_identifier,
             organization_id=str(organization_id),
             user_id=str(user_id),
         )
+    except pydantic.ValidationError:
+        raise
     except ValueError as exc:
         msg = str(exc).lower()
         if "not found" in msg:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    return ExportExplorerTestSetResponse(
-        test_set=result["test_set"],
-        exported=result["exported"],
-        skipped=result["skipped"],
-        skipped_test_ids=result["skipped_test_ids"],
-    )
-
 
 @router.get(
     "/",
-    response_model=List[schemas.TestSet],
+    response_model=List[schemas.TestSetDetail],
 )
 def list_explorer_test_sets(
     skip: int = 0,
@@ -209,7 +199,7 @@ def list_explorer_test_sets(
 ):
     """List explorer test sets.
 
-    Returns test sets whose behavior includes Adaptive Testing.
+    Returns test sets flagged as Explorer-owned.
     """
     organization_id, _user_id = tenant_context
     return get_explorer_test_sets(
@@ -219,6 +209,31 @@ def list_explorer_test_sets(
         limit=limit,
         sort_by=sort_by,
         sort_order=sort_order,
+    )
+
+
+@router.delete("/bulk", response_model=ExplorerTestSetBulkDeleteResponse)
+def bulk_delete_explorer_test_sets_endpoint(
+    request: ExplorerTestSetBulkDeleteRequest,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Delete multiple Explorer test sets at once.
+
+    Ids that don't resolve to a test set flagged as Explorer-owned are
+    reported in `not_found_ids` rather than deleted.
+
+    Registered before /{test_set_identifier} below -- FastAPI matches routes
+    in registration order, so a literal /bulk path must come first or the
+    identifier-shaped route would swallow it (treating "bulk" as an identifier).
+    """
+    organization_id, user_id = tenant_context
+    return bulk_delete_explorer_test_sets(
+        db=db,
+        test_set_ids=request.test_set_ids,
+        organization_id=str(organization_id),
+        user_id=str(user_id),
     )
 
 
@@ -234,8 +249,8 @@ def delete_explorer_test_set_endpoint(
 ):
     """Delete a test set configured for Explorer.
 
-    Only test sets that include the Adaptive Testing behavior can be removed
-    through this endpoint.
+    Only test sets flagged as Explorer-owned can be removed through this
+    endpoint.
     """
     organization_id, user_id = tenant_context
     try:
@@ -538,41 +553,9 @@ def create_explorer_test(
         labeler=body.labeler,
         label=body.label or "",
         model_score=body.model_score,
+        generate_embedding=body.generate_embedding,
+        current_user=current_user,
     )
-
-    if body.generate_embedding:
-        try:
-            from rhesis.backend.app.services.explorer.embeddings import (
-                create_test_embedding,
-                generate_embedding_vector,
-                load_test_for_embedding,
-            )
-
-            db_test = load_test_for_embedding(db, node.id, str(organization_id))
-            if not db_test:
-                logger.warning(
-                    "Explorer test embedding skipped: Test row not found after create "
-                    "(test_id=%s, organization_id=%s)",
-                    node.id,
-                    organization_id,
-                )
-            else:
-                text = db_test.to_searchable_text()
-                vector = generate_embedding_vector(text, db, str(user_id))
-                stored = create_test_embedding(db, db_test, vector, current_user)
-                if stored is None:
-                    logger.warning(
-                        "Explorer test embedding not persisted (test_id=%s); "
-                        "see earlier create_test_embedding logs for the reason",
-                        node.id,
-                    )
-        except Exception as e:
-            logger.warning(
-                "Explorer test embedding skipped after create (test_id=%s): %s",
-                node.id,
-                e,
-                exc_info=True,
-            )
 
     return node
 
@@ -681,7 +664,7 @@ async def generate_outputs(
             test_set=db_test_set,
             request_endpoint_id=body.endpoint_id,
         )
-        result = await generate_outputs_for_tests(
+        return await generate_outputs_for_tests(
             db=db,
             test_set_identifier=test_set_identifier,
             endpoint_id=endpoint_id,
@@ -692,24 +675,13 @@ async def generate_outputs(
             include_subtopics=body.include_subtopics,
             overwrite=body.overwrite,
         )
+    except pydantic.ValidationError:
+        raise
     except ValueError as e:
         msg = str(e).lower()
         if "no endpoint specified" in msg:
             raise HTTPException(status_code=400, detail=str(e))
         raise HTTPException(status_code=404, detail=str(e))
-
-    return GenerateOutputsResponse(
-        generated=result["generated"],
-        skipped=result["skipped"],
-        failed=[
-            GenerateOutputsFailedItem(test_id=f["test_id"], error=f["error"])
-            for f in result["failed"]
-        ],
-        updated=[
-            GenerateOutputsUpdatedItem(test_id=u["test_id"], output=u["output"])
-            for u in result["updated"]
-        ],
-    )
 
 
 @router.post(
@@ -738,7 +710,7 @@ async def evaluate_tests(
             organization_id=str(organization_id),
             request_metric_names=body.metric_names,
         )
-        result = await evaluate_tests_for_explorer_set(
+        return await evaluate_tests_for_explorer_set(
             db=db,
             test_set_identifier=test_set_identifier,
             organization_id=str(organization_id),
@@ -749,6 +721,8 @@ async def evaluate_tests(
             include_subtopics=body.include_subtopics,
             overwrite=body.overwrite,
         )
+    except pydantic.ValidationError:
+        raise
     except ValueError as e:
         msg = str(e).lower()
         if "no metrics specified" in msg:
@@ -756,24 +730,6 @@ async def evaluate_tests(
         if "metric" in msg and "does not exist" in msg:
             raise HTTPException(status_code=400, detail=str(e))
         raise HTTPException(status_code=404, detail=str(e))
-
-    return EvaluateResponse(
-        evaluated=result["evaluated"],
-        skipped=result["skipped"],
-        results=[
-            EvaluateResultItem(
-                test_id=r["test_id"],
-                label=r["label"],
-                labeler=r["labeler"],
-                model_score=r["model_score"],
-                metrics=r.get("metrics"),
-            )
-            for r in result["results"]
-        ],
-        failed=[
-            EvaluateFailedItem(test_id=f["test_id"], error=f["error"]) for f in result["failed"]
-        ],
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -800,7 +756,7 @@ async def generate_suggestions_endpoint(
     """
     organization_id, user_id = tenant_context
     try:
-        result = await generate_suggestions(
+        return await generate_suggestions(
             db=db,
             test_set_identifier=test_set_identifier,
             organization_id=str(organization_id),
@@ -811,19 +767,16 @@ async def generate_suggestions_endpoint(
             user_feedback=body.user_feedback,
             generate_embeddings=body.generate_embeddings,
         )
+    except pydantic.ValidationError:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-
-    return GenerateSuggestionsResponse(
-        suggestions=[SuggestedTest(**s) for s in result["suggestions"]],
-        num_examples_used=result["num_examples_used"],
-    )
 
 
 @router.post(
     "/{test_set_identifier}/generate_suggestion_outputs",
 )
-async def generate_suggestion_outputs_endpoint(
+def generate_suggestion_outputs_endpoint(
     test_set_identifier: str,
     body: GenerateSuggestionOutputsRequest,
     db: Session = Depends(get_tenant_db_session),
@@ -871,7 +824,7 @@ async def generate_suggestion_outputs_endpoint(
 @router.post(
     "/{test_set_identifier}/suggestion_pipeline",
 )
-async def suggestion_pipeline_endpoint(
+def suggestion_pipeline_endpoint(
     test_set_identifier: str,
     body: SuggestionPipelineRequest,
     db: Session = Depends(get_tenant_db_session),
@@ -931,7 +884,7 @@ async def suggestion_pipeline_endpoint(
 @router.post(
     "/{test_set_identifier}/evaluate_suggestions",
 )
-async def evaluate_suggestions_endpoint(
+def evaluate_suggestions_endpoint(
     test_set_identifier: str,
     body: EvaluateSuggestionsRequest,
     db: Session = Depends(get_tenant_db_session),

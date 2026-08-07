@@ -168,11 +168,9 @@ const makeTestSet = (id: UUID, name = 'Test Set'): TestSet => ({
   is_published: false,
   name,
   description: 'A test set',
-  owner: { id: 'u1', name: 'Alice', email: 'alice@example.com' },
   tags: [],
   counts: { comments: 0, tasks: 0 },
   created_at: '2024-01-01T00:00:00Z',
-  updated_at: '2024-01-01T00:00:00Z',
 });
 
 const makePaginatedResponse = <T,>(data: T[], total?: number) => ({
@@ -199,14 +197,28 @@ async function waitForGrid() {
 describe('TestSetsGrid', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    // Default: fetch returns empty so tests that don't care about rows stay fast
-    mockGetTestSets.mockResolvedValue(makePaginatedResponse([]));
+    // Default: one row, so tests that don't care about emptiness exercise the
+    // populated (grid) branch rather than the empty-state branch.
+    mockGetTestSets.mockResolvedValue(
+      makePaginatedResponse([
+        makeTestSet('00000000-0000-0000-0000-000000000000' as UUID),
+      ])
+    );
   });
 
-  it('shows loading state while fetching', () => {
+  it('shows a loading state while the first fetch is in flight', () => {
     mockGetTestSets.mockReturnValue(new Promise(() => {}));
     render(<TestSetsGrid />);
-    expect(screen.getByTestId('grid-loading')).toBeInTheDocument();
+    expect(screen.getByRole('progressbar')).toBeInTheDocument();
+    expect(screen.queryByTestId('base-data-grid')).not.toBeInTheDocument();
+  });
+
+  it('renders the empty state directly, without ever mounting the grid, when there are zero test sets', async () => {
+    mockGetTestSets.mockResolvedValue(makePaginatedResponse([]));
+    render(<TestSetsGrid />);
+    expect(await screen.findByText('No test sets yet')).toBeInTheDocument();
+    expect(screen.queryByTestId('base-data-grid')).not.toBeInTheDocument();
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
   });
 
   it('renders rows returned by the fetch', async () => {

@@ -6,7 +6,8 @@ from contextlib import ExitStack
 from typing import Any, Dict, List, Optional, Type
 
 from sqlalchemy import inspect
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.exc import InvalidRequestError
+from sqlalchemy.orm import Session, joinedload, with_parent
 from sqlalchemy.orm.attributes import flag_modified
 
 from rhesis.backend.app import crud, models
@@ -434,44 +435,6 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> Dict[s
                 user_id=user_id,
                 commit=False,
             )
-
-        # Process dimensions
-        print("Processing dimensions...")
-        for item in initial_data.get("dimension", []):
-            get_or_create_entity(
-                db=db,
-                model=models.Dimension,
-                entity_data={"name": item["name"], "description": item["description"]},
-                organization_id=organization_id,
-                user_id=user_id,
-                commit=False,
-            )
-
-        # Process demographics
-        print("Processing demographics...")
-        for item in initial_data.get("demographic", []):
-            item_copy = item.copy()  # Don't modify original data
-            dimension_name = item_copy.pop("dimension", None)
-            demographic = get_or_create_entity(
-                db=db,
-                model=models.Demographic,
-                entity_data=item_copy,
-                organization_id=organization_id,
-                user_id=user_id,
-                commit=False,
-            )
-            if dimension_name:
-                dimension = (
-                    db.query(models.Dimension)
-                    .filter(
-                        models.Dimension.name == dimension_name,
-                        models.Dimension.organization_id == uuid.UUID(organization_id),
-                    )
-                    .first()
-                )
-                if dimension:
-                    demographic.dimension_id = dimension.id
-                    db.flush()
 
         # Process topics
         print("Processing topics...")
@@ -1251,6 +1214,25 @@ def _sort_models_by_dependencies(models: List[Type]) -> List[Type]:
     return sorted_models
 
 
+def _load_relationship_via_core(db: Session, entity, rel):
+    """Fetch a relationship's related row(s) via an explicit top-level query,
+    instead of the implicit lazy-load triggered by plain attribute access --
+    see the call site in _get_nested_entities for why this fallback exists.
+
+    Uses with_parent() rather than rel.local_remote_pairs so that relationships
+    with extra primaryjoin predicates (polymorphic entity_type discriminators,
+    soft-delete filters) are honored, not just the FK-equality part of the join.
+    """
+    target_model = rel.mapper.class_
+    rows = (
+        QueryBuilder(db, target_model)
+        .build()
+        .filter(with_parent(entity, getattr(entity.__class__, rel.key)))
+        .all()
+    )
+    return rows if rel.uselist else (rows[0] if rows else None)
+
+
 def _get_nested_entities(db: Session, entity, organization_id: str, visited=None) -> List:
     """
     Recursively get all nested entities for a given entity.
@@ -1285,8 +1267,10 @@ def _get_nested_entities(db: Session, entity, organization_id: str, visited=None
         if rel.mapper.class_.__name__ in ["User", "Organization"]:
             continue
 
-        # Get the related attribute
-        related = getattr(entity, rel_name)
+        try:
+            related = getattr(entity, rel_name)
+        except InvalidRequestError:
+            related = _load_relationship_via_core(db, entity, rel)
 
         # Handle collections (one-to-many)
         if rel.uselist:
@@ -1660,8 +1644,6 @@ def rollback_initial_data(db: Session, organization_id: str, user_id: str | None
                 "Metric": 2,
                 "UseCase": 2,
                 "Risk": 2,
-                "Demographic": 3,
-                "Dimension": 4,
                 "TestSet": 5,
                 "Endpoint": 5,
                 "Project": 6,

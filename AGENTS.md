@@ -4,6 +4,17 @@ Read natively by Cursor and imported by Claude Code (`CLAUDE.md` → `@AGENTS.md
 rules that apply repo-wide. Scoped rules live in each area's own `AGENTS.md`:
 `apps/backend/AGENTS.md`, `apps/frontend/AGENTS.md`, `sdk/AGENTS.md`, `docs/AGENTS.md`.
 
+## Answering
+
+Write answers in simple, plain language. Short sentences, everyday words. Say what you did and what
+it means — skip the buildup.
+
+Technical terms are fine when they're the real name for something: codebase names
+(`bind_scope_to_session`, test set, affordances), everyday dev words (endpoint, migration, fixture,
+race condition), and framework/infra terms (GUC, RLS policy, `ContextVar`, Celery worker). Avoid
+abstract engineering-speak that carries no information — "leverage the abstraction", "surface area",
+"idiomatic", "orthogonal concerns", "non-trivial", "first-class citizen".
+
 ## Technology Stack
 
 Backend and Python SDK: Python 3.10+, `uv` with `pyproject.toml`, Pydantic 2.x, pytest.
@@ -14,19 +25,6 @@ Backend and Python SDK: Python 3.10+, `uv` with `pyproject.toml`, Pydantic 2.x, 
   `apps/backend/`). Use `uv add <package>` to install deps, `uv run <script>` to run scripts.
 - Use GitHub CLI (`gh`) whenever possible. If a GitHub link is pasted, open it with `gh`.
 
-## Python Code Quality (Ruff)
-
-Run ruff **only before pushing** (before `git push` or opening a PR), not after every file change:
-
-```bash
-uvx ruff check <path/to/file.py>
-uvx ruff format <path/to/file.py>
-uvx ruff check <path/to/file.py>   # verify
-```
-
-Max line length: 100 characters. Fix E501 by breaking long strings/f-strings/function calls across
-lines.
-
 ## Testing
 
 Tests live in `tests/backend/` and `tests/sdk/`, not next to source. See `apps/backend/AGENTS.md`
@@ -35,6 +33,10 @@ requirements).
 
 ## Git Commits
 
+- **Never commit, push, or open a PR without asking first.** Show what changed, then wait for the
+  user to say go. An approved plan that mentions commits is not the confirmation — ask again when
+  the code is actually ready. This includes every follow-up commit on a branch or PR that's already
+  open — a prior push is not standing approval for the next one, even a small fix.
 - **Never commit on `main`.** Check `git branch --show-current` first; if on `main`, create a
   branch before committing: `git fetch origin && git checkout main && git pull origin main &&
 git checkout -b feature/short-description`.
@@ -47,49 +49,8 @@ git checkout -b feature/short-description`.
   - `BREAKING CHANGE:` in the footer for breaking changes
   - Example: `fix(backend): resolve timeout issue in user endpoint`
 
-## Pull Requests
+## Task-specific workflows
 
-- **Small PRs, one logical change each.** Ideal 1-200 lines, acceptable 200-400, break down 400+.
-- Branch from latest `main`: `git fetch origin && git checkout main && git pull origin main &&
-git checkout -b feature/your-feature-name`.
-- Title: action verb first (Add/Fix/Update/Remove), under 72 characters.
-- Description must include these sections:
-
-  ```markdown
-  ## Purpose
-
-  [Explain why this change is needed]
-
-  ## What Changed
-
-  - [Key change 1]
-
-  ## Additional Context
-
-  - [Links to issues, tickets, breaking changes]
-
-  ## Testing
-
-  [How to test these changes]
-  ```
-
-## GitHub Issues
-
-1. Use GitHub CLI (`gh issue create`) with the appropriate template (Bug, Feature, Task) from
-   `.github/ISSUE_TEMPLATE`.
-2. List labels with `gh label list` and pick from that list — don't add issue-type labels
-   (bug/feature/task).
-3. Keep issues short; trim template sections that don't apply.
-4. Ask the user for confirmation before creating.
-
-## Playground Scripts (`playground/`, when present)
-
-Ad-hoc scripts for manual testing/prototyping — not part of the production codebase or automated
-test suite. They import from the SDK, so run them from `sdk/`:
-
-```bash
-cd sdk && uv run python ../playground/<script_name>.py
-```
-
-Each script needs a top docstring (purpose, prerequisites, how to run). Hardcoded local URLs/keys
-are fine. Never add these scripts to the automated test suite.
+Opening a pull request, filing a GitHub issue, writing playground scripts, and linting Python each
+have their own skill — invoke `pull-request`, `github-issue`, `playground-script`, or
+`python-linting` when doing that task.

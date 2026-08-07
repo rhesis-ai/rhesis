@@ -7,6 +7,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-08-06
+
+### Added
+
+- **Usage Dashboard:** Introduced a dedicated, top-level Usage page (`/organizations/usage`) to track resource consumption.
+  - **Resources Tab:** Displays a real-time snapshot of metered resources (e.g., test runs, tracing spans, model tokens) against plan limits for the current billing period.
+  - **Timeline Tab:** Visualizes historical usage trends over 3, 6, or 12 months using interactive line charts powered by `@mui/x-charts`.
+  - **Access Control:** Gated the Usage page behind a new `usage:read` capability, restricting access to Organization Admins and Owners.
+- **Summarize FAB:** Added a "Summarize" Floating Action Button (FAB) on the test run detail page to quickly initiate a pre-seeded summary session in Architect.
+- **Explorer Session Creator:** Added a "Creator" column featuring user avatars to the Explorer sessions grid.
+- **Viewport Scaling:** Implemented a responsive viewport scaling ladder (using CSS zoom) for laptop-width screens (1024px to 1400px) and compacted sidebar spacing on shorter viewports to prevent layout cutoff.
+
+### Changed
+
+- **Login & Auth Pages:** Redesigned the authentication and login screens to align with the design system, including self-hosted Geist fonts and automatic browser color scheme detection.
+- **Server-Driven Pagination:** Migrated the Metrics and Behaviors directories to server-driven pagination and initial-load prefetching, replacing full-page loading spinners with smoother inline progress indicators.
+- **Playground Auto-Selection:** The Playground now automatically pre-selects the active endpoint if the organization has exactly one endpoint configured.
+- **Performance Optimizations:** Seeded core bootstrap data (projects, settings, quick-start) directly into server-rendered props to eliminate duplicate client-side API fetches on page load.
+- **Insights Integration:** Refactored the Insights page and Test Run Stats tab to query directly from the flattened `/insights/query` and batch endpoints, improving load times.
+
+### Fixed
+
+- **Explorer Session Deletion:** Aligned Explorer session deletion with other entity grids, adding single-row actions, bulk delete capabilities, and cascading deletion of associated tests.
+- **Explorer Stability:** Resolved 504 gateway timeouts on slow LLM calls during Explorer suggestion pipelines and fixed a UI hang when streams stalled.
+- **Onboarding Timeout:** Increased the BFF proxy timeout for initial data loading to prevent 504 errors during new organization signup.
+- **Project Creation Gating:** Hidden "Create Project" actions and forms from users lacking the `project:create` capability, replacing them with appropriate administrator contact prompts.
+- **Test Result Drawer UX:** Fixed several UI bugs in the test result drawer, including clipped mention suggestions, shifting input borders, and unexpected tab switching during conversation reviews.
+- **Endpoint Project Field:** Made the project field read-only in the endpoint edit card to reflect that endpoints cannot be moved between projects.
+- **Provider Picker:** Updated the provider picker to display "Azure AI Foundry" instead of the outdated "Azure AI Studio" name.
+- **Security & Dependency Bumps:** Addressed multiple security vulnerabilities by upgrading `next`, `next-auth`, and transitive npm dependencies. Fixed Turbopack module-evaluation crashes by optimizing MUI imports.
+
+### Removed
+
+- Removed unused `BaseLineChart` and `BaseChartsGrid` components (recharts dependency).
+- Cleaned up unused types, schemas, and dead fields across frontend components.
+
+## [0.11.0] - 2026-07-23
+
+### Added
+
+- **Annotations Review Hub**: Introduced a new human review interface in the "Improve" section, featuring list views, search, filtering, resolution actions, and deep-linking to test results and traces.
+- **JSON-Aware Rendering**: Added structured JSON rendering (`JsonPreview`) with Markdown fallbacks in the test result drawer (overview and conversation tabs) and the Playground.
+- Insights summarization via the Architect (Telemachus) agent.
+- App version is now shown in the support drawer.
+- Time range and test run filters on the Insights page.
+- Linked Tests on behaviors, and a fixed behavior filter list.
+
+### Changed
+
+- Removed the deprecated `@mui/lab` dependency.
+- Decluttered Tests, Test Sets, and Define/Generate docs.
+
+### Fixed
+
+- Fixed grid loading/empty-state flicker.
+- Allowed owners and admins to re-run test runs.
+- Preserved evaluation step fields when adding a new step.
+- Fixed drawer icons forced to body color.
+- Fixed AND logic for multiple Tests drawer filters.
+- Fixed search on the filtered Tests list.
+- Fixed backend and E2E test failures introduced in v0.10.0.
+
 ## [0.10.0] - 2026-07-09
 
 ### Added

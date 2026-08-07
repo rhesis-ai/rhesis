@@ -1,0 +1,67 @@
+# Lets the "license-ci-prd" GCP service account run one-off Kubernetes Jobs
+# in this namespace on behalf of rhesis-ee's license-issue.yml workflow. That
+# workflow issues signed license tokens by running the EE licensing CLI as a
+# Job here instead of a Cloud Run Job, because this namespace's Postgres
+# (CloudNativePG, Service "rhesis-prd-rw") only resolves via cluster-internal
+# DNS -- Cloud Run cannot reach it.
+#
+# The workflow reaches this cluster via GKE Connect Gateway (see
+# terraform/infrastructure/modules/connect-gateway/gcp), not a VPN or a
+# self-hosted runner -- Connect Gateway proxies the call over HTTPS using the
+# GCP IAM identity's credentials, and GKE maps that identity onto this
+# RoleBinding's "User" subject by email. license-ci-prd is a dedicated
+# service account created by that module specifically for this purpose --
+# not terraform-prd, which holds roles/editor + iam.securityAdmin +
+# resourcemanager.projectIamAdmin on the whole project and would be far too
+# powerful an identity for a different repo's CI workflow to hold a static
+# key for.
+#
+# Blast-radius note: "create Jobs" implicitly allows a Job's pod spec to
+# mount any Secret already in this namespace (rhesis-app-secrets included) --
+# Kubernetes RBAC has no way to grant Job-creation without that. The real
+# access boundary is who can dispatch license-issue.yml in the private
+# rhesis-ee repo, not this Role -- for prd, that's gated by required
+# reviewer approval on the "prd" GitHub Environment (see license-issue.yml).
+#
+# secrets: split into two rules because resourceNames silently blocks
+# "create" -- K8s RBAC checks the resource name at admission time, and a
+# create request has no name to match, so the verb never fires. The
+# unrestricted create rule lets the workflow create the signing Secret
+# under any name (harmless -- the namespace is already the blast radius);
+# get/update/patch/delete are scoped to the one Secret it actually manages.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: license-issuer
+  namespace: rhesis
+rules:
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["create", "get", "list", "watch", "delete"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["create"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: ["license-issue-signing"]
+    verbs: ["get", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: license-issuer
+  namespace: rhesis
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: license-issuer
+subjects:
+  - kind: User
+    name: license-ci-prd@rhesis-prd.iam.gserviceaccount.com
+    apiGroup: rbac.authorization.k8s.io

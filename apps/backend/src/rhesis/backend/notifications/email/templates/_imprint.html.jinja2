@@ -1,12 +1,19 @@
-{#- Reusable imprint footer for all email templates -#}
-<div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #e9ecef; font-size: 0.8em; color: #868e96;">
-    <p style="margin: 0; line-height: 1.4;">
-        <strong>Rhesis AI GmbH</strong><br>
-        August-Bebel-Str. 89<br>
-        14482 Potsdam, Germany<br>
-        Managing Director: Dr. Nicolai Bohn<br>
-        Registered at: HRB 39358 Potsdam<br>
-        VAT No.: DE368312944<br>
-        E-Mail: <a href="mailto:hello@rhesis.ai" style="color: #6c757d;">hello@rhesis.ai</a>
-    </p>
-</div>
+{#- Legal imprint. Included by _base.html.jinja2, so templates get it for free.
+    The rule above it is separated from the sign-off by the signoff block's own
+    bottom padding — spacing above a border has to come from the preceding
+    cell, not from this one. -#}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width: 100%;">
+    <tr>
+        <td class="sm-px" style="padding: 26px 0 0 0; border-top: 1px solid {{ brand.color.border }};">
+            <p class="unstyled-auto-detected" style="margin: 0; font-family: {{ brand.font.sans }}; font-size: {{ brand.type.small }}px; font-weight: 400; line-height: 1.7; color: {{ brand.color.muted }};">
+                <span style="font-weight: 700; color: {{ brand.color.heading }};">Rhesis AI GmbH</span><br>
+                August-Bebel-Str. 89<br>
+                14482 Potsdam, Germany<br>
+                Managing Director: Dr. Nicolai Bohn<br>
+                Registered at: HRB 39358 Potsdam<br>
+                VAT No.: DE368312944<br>
+                E-Mail: <a href="mailto:hello@rhesis.ai" style="color: {{ brand.color.muted }}; text-decoration: none;">hello@rhesis.ai</a>
+            </p>
+        </td>
+    </tr>
+</table>

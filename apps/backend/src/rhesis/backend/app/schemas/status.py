@@ -24,3 +24,8 @@ class StatusUpdate(StatusBase):
 
 class Status(StatusBase):
     pass
+
+
+class StatusDetail(Status):
+    id: UUID4
+    name: Optional[str] = None

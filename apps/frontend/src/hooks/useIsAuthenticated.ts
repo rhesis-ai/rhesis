@@ -39,3 +39,24 @@ export function useIsAuthenticated(): boolean {
   const { status } = useSession();
   return isAuthenticated(status);
 }
+
+/**
+ * The `session.user.id`-based cache-scope key used by every context that
+ * scopes a react-query cache/`QueryClient` entry by user (`FeaturesContext`,
+ * `PermissionsContext`, `OnboardingContext`, `ActiveProjectContext`) — the
+ * access token no longer reaches client components (BFF proxy injects it
+ * server-side), so it can't double as a scope key here anymore.
+ *
+ * Falls back to `''` when the id isn't known yet (session still resolving,
+ * or unauthenticated). Callers MUST additionally gate on
+ * `isAuthenticated(status) && userScope !== ''` — a shared query `enabled`
+ * check or effect guard — before using this as a query key or passing it to
+ * `fetchQuery`/`setQueryData`. Centralized here so every consumer derives it
+ * identically instead of re-deriving `session?.user?.id ?? ''` inline, which
+ * previously invited call sites to gate on `isAuthenticated(status)` alone
+ * and skip the `userScope` emptiness check.
+ */
+export function useUserScope(): string {
+  const { data: session } = useSession();
+  return session?.user?.id ?? '';
+}

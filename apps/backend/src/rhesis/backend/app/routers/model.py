@@ -2,8 +2,7 @@ import logging
 import uuid
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from rhesis.backend.app.routers.base import RhesisRouter
+from fastapi import Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
@@ -13,21 +12,19 @@ from rhesis.backend.app.dependencies import (
     get_tenant_db_session,
 )
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.model import (
     ModelRead,
     TestModelConnectionRequest,
     TestModelConnectionResponse,
 )
 from rhesis.backend.app.services.model_connection import ModelConnectionService
+from rhesis.backend.app.services.platform_key import annotate_model_availability
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
-from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 from rhesis.sdk.models.factory import get_available_embedding_models, get_available_language_models
 
 logger = logging.getLogger(__name__)
-
-# Create the detailed schema for Model (uses ModelRead to exclude API key from responses)
-ModelDetailSchema = create_detailed_schema(ModelRead, models.Model)
 
 router = RhesisRouter(
     prefix="/models",
@@ -105,12 +102,10 @@ async def test_model_connection_endpoint(
     return TestModelConnectionResponse(
         success=result.success,
         message=result.message,
-        provider=result.provider,
-        model_name=result.model_name,
     )
 
 
-@router.get("/", response_model=List[ModelDetailSchema])
+@router.get("/", response_model=List[schemas.ModelDetail])
 @with_count_header(model=models.Model)
 def read_models(
     response: Response,
@@ -125,7 +120,7 @@ def read_models(
 ):
     """Get all models with their related objects"""
     organization_id, user_id = tenant_context
-    return crud.get_models(
+    db_models = crud.get_models(
         db=db,
         skip=skip,
         limit=limit,
@@ -135,9 +130,11 @@ def read_models(
         organization_id=organization_id,
         user_id=user_id,
     )
+    annotate_model_availability(db, organization_id, db_models)
+    return db_models
 
 
-@router.get("/{model_id}", response_model=ModelDetailSchema)
+@router.get("/{model_id}", response_model=schemas.ModelDetail)
 def read_model(
     model_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),
@@ -152,6 +149,7 @@ def read_model(
     db_model = get_item_detail(db, models.Model, model_id, organization_id, user_id)
     if db_model is None:
         raise HTTPException(status_code=404, detail="Model not found")
+    annotate_model_availability(db, organization_id, [db_model])
     return db_model
 
 

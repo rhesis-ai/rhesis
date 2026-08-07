@@ -56,9 +56,20 @@ const nextConfig = {
   // Source maps: enable in prod for debugging, faster option in dev
   productionBrowserSourceMaps: isProd,
 
-  // Note: optimizePackageImports is no longer needed here because the heavy
-  // barrel-export libraries (@mui/material, @mui/icons-material, lucide-react,
-  // date-fns, recharts, etc.) are already optimized by Next.js by default.
+  // Next.js already modularizes the app's own barrel imports for the heavy
+  // libraries (@mui/material, @mui/icons-material, lucide-react, date-fns,
+  // recharts, …) via its default optimizePackageImports list. But that default
+  // does NOT reach the barrel imports inside our transpilePackages workspace
+  // package @rhesis/ee-frontend, so its `import { X } from '@mui/material'`
+  // still pulls in the full CJS barrel. Under Turbopack that barrel eagerly
+  // evaluates @mui/material/useMediaQuery, whose CJS→ESM interop of
+  // `unstable_createUseMediaQuery` breaks in MUI v7.3.x — crashing the whole
+  // app at module-eval time (see mui/material-ui#46688). Listing the packages
+  // explicitly forces the barrel-to-deep-import rewrite for the transpiled EE
+  // sources too, sidestepping the eager useMediaQuery evaluation.
+  experimental: {
+    optimizePackageImports: ['@mui/material', '@mui/icons-material'],
+  },
 
   // Environment variables available to the client
   // NEXT_PUBLIC_ prefix guarantees availability in client components
@@ -84,6 +95,8 @@ const nextConfig = {
   // into .next/routes-manifest.json at build time and cannot be overridden
   // by runtime environment variables.
 
+  skipTrailingSlashRedirect: true,
+
   // Development-specific: configure on-demand entries to reduce caching
   ...(isDev && {
     onDemandEntries: {
@@ -106,9 +119,18 @@ const nextConfig = {
   // `import`/`export` syntax unparsed for any test that imports it without
   // mocking it out. next/jest derives its transform-ignore allowlist from
   // this array (see next/dist/build/jest/jest.js), so it must be listed
-  // here, not in jest.config.js's transformIgnorePatterns — that option can
-  // only add more exclusions, never un-ignore what this array controls.
-  transpilePackages: ['@rhesis/ee-frontend', 'next-auth', '@auth/core'],
+  // here as well as there: next/jest turns this array into one pattern and
+  // jest.config.js's own pattern is a second, and a file is ignored if either
+  // matches, so an ESM-only dep must be allowed by both to get transformed.
+  // flatqueue is the same situation, reached transitively from @mui/x-charts
+  // (used by the usage history charts): ESM-only, so any test rendering a
+  // chart fails to parse it unless it is listed in both places.
+  transpilePackages: [
+    '@rhesis/ee-frontend',
+    'next-auth',
+    '@auth/core',
+    'flatqueue',
+  ],
 
   // embedding-atlas pulls in Mosaic/DuckDB WASM; keep it off the server bundle.
   // Do not also list these in transpilePackages — Turbopack rejects that conflict.

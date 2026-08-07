@@ -25,10 +25,6 @@ import {
   chunkBehaviorColumns,
   isBehaviorRowExpandable,
 } from '../utils/behavior-insights-utils';
-import {
-  filterColumnsByBehaviorIds,
-  InsightsBehaviorOption,
-} from '../utils/insights-filter-utils';
 import { useBehaviorInsightsData } from '../hooks/useBehaviorInsightsData';
 import InsightsEmptyState from './InsightsEmptyState';
 import { resolveInsightsPageView } from '../utils/insights-page-view';
@@ -73,34 +69,17 @@ export default function InsightsPage() {
   const {
     summary,
     columns,
-    failedTestCaseCount,
+    behaviorOptions,
     loading: insightsLoading,
     error,
     noRuns,
   } = useBehaviorInsightsData(filters, !permsLoading && canRead);
 
-  const behaviorOptions = useMemo<InsightsBehaviorOption[]>(
-    () =>
-      columns.map(column => ({
-        id: column.id,
-        name: column.name,
-        count: column.overall.total,
-      })),
-    [columns]
-  );
-
-  const behaviorFilteredColumns = useMemo(
-    () => filterColumnsByBehaviorIds(columns, filters.behaviorIds),
-    [columns, filters.behaviorIds]
-  );
-
   const filteredColumns = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
-    if (!query) return behaviorFilteredColumns;
-    return behaviorFilteredColumns.filter(column =>
-      column.name.toLowerCase().includes(query)
-    );
-  }, [behaviorFilteredColumns, searchQuery]);
+    if (!query) return columns;
+    return columns.filter(column => column.name.toLowerCase().includes(query));
+  }, [columns, searchQuery]);
 
   const columnRows = useMemo(
     () => chunkBehaviorColumns(filteredColumns),
@@ -123,6 +102,7 @@ export default function InsightsPage() {
     filters.timeRange,
     filters.testRunIds,
     filters.behaviorIds,
+    filters.statusIds,
     expandableRowIndices,
   ]);
 
@@ -195,10 +175,7 @@ export default function InsightsPage() {
     [filteredColumns]
   );
 
-  const fabLoading =
-    endpointsLoading ||
-    insightsLoading ||
-    (failedTestCaseCount === null && (summary?.failed ?? 0) > 0);
+  const fabLoading = endpointsLoading || insightsLoading;
 
   const pageView = resolveInsightsPageView({
     endpointsLoading,
@@ -239,7 +216,7 @@ export default function InsightsPage() {
           />
           <InsightsFailedTestsFab
             filters={filters}
-            failedCount={failedTestCaseCount ?? 0}
+            failedCount={summary?.failed ?? 0}
             loading={fabLoading}
             disabled={projectEndpoints.length === 0}
           />
@@ -299,7 +276,6 @@ export default function InsightsPage() {
               insights={{
                 summary,
                 columns: filteredColumns,
-                failedTestCaseCount,
                 loading: insightsLoading,
                 error,
                 noRuns,

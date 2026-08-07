@@ -283,6 +283,10 @@ infrastructure/config/service-secrets-file.json
 # Terraform variables
 infrastructure/scripts/*/*.tfvars
 
+# db-connect.sh environment naming (project IDs, contexts, secret/db names)
+infrastructure/scripts/db-connect.env
+!infrastructure/scripts/db-connect.env.example
+
 # Terraform local files
 **/.terraform/*
 .terraform/

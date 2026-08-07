@@ -9,10 +9,10 @@ import { signIn } from 'next-auth/react';
 import { getClientApiBaseUrl } from '@/utils/url-resolver';
 import { DEFAULT_AUTHENTICATED_PATH } from '@/constants/paths';
 import AuthPageShell from '@/components/auth/AuthPageShell';
-
-const BUTTON_HOVER = '#3aabcf'; // Intentional: auth form button hover
+import { useAuthStyles } from '@/components/auth/useAuthStyles';
 
 export default function VerifyEmailPage() {
+  const { heading, primaryButton } = useAuthStyles();
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
 
@@ -75,15 +75,7 @@ export default function VerifyEmailPage() {
       {status === 'success' && (
         <>
           <CheckCircleIcon sx={{ fontSize: 48, color: 'success.main' }} />
-          <Typography
-            sx={{
-              fontSize: 24,
-              fontWeight: 700,
-              color: 'secondary.dark',
-              textAlign: 'center',
-              letterSpacing: '-0.02em',
-            }}
-          >
+          <Typography sx={{ ...heading, textAlign: 'center' }}>
             Email verified!
           </Typography>
           <Typography variant="body2" color="text.secondary" align="center">
@@ -93,16 +85,7 @@ export default function VerifyEmailPage() {
             variant="contained"
             href={DEFAULT_AUTHENTICATED_PATH}
             fullWidth
-            sx={{
-              mt: 1,
-              height: 46,
-              borderRadius: '10px', // Intentional: button border radius
-              bgcolor: 'primary.main',
-              '&:hover': {
-                bgcolor: BUTTON_HOVER,
-                boxShadow: '0 4px 12px rgba(80,185,224,0.3)', // Intentional: button hover glow
-              },
-            }}
+            sx={{ ...primaryButton, mt: 1 }}
           >
             Go back to app
           </Button>
@@ -112,15 +95,7 @@ export default function VerifyEmailPage() {
       {status === 'error' && (
         <>
           <ErrorOutlineIcon sx={{ fontSize: 48, color: 'error.main' }} />
-          <Typography
-            sx={{
-              fontSize: 24,
-              fontWeight: 700,
-              color: 'secondary.dark',
-              textAlign: 'center',
-              letterSpacing: '-0.02em',
-            }}
-          >
+          <Typography sx={{ ...heading, textAlign: 'center' }}>
             Verification failed
           </Typography>
           <Alert severity="error" sx={{ width: '100%' }}>

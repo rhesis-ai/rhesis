@@ -5,15 +5,8 @@ import { TestTypeValue } from '@/constants/test-types';
 
 // ── Analyze (Step 1) ──────────────────────────────────────────────
 
-export interface FileInfo {
-  filename: string;
-  format: string;
-  size_bytes: number;
-}
-
 export interface AnalyzeResponse {
   import_id: string;
-  file_info: FileInfo;
   headers: string[];
   sample_rows: Record<string, unknown>[];
   suggested_mapping: Record<string, string>;
@@ -33,12 +26,9 @@ export interface ValidationSummary {
   valid_rows: number;
   error_count: number;
   warning_count: number;
-  error_types: Record<string, number>;
 }
 
 export interface ValidationError {
-  type: string;
-  field: string;
   message: string;
 }
 
@@ -63,8 +53,6 @@ export interface ParseResponse {
   preview: PreviewPage;
   /** Present when the file content looks like a different test type than the user selected. */
   test_type_warning?: string | null;
-  /** The test type detected from the file content (may differ from what the user selected). */
-  detected_test_type?: string | null;
 }
 
 // ── Confirm (Step 3) ──────────────────────────────────────────────
@@ -78,8 +66,6 @@ export interface ConfirmRequest {
 export interface ConfirmResponse {
   id: string;
   name: string;
-  description?: string;
-  short_description?: string;
 }
 
 // ── Re-map ────────────────────────────────────────────────────────
@@ -89,11 +75,4 @@ export interface RemapResponse {
   confidence: number;
   llm_available: boolean;
   message?: string;
-}
-
-// ── Cancel ────────────────────────────────────────────────────────
-
-export interface CancelResponse {
-  status: string;
-  import_id: string;
 }

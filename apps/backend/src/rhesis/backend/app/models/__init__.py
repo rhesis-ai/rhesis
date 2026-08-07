@@ -6,8 +6,6 @@ from .behavior import Behavior
 from .category import Category
 from .chunk import Chunk
 from .comment import Comment
-from .demographic import Demographic
-from .dimension import Dimension
 from .embedding import Embedding
 from .endpoint import Endpoint
 from .experiment import Experiment
@@ -47,6 +45,7 @@ from .tool import Tool
 from .topic import Topic
 from .trace import Trace
 from .type_lookup import TypeLookup
+from .usage import Usage
 from .use_case import UseCase
 from .user import User
 
@@ -81,8 +80,6 @@ __all__ = [
     "Status",
     "Source",
     "Topic",
-    "Demographic",
-    "Dimension",
     "TestRun",
     "TypeLookup",
     "Tag",
@@ -104,6 +101,7 @@ __all__ = [
     "test_set_metric_association",
     "TestRunStatsView",
     "TestResultStatsView",
+    "Usage",
 ]
 
 # Set up soft delete event listener

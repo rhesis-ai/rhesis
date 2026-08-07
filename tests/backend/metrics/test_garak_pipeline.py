@@ -382,7 +382,7 @@ class TestEvaluateSingleTurnGarakNotes:
         output = {"response": "safe response", "metadata": None, "tool_calls": None}
 
         await _evaluate_single_turn_metrics(
-            ctx, mock_evaluator, mock_test, output, "test prompt", ""
+            ctx, mock_evaluator, mock_test, output, "test prompt", "", ctx.metric_configs
         )
 
         mock_evaluator.a_evaluate.assert_called_once()
@@ -414,7 +414,7 @@ class TestEvaluateSingleTurnGarakNotes:
         output = {"response": "safe", "metadata": None, "tool_calls": None}
 
         await _evaluate_single_turn_metrics(
-            ctx, mock_evaluator, mock_test, output, "test", ""
+            ctx, mock_evaluator, mock_test, output, "test", "", ctx.metric_configs
         )
 
         call_kwargs = mock_evaluator.a_evaluate.call_args
@@ -442,7 +442,7 @@ class TestEvaluateSingleTurnGarakNotes:
         output = {"response": "safe", "metadata": None, "tool_calls": None}
 
         await _evaluate_single_turn_metrics(
-            ctx, mock_evaluator, mock_test, output, "test", ""
+            ctx, mock_evaluator, mock_test, output, "test", "", ctx.metric_configs
         )
 
         call_kwargs = mock_evaluator.a_evaluate.call_args

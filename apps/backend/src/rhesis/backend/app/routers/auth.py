@@ -57,6 +57,7 @@ from rhesis.backend.app.auth.user_utils import (
 from rhesis.backend.app.config.settings import (
     get_application_settings,
     get_frontend_settings,
+    get_telemetry_settings,
 )
 from rhesis.backend.app.dependencies import (
     get_db_session,
@@ -74,7 +75,6 @@ from rhesis.backend.app.utils.rate_limit import (
 )
 from rhesis.backend.app.utils.redact import redact_email
 from rhesis.backend.telemetry import (
-    is_telemetry_enabled,
     set_telemetry_enabled,
     track_user_activity,
 )
@@ -273,7 +273,7 @@ def _resolve_org_by_id_or_slug(db: Session, org: str):
 
 
 @router.get("/providers", response_model=ProvidersResponse)
-async def get_providers(
+def get_providers(
     request: Request,
     org: Optional[str] = None,
     db: Session = Depends(get_db_session),
@@ -324,7 +324,7 @@ async def get_providers(
 
 @router.get("/terms-status", response_model=TermsStatusResponse)
 @limiter.limit(AUTH_TERMS_STATUS_LIMIT)
-async def get_terms_status(
+def get_terms_status(
     request: Request,
     current_user: User = Depends(require_current_user_or_token_without_context),
 ):
@@ -345,7 +345,7 @@ async def get_terms_status(
 
 
 @router.post("/accept-terms")
-async def accept_terms(
+def accept_terms(
     db: Session = Depends(get_db_session),
     current_user: User = Depends(require_current_user_or_token_without_context),
 ):
@@ -477,7 +477,7 @@ async def auth_callback(request: Request, db: Session = Depends(get_db_session))
         request.session["return_to"] = return_to
 
         # Track login activity
-        if is_telemetry_enabled():
+        if get_telemetry_settings().is_telemetry_enabled:
             set_telemetry_enabled(
                 enabled=True,
                 user_id=str(user.id),
@@ -553,7 +553,7 @@ async def login_with_email(
         auth_code = await create_auth_code(access_token, refresh_tok)
 
         # Track login activity
-        if is_telemetry_enabled():
+        if get_telemetry_settings().is_telemetry_enabled:
             set_telemetry_enabled(
                 enabled=True,
                 user_id=str(user.id),
@@ -666,7 +666,7 @@ async def register_with_email(
             logger.warning(f"Failed to send verification email: {email_err}")
 
         # Track registration activity
-        if is_telemetry_enabled():
+        if get_telemetry_settings().is_telemetry_enabled:
             set_telemetry_enabled(
                 enabled=True,
                 user_id=str(user.id),
@@ -746,7 +746,7 @@ async def verify_email(
 
 @router.post("/resend-verification")
 @limiter.limit(AUTH_RESEND_VERIFICATION_LIMIT)
-async def resend_verification(
+def resend_verification(
     request: Request,
     body: ResendVerificationRequest,
     db: Session = Depends(get_db_session),
@@ -787,7 +787,7 @@ async def resend_verification(
 
 @router.post("/forgot-password")
 @limiter.limit(AUTH_FORGOT_PASSWORD_LIMIT)
-async def forgot_password(
+def forgot_password(
     request: Request,
     body: ForgotPasswordRequest,
     db: Session = Depends(get_db_session),
@@ -898,7 +898,7 @@ _MAGIC_LINK_SUCCESS_RESPONSE = {
 
 @router.post("/magic-link")
 @limiter.limit(AUTH_MAGIC_LINK_LIMIT)
-async def request_magic_link(
+def request_magic_link(
     request: Request,
     body: MagicLinkRequest,
     db: Session = Depends(get_db_session),
@@ -1023,7 +1023,7 @@ async def verify_magic_link(
     auth_code = await create_auth_code(access_token, refresh_tok)
 
     # Track login activity
-    if is_telemetry_enabled():
+    if get_telemetry_settings().is_telemetry_enabled:
         set_telemetry_enabled(
             enabled=True,
             user_id=str(user.id),
@@ -1091,7 +1091,7 @@ def _refresh_invalid() -> HTTPException:
 
 
 @router.post("/refresh")
-async def refresh_tokens(
+def refresh_tokens(
     body: RefreshTokenRequest,
     request: Request,
     db: Session = Depends(get_db_session),
@@ -1222,7 +1222,7 @@ async def refresh_tokens(
 
 
 @router.get("/logout")
-async def logout(
+def logout(
     request: Request,
     post_logout: bool = False,
     session_token: str = None,
@@ -1273,7 +1273,7 @@ async def logout(
                         logger.warning("Failed to bust permission cache on logout: %s", cache_err)
 
                 # Track logout activity
-                if is_telemetry_enabled():
+                if get_telemetry_settings().is_telemetry_enabled:
                     org_id = user_info.get("organization_id")
                     set_telemetry_enabled(
                         enabled=True,
@@ -1325,7 +1325,7 @@ async def logout(
 
 
 @router.post("/verify")
-async def verify_auth(
+def verify_auth(
     request: Request,
     body: VerifyTokenRequest,
     secret_key: str = Depends(get_secret_key),
@@ -1430,7 +1430,7 @@ async def local_login(request: Request, db: Session = Depends(get_db_session)):
             redact_email(user.email),
         )
 
-        if is_telemetry_enabled():
+        if get_telemetry_settings().is_telemetry_enabled:
             set_telemetry_enabled(
                 enabled=True,
                 user_id=str(user.id),

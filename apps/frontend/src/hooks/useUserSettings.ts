@@ -5,24 +5,25 @@ import { useSession } from 'next-auth/react';
 import { userSettingsKeys } from '@/constants/query-keys';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { UserSettings } from '@/utils/api-client/interfaces/user';
-import { isAuthenticated as checkIsAuthenticated } from '@/hooks/useIsAuthenticated';
+import {
+  isAuthenticated as checkIsAuthenticated,
+  useUserScope,
+} from '@/hooks/useIsAuthenticated';
 
 /**
  * Cached current-user settings from GET /users/settings.
  *
- * Scoped by user id (falling back to the session token) so the cache never
- * bleeds across login/logout or user switches, matching the pattern used by
- * `featureKeys`/`permissionKeys`.
+ * Scoped by user id so the cache never bleeds across login/logout or user
+ * switches, matching the pattern used by `featureKeys`/`permissionKeys`.
  */
 export function useUserSettings(enabled = true) {
-  const { data: session, status } = useSession();
-  const isAuthenticated = checkIsAuthenticated(status);
-  const userScope = session?.user?.id ?? '';
+  const { status } = useSession();
+  const userScope = useUserScope();
 
   return useQuery<UserSettings>({
     queryKey: userSettingsKeys.all(userScope),
     queryFn: () => new ApiClientFactory().getUsersClient().getUserSettings(),
-    enabled: enabled && isAuthenticated,
+    enabled: enabled && checkIsAuthenticated(status) && !!userScope,
     staleTime: 5 * 60_000,
   });
 }

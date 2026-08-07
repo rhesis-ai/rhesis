@@ -9,12 +9,13 @@ import LoginSection from '../components/auth/LoginSection';
 import AuthPageShell from '../components/auth/AuthPageShell';
 import { getClientApiBaseUrl } from '../utils/url-resolver';
 import RocketLaunchIcon from '@mui/icons-material/RocketLaunchOutlined';
-import { fetchQuickStartEnabled } from '@/utils/quick_start';
+import { useQuickStart } from '@/contexts/QuickStartContext';
 import {
   isAuthenticated,
   isSessionLoading,
   isSessionUnauthenticated,
 } from '@/hooks/useIsAuthenticated';
+import { scaledVh } from '@/styles/viewport-scaling';
 
 export default function LandingPage() {
   const { data: session, status } = useSession();
@@ -24,27 +25,10 @@ export default function LandingPage() {
     boolean | null
   >(null);
   const [autoLoggingIn, setAutoLoggingIn] = useState(false);
-  const [isQuickStartMode, setIsQuickStartMode] = useState(false);
-  const [quickStartLoaded, setQuickStartLoaded] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    fetchQuickStartEnabled().then(enabled => {
-      if (!cancelled) {
-        setIsQuickStartMode(enabled);
-        setQuickStartLoaded(true);
-      }
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const isQuickStartMode = useQuickStart();
 
   useEffect(() => {
     if (
-      quickStartLoaded &&
       isQuickStartMode &&
       isSessionUnauthenticated(status) &&
       !autoLoggingIn
@@ -80,7 +64,7 @@ export default function LandingPage() {
           });
       }
     }
-  }, [quickStartLoaded, isQuickStartMode, status, autoLoggingIn]);
+  }, [isQuickStartMode, status, autoLoggingIn]);
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -142,7 +126,7 @@ export default function LandingPage() {
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
-          height: '100vh',
+          height: scaledVh(),
           flexDirection: 'column',
           gap: 2,
         }}
@@ -169,7 +153,7 @@ export default function LandingPage() {
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
-          height: '100vh',
+          height: scaledVh(),
           flexDirection: 'column',
           gap: 2,
         }}

@@ -1,9 +1,7 @@
 import { useMDXComponents as getThemeComponents } from 'nextra-theme-docs'
 import { Callout, Steps } from 'nextra/components'
 import { Mermaid } from './components/MermaidWrapper'
-import { FeatureOverview } from './components/FeatureOverview'
 import { ArchitectureOverview } from './components/ArchitectureOverview'
-import { IndustryExamples } from './components/IndustryExamples'
 import { CommunitySupport } from './components/CommunitySupport'
 import { CodeBlock } from './components/CodeBlock'
 import { ButtonGroup } from './components/ButtonGroup'
@@ -31,9 +29,7 @@ export function useMDXComponents(components) {
     // Add Mermaid component for diagram rendering
     Mermaid,
     // Add custom Rhesis components
-    FeatureOverview,
     ArchitectureOverview,
-    IndustryExamples,
     CommunitySupport,
     CodeBlock,
     ButtonGroup,

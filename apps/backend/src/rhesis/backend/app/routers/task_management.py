@@ -9,7 +9,7 @@ from rhesis.backend.app.auth.capabilities import Permission
 from rhesis.backend.app.auth.principal import resolve_principal_from_request
 from rhesis.backend.app.auth.rbac import authorize_object, project_id_from_scope
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
-from rhesis.backend.app.config.settings import get_frontend_settings
+from rhesis.backend.app.config.settings import get_frontend_settings, get_telemetry_settings
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
@@ -18,17 +18,12 @@ from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.services.task_management import validate_task_organization_constraints
 from rhesis.backend.app.services.task_notification import send_task_assignment_notification
 from rhesis.backend.app.utils.decorators import with_count_header
-from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 from rhesis.backend.telemetry import (
-    is_telemetry_enabled,
     set_telemetry_enabled,
     track_feature_usage,
 )
 
 logger = logging.getLogger(__name__)
-
-# Create the detailed schema for Task
-TaskDetailSchema = create_detailed_schema(schemas.Task, models.Task)
 
 
 router = RhesisRouter(
@@ -49,7 +44,7 @@ def create_task(
     """Create a new task"""
     try:
         # Set telemetry context for this request (if telemetry is enabled)
-        if is_telemetry_enabled() and current_user:
+        if get_telemetry_settings().is_telemetry_enabled and current_user:
             set_telemetry_enabled(
                 enabled=True,
                 user_id=str(current_user.id) if current_user.id else None,
@@ -95,7 +90,7 @@ def create_task(
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
-@router.get("/", response_model=list[TaskDetailSchema])
+@router.get("/", response_model=list[schemas.TaskDetail])
 @with_count_header(model=models.Task)
 def list_tasks(
     skip: int = 0,
@@ -125,7 +120,7 @@ def list_tasks(
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
-@router.get("/{task_id}", response_model=TaskDetailSchema)
+@router.get("/{task_id}", response_model=schemas.TaskDetail)
 def get_task(
     task_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),
@@ -143,7 +138,7 @@ def get_task(
     return task
 
 
-@router.get("/{entity_type}/{entity_id}", response_model=list[TaskDetailSchema])
+@router.get("/{entity_type}/{entity_id}", response_model=list[schemas.TaskDetail])
 @with_count_header(model=models.Task)
 def get_tasks_by_entity(
     entity_type: str,
@@ -188,7 +183,7 @@ def update_task(
     """Update a task"""
     try:
         # Set telemetry context for this request (if telemetry is enabled)
-        if is_telemetry_enabled() and current_user:
+        if get_telemetry_settings().is_telemetry_enabled and current_user:
             set_telemetry_enabled(
                 enabled=True,
                 user_id=str(current_user.id) if current_user.id else None,

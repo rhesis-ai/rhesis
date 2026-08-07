@@ -41,6 +41,7 @@ import dagre from 'dagre';
 import { SpanNode } from '@/utils/api-client/interfaces/telemetry';
 import PsychologyIcon from '@mui/icons-material/Psychology';
 import BuildIcon from '@mui/icons-material/Build';
+import { scaledVh } from '@/styles/viewport-scaling';
 
 interface SpanGraphViewProps {
   spans: SpanNode[];
@@ -1596,7 +1597,7 @@ export default function SpanGraphView({
       sx={{
         width: '100%',
         height: '100%',
-        minHeight: isFullscreen ? '100vh' : theme.spacing(50),
+        minHeight: isFullscreen ? scaledVh() : theme.spacing(50),
         display: 'flex',
         flexDirection: 'column',
         '& .react-flow__attribution': {

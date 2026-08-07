@@ -19,7 +19,13 @@ from rhesis.backend.app.main import app
 
 @pytest.fixture
 def client(test_db):
-    """🌐 FastAPI test client with test database."""
+    """🌐 FastAPI test client with test database.
+
+    ``test_db`` itself patches the auth-resolution path's direct ``get_db()``
+    calls (see ``fixtures/database.py:patch_auth_get_db``) to share this same
+    session, so requests made through this client see the session's writes
+    consistently, including under savepoint isolation.
+    """
 
     # Create override function that uses the same session as test fixtures
     def override_get_db():
@@ -41,15 +47,35 @@ def client(test_db):
 @pytest.fixture
 def authenticated_client(client, rhesis_api_key):
     """🔑 FastAPI test client with authentication headers."""
-    masked_key = f"{rhesis_api_key[:3]}...{rhesis_api_key[-4:]}" if rhesis_api_key else None
-    print(f"🔍 DEBUG: Setting Authorization header with API key: {masked_key}")
     client.headers.update({"Authorization": f"Bearer {rhesis_api_key}"})
-    # Mask the authorization header in debug output
-    headers_debug = dict(client.headers)
-    if "authorization" in headers_debug:
-        headers_debug["authorization"] = "***"
-    print(f"🔍 DEBUG: Client headers now include: {headers_debug}")
     return client
+
+
+@pytest.fixture
+def real_commit_client(real_commit_test_db):
+    """🌐 FastAPI test client backed by ``real_commit_test_db``.
+
+    Same DI-override wiring as ``client``, but bound to a session that really
+    commits. Needed only by tests whose code under test opens a genuinely
+    separate connection that no in-process patch can reach — e.g. a CLI
+    entrypoint that calls ``SessionLocal()`` directly (see
+    ``real_commit_test_db``'s docstring). The auth-resolution path itself no
+    longer needs this split (``real_commit_test_db`` patches it too) — most
+    tests should use ``owner_client``/``client`` rather than reach for this
+    directly.
+    """
+
+    def override_get_db():
+        yield real_commit_test_db
+
+    app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_db_session] = override_get_db
+    app.dependency_overrides[get_tenant_db_session] = override_get_db
+
+    with TestClient(app) as test_client:
+        yield test_client
+
+    app.dependency_overrides.clear()
 
 
 @pytest.fixture
@@ -76,11 +102,9 @@ def owner_client(test_db, client):
         test_db, test_org_name, test_user_email, test_user_name
     )
 
-    # Commit so the token is visible to the auth middleware, which uses a
-    # fresh get_db() connection rather than the overridden test_db session.
-    test_db.commit()
-
-    # Set auth header
+    # No real commit needed: client's user_utils.get_db patch (see above)
+    # means the auth-resolution path shares this same savepoint-scoped
+    # session, so it sees the new token without a real commit.
     client.headers.update({"Authorization": f"Bearer {token.token}"})
 
     return client

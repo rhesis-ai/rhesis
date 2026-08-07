@@ -22,16 +22,10 @@ from rhesis.backend.app.utils.execution_validation import (
     validate_execution_model,
 )
 from rhesis.backend.app.utils.odata import apply_select
-from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 from rhesis.backend.tasks import task_launcher
 from rhesis.backend.tasks.enums import RunStatus
 from rhesis.backend.tasks.execution.run import create_test_run, update_test_run_status
 from rhesis.backend.tasks.test_configuration import execute_test_configuration
-
-# Create the detailed schema for TestConfiguration
-TestConfigurationDetailSchema = create_detailed_schema(
-    schemas.TestConfiguration, models.TestConfiguration
-)
 
 router = RhesisRouter(
     prefix="/test_configurations",
@@ -72,7 +66,7 @@ def create_test_configuration(
     )
 
 
-@router.get("/", response_model=list[TestConfigurationDetailSchema])
+@router.get("/", response_model=list[schemas.TestConfigurationDetail])
 @with_count_header(model=models.TestConfiguration)
 def read_test_configurations(
     response: Response,
@@ -108,7 +102,7 @@ def read_test_configurations(
     return results
 
 
-@router.get("/{test_configuration_id}", response_model=TestConfigurationDetailSchema)
+@router.get("/{test_configuration_id}", response_model=schemas.TestConfigurationDetail)
 def read_test_configuration(
     test_configuration_id: UUID,
     db: Session = Depends(get_tenant_db_session),

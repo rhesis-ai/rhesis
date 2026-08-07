@@ -261,32 +261,26 @@ class TestOrganizationStandardRoutes(OrganizationTestMixin, BaseEntityRouteTests
         return response.json()
 
     def _get_authenticated_user_id(self) -> str | None:
-        """Get the authenticated user ID from the API key, similar to authenticated_user fixture"""
-        import os
+        """Get the authenticated user ID backing every `authenticated_client` call.
 
-        from rhesis.backend.app import crud
-        from rhesis.backend.app.database import SessionLocal
+        Reads it straight from the session-auth cache (populated once by
+        `create_session_authentication()` and never mutated afterward)
+        instead of the previous `os.getenv("RHESIS_API_KEY")` + a raw
+        `SessionLocal()` lookup. That lookup only succeeded if the env var
+        still happened to point at the live session-auth token at the exact
+        moment this ran — order-dependent across the whole suite (some other
+        module sets an unrelated fallback value at collection time; if a test
+        here ran while that was still in place, this returned None and every
+        test that creates an Organization silently skipped for the rest of
+        the run). The cache lookup is deterministic regardless of test order
+        or parallel execution.
+        """
+        from tests.backend.fixtures import auth as _auth
 
-        api_key = os.getenv("RHESIS_API_KEY")
-        if not api_key:
+        if _auth._session_auth_cache is None:
             return None
-
-        # Use a temporary database session to look up the user
-        with SessionLocal() as db:
-            try:
-                # Get token from database using the API key value
-                token = crud.get_token_by_value(db, api_key)
-                if not token:
-                    return None
-
-                # Get user from the token's user_id
-                user = crud.get_user_by_id(db, token.user_id)
-                if not user:
-                    return None
-
-                return str(user.id)
-            except Exception:
-                return None
+        _, user_id, _ = _auth._session_auth_cache
+        return user_id
 
 
 # === ORGANIZATION-SPECIFIC TESTS (Enhanced with Factories) ===

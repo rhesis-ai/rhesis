@@ -1,9 +1,5 @@
 import { TestRun } from '@/utils/api-client/interfaces/test-run';
-import {
-  DEFAULT_INSIGHTS_TIME_RANGE,
-  InsightsFilters,
-  InsightsRunFilterMode,
-} from '../types';
+import { DEFAULT_INSIGHTS_TIME_RANGE, InsightsFilters } from '../types';
 
 export interface InsightsBehaviorOption {
   id: string;
@@ -11,34 +7,24 @@ export interface InsightsBehaviorOption {
   count: number;
 }
 
-/** Empty selection means all behaviors are visible. */
-export function isBehaviorFilterActive(behaviorIds: string[]): boolean {
-  return behaviorIds.length > 0;
-}
-
-export function filterColumnsByBehaviorIds<T extends { id: string }>(
-  columns: T[],
-  behaviorIds: string[]
-): T[] {
-  if (behaviorIds.length === 0) {
-    return columns;
-  }
-  const allowed = new Set(behaviorIds);
-  return columns.filter(column => allowed.has(column.id));
-}
-
-export function checkedBehaviorIdsFromFilter(
+/**
+ * Test runs: an optional narrowing *within* the time range (see
+ * `InsightsTimeRangeFilterSection`) -- empty selection always falls back to
+ * "every run in the window", both when unset and when explicitly unchecked
+ * down to zero. There's no distinct "explicitly zero runs" state here.
+ */
+export function checkedIdsFromFilter(
   allIds: string[],
-  behaviorIds: string[]
+  selectedIds: string[]
 ): string[] {
-  if (behaviorIds.length === 0) {
+  if (selectedIds.length === 0) {
     return allIds;
   }
-  const allowed = new Set(behaviorIds);
+  const allowed = new Set(selectedIds);
   return allIds.filter(id => allowed.has(id));
 }
 
-export function behaviorIdsFromCheckedSelection(
+export function idsFromCheckedSelection(
   allIds: string[],
   checkedIds: string[]
 ): string[] {
@@ -48,42 +34,45 @@ export function behaviorIdsFromCheckedSelection(
   return checkedIds;
 }
 
+/**
+ * Behaviors/statuses: a "hide/exclude" toggle over `allIds`, where
+ * unchecking everything is a real, meaningful state (show nothing) --
+ * distinct from having never touched the filter (show everything). `null`
+ * carries that "unset" meaning so it isn't confused with the explicit `[]`.
+ */
+export function checkedIdsFromOptionalFilter(
+  allIds: string[],
+  selectedIds: string[] | null
+): string[] {
+  if (selectedIds === null) {
+    return allIds;
+  }
+  const allowed = new Set(selectedIds);
+  return allIds.filter(id => allowed.has(id));
+}
+
+/** Checking everything collapses to "no filter" (null); any other count is kept as-is, including zero. */
+export function idsFromCheckedSelectionOptional(
+  allIds: string[],
+  checkedIds: string[]
+): string[] | null {
+  if (checkedIds.length === allIds.length) {
+    return null;
+  }
+  return checkedIds;
+}
+
+export function isOptionalFilterActive(ids: string[] | null): boolean {
+  return ids !== null;
+}
+
 export function isRunFilterActive(
-  filters: Pick<InsightsFilters, 'runFilterMode' | 'timeRange' | 'testRunIds'>
+  filters: Pick<InsightsFilters, 'timeRange' | 'testRunIds'>
 ): boolean {
-  // Test-runs mode is always a non-default scope (including empty
-  // testRunIds = "all runs"), even when the allowlist is empty.
-  if (filters.runFilterMode === 'testRuns') {
-    return true;
-  }
-  return filters.timeRange !== DEFAULT_INSIGHTS_TIME_RANGE;
-}
-
-export function countActiveInsightsFilters(input: {
-  endpointId: string;
-  behaviorIds: string[];
-  runFilterMode: InsightsRunFilterMode;
-  timeRange: InsightsFilters['timeRange'];
-  testRunIds: string[];
-}): number {
-  let count = input.endpointId ? 1 : 0;
-  if (isBehaviorFilterActive(input.behaviorIds)) {
-    count += 1;
-  }
-  if (isRunFilterActive(input)) {
-    count += 1;
-  }
-  return count;
-}
-
-export function hasActiveInsightsFilters(input: {
-  endpointId: string;
-  behaviorIds: string[];
-  runFilterMode: InsightsRunFilterMode;
-  timeRange: InsightsFilters['timeRange'];
-  testRunIds: string[];
-}): boolean {
-  return countActiveInsightsFilters(input) > 0;
+  return (
+    filters.timeRange !== DEFAULT_INSIGHTS_TIME_RANGE ||
+    filters.testRunIds.length > 0
+  );
 }
 
 export interface InsightsTestRunOption {
@@ -106,28 +95,4 @@ export function formatInsightsTestRunLabel(
     minute: '2-digit',
   });
   return `${name} · ${date}`;
-}
-
-export function checkedTestRunIdsFromFilter(
-  allIds: string[],
-  filters: Pick<InsightsFilters, 'runFilterMode' | 'testRunIds'>
-): string[] {
-  if (filters.runFilterMode !== 'testRuns') {
-    return [];
-  }
-  if (filters.testRunIds.length === 0) {
-    return allIds;
-  }
-  const allowed = new Set(filters.testRunIds);
-  return allIds.filter(id => allowed.has(id));
-}
-
-export function testRunIdsFromCheckedSelection(
-  allIds: string[],
-  checkedIds: string[]
-): string[] {
-  if (checkedIds.length === 0 || checkedIds.length === allIds.length) {
-    return [];
-  }
-  return checkedIds;
 }

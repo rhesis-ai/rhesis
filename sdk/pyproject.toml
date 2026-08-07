@@ -1,6 +1,6 @@
 [project]
 name = "rhesis-sdk"
-version = "0.10.0"
+version = "0.12.0"
 description = "SDK for testing and validating LLM applications"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -40,29 +40,21 @@ dependencies = [
     "deepteam>=0.2.5",
     "langchain-google-genai>=2.1.12",
     "ragas>=0.3.7,<0.4",
-    "mcp==1.26.0",
+    "mcp>=1.28.1",
     "websockets>=12.0",
-    "ipython>=8.37.0",
-    "ipykernel>=7.1.0",
     "rhesis[telemetry]",
     "aiohttp>=3.14.1",
-    "aiohttp_security",
-    "aiohttp_session",
-    "appdirs",
     "cryptography>=48.0.1",
-    "pillow>=12.1.1",
+    "pillow>=12.3.0",
     "marshmallow>=3.26.2",
     "mammoth>=1.11.0",
-    # NOTE: diskcache has unsafe pickle deserialization (CVE-2025-69872).
-    # No patch available. Ensure only trusted data is cached.
-    "diskcache",
-    "nest_asyncio",
-    "numpy",
-    "scikit-learn",
     "torch",
     "jsonfinder>=0.4.2",
     "chonkie>=1.6.1",
     "pdfminer.six>=20231228",
+    # NOTE: diskcache is still installed transitively via ragas and has unsafe
+    # pickle deserialization (CVE-2025-69872). No patch available. Ensure only
+    # trusted data is cached.
 ]
 
 [project.license]
@@ -205,8 +197,8 @@ include = [
     "src/rhesis/sdk/synthesizers/assets/*.jinja",
 ]
 
-[tool.hatch.build.targets.wheel.force-include]
-"../skills/rhesis/references" = "src/rhesis/sdk/agents/architect/prompt_templates/skill_refs"
+[tool.hatch.build.hooks.custom]
+path = "hatch_build.py"
 
 [tool.hatch.metadata]
 allow-direct-references = true
@@ -214,15 +206,15 @@ allow-direct-references = true
 [tool.uv]
 exclude-newer = "1 week"
 # Allow newer versions for packages with recent security patches (CVEs).
-exclude-newer-package = { jupyter-server = false, mistune = false, notebook = false, pydantic-settings = false, langsmith = false, langchain = false, langchain-core = false, litellm = false, aiohttp = false, tornado = false, starlette = false, pyjwt = false, pyarrow = false, bleach = false, cryptography = false, python-multipart = false, jupyterlab = false }
+exclude-newer-package = { jupyter-server = false, mistune = false, notebook = false, pydantic-settings = false, langsmith = false, langchain = false, langchain-core = false, litellm = false, aiohttp = false, tornado = false, starlette = false, pyjwt = false, pyarrow = false, bleach = false, cryptography = false, python-multipart = false, jupyterlab = false, gitpython = false }
 constraint-dependencies = [
     "tornado>=6.5.7",
-    "pyasn1>=0.6.3",
+    "pyasn1>=0.6.4",
     "orjson>=3.11.7",
     "langchain-openai>=1.1.14",
-    "gitpython>=3.1.50",
-    "mistune>=3.2.1",
-    "jupyterlab>=4.5.9",
+    "gitpython>=3.1.52",
+    "mistune>=3.3.0",
+    "jupyterlab>=4.5.10",
     "jupyter-server>=2.20.0",
     "notebook>=7.5.6",
     "langchain-core>=1.3.3",
@@ -237,6 +229,10 @@ constraint-dependencies = [
     "bleach>=6.4.0",
     "pyarrow>=23.0.1",
     "pydantic-settings>=2.14.2",
+    "setuptools>=83.0.0",
+    "nltk>=3.10.0",
+    "soupsieve>=2.8.4",
+    "uv>=0.11.15",
 ]
 override-dependencies = [
     "datasets>=4.0.0",

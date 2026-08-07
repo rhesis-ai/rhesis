@@ -1,13 +1,22 @@
 import asyncio
 import logging
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models
-
-from .utils import _get_test_set_tests_from_db
+from rhesis.backend.app import crud
+from rhesis.backend.app.crud.explorer import set_explorer_test_outputs
+from rhesis.backend.app.schemas.explorer import (
+    GenerateOutputsFailedItem,
+    GenerateOutputsResponse,
+    GenerateOutputsUpdatedItem,
+)
+from rhesis.backend.app.services.explorer.invocation import EndpointInvoker
+from rhesis.backend.app.services.explorer.utils import (
+    _build_eligible_tests,
+    _get_test_set_tests_from_db,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +31,7 @@ async def generate_outputs_for_tests(
     topic: Optional[str] = None,
     include_subtopics: bool = True,
     overwrite: bool = False,
-) -> Dict[str, Any]:
+) -> GenerateOutputsResponse:
     """Generate outputs for explorer test-set tests by invoking an endpoint.
 
     For each test in the test set (with a prompt), invokes the given endpoint
@@ -55,100 +64,59 @@ async def generate_outputs_for_tests(
 
     Returns
     -------
-    dict
-        - generated: number of tests whose output was updated
-        - skipped: number of tests that already had an output (if overwrite=False)
-        - failed: list of {"test_id": str, "error": str}
-        - updated: list of {"test_id": str, "output": str}
+    GenerateOutputsResponse
+        Counts plus the per-test ``updated`` and ``failed`` items.
     """
-    from rhesis.backend.app.database import _SCOPE_KEY, get_db_with_tenant_variables
-    from rhesis.backend.app.dependencies import get_endpoint_service
-    from rhesis.backend.tasks.execution.executors.results import (
-        process_endpoint_result,
-    )
-
-    _outer_scope = db.info.get(_SCOPE_KEY)
-    _project_id = str(_outer_scope.project_id) if _outer_scope and _outer_scope.project_id else ""
-
-    svc = get_endpoint_service()
-
     db_test_set = crud.resolve_test_set(test_set_identifier, db, organization_id=organization_id)
     if db_test_set is None:
         raise ValueError(f"Test set not found with identifier: {test_set_identifier}")
 
     tests = _get_test_set_tests_from_db(db, db_test_set.id, organization_id, user_id)
 
-    # Exclude topic markers; only tests with prompt content
+    # Skip tests that already have an output unless overwriting
     eligible = []
     skipped = 0
-    for t in tests:
-        meta = t.test_metadata or {}
-        if meta.get("label") == "topic_marker":
-            continue
-        if not t.prompt or not (t.prompt.content or "").strip():
-            continue
-        if test_ids is not None and t.id not in test_ids:
-            continue
-        # Filter by topic when provided
-        if topic is not None and topic != "":
-            t_topic = (t.topic.name if t.topic and hasattr(t.topic, "name") else "") or ""
-            if include_subtopics:
-                if t_topic != topic and not t_topic.startswith(topic + "/"):
-                    continue
-            else:
-                if t_topic != topic:
-                    continue
-
-        # Filter out tests that already have an output if overwrite is False
-        if not overwrite and meta.get("output", "").strip():
+    for t in _build_eligible_tests(tests, test_ids, topic, include_subtopics):
+        if not overwrite and (t.test_metadata or {}).get("output", "").strip():
             skipped += 1
             continue
-
         eligible.append(t)
 
-    updated: List[Dict[str, str]] = []
-    failed: List[Dict[str, str]] = []
+    updated: List[GenerateOutputsUpdatedItem] = []
+    failed: List[GenerateOutputsFailedItem] = []
 
     # --- Phase A: extract plain data from ORM objects ---
     work_items = [(str(t.id), (t.prompt.content or "").strip()) for t in eligible]
 
     # --- Phase B: concurrent invocations, each with its own DB session ---
-    # Keep semaphore within connection pool limits (pool_size=10, max_overflow=20).
-    semaphore = asyncio.Semaphore(20)
+    # Keep concurrency within connection pool limits (pool_size=10, max_overflow=20).
+    invoker = EndpointInvoker(
+        db=db,
+        endpoint_id=endpoint_id,
+        organization_id=organization_id,
+        user_id=user_id,
+        max_concurrency=20,
+    )
 
     async def _invoke_one(test_id_str: str, prompt_content: str) -> tuple:
-        async with semaphore:
-            try:
-                with get_db_with_tenant_variables(organization_id, user_id, _project_id) as task_db:
-                    result = await svc.invoke_endpoint(
-                        db=task_db,
-                        endpoint_id=endpoint_id,
-                        input_data={"input": prompt_content},
-                        organization_id=organization_id,
-                        user_id=user_id,
-                    )
-                processed = process_endpoint_result(result)
-                output = (processed.get("output") or "").strip() or "[no output]"
-                return (test_id_str, output, None)
-            except Exception as e:  # noqa: BLE001
-                logger.warning(f"Failed to generate output for test {test_id_str}: {e}")
-                return (test_id_str, None, str(e))
+        output, error = await invoker.invoke(prompt_content)
+        if error:
+            logger.warning(f"Failed to generate output for test {test_id_str}: {error}")
+            return (test_id_str, None, error)
+        return (test_id_str, output, None)
 
     results = await asyncio.gather(*[_invoke_one(tid, pc) for tid, pc in work_items])
 
-    # --- Phase C: sequential writes on the main request session ---
+    # --- Phase C: writes on the main request session ---
+    outputs = {tid: output for tid, output, error in results if not error}
+    written = set(set_explorer_test_outputs(db, outputs))
+
+    # Reported in invocation order; tests whose row no longer exists are silently dropped.
     for test_id_str, output, error in results:
         if error:
-            failed.append({"test_id": test_id_str, "error": error})
-        else:
-            db_test = db.query(models.Test).filter(models.Test.id == test_id_str).first()
-            if db_test:
-                meta = dict(db_test.test_metadata or {})
-                meta["output"] = output
-                db_test.test_metadata = meta
-                updated.append({"test_id": test_id_str, "output": output})
-
-    db.flush()
+            failed.append(GenerateOutputsFailedItem(test_id=test_id_str, error=error))
+        elif test_id_str in written:
+            updated.append(GenerateOutputsUpdatedItem(test_id=test_id_str, output=output))
 
     logger.info(
         f"Generate outputs: test_set={test_set_identifier}, endpoint={endpoint_id}, "
@@ -156,9 +124,9 @@ async def generate_outputs_for_tests(
         f"generated={len(updated)}, skipped={skipped}, failed={len(failed)}"
     )
 
-    return {
-        "generated": len(updated),
-        "skipped": skipped,
-        "failed": failed,
-        "updated": updated,
-    }
+    return GenerateOutputsResponse(
+        generated=len(updated),
+        skipped=skipped,
+        failed=failed,
+        updated=updated,
+    )

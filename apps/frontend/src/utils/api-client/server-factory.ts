@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import { headers } from 'next/headers';
 import { ApiClientFactory } from './client-factory';
 import { getServerActiveProjectId } from '../server-active-project';
@@ -24,11 +25,17 @@ import { getFreshAccessToken } from '@/auth';
  * a Route Handler or Server Action can), so a refresh performed here can't be
  * persisted — the next `/api/backend` proxy call (or navigation) catches the
  * cookie up. See `getFreshAccessToken()`'s docstring.
+ *
+ * Wrapped in `React.cache()` so multiple server components in the same RSC
+ * render pass (e.g. layout.tsx + page.tsx) share a single token refresh and
+ * factory instance.
  */
-export async function createServerApiFactory(): Promise<ApiClientFactory> {
-  const [{ accessToken }, projectId] = await Promise.all([
-    getFreshAccessToken({ headers: await headers() }),
-    getServerActiveProjectId(),
-  ]);
-  return new ApiClientFactory(accessToken ?? undefined, projectId);
-}
+export const createServerApiFactory = cache(
+  async (): Promise<ApiClientFactory> => {
+    const [{ accessToken }, projectId] = await Promise.all([
+      getFreshAccessToken({ headers: await headers() }),
+      getServerActiveProjectId(),
+    ]);
+    return new ApiClientFactory(accessToken ?? undefined, projectId);
+  }
+);

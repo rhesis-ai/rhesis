@@ -11,19 +11,13 @@ export interface Task extends WithPermittedActions {
   nano_id?: string;
   title: string;
   description?: string;
-  user_id: string;
   assignee_id?: string;
   status_id: string;
   priority_id?: string;
   entity_id?: string;
   entity_type?: string;
-  completed_at?: string;
   task_metadata?: TaskMetadata;
-  total_comments?: number;
-  organization_id?: string;
-  tags?: Tag[];
   created_at?: string;
-  updated_at?: string;
 
   // Relationships
   user?: User;
@@ -64,14 +58,6 @@ export interface TasksQueryParams {
   $filter?: string;
 }
 
-export interface TaskStats {
-  total: number;
-  open: number;
-  inProgress: number;
-  completed: number;
-  cancelled: number;
-}
-
 export interface User {
   id: string;
   name: string;
@@ -82,22 +68,11 @@ export interface User {
 export interface Status {
   id: string;
   name: string;
-  description?: string;
-  entity_type_id?: string;
 }
 
 export interface Priority {
   id: string;
-  type_name?: string;
   type_value?: string;
-  description?: string;
-}
-
-export interface Tag {
-  id: string;
-  name: string;
-  description?: string;
-  color?: string;
 }
 
 // Entity types are defined canonically in `@/types/entity-type` and re-exported

@@ -27,9 +27,10 @@ class TestResultStatsMode(str, Enum):
     BEHAVIOR = "behavior"
     CATEGORY = "category"
     TOPIC = "topic"
-    OVERALL = "overall"
     TIMELINE = "timeline"
     TEST_RUNS = "test_runs"
+    IDS = "ids"
+    BEHAVIOR_DETAIL = "behavior_detail"
 
 
 # ---------------------------------------------------------------------------
@@ -125,6 +126,12 @@ class TestRunSummary(BaseModel):
     total_tests: int = 0
     overall: OverallStats = Field(default_factory=OverallStats)
     metrics: Dict[str, MetricStats] = Field(default_factory=dict)
+
+
+class BehaviorDetail(BaseModel):
+    overall_pass_rates: OverallStats = Field(default_factory=OverallStats)
+    metric_pass_rates: Dict[str, MetricStats] = Field(default_factory=dict)
+    topic_pass_rates: Dict[str, MetricStats] = Field(default_factory=dict)
 
 
 class TestResultStatsMetadata(BaseModel):
@@ -231,6 +238,8 @@ class TestResultStats(BaseModel):
     overall_pass_rates: Optional[OverallStats] = None
     timeline: Optional[List[TimelineData]] = None
     test_run_summary: Optional[List[TestRunSummary]] = None
+    test_ids: Optional[List[str]] = None
+    behavior_detail: Optional[Dict[str, BehaviorDetail]] = None
     metadata: Optional[TestResultStatsMetadata] = None
 
     def to_dataframe(self, section: str):

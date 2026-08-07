@@ -5,7 +5,9 @@ from typing import Any, Dict, List, Optional, Union
 from pydantic import UUID4, BaseModel, ConfigDict, Field, field_validator
 
 from rhesis.backend.app.schemas import Base
-from rhesis.backend.app.schemas.tag import Tag
+from rhesis.backend.app.schemas.references import StatusReference, TypeLookupReference
+from rhesis.backend.app.schemas.tag import Tag, TagRead
+from rhesis.backend.app.schemas.user import UserReference
 
 
 class MetricsSource(str, Enum):
@@ -24,16 +26,13 @@ class TestSetBase(Base):
     slug: Optional[str] = None
     status_id: Optional[UUID4] = None
     tags: Optional[List[Tag]] = []
-    license_type_id: Optional[UUID4] = None
     test_set_type_id: Optional[UUID4] = None
     attributes: Optional[dict] = None
     user_id: Optional[UUID4] = None
     owner_id: Optional[UUID4] = None
     assignee_id: Optional[UUID4] = None
     priority: Optional[int] = 0
-    is_published: Optional[bool] = False
     organization_id: Optional[UUID4] = None
-    visibility: Optional[str] = None
 
 
 class TestSetCreate(TestSetBase):
@@ -55,16 +54,31 @@ class TestSet(TestSetBase):
     id: UUID4
     created_at: Union[datetime, str]
     updated_at: Union[datetime, str]
+    # Response-only (not on TestSetBase) -- a client-settable flag would let anyone
+    # forge an Explorer set.
+    explorer_row: bool = False
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# The detailed model with expanded relations. status is kept despite the exclusions
+# below: it's referenced today only as an OData filter path ('status.name'), so its
+# consumption is unclear rather than confirmed-unused.
+class TestSetDetail(TestSet):
+    name: Optional[str] = None
+    tags: Optional[List[TagRead]] = None
+    attributes: Optional[Dict[str, Any]] = None
+    counts: Optional[Dict[str, Any]] = None
+
+    status: Optional[StatusReference] = None
+    test_set_type: Optional[TypeLookupReference] = None
+    user: Optional[UserReference] = None
 
 
 # Bulk creation models
 class TestPrompt(BaseModel):
     content: str
     language_code: str = "en"
-    demographic: Optional[str] = None
-    dimension: Optional[str] = None
     expected_response: Optional[str] = None
 
 
@@ -173,10 +187,8 @@ class TestSetBulkResponse(BaseModel):
     description: Optional[str] = None
     short_description: Optional[str] = None
     status_id: Optional[UUID4] = None
-    license_type_id: Optional[UUID4] = None
     user_id: Optional[UUID4] = None
     organization_id: Optional[UUID4] = None
-    visibility: Optional[str] = None
     attributes: Optional[Dict[str, Any]] = None
 
     model_config = ConfigDict(from_attributes=True)

@@ -136,14 +136,11 @@ export default function EndpointPage({ params }: PageProps) {
   const metadataStrip = (
     <DetailMetadataStrip
       items={[
-        { label: 'created by:', value: '—' },
+        { label: 'created by:', value: endpoint.user?.name || '—' },
         {
           label: 'created on:',
-          value: endpoint.endpoint_metadata?.created_at
-            ? format(
-                new Date(endpoint.endpoint_metadata.created_at),
-                'dd/MM/yyyy'
-              )
+          value: endpoint.created_at
+            ? format(new Date(endpoint.created_at), 'dd/MM/yyyy')
             : '—',
         },
       ]}

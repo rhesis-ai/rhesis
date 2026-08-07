@@ -4,7 +4,7 @@ from typing import List
 from fastapi import Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app import crud, schemas
 from rhesis.backend.app.auth.capabilities import Permission, capability
 from rhesis.backend.app.auth.principal import resolve_principal_from_request
 from rhesis.backend.app.auth.rbac import authorize_object, project_id_from_scope
@@ -17,10 +17,6 @@ from rhesis.backend.app.dependencies import (
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
-from rhesis.backend.app.utils.schema_factory import create_detailed_schema
-
-# Create the detailed schema for Comment
-CommentDetailSchema = create_detailed_schema(schemas.Comment, models.Comment)
 
 router = RhesisRouter(
     prefix="/comments",
@@ -89,7 +85,7 @@ def create_comment(
     return new_comment
 
 
-@router.get("/", response_model=List[CommentDetailSchema])
+@router.get("/", response_model=List[schemas.CommentDetail])
 def read_comments(
     request: Request,
     skip: int = 0,
@@ -116,7 +112,7 @@ def read_comments(
     return comments
 
 
-@router.get("/{comment_id}", response_model=CommentDetailSchema)
+@router.get("/{comment_id}", response_model=schemas.CommentDetail)
 def read_comment(
     comment_id: uuid.UUID,
     request: Request,
@@ -200,7 +196,7 @@ def delete_comment(
     )
 
 
-@router.get("/entity/{entity_type}/{entity_id}", response_model=List[CommentDetailSchema])
+@router.get("/entity/{entity_type}/{entity_id}", response_model=List[schemas.CommentDetail])
 def read_comments_by_entity(
     entity_type: str,
     entity_id: uuid.UUID,

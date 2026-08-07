@@ -54,10 +54,24 @@ ensure_dependencies() {
     fi
 }
 
+# next reads .env.local itself, but the port is a flag, needed before it starts.
+# Quotes, padding and CRLF are stripped; an unparseable value is left to the
+# npm script's own default.
+load_port() {
+    [ -n "${PORT:-}" ] && return 0
+    [ -f ".env.local" ] || return 0
+
+    local value
+    value=$(grep -m1 '^[[:space:]]*PORT[[:space:]]*=' .env.local | cut -d= -f2- | tr -d "\"' \t\r")
+    [ -n "$value" ] && export PORT="$value"
+    return 0
+}
+
 # Function to start the development server
 start_server() {
     log "${BLUE}📋 Server Configuration:${NC}"
     log "  Host: 0.0.0.0 (from npm run dev:turbo)"
+    log "  Port: ${PORT:-3000}"
     log "  Environment: development"
     echo ""
 
@@ -100,6 +114,8 @@ main() {
 
     # Ensure dependencies are installed
     ensure_dependencies
+
+    load_port
 
     # Start the server
     start_server

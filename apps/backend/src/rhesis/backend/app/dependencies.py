@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app.auth.principal import REQUEST_STATE_API_TOKEN_PROJECT_ID
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db, get_db_with_tenant_variables
+from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.services.endpoint import EndpointService
 
@@ -259,6 +260,39 @@ def get_tenant_db_session(
 
     with get_db_with_tenant_variables(organization_id, user_id, project_id or "") as db:
         yield db
+
+
+def get_current_organization(
+    tenant_context: tuple = Depends(get_tenant_context),
+    db: Session = Depends(get_tenant_db_session),
+) -> Organization:
+    """
+    FastAPI dependency resolving the authenticated user's organization row.
+
+    Shared by any endpoint that needs the actual `Organization` object (not
+    just the id) -- e.g. to pass into `FeatureRegistry`/`QuotaRegistry`
+    lookups. Both dependencies resolve through the same
+    `require_current_user_or_token` call (FastAPI deduplicates it), so the
+    organization id always comes from the authenticated tenant context,
+    never user-supplied input.
+
+    Raises:
+        HTTPException: 403 if there is no organization context, or the
+            organization row cannot be found.
+    """
+    organization_id, _user_id = tenant_context
+    if not organization_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Organization context required",
+        )
+    org = db.get(Organization, organization_id)
+    if org is None:
+        raise HTTPException(
+            status_code=403,
+            detail="Organization not found",
+        )
+    return org
 
 
 async def bind_affordance_context(

@@ -98,6 +98,24 @@ Owners can create custom roles with a hand-picked set of permissions (`role:mana
 3. Click "New role": name it, add a description, optionally copy permissions from a built-in template, then set access per area (**Test Resources**, **Observability**, **Infrastructure**, **Administration**) using the View / Edit / Manage graded control. A live "This role can" summary shows the effective permissions.
 4. Assign roles from the Team page (role column or member drawer for org roles), from a project's Members tab (project-level roles), or inline during the invite flow.
 
+## Scoped API tokens
+
+When creating an API token, choose one of these permission modes:
+
+| Mode | Behavior |
+|---|---|
+| **Full access** | Inherits the permissions of the user who creates the token |
+| **Restricted** | Copies the capabilities from a selected built-in or custom role |
+
+For a restricted token, select a **Role template** and review the permission
+summary for Test Resources, Observability, Infrastructure, and Administration.
+The selected capabilities are stored on the token. At request time, the backend
+intersects them with the user's current role, so a token can narrow access but
+can never widen it. A later user-role downgrade automatically limits existing
+tokens as well.
+
+See [API Tokens](/docs/api-tokens) for token creation and authentication.
+
 ## Manage roles via API
 
 | Endpoint | Purpose |

@@ -20,7 +20,7 @@ import { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
 import { UserSettings } from '@/utils/api-client/interfaces/user';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { UUID } from 'crypto';
-import { ConnectedModelCard } from './components';
+import { ConnectedModelCard, RhesisPlatformKeyCard } from './components';
 import { ModelConnectionDrawer } from './components/ModelConnectionDrawer';
 import ModelFilterDrawer, {
   EMPTY_MODEL_FILTERS,
@@ -38,12 +38,14 @@ import type { ValidationStatus } from './types';
 
 export type { ValidationStatus } from './types';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import { useIsLocalMode } from '@/contexts/FeaturesContext';
 
 type ModelTypeFilter = 'all' | 'language' | 'embedding';
 
 export default function ModelsPage() {
   const { data: session, status } = useSession();
   const queryClient = useQueryClient();
+  const isLocalMode = useIsLocalMode();
   const userScope = session?.user?.id ?? '';
   const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
     Capability.Model.READ
@@ -162,6 +164,20 @@ export default function ModelsPage() {
       console.error('Failed to refresh user settings:', error);
     }
   };
+
+  // Re-fetch models so availability greying re-resolves after the platform key
+  // is set or cleared (the grid reads from local state, not the models query).
+  const reloadModels = useCallback(async () => {
+    if (!isAuthenticated(status)) return;
+    try {
+      const modelsResponse = await new ApiClientFactory()
+        .getModelsClient()
+        .getModels();
+      setConnectedModels(modelsResponse.data);
+    } catch (err) {
+      console.error('Failed to reload models:', err);
+    }
+  }, [status]);
 
   const validateModel = useCallback(
     async (modelId: UUID) => {
@@ -397,6 +413,8 @@ export default function ModelsPage() {
           {error}
         </Alert>
       )}
+
+      {isLocalMode && <RhesisPlatformKeyCard onChange={reloadModels} />}
 
       <GridToolbar
         searchQuery={searchQuery}

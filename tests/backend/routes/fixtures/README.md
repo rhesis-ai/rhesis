@@ -125,7 +125,6 @@ Data factories provide consistent, realistic test data generation.
 | `TopicDataFactory` | Topic test data | `sample_data()`, `hierarchy_data()` |
 | `CategoryDataFactory` | Category test data | `sample_data()`, `minimal_data()` |
 | `MetricDataFactory` | Metric test data | `sample_data()`, `update_data()` |
-| `DimensionDataFactory` | Dimension test data | `sample_data()`, `minimal_data()` |
 
 ### Usage Examples
 
@@ -223,8 +222,6 @@ Available factory fixtures:
 - `topic_factory` 
 - `category_factory`
 - `metric_factory`
-- `dimension_factory`
-- `demographic_factory`
 - `endpoint_factory`
 
 ## 👤 User Fixtures

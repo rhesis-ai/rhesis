@@ -186,8 +186,6 @@ async def get_user_from_jwt(token: str, secret_key: str) -> Optional[User]:
 
         if user_id:
             # Get the user with a basic session - no organization context needed for user lookup
-            from rhesis.backend.app.database import get_db
-
             with get_db() as db:
                 user = crud.get_user_by_id(db, user_id)
 
@@ -235,8 +233,6 @@ async def get_authenticated_user_with_context(
         token_value = credentials.credentials
 
         # Use basic session for token validation and user lookup - no organization context needed
-        from rhesis.backend.app.database import get_db
-
         with get_db() as db:
             is_valid, _ = validate_token(token_value, db=db)
 

@@ -5,6 +5,7 @@ from rhesis.backend.app import crud
 from rhesis.backend.app.constants import TestSetType
 from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.models.test_set import TestSet
+from rhesis.backend.app.quota import QuotaResource
 from rhesis.backend.app.schemas.services import GenerationConfig, SourceData
 from rhesis.backend.app.services.test import bulk_create_tests
 from rhesis.backend.app.services.test_set import (
@@ -12,6 +13,7 @@ from rhesis.backend.app.services.test_set import (
     generate_test_set_attributes,
     load_defaults,
 )
+from rhesis.backend.app.services.usage import dispatch_accrual
 from rhesis.backend.app.utils.user_model_utils import (
     get_generation_model_with_override,
 )
@@ -219,14 +221,25 @@ def _build_task_result(
     batch_size: int,
     org_id: str,
     user_id: str,
+    tests_generated: int,
 ) -> dict:
-    """Build the comprehensive task result dictionary."""
+    """Build the comprehensive task result dictionary.
+
+    *tests_generated* is passed in rather than read off
+    ``db_test_set.tests``. Both save helpers return the ORM row *after*
+    their ``with self.get_db_session()`` block has closed, so the instance
+    is detached and the relationship is not loaded: touching it here raised
+    ``DetachedInstanceError`` and failed the whole task after the tests had
+    already been written, leaving generation marked failed with a full set
+    of tests behind it. The caller already holds the SDK test set, whose
+    ``tests`` is a plain list, so the count needs no session at all.
+    """
     return {
         "test_set_id": str(db_test_set.id),
         "test_set_name": db_test_set.name,
         "description": db_test_set.description,
         "short_description": db_test_set.short_description,
-        "num_tests_generated": len(db_test_set.tests),
+        "num_tests_generated": tests_generated,
         "num_tests_requested": num_tests,
         "synthesizer_class": synthesizer.__class__.__name__,
         "synthesizer_params": log_kwargs,  # Safe parameters for logging
@@ -565,7 +578,14 @@ def generate_and_save_test_set(
             batch_size,
             org_id,
             user_id,
+            tests_generated=len(test_set.tests),
         )
+
+        # No session needed here any more -- the accrual is queued and the
+        # worker task opens its own. dispatch_accrual no-ops on a count of
+        # zero, so the guard that used to protect the session checkout is
+        # gone too.
+        dispatch_accrual(org_id, QuotaResource.TEST_GENERATION, len(test_set.tests))
 
         self.log_with_context(
             "info",

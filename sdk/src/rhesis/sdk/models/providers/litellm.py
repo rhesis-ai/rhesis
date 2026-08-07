@@ -6,6 +6,7 @@ import litellm
 from litellm import acompletion, aembedding, batch_completion, embedding
 from pydantic import BaseModel
 
+from rhesis.sdk.config import DEFAULT_LLM_TIMEOUT
 from rhesis.sdk.errors import NO_MODEL_NAME_PROVIDED
 from rhesis.sdk.models.base import BaseEmbedder, BaseLLM, Embedding
 from rhesis.sdk.models.utils import validate_llm_response
@@ -31,6 +32,7 @@ class LiteLLM(BaseLLM):
         api_key: Optional[str] = None,
         api_base: Optional[str] = None,
         api_version: Optional[str] = None,
+        timeout: Optional[float] = None,
     ):
         """
         LiteLLM: LiteLLM Provider for Model inference
@@ -46,6 +48,10 @@ class LiteLLM(BaseLLM):
             api_version (Optional[str]): The API version string
                 (e.g. for Azure). If not provided, LiteLLM uses its
                 default or env vars.
+            timeout (Optional[float]): Per-request timeout in seconds. Defaults to
+                ``DEFAULT_LLM_TIMEOUT``. Prevents a hung upstream call from blocking the
+                worker thread indefinitely. A ``timeout`` kwarg passed to a ``generate``
+                call overrides this per request.
 
         Usage:
             >>> llm = LiteLLM(model_name="provider/model", api_key="your_api_key")
@@ -58,6 +64,7 @@ class LiteLLM(BaseLLM):
         self.api_key = api_key
         self.api_base = api_base
         self.api_version = api_version
+        self.timeout = timeout if timeout is not None else DEFAULT_LLM_TIMEOUT
         if not model_name or not isinstance(model_name, str) or model_name.strip() == "":
             raise ValueError(NO_MODEL_NAME_PROVIDED)
         super().__init__(model_name)
@@ -117,6 +124,7 @@ class LiteLLM(BaseLLM):
         # asyncio.run() calls (e.g. Celery tasks), which would cause
         # RuntimeError: Event loop is closed on teardown.
         extra_headers = {"Connection": "close", **(kwargs.pop("extra_headers", None) or {})}
+        timeout = kwargs.pop("timeout", self.timeout)
         response = await acompletion(
             model=self.model_name,
             messages=messages,
@@ -125,9 +133,19 @@ class LiteLLM(BaseLLM):
             api_base=self.api_base,
             api_version=self.api_version,
             extra_headers=extra_headers,
+            timeout=timeout,
             *args,
             **kwargs,
         )
+
+        # Emitted for every LiteLLM-backed provider (vertex_ai, gemini,
+        # openai, anthropic, ...), not just the Rhesis-native ones: whether
+        # those tokens are billable is the caller's decision, expressed by
+        # whether it passed an ``on_usage`` callback at all. A deployment
+        # whose default model is, say, ``vertex_ai/gemini-2.5-flash`` runs on
+        # the server's own credentials, so its tokens do need reporting.
+        # ``_emit_usage`` no-ops when no callback is wired.
+        self._emit_usage(getattr(response, "usage", None))
 
         response_content = response.choices[0].message.content  # type: ignore
         if schema:
@@ -169,19 +187,33 @@ class LiteLLM(BaseLLM):
         # asyncio.run() calls (e.g. Celery tasks), which would cause
         # RuntimeError: Event loop is closed on teardown.
         extra_headers = {"Connection": "close", **(kwargs.pop("extra_headers", None) or {})}
+        timeout = kwargs.pop("timeout", self.timeout)
+        # Without this, a streamed response never carries usage at all --
+        # OpenAI-compatible streaming only includes it when explicitly
+        # requested. A caller-supplied stream_options still wins.
+        stream_options = kwargs.pop("stream_options", None) or {"include_usage": True}
         response = await acompletion(
             model=self.model_name,
             messages=messages,
             response_format=schema,
             stream=True,
+            stream_options=stream_options,
             api_key=self.api_key,
             api_base=self.api_base,
             api_version=self.api_version,
             extra_headers=extra_headers,
+            timeout=timeout,
             *args,
             **kwargs,
         )
         async for chunk in response:  # type: ignore[union-attr]
+            # The chunk carrying usage (when stream_options requested it) is
+            # a final, content-free one -- choices is empty on it, per
+            # OpenAI streaming semantics. Emitted before the choices check
+            # below so it isn't skipped along with "nothing to yield".
+            self._emit_usage(getattr(chunk, "usage", None))
+            if not chunk.choices:
+                continue
             content = chunk.choices[0].delta.content
             if content:
                 yield content
@@ -224,6 +256,7 @@ class LiteLLM(BaseLLM):
         # Handle schema format for LiteLLM
         response_format = schema
 
+        timeout = kwargs.pop("timeout", self.timeout)
         responses = batch_completion(
             model=self.model_name,
             messages=messages,
@@ -232,9 +265,16 @@ class LiteLLM(BaseLLM):
             api_base=self.api_base,
             api_version=self.api_version,
             n=n,
+            timeout=timeout,
             *args,
             **kwargs,
         )
+
+        # One aggregate emission for the whole batch rather than one per
+        # prompt -- see ``BaseLLM._emit_usage_batch`` for why (the callback
+        # queues a durable write). Bulk test generation runs through here,
+        # so it is the single largest token consumer to account for.
+        self._emit_usage_batch(getattr(r, "usage", None) for r in responses)
 
         # Extract content from responses (each response has n choices)
         results: List[Union[str, dict]] = []
@@ -295,12 +335,14 @@ class LiteLLMEmbedder(BaseEmbedder):
         model_name: str,
         api_key: Optional[str] = None,
         dimensions: Optional[int] = None,
+        timeout: Optional[float] = None,
     ):
         if not model_name or not isinstance(model_name, str) or model_name.strip() == "":
             raise ValueError(NO_MODEL_NAME_PROVIDED)
         super().__init__(model_name)
         self.api_key = api_key
         self.dimensions = dimensions
+        self.timeout = timeout if timeout is not None else DEFAULT_LLM_TIMEOUT
 
     async def a_generate(self, text: str, **kwargs) -> Embedding:
         """Generate embedding for a single text (async, via LiteLLM)."""
@@ -308,12 +350,14 @@ class LiteLLMEmbedder(BaseEmbedder):
             raise TypeError(f"text must be a string, got {type(text).__name__}")
 
         dimensions = kwargs.pop("dimensions", self.dimensions)
+        timeout = kwargs.pop("timeout", self.timeout)
 
         response = await aembedding(
             model=self.model_name,
             input=[text],
             api_key=self.api_key,
             dimensions=dimensions,
+            timeout=timeout,
             **kwargs,
         )
         return response["data"][0]["embedding"]
@@ -338,12 +382,14 @@ class LiteLLMEmbedder(BaseEmbedder):
 
         # Allow overriding dimensions per call
         dimensions = kwargs.pop("dimensions", self.dimensions)
+        timeout = kwargs.pop("timeout", self.timeout)
 
         response = embedding(
             model=self.model_name,
             input=texts,
             api_key=self.api_key,
             dimensions=dimensions,
+            timeout=timeout,
             **kwargs,
         )
         return [item["embedding"] for item in response["data"]]

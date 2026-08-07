@@ -12,6 +12,15 @@ Files attached to a test are passed to your endpoint at execution time using the
 
 For **multi-turn tests**, the testing agent (Penelope) decides autonomously when to introduce the files during the conversation, based on the test goal and scenario. You do not need to specify at which turn files should appear.
 
+### Penelope framework targets
+
+When Penelope tests a LangChain, LangGraph, or Pydantic AI application directly,
+the target adapter accepts inline attachment dictionaries and platform
+`FileReference` objects. See
+[Extending Penelope](/docs/tests/conversation-simulation/extending#async-and-file-aware-targets)
+for how each file type is passed to the target and [Connector File Attachments](/sdk/connector/files)
+for the `FileReference` API.
+
 ## Supported File Types
 
 Rhesis accepts any file whose MIME type matches one of these prefixes:

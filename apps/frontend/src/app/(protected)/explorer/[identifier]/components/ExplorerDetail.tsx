@@ -40,6 +40,7 @@ import { alpha, useTheme } from '@mui/material/styles';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { useSession } from 'next-auth/react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   GridColDef,
   GridPaginationModel,
@@ -51,6 +52,10 @@ import { GridToolbar as AppGridToolbar } from '@/components/common/GridToolbar';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabGroup } from '@/components/common/Fab';
+import { DeleteModal } from '@/components/common/DeleteModal';
+import { Can } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
+import { explorerKeys } from '@/constants/query-keys';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import FolderIcon from '@mui/icons-material/Folder';
@@ -1962,12 +1967,15 @@ export default function ExplorerDetail({
     string | null
   >(null);
   const [exportSubmitting, setExportSubmitting] = useState(false);
+  const [deleteSessionDialogOpen, setDeleteSessionDialogOpen] = useState(false);
+  const [deleteSessionSubmitting, setDeleteSessionSubmitting] = useState(false);
 
   const theme = useTheme();
   const { status } = useSession();
   const notifications = useNotifications();
   const searchParams = useSearchParams();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const pathname = usePathname();
   const selectedTopicForApi =
     selectedTopic && selectedTopic !== NO_TOPIC_FILTER ? selectedTopic : null;
@@ -2891,6 +2899,28 @@ export default function ExplorerDetail({
     }
   }, [testSetId, notifications, router]);
 
+  const handleDeleteSessionConfirm = useCallback(async () => {
+    setDeleteSessionSubmitting(true);
+    try {
+      const client = new ApiClientFactory().getExplorerClient();
+      await client.deleteExplorerTestSet(testSetId);
+      notifications.show('Session deleted', {
+        severity: 'success',
+        autoHideDuration: 4000,
+      });
+      queryClient.invalidateQueries({ queryKey: explorerKeys.all() });
+      router.push('/explorer');
+    } catch (err) {
+      notifications.show(
+        err instanceof Error ? err.message : 'Failed to delete session.',
+        { severity: 'error', autoHideDuration: 6000 }
+      );
+      setDeleteSessionSubmitting(false);
+    } finally {
+      setDeleteSessionDialogOpen(false);
+    }
+  }, [testSetId, notifications, queryClient, router]);
+
   return (
     <PageLayout
       title={testSetName}
@@ -2901,6 +2931,14 @@ export default function ExplorerDetail({
       ]}
       actions={
         <FabGroup>
+          <Can capability={Capability.Explorer.DELETE}>
+            <Fab
+              icon={<DeleteIcon />}
+              tooltip="Delete session"
+              onClick={() => setDeleteSessionDialogOpen(true)}
+              loading={deleteSessionSubmitting}
+            />
+          </Can>
           <Fab
             icon={<IosShareOutlinedIcon />}
             tooltip="Save to Test Set"
@@ -3309,6 +3347,24 @@ export default function ExplorerDetail({
           }}
           onSubmit={handleRenameTopicSubmit}
           topicPath={renamingTopicPath}
+        />
+
+        {/* Delete Session Confirmation Dialog */}
+        <DeleteModal
+          open={deleteSessionDialogOpen}
+          onClose={() =>
+            !deleteSessionSubmitting && setDeleteSessionDialogOpen(false)
+          }
+          onConfirm={handleDeleteSessionConfirm}
+          isLoading={deleteSessionSubmitting}
+          title="Delete explorer session"
+          message={
+            <>
+              &ldquo;{testSetName}&rdquo; and its tests and topics will be
+              deleted. This cannot be undone.
+            </>
+          }
+          itemType="explorer session"
         />
 
         {/* Delete Test Confirmation Dialog */}

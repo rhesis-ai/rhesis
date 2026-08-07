@@ -5,15 +5,14 @@ Security: API keys are write-only. They can be set via POST/PUT but are never
 returned in responses to prevent exposure through logs, caches, or clients.
 """
 
-from typing import Dict, List, Literal, Optional
+from typing import Literal, Optional
 
 from pydantic import UUID4, BaseModel, ConfigDict, Field, field_validator
 
 from .base import Base
+from .references import StatusReference, TypeLookupReference
 from .status import Status
-from .tag import Tag
 from .type_lookup import TypeLookup
-from .user import User
 
 
 class ModelBaseFields(Base):
@@ -30,7 +29,6 @@ class ModelBaseFields(Base):
     endpoint: Optional[str] = Field(
         default=None, description="API endpoint URL (optional for cloud providers)"
     )
-    request_headers: Optional[Dict] = None
     is_protected: Optional[bool] = Field(
         default=False, description="System models are protected and cannot be deleted"
     )
@@ -85,9 +83,8 @@ class ModelRead(ModelBaseFields):
     is_protected: bool = False
     provider_type: Optional[TypeLookup] = None
     status: Optional[Status] = None
-    owner: Optional[User] = None
-    assignee: Optional[User] = None
-    tags: Optional[List[Tag]] = []
+    available: bool = True
+    availability_reason: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -103,11 +100,17 @@ class Model(ModelBase):
     is_protected: bool = False
     provider_type: Optional[TypeLookup] = None
     status: Optional[Status] = None
-    owner: Optional[User] = None
-    assignee: Optional[User] = None
-    tags: Optional[List[Tag]] = []
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# The detailed model with expanded relations. owner/assignee/tags/counts/
+# project/organization/user: unused, excluded.
+class ModelDetail(ModelRead):
+    name: Optional[str] = None
+    model_name: Optional[str] = None
+    provider_type: Optional[TypeLookupReference] = None
+    status: Optional[StatusReference] = None
 
 
 class TestModelConnectionRequest(BaseModel):
@@ -146,5 +149,3 @@ class TestModelConnectionResponse(BaseModel):
 
     success: bool
     message: str
-    provider: str
-    model_name: str

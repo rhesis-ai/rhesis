@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Box, CircularProgress } from '@mui/material';
+import { scaledVh } from '@/styles/viewport-scaling';
 
 export default function GenerationRedirectPage() {
   const router = useRouter();
@@ -17,7 +18,7 @@ export default function GenerationRedirectPage() {
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
-        minHeight: '100vh',
+        minHeight: scaledVh(),
       }}
     >
       <CircularProgress />

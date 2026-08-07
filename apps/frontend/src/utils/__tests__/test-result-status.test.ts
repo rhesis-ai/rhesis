@@ -166,12 +166,10 @@ describe('testResultStatus', () => {
         test_output: {
           output: 'Test output',
           context: [],
-          session_id: '12345678-1234-1234-1234-123456789012' as const,
           goal_evaluation: {
             all_criteria_met: false,
             reason: 'Some criteria failed',
             criteria_evaluations: [],
-            confidence: 0.9,
             evidence: ['Test evidence'],
           },
         },

@@ -118,6 +118,11 @@ class ApplicationSettings(BaseSettings):
         return not self.is_production
 
     @property
+    def is_local(self) -> bool:
+        """Whether the deployment runs in local/self-hosted mode (BACKEND_ENV=local)."""
+        return self.backend_env == "local"
+
+    @property
     def is_google_cloud(self) -> bool:
         return bool(self.cloud_run_service or self.cloud_run_revision)
 
@@ -158,11 +163,20 @@ class TelemetrySettings(BaseSettings):
         alias="OTEL_EXPORTER_OTLP_ENDPOINT",
     )
     service_name: str = Field(default="rhesis", alias="OTEL_SERVICE_NAME")
-    deployment_type: str = Field(default="self-hosted", alias="OTEL_DEPLOYMENT_TYPE")
+    deployment_type: Literal["cloud", "self-hosted"] = Field(
+        default="self-hosted", alias="OTEL_DEPLOYMENT_TYPE"
+    )
     rhesis_telemetry_enabled: bool = Field(
-        default=True,
+        default=False,
         alias="OTEL_RHESIS_TELEMETRY_ENABLED",
     )
+
+    @property
+    def is_telemetry_enabled(self) -> bool:
+        """Cloud is always on; self-hosted is opt-in via OTEL_RHESIS_TELEMETRY_ENABLED."""
+        if self.deployment_type == "cloud":
+            return True
+        return self.rhesis_telemetry_enabled  # self-hosted
 
 
 class LoggingSettings(BaseSettings):
@@ -257,6 +271,9 @@ class SMTPSettings(BaseSettings):
     user: str | None = Field(default=None, alias="SMTP_USER")
     password: str | None = Field(default=None, alias="SMTP_PASSWORD")
     from_email: str = Field(default="engineering@rhesis.ai", alias="FROM_EMAIL")
+    # Where email templates load their logo, header wash, and web fonts from.
+    # Must be publicly reachable — mail clients fetch these directly.
+    asset_base_url: str = Field(default="https://rhesis.ai", alias="EMAIL_ASSET_BASE_URL")
 
 
 class ModelSettings(BaseSettings):

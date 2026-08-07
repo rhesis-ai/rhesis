@@ -14,8 +14,10 @@ import OnboardingChecklist from '../onboarding/OnboardingChecklist';
 import { type NavigationItem, type LayoutProps } from '../../types/navigation';
 import { ActiveProjectProvider } from '@/contexts/ActiveProjectContext';
 import { OrganizationProvider } from '@/contexts/OrganizationContext';
-import { fetchQuickStartEnabled } from '@/utils/quick_start';
+import { QuickStartProvider } from '@/contexts/QuickStartContext';
 import { useSessionGuard } from '@/hooks/useSessionGuard';
+import { userSettingsKeys } from '@/constants/query-keys';
+import { scaledVh } from '@/styles/viewport-scaling';
 // Side-effect import: pulls ee_bootstrap into the *client* bundle so
 // EE feature registrations land in the client-side registry as well as
 // the server-side one. Layout.tsx imports the same module for the
@@ -47,22 +49,32 @@ export function LayoutContent({
   branding,
   authentication,
   initialActiveProject = null,
+  initialProjects = null,
+  initialUserSettings = null,
   initialOrganization = null,
+  initialQuickStart = false,
 }: Omit<LayoutProps, 'theme'>) {
   const theme = useTheme();
   const pathname = usePathname();
-  const [queryClient] = React.useState(
-    () =>
-      new QueryClient({
-        defaultOptions: {
-          queries: {
-            staleTime: 5 * 60_000,
-            gcTime: 30 * 60_000,
-            refetchOnWindowFocus: false,
-          },
+  const [queryClient] = React.useState(() => {
+    const qc = new QueryClient({
+      defaultOptions: {
+        queries: {
+          staleTime: 5 * 60_000,
+          gcTime: 30 * 60_000,
+          refetchOnWindowFocus: false,
         },
-      })
-  );
+      },
+    });
+    // Pre-seed the user settings cache so useUserSettings and
+    // ActiveProjectProvider's default_project lookup hit the cache instead
+    // of issuing a redundant client-side GET /users/settings.
+    const userScope = session?.user?.id ?? '';
+    if (userScope && initialUserSettings) {
+      qc.setQueryData(userSettingsKeys.all(userScope), initialUserSettings);
+    }
+    return qc;
+  });
   const protectedSegments = React.useMemo(
     () => getAllSegments(navigation),
     [navigation]
@@ -78,33 +90,15 @@ export function LayoutContent({
     );
   }, [pathname, protectedSegments]);
 
-  // Use state to avoid hydration mismatch - start with false (matches server)
-  const [isQuickStartMode, setIsQuickStartMode] = React.useState(false);
-
-  // Check Quick Start mode after mount (client-side only)
-  React.useEffect(() => {
-    let cancelled = false;
-
-    fetchQuickStartEnabled().then(enabled => {
-      if (!cancelled) {
-        setIsQuickStartMode(enabled);
-      }
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
   // Build sx prop conditionally
   const boxSx = React.useMemo(() => {
     const baseStyles = {
       display: 'flex',
       flexDirection: 'column',
-      minHeight: '100vh',
+      minHeight: scaledVh(),
     };
 
-    if (isQuickStartMode) {
+    if (initialQuickStart) {
       return {
         ...baseStyles,
         // Hide the account menu button when Quick Start mode is enabled
@@ -129,7 +123,7 @@ export function LayoutContent({
     }
 
     return baseStyles;
-  }, [isQuickStartMode]);
+  }, [initialQuickStart]);
 
   return (
     <SessionProvider session={session} refetchOnWindowFocus={false}>
@@ -137,28 +131,41 @@ export function LayoutContent({
         <AppRouterCacheProvider options={{ enableCssLayer: true }}>
           <CssBaseline />
           <QueryClientProvider client={queryClient}>
-            <ActiveProjectProvider initialActiveProject={initialActiveProject}>
-              <OrganizationProvider initialOrganization={initialOrganization}>
-                <NotificationProvider>
-                  <OnboardingProvider>
-                    <Box sx={boxSx}>
-                      <Box sx={{ flex: 1 }}>
-                        <NavigationProvider
-                          navigation={navigation}
-                          branding={branding}
-                          session={session}
-                          authentication={authentication}
-                          theme={theme}
-                        >
-                          {children}
-                        </NavigationProvider>
-                      </Box>
-                    </Box>
-                    {session && isProtectedRoute && <OnboardingChecklist />}
-                  </OnboardingProvider>
-                </NotificationProvider>
-              </OrganizationProvider>
-            </ActiveProjectProvider>
+            <QuickStartProvider value={initialQuickStart}>
+              <ActiveProjectProvider
+                initialActiveProject={initialActiveProject}
+                initialProjects={initialProjects}
+              >
+                <OrganizationProvider initialOrganization={initialOrganization}>
+                  <NotificationProvider>
+                    <OnboardingProvider>
+                      {/* Root of the laptop zoom ladder — see
+                          `styles/viewport-scaling.css`. Everything the app
+                          renders itself lives in here so it scales as one
+                          piece; MUI's body-level portals deliberately stay
+                          outside it so their JS-computed positions are not
+                          scaled a second time. */}
+                      <div data-ui-scale-root>
+                        <Box sx={boxSx}>
+                          <Box sx={{ flex: 1 }}>
+                            <NavigationProvider
+                              navigation={navigation}
+                              branding={branding}
+                              session={session}
+                              authentication={authentication}
+                              theme={theme}
+                            >
+                              {children}
+                            </NavigationProvider>
+                          </Box>
+                        </Box>
+                        {session && isProtectedRoute && <OnboardingChecklist />}
+                      </div>
+                    </OnboardingProvider>
+                  </NotificationProvider>
+                </OrganizationProvider>
+              </ActiveProjectProvider>
+            </QuickStartProvider>
           </QueryClientProvider>
         </AppRouterCacheProvider>
       </SessionGuard>

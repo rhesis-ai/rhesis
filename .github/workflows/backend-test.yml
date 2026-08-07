@@ -60,18 +60,12 @@ jobs:
         working-directory: apps/backend
 
       - name: Run tests
-        # Use make docker-up then run pytest directly so we can pass --extra ee
+        # Run pytest directly (not via `make test`) so we can pass --extra ee
         # alongside --extra cpu.  `make test` uses `uv run --extra cpu` which
         # would re-sync the venv *without* the EE extra, dropping rhesis-backend-ee
         # before the EE tests under tests/backend/ee/ run.
         run: |
-          make docker-up
-          uv run --extra cpu --extra ee pytest ../../tests/backend --ignore=../../tests/backend/integration
-        working-directory: apps/backend
-
-      - name: Stop Docker services
-        if: always()
-        run: make docker-down
+          uv run --extra cpu --extra ee pytest ../../tests/backend --ignore=../../tests/backend/integration -n 4 --timeout=120 --timeout-method=thread --reruns=1
         working-directory: apps/backend
 
   # Verifies that the MIT-only build stays clean: no core module may import

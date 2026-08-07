@@ -241,6 +241,17 @@ class Permission:
         UPDATE = "telemetry:update"
         DELETE = "telemetry:delete"
 
+    # --- Insights / analytics (project-scoped) -------------------------------
+
+    class Insights(_PermissionEnum):
+        """Generic aggregation dashboard over test_result/metric/test_run/test
+        data (``GET /insights``). One permission gates the whole endpoint
+        regardless of the requested ``entity`` -- the response is aggregate
+        counts/rates, not individual rows, so there's no per-entity boundary
+        to enforce beyond the existing project scope."""
+
+        READ = "insights:read"
+
     # --- Files (project/org) ------------------------------------------------
 
     class File(_PermissionEnum):
@@ -271,6 +282,17 @@ class Permission:
     class Organization(_PermissionEnum):
         READ = "organization:read"
         UPDATE = "organization:update"
+
+    class Usage(_PermissionEnum):
+        """Metered-consumption reporting for the org (``GET /usage``).
+
+        Deliberately *not* covered by ``organization:read``: that one is part
+        of the read-only Viewer baseline (basic org context), whereas usage
+        totals and plan limits are billing data. Restricted to org admins --
+        Owner/Admin in EE, the org owner in community.
+        """
+
+        READ = "usage:read"
 
     class Member(_PermissionEnum):
         READ = "member:read"
@@ -316,6 +338,16 @@ class Permission:
 
         REQUEST = "polyphemus:request"
 
+    class Platform(_PermissionEnum):
+        """Local/self-hosted deployment configuration — community, not EE-gated.
+
+        The org-owner PDP fallback (``organization.owner_id == principal.user_id``
+        allows any permission) makes this correct on a community deployment with
+        no EE role provider installed, same as every other org-scoped permission.
+        """
+
+        MANAGE = "platform:manage"
+
 
 class ResourceType(_PermissionEnum):
     """Resource identifiers — the prefix of a ``resource:action`` capability.
@@ -351,6 +383,7 @@ SCOPE_PROJECT = "project"
 _ORG_SCOPED_RESOURCES: frozenset[str] = frozenset(
     {
         "organization",
+        "usage",
         "member",
         "role",
         "token",
@@ -358,6 +391,7 @@ _ORG_SCOPED_RESOURCES: frozenset[str] = frozenset(
         "sso",
         "api_clients",
         "polyphemus",
+        "platform",
     }
 )
 

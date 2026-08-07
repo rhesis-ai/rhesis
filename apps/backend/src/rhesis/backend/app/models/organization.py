@@ -1,6 +1,8 @@
 from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 
+from rhesis.backend.app.utils.encryption import EncryptedString
+
 from .base import Base
 from .guid import GUID
 from .mixins import TagsMixin
@@ -35,7 +37,27 @@ class Organization(Base, TagsMixin):
     # (e.g. SSO). The schema is owned by the consumer; core stores it
     # as opaque JSON and never inspects its keys.
     sso_config = Column(JSON, nullable=True)
+
+    # Opaque signed license token consumed by the EE licensing layer.
+    # Core never inspects its contents; the EE SignedTokenLicenseProvider
+    # decodes and validates it. Modeled on sso_config.
+    license = Column(Text, nullable=True)
+
     slug = Column(String(50), unique=True, index=True, nullable=True)
+
+    # Org-scoped Rhesis platform API key for local/self-hosted deployments.
+    # Encrypted at rest (same EncryptedString type as Model.key). When set it
+    # overrides the process-wide RHESIS_API_KEY env var for this organization.
+    rhesis_api_key = Column(EncryptedString(), nullable=True)
+    # Cached result of the last platform-key validation against the hosted
+    # platform, so status reads and model-availability annotation never need to
+    # re-probe over the network on the GET /models hot path. Nullable tri-state:
+    # None means "unknown / not yet validated".
+    rhesis_key_valid = Column(Boolean, nullable=True)
+    rhesis_key_polyphemus_authorized = Column(Boolean, nullable=True)
+    # Caches when the stored platform key was last validated against the
+    # hosted platform, so status reads need not re-probe on every call.
+    rhesis_key_last_checked_at = Column(DateTime(timezone=True), nullable=True)
 
     # Relationships with explicit UUID columns
     owner_id = Column(GUID(), ForeignKey("user.id"))
@@ -50,8 +72,6 @@ class Organization(Base, TagsMixin):
     projects = relationship("Project", back_populates="organization")
     behaviors = relationship("Behavior", back_populates="organization")
     categories = relationship("Category", back_populates="organization")
-    demographics = relationship("Demographic", back_populates="organization")
-    dimensions = relationship("Dimension", back_populates="organization")
     statuses = relationship("Status", back_populates="organization")
     test_configurations = relationship("TestConfiguration", back_populates="organization")
     test_results = relationship("TestResult", back_populates="organization")

@@ -76,14 +76,6 @@ describe('ServicesClient', () => {
     expect(result.is_authenticated).toBe('Yes');
   });
 
-  it('gets recent activities with limit query param', async () => {
-    fetchMock.mockResolvedValue(makeFetch({ activities: [], total_count: 0 }));
-    await client.getRecentActivities(25);
-    const calledUrl = fetchMock.mock.calls[0][0] as string;
-    expect(calledUrl).toContain('/services/recent-activities');
-    expect(calledUrl).toContain('limit=25');
-  });
-
   it('creates a Jira ticket from task with POST', async () => {
     fetchMock.mockResolvedValue(
       makeFetch({

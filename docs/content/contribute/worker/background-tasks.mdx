@@ -1,77 +1,48 @@
 import { CodeBlock } from '@/components/CodeBlock'
 
-# Worker Tasks and Background Processing
+# Background Tasks
 
-## Overview
+The backend offloads long-running work to Celery: test execution, trace enrichment, metric
+evaluation, and Architect chat turns. Tasks carry tenant context (organization and user) so they
+run with the same isolation as an API request.
 
-The Rhesis backend uses Celery to handle asynchronous background tasks. This allows the API to offload time-consuming operations and improve responsiveness. The task processing system is designed to be scalable, fault-tolerant, and context-aware.
+## Celery configuration
 
-## Celery Configuration
+The Celery app is created in `celery/core.py`, which applies `CELERY_CONFIG` from
+`celery/config.py` and auto-discovers tasks under `rhesis.backend.tasks`:
 
-The Celery application is configured in `worker.py`:
-
-<CodeBlock language="python" filename="worker.py" isTerminal={false}>
-{`import os
-from celery import Celery
-from dotenv import load_dotenv
-
-# Load environment variables from .env file
-load_dotenv()
-
-# Create the Celery app
-app = Celery("rhesis")
-
-# Configure Celery
-app.conf.update(
-    broker_url=os.getenv("BROKER_URL"),
-    result_backend=os.getenv("CELERY_RESULT_BACKEND"),
-    task_serializer="json",
-    result_serializer="json",
-    accept_content=["json"],
-    timezone="UTC",
-    enable_utc=True,
-)
-
-# Auto-discover tasks without loading config files
+<CodeBlock language="python" filename="celery/core.py" isTerminal={false}>
+{`app = Celery("rhesis")
+app.conf.update(CELERY_CONFIG)
 app.autodiscover_tasks(["rhesis.backend.tasks"], force=True)`}
 </CodeBlock>
 
-The application uses Redis as both the broker and result backend with TLS support:
+Redis serves as both broker and result backend. Use `rediss://` for TLS; the
+`ssl_cert_reqs=CERT_NONE` parameter connects to managed Redis services that use self-signed
+certificates.
 
 <CodeBlock language="bash" filename=".env" isTerminal={false}>
-{`# Development (local Redis)
+{`# Local
 BROKER_URL=redis://localhost:6379/0
 CELERY_RESULT_BACKEND=redis://localhost:6379/1
 
 # Production (Redis with TLS)
 BROKER_URL=rediss://:password@redis-host:6378/0?ssl_cert_reqs=CERT_NONE
-CELERY_RESULT_BACKEND=rediss://:password@redis-host:6378/1?ssl_cert_reqs=CERT_NONE
-
-# Model API Keys (required for evaluation tasks)
-GEMINI_API_KEY=your_gemini_api_key
-GEMINI_MODEL_NAME=gemini-1.5-pro
-AZURE_OPENAI_ENDPOINT=https://your-endpoint.openai.azure.com/
-AZURE_OPENAI_API_KEY=your_azure_openai_key
-AZURE_OPENAI_DEPLOYMENT_NAME=your-deployment-name
-AZURE_OPENAI_API_VERSION=2024-02-01`}
+CELERY_RESULT_BACKEND=rediss://:password@redis-host:6378/1?ssl_cert_reqs=CERT_NONE`}
 </CodeBlock>
 
-**Note:** The `rediss://` protocol indicates Redis with TLS/SSL encryption. The `ssl_cert_reqs=CERT_NONE` parameter is used when connecting to managed Redis services that use self-signed certificates.
+`CELERY_CONFIG` sets Redis-oriented defaults: `result_expires=3600`, `result_compression="gzip"`,
+broker connection retries, and transport options with 30-second socket timeouts for TLS
+connections.
 
-## Base Task Class
+## Base task class
 
-All tasks inherit from a `BaseTask` class that provides retry logic, error handling, and most importantly, context awareness for multi-tenant operations:
+Tasks inherit from `BaseTask`, which adds retry settings and tenant-context management. It reads
+`organization_id` and `user_id` from task kwargs when the task is queued, stores them in the task
+headers, and restores them onto the request before the task starts:
 
 <CodeBlock language="python" filename="tasks/base.py" isTerminal={false}>
-{`from celery import Task
-from contextlib import contextmanager
-
-from rhesis.backend.app.database import get_db_with_tenant_variables
-
-class BaseTask(Task):
-    """Base task class with retry settings and tenant context management."""
-
-    # Retry settings
+{`class BaseTask(Task):
     autoretry_for = (Exception,)
     max_retries = 3
     retry_backoff = True
@@ -80,211 +51,71 @@ class BaseTask(Task):
 
     @contextmanager
     def get_db_session(self):
-        """Get a database session with the proper tenant context."""
         request = getattr(self, 'request', None)
         org_id = getattr(request, 'organization_id', None) or ''
         user_id = getattr(request, 'user_id', None) or ''
         project_id = getattr(request, 'project_id', None) or ''
-
         with get_db_with_tenant_variables(org_id, user_id, project_id) as db:
-            yield db
-
-    def apply_async(self, args=None, kwargs=None, **options):
-        """Store org_id and user_id in task context when task is queued."""
-        args = args or ()
-        kwargs = kwargs or {}
-
-        # Extract context from kwargs and store in headers
-        if kwargs and ('organization_id' in kwargs or 'user_id' in kwargs):
-            headers = options.get('headers', {})
-
-            if 'organization_id' in kwargs:
-                headers['organization_id'] = kwargs.pop('organization_id')
-
-            if 'user_id' in kwargs:
-                headers['user_id'] = kwargs.pop('user_id')
-
-            options['headers'] = headers
-
-        return super().apply_async(args, kwargs, **options)
-
-    def before_start(self, task_id, args, kwargs):
-        """Add organization_id and user_id to task request context."""
-        # Try to get from kwargs first, then headers (which take precedence)
-        if 'organization_id' in kwargs:
-            self.request.organization_id = kwargs.pop('organization_id')
-        if 'user_id' in kwargs:
-            self.request.user_id = kwargs.pop('user_id')
-
-        headers = getattr(self.request, 'headers', {}) or {}
-        if headers:
-            if 'organization_id' in headers:
-                self.request.organization_id = headers['organization_id']
-            if 'user_id' in headers:
-                self.request.user_id = headers['user_id']`}
+            yield db`}
 </CodeBlock>
 
-This enhanced `BaseTask` ensures that:
-- Tasks have access to organization_id and user_id for proper multi-tenant operations
-- Context is automatically propagated through the task execution
-- Error handling and retry logic are standardized
-- Logging and monitoring include context information
+## Tenant context decorator
 
-## Tenant Context Decorator
-
-A task decorator is provided to automatically handle database sessions with proper tenant context:
+`with_tenant_context` opens a database session with the task's tenant context and passes it to the
+function as `db`:
 
 <CodeBlock language="python" filename="tasks/decorators.py" isTerminal={false}>
-{`from functools import wraps
-
-def with_tenant_context(func):
-    """
-    Decorator to automatically maintain tenant context in task functions.
-    This ensures all database operations use the proper tenant context.
-    """
+{`def with_tenant_context(func):
     @wraps(func)
     def wrapper(self, *args, **kwargs):
-        # Get task request for context
-        request = getattr(self, 'request', None)
-        organization_id = getattr(request, 'organization_id', None)
-        user_id = getattr(request, 'user_id', None)
-
-        # Get a database session
         with self.get_db_session() as db:
-            # Add db to kwargs and execute the task function
             kwargs['db'] = db
             return func(self, *args, **kwargs)
-
     return wrapper`}
 </CodeBlock>
 
-Using this decorator simplifies working with database operations in tasks:
+## Task launcher
 
-<CodeBlock language="python" filename="tasks/example_task.py" isTerminal={false}>
-{`@app.task(base=BaseTask, name="rhesis.backend.tasks.count_test_sets")
-@with_tenant_context
-def count_test_sets(self, db=None):
-    """
-    Task that counts total test sets.
-    The db parameter is automatically provided with tenant context.
-    """
-    # Access context from task request
-    org_id = getattr(self.request, 'organization_id', 'unknown')
-    user_id = getattr(self.request, 'user_id', 'unknown')
-
-    # The db session already has tenant context set
-    test_sets = crud.get_test_sets(db)
-    count = len(test_sets)
-
-    return {
-        "count": count,
-        "organization_id": org_id,
-        "user_id": user_id
-    }`}
-</CodeBlock>
-
-## Task Launcher Utility
-
-A `task_launcher` utility method is provided to easily launch tasks with proper context from FastAPI routes:
+`task_launcher` launches a task from a FastAPI route, pulling `organization_id` and `user_id` off
+`current_user` so callers don't pass them explicitly:
 
 <CodeBlock language="python" filename="tasks/launcher.py" isTerminal={false}>
 {`def task_launcher(task: Callable, *args: Any, current_user=None, **kwargs: Any):
-    """
-    Launch a task with proper context from a FastAPI route.
-
-    This helper automatically adds organization_id and user_id from current_user
-    to the task context, removing the need to pass them explicitly.
-    """
-    # Add user context if available and not already specified
     if current_user is not None:
-        if hasattr(current_user, 'id') and current_user.id is not None:
+        if getattr(current_user, 'id', None) is not None:
             kwargs.setdefault('user_id', str(current_user.id))
-
-        if hasattr(current_user, 'organization_id') and current_user.organization_id is not None:
+        if getattr(current_user, 'organization_id', None) is not None:
             kwargs.setdefault('organization_id', str(current_user.organization_id))
-
-    # Launch the task
     return task.delay(*args, **kwargs)`}
 </CodeBlock>
 
-## Task Organization
+## Writing tasks
 
-Tasks are organized in the `tasks/` directory:
-
-<CodeBlock language="text" isTerminal={false}>
-{`tasks/
-├── __init__.py
-├── base.py
-├── example_task.py
-├── test_configuration.py
-└── test_set.py`}
-</CodeBlock>
-
-## Creating Tasks
-
-When creating a task, you no longer need to explicitly require organization_id and user_id as parameters. The context system handles this automatically:
-
-### Simple Task without Database Access
-
-<CodeBlock language="python" filename="tasks/echo.py" isTerminal={false}>
-{`@app.task(base=BaseTask, name="rhesis.backend.tasks.echo")
-def echo(message: str):
-    """Echo task for testing context."""
-    task = echo.request
-    org_id = getattr(task, 'organization_id', 'unknown')
-    user_id = getattr(task, 'user_id', 'unknown')
-
-    print(f"Task executed for organization: {org_id}, by user: {user_id}")
-    return f"Message: {message}, Organization: {org_id}, User: {user_id}"`}
-</CodeBlock>
-
-### Task with Automatic Database Context
+You do not pass `organization_id` and `user_id` as explicit parameters — the context system
+propagates them. Use `@with_tenant_context` when the task needs a database session:
 
 <CodeBlock language="python" filename="tasks/test_configuration.py" isTerminal={false}>
 {`@app.task(base=BaseTask, name="rhesis.backend.tasks.get_test_configuration")
 @with_tenant_context
 def get_test_configuration(test_configuration_id: str, db=None):
-    """
-    Get a test configuration with proper tenant context.
-
-    The @with_tenant_context decorator automatically:
-    1. Creates a database session
-    2. Sets the tenant context from task headers
-    3. Passes the session to the function
-    4. Closes the session when done
-    """
-    # Convert string ID to UUID
     config_id = UUID(test_configuration_id)
-
-    # Use existing crud functions with proper tenant context
     test_config = crud.get_test_configuration(db, test_configuration_id=config_id)
-
-    return {
-        "found": test_config is not None,
-        "id": str(test_config.id) if test_config else None
-    }`}
+    return {"found": test_config is not None,
+            "id": str(test_config.id) if test_config else None}`}
 </CodeBlock>
 
-### Task with Manual Database Session Control
+Without the decorator, open a session manually via `self.get_db_session()`, which already carries
+tenant context:
 
 <CodeBlock language="python" filename="tasks/manual_example.py" isTerminal={false}>
 {`@app.task(base=BaseTask, name="rhesis.backend.tasks.manual_db_example")
 def manual_db_example():
-    """Example of manually managing database sessions."""
-    results = {}
-
-    # Use the context manager to get a properly configured session
     with manual_db_example.get_db_session() as db:
-        # The session already has tenant context set
         test_sets = crud.get_test_sets(db)
-        results["test_set_count"] = len(test_sets)
-
-    return results`}
+        return {"test_set_count": len(test_sets)}`}
 </CodeBlock>
 
-## Using Tasks in FastAPI Routes
-
-The most common way to launch tasks is from FastAPI route handlers:
+Launch tasks from a route with `task_launcher`:
 
 <CodeBlock language="python" filename="routers/test_configuration.py" isTerminal={false}>
 {`from rhesis.backend.tasks import task_launcher, execute_test_configuration
@@ -292,106 +123,48 @@ The most common way to launch tasks is from FastAPI route handlers:
 @router.post("/{test_configuration_id}/execute")
 def execute_test_configuration_endpoint(
     test_configuration_id: UUID,
-    current_user: schemas.User = Depends(require_current_user_or_token)
+    current_user: schemas.User = Depends(require_current_user_or_token),
 ):
-    # Schedule the task with automatic context handling
     result = task_launcher(
         execute_test_configuration,
         str(test_configuration_id),
-        current_user=current_user
+        current_user=current_user,
     )
-
-    # Return the task ID for checking status later
     return {"task_id": result.id}`}
 </CodeBlock>
 
-## Worker Configuration
+## Running workers
 
-Celery workers are configured with Redis-optimized performance settings:
+`apps/worker/start.sh` runs two Celery workers against the same broker:
 
-<CodeBlock language="dockerfile" filename="Dockerfile" isTerminal={false}>
-{`# Default Celery configuration optimized for Redis
-ENV CELERY_WORKER_CONCURRENCY=8 \
-    CELERY_WORKER_PREFETCH_MULTIPLIER=4 \
-    CELERY_WORKER_MAX_TASKS_PER_CHILD=1000 \
-    LOG_LEVEL=INFO \
-    CELERY_WORKER_LOGLEVEL=INFO \
-    CELERY_WORKER_OPTS=""`}
+- a **main** worker on the `celery`, `execution`, and `telemetry` queues
+- an **architect** worker on the `architect` queue
+
+Both use the thread pool. Concurrency and prefetch are set through environment variables
+(`CELERY_WORKER_CONCURRENCY`, `CELERY_WORKER_PREFETCH_MULTIPLIER`, and the `CELERY_ARCHITECT_*`
+equivalents):
+
+<CodeBlock language="bash" filename="start.sh" isTerminal={true}>
+{`celery -A rhesis.backend.worker.app worker \\
+    --pool threads -n main@%h \\
+    --queues=celery,execution,telemetry \\
+    --loglevel="$CELERY_WORKER_LOGLEVEL" \\
+    --concurrency="$CELERY_WORKER_CONCURRENCY" \\
+    --prefetch-multiplier="$CELERY_WORKER_PREFETCH_MULTIPLIER" \\
+    --optimization=fair -E`}
 </CodeBlock>
 
-### Redis-Specific Configuration
+`LOG_LEVEL` controls application logs; `CELERY_WORKER_LOGLEVEL` controls Celery's own
+task-lifecycle messages and defaults to `LOG_LEVEL`. Set `ENABLE_FLOWER=yes` to run the Flower
+monitoring UI on port 5555.
 
-The Celery app includes Redis-optimized settings:
+## Monitoring task status
 
-<CodeBlock language="python" filename="worker.py" isTerminal={false}>
-{`app.conf.update(
-    # Redis configuration with TLS support
-    broker_url=os.getenv("BROKER_URL", "redis://localhost:6379/0"),
-    result_backend=os.getenv("CELERY_RESULT_BACKEND", "redis://localhost:6379/1"),
-
-    # Redis-optimized settings
-    result_expires=3600,  # 1 hour - shorter for Redis efficiency
-    result_compression="gzip",
-
-    # Connection settings for Redis reliability
-    broker_connection_retry_on_startup=True,
-    broker_connection_retry=True,
-    broker_connection_max_retries=10,
-
-    # Redis transport options for TLS connections
-    broker_transport_options={
-        'retry_on_timeout': True,
-        'connection_pool_kwargs': {
-            'retry_on_timeout': True,
-            'socket_connect_timeout': 30,
-            'socket_timeout': 30,
-        }
-    },
-
-    result_backend_transport_options={
-        'retry_on_timeout': True,
-        'connection_pool_kwargs': {
-            'retry_on_timeout': True,
-            'socket_connect_timeout': 30,
-            'socket_timeout': 30,
-        }
-    },
-)`}
-</CodeBlock>
-
-The worker startup script applies these configurations. `LOG_LEVEL` controls
-application logs; Celery's own task-lifecycle messages are controlled
-separately by `CELERY_WORKER_LOGLEVEL`, which defaults to `LOG_LEVEL` but can
-be overridden independently:
-
-<CodeBlock language="bash" filename="start-worker.sh" isTerminal={true}>
-{`# Start Celery worker with Redis-optimized settings
-celery -A rhesis.backend.worker.app worker \
-    --queues=celery,execution,telemetry \
-    --loglevel=\${CELERY_WORKER_LOGLEVEL:-INFO} \
-    --concurrency=\${CELERY_WORKER_CONCURRENCY:-8} \
-    --prefetch-multiplier=\${CELERY_WORKER_PREFETCH_MULTIPLIER:-4} \
-    --max-tasks-per-child=\${CELERY_WORKER_MAX_TASKS_PER_CHILD:-1000} \
-    \${CELERY_WORKER_OPTS}`}
-</CodeBlock>
-
-Optional monitoring is available through Flower:
-
-<CodeBlock language="bash" isTerminal={true}>
-{`# Enable Flower monitoring
-docker run -e ENABLE_FLOWER=yes -p 5555:5555 your-worker-image`}
-</CodeBlock>
-
-## Task Monitoring
-
-Task status can be monitored through several interfaces:
-
-### API Endpoint
+Query a task's status through the result backend:
 
 <CodeBlock language="python" filename="routers/tasks.py" isTerminal={false}>
 {`@router.get("/tasks/{task_id}")
 async def get_task_status(task_id: str):
-    """Get the status of a task."""
     result = AsyncResult(task_id, app=celery_app)
     return {
         "task_id": task_id,
@@ -401,31 +174,10 @@ async def get_task_status(task_id: str):
     }`}
 </CodeBlock>
 
-### Flower Dashboard
+## Error handling
 
-Access the Flower web UI at `http://localhost:5555` when enabled.
+`BaseTask` logs exceptions with tenant context, retries failed tasks with exponential backoff up to
+`max_retries`, and records the final error in the result backend once retries are exhausted.
 
-## Error Handling
-
-The enhanced BaseTask provides improved error handling:
-
-1. Exceptions are logged with tenant context information
-2. Failed tasks are automatically retried with exponential backoff
-3. After maximum retries, the error is recorded in the result backend
-4. Both success and failure callbacks include context information
-5. Task execution time and other metrics are tracked automatically
-
-## Troubleshooting
-
-For detailed information about troubleshooting common worker issues, including:
-
-- Dealing with stuck tasks and async batch execution failures
-- Fixing tenant context errors
-- Connection problems with the broker
-- Task execution failures
-
-Please refer to the [Worker Troubleshooting Guide](troubleshooting.md).
-
-## Task Monitoring
-
-Task status can be monitored through several interfaces:
+For stuck tasks, broker connectivity, and tenant-context errors, see
+[Troubleshooting](/contribute/worker/troubleshooting).

@@ -291,6 +291,49 @@ def test_normal_client_when_connector_enabled(monkeypatch):
     importlib.reload(rhesis.sdk.clients.rhesis)
 
 
+@pytest.mark.parametrize(
+    "env",
+    [
+        pytest.param({}, id="both-missing"),
+        pytest.param({"RHESIS_API_KEY": "test_key"}, id="project-id-missing"),
+        pytest.param({"RHESIS_PROJECT_ID": "test_project"}, id="api-key-missing"),
+        pytest.param(
+            {"RHESIS_API_KEY": "", "RHESIS_PROJECT_ID": ""},
+            id="both-empty",
+        ),
+        pytest.param(
+            {"RHESIS_API_KEY": "test_key", "RHESIS_PROJECT_ID": ""},
+            id="project-id-empty",
+        ),
+    ],
+)
+def test_disabled_client_when_credentials_missing(monkeypatch, env):
+    """from_environment() returns a DisabledClient when either credential is unset or empty.
+
+    Gating happens before construction: RhesisClient.__init__ installs the OTEL
+    provider and starts exporting, so a missing key would ship "Bearer None".
+    """
+    monkeypatch.delenv("RHESIS_CONNECTOR_DISABLED", raising=False)
+    for name in ("RHESIS_API_KEY", "RHESIS_PROJECT_ID"):
+        monkeypatch.delenv(name, raising=False)
+    for name, value in env.items():
+        monkeypatch.setenv(name, value)
+
+    import importlib
+
+    import rhesis.sdk.clients.rhesis
+
+    importlib.reload(rhesis.sdk.clients.rhesis)
+    from rhesis.sdk.clients.rhesis import DisabledClient, RhesisClient
+
+    client = RhesisClient.from_environment()
+
+    assert isinstance(client, DisabledClient)
+    assert client.is_disabled is True
+
+    importlib.reload(rhesis.sdk.clients.rhesis)
+
+
 @pytest.mark.asyncio
 async def test_connect_raises_when_event_loop_running(monkeypatch):
     """connect() raises RuntimeError when called from a context with a running event loop."""

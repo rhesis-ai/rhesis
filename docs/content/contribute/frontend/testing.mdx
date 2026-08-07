@@ -32,16 +32,13 @@ npm run test:coverage
 
 # Run tests in CI mode
 
-npm test:ci`}
+npm run test:ci`}
 
 </CodeBlock>
 
 Equivalent `make` targets are also available from `apps/frontend`: **`make test`** runs `npm test` with `--passWithNoTests --ci --watchAll=false`; **`make test-coverage`** runs `npm run test:ci` (Jest with coverage reporters aligned with CI). `./rh test frontend` (repo root) runs plain `npm test` in `apps/frontend`.
 
-<Callout type="default">
-  **Test Coverage** Target coverage thresholds: **70%** for branches, functions,
-  lines, and statements
-</Callout>
+Coverage is collected (`text`, `json-summary`, `lcov` reporters) but there is no enforced coverage threshold in `jest.config.js` — a drop in coverage doesn't fail the build.
 
 ## End-to-end Testing (Playwright)
 
@@ -77,42 +74,38 @@ The testing framework is configured in `jest.config.js`:
 <CodeBlock filename="jest.config.js" language="javascript">
 {`const nextJest = require('next/jest')
 
-const createJestConfig = nextJest({
-dir: './',
-})
+const createJestConfig = nextJest({ dir: './' })
 
 const customJestConfig = {
-setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
-testEnvironment: 'jsdom',
-moduleNameMapper: {
-'^@/(._)$': '<rootDir>/src/$1',
-},
-collectCoverageFrom: [
-'src/\*\*/_.{js,jsx,ts,tsx}',
-'!src/**/\*.d.ts',
-'!src/**/index.ts',
-'!src/app/layout.tsx',
-'!src/app/page.tsx',
-'!src/auth.ts',
-'!src/middleware.ts',
-],
-coverageThreshold: {
-global: {
-branches: 70,
-functions: 70,
-lines: 70,
-statements: 70,
-},
-},
+  setupFiles: ['<rootDir>/jest.polyfills.js'],
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
+  testEnvironment: 'jsdom',
+  coverageProvider: 'v8',
+  moduleNameMapper: {
+    '^@/(.*)$': '<rootDir>/src/$1',
+    // Every render() goes through src/test-utils.tsx instead of the raw
+    // library, so tests automatically get QueryClientProvider + MUI theme.
+    '^@testing-library/react$': '<rootDir>/src/test-utils.tsx',
+  },
+  collectCoverageFrom: [
+    'src/**/*.{js,jsx,ts,tsx}',
+    '../../ee/frontend/src/**/*.{js,jsx,ts,tsx}',
+    '!src/**/*.d.ts',
+    '!src/**/index.ts',
+    '!src/app/layout.tsx',
+    '!src/app/page.tsx',
+    '!src/auth.ts',
+  ],
 }
 
 module.exports = createJestConfig(customJestConfig)`}
-
 </CodeBlock>
+
+There is no `coverageThreshold` — coverage is reported, not gated.
 
 ### Test Environment Setup
 
-The test environment is configured in `jest.setup.js`:
+The test environment is configured in `jest.setup.js` (abridged below — the real file also adds `jest-axe`, a `next/navigation` mock, and `localStorage`/`sessionStorage` mocks):
 
 <CodeBlock language="javascript" filename="jest.setup.js">
 {`import "@testing-library/jest-dom";
@@ -228,14 +221,13 @@ describe('BaseDrawer', () => {
 
 ### Hook Testing
 
-Test custom hooks using `@testing-library/react-hooks`:
+`renderHook`/`act` come from `@testing-library/react` directly — there's no separate `@testing-library/react-hooks` package. Hooks built on `@tanstack/react-query` mutations (e.g. `useTasks`) test the mutation functions, not a fetched-on-mount list:
 
 <CodeBlock language="typescript" filename="useTasks.test.ts">
 {`import { renderHook, act } from "@testing-library/react";
 import { useTasks } from "../useTasks";
 import { TasksClient } from "@/utils/api-client/tasks-client";
 
-// Mock the API client
 jest.mock("@/utils/api-client/tasks-client");
 const mockTasksClient = TasksClient as jest.Mocked<typeof TasksClient>;
 
@@ -244,105 +236,64 @@ describe("useTasks", () => {
     jest.clearAllMocks();
   });
 
-  it("should fetch tasks on mount", async () => {
-    const mockTasks = [{ id: "1", name: "Test Task" }];
-    mockTasksClient.getTasks.mockResolvedValue(mockTasks);
+  it("creates a task via the mutation", async () => {
+    mockTasksClient.prototype.createTask.mockResolvedValue({ id: "1", name: "Test Task" });
 
     const { result } = renderHook(() => useTasks());
 
     await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      await result.current.createTask({ name: "Test Task" });
     });
 
-    expect(result.current.tasks).toEqual(mockTasks);
-    expect(result.current.isLoading).toBe(false);
-  });
-
-  it("should handle errors correctly", async () => {
-    const mockError = new Error("API Error");
-    mockTasksClient.getTasks.mockRejectedValue(mockError);
-
-    const { result } = renderHook(() => useTasks());
-
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 0));
-    });
-
-    expect(result.current.error).toBe("API Error");
-    expect(result.current.isLoading).toBe(false);
+    expect(mockTasksClient.prototype.createTask).toHaveBeenCalledWith({ name: "Test Task" });
   });
 });`}
 </CodeBlock>
 
 ### Utility Function Testing
 
-Test utility functions with Jest:
+Test utility functions with Jest — `formatDate` (`src/utils/date.ts`) takes an optional **timezone**, not a locale (it always formats with `en-GB` internally, and defaults to the runtime's local timezone when none is given):
 
-<CodeBlock language="typescript" filename="formatDate.test.ts">
-{`import { formatDate } from "../date-utils";
+<CodeBlock language="typescript" filename="date.test.ts">
+{`import { formatDate } from "../date";
 
 describe("formatDate", () => {
-  it("formats ISO date string correctly", () => {
-    const isoDate = "2024-01-15T10:30:00Z";
-    const formatted = formatDate(isoDate);
-
-    expect(formatted).toBe("Jan 15, 2024");
+  it("formats a date string in a given timezone", () => {
+    expect(formatDate("2024-01-15T10:30:00Z", "UTC")).toBe("15 Jan 2024, 10:30");
   });
 
-  it("handles invalid date gracefully", () => {
-    const invalidDate = "invalid-date";
-    const formatted = formatDate(invalidDate);
-
-    expect(formatted).toBe("Invalid Date");
-  });
-
-  it("formats with custom locale", () => {
-    const isoDate = "2024-01-15T10:30:00Z";
-    const formatted = formatDate(isoDate, "en-GB");
-
-    expect(formatted).toBe("15 Jan 2024");
+  it("returns N/A for an undefined date", () => {
+    expect(formatDate(undefined)).toBe("N/A");
   });
 });`}
 </CodeBlock>
 
 ## Test Utilities
 
-### Custom Test Utils
+### Global Render Wrapper
 
-Use custom test utilities for consistent test setup:
+`jest.config.js` remaps `@testing-library/react` itself to `src/test-utils.tsx`, so every `render()` call in the suite automatically gets `QueryClientProvider` and the MUI theme — no `renderWithProviders` helper is needed at each call site:
 
-<CodeBlock language="typescript" filename="src/__mocks__/test-utils.tsx">
-{`// src/__mocks__/test-utils.tsx
-import { render, RenderOptions } from '@testing-library/react';
-import { ReactElement } from 'react';
+<CodeBlock language="typescript" filename="src/test-utils.tsx (simplified)">
+{`import { render as rtlRender } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ThemeProvider, createTheme } from '@mui/material/styles';
 
-// Mock QueryClient for testing
-const createTestQueryClient = () => new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: false,
-    },
-  },
-});
-
-export const renderWithProviders = (
-  ui: ReactElement,
-  options?: RenderOptions
-) => {
-  const queryClient = createTestQueryClient();
-
-  const providers = ({ children }: { children: React.ReactNode }) => (
+function render(ui, options) {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const Wrapper = ({ children }) => (
     <QueryClientProvider client={queryClient}>
-      {children}
+      <ThemeProvider theme={createTheme()}>{children}</ThemeProvider>
     </QueryClientProvider>
   );
+  return rtlRender(ui, { wrapper: Wrapper, ...options });
+}
 
-  return render(ui, { wrapper: providers, ...options });
-};
-
-export * from '@testing-library/react';`}
+export * from '@testing-library/react';
+export { render };`}
 </CodeBlock>
+
+Separately, `src/__mocks__/test-utils.tsx` mocks `next-auth/react` and exports mock data factories (`createMockProject`, `createMockTest`, etc.) for building fixtures — it does not define a render wrapper itself.
 
 ### Mock Implementations
 
@@ -366,7 +317,7 @@ jest.mock("@/utils/api-client/tasks-client", () => ({
 
 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
   <div>
-    <h3>✅ Good Practices</h3>
+    <h3>Good Practices</h3>
     <pre><code>{`// Test user behavior, not implementation
 expect(screen.getByRole('button')).toBeInTheDocument();
 
@@ -378,7 +329,7 @@ expect(screen.getByText(/error/i)).toBeInTheDocument();`}</code></pre>
 
   </div>
   <div>
-    <h3>❌ Avoid These</h3>
+    <h3>Avoid These</h3>
     <pre><code>{`// Don't test implementation details
 expect(wrapper.find('.my-button')).toHaveLength(1);
 
@@ -393,170 +344,55 @@ expect(component.state.isLoading).toBe(true);`}</code></pre>
 
 ### Test Organization
 
-<FileTree
-  title="Test Organization"
-  data={[
-    {
-      name: "src",
-      type: "folder",
-      children: [
-        {
-          name: "components",
-          type: "folder",
-          children: [
-            {
-              name: "Button",
-              type: "folder",
-              children: [
-                {
-                  name: "Button.tsx",
-                  type: "file",
-                },
-                {
-                  name: "Button.test.tsx",
-                  type: "file",
-                  description: "Co-located tests",
-                },
-                {
-                  name: "index.ts",
-                  type: "file",
-                },
-              ],
-            },
-          ],
-        },
-        {
-          name: "hooks",
-          type: "folder",
-          children: [
-            {
-              name: "useAuth.ts",
-              type: "file",
-            },
-            {
-              name: "useAuth.test.ts",
-              type: "file",
-              description: "Hook tests",
-            },
-          ],
-        },
-        {
-          name: "utils",
-          type: "folder",
-          children: [
-            {
-              name: "formatDate.ts",
-              type: "file",
-            },
-            {
-              name: "formatDate.test.ts",
-              type: "file",
-              description: "Utility tests",
-            },
-          ],
-        },
-        {
-          name: "__tests__",
-          type: "folder",
-          children: [
-            {
-              name: "integration",
-              type: "folder",
-              description: "Integration tests",
-            },
-            {
-              name: "setup",
-              type: "folder",
-              description: "Test setup files",
-            },
-            {
-              name: "README.md",
-              type: "file",
-              description: "Test documentation",
-            },
-          ],
-        },
-      ],
-    },
-  ]}
-/>
-
-### Coverage Guidelines
-
-<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-  <div>
-    <h3>Unit Tests</h3>
-    <p>Component and utility function testing</p>
-    <strong>Target: 80%+</strong>
-  </div>
-  <div>
-    <h3>Integration Tests</h3>
-    <p>Hook and API integration testing</p>
-    <strong>Target: 70%+</strong>
-  </div>
-  <div>
-    <h3>Critical Paths</h3>
-    <p>Authentication and core workflows</p>
-    <strong>Target: 90%+</strong>
-  </div>
-  <div>
-    <h3>Edge Cases</h3>
-    <p>Error handling and boundary conditions</p>
-    <strong>Target: 60%+</strong>
-  </div>
-</div>
+Tests are co-located in a `__tests__/` subfolder next to the code they cover (e.g. `components/common/__tests__/BaseDrawer.test.tsx`, `utils/api-client/__tests__/...`), plus a top-level `src/__tests__/` for broader integration tests.
 
 ## Integration with CI/CD
 
-### Pre-commit Hooks
+### Local Validation Script
 
-Tests run automatically before commits through the validation script:
+`apps/frontend/scripts/validate.sh` runs tests as part of a full local gate (format, type-check, lint, test, build). It is not wired to a git hook or invoked by CI — run it manually before opening a PR:
 
 <CodeBlock language="bash" isTerminal={true} filename="apps/frontend/scripts/validate.sh">
-{`# apps/frontend/scripts/validate.sh
-echo "🔍 Running tests..."
-npm test -- --passWithNoTests --watchAll=false
+{`npm test -- --passWithNoTests --watchAll=false
 TEST_EXIT_CODE=$?
 
-# Validation continues with other checks...
 if [ $TEST_EXIT_CODE -ne 0 ]; then
-  echo "✗ Tests failed"
+  echo "Tests failed"
   exit 1
 fi`}
 </CodeBlock>
 
 ### GitHub Actions
 
-Automated testing in CI/CD pipeline:
+The unit-test workflow is `.github/workflows/frontend-test.yml` ("[Test] Frontend Unit") — not `frontend.yml`, which is a build/deploy workflow with no test job:
 
-<CodeBlock language="yaml" filename=".github/workflows/frontend.yml">
-{`# .github/workflows/frontend.yml
-test:
+<CodeBlock language="yaml" filename=".github/workflows/frontend-test.yml">
+{`test:
   runs-on: ubuntu-latest
   steps:
-    - name: Checkout repository
-      uses: actions/checkout@v6
+    - uses: actions/checkout@v6
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
+    - uses: actions/setup-node@v6
       with:
-        node-version: "18"
+        node-version: "24"
         cache: "npm"
         cache-dependency-path: "apps/frontend/package-lock.json"
 
     - name: Install dependencies
-      run: npm ci
+      run: npm ci --legacy-peer-deps
+      working-directory: ./apps/frontend
+
+    - name: Type check
+      run: npm run type-check
       working-directory: ./apps/frontend
 
     - name: Run tests
       run: npm run test:ci
       working-directory: ./apps/frontend
-
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v3
-      with:
-        file: ./apps/frontend/coverage/lcov.info`}
+      # Coverage summary is written to $GITHUB_STEP_SUMMARY — no Codecov upload`}
 </CodeBlock>
+
+A separate `community-boundary` job in the same workflow checks for EE-import leaks into the community codebase.
 
 ## Troubleshooting
 
@@ -597,7 +433,7 @@ await act(async () => {
 npm test -- --verbose
 
 # Run specific test file
-npm test Button.test.tsx
+npm test BaseDrawer.test.tsx
 
 # Run tests matching pattern
 npm test -- --testNamePattern="should render"

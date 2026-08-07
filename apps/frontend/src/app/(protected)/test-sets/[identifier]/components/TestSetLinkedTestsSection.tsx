@@ -11,6 +11,7 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd';
 import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import AssignTestsDrawer from './AssignTestsDrawer';
 import EmbeddingTestsPanel from './EmbeddingTestsPanel';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -18,6 +19,7 @@ import { TestDetail } from '@/utils/api-client/interfaces/tests';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
+import { testSetKeys } from '@/constants/query-keys';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import type { Theme } from '@mui/material/styles';
 
@@ -46,6 +48,7 @@ export default function TestSetLinkedTestsSection({
   const { show: showNotification } = useNotifications();
   const canEditTestSet = useCan(Capability.TestSet.UPDATE);
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [totalCount, setTotalCount] = useState(initialTestCount);
@@ -116,7 +119,17 @@ export default function TestSetLinkedTestsSection({
         { severity: 'success', autoHideDuration: 4000 }
       );
       setDrawerOpen(false);
+      // Optimistically grow the count so the empty state gives way to the grid
+      // immediately after the first assignment.
+      setTotalCount(prev => prev + tests.length);
+      // Drop cached test-list pages so the grid refetches with the new rows
+      // (React Query keeps them fresh for 5 min otherwise).
+      await queryClient.invalidateQueries({
+        queryKey: [...testSetKeys.detail(testSetId), 'tests'],
+      });
       handleRefresh();
+      // Sync the server-rendered testCount prop for this page.
+      router.refresh();
     } catch (error) {
       const msg = error instanceof Error ? error.message : '';
       if (msg.includes('already associated')) {

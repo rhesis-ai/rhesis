@@ -7,14 +7,20 @@ for different purposes (generation, evaluation, embedding, etc.)
 
 import logging
 import os
-from typing import Union
+from typing import Optional, Union
 
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
-from rhesis.backend.app.config.settings import get_model_settings
+from rhesis.backend.app.config.settings import (
+    get_application_settings,
+    get_model_settings,
+    get_rhesis_settings,
+)
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.services.platform_key import get_platform_api_key
 from rhesis.backend.app.utils.model_errors import ModelConfigurationError
+from rhesis.backend.app.utils.usage_tracking import make_usage_accrual_callback
 from rhesis.sdk.models.base import BaseEmbedder, BaseLLM
 from rhesis.sdk.models.factory import get_model
 
@@ -109,6 +115,34 @@ def get_user_evaluation_model(db: Session, user: User) -> Union[str, BaseLLM]:
     return _get_user_model(db, user, "evaluation", _default_evaluation_model())
 
 
+def get_evaluation_model(db: Session, user_id: str) -> Union[str, BaseLLM]:
+    """
+    Get the evaluation model for the user, with fallback to default.
+
+    Args:
+        db: Database session
+        user_id: User ID string
+
+    Returns:
+        Model instance (string or BaseLLM)
+    """
+    try:
+        default_model = _default_evaluation_model()
+        user = crud.get_user_by_id(db, user_id)
+        if user:
+            return get_user_evaluation_model(db, user)
+        logger.warning(
+            f"[MODEL_SELECTION] User {user_id} not found, using default: {default_model}"
+        )
+        return default_model
+    except Exception as e:
+        default_model = _default_evaluation_model()
+        logger.warning(
+            f"[MODEL_SELECTION] Error fetching user model: {str(e)}, using default: {default_model}"
+        )
+        return default_model
+
+
 def get_user_execution_model(db: Session, user: User) -> Union[str, BaseLLM]:
     """
     Get the user's configured default execution model or fall back to the system setting.
@@ -124,6 +158,34 @@ def get_user_execution_model(db: Session, user: User) -> Union[str, BaseLLM]:
         Either a string (provider name) or a configured BaseLLM instance
     """
     return _get_user_model(db, user, "execution", _default_execution_model())
+
+
+def get_execution_model(db: Session, user_id: str) -> Union[str, BaseLLM]:
+    """
+    Get the execution model for the user, with fallback to default.
+
+    Args:
+        db: Database session
+        user_id: User ID string
+
+    Returns:
+        Model instance (string or BaseLLM)
+    """
+    try:
+        default_model = _default_execution_model()
+        user = crud.get_user_by_id(db, user_id)
+        if user:
+            return get_user_execution_model(db, user)
+        logger.warning(
+            f"[MODEL_SELECTION] User {user_id} not found, using default: {default_model}"
+        )
+        return default_model
+    except Exception as e:
+        default_model = _default_execution_model()
+        logger.warning(
+            f"[MODEL_SELECTION] Error fetching user model: {str(e)}, using default: {default_model}"
+        )
+        return default_model
 
 
 def get_execution_model_with_override(
@@ -351,7 +413,113 @@ def _is_rhesis_system_model(provider: str, api_key: str) -> bool:
     return provider == "rhesis" and not api_key
 
 
-def _call_polyphemus_with_delegation(user: User, model_name: str, **kwargs):
+def _is_hosted_model(provider: str, api_key: Optional[str]) -> bool:
+    """
+    Check if an explicitly-selected Model row runs on Rhesis-operated infrastructure.
+
+    Only ever reached for a Model row an org explicitly picked via
+    `model_id` -- `_fetch_and_configure_model`'s two callers are
+    `get_generation_model_with_override` (explicit override) and
+    `_get_user_model` (the org configured a `model_id` for this purpose).
+    Whichever *other* provider the org names there -- their own
+    `vertex_ai`, `ollama`, `openai`, self-hosted `vllm`, whatever -- is
+    their own infrastructure choice: never Rhesis's, regardless of whether
+    they happened to leave the key blank (self-hosted servers commonly need
+    none). Broadening this to a bare `not api_key` (tried and reverted) both
+    overcounted those and was solving a case that doesn't occur.
+
+    `rhesis`/`polyphemus` are the two provider values that mean "use
+    Rhesis's own hosted infrastructure" as a selectable option in the
+    Models UI, so those alone accrue when the row carries no org key.
+    Note the *system default* -- what an org gets when it configures no
+    `model_id` at all -- is a different path entirely
+    (`resolve_default_hosted_model`), reached before this function and
+    unrestricted by provider: whatever a deployment names as its
+    `DEFAULT_*_MODEL` (`vertex_ai/gemini-2.5-flash`, in this dev
+    environment) *is* Rhesis's own infra cost for that deployment, by
+    definition of being the default.
+
+    Args:
+        provider: The provider type value (e.g., "rhesis", "polyphemus", "openai")
+        api_key: The API key stored for the model, e.g. `model_record.key`,
+            which is nullable
+
+    Returns:
+        True if this model's tokens should accrue against the org's
+        MODEL_TOKENS quota.
+    """
+    return provider in ("rhesis", "polyphemus") and not api_key
+
+
+def resolve_default_hosted_model(default_model: str, organization_id: str) -> Union[str, BaseLLM]:
+    """
+    Instantiate the system default model with usage accrual when it names a hosted provider.
+
+    Several callers fall back to the bare `default_model` string (e.g.
+    "rhesis/rhesis-default") without ever calling `_fetch_and_configure_model`
+    -- most notably `_get_user_model` when the user has no model_id configured
+    for a purpose (execution model on a freshly onboarded org, for example),
+    and the execution/evaluation model resolution in the batch and sequential
+    test-execution paths when a test config carries no resolvable user.
+    Those calls would otherwise never accrue token usage, since the SDK only
+    resolves the string into an actual model instance much later (inside
+    synthesizers/agents/metrics, with no organization context available).
+
+    Public rather than underscore-prefixed because those out-of-module
+    fallbacks are the point of it: anything that would otherwise hand a bare
+    `DEFAULT_*_MODEL` string downstream should route through here instead.
+
+    Construction here is cheap (no network call -- provider `__init__`s only
+    set up client config) so doing it eagerly costs nothing. On any
+    construction error (e.g. missing RHESIS_API_KEY), falls back to the bare
+    string so callers retain today's lazy-resolution behavior.
+
+    Args:
+        default_model: A "provider/model_name" string, e.g. "rhesis/rhesis-default"
+        organization_id: Org to attribute accrued tokens to. Falsy (the task
+            paths derive it from a nullable column and can pass "") skips
+            accrual rather than booking the tokens against no org.
+
+    Returns:
+        An instance with `on_usage` wired for accrual when construction
+        succeeds; the original string otherwise.
+    """
+    # No provider restriction: the *system default* is by definition the
+    # model this deployment runs on its own credentials, whatever provider
+    # it names. A deployment configured with
+    # ``DEFAULT_GENERATION_MODEL=vertex_ai/gemini-2.5-flash`` calls Vertex
+    # from the backend using the server's GOOGLE_APPLICATION_CREDENTIALS,
+    # so Rhesis pays for those tokens exactly as it does for
+    # ``rhesis/...``. Restricting this to rhesis/polyphemus meant every such
+    # deployment reported zero MODEL_TOKENS forever.
+    try:
+        extra_params = {}
+        if organization_id:
+            extra_params["on_usage"] = make_usage_accrual_callback(organization_id)
+        else:
+            logger.warning(
+                "No organization_id resolving default model %s; token usage will not accrue",
+                default_model,
+            )
+        return get_model(
+            default_model,
+            model_type="language",
+            **extra_params,
+        )
+    except Exception:
+        # Broad on purpose, not just ValueError: dropping the provider
+        # restriction above means this now runs `get_model` for *any*
+        # `DEFAULT_*_MODEL`, including providers whose modules raise other
+        # error types at import/construction time (e.g. huggingface.py
+        # raises ImportError when torch/transformers aren't installed).
+        # Falling back here doesn't hide the failure -- it only defers to
+        # the lazy resolution path this eager call is layered on top of,
+        # which will raise the same error when it actually tries to use
+        # the model.
+        return default_model
+
+
+def _call_polyphemus_with_delegation(user: User, model_name: str, organization_id: str, **kwargs):
     """
     Create Polyphemus client with delegation token.
 
@@ -361,10 +529,11 @@ def _call_polyphemus_with_delegation(user: User, model_name: str, **kwargs):
     Args:
         user: User on whose behalf the request is made
         model_name: Polyphemus model name (e.g., "default")
+        organization_id: Org to attribute accrued MODEL_TOKENS usage to
         **kwargs: Additional arguments to pass to PolyphemusLLM
 
     Returns:
-        Configured PolyphemusLLM instance
+        Configured PolyphemusLLM instance, with usage accrual wired
 
     Raises:
         ValueError: If user is not active or not verified
@@ -388,7 +557,44 @@ def _call_polyphemus_with_delegation(user: User, model_name: str, **kwargs):
         model_name=model_name,
         api_key=delegation_token,
         base_url=polyphemus_url,
+        on_usage=make_usage_accrual_callback(organization_id),
         **kwargs,
+    )
+
+
+def _try_platform_key_model(
+    db: Session,
+    organization_id: str,
+    provider: str,
+    model_name: str,
+    model_type: str,
+    *,
+    with_usage_accrual: bool = False,
+) -> Optional[Union[BaseLLM, BaseEmbedder]]:
+    """Authenticate a Rhesis-hosted model with the org's platform key, in local mode only.
+
+    Returns a configured instance when local mode is active and a platform key
+    resolves; ``None`` otherwise, so callers fall through to their own
+    non-local default/delegation logic unchanged.
+
+    ``with_usage_accrual`` wires ``on_usage`` for language models (the SDK's
+    ``BaseEmbedder`` doesn't accept that constructor kwarg, so embedding
+    callers must leave it ``False``).
+    """
+    if not get_application_settings().is_local:
+        return None
+    key = get_platform_api_key(db, organization_id)
+    if not key:
+        return None
+    extra_params = {}
+    if with_usage_accrual:
+        extra_params["on_usage"] = make_usage_accrual_callback(organization_id)
+    return get_model(
+        provider=provider,
+        model_name=model_name,
+        api_key=key,
+        model_type=model_type,
+        **extra_params,
     )
 
 
@@ -417,7 +623,7 @@ def _fetch_and_configure_model(
 
     if not model or not model.provider_type:
         logger.warning("Model with id=%s not found or has no provider_type", model_id)
-        return default_model
+        return resolve_default_hosted_model(default_model, organization_id)
 
     # Get provider configuration
     provider = model.provider_type.type_value
@@ -426,17 +632,54 @@ def _fetch_and_configure_model(
 
     # Special handling for Rhesis system models
     if _is_rhesis_system_model(provider, api_key):
-        return default_model
+        # Local/self-hosted mode: authenticate the prepopulated Rhesis-hosted
+        # system models with the org-scoped platform key when one is configured,
+        # accruing usage like any other hosted call. Non-local (SaaS) behavior
+        # is unchanged: fall back to the accrual-wrapped default.
+        hosted = _try_platform_key_model(
+            db,
+            organization_id,
+            "rhesis",
+            model_name or "default",
+            "language",
+            with_usage_accrual=True,
+        )
+        if hosted is not None:
+            return hosted
+        return resolve_default_hosted_model(default_model, organization_id)
 
-    # Special handling for Polyphemus models without API keys (use delegation tokens)
-    if provider == "polyphemus" and not api_key and user:
-        return _call_polyphemus_with_delegation(user, model_name)
+    # Special handling for Polyphemus models without a stored API key.
+    #
+    # - Self-hosted deployments configure a real RHESIS_API_KEY and call
+    #   Polyphemus directly with it (same path as any other provider below).
+    # - Rhesis-hosted (SaaS) deployments have no such key configured, so we
+    #   mint a short-lived delegation token on the user's behalf instead.
+    #   Delegation only validates because the backend and Polyphemus share
+    #   the same JWT_SECRET_KEY there; a self-hosted backend's secret would
+    #   be meaningless to the externally-hosted Polyphemus service, so a
+    #   configured RHESIS_API_KEY always takes precedence when present.
+    if provider == "polyphemus" and not api_key:
+        # Local/self-hosted mode: authenticate with the org-scoped platform
+        # key when configured, accruing usage like any other hosted call.
+        # Non-local (SaaS) behavior is unchanged: existing env-precedence and
+        # delegation logic runs when no per-org key resolves.
+        hosted = _try_platform_key_model(
+            db, organization_id, "polyphemus", model_name, "language", with_usage_accrual=True
+        )
+        if hosted is not None:
+            return hosted
+        if get_rhesis_settings().api_key:
+            logger.debug("Using configured RHESIS_API_KEY for Polyphemus (self-hosted mode)")
+        elif user:
+            return _call_polyphemus_with_delegation(user, model_name, organization_id)
 
     # Use SDK's get_model to create configured instance with error handling
     try:
         extra_params = {}
         if model.endpoint and model.endpoint.strip():
             extra_params["api_base"] = model.endpoint.strip()
+        if _is_hosted_model(provider, api_key):
+            extra_params["on_usage"] = make_usage_accrual_callback(organization_id)
         return get_model(
             provider=provider,
             model_name=model_name,
@@ -512,7 +755,7 @@ def _get_user_model(
     model_id = model_settings.model_id
 
     if not model_id:
-        return default_model
+        return resolve_default_hosted_model(default_model, str(user.organization_id))
 
     return _fetch_and_configure_model(
         db=db,
@@ -553,6 +796,14 @@ def _fetch_and_configure_embedder(
 
     # Special handling for Rhesis system models
     if _is_rhesis_system_model(provider, api_key):
+        # Local/self-hosted mode: authenticate the prepopulated Rhesis-hosted
+        # embedding models with the org-scoped platform key when configured.
+        # Non-local (SaaS) behavior is unchanged: fall back to default_model.
+        hosted = _try_platform_key_model(
+            db, organization_id, "rhesis", model_name or "default", "embedding"
+        )
+        if hosted is not None:
+            return hosted
         return default_model
 
     # Use SDK's get_model to create configured instance with error handling

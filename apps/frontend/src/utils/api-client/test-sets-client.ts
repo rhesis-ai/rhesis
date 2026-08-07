@@ -2,22 +2,11 @@ import { UUID } from 'crypto';
 import { BaseApiClient } from './base-client';
 import { API_ENDPOINTS } from './config';
 import { joinUrl } from '@/utils/url';
-import {
-  EmbeddingGraphComputeResponse,
-  EmbeddingGraphGetResponse,
-} from './interfaces/embedding';
+import { EmbeddingGraphGetResponse } from './interfaces/embedding';
 import {
   TestSet,
   TestSetCreate,
-  TestSetStatsResponse,
-  TestSetDetailStatsResponse,
-  StatsOptions,
-  TestSetBulkCreate,
-  TestSetBulkResponse,
   TestSetBulkAssociateRequest,
-  TestSetBulkAssociateResponse,
-  TestSetBulkDisassociateRequest,
-  TestSetBulkDisassociateResponse,
   GenerateTestsRequest,
   GenerateTestSetResponse,
   TestSetMetric,
@@ -68,23 +57,6 @@ function getErrorMessageFromErrorData(errorData: unknown): string {
     return String(data.message);
   }
   return JSON.stringify(errorData, null, 2);
-}
-
-/**
- * Utility function to build query parameters
- */
-function buildQueryParams(params: Record<string, unknown>): string {
-  const queryParams = new URLSearchParams();
-
-  // Add all non-undefined parameters to the query string
-  Object.entries(params).forEach(([key, value]) => {
-    if (value !== undefined) {
-      queryParams.append(key, String(value));
-    }
-  });
-
-  const queryString = queryParams.toString();
-  return queryString ? `?${queryString}` : '';
 }
 
 export class TestSetsClient extends BaseApiClient {
@@ -285,43 +257,6 @@ export class TestSetsClient extends BaseApiClient {
     return this.convertTestSetPriority(testSet);
   }
 
-  async getTestSetStats(
-    options: StatsOptions = {}
-  ): Promise<TestSetStatsResponse> {
-    const { top, months, mode } = options;
-
-    const queryString = buildQueryParams({
-      top,
-      months,
-      mode,
-    });
-
-    const url = `${API_ENDPOINTS.testSets}/stats${queryString}`;
-
-    return this.fetch<TestSetStatsResponse>(url, {
-      cache: 'no-store',
-    });
-  }
-
-  async getTestSetDetailStats(
-    identifier: string,
-    options: StatsOptions = {}
-  ): Promise<TestSetDetailStatsResponse> {
-    const { top, months, mode } = options;
-
-    const queryString = buildQueryParams({
-      top,
-      months,
-      mode,
-    });
-
-    const url = `${API_ENDPOINTS.testSets}/${identifier}/stats${queryString}`;
-
-    return this.fetch<TestSetDetailStatsResponse>(url, {
-      cache: 'no-store',
-    });
-  }
-
   async createTestSet(testSet: TestSetCreate): Promise<TestSet> {
     return this.fetch<TestSet>(`${API_ENDPOINTS.testSets}/`, {
       method: 'POST',
@@ -446,47 +381,18 @@ export class TestSetsClient extends BaseApiClient {
     }
   }
 
-  async createTestSetBulk(
-    testSetData: TestSetBulkCreate
-  ): Promise<TestSetBulkResponse> {
-    return this.fetch<TestSetBulkResponse>(`${API_ENDPOINTS.testSets}/bulk`, {
-      method: 'POST',
-      body: JSON.stringify(testSetData),
-    });
-  }
-
   async associateTestsWithTestSet(
     testSetId: string,
     testIds: string[]
-  ): Promise<TestSetBulkAssociateResponse> {
+  ): Promise<void> {
     const request: TestSetBulkAssociateRequest = {
       test_ids: testIds as UUID[],
     };
 
-    return this.fetch<TestSetBulkAssociateResponse>(
-      `${API_ENDPOINTS.testSets}/${testSetId}/associate`,
-      {
-        method: 'POST',
-        body: JSON.stringify(request),
-      }
-    );
-  }
-
-  async disassociateTestsFromTestSet(
-    testSetId: string,
-    testIds: string[]
-  ): Promise<TestSetBulkDisassociateResponse> {
-    const request: TestSetBulkDisassociateRequest = {
-      test_ids: testIds as UUID[],
-    };
-
-    return this.fetch<TestSetBulkDisassociateResponse>(
-      `${API_ENDPOINTS.testSets}/${testSetId}/disassociate`,
-      {
-        method: 'POST',
-        body: JSON.stringify(request),
-      }
-    );
+    await this.fetch<void>(`${API_ENDPOINTS.testSets}/${testSetId}/associate`, {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
   }
 
   async getTestSetTests(
@@ -589,10 +495,8 @@ export class TestSetsClient extends BaseApiClient {
     );
   }
 
-  async computeEmbeddingGraph(
-    testSetId: string
-  ): Promise<EmbeddingGraphComputeResponse> {
-    return this.fetch<EmbeddingGraphComputeResponse>(
+  async computeEmbeddingGraph(testSetId: string): Promise<void> {
+    await this.fetch<void>(
       `${API_ENDPOINTS.testSets}/${testSetId}/embeddings/compute-graph`,
       { method: 'POST' }
     );

@@ -165,15 +165,59 @@ unlicensed feature routes via `require_feature`.
 
 ## License providers
 
-Two implementations of the `LicenseProvider` protocol:
+Core ships `DefaultLicenseProvider`, a permissive fallback that allows
+every *registered* EE feature and reports the `community` edition. In
+practice this only matters when the EE package isn't installed at all —
+in that case no EE features are ever registered with `FeatureRegistry`,
+so `is_available()` returns `False` regardless of the license provider's
+permissiveness, and the community build has no EE surface to allow.
 
-- `DefaultLicenseProvider` — allows every registered EE feature for
-  every organization. Active when no `RHESIS_LICENSE` environment
-  variable is set. Intended for local development with the EE
-  package installed.
+When the EE package *is* installed, bootstrap installs
+`SignedTokenLicenseProvider` (`ee/backend/src/rhesis/backend/ee/licensing/
+provider.py`) in `DefaultLicenseProvider`'s place before any EE feature is
+registered, so `DefaultLicenseProvider`'s permissiveness is never actually
+exercised against a real feature in a running deployment. It verifies
+Ed25519-signed JWTs (`EdDSA`, not RS256) and resolves entitlements in this
+order:
 
-- `JwtLicenseProvider` — reads a signed RS256 JWT from
-  `RHESIS_LICENSE` and only allows features listed in the token's
-  claims. Replaces `DefaultLicenseProvider` at startup when the
-  variable is present. (Implementation lives in a follow-up patch;
-  the protocol and swap point are already in place.)
+1. `RHESIS_LICENSE` env var — a blanket `sub:"*"` token covering every
+   org in the deployment.
+2. `organization.license` column — a per-org token whose `sub` must match
+   the org's UUID.
+3. Deny.
+
+There is no environment-based bypass. A missing, invalid, or expired
+license results in the `community` edition — identically in local
+development, staging, production, and self-hosted deployments. To
+exercise EE features locally, mint a real non-prod token with the CLI
+(`python -m rhesis.backend.ee.licensing.cli mint --org "*" --edition
+enterprise --kid rhesis-nonprod-v1`) and set it as `RHESIS_LICENSE`.
+
+### Licensing self-hosted deployments
+
+Self-hosted customers run their own database, so `issue` (which writes to
+`organization.license`) doesn't apply — there's no org row of ours to
+write to. They always get a blanket (`sub:"*"`) token minted with `mint`,
+signed with `--kid rhesis-prod-v1` (the key already baked into every
+shipped image, so they configure nothing beyond `RHESIS_LICENSE`), and
+delivered to them directly since we have no channel into their
+environment.
+
+`mint --secret-name <name> --secret-project <project>` delivers the token
+to a Secret Manager secret (via `deliver_to_secret_manager`) instead of
+printing it — the token never touches stdout or CI logs. The secret must
+already exist, and the caller needs `roles/secretmanager.
+secretVersionAdder` on it. This is what the `[EE] Mint Self-Hosted
+License` workflow in the private `rhesis-ee` repo uses; an approver
+retrieves the token from Secret Manager and delivers it to the customer
+out of band (manual for now — a self-service portal may replace this
+later).
+
+**A blanket token is not bound to the customer it was minted for.** Since
+`sub` is always `"*"`, `SignedTokenLicenseProvider` has no way to tell
+"the deployment this was issued to" apart from any other deployment that
+happens to have the same `RHESIS_LICENSE` value set. If a customer shares
+their token, it works elsewhere too. This was a deliberate decision, not
+an oversight — see `provider.py`'s module docstring for the tradeoff
+against the no-phone-home design. Reuse is a contract/license-agreement
+concern, not something this codebase technically enforces.

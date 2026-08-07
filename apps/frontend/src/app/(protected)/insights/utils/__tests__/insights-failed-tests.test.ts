@@ -54,7 +54,7 @@ describe('insights-failed-tests', () => {
     expect(parseInsightsFailedTestsSearchParams(params)).toEqual({
       endpointId: 'ep-1',
       runFilterMode: 'testRuns',
-      timeRange: '1m',
+      timeRange: 'always',
       testRunIds: [],
       outcome: 'failed',
     });
@@ -92,27 +92,29 @@ describe('insights-failed-tests', () => {
         {
           behaviorId: 'beh-1',
           behaviorName: 'Safety',
+          topicId: 'topic-1',
           topicName: 'Claims',
           outcome: 'all',
         }
       )
     ).toBe(
-      '/tests?failedFromInsights=1&endpointId=ep-1&runFilterMode=timeRange&timeRange=1m&behaviorId=beh-1&behaviorName=Safety&topic=Claims&outcome=all'
+      '/tests?failedFromInsights=1&endpointId=ep-1&runFilterMode=timeRange&timeRange=1m&behaviorId=beh-1&behaviorName=Safety&topicId=topic-1&topic=Claims&outcome=all'
     );
   });
 
   it('parses insights failed tests search params', () => {
     const params = new URLSearchParams(
-      'failedFromInsights=1&endpointId=ep-1&runFilterMode=testRuns&testRunIds=run-1,run-2&behaviorId=b1&metric=m1&topic=t1&behaviorName=Beh'
+      'failedFromInsights=1&endpointId=ep-1&runFilterMode=testRuns&testRunIds=run-1,run-2&behaviorId=b1&metric=m1&topicId=tid1&topic=t1&behaviorName=Beh'
     );
     expect(parseInsightsFailedTestsSearchParams(params)).toEqual({
       endpointId: 'ep-1',
       runFilterMode: 'testRuns',
-      timeRange: '1m',
+      timeRange: 'always',
       testRunIds: ['run-1', 'run-2'],
       behaviorId: 'b1',
       behaviorName: 'Beh',
       metricName: 'm1',
+      topicId: 'tid1',
       topicName: 't1',
       outcome: 'failed',
     });
@@ -158,7 +160,7 @@ describe('insights-failed-tests', () => {
 
   it('formats summary detail with test results wording', () => {
     expect(formatInsightsSummaryDetail(10, 20, 10)).toBe(
-      '(10/20 test results passed, 10 failed)'
+      '(10/20 test results passed, 10/20 failed)'
     );
   });
 

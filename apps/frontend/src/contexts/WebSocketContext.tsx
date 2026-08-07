@@ -76,6 +76,29 @@ function makeWsTokenProvider(): () => Promise<string> {
 }
 
 /**
+ * Survive React Strict Mode's mount → unmount → remount without minting a
+ * second `POST /ws/token`: keep one client and defer disconnect by a tick so
+ * the remount can cancel teardown. Real unmount/logout still disconnects.
+ */
+let sharedClient: WebSocketClient | null = null;
+let teardownTimer: ReturnType<typeof setTimeout> | null = null;
+let onConnectionChange: ((connected: boolean) => void) | null = null;
+
+function clearTeardownTimer(): void {
+  if (teardownTimer) {
+    clearTimeout(teardownTimer);
+    teardownTimer = null;
+  }
+}
+
+function disposeSharedClient(): void {
+  clearTeardownTimer();
+  sharedClient?.disconnect();
+  sharedClient = null;
+  onConnectionChange = null;
+}
+
+/**
  * WebSocket provider component.
  *
  * This provider manages a WebSocket connection to the backend and
@@ -83,74 +106,65 @@ function makeWsTokenProvider(): () => Promise<string> {
  *
  * The connection is automatically established when a user session
  * is available and torn down on logout.
- *
- * @example
- * ```tsx
- * // In your app layout
- * <WebSocketProvider>
- *   <YourApp />
- * </WebSocketProvider>
- *
- * // In a component
- * const { isConnected, subscribe, subscribeToChannel } = useWebSocketContext();
- * ```
  */
 export function WebSocketProvider({ children }: WebSocketProviderProps) {
   const { status } = useSession();
   const [isConnected, setIsConnected] = useState(false);
   const [connectionId, setConnectionId] = useState<string | undefined>();
   const clientRef = useRef<WebSocketClient | null>(null);
+  const connectionIdHandlerRef = useRef<(id?: string) => void>(() => {});
 
-  // Initialize WebSocket client when session is available
+  connectionIdHandlerRef.current = id => setConnectionId(id);
+
   useEffect(() => {
-    // Don't connect if no session or still loading
     if (!isAuthenticated(status)) {
-      return;
-    }
-
-    const wsUrl = getWebSocketUrl();
-
-    // Create WebSocket client. The tokenProvider fetches a fresh short-lived
-    // WS token before each connection attempt (including auto-reconnects) via
-    // the BFF proxy. There's no static access token to fall back to here —
-    // this client never holds one — so a provider failure fails the
-    // connection attempt cleanly instead of reusing a stale credential.
-    const client = new WebSocketClient({
-      url: wsUrl,
-      token: '',
-      tokenProvider: makeWsTokenProvider(),
-      onConnectionChange: connected => {
-        setIsConnected(connected);
-        if (!connected) {
-          setConnectionId(undefined);
-        }
-      },
-    });
-
-    // Subscribe to connected event to capture connection ID
-    client.subscribe(EventType.CONNECTED, msg => {
-      const payload = msg.payload as { connection_id?: string } | undefined;
-      if (payload?.connection_id) {
-        setConnectionId(payload.connection_id);
-      }
-    });
-
-    // Connect
-    client.connect();
-    clientRef.current = client;
-
-    // Cleanup on unmount or session change
-    return () => {
-      client.disconnect();
+      // Logout / session loss: drop the shared socket immediately.
+      disposeSharedClient();
       clientRef.current = null;
       setIsConnected(false);
       setConnectionId(undefined);
+      return;
+    }
+
+    clearTeardownTimer();
+
+    onConnectionChange = connected => {
+      setIsConnected(connected);
+      if (!connected) setConnectionId(undefined);
+    };
+
+    if (!sharedClient) {
+      sharedClient = new WebSocketClient({
+        url: getWebSocketUrl(),
+        token: '',
+        tokenProvider: makeWsTokenProvider(),
+        onConnectionChange: connected => onConnectionChange?.(connected),
+      });
+      sharedClient.connect();
+    }
+
+    clientRef.current = sharedClient;
+    setIsConnected(sharedClient.isConnected);
+    if (sharedClient.connectionId) {
+      setConnectionId(sharedClient.connectionId);
+    }
+
+    const unsubscribe = sharedClient.subscribe(EventType.CONNECTED, msg => {
+      const payload = msg.payload as { connection_id?: string } | undefined;
+      connectionIdHandlerRef.current(payload?.connection_id);
+    });
+
+    return () => {
+      unsubscribe();
+      clientRef.current = null;
+      // Defer so Strict Mode remount can reuse `sharedClient` instead of
+      // disconnecting and minting another token.
+      teardownTimer = setTimeout(() => {
+        disposeSharedClient();
+      }, 0);
     };
   }, [status]);
 
-  /**
-   * Send a message to the WebSocket server.
-   */
   const send = useCallback((message: WebSocketMessage): boolean => {
     if (!clientRef.current) {
       console.warn('WebSocket client not initialized');
@@ -159,9 +173,6 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
     return clientRef.current.send(message);
   }, []);
 
-  /**
-   * Subscribe to a specific event type.
-   */
   const subscribe = useCallback(
     (eventType: EventType | string, handler: EventHandler): (() => void) => {
       if (!clientRef.current) {
@@ -173,9 +184,6 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
     []
   );
 
-  /**
-   * Subscribe to a backend channel.
-   */
   const subscribeToChannel = useCallback(
     (channel: string, projectId?: string | null): void => {
       if (!clientRef.current) {
@@ -187,9 +195,6 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
     []
   );
 
-  /**
-   * Unsubscribe from a backend channel.
-   */
   const unsubscribeFromChannel = useCallback((channel: string): void => {
     if (!clientRef.current) {
       console.warn('WebSocket client not initialized');
@@ -198,10 +203,6 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
     clientRef.current.unsubscribeFromChannel(channel);
   }, []);
 
-  /**
-   * Manually trigger a reconnection attempt.
-   * Resets the reconnection counter and attempts to connect.
-   */
   const reconnect = useCallback((): void => {
     if (!clientRef.current) {
       console.warn('WebSocket client not initialized');
@@ -249,18 +250,6 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
  * Hook to access the WebSocket context.
  *
  * @throws Error if used outside of WebSocketProvider
- *
- * @example
- * ```tsx
- * const { isConnected, subscribe, subscribeToChannel } = useWebSocketContext();
- *
- * useEffect(() => {
- *   const unsubscribe = subscribe(EventType.MESSAGE, (msg) => {
- *     console.log('Received:', msg);
- *   });
- *   return unsubscribe;
- * }, [subscribe]);
- * ```
  */
 export function useWebSocketContext(): WebSocketContextValue {
   const context = useContext(WebSocketContext);

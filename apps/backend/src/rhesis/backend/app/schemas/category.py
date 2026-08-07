@@ -26,3 +26,8 @@ class CategoryUpdate(CategoryBase):
 
 class Category(CategoryBase):
     pass
+
+
+class CategoryDetail(Category):
+    id: UUID4
+    name: Optional[str] = None

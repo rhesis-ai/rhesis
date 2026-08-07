@@ -34,47 +34,43 @@ export interface Endpoint {
   description?: string;
   connection_type: 'REST' | 'WEBSOCKET' | 'GRPC' | 'SDK';
   url?: string;
-  auth?: Record<string, string | boolean | number>;
   environment: 'development' | 'staging' | 'production' | 'local';
 
   // Configuration Source
   config_source: 'manual' | 'openapi' | 'llm_generated' | 'sdk';
-  openapi_spec_url?: string;
-  openapi_spec?: Record<string, unknown>;
-  llm_suggestions?: Record<string, unknown>;
   endpoint_metadata?: EndpointMetadata;
 
   // Request Structure
   method?: string;
   endpoint_path?: string;
   request_headers?: Record<string, string>;
-  query_params?: Record<string, unknown>;
   request_mapping?: Record<string, unknown>;
-  input_mappings?: Record<string, unknown>;
 
   // Response Handling
   response_format: 'json' | 'xml' | 'text';
   response_mapping?: Record<string, unknown>;
-  validation_rules?: Record<string, unknown>;
 
   // Tracing control
   disable_tracing?: boolean;
 
-  status_id?: string;
-  user_id?: string;
-  organization_id?: string;
   project_id?: string;
+  organization_id?: string;
+
+  created_at?: string;
 
   // Nested project object (when included in response)
   project?: {
     id?: string;
-    icon?: string;
-    useCase?: string;
     name?: string;
   };
 
   // Nested status object (when included in response)
   status?: Status;
+
+  // Nested user object (when included in the detail response)
+  user?: {
+    name?: string;
+  };
 
   has_auth_token?: boolean;
 
@@ -101,21 +97,17 @@ export interface AutoConfigureRequest {
 // Type for auto-configure result
 export interface AutoConfigureResult {
   status: 'success' | 'partial' | 'failed';
-  error?: string;
   request_mapping?: Record<string, unknown>;
   response_mapping?: Record<string, unknown>;
   request_headers?: Record<string, string>;
   url?: string;
   method: string;
-  conversation_mode: 'single_turn' | 'stateless' | 'stateful';
   confidence: number;
   reasoning: string;
   warnings: string[];
   probe_response?: Record<string, unknown>;
   probe_success: boolean;
-  probe_attempts: number;
   probe_error?: string;
-  probe_status_code?: number;
 }
 
 // Type for testing endpoints without saving to database

@@ -28,10 +28,11 @@ class ChunkingService:
 
         from rhesis.backend.app.models.chunk import Chunk
 
+        now = datetime.now(timezone.utc)
         self.db.query(Chunk).filter(
             Chunk.source_id == source_id,
             Chunk.deleted_at.is_(None),
-        ).update({"deleted_at": datetime.now(timezone.utc)})
+        ).update({"deleted_at": now, "updated_at": now})
 
     def chunk_source(self, source_id: UUID4, organization_id: str, user_id: str):
 

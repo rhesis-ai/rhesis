@@ -1,5 +1,10 @@
 import os
 import tempfile
+import time
+
+import jwt
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
 # =============================================================================
 # Environment Setup - MUST be done BEFORE any backend imports
@@ -7,15 +12,51 @@ import tempfile
 # Single source of truth for test environment variables.
 # The CI workflow (backend-test.yml) only sets PYTHONPATH; everything else
 # is configured here so there is no duplication to keep in sync.
+from tests.backend.testcontainers_setup import ensure_test_containers
 
-# Port constants (must match tests/docker-compose.test.yml --profile backend)
-DATABASE_PORT = 12001
-REDIS_PORT = 12002
+_containers = ensure_test_containers()
+
+# EE bootstrap installs SignedTokenLicenseProvider unconditionally (see
+# ee/backend/.../ee/__init__.py:bootstrap()), which enforces a real signed
+# license with no environment-based bypass. RBAC/SSO tests elsewhere in the
+# suite exercise licensed behavior (e.g. RBAC permission enforcement), so the
+# suite needs a real license, the same way a deployment enabling those
+# features would. This mints one against a throwaway keypair generated for
+# this test process only — it never touches the baked-in prod/nonprod keys.
+# Licensing-specific tests (tests/backend/ee/licensing/) explicitly override
+# RHESIS_LICENSE (and patch get_public_keys) to exercise unlicensed/expired
+# paths; patch.dict restores this default afterwards.
+_license_private_key = Ed25519PrivateKey.generate()
+_LICENSE_TEST_PUBLIC_KEY_PEM = (
+    _license_private_key.public_key()
+    .public_bytes(encoding=Encoding.PEM, format=PublicFormat.SubjectPublicKeyInfo)
+    .decode()
+)
+_LICENSE_TEST_TOKEN = jwt.encode(
+    {
+        "iss": "rhesis-license-issuer",
+        "aud": "rhesis",
+        "sub": "*",
+        "iat": int(time.time()),
+        "exp": int(time.time()) + 10 * 365 * 24 * 3600,
+        "jti": "backend-test-suite-blanket-license",
+        "lic": {
+            "edition": "enterprise",
+            "status": "active",
+            "all_features": True,
+            "features": [],
+            "limits": {},
+        },
+    },
+    _license_private_key,
+    algorithm="EdDSA",
+    headers={"kid": "backend-test-suite-v1"},
+)
 
 _TEST_DB_USER = "rhesis-user"
 _TEST_DB_PASS = "your-secured-password"  # trufflehog:ignore
-_TEST_DB_HOST = "localhost"
-_TEST_DB_PORT = str(DATABASE_PORT)
+_TEST_DB_HOST = _containers["db_host"]
+_TEST_DB_PORT = str(_containers["db_port"])
 _TEST_DB_NAME = "rhesis-test-db"
 _TEST_DB_DRIVER = "postgresql"
 
@@ -32,8 +73,12 @@ _TEST_ENV_VARS = {
     "APP_DB_USER": _TEST_DB_USER,
     "APP_DB_PASS": _TEST_DB_PASS,
     "STORAGE_SERVICE_URI": f"file://{os.path.join(tempfile.gettempdir(), 'rhesis-test-storage')}",
-    "BROKER_URL": f"redis://:rhesis-redis-pass@localhost:{REDIS_PORT}/0",
-    "CELERY_RESULT_BACKEND": f"redis://:rhesis-redis-pass@localhost:{REDIS_PORT}/1",
+    "BROKER_URL": (
+        f"redis://:rhesis-redis-pass@{_containers['redis_host']}:{_containers['redis_port']}/0"
+    ),
+    "CELERY_RESULT_BACKEND": (
+        f"redis://:rhesis-redis-pass@{_containers['redis_host']}:{_containers['redis_port']}/1"
+    ),
     "JWT_SECRET_KEY": "test-jwt-secret-key-for-backend-tests",
     "SESSION_SECRET_KEY": "test-session-secret-key-for-backend-tests",
     "JWT_ALGORITHM": "HS256",
@@ -41,6 +86,15 @@ _TEST_ENV_VARS = {
     "DB_ENCRYPTION_KEY": "Zb21wZbPsUpb-c2JKj8uMugk767pWXHFTsjocd0Orac=",
     "SSO_ENCRYPTION_KEY": "9KgQ8O8Dx3xfUejfiAwkDgYMqD_2vekaNYw2WvqvJdw=",
     "OTEL_RHESIS_TELEMETRY_ENABLED": "false",
+    # Skip the production-only Garak probe cache pre-warm. Each test spins up a
+    # fresh TestClient (fresh app lifespan), so without this every route test
+    # would launch a full-corpus Garak enumeration in a non-cancellable worker
+    # thread and the concurrent pile-up would hang the suite. See the guard in
+    # app/main.py's lifespan for the full rationale.
+    "RHESIS_SKIP_GARAK_WARM_CACHE": "true",
+    "RHESIS_LICENSE_PUBLIC_KEY": _LICENSE_TEST_PUBLIC_KEY_PEM,
+    "RHESIS_LICENSE": _LICENSE_TEST_TOKEN,
+    "LITELLM_LOCAL_MODEL_COST_MAP": "true",
 }
 
 
@@ -83,22 +137,6 @@ def isolate_storage_settings_cache():
     get_storage_settings.cache_clear()
     yield
     get_storage_settings.cache_clear()
-
-
-@pytest.fixture(autouse=True)
-def isolate_permission_cache():
-    """Clear the permission cache before and after every test.
-
-    Prevents cached authorization decisions from one test leaking into the next
-    when both use the same principal UUIDs.  The permission cache (SP5) is
-    in-memory-only during unit tests (Redis not initialized in the test harness)
-    so ``clear_all()`` just empties the in-memory dict.
-    """
-    from rhesis.backend.app.services.permission_cache import get_permission_cache
-
-    get_permission_cache().clear_all()
-    yield
-    get_permission_cache().clear_all()
 
 
 @pytest.fixture(autouse=True)
@@ -170,8 +208,19 @@ def _ensure_ee_features_registered():
     yield
 
 
+# Fixtures whose transitive graph can result in a real, authorized DB query
+# (an HTTP request through a TestClient, or a raw session with RLS context
+# set). request.fixturenames is pytest's fully-resolved transitive set, so a
+# test that only depends on e.g. test_entity_type (which itself depends on
+# test_db) still matches here even though it never names test_db directly.
+_DB_TOUCHING_FIXTURES = frozenset(
+    {"client", "authenticated_client", "owner_client", "test_db", "real_commit_test_db",
+     "real_commit_client"}
+)
+
+
 @pytest.fixture(autouse=True)
-def _ensure_session_user_is_owner(_ensure_ee_features_registered):
+def _ensure_session_user_is_owner(request, _ensure_ee_features_registered):
     """Guarantee the shared session-auth user holds the built-in Owner role.
 
     With RBAC enforced (see _ensure_ee_features_registered), every
@@ -183,8 +232,20 @@ def _ensure_session_user_is_owner(_ensure_ee_features_registered):
     get_db() will see. Idempotent and cheap (two indexed lookups when already
     correct). No-op in community builds or before session auth is created.
 
+    Skipped entirely for tests whose fixture graph touches none of
+    _DB_TOUCHING_FIXTURES: with no client and no DB session, a test has no way
+    to make an authorized request or query tenant-scoped data, so the Owner
+    guarantee is moot. This is what actually removes the per-test DB
+    round-trip for the ~2,000 pure-unit tests in the suite (confirmed via a
+    static scan there is no test that reaches an authorized DB path without
+    one of these fixtures in its transitive graph).
+
     Depends on _ensure_ee_features_registered so RBAC is registered first.
     """
+    if not _DB_TOUCHING_FIXTURES.intersection(request.fixturenames):
+        yield
+        return
+
     from tests.backend.fixtures import auth as _auth
 
     cache = _auth._session_auth_cache
@@ -212,18 +273,7 @@ def _ensure_session_user_is_owner(_ensure_ee_features_registered):
 # =============================================================================
 
 
-@pytest.fixture(scope="session", autouse=True)
-def run_migrations_once():
-    """
-    Run Alembic migrations once per test session.
-
-    Idempotent: if the DB is already at head, this is a fast no-op.
-    Set RHESIS_SKIP_MIGRATIONS=1 to skip (e.g. for unit-only runs without DB).
-    """
-    if os.environ.get("RHESIS_SKIP_MIGRATIONS", "").lower() in ("1", "true", "yes"):
-        yield
-        return
-
+def _run_migrations() -> None:
     backend_dir = (
         Path(__file__).parent.parent.parent / "apps" / "backend" / "src" / "rhesis" / "backend"
     )
@@ -252,6 +302,20 @@ def run_migrations_once():
             "Set RHESIS_SKIP_MIGRATIONS=1 to skip migrations for unit-only runs."
         )
 
+
+@pytest.fixture(scope="session", autouse=True)
+def run_migrations_once():
+    """
+    Run Alembic migrations once per test session.
+
+    Idempotent: if the DB is already at head, this is a fast no-op.
+    Set RHESIS_SKIP_MIGRATIONS=1 to skip (e.g. for unit-only runs without DB).
+    """
+    if os.environ.get("RHESIS_SKIP_MIGRATIONS", "").lower() in ("1", "true", "yes"):
+        yield
+        return
+
+    _run_migrations()
     yield
 
 
@@ -404,6 +468,36 @@ def bound_scope():
             _scope.reset(token)
 
     return _bind
+
+
+@pytest.fixture(autouse=True)
+def forbid_implicit_lazy_loads():
+    """Raise instead of silently lazy-loading any relationship not eager-loaded via include().
+
+    Catches the N+1 pattern fixed in #2244, where a relationship missing from
+    QueryBuilder.with_related()/include() lazy-loads transparently on first
+    access. Injects raiseload('*', sql_only=True) into every ORM SELECT via
+    SessionEvents.do_orm_execute; already eager-loaded relationships are
+    unaffected. do_orm_execute covers session.query(...), session.execute(select(...)),
+    and session.get(...) alike, unlike Query.before_compile which only fires for
+    the legacy session.query() API.
+
+    Autouse set as true: every test uses this.
+    """
+    from sqlalchemy import event
+    from sqlalchemy.orm import Session, raiseload
+
+    def _raise_on_unloaded(orm_execute_state):
+        if orm_execute_state.is_select:
+            orm_execute_state.statement = orm_execute_state.statement.options(
+                raiseload("*", sql_only=True)
+            )
+
+    event.listen(Session, "do_orm_execute", _raise_on_unloaded)
+    try:
+        yield
+    finally:
+        event.remove(Session, "do_orm_execute", _raise_on_unloaded)
 
 
 @pytest.fixture(autouse=True)

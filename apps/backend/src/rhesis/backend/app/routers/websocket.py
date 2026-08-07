@@ -45,7 +45,7 @@ class WebSocketTokenResponse(BaseModel):
 
 
 @router.post("/ws/token", response_model=WebSocketTokenResponse)
-async def get_websocket_token(
+def get_websocket_token(
     request: Request,
     current_user: User = Depends(require_current_user_or_token),
 ) -> WebSocketTokenResponse:

@@ -1,10 +1,17 @@
-from typing import ClassVar, Optional
+from typing import Any, ClassVar, Dict, List, Optional
 
 from pydantic import UUID4, ConfigDict
 
 from rhesis.backend.app.auth.capabilities import ResourceType
 from rhesis.backend.app.schemas import Base
 from rhesis.backend.app.schemas.affordances import WithPermittedActions
+from rhesis.backend.app.schemas.references import (
+    ProjectReference,
+    StatusReference,
+    TypeLookupReference,
+)
+from rhesis.backend.app.schemas.tag import TagRead
+from rhesis.backend.app.schemas.user import UserReference
 
 
 # TestRun schemas
@@ -41,3 +48,46 @@ class TestRun(TestRunBase, WithPermittedActions):
     # __owner_attr__ defaults to "user_id", which is the creator column on TestRun.
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class EndpointReference(Base):
+    id: UUID4
+    name: Optional[str] = None
+    description: Optional[str] = None
+    user_id: Optional[UUID4] = None
+    organization_id: Optional[UUID4] = None
+    status_id: Optional[UUID4] = None
+    tags: Optional[List[TagRead]] = None
+    project: Optional[ProjectReference] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TestSetReference(Base):
+    id: UUID4
+    name: Optional[str] = None
+    user_id: Optional[UUID4] = None
+    organization_id: Optional[UUID4] = None
+    status_id: Optional[UUID4] = None
+    attributes: Optional[Dict[str, Any]] = None
+    test_set_type: Optional[TypeLookupReference] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TestConfigurationReference(Base):
+    id: UUID4
+    attributes: Optional[Dict[str, Any]] = None
+    endpoint: Optional[EndpointReference] = None
+    test_set: Optional[TestSetReference] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TestRunDetail(TestRun):
+    id: UUID4
+    counts: Optional[Dict[str, Any]] = None
+    tags: Optional[List[TagRead]] = None
+    status: Optional[StatusReference] = None
+    user: Optional[UserReference] = None
+    test_configuration: Optional[TestConfigurationReference] = None

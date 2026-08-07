@@ -170,21 +170,32 @@ const makePaginatedResponse = <T,>(data: T[], total?: number) => ({
 describe('TestRunsGrid', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockGetTestRuns.mockResolvedValue(makePaginatedResponse([]));
+    // Default: one row, so tests that don't care about emptiness exercise
+    // the populated (grid) branch rather than the empty-state branch.
+    mockGetTestRuns.mockResolvedValue(
+      makePaginatedResponse([makeTestRun('r-0')])
+    );
     mockGetProject.mockResolvedValue({ id: 'p1', name: 'Project A' });
   });
 
-  it('shows loading state while fetching', () => {
+  it('shows a loading state while the first fetch is in flight', () => {
     mockGetTestRuns.mockReturnValue(new Promise(() => {}));
     render(<TestRunsGrid />);
-    expect(screen.getByTestId('grid-loading')).toBeInTheDocument();
+    expect(screen.getByRole('progressbar')).toBeInTheDocument();
+    expect(screen.queryByTestId('base-data-grid')).not.toBeInTheDocument();
+  });
+
+  it('renders the empty state directly, without ever mounting the grid, when there are zero test runs', async () => {
+    mockGetTestRuns.mockResolvedValue(makePaginatedResponse([]));
+    render(<TestRunsGrid />);
+    expect(await screen.findByText('No test runs yet')).toBeInTheDocument();
+    expect(screen.queryByTestId('base-data-grid')).not.toBeInTheDocument();
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
   });
 
   it('does NOT render a "New Test Run" action button (creation moved to page FAB)', async () => {
     render(<TestRunsGrid />);
-    await waitFor(() =>
-      expect(screen.queryByTestId('grid-loading')).not.toBeInTheDocument()
-    );
+    await screen.findByTestId('base-data-grid');
     expect(screen.queryByTestId('action-New Test Run')).not.toBeInTheDocument();
   });
 
@@ -322,21 +333,9 @@ describe('TestRunsGrid', () => {
     );
   });
 
-  it('calls onTotalCountChange with the total count', async () => {
-    mockGetTestRuns.mockResolvedValue(
-      makePaginatedResponse([makeTestRun('r-1'), makeTestRun('r-2')], 42)
-    );
-    const onTotalCountChange = jest.fn();
-    render(<TestRunsGrid onTotalCountChange={onTotalCountChange} />);
-    await waitFor(() => expect(onTotalCountChange).toHaveBeenCalledWith(42));
-  });
-
   it('passes showToolbar and toolbarSlot props to BaseDataGrid', async () => {
     render(<TestRunsGrid />);
-    await waitFor(() =>
-      expect(screen.queryByTestId('grid-loading')).not.toBeInTheDocument()
-    );
     // The grid renders without error, confirming toolbarSlot prop is accepted
-    expect(screen.getByTestId('base-data-grid')).toBeInTheDocument();
+    expect(await screen.findByTestId('base-data-grid')).toBeInTheDocument();
   });
 });

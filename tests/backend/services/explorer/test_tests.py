@@ -1,10 +1,17 @@
 import uuid
+from unittest.mock import patch
 
 import pytest
+from sqlalchemy import inspect as sa_inspect
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models
+from rhesis.backend.app.crud.explorer import create_explorer_test, get_test_ids_in_test_sets
+from rhesis.backend.app.database import without_soft_delete_filter
+from rhesis.backend.app.schemas.explorer import TestTreeNode, TopicNode
 from rhesis.backend.app.services.explorer import (
+    bulk_delete_explorer_test_sets,
     create_explorer_test_set,
     create_test_node,
     delete_explorer_test_set,
@@ -17,14 +24,14 @@ from rhesis.backend.app.services.explorer import (
     import_explorer_test_set_from_source,
     update_test_node,
 )
-from rhesis.sdk.adaptive_testing.schemas import TestTreeNode, TopicNode
+from rhesis.backend.app.services.explorer.tests import _parse_test_for_copy
 
 # ============================================================================
 # Helpers and Fixtures for get_explorer_test_sets
 # ============================================================================
 
 
-def _make_test_set(db, name, attributes, organization_id, user_id):
+def _make_test_set(db, name, attributes, organization_id, user_id, explorer_row=False):
     """Helper to create a test set with given attributes."""
     ts = models.TestSet(
         name=name,
@@ -32,6 +39,7 @@ def _make_test_set(db, name, attributes, organization_id, user_id):
         organization_id=organization_id,
         user_id=user_id,
         attributes=attributes,
+        explorer_row=explorer_row,
     )
     db.add(ts)
     db.flush()
@@ -43,7 +51,7 @@ def explorer_and_regular_test_sets(test_db: Session, test_org_id, authenticated_
     """Create a mix of adaptive and non-adaptive test sets.
 
     Creates:
-    - 2 test sets WITH ``Adaptive Testing`` in metadata.behaviors
+    - 2 test sets with ``explorer_row=True``
     - 1 test set with different behavior
     - 1 test set with no attributes at all
     """
@@ -53,6 +61,7 @@ def explorer_and_regular_test_sets(test_db: Session, test_org_id, authenticated_
         {"metadata": {"behaviors": ["Adaptive Testing"]}},
         test_org_id,
         authenticated_user_id,
+        explorer_row=True,
     )
     ts_adaptive_2 = _make_test_set(
         test_db,
@@ -63,6 +72,7 @@ def explorer_and_regular_test_sets(test_db: Session, test_org_id, authenticated_
         },
         test_org_id,
         authenticated_user_id,
+        explorer_row=True,
     )
     ts_regular = _make_test_set(
         test_db,
@@ -258,7 +268,7 @@ class TestExplorerTreeTopics:
 @pytest.mark.integration
 @pytest.mark.service
 class TestGetExplorerTestSets:
-    """Test get_explorer_test_sets - returns test sets with Adaptive Testing."""
+    """Test get_explorer_test_sets - returns test sets flagged as Explorer-owned."""
 
     def test_returns_only_adaptive_test_sets(
         self,
@@ -266,7 +276,7 @@ class TestGetExplorerTestSets:
         explorer_and_regular_test_sets,
         test_org_id,
     ):
-        """Should return only the 2 test sets with Adaptive Testing behavior."""
+        """Should return only the 2 test sets flagged as Explorer-owned."""
         result = get_explorer_test_sets(
             db=test_db,
             organization_id=test_org_id,
@@ -293,6 +303,30 @@ class TestGetExplorerTestSets:
         )
 
         assert all(isinstance(ts, models.TestSet) for ts in result)
+
+    def test_eager_loads_creator(
+        self,
+        test_db,
+        explorer_and_regular_test_sets,
+        test_org_id,
+        authenticated_user_id,
+    ):
+        """`user` must come back already loaded -- GET /explorer/ serializes it.
+
+        Asserts it is not in `unloaded`, so a lazy fallback (N+1 per row) fails here
+        rather than silently working.
+        """
+        result = get_explorer_test_sets(
+            db=test_db,
+            organization_id=test_org_id,
+        )
+
+        explorer_id = str(explorer_and_regular_test_sets["explorer_1"].id)
+        test_set = next(ts for ts in result if str(ts.id) == explorer_id)
+
+        assert "user" not in sa_inspect(test_set).unloaded
+        assert test_set.user is not None
+        assert str(test_set.user.id) == str(authenticated_user_id)
 
     def test_pagination_skip_and_limit(
         self,
@@ -383,20 +417,15 @@ class TestCreateExplorerTestSet:
         assert result.name == "My Adaptive Set"
         assert result.description == "Optional description"
 
-    def test_attributes_contain_adaptive_testing_behavior(
-        self, test_db, test_org_id, authenticated_user_id
-    ):
-        """Created test set has attributes.metadata.behaviors containing Adaptive Testing."""
+    def test_is_flagged_as_explorer_owned(self, test_db, test_org_id, authenticated_user_id):
+        """Created test set is flagged via explorer_row."""
         result = create_explorer_test_set(
             db=test_db,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
             name=f"Adaptive Set {uuid.uuid4().hex[:6]}",
         )
-        assert result.attributes is not None
-        assert "metadata" in result.attributes
-        assert "behaviors" in result.attributes["metadata"]
-        assert "Adaptive Testing" in result.attributes["metadata"]["behaviors"]
+        assert result.explorer_row is True
 
     def test_has_correct_organization_and_user(self, test_db, test_org_id, authenticated_user_id):
         """Created test set has correct organization_id and user_id."""
@@ -452,6 +481,39 @@ class TestDeleteExplorerTestSet:
         listed = get_explorer_test_sets(db=test_db, organization_id=test_org_id, limit=500)
         assert all(str(ts.id) != created_id for ts in listed)
 
+    def test_delete_cascades_to_session_tests(self, test_db, test_org_id, authenticated_user_id):
+        """Session tests and topic markers are soft-deleted with the session."""
+        created = create_explorer_test_set(
+            db=test_db,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            name=f"Cascade Delete {uuid.uuid4().hex[:6]}",
+        )
+        create_test_node(
+            db=test_db,
+            test_set_id=created.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            topic="Safety",
+            input="Is this harmful?",
+        )
+        test_ids = get_test_ids_in_test_sets(test_db, [created.id], test_org_id)
+        # The test plus the "Safety" topic marker.
+        assert len(test_ids) == 2
+
+        delete_explorer_test_set(
+            db=test_db,
+            test_set_identifier=str(created.id),
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+
+        assert test_db.query(models.Test).filter(models.Test.id.in_(test_ids)).all() == []
+        with without_soft_delete_filter():
+            rows = test_db.query(models.Test).filter(models.Test.id.in_(test_ids)).all()
+        assert len(rows) == 2
+        assert all(row.deleted_at is not None for row in rows)
+
     def test_delete_nonexistent_set(self, test_db, test_org_id, authenticated_user_id):
         """Fake UUID raises ValueError."""
         fake_id = str(uuid.uuid4())
@@ -466,7 +528,7 @@ class TestDeleteExplorerTestSet:
     def test_delete_non_adaptive_set(
         self, test_db, explorer_and_regular_test_sets, test_org_id, authenticated_user_id
     ):
-        """Regular test set without Adaptive Testing behavior raises ValueError."""
+        """Regular test set not flagged as Explorer-owned raises ValueError."""
         regular = explorer_and_regular_test_sets["regular"]
         with pytest.raises(ValueError, match="not configured for Explorer"):
             delete_explorer_test_set(
@@ -475,6 +537,116 @@ class TestDeleteExplorerTestSet:
                 organization_id=test_org_id,
                 user_id=authenticated_user_id,
             )
+
+
+class TestBulkDeleteExplorerTestSets:
+    """Test bulk_delete_explorer_test_sets - deletes several at once, skips non-explorer ids."""
+
+    def test_deletes_valid_explorer_sets(
+        self, test_db, explorer_and_regular_test_sets, test_org_id, authenticated_user_id
+    ):
+        explorer_1 = explorer_and_regular_test_sets["explorer_1"]
+        explorer_2 = explorer_and_regular_test_sets["explorer_2"]
+
+        result = bulk_delete_explorer_test_sets(
+            db=test_db,
+            test_set_ids=[explorer_1.id, explorer_2.id],
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+
+        assert set(result["deleted_ids"]) == {str(explorer_1.id), str(explorer_2.id)}
+        assert result["not_found_ids"] == []
+        listed_ids = {
+            str(ts.id)
+            for ts in get_explorer_test_sets(db=test_db, organization_id=test_org_id, limit=500)
+        }
+        assert str(explorer_1.id) not in listed_ids
+        assert str(explorer_2.id) not in listed_ids
+
+    def test_skips_non_explorer_and_nonexistent_ids(
+        self, test_db, explorer_and_regular_test_sets, test_org_id, authenticated_user_id
+    ):
+        explorer_1 = explorer_and_regular_test_sets["explorer_1"]
+        regular = explorer_and_regular_test_sets["regular"]
+        fake_id = uuid.uuid4()
+
+        result = bulk_delete_explorer_test_sets(
+            db=test_db,
+            test_set_ids=[explorer_1.id, regular.id, fake_id],
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+
+        assert result["deleted_ids"] == [str(explorer_1.id)]
+        assert set(result["not_found_ids"]) == {str(regular.id), str(fake_id)}
+
+        # The regular (non-explorer) test set must still exist, untouched.
+        still_there = test_db.query(models.TestSet).filter(models.TestSet.id == regular.id).first()
+        assert still_there is not None
+
+    def test_cascades_to_session_tests(self, test_db, test_org_id, authenticated_user_id):
+        """Every deleted session's tests are soft-deleted along with it."""
+        sessions = []
+        for i in range(2):
+            created = create_explorer_test_set(
+                db=test_db,
+                organization_id=test_org_id,
+                user_id=authenticated_user_id,
+                name=f"Bulk Cascade {i} {uuid.uuid4().hex[:6]}",
+            )
+            create_test_node(
+                db=test_db,
+                test_set_id=created.id,
+                organization_id=test_org_id,
+                user_id=authenticated_user_id,
+                topic="Safety",
+                input=f"Prompt {i}",
+            )
+            sessions.append(created)
+
+        session_ids = [s.id for s in sessions]
+        test_ids = get_test_ids_in_test_sets(test_db, session_ids, test_org_id)
+        assert len(test_ids) == 4  # 2 tests + 2 topic markers
+
+        bulk_delete_explorer_test_sets(
+            db=test_db,
+            test_set_ids=session_ids,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+
+        assert test_db.query(models.Test).filter(models.Test.id.in_(test_ids)).all() == []
+        with without_soft_delete_filter():
+            rows = test_db.query(models.Test).filter(models.Test.id.in_(test_ids)).all()
+        assert len(rows) == 4
+        assert all(row.deleted_at is not None for row in rows)
+
+    def test_skipped_ids_keep_their_tests(
+        self, test_db, regular_test_set_for_import, test_org_id, authenticated_user_id
+    ):
+        """A non-explorer id is skipped without touching its tests."""
+        regular = regular_test_set_for_import
+        test_ids = get_test_ids_in_test_sets(test_db, [regular.id], test_org_id)
+        assert test_ids
+
+        result = bulk_delete_explorer_test_sets(
+            db=test_db,
+            test_set_ids=[regular.id],
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+
+        assert result["deleted_ids"] == []
+        rows = test_db.query(models.Test).filter(models.Test.id.in_(test_ids)).all()
+        assert len(rows) == len(test_ids)
+        assert all(row.deleted_at is None for row in rows)
+
+    def test_empty_ids_is_a_noop(self, test_db, test_org_id, authenticated_user_id):
+        result = bulk_delete_explorer_test_sets(
+            db=test_db, test_set_ids=[], organization_id=test_org_id, user_id=authenticated_user_id
+        )
+        assert result == {"deleted_ids": [], "not_found_ids": []}
 
 
 # ============================================================================
@@ -595,6 +767,59 @@ class TestCreateTestNode:
         )
         # One new test node (topic already exists)
         assert len(nodes_after) == len(nodes_before) + 1
+
+    @patch(
+        "rhesis.backend.app.services.explorer.tests.generate_embedding_vector",
+        return_value=[0.01] * 384,
+    )
+    def test_generate_embedding_persists_embedding_row(
+        self,
+        _mock_embed,
+        test_db,
+        explorer_test_set,
+        test_org_id,
+        authenticated_user_id,
+        authenticated_user,
+        explorer_embedding_model,
+    ):
+        """generate_embedding=True should persist an embedding row for the created test."""
+        result = create_test_node(
+            db=test_db,
+            test_set_id=explorer_test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            topic="Safety",
+            input="Embedding persistence check prompt",
+            output="ok",
+            generate_embedding=True,
+            current_user=authenticated_user,
+        )
+
+        row = (
+            test_db.query(models.Embedding)
+            .filter(
+                models.Embedding.entity_id == uuid.UUID(result.id),
+                models.Embedding.entity_type == "Test",
+            )
+            .first()
+        )
+        assert row is not None, "expected embedding row for created explorer test"
+        assert row.embedding_config.get("source") == "explorer"
+
+    def test_generate_embedding_requires_current_user(
+        self, test_db, explorer_test_set, test_org_id, authenticated_user_id
+    ):
+        """generate_embedding=True without current_user is a caller error, not swallowed."""
+        with pytest.raises(ValueError, match="current_user is required"):
+            create_test_node(
+                db=test_db,
+                test_set_id=explorer_test_set.id,
+                organization_id=test_org_id,
+                user_id=authenticated_user_id,
+                topic="Safety",
+                input="Should not be created without current_user",
+                generate_embedding=True,
+            )
 
 
 # ============================================================================
@@ -879,12 +1104,10 @@ class TestImportExplorerTestSetFromSource:
             user_id=authenticated_user_id,
         )
 
-        assert result["imported"] == 2
-        assert result["skipped"] == 1
-        new_set = result["test_set"]
-        assert "Adaptive Testing" in ((new_set.attributes or {}).get("metadata") or {}).get(
-            "behaviors", []
-        )
+        assert result.imported == 2
+        assert result.skipped == 1
+        new_set = result.test_set
+        assert new_set.explorer_row is True
 
         tests = get_tree_tests(
             db=test_db,
@@ -896,6 +1119,77 @@ class TestImportExplorerTestSetFromSource:
         inputs = {t.input for t in tests}
         assert "Prompt one" in inputs
         assert "Prompt two" in inputs
+
+    def test_import_copies_adaptive_settings_from_source_without_crashing(
+        self,
+        test_db: Session,
+        test_org_id,
+        authenticated_user_id,
+    ):
+        """A source set whose attributes already carry an adaptive_settings block (e.g. a
+        previously exported-then-reimported set) must copy it, not crash on a raw dict."""
+        endpoint_id = uuid.uuid4()
+        src = models.TestSet(
+            name=f"Import With Settings {uuid.uuid4().hex[:8]}",
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            attributes={
+                "metadata": {"behaviors": ["Safety"]},
+                "adaptive_settings": {"default_endpoint_id": str(endpoint_id)},
+            },
+        )
+        test_db.add(src)
+        test_db.flush()
+
+        result = import_explorer_test_set_from_source(
+            db=test_db,
+            source_test_set_identifier=str(src.id),
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+
+        new_attrs = result.test_set.attributes or {}
+        assert new_attrs.get("adaptive_settings") == {"default_endpoint_id": str(endpoint_id)}
+
+    def test_skips_test_that_fails_to_write_and_keeps_the_rest(
+        self,
+        test_db: Session,
+        test_org_id,
+        authenticated_user_id,
+        regular_test_set_for_import,
+    ):
+        """A write failure for one test is recorded as skipped, not a hard failure."""
+        src = regular_test_set_for_import
+
+        def flaky_create_explorer_test(db, **kwargs):
+            if kwargs.get("content") == "Prompt two":
+                raise IntegrityError("stmt", {}, Exception("dup key"))
+            return create_explorer_test(db, **kwargs)
+
+        with patch(
+            "rhesis.backend.app.crud.explorer.create_explorer_test",
+            side_effect=flaky_create_explorer_test,
+        ):
+            result = import_explorer_test_set_from_source(
+                db=test_db,
+                source_test_set_identifier=str(src.id),
+                organization_id=test_org_id,
+                user_id=authenticated_user_id,
+            )
+
+        # 1 copied ("Prompt one"), 2 skipped (the topic marker, plus the failed write).
+        assert result.imported == 1
+        assert result.skipped == 2
+        assert len(result.skipped_test_ids) == 2
+
+        tests = get_tree_tests(
+            db=test_db,
+            test_set_id=result.test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+        assert len(tests) == 1
+        assert tests[0].input == "Prompt one"
 
     def test_raises_when_source_is_adaptive(
         self,
@@ -990,12 +1284,11 @@ class TestExportRegularTestSetFromExplorer:
             user_id=authenticated_user_id,
         )
 
-        assert result["exported"] == 2
-        assert result["skipped"] == 2
-        new_set = result["test_set"]
+        assert result.exported == 2
+        assert result.skipped == 2
+        new_set = result.test_set
         assert "(Exported)" in new_set.name
-        meta_behaviors = ((new_set.attributes or {}).get("metadata") or {}).get("behaviors") or []
-        assert "Adaptive Testing" not in meta_behaviors
+        assert new_set.explorer_row is False
         assert (new_set.attributes or {}).get("adaptive_settings") is None
 
         items, total = crud.get_test_set_tests(
@@ -1013,6 +1306,70 @@ class TestExportRegularTestSetFromExplorer:
             assert t.topic.name == "Alpha/Beta"
         inputs = {(t.prompt.content or "").strip() for t in items if t.prompt}
         assert inputs == {"First prompt", "Second prompt"}
+
+    def test_skips_test_that_fails_to_write_and_keeps_the_rest(
+        self,
+        test_db: Session,
+        test_org_id,
+        authenticated_user_id,
+    ):
+        """A write failure for one test is recorded as skipped, not a hard failure."""
+        adaptive = create_explorer_test_set(
+            db=test_db,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            name=f"Export source {uuid.uuid4().hex[:8]}",
+            description="adaptive source",
+        )
+        test_db.flush()
+        for content in ("First prompt", "Second prompt", "Third prompt"):
+            create_test_node(
+                db=test_db,
+                test_set_id=adaptive.id,
+                organization_id=test_org_id,
+                user_id=authenticated_user_id,
+                topic="Alpha/Beta",
+                input=content,
+                output="o",
+                labeler="human",
+                label="pass",
+                model_score=1.0,
+            )
+        test_db.commit()
+
+        def flaky_create_explorer_test(db, **kwargs):
+            if kwargs.get("content") == "Second prompt":
+                raise IntegrityError("stmt", {}, Exception("dup key"))
+            return create_explorer_test(db, **kwargs)
+
+        with patch(
+            "rhesis.backend.app.crud.explorer.create_explorer_test",
+            side_effect=flaky_create_explorer_test,
+        ):
+            result = export_regular_test_set_from_explorer(
+                db=test_db,
+                source_test_set_identifier=str(adaptive.id),
+                organization_id=test_org_id,
+                user_id=authenticated_user_id,
+            )
+
+        # 2 copied (First, Third), 3 skipped (the "Alpha" and "Alpha/Beta" topic
+        # markers, plus the failed write for "Second prompt").
+        assert result.exported == 2
+        assert result.skipped == 3
+        assert len(result.skipped_test_ids) == 3
+
+        items, total = crud.get_test_set_tests(
+            db=test_db,
+            test_set_id=result.test_set.id,
+            skip=0,
+            limit=100,
+            sort_by="created_at",
+            sort_order="asc",
+        )
+        assert total == 2
+        inputs = {(t.prompt.content or "").strip() for t in items if t.prompt}
+        assert inputs == {"First prompt", "Third prompt"}
 
     def test_raises_when_source_is_not_adaptive(
         self,
@@ -1043,3 +1400,93 @@ class TestExportRegularTestSetFromExplorer:
                 organization_id=test_org_id,
                 user_id=authenticated_user_id,
             )
+
+
+# ============================================================================
+# Tests for _parse_test_for_copy (shared by import and export)
+# ============================================================================
+
+
+def _copyable_test(metadata=None, content="Prompt", topic=None, topic_id=None):
+    """A detached models.Test standing in for a source row.
+
+    Not added to a session: _parse_test_for_copy only reads attributes.
+    """
+    return models.Test(
+        test_metadata=metadata,
+        prompt=models.Prompt(content=content) if content is not None else None,
+        topic=topic,
+        topic_id=topic_id,
+    )
+
+
+@pytest.mark.unit
+class TestParseTestForCopy:
+    """Test _parse_test_for_copy."""
+
+    def test_skips_topic_markers(self):
+        db_test = _copyable_test(metadata={"label": "topic_marker"})
+
+        assert _parse_test_for_copy(db_test, "imported") is None
+
+    def test_skips_missing_prompt(self):
+        assert _parse_test_for_copy(_copyable_test(content=None), "imported") is None
+
+    def test_skips_blank_prompt(self):
+        assert _parse_test_for_copy(_copyable_test(content="   "), "imported") is None
+
+    def test_strips_prompt_content(self):
+        parsed = _parse_test_for_copy(_copyable_test(content="  padded  "), "imported")
+
+        assert parsed.content == "padded"
+
+    def test_carries_both_topic_forms(self):
+        topic_id = uuid.uuid4()
+        db_test = _copyable_test(topic=models.Topic(name="Alpha/Beta"), topic_id=topic_id)
+
+        parsed = _parse_test_for_copy(db_test, "imported")
+
+        assert parsed.topic_name == "Alpha/Beta"
+        assert parsed.topic_id == topic_id
+
+    def test_defaults_when_metadata_absent(self):
+        parsed = _parse_test_for_copy(_copyable_test(metadata=None), "exported")
+
+        assert parsed.topic_name == ""
+        assert parsed.topic_id is None
+        assert parsed.output == ""
+        assert parsed.label == ""
+        assert parsed.labeler == "exported"
+        assert parsed.model_score == 0.0
+
+    @pytest.mark.parametrize("label,expected", [("pass", "pass"), ("fail", "fail"), ("", "")])
+    def test_keeps_verdict_labels(self, label, expected):
+        parsed = _parse_test_for_copy(_copyable_test(metadata={"label": label}), "imported")
+
+        assert parsed.label == expected
+
+    def test_drops_unrecognized_label(self):
+        parsed = _parse_test_for_copy(_copyable_test(metadata={"label": "error"}), "imported")
+
+        assert parsed.label == ""
+
+    def test_falls_back_to_default_labeler_when_blank(self):
+        parsed = _parse_test_for_copy(_copyable_test(metadata={"labeler": ""}), "imported")
+
+        assert parsed.labeler == "imported"
+
+    @pytest.mark.parametrize("raw", ["not a number", None, {}])
+    def test_coerces_unparseable_model_score_to_zero(self, raw):
+        parsed = _parse_test_for_copy(_copyable_test(metadata={"model_score": raw}), "imported")
+
+        assert parsed.model_score == 0.0
+
+    def test_coerces_numeric_string_model_score(self):
+        parsed = _parse_test_for_copy(_copyable_test(metadata={"model_score": "0.5"}), "imported")
+
+        assert parsed.model_score == 0.5
+
+    def test_stringifies_non_string_output(self):
+        parsed = _parse_test_for_copy(_copyable_test(metadata={"output": 42}), "imported")
+
+        assert parsed.output == "42"

@@ -1,88 +1,25 @@
-import { CodeBlock } from '@/components/CodeBlock'
+# Worker
 
-# Rhesis Worker Documentation
+The Rhesis worker runs background processing on Celery with Redis as the broker and result
+backend: test execution, trace ingestion, metric evaluation, and Architect chat turns.
 
-This directory contains documentation related to the Rhesis worker system, which handles background processing, task queues, and asynchronous operations using **Redis as the message broker**.
+## Design and internals
 
-## Contents
+- [Architecture](/contribute/worker/architecture): how the worker relates to the backend, SDK, database, and broker.
+- [Multi-Worker RPC](/contribute/worker/multi-worker-rpc): routing RPC requests to the worker that holds an SDK's WebSocket connection.
+- [Background Tasks](/contribute/worker/background-tasks): Celery configuration, the `BaseTask` base class, tenant context, and the task launcher.
+- [Architect Background Tasks](/contribute/worker/architect-background-tasks): Architect chat execution and async resume.
+- [Trace Ingestion Pipeline](/contribute/worker/trace-ingestion-pipeline): how traces flow through storage, linking, enrichment, and metric evaluation.
+- [Test Execution](/contribute/worker/test-execution): the executor architecture and async batch engine.
+- [Test Types](/contribute/worker/test-types): single-turn vs. multi-turn tests.
+- [Execution Modes](/contribute/worker/execution-modes): parallel vs. sequential test runs.
 
-- [Background Tasks and Processing](background-tasks.md): Detailed information about Redis-based Celery configuration, task management, tenant context handling, error recovery, and troubleshooting.
-- [Troubleshooting Guide](troubleshooting.md): Solutions for common issues with workers, tasks, and the Celery processing system.
-- [GKE Troubleshooting Guide](gke-troubleshooting.md): **NEW** - Comprehensive guide for diagnosing and fixing worker issues in Google Kubernetes Engine.
-- [Logging Guide](logging.md): **NEW** - Complete guide to worker logging, log analysis, and monitoring.
-- [Trace Ingestion Pipeline](trace-ingestion-pipeline.md): How traces flow through storage, enrichment, and metric evaluation after ingestion via `POST /telemetry/traces`.
-- [Architecture and Dependencies](architecture.md): Explanation of how the worker system integrates with the backend and SDK components.
+## Operations
 
-## Topics Covered
+- [Logging](/contribute/worker/logging): log sources, configuration, and analysis.
+- [Troubleshooting](/contribute/worker/troubleshooting): stuck tasks, tenant-context errors, broker connectivity, and worker registration.
+- [GKE Troubleshooting](/contribute/worker/gke-troubleshooting): diagnosing workers in Google Kubernetes Engine.
 
-- **Redis-based Celery configuration** with TLS support
-- Worker deployment and scaling in **GKE (Google Kubernetes Engine)**
-- Task management and organization
-- **Async batch execution and cooperative cancellation**
-- Multi-tenancy in background tasks
-- Error handling and recovery
-- Task monitoring and observability
-- **GKE troubleshooting with kubectl**
-- **Comprehensive logging and log analysis**
-- Redis connection diagnostics
+## Related
 
-## Quick Start Guides
-
-### For Worker Registration Issues
-If workers aren't processing tasks or seem disconnected:
-
-1. **Check Worker Status**: Create and run `check_workers.py` (see [Worker Registration](troubleshooting.md#worker-registration-and-status-checking))
-2. **Quick Status**:
-
-<CodeBlock language="python" isTerminal={false}>
-{`python -c "from rhesis.backend.worker import app; print('Workers:', list(app.control.inspect().active().keys()) if app.control.inspect().active() else 'None')"`}
-</CodeBlock>
-
-3. **Test Redis Connection**: Verify broker connectivity
-4. **Scale Workers** (for GKE):
-
-<CodeBlock language="bash" isTerminal={true}>
-{`kubectl scale deployment rhesis-worker --replicas=0/2 -n <namespace>`}
-</CodeBlock>
-
-### For GKE Worker Issues
-If you're experiencing deployment or connectivity issues:
-
-1. **Connect to Cluster**: Follow [GKE Setup](gke-troubleshooting.md#quick-start-connect-to-your-cluster)
-2. **Check Pod Status**:
-
-<CodeBlock language="bash" isTerminal={true}>
-{`kubectl get pods -n <namespace>`}
-</CodeBlock>
-
-3. **Check Logs**:
-
-<CodeBlock language="bash" isTerminal={true}>
-{`kubectl logs <pod> -c worker -n <namespace> --tail=100`}
-</CodeBlock>
-
-4. **Test Health Endpoints**:
-
-<CodeBlock language="bash" isTerminal={true}>
-{`kubectl exec -it <pod> -- curl localhost:8080/debug`}
-</CodeBlock>
-
-5. **Check Worker Registration**: Use [Worker Registration Checking](gke-troubleshooting.md#worker-registration-checking)
-6. **Full Diagnostics**: See [GKE Troubleshooting Guide](gke-troubleshooting.md) and [Logging Guide](logging.md)
-
-### For Current Test Execution Issues (Async Batch Engine)
-If test runs are stuck or not progressing as expected:
-
-1. **Inspect active tasks**:
-
-<CodeBlock language="bash" isTerminal={true}>
-{`celery -A rhesis.backend.worker inspect active`}
-</CodeBlock>
-
-2. **Check worker logs** for batch runner and cancellation-watchdog events.
-3. **Review execution internals**: [Test Execution](test-execution.md) and [Execution Modes](execution-modes.md)
-4. **Use troubleshooting playbooks**: [Troubleshooting Guide](troubleshooting.md)
-
-## Related Documentation
-
-- [Backend API Documentation](https://docs.rhesis.ai/contribute/backend): Information about the API services that queue background tasks
+- [Backend](/contribute/backend): the API services that queue background tasks.

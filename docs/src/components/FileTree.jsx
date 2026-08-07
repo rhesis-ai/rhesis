@@ -3,8 +3,8 @@ import React from 'react'
 const FileTree = ({ data, title = 'Project Structure' }) => {
   const styles = {
     container: {
-      background: '#0d1117',
-      border: '1px solid #2c2c2c',
+      background: 'var(--rh-codeblock-bg)',
+      border: '1px solid var(--rh-codeblock-border)',
       borderRadius: '8px',
       overflow: 'hidden',
       fontFamily:
@@ -15,9 +15,9 @@ const FileTree = ({ data, title = 'Project Structure' }) => {
       fontFeatureSettings: '"liga" 0, "calt" 0',
     },
     header: {
-      background: '#161b22',
+      background: 'var(--rh-codeblock-surface)',
       padding: '12px 16px',
-      borderBottom: '1px solid #2c2c2c',
+      borderBottom: '1px solid var(--rh-codeblock-border)',
       display: 'flex',
       alignItems: 'center',
       gap: '12px',
@@ -54,7 +54,7 @@ const FileTree = ({ data, title = 'Project Structure' }) => {
       display: 'flex',
       alignItems: 'center',
       padding: '2px 12px',
-      color: '#e6edf3',
+      color: 'var(--rh-codeblock-text)',
       lineHeight: '1.4',
       fontFamily:
         "'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace",
@@ -65,7 +65,7 @@ const FileTree = ({ data, title = 'Project Structure' }) => {
       color: '#79c0ff',
     },
     itemFile: {
-      color: '#e6edf3',
+      color: 'var(--rh-codeblock-text)',
     },
     treeStructure: {
       color: '#8b949e',

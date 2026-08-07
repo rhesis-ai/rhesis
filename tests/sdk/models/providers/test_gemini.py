@@ -71,6 +71,7 @@ class TestGeminiLLM:
             api_base=None,
             api_version=None,
             extra_headers={"Connection": "close"},
+            timeout=300,
         )
 
     @patch("rhesis.sdk.models.providers.litellm.acompletion")
@@ -107,6 +108,7 @@ class TestGeminiLLM:
             api_base=None,
             api_version=None,
             extra_headers={"Connection": "close"},
+            timeout=300,
         )
 
     @patch("rhesis.sdk.models.providers.litellm.acompletion")
@@ -151,6 +153,7 @@ class TestGeminiLLM:
             api_base=None,
             api_version=None,
             extra_headers={"Connection": "close"},
+            timeout=300,
             temperature=0.7,
             max_tokens=100,
         )
@@ -177,4 +180,5 @@ class TestGeminiLLM:
             api_base=None,
             api_version=None,
             extra_headers={"Connection": "close"},
+            timeout=300,
         )

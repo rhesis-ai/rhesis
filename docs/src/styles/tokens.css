@@ -1,0 +1,166 @@
+/**
+ * Rhesis design tokens
+ *
+ * Source of truth: website/src/styles/tailwind.css (`@theme` block), synced
+ * 2026-07-29. When the marketing site's tokens change, change them here — do
+ * not add colour to component style objects or to globals.css.
+ *
+ * The brand hexes are unchanged from the previous docs palette. What the
+ * redesign changed is where colour is allowed to appear: chrome (navbar,
+ * footer, body copy, headings, primary buttons) sits on a neutral near-black
+ * scale, and the blues are reserved for accents, links and the dark-mode glow.
+ */
+
+:root {
+  /* ── Brand palette ─────────────────────────────────────────────── */
+  --rh-blue: #50b9e0;
+  --rh-blue-light: #97d5ee;
+  --rh-blue-cta: #2aa1ce;
+  --rh-blue-hover: #3bc4f2;
+  --rh-orange: #fd6e12;
+  --rh-yellow: #fdd803;
+
+  /* Tinted backgrounds — accents only, never page chrome */
+  --rh-bg-lightest: #f2f9fd;
+  --rh-bg-light: #e4f2fa;
+  --rh-bg-medium: #c2e5f5;
+
+  /* ── Neutral scale (light) ─────────────────────────────────────── */
+  --rh-heading: #111827;
+  --rh-text: #2c2c2c;
+  --rh-text-secondary: #4b5563;
+  --rh-text-muted: #9ca3af;
+  --rh-border: #e5e7eb;
+  --rh-border-strong: #d1d5db;
+  --rh-surface: #ffffff;
+  --rh-surface-alt: #f9fafb;
+  --rh-surface-sunken: #f3f4f6;
+
+  /* ── Semantic roles ───────────────────────────────────────────── */
+  --rh-canvas: var(--rh-surface);
+  --rh-link: var(--rh-text);
+  --rh-link-hover: var(--rh-blue-cta);
+  --rh-code-bg: var(--rh-surface-sunken);
+  --rh-code-text: var(--rh-blue-cta);
+  --rh-accent-bg: rgba(80, 185, 224, 0.1);
+  --rh-accent-bg-subtle: rgba(80, 185, 224, 0.06);
+  /* Text on a saturated brand fill — white in both themes */
+  --rh-on-accent: #ffffff;
+
+  /**
+   * Code block / file tree surfaces — DELIBERATELY THEME-INVARIANT.
+   *
+   * `CodeBlock` and `FileTree` render a dark terminal surface on both themes,
+   * and their Shiki syntax colours are chosen for a dark background. Do not
+   * point these at --rh-surface/--rh-text or add a dark-mode override: on a
+   * light canvas the block turns white and the syntax colours become
+   * unreadable. That is why they are separate tokens rather than the general
+   * surface scale.
+   */
+  --rh-codeblock-bg: #0d1117;
+  --rh-codeblock-surface: #161b22;
+  --rh-codeblock-header: #1f242b;
+  --rh-codeblock-border: #2c2c2c;
+  --rh-codeblock-text: #e6edf3;
+  --rh-codeblock-text-muted: #a9b1bb;
+  /* Copy button: outline/hover fill, and the confirmed-copy state */
+  --rh-codeblock-control-border: #30363d;
+  --rh-codeblock-success: #238636;
+
+  /**
+   * Nav selection states. Translucent neutrals rather than a tinted fill: the
+   * sidebar sits over the gradient backdrop, so an opaque pill would read as a
+   * grey block punched through the wash.
+   */
+  --rh-active-bg: rgba(17, 24, 39, 0.06);
+  --rh-hover-bg: rgba(17, 24, 39, 0.035);
+
+  /* Primary CTA — black gradient pill (Figma 2351:1669 "Get started") */
+  --rh-cta-gradient: linear-gradient(179.48deg, #101011 2.43%, #424246 185.58%);
+  --rh-cta-border: #000000;
+  --rh-cta-text: #ffffff;
+
+  /* ── Radius scale ─────────────────────────────────────────────── */
+  --rh-radius-sm: 0.25rem;
+  --rh-radius-md: 0.375rem;
+  --rh-radius-lg: 0.5rem;
+  --rh-radius-xl: 0.75rem;
+  --rh-radius-2xl: 1rem;
+  --rh-radius-full: 9999px;
+
+  /* ── Shadows ──────────────────────────────────────────────────── */
+  --rh-shadow-card: 0 1px 3px rgba(0, 0, 0, 0.08), 0 4px 6px rgba(0, 0, 0, 0.04);
+  --rh-shadow-card-hover: 0 10px 25px -5px rgba(0, 0, 0, 0.12), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+  --rh-shadow-nav: 0 8px 6px rgba(0, 0, 0, 0.05), 0 4px 2px rgba(0, 0, 0, 0.06);
+
+  /* ── Motion ───────────────────────────────────────────────────── */
+  --rh-duration-fast: 100ms;
+  --rh-duration: 200ms;
+  --rh-ease-out: cubic-bezier(0, 0, 0.2, 1);
+
+  /* ── Type ─────────────────────────────────────────────────────── */
+  --rh-font-display: 'Sora', system-ui, -apple-system, sans-serif;
+  --rh-font-sans: 'Geist', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --rh-font-mono:
+    'Geist Mono', ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono',
+    monospace;
+}
+
+/**
+ * Dark mode. The redesign moved off the GitHub-ish #0d1117/#161b22 palette onto
+ * Tailwind's neutral grays, which is what the website's `dark:` variants use.
+ */
+[data-theme='dark'],
+.dark {
+  --rh-heading: #ffffff;
+  --rh-text: #e5e7eb;
+  --rh-text-secondary: #9ca3af;
+  --rh-text-muted: #6b7280;
+  --rh-border: #1f2937;
+  --rh-border-strong: #374151;
+  --rh-surface: #111827;
+  --rh-surface-alt: #1f2937;
+  --rh-surface-sunken: #1f2937;
+
+  --rh-canvas: #030712;
+  --rh-link: var(--rh-text);
+  --rh-link-hover: var(--rh-blue-hover);
+  --rh-code-bg: #1f2937;
+  --rh-code-text: var(--rh-blue-hover);
+  --rh-accent-bg: rgba(42, 161, 206, 0.2);
+  --rh-accent-bg-subtle: rgba(42, 161, 206, 0.12);
+  --rh-active-bg: rgba(255, 255, 255, 0.09);
+  --rh-hover-bg: rgba(255, 255, 255, 0.05);
+
+  /* The black pill disappears on a near-black canvas — lift it off the page */
+  --rh-cta-gradient: linear-gradient(179.48deg, #2b2b30 2.43%, #55555c 185.58%);
+  --rh-cta-border: #4b5563;
+
+  --rh-shadow-card: 0 1px 3px rgba(0, 0, 0, 0.5), 0 4px 6px rgba(0, 0, 0, 0.3);
+  --rh-shadow-card-hover: 0 10px 25px -5px rgba(0, 0, 0, 0.6), 0 8px 10px -6px rgba(0, 0, 0, 0.4);
+  --rh-shadow-nav: 0 8px 6px rgba(0, 0, 0, 0.4), 0 4px 2px rgba(0, 0, 0, 0.3);
+}
+
+/**
+ * Legacy aliases. Components and CSS still reference `--rhesis-*`; keeping the
+ * names pointed at the tokens above means they pick up the new palette without
+ * being touched. Prefer `--rh-*` in new code.
+ */
+:root,
+[data-theme='dark'],
+.dark {
+  --rhesis-primary-main: var(--rh-blue);
+  --rhesis-primary-light: var(--rh-blue-light);
+  --rhesis-primary-dark: var(--rh-blue-cta);
+  --rhesis-primary-darker: var(--rh-blue-hover);
+  --rhesis-bg-lightest: var(--rh-bg-lightest);
+  --rhesis-bg-light: var(--rh-bg-light);
+  --rhesis-bg-medium: var(--rh-bg-medium);
+  --rhesis-bg-blue: var(--rh-blue-light);
+  --rhesis-bg-white: var(--rh-surface);
+  --rhesis-text-primary: var(--rh-text);
+  --rhesis-text-dark: var(--rh-heading);
+  --rhesis-cta-blue: var(--rh-blue-cta);
+  --rhesis-cta-orange: var(--rh-orange);
+  --rhesis-accent-yellow: var(--rh-yellow);
+}

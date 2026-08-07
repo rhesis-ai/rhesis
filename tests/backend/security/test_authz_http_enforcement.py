@@ -24,6 +24,7 @@ The EE per-role matrix is exhaustively covered at the provider level in
 Routes used (resolved from the live capability map):
 - ``PUT /organizations/{id}`` → ``organization:update`` (owner-only, core/non-EE).
 - ``GET /behaviors/`` → ``behavior:read`` (ordinary, not owner-only).
+- ``GET /usage`` → ``usage:read`` (owner-only in community, Owner/Admin in EE).
 
 Run with:
     cd apps/backend
@@ -43,6 +44,8 @@ from tests.backend.fixtures.test_setup import create_test_organization_and_user
 # Route + capability under test (kept in sync with the live capability map).
 OWNER_ONLY_ROUTE_CAP = "organization:update"
 ORDINARY_READ_ROUTE = "/behaviors/"
+USAGE_ROUTE = "/usage"
+USAGE_ROUTE_CAP = "usage:read"
 
 
 def _make_context(test_db, *, owner: bool):
@@ -146,6 +149,35 @@ class TestHttpAuthzEnforcement:
         )
         assert resp.status_code == 200, resp.text
 
+    def test_owner_allowed_on_usage_route(self, client, test_db):
+        """Usage is billing data, but the org owner may read it."""
+        _org, _user, token = _make_context(test_db, owner=True)
+        resp = client.get(USAGE_ROUTE, headers=_auth(token))
+        assert resp.status_code == 200, (
+            f"Org owner wrongly denied usage:read: {resp.status_code} {resp.text}"
+        )
+
+    def test_non_owner_denied_on_usage_route(self, client, test_db):
+        """A plain member may not read the org's usage totals or plan limits.
+
+        Regression guard: ``GET /usage`` used to sit in
+        ``AUTHZ_EXEMPT_ROUTES``, so any authenticated member could read it.
+        """
+        _org, _user, token = _make_context(test_db, owner=False)
+        resp = client.get(USAGE_ROUTE, headers=_auth(token))
+        assert resp.status_code == 403, (
+            f"Expected 403 for non-owner usage:read, got {resp.status_code}: {resp.text}"
+        )
+        assert resp.headers.get("X-Accepted-Permissions") == USAGE_ROUTE_CAP
+
+    def test_usage_history_is_gated_too(self, client, test_db):
+        """The history endpoint behind the charts carries the same data."""
+        _org, _user, token = _make_context(test_db, owner=False)
+        resp = client.get(f"{USAGE_ROUTE}/history", headers=_auth(token))
+        assert resp.status_code == 403, (
+            f"Expected 403 for non-owner usage history, got {resp.status_code}: {resp.text}"
+        )
+
 
 def _assign_role(test_db, organization_id, user_id, role_name: str) -> None:
     """Assign an arbitrary built-in org role (EE only; no-op in community)."""
@@ -239,6 +271,22 @@ class TestHttpAuthzEnforcementByRole:
         with _ee_active():
             resp = client.get(f"/organizations/{org.id}", headers=_auth(token))
         assert resp.status_code == 200, resp.text
+
+    def test_admin_allowed_on_usage_read(self, client, test_db):
+        """EE Admin is an org admin, so billing data is in scope."""
+        _org, _user, token = self._context(test_db, "Admin")
+        with _ee_active():
+            resp = client.get(USAGE_ROUTE, headers=_auth(token))
+        assert resp.status_code == 200, resp.text
+
+    @pytest.mark.parametrize("role_name", ["Member", "Viewer"])
+    def test_non_admin_roles_denied_on_usage_read(self, role_name, client, test_db):
+        """usage:read is excluded from the Viewer baseline, and Member's set is
+        built from it, so neither role holds it."""
+        _org, _user, token = self._context(test_db, role_name)
+        with _ee_active():
+            resp = client.get(USAGE_ROUTE, headers=_auth(token))
+        assert resp.status_code == 403, resp.text
 
     def test_viewer_denied_on_organization_update(self, client, test_db):
         org, _user, token = self._context(test_db, "Viewer")

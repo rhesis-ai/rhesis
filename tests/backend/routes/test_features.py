@@ -85,7 +85,7 @@ class TestFeaturesEndpoint:
         assert response.status_code == status.HTTP_200_OK
         body = response.json()
         assert "license" in body
-        assert body["license"] == {"edition": "dev", "licensed": False}
+        assert body["license"] == {"edition": "community", "licensed": False}
 
     def test_returns_enabled_list(self, client: TestClient, registered_sso, mock_current_user):
         response = client.get("/features")
@@ -127,7 +127,7 @@ class TestFeaturesEndpoint:
             def allows_feature(self, feature, org):
                 return False
 
-            def info(self):
+            def info(self, org=None):
                 return {"edition": "community", "licensed": False}
 
         FeatureRegistry.reset()
@@ -143,8 +143,82 @@ class TestFeaturesEndpoint:
     def test_response_shape_is_stable(self, client: TestClient, registered_sso, mock_current_user):
         response = client.get("/features")
         body = response.json()
-        assert set(body.keys()) == {"license", "enabled", "warnings"}
+        assert set(body.keys()) == {"license", "enabled", "warnings", "limits", "is_local"}
         assert set(body["license"].keys()) == {"edition", "licensed"}
         assert isinstance(body["enabled"], list)
         assert all(isinstance(name, str) for name in body["enabled"])
         assert isinstance(body["warnings"], dict)
+        assert isinstance(body["limits"], dict)
+        assert isinstance(body["is_local"], bool)
+
+    def test_license_info_reflects_org(self, client: TestClient, registered_sso, mock_current_user):
+        """license_info() must always receive the org object, never None.
+
+        May fire more than once per request: QuotaRegistry's
+        ConfigQuotaProvider (installed by ee.bootstrap()) also resolves the
+        org's edition via FeatureRegistry.license_info() to look up quota
+        limits, independent of the router's own call for the ``license``
+        field. That's fine in production -- SignedTokenLicenseProvider.info()
+        bottoms out in the lru_cache'd verify_token(), so a repeat call is a
+        cache hit, not re-verification. The invariant that actually matters
+        is that every call gets the real org, never None.
+        """
+        received_orgs: list = []
+
+        class _CapturingProvider:
+            def allows_feature(self, feature, org):
+                return True
+
+            def info(self, org=None):
+                received_orgs.append(org)
+                return {"edition": "enterprise", "licensed": True}
+
+        FeatureRegistry.set_license_provider(_CapturingProvider())
+        try:
+            response = client.get("/features")
+            assert response.status_code == status.HTTP_200_OK
+            # Provider must always be called with the org, never None
+            assert len(received_orgs) >= 1
+            assert all(org is not None for org in received_orgs)
+            assert response.json()["license"] == {"edition": "enterprise", "licensed": True}
+        finally:
+            FeatureRegistry.reset()
+
+
+ee_pkg = pytest.importorskip(
+    "rhesis.backend.ee",
+    reason="EE package not installed; skipping EE licensing endpoint tests.",
+)
+
+
+class TestFeaturesEndpointWithSignedProvider:
+    """Endpoint tests using the real SignedTokenLicenseProvider.
+
+    Creates a standalone TestClient (no ``client`` fixture / test_db) so that
+    mock_current_user overrides are not clobbered by the real-DB client fixture.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _setup(self, mock_current_user):
+        from rhesis.backend.ee.licensing.provider import SignedTokenLicenseProvider
+
+        FeatureRegistry.reset()
+        FeatureRegistry.register(Feature(name=FeatureName.SSO, display_name="SSO"))
+        FeatureRegistry.set_license_provider(SignedTokenLicenseProvider())
+        # Build a TestClient here, after mock_current_user has applied its overrides.
+        self._tc = TestClient(app)
+        yield
+        FeatureRegistry.reset()
+
+    def test_unlicensed_returns_community_and_no_features(self):
+        """No license token, in any environment → community, no features."""
+        import os
+        from unittest.mock import patch
+
+        with patch.dict(os.environ, {"RHESIS_LICENSE": ""}):
+            response = self._tc.get("/features")
+        assert response.status_code == status.HTTP_200_OK
+        body = response.json()
+        assert body["license"]["edition"] == "community"
+        assert body["license"]["licensed"] is False
+        assert body["enabled"] == []

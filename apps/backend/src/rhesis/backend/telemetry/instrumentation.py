@@ -152,21 +152,21 @@ def initialize_telemetry():
 
     Environment Variables:
         OTEL_DEPLOYMENT_TYPE: "cloud" or "self-hosted"
-        OTEL_RHESIS_TELEMETRY_ENABLED: "true" or "false" (self-hosted only, defaults to true)
+        OTEL_RHESIS_TELEMETRY_ENABLED: "true" or "false" (self-hosted only, defaults to false)
         OTEL_EXPORTER_OTLP_ENDPOINT: Telemetry collector endpoint URL
         OTEL_SERVICE_NAME: Service identifier (default: "rhesis")
         OTEL_PROCESSOR_ENDPOINT: Telemetry processor endpoint (default: telemetry-processor:4317)
         OTEL_API_KEY: API key for telemetry authentication
 
-    See is_telemetry_enabled() docstring for detailed information about
-    data collection practices and privacy protections.
+    See TelemetrySettings.is_telemetry_enabled in app.config.settings for the
+    enablement rules; https://rhesis.ai/privacy-policy for data practices.
     """
     global _TELEMETRY_GLOBALLY_ENABLED
 
     settings = get_telemetry_settings()
 
     # Check if telemetry is enabled based on deployment type
-    _TELEMETRY_GLOBALLY_ENABLED = is_telemetry_enabled()
+    _TELEMETRY_GLOBALLY_ENABLED = settings.is_telemetry_enabled
 
     if not _TELEMETRY_GLOBALLY_ENABLED:
         logger.info(f"Telemetry disabled for deployment_type={settings.deployment_type}")
@@ -233,79 +233,6 @@ def initialize_telemetry():
 
     except Exception as e:
         logger.error(f"Failed to initialize telemetry: {e}")
-
-
-def is_telemetry_enabled() -> bool:
-    """
-    Check if telemetry is enabled based on deployment type.
-
-    CLOUD DEPLOYMENTS:
-    - Telemetry is always enabled
-    - User consent collected via agreement to Terms & Conditions
-    - See https://www.rhesis.ai/terms-conditions for full details
-
-    SELF-HOSTED DEPLOYMENTS:
-    - Telemetry is ENABLED by default (opt-out)
-    - Opt-out by setting OTEL_RHESIS_TELEMETRY_ENABLED=false
-
-    IMPORTANT FOR SELF-HOSTED ADMINISTRATORS:
-    Telemetry is enabled by default to help improve Rhesis.
-    You can disable it anytime by setting OTEL_RHESIS_TELEMETRY_ENABLED=false.
-
-    Data Collected:
-    - Login/logout events with hashed user IDs (SHA-256, irreversible, 16-char truncated)
-    - API endpoint usage and response times
-    - Feature interaction patterns (e.g., "test created", "report viewed")
-    - Deployment type tag ("cloud" or "self-hosted")
-    - Service version information
-
-    Data NOT Collected:
-    - No email addresses, names, or personally identifiable information
-    - No test data, prompts, or LLM responses
-    - No API keys, tokens, passwords, or credentials
-    - No IP addresses or organization names
-    - No file contents or source code
-
-    Privacy & Security:
-    - All user/organization IDs are pseudonymized via SHA-256 hashing
-    - Data is transmitted over encrypted connections (HTTPS/gRPC with TLS)
-    - Sensitive metadata keys are automatically filtered (passwords, tokens, etc.)
-    - No data is shared with third parties
-
-    All data is sent to Rhesis's telemetry servers for product improvement.
-    For full privacy details, see: https://rhesis.ai/privacy-policy
-
-    You may disable telemetry at any time by setting OTEL_RHESIS_TELEMETRY_ENABLED=false.
-
-    Returns:
-        bool: True if telemetry should be collected
-
-    Examples:
-        # Self-hosted: Enabled by default (opt-out)
-        OTEL_DEPLOYMENT_TYPE=self-hosted
-        # OTEL_RHESIS_TELEMETRY_ENABLED not set -> defaults to true
-
-        # Self-hosted: Explicitly disable telemetry (opt-out)
-        OTEL_DEPLOYMENT_TYPE=self-hosted
-        OTEL_RHESIS_TELEMETRY_ENABLED=false
-
-        # Cloud: Always enabled
-        OTEL_DEPLOYMENT_TYPE=cloud
-    """
-    settings = get_telemetry_settings()
-    deployment_type = settings.deployment_type
-
-    # Cloud users: Always enabled (user consent collected via Terms & Conditions agreement)
-    if deployment_type == "cloud":
-        return True
-
-    # Self-hosted users: Enabled by default (opt-out)
-    # Users can disable by setting OTEL_RHESIS_TELEMETRY_ENABLED=false
-    if deployment_type == "self-hosted":
-        return settings.rhesis_telemetry_enabled
-
-    # Unknown deployment type: Disable telemetry for safety
-    return False
 
 
 def _set_telemetry_enabled_for_testing(enabled: bool):

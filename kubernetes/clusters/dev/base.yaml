@@ -9,7 +9,6 @@ spec:
     repoURL: https://github.com/rhesis-ai/rhesis.git
     targetRevision: main
     path: kubernetes/clusters/dev
-    kustomize: {}
   destination:
     server: https://kubernetes.default.svc
   syncPolicy:

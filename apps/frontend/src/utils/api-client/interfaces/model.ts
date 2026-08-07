@@ -1,5 +1,4 @@
 import { UUID } from 'crypto';
-import { User } from './user';
 import { TypeLookup } from './type-lookup';
 import { Status } from './status';
 import { PaginationParams } from './pagination';
@@ -12,19 +11,24 @@ export interface Model {
   model_name: string;
   model_type?: 'language' | 'embedding';
   endpoint: string;
-  key: string;
-  request_headers?: Record<string, string>;
   is_protected?: boolean;
-  tags: string[];
-  created_at: string;
-  updated_at: string;
+
+  /**
+   * Whether the model is currently usable. Defaults to true; the backend sets
+   * it to false for Rhesis-hosted models when their prerequisite (e.g. a valid
+   * platform key) is missing on a local deployment.
+   */
+  available?: boolean;
+  /**
+   * Machine slug explaining why the model is unavailable (e.g.
+   * `rhesis_key_missing`, `polyphemus_not_authorized`), or null when available.
+   * Human-readable copy lives in the frontend — see `AVAILABILITY_REASON_COPY`.
+   */
+  availability_reason?: string | null;
 
   // References
   provider_type?: TypeLookup;
   status?: Status;
-  owner?: User;
-  assignee?: User;
-  metrics?: UUID[];
 }
 
 export interface ModelCreate {
@@ -35,7 +39,6 @@ export interface ModelCreate {
   model_type?: 'language' | 'embedding';
   endpoint?: string;
   key: string;
-  request_headers?: Record<string, string>;
   is_protected?: boolean;
   tags: string[];
   provider_type_id?: UUID;
@@ -52,7 +55,6 @@ export interface ModelUpdate {
   model_type?: 'language' | 'embedding';
   endpoint?: string;
   key?: string;
-  request_headers?: Record<string, string>;
   is_protected?: boolean;
   tags?: string[];
   provider_type_id?: UUID;
@@ -61,14 +63,7 @@ export interface ModelUpdate {
   assignee_id?: UUID;
 }
 
-export interface ModelDetail extends Model {
-  metrics: UUID[];
-}
-
-export interface ModelsResponse {
-  models: ModelDetail[];
-  totalCount: number;
-}
+export type ModelDetail = Model;
 
 export interface ModelQueryParams extends PaginationParams {
   status?: string;
@@ -87,6 +82,4 @@ export interface TestModelConnectionRequest {
 export interface TestModelConnectionResponse {
   success: boolean;
   message: string;
-  provider?: string;
-  model_name?: string;
 }

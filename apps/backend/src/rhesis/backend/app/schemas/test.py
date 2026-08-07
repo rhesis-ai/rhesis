@@ -4,76 +4,20 @@ from typing import Any, Dict, List, Optional, Union
 from pydantic import UUID4, BaseModel, ConfigDict, field_validator
 
 from rhesis.backend.app.schemas import Base
+from rhesis.backend.app.schemas.references import (
+    BehaviorReference,
+    CategoryReference,
+    PromptReference,
+    StatusReference,
+    TopicReference,
+    TypeLookupReference,
+)
 from rhesis.backend.app.schemas.user import UserReference
-
-
-# Base models for related entities
-class UserBase(Base):
-    id: UUID4
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class TypeLookup(Base):
-    id: UUID4
-    type_name: str
-    type_value: str
-    description: Optional[str] = None
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class Topic(Base):
-    id: UUID4
-    name: str
-    description: Optional[str] = None
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class Prompt(Base):
-    id: UUID4
-    content: str  # Changed from text to content based on your model
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class Status(Base):
-    id: UUID4
-    name: str
-    description: Optional[str] = None
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class Behavior(Base):
-    id: UUID4
-    name: str
-    description: Optional[str] = None
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class Category(Base):
-    id: UUID4
-    name: str
-    description: Optional[str] = None
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class Source(Base):
-    id: UUID4
-    title: str
-    description: Optional[str] = None
-
-    model_config = ConfigDict(from_attributes=True)
 
 
 class TestTag(Base):
     id: UUID4
     name: str
-    icon_unicode: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -92,7 +36,6 @@ class TestBase(Base):
     behavior_id: Optional[UUID4] = None
     category_id: Optional[UUID4] = None
     status_id: Optional[UUID4] = None
-    source_id: Optional[UUID4] = None
     organization_id: Optional[UUID4] = None
     test_metadata: Optional[Dict[str, Any]] = None
 
@@ -100,8 +43,6 @@ class TestBase(Base):
 class TestPromptCreate(BaseModel):
     content: str
     language_code: str = "en"
-    demographic: Optional[str] = None
-    dimension: Optional[str] = None
     expected_response: Optional[str] = None
 
 
@@ -158,20 +99,19 @@ class Test(TestBase):
     model_config = ConfigDict(from_attributes=True)
 
 
-# The detailed model with expanded relations
+# The detailed model with expanded relations. parent/source/organization/project: unused, excluded.
 class TestDetail(Test):
     # Include the full related objects instead of just IDs
-    prompt: Optional[Prompt] = None
-    test_type: Optional[TypeLookup] = None
+    counts: Optional[Dict[str, Any]] = None
+    prompt: Optional[PromptReference] = None
+    test_type: Optional[TypeLookupReference] = None
     user: Optional[UserReference] = None
     assignee: Optional[UserReference] = None
     owner: Optional[UserReference] = None
-    parent: Optional["TestDetail"] = None
-    topic: Optional[Topic] = None
-    behavior: Optional[Behavior] = None
-    category: Optional[Category] = None
-    status: Optional[Status] = None
-    source: Optional[Source] = None
+    topic: Optional[TopicReference] = None
+    behavior: Optional[BehaviorReference] = None
+    category: Optional[CategoryReference] = None
+    status: Optional[StatusReference] = None
     tags: Optional[List[TestTag]] = []
 
 
@@ -242,27 +182,19 @@ class TestBulkCreateRequest(BaseModel):
     test_set_id: Optional[UUID4] = None
 
 
-class TestBulkResponse(BaseModel):
-    id: UUID4
-    prompt_id: UUID4
-    test_type_id: UUID4
-    priority: int
-    user_id: UUID4
-    topic_id: UUID4
-    behavior_id: UUID4
-    category_id: UUID4
-    status_id: UUID4
-    organization_id: UUID4
-    test_configuration: Optional[Dict[str, Any]] = None
-    prompt: Optional[Dict[str, Any]] = None
-
-    model_config = ConfigDict(from_attributes=True)
-
-
 class TestBulkCreateResponse(BaseModel):
     success: bool
     total_tests: int
     message: str
+
+
+class TestBulkDeleteRequest(BaseModel):
+    test_ids: List[UUID4]
+
+
+class TestBulkDeleteResponse(BaseModel):
+    deleted_ids: List[str]
+    not_found_ids: List[str]
 
 
 # In-place test execution schemas
@@ -407,10 +339,3 @@ class ConversationTestExtractionResponse(BaseModel):
     expected_response: Optional[str] = None
     # Multi-turn fields
     test_configuration: Optional[Dict[str, Any]] = None
-
-
-class ConversationToTestResponse(BaseModel):
-    """Response after creating a test from a conversation."""
-
-    test_id: UUID4
-    message: str

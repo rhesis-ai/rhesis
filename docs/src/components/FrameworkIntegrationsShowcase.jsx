@@ -288,7 +288,7 @@ function GridCard({ item }) {
         style={{
           fontWeight: 600,
           fontSize: '0.9375rem',
-          fontFamily: 'Sora, sans-serif',
+          fontFamily: 'var(--rh-font-display)',
           flex: 1,
           minWidth: 0,
         }}
@@ -333,7 +333,7 @@ function ProviderChip({ item }) {
           fontWeight: 600,
           color: 'var(--integration-showcase-chip-name)',
           lineHeight: 1.25,
-          fontFamily: 'Be Vietnam Pro, sans-serif',
+          fontFamily: 'var(--rh-font-sans)',
           maxWidth: '100%',
         }}
       >

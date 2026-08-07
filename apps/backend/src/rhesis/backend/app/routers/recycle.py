@@ -32,13 +32,26 @@ logger = logging.getLogger(__name__)
 
 router = RhesisRouter(prefix="/recycle", tags=["recycle"], resource="recycle")
 
+# Tables that must never be reachable through the generic recycle-bin routes,
+# even though they inherit deleted_at from Base like every other model.
+#
+# usage: a billing counter, not user content. Reachable here it would let an
+# org member zero their own metered usage (hard delete has no "already
+# soft-deleted" precondition -- see hard_delete_item/get_item(include_deleted=True))
+# or, via restore, resurrect a row that the increment path's raw-SQL upsert
+# would keep updating invisibly (the ORM soft-delete filter hides it from
+# GET /usage's SELECT while accrual still lands on it). There is no
+# legitimate soft-delete/restore workflow for a counter row.
+RECYCLE_EXCLUDED_TABLES = frozenset({"usage"})
+
 
 def get_all_models() -> Dict[str, type]:
     """
     Automatically discover all SQLAlchemy models that inherit from Base.
 
     Returns:
-        Dictionary mapping lowercase model names to model classes
+        Dictionary mapping lowercase model names to model classes, excluding
+        RECYCLE_EXCLUDED_TABLES.
     """
     model_map = {}
 
@@ -48,6 +61,8 @@ def get_all_models() -> Dict[str, type]:
             model_class = mapper.class_
             # Use the table name as the key (already lowercase)
             table_name = model_class.__tablename__
+            if table_name in RECYCLE_EXCLUDED_TABLES:
+                continue
             model_map[table_name] = model_class
         except UnmappedClassError:
             # Skip models that haven't been fully mapped yet

@@ -56,9 +56,9 @@ class TestGenerateOutputsForTests:
                 overwrite=True,
             )
 
-        assert result["generated"] == 3
-        assert len(result["failed"]) == 0
-        assert len(result["updated"]) == 3
+        assert result.generated == 3
+        assert len(result.failed) == 0
+        assert len(result.updated) == 3
 
         test_db.commit()
         nodes = get_tree_tests(
@@ -124,10 +124,10 @@ class TestGenerateOutputsForTests:
                 overwrite=True,
             )
 
-        assert result["generated"] == 1
-        assert len(result["updated"]) == 1
-        assert result["updated"][0]["test_id"] == one_test_id
-        assert result["updated"][0]["output"] == "single test output"
+        assert result.generated == 1
+        assert len(result.updated) == 1
+        assert result.updated[0].test_id == one_test_id
+        assert result.updated[0].output == "single test output"
         assert mock_svc.invoke_endpoint.await_count == 1
 
     async def test_failed_invocation_recorded(
@@ -168,10 +168,10 @@ class TestGenerateOutputsForTests:
                 overwrite=True,
             )
 
-        assert result["generated"] == 2
-        assert len(result["failed"]) == 1
-        assert len(result["updated"]) == 2
-        assert "timeout" in result["failed"][0]["error"]
+        assert result.generated == 2
+        assert len(result.failed) == 1
+        assert len(result.updated) == 2
+        assert "timeout" in result.failed[0].error
 
     async def test_generate_outputs_filter_by_topic_include_subtopics(
         self,
@@ -198,9 +198,9 @@ class TestGenerateOutputsForTests:
                 overwrite=True,
             )
         # Safety has 1 test; Safety/Violence has 2 tests -> 3 total
-        assert result["generated"] == 3
-        assert len(result["failed"]) == 0
-        assert len(result["updated"]) == 3
+        assert result.generated == 3
+        assert len(result.failed) == 0
+        assert len(result.updated) == 3
         assert mock_svc.invoke_endpoint.await_count == 3
 
     async def test_generate_outputs_filter_by_topic_exclude_subtopics(
@@ -228,9 +228,9 @@ class TestGenerateOutputsForTests:
                 overwrite=True,
             )
         # Only 1 test is directly under Safety (not under Safety/Violence)
-        assert result["generated"] == 1
-        assert len(result["failed"]) == 0
-        assert len(result["updated"]) == 1
+        assert result.generated == 1
+        assert len(result.failed) == 0
+        assert len(result.updated) == 1
         assert mock_svc.invoke_endpoint.await_count == 1
 
     async def test_generate_outputs_filter_by_leaf_topic(
@@ -257,8 +257,8 @@ class TestGenerateOutputsForTests:
                 include_subtopics=False,
                 overwrite=True,
             )
-        assert result["generated"] == 2
-        assert len(result["updated"]) == 2
+        assert result.generated == 2
+        assert len(result.updated) == 2
         assert mock_svc.invoke_endpoint.await_count == 2
 
     async def test_skips_tests_with_existing_output(
@@ -283,8 +283,8 @@ class TestGenerateOutputsForTests:
                 user_id=authenticated_user_id,
                 overwrite=False,
             )
-        assert result["generated"] == 0
-        assert result["skipped"] == 3
+        assert result.generated == 0
+        assert result.skipped == 3
 
     async def test_overwrite_regenerates_existing_output(
         self,
@@ -308,5 +308,5 @@ class TestGenerateOutputsForTests:
                 user_id=authenticated_user_id,
                 overwrite=True,
             )
-        assert result["generated"] == 3
-        assert result["skipped"] == 0
+        assert result.generated == 3
+        assert result.skipped == 0

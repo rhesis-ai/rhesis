@@ -4,6 +4,8 @@ import Script from 'next/script';
 import { cookies } from 'next/headers';
 import ThemeAwareLogo from '../components/common/ThemeAwareLogo';
 import '../styles/fonts.css';
+import '../styles/viewport-scaling.css';
+import '../styles/nav-density.css';
 // Side-effect import: registers EE features into core's extension
 // registries at module load. The actual @rhesis/ee-frontend import is
 // contained in ee_bootstrap.ts (the only file allowed to do so). This
@@ -39,6 +41,7 @@ import { handleSignIn, handleSignOut } from '../actions/auth';
 import { LayoutContent } from '../components/layout/LayoutContent';
 import { createServerApiFactory } from '../utils/api-client/server-factory';
 import { getServerActiveProjectId } from '../utils/server-active-project';
+import { fetchQuickStartEnabledServer } from '../utils/quick_start.server';
 import {
   type NavigationItem,
   type BrandingProps,
@@ -46,12 +49,50 @@ import {
 } from '../types/navigation';
 import { type Project } from '../utils/api-client/interfaces/project';
 import { type Organization } from '../utils/api-client/interfaces/organization';
+import { type UserSettings } from '../utils/api-client/interfaces/user';
 import { type Session } from 'next-auth';
 import ThemeContextProvider from '../components/providers/ThemeProvider';
+import { BACKGROUND_DEFAULT } from '../styles/theme-background';
 import { Capability } from '../constants/capabilities';
 
 // Mark this layout as dynamic since it uses server-side authentication
 export const dynamic = 'force-dynamic';
+
+/**
+ * Sets `data-theme-mode` before first paint when the visitor has no stored
+ * preference, so the browser's `prefers-color-scheme` decides. Kept inline and
+ * render-blocking on purpose — deferring it would paint light first and flash.
+ */
+const THEME_MODE_SCRIPT = `(function(){try{
+  var el=document.documentElement;
+  if(el.getAttribute('data-theme-mode'))return;
+  var stored=localStorage.getItem('theme-mode');
+  var mode=(stored==='dark'||stored==='light')?stored:
+    (window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');
+  el.setAttribute('data-theme-mode',mode);
+}catch(e){}})();`;
+
+/**
+ * Paints the page background from `data-theme-mode` before React hydrates.
+ *
+ * The script above fixes which mode the provider picks, but not the first
+ * paint: MUI's styles are server-rendered through `AppRouterCacheProvider`
+ * from `initialMode`, so without a cookie the served HTML is always light. A
+ * dark-OS visitor would see a white page until hydration swapped it — measured
+ * at over a second on a throttled CPU. These two rules are the only styling
+ * that has to be right before hydration; everything else is below the fold of
+ * perception.
+ *
+ * The values come from `theme-background.ts`, not `theme.ts` — that file is
+ * `'use client'`, and importing a value from it here (a Server Component)
+ * yields a client reference, which rendered `background-color:undefined`.
+ */
+const THEME_MODE_STYLE = (['dark', 'light'] as const)
+  .map(
+    mode => `html[data-theme-mode='${mode}']{color-scheme:${mode}}
+html[data-theme-mode='${mode}'],html[data-theme-mode='${mode}'] body{background-color:${BACKGROUND_DEFAULT[mode]}}`
+  )
+  .join('\n');
 
 // This function will be used to get navigation items with dynamic data
 async function getNavigationItems(session: Session | null): Promise<{
@@ -273,8 +314,14 @@ const AUTHENTICATION: AuthenticationProps = {
 
 export default async function RootLayout(props: { children: React.ReactNode }) {
   const session = await auth().catch(() => null);
+  // Only an explicit choice pins the mode. When the cookie is absent we leave
+  // `data-theme-mode` off the <html> element so the pre-paint script below can
+  // resolve it from the browser's `prefers-color-scheme` — stamping 'light'
+  // here made `ThemeContextProvider`'s layout effect match the attribute and
+  // return early, so a first-time visitor never got their system dark mode.
   const themeCookie = (await cookies()).get('theme-mode')?.value;
-  const initialThemeMode = themeCookie === 'dark' ? 'dark' : 'light';
+  const storedThemeMode =
+    themeCookie === 'dark' || themeCookie === 'light' ? themeCookie : undefined;
 
   // Get navigation with dynamic organization name
   const {
@@ -292,30 +339,72 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
     apiBaseUrl: process.env.API_BASE_URL ?? 'http://localhost:8080',
   }).replace(/</g, '\\u003c')};`;
 
-  // Fetch the active project server-side so the sidebar can render the
-  // project name on first paint without a flash.
+  // Fetch the active project, and the full member-project list for the
+  // switcher, server-side so the sidebar/switcher render on first paint
+  // without a flash. Without `initialProjects`, `ActiveProjectProvider`
+  // always issued a client-side `GET /projects/mine` on mount even though
+  // the active project itself was already known here — this seeds that list
+  // too so the client effect can skip the network round trip entirely on
+  // the common case (falling back to fetching itself if this failed).
   let initialActiveProject: Project | null = null;
+  let initialProjects: Project[] | null = null;
+  // Seeds `useUserSettings`'s cache too (see `ActiveProjectProvider`), so
+  // the `default_project` fallback lookup it otherwise does with a client
+  // `GET /users/settings` — needed whenever there's no active-project cookie
+  // yet, e.g. a brand-new session — is already answered.
+  let initialUserSettings: UserSettings | null = null;
   const projectId = await getServerActiveProjectId();
-  if (projectId && session && !session.error) {
-    try {
-      const factory = await createServerApiFactory();
-      initialActiveProject = await factory
-        .getProjectsClient()
-        .getProject(projectId);
-    } catch {
-      // Ignore — client will fetch on mount
+  if (session && !session.error && session.user?.organization_id) {
+    const factory = await createServerApiFactory();
+    const [projectsResult, settingsResult] = await Promise.allSettled([
+      factory.getProjectsClient().getMyProjects(),
+      factory.getUsersClient().getUserSettings(),
+    ]);
+
+    if (projectsResult.status === 'fulfilled') {
+      initialProjects = projectsResult.value;
+      if (projectId) {
+        initialActiveProject =
+          projectsResult.value.find(p => String(p.id) === projectId) ?? null;
+      }
+    }
+    if (settingsResult.status === 'fulfilled') {
+      initialUserSettings = settingsResult.value;
     }
   }
 
+  // Fetched once here (unauthenticated `GET /auth/providers`) and threaded
+  // down via `QuickStartProvider` — see `fetchQuickStartEnabledServer`'s
+  // docstring for why this replaced two separate client-side `/api/auth-config`
+  // calls (one from `LayoutContent`, one from whichever consumer — the
+  // landing page or `TermsAcceptanceGate` — was also mounted).
+  const initialQuickStart = await fetchQuickStartEnabledServer();
+
   return (
-    <html lang="en" suppressHydrationWarning data-theme-mode={initialThemeMode}>
+    <html lang="en" suppressHydrationWarning data-theme-mode={storedThemeMode}>
+      <head>
+        {/*
+          Runs before first paint: when the visitor has made no explicit choice,
+          resolve the mode from the browser instead of defaulting to light.
+          `ThemeContextProvider` reads the attribute this sets, so the two agree
+          and there is no flash.
+        */}
+        <script
+          id="rhesis-theme-mode"
+          dangerouslySetInnerHTML={{ __html: THEME_MODE_SCRIPT }}
+        />
+        <style
+          id="rhesis-theme-mode-paint"
+          dangerouslySetInnerHTML={{ __html: THEME_MODE_STYLE }}
+        />
+      </head>
       <body suppressHydrationWarning>
         <Script id="rhesis-runtime-env" strategy="beforeInteractive">
           {runtimeEnvScript}
         </Script>
         <ThemeContextProvider
           disableTransitionOnChange
-          initialMode={initialThemeMode}
+          initialMode={storedThemeMode ?? 'light'}
         >
           <LayoutContent
             session={session}
@@ -323,7 +412,10 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
             branding={branding}
             authentication={AUTHENTICATION}
             initialActiveProject={initialActiveProject}
+            initialProjects={initialProjects}
+            initialUserSettings={initialUserSettings}
             initialOrganization={organization}
+            initialQuickStart={initialQuickStart}
           >
             {props.children}
           </LayoutContent>

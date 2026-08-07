@@ -1,15 +1,13 @@
-from datetime import datetime
 from enum import Enum
-from typing import List, Optional, Union
+from typing import List, Optional
 
 from pydantic import UUID4, ConfigDict, model_validator
 
 from rhesis.backend.app.schemas import Base
 from rhesis.backend.app.schemas.metric_types import ScoreType, ThresholdOperator
-from rhesis.backend.app.schemas.status import Status
+from rhesis.backend.app.schemas.references import BehaviorReference
 from rhesis.backend.app.schemas.tag import Tag
 from rhesis.backend.app.schemas.type_lookup import TypeLookup
-from rhesis.backend.app.schemas.user import UserReference
 
 
 class MetricScope(str, Enum):
@@ -81,8 +79,6 @@ class MetricUpdate(MetricBase):
 
 class Metric(MetricBase):
     id: UUID4
-    created_at: Union[datetime, str]
-    updated_at: Union[datetime, str]
     tags: Optional[List[Tag]] = []
     # Override string fields with relationship objects for response
     backend_type: Optional[TypeLookup] = None
@@ -91,10 +87,18 @@ class Metric(MetricBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+class ModelReference(Base):
+    id: UUID4
+    name: Optional[str] = None
+    description: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class MetricDetail(Metric):
-    status: Optional[Status] = None
-    assignee: Optional[UserReference] = None
-    owner: Optional[UserReference] = None
+    name: Optional[str] = None
+    model: Optional[ModelReference] = None
+    behaviors: Optional[List[BehaviorReference]] = []
 
 
 class GenerateMetricRequest(Base):

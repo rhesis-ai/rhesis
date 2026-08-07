@@ -16,15 +16,29 @@ const LONG_RUNNING_PATH_PREFIXES = [
   '/garak/import',
   '/garak/generate',
   '/garak/sync',
+  '/explorer/import',
+  '/explorer/export',
+];
+
+/**
+ * Same idea, but for paths with a test-set id in the middle
+ * (`/explorer/{id}/suggestion_pipeline`), where a prefix match can't work.
+ */
+const LONG_RUNNING_PATH_SUFFIXES = [
+  '/suggestion_pipeline',
+  '/generate_outputs',
+  '/evaluate',
+  '/load-initial-data',
 ];
 
 const LONG_RUNNING_TIMEOUT_MS = 300_000;
 
 /** Pick the timeout budget for a given backend-relative pathname. */
 export function resolveTimeoutMs(pathname: string): number {
-  return LONG_RUNNING_PATH_PREFIXES.some(prefix => pathname.startsWith(prefix))
-    ? LONG_RUNNING_TIMEOUT_MS
-    : DEFAULT_TIMEOUT_MS;
+  const isLongRunning =
+    LONG_RUNNING_PATH_PREFIXES.some(prefix => pathname.startsWith(prefix)) ||
+    LONG_RUNNING_PATH_SUFFIXES.some(suffix => pathname.endsWith(suffix));
+  return isLongRunning ? LONG_RUNNING_TIMEOUT_MS : DEFAULT_TIMEOUT_MS;
 }
 
 const FORWARDED_REQUEST_HEADERS = [

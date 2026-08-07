@@ -26,3 +26,10 @@ class TopicUpdate(TopicBase):
 
 class Topic(TopicBase):
     pass
+
+
+# No nested relationships are actually consumed by any caller (backend, frontend,
+# or SDK) -- keep this flat rather than eager-loading data nobody reads.
+class TopicDetail(Topic):
+    id: UUID4
+    name: Optional[str] = None

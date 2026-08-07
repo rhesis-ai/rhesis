@@ -101,8 +101,6 @@ const makeProject = (): Project =>
     description: 'A test project',
     created_at: '2024-01-15T00:00:00Z',
     owner: { id: 'user-1', name: 'Alice', email: 'alice@example.com' },
-    user: { id: 'user-1', name: 'Alice', email: 'alice@example.com' },
-    organization: { id: 'org-1', name: 'Acme' },
   }) as Project;
 
 async function openDeleteModal() {

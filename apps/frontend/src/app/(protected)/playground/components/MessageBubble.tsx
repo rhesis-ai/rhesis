@@ -21,7 +21,8 @@ import DownloadIcon from '@mui/icons-material/Download';
 import ScienceOutlinedIcon from '@mui/icons-material/ScienceOutlined';
 import { TracesIcon } from '@/components/icons';
 import { ChatMessage } from '@/hooks/usePlaygroundChat';
-import MarkdownContent from '@/components/common/MarkdownContent';
+import MessageContent from '@/components/common/MessageContent';
+import { stringifyMessageContent } from '@/utils/message-content';
 import { BORDER_RADIUS } from '@/styles/theme-constants';
 
 interface MessageBubbleProps {
@@ -53,7 +54,9 @@ export default function MessageBubble({
   const handleCopy = async (e: React.MouseEvent) => {
     e.stopPropagation();
     try {
-      await navigator.clipboard.writeText(message.content);
+      await navigator.clipboard.writeText(
+        stringifyMessageContent(message.content)
+      );
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
@@ -184,7 +187,7 @@ export default function MessageBubble({
               }}
             >
               <Box sx={{ flex: 1, minWidth: 0 }}>
-                {isUser ? (
+                {message.role === 'user' ? (
                   <Typography
                     variant="body2"
                     sx={{
@@ -196,7 +199,7 @@ export default function MessageBubble({
                     {message.content}
                   </Typography>
                 ) : (
-                  <MarkdownContent content={message.content} variant="body2" />
+                  <MessageContent content={message.content} variant="body2" />
                 )}
               </Box>
 

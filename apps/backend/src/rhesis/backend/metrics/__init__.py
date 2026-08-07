@@ -23,11 +23,6 @@ from rhesis.sdk.metrics import (
     MetricResult,
     # Native metrics (renamed)
     NumericJudge,
-    # Ragas metrics
-    RagasAnswerAccuracy,
-    RagasAspectCritic,
-    RagasContextRelevance,
-    RagasFaithfulness,
 )
 
 from .evaluator import MetricEvaluator as Evaluator
@@ -64,18 +59,26 @@ __all__ = [
 ]
 
 
-def __getattr__(name: str):
-    """Lazy load deepeval metric classes to avoid eager imports."""
-    # DeepEval metrics
-    deepeval_metrics = [
+_LAZY_SDK_NAMES = frozenset(
+    {
+        # Ragas metrics (pulls in ragas/transformers/torch/datasets on first use)
+        "RagasAnswerAccuracy",
+        "RagasAspectCritic",
+        "RagasContextRelevance",
+        "RagasFaithfulness",
+        # DeepEval metrics
         "DeepEvalAnswerRelevancy",
         "DeepEvalFaithfulness",
         "DeepEvalContextualPrecision",
         "DeepEvalContextualRecall",
         "DeepEvalContextualRelevancy",
-    ]
+    }
+)
 
-    if name in deepeval_metrics:
+
+def __getattr__(name: str):
+    """Lazy load ragas/deepeval metric classes to avoid eager imports."""
+    if name in _LAZY_SDK_NAMES:
         from rhesis.sdk.metrics import __getattr__ as sdk_getattr
 
         return sdk_getattr(name)

@@ -772,9 +772,7 @@ def test_application_settings_api_base_url_validation(clean_application_env, mon
 
 
 @pytest.mark.unit
-def test_get_application_settings_api_base_url_cache_clear(
-    minimal_application_env, monkeypatch
-):
+def test_get_application_settings_api_base_url_cache_clear(minimal_application_env, monkeypatch):
     assert get_application_settings().api_base_url == "https://api.example.com"
 
     monkeypatch.setenv("API_BASE_URL", "https://cached-api.example.com")
@@ -822,7 +820,7 @@ def test_telemetry_settings_uses_system_defaults(clean_telemetry_env):
     assert settings.otlp_endpoint == "https://telemetry.rhesis.ai"
     assert settings.service_name == "rhesis"
     assert settings.deployment_type == "self-hosted"
-    assert settings.rhesis_telemetry_enabled is True
+    assert settings.rhesis_telemetry_enabled is False
 
 
 @pytest.mark.unit

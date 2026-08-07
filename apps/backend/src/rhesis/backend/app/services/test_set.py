@@ -7,7 +7,7 @@ from typing import Any, Dict, List
 from uuid import UUID
 
 from sqlalchemy import func
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, contains_eager
 
 from rhesis.backend.app import models, schemas
 from rhesis.backend.app.constants import (
@@ -23,6 +23,7 @@ from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.services.stats import StatsCalculator
 from rhesis.backend.app.services.test import bulk_create_test_set_associations, bulk_create_tests
 from rhesis.backend.app.utils.crud_utils import get_or_create_status, get_or_create_type_lookup
+from rhesis.backend.app.utils.query_utils import QueryBuilder, include
 from rhesis.backend.app.utils.uuid_utils import (
     ensure_owner_id,
     sanitize_uuid_field,
@@ -35,19 +36,22 @@ logger = logging.getLogger(__name__)
 
 def get_test_set(db: Session, test_set_id: uuid.UUID, organization_id: str = None):
     """Get test set by ID with organization filtering for security"""
-    query = (
-        db.query(TestSet)
-        .filter(TestSet.id == test_set_id)
-        .options(
-            joinedload(TestSet.prompts).joinedload(Prompt.demographic),
-            joinedload(TestSet.prompts).joinedload(Prompt.category),
-            joinedload(TestSet.prompts).joinedload(Prompt.attack_category),
-            joinedload(TestSet.prompts).joinedload(Prompt.topic),
-            joinedload(TestSet.prompts).joinedload(Prompt.behavior),
+    builder = (
+        QueryBuilder(db, TestSet)
+        .with_custom_filter(lambda q: q.filter(TestSet.id == test_set_id))
+        .with_related(
+            # TestSet.prompts is one-to-many -- include() picks selectinload for
+            # it automatically, avoiding the cartesian-product blowup a plain
+            # joinedload(TestSet.prompts) would cause once fanned out across
+            # nested joinedload(Prompt.*) chains.
+            include(TestSet.prompts, Prompt.category),
+            include(TestSet.prompts, Prompt.attack_category),
+            include(TestSet.prompts, Prompt.topic),
+            include(TestSet.prompts, Prompt.behavior),
             # Temporarily disabled due to entity_type column issue
-            # joinedload(TestSet.prompts).joinedload(Prompt.source),
-            joinedload(TestSet.prompts).joinedload(Prompt.status),
-            joinedload(TestSet.prompts).joinedload(Prompt.user),
+            # include(TestSet.prompts, Prompt.source),
+            include(TestSet.prompts, Prompt.status),
+            include(TestSet.prompts, Prompt.user),
         )
     )
 
@@ -55,9 +59,11 @@ def get_test_set(db: Session, test_set_id: uuid.UUID, organization_id: str = Non
     if organization_id:
         from uuid import UUID as UUIDType
 
-        query = query.filter(TestSet.organization_id == UUIDType(organization_id))
+        builder = builder.with_custom_filter(
+            lambda q: q.filter(TestSet.organization_id == UUIDType(organization_id))
+        )
 
-    return query.first()
+    return builder.first()
 
 
 def create_pending_test_set(
@@ -180,33 +186,47 @@ def generate_test_set_attributes(
     Returns:
         Dict containing the complete attributes structure
     """
+    # Eager-load per-test relationships in one query instead of lazily fetching
+    # topic/behavior/category/prompt for each test in test_set.tests (N+1).
+    # Filtered by test_sets.any(...) rather than test_set.tests -- the caller's
+    # test_set isn't guaranteed to have that many-to-many relationship loaded.
+    tests = (
+        QueryBuilder(db, models.Test)
+        .with_custom_filter(lambda q: q.filter(models.Test.test_sets.any(id=test_set.id)))
+        .with_related(
+            include(models.Test.topic),
+            include(models.Test.behavior),
+            include(models.Test.category),
+            include(models.Test.prompt),
+        )
+        .all()
+    )
+
     # Get all unique IDs and names for each dimension (skip tests with None values)
-    topics = list(set(str(test.topic_id) for test in test_set.tests if test.topic_id))
-    behaviors = list(set(str(test.behavior_id) for test in test_set.tests if test.behavior_id))
-    categories = list(set(str(test.category_id) for test in test_set.tests if test.category_id))
+    topics = list(set(str(test.topic_id) for test in tests if test.topic_id))
+    behaviors = list(set(str(test.behavior_id) for test in tests if test.behavior_id))
+    categories = list(set(str(test.category_id) for test in tests if test.category_id))
 
     # Get all unique names for metadata (skip tests with None relationships)
-    topic_names = list(set(test.topic.name for test in test_set.tests if test.topic))
-    behavior_names = list(set(test.behavior.name for test in test_set.tests if test.behavior))
-    category_names = list(set(test.category.name for test in test_set.tests if test.category))
+    topic_names = list(set(test.topic.name for test in tests if test.topic))
+    behavior_names = list(set(test.behavior.name for test in tests if test.behavior))
+    category_names = list(set(test.category.name for test in tests if test.category))
 
     # Get a random prompt's content for the sample (now through tests)
     sample = None
-    if test_set.tests:
+    if tests:
         # Filter tests that have prompts with content
-        tests_with_prompts = [
-            test for test in test_set.tests if test.prompt and test.prompt.content
-        ]
+        tests_with_prompts = [test for test in tests if test.prompt and test.prompt.content]
         if tests_with_prompts:
             sample = random.choice(tests_with_prompts).prompt.content
 
     # Count unique prompts (in case multiple tests reference the same prompt)
-    unique_prompt_ids = set(str(test.prompt_id) for test in test_set.tests if test.prompt_id)
+    unique_prompt_ids = set(str(test.prompt_id) for test in tests if test.prompt_id)
     total_prompts = len(unique_prompt_ids)
 
     # Extract unique documents from test metadata
     documents_dict = {}
-    for test in test_set.tests:
+    for test in tests:
         if test.test_metadata and "sources" in test.test_metadata:
             for source in test.test_metadata["sources"]:
                 if "source" in source and source["source"] not in documents_dict:
@@ -223,7 +243,7 @@ def generate_test_set_attributes(
         "categories": category_names,
         "license_type": license_type.type_value,
         "total_prompts": total_prompts,
-        "total_tests": len(test_set.tests),
+        "total_tests": len(tests),
     }
 
     if documents_dict:
@@ -243,6 +263,7 @@ def bulk_create_test_set(
     organization_id: str,
     user_id: str,
     test_set_type: TestSetType = None,
+    skip_prompt_dedup: bool = False,
 ) -> models.TestSet:
     """Create a test set with its associated tests in a single operation.
 
@@ -253,6 +274,9 @@ def bulk_create_test_set(
         user_id: User ID
         test_set_type: Test set type (TestSetType.SINGLE_TURN or TestSetType.MULTI_TURN).
                       If not provided, defaults to TestSetType.SINGLE_TURN.
+        skip_prompt_dedup: Passed through to ``bulk_create_tests`` — skip the
+            duplicate-content SELECT when prompt content is always unique
+            (e.g. bulk Garak imports).
 
     Returns:
         Created TestSet model instance
@@ -333,6 +357,7 @@ def bulk_create_test_set(
             user_id=user_id,
             test_set_id=str(test_set.id),
             test_type_value=test_set_type_value,
+            skip_prompt_dedup=skip_prompt_dedup,
         )
 
         # Refresh test set to get all relationships
@@ -595,9 +620,7 @@ def update_test_set_attributes(
         return
 
     # Explorer test sets manage their own attributes; skip regeneration.
-    existing_attrs = test_set.attributes or {}
-    existing_behaviors = existing_attrs.get("metadata", {}).get("behaviors", [])
-    if "Adaptive Testing" in existing_behaviors:
+    if test_set.explorer_row:
         return
 
     # Get defaults and license type - use test_set's organization context
@@ -654,6 +677,7 @@ def get_last_completed_test_run(
             TestRun.test_configuration_id == TestConfiguration.id,
         )
         .join(Status, TestRun.status_id == Status.id)
+        .options(contains_eager(TestRun.status))
         .filter(
             TestConfiguration.test_set_id == db_test_set.id,
             TestConfiguration.endpoint_id == uuid.UUID(str(endpoint_id)),
@@ -795,12 +819,20 @@ def execute_test_set_on_endpoint(
     if metrics and len(metrics) > 0:
         metrics_source = MetricsSource.EXECUTION_TIME.value
         logger.debug("Metrics source: execution_time (user-provided metrics)")
-    elif db_test_set.metrics and len(db_test_set.metrics) > 0:
-        metrics_source = MetricsSource.TEST_SET.value
-        logger.debug(f"Metrics source: test_set ({len(db_test_set.metrics)} metrics on test set)")
     else:
-        metrics_source = MetricsSource.BEHAVIOR.value
-        logger.debug("Metrics source: behavior (fallback to test behaviors)")
+        # Queried by ID rather than via db_test_set.metrics -- that many-to-many
+        # relationship isn't guaranteed eager-loaded on the resolved test set.
+        test_set_metrics_count = (
+            db.query(models.Metric.id)
+            .filter(models.Metric.test_sets.any(id=db_test_set.id))
+            .count()
+        )
+        if test_set_metrics_count > 0:
+            metrics_source = MetricsSource.TEST_SET.value
+            logger.debug(f"Metrics source: test_set ({test_set_metrics_count} metrics on test set)")
+        else:
+            metrics_source = MetricsSource.BEHAVIOR.value
+            logger.debug("Metrics source: behavior (fallback to test behaviors)")
 
     parameters_ref: Dict[str, Any] | None = None
     has_version = bool(experiment_version and str(experiment_version).strip())

@@ -1,12 +1,10 @@
 export type AnnotationSource = 'test_result' | 'trace';
 
 export interface AnnotationStatus {
-  status_id?: string;
   name?: string;
 }
 
 export interface AnnotationUser {
-  user_id?: string;
   name?: string;
 }
 
@@ -19,18 +17,14 @@ export interface AnnotationListItem {
   review_id: string;
   source: AnnotationSource;
   comments: string;
-  created_at?: string | null;
-  updated_at?: string | null;
   status: AnnotationStatus;
   user: AnnotationUser;
   target: AnnotationTarget;
   resolved?: boolean;
   test_result_id?: string | null;
   test_run_id?: string | null;
-  trace_db_id?: string | null;
   trace_id?: string | null;
   project_id?: string | null;
-  span_name?: string | null;
   behavior_id?: string | null;
   behavior_name?: string | null;
 }

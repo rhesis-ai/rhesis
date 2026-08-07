@@ -284,6 +284,7 @@ jobs:
             --from-literal=LOG_LEVEL="${{ secrets.LOG_LEVEL }}" \
             --from-literal=CELERY_WORKER_LOGLEVEL="${{ secrets.LOG_LEVEL || 'INFO' }}" \
             --from-literal=CELERY_WORKER_CONCURRENCY="${{ secrets.CELERY_WORKER_CONCURRENCY || '2' }}" \
+            --from-literal=CELERY_ARCHITECT_CONCURRENCY="${{ secrets.CELERY_ARCHITECT_CONCURRENCY || '2' }}" \
             --from-literal=BATCH_CONCURRENCY="${{ secrets.BATCH_CONCURRENCY || '10' }}" \
             --from-literal=GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}" \
             --from-literal=GOOGLE_API_KEY="${{ secrets.GOOGLE_API_KEY }}" \

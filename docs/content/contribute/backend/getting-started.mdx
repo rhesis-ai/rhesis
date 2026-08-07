@@ -1,170 +1,26 @@
-import { CodeBlock } from '@/components/CodeBlock'
-
-# Getting Started with Rhesis Backend
+# Getting Started with the Backend
 
 Set up and run the backend locally for development.
 
 ## Prerequisites
 
-Before you begin, make sure you have the following installed:
+Python 3.12+ and [uv](https://github.com/astral-sh/uv). Docker is used for local Postgres and Redis.
 
-- Python 3.10 or higher
-- PostgreSQL 13 or higher
-- [UV](https://github.com/astral-sh/uv) package installer
-- Git
+## Run it locally
 
-## Clone the Repository
+The [Backend Overview](/contribute/backend) has the recommended path: `./rh dev init`, `./rh dev up`, then `./rh dev backend` from the repository root. That starts Postgres and Redis, syncs dependencies, applies migrations, and serves the API on port 8080.
 
-<CodeBlock filename="clone-repo.sh" language="bash">
-  {`git clone <repository_url>
-cd rhesis`}
-</CodeBlock>
+Once it is up:
 
-## Environment Setup
+- Interactive API docs: `http://localhost:8080/docs`
+- ReDoc: `http://localhost:8080/redoc`
+- Health check: `GET http://localhost:8080/health`
 
-1. Navigate to the backend directory:
+`./rh dev init` writes `apps/backend/.env` with `QUICK_START=true`, which bypasses authentication for local development. For a production-like auth setup (JWT secrets, Google/GitHub OAuth), see [Environment configuration](/contribute/backend/environment-config).
 
-<CodeBlock filename="navigate.sh" language="bash">
-  {`cd apps/backend`}
-</CodeBlock>
+Background processing runs separately — start a Celery worker with `./rh dev worker` when you need it (see [Background tasks](/contribute/backend/background-tasks)).
 
-2. Create a Python virtual environment:
+## Next steps
 
-<CodeBlock filename="create-venv.sh" language="bash">
-  {`python -m venv .venv`}
-</CodeBlock>
-
-3. Activate the virtual environment:
-
-On Linux/macOS:
-
-<CodeBlock filename="activate-venv-unix.sh" language="bash">
-  {`source .venv/bin/activate`}
-</CodeBlock>
-
-On Windows:
-
-<CodeBlock filename="activate-venv-windows.sh" language="bash">
-  {`.venv\Scripts\activate`}
-</CodeBlock>
-
-4. Install dependencies using UV:
-
-<CodeBlock filename="install-deps.sh" language="bash">
-  {`uv pip install -e .`}
-</CodeBlock>
-
-## Database Setup
-
-1. Create a PostgreSQL database:
-
-<CodeBlock filename="create-db.sh" language="bash">
-  {`createdb rhesis`}
-</CodeBlock>
-
-2. Create a `.env` file based on the provided template:
-
-<CodeBlock filename="setup-env.sh" language="bash">
-  {`cp .env.example .env`}
-</CodeBlock>
-
-3. Update the database connection string in `.env`:
-
-<CodeBlock filename=".env" language="bash">
-  {`DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=rhesis
-APP_DB_USER=username
-APP_DB_PASS=password`}
-</CodeBlock>
-
-4. Run database migrations:
-
-<CodeBlock filename="migrate-db.sh" language="bash">
-  {`alembic upgrade head`}
-</CodeBlock>
-
-## Running the Application
-
-1. Start the FastAPI server:
-
-<CodeBlock filename="start-server.sh" language="bash">
-  {`uvicorn rhesis.backend.app.main:app --reload`}
-</CodeBlock>
-
-The API will be available at http://localhost:8000
-
-2. Open the API documentation:
-
-- Swagger UI: http://localhost:8000/docs
-- ReDoc: http://localhost:8000/redoc
-
-## Running Background Tasks
-
-1. Start a Celery worker:
-
-<CodeBlock filename="start-celery.sh" language="bash">
-  {`celery -A rhesis.backend.worker worker --loglevel=info`}
-</CodeBlock>
-
-## Development Workflow
-
-### Code Formatting
-
-Format code using ruff:
-
-<CodeBlock filename="format-code.sh" language="bash">
-  {`uv run --all-groups ruff format .`}
-</CodeBlock>
-
-### Linting
-
-Run the linter:
-
-<CodeBlock filename="lint-check.sh" language="bash">
-  {`uv run --all-groups ruff check .`}
-</CodeBlock>
-
-Fix linting issues automatically:
-
-<CodeBlock filename="lint-fix.sh" language="bash">
-  {`uv run --all-groups ruff check --fix .`}
-</CodeBlock>
-
-### Running Tests
-
-Run the test suite:
-
-<CodeBlock filename="run-tests.sh" language="bash">
-{`pytest`}
-</CodeBlock>
-
-## Authentication Setup
-
-For local development, Quick Start mode provides automatic authentication bypass. For production-like setup, configure the authentication system:
-
-### Authentication Configuration
-
-Update the authentication settings in your `.env` file:
-
-<CodeBlock filename=".env" language="bash">
-{`# JWT Configuration (required)
-JWT_SECRET_KEY=your-jwt-secret-key
-JWT_ALGORITHM=HS256
-JWT_ACCESS_TOKEN_EXPIRE_MINUTES=15
-
-# OAuth Providers (optional - enables social login)
-GOOGLE_CLIENT_ID=your-google-client-id
-GOOGLE_CLIENT_SECRET=your-google-client-secret
-GH_CLIENT_ID=your-github-client-id
-GH_CLIENT_SECRET=your-github-client-secret`}
-</CodeBlock>
-
-## API Endpoints
-
-Once the application is running, you can explore the available endpoints through the Swagger UI at http://localhost:8000/docs.
-
-## Next Steps
-
-- Use `/docs` to explore the API
-- See [Architecture](./architecture) and [Development workflow](./development-workflow) in this section for patterns and conventions
+- [Development workflow](/contribute/backend/development-workflow) — formatting, linting, tests, migrations
+- [Architecture](/contribute/backend/architecture) — how the code is laid out and how a request flows

@@ -31,6 +31,13 @@ class TestConfiguration(TestConfigurationBase):
     pass
 
 
+class TestConfigurationDetail(TestConfiguration):
+    # The factory-generated schema overrides endpoint_id to Optional (the
+    # base schema declares it required) -- preserved here for parity.
+    id: UUID4
+    endpoint_id: Optional[UUID4] = None
+
+
 class TestConfigurationExecutionRequest(BaseModel):
     """Request model for test configuration execution."""
 

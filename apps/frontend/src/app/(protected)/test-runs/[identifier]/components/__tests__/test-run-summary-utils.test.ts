@@ -7,7 +7,6 @@ import {
   getLatestMetricReviewForResult,
   isMetricCorrected,
   metricHasHumanCorrection,
-  metricHasReviewCorrectionFromStats,
   metricNameMatches,
   metricShowsHumanCorrection,
   resultHasAnyHumanReview,
@@ -16,7 +15,6 @@ import {
 import type {
   Review,
   TestResultDetail,
-  TestReviews,
 } from '@/utils/api-client/interfaces/test-results';
 import type { UUID } from 'crypto';
 
@@ -26,20 +24,11 @@ const u = (n: number): UUID =>
 let resultCounter = 0;
 let reviewCounter = 0;
 
-function makeReviewMetadata(totalReviews: number): TestReviews['metadata'] {
-  return {
-    last_updated_at: '2026-01-01T00:00:00Z',
-    last_updated_by: { user_id: u(9), name: 'Reviewer' },
-    total_reviews: totalReviews,
-    latest_status: { status_id: u(10), name: 'Pass' },
-  };
-}
-
 function makeReview(overrides: Partial<Review> = {}): Review {
   reviewCounter += 1;
   return {
     review_id: u(100 + reviewCounter),
-    status: { status_id: u(200 + reviewCounter), name: 'Pass' },
+    status: { name: 'Pass' },
     user: { user_id: u(9), name: 'Reviewer' },
     comments: '',
     created_at: '2026-01-01T00:00:00Z',
@@ -147,7 +136,7 @@ describe('computeReviewSummary', () => {
   it('counts test and metric corrections separately in subtitle', () => {
     const results = [
       makeResult({
-        last_review: makeReview({ status: { status_id: u(20), name: 'Pass' } }),
+        last_review: makeReview({ status: { name: 'Pass' } }),
         metrics: {
           'Goal Achievement': { is_successful: false },
           Accuracy: {
@@ -200,7 +189,7 @@ describe('metricHasHumanCorrection', () => {
       makeResult({
         status: { id: u(22), name: 'Fail' },
         last_review: makeReview({
-          status: { status_id: u(23), name: 'Pass' },
+          status: { name: 'Pass' },
         }),
         metrics: {
           'Goal Achievement': { is_successful: false },
@@ -238,10 +227,9 @@ describe('metricHasHumanCorrection', () => {
           'Bias Detection': { is_successful: false },
         },
         test_reviews: {
-          metadata: makeReviewMetadata(1),
           reviews: [
             makeReview({
-              status: { status_id: u(24), name: 'Pass' },
+              status: { name: 'Pass' },
               comments:
                 '@[Bias Detection](metric:bias-detection) is incorrect.',
               target: { type: 'metric', reference: 'Bias Detection' },
@@ -266,9 +254,7 @@ describe('metricHasHumanCorrection', () => {
           'metric:Bias Detection': {
             target_type: 'metric',
             reference: 'Bias Detection',
-            status: { status_id: u(25), name: 'Pass' },
-            user: { user_id: u(9), name: 'Reviewer' },
-            updated_at: '2026-01-01T00:00:00Z',
+            status: { name: 'Pass' },
             review_id: u(101),
           },
         },
@@ -292,9 +278,7 @@ describe('metricHasHumanCorrection', () => {
           'metric:bias-detection': {
             target_type: 'metric',
             reference: 'bias-detection',
-            status: { status_id: u(26), name: 'Pass' },
-            user: { user_id: u(9), name: 'Reviewer' },
-            updated_at: '2026-01-01T00:00:00Z',
+            status: { name: 'Pass' },
             review_id: u(102),
           },
         },
@@ -308,17 +292,16 @@ describe('metricHasHumanCorrection', () => {
     const results = [
       makeResult({
         last_review: makeReview({
-          status: { status_id: u(27), name: 'Pass' },
+          status: { name: 'Pass' },
         }),
         status: { id: u(28), name: 'Fail' },
         metrics: {
           'Bias Detection': { is_successful: false },
         },
         test_reviews: {
-          metadata: makeReviewMetadata(1),
           reviews: [
             makeReview({
-              status: { status_id: u(27), name: 'Pass' },
+              status: { name: 'Pass' },
               comments:
                 '@[Bias Detection](metric:bias-detection) should pass after manual review.',
               target: { type: 'test_result', reference: null },
@@ -342,10 +325,9 @@ describe('metricHasHumanCorrection', () => {
           'Bias Detection': { is_successful: false },
         },
         test_reviews: {
-          metadata: makeReviewMetadata(1),
           reviews: [
             makeReview({
-              status: { status_id: u(29), name: 'Pass' },
+              status: { name: 'Pass' },
               comments: '@Bias Detection is incorrect.',
               target: { type: 'test_result', reference: null },
             }),
@@ -364,7 +346,7 @@ describe('metricHasHumanCorrection', () => {
         test: { behavior: { name: 'Compliance' } } as TestResultDetail['test'],
         status: { id: u(30), name: 'Fail' },
         last_review: makeReview({
-          status: { status_id: u(31), name: 'Pass' },
+          status: { name: 'Pass' },
         }),
         metrics: {
           'Bias Detection': { is_successful: false },
@@ -372,16 +354,15 @@ describe('metricHasHumanCorrection', () => {
           'XSS Detection': { is_successful: true },
         },
         test_reviews: {
-          metadata: makeReviewMetadata(2),
           reviews: [
             makeReview({
-              status: { status_id: u(32), name: 'Pass' },
+              status: { name: 'Pass' },
               comments: '@Bias Detection is incorrect.',
               updated_at: '2026-01-01T00:00:01Z',
               target: { type: 'metric', reference: 'Bias Detection' },
             }),
             makeReview({
-              status: { status_id: u(33), name: 'Pass' },
+              status: { name: 'Pass' },
               comments: 'passed overall.',
               updated_at: '2026-01-01T00:00:02Z',
               target: { type: 'test_result', reference: null },
@@ -391,7 +372,7 @@ describe('metricHasHumanCorrection', () => {
       }),
       makeResult({
         last_review: makeReview({
-          status: { status_id: u(34), name: 'Fail' },
+          status: { name: 'Fail' },
         }),
         status: { id: u(35), name: 'Fail' },
         metrics: {
@@ -409,23 +390,9 @@ describe('metricHasHumanCorrection', () => {
     expect(summary.subtitle).toContain('1 corrected (test)');
   });
 
-  it('detects corrections from stats human_review_count', () => {
-    const rates = {
-      'Bias Detection': {
-        total: 5,
-        passed: 2,
-        failed: 3,
-        pass_rate: 40,
-        human_review_count: 1,
-      },
-    };
-
-    expect(metricHasReviewCorrectionFromStats(rates, 'Bias Detection')).toBe(
-      true
-    );
-    expect(metricHasReviewCorrectionFromStats(rates, 'bias-detection')).toBe(
-      true
-    );
+  it('detects corrections from insights human_review_count', () => {
+    expect(metricShowsHumanCorrection('Bias Detection', [], 1)).toBe(true);
+    expect(metricShowsHumanCorrection('Bias Detection', [], 0)).toBe(false);
   });
 });
 
@@ -436,7 +403,7 @@ describe('behaviorHasHumanCorrection', () => {
         test: { behavior: { name: 'Safety' } } as TestResultDetail['test'],
         status: { id: u(36), name: 'Fail' },
         last_review: makeReview({
-          status: { status_id: u(37), name: 'Pass' },
+          status: { name: 'Pass' },
         }),
         metrics: {},
       }),
@@ -453,7 +420,7 @@ describe('behaviorHasHumanCorrection', () => {
         test: { behavior: { name: 'Safety' } } as TestResultDetail['test'],
         status: { id: u(38), name: 'Pass' },
         last_review: makeReview({
-          status: { status_id: u(39), name: 'Pass' },
+          status: { name: 'Pass' },
         }),
         metrics: { Accuracy: { is_successful: true } },
       }),
@@ -490,10 +457,9 @@ describe('confirmed metric reviews', () => {
           'API Key Detection': { is_successful: true },
         },
         test_reviews: {
-          metadata: makeReviewMetadata(1),
           reviews: [
             makeReview({
-              status: { status_id: u(40), name: 'Pass' },
+              status: { name: 'Pass' },
               comments: '@API Key Detection is correct',
               target: { type: 'metric', reference: 'API Key Detection' },
             }),
@@ -516,10 +482,9 @@ describe('confirmed metric reviews', () => {
         'API Key Detection': { is_successful: true },
       },
       test_reviews: {
-        metadata: makeReviewMetadata(1),
         reviews: [
           makeReview({
-            status: { status_id: u(41), name: 'Pass' },
+            status: { name: 'Pass' },
             comments: '@API Key Detection is correct',
             target: { type: 'metric', reference: 'API Key Detection' },
           }),
