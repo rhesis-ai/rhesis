@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app.crud.metric import get_behavior_metrics
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +62,7 @@ def get_test_results_for_test_run(
     for behavior in behaviors:
         # Get metrics for this behavior (use default limit to stay within bounds)
         # SECURITY: Pass organization_id from test_run to prevent cross-tenant access
-        metrics = crud.get_behavior_metrics(
+        metrics = get_behavior_metrics(
             db, behavior.id, organization_id=str(test_run.organization_id)
         )
         behavior_map[behavior.id] = {"behavior": behavior, "metrics": metrics}

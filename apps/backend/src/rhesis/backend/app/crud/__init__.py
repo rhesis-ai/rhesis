@@ -2936,25 +2936,6 @@ def get_type_lookup_by_name_and_value(
     )
 
 
-# Metric CRUD now lives in crud/metric.py. Re-exported here so existing
-# ``crud.get_metrics(...)`` callers keep working; import from the submodule
-# directly in new code. Kept out of the header block on purpose so the import
-# section stays untouched; removed in the next commit.
-from rhesis.backend.app.crud.metric import (  # noqa: E402
-    add_behavior_to_metric,
-    add_metric_to_test_set,
-    create_metric,
-    delete_metric,
-    get_behavior_metrics,
-    get_metric,
-    get_metric_behaviors,
-    get_metrics,
-    remove_behavior_from_metric,
-    remove_metric_from_test_set,
-    update_metric,
-)
-
-
 # Model CRUD
 def get_model(
     db: Session, model_id: uuid.UUID, organization_id: str = None, user_id: str = None

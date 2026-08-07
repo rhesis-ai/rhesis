@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
 from rhesis.backend.app.crud.explorer import set_explorer_test_metadata
+from rhesis.backend.app.crud.metric import get_metrics
 from rhesis.backend.app.schemas.explorer import (
     EvaluateFailedItem,
     EvaluateResponse,
@@ -130,7 +131,7 @@ def resolve_sdk_metrics(
     or none of the resolved metrics could be instantiated.
     """
     name_clauses = " or ".join(f"name eq '{n}'" for n in metric_names)
-    resolved = crud.get_metrics(
+    resolved = get_metrics(
         db,
         skip=0,
         limit=len(metric_names),

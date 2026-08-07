@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.capabilities import Permission, capability
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
+from rhesis.backend.app.crud import metric as metric_crud
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
@@ -873,7 +874,7 @@ def add_metric_to_test_set(
     )
 
     try:
-        added = crud.add_metric_to_test_set(
+        added = metric_crud.add_metric_to_test_set(
             db=db,
             test_set_id=db_test_set.id,
             metric_id=metric_id,
@@ -919,7 +920,7 @@ def remove_metric_from_test_set(
     )
 
     try:
-        removed = crud.remove_metric_from_test_set(
+        removed = metric_crud.remove_metric_from_test_set(
             db=db,
             test_set_id=db_test_set.id,
             metric_id=metric_id,
