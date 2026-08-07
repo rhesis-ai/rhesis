@@ -94,19 +94,18 @@ API tokens are validated through the backend token store and require an active, 
   Batch rate limiting counts the HTTP request, not every item inside `requests`.
 </Callout>
 
-### Deployment region variable mapping (v0.2.8+)
+### Deployment region variables
 
 Region configuration uses two separate variables depending on context:
 
 | Context | Variable | Source | Where it is consumed |
 |---|---|---|---|
-| GitHub Actions CI/CD workflow | `REGION` | `secrets.REGION` (falls back to `us-central1`) | `.github/workflows/polyphemus.yml` |
-| Running Polyphemus service | `POLYPHEMUS_LOCATION` | Set to `$REGION` by the CI workflow | `apps/polyphemus/src/rhesis/polyphemus/routers/services.py` |
-| Vertex model deployment script | `GCP_REGION` | Set directly in the local environment (not mapped from `REGION`) | `apps/polyphemus/model_deployment/config.py` |
+| Running Polyphemus service | `POLYPHEMUS_LOCATION` | Helm values, e.g. `charts/rhesis/values-prd.yaml` (defaults to `us-central1`) | `apps/polyphemus/src/rhesis/polyphemus/routers/services.py` |
+| Vertex model deployment | `GCP_REGION` | `secrets.REGION` in `.github/workflows/polyphemus-vertex-ai.yml`, or the local environment | `apps/polyphemus/model_deployment/config.py` |
 
-The workflow maps `REGION` → `POLYPHEMUS_LOCATION` automatically for service deployments.
-The model deployment script reads `GCP_REGION` independently; when running it locally you must
-export `GCP_REGION` yourself (see `apps/polyphemus/model_deployment/.env.example`).
+The two are independent — setting one does not affect the other. When running the model deployment
+script locally you must export `GCP_REGION` yourself (see
+`apps/polyphemus/model_deployment/.env.example`).
 
 ### vLLM logging level (v0.2.9+)
 
