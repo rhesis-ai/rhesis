@@ -34,6 +34,8 @@ jobs:
               - 'apps/backend/**'
             penelope:
               - 'penelope/**'
+            migrations:
+              - 'apps/backend/src/rhesis/backend/alembic/versions/**'
 
       - name: Resolve lint targets
         id: resolve
@@ -75,6 +77,29 @@ jobs:
         run: make lint
         working-directory: ${{ matrix.dir }}
 
+  migrations:
+    needs: changes
+    # Needs a base ref to diff against, so pull_request only.
+    if: github.event_name == 'pull_request' && contains(fromJSON(needs.changes.outputs.targets), 'migrations')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+
+      - name: Install dependencies
+        run: uv sync --dev
+        working-directory: apps/backend
+
+      - name: Check migration chain
+        run: scripts/check-alembic-head.sh
+        env:
+          BASE_REF: origin/${{ github.base_ref }}
+
   frontend:
     needs: changes
     if: contains(fromJSON(needs.changes.outputs.targets), 'frontend')
@@ -105,6 +130,38 @@ jobs:
       - name: Run type check
         run: npm run type-check
 
+  styles:
+    needs: changes
+    if: contains(fromJSON(needs.changes.outputs.targets), 'frontend')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          # Depth 1 makes check-hardcoded-styles.js scan every file, not the diff.
+          fetch-depth: 2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Check for hardcoded styles
+        run: |
+          set -euo pipefail
+          git diff --name-only --diff-filter=ACMR HEAD~1 HEAD \
+            | grep -E '^(apps|ee)/frontend/src/.*\.(ts|tsx|js|jsx)$' \
+            > "$RUNNER_TEMP/style-files.txt" || true
+          if [ ! -s "$RUNNER_TEMP/style-files.txt" ]; then
+            echo "No frontend source files changed."
+            exit 0
+          fi
+          cat "$RUNNER_TEMP/style-files.txt"
+          tr '\n' '\0' < "$RUNNER_TEMP/style-files.txt" \
+            | xargs -0 node scripts/check-hardcoded-styles.js
+
   docs:
     needs: changes
     if: contains(fromJSON(needs.changes.outputs.targets), 'docs')
@@ -130,7 +187,7 @@ jobs:
         run: make lint
 
   lint:
-    needs: [changes, python, frontend, docs]
+    needs: [changes, python, migrations, frontend, styles, docs]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -140,7 +197,9 @@ jobs:
           FAILED=0
           for RESULT in "changes=${{ needs.changes.result }}" \
                         "python=${{ needs.python.result }}" \
+                        "migrations=${{ needs.migrations.result }}" \
                         "frontend=${{ needs.frontend.result }}" \
+                        "styles=${{ needs.styles.result }}" \
                         "docs=${{ needs.docs.result }}"; do
             echo "$RESULT"
             case "${RESULT#*=}" in
