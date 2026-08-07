@@ -16,12 +16,13 @@ Usage::
 
 from __future__ import annotations
 
+import hashlib
 import io
 import logging
 import re
 from collections import Counter
 from dataclasses import dataclass
-from typing import Collection
+from typing import Callable, Collection, Optional
 
 import requests
 
@@ -347,6 +348,9 @@ def _parse_sections(text: str) -> list[ReportSection]:
 def fetch_owasp_sections(
     url: str,
     subsection_exclusions: Collection[str] = DEFAULT_SUBSECTION_EXCLUSIONS,
+    cache_key: Optional[str] = None,
+    cache_loader: Optional[Callable[[str], Optional[list[dict]]]] = None,
+    cache_writer: Optional[Callable[[str, list[dict]], None]] = None,
 ) -> list[ReportSection]:
     """Download an OWASP Top 10 PDF and return its risk sections.
 
@@ -354,10 +358,20 @@ def fetch_owasp_sections(
     section, and applies the subsection exclusions.  The default exclusions drop
     reference appendices which add noise without attack-surface value.
 
+    Callers can inject ``cache_loader``/``cache_writer`` to skip the expensive
+    download + pdfminer parse; this function stays cache-backend agnostic. The
+    cache stores un-excluded content, so ``subsection_exclusions`` is applied
+    the same way on hit or miss.
+
     Args:
         url: Direct URL to an OWASP Top 10 PDF.
         subsection_exclusions: Headings to strip from every section, matched
             case-insensitively.  Pass an empty collection to keep all subsections.
+        cache_key: Key for the cache callbacks. Defaults to a sha256 of ``url``.
+        cache_loader: ``(cache_key) -> [{"id", "name", "content"}, ...] | None``.
+            On a hit, the download and parse are skipped.
+        cache_writer: ``(cache_key, sections)`` called after a fresh parse to
+            persist the content. Not called on a hit.
 
     Returns:
         Ordered list of :class:`ReportSection` objects.
@@ -378,16 +392,39 @@ def fetch_owasp_sections(
         agentic_sections = fetch_owasp_sections(DEFAULT_OWASP_AGENTIC_PDF_URL)
         full_sections = fetch_owasp_sections(DEFAULT_OWASP_LLM_PDF_URL, subsection_exclusions=set())
     """
-    logger.info("[OWASPExtractor] Fetching report from %s", url)
-    pdf_bytes = _fetch_pdf_bytes(url)
-    sections = _parse_sections(_extract_pdf(pdf_bytes))
+    key = cache_key or hashlib.sha256(url.encode("utf-8")).hexdigest()
 
-    if not sections:
-        raise ValueError(
-            f"No top-10 sections found in the PDF at {url}. "
-            "The document may not follow the expected OWASP section-per-page layout."
-        )
+    raw_sections: Optional[list[ReportSection]] = None
+    if cache_loader is not None:
+        cached = cache_loader(key)
+        if cached is not None:
+            raw_sections = [
+                ReportSection(id=s["id"], name=s["name"], content=s["content"]) for s in cached
+            ]
+            logger.info(
+                "[OWASPExtractor] Loaded %d sections for %r from cache",
+                len(raw_sections),
+                key,
+            )
 
+    if raw_sections is None:
+        logger.info("[OWASPExtractor] Fetching report from %s", url)
+        pdf_bytes = _fetch_pdf_bytes(url)
+        raw_sections = _parse_sections(_extract_pdf(pdf_bytes))
+
+        if not raw_sections:
+            raise ValueError(
+                f"No top-10 sections found in the PDF at {url}. "
+                "The document may not follow the expected OWASP section-per-page layout."
+            )
+
+        if cache_writer is not None:
+            cache_writer(
+                key,
+                [{"id": s.id, "name": s.name, "content": s.content} for s in raw_sections],
+            )
+
+    sections = raw_sections
     if subsection_exclusions:
         sections = [
             ReportSection(s.id, s.name, _drop_subsections(s.content, subsection_exclusions))
