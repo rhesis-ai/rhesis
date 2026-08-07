@@ -58,7 +58,10 @@ backend:
     minReplicas: 1
     maxReplicas: 2
     targetCPUUtilizationPercentage: 60
-    targetMemoryUtilizationPercentage: 75
+    # Explicitly unset (base default is 80): with only 1-2 replicas, idle memory baseline
+    # (~800Mi of the 1Gi request) rounds up to desiredReplicas=2 via ceil(), pinning at
+    # max regardless of traffic. CPU alone reflects load here.
+    targetMemoryUtilizationPercentage: null
   resources:
     requests:
       # Live: ~750m CPU under test runs; under-requesting causes noisy-neighbor scheduling.
