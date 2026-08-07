@@ -18,8 +18,8 @@ jest.mock('../InsightsFilterDrawer', () => ({
     open: boolean;
     onApply: (filters: {
       endpointId: string;
-      behaviorIds: string[];
-      runFilterMode: 'timeRange' | 'testRuns';
+      behaviorIds: string[] | null;
+      statusIds: string[] | null;
       timeRange: '1m' | '7d';
       testRunIds: string[];
     }) => void;
@@ -31,8 +31,8 @@ jest.mock('../InsightsFilterDrawer', () => ({
           onClick={() =>
             onApply({
               endpointId: 'ep-2',
-              behaviorIds: [],
-              runFilterMode: 'testRuns',
+              behaviorIds: null,
+              statusIds: null,
               timeRange: '1m',
               testRunIds: ['run-1'],
             })
@@ -91,7 +91,7 @@ function renderFilters(
 }
 
 async function openFilterDrawer(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole('button', { name: /filters/i }));
+  await user.click(screen.getByRole('button', { name: 'Filters' }));
 }
 
 afterEach(() => {
@@ -137,7 +137,7 @@ describe('TestResultsFilters', () => {
     expect(onFiltersChange).toHaveBeenCalledWith({
       ...DEFAULT_INSIGHTS_FILTERS,
       endpointId: 'ep-2',
-      runFilterMode: 'testRuns',
+      timeRange: '1m',
       testRunIds: ['run-1'],
     });
   });
@@ -147,14 +147,30 @@ describe('TestResultsFilters', () => {
     expect(screen.getByLabelText(/1 active filters/i)).toBeInTheDocument();
   });
 
+  it('resets every filter back to defaults in one click', async () => {
+    const user = userEvent.setup();
+    const onFiltersChange = jest.fn();
+    renderFilters({
+      onFiltersChange,
+      filters: {
+        ...DEFAULT_INSIGHTS_FILTERS,
+        endpointId: 'ep-1',
+        behaviorIds: ['beh-1'],
+        timeRange: '7d',
+      },
+    });
+
+    await user.click(screen.getByRole('button', { name: /reset filters/i }));
+
+    expect(onFiltersChange).toHaveBeenCalledWith(DEFAULT_INSIGHTS_FILTERS);
+  });
+
   it('hides behavior search in compact variant but keeps filters', () => {
     renderFilters({ variant: 'compact' });
 
     expect(
       screen.queryByPlaceholderText(/search behaviors/i)
     ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: /filters/i })
-    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Filters' })).toBeInTheDocument();
   });
 });

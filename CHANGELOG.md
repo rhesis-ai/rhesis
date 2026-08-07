@@ -13,6 +13,48 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-08-06
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.12.0**
+- **Frontend 0.12.0**
+- **SDK 0.12.0**
+- **Polyphemus 0.5.0**
+
+### Summary of Changes
+
+**Backend v0.12.0:**
+- Added usage accounting and metering for flow resources (test executions, tracing spans, model tokens) and stock resources (seats, projects, endpoints), with new `/usage` endpoints and a YAML-driven quota registry.
+- Added a flat Insights query API (`/insights/query`, `/insights/ids`) backed by new database views.
+- Added Enterprise licensing foundations (Ed25519-signed JWT license tokens) and SSO-aware team invitations.
+- Fixed N+1 query bottlenecks across 12 database entities, a Redis reconnect latch, and email deliverability in isolated clusters.
+
+**Frontend v0.12.0:**
+- Added a Usage dashboard (resource snapshot + historical timeline) gated to Organization Admins and Owners.
+- Migrated the Insights page and Test Run Stats tab onto the new flattened Insights query API.
+- Redesigned login/auth pages and migrated Metrics/Behaviors to server-driven pagination.
+- Fixed Explorer session deletion, 504 timeouts on slow LLM calls, and several test result drawer UX bugs.
+
+**SDK v0.12.0:**
+- Added token usage tracking via an `on_usage` callback, normalized across providers, plus default request timeouts to prevent hangs.
+- **Breaking:** removed the vendored adaptive-testing package (`rhesis.sdk.adaptive_testing`) — Explorer is now server-side only — and pruned its now-unused dependencies.
+- **Breaking:** non-admin API tokens calling `/usage` endpoints now receive a 403.
+
+**Polyphemus v0.5.0:**
+- Integrated the OWASP Synthesizer for report-based test generation.
+- Upgraded `vllm` and renamed the model deployment CLI flag to `--structured-outputs-backend`.
+- Resolved multiple dependency CVEs (`aiohttp`, `cryptography`, `gitpython`, `mcp`).
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+- [Frontend Changelog](apps/frontend/CHANGELOG.md)
+- [SDK Changelog](sdk/CHANGELOG.md)
+- [Polyphemus Changelog](apps/polyphemus/CHANGELOG.md)
+
+
+
 ## [0.11.0] - 2026-07-23
 
 ### Platform Release

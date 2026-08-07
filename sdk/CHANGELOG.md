@@ -13,6 +13,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-08-06
+
+### Added
+- Added support for tracking and reporting token usage via an optional `on_usage` callback in `BaseLLM`, normalizing payloads to a standard `TokenUsage` format.
+- Added a default request timeout (`DEFAULT_LLM_TIMEOUT` set to 300s) to LiteLLM, Native, Polyphemus, and Proxy provider calls to prevent upstream hangs from blocking worker threads indefinitely.
+- Added a `timeout` parameter to Vertex AI LLM and embedder constructors.
+- Updated SDK enums and models to support new backend server-side stats modes (`mode=ids` and `mode=behavior_detail`).
+
+### Changed
+- **BREAKING CHANGE**: Removed the vendored adaptive testing package (`rhesis.sdk.adaptive_testing`), including `TestTree`, `TestTreeBrowser`, `serve`, and `embed_with_cache`. Explorer functionality is now server-side only.
+- **BREAKING CHANGE**: Pruned several unused dependencies from the SDK install set, including `aiohttp_security`, `aiohttp_session`, `appdirs`, `diskcache`, `nest_asyncio`, `numpy`, `scikit-learn`, `ipython`, and `ipykernel`.
+- **BREAKING CHANGE**: Non-admin API tokens calling `GET /usage` or `GET /usage/history` will now receive a `403 Forbidden` error, as these endpoints are now restricted to organization owners and admins.
+- Enhanced `RhesisClient` to gracefully disable itself (returning a `DisabledClient`) when `RHESIS_API_KEY` or `RHESIS_PROJECT_ID` environment variables are missing or empty, preventing accidental trace transmissions with invalid credentials.
+- Treated empty environment variables (`RHESIS_API_KEY` and `RHESIS_BASE_URL`) as unset rather than allowing empty strings to override default fallbacks.
+- Relaxed the `mcp` dependency pin from `==1.26.0` to `>=1.28.1`.
+- Updated Architect prompt templates to include behavior, metric, and trace link patterns, explicitly utilizing `trace_db_id` for trace links.
+
+### Fixed
+- Fixed token usage emission for LiteLLM-backed providers (such as Vertex AI) during both single generation (`a_generate`) and batch generation (`generate_batch`) calls.
+- Fixed token usage emission from the streaming completion path (`_a_generate_stream`) by requesting `stream_options={"include_usage": True}` by default.
+- Fixed a `TypeError` raised when constructing certain LLM providers by applying the `on_usage` callback after construction instead of forwarding it as a constructor keyword argument.
+- Security updates: Bumped transitive dependencies including `aiohttp`, `cryptography`, `gitpython`, `pillow`, `mistune`, `jupyterlab`, `pyasn1`, `setuptools`, `nltk`, `soupsieve`, and `uv` to address various CVEs.
+
+
 ### Removed
 
 - **BREAKING:** Removed `rhesis.sdk.adaptive_testing`, including `TestTree.from_test_set`, `serve`,

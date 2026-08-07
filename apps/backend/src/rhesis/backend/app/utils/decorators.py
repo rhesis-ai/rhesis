@@ -13,7 +13,13 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T")
 
 
-def with_count_header(model: Type):
+def with_count_header(model: Type, exclude_explorer_rows: bool = False):
+    """Set X-Total-Count for a list endpoint.
+
+    Pass ``exclude_explorer_rows=True`` when the endpoint itself hides Explorer-owned
+    rows, so the header matches what the page returns.
+    """
+
     def decorator(func: Callable) -> Callable:
         is_async = inspect.iscoroutinefunction(func)
 
@@ -29,7 +35,14 @@ def with_count_header(model: Type):
             if db and tenant_context:
                 # Standard pattern: db + tenant_context
                 organization_id, user_id = tenant_context
-                count = count_items(db, model, filter_expr, organization_id, user_id)
+                count = count_items(
+                    db,
+                    model,
+                    filter_expr,
+                    organization_id,
+                    user_id,
+                    exclude_explorer_rows=exclude_explorer_rows,
+                )
                 response.headers["X-Total-Count"] = str(count)
             else:
                 # Missing required dependencies - cannot count items without organization filtering

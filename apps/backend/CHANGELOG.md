@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-08-06
+
+### Added
+- **Usage Accounting & Metering**: Introduced a comprehensive usage tracking system for flow resources (test executions, tracing spans, test generation, model tokens) and stock resources (seats, projects, endpoints).
+- **Usage API Endpoints**: Added `GET /usage` and `GET /usage/history` endpoints to retrieve current and historical resource consumption trends.
+- **YAML-Driven Quota Registry**: Implemented a dynamic, YAML-driven tier catalog (`tier_config.yaml`) to manage feature entitlements and quota limits without requiring license re-minting.
+- **Insights Query API**: Added a flat `/insights/query` endpoint and a `GET /insights/ids` drill-down endpoint, backed by new database views (`v_metric_stats` and `v_test_stats`) and gated by `insights:read`.
+- **Enterprise Licensing Foundation**: Added support for Ed25519-signed JWT license tokens, an authoritative `SignedTokenLicenseProvider`, and license verification tooling.
+- **Architect Annotations**: Added run, result, and trace filters to `GET /annotations/` and exposed a new `list_annotations` tool to the AI Architect.
+- **Garak Usage Tracking**: Integrated Garak-generated test imports and sync tasks into the `TEST_GENERATION` quota accrual pipeline.
+
+### Changed
+- **SSO-Aware Team Invitations**: Updated team invitation emails to automatically detect SSO-enabled organizations and route invitees to their dedicated identity provider sign-in page.
+- **Opt-In Self-Hosted Telemetry**: Flipped the default telemetry posture for self-hosted deployments to off; telemetry must now be explicitly enabled via `OTEL_RHESIS_TELEMETRY_ENABLED`.
+- **Explorer Database Schema**: Replaced the legacy JSONB "Adaptive Testing" metadata marker with a native `explorer_row` boolean column on tests and test sets.
+- **Transactional Email Redesign**: Unified and redesigned all 11 transactional email templates to align with the new brand guidelines using a single Jinja2 base layout.
+- **Performance Optimization**: Moved non-awaiting `async def` route handlers to the synchronous threadpool to prevent blocking the main event loop.
+- **Dependency Upgrades**: Bumped several core dependencies (including `aiohttp`, `cryptography`, `gitpython`, and `mcp-atlassian`) to address known security vulnerabilities.
+
+### Fixed
+- **Self-Healing Redis Connection**: Replaced the permanent Redis initialization failure latch with a 30-second retry cooldown, allowing backend replicas to automatically reconnect and self-heal after temporary Redis outages.
+- **Email Deliverability in Clusters**: Resolved email invitation failures in isolated clusters by offloading MX record lookups to a dedicated thread running against a configurable public DNS resolver with bounded timeouts.
+- **N+1 Query Resolution**: Eliminated N+1 query performance bottlenecks across 12 database entities and optimized metrics/behaviors list loading by splitting complex joins into ID-first queries.
+- **Token Accrual Gaps**: Fixed token usage tracking to ensure hosted model tokens are correctly accrued for system default models, streaming completions, and execution model fallbacks.
+- **Endpoint Invocation Metering**: Fixed a tracking gap where tracing spans created during direct endpoint invocations were not being accrued toward `TRACING_SPANS` usage.
+- **SSO Auto-Provisioning**: Fixed a crash during SSO auto-provisioning by gracefully handling empty tenant GUCs in the `organization_member` Row Level Security (RLS) policy.
+- **Test Set Generation**: Resolved a `DetachedInstanceError` that aborted test set generation tasks when counting tests on detached ORM rows.
+- **Fault-Tolerant Explorer Copies**: Wrapped Explorer test copy operations in database savepoints, preventing a single malformed test from failing an entire import or export run.
+- **Jinja2 Autoescaping**: Enabled strict HTML autoescaping for all transactional email templates to mitigate potential injection vulnerabilities.
+
+### Removed
+- **Breaking Change**: Restricted usage endpoints (`GET /usage`, `GET /usage/history`) to organization owners and admins via the new `usage:read` capability. Non-admin API tokens will now receive a 403.
+- **Breaking Change**: Completely removed the deprecated `Dimension` and `Demographic` database tables, schemas, and API endpoints.
+- **SDK Cleanup**: Removed the vendored Microsoft adaptive-testing package from the SDK, making Explorer server-side only.
+
+
 ## [0.11.0] - 2026-07-23
 
 ### Added

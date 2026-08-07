@@ -226,13 +226,21 @@ export function JsonPreview({
                   fontWeight: isAlreadyMapped ? 600 : 400,
                   ...(onKeyClick && {
                     cursor: 'pointer',
-                    borderRadius: '2px',
-                    px: '2px',
-                    ml: '-2px',
+                    borderRadius: '4px',
+                    px: '4px',
+                    ml: '-4px',
+                    bgcolor: (t: Theme) =>
+                      alpha(
+                        t.palette.primary.main,
+                        isAlreadyMapped ? 0.14 : 0.08
+                      ),
+                    border: '1px dashed',
+                    borderColor: 'primary.main',
                     '&:hover': {
-                      bgcolor: (t: Theme) => alpha(t.palette.primary.main, 0.1),
-                      outline: '1px dashed',
-                      outlineColor: 'primary.main',
+                      bgcolor: (t: Theme) =>
+                        alpha(t.palette.primary.main, 0.22),
+                      border: '1px solid',
+                      borderColor: 'primary.main',
                     },
                   }),
                 }}

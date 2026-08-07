@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-08-06
+
+### Added
+- Integrated OWASP Synthesizer for report-based generation, featuring a configurable `behavior` parameter (defaulting to "OWASP LLM Top 10").
+
+### Changed
+- Upgraded the `vllm` dependency version for model deployments.
+- Renamed the model deployment CLI flag to `--structured-outputs-backend` (updating `deploy_model_vllm` and `deploy_models` accordingly).
+- Updated exclusion configuration terminology to neutral naming (`DEFAULT_SUBSECTION_EXCLUSIONS`).
+
+### Security
+- Resolved multiple security vulnerabilities (CVEs) by upgrading key Python dependencies, including `aiohttp`, `cryptography`, `gitpython`, and `mcp`.
+
+
 ## [0.4.0] - 2026-06-11
 
 ### Changed

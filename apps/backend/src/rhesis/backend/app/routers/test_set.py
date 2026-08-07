@@ -313,7 +313,7 @@ def create_test_set(
 
 
 @router.get("/", response_model=list[schemas.TestSetDetail])
-@with_count_header(model=models.TestSet)
+@with_count_header(model=models.TestSet, exclude_explorer_rows=True)
 def read_test_sets(
     response: Response,
     skip: int = 0,
