@@ -8,7 +8,7 @@ from haystack import Pipeline
 from haystack.components.agents import Agent
 from haystack.dataclasses import ChatMessage, ChatRole
 
-from visit_prep.agents.coordinator import create_coordinator_agent
+from visit_prep.agents.coordinator import create_coordinator_agent, is_internal_status
 from visit_prep.client import build_chat_generator
 from visit_prep.state import Phase, Slots, VisitPrepState, describe_slots
 from visit_prep.utils import as_text, tool_result_text
@@ -55,11 +55,16 @@ def _run_data(message: str, state: VisitPrepState) -> dict[str, Any]:
 
 
 def _extract_reply(result: dict[str, Any]) -> str:
-    """Return the user-facing reply for one coordinator run.
+    """Return the user-facing reply for one coordinator run, or ``""`` if there is none.
 
     A critic-approved summary wins over anything the model says afterwards, so the reviewed
     text reaches the user verbatim. Otherwise the run ended either on a terminal tool (whose
     templated result is the reply) or on a plain text reply.
+
+    An internal status line is never a reply, however it turns up: an exhausted
+    ``max_agent_steps`` budget leaves a handoff's tool result as the last message, and a model
+    that echoes the line back ends the run on it. Both are refused here, so the turn fails
+    loudly in :func:`_finish_turn` rather than handing the user a tool's instructions.
     """
     summary = result.get("summary")
     if summary:
@@ -67,10 +72,9 @@ def _extract_reply(result: dict[str, Any]) -> str:
 
     last = result.get("last_message")
     if isinstance(last, ChatMessage):
-        if last.is_from(ChatRole.TOOL):
-            return tool_result_text(last)
-        if last.text:
-            return last.text
+        candidate = tool_result_text(last) if last.is_from(ChatRole.TOOL) else (last.text or "")
+        if candidate and not is_internal_status(candidate):
+            return candidate
     return ""
 
 
@@ -113,7 +117,9 @@ def _finish_turn(state: VisitPrepState, raw: dict[str, Any], message: str) -> di
     result = raw[COORDINATOR]
     reply = _extract_reply(result)
     if not reply:
-        raise RuntimeError(f"Coordinator completed without a reply: {list(result.keys())}")
+        raise RuntimeError(
+            f"Coordinator completed without a user-facing reply: {list(result.keys())}"
+        )
     return {
         "response": reply,
         "state": _apply_result_to_state(state, result, reply, message),

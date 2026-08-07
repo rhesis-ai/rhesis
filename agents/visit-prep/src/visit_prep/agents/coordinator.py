@@ -57,6 +57,19 @@ COORDINATOR_STATE_SCHEMA = {
 # specialist returned so it can decide what comes next.
 TERMINAL_TOOLS = ("escalate", "greet_and_explain", "redirect_to_scope")
 
+# Status lines tools return to steer the coordinator. The system prompt above asks the model
+# never to show one to the user, but a prompt is not an enforcement mechanism, and two paths
+# reach the user without the model misbehaving at all: a run that stops on ``max_agent_steps``
+# leaves a handoff's tool result as the last message, and a model that parrots the line back
+# as its closing text ends the run on it. The turn layer refuses both.
+INTERNAL_STATUS_PREFIXES = ("HISTORY_COMPLETE", "SUMMARY_BLOCKED", "VERDICT")
+
+
+def is_internal_status(text: str) -> bool:
+    """True when ``text`` is a tool status line meant for the coordinator, not the user."""
+    return text.lstrip().startswith(INTERNAL_STATUS_PREFIXES)
+
+
 RED_FLAG_OVERRIDE = (
     "SAFETY OVERRIDE: a rule-based scan matched potentially urgent symptoms in the user's "
     "own words ({flagged!r}). Call escalate now and do not call any other tool."
@@ -174,8 +187,10 @@ def create_coordinator_agent(generator: ChatGenerator) -> Agent:
 __all__ = [
     "COORDINATOR_STATE_SCHEMA",
     "COORDINATOR_SYSTEM_PROMPT",
+    "INTERNAL_STATUS_PREFIXES",
     "RED_FLAG_OVERRIDE",
     "TERMINAL_TOOLS",
     "create_coordinator_agent",
+    "is_internal_status",
     "red_flag_guard",
 ]

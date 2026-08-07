@@ -1,5 +1,8 @@
 """Coordinator turn behaviour end to end over the one-component pipeline."""
 
+import pytest
+from haystack.dataclasses import ChatMessage, ToolCall
+
 from tests.mocks import (
     check,
     emergency_script,
@@ -12,7 +15,12 @@ from tests.mocks import (
     text,
     tool_call,
 )
-from visit_prep.pipeline import COORDINATOR, build_coordinator_pipeline, run_turn
+from visit_prep.pipeline import (
+    COORDINATOR,
+    _extract_reply,
+    build_coordinator_pipeline,
+    run_turn,
+)
 from visit_prep.state import Phase, Slots, VisitPrepState
 
 FILLED_SLOTS = Slots(
@@ -112,6 +120,51 @@ def test_history_complete_signal_never_reaches_the_user():
     assert result["state"].slots.associated == "neck stiffness"
     assert "HISTORY_COMPLETE" not in result["response"]
     assert result["response"] == "Great — that's everything I need."
+
+
+def test_status_line_as_closing_text_is_refused():
+    """A model that echoes a status line back must not have it relayed to the user.
+
+    The prompt forbids this, but a prompt cannot enforce it: the echoed line satisfies the
+    ``text`` exit condition, so the run ends on it and it would be shipped verbatim.
+    """
+    msg = "also neck stiffness"
+    with pytest.raises(RuntimeError, match="without a user-facing reply"):
+        run_turn(
+            msg,
+            VisitPrepState(),
+            pipeline=make_pipeline(
+                gather_script(
+                    msg,
+                    question="Thanks.",
+                    coordinator_reply="HISTORY_COMPLETE — every core slot is now filled.",
+                )
+            ),
+        )
+
+
+@pytest.mark.parametrize(
+    "status",
+    [
+        "HISTORY_COMPLETE — every core slot is now filled. Call write_summary next.",
+        "SUMMARY_BLOCKED — core slots still missing: onset.",
+        "VERDICT: rejected. Feedback: remove the diagnosis.",
+    ],
+)
+def test_handoff_status_left_as_last_message_is_refused(status):
+    """Exhausting ``max_agent_steps`` leaves a handoff's tool result as the last message."""
+    last = ChatMessage.from_tool(
+        tool_result=status,
+        origin=ToolCall(id="call-1", tool_name="gather_history", arguments={}),
+    )
+    assert _extract_reply({"last_message": last}) == ""
+
+
+def test_approved_summary_still_reaches_the_user():
+    """The guard rejects status lines only — ordinary replies pass through untouched."""
+    last = ChatMessage.from_assistant("Where exactly does it hurt?")
+    assert _extract_reply({"last_message": last}) == "Where exactly does it hurt?"
+    assert _extract_reply({"summary": "## Timeline\n- Headache"}) == "## Timeline\n- Headache"
 
 
 def test_premature_write_summary_does_not_end_the_conversation():
