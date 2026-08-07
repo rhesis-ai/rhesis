@@ -105,6 +105,37 @@ jobs:
       - name: Run type check
         run: npm run type-check
 
+  styles:
+    needs: changes
+    if: contains(fromJSON(needs.changes.outputs.targets), 'frontend')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          # Depth 1 makes check-hardcoded-styles.js scan every file, not the diff.
+          fetch-depth: 2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Check for hardcoded styles
+        id: check
+        run: node scripts/check-hardcoded-styles.js
+
+      - name: Comment on PR
+        if: failure() && steps.check.outcome == 'failure' && github.event_name == 'pull_request'
+        run: node scripts/create-pr-comment.js
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_EVENT_PATH: ${{ github.event_path }}
+
   docs:
     needs: changes
     if: contains(fromJSON(needs.changes.outputs.targets), 'docs')
@@ -130,7 +161,7 @@ jobs:
         run: make lint
 
   lint:
-    needs: [changes, python, frontend, docs]
+    needs: [changes, python, frontend, styles, docs]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -141,6 +172,7 @@ jobs:
           for RESULT in "changes=${{ needs.changes.result }}" \
                         "python=${{ needs.python.result }}" \
                         "frontend=${{ needs.frontend.result }}" \
+                        "styles=${{ needs.styles.result }}" \
                         "docs=${{ needs.docs.result }}"; do
             echo "$RESULT"
             case "${RESULT#*=}" in
