@@ -7,9 +7,10 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app import models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.config.settings import get_model_settings
+from rhesis.backend.app.crud import metric as metric_crud
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
@@ -49,7 +50,7 @@ def create_metric(
         if not metric.owner_id:
             metric.owner_id = current_user.id
 
-        result = crud.create_metric(
+        result = metric_crud.create_metric(
             db=db, metric=metric, organization_id=organization_id, user_id=user_id
         )
         return result
@@ -94,7 +95,7 @@ def generate_metric(
         if not metric_data.owner_id:
             metric_data.owner_id = current_user.id
 
-        result = crud.create_metric(
+        result = metric_crud.create_metric(
             db=db,
             metric=metric_data,
             organization_id=organization_id,
@@ -133,7 +134,7 @@ def improve_metric(
 
     organization_id, user_id = tenant_context
 
-    db_metric = crud.get_metric(db, metric_id=metric_id, organization_id=organization_id)
+    db_metric = metric_crud.get_metric(db, metric_id=metric_id, organization_id=organization_id)
     if db_metric is None:
         raise HTTPException(status_code=404, detail="Metric not found")
 
@@ -171,7 +172,7 @@ def improve_metric(
         improved = synthesizer.improve(existing, request.prompt)
 
         update_data = schemas.MetricUpdate(**improved)
-        result = crud.update_metric(
+        result = metric_crud.update_metric(
             db=db,
             metric_id=metric_id,
             metric=update_data,
@@ -214,7 +215,7 @@ def read_metrics(
 ):
     """Get all metrics with their related objects"""
     organization_id, user_id = tenant_context
-    results = crud.get_metrics(
+    results = metric_crud.get_metrics(
         db,
         skip=skip,
         limit=limit,
@@ -238,7 +239,7 @@ def read_metrics(
             .with_visibility_filter(user_id)
             .with_odata_filter(filter)
         )
-        crud._apply_metric_scope_filter(cb, metric_scope)
+        metric_crud._apply_metric_scope_filter(cb, metric_scope)
         response.headers["X-Total-Count"] = str(cb.count())
 
     if select:
@@ -256,9 +257,9 @@ def read_metric(
 ):
     """Get a specific metric by ID with its related objects"""
     organization_id, user_id = tenant_context
-    db_metric = crud.get_metric(db, metric_id, organization_id, user_id)
+    db_metric = metric_crud.get_metric(db, metric_id, organization_id, user_id)
     if db_metric is None:
-        # crud.get_metric's query silently excludes soft-deleted rows (like most
+        # get_metric's query silently excludes soft-deleted rows (like most
         # plain getters); check separately here so a deleted metric still gets
         # its own 410, matching the other standard entity routes' contract.
         from rhesis.backend.app.utils.crud_utils import _check_and_raise_if_deleted
@@ -288,11 +289,11 @@ def update_metric(
 ):
     """Update a metric"""
     organization_id, user_id = tenant_context
-    db_metric = crud.get_metric(db, metric_id=metric_id, organization_id=organization_id)
+    db_metric = metric_crud.get_metric(db, metric_id=metric_id, organization_id=organization_id)
     if db_metric is None:
         raise HTTPException(status_code=404, detail="Metric not found")
 
-    return crud.update_metric(
+    return metric_crud.update_metric(
         db=db, metric_id=metric_id, metric=metric, organization_id=organization_id, user_id=user_id
     )
 
@@ -306,11 +307,11 @@ def delete_metric(
 ):
     """Delete a metric"""
     organization_id, user_id = tenant_context
-    db_metric = crud.get_metric(db, metric_id=metric_id, organization_id=organization_id)
+    db_metric = metric_crud.get_metric(db, metric_id=metric_id, organization_id=organization_id)
     if db_metric is None:
         raise HTTPException(status_code=404, detail="Metric not found")
 
-    return crud.delete_metric(
+    return metric_crud.delete_metric(
         db=db, metric_id=metric_id, organization_id=organization_id, user_id=user_id
     )
 
@@ -326,12 +327,12 @@ def add_behavior_to_metric(
     """Add a behavior to a metric"""
     organization_id, user_id = tenant_context
     # Check if the metric exists
-    db_metric = crud.get_metric(db, metric_id=metric_id, organization_id=organization_id)
+    db_metric = metric_crud.get_metric(db, metric_id=metric_id, organization_id=organization_id)
     if db_metric is None:
         raise HTTPException(status_code=404, detail="Metric not found")
 
     try:
-        added = crud.add_behavior_to_metric(
+        added = metric_crud.add_behavior_to_metric(
             db=db,
             metric_id=metric_id,
             behavior_id=behavior_id,
@@ -356,7 +357,7 @@ def remove_behavior_from_metric(
     """Remove a behavior from a metric"""
     organization_id, user_id = tenant_context
     try:
-        removed = crud.remove_behavior_from_metric(
+        removed = metric_crud.remove_behavior_from_metric(
             db=db, metric_id=metric_id, behavior_id=behavior_id, organization_id=organization_id
         )
         if removed:
@@ -385,7 +386,7 @@ def read_metric_behaviors(
     """Get all behaviors associated with a metric"""
     try:
         organization_id, user_id = tenant_context  # SECURITY: Get tenant context
-        behaviors = crud.get_metric_behaviors(
+        behaviors = metric_crud.get_metric_behaviors(
             db,
             metric_id=metric_id,
             organization_id=organization_id,  # SECURITY: Pass organization_id for filtering

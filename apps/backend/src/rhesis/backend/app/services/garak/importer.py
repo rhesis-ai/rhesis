@@ -295,7 +295,8 @@ class GarakImporter:
         Returns:
             Metric model instance
         """
-        from rhesis.backend.app import crud, schemas
+        from rhesis.backend.app import schemas
+        from rhesis.backend.app.crud.metric import create_metric, update_metric
 
         org_uuid = UUID(organization_id)
         user_uuid = UUID(user_id)
@@ -341,7 +342,7 @@ class GarakImporter:
                     update_fields["threshold_operator"] = "<"
 
                 update_data = schemas.MetricUpdate(**update_fields)
-                crud.update_metric(
+                update_metric(
                     db=self.db,
                     metric_id=existing_metric.id,
                     metric=update_data,
@@ -381,7 +382,7 @@ class GarakImporter:
             owner_id=user_uuid,
         )
 
-        metric = crud.create_metric(
+        metric = create_metric(
             db=self.db,
             metric=metric_data,
             organization_id=organization_id,
