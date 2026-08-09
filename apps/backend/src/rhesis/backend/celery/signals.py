@@ -63,31 +63,67 @@ def _update_test_run_status(task_id: str, new_status: RunStatus, error_message: 
         logger.error(f"Failed to update test run status for task {task_id}: {e}", exc_info=True)
 
 
+@celeryd_init.connect
 @worker_process_init.connect
 def install_worker_usage_sink(**kwargs):
-    """Register the process-wide token-usage sink in each forked worker child.
+    """Register the process-wide token-usage sink in the worker.
 
-    Per child rather than once in the parent: the sink is module-level state,
-    and installing it after fork keeps it independent of what the parent had
-    imported at fork time.
+    Connected to both signals on purpose, and ``celeryd_init`` is the
+    load-bearing one. ``worker_process_init`` is sent only by the prefork and
+    solo pools (see ``celery/concurrency/{prefork,solo}.py``), and this
+    deployment runs ``--pool threads`` for both the main and architect
+    workers, so on its own it would never fire and no Celery task would
+    accrue anything at all. ``celeryd_init`` fires for every pool.
+
+    Keeping ``worker_process_init`` as well covers prefork children, where
+    installing after the fork keeps the sink independent of whatever the
+    parent had imported at fork time. Installation is idempotent, so being
+    called by both costs nothing.
     """
     from rhesis.backend.app.utils.usage_tracking import install_usage_sink
 
     install_usage_sink()
 
 
+def _task_organization_id(task, task_kwargs):
+    """Resolve the org for a task that is starting, from the raw message.
+
+    Cannot read ``task.request.organization_id``: Celery's tracer fires
+    ``task_prerun`` *before* it calls ``Task.before_start``, and
+    ``before_start`` is what copies the org off the message onto the request.
+    At this point the attribute is still unset, so reading it would leave
+    every Celery task unattributed -- which is most of the token spend.
+
+    Mirrors ``BaseTask.before_start``'s own precedence, including kwargs
+    winning over headers, so attribution matches what the task body will see
+    a moment later rather than disagreeing with it on retries.
+    """
+    request = getattr(task, "request", None)
+    headers = getattr(request, "headers", None) or {}
+
+    organization_id = headers.get("organization_id") if hasattr(headers, "get") else None
+    if (task_kwargs or {}).get("organization_id"):
+        organization_id = task_kwargs["organization_id"]
+    if not organization_id:
+        # Anything that set it directly, e.g. a task invoked in-process.
+        organization_id = getattr(request, "organization_id", None)
+    return organization_id
+
+
 @task_prerun.connect
-def bind_usage_attribution_for_task(task_id=None, task=None, **kwargs):
+def bind_usage_attribution_for_task(task_id=None, task=None, kwargs=None, **_):
     """Name the org to bill for any LLM tokens this task spends.
 
     The org rides in on the task headers and is already unpacked onto
-    ``task.request`` by ``BaseTask.before_start``. Reading it here instead of
-    threading it into each model constructor means a task that calls an LLM
-    accrues correctly without knowing that usage accounting exists.
+    the task message. Reading it here instead of threading it into each model
+    constructor means a task that calls an LLM accrues correctly without
+    knowing that usage accounting exists.
 
     A signal rather than ``BaseTask.before_start`` because not every task
     subclasses ``BaseTask`` -- ``tasks.usage.accrue_usage`` itself is a plain
-    ``@app.task``, and the next one someone writes might be too.
+    ``@app.task``, and the next one someone writes might be too. The cost of
+    that choice is that the org has to be dug out of the raw message here;
+    see :func:`_task_organization_id`.
     """
     from rhesis.backend.app.usage_attribution import bind_usage_org
 
@@ -101,9 +137,7 @@ def bind_usage_attribution_for_task(task_id=None, task=None, **kwargs):
         logger.warning("task_prerun without a task_id; usage will not be attributed")
         return
 
-    request = getattr(task, "request", None)
-    organization_id = getattr(request, "organization_id", None) if request else None
-    _usage_attribution_tokens[task_id] = bind_usage_org(organization_id)
+    _usage_attribution_tokens[task_id] = bind_usage_org(_task_organization_id(task, kwargs))
 
 
 @task_postrun.connect

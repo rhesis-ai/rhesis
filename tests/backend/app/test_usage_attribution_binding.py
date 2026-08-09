@@ -8,6 +8,7 @@ pinned here against the real dependency and the real signal handlers.
 from __future__ import annotations
 
 import pytest
+from celery.signals import task_postrun, task_prerun
 from fastapi import Depends, FastAPI
 from fastapi.testclient import TestClient
 
@@ -81,7 +82,13 @@ class TestCeleryBinding:
     place bills the next task's tokens to the previous task's org."""
 
     def _request(self, organization_id):
-        return type("_Req", (), {"organization_id": organization_id})()
+        # Shaped like a real request at prerun: the org is in `headers`, and
+        # the `organization_id` attribute does NOT exist yet, because
+        # BaseTask.before_start has not run. An earlier version of these
+        # tests set the attribute directly, which meant they asserted the
+        # implementation's assumption rather than Celery's actual behaviour,
+        # and passed while every Celery task went unattributed.
+        return type("_Req", (), {"headers": {"organization_id": organization_id}})()
 
     def _task(self, organization_id):
         return type("_Task", (), {"request": self._request(organization_id)})()
@@ -163,3 +170,87 @@ class TestCeleryBinding:
 def no_leaked_binding():
     yield
     assert current_usage_org() is None, "a test leaked a usage-attribution binding"
+
+
+class TestCeleryBindingEndToEnd:
+    """Drives Celery's real tracer rather than calling the handlers directly.
+
+    The hand-called tests above can only ever confirm that the handlers do
+    what their author expected. This one confirms Celery agrees, which is
+    where the bug was: the tracer fires `task_prerun` *before*
+    `Task.before_start`, so `request.organization_id` is still unset and
+    reading it left every Celery task's tokens unattributed.
+    """
+
+    def test_the_org_is_bound_while_the_task_body_runs(self):
+        from celery import Celery
+
+        from rhesis.backend.celery.signals import (
+            bind_usage_attribution_for_task,
+            clear_usage_attribution_for_task,
+        )
+
+        app = Celery("usage_attribution_probe", broker="memory://")
+        app.conf.task_always_eager = True
+
+        @app.task(name="usage_attribution_probe.observe")
+        def observe():
+            return current_usage_org()
+
+        # Connect to this app only, so the probe cannot disturb the real one.
+        task_prerun.connect(bind_usage_attribution_for_task, weak=False)
+        task_postrun.connect(clear_usage_attribution_for_task, weak=False)
+        try:
+            result = observe.apply_async(headers={"organization_id": "org-from-headers"})
+            assert result.get() == "org-from-headers"
+        finally:
+            task_prerun.disconnect(bind_usage_attribution_for_task)
+            task_postrun.disconnect(clear_usage_attribution_for_task)
+
+        assert current_usage_org() is None
+
+
+class TestWorkerSinkInstallation:
+    """The sink has to actually get installed in the worker process.
+
+    Nothing else notices if it does not: models still work, tokens are just
+    never counted. This deployment runs `--pool threads`, and
+    `worker_process_init` is sent only by the prefork and solo pools, so a
+    handler connected to that alone would never fire in production.
+    """
+
+    def _reset(self):
+        from rhesis.backend.app.utils.usage_tracking import uninstall_usage_sink
+
+        uninstall_usage_sink()
+
+    def test_celeryd_init_installs_the_sink(self):
+        """celeryd_init fires for every pool, including threads."""
+        from celery.signals import celeryd_init
+
+        from rhesis.backend.app.utils.usage_tracking import accrue_model_tokens
+        from rhesis.sdk.models.base import get_default_usage_callback
+
+        self._reset()
+        assert get_default_usage_callback() is None
+
+        try:
+            celeryd_init.send(sender="main@testhost")
+            assert get_default_usage_callback() is accrue_model_tokens
+        finally:
+            self._reset()
+
+    def test_worker_process_init_also_installs_it(self):
+        """Prefork children, where the parent's install does not carry over
+        if the platform spawns rather than forks."""
+        from celery.signals import worker_process_init
+
+        from rhesis.backend.app.utils.usage_tracking import accrue_model_tokens
+        from rhesis.sdk.models.base import get_default_usage_callback
+
+        self._reset()
+        try:
+            worker_process_init.send(sender=None)
+            assert get_default_usage_callback() is accrue_model_tokens
+        finally:
+            self._reset()
