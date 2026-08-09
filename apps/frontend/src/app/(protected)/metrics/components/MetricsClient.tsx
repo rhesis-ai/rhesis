@@ -60,14 +60,6 @@ function uniqueByTypeValue(types: TypeLookup[]): TypeLookup[] {
   return Array.from(new Map(types.map(t => [t.type_value, t])).values());
 }
 
-interface RequirementMetrics {
-  [requirementId: string]: {
-    metrics: MetricDetail[];
-    isLoading: boolean;
-    error: string | null;
-  };
-}
-
 interface MetricsClientProps {
   organizationId: UUID;
   /** Server-fetched first page — when present, skips the initial client fetch. */
@@ -103,10 +95,6 @@ export default function MetricsClientComponent({
   const { data: allRequirements = NO_REQUIREMENTS } =
     useRequirements(lookupEnabled);
 
-  const [_requirementsWithMetrics, setRequirementsWithMetrics] = React.useState<
-    RequirementWithMetrics[]
-  >([]);
-
   // Filter state
   const [filters, setFilters] = React.useState<FilterState>(initialFilterState);
 
@@ -127,9 +115,6 @@ export default function MetricsClientComponent({
     }),
     [backendTypes, metricTypes, allRequirements]
   );
-
-  const [_requirementMetrics, setRequirementMetrics] =
-    React.useState<RequirementMetrics>({});
 
   const filterFingerprint = React.useMemo(
     () =>
@@ -203,8 +188,6 @@ export default function MetricsClientComponent({
         error={error}
         setFilters={setFilters}
         setMetrics={setMetrics}
-        setRequirementMetrics={setRequirementMetrics}
-        setRequirementsWithMetrics={setRequirementsWithMetrics}
         assignMode={assignMode}
       />
     </ErrorBoundary>

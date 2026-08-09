@@ -26,7 +26,6 @@ import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import { MetricsClient } from '@/utils/api-client/metrics-client';
 import { MetricDetail } from '@/utils/api-client/interfaces/metric';
-import type { RequirementWithMetrics } from '@/utils/api-client/interfaces/requirement';
 import type { UUID } from 'crypto';
 import { Can, useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
@@ -52,16 +51,6 @@ export interface FilterOptions {
   requirement: { id: string; name: string }[];
 }
 
-interface RequirementMetrics {
-  [requirementId: string]: {
-    metrics: MetricDetail[];
-    isLoading: boolean;
-    error: string | null;
-  };
-}
-
-// Using SelectRequirementsDialog component instead of inline dialog
-
 interface MetricsDirectoryTabProps {
   organizationId: UUID;
   metrics: MetricDetail[];
@@ -77,12 +66,6 @@ interface MetricsDirectoryTabProps {
   error: string | null;
   setFilters: React.Dispatch<React.SetStateAction<FilterState>>;
   setMetrics: React.Dispatch<React.SetStateAction<MetricDetail[]>>;
-  setRequirementMetrics: React.Dispatch<
-    React.SetStateAction<RequirementMetrics>
-  >;
-  setRequirementsWithMetrics: React.Dispatch<
-    React.SetStateAction<RequirementWithMetrics[]>
-  >;
   assignMode?: boolean;
 }
 
@@ -126,8 +109,6 @@ export default function MetricsDirectoryTab({
   error,
   setFilters,
   setMetrics,
-  setRequirementMetrics,
-  setRequirementsWithMetrics,
   assignMode = false,
 }: MetricsDirectoryTabProps) {
   const router = useRouter();
@@ -227,114 +208,12 @@ export default function MetricsDirectoryTab({
         })
       );
 
-      // Find the metric to add to requirement's metrics
-      const targetMetric = metrics.find(m => m.id === metricId);
-      if (targetMetric) {
-        // Update requirementMetrics state
-        setRequirementMetrics(prev => ({
-          ...prev,
-          [requirementId]: {
-            ...prev[requirementId],
-            metrics: [...(prev[requirementId]?.metrics || []), targetMetric],
-            isLoading: false,
-            error: null,
-          },
-        }));
-
-        // Update requirementsWithMetrics state
-        setRequirementsWithMetrics(prevRequirements =>
-          prevRequirements.map(requirement =>
-            requirement.id === requirementId
-              ? {
-                  ...requirement,
-                  metrics: [
-                    ...(requirement.metrics || []),
-                    targetMetric as MetricDetail,
-                  ],
-                }
-              : requirement
-          )
-        );
-      }
-
       notifications.show('Successfully assigned metric to requirement', {
         severity: 'success',
         autoHideDuration: 4000,
       });
     } catch (_err) {
       notifications.show('Failed to assign metric to requirement', {
-        severity: 'error',
-        autoHideDuration: 4000,
-      });
-    }
-  };
-
-  // Function to remove a metric from a requirement
-  const _handleRemoveMetricFromRequirement = async (
-    requirementId: string,
-    metricId: string
-  ) => {
-    try {
-      const metricClient = new MetricsClient();
-
-      // Remove metric from requirement
-      await metricClient.removeRequirementFromMetric(
-        metricId as UUID,
-        requirementId as UUID
-      );
-
-      // Update local state optimistically - remove requirement from metric's requirements list
-      setMetrics(prevMetrics =>
-        prevMetrics.map(metric => {
-          if (metric.id === metricId) {
-            const currentRequirements = Array.isArray(metric.requirements)
-              ? metric.requirements
-              : [];
-            return {
-              ...metric,
-              requirements: currentRequirements.filter(b => {
-                const requirementId_str = typeof b === 'string' ? b : b.id;
-                return requirementId_str !== requirementId;
-              }) as MetricDetail['requirements'],
-            };
-          }
-          return metric;
-        })
-      );
-
-      // Update requirementMetrics state - remove the metric
-      setRequirementMetrics(prev => ({
-        ...prev,
-        [requirementId]: {
-          ...prev[requirementId],
-          metrics: (prev[requirementId]?.metrics || []).filter(
-            m => m.id !== metricId
-          ),
-          isLoading: false,
-          error: null,
-        },
-      }));
-
-      // Update requirementsWithMetrics state - remove the metric
-      setRequirementsWithMetrics(prevRequirements =>
-        prevRequirements.map(requirement =>
-          requirement.id === requirementId
-            ? {
-                ...requirement,
-                metrics: (requirement.metrics || []).filter(
-                  m => m.id !== metricId
-                ),
-              }
-            : requirement
-        )
-      );
-
-      notifications.show('Successfully removed metric from requirement', {
-        severity: 'success',
-        autoHideDuration: 4000,
-      });
-    } catch (_err) {
-      notifications.show('Failed to remove metric from requirement', {
         severity: 'error',
         autoHideDuration: 4000,
       });
