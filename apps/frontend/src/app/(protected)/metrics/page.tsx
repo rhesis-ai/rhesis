@@ -30,8 +30,8 @@ export default async function MetricsPage() {
       client.getMetrics({
         skip: 0,
         limit: DEFAULT_METRICS_PAGE_SIZE,
-        sort_by: 'created_at',
-        sort_order: 'desc',
+        sort_by: 'name',
+        sort_order: 'asc',
         $select: METRICS_SELECT,
       })
   );

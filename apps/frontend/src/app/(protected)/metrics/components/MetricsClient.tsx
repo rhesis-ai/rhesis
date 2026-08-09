@@ -19,6 +19,7 @@ import { Capability } from '@/constants/capabilities';
 import AccessDenied from '@/components/common/AccessDenied';
 import PageLoadingState from '@/components/common/PageLoadingState';
 import { usePaginatedList } from '@/hooks/usePaginatedList';
+import { useTypeLookups, useRequirements } from '@/hooks/useLookups';
 
 import MetricsDirectoryTab, { type FilterState } from './MetricsDirectoryTab';
 
@@ -69,58 +70,6 @@ interface MetricsClientProps {
   initialTotalCount?: number;
 }
 
-interface MetricsOptionMaps {
-  requirements: Map<string, ApiRequirement>;
-  backendTypes: Map<string, { type_value: string }>;
-  metricTypes: Map<string, { type_value: string; description: string }>;
-}
-
-/**
- * Extracts the requirement/backend/type dropdown options a page of metrics
- * contributes and merges them into the running accumulator maps. Mutating
- * maps that persist across fetches -- rather than deriving from just the
- * current page -- matters because pages are server-filtered: filtering by
- * one backend type would otherwise make that fetch's response (and thus the
- * dropdown) contain only that value, making every other option vanish from
- * the filter UI the moment it's applied.
- */
-function deriveMetricsPageOptions(
-  data: MetricDetail[],
-  maps: MetricsOptionMaps
-) {
-  data.forEach(metric => {
-    metric.requirements?.forEach(requirement => {
-      if (requirement && typeof requirement !== 'string' && requirement.id) {
-        maps.requirements.set(requirement.id, {
-          id: requirement.id,
-          name: requirement.name || 'Unnamed Requirement',
-          description: requirement.description ?? undefined,
-        } as ApiRequirement);
-      }
-    });
-    if (metric.backend_type) {
-      const val = metric.backend_type.type_value;
-      maps.backendTypes.set(val, {
-        type_value: val.charAt(0).toUpperCase() + val.slice(1),
-      });
-    }
-    if (metric.metric_type) {
-      maps.metricTypes.set(metric.metric_type.type_value, {
-        type_value: metric.metric_type.type_value,
-        description: metric.metric_type.description || '',
-      });
-    }
-  });
-
-  const requirementsData = Array.from(maps.requirements.values());
-  return {
-    requirementsData,
-    requirementOptions: requirementsData.map(b => ({ id: b.id, name: b.name })),
-    backendTypeOptions: Array.from(maps.backendTypes.values()),
-    metricTypeOptions: Array.from(maps.metricTypes.values()),
-  };
-}
-
 export default function MetricsClientComponent({
   organizationId,
   initialData,
@@ -134,41 +83,47 @@ export default function MetricsClientComponent({
 
   const assignMode = searchParams.get('assignMode') === 'true';
 
-  // Accumulate dropdown options across page/filter navigations (see
-  // deriveMetricsPageOptions) so filtering to one value doesn't erase the
-  // other options from the dropdowns.
-  const optionMapsRef = React.useRef<MetricsOptionMaps>({
-    requirements: new Map(),
-    backendTypes: new Map(),
-    metricTypes: new Map(),
-  });
-
-  const [requirements, setRequirements] = React.useState<ApiRequirement[]>(
-    () =>
-      initialData
-        ? deriveMetricsPageOptions(initialData, optionMapsRef.current)
-            .requirementsData
-        : []
+  const lookupEnabled = !permsLoading && canRead;
+  const { data: backendTypes = [] } = useTypeLookups(
+    "type_name eq 'BackendType'",
+    lookupEnabled
   );
+  const { data: metricTypes = [] } = useTypeLookups(
+    "type_name eq 'MetricType'",
+    lookupEnabled
+  );
+  const { data: allRequirements = [] } = useRequirements(lookupEnabled);
+
+  const requirements = React.useMemo<ApiRequirement[]>(
+    () => allRequirements as ApiRequirement[],
+    [allRequirements]
+  );
+
   const [_requirementsWithMetrics, setRequirementsWithMetrics] = React.useState<
     RequirementWithMetrics[]
   >([]);
 
   // Filter state
   const [filters, setFilters] = React.useState<FilterState>(initialFilterState);
-  const [filterOptions, setFilterOptions] = React.useState<FilterOptions>(
-    () => {
-      if (!initialData) return initialFilterOptions;
-      const { requirementOptions, backendTypeOptions, metricTypeOptions } =
-        deriveMetricsPageOptions(initialData, optionMapsRef.current);
-      return {
-        ...initialFilterOptions,
-        backend: backendTypeOptions,
-        type: metricTypeOptions,
-        requirement: requirementOptions,
-      };
-    }
+
+  const filterOptions = React.useMemo<FilterOptions>(
+    () => ({
+      ...initialFilterOptions,
+      backend: backendTypes.map(t => ({
+        type_value:
+          t.type_value.charAt(0).toUpperCase() + t.type_value.slice(1),
+      })),
+      type: metricTypes.map(t => ({
+        type_value: t.type_value,
+        description: t.description || '',
+      })),
+      requirement: allRequirements
+        .filter(b => b.name?.trim())
+        .map(b => ({ id: b.id, name: b.name })),
+    }),
+    [backendTypes, metricTypes, allRequirements]
   );
+
   const [_requirementMetrics, setRequirementMetrics] =
     React.useState<RequirementMetrics>({});
 
@@ -203,8 +158,8 @@ export default function MetricsClientComponent({
       return metricsClient.getMetrics({
         skip,
         limit,
-        sort_by: 'created_at',
-        sort_order: 'desc',
+        sort_by: 'name',
+        sort_order: 'asc',
         $filter: odataFilter,
         $select: METRICS_SELECT,
         ...(filters.metricScope.length > 0 && {
@@ -216,22 +171,6 @@ export default function MetricsClientComponent({
     initialData,
     initialTotalCount,
     enabled: !permsLoading && canRead,
-    onData: data => {
-      const {
-        requirementsData,
-        requirementOptions,
-        backendTypeOptions,
-        metricTypeOptions,
-      } = deriveMetricsPageOptions(data, optionMapsRef.current);
-      setRequirements(requirementsData);
-
-      setFilterOptions(prev => ({
-        ...prev,
-        backend: backendTypeOptions,
-        type: metricTypeOptions,
-        requirement: requirementOptions,
-      }));
-    },
     onError: () => {
       notifications.show('Failed to load metrics data', {
         severity: 'error',
