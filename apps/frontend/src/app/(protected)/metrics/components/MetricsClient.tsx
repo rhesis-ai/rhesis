@@ -6,14 +6,16 @@ import { useNotifications } from '@/components/common/NotificationContext';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
 import { MetricsClient } from '@/utils/api-client/metrics-client';
 import { MetricDetail } from '@/utils/api-client/interfaces/metric';
-import type {
-  Requirement as ApiRequirement,
-  RequirementWithMetrics,
-} from '@/utils/api-client/interfaces/requirement';
+import type { RequirementWithMetrics } from '@/utils/api-client/interfaces/requirement';
+import type { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
 import type { UUID } from 'crypto';
 import { TEST_TYPES } from '@/constants/test-types';
 import { buildMetricODataFilter } from '@/utils/odata-filter';
-import { METRICS_SELECT } from './metrics-constants';
+import {
+  METRICS_SELECT,
+  METRICS_SORT_BY,
+  METRICS_SORT_ORDER,
+} from './metrics-constants';
 import { useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import AccessDenied from '@/components/common/AccessDenied';
@@ -21,7 +23,10 @@ import PageLoadingState from '@/components/common/PageLoadingState';
 import { usePaginatedList } from '@/hooks/usePaginatedList';
 import { useTypeLookups, useRequirements } from '@/hooks/useLookups';
 
-import MetricsDirectoryTab, { type FilterState } from './MetricsDirectoryTab';
+import MetricsDirectoryTab, {
+  type FilterState,
+  type FilterOptions,
+} from './MetricsDirectoryTab';
 
 const initialFilterState: FilterState = {
   search: '',
@@ -32,17 +37,8 @@ const initialFilterState: FilterState = {
   requirement: '',
 };
 
-interface FilterOptions {
-  backend: { type_value: string }[];
-  type: { type_value: string; description: string }[];
-  scoreType: { value: string; label: string }[];
-  metricScope: { value: string; label: string }[];
-  requirement: { id: string; name: string }[];
-}
-
-const initialFilterOptions: FilterOptions = {
-  backend: [],
-  type: [],
+/** Filter options that are fixed rather than resolved from the backend. */
+const STATIC_FILTER_OPTIONS = {
   scoreType: [
     { value: 'numeric', label: 'Numeric' },
     { value: 'categorical', label: 'Categorical' },
@@ -52,8 +48,17 @@ const initialFilterOptions: FilterOptions = {
     { value: TEST_TYPES.MULTI_TURN, label: TEST_TYPES.MULTI_TURN },
     { value: 'Trace', label: 'Trace' },
   ],
-  requirement: [],
-};
+} satisfies Pick<FilterOptions, 'scoreType' | 'metricScope'>;
+
+// Stable identities: an inline `data = []` default would mint a fresh array
+// each render while a query is pending, so the memo below would never hold.
+const NO_TYPE_LOOKUPS: TypeLookup[] = [];
+const NO_REQUIREMENTS: RequirementWithMetrics[] = [];
+
+/** Drops duplicate `type_value` rows so repeated options can't collide as React keys. */
+function uniqueByTypeValue(types: TypeLookup[]): TypeLookup[] {
+  return Array.from(new Map(types.map(t => [t.type_value, t])).values());
+}
 
 interface RequirementMetrics {
   [requirementId: string]: {
@@ -83,21 +88,20 @@ export default function MetricsClientComponent({
 
   const assignMode = searchParams.get('assignMode') === 'true';
 
+  // Options come from the reference tables, not the metrics on screen: that
+  // list is server-paginated and server-filtered, so deriving from it hides
+  // values on later pages and drops the rest as soon as a filter is applied.
   const lookupEnabled = !permsLoading && canRead;
-  const { data: backendTypes = [] } = useTypeLookups(
+  const { data: backendTypes = NO_TYPE_LOOKUPS } = useTypeLookups(
     "type_name eq 'BackendType'",
     lookupEnabled
   );
-  const { data: metricTypes = [] } = useTypeLookups(
+  const { data: metricTypes = NO_TYPE_LOOKUPS } = useTypeLookups(
     "type_name eq 'MetricType'",
     lookupEnabled
   );
-  const { data: allRequirements = [] } = useRequirements(lookupEnabled);
-
-  const requirements = React.useMemo<ApiRequirement[]>(
-    () => allRequirements as ApiRequirement[],
-    [allRequirements]
-  );
+  const { data: allRequirements = NO_REQUIREMENTS } =
+    useRequirements(lookupEnabled);
 
   const [_requirementsWithMetrics, setRequirementsWithMetrics] = React.useState<
     RequirementWithMetrics[]
@@ -108,12 +112,12 @@ export default function MetricsClientComponent({
 
   const filterOptions = React.useMemo<FilterOptions>(
     () => ({
-      ...initialFilterOptions,
-      backend: backendTypes.map(t => ({
+      ...STATIC_FILTER_OPTIONS,
+      backend: uniqueByTypeValue(backendTypes).map(t => ({
         type_value:
           t.type_value.charAt(0).toUpperCase() + t.type_value.slice(1),
       })),
-      type: metricTypes.map(t => ({
+      type: uniqueByTypeValue(metricTypes).map(t => ({
         type_value: t.type_value,
         description: t.description || '',
       })),
@@ -158,8 +162,8 @@ export default function MetricsClientComponent({
       return metricsClient.getMetrics({
         skip,
         limit,
-        sort_by: 'name',
-        sort_order: 'asc',
+        sort_by: METRICS_SORT_BY,
+        sort_order: METRICS_SORT_ORDER,
         $filter: odataFilter,
         $select: METRICS_SELECT,
         ...(filters.metricScope.length > 0 && {
@@ -186,7 +190,6 @@ export default function MetricsClientComponent({
     <ErrorBoundary>
       <MetricsDirectoryTab
         organizationId={organizationId}
-        requirements={requirements}
         metrics={metrics}
         totalCount={totalCount}
         page={page}

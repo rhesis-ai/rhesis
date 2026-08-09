@@ -24,6 +24,10 @@ import { useIsAuthenticated } from '@/hooks/useIsAuthenticated';
 
 const STALE_TIME = 5 * 60_000;
 
+// Without an explicit limit `/type_lookups` defaults to 10 and silently
+// truncates. 100 is the server's ceiling (`validate_pagination` 400s above it).
+const TYPE_LOOKUP_LIMIT = 100;
+
 /**
  * Shared read-only lookup hooks for filter drawers and forms.
  *
@@ -142,6 +146,7 @@ export function useTypeLookups(filter: string, enabled = true) {
         .getTypeLookupClient()
         .getTypeLookups({
           $filter: filter,
+          limit: TYPE_LOOKUP_LIMIT,
           sort_by: 'type_value',
           sort_order: 'asc',
         });

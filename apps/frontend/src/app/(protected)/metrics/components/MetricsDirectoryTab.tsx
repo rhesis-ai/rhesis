@@ -26,10 +26,7 @@ import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import { MetricsClient } from '@/utils/api-client/metrics-client';
 import { MetricDetail } from '@/utils/api-client/interfaces/metric';
-import type {
-  Requirement as ApiRequirement,
-  RequirementWithMetrics,
-} from '@/utils/api-client/interfaces/requirement';
+import type { RequirementWithMetrics } from '@/utils/api-client/interfaces/requirement';
 import type { UUID } from 'crypto';
 import { Can, useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
@@ -47,7 +44,7 @@ export interface FilterState {
   requirement: string;
 }
 
-interface FilterOptions {
+export interface FilterOptions {
   backend: { type_value: string }[];
   type: { type_value: string; description: string }[];
   scoreType: { value: string; label: string }[];
@@ -67,7 +64,6 @@ interface RequirementMetrics {
 
 interface MetricsDirectoryTabProps {
   organizationId: UUID;
-  requirements: ApiRequirement[];
   metrics: MetricDetail[];
   totalCount: number;
   page: number;
@@ -102,9 +98,21 @@ function isValidMetricType(
   );
 }
 
+// Read off the metric rather than a separately-fetched requirements list: while
+// such a fetch is in flight every metric looks unassigned, which blanks the
+// badges and offers delete on metrics that are in use. The string branch
+// covers the interface's legacy UUID form.
+function getAssignedRequirementNames(metric: MetricDetail): string[] {
+  if (!Array.isArray(metric.requirements)) return [];
+  return metric.requirements
+    .map(requirement =>
+      typeof requirement === 'string' ? '' : (requirement.name ?? '')
+    )
+    .filter(name => name.trim() !== '');
+}
+
 export default function MetricsDirectoryTab({
   organizationId: _organizationId,
-  requirements,
   metrics,
   totalCount,
   page,
@@ -388,10 +396,6 @@ export default function MetricsDirectoryTab({
     setMetricToDeleteCompletely(null);
   };
 
-  const activeRequirements = requirements.filter(
-    b => b.name && b.name.trim() !== ''
-  );
-
   // First load — no data at all yet, show a full-page spinner
   const isInitialLoad = isLoading && metrics.length === 0 && totalCount === 0;
 
@@ -571,17 +575,10 @@ export default function MetricsDirectoryTab({
             })}
           >
             {metrics.map(metric => {
-              const assignedRequirements = activeRequirements.filter(b => {
-                if (!Array.isArray(metric.requirements)) return false;
-                // Check if requirements is an array of strings (UUIDs) or RequirementReference objects
-                const requirementIds = metric.requirements.map(requirement =>
-                  typeof requirement === 'string' ? requirement : requirement.id
-                );
-                return requirementIds.includes(b.id as string);
-              });
-              const requirementNames = assignedRequirements.map(
-                b => b.name || 'Unnamed Requirement'
-              );
+              const requirementNames = getAssignedRequirementNames(metric);
+              const hasAssignedRequirements =
+                Array.isArray(metric.requirements) &&
+                metric.requirements.length > 0;
 
               const isCustomMetric =
                 metric.backend_type?.type_value?.toLowerCase() === 'custom';
@@ -614,7 +611,7 @@ export default function MetricsDirectoryTab({
                   }
                   onDelete={
                     canDelete &&
-                    assignedRequirements.length === 0 &&
+                    !hasAssignedRequirements &&
                     metric.backend_type?.type_value?.toLowerCase() === 'custom'
                       ? () => handleDeleteMetric(metric.id, metric.name)
                       : undefined
