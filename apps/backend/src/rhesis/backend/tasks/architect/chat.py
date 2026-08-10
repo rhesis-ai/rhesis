@@ -94,7 +94,8 @@ def architect_chat_task(
                     project_id=project_id,
                 )
 
-        result: ArchitectChatResult = run_sync(_run())
+        # soft_time_limit is inert under --pool threads; enforce here
+        result: ArchitectChatResult = run_sync(_run(), timeout=280)
 
         if result.content:
             try:
