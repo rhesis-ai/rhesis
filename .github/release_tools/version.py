@@ -47,7 +47,9 @@ def get_current_version(component: str, repo_root: Path) -> str:
 
 def _get_pyproject_version(config_path: Path) -> str:
     """Get version from pyproject.toml"""
-    cmd = ["uv", "version", "--short", "--project", config_path]
+    # --color never: uv honours FORCE_COLOR even when its output is captured, and the ANSI
+    # escapes then end up inside the version string, where int() chokes on them.
+    cmd = ["uv", "version", "--short", "--color", "never", "--project", config_path]
 
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, check=True)
@@ -148,7 +150,18 @@ def _update_platform_version(new_version: str, repo_root: Path, dry_run: bool) -
 
 def _update_pyproject_version(config_path: Path, bump_type: str) -> bool:
     """Update version in pyproject.toml"""
-    cmd = ["uv", "version", "--bump", bump_type, "--project", config_path, "--no-sync"]
+    # --color never keeps escape codes out of the stderr we print on failure
+    cmd = [
+        "uv",
+        "version",
+        "--bump",
+        bump_type,
+        "--color",
+        "never",
+        "--project",
+        config_path,
+        "--no-sync",
+    ]
 
     try:
         subprocess.run(cmd, capture_output=True, text=True, check=True)
