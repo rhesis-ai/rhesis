@@ -50,7 +50,6 @@ class ReleaseProcessor:
             self.component_bumps,
             lambda component: get_current_version(component, self.repo_root),
             self.dry_run,
-            self.no_branch,
         )
 
     def process_releases(self) -> bool:

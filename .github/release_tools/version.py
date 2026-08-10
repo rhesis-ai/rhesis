@@ -7,7 +7,7 @@ import subprocess
 from pathlib import Path
 
 from .config import COMPONENTS, PLATFORM_VERSION_FILE
-from .utils import error, success
+from .utils import error, info, success, warn
 
 
 def get_current_version(component: str, repo_root: Path) -> str:
@@ -33,15 +33,12 @@ def get_current_version(component: str, repo_root: Path) -> str:
         elif config.config_type == "package":
             return _get_package_version(config_path)
         elif config.config_type == "requirements":
-            from .utils import warn
-
             warn(
-                f"Component {component} uses requirements.txt - no version file, using default 0.1.0"
+                f"Component {component} uses requirements.txt - "
+                "no version file, using default 0.1.0"
             )
             return "0.1.0"  # Default for requirements.txt based components
     except Exception as e:
-        from .utils import error
-
         error(f"Failed to get version for component {component}: {e}")
         raise
 
@@ -50,7 +47,9 @@ def get_current_version(component: str, repo_root: Path) -> str:
 
 def _get_pyproject_version(config_path: Path) -> str:
     """Get version from pyproject.toml"""
-    cmd = ["uv", "version", "--short", "--project", config_path]
+    # --color never: uv honours FORCE_COLOR even when its output is captured, and the ANSI
+    # escapes then end up inside the version string, where int() chokes on them.
+    cmd = ["uv", "version", "--short", "--color", "never", "--project", config_path]
 
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, check=True)
@@ -69,24 +68,16 @@ def _get_package_version(config_path: Path) -> str:
             data = json.load(f)
         version = data.get("version")
         if not version:
-            from .utils import error
-
             error(f"No version field found in {config_path}")
             raise KeyError("version field missing")
         return version
     except FileNotFoundError:
-        from .utils import error
-
         error(f"Package.json file not found: {config_path}")
         raise
     except json.JSONDecodeError as e:
-        from .utils import error
-
         error(f"Invalid JSON in {config_path}: {e}")
         raise
     except Exception as e:
-        from .utils import error
-
         error(f"Failed to parse {config_path}: {e}")
         raise
 
@@ -130,8 +121,6 @@ def update_version_file(
     config_path = repo_root / config.config_file
 
     if dry_run:
-        from .utils import info
-
         info(f"Would update {config.config_file} version to: {new_version}")
         return True
     bump_type = component_bumps[component]
@@ -141,8 +130,6 @@ def update_version_file(
     elif config.config_type == "package":
         return _update_package_version(config_path, new_version, repo_root)
     elif config.config_type == "requirements":
-        from .utils import info
-
         info(f"Component {component} uses requirements.txt - version tracked via git tags only")
         return True
 
@@ -152,8 +139,6 @@ def update_version_file(
 def _update_platform_version(new_version: str, repo_root: Path, dry_run: bool) -> bool:
     """Update platform version file"""
     if dry_run:
-        from .utils import info
-
         info(f"Would update {PLATFORM_VERSION_FILE} to: {new_version}")
         return True
 
@@ -165,10 +150,21 @@ def _update_platform_version(new_version: str, repo_root: Path, dry_run: bool) -
 
 def _update_pyproject_version(config_path: Path, bump_type: str) -> bool:
     """Update version in pyproject.toml"""
-    cmd = ["uv", "version", "--bump", bump_type, "--project", config_path, "--no-sync"]
+    # --color never keeps escape codes out of the stderr we print on failure
+    cmd = [
+        "uv",
+        "version",
+        "--bump",
+        bump_type,
+        "--color",
+        "never",
+        "--project",
+        config_path,
+        "--no-sync",
+    ]
 
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        subprocess.run(cmd, capture_output=True, text=True, check=True)
         return True
     except subprocess.CalledProcessError as e:
         print(e.stderr)

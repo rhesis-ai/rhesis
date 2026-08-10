@@ -6,27 +6,12 @@ Handles tag creation, pushing tags, and creating GitHub releases.
 import os
 import re
 import subprocess
-import sys
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from .config import COMPONENTS, format_component_name
-from .utils import error, info, log, success, warn
+from .utils import error, find_repository_root, info, log, success, warn
 from .version import get_current_version
-
-
-def find_repository_root() -> Path:
-    """Find the repository root directory"""
-    repo_root = Path.cwd()
-    while repo_root != repo_root.parent:
-        if (repo_root / ".git").exists():
-            break
-        repo_root = repo_root.parent
-    else:
-        error("Not in a git repository")
-        sys.exit(1)
-
-    return repo_root
 
 
 def get_current_branch() -> Optional[str]:
@@ -104,13 +89,9 @@ def generate_tag_name(component: str, version: str) -> str:
         return f"{component}-v{version}"
 
 
-def create_and_push_tag(component: str, version: str, dry_run: bool = False) -> bool:
+def create_and_push_tag(component: str, version: str) -> bool:
     """Create and push a git tag for a component"""
     tag_name = generate_tag_name(component, version)
-
-    if dry_run:
-        info(f"Would create and push tag: {tag_name}")
-        return True
 
     try:
         # Create annotated tag
@@ -137,7 +118,7 @@ def get_changelog_content(changelog_path: Path) -> str:
 
     # Extract the first version section (latest) using regex
     # Pattern breakdown:
-    # ^## \[([^\]]+)\] - (\d{4}-\d{2}-\d{2})\n  - matches version header like "## [0.4.0] - 2025-10-10"
+    # ^## \[([^\]]+)\] - (\d{4}-\d{2}-\d{2})\n  - version header, e.g. "## [0.4.0] - 2025-10-10"
     # (.*?)  - captures all content after the header (non-greedy)
     # (?=\n## \[|\Z)  - stops at next version header or end of file (positive lookahead)
     pattern = r"^## \[([^\]]+)\] - (\d{4}-\d{2}-\d{2})\n(.*?)(?=\n## \[|\Z)"
@@ -147,14 +128,9 @@ def get_changelog_content(changelog_path: Path) -> str:
 
 
 def create_github_release(
-    component: str, version: str, tag_name: str, dry_run: bool = False, set_as_latest: bool = False
+    component: str, version: str, tag_name: str, set_as_latest: bool = False
 ) -> bool:
     """Create a GitHub release for a component"""
-    if dry_run:
-        latest_info = " (marked as latest)" if set_as_latest else ""
-        info(f"Would create GitHub release for {tag_name}{latest_info}")
-        return True
-
     try:
         # Use gh CLI if available
         result = subprocess.run(["which", "gh"], capture_output=True)
@@ -198,55 +174,27 @@ def create_github_release(
         return False
 
 
-def confirm_publish_action(components_to_publish: Dict[str, str], remote_tags: List[str]) -> bool:
-    """Ask user for confirmation before publishing"""
+def confirm_publish_action(tags_to_create: List[Tuple[str, str, str]]) -> bool:
+    """Show the already-planned actions and ask the user for confirmation"""
     print()
     warn("⚠️  PUBLISH MODE - This will create tags and GitHub releases!")
     print()
 
     info("The following actions will be performed:")
 
-    # Separate platform from other components for proper display ordering
-    platform_actions = []
-    other_actions = []
-
-    for component, version in components_to_publish.items():
-        tag_name = generate_tag_name(component, version)
-        if tag_name not in remote_tags:
-            action_info = [f"Create and push tag: {tag_name}"]
-            if component == "platform":
-                action_info.append(f"Create GitHub release: {tag_name} (marked as latest)")
-                platform_actions.extend([f"  • {action}" for action in action_info])
-            else:
-                action_info.append(f"Create GitHub release: {tag_name}")
-                other_actions.extend([f"  • {action}" for action in action_info])
-        else:
-            info(f"  • Skip {tag_name} (already exists)")
-
-    # Display other components first, then platform
-    for action in other_actions:
-        info(action)
-
-    if platform_actions:
-        if other_actions:
+    for index, (component, _version, tag_name) in enumerate(tags_to_create):
+        # The caller orders the platform last; mark where it starts
+        if component == "platform" and index > 0:
             info("  • --- Platform release (created last) ---")
-        for action in platform_actions:
-            info(action)
-
-    tags_to_create = (
-        len(other_actions) // 2 + len(platform_actions) // 2
-    )  # Each component has 2 actions
-    if tags_to_create == 0:
-        warn("No new tags to create. All component versions already have tags.")
-        return False
+        info(f"  • Create and push tag: {tag_name}")
+        latest_note = " (marked as latest)" if component == "platform" else ""
+        info(f"  • Create GitHub release: {tag_name}{latest_note}")
 
     print()
     if os.environ.get("GITHUB_ACTIONS") == "true":
         info("Publishing in GitHub Actions - skipping confirmation")
         return True
-    else:
-        response = input("Do you want to proceed with publishing? (y/N): ").strip().lower()
-        return response == "y"
+    return input("Do you want to proceed with publishing? (y/N): ").strip().lower() == "y"
 
 
 def publish_releases(repo_root: Path, dry_run: bool = False) -> bool:
@@ -327,7 +275,7 @@ def publish_releases(repo_root: Path, dry_run: bool = False) -> bool:
         return True
 
     # Ask for confirmation
-    if not confirm_publish_action(components_version, remote_tags):
+    if not confirm_publish_action(tags_to_create):
         info("Publish cancelled by user")
         return False
 
@@ -341,7 +289,7 @@ def publish_releases(repo_root: Path, dry_run: bool = False) -> bool:
 
     created_tags = []
     for component, version, tag_name in tags_to_create:
-        if create_and_push_tag(component, version, dry_run):
+        if create_and_push_tag(component, version):
             created_tags.append((component, version, tag_name))
         else:
             error(f"Failed to create tag for {component} v{version}")
@@ -354,9 +302,7 @@ def publish_releases(repo_root: Path, dry_run: bool = False) -> bool:
     for component, version, tag_name in created_tags:
         # Determine if the component is the platform and if it should be marked as latest
         is_platform = component == "platform"
-        if not create_github_release(
-            component, version, tag_name, dry_run, set_as_latest=is_platform
-        ):
+        if not create_github_release(component, version, tag_name, set_as_latest=is_platform):
             warn(f"Failed to create GitHub release for {tag_name}")
             # Continue with other releases even if one fails
 

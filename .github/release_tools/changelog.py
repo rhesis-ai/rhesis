@@ -16,6 +16,9 @@ from .utils import call_gemini_api, info, success, warn
 # catches the 400 from an out-of-range value.
 GEMINI_MAX_OUTPUT_TOKENS = 8192
 
+# New entries go directly below this heading, newest first
+UNRELEASED_MARKER = "## [Unreleased]"
+
 
 def generate_changelog_with_llm(
     api_key: str,
@@ -99,6 +102,27 @@ def generate_fallback_changelog(version: str, commits: List[Dict[str, str]]) -> 
     return changelog
 
 
+def _insert_under_unreleased(changelog_path: Path, entry: str) -> None:
+    """Insert an entry directly below the [Unreleased] heading.
+
+    Does nothing if the heading is absent, which is how both callers have always
+    behaved -- they rewrite the file unchanged and still report success.
+    """
+    lines = changelog_path.read_text().split("\n")
+
+    new_lines = []
+    inserted = False
+
+    for line in lines:
+        new_lines.append(line)
+        if line.strip() == UNRELEASED_MARKER and not inserted:
+            new_lines.append("")
+            new_lines.extend(entry.split("\n"))
+            inserted = True
+
+    changelog_path.write_text("\n".join(new_lines))
+
+
 def update_component_changelog(
     component: str, new_version: str, changelog_content: str, repo_root: Path, dry_run: bool = False
 ) -> bool:
@@ -126,26 +150,12 @@ All notable changes to the {component} component will be documented in this file
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+{UNRELEASED_MARKER}
 
 """
         changelog_path.write_text(header)
 
-    # Insert new changelog entry after [Unreleased] section
-    content = changelog_path.read_text()
-    lines = content.split("\n")
-
-    new_lines = []
-    inserted = False
-
-    for line in lines:
-        new_lines.append(line)
-        if line.strip() == "## [Unreleased]" and not inserted:
-            new_lines.append("")
-            new_lines.extend(changelog_content.split("\n"))
-            inserted = True
-
-    changelog_path.write_text("\n".join(new_lines))
+    _insert_under_unreleased(changelog_path, changelog_content)
     success(f"Updated changelog: {COMPONENTS[component].changelog_path}")
     return True
 
@@ -203,7 +213,10 @@ This release includes the following component versions:
             elif commits:
                 # Fallback to first few commit messages
                 commit_msgs = [commit["message"].splitlines()[0] for commit in commits[:3]]
-                platform_entry += f"Key changes include: {', '.join(commit_msgs[:2])}{'...' if len(commits) > 2 else ''}.\n\n"
+                ellipsis = "..." if len(commits) > 2 else ""
+                platform_entry += (
+                    f"Key changes include: {', '.join(commit_msgs[:2])}{ellipsis}.\n\n"
+                )
             else:
                 platform_entry += "Initial release or no significant changes.\n\n"
 
@@ -218,20 +231,6 @@ This release includes the following component versions:
 
     platform_entry += "\n"
 
-    # Insert into changelog
-    content = changelog_path.read_text()
-    lines = content.split("\n")
-
-    new_lines = []
-    inserted = False
-
-    for line in lines:
-        new_lines.append(line)
-        if line.strip() == "## [Unreleased]" and not inserted:
-            new_lines.append("")
-            new_lines.extend(platform_entry.split("\n"))
-            inserted = True
-
-    changelog_path.write_text("\n".join(new_lines))
+    _insert_under_unreleased(changelog_path, platform_entry)
     success(f"Updated platform changelog: {PLATFORM_CHANGELOG}")
     return True

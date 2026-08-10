@@ -1,6 +1,6 @@
 # Releasing
 
-A Rhesis release is produced by three workflows in the repository's GitHub Actions tab, run in order, followed by a manual production deploy. Each one is triggered by hand — nothing starts a release automatically.
+A Rhesis release is produced by three workflows in the repository's GitHub Actions tab, run in order, followed by a manual merge and a manual production deploy. Each one is triggered by hand — nothing starts a release automatically.
 
 Components are versioned independently and tagged `<component>-v<version>`. The platform is the coordinated snapshot across them, tagged `v<version>` and marked as the latest GitHub release.
 
@@ -31,12 +31,18 @@ Check the generated changelogs and the version changes in the pull request, and 
 
 Switch to the release branch and run `[Release] 3. Publish` from it.
 
-The workflow creates and pushes the tags, creates a GitHub release for each component, and merges the release pull request into `main`.
+The workflow creates and pushes the tags and creates a GitHub release for each component. It does not merge the pull request.
 
 <Callout type="error">
   Run this workflow **on the release branch**. A run started from `main` is skipped by a branch
   guard and still reports success, so a release can look published when no tags were created.
 </Callout>
+
+### Merge the release pull request
+
+Merge the pull request opened in step 2, so the version bumps and changelogs land on `main`.
+
+Merge after publishing, not before: the tags are cut from the release branch, and merging can delete it.
 
 ### Deploy production
 
@@ -54,4 +60,3 @@ Publishing sets off several workflows that run independently of each other, so `
 - **GitHub releases** — created from the changelog entries, with the platform release marked as latest.
 - **PyPI** — `rhesis` and `rhesis-sdk` published. This is triggered by the `sdk-v*` tag, not by the publish workflow.
 - **GHCR images** — built from the `v*` platform tag.
-- **Release pull request** — merged into `main`.

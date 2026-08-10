@@ -10,7 +10,7 @@ from pathlib import Path
 
 from .processor import ReleaseProcessor
 from .publish import publish_releases
-from .utils import error
+from .utils import error, find_repository_root
 
 
 def create_argument_parser() -> argparse.ArgumentParser:
@@ -95,20 +95,6 @@ def parse_component_arguments(remaining_args: list) -> dict:
             return {}
 
     return component_bumps
-
-
-def find_repository_root() -> Path:
-    """Find the repository root directory"""
-    repo_root = Path.cwd()
-    while repo_root != repo_root.parent:
-        if (repo_root / ".git").exists():
-            break
-        repo_root = repo_root.parent
-    else:
-        error("Not in a git repository")
-        sys.exit(1)
-
-    return repo_root
 
 
 def main():
