@@ -269,6 +269,7 @@ infrastructure/scripts/trigger-infrastructure.sh
 # Service secrets configuration
 infrastructure/scripts/service-secrets-config.sh
 infrastructure/config/service-secrets-file.json
+infrastructure/config/gsm-secrets.json
 !infrastructure/scripts/service-secrets-config.sh.example
 !infrastructure/scripts/service-secrets-create.sh
 
