@@ -492,7 +492,7 @@ class TestAnnotationScoping:
         assert trace_item["test_run_id"] == str(test_run.id)
         assert trace_item["test_result_id"] == str(test_result.id)
 
-    def test_org_level_rows_without_a_project_are_visible(
+    def test_pre_project_scoping_rows_are_visible(
         self,
         authenticated_client: TestClient,
         test_db,
@@ -505,12 +505,13 @@ class TestAnnotationScoping:
     ):
         """Reviews on test results with a NULL project_id must still be listed.
 
-        A run whose test configuration carries no project produces test
-        results stamped with a NULL project_id. Those rows are org-level: the
-        ORM auto-filter and the ``project_isolation`` RLS policy both admit
-        them under any active project, and the test run page shows their
-        reviews. Strict ``project_id = :project_id`` here hid them, so the
-        architect reported "no annotations" on runs that visibly had them.
+        Migration a1b2c3d4e5f0 added ``project_id`` as a nullable column with
+        no backfill, so every test result predating project scoping carries a
+        NULL project_id — permanently. Those rows are org-level: the ORM
+        auto-filter and the ``project_isolation`` RLS policy both admit them
+        under any active project, which is why the test run page counts their
+        reviews. Strict ``project_id = :project_id`` here hid them, emptying
+        the annotations list for every historical run.
 
         Traces need no equivalent case — ``trace.project_id`` is NOT NULL.
         """
