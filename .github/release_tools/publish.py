@@ -6,27 +6,12 @@ Handles tag creation, pushing tags, and creating GitHub releases.
 import os
 import re
 import subprocess
-import sys
 from pathlib import Path
 from typing import Dict, List, Optional
 
 from .config import COMPONENTS, format_component_name
-from .utils import error, info, log, success, warn
+from .utils import error, find_repository_root, info, log, success, warn
 from .version import get_current_version
-
-
-def find_repository_root() -> Path:
-    """Find the repository root directory"""
-    repo_root = Path.cwd()
-    while repo_root != repo_root.parent:
-        if (repo_root / ".git").exists():
-            break
-        repo_root = repo_root.parent
-    else:
-        error("Not in a git repository")
-        sys.exit(1)
-
-    return repo_root
 
 
 def get_current_branch() -> Optional[str]:

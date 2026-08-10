@@ -4,6 +4,7 @@ Utilities for the Rhesis release tool including logging, colors, and prerequisit
 
 import json
 import subprocess
+import sys
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -39,6 +40,20 @@ def success(message: str) -> None:
 
 def info(message: str) -> None:
     print(f"{Colors.CYAN}[INFO]{Colors.NC} {message}")
+
+
+def find_repository_root() -> Path:
+    """Find the repository root directory"""
+    repo_root = Path.cwd()
+    while repo_root != repo_root.parent:
+        if (repo_root / ".git").exists():
+            break
+        repo_root = repo_root.parent
+    else:
+        error("Not in a git repository")
+        sys.exit(1)
+
+    return repo_root
 
 
 def command_exists(command: str) -> bool:
