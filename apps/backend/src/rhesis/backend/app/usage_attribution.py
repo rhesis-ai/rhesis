@@ -129,6 +129,16 @@ def with_usage_attribution(fn: Callable[..., T]) -> Callable[..., T]:
 
     Copies the whole context, not just this module's var, so anything else
     ambient the caller had set survives the hop too.
+
+    Captures the context at the point this is *called*, not at the point the
+    returned wrapper eventually runs. Call it right where you submit the
+    work, inside the ``with usage_attribution(...):`` block -- every current
+    call site does exactly this (see the ``executor.submit(with_usage_attribution(fn), ...)``
+    shape in ``metrics/strategies/local.py``). Wrapping a function once ahead
+    of time and reusing the wrapper for work submitted later, or from outside
+    the bound scope, will freeze in whatever org was ambient at wrap time --
+    see ``test_wrapper_captures_at_wrap_time_not_call_time`` in
+    ``tests/backend/app/test_usage_attribution.py``.
     """
     ctx = contextvars.copy_context()
 
