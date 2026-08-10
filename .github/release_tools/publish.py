@@ -7,7 +7,7 @@ import os
 import re
 import subprocess
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from .config import COMPONENTS, format_component_name
 from .utils import error, find_repository_root, info, log, success, warn
@@ -183,55 +183,27 @@ def create_github_release(
         return False
 
 
-def confirm_publish_action(components_to_publish: Dict[str, str], remote_tags: List[str]) -> bool:
-    """Ask user for confirmation before publishing"""
+def confirm_publish_action(tags_to_create: List[Tuple[str, str, str]]) -> bool:
+    """Show the already-planned actions and ask the user for confirmation"""
     print()
     warn("⚠️  PUBLISH MODE - This will create tags and GitHub releases!")
     print()
 
     info("The following actions will be performed:")
 
-    # Separate platform from other components for proper display ordering
-    platform_actions = []
-    other_actions = []
-
-    for component, version in components_to_publish.items():
-        tag_name = generate_tag_name(component, version)
-        if tag_name not in remote_tags:
-            action_info = [f"Create and push tag: {tag_name}"]
-            if component == "platform":
-                action_info.append(f"Create GitHub release: {tag_name} (marked as latest)")
-                platform_actions.extend([f"  • {action}" for action in action_info])
-            else:
-                action_info.append(f"Create GitHub release: {tag_name}")
-                other_actions.extend([f"  • {action}" for action in action_info])
-        else:
-            info(f"  • Skip {tag_name} (already exists)")
-
-    # Display other components first, then platform
-    for action in other_actions:
-        info(action)
-
-    if platform_actions:
-        if other_actions:
+    for index, (component, _version, tag_name) in enumerate(tags_to_create):
+        # The caller orders the platform last; mark where it starts
+        if component == "platform" and index > 0:
             info("  • --- Platform release (created last) ---")
-        for action in platform_actions:
-            info(action)
-
-    tags_to_create = (
-        len(other_actions) // 2 + len(platform_actions) // 2
-    )  # Each component has 2 actions
-    if tags_to_create == 0:
-        warn("No new tags to create. All component versions already have tags.")
-        return False
+        info(f"  • Create and push tag: {tag_name}")
+        latest_note = " (marked as latest)" if component == "platform" else ""
+        info(f"  • Create GitHub release: {tag_name}{latest_note}")
 
     print()
     if os.environ.get("GITHUB_ACTIONS") == "true":
         info("Publishing in GitHub Actions - skipping confirmation")
         return True
-    else:
-        response = input("Do you want to proceed with publishing? (y/N): ").strip().lower()
-        return response == "y"
+    return input("Do you want to proceed with publishing? (y/N): ").strip().lower() == "y"
 
 
 def publish_releases(repo_root: Path, dry_run: bool = False) -> bool:
@@ -312,7 +284,7 @@ def publish_releases(repo_root: Path, dry_run: bool = False) -> bool:
         return True
 
     # Ask for confirmation
-    if not confirm_publish_action(components_version, remote_tags):
+    if not confirm_publish_action(tags_to_create):
         info("Publish cancelled by user")
         return False
 
