@@ -17,9 +17,14 @@ from .utils import call_gemini_api, info, success, warn
 GEMINI_MAX_OUTPUT_TOKENS = 8192
 
 
-def generate_changelog_with_llm(api_key: str, component: str, version: str,
-                               commits: List[Dict[str, str]], last_tag: Optional[str],
-                               max_tokens: Optional[int] = None) -> Optional[str]:
+def generate_changelog_with_llm(
+    api_key: str,
+    component: str,
+    version: str,
+    commits: List[Dict[str, str]],
+    last_tag: Optional[str],
+    max_tokens: Optional[int] = None,
+) -> Optional[str]:
     """Generate changelog using Gemini API"""
     if not api_key:
         warn(f"No Gemini API key available. Skipping LLM changelog generation for {component}")
@@ -31,14 +36,13 @@ def generate_changelog_with_llm(api_key: str, component: str, version: str,
         # broken markdown that still got committed to the changelog.
         max_tokens = min(max(4096, 256 * len(commits)), GEMINI_MAX_OUTPUT_TOKENS)
 
-    commits_text = "\n".join([
-        f"- {commit['message']} ({commit['hash'][:8]}, {commit['author']})"
-        for commit in commits
-    ])
+    commits_text = "\n".join(
+        [f"- {commit['message']} ({commit['hash'][:8]}, {commit['author']})" for commit in commits]
+    )
 
     prompt = f"""Generate a professional changelog entry for version {version} of the {format_component_name(component)} component in a software project.
 
-Based on these commits since the last release{f' ({last_tag})' if last_tag else ''}:
+Based on these commits since the last release{f" ({last_tag})" if last_tag else ""}:
 
 {commits_text}
 
@@ -51,20 +55,24 @@ Return ONLY the changelog content without any additional text or explanations.""
     return call_gemini_api(api_key, prompt, max_tokens=max_tokens)
 
 
-def generate_component_summary_with_llm(api_key: str, component: str, version: str,
-                                       commits: List[Dict[str, str]], last_tag: Optional[str]) -> Optional[str]:
+def generate_component_summary_with_llm(
+    api_key: str,
+    component: str,
+    version: str,
+    commits: List[Dict[str, str]],
+    last_tag: Optional[str],
+) -> Optional[str]:
     """Generate a brief component summary for platform changelog using Gemini API"""
     if not api_key:
         return None
 
-    commits_text = "\n".join([
-        f"- {commit['message']} ({commit['hash'][:8]}, {commit['author']})"
-        for commit in commits
-    ])
+    commits_text = "\n".join(
+        [f"- {commit['message']} ({commit['hash'][:8]}, {commit['author']})" for commit in commits]
+    )
 
     prompt = f"""Generate a brief bullet point summary of changes for version {version} of the {format_component_name(component)} component.
 
-Based on these commits since the last release{f' ({last_tag})' if last_tag else ''}:
+Based on these commits since the last release{f" ({last_tag})" if last_tag else ""}:
 
 {commits_text}
 
@@ -91,8 +99,9 @@ def generate_fallback_changelog(version: str, commits: List[Dict[str, str]]) -> 
     return changelog
 
 
-def update_component_changelog(component: str, new_version: str, changelog_content: str,
-                             repo_root: Path, dry_run: bool = False) -> bool:
+def update_component_changelog(
+    component: str, new_version: str, changelog_content: str, repo_root: Path, dry_run: bool = False
+) -> bool:
     """Update component changelog"""
     if component not in COMPONENTS:
         warn(f"No changelog path defined for component: {component}")
@@ -103,7 +112,7 @@ def update_component_changelog(component: str, new_version: str, changelog_conte
     if dry_run:
         info(f"Would update changelog: {COMPONENTS[component].changelog_path}")
         info("New content:")
-        print("\n".join(changelog_content.split('\n')[:10]))
+        print("\n".join(changelog_content.split("\n")[:10]))
         return True
 
     # Create changelog if it doesn't exist
@@ -124,7 +133,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
     # Insert new changelog entry after [Unreleased] section
     content = changelog_path.read_text()
-    lines = content.split('\n')
+    lines = content.split("\n")
 
     new_lines = []
     inserted = False
@@ -133,16 +142,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
         new_lines.append(line)
         if line.strip() == "## [Unreleased]" and not inserted:
             new_lines.append("")
-            new_lines.extend(changelog_content.split('\n'))
+            new_lines.extend(changelog_content.split("\n"))
             inserted = True
 
-    changelog_path.write_text('\n'.join(new_lines))
+    changelog_path.write_text("\n".join(new_lines))
     success(f"Updated changelog: {COMPONENTS[component].changelog_path}")
     return True
 
 
-def update_platform_changelog(component_versions: Dict[str, str], new_version: str,
-                            api_key: str, repo_root: Path, dry_run: bool = False) -> bool:
+def update_platform_changelog(
+    component_versions: Dict[str, str],
+    new_version: str,
+    api_key: str,
+    repo_root: Path,
+    dry_run: bool = False,
+) -> bool:
     """Update platform changelog"""
     if dry_run:
         info(f"Would update platform changelog: {PLATFORM_CHANGELOG}")
@@ -188,7 +202,7 @@ This release includes the following component versions:
                 platform_entry += f"{summary}\n\n"
             elif commits:
                 # Fallback to first few commit messages
-                commit_msgs = [commit['message'].splitlines()[0] for commit in commits[:3]]
+                commit_msgs = [commit["message"].splitlines()[0] for commit in commits[:3]]
                 platform_entry += f"Key changes include: {', '.join(commit_msgs[:2])}{'...' if len(commits) > 2 else ''}.\n\n"
             else:
                 platform_entry += "Initial release or no significant changes.\n\n"
@@ -198,13 +212,15 @@ This release includes the following component versions:
     for component in component_versions:
         if component != "platform" and component in COMPONENTS:
             changelog_path_rel = COMPONENTS[component].changelog_path
-            platform_entry += f"- [{format_component_name(component)} Changelog]({changelog_path_rel})\n"
+            platform_entry += (
+                f"- [{format_component_name(component)} Changelog]({changelog_path_rel})\n"
+            )
 
     platform_entry += "\n"
 
     # Insert into changelog
     content = changelog_path.read_text()
-    lines = content.split('\n')
+    lines = content.split("\n")
 
     new_lines = []
     inserted = False
@@ -213,9 +229,9 @@ This release includes the following component versions:
         new_lines.append(line)
         if line.strip() == "## [Unreleased]" and not inserted:
             new_lines.append("")
-            new_lines.extend(platform_entry.split('\n'))
+            new_lines.extend(platform_entry.split("\n"))
             inserted = True
 
-    changelog_path.write_text('\n'.join(new_lines))
+    changelog_path.write_text("\n".join(new_lines))
     success(f"Updated platform changelog: {PLATFORM_CHANGELOG}")
     return True
