@@ -83,14 +83,10 @@ function isValidMetricType(
 
 // Read off the metric rather than a separately-fetched requirements list: while
 // such a fetch is in flight every metric looks unassigned, which blanks the
-// badges and offers delete on metrics that are in use. The string branch
-// covers the interface's legacy UUID form.
+// badges and offers delete on metrics that are in use.
 function getAssignedRequirementNames(metric: MetricDetail): string[] {
-  if (!Array.isArray(metric.requirements)) return [];
-  return metric.requirements
-    .map(requirement =>
-      typeof requirement === 'string' ? '' : (requirement.name ?? '')
-    )
+  return (metric.requirements ?? [])
+    .map(requirement => requirement.name ?? '')
     .filter(name => name.trim() !== '');
 }
 
@@ -162,49 +158,32 @@ export default function MetricsDirectoryTab({
     filters.backend.length === 0 &&
     activeAdvancedFilterCount === 0;
 
-  // Function to assign a metric to a requirement
   const handleAssignMetricToRequirement = async (
     requirementId: string,
-    metricId: string
+    metricId: string,
+    requirementName: string
   ) => {
     try {
       const metricClient = new MetricsClient();
 
-      // Assign metric to requirement
       await metricClient.addRequirementToMetric(
         metricId as UUID,
         requirementId as UUID
       );
 
-      // Update local state optimistically - add requirement to metric's requirements list
       setMetrics(prevMetrics =>
         prevMetrics.map(metric => {
-          if (metric.id === metricId) {
-            const currentRequirements = Array.isArray(metric.requirements)
-              ? metric.requirements
-              : [];
-            // Add requirement ID if not already present
-            const requirementIds = currentRequirements.map(b =>
-              typeof b === 'string' ? b : b.id
-            );
-            if (!requirementIds.includes(requirementId)) {
-              // Maintain consistent type - if current requirements are strings, add string; if objects, add object
-              const isStringArray =
-                currentRequirements.length === 0 ||
-                typeof currentRequirements[0] === 'string';
-              const newRequirement = isStringArray
-                ? requirementId
-                : { id: requirementId as UUID, name: '', description: '' };
-              return {
-                ...metric,
-                requirements: [
-                  ...currentRequirements,
-                  newRequirement,
-                ] as MetricDetail['requirements'],
-              };
-            }
-          }
-          return metric;
+          if (metric.id !== metricId) return metric;
+          const currentRequirements = metric.requirements ?? [];
+          if (currentRequirements.some(r => r.id === requirementId))
+            return metric;
+          return {
+            ...metric,
+            requirements: [
+              ...currentRequirements,
+              { id: requirementId as UUID, name: requirementName },
+            ],
+          };
         })
       );
 
@@ -220,11 +199,15 @@ export default function MetricsDirectoryTab({
     }
   };
 
-  const handleAssignMetric = (requirementId: UUID) => {
+  const handleAssignMetric = (
+    requirementId: UUID,
+    requirementName: string
+  ) => {
     if (selectedMetric) {
       handleAssignMetricToRequirement(
         requirementId as string,
-        selectedMetric.id
+        selectedMetric.id,
+        requirementName
       );
     }
     setAssignDialogOpen(false);
@@ -530,11 +513,9 @@ export default function MetricsDirectoryTab({
               setSelectedMetric(null);
             }}
             onSelect={handleAssignMetric}
-            excludeRequirementIds={(selectedMetric?.requirements || [])
-              .filter(b => typeof b !== 'string' && b.id)
-              .map(b =>
-                typeof b !== 'string' ? b.id : (b as unknown as UUID)
-              )}
+            excludeRequirementIds={(selectedMetric?.requirements ?? []).map(
+              r => r.id
+            )}
           />
         </>
       )}

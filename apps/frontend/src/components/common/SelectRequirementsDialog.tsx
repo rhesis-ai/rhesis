@@ -25,7 +25,7 @@ import type { UUID } from 'crypto';
 interface SelectRequirementsDialogProps {
   open: boolean;
   onClose: () => void;
-  onSelect: (requirementId: UUID) => void;
+  onSelect: (requirementId: UUID, requirementName: string) => void;
   excludeRequirementIds?: UUID[];
 }
 
@@ -100,7 +100,8 @@ export default function SelectRequirementsDialog({
   }, [searchQuery, requirements]);
 
   const handleSelect = (requirementId: UUID) => {
-    onSelect(requirementId);
+    const selected = requirements.find(r => r.id === requirementId);
+    onSelect(requirementId, selected?.name ?? '');
     onClose();
   };
 

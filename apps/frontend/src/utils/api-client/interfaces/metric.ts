@@ -104,8 +104,8 @@ export interface RequirementReference {
 }
 
 export interface MetricDetail extends Metric {
-  requirements?: RequirementReference[] | string[]; // Allow both reference objects and UUID strings
-  model?: Model; // Include the full model object when available
+  requirements?: RequirementReference[];
+  model?: Model;
 }
 
 export interface MetricQueryParams extends PaginationParams {
