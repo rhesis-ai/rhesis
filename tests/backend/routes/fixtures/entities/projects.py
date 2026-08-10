@@ -29,7 +29,7 @@ def db_project(
     This fixture creates an actual Project record in the database that can be
     used for foreign key relationships in tests.  It also enrolls the session
     user (``authenticated_user_id``) as a project member so that
-    ``crud.get_project`` — which enforces project_membership presence — returns
+    ``crud.project.get_project`` — which enforces project_membership presence — returns
     the row rather than None when the authenticated client accesses it.
 
     Args:
@@ -56,7 +56,7 @@ def db_project(
     test_db.add(project)
     test_db.flush()
 
-    # Enroll the session user so crud.get_project sees a membership row.
+    # Enroll the session user so crud.project.get_project sees a membership row.
     membership = ProjectMembership(
         project_id=project.id,
         user_id=authenticated_user_id,

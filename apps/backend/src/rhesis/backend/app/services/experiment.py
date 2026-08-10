@@ -32,6 +32,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.orm.exc import DetachedInstanceError
 
 from rhesis.backend.app import crud, models
+from rhesis.backend.app.crud.project import get_project
 from rhesis.backend.app.models.experiment import Experiment
 from rhesis.backend.app.models.project import Project
 from rhesis.backend.app.schemas.parameters import (
@@ -704,7 +705,7 @@ def apply_parameter_snapshot_to_run_attributes(
     if endpoint is None or endpoint.project_id is None:
         raise ValueError("Cannot resolve parameters: endpoint or project missing")
 
-    project = crud.get_project(
+    project = get_project(
         db,
         project_id=endpoint.project_id,
         organization_id=organization_id,
