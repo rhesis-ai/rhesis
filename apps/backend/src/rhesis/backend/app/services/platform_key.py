@@ -217,6 +217,17 @@ def clear_platform_api_key(db: Session, organization_id) -> dict:
     org.rhesis_key_valid = None
     org.rhesis_key_polyphemus_authorized = None
     org.rhesis_key_last_checked_at = None
+
+    # If an env-var fallback key exists, validate it so the cached validation
+    # reflects the actual key's validity (otherwise None fails open and models
+    # that should be greyed stay available).
+    fallback = get_rhesis_settings().api_key
+    if fallback:
+        validation = validate_platform_key(fallback)
+        org.rhesis_key_valid = validation["valid"]
+        org.rhesis_key_polyphemus_authorized = validation["polyphemus_authorized"]
+        org.rhesis_key_last_checked_at = datetime.now(timezone.utc)
+
     db.commit()
     return _status_from_org(org)
 
@@ -322,9 +333,20 @@ def _status_from_org(org: Organization | None) -> dict:
     without a redundant re-fetch.
     """
     resolved = _resolve_key(org)
+    stored = org.rhesis_api_key if org else None
     last_checked = org.rhesis_key_last_checked_at if org else None
+    # Distinguishes a removable org key from the deployment's RHESIS_API_KEY,
+    # which DELETE cannot touch -- the UI needs this to avoid offering a
+    # "remove" that would silently do nothing.
+    if stored:
+        source = "organization"
+    elif resolved:
+        source = "environment"
+    else:
+        source = None
     return {
         "configured": bool(resolved),
+        "source": source,
         "valid": org.rhesis_key_valid if org else None,
         "polyphemus_authorized": org.rhesis_key_polyphemus_authorized if org else None,
         "masked_key": _mask_key(resolved) if resolved else None,
