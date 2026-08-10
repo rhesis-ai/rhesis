@@ -35,7 +35,7 @@ def _project_scope(test_db, organization_id, user_id, project_id):
     test_db.info["_scope"] = RequestScope(
         organization_id=str(organization_id),
         user_id=str(user_id),
-        project_id=str(project_id),
+        project_id=str(project_id) if project_id else None,
     )
     try:
         yield
@@ -491,6 +491,71 @@ class TestAnnotationScoping:
         trace_item = by_id[trace_review["review_id"]]
         assert trace_item["test_run_id"] == str(test_run.id)
         assert trace_item["test_result_id"] == str(test_result.id)
+
+    def test_org_level_rows_without_a_project_are_visible(
+        self,
+        authenticated_client: TestClient,
+        test_db,
+        test_organization,
+        test_type_lookup,
+        db_user,
+        authenticated_user,
+        db_project,
+        db_endpoint,
+    ):
+        """Reviews on test results with a NULL project_id must still be listed.
+
+        A run whose test configuration carries no project produces test
+        results stamped with a NULL project_id. Those rows are org-level: the
+        ORM auto-filter and the ``project_isolation`` RLS policy both admit
+        them under any active project, and the test run page shows their
+        reviews. Strict ``project_id = :project_id`` here hid them, so the
+        architect reported "no annotations" on runs that visibly had them.
+
+        Traces need no equivalent case — ``trace.project_id`` is NOT NULL.
+        """
+        pass_status, _ = _ensure_pass_fail_statuses(
+            test_db, test_organization, test_type_lookup, db_user
+        )
+        review = _review_payload(pass_status.id, authenticated_user.id)
+        review["comments"] = "null-project-result"
+
+        # No ambient project → auto-stamp leaves project_id NULL.
+        with _project_scope(test_db, test_organization.id, authenticated_user.id, None):
+            test_config = TestConfiguration(
+                endpoint_id=db_endpoint.id,
+                organization_id=test_organization.id,
+                user_id=authenticated_user.id,
+            )
+            test_db.add(test_config)
+            test_db.flush()
+            test_run = TestRun(
+                test_configuration_id=test_config.id,
+                organization_id=test_organization.id,
+                user_id=authenticated_user.id,
+            )
+            test_db.add(test_run)
+            test_db.flush()
+            test_result = TestResult(
+                organization_id=test_organization.id,
+                user_id=authenticated_user.id,
+                test_configuration_id=test_config.id,
+                test_run_id=test_run.id,
+                test_reviews={"metadata": {"total_reviews": 1}, "reviews": [review]},
+            )
+            test_db.add(test_result)
+            test_db.commit()
+            test_db.refresh(test_result)
+
+        assert test_result.project_id is None
+
+        with _project_scope(test_db, test_organization.id, authenticated_user.id, db_project.id):
+            response = authenticated_client.get(f"/annotations/?test_run_id={test_run.id}")
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert {i["review_id"] for i in data} == {review["review_id"]}
+        assert data[0]["comments"] == "null-project-result"
 
     def test_operation_trace_annotation_has_null_run_and_result(
         self,
