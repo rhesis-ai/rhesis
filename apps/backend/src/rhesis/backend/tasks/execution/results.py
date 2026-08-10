@@ -8,12 +8,14 @@ from uuid import UUID
 
 from rhesis.backend.app.crud.test_run import get_test_run
 from rhesis.backend.app.database import get_db_with_tenant_variables
+from rhesis.backend.app.models.enums import NotificationEventType
 from rhesis.backend.celery.core import app
 from rhesis.backend.notifications.email.template_service import EmailTemplate
-from rhesis.backend.tasks.base import EmailEnabledTask, email_notification
+from rhesis.backend.tasks.base import EmailEnabledTask, email_notification, in_app_notification
 from rhesis.backend.tasks.execution.result_processor import TestRunProcessor
 
 
+@in_app_notification(NotificationEventType.TestRun.EXECUTION_COMPLETED)
 @email_notification(
     template=EmailTemplate.TEST_EXECUTION_SUMMARY,
     subject_template='Test Execution "{task_name}" {execution_status}',

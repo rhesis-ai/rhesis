@@ -45,6 +45,31 @@ def email_notification(template=None, subject_template=None):
     return decorator
 
 
+def in_app_notification(event_type):
+    """Decorator to enable an in-app notification for task completion.
+
+    Args:
+        event_type: NotificationEventType enum value identifying the
+            NOTIFICATION_CATALOG entry to render and publish.
+
+    Usage:
+        @in_app_notification(NotificationEventType.TestSet.GENERATION_COMPLETED)
+        @app.task(base=BaseTask, bind=True)
+        def my_task(self, ...):
+            ...
+
+    Unlike ``email_notification``, no matching base class is needed:
+    ``BaseTask.on_success``/``on_failure`` check for this attribute
+    unconditionally, so the decorator alone is enough to enable it.
+    """
+
+    def decorator(task_func):
+        task_func._notification_kind = event_type
+        return task_func
+
+    return decorator
+
+
 class BaseTask(Task):
     """Base task class with tenant context, logging, retry logic, and email notifications."""
 
@@ -201,6 +226,19 @@ class BaseTask(Task):
                     exception_type=type(e).__name__,
                 )
 
+        # Send in-app notification for successful completion if enabled
+        if getattr(self, "_notification_kind", None) is not None:
+            try:
+                self._send_task_completion_notification(retval, None)
+            except Exception as e:
+                # Never let notification failures break task completion
+                self.log_with_context(
+                    "error",
+                    "In-app notification failed in on_success",
+                    error=str(e),
+                    exception_type=type(e).__name__,
+                )
+
         return super().on_success(retval, task_id, args, kwargs)
 
     def on_failure(self, exc, task_id, args, kwargs, einfo):
@@ -243,6 +281,19 @@ class BaseTask(Task):
                     )
             else:
                 self.log_with_context("debug", "Email notification disabled for this task type")
+
+            # Send in-app notification for permanent failure if enabled
+            if getattr(self, "_notification_kind", None) is not None:
+                try:
+                    self._send_task_completion_notification(None, str(exc))
+                except Exception as notification_error:
+                    # Never let notification failures break task error handling
+                    self.log_with_context(
+                        "error",
+                        "In-app notification failed in on_failure",
+                        error=str(notification_error),
+                        exception_type=type(notification_error).__name__,
+                    )
         else:
             self.log_with_context(
                 "warning",
@@ -482,6 +533,43 @@ class BaseTask(Task):
         except Exception as e:
             logger.error(f"Failed to send email notification: {str(e)}")
             return False
+
+    def _send_task_completion_notification(
+        self, retval: Optional[dict], error: Optional[str]
+    ) -> None:
+        """Render and send the in-app notification configured via ``in_app_notification``.
+
+        Args:
+            retval: The task's return value on success, or None on failure.
+            error: The exception message on failure, or None on success.
+        """
+        from rhesis.backend.app.services.notification import NOTIFICATION_CATALOG, notify
+
+        event_type = self._notification_kind
+        organization_id, user_id, project_id = self.get_tenant_context()
+        if not user_id:
+            self.log_with_context(
+                "warning", "No user_id in tenant context, skipping in-app notification"
+            )
+            return
+
+        kind = NOTIFICATION_CATALOG[event_type]
+        # Normalized to a dict here so every render function can read keys off it
+        # directly. A task that returns None or a non-dict on success would
+        # otherwise raise inside the renderer, and on_success swallows that --
+        # losing the notification with only a log line.
+        result = retval if isinstance(retval, dict) else {}
+        rendered = kind.render(self, result, error)
+
+        with self.get_db_session() as db:
+            notify(
+                db,
+                event_type=event_type,
+                rendered=rendered,
+                user_id=user_id,
+                organization_id=organization_id,
+                project_id=project_id,
+            )
 
 
 class EmailEnabledTask(BaseTask):

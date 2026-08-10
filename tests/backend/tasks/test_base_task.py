@@ -16,7 +16,8 @@ from unittest.mock import Mock, patch
 import pytest
 from sqlalchemy.orm import Session
 
-from rhesis.backend.tasks.base import email_notification
+from rhesis.backend.app.models.enums import NotificationEventType
+from rhesis.backend.tasks.base import BaseTask, email_notification, in_app_notification
 
 
 class MockTask:
@@ -298,6 +299,122 @@ class TestEmailNotificationDecorator:
         assert getattr(generate_and_save_test_set, "send_email_notification_flag", False) is True
         assert getattr(collect_results, "send_email_notification_flag", False) is True
         assert getattr(email_notification_test, "send_email_notification_flag", False) is True
+
+
+class TestInAppNotificationDecorator:
+    """Test in_app_notification decorator"""
+
+    def test_decorator_sets_notification_kind(self):
+        @in_app_notification(NotificationEventType.TestSet.GENERATION_COMPLETED)
+        def mock_task_function(self):
+            return {"result": "success"}
+
+        assert (
+            mock_task_function._notification_kind
+            == NotificationEventType.TestSet.GENERATION_COMPLETED
+        )
+
+    def test_decorator_does_not_break_the_function(self):
+        @in_app_notification(NotificationEventType.TestRun.EXECUTION_COMPLETED)
+        def mock_task_function(self):
+            return {"result": "success"}
+
+        task = MockTask()
+        assert mock_task_function(task) == {"result": "success"}
+
+
+def _real_base_task(retries: int = 0) -> BaseTask:
+    """A BaseTask instance with a real (unbound) request context, to exercise
+    on_success/on_failure without a real Celery worker or DB.
+
+    ``Task.request`` is a read-only property backed by ``request_stack``
+    (``None`` until a task is bound to an app); ``push_request`` is Celery's
+    own supported way to populate it for a bare instance like this one.
+    """
+    from celery.utils.threads import LocalStack
+
+    task = BaseTask()
+    task.request_stack = LocalStack()
+    task.push_request(id="task-1", retries=retries, headers={}, kwargs={})
+    task.send_email_notification_flag = False
+    return task
+
+
+class TestOnSuccessInAppNotification:
+    """on_success calls _send_task_completion_notification iff _notification_kind is set."""
+
+    def test_calls_notification_when_kind_set(self):
+        task = _real_base_task()
+        task._notification_kind = NotificationEventType.TestSet.GENERATION_COMPLETED
+
+        with (
+            patch.object(task, "_send_task_completion_notification") as mock_notify,
+            patch.object(task, "_get_execution_time", return_value="1s"),
+            patch.object(task, "log_with_context"),
+        ):
+            task.on_success({"result": "ok"}, "task-1", [], {})
+
+        mock_notify.assert_called_once_with({"result": "ok"}, None)
+
+    def test_skips_notification_when_kind_not_set(self):
+        task = _real_base_task()
+
+        with (
+            patch.object(task, "_send_task_completion_notification") as mock_notify,
+            patch.object(task, "_get_execution_time", return_value="1s"),
+            patch.object(task, "log_with_context"),
+        ):
+            task.on_success({"result": "ok"}, "task-1", [], {})
+
+        mock_notify.assert_not_called()
+
+    def test_notification_failure_does_not_propagate(self):
+        task = _real_base_task()
+        task._notification_kind = NotificationEventType.TestSet.GENERATION_COMPLETED
+
+        with (
+            patch.object(
+                task,
+                "_send_task_completion_notification",
+                side_effect=RuntimeError("boom"),
+            ),
+            patch.object(task, "_get_execution_time", return_value="1s"),
+            patch.object(task, "log_with_context"),
+        ):
+            # Must not raise -- a notification failure must not fail the task.
+            task.on_success({"result": "ok"}, "task-1", [], {})
+
+
+class TestOnFailureInAppNotification:
+    """on_failure only notifies once a task has permanently failed, not on a retry."""
+
+    def test_does_not_notify_while_retrying(self):
+        task = _real_base_task(retries=0)
+        task._notification_kind = NotificationEventType.TestRun.EXECUTION_COMPLETED
+        task.max_retries = 3
+
+        with (
+            patch.object(task, "_send_task_completion_notification") as mock_notify,
+            patch.object(task, "_get_execution_time", return_value="1s"),
+            patch.object(task, "log_with_context"),
+        ):
+            task.on_failure(ValueError("boom"), "task-1", [], {}, None)
+
+        mock_notify.assert_not_called()
+
+    def test_notifies_on_permanent_failure(self):
+        task = _real_base_task(retries=3)
+        task._notification_kind = NotificationEventType.TestRun.EXECUTION_COMPLETED
+        task.max_retries = 3
+
+        with (
+            patch.object(task, "_send_task_completion_notification") as mock_notify,
+            patch.object(task, "_get_execution_time", return_value="1s"),
+            patch.object(task, "log_with_context"),
+        ):
+            task.on_failure(ValueError("boom"), "task-1", [], {}, None)
+
+        mock_notify.assert_called_once_with(None, "boom")
 
 
 class TestTaskValidation:

@@ -5,6 +5,7 @@ from rhesis.backend.app import crud
 from rhesis.backend.app.constants import TestSetType
 from rhesis.backend.app.crud import user as user_crud
 from rhesis.backend.app.database import get_db_with_tenant_variables
+from rhesis.backend.app.models.enums import NotificationEventType
 from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.app.quota import QuotaResource
 from rhesis.backend.app.schemas.services import GenerationConfig, SourceData
@@ -20,7 +21,12 @@ from rhesis.backend.app.utils.user_model_utils import (
 )
 from rhesis.backend.celery.core import app
 from rhesis.backend.notifications.email.template_service import EmailTemplate
-from rhesis.backend.tasks.base import BaseTask, EmailEnabledTask, email_notification
+from rhesis.backend.tasks.base import (
+    BaseTask,
+    EmailEnabledTask,
+    email_notification,
+    in_app_notification,
+)
 
 # SDK components (BaseLLM, ConfigSynthesizer, MultiTurnSynthesizer) are
 # imported lazily inside task functions to avoid pulling litellm → gRPC
@@ -401,6 +407,7 @@ def _mark_test_set_generation_failed(
         )
 
 
+@in_app_notification(NotificationEventType.TestSet.GENERATION_COMPLETED)
 @email_notification(
     template=EmailTemplate.TASK_COMPLETION,
     subject_template="Test Set Generation Complete: {task_name} - {status}",

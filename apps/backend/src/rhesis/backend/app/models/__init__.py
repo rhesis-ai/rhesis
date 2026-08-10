@@ -14,6 +14,7 @@ from .guid import GUID
 from .metric import Metric, behavior_metric_association
 from .mixins import ProjectMixin, TagsMixin
 from .model import Model
+from .notification import Notification
 from .organization import Organization
 
 # Import models with dependencies
@@ -62,6 +63,7 @@ __all__ = [
     "GUID",
     "Metric",
     "Model",
+    "Notification",
     "PromptTemplate",
     "Prompt",
     "TestConfiguration",
