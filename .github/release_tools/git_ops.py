@@ -124,13 +124,8 @@ def create_release_branch(
     component_bumps: Dict[str, str],
     get_version_func,
     dry_run: bool = False,
-    no_branch: bool = False,
 ) -> bool:
     """Create appropriate release branch based on components and versions"""
-    if no_branch:
-        info("Skipping branch creation (--no-branch specified)")
-        return True
-
     # Check if we're on main branch
     try:
         current_branch = subprocess.run(
