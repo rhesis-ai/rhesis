@@ -67,27 +67,36 @@ def filter_configs_by_scope(
     single-turn metrics run against multi-turn conversations, where they get
     ``context=[]`` and fail by construction, inflating the metric count and
     depressing the pass rate.
+
+    Logging follows filter_metrics_by_scope's convention: an explicitly-wrong
+    scope is routine (most behaviors mix Single-Turn and Multi-Turn metrics) and
+    logs at debug; no declared scope at all is worth surfacing at warning, since
+    the metric table's CHECK constraint makes that structurally impossible for a
+    real DB row — seeing it means a non-DB caller handed in an unscoped config.
     """
     wanted = getattr(scope, "value", scope)
 
-    kept, dropped = [], []
+    kept, wrong_scope, no_scope = [], [], []
     for mc in metric_configs:
         name = getattr(mc, "name", None) or getattr(mc, "class_name", "?")
         scopes = _scope_values(mc)
         if wanted in scopes:
             kept.append(mc)
+        elif scopes:
+            wrong_scope.append(f"{name}({scopes})")
         else:
-            dropped.append(f"{name}({scopes or 'no scope'})")
+            no_scope.append(str(name))
 
-    if dropped:
-        # debug, not info: this fires on every mixed-scope behavior, which in
-        # practice is most of them, not on a misconfiguration worth surfacing
-        # per test. filter_metrics_by_scope (the ORM-level sibling) follows the
-        # same convention — per-metric exclusion detail at debug, aggregate
-        # counts at info.
+    if wrong_scope:
         logger.debug(
-            f"Excluded {len(dropped)} metric(s) not scoped to {wanted} "
-            f"for test {test_id}: {', '.join(dropped)}"
+            f"Excluded {len(wrong_scope)} metric(s) not scoped to {wanted} "
+            f"for test {test_id}: {', '.join(wrong_scope)}"
+        )
+    if no_scope:
+        logger.warning(
+            f"Excluded {len(no_scope)} metric(s) with no declared metric_scope "
+            f"for test {test_id}: {', '.join(no_scope)}. This metric row should "
+            f"not exist — metric_scope is required and non-empty in the database."
         )
 
     return kept

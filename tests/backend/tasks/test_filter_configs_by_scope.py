@@ -72,6 +72,34 @@ class TestFilterConfigsByScope:
         assert filter_configs_by_scope(configs, MetricScope.MULTI_TURN, "t1") == []
         assert filter_configs_by_scope(configs, MetricScope.SINGLE_TURN, "t1") == []
 
+    def test_wrong_scope_logs_at_debug_not_info(self, caplog):
+        """Explicitly-out-of-scope is routine — most behaviors mix scopes."""
+        import logging
+
+        configs = [_Config("Faithfulness", ["Single-Turn"], "RagasFaithfulness")]
+
+        with caplog.at_level(logging.DEBUG, logger="rhesis.backend.tasks.execution.evaluation"):
+            filter_configs_by_scope(configs, MetricScope.MULTI_TURN, "t1")
+
+        levels = [r.levelname for r in caplog.records]
+        assert "DEBUG" in levels
+        assert "INFO" not in levels
+        assert "WARNING" not in levels
+
+    def test_no_declared_scope_logs_at_warning(self, caplog):
+        """No scope at all should not exist for a real DB row (CHECK constraint),
+        so seeing one is worth surfacing louder than the routine wrong-scope case."""
+        import logging
+
+        configs = [_Config("Unscoped", None, "SomeJudge")]
+
+        with caplog.at_level(logging.DEBUG, logger="rhesis.backend.tasks.execution.evaluation"):
+            filter_configs_by_scope(configs, MetricScope.MULTI_TURN, "t1")
+
+        levels = [r.levelname for r in caplog.records]
+        assert "WARNING" in levels
+        assert not any("Unscoped" in r.message and r.levelname == "DEBUG" for r in caplog.records)
+
     def test_accepts_metric_scope_enums_not_just_strings(self):
         configs = [_Config("Enum scoped", [MetricScope.MULTI_TURN])]
 
