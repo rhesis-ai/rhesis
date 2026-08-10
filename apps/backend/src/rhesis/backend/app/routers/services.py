@@ -228,10 +228,17 @@ def generate_embedding_endpoint(
     try:
         from rhesis.backend.app.utils.user_model_utils import get_user_embedding_model
         from rhesis.sdk.models.factory import get_model
+        from rhesis.sdk.models.providers.native import RhesisEmbedder
 
         embedder = get_user_embedding_model(db, current_user)
         if isinstance(embedder, str):
             embedder = get_model(embedder, model_type="embedding")
+        if isinstance(embedder, RhesisEmbedder):
+            raise ValueError(
+                "Embedding model resolved to the Rhesis native provider, which would call "
+                "this endpoint recursively. Set DEFAULT_EMBEDDING_MODEL to an actual "
+                "provider (e.g. vertex_ai/text-embedding-005)."
+            )
         embedding = embedder.generate(text=request.text)
         return embedding
     except Exception as e:
