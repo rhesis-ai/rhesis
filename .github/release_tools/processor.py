@@ -123,9 +123,7 @@ class ReleaseProcessor:
 
                 # Fall back to basic changelog if LLM failed
                 if not changelog_content:
-                    changelog_content = generate_fallback_changelog(
-                        new_version, commits
-                    )
+                    changelog_content = generate_fallback_changelog(new_version, commits)
 
                 # Update component changelog
                 if not update_component_changelog(

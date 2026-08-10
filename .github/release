@@ -18,5 +18,5 @@ sys.path.insert(0, str(github_dir))
 # Import and run the CLI
 from release_tools.cli import main
 
-if __name__ == '__main__':
-    main() 
+if __name__ == "__main__":
+    main()
