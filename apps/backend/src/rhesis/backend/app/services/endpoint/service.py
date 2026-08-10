@@ -8,7 +8,7 @@ from typing import Any, Dict, Optional
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud
+from rhesis.backend.app.crud.telemetry import update_conversation_id_for_trace
 from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.app.schemas.endpoint import EndpointTestRequest
 from rhesis.backend.app.services.invokers import create_invoker
@@ -368,7 +368,7 @@ class EndpointService:
         If the immediate UPDATE matches 0 rows (SDK spans not yet ingested),
         the mapping is parked for deferred application when spans arrive.
         """
-        updated_count = crud.update_conversation_id_for_trace(
+        updated_count = update_conversation_id_for_trace(
             db=db,
             trace_id=trace_id,
             conversation_id=conversation_id,

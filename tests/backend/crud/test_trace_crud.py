@@ -4,10 +4,14 @@ from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
 import pytest
-
-from rhesis.backend.app import crud, models
-from rhesis.backend.app.schemas.telemetry import OTELSpanCreate
 from rhesis.telemetry.schemas import SpanKind, StatusCode
+
+from rhesis.backend.app import models
+from rhesis.backend.app.crud.telemetry import (
+    create_trace_spans,
+    update_traces_with_test_result_id,
+)
+from rhesis.backend.app.schemas.telemetry import OTELSpanCreate
 
 
 class TestUpdateTracesWithTestResultId:
@@ -140,12 +144,12 @@ class TestUpdateTracesWithTestResultId:
             },
         )
 
-        stored_spans = crud.create_trace_spans(test_db, [span], str(test_org_id))
+        stored_spans = create_trace_spans(test_db, [span], str(test_org_id))
         assert len(stored_spans) == 1
         assert stored_spans[0].test_result_id is None
 
         # Update traces with test_result_id
-        updated_count = crud.update_traces_with_test_result_id(
+        updated_count = update_traces_with_test_result_id(
             test_db,
             test_run_id=str(test_run.id),
             test_id=str(test_entity.id),
@@ -189,11 +193,11 @@ class TestUpdateTracesWithTestResultId:
             },
         )
 
-        stored_spans = crud.create_trace_spans(test_db, [span], str(test_org_id))
+        stored_spans = create_trace_spans(test_db, [span], str(test_org_id))
         assert len(stored_spans) == 1
 
         # Update once
-        updated_count = crud.update_traces_with_test_result_id(
+        updated_count = update_traces_with_test_result_id(
             test_db,
             test_run_id=str(test_run.id),
             test_id=str(test_entity.id),
@@ -204,7 +208,7 @@ class TestUpdateTracesWithTestResultId:
         assert updated_count == 1
 
         # Update again
-        updated_count = crud.update_traces_with_test_result_id(
+        updated_count = update_traces_with_test_result_id(
             test_db,
             test_run_id=str(test_run.id),
             test_id=str(test_entity.id),
@@ -222,7 +226,7 @@ class TestUpdateTracesWithTestResultId:
 
     def test_update_traces_no_matches(self, test_db, test_org_id):
         """Test update with no matching traces."""
-        updated_count = crud.update_traces_with_test_result_id(
+        updated_count = update_traces_with_test_result_id(
             test_db,
             test_run_id=str(uuid4()),
             test_id=str(uuid4()),
@@ -265,7 +269,7 @@ class TestUpdateTracesWithTestResultId:
             for i in range(3)
         ]
 
-        stored_spans = crud.create_trace_spans(test_db, spans, str(test_org_id))
+        stored_spans = create_trace_spans(test_db, spans, str(test_org_id))
         assert len(stored_spans) == 3
 
         # Verify all have NULL test_result_id
@@ -273,7 +277,7 @@ class TestUpdateTracesWithTestResultId:
             assert span.test_result_id is None
 
         # Update all spans
-        updated_count = crud.update_traces_with_test_result_id(
+        updated_count = update_traces_with_test_result_id(
             test_db,
             test_run_id=str(test_run.id),
             test_id=str(test_entity.id),
@@ -344,7 +348,7 @@ class TestUpdateTracesWithTestResultId:
                 )
             )
 
-        stored_spans = crud.create_trace_spans(test_db, spans, str(test_org_id))
+        stored_spans = create_trace_spans(test_db, spans, str(test_org_id))
         assert len(stored_spans) == 3
 
         # Manually set test_result_id for first span (simulating it already being set)
@@ -353,7 +357,7 @@ class TestUpdateTracesWithTestResultId:
         test_db.refresh(stored_spans[0])
 
         # Update with different test_result_id
-        updated_count = crud.update_traces_with_test_result_id(
+        updated_count = update_traces_with_test_result_id(
             test_db,
             test_run_id=str(test_run.id),
             test_id=str(test_entity.id),
@@ -443,11 +447,11 @@ class TestUpdateTracesWithTestResultId:
             },
         )
 
-        stored_spans = crud.create_trace_spans(test_db, [span1, span2], str(test_org_id))
+        stored_spans = create_trace_spans(test_db, [span1, span2], str(test_org_id))
         assert len(stored_spans) == 2
 
         # Update only test_run_1
-        updated_count = crud.update_traces_with_test_result_id(
+        updated_count = update_traces_with_test_result_id(
             test_db,
             test_run_id=str(test_run_1.id),
             test_id=str(test_entity.id),

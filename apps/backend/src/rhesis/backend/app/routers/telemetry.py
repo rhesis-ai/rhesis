@@ -16,6 +16,13 @@ from rhesis.backend.app.auth.principal import resolve_principal_from_request
 from rhesis.backend.app.auth.rbac import project_id_from_scope
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.constants import EnrichedDataKeys, EntityType, TestResultStatus
+from rhesis.backend.app.crud.telemetry import (
+    create_trace_spans,
+    get_trace_by_db_id,
+    get_trace_by_id,
+    get_trace_metrics_aggregated,
+    query_traces,
+)
 from rhesis.backend.app.database import temporary_project_scope
 from rhesis.backend.app.dependencies import (
     assert_project_access,
@@ -149,7 +156,7 @@ def ingest_trace(
     _stage = "span_storage"
     try:
         with temporary_project_scope(db, organization_id, user_id or "", project_id):
-            stored_spans = crud.create_trace_spans(db, trace_batch.spans, organization_id)
+            stored_spans = create_trace_spans(db, trace_batch.spans, organization_id)
 
         if not stored_spans:
             logger.warning(f"No spans were stored for trace_id={trace_id}")
@@ -369,9 +376,9 @@ def list_traces(
         # rebind ORM auto-filter for this query so project-scoped rows are visible.
         if effective_project_id and effective_project_id != scope_project_id:
             with temporary_project_scope(db, organization_id, user_id, effective_project_id):
-                rows = crud.query_traces(**query_kwargs)
+                rows = query_traces(**query_kwargs)
         else:
-            rows = crud.query_traces(**query_kwargs)
+            rows = query_traces(**query_kwargs)
 
         total = rows[0].total if rows else 0
 
@@ -499,14 +506,14 @@ def lookup_span(
     for the full rationale.
     """
     organization_id, user_id = tenant_context
-    span = crud.get_trace_by_db_id(db, str(span_db_id), organization_id)
+    span = get_trace_by_db_id(db, str(span_db_id), organization_id)
 
     if not span:
         for candidate_project_id, _ in list_other_member_projects(
             db, organization_id, user_id, scope_project_id
         ):
             with temporary_project_scope(db, organization_id, user_id, candidate_project_id):
-                span = crud.get_trace_by_db_id(db, str(span_db_id), organization_id)
+                span = get_trace_by_db_id(db, str(span_db_id), organization_id)
             if span:
                 break
 
@@ -552,7 +559,7 @@ def get_trace(
     try:
         # Fetch all spans for trace with eager loading of relationships, including
         # the nested test_result.test_configuration.endpoint chain in the same query
-        spans = crud.get_trace_by_id(
+        spans = get_trace_by_id(
             db=db,
             trace_id=trace_id,
             project_id=project_id,
@@ -753,7 +760,7 @@ def get_metrics(
     organization_id, user_id = tenant_context
 
     try:
-        result = crud.get_trace_metrics_aggregated(
+        result = get_trace_metrics_aggregated(
             db=db,
             organization_id=organization_id,
             project_id=project_id,
@@ -812,9 +819,7 @@ def add_trace_review(
     """Add a new review to a trace span."""
     organization_id, user_id = tenant_context
 
-    db_trace = crud.get_trace_by_db_id(
-        db, trace_db_id=str(trace_db_id), organization_id=organization_id
-    )
+    db_trace = get_trace_by_db_id(db, trace_db_id=str(trace_db_id), organization_id=organization_id)
     if db_trace is None:
         raise HTTPException(status_code=404, detail="Trace not found")
 
@@ -884,9 +889,7 @@ def update_trace_review(
     """Update an existing trace review."""
     organization_id, user_id = tenant_context
 
-    db_trace = crud.get_trace_by_db_id(
-        db, trace_db_id=str(trace_db_id), organization_id=organization_id
-    )
+    db_trace = get_trace_by_db_id(db, trace_db_id=str(trace_db_id), organization_id=organization_id)
     if db_trace is None:
         raise HTTPException(status_code=404, detail="Trace not found")
 
@@ -980,9 +983,7 @@ def delete_trace_review(
     """Delete a review from a trace."""
     organization_id, user_id = tenant_context
 
-    db_trace = crud.get_trace_by_db_id(
-        db, trace_db_id=str(trace_db_id), organization_id=organization_id
-    )
+    db_trace = get_trace_by_db_id(db, trace_db_id=str(trace_db_id), organization_id=organization_id)
     if db_trace is None:
         raise HTTPException(status_code=404, detail="Trace not found")
 

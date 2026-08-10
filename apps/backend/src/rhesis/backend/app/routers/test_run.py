@@ -13,6 +13,7 @@ from rhesis.backend.app.auth.principal import resolve_principal_from_request
 from rhesis.backend.app.auth.rbac import authorize_object, project_id_from_scope
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.constants import EnrichedDataKeys
+from rhesis.backend.app.crud.telemetry import query_traces
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
@@ -658,7 +659,7 @@ def get_test_run_traces(
     project_id = str(db_test_run.test_configuration.endpoint.project_id)
 
     # Single DB query returns TraceRow(trace, span_count, total) per row
-    rows = crud.query_traces(
+    rows = query_traces(
         db=db,
         organization_id=organization_id,
         project_id=project_id,

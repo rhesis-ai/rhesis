@@ -13,8 +13,12 @@ from typing import Any, Dict, List, Optional
 from celery.exceptions import SoftTimeLimitExceeded
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models
+from rhesis.backend.app import models
 from rhesis.backend.app.constants import TestResultStatus
+from rhesis.backend.app.crud.telemetry import (
+    update_trace_conversation_metrics,
+    update_trace_turn_metrics,
+)
 from rhesis.backend.app.database import SessionLocal, bind_scope_to_session
 from rhesis.backend.app.schemas.metric import MetricScope
 from rhesis.backend.celery.core import app
@@ -303,7 +307,7 @@ def evaluate_turn_trace_metrics(
 
         status_id = _derive_status_id(db, organization_id, turn_metrics)
 
-        crud.update_trace_turn_metrics(
+        update_trace_turn_metrics(
             db=db,
             span_id=str(root_span.id),
             turn_metrics=turn_metrics,
@@ -421,7 +425,7 @@ def evaluate_conversation_trace_metrics(
             conversation_metrics,
         )
 
-        crud.update_trace_conversation_metrics(
+        update_trace_conversation_metrics(
             db=db,
             trace_id=trace_id,
             conversation_metrics=conversation_metrics,
