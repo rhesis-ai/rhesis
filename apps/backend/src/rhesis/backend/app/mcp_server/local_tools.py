@@ -134,6 +134,10 @@ class LocalToolProvider(MCPTool):
             body = {}
 
         try:
+            # ASGITransport runs the route on the caller's loop — for the
+            # architect that is the SDK background loop. Keep LLM-touching
+            # handlers sync `def` so FastAPI offloads them to its threadpool;
+            # an `async def` one reaching a run_sync bridge would deadlock it.
             transport = httpx.ASGITransport(app=self._app)
             async with httpx.AsyncClient(transport=transport, base_url="http://internal") as client:
                 response = await client.request(
