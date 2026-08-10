@@ -44,6 +44,13 @@ import { useSession } from 'next-auth/react';
 import RunDrawer from '@/components/common/RunDrawer';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { useNotifications } from '@/components/common/NotificationContext';
+// Renamed on import: distinct from the toast system's useNotifications above --
+// this one tracks the persistent "a background job finished" badge/highlight.
+import { useNotifications as useJobNotifications } from '@/contexts/NotificationsContext';
+import {
+  HIGHLIGHTED_ROW_CLASS,
+  NotificationSection,
+} from '@/constants/notifications';
 import { formatDate } from '@/utils/date';
 import TestSetFilterDrawer, {
   type TestSetFilters,
@@ -172,6 +179,8 @@ export default function TestSetsGrid({
   const router = useRouter();
   const { status } = useSession();
   const notifications = useNotifications();
+  const { highlightedIds, clearHighlight } = useJobNotifications();
+  const testSetHighlights = highlightedIds(NotificationSection.TEST_SETS);
   const canEditTestSet = useCan(Capability.TestSet.UPDATE);
   const canDeleteTestSet = useCan(Capability.TestSet.DELETE);
   const queryClient = useQueryClient();
@@ -289,9 +298,10 @@ export default function TestSetsGrid({
 
   const handleRowClick = useCallback(
     (params: GridRowParams) => {
+      clearHighlight(NotificationSection.TEST_SETS, String(params.id));
       router.push(`/test-sets/${params.id}`);
     },
-    [router]
+    [router, clearHighlight]
   );
 
   const handleSelectionChange = useCallback(
@@ -687,6 +697,11 @@ export default function TestSetsGrid({
             getRowId={row => row.id}
             showToolbar={true}
             onRowClick={handleRowClick}
+            getRowClassName={params =>
+              testSetHighlights.includes(String(params.id))
+                ? HIGHLIGHTED_ROW_CLASS
+                : ''
+            }
             getRowUrl={row => `/test-sets/${row.id}`}
             paginationModel={paginationModel}
             onPaginationModelChange={handlePaginationModelChange}

@@ -6,11 +6,17 @@ import { usePathname } from 'next/navigation';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Tooltip from '@mui/material/Tooltip';
+import Badge from '@mui/material/Badge';
 import { BORDER_RADIUS } from '@/styles/theme';
 import { type NavigationPageItem } from '@/types/navigation';
 import { useCan } from '@/components/common/Can';
 import { useAmbientPermissions } from '@/contexts/PermissionsContext';
+import { useNotifications } from '@/contexts/NotificationsContext';
+import { NotificationSection } from '@/constants/notifications';
 import { isActive, collapsedNavItemSx } from './sidebar-utils';
+
+const NOTIFICATION_SECTION_VALUES: string[] =
+  Object.values(NotificationSection);
 
 interface NavItemProps {
   item: NavigationPageItem;
@@ -26,6 +32,10 @@ export function NavItem({ item, collapsed, parentPath = '' }: NavItemProps) {
   const active = isActive(pathname, fullPath);
   const ambient = useAmbientPermissions();
   const singlePermitted = useCan(item.requiredPermission ?? '');
+  const { unreadBySection } = useNotifications();
+  const unread = NOTIFICATION_SECTION_VALUES.includes(item.segment)
+    ? (unreadBySection[item.segment as NotificationSection] ?? 0)
+    : 0;
 
   const requiredAnyOf = item.requiredAnyOf;
   const isGated = Boolean(requiredAnyOf?.length || item.requiredPermission);
@@ -86,7 +96,13 @@ export function NavItem({ item, collapsed, parentPath = '' }: NavItemProps) {
             '& svg': { width: 24, height: 24 },
           }}
         >
-          {item.icon}
+          {collapsed && unread > 0 ? (
+            <Badge badgeContent={unread} color="primary" max={99}>
+              {item.icon}
+            </Badge>
+          ) : (
+            item.icon
+          )}
         </Box>
       )}
       {!collapsed && (
@@ -108,6 +124,25 @@ export function NavItem({ item, collapsed, parentPath = '' }: NavItemProps) {
           >
             {item.title}
           </Typography>
+          {unread > 0 && (
+            <Box
+              sx={{
+                flexShrink: 0,
+                minWidth: 20,
+                height: 20,
+                px: '6px',
+                borderRadius: BORDER_RADIUS.sm,
+                bgcolor: active ? 'primary.contrastText' : 'primary.main',
+                color: active ? 'primary.main' : 'primary.contrastText',
+                fontSize: 12,
+                fontWeight: 600,
+                lineHeight: '20px',
+                textAlign: 'center',
+              }}
+            >
+              {unread > 99 ? '99+' : unread}
+            </Box>
+          )}
           {item.action && <Box sx={{ flexShrink: 0 }}>{item.action}</Box>}
         </>
       )}

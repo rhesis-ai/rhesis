@@ -37,6 +37,7 @@ import { ParametersClient } from './parameters-client';
 import { PreflightClient } from './preflight-client';
 import { ResolveClient } from './resolve-client';
 import { InsightsClient } from './insights-client';
+import { NotificationsClient } from './notifications-client';
 
 export class ApiClientFactory {
   private sessionToken?: string;
@@ -56,6 +57,7 @@ export class ApiClientFactory {
   private importClient: ImportClient | null = null;
   private filesClient: FilesClient | null = null;
   private featuresClient: FeaturesClient | null = null;
+  private notificationsClient: NotificationsClient | null = null;
   private usageClient: UsageClient | null = null;
   private permissionsClient: PermissionsClient | null = null;
   private architectClient: ArchitectClient | null = null;
@@ -323,6 +325,17 @@ export class ApiClientFactory {
       );
     }
     return this.featuresClient;
+  }
+
+  getNotificationsClient(): NotificationsClient {
+    if (!this.notificationsClient) {
+      this.notificationsClient = new NotificationsClient(
+        this.sessionToken,
+        undefined,
+        this.projectId
+      );
+    }
+    return this.notificationsClient;
   }
 
   getUsageClient(): UsageClient {

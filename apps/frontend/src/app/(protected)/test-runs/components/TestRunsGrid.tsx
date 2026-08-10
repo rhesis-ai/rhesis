@@ -42,6 +42,13 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import PersonIcon from '@mui/icons-material/Person';
 import RateReviewOutlinedIcon from '@mui/icons-material/RateReviewOutlined';
 import { useNotifications } from '@/components/common/NotificationContext';
+// Renamed on import: distinct from the toast system's useNotifications above --
+// this one tracks the persistent "a background job finished" badge/highlight.
+import { useNotifications as useJobNotifications } from '@/contexts/NotificationsContext';
+import {
+  HIGHLIGHTED_ROW_CLASS,
+  NotificationSection,
+} from '@/constants/notifications';
 import { TestRun, TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 import { can } from '@/utils/affordances';
 import { Capability } from '@/constants/capabilities';
@@ -159,6 +166,8 @@ function TestRunsGrid({ canCreate, onCreateClick }: TestRunsGridProps) {
   const queryClient = useQueryClient();
   const router = useRouter();
   const notifications = useNotifications();
+  const { highlightedIds, clearHighlight } = useJobNotifications();
+  const testRunHighlights = highlightedIds(NotificationSection.TEST_RUNS);
 
   // ── Search + status filter ─────────────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState('');
@@ -641,9 +650,10 @@ function TestRunsGrid({ canCreate, onCreateClick }: TestRunsGridProps) {
 
   const handleRowClick = useCallback(
     (params: { id: string | number }) => {
+      clearHighlight(NotificationSection.TEST_RUNS, String(params.id));
       router.push(`/test-runs/${params.id}`);
     },
-    [router]
+    [router, clearHighlight]
   );
 
   // ── Delete handlers ───────────────────────────────────────────────────────
@@ -799,6 +809,11 @@ function TestRunsGrid({ canCreate, onCreateClick }: TestRunsGridProps) {
             onSortModelChange={handleSortModelChange}
             serverSideFiltering={true}
             onRowClick={handleRowClick}
+            getRowClassName={params =>
+              testRunHighlights.includes(String(params.id))
+                ? HIGHLIGHTED_ROW_CLASS
+                : ''
+            }
             getRowUrl={row => `/test-runs/${row.id}`}
             serverSidePagination={true}
             totalRows={totalCount}

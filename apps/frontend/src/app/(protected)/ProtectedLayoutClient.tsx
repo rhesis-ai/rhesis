@@ -12,6 +12,7 @@ import { useActiveProject } from '@/contexts/ActiveProjectContext';
 import { AppShell } from '@/components/layout/AppShell';
 import { Sidebar } from '@/components/navigation/Sidebar';
 import { WebSocketProvider } from '@/contexts/WebSocketContext';
+import { NotificationsProvider } from '@/contexts/NotificationsContext';
 import NoProjectAccess from '@/components/common/NoProjectAccess';
 import TermsAcceptanceGate from '@/components/auth/TermsAcceptanceGate';
 import type { TermsStatus } from '@/utils/api-client/auth-client';
@@ -104,11 +105,13 @@ export function ProtectedLayoutClient({
       <FeaturesProvider initialFeatures={initialFeatures}>
         <PermissionsProvider initialPermissions={initialPermissions}>
           <WebSocketProvider>
-            {!isOnboarding && (
-              <TermsAcceptanceGate initialTermsStatus={initialTermsStatus} />
-            )}
-            {!isOnboarding && !chromeless && <VerificationBanner />}
-            {content}
+            <NotificationsProvider>
+              {!isOnboarding && (
+                <TermsAcceptanceGate initialTermsStatus={initialTermsStatus} />
+              )}
+              {!isOnboarding && !chromeless && <VerificationBanner />}
+              {content}
+            </NotificationsProvider>
           </WebSocketProvider>
         </PermissionsProvider>
       </FeaturesProvider>
