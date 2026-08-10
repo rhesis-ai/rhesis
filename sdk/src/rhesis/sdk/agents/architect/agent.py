@@ -85,6 +85,24 @@ def _unwrap_list_envelope(data: Any) -> Tuple[Optional[List[Any]], Dict[str, Any
     return None, {}
 
 
+def _trim_for_summary(value: Any, max_chars: int) -> Any:
+    """Drop empty values and clip long strings, recursively.
+
+    Keeps an unnamed record readable in a prompt without dumping the
+    whole payload.
+    """
+    if isinstance(value, str):
+        return value[:max_chars].rstrip() + "…" if len(value) > max_chars else value
+    if isinstance(value, dict):
+        trimmed = {
+            k: _trim_for_summary(v, max_chars) for k, v in value.items() if v not in (None, "", [])
+        }
+        return trimmed
+    if isinstance(value, list):
+        return [_trim_for_summary(v, max_chars) for v in value]
+    return value
+
+
 class ArchitectAgent(BaseAgent):
     """Conversational agent for designing and creating test suites.
 
@@ -1214,7 +1232,20 @@ class ArchitectAgent(BaseAgent):
 
         shown = data[:max_items]
         for item in shown:
-            name = item.get("name") or item.get("title") or "?"
+            name = item.get("name") or item.get("title")
+            if not name:
+                # Annotations, test results and anything else without a label
+                # would render as a bare "- ?", hiding every field from the
+                # LLM — which then invents the content. Keep the record.
+                # ensure_ascii=False so non-ASCII review text stays readable
+                # rather than arriving at the LLM as \uXXXX escapes.
+                compact_item = json.dumps(
+                    _trim_for_summary(item, desc_chars),
+                    default=str,
+                    ensure_ascii=False,
+                )
+                lines.append(f"  - {compact_item}")
+                continue
             eid = item.get("id", "")
             desc = item.get("description") or item.get("summary") or ""
             if isinstance(desc, str) and len(desc) > desc_chars:
@@ -1606,7 +1637,13 @@ class ArchitectAgent(BaseAgent):
             compact = self._compact_list_result_for_history(tr.content)
             if compact is not None:
                 return f"{prefix}:\n{compact}"
-            return f"{prefix}: {tr.content[:preview]}"
+            if len(tr.content) > preview:
+                # Say so — an unmarked cut reads as a complete record and the
+                # LLM fills in the missing half itself.
+                return (
+                    f"{prefix}: {tr.content[:preview]}… [truncated, {len(tr.content)} chars total]"
+                )
+            return f"{prefix}: {tr.content}"
         if tr.error:
             return f"{prefix} Error: {tr.error}"
         return None
