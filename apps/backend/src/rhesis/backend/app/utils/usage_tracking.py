@@ -22,11 +22,24 @@ also pay us; the deployment's default model runs on our credentials and
 must. Same class, opposite answer, decided by how the model was selected.
 
 ``None`` -- nobody stamped it -- means the model was built outside the
-resolution layer, i.e. from a bare ``get_model("provider/name")``. Those are
-deployment defaults running on our credentials, so the safe default is to
-bill them, and to say so loudly (:func:`_warn_unstamped`) so the call site
-gets routed through the resolution layer. The reverse default would restore
-the exact silent-undercount bug this module exists to kill.
+resolution layer, i.e. from a bare ``get_model("provider/name")``.
+``tests/backend/app/test_language_model_construction_boundary.py`` makes that
+unreachable from anywhere in ``apps/backend/src``: every language-model
+construction site there either goes through
+``user_model_utils.ensure_language_model`` (which stamps) or is on that
+test's allowlist for a documented reason.
+
+What the guard test *cannot* reach is Penelope, a separate package: if its
+own model-resolution chain has already failed catastrophically upstream (not
+just "the org has no configured model" -- that path is stamped before it
+gets there, see ``batch/runner.py`` and ``output_providers.py``) and it falls
+through to constructing its own default, that model has no stamp and never
+will, because the SDK does not know about ``usage_metered``. Real, though
+rare enough that it should not have happened to have real orgs' MODEL_TOKENS
+figures pinned by it. The safe default in that case is still to bill,
+because Penelope's own default is a deployment default running on our
+credentials, and to say so loudly (:func:`_warn_unstamped`) so a spike in
+that log line means the boundary is being hit far more than "rare".
 
 **Who to bill** -- the ambient organization from
 :mod:`rhesis.backend.app.usage_attribution`, read at emission time rather
@@ -91,9 +104,16 @@ def _our_api_keys() -> Set[str]:
 def _runs_on_someone_elses_key(model: BaseLLM) -> bool:
     """Does this model hold an API key that is not one of ours?
 
-    Safety net for a model nobody stamped, so that a call site we have not
-    found yet cannot bill an org for tokens their own provider already
-    charged them for.
+    Safety net for a model nobody stamped. Everything under
+    ``apps/backend/src`` is required to stamp -- see
+    ``tests/backend/app/test_language_model_construction_boundary.py`` --
+    so by the time this runs, ``usage_metered is None`` means either
+    Penelope's own default construction on total resolution failure (see
+    ``batch/runner.py`` / ``output_providers.py``, which stamp everything
+    they can before Penelope ever sees it) or a genuinely new call site this
+    net has not caught up with yet. Either way, this exists so that case
+    cannot bill an org for tokens their own provider already charged them
+    for.
 
     "Has a key" alone is not the test, and getting that wrong is expensive
     in the other direction: several providers fall back to a deployment

@@ -157,10 +157,19 @@ async def run_batch(
         is_multi_turn_test(ctx.test_data.get(tid, {}).get("test")) for tid in test_ids
     )
     if has_multi_turn:
+        from rhesis.backend.app.utils.user_model_utils import ensure_language_model
         from rhesis.penelope import PenelopeAgent
 
+        # ensure_language_model: ctx.execution_model can still be a bare
+        # provider string here (resolve_default_hosted_model's own
+        # construction fallback), and Penelope is a separate package that
+        # cannot stamp it -- PenelopeAgent's own string branch just calls
+        # get_model(model) with no provenance. Stamping before it crosses
+        # that boundary is the only chance to get it right.
         penelope_agent = (
-            PenelopeAgent(model=ctx.execution_model) if ctx.execution_model else PenelopeAgent()
+            PenelopeAgent(model=ensure_language_model(ctx.execution_model))
+            if ctx.execution_model
+            else PenelopeAgent()
         )
 
         # Fetch credentials / tokens once before the concurrent fan-out so

@@ -223,12 +223,20 @@ class MultiTurnOutput(OutputProvider):
         if params is None:
             params = _load_run_params(db, test_execution_context)
 
+        from rhesis.backend.app.utils.user_model_utils import ensure_language_model
         from rhesis.backend.tasks.execution.penelope_target import (
             BackendEndpointTarget,
         )
         from rhesis.penelope import PenelopeAgent
 
-        agent = PenelopeAgent(model=self.model) if self.model else PenelopeAgent()
+        # ensure_language_model: see the identical note in batch/runner.py.
+        # self.model can still be a bare provider string here, and Penelope
+        # cannot stamp it itself.
+        agent = (
+            PenelopeAgent(model=ensure_language_model(self.model))
+            if self.model
+            else PenelopeAgent()
+        )
 
         target = BackendEndpointTarget(
             db=db,
