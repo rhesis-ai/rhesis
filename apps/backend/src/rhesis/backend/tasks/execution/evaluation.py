@@ -54,6 +54,57 @@ def _is_multi_turn_only(mc: Any) -> bool:
     )
 
 
+def _scope_values(mc: Any) -> List[str]:
+    """Return a metric config's declared scopes as plain strings.
+
+    Accepts MetricConfig objects and raw dicts, and tolerates MetricScope enums,
+    bare strings, or a mis-shaped non-list value (treated as undeclared).
+    """
+    scope = mc.get("metric_scope") if isinstance(mc, dict) else getattr(mc, "metric_scope", None)
+    if not scope or not isinstance(scope, (list, tuple, set)):
+        return []
+    return [getattr(s, "value", s) for s in scope]
+
+
+def filter_configs_by_scope(
+    metric_configs: List[Any],
+    scope: MetricScope,
+    test_id: str,
+) -> List[Any]:
+    """Keep only the configs that declare support for ``scope``.
+
+    Config-level counterpart to
+    :func:`~rhesis.backend.tasks.execution.executors.metrics.filter_metrics_by_scope`,
+    which operates on ORM Metric rows. The batch path converts to MetricConfig
+    during prefetch, before it knows each test's turn type, so it has to filter
+    here instead.
+
+    Undeclared scope means dropped, matching the ORM-level filter: a metric that
+    never says which turn types it supports is not evaluated. Skipping this let
+    single-turn metrics run against multi-turn conversations, where they get
+    ``context=[]`` and fail by construction, inflating the metric count and
+    depressing the pass rate.
+    """
+    wanted = getattr(scope, "value", scope)
+
+    kept, dropped = [], []
+    for mc in metric_configs:
+        name = getattr(mc, "name", None) or getattr(mc, "class_name", "?")
+        scopes = _scope_values(mc)
+        if wanted in scopes:
+            kept.append(mc)
+        else:
+            dropped.append(f"{name}({scopes or 'no scope'})")
+
+    if dropped:
+        logger.info(
+            f"Excluded {len(dropped)} metric(s) not scoped to {wanted} "
+            f"for test {test_id}: {', '.join(dropped)}"
+        )
+
+    return kept
+
+
 def _build_conversation_history(
     conversation_summary: List[Dict[str, Any]],
 ) -> Optional[ConversationHistory]:
