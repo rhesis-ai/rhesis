@@ -154,6 +154,9 @@ export function PlatformKeyDrawer({
   // an org key overrides it). Only a stored org key uses the remove-first flow.
   const fromEnv = status?.source === 'environment';
   const removable = configured && !fromEnv;
+  // A failed (non-404) status fetch must not present as "no key configured" --
+  // that would invite overwriting a key that may actually be fine.
+  const statusError = query.isError;
 
   const handleSave = async () => {
     const trimmed = keyInput.trim();
@@ -309,11 +312,16 @@ export function PlatformKeyDrawer({
       // While a removable org key is set, removal is the only write available.
       onSave={removable ? undefined : handleSave}
       saveButtonText="Save"
-      saveDisabled={!keyInput.trim() || mutating}
+      saveDisabled={!keyInput.trim() || mutating || statusError}
       onDelete={removable ? () => setRemoveConfirmOpen(true) : undefined}
       deleteButtonText="Remove"
       deleteDisabled={mutating}
       loading={setKey.isPending}
+      error={
+        statusError
+          ? "Couldn't check the current key status. Try again before saving, to avoid overwriting a working key."
+          : undefined
+      }
     >
       {query.isLoading ? (
         loadingSection
