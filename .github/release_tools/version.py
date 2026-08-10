@@ -36,7 +36,8 @@ def get_current_version(component: str, repo_root: Path) -> str:
             from .utils import warn
 
             warn(
-                f"Component {component} uses requirements.txt - no version file, using default 0.1.0"
+                f"Component {component} uses requirements.txt - "
+                "no version file, using default 0.1.0"
             )
             return "0.1.0"  # Default for requirements.txt based components
     except Exception as e:
@@ -168,7 +169,7 @@ def _update_pyproject_version(config_path: Path, bump_type: str) -> bool:
     cmd = ["uv", "version", "--bump", bump_type, "--project", config_path, "--no-sync"]
 
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        subprocess.run(cmd, capture_output=True, text=True, check=True)
         return True
     except subprocess.CalledProcessError as e:
         print(e.stderr)

@@ -137,7 +137,7 @@ def get_changelog_content(changelog_path: Path) -> str:
 
     # Extract the first version section (latest) using regex
     # Pattern breakdown:
-    # ^## \[([^\]]+)\] - (\d{4}-\d{2}-\d{2})\n  - matches version header like "## [0.4.0] - 2025-10-10"
+    # ^## \[([^\]]+)\] - (\d{4}-\d{2}-\d{2})\n  - version header, e.g. "## [0.4.0] - 2025-10-10"
     # (.*?)  - captures all content after the header (non-greedy)
     # (?=\n## \[|\Z)  - stops at next version header or end of file (positive lookahead)
     pattern = r"^## \[([^\]]+)\] - (\d{4}-\d{2}-\d{2})\n(.*?)(?=\n## \[|\Z)"

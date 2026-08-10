@@ -203,7 +203,10 @@ This release includes the following component versions:
             elif commits:
                 # Fallback to first few commit messages
                 commit_msgs = [commit["message"].splitlines()[0] for commit in commits[:3]]
-                platform_entry += f"Key changes include: {', '.join(commit_msgs[:2])}{'...' if len(commits) > 2 else ''}.\n\n"
+                ellipsis = "..." if len(commits) > 2 else ""
+                platform_entry += (
+                    f"Key changes include: {', '.join(commit_msgs[:2])}{ellipsis}.\n\n"
+                )
             else:
                 platform_entry += "Initial release or no significant changes.\n\n"
 

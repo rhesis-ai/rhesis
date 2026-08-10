@@ -3,7 +3,6 @@ Utilities for the Rhesis release tool including logging, colors, and prerequisit
 """
 
 import json
-import os
 import subprocess
 import urllib.error
 import urllib.request
