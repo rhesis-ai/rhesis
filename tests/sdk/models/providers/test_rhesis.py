@@ -35,6 +35,7 @@ def _mock_aiohttp_session(response_json=None, status=200, raise_for_status=None,
     mock_response = MagicMock()
     mock_response.status = status
     mock_response.json = AsyncMock(return_value=response_json)
+    mock_response.text = AsyncMock(return_value="mock error body")
     mock_response.headers = headers if headers is not None else {}
     if raise_for_status:
         mock_response.raise_for_status.side_effect = raise_for_status

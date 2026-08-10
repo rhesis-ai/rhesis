@@ -24,10 +24,19 @@ from rhesis.backend.tasks.execution.batch.context import ExecutionContext
 # ============================================================================
 
 
-def _make_metric_config(name: str, class_name: str) -> MagicMock:
+def _make_metric_config(
+    name: str,
+    class_name: str,
+    metric_scope: list | None = None,
+) -> MagicMock:
     mc = MagicMock()
     mc.name = name
     mc.class_name = class_name
+    # Batch evaluation drops configs that declare no scope, so default to both
+    # turn types: these tests are about which configs are selected, not scope.
+    mc.metric_scope = (
+        metric_scope if metric_scope is not None else ["Single-Turn", "Multi-Turn"]
+    )
     return mc
 
 
@@ -516,10 +525,6 @@ class TestBatchEvaluationPerTestMetrics:
             patch(
                 "rhesis.backend.app.utils.response_extractor.normalize_context_to_list",
                 return_value=[],
-            ),
-            patch(
-                "rhesis.backend.tasks.execution.evaluation._is_multi_turn_only",
-                return_value=False,
             ),
         ):
             from rhesis.backend.tasks.execution.batch.evaluation import (

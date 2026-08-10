@@ -431,13 +431,14 @@ class VertexAIEmbedder(VertexAICredentialsMixin, LiteLLMEmbedder):
             - Or file path to JSON file (standard for local development)
             - If not provided, uses GOOGLE_APPLICATION_CREDENTIALS environment variable
         location: GCP region (e.g., "europe-west4")
-            - If not provided, uses VERTEX_AI_LOCATION environment variable
+            - If not provided, uses VERTEX_AI_EMBEDDING_LOCATION, then VERTEX_AI_LOCATION
         project: GCP project ID (usually auto-extracted from credentials)
             - Priority: init parameter > VERTEX_AI_PROJECT env var > credentials file
         dimensions: Optional embedding dimensions (supported by text-embedding-005).
 
     Environment Variables (used as fallback):
         GOOGLE_APPLICATION_CREDENTIALS: Service account credentials
+        VERTEX_AI_EMBEDDING_LOCATION: (Optional) GCP region for embeddings only
         VERTEX_AI_LOCATION: GCP region
         VERTEX_AI_PROJECT: (Optional) GCP project ID override
 
@@ -469,6 +470,20 @@ class VertexAIEmbedder(VertexAICredentialsMixin, LiteLLMEmbedder):
             dimensions=dimensions,
             timeout=timeout,
         )
+
+    def _get_location(self) -> str:
+        """Resolve the region, preferring an embedding-specific override.
+
+        Embedding publisher models are not served from the ``us``/``eu``
+        multi-region endpoints that Gemini accepts, so a deployment that pins
+        VERTEX_AI_LOCATION to ``eu`` for Gemini gets a 404 here unless it can
+        name a concrete region for embeddings alone.
+        """
+        if not self._init_location:
+            embedding_location = os.getenv("VERTEX_AI_EMBEDDING_LOCATION")
+            if embedding_location:
+                return embedding_location
+        return super()._get_location()
 
     def _with_vertex_credentials(self, func, *args, **kwargs):
         """Execute a function with Vertex AI credentials injected.

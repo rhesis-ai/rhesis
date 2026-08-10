@@ -4,8 +4,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi import HTTPException, Response
 
-from rhesis.backend.app.routers.services import generate_content_endpoint
-from rhesis.backend.app.schemas.services import GenerateContentRequest
+from rhesis.backend.app.routers.services import (
+    generate_content_endpoint,
+    generate_embedding_endpoint,
+)
+from rhesis.backend.app.schemas.services import GenerateContentRequest, GenerateEmbeddingRequest
 
 
 class TestGenerateContentEndpoint:
@@ -69,6 +72,59 @@ class TestGenerateContentEndpoint:
             assert exc_info.value.status_code == 400
             assert "Failed to generate content:" in str(exc_info.value.detail)
             assert "Model initialization failed" in str(exc_info.value.detail)
+
+
+class TestGenerateEmbeddingEndpoint:
+    """Test cases for generate_embedding_endpoint's error status codes.
+
+    A bad request from the caller (invalid text, provider rejects the
+    content) and a deployment misconfiguration (DEFAULT_EMBEDDING_MODEL
+    pointing back at this same endpoint) are different failure classes and
+    must not both surface as a generic HTTP 400 — no client-side retry or
+    input change fixes the second one.
+    """
+
+    def test_plain_provider_error_returns_400(self):
+        """A provider-side failure is still a 400 — the request itself is bad."""
+        mock_request = GenerateEmbeddingRequest(text="some text")
+        mock_db = MagicMock()
+        mock_user = MagicMock()
+
+        with patch(
+            "rhesis.backend.app.utils.user_model_utils.get_user_embedding_model"
+        ) as mock_get_embedding_model:
+            mock_get_embedding_model.side_effect = Exception("Provider rejected the request")
+
+            with pytest.raises(HTTPException) as exc_info:
+                generate_embedding_endpoint(mock_request, db=mock_db, current_user=mock_user)
+
+            assert exc_info.value.status_code == 400
+            assert "Failed to generate embedding:" in str(exc_info.value.detail)
+
+    def test_recursive_native_provider_returns_500_not_400(self):
+        """DEFAULT_EMBEDDING_MODEL resolving back to RhesisEmbedder is a server
+        misconfiguration, not a bad request — must return 500."""
+        from rhesis.sdk.models.providers.native import RhesisEmbedder
+
+        mock_request = GenerateEmbeddingRequest(text="some text")
+        mock_db = MagicMock()
+        mock_user = MagicMock()
+
+        # isinstance() against a Mock(spec=...) succeeds, so this stands in for
+        # a real RhesisEmbedder without needing RHESIS_API_KEY configured.
+        fake_native_embedder = MagicMock(spec=RhesisEmbedder)
+
+        with patch(
+            "rhesis.backend.app.utils.user_model_utils.get_user_embedding_model",
+            return_value=fake_native_embedder,
+        ):
+            with pytest.raises(HTTPException) as exc_info:
+                generate_embedding_endpoint(mock_request, db=mock_db, current_user=mock_user)
+
+            assert exc_info.value.status_code == 500
+            assert "recursively" in str(exc_info.value.detail)
+
+        fake_native_embedder.generate.assert_not_called()
 
 
 class TestGenerateContentEndpointUsageForwarding:
