@@ -89,13 +89,9 @@ def generate_tag_name(component: str, version: str) -> str:
         return f"{component}-v{version}"
 
 
-def create_and_push_tag(component: str, version: str, dry_run: bool = False) -> bool:
+def create_and_push_tag(component: str, version: str) -> bool:
     """Create and push a git tag for a component"""
     tag_name = generate_tag_name(component, version)
-
-    if dry_run:
-        info(f"Would create and push tag: {tag_name}")
-        return True
 
     try:
         # Create annotated tag
@@ -132,14 +128,9 @@ def get_changelog_content(changelog_path: Path) -> str:
 
 
 def create_github_release(
-    component: str, version: str, tag_name: str, dry_run: bool = False, set_as_latest: bool = False
+    component: str, version: str, tag_name: str, set_as_latest: bool = False
 ) -> bool:
     """Create a GitHub release for a component"""
-    if dry_run:
-        latest_info = " (marked as latest)" if set_as_latest else ""
-        info(f"Would create GitHub release for {tag_name}{latest_info}")
-        return True
-
     try:
         # Use gh CLI if available
         result = subprocess.run(["which", "gh"], capture_output=True)
@@ -298,7 +289,7 @@ def publish_releases(repo_root: Path, dry_run: bool = False) -> bool:
 
     created_tags = []
     for component, version, tag_name in tags_to_create:
-        if create_and_push_tag(component, version, dry_run):
+        if create_and_push_tag(component, version):
             created_tags.append((component, version, tag_name))
         else:
             error(f"Failed to create tag for {component} v{version}")
@@ -311,9 +302,7 @@ def publish_releases(repo_root: Path, dry_run: bool = False) -> bool:
     for component, version, tag_name in created_tags:
         # Determine if the component is the platform and if it should be marked as latest
         is_platform = component == "platform"
-        if not create_github_release(
-            component, version, tag_name, dry_run, set_as_latest=is_platform
-        ):
+        if not create_github_release(component, version, tag_name, set_as_latest=is_platform):
             warn(f"Failed to create GitHub release for {tag_name}")
             # Continue with other releases even if one fails
 
