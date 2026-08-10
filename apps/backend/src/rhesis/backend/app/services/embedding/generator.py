@@ -62,7 +62,7 @@ class EmbeddingGenerator:
             raise ValueError(f"User not found: {user_id}")
 
         resolved = get_user_embedding_model(self.db, user)
-        return (
+        resolved_embedder = (
             get_model(
                 resolved,
                 model_type="embedding",
@@ -71,6 +71,25 @@ class EmbeddingGenerator:
             if isinstance(resolved, str)
             else resolved
         )
+
+        # Caught here, in-process, rather than left to surface as an HTTP error
+        # from generate_embedding_endpoint's own recursion guard: this path runs
+        # inside the Celery embedding task, and a permanent misconfiguration
+        # error raised from an HTTP call is only distinguishable from a
+        # retryable one by status code, which a generic 5xx wouldn't be. Raising
+        # ModelConfigurationError directly, before any network call, sidesteps
+        # that and makes the failure genuinely instant rather than a wasted
+        # round-trip that error-classification would then have to interpret.
+        from rhesis.sdk.models.providers.native import RhesisEmbedder
+
+        if isinstance(resolved_embedder, RhesisEmbedder):
+            raise ModelConfigurationError(
+                "Embedding model resolved to the Rhesis native provider, which would call "
+                "the embedding endpoint recursively. Set DEFAULT_EMBEDDING_MODEL to an "
+                "actual provider (e.g. vertex_ai/text-embedding-005)."
+            )
+
+        return resolved_embedder
 
     def _get_status(self, name: EmbeddingStatus, organization_id: str, user_id: str):
         """Fetch or create embedding status row and fail fast when unavailable."""

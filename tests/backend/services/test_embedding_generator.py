@@ -453,6 +453,41 @@ class TestEmbeddingGenerator:
                 model_id=str(embedding_model.id),
             )
 
+    @patch("rhesis.backend.app.services.embedding.generator.get_user_embedding_model")
+    def test_recursive_native_provider_fails_before_any_network_call(
+        self,
+        mock_get_user_embedding_model,
+        test_db,
+        test_entity,
+        embedding_model,
+        test_org_id,
+        authenticated_user_id,
+    ):
+        """DEFAULT_EMBEDDING_MODEL misconfigured back to the Rhesis native
+        provider must fail in-process, not via a doomed HTTP round-trip to
+        generate_embedding_endpoint whose eventual error only a status code
+        would distinguish as permanent-vs-transient.
+        """
+        from rhesis.sdk.models.providers.native import RhesisEmbedder
+
+        # isinstance() against a Mock(spec=...) succeeds, so this stands in for
+        # a real RhesisEmbedder without needing RHESIS_API_KEY configured.
+        fake_native_embedder = Mock(spec=RhesisEmbedder)
+        mock_get_user_embedding_model.return_value = fake_native_embedder
+
+        generator = EmbeddingGenerator(test_db)
+
+        with pytest.raises(ModelConfigurationError, match="recursively"):
+            generator.generate(
+                entity_id=str(test_entity.id),
+                entity_type="Test",
+                organization_id=test_org_id,
+                user_id=authenticated_user_id,
+                model_id=str(embedding_model.id),
+            )
+
+        fake_native_embedder.generate.assert_not_called()
+
     @patch("rhesis.backend.app.services.embedding.generator.get_model")
     def test_transient_provider_error_stays_retryable(
         self,

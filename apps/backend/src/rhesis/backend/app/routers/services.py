@@ -225,6 +225,8 @@ def generate_embedding_endpoint(
         db: The database session
         current_user: The current authenticated user
     """
+    from rhesis.backend.app.utils.model_errors import ModelConfigurationError
+
     try:
         from rhesis.backend.app.utils.user_model_utils import get_user_embedding_model
         from rhesis.sdk.models.factory import get_model
@@ -234,13 +236,18 @@ def generate_embedding_endpoint(
         if isinstance(embedder, str):
             embedder = get_model(embedder, model_type="embedding")
         if isinstance(embedder, RhesisEmbedder):
-            raise ValueError(
+            raise ModelConfigurationError(
                 "Embedding model resolved to the Rhesis native provider, which would call "
                 "this endpoint recursively. Set DEFAULT_EMBEDDING_MODEL to an actual "
                 "provider (e.g. vertex_ai/text-embedding-005)."
             )
         embedding = embedder.generate(text=request.text)
         return embedding
+    except ModelConfigurationError as e:
+        # Deployment misconfiguration (DEFAULT_EMBEDDING_MODEL), not a bad
+        # request from this caller — no client-side fix makes this succeed.
+        logger.error(f"Embedding model misconfigured: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
         error_msg = str(e) if str(e) else "Unknown error"
         logger.error(f"Failed to generate embedding: {error_msg}", exc_info=True)
