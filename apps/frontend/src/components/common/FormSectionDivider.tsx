@@ -5,7 +5,8 @@ import { Box, Typography } from '@mui/material';
 
 export interface FormSectionDividerProps {
   headline: string;
-  descriptiveText?: string;
+  /** Accepts nodes, not just a string, so callers can embed links. */
+  descriptiveText?: React.ReactNode;
 }
 
 /**
