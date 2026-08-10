@@ -217,6 +217,17 @@ def clear_platform_api_key(db: Session, organization_id) -> dict:
     org.rhesis_key_valid = None
     org.rhesis_key_polyphemus_authorized = None
     org.rhesis_key_last_checked_at = None
+
+    # If an env-var fallback key exists, validate it so the cached validation
+    # reflects the actual key's validity (otherwise None fails open and models
+    # that should be greyed stay available).
+    fallback = get_rhesis_settings().api_key
+    if fallback:
+        validation = validate_platform_key(fallback)
+        org.rhesis_key_valid = validation["valid"]
+        org.rhesis_key_polyphemus_authorized = validation["polyphemus_authorized"]
+        org.rhesis_key_last_checked_at = datetime.now(timezone.utc)
+
     db.commit()
     return _status_from_org(org)
 
