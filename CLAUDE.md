@@ -9,3 +9,19 @@ automatically when you read files there via a sibling `CLAUDE.md`:
 - `apps/frontend/AGENTS.md` — affordances, TypeScript/ESLint conventions, codebase layout
 - `sdk/AGENTS.md` — codebase layout, test invocation
 - `docs/AGENTS.md` — Nextra/MDX rules
+
+## Agent skills
+
+### Issue tracker
+
+Issues live as GitHub issues in `rhesis-ai/rhesis`, managed with the `gh` CLI. See
+`docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The five canonical triage roles, each label string equal to its name. See
+`docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context, kept untracked under `playground/`. See `docs/agents/domain.md`.
