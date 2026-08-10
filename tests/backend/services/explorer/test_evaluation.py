@@ -22,6 +22,7 @@ _RUN_METRICS_PATCH = "rhesis.backend.app.services.explorer.evaluation.run_metric
 def _create_metric(db, name, organization_id, user_id):
     """Create a Metric row so it can be resolved by name."""
     metric = models.Metric(
+        metric_scope=["Single-Turn"],
         name=name,
         class_name="StubMetric",
         evaluation_prompt="stub prompt",

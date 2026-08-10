@@ -37,21 +37,69 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def _is_multi_turn_only(mc: Any) -> bool:
-    """Return True when a metric config is scoped exclusively to Multi-Turn.
+def _scope_values(mc: Any) -> List[str]:
+    """Return a metric config's declared scopes as plain strings.
 
-    Handles both MetricConfig objects and raw dicts, and guards against a
-    mis-shaped metric_scope that is a bare string rather than a list.
+    Accepts MetricConfig objects and raw dicts, and tolerates MetricScope enums,
+    bare strings, or a mis-shaped non-list value (treated as undeclared).
     """
-    from rhesis.sdk.metrics.base import MetricScope
-
     scope = mc.get("metric_scope") if isinstance(mc, dict) else getattr(mc, "metric_scope", None)
     if not scope or not isinstance(scope, (list, tuple, set)):
-        return False
-    return all(
-        (s if isinstance(s, MetricScope) else MetricScope(s)) == MetricScope.MULTI_TURN
-        for s in scope
-    )
+        return []
+    return [getattr(s, "value", s) for s in scope]
+
+
+def filter_configs_by_scope(
+    metric_configs: List[Any],
+    scope: MetricScope,
+    test_id: str,
+) -> List[Any]:
+    """Keep only the configs that declare support for ``scope``.
+
+    Config-level counterpart to
+    :func:`~rhesis.backend.tasks.execution.executors.metrics.filter_metrics_by_scope`,
+    which operates on ORM Metric rows. The batch path converts to MetricConfig
+    during prefetch, before it knows each test's turn type, so it has to filter
+    here instead.
+
+    Undeclared scope means dropped, matching the ORM-level filter: a metric that
+    never says which turn types it supports is not evaluated. Skipping this let
+    single-turn metrics run against multi-turn conversations, where they get
+    ``context=[]`` and fail by construction, inflating the metric count and
+    depressing the pass rate.
+
+    Logging follows filter_metrics_by_scope's convention: an explicitly-wrong
+    scope is routine (most behaviors mix Single-Turn and Multi-Turn metrics) and
+    logs at debug; no declared scope at all is worth surfacing at warning, since
+    the metric table's CHECK constraint makes that structurally impossible for a
+    real DB row — seeing it means a non-DB caller handed in an unscoped config.
+    """
+    wanted = getattr(scope, "value", scope)
+
+    kept, wrong_scope, no_scope = [], [], []
+    for mc in metric_configs:
+        name = getattr(mc, "name", None) or getattr(mc, "class_name", "?")
+        scopes = _scope_values(mc)
+        if wanted in scopes:
+            kept.append(mc)
+        elif scopes:
+            wrong_scope.append(f"{name}({scopes})")
+        else:
+            no_scope.append(str(name))
+
+    if wrong_scope:
+        logger.debug(
+            f"Excluded {len(wrong_scope)} metric(s) not scoped to {wanted} "
+            f"for test {test_id}: {', '.join(wrong_scope)}"
+        )
+    if no_scope:
+        logger.warning(
+            f"Excluded {len(no_scope)} metric(s) with no declared metric_scope "
+            f"for test {test_id}: {', '.join(no_scope)}. This metric row should "
+            f"not exist — metric_scope is required and non-empty in the database."
+        )
+
+    return kept
 
 
 def _build_conversation_history(
@@ -99,6 +147,7 @@ def evaluate_single_turn_metrics(
     context: List[str],
     result: Dict,
     metrics: List[Union[Dict[str, Any], MetricConfig]],
+    test_id: str = "unknown",
 ) -> Dict:
     """
     Evaluate single-turn metrics on a prompt/response pair.
@@ -113,6 +162,7 @@ def evaluate_single_turn_metrics(
         context: List of context strings
         result: The response dictionary from endpoint invocation
         metrics: List of metric configurations to use for evaluation
+        test_id: Test ID, used only for the scope-filtering debug log
 
     Returns:
         Dictionary containing the evaluation results
@@ -124,8 +174,10 @@ def evaluate_single_turn_metrics(
     metadata = result.get("metadata") if isinstance(result, dict) else None
     tool_calls = result.get("tool_calls") if isinstance(result, dict) else None
 
-    # Drop metrics scoped exclusively to Multi-Turn — they require conversation_history.
-    metrics = [mc for mc in metrics if not _is_multi_turn_only(mc)]
+    # Callers normally already scope-filtered via prepare_metric_configs(...,
+    # scope=MetricScope.SINGLE_TURN) before this runs (see executors/runners.py),
+    # so this is defense in depth for any caller that hands in metrics directly.
+    metrics = filter_configs_by_scope(metrics, MetricScope.SINGLE_TURN, test_id)
 
     if not metrics:
         return metrics_results

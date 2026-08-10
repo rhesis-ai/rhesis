@@ -81,6 +81,7 @@ def generate_metric(
         MetricBackendType,
         MetricType,
     )
+    from rhesis.backend.app.schemas.metric import MetricScope
     from rhesis.sdk.metrics.synthesizer import MetricSynthesizer
 
     organization_id, user_id = tenant_context
@@ -88,6 +89,16 @@ def generate_metric(
     try:
         synthesizer = MetricSynthesizer(model=get_model_settings().generation_model)
         generated = synthesizer.generate(request.prompt)
+
+        # metric_scope is required by MetricCreate but only requested of the LLM, so
+        # fall back rather than failing the whole generation. Single-Turn matches the
+        # historical default; the user can change it before saving.
+        if not generated.get("metric_scope"):
+            logger.warning(
+                "Generated metric %r omitted metric_scope; defaulting to Single-Turn",
+                generated.get("name"),
+            )
+            generated["metric_scope"] = [MetricScope.SINGLE_TURN.value]
 
         metric_data = schemas.MetricCreate(**generated)
         metric_data.metric_type = MetricType.CUSTOM_PROMPT

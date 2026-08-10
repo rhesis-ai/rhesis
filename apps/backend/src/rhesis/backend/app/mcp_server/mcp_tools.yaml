@@ -561,8 +561,14 @@ tools:
           {{expected_response}} placeholders (string).
       metric_scope:
         description: >
-          List of strings. Each value must be exactly "Single-Turn" or
-          "Multi-Turn". Always include this field.
+          REQUIRED, and rejected if missing or empty. Non-empty list of
+          strings, each exactly "Single-Turn" or "Multi-Turn". This decides
+          which tests the metric is evaluated against: a Single-Turn metric
+          is skipped on multi-turn tests and vice versa, so a wrong value
+          means the metric silently never runs. Use ["Multi-Turn"] for
+          conversation-level metrics, ["Single-Turn"] for single
+          request-response metrics, and both only when the metric genuinely
+          works either way.
       min_score:
         description: "Minimum score value, number (numeric metrics only)"
       max_score:

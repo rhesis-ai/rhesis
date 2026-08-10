@@ -11,7 +11,8 @@ from rhesis.backend.app.utils.response_extractor import (
     has_http_error_in_result,
 )
 from rhesis.backend.tasks.execution.batch.context import ExecutionContext
-from rhesis.backend.tasks.execution.constants import PENELOPE_EVALUATED_METRICS
+from rhesis.backend.tasks.execution.constants import PENELOPE_EVALUATED_METRICS, MetricScope
+from rhesis.backend.tasks.execution.evaluation import filter_configs_by_scope
 
 logger = logging.getLogger(__name__)
 
@@ -79,8 +80,15 @@ async def _evaluate_multi_turn_metrics(
     test_config_data = test.test_configuration or {}
     goal = test_config_data.get("goal", "")
 
+    # The batch prefetch cannot scope-filter (one shared config list may serve a
+    # mixed-type test set), so it happens here. Without it, Single-Turn metrics
+    # ran against conversations with the context=[] passed below and failed by
+    # construction, dragging down the pass rate.
+    filtered_configs = filter_configs_by_scope(
+        metric_configs, MetricScope.MULTI_TURN, str(getattr(test, "id", "?"))
+    )
     filtered_configs = [
-        mc for mc in metric_configs if mc.class_name not in PENELOPE_EVALUATED_METRICS
+        mc for mc in filtered_configs if mc.class_name not in PENELOPE_EVALUATED_METRICS
     ]
 
     if not filtered_configs:
@@ -128,11 +136,12 @@ async def _evaluate_single_turn_metrics(
     garak_notes = (test.test_metadata or {}).get("garak_notes") if test else None
     metric_configs = _inject_probe_notes(metric_configs, garak_notes)
 
-    # Drop metrics that are scoped exclusively to Multi-Turn — they require
-    # conversation_history which is not available for single-turn tests.
-    from rhesis.backend.tasks.execution.evaluation import _is_multi_turn_only
-
-    metric_configs = [mc for mc in metric_configs if not _is_multi_turn_only(mc)]
+    # Keep only metrics scoped to Single-Turn. This previously dropped just the
+    # Multi-Turn-*only* ones, which let undeclared-scope metrics through and had
+    # no counterpart on the multi-turn side.
+    metric_configs = filter_configs_by_scope(
+        metric_configs, MetricScope.SINGLE_TURN, str(getattr(test, "id", "?"))
+    )
 
     if not metric_configs:
         return {}

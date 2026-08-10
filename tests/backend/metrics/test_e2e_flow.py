@@ -292,6 +292,7 @@ class TestE2EFlow:
         )
 
         ragas_metric = models.Metric(
+            metric_scope=["Single-Turn"],
             name="Ragas Answer Relevancy",
             class_name="RagasAnswerRelevancy",
             score_type="numeric",
@@ -496,6 +497,7 @@ class TestE2EFlow:
 
         # Create a real RhesisPromptMetric in the database
         metric = models.Metric(
+            metric_scope=["Single-Turn"],
             name="Integration Test Metric",
             class_name="RhesisPromptMetric",  # Will be split to NumericJudge by adapter
             score_type="numeric",

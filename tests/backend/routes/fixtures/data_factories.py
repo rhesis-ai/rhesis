@@ -307,8 +307,8 @@ class MetricDataFactory(BaseDataFactory):
     """Factory for generating metric test data"""
 
     @classmethod
-    def _add_score_type_fields(cls, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Add required fields based on score_type."""
+    def _add_required_fields(cls, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Fill in the fields MetricCreate requires but callers rarely care about."""
         if data.get("score_type") == "categorical":
             data.setdefault("categories", ["pass", "fail", "partial"])
             data.setdefault("passing_categories", ["pass"])
@@ -316,7 +316,13 @@ class MetricDataFactory(BaseDataFactory):
             data.setdefault("min_score", 0)
             data.setdefault("max_score", 10)
             data.setdefault("threshold", 5)
+        # Required on create and NOT NULL in the table: a metric with no scope is
+        # never evaluated by any execution path.
+        data.setdefault("metric_scope", ["Single-Turn"])
         return data
+
+    # Kept as an alias: the old name described only part of what it now does.
+    _add_score_type_fields = _add_required_fields
 
     @classmethod
     def minimal_data(cls) -> Dict[str, Any]:
@@ -363,14 +369,14 @@ class MetricDataFactory(BaseDataFactory):
     def edge_case_data(cls, case_type: str) -> Dict[str, Any]:
         """Generate metric edge case data"""
         if case_type == "long_name":
-            return {
+            data = {
                 "name": fake.text(max_nb_chars=800).replace("\n", " "),
                 "evaluation_prompt": fake.sentence(nb_words=8),
                 "score_type": "numeric",
                 "description": fake.text(max_nb_chars=100),
             }
         elif case_type == "special_chars":
-            return {
+            data = {
                 "name": f"{fake.word()} 📊 émoji & metrics! @#$%^&*()",
                 "evaluation_prompt": "How well does this handle special chars? 🤔",
                 "score_type": "categorical",
@@ -379,7 +385,7 @@ class MetricDataFactory(BaseDataFactory):
                 "description": fake.text(max_nb_chars=100),
             }
         elif case_type == "unicode":
-            return {
+            data = {
                 "name": f"Test 测试 тест テスト {fake.word()} Metric",
                 "evaluation_prompt": "Unicode evaluation: 测试 тест テスト",
                 "score_type": "categorical",
@@ -388,14 +394,16 @@ class MetricDataFactory(BaseDataFactory):
                 "description": "Unicode description: 测试 тест テスト",
             }
         elif case_type == "sql_injection":
-            return {
+            data = {
                 "name": "'; DROP TABLE metrics; --",
                 "evaluation_prompt": "1' OR '1'='1",
                 "score_type": "numeric",
                 "description": "SQL injection attempt",
             }
+        else:
+            return super().edge_case_data(case_type)
 
-        return super().edge_case_data(case_type)
+        return cls._add_required_fields(data)
 
 
 @dataclass
