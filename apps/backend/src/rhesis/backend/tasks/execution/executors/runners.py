@@ -264,6 +264,7 @@ class SingleTurnRunner(BaseRunner):
                 context=context,
                 result=processed_result,
                 metrics=metric_configs,
+                test_id=test_id,
             )
 
         return execution_time, processed_result, metrics_results

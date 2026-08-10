@@ -561,6 +561,7 @@ class TestTaskExecution:
                     "class_name": "RhesisPromptMetric",
                     "backend": "rhesis",
                     "threshold": 7,
+                    "metric_scope": ["Single-Turn"],
                     "parameters": {
                         "evaluation_prompt": "Test",
                         "evaluation_steps": "Step 1",
@@ -656,6 +657,7 @@ class TestTaskExecution:
                 "class_name": "RhesisPromptMetric",
                 "backend": "rhesis",
                 "threshold": 7,
+                "metric_scope": ["Single-Turn"],
                 "parameters": {
                     "evaluation_prompt": "Test 1",
                     "evaluation_steps": "Step 1",
@@ -670,6 +672,7 @@ class TestTaskExecution:
                 "class_name": "RhesisPromptMetric",
                 "backend": "rhesis",
                 "reference_score": "positive",
+                "metric_scope": ["Single-Turn"],
                 "parameters": {
                     "evaluation_prompt": "Test 2",
                     "evaluation_steps": "Step 1",

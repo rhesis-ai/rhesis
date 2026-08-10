@@ -26,10 +26,14 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 # SQL NULL, JSONB 'null', a non-array value, or an empty array.
+#
+# jsonb_array_length() raises (not NULL) on a non-array argument, so the third
+# branch guards it with its own jsonb_typeof check rather than relying on the
+# OR's left-to-right evaluation order, which SQL does not guarantee.
 _UNSCOPED = """
     metric_scope IS NULL
     OR jsonb_typeof(metric_scope) <> 'array'
-    OR jsonb_array_length(metric_scope) = 0
+    OR (jsonb_typeof(metric_scope) = 'array' AND jsonb_array_length(metric_scope) = 0)
 """
 
 _CONSTRAINT = "ck_metric_metric_scope_non_empty"
