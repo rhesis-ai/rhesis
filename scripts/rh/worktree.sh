@@ -10,26 +10,33 @@
 
 # Colors and shared helpers. common.sh sets SCRIPT_DIR to the repository root,
 # which is what this script calls SOURCE_DIR.
-# shellcheck source=scripts/rh/common.sh
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh" || {
-    echo "❌ Failed to load scripts/rh/common.sh" >&2
-    exit 1
-}
+RH_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+for wt_lib in common ports portalloc; do
+    # shellcheck source=/dev/null
+    source "$RH_LIB_DIR/$wt_lib.sh" || {
+        echo "❌ Failed to load scripts/rh/$wt_lib.sh" >&2
+        exit 1
+    }
+done
+unset wt_lib
 
 SOURCE_DIR="$SCRIPT_DIR"
+
+# These carry ports, so a worktree gets its own copies instead of symlinks.
+WORKTREE_OWN_ENV_FILES="apps/backend/.env apps/frontend/.env.local"
 WORKTREES_BASE="$SOURCE_DIR/../../worktrees/rhesis"
 
 # ============================================================================
 # Usage
 # ============================================================================
 
-show_usage() {
-    local msg="${1:-Missing worktree name}"
-    echo -e "${RED}Error: $msg${NC}"
+show_worktree_help() {
+    head1 "Worktree Commands:"
     echo ""
     echo -e "${YELLOW}Usage:${NC}"
-    echo -e "  ${GREEN}./rh worktree <name>${NC}            Create a new worktree"
-    echo -e "  ${GREEN}./rh worktree <name> --remove${NC}   Remove worktree and branch"
+    echo -e "  ${GREEN}./rh worktree <name>${NC}            Create a worktree with its own dev ports"
+    echo -e "  ${GREEN}./rh worktree <name> --remove${NC}   Remove worktree, its dev containers, and branch"
     echo -e "  ${GREEN}./rh worktree <name> --load${NC}     Launch shell in worktree"
     echo -e "  ${GREEN}./rh worktree --list${NC}            List all worktrees"
     echo ""
@@ -38,7 +45,110 @@ show_usage() {
     echo -e "  ${BLUE}./rh worktree feat/my-feature --load${NC}"
     echo -e "  ${BLUE}./rh worktree feat/my-feature --remove${NC}"
     echo -e "  ${BLUE}./rh worktree --list${NC}"
+    echo ""
+    step "A new worktree branches from your current HEAD (committed work only), gets"
+    step "shared .env symlinks, and a free block of dev ports recorded in"
+    step ".rhesis-ports at its root. Inside it, ${GREEN}./rh dev up${NC}${YELLOW} and the other dev"
+    step "commands use those ports — run ${GREEN}./rh dev status${NC}${YELLOW} to see them."
+    echo ""
+}
+
+show_usage() {
+    echo -e "${RED}Error: ${1:-Missing worktree name}${NC}"
+    echo ""
+    show_worktree_help
     exit 1
+}
+
+# ============================================================================
+# Per-worktree dev environment: ports, env files, containers
+# ============================================================================
+
+# Lands in docker and tmux names, so keep it to lowercase, digits and dashes.
+sanitize_worktree_name() {
+    echo "$1" | tr '[:upper:]' '[:lower:]' | sed -E -e 's/[^a-z0-9]+/-/g' -e 's/^-+//' -e 's/-+$//'
+}
+
+worktree_name_of() {
+    local ports_file="$1/.rhesis-ports"
+    [ -f "$ports_file" ] || return 0
+    grep -m1 '^RHESIS_WORKTREE_NAME=' "$ports_file" | cut -d= -f2 | tr -d " \"'\r"
+}
+
+rewrite_backend_env_ports() {
+    local file="$1"
+    local offset="$2"
+    set_env_var "$file" PORT "$(dev_port_for backend "$offset")"
+    set_env_var "$file" DB_PORT "$(dev_port_for postgres "$offset")"
+    set_env_url_port "$file" BROKER_URL "$(dev_port_for redis "$offset")"
+    set_env_url_port "$file" CELERY_RESULT_BACKEND "$(dev_port_for redis "$offset")"
+}
+
+rewrite_frontend_env_ports() {
+    local file="$1"
+    local offset="$2"
+    set_env_var "$file" PORT "$(dev_port_for frontend "$offset")"
+    set_env_url_port "$file" API_BASE_URL "$(dev_port_for backend "$offset")"
+    set_env_url_port "$file" BACKEND_URL "$(dev_port_for backend "$offset")"
+    set_env_url_port "$file" FRONTEND_URL "$(dev_port_for frontend "$offset")"
+}
+
+# Copied rather than symlinked, then shifted onto this worktree's ports. Copying
+# keeps the secrets and the ./rh dev init marker that ./rh dev up requires.
+create_worktree_env_files() {
+    local worktree_dir="$1"
+    local offset="$2"
+    local rel src dest
+
+    for rel in $WORKTREE_OWN_ENV_FILES; do
+        src="$SOURCE_DIR/$rel"
+        dest="$worktree_dir/$rel"
+
+        if [ ! -f "$src" ]; then
+            echo -e "  ${BLUE}${rel} (not in source — run ./rh dev init in the worktree)${NC}"
+            continue
+        fi
+
+        mkdir -p "$(dirname "$dest")"
+        cp "$src" "$dest"
+        case "$rel" in
+            apps/frontend/*) rewrite_frontend_env_ports "$dest" "$offset" ;;
+            *) rewrite_backend_env_ports "$dest" "$offset" ;;
+        esac
+        echo -e "  ${GREEN}${rel}${NC} (copied, ports +${offset})"
+    done
+}
+
+# Containers outlive the directory otherwise, holding this worktree's ports.
+remove_worktree_stack() {
+    local worktree_dir="$1"
+    local wt_name
+    wt_name=$(worktree_name_of "$worktree_dir")
+    [ -n "$wt_name" ] || return 0
+
+    if command -v tmux &>/dev/null; then
+        tmux kill-session -t "rhesis-$wt_name" 2>/dev/null || true
+    fi
+
+    local prefix
+    prefix=$(dev_prefix_for "$wt_name")
+
+    if ! docker info >/dev/null 2>&1; then
+        warn "Docker is not running — leaving ${prefix}-* containers and volumes behind"
+        return 0
+    fi
+
+    step "Removing dev containers for ${wt_name}..."
+    docker stop "${prefix}-postgres" "${prefix}-redis" 2>/dev/null || true
+    docker rm "${prefix}-postgres" "${prefix}-redis" 2>/dev/null || true
+    docker volume rm "${prefix}-postgres-data" "${prefix}-redis-data" 2>/dev/null || true
+
+    local leftover
+    leftover=$(dev_volumes_for_prefix "$prefix")
+    if [ -n "$leftover" ]; then
+        echo "$leftover" | xargs docker volume rm 2>/dev/null || true
+    fi
+    echo -e "${GREEN}Dev containers and volumes removed${NC}"
 }
 
 # ============================================================================
@@ -72,6 +182,8 @@ worktree_remove() {
     echo -e "${CYAN}Removing worktree: ${WHITE}$name${NC}"
     echo -e "${PURPLE}========================================${NC}"
     echo ""
+
+    remove_worktree_stack "$worktree_dir"
 
     echo -e "${YELLOW}Removing worktree directory...${NC}"
     git -C "$SOURCE_DIR" worktree remove --force "$worktree_dir"
@@ -155,6 +267,15 @@ worktree_create() {
     # Resolve worktree to absolute path (now that it exists)
     worktree_dir="$(cd "$worktree_dir" && pwd)"
 
+    # Every ./rh dev command in the worktree reads this file for its ports
+    echo -e "${YELLOW}Allocating ports...${NC}"
+    local wt_name offset
+    wt_name=$(sanitize_worktree_name "$name")
+    offset=$(allocate_port_offset) || exit 1
+    printf 'RHESIS_PORT_OFFSET=%s\nRHESIS_WORKTREE_NAME=%s\n' "$offset" "$wt_name" > "$worktree_dir/.rhesis-ports"
+    echo -e "${GREEN}Offset ${WHITE}${offset}${GREEN}, dev names prefixed ${WHITE}$(dev_prefix_for "$wt_name")${NC}"
+    echo ""
+
     # Track created symlinks for summary
     local symlink_count=0
 
@@ -180,10 +301,8 @@ worktree_create() {
 
     local env_count=0
 
-    # Find all .env* files, excluding:
-    # - .env.example (tracked in git)
-    # - files inside playground/ and simulations/ (covered by dir symlinks)
-    # - files inside .git/, node_modules/, .venv/
+    # Skips .env.example (tracked), playground/ and simulations/ (already
+    # symlinked as directories), and the two port-bearing dev files.
     while IFS= read -r env_file; do
         # Get relative path
         local rel_path="${env_file#./}"
@@ -195,6 +314,11 @@ worktree_create() {
 
         # Skip files inside symlinked directories
         if [[ "$rel_path" == playground/* ]] || [[ "$rel_path" == simulations/* ]]; then
+            continue
+        fi
+
+        # Skip the port-bearing dev files; copied with their own ports below
+        if [[ " $WORKTREE_OWN_ENV_FILES " == *" $rel_path "* ]]; then
             continue
         fi
 
@@ -211,17 +335,21 @@ worktree_create() {
             echo -e "  ${YELLOW}${rel_path} (failed to create symlink, skipping)${NC}"
         fi
         env_count=$((env_count + 1))
-    done < <(find . -name '.env*' \
-        -not -path './.git/*' \
-        -not -path '*/node_modules/*' \
-        -not -path '*/.venv/*' \
-        -not -path './playground/*' \
-        -not -path './simulations/*' \
+    # -prune, not -not -path: filtering the output still walks every
+    # node_modules and .venv, which is ~650k files here for 10 hits.
+    done < <(find . \
+        \( -name .git -o -name node_modules -o -name .venv \
+           -o -path ./playground -o -path ./simulations \) -prune \
+        -o -name '.env*' -print \
         2>/dev/null | sort)
 
     if [ "$env_count" -eq 0 ]; then
         echo -e "  ${BLUE}No .env files found in source, skipping${NC}"
     fi
+    echo ""
+
+    echo -e "${YELLOW}Creating dev env files...${NC}"
+    create_worktree_env_files "$worktree_dir" "$offset"
     echo ""
 
     # Symlink Claude Code settings.local.json
@@ -250,6 +378,9 @@ worktree_create() {
     echo -e "${CYAN}Branch:${NC}    ${WHITE}$name${NC}"
     echo -e "${CYAN}Location:${NC}  ${WHITE}$worktree_dir${NC}"
     echo -e "${CYAN}Symlinks:${NC}  ${WHITE}${symlink_count} created${NC}"
+    echo -e "${CYAN}Offset:${NC}    ${WHITE}${offset}${NC}"
+    echo -e "${CYAN}Ports:${NC}     ${WHITE}postgres $(dev_port_for postgres "$offset"), redis $(dev_port_for redis "$offset"), backend $(dev_port_for backend "$offset"), frontend $(dev_port_for frontend "$offset"), flower $(dev_port_for flower "$offset")${NC}"
+    echo -e "${CYAN}Prefix:${NC}    ${WHITE}$(dev_prefix_for "$wt_name")${NC} (containers, volumes, tmux)"
     echo ""
     echo -e "${YELLOW}To use:${NC}"
     echo -e "  ${GREEN}./rh worktree $name --load${NC}"
@@ -263,15 +394,18 @@ worktree_create() {
 # Argument parsing
 # ============================================================================
 
+# "help" before anything else: it would otherwise be taken as a worktree name.
+case "${1:-}" in
+    ""|help|--help|-h)
+        show_worktree_help
+        exit 0
+        ;;
+esac
+
 # Handle --list anywhere in args
 if [ "$1" = "--list" ] || [ "$2" = "--list" ]; then
     worktree_list
     exit 0
-fi
-
-# All other commands require a name
-if [ -z "$1" ]; then
-    show_usage
 fi
 
 NAME="$1"
@@ -280,6 +414,14 @@ ACTION="${2:-create}"
 # Validate name: reject path traversal, absolute paths, and leading dashes
 if [[ "$NAME" == /* ]] || [[ "$NAME" == *..* ]] || [[ "$NAME" == -* ]]; then
     show_usage "Invalid worktree name '$NAME'. Name must not contain '..', start with '/', or start with '-'"
+fi
+
+# A name with nothing alphanumeric in it (git allows '_', '...', '@@') sanitizes
+# to the empty string, which dev_prefix_for maps to the main checkout's
+# rhesis-dev containers and volumes — so ./rh dev clean in that worktree would
+# drop main's dev database.
+if [ -z "$(sanitize_worktree_name "$NAME")" ]; then
+    show_usage "Invalid worktree name '$NAME'. Name must contain at least one letter or digit"
 fi
 
 case "$ACTION" in

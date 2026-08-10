@@ -30,6 +30,10 @@ Backend and Python SDK: Python 3.10+, `uv` with `pyproject.toml`, Pydantic 2.x, 
 - Always use `uv` to manage Python projects; run `uv` commands from the project root (`sdk/`,
   `apps/backend/`). Use `uv add <package>` to install deps, `uv run <script>` to run scripts.
 - Use GitHub CLI (`gh`) whenever possible. If a GitHub link is pasted, open it with `gh`.
+- Every dev port is defined in `scripts/rh/ports.sh`. A worktree runs on its own block of them:
+  `./rh worktree <name>` writes `RHESIS_PORT_OFFSET` and `RHESIS_WORKTREE_NAME` to `.rhesis-ports`
+  at the worktree root, and `./rh dev *` reads it from there. So don't assume 8080/3000 — run
+  `./rh dev status` to see this checkout's ports, containers and offset.
 
 ## Testing
 

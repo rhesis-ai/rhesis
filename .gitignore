@@ -240,6 +240,9 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+# Per-worktree dev ports, written by ./rh worktree
+.rhesis-ports
+
 # Local env files
 **/.env*.local
 **/.env.development
