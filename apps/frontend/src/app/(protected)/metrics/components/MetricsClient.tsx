@@ -6,7 +6,7 @@ import { useNotifications } from '@/components/common/NotificationContext';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
 import { MetricsClient } from '@/utils/api-client/metrics-client';
 import { MetricDetail } from '@/utils/api-client/interfaces/metric';
-import type { RequirementWithMetrics } from '@/utils/api-client/interfaces/requirement';
+import type { RequirementOption } from '@/utils/api-client/interfaces/requirement';
 import type { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
 import type { UUID } from 'crypto';
 import { TEST_TYPES } from '@/constants/test-types';
@@ -53,7 +53,7 @@ const STATIC_FILTER_OPTIONS = {
 // Stable identities: an inline `data = []` default would mint a fresh array
 // each render while a query is pending, so the memo below would never hold.
 const NO_TYPE_LOOKUPS: TypeLookup[] = [];
-const NO_REQUIREMENTS: RequirementWithMetrics[] = [];
+const NO_REQUIREMENTS: RequirementOption[] = [];
 
 /** Drops duplicate `type_value` rows so repeated options can't collide as React keys. */
 function uniqueByTypeValue(types: TypeLookup[]): TypeLookup[] {

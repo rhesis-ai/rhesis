@@ -12,7 +12,7 @@ import {
 } from '@/constants/query-keys';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Status } from '@/utils/api-client/interfaces/status';
-import { RequirementWithMetrics } from '@/utils/api-client/interfaces/requirement';
+import { RequirementOption } from '@/utils/api-client/interfaces/requirement';
 import { Category } from '@/utils/api-client/interfaces/category';
 import { Topic } from '@/utils/api-client/interfaces/topic';
 import { Tag } from '@/utils/api-client/interfaces/tag';
@@ -60,12 +60,16 @@ export function useStatuses(entityType: string, enabled = true) {
 
 export function useRequirements(enabled = true) {
   const isAuthenticated = useIsAuthenticated();
-  return useQuery<RequirementWithMetrics[]>({
-    queryKey: requirementKeys.list('', 0, 100, 'name', 'asc'),
+  return useQuery<RequirementOption[]>({
+    queryKey: requirementKeys.list('name', 0, 100, 'name', 'asc'),
     queryFn: async () => {
       const requirements = await new ApiClientFactory()
         .getRequirementClient()
-        .getAllRequirements({ sort_by: 'name', sort_order: 'asc' });
+        .getAllRequirements<RequirementOption>({
+          $select: 'name',
+          sort_by: 'name',
+          sort_order: 'asc',
+        });
       return requirements;
     },
     enabled: enabled && isAuthenticated,

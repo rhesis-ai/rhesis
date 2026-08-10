@@ -53,11 +53,19 @@ export interface MetricWithRelationships {
   status?: Status | null;
 }
 
+/** id + name only -- what filter dropdowns and pickers need. */
+export interface RequirementOption {
+  id: UUID;
+  name: string;
+}
+
 export interface RequirementsQueryParams {
   skip?: number;
   limit?: number;
   sort_by?: string;
   sort_order?: 'asc' | 'desc';
   $filter?: string;
+  /** Comma-separated fields to return; `id` is always included. */
+  $select?: string;
   include?: string;
 }

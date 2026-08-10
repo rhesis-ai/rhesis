@@ -199,10 +199,7 @@ export default function MetricsDirectoryTab({
     }
   };
 
-  const handleAssignMetric = (
-    requirementId: UUID,
-    requirementName: string
-  ) => {
+  const handleAssignMetric = (requirementId: UUID, requirementName: string) => {
     if (selectedMetric) {
       handleAssignMetricToRequirement(
         requirementId as string,
