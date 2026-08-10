@@ -15,12 +15,11 @@ from rhesis.backend.app import crud
 from rhesis.backend.app.config.settings import get_model_settings
 from rhesis.backend.app.schemas.services import TestConfigResponse
 from rhesis.backend.app.utils.model_errors import ModelConfigurationError
-from rhesis.backend.app.utils.usage_tracking import stamp_usage_provenance
 from rhesis.backend.app.utils.user_model_utils import (
+    ensure_language_model,
     get_user_generation_model,
     resolve_default_hosted_model,
 )
-from rhesis.sdk.models.factory import get_model
 
 MAX_SAMPLE_SIZE = 6
 logger = logging.getLogger(__name__)
@@ -71,41 +70,34 @@ class TestConfigGeneratorService:
                 "User generation model is Polyphemus; using fast system default for test config"
             )
             try:
-                resolved = resolve_default_hosted_model(get_model_settings().generation_model)
-                if isinstance(resolved, str):
-                    # Non-hosted default string (e.g. an ops override to a
-                    # third-party provider) -- construct it the same way the
-                    # pre-existing fallback below does. Still a system
-                    # default, so it still runs on our credentials.
-                    return stamp_usage_provenance(get_model(resolved), metered=True)
-                return resolved
+                # ensure_language_model: resolve_default_hosted_model already
+                # stamps a real instance; this only turns a leftover fallback
+                # string (an ops override to a non-hosted default) into one,
+                # equally stamped, since it is still a system default.
+                return ensure_language_model(
+                    resolve_default_hosted_model(get_model_settings().generation_model)
+                )
             except ValueError as e:
                 logger.warning(
                     "Fast system default unavailable for test config (Polyphemus user); "
                     "falling back to Polyphemus: %s",
                     e,
                 )
-                user_model = get_user_generation_model(self.db, self.user)
-                if isinstance(user_model, str):
-                    try:
-                        return get_model(user_model, model_type="language")
-                    except ValueError as inner:
-                        raise ModelConfigurationError(
-                            f"User model initialization failed: {inner}",
-                            original_error=inner,
-                        ) from inner
-                return user_model
+                try:
+                    return ensure_language_model(get_user_generation_model(self.db, self.user))
+                except ValueError as inner:
+                    raise ModelConfigurationError(
+                        f"User model initialization failed: {inner}",
+                        original_error=inner,
+                    ) from inner
 
-        user_model = get_user_generation_model(self.db, self.user)
-        if isinstance(user_model, str):
-            try:
-                return get_model(user_model, model_type="language")
-            except ValueError as e:
-                raise ModelConfigurationError(
-                    f"User model initialization failed: {e}",
-                    original_error=e,
-                ) from e
-        return user_model
+        try:
+            return ensure_language_model(get_user_generation_model(self.db, self.user))
+        except ValueError as e:
+            raise ModelConfigurationError(
+                f"User model initialization failed: {e}",
+                original_error=e,
+            ) from e
 
     async def generate_config(
         self,

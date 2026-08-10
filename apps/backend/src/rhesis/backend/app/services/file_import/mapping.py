@@ -269,14 +269,12 @@ def is_llm_available(
         return False
     try:
         from rhesis.backend.app.utils.user_model_utils import (
+            ensure_language_model,
             get_user_generation_model,
         )
-        from rhesis.sdk.models.factory import get_model
 
-        model_or_provider = get_user_generation_model(db, user)
-        if isinstance(model_or_provider, str):
-            # Verify the default provider can actually be instantiated
-            get_model(model_or_provider)
+        # Verify the default provider can actually be instantiated.
+        ensure_language_model(get_user_generation_model(db, user))
         return True
     except Exception:
         return False
@@ -300,15 +298,11 @@ def llm_map_columns(
 
     try:
         from rhesis.backend.app.utils.user_model_utils import (
+            ensure_language_model,
             get_user_generation_model,
         )
-        from rhesis.sdk.models.factory import get_model
 
-        model_or_provider = get_user_generation_model(db, user)
-        if isinstance(model_or_provider, str):
-            model = get_model(model_or_provider)
-        else:
-            model = model_or_provider
+        model = ensure_language_model(get_user_generation_model(db, user))
 
         template_path = os.path.join(os.path.dirname(__file__), "mapping_prompt.jinja")
         with open(template_path, "r") as f:

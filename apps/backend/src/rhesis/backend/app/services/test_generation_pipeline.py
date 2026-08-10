@@ -28,12 +28,11 @@ from rhesis.backend.app.services.generation import (
 )
 from rhesis.backend.app.services.streaming_utils import IncrementalConfigParser, ndjson
 from rhesis.backend.app.utils.model_errors import ModelConfigurationError
-from rhesis.backend.app.utils.usage_tracking import stamp_usage_provenance
 from rhesis.backend.app.utils.user_model_utils import (
+    ensure_language_model,
     get_user_generation_model,
     resolve_default_hosted_model,
 )
-from rhesis.sdk.models.factory import get_model
 from rhesis.sdk.synthesizers.config_synthesizer import (
     GenerationConfig as SDKGenerationConfig,
 )
@@ -61,27 +60,23 @@ def _resolve_config_llm(db: Session, user: User):
     if use_fast_default:
         logger.info("User generation model is Polyphemus; using fast default for pipeline config")
         try:
-            resolved = resolve_default_hosted_model(get_model_settings().generation_model)
-            if isinstance(resolved, str):
-                # Non-hosted default string (e.g. an ops override to a
-                # third-party provider) -- construct it the same way the
-                # pre-existing fallback below does. Still a system default,
-                # so it still runs on our credentials.
-                return stamp_usage_provenance(get_model(resolved), metered=True)
-            return resolved
+            # ensure_language_model: resolve_default_hosted_model already
+            # stamps a real instance; this only turns a leftover fallback
+            # string (an ops override to a non-hosted default) into one,
+            # equally stamped, since it is still a system default.
+            return ensure_language_model(
+                resolve_default_hosted_model(get_model_settings().generation_model)
+            )
         except ValueError:
             pass
 
-    user_model = get_user_generation_model(db, user)
-    if isinstance(user_model, str):
-        try:
-            return get_model(user_model, model_type="language")
-        except ValueError as e:
-            raise ModelConfigurationError(
-                f"User model initialization failed: {e}",
-                original_error=e,
-            ) from e
-    return user_model
+    try:
+        return ensure_language_model(get_user_generation_model(db, user))
+    except ValueError as e:
+        raise ModelConfigurationError(
+            f"User model initialization failed: {e}",
+            original_error=e,
+        ) from e
 
 
 def _fetch_db_context(

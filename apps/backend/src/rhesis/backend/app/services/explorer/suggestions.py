@@ -60,6 +60,7 @@ def _get_generation_model(db: Session, user_id: str):
     from rhesis.backend.app.config.settings import get_model_settings
     from rhesis.backend.app.utils.user_model_utils import (
         get_user_generation_model,
+        resolve_default_hosted_model,
     )
 
     try:
@@ -69,18 +70,10 @@ def _get_generation_model(db: Session, user_id: str):
     except Exception as e:
         logger.warning(f"Error fetching user generation model: {e}")
 
-    from rhesis.sdk.models.factory import get_model
-
-    return get_model(get_model_settings().generation_model)
-
-
-def _resolve_llm_model(model_or_provider: Any):
-    """Ensure we have an SDK BaseLLM instance (not a string id)."""
-    from rhesis.sdk.models.factory import get_model
-
-    if isinstance(model_or_provider, str):
-        return get_model(model_or_provider, model_type="language")
-    return model_or_provider
+    # resolve_default_hosted_model, not a bare get_model(): this is the
+    # system default, which runs on our credentials. May return a string on
+    # construction failure; the caller unwraps that via ensure_language_model.
+    return resolve_default_hosted_model(get_model_settings().generation_model)
 
 
 def _build_suggestion_prompt(
@@ -180,7 +173,9 @@ def _prepare_suggestion_context(
         examples, topic or "", num_suggestions, user_feedback=feedback_text
     )
 
-    model = _resolve_llm_model(_get_generation_model(db, user_id))
+    from rhesis.backend.app.utils.user_model_utils import ensure_language_model
+
+    model = ensure_language_model(_get_generation_model(db, user_id))
     response_model = _suggestions_response_model(num_suggestions)
 
     return {

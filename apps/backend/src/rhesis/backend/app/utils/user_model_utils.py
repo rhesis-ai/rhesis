@@ -504,6 +504,45 @@ def resolve_default_hosted_model(default_model: str) -> Union[str, BaseLLM]:
         return default_model
 
 
+def ensure_language_model(model_or_provider: Union[str, BaseLLM]) -> BaseLLM:
+    """Turn a ``get_user_*_model()`` result into a real, stamped model instance.
+
+    A dozen call sites across the codebase share one shape: call
+    ``get_user_generation_model`` (or ``_evaluation_model``/``_execution_model``),
+    then, if it came back as a bare string, hand that string to ``get_model()``
+    to build a real instance. Every one of those did that unwrap with a plain
+    ``get_model(x)`` call, which produces an unstamped model -- so whether
+    those tokens should count depended on remembering to stamp it, at N sites,
+    which is the exact bug this accrual mechanism was rebuilt to remove.
+
+    Centralizing the unwrap here removes the choice: there is only one place
+    that turns a string into a model, and it always stamps.
+
+    Safe to reason about because a plain string only ever reaches a caller
+    from ``resolve_default_hosted_model``'s fallback (construction of the
+    system default failed once already, upstream) -- never from
+    ``_fetch_and_configure_model``, which stamps directly or raises. So
+    retrying construction here is still building the system default, and the
+    correct stamp is always ``metered=True``. Raises whatever ``get_model``
+    raises (typically ``ValueError``) so existing callers that wrap this in
+    their own error handling keep working unchanged.
+
+    Args:
+        model_or_provider: The return value of a ``get_user_*_model()`` call:
+            either an already-resolved (and already-stamped) ``BaseLLM``, or
+            a bare ``"provider/model_name"`` string.
+
+    Returns:
+        A ``BaseLLM`` instance, stamped if this function built it.
+    """
+    if isinstance(model_or_provider, str):
+        return stamp_usage_provenance(
+            get_model(model_or_provider, model_type="language"),
+            metered=True,
+        )
+    return model_or_provider
+
+
 def _call_polyphemus_with_delegation(user: User, model_name: str, **kwargs):
     """
     Create Polyphemus client with delegation token.
