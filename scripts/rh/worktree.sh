@@ -416,6 +416,14 @@ if [[ "$NAME" == /* ]] || [[ "$NAME" == *..* ]] || [[ "$NAME" == -* ]]; then
     show_usage "Invalid worktree name '$NAME'. Name must not contain '..', start with '/', or start with '-'"
 fi
 
+# A name with nothing alphanumeric in it (git allows '_', '...', '@@') sanitizes
+# to the empty string, which dev_prefix_for maps to the main checkout's
+# rhesis-dev containers and volumes — so ./rh dev clean in that worktree would
+# drop main's dev database.
+if [ -z "$(sanitize_worktree_name "$NAME")" ]; then
+    show_usage "Invalid worktree name '$NAME'. Name must contain at least one letter or digit"
+fi
+
 case "$ACTION" in
     "--remove")
         worktree_remove "$NAME"
