@@ -39,8 +39,9 @@ if [[ "${NO_COLOR:-}" == "" && "${TERM:-}" != "dumb" && -t 1 ]]; then
 fi
 
 usage() {
+  local manifest="${REPO_ROOT}/kubernetes/clusters/${JSON_ENV}/external-secrets/rhesis-app-secrets.yaml"
   cat <<EOF
-Read ${SECRETS_JSON} and sync to GCP Secret Manager (see ${EXTERNAL_SECRET_YAML}).
+Read ${SECRETS_JSON} and sync to GCP Secret Manager (see ${manifest}).
 
 ${BLUE}Usage:${NC} $0 --project GCP_PROJECT_ID [options]
 
