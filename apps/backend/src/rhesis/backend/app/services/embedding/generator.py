@@ -12,6 +12,10 @@ from rhesis.backend.app.models.embedding import EmbeddingConfig
 from rhesis.backend.app.models.enums import EmbeddingStatus
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.crud_utils import get_item
+from rhesis.backend.app.utils.model_errors import (
+    ModelConfigurationError,
+    is_permanent_model_error,
+)
 from rhesis.backend.app.utils.user_model_utils import get_user_embedding_model
 from rhesis.sdk.models.factory import get_model
 
@@ -205,6 +209,12 @@ class EmbeddingGenerator:
         try:
             embedding_vector = embedder.generate(searchable_text)
         except Exception as e:
+            # Keep permanent provider errors distinguishable so the Celery task
+            # fails once instead of autoretrying an unfixable request.
+            if is_permanent_model_error(e):
+                raise ModelConfigurationError(
+                    f"Failed to generate embedding: {e}", original_error=e
+                )
             raise ValueError(f"Failed to generate embedding: {e}")
 
         vec_dim = len(embedding_vector)

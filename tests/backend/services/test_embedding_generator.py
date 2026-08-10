@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session, joinedload
 from rhesis.backend.app import models
 from rhesis.backend.app.models.enums import EmbeddingStatus, ModelType
 from rhesis.backend.app.services.embedding.generator import EmbeddingGenerator
+from rhesis.backend.app.utils.model_errors import ModelConfigurationError
 
 
 @pytest.fixture
@@ -416,6 +417,69 @@ class TestEmbeddingGenerator:
                 user_id=authenticated_user_id,
                 model_id="00000000-0000-0000-0000-000000000000",
             )
+
+    @patch("rhesis.backend.app.services.embedding.generator.get_model")
+    def test_permanent_provider_error_raises_model_configuration_error(
+        self,
+        mock_get_model,
+        test_db,
+        test_entity,
+        embedding_model,
+        test_org_id,
+        authenticated_user_id,
+    ):
+        """A provider 404 must stay identifiable so Celery does not autoretry it.
+
+        Reproduces the region mismatch that produced the Vertex
+        ``text-embedding-005`` not-found storm: the model is absent from the
+        configured location, so every retry returns the same 404.
+        """
+
+        class NotFoundError(Exception):
+            status_code = 404
+
+        generator = EmbeddingGenerator(test_db)
+
+        mock_embedder = Mock()
+        mock_embedder.generate.side_effect = NotFoundError("Publisher model was not found")
+        mock_get_model.return_value = mock_embedder
+
+        with pytest.raises(ModelConfigurationError, match="Failed to generate embedding"):
+            generator.generate(
+                entity_id=str(test_entity.id),
+                entity_type="Test",
+                organization_id=test_org_id,
+                user_id=authenticated_user_id,
+                model_id=str(embedding_model.id),
+            )
+
+    @patch("rhesis.backend.app.services.embedding.generator.get_model")
+    def test_transient_provider_error_stays_retryable(
+        self,
+        mock_get_model,
+        test_db,
+        test_entity,
+        embedding_model,
+        test_org_id,
+        authenticated_user_id,
+    ):
+        """A timeout carries no permanent status, so it must remain retryable."""
+        generator = EmbeddingGenerator(test_db)
+
+        mock_embedder = Mock()
+        mock_embedder.generate.side_effect = TimeoutError("upstream timed out")
+        mock_get_model.return_value = mock_embedder
+
+        with pytest.raises(ValueError, match="Failed to generate embedding") as exc_info:
+            generator.generate(
+                entity_id=str(test_entity.id),
+                entity_type="Test",
+                organization_id=test_org_id,
+                user_id=authenticated_user_id,
+                model_id=str(embedding_model.id),
+            )
+
+        assert not isinstance(exc_info.value, ModelConfigurationError)
 
     @pytest.mark.parametrize("empty_text", ["", "   ", "\n\t"])
     @patch("rhesis.backend.app.services.embedding.generator.get_model")
