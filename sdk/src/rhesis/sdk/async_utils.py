@@ -92,7 +92,9 @@ def run_sync(coro, timeout: float | None = None):
     that outlive asyncio.run().
 
     Args:
-        coro: An awaitable coroutine to execute.
+        coro: A coroutine object to execute.  Must be a coroutine, not an
+            arbitrary awaitable -- ``run_coroutine_threadsafe`` rejects
+            Tasks and Futures with ``TypeError``.
         timeout: Optional seconds to wait for the result.  ``None``
             (default) waits indefinitely.  Pass an explicit value at
             call sites where an unbounded wait would mask a hang; on
