@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Box,
   Chip,
@@ -132,6 +132,16 @@ export function PlatformKeyDrawer({
   const [keyInput, setKeyInput] = useState('');
   const [showKey, setShowKey] = useState(false);
   const [removeConfirmOpen, setRemoveConfirmOpen] = useState(false);
+
+  // BaseDrawer keeps the drawer mounted while closed, so local state would
+  // otherwise leak into the next open (stale input, open confirm modal).
+  useEffect(() => {
+    if (!open) {
+      setKeyInput('');
+      setShowKey(false);
+      setRemoveConfirmOpen(false);
+    }
+  }, [open]);
 
   if (query.error instanceof PlatformKeyError && query.error.status === 404) {
     return null;
