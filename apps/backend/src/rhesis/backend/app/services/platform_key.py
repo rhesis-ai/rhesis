@@ -333,9 +333,20 @@ def _status_from_org(org: Organization | None) -> dict:
     without a redundant re-fetch.
     """
     resolved = _resolve_key(org)
+    stored = org.rhesis_api_key if org else None
     last_checked = org.rhesis_key_last_checked_at if org else None
+    # Distinguishes a removable org key from the deployment's RHESIS_API_KEY,
+    # which DELETE cannot touch -- the UI needs this to avoid offering a
+    # "remove" that would silently do nothing.
+    if stored:
+        source = "organization"
+    elif resolved:
+        source = "environment"
+    else:
+        source = None
     return {
         "configured": bool(resolved),
+        "source": source,
         "valid": org.rhesis_key_valid if org else None,
         "polyphemus_authorized": org.rhesis_key_polyphemus_authorized if org else None,
         "masked_key": _mask_key(resolved) if resolved else None,
