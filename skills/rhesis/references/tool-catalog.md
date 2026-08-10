@@ -2,8 +2,8 @@
 
 All tools exposed by the Rhesis MCP server, grouped by workflow phase.
 
-> This file is hand-maintained. When `mcp_tools.yaml` changes, update this file to match.
-> A generator script (`build_skill.py`) that auto-derives this from the YAML is a planned v2 improvement.
+> This file is hand-maintained. When the MCP server's tool definitions change, update this file
+> to match.
 
 ---
 
@@ -402,6 +402,20 @@ Use for **operational questions** ("how many runs this month?"). For pass/fail o
 
 ---
 
+### `list_annotations`
+List human annotations — reviews a person left on a test result or a trace. Each carries a Pass/Fail rating in `status.name`, a free-text comment, the author, and a `resolved` flag.
+
+Human annotations are ground truth: when an annotation disagrees with an automated metric score, **the annotation wins**. Use this to answer "what did people flag?", to explain why a test is considered wrong when metrics say it passed, and to find review work still open.
+
+**Key parameters:**
+- `test_run_id` — everything reviewed in that run, both test results and the traces it produced. Main entry point.
+- `test_result_id` — one result plus traces linked to it
+- `trace_id` (32-char OpenTelemetry hex) or `trace_db_id` (internal UUID) — one trace only
+- `source` — restrict to `"test_result"` or `"trace"`
+- `resolved` — pass `false` for open items only
+
+---
+
 ## Inspection (get-by-id)
 
 ### `get_test_set`
@@ -466,6 +480,19 @@ Unlink a behavior from a metric. Inverse of `add_behavior_to_metric`.
 **CHAIN:** confirm link via `get_metric_behaviors` first.
 
 **Key parameters:** `metric_id`, `behavior_id` (required)
+
+---
+
+### `update_endpoint`
+Update an existing endpoint's configuration. Send **only** the fields you want to change — every field is optional and omitted fields keep their current values. Never send server-managed fields (`id`, `user_id`, `organization_id`, `status_id`, `created_at`, `updated_at`).
+
+**CHAIN:** resolve the endpoint with `list_endpoints` first to get its id. After updating, verify reachability with `check_endpoint`.
+
+**Key parameters:**
+- `endpoint_id` (required) — UUID of the endpoint to update
+- `name`, `description`, `url`, `method`
+- `environment` — `"production"`, `"staging"`, `"development"`, or `"local"`
+- `request_headers` — object of HTTP headers sent with each request
 
 ---
 
