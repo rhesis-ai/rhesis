@@ -4,15 +4,37 @@
 RHESIS_OFFSET_STEP=10
 RHESIS_OFFSET_MAX=200
 
+# Shaped like die(), but on stderr and without exiting: callers read
+# allocate_port_offset through $(...), which would capture die's stdout and
+# discard it, leaving the user with a bare non-zero exit and no message.
+alloc_err() {
+    echo -e "${RED}❌ $1${NC}" >&2
+    shift
+    local hint
+    for hint in "$@"; do
+        echo -e "${YELLOW}   ${hint}${NC}" >&2
+    done
+}
+
+# Picked once, up front, so a missing probe fails loudly instead of reading as
+# "port is free" for every candidate.
+if command -v lsof &>/dev/null; then
+    RHESIS_PORT_PROBE="lsof"
+elif command -v nc &>/dev/null; then
+    RHESIS_PORT_PROBE="nc"
+else
+    RHESIS_PORT_PROBE=""
+fi
+
 port_in_use() {
     local port="$1"
-    if command -v lsof &>/dev/null; then
-        lsof -nP -iTCP:"$port" -sTCP:LISTEN -t >/dev/null 2>&1
-    elif command -v nc &>/dev/null; then
-        nc -z 127.0.0.1 "$port" >/dev/null 2>&1
-    else
-        die "Error: need lsof or nc to check whether a port is free"
-    fi
+    case "$RHESIS_PORT_PROBE" in
+        lsof) lsof -nP -iTCP:"$port" -sTCP:LISTEN -t >/dev/null 2>&1 ;;
+        nc) nc -z 127.0.0.1 "$port" >/dev/null 2>&1 ;;
+        # Unreachable — allocate_port_offset refuses to run without a probe.
+        # Fails closed anyway, so no port is ever handed out unchecked.
+        *) return 0 ;;
+    esac
 }
 
 offset_port_set() {
@@ -51,8 +73,14 @@ offsets_overlap() {
     return 1
 }
 
-# Echoes the offset; hints go to stderr so $(allocate_port_offset) stays clean.
+# Echoes the offset on stdout; everything else goes to stderr so
+# $(allocate_port_offset) stays clean.
 allocate_port_offset() {
+    if [ -z "$RHESIS_PORT_PROBE" ]; then
+        alloc_err "Error: need lsof or nc to check whether a port is free"
+        return 1
+    fi
+
     local taken
     taken=$(offsets_in_use)
 
@@ -81,6 +109,7 @@ allocate_port_offset() {
         return 0
     done
 
-    die "Error: no free port block found (tried offsets up to ${RHESIS_OFFSET_MAX})" \
+    alloc_err "Error: no free port block found (tried offsets up to ${RHESIS_OFFSET_MAX})" \
         "Remove an unused worktree: ./rh worktree <name> --remove"
+    return 1
 }
