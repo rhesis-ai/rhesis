@@ -135,8 +135,11 @@ def run_sync(coro, timeout: float | None = None):
     future = asyncio.run_coroutine_threadsafe(coro, _get_background_loop())
     try:
         return future.result(timeout)
-    except FuturesTimeoutError:
+    except FuturesTimeoutError as exc:
         # Reclaim the slot -- otherwise the abandoned coroutine keeps
         # running on the shared loop and burning its resources.
         future.cancel()
-        raise
+        # future.result() raises a bare TimeoutError whose str() is empty,
+        # which downstream error formatters read as "no detail" and replace
+        # with a generic message. Re-raise with the reason spelled out.
+        raise FuturesTimeoutError(f"Operation timed out after {timeout}s") from exc

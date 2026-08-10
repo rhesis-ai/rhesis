@@ -161,6 +161,27 @@ def test_run_sync_timeout_raises():
     close_background_loop()
 
 
+def test_run_sync_timeout_message_is_not_empty():
+    """The timeout carries a reason.
+
+    ``future.result()`` raises a bare TimeoutError with an empty str(),
+    which error formatters read as "no detail" and swap for a generic
+    message -- telling the user to check model settings on a timeout.
+    """
+    close_background_loop()
+
+    async def slow():
+        await asyncio.sleep(60)
+
+    with pytest.raises(FuturesTimeoutError) as excinfo:
+        run_sync(slow(), timeout=0.1)
+
+    message = str(excinfo.value)
+    assert message.strip(), "timeout must carry a message, not an empty string"
+    assert "timed out" in message.lower()
+    close_background_loop()
+
+
 def test_run_sync_timeout_cancels_coroutine():
     """A timed-out coroutine is cancelled, not left running on the loop."""
     close_background_loop()
