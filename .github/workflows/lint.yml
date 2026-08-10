@@ -37,11 +37,14 @@ jobs:
               - 'penelope/**'
             migrations:
               - 'apps/backend/src/rhesis/backend/alembic/versions/**'
+            skill:
+              - 'skills/rhesis/**'
+              - 'scripts/skill/**'
 
       - name: Resolve lint targets
         id: resolve
         env:
-          CHANGED: ${{ github.event_name == 'workflow_dispatch' && '["backend","sdk","penelope","frontend","docs"]' || steps.filter.outputs.changes }}
+          CHANGED: ${{ github.event_name == 'workflow_dispatch' && '["backend","sdk","penelope","frontend","docs","skill"]' || steps.filter.outputs.changes }}
         run: |
           set -euo pipefail
           echo "Changed areas: $CHANGED"
@@ -187,8 +190,26 @@ jobs:
       - name: Run lint
         run: make lint
 
+  skill:
+    needs: changes
+    if: contains(fromJSON(needs.changes.outputs.targets), 'skill')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      # The published skill is mirrored to rhesis-ai/skills, where monorepo-relative
+      # paths no longer resolve. Catch that here rather than after it ships.
+      - name: Validate skill
+        run: python scripts/skill/validate.py
+
   lint:
-    needs: [changes, python, migrations, frontend, styles, docs]
+    needs: [changes, python, migrations, frontend, styles, docs, skill]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -201,7 +222,8 @@ jobs:
                         "migrations=${{ needs.migrations.result }}" \
                         "frontend=${{ needs.frontend.result }}" \
                         "styles=${{ needs.styles.result }}" \
-                        "docs=${{ needs.docs.result }}"; do
+                        "docs=${{ needs.docs.result }}" \
+                        "skill=${{ needs.skill.result }}"; do
             echo "$RESULT"
             case "${RESULT#*=}" in
               success|skipped) ;;
