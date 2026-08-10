@@ -16,13 +16,26 @@ class ModelConfigurationError(ValueError):
 # bad request, missing/invalid credentials, no permission, unknown model.
 _PERMANENT_PROVIDER_STATUSES = frozenset({400, 401, 403, 404})
 
+# Attribute names carrying an HTTP status, in priority order. No single name
+# covers our providers: litellm and the OpenAI SDK use ``status_code``, aiohttp
+# (raised by RhesisEmbedder) uses ``status``, and google-api-core uses ``code``.
+# ``code`` is last because aiohttp also defines it as a deprecated alias, and
+# reaching it would emit a DeprecationWarning.
+_STATUS_ATTRIBUTES = ("status_code", "status", "code")
+
 
 def is_permanent_model_error(error: BaseException) -> bool:
     """Return True when a provider error cannot be resolved by retrying.
 
-    litellm and the OpenAI SDK both attach ``status_code`` to their exceptions.
     A 404 for a model that isn't served in the configured region is the case
     this exists for: retrying it only multiplies the log noise.
+
+    Only integer values in :data:`_PERMANENT_PROVIDER_STATUSES` count, so an
+    unrelated attribute of the same name cannot accidentally mark a transient
+    failure permanent.
     """
-    status_code = getattr(error, "status_code", None)
-    return isinstance(status_code, int) and status_code in _PERMANENT_PROVIDER_STATUSES
+    for attribute in _STATUS_ATTRIBUTES:
+        status = getattr(error, attribute, None)
+        if isinstance(status, int):
+            return status in _PERMANENT_PROVIDER_STATUSES
+    return False
