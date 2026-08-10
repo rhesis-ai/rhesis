@@ -247,7 +247,10 @@ class TestTaskExecution:
         self, test_db, test_org_id, authenticated_user_id, test_prompt, test_with_prompt
     ):
         """Test execution-time metrics override test set metrics."""
-        from rhesis.backend.app import crud, models
+        from rhesis.backend.app import models
+        from rhesis.backend.app.crud.metric import (
+            add_metric_to_test_set,
+        )
         from rhesis.backend.app.models.test_configuration import TestConfiguration
         from rhesis.backend.app.models.test_set import TestSet
         from rhesis.backend.app.utils.crud_utils import get_or_create_type_lookup
@@ -319,7 +322,7 @@ class TestTaskExecution:
         test_db.flush()
 
         # Associate metric with test set
-        crud.add_metric_to_test_set(
+        add_metric_to_test_set(
             test_db, test_set.id, test_set_metric.id, authenticated_user_id, test_org_id
         )
         test_db.refresh(test_set)
@@ -364,7 +367,10 @@ class TestTaskExecution:
         self, test_db, test_org_id, authenticated_user_id, test_prompt, test_with_prompt
     ):
         """Test that test set metrics override behavior metrics (existing behavior)."""
-        from rhesis.backend.app import crud, models
+        from rhesis.backend.app import models
+        from rhesis.backend.app.crud.metric import (
+            add_metric_to_test_set,
+        )
         from rhesis.backend.app.models.test_set import TestSet
         from rhesis.backend.app.utils.crud_utils import get_or_create_type_lookup
 
@@ -400,7 +406,7 @@ class TestTaskExecution:
         test_db.flush()
 
         # Associate metric with test set
-        crud.add_metric_to_test_set(
+        add_metric_to_test_set(
             test_db, test_set.id, test_set_metric.id, authenticated_user_id, test_org_id
         )
         test_db.commit()
@@ -683,6 +689,7 @@ class TestTaskExecution:
     ):
         """Test that invalid metrics are filtered out."""
         from rhesis.backend.app import models
+        from rhesis.backend.app.crud.metric import add_behavior_to_metric
         from rhesis.backend.app.utils.crud_utils import get_or_create_type_lookup
 
         # Create behavior with some invalid metrics
@@ -739,12 +746,11 @@ class TestTaskExecution:
         test_db.flush()
 
         # Associate metrics with behavior using CRUD function to handle required fields
-        from rhesis.backend.app import crud
 
-        crud.add_behavior_to_metric(
+        add_behavior_to_metric(
             test_db, valid_metric.id, behavior.id, authenticated_user_id, test_org_id
         )
-        crud.add_behavior_to_metric(
+        add_behavior_to_metric(
             test_db, invalid_metric.id, behavior.id, authenticated_user_id, test_org_id
         )
 

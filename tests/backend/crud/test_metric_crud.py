@@ -19,7 +19,13 @@ import uuid
 import pytest
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models
+from rhesis.backend.app import models
+from rhesis.backend.app.crud.metric import (
+    add_behavior_to_metric,
+    get_metric,
+    get_metrics,
+    remove_behavior_from_metric,
+)
 
 
 @pytest.mark.unit
@@ -45,7 +51,7 @@ class TestMetricOperations:
         test_db.flush()
 
         # Test metric retrieval
-        result = crud.get_metric(db=test_db, metric_id=db_metric.id, organization_id=test_org_id)
+        result = get_metric(db=test_db, metric_id=db_metric.id, organization_id=test_org_id)
 
         # Verify result
         assert result is not None
@@ -57,7 +63,7 @@ class TestMetricOperations:
         """Test metric retrieval with non-existent ID"""
         fake_metric_id = uuid.uuid4()
 
-        result = crud.get_metric(db=test_db, metric_id=fake_metric_id, organization_id=test_org_id)
+        result = get_metric(db=test_db, metric_id=fake_metric_id, organization_id=test_org_id)
 
         # Should return None for non-existent metric
         assert result is None
@@ -95,7 +101,7 @@ class TestMetricOperations:
         test_db.flush()
 
         # Test metrics listing
-        result = crud.get_metrics(db=test_db, skip=0, limit=10, organization_id=test_org_id)
+        result = get_metrics(db=test_db, skip=0, limit=10, organization_id=test_org_id)
 
         # Verify results
         assert len(result) >= 2  # May include other metrics from fixtures
@@ -137,7 +143,7 @@ class TestBehaviorMetricOperations:
         test_db.flush()
 
         # Test adding behavior to metric
-        result = crud.add_behavior_to_metric(
+        result = add_behavior_to_metric(
             db=test_db,
             metric_id=db_metric.id,
             behavior_id=db_behavior.id,
@@ -187,7 +193,7 @@ class TestBehaviorMetricOperations:
         test_db.flush()
 
         # Add behavior to metric first time
-        first_result = crud.add_behavior_to_metric(
+        first_result = add_behavior_to_metric(
             db=test_db,
             metric_id=db_metric.id,
             behavior_id=db_behavior.id,
@@ -197,7 +203,7 @@ class TestBehaviorMetricOperations:
         assert first_result is True
 
         # Try to add same behavior again
-        second_result = crud.add_behavior_to_metric(
+        second_result = add_behavior_to_metric(
             db=test_db,
             metric_id=db_metric.id,
             behavior_id=db_behavior.id,
@@ -247,7 +253,7 @@ class TestBehaviorMetricOperations:
         test_db.flush()
 
         # Test removing behavior from metric
-        result = crud.remove_behavior_from_metric(
+        result = remove_behavior_from_metric(
             db=test_db,
             metric_id=db_metric.id,
             behavior_id=db_behavior.id,
@@ -295,7 +301,7 @@ class TestBehaviorMetricOperations:
         test_db.flush()
 
         # Test removing non-existent association
-        result = crud.remove_behavior_from_metric(
+        result = remove_behavior_from_metric(
             db=test_db,
             metric_id=db_metric.id,
             behavior_id=db_behavior.id,
@@ -311,7 +317,7 @@ class TestBehaviorMetricOperations:
         fake_behavior_id = uuid.uuid4()
 
         with pytest.raises(ValueError, match="Metric with id .* not found"):
-            crud.remove_behavior_from_metric(
+            remove_behavior_from_metric(
                 db=test_db,
                 metric_id=fake_metric_id,
                 behavior_id=fake_behavior_id,
@@ -338,7 +344,7 @@ class TestBehaviorMetricOperations:
         fake_behavior_id = uuid.uuid4()
 
         with pytest.raises(ValueError, match="Behavior with id .* not found"):
-            crud.remove_behavior_from_metric(
+            remove_behavior_from_metric(
                 db=test_db,
                 metric_id=db_metric.id,
                 behavior_id=fake_behavior_id,
