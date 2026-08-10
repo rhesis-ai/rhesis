@@ -85,9 +85,7 @@ class MetricUpdate(MetricBase):
 
     @field_validator("metric_scope")
     @classmethod
-    def scope_cannot_be_emptied(
-        cls, v: Optional[List[MetricScope]]
-    ) -> Optional[List[MetricScope]]:
+    def scope_cannot_be_emptied(cls, v: Optional[List[MetricScope]]) -> Optional[List[MetricScope]]:
         """None means "not being updated"; an empty list would disable the metric."""
         if v is not None and len(v) == 0:
             raise ValueError("metric_scope cannot be empty")
