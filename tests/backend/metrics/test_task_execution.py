@@ -197,6 +197,7 @@ class TestTaskExecution:
 
         # Create an execution-time metric
         execution_metric = models.Metric(
+            metric_scope=["Single-Turn"],
             name="Execution Metric",
             class_name="NumericJudge",
             score_type="numeric",
@@ -286,6 +287,7 @@ class TestTaskExecution:
 
         # Create a test set metric
         test_set_metric = models.Metric(
+            metric_scope=["Single-Turn"],
             name="Test Set Metric",
             class_name="CategoricalJudge",
             score_type="categorical",
@@ -300,6 +302,7 @@ class TestTaskExecution:
 
         # Create an execution-time metric
         execution_metric = models.Metric(
+            metric_scope=["Single-Turn"],
             name="Execution Override Metric",
             class_name="NumericJudge",
             score_type="numeric",
@@ -384,6 +387,7 @@ class TestTaskExecution:
 
         # Create a test set metric
         test_set_metric = models.Metric(
+            metric_scope=["Single-Turn"],
             name="Test Set Override Metric",
             class_name="CategoricalJudge",
             score_type="categorical",
@@ -444,6 +448,7 @@ class TestTaskExecution:
 
         # Create Metric models
         metric1 = models.Metric(
+            metric_scope=["Single-Turn"],
             name="Test Metric 1",
             class_name="NumericJudge",
             score_type="numeric",
@@ -453,6 +458,7 @@ class TestTaskExecution:
             user_id=authenticated_user_id,
         )
         metric2 = models.Metric(
+            metric_scope=["Single-Turn"],
             name="Test Metric 2",
             class_name="CategoricalJudge",
             score_type="categorical",
@@ -490,6 +496,7 @@ class TestTaskExecution:
 
         # Create valid metric
         valid_metric = models.Metric(
+            metric_scope=["Single-Turn"],
             name="Valid Metric",
             class_name="NumericJudge",
             score_type="numeric",
@@ -501,6 +508,7 @@ class TestTaskExecution:
 
         # Create invalid metric (missing class_name)
         invalid_metric = models.Metric(
+            metric_scope=["Single-Turn"],
             name="Invalid Metric",
             class_name=None,
             score_type="numeric",
@@ -719,6 +727,7 @@ class TestTaskExecution:
         )
 
         valid_metric = models.Metric(
+            metric_scope=["Single-Turn"],
             name="Valid Metric",
             class_name="RhesisPromptMetric",
             score_type="numeric",
@@ -733,6 +742,7 @@ class TestTaskExecution:
 
         # Create invalid metric (missing class_name)
         invalid_metric = models.Metric(
+            metric_scope=["Single-Turn"],
             name="Invalid Metric",
             class_name=None,
             score_type="numeric",

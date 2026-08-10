@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import List, Optional
 
-from pydantic import UUID4, ConfigDict, model_validator
+from pydantic import UUID4, ConfigDict, Field, field_validator, model_validator
 
 from rhesis.backend.app.schemas import Base
 from rhesis.backend.app.schemas.metric_types import ScoreType, ThresholdOperator
@@ -53,6 +53,13 @@ class MetricBase(Base):
 
 
 class MetricCreate(MetricBase):
+    # Required on create, unlike the rest of MetricBase. A metric with no scope is
+    # filtered out by every execution path, so accepting one silently creates dead
+    # configuration that never evaluates and reports no error. Enforced here rather
+    # than only in the UI so the SDK, MCP, and the Architect agent are covered too;
+    # the metric table also carries a CHECK constraint as a backstop.
+    metric_scope: List[MetricScope] = Field(..., min_length=1)
+
     @model_validator(mode="after")
     def validate_score_type_fields(self) -> "MetricCreate":
         if self.score_type == ScoreType.NUMERIC:
@@ -75,6 +82,16 @@ class MetricUpdate(MetricBase):
     evaluation_prompt: Optional[str] = None
     score_type: Optional[ScoreType] = None
     threshold_operator: Optional[ThresholdOperator] = None
+
+    @field_validator("metric_scope")
+    @classmethod
+    def scope_cannot_be_emptied(
+        cls, v: Optional[List[MetricScope]]
+    ) -> Optional[List[MetricScope]]:
+        """None means "not being updated"; an empty list would disable the metric."""
+        if v is not None and len(v) == 0:
+            raise ValueError("metric_scope cannot be empty")
+        return v
 
 
 class Metric(MetricBase):

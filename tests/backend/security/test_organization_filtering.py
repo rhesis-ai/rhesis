@@ -465,6 +465,7 @@ class TestCrudOrganizationFiltering:
             ground_truth_required=False,
             context_required=False,
             class_name="TestMetric",
+            metric_scope=["Single-Turn"],
         )
 
         metric = create_metric(

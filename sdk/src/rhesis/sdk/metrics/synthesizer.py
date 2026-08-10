@@ -92,7 +92,13 @@ class GeneratedMetric(BaseModel):
     )
     metric_scope: Optional[List[str]] = Field(
         default=None,
-        description='List containing "Single-Turn" and/or "Multi-Turn"',
+        description=(
+            'Non-empty list containing "Single-Turn" and/or "Multi-Turn". Always '
+            "provide it. This decides which tests the metric is evaluated against, "
+            "so a wrong value means it silently never runs. Use [\"Multi-Turn\"] for "
+            'metrics that judge a whole conversation, ["Single-Turn"] for a single '
+            "request-response exchange, and both only when it genuinely works either way."
+        ),
     )
 
 
