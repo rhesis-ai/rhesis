@@ -28,6 +28,7 @@ jobs:
             docs:
               - 'docs/src/**'
               - 'docs/content/**'
+              - 'docs/scripts/**'
             sdk:
               - 'sdk/**'
             backend:
