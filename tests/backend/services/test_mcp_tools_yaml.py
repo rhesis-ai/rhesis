@@ -276,3 +276,108 @@ class TestMcpToolsYamlStructure:
             cfg = by_name[name]
             assert cfg["method"].upper() == method
             assert cfg["path"] == path
+
+
+@pytest.mark.unit
+class TestToolParameterDocumentation:
+    """The rendered tool schema is the agent's only source of truth.
+
+    An undescribed parameter is a field the model has to guess at, and a
+    guess that misses costs a failed call plus a wasted ReAct iteration.
+    """
+
+    # The tools the Architect drives when it builds a suite. Failures here
+    # are the ones users actually see, so these must be fully documented.
+    # The rest of the catalog (update_*, endpoint config) still has gaps —
+    # widen this set as they get cleaned up rather than relaxing the rule.
+    CREATION_TOOLS = {
+        "create_project",
+        "create_behavior",
+        "create_metric",
+        "generate_metric",
+        "improve_metric",
+        "create_source",
+        "add_behavior_to_metric",
+        "create_test_set_bulk",
+        "generate_test_set",
+    }
+
+    # Described by the OpenAPI schema itself, so a YAML override would only
+    # duplicate them.
+    EXEMPT = {"skip", "limit", "sort_by", "sort_order", "filter", "select"}
+
+    @staticmethod
+    def _build_tools():
+        from rhesis.backend.app.main import app
+        from rhesis.backend.app.mcp_server.tools import build_tools_and_operations
+
+        tools, operations = build_tools_and_operations(app)
+        return {t.name: t for t in tools}, operations
+
+    @staticmethod
+    def _enum_values(prop):
+        """Read enum values through the anyOf wrapper Optional[X] produces."""
+        if "enum" in prop:
+            return prop["enum"]
+        for variant in prop.get("anyOf", []):
+            if "enum" in variant:
+                return variant["enum"]
+        return None
+
+    def test_creation_tool_parameters_are_described(self):
+        from rhesis.sdk.agents.base import _SERVER_MANAGED_FIELDS
+
+        by_name, _ = self._build_tools()
+        undescribed = []
+        for name in sorted(self.CREATION_TOOLS):
+            schema = by_name[name].inputSchema or {}
+            for param, prop in schema.get("properties", {}).items():
+                if param in _SERVER_MANAGED_FIELDS or param in self.EXEMPT:
+                    continue
+                if not prop.get("description"):
+                    undescribed.append(f"{name}.{param}")
+
+        assert not undescribed, (
+            "Undescribed parameters on creation tools — the agent has to "
+            "guess what to send. Add a description in mcp_tools.yaml: "
+            f"{sorted(undescribed)}"
+        )
+
+    def test_required_fields_are_marked_in_schema(self):
+        """Fields the route rejects when missing must say so in the schema.
+
+        generate_test_set used to 400 on a missing name while declaring it
+        optional, so the agent omitted it and ate a failure every time.
+        """
+        by_name, _ = self._build_tools()
+
+        generate = by_name["generate_test_set"].inputSchema
+        assert "config" in generate["required"]
+        assert "name" in generate["required"]
+        assert generate["properties"]["config"]["required"] == ["behaviors"]
+
+        bulk = by_name["create_test_set_bulk"].inputSchema
+        assert "test_set_type" in bulk["required"]
+        assert "tests" in bulk["required"]
+        item_required = bulk["properties"]["tests"]["items"]["required"]
+        assert {"behavior", "category", "topic"} <= set(item_required)
+
+    def test_turn_type_fields_expose_their_allowed_values(self):
+        """Bare `string` makes the model learn the two values from prose."""
+        by_name, _ = self._build_tools()
+        expected = ["Single-Turn", "Multi-Turn"]
+
+        bulk = by_name["create_test_set_bulk"].inputSchema["properties"]
+        assert self._enum_values(bulk["test_set_type"]) == expected
+        item = bulk["tests"]["items"]["properties"]["test_type"]
+        assert self._enum_values(item) == expected
+
+        generate = by_name["generate_test_set"].inputSchema["properties"]
+        assert self._enum_values(generate["test_type"]) == expected
+
+    def test_project_id_is_not_required_for_generation(self):
+        """It resolves from the request scope, so the agent need not send it."""
+        by_name, _ = self._build_tools()
+        generate = by_name["generate_test_set"].inputSchema
+        assert "project_id" not in generate.get("required", [])
+        assert generate["properties"]["project_id"].get("description")
