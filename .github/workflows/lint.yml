@@ -40,11 +40,15 @@ jobs:
             skill:
               - 'skills/rhesis/**'
               - 'scripts/skill/**'
+            kubernetes:
+              - 'kubernetes/**'
+              - 'charts/rhesis/**'
+              - 'scripts/check-k8s-secret-overlap.sh'
 
       - name: Resolve lint targets
         id: resolve
         env:
-          CHANGED: ${{ github.event_name == 'workflow_dispatch' && '["backend","sdk","penelope","frontend","docs","skill"]' || steps.filter.outputs.changes }}
+          CHANGED: ${{ github.event_name == 'workflow_dispatch' && '["backend","sdk","penelope","frontend","docs","skill","kubernetes"]' || steps.filter.outputs.changes }}
         run: |
           set -euo pipefail
           echo "Changed areas: $CHANGED"
@@ -208,8 +212,25 @@ jobs:
       - name: Validate skill
         run: python scripts/skill/validate.py
 
+  kubernetes:
+    needs: changes
+    if: contains(fromJSON(needs.changes.outputs.targets), 'kubernetes')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+
+      # secretRef is listed after configMapRef in every deployment's envFrom, so a
+      # key declared in both silently overrides the chart and values-*.yaml edits
+      # become no-ops with no warning. See issue #2420.
+      - name: Check ConfigMap/ExternalSecret key overlap
+        run: scripts/check-k8s-secret-overlap.sh
+
   lint:
-    needs: [changes, python, migrations, frontend, styles, docs, skill]
+    needs: [changes, python, migrations, frontend, styles, docs, skill, kubernetes]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -223,7 +244,8 @@ jobs:
                         "frontend=${{ needs.frontend.result }}" \
                         "styles=${{ needs.styles.result }}" \
                         "docs=${{ needs.docs.result }}" \
-                        "skill=${{ needs.skill.result }}"; do
+                        "skill=${{ needs.skill.result }}" \
+                        "kubernetes=${{ needs.kubernetes.result }}"; do
             echo "$RESULT"
             case "${RESULT#*=}" in
               success|skipped) ;;
