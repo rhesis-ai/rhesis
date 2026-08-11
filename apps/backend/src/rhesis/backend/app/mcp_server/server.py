@@ -84,7 +84,7 @@ def _create_mcp_server(fastapi_app: Any) -> MCPServer:
             "TestRun → TestResults. "
             "Creation order: behaviors → metrics → behavior-metric mappings → "
             "generate_test_set → verify (get_test_set, list_test_set_tests) → "
-            "execute_test_set → analyze (get_test_run, get_test_result_stats). "
+            "execute_test_set → analyze (get_test_run, get_insights). "
             "Resolve entities by name via list_* + $filter; use get_* for full detail."
         ),
     )
