@@ -4,12 +4,13 @@ from typing import List
 from fastapi import Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, schemas
+from rhesis.backend.app import schemas
 from rhesis.backend.app.auth.capabilities import Permission, capability
 from rhesis.backend.app.auth.principal import resolve_principal_from_request
 from rhesis.backend.app.auth.rbac import authorize_object, project_id_from_scope
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.constants import EntityType
+from rhesis.backend.app.crud import comment as comment_crud
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
@@ -79,7 +80,7 @@ def create_comment(
 ):
     """Create a new comment."""
     organization_id, user_id = tenant_context
-    new_comment = crud.create_comment(
+    new_comment = comment_crud.create_comment(
         db=db, comment=comment, organization_id=organization_id, user_id=user_id
     )
     return new_comment
@@ -99,7 +100,7 @@ def read_comments(
 ):
     """Get all comments with filtering and pagination."""
     organization_id, user_id = tenant_context
-    comments = crud.get_comments(
+    comments = comment_crud.get_comments(
         db=db,
         skip=skip,
         limit=limit,
@@ -122,7 +123,7 @@ def read_comment(
 ):
     """Get a comment by ID."""
     organization_id, user_id = tenant_context
-    comment = crud.get_comment(
+    comment = comment_crud.get_comment(
         db=db, comment_id=comment_id, organization_id=organization_id, user_id=user_id
     )
     if comment is None:
@@ -142,7 +143,7 @@ def update_comment(
     """Update a comment."""
     organization_id, user_id = tenant_context
     # Check if comment exists
-    db_comment = crud.get_comment(
+    db_comment = comment_crud.get_comment(
         db=db, comment_id=comment_id, organization_id=organization_id, user_id=user_id
     )
     if db_comment is None:
@@ -156,7 +157,7 @@ def update_comment(
     ):
         raise HTTPException(status_code=403, detail="Not authorized to update this comment")
 
-    updated = crud.update_comment(
+    updated = comment_crud.update_comment(
         db=db,
         comment_id=comment_id,
         comment=comment,
@@ -177,7 +178,7 @@ def delete_comment(
     """Delete a comment."""
     organization_id, user_id = tenant_context
     # Check if comment exists
-    db_comment = crud.get_comment(
+    db_comment = comment_crud.get_comment(
         db=db, comment_id=comment_id, organization_id=organization_id, user_id=user_id
     )
     if db_comment is None:
@@ -191,7 +192,7 @@ def delete_comment(
     ):
         raise HTTPException(status_code=403, detail="Not authorized to delete this comment")
 
-    return crud.delete_comment(
+    return comment_crud.delete_comment(
         db=db, comment_id=comment_id, organization_id=organization_id, user_id=user_id
     )
 
@@ -225,7 +226,7 @@ def read_comments_by_entity(
             detail=f"Invalid entity_type. Must be one of: {', '.join(valid_entity_types)}",
         )
 
-    comments = crud.get_comments_by_entity(
+    comments = comment_crud.get_comments_by_entity(
         db=db,
         entity_id=entity_id,
         entity_type=entity_type,
@@ -285,14 +286,14 @@ def add_emoji_reaction(
     """
     organization_id, user_id = tenant_context
     # Check if comment exists
-    db_comment = crud.get_comment(
+    db_comment = comment_crud.get_comment(
         db=db, comment_id=comment_id, organization_id=organization_id, user_id=user_id
     )
     if db_comment is None:
         raise HTTPException(status_code=404, detail="Comment not found")
 
     # Add emoji reaction
-    updated_comment = crud.add_emoji_reaction(
+    updated_comment = comment_crud.add_emoji_reaction(
         db=db,
         comment_id=comment_id,
         emoji=emoji,
@@ -320,14 +321,14 @@ def remove_emoji_reaction(
     """Remove an emoji reaction from a comment."""
     organization_id, user_id = tenant_context
     # Check if comment exists
-    db_comment = crud.get_comment(
+    db_comment = comment_crud.get_comment(
         db=db, comment_id=comment_id, organization_id=organization_id, user_id=user_id
     )
     if db_comment is None:
         raise HTTPException(status_code=404, detail="Comment not found")
 
     # Remove emoji reaction
-    updated_comment = crud.remove_emoji_reaction(
+    updated_comment = comment_crud.remove_emoji_reaction(
         db=db,
         comment_id=comment_id,
         emoji=emoji,

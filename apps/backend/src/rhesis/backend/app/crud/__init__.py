@@ -2,7 +2,6 @@
 This code implements the CRUD operations for the models in the application.
 """
 
-import json
 import logging
 import uuid
 from datetime import datetime, timezone
@@ -2897,20 +2896,6 @@ def delete_tool(
 ) -> Optional[models.Tool]:
     """Delete a tool (soft delete)"""
     return delete_item(db, models.Tool, tool_id, organization_id=organization_id, user_id=user_id)
-
-
-# Transitional re-export: removed in the next commit, once callers import
-# from rhesis.backend.app.crud.comment directly.
-from rhesis.backend.app.crud.comment import (  # noqa: E402, F401
-    add_emoji_reaction,
-    create_comment,
-    delete_comment,
-    get_comment,
-    get_comments,
-    get_comments_by_entity,
-    remove_emoji_reaction,
-    update_comment,
-)
 
 
 # Task CRUD
