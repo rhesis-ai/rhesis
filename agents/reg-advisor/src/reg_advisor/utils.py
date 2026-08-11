@@ -50,7 +50,13 @@ def as_tristate(value: str | None) -> bool | None:
 
 
 def _bounded(needle: str) -> str:
-    """Word-boundary pattern for one needle. A trailing "*" becomes a stem match."""
+    """Word-boundary pattern for one needle. A trailing "*" becomes a stem match.
+
+    The needle is lower-cased to match the lower-cased haystack. Every vocabulary is written in
+    lower case today, so this changes nothing now — but an acronym added later ("IVD", "MDR")
+    would otherwise compile into a pattern that silently never matches.
+    """
+    needle = needle.lower()
     stem = needle.endswith("*")
     core = re.escape(needle[:-1] if stem else needle)
     prefix = r"\b" if needle[:1].isalnum() else ""
