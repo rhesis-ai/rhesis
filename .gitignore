@@ -334,11 +334,11 @@ deepeval_telemetry.jsonl.gz.part
 # Cursor IDE
 .cursor/plans/
 
-# Playground
-playground/*
+# Playground — no trailing slash, so the symlink `./rh worktree` creates is ignored too
+/playground
 
-# Simulations
-simulations/
+# Simulations — as above, matches both the directory and a worktree's symlink
+/simulations
 
 # K8s files
 infrastructure/k8s/manifests/secrets/*
