@@ -2,126 +2,89 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 # Statistics
 
-Two collection methods return aggregated statistics across your organization's test runs and test results, for building dashboards or reports:
+`Insights` runs aggregation queries against your organization's test results, metrics, test runs, and tests directly.
 
-- `TestRuns.stats()` -- status distribution, result breakdown, timeline, top executors
-- `TestResults.stats()` -- pass rates by metric, behavior, category, topic, and timeline
+## Insights
 
-## Test Run Statistics
+<CodeBlock filename="insights.py" language="python">
+{`from rhesis.sdk.entities import Insights
 
-Use `TestRuns.stats()` to get aggregated data across all test runs in your organization.
+# Pass rate by behavior for a specific run
+stats = Insights(
+    entity="test_result",
+    group_by=["behavior"],
+    measures=["count", "passed", "failed", "pass_rate"],
+    filters={"test_run_ids": ["your-run-id"]},
+).get()
 
-### Available Modes
+for row in stats.rows:
+    print(f"{row['behavior']}: {row['passed']}/{row['count']} ({row['pass_rate']}%)")
 
-| Mode | Description |
-|------|-------------|
-| `ALL` | Complete dataset with all sections |
-| `SUMMARY` | Overall summary and metadata only |
-| `STATUS` | Status distribution (Completed, Partial, Failed, etc.) |
-| `RESULTS` | Test result pass/fail/pending breakdown |
-| `TEST_SETS` | Most frequently run test sets |
-| `EXECUTORS` | Top test executors |
-| `TIMELINE` | Monthly trend data |
+# Distinct test IDs matching a filter, e.g. for drill-down from a chart
+failed_ids = Insights(entity="test_result", filters={"test_run_ids": ["your-run-id"]}).ids(outcome="fail")`}
+</CodeBlock>
 
-### Usage
+`entity` selects what each row represents, `group_by` the dimensions to break out by, and `measures` what to compute. What's valid depends on the entity:
+
+| Entity | group_by | measures |
+|--------|----------|----------|
+| `test_result` | `behavior`, `behavior_id`, `category`, `category_id`, `topic`, `topic_id`, `test_run`, `status`, `year`, `month` | `count`, `passed`, `failed`, `pass_rate` |
+| `metric` | `metric_name`, `behavior_id`, `year`, `month` | `count`, `passed`, `failed`, `pass_rate`, `automated_passed`, `automated_failed`, `human_review_count` |
+| `test_run` | `status`, `test_set`, `executor`, `year`, `month` | `count`, `passed`, `failed`, `pass_rate` |
+| `test` | `behavior`, `behavior_id`, `category`, `category_id`, `topic`, `topic_id`, `is_unrun`, `year`, `month` | `count`, `unrun_count`, `run_count`, `passed`, `failed`, `pass_rate` |
+
+Filters (`test_run_ids`, `behavior_ids`, `category_ids`, `topic_ids`, `test_set_ids`, `endpoint_ids`, `tags`, `metric_names`, …) narrow which rows are aggregated; `months`, `start_date`, and `end_date` bound the date range.
+
+## TestRuns.stats() / TestResults.stats() (deprecated)
+
+Each one fires several `Insights` calls internally; `mode` no longer changes what's
+returned, it's only recorded in `metadata.mode`. A few legacy modes need a second,
+different-grain query and raise `NotImplementedError` instead.
+
+### TestRuns.stats()
+
+Always returns status distribution, most-run test sets, top executors, and timeline.
+`RESULTS` and `SUMMARY` raise `NotImplementedError` -- both need a second query against
+`entity="test_result"`, a different grain than a run's own status.
 
 <CodeBlock filename="test_run_stats.py" language="python">
 {`from rhesis.sdk.entities import TestRuns, TestRun
-from rhesis.sdk.entities.stats import TestRunStatsMode
 
-# Get all stats for the last 6 months
-stats = TestRuns.stats(mode=TestRunStatsMode.ALL, months=6, top=5)
+stats = TestRuns.stats(months=6, top=5)
 
-# Access typed results
 print(f"Total runs: {stats.metadata.total_test_runs}")
-
 for item in stats.status_distribution:
     print(f"  {item.status}: {item.count} ({item.percentage}%)")
-
-print(f"Pass rate: {stats.result_distribution.pass_rate}%")
 
 # Stats for a single test run
 run = TestRun(id="your-run-id")
 run_stats = run.stats()`}
 </CodeBlock>
 
-## Test Result Statistics
+### TestResults.stats()
 
-Use `TestResults.stats()` to get pass/fail breakdowns across test results, grouped by different dimensions.
-
-### Available Modes
-
-| Mode | Description |
-|------|-------------|
-| `ALL` | Complete dataset with all sections |
-| `SUMMARY` | Overall pass rates and metadata only |
-| `METRICS` | Pass rates per evaluation metric |
-| `BEHAVIOR` | Pass rates per behavior |
-| `CATEGORY` | Pass rates per category |
-| `TOPIC` | Pass rates per topic |
-| `OVERALL` | Aggregate pass/fail rates |
-| `TIMELINE` | Monthly trend data |
-| `TEST_RUNS` | Per-run summary breakdown |
-
-### Usage
+Always returns behavior, category, and topic pass rates, plus overall pass rates.
+`METRICS`, `TIMELINE`, `TEST_RUNS`, `BEHAVIOR_DETAIL`, and `IDS` raise
+`NotImplementedError` -- each is either a join across test_result- and metric-grain
+data, or a single `Insights(...).ids()` call not worth wrapping. `priority_min`/
+`priority_max` raise `ValueError` -- `Insights` has no range-filter equivalent.
 
 <CodeBlock filename="test_result_stats.py" language="python">
 {`from rhesis.sdk.entities import TestResults
-from rhesis.sdk.entities.stats import TestResultStatsMode
 
-# Get topic breakdown
-stats = TestResults.stats(mode=TestResultStatsMode.TOPIC, months=6)
-
+# months, test_set_ids, behavior_ids, topic_ids, tags, etc. all narrow the query
+stats = TestResults.stats(months=6, test_set_ids=["test-set-id-1"])
 for topic, rates in stats.topic_pass_rates.items():
     print(f"  {topic}: {rates.passed}/{rates.total} ({rates.pass_rate}%)")
 
-# Get everything at once
-all_stats = TestResults.stats(mode=TestResultStatsMode.ALL)
-
-# Access different dimensions from the same response
-all_stats.topic_pass_rates
-all_stats.behavior_pass_rates
-all_stats.category_pass_rates
-all_stats.metric_pass_rates
-all_stats.overall_pass_rates
-all_stats.timeline`}
-</CodeBlock>
-
-## Filtering
-
-Both methods accept filter parameters to narrow results by time range, test sets, users, and more.
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `months` | `int` | Months of historical data (default: 6) |
-| `top` | `int` | Max items in ranked lists |
-| `start_date` | `str` | ISO date, overrides months |
-| `end_date` | `str` | ISO date, overrides months |
-| `test_set_ids` | `list` | Filter by test set IDs |
-| `test_run_ids` | `list` | Filter by test run IDs |
-| `user_ids` | `list` | Filter by user IDs |
-
-<CodeBlock filename="filtered_stats.py" language="python">
-{`from rhesis.sdk.entities import TestResults
-from rhesis.sdk.entities.stats import TestResultStatsMode
-
-# Filter by test set and time range
-stats = TestResults.stats(
-    mode=TestResultStatsMode.ALL,
-    months=3,
-    test_set_ids=["test-set-id-1", "test-set-id-2"],
-)
-
-# Filter by specific topics
-topic_stats = TestResults.stats(
-    mode=TestResultStatsMode.TOPIC,
-    topic_ids=["topic-id"],
-)`}
+stats.behavior_pass_rates
+stats.category_pass_rates
+stats.overall_pass_rates`}
 </CodeBlock>
 
 ## Pandas Integration
 
-Both `TestRunStats` and `TestResultStats` provide a `to_dataframe()` method for converting results to pandas DataFrames. This is useful for charting and further analysis in notebooks.
+`TestRunStats` and `TestResultStats` provide `to_dataframe()`, converting a response section to a pandas DataFrame.
 
 <Callout type="info">
   pandas is an optional dependency. Install it with `pip install pandas` if you want to use `to_dataframe()`.
@@ -129,10 +92,9 @@ Both `TestRunStats` and `TestResultStats` provide a `to_dataframe()` method for 
 
 <CodeBlock filename="stats_dataframe.py" language="python">
 {`from rhesis.sdk.entities import TestRuns, TestResults
-from rhesis.sdk.entities.stats import TestRunStatsMode, TestResultStatsMode
 
 # Test run timeline as a DataFrame
-run_stats = TestRuns.stats(mode=TestRunStatsMode.ALL, months=6)
+run_stats = TestRuns.stats(months=6)
 timeline_df = run_stats.to_dataframe("timeline")
 print(timeline_df)
 #       date  total_runs                      result_breakdown
@@ -140,7 +102,7 @@ print(timeline_df)
 # 1  2026-02          15  {'passed': 12, 'failed': 3, 'pending': 0}
 
 # Topic pass rates as a DataFrame (dict sections use the key as index)
-result_stats = TestResults.stats(mode=TestResultStatsMode.TOPIC)
+result_stats = TestResults.stats()
 topic_df = result_stats.to_dataframe("topic_pass_rates")
 print(topic_df)
 #            total  passed  failed  pass_rate
