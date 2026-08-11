@@ -477,18 +477,6 @@ def download_test_set_prompts(
         )
 
 
-@router.get("/{test_set_identifier}/prompts", response_model=list[schemas.PromptView])
-def get_test_set_prompts(
-    test_set_identifier: str,
-    db: Session = Depends(get_tenant_db_session),
-    tenant_context=Depends(get_tenant_context),  # SECURITY: Extract tenant context
-    current_user: User = Depends(require_current_user_or_token),
-):
-    organization_id, user_id = tenant_context  # SECURITY: Get tenant context
-    db_test_set = resolve_test_set_or_raise(test_set_identifier, db, organization_id)
-    return get_prompts_for_test_set(db, db_test_set.id, organization_id)
-
-
 @router.get("/{test_set_identifier}/tests", response_model=list[schemas.TestDetail])
 def get_test_set_tests(
     test_set_identifier: str,
@@ -625,48 +613,6 @@ def get_last_test_run(
             detail="No completed test run found for this test set and endpoint combination",
         )
     return result
-
-
-@router.get(
-    "/{test_set_identifier}/prompts/download",
-    **capability(Permission.TestSet.EXPORT),
-)
-def download_test_set_prompts_csv(
-    test_set_identifier: str,
-    db: Session = Depends(get_tenant_db_session),
-    tenant_context=Depends(get_tenant_context),  # SECURITY: Extract tenant context
-    current_user: User = Depends(require_current_user_or_token),
-):
-    try:
-        # Resolve test set
-        organization_id, user_id = tenant_context  # SECURITY: Get tenant context
-        db_test_set = resolve_test_set_or_raise(test_set_identifier, db, organization_id)
-
-        # Get prompts with organization filtering (SECURITY CRITICAL)
-        prompts = get_prompts_for_test_set(db, db_test_set.id, organization_id)
-
-        try:
-            csv_data = prompts_to_csv(prompts)
-        except ValueError:
-            raise HTTPException(
-                status_code=404, detail=f"No prompts found in test set: {test_set_identifier}"
-            )
-
-        # Return CSV file
-        return Response(
-            content=csv_data,
-            media_type="text/csv",
-            headers={
-                "Content-Disposition": "attachment; "
-                f'filename="test_set_{test_set_identifier}_prompts.csv"'
-            },
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Failed to download test set prompts: {str(e)}"
-        )
 
 
 @router.post(

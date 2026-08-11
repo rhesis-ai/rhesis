@@ -11,13 +11,12 @@ from .mixins import OrganizationAndUserMixin, ProjectMixin
 
 class TypeLookup(Base, ProjectMixin, OrganizationAndUserMixin):
     __tablename__ = "type_lookup"
-    type_name = Column(String)  # 'CategoryType', 'ResponsePatternType', 'EntityType', etc.
+    type_name = Column(String)  # 'CategoryType', 'EntityType', etc.
     type_value = Column(String)  # 'TYPE_A', 'TYPE_B', etc.
     description = Column(Text)
 
     statuses = relationship("Status", back_populates="entity_type")
     categories = relationship("Category", back_populates="entity_type")
-    response_patterns = relationship("ResponsePattern", back_populates="response_pattern_type")
     topics = relationship("Topic", back_populates="entity_type")
     test_sets = relationship(
         "TestSet", back_populates="license_type", foreign_keys="[TestSet.license_type_id]"
