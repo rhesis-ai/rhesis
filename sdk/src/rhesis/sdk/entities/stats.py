@@ -334,6 +334,7 @@ def build_test_result_stats(
     topic = _tr_dimension("topic", filters, months, start_date, end_date)
     metric = _tr_metric(filters, months, start_date, end_date)
     test_ids = _tr_ids(filters, months, start_date, end_date)
+    run_ids = filters.get("test_run_ids") or []
 
     metadata = TestResultStatsMetadata(
         generated_at=datetime.now(timezone.utc).isoformat(),
@@ -341,6 +342,8 @@ def build_test_result_stats(
         start_date=start_date or "",
         end_date=end_date or "",
         total_test_results=overall.total,
+        total_test_runs=len(run_ids),
+        test_run_id=run_ids[0] if len(run_ids) == 1 else None,
         mode=mode,
         available_behaviors=sorted(behavior),
         available_categories=sorted(category),

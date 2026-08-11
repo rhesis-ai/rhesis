@@ -459,6 +459,28 @@ def test_test_results_stats_ids_mode(mock_insights_cls):
 
 
 @patch("rhesis.sdk.entities.stats.Insights")
+def test_test_results_stats_metadata_run_count_from_filters(mock_insights_cls):
+    """total_test_runs/test_run_id are derived from the test_run_ids filter --
+    no extra query, so they're 0/None when the call isn't scoped to specific runs."""
+    from rhesis.sdk.entities.test_result import TestResults
+
+    _mock_test_result_insights(mock_insights_cls)
+    unscoped = TestResults.stats()
+    assert unscoped.metadata.total_test_runs == 0
+    assert unscoped.metadata.test_run_id is None
+
+    _mock_test_result_insights(mock_insights_cls)
+    single_run = TestResults.stats(test_run_id="run-1")
+    assert single_run.metadata.total_test_runs == 1
+    assert single_run.metadata.test_run_id == "run-1"
+
+    _mock_test_result_insights(mock_insights_cls)
+    multi_run = TestResults.stats(test_run_ids=["run-1", "run-2"])
+    assert multi_run.metadata.total_test_runs == 2
+    assert multi_run.metadata.test_run_id is None
+
+
+@patch("rhesis.sdk.entities.stats.Insights")
 def test_test_results_stats_passes_filters(mock_insights_cls):
     _mock_test_result_insights(mock_insights_cls)
 
