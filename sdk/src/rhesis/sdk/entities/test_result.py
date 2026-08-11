@@ -90,11 +90,11 @@ class TestResults(BaseCollection):
         """Deprecated convenience shim. Prefer ``Insights(entity="test_result", ...)`` or
         ``Insights(entity="metric", ...)`` directly.
 
-        Always returns behavior/category/topic/overall pass rates via four ``Insights``
-        calls -- *mode* no longer changes what's returned, it only shows up in
-        ``metadata.mode``. "metrics", "timeline", "test_runs", "behavior_detail", and
-        "ids" raise ``NotImplementedError``: each needs its own ``Insights`` call this
-        shim doesn't attempt to reproduce.
+        Always returns behavior/category/topic/metric/overall pass rates and matching
+        test IDs via six ``Insights`` calls -- *mode* no longer changes what's returned,
+        it only shows up in ``metadata.mode``. "timeline", "test_runs", and
+        "behavior_detail" raise ``NotImplementedError``: each needs its own, differently
+        shaped ``Insights`` call this shim doesn't attempt to reproduce.
 
         Args:
             mode: Data mode controlling which sections are returned.

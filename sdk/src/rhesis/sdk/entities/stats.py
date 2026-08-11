@@ -227,9 +227,10 @@ def _period_label(months: Optional[int], start_date: Optional[str], end_date: Op
 
 # ---- test_result section builders -----------------------------------------
 #
-# metrics/timeline/test_runs/behavior_detail all joined test_result-grain and
-# metric-grain data in SQL -- not worth reproducing here. ids is just a single
-# Insights(...).ids() call -- nothing to shim.
+# timeline/test_runs/behavior_detail joined test_result-grain and metric-grain
+# data in SQL at a grain Insights doesn't offer in one call -- not worth
+# reproducing here. metrics is its own entity="metric" query and ids is a
+# single Insights(...).ids() call -- both folded into the default set below.
 
 
 def _tr_overall(filters, months, start_date, end_date) -> OverallStats:
@@ -272,9 +273,41 @@ def _tr_dimension(dimension: str, filters, months, start_date, end_date) -> Dict
     }
 
 
-_UNSUPPORTED_TEST_RESULT_MODES = frozenset(
-    {"metrics", "timeline", "test_runs", "behavior_detail", "ids"}
-)
+def _tr_metric(filters, months, start_date, end_date) -> Dict[str, MetricStats]:
+    """Pass/fail rates grouped by metric name (entity=metric, not test_result)."""
+    resp = Insights(
+        entity="metric",
+        group_by=["metric_name"],
+        measures=["count", "passed", "failed", "pass_rate"],
+        filters=filters,
+        months=months,
+        start_date=start_date,
+        end_date=end_date,
+    ).get()
+    return {
+        row["metric_name"]: MetricStats(
+            total=row["count"],
+            passed=row["passed"],
+            failed=row["failed"],
+            pass_rate=row["pass_rate"],
+        )
+        for row in resp.rows
+        if row["metric_name"] is not None
+    }
+
+
+def _tr_ids(filters, months, start_date, end_date) -> List[str]:
+    resp = Insights(
+        entity="test_result",
+        filters=filters,
+        months=months,
+        start_date=start_date,
+        end_date=end_date,
+    ).ids(outcome="all")
+    return resp.ids
+
+
+_UNSUPPORTED_TEST_RESULT_MODES = frozenset({"timeline", "test_runs", "behavior_detail"})
 
 
 def build_test_result_stats(
@@ -284,8 +317,9 @@ def build_test_result_stats(
     start_date: Optional[str],
     end_date: Optional[str],
 ) -> "TestResultStats":
-    """Query Insights for overall/behavior/category/topic pass rates and shape
-    them into TestResultStats. Raises for modes in _UNSUPPORTED_TEST_RESULT_MODES."""
+    """Query Insights for overall/behavior/category/topic/metric pass rates and
+    matching test IDs, and shape them into TestResultStats. Raises for modes in
+    _UNSUPPORTED_TEST_RESULT_MODES."""
     mode = mode.value if isinstance(mode, Enum) else mode
     if mode in _UNSUPPORTED_TEST_RESULT_MODES:
         raise NotImplementedError(
@@ -298,6 +332,8 @@ def build_test_result_stats(
     behavior = _tr_dimension("behavior", filters, months, start_date, end_date)
     category = _tr_dimension("category", filters, months, start_date, end_date)
     topic = _tr_dimension("topic", filters, months, start_date, end_date)
+    metric = _tr_metric(filters, months, start_date, end_date)
+    test_ids = _tr_ids(filters, months, start_date, end_date)
 
     metadata = TestResultStatsMetadata(
         generated_at=datetime.now(timezone.utc).isoformat(),
@@ -309,12 +345,15 @@ def build_test_result_stats(
         available_behaviors=sorted(behavior),
         available_categories=sorted(category),
         available_topics=sorted(topic),
+        available_metrics=sorted(metric),
     )
     return TestResultStats(
         overall_pass_rates=overall,
         behavior_pass_rates=behavior,
         category_pass_rates=category,
         topic_pass_rates=topic,
+        metric_pass_rates=metric,
+        test_ids=test_ids,
         metadata=metadata,
     )
 
@@ -461,8 +500,8 @@ def build_test_run_stats(
 class TestResultStats(BaseModel):
     """Response from ``TestResults.stats()``. All fields are optional: only
     overall_pass_rates/behavior_pass_rates/category_pass_rates/topic_pass_rates/
-    metadata are ever populated -- the rest predate the Insights-backed builder
-    above."""
+    metric_pass_rates/test_ids/metadata are ever populated -- the rest predate
+    the Insights-backed builder above."""
 
     metric_pass_rates: Optional[Dict[str, MetricStats]] = None
     behavior_pass_rates: Optional[Dict[str, MetricStats]] = None

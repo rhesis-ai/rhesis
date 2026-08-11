@@ -63,11 +63,11 @@ run_stats = run.stats()`}
 
 ### TestResults.stats()
 
-Always returns behavior, category, and topic pass rates, plus overall pass rates.
-`METRICS`, `TIMELINE`, `TEST_RUNS`, `BEHAVIOR_DETAIL`, and `IDS` raise
-`NotImplementedError` -- each is either a join across test_result- and metric-grain
-data, or a single `Insights(...).ids()` call not worth wrapping. `priority_min`/
-`priority_max` raise `ValueError` -- `Insights` has no range-filter equivalent.
+Always returns behavior, category, topic, and metric pass rates, plus overall pass rates
+and matching test IDs. `TIMELINE`, `TEST_RUNS`, and `BEHAVIOR_DETAIL` raise
+`NotImplementedError` -- each is a join across test_result- and metric-grain data at a
+grain `Insights` doesn't return in one call. `priority_min`/`priority_max` raise
+`ValueError` -- `Insights` has no range-filter equivalent.
 
 <CodeBlock filename="test_result_stats.py" language="python">
 {`from rhesis.sdk.entities import TestResults
@@ -79,7 +79,9 @@ for topic, rates in stats.topic_pass_rates.items():
 
 stats.behavior_pass_rates
 stats.category_pass_rates
-stats.overall_pass_rates`}
+stats.metric_pass_rates
+stats.overall_pass_rates
+stats.test_ids`}
 </CodeBlock>
 
 ## Pandas Integration

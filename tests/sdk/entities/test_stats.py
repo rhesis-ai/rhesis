@@ -218,14 +218,31 @@ def _test_run_responses(status=None, test_sets=None, executors=None, timeline=No
     ]
 
 
-def _test_result_responses(overall=None, behavior=None, category=None, topic=None):
-    """Canned .get() results, in the order build_test_result_stats queries them."""
+def _test_result_responses(overall=None, behavior=None, category=None, topic=None, metric=None):
+    """Canned .get() results, in the order build_test_result_stats queries them.
+
+    ids() is a separate mocked method (.ids), not part of this .get() side_effect list.
+    """
     return [
         _get_response(rows=[overall] if overall else [], entity="test_result"),
         _get_response(rows=behavior or [], entity="test_result"),
         _get_response(rows=category or [], entity="test_result"),
         _get_response(rows=topic or [], entity="test_result"),
+        _get_response(rows=metric or [], entity="metric"),
     ]
+
+
+def _ids_response(ids=None):
+    from rhesis.sdk.entities.insights import InsightsIdsResponse
+
+    return InsightsIdsResponse(entity="test_result", ids=ids or [])
+
+
+def _mock_test_result_insights(mock_insights_cls, ids=None, **kwargs):
+    """Configure both .get() (section queries) and .ids() (the ids query) on the
+    shared Insights mock -- every build_test_result_stats() call needs both."""
+    mock_insights_cls.return_value.get.side_effect = _test_result_responses(**kwargs)
+    mock_insights_cls.return_value.ids.return_value = _ids_response(ids)
 
 
 # ---------------------------------------------------------------------------
@@ -363,9 +380,10 @@ def test_test_run_instance_stats_raises_without_id():
 
 
 @patch("rhesis.sdk.entities.stats.Insights")
-def test_test_results_stats_queries_four_sections_regardless_of_mode(mock_insights_cls):
+def test_test_results_stats_queries_five_sections_regardless_of_mode(mock_insights_cls):
     """mode is no longer a section filter -- it only ends up in metadata.mode."""
-    mock_insights_cls.return_value.get.side_effect = _test_result_responses(
+    _mock_test_result_insights(
+        mock_insights_cls,
         overall={"count": 100, "passed": 80, "failed": 20, "pass_rate": 80.0},
     )
 
@@ -373,9 +391,9 @@ def test_test_results_stats_queries_four_sections_regardless_of_mode(mock_insigh
 
     stats = TestResults.stats(mode="summary", months=6)
 
-    assert mock_insights_cls.call_count == 4
-    group_bys = [kwargs.get("group_by", []) for _, kwargs in mock_insights_cls.call_args_list]
-    assert group_bys == [[], ["behavior"], ["category"], ["topic"]]
+    assert mock_insights_cls.return_value.get.call_count == 5
+    group_bys = [kwargs.get("group_by", []) for _, kwargs in mock_insights_cls.call_args_list[:5]]
+    assert group_bys == [[], ["behavior"], ["category"], ["topic"], ["metric_name"]]
     assert stats.overall_pass_rates.total == 100
     assert stats.overall_pass_rates.pass_rate == 80.0
     assert stats.metadata.mode == "summary"
@@ -383,7 +401,8 @@ def test_test_results_stats_queries_four_sections_regardless_of_mode(mock_insigh
 
 @patch("rhesis.sdk.entities.stats.Insights")
 def test_test_results_stats_topic_mode(mock_insights_cls):
-    mock_insights_cls.return_value.get.side_effect = _test_result_responses(
+    _mock_test_result_insights(
+        mock_insights_cls,
         topic=[
             {"topic": "Safety", "count": 50, "passed": 40, "failed": 10, "pass_rate": 80.0},
             {"topic": "Accuracy", "count": 30, "passed": 25, "failed": 5, "pass_rate": 83.33},
@@ -400,8 +419,48 @@ def test_test_results_stats_topic_mode(mock_insights_cls):
 
 
 @patch("rhesis.sdk.entities.stats.Insights")
+def test_test_results_stats_metric_pass_rates(mock_insights_cls):
+    """metrics is its own entity=metric query, grouped by metric_name."""
+    _mock_test_result_insights(
+        mock_insights_cls,
+        metric=[
+            {
+                "metric_name": "Faithfulness",
+                "count": 20,
+                "passed": 18,
+                "failed": 2,
+                "pass_rate": 90.0,
+            },
+        ],
+    )
+
+    from rhesis.sdk.entities.test_result import TestResults
+
+    stats = TestResults.stats(mode="metrics")
+
+    metric_call = mock_insights_cls.call_args_list[4]
+    assert metric_call.kwargs["entity"] == "metric"
+    assert metric_call.kwargs["group_by"] == ["metric_name"]
+    assert stats.metric_pass_rates["Faithfulness"].pass_rate == 90.0
+    assert stats.metadata.available_metrics == ["Faithfulness"]
+
+
+@patch("rhesis.sdk.entities.stats.Insights")
+def test_test_results_stats_ids_mode(mock_insights_cls):
+    """ids is a single Insights(...).ids() call, folded into the default set."""
+    _mock_test_result_insights(mock_insights_cls, ids=["tr-1", "tr-2"])
+
+    from rhesis.sdk.entities.test_result import TestResults
+
+    stats = TestResults.stats(mode="ids", behavior_ids=["b1"])
+
+    mock_insights_cls.return_value.ids.assert_called_once_with(outcome="all")
+    assert stats.test_ids == ["tr-1", "tr-2"]
+
+
+@patch("rhesis.sdk.entities.stats.Insights")
 def test_test_results_stats_passes_filters(mock_insights_cls):
-    mock_insights_cls.return_value.get.side_effect = _test_result_responses()
+    _mock_test_result_insights(mock_insights_cls)
 
     from rhesis.sdk.entities.test_result import TestResults
 
@@ -426,19 +485,10 @@ def test_test_results_stats_priority_filter_raises():
         TestResults.stats(mode="summary", priority_min=1)
 
 
-def test_test_results_stats_metrics_mode_raises():
-    """metrics mode combined test_result-grain and metric-grain data (a join
-    the old backend did in SQL) -- no longer reproduced transparently."""
-    from rhesis.sdk.entities.test_result import TestResults
-
-    with pytest.raises(NotImplementedError, match="metric"):
-        TestResults.stats(mode="metrics", behavior_ids=["b1"])
-
-
-@pytest.mark.parametrize("mode", ["timeline", "test_runs", "behavior_detail", "ids"])
+@pytest.mark.parametrize("mode", ["timeline", "test_runs", "behavior_detail"])
 def test_test_results_stats_other_unsupported_modes_raise(mode):
-    """ids is unsupported too now -- it's a single Insights(...).ids() call,
-    not worth reshaping through this shim."""
+    """Each of these joins test_result-grain and metric-grain data at a grain
+    Insights doesn't return in one call, so they're not reproduced here."""
     from rhesis.sdk.entities.test_result import TestResults
 
     with pytest.raises(NotImplementedError, match="Insights"):
