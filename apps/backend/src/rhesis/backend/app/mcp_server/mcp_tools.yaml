@@ -293,7 +293,7 @@ tools:
       test_set_identifier and endpoint_id from list_test_sets and
       list_endpoints. CHAIN: use when offering run comparison ("compare
       with last run") or before re-scoring. Returns 404 if no completed
-      run exists yet. Pass test_run_id to get_insights for
+      run exists yet. Pass test_run_ids to get_insights for
       side-by-side analysis.
     parameters:
       test_set_identifier:
