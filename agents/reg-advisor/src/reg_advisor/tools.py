@@ -31,10 +31,18 @@ NO_SCOPE_FLAG = "No scope flags detected. Continue with the appropriate tool."
 def _end_run(tool_context: ToolContext, reply: str) -> str:
     """End the invocation and hand the turn layer the reply.
 
-    Two mechanisms, because ADK has no ``exit_conditions`` list. ``end_invocation`` stops the
-    run — it lives on the private ``InvocationContext``, which is the only place 2.x exposes it,
-    ``EventActions`` has no such field. And the reply goes into state because after
-    ``end_invocation`` there is no closing model text at all for the turn layer to read.
+    Two mechanisms, because ADK has no ``exit_conditions`` list.
+
+    ``end_invocation`` stops the run. It lives on the private ``InvocationContext`` because that
+    is the only place google-adk 2.6.3 exposes it — ``EventActions`` has no such field — so this
+    is the one place in the package that reaches through a private attribute. Re-check it when
+    the ADK pin moves.
+
+    The reply also goes into state, which is what makes that dependency survivable. After
+    ``end_invocation`` there is no closing model text for the turn layer to read, and
+    ``runner._extract_reply`` prefers ``terminal_reply`` over everything else — so if a future
+    ADK stopped honouring the flag, the run would over-run its turn but the user would still get
+    the terminal reply rather than the model's next thought.
     """
     tool_context.state["terminal_reply"] = reply
     tool_context._invocation_context.end_invocation = True
