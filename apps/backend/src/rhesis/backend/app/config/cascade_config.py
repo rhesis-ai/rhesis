@@ -84,6 +84,21 @@ CASCADE_RELATIONSHIPS: Dict[Type, List[CascadeRelationship]] = {
             description="Output files belong to a test result",
         )
     ],
+    # Metric cascades to its tuning test set and that set's test cases.
+    # Both are metric-owned rows, hidden from the normal lists, so leaving them
+    # behind would strand them with no metric to reach them from.
+    models.Metric: [
+        CascadeRelationship(
+            child_model=models.TestSet,
+            foreign_key="metric_id",
+            description="A tuning test set belongs to its metric",
+        ),
+        CascadeRelationship(
+            child_model=models.Test,
+            foreign_key="metric_id",
+            description="Metric tuning test cases belong to their metric",
+        ),
+    ],
 }
 
 

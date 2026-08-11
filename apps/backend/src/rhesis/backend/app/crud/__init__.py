@@ -23,6 +23,7 @@ from rhesis.backend.app.utils.crud_utils import (
     get_items_detail,
     update_item,
 )
+from rhesis.backend.app.utils.hidden_rows import exclude_metric_owned
 from rhesis.backend.app.utils.query_utils import QueryBuilder, include
 
 logger = logging.getLogger(__name__)
@@ -408,9 +409,14 @@ def get_test_sets(
         query_builder = query_builder.with_custom_filter(has_runs_filter)
 
     # Exclude explorer test sets (they use the dedicated /explorer API)
-    return query_builder.with_custom_filter(
-        lambda q: q.filter(models.TestSet.explorer_row.is_(False))
-    ).all()
+    # A metric's tuning test set is reachable only through its metric.
+    return (
+        query_builder.with_custom_filter(
+            lambda q: q.filter(models.TestSet.explorer_row.is_(False))
+        )
+        .with_custom_filter(exclude_metric_owned(models.TestSet))
+        .all()
+    )
 
 
 def create_test_set(
@@ -933,6 +939,9 @@ def get_tests(
         organization_id=organization_id,
         user_id=user_id,
         exclude_explorer_rows=True,
+        # Metric tuning cases are reachable only through their metric. The route
+        # pairs this with the same filter on its X-Total-Count.
+        extra_filter=exclude_metric_owned(models.Test),
     )
 
 

@@ -95,6 +95,9 @@ class Test(TestBase):
     id: UUID4
     created_at: Union[datetime, str]
     updated_at: Union[datetime, str]
+    # Response-only (not on TestBase) -- a client-settable metric_id would let
+    # anyone hide a test from the list, or unhide a metric tuning case.
+    metric_id: Optional[UUID4] = None
 
     model_config = ConfigDict(from_attributes=True)
 
