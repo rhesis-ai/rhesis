@@ -16,7 +16,8 @@ import uuid
 import pytest
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models
+from rhesis.backend.app import models
+from rhesis.backend.app.crud.token import revoke_user_tokens
 from rhesis.backend.app.utils.encryption import hash_token
 
 
@@ -74,7 +75,7 @@ class TestTokenOperations:
         )
 
         # Test token revocation
-        result = crud.revoke_user_tokens(db=test_db, user_id=user_uuid)
+        result = revoke_user_tokens(db=test_db, user_id=user_uuid)
 
         # Verify tokens were revoked (result is count of deleted tokens)
         assert result == tokens_before
@@ -90,7 +91,7 @@ class TestTokenOperations:
         """Test token revocation for user with no tokens"""
         user_id = uuid.uuid4()
 
-        result = crud.revoke_user_tokens(db=test_db, user_id=user_id)
+        result = revoke_user_tokens(db=test_db, user_id=user_id)
 
         # Should return 0 for no tokens revoked
         assert result == 0

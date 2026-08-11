@@ -1694,21 +1694,6 @@ def remove_tag(
     return result > 0
 
 
-# Transitional re-export: removed in the next commit, once callers import
-# from rhesis.backend.app.crud.token directly.
-from rhesis.backend.app.crud.token import (  # noqa: E402, F401
-    count_user_tokens,
-    create_token,
-    get_token,
-    get_token_by_value,
-    get_tokens,
-    get_user_tokens,
-    revoke_token,
-    revoke_user_tokens,
-    update_token,
-)
-
-
 # Organization CRUD
 def get_organization(
     db: Session, organization_id: uuid.UUID, tenant_organization_id: str = None, user_id: str = None

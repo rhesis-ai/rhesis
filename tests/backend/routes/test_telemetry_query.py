@@ -1248,8 +1248,8 @@ class TestCrossOrganizationSecurity:
         """🔒 SECURITY: Test that users cannot access traces from other organizations"""
         import uuid
 
-        from rhesis.backend.app import crud
         from rhesis.backend.app.auth.token_utils import generate_api_token
+        from rhesis.backend.app.crud.token import create_token
         from rhesis.backend.app.schemas.token import TokenCreate
         from rhesis.backend.app.utils.encryption import hash_token
         from tests.backend.fixtures.test_setup import create_test_organization, create_test_user
@@ -1273,7 +1273,7 @@ class TestCrossOrganizationSecurity:
             user_id=user_a.id,
             organization_id=org_a.id,
         )
-        crud.create_token(db=test_db, token=token_a_data)
+        create_token(db=test_db, token=token_a_data)
 
         token_b_value = generate_api_token()
         token_b_data = TokenCreate(
@@ -1286,7 +1286,7 @@ class TestCrossOrganizationSecurity:
             user_id=user_b.id,
             organization_id=org_b.id,
         )
-        crud.create_token(db=test_db, token=token_b_data)
+        create_token(db=test_db, token=token_b_data)
 
         # Create a project for org A
         project_a = create_project(
@@ -1328,8 +1328,8 @@ class TestCrossOrganizationSecurity:
         """🔒 SECURITY: Test that list endpoint only returns traces from user's organization"""
         import uuid
 
-        from rhesis.backend.app import crud
         from rhesis.backend.app.auth.token_utils import generate_api_token
+        from rhesis.backend.app.crud.token import create_token
         from rhesis.backend.app.schemas.token import TokenCreate
         from rhesis.backend.app.utils.encryption import hash_token
         from tests.backend.fixtures.test_setup import create_test_organization, create_test_user
@@ -1347,7 +1347,7 @@ class TestCrossOrganizationSecurity:
 
         # Generate plaintext API tokens
         token_a_value = generate_api_token()
-        crud.create_token(
+        create_token(
             db=test_db,
             token=TokenCreate(
                 name="Test Token A",
@@ -1362,7 +1362,7 @@ class TestCrossOrganizationSecurity:
         )
 
         token_b_value = generate_api_token()
-        crud.create_token(
+        create_token(
             db=test_db,
             token=TokenCreate(
                 name="Test Token B",
@@ -1437,8 +1437,8 @@ class TestCrossOrganizationSecurity:
         """🔒 SECURITY: Test that metrics endpoint only aggregates from user's organization"""
         import uuid
 
-        from rhesis.backend.app import crud
         from rhesis.backend.app.auth.token_utils import generate_api_token
+        from rhesis.backend.app.crud.token import create_token
         from rhesis.backend.app.schemas.token import TokenCreate
         from rhesis.backend.app.utils.encryption import hash_token
         from tests.backend.fixtures.test_setup import create_test_organization, create_test_user
@@ -1456,7 +1456,7 @@ class TestCrossOrganizationSecurity:
 
         # Generate plaintext API tokens
         token_a_value = generate_api_token()
-        crud.create_token(
+        create_token(
             db=test_db,
             token=TokenCreate(
                 name="Test Token A",
@@ -1471,7 +1471,7 @@ class TestCrossOrganizationSecurity:
         )
 
         token_b_value = generate_api_token()
-        crud.create_token(
+        create_token(
             db=test_db,
             token=TokenCreate(
                 name="Test Token B",
