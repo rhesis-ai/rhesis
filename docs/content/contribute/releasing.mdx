@@ -33,6 +33,8 @@ Switch to the release branch and run `[Release] 3. Publish` from it.
 
 The workflow creates and pushes the tags and creates a GitHub release for each component. It does not merge the pull request.
 
+It also pins every prd ArgoCD Application's `targetRevision` (under `kubernetes/clusters/prd/`) to this release's commit and syncs them — see [`kubernetes/README.md`](https://github.com/rhesis-ai/rhesis/blob/main/kubernetes/README.md#production-promotion-gate) for why prd config is pinned to a commit instead of the release branch name. This only promotes prd's Kubernetes config; it does not deploy app images (see "Deploy production" below).
+
 <Callout type="error">
   Run this workflow **on the release branch**. A run started from `main` is skipped by a branch
   guard and still reports success, so a release can look published when no tags were created.

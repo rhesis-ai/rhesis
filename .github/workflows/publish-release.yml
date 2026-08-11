@@ -2,11 +2,184 @@ name: "[Release] 3. Publish"
 on:
   workflow_dispatch:  # Allows manual triggering
 
-# Does not deploy prd. Until a k8s prd deploy is wired in here, run
+# Promotes prd's ArgoCD config (promote-prd-config, below) but does not deploy
+# app images to prd. Until a k8s prd image deploy is wired in here, run
 # deploy-all-k8s.yml manually with environment: prd.
 jobs:
+  # Promotes prd-base (root app-of-apps) to this release's exact commit; every
+  # nested Application under kubernetes/clusters/prd/ cascades from prd-base's
+  # own sync (each has its own automated{prune,selfHeal}, see
+  # kubernetes/README.md). targetRevision is pinned to a commit SHA, not the
+  # release branch, so it survives the branch being deleted on merge and never
+  # picks up unrelated main changes until the next release runs this job.
+  #
+  # Order matters: the git write-back (pinning every child's own targetRevision
+  # to $GITHUB_SHA) runs BEFORE prd-base is synced, and prd-base is pinned to
+  # the resulting write-back commit rather than to $GITHUB_SHA directly. If
+  # prd-base were pinned to $GITHUB_SHA instead, its tree would still show
+  # whatever targetRevision was last committed for each child (the previous
+  # release's, since $GITHUB_SHA predates this run's write-back) — and because
+  # prd-base's own selfHeal continuously reconciles against that fixed,
+  # immutable commit, it would keep reverting any later fix-up to the live
+  # children indefinitely, not just in a brief race window. Committing first
+  # and pinning prd-base to that commit keeps prd-base's own source of truth
+  # self-consistent from the moment it's synced.
+  promote-prd-config:
+    if: startsWith(github.ref, 'refs/heads/release/')
+    runs-on: arc-runner-prd
+    permissions:
+      contents: none
+    steps:
+      - name: Install ArgoCD CLI
+        run: |
+          ARGOCD_VERSION="v2.14.4"
+          ARGOCD_SHA256="ed774771701f8e5a9330918e4f905f2f171e2181906aec792c9ff6907a4c480f"
+          mkdir -p "$HOME/bin"
+          curl -sSL -o "$HOME/bin/argocd" \
+            "https://github.com/argoproj/argo-cd/releases/download/${ARGOCD_VERSION}/argocd-linux-amd64"
+          echo "${ARGOCD_SHA256}  $HOME/bin/argocd" | sha256sum -c -
+          chmod +x "$HOME/bin/argocd"
+          echo "$HOME/bin" >> "$GITHUB_PATH"
+
+      - name: Generate a token
+        id: generate-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.RHEO_APP_ID }}
+          private-key: ${{ secrets.RHEO_APP_PRIVATE_KEY }}
+
+      - name: Checkout main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          token: ${{ steps.generate-token.outputs.token }}
+
+      - name: Verify main hasn't drifted from the release commit
+        run: |
+          # $GITHUB_SHA (the release branch tip) is what actually got validated on
+          # stg. If main has picked up any other change to kubernetes/clusters/prd/**
+          # since the release branch was cut — e.g. an unrelated PR merged in the
+          # meantime — this write-back would carry it into prd unvalidated. Fail
+          # instead of silently promoting it. The release branch hasn't merged into
+          # main yet at this point in the workflow, so fetch its tip explicitly.
+          git fetch --depth=1 origin "$GITHUB_SHA"
+          UNEXPECTED=$(git diff "$GITHUB_SHA" HEAD -- kubernetes/clusters/prd \
+            | grep -E '^[+-][^+-]' \
+            | grep -v 'targetRevision:' || true)
+          if [ -n "$UNEXPECTED" ]; then
+            echo "main has diverged from the release commit ($GITHUB_SHA) with changes"
+            echo "to kubernetes/clusters/prd beyond targetRevision pins:"
+            echo "$UNEXPECTED"
+            echo "Refusing to promote — these changes were not validated on stg as part of this release."
+            exit 1
+          fi
+
+      - name: Update prd Application targetRevisions on main
+        id: write-back
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+        run: |
+          git config user.name "rheo-app[bot]"
+          git config user.email "237771051+rheo-app[bot]@users.noreply.github.com"
+
+          # cnpg-operator.yaml is intentionally excluded — manual sync, manual promotion.
+          FILES=(
+            kubernetes/clusters/prd/base.yaml
+            kubernetes/clusters/prd/arc.yaml
+            kubernetes/clusters/prd/loki.yaml
+            kubernetes/clusters/prd/kube-prometheus-stack.yaml
+            kubernetes/clusters/prd/external-secrets.yaml
+            kubernetes/clusters/prd/ingress-nginx-external.yaml
+            kubernetes/clusters/prd/grafana-operator.yaml
+            kubernetes/clusters/prd/cnpg-cluster-application.yaml
+            kubernetes/clusters/prd/cert-manager.yaml
+            kubernetes/clusters/prd/ingress-nginx-internal.yaml
+            kubernetes/clusters/prd/internal-dns.yaml
+            kubernetes/clusters/prd/grafana-resources.yaml
+            kubernetes/clusters/prd/alloy.yaml
+            kubernetes/clusters/prd/cluster-dns-application.yaml
+            kubernetes/clusters/prd/external-dns.yaml
+            kubernetes/clusters/prd/argocd/argocd-application.yaml
+            kubernetes/clusters/prd/rhesis/rhesis-application.yaml
+          )
+
+          # Fail fast if any file doesn't have exactly one targetRevision line — a
+          # blind sed would otherwise silently corrupt a file that later gains a
+          # second one (e.g. a multi-source Helm Application).
+          for f in "${FILES[@]}"; do
+            MATCHES=$(grep -c '^\s*targetRevision:' "$f")
+            if [ "$MATCHES" -ne 1 ]; then
+              echo "Expected exactly 1 targetRevision line in $f, found $MATCHES — aborting."
+              exit 1
+            fi
+          done
+
+          for f in "${FILES[@]}"; do
+            sed -i "s|targetRevision: .*|targetRevision: $GITHUB_SHA|" "$f"
+          done
+
+          if git diff --quiet -- "${FILES[@]}"; then
+            echo "All prd Applications already pinned to $GITHUB_SHA — nothing to commit."
+            echo "promoted_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          git add "${FILES[@]}"
+          git commit -m "chore(dev): pin prd Application targetRevisions to $GITHUB_SHA"
+
+          # main can advance between the checkout above and this push; retry on
+          # non-fast-forward by rebasing onto the new tip.
+          for attempt in 1 2 3; do
+            if git push origin HEAD:main; then
+              echo "promoted_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "Push rejected (attempt $attempt) — rebasing onto origin/main and retrying..."
+            git fetch origin main
+            git rebase origin/main
+            sleep 2
+          done
+          echo "Push failed after 3 attempts."
+          exit 1
+
+      - name: Pin prd-base to the promoted commit and sync
+        env:
+          ARGOCD_SERVER: ${{ secrets.ARGOCD_SERVER_PRD }}
+          ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN_PRD }}
+          PROMOTED_SHA: ${{ steps.write-back.outputs.promoted_sha }}
+        run: |
+          # Retry up to 5 times with 30s back-off. Retries on any failure except
+          # a short list of clearly permanent errors (auth/permission/not-found),
+          # so transient issues like a sync exceeding the --timeout below or a
+          # network blip get retried instead of failing the whole job on attempt 1.
+          retry_argocd() {
+            for attempt in $(seq 1 5); do
+              EXIT_CODE=0
+              OUTPUT=$("$@" 2>&1) || EXIT_CODE=$?
+              echo "$OUTPUT"
+              [ "$EXIT_CODE" -eq 0 ] && return 0
+              if echo "$OUTPUT" | grep -qiE "permission denied|unauthorized|x509|not found|invalid argument"; then
+                echo "Non-retryable error — failing fast."
+                return 1
+              fi
+              if [ "$attempt" -lt 5 ]; then
+                echo "Attempt $attempt failed — waiting 30s before retry..."
+                sleep 30
+              else
+                echo "All 5 attempts failed."
+                return 1
+              fi
+            done
+          }
+
+          retry_argocd argocd app set prd-base --revision "$PROMOTED_SHA" \
+            --server "$ARGOCD_SERVER" --auth-token "$ARGOCD_AUTH_TOKEN" --grpc-web
+          retry_argocd argocd app sync prd-base \
+            --server "$ARGOCD_SERVER" --auth-token "$ARGOCD_AUTH_TOKEN" --grpc-web --timeout 300
+
   publish:
     if: startsWith(github.ref, 'refs/heads/release/')
+    needs: [promote-prd-config]
     runs-on: ubuntu-latest
     steps:
       - name: Generate a token
