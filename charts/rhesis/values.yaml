@@ -99,6 +99,9 @@ config:
 
   # GCP / Vertex AI
   vertexAiLocation: "eu"
+  # Embeddings need a concrete region: text-embedding-* is not served from the
+  # "eu" multi-region endpoint that Gemini accepts.
+  vertexAiEmbeddingLocation: "europe-west4"
   vertexAiProject: ""
 
   # Chatbot

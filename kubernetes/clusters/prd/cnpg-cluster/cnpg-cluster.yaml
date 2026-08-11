@@ -66,7 +66,11 @@ spec:
       - name: grafana-viewer
         ensure: present
         login: true
-        bypassrls: false
+        # bypassrls: this role backs an org-wide usage dashboard in Grafana, so it
+        # needs to read across every tenant rather than being scoped to one
+        # organization via app.current_organization/app.current_project. Still
+        # SELECT-only (see postInitApplicationSQL/GRANTs below) — read access, no writes.
+        bypassrls: true
         passwordSecret:
           name: grafana-viewer-credentials
   bootstrap:

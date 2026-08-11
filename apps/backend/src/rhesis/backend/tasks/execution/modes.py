@@ -198,6 +198,7 @@ def get_test_type(test: Test) -> TestType:
     """
     from sqlalchemy import inspect as sa_inspect
     from sqlalchemy.orm import object_session
+    from sqlalchemy.orm.attributes import set_committed_value
     from sqlalchemy.orm.state import InstanceState
 
     from rhesis.backend.app.models.type_lookup import TypeLookup
@@ -212,11 +213,27 @@ def get_test_type(test: Test) -> TestType:
     elif test.test_type_id and (sess := object_session(test)) is not None:
         with sess.no_autoflush:
             test_type = sess.get(TypeLookup, test.test_type_id)
+        # Cache it on the instance. The batch path expunges its Test objects and
+        # re-checks the type afterwards, and without this the lookup above leaves
+        # the relationship unloaded, so the detached re-check found no session and
+        # silently downgraded Multi-Turn tests to Single-Turn.
+        # set_committed_value populates without emitting SQL or dirtying the
+        # instance, so it stays safe inside the ORM event listeners above.
+        if test_type is not None:
+            set_committed_value(test, "test_type", test_type)
     else:
         test_type = None
 
     if not test_type:
-        logger.debug(f"Test {test.id} has no test_type set, defaulting to Single-Turn")
+        # A set test_type_id we could not resolve is a bug, not an untyped test:
+        # returning Single-Turn here runs multi-turn tests down the wrong path.
+        if getattr(test, "test_type_id", None):
+            logger.warning(
+                f"Test {test.id} has test_type_id={test.test_type_id} but it could not be "
+                "resolved (detached instance with no session?); defaulting to Single-Turn"
+            )
+        else:
+            logger.debug(f"Test {test.id} has no test_type set, defaulting to Single-Turn")
         return TestType.SINGLE_TURN
 
     # Get the type_value from the TypeLookup relationship

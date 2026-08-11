@@ -21,6 +21,7 @@ import {
   resolveConversationSummary,
 } from '@/utils/conversation-from-spans';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import { getEffectiveTestResultStatus } from '@/utils/test-result-status';
 
 interface TestDetailConversationTabProps {
   test: TestResultDetail;
@@ -180,7 +181,9 @@ export default function TestDetailConversationTab({
         penelope_reasoning: '',
         penelope_message: test.test?.prompt?.content ?? '',
         target_response: test.test_output?.output ?? '',
-        success: test.test_output?.goal_evaluation?.all_criteria_met ?? false,
+        // Single-turn results have no goal_evaluation, so the turn status comes
+        // from the result status (review > backend status > metrics).
+        success: getEffectiveTestResultStatus(test) === 'Pass',
       },
     ];
 

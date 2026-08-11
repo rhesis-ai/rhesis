@@ -5,7 +5,7 @@ accepted on input (``PlatformKeyUpdate``); it is never echoed back. Status
 responses expose at most a masked suffix of the stored key.
 """
 
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -25,6 +25,10 @@ class PlatformKeyStatus(BaseModel):
     """
 
     configured: bool
+    #: Where the effective key comes from. Only an ``organization`` key can be
+    #: removed via DELETE; an ``environment`` key lives in the deployment's
+    #: RHESIS_API_KEY and can only be overridden by storing an org key.
+    source: Optional[Literal["organization", "environment"]] = None
     valid: Optional[bool] = None
     polyphemus_authorized: Optional[bool] = None
     masked_key: Optional[str] = None

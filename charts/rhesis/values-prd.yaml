@@ -56,6 +56,7 @@ config:
   defaultExecutionModel: "vertex_ai/gemini-3.1-flash-lite"
   defaultEmbeddingModel: "vertex_ai/text-embedding-005"
   vertexAiLocation: "eu"
+  vertexAiEmbeddingLocation: "europe-west4"
   azureOpenAiApiVersion: "2024-02-01"
 
 # ---------------------------------------------------------------------------

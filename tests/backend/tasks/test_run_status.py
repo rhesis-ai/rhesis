@@ -52,9 +52,10 @@ def _mock_session_with_test_count(count=5):
 class TestCreateTestRun:
     """Test create_test_run function."""
 
-    @patch("rhesis.backend.tasks.execution.run.crud")
+    @patch("rhesis.backend.tasks.execution.run.schemas")
+    @patch("rhesis.backend.tasks.execution.run.test_run_crud")
     @patch("rhesis.backend.tasks.execution.run.get_or_create_status")
-    def test_defaults_to_queued_status(self, mock_get_status, mock_crud):
+    def test_defaults_to_queued_status(self, mock_get_status, mock_crud, mock_schemas):
         """Test that create_test_run uses Queued as default status."""
         mock_status = Mock()
         mock_status.id = uuid4()
@@ -62,7 +63,7 @@ class TestCreateTestRun:
 
         mock_test_config = _make_test_config()
         mock_crud.create_test_run.return_value = Mock()
-        mock_crud.schemas.TestRunCreate = MagicMock()
+        mock_schemas.TestRunCreate = MagicMock()
 
         session = _mock_session_with_test_count()
         create_test_run(session, mock_test_config)
@@ -74,9 +75,10 @@ class TestCreateTestRun:
             organization_id=str(mock_test_config.organization_id),
         )
 
-    @patch("rhesis.backend.tasks.execution.run.crud")
+    @patch("rhesis.backend.tasks.execution.run.schemas")
+    @patch("rhesis.backend.tasks.execution.run.test_run_crud")
     @patch("rhesis.backend.tasks.execution.run.get_or_create_status")
-    def test_explicit_progress_status(self, mock_get_status, mock_crud):
+    def test_explicit_progress_status(self, mock_get_status, mock_crud, mock_schemas):
         """Test backward compat: create_test_run with explicit PROGRESS."""
         mock_status = Mock()
         mock_status.id = uuid4()
@@ -84,7 +86,7 @@ class TestCreateTestRun:
 
         mock_test_config = _make_test_config()
         mock_crud.create_test_run.return_value = Mock()
-        mock_crud.schemas.TestRunCreate = MagicMock()
+        mock_schemas.TestRunCreate = MagicMock()
 
         session = _mock_session_with_test_count()
         create_test_run(session, mock_test_config, initial_status=RunStatus.PROGRESS)
@@ -96,9 +98,10 @@ class TestCreateTestRun:
             organization_id=str(mock_test_config.organization_id),
         )
 
-    @patch("rhesis.backend.tasks.execution.run.crud")
+    @patch("rhesis.backend.tasks.execution.run.schemas")
+    @patch("rhesis.backend.tasks.execution.run.test_run_crud")
     @patch("rhesis.backend.tasks.execution.run.get_or_create_status")
-    def test_queued_does_not_set_started_at(self, mock_get_status, mock_crud):
+    def test_queued_does_not_set_started_at(self, mock_get_status, mock_crud, mock_schemas):
         """Queued runs should not have started_at in attributes."""
         mock_status = Mock()
         mock_status.id = uuid4()
@@ -106,19 +109,20 @@ class TestCreateTestRun:
 
         mock_test_config = _make_test_config()
         mock_crud.create_test_run.return_value = Mock()
-        mock_crud.schemas.TestRunCreate = MagicMock()
+        mock_schemas.TestRunCreate = MagicMock()
 
         session = _mock_session_with_test_count(5)
         create_test_run(session, mock_test_config)
 
-        call_kwargs = mock_crud.schemas.TestRunCreate.call_args.kwargs
+        call_kwargs = mock_schemas.TestRunCreate.call_args.kwargs
         assert "started_at" not in call_kwargs["attributes"]
         assert call_kwargs["attributes"]["task_state"] == "Queued"
         assert call_kwargs["attributes"]["total_tests"] == 5
 
-    @patch("rhesis.backend.tasks.execution.run.crud")
+    @patch("rhesis.backend.tasks.execution.run.schemas")
+    @patch("rhesis.backend.tasks.execution.run.test_run_crud")
     @patch("rhesis.backend.tasks.execution.run.get_or_create_status")
-    def test_progress_sets_started_at(self, mock_get_status, mock_crud):
+    def test_progress_sets_started_at(self, mock_get_status, mock_crud, mock_schemas):
         """Progress runs should have started_at in attributes."""
         mock_status = Mock()
         mock_status.id = uuid4()
@@ -126,18 +130,19 @@ class TestCreateTestRun:
 
         mock_test_config = _make_test_config()
         mock_crud.create_test_run.return_value = Mock()
-        mock_crud.schemas.TestRunCreate = MagicMock()
+        mock_schemas.TestRunCreate = MagicMock()
 
         session = _mock_session_with_test_count()
         create_test_run(session, mock_test_config, initial_status=RunStatus.PROGRESS)
 
-        call_kwargs = mock_crud.schemas.TestRunCreate.call_args.kwargs
+        call_kwargs = mock_schemas.TestRunCreate.call_args.kwargs
         assert "started_at" in call_kwargs["attributes"]
         assert call_kwargs["attributes"]["task_state"] == "Progress"
 
-    @patch("rhesis.backend.tasks.execution.run.crud")
+    @patch("rhesis.backend.tasks.execution.run.schemas")
+    @patch("rhesis.backend.tasks.execution.run.test_run_crud")
     @patch("rhesis.backend.tasks.execution.run.get_or_create_status")
-    def test_task_info_optional(self, mock_get_status, mock_crud):
+    def test_task_info_optional(self, mock_get_status, mock_crud, mock_schemas):
         """create_test_run should work without task_info."""
         mock_status = Mock()
         mock_status.id = uuid4()
@@ -146,18 +151,19 @@ class TestCreateTestRun:
         mock_test_config = _make_test_config()
         mock_test_run = Mock()
         mock_crud.create_test_run.return_value = mock_test_run
-        mock_crud.schemas.TestRunCreate = MagicMock()
+        mock_schemas.TestRunCreate = MagicMock()
 
         session = _mock_session_with_test_count()
         result = create_test_run(session, mock_test_config)
 
         assert result == mock_test_run
-        call_kwargs = mock_crud.schemas.TestRunCreate.call_args.kwargs
+        call_kwargs = mock_schemas.TestRunCreate.call_args.kwargs
         assert "task_id" not in call_kwargs["attributes"]
 
-    @patch("rhesis.backend.tasks.execution.run.crud")
+    @patch("rhesis.backend.tasks.execution.run.schemas")
+    @patch("rhesis.backend.tasks.execution.run.test_run_crud")
     @patch("rhesis.backend.tasks.execution.run.get_or_create_status")
-    def test_total_tests_stored_in_attributes(self, mock_get_status, mock_crud):
+    def test_total_tests_stored_in_attributes(self, mock_get_status, mock_crud, mock_schemas):
         """total_tests should be set from test set count."""
         mock_status = Mock()
         mock_status.id = uuid4()
@@ -165,21 +171,22 @@ class TestCreateTestRun:
 
         mock_test_config = _make_test_config()
         mock_crud.create_test_run.return_value = Mock()
-        mock_crud.schemas.TestRunCreate = MagicMock()
+        mock_schemas.TestRunCreate = MagicMock()
 
         session = _mock_session_with_test_count(12)
         create_test_run(session, mock_test_config)
 
-        call_kwargs = mock_crud.schemas.TestRunCreate.call_args.kwargs
+        call_kwargs = mock_schemas.TestRunCreate.call_args.kwargs
         assert call_kwargs["attributes"]["total_tests"] == 12
 
 
 class TestUpdateTestRunStatus:
     """Test update_test_run_status with Queued status."""
 
-    @patch("rhesis.backend.tasks.execution.run.crud")
+    @patch("rhesis.backend.tasks.execution.run.schemas")
+    @patch("rhesis.backend.tasks.execution.run.test_run_crud")
     @patch("rhesis.backend.tasks.execution.run.get_or_create_status")
-    def test_queued_to_progress_transition(self, mock_get_status, mock_crud):
+    def test_queued_to_progress_transition(self, mock_get_status, mock_crud, mock_schemas):
         """Test transitioning a test run from Queued to Progress."""
         mock_status = Mock()
         mock_status.id = uuid4()
@@ -191,7 +198,7 @@ class TestUpdateTestRunStatus:
         mock_test_run.user_id = uuid4()
         mock_test_run.attributes = {"task_state": "Queued"}
 
-        mock_crud.schemas.TestRunUpdate = MagicMock()
+        mock_schemas.TestRunUpdate = MagicMock()
 
         session = MagicMock()
         update_test_run_status(session, mock_test_run, RunStatus.PROGRESS.value)
@@ -200,9 +207,10 @@ class TestUpdateTestRunStatus:
         assert mock_test_run.attributes["status"] == "Progress"
         assert "completed_at" not in mock_test_run.attributes
 
-    @patch("rhesis.backend.tasks.execution.run.crud")
+    @patch("rhesis.backend.tasks.execution.run.schemas")
+    @patch("rhesis.backend.tasks.execution.run.test_run_crud")
     @patch("rhesis.backend.tasks.execution.run.get_or_create_status")
-    def test_queued_status_no_completed_at(self, mock_get_status, mock_crud):
+    def test_queued_status_no_completed_at(self, mock_get_status, mock_crud, mock_schemas):
         """Setting status to Queued should not add completed_at."""
         mock_status = Mock()
         mock_status.id = uuid4()
@@ -214,7 +222,7 @@ class TestUpdateTestRunStatus:
         mock_test_run.user_id = uuid4()
         mock_test_run.attributes = {}
 
-        mock_crud.schemas.TestRunUpdate = MagicMock()
+        mock_schemas.TestRunUpdate = MagicMock()
 
         session = MagicMock()
         update_test_run_status(session, mock_test_run, RunStatus.QUEUED.value)

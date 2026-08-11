@@ -96,7 +96,7 @@ class TestApplyPendingConversationLinks:
         with (
             patch(
                 "rhesis.backend.app.services.telemetry.conversation_linking"
-                ".crud.update_conversation_id_for_trace",
+                ".update_conversation_id_for_trace",
                 return_value=1,
             ) as mock_update,
             patch(
@@ -121,7 +121,7 @@ class TestApplyPendingConversationLinks:
         with (
             patch(
                 "rhesis.backend.app.services.telemetry.conversation_linking"
-                ".crud.update_conversation_id_for_trace",
+                ".update_conversation_id_for_trace",
                 return_value=1,
             ),
             patch(
@@ -168,7 +168,7 @@ class TestApplyPendingConversationLinks:
         with (
             patch(
                 "rhesis.backend.app.services.telemetry.conversation_linking"
-                ".crud.update_conversation_id_for_trace",
+                ".update_conversation_id_for_trace",
                 return_value=2,
             ) as mock_update,
             patch(

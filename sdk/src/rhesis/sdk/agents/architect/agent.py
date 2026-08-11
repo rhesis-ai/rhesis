@@ -12,6 +12,7 @@ from typing import Any, Dict, FrozenSet, List, Optional, Set, Tuple, Union
 
 from pydantic import ValidationError
 
+from rhesis.sdk.agents.arg_validation import find_missing_arguments
 from rhesis.sdk.agents.base import BaseAgent, BaseTool, MCPTool
 from rhesis.sdk.agents.constants import (
     Action,
@@ -166,6 +167,10 @@ class ArchitectAgent(BaseAgent):
         self._creation_approved: bool = False
         self._confirming_tools: FrozenSet[str] = frozenset()
         self._mutating_tools: Optional[FrozenSet[str]] = None
+        # Populated by get_available_tools(); empty until the first call,
+        # which makes the pre-dispatch check a no-op rather than a false
+        # rejection.
+        self._tool_schemas: Dict[str, Any] = {}
         self._auto_approve_all: bool = False
         self._blocked_this_turn: bool = False
 
@@ -461,6 +466,10 @@ class ArchitectAgent(BaseAgent):
         tools.append(self._SAVE_PLAN_TOOL)
         tools.append(self._AWAIT_TASK_TOOL)
 
+        # Kept so execute_tool can check arguments against the same schema
+        # the LLM was shown, before paying for an HTTP round trip.
+        self._tool_schemas = {t["name"]: t.get("inputSchema") for t in tools}
+
         if self._mutating_tools is None:
             self._mutating_tools = self._classify_mutating(tools)
             logger.debug(
@@ -728,7 +737,14 @@ class ArchitectAgent(BaseAgent):
         if tool_call.tool_name == InternalTool.AWAIT_TASK:
             return await self._execute_await_task(tool_call)
 
-        error = self._check_plan_constraints(tool_call) or self._validate_tool_arguments(tool_call)
+        error = (
+            self._check_plan_constraints(tool_call)
+            or self._validate_tool_arguments(tool_call)
+            or find_missing_arguments(
+                tool_call.arguments,
+                self._tool_schemas.get(tool_call.tool_name),
+            )
+        )
         if error:
             logger.warning(
                 "[Architect] Rejected tool %s: %s",
@@ -1656,9 +1672,15 @@ class ArchitectAgent(BaseAgent):
         for step in exec_window:
             reasoning_preview = step.reasoning[: cfg.reasoning_preview_chars]
             parts.append(f"[Tool iteration {step.iteration}] Reasoning: {reasoning_preview}")
-            if step.tool_calls:
-                for tc in step.tool_calls:
-                    parts.append(f"  Called: {tc.tool_name}")
+            for i, tc in enumerate(step.tool_calls):
+                line = f"  Called: {tc.tool_name}"
+                # Echo the payload back only when the call failed. Without it
+                # the model sees the rejection but not what it sent, so it
+                # cannot tell which argument to change and retries blind.
+                if self._call_failed(step, i) and tc.arguments:
+                    preview = self._preview_args(tc.arguments, limit=cfg.failed_args_preview_chars)
+                    line += f" with arguments: {preview}"
+                parts.append(line)
             if step.tool_results:
                 for tr in step.tool_results:
                     rendered = self._render_tool_result(
@@ -1670,3 +1692,15 @@ class ArchitectAgent(BaseAgent):
                         parts.append(rendered)
 
         return "\n".join(parts) if parts else ""
+
+    @staticmethod
+    def _call_failed(step: ExecutionStep, index: int) -> bool:
+        """Whether the tool call at ``index`` produced a failed result.
+
+        ``_execute_tools`` returns results in call order, so the indices
+        line up. Steps that carry no result for a call (the confirmation
+        block path) are treated as not failed.
+        """
+        if index >= len(step.tool_results):
+            return False
+        return not step.tool_results[index].success

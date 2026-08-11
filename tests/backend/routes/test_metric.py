@@ -193,6 +193,7 @@ class TestMetricValidation(MetricTestMixin, BaseEntityTests):
                 "name": fake.word().title() + f" {score_type.title()} Metric",
                 "evaluation_prompt": fake.sentence(nb_words=8),
                 "score_type": score_type,
+                "metric_scope": ["Single-Turn"],
             }
 
             # Add required fields per score type

@@ -344,38 +344,6 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> Dict[s
                 commit=False,
             )
 
-        # Process use cases
-        print("Processing use cases...")
-        for item in initial_data.get("use_case", []):
-            # Extract only the fields that exist in the model
-            use_case_data = {
-                "name": item["name"],
-                "description": item["description"],
-                "industry": item.get("industry"),
-                "application": item.get("application"),
-                "is_active": item.get("is_active", True),
-            }
-            get_or_create_entity(
-                db=db,
-                model=models.UseCase,
-                entity_data=use_case_data,
-                organization_id=organization_id,
-                user_id=user_id,
-                commit=False,
-            )
-
-        # Process risks
-        print("Processing risks...")
-        for item in initial_data.get("risk", []):
-            get_or_create_entity(
-                db=db,
-                model=models.Risk,
-                entity_data={"name": item["name"], "description": item["description"]},
-                organization_id=organization_id,
-                user_id=user_id,
-                commit=False,
-            )
-
         # Process projects
         print("Processing projects...")
         for item in initial_data.get("project", []):
@@ -1642,8 +1610,6 @@ def rollback_initial_data(db: Session, organization_id: str, user_id: str | None
                 "Behavior": 2,
                 "Category": 2,
                 "Metric": 2,
-                "UseCase": 2,
-                "Risk": 2,
                 "TestSet": 5,
                 "Endpoint": 5,
                 "Project": 6,

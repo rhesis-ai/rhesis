@@ -22,20 +22,20 @@ This skill teaches your agent how to explore an AI endpoint's capabilities, desi
 The fastest way to install across Claude Code, Cursor, Codex, Gemini CLI, and 40+ other AI interfaces:
 
 ```bash
-npx skills add rhesis-ai/rhesis
+npx skills add rhesis-ai/skills
 ```
 
 The CLI detects which agents you have installed and asks where to place the skill. Use `-g` for a global install (available in all projects) or omit it for project-level.
 
 ```bash
 # Global install — available everywhere
-npx skills add rhesis-ai/rhesis -g
+npx skills add rhesis-ai/skills -g
 
 # Install to specific agents only
-npx skills add rhesis-ai/rhesis -a cursor -a claude-code -g
+npx skills add rhesis-ai/skills -a cursor -a claude-code -g
 
 # See where it would be installed without installing
-npx skills add rhesis-ai/rhesis --list
+npx skills add rhesis-ai/skills --list
 ```
 
 > `npx skills` installs the skill instructions. The MCP server (which the skill uses to talk to Rhesis) is configured separately — see the sections below for your agent.
@@ -57,7 +57,7 @@ export RHESIS_MCP_URL=http://localhost:8080/mcp
 The skill is bundled as a Claude Code plugin that includes the MCP config. To install via plugin (MCP + skill together):
 
 ```
-/plugin marketplace add rhesis-ai/rhesis
+/plugin marketplace add rhesis-ai/skills
 /plugin install rhesis@rhesis-ai
 ```
 
@@ -125,17 +125,18 @@ You can also use it for direct operations without the full workflow:
 
 ---
 
-## What's in this directory
+## What's in this repository
 
-| File | Purpose |
+| Path | Purpose |
 |------|---------|
-| `SKILL.md` | Skill instructions — loaded by all compatible agents |
-| `.claude-plugin/plugin.json` | Claude Code plugin manifest |
-| `.mcp.json` | MCP server config bundled with the Claude Code plugin |
-| `references/tool-catalog.md` | All 27 MCP tools with parameters and common mistakes |
-| `references/odata-patterns.md` | `$filter`, `$select`, navigation properties, batched lookups |
-| `references/exploration-strategies.md` | Domain probing, capability mapping, boundary discovery |
-| `references/result-analysis.md` | Single-run summaries, run comparison, failure patterns |
+| `skills/rhesis/SKILL.md` | Skill instructions — loaded by all compatible agents |
+| `skills/rhesis/.mcp.json` | MCP server config bundled with the Claude Code plugin |
+| `skills/rhesis/references/workflow-index.md` | Router — read first, points at everything below |
+| `skills/rhesis/references/tool-catalog.md` | All 48 MCP tools with parameters and common mistakes |
+| `skills/rhesis/references/odata-patterns.md` | `$filter`, `$select`, navigation properties, batched lookups |
+| `skills/rhesis/references/exploration-strategies.md` | Domain probing, capability mapping, boundary discovery |
+| `skills/rhesis/references/result-analysis.md` | Single-run summaries, run comparison, failure patterns |
+| `.claude-plugin/`, `.cursor-plugin/` | Generated plugin manifests — see `CONTRIBUTING.md` |
 
 ---
 

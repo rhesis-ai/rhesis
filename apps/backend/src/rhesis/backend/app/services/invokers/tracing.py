@@ -175,11 +175,11 @@ async def create_invocation_trace(
     Yields:
         Dict that executor can update with result data
     """
-    from rhesis.backend.app import crud
+    from rhesis.backend.app.crud.telemetry import get_trace_id_for_conversation
 
     existing_trace_id = trace_id
     if not existing_trace_id and conversation_id and endpoint.project_id and db:
-        existing_trace_id = crud.get_trace_id_for_conversation(
+        existing_trace_id = get_trace_id_for_conversation(
             db=db,
             conversation_id=conversation_id,
             project_id=str(endpoint.project_id),

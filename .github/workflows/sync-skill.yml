@@ -1,0 +1,85 @@
+name: "[Skill] Sync to rhesis-ai/skills"
+
+# Publishes skills/rhesis/ to the standalone rhesis-ai/skills repo so users install a small
+# repo instead of cloning this one. The mirror is read-only and rebuilt from scratch each
+# run, so anything committed directly there is discarded.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'skills/rhesis/**'
+      - 'scripts/skill/**'
+      - '.github/workflows/sync-skill.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: sync-skill
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate a token
+        id: generate-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.RHEO_APP_ID }}
+          private-key: ${{ secrets.RHEO_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: skills
+
+      - name: Checkout source
+        uses: actions/checkout@v6
+        with:
+          path: source
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      # Backstop: the same check runs on every PR, but never publish an invalid skill.
+      - name: Validate skill
+        working-directory: source
+        run: python scripts/skill/validate.py
+
+      - name: Build mirror contents
+        working-directory: source
+        run: python scripts/skill/build_mirror.py --out "$RUNNER_TEMP/mirror-build"
+
+      - name: Checkout mirror
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ github.repository_owner }}/skills
+          token: ${{ steps.generate-token.outputs.token }}
+          path: mirror
+
+      - name: Set up Git
+        working-directory: mirror
+        run: |
+          git config user.name "rheo-app[bot]"
+          git config user.email "237771051+rheo-app[bot]@users.noreply.github.com"
+
+      - name: Replace mirror contents
+        run: |
+          set -euo pipefail
+          rsync -a --delete --exclude '.git/' "$RUNNER_TEMP/mirror-build/" mirror/
+
+      - name: Commit and push
+        working-directory: mirror
+        run: |
+          set -euo pipefail
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Mirror already up to date with ${{ github.sha }}."
+            exit 0
+          fi
+          git commit -m "chore: sync skill from rhesis@${GITHUB_SHA:0:12}" \
+                     -m "Source: https://github.com/${{ github.repository }}/commit/${{ github.sha }}"
+          git push
+          echo "Pushed skill sync from ${{ github.sha }}."

@@ -1,4 +1,13 @@
-from sqlalchemy import Boolean, Column, Float, ForeignKey, String, Table, Text
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    Column,
+    Float,
+    ForeignKey,
+    String,
+    Table,
+    Text,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
@@ -40,6 +49,12 @@ class Metric(
     CountsMixin,
 ):
     __tablename__ = "metric"
+    __table_args__ = (
+        CheckConstraint(
+            "jsonb_typeof(metric_scope) = 'array' AND jsonb_array_length(metric_scope) > 0",
+            name="ck_metric_metric_scope_non_empty",
+        ),
+    )
 
     name = Column(String, nullable=False)
     description = Column(Text)
@@ -59,9 +74,12 @@ class Metric(
     context_required = Column(Boolean, default=False)
     class_name = Column(String)  # useful if type is custom code or framework
     evaluation_examples = Column(String)
-    metric_scope = Column(
-        JSONB
-    )  # Array of test types this metric applies to (Single-Turn, Multi-Turn)
+    # Array of test types this metric applies to (Single-Turn, Multi-Turn).
+    # Constrained to a non-empty array: execution filters metrics by scope, so an
+    # absent or empty value means the metric is never evaluated by any path and
+    # fails silently. The CHECK also rejects JSONB ``'null'`` and non-array values,
+    # which a plain NOT NULL would let through.
+    metric_scope = Column(JSONB, nullable=False)
 
     # Foreign keys
     metric_type_id = Column(GUID(), ForeignKey("type_lookup.id"))

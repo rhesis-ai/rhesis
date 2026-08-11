@@ -24,6 +24,8 @@ from rhesis.backend.app.auth.capabilities import Permission
 from rhesis.backend.app.auth.principal import resolve_principal_from_request
 from rhesis.backend.app.auth.rbac import authorize_object, project_id_from_scope
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
+from rhesis.backend.app.crud.project import get_project
+from rhesis.backend.app.crud.test_run import get_test_runs
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
@@ -166,7 +168,7 @@ def update_experiment(
         and db_experiment.visibility == "shared"
         and new_visibility == "private"
     ):
-        project = crud.get_project(
+        project = get_project(
             db,
             project_id=db_experiment.project_id,
             organization_id=organization_id,
@@ -215,7 +217,7 @@ def delete_experiment(
     ):
         raise HTTPException(status_code=403, detail="Not authorized to delete this experiment")
 
-    project = crud.get_project(
+    project = get_project(
         db,
         project_id=db_experiment.project_id,
         organization_id=organization_id,
@@ -274,7 +276,7 @@ def create_experiment_version(
         user_id=user_id,
     )
 
-    project = crud.get_project(
+    project = get_project(
         db,
         project_id=db_experiment.project_id,
         organization_id=organization_id,
@@ -379,7 +381,7 @@ def get_experiment_results(
         user_id=user_id,
     )
 
-    runs = crud.get_test_runs(
+    runs = get_test_runs(
         db,
         skip=0,
         limit=limit,

@@ -3,7 +3,8 @@ from typing import Dict
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud
+from rhesis.backend.app import schemas
+from rhesis.backend.app.crud import test_run as test_run_crud
 from rhesis.backend.app.models.test_configuration import TestConfiguration
 from rhesis.backend.app.models.test_run import TestRun
 from rhesis.backend.app.utils.crud_utils import get_or_create_status
@@ -94,9 +95,9 @@ def create_test_run(
         "experiment_id": snapshot.experiment_id,
     }
 
-    test_run = crud.create_test_run(
+    test_run = test_run_crud.create_test_run(
         session,
-        crud.schemas.TestRunCreate(**test_run_data),
+        schemas.TestRunCreate(**test_run_data),
         organization_id=str(test_config.organization_id) if test_config.organization_id else None,
         user_id=str(executor_user_id) if executor_user_id else None,
     )
@@ -164,10 +165,10 @@ def update_test_run_status(
     update_data["attributes"] = test_run.attributes
 
     # Use crud update operation
-    crud.update_test_run(
+    test_run_crud.update_test_run(
         session,
         test_run.id,
-        crud.schemas.TestRunUpdate(**update_data),
+        schemas.TestRunUpdate(**update_data),
         organization_id=str(test_run.organization_id) if test_run.organization_id else None,
         user_id=str(test_run.user_id) if test_run.user_id else None,
     )

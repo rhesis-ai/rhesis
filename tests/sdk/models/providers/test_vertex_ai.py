@@ -10,6 +10,7 @@ from pydantic import BaseModel
 
 from rhesis.sdk.models.providers.vertex_ai import (
     DEFAULT_MODEL_NAME,
+    VertexAIEmbedder,
     VertexAILLM,
 )
 
@@ -525,6 +526,75 @@ class TestVertexAIRegionalLocations:
         ):
             llm = VertexAILLM()
             assert llm.model["location"] == location
+
+
+class TestVertexAIEmbedderLocation:
+    """`VERTEX_AI_EMBEDDING_LOCATION` overrides the region for embeddings only.
+
+    Embedding publisher models are not served from the ``us``/``eu``
+    multi-region endpoints Gemini accepts, so a deployment pinned to ``eu``
+    needs to name a concrete region for the embedder without moving Gemini.
+    """
+
+    @staticmethod
+    def _encoded_creds() -> str:
+        mock_creds = {
+            "type": "service_account",
+            "project_id": "test-project",
+            "client_email": "test@test.iam.gserviceaccount.com",
+        }
+        return base64.b64encode(json.dumps(mock_creds).encode()).decode()
+
+    def test_embedding_location_overrides_shared_location(self):
+        with patch.dict(
+            os.environ,
+            {
+                "GOOGLE_APPLICATION_CREDENTIALS": self._encoded_creds(),
+                "VERTEX_AI_LOCATION": "eu",
+                "VERTEX_AI_EMBEDDING_LOCATION": "europe-west4",
+            },
+            clear=True,
+        ):
+            embedder = VertexAIEmbedder()
+            assert embedder._vertex_config["location"] == "europe-west4"
+
+    def test_falls_back_to_shared_location_when_unset(self):
+        with patch.dict(
+            os.environ,
+            {
+                "GOOGLE_APPLICATION_CREDENTIALS": self._encoded_creds(),
+                "VERTEX_AI_LOCATION": "europe-west1",
+            },
+            clear=True,
+        ):
+            embedder = VertexAIEmbedder()
+            assert embedder._vertex_config["location"] == "europe-west1"
+
+    def test_explicit_location_argument_still_wins(self):
+        with patch.dict(
+            os.environ,
+            {
+                "GOOGLE_APPLICATION_CREDENTIALS": self._encoded_creds(),
+                "VERTEX_AI_LOCATION": "eu",
+                "VERTEX_AI_EMBEDDING_LOCATION": "europe-west4",
+            },
+            clear=True,
+        ):
+            embedder = VertexAIEmbedder(location="us-central1")
+            assert embedder._vertex_config["location"] == "us-central1"
+
+    def test_llm_ignores_the_embedding_override(self):
+        with patch.dict(
+            os.environ,
+            {
+                "GOOGLE_APPLICATION_CREDENTIALS": self._encoded_creds(),
+                "VERTEX_AI_LOCATION": "eu",
+                "VERTEX_AI_EMBEDDING_LOCATION": "europe-west4",
+            },
+            clear=True,
+        ):
+            llm = VertexAILLM()
+            assert llm.model["location"] == "eu"
 
 
 class TestVertexAICredentialSecurity:

@@ -5,5 +5,27 @@
   },
   "enabledPlugins": {
     "ralph-loop@claude-plugins-official": true
+  },
+  "hooks": {
+    "WorktreeCreate": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR/scripts/rh/worktree-hook.sh\" create"
+          }
+        ]
+      }
+    ],
+    "WorktreeRemove": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR/scripts/rh/worktree-hook.sh\" remove"
+          }
+        ]
+      }
+    ]
   }
 }

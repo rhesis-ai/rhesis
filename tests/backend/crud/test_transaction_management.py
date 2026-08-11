@@ -32,6 +32,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.constants import EntityType
+from rhesis.backend.app.crud.comment import add_emoji_reaction, remove_emoji_reaction
 from tests.backend.routes.fixtures.data_factories import (
     CommentDataFactory,
     OrganizationDataFactory,
@@ -244,7 +245,7 @@ class TestCRUDTransactionManagement:
         user_id = uuid.UUID(authenticated_user_id)
         user_name = "Test User"
 
-        result = crud.add_emoji_reaction(
+        result = add_emoji_reaction(
             test_db,
             comment.id,
             emoji,
@@ -282,7 +283,7 @@ class TestCRUDTransactionManagement:
         emoji = "👍"
         user_id = uuid.UUID(authenticated_user_id)
         user_name = "Test User"
-        crud.add_emoji_reaction(
+        add_emoji_reaction(
             test_db,
             comment.id,
             emoji,
@@ -298,7 +299,7 @@ class TestCRUDTransactionManagement:
         assert len(db_comment.emojis[emoji]) == 1
 
         # Remove emoji reaction
-        result = crud.remove_emoji_reaction(
+        result = remove_emoji_reaction(
             test_db,
             comment.id,
             emoji,

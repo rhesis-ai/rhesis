@@ -19,7 +19,13 @@ import uuid
 import pytest
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models
+from rhesis.backend.app import models
+from rhesis.backend.app.crud.metric import (
+    add_behavior_to_metric,
+    get_behavior_metrics,
+    get_metric_behaviors,
+    remove_behavior_from_metric,
+)
 
 
 @pytest.mark.security
@@ -64,7 +70,7 @@ class TestBehaviorMetricSecurity:
 
         # Try to add behavior from org2 to metric in org1 - should fail
         with pytest.raises(ValueError, match="Behavior with id .* not found or not accessible"):
-            crud.add_behavior_to_metric(
+            add_behavior_to_metric(
                 db=test_db,
                 metric_id=db_metric_org1.id,
                 behavior_id=db_behavior_org2.id,
@@ -118,7 +124,7 @@ class TestBehaviorMetricSecurity:
 
         # Try to add behavior from org2 to metric in org1, but user is in org2 - should fail
         with pytest.raises(ValueError, match="Metric with id .* not found or not accessible"):
-            crud.add_behavior_to_metric(
+            add_behavior_to_metric(
                 db=test_db,
                 metric_id=db_metric_org1.id,
                 behavior_id=db_behavior_org2.id,
@@ -174,7 +180,7 @@ class TestBehaviorMetricSecurity:
 
         # Try to remove association as user from org2 - should fail
         with pytest.raises(ValueError, match="Metric with id .* not found or not accessible"):
-            crud.remove_behavior_from_metric(
+            remove_behavior_from_metric(
                 db=test_db,
                 metric_id=db_metric_org1.id,
                 behavior_id=db_behavior_org1.id,
@@ -219,7 +225,7 @@ class TestBehaviorMetricSecurity:
 
         # Try to get behaviors for metric from org1 as user from org2 - should fail
         with pytest.raises(ValueError, match="Metric with id .* not found or not accessible"):
-            crud.get_metric_behaviors(
+            get_metric_behaviors(
                 db=test_db,
                 metric_id=db_metric_org1.id,
                 organization_id=org2_id,  # User is in org2, but metric is in org1
@@ -252,7 +258,7 @@ class TestBehaviorMetricSecurity:
 
         # Try to get metrics for behavior from org1 as user from org2 - should fail
         with pytest.raises(ValueError, match="Behavior with id .* not found or not accessible"):
-            crud.get_behavior_metrics(
+            get_behavior_metrics(
                 db=test_db,
                 behavior_id=db_behavior_org1.id,
                 organization_id=org2_id,  # User is in org2, but behavior is in org1

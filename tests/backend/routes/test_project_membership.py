@@ -414,7 +414,7 @@ class TestProjectMembersAPI:
 class TestProjectByIdMembershipEnforcement:
     """GET / PUT / DELETE /projects/{id} must require project membership.
 
-    Before SP0 the by-ID handlers called crud.get_project() which filtered
+    Before SP0 the by-ID handlers called crud.project.get_project() which filtered
     by organisation only, not by membership.  Any org member who knew a project
     UUID could read, update, or delete it (IDOR).  This class verifies that
     the gap is closed — non-members receive 404 on all three verbs, while

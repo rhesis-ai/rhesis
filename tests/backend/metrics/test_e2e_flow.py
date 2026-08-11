@@ -292,6 +292,7 @@ class TestE2EFlow:
         )
 
         ragas_metric = models.Metric(
+            metric_scope=["Single-Turn"],
             name="Ragas Answer Relevancy",
             class_name="RagasAnswerRelevancy",
             score_type="numeric",
@@ -312,9 +313,9 @@ class TestE2EFlow:
         test_db.flush()
 
         # Associate metric with behavior using CRUD function to handle required fields
-        from rhesis.backend.app import crud
+        from rhesis.backend.app.crud.metric import add_behavior_to_metric
 
-        crud.add_behavior_to_metric(
+        add_behavior_to_metric(
             test_db, ragas_metric.id, behavior.id, authenticated_user_id, test_org_id
         )
 
@@ -496,6 +497,7 @@ class TestE2EFlow:
 
         # Create a real RhesisPromptMetric in the database
         metric = models.Metric(
+            metric_scope=["Single-Turn"],
             name="Integration Test Metric",
             class_name="RhesisPromptMetric",  # Will be split to NumericJudge by adapter
             score_type="numeric",
@@ -510,11 +512,9 @@ class TestE2EFlow:
         test_db.flush()
 
         # Link metric to behavior using CRUD function to handle required fields
-        from rhesis.backend.app import crud
+        from rhesis.backend.app.crud.metric import add_behavior_to_metric
 
-        crud.add_behavior_to_metric(
-            test_db, metric.id, behavior.id, authenticated_user_id, test_org_id
-        )
+        add_behavior_to_metric(test_db, metric.id, behavior.id, authenticated_user_id, test_org_id)
 
         # Update test to use this behavior
         db_test_with_prompt.behavior_id = behavior.id
@@ -562,8 +562,7 @@ class TestE2EFlow:
             # This specific error means we hit the bug we're preventing
             elif "from_dict" in error_msg:
                 raise AssertionError(
-                    f"REGRESSION: Hit the MetricConfig.from_dict() bug! "
-                    f"Error: {error_msg}"
+                    f"REGRESSION: Hit the MetricConfig.from_dict() bug! Error: {error_msg}"
                 )
 
             # Any other error is unexpected and should fail the test

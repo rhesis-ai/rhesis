@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session, sessionmaker
 # Import backend modules
 from rhesis.backend.app import crud, models
 from rhesis.backend.app.auth.token_utils import generate_api_token
+from rhesis.backend.app.crud.token import create_token
 from rhesis.backend.app.database import get_database_url
 from rhesis.backend.app.schemas import OrganizationCreate, UserCreate
 from rhesis.backend.app.schemas.token import TokenCreate
@@ -140,7 +141,7 @@ def create_test_api_token(
         organization_id=user.organization_id,
     )
 
-    token = crud.create_token(db=db, token=token_data)
+    token = create_token(db=db, token=token_data)
     masked_token = f"{token_value[:3]}...{token_value[-4:]}"
     print(f"✅ Created test API token: {token.name} (Token: {masked_token})")
 

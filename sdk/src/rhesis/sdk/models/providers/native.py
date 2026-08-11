@@ -218,10 +218,12 @@ class RhesisLLM(BaseLLM):
                 request_elapsed = time.time() - request_start
 
                 if response.status >= 400:
+                    body = await response.text()
                     logger.error(
-                        "[RhesisLLM] HTTP %s after %.1fs",
+                        "[RhesisLLM] HTTP %s after %.1fs — %s",
                         response.status,
                         request_elapsed,
+                        body,
                     )
                     response.raise_for_status()
 
@@ -301,11 +303,18 @@ class RhesisEmbedder(BaseEmbedder):
             timeout = aiohttp.ClientTimeout(total=DEFAULT_REQUEST_TIMEOUT)
             async with aiohttp.ClientSession(timeout=timeout) as session:
                 async with session.post(url, headers=self.headers, json={"text": text}) as response:
-                    response.raise_for_status()
+                    if response.status >= 400:
+                        body = await response.text()
+                        logger.error(
+                            "Embedding request failed: HTTP %s — %s",
+                            response.status,
+                            body,
+                        )
+                        response.raise_for_status()
                     result: List[float] = await response.json()
                     return result
         except aiohttp.ClientResponseError as e:
-            logger.error(f"Error generating embedding: {e}", exc_info=True)
+            logger.error("Error generating embedding: %s", e, exc_info=True)
             raise
 
     def generate_batch(self, texts: List[str], **kwargs: Any) -> List[List[float]]:

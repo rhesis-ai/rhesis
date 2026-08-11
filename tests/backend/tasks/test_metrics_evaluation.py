@@ -42,7 +42,7 @@ class TestEvaluateSingleTurnMetrics:
             expected_response="4",
             context=["math"],
             result={"output": "4"},
-            metrics=[{"name": "accuracy"}],
+            metrics=[{"name": "accuracy", "metric_scope": ["Single-Turn"]}],
         )
 
         assert result == {"accuracy": {"score": 0.9, "is_successful": True}}
@@ -63,7 +63,7 @@ class TestEvaluateSingleTurnMetrics:
                 expected_response="expected",
                 context=[],
                 result={"output": "raw"},
-                metrics=[{"name": "m1"}],
+                metrics=[{"name": "m1", "metric_scope": ["Single-Turn"]}],
             )
 
         mock_extract.assert_called_once_with({"output": "raw"})
@@ -81,7 +81,7 @@ class TestEvaluateSingleTurnMetrics:
             expected_response="e",
             context=[],
             result={"output": "o"},
-            metrics=[{"name": "m"}],
+            metrics=[{"name": "m", "metric_scope": ["Single-Turn"]}],
         )
 
         assert result == {}
@@ -183,11 +183,14 @@ class TestEvaluateSingleTurnMetrics:
         mock_evaluator.evaluate.assert_not_called()
         assert result == {}
 
-    def test_bare_string_metric_scope_is_not_excluded(self):
-        """A mis-shaped bare-string metric_scope does not crash and is treated as non-filtering.
+    def test_bare_string_metric_scope_is_excluded(self):
+        """A mis-shaped bare-string metric_scope does not crash, and is dropped.
 
-        MetricConfig validates and rejects bare strings, so this scenario can only
-        arrive via a loosely-typed object (e.g. a dict-converted mock).
+        filter_configs_by_scope treats anything that isn't a list/tuple/set as
+        undeclared scope — same as no scope at all — rather than as "matches
+        every scope". MetricConfig validates and rejects bare strings, so this
+        scenario can only arrive via a loosely-typed object (e.g. a
+        dict-converted mock), but it must not crash and must not silently pass.
         """
         mock_evaluator = MagicMock()
         mock_evaluator.evaluate.return_value = {}
@@ -195,7 +198,7 @@ class TestEvaluateSingleTurnMetrics:
         bad_scope_metric = MagicMock()
         bad_scope_metric.metric_scope = "Multi-Turn"  # bare string, not a list
 
-        evaluate_single_turn_metrics(
+        result = evaluate_single_turn_metrics(
             metrics_evaluator=mock_evaluator,
             prompt_content="test",
             expected_response="",
@@ -204,7 +207,8 @@ class TestEvaluateSingleTurnMetrics:
             metrics=[bad_scope_metric],
         )
 
-        mock_evaluator.evaluate.assert_called_once()
+        mock_evaluator.evaluate.assert_not_called()
+        assert result == {}
 
 
 # ============================================================================
@@ -230,7 +234,7 @@ class TestEvaluatePromptResponseAlias:
             expected_response="e",
             context=[],
             result={"output": "o"},
-            metrics=[{"name": "m1"}],
+            metrics=[{"name": "m1", "metric_scope": ["Single-Turn"]}],
         )
 
         assert result == {"m1": {"score": 0.5}}
@@ -666,64 +670,3 @@ class TestEvaluateMultiTurnMetrics:
 
         tc_list = conv.get_assistant_tool_calls()
         assert tc_list[0] == [{"name": "search", "arguments": {"q": "policy"}}]
-
-
-# ============================================================================
-# _is_multi_turn_only helper tests
-# ============================================================================
-
-
-class TestIsMultiTurnOnly:
-    """Unit tests for the _is_multi_turn_only helper used by both evaluation paths."""
-
-    def setup_method(self):
-        from rhesis.backend.tasks.execution.evaluation import _is_multi_turn_only
-        from rhesis.sdk.metrics.base import MetricScope
-
-        self._fn = _is_multi_turn_only
-        self._MT = MetricScope.MULTI_TURN
-        self._ST = MetricScope.SINGLE_TURN
-
-    def test_object_multi_turn_only_returns_true(self):
-        from rhesis.sdk.metrics import MetricConfig
-
-        mc = MetricConfig(name="m", class_name="C", metric_scope=[self._MT])
-        assert self._fn(mc) is True
-
-    def test_object_single_turn_only_returns_false(self):
-        from rhesis.sdk.metrics import MetricConfig
-
-        mc = MetricConfig(name="m", class_name="C", metric_scope=[self._ST])
-        assert self._fn(mc) is False
-
-    def test_object_mixed_scope_returns_false(self):
-        from rhesis.sdk.metrics import MetricConfig
-
-        mc = MetricConfig(name="m", class_name="C", metric_scope=[self._ST, self._MT])
-        assert self._fn(mc) is False
-
-    def test_object_none_scope_returns_false(self):
-        from rhesis.sdk.metrics import MetricConfig
-
-        mc = MetricConfig(name="m", class_name="C", metric_scope=None)
-        assert self._fn(mc) is False
-
-    def test_dict_multi_turn_only_returns_true(self):
-        mc = {"name": "m", "class_name": "C", "metric_scope": [self._MT]}
-        assert self._fn(mc) is True
-
-    def test_dict_single_turn_only_returns_false(self):
-        mc = {"name": "m", "class_name": "C", "metric_scope": [self._ST]}
-        assert self._fn(mc) is False
-
-    def test_dict_no_metric_scope_key_returns_false(self):
-        mc = {"name": "m", "class_name": "C"}
-        assert self._fn(mc) is False
-
-    def test_bare_string_scope_returns_false_and_does_not_crash(self):
-        """A mis-shaped bare string must not raise — treated as non-filtering."""
-        from unittest.mock import MagicMock
-
-        mc = MagicMock()
-        mc.metric_scope = "Multi-Turn"
-        assert self._fn(mc) is False

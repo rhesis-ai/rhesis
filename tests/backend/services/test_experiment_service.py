@@ -112,7 +112,7 @@ class TestParameterSnapshotWithRef:
 
         with (
             patch(
-                "rhesis.backend.app.services.experiment.crud.get_project",
+                "rhesis.backend.app.services.experiment.get_project",
                 return_value=mock_project,
             ),
             patch(

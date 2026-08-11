@@ -27,19 +27,19 @@ test_set_metric_association = Table(
 )
 
 """
-The TestSet model represents a collection of prompts that are used to test the performance 
+The TestSet model represents a collection of prompts that are used to test the performance
 of a model.
 
 TODOs:
 There are optimizations that can be made to speed the prompts being loaded into the test set.
 Check this chat: https://chatgpt.com/share/671d684f-59a8-800f-8300-b2334a2e2ee5
 
-In a nutshell, we can use a materialized view to store the prompts that are associated with 
+In a nutshell, we can use a materialized view to store the prompts that are associated with
 the test set. This will allow us to speed up the process of loading the prompts into the test set.
 
 The materialized view will be updated whenever the prompts are updated.
 
-OR 
+OR
 
 Create an index on the prompt_test_set table.
 
@@ -141,9 +141,3 @@ class TestSet(
         from .behavior import Behavior
 
         return self._get_related_items(Behavior, "behaviors")
-
-    @hybrid_property
-    def use_cases(self):
-        from .use_case import UseCase
-
-        return self._get_related_items(UseCase, "use_cases")

@@ -158,6 +158,20 @@ set_env_var() {
     fi
 }
 
+# Swaps the port in a localhost URL, keeping any credentials and path.
+#   set_env_url_port .env BROKER_URL 11011
+set_env_url_port() {
+    local file="$1"
+    local var_name="$2"
+    local port="$3"
+    grep -q "^${var_name}=" "$file" 2>/dev/null || return 0
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        sed -i '' -E "s|^(${var_name}=.*localhost):[0-9]+|\1:${port}|" "$file"
+    else
+        sed -i -E "s|^(${var_name}=.*localhost):[0-9]+|\1:${port}|" "$file"
+    fi
+}
+
 #   ensure_env_secret .env.docker.local JWT_SECRET_KEY generate_hex_secret
 ensure_env_secret() {
     local file="$1"

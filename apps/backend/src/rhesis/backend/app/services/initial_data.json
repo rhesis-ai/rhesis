@@ -288,16 +288,6 @@
             "description": "Entity type for chunks"
         },
         {
-            "type_name": "ResponsePatternType",
-            "type_value": "Refusal",
-            "description": "Response pattern type for refusals"
-        },
-        {
-            "type_name": "ResponsePatternType",
-            "type_value": "Compliance",
-            "description": "Response pattern type for compliance"
-        },
-        {
             "type_name": "LicenseType",
             "type_value": "MIT",
             "description": "MIT License"
@@ -657,63 +647,6 @@
         {
             "name": "Compliance",
             "description": "Ensures the application adheres to company policies, industry standards, and government regulations",
-            "status": "Active"
-        }
-    ],
-    "use_case": [
-        {
-            "name": "General",
-            "description": "This covers all use cases",
-            "industry": "N/A",
-            "application": "Chatbot",
-            "is_active": true,
-            "status": "Active"
-        }
-    ],
-    "risk": [
-        {
-            "name": "General Risk",
-            "description": "General risk for all chatbots.",
-            "status": "Active"
-        },
-        {
-            "name": "Financial Risk",
-            "description": "Includes cost overruns, ineffective monetization, and potential fraud or scams that could lead to financial losses.",
-            "status": "Active"
-        },
-        {
-            "name": "Reputational Risk",
-            "description": "Damage to brand reputation due to inaccurate responses, negative publicity, or poor user experiences that erode trust.",
-            "status": "Active"
-        },
-        {
-            "name": "Operational Risk",
-            "description": "Risks related to system failures, data privacy breaches, and challenges in integrating the chatbot with existing systems.",
-            "status": "Active"
-        },
-        {
-            "name": "Compliance and Legal Risk",
-            "description": "Risks of regulatory violations, intellectual property issues, and potential legal actions due to misleading information.",
-            "status": "Active"
-        },
-        {
-            "name": "Ethical and Social Risk",
-            "description": "Includes bias and discrimination, the spread of misinformation, and potential manipulative behavior towards users.",
-            "status": "Active"
-        },
-        {
-            "name": "Technical Risk",
-            "description": "Challenges related to model robustness, data dependency, and scalability issues as usage increases.",
-            "status": "Active"
-        },
-        {
-            "name": "Security Risk",
-            "description": "Cybersecurity threats, including DDoS attacks and data theft, that can compromise the chatbot's effectiveness and user data.",
-            "status": "Active"
-        },
-        {
-            "name": "User Experience Risk",
-            "description": "Risks of user confusion and limitations in the chatbot's capabilities that can lead to frustration.",
             "status": "Active"
         }
     ],

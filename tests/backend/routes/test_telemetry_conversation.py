@@ -10,6 +10,7 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
+from rhesis.backend.app.crud.telemetry import get_trace_id_for_conversation
 from tests.backend.routes.fixtures.data_factories import TraceDataFactory
 
 
@@ -149,8 +150,6 @@ class TestGetTraceIdForConversation:
         self, authenticated_client: TestClient, db_project, test_db
     ):
         """Returns the trace_id for an existing conversation."""
-        from rhesis.backend.app import crud
-
         project_id = str(db_project.id)
         conversation_id = "crud-test-conv-1"
 
@@ -159,7 +158,7 @@ class TestGetTraceIdForConversation:
         )
 
         org_id = str(db_project.organization_id)
-        result = crud.get_trace_id_for_conversation(
+        result = get_trace_id_for_conversation(
             db=test_db,
             conversation_id=conversation_id,
             project_id=project_id,
@@ -170,9 +169,7 @@ class TestGetTraceIdForConversation:
 
     def test_returns_none_for_unknown_conversation(self, db_project, test_db):
         """Returns None when no trace exists for the conversation."""
-        from rhesis.backend.app import crud
-
-        result = crud.get_trace_id_for_conversation(
+        result = get_trace_id_for_conversation(
             db=test_db,
             conversation_id="nonexistent-conv",
             project_id=str(db_project.id),
@@ -185,7 +182,7 @@ class TestGetTraceIdForConversation:
         """When multiple traces exist for a conversation, returns the earliest."""
         from datetime import datetime, timedelta, timezone
 
-        from rhesis.backend.app import crud, models
+        from rhesis.backend.app import models
 
         project_id = str(db_project.id)
         conversation_id = "crud-test-earliest"
@@ -210,7 +207,7 @@ class TestGetTraceIdForConversation:
         test_db.flush()
 
         org_id = str(db_project.organization_id)
-        result = crud.get_trace_id_for_conversation(
+        result = get_trace_id_for_conversation(
             db=test_db,
             conversation_id=conversation_id,
             project_id=project_id,

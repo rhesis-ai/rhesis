@@ -166,9 +166,9 @@ class EnrichmentService(AsyncService[dict | None]):
         Returns:
             Tuple of (stored_spans, async_count, sync_count)
         """
-        from rhesis.backend.app import crud
+        from rhesis.backend.app.crud.telemetry import create_trace_spans
 
-        stored_spans = crud.create_trace_spans(self.db, spans, organization_id)
+        stored_spans = create_trace_spans(self.db, spans, organization_id)
 
         if not stored_spans:
             logger.warning("No spans were stored")

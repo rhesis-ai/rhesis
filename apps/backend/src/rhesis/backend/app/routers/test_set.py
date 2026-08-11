@@ -1,6 +1,5 @@
 import logging
 import uuid
-from enum import Enum
 from typing import Optional
 
 from fastapi import Depends, HTTPException, Query, Response
@@ -12,7 +11,9 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.capabilities import Permission, capability
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
+from rhesis.backend.app.crud import metric as metric_crud
 from rhesis.backend.app.dependencies import (
+    get_project_context,
     get_tenant_context,
     get_tenant_db_session,
 )
@@ -36,8 +37,6 @@ from rhesis.backend.app.services.test_set import (
     bulk_create_test_set,
     create_pending_test_set,
     execute_test_set_on_endpoint,
-    get_test_set_stats,
-    get_test_set_test_stats,
     update_test_set_attributes,
 )
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
@@ -60,11 +59,6 @@ router = RhesisRouter(
     responses={404: {"description": "Not found the page"}},
     resource="test_set",
 )
-
-
-class StatsMode(str, Enum):
-    ENTITY = "entity"
-    RELATED_ENTITY = "related_entity"
 
 
 class TestSetGenerationResponse(BaseModel):
@@ -101,10 +95,11 @@ def resolve_test_set_or_raise(identifier: str, db: Session, organization_id: str
     "/generate", response_model=TestSetGenerationResponse, **capability(Permission.TestSet.GENERATE)
 )
 def generate_test_set(
-    request: services_schemas.GenerateTestsRequest,
+    request: services_schemas.TestSetGenerationRequest,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
+    scoped_project_id: Optional[str] = Depends(get_project_context),
     _validate_model=Depends(validate_generation_model),
 ):
     """
@@ -117,33 +112,36 @@ def generate_test_set(
         request: Unified generation request with config, num_tests, sources
         db: Database session
         current_user: Current authenticated user
+        scoped_project_id: Project resolved from the request scope, used when
+            the body omits project_id
 
     Returns:
         Task information including task ID and estimated test count
     """
     try:
-        # Validate config
-        if not request.config.behaviors:
-            raise HTTPException(status_code=400, detail="At least one behavior must be specified")
+        # config.behaviors and name are enforced by TestSetGenerationRequest,
+        # so they arrive non-empty and already stripped.
+        name = request.name
 
-        name = (request.name or "").strip()
-        if not name:
-            raise HTTPException(status_code=400, detail="A test set name is required")
-
-        if not request.project_id:
+        # Callers that already scope the request (the X-Project-Id header, or a
+        # project-bound API token) need not repeat the project in the body.
+        project_id = str(request.project_id) if request.project_id else scoped_project_id
+        if not project_id:
             raise HTTPException(
                 status_code=400,
-                detail="A project_id is required to generate a test set",
+                detail=(
+                    "A project_id is required to generate a test set. "
+                    "Send it in the request body or scope the request with "
+                    "the X-Project-Id header."
+                ),
             )
-
-        test_type = request.test_type
 
         # Resolve TestSetType for the pending row
         from rhesis.backend.app.constants import TestSetType as TestSetTypeEnum
 
-        resolved_type = (
-            TestSetTypeEnum.from_string(test_type) if test_type else TestSetTypeEnum.SINGLE_TURN
-        )
+        resolved_type = request.test_type or TestSetTypeEnum.SINGLE_TURN
+        # The Celery task and its downstream synthesizers expect the plain string.
+        test_type = resolved_type.value
 
         # Pre-create a placeholder task_id so we can stamp the test set before launching
         import uuid as _uuid
@@ -156,7 +154,7 @@ def generate_test_set(
             name=name,
             organization_id=str(current_user.organization_id),
             user_id=str(current_user.id),
-            project_id=str(request.project_id),
+            project_id=project_id,
             task_id=placeholder_task_id,
             requested_tests=request.num_tests,
             test_type=resolved_type,
@@ -373,37 +371,6 @@ def read_test_sets(
     return results
 
 
-@router.get("/stats", response_model=schemas.EntityStats)
-def generate_test_set_stats(
-    top: Optional[int] = None,
-    months: Optional[int] = 6,
-    mode: StatsMode = StatsMode.ENTITY,
-    db: Session = Depends(get_tenant_db_session),
-    current_user: User = Depends(require_current_user_or_token),
-):
-    """Get statistics about test sets and their tests
-
-    Args:
-        top: Optional number of top items to show per dimension
-        months: Number of months to include in historical stats (default: 6)
-        mode: Stats mode to use - either 'entity' (default) or 'related_entity'
-        db: Database session
-        current_user: Current user
-    """
-    if mode == StatsMode.ENTITY:
-        return get_test_set_stats(
-            db=db, current_user_organization_id=current_user.organization_id, top=top, months=months
-        )
-    else:
-        return get_test_set_test_stats(
-            db=db,
-            test_set_id=None,  # No test set ID means get stats for all tests
-            current_user_organization_id=current_user.organization_id,
-            top=top,
-            months=months,
-        )
-
-
 @router.get("/{test_set_identifier}", response_model=schemas.TestSetDetail)
 def read_test_set(
     test_set_identifier: str,
@@ -508,18 +475,6 @@ def download_test_set_prompts(
             status_code=500,
             detail=f"Failed to download test set prompts for {test_set_identifier}: {str(e)}",
         )
-
-
-@router.get("/{test_set_identifier}/prompts", response_model=list[schemas.PromptView])
-def get_test_set_prompts(
-    test_set_identifier: str,
-    db: Session = Depends(get_tenant_db_session),
-    tenant_context=Depends(get_tenant_context),  # SECURITY: Extract tenant context
-    current_user: User = Depends(require_current_user_or_token),
-):
-    organization_id, user_id = tenant_context  # SECURITY: Get tenant context
-    db_test_set = resolve_test_set_or_raise(test_set_identifier, db, organization_id)
-    return get_prompts_for_test_set(db, db_test_set.id, organization_id)
 
 
 @router.get("/{test_set_identifier}/tests", response_model=list[schemas.TestDetail])
@@ -660,85 +615,6 @@ def get_last_test_run(
     return result
 
 
-@router.get("/{test_set_identifier}/stats", response_model=schemas.EntityStats)
-def generate_test_set_test_stats(
-    test_set_identifier: str,
-    top: Optional[int] = None,
-    months: Optional[int] = 6,
-    mode: StatsMode = StatsMode.ENTITY,
-    db: Session = Depends(get_tenant_db_session),
-    current_user: User = Depends(require_current_user_or_token),
-):
-    """Get statistics about tests in a specific test set
-
-    Args:
-        test_set_identifier: The identifier of the test set
-        top: Optional number of top items to show per dimension
-        months: Number of months to include in historical stats (default: 6)
-        mode: Stats mode to use - either 'entity' (default) or 'related_entity'
-        db: Database session
-        current_user: Current user
-    """
-    db_test_set = resolve_test_set_or_raise(
-        test_set_identifier, db, str(current_user.organization_id)
-    )
-
-    if mode == StatsMode.ENTITY:
-        return get_test_set_stats(
-            db=db, current_user_organization_id=current_user.organization_id, top=top, months=months
-        )
-    else:
-        return get_test_set_test_stats(
-            db=db,
-            test_set_id=str(db_test_set.id),
-            current_user_organization_id=current_user.organization_id,
-            top=top,
-            months=months,
-        )
-
-
-@router.get(
-    "/{test_set_identifier}/prompts/download",
-    **capability(Permission.TestSet.EXPORT),
-)
-def download_test_set_prompts_csv(
-    test_set_identifier: str,
-    db: Session = Depends(get_tenant_db_session),
-    tenant_context=Depends(get_tenant_context),  # SECURITY: Extract tenant context
-    current_user: User = Depends(require_current_user_or_token),
-):
-    try:
-        # Resolve test set
-        organization_id, user_id = tenant_context  # SECURITY: Get tenant context
-        db_test_set = resolve_test_set_or_raise(test_set_identifier, db, organization_id)
-
-        # Get prompts with organization filtering (SECURITY CRITICAL)
-        prompts = get_prompts_for_test_set(db, db_test_set.id, organization_id)
-
-        try:
-            csv_data = prompts_to_csv(prompts)
-        except ValueError:
-            raise HTTPException(
-                status_code=404, detail=f"No prompts found in test set: {test_set_identifier}"
-            )
-
-        # Return CSV file
-        return Response(
-            content=csv_data,
-            media_type="text/csv",
-            headers={
-                "Content-Disposition": "attachment; "
-                f'filename="test_set_{test_set_identifier}_prompts.csv"'
-            },
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Failed to download test set prompts: {str(e)}"
-        )
-
-
 @router.post(
     "/{test_set_id}/associate",
     response_model=schemas.TestSetBulkAssociateResponse,
@@ -873,7 +749,7 @@ def add_metric_to_test_set(
     )
 
     try:
-        added = crud.add_metric_to_test_set(
+        added = metric_crud.add_metric_to_test_set(
             db=db,
             test_set_id=db_test_set.id,
             metric_id=metric_id,
@@ -919,7 +795,7 @@ def remove_metric_from_test_set(
     )
 
     try:
-        removed = crud.remove_metric_from_test_set(
+        removed = metric_crud.remove_metric_from_test_set(
             db=db,
             test_set_id=db_test_set.id,
             metric_id=metric_id,

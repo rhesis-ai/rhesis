@@ -22,11 +22,8 @@ from rhesis.backend.app import models, schemas
 # the monolith use the same tuple, and moving it would mean deciding a new home for a
 # TestSet-wide constant while this module only owns the Explorer slice.
 # crud/__init__.py never imports this module, so the parent-package import is cycle-free.
-from rhesis.backend.app.crud import (
-    _TEST_SET_RELATED_FIELDS,
-    create_embedding,
-    get_embedding_by_hash,
-)
+from rhesis.backend.app.crud import _TEST_SET_RELATED_FIELDS
+from rhesis.backend.app.crud.embedding import create_embedding, get_embedding_by_hash
 from rhesis.backend.app.models.enums import ModelType
 from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.schemas.explorer_metadata import (

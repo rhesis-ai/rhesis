@@ -77,7 +77,6 @@ class Test(
     category = relationship("Category", back_populates="tests")
     status = relationship("Status", back_populates="tests")
     source = relationship("Source", back_populates="tests")
-    test_contexts = relationship("TestContext", back_populates="test")
     test_results = relationship("TestResult", back_populates="test")
     test_sets = relationship(
         "TestSet", secondary=test_test_set_association, back_populates="tests", viewonly=True

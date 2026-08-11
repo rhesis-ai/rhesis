@@ -11,7 +11,7 @@ from unittest.mock import Mock, patch
 import pytest
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud
+from rhesis.backend.app.crud import token as token_crud
 
 
 @pytest.mark.security
@@ -23,7 +23,7 @@ class TestTokenOrganizationSecurity:
         import inspect
 
         # Verify that revoke_user_tokens accepts organization_id parameter (tokens may be organization-scoped)
-        signature = inspect.signature(crud.revoke_user_tokens)
+        signature = inspect.signature(token_crud.revoke_user_tokens)
         assert "organization_id" in signature.parameters, (
             "revoke_user_tokens should accept organization_id for token scoping"
         )
@@ -37,11 +37,13 @@ class TestTokenOrganizationSecurity:
             mock_query.return_value.filter.return_value.delete.return_value = 3
 
             # Test with organization filtering
-            result_with_org = crud.revoke_user_tokens(test_db, user_id, organization_id=org_id)
+            result_with_org = token_crud.revoke_user_tokens(
+                test_db, user_id, organization_id=org_id
+            )
             assert result_with_org == 2
 
             # Test without organization filtering (should work but may revoke more tokens)
-            result_without_org = crud.revoke_user_tokens(test_db, user_id)
+            result_without_org = token_crud.revoke_user_tokens(test_db, user_id)
             assert result_without_org == 3
 
     def test_get_token_by_value_organization_filtering(
@@ -51,7 +53,7 @@ class TestTokenOrganizationSecurity:
         import inspect
 
         # Verify that get_token_by_value accepts organization_id parameter (tokens may be organization-scoped)
-        signature = inspect.signature(crud.get_token_by_value)
+        signature = inspect.signature(token_crud.get_token_by_value)
         assert "organization_id" in signature.parameters, (
             "get_token_by_value should accept organization_id for token scoping"
         )
@@ -77,7 +79,7 @@ class TestTokenOrganizationSecurity:
         test_db.flush()
 
         # Test with organization filtering
-        result_with_org = crud.get_token_by_value(
+        result_with_org = token_crud.get_token_by_value(
             test_db, token_value, organization_id=str(test_organization.id)
         )
         assert result_with_org is not None
@@ -85,7 +87,7 @@ class TestTokenOrganizationSecurity:
         assert result_with_org.organization_id == test_organization.id
 
         # Test without organization filtering (should still work)
-        result_without_org = crud.get_token_by_value(test_db, token_value)
+        result_without_org = token_crud.get_token_by_value(test_db, token_value)
         assert result_without_org is not None
         assert result_without_org.token == token_value
 
@@ -94,7 +96,7 @@ class TestTokenOrganizationSecurity:
         import inspect
 
         # Verify that create_token accepts organization_id parameter
-        signature = inspect.signature(crud.create_token)
+        signature = inspect.signature(token_crud.create_token)
         assert "organization_id" in signature.parameters, (
             "create_token should accept organization_id for token scoping"
         )
@@ -124,7 +126,7 @@ class TestTokenOrganizationSecurity:
             token_obfuscated=token_value[:8] + "...",
             user_id=user.id,
         )
-        result = crud.create_token(
+        result = token_crud.create_token(
             test_db, token_data, organization_id=str(org.id), user_id=str(user.id)
         )
 
@@ -138,7 +140,7 @@ class TestTokenOrganizationSecurity:
         import inspect
 
         # Verify that revoke_token accepts organization_id parameter
-        signature = inspect.signature(crud.revoke_token)
+        signature = inspect.signature(token_crud.revoke_token)
         assert "organization_id" in signature.parameters, (
             "revoke_token should accept organization_id for token scoping"
         )
@@ -174,12 +176,12 @@ class TestTokenOrganizationSecurity:
             token_obfuscated=token_value1[:8] + "...",
             user_id=user1.id,
         )
-        token = crud.create_token(
+        token = token_crud.create_token(
             test_db, token_data, organization_id=str(org1.id), user_id=str(user1.id)
         )
 
         # User from org1 should be able to revoke the token
-        result_org1 = crud.revoke_token(
+        result_org1 = token_crud.revoke_token(
             test_db, token.id, organization_id=str(org1.id), user_id=str(user1.id)
         )
         assert result_org1 is not None  # Token was found and revoked
@@ -193,12 +195,12 @@ class TestTokenOrganizationSecurity:
             token_obfuscated=token_value2[:8] + "...",
             user_id=user1.id,
         )
-        token2 = crud.create_token(
+        token2 = token_crud.create_token(
             test_db, token_data2, organization_id=str(org1.id), user_id=str(user1.id)
         )
 
         # User from org2 should NOT be able to revoke the token from org1
-        result_org2 = crud.revoke_token(
+        result_org2 = token_crud.revoke_token(
             test_db, token2.id, organization_id=str(org2.id), user_id=str(user2.id)
         )
         assert result_org2 is None  # Token was not found/revoked due to organization filtering
@@ -221,8 +223,8 @@ class TestTokenParameterValidation:
         ]
 
         for func_name in token_functions:
-            if hasattr(crud, func_name):
-                func = getattr(crud, func_name)
+            if hasattr(token_crud, func_name):
+                func = getattr(token_crud, func_name)
                 signature = inspect.signature(func)
                 assert "organization_id" in signature.parameters, (
                     f"{func_name} should accept organization_id parameter"
@@ -249,12 +251,16 @@ class TestTokenParameterValidation:
             mock_query.return_value.filter.return_value.filter.return_value.first.return_value = (
                 mock_token_org1
             )
-            result_org1 = crud.get_token_by_value(test_db, token_value, organization_id=org1_id)
+            result_org1 = token_crud.get_token_by_value(
+                test_db, token_value, organization_id=org1_id
+            )
             assert result_org1.organization_id == uuid.UUID(org1_id)
 
             # When querying with org2 filter, should only return org2 token
             mock_query.return_value.filter.return_value.filter.return_value.first.return_value = (
                 mock_token_org2
             )
-            result_org2 = crud.get_token_by_value(test_db, token_value, organization_id=org2_id)
+            result_org2 = token_crud.get_token_by_value(
+                test_db, token_value, organization_id=org2_id
+            )
             assert result_org2.organization_id == uuid.UUID(org2_id)

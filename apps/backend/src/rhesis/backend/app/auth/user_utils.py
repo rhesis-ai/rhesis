@@ -16,6 +16,7 @@ from rhesis.backend.app.auth.principal import (
 )
 from rhesis.backend.app.auth.token_utils import get_secret_key, verify_jwt_token
 from rhesis.backend.app.auth.token_validation import validate_token
+from rhesis.backend.app.crud.token import get_token_by_value
 from rhesis.backend.app.database import get_db
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas import UserCreate
@@ -237,7 +238,7 @@ async def get_authenticated_user_with_context(
             is_valid, _ = validate_token(token_value, db=db)
 
             if is_valid:
-                token = crud.get_token_by_value(db, token_value)
+                token = get_token_by_value(db, token_value)
                 if token:
                     user = crud.get_user_by_id(db, token.user_id)
 
