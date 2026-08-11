@@ -32,8 +32,7 @@ def _parse_arguments(v: Any) -> Dict[str, Any]:
             return {}
         if not isinstance(parsed, dict):
             logger.error(
-                "Tool arguments parsed to %s, expected an object; "
-                "dispatching with no arguments.",
+                "Tool arguments parsed to %s, expected an object; dispatching with no arguments.",
                 type(parsed).__name__,
             )
             return {}
