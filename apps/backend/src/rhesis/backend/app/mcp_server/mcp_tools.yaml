@@ -239,7 +239,8 @@ tools:
       Endpoint → TestRun. PREREQUISITES: test_set_identifier from
       list_test_sets or get_job_status; endpoint_id from list_endpoints
       or get_endpoint. CHAIN: after response use get_test_run for
-      totals, then get_insights(entity=test_result) and
+      totals, then get_insights(entity=test_result,
+      measures=[count,passed,failed,pass_rate]) and
       list_test_results filtered by test_run_id. The backend auto-creates
       the internal test configuration — do NOT create test configurations
       manually. Response includes test_run_id and task_id.
@@ -1090,6 +1091,12 @@ tools:
         description: "Filter by test set UUIDs (array)."
       behavior_ids:
         description: "Filter by behavior UUIDs (array)."
+      category_ids:
+        description: "Filter by category UUIDs (array)."
+      topic_ids:
+        description: "Filter by topic UUIDs (array)."
+      tags:
+        description: "Filter by tag names (array)."
       endpoint_ids:
         description: "Filter by endpoint UUIDs (array)."
       months:
