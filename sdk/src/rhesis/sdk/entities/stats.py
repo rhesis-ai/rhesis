@@ -1,9 +1,12 @@
 """Statistics models and enums for test run and test result analytics."""
 
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
+
+from rhesis.sdk.entities.insights import Insights
 
 # ---------------------------------------------------------------------------
 # Mode enums (str subclass so they pass directly as query param strings)
@@ -156,10 +159,7 @@ class TestResultStatsMetadata(BaseModel):
 
 
 def _to_dataframe(data: Any, section: str):
-    """Convert a stats section to a pandas DataFrame.
-
-    Raises ImportError with install instructions if pandas is not available.
-    """
+    """Convert a stats section to a DataFrame; raises ImportError if pandas isn't installed."""
     try:
         import pandas as pd
     except ImportError:
@@ -192,11 +192,9 @@ def _to_dataframe(data: Any, section: str):
 
 
 class TestRunStats(BaseModel):
-    """Response from ``TestRuns.stats()``.
-
-    All data fields are optional because the ``mode`` parameter controls
-    which sections the backend populates.
-    """
+    """Response from ``TestRuns.stats()``. All fields are optional: only
+    status_distribution/most_run_test_sets/top_executors/timeline/metadata are
+    ever populated -- the rest predate the Insights-backed builder above."""
 
     status_distribution: Optional[List[StatusDistribution]] = None
     result_distribution: Optional[ResultDistribution] = None
@@ -207,29 +205,264 @@ class TestRunStats(BaseModel):
     metadata: Optional[TestRunStatsMetadata] = None
 
     def to_dataframe(self, section: str):
-        """Convert a named section to a pandas DataFrame.
-
-        Args:
-            section: Field name such as ``"status_distribution"``,
-                ``"timeline"``, ``"most_run_test_sets"``, etc.
-
-        Returns:
-            A ``pandas.DataFrame`` built from the section data.
-
-        Raises:
-            ImportError: If pandas is not installed.
-            ValueError: If the section cannot be converted.
-            AttributeError: If the section name is invalid.
-        """
+        """Convert a named section (e.g. ``"timeline"``) to a pandas DataFrame."""
         return _to_dataframe(getattr(self, section), section)
 
 
-class TestResultStats(BaseModel):
-    """Response from ``TestResults.stats()``.
+# ---------------------------------------------------------------------------
+# Insights-backed builders. TestResults.stats() / TestRuns.stats() build
+# Insights() queries and reshape the rows into the models above -- mode only
+# ends up in metadata.mode, and legacy modes that need a second, different-
+# grain query raise NotImplementedError.
+# ---------------------------------------------------------------------------
 
-    All data fields are optional because the ``mode`` parameter controls
-    which sections the backend populates.
-    """
+
+def _period_label(months: Optional[int], start_date: Optional[str], end_date: Optional[str]) -> str:
+    if months is not None:
+        return f"Last {months} months"
+    if start_date or end_date:
+        return "custom"
+    return "all time"
+
+
+# ---- test_result section builders -----------------------------------------
+#
+# metrics/timeline/test_runs/behavior_detail all joined test_result-grain and
+# metric-grain data in SQL -- not worth reproducing here. ids is just a single
+# Insights(...).ids() call -- nothing to shim.
+
+
+def _tr_overall(filters, months, start_date, end_date) -> OverallStats:
+    resp = Insights(
+        entity="test_result",
+        measures=["count", "passed", "failed", "pass_rate"],
+        filters=filters,
+        months=months,
+        start_date=start_date,
+        end_date=end_date,
+    ).get()
+    if not resp.rows:
+        return OverallStats()
+    row = resp.rows[0]
+    return OverallStats(
+        total=row["count"], passed=row["passed"], failed=row["failed"], pass_rate=row["pass_rate"]
+    )
+
+
+def _tr_dimension(dimension: str, filters, months, start_date, end_date) -> Dict[str, MetricStats]:
+    """Pass/fail rates grouped by a test_result dimension (behavior/category/topic)."""
+    resp = Insights(
+        entity="test_result",
+        group_by=[dimension],
+        measures=["count", "passed", "failed", "pass_rate"],
+        filters=filters,
+        months=months,
+        start_date=start_date,
+        end_date=end_date,
+    ).get()
+    return {
+        row[dimension]: MetricStats(
+            total=row["count"],
+            passed=row["passed"],
+            failed=row["failed"],
+            pass_rate=row["pass_rate"],
+        )
+        for row in resp.rows
+        if row[dimension] is not None
+    }
+
+
+_UNSUPPORTED_TEST_RESULT_MODES = frozenset(
+    {"metrics", "timeline", "test_runs", "behavior_detail", "ids"}
+)
+
+
+def build_test_result_stats(
+    mode,
+    filters: Dict[str, List[str]],
+    months: Optional[int],
+    start_date: Optional[str],
+    end_date: Optional[str],
+) -> "TestResultStats":
+    """Query Insights for overall/behavior/category/topic pass rates and shape
+    them into TestResultStats. Raises for modes in _UNSUPPORTED_TEST_RESULT_MODES."""
+    mode = mode.value if isinstance(mode, Enum) else mode
+    if mode in _UNSUPPORTED_TEST_RESULT_MODES:
+        raise NotImplementedError(
+            f"TestResults.stats(mode={mode!r}) is no longer supported. Call "
+            'Insights(entity="test_result", ...) or Insights(entity="metric", ...) '
+            "directly instead -- see docs/content/sdk/statistics.mdx."
+        )
+
+    overall = _tr_overall(filters, months, start_date, end_date)
+    behavior = _tr_dimension("behavior", filters, months, start_date, end_date)
+    category = _tr_dimension("category", filters, months, start_date, end_date)
+    topic = _tr_dimension("topic", filters, months, start_date, end_date)
+
+    metadata = TestResultStatsMetadata(
+        generated_at=datetime.now(timezone.utc).isoformat(),
+        period=_period_label(months, start_date, end_date),
+        start_date=start_date or "",
+        end_date=end_date or "",
+        total_test_results=overall.total,
+        mode=mode,
+        available_behaviors=sorted(behavior),
+        available_categories=sorted(category),
+        available_topics=sorted(topic),
+    )
+    return TestResultStats(
+        overall_pass_rates=overall,
+        behavior_pass_rates=behavior,
+        category_pass_rates=category,
+        topic_pass_rates=topic,
+        metadata=metadata,
+    )
+
+
+# ---- test_run section builders ---------------------------------------------
+
+
+def _run_status(filters, months, start_date, end_date) -> List[StatusDistribution]:
+    resp = Insights(
+        entity="test_run",
+        group_by=["status"],
+        measures=["count"],
+        filters=filters,
+        months=months,
+        start_date=start_date,
+        end_date=end_date,
+    ).get()
+    rows = [(row["status"], row["count"]) for row in resp.rows if row["status"] is not None]
+    total = sum(count for _, count in rows)
+    return [
+        StatusDistribution(
+            status=name, count=count, percentage=round((count / total) * 100, 2) if total else 0.0
+        )
+        for name, count in sorted(rows, key=lambda r: r[1], reverse=True)
+    ]
+
+
+def _run_test_sets(filters, months, start_date, end_date, top=None) -> List[TestSetRunCount]:
+    resp = Insights(
+        entity="test_run",
+        group_by=["test_set"],
+        measures=["count"],
+        filters=filters,
+        months=months,
+        start_date=start_date,
+        end_date=end_date,
+    ).get()
+    rows = sorted(
+        (row for row in resp.rows if row["test_set"] is not None),
+        key=lambda r: r["count"],
+        reverse=True,
+    )
+    if top:
+        rows = rows[:top]
+    return [TestSetRunCount(test_set_name=row["test_set"], run_count=row["count"]) for row in rows]
+
+
+def _run_executors(filters, months, start_date, end_date, top=None) -> List[ExecutorRunCount]:
+    resp = Insights(
+        entity="test_run",
+        group_by=["executor"],
+        measures=["count"],
+        filters=filters,
+        months=months,
+        start_date=start_date,
+        end_date=end_date,
+    ).get()
+    rows = sorted(
+        (row for row in resp.rows if row["executor"] is not None),
+        key=lambda r: r["count"],
+        reverse=True,
+    )
+    if top:
+        rows = rows[:top]
+    return [ExecutorRunCount(executor_name=row["executor"], run_count=row["count"]) for row in rows]
+
+
+def _run_timeline(filters, months, start_date, end_date) -> List[TestRunTimelineData]:
+    resp = Insights(
+        entity="test_run",
+        group_by=["year", "month"],
+        measures=["count", "passed", "failed"],
+        filters=filters,
+        months=months,
+        start_date=start_date,
+        end_date=end_date,
+    ).get()
+    timeline = []
+    for row in resp.rows:
+        if row["year"] is None or row["month"] is None:
+            continue
+        total, passed, failed = row["count"], row["passed"], row["failed"]
+        timeline.append(
+            TestRunTimelineData(
+                date=f"{row['year']:04d}-{row['month']:02d}",
+                total_runs=total,
+                result_breakdown={
+                    "passed": passed,
+                    "failed": failed,
+                    "pending": total - passed - failed,
+                },
+            )
+        )
+    return sorted(timeline, key=lambda t: t.date)
+
+
+_UNSUPPORTED_TEST_RUN_MODES = frozenset({"results", "summary"})
+
+
+def build_test_run_stats(
+    mode,
+    filters: Dict[str, List[str]],
+    months: Optional[int],
+    top: Optional[int],
+    start_date: Optional[str],
+    end_date: Optional[str],
+) -> "TestRunStats":
+    """Query Insights for status/test_set/executor/timeline breakdowns and shape
+    them into TestRunStats. Raises for modes in _UNSUPPORTED_TEST_RUN_MODES."""
+    mode = mode.value if isinstance(mode, Enum) else mode
+    if mode in _UNSUPPORTED_TEST_RUN_MODES:
+        raise NotImplementedError(
+            f"TestRuns.stats(mode={mode!r}) is no longer supported. Call "
+            'Insights(entity="test_run", ...) directly, combined with a second '
+            'Insights(entity="test_result", ...) query for result-level detail -- '
+            "see docs/content/sdk/statistics.mdx."
+        )
+
+    status = _run_status(filters, months, start_date, end_date)
+    test_sets = _run_test_sets(filters, months, start_date, end_date, top=top)
+    executors = _run_executors(filters, months, start_date, end_date, top=top)
+    timeline = _run_timeline(filters, months, start_date, end_date)
+
+    metadata = TestRunStatsMetadata(
+        generated_at=datetime.now(timezone.utc).isoformat(),
+        period=_period_label(months, start_date, end_date),
+        start_date=start_date or "",
+        end_date=end_date or "",
+        total_test_runs=sum(s.count for s in status),
+        mode=mode,
+        available_statuses=[s.status for s in status],
+        available_test_sets=[t.test_set_name for t in test_sets],
+        available_executors=[e.executor_name for e in executors],
+    )
+    return TestRunStats(
+        status_distribution=status,
+        most_run_test_sets=test_sets,
+        top_executors=executors,
+        timeline=timeline,
+        metadata=metadata,
+    )
+
+
+class TestResultStats(BaseModel):
+    """Response from ``TestResults.stats()``. All fields are optional: only
+    overall_pass_rates/behavior_pass_rates/category_pass_rates/topic_pass_rates/
+    metadata are ever populated -- the rest predate the Insights-backed builder
+    above."""
 
     metric_pass_rates: Optional[Dict[str, MetricStats]] = None
     behavior_pass_rates: Optional[Dict[str, MetricStats]] = None
@@ -243,18 +476,5 @@ class TestResultStats(BaseModel):
     metadata: Optional[TestResultStatsMetadata] = None
 
     def to_dataframe(self, section: str):
-        """Convert a named section to a pandas DataFrame.
-
-        Args:
-            section: Field name such as ``"topic_pass_rates"``,
-                ``"timeline"``, ``"metric_pass_rates"``, etc.
-
-        Returns:
-            A ``pandas.DataFrame`` built from the section data.
-
-        Raises:
-            ImportError: If pandas is not installed.
-            ValueError: If the section cannot be converted.
-            AttributeError: If the section name is invalid.
-        """
+        """Convert a named section (e.g. ``"topic_pass_rates"``) to a pandas DataFrame."""
         return _to_dataframe(getattr(self, section), section)

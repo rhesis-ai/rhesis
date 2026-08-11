@@ -1,3 +1,4 @@
+import warnings
 from enum import Enum
 from typing import Any, ClassVar, Dict, Optional, Union
 
@@ -6,7 +7,7 @@ from pydantic import field_validator
 from rhesis.sdk.clients import APIClient, Endpoints, Methods
 from rhesis.sdk.entities.base_collection import BaseCollection
 from rhesis.sdk.entities.base_entity import BaseEntity
-from rhesis.sdk.entities.stats import TestRunStats, TestRunStatsMode
+from rhesis.sdk.entities.stats import TestRunStats, TestRunStatsMode, build_test_run_stats
 
 ENDPOINT = Endpoints.TEST_RUNS
 
@@ -92,7 +93,8 @@ class TestRun(BaseEntity):
         mode: Union[TestRunStatsMode, str] = TestRunStatsMode.ALL,
         **kwargs,
     ) -> TestRunStats:
-        """Get statistics scoped to this test run.
+        """Deprecated. Use ``Insights(entity="test_run", filters={"test_run_ids":
+        [self.id]}, ...)`` instead.
 
         Delegates to ``TestRuns.stats()`` with ``test_run_ids`` set to
         this run's ID.
@@ -127,12 +129,18 @@ class TestRuns(BaseCollection):
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
     ) -> TestRunStats:
-        """Get aggregated test run statistics.
+        """Deprecated convenience shim. Prefer ``Insights(entity="test_run", ...)`` directly.
+
+        Always returns status distribution, most-run test sets, top executors, and
+        timeline via four ``Insights`` calls -- *mode* no longer changes what's
+        returned, it only shows up in ``metadata.mode``. "results" and "summary"
+        raise ``NotImplementedError``: both need a second query against
+        entity="test_result", a different grain than test_run's own status.
 
         Args:
             mode: Data mode controlling which sections are returned.
             months: Number of months of historical data (default 6).
-            top: Maximum items per ranked list.
+            top: Maximum items per ranked list (most_run_test_sets/top_executors only).
             test_run_ids: Filter by specific test run IDs.
             user_ids: Filter by executor user IDs.
             endpoint_ids: Filter by endpoint IDs.
@@ -144,31 +152,20 @@ class TestRuns(BaseCollection):
         Returns:
             TestRunStats with the requested sections populated.
         """
-        params = {"mode": mode.value if isinstance(mode, Enum) else mode}
-        if months is not None:
-            params["months"] = months
-        if top is not None:
-            params["top"] = top
-        if test_run_ids is not None:
-            params["test_run_ids"] = test_run_ids
-        if user_ids is not None:
-            params["user_ids"] = user_ids
-        if endpoint_ids is not None:
-            params["endpoint_ids"] = endpoint_ids
-        if test_set_ids is not None:
-            params["test_set_ids"] = test_set_ids
-        if status_list is not None:
-            params["status_list"] = status_list
-        if start_date is not None:
-            params["start_date"] = start_date
-        if end_date is not None:
-            params["end_date"] = end_date
-
-        client = APIClient()
-        response = client.send_request(
-            endpoint=Endpoints.TEST_RUNS,
-            method=Methods.GET,
-            url_params="stats",
-            params=params,
+        warnings.warn(
+            "TestRuns.stats() is deprecated. Prefer Insights(entity='test_run', ...) "
+            "directly -- this method now issues several Insights requests internally "
+            "instead of one.",
+            DeprecationWarning,
+            stacklevel=2,
         )
-        return TestRunStats.model_validate(response)
+        raw_filters = {
+            "test_run_ids": test_run_ids,
+            "user_ids": user_ids,
+            "endpoint_ids": endpoint_ids,
+            "test_set_ids": test_set_ids,
+            "status_names": status_list,
+        }
+        filters = {key: val for key, val in raw_filters.items() if val}
+
+        return build_test_run_stats(mode, filters, months, top, start_date, end_date)

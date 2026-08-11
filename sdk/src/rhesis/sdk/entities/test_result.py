@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import warnings
 from typing import TYPE_CHECKING, Any, ClassVar, Dict, List, Optional, Union
 
 from rhesis.sdk.clients import APIClient, Endpoints, Methods
@@ -10,6 +11,12 @@ if TYPE_CHECKING:
 from rhesis.sdk.entities.base_collection import BaseCollection
 from rhesis.sdk.entities.base_entity import BaseEntity
 from rhesis.sdk.entities.status import Status
+
+_UNSUPPORTED_PRIORITY_FILTER = (
+    "priority_min/priority_max have no equivalent in Insights (no range-filter support) "
+    "and are no longer available through TestResults.stats(). Use Insights(entity="
+    "'test_result', ...) directly and filter the rows yourself if you need this."
+)
 
 ENDPOINT = Endpoints.TEST_RESULTS
 
@@ -80,7 +87,14 @@ class TestResults(BaseCollection):
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
     ) -> "TestResultStats":
-        """Get aggregated test result statistics.
+        """Deprecated convenience shim. Prefer ``Insights(entity="test_result", ...)`` or
+        ``Insights(entity="metric", ...)`` directly.
+
+        Always returns behavior/category/topic/overall pass rates via four ``Insights``
+        calls -- *mode* no longer changes what's returned, it only shows up in
+        ``metadata.mode``. "metrics", "timeline", "test_runs", "behavior_detail", and
+        "ids" raise ``NotImplementedError``: each needs its own ``Insights`` call this
+        shim doesn't attempt to reproduce.
 
         Args:
             mode: Data mode controlling which sections are returned.
@@ -98,8 +112,10 @@ class TestResults(BaseCollection):
             assignee_ids: Filter by assignee user IDs.
             owner_ids: Filter by test owner user IDs.
             prompt_ids: Filter by prompt IDs.
-            priority_min: Minimum priority (inclusive).
-            priority_max: Maximum priority (inclusive).
+            priority_min: No longer supported -- Insights has no range filter. Raises
+                ValueError if given.
+            priority_max: No longer supported -- Insights has no range filter. Raises
+                ValueError if given.
             tags: Filter by tags.
             start_date: Start date (ISO format), overrides months.
             end_date: End date (ISO format), overrides months.
@@ -107,16 +123,23 @@ class TestResults(BaseCollection):
         Returns:
             TestResultStats with the requested sections populated.
         """
-        from enum import Enum
+        warnings.warn(
+            "TestResults.stats() is deprecated. Prefer Insights(entity='test_result', ...) "
+            "or Insights(entity='metric', ...) directly -- this method now issues several "
+            "Insights requests internally instead of one.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        if priority_min is not None or priority_max is not None:
+            raise ValueError(_UNSUPPORTED_PRIORITY_FILTER)
 
-        from rhesis.sdk.entities.stats import TestResultStats
+        from rhesis.sdk.entities.stats import build_test_result_stats
 
-        params: Dict[str, Any] = {"mode": mode.value if isinstance(mode, Enum) else mode}
-        _optional = {
-            "months": months,
-            "test_run_id": test_run_id,
-            "test_run_ids": test_run_ids,
-            "test_set_ids": test_set_ids,
+        run_ids = list(test_run_ids or [])
+        if test_run_id:
+            run_ids.append(test_run_id)
+        raw_filters: Dict[str, Any] = {
+            "test_run_ids": run_ids,
             "behavior_ids": behavior_ids,
             "category_ids": category_ids,
             "topic_ids": topic_ids,
@@ -127,21 +150,9 @@ class TestResults(BaseCollection):
             "assignee_ids": assignee_ids,
             "owner_ids": owner_ids,
             "prompt_ids": prompt_ids,
-            "priority_min": priority_min,
-            "priority_max": priority_max,
+            "test_set_ids": test_set_ids,
             "tags": tags,
-            "start_date": start_date,
-            "end_date": end_date,
         }
-        for key, val in _optional.items():
-            if val is not None:
-                params[key] = val
+        filters = {key: val for key, val in raw_filters.items() if val}
 
-        client = APIClient()
-        response = client.send_request(
-            endpoint=Endpoints.TEST_RESULTS,
-            method=Methods.GET,
-            url_params="stats",
-            params=params,
-        )
-        return TestResultStats.model_validate(response)
+        return build_test_result_stats(mode, filters, months, start_date, end_date)

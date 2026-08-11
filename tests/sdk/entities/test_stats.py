@@ -1,5 +1,5 @@
 import os
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -192,82 +192,141 @@ class TestTestResultStatsModel:
 
 
 # ---------------------------------------------------------------------------
+# Insights-backed stats() -- TestResults.stats()/TestRuns.stats() no longer
+# call a dedicated backend endpoint, they build Insights() queries and reshape
+# the rows. These tests patch the Insights class used inside
+# rhesis.sdk.entities.stats and check (a) the query it builds and (b) the
+# reshaping of a canned response, rather than mocking raw HTTP.
+# ---------------------------------------------------------------------------
+
+
+def _get_response(rows, entity="test_run", dimensions=None, measures=None):
+    from rhesis.sdk.entities.insights import InsightsResponse
+
+    return InsightsResponse(
+        entity=entity, dimensions=dimensions or [], measures=measures or [], rows=rows
+    )
+
+
+def _test_run_responses(status=None, test_sets=None, executors=None, timeline=None):
+    """Canned .get() results, in the order build_test_run_stats queries them."""
+    return [
+        _get_response(rows=status or []),
+        _get_response(rows=test_sets or []),
+        _get_response(rows=executors or []),
+        _get_response(rows=timeline or []),
+    ]
+
+
+def _test_result_responses(overall=None, behavior=None, category=None, topic=None):
+    """Canned .get() results, in the order build_test_result_stats queries them."""
+    return [
+        _get_response(rows=[overall] if overall else [], entity="test_result"),
+        _get_response(rows=behavior or [], entity="test_result"),
+        _get_response(rows=category or [], entity="test_result"),
+        _get_response(rows=topic or [], entity="test_result"),
+    ]
+
+
+# ---------------------------------------------------------------------------
 # TestRuns.stats()
 # ---------------------------------------------------------------------------
 
 
-@patch("requests.request")
-def test_test_runs_stats_calls_correct_endpoint(mock_request):
-    mock_response = MagicMock()
-    mock_response.json.return_value = SAMPLE_TEST_RUN_STATS_ALL
-    mock_request.return_value = mock_response
+@patch("rhesis.sdk.entities.stats.Insights")
+def test_test_runs_stats_queries_four_sections_regardless_of_mode(mock_insights_cls):
+    """mode is no longer a section filter -- it only ends up in metadata.mode."""
+    mock_insights_cls.return_value.get.side_effect = _test_run_responses(
+        status=[{"status": "Completed", "count": 34}],
+    )
 
     from rhesis.sdk.entities.test_run import TestRuns
 
-    stats = TestRuns.stats(mode="all", months=6, top=5)
+    stats = TestRuns.stats(mode="status", months=6)
 
-    mock_request.assert_called_once()
-    call_kwargs = mock_request.call_args
-    assert call_kwargs.kwargs["method"] == "GET"
-    assert call_kwargs.kwargs["url"] == "http://test:8000/test_runs/stats"
-    assert call_kwargs.kwargs["params"]["mode"] == "all"
-    assert call_kwargs.kwargs["params"]["months"] == 6
-    assert call_kwargs.kwargs["params"]["top"] == 5
+    assert mock_insights_cls.call_count == 4
+    group_bys = [kwargs["group_by"] for _, kwargs in mock_insights_cls.call_args_list]
+    assert group_bys == [["status"], ["test_set"], ["executor"], ["year", "month"]]
+    first_kwargs = mock_insights_cls.call_args_list[0].kwargs
+    assert first_kwargs["filters"] == {}
+    assert first_kwargs["months"] == 6
+    assert stats.status_distribution[0].status == "Completed"
+    assert stats.status_distribution[0].count == 34
+    assert stats.status_distribution[0].percentage == 100.0
+    assert stats.metadata.mode == "status"
 
-    assert stats.metadata.total_test_runs == 34
-    assert stats.result_distribution.passed == 59
 
-
-@patch("requests.request")
-def test_test_runs_stats_with_enum_mode(mock_request):
-    mock_response = MagicMock()
-    mock_response.json.return_value = SAMPLE_TEST_RUN_STATS_STATUS
-    mock_request.return_value = mock_response
+@patch("rhesis.sdk.entities.stats.Insights")
+def test_test_runs_stats_with_enum_mode(mock_insights_cls):
+    mock_insights_cls.return_value.get.side_effect = _test_run_responses()
 
     from rhesis.sdk.entities.stats import TestRunStatsMode
     from rhesis.sdk.entities.test_run import TestRuns
 
-    stats = TestRuns.stats(mode=TestRunStatsMode.STATUS)
+    stats = TestRuns.stats(mode=TestRunStatsMode.ALL)
 
-    call_kwargs = mock_request.call_args
-    assert call_kwargs.kwargs["params"]["mode"] == "status"
-    assert stats.status_distribution is not None
+    assert mock_insights_cls.call_count == 4
+    assert stats.metadata.mode == "all"
 
 
-@patch("requests.request")
-def test_test_runs_stats_passes_list_filters(mock_request):
-    mock_response = MagicMock()
-    mock_response.json.return_value = SAMPLE_TEST_RUN_STATS_ALL
-    mock_request.return_value = mock_response
+@patch("rhesis.sdk.entities.stats.Insights")
+def test_test_runs_stats_passes_filters(mock_insights_cls):
+    mock_insights_cls.return_value.get.side_effect = _test_run_responses()
 
     from rhesis.sdk.entities.test_run import TestRuns
 
     TestRuns.stats(
-        mode="all",
         test_run_ids=["id1", "id2"],
         test_set_ids=["ts1"],
+        status_list=["Completed"],
     )
 
-    call_kwargs = mock_request.call_args
-    assert call_kwargs.kwargs["params"]["test_run_ids"] == ["id1", "id2"]
-    assert call_kwargs.kwargs["params"]["test_set_ids"] == ["ts1"]
+    for _, kwargs in mock_insights_cls.call_args_list:
+        assert kwargs["filters"] == {
+            "test_run_ids": ["id1", "id2"],
+            "test_set_ids": ["ts1"],
+            "status_names": ["Completed"],
+        }
 
 
-@patch("requests.request")
-def test_test_runs_stats_omits_none_params(mock_request):
-    mock_response = MagicMock()
-    mock_response.json.return_value = SAMPLE_TEST_RUN_STATS_ALL
-    mock_request.return_value = mock_response
+@patch("rhesis.sdk.entities.stats.Insights")
+def test_test_runs_stats_applies_top_to_ranked_sections(mock_insights_cls):
+    mock_insights_cls.return_value.get.side_effect = _test_run_responses(
+        test_sets=[
+            {"test_set": "Safety Evaluation", "count": 9},
+            {"test_set": "Multi-Turn", "count": 2},
+        ],
+        executors=[
+            {"executor": "alice@example.com", "count": 20},
+            {"executor": "bob@example.com", "count": 14},
+        ],
+    )
 
     from rhesis.sdk.entities.test_run import TestRuns
 
-    TestRuns.stats(mode="all")
+    stats = TestRuns.stats(top=1)
 
-    call_kwargs = mock_request.call_args
-    params = call_kwargs.kwargs["params"]
-    assert "months" not in params
-    assert "top" not in params
-    assert "test_run_ids" not in params
+    assert len(stats.most_run_test_sets) == 1
+    assert stats.most_run_test_sets[0].test_set_name == "Safety Evaluation"
+    assert len(stats.top_executors) == 1
+    assert stats.top_executors[0].executor_name == "alice@example.com"
+
+
+def test_test_runs_stats_results_mode_raises():
+    """result_distribution counted test_result rows within matching runs -- a
+    different grain than test_run's own status. Reproducing it needs a second
+    query against entity=test_result, so it's no longer done transparently."""
+    from rhesis.sdk.entities.test_run import TestRuns
+
+    with pytest.raises(NotImplementedError, match="test_result"):
+        TestRuns.stats(mode="results")
+
+
+def test_test_runs_stats_summary_mode_raises():
+    from rhesis.sdk.entities.test_run import TestRuns
+
+    with pytest.raises(NotImplementedError, match="summary"):
+        TestRuns.stats(mode="summary")
 
 
 # ---------------------------------------------------------------------------
@@ -275,20 +334,18 @@ def test_test_runs_stats_omits_none_params(mock_request):
 # ---------------------------------------------------------------------------
 
 
-@patch("requests.request")
-def test_test_run_instance_stats_delegates(mock_request):
-    mock_response = MagicMock()
-    mock_response.json.return_value = SAMPLE_TEST_RUN_STATS_ALL
-    mock_request.return_value = mock_response
+@patch("rhesis.sdk.entities.stats.Insights")
+def test_test_run_instance_stats_delegates(mock_insights_cls):
+    mock_insights_cls.return_value.get.return_value = _get_response(rows=[])
 
     from rhesis.sdk.entities.test_run import TestRun
 
     run = TestRun(id="run-abc")
-    stats = run.stats(months=3)
+    stats = run.stats(mode="status", months=3)
 
-    call_kwargs = mock_request.call_args
-    assert call_kwargs.kwargs["params"]["test_run_ids"] == ["run-abc"]
-    assert call_kwargs.kwargs["params"]["months"] == 3
+    _, kwargs = mock_insights_cls.call_args
+    assert kwargs["filters"]["test_run_ids"] == ["run-abc"]
+    assert kwargs["months"] == 3
     assert stats.metadata is not None
 
 
@@ -305,63 +362,87 @@ def test_test_run_instance_stats_raises_without_id():
 # ---------------------------------------------------------------------------
 
 
-@patch("requests.request")
-def test_test_results_stats_calls_correct_endpoint(mock_request):
-    mock_response = MagicMock()
-    mock_response.json.return_value = SAMPLE_TEST_RESULT_STATS_TOPIC
-    mock_request.return_value = mock_response
+@patch("rhesis.sdk.entities.stats.Insights")
+def test_test_results_stats_queries_four_sections_regardless_of_mode(mock_insights_cls):
+    """mode is no longer a section filter -- it only ends up in metadata.mode."""
+    mock_insights_cls.return_value.get.side_effect = _test_result_responses(
+        overall={"count": 100, "passed": 80, "failed": 20, "pass_rate": 80.0},
+    )
 
     from rhesis.sdk.entities.test_result import TestResults
 
-    stats = TestResults.stats(mode="topic", months=6)
+    stats = TestResults.stats(mode="summary", months=6)
 
-    mock_request.assert_called_once()
-    call_kwargs = mock_request.call_args
-    assert call_kwargs.kwargs["method"] == "GET"
-    assert call_kwargs.kwargs["url"] == "http://test:8000/test_results/stats"
-    assert call_kwargs.kwargs["params"]["mode"] == "topic"
-
-    assert stats.topic_pass_rates is not None
-    assert "Safety" in stats.topic_pass_rates
+    assert mock_insights_cls.call_count == 4
+    group_bys = [kwargs.get("group_by", []) for _, kwargs in mock_insights_cls.call_args_list]
+    assert group_bys == [[], ["behavior"], ["category"], ["topic"]]
+    assert stats.overall_pass_rates.total == 100
+    assert stats.overall_pass_rates.pass_rate == 80.0
+    assert stats.metadata.mode == "summary"
 
 
-@patch("requests.request")
-def test_test_results_stats_with_enum_mode(mock_request):
-    mock_response = MagicMock()
-    mock_response.json.return_value = SAMPLE_TEST_RESULT_STATS_TOPIC
-    mock_request.return_value = mock_response
+@patch("rhesis.sdk.entities.stats.Insights")
+def test_test_results_stats_topic_mode(mock_insights_cls):
+    mock_insights_cls.return_value.get.side_effect = _test_result_responses(
+        topic=[
+            {"topic": "Safety", "count": 50, "passed": 40, "failed": 10, "pass_rate": 80.0},
+            {"topic": "Accuracy", "count": 30, "passed": 25, "failed": 5, "pass_rate": 83.33},
+        ],
+    )
 
     from rhesis.sdk.entities.stats import TestResultStatsMode
     from rhesis.sdk.entities.test_result import TestResults
 
-    TestResults.stats(mode=TestResultStatsMode.TOPIC)
+    stats = TestResults.stats(mode=TestResultStatsMode.TOPIC)
 
-    call_kwargs = mock_request.call_args
-    assert call_kwargs.kwargs["params"]["mode"] == "topic"
+    assert "Safety" in stats.topic_pass_rates
+    assert stats.topic_pass_rates["Safety"].pass_rate == 80.0
 
 
-@patch("requests.request")
-def test_test_results_stats_passes_filters(mock_request):
-    mock_response = MagicMock()
-    mock_response.json.return_value = SAMPLE_TEST_RESULT_STATS_TOPIC
-    mock_request.return_value = mock_response
+@patch("rhesis.sdk.entities.stats.Insights")
+def test_test_results_stats_passes_filters(mock_insights_cls):
+    mock_insights_cls.return_value.get.side_effect = _test_result_responses()
 
     from rhesis.sdk.entities.test_result import TestResults
 
     TestResults.stats(
-        mode="topic",
         topic_ids=["t1", "t2"],
         behavior_ids=["b1"],
         tags=["safety"],
-        priority_min=1,
     )
 
-    call_kwargs = mock_request.call_args
-    params = call_kwargs.kwargs["params"]
-    assert params["topic_ids"] == ["t1", "t2"]
-    assert params["behavior_ids"] == ["b1"]
-    assert params["tags"] == ["safety"]
-    assert params["priority_min"] == 1
+    for _, kwargs in mock_insights_cls.call_args_list:
+        assert kwargs["filters"] == {
+            "topic_ids": ["t1", "t2"],
+            "behavior_ids": ["b1"],
+            "tags": ["safety"],
+        }
+
+
+def test_test_results_stats_priority_filter_raises():
+    from rhesis.sdk.entities.test_result import TestResults
+
+    with pytest.raises(ValueError, match="priority_min"):
+        TestResults.stats(mode="summary", priority_min=1)
+
+
+def test_test_results_stats_metrics_mode_raises():
+    """metrics mode combined test_result-grain and metric-grain data (a join
+    the old backend did in SQL) -- no longer reproduced transparently."""
+    from rhesis.sdk.entities.test_result import TestResults
+
+    with pytest.raises(NotImplementedError, match="metric"):
+        TestResults.stats(mode="metrics", behavior_ids=["b1"])
+
+
+@pytest.mark.parametrize("mode", ["timeline", "test_runs", "behavior_detail", "ids"])
+def test_test_results_stats_other_unsupported_modes_raise(mode):
+    """ids is unsupported too now -- it's a single Insights(...).ids() call,
+    not worth reshaping through this shim."""
+    from rhesis.sdk.entities.test_result import TestResults
+
+    with pytest.raises(NotImplementedError, match="Insights"):
+        TestResults.stats(mode=mode)
 
 
 # ---------------------------------------------------------------------------
