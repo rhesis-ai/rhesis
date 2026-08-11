@@ -32,22 +32,23 @@ def _count():
     return func.count()
 
 
-def _passed(condition):
+def _count_where(condition):
     return lambda: func.count().filter(condition)
 
 
-def _failed(condition):
-    return lambda: func.count().filter(condition)
-
-
-def _pass_rate(passed_condition, failed_condition):
+def _rate(passed, failed):
     """passed / (passed + failed) * 100 -- pending/inconclusive rows excluded from
-    the denominator, matching build_pass_rate_stats()/_overall_stats() elsewhere."""
+    the denominator, matching build_pass_rate_stats()/_overall_stats() elsewhere.
+
+    passed/failed are zero-arg callables so callers can pass either a row count
+    (func.count().filter(...)) or a pre-aggregated sum (func.sum(...)).
+    """
 
     def _measure():
-        passed = func.count().filter(passed_condition)
-        failed = func.count().filter(failed_condition)
-        rate = case((passed + failed == 0, 0), else_=passed * 100.0 / (passed + failed))
+        passed_expr = passed()
+        failed_expr = failed()
+        total = passed_expr + failed_expr
+        rate = case((total == 0, 0), else_=passed_expr * 100.0 / total)
         return cast(func.round(rate, 2), Float)
 
     return _measure
@@ -93,17 +94,18 @@ REGISTRY = {
             "category_id": TR.category_id,
             "topic": TR.topic_name,
             "topic_id": TR.topic_id,
-            "test_run": TR.run_id,
+            "test_run": TR.test_run_id,
             "status": TR.status_name,
             "year": TR.year,
             "month": TR.month,
         },
         "measures": {
             "count": _count,
-            "passed": _passed(TR.result == OverallTestResult.PASSED),
-            "failed": _failed(TR.result == OverallTestResult.FAILED),
-            "pass_rate": _pass_rate(
-                TR.result == OverallTestResult.PASSED, TR.result == OverallTestResult.FAILED
+            "passed": _count_where(TR.result == OverallTestResult.PASSED),
+            "failed": _count_where(TR.result == OverallTestResult.FAILED),
+            "pass_rate": _rate(
+                _count_where(TR.result == OverallTestResult.PASSED),
+                _count_where(TR.result == OverallTestResult.FAILED),
             ),
         },
         "filters": {
@@ -140,14 +142,15 @@ REGISTRY = {
         },
         "measures": {
             "count": _count,
-            "passed": _passed(ME.effective_success.is_(True)),
-            "failed": _failed(ME.effective_success.is_(False)),
-            "pass_rate": _pass_rate(
-                ME.effective_success.is_(True), ME.effective_success.is_(False)
+            "passed": _count_where(ME.effective_success.is_(True)),
+            "failed": _count_where(ME.effective_success.is_(False)),
+            "pass_rate": _rate(
+                _count_where(ME.effective_success.is_(True)),
+                _count_where(ME.effective_success.is_(False)),
             ),
-            "automated_passed": lambda: func.count().filter(ME.automated_success.is_(True)),
-            "automated_failed": lambda: func.count().filter(ME.automated_success.is_(False)),
-            "human_review_count": lambda: func.count().filter(ME.has_override.is_(True)),
+            "automated_passed": _count_where(ME.automated_success.is_(True)),
+            "automated_failed": _count_where(ME.automated_success.is_(False)),
+            "human_review_count": _count_where(ME.has_override.is_(True)),
         },
         "filters": {
             "test_run_ids": ME.test_run_id,
@@ -170,10 +173,11 @@ REGISTRY = {
         },
         "measures": {
             "count": _count,
-            "passed": _passed(RN.result == OverallTestResult.PASSED),
-            "failed": _failed(RN.result == OverallTestResult.FAILED),
-            "pass_rate": _pass_rate(
-                RN.result == OverallTestResult.PASSED, RN.result == OverallTestResult.FAILED
+            "passed": _count_where(RN.result == OverallTestResult.PASSED),
+            "failed": _count_where(RN.result == OverallTestResult.FAILED),
+            "pass_rate": _rate(
+                _count_where(RN.result == OverallTestResult.PASSED),
+                _count_where(RN.result == OverallTestResult.FAILED),
             ),
         },
         "filters": {
@@ -181,6 +185,7 @@ REGISTRY = {
             "user_ids": RN.user_id,
             "endpoint_ids": RN.endpoint_id,
             "test_set_ids": RN.test_set_id,
+            "status_names": RN.status_name,
         },
         "subquery_filters": {},
     },
@@ -199,28 +204,20 @@ REGISTRY = {
             "topic": TS.topic_name,
             "topic_id": TS.topic_id,
             "test_type_id": TS.test_type_id,
-            "status": TS.test_status_id,
+            "status_id": TS.test_status_id,
             "is_unrun": TS.is_unrun,
             "year": TS.year,
             "month": TS.month,
         },
         "measures": {
             "count": _count,
-            "unrun_count": lambda: func.count().filter(TS.is_unrun.is_(True)),
+            "unrun_count": _count_where(TS.is_unrun.is_(True)),
             "run_count": lambda: func.sum(TS.run_count),
             "passed": lambda: func.sum(TS.passed_count),
             "failed": lambda: func.sum(TS.failed_count),
-            "pass_rate": lambda: cast(
-                func.round(
-                    case(
-                        (func.sum(TS.passed_count) + func.sum(TS.failed_count) == 0, 0),
-                        else_=func.sum(TS.passed_count)
-                        * 100.0
-                        / (func.sum(TS.passed_count) + func.sum(TS.failed_count)),
-                    ),
-                    2,
-                ),
-                Float,
+            "pass_rate": _rate(
+                lambda: func.sum(TS.passed_count),
+                lambda: func.sum(TS.failed_count),
             ),
         },
         "filters": {

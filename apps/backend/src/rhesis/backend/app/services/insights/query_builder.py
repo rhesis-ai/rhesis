@@ -217,9 +217,10 @@ def run_ids(
     if outcome != "all":
         apply_outcome = entry.get("apply_outcome")
         if apply_outcome is None:
+            outcome_entities = sorted(e for e, cfg in REGISTRY.items() if cfg.get("apply_outcome"))
             raise InsightsValidationError(
                 f"outcome filter is not supported for entity '{entity}'. "
-                "Use entity=test_result or entity=metric."
+                f"Use entity={' or entity='.join(outcome_entities)}."
             )
         q = q.filter(apply_outcome(view, outcome))
 
