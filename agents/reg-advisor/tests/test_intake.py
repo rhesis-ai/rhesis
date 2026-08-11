@@ -167,6 +167,40 @@ async def test_profile_complete_is_emitted_only_when_the_conditional_check_passe
 
 
 @pytest.mark.asyncio
+async def test_the_unresolved_list_is_seeded_before_the_specialist_runs() -> None:
+    """Computed in Python, not left to a classify_product call the model may never make.
+
+    Without this the unresolved block is always empty and the intake agent falls back to
+    declaration order, which is the opposite of what the design claims.
+    """
+    message = "I'm building a smartwatch app."
+    model = MockLlm(gather_script(message))
+    result = await run_turn_async(message, runner=build_runner_with(model))
+
+    assert result["raw"]["unresolved"], "the classifier's blockers reached state"
+
+    intake_prompts = [
+        str(request.config.system_instruction or "")
+        for request in model.requests
+        if "exactly ONE question" in str(request.config.system_instruction or "")
+    ]
+    assert intake_prompts, "the intake agent ran"
+    assert "The classifier stopped on these fields" in intake_prompts[0]
+
+
+@pytest.mark.asyncio
+async def test_the_seeded_list_tracks_what_the_classifier_actually_blocked_on() -> None:
+    """A profile that only lacks the AI answer must be asked about the AI answer."""
+    state = RegAdvisorState(
+        profile=ProductProfile(**{**COMPLETE_PROFILE, "contains_ai": "not decided yet"})
+    )
+    model = MockLlm(gather_script("here you go"))
+    result = await run_turn_async("here you go", state, runner=build_runner_with(model))
+
+    assert result["raw"]["unresolved"] == ["contains_ai"]
+
+
+@pytest.mark.asyncio
 async def test_the_specialist_sees_the_prior_conversation() -> None:
     """A bare answer like "no" only makes sense next to the question that prompted it."""
     state = RegAdvisorState(

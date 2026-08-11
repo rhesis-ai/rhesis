@@ -133,12 +133,18 @@ def create_coordinator_agent(model: BaseLlm | str) -> LlmAgent:
             lines = lines[:-1]
         request = "\n".join([*lines, f"user: {text}"]).strip()
 
+        # Seed the unresolved list before the specialist runs, rather than leaving it to a
+        # classify_product call the model may never make. This is what actually makes the next
+        # question classifier-driven instead of declaration-ordered.
+        tool_context.state["unresolved"] = list(classify(state.profile).unresolved)
+
         reply = await AgentTool(agent=intake_agent).run_async(
             args={"request": request}, tool_context=tool_context
         )
 
         # Completeness is recomputed here in Python, never taken from the specialist's word.
         after = state_from_payload(tool_context.state.to_dict())
+        tool_context.state["unresolved"] = list(classify(after.profile).unresolved)
         missing = missing_core_profile_slots(after)
         if missing:
             return as_text(reply) or "Ask the user for the next missing detail."
