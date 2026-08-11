@@ -1,6 +1,5 @@
 import logging
 import uuid
-from enum import Enum
 from typing import Optional
 
 from fastapi import Depends, HTTPException, Query, Response
@@ -38,8 +37,6 @@ from rhesis.backend.app.services.test_set import (
     bulk_create_test_set,
     create_pending_test_set,
     execute_test_set_on_endpoint,
-    get_test_set_stats,
-    get_test_set_test_stats,
     update_test_set_attributes,
 )
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
@@ -62,11 +59,6 @@ router = RhesisRouter(
     responses={404: {"description": "Not found the page"}},
     resource="test_set",
 )
-
-
-class StatsMode(str, Enum):
-    ENTITY = "entity"
-    RELATED_ENTITY = "related_entity"
 
 
 class TestSetGenerationResponse(BaseModel):
@@ -379,37 +371,6 @@ def read_test_sets(
     return results
 
 
-@router.get("/stats", response_model=schemas.EntityStats)
-def generate_test_set_stats(
-    top: Optional[int] = None,
-    months: Optional[int] = 6,
-    mode: StatsMode = StatsMode.ENTITY,
-    db: Session = Depends(get_tenant_db_session),
-    current_user: User = Depends(require_current_user_or_token),
-):
-    """Get statistics about test sets and their tests
-
-    Args:
-        top: Optional number of top items to show per dimension
-        months: Number of months to include in historical stats (default: 6)
-        mode: Stats mode to use - either 'entity' (default) or 'related_entity'
-        db: Database session
-        current_user: Current user
-    """
-    if mode == StatsMode.ENTITY:
-        return get_test_set_stats(
-            db=db, current_user_organization_id=current_user.organization_id, top=top, months=months
-        )
-    else:
-        return get_test_set_test_stats(
-            db=db,
-            test_set_id=None,  # No test set ID means get stats for all tests
-            current_user_organization_id=current_user.organization_id,
-            top=top,
-            months=months,
-        )
-
-
 @router.get("/{test_set_identifier}", response_model=schemas.TestSetDetail)
 def read_test_set(
     test_set_identifier: str,
@@ -664,43 +625,6 @@ def get_last_test_run(
             detail="No completed test run found for this test set and endpoint combination",
         )
     return result
-
-
-@router.get("/{test_set_identifier}/stats", response_model=schemas.EntityStats)
-def generate_test_set_test_stats(
-    test_set_identifier: str,
-    top: Optional[int] = None,
-    months: Optional[int] = 6,
-    mode: StatsMode = StatsMode.ENTITY,
-    db: Session = Depends(get_tenant_db_session),
-    current_user: User = Depends(require_current_user_or_token),
-):
-    """Get statistics about tests in a specific test set
-
-    Args:
-        test_set_identifier: The identifier of the test set
-        top: Optional number of top items to show per dimension
-        months: Number of months to include in historical stats (default: 6)
-        mode: Stats mode to use - either 'entity' (default) or 'related_entity'
-        db: Database session
-        current_user: Current user
-    """
-    db_test_set = resolve_test_set_or_raise(
-        test_set_identifier, db, str(current_user.organization_id)
-    )
-
-    if mode == StatsMode.ENTITY:
-        return get_test_set_stats(
-            db=db, current_user_organization_id=current_user.organization_id, top=top, months=months
-        )
-    else:
-        return get_test_set_test_stats(
-            db=db,
-            test_set_id=str(db_test_set.id),
-            current_user_organization_id=current_user.organization_id,
-            top=top,
-            months=months,
-        )
 
 
 @router.get(
