@@ -900,9 +900,9 @@ def _validate_reference_test_run(
     Raises:
         ValueError: If validation fails
     """
-    from rhesis.backend.app import crud
+    from rhesis.backend.app.crud.test_run import get_test_run
 
-    db_ref_run = crud.get_test_run(
+    db_ref_run = get_test_run(
         db,
         test_run_id=reference_test_run_id,
         organization_id=str(current_user.organization_id),

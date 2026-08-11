@@ -91,7 +91,7 @@ class TestRescoreTestRunService:
     def test_raises_when_test_run_not_found(self):
         """Raises ValueError when the reference test run does not exist."""
         with patch(
-            "rhesis.backend.app.services.test_run.crud.get_test_run",
+            "rhesis.backend.app.services.test_run.get_test_run",
             return_value=None,
         ):
             from rhesis.backend.app.services.test_run import (
@@ -115,7 +115,7 @@ class TestRescoreTestRunService:
         mock_run.test_configuration = None
 
         with patch(
-            "rhesis.backend.app.services.test_run.crud.get_test_run",
+            "rhesis.backend.app.services.test_run.get_test_run",
             return_value=mock_run,
         ):
             from rhesis.backend.app.services.test_run import (
@@ -155,7 +155,7 @@ class TestRescoreTestRunService:
 
         with (
             patch(
-                "rhesis.backend.app.services.test_run.crud.get_test_run",
+                "rhesis.backend.app.services.test_run.get_test_run",
                 return_value=mock_ref_run,
             ),
             patch(
@@ -225,7 +225,7 @@ class TestRescoreTestRunService:
 
         with (
             patch(
-                "rhesis.backend.app.services.test_run.crud.get_test_run",
+                "rhesis.backend.app.services.test_run.get_test_run",
                 return_value=mock_ref_run,
             ),
             patch(

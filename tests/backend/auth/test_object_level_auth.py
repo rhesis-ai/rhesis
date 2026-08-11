@@ -297,10 +297,10 @@ class TestDeleteTestRunObjectAuth:
         client = _client(caller_id=_CREATOR_ID)
 
         with patch(
-            "rhesis.backend.app.routers.test_run.crud.get_test_run",
+            "rhesis.backend.app.routers.test_run.test_run_crud.get_test_run",
             return_value=run,
         ), patch(
-            "rhesis.backend.app.routers.test_run.crud.delete_test_run",
+            "rhesis.backend.app.routers.test_run.test_run_crud.delete_test_run",
             return_value=run,
         ):
             resp = client.delete(f"/test_runs/{_RESOURCE_ID}")
@@ -312,7 +312,7 @@ class TestDeleteTestRunObjectAuth:
         client = _client(caller_id=_OTHER_ID)
 
         with patch(
-            "rhesis.backend.app.routers.test_run.crud.get_test_run",
+            "rhesis.backend.app.routers.test_run.test_run_crud.get_test_run",
             return_value=run,
         ):
             resp = client.delete(f"/test_runs/{_RESOURCE_ID}")
@@ -323,7 +323,7 @@ class TestDeleteTestRunObjectAuth:
         client = _client(caller_id=_CREATOR_ID)
 
         with patch(
-            "rhesis.backend.app.routers.test_run.crud.get_test_run",
+            "rhesis.backend.app.routers.test_run.test_run_crud.get_test_run",
             return_value=None,
         ):
             resp = client.delete(f"/test_runs/{_RESOURCE_ID}")

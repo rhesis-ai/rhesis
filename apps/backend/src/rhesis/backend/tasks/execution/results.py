@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict
 from uuid import UUID
 
-from rhesis.backend.app import crud
+from rhesis.backend.app.crud.test_run import get_test_run
 from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.celery.core import app
 from rhesis.backend.notifications.email.template_service import EmailTemplate
@@ -61,9 +61,7 @@ def collect_results(self, *args, **kwargs) -> Dict[str, Any]:
         # Use tenant-aware database session with explicit organization_id and user_id
         with get_db_with_tenant_variables(org_id or "", user_id or "", project_id or "") as db:
             # Get test run with tenant context
-            test_run = crud.get_test_run(
-                db, UUID(test_run_id), organization_id=org_id, user_id=user_id
-            )
+            test_run = get_test_run(db, UUID(test_run_id), organization_id=org_id, user_id=user_id)
             if not test_run:
                 raise ValueError(f"Test run not found: {test_run_id}")
 
