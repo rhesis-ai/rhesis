@@ -1,13 +1,11 @@
-import warnings
 from enum import Enum
-from typing import Any, ClassVar, Dict, Optional, Union
+from typing import Any, ClassVar, Dict, NoReturn, Optional
 
 from pydantic import field_validator
 
 from rhesis.sdk.clients import APIClient, Endpoints, Methods
 from rhesis.sdk.entities.base_collection import BaseCollection
 from rhesis.sdk.entities.base_entity import BaseEntity
-from rhesis.sdk.entities.stats import TestRunStats, TestRunStatsMode, build_test_run_stats
 
 ENDPOINT = Endpoints.TEST_RUNS
 
@@ -88,27 +86,12 @@ class TestRun(BaseEntity):
         )
         return response
 
-    def stats(
-        self,
-        mode: Union[TestRunStatsMode, str] = TestRunStatsMode.ALL,
-        **kwargs,
-    ) -> TestRunStats:
-        """Deprecated. Use ``Insights(entity="test_run", filters={"test_run_ids":
-        [self.id]}, ...)`` instead.
-
-        Delegates to ``TestRuns.stats()`` with ``test_run_ids`` set to
-        this run's ID.
-
-        Args:
-            mode: Data mode controlling which sections are returned.
-            **kwargs: Additional filter params (months, top, etc.).
-
-        Returns:
-            TestRunStats with the requested sections populated.
-        """
-        if self.id is None:
-            raise ValueError("Test run ID is required")
-        return TestRuns.stats(mode=mode, test_run_ids=[self.id], **kwargs)
+    def stats(self, *args: Any, **kwargs: Any) -> NoReturn:
+        raise NotImplementedError(
+            "TestRun.stats() has been removed. Use Insights(entity='test_run', "
+            "filters={'test_run_ids': [self.id]}, ...) directly. "
+            "See https://docs.rhesis.ai/sdk/statistics."
+        )
 
 
 class TestRuns(BaseCollection):
@@ -116,56 +99,8 @@ class TestRuns(BaseCollection):
     entity_class = TestRun
 
     @classmethod
-    def stats(
-        cls,
-        mode: Union[TestRunStatsMode, str] = TestRunStatsMode.ALL,
-        months: Optional[int] = None,
-        top: Optional[int] = None,
-        test_run_ids: Optional[list] = None,
-        user_ids: Optional[list] = None,
-        endpoint_ids: Optional[list] = None,
-        test_set_ids: Optional[list] = None,
-        status_list: Optional[list] = None,
-        start_date: Optional[str] = None,
-        end_date: Optional[str] = None,
-    ) -> TestRunStats:
-        """Deprecated convenience shim. Prefer ``Insights(entity="test_run", ...)`` directly.
-
-        Always returns status distribution, most-run test sets, top executors, and
-        timeline via four ``Insights`` calls -- *mode* no longer changes what's
-        returned, it only shows up in ``metadata.mode``. "results" and "summary"
-        raise ``NotImplementedError``: both need a second query against
-        entity="test_result", a different grain than test_run's own status.
-
-        Args:
-            mode: Data mode controlling which sections are returned.
-            months: Number of months of historical data (default 6).
-            top: Maximum items per ranked list (most_run_test_sets/top_executors only).
-            test_run_ids: Filter by specific test run IDs.
-            user_ids: Filter by executor user IDs.
-            endpoint_ids: Filter by endpoint IDs.
-            test_set_ids: Filter by test set IDs.
-            status_list: Filter by run status names.
-            start_date: Start date (ISO format), overrides months.
-            end_date: End date (ISO format), overrides months.
-
-        Returns:
-            TestRunStats with the requested sections populated.
-        """
-        warnings.warn(
-            "TestRuns.stats() is deprecated. Prefer Insights(entity='test_run', ...) "
-            "directly -- this method now issues several Insights requests internally "
-            "instead of one.",
-            DeprecationWarning,
-            stacklevel=2,
+    def stats(cls, *args: Any, **kwargs: Any) -> NoReturn:
+        raise NotImplementedError(
+            "TestRuns.stats() has been removed. Use Insights(entity='test_run', ...) "
+            "directly. See https://docs.rhesis.ai/sdk/statistics."
         )
-        raw_filters = {
-            "test_run_ids": test_run_ids,
-            "user_ids": user_ids,
-            "endpoint_ids": endpoint_ids,
-            "test_set_ids": test_set_ids,
-            "status_names": status_list,
-        }
-        filters = {key: val for key, val in raw_filters.items() if val}
-
-        return build_test_run_stats(mode, filters, months, top, start_date, end_date)

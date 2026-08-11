@@ -35,82 +35,11 @@ failed_ids = Insights(entity="test_result", filters={"test_run_ids": ["your-run-
 
 Filters (`test_run_ids`, `behavior_ids`, `category_ids`, `topic_ids`, `test_set_ids`, `endpoint_ids`, `tags`, `metric_names`, …) narrow which rows are aggregated; `months`, `start_date`, and `end_date` bound the date range.
 
-## TestRuns.stats() / TestResults.stats() (deprecated)
+## TestRuns.stats() / TestResults.stats() (removed)
 
-Each one fires several `Insights` calls internally; `mode` no longer changes what's
-returned, it's only recorded in `metadata.mode`. A few legacy modes need a second,
-different-grain query and raise `NotImplementedError` instead.
-
-### TestRuns.stats()
-
-Always returns status distribution, most-run test sets, top executors, and timeline.
-`RESULTS` and `SUMMARY` raise `NotImplementedError` -- both need a second query against
-`entity="test_result"`, a different grain than a run's own status.
-
-<CodeBlock filename="test_run_stats.py" language="python">
-{`from rhesis.sdk.entities import TestRuns, TestRun
-
-stats = TestRuns.stats(months=6, top=5)
-
-print(f"Total runs: {stats.metadata.total_test_runs}")
-for item in stats.status_distribution:
-    print(f"  {item.status}: {item.count} ({item.percentage}%)")
-
-# Stats for a single test run
-run = TestRun(id="your-run-id")
-run_stats = run.stats()`}
-</CodeBlock>
-
-### TestResults.stats()
-
-Always returns behavior, category, topic, and metric pass rates, plus overall pass rates
-and matching test IDs. `TIMELINE`, `TEST_RUNS`, and `BEHAVIOR_DETAIL` raise
-`NotImplementedError` -- each is a join across test_result- and metric-grain data at a
-grain `Insights` doesn't return in one call. `priority_min`/`priority_max` raise
-`ValueError` -- `Insights` has no range-filter equivalent.
-
-<CodeBlock filename="test_result_stats.py" language="python">
-{`from rhesis.sdk.entities import TestResults
-
-# months, test_set_ids, behavior_ids, topic_ids, tags, etc. all narrow the query
-stats = TestResults.stats(months=6, test_set_ids=["test-set-id-1"])
-for topic, rates in stats.topic_pass_rates.items():
-    print(f"  {topic}: {rates.passed}/{rates.total} ({rates.pass_rate}%)")
-
-stats.behavior_pass_rates
-stats.category_pass_rates
-stats.metric_pass_rates
-stats.overall_pass_rates
-stats.test_ids`}
-</CodeBlock>
-
-## Pandas Integration
-
-`TestRunStats` and `TestResultStats` provide `to_dataframe()`, converting a response section to a pandas DataFrame.
-
-<Callout type="info">
-  pandas is an optional dependency. Install it with `pip install pandas` if you want to use `to_dataframe()`.
-</Callout>
-
-<CodeBlock filename="stats_dataframe.py" language="python">
-{`from rhesis.sdk.entities import TestRuns, TestResults
-
-# Test run timeline as a DataFrame
-run_stats = TestRuns.stats(months=6)
-timeline_df = run_stats.to_dataframe("timeline")
-print(timeline_df)
-#       date  total_runs                      result_breakdown
-# 0  2026-01          10  {'passed': 8, 'failed': 2, 'other': 0}
-# 1  2026-02          15  {'passed': 12, 'failed': 3, 'other': 0}
-
-# Topic pass rates as a DataFrame (dict sections use the key as index)
-result_stats = TestResults.stats()
-topic_df = result_stats.to_dataframe("topic_pass_rates")
-print(topic_df)
-#            total  passed  failed  pass_rate
-# Safety        50      40      10      80.00
-# Accuracy      30      25       5      83.33`}
-</CodeBlock>
+`TestRuns.stats()`, `TestResults.stats()`, and `TestRun.stats()` raise `NotImplementedError`.
+The backend endpoints they called (`/test_runs/stats`, `/test_results/stats`) were removed;
+use `Insights` directly instead, as shown above.
 
 ---
 
