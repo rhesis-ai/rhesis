@@ -102,6 +102,12 @@ QUICK_START=true
 # Server (start.sh reads PORT from here)
 PORT=${DEV_BACKEND_PORT}
 
+# The backend's CORS allowlist is derived from this single value
+# (config/settings.py::cors_origins). Unset, it defaults to localhost:3000,
+# which only matches a worktree running on the base port block -- every other
+# worktree gets its browser requests rejected as a disallowed origin.
+FRONTEND_URL=http://localhost:${DEV_FRONTEND_PORT}
+
 # Database
 DB_HOST=localhost
 DB_NAME=rhesis-db
