@@ -446,7 +446,7 @@ def _run_timeline(filters, months, start_date, end_date) -> List[TestRunTimeline
                 result_breakdown={
                     "passed": passed,
                     "failed": failed,
-                    "pending": total - passed - failed,
+                    "other": total - passed - failed,
                 },
             )
         )

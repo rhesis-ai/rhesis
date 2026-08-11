@@ -21,7 +21,7 @@ for row in stats.rows:
     print(f"{row['behavior']}: {row['passed']}/{row['count']} ({row['pass_rate']}%)")
 
 # Distinct test IDs matching a filter, e.g. for drill-down from a chart
-failed_ids = Insights(entity="test_result", filters={"test_run_ids": ["your-run-id"]}).ids(outcome="fail")`}
+failed_ids = Insights(entity="test_result", filters={"test_run_ids": ["your-run-id"]}).ids(outcome="fail").ids`}
 </CodeBlock>
 
 `entity` selects what each row represents, `group_by` the dimensions to break out by, and `measures` what to compute. What's valid depends on the entity:

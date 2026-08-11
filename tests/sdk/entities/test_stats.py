@@ -329,6 +329,21 @@ def test_test_runs_stats_applies_top_to_ranked_sections(mock_insights_cls):
     assert stats.top_executors[0].executor_name == "alice@example.com"
 
 
+@patch("rhesis.sdk.entities.stats.Insights")
+def test_test_runs_stats_timeline_breakdown_uses_other_not_pending(mock_insights_cls):
+    """count includes every non-passed/failed outcome (error, pending, ...), not
+    just pending -- the key is "other" so it doesn't imply otherwise."""
+    mock_insights_cls.return_value.get.side_effect = _test_run_responses(
+        timeline=[{"year": 2026, "month": 1, "count": 10, "passed": 6, "failed": 2}],
+    )
+
+    from rhesis.sdk.entities.test_run import TestRuns
+
+    stats = TestRuns.stats()
+
+    assert stats.timeline[0].result_breakdown == {"passed": 6, "failed": 2, "other": 2}
+
+
 def test_test_runs_stats_results_mode_raises():
     """result_distribution counted test_result rows within matching runs -- a
     different grain than test_run's own status. Reproducing it needs a second
