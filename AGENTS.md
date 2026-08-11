@@ -35,6 +35,28 @@ Backend and Python SDK: Python 3.10+, `uv` with `pyproject.toml`, Pydantic 2.x, 
   at the worktree root, and `./rh dev *` reads it from there. So don't assume 8080/3000 — run
   `./rh dev status` to see this checkout's ports, containers and offset.
 
+## Worktrees
+
+Every worktree must come from `./rh worktree`, never from a bare `git worktree add`. Only
+`./rh worktree` symlinks `playground/` and `simulations/` back to the main checkout, so notes
+written there survive the worktree being removed — they're gitignored, so nothing else preserves
+them. It also gives the worktree its own dev ports and container names; a worktree without
+`.rhesis-ports` shares the main checkout's stack, and `./rh dev clean` in one would delete main's
+dev database.
+
+The `WorktreeCreate` hook in `.claude/settings.json` handles this for you. It replaces Claude Code's
+git logic everywhere worktrees are created — `--worktree`, `isolation: worktree` subagents,
+background sessions, and the `EnterWorktree` tool — so **call `EnterWorktree` with a `name`
+normally** and it routes through `./rh worktree`. Don't pass `EnterWorktree` a path to work around
+it: paths under `~/worktrees/rhesis/` are only accepted from the main checkout, not from a session
+that's already in a worktree.
+
+Port blocks run out after 20 concurrent worktrees, so remove yours when done:
+
+```bash
+./rh worktree <name> --remove
+```
+
 ## Testing
 
 Tests live in `tests/backend/` and `tests/sdk/`, not next to source. See `apps/backend/AGENTS.md`
