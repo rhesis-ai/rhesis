@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models
 from rhesis.backend.app.crud.metric import create_metric, get_metric
+from rhesis.backend.app.crud.test_run import get_test_run
 from rhesis.backend.app.crud.token import (
     count_user_tokens,
     create_token,
@@ -284,7 +285,7 @@ class TestCrudOrganizationFiltering:
         test_db.commit()
 
         # User from org1 should be able to access the test run
-        result_org1 = crud.get_test_run(
+        result_org1 = get_test_run(
             test_db, test_run.id, organization_id=str(org1.id), user_id=str(user1.id)
         )
         assert result_org1 is not None
@@ -292,7 +293,7 @@ class TestCrudOrganizationFiltering:
         assert str(result_org1.organization_id) == str(org1.id)
 
         # User from org2 should NOT be able to access the test run
-        result_org2 = crud.get_test_run(
+        result_org2 = get_test_run(
             test_db, test_run.id, organization_id=str(org2.id), user_id=str(user2.id)
         )
         assert result_org2 is None
@@ -599,29 +600,29 @@ class TestCrudParameterValidation:
         _org1_id = str(uuid.uuid4())
         _org2_id = str(uuid.uuid4())
 
-        # List of CRUD functions that should implement organization filtering
+        # CRUD functions that should implement organization filtering. Held as
+        # (name, function) rather than names looked up on ``crud``: the ones already
+        # extracted into their own module are not attributes of the crud package, so a
+        # getattr/hasattr lookup would skip them and check nothing.
         crud_functions = [
-            ("get_task", uuid.uuid4()),
-            ("get_test", uuid.uuid4()),
-            ("get_test_result", uuid.uuid4()),
-            ("get_test_run", uuid.uuid4()),
-            ("get_endpoint", uuid.uuid4()),
-            ("get_prompt", uuid.uuid4()),
-            ("get_model", uuid.uuid4()),
-            ("get_metric", uuid.uuid4()),
+            ("get_task", crud.get_task),
+            ("get_test", crud.get_test),
+            ("get_test_result", crud.get_test_result),
+            ("get_test_run", get_test_run),
+            ("get_endpoint", crud.get_endpoint),
+            ("get_prompt", crud.get_prompt),
+            ("get_model", crud.get_model),
+            ("get_metric", get_metric),
         ]
 
-        for func_name, entity_id in crud_functions:
-            if hasattr(crud, func_name):
-                func = getattr(crud, func_name)
+        for func_name, func in crud_functions:
+            # Test that the function accepts organization_id parameter
+            import inspect
 
-                # Test that the function accepts organization_id parameter
-                import inspect
-
-                signature = inspect.signature(func)
-                assert "organization_id" in signature.parameters, (
-                    f"{func_name} should accept organization_id parameter"
-                )
+            signature = inspect.signature(func)
+            assert "organization_id" in signature.parameters, (
+                f"{func_name} should accept organization_id parameter"
+            )
 
 
 @pytest.mark.security

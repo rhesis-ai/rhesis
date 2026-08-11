@@ -6,7 +6,8 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app import models, schemas
+from rhesis.backend.app.crud import test_run as test_run_crud
 from rhesis.backend.app.crud.telemetry import query_traces
 from rhesis.backend.app.auth.capabilities import Permission, capability
 from rhesis.backend.app.auth.principal import resolve_principal_from_request
@@ -59,7 +60,7 @@ def create_test_run(
     if not test_run.organization_id:
         test_run.organization_id = current_user.organization_id
 
-    return crud.create_test_run(
+    return test_run_crud.create_test_run(
         db=db, test_run=test_run, organization_id=organization_id, user_id=user_id
     )
 
@@ -94,7 +95,7 @@ def read_test_runs(
     current_user: User = Depends(require_current_user_or_token),
 ):
     """Get all test runs with their related objects"""
-    results = crud.get_test_runs(
+    results = test_run_crud.get_test_runs(
         db,
         skip=skip,
         limit=limit,
@@ -145,7 +146,7 @@ def read_test_run(
 ):
     """Get a specific test run by ID with its related objects"""
     organization_id, user_id = tenant_context
-    db_test_run = crud.get_test_run(
+    db_test_run = test_run_crud.get_test_run(
         db, test_run_id=test_run_id, organization_id=organization_id, user_id=user_id
     )
     if db_test_run is None:
@@ -162,7 +163,7 @@ def get_test_run_behaviors(
 ):
     """Get behaviors that have test results for this test run with organization filtering"""
     organization_id, user_id = tenant_context  # SECURITY: Get tenant context
-    behaviors = crud.get_test_run_behaviors(
+    behaviors = test_run_crud.get_test_run_behaviors(
         db, test_run_id=test_run_id, organization_id=organization_id
     )
     return behaviors
@@ -177,7 +178,9 @@ def get_test_run_metrics(
 ):
     """Get distinct metric names actually evaluated in this test run's results"""
     organization_id, _user_id = tenant_context
-    return crud.get_test_run_metrics(db, test_run_id=test_run_id, organization_id=organization_id)
+    return test_run_crud.get_test_run_metrics(
+        db, test_run_id=test_run_id, organization_id=organization_id
+    )
 
 
 @router.put("/{test_run_id}", response_model=schemas.TestRun)
@@ -193,13 +196,13 @@ def update_test_run(
 ):
     """Update an existing test run."""
     organization_id, user_id = tenant_context
-    db_test_run = crud.get_test_run(
+    db_test_run = test_run_crud.get_test_run(
         db, test_run_id=test_run_id, organization_id=organization_id, user_id=user_id
     )
     if db_test_run is None:
         raise HTTPException(status_code=404, detail="Test run not found")
 
-    return crud.update_test_run(
+    return test_run_crud.update_test_run(
         db=db,
         test_run_id=test_run_id,
         test_run=test_run,
@@ -226,7 +229,7 @@ def delete_test_run(
     from rhesis.backend.celery.core import app as celery_app
 
     organization_id, user_id = tenant_context
-    db_test_run = crud.get_test_run(
+    db_test_run = test_run_crud.get_test_run(
         db, test_run_id=test_run_id, organization_id=organization_id, user_id=user_id
     )
     if db_test_run is None:
@@ -246,7 +249,7 @@ def delete_test_run(
         if task_id:
             celery_app.control.revoke(task_id)
 
-    return crud.delete_test_run(
+    return test_run_crud.delete_test_run(
         db=db, test_run_id=test_run_id, organization_id=organization_id, user_id=user_id
     )
 
@@ -272,7 +275,7 @@ def cancel_test_run(
     from rhesis.backend.tasks.execution.run import update_test_run_status
 
     organization_id, user_id = tenant_context
-    db_test_run = crud.get_test_run(
+    db_test_run = test_run_crud.get_test_run(
         db, test_run_id=test_run_id, organization_id=organization_id, user_id=user_id
     )
     if db_test_run is None:
@@ -297,7 +300,7 @@ def cancel_test_run(
 
     update_test_run_status(db, db_test_run, RunStatus.CANCELLED.value)
 
-    return crud.get_test_run(
+    return test_run_crud.get_test_run(
         db, test_run_id=test_run_id, organization_id=organization_id, user_id=user_id
     )
 
@@ -366,7 +369,7 @@ def download_test_run_results(
     try:
         organization_id, user_id = tenant_context
         # Check if test run exists and user has access
-        db_test_run = crud.get_test_run(
+        db_test_run = test_run_crud.get_test_run(
             db, test_run_id=test_run_id, organization_id=organization_id, user_id=user_id
         )
         if db_test_run is None:
@@ -423,7 +426,7 @@ def get_test_run_traces(
     organization_id, user_id = tenant_context
 
     # Verify test run exists and user has access
-    db_test_run = crud.get_test_run(
+    db_test_run = test_run_crud.get_test_run(
         db, test_run_id=test_run_id, organization_id=organization_id, user_id=user_id
     )
     if db_test_run is None:

@@ -180,7 +180,7 @@ class TestGetReviewStatisticsForRuns:
         test_organization,
         review_status_ids,
     ):
-        from rhesis.backend.app import crud
+        from rhesis.backend.app.crud.test_run import get_test_runs
 
         reviewed = models.TestResult(
             id=uuid4(),
@@ -207,12 +207,12 @@ class TestGetReviewStatisticsForRuns:
         test_db.commit()
 
         org_id = str(test_organization.id)
-        with_reviews = crud.get_test_runs(
+        with_reviews = get_test_runs(
             test_db,
             organization_id=org_id,
             has_reviews=True,
         )
-        without_reviews = crud.get_test_runs(
+        without_reviews = get_test_runs(
             test_db,
             organization_id=org_id,
             has_reviews=False,
