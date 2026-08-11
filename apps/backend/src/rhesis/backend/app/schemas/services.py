@@ -1,8 +1,15 @@
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Literal, Optional
+from typing import Annotated, Any, Dict, List, Literal, Optional
 
-from pydantic import UUID4, BaseModel, Field, field_validator, model_validator
+from pydantic import (
+    UUID4,
+    BaseModel,
+    Field,
+    StringConstraints,
+    field_validator,
+    model_validator,
+)
 
 from rhesis.backend.app.constants import TestSetType
 
@@ -108,7 +115,10 @@ class TestSetGenerationRequest(GenerateTestsRequest):
     the OpenAPI schema and, through it, MCP clients and the Architect agent.
     """
 
-    name: str = Field(..., min_length=1)
+    # Stripped before the length check, so a whitespace-only name is rejected
+    # as a 422 here rather than a 400 further in. The router then uses the
+    # value as-is.
+    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 
 
 class TestPrompt(BaseModel):

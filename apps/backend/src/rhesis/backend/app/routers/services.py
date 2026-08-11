@@ -277,9 +277,7 @@ async def generate_tests_endpoint(
         GenerateTestsResponse: The generated test cases
     """
     try:
-        # Validate config
-        if not request.config.behaviors:
-            raise HTTPException(status_code=400, detail="At least one behavior must be specified")
+        # config.behaviors is enforced by GenerationConfig, so it arrives non-empty.
 
         # Validate per-request model override exists and belongs to user's org
         model_id_str = str(request.model_id) if request.model_id else None

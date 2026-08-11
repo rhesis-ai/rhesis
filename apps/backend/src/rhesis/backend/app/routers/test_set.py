@@ -127,13 +127,9 @@ def generate_test_set(
         Task information including task ID and estimated test count
     """
     try:
-        # Validate config
-        if not request.config.behaviors:
-            raise HTTPException(status_code=400, detail="At least one behavior must be specified")
-
-        name = (request.name or "").strip()
-        if not name:
-            raise HTTPException(status_code=400, detail="A test set name is required")
+        # config.behaviors and name are enforced by TestSetGenerationRequest,
+        # so they arrive non-empty and already stripped.
+        name = request.name
 
         # Callers that already scope the request (the X-Project-Id header, or a
         # project-bound API token) need not repeat the project in the body.
