@@ -239,7 +239,7 @@ tools:
       Endpoint → TestRun. PREREQUISITES: test_set_identifier from
       list_test_sets or get_job_status; endpoint_id from list_endpoints
       or get_endpoint. CHAIN: after response use get_test_run for
-      totals, then get_test_result_stats(mode=all) and
+      totals, then get_insights(entity=test_result) and
       list_test_results filtered by test_run_id. The backend auto-creates
       the internal test configuration — do NOT create test configurations
       manually. Response includes test_run_id and task_id.
@@ -292,7 +292,7 @@ tools:
       test_set_identifier and endpoint_id from list_test_sets and
       list_endpoints. CHAIN: use when offering run comparison ("compare
       with last run") or before re-scoring. Returns 404 if no completed
-      run exists yet. Pass test_run_id to get_test_result_stats for
+      run exists yet. Pass test_run_id to get_insights for
       side-by-side analysis.
     parameters:
       test_set_identifier:
@@ -1016,82 +1016,82 @@ tools:
           The strategy uses them to build on earlier results.
 
   # ── Statistics & Comparison ──────────────────────────────
-  - name: get_test_result_stats
-    label: Analyzing test results
+  - name: get_insights
+    label: Analyzing test results and runs
     method: GET
-    path: /test_results/stats
-    default_query:
-      mode: test_runs
+    path: /insights/
     description: >
-      Get aggregated statistics for test results. Use this for single-run
-      analysis (which behaviors/metrics failed?) and multi-run comparison
-      (did results improve?). The mode parameter controls what is returned:
+      Generic aggregation query over test results, metrics, test runs, or
+      tests. Always pass entity and measures; group_by is optional (omit
+      for one overall total).
 
-      - **all**: Complete stats for a single run — behavior pass rates,
-        metric pass rates, overall totals, and timeline. Use with a single
-        test_run_id immediately after execution for a full analysis in one
-        call. This is the most efficient option for post-run analysis.
-      - **behavior**: Pass rates grouped by behavior. Use with test_run_id
-        to see which behaviors passed/failed in a specific run.
-      - **metrics**: Pass rates grouped by metric name. Use with test_run_id
-        to see which metrics are the problem areas.
-      - **test_runs**: Per-run pass/fail summary with pass rates. Best for
-        comparing two or more runs side by side. Pass multiple test_run_ids.
-      - **summary**: Lightweight overall pass/fail totals only.
+      entity="test_result" -- one row per test execution. Use for
+      single-run analysis (which behaviors/metrics failed?) and multi-run
+      comparison (did results improve?).
+        group_by: behavior, behavior_id, category, category_id, topic,
+        topic_id, test_run, status, year, month.
+        measures: count, passed, failed, pass_rate.
 
-      For single-run analysis: use mode=all with test_run_id.
-      For multi-run comparison: use mode=test_runs with test_run_ids.
-      Filter by behavior_ids or test_set_ids for targeted analysis.
+      entity="metric" -- one row per (test_result, metric_name); use for
+      per-metric breakdowns (Answer Fluency, Contextual Recall, etc.).
+        group_by: metric_name, behavior_id, year, month.
+        measures: count, passed, failed, pass_rate, automated_passed,
+        automated_failed, human_review_count.
+
+      entity="test_run" -- one row per run. Use for operational overview
+      (how many runs by status, which test sets are run most often, who
+      runs tests, run volume over time), NOT for comparing pass/fail
+      outcomes between runs (use entity=test_result for that).
+        group_by: status, test_set, executor, year, month.
+        measures: count, passed, failed, pass_rate.
+
+      entity="test" -- one row per test, including tests that have never
+      run. Use for test-inventory questions (how many tests never ran?).
+        group_by: behavior, behavior_id, category, category_id, topic,
+        topic_id, is_unrun, year, month.
+        measures: count, unrun_count, run_count, passed, failed, pass_rate.
+
+      Examples:
+      - Which behaviors failed in a run: entity=test_result,
+        group_by=[behavior], measures=[count,passed,failed,pass_rate],
+        test_run_ids=[<id>]
+      - Compare runs side by side: entity=test_result, group_by=[test_run],
+        measures=[count,passed,failed,pass_rate], test_run_ids=[<id1>,<id2>]
+      - Which metrics are the problem areas: entity=metric,
+        group_by=[metric_name], measures=[count,passed,failed,pass_rate],
+        test_run_ids=[<id>]
+      - Runs by status: entity=test_run, group_by=[status], measures=[count]
+      - Most-run test sets: entity=test_run, group_by=[test_set],
+        measures=[count]
+      - Tests that never ran: entity=test, measures=[count,unrun_count]
+      - Lightweight overall total: entity=test_result, group_by=[],
+        measures=[count,passed,failed,pass_rate]
+
+      Filter by test_run_ids, behavior_ids, category_ids, topic_ids,
+      test_set_ids, endpoint_ids, or tags to narrow the analysis.
     parameters:
-      mode:
+      entity:
         description: >
-          Stats mode: "test_runs" (per-run comparison), "behavior"
-          (by behavior), "metrics" (by metric), "summary" (totals),
-          "all" (everything). Default: "test_runs".
+          "test_result", "metric", "test_run", or "test". See description
+          for the group_by/measures each supports.
+      group_by:
+        description: >
+          Dimensions to group by (array). See description for the valid
+          list per entity. Omit for a single overall row.
+      measures:
+        description: >
+          Measures to compute (array). See description for the valid list
+          per entity.
       test_run_ids:
         description: >
           Filter to specific test runs (array of UUIDs). Pass two or
           more run IDs to compare them side by side.
-      test_run_id:
-        description: >
-          Filter to a single test run (UUID). Use test_run_ids for
-          multi-run comparison.
       test_set_ids:
         description: "Filter by test set UUIDs (array)."
       behavior_ids:
         description: "Filter by behavior UUIDs (array)."
-      start_date:
-        description: "Start date in ISO format (e.g. 2026-01-01)."
-      end_date:
-        description: "End date in ISO format."
-
-  - name: get_test_run_stats
-    label: Analyzing test runs
-    method: GET
-    path: /test_runs/stats
-    default_query:
-      mode: summary
-    description: >
-      Get run-level analytics: how many runs by status, which test sets
-      are run most often, who runs tests, and run volume over time.
-      Use this for operational overview, NOT for comparing pass/fail
-      outcomes between runs (use get_test_result_stats for that).
-
-      Modes: "summary" (totals), "status" (status distribution),
-      "results" (result distribution), "test_sets" (most run test sets),
-      "executors" (top executors), "timeline" (monthly trends),
-      "all" (everything).
-    parameters:
-      mode:
-        description: >
-          Stats mode: "summary", "status", "results", "test_sets",
-          "executors", "timeline", "all". Default: "summary".
-      test_run_ids:
-        description: "Filter to specific test runs (array of UUIDs)."
       endpoint_ids:
         description: "Filter by endpoint UUIDs (array)."
-      test_set_ids:
-        description: "Filter by test set UUIDs (array)."
       months:
         description: "Months of history to include (default: 6)."
       start_date:
@@ -1137,7 +1137,7 @@ tools:
       URL path, not trace_id (a 32-char hex string). Only trace_db_id
       resolves to a trace page.
 
-      CHAIN: after get_test_result_stats shows failures, call this with the
+      CHAIN: after get_insights shows failures, call this with the
       same test_run_id to see whether a human already diagnosed them — then
       use get_test_result on the ids it returns to read the full exchange.
       NEVER: assume no annotations exist because a run looks clean; a human
