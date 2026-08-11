@@ -235,6 +235,8 @@ Call this **before** `create_test_set_bulk` so that when test objects reference 
 - `name` (required) — Title Case, e.g. `"Refuses Harmful Requests"`
 - `description` (required) — explain what the behavior means and how it should be evaluated
 
+**Common mistakes:** Behavior names are unique per organization, so creating one that already exists fails with "Behavior with this name already exists". Resolve it with `list_behaviors` and reuse its id. Never retry with a suffixed name like `"Refuses Harmful Requests 2"`.
+
 ---
 
 ### `update_behavior`
@@ -261,10 +263,19 @@ Prefer `generate_metric` when you know what to measure but don't want to fill ev
 - `score_type` (required) — must be exactly `"numeric"` or `"categorical"`
 - `evaluation_prompt` (required) — the prompt template used to score responses; may use `{{prompt}}`, `{{response}}`, `{{expected_response}}`
 - `metric_scope` (required) — list of strings, each must be `"Single-Turn"` or `"Multi-Turn"`
-- For numeric metrics: `min_score`, `max_score`, `threshold`, `threshold_operator` (one of `"="`, `"<"`, `">"`, `"<="`, `">="`, `"!="`)
-- For categorical metrics: `categories` (non-empty list), `passing_categories` (subset of `categories`)
+
+**Fields required by `score_type`.** These are enforced by the server but cannot be expressed in the JSON schema, so they are easy to miss:
+
+| `score_type` | Also required |
+|--------------|---------------|
+| `"numeric"` | `min_score`, `max_score` **and** `threshold`. Optionally `threshold_operator` (one of `"="`, `"<"`, `">"`, `"<="`, `">="`, `"!="`, default `">="`) |
+| `"categorical"` | `categories` (at least two labels) **and** `passing_categories` (at least one, each also present in `categories`) |
+
+Send the numeric fields only for numeric metrics and the category fields only for categorical ones.
 
 **Never send:** `id`, `user_id`, `organization_id`, `created_at`, `updated_at`, `owner_id`, `status_id`, `model_id`, `backend_type_id`, `metric_type_id`
+
+**Common mistakes:** Sending `score_type: "numeric"` without `min_score`/`max_score`/`threshold` — rejected. Metric names are unique per organization, so creating one that already exists fails with "Metric with this name already exists"; resolve it with `list_metrics` and reuse it, or use `improve_metric`. Never retry with a suffixed name.
 
 ---
 
@@ -318,7 +329,9 @@ Generate a test set using the Rhesis synthesizer. An LLM creates diverse test pr
 - `test_type` — `"Single-Turn"` (default) or `"Multi-Turn"`. Take this from the plan's test set and pass it explicitly. Omitting it produces Single-Turn tests no matter what the test set is called.
 - `sources` — optional list of knowledge source objects to ground tests in real content. Each object must contain only the `id` field: `[{"id": "<source-uuid>"}]`. The backend fetches and injects source content automatically — do NOT fetch or pass content yourself. Use `list_sources` to discover available sources. Only works with Single-Turn; ignored for Multi-Turn.
 
-**Common mistakes:** Omitting `config.behaviors`, using `test_type: "single-turn"` (wrong case), omitting `test_type` for a Multi-Turn test set.
+`project_id` is resolved from the request scope — omit it.
+
+**Common mistakes:** Omitting `config.behaviors` (rejected with "At least one behavior must be specified"), omitting `name`, omitting `test_type` for a Multi-Turn test set. If this call fails, fix the argument it names and call it again — do **not** fall back to `create_test_set_bulk`, which stores only the prompts you write by hand and produces a far smaller test set than the user asked for.
 
 ---
 
