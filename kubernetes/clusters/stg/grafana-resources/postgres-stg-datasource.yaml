@@ -21,7 +21,6 @@ spec:
     access: proxy
     url: rhesis-stg-rw.rhesis.svc:5432
     user: grafana-viewer
-    isDefault: true
     jsonData:
       database: rhesis-stg-db
       sslmode: disable

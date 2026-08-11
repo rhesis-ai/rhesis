@@ -18,7 +18,6 @@ spec:
     access: proxy
     url: rhesis-prd-ro.rhesis.svc:5432
     user: grafana-viewer
-    isDefault: true
     jsonData:
       database: rhesis-prd-db
       sslmode: disable
