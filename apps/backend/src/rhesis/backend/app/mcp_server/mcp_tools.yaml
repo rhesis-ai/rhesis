@@ -240,7 +240,7 @@ tools:
       list_test_sets or get_job_status; endpoint_id from list_endpoints
       or get_endpoint. CHAIN: after response use get_test_run for
       totals, then get_insights(entity=test_result,
-      measures=[count,passed,failed,pass_rate]) and
+      test_run_ids=[<test_run_id>], measures=[count,passed,failed,pass_rate]) and
       list_test_results filtered by test_run_id. The backend auto-creates
       the internal test configuration — do NOT create test configurations
       manually. Response includes test_run_id and task_id.
