@@ -306,6 +306,25 @@ class TestToolParameterDocumentation:
     # duplicate them.
     EXEMPT = {"skip", "limit", "sort_by", "sort_order", "filter", "select"}
 
+    # Mirrors _SERVER_MANAGED_FIELDS in rhesis.sdk.agents.base, which strips
+    # these before the agent ever sees them. Duplicated rather than imported
+    # so the backend suite does not depend on the SDK being installed, and
+    # does not reach into a private name across package boundaries.
+    SERVER_MANAGED = {
+        "id",
+        "nano_id",
+        "user_id",
+        "organization_id",
+        "created_at",
+        "updated_at",
+        "owner_id",
+        "assignee_id",
+        "status_id",
+        "model_id",
+        "backend_type_id",
+        "metric_type_id",
+    }
+
     @staticmethod
     def _build_tools():
         from rhesis.backend.app.main import app
@@ -325,14 +344,12 @@ class TestToolParameterDocumentation:
         return None
 
     def test_creation_tool_parameters_are_described(self):
-        from rhesis.sdk.agents.base import _SERVER_MANAGED_FIELDS
-
         by_name, _ = self._build_tools()
         undescribed = []
         for name in sorted(self.CREATION_TOOLS):
             schema = by_name[name].inputSchema or {}
             for param, prop in schema.get("properties", {}).items():
-                if param in _SERVER_MANAGED_FIELDS or param in self.EXEMPT:
+                if param in self.SERVER_MANAGED or param in self.EXEMPT:
                     continue
                 if not prop.get("description"):
                     undescribed.append(f"{name}.{param}")
