@@ -572,8 +572,8 @@ def update_test_set_attributes(
         # Test set may have been soft-deleted; nothing to update.
         return
 
-    # Explorer test sets manage their own attributes; skip regeneration.
-    if test_set.explorer_row:
+    # Explorer and metric tuning test sets manage their own attributes; skip regeneration.
+    if test_set.explorer_row or test_set.metric_id:
         return
 
     # Get defaults and license type - use test_set's organization context

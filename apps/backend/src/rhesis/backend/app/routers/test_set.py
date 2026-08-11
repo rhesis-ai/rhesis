@@ -88,6 +88,11 @@ def resolve_test_set_or_raise(identifier: str, db: Session, organization_id: str
     db_test_set = crud.resolve_test_set(identifier, db, organization_id)
     if db_test_set is None:
         raise HTTPException(status_code=404, detail="Test Set not found with provided identifier")
+    # A metric's tuning test set is reachable only through its metric. Hiding it
+    # from the list is not enough on its own -- the identifier would still be a
+    # working handle to it.
+    if db_test_set.metric_id is not None:
+        raise HTTPException(status_code=404, detail="Test Set not found with provided identifier")
     return db_test_set
 
 

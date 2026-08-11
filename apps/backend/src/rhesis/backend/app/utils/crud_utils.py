@@ -488,6 +488,7 @@ def get_items_detail(
     secondary_sort_by: str | None = None,
     secondary_sort_order: str = "asc",
     exclude_explorer_rows: bool = False,
+    custom_filters: List[Callable] | None = None,
 ) -> List[T]:
     """
     Get multiple items with relationships eagerly loaded, pagination, sorting, and filtering.
@@ -503,6 +504,10 @@ def get_items_detail(
                         beyond the defaults above. Format: [["rel", "nested_rel"], ...]
         exclude_explorer_rows: Drop Explorer-owned rows. Only for models with an
                         ``explorer_row`` column (Test, TestSet).
+        custom_filters: Extra query filters, applied to the ID-selection query only --
+                        the eager-load query is already narrowed by `id IN (...)`.
+                        Pair with the same filters on `count_items` or the
+                        X-Total-Count header will disagree with the rows returned.
 
     Runs as two queries rather than one: a joinless query picks the page's IDs
     (filter + sort + LIMIT/OFFSET), then a second query eager-loads
@@ -520,6 +525,8 @@ def get_items_detail(
     )
     if exclude_explorer_rows:
         ids_builder = ids_builder.with_explorer_rows_excluded()
+    for custom_filter in custom_filters or []:
+        ids_builder = ids_builder.with_custom_filter(custom_filter)
     ordered_ids = (
         ids_builder.with_sorting(
             sort_by,
@@ -916,11 +923,12 @@ def count_items(
     organization_id: str = None,
     user_id: str = None,
     exclude_explorer_rows: bool = False,
+    custom_filters: List[Callable] | None = None,
 ) -> int:
     """Get the total count of items matching filters (without pagination).
 
-    ``exclude_explorer_rows`` must match the list endpoint's own filtering, otherwise
-    the count and the returned page disagree.
+    ``exclude_explorer_rows`` and ``custom_filters`` must both match the paired
+    list query's own filtering, or the count and the returned page disagree.
     """
     builder = (
         QueryBuilder(db, model)
@@ -930,6 +938,8 @@ def count_items(
     )
     if exclude_explorer_rows:
         builder = builder.with_explorer_rows_excluded()
+    for custom_filter in custom_filters or []:
+        builder = builder.with_custom_filter(custom_filter)
     return builder.count()
 
 

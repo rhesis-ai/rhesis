@@ -74,6 +74,10 @@ class TestSet(
     explorer_row = Column(
         Boolean, nullable=False, server_default="false", default=False, index=True
     )
+    # Owning metric for a tuning test set. Set only by
+    # services/metric_tuning/test_sets.py — not client-settable. NULL means a
+    # normal, user-facing test set; non-NULL hides it from the /test_sets list.
+    metric_id = Column(GUID(), ForeignKey("metric.id"), nullable=True, index=True)
     visibility = Column(Text, default="organization")
     owner_id = Column(GUID(), ForeignKey("user.id"))
     assignee_id = Column(GUID(), ForeignKey("user.id"))
