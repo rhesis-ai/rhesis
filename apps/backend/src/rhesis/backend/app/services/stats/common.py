@@ -1,7 +1,7 @@
 """Shared utilities for statistics functions."""
 
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 from rhesis.backend.app.constants import OverallTestResult
 
@@ -45,29 +45,6 @@ def build_pass_rate_stats(stats_dict: Dict[str, Dict[str, int]]) -> Dict[str, Di
     return pass_rates
 
 
-def build_metric_pass_rate_stats(
-    stats_dict: Dict[str, Dict[str, int]],
-) -> Dict[str, Dict[str, Any]]:
-    """Like build_pass_rate_stats but includes automated counts and review adjustments."""
-    result: Dict[str, Dict[str, Any]] = {}
-    for name, stats in stats_dict.items():
-        passed = stats["passed"]
-        failed = stats["failed"]
-        total = passed + failed
-        automated_passed = stats.get("automated_passed", passed)
-        automated_failed = stats.get("automated_failed", failed)
-        result[name] = {
-            "total": total,
-            "passed": passed,
-            "failed": failed,
-            "pass_rate": round((passed / total) * 100, 2) if total > 0 else 0,
-            "automated_passed": automated_passed,
-            "automated_failed": automated_failed,
-            "human_review_count": stats.get("human_review_count", 0),
-        }
-    return result
-
-
 def automated_metric_success(data: dict) -> bool:
     """Return the pre-review automated metric outcome from stored JSON."""
     override = data.get("override")
@@ -97,95 +74,3 @@ def effective_metric_success(
         return False
 
     return is_successful
-
-
-def build_response_data(
-    mode: str, mode_definitions: Dict[str, List[str]], **data_sections
-) -> Dict[str, Any]:
-    """Return only the data sections requested by *mode*, always including metadata."""
-    response = {"metadata": data_sections.get("metadata", {})}
-    required_sections = mode_definitions.get(mode, mode_definitions.get("all", []))
-    for section in required_sections:
-        if section in data_sections:
-            response[section] = data_sections[section]
-    return response
-
-
-def build_metadata(
-    organization_id: str | None,
-    start_date_obj: datetime | None,
-    end_date_obj: datetime | None,
-    months: int | None,
-    mode: str,
-    total_items: int,
-    **additional_metadata,
-) -> Dict[str, Any]:
-    """Build the standard metadata dict attached to every stats response."""
-    if months is not None:
-        period = f"Last {months} months"
-    elif start_date_obj or end_date_obj:
-        period = "custom"
-    else:
-        period = "all time"
-    metadata = {
-        "generated_at": datetime.now(timezone.utc).isoformat(),
-        "organization_id": organization_id,
-        "period": period,
-        "start_date": start_date_obj.isoformat() if start_date_obj else None,
-        "end_date": end_date_obj.isoformat() if end_date_obj else None,
-        "total_items": total_items,
-        "mode": mode,
-    }
-    metadata.update(additional_metadata)
-    return metadata
-
-
-def build_empty_stats_response(
-    mode: str,
-    mode_definitions: Dict[str, List[str]],
-    start_date_obj: datetime | None,
-    end_date_obj: datetime | None,
-    months: int | None,
-    organization_id: str | None,
-    **additional_metadata,
-) -> Dict[str, Any]:
-    """Build an empty stats response when no data matches the filters."""
-    metadata = build_metadata(
-        organization_id=organization_id,
-        start_date_obj=start_date_obj,
-        end_date_obj=end_date_obj,
-        months=months,
-        mode=mode,
-        total_items=0,
-        **additional_metadata,
-    )
-
-    empty_data = {
-        "metadata": metadata,
-        "status_distribution": [],
-        "result_distribution": {
-            "total": 0,
-            "passed": 0,
-            "failed": 0,
-            "pending": 0,
-            "pass_rate": 0,
-        },
-        "timeline": [],
-        "overall_pass_rates": {"total": 0, "passed": 0, "failed": 0, "pass_rate": 0},
-        "metric_pass_rates": {},
-        "behavior_pass_rates": {},
-        "category_pass_rates": {},
-        "topic_pass_rates": {},
-        "test_run_summary": [],
-        "most_run_test_sets": [],
-        "top_executors": [],
-        "overall_summary": {
-            "total_runs": 0,
-            "unique_test_sets": 0,
-            "unique_executors": 0,
-            "most_common_status": "unknown",
-            "pass_rate": 0,
-        },
-    }
-
-    return build_response_data(mode, mode_definitions, **empty_data)
