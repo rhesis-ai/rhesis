@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app.crud.telemetry import query_traces
 from rhesis.backend.app.auth.capabilities import Permission, capability
 from rhesis.backend.app.auth.principal import resolve_principal_from_request
 from rhesis.backend.app.auth.rbac import authorize_object, project_id_from_scope
@@ -448,7 +449,7 @@ def get_test_run_traces(
     project_id = str(db_test_run.test_configuration.endpoint.project_id)
 
     # Single DB query returns TraceRow(trace, span_count, total) per row
-    rows = crud.query_traces(
+    rows = query_traces(
         db=db,
         organization_id=organization_id,
         project_id=project_id,
