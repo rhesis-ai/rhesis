@@ -22,6 +22,7 @@ from .insights import router as insights_router
 # Import new routers
 from .job import router as task_router
 from .metric import router as metric_router
+from .metric_tuning import router as metric_tuning_router
 from .model import router as model_router
 from .organization import router as organization_router
 from .parameters import (
@@ -89,6 +90,7 @@ __all__ = [
     "type_lookup",
     "test",
     "metric",
+    "metric_tuning",
     "model",
     "task",
     "task_management",
@@ -139,6 +141,7 @@ routers = sorted(
         test_router,
         type_lookup_router,
         metric_router,
+        metric_tuning_router,
         model_router,
         task_router,
         task_management_router,
