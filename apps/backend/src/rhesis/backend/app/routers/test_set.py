@@ -14,6 +14,7 @@ from rhesis.backend.app.auth.capabilities import Permission, capability
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.crud import metric as metric_crud
 from rhesis.backend.app.dependencies import (
+    get_project_context,
     get_tenant_context,
     get_tenant_db_session,
 )
@@ -102,10 +103,11 @@ def resolve_test_set_or_raise(identifier: str, db: Session, organization_id: str
     "/generate", response_model=TestSetGenerationResponse, **capability(Permission.TestSet.GENERATE)
 )
 def generate_test_set(
-    request: services_schemas.GenerateTestsRequest,
+    request: services_schemas.TestSetGenerationRequest,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
+    scoped_project_id: Optional[str] = Depends(get_project_context),
     _validate_model=Depends(validate_generation_model),
 ):
     """
@@ -118,6 +120,8 @@ def generate_test_set(
         request: Unified generation request with config, num_tests, sources
         db: Database session
         current_user: Current authenticated user
+        scoped_project_id: Project resolved from the request scope, used when
+            the body omits project_id
 
     Returns:
         Task information including task ID and estimated test count
@@ -131,20 +135,25 @@ def generate_test_set(
         if not name:
             raise HTTPException(status_code=400, detail="A test set name is required")
 
-        if not request.project_id:
+        # Callers that already scope the request (the X-Project-Id header, or a
+        # project-bound API token) need not repeat the project in the body.
+        project_id = str(request.project_id) if request.project_id else scoped_project_id
+        if not project_id:
             raise HTTPException(
                 status_code=400,
-                detail="A project_id is required to generate a test set",
+                detail=(
+                    "A project_id is required to generate a test set. "
+                    "Send it in the request body or scope the request with "
+                    "the X-Project-Id header."
+                ),
             )
-
-        test_type = request.test_type
 
         # Resolve TestSetType for the pending row
         from rhesis.backend.app.constants import TestSetType as TestSetTypeEnum
 
-        resolved_type = (
-            TestSetTypeEnum.from_string(test_type) if test_type else TestSetTypeEnum.SINGLE_TURN
-        )
+        resolved_type = request.test_type or TestSetTypeEnum.SINGLE_TURN
+        # The Celery task and its downstream synthesizers expect the plain string.
+        test_type = resolved_type.value
 
         # Pre-create a placeholder task_id so we can stamp the test set before launching
         import uuid as _uuid
@@ -157,7 +166,7 @@ def generate_test_set(
             name=name,
             organization_id=str(current_user.organization_id),
             user_id=str(current_user.id),
-            project_id=str(request.project_id),
+            project_id=project_id,
             task_id=placeholder_task_id,
             requested_tests=request.num_tests,
             test_type=resolved_type,

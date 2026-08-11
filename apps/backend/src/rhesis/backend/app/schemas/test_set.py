@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from pydantic import UUID4, BaseModel, ConfigDict, Field, field_validator
 
+from rhesis.backend.app.constants import TestSetType, TestType
 from rhesis.backend.app.schemas import Base
 from rhesis.backend.app.schemas.references import StatusReference, TypeLookupReference
 from rhesis.backend.app.schemas.tag import Tag, TagRead
@@ -87,7 +88,9 @@ class TestData(BaseModel):
     behavior: str
     category: str
     topic: str
-    test_type: Optional[str] = None
+    # Typed as the enum so the two legal values appear in the OpenAPI schema.
+    # The before-validator keeps accepting loose casing from existing clients.
+    test_type: Optional[TestType] = None
     test_configuration: Optional[Dict[str, Any]] = None
     assignee_id: Optional[UUID4] = None
     owner_id: Optional[UUID4] = None
@@ -95,7 +98,7 @@ class TestData(BaseModel):
     priority: Optional[int] = None
     metadata: Optional[Dict[str, Any]] = {}
 
-    @field_validator("test_type")
+    @field_validator("test_type", mode="before")
     @classmethod
     def validate_test_type(cls, v: Optional[str]) -> Optional[str]:
         from rhesis.backend.app.schemas.validators import format_test_type
@@ -149,7 +152,9 @@ class TestSetBulkCreate(BaseModel):
     name: str
     description: Optional[str] = None
     short_description: Optional[str] = None
-    test_set_type: str
+    # Typed as the enum so the two legal values appear in the OpenAPI schema.
+    # The before-validator keeps accepting loose casing from existing clients.
+    test_set_type: TestSetType
     owner_id: Optional[UUID4] = None
     assignee_id: Optional[UUID4] = None
     priority: Optional[int] = None
@@ -157,7 +162,7 @@ class TestSetBulkCreate(BaseModel):
     tests: List[TestData]
     metadata: Optional[Dict[str, Any]] = None
 
-    @field_validator("test_set_type")
+    @field_validator("test_set_type", mode="before")
     @classmethod
     def validate_test_set_type(cls, v: str) -> str:
         from rhesis.backend.app.schemas.validators import format_test_set_type
