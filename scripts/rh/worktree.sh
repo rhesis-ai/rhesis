@@ -279,9 +279,10 @@ worktree_create() {
     # Track created symlinks for summary
     local symlink_count=0
 
-    # Symlink shared directories
+    # Symlink shared directories. These are gitignored, so a worktree that got its
+    # own empty copy would lose whatever was written there when it's removed.
     echo -e "${YELLOW}Symlinking shared directories...${NC}"
-    for dir in playground simulations; do
+    for dir in playground simulations domain.local; do
         if [ -d "$SOURCE_DIR/$dir" ]; then
             if ln -s "$SOURCE_DIR/$dir" "$worktree_dir/$dir" 2>/dev/null; then
                 symlink_count=$((symlink_count + 1))
@@ -301,8 +302,8 @@ worktree_create() {
 
     local env_count=0
 
-    # Skips .env.example (tracked), playground/ and simulations/ (already
-    # symlinked as directories), and the two port-bearing dev files.
+    # Skips .env.example (tracked), the directories already symlinked above, and
+    # the two port-bearing dev files.
     while IFS= read -r env_file; do
         # Get relative path
         local rel_path="${env_file#./}"
@@ -313,7 +314,8 @@ worktree_create() {
         fi
 
         # Skip files inside symlinked directories
-        if [[ "$rel_path" == playground/* ]] || [[ "$rel_path" == simulations/* ]]; then
+        if [[ "$rel_path" == playground/* ]] || [[ "$rel_path" == simulations/* ]] ||
+            [[ "$rel_path" == domain.local/* ]]; then
             continue
         fi
 
@@ -339,7 +341,7 @@ worktree_create() {
     # node_modules and .venv, which is ~650k files here for 10 hits.
     done < <(find . \
         \( -name .git -o -name node_modules -o -name .venv \
-           -o -path ./playground -o -path ./simulations \) -prune \
+           -o -path ./playground -o -path ./simulations -o -path ./domain.local \) -prune \
         -o -name '.env*' -print \
         2>/dev/null | sort)
 
@@ -352,22 +354,28 @@ worktree_create() {
     create_worktree_env_files "$worktree_dir" "$offset"
     echo ""
 
-    # Symlink Claude Code settings.local.json
-    echo -e "${YELLOW}Symlinking Claude Code settings...${NC}"
-    if [ -f "$SOURCE_DIR/.claude/settings.local.json" ]; then
-        mkdir -p "$worktree_dir/.claude"
-        if [ -f "$worktree_dir/.claude/settings.local.json" ] && [ ! -L "$worktree_dir/.claude/settings.local.json" ]; then
-            rm "$worktree_dir/.claude/settings.local.json"
+    # Symlink the gitignored Claude Code config. CLAUDE.local.md is what points the
+    # agent skills at .claude/skills.local, so a worktree missing either one silently
+    # falls back to the skills' own defaults.
+    echo -e "${YELLOW}Symlinking Claude Code config...${NC}"
+    for rel in .claude/settings.local.json .claude/skills.local CLAUDE.local.md; do
+        if [ ! -e "$SOURCE_DIR/$rel" ]; then
+            echo -e "  ${BLUE}${rel} not found in source, skipping${NC}"
+            continue
         fi
-        if ln -sf "$SOURCE_DIR/.claude/settings.local.json" "$worktree_dir/.claude/settings.local.json" 2>/dev/null; then
+        mkdir -p "$(dirname "$worktree_dir/$rel")"
+        # A real file or directory here would shadow the source; a stale symlink is
+        # replaced by ln -sf on its own.
+        if [ -e "$worktree_dir/$rel" ] && [ ! -L "$worktree_dir/$rel" ]; then
+            rm -rf "$worktree_dir/$rel"
+        fi
+        if ln -sfn "$SOURCE_DIR/$rel" "$worktree_dir/$rel" 2>/dev/null; then
             symlink_count=$((symlink_count + 1))
-            echo -e "  ${GREEN}.claude/settings.local.json${NC}"
+            echo -e "  ${GREEN}${rel}${NC}"
         else
-            echo -e "  ${YELLOW}.claude/settings.local.json (failed to create symlink, skipping)${NC}"
+            echo -e "  ${YELLOW}${rel} (failed to create symlink, skipping)${NC}"
         fi
-    else
-        echo -e "  ${BLUE}.claude/settings.local.json not found in source, skipping${NC}"
-    fi
+    done
 
     # Summary
     echo ""

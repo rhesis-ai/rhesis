@@ -340,6 +340,9 @@ deepeval_telemetry.jsonl.gz.part
 # Simulations — as above, matches both the directory and a worktree's symlink
 /simulations
 
+# Domain model — local glossary (CONTEXT.md) and ADRs, never committed
+/domain.local
+
 # K8s files
 infrastructure/k8s/manifests/secrets/*
 infrastructure/k8s/manifests/configmaps/*
@@ -357,6 +360,7 @@ gke_gcloud_auth_plugin_cache
 # Claude Code
 .claude/settings.local.json
 .claude/skills.local
+CLAUDE.local.md
 
 # service secrets
 infrastructure/config/service-secrets-file.json
