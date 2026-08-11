@@ -24,6 +24,8 @@ import LinkedEntitiesFilterDrawer, {
   countActiveLinkedFilters,
 } from '@/components/common/LinkedEntitiesFilterDrawer';
 import { MetricDetailView } from './MetricDetailView';
+import MetricTuningTab from './tuning/MetricTuningTab';
+import { useIsCustomMetric } from './tuning/useIsCustomMetric';
 import { MetricsClient } from '@/utils/api-client/metrics-client';
 import { BehaviorClient } from '@/utils/api-client/behavior-client';
 import { useCan, useCanWithStatus } from '@/components/common/Can';
@@ -41,11 +43,28 @@ import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 /** Linked behaviors come back with the status relationship at runtime. */
 type LinkedBehaviorRow = BehaviorReference & { status?: Status | null };
 
-const TAB_KEYS = ['basic', 'linked-behaviors'] as const;
+/**
+ * Experimental metric tuning tab, off unless explicitly turned on.
+ *
+ * Gated on the feature itself rather than on the environment: an `NODE_ENV`
+ * check would scatter deployment assumptions through feature code and make the
+ * same feature behave differently by accident depending on where it runs.
+ *
+ * Not a `FeatureName` from `src/constants/features.ts` — that system mirrors a
+ * backend enum and is driven by `GET /features`, so adding one would need a
+ * coordinated backend change. This is a local flag for an unfinished feature;
+ * set `NEXT_PUBLIC_METRIC_TUNING=true` in `.env.local` to see the tab. The
+ * value is inlined at build time, so it is absent from any deployment that does
+ * not set it, and a misspelled value fails closed.
+ */
+const TUNING_TAB_ENABLED = process.env.NEXT_PUBLIC_METRIC_TUNING === 'true';
+
+const TAB_KEYS = ['basic', 'linked-behaviors', 'tuning'] as const;
 
 const NAV_LABELS: Record<(typeof TAB_KEYS)[number], string> = {
   basic: 'Basic Information',
   'linked-behaviors': 'Linked Behaviors',
+  tuning: 'Tuning',
 };
 
 export default function MetricDetailPageTabs() {
@@ -57,13 +76,18 @@ export default function MetricDetailPageTabs() {
 
   const metricId = params.identifier as string;
   const { activeTab, handleTabChange } = useDetailTabNav(TAB_KEYS);
+  // The flag alone is not enough: this page also serves `rhesis` metrics, and
+  // the tuning routes refuse anything that is not custom.
+  const showTuning = useIsCustomMetric(metricId, TUNING_TAB_ENABLED);
 
-  const navTabs = TAB_KEYS.map((key, index) => ({
-    key,
-    label: NAV_LABELS[key],
-    id: `metric-detail-tab-${index}`,
-    'aria-controls': `metric-detail-tabpanel-${index}`,
-  }));
+  const navTabs = TAB_KEYS.filter(key => key !== 'tuning' || showTuning).map(
+    (key, index) => ({
+      key,
+      label: NAV_LABELS[key],
+      id: `metric-detail-tab-${index}`,
+      'aria-controls': `metric-detail-tabpanel-${index}`,
+    })
+  );
 
   if (permsLoading) return <PageLoadingState />;
   if (!canRead) return <AccessDenied resource="metrics" />;
@@ -85,6 +109,8 @@ export default function MetricDetailPageTabs() {
       tabBody={
         activeTab === 1 ? (
           <MetricLinkedBehaviors metricId={metricId} sessionStatus={status} />
+        ) : activeTab === 2 && showTuning ? (
+          <MetricTuningTab metricId={metricId} />
         ) : undefined
       }
     />
