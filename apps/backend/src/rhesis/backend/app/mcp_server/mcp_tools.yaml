@@ -31,6 +31,21 @@ tools:
     description: >
       Create a new project to organize test suites. A project groups
       related test sets, test configurations, and test runs.
+    parameters:
+      name:
+        description: "REQUIRED. Project name (string)."
+      description:
+        description: "What this project covers (string)."
+      project_id:
+        description: >
+          Omit. The project scope is taken from the request, not from
+          this field.
+      is_active:
+        description: "Omit. New projects are active by default."
+      icon:
+        description: "Omit unless the user asked for a specific icon."
+      attributes:
+        description: "Omit. Free-form storage, not used by test generation."
 
   # ── Test Sets ─────────────────────────────────────────────
   - name: list_test_sets
@@ -103,6 +118,10 @@ tools:
     parameters:
       name:
         description: "Test set name (required, string)"
+      project_id:
+        description: >
+          Omit. The project scope is taken from the request, not from
+          this field.
       description:
         description: "Detailed description of the test set's purpose (string)"
       short_description:
@@ -119,27 +138,25 @@ tools:
           a string like "High" or "Low". Omit if unsure.
       tests:
         description: >
-          REQUIRED array of test objects (must not be empty). The object
-          format depends on the test type.
+          REQUIRED array of test objects (must not be empty). The item
+          fields are listed below; two things the schema cannot express:
 
-          Single-Turn test: {"prompt": {"content": "the test prompt
-          text", "language_code": "en", "expected_response": "optional
-          expected answer"}, "behavior": "behavior name", "category":
-          "category name", "topic": "topic name"}.
+          1. A Single-Turn test carries "prompt". A Multi-Turn test sets
+          test_type to "Multi-Turn" and carries "test_configuration"
+          INSTEAD of prompt — never send both on the same test. The
+          test_configuration object takes: goal (required — what the
+          target SHOULD do), instructions (how to conduct the test),
+          restrictions (what the target MUST NOT do), scenario (context
+          and persona) and max_turns (integer, e.g. 10).
 
-          Multi-Turn test: {"test_type": "Multi-Turn",
-          "test_configuration": {"goal": "what the target SHOULD do
-          (required)", "instructions": "how to conduct the test
-          (optional)", "restrictions": "what the target MUST NOT do
-          (optional)", "scenario": "context and persona (optional)",
-          "max_turns": 10}, "behavior": "behavior name", "category":
-          "category name", "topic": "topic name"}. Multi-Turn tests
-          use test_configuration instead of prompt — do NOT send both.
-
-          behavior/category/topic are plain-text names (not UUIDs) —
-          the server resolves or creates them automatically. Use
-          list_behaviors, list_categories, and list_topics to discover
-          existing values first.
+          2. behavior, category and topic are plain-text names, not
+          UUIDs — the server resolves or creates them automatically. Use
+          list_behaviors, list_categories and list_topics to reuse
+          existing values rather than inventing near-duplicates.
+      metadata:
+        description: >
+          Omit. Free-form storage the synthesizers use to record how a
+          test set was produced.
 
   - name: generate_test_set
     label: Generating test set
@@ -168,23 +185,26 @@ tools:
     parameters:
       config:
         description: >
-          REQUIRED. Object with generation parameters:
-          - generation_prompt (string): Describe WHAT to test and HOW
-            (e.g. "Generate tests that verify the travel agent provides
-            accurate destination info, handles ambiguous queries, and
-            refuses off-topic requests"). Be specific — the synthesizer
-            uses this to craft test prompts.
-          - behaviors (list of strings): REQUIRED. Behavior names the
-            tests should target (e.g. ["Provides Accurate Information",
-            "Refuses Off-Topic Requests"]). At least one is required.
-          - categories (list of strings): Optional category names
-            (e.g. ["Functional", "Safety"]).
-          - topics (list of strings): Optional topic names
-            (e.g. ["Travel advisory", "Booking"]).
+          REQUIRED. Generation parameters. Be specific in
+          generation_prompt (e.g. "Generate tests that verify the travel
+          agent provides accurate destination info, handles ambiguous
+          queries, and refuses off-topic requests") — the synthesizer
+          uses it to craft the test prompts. behaviors takes behavior
+          names, e.g. ["Provides Accurate Information", "Refuses
+          Off-Topic Requests"]; categories and topics take names too,
+          e.g. ["Functional", "Safety"] and ["Travel advisory",
+          "Booking"].
       num_tests:
         description: >
           Number of tests to generate (integer, default 5). Typical
           range: 3–20 per test set.
+      batch_size:
+        description: >
+          Omit unless you have a reason to change it. Defaults to 20.
+      project_id:
+        description: >
+          Omit. The project scope is taken from the request, not from
+          this field.
       test_type:
         description: >
           "Single-Turn" or "Multi-Turn". MUST match the plan's
@@ -442,11 +462,20 @@ tools:
       (with its description) instead of auto-creating a description-less
       one. Do NOT send server-managed fields (id, user_id, organization_id,
       created_at, updated_at).
+      Behavior names are unique per organization. Creating one that
+      already exists fails with "Behavior with this name already exists".
+      Call list_behaviors first and reuse the existing id — do NOT retry
+      with a suffixed name like "Refuses Harmful Requests 2", which
+      creates a near-duplicate nobody wants.
     parameters:
       name:
         description: "REQUIRED. Behavior name (string, e.g. 'Refuses harmful requests')."
       description:
         description: "REQUIRED. Explain what this behavior means and how it should be evaluated."
+      project_id:
+        description: >
+          Omit. The project scope is taken from the request, not from
+          this field.
 
   # ── Categories & Topics ───────────────────────────────────
   - name: list_categories
@@ -536,9 +565,27 @@ tools:
       Sending only name + evaluation_prompt + score_type produces a
       threadbare metric and is a bug, not a shortcut. Fill every field you
       have grounds to fill.
+
+      FIELDS REQUIRED BY score_type — the schema cannot express this, so
+      read it here. When score_type is "numeric" you MUST also send
+      min_score, max_score AND threshold; omitting any one is rejected.
+      When score_type is "categorical" you MUST also send categories (at
+      least two labels) AND passing_categories (at least one, each of
+      which must also appear in categories). Send the numeric fields only
+      for numeric metrics and the category fields only for categorical
+      ones.
+
+      Metric names are unique per organization. Creating one that already
+      exists fails with "Metric with this name already exists". Call
+      list_metrics first and reuse the existing id, or use improve_metric
+      to change it — do NOT retry with a suffixed name.
     parameters:
       name:
         description: "Metric name, unique within the organization (required, string)"
+      project_id:
+        description: >
+          Omit. The project scope is taken from the request, not from
+          this field.
       description:
         description: >
           REQUIRED IN PRACTICE. One or two sentences on what this metric
@@ -574,8 +621,10 @@ tools:
           this field.
       score_type:
         description: >
-          REQUIRED. Must be exactly "numeric" or "categorical" (string
-          enum). No other values are accepted.
+          REQUIRED. Use "numeric" or "categorical". The third value the
+          schema still lists, "binary", is legacy and was migrated to
+          "categorical" — do not use it. Decides which other fields are
+          required; see the conditional rules in this tool's description.
       evaluation_prompt:
         description: >
           REQUIRED. The prompt template used to evaluate endpoint
@@ -583,20 +632,42 @@ tools:
           {{expected_response}} placeholders (string).
       metric_scope:
         description: >
-          REQUIRED, and rejected if missing or empty. Non-empty list of
-          strings, each exactly "Single-Turn" or "Multi-Turn". This decides
+          REQUIRED, and rejected if missing or empty. Non-empty list, each
+          entry exactly "Single-Turn" or "Multi-Turn". This decides
           which tests the metric is evaluated against: a Single-Turn metric
           is skipped on Multi-Turn tests and vice versa, so a wrong value
           means the metric silently never runs. Use ["Multi-Turn"] for
           conversation-level metrics, ["Single-Turn"] for single
           request-response metrics, and both only when the metric genuinely
           works either way.
+      reference_score:
+        description: "Deprecated. Omit — use categories instead."
+      class_name:
+        description: "Omit. Only used by built-in provider-backed metrics."
+      ground_truth_required:
+        description: >
+          Set true only when the metric cannot be scored without the
+          test's expected_response. Defaults to false.
+      context_required:
+        description: >
+          Set true only when the metric needs retrieved context to score
+          the response. Defaults to false.
+      evaluation_examples:
+        description: >
+          Optional worked examples showing how to score borderline cases.
+          Free text; helps the judge stay consistent.
       min_score:
-        description: "Minimum score value, number (numeric metrics only)"
+        description: >
+          Minimum score value, number. REQUIRED when score_type is
+          "numeric"; omit for categorical metrics.
       max_score:
-        description: "Maximum score value, number (numeric metrics only)"
+        description: >
+          Maximum score value, number. REQUIRED when score_type is
+          "numeric"; omit for categorical metrics.
       threshold:
-        description: "Pass/fail threshold, number (numeric metrics only)"
+        description: >
+          Pass/fail threshold, number. REQUIRED when score_type is
+          "numeric"; omit for categorical metrics.
       threshold_operator:
         description: >
           Comparison operator for the threshold. Must be exactly one of:
@@ -604,13 +675,15 @@ tools:
           Only used for numeric metrics.
       categories:
         description: >
-          List of category label strings (categorical metrics only).
-          Must be a non-empty list when score_type is "categorical".
+          List of category label strings. REQUIRED when score_type is
+          "categorical" and must contain at least two labels; omit for
+          numeric metrics.
       passing_categories:
         description: >
-          Subset of categories that indicate a pass (categorical metrics
-          only). Must be a non-empty list of strings that also appear in
-          "categories".
+          Subset of categories that indicate a pass. REQUIRED when
+          score_type is "categorical" and must contain at least one
+          string, each of which also appears in "categories"; omit for
+          numeric metrics.
 
   - name: generate_metric
     label: Generating metric
@@ -630,6 +703,10 @@ tools:
           REQUIRED. Natural-language description of what the metric
           should evaluate (e.g. "measure whether responses are factually
           accurate, on a 1-5 numeric scale").
+      project_id:
+        description: >
+          Omit. The project scope is taken from the request, not from
+          this field.
 
   - name: improve_metric
     label: Improving metric
@@ -649,6 +726,10 @@ tools:
           REQUIRED. Natural-language instructions describing what to change
           (e.g. "lower the threshold to 2", "switch to categorical with
           pass/fail categories").
+      project_id:
+        description: >
+          Omit. The project scope is taken from the request, not from
+          this field.
 
   - name: update_metric
     label: Updating metric
@@ -1123,6 +1204,10 @@ tools:
         description: "REQUIRED. Source title (string)."
       description:
         description: "Optional description of the source (string)."
+      project_id:
+        description: >
+          Omit. The project scope is taken from the request, not from
+          this field.
       content:
         description: >
           Raw text content for Manual-type sources. Use when the user
@@ -1136,6 +1221,8 @@ tools:
         description: >
           REQUIRED. UUID of the source type. Copy from list_sources on an
           existing source of the same type (check source_type_id field).
+      source_metadata:
+        description: "Omit. Free-form storage, not used by test generation."
 
   # ── Tags ────────────────────────────────────────────────
   - name: list_tags
