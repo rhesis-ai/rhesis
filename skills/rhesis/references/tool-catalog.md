@@ -315,10 +315,10 @@ Generate a test set using the Rhesis synthesizer. An LLM creates diverse test pr
   - `categories` (optional list of strings)
   - `topics` (optional list of strings)
 - `num_tests` — integer, default 5, typical range 3–20
-- `test_type` — `"Single-Turn"` (default) or `"Multi-Turn"`
+- `test_type` — `"Single-Turn"` (default) or `"Multi-Turn"`. Take this from the plan's test set and pass it explicitly. Omitting it produces Single-Turn tests no matter what the test set is called.
 - `sources` — optional list of knowledge source objects to ground tests in real content. Each object must contain only the `id` field: `[{"id": "<source-uuid>"}]`. The backend fetches and injects source content automatically — do NOT fetch or pass content yourself. Use `list_sources` to discover available sources. Only works with Single-Turn; ignored for Multi-Turn.
 
-**Common mistakes:** Omitting `config.behaviors`, using `test_type: "single-turn"` (wrong case).
+**Common mistakes:** Omitting `config.behaviors`, using `test_type: "single-turn"` (wrong case), omitting `test_type` for a Multi-Turn test set.
 
 ---
 
@@ -330,8 +330,15 @@ Use this **only** when importing specific user-provided test prompts that must b
 **Key parameters:**
 - `name` (required)
 - `description`
-- `tests` (required, non-empty array) — each item: `{"prompt": {"content": "...", "language_code": "en"}, "behavior": "name", "category": "name", "topic": "name"}`
+- `test_set_type` (required) — `"Single-Turn"` or `"Multi-Turn"`
+- `tests` (required, non-empty array) — item shape depends on the test type:
+  - Single-Turn: `{"prompt": {"content": "...", "language_code": "en"}, "behavior": "name", "category": "name", "topic": "name"}`
+  - Multi-Turn: `{"test_type": "Multi-Turn", "test_configuration": {"goal": "...", "instructions": "...", "restrictions": "...", "scenario": "...", "max_turns": 10}, "behavior": "name", "category": "name", "topic": "name"}`
 - `priority` — integer (1, 2, 3), not a string
+
+Only `goal` is required inside `test_configuration`. A test uses either `prompt` or `test_configuration`, never both.
+
+**Common mistakes:** Setting `test_set_type: "Multi-Turn"` but sending tests with `prompt` — the server types each test from its own content, so those tests land as Single-Turn inside a Multi-Turn set. Set `test_type` on every test object.
 
 ---
 
@@ -497,7 +504,7 @@ Update an existing endpoint's configuration. Send **only** the fields you want t
 ---
 
 ### `create_source`
-Create a knowledge source for grounding single-turn `generate_test_set`.
+Create a knowledge source for grounding Single-Turn `generate_test_set`.
 
 **Patterns:**
 - Pasted text: `title` + `content` (Manual type — copy `source_type_id` from `list_sources`)

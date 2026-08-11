@@ -51,7 +51,15 @@ class TestSetSpec(BaseModel):
     num_tests: int = Field(default=15, description="Number of tests to generate")
     test_type: Literal["Single-Turn", "Multi-Turn"] = Field(
         default="Single-Turn",
-        description='Must be exactly "Single-Turn" or "Multi-Turn"',
+        description=(
+            'Must be exactly "Single-Turn" or "Multi-Turn". Decide from '
+            "what the user asked for and what the behavior needs: "
+            "Multi-Turn when the test depends on earlier turns (context "
+            "retention, multi-step tasks, tone under pressure, guardrails "
+            "under repeated pressure); Single-Turn when a single prompt "
+            "settles it. If the user asked for Multi-Turn tests, set this "
+            "to Multi-Turn — it does not default to it."
+        ),
     )
     generation_prompt: str = Field(
         default="",
