@@ -288,16 +288,6 @@
             "description": "Entity type for chunks"
         },
         {
-            "type_name": "ResponsePatternType",
-            "type_value": "Refusal",
-            "description": "Response pattern type for refusals"
-        },
-        {
-            "type_name": "ResponsePatternType",
-            "type_value": "Compliance",
-            "description": "Response pattern type for compliance"
-        },
-        {
             "type_name": "LicenseType",
             "type_value": "MIT",
             "description": "MIT License"

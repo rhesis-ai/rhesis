@@ -11,7 +11,7 @@ from .mixins import OrganizationAndUserMixin, ProjectMixin
 
 class TypeLookup(Base, ProjectMixin, OrganizationAndUserMixin):
     __tablename__ = "type_lookup"
-    type_name = Column(String)  # 'CategoryType', 'ResponsePatternType', 'EntityType', etc.
+    type_name = Column(String)  # 'CategoryType', 'EntityType', etc.
     type_value = Column(String)  # 'TYPE_A', 'TYPE_B', etc.
     description = Column(Text)
 
