@@ -122,8 +122,18 @@ def downgrade() -> None:
             server_default=sa.text("gen_random_uuid()"),
             nullable=False,
         ),
-        sa.Column("created_at", sa.TIMESTAMP(timezone=True), server_default=sa.text("now()"), nullable=False),
-        sa.Column("updated_at", sa.TIMESTAMP(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.TIMESTAMP(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.TIMESTAMP(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
         sa.Column("deleted_at", sa.TIMESTAMP(timezone=True), nullable=True),
         sa.Column("nano_id", sa.String(), nullable=True),
         sa.Column("organization_id", rhesis.backend.app.models.guid.GUID(), nullable=True),
@@ -152,8 +162,18 @@ def downgrade() -> None:
             server_default=sa.text("gen_random_uuid()"),
             nullable=False,
         ),
-        sa.Column("created_at", sa.TIMESTAMP(timezone=True), server_default=sa.text("now()"), nullable=False),
-        sa.Column("updated_at", sa.TIMESTAMP(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.TIMESTAMP(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.TIMESTAMP(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
         sa.Column("deleted_at", sa.TIMESTAMP(timezone=True), nullable=True),
         sa.Column("nano_id", sa.String(), nullable=True),
         sa.Column("organization_id", rhesis.backend.app.models.guid.GUID(), nullable=True),
@@ -182,8 +202,18 @@ def downgrade() -> None:
             server_default=sa.text("gen_random_uuid()"),
             nullable=False,
         ),
-        sa.Column("created_at", sa.TIMESTAMP(timezone=True), server_default=sa.text("now()"), nullable=False),
-        sa.Column("updated_at", sa.TIMESTAMP(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.TIMESTAMP(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.TIMESTAMP(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
         sa.Column("deleted_at", sa.TIMESTAMP(timezone=True), nullable=True),
         sa.Column("nano_id", sa.String(), nullable=True),
         sa.Column("organization_id", rhesis.backend.app.models.guid.GUID(), nullable=True),
@@ -213,8 +243,18 @@ def downgrade() -> None:
             server_default=sa.text("gen_random_uuid()"),
             nullable=False,
         ),
-        sa.Column("created_at", sa.TIMESTAMP(timezone=True), server_default=sa.text("now()"), nullable=False),
-        sa.Column("updated_at", sa.TIMESTAMP(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.TIMESTAMP(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.TIMESTAMP(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
         sa.Column("deleted_at", sa.TIMESTAMP(timezone=True), nullable=True),
         sa.Column("nano_id", sa.String(), nullable=True),
         sa.Column("organization_id", rhesis.backend.app.models.guid.GUID(), nullable=True),
@@ -232,10 +272,15 @@ def downgrade() -> None:
     op.create_index("ix_test_context_project_id", "test_context", ["project_id"])
 
     op.add_column(
-        "test_configuration", sa.Column("use_case_id", rhesis.backend.app.models.guid.GUID(), nullable=True)
+        "test_configuration",
+        sa.Column("use_case_id", rhesis.backend.app.models.guid.GUID(), nullable=True),
     )
     op.create_foreign_key(
-        "test_configuration_use_case_id_fkey", "test_configuration", "use_case", ["use_case_id"], ["id"]
+        "test_configuration_use_case_id_fkey",
+        "test_configuration",
+        "use_case",
+        ["use_case_id"],
+        ["id"],
     )
 
     op.create_table(
@@ -271,7 +316,14 @@ def downgrade() -> None:
     # below.
     conn.execute(sa.text("SET LOCAL auto_rls.active = 'true'"))
 
-    for table in ("use_case", "risk", "response_pattern", "test_context", "risk_use_case", "prompt_use_case"):
+    for table in (
+        "use_case",
+        "risk",
+        "response_pattern",
+        "test_context",
+        "risk_use_case",
+        "prompt_use_case",
+    ):
         op.execute(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY")
         op.execute(f"ALTER TABLE {table} FORCE ROW LEVEL SECURITY")
         op.execute(f"""
