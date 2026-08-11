@@ -13,6 +13,7 @@ import numpy as np
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app.crud.embedding import get_embedding_by_hash, mark_embeddings_stale
 from rhesis.backend.app.crud.explorer import (
     get_default_embedding_model,
     get_test_for_embedding,
@@ -404,7 +405,7 @@ def create_test_embedding(
         logger.error("Failed to get Stale status for Embedding")
         return None
 
-    existing = crud.get_embedding_by_hash(
+    existing = get_embedding_by_hash(
         db,
         entity_id=entity_id,
         entity_type=entity_type,
@@ -421,7 +422,7 @@ def create_test_embedding(
     if not embedding_vector:
         return None
 
-    stale_count = crud.mark_embeddings_stale(
+    stale_count = mark_embeddings_stale(
         db,
         entity_id=entity_id,
         entity_type=entity_type,

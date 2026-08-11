@@ -8,6 +8,11 @@ from typing import Any, Dict, Optional
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app.crud.embedding import (
+    create_embedding,
+    get_embedding_by_hash,
+    mark_embeddings_stale,
+)
 from rhesis.backend.app.models.embedding import EmbeddingConfig
 from rhesis.backend.app.models.enums import EmbeddingStatus
 from rhesis.backend.app.models.user import User
@@ -131,7 +136,7 @@ class EmbeddingGenerator:
         status_id: Any,
         after_race: bool = False,
     ) -> Optional[Dict[str, Any]]:
-        existing = crud.get_embedding_by_hash(
+        existing = get_embedding_by_hash(
             self.db,
             entity_id=entity_id,
             entity_type=entity_type,
@@ -260,7 +265,7 @@ class EmbeddingGenerator:
             return duplicate
 
         # Mark old embeddings as stale (different text/config)
-        stale_count = crud.mark_embeddings_stale(
+        stale_count = mark_embeddings_stale(
             self.db,
             entity_id=entity_id,
             entity_type=entity_type,
@@ -289,7 +294,7 @@ class EmbeddingGenerator:
 
         try:
             with self.db.begin_nested():
-                new_embedding = crud.create_embedding(
+                new_embedding = create_embedding(
                     self.db,
                     embedding=embedding_create,
                     organization_id=organization_id,
