@@ -12,6 +12,11 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models
 from rhesis.backend.app.crud.metric import create_metric, get_metric
+from rhesis.backend.app.crud.token import (
+    count_user_tokens,
+    create_token,
+    get_user_tokens,
+)
 from tests.backend.fixtures.test_setup import create_test_organization_and_user
 
 
@@ -509,7 +514,7 @@ class TestCrudOrganizationFiltering:
         from rhesis.backend.app.utils.encryption import hash_token
 
         token_value_1 = generate_api_token()
-        token1 = crud.create_token(
+        token1 = create_token(
             db=test_db,
             token=TokenCreate(
                 name=f"Token in Org 1 {unique_id}",
@@ -526,7 +531,7 @@ class TestCrudOrganizationFiltering:
         )
 
         token_value_2 = generate_api_token()
-        token2 = crud.create_token(
+        token2 = create_token(
             db=test_db,
             token=TokenCreate(
                 name=f"Token in Org 2 {unique_id}",
@@ -543,9 +548,7 @@ class TestCrudOrganizationFiltering:
         )
 
         # User from org1 should only see their token from org1
-        tokens_org1 = crud.get_user_tokens(
-            db=test_db, user_id=user1.id, organization_id=str(org1.id)
-        )
+        tokens_org1 = get_user_tokens(db=test_db, user_id=user1.id, organization_id=str(org1.id))
         # Filter to only tokens we created in this test
         test_tokens_org1 = [
             t for t in tokens_org1 if t.name.startswith(f"Token in Org 1 {unique_id}")
@@ -558,9 +561,7 @@ class TestCrudOrganizationFiltering:
         assert test_tokens_org1[0].organization_id == org1.id
 
         # User from org2 should only see their token from org2
-        tokens_org2 = crud.get_user_tokens(
-            db=test_db, user_id=user2.id, organization_id=str(org2.id)
-        )
+        tokens_org2 = get_user_tokens(db=test_db, user_id=user2.id, organization_id=str(org2.id))
         # Filter to only tokens we created in this test
         test_tokens_org2 = [
             t for t in tokens_org2 if t.name.startswith(f"Token in Org 2 {unique_id}")
@@ -573,15 +574,13 @@ class TestCrudOrganizationFiltering:
         assert test_tokens_org2[0].organization_id == org2.id
 
         # CRITICAL: User from org1 should NOT see tokens from org2
-        cross_org_tokens = crud.get_user_tokens(
+        cross_org_tokens = get_user_tokens(
             db=test_db, user_id=user1.id, organization_id=str(org2.id)
         )
         assert len(cross_org_tokens) == 0, "User should not see tokens from other organizations"
 
         # Verify count matches the actual number of tokens
-        count_org1 = crud.count_user_tokens(
-            db=test_db, user_id=user1.id, organization_id=str(org1.id)
-        )
+        count_org1 = count_user_tokens(db=test_db, user_id=user1.id, organization_id=str(org1.id))
         assert count_org1 == len(tokens_org1), (
             f"Count should match token list length: {count_org1} != {len(tokens_org1)}"
         )

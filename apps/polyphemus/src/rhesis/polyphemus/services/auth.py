@@ -11,7 +11,8 @@ from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from rhesis.backend.app.auth.token_validation import validate_token
-from rhesis.backend.app.crud import get_token_by_value, get_user_by_id
+from rhesis.backend.app.crud import get_user_by_id
+from rhesis.backend.app.crud.token import get_token_by_value
 from rhesis.backend.app.database import get_db
 from rhesis.backend.app.models.user import User
 from rhesis.polyphemus.services.token_validator import validate_delegation_token

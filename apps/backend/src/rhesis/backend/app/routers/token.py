@@ -8,10 +8,14 @@ if TYPE_CHECKING:
 from fastapi import Body, Depends, HTTPException, Query, Request, Response
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud
 from rhesis.backend.app.auth.principal import AuthKind, resolve_principal_from_request
 from rhesis.backend.app.auth.token_utils import generate_api_token
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
+
+# Imported as a module, not by name: the route handlers below are called
+# create_token, update_token, delete_token, ... too, and a bare function
+# import would shadow them.
+from rhesis.backend.app.crud import token as token_crud
 from rhesis.backend.app.dependencies import (
     get_project_context,
     get_tenant_context,
@@ -96,7 +100,7 @@ def create_token(
     }
 
     token_create = TokenCreate(**token_data)
-    created_token = crud.create_token(
+    created_token = token_crud.create_token(
         db=db, token=token_create, organization_id=organization_id, user_id=user_id
     )
 
@@ -212,7 +216,7 @@ def read_tokens(
     """List active API tokens for the current user, scoped to the active project."""
     organization_id, user_id = tenant_context
 
-    count = crud.count_user_tokens(
+    count = token_crud.count_user_tokens(
         db=db,
         user_id=current_user.id,
         filter=filter,
@@ -221,7 +225,7 @@ def read_tokens(
     )
     response.headers["X-Total-Count"] = str(count)
 
-    return crud.get_user_tokens(
+    return token_crud.get_user_tokens(
         db=db,
         user_id=current_user.id,
         skip=skip,
@@ -243,7 +247,7 @@ def read_token(
 ):
     """Get a token by ID."""
     organization_id, user_id = tenant_context
-    db_token = crud.get_token(
+    db_token = token_crud.get_token(
         db, token_id=token_id, organization_id=organization_id, user_id=user_id
     )
     if db_token is None:
@@ -260,7 +264,7 @@ def delete_token(
 ):
     """Delete (revoke) a token by ID."""
     organization_id, user_id = tenant_context
-    db_token = crud.revoke_token(
+    db_token = token_crud.revoke_token(
         db, token_id=token_id, organization_id=organization_id, user_id=user_id
     )
     if db_token is None:
@@ -289,7 +293,7 @@ def update_token(
         )
 
     organization_id, user_id = tenant_context
-    db_token = crud.update_token(
+    db_token = token_crud.update_token(
         db, token_id=token_id, token=token, organization_id=organization_id, user_id=user_id
     )
     if db_token is None:
@@ -308,7 +312,7 @@ def refresh_token(
     """Refresh token with new value and expiration"""
     organization_id, user_id = tenant_context
 
-    token = crud.get_token(
+    token = token_crud.get_token(
         db=db, token_id=token_id, organization_id=organization_id, user_id=user_id
     )
     if not token:
@@ -329,7 +333,7 @@ def refresh_token(
         expires_at=expires_at,
     )
 
-    updated_token = crud.update_token(
+    updated_token = token_crud.update_token(
         db=db,
         token_id=token.id,
         token=token_update,

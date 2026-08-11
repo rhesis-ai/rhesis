@@ -310,7 +310,7 @@ class TestValidateToken:
         db = Mock(spec=Session)
 
         with patch(
-            "rhesis.backend.app.auth.token_validation.crud.get_token_by_value",
+            "rhesis.backend.app.auth.token_validation.get_token_by_value",
             return_value=mock_token,
         ) as mock_get_token:
             result = validate_token(token_value, update_usage=True, db=db)
@@ -328,7 +328,7 @@ class TestValidateToken:
         db = Mock(spec=Session)
 
         with patch(
-            "rhesis.backend.app.auth.token_validation.crud.get_token_by_value",
+            "rhesis.backend.app.auth.token_validation.get_token_by_value",
             return_value=mock_token,
         ):
             result = validate_token(token_value, update_usage=False, db=db)
@@ -341,7 +341,7 @@ class TestValidateToken:
         db = Mock(spec=Session)
 
         with patch(
-            "rhesis.backend.app.auth.token_validation.crud.get_token_by_value",
+            "rhesis.backend.app.auth.token_validation.get_token_by_value",
             return_value=None,
         ):
             result = validate_token(token_value, db=db)
