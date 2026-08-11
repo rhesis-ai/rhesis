@@ -153,62 +153,6 @@ def get_experiments(
     )
 
 
-# UseCase CRUD
-def get_use_case(
-    db: Session, use_case_id: uuid.UUID, organization_id: str = None, user_id: str = None
-) -> Optional[models.UseCase]:
-    """Get use_case."""
-    return get_item(db, models.UseCase, use_case_id, organization_id, user_id)
-
-
-def get_use_cases(
-    db: Session,
-    skip: int = 0,
-    limit: int = 10,
-    sort_by: str = "created_at",
-    sort_order: str = "desc",
-    filter: str | None = None,
-    organization_id: str = None,
-    user_id: str = None,
-) -> List[models.UseCase]:
-    return get_items(
-        db,
-        models.UseCase,
-        skip,
-        limit,
-        sort_by,
-        sort_order,
-        filter,
-        organization_id=organization_id,
-        user_id=user_id,
-    )
-
-
-def create_use_case(
-    db: Session, use_case: schemas.UseCaseCreate, organization_id: str = None, user_id: str = None
-) -> models.UseCase:
-    """Create use_case."""
-    return create_item(db, models.UseCase, use_case, organization_id, user_id)
-
-
-def update_use_case(
-    db: Session,
-    use_case_id: uuid.UUID,
-    use_case: schemas.UseCaseUpdate,
-    organization_id: str = None,
-    user_id: str = None,
-) -> Optional[models.UseCase]:
-    """Update use_case."""
-    return update_item(db, models.UseCase, use_case_id, use_case, organization_id, user_id)
-
-
-def delete_use_case(
-    db: Session, use_case_id: uuid.UUID, organization_id: str, user_id: str
-) -> Optional[models.UseCase]:
-    """Delete use case."""
-    return delete_item(db, models.UseCase, use_case_id, organization_id, user_id)
-
-
 # Prompt CRUD
 def get_prompt(
     db: Session, prompt_id: uuid.UUID, organization_id: str = None, user_id: str = None
@@ -499,64 +443,6 @@ def delete_behavior(
     return delete_item(db, models.Behavior, behavior_id, organization_id, user_id)
 
 
-# ResponsePattern CRUD
-def get_response_pattern(
-    db: Session, response_pattern_id: uuid.UUID, organization_id: str, user_id: str
-) -> Optional[models.ResponsePattern]:
-    return get_item(db, models.ResponsePattern, response_pattern_id, organization_id, user_id)
-
-
-def get_response_patterns(
-    db: Session,
-    skip: int = 0,
-    limit: int = 10,
-    sort_by: str = "created_at",
-    sort_order: str = "desc",
-    filter: str | None = None,
-    organization_id: str = None,
-    user_id: str = None,
-) -> List[models.ResponsePattern]:
-    return get_items(
-        db,
-        models.ResponsePattern,
-        skip,
-        limit,
-        sort_by,
-        sort_order,
-        filter,
-        organization_id=organization_id,
-        user_id=user_id,
-    )
-
-
-def create_response_pattern(
-    db: Session,
-    response_pattern: schemas.ResponsePatternCreate,
-    organization_id: str = None,
-    user_id: str = None,
-) -> models.ResponsePattern:
-    """Create response pattern."""
-    return create_item(db, models.ResponsePattern, response_pattern, organization_id, user_id)
-
-
-def update_response_pattern(
-    db: Session,
-    response_pattern_id: uuid.UUID,
-    response_pattern: schemas.ResponsePatternUpdate,
-    organization_id: str,
-    user_id: str,
-) -> Optional[models.ResponsePattern]:
-    return update_item(
-        db, models.ResponsePattern, response_pattern_id, response_pattern, organization_id, user_id
-    )
-
-
-def delete_response_pattern(
-    db: Session, response_pattern_id: uuid.UUID, organization_id: str, user_id: str
-) -> Optional[models.ResponsePattern]:
-    return delete_item(db, models.ResponsePattern, response_pattern_id, organization_id, user_id)
-
-
 # TestSet CRUD
 def get_test_set(
     db: Session, test_set_id: uuid.UUID, organization_id: str = None, user_id: str = None
@@ -803,7 +689,7 @@ def get_test_set_tests(
         # picks the strategy per name from its own cardinality, so this can never
         # regress into the 22-join cartesian product that previously materialized
         # multi-GB intermediate result sets on this endpoint -- accidentally adding
-        # a one-to-many name here (e.g. test_results/test_contexts/trace) would
+        # a one-to-many name here (e.g. test_results/trace) would
         # route through selectin, not joinedload.
         .with_related(
             include(models.Test.prompt),
@@ -902,62 +788,6 @@ def update_test_configuration(
         organization_id,
         user_id,
     )
-
-
-# Risk CRUD
-def get_risk(
-    db: Session, risk_id: uuid.UUID, organization_id: str = None, user_id: str = None
-) -> Optional[models.Risk]:
-    """Get risk."""
-    return get_item(db, models.Risk, risk_id, organization_id, user_id)
-
-
-def get_risks(
-    db: Session,
-    skip: int = 0,
-    limit: int = 10,
-    sort_by: str = "created_at",
-    sort_order: str = "desc",
-    filter: str | None = None,
-    organization_id: str = None,
-    user_id: str = None,
-) -> List[models.Risk]:
-    return get_items(
-        db,
-        models.Risk,
-        skip,
-        limit,
-        sort_by,
-        sort_order,
-        filter,
-        organization_id=organization_id,
-        user_id=user_id,
-    )
-
-
-def create_risk(
-    db: Session, risk: schemas.RiskCreate, organization_id: str = None, user_id: str = None
-) -> models.Risk:
-    """Create risk."""
-    return create_item(db, models.Risk, risk, organization_id, user_id)
-
-
-def update_risk(
-    db: Session,
-    risk_id: uuid.UUID,
-    risk: schemas.RiskUpdate,
-    organization_id: str = None,
-    user_id: str = None,
-) -> Optional[models.Risk]:
-    """Update risk."""
-    return update_item(db, models.Risk, risk_id, risk, organization_id, user_id)
-
-
-def delete_risk(
-    db: Session, risk_id: uuid.UUID, organization_id: str, user_id: str
-) -> Optional[models.Risk]:
-    """Delete risk."""
-    return delete_item(db, models.Risk, risk_id, organization_id, user_id)
 
 
 # Status CRUD
@@ -2160,79 +1990,6 @@ def bulk_delete_tests(
         organization_id=organization_id,
         user_id=user_id,
         on_deleted=_recompute_affected_test_sets,
-    )
-
-
-# TestContext CRUD
-def get_test_context(
-    db: Session, test_context_id: uuid.UUID, organization_id: str = None, user_id: str = None
-) -> Optional[models.TestContext]:
-    """Get test_context."""
-    return get_item(db, models.TestContext, test_context_id, organization_id, user_id)
-
-
-def get_test_contexts(
-    db: Session,
-    skip: int = 0,
-    limit: int = 10,
-    sort_by: str = "created_at",
-    sort_order: str = "desc",
-    filter: str | None = None,
-    organization_id: str = None,
-    user_id: str = None,
-) -> List[models.TestContext]:
-    return get_items(
-        db,
-        models.TestContext,
-        skip,
-        limit,
-        sort_by,
-        sort_order,
-        filter,
-        organization_id=organization_id,
-        user_id=user_id,
-    )
-
-
-def get_test_contexts_by_test(
-    db: Session, test_id: uuid.UUID, organization_id: str = None
-) -> List[models.TestContext]:
-    return (
-        QueryBuilder(db, models.TestContext)
-        .with_organization_filter(organization_id)
-        .with_custom_filter(lambda q: q.filter(models.TestContext.test_id == test_id))
-        .all()
-    )
-
-
-def create_test_context(
-    db: Session,
-    test_context: schemas.TestContextCreate,
-    organization_id: str = None,
-    user_id: str = None,
-) -> models.TestContext:
-    """Create test_context."""
-    return create_item(db, models.TestContext, test_context, organization_id, user_id)
-
-
-def update_test_context(
-    db: Session,
-    test_context_id: uuid.UUID,
-    test_context: schemas.TestContextUpdate,
-    organization_id: str = None,
-    user_id: str = None,
-) -> Optional[models.TestContext]:
-    """Update test_context."""
-    return update_item(
-        db, models.TestContext, test_context_id, test_context, organization_id, user_id
-    )
-
-
-def delete_test_context(
-    db: Session, test_context_id: uuid.UUID, organization_id: str, user_id: str
-) -> Optional[models.TestContext]:
-    return delete_item(
-        db, models.TestContext, test_context_id, organization_id=organization_id, user_id=user_id
     )
 
 

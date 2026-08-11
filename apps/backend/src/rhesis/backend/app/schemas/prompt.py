@@ -32,15 +32,3 @@ class PromptUpdate(PromptBase):
 # Read schema (optional, if it contains extra fields)
 class Prompt(PromptBase):
     pass
-
-
-class PromptView(Base):
-    content: str
-    category: Optional[str] = None
-    attack_category: Optional[str] = None
-    topic: Optional[str] = None
-    language_code: str
-    behavior: Optional[str] = None
-    expected_response: Optional[str] = None
-    source: Optional[str] = None
-    status: Optional[str] = None
