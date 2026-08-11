@@ -173,6 +173,22 @@ CASES: list[tuple[str, ProductProfile, dict[str, str]]] = [
         },
     ),
     (
+        "implanted infusion pump with firmware - physical, despite containing software",
+        profile(
+            intended_purpose="Delivers medication to treat chronic spasticity.",
+            product_description="An implanted infusion pump with onboard firmware and a catheter.",
+            contains_software="yes",
+            influences_clinical_decision="no",
+            invasiveness="surgically invasive, implanted",
+            duration_of_use="long term",
+        ),
+        {
+            "product_family": "medical_device",
+            "eu_classification": "eu_device_invasive_long_term",
+            "conformity_route": "eu_notified_body",
+        },
+    ),
+    (
         "biopsy needle - invasive but transient, so the lowest invasive band",
         profile(
             intended_purpose="Takes a tissue sample to support diagnosis of a lesion.",
@@ -451,6 +467,37 @@ def test_ai_act_stacks_without_changing_the_device_class() -> None:
     assert plain.branches["ai_act_stack"] == "no_ai"
     assert stacked.branches["ai_act_stack"] == "ai_high_risk"
     assert "EU-AI-HIGHRISK-006" in stacked.node_ids
+
+
+def test_containing_software_does_not_make_a_device_software() -> None:
+    """Most physical devices now contain software; only software-only products take Rule 11.
+
+    Routing an implantable down the software path skips Rules 5-8 entirely, so its invasiveness
+    and duration - the facts that actually set its class - would be collected and then ignored.
+    """
+    hardware = {
+        "intended_purpose": "Delivers medication to treat chronic spasticity.",
+        "product_description": "An implanted infusion pump with onboard firmware.",
+        "contains_software": "yes",
+        "influences_clinical_decision": "no",
+        "invasiveness": "surgically invasive, implanted",
+        "duration_of_use": "long term",
+    }
+    physical = classify(profile(**hardware))
+    assert physical.branches["product_family"] == "medical_device"
+    assert physical.branches["eu_classification"] == "eu_device_invasive_long_term"
+
+    # The same answers with no hardware in the description stay on the software path.
+    software = classify(
+        profile(
+            intended_purpose="Recommends a medication dose to treat chronic spasticity.",
+            product_description="A cloud service used by clinicians.",
+            contains_software="yes",
+            influences_clinical_decision="yes",
+        )
+    )
+    assert software.branches["product_family"] == "software_medical_device"
+    assert software.branches["eu_classification"].startswith("eu_software_rule11")
 
 
 def test_duration_of_use_changes_the_class_of_an_invasive_device() -> None:

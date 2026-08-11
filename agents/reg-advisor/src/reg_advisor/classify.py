@@ -16,7 +16,7 @@ from typing import NamedTuple
 from pydantic import BaseModel, Field
 
 from reg_advisor.knowledge import KnowledgeBase, get_knowledge_base
-from reg_advisor.state import ProductProfile
+from reg_advisor.state import ProductProfile, supplies_own_hardware
 from reg_advisor.utils import as_text, as_tristate, bullet_list, matches_any
 
 # --- keyword vocabularies ----------------------------------------------------------------
@@ -374,6 +374,11 @@ def _branch_product_family(profile: ProductProfile) -> _Branch:
     if as_tristate(profile.examines_specimens) is True or _any(haystack, _IVD):
         return "ivd"
     if as_tristate(profile.contains_software) is True or _any(haystack, _SOFTWARE):
+        # "Contains software" is not enough to make it software: most physical devices now do.
+        # An infusion pump with firmware belongs under the invasive rules, where duration and
+        # invasiveness set its class, not under Rule 11.
+        if supplies_own_hardware(profile):
+            return "medical_device"
         return "software_medical_device"
     if as_tristate(profile.contains_software) is False:
         return "medical_device"

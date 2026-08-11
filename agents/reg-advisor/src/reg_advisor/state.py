@@ -47,10 +47,12 @@ PROFILE_FIELDS: tuple[str, ...] = (
 _IVD_PLAUSIBLE = ("ivd", "in vitro", "diagnostic*", "assay*", "test*", "specimen*", "sample*")
 
 _SOFTWARE_HINTS = ("software", "app", "apps", "saas", "algorithm*", "samd", "cloud", "platform")
-# Words that mean there is something physical to classify. "device" is deliberately absent:
-# "software as a medical device" is still software only.
+# Any hint of something physical, used only to decide whether to ask about invasiveness and
+# duration. Deliberately broad: over-asking costs the user one question. "device" is absent
+# because "software as a medical device" is still software only.
 _HARDWARE_HINTS = (
     "hardware",
+    "firmware",
     "wearable*",
     "sensor*",
     "instrument*",
@@ -63,6 +65,46 @@ _HARDWARE_HINTS = (
     "electrode*",
     "accessory",
     "physical component*",
+    "pump*",
+    "catheter*",
+    "needle*",
+    "syringe*",
+    "stent*",
+    "valve*",
+    "tubing",
+    "dressing*",
+    "pacing lead*",
+    "handheld",
+    "implanted",
+    "implantable",
+)
+
+# Hardware the manufacturer clearly supplies, used to decide the product family. Narrower than
+# the list above on purpose: over-asking a question is cheap, but routing an implantable down
+# the software path gives it the wrong class. "sensor", "wearable" and "patch" are absent
+# because software routinely reads *from* those without shipping them.
+_SUPPLIED_HARDWARE = (
+    "hardware",
+    "firmware",
+    "implanted",
+    "implantable",
+    "pump*",
+    "catheter*",
+    "needle*",
+    "syringe*",
+    "stent*",
+    "valve*",
+    "tubing",
+    "dressing*",
+    "pacing lead*",
+    "electrode*",
+    "cartridge*",
+    "probe*",
+    "instrument*",
+    "cuff",
+    "enclosure",
+    "housing",
+    "handheld",
 )
 
 _LABELS: dict[str, str] = {
@@ -126,17 +168,35 @@ def _is_blank(value: str | None) -> bool:
     return not as_text(value).strip()
 
 
-def _looks_software_only(profile: ProductProfile) -> bool:
-    """True when nothing about this product suggests physical hardware."""
+def _described(profile: ProductProfile) -> str:
+    return f"{as_text(profile.product_description)} {as_text(profile.product_family)}"
+
+
+def is_software_only(profile: ProductProfile) -> bool:
+    """True when nothing about this product suggests physical hardware.
+
+    Used to decide whether invasiveness and duration are worth asking about, so it errs toward
+    "physical": one extra question is cheaper than a missing answer.
+    """
     if as_tristate(profile.contains_software) is False:
         return False
-    described = f"{as_text(profile.product_description)} {as_text(profile.product_family)}"
     # "an app paired with a wearable sensor" is not software only, so hardware words win.
-    if matches_any(described, _HARDWARE_HINTS):
+    if matches_any(_described(profile), _HARDWARE_HINTS):
         return False
     if as_tristate(profile.contains_software) is True:
         return True
     return matches_any(as_text(profile.product_family), _SOFTWARE_HINTS)
+
+
+def supplies_own_hardware(profile: ProductProfile) -> bool:
+    """True when the manufacturer appears to ship hardware, not just read from someone else's.
+
+    This decides the product family, so it uses the narrower vocabulary. Software that analyses
+    a signal "from a wrist sensor" is still software; an infusion pump with firmware is not.
+    Genuinely ambiguous wording — "our sensor" versus "a sensor" — is beyond keyword matching,
+    and lands on the software side by default.
+    """
+    return matches_any(_described(profile), _SUPPLIED_HARDWARE)
 
 
 def _ivd_still_plausible(profile: ProductProfile) -> bool:
@@ -157,7 +217,7 @@ def missing_core_profile_slots(state: RegAdvisorState) -> list[str]:
     profile = state.profile
     missing = [name for name in ALWAYS_CORE if _is_blank(getattr(profile, name))]
 
-    software_only = _looks_software_only(profile)
+    software_only = is_software_only(profile)
     physical = not software_only
 
     conditional_applies = {
@@ -253,6 +313,8 @@ __all__ = [
     "RegAdvisorState",
     "apply_profile_updates",
     "describe_profile",
+    "is_software_only",
+    "supplies_own_hardware",
     "missing_core_profile_slots",
     "profile_from_state",
     "state_from_payload",
