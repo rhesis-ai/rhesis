@@ -1,5 +1,6 @@
 import logging
 import uuid
+from typing import Optional
 
 from fastapi import Depends, HTTPException, Query, Response
 from fastapi.encoders import jsonable_encoder
