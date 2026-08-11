@@ -1,20 +1,43 @@
 """Shared schemas for agent structured outputs."""
 
 import json
+import logging
 from typing import Annotated, Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, BeforeValidator, Field, WithJsonSchema
 
 from rhesis.sdk.agents.constants import Action
 
+logger = logging.getLogger(__name__)
+
 
 def _parse_arguments(v: Any) -> Dict[str, Any]:
-    """Coerce JSON strings and other values to ``dict``."""
+    """Coerce JSON strings and other values to ``dict``.
+
+    Falls back to ``{}`` rather than raising, so one malformed argument
+    string cannot take down the whole ``AgentAction``. That fallback is
+    logged: dispatching a tool with no arguments produces a baffling
+    "field required" from the server, and the log is the only trace of
+    why the payload went missing.
+    """
     if isinstance(v, str):
         try:
-            return json.loads(v)
+            parsed = json.loads(v)
         except json.JSONDecodeError:
+            logger.error(
+                "Tool arguments were not valid JSON; dispatching with no "
+                "arguments. First 200 chars: %s",
+                v[:200],
+            )
             return {}
+        if not isinstance(parsed, dict):
+            logger.error(
+                "Tool arguments parsed to %s, expected an object; "
+                "dispatching with no arguments.",
+                type(parsed).__name__,
+            )
+            return {}
+        return parsed
     return v if isinstance(v, dict) else {}
 
 
