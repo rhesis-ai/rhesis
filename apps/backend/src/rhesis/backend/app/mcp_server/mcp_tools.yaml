@@ -107,20 +107,39 @@ tools:
         description: "Detailed description of the test set's purpose (string)"
       short_description:
         description: "Brief summary, one line (string)"
+      test_set_type:
+        description: >
+          REQUIRED. "Single-Turn" or "Multi-Turn". Must match the
+          test_type of the tests in the array. A Multi-Turn test set
+          must contain Multi-Turn tests; a Single-Turn test set must
+          contain Single-Turn tests.
       priority:
         description: >
           Integer priority value (e.g. 1, 2, 3). Must be an integer, NOT
           a string like "High" or "Low". Omit if unsure.
       tests:
         description: >
-          REQUIRED array of test objects (must not be empty). Each object:
-          {"prompt": {"content": "the test prompt text",
-          "language_code": "en", "expected_response": "optional expected
-          answer"}, "behavior": "behavior name", "category": "category
-          name", "topic": "topic name"}. behavior/category/topic are
-          plain-text names (not UUIDs) — the server resolves or creates
-          them automatically. Use list_behaviors, list_categories, and
-          list_topics to discover existing values first.
+          REQUIRED array of test objects (must not be empty). The object
+          format depends on the test type.
+
+          Single-Turn test: {"prompt": {"content": "the test prompt
+          text", "language_code": "en", "expected_response": "optional
+          expected answer"}, "behavior": "behavior name", "category":
+          "category name", "topic": "topic name"}.
+
+          Multi-Turn test: {"test_type": "Multi-Turn",
+          "test_configuration": {"goal": "what the target SHOULD do
+          (required)", "instructions": "how to conduct the test
+          (optional)", "restrictions": "what the target MUST NOT do
+          (optional)", "scenario": "context and persona (optional)",
+          "max_turns": 10}, "behavior": "behavior name", "category":
+          "category name", "topic": "topic name"}. Multi-Turn tests
+          use test_configuration instead of prompt — do NOT send both.
+
+          behavior/category/topic are plain-text names (not UUIDs) —
+          the server resolves or creates them automatically. Use
+          list_behaviors, list_categories, and list_topics to discover
+          existing values first.
 
   - name: generate_test_set
     label: Generating test set
@@ -137,7 +156,7 @@ tools:
       get_test_set + list_test_set_tests to verify content → offer
       execute_test_set. For grounded tests, pass source IDs from
       list_sources or create_source in the sources parameter.
-      Supports both single-turn and multi-turn test generation via the
+      Supports both Single-Turn and Multi-Turn test generation via the
       test_type parameter.
       PRECONDITION: when a saved plan is in effect, every behavior,
       metric, and behavior→metric mapping in the plan must be marked
@@ -168,10 +187,13 @@ tools:
           range: 3–20 per test set.
       test_type:
         description: >
-          "Single-Turn" or "Multi-Turn". Single-turn tests send one
-          prompt and evaluate the response. Multi-turn tests generate
-          a goal and instructions for a multi-turn conversation.
-          Default: "Single-Turn".
+          "Single-Turn" or "Multi-Turn". MUST match the plan's
+          test_type for this test set — if the plan says Multi-Turn,
+          pass "Multi-Turn" here. Single-Turn tests generate a prompt
+          and evaluate the response. Multi-Turn tests generate a goal
+          and instructions that drive a conversation over several
+          turns. Default: "Single-Turn" — you MUST override this for
+          Multi-Turn sets.
       name:
         description: >
           Name for the generated test set (string). Use the test set
@@ -184,8 +206,8 @@ tools:
           by ID automatically and injects it into the synthesizer — do NOT
           attempt to load or pass source content yourself. Use list_sources
           to discover available sources and pass their IDs here.
-          LIMITATION: only single-turn test generation uses sources.
-          Multi-turn tests currently ignore this parameter.
+          LIMITATION: only Single-Turn test generation uses sources.
+          Multi-Turn tests currently ignore this parameter.
 
   - name: execute_test_set
     label: Running test set
@@ -564,7 +586,7 @@ tools:
           REQUIRED, and rejected if missing or empty. Non-empty list of
           strings, each exactly "Single-Turn" or "Multi-Turn". This decides
           which tests the metric is evaluated against: a Single-Turn metric
-          is skipped on multi-turn tests and vice versa, so a wrong value
+          is skipped on Multi-Turn tests and vice versa, so a wrong value
           means the metric silently never runs. Use ["Multi-Turn"] for
           conversation-level metrics, ["Single-Turn"] for single
           request-response metrics, and both only when the metric genuinely
@@ -1074,7 +1096,7 @@ tools:
       $filter=contains(tolower(title), 'keyword'). The agent should
       NEVER fetch source content — pass IDs directly to generate_test_set
       and the backend handles content injection. CHAIN: if no match,
-      create_source then pass new id to generate_test_set (single-turn only).
+      create_source then pass new id to generate_test_set (Single-Turn only).
     parameters:
       filter:
         description: >
@@ -1090,7 +1112,7 @@ tools:
       Create a knowledge source for grounding test generation. ENTITY: Source.
       PREREQUISITES: copy source_type_id from list_sources (same type) or
       from an existing source of that type. CHAIN: after create, pass
-      [{"id": "<uuid>"}] to generate_test_set sources (single-turn only).
+      [{"id": "<uuid>"}] to generate_test_set sources (Single-Turn only).
       For pasted text: title + content (Manual type). For URLs: title + url
       (Website type). NEVER fetch or pass raw content to generate_test_set —
       only the ID. File uploads require the UI (POST /sources/upload not
