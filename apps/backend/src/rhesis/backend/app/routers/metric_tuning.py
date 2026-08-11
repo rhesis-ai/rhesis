@@ -53,9 +53,7 @@ def _resolve_metric_or_raise(
     A framework-provided metric has a prompt the organization does not own, so
     there is nothing for a tuning case to be tuning.
     """
-    metric = get_metric(
-        db, metric_id=metric_id, organization_id=organization_id, user_id=user_id
-    )
+    metric = get_metric(db, metric_id=metric_id, organization_id=organization_id, user_id=user_id)
     if metric is None:
         raise HTTPException(status_code=404, detail="Metric not found")
 
