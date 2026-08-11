@@ -273,13 +273,17 @@ def _tr_dimension(dimension: str, filters, months, start_date, end_date) -> Dict
     }
 
 
+_METRIC_ENTITY_FILTER_KEYS = frozenset({"test_run_ids", "behavior_ids", "test_ids", "metric_names"})
+
+
 def _tr_metric(filters, months, start_date, end_date) -> Dict[str, MetricStats]:
     """Pass/fail rates grouped by metric name (entity=metric, not test_result)."""
+    metric_filters = {k: v for k, v in filters.items() if k in _METRIC_ENTITY_FILTER_KEYS}
     resp = Insights(
         entity="metric",
         group_by=["metric_name"],
         measures=["count", "passed", "failed", "pass_rate"],
-        filters=filters,
+        filters=metric_filters,
         months=months,
         start_date=start_date,
         end_date=end_date,

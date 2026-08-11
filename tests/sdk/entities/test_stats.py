@@ -461,6 +461,25 @@ def test_test_results_stats_metric_pass_rates(mock_insights_cls):
 
 
 @patch("rhesis.sdk.entities.stats.Insights")
+def test_test_results_stats_metric_query_drops_unsupported_filters(mock_insights_cls):
+    """The metric entity only accepts test_run_ids/behavior_ids/test_ids/metric_names --
+    passing category_ids etc. must not get forwarded and 400 the metric query."""
+    _mock_test_result_insights(mock_insights_cls)
+
+    from rhesis.sdk.entities.test_result import TestResults
+
+    TestResults.stats(
+        behavior_ids=["b1"],
+        category_ids=["c1"],
+        topic_ids=["t1"],
+        tags=["safety"],
+    )
+
+    metric_call = mock_insights_cls.call_args_list[4]
+    assert metric_call.kwargs["filters"] == {"behavior_ids": ["b1"]}
+
+
+@patch("rhesis.sdk.entities.stats.Insights")
 def test_test_results_stats_ids_mode(mock_insights_cls):
     """ids is a single Insights(...).ids() call, folded into the default set."""
     _mock_test_result_insights(mock_insights_cls, ids=["tr-1", "tr-2"])
@@ -507,12 +526,17 @@ def test_test_results_stats_passes_filters(mock_insights_cls):
         tags=["safety"],
     )
 
-    for _, kwargs in mock_insights_cls.call_args_list:
-        assert kwargs["filters"] == {
-            "topic_ids": ["t1", "t2"],
-            "behavior_ids": ["b1"],
-            "tags": ["safety"],
-        }
+    full_filters = {
+        "topic_ids": ["t1", "t2"],
+        "behavior_ids": ["b1"],
+        "tags": ["safety"],
+    }
+    # overall, behavior, category, topic, ids get the full filter set; metric (index 4)
+    # only gets the subset its entity supports -- see test_..._drops_unsupported_filters.
+    calls = mock_insights_cls.call_args_list
+    for _, kwargs in calls[:4] + calls[5:]:
+        assert kwargs["filters"] == full_filters
+    assert calls[4].kwargs["filters"] == {"behavior_ids": ["b1"]}
 
 
 def test_test_results_stats_priority_filter_raises():

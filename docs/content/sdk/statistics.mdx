@@ -20,7 +20,7 @@ stats = Insights(
 for row in stats.rows:
     print(f"{row['behavior']}: {row['passed']}/{row['count']} ({row['pass_rate']}%)")
 
-# Distinct test IDs matching a filter, e.g. for drill-down from a chart
+# Distinct test IDs (not test_result IDs) matching a filter, e.g. for drill-down from a chart
 failed_ids = Insights(entity="test_result", filters={"test_run_ids": ["your-run-id"]}).ids(outcome="fail").ids`}
 </CodeBlock>
 
@@ -100,8 +100,8 @@ run_stats = TestRuns.stats(months=6)
 timeline_df = run_stats.to_dataframe("timeline")
 print(timeline_df)
 #       date  total_runs                      result_breakdown
-# 0  2026-01          10  {'passed': 8, 'failed': 2, 'pending': 0}
-# 1  2026-02          15  {'passed': 12, 'failed': 3, 'pending': 0}
+# 0  2026-01          10  {'passed': 8, 'failed': 2, 'other': 0}
+# 1  2026-02          15  {'passed': 12, 'failed': 3, 'other': 0}
 
 # Topic pass rates as a DataFrame (dict sections use the key as index)
 result_stats = TestResults.stats()
