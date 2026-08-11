@@ -311,6 +311,168 @@ class TestToolCallSchema:
         tc = ToolCall(tool_name="test", arguments="not json")
         assert tc.arguments == {}
 
+    def test_invalid_json_is_logged(self, caplog):
+        """Silently dropping the payload makes the server's 422 unreadable."""
+        with caplog.at_level("ERROR", logger="rhesis.sdk.agents.schemas"):
+            ToolCall(tool_name="test", arguments="{broken")
+        assert "not valid JSON" in caplog.text
+
+    def test_valid_json_non_object_becomes_empty_dict(self):
+        """A bare list parses fine but would otherwise fail ToolCall validation."""
+        tc = ToolCall(tool_name="test", arguments="[1, 2]")
+        assert tc.arguments == {}
+
     def test_default_is_empty_dict(self):
         tc = ToolCall(tool_name="test")
         assert tc.arguments == {}
+
+
+@pytest.mark.unit
+class TestFormatTools:
+    """Test the tool descriptions rendered into the iteration prompt."""
+
+    @pytest.fixture
+    def agent(self):
+        model = Mock(spec=BaseLLM)
+        model.a_generate = AsyncMock(return_value={})
+        return _make_agent(model)
+
+    @staticmethod
+    def _tool(properties, required=None):
+        schema = {"type": "object", "properties": properties}
+        if required:
+            schema["required"] = required
+        return [{"name": "t", "description": "d", "inputSchema": schema}]
+
+    def test_no_tools(self, agent):
+        assert agent._format_tools([]) == "(no tools available)"
+
+    def test_top_level_params_and_required_flag(self, agent):
+        out = agent._format_tools(
+            self._tool({"name": {"type": "string", "description": "The name"}}, ["name"])
+        )
+        assert "name: string (required)  -- The name" in out
+
+    def test_server_managed_fields_excluded(self, agent):
+        out = agent._format_tools(self._tool({"id": {"type": "string"}, "x": {"type": "string"}}))
+        assert "id:" not in out
+        assert "x: string" in out
+
+    def test_nested_id_is_kept(self, agent):
+        """A nested 'id' is a reference, not a server-managed field.
+
+        generate_test_set's sources items carry only an id — hiding it
+        would contradict the tool description.
+        """
+        out = agent._format_tools(
+            self._tool(
+                {
+                    "sources": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {"id": {"type": "string"}},
+                            "required": ["id"],
+                        },
+                    }
+                }
+            )
+        )
+        assert "id: string (required)" in out
+
+    def test_array_item_properties_are_expanded(self, agent):
+        """The 'tests: array[object]' case — item fields must be visible."""
+        out = agent._format_tools(
+            self._tool(
+                {
+                    "tests": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "behavior": {"type": "string"},
+                                "category": {"type": "string"},
+                            },
+                            "required": ["behavior", "category"],
+                        },
+                    }
+                },
+                ["tests"],
+            )
+        )
+        assert "tests: array[object] (required)" in out
+        assert "Each item:" in out
+        assert "behavior: string (required)" in out
+        assert "category: string (required)" in out
+
+    def test_nested_object_properties_are_expanded(self, agent):
+        out = agent._format_tools(
+            self._tool(
+                {
+                    "config": {
+                        "type": "object",
+                        "properties": {"generation_prompt": {"type": "string"}},
+                    }
+                }
+            )
+        )
+        assert "generation_prompt: string" in out
+
+    def test_optional_wrapper_is_unwrapped(self, agent):
+        """Optional[Model] arrives as anyOf[Model, null] and must still expand."""
+        out = agent._format_tools(
+            self._tool(
+                {
+                    "prompt": {
+                        "anyOf": [
+                            {
+                                "type": "object",
+                                "properties": {"content": {"type": "string"}},
+                                "required": ["content"],
+                            },
+                            {"type": "null"},
+                        ]
+                    }
+                }
+            )
+        )
+        assert "content: string (required)" in out
+
+    def test_recursion_stops_at_max_depth(self, agent):
+        """Three levels below the top — enough for tests[].prompt.content — then stop."""
+        deep = {
+            "type": "object",
+            "properties": {
+                "l1": {
+                    "type": "object",
+                    "properties": {
+                        "l2": {
+                            "type": "object",
+                            "properties": {
+                                "l3": {
+                                    "type": "object",
+                                    "properties": {"l4": {"type": "string"}},
+                                }
+                            },
+                        }
+                    },
+                }
+            },
+        }
+        out = agent._format_tools([{"name": "t", "description": "d", "inputSchema": deep}])
+        assert "l1: object" in out
+        assert "l2: object" in out
+        assert "l3: object" in out
+        assert "l4:" not in out
+
+    def test_dict_any_object_has_nothing_to_expand(self, agent):
+        """Dict[str, Any] renders as a bare object with no invented fields."""
+        out = agent._format_tools(self._tool({"metadata": {"type": "object"}}))
+        assert "metadata: object" in out
+        assert "Each item:" not in out
+
+    def test_enum_renders_literals(self, agent):
+        out = agent._format_tools(
+            self._tool({"test_type": {"type": "string", "enum": ["Single-Turn", "Multi-Turn"]}})
+        )
+        assert 'test_type: "Single-Turn" | "Multi-Turn"' in out
