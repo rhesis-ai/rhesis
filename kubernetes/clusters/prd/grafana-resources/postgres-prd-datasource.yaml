@@ -17,9 +17,10 @@ spec:
     type: postgres
     access: proxy
     url: rhesis-prd-ro.rhesis.svc:5432
-    database: rhesis-prd-db
     user: grafana-viewer
+    isDefault: true
     jsonData:
+      database: rhesis-prd-db
       sslmode: disable
       postgresVersion: 1700
     editable: false
