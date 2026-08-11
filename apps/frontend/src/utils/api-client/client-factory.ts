@@ -18,6 +18,7 @@ import { CategoryClient } from './category-client';
 import { TypeLookupClient } from './type-lookup-client';
 import { TestResultsClient } from './test-results-client';
 import { MetricsClient } from './metrics-client';
+import { MetricTuningClient } from './metric-tuning-client';
 import { ModelsClient } from './models-client';
 import { TagsClient } from './tags-client';
 import { CommentsClient } from './comments-client';
@@ -186,6 +187,11 @@ export class ApiClientFactory {
       );
     }
     return this.metricsClient;
+  }
+
+  /** Experimental — see metric-tuning-client.ts. */
+  getMetricTuningClient(): MetricTuningClient {
+    return new MetricTuningClient(this.sessionToken, undefined, this.projectId);
   }
 
   getModelsClient(): ModelsClient {
