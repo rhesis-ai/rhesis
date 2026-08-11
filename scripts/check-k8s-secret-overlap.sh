@@ -18,9 +18,12 @@ FAILED=0
 
 for env in dev stg prd; do
   secrets_file="kubernetes/clusters/$env/external-secrets/rhesis-app-secrets.yaml"
+  # --show-only isolates the chart's own ConfigMap template, not the raw combined
+  # output — a plain `awk '/kind: ConfigMap/,/^---/'` would also catch subchart
+  # ConfigMaps (postgresql/valkey/otel), whichever renders first.
   cm_keys=$(
     helm template rhesis charts/rhesis -f "charts/rhesis/values-$env.yaml" \
-      | awk '/kind: ConfigMap/,/^---/' \
+      --show-only templates/configmap.yaml \
       | grep -oE '^  [A-Z][A-Z0-9_]+:' | tr -d ' :' | sort -u
   )
   secret_keys=$(
