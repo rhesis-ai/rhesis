@@ -1,0 +1,98 @@
+# EU to US comparison and false friends, from section D4 of the reference taxonomy.
+#
+# A "false friend" is a pair of terms that look equivalent and are not. These are what routinely
+# trip up startups entering both markets, so the briefing surfaces them by name.
+
+version: "1.0"
+verified_on: "2026-08-11"
+
+comparisons:
+  - concept: "Risk classes"
+    eu: "MDR Class I / IIa / IIb / III; IVDR Class A / B / C / D"
+    us: "Class I / II / III"
+    false_friend: "EU Class IIa is not US Class II. The axes differ and the ladders do not map 1:1."
+    nodes: ["EU-MD-CLASS-ANNEXVIII", "EU-IVD-CLASS-ANNEXVIII", "US-MD-CLASS-PRODCODE"]
+
+  - concept: "Premarket review"
+    eu: "Notified body conformity assessment leading to CE marking"
+    us: "FDA 510(k), De Novo or PMA"
+    false_friend: "'Approval' means different things. A CE mark is not an FDA-style approval, and a 510(k) gives clearance, not approval."
+    nodes: ["EU-MD-CONF-NB", "US-MD-PATH-510K", "US-MD-PATH-PMA"]
+
+  - concept: "Local representative"
+    eu: "Authorised Representative with legal duties under MDR Art. 11"
+    us: "US Agent for a foreign establishment"
+    false_friend: "The US agent is a communication conduit. The EU authorised representative carries legal responsibilities and can be held to them."
+    nodes: ["EU-MD-ECON-010", "US-MD-REG-807"]
+
+  - concept: "Clinical decision support software"
+    eu: "MDR Annex VIII Rule 11 pushes it to Class IIa or higher"
+    us: "Cures Act Sec. 3060 excludes qualifying Non-Device CDS from the device definition entirely"
+    false_friend: "The same product can be unregulated in the US and Class IIb in the EU. This is the single largest divergence in the two systems."
+    nodes: ["EU-MD-CLASS-011", "US-SW-CDS-3060"]
+
+  - concept: "Quality management system"
+    eu: "MDR Art. 10(8), in practice ISO 13485"
+    us: "QMSR - ISO 13485:2016 incorporated by reference plus FDA supplemental provisions"
+    false_friend: "QMSR is not ISO 13485 exactly. An ISO certificate is neither required nor sufficient for FDA."
+    nodes: ["EU-MD-QMS-13485", "US-QMSR-820"]
+
+  - concept: "Combination products"
+    eu: "Integral products need an Art. 117 Notified Body Opinion"
+    us: "Primary mode of action decides the lead centre, via a Request for Designation"
+    false_friend: "Two different determinative tests. They can point in different directions for the same product."
+    nodes: ["EU-COMB-ART117", "US-COMB-PMOA-3"]
+
+  - concept: "Clinical trials for medicines"
+    eu: "Regulation (EU) 536/2014 through the CTIS portal"
+    us: "IND under 21 CFR Part 312"
+    false_friend: "One EU submission covers up to 30 EU/EEA states. A US IND covers one country."
+    nodes: ["EU-MP-CTR-536", "US-MP-IND-312"]
+
+  - concept: "Biosimilars"
+    eu: "EMA comparability framework, in place since 2006"
+    us: "PHS Act Sec. 351(k) under the BPCIA, since 2010"
+    false_friend: "'Interchangeability' is a distinct US legal status. The EU handles substitution nationally and has no equivalent designation."
+    nodes: ["EU-MP-AUTH-CENTRAL", "US-MP-BLA-351"]
+
+  - concept: "AI regulation"
+    eu: "The horizontal AI Act stacks on top of the MDR and IVDR"
+    us: "No horizontal AI statute; the device authorities plus the PCCP mechanism"
+    false_friend: "The EU adds a whole regime the US does not have. It stacks on the MDR - it does not replace it, and it does not change the device's risk class."
+    nodes: ["EU-AI-HIGHRISK-006", "US-AI-PCCP"]
+
+  - concept: "Laboratory developed tests"
+    eu: "No LDT concept; the closest analogue is the in-house device provision"
+    us: "LDTs remain under CLIA with CMS after FDA's rule was vacated and rescinded in 2025"
+    false_friend: "CLIA regulates the laboratory, not the test as a product. It answers a different question from IVDR conformity assessment."
+    nodes: ["US-IVD-LDT-8093", "US-IVD-CLIA-493", "EU-IVD-QUAL-002"]
+
+  - concept: "Wellness products"
+    eu: "Simply outside the MDR - there is no statutory wellness carve-out because none is needed"
+    us: "General Wellness guidance, an enforcement discretion policy"
+    false_friend: "US enforcement discretion is a policy choice that can be withdrawn. EU non-qualification is a matter of definition."
+    nodes: ["EU-WELLNESS-OUTSIDE", "US-WELLNESS-GUIDANCE"]
+
+  - concept: "Standards"
+    eu: "Harmonised standards cited in the Official Journal confer a presumption of conformity"
+    us: "FDA-recognised consensus standards support a Declaration of Conformity"
+    false_friend: "The same standard can be both, with different legal effect. A presumption of conformity is stronger than a Declaration of Conformity."
+    nodes: ["EU-STD-HARMONISED", "US-STD-RECOGNISED"]
+
+  - concept: "Health data protection"
+    eu: "GDPR - activity-based, health data is a special category under Art. 9"
+    us: "HIPAA - entity-based, applying to covered entities and business associates"
+    false_friend: "A direct-to-consumer app is usually outside HIPAA but squarely inside GDPR. Being outside HIPAA is not being unregulated."
+    nodes: ["EU-DATA-GDPR-009", "US-DATA-HIPAA-164"]
+
+  - concept: "Post-market vigilance"
+    eu: "Serious incident and FSCA reporting under MDR Arts. 87-92, plus PMS and PSUR"
+    us: "Medical Device Reporting under 21 CFR Part 803, plus corrections and removals under Part 806"
+    false_friend: "Separate clocks and separate thresholds. One global process built to EU timelines will miss US deadlines."
+    nodes: ["EU-MD-VIG-087", "US-MD-MDR-803"]
+
+  - concept: "Product liability"
+    eu: "Revised Product Liability Directive; strict liability extended to software"
+    us: "State tort law, with federal preemption for PMA-approved devices after Riegel v. Medtronic"
+    false_friend: "There is no EU equivalent to US federal preemption of tort claims."
+    nodes: ["EU-LIABILITY-PLD", "US-LIABILITY-PREEMPTION"]

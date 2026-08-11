@@ -1,0 +1,2165 @@
+# EU & US health product regulation taxonomy.
+#
+# Source: "EU & US Health Product Regulation - Reference Taxonomy (v1.0, verified 11 Aug 2026)",
+# sections D1 and D2. The four nodes D2 emitted (EU-MD-CLASS-011, US-SW-CDS-3060, US-QMSR-820,
+# EU-AI-HIGHRISK-006) keep their field values; only their `related_nodes` lists grew, because D2
+# could only cross-link the four nodes it emitted. The rest are authored to the same schema so
+# every decision-tree terminal resolves to a real node.
+#
+# `parent_id` names a grouping, not necessarily another node — this follows the source document,
+# where nodes hang off group ids like `EU-MD-CLASS` that are not themselves emitted.
+#
+# NOT LEGAL ADVICE. Verify every citation against the primary source before relying on it.
+
+version: "1.0"
+verified_on: "2026-08-11"
+
+nodes:
+  # --- EU medical devices: qualification and classification -------------------------------
+
+  - id: "EU-MD-QUAL-002"
+    name: "MDR device definition and intended purpose"
+    parent_id: "EU-MD-QUAL"
+    jurisdiction: "EU"
+    product_families: ["medical_devices", "SaMD", "combination_products"]
+    lifecycle_phase: ["qualification_classification"]
+    instrument:
+      type: "Regulation"
+      citation: "Regulation (EU) 2017/745, Art. 2(1) and Art. 2(12)"
+      binding: true
+      url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02017R0745"
+    status:
+      in_force: true
+      applicable_from: "2021-05-26"
+      transition_provisions: ""
+      amended_by: ["Regulation (EU) 2023/607"]
+      verified_on: "2026-08-11"
+    scope_trigger: "Product with a medical intended purpose that does not achieve its principal action by pharmacological, immunological or metabolic means"
+    obligation_summary: "Qualifies as a medical device. The manufacturer's stated intended purpose (Art. 2(12)) decides the regime, so the claim is the load-bearing fact"
+    responsible_actor: ["manufacturer"]
+    evidence_artifacts: ["intended purpose statement", "qualification rationale", "labelling and promotional claims"]
+    competent_authority: ["national competent authority"]
+    timing: "Before placing on market"
+    consequences_of_noncompliance: "Unqualified device on the market; enforcement action and withdrawal"
+    related_nodes: ["EU-MD-CLASS-ANNEXVIII", "EU-MP-QUAL-001", "US-MD-QUAL-201H"]
+    common_pitfalls: "Adding a medical claim such as 'detects atrial fibrillation' converts a wellness product into a device"
+    confidence: "high"
+    notes: "A principal pharmacological, immunological or metabolic action makes the product a medicine instead"
+
+  - id: "EU-MD-QUAL-SW"
+    name: "Software qualification as a medical device (MDCG 2019-11)"
+    parent_id: "EU-MD-QUAL"
+    jurisdiction: "EU"
+    product_families: ["SaMD", "AI_ML", "digital_health"]
+    lifecycle_phase: ["qualification_classification"]
+    instrument:
+      type: "Guidance"
+      citation: "MDCG 2019-11, read with Regulation (EU) 2017/745, Art. 2(1)"
+      binding: false
+      url: "https://health.ec.europa.eu/document/download/mdcg-2019-11"
+    status:
+      in_force: true
+      applicable_from: "2019-10-01"
+      transition_provisions: ""
+      amended_by: []
+      verified_on: "2026-08-11"
+    scope_trigger: "Software that performs an action on data beyond storage, archival, communication or simple search, for the benefit of an individual patient"
+    obligation_summary: "Software meeting the test qualifies as a medical device and must then be classified under Annex VIII"
+    responsible_actor: ["manufacturer"]
+    evidence_artifacts: ["software qualification rationale", "intended purpose statement", "description of data processing"]
+    competent_authority: ["national competent authority", "notified body"]
+    timing: "Before placing on market"
+    consequences_of_noncompliance: "Unqualified software device on the market; CE mark refused"
+    related_nodes: ["EU-MD-QUAL-002", "EU-MD-CLASS-011", "US-SW-CDS-3060"]
+    common_pitfalls: "Treating any software touching health data as a device, or assuming a pure data-display function is one"
+    confidence: "high"
+    notes: "MDCG guidance is non-binding; the binding test is the Art. 2(1) definition"
+
+  - id: "EU-MD-CLASS-ANNEXVIII"
+    name: "MDR Annex VIII classification rules"
+    parent_id: "EU-MD-CLASS"
+    jurisdiction: "EU"
+    product_families: ["medical_devices", "SaMD", "AI_ML"]
+    lifecycle_phase: ["qualification_classification"]
+    instrument:
+      type: "Regulation"
+      citation: "Regulation (EU) 2017/745, Annex VIII (22 rules, implementing rule 3.5)"
+      binding: true
+      url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02017R0745"
+    status:
+      in_force: true
+      applicable_from: "2021-05-26"
+      transition_provisions: ""
+      amended_by: ["Regulation (EU) 2023/607"]
+      verified_on: "2026-08-11"
+    scope_trigger: "Any product qualifying as a medical device under Art. 2(1)"
+    obligation_summary: "22 rules in four groups (non-invasive 1-4, invasive 5-8, active 9-13, special 14-22) assign Class I, IIa, IIb or III; the strictest applicable rule governs (implementing rule 3.5)"
+    responsible_actor: ["manufacturer"]
+    evidence_artifacts: ["classification rationale", "technical documentation"]
+    competent_authority: ["notified body", "national competent authority"]
+    timing: "Before placing on market"
+    consequences_of_noncompliance: "Wrong conformity assessment route; CE mark invalid"
+    related_nodes: ["EU-MD-QUAL-002", "EU-MD-CLASS-011", "EU-MD-CLASS-NONINVASIVE", "EU-MD-CLASS-INVASIVE", "EU-MD-CLASS-ACTIVE", "EU-MD-CONF-CLASS1", "EU-MD-CONF-NB"]
+    common_pitfalls: "Applying one rule and stopping; the strictest of all applicable rules decides the class"
+    confidence: "high"
+    notes: "Classification determines conformity assessment route, notified body involvement, clinical evidence depth and PMS obligations"
+
+  - id: "EU-MD-CLASS-011"
+    name: "MDR Rule 11 - software classification"
+    parent_id: "EU-MD-CLASS"
+    jurisdiction: "EU"
+    product_families: ["medical_devices", "SaMD", "AI_ML"]
+    lifecycle_phase: ["qualification_classification"]
+    instrument:
+      type: "Regulation"
+      citation: "Regulation (EU) 2017/745, Annex VIII, Rule 11"
+      binding: true
+      url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02017R0745"
+    status:
+      in_force: true
+      applicable_from: "2021-05-26"
+      transition_provisions: "Legacy devices per Art. 120 as amended by Reg (EU) 2023/607"
+      amended_by: ["Regulation (EU) 2023/607", "COM(2025) 1023 proposal - not adopted"]
+      verified_on: "2026-08-11"
+    scope_trigger: "Software qualifying as a medical device that provides information used for diagnostic/therapeutic decisions or monitors physiological processes"
+    obligation_summary: "Class IIa minimum; IIb if serious deterioration/surgery; III if death/irreversible deterioration; monitoring vital parameters -> IIb"
+    responsible_actor: ["manufacturer"]
+    evidence_artifacts: ["classification rationale", "technical documentation", "clinical evaluation report"]
+    competent_authority: ["notified body", "national competent authority"]
+    timing: "Before placing on market"
+    consequences_of_noncompliance: "CE mark rejection, market withdrawal, enforcement"
+    related_nodes: ["US-SW-CDS-3060", "EU-AI-HIGHRISK-006", "EU-MD-QUAL-SW", "EU-MD-CONF-NB"]
+    common_pitfalls: "Assuming Class I; ignoring that AI stacks AI Act high-risk obligations"
+    confidence: "high"
+    notes: "Dec 2025 proposal may allow more MDSW into Class I - not adopted as of 2026-08-11"
+
+  - id: "EU-MD-CLASS-NONINVASIVE"
+    name: "MDR Annex VIII Rules 1-4 - non-invasive devices"
+    parent_id: "EU-MD-CLASS"
+    jurisdiction: "EU"
+    product_families: ["medical_devices"]
+    lifecycle_phase: ["qualification_classification"]
+    instrument:
+      type: "Regulation"
+      citation: "Regulation (EU) 2017/745, Annex VIII, Rules 1-4"
+      binding: true
+      url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02017R0745"
+    status:
+      in_force: true
+      applicable_from: "2021-05-26"
+      transition_provisions: ""
+      amended_by: []
+      verified_on: "2026-08-11"
+    scope_trigger: "Device that does not enter the body through a body orifice or the surface of the body"
+    obligation_summary: "Rules 1-4 assign the class for non-invasive devices; most are Class I, escalating with contact with injured skin, channelling or storing body liquids, or modifying body liquids"
+    responsible_actor: ["manufacturer"]
+    evidence_artifacts: ["classification rationale", "technical documentation"]
+    competent_authority: ["notified body", "national competent authority"]
+    timing: "Before placing on market"
+    consequences_of_noncompliance: "Wrong conformity assessment route; CE mark invalid"
+    related_nodes: ["EU-MD-CLASS-ANNEXVIII", "EU-MD-CONF-CLASS1"]
+    common_pitfalls: "Assuming non-invasive always means Class I"
+    confidence: "high"
+    notes: "The strictest applicable rule across all groups still governs"
+
+  - id: "EU-MD-CLASS-INVASIVE"
+    name: "MDR Annex VIII Rules 5-8 - invasive devices"
+    parent_id: "EU-MD-CLASS"
+    jurisdiction: "EU"
+    product_families: ["medical_devices"]
+    lifecycle_phase: ["qualification_classification"]
+    instrument:
+      type: "Regulation"
+      citation: "Regulation (EU) 2017/745, Annex VIII, Rules 5-8"
+      binding: true
+      url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02017R0745"
+    status:
+      in_force: true
+      applicable_from: "2021-05-26"
+      transition_provisions: ""
+      amended_by: []
+      verified_on: "2026-08-11"
+    scope_trigger: "Device that enters the body through a body orifice or the surface of the body, including surgically invasive and implantable devices"
+    obligation_summary: "Rules 5-8 assign the class for invasive devices; duration of use (transient, short term, long term) and implantable status drive the escalation to IIa, IIb or III"
+    responsible_actor: ["manufacturer"]
+    evidence_artifacts: ["classification rationale", "technical documentation", "clinical evaluation report"]
+    competent_authority: ["notified body"]
+    timing: "Before placing on market"
+    consequences_of_noncompliance: "Wrong conformity assessment route; CE mark invalid"
+    related_nodes: ["EU-MD-CLASS-ANNEXVIII", "EU-MD-CONF-NB", "EU-MD-CLINEVAL-061"]
+    common_pitfalls: "Reading duration of use from a single procedure rather than continuous intended use"
+    confidence: "high"
+    notes: "Implantable and long-term surgically invasive devices reach Class IIb or III"
+
+  - id: "EU-MD-CLASS-ACTIVE"
+    name: "MDR Annex VIII Rules 9-13 - active devices"
+    parent_id: "EU-MD-CLASS"
+    jurisdiction: "EU"
+    product_families: ["medical_devices", "SaMD"]
+    lifecycle_phase: ["qualification_classification"]
+    instrument:
+      type: "Regulation"
+      citation: "Regulation (EU) 2017/745, Annex VIII, Rules 9-13"
+      binding: true
+      url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02017R0745"
+    status:
+      in_force: true
+      applicable_from: "2021-05-26"
+      transition_provisions: ""
+      amended_by: []
+      verified_on: "2026-08-11"
+    scope_trigger: "Device whose operation depends on a source of energy other than that generated by the human body or gravity, including software"
+    obligation_summary: "Rules 9-13 assign the class for active devices; Rule 11 is the software rule within this group"
+    responsible_actor: ["manufacturer"]
+    evidence_artifacts: ["classification rationale", "technical documentation"]
+    competent_authority: ["notified body", "national competent authority"]
+    timing: "Before placing on market"
+    consequences_of_noncompliance: "Wrong conformity assessment route; CE mark invalid"
+    related_nodes: ["EU-MD-CLASS-ANNEXVIII", "EU-MD-CLASS-011"]
+    common_pitfalls: "Classifying software under a general active-device rule instead of the specific Rule 11"
+    confidence: "high"
+    notes: "Software is an active device; Rule 11 governs it specifically"
+
+  # --- EU medical devices: conformity assessment ------------------------------------------
+
+  - id: "EU-MD-CONF-CLASS1"
+    name: "Class I self-declaration of conformity"
+    parent_id: "EU-MD-CONF"
+    jurisdiction: "EU"
+    product_families: ["medical_devices", "SaMD"]
+    lifecycle_phase: ["conformity_assessment"]
+    instrument:
+      type: "Regulation"
+      citation: "Regulation (EU) 2017/745, Art. 52(7) and Annex IX-XI"
+      binding: true
+      url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02017R0745"
+    status:
+      in_force: true
+      applicable_from: "2021-05-26"
+      transition_provisions: ""
+      amended_by: []
+      verified_on: "2026-08-11"
+    scope_trigger: "Class I device that is not sterile, not measuring, and not a reusable surgical instrument"
+    obligation_summary: "Manufacturer self-declares conformity and applies the CE mark without a notified body; sterile, measuring and reusable surgical Class I devices (Is/Im/Ir) still need one for those aspects"
+    responsible_actor: ["manufacturer"]
+    evidence_artifacts: ["EU declaration of conformity", "technical documentation", "classification rationale"]
+    competent_authority: ["national competent authority"]
+    timing: "Before placing on market"
+    consequences_of_noncompliance: "Improper CE marking; market withdrawal"
+    related_nodes: ["EU-MD-CLASS-ANNEXVIII", "EU-MD-CONF-NB", "EU-AI-HIGHRISK-006"]
+    common_pitfalls: "Forgetting that Is/Im/Ir devices still need a notified body for the sterile, measuring or reusable aspect"
+    confidence: "high"
+    notes: "A Class I self-certified device escapes the AI Act Art. 6(1) high-risk trigger, which requires third-party conformity assessment"
+
+  - id: "EU-MD-CONF-NB"
+    name: "Notified body conformity assessment for Class IIa and above"
+    parent_id: "EU-MD-CONF"
+    jurisdiction: "EU"
+    product_families: ["medical_devices", "SaMD", "AI_ML"]
+    lifecycle_phase: ["conformity_assessment"]
+    instrument:
+      type: "Regulation"
+      citation: "Regulation (EU) 2017/745, Art. 52 and Annexes IX, X, XI"
+      binding: true
+      url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02017R0745"
+    status:
+      in_force: true
+      applicable_from: "2021-05-26"
+      transition_provisions: "Legacy certificates under Art. 120 as amended by Reg (EU) 2023/607"
+      amended_by: ["Regulation (EU) 2023/607"]
+      verified_on: "2026-08-11"
+    scope_trigger: "Device classified IIa, IIb or III, or a Class I device that is sterile, measuring or a reusable surgical instrument"
+    obligation_summary: "A notified body must assess the QMS and, depending on class, the technical documentation; the CE mark carries the notified body number on completion"
+    responsible_actor: ["manufacturer", "notified body"]
+    evidence_artifacts: ["technical documentation", "QMS certificate", "EU technical documentation assessment certificate", "EU declaration of conformity"]
+    competent_authority: ["notified body", "national competent authority"]
+    timing: "Before placing on market; certificates are time-limited and require surveillance"
+    consequences_of_noncompliance: "No valid CE mark; market withdrawal and enforcement"
+    related_nodes: ["EU-MD-CLASS-ANNEXVIII", "EU-MD-CLASS-011", "EU-MD-CONF-CLASS1", "EU-AI-HIGHRISK-006", "EU-MD-QMS-13485"]
+    common_pitfalls: "Underestimating queue time: only 51 notified bodies were designated under MDR as of 7 Oct 2025, against 80+ under the old MDD"
+    confidence: "high"
+    notes: "Notified-body capacity is the dominant EU bottleneck and a first-launch decision driver"
+
+  # --- EU medical devices: lifecycle obligations ------------------------------------------
+
+  - id: "EU-MD-ECON-010"
+    name: "Economic operator obligations and PRRC"
+    parent_id: "EU-MD-OPS"
+    jurisdiction: "EU"
+    product_families: ["medical_devices", "IVDs", "SaMD"]
+    lifecycle_phase: ["registration_labelling"]
+    instrument:
+      type: "Regulation"
+      citation: "Regulation (EU) 2017/745, Arts. 10, 11, 13, 14 and 15"
+      binding: true
+      url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02017R0745"
+    status:
+      in_force: true
+      applicable_from: "2021-05-26"
+      transition_provisions: ""
+      amended_by: []
+      verified_on: "2026-08-11"
+    scope_trigger: "Any manufacturer, authorised representative, importer or distributor placing a device on the EU market"
+    obligation_summary: "Manufacturer duties (Art. 10), authorised representative (Art. 11), importer (Art. 13), distributor (Art. 14); a Person Responsible for Regulatory Compliance is required under Art. 15; registration in EUDAMED and a Basic UDI-DI are assigned"
+    responsible_actor: ["manufacturer", "authorised representative", "importer", "distributor"]
+    evidence_artifacts: ["authorised representative mandate", "PRRC appointment record", "EUDAMED actor registration"]
+    competent_authority: ["national competent authority"]
+    timing: "Before placing on market and continuously thereafter"
+    consequences_of_noncompliance: "Market access refused; enforcement against the operator"
+    related_nodes: ["EU-MD-EUDAMED-2371", "EU-MD-UDI-027", "US-MD-REG-807"]
+    common_pitfalls: "Treating the EU authorised representative as the equivalent of a US agent; the AR carries legal duties, the US agent is a communication conduit"
+    confidence: "high"
+    notes: "A non-EU manufacturer must appoint an authorised representative established in the Union"
+
+  - id: "EU-MD-QMS-13485"
+    name: "MDR quality management system"
+    parent_id: "EU-MD-QMS"
+    jurisdiction: "EU"
+    product_families: ["medical_devices", "IVDs", "SaMD"]
+    lifecycle_phase: ["qms"]
+    instrument:
+      type: "Regulation"
+      citation: "Regulation (EU) 2017/745, Art. 10(8); Annexes II and III"
+      binding: true
+      url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02017R0745"
+    status:
+      in_force: true
+      applicable_from: "2021-05-26"
+      transition_provisions: ""
+      amended_by: []
+      verified_on: "2026-08-11"
+    scope_trigger: "Any manufacturer placing a device on the EU market"
+    obligation_summary: "Establish, document and maintain a QMS proportionate to the risk class, typically to ISO 13485; technical documentation per Annexes II and III including post-market surveillance"
+    responsible_actor: ["manufacturer"]
+    evidence_artifacts: ["QMS documentation", "technical documentation Annex II", "technical documentation on PMS Annex III"]
+    competent_authority: ["notified body", "national competent authority"]
+    timing: "Before placing on market and maintained throughout the lifecycle"
+    consequences_of_noncompliance: "Certificate refusal or suspension; enforcement"
+    related_nodes: ["US-QMSR-820", "EU-MD-CONF-NB", "EU-STD-HARMONISED"]
+    common_pitfalls: "Assuming an ISO 13485 certificate alone discharges Art. 10(8)"
+    confidence: "high"
+    notes: "ISO 13485 is a harmonised-standard route to conformity, not the legal requirement itself"
+
+  - id: "EU-MD-GSPR-ANNEXI"
+    name: "General Safety and Performance Requirements"
+    parent_id: "EU-MD-GSPR"
+    jurisdiction: "EU"
+    product_families: ["medical_devices", "IVDs", "SaMD", "AI_ML"]
+    lifecycle_phase: ["conformity_assessment"]
+    instrument:
+      type: "Regulation"
+      citation: "Regulation (EU) 2017/745, Annex I"
+      binding: true
+      url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02017R0745"
+    status:
+      in_force: true
+      applicable_from: "2021-05-26"
+      transition_provisions: ""
+      amended_by: []
+      verified_on: "2026-08-11"
+    scope_trigger: "Any device placed on the EU market"
+    obligation_summary: "The substantive safety and performance requirements; conformity is commonly shown through harmonised standards, which confer a presumption of conformity when cited in the Official Journal"
+    responsible_actor: ["manufacturer"]
+    evidence_artifacts: ["GSPR checklist", "harmonised standards list", "risk management file", "verification and validation records"]
+    competent_authority: ["notified body", "national competent authority"]
+    timing: "Before placing on market"
+    consequences_of_noncompliance: "Non-conforming device; CE mark invalid"
+    related_nodes: ["EU-MD-CONF-NB", "EU-STD-HARMONISED", "EU-MD-CYBER-MDCG201916", "EU-ENV-MATERIALS"]
+    common_pitfalls: "Treating the GSPR checklist as paperwork rather than the substantive requirement set"
+    confidence: "high"
+    notes: "Annex I 10.4 carries the phthalates requirements referenced by the materials node"
+
+  - id: "EU-MD-CLINEVAL-061"
+    name: "Clinical evaluation and clinical investigations"
+    parent_id: "EU-MD-CLINICAL"
+    jurisdiction: "EU"
+    product_families: ["medical_devices", "SaMD", "AI_ML"]
+    lifecycle_phase: ["clinical_evidence"]
+    instrument:
+      type: "Regulation"
+      citation: "Regulation (EU) 2017/745, Art. 61 and Annex XIV; Arts. 62-82 and Annex XV for investigations"
+      binding: true
+      url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02017R0745"
+    status:
+      in_force: true
+      applicable_from: "2021-05-26"
+      transition_provisions: ""
+      amended_by: []
+      verified_on: "2026-08-11"
+    scope_trigger: "Any device placed on the EU market; a clinical investigation is generally required for implantable and Class III devices"
+    obligation_summary: "Plan and conduct a clinical evaluation (Art. 61, Annex XIV) and, where required, a clinical investigation (Arts. 62-82, Annex XV); ISO 14155 is the good clinical practice standard for device investigations"
+    responsible_actor: ["manufacturer", "sponsor"]
+    evidence_artifacts: ["clinical evaluation plan", "clinical evaluation report", "clinical investigation plan", "PMCF plan"]
+    competent_authority: ["notified body", "national competent authority", "ethics committee"]
+    timing: "Before conformity assessment; updated throughout the lifecycle"
+    consequences_of_noncompliance: "Insufficient clinical evidence is a leading cause of certificate refusal"
+    related_nodes: ["EU-MD-CONF-NB", "EU-MD-PMS-084", "EU-ETHICS-COMMITTEE", "US-MD-IDE-812"]
+    common_pitfalls: "Relying on equivalence to another manufacturer's device without the contractual access MDR requires"
+    confidence: "high"
+    notes: "Post-market clinical follow-up (Annex XIV Part B) is part of the same evidence cycle"
+
+  - id: "EU-MD-UDI-027"
+    name: "Unique Device Identification and labelling"
+    parent_id: "EU-MD-OPS"
+    jurisdiction: "EU"
+    product_families: ["medical_devices", "IVDs", "SaMD"]
+    lifecycle_phase: ["registration_labelling"]
+    instrument:
+      type: "Regulation"
+      citation: "Regulation (EU) 2017/745, Art. 27 and Annex VI Part C"
+      binding: true
+      url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02017R0745"
+    status:
+      in_force: true
+      applicable_from: "2021-05-26"
+      transition_provisions: ""
+      amended_by: ["Regulation (EU) 2024/1860"]
+      verified_on: "2026-08-11"
+    scope_trigger: "Any device placed on the EU market"
+    obligation_summary: "Assign a Basic UDI-DI and UDI-DI/UDI-PI, place the UDI carrier on the label, and upload device data to EUDAMED"
+    responsible_actor: ["manufacturer"]
+    evidence_artifacts: ["UDI assignment records", "label artwork", "EUDAMED device registration"]
+    competent_authority: ["national competent authority"]
+    timing: "Before placing on market"
+    consequences_of_noncompliance: "Non-compliant labelling; market access refused"
+    related_nodes: ["EU-MD-EUDAMED-2371", "EU-MD-ECON-010", "US-MD-UDI-830"]
+    common_pitfalls: "Assuming a US GUDID submission satisfies the EU UDI obligation"
+    confidence: "high"
+    notes: "The EU and US UDI systems share an approach but are separate registrations"
+
+  - id: "EU-MD-EUDAMED-2371"
+    name: "EUDAMED mandatory modules from 28 May 2026"
+    parent_id: "EU-MD-OPS"
+    jurisdiction: "EU"
+    product_families: ["medical_devices", "IVDs", "SaMD"]
+    lifecycle_phase: ["registration_labelling"]
+    instrument:
+      type: "Decision"
+      citation: "Commission Decision (EU) 2025/2371, read with Regulation (EU) 2024/1860"
+      binding: true
+      url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32025D2371"
+    status:
+      in_force: true
+      applicable_from: "2026-05-28"
+      transition_provisions: "Six-month transition from publication in OJ on 27 Nov 2025"
+      amended_by: []
+      verified_on: "2026-08-11"
+    scope_trigger: "Any economic operator or device subject to EUDAMED registration"
+    obligation_summary: "Four modules - Actor registration, UDI/Device registration, Notified Bodies and Certificates, and Market Surveillance - became mandatory on 28 May 2026"
+    responsible_actor: ["manufacturer", "authorised representative", "importer", "notified body"]
+    evidence_artifacts: ["EUDAMED actor registration", "SRN", "device registration records"]
+    competent_authority: ["European Commission", "national competent authority"]
+    timing: "From 28 May 2026"
+    consequences_of_noncompliance: "Unregistered actor or device; market surveillance action"
+    related_nodes: ["EU-MD-UDI-027", "EU-MD-ECON-010", "EU-MD-VIG-087"]
+    common_pitfalls: "Assuming EUDAMED is still voluntary; four modules are mandatory, the remaining ones are not yet fixed"
+    confidence: "high"
+    notes: "Timing for the clinical investigation/performance study and vigilance modules is not yet fixed - see the gap log"
+
+  - id: "EU-MD-PMS-084"
+    name: "Post-market surveillance plan, report and PSUR"
+    parent_id: "EU-MD-PMS"
+    jurisdiction: "EU"
+    product_families: ["medical_devices", "IVDs", "SaMD", "AI_ML"]
+    lifecycle_phase: ["post_market"]
+    instrument:
+      type: "Regulation"
+      citation: "Regulation (EU) 2017/745, Arts. 83-86 and Annex XIV Part B"
+      binding: true
+      url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02017R0745"
+    status:
+      in_force: true
+      applicable_from: "2021-05-26"
+      transition_provisions: ""
+      amended_by: []
+      verified_on: "2026-08-11"
+    scope_trigger: "Any device placed on the EU market"
+    obligation_summary: "Maintain a PMS plan (Art. 84); Class I devices produce a PMS report (Art. 85), Class IIa and above produce a periodic safety update report (Art. 86); post-market clinical follow-up runs under Annex XIV Part B"
+    responsible_actor: ["manufacturer"]
+    evidence_artifacts: ["PMS plan", "PMS report", "PSUR", "PMCF plan and evaluation report"]
+    competent_authority: ["notified body", "national competent authority"]
+    timing: "Continuous; PSUR updated at least annually for Class IIb and III"
+    consequences_of_noncompliance: "Certificate suspension; enforcement"
+    related_nodes: ["EU-MD-VIG-087", "EU-MD-CLINEVAL-061", "US-MD-MDR-803"]
+    common_pitfalls: "Writing the PMS plan once at certification and never feeding real data back into the clinical evaluation"
+    confidence: "high"
+    notes: "PMS output is an input to the clinical evaluation, not a separate paper trail"
+
+  - id: "EU-MD-VIG-087"
+    name: "Vigilance and serious incident reporting"
+    parent_id: "EU-MD-PMS"
+    jurisdiction: "EU"
+    product_families: ["medical_devices", "IVDs", "SaMD"]
+    lifecycle_phase: ["post_market"]
+    instrument:
+      type: "Regulation"
+      citation: "Regulation (EU) 2017/745, Arts. 87-92"
+      binding: true
+      url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02017R0745"
+    status:
+      in_force: true
+      applicable_from: "2021-05-26"
+      transition_provisions: ""
+      amended_by: []
+      verified_on: "2026-08-11"
+    scope_trigger: "A serious incident or a field safety corrective action involving a device made available in the EU"
+    obligation_summary: "Report serious incidents and field safety corrective actions to the competent authorities within the Art. 87 deadlines, investigate, and issue field safety notices"
+    responsible_actor: ["manufacturer", "authorised representative"]
+    evidence_artifacts: ["serious incident reports", "field safety corrective action records", "field safety notice", "trend reports"]
+    competent_authority: ["national competent authority"]
+    timing: "Within the Art. 87 reporting deadlines from awareness of the incident"
+    consequences_of_noncompliance: "Enforcement, certificate suspension, criminal liability in some Member States"
+    related_nodes: ["EU-MD-PMS-084", "EU-MD-EUDAMED-2371", "US-MD-MDR-803"]
+    common_pitfalls: "Treating EU vigilance timelines as interchangeable with US MDR timelines; they are separate regimes with separate clocks"
+    confidence: "high"
+    notes: "Reporting currently runs through national portals pending the EUDAMED vigilance module"
+
+  - id: "EU-MD-CHANGE-MDCG20203"
+    name: "Significant change to a legacy device"
+    parent_id: "EU-MD-CHANGE"
+    jurisdiction: "EU"
+    product_families: ["medical_devices", "IVDs", "SaMD", "AI_ML"]
+    lifecycle_phase: ["change_management"]
+    instrument:
+      type: "Guidance"
+      citation: "MDCG 2020-3, read with Regulation (EU) 2017/745, Art. 120"
+      binding: false
+      url: "https://health.ec.europa.eu/document/download/mdcg-2020-3"
+    status:
+      in_force: true
+      applicable_from: "2020-03-01"
+      transition_provisions: "Applies for as long as Art. 120 legacy transition runs"
+      amended_by: []
+      verified_on: "2026-08-11"
+    scope_trigger: "A change to the design or intended purpose of a device still relying on a legacy MDD or IVDD certificate"
+    obligation_summary: "A significant change breaks legacy status and forces full MDR/IVDR conformity assessment; a non-significant change preserves it. Under MDR proper, a substantial change needs notified body review"
+    responsible_actor: ["manufacturer"]
+    evidence_artifacts: ["change assessment record", "notified body notification", "updated technical documentation"]
+    competent_authority: ["notified body"]
+    timing: "Before implementing the change"
+    consequences_of_noncompliance: "Loss of legacy status without a valid MDR certificate; the device becomes non-compliant overnight"
+    related_nodes: ["EU-MD-TRANS-120", "EU-IVD-TRANS-110", "US-MD-CHANGE-510K"]
+    common_pitfalls: "Shipping a software update that changes intended purpose and assuming the legacy certificate still covers it"
+    confidence: "high"
+    notes: "MDCG guidance is non-binding but is what notified bodies apply in practice"
+
+  - id: "EU-MD-CYBER-MDCG201916"
+    name: "Medical device cybersecurity under the MDR"
+    parent_id: "EU-MD-CYBER"
+    jurisdiction: "EU"
+    product_families: ["medical_devices", "SaMD", "AI_ML", "digital_health"]
+    lifecycle_phase: ["conformity_assessment", "post_market"]
+    instrument:
+      type: "Guidance"
+      citation: "MDCG 2019-16, read with Regulation (EU) 2017/745, Annex I"
+      binding: false
+      url: "https://health.ec.europa.eu/document/download/mdcg-2019-16"
+    status:
+      in_force: true
+      applicable_from: "2020-01-01"
+      transition_provisions: ""
+      amended_by: []
+      verified_on: "2026-08-11"
+    scope_trigger: "Any device incorporating software or a network connection"
+    obligation_summary: "Cybersecurity is addressed through the Annex I GSPR plus MDCG 2019-16 guidance. Medical devices are excluded from the Cyber Resilience Act; NIS2 may still apply to the operators that deploy them"
+    responsible_actor: ["manufacturer"]
+    evidence_artifacts: ["security risk assessment", "threat model", "secure development records", "post-market vulnerability handling procedure"]
+    competent_authority: ["notified body", "national competent authority"]
+    timing: "Before placing on market and continuously thereafter"
+    consequences_of_noncompliance: "GSPR non-conformity; certificate refusal"
+    related_nodes: ["EU-MD-GSPR-ANNEXI", "US-MD-CYBER-524B", "EU-CYBER-NIS2-CRA", "EU-STD-HARMONISED"]
+    common_pitfalls: "Assuming the Cyber Resilience Act covers medical devices; it explicitly excludes them"
+    confidence: "high"
+    notes: "IEC 81001-5-1 is the health software security standard commonly used here"
+
+  # --- EU medical devices: transition ------------------------------------------------------
+
+  - id: "EU-MD-TRANS-120"
+    name: "MDR Art. 120 legacy device transition"
+    parent_id: "EU-MD-TRANSITION"
+    jurisdiction: "EU"
+    product_families: ["medical_devices", "SaMD"]
+    lifecycle_phase: ["transition"]
+    instrument:
+      type: "Regulation"
+      citation: "Regulation (EU) 2017/745, Art. 120 as amended by Regulation (EU) 2023/607"
+      binding: true
+      url: "https://eur-lex.europa.eu/eli/reg/2023/607/oj"
+    status:
+      in_force: true
+      applicable_from: "2023-03-20"
+      transition_provisions: "Extended deadlines: 31 Dec 2027 for Class III and Class IIb implantables; 31 Dec 2028 for other IIb, IIa and Im/Is. Sell-off date removed"
+      amended_by: ["Regulation (EU) 2023/607"]
+      verified_on: "2026-08-11"
+    scope_trigger: "A device holding a valid certificate issued under the MDD 93/42/EEC or AIMDD 90/385/EEC"
+    obligation_summary: "Legacy certificates remain conditionally valid to the extended deadlines provided there is no significant change in design or intended purpose, an MDR-compliant QMS was in place by 26 May 2024, and a formal application was lodged with a notified body"
+    responsible_actor: ["manufacturer"]
+    evidence_artifacts: ["legacy certificate", "MDR QMS evidence", "signed notified body agreement", "change assessment record"]
+    competent_authority: ["notified body", "national competent authority"]
+    timing: "Conditions had to be met by 26 May 2024; deadlines run to 31 Dec 2027 and 31 Dec 2028"
+    consequences_of_noncompliance: "Loss of legacy status; the device cannot lawfully be placed on the market"
+    related_nodes: ["EU-MD-CHANGE-MDCG20203", "EU-MD-CONF-NB", "EU-IVD-TRANS-110"]
+    common_pitfalls: "Assuming the extension is automatic; all three conditions must hold, and a significant change voids it"
+    confidence: "high"
+    notes: "This is the node that answers 'I have a Class IIb device CE-marked under MDD, what now'"
+
+  # --- EU IVDs -----------------------------------------------------------------------------
+
+  - id: "EU-IVD-QUAL-002"
+    name: "IVDR in vitro diagnostic device definition"
+    parent_id: "EU-IVD-QUAL"
+    jurisdiction: "EU"
+    product_families: ["IVDs", "SaMD"]
+    lifecycle_phase: ["qualification_classification"]
+    instrument:
+      type: "Regulation"
+      citation: "Regulation (EU) 2017/746, Art. 2(2)"
+      binding: true
+      url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02017R0746"
+    status:
+      in_force: true
+      applicable_from: "2022-05-26"
+      transition_provisions: "Legacy devices per Art. 110 as amended by Reg (EU) 2024/1860"
+      amended_by: ["Regulation (EU) 2024/1860"]
+      verified_on: "2026-08-11"
+    scope_trigger: "Device intended to be used in vitro for the examination of specimens derived from the human body"
+    obligation_summary: "Qualifies as an in vitro diagnostic medical device and must be classified under IVDR Annex VIII"
+    responsible_actor: ["manufacturer"]
+    evidence_artifacts: ["intended purpose statement", "qualification rationale"]
+    competent_authority: ["national competent authority"]
+    timing: "Before placing on market"
+    consequences_of_noncompliance: "Unqualified IVD on the market; enforcement"
+    related_nodes: ["EU-IVD-CLASS-ANNEXVIII", "EU-MD-QUAL-002", "US-IVD-PATH-DEVICE"]
+    common_pitfalls: "Software that interprets specimen results is an IVD, not a general medical device"
+    confidence: "high"
+    notes: "Examining specimens from the body is the routing question that separates IVDs from other devices"
+
+  - id: "EU-IVD-CLASS-ANNEXVIII"
+    name: "IVDR Annex VIII classification rules - Classes A to D"
+    parent_id: "EU-IVD-CLASS"
+    jurisdiction: "EU"
+    product_families: ["IVDs", "SaMD"]
+    lifecycle_phase: ["qualification_classification"]
+    instrument:
+      type: "Regulation"
+      citation: "Regulation (EU) 2017/746, Annex VIII (7 classification rules plus implementing rules)"
+      binding: true
+      url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02017R0746"
+    status:
+      in_force: true
+      applicable_from: "2022-05-26"
+      transition_provisions: "Legacy devices per Art. 110 as amended by Reg (EU) 2024/1860"
+      amended_by: ["Regulation (EU) 2024/1860"]
+      verified_on: "2026-08-11"
+    scope_trigger: "Any product qualifying as an IVD under Art. 2(2)"
+    obligation_summary: "Seven rules assign Class A, B, C or D on risk to the individual and to public health. Only non-sterile Class A is self-certified; everything else needs a notified body"
+    responsible_actor: ["manufacturer"]
+    evidence_artifacts: ["classification rationale", "technical documentation"]
+    competent_authority: ["notified body", "national competent authority"]
+    timing: "Before placing on market"
+    consequences_of_noncompliance: "Wrong conformity assessment route; CE mark invalid"
+    related_nodes: ["EU-IVD-QUAL-002", "EU-IVD-CLASS-R3F", "EU-IVD-CONF-NB", "EU-AI-HIGHRISK-006"]
+    common_pitfalls: "Carrying over IVDD self-certification assumptions; roughly 80% of IVDs were self-certified under the IVDD, and roughly 78% now need a notified body"
+    confidence: "high"
+    notes: "This reclassification is the dominant IVDR cost and timeline driver"
+
+  - id: "EU-IVD-CLASS-R3F"
+    name: "IVDR Rule 3(f) - companion diagnostics are Class C"
+    parent_id: "EU-IVD-CLASS"
+    jurisdiction: "EU"
+    product_families: ["IVDs"]
+    lifecycle_phase: ["qualification_classification", "conformity_assessment"]
+    instrument:
+      type: "Regulation"
+      citation: "Regulation (EU) 2017/746, Annex VIII, Rule 3(f)"
+      binding: true
+      url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02017R0746"
+    status:
+      in_force: true
+      applicable_from: "2022-05-26"
+      transition_provisions: "Legacy devices per Art. 110 as amended by Reg (EU) 2024/1860"
+      amended_by: []
+      verified_on: "2026-08-11"
+    scope_trigger: "An IVD essential for the safe and effective use of a corresponding medicinal product"
+    obligation_summary: "Companion diagnostics are Class C, requiring notified body involvement plus a consultation with the EMA or the competent medicines authority for the associated medicinal product"
+    responsible_actor: ["manufacturer", "notified body"]
+    evidence_artifacts: ["performance evaluation report", "medicines authority consultation record", "technical documentation"]
+    competent_authority: ["notified body", "EMA", "national competent authority"]
+    timing: "Before placing on market; the consultation runs inside the conformity assessment"
+    consequences_of_noncompliance: "No valid CE mark; the associated medicine's use may be blocked"
+    related_nodes: ["EU-IVD-CLASS-ANNEXVIII", "EU-IVD-CONF-NB", "US-IVD-CDX-PMA", "EU-IVD-PERF-EVAL"]
+    common_pitfalls: "Missing the medicines authority consultation, which has no US equivalent in the same form"
+    confidence: "high"
+    notes: "In the US a companion diagnostic is co-developed with the drug and typically goes through PMA with CDER or CBER coordination"
+
+  - id: "EU-IVD-CONF-NB"
+    name: "IVDR conformity assessment and notified body involvement"
+    parent_id: "EU-IVD-CONF"
+    jurisdiction: "EU"
+    product_families: ["IVDs"]
+    lifecycle_phase: ["conformity_assessment"]
+    instrument:
+      type: "Regulation"
+      citation: "Regulation (EU) 2017/746, Art. 48 and Annexes IX-XI"
+      binding: true
+      url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02017R0746"
+    status:
+      in_force: true
+      applicable_from: "2022-05-26"
+      transition_provisions: "Legacy certificates under Art. 110 as amended by Reg (EU) 2024/1860"
+      amended_by: ["Regulation (EU) 2024/1860"]
+      verified_on: "2026-08-11"
+    scope_trigger: "Any IVD other than a non-sterile Class A device"
+    obligation_summary: "A notified body assesses the QMS and, by class, the technical documentation and performance evaluation; Class D adds EU reference laboratory involvement and batch verification"
+    responsible_actor: ["manufacturer", "notified body"]
+    evidence_artifacts: ["QMS certificate", "performance evaluation report", "EU declaration of conformity"]
+    competent_authority: ["notified body", "EU reference laboratory"]
+    timing: "Before placing on market"
+    consequences_of_noncompliance: "No valid CE mark; market withdrawal"
+    related_nodes: ["EU-IVD-CLASS-ANNEXVIII", "EU-IVD-PERF-EVAL", "EU-IVD-TRANS-110", "EU-AI-HIGHRISK-006"]
+    common_pitfalls: "Planning to IVDD timelines; notified body capacity constrains IVDR the same way it constrains MDR"
+    confidence: "high"
+    notes: "IVDR Class B and above triggers the AI Act Art. 6(1) high-risk test for AI-enabled IVDs"
+
+  - id: "EU-IVD-PERF-EVAL"
+    name: "IVDR performance evaluation"
+    parent_id: "EU-IVD-CLINICAL"
+    jurisdiction: "EU"
+    product_families: ["IVDs"]
+    lifecycle_phase: ["clinical_evidence"]
+    instrument:
+      type: "Regulation"
+      citation: "Regulation (EU) 2017/746, Art. 56 and Annex XIII; Arts. 57-77 and Annexes XIII/XIV for performance studies"
+      binding: true
+      url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02017R0746"
+    status:
+      in_force: true
+      applicable_from: "2022-05-26"
+      transition_provisions: ""
+      amended_by: []
+      verified_on: "2026-08-11"
+    scope_trigger: "Any IVD placed on the EU market"
+    obligation_summary: "Demonstrate scientific validity, analytical performance and clinical performance; performance studies run under Arts. 57-77 with ISO 20916 as the study standard"
+    responsible_actor: ["manufacturer", "sponsor"]
+    evidence_artifacts: ["performance evaluation plan", "performance evaluation report", "scientific validity report", "analytical and clinical performance reports"]
+    competent_authority: ["notified body", "national competent authority", "ethics committee"]
+    timing: "Before conformity assessment; updated throughout the lifecycle"
+    consequences_of_noncompliance: "Insufficient performance evidence; certificate refusal"
+    related_nodes: ["EU-IVD-CONF-NB", "EU-IVD-CLASS-R3F", "EU-ETHICS-COMMITTEE"]
+    common_pitfalls: "Treating analytical performance alone as sufficient; scientific validity and clinical performance are separate limbs"
+    confidence: "high"
+    notes: "The three-limb structure has no exact US counterpart"
+
+  - id: "EU-IVD-TRANS-110"
+    name: "IVDR Art. 110 legacy device transition"
+    parent_id: "EU-IVD-TRANSITION"
+    jurisdiction: "EU"
+    product_families: ["IVDs"]
+    lifecycle_phase: ["transition"]
+    instrument:
+      type: "Regulation"
+      citation: "Regulation (EU) 2017/746, Art. 110 as amended by Regulation (EU) 2024/1860"
+      binding: true
+      url: "https://eur-lex.europa.eu/eli/reg/2024/1860/oj"
+    status:
+      in_force: true
+      applicable_from: "2024-07-09"
+      transition_provisions: "Class D to 31 Dec 2027; Class C to 31 Dec 2028; Class B and Class A sterile to 31 Dec 2029, conditions apply"
+      amended_by: ["Regulation (EU) 2024/1860"]
+      verified_on: "2026-08-11"
+    scope_trigger: "An IVD relying on an IVDD 98/79/EC certificate or on IVDD self-certification"
+    obligation_summary: "Staggered legacy deadlines by class, conditional on no significant change and on an IVDR-compliant QMS being in place by 26 May 2025"
+    responsible_actor: ["manufacturer"]
+    evidence_artifacts: ["legacy certificate or IVDD declaration", "IVDR QMS evidence", "signed notified body agreement"]
+    competent_authority: ["notified body", "national competent authority"]
+    timing: "QMS required by 26 May 2025; deadlines run 2027 to 2029 by class"
+    consequences_of_noncompliance: "Loss of legacy status; the IVD cannot lawfully be placed on the market"
+    related_nodes: ["EU-MD-TRANS-120", "EU-IVD-CONF-NB", "EU-MD-CHANGE-MDCG20203"]
+    common_pitfalls: "Reading the class-specific end dates from memory; they should be cross-checked against the consolidated Art. 110 text"
+    confidence: "low"
+    notes: "The gap log flags low confidence on whether any of these dates shift under later amendments"
+
+  # --- EU medicinal products ---------------------------------------------------------------
+
+  - id: "EU-MP-QUAL-001"
+    name: "Medicinal product definition and the device borderline"
+    parent_id: "EU-MP-QUAL"
+    jurisdiction: "EU"
+    product_families: ["medicinal_products", "combination_products"]
+    lifecycle_phase: ["qualification_classification"]
+    instrument:
+      type: "Directive"
+      citation: "Directive 2001/83/EC, Art. 1"
+      binding: true
+      url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02001L0083"
+    status:
+      in_force: true
+      applicable_from: "2004-11-30"
+      transition_provisions: ""
+      amended_by: ["Regulation (EU) 2017/745, Art. 117"]
+      verified_on: "2026-08-11"
+    scope_trigger: "Product presented as having properties for treating or preventing disease, or achieving its principal action by pharmacological, immunological or metabolic means"
+    obligation_summary: "Qualifies as a medicinal product and needs a marketing authorisation rather than a CE mark; the principal mode of action test is what separates it from a device"
+    responsible_actor: ["manufacturer", "marketing authorisation holder"]
+    evidence_artifacts: ["mode of action rationale", "borderline classification request"]
+    competent_authority: ["EMA", "national competent authority"]
+    timing: "Before any authorisation route is chosen"
+    consequences_of_noncompliance: "Wrong regime; the whole dossier and pathway are misdirected"
+    related_nodes: ["EU-MD-QUAL-002", "EU-MP-AUTH-CENTRAL", "EU-COMB-ART117", "US-MP-NDA-505"]
+    common_pitfalls: "Ancillary pharmacological action does not make a device a medicine; principal action is the test"
+    confidence: "high"
+    notes: "A Directive requires national transposition, unlike the directly applicable MDR and IVDR"
+
+  - id: "EU-MP-AUTH-CENTRAL"
+    name: "EU marketing authorisation procedures"
+    parent_id: "EU-MP-AUTH"
+    jurisdiction: "EU"
+    product_families: ["medicinal_products", "biologics_vaccines", "ATMPs"]
+    lifecycle_phase: ["premarket_submission"]
+    instrument:
+      type: "Regulation"
+      citation: "Regulation (EC) No 726/2004; Directive 2001/83/EC for the national, mutual recognition and decentralised routes"
+      binding: true
+      url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02004R0726"
+    status:
+      in_force: true
+      applicable_from: "2005-11-20"
+      transition_provisions: ""
+      amended_by: []
+      verified_on: "2026-08-11"
+    scope_trigger: "A medicinal product intended to be placed on the EU market"
+    obligation_summary: "The centralised procedure is mandatory for biotechnology products, ATMPs, oncology, orphan and certain other categories, and yields a single EMA authorisation; otherwise decentralised, mutual recognition or national routes apply. The dossier follows the CTD/eCTD structure"
+    responsible_actor: ["marketing authorisation holder"]
+    evidence_artifacts: ["eCTD dossier", "quality, non-clinical and clinical modules", "risk management plan"]
+    competent_authority: ["EMA", "European Commission", "national competent authority"]
+    timing: "Before placing on market"
+    consequences_of_noncompliance: "Unauthorised medicine on the market; enforcement"
+    related_nodes: ["EU-MP-QUAL-001", "EU-MP-CTR-536", "US-MP-NDA-505", "EU-COMB-ART117"]
+    common_pitfalls: "Assuming a centralised authorisation is optional for a category where it is mandatory"
+    confidence: "high"
+    notes: "Special regimes include orphan (Reg 141/2000), paediatric (Reg 1901/2006), conditional MA and PRIME"
+
+  - id: "EU-MP-CTR-536"
+    name: "EU Clinical Trials Regulation and CTIS"
+    parent_id: "EU-MP-CLINICAL"
+    jurisdiction: "EU"
+    product_families: ["medicinal_products", "biologics_vaccines", "ATMPs"]
+    lifecycle_phase: ["clinical_evidence"]
+    instrument:
+      type: "Regulation"
+      citation: "Regulation (EU) No 536/2014"
+      binding: true
+      url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32014R0536"
+    status:
+      in_force: true
+      applicable_from: "2022-01-31"
+      transition_provisions: ""
+      amended_by: []
+      verified_on: "2026-08-11"
+    scope_trigger: "A clinical trial of a medicinal product conducted in the EU or EEA"
+    obligation_summary: "A single application through the CTIS portal covers up to 30 EU/EEA states; a reporting Member State leads the assessment. ATMPs get an extra 50-day expert consultation window"
+    responsible_actor: ["sponsor"]
+    evidence_artifacts: ["CTIS application", "protocol", "investigator's brochure", "IMPD"]
+    competent_authority: ["national competent authority", "ethics committee", "EMA"]
+    timing: "Before the trial starts"
+    consequences_of_noncompliance: "Trial cannot proceed; data may be unusable"
+    related_nodes: ["EU-MP-AUTH-CENTRAL", "US-MP-IND-312", "EU-ETHICS-COMMITTEE"]
+    common_pitfalls: "Treating CTIS like a US IND; one EU submission covers many states, a US IND covers one country"
+    confidence: "high"
+    notes: "Device clinical investigations run under MDR Arts. 62-82 instead, not the CTR"
+
+  # --- EU combination products --------------------------------------------------------------
+
+  - id: "EU-COMB-ART117"
+    name: "Notified Body Opinion for integral drug-device combinations"
+    parent_id: "EU-COMB"
+    jurisdiction: "EU"
+    product_families: ["combination_products", "medicinal_products", "medical_devices"]
+    lifecycle_phase: ["conformity_assessment", "premarket_submission"]
+    instrument:
+      type: "Regulation"
+      citation: "Regulation (EU) 2017/745, Art. 117, amending Directive 2001/83/EC Annex I; see also MDR Art. 1(8) and 1(9)"
+      binding: true
+      url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02017R0745"
+    status:
+      in_force: true
+      applicable_from: "2021-05-26"
+      transition_provisions: ""
+      amended_by: []
+      verified_on: "2026-08-11"
+    scope_trigger: "A product marketed as a medicine whose integral device part is not reusable, for example a prefilled syringe, pen injector or drug-eluting implant"
+    obligation_summary: "The marketing authorisation dossier must include a Notified Body Opinion confirming the device part conforms to the relevant MDR Annex I general safety and performance requirements"
+    responsible_actor: ["marketing authorisation holder", "notified body"]
+    evidence_artifacts: ["Notified Body Opinion", "device part technical documentation", "GSPR checklist for the device part"]
+    competent_authority: ["EMA", "national competent authority", "notified body"]
+    timing: "Before submission of the marketing authorisation application"
+    consequences_of_noncompliance: "Dossier incomplete; the marketing authorisation cannot be granted"
+    related_nodes: ["EU-MP-AUTH-CENTRAL", "EU-MD-GSPR-ANNEXI", "US-COMB-PMOA-3", "EU-MP-QUAL-001"]
+    common_pitfalls: "A missing NBOp is one of the classic EU combination-product failure modes; notified body lead times must be planned into the dossier schedule"
+    confidence: "high"
+    notes: "The EU integral/Art. 117 test and the US primary mode of action test are different determinative tests"
+
+  # --- EU AI ---------------------------------------------------------------------------------
+
+  - id: "EU-AI-HIGHRISK-006"
+    name: "AI Act Article 6(1) high-risk trigger for medical device AI"
+    parent_id: "EU-AI"
+    jurisdiction: "EU"
+    product_families: ["SaMD", "AI_ML", "medical_devices", "IVDs"]
+    lifecycle_phase: ["qualification_classification", "conformity_assessment"]
+    instrument:
+      type: "Regulation"
+      citation: "Regulation (EU) 2024/1689, Art. 6(1), Annex I Section A; Arts. 8, 43, 113"
+      binding: true
+      url: "https://eur-lex.europa.eu/eli/reg/2024/1689/oj"
+    status:
+      in_force: true
+      applicable_from: "2027-08-02"
+      transition_provisions: "Digital Omnibus (Nov 2025) proposes deferral to 2028-08-02; provisional agreement 2026-05-07"
+      amended_by: ["Digital Omnibus - adoption status unverified as of 2026-08-11"]
+      verified_on: "2026-08-11"
+    scope_trigger: "AI system is/ is safety component of MDR/IVDR product AND that product needs third-party (notified body) conformity assessment"
+    obligation_summary: "Comply with AI Act Arts. 9-15 (risk mgmt, data governance, logging, human oversight, accuracy/robustness/cybersecurity) layered on MDR/IVDR"
+    responsible_actor: ["manufacturer (provider)", "notified body"]
+    evidence_artifacts: ["AI technical documentation", "risk management file", "data governance records", "logs"]
+    competent_authority: ["notified body", "market surveillance authority", "AI Office"]
+    timing: "Original 2 Aug 2027 for Annex I embedded AI; proposed 2 Aug 2028"
+    consequences_of_noncompliance: "Fines up to EUR 15m/3% turnover; market withdrawal"
+    related_nodes: ["EU-MD-CLASS-011", "US-AI-PCCP", "EU-MD-CONF-NB", "EU-IVD-CONF-NB", "EU-MD-CONF-CLASS1"]
+    common_pitfalls: "Assuming AI Act replaces MDR - it stacks; assuming dual-designated NB availability"
+    confidence: "medium"
+    notes: "Few NBs dual-designated as of mid-2026; MDCG 2025-6 is key official guidance"
+
+  # --- EU cross-cutting ------------------------------------------------------------------------
+
+  - id: "EU-DATA-GDPR-009"
+    name: "GDPR and health data as a special category"
+    parent_id: "EU-DATA"
+    jurisdiction: "EU"
+    product_families: ["digital_health", "SaMD", "AI_ML", "wellness_products", "medical_devices", "IVDs"]
+    lifecycle_phase: ["cross_cutting"]
+    instrument:
+      type: "Regulation"
+      citation: "Regulation (EU) 2016/679, Art. 9 (and Arts. 5, 6, 35)"
+      binding: true
+      url: "https://eur-lex.europa.eu/eli/reg/2016/679/oj"
+    status:
+      in_force: true
+      applicable_from: "2018-05-25"
+      transition_provisions: ""
+      amended_by: []
+      verified_on: "2026-08-11"
+    scope_trigger: "Processing of personal data concerning health in the EU, including by a product that is not itself a regulated device"
+    obligation_summary: "Health data is a special category under Art. 9 and needs a specific Art. 9(2) condition on top of an Art. 6 legal basis; a data protection impact assessment is generally required for large-scale health data processing"
+    responsible_actor: ["controller", "processor"]
+    evidence_artifacts: ["records of processing", "DPIA", "lawful basis assessment", "data processing agreements"]
+    competent_authority: ["national data protection authority"]
+    timing: "Before processing begins and continuously"
+    consequences_of_noncompliance: "Administrative fines and processing bans"
+    related_nodes: ["EU-DATA-EHDS-327", "US-DATA-HIPAA-164", "EU-AI-HIGHRISK-006"]
+    common_pitfalls: "Assuming a wellness product outside the MDR is outside all EU regulation; GDPR and possibly the AI Act still apply"
+    confidence: "high"
+    notes: "GDPR applies regardless of whether the product qualifies as a device"
+
+  - id: "EU-DATA-EHDS-327"
+    name: "European Health Data Space"
+    parent_id: "EU-DATA"
+    jurisdiction: "EU"
+    product_families: ["digital_health", "SaMD", "AI_ML"]
+    lifecycle_phase: ["cross_cutting"]
+    instrument:
+      type: "Regulation"
+      citation: "Regulation (EU) 2025/327"
+      binding: true
+      url: "https://eur-lex.europa.eu/eli/reg/2025/327/oj"
+    status:
+      in_force: true
+      applicable_from: "2027-03-26"
+      transition_provisions: "In force 26 Mar 2025; general application 26 Mar 2027; secondary-use and priority-category provisions phase to 2029 and 2031"
+      amended_by: []
+      verified_on: "2026-08-11"
+    scope_trigger: "Electronic health record systems and the primary or secondary use of electronic health data in the EU"
+    obligation_summary: "Establishes rules for primary use of electronic health data and a framework for secondary use, with staged application dates running to 2031"
+    responsible_actor: ["manufacturer", "controller", "health data holder"]
+    evidence_artifacts: ["EHR system conformity documentation", "data access applications"]
+    competent_authority: ["national digital health authority", "health data access body"]
+    timing: "General application from 26 Mar 2027, with later phases"
+    consequences_of_noncompliance: "Market restrictions on EHR systems; refusal of data access"
+    related_nodes: ["EU-DATA-GDPR-009", "EU-AI-HIGHRISK-006"]
+    common_pitfalls: "Reading the 26 Mar 2025 entry into force as the date obligations bite; general application is 26 Mar 2027"
+    confidence: "medium"
+    notes: "Phased application makes any single remembered date unreliable"
+
+  - id: "EU-CYBER-NIS2-CRA"
+    name: "NIS2 and the Cyber Resilience Act relative to devices"
+    parent_id: "EU-CYBER"
+    jurisdiction: "EU"
+    product_families: ["digital_health", "SaMD", "medical_devices"]
+    lifecycle_phase: ["cross_cutting"]
+    instrument:
+      type: "Regulation"
+      citation: "Directive (EU) 2022/2555 (NIS2); Regulation (EU) 2024/2847 (CRA)"
+      binding: true
+      url: "https://eur-lex.europa.eu/eli/reg/2024/2847/oj"
+    status:
+      in_force: true
+      applicable_from: "2027-12-11"
+      transition_provisions: "CRA reporting obligations from 11 Sept 2026; conformity-assessment-body notification from 11 June 2026; full application 11 Dec 2027"
+      amended_by: []
+      verified_on: "2026-08-11"
+    scope_trigger: "Digital products with elements that are not medical devices, and operators of essential or important entities under NIS2"
+    obligation_summary: "The Cyber Resilience Act excludes medical devices, which stay under MDR/IVDR; NIS2 may still apply to the healthcare operators that deploy them"
+    responsible_actor: ["manufacturer", "operator"]
+    evidence_artifacts: ["CRA conformity documentation for non-device products", "NIS2 incident reporting records"]
+    competent_authority: ["national cybersecurity authority", "market surveillance authority"]
+    timing: "CRA reporting from 11 Sept 2026; full application 11 Dec 2027"
+    consequences_of_noncompliance: "Fines and market restrictions for in-scope products and operators"
+    related_nodes: ["EU-MD-CYBER-MDCG201916", "US-MD-CYBER-524B"]
+    common_pitfalls: "Assuming the CRA applies to a medical device; it does not"
+    confidence: "high"
+    notes: "A companion non-device digital product in the same portfolio can be in CRA scope while the device is not"
+
+  - id: "EU-STD-HARMONISED"
+    name: "Harmonised standards and presumption of conformity"
+    parent_id: "EU-STANDARDS"
+    jurisdiction: "EU"
+    product_families: ["medical_devices", "IVDs", "SaMD", "AI_ML"]
+    lifecycle_phase: ["cross_cutting", "conformity_assessment"]
+    instrument:
+      type: "Standard"
+      citation: "Harmonised standards cited in the Official Journal under Regulation (EU) 2017/745 and 2017/746"
+      binding: false
+      url: "https://single-market-economy.ec.europa.eu/single-market/european-standards/harmonised-standards_en"
+    status:
+      in_force: true
+      applicable_from: "2021-05-26"
+      transition_provisions: ""
+      amended_by: []
+      verified_on: "2026-08-11"
+    scope_trigger: "Any manufacturer seeking a presumption of conformity with the GSPR"
+    obligation_summary: "Standards are voluntary but confer a presumption of conformity when cited in the Official Journal. Key standards: ISO 13485 (QMS), ISO 14971 (risk), IEC 62304 (software lifecycle), IEC 62366-1 (usability), IEC 60601 (electrical safety), ISO 10993 (biocompatibility), ISO 14155 (clinical investigation), ISO 20916 (IVD performance studies), ISO/IEC 27001 and 42001, IEC 81001-5-1"
+    responsible_actor: ["manufacturer"]
+    evidence_artifacts: ["list of standards applied", "gap analyses", "test reports"]
+    competent_authority: ["notified body"]
+    timing: "Throughout design and conformity assessment"
+    consequences_of_noncompliance: "No presumption of conformity; the manufacturer must demonstrate GSPR conformity another way"
+    related_nodes: ["EU-MD-GSPR-ANNEXI", "EU-MD-QMS-13485", "US-STD-RECOGNISED", "EU-AI-HIGHRISK-006"]
+    common_pitfalls: "Applying a standard version that is not the one cited in the Official Journal"
+    confidence: "high"
+    notes: "Harmonised AI standards from CEN-CENELEC JTC 21 are not expected complete before around end-2026"
+
+  - id: "EU-ETHICS-COMMITTEE"
+    name: "Ethics committee review and human subject protection"
+    parent_id: "EU-ETHICS"
+    jurisdiction: "EU"
+    product_families: ["medical_devices", "IVDs", "medicinal_products", "ATMPs"]
+    lifecycle_phase: ["clinical_evidence", "cross_cutting"]
+    instrument:
+      type: "Regulation"
+      citation: "Regulation (EU) No 536/2014; Regulation (EU) 2017/745 Arts. 62-82; Regulation (EU) 2017/746 Arts. 57-77"
+      binding: true
+      url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32014R0536"
+    status:
+      in_force: true
+      applicable_from: "2022-01-31"
+      transition_provisions: ""
+      amended_by: []
+      verified_on: "2026-08-11"
+    scope_trigger: "Any clinical trial, clinical investigation or performance study involving human subjects in the EU"
+    obligation_summary: "Ethics committee review is required under the CTR for medicines and under the MDR/IVDR for device investigations and performance studies, alongside informed consent requirements"
+    responsible_actor: ["sponsor", "investigator"]
+    evidence_artifacts: ["ethics committee opinion", "informed consent forms", "protocol"]
+    competent_authority: ["ethics committee", "national competent authority"]
+    timing: "Before enrolling any subject"
+    consequences_of_noncompliance: "Study cannot proceed; data unusable"
+    related_nodes: ["EU-MP-CTR-536", "EU-MD-CLINEVAL-061", "EU-IVD-PERF-EVAL", "US-ETHICS-IRB-56"]
+    common_pitfalls: "Assuming a single EU ethics opinion covers every Member State; national ethics arrangements still differ"
+    confidence: "medium"
+    notes: "The Member State layer - national language, labelling, fees, portals - is flagged as a mechanism in the gap log, not enumerated here"
+
+  - id: "EU-ENV-MATERIALS"
+    name: "Environmental and materials restrictions"
+    parent_id: "EU-ENV"
+    jurisdiction: "EU"
+    product_families: ["medical_devices", "IVDs"]
+    lifecycle_phase: ["cross_cutting"]
+    instrument:
+      type: "Regulation"
+      citation: "Regulation (EU) 2017/745, Annex I section 10.4 (phthalates); RoHS and REACH as applicable"
+      binding: true
+      url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02017R0745"
+    status:
+      in_force: true
+      applicable_from: "2021-05-26"
+      transition_provisions: ""
+      amended_by: []
+      verified_on: "2026-08-11"
+    scope_trigger: "A physical device containing substances of concern, or subject to RoHS, REACH or packaging waste rules"
+    obligation_summary: "Justify and label devices containing CMR or endocrine-disrupting substances above the Annex I 10.4 threshold; RoHS, REACH, packaging waste and single-use restrictions apply in parallel"
+    responsible_actor: ["manufacturer"]
+    evidence_artifacts: ["materials declaration", "phthalates justification", "REACH/RoHS compliance records"]
+    competent_authority: ["national competent authority"]
+    timing: "Before placing on market"
+    consequences_of_noncompliance: "Non-conforming device; enforcement"
+    related_nodes: ["EU-MD-GSPR-ANNEXI"]
+    common_pitfalls: "Software-only products are out of scope here; this applies to physical devices"
+    confidence: "medium"
+    notes: "Summarised branch; consult the primary texts for substance-specific thresholds"
+
+  - id: "EU-PROMO-ART7"
+    name: "Advertising and claims control"
+    parent_id: "EU-PROMO"
+    jurisdiction: "EU"
+    product_families: ["medical_devices", "IVDs", "medicinal_products", "wellness_products"]
+    lifecycle_phase: ["cross_cutting", "post_market"]
+    instrument:
+      type: "Regulation"
+      citation: "Regulation (EU) 2017/745, Art. 7; Directive 2001/83/EC Title VIII for medicines"
+      binding: true
+      url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02017R0745"
+    status:
+      in_force: true
+      applicable_from: "2021-05-26"
+      transition_provisions: ""
+      amended_by: []
+      verified_on: "2026-08-11"
+    scope_trigger: "Any claim made about a device or medicine in labelling, instructions for use or advertising"
+    obligation_summary: "MDR Art. 7 prohibits misleading claims about intended purpose, safety and performance; medicines advertising runs under Directive 2001/83/EC Title VIII plus national rules"
+    responsible_actor: ["manufacturer", "marketing authorisation holder"]
+    evidence_artifacts: ["claims substantiation file", "approved labelling and promotional material"]
+    competent_authority: ["national competent authority"]
+    timing: "Continuous"
+    consequences_of_noncompliance: "Enforcement and withdrawal of promotional material; a claim can also re-qualify the product"
+    related_nodes: ["EU-MD-QUAL-002", "US-PROMO-FDC", "EU-WELLNESS-OUTSIDE"]
+    common_pitfalls: "Marketing copy that adds a medical claim the technical documentation does not support changes the product's regulatory status"
+    confidence: "high"
+    notes: "This is the mechanism by which a marketing decision becomes a regulatory one"
+
+  - id: "EU-WELLNESS-OUTSIDE"
+    name: "Wellness and lifestyle products outside the MDR"
+    parent_id: "EU-MD-QUAL"
+    jurisdiction: "EU"
+    product_families: ["wellness_products", "digital_health"]
+    lifecycle_phase: ["qualification_classification"]
+    instrument:
+      type: "Regulation"
+      citation: "Regulation (EU) 2017/745, Art. 2(1) read a contrario; MDCG 2019-11"
+      binding: true
+      url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02017R0745"
+    status:
+      in_force: true
+      applicable_from: "2021-05-26"
+      transition_provisions: ""
+      amended_by: []
+      verified_on: "2026-08-11"
+    scope_trigger: "A product with no medical intended purpose - general fitness, wellbeing or lifestyle only"
+    obligation_summary: "Falls outside the MDR entirely, but GDPR still applies to any health data and the AI Act may apply on its own terms. There is no EU wellness carve-out equivalent to the FDA's General Wellness policy - the product is simply not a device"
+    responsible_actor: ["manufacturer"]
+    evidence_artifacts: ["intended purpose statement", "claims review record"]
+    competent_authority: ["national competent authority"]
+    timing: "Assessed before marketing and re-assessed whenever claims change"
+    consequences_of_noncompliance: "If claims cross into medical purpose, the product is an unregistered device"
+    related_nodes: ["EU-MD-QUAL-002", "US-WELLNESS-GUIDANCE", "EU-DATA-GDPR-009", "EU-PROMO-ART7"]
+    common_pitfalls: "The EU has no statutory wellness exemption; qualification turns entirely on the absence of a medical intended purpose"
+    confidence: "high"
+    notes: "Annex XVI covers products with no intended medical purpose that are nonetheless regulated, such as cosmetic implants"
+
+  # --- US medical devices: qualification and classification -------------------------------------
+
+  - id: "US-MD-QUAL-201H"
+    name: "US device definition and intended use"
+    parent_id: "US-MD-QUAL"
+    jurisdiction: "US"
+    product_families: ["medical_devices", "IVDs", "SaMD"]
+    lifecycle_phase: ["qualification_classification"]
+    instrument:
+      type: "Statute"
+      citation: "FD&C Act Sec. 201(h); 21 CFR 801.4"
+      binding: true
+      url: "https://www.ecfr.gov/current/title-21/chapter-I/subchapter-H/part-801/subpart-A/section-801.4"
+    status:
+      in_force: true
+      applicable_from: "1976-05-28"
+      transition_provisions: ""
+      amended_by: ["21st Century Cures Act Sec. 3060"]
+      verified_on: "2026-08-11"
+    scope_trigger: "An article intended for use in the diagnosis, cure, mitigation, treatment or prevention of disease that does not achieve its primary intended purposes through chemical action or metabolism"
+    obligation_summary: "Qualifies as a device. Intended use is derived from labeling, advertising and objective intent under 21 CFR 801.4, so claims are what set the regime"
+    responsible_actor: ["manufacturer", "specification developer"]
+    evidence_artifacts: ["intended use statement", "labeling", "promotional material review"]
+    competent_authority: ["FDA CDRH"]
+    timing: "Before commercial distribution"
+    consequences_of_noncompliance: "Adulterated or misbranded device; warning letters, seizure, injunction"
+    related_nodes: ["US-MD-CLASS-PRODCODE", "US-SW-CDS-3060", "EU-MD-QUAL-002", "US-WELLNESS-GUIDANCE"]
+    common_pitfalls: "Objective intent can be inferred from marketing statements the regulatory file never mentions"
+    confidence: "high"
+    notes: "The US intended-use test and the EU intended-purpose test are close cousins but not identical"
+
+  - id: "US-MD-CLASS-PRODCODE"
+    name: "US classification, panels and product codes"
+    parent_id: "US-MD-CLASS"
+    jurisdiction: "US"
+    product_families: ["medical_devices", "IVDs", "SaMD"]
+    lifecycle_phase: ["qualification_classification"]
+    instrument:
+      type: "CFR"
+      citation: "21 CFR Parts 862-892; 21 CFR Part 860"
+      binding: true
+      url: "https://www.fda.gov/medical-devices/overview-device-regulation/classify-your-medical-device"
+    status:
+      in_force: true
+      applicable_from: "1976-05-28"
+      transition_provisions: ""
+      amended_by: []
+      verified_on: "2026-08-11"
+    scope_trigger: "Any article qualifying as a device under FD&C Act Sec. 201(h)"
+    obligation_summary: "FDA has established classifications for approximately 1,700 generic device types grouped into 16 medical specialty panels, codified at 21 CFR Parts 862-892. Each device gets a product code and regulation number, and Class I, II or III maps to the pathway: exempt, 510(k) or De Novo, or PMA"
+    responsible_actor: ["manufacturer"]
+    evidence_artifacts: ["product code determination", "classification rationale", "predicate search record"]
+    competent_authority: ["FDA CDRH"]
+    timing: "Before choosing a premarket pathway"
+    consequences_of_noncompliance: "Wrong submission type; refusal to accept or rejection"
+    related_nodes: ["US-MD-QUAL-201H", "US-MD-PATH-EXEMPT", "US-MD-PATH-510K", "US-MD-PATH-DENOVO", "US-MD-PATH-PMA", "EU-MD-CLASS-ANNEXVIII"]
+    common_pitfalls: "Reading US Class II as equivalent to EU Class IIa; the axes differ and the classes do not map 1:1"
+    confidence: "high"
+    notes: "Product code selection drives the applicable special controls and guidance documents"
+
+  # --- US medical devices: premarket pathways ------------------------------------------------
+
+  - id: "US-MD-PATH-EXEMPT"
+    name: "510(k)-exempt devices"
+    parent_id: "US-MD-PATH"
+    jurisdiction: "US"
+    product_families: ["medical_devices", "IVDs"]
+    lifecycle_phase: ["premarket_submission"]
+    instrument:
+      type: "CFR"
+      citation: "21 CFR Parts 862-892 exemption entries; 21 CFR 807.85"
+      binding: true
+      url: "https://www.fda.gov/medical-devices/premarket-submissions-selecting-and-preparing-correct-submission/device-exemptions"
+    status:
+      in_force: true
+      applicable_from: "1976-05-28"
+      transition_provisions: ""
+      amended_by: []
+      verified_on: "2026-08-11"
+    scope_trigger: "A device whose classification regulation exempts it from premarket notification - most Class I and some Class II devices"
+    obligation_summary: "No premarket submission is required, but establishment registration, device listing, labelling, QMSR and post-market obligations still apply, and the limitations of exemption in the classification regulation must be met"
+    responsible_actor: ["manufacturer"]
+    evidence_artifacts: ["exemption determination", "device listing record"]
+    competent_authority: ["FDA CDRH"]
+    timing: "Before commercial distribution"
+    consequences_of_noncompliance: "Marketing a device that exceeded the limitations of exemption without clearance"
+    related_nodes: ["US-MD-CLASS-PRODCODE", "US-MD-REG-807", "US-QMSR-820"]
+    common_pitfalls: "Exempt from 510(k) is not exempt from regulation; QMSR, registration, listing and MDR all still apply"
+    confidence: "high"
+    notes: "The limitations of exemption are set out in the classification regulation itself"
+
+  - id: "US-MD-PATH-510K"
+    name: "510(k) premarket notification"
+    parent_id: "US-MD-PATH"
+    jurisdiction: "US"
+    product_families: ["medical_devices", "IVDs", "SaMD", "AI_ML"]
+    lifecycle_phase: ["premarket_submission"]
+    instrument:
+      type: "Statute"
+      citation: "FD&C Act Sec. 510(k); 21 CFR Part 807 Subpart E"
+      binding: true
+      url: "https://www.fda.gov/medical-devices/premarket-submissions-selecting-and-preparing-correct-submission/premarket-notification-510k"
+    status:
+      in_force: true
+      applicable_from: "1976-05-28"
+      transition_provisions: ""
+      amended_by: []
+      verified_on: "2026-08-11"
+    scope_trigger: "A Class II device, or a Class I device not exempt, for which a legally marketed predicate exists"
+    obligation_summary: "Demonstrate substantial equivalence to a predicate device. FDA's MDUFA V average total-time-to-decision goal is 128 calendar days for FY2023 510(k)s, stepping toward 112 days. The FY2026 standard user fee is $19,870. Clearance is not approval"
+    responsible_actor: ["manufacturer"]
+    evidence_artifacts: ["510(k) submission", "substantial equivalence comparison", "performance testing", "labeling"]
+    competent_authority: ["FDA CDRH"]
+    timing: "Cleared before commercial distribution"
+    consequences_of_noncompliance: "Marketing an uncleared device; enforcement"
+    related_nodes: ["US-MD-CLASS-PRODCODE", "US-MD-PATH-DENOVO", "US-MD-CHANGE-510K", "US-MD-CYBER-524B", "EU-MD-CONF-NB"]
+    common_pitfalls: "Poor predicate selection is a leading US failure mode; and 510(k) confers clearance, not approval"
+    confidence: "high"
+    notes: "Third-party 510(k) review is available for some device types"
+
+  - id: "US-MD-PATH-DENOVO"
+    name: "De Novo classification request"
+    parent_id: "US-MD-PATH"
+    jurisdiction: "US"
+    product_families: ["medical_devices", "IVDs", "SaMD", "AI_ML"]
+    lifecycle_phase: ["premarket_submission"]
+    instrument:
+      type: "Statute"
+      citation: "FD&C Act Sec. 513(f)(2); 21 CFR Part 860 Subpart D"
+      binding: true
+      url: "https://www.fda.gov/medical-devices/premarket-submissions-selecting-and-preparing-correct-submission/de-novo-classification-request"
+    status:
+      in_force: true
+      applicable_from: "1997-11-21"
+      transition_provisions: ""
+      amended_by: ["21st Century Cures Act"]
+      verified_on: "2026-08-11"
+    scope_trigger: "A novel device of low to moderate risk for which no legally marketed predicate exists"
+    obligation_summary: "Requests classification into Class I or II, creating a new classification and product code that later devices can use as a predicate. The FY2026 standard user fee is $173,782"
+    responsible_actor: ["manufacturer"]
+    evidence_artifacts: ["De Novo request", "risk and mitigation analysis", "proposed special controls", "clinical or performance data"]
+    competent_authority: ["FDA CDRH"]
+    timing: "Granted before commercial distribution"
+    consequences_of_noncompliance: "Marketing an unclassified device without authorisation"
+    related_nodes: ["US-MD-PATH-510K", "US-MD-PATH-PMA", "US-MD-CLASS-PRODCODE", "US-MD-BREAKTHROUGH"]
+    common_pitfalls: "Assuming the absence of a predicate means PMA; De Novo is the low/moderate-risk route"
+    confidence: "high"
+    notes: "The absence of a predicate is the fork between De Novo and PMA, and it changes both timeline and fee materially"
+
+  - id: "US-MD-PATH-PMA"
+    name: "Premarket approval"
+    parent_id: "US-MD-PATH"
+    jurisdiction: "US"
+    product_families: ["medical_devices", "IVDs"]
+    lifecycle_phase: ["premarket_submission"]
+    instrument:
+      type: "Statute"
+      citation: "FD&C Act Sec. 515; 21 CFR Part 814"
+      binding: true
+      url: "https://www.fda.gov/medical-devices/premarket-submissions-selecting-and-preparing-correct-submission/premarket-approval-pma"
+    status:
+      in_force: true
+      applicable_from: "1976-05-28"
+      transition_provisions: ""
+      amended_by: []
+      verified_on: "2026-08-11"
+    scope_trigger: "A Class III device, or a device supporting or sustaining human life or of substantial importance in preventing impairment of health"
+    obligation_summary: "Demonstrate reasonable assurance of safety and effectiveness with valid scientific evidence, usually clinical. The MDUFA V shared goal is 285 calendar days for original and panel-track PMAs; the FY2026 standard user fee is $579,272"
+    responsible_actor: ["manufacturer"]
+    evidence_artifacts: ["PMA application", "clinical study reports", "manufacturing information", "labeling"]
+    competent_authority: ["FDA CDRH", "advisory panel"]
+    timing: "Approved before commercial distribution; changes go through PMA supplements"
+    consequences_of_noncompliance: "Marketing an unapproved Class III device"
+    related_nodes: ["US-MD-PATH-DENOVO", "US-MD-PATH-HDE", "US-MD-IDE-812", "US-IVD-CDX-PMA", "US-LIABILITY-PREEMPTION"]
+    common_pitfalls: "Do not conflate the 285-day MDUFA goal with real-world waits; a secondary analyst figure put the average at about 1,013 days in H1 2023"
+    confidence: "high"
+    notes: "PMA approval carries federal preemption consequences in US tort litigation"
+
+  - id: "US-MD-PATH-HDE"
+    name: "Humanitarian Device Exemption"
+    parent_id: "US-MD-PATH"
+    jurisdiction: "US"
+    product_families: ["medical_devices"]
+    lifecycle_phase: ["premarket_submission"]
+    instrument:
+      type: "Statute"
+      citation: "FD&C Act Sec. 520(m); 21 CFR Part 814 Subpart H"
+      binding: true
+      url: "https://www.fda.gov/medical-devices/premarket-submissions-selecting-and-preparing-correct-submission/humanitarian-device-exemption"
+    status:
+      in_force: true
+      applicable_from: "1996-10-01"
+      transition_provisions: ""
+      amended_by: ["21st Century Cures Act Sec. 3052"]
+      verified_on: "2026-08-11"
+    scope_trigger: "A Humanitarian Use Device - per FDA, a medical device intended to benefit patients in the treatment or diagnosis of a disease or condition that affects or is manifested in not more than 8,000 individuals in the United States per year"
+    obligation_summary: "An HDE is exempt from the effectiveness requirement and from user fees; the population cap was raised from 4,000 to 8,000 by the 21st Century Cures Act Sec. 3052"
+    responsible_actor: ["manufacturer"]
+    evidence_artifacts: ["HDE application", "HUD designation", "probable benefit data", "IRB approval for use"]
+    competent_authority: ["FDA CDRH", "IRB"]
+    timing: "Approved before commercial distribution"
+    consequences_of_noncompliance: "Marketing outside the approved humanitarian indication"
+    related_nodes: ["US-MD-PATH-PMA", "US-ETHICS-IRB-56"]
+    common_pitfalls: "The effectiveness exemption does not remove the probable benefit showing, and use is tied to IRB oversight"
+    confidence: "high"
+    notes: "There is no direct EU counterpart with the same population cap mechanism"
+
+  - id: "US-SW-CDS-3060"
+    name: "US Non-Device CDS exclusion (Cures Act Sec. 3060)"
+    parent_id: "US-SW"
+    jurisdiction: "US"
+    product_families: ["SaMD", "AI_ML", "digital_health"]
+    lifecycle_phase: ["qualification_classification"]
+    instrument:
+      type: "Statute"
+      citation: "FD&C Act Sec. 520(o)(1)(E); 21st Century Cures Act Sec. 3060"
+      binding: true
+      url: "https://www.federalregister.gov/documents/2019/09/27/2019-21001"
+    status:
+      in_force: true
+      applicable_from: "2016-12-13"
+      transition_provisions: "CDS Final Guidance Sept 2022"
+      amended_by: []
+      verified_on: "2026-08-11"
+    scope_trigger: "Software meeting four Sec. 520(o)(1)(E) criteria for Non-Device CDS"
+    obligation_summary: "If all four criteria met, software is not a device and outside FDA jurisdiction"
+    responsible_actor: ["manufacturer"]
+    evidence_artifacts: ["intended use statement", "labeling", "criterion analysis"]
+    competent_authority: ["FDA CDRH"]
+    timing: "Self-assessment before marketing"
+    consequences_of_noncompliance: "If misclassified, unapproved device marketing violations"
+    related_nodes: ["EU-MD-CLASS-011", "US-MD-QUAL-201H", "US-WELLNESS-GUIDANCE"]
+    common_pitfalls: "FDA narrowed Criterion 3; auto alerts/analysis may not qualify"
+    confidence: "high"
+    notes: "No EU equivalent statutory carve-out"
+
+  - id: "US-WELLNESS-GUIDANCE"
+    name: "General wellness enforcement discretion"
+    parent_id: "US-SW"
+    jurisdiction: "US"
+    product_families: ["wellness_products", "digital_health", "SaMD"]
+    lifecycle_phase: ["qualification_classification"]
+    instrument:
+      type: "Guidance"
+      citation: "FDA, General Wellness: Policy for Low Risk Devices (final guidance)"
+      binding: false
+      url: "https://www.fda.gov/regulatory-information/search-fda-guidance-documents/general-wellness-policy-low-risk-devices"
+    status:
+      in_force: true
+      applicable_from: "2019-09-27"
+      transition_provisions: ""
+      amended_by: []
+      verified_on: "2026-08-11"
+    scope_trigger: "A low-risk product with a general wellness intended use - maintaining or encouraging a healthy lifestyle rather than diagnosing or treating"
+    obligation_summary: "FDA exercises enforcement discretion and does not intend to enforce device requirements against qualifying low-risk general wellness products"
+    responsible_actor: ["manufacturer"]
+    evidence_artifacts: ["intended use statement", "risk analysis against the guidance criteria", "labeling and marketing review"]
+    competent_authority: ["FDA CDRH", "FTC for advertising"]
+    timing: "Self-assessment before marketing"
+    consequences_of_noncompliance: "If claims exceed the policy, the product is an unapproved or uncleared device"
+    related_nodes: ["US-MD-QUAL-201H", "US-SW-CDS-3060", "EU-WELLNESS-OUTSIDE", "US-PROMO-FDC"]
+    common_pitfalls: "Enforcement discretion is a policy choice, not a statutory exclusion; it can be withdrawn and it does not bind FTC"
+    confidence: "high"
+    notes: "Contrast with the EU, where a wellness product is simply outside the MDR definition"
+
+  # --- US medical devices: lifecycle obligations ---------------------------------------------
+
+  - id: "US-QMSR-820"
+    name: "US Quality Management System Regulation"
+    parent_id: "US-MD-QMS"
+    jurisdiction: "US"
+    product_families: ["medical_devices", "IVDs", "combination_products"]
+    lifecycle_phase: ["qms"]
+    instrument:
+      type: "CFR"
+      citation: "21 CFR Part 820 (QMSR)"
+      binding: true
+      url: "https://www.fda.gov/medical-devices/postmarket-requirements-devices/quality-management-system-regulation-qmsr"
+    status:
+      in_force: true
+      applicable_from: "2026-02-02"
+      transition_provisions: "Two years from 2 Feb 2024 final rule"
+      amended_by: ["Technical Amendments 2025-21955 (eff. 2026-02-02)"]
+      verified_on: "2026-08-11"
+    scope_trigger: "Finished device manufacturer intending commercial distribution in US"
+    obligation_summary: "Comply with ISO 13485:2016 incorporated by reference plus FDA supplemental provisions"
+    responsible_actor: ["manufacturer"]
+    evidence_artifacts: ["QMS records", "DHF/design records", "device master record equivalent"]
+    competent_authority: ["FDA"]
+    timing: "Effective 2 Feb 2026"
+    consequences_of_noncompliance: "483 observations, warning letters, import refusal"
+    related_nodes: ["EU-MD-QMS-13485", "US-MD-PATH-510K", "US-COMB-PMOA-3"]
+    common_pitfalls: "Assuming QMSR = ISO 13485 exactly; FDA adds supplemental requirements; ISO cert not required nor sufficient"
+    confidence: "high"
+    notes: "QSIT replaced by Compliance Program 7382.850"
+
+  - id: "US-MD-IDE-812"
+    name: "Investigational Device Exemption"
+    parent_id: "US-MD-CLINICAL"
+    jurisdiction: "US"
+    product_families: ["medical_devices", "IVDs", "SaMD"]
+    lifecycle_phase: ["clinical_evidence"]
+    instrument:
+      type: "CFR"
+      citation: "21 CFR Part 812; see also Parts 50 and 56"
+      binding: true
+      url: "https://www.ecfr.gov/current/title-21/chapter-I/subchapter-H/part-812"
+    status:
+      in_force: true
+      applicable_from: "1980-07-16"
+      transition_provisions: ""
+      amended_by: []
+      verified_on: "2026-08-11"
+    scope_trigger: "A clinical investigation of a device not yet cleared or approved for the investigational use"
+    obligation_summary: "A significant risk study needs FDA approval of an IDE plus IRB approval; a non-significant risk study needs IRB approval and the abbreviated requirements. Informed consent runs under Part 50 and IRB oversight under Part 56"
+    responsible_actor: ["sponsor", "investigator"]
+    evidence_artifacts: ["IDE application", "investigational plan", "IRB approval", "informed consent forms"]
+    competent_authority: ["FDA CDRH", "IRB"]
+    timing: "Before enrolling any subject"
+    consequences_of_noncompliance: "Study data unusable; enforcement against the sponsor"
+    related_nodes: ["US-MD-PATH-PMA", "US-ETHICS-IRB-56", "EU-MD-CLINEVAL-061"]
+    common_pitfalls: "The significant versus non-significant risk determination is made first by the sponsor and then by the IRB, and it decides whether FDA sees the study at all"
+    confidence: "high"
+    notes: "510(k) submissions often need no clinical data; De Novo and PMA usually do"
+
+  - id: "US-MD-REG-807"
+    name: "Establishment registration and device listing"
+    parent_id: "US-MD-OPS"
+    jurisdiction: "US"
+    product_families: ["medical_devices", "IVDs", "SaMD"]
+    lifecycle_phase: ["registration_labelling"]
+    instrument:
+      type: "CFR"
+      citation: "21 CFR Part 807; 21 CFR Part 801 for labelling"
+      binding: true
+      url: "https://www.ecfr.gov/current/title-21/chapter-I/subchapter-H/part-807"
+    status:
+      in_force: true
+      applicable_from: "1977-01-01"
+      transition_provisions: ""
+      amended_by: []
+      verified_on: "2026-08-11"
+    scope_trigger: "Any establishment manufacturing or distributing a device in the US, including foreign establishments"
+    obligation_summary: "Register the establishment and list each device annually; a foreign establishment must designate a US agent, whose role is a communication conduit rather than a legal representative"
+    responsible_actor: ["manufacturer", "US agent", "initial importer"]
+    evidence_artifacts: ["registration record", "device listing", "US agent designation"]
+    competent_authority: ["FDA"]
+    timing: "Before commercial distribution and renewed annually"
+    consequences_of_noncompliance: "Misbranded device; import refusal"
+    related_nodes: ["US-MD-UDI-830", "EU-MD-ECON-010", "US-MD-PATH-EXEMPT"]
+    common_pitfalls: "Treating the US agent as an EU authorised representative; the US agent carries far fewer responsibilities"
+    confidence: "high"
+    notes: "This false friend is one of the most common EU/US mix-ups for startups"
+
+  - id: "US-MD-UDI-830"
+    name: "US Unique Device Identification and GUDID"
+    parent_id: "US-MD-OPS"
+    jurisdiction: "US"
+    product_families: ["medical_devices", "IVDs", "SaMD"]
+    lifecycle_phase: ["registration_labelling"]
+    instrument:
+      type: "CFR"
+      citation: "21 CFR Part 830; 21 CFR Part 801 Subpart B"
+      binding: true
+      url: "https://www.ecfr.gov/current/title-21/chapter-I/subchapter-H/part-830"
+    status:
+      in_force: true
+      applicable_from: "2013-09-24"
+      transition_provisions: ""
+      amended_by: []
+      verified_on: "2026-08-11"
+    scope_trigger: "Any device requiring a unique device identifier on its label"
+    obligation_summary: "Assign a UDI, place it on labels and packages, and submit device identification data to the Global UDID Database"
+    responsible_actor: ["manufacturer", "labeler"]
+    evidence_artifacts: ["UDI assignment records", "GUDID submission", "label artwork"]
+    competent_authority: ["FDA"]
+    timing: "Before commercial distribution"
+    consequences_of_noncompliance: "Misbranded device"
+    related_nodes: ["EU-MD-UDI-027", "US-MD-REG-807"]
+    common_pitfalls: "GUDID and EUDAMED are separate submissions with different data sets"
+    confidence: "high"
+    notes: "The two UDI systems share an approach but neither satisfies the other"
+
+  - id: "US-MD-MDR-803"
+    name: "Medical Device Reporting and postmarket obligations"
+    parent_id: "US-MD-PMS"
+    jurisdiction: "US"
+    product_families: ["medical_devices", "IVDs", "SaMD", "AI_ML"]
+    lifecycle_phase: ["post_market"]
+    instrument:
+      type: "CFR"
+      citation: "21 CFR Part 803; 21 CFR Part 806; FD&C Act Sec. 522"
+      binding: true
+      url: "https://www.ecfr.gov/current/title-21/chapter-I/subchapter-H/part-803"
+    status:
+      in_force: true
+      applicable_from: "1984-12-13"
+      transition_provisions: ""
+      amended_by: []
+      verified_on: "2026-08-11"
+    scope_trigger: "A device-related death, serious injury or malfunction, or a correction or removal to reduce a health risk"
+    obligation_summary: "Report qualifying events under Part 803 within the applicable deadlines; report corrections and removals under Part 806; FDA may also order postmarket surveillance studies under Sec. 522"
+    responsible_actor: ["manufacturer", "importer", "user facility"]
+    evidence_artifacts: ["MDR reports", "complaint files", "correction and removal reports", "Sec. 522 study protocols"]
+    competent_authority: ["FDA"]
+    timing: "Within the Part 803 reporting deadlines from awareness"
+    consequences_of_noncompliance: "Warning letters, consent decrees, civil penalties"
+    related_nodes: ["EU-MD-VIG-087", "EU-MD-PMS-084", "US-QMSR-820", "US-IVD-CDX-PMA"]
+    common_pitfalls: "Running one global vigilance process on EU timelines; the US clocks and thresholds are separate"
+    confidence: "high"
+    notes: "Complaint handling under the QMSR feeds the MDR decision, so the two systems have to be connected"
+
+  - id: "US-MD-CHANGE-510K"
+    name: "Deciding when a change needs a new submission"
+    parent_id: "US-MD-CHANGE"
+    jurisdiction: "US"
+    product_families: ["medical_devices", "IVDs", "SaMD"]
+    lifecycle_phase: ["change_management"]
+    instrument:
+      type: "Guidance"
+      citation: "FDA, Deciding When to Submit a 510(k) for a Change to an Existing Device (final guidance); 21 CFR 814.39 for PMA supplements"
+      binding: false
+      url: "https://www.fda.gov/regulatory-information/search-fda-guidance-documents/deciding-when-submit-510k-change-existing-device"
+    status:
+      in_force: true
+      applicable_from: "2017-10-25"
+      transition_provisions: ""
+      amended_by: []
+      verified_on: "2026-08-11"
+    scope_trigger: "A change to the design, labeling, materials or manufacturing of a cleared or approved device"
+    obligation_summary: "Assess whether the change could significantly affect safety or effectiveness; if so, submit a new 510(k) or a PMA supplement. Changes covered by an authorised PCCP can be made without a new submission"
+    responsible_actor: ["manufacturer"]
+    evidence_artifacts: ["change assessment and documented rationale", "regression testing", "new submission or PMA supplement"]
+    competent_authority: ["FDA CDRH"]
+    timing: "Before implementing the change"
+    consequences_of_noncompliance: "Marketing a modified device outside its clearance or approval"
+    related_nodes: ["US-MD-PATH-510K", "US-AI-PCCP", "EU-MD-CHANGE-MDCG20203", "US-MD-PATH-PMA"]
+    common_pitfalls: "Documenting the decision is part of the obligation even when the answer is no new submission"
+    confidence: "high"
+    notes: "Guidance is non-binding but reflects FDA's current thinking and is what reviewers apply"
+
+  - id: "US-AI-PCCP"
+    name: "Predetermined Change Control Plan for AI-enabled devices"
+    parent_id: "US-AI"
+    jurisdiction: "US"
+    product_families: ["SaMD", "AI_ML", "medical_devices", "IVDs"]
+    lifecycle_phase: ["change_management", "premarket_submission"]
+    instrument:
+      type: "Guidance"
+      citation: "FDA, Marketing Submission Recommendations for a Predetermined Change Control Plan for Artificial Intelligence-Enabled Device Software Functions (final, Dec 2024); authority from FD&C Act Sec. 515C"
+      binding: false
+      url: "https://www.fda.gov/regulatory-information/search-fda-guidance-documents/marketing-submission-recommendations-predetermined-change-control-plan-artificial-intelligence"
+    status:
+      in_force: true
+      applicable_from: "2024-12-01"
+      transition_provisions: ""
+      amended_by: []
+      verified_on: "2026-08-11"
+    scope_trigger: "An AI-enabled device software function whose manufacturer intends to modify it after authorisation"
+    obligation_summary: "Include a PCCP with three components - Description of Modifications, Modification Protocol, and Impact Assessment - so that pre-authorised changes can be made without a new marketing submission"
+    responsible_actor: ["manufacturer"]
+    evidence_artifacts: ["PCCP", "modification protocol", "impact assessment", "post-change performance monitoring records"]
+    competent_authority: ["FDA CDRH"]
+    timing: "Submitted with the original marketing submission"
+    consequences_of_noncompliance: "Modifications outside an authorised PCCP need a new submission"
+    related_nodes: ["US-MD-CHANGE-510K", "EU-AI-HIGHRISK-006", "US-MD-PATH-510K"]
+    common_pitfalls: "Related Jan 2025 CDRH lifecycle and CDER/CBER AI guidances remain draft and should not be cited as final"
+    confidence: "high"
+    notes: "The US has no horizontal AI statute; AI is governed through the device authorities plus the PCCP mechanism"
+
+  - id: "US-MD-CYBER-524B"
+    name: "Cyber device premarket cybersecurity requirements"
+    parent_id: "US-MD-CYBER"
+    jurisdiction: "US"
+    product_families: ["medical_devices", "IVDs", "SaMD", "AI_ML", "digital_health"]
+    lifecycle_phase: ["premarket_submission", "post_market"]
+    instrument:
+      type: "Statute"
+      citation: "FD&C Act Sec. 524B, added by FDORA (Dec 2022); FDA premarket cybersecurity guidance (final, June 2025)"
+      binding: true
+      url: "https://www.fda.gov/medical-devices/digital-health-center-excellence/cybersecurity"
+    status:
+      in_force: true
+      applicable_from: "2023-03-29"
+      transition_provisions: ""
+      amended_by: []
+      verified_on: "2026-08-11"
+    scope_trigger: "A cyber device - one that includes software, can connect to the internet, and has technological characteristics vulnerable to cybersecurity threats"
+    obligation_summary: "The premarket submission must include a vulnerability management plan, a machine-readable software bill of materials in SPDX or CycloneDX, and processes for providing updates and patches. The Refuse-to-Accept policy has been in force since 1 Oct 2023"
+    responsible_actor: ["manufacturer"]
+    evidence_artifacts: ["SBOM", "vulnerability management plan", "threat model", "security architecture views", "patch and update process"]
+    competent_authority: ["FDA CDRH"]
+    timing: "With the premarket submission; maintained post-market"
+    consequences_of_noncompliance: "Refuse to Accept - the submission is not even reviewed"
+    related_nodes: ["US-MD-PATH-510K", "EU-MD-CYBER-MDCG201916", "EU-CYBER-NIS2-CRA"]
+    common_pitfalls: "An incomplete cybersecurity section is a Refuse-to-Accept failure mode, not a review deficiency to fix later"
+    confidence: "high"
+    notes: "Sec. 524B is statutory and binding; the June 2025 guidance explains how FDA reads it"
+
+  - id: "US-MD-BREAKTHROUGH"
+    name: "Breakthrough Devices, Q-Submission and STeP"
+    parent_id: "US-MD-PROGRAMS"
+    jurisdiction: "US"
+    product_families: ["medical_devices", "IVDs", "SaMD", "AI_ML"]
+    lifecycle_phase: ["premarket_submission"]
+    instrument:
+      type: "Statute"
+      citation: "FD&C Act Sec. 515B (Breakthrough Devices Program); FDA Q-Submission Program guidance"
+      binding: true
+      url: "https://www.fda.gov/medical-devices/how-study-and-market-your-device/breakthrough-devices-program"
+    status:
+      in_force: true
+      applicable_from: "2016-12-13"
+      transition_provisions: ""
+      amended_by: []
+      verified_on: "2026-08-11"
+    scope_trigger: "A device providing more effective treatment or diagnosis of life-threatening or irreversibly debilitating conditions, or a sponsor seeking early FDA feedback"
+    obligation_summary: "Breakthrough designation gives priority interaction and review; 1,284 designations had been granted across CDRH and CBER as of 31 Mar 2026. The Q-Submission or pre-sub program provides written feedback and a meeting before a major submission; the Safer Technologies Program covers less serious conditions"
+    responsible_actor: ["manufacturer", "sponsor"]
+    evidence_artifacts: ["designation request", "Q-Sub package", "FDA meeting minutes"]
+    competent_authority: ["FDA CDRH", "FDA CBER"]
+    timing: "Designation and pre-sub feedback before the marketing submission"
+    consequences_of_noncompliance: "None - these are voluntary programs"
+    related_nodes: ["US-MD-PATH-DENOVO", "US-MD-PATH-PMA", "US-MD-PATH-510K"]
+    common_pitfalls: "Skipping a Q-Sub before a novel submission and discovering the evidence expectations only at review"
+    confidence: "high"
+    notes: "Use a Q-Sub before any major submission; engage an EU notified body as early as possible for the same reason"
+
+  # --- US IVDs and laboratory developed tests ---------------------------------------------------
+
+  - id: "US-IVD-PATH-DEVICE"
+    name: "US IVDs are regulated as devices"
+    parent_id: "US-IVD"
+    jurisdiction: "US"
+    product_families: ["IVDs", "SaMD"]
+    lifecycle_phase: ["qualification_classification", "premarket_submission"]
+    instrument:
+      type: "CFR"
+      citation: "21 CFR Part 809; 21 CFR Parts 862-866; FD&C Act Sec. 201(h)"
+      binding: true
+      url: "https://www.ecfr.gov/current/title-21/chapter-I/subchapter-H/part-809"
+    status:
+      in_force: true
+      applicable_from: "1976-05-28"
+      transition_provisions: ""
+      amended_by: ["LDT rescission final rule, 19 Sept 2025"]
+      verified_on: "2026-08-11"
+    scope_trigger: "A reagent, instrument or system intended for use in the diagnosis of disease through the examination of specimens taken from the human body"
+    obligation_summary: "IVDs are devices and follow the same pathways - exempt, 510(k), De Novo or PMA - with IVD-specific labelling under Part 809"
+    responsible_actor: ["manufacturer"]
+    evidence_artifacts: ["analytical and clinical validation data", "Part 809 labeling", "premarket submission"]
+    competent_authority: ["FDA CDRH"]
+    timing: "Before commercial distribution"
+    consequences_of_noncompliance: "Marketing an unauthorised IVD"
+    related_nodes: ["US-MD-CLASS-PRODCODE", "US-IVD-CLIA-493", "US-IVD-LDT-8093", "EU-IVD-QUAL-002"]
+    common_pitfalls: "The US has no A/B/C/D IVD ladder; IVDs sit on the ordinary Class I/II/III device ladder"
+    confidence: "high"
+    notes: "This is a structural difference from the IVDR, which has its own classification scheme"
+
+  - id: "US-IVD-CLIA-493"
+    name: "CLIA laboratory oversight"
+    parent_id: "US-IVD"
+    jurisdiction: "US"
+    product_families: ["IVDs"]
+    lifecycle_phase: ["cross_cutting", "post_market"]
+    instrument:
+      type: "CFR"
+      citation: "42 CFR Part 493 (CLIA)"
+      binding: true
+      url: "https://www.ecfr.gov/current/title-42/chapter-IV/subchapter-G/part-493"
+    status:
+      in_force: true
+      applicable_from: "1992-09-01"
+      transition_provisions: ""
+      amended_by: []
+      verified_on: "2026-08-11"
+    scope_trigger: "A laboratory performing testing on human specimens for health assessment or the diagnosis, prevention or treatment of disease"
+    obligation_summary: "CLIA governs laboratory operations - personnel, quality control, proficiency testing and certification - and is administered by CMS, not FDA"
+    responsible_actor: ["clinical laboratory"]
+    evidence_artifacts: ["CLIA certificate", "validation records", "proficiency testing results", "quality control records"]
+    competent_authority: ["CMS", "accreditation organisations"]
+    timing: "Before reporting patient results"
+    consequences_of_noncompliance: "Loss of CLIA certification; the laboratory cannot report results"
+    related_nodes: ["US-IVD-LDT-8093", "US-IVD-PATH-DEVICE"]
+    common_pitfalls: "CLIA regulates the laboratory, not the test as a product; the two regimes answer different questions"
+    confidence: "high"
+    notes: "The EU has no single CLIA analogue; laboratory operation is regulated nationally"
+
+  - id: "US-IVD-LDT-8093"
+    name: "Laboratory developed tests after the vacated FDA rule"
+    parent_id: "US-IVD"
+    jurisdiction: "US"
+    product_families: ["IVDs"]
+    lifecycle_phase: ["qualification_classification"]
+    instrument:
+      type: "CFR"
+      citation: "21 CFR 809.3(a), reverted by FDA final rule of 19 Sept 2025 following ACLA v. FDA, No. 4:24-CV-479-SDJ (E.D. Tex., 31 Mar 2025)"
+      binding: true
+      url: "https://www.ecfr.gov/current/title-21/chapter-I/subchapter-H/part-809/section-809.3"
+    status:
+      in_force: true
+      applicable_from: "2025-09-19"
+      transition_provisions: ""
+      amended_by: ["LDT final rule (May 2024) vacated 31 Mar 2025; FDA rescission 19 Sept 2025"]
+      verified_on: "2026-08-11"
+    scope_trigger: "A test designed, manufactured and used within a single CLIA-certified laboratory"
+    obligation_summary: "FDA's May 2024 LDT final rule was vacated by the Eastern District of Texas on 31 Mar 2025; HHS did not appeal and FDA formally reverted 21 CFR 809.3(a) on 19 Sept 2025. LDTs remain regulated under CLIA by CMS, not as FDA devices"
+    responsible_actor: ["clinical laboratory"]
+    evidence_artifacts: ["CLIA validation records", "laboratory procedure manual"]
+    competent_authority: ["CMS", "FDA (enforcement discretion)"]
+    timing: "Before reporting patient results"
+    consequences_of_noncompliance: "CLIA enforcement; FDA action if the test is distributed beyond the single laboratory"
+    related_nodes: ["US-IVD-CLIA-493", "US-IVD-PATH-DEVICE", "EU-IVD-QUAL-002"]
+    common_pitfalls: "Any remembered position on LDT oversight from 2024 is now wrong; the rule was vacated and rescinded"
+    confidence: "high"
+    notes: "There is no EU equivalent to the LDT concept; the closest is the MDR/IVDR in-house device provision"
+
+  - id: "US-IVD-CDX-PMA"
+    name: "US companion diagnostics"
+    parent_id: "US-IVD"
+    jurisdiction: "US"
+    product_families: ["IVDs", "medicinal_products"]
+    lifecycle_phase: ["premarket_submission"]
+    instrument:
+      type: "Statute"
+      citation: "FD&C Act Sec. 515; 21 CFR Part 814; FDA In Vitro Companion Diagnostic Devices guidance"
+      binding: true
+      url: "https://www.fda.gov/medical-devices/vitro-diagnostics/companion-diagnostics"
+    status:
+      in_force: true
+      applicable_from: "2014-08-06"
+      transition_provisions: ""
+      amended_by: []
+      verified_on: "2026-08-11"
+    scope_trigger: "An IVD essential for the safe and effective use of a corresponding therapeutic product"
+    obligation_summary: "Typically co-developed with the drug and reviewed through PMA by CDRH with CDER or CBER coordination; post-market it carries the ordinary device obligations - QMSR, MDR reporting, corrections and removals, PMA supplements for changes, and any Sec. 522 study FDA orders"
+    responsible_actor: ["manufacturer", "drug sponsor"]
+    evidence_artifacts: ["PMA application", "clinical bridging data", "co-development plan", "postmarket study protocols"]
+    competent_authority: ["FDA CDRH", "FDA CDER", "FDA CBER"]
+    timing: "Approved alongside the therapeutic product"
+    consequences_of_noncompliance: "The therapeutic product's labeling cannot rely on the diagnostic"
+    related_nodes: ["EU-IVD-CLASS-R3F", "US-MD-PATH-PMA", "US-MD-MDR-803", "US-QMSR-820"]
+    common_pitfalls: "The EU route needs a medicines authority consultation inside conformity assessment; the US route needs cross-centre coordination instead"
+    confidence: "high"
+    notes: "This node answers what post-market obligations attach to a US companion diagnostic"
+
+  # --- US medicinal products and biologics -------------------------------------------------------
+
+  - id: "US-MP-IND-312"
+    name: "Investigational New Drug application"
+    parent_id: "US-MP-CLINICAL"
+    jurisdiction: "US"
+    product_families: ["medicinal_products", "biologics_vaccines", "ATMPs"]
+    lifecycle_phase: ["clinical_evidence"]
+    instrument:
+      type: "CFR"
+      citation: "21 CFR Part 312"
+      binding: true
+      url: "https://www.ecfr.gov/current/title-21/chapter-I/subchapter-D/part-312"
+    status:
+      in_force: true
+      applicable_from: "1987-06-17"
+      transition_provisions: ""
+      amended_by: []
+      verified_on: "2026-08-11"
+    scope_trigger: "Clinical investigation of a drug or biologic not approved for the investigational use"
+    obligation_summary: "Submit an IND and wait 30 days unless FDA acts sooner; IRB approval and informed consent are required in parallel"
+    responsible_actor: ["sponsor"]
+    evidence_artifacts: ["IND submission", "protocol", "investigator's brochure", "CMC information", "IRB approval"]
+    competent_authority: ["FDA CDER", "FDA CBER", "IRB"]
+    timing: "Before the trial starts"
+    consequences_of_noncompliance: "Clinical hold; unlawful shipment of an investigational drug"
+    related_nodes: ["US-MP-NDA-505", "EU-MP-CTR-536", "US-ETHICS-IRB-56"]
+    common_pitfalls: "A US IND covers one country; a CTR application through CTIS covers up to 30 EU/EEA states in one submission"
+    confidence: "high"
+    notes: "Device trials use an IDE under 21 CFR Part 812 instead"
+
+  - id: "US-MP-NDA-505"
+    name: "NDA, 505(b)(2) and ANDA pathways"
+    parent_id: "US-MP-PATH"
+    jurisdiction: "US"
+    product_families: ["medicinal_products"]
+    lifecycle_phase: ["premarket_submission"]
+    instrument:
+      type: "Statute"
+      citation: "FD&C Act Sec. 505(b)(1), 505(b)(2) and 505(j); 21 CFR Part 314"
+      binding: true
+      url: "https://www.ecfr.gov/current/title-21/chapter-I/subchapter-D/part-314"
+    status:
+      in_force: true
+      applicable_from: "1938-06-25"
+      transition_provisions: ""
+      amended_by: ["Hatch-Waxman Amendments 1984"]
+      verified_on: "2026-08-11"
+    scope_trigger: "A drug product intended for commercial distribution in the US"
+    obligation_summary: "A full NDA under 505(b)(1), a 505(b)(2) relying in part on data the applicant does not own, or an ANDA under 505(j) for generics. cGMP under 21 CFR Parts 210-211 and establishment registration apply throughout"
+    responsible_actor: ["sponsor", "applicant"]
+    evidence_artifacts: ["NDA/ANDA dossier", "CMC section", "clinical study reports", "proposed labeling"]
+    competent_authority: ["FDA CDER"]
+    timing: "Approved before commercial distribution"
+    consequences_of_noncompliance: "Marketing an unapproved new drug"
+    related_nodes: ["US-MP-IND-312", "US-MP-BLA-351", "EU-MP-AUTH-CENTRAL", "US-COMB-PMOA-3"]
+    common_pitfalls: "Exclusivity is a separate calculation from approval: Hatch-Waxman gives 5-year NCE, 3-year new clinical data and 180-day generic exclusivity; orphan gives 7 years"
+    confidence: "high"
+    notes: "REMS and postmarketing requirements or commitments may attach at approval"
+
+  - id: "US-MP-BLA-351"
+    name: "Biologics licence and biosimilars"
+    parent_id: "US-MP-PATH"
+    jurisdiction: "US"
+    product_families: ["biologics_vaccines", "ATMPs"]
+    lifecycle_phase: ["premarket_submission"]
+    instrument:
+      type: "Statute"
+      citation: "PHS Act Sec. 351(a) and 351(k); Sec. 351(k)(4) for interchangeability; BPCIA"
+      binding: true
+      url: "https://www.fda.gov/vaccines-blood-biologics/development-approval-process-cber/biologics-license-applications-bla-process-cber"
+    status:
+      in_force: true
+      applicable_from: "2010-03-23"
+      transition_provisions: ""
+      amended_by: []
+      verified_on: "2026-08-11"
+    scope_trigger: "A biological product intended for commercial distribution in the US"
+    obligation_summary: "A BLA under Sec. 351(a), or a biosimilar under Sec. 351(k) with interchangeability under Sec. 351(k)(4), for which a switching study is generally expected. The BPCIA gives 12 years reference-product exclusivity plus first-interchangeable exclusivity; a single 351(k) BLA may seek both biosimilar and interchangeable licensure"
+    responsible_actor: ["sponsor", "licence holder"]
+    evidence_artifacts: ["BLA dossier", "comparative analytical assessment", "clinical immunogenicity data", "switching study"]
+    competent_authority: ["FDA CBER", "FDA CDER"]
+    timing: "Licensed before commercial distribution"
+    consequences_of_noncompliance: "Marketing an unlicensed biologic"
+    related_nodes: ["US-MP-NDA-505", "EU-MP-AUTH-CENTRAL", "US-VACCINE-CBER"]
+    common_pitfalls: "Interchangeability is a distinct US legal status; the EU handles substitution nationally and has no equivalent designation"
+    confidence: "high"
+    notes: "Gene and cell therapies are regulated as biologics under CBER, with RMAT designation available"
+
+  - id: "US-VACCINE-CBER"
+    name: "Vaccines, lot release and adverse event reporting"
+    parent_id: "US-MP-PATH"
+    jurisdiction: "US"
+    product_families: ["biologics_vaccines"]
+    lifecycle_phase: ["post_market", "premarket_submission"]
+    instrument:
+      type: "CFR"
+      citation: "21 CFR Parts 600-680; PHS Act Sec. 351; FD&C Act Sec. 564 for emergency use"
+      binding: true
+      url: "https://www.ecfr.gov/current/title-21/chapter-I/subchapter-F"
+    status:
+      in_force: true
+      applicable_from: "1972-01-01"
+      transition_provisions: ""
+      amended_by: []
+      verified_on: "2026-08-11"
+    scope_trigger: "A vaccine or other biological product licensed or under emergency authorisation in the US"
+    obligation_summary: "CBER oversees vaccines, including lot release; adverse events are reported through VAERS and injury compensation runs through the National Vaccine Injury Compensation Program. An Emergency Use Authorization under Sec. 564 needs an HHS Secretary declaration and requires that there be no adequate approved alternative"
+    responsible_actor: ["licence holder", "sponsor"]
+    evidence_artifacts: ["lot release protocols", "VAERS reports", "EUA request"]
+    competent_authority: ["FDA CBER", "HHS"]
+    timing: "Continuous post-licensure; EUA only while a declaration is in force"
+    consequences_of_noncompliance: "Licence suspension; product recall"
+    related_nodes: ["US-MP-BLA-351", "EU-VACCINE-OCABR"]
+    common_pitfalls: "An EUA is not an approval and lapses with the underlying declaration"
+    confidence: "high"
+    notes: "The EU equivalent to lot release is Official Control Authority Batch Release"
+
+  - id: "EU-VACCINE-OCABR"
+    name: "EU vaccine batch release and pandemic frameworks"
+    parent_id: "EU-MP-PATH"
+    jurisdiction: "EU"
+    product_families: ["biologics_vaccines", "ATMPs"]
+    lifecycle_phase: ["post_market", "premarket_submission"]
+    instrument:
+      type: "Directive"
+      citation: "Directive 2001/83/EC Art. 114 (OCABR); Regulation (EC) No 1394/2007 for ATMPs"
+      binding: true
+      url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02001L0083"
+    status:
+      in_force: true
+      applicable_from: "2004-11-30"
+      transition_provisions: ""
+      amended_by: []
+      verified_on: "2026-08-11"
+    scope_trigger: "A vaccine or blood-derived medicinal product, or an advanced therapy medicinal product, in the EU"
+    obligation_summary: "Official Control Authority Batch Release applies to vaccines and blood products; ATMPs run under Regulation (EC) No 1394/2007 with the EMA Committee for Advanced Therapies and a national hospital exemption. Conditional marketing authorisation and emergency mechanisms cover pandemic situations"
+    responsible_actor: ["marketing authorisation holder"]
+    evidence_artifacts: ["OCABR certificates", "batch protocols", "CAT scientific recommendation"]
+    competent_authority: ["EMA", "Official Medicines Control Laboratory", "national competent authority"]
+    timing: "Per batch before release; CAT involvement during authorisation"
+    consequences_of_noncompliance: "Batch cannot be released"
+    related_nodes: ["US-VACCINE-CBER", "EU-MP-AUTH-CENTRAL"]
+    common_pitfalls: "EU and US definitions of advanced therapies and the scope of hospital exemption diverge significantly"
+    confidence: "medium"
+    notes: "Summarised branch; consult the primary texts before relying on ATMP scope"
+
+  # --- US combination products ---------------------------------------------------------------
+
+  - id: "US-COMB-PMOA-3"
+    name: "Primary mode of action and lead centre assignment"
+    parent_id: "US-COMB"
+    jurisdiction: "US"
+    product_families: ["combination_products", "medicinal_products", "medical_devices"]
+    lifecycle_phase: ["qualification_classification"]
+    instrument:
+      type: "CFR"
+      citation: "21 CFR 3.2(m); 21 CFR Part 3 (Request for Designation); 21 CFR Part 4 (cGMP)"
+      binding: true
+      url: "https://www.ecfr.gov/current/title-21/chapter-I/subchapter-A/part-3"
+    status:
+      in_force: true
+      applicable_from: "1991-11-21"
+      transition_provisions: ""
+      amended_by: []
+      verified_on: "2026-08-11"
+    scope_trigger: "A product combining a drug, device or biological product"
+    obligation_summary: "The primary mode of action under 21 CFR 3.2(m) determines the lead centre - CDER, CDRH or CBER - assigned by the Office of Combination Products. A Request for Designation under Part 3 gets a determination within 60 days; a Pre-RFD is available for early informal feedback. Part 4 sets the cGMP requirements"
+    responsible_actor: ["manufacturer", "sponsor"]
+    evidence_artifacts: ["Request for Designation", "PMOA rationale", "Part 4 cGMP plan"]
+    competent_authority: ["FDA Office of Combination Products", "FDA CDER", "FDA CDRH", "FDA CBER"]
+    timing: "As early as possible; RFD determination within 60 days"
+    consequences_of_noncompliance: "Submission to the wrong centre; lost time"
+    related_nodes: ["EU-COMB-ART117", "US-MP-NDA-505", "US-QMSR-820", "US-MD-CLASS-PRODCODE"]
+    common_pitfalls: "The US PMOA test and the EU integral/Art. 117 test are different determinative tests and can point different ways"
+    confidence: "high"
+    notes: "For ambiguous products, use the EU borderline manual or national competent authority and a US Pre-RFD or RFD early"
+
+  # --- US cross-cutting ----------------------------------------------------------------------
+
+  - id: "US-DATA-HIPAA-164"
+    name: "HIPAA and health app privacy"
+    parent_id: "US-DATA"
+    jurisdiction: "US"
+    product_families: ["digital_health", "SaMD", "AI_ML", "wellness_products", "IVDs"]
+    lifecycle_phase: ["cross_cutting"]
+    instrument:
+      type: "CFR"
+      citation: "45 CFR Parts 160 and 164; FTC Health Breach Notification Rule at 16 CFR Part 318"
+      binding: true
+      url: "https://www.ecfr.gov/current/title-45/subtitle-A/subchapter-C/part-164"
+    status:
+      in_force: true
+      applicable_from: "2003-04-14"
+      transition_provisions: ""
+      amended_by: []
+      verified_on: "2026-08-11"
+    scope_trigger: "A covered entity or business associate handling protected health information, or a non-HIPAA health app holding identifiable health records"
+    obligation_summary: "HIPAA Privacy and Security Rules apply to covered entities and their business associates. A consumer health app outside HIPAA can still fall under the FTC Health Breach Notification Rule, and state privacy laws apply in parallel"
+    responsible_actor: ["covered entity", "business associate", "app developer"]
+    evidence_artifacts: ["business associate agreements", "security risk analysis", "breach notification procedures"]
+    competent_authority: ["HHS Office for Civil Rights", "FTC", "state attorneys general"]
+    timing: "Before processing begins and continuously"
+    consequences_of_noncompliance: "Civil monetary penalties; FTC enforcement"
+    related_nodes: ["EU-DATA-GDPR-009", "US-WELLNESS-GUIDANCE"]
+    common_pitfalls: "A direct-to-consumer app is usually not a covered entity, which does not mean it is unregulated"
+    confidence: "high"
+    notes: "HIPAA is entity-based; GDPR is activity-based. They do not map onto each other"
+
+  - id: "US-ETHICS-IRB-56"
+    name: "IRB oversight, informed consent and the Common Rule"
+    parent_id: "US-ETHICS"
+    jurisdiction: "US"
+    product_families: ["medical_devices", "IVDs", "medicinal_products", "biologics_vaccines"]
+    lifecycle_phase: ["clinical_evidence", "cross_cutting"]
+    instrument:
+      type: "CFR"
+      citation: "21 CFR Part 56 (IRB); 21 CFR Part 50 (informed consent); 21 CFR Part 54 (financial disclosure); 45 CFR Part 46 (Common Rule)"
+      binding: true
+      url: "https://www.ecfr.gov/current/title-21/chapter-I/subchapter-A/part-56"
+    status:
+      in_force: true
+      applicable_from: "1981-01-27"
+      transition_provisions: ""
+      amended_by: ["Common Rule revisions effective 2019"]
+      verified_on: "2026-08-11"
+    scope_trigger: "Any FDA-regulated clinical investigation involving human subjects"
+    obligation_summary: "IRB review under Part 56 and informed consent under Part 50 are required; investigator financial disclosure runs under Part 54 and federally funded research also falls under the Common Rule"
+    responsible_actor: ["sponsor", "investigator", "IRB"]
+    evidence_artifacts: ["IRB approval letter", "informed consent forms", "financial disclosure statements"]
+    competent_authority: ["IRB", "FDA", "OHRP"]
+    timing: "Before enrolling any subject"
+    consequences_of_noncompliance: "Study data rejected; enforcement against the sponsor and investigator"
+    related_nodes: ["US-MD-IDE-812", "US-MP-IND-312", "EU-ETHICS-COMMITTEE", "US-MD-PATH-HDE"]
+    common_pitfalls: "An IRB and an EU ethics committee serve the same function but sit in different procedural frameworks"
+    confidence: "high"
+    notes: "HDE use also requires IRB oversight at the treating institution"
+
+  - id: "US-STD-RECOGNISED"
+    name: "FDA-recognised consensus standards"
+    parent_id: "US-STANDARDS"
+    jurisdiction: "US"
+    product_families: ["medical_devices", "IVDs", "SaMD", "AI_ML"]
+    lifecycle_phase: ["cross_cutting", "premarket_submission"]
+    instrument:
+      type: "Guidance"
+      citation: "FDA Recognized Consensus Standards database; FD&C Act Sec. 514(c)"
+      binding: false
+      url: "https://www.accessdata.fda.gov/scripts/cdrh/cfdocs/cfstandards/search.cfm"
+    status:
+      in_force: true
+      applicable_from: "1997-11-21"
+      transition_provisions: ""
+      amended_by: []
+      verified_on: "2026-08-11"
+    scope_trigger: "A manufacturer wishing to use a standard to support a premarket submission"
+    obligation_summary: "Recognised standards are voluntary and support a Declaration of Conformity in a submission. The commonly used set overlaps heavily with the EU list: ISO 13485, ISO 14971, IEC 62304, IEC 62366-1, IEC 60601, ISO 10993, ISO 14155"
+    responsible_actor: ["manufacturer"]
+    evidence_artifacts: ["Declaration of Conformity", "standards list", "test reports"]
+    competent_authority: ["FDA CDRH"]
+    timing: "With the premarket submission"
+    consequences_of_noncompliance: "None directly; the manufacturer must then supply full test data instead"
+    related_nodes: ["EU-STD-HARMONISED", "US-QMSR-820", "US-MD-PATH-510K"]
+    common_pitfalls: "A Declaration of Conformity is not the same legal device as the EU presumption of conformity"
+    confidence: "high"
+    notes: "The same standard can be both OJ-cited in the EU and FDA-recognised, with different legal effect"
+
+  - id: "US-PROMO-FDC"
+    name: "US promotion, off-label restrictions and FTC advertising"
+    parent_id: "US-PROMO"
+    jurisdiction: "US"
+    product_families: ["medical_devices", "IVDs", "medicinal_products", "wellness_products"]
+    lifecycle_phase: ["cross_cutting", "post_market"]
+    instrument:
+      type: "Statute"
+      citation: "FD&C Act Secs. 502 and 201(n); 21 CFR Part 202 for drug advertising; FTC Act Sec. 5"
+      binding: true
+      url: "https://www.fda.gov/about-fda/center-drug-evaluation-and-research-cder/office-prescription-drug-promotion-opdp"
+    status:
+      in_force: true
+      applicable_from: "1938-06-25"
+      transition_provisions: ""
+      amended_by: []
+      verified_on: "2026-08-11"
+    scope_trigger: "Any promotional claim about an FDA-regulated product, or a health claim about an over-the-counter or wellness product"
+    obligation_summary: "Promotion must be truthful, not misleading and consistent with the cleared or approved labeling; off-label promotion is restricted. FTC polices advertising for over-the-counter and wellness products"
+    responsible_actor: ["manufacturer", "marketer"]
+    evidence_artifacts: ["promotional material review records", "claims substantiation"]
+    competent_authority: ["FDA", "FTC"]
+    timing: "Continuous"
+    consequences_of_noncompliance: "Untitled and warning letters; FTC enforcement; a claim can also change the product's intended use"
+    related_nodes: ["US-MD-QUAL-201H", "US-WELLNESS-GUIDANCE", "EU-PROMO-ART7"]
+    common_pitfalls: "Marketing copy is evidence of intended use under 21 CFR 801.4, so an aspirational claim can re-qualify the product"
+    confidence: "high"
+    notes: "This is the mechanism by which a marketing decision becomes a regulatory one in the US"
+
+  - id: "US-LIABILITY-PREEMPTION"
+    name: "US tort liability and federal preemption"
+    parent_id: "US-LIABILITY"
+    jurisdiction: "US"
+    product_families: ["medical_devices", "IVDs"]
+    lifecycle_phase: ["cross_cutting", "post_market"]
+    instrument:
+      type: "Case law"
+      citation: "Riegel v. Medtronic, Inc., 552 U.S. 312 (2008); FD&C Act Sec. 521"
+      binding: true
+      url: "https://supreme.justia.com/cases/federal/us/552/312/"
+    status:
+      in_force: true
+      applicable_from: "2008-02-20"
+      transition_provisions: ""
+      amended_by: []
+      verified_on: "2026-08-11"
+    scope_trigger: "A state-law tort claim against a device that went through PMA"
+    obligation_summary: "Riegel holds that PMA approval preempts state-law claims imposing requirements different from or additional to the federal ones. FDA enforcement runs separately through warning letters, seizures, injunctions and consent decrees"
+    responsible_actor: ["manufacturer"]
+    evidence_artifacts: ["PMA approval order", "design history file"]
+    competent_authority: ["federal and state courts", "FDA"]
+    timing: "Arises in litigation, post-market"
+    consequences_of_noncompliance: "Tort liability where preemption does not apply"
+    related_nodes: ["US-MD-PATH-PMA", "EU-LIABILITY-PLD"]
+    common_pitfalls: "Preemption is much narrower for 510(k)-cleared devices than for PMA-approved ones"
+    confidence: "medium"
+    notes: "Summarised branch; this is a litigation doctrine, not a compliance obligation"
+
+  - id: "EU-LIABILITY-PLD"
+    name: "EU product liability and enforcement"
+    parent_id: "EU-LIABILITY"
+    jurisdiction: "EU"
+    product_families: ["medical_devices", "IVDs", "SaMD", "AI_ML"]
+    lifecycle_phase: ["cross_cutting", "post_market"]
+    instrument:
+      type: "Directive"
+      citation: "Revised Product Liability Directive; Regulation (EU) 2017/745 Chapter VII for market surveillance"
+      binding: true
+      url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02017R0745"
+    status:
+      in_force: true
+      applicable_from: "2021-05-26"
+      transition_provisions: "The revised Product Liability Directive requires national transposition; check the applicable national date"
+      amended_by: []
+      verified_on: "2026-08-11"
+    scope_trigger: "A defective product placed on the EU market, including software"
+    obligation_summary: "The revised Product Liability Directive extends strict liability to software and digital products; MDR enforcement is carried out by national competent authorities through market surveillance"
+    responsible_actor: ["manufacturer", "importer"]
+    evidence_artifacts: ["technical documentation", "PMS records", "vigilance records"]
+    competent_authority: ["national competent authority", "national courts"]
+    timing: "Post-market; liability periods run from placing on the market"
+    consequences_of_noncompliance: "Civil liability; market surveillance measures"
+    related_nodes: ["US-LIABILITY-PREEMPTION", "EU-MD-PMS-084"]
+    common_pitfalls: "There is no EU equivalent to US federal preemption of tort claims"
+    confidence: "medium"
+    notes: "Summarised branch; the transposition date differs by Member State"

@@ -1,0 +1,73 @@
+# Gap and uncertainty log, from section D6 of the reference taxonomy.
+#
+# `staleness_warnings()` reads this file. Any node named here with `citation_unverified: true`
+# gets its warning appended in Python, alongside nodes with low confidence or a live transition
+# provision. Uncertainty is surfaced, never smoothed.
+
+version: "1.0"
+verified_on: "2026-08-11"
+
+gaps:
+  - id: "ai-act-digital-omnibus"
+    title: "AI Act Digital Omnibus adoption status"
+    confidence: "low"
+    citation_unverified: true
+    node_ids: ["EU-AI-HIGHRISK-006"]
+    summary: "Provisional Council and Parliament agreement on 7 May 2026 defers Annex I embedded high-risk AI to 2 Aug 2028 and standalone Annex III to 2 Dec 2027. Some secondary sources report formal adoption in mid-2026 with an OJ regulation number, but this could not be independently verified against EUR-Lex. The target dates are consistent across sources; the final regulation citation is UNVERIFIED."
+    action: "Confirm the adoption status and the final regulation citation on EUR-Lex before relying on either date."
+
+  - id: "mdr-ivdr-simplification"
+    title: "MDR/IVDR targeted simplification proposal COM(2025) 1023"
+    confidence: "medium"
+    citation_unverified: false
+    node_ids: ["EU-MD-CLASS-011", "EU-MD-CONF-NB"]
+    summary: "A proposal only. Rule 11 softening, removal of the fixed five-year certificate expiry, expanded eIFU and in-house flexibility, and orphan and breakthrough pathways are not law. Under European Parliament and Council examination; feedback closed 18 Mar 2026."
+    action: "Do not plan around any of it. Re-check adoption status before making an EU-first or US-first sequencing decision."
+
+  - id: "notified-body-ai-designation"
+    title: "Notified body AI Act designation gap"
+    confidence: "medium"
+    citation_unverified: false
+    node_ids: ["EU-AI-HIGHRISK-006", "EU-MD-CONF-NB", "EU-IVD-CONF-NB"]
+    summary: "AI Act Art. 43(3) integrates conformity assessment through the sectoral MDR or IVDR procedure using the same notified body, provided that body is also notified under the AI Act. Few bodies hold dual designation as of mid-2026, and how integrated assessment works in practice is contested. Harmonised AI standards from CEN-CENELEC JTC 21 are not expected complete before around end-2026."
+    action: "Confirm dual-designated notified body availability before committing to an EU-first launch for an AI-enabled device."
+
+  - id: "ivdr-legacy-end-dates"
+    title: "Exact IVDR legacy transition end dates"
+    confidence: "low"
+    citation_unverified: false
+    node_ids: ["EU-IVD-TRANS-110"]
+    summary: "Class D to 31 Dec 2027, Class C to 31 Dec 2028, Class B and sterile Class A to 31 Dec 2029. Low confidence on whether any of these dates shift under later amendments."
+    action: "Cross-check the specific class dates against the consolidated Art. 110 text on EUR-Lex."
+
+  - id: "eudamed-remaining-modules"
+    title: "EUDAMED modules beyond the four confirmed functional"
+    confidence: "medium"
+    citation_unverified: false
+    node_ids: ["EU-MD-EUDAMED-2371"]
+    summary: "Four modules became mandatory on 28 May 2026. Mandatory timing for the clinical investigation and performance studies module and the vigilance module is not fixed."
+    action: "Verify current module status on the Commission's EUDAMED pages before planning a registration timeline."
+
+  - id: "pma-real-world-timelines"
+    title: "PMA review timelines - goal versus observed"
+    confidence: "medium"
+    citation_unverified: false
+    node_ids: ["US-MD-PATH-PMA"]
+    summary: "The 285-calendar-day figure is the MDUFA V shared goal for original and panel-track PMAs. The approximately 1,013-day average for H1 2023 is a secondary analyst figure (BTIG), not an FDA statutory goal. Do not conflate the two."
+    action: "Quote the MDUFA goal and the observed average separately, and label which is which."
+
+  - id: "member-state-layer"
+    title: "National implementation layer not enumerated"
+    confidence: "medium"
+    citation_unverified: false
+    node_ids: ["EU-ETHICS-COMMITTEE", "EU-MD-ECON-010", "EU-LIABILITY-PLD"]
+    summary: "National language and labelling rules, vigilance portals, fees, and reimbursement and HTA (Regulation (EU) 2021/2282, applying from 12 Jan 2025 for certain products) are flagged as a mechanism, not built out. Illustrative examples: German BfArM fees, French language labelling, national incident-reporting portals."
+    action: "For any specific Member State, check the national competent authority's own requirements."
+
+  - id: "knowledge-base-scope"
+    title: "Knowledge base scope"
+    confidence: "medium"
+    citation_unverified: false
+    node_ids: []
+    summary: "This knowledge base covers every terminal the decision trees route to plus the lifecycle-phase obligation nodes the briefing cites. It is not a 1:1 mirror of every numbered section of the source document, and some branches - environmental and materials, liability, advanced therapies - are summarised rather than built out."
+    action: "Treat a question that lands outside the loaded nodes as unanswerable, and refer it out rather than filling the gap from memory."
