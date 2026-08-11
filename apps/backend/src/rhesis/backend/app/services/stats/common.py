@@ -1,7 +1,6 @@
 """Shared utilities for statistics functions."""
 
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict
 
 from rhesis.backend.app.constants import OverallTestResult
 
@@ -28,21 +27,6 @@ def parse_date_range(
     start = datetime.fromisoformat(start_date.replace("Z", "+00:00")) if start_date else None
     end = datetime.fromisoformat(end_date.replace("Z", "+00:00")) if end_date else None
     return start, end
-
-
-def build_pass_rate_stats(stats_dict: Dict[str, Dict[str, int]]) -> Dict[str, Dict[str, Any]]:
-    """Convert ``{name: {passed, failed}}`` into ``{name: {total, passed, failed, pass_rate}}``."""
-    pass_rates = {}
-    for name, stats in stats_dict.items():
-        total = stats["passed"] + stats["failed"]
-        pass_rate = round((stats["passed"] / total) * 100, 2) if total > 0 else 0
-        pass_rates[name] = {
-            "total": total,
-            "passed": stats["passed"],
-            "failed": stats["failed"],
-            "pass_rate": pass_rate,
-        }
-    return pass_rates
 
 
 def automated_metric_success(data: dict) -> bool:

@@ -96,11 +96,6 @@ from .response_pattern import (
 )
 from .risk import Risk, RiskBase, RiskCreate, RiskUpdate
 from .source import Source, SourceBase, SourceCreate, SourceUpdate, SourceWithContent
-from .stats import (
-    DimensionStats,
-    EntityStats,
-    HistoricalStats,
-)
 from .status import Status, StatusBase, StatusCreate, StatusDetail, StatusUpdate
 from .tag import Tag, TagBase, TagCreate, TagUpdate
 from .task_management import Task, TaskBase, TaskCreate, TaskDetail, TaskUpdate
@@ -381,9 +376,6 @@ __all__ = [
     "TestContextBase",
     "TestContextCreate",
     "TestContextUpdate",
-    "EntityStats",
-    "DimensionStats",
-    "HistoricalStats",
     "Metric",
     "MetricBase",
     "MetricCreate",

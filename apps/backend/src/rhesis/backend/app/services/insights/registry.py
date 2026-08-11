@@ -38,7 +38,7 @@ def _count_where(condition):
 
 def _rate(passed, failed):
     """passed / (passed + failed) * 100 -- pending/inconclusive rows excluded from
-    the denominator, matching build_pass_rate_stats()/_overall_stats() elsewhere.
+    the denominator.
 
     passed/failed are zero-arg callables so callers can pass either a row count
     (func.count().filter(...)) or a pre-aggregated sum (func.sum(...)).
