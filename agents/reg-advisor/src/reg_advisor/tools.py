@@ -28,24 +28,29 @@ SCOPE_FLAG_DETECTED = "SCOPE_FLAG_DETECTED"
 NO_SCOPE_FLAG = "No scope flags detected. Continue with the appropriate tool."
 
 
+def _stop_invocation(tool_context: ToolContext) -> None:
+    """Stop the current ADK run.
+
+    The only place in this package that reaches through an ADK private attribute.
+    ``end_invocation`` lives on ``InvocationContext`` because google-adk 2.6.3 exposes it
+    nowhere else — ``EventActions`` has no such field and there is no public equivalent. Keeping
+    every caller behind this one function means one line to re-check when the ADK pin moves.
+    """
+    tool_context._invocation_context.end_invocation = True
+
+
 def _end_run(tool_context: ToolContext, reply: str) -> str:
     """End the invocation and hand the turn layer the reply.
 
-    Two mechanisms, because ADK has no ``exit_conditions`` list.
-
-    ``end_invocation`` stops the run. It lives on the private ``InvocationContext`` because that
-    is the only place google-adk 2.6.3 exposes it — ``EventActions`` has no such field — so this
-    is the one place in the package that reaches through a private attribute. Re-check it when
-    the ADK pin moves.
-
-    The reply also goes into state, which is what makes that dependency survivable. After
-    ``end_invocation`` there is no closing model text for the turn layer to read, and
-    ``runner._extract_reply`` prefers ``terminal_reply`` over everything else — so if a future
-    ADK stopped honouring the flag, the run would over-run its turn but the user would still get
-    the terminal reply rather than the model's next thought.
+    Two mechanisms, because ADK has no ``exit_conditions`` list. The reply goes into state as
+    well as stopping the run, and that is what makes the private-attribute dependency
+    survivable: after ``end_invocation`` there is no closing model text for the turn layer to
+    read, and ``runner._extract_reply`` prefers ``terminal_reply`` over everything else. If a
+    future ADK stopped honouring the flag, the run would over-run its turn but the user would
+    still get the terminal reply rather than the model's next thought.
     """
     tool_context.state["terminal_reply"] = reply
-    tool_context._invocation_context.end_invocation = True
+    _stop_invocation(tool_context)
     return reply
 
 
@@ -219,7 +224,9 @@ def submit_verdict(approved: bool, feedback: str, tool_context: ToolContext) -> 
     verdict = bool(approved)
     tool_context.state["approved"] = verdict
     tool_context.state["feedback"] = as_text(feedback)
-    tool_context._invocation_context.end_invocation = True
+    # The bool above is the verdict of record; ending the run here just stops the critic
+    # rambling on after it has voted.
+    _stop_invocation(tool_context)
     if verdict:
         return "VERDICT: approved."
     reason = as_text(feedback) or "Rewrite so every regulatory claim carries a real node id."
