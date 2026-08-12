@@ -39,10 +39,10 @@ Polyphemus supports two authentication methods:
 
 ## Deployment
 
-Polyphemus is deployed to Google Cloud Run via GitHub Actions (`.github/workflows/polyphemus.yml`).
+Polyphemus is built and deployed to Kubernetes via GitHub Actions
+(`.github/workflows/polyphemus-k8s.yml`), which pushes the image and syncs ArgoCD.
 
-Required secrets in GitHub:
-- `JWT_SECRET_KEY`: Shared secret for delegation token validation
-- `MODEL_PATH`: Cloud Storage path to model weights
-- `DEFAULT_MODEL`: Model identifier to use
+Runtime configuration comes from the cluster, not from GitHub secrets: the deployment pulls
+`envFrom` a ConfigMap and the Helm chart's `existingSecret` (see
+`charts/rhesis/templates/polyphemus/deployment.yaml`).
 

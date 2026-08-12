@@ -6,6 +6,13 @@ and the storage of evaluation results in TestResult.test_metrics.
 """
 
 from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app.crud.metric import (
+    create_metric,
+    delete_metric,
+    get_metric,
+    get_metrics,
+    update_metric,
+)
 
 
 class TestDatabaseIntegration:
@@ -46,9 +53,10 @@ class TestDatabaseIntegration:
             threshold_operator=">=",
             backend_type_id=backend_type.id,
             metric_type_id=metric_type.id,
+            metric_scope=["Single-Turn"],
         )
 
-        metric = crud.create_metric(
+        metric = create_metric(
             test_db, metric_data, organization_id=test_org_id, user_id=authenticated_user_id
         )
 
@@ -60,7 +68,7 @@ class TestDatabaseIntegration:
 
     def test_get_metric_by_id(self, test_db, test_org_id, test_metric_numeric):
         """Test retrieving metric by ID."""
-        metric = crud.get_metric(test_db, test_metric_numeric.id, test_org_id)
+        metric = get_metric(test_db, test_metric_numeric.id, test_org_id)
 
         assert metric is not None
         assert metric.id == test_metric_numeric.id
@@ -71,7 +79,7 @@ class TestDatabaseIntegration:
         self, test_db, test_org_id, test_metric_numeric, test_metric_categorical
     ):
         """Test retrieving list of metrics."""
-        metrics = crud.get_metrics(test_db, organization_id=test_org_id)
+        metrics = get_metrics(test_db, organization_id=test_org_id)
 
         assert isinstance(metrics, list)
         assert len(metrics) >= 2  # At least our two test metrics
@@ -85,9 +93,7 @@ class TestDatabaseIntegration:
         """Test updating metric."""
         update_data = schemas.MetricUpdate(name="Updated Metric Name", threshold=8)
 
-        updated_metric = crud.update_metric(
-            test_db, test_metric_numeric.id, update_data, test_org_id
-        )
+        updated_metric = update_metric(test_db, test_metric_numeric.id, update_data, test_org_id)
 
         assert updated_metric.name == "Updated Metric Name"
         assert updated_metric.threshold == 8
@@ -116,6 +122,7 @@ class TestDatabaseIntegration:
         )
 
         metric = models.Metric(
+            metric_scope=["Single-Turn"],
             name="Metric to Delete",
             class_name="RhesisPromptMetric",
             score_type="numeric",
@@ -132,10 +139,10 @@ class TestDatabaseIntegration:
         metric_id = metric.id
 
         # Delete the metric
-        crud.delete_metric(test_db, metric_id, test_org_id, authenticated_user_id)
+        delete_metric(test_db, metric_id, test_org_id, authenticated_user_id)
 
         # Verify it's deleted (soft delete)
-        deleted_metric = crud.get_metric(test_db, metric_id, test_org_id)
+        deleted_metric = get_metric(test_db, metric_id, test_org_id)
         assert deleted_metric is None
 
     def test_metric_with_model_relationship(
@@ -161,6 +168,7 @@ class TestDatabaseIntegration:
         )
 
         metric = models.Metric(
+            metric_scope=["Single-Turn"],
             name="Metric with Model",
             class_name="RhesisPromptMetric",
             score_type="numeric",
@@ -337,8 +345,8 @@ class TestDatabaseIntegration:
     ):
         """Test querying metrics filtered by organization."""
         # Metrics should be isolated by organization
-        metrics_org1 = crud.get_metrics(test_db, organization_id=test_org_id)
-        metrics_org2 = crud.get_metrics(test_db, organization_id=secondary_org_id)
+        metrics_org1 = get_metrics(test_db, organization_id=test_org_id)
+        metrics_org2 = get_metrics(test_db, organization_id=secondary_org_id)
 
         org1_ids = [m.id for m in metrics_org1]
         org2_ids = [m.id for m in metrics_org2]

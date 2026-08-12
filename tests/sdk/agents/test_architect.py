@@ -1393,6 +1393,101 @@ class TestArchitectArgumentValidation:
         assert result.success is True
         assert result.content == "ok"
 
+    @pytest.mark.asyncio
+    async def test_missing_required_argument_rejected_before_dispatch(self, mock_model):
+        """A required field the server would 422 on never leaves the process."""
+        tool = DummyTool()
+        agent = _make_agent(mock_model, tools=[tool])
+        agent._tool_schemas = {
+            "dummy": {
+                "type": "object",
+                "properties": {"x": {"type": "string"}},
+                "required": ["x"],
+            }
+        }
+        from rhesis.sdk.agents.schemas import ToolCall
+
+        result = await agent.execute_tool(ToolCall(tool_name="dummy", arguments="{}"))
+        assert result.success is False
+        assert "x" in result.error
+
+    @pytest.mark.asyncio
+    async def test_unknown_tool_schema_does_not_block(self, mock_model):
+        """No cached schema means no check — never a false rejection."""
+        tool = DummyTool()
+        agent = _make_agent(mock_model, tools=[tool])
+        from rhesis.sdk.agents.schemas import ToolCall
+
+        result = await agent.execute_tool(ToolCall(tool_name="dummy", arguments="{}"))
+        assert result.success is True
+
+
+@pytest.mark.unit
+class TestArchitectFailedCallHistory:
+    """Failed calls must show what was sent, not just what came back."""
+
+    @pytest.fixture
+    def mock_model(self):
+        return _mock_model()
+
+    @staticmethod
+    def _step(success, arguments):
+        from rhesis.sdk.agents.schemas import ToolCall
+
+        return ExecutionStep(
+            iteration=1,
+            reasoning="doing a thing",
+            action="call_tool",
+            tool_calls=[ToolCall(tool_name="create_test_set_bulk", arguments=arguments)],
+            tool_results=[
+                ToolResult(
+                    tool_name="create_test_set_bulk",
+                    success=success,
+                    content="ok" if success else "",
+                    error=None if success else "422: category is required",
+                )
+            ],
+        )
+
+    def test_failed_call_echoes_arguments(self, mock_model):
+        agent = _make_agent(mock_model)
+        agent._execution_history = [self._step(False, {"name": "Safety Tests"})]
+        history = agent._format_history()
+        assert "with arguments:" in history
+        assert "Safety Tests" in history
+        assert "422: category is required" in history
+
+    def test_successful_call_does_not_echo_arguments(self, mock_model):
+        agent = _make_agent(mock_model)
+        agent._execution_history = [self._step(True, {"name": "Safety Tests"})]
+        history = agent._format_history()
+        assert "with arguments:" not in history
+        assert "Called: create_test_set_bulk" in history
+
+    def test_argument_preview_is_truncated(self, mock_model):
+        agent = _make_agent(mock_model)
+        agent._execution_history = [self._step(False, {"name": "x" * 5000})]
+        history = agent._format_history()
+        assert "more chars]" in history
+        assert len(history) < 5000
+
+    def test_missing_result_is_not_treated_as_failure(self, mock_model):
+        """The confirmation-block path records calls without results."""
+        from rhesis.sdk.agents.schemas import ToolCall
+
+        agent = _make_agent(mock_model)
+        agent._execution_history = [
+            ExecutionStep(
+                iteration=1,
+                reasoning="blocked",
+                action="call_tool",
+                tool_calls=[ToolCall(tool_name="create_metric", arguments={"name": "n"})],
+                tool_results=[],
+            )
+        ]
+        history = agent._format_history()
+        assert "with arguments:" not in history
+
 
 # ── await_task tests ─────────────────────────────────────────────
 

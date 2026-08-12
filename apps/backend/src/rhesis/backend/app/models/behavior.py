@@ -29,7 +29,6 @@ class Behavior(
     description = Column(Text)
     status_id = Column(GUID(), ForeignKey("status.id"))
 
-    response_patterns = relationship("ResponsePattern", back_populates="behavior")
     status = relationship("Status", back_populates="behaviors")
     prompts = relationship("Prompt", back_populates="behavior")
     tests = relationship("Test", back_populates="behavior")

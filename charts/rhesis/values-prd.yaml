@@ -56,6 +56,7 @@ config:
   defaultExecutionModel: "vertex_ai/gemini-3.1-flash-lite"
   defaultEmbeddingModel: "vertex_ai/text-embedding-005"
   vertexAiLocation: "eu"
+  vertexAiEmbeddingLocation: "europe-west4"
   azureOpenAiApiVersion: "2024-02-01"
 
 # ---------------------------------------------------------------------------
@@ -80,7 +81,10 @@ backend:
     # 100% of combined requests during fast ramp-up, before new replicas came
     # online. Scaling earlier gives HPA more lead time to react.
     targetCPUUtilizationPercentage: 60
-    targetMemoryUtilizationPercentage: 80
+    # Explicitly unset (base default is 80): real baseline usage sits at ~2.3-2.8Gi of
+    # the 3Gi request (~78-93%), permanently above target regardless of traffic, so
+    # memory pins backend at maxReplicas even at 3% CPU. CPU alone reflects load here.
+    targetMemoryUtilizationPercentage: null
   ingress:
     enabled: true
     host: "api.rhesis.ai"

@@ -201,6 +201,9 @@ def prefetch_execution_context(
         ).with_related(
             include(Test.prompt),
             include(Test.behavior, Behavior.metrics),
+            # test_type decides which executor each test gets. Eager-load it so it
+            # is already populated when the Test objects are expunged below.
+            include(Test.test_type),
         ).all()
 
     # Pre-fetch per-test data

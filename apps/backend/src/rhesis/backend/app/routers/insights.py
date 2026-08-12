@@ -35,6 +35,9 @@ def insights_filters(
     tags: Optional[List[str]] = Query(None, description="Filter by tags"),
     metric_names: Optional[List[str]] = Query(None, description="Filter by metric names"),
     endpoint_ids: Optional[List[UUID]] = Query(None, description="Filter by endpoint IDs"),
+    status_names: Optional[List[str]] = Query(
+        None, description="Filter by status names (e.g. test_run status)"
+    ),
 ) -> dict:
     """Shared registry filter query params for GET /insights and GET /insights/ids."""
     filters = {
@@ -53,6 +56,7 @@ def insights_filters(
         "tags": tags,
         "metric_names": metric_names,
         "endpoint_ids": endpoint_ids,
+        "status_names": status_names,
     }
     return {key: value for key, value in filters.items() if value}
 

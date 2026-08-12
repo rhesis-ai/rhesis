@@ -12,7 +12,8 @@ Run with: python -m pytest tests/backend/crud/test_test_run_cascade_delete.py -v
 import pytest
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models
+from rhesis.backend.app import models
+from rhesis.backend.app.crud.test_run import delete_test_run
 from rhesis.backend.app.database import without_soft_delete_filter
 
 
@@ -92,7 +93,7 @@ class TestTestRunCascadeDelete:
         assert results_before == 5
 
         # Soft delete the test run (should cascade to test results)
-        deleted_test_run = crud.delete_test_run(
+        deleted_test_run = delete_test_run(
             db=test_db,
             test_run_id=test_run_id,
             organization_id=test_org_id,
@@ -124,7 +125,7 @@ class TestTestRunCascadeDelete:
         test_run_id = db_test_run.id
 
         # Soft delete the test run
-        deleted_test_run = crud.delete_test_run(
+        deleted_test_run = delete_test_run(
             db=test_db,
             test_run_id=test_run_id,
             organization_id=test_org_id,
@@ -155,7 +156,7 @@ class TestTestRunCascadeDelete:
         assert results_before == 150
 
         # Soft delete the test run
-        deleted_test_run = crud.delete_test_run(
+        deleted_test_run = delete_test_run(
             db=test_db,
             test_run_id=test_run_id,
             organization_id=test_org_id,

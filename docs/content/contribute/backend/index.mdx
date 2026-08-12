@@ -21,7 +21,7 @@ The smoothest path is the **`rh` CLI** from the repository root. From there, run
 
 **`./rh dev backend`** runs `uv sync`, then `apps/backend/start.sh`, which calls **`migrate.sh`** when the database is configured, then starts Uvicorn on **port 8080**.
 
-If you prefer not to use `rh`, go to `apps/backend`, ensure `.env` is present, run `uv sync`, then `./start.sh`. Set `SKIP_MIGRATIONS=true` if something else already applied migrations (for example a Cloud Run migration job in CI).
+If you prefer not to use `rh`, go to `apps/backend`, ensure `.env` is present, run `uv sync`, then `./start.sh`. Set `SKIP_MIGRATIONS=true` if something else already applied migrations.
 
 ### Database migrations
 
@@ -29,7 +29,7 @@ All migration paths use **`apps/backend/migrate.sh`**, which runs `alembic upgra
 
 - **Local dev** — `start.sh` loads `.env`, then calls `migrate.sh` (uses `uv run alembic` when needed).
 - **Docker Compose** — `start.sh` in the backend container calls `migrate.sh`.
-- **Cloud deploy** — a separate Cloud Run Job runs `migrate.sh`; the backend service sets `SKIP_MIGRATIONS=true`.
+- **Kubernetes** — `start.sh` calls `migrate.sh` on boot, same as Docker Compose. Set `SKIP_MIGRATIONS=true` to suppress it when migrations run as a separate step.
 
 When `BACKEND_ENV` is `local`, `migrate.sh` skips the Postgres wait loop and database ownership step (Postgres is already running). All other environments — including the SDK integration test backend — run both before applying migrations.
 
@@ -46,7 +46,7 @@ A trimmed view of `apps/backend`:
 <CodeBlock filename="layout.txt" language="text">
 {`apps/backend/
 ├── pyproject.toml
-├── migrate.sh               # alembic upgrade head (local, Docker, Cloud Run Job)
+├── migrate.sh               # alembic upgrade head (local, Docker, Kubernetes)
 ├── start.sh                 # loads .env, calls migrate.sh, starts the server
 └── src/rhesis/backend/
     ├── app/

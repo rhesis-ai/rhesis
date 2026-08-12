@@ -10,6 +10,11 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
+from rhesis.backend.app.crud.metric import (
+    add_behavior_to_metric,
+    get_behavior_metrics,
+    remove_behavior_from_metric,
+)
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
@@ -185,7 +190,7 @@ def read_behavior_metrics(
     """Get all metrics associated with a behavior"""
     try:
         organization_id, user_id = tenant_context  # SECURITY: Get tenant context
-        metrics = crud.get_behavior_metrics(
+        metrics = get_behavior_metrics(
             db,
             behavior_id=behavior_id,
             organization_id=organization_id,  # SECURITY: Pass organization_id for filtering
@@ -210,7 +215,7 @@ def add_metric_to_behavior(
 ):
     """Add a metric to a behavior"""
     try:
-        added = crud.add_behavior_to_metric(
+        added = add_behavior_to_metric(
             db=db,
             metric_id=metric_id,
             behavior_id=behavior_id,
@@ -233,7 +238,7 @@ def remove_metric_from_behavior(
 ):
     """Remove a metric from a behavior"""
     try:
-        removed = crud.remove_behavior_from_metric(
+        removed = remove_behavior_from_metric(
             db=db,
             metric_id=metric_id,
             behavior_id=behavior_id,

@@ -10,6 +10,10 @@ from rhesis.backend.app.crud.explorer import (
     get_test_set_metrics,
     set_test_set_default_endpoint,
 )
+from rhesis.backend.app.crud.metric import (
+    add_metric_to_test_set,
+    remove_metric_from_test_set,
+)
 from rhesis.backend.app.schemas.explorer import (
     ExplorerSettingsEndpoint,
     ExplorerSettingsMetric,
@@ -108,7 +112,7 @@ def update_explorer_settings(
 
         for metric_id in existing_metric_ids:
             if metric_id not in desired_metric_ids:
-                crud.remove_metric_from_test_set(
+                remove_metric_from_test_set(
                     db=db,
                     test_set_id=test_set.id,
                     metric_id=metric_id,
@@ -117,7 +121,7 @@ def update_explorer_settings(
 
         for metric_id in desired_metric_ids:
             if metric_id not in existing_metric_ids:
-                added = crud.add_metric_to_test_set(
+                added = add_metric_to_test_set(
                     db=db,
                     test_set_id=test_set.id,
                     metric_id=metric_id,

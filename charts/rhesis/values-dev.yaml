@@ -46,6 +46,7 @@ config:
   defaultExecutionModel: "vertex_ai/gemini-3.1-flash-lite"
   defaultEmbeddingModel: "vertex_ai/text-embedding-005"
   vertexAiLocation: "eu"
+  vertexAiEmbeddingLocation: "europe-west4"
   azureOpenAiApiVersion: "2024-02-01"
 
 # ---------------------------------------------------------------------------
@@ -58,7 +59,10 @@ backend:
     minReplicas: 1
     maxReplicas: 2
     targetCPUUtilizationPercentage: 60
-    targetMemoryUtilizationPercentage: 75
+    # Explicitly unset (base default is 80): with only 1-2 replicas, idle memory baseline
+    # (~800Mi of the 1Gi request) rounds up to desiredReplicas=2 via ceil(), pinning at
+    # max regardless of traffic. CPU alone reflects load here.
+    targetMemoryUtilizationPercentage: null
   resources:
     requests:
       # Live: ~750m CPU under test runs; under-requesting causes noisy-neighbor scheduling.
@@ -182,7 +186,10 @@ workers:
       requests:
         # Live: ~900Mi+ per worker; 250m CPU request improves spread across nodes.
         cpu: "250m"
-        memory: "1Gi"
+        # Raised from 1Gi: real usage sits at ~1.0-1.3Gi per pod, already above the
+        # old request, which pinned the memory metric near/over target regardless
+        # of actual queue load.
+        memory: "1.5Gi"
       limits:
         # Same as backend: heavy ML imports (litellm, garak) OOMKill at 1Gi
         memory: "2Gi"
@@ -190,7 +197,10 @@ workers:
     hpa:
       enabled: true
       minReplicas: 1
-      maxReplicas: 2
+      # Raised from 2: HPA was hitting TooManyReplicas under real test-run load
+      # (CPU/memory both above target) with nowhere to scale to. Dev nodes have
+      # headroom (30-50% used) to support more pods.
+      maxReplicas: 4
       targetCPUUtilizationPercentage: 60
       targetMemoryUtilizationPercentage: 75
     # Dev: Celery worker loads heavy ML imports (LiteLLM, Garak) on startup.

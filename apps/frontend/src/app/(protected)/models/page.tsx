@@ -20,7 +20,8 @@ import { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
 import { UserSettings } from '@/utils/api-client/interfaces/user';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { UUID } from 'crypto';
-import { ConnectedModelCard, RhesisPlatformKeyCard } from './components';
+import VpnKeyIcon from '@mui/icons-material/VpnKey';
+import { ConnectedModelCard, PlatformKeyDrawer } from './components';
 import { ModelConnectionDrawer } from './components/ModelConnectionDrawer';
 import ModelFilterDrawer, {
   EMPTY_MODEL_FILTERS,
@@ -69,6 +70,7 @@ export default function ModelsPage() {
     'language' | 'embedding'
   >('language');
   const [polyphemusModalOpen, setPolyphemusModalOpen] = useState(false);
+  const [platformKeyDrawerOpen, setPlatformKeyDrawerOpen] = useState(false);
   const { organization } = useOrganization();
 
   // Toolbar state
@@ -383,6 +385,14 @@ export default function ModelsPage() {
       breadcrumbs={[]}
       actions={
         <FabGroup>
+          {isLocalMode && (
+            <Fab
+              icon={<VpnKeyIcon />}
+              tooltip="Rhesis Platform API Key"
+              aria-label="Rhesis Platform API Key"
+              onClick={() => setPlatformKeyDrawerOpen(true)}
+            />
+          )}
           <Can capability={Capability.Model.CREATE}>
             <Fab
               icon={<FabAddIcon />}
@@ -413,8 +423,6 @@ export default function ModelsPage() {
           {error}
         </Alert>
       )}
-
-      {isLocalMode && <RhesisPlatformKeyCard onChange={reloadModels} />}
 
       <GridToolbar
         searchQuery={searchQuery}
@@ -510,6 +518,14 @@ export default function ModelsPage() {
         itemName={modelToDelete?.name}
         title="Delete Model Connection"
       />
+
+      {isLocalMode && (
+        <PlatformKeyDrawer
+          open={platformKeyDrawerOpen}
+          onClose={() => setPlatformKeyDrawerOpen(false)}
+          onChange={reloadModels}
+        />
+      )}
 
       <PolyphemusAccessModal
         open={polyphemusModalOpen}

@@ -285,8 +285,7 @@ export CHATBOT_RATE_LIMIT="2000"
 # Or in Docker
 docker run -e CHATBOT_RATE_LIMIT="2000" ...
 
-# Or in Cloud Run deployment
-gcloud run deploy ... --set-env-vars CHATBOT_RATE_LIMIT=2000
+# Or in Kubernetes, via the chart's env values
 ```
 
 **Note**: Public access limit (100/day per IP) is fixed and cannot be configured.
@@ -473,35 +472,14 @@ apps/chatbot/
 
 ### GitHub Actions
 
-Automatic deployment is configured via `.github/workflows/chatbot.yml`:
+Automatic deployment is configured via `.github/workflows/chatbot-k8s.yml`:
 
 - Triggers on push to `main` with changes to `apps/chatbot/**`
 - Supports manual deployment with environment selection
-- Builds and pushes Docker image to GCR
-- Deploys to Google Cloud Run
+- Builds and pushes the Docker image to Artifact Registry
+- Deploys to Kubernetes by syncing ArgoCD
 
-### Manual Deployment to Cloud Run
-
-```bash
-# Build and tag (from repo root)
-docker build -t gcr.io/PROJECT_ID/rhesis-chatbot:latest -f apps/chatbot/Dockerfile .
-
-# Push to GCR
-docker push gcr.io/PROJECT_ID/rhesis-chatbot:latest
-
-# Deploy to Cloud Run
-gcloud run deploy rhesis-chatbot \
-  --image gcr.io/PROJECT_ID/rhesis-chatbot:latest \
-  --region us-central1 \
-  --platform managed \
-  --allow-unauthenticated \
-  --port 8080 \
-  --memory 512Mi \
-  --cpu 1 \
-  --max-instances 10 \
-  --min-instances 0 \
-  --set-env-vars GEMINI_API_KEY=your-key,CHATBOT_RATE_LIMIT=1000,CHATBOT_API_KEY=your-secret-key
-```
+The chatbot is excluded from `deploy-all-k8s.yml` because of its 9GB image — deploy it on its own.
 
 ## Monitoring
 
@@ -516,10 +494,10 @@ curl http://your-service-url/health
 
 ### Logs
 
-View logs in Cloud Run console or using gcloud:
+View logs with kubectl:
 
 ```bash
-gcloud run services logs read rhesis-chatbot --region us-central1
+kubectl logs -l app=rhesis-chatbot --tail=100
 ```
 
 ### Metrics to Monitor

@@ -5,7 +5,7 @@ with detailed implementation in the execution/ directory modules.
 
 from uuid import UUID
 
-from rhesis.backend.app import crud
+from rhesis.backend.app.crud.test_run import get_test_run
 from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.quota import QuotaResource
 from rhesis.backend.app.services.usage import dispatch_accrual
@@ -77,7 +77,7 @@ def execute_test_configuration(self, test_configuration_id: str, test_run_id: st
 
             if test_run_id:
                 # Test run was pre-created by the API with Queued status
-                test_run = crud.get_test_run(db, UUID(test_run_id), organization_id=org_id)
+                test_run = get_test_run(db, UUID(test_run_id), organization_id=org_id)
                 if test_run is None:
                     # Run was deleted before the worker picked it up — treat as
                     # a terminal no-op so Celery does not retry the task.
@@ -201,7 +201,7 @@ def execute_test_configuration(self, test_configuration_id: str, test_run_id: st
         # Attempt to update test run status to failed
         with get_db_with_tenant_variables(org_id or "", user_id or "", project_id or "") as db:
             if test_run_id:
-                test_run = crud.get_test_run(db, UUID(test_run_id), organization_id=org_id)
+                test_run = get_test_run(db, UUID(test_run_id), organization_id=org_id)
             else:
                 test_run = get_test_run_by_task_id(db, self.request.id, org_id)
             if test_run:

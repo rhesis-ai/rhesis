@@ -197,6 +197,7 @@ class TestTaskExecution:
 
         # Create an execution-time metric
         execution_metric = models.Metric(
+            metric_scope=["Single-Turn"],
             name="Execution Metric",
             class_name="NumericJudge",
             score_type="numeric",
@@ -247,7 +248,10 @@ class TestTaskExecution:
         self, test_db, test_org_id, authenticated_user_id, test_prompt, test_with_prompt
     ):
         """Test execution-time metrics override test set metrics."""
-        from rhesis.backend.app import crud, models
+        from rhesis.backend.app import models
+        from rhesis.backend.app.crud.metric import (
+            add_metric_to_test_set,
+        )
         from rhesis.backend.app.models.test_configuration import TestConfiguration
         from rhesis.backend.app.models.test_set import TestSet
         from rhesis.backend.app.utils.crud_utils import get_or_create_type_lookup
@@ -283,6 +287,7 @@ class TestTaskExecution:
 
         # Create a test set metric
         test_set_metric = models.Metric(
+            metric_scope=["Single-Turn"],
             name="Test Set Metric",
             class_name="CategoricalJudge",
             score_type="categorical",
@@ -297,6 +302,7 @@ class TestTaskExecution:
 
         # Create an execution-time metric
         execution_metric = models.Metric(
+            metric_scope=["Single-Turn"],
             name="Execution Override Metric",
             class_name="NumericJudge",
             score_type="numeric",
@@ -319,7 +325,7 @@ class TestTaskExecution:
         test_db.flush()
 
         # Associate metric with test set
-        crud.add_metric_to_test_set(
+        add_metric_to_test_set(
             test_db, test_set.id, test_set_metric.id, authenticated_user_id, test_org_id
         )
         test_db.refresh(test_set)
@@ -364,7 +370,10 @@ class TestTaskExecution:
         self, test_db, test_org_id, authenticated_user_id, test_prompt, test_with_prompt
     ):
         """Test that test set metrics override behavior metrics (existing behavior)."""
-        from rhesis.backend.app import crud, models
+        from rhesis.backend.app import models
+        from rhesis.backend.app.crud.metric import (
+            add_metric_to_test_set,
+        )
         from rhesis.backend.app.models.test_set import TestSet
         from rhesis.backend.app.utils.crud_utils import get_or_create_type_lookup
 
@@ -378,6 +387,7 @@ class TestTaskExecution:
 
         # Create a test set metric
         test_set_metric = models.Metric(
+            metric_scope=["Single-Turn"],
             name="Test Set Override Metric",
             class_name="CategoricalJudge",
             score_type="categorical",
@@ -400,7 +410,7 @@ class TestTaskExecution:
         test_db.flush()
 
         # Associate metric with test set
-        crud.add_metric_to_test_set(
+        add_metric_to_test_set(
             test_db, test_set.id, test_set_metric.id, authenticated_user_id, test_org_id
         )
         test_db.commit()
@@ -438,6 +448,7 @@ class TestTaskExecution:
 
         # Create Metric models
         metric1 = models.Metric(
+            metric_scope=["Single-Turn"],
             name="Test Metric 1",
             class_name="NumericJudge",
             score_type="numeric",
@@ -447,6 +458,7 @@ class TestTaskExecution:
             user_id=authenticated_user_id,
         )
         metric2 = models.Metric(
+            metric_scope=["Single-Turn"],
             name="Test Metric 2",
             class_name="CategoricalJudge",
             score_type="categorical",
@@ -484,6 +496,7 @@ class TestTaskExecution:
 
         # Create valid metric
         valid_metric = models.Metric(
+            metric_scope=["Single-Turn"],
             name="Valid Metric",
             class_name="NumericJudge",
             score_type="numeric",
@@ -495,6 +508,7 @@ class TestTaskExecution:
 
         # Create invalid metric (missing class_name)
         invalid_metric = models.Metric(
+            metric_scope=["Single-Turn"],
             name="Invalid Metric",
             class_name=None,
             score_type="numeric",
@@ -547,6 +561,7 @@ class TestTaskExecution:
                     "class_name": "RhesisPromptMetric",
                     "backend": "rhesis",
                     "threshold": 7,
+                    "metric_scope": ["Single-Turn"],
                     "parameters": {
                         "evaluation_prompt": "Test",
                         "evaluation_steps": "Step 1",
@@ -642,6 +657,7 @@ class TestTaskExecution:
                 "class_name": "RhesisPromptMetric",
                 "backend": "rhesis",
                 "threshold": 7,
+                "metric_scope": ["Single-Turn"],
                 "parameters": {
                     "evaluation_prompt": "Test 1",
                     "evaluation_steps": "Step 1",
@@ -656,6 +672,7 @@ class TestTaskExecution:
                 "class_name": "RhesisPromptMetric",
                 "backend": "rhesis",
                 "reference_score": "positive",
+                "metric_scope": ["Single-Turn"],
                 "parameters": {
                     "evaluation_prompt": "Test 2",
                     "evaluation_steps": "Step 1",
@@ -683,6 +700,7 @@ class TestTaskExecution:
     ):
         """Test that invalid metrics are filtered out."""
         from rhesis.backend.app import models
+        from rhesis.backend.app.crud.metric import add_behavior_to_metric
         from rhesis.backend.app.utils.crud_utils import get_or_create_type_lookup
 
         # Create behavior with some invalid metrics
@@ -712,6 +730,7 @@ class TestTaskExecution:
         )
 
         valid_metric = models.Metric(
+            metric_scope=["Single-Turn"],
             name="Valid Metric",
             class_name="RhesisPromptMetric",
             score_type="numeric",
@@ -726,6 +745,7 @@ class TestTaskExecution:
 
         # Create invalid metric (missing class_name)
         invalid_metric = models.Metric(
+            metric_scope=["Single-Turn"],
             name="Invalid Metric",
             class_name=None,
             score_type="numeric",
@@ -739,12 +759,11 @@ class TestTaskExecution:
         test_db.flush()
 
         # Associate metrics with behavior using CRUD function to handle required fields
-        from rhesis.backend.app import crud
 
-        crud.add_behavior_to_metric(
+        add_behavior_to_metric(
             test_db, valid_metric.id, behavior.id, authenticated_user_id, test_org_id
         )
-        crud.add_behavior_to_metric(
+        add_behavior_to_metric(
             test_db, invalid_metric.id, behavior.id, authenticated_user_id, test_org_id
         )
 

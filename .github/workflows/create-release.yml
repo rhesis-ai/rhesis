@@ -43,7 +43,7 @@ jobs:
           echo "release_config.json found"
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v6
         with:
           python-version: '3.11'
 
@@ -105,8 +105,9 @@ jobs:
           3. Check if the version changes are correct
           4. Check if the SDK and backend tests pass
           5. Give the team time for review and hotfixes. Hotfixes must be merged into the release branch.
-          6. Once the release branch is approved, it can be merged into main.
-          7. After the merge, you need to run the \"Release - 3. Publish and deploy (prd)\" workflow.  **The workflow must be run on the release branch.** The workflow will deploy the app to the production environment and upload the new version of the SDK to PyPI.
+          6. Once the release branch is approved, run the \"[Release] 3. Publish\" workflow. **The workflow must be run on the release branch.** It tags the release, which uploads the new version of the SDK to PyPI. It does not merge this PR and does not deploy.
+          7. Merge this pull request into main. Merge after publishing, not before: the tags are cut from the release branch, and merging can delete it.
+          8. Deploy to production separately: run the \"[Build & Deploy] All for K8s\" workflow with environment \`prd\`.
 
 
 

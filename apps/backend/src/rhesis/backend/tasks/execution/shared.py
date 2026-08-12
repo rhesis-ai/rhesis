@@ -11,7 +11,8 @@ from typing import Any, Dict, List
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud
+from rhesis.backend.app import schemas
+from rhesis.backend.app.crud.test_run import update_test_run
 from rhesis.backend.app.models.test_configuration import TestConfiguration
 from rhesis.backend.app.models.test_run import TestRun
 from rhesis.backend.tasks.enums import ExecutionMode
@@ -51,10 +52,10 @@ def update_test_run_start(
         }
     )
 
-    crud.update_test_run(
+    update_test_run(
         session,
         test_run.id,
-        crud.schemas.TestRunUpdate(attributes=attributes),
+        schemas.TestRunUpdate(attributes=attributes),
         organization_id=str(test_run.organization_id) if test_run.organization_id else None,
         user_id=str(test_run.user_id) if test_run.user_id else None,
     )

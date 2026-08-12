@@ -34,6 +34,7 @@ def get_authenticated_user_info(db) -> tuple[str | None, str | None]:
     """
     try:
         from rhesis.backend.app import crud
+        from rhesis.backend.app.crud.token import get_token_by_value
     except ImportError:
         return None, None
 
@@ -43,7 +44,7 @@ def get_authenticated_user_info(db) -> tuple[str | None, str | None]:
 
     try:
         # Get token from database using the API key value
-        token = crud.get_token_by_value(db, api_key)
+        token = get_token_by_value(db, api_key)
         if not token:
             return None, None
 

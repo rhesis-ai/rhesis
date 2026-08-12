@@ -13,6 +13,7 @@ import numpy as np
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app.crud.embedding import get_embedding_by_hash, mark_embeddings_stale
 from rhesis.backend.app.crud.explorer import (
     get_default_embedding_model,
     get_test_for_embedding,
@@ -25,6 +26,7 @@ from rhesis.backend.app.models.user import User
 from rhesis.backend.app.services.explorer.diversity_strategies import (
     DEFAULT_EMBEDDING_DIVERSITY_STRATEGY,
 )
+from rhesis.backend.app.utils.model_errors import ModelConfigurationError
 from rhesis.backend.app.utils.user_model_utils import get_user_embedding_model
 from rhesis.sdk.models.factory import get_model
 
@@ -129,9 +131,27 @@ def resolve_embedder(db: Session, user_id: str):
 
     target_dim = EXPLORER_EMBEDDING_DIMENSION
     resolved = get_user_embedding_model(db, user)
-    if isinstance(resolved, str):
-        return get_model(resolved, model_type="embedding", dimensions=target_dim)
-    return resolved
+    embedder = (
+        get_model(resolved, model_type="embedding", dimensions=target_dim)
+        if isinstance(resolved, str)
+        else resolved
+    )
+
+    # Same latent recursion as EmbeddingGenerator._resolve_embedder: a
+    # misconfigured DEFAULT_EMBEDDING_MODEL resolves to the Rhesis native
+    # provider, whose .generate() would call this backend's own
+    # /services/generate/embedding endpoint over HTTP. Catch it here, in
+    # process, before paying for that doomed round-trip.
+    from rhesis.sdk.models.providers.native import RhesisEmbedder
+
+    if isinstance(embedder, RhesisEmbedder):
+        raise ModelConfigurationError(
+            "Embedding model resolved to the Rhesis native provider, which would call "
+            "the embedding endpoint recursively. Set DEFAULT_EMBEDDING_MODEL to an "
+            "actual provider (e.g. vertex_ai/text-embedding-005)."
+        )
+
+    return embedder
 
 
 def generate_embedding_vector(
@@ -385,7 +405,7 @@ def create_test_embedding(
         logger.error("Failed to get Stale status for Embedding")
         return None
 
-    existing = crud.get_embedding_by_hash(
+    existing = get_embedding_by_hash(
         db,
         entity_id=entity_id,
         entity_type=entity_type,
@@ -402,7 +422,7 @@ def create_test_embedding(
     if not embedding_vector:
         return None
 
-    stale_count = crud.mark_embeddings_stale(
+    stale_count = mark_embeddings_stale(
         db,
         entity_id=entity_id,
         entity_type=entity_type,

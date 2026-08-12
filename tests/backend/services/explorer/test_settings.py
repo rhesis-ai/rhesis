@@ -53,6 +53,7 @@ def _create_endpoint(
 
 def _create_metric(db: Session, organization_id: str, user_id: str, name: str) -> models.Metric:
     metric = models.Metric(
+        metric_scope=["Single-Turn"],
         name=name,
         class_name="StubMetric",
         evaluation_prompt="stub prompt",

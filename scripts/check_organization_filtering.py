@@ -23,26 +23,26 @@ from typing import Dict, List
 
 class OrganizationFilterChecker:
     """Checks for missing organization filtering in database queries"""
-    
+
     def __init__(self, verbose: bool = False):
         self.verbose = verbose
         self.issues: List[Dict] = []
-        
+
         # Models that require organization filtering
         self.organization_models = {
             'Behavior', 'Category', 'Comment',
-            'Metric', 'Model', 'Prompt', 'Risk', 'Source', 'Status', 
+            'Metric', 'Model', 'Prompt', 'Source', 'Status',
             'Tag', 'Task', 'Test', 'TestResult', 'TestRun', 'TestSet',
-            'Token', 'Topic', 'TypeLookup', 'UseCase', 'Endpoint'
+            'Token', 'Topic', 'TypeLookup', 'Endpoint'
         }
-        
+
         # Query patterns that need organization filtering
         self.query_patterns = [
             r'db\.query\([^)]*\)',
             r'session\.query\([^)]*\)',
             r'\.query\([^)]*\)',
         ]
-        
+
         # Safe patterns that don't need organization filtering
         self.safe_patterns = [
             r'User\.query',  # User queries handled separately
@@ -63,13 +63,13 @@ class OrganizationFilterChecker:
             # QueryBuilder initialization (filtering applied later)
             r'self\.query\s*=\s*db\.query\(model\)',      # QueryBuilder init
         ]
-        
+
         # Known safe functions that properly implement organization filtering via filter_params
         self.safe_functions = [
             'get_test_result_stats',
             'get_test_run_stats',
         ]
-        
+
         # Known safe file/line combinations (specific false positives)
         self.safe_locations = [
             ('services/stats/test_run.py', 387),  # get_test_run_stats function
@@ -77,7 +77,7 @@ class OrganizationFilterChecker:
             ('services/stats/calculator.py', 483),  # UUID-based entity lookup
             ('routers/user.py', 71),  # Organization lookup by current_user.organization_id
         ]
-        
+
         # Additional patterns to check for existing organization filtering
         self.org_filter_indicators = [
             r'organization_id\s*==',
@@ -107,7 +107,7 @@ class OrganizationFilterChecker:
             r'base_query.*_apply_filters.*filter_params',
             r'filter_params.*organization_id.*_apply_filters',
         ]
-        
+
         # Directories to scan
         self.scan_dirs = [
             'apps/backend/src/rhesis/backend/app/crud.py',
@@ -120,18 +120,18 @@ class OrganizationFilterChecker:
     def check_file(self, file_path: Path) -> List[Dict]:
         """Check a single file for organization filtering issues"""
         issues = []
-        
+
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
-                
+
             lines = content.split('\n')
-            
+
             for line_num, line in enumerate(lines, 1):
                 # Skip comments and docstrings
                 if line.strip().startswith('#') or '"""' in line or "'''" in line:
                     continue
-                    
+
                 # Check for query patterns
                 for pattern in self.query_patterns:
                     matches = re.finditer(pattern, line)
@@ -144,26 +144,26 @@ class OrganizationFilterChecker:
                                 'issue': 'Potential missing organization filtering',
                                 'severity': 'HIGH' if any(model in line for model in self.organization_models) else 'MEDIUM'
                             })
-                            
+
         except Exception as e:
             if self.verbose:
                 print(f"Error checking {file_path}: {e}")
-                
+
         return issues
 
     def _is_potentially_unsafe_query(self, line: str, query_match: str, lines: List[str], line_num: int, file_path: str = "") -> bool:
         """Determine if a query might be missing organization filtering"""
-        
+
         # Check if it's a known safe location
         for safe_file, safe_line in self.safe_locations:
             if safe_file in file_path and line_num == safe_line:
                 return False  # Known safe location
-        
+
         # Check if it's a safe pattern
         for safe_pattern in self.safe_patterns:
             if re.search(safe_pattern, line):
                 return False
-        
+
         # IMPORTANT: Queries by unique ID are SAFE - UUIDs are globally unique
         id_based_patterns = [
             r'\.filter\([^)]*\.id\s*==',  # .filter(Model.id == uuid)
@@ -177,16 +177,16 @@ class OrganizationFilterChecker:
             r'user_id\s*==',              # user_id filtering (when used for ID lookup)
             r'entity_id\s*==',            # entity_id filtering
         ]
-        
+
         for id_pattern in id_based_patterns:
             if re.search(id_pattern, line):
                 return False  # ID-based queries are safe
-        
+
         # Check surrounding lines for organization filtering context (multi-line queries)
         context_start = max(0, line_num - 15)
         context_end = min(len(lines), line_num + 15)
         context_lines = ' '.join(lines[context_start:context_end])
-        
+
         # Check for UUID-based filtering in the surrounding context (multi-line queries)
         uuid_context_patterns = [
             r'\.filter\([^)]*\.id\s*==\s*\w+_uuid\)',    # .filter(Model.id == some_uuid)
@@ -197,26 +197,26 @@ class OrganizationFilterChecker:
             r'test_set_uuid\s*=\s*UUID\(',               # test_set_uuid = UUID(...)
             r'test_run_uuid\s*=\s*UUID\(',               # test_run_uuid = UUID(...)
         ]
-        
+
         for uuid_pattern in uuid_context_patterns:
             if re.search(uuid_pattern, context_lines):
                 return False  # UUID-based filtering found in context
-        
+
         # Check if organization filtering exists in the context
         for org_indicator in self.org_filter_indicators:
             if re.search(org_indicator, context_lines):
                 return False  # Organization filtering found in context
-        
+
         # Check if we're inside a known safe function
         function_context = ' '.join(lines[max(0, line_num - 50):min(len(lines), line_num + 10)])
         for safe_func in self.safe_functions:
             if f'def {safe_func}(' in function_context:
                 return False  # Inside a known safe function
-        
+
         # Check for function parameters that indicate organization filtering is handled
         if re.search(r'def\s+\w+.*organization_id.*:', function_context):
             # Function accepts organization_id parameter, likely handled properly
-            if ('filter_params' in context_lines or 
+            if ('filter_params' in context_lines or
                 'QueryBuilder' in context_lines or
                 'apply_filters' in context_lines or
                 '_apply_filters' in context_lines or
@@ -227,7 +227,7 @@ class OrganizationFilterChecker:
                 ('base_query = _apply_filters' in context_lines and 'filter_params' in context_lines) or
                 ('_apply_filters(base_query' in context_lines and '"organization_id": organization_id' in context_lines)):
                 return False  # Organization filtering handled through parameters or QueryBuilder
-        
+
         # Check for UUID-based function contexts (functions that take UUID parameters)
         uuid_function_patterns = [
             r'def\s+\w+.*_id:\s*uuid\.UUID',      # Function takes UUID parameter
@@ -236,37 +236,37 @@ class OrganizationFilterChecker:
             r'def\s+\w+.*test_run_id.*uuid',     # Functions with test_run_id UUID
             r'def\s+\w+.*test_set_id.*uuid',     # Functions with test_set_id UUID
         ]
-        
+
         for uuid_pattern in uuid_function_patterns:
             if re.search(uuid_pattern, function_context, re.IGNORECASE):
                 return False  # UUID-based function context is safe
-                
+
         # Check if it queries an organization-aware model
         for model in self.organization_models:
             if model in query_match:
                 # Check if the line already has organization filtering
                 if 'organization_id' in line or 'org_id' in line:
                     return False
-                    
+
                 # Check if it's a safe ID-based query
                 if any(re.search(pattern, line) for pattern in id_based_patterns):
                     return False
-                    
+
                 return True  # Potentially unsafe
-                
+
         # Check for generic query patterns that might be unsafe
         if '.query(' in query_match and '.filter(' not in line:
             return True
-            
+
         return False
 
     def scan_codebase(self, root_dir: Path) -> List[Dict]:
         """Scan the entire codebase for organization filtering issues"""
         all_issues = []
-        
+
         for scan_path in self.scan_dirs:
             full_path = root_dir / scan_path
-            
+
             if full_path.is_file():
                 # Single file
                 all_issues.extend(self.check_file(full_path))
@@ -274,20 +274,20 @@ class OrganizationFilterChecker:
                 # Directory - scan all Python files
                 for py_file in full_path.rglob('*.py'):
                     all_issues.extend(self.check_file(py_file))
-                    
+
         return all_issues
 
     def generate_report(self, issues: List[Dict]) -> str:
         """Generate a formatted report of issues"""
         if not issues:
             return "✅ No organization filtering issues found!"
-            
+
         report = ["🔒 SECURITY: Organization Filtering Issues Found", "=" * 60, ""]
-        
+
         # Group by severity
         high_issues = [i for i in issues if i['severity'] == 'HIGH']
         medium_issues = [i for i in issues if i['severity'] == 'MEDIUM']
-        
+
         if high_issues:
             report.extend([
                 f"🚨 HIGH SEVERITY ISSUES ({len(high_issues)}):",
@@ -300,7 +300,7 @@ class OrganizationFilterChecker:
                     f"Code: {issue['content']}",
                     ""
                 ])
-                
+
         if medium_issues:
             report.extend([
                 f"⚠️  MEDIUM SEVERITY ISSUES ({len(medium_issues)}):",
@@ -313,7 +313,7 @@ class OrganizationFilterChecker:
                     f"Code: {issue['content']}",
                     ""
                 ])
-                
+
         report.extend([
             "RECOMMENDATIONS:",
             "- Add organization_id parameter to functions with HIGH severity issues",
@@ -322,7 +322,7 @@ class OrganizationFilterChecker:
             "- Run security tests to verify fixes: pytest -m security",
             ""
         ])
-        
+
         return "\n".join(report)
 
 
@@ -345,22 +345,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
-          
+
       - name: Check Organization Filtering
         run: |
           python scripts/check_organization_filtering.py --verbose
-          
+
       - name: Run Security Tests
         run: |
           cd apps/backend
           pip install -e .
           pytest ../../tests/backend/test_security_fixes.py -v
-          
+
       - name: Comment PR (on failure)
         if: failure()
         uses: actions/github-script@v6
@@ -405,23 +405,23 @@ def main():
     parser.add_argument('--verbose', '-v', action='store_true', help='Verbose output')
     parser.add_argument('--fix', action='store_true', help='Generate fix suggestions (not implemented)')
     parser.add_argument('--setup-ci', action='store_true', help='Setup CI/CD integration files')
-    
+
     args = parser.parse_args()
-    
+
     try:
         # Find the project root
         current_dir = Path.cwd()
         project_root = current_dir
-        
+
         # Look for project markers to find root
         for parent in [current_dir] + list(current_dir.parents):
             if (parent / 'apps' / 'backend').exists() or (parent / 'pyproject.toml').exists():
                 project_root = parent
                 break
-                
+
         if args.verbose:
             print(f"Scanning project root: {project_root}")
-            
+
         # Setup CI/CD files if requested
         if args.setup_ci:
             # Create GitHub Action
@@ -429,24 +429,24 @@ def main():
             gh_action_path.parent.mkdir(parents=True, exist_ok=True)
             gh_action_path.write_text(create_github_action())
             print(f"Created GitHub Action: {gh_action_path}")
-            
+
             # Create pre-commit hook
             hook_path = project_root / '.git' / 'hooks' / 'pre-commit'
             hook_path.write_text(create_pre_commit_hook())
             hook_path.chmod(0o755)
             print(f"Created pre-commit hook: {hook_path}")
-            
+
             print("✅ CI/CD integration files created successfully!")
             return 0
-        
+
         # Run the security check
         checker = OrganizationFilterChecker(verbose=args.verbose)
         issues = checker.scan_codebase(project_root)
-        
+
         # Generate and print report
         report = checker.generate_report(issues)
         print(report)
-        
+
         # Return appropriate exit code
         if issues:
             high_severity_count = len([i for i in issues if i['severity'] == 'HIGH'])
@@ -459,7 +459,7 @@ def main():
         else:
             print("\n✅ No organization filtering issues detected!")
             return 0
-            
+
     except Exception as e:
         print(f"❌ Script error: {e}")
         if args.verbose:

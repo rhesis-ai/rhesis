@@ -8,7 +8,8 @@ calculating statistics, determining status, and formatting data for reporting.
 from datetime import datetime
 from typing import Any, Dict, Optional, Tuple
 
-from rhesis.backend.app import crud
+from rhesis.backend.app import schemas
+from rhesis.backend.app.crud.test_run import update_test_run
 from rhesis.backend.app.models.test_run import TestRun
 from rhesis.backend.tasks.enums import RunStatus
 from rhesis.backend.tasks.utils import format_execution_time, format_execution_time_from_ms
@@ -461,10 +462,10 @@ def update_test_run_status(
     update_data = {"status_id": new_status.id, "attributes": updated_attributes}
 
     logger_func("debug", f"Updating test run with status_id: {new_status.id}")
-    updated_test_run = crud.update_test_run(
+    updated_test_run = update_test_run(
         db,
         test_run.id,
-        crud.schemas.TestRunUpdate(**update_data),
+        schemas.TestRunUpdate(**update_data),
         organization_id=str(test_run.organization_id),
         user_id=str(test_run.user_id),
     )

@@ -40,10 +40,16 @@ _MAX_LLM_CONTENT = 8000
 
 _LLM_TRACER = trace.get_tracer("rhesis.sdk.agents.llm")
 
+# How many levels of nested object/array-item properties to expand in the
+# tool descriptions.  Two covers ``tests[].prompt.content`` — the deepest
+# shape in the Rhesis catalog — without bloating the prompt further.
+_MAX_SCHEMA_DEPTH = 2
+
 # Fields managed by the server — agents should never send these.
 _SERVER_MANAGED_FIELDS: frozenset[str] = frozenset(
     {
         "id",
+        "nano_id",
         "user_id",
         "organization_id",
         "created_at",
@@ -427,6 +433,21 @@ class BaseAgent:
         )
 
     @staticmethod
+    def _unwrap_optional(prop: Dict[str, Any]) -> Dict[str, Any]:
+        """Return the single meaningful variant of an ``anyOf``/``oneOf``.
+
+        ``Optional[TestPrompt]`` reaches us as ``anyOf: [TestPrompt, null]``.
+        Unwrapping it is what lets the nested renderer see the object's
+        fields instead of stopping at the union.
+        """
+        for key in ("anyOf", "oneOf"):
+            if key in prop:
+                variants = [v for v in prop[key] if v.get("type") != "null"]
+                if len(variants) == 1:
+                    return variants[0]
+        return prop
+
+    @staticmethod
     def _schema_type(prop: Dict[str, Any]) -> str:
         """Derive a human-readable type string from a JSON Schema property."""
         # Enum values → show literals
@@ -452,12 +473,67 @@ class BaseAgent:
 
         return str(typ)
 
+    def _format_schema_properties(
+        self,
+        schema: Dict[str, Any],
+        indent: str,
+        depth: int,
+    ) -> List[str]:
+        """Render a JSON Schema object's properties as indented lines."""
+        properties = schema.get("properties", {})
+        required_set = set(schema.get("required", []))
+
+        lines: List[str] = []
+        for pname, pschema in properties.items():
+            # Only the request body's own top-level fields are server-managed.
+            # Nested objects use the same names for real references — the
+            # ``id`` inside a ``sources`` item is the one field that matters.
+            if depth == 0 and pname in _SERVER_MANAGED_FIELDS:
+                continue
+            type_str = self._schema_type(pschema)
+            req = " (required)" if pname in required_set else ""
+            pdesc = pschema.get("description", "")
+            line = f"{indent}{pname}: {type_str}{req}"
+            if pdesc:
+                line += f"  -- {pdesc}"
+            lines.append(line)
+            if depth < _MAX_SCHEMA_DEPTH:
+                lines.extend(self._format_nested_properties(pschema, indent + "  ", depth + 1))
+        return lines
+
+    def _format_nested_properties(
+        self,
+        prop: Dict[str, Any],
+        indent: str,
+        depth: int,
+    ) -> List[str]:
+        """Render the inner shape of an object or array-of-object property.
+
+        Without this the LLM only ever sees ``array[object]`` and has to
+        guess the item fields, which is a common source of 422s from the
+        server on its first attempt.
+        """
+        inner = self._unwrap_optional(prop)
+
+        if inner.get("type") == "array":
+            items = self._unwrap_optional(inner.get("items", {}))
+            if items.get("properties"):
+                return [f"{indent}Each item:"] + self._format_schema_properties(
+                    items, indent + "  ", depth
+                )
+            return []
+
+        if inner.get("properties"):
+            return self._format_schema_properties(inner, indent, depth)
+        return []
+
     def _format_tools(self, tools: List[Dict[str, Any]]) -> str:
         """Build a rich tool description for the LLM.
 
         Each parameter shows its type, whether it is required, and its
-        description.  Server-managed fields are excluded so the LLM
-        never tries to send them.
+        description.  Nested object and array-item shapes are expanded up
+        to ``_MAX_SCHEMA_DEPTH`` levels.  Server-managed fields are
+        excluded so the LLM never tries to send them.
         """
         if not tools:
             return "(no tools available)"
@@ -466,23 +542,10 @@ class BaseAgent:
         for tool in tools:
             desc = f"- {tool['name']}: {tool.get('description', 'No description')}"
             schema = tool.get("inputSchema") or {}
-            properties = schema.get("properties", {})
-            required_set = set(schema.get("required", []))
 
-            if properties:
-                param_lines: List[str] = []
-                for pname, pschema in properties.items():
-                    if pname in _SERVER_MANAGED_FIELDS:
-                        continue
-                    type_str = self._schema_type(pschema)
-                    req = " (required)" if pname in required_set else ""
-                    pdesc = pschema.get("description", "")
-                    line = f"    {pname}: {type_str}{req}"
-                    if pdesc:
-                        line += f"  -- {pdesc}"
-                    param_lines.append(line)
-                if param_lines:
-                    desc += "\n  Parameters:\n" + "\n".join(param_lines)
+            param_lines = self._format_schema_properties(schema, "    ", 0)
+            if param_lines:
+                desc += "\n  Parameters:\n" + "\n".join(param_lines)
 
             descriptions.append(desc)
         return "\n".join(descriptions)

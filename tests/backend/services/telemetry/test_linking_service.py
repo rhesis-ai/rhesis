@@ -52,11 +52,11 @@ class TestTraceLinkingService:
         service = TraceLinkingService(mock_db)
         assert service.db == mock_db
 
-    @patch("rhesis.backend.app.services.telemetry.linking_service.crud")
-    def test_link_traces_for_test_result(self, mock_crud, linking_service, test_context):
+    @patch("rhesis.backend.app.services.telemetry.linking_service.update_traces_with_test_result_id")
+    def test_link_traces_for_test_result(self, mock_update, linking_service, test_context):
         """Test linking traces after test result creation"""
         # Mock CRUD response
-        mock_crud.update_traces_with_test_result_id.return_value = 5
+        mock_update.return_value = 5
 
         result = linking_service.link_traces_for_test_result(
             test_run_id=test_context["test_run_id"],
@@ -67,7 +67,7 @@ class TestTraceLinkingService:
         )
 
         assert result == 5
-        mock_crud.update_traces_with_test_result_id.assert_called_once_with(
+        mock_update.assert_called_once_with(
             db=linking_service.db,
             test_run_id=test_context["test_run_id"],
             test_id=test_context["test_id"],
@@ -115,9 +115,9 @@ class TestTraceLinkingService:
 
         assert result == 0
 
-    @patch("rhesis.backend.app.services.telemetry.linking_service.crud")
+    @patch("rhesis.backend.app.services.telemetry.linking_service.update_traces_with_test_result_id")
     def test_link_traces_for_incoming_batch_no_test_result(
-        self, mock_crud, linking_service, mock_db, test_context
+        self, mock_update, linking_service, mock_db, test_context
     ):
         """Test linking when test result doesn't exist yet (test still running)"""
         # Create mock span with test context
@@ -144,11 +144,11 @@ class TestTraceLinkingService:
 
         assert result == 0
         # Should not call update since no test result found
-        mock_crud.update_traces_with_test_result_id.assert_not_called()
+        mock_update.assert_not_called()
 
-    @patch("rhesis.backend.app.services.telemetry.linking_service.crud")
+    @patch("rhesis.backend.app.services.telemetry.linking_service.update_traces_with_test_result_id")
     def test_link_traces_for_incoming_batch_success(
-        self, mock_crud, linking_service, mock_db, test_context
+        self, mock_update, linking_service, mock_db, test_context
     ):
         """Test successful linking after span ingestion"""
         # Create mock span with test context
@@ -173,7 +173,7 @@ class TestTraceLinkingService:
         mock_db.query.return_value = mock_query
 
         # Mock CRUD response
-        mock_crud.update_traces_with_test_result_id.return_value = 3
+        mock_update.return_value = 3
 
         result = linking_service.link_traces_for_incoming_batch(
             spans=[mock_span],
@@ -181,13 +181,13 @@ class TestTraceLinkingService:
         )
 
         assert result == 3
-        mock_crud.update_traces_with_test_result_id.assert_called_once()
+        mock_update.assert_called_once()
 
-    @patch("rhesis.backend.app.services.telemetry.linking_service.crud")
-    def test_link_idempotent_multiple_calls(self, mock_crud, linking_service, test_context):
+    @patch("rhesis.backend.app.services.telemetry.linking_service.update_traces_with_test_result_id")
+    def test_link_idempotent_multiple_calls(self, mock_update, linking_service, test_context):
         """Test that linking is idempotent (can be called multiple times safely)"""
         # First call links 5 traces
-        mock_crud.update_traces_with_test_result_id.return_value = 5
+        mock_update.return_value = 5
 
         result1 = linking_service.link_traces_for_test_result(
             test_run_id=test_context["test_run_id"],
@@ -198,7 +198,7 @@ class TestTraceLinkingService:
         )
 
         # Second call finds 0 traces (already linked)
-        mock_crud.update_traces_with_test_result_id.return_value = 0
+        mock_update.return_value = 0
 
         result2 = linking_service.link_traces_for_test_result(
             test_run_id=test_context["test_run_id"],
@@ -210,7 +210,7 @@ class TestTraceLinkingService:
 
         assert result1 == 5
         assert result2 == 0
-        assert mock_crud.update_traces_with_test_result_id.call_count == 2
+        assert mock_update.call_count == 2
 
 
 @pytest.mark.unit
@@ -238,9 +238,9 @@ class TestTraceLinkingTimingScenarios:
             "organization_id": str(uuid4()),
         }
 
-    @patch("rhesis.backend.app.services.telemetry.linking_service.crud")
+    @patch("rhesis.backend.app.services.telemetry.linking_service.update_traces_with_test_result_id")
     def test_fast_test_all_spans_arrive_after_result(
-        self, mock_crud, linking_service, mock_db, test_context
+        self, mock_update, linking_service, mock_db, test_context
     ):
         """
         Test scenario: Fast test (< 5s)
@@ -268,7 +268,7 @@ class TestTraceLinkingTimingScenarios:
         }
 
         # Mock successful linking
-        mock_crud.update_traces_with_test_result_id.return_value = 10
+        mock_update.return_value = 10
 
         # Link via incoming batch (telemetry endpoint)
         result = linking_service.link_traces_for_incoming_batch(
@@ -277,11 +277,11 @@ class TestTraceLinkingTimingScenarios:
         )
 
         assert result == 10
-        mock_crud.update_traces_with_test_result_id.assert_called_once()
+        mock_update.assert_called_once()
 
-    @patch("rhesis.backend.app.services.telemetry.linking_service.crud")
+    @patch("rhesis.backend.app.services.telemetry.linking_service.update_traces_with_test_result_id")
     def test_medium_test_spans_split_across_result(
-        self, mock_crud, linking_service, mock_db, test_context
+        self, mock_update, linking_service, mock_db, test_context
     ):
         """
         Test scenario: Medium test (5-10s)
@@ -312,7 +312,7 @@ class TestTraceLinkingTimingScenarios:
         assert result1 == 0  # No linking, result doesn't exist
 
         # Simulate test result creation and linking
-        mock_crud.update_traces_with_test_result_id.return_value = 5
+        mock_update.return_value = 5
 
         result2 = linking_service.link_traces_for_test_result(
             test_run_id=test_context["test_run_id"],
@@ -330,7 +330,7 @@ class TestTraceLinkingTimingScenarios:
         mock_test_result.id = test_result_id
 
         mock_query.filter.return_value.first.return_value = mock_test_result
-        mock_crud.update_traces_with_test_result_id.return_value = 3
+        mock_update.return_value = 3
 
         result3 = linking_service.link_traces_for_incoming_batch(
             spans=[mock_span1],  # Reuse same mock
@@ -339,8 +339,8 @@ class TestTraceLinkingTimingScenarios:
 
         assert result3 == 3  # Links second batch
 
-    @patch("rhesis.backend.app.services.telemetry.linking_service.crud")
-    def test_long_test_multiple_batches(self, mock_crud, linking_service, test_context):
+    @patch("rhesis.backend.app.services.telemetry.linking_service.update_traces_with_test_result_id")
+    def test_long_test_multiple_batches(self, mock_update, linking_service, test_context):
         """
         Test scenario: Long test (> 10s)
         - Multiple batches arrive before result (T=5s, T=10s)
@@ -348,7 +348,7 @@ class TestTraceLinkingTimingScenarios:
         - Final batch arrives (T=15s) and gets linked via telemetry
         """
         # Simulate test result creation linking multiple early batches
-        mock_crud.update_traces_with_test_result_id.return_value = 15
+        mock_update.return_value = 15
 
         result = linking_service.link_traces_for_test_result(
             test_run_id=test_context["test_run_id"],
@@ -359,7 +359,7 @@ class TestTraceLinkingTimingScenarios:
         )
 
         assert result == 15  # Links batches 1 and 2
-        mock_crud.update_traces_with_test_result_id.assert_called_once()
+        mock_update.assert_called_once()
 
 
 @pytest.mark.unit
@@ -387,14 +387,14 @@ class TestTraceLinkingIntegration:
             "organization_id": str(uuid4()),
         }
 
-    @patch("rhesis.backend.app.services.telemetry.linking_service.crud")
-    def test_hybrid_both_paths_called(self, mock_crud, linking_service, mock_db, test_context):
+    @patch("rhesis.backend.app.services.telemetry.linking_service.update_traces_with_test_result_id")
+    def test_hybrid_both_paths_called(self, mock_update, linking_service, mock_db, test_context):
         """
         Test that both linking paths can be called for the same test
         and the operation is idempotent
         """
         # First call via test result creation
-        mock_crud.update_traces_with_test_result_id.return_value = 8
+        mock_update.return_value = 8
 
         result1 = linking_service.link_traces_for_test_result(
             test_run_id=test_context["test_run_id"],
@@ -415,7 +415,7 @@ class TestTraceLinkingIntegration:
         mock_query.filter.return_value.first.return_value = mock_test_result
         mock_db.query.return_value = mock_query
 
-        mock_crud.update_traces_with_test_result_id.return_value = 0  # Already linked
+        mock_update.return_value = 0  # Already linked
 
         mock_span = Mock(spec=Trace)
         mock_span.test_run_id = uuid4()
@@ -432,7 +432,7 @@ class TestTraceLinkingIntegration:
         )
 
         assert result2 == 0  # Idempotent, no duplicates
-        assert mock_crud.update_traces_with_test_result_id.call_count == 2
+        assert mock_update.call_count == 2
 
     def test_find_test_result_invalid_uuid(self, linking_service):
         """Test _find_test_result with invalid UUID strings"""

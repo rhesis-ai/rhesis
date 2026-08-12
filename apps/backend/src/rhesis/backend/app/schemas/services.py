@@ -1,8 +1,15 @@
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Literal, Optional
+from typing import Annotated, Any, Dict, List, Literal, Optional
 
-from pydantic import UUID4, BaseModel, Field, field_validator, model_validator
+from pydantic import (
+    UUID4,
+    BaseModel,
+    Field,
+    StringConstraints,
+    field_validator,
+    model_validator,
+)
 
 from rhesis.backend.app.constants import TestSetType
 
@@ -16,7 +23,10 @@ class GenerationConfig(BaseModel):
     """
 
     generation_prompt: Optional[str] = None  # Describe what you want to test
-    behaviors: Optional[List[str]] = None  # Behaviors to test
+    # Required, not optional: both generation routes already reject an empty list
+    # with a 400. Declaring it here puts the requirement in the OpenAPI schema,
+    # which is what MCP clients and the Architect agent read.
+    behaviors: List[str] = Field(..., min_length=1)  # Behaviors to test
     categories: Optional[List[str]] = None  # Test categories
     topics: Optional[List[str]] = None  # Topics to cover
     additional_context: Optional[str] = None  # Additional context (JSON string)
@@ -77,9 +87,11 @@ class GenerateTestsRequest(BaseModel):
     batch_size: int = 20
     sources: Optional[List[SourceData]] = None
     name: Optional[str] = None  # Used only for bulk generation to name the test set
-    test_type: Optional[str] = TestSetType.SINGLE_TURN.value
+    # Typed as the enum so the allowed values appear in the OpenAPI schema. The
+    # before-validator below still accepts snake_case and loose casing.
+    test_type: Optional[TestSetType] = TestSetType.SINGLE_TURN
     model_id: Optional[UUID4] = None  # Override user's default generation model for this request
-    project_id: Optional[UUID4] = None  # Required for bulk generation via /test_sets/generate
+    project_id: Optional[UUID4] = None  # Falls back to the request's project scope
 
     @field_validator("test_type", mode="before")
     @classmethod
@@ -93,6 +105,20 @@ class GenerateTestsRequest(BaseModel):
             valid = [t.value for t in TestSetType]
             raise ValueError(f"Unsupported test_type {v!r}. Valid values: {valid}")
         return resolved.value
+
+
+class TestSetGenerationRequest(GenerateTestsRequest):
+    """Bulk generation via ``POST /test_sets/generate``.
+
+    Unlike the sampling route, this one persists a test set, so it needs a name.
+    Declared here rather than checked in the router so the requirement reaches
+    the OpenAPI schema and, through it, MCP clients and the Architect agent.
+    """
+
+    # Stripped before the length check, so a whitespace-only name is rejected
+    # as a 422 here rather than a 400 further in. The router then uses the
+    # value as-is.
+    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 
 
 class TestPrompt(BaseModel):

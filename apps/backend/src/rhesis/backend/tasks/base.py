@@ -9,6 +9,7 @@ from rhesis.backend.app.config.settings import get_frontend_settings
 from rhesis.backend.app.database import (
     get_db_with_tenant_variables,
 )
+from rhesis.backend.app.utils.model_errors import ModelConfigurationError
 from rhesis.backend.tasks.enums import DEFAULT_MAX_RETRIES, DEFAULT_RETRY_BACKOFF_MAX
 
 logger = logging.getLogger(__name__)
@@ -67,6 +68,11 @@ class BaseTask(Task):
     # Automatically retry on exceptions except TestExecutionError
     autoretry_for = (Exception,)
     retry_for_unexpected_only = True  # Only retry for unexpected exceptions
+
+    # Checked by Celery before autoretry_for. A bad model configuration (wrong
+    # region, unknown model, missing credentials) returns the same error on
+    # every attempt, so retrying it just multiplies the log noise.
+    dont_autoretry_for = (ModelConfigurationError,)
 
     # Maximum number of retries - use centralized constant
     max_retries = DEFAULT_MAX_RETRIES
@@ -204,12 +210,21 @@ class BaseTask(Task):
 
         retries = getattr(self.request, "retries", 0)
 
+        # Non-retryable exceptions are final on their first attempt, so don't
+        # report them as "will retry" — Celery already stopped the autoretry.
+        is_non_retryable = isinstance(exc, tuple(self.dont_autoretry_for or ()))
+
         # Only send email notification if task permanently failed (not retrying)
         # and email is enabled
-        if isinstance(exc, TestExecutionError) or retries >= self.max_retries:
+        if isinstance(exc, TestExecutionError) or is_non_retryable or retries >= self.max_retries:
+            reason = (
+                "Task failed permanently (not retryable)"
+                if is_non_retryable
+                else f"Task permanently failed after {retries} attempts"
+            )
             self.log_with_context(
                 "error",
-                f"Task permanently failed after {retries} attempts",
+                reason,
                 error=str(exc),
                 exception_type=type(exc).__name__,
                 execution_time=self._get_execution_time() or "Unknown",

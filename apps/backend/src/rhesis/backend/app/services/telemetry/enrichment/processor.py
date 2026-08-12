@@ -10,7 +10,7 @@ from typing import List, Optional
 from rhesis.telemetry.schemas import StatusCode
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app.crud import get_trace_by_id, mark_trace_processed
+from rhesis.backend.app.crud.telemetry import get_trace_by_id, mark_trace_processed
 from rhesis.backend.app.models.trace import Trace
 from rhesis.backend.app.schemas.enrichment import EnrichedTraceData, TraceMetrics
 from rhesis.backend.app.services.telemetry.enrichment.core import (

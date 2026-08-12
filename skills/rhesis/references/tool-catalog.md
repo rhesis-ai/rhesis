@@ -2,8 +2,8 @@
 
 All tools exposed by the Rhesis MCP server, grouped by workflow phase.
 
-> This file is hand-maintained. When `mcp_tools.yaml` changes, update this file to match.
-> A generator script (`build_skill.py`) that auto-derives this from the YAML is a planned v2 improvement.
+> This file is hand-maintained. When the MCP server's tool definitions change, update this file
+> to match.
 
 ---
 
@@ -235,6 +235,8 @@ Call this **before** `create_test_set_bulk` so that when test objects reference 
 - `name` (required) — Title Case, e.g. `"Refuses Harmful Requests"`
 - `description` (required) — explain what the behavior means and how it should be evaluated
 
+**Common mistakes:** Behavior names are unique per organization, so creating one that already exists fails with "Behavior with this name already exists". Resolve it with `list_behaviors` and reuse its id. Never retry with a suffixed name like `"Refuses Harmful Requests 2"`.
+
 ---
 
 ### `update_behavior`
@@ -261,10 +263,19 @@ Prefer `generate_metric` when you know what to measure but don't want to fill ev
 - `score_type` (required) — must be exactly `"numeric"` or `"categorical"`
 - `evaluation_prompt` (required) — the prompt template used to score responses; may use `{{prompt}}`, `{{response}}`, `{{expected_response}}`
 - `metric_scope` (required) — list of strings, each must be `"Single-Turn"` or `"Multi-Turn"`
-- For numeric metrics: `min_score`, `max_score`, `threshold`, `threshold_operator` (one of `"="`, `"<"`, `">"`, `"<="`, `">="`, `"!="`)
-- For categorical metrics: `categories` (non-empty list), `passing_categories` (subset of `categories`)
+
+**Fields required by `score_type`.** These are enforced by the server but cannot be expressed in the JSON schema, so they are easy to miss:
+
+| `score_type` | Also required |
+|--------------|---------------|
+| `"numeric"` | `min_score`, `max_score` **and** `threshold`. Optionally `threshold_operator` (one of `"="`, `"<"`, `">"`, `"<="`, `">="`, `"!="`, default `">="`) |
+| `"categorical"` | `categories` (at least two labels) **and** `passing_categories` (at least one, each also present in `categories`) |
+
+Send the numeric fields only for numeric metrics and the category fields only for categorical ones.
 
 **Never send:** `id`, `user_id`, `organization_id`, `created_at`, `updated_at`, `owner_id`, `status_id`, `model_id`, `backend_type_id`, `metric_type_id`
+
+**Common mistakes:** Sending `score_type: "numeric"` without `min_score`/`max_score`/`threshold` — rejected. Metric names are unique per organization, so creating one that already exists fails with "Metric with this name already exists"; resolve it with `list_metrics` and reuse it, or use `improve_metric`. Never retry with a suffixed name.
 
 ---
 
@@ -315,10 +326,12 @@ Generate a test set using the Rhesis synthesizer. An LLM creates diverse test pr
   - `categories` (optional list of strings)
   - `topics` (optional list of strings)
 - `num_tests` — integer, default 5, typical range 3–20
-- `test_type` — `"Single-Turn"` (default) or `"Multi-Turn"`
+- `test_type` — `"Single-Turn"` (default) or `"Multi-Turn"`. Take this from the plan's test set and pass it explicitly. Omitting it produces Single-Turn tests no matter what the test set is called.
 - `sources` — optional list of knowledge source objects to ground tests in real content. Each object must contain only the `id` field: `[{"id": "<source-uuid>"}]`. The backend fetches and injects source content automatically — do NOT fetch or pass content yourself. Use `list_sources` to discover available sources. Only works with Single-Turn; ignored for Multi-Turn.
 
-**Common mistakes:** Omitting `config.behaviors`, using `test_type: "single-turn"` (wrong case).
+`project_id` is resolved from the request scope — omit it.
+
+**Common mistakes:** Omitting `config.behaviors` (rejected with "At least one behavior must be specified"), omitting `name`, omitting `test_type` for a Multi-Turn test set. If this call fails, fix the argument it names and call it again — do **not** fall back to `create_test_set_bulk`, which stores only the prompts you write by hand and produces a far smaller test set than the user asked for.
 
 ---
 
@@ -330,8 +343,15 @@ Use this **only** when importing specific user-provided test prompts that must b
 **Key parameters:**
 - `name` (required)
 - `description`
-- `tests` (required, non-empty array) — each item: `{"prompt": {"content": "...", "language_code": "en"}, "behavior": "name", "category": "name", "topic": "name"}`
+- `test_set_type` (required) — `"Single-Turn"` or `"Multi-Turn"`
+- `tests` (required, non-empty array) — item shape depends on the test type:
+  - Single-Turn: `{"prompt": {"content": "...", "language_code": "en"}, "behavior": "name", "category": "name", "topic": "name"}`
+  - Multi-Turn: `{"test_type": "Multi-Turn", "test_configuration": {"goal": "...", "instructions": "...", "restrictions": "...", "scenario": "...", "max_turns": 10}, "behavior": "name", "category": "name", "topic": "name"}`
 - `priority` — integer (1, 2, 3), not a string
+
+Only `goal` is required inside `test_configuration`. A test uses either `prompt` or `test_configuration`, never both.
+
+**Common mistakes:** Setting `test_set_type: "Multi-Turn"` but sending tests with `prompt` — the server types each test from its own content, so those tests land as Single-Turn inside a Multi-Turn set. Set `test_type` on every test object.
 
 ---
 
@@ -402,6 +422,20 @@ Use for **operational questions** ("how many runs this month?"). For pass/fail o
 
 ---
 
+### `list_annotations`
+List human annotations — reviews a person left on a test result or a trace. Each carries a Pass/Fail rating in `status.name`, a free-text comment, the author, and a `resolved` flag.
+
+Human annotations are ground truth: when an annotation disagrees with an automated metric score, **the annotation wins**. Use this to answer "what did people flag?", to explain why a test is considered wrong when metrics say it passed, and to find review work still open.
+
+**Key parameters:**
+- `test_run_id` — everything reviewed in that run, both test results and the traces it produced. Main entry point.
+- `test_result_id` — one result plus traces linked to it
+- `trace_id` (32-char OpenTelemetry hex) or `trace_db_id` (internal UUID) — one trace only
+- `source` — restrict to `"test_result"` or `"trace"`
+- `resolved` — pass `false` for open items only
+
+---
+
 ## Inspection (get-by-id)
 
 ### `get_test_set`
@@ -469,8 +503,21 @@ Unlink a behavior from a metric. Inverse of `add_behavior_to_metric`.
 
 ---
 
+### `update_endpoint`
+Update an existing endpoint's configuration. Send **only** the fields you want to change — every field is optional and omitted fields keep their current values. Never send server-managed fields (`id`, `user_id`, `organization_id`, `status_id`, `created_at`, `updated_at`).
+
+**CHAIN:** resolve the endpoint with `list_endpoints` first to get its id. After updating, verify reachability with `check_endpoint`.
+
+**Key parameters:**
+- `endpoint_id` (required) — UUID of the endpoint to update
+- `name`, `description`, `url`, `method`
+- `environment` — `"production"`, `"staging"`, `"development"`, or `"local"`
+- `request_headers` — object of HTTP headers sent with each request
+
+---
+
 ### `create_source`
-Create a knowledge source for grounding single-turn `generate_test_set`.
+Create a knowledge source for grounding Single-Turn `generate_test_set`.
 
 **Patterns:**
 - Pasted text: `title` + `content` (Manual type — copy `source_type_id` from `list_sources`)

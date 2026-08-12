@@ -43,6 +43,9 @@ class ArchitectConfig:
     # ── streaming / tool-result preview ───────────────────────────
     tool_result_preview_chars: int = 4_000
     reasoning_preview_chars: int = 200
+    # Only echoed back for calls that failed, so the cost is bounded by
+    # how often the agent gets a call wrong.
+    failed_args_preview_chars: int = 1_500
 
     # ── HTTP methods treated as read-only ─────────────────────────
     readonly_http_methods: frozenset = field(

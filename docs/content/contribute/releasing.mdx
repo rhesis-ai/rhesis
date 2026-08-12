@@ -1,0 +1,64 @@
+# Releasing
+
+A Rhesis release is produced by three workflows in the repository's GitHub Actions tab, run in order, followed by a manual merge and a manual production deploy. Each one is triggered by hand — nothing starts a release automatically.
+
+Components are versioned independently and tagged `<component>-v<version>`. The platform is the coordinated snapshot across them, tagged `v<version>` and marked as the latest GitHub release.
+
+<Steps>
+
+### Set up the release config
+
+Run `[Release] 1. Set up release config`.
+
+Choose a bump — `patch`, `minor`, or `major` — for each component going out, and leave everything else on `none`. The workflow records the selection in `release_config.json` and commits it to `main`.
+
+### Create the release branch
+
+Run `[Release] 2. Create and deploy (stg)`.
+
+This bumps the version files, generates the changelogs, creates a `release/*` branch, and opens a pull request against `main`. Pushing that branch triggers a staging deploy, so the release is on staging by the time the workflow finishes.
+
+### Review on staging
+
+Check the generated changelogs and the version changes in the pull request, and give the team time to test the release on staging.
+
+<Callout type="warning">
+  Hotfixes must be merged **into the release branch**, not into `main`. A fix that lands on `main`
+  at this stage will not be part of the release.
+</Callout>
+
+### Publish
+
+Switch to the release branch and run `[Release] 3. Publish` from it.
+
+The workflow creates and pushes the tags and creates a GitHub release for each component. It does not merge the pull request.
+
+It also pins every prd ArgoCD Application's `targetRevision` (under `kubernetes/clusters/prd/`) to this release's commit and syncs them — see [`kubernetes/README.md`](https://github.com/rhesis-ai/rhesis/blob/main/kubernetes/README.md#production-promotion-gate) for why prd config is pinned to a commit instead of the release branch name. This only promotes prd's Kubernetes config; it does not deploy app images (see "Deploy production" below).
+
+<Callout type="error">
+  Run this workflow **on the release branch**. A run started from `main` is skipped by a branch
+  guard and still reports success, so a release can look published when no tags were created.
+</Callout>
+
+### Merge the release pull request
+
+Merge the pull request opened in step 2, so the version bumps and changelogs land on `main`.
+
+Merge after publishing, not before: the tags are cut from the release branch, and merging can delete it.
+
+### Deploy production
+
+Run `[Build & Deploy] All for K8s` with environment `prd`.
+
+Publishing tags the release and pushes the packages, but does not deploy production. The release is not live until this step completes.
+
+</Steps>
+
+## Verify the release
+
+Publishing sets off several workflows that run independently of each other, so `[Release] 3. Publish` can succeed while one of them fails. After a release, confirm:
+
+- **Tags** — one `<component>-v<version>` per released component, plus `v<version>` for the platform.
+- **GitHub releases** — created from the changelog entries, with the platform release marked as latest.
+- **PyPI** — `rhesis` and `rhesis-sdk` published. This is triggered by the `sdk-v*` tag, not by the publish workflow.
+- **GHCR images** — built from the `v*` platform tag.
