@@ -12,6 +12,7 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.config.settings import get_application_settings
+from rhesis.backend.app.crud import assign_tag
 from rhesis.backend.app.database import temporary_project_scope
 from rhesis.backend.app.models.enums import ModelType
 from rhesis.backend.app.models.metric import behavior_metric_association
@@ -355,7 +356,7 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> Dict[s
                 commit=False,
             )
             if item["name"].startswith(_OWASP_NAME_PREFIX):
-                crud.assign_tag(
+                assign_tag(
                     db=db,
                     tag=schemas.TagCreate(
                         name=_OWASP_TAG_NAME,
@@ -856,7 +857,7 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> Dict[s
             )
 
             if item["name"].startswith(_OWASP_NAME_PREFIX):
-                crud.assign_tag(
+                assign_tag(
                     db=db,
                     tag=schemas.TagCreate(
                         name=_OWASP_TAG_NAME,
