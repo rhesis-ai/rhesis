@@ -7,10 +7,6 @@ unrecognized keys losslessly rather than raising or dropping them, every
 is always ``model_dump(mode="json", exclude_none=True)`` at the call site so a
 ``None`` field comes back as an absent key rather than ``null``.
 
-``output`` is deliberately the same key Explorer writes
-(``crud/explorer.py::set_explorer_test_outputs``) -- one "recorded output"
-convention across the app, so a reader does not care which feature produced the
-row.
 """
 
 import logging
@@ -28,22 +24,22 @@ def _coerce_optional_str(value: Any) -> Optional[str]:
 class MetricTuningCaseMetadata(BaseModel):
     """``Test.test_metadata`` for metric-tuning rows.
 
-    Both fields are ``Optional[str]`` so "key absent" (``None``) stays
-    distinguishable from "key present but empty" (``""``).
+    Only the rationale lives here. The rest of a case is either shown to the
+    metric -- input, output and expected output, which travel together in
+    ``prompt.content`` as the case payload -- or is the answer key, which is
+    ``prompt.expected_response``. The rationale is neither: it is for whoever
+    reviews the case later, and the metric never sees it.
 
-    The human's expected verdict is **not** here -- it lives on
-    ``prompt.expected_response``, which is what feeds ``expected_output`` into
-    metric evaluation.
+    ``rationale`` is ``Optional[str]`` so "key absent" (``None``) stays
+    distinguishable from "key present but empty" (``""``).
     """
 
     model_config = ConfigDict(extra="allow", validate_assignment=True)
 
-    # The recorded answer being judged -- what the metric scores.
-    output: Optional[str] = None
     # Why the human's verdict is what it is. Free text, for the reviewer.
     rationale: Optional[str] = None
 
-    @field_validator("output", "rationale", mode="before")
+    @field_validator("rationale", mode="before")
     @classmethod
     def _validate_optional_str(cls, v: Any) -> Optional[str]:
         return _coerce_optional_str(v)

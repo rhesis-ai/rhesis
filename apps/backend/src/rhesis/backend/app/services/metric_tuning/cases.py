@@ -5,18 +5,21 @@ Column mapping for one case -- the point of the whole feature:
 ===========================  =============================================
 API field                    Storage
 ===========================  =============================================
-``input``                    ``prompt.content``
+``input``                    ``prompt.content`` (case payload)
+``output``                   ``prompt.content`` (case payload)
+``expected_output``          ``prompt.content`` (case payload)
 ``expected``                 ``prompt.expected_response``
-``output``                   ``test.test_metadata["output"]``
 ``rationale``                ``test.test_metadata["rationale"]``
 (ownership)                  ``test.metric_id`` / ``test_set.metric_id``
 ===========================  =============================================
 
-``expected`` sits on ``prompt.expected_response`` rather than in the JSONB
-because that column already reaches metric evaluation as ``expected_output``
-via ``tasks/execution/executors/data.py::get_test_and_prompt`` -- so scoring a
-tuning set later needs no new plumbing to see the human's verdict. See
-domain.local/adr/0002.
+The split is not arbitrary. A tuning case puts the **metric** in the
+system-under-test role: ``prompt.content`` is what that system is shown, so the
+three fields it judges travel together there as the case payload (ADR-0003).
+``prompt.expected_response`` is what it should have answered -- the verdict --
+and is the answer key, read by the agreement check afterwards and never shown to
+the metric (ADR-0002). The rationale is for whoever reviews the case and is
+shown to nobody at scoring time, so it stays in the JSONB.
 """
 
 import logging
@@ -36,6 +39,11 @@ from rhesis.backend.app.schemas.metric_tuning_metadata import (
     MetricTuningCaseMetadata,
     parse_metric_tuning_case_metadata,
 )
+from rhesis.backend.app.services.metric_tuning.payload import (
+    CasePayload,
+    parse_payload,
+    serialize_payload,
+)
 from rhesis.backend.app.services.metric_tuning.test_sets import (
     get_or_create_tuning_test_set,
     get_tuning_test_set,
@@ -54,11 +62,13 @@ def to_api(db_test: models.Test, metric: models.Metric) -> MetricTuningCase:
     """
     metadata = parse_metric_tuning_case_metadata(db_test.test_metadata)
     prompt = db_test.prompt
+    payload = parse_payload(prompt.content if prompt else None)
     expected = (prompt.expected_response if prompt else None) or ""
     return MetricTuningCase(
         id=db_test.id,
-        input=prompt.content if prompt else "",
-        output=metadata.output or "",
+        input=payload.input,
+        output=payload.output,
+        expected_output=payload.expected_output,
         expected=expected,
         rationale=metadata.rationale,
         is_stale=is_stale(metric, expected),
@@ -82,7 +92,7 @@ def list_tuning_cases(
 def create_tuning_case(
     db: Session,
     metric: models.Metric,
-    payload: MetricTuningCaseCreate,
+    body: MetricTuningCaseCreate,
     organization_id: str,
     user_id: str,
 ) -> MetricTuningCase:
@@ -91,21 +101,24 @@ def create_tuning_case(
     The verdict is validated against the metric before anything is written, so a
     rejected case leaves no test set behind.
     """
-    expected = normalize_verdict(metric, payload.expected)
+    expected = normalize_verdict(metric, body.expected)
 
     test_set = get_or_create_tuning_test_set(db, metric, organization_id, user_id)
+
+    case_payload = CasePayload(
+        input=body.input,
+        output=body.output,
+        expected_output=body.expected_output,
+    )
 
     db_test = crud_metric_tuning.create_tuning_case(
         db,
         organization_id=organization_id,
         user_id=user_id,
         metric_id=metric.id,
-        input_text=payload.input,
+        content=serialize_payload(case_payload),
         expected=expected,
-        metadata=MetricTuningCaseMetadata(
-            output=payload.output,
-            rationale=payload.rationale,
-        ),
+        metadata=MetricTuningCaseMetadata(rationale=body.rationale),
     )
 
     # Goes through the shared service rather than a direct association insert, so
@@ -141,7 +154,7 @@ def update_tuning_case(
     db: Session,
     metric: models.Metric,
     db_test: models.Test,
-    payload: MetricTuningCaseUpdate,
+    body: MetricTuningCaseUpdate,
 ) -> MetricTuningCase:
     """Apply a partial update. Fields the payload omits are left alone.
 
@@ -151,21 +164,31 @@ def update_tuning_case(
     impossible.
     """
     expected = None
-    if payload.expected is not None:
-        expected = normalize_verdict(metric, payload.expected)
+    if body.expected is not None:
+        expected = normalize_verdict(metric, body.expected)
+
+    # Touching any payload field means re-serializing the whole payload, so the
+    # parts the caller left alone have to be read back out first.
+    content = None
+    if body.input is not None or body.output is not None or body.expected_output is not None:
+        case_payload = parse_payload(db_test.prompt.content if db_test.prompt else None)
+        if body.input is not None:
+            case_payload.input = body.input
+        if body.output is not None:
+            case_payload.output = body.output
+        if body.expected_output is not None:
+            case_payload.expected_output = body.expected_output
+        content = serialize_payload(case_payload)
 
     metadata = None
-    if payload.output is not None or payload.rationale is not None:
+    if body.rationale is not None:
         metadata = parse_metric_tuning_case_metadata(db_test.test_metadata)
-        if payload.output is not None:
-            metadata.output = payload.output
-        if payload.rationale is not None:
-            metadata.rationale = payload.rationale
+        metadata.rationale = body.rationale
 
     db_test = crud_metric_tuning.update_tuning_case(
         db,
         db_test,
-        input_text=payload.input,
+        content=content,
         expected=expected,
         metadata=metadata,
     )
