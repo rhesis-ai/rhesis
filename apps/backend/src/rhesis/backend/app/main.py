@@ -419,16 +419,45 @@ async def lifespan(app: FastAPI):
     # This ensures the first user request doesn't have to wait for probe enumeration
     import asyncio
 
-    # Skip the pre-warm entirely under the test suite. It's a production-only
-    # optimization, but the test suite creates a fresh TestClient (hence a
-    # fresh app lifespan) per test, so every one of the ~hundreds of route
-    # tests would launch its own full-corpus enumeration. Those run in
-    # non-cancellable worker threads (anyio.to_thread) that outlive the test,
-    # and until the first one warms the shared Redis cache they all race on a
-    # cold cache — a CPU-bound pile-up that snowballs across pytest-xdist
-    # workers and hangs the run. Tests that need probe data mock the service
-    # or use the (bounded, integration-marked) live-garak tests instead.
-    if os.environ.get("RHESIS_SKIP_GARAK_WARM_CACHE", "").lower() in ("1", "true", "yes"):
+    def _log_warm_task_exception(label: str):
+        """Build a done-callback that logs (without re-raising) a failed pre-warm task.
+
+        Shared by the Garak and OWASP background pre-warms below (previously
+        two character-for-character identical closures). Background asyncio
+        tasks swallow exceptions unless something inspects `.result()`; this
+        callback does that and logs instead, since a fire-and-forget cache
+        pre-warm failing must never crash the app or propagate to the
+        lifespan handler.
+        """
+
+        def _callback(t: asyncio.Task) -> None:
+            try:
+                t.result()
+            except asyncio.CancelledError:
+                pass  # Expected during shutdown
+            except Exception as e:
+                logger.error(f"{label} pre-warming task failed: {e}", exc_info=True)
+
+        return _callback
+
+    # Skip all warm-cache background work under the test suite. It's a
+    # production-only optimization, but the test suite creates a fresh
+    # TestClient (hence a fresh app lifespan) per test, so every one of the
+    # ~hundreds of route tests would otherwise launch its own full-corpus
+    # Garak enumeration (non-cancellable anyio.to_thread workers racing on a
+    # cold shared Redis cache -- a CPU-bound pile-up that snowballs across
+    # pytest-xdist workers and hangs the run) and, separately, its own OWASP
+    # report PDF download + pdfminer parse (which can take up to a minute and
+    # would otherwise repeat on every test's fresh lifespan). Tests that need
+    # this data mock the service or use the (bounded, integration-marked)
+    # live tests instead.
+    _skip_warm_cache = os.environ.get("RHESIS_SKIP_GARAK_WARM_CACHE", "").lower() in (
+        "1",
+        "true",
+        "yes",
+    )
+
+    if _skip_warm_cache:
         logger.info("Garak cache pre-warming skipped (RHESIS_SKIP_GARAK_WARM_CACHE set)")
     else:
 
@@ -446,17 +475,7 @@ async def lifespan(app: FastAPI):
         # Launch as background task - store reference to prevent GC before completion
         # (per Python asyncio docs, tasks without references may be garbage collected)
         garak_cache_task = asyncio.create_task(warm_garak_cache())
-
-        # Add exception handler to log errors (task runs in background, errors would be silent)
-        def _log_task_exception(t: asyncio.Task) -> None:
-            try:
-                t.result()
-            except asyncio.CancelledError:
-                pass  # Expected during shutdown
-            except Exception as e:
-                logger.error(f"Garak cache pre-warming task failed: {e}", exc_info=True)
-
-        garak_cache_task.add_done_callback(_log_task_exception)
+        garak_cache_task.add_done_callback(_log_warm_task_exception("Garak cache"))
 
     if getattr(app.state, "mcp_server", None) is None:
         from rhesis.backend.app.mcp_server import setup_mcp_server
@@ -465,31 +484,28 @@ async def lifespan(app: FastAPI):
 
     # Pre-warm OWASP report section cache in background (non-blocking)
     # This ensures the first user request doesn't have to wait for the report
-    # PDF to be downloaded and parsed (can take up to a minute).
-    async def warm_owasp_cache():
-        """Background task to pre-warm the OWASP report section cache."""
-        try:
-            from rhesis.backend.app.services.owasp import (
-                OWASP_FRAMEWORKS,
-                list_category_summaries,
-            )
+    # PDF to be downloaded and parsed (can take up to a minute). Guarded by
+    # the same env var as the Garak pre-warm above -- see that block's
+    # comment for why the test suite must not pay for this at startup.
+    if _skip_warm_cache:
+        logger.info("OWASP cache pre-warming skipped (RHESIS_SKIP_GARAK_WARM_CACHE set)")
+    else:
 
-            for framework in OWASP_FRAMEWORKS:
-                await asyncio.to_thread(list_category_summaries, framework)
-        except Exception as e:
-            logger.warning(f"OWASP cache pre-warming failed (non-fatal): {e}")
+        async def warm_owasp_cache():
+            """Background task to pre-warm the OWASP report section cache."""
+            try:
+                from rhesis.backend.app.services.owasp import (
+                    OWASP_FRAMEWORKS,
+                    list_category_summaries,
+                )
 
-    owasp_cache_task = asyncio.create_task(warm_owasp_cache())
+                for framework in OWASP_FRAMEWORKS:
+                    await asyncio.to_thread(list_category_summaries, framework)
+            except Exception as e:
+                logger.warning(f"OWASP cache pre-warming failed (non-fatal): {e}")
 
-    def _log_owasp_task_exception(t: asyncio.Task) -> None:
-        try:
-            t.result()
-        except asyncio.CancelledError:
-            pass  # Expected during shutdown
-        except Exception as e:
-            logger.error(f"OWASP cache pre-warming task failed: {e}", exc_info=True)
-
-    owasp_cache_task.add_done_callback(_log_owasp_task_exception)
+        owasp_cache_task = asyncio.create_task(warm_owasp_cache())
+        owasp_cache_task.add_done_callback(_log_warm_task_exception("OWASP cache"))
 
     # Start MCP session manager (Mount doesn't propagate lifespan).
     # StreamableHTTPSessionManager.run() can only be called once per

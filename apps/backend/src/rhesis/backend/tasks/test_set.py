@@ -754,29 +754,64 @@ def generate_and_save_owasp_test_set(
             },
         )
 
-        # tests_generated was missing here (unlike the sibling call above),
-        # which raised on every call and caused autoretry_for to retry the
-        # whole task -- see git history for the duplicate-test-set incident.
-        result = _build_task_result(
-            self,
-            db_test_set,
-            num_tests,
-            synthesizer,
-            {"framework": framework, "purpose": purpose, "categories": categories},
-            batch_size,
-            org_id,
-            user_id,
-            tests_generated=len(test_set.tests),
-        )
+        # From here on the test set row already exists in the database. A
+        # failure anywhere below -- result-building, logging, whatever --
+        # must never reach the `except Exception` handler at the bottom of
+        # this function: that handler re-raises as a plain `Exception`,
+        # which Celery's `autoretry_for = (Exception,)` (tasks/base.py)
+        # retries up to 3 more times, re-running generation and re-saving
+        # for a save that already succeeded. A prior incident hit exactly
+        # this via a missing `tests_generated` kwarg on `_build_task_result`
+        # (now fixed) -- but that only closed the trigger, not the
+        # mechanism. This inner try/except is the mechanism fix: it isolates
+        # post-save work so nothing here can cause a duplicate save, and
+        # falls back to a minimal-but-valid result reflecting the
+        # already-successful save instead of raising.
+        try:
+            result = _build_task_result(
+                self,
+                db_test_set,
+                num_tests,
+                synthesizer,
+                {"framework": framework, "purpose": purpose, "categories": categories},
+                batch_size,
+                org_id,
+                user_id,
+                tests_generated=len(test_set.tests),
+            )
 
-        self.log_with_context(
-            "info",
-            "Task completed successfully",
-            test_set_id=str(db_test_set.id),
-            tests_generated=len(test_set.tests),
-        )
+            # No session needed here any more -- the accrual is queued and the
+            # worker task opens its own. dispatch_accrual no-ops on a count of
+            # zero, so the guard that used to protect the session checkout is
+            # gone too.
+            dispatch_accrual(org_id, QuotaResource.TEST_GENERATION, len(test_set.tests))
 
-        return result
+            self.log_with_context(
+                "info",
+                "Task completed successfully",
+                test_set_id=str(db_test_set.id),
+                tests_generated=len(test_set.tests),
+            )
+
+            return result
+        except Exception as post_save_error:
+            self.log_with_context(
+                "error",
+                "Result building failed after test set was already saved; "
+                "returning minimal result instead of retrying (retrying would "
+                "re-run generation and create a duplicate test set)",
+                test_set_id=str(db_test_set.id),
+                error=str(post_save_error),
+            )
+            return {
+                "test_set_id": str(db_test_set.id),
+                "num_tests_generated": len(test_set.tests),
+                "num_tests_requested": num_tests,
+                "organization_id": org_id,
+                "user_id": user_id,
+                "save_successful": True,
+                "result_build_error": str(post_save_error),
+            }
 
     except ValueError as e:
         error_msg = str(e)
