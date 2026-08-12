@@ -4,8 +4,9 @@ from fastapi import Depends, HTTPException, Query, Response
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app import models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
+from rhesis.backend.app.crud import tag as tag_crud
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
@@ -38,7 +39,7 @@ def create_tag(
 ):
     """Create a new tag."""
     organization_id, user_id = tenant_context
-    return crud.create_tag(db=db, tag=tag, organization_id=organization_id, user_id=user_id)
+    return tag_crud.create_tag(db=db, tag=tag, organization_id=organization_id, user_id=user_id)
 
 
 @router.get("/", response_model=list[schemas.Tag])
@@ -61,7 +62,7 @@ def read_tags(
 ):
     """Get all tags with their related objects"""
     organization_id, user_id = tenant_context
-    results = crud.get_tags(
+    results = tag_crud.get_tags(
         db=db,
         skip=skip,
         limit=limit,
@@ -86,7 +87,7 @@ def read_tag(
 ):
     """Get a tag by ID."""
     organization_id, user_id = tenant_context
-    db_tag = crud.get_tag(db, tag_id=tag_id, organization_id=organization_id, user_id=user_id)
+    db_tag = tag_crud.get_tag(db, tag_id=tag_id, organization_id=organization_id, user_id=user_id)
     if db_tag is None:
         raise HTTPException(status_code=404, detail="Tag not found")
     return db_tag
@@ -101,7 +102,9 @@ def delete_tag(
 ):
     """Delete a tag by ID."""
     organization_id, user_id = tenant_context
-    db_tag = crud.delete_tag(db, tag_id=tag_id, organization_id=organization_id, user_id=user_id)
+    db_tag = tag_crud.delete_tag(
+        db, tag_id=tag_id, organization_id=organization_id, user_id=user_id
+    )
     if db_tag is None:
         raise HTTPException(status_code=404, detail="Tag not found")
     return db_tag
@@ -117,7 +120,7 @@ def update_tag(
 ):
     """Update a tag by ID."""
     organization_id, user_id = tenant_context
-    db_tag = crud.update_tag(
+    db_tag = tag_crud.update_tag(
         db, tag_id=tag_id, tag=tag, organization_id=organization_id, user_id=user_id
     )
     if db_tag is None:
@@ -144,7 +147,7 @@ def assign_tag_to_entity(
         tag.organization_id = current_user.organization_id
 
     try:
-        return crud.assign_tag(
+        return tag_crud.assign_tag(
             db=db,
             tag=tag,
             entity_id=entity_id,
@@ -169,7 +172,7 @@ def remove_tag_from_entity(
     organization_id, user_id = tenant_context
 
     try:
-        success = crud.remove_tag(
+        success = tag_crud.remove_tag(
             db=db,
             tag_id=tag_id,
             entity_id=entity_id,
