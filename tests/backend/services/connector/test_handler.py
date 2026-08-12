@@ -52,36 +52,23 @@ class TestSDKMessageHandler:
             mock_endpoint_service.sync_sdk_endpoints = mock_sync_endpoints
             mock_service.return_value = mock_endpoint_service
 
-            # Mock the endpoint validation service to avoid circular imports
-            with patch(
-                "rhesis.backend.app.services.connector.mapping.get_endpoint_validation_service"
-            ) as mock_validation:
-                mock_validation_service = Mock()
+            result = await handler.handle_register_message(
+                project_id=project_context["project_id"],
+                environment=project_context["environment"],
+                message=register_message,
+                db=test_db,
+                organization_id=project_context["organization_id"],
+                user_id=project_context["user_id"],
+            )
 
-                # Make start_validation async
-                async def mock_start_validation(*args, **kwargs):
-                    pass
+            assert result["type"] == "registered"
+            assert result["status"] == "success"
+            assert result["sync_stats"] == expected_stats
 
-                mock_validation_service.start_validation = mock_start_validation
-                mock_validation.return_value = mock_validation_service
-
-                result = await handler.handle_register_message(
-                    project_id=project_context["project_id"],
-                    environment=project_context["environment"],
-                    message=register_message,
-                    db=test_db,
-                    organization_id=project_context["organization_id"],
-                    user_id=project_context["user_id"],
-                )
-
-                assert result["type"] == "registered"
-                assert result["status"] == "success"
-                assert result["sync_stats"] == expected_stats
-
-                # Note: We can't easily assert the mock was called with exact parameters
-                # because the registration handler creates its own EndpointService instance
-                # and calls the async method. The important thing is that the result
-                # contains the expected sync_stats, which proves the mocking worked.
+            # Note: We can't easily assert the mock was called with exact parameters
+            # because the registration handler creates its own EndpointService instance
+            # and calls the async method. The important thing is that the result
+            # contains the expected sync_stats, which proves the mocking worked.
 
     @pytest.mark.asyncio
     async def test_sync_function_endpoints_error(
@@ -109,38 +96,25 @@ class TestSDKMessageHandler:
             mock_endpoint_service.sync_sdk_endpoints = mock_sync_endpoints_error
             mock_service.return_value = mock_endpoint_service
 
-            # Mock the endpoint validation service to avoid circular imports
-            with patch(
-                "rhesis.backend.app.services.connector.mapping.get_endpoint_validation_service"
-            ) as mock_validation:
-                mock_validation_service = Mock()
+            result = await handler.handle_register_message(
+                project_id=project_context["project_id"],
+                environment=project_context["environment"],
+                message=register_message,
+                db=test_db,
+                organization_id=project_context["organization_id"],
+                user_id=project_context["user_id"],
+            )
 
-                # Make start_validation async
-                async def mock_start_validation(*args, **kwargs):
-                    pass
-
-                mock_validation_service.start_validation = mock_start_validation
-                mock_validation.return_value = mock_validation_service
-
-                result = await handler.handle_register_message(
-                    project_id=project_context["project_id"],
-                    environment=project_context["environment"],
-                    message=register_message,
-                    db=test_db,
-                    organization_id=project_context["organization_id"],
-                    user_id=project_context["user_id"],
-                )
-
-                # When sync fails, the registration handler catches the exception
-                # and returns status "error" with stats containing errors
-                assert result["type"] == "registered"
-                assert result["status"] == "error"  # Registration fails when sync errors occur
-                assert result["sync_stats"]["created"] == 0
-                assert result["sync_stats"]["updated"] == 0
-                assert result["sync_stats"]["marked_inactive"] == 0
-                assert len(result["sync_stats"]["errors"]) == 1
-                assert "errors" in result
-                assert "message" in result
+            # When sync fails, the registration handler catches the exception
+            # and returns status "error" with stats containing errors
+            assert result["type"] == "registered"
+            assert result["status"] == "error"  # Registration fails when sync errors occur
+            assert result["sync_stats"]["created"] == 0
+            assert result["sync_stats"]["updated"] == 0
+            assert result["sync_stats"]["marked_inactive"] == 0
+            assert len(result["sync_stats"]["errors"]) == 1
+            assert "errors" in result
+            assert "message" in result
 
     @pytest.mark.asyncio
     async def test_handle_register_message_success(
@@ -159,31 +133,18 @@ class TestSDKMessageHandler:
             mock_endpoint_service.sync_sdk_endpoints = mock_sync_endpoints
             mock_service.return_value = mock_endpoint_service
 
-            # Mock the endpoint validation service to avoid circular imports
-            with patch(
-                "rhesis.backend.app.services.connector.mapping.get_endpoint_validation_service"
-            ) as mock_validation:
-                mock_validation_service = Mock()
+            response = await handler.handle_register_message(
+                project_id=project_context["project_id"],
+                environment=project_context["environment"],
+                message=sample_register_message,
+                db=test_db,
+                organization_id=project_context["organization_id"],
+                user_id=project_context["user_id"],
+            )
 
-                # Make start_validation async
-                async def mock_start_validation(*args, **kwargs):
-                    pass
-
-                mock_validation_service.start_validation = mock_start_validation
-                mock_validation.return_value = mock_validation_service
-
-                response = await handler.handle_register_message(
-                    project_id=project_context["project_id"],
-                    environment=project_context["environment"],
-                    message=sample_register_message,
-                    db=test_db,
-                    organization_id=project_context["organization_id"],
-                    user_id=project_context["user_id"],
-                )
-
-                assert response["type"] == "registered"
-                assert response["status"] == "success"
-                assert response["sync_stats"] == expected_stats
+            assert response["type"] == "registered"
+            assert response["status"] == "success"
+            assert response["sync_stats"] == expected_stats
 
     @pytest.mark.asyncio
     async def test_handle_register_message_without_db(
