@@ -25,11 +25,21 @@ export function useProjectNeedsEndpoint(): ProjectNeedsEndpoint {
   // limit: 1 — existence check only. Requests carry X-Project-Id, so this is
   // already scoped to the active project. react-query dedupes the shared key
   // across every caller, so asking twice costs one request.
-  const { data: endpoints, isSuccess } = useEndpoints({ limit: 1 }, enabled);
+  const {
+    data: endpoints,
+    isSuccess,
+    isPending,
+  } = useEndpoints({ limit: 1 }, enabled);
 
-  // With no project there is nothing to prompt about; leave the default UI alone.
+  // `isPending`, not `!isSuccess`: a failed query leaves isSuccess false for
+  // good, which would latch `pending` on and hide the chips and the cards
+  // together, forever. Falling back to "not onboarding" degrades to the plain
+  // welcome screen — the same thing a project with an endpoint sees.
+  //
+  // With no project there is nothing to prompt about, so leave the default UI
+  // alone there too.
   return {
-    pending: enabled && !isSuccess,
+    pending: enabled && isPending,
     needsEndpoint: enabled && isSuccess && endpoints?.length === 0,
   };
 }
