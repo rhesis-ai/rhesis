@@ -158,6 +158,12 @@ class RhesisOTLPExporter(OTLPSpanExporter):
 
         try:
             batch = self._convert_spans(spans)
+            if batch is None:
+                # Every span failed validation. Nothing to send, and nothing a retry would fix, so
+                # report success rather than driving the consecutive-failure alarm on spans this
+                # exporter was never meant to carry. _convert_spans has already logged what went.
+                return SpanExportResult.SUCCESS
+
             chunks = self._chunk_converted_spans(batch.spans)
 
             logger.debug(
@@ -307,7 +313,7 @@ class RhesisOTLPExporter(OTLPSpanExporter):
             f"in {next_sleep:.1f}s"
         )
 
-    def _convert_spans(self, spans: Sequence[ReadableSpan]) -> OTELTraceBatch:
+    def _convert_spans(self, spans: Sequence[ReadableSpan]) -> Optional[OTELTraceBatch]:
         """
         Convert OTEL spans to SDK OTELSpan models.
 
@@ -318,7 +324,10 @@ class RhesisOTLPExporter(OTLPSpanExporter):
             spans: Sequence of OTEL spans
 
         Returns:
-            OTELTraceBatch with validated SDK schemas
+            OTELTraceBatch with validated SDK schemas, or None when no span in the batch
+            survived validation. ``OTELTraceBatch`` requires at least one span, so an empty
+            batch cannot be represented — and constructing one anyway would raise, undoing
+            the point of validating each span separately.
         """
         converted_spans = []
         skipped: list[str] = []
@@ -431,6 +440,9 @@ class RhesisOTLPExporter(OTLPSpanExporter):
                 f"Dropped {len(skipped)} of {len(spans)} spans from this export batch: "
                 f"{', '.join(sorted(set(skipped)))}"
             )
+
+        if not converted_spans:
+            return None
 
         return OTELTraceBatch(spans=converted_spans)
 
