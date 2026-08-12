@@ -155,8 +155,8 @@ class TestOutputFileCapture:
 
         with (
             patch(
-                "rhesis.backend.tasks.execution.executors.results.crud"
-            ) as mock_crud,
+                "rhesis.backend.tasks.execution.executors.results.file_crud"
+            ) as mock_file_crud,
             patch(
                 "rhesis.backend.app.services.storage_service.StorageService",
                 return_value=mock_storage,
@@ -165,8 +165,8 @@ class TestOutputFileCapture:
             _store_output_files(db, result_id, output_files, org_id, user_id)
 
             mock_storage.put_object_bytes.assert_called_once()
-            mock_crud.create_file.assert_called_once()
-            call_args = mock_crud.create_file.call_args
+            mock_file_crud.create_file.assert_called_once()
+            call_args = mock_file_crud.create_file.call_args
             file_create = call_args[0][1]
             assert file_create.filename == "output.txt"
             assert file_create.entity_id == result_id
@@ -182,10 +182,10 @@ class TestOutputFileCapture:
         """When processed_result has no 'output_files', no File records created."""
         db = MagicMock()
 
-        with patch("rhesis.backend.tasks.execution.executors.results.crud") as mock_crud:
+        with patch("rhesis.backend.tasks.execution.executors.results.file_crud") as mock_file_crud:
             # Empty list
             _store_output_files(db, uuid4(), [], str(uuid4()), str(uuid4()))
-            mock_crud.create_file.assert_not_called()
+            mock_file_crud.create_file.assert_not_called()
 
     def test_output_files_invalid_base64_skipped(self):
         """Invalid base64 in output_files is skipped gracefully."""
@@ -198,18 +198,18 @@ class TestOutputFileCapture:
             }
         ]
 
-        with patch("rhesis.backend.tasks.execution.executors.results.crud") as mock_crud:
+        with patch("rhesis.backend.tasks.execution.executors.results.file_crud") as mock_file_crud:
             # Should not raise
             _store_output_files(db, uuid4(), output_files, str(uuid4()), str(uuid4()))
-            mock_crud.create_file.assert_not_called()
+            mock_file_crud.create_file.assert_not_called()
 
     def test_output_files_not_list_skipped(self):
         """Non-list output_files value is skipped."""
         db = MagicMock()
 
-        with patch("rhesis.backend.tasks.execution.executors.results.crud") as mock_crud:
+        with patch("rhesis.backend.tasks.execution.executors.results.file_crud") as mock_file_crud:
             _store_output_files(db, uuid4(), "not a list", str(uuid4()), str(uuid4()))
-            mock_crud.create_file.assert_not_called()
+            mock_file_crud.create_file.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
@@ -309,8 +309,8 @@ class TestStoreOutputFilesPathA:
         user_id = str(uuid4())
 
         with patch(
-            "rhesis.backend.tasks.execution.executors.results.crud"
-        ) as mock_crud:
+            "rhesis.backend.tasks.execution.executors.results.file_crud"
+        ) as mock_file_crud:
             _store_output_files(
                 db,
                 result_id,
@@ -319,8 +319,8 @@ class TestStoreOutputFilesPathA:
                 user_id,
             )
 
-            mock_crud.create_file.assert_called_once()
-            file_create = mock_crud.create_file.call_args[0][1]
+            mock_file_crud.create_file.assert_called_once()
+            file_create = mock_file_crud.create_file.call_args[0][1]
             assert file_create.storage_path == self._good_payload(
                 org_id, result_id
             )["storage_path"]
@@ -337,10 +337,10 @@ class TestStoreOutputFilesPathA:
 
         payload = self._good_payload(other_org, result_id)
         with patch(
-            "rhesis.backend.tasks.execution.executors.results.crud"
-        ) as mock_crud:
+            "rhesis.backend.tasks.execution.executors.results.file_crud"
+        ) as mock_file_crud:
             _store_output_files(db, result_id, [payload], org_id, user_id)
-            mock_crud.create_file.assert_not_called()
+            mock_file_crud.create_file.assert_not_called()
 
     def test_rejects_traversal_storage_path(self):
         db = MagicMock()
@@ -353,10 +353,10 @@ class TestStoreOutputFilesPathA:
             f"attachments/{org_id}/TestResult/{result_id}/../../other-org/private.bin"
         )
         with patch(
-            "rhesis.backend.tasks.execution.executors.results.crud"
-        ) as mock_crud:
+            "rhesis.backend.tasks.execution.executors.results.file_crud"
+        ) as mock_file_crud:
             _store_output_files(db, result_id, [payload], org_id, user_id)
-            mock_crud.create_file.assert_not_called()
+            mock_file_crud.create_file.assert_not_called()
 
     def test_rejects_absolute_storage_path(self):
         db = MagicMock()
@@ -367,10 +367,10 @@ class TestStoreOutputFilesPathA:
         payload = self._good_payload(org_id, result_id)
         payload["storage_path"] = "/etc/passwd"
         with patch(
-            "rhesis.backend.tasks.execution.executors.results.crud"
-        ) as mock_crud:
+            "rhesis.backend.tasks.execution.executors.results.file_crud"
+        ) as mock_file_crud:
             _store_output_files(db, result_id, [payload], org_id, user_id)
-            mock_crud.create_file.assert_not_called()
+            mock_file_crud.create_file.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
