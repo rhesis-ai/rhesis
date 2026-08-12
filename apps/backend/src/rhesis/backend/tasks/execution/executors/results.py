@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, schemas
 from rhesis.backend.app.constants import TestResultStatus
+from rhesis.backend.app.crud import file as file_crud
 from rhesis.backend.app.models.test import Test
 from rhesis.backend.app.utils.crud_utils import get_or_create_status
 from rhesis.backend.app.utils.response_extractor import has_http_error_in_result
@@ -495,7 +496,7 @@ def _store_output_files(
                 content_hash=file_data.get("content_hash"),
                 extraction_status="pending",
             )
-            crud.create_file(db, file_create, organization_id=organization_id, user_id=user_id)
+            file_crud.create_file(db, file_create, organization_id=organization_id, user_id=user_id)
             continue
 
         # Path B: base64-encoded bytes — decode and write to storage.
@@ -540,7 +541,7 @@ def _store_output_files(
             content_hash=content_hash,
             extraction_status="pending",
         )
-        crud.create_file(db, file_create, organization_id=organization_id, user_id=user_id)
+        file_crud.create_file(db, file_create, organization_id=organization_id, user_id=user_id)
 
     logger.info(
         f"[TEST_RESULT] Stored {len(output_files_data)} output files "

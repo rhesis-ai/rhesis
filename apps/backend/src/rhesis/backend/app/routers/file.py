@@ -12,7 +12,7 @@ Threading note
 ``SessionLocal`` in this codebase is a plain ``sessionmaker`` — Session
 instances it produces are *not* thread-safe.  The async endpoints below
 therefore do **not** share a request-scoped ``db`` across threadpool
-workers via ``asyncio.to_thread(crud.x, db, ...)``.  All DB work flows
+workers via ``asyncio.to_thread(file_crud.x, db, ...)``.  All DB work flows
 through :func:`_in_fresh_session`, which opens a short-lived tenant-scoped
 session inside the worker thread, runs the callable, and closes it before
 returning the result.
@@ -27,8 +27,9 @@ from fastapi import Depends, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import RedirectResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, schemas
+from rhesis.backend.app import schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
+from rhesis.backend.app.crud import file as file_crud
 from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.dependencies import get_tenant_context
 from rhesis.backend.app.models.user import User
@@ -161,8 +162,12 @@ async def upload_files(
         organization_id,
         str(user_id),
         lambda db: (
-            crud.get_entity_files_total_size(db, entity_id, entity_type.value, organization_id),
-            crud.get_entity_files_max_position(db, entity_id, entity_type.value, organization_id),
+            file_crud.get_entity_files_total_size(
+                db, entity_id, entity_type.value, organization_id
+            ),
+            file_crud.get_entity_files_max_position(
+                db, entity_id, entity_type.value, organization_id
+            ),
         ),
     )
     next_position = max_position + 1
@@ -236,7 +241,7 @@ async def upload_files(
             organization_id,
             str(user_id),
             lambda db, fd=file_data: schemas.FileResponse.model_validate(
-                crud.create_file(db, fd, organization_id=organization_id, user_id=user_id)
+                file_crud.create_file(db, fd, organization_id=organization_id, user_id=user_id)
             ),
         )
         created_files.append(created)
@@ -286,7 +291,7 @@ def _load_file_or_404_factory(
     """
 
     def _load(db: Session) -> Optional[schemas.FileResponse]:
-        row = crud.get_file(db, file_id, organization_id, user_id)
+        row = file_crud.get_file(db, file_id, organization_id, user_id)
         if not row:
             return None
         return schemas.FileResponse.model_validate(row)
@@ -332,7 +337,7 @@ def _load_file_for_download_factory(
     """Build a session-local callable that materialises the download view."""
 
     def _load(db: Session) -> Optional[_FileForDownload]:
-        row = crud.get_file(db, file_id, organization_id, user_id)
+        row = file_crud.get_file(db, file_id, organization_id, user_id)
         if not row:
             return None
         return _FileForDownload(row)
@@ -570,7 +575,7 @@ async def delete_file(
     organization_id, user_id = tenant_context
 
     def _delete(db: Session) -> Optional[schemas.FileResponse]:
-        row = crud.delete_file(db, file_id, organization_id, user_id)
+        row = file_crud.delete_file(db, file_id, organization_id, user_id)
         if not row:
             return None
         return schemas.FileResponse.model_validate(row)
