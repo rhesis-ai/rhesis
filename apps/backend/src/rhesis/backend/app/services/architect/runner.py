@@ -126,8 +126,8 @@ async def build_agent(
     project_id: Optional[str] = None,
 ) -> tuple[Any, WebSocketEventHandler]:
     """Build the ArchitectAgent with tools and restore saved session state."""
-    from rhesis.backend.app import crud
     from rhesis.backend.app.auth.token_utils import create_service_delegation_token
+    from rhesis.backend.app.crud import user as user_crud
     from rhesis.backend.app.main import app as fastapi_app
     from rhesis.backend.app.mcp_server.local_tools import LocalToolProvider
     from rhesis.backend.app.utils.user_model_utils import get_user_generation_model
@@ -136,7 +136,7 @@ async def build_agent(
     from rhesis.sdk.agents.tools import ExploreEndpointTool
 
     with get_db_with_tenant_variables(organization_id, user_id, project_id or "") as db:
-        user = crud.get_user_by_id(db, user_id)
+        user = user_crud.get_user_by_id(db, user_id)
         if not user:
             raise ValueError(f"User {user_id} not found")
         if not user.is_active:

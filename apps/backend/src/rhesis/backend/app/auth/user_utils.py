@@ -6,7 +6,6 @@ from fastapi import Depends, HTTPException, Request, WebSocket, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud
 from rhesis.backend.app.auth.constants import UNAUTHORIZED_MESSAGE, AuthenticationMethod
 from rhesis.backend.app.auth.principal import (
     REQUEST_STATE_API_TOKEN_PROJECT_ID,
@@ -16,6 +15,7 @@ from rhesis.backend.app.auth.principal import (
 )
 from rhesis.backend.app.auth.token_utils import get_secret_key, verify_jwt_token
 from rhesis.backend.app.auth.token_validation import validate_token
+from rhesis.backend.app.crud import user as user_crud
 from rhesis.backend.app.crud.token import get_token_by_value
 from rhesis.backend.app.database import get_db
 from rhesis.backend.app.models.user import User
@@ -68,7 +68,7 @@ def find_or_create_user_from_auth(db: Session, auth_user: "AuthUser") -> User:
     normalized_email = validate_and_normalize_email(auth_user.email)
 
     # First try to find user by email (this is our primary matching criteria)
-    user = crud.get_user_by_email(db, normalized_email)
+    user = user_crud.get_user_by_email(db, normalized_email)
 
     if user:
         # Found user by email - update profile info and provider details
@@ -104,7 +104,7 @@ def find_or_create_user_from_auth(db: Session, auth_user: "AuthUser") -> User:
         is_email_verified=True,  # OAuth/credentials auth confirms email ownership
         last_login_at=current_time,
     )
-    user = crud.create_user(db, user_data)
+    user = user_crud.create_user(db, user_data)
     is_new_user = True
     mark_user_joined_if_needed(user, when=current_time)
 
@@ -164,7 +164,7 @@ async def get_current_user(request: Request) -> Optional[User]:
 
     # Get the user with a basic session - no organization context needed for user lookup
     with get_db() as db:
-        user = crud.get_user_by_id(db, user_id)
+        user = user_crud.get_user_by_id(db, user_id)
 
     # User must have an organization_id to proceed
     if not user or not user.organization_id:
@@ -188,7 +188,7 @@ async def get_user_from_jwt(token: str, secret_key: str) -> Optional[User]:
         if user_id:
             # Get the user with a basic session - no organization context needed for user lookup
             with get_db() as db:
-                user = crud.get_user_by_id(db, user_id)
+                user = user_crud.get_user_by_id(db, user_id)
 
             if not user:
                 return None
@@ -240,7 +240,7 @@ async def get_authenticated_user_with_context(
             if is_valid:
                 token = get_token_by_value(db, token_value)
                 if token:
-                    user = crud.get_user_by_id(db, token.user_id)
+                    user = user_crud.get_user_by_id(db, token.user_id)
 
                     # Handle user based on organization requirement
                     # Must be inside the context manager

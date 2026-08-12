@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session, sessionmaker
 # Import backend modules
 from rhesis.backend.app import crud, models
 from rhesis.backend.app.auth.token_utils import generate_api_token
+from rhesis.backend.app.crud import user as user_crud
 from rhesis.backend.app.crud.token import create_token
 from rhesis.backend.app.database import get_database_url
 from rhesis.backend.app.schemas import OrganizationCreate, UserCreate
@@ -99,7 +100,7 @@ def create_test_user(
         last_login_at=datetime.now(timezone.utc),
     )
 
-    user = crud.create_user(db, user_data)
+    user = user_crud.create_user(db, user_data)
     print(f"✅ Created test user: {user.email} (ID: {user.id})")
 
     return user
@@ -176,7 +177,7 @@ def ensure_owner_membership(db: Session, organization_id: uuid.UUID, user_id: uu
 
     With RBAC available by default, every authenticated request from a test
     user is authorized against its ``organization_member`` role. Test users are
-    created via ``crud.create_user`` which fires the EE default-role hook
+    created via ``crud.user.create_user`` which fires the EE default-role hook
     *before* ``owner_id`` is set (the FK requires the user to exist first), so
     the hook always seeds them as **Member** — which lacks org-admin and
     project-create capabilities, causing wholesale 403s. This creates the row

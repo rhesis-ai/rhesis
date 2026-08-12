@@ -350,10 +350,11 @@ def accept_terms(
     current_user: User = Depends(require_current_user_or_token_without_context),
 ):
     """Record the authenticated user's acceptance of the current T&C version."""
-    from rhesis.backend.app import crud
     from sqlalchemy.orm.attributes import flag_modified
 
-    user = crud.get_user_by_id(db, current_user.id)
+    from rhesis.backend.app.crud import user as user_crud
+
+    user = user_crud.get_user_by_id(db, current_user.id)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -628,9 +629,9 @@ async def register_with_email(
         )
 
         # The user was already created in register(), so look them up
-        from rhesis.backend.app import crud
+        from rhesis.backend.app.crud import user as user_crud
 
-        user = crud.get_user_by_email(db, body.email)
+        user = user_crud.get_user_by_email(db, body.email)
 
         if not user:
             raise HTTPException(
@@ -714,10 +715,10 @@ async def verify_email(
     Verify a user's email address using the token from the verification
     email.
     """
-    from rhesis.backend.app import crud
+    from rhesis.backend.app.crud import user as user_crud
 
     payload = verify_email_flow_token(body.token, "email_verification")
-    user = crud.get_user_by_email(db, payload["email"])
+    user = user_crud.get_user_by_email(db, payload["email"])
 
     # Enumeration-safe: return success even if user no longer exists
     if not user:
@@ -755,9 +756,9 @@ def resend_verification(
     Resend the verification email. Always returns 200 to prevent
     email enumeration.
     """
-    from rhesis.backend.app import crud
+    from rhesis.backend.app.crud import user as user_crud
 
-    user = crud.get_user_by_email(db, body.email)
+    user = user_crud.get_user_by_email(db, body.email)
 
     if user and not user.is_email_verified:
         try:
@@ -796,9 +797,9 @@ def forgot_password(
     Request a password reset email. Always returns 200 to prevent
     email enumeration.
     """
-    from rhesis.backend.app import crud
+    from rhesis.backend.app.crud import user as user_crud
 
-    user = crud.get_user_by_email(db, body.email)
+    user = user_crud.get_user_by_email(db, body.email)
 
     if user:
         try:
@@ -834,7 +835,7 @@ async def reset_password(
     Reset a user's password using the token from the reset email.
     Token is single-use: once used, it cannot be used again.
     """
-    from rhesis.backend.app import crud
+    from rhesis.backend.app.crud import user as user_crud
     from rhesis.backend.app.utils.encryption import hash_password
 
     payload = verify_email_flow_token(body.token, "password_reset")
@@ -859,7 +860,7 @@ async def reset_password(
             detail="Token already used or expired",
         )
 
-    user = crud.get_user_by_email(db, payload["email"])
+    user = user_crud.get_user_by_email(db, payload["email"])
 
     if not user:
         raise HTTPException(
@@ -908,10 +909,10 @@ def request_magic_link(
     doesn't exist yet (unified sign-in / sign-up flow).
     Always returns 200 to prevent email enumeration.
     """
-    from rhesis.backend.app import crud
+    from rhesis.backend.app.crud import user as user_crud
     from rhesis.backend.app.schemas.user import UserCreate
 
-    user = crud.get_user_by_email(db, body.email)
+    user = user_crud.get_user_by_email(db, body.email)
     is_new_user = False
 
     if not user:
@@ -922,7 +923,7 @@ def request_magic_link(
                 is_email_verified=False,
                 is_active=True,
             )
-            user = crud.create_user(db, user_data)
+            user = user_crud.create_user(db, user_data)
             db.commit()
             db.refresh(user)
             is_new_user = True
@@ -969,7 +970,7 @@ async def verify_magic_link(
     Verify a magic link token and return a session token.
     Token is single-use: once used, it cannot be used again.
     """
-    from rhesis.backend.app import crud
+    from rhesis.backend.app.crud import user as user_crud
 
     payload = verify_email_flow_token(body.token, "magic_link")
     jti = payload.get("jti")
@@ -993,7 +994,7 @@ async def verify_magic_link(
             detail="Link already used or expired",
         )
 
-    user = crud.get_user_by_email(db, payload["email"])
+    user = user_crud.get_user_by_email(db, payload["email"])
 
     if not user:
         raise HTTPException(
@@ -1138,10 +1139,10 @@ def refresh_tokens(
     existed, whether they tripped reuse detection, etc. Detailed
     reasons go to structured logs and the audit stream.
     """
-    from rhesis.backend.app import crud
     from rhesis.backend.app.auth.refresh_client_hook import (
         get_refresh_client_minter,
     )
+    from rhesis.backend.app.crud import user as user_crud
 
     # ``verify_and_refresh_token`` raises HTTPException with variant
     # detail strings (kept for backward compatibility with other call
@@ -1156,7 +1157,7 @@ def refresh_tokens(
             raise _refresh_invalid() from exc
         raise
 
-    user = crud.get_user(db, str(token_row.user_id))
+    user = user_crud.get_user(db, str(token_row.user_id))
     if not user:
         # User vanished between mint and refresh (unusual; would
         # require the user to be hard-deleted). Same uniform 401.
@@ -1388,7 +1389,7 @@ async def local_login(request: Request, db: Session = Depends(get_db_session)):
     ⚠️ WARNING: This endpoint is for QUICK START ONLY!
     It bypasses normal authentication and logs in as the default admin@local.dev user.
     """
-    from rhesis.backend.app import crud
+    from rhesis.backend.app.crud import user as user_crud
     from rhesis.backend.app.utils.quick_start import is_quick_start_enabled
 
     hostname = request.url.hostname if request.url.hostname is not None else None
@@ -1406,7 +1407,7 @@ async def local_login(request: Request, db: Session = Depends(get_db_session)):
     logger.warning("⚠️  This should NEVER be used in production!")
 
     try:
-        user = crud.get_user_by_email(db, "admin@local.dev")
+        user = user_crud.get_user_by_email(db, "admin@local.dev")
 
         if not user:
             logger.error("QUICK START MODE user (admin@local.dev) not found in database")

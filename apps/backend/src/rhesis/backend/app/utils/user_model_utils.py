@@ -11,13 +11,13 @@ from typing import Optional, Union
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud
 from rhesis.backend.app.config.settings import (
     get_application_settings,
     get_model_settings,
     get_rhesis_settings,
 )
 from rhesis.backend.app.crud import model as model_crud
+from rhesis.backend.app.crud import user as user_crud
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.services.platform_key import get_platform_api_key
 from rhesis.backend.app.utils.model_errors import ModelConfigurationError
@@ -129,7 +129,7 @@ def get_evaluation_model(db: Session, user_id: str) -> Union[str, BaseLLM]:
     """
     try:
         default_model = _default_evaluation_model()
-        user = crud.get_user_by_id(db, user_id)
+        user = user_crud.get_user_by_id(db, user_id)
         if user:
             return get_user_evaluation_model(db, user)
         logger.warning(
@@ -174,7 +174,7 @@ def get_execution_model(db: Session, user_id: str) -> Union[str, BaseLLM]:
     """
     try:
         default_model = _default_execution_model()
-        user = crud.get_user_by_id(db, user_id)
+        user = user_crud.get_user_by_id(db, user_id)
         if user:
             return get_user_execution_model(db, user)
         logger.warning(

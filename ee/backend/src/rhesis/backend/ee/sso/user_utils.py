@@ -48,9 +48,9 @@ def find_or_create_sso_user(
     Returns the User model instance on success.
     Raises SSOLoginError on any rejection.
     """
+    from rhesis.backend.app.crud import user as user_crud
     from rhesis.backend.app.models.user import User
     from rhesis.backend.app.schemas import user as user_schemas
-    from rhesis.backend.app import crud
 
     org_id = str(organization.id)
 
@@ -150,7 +150,7 @@ def find_or_create_sso_user(
         last_login_at=current_time,
         organization_id=organization.id,
     )
-    user = crud.create_user(db, user_data)
+    user = user_crud.create_user(db, user_data)
 
     from rhesis.backend.app.auth.user_utils import mark_user_joined_if_needed
 

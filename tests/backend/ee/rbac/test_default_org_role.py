@@ -1,6 +1,6 @@
 """Tests for default org-role assignment on user↔org association (item 0).
 
-Covers the RBAC-activation prerequisite: ``crud.create_user`` / onboarding /
+Covers the RBAC-activation prerequisite: ``crud.user.create_user`` / onboarding /
 re-invite call the core ``on_user_org_assigned`` hook, and the EE handler
 (:func:`~rhesis.backend.ee.rbac.default_role.assign_default_org_role`) seeds an
 ``organization_member`` row so users are not locked out once RBAC is enabled.

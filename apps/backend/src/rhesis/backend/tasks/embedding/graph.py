@@ -162,10 +162,10 @@ def _run_embedding_graph(
     persist_graph: Callable[[Any, Any], None],
     parent_name: str,
 ) -> None:
-    from rhesis.backend.app import crud
+    from rhesis.backend.app.crud import user as user_crud
     from rhesis.backend.app.services.embedding.graph_builder import build_2d_graph
 
-    user = crud.get_user_by_id(db, user_id)
+    user = user_crud.get_user_by_id(db, user_id)
     if user is None:
         logger.warning("Skipping graph computation: user not found", extra={"user_id": user_id})
         return

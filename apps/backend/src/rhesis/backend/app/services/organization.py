@@ -12,6 +12,7 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from rhesis.backend.app import crud, models
 from rhesis.backend.app.config.settings import get_application_settings
+from rhesis.backend.app.crud import user as user_crud
 from rhesis.backend.app.database import temporary_project_scope
 from rhesis.backend.app.models.enums import ModelType
 from rhesis.backend.app.models.metric import behavior_metric_association
@@ -959,7 +960,7 @@ def execute_initial_test_runs(db: Session, organization_id: str, user_id: str) -
     try:
         # Fetch the User object
         print(f"Fetching user: {user_id}")
-        current_user = crud.get_user_by_id(db, user_id)
+        current_user = user_crud.get_user_by_id(db, user_id)
         if not current_user:
             print(f"  ✗ User not found: {user_id}")
             result["details"].append({"status": "error", "message": f"User not found: {user_id}"})
