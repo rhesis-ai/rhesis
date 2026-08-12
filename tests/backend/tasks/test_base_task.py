@@ -17,7 +17,12 @@ import pytest
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.enums import NotificationEventType
-from rhesis.backend.tasks.base import BaseTask, email_notification, in_app_notification
+from rhesis.backend.tasks.base import (
+    BaseTask,
+    SilentTask,
+    email_notification,
+    in_app_notification,
+)
 
 
 class MockTask:
@@ -322,6 +327,31 @@ class TestInAppNotificationDecorator:
         task = MockTask()
         assert mock_task_function(task) == {"result": "success"}
 
+    def test_registered_tasks_carry_their_notification_kind(self):
+        """Guards decorator *ordering* on the real tasks.
+
+        ``@in_app_notification`` must sit above ``@app.task`` so it stamps the
+        bound Task singleton. Below it, the attribute lands on the plain
+        function that app.task wraps, ``self._notification_kind`` is never
+        found at runtime, and the notification silently never fires.
+        """
+        from rhesis.backend.tasks.architect.chat import architect_chat_task
+        from rhesis.backend.tasks.execution.results import collect_results
+        from rhesis.backend.tasks.test_set import generate_and_save_test_set
+
+        assert (
+            getattr(generate_and_save_test_set, "_notification_kind", None)
+            == NotificationEventType.TestSet.GENERATION_COMPLETED
+        )
+        assert (
+            getattr(collect_results, "_notification_kind", None)
+            == NotificationEventType.TestRun.EXECUTION_COMPLETED
+        )
+        assert (
+            getattr(architect_chat_task, "_notification_kind", None)
+            == NotificationEventType.Architect.PLAN_COMPLETED
+        )
+
 
 def _real_base_task(retries: int = 0) -> BaseTask:
     """A BaseTask instance with a real (unbound) request context, to exercise
@@ -383,6 +413,84 @@ class TestOnSuccessInAppNotification:
         ):
             # Must not raise -- a notification failure must not fail the task.
             task.on_success({"result": "ok"}, "task-1", [], {})
+
+
+class TestSilentTaskInAppNotification:
+    """SilentTask must still send in-app notifications on success.
+
+    It overrides on_success with ``super(BaseTask, self)``, skipping
+    BaseTask.on_success entirely. Since it does *not* override on_failure,
+    dropping the notification here would leave a decorated SilentTask
+    notifying on failure only -- the architect task is one such task.
+    """
+
+    @staticmethod
+    def _silent_task() -> SilentTask:
+        from celery.utils.threads import LocalStack
+
+        task = SilentTask()
+        task.request_stack = LocalStack()
+        task.push_request(id="task-1", retries=0, headers={}, kwargs={})
+        return task
+
+    def test_notifies_on_success_when_kind_set(self):
+        task = self._silent_task()
+        task._notification_kind = NotificationEventType.Architect.PLAN_COMPLETED
+
+        with (
+            patch.object(task, "_send_task_completion_notification") as mock_notify,
+            patch.object(task, "log_with_context"),
+        ):
+            task.on_success({"result": "ok"}, "task-1", [], {})
+
+        mock_notify.assert_called_once_with({"result": "ok"}, None)
+
+    def test_skips_notification_when_kind_not_set(self):
+        task = self._silent_task()
+
+        with (
+            patch.object(task, "_send_task_completion_notification") as mock_notify,
+            patch.object(task, "log_with_context"),
+        ):
+            task.on_success({"result": "ok"}, "task-1", [], {})
+
+        mock_notify.assert_not_called()
+
+    def test_notification_failure_does_not_propagate(self):
+        task = self._silent_task()
+        task._notification_kind = NotificationEventType.Architect.PLAN_COMPLETED
+
+        with (
+            patch.object(
+                task,
+                "_send_task_completion_notification",
+                side_effect=RuntimeError("boom"),
+            ),
+            patch.object(task, "log_with_context"),
+        ):
+            # Must not raise -- a notification failure must not fail the task.
+            task.on_success({"result": "ok"}, "task-1", [], {})
+
+
+class TestDecliningRenderer:
+    """A renderer returning None means no notification row is written."""
+
+    def test_declined_render_writes_nothing(self):
+        task = _real_base_task()
+        task._notification_kind = NotificationEventType.Architect.PLAN_COMPLETED
+
+        with (
+            patch.object(task, "get_tenant_context", return_value=("org-1", "user-1", "proj-1")),
+            patch("rhesis.backend.app.services.notification.notify") as mock_notify,
+            patch.object(task, "get_db_session") as mock_session,
+            patch.object(task, "log_with_context"),
+        ):
+            # An ordinary interactive turn: no resume prefix, so the architect
+            # renderer declines.
+            task._send_task_completion_notification({"session_id": "s-1"}, None)
+
+        mock_notify.assert_not_called()
+        mock_session.assert_not_called()
 
 
 class TestOnFailureInAppNotification:

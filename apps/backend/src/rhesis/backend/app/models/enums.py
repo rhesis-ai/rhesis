@@ -71,6 +71,7 @@ class NotificationSection(str, Enum):
     TEST_SETS = "test-sets"
     TEST_RUNS = "test-runs"
     TASKS = "tasks"
+    ARCHITECT = "architect"
 
 
 class NotificationEventType:
@@ -92,6 +93,12 @@ class NotificationEventType:
 
     class Task(str, Enum):
         ASSIGNED = "task.assigned"
+
+    class Architect(str, Enum):
+        #: One architect turn concluded a background wait with nothing left
+        #: pending -- i.e. the plan is done. Mid-plan turns don't notify; see
+        #: the renderer in services/notification/catalog.py.
+        PLAN_COMPLETED = "architect.plan_completed"
 
 
 # Notification.entity_type reuses rhesis.backend.app.constants.EntityType

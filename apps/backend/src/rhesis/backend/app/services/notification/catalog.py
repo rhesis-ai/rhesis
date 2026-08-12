@@ -8,7 +8,7 @@ for how a catalog entry turns into a row + websocket event.
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, Optional
 
-from rhesis.backend.app.constants import EntityType
+from rhesis.backend.app.constants import ARCHITECT_RESUME_PREFIX, EntityType
 from rhesis.backend.app.models.enums import NotificationEventType, NotificationSection
 
 
@@ -29,7 +29,11 @@ class RenderedNotification:
 # message (None on success). The caller normalizes a failed or non-dict return
 # to ``{}`` (see BaseTask._send_task_completion_notification), so renderers can
 # read keys off it without guarding -- but must not assume any key is present.
-RenderFn = Callable[[Any, Dict[str, Any], Optional[str]], RenderedNotification]
+#
+# Returning None means "this completion isn't worth notifying about" and no row
+# is written -- for a task that runs many times per user request, where only
+# some runs are a finished job (see _render_architect_plan_completed).
+RenderFn = Callable[[Any, Dict[str, Any], Optional[str]], Optional[RenderedNotification]]
 
 
 @dataclass(frozen=True)
@@ -110,6 +114,40 @@ def _render_execution_completed(task, retval, error) -> RenderedNotification:
     )
 
 
+def _render_architect_plan_completed(task, retval, error) -> Optional[RenderedNotification]:
+    """Notify only for the architect turn that concludes a background wait.
+
+    ``architect_chat_task`` runs once per turn, and one user request spans
+    several: the first turn hands off to long-running tasks, the monitor
+    auto-resumes a new turn once they finish, and that turn may hand off
+    again. Only the turn that both *is* an auto-resume and leaves nothing
+    pending means "the work you walked away from is done" -- an ordinary
+    interactive turn is the user chatting live, and a turn that starts a
+    wait would notify at the wrong end of it. The awaited tasks
+    (generation, execution) notify for their own artifacts separately, so
+    this is strictly about the plan being ready for the user again.
+    """
+    session_id = retval.get("session_id") or _task_kwargs(task).get("session_id")
+    user_message = _task_kwargs(task).get("user_message") or ""
+
+    if not user_message.startswith(ARCHITECT_RESUME_PREFIX):
+        return None
+    # Absent on the failure path (retval is normalized to {}), which is the
+    # right default: a crashed resume turn leaves nothing pending either.
+    if retval.get("awaiting_task"):
+        return None
+
+    if error:
+        return RenderedNotification(
+            title="Architect run failed", is_failure=True, entity_id=session_id
+        )
+    return RenderedNotification(
+        title="Architect finished your plan",
+        body="The background work it was waiting on is complete",
+        entity_id=session_id,
+    )
+
+
 NOTIFICATION_CATALOG: Dict[str, NotificationKind] = {
     NotificationEventType.TestSet.GENERATION_COMPLETED: NotificationKind(
         event_type=NotificationEventType.TestSet.GENERATION_COMPLETED,
@@ -140,5 +178,11 @@ NOTIFICATION_CATALOG: Dict[str, NotificationKind] = {
         section=NotificationSection.TASKS,
         entity_type=EntityType.TASK.value,
         # Emitted directly from task_notification.py, not a Celery hook.
+    ),
+    NotificationEventType.Architect.PLAN_COMPLETED: NotificationKind(
+        event_type=NotificationEventType.Architect.PLAN_COMPLETED,
+        section=NotificationSection.ARCHITECT,
+        entity_type=EntityType.ARCHITECT_SESSION.value,
+        render=_render_architect_plan_completed,
     ),
 }

@@ -226,20 +226,28 @@ class BaseTask(Task):
                     exception_type=type(e).__name__,
                 )
 
-        # Send in-app notification for successful completion if enabled
-        if getattr(self, "_notification_kind", None) is not None:
-            try:
-                self._send_task_completion_notification(retval, None)
-            except Exception as e:
-                # Never let notification failures break task completion
-                self.log_with_context(
-                    "error",
-                    "In-app notification failed in on_success",
-                    error=str(e),
-                    exception_type=type(e).__name__,
-                )
+        self._notify_task_success(retval)
 
         return super().on_success(retval, task_id, args, kwargs)
+
+    def _notify_task_success(self, retval) -> None:
+        """Send the in-app notification for a successful run, if one is configured.
+
+        Split out of ``on_success`` so ``SilentTask`` can call it without
+        inheriting the rest of that method -- see SilentTask.on_success.
+        """
+        if getattr(self, "_notification_kind", None) is None:
+            return
+        try:
+            self._send_task_completion_notification(retval, None)
+        except Exception as e:
+            # Never let notification failures break task completion
+            self.log_with_context(
+                "error",
+                "In-app notification failed in on_success",
+                error=str(e),
+                exception_type=type(e).__name__,
+            )
 
     def on_failure(self, exc, task_id, args, kwargs, einfo):
         """Log failed task with context information."""
@@ -564,6 +572,10 @@ class BaseTask(Task):
         # losing the notification with only a log line.
         result = retval if isinstance(retval, dict) else {}
         rendered = kind.render(self, result, error)
+        if rendered is None:
+            # The renderer declined: this run completed but isn't a finished
+            # job worth telling the user about (see RenderFn's docstring).
+            return
 
         with self.get_db_session() as db:
             notify(
@@ -588,5 +600,14 @@ class SilentTask(BaseTask):
     send_email_notification_flag = False
 
     def on_success(self, retval, task_id, args, kwargs):
-        """Skip generic completion logging; callers log task-specific outcomes."""
+        """Skip generic completion logging; callers log task-specific outcomes.
+
+        In-app notifications still fire. "Silent" here means no email and no
+        generic log line, not no notification -- they're opt-in per task via
+        ``@in_app_notification``, so a task only gets one by asking. Without
+        this call, skipping ``BaseTask.on_success`` would drop them on
+        success while ``on_failure`` (not overridden) kept sending them,
+        leaving a decorated SilentTask notifying on failure only.
+        """
+        self._notify_task_success(retval)
         return super(BaseTask, self).on_success(retval, task_id, args, kwargs)
