@@ -3,11 +3,11 @@
 The set is created lazily, on the first case added, so a ``GET`` stays free of
 side effects and metrics nobody tunes never accumulate empty test sets.
 
-It carries no metric of its own. The agreement check that will compare a metric's
-score against the human's expected verdict does not exist yet, and attaching a
-placeholder to reserve its seat cost a user-visible metric row that computed
-nothing -- see domain.local/CONTEXT.md and the spec. Attaching the real one later
-is a single call here.
+It carries no metric of its own, permanently. Comparing a metric's verdict
+against the human's expected one is plain code, not a metric resolved through the
+execution path (domain.local/adr/0004), so nothing is waiting to be attached
+here. An earlier design put a placeholder metric in the slot to hold it open for
+exactly that, which cost a user-visible metric row that computed nothing.
 """
 
 import logging
