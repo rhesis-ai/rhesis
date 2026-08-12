@@ -18,7 +18,6 @@ from rhesis.backend.app.utils.model_errors import ModelConfigurationError
 from rhesis.backend.app.utils.user_model_utils import (
     ensure_language_model,
     get_user_generation_model,
-    resolve_default_hosted_model,
 )
 
 MAX_SAMPLE_SIZE = 6
@@ -70,13 +69,12 @@ class TestConfigGeneratorService:
                 "User generation model is Polyphemus; using fast system default for test config"
             )
             try:
-                # ensure_language_model: resolve_default_hosted_model already
-                # stamps a real instance; this only turns a leftover fallback
-                # string (an ops override to a non-hosted default) into one,
-                # equally stamped, since it is still a system default.
-                return ensure_language_model(
-                    resolve_default_hosted_model(get_model_settings().generation_model)
-                )
+                # ensure_language_model, not resolve_default_hosted_model:
+                # this caller *wants* the raising variant, so a system default
+                # that cannot be built falls through to the user's model
+                # below. Wrapping resolve's non-raising fallback in ensure
+                # just built the same model twice on the failure path.
+                return ensure_language_model(get_model_settings().generation_model)
             except ValueError as e:
                 logger.warning(
                     "Fast system default unavailable for test config (Polyphemus user); "

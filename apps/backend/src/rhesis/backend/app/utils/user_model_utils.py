@@ -446,26 +446,62 @@ def _is_hosted_model(provider: str, api_key: Optional[str]) -> bool:
     return provider in ("rhesis", "polyphemus") and not api_key
 
 
+def ensure_language_model(model_or_provider: Union[str, BaseLLM]) -> BaseLLM:
+    """Turn a ``get_user_*_model()`` result into a real, stamped model instance.
+
+    The single place in the backend that turns a provider string into a
+    language model. A dozen call sites used to do that unwrap themselves with
+    a plain ``get_model(x)``, which produces an *unstamped* model -- so
+    whether those tokens counted depended on remembering to stamp, at N
+    sites, which is the bug this accrual mechanism exists to remove. Routing
+    them all through here removes the choice.
+
+    ``metered=True`` is always right for a string, because a string only ever
+    reaches a caller as the system default: either straight from
+    ``DEFAULT_*_MODEL`` settings, or from
+    :func:`resolve_default_hosted_model`'s construction fallback.
+    ``_fetch_and_configure_model`` (the only path carrying an org's own key)
+    stamps directly or raises, and never returns a bare string.
+
+    Raises whatever ``get_model`` raises (typically ``ValueError``), so
+    callers that already wrap model resolution in their own error handling
+    keep working unchanged. Use :func:`resolve_default_hosted_model` for the
+    non-raising variant.
+
+    Args:
+        model_or_provider: The return value of a ``get_user_*_model()`` call:
+            either an already-resolved (and already-stamped) ``BaseLLM``, or
+            a bare ``"provider/model_name"`` string.
+
+    Returns:
+        A ``BaseLLM`` instance, stamped if this function built it.
+    """
+    if isinstance(model_or_provider, str):
+        return stamp_usage_provenance(
+            get_model(model_or_provider, model_type="language"),
+            metered=True,
+        )
+    return model_or_provider
+
+
 def resolve_default_hosted_model(default_model: str) -> Union[str, BaseLLM]:
     """
-    Instantiate the system default model, stamped as running on our credentials.
+    Instantiate the system default model, falling back to the bare string.
 
-    Several callers fall back to the bare `default_model` string (e.g.
-    "rhesis/rhesis-default") without ever calling `_fetch_and_configure_model`
-    -- most notably `_get_user_model` when the user has no model_id configured
-    for a purpose (execution model on a freshly onboarded org, for example),
-    and the execution/evaluation model resolution in the batch and sequential
-    test-execution paths when a test config carries no resolvable user.
+    The non-raising counterpart to :func:`ensure_language_model`, for the
+    callers that must not fail here: `_get_user_model` when the user has no
+    model_id configured for a purpose (execution model on a freshly
+    onboarded org, for example), and the execution/evaluation model
+    resolution in the batch and sequential test-execution paths when a test
+    config carries no resolvable user.
 
     Public rather than underscore-prefixed because those out-of-module
     fallbacks are the point of it: anything that would otherwise hand a bare
     `DEFAULT_*_MODEL` string downstream should route through here instead, so
     that the resulting model carries a provenance stamp.
 
-    Construction here is cheap (no network call -- provider `__init__`s only
-    set up client config) so doing it eagerly costs nothing. On any
-    construction error (e.g. missing RHESIS_API_KEY), falls back to the bare
-    string so callers retain today's lazy-resolution behavior.
+    Construction is cheap (no network call -- provider `__init__`s only set
+    up client config) so doing it eagerly costs nothing.
 
     Takes no organization id: which org to bill is read from the ambient
     context when usage is actually emitted (see
@@ -487,10 +523,7 @@ def resolve_default_hosted_model(default_model: str) -> Union[str, BaseLLM]:
     # ``rhesis/...``. Restricting this to rhesis/polyphemus meant every such
     # deployment reported zero MODEL_TOKENS forever.
     try:
-        return stamp_usage_provenance(
-            get_model(default_model, model_type="language"),
-            metered=True,
-        )
+        return ensure_language_model(default_model)
     except Exception:
         # Broad on purpose, not just ValueError: dropping the provider
         # restriction above means this now runs `get_model` for *any*
@@ -502,45 +535,6 @@ def resolve_default_hosted_model(default_model: str) -> Union[str, BaseLLM]:
         # which will raise the same error when it actually tries to use
         # the model.
         return default_model
-
-
-def ensure_language_model(model_or_provider: Union[str, BaseLLM]) -> BaseLLM:
-    """Turn a ``get_user_*_model()`` result into a real, stamped model instance.
-
-    A dozen call sites across the codebase share one shape: call
-    ``get_user_generation_model`` (or ``_evaluation_model``/``_execution_model``),
-    then, if it came back as a bare string, hand that string to ``get_model()``
-    to build a real instance. Every one of those did that unwrap with a plain
-    ``get_model(x)`` call, which produces an unstamped model -- so whether
-    those tokens should count depended on remembering to stamp it, at N sites,
-    which is the exact bug this accrual mechanism was rebuilt to remove.
-
-    Centralizing the unwrap here removes the choice: there is only one place
-    that turns a string into a model, and it always stamps.
-
-    Safe to reason about because a plain string only ever reaches a caller
-    from ``resolve_default_hosted_model``'s fallback (construction of the
-    system default failed once already, upstream) -- never from
-    ``_fetch_and_configure_model``, which stamps directly or raises. So
-    retrying construction here is still building the system default, and the
-    correct stamp is always ``metered=True``. Raises whatever ``get_model``
-    raises (typically ``ValueError``) so existing callers that wrap this in
-    their own error handling keep working unchanged.
-
-    Args:
-        model_or_provider: The return value of a ``get_user_*_model()`` call:
-            either an already-resolved (and already-stamped) ``BaseLLM``, or
-            a bare ``"provider/model_name"`` string.
-
-    Returns:
-        A ``BaseLLM`` instance, stamped if this function built it.
-    """
-    if isinstance(model_or_provider, str):
-        return stamp_usage_provenance(
-            get_model(model_or_provider, model_type="language"),
-            metered=True,
-        )
-    return model_or_provider
 
 
 def _call_polyphemus_with_delegation(user: User, model_name: str, **kwargs):

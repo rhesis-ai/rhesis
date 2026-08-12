@@ -31,7 +31,6 @@ from rhesis.backend.app.utils.model_errors import ModelConfigurationError
 from rhesis.backend.app.utils.user_model_utils import (
     ensure_language_model,
     get_user_generation_model,
-    resolve_default_hosted_model,
 )
 from rhesis.sdk.synthesizers.config_synthesizer import (
     GenerationConfig as SDKGenerationConfig,
@@ -60,13 +59,9 @@ def _resolve_config_llm(db: Session, user: User):
     if use_fast_default:
         logger.info("User generation model is Polyphemus; using fast default for pipeline config")
         try:
-            # ensure_language_model: resolve_default_hosted_model already
-            # stamps a real instance; this only turns a leftover fallback
-            # string (an ops override to a non-hosted default) into one,
-            # equally stamped, since it is still a system default.
-            return ensure_language_model(
-                resolve_default_hosted_model(get_model_settings().generation_model)
-            )
+            # ensure_language_model, not resolve_default_hosted_model: see the
+            # note on the identical branch in test_config_generator.py.
+            return ensure_language_model(get_model_settings().generation_model)
         except ValueError:
             pass
 
