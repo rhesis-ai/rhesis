@@ -66,6 +66,7 @@ export default function MetricTuningCaseDialog({
 }: MetricTuningCaseDialogProps) {
   const [input, setInput] = useState('');
   const [output, setOutput] = useState('');
+  const [expectedOutput, setExpectedOutput] = useState('');
   const [expected, setExpected] = useState<string>('');
   const [rationale, setRationale] = useState('');
   const [saving, setSaving] = useState(false);
@@ -77,6 +78,7 @@ export default function MetricTuningCaseDialog({
     if (!open) return;
     setInput(tuningCase?.input ?? '');
     setOutput(tuningCase?.output ?? '');
+    setExpectedOutput(tuningCase?.expected_output ?? '');
     setExpected(tuningCase?.expected ?? defaultVerdict(scoreType, categories));
     setRationale(tuningCase?.rationale ?? '');
     setError('');
@@ -98,6 +100,7 @@ export default function MetricTuningCaseDialog({
       await onSubmit({
         input: input.trim(),
         output: output.trim(),
+        expected_output: expectedOutput.trim() || null,
         expected: expected.trim(),
         rationale: rationale.trim() || null,
       });
@@ -190,7 +193,7 @@ export default function MetricTuningCaseDialog({
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
         <Typography variant="body2" color="text.secondary">
           A case is an example the metric has to get right: what went in, what
-          came back, and the verdict you expect.
+          came back, and the verdict you expect from the metric.
         </Typography>
 
         <TextField
@@ -215,6 +218,17 @@ export default function MetricTuningCaseDialog({
           minRows={3}
           placeholder="I am fine, thanks for asking."
           helperText="The answer this metric has to judge."
+        />
+
+        <TextField
+          label="Expected output"
+          value={expectedOutput}
+          onChange={e => setExpectedOutput(e.target.value)}
+          fullWidth
+          multiline
+          minRows={2}
+          placeholder="I am fine, thanks for asking."
+          helperText="Optional. What the system under test should have answered — only needed when this metric judges against a reference."
         />
 
         {renderVerdictControl()}

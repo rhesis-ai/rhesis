@@ -15,6 +15,7 @@ and the X-Total-Count header must agree with the rows actually returned.
 Run with: python -m pytest tests/backend/routes/test_metric_tuning.py -v
 """
 
+import json
 import uuid
 
 import pytest
@@ -24,14 +25,12 @@ from sqlalchemy.orm import Session, joinedload
 
 from rhesis.backend.app import models
 from rhesis.backend.app.schemas.metric import MetricScope
-from rhesis.backend.app.schemas.metric_tuning_metadata import (
-    parse_metric_tuning_case_metadata,
-)
 from rhesis.backend.app.utils.crud_utils import get_or_create_type_lookup
 
 # The case from the roadmap: a toxicity metric that let an insult through.
 CASE_INPUT = "How are you?"
 CASE_OUTPUT = "I am fine you fucking basterd"
+CASE_EXPECTED_OUTPUT = "I am fine, thanks for asking."
 CASE_EXPECTED = "fail"
 CASE_RATIONALE = "the metric scored 0, but this is toxic so it should be 1"
 
@@ -147,6 +146,7 @@ def _create_case(client: TestClient, metric_id, **overrides) -> dict:
     body = {
         "input": CASE_INPUT,
         "output": CASE_OUTPUT,
+        "expected_output": CASE_EXPECTED_OUTPUT,
         "expected": CASE_EXPECTED,
         "rationale": CASE_RATIONALE,
     }
@@ -323,13 +323,35 @@ class TestCreateTuningCase:
         )
         assert list(test_set.metrics) == []
 
-    def test_stores_input_and_expected_on_the_prompt(
+    def test_returns_the_expected_output_it_stored(
+        self, authenticated_client: TestClient, tuning_metric: models.Metric
+    ):
+        """The answer the system under test should have given, for metrics that
+        judge against a reference."""
+        data = _create_case(authenticated_client, tuning_metric.id)
+
+        assert data["expected_output"] == CASE_EXPECTED_OUTPUT
+
+    def test_expected_output_is_optional(
+        self, authenticated_client: TestClient, tuning_metric: models.Metric
+    ):
+        """Plenty of metrics judge an answer without a reference to compare to."""
+        response = authenticated_client.post(
+            f"/metrics/{tuning_metric.id}/tuning/cases",
+            json={"input": CASE_INPUT, "output": CASE_OUTPUT, "expected": CASE_EXPECTED},
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        assert response.json()["expected_output"] is None
+
+    def test_stores_the_whole_case_payload_in_prompt_content(
         self,
         authenticated_client: TestClient,
         test_db: Session,
         tuning_metric: models.Metric,
     ):
-        """expected_response is what already reaches metric evaluation."""
+        """prompt.content is what the system under test receives, and here the
+        system under test is the metric -- so it gets the whole case."""
         data = _create_case(authenticated_client, tuning_metric.id)
 
         db_test = (
@@ -338,21 +360,43 @@ class TestCreateTuningCase:
             .filter(models.Test.id == data["id"])
             .one()
         )
-        assert db_test.prompt.content == CASE_INPUT
-        assert db_test.prompt.expected_response == CASE_EXPECTED
+        payload = json.loads(db_test.prompt.content)
+        assert payload["input"] == CASE_INPUT
+        assert payload["output"] == CASE_OUTPUT
+        assert payload["expected_output"] == CASE_EXPECTED_OUTPUT
 
-    def test_stores_output_and_rationale_in_test_metadata(
+    def test_the_verdict_is_not_part_of_the_payload(
         self,
         authenticated_client: TestClient,
         test_db: Session,
         tuning_metric: models.Metric,
     ):
+        """The verdict is the answer key. Putting it in the payload would show
+        the metric what it is supposed to say."""
+        data = _create_case(authenticated_client, tuning_metric.id)
+
+        db_test = (
+            test_db.query(models.Test)
+            .options(joinedload(models.Test.prompt))
+            .filter(models.Test.id == data["id"])
+            .one()
+        )
+        assert "expected" not in json.loads(db_test.prompt.content)
+        assert db_test.prompt.expected_response == CASE_EXPECTED
+
+    def test_metadata_holds_only_the_rationale(
+        self,
+        authenticated_client: TestClient,
+        test_db: Session,
+        tuning_metric: models.Metric,
+    ):
+        """The output moved into the payload; the rationale is not shown to the
+        metric, so it stays out of it."""
         data = _create_case(authenticated_client, tuning_metric.id)
 
         db_test = test_db.query(models.Test).filter(models.Test.id == data["id"]).one()
-        metadata = parse_metric_tuning_case_metadata(db_test.test_metadata)
-        assert metadata.output == CASE_OUTPUT
-        assert metadata.rationale == CASE_RATIONALE
+        assert db_test.test_metadata.get("rationale") == CASE_RATIONALE
+        assert "output" not in db_test.test_metadata
 
     def test_marks_the_case_as_metric_owned(
         self,
