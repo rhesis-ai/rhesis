@@ -296,15 +296,145 @@ class TestIsHostedModel:
         "provider",
         ["openai", "gemini", "anthropic", "vertex_ai", "ollama", "vllm", "huggingface"],
     )
-    def test_any_org_selected_provider_never_accrues(self, provider):
-        """Regardless of whether a key is configured: an explicitly-selected
-        Model row for any provider other than rhesis/polyphemus is always
-        the org's own infrastructure choice."""
+    def test_a_provider_rhesis_does_not_supply_never_accrues(self, provider):
+        """Only a model Rhesis supplied is charged for. Any other provider an org
+        names is its own infrastructure choice, whatever its key looks like -- we
+        never agreed to supply it, so we never bill for it."""
         from rhesis.backend.app.utils.user_model_utils import _is_hosted_model
 
+        assert _is_hosted_model(provider, "sk-org-owned") is False
         assert _is_hosted_model(provider, None) is False
         assert _is_hosted_model(provider, "") is False
-        assert _is_hosted_model(provider, "sk-org-owned") is False
+        assert _is_hosted_model(provider, "   ") is False
+
+    def test_a_whitespace_only_key_reads_as_no_key(self):
+        """`Model.key` is NOT NULL but accepts "" and whitespace. A key of only
+        spaces authenticates nothing, so a Rhesis-hosted row carrying one is still
+        running on our credentials and still charges."""
+        from rhesis.backend.app.utils.user_model_utils import _is_hosted_model
+
+        assert _is_hosted_model("rhesis", "   ") is True
+        assert _is_hosted_model("polyphemus", "") is True
+
+
+class TestRowsThatWouldBorrowOurCredentials:
+    """A tenant row with neither a key nor an endpoint is refused.
+
+    Every provider falls back to reading its key from the process environment
+    when handed a falsy one, so such a row runs on this deployment's
+    credentials: we pay, the tenant is not billed because it is their row, and
+    it looks to them like a working configuration. Warning is not enough
+    because the fallback *succeeds*.
+    """
+
+    @pytest.mark.parametrize(
+        "api_key,endpoint",
+        [
+            ("sk-org-owned", None),
+            (None, "http://vllm.internal:8000"),
+            ("", "http://vllm.internal:8000"),
+            ("   ", "http://vllm.internal:8000"),
+        ],
+    )
+    def test_a_row_that_can_stand_on_its_own_is_allowed(self, api_key, endpoint):
+        """A key of its own, or an endpoint of its own. Self-hosted servers
+        commonly need no key at all, so an endpoint alone is enough."""
+        from rhesis.backend.app.utils.user_model_utils import has_own_credentials
+
+        assert has_own_credentials("openai", api_key, endpoint) is True
+
+    @pytest.mark.parametrize("api_key", [None, "", "   "])
+    def test_a_row_with_neither_is_not_allowed(self, api_key):
+        from rhesis.backend.app.utils.user_model_utils import has_own_credentials
+
+        assert has_own_credentials("openai", api_key, None) is False
+        assert has_own_credentials("openai", api_key, "  ") is False
+
+    @pytest.mark.parametrize("provider", ["rhesis", "polyphemus"])
+    def test_rhesis_hosted_rows_are_exempt(self, provider):
+        """Running on our credentials with no key is what picking these means,
+        and they are billed for it."""
+        from rhesis.backend.app.utils.user_model_utils import has_own_credentials
+
+        assert has_own_credentials(provider, None, None) is True
+
+    def test_resolution_refuses_rather_than_borrowing(self, caplog):
+        from rhesis.backend.app.utils.model_errors import ModelConfigurationError
+        from rhesis.backend.app.utils.user_model_utils import _require_own_credentials
+
+        with pytest.raises(ModelConfigurationError, match="neither an API key nor an endpoint"):
+            _require_own_credentials("openai", None, None, "my-model")
+
+    def test_resolution_allows_a_row_with_an_endpoint(self):
+        from rhesis.backend.app.utils.user_model_utils import _require_own_credentials
+
+        _require_own_credentials("vllm", None, "http://vllm.internal:8000", "my-model")
+
+
+class TestConfiguredModelProvenance:
+    """End-to-end through the resolver, because the predicate can be right while
+    a call site hands it the wrong arguments. These go through
+    ``_fetch_and_configure_model`` so the wiring itself is covered.
+    """
+
+    @pytest.fixture
+    def configured_model(self, monkeypatch):
+        """Build a Model row stub and return the resolver's stamped result."""
+
+        captured: dict = {}
+
+        def _resolve(*, provider="openai", key="", endpoint=None, capture=False):
+            model_row = SimpleNamespace(
+                name="configured",
+                model_name="gpt-4o",
+                key=key,
+                endpoint=endpoint,
+                provider_type=SimpleNamespace(type_value=provider),
+            )
+            monkeypatch.setattr(
+                "rhesis.backend.app.utils.user_model_utils.model_crud.get_model",
+                lambda **kwargs: model_row,
+            )
+
+            def _build(**kwargs):
+                captured.update(kwargs)
+                return _StubLLM(kwargs.get("model_name", "gpt-4o"))
+
+            monkeypatch.setattr("rhesis.backend.app.utils.user_model_utils.get_model", _build)
+            from rhesis.backend.app.utils.user_model_utils import _fetch_and_configure_model
+
+            model = _fetch_and_configure_model(None, "model-1", "org-1", "vertex_ai/default")
+            return captured if capture else model
+
+        return _resolve
+
+    @pytest.mark.parametrize("key", ["", "   "])
+    def test_a_row_with_no_key_and_no_endpoint_is_refused(self, configured_model, key):
+        """Rather than quietly resolving and running on our provider keys."""
+        from rhesis.backend.app.utils.model_errors import ModelConfigurationError
+
+        with pytest.raises(ModelConfigurationError, match="neither an API key nor an endpoint"):
+            configured_model(provider="openai", key=key, endpoint=None)
+
+    def test_a_keyless_self_hosted_row_is_not_metered(self, configured_model):
+        model = configured_model(provider="vllm", key="", endpoint="http://vllm.internal:8000")
+
+        assert model.usage_metered is False
+
+    def test_an_org_key_is_not_metered(self, configured_model):
+        model = configured_model(provider="openai", key="sk-org-owned", endpoint=None)
+
+        assert model.usage_metered is False
+
+    def test_a_whitespace_key_does_not_reach_the_provider(self, configured_model):
+        """Normalized to None so it cannot be sent as a real credential. With an
+        endpoint present the row is legitimate, so it resolves rather than being
+        refused."""
+        seen = configured_model(
+            provider="vllm", key="   ", endpoint="http://vllm.internal:8000", capture=True
+        )
+
+        assert seen["api_key"] is None
 
 
 class TestPlatformKeyModelProvenance:

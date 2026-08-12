@@ -48,9 +48,12 @@ def create_model(
 ):
     """Create a new model."""
     organization_id, user_id = tenant_context
-    return model_crud.create_model(
-        db=db, model=model, organization_id=organization_id, user_id=user_id
-    )
+    try:
+        return model_crud.create_model(
+            db=db, model=model, organization_id=organization_id, user_id=user_id
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.post("/test-connection", response_model=TestModelConnectionResponse)

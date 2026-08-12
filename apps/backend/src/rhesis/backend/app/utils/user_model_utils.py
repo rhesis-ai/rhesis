@@ -418,38 +418,88 @@ def _is_hosted_model(provider: str, api_key: Optional[str]) -> bool:
     """
     Check if an explicitly-selected Model row runs on Rhesis-operated infrastructure.
 
-    Only ever reached for a Model row an org explicitly picked via
-    `model_id` -- `_fetch_and_configure_model`'s two callers are
-    `get_generation_model_with_override` (explicit override) and
-    `_get_user_model` (the org configured a `model_id` for this purpose).
-    Whichever *other* provider the org names there -- their own
-    `vertex_ai`, `ollama`, `openai`, self-hosted `vllm`, whatever -- is
-    their own infrastructure choice: never Rhesis's, regardless of whether
-    they happened to leave the key blank (self-hosted servers commonly need
-    none). Broadening this to a bare `not api_key` (tried and reverted) both
-    overcounted those and was solving a case that doesn't occur.
+    A model is charged for if and only if *Rhesis supplied it*. There are
+    exactly three ways that happens, and this function covers the first:
+    the org picked one of Rhesis's own hosted providers. The other two are
+    the system default (:func:`resolve_default_hosted_model`, which stamps
+    unconditionally because whatever a deployment names as its
+    `DEFAULT_*_MODEL` is that deployment's own infra cost by definition) and
+    a Rhesis-issued platform key (:func:`_try_platform_key_model`, which
+    passes `metered` explicitly because a platform key looks like an org key).
 
-    `rhesis`/`polyphemus` are the two provider values that mean "use
-    Rhesis's own hosted infrastructure" as a selectable option in the
-    Models UI, so those alone accrue when the row carries no org key.
-    Note the *system default* -- what an org gets when it configures no
-    `model_id` at all -- is a different path entirely
-    (`resolve_default_hosted_model`), reached before this function and
-    unrestricted by provider: whatever a deployment names as its
-    `DEFAULT_*_MODEL` (`vertex_ai/gemini-2.5-flash`, in this dev
-    environment) *is* Rhesis's own infra cost for that deployment, by
-    definition of being the default.
+    So: `rhesis`/`polyphemus` are the two provider values meaning "use
+    Rhesis's own hosted infrastructure" in the Models UI, and they charge
+    when the row carries no org key of its own. Every *other* provider an
+    org names here -- their `vertex_ai`, `ollama`, `openai`, self-hosted
+    `vllm`, whatever -- is their infrastructure choice and never charges,
+    whatever the row's key or endpoint looks like.
+
+    Deliberately *not* inferred from credentials. A row for a non-Rhesis
+    provider with a blank key will fall through to whatever this deployment
+    has in `OPENAI_API_KEY` and friends, because every SDK provider treats a
+    falsy key as "read the environment". That is a real problem, but it is a
+    misconfiguration and a credential-leak problem, not a billing one:
+    the answer is to surface it (see `_warn_if_row_would_use_our_credentials`),
+    not to bill an org for a model we never agreed to supply. Trying to
+    encode it here is what made the two earlier attempts wrong -- a bare
+    `not api_key` swept in every keyless self-hosted row, and adding an
+    endpoint check still caught providers like `ollama` and `vllm` that fall
+    back to an implicit `localhost` base (`litellm/main.py`) and so reach the
+    org's own server with neither key nor endpoint set.
 
     Args:
         provider: The provider type value (e.g., "rhesis", "polyphemus", "openai")
-        api_key: The API key stored for the model, e.g. `model_record.key`,
-            which is nullable
+        api_key: The API key stored for the model, e.g. `model_record.key`.
+            Nullable, and blank or whitespace-only is treated as absent.
 
     Returns:
         True if this model's tokens should accrue against the org's
         MODEL_TOKENS quota.
     """
-    return provider in ("rhesis", "polyphemus") and not api_key
+    return provider in ("rhesis", "polyphemus") and not (api_key or "").strip()
+
+
+def has_own_credentials(provider: str, api_key: Optional[str], endpoint: Optional[str]) -> bool:
+    """Whether a Model row can be served without reaching for our credentials.
+
+    A tenant row needs either a key of its own or an endpoint of its own.
+    With neither, every provider falls back to reading its key from the
+    process environment (``litellm/main.py``: ``api_key or ... or
+    get_secret("OPENAI_API_KEY")``), so the row would quietly run on whatever
+    this deployment holds -- billed to us, attributed to nobody, and looking
+    to the tenant like a working configuration.
+
+    ``rhesis``/``polyphemus`` rows are exempt: running on our credentials with
+    no key is exactly what picking them means, and they are billed for it.
+    """
+    if provider in ("rhesis", "polyphemus"):
+        return True
+    return bool((api_key or "").strip() or (endpoint or "").strip())
+
+
+def _require_own_credentials(
+    provider: str, api_key: Optional[str], endpoint: Optional[str], model_name: str
+) -> None:
+    """Refuse to build a tenant model that would borrow our provider keys.
+
+    Raising beats warning here because the fallback is silent and succeeds:
+    without this the tenant gets working inference on our account and nobody
+    finds out. Refusing costs only rows that are already misconfigured, since
+    a row with no key of its own always has an endpoint in practice.
+    """
+    if has_own_credentials(provider, api_key, endpoint):
+        return
+    logger.error(
+        "Refusing to build model '%s' (provider '%s'): no API key and no endpoint, so it would "
+        "run on this deployment's environment credentials",
+        model_name,
+        provider,
+    )
+    raise ModelConfigurationError(
+        f"Your configured model '{model_name}' ({provider}) has neither an API key nor an "
+        f"endpoint. Add an API key, or an endpoint if it is a self-hosted model, in the "
+        f"Models settings."
+    )
 
 
 def ensure_language_model(model_or_provider: Union[str, BaseLLM]) -> BaseLLM:
@@ -657,7 +707,12 @@ def _fetch_and_configure_model(
     # Get provider configuration
     provider = model.provider_type.type_value
     model_name = model.model_name
-    api_key = model.key
+    # `Model.key` is NOT NULL but accepts "", and a whitespace-only key is the same
+    # misconfiguration. Normalize once so the provenance decision and the provider
+    # both see a single "no key" value rather than two that differ subtly: a "  "
+    # reaches LiteLLM as a real key and fails auth instead of falling back.
+    api_key = (model.key or "").strip() or None
+    _require_own_credentials(provider, api_key, model.endpoint, model.name)
 
     # Special handling for Rhesis system models
     if _is_rhesis_system_model(provider, api_key):

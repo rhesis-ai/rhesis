@@ -79,10 +79,37 @@ def get_models(
     )
 
 
+def _reject_rows_without_own_credentials(db: Session, model: schemas.ModelCreate) -> None:
+    """Refuse a row that has neither an API key nor an endpoint of its own.
+
+    Such a row falls back to reading its key from the process environment, so
+    it would run on this deployment's credentials rather than the tenant's.
+    Caught here so the tenant sees it while saving rather than when a test run
+    fails later; `_require_own_credentials` is the runtime backstop that also
+    covers rows edited into this shape or created before this check existed.
+    """
+    from rhesis.backend.app.utils.user_model_utils import has_own_credentials
+
+    if model.provider_type_id is None:
+        return
+    provider_type = (
+        db.query(models.TypeLookup).filter(models.TypeLookup.id == model.provider_type_id).first()
+    )
+    if provider_type is None:
+        return
+    if has_own_credentials(provider_type.type_value, model.key, model.endpoint):
+        return
+    raise ValueError(
+        f"Model '{model.name}' needs either an API key or an endpoint. Without one it would "
+        f"run on the server's own provider credentials."
+    )
+
+
 def create_model(
     db: Session, model: schemas.ModelCreate, organization_id: str = None, user_id: str = None
 ) -> models.Model:
     """Create a new model."""
+    _reject_rows_without_own_credentials(db, model)
     return create_item(db, models.Model, model, organization_id, user_id)
 
 

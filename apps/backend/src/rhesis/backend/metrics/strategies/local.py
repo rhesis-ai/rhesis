@@ -672,10 +672,26 @@ def _resolve_metric_model(
 
         if model_record and model_record.provider_type:
             from rhesis.backend.app.utils.usage_tracking import stamp_usage_provenance
-            from rhesis.backend.app.utils.user_model_utils import _is_hosted_model
+            from rhesis.backend.app.utils.user_model_utils import (
+                _is_hosted_model,
+                has_own_credentials,
+            )
 
             provider = model_record.provider_type.type_value
-            api_key = model_record.key
+            # Same normalization as _fetch_and_configure_model: a whitespace-only
+            # key must not reach the provider as a real one.
+            api_key = (model_record.key or "").strip() or None
+
+            if not has_own_credentials(provider, api_key, model_record.endpoint):
+                # Would fall back to this deployment's environment credentials.
+                # Returning None drops to the default judge, which is a better
+                # outcome than silently evaluating on our own account.
+                logger.warning(
+                    f"[METRIC_MODEL] Model {model_id} for metric '{metric_name_for_log}' has "
+                    f"neither an API key nor an endpoint; using the default judge instead of "
+                    f"running it on this deployment's credentials"
+                )
+                return None
 
             extra_params = {}
             if model_record.endpoint and model_record.endpoint.strip():
