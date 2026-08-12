@@ -124,3 +124,8 @@ export const insightsFailedTestIdsKeys = {
 export const platformKeyKeys = {
   all: () => ['platform-rhesis-key'] as const,
 };
+
+// Deployment-wide: docs URLs for the Architect welcome help cards.
+export const architectHelpKeys = {
+  all: () => ['architect-help-articles'] as const,
+};
