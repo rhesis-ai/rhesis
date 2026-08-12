@@ -14,16 +14,12 @@ import {
   Paper,
   IconButton,
   Collapse,
+  Link,
   Tooltip,
   alpha,
   TextField,
   InputAdornment,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
 } from '@mui/material';
-import type { SelectChangeEvent } from '@mui/material/Select';
 import {
   ExpandMore as ExpandMoreIcon,
   Security as SecurityIcon,
@@ -41,6 +37,7 @@ import type {
   GarakGenerateResponse,
 } from '@/utils/api-client/garak-client';
 import BaseDrawer from '@/components/common/BaseDrawer';
+import { PrimarySegmentedPills } from '@/components/common/GridToolbar';
 import {
   drawerFieldsSx,
   drawerListChipSx,
@@ -55,6 +52,32 @@ import OwaspGenerateForm, {
 const SECURITY_DRAWER_WIDTH = 680;
 
 type SecuritySource = 'garak' | 'owasp';
+
+interface SourceOption {
+  value: SecuritySource;
+  label: string;
+  /** Explains what the tool/standard itself is, for someone who's never heard of it. */
+  description: string;
+  learnMoreUrl: string;
+}
+
+/** What each tool/standard actually is, for someone unfamiliar with either. */
+const SOURCE_OPTIONS: SourceOption[] = [
+  {
+    value: 'garak',
+    label: 'Garak',
+    description:
+      'An open-source AI security scanner built by NVIDIA. It probes models for known weaknesses such as prompt injection, jailbreaks, and data leaks.',
+    learnMoreUrl: 'https://github.com/NVIDIA/garak',
+  },
+  {
+    value: 'owasp',
+    label: 'OWASP',
+    description:
+      'A nonprofit foundation that publishes widely-used security checklists for software, including dedicated Top 10 risk lists for LLM applications and autonomous AI agents.',
+    learnMoreUrl: 'https://genai.owasp.org/',
+  },
+];
 
 /** Strip light markdown emphasis markers from Garak probe copy. */
 const stripMarkdown = (value: string) =>
@@ -157,10 +180,6 @@ export default function GarakImportDrawer({
       setSource(availableSources[0]);
     }
   }, [availableSources, source]);
-
-  const handleSourceChange = (event: SelectChangeEvent<SecuritySource>) => {
-    setSource(event.target.value as SecuritySource);
-  };
 
   const showSourceSelector = availableSources.length > 1;
 
@@ -422,6 +441,10 @@ export default function GarakImportDrawer({
   const hideSourceSelector =
     (isOwasp && owaspFooter?.isComplete) || isImportComplete;
 
+  const selectedSourceOption = SOURCE_OPTIONS.find(
+    option => option.value === source
+  );
+
   return (
     <BaseDrawer
       open={open}
@@ -456,27 +479,42 @@ export default function GarakImportDrawer({
       }
     >
       {showSourceSelector && !hideSourceSelector && (
-        <FormControl
-          fullWidth
+        <Paper
+          variant="outlined"
           sx={{
-            ...drawerOutlinedFieldSx,
+            p: 2,
             flexShrink: 0,
-            ...(isGarakListMode ? { mt: '10px', mb: '40px' } : {}),
+            ...(isGarakListMode ? { mt: '10px', mb: '40px' } : { mb: 2 }),
           }}
         >
-          <InputLabel shrink id="security-source-label">
-            Source
-          </InputLabel>
-          <Select
-            labelId="security-source-label"
-            label="Source"
-            value={source}
-            onChange={handleSourceChange}
-          >
-            {canUseGarak && <MenuItem value="garak">Garak</MenuItem>}
-            {canUseOwasp && <MenuItem value="owasp">OWASP</MenuItem>}
-          </Select>
-        </FormControl>
+          <PrimarySegmentedPills
+            mode="single"
+            tabs={SOURCE_OPTIONS.filter(
+              option => option.value !== 'garak' || canUseGarak
+            )
+              .filter(option => option.value !== 'owasp' || canUseOwasp)
+              .map(({ value, label }) => ({ value, label }))}
+            activeValue={source}
+            onSingleChange={value => setSource(value as SecuritySource)}
+          />
+          {selectedSourceOption && (
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ display: 'block', textAlign: 'center', mt: 1.5 }}
+            >
+              {selectedSourceOption.description}{' '}
+              <Link
+                href={selectedSourceOption.learnMoreUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                underline="hover"
+              >
+                Learn more
+              </Link>
+            </Typography>
+          )}
+        </Paper>
       )}
 
       {isOwasp ? (
