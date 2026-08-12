@@ -564,8 +564,15 @@ tools:
       is a poor metric — reviewers cannot tell what it measures, and the
       judge LLM has less to work with, so scores get less consistent.
       Sending only name + evaluation_prompt + score_type produces a
-      threadbare metric and is a bug, not a shortcut. Fill every field you
-      have grounds to fill.
+      threadbare metric and is a bug, not a shortcut.
+
+      Depth matters as much as presence. One generic sentence per field is
+      the same failure as an empty field: it passes validation and still
+      leaves the judge guessing. Aim for description 2-3 sentences,
+      evaluation_prompt 6-15 lines (criterion, one bullet per testable
+      clause, score bands defined by observable conditions),
+      evaluation_steps 4-7 ordered steps, reasoning 3-5 sentences,
+      explanation 2-4 sentences. Be specific to this metric — no filler.
 
       FIELDS REQUIRED BY score_type — the schema cannot express this, so
       read it here. When score_type is "numeric" you MUST also send
@@ -589,28 +596,36 @@ tools:
           this field.
       description:
         description: >
-          REQUIRED IN PRACTICE. One or two sentences on what this metric
-          measures and why it matters, written for a human scanning a list
-          of metrics. Do not restate the name.
+          REQUIRED IN PRACTICE. Two to three sentences for a human scanning
+          a list of metrics: what is measured, on what part of the output,
+          and why it matters for this system. Do not restate the name.
       evaluation_steps:
         description: >
-          REQUIRED IN PRACTICE. Numbered step-by-step instructions the
-          judge LLM should follow to reach a score (e.g. "1. Identify each
-          factual claim. 2. Check it against the provided context.
-          3. Count unsupported claims. 4. Map the count to the scale.").
-          Concrete steps make scoring far more repeatable than criteria
-          prose alone.
+          REQUIRED IN PRACTICE. 4-7 ordered steps the judge LLM follows to
+          reach a score. One observable action per step (locate the
+          evidence, check it against the criterion, then map to the score
+          — scoring is always the last step); do not restate the criteria.
+
+          FORMAT: "Step N:" on its own line, the step text below it, steps
+          separated by a line containing only "---". For example:
+          "Step 1:\nIdentify each factual claim in the response.\n---\nStep
+          2:\nCheck each claim against the provided context.\n---\nStep
+          3:\nCount the unsupported claims.\n---\nStep 4:\nMap that count
+          onto the score scale." A plain "1. ... 2. ..." list is stored as
+          a single step and renders as one block in the UI.
       reasoning:
         description: >
-          REQUIRED IN PRACTICE. Instructions for how the judge should
-          explain its verdict — what evidence to cite and how to justify
-          the score it gives. Surfaced in the UI as "Reasoning
+          REQUIRED IN PRACTICE. 3-5 sentences telling the judge how to
+          justify its verdict: which span of the response to quote, which
+          criterion clause to tie it to, what to do when the evidence is
+          missing, and how to break a tie between two score bands instead
+          of drifting to the middle. Surfaced in the UI as "Reasoning
           Instructions".
       explanation:
         description: >
-          REQUIRED IN PRACTICE. What a passing versus failing result
-          actually means for the system under test, so someone reading a
-          result knows what to do about it. Surfaced in the UI as "Result
+          REQUIRED IN PRACTICE. Two to four sentences on what a passing
+          versus failing result means for the system under test, and what
+          the reader should do about a fail. Surfaced in the UI as "Result
           Explanation".
       metric_type:
         description: >
@@ -628,9 +643,22 @@ tools:
           required; see the conditional rules in this tool's description.
       evaluation_prompt:
         description: >
-          REQUIRED. The prompt template used to evaluate endpoint
-          responses. May reference {{prompt}}, {{response}}, and
-          {{expected_response}} placeholders (string).
+          REQUIRED. The evaluation criteria the judge applies (string).
+          Write it in three parts. First, name something a reader could
+          point at in the output, in the vocabulary of the system under
+          test ("every claim about coverage limits appears in the retrieved
+          policy document", not "the response is helpful"). Then one bullet
+          per testable clause, each able to fail on its own. Then score
+          bands tied to conditions rather than adverbs ("score 1 when a
+          claim contradicts the document", not "score 1 if bad"). Finish
+          with what the metric does not cover, so it does not quietly score
+          what another metric owns.
+
+          Criteria text ONLY — do NOT include placeholders like {{prompt}}
+          or {{response}}. Nothing substitutes them, so the judge would see
+          the literal braces. The engine injects the input, response,
+          context, metadata and tool calls (Single-Turn) or the full
+          transcript and conversation goal (Multi-Turn) before your text.
       metric_scope:
         description: >
           REQUIRED, and rejected if missing or empty. Non-empty list, each
