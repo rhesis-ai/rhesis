@@ -652,10 +652,10 @@ def _resolve_metric_model(
 ) -> Optional[Any]:
     """Fetch a metric-specific LLM model from the database and instantiate it."""
     try:
-        from rhesis.backend.app import crud
+        from rhesis.backend.app.crud import model as model_crud
         from rhesis.sdk.models.factory import get_model
 
-        model_record = crud.get_model(
+        model_record = model_crud.get_model(
             db,
             UUID(model_id) if isinstance(model_id, str) else model_id,
             organization_id,

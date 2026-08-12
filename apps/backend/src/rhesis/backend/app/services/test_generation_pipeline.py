@@ -12,10 +12,10 @@ import anyio
 import jinja2
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud
 from rhesis.backend.app.config.settings import get_model_settings
 from rhesis.backend.app.constants import TestSetType
 from rhesis.backend.app.crud import behavior as behavior_crud
+from rhesis.backend.app.crud import model as model_crud
 from rhesis.backend.app.crud.project import get_project
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.services import (
@@ -52,7 +52,7 @@ def _resolve_config_llm(db: Session, user: User):
     model_id = gen_settings.model_id
     use_fast_default = False
     if model_id:
-        row = crud.get_model(
+        row = model_crud.get_model(
             db=db,
             model_id=str(model_id),
             organization_id=str(user.organization_id),

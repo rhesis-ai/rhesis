@@ -13,6 +13,7 @@ import numpy as np
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app.crud import model as model_crud
 from rhesis.backend.app.crud.embedding import get_embedding_by_hash, mark_embeddings_stale
 from rhesis.backend.app.crud.explorer import (
     get_default_embedding_model,
@@ -328,7 +329,7 @@ def create_test_embedding(
             f"(user_id={user.id}, model_id={model_id})"
         )
 
-    model = crud.get_model(db, UUIDType(model_id), organization_id, user_id)
+    model = model_crud.get_model(db, UUIDType(model_id), organization_id, user_id)
     if not model:
         logger.warning(
             "Skipping explorer test embedding persistence: model not found "

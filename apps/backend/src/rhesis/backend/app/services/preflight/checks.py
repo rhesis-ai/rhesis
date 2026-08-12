@@ -57,14 +57,14 @@ def _get_requested_model_label(
         return None
     from uuid import UUID as UUIDType
 
-    from rhesis.backend.app import crud
+    from rhesis.backend.app.crud import model as model_crud
 
     try:
         model_uuid = UUIDType(model_id)
     except (ValueError, AttributeError):
         return None
 
-    model = crud.get_model(db=db, model_id=model_uuid, organization_id=organization_id)
+    model = model_crud.get_model(db=db, model_id=model_uuid, organization_id=organization_id)
     if not model:
         return None
     return str(model.name)

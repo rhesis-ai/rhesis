@@ -7,7 +7,8 @@ from typing import Any, Dict, Optional
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app import models, schemas
+from rhesis.backend.app.crud import model as model_crud
 from rhesis.backend.app.crud.embedding import (
     create_embedding,
     get_embedding_by_hash,
@@ -204,7 +205,7 @@ class EmbeddingGenerator:
             return {"status": "skipped_empty_text", "embedding_id": None}
 
         # Model row for persistence / hashing (entity-scoped embedding model)
-        db_model = crud.get_model(self.db, model_id=model_id, organization_id=organization_id)
+        db_model = model_crud.get_model(self.db, model_id=model_id, organization_id=organization_id)
         if not db_model:
             raise ValueError(f"Model not found: {model_id}")
         embedder = self._resolve_embedder(user_id=user_id, db_model=db_model, embedder=embedder)

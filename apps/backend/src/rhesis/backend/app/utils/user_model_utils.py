@@ -17,6 +17,7 @@ from rhesis.backend.app.config.settings import (
     get_model_settings,
     get_rhesis_settings,
 )
+from rhesis.backend.app.crud import model as model_crud
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.services.platform_key import get_platform_api_key
 from rhesis.backend.app.utils.model_errors import ModelConfigurationError
@@ -619,7 +620,7 @@ def _fetch_and_configure_model(
         or default_model if the configured model cannot be loaded
     """
     # SECURITY: Always use organization_id for filtering
-    model = crud.get_model(db=db, model_id=model_id, organization_id=organization_id)
+    model = model_crud.get_model(db=db, model_id=model_id, organization_id=organization_id)
 
     if not model or not model.provider_type:
         logger.warning("Model with id=%s not found or has no provider_type", model_id)
@@ -783,7 +784,7 @@ def _fetch_and_configure_embedder(
         or default_model if the configured model cannot be loaded
     """
     # SECURITY: Always use organization_id for filtering
-    model = crud.get_model(db=db, model_id=model_id, organization_id=organization_id)
+    model = model_crud.get_model(db=db, model_id=model_id, organization_id=organization_id)
 
     if not model or not model.provider_type:
         logger.warning("Model with id=%s not found or has no provider_type", model_id)

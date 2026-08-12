@@ -11,9 +11,9 @@ from typing import Optional
 
 import jinja2
 
-from rhesis.backend.app import crud
 from rhesis.backend.app.config.settings import get_model_settings
 from rhesis.backend.app.crud import behavior as behavior_crud
+from rhesis.backend.app.crud import model as model_crud
 from rhesis.backend.app.crud.project import get_project
 from rhesis.backend.app.schemas.services import TestConfigResponse
 from rhesis.backend.app.utils.model_errors import ModelConfigurationError
@@ -60,7 +60,7 @@ class TestConfigGeneratorService:
         model_id = gen_settings.model_id
         use_fast_default = False
         if model_id:
-            row = crud.get_model(
+            row = model_crud.get_model(
                 db=self.db,
                 model_id=str(model_id),
                 organization_id=str(self.user.organization_id),
