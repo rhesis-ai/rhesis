@@ -122,10 +122,10 @@ export function NotificationsProvider({
     []
   );
 
-  const markIdsRead = useCallback((ids: string[]) => {
+  const markIdsRead = useCallback((notificationIds: string[]) => {
     new ApiClientFactory()
       .getNotificationsClient()
-      .markRead({ ids })
+      .markRead({ notification_ids: notificationIds })
       .catch(error => {
         console.warn('Failed to mark notifications read:', error);
       });

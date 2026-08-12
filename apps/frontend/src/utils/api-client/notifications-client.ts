@@ -27,7 +27,12 @@ export interface Notification {
 
 export interface MarkReadRequest {
   section?: NotificationSection;
-  ids?: string[];
+  /**
+   * `Notification.id` values -- NOT the `entity_id` of whatever the
+   * notification is about. Sending entity ids here matches nothing and comes
+   * back as `updated: 0`.
+   */
+  notification_ids?: string[];
 }
 
 /**

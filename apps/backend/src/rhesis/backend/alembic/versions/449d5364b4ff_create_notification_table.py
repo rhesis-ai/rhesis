@@ -81,10 +81,14 @@ def upgrade() -> None:
             rhesis.backend.app.models.guid.GUID(),
             nullable=True,
         ),
+        # NOT NULL, unlike the nullable user_id the mixin declares for most
+        # tables: here it's the recipient, not "created by". A NULL would be
+        # unreachable anyway -- every read filters user_id == the caller -- so
+        # the row would be invisible dead data rather than a shared notification.
         sa.Column(
             "user_id",
             rhesis.backend.app.models.guid.GUID(),
-            nullable=True,
+            nullable=False,
         ),
         # Constraints. A notification is meaningless without its recipient, org,
         # or project, so all three cascade on delete (unlike Chunk.user_id,

@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, DateTime, String, Text, text
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, String, Text, text
 from sqlalchemy.dialects.postgresql import JSONB
 
 from .base import Base
@@ -18,9 +18,11 @@ class Notification(Base, ProjectMixin, OrganizationAndUserMixin):
 
     ``user_id`` is the recipient, set explicitly at creation time (not relied on
     for auto-stamp) since it is not necessarily "whoever is running the current
-    request". ``project_id`` is nullable: NULL means org-wide, visible regardless
-    of the caller's active project (same convention as every other ProjectMixin
-    table).
+    request". It overrides the mixin's nullable column to be NOT NULL: a
+    notification with no recipient can never be read back, because every query
+    filters ``user_id`` to the caller. ``project_id`` is nullable: NULL means
+    org-wide, visible regardless of the caller's active project (same convention
+    as every other ProjectMixin table).
 
     The org/user/project FKs come from the mixins, which declare no
     ``ondelete``; the ``ON DELETE CASCADE`` that makes a notification die with
@@ -30,6 +32,9 @@ class Notification(Base, ProjectMixin, OrganizationAndUserMixin):
     """
 
     __tablename__ = "notification"
+
+    # Overrides OrganizationAndUserMixin's nullable user_id -- see the docstring.
+    user_id = Column(GUID(), ForeignKey("user.id"), nullable=False)
 
     event_type = Column(String, nullable=False, index=True)
     section = Column(String, nullable=False, index=True)

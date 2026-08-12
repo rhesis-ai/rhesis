@@ -41,11 +41,16 @@ class NotificationSummaryResponse(BaseModel):
 class NotificationMarkReadRequest(BaseModel):
     """``POST /notifications/read`` body.
 
-    ``section`` marks every unread notification in that section read; ``ids``
-    marks specific notifications read. At least one must be set (400 otherwise).
-    The two narrow together, so passing both means "these ids, within this
-    section".
+    ``section`` marks every unread notification in that section read;
+    ``notification_ids`` marks specific notifications read. At least one must be
+    set (400 otherwise). The two narrow together, so passing both means "these
+    notifications, within this section".
+
+    Named ``notification_ids`` rather than ``ids`` because notifications carry
+    an ``entity_id`` and a ``payload["entity_ids"]`` too, and the whole
+    highlight feature is built on entity ids -- passing those here would match
+    nothing and silently report ``updated: 0``.
     """
 
     section: Optional[str] = None
-    ids: Optional[list[UUID]] = None
+    notification_ids: Optional[list[UUID]] = None

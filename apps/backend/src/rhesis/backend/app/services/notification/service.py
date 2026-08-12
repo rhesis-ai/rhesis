@@ -39,13 +39,18 @@ def notify(
     matching how ``BaseTask._send_task_completion_email`` never breaks task
     completion on email failure.
     """
-    kind = NOTIFICATION_CATALOG[event_type]
-    payload = {"entity_ids": rendered.entity_ids} if rendered.entity_ids else None
-
-    # .value if event_type is an enum member (the normal case), else already
-    # a plain string -- NotificationEventType members don't override
-    # __str__, so str(event_type) would return "TestSet.X" on Python <=3.11.
+    # Normalize before the lookup, not after. Both an enum member and a plain
+    # value string resolve the same catalog entry either way -- the nested
+    # NotificationEventType enums mix in `str`, which precedes `Enum` in the
+    # MRO, so a member hashes as its own value -- but relying on that would
+    # make the declared `event_type: str` signature quietly untrue, and it
+    # would break the moment one of those enums dropped the `str` mixin.
+    # `.value` for a member, unchanged for a string; note str(event_type)
+    # would give "TestSet.X" on Python <= 3.11, so it can't be used here.
     event_type_value = getattr(event_type, "value", event_type)
+
+    kind = NOTIFICATION_CATALOG[event_type_value]
+    payload = {"entity_ids": rendered.entity_ids} if rendered.entity_ids else None
 
     notification = create_notification(
         db,

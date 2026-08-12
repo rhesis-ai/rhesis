@@ -116,17 +116,20 @@ def mark_notifications_read(
     db: Session,
     user_id: str,
     section: Optional[str] = None,
-    ids: Optional[List[UUID]] = None,
+    notification_ids: Optional[List[UUID]] = None,
 ) -> int:
     """Stamp ``read_at`` on the caller's unread notifications matching the filters.
 
-    ``section`` and ``ids`` narrow together (AND), so passing both means "these
-    ids, within this section" and can never mark more than either filter alone
-    would. Returns 0 when neither is given rather than marking everything read
-    -- the router rejects that case with a 400, this is the belt-and-braces
-    half of the same guard.
+    ``section`` and ``notification_ids`` narrow together (AND), so passing both
+    means "these notifications, within this section" and can never mark more
+    than either filter alone would. Returns 0 when neither is given rather than
+    marking everything read -- the router rejects that case with a 400, this is
+    the belt-and-braces half of the same guard.
+
+    ``notification_ids`` are ``Notification.id`` values, not the ``entity_id``
+    of whatever the notification is about -- hence the explicit name.
     """
-    if not section and not ids:
+    if not section and not notification_ids:
         return 0
 
     query = db.query(Notification).filter(
@@ -134,8 +137,8 @@ def mark_notifications_read(
     )
     if section:
         query = query.filter(Notification.section == section)
-    if ids:
-        query = query.filter(Notification.id.in_(ids))
+    if notification_ids:
+        query = query.filter(Notification.id.in_(notification_ids))
 
     count = query.update({Notification.read_at: func.now()}, synchronize_session=False)
     db.commit()

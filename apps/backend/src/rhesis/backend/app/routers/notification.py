@@ -85,9 +85,14 @@ def mark_read(
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
 ) -> dict:
-    """Mark notifications read. At least one of ``section``/``ids`` required."""
-    if not body.section and not body.ids:
-        raise HTTPException(status_code=400, detail="section or ids is required")
+    """Mark notifications read. At least one of ``section``/``notification_ids`` required."""
+    if not body.section and not body.notification_ids:
+        raise HTTPException(status_code=400, detail="section or notification_ids is required")
     _organization_id, user_id = tenant_context
-    updated = mark_notifications_read(db, user_id=user_id, section=body.section, ids=body.ids)
+    updated = mark_notifications_read(
+        db,
+        user_id=user_id,
+        section=body.section,
+        notification_ids=body.notification_ids,
+    )
     return {"updated": updated}

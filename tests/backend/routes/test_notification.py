@@ -128,7 +128,9 @@ class TestMarkRead:
             test_db, user_id=authenticated_user_id, organization_id=test_org_id, title="clear"
         )
 
-        response = authenticated_client.post("/notifications/read", json={"ids": [str(clear.id)]})
+        response = authenticated_client.post(
+            "/notifications/read", json={"notification_ids": [str(clear.id)]}
+        )
         assert response.status_code == 200
         assert response.json()["updated"] == 1
 
@@ -160,7 +162,7 @@ class TestMarkRead:
 
         response = authenticated_client.post(
             "/notifications/read",
-            json={"section": "test-runs", "ids": [str(in_test_sets.id)]},
+            json={"section": "test-runs", "notification_ids": [str(in_test_sets.id)]},
         )
         assert response.status_code == 200
         assert response.json()["updated"] == 0

@@ -302,7 +302,9 @@ describe('NotificationsProvider', () => {
     expect(screen.getByTestId('architect-unread')).toHaveTextContent('0');
     // Cleared server-side too, so it doesn't come back on the next load.
     await waitFor(() =>
-      expect(mockMarkRead).toHaveBeenCalledWith({ ids: ['notif-1'] })
+      expect(mockMarkRead).toHaveBeenCalledWith({
+        notification_ids: ['notif-1'],
+      })
     );
     expect(mockInvalidateQueries).not.toHaveBeenCalled();
   });
