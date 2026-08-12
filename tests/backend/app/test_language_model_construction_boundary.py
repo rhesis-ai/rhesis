@@ -56,14 +56,29 @@ _ALLOWED_IMPORTERS = {
 }
 
 
+#: Modules that expose the factory as an attribute. Importing one of these
+#: wholesale is the other way to reach ``get_model``
+#: (``import rhesis.sdk.models.factory as f`` then ``f.get_model(...)``), so
+#: the import itself is what gets flagged. Catching the *import* rather than
+#: the attribute access keeps this free of false positives -- ``crud`` has
+#: its own unrelated ``get_model``, and matching on the attribute name alone
+#: would flag every call to it.
+_FACTORY_MODULES = {"rhesis.sdk.models", "rhesis.sdk.models.factory"}
+
+
 def _imports_language_model_factory(tree: ast.Module) -> bool:
     for node in ast.walk(tree):
+        # from rhesis.sdk.models[.factory] import get_model
         if (
             isinstance(node, ast.ImportFrom)
             and node.module
             and node.module.startswith("rhesis.sdk.models")
         ):
             if any(alias.name in _LANGUAGE_MODEL_FACTORY_NAMES for alias in node.names):
+                return True
+        # import rhesis.sdk.models[.factory] [as f]
+        if isinstance(node, ast.Import):
+            if any(alias.name in _FACTORY_MODULES for alias in node.names):
                 return True
     return False
 

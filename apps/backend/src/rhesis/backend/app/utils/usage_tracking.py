@@ -62,6 +62,13 @@ UNATTRIBUTED_MARKER = "usage.unattributed"
 #: loop does not drown the log.
 UNSTAMPED_MARKER = "usage.unstamped_model"
 
+#: Deliberately unsynchronised. The sink runs concurrently (async requests,
+#: threadpool metric judges, the Celery threads pool), so two callers can
+#: race between the membership test and the add. That is fine: ``set.add`` on
+#: an already-hashed tuple is atomic under the GIL, so the race cannot corrupt
+#: the set or raise -- it can only produce a duplicate log line. Dedup here is
+#: best-effort noise control, not correctness, and a lock on the logging path
+#: would cost more than the occasional repeated warning.
 _warned_unstamped: Set[Tuple[str, str]] = set()
 
 
@@ -135,10 +142,21 @@ def accrue_model_tokens(usage: TokenUsage, model: BaseLLM) -> None:
         # The org supplied its own API key, so it already pays the provider.
         return
     if model.usage_metered is None:
-        # Nobody stamped it, which is a bug rather than a category -- see the
-        # module docstring. Bill it (every construction path that could carry
-        # an org's own key stamps, so an unstamped model is on our
-        # credentials) and say so, once, so the call site gets found.
+        # Nobody stamped it, which is a bug rather than a category, so bill it
+        # and say so once. Billing (rather than skipping) is safe only because
+        # an org's own key cannot reach an unstamped model: it enters via a
+        # Model row or the connection-test form, and every one of those paths
+        # stamps. The invariant is enforced, not assumed --
+        # tests/backend/app/test_language_model_construction_boundary.py fails
+        # on any new construction site, and its allowlist documents the
+        # exceptions.
+        #
+        # Revisit if Rhesis stops offering hosted models: once every model
+        # carries an org's key, "unstamped" flips from "ours" to "theirs" and
+        # billing on it would charge orgs for their own spend. Skipping would
+        # be the safer default then. Today nothing is enforced against these
+        # numbers (limits are display-only), so the blast radius is a wrong
+        # figure on a dashboard, not a blocked user.
         _warn_unstamped(model)
 
     organization_id = current_usage_org()
