@@ -48,7 +48,10 @@ from rhesis.backend.app.services.metric_tuning.test_sets import (
     get_or_create_tuning_test_set,
     get_tuning_test_set,
 )
-from rhesis.backend.app.services.metric_tuning.verdict import is_stale, normalize_verdict
+from rhesis.backend.app.services.metric_tuning.verdict import (
+    is_stale,
+    normalize_optional_verdict,
+)
 from rhesis.backend.app.services.test import create_test_set_associations
 
 logger = logging.getLogger(__name__)
@@ -63,7 +66,7 @@ def to_api(db_test: models.Test, metric: models.Metric) -> MetricTuningCase:
     metadata = parse_metric_tuning_case_metadata(db_test.test_metadata)
     prompt = db_test.prompt
     payload = parse_payload(prompt.content if prompt else None)
-    expected = (prompt.expected_response if prompt else None) or ""
+    expected = prompt.expected_response if prompt else None
     return MetricTuningCase(
         id=db_test.id,
         input=payload.input,
@@ -98,10 +101,10 @@ def create_tuning_case(
 ) -> MetricTuningCase:
     """Add a case, creating the metric's tuning test set if this is the first one.
 
-    The verdict is validated against the metric before anything is written, so a
+    A verdict, if one was given, is validated before anything is written, so a
     rejected case leaves no test set behind.
     """
-    expected = normalize_verdict(metric, body.expected)
+    expected = normalize_optional_verdict(metric, body.expected)
 
     test_set = get_or_create_tuning_test_set(db, metric, organization_id, user_id)
 
@@ -165,7 +168,11 @@ def update_tuning_case(
     """
     expected = None
     if body.expected is not None:
-        expected = normalize_verdict(metric, body.expected)
+        verdict = normalize_optional_verdict(metric, body.expected)
+        # Blank means the author took the verdict back. `None` cannot say that
+        # here -- the crud layer reads it as "field left out of the payload" --
+        # so it goes down as the empty string, which crud stores as NULL.
+        expected = verdict if verdict is not None else ""
 
     # Touching any payload field means re-serializing the whole payload, so the
     # parts the caller left alone have to be read back out first.
