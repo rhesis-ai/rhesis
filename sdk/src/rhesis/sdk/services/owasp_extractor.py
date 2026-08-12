@@ -369,7 +369,10 @@ def fetch_owasp_sections(
             case-insensitively.  Pass an empty collection to keep all subsections.
         cache_key: Key for the cache callbacks. Defaults to a sha256 of ``url``.
         cache_loader: ``(cache_key) -> [{"id", "name", "content"}, ...] | None``.
-            On a hit, the download and parse are skipped.
+            On a hit, the download and parse are skipped. An empty list is
+            treated the same as a cache miss (``None``) — ``cache_writer`` is
+            never called with an empty list, so a stored empty result can only
+            be stale or corrupt, and re-fetching is the safe recovery.
         cache_writer: ``(cache_key, sections)`` called after a fresh parse to
             persist the content. Not called on a hit.
 
@@ -397,7 +400,10 @@ def fetch_owasp_sections(
     raw_sections: Optional[list[ReportSection]] = None
     if cache_loader is not None:
         cached = cache_loader(key)
-        if cached is not None:
+        # An empty list is treated as a cache miss, not valid data: cache_writer
+        # is only ever called with a non-empty list (see the no-sections guard
+        # below), so a stored `[]` can only be a stale/corrupt entry.
+        if cached:
             raw_sections = [
                 ReportSection(id=s["id"], name=s["name"], content=s["content"]) for s in cached
             ]
