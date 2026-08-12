@@ -53,8 +53,6 @@ interface FilterOptions {
   scoreType: { value: string; label: string }[];
   metricScope: { value: string; label: string }[];
   behavior: { id: string; name: string }[];
-  /** Whether any metric fetched so far carries the OWASP tag — gates the OWASP pill. */
-  hasOwasp: boolean;
 }
 
 interface BehaviorMetrics {
@@ -172,11 +170,6 @@ export default function MetricsDirectoryTab({
     !filters.search &&
     filters.backend.length === 0 &&
     activeAdvancedFilterCount === 0;
-
-  // Whether the OWASP pill should appear — filtering itself now happens
-  // server-side via buildMetricODataFilter, which maps this pseudo-backend
-  // value to a tag-based OData clause (see MetricsClient's option-derivation).
-  const hasOwaspMetrics = filterOptions.hasOwasp;
 
   // Function to assign a metric to a behavior
   const handleAssignMetricToBehavior = async (
@@ -505,14 +498,10 @@ export default function MetricsDirectoryTab({
                     value: o.type_value.toLowerCase(),
                     label: o.type_value,
                   })),
-                  ...(hasOwaspMetrics
-                    ? [
-                        {
-                          value: OWASP_METRIC_FILTER_VALUE,
-                          label: OWASP_METRIC_TAG_NAME,
-                        },
-                      ]
-                    : []),
+                  {
+                    value: OWASP_METRIC_FILTER_VALUE,
+                    label: OWASP_METRIC_TAG_NAME,
+                  },
                 ]}
                 selectedValues={filters.backend}
                 onMultiChange={values => handleFilterChange('backend', values)}

@@ -12,10 +12,7 @@ import type {
 } from '@/utils/api-client/interfaces/behavior';
 import type { UUID } from 'crypto';
 import { TEST_TYPES } from '@/constants/test-types';
-import {
-  buildMetricODataFilter,
-  OWASP_METRIC_TAG_NAME,
-} from '@/utils/odata-filter';
+import { buildMetricODataFilter } from '@/utils/odata-filter';
 import { METRICS_SELECT } from './metrics-constants';
 import { useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
@@ -40,8 +37,6 @@ interface FilterOptions {
   scoreType: { value: string; label: string }[];
   metricScope: { value: string; label: string }[];
   behavior: { id: string; name: string }[];
-  /** Whether any metric fetched so far carries the OWASP tag — gates the OWASP pill. */
-  hasOwasp: boolean;
 }
 
 const initialFilterOptions: FilterOptions = {
@@ -57,7 +52,6 @@ const initialFilterOptions: FilterOptions = {
     { value: 'Trace', label: 'Trace' },
   ],
   behavior: [],
-  hasOwasp: false,
 };
 
 interface BehaviorMetrics {
@@ -79,8 +73,6 @@ interface MetricsOptionMaps {
   behaviors: Map<string, ApiBehavior>;
   backendTypes: Map<string, { type_value: string }>;
   metricTypes: Map<string, { type_value: string; description: string }>;
-  /** Sticky flag: once an OWASP-tagged metric is seen on any page, stays true. */
-  hasOwaspTag: boolean;
 }
 
 /**
@@ -90,9 +82,7 @@ interface MetricsOptionMaps {
  * current page -- matters because pages are server-filtered: filtering by
  * one backend type would otherwise make that fetch's response (and thus the
  * dropdown) contain only that value, making every other option vanish from
- * the filter UI the moment it's applied. `hasOwaspTag` follows the same
- * accumulate-don't-replace rule, since filtering to the OWASP pill itself
- * would otherwise make it disappear.
+ * the filter UI the moment it's applied.
  */
 function deriveMetricsPageOptions(
   data: MetricDetail[],
@@ -120,12 +110,6 @@ function deriveMetricsPageOptions(
         description: metric.metric_type.description || '',
       });
     }
-    if (
-      !maps.hasOwaspTag &&
-      (metric.tags ?? []).some(t => t.name === OWASP_METRIC_TAG_NAME)
-    ) {
-      maps.hasOwaspTag = true;
-    }
   });
 
   const behaviorsData = Array.from(maps.behaviors.values());
@@ -134,7 +118,6 @@ function deriveMetricsPageOptions(
     behaviorOptions: behaviorsData.map(b => ({ id: b.id, name: b.name })),
     backendTypeOptions: Array.from(maps.backendTypes.values()),
     metricTypeOptions: Array.from(maps.metricTypes.values()),
-    hasOwaspMetrics: maps.hasOwaspTag,
   };
 }
 
@@ -158,7 +141,6 @@ export default function MetricsClientComponent({
     behaviors: new Map(),
     backendTypes: new Map(),
     metricTypes: new Map(),
-    hasOwaspTag: false,
   });
 
   const [behaviors, setBehaviors] = React.useState<ApiBehavior[]>(() =>
@@ -176,18 +158,13 @@ export default function MetricsClientComponent({
   const [filterOptions, setFilterOptions] = React.useState<FilterOptions>(
     () => {
       if (!initialData) return initialFilterOptions;
-      const {
-        behaviorOptions,
-        backendTypeOptions,
-        metricTypeOptions,
-        hasOwaspMetrics,
-      } = deriveMetricsPageOptions(initialData, optionMapsRef.current);
+      const { behaviorOptions, backendTypeOptions, metricTypeOptions } =
+        deriveMetricsPageOptions(initialData, optionMapsRef.current);
       return {
         ...initialFilterOptions,
         backend: backendTypeOptions,
         type: metricTypeOptions,
         behavior: behaviorOptions,
-        hasOwasp: hasOwaspMetrics,
       };
     }
   );
@@ -244,7 +221,6 @@ export default function MetricsClientComponent({
         behaviorOptions,
         backendTypeOptions,
         metricTypeOptions,
-        hasOwaspMetrics,
       } = deriveMetricsPageOptions(data, optionMapsRef.current);
       setBehaviors(behaviorsData);
 
@@ -253,7 +229,6 @@ export default function MetricsClientComponent({
         backend: backendTypeOptions,
         type: metricTypeOptions,
         behavior: behaviorOptions,
-        hasOwasp: hasOwaspMetrics,
       }));
     },
     onError: () => {
