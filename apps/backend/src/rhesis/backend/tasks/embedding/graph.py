@@ -221,12 +221,13 @@ def _run_test_set_embedding_graph(db, *, test_set_id: str, user_id: str) -> None
 
 
 def _run_source_embedding_graph(db, *, source_id: str, user_id: str) -> None:
-    from rhesis.backend.app import crud, models
+    from rhesis.backend.app import models
+    from rhesis.backend.app.crud import source as source_crud
 
     source_uuid = UUID(source_id)
 
     def load_parent(db_session, user):
-        return crud.get_source(
+        return source_crud.get_source(
             db_session,
             source_uuid,
             str(user.organization_id),

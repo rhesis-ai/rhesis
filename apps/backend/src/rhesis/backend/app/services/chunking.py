@@ -5,8 +5,9 @@ from fastapi import HTTPException
 from pydantic import UUID4
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, schemas
+from rhesis.backend.app import schemas
 from rhesis.backend.app.constants import EntityType
+from rhesis.backend.app.crud import source as source_crud
 from rhesis.backend.app.utils.crud_utils import get_or_create_status
 from rhesis.sdk.services.chunker import ChunkingService as SDKChunkingService
 from rhesis.sdk.services.chunker import ChunkingStrategy, RecursiveChunker
@@ -36,7 +37,7 @@ class ChunkingService:
 
     def chunk_source(self, source_id: UUID4, organization_id: str, user_id: str):
 
-        source = crud.get_source_with_content(
+        source = source_crud.get_source_with_content(
             db=self.db,
             source_id=source_id,
             organization_id=organization_id,
@@ -90,7 +91,7 @@ class ChunkingService:
                 chunk_metadata=None,
                 status_id=active_status.id if active_status else None,
             )
-            db_chunk = crud.create_chunk(
+            db_chunk = source_crud.create_chunk(
                 db=self.db,
                 chunk=chunk_create,
                 organization_id=source.organization_id,
