@@ -44,3 +44,17 @@ def create_test_set(tests: List[Dict], model: BaseLLM, **metadata_kwargs) -> "Te
     )
     test_set.set_properties(model)
     return test_set
+
+
+def stamp_multi_turn(test_set: "TestSet") -> "TestSet":
+    """Mark *test_set* as multi-turn: set ``test_set_type`` and suffix the name.
+
+    Callers typically build a TestSet via :func:`create_test_set` (which always
+    sets ``test_set_type=SINGLE_TURN``) and then call this afterward once they
+    know generation was multi-turn. Shared so the "... (Multi-Turn)" naming
+    convention lives in one place instead of being reimplemented per synthesizer.
+    """
+    test_set.test_set_type = TestType.MULTI_TURN
+    if test_set.name:
+        test_set.name = f"{test_set.name} (Multi-Turn)"
+    return test_set

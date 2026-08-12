@@ -15,7 +15,6 @@ import logging
 from typing import Any, Callable, Collection, Dict, List, Optional, Union
 
 from jinja2 import Template
-from pydantic import BaseModel, Field
 
 from rhesis.sdk.entities.test_set import TestSet
 from rhesis.sdk.enums import TestType
@@ -28,28 +27,15 @@ from rhesis.sdk.services.owasp_extractor import (
     fetch_owasp_sections,
 )
 from rhesis.sdk.synthesizers.base import TestSetSynthesizer
-from rhesis.sdk.synthesizers.utils import load_prompt_template
-
-logger = logging.getLogger(__name__)
-
 
 # Flat schema for multi-turn generation, repacked to the nested test_configuration
-# shape after generation — mirrors multi_turn.base.FlatTest.
-class FlatMultiTurnTest(BaseModel):
-    test_configuration_goal: str
-    test_configuration_instructions: str
-    test_configuration_restrictions: str
-    test_configuration_scenario: str
-    test_configuration_min_turns: int = Field(ge=1, le=50)
-    test_configuration_max_turns: int = Field(ge=1, le=50)
-    behavior: str
-    category: str
-    topic: str
+# shape after generation. Reuses multi_turn.base's FlatTests directly (which wraps
+# FlatTest — same fields, same ge=1/le=50 bounds this synthesizer used to redefine)
+# rather than redefining an identical schema.
+from rhesis.sdk.synthesizers.multi_turn.base import FlatTests as FlatMultiTurnTests
+from rhesis.sdk.synthesizers.utils import load_prompt_template, stamp_multi_turn
 
-
-class FlatMultiTurnTests(BaseModel):
-    tests: List[FlatMultiTurnTest]
-
+logger = logging.getLogger(__name__)
 
 __all__ = [
     "OWASPSynthesizer",
@@ -175,9 +161,7 @@ class OWASPSynthesizer(TestSetSynthesizer):
         always sets test_set_type=SINGLE_TURN), mirroring MultiTurnSynthesizer.generate."""
         test_set = super().generate(num_tests=num_tests, **kwargs)
         if self.test_type == TestType.MULTI_TURN:
-            test_set.test_set_type = TestType.MULTI_TURN
-            if test_set.name:
-                test_set.name = f"{test_set.name} (Multi-Turn)"
+            stamp_multi_turn(test_set)
         return test_set
 
     # ------------------------------------------------------------------
@@ -203,10 +187,11 @@ class OWASPSynthesizer(TestSetSynthesizer):
                 section.name,
             )
             context = self._build_section_context(section, **kwargs)
-            if self.test_type == TestType.MULTI_TURN:
-                tests = self._generate_multiturn_tests(n, context)
-            else:
-                tests = self._generate_with_retry(n, **context)
+            # _generate_with_retry (TestSetSynthesizer) drives both single- and
+            # multi-turn generation; _generate_batch below branches on
+            # self.test_type, so multi-turn gets the same batch-size-reduction
+            # and consecutive-failure handling as single-turn for free.
+            tests = self._generate_with_retry(n, **context)
             for t in tests:
                 t.setdefault("metadata", {})["owasp_category"] = section.id
                 t.setdefault("metadata", {})["owasp_name"] = section.name
@@ -220,7 +205,9 @@ class OWASPSynthesizer(TestSetSynthesizer):
 
         return all_tests
 
-    # Multi-turn generation — modeled on MultiTurnSynthesizer._generate_batch.
+    # Multi-turn generation — modeled on MultiTurnSynthesizer._generate_batch,
+    # but plugged into TestSetSynthesizer._generate_with_retry (via the
+    # _generate_batch override below) instead of a bespoke retry loop.
 
     def _get_multi_turn_template(self) -> Template:
         """Lazily load the multi-turn OWASP Jinja template."""
@@ -245,47 +232,51 @@ class OWASPSynthesizer(TestSetSynthesizer):
             "topic": flat["topic"],
         }
 
-    def _generate_multiturn_tests(
-        self, num_tests: int, context: Dict[str, Any]
-    ) -> List[Dict[str, Any]]:
-        """Generate multi-turn OWASP tests for one section, batching by ``self.batch_size``."""
+    def _generate_batch(self, num_tests: int, **kwargs: Any) -> List[Dict[str, Any]]:
+        """Generate one batch of tests.
+
+        For single-turn (the default), delegates to
+        :meth:`TestSetSynthesizer._generate_batch` unchanged. For multi-turn,
+        renders the multi-turn template/schema instead. Either way, this is
+        the unit of work that :meth:`TestSetSynthesizer._generate_with_retry`
+        calls in a loop, so overriding it here — rather than reimplementing a
+        separate retry loop — means multi-turn generation automatically
+        inherits the same batch-size reduction and consecutive-failure
+        handling as single-turn: one flaky LLM call reduces batch size and
+        retries instead of silently dropping the rest of the section's tests.
+        """
+        if self.test_type != TestType.MULTI_TURN:
+            return super()._generate_batch(num_tests, **kwargs)
+
         template = self._get_multi_turn_template()
-        all_tests: List[Dict[str, Any]] = []
-        remaining = num_tests
+        prompt = template.render(num_tests=num_tests, **kwargs)
 
-        while remaining > 0:
-            batch_n = min(remaining, self.batch_size)
-            prompt = template.render(num_tests=batch_n, **context)
+        response = self.model.generate(prompt=prompt, schema=FlatMultiTurnTests)
 
-            try:
-                response = self.model.generate(prompt=prompt, schema=FlatMultiTurnTests)
-            except Exception:
-                logger.exception("[OWASPSynthesizer] Multi-turn batch generation failed")
-                break
+        if isinstance(response, dict) and "error" in response:
+            logger.error(
+                "[OWASPSynthesizer] Multi-turn batch: LLM returned error: %s",
+                response["error"],
+            )
+            return []
 
-            if not isinstance(response, dict) or "tests" not in response:
-                logger.error(
-                    "[OWASPSynthesizer] Multi-turn batch: unexpected response type=%s: %s",
-                    type(response).__name__,
-                    str(response)[:500],
-                )
-                break
+        if not isinstance(response, dict) or "tests" not in response:
+            logger.error(
+                "[OWASPSynthesizer] Multi-turn batch: unexpected response type=%s: %s",
+                type(response).__name__,
+                str(response)[:500],
+            )
+            return []
 
-            flat_tests = response["tests"][:batch_n]
-            if not flat_tests:
-                logger.warning("[OWASPSynthesizer] Multi-turn batch returned no tests")
-                break
-
-            for flat in flat_tests:
-                all_tests.append(
-                    {
-                        **self._flat_multiturn_test_to_nested(flat),
-                        "test_type": TestType.MULTI_TURN.value,
-                    }
-                )
-            remaining -= len(flat_tests)
-
-        return all_tests
+        flat_tests = response["tests"][:num_tests]
+        return [
+            {
+                **self._flat_multiturn_test_to_nested(flat),
+                "test_type": TestType.MULTI_TURN.value,
+                "metadata": {"generated_by": self._get_synthesizer_name()},
+            }
+            for flat in flat_tests
+        ]
 
     # ------------------------------------------------------------------
     # Helpers
