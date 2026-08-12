@@ -153,9 +153,7 @@ class TestLiteLLMProxyGenerate:
             inner: Inner
             label: str
 
-        mock_post.return_value = _mock_openai_response(
-            '{"inner": {"name": "x"}, "label": "y"}'
-        )
+        mock_post.return_value = _mock_openai_response('{"inner": {"name": "x"}, "label": "y"}')
 
         llm = LiteLLMProxy(model_name="gemini")
         llm.generate("hi", schema=Outer)
@@ -339,3 +337,41 @@ class TestLiteLLMProxyGenerateBatch:
 
         assert results == []
         mock_post.assert_not_called()
+
+
+class TestLiteLLMProxyUsageEmission:
+    """Regression: this provider parsed `usage` out of the response and threw
+    it away, so a real hosted API reported zero tokens forever."""
+
+    @patch("rhesis.sdk.models.providers.litellm_proxy.requests.post")
+    def test_generate_emits_usage(self, mock_post):
+        mock_post.return_value = _mock_openai_response("hi")
+        emitted = []
+        llm = LiteLLMProxy(model_name="gemini", on_usage=emitted.append)
+
+        llm.generate("prompt")
+
+        assert emitted == [{"input_tokens": 5, "output_tokens": 10, "total_tokens": 15}]
+
+    @patch("rhesis.sdk.models.providers.litellm_proxy.requests.post")
+    def test_generate_batch_emits_once_per_call(self, mock_post):
+        mock_post.side_effect = [_mock_openai_response("A"), _mock_openai_response("B")]
+        emitted = []
+        llm = LiteLLMProxy(model_name="gemini", on_usage=emitted.append)
+
+        llm.generate_batch(["P1", "P2"])
+
+        # generate_batch loops over generate, so each call reports its own.
+        assert [u["total_tokens"] for u in emitted] == [15, 15]
+
+    @patch("rhesis.sdk.models.providers.litellm_proxy.requests.post")
+    def test_a_response_without_usage_emits_nothing(self, mock_post):
+        response = _mock_openai_response("hi")
+        response.json.return_value.pop("usage")
+        mock_post.return_value = response
+        emitted = []
+        llm = LiteLLMProxy(model_name="gemini", on_usage=emitted.append)
+
+        llm.generate("prompt")
+
+        assert emitted == []

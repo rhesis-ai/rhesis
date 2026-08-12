@@ -9,8 +9,10 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.user import User
-from rhesis.backend.app.utils.user_model_utils import get_user_generation_model
-from rhesis.sdk.models.factory import get_model
+from rhesis.backend.app.utils.user_model_utils import (
+    ensure_language_model,
+    get_user_generation_model,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -83,13 +85,7 @@ class LLMMapper:
         try:
             # Get user's generation model (can be string or BaseLLM instance)
             model_or_provider = get_user_generation_model(db, user)
-
-            # If it's a string (provider name), convert to model instance
-            if isinstance(model_or_provider, str):
-                logger.debug(f"Converting provider '{model_or_provider}' to model instance")
-                model = get_model(model_or_provider)
-            else:
-                model = model_or_provider
+            model = ensure_language_model(model_or_provider)
 
             # Render prompt with function details
             prompt = self.prompt_template.render(

@@ -356,6 +356,58 @@ response = llm.generate("Hello, how are you?")`}
 
 </CodeBlock>
 
+### Tracking token usage
+
+Every provider reports token counts after each call. Counts are normalized across providers into
+three keys — `input_tokens`, `output_tokens`, `total_tokens` — so you never have to know whether a
+given API calls them `prompt_tokens`, `promptTokenCount`, or something else.
+
+Pass `on_usage` to watch one model:
+
+<CodeBlock filename="track_one_model.py" language="python">
+{`from rhesis.sdk.models import get_model
+
+totals = []
+llm = get_model("openai/gpt-4o", api_key="sk-...", on_usage=totals.append)
+
+llm.generate("Hello")
+print(totals)  # [{'input_tokens': 8, 'output_tokens': 12, 'total_tokens': 20}]`}
+
+</CodeBlock>
+
+To count tokens across an application, register a process-wide sink instead. It receives usage from
+every model in the process, including models built by code that knows nothing about usage tracking,
+so there is no per-call-site wiring to forget:
+
+<CodeBlock filename="track_everything.py" language="python">
+{`from rhesis.sdk.models import get_model, set_default_usage_callback
+
+def record(usage, model):
+    print(f"{model.model_name} used {usage['total_tokens']} tokens")
+
+set_default_usage_callback(record)
+
+# No on_usage argument, and no reference to the sink.
+get_model("openai/gpt-4o", api_key="sk-...").generate("Hello")`}
+
+</CodeBlock>
+
+The sink fires in addition to any `on_usage`, not instead of it, so attaching a listener to one
+model does not detach it from your accounting. Batch calls report one summed total rather than one
+emission per prompt. Both callbacks run inside the generate call, and anything they raise is logged
+and swallowed — a broken counter never breaks the LLM call that produced the count.
+
+`BaseLLM.usage_metered` is an optional flag for applications that bill for tokens. The SDK never
+sets or reads it; stamp it where you resolve models to record whose credentials paid for a given
+call, since the same provider can be billable or not depending on whose API key it uses.
+
+<Callout type="info">
+  Writing a custom provider? Call `self._emit_usage(raw_usage)` wherever you parse the provider's
+  response, passing the payload unchanged — normalization happens for you. Use
+  `self._emit_usage_batch(...)` for batch methods. A provider that skips this reports zero tokens
+  forever, and nothing else will fail to tell you.
+</Callout>
+
 ## Embedders
 
 Embedders generate vector representations (embeddings) of text, which are useful for semantic search, similarity comparison, and clustering tasks.

@@ -165,12 +165,15 @@ async def generate_content_endpoint(
     the header, which is fine -- their accrual already happened here.
     """
     try:
+        from rhesis.backend.app.utils.usage_tracking import stamp_usage_provenance
         from rhesis.backend.app.utils.user_model_utils import get_generation_model_with_override
         from rhesis.sdk.models.factory import get_model
 
         model = get_generation_model_with_override(db, current_user)
         if isinstance(model, str):
-            model = get_model(model, model_type="language")
+            # Resolution degraded to the bare DEFAULT_*_MODEL string, which
+            # is still a system default running on our credentials.
+            model = stamp_usage_provenance(get_model(model, model_type="language"), metered=True)
 
         captured_usage: dict = {}
         has_on_usage = hasattr(model, "on_usage")

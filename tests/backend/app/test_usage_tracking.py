@@ -4,7 +4,7 @@ Pure unit tests -- no database, no Docker, no Celery broker. The task's
 `.delay()` is monkeypatched so these verify dispatch behavior in isolation
 from the real Celery app and the usage-accounting service.
 
-The callback is only ever handed an already-normalized ``TokenUsage`` by
+The sink is only ever handed an already-normalized ``TokenUsage`` by
 ``BaseLLM._emit_usage``, which also drops empty/zero payloads before they
 get here. Provider-dialect parsing is therefore tested at that boundary
 (``tests/sdk/models/test_base_usage.py``), not in this file.
@@ -12,9 +12,45 @@ get here. Provider-dialect parsing is therefore tested at that boundary
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 
 from rhesis.backend.app.quota import QuotaResource
+from rhesis.backend.app.usage_attribution import usage_attribution
+from rhesis.backend.app.utils.usage_tracking import (
+    UNATTRIBUTED_MARKER,
+    UNSTAMPED_MARKER,
+    _warned_unstamped,
+    accrue_model_tokens,
+    install_usage_sink,
+    stamp_usage_provenance,
+    uninstall_usage_sink,
+)
+from rhesis.sdk.models.base import BaseLLM
+
+
+class _StubLLM(BaseLLM):
+    """Minimal concrete BaseLLM; no network, no provider SDK."""
+
+    PROVIDER = "stub"
+
+    def load_model(self, *args, **kwargs):
+        return None
+
+    def generate_batch(self, *args, **kwargs):
+        return []
+
+    def emit(self, total: int) -> None:
+        self._emit_usage({"total_tokens": total, "input_tokens": 1, "output_tokens": total - 1})
+
+
+@pytest.fixture(autouse=True)
+def clean_sink():
+    """The sink is process-wide state; never let it leak between tests."""
+    uninstall_usage_sink()
+    yield
+    uninstall_usage_sink()
 
 
 @pytest.fixture
@@ -32,60 +68,194 @@ def _usage(total: int) -> dict:
     return {"input_tokens": 1, "output_tokens": total - 1, "total_tokens": total}
 
 
-class TestMakeUsageAccrualCallback:
-    def test_dispatches_model_tokens_accrual(self, fake_delay):
-        from rhesis.backend.app.utils.usage_tracking import make_usage_accrual_callback
+def _model(metered):
+    return stamp_usage_provenance(_StubLLM("stub/model"), metered)
 
-        make_usage_accrual_callback("org-1")(_usage(123))
+
+class TestAccrueModelTokens:
+    def test_accrues_metered_tokens_to_the_ambient_org(self, fake_delay):
+        with usage_attribution("org-1"):
+            accrue_model_tokens(_usage(123), _model(True))
 
         assert fake_delay == [("org-1", QuotaResource.MODEL_TOKENS.value, 123)]
 
-    def test_dispatch_failure_is_swallowed(self, monkeypatch):
-        """A broker outage (or any dispatch error) must never raise back
-        into the LLM call site."""
+    def test_an_orgs_own_api_key_never_accrues(self, fake_delay):
+        """The credential-provenance rule: if the org supplied the key, it
+        already pays the provider directly and must not also pay us."""
+        with usage_attribution("org-1"):
+            accrue_model_tokens(_usage(500), _model(False))
 
-        def boom(*args, **kwargs):
-            raise RuntimeError("broker unreachable")
+        assert fake_delay == []
 
-        monkeypatch.setattr("rhesis.backend.tasks.usage.accrue_usage.delay", boom)
+    def test_bills_the_org_that_is_ambient_now_not_at_construction(self, fake_delay):
+        """One model instance reused across two orgs' work bills each
+        correctly. The old per-instance closure could not do this -- it
+        captured one org id for the life of the model."""
+        model = _model(True)
 
-        from rhesis.backend.app.utils.usage_tracking import make_usage_accrual_callback
-
-        # Must not raise.
-        make_usage_accrual_callback("org-1")(_usage(10))
-
-    def test_each_callback_uses_its_own_org_id(self, fake_delay):
-        """Separate callbacks (e.g. two different orgs' models in the same
-        process) never cross-contaminate -- organization_id is closed over
-        per callback, not read from shared/global state."""
-        from rhesis.backend.app.utils.usage_tracking import make_usage_accrual_callback
-
-        make_usage_accrual_callback("org-a")(_usage(2))
-        make_usage_accrual_callback("org-b")(_usage(3))
+        with usage_attribution("org-a"):
+            accrue_model_tokens(_usage(2), model)
+        with usage_attribution("org-b"):
+            accrue_model_tokens(_usage(3), model)
 
         assert fake_delay == [
             ("org-a", QuotaResource.MODEL_TOKENS.value, 2),
             ("org-b", QuotaResource.MODEL_TOKENS.value, 3),
         ]
 
+    def test_unstamped_model_still_accrues_and_warns(self, fake_delay, caplog):
+        """A model built outside the resolution layer has no provenance. The
+        deployment defaults reached that way run on our credentials, so the
+        safe reading is to bill and complain -- treating "unknown" as "free"
+        is the silent undercount this whole mechanism replaces."""
+        with caplog.at_level("WARNING"), usage_attribution("org-1"):
+            accrue_model_tokens(_usage(7), _StubLLM("stub/unstamped"))
+
+        assert fake_delay == [("org-1", QuotaResource.MODEL_TOKENS.value, 7)]
+        assert UNSTAMPED_MARKER in caplog.text
+
+    def test_unmetered_model_is_never_even_mentioned_in_the_log(self, fake_delay, caplog):
+        """An org running on its own API key is none of our accounting's
+        business: no accrual, and nothing about their model in our logs."""
+        model = _model(False)
+        model.api_key = "sk-org-owned"
+
+        with caplog.at_level("DEBUG"), usage_attribution("org-1"):
+            accrue_model_tokens(_usage(1_000_000), model)
+
+        assert fake_delay == []
+        assert caplog.text == ""
+
+    def test_an_unstamped_model_is_billed_whatever_key_it_holds(self, fake_delay):
+        """Billing an unstamped model does not inspect its API key.
+
+        An earlier version compared the key against a hand-maintained list of
+        env vars the deployment supplies, to avoid billing an org for its own
+        spend. That guarded nothing reachable: an org's key only enters via a
+        Model row or the connection-test form, and both stamp (see
+        ``test_only_the_resolution_layer_constructs_language_models``). The
+        comparison cost a list that had to track SDK internals and a test that
+        regex-parsed SDK source to keep it fresh, so it was removed.
+        """
+        model = _StubLLM("openai/gpt-4o")
+        model.api_key = "sk-anything-at-all"
+
+        with usage_attribution("org-1"):
+            accrue_model_tokens(_usage(500), model)
+
+        assert fake_delay == [("org-1", QuotaResource.MODEL_TOKENS.value, 500)]
+
+    def test_no_log_line_ever_contains_an_api_key(self, fake_delay, caplog):
+        """Every branch that logs, with a key present, over both the
+        formatted text and the structured fields the JSON formatter forwards."""
+        secret = "sk-super-secret-value"
+
+        for metered, org in ((None, "org-1"), (None, None), (True, None)):
+            caplog.clear()
+            _warned_unstamped.clear()
+            model = stamp_usage_provenance(_StubLLM("openai/gpt-4o"), metered)
+            model.api_key = secret
+
+            with caplog.at_level("DEBUG"), usage_attribution(org):
+                accrue_model_tokens(_usage(11), model)
+
+            assert secret not in caplog.text
+            for record in caplog.records:
+                assert secret not in str(record.__dict__)
+
+    def test_unstamped_warning_is_not_repeated_per_call(self, fake_delay, caplog):
+        model = _StubLLM("stub/hot-loop")
+        with caplog.at_level("WARNING"), usage_attribution("org-1"):
+            for _ in range(5):
+                accrue_model_tokens(_usage(1), model)
+
+        assert caplog.text.count(UNSTAMPED_MARKER) == 1
+
+    def test_no_ambient_org_is_counted_as_unattributed_not_dropped(self, fake_delay, caplog):
+        """Real tokens with nowhere to bill them are a defect in the binding,
+        not a reason to pretend they did not happen."""
+        with caplog.at_level("WARNING"):
+            accrue_model_tokens(_usage(42), _model(True))
+
+        assert fake_delay == []
+        assert UNATTRIBUTED_MARKER in caplog.text
+        record = next(r for r in caplog.records if getattr(r, "usage_marker", None))
+        assert record.usage_marker == UNATTRIBUTED_MARKER
+        assert record.total_tokens == 42
+
+    def test_unmetered_model_with_no_org_is_not_unattributed(self, caplog):
+        """Nothing to bill in the first place, so this is not a miss."""
+        with caplog.at_level("WARNING"):
+            accrue_model_tokens(_usage(9), _model(False))
+
+        assert UNATTRIBUTED_MARKER not in caplog.text
+
+    def test_dispatch_failure_is_swallowed(self, monkeypatch):
+        """A broker outage must never raise back into the LLM call site."""
+
+        def boom(*args, **kwargs):
+            raise RuntimeError("broker unreachable")
+
+        monkeypatch.setattr("rhesis.backend.tasks.usage.accrue_usage.delay", boom)
+
+        with usage_attribution("org-1"):
+            accrue_model_tokens(_usage(10), _model(True))  # must not raise
+
     def test_does_not_touch_the_database_synchronously(self, monkeypatch):
         """The whole point of queueing instead of writing inline: no
         SessionLocal() / DB call happens in the calling thread."""
         called = []
-        monkeypatch.setattr(
-            "rhesis.backend.app.database.SessionLocal",
-            lambda: called.append(True),
-        )
-        monkeypatch.setattr(
-            "rhesis.backend.tasks.usage.accrue_usage.delay",
-            lambda *a, **k: None,
-        )
+        monkeypatch.setattr("rhesis.backend.app.database.SessionLocal", lambda: called.append(True))
+        monkeypatch.setattr("rhesis.backend.tasks.usage.accrue_usage.delay", lambda *a, **k: None)
 
-        from rhesis.backend.app.utils.usage_tracking import make_usage_accrual_callback
-
-        make_usage_accrual_callback("org-1")(_usage(10))
+        with usage_attribution("org-1"):
+            accrue_model_tokens(_usage(10), _model(True))
 
         assert called == []
+
+
+class TestSinkInstallation:
+    """The point of the whole design: nobody has to wire anything up."""
+
+    def test_a_model_nobody_wired_still_accrues(self, fake_delay):
+        install_usage_sink()
+
+        # No on_usage passed, no accrual code anywhere near the call site.
+        model = stamp_usage_provenance(_StubLLM("stub/model"), True)
+        with usage_attribution("org-1"):
+            model.emit(64)
+
+        assert fake_delay == [("org-1", QuotaResource.MODEL_TOKENS.value, 64)]
+
+    def test_an_instance_listener_does_not_detach_the_sink(self, fake_delay):
+        """``routers/services.py`` swaps ``on_usage`` to relay usage back to
+        an SDK caller. That must not also opt the model out of billing."""
+        install_usage_sink()
+        seen = []
+        model = stamp_usage_provenance(_StubLLM("stub/model"), True)
+        model.on_usage = seen.append
+
+        with usage_attribution("org-1"):
+            model.emit(20)
+
+        assert [u["total_tokens"] for u in seen] == [20]
+        assert fake_delay == [("org-1", QuotaResource.MODEL_TOKENS.value, 20)]
+
+    def test_no_sink_installed_means_no_accrual(self, fake_delay):
+        model = stamp_usage_provenance(_StubLLM("stub/model"), True)
+        with usage_attribution("org-1"):
+            model.emit(64)
+
+        assert fake_delay == []
+
+
+class TestStampUsageProvenance:
+    def test_tolerates_a_bare_provider_string(self):
+        """The resolution chain still degrades to a string on construction
+        failure, so callers should not each need an isinstance check."""
+        assert stamp_usage_provenance("vertex_ai/gemini-2.5-flash", True) == (
+            "vertex_ai/gemini-2.5-flash"
+        )
 
 
 class TestIsHostedModel:
@@ -137,27 +307,71 @@ class TestIsHostedModel:
         assert _is_hosted_model(provider, "sk-org-owned") is False
 
 
+class TestPlatformKeyModelProvenance:
+    """A local-mode platform-key model is ours to bill.
+
+    The one place where ``_is_hosted_model`` cannot be used to derive the
+    stamp. It reads *any* API key as the org's own, and the Rhesis platform
+    key looks exactly like one while actually being Rhesis-issued credentials
+    for local/self-hosted mode -- so ``_try_platform_key_model`` has to pass
+    ``metered`` explicitly. Pinned because it is a merge-time judgement call
+    (#2377 landed on main wiring the old per-call-site accrual callback here,
+    which this branch replaced with the stamp) and getting it backwards would
+    either bill an org for its own spend or stop billing ours, silently.
+    """
+
+    @pytest.fixture
+    def in_local_mode_with_a_platform_key(self, monkeypatch):
+        monkeypatch.setattr(
+            "rhesis.backend.app.utils.user_model_utils.get_application_settings",
+            lambda: SimpleNamespace(is_local=True),
+        )
+        monkeypatch.setattr(
+            "rhesis.backend.app.utils.user_model_utils.get_platform_api_key",
+            lambda db, organization_id: "rh-platform-key",
+        )
+        monkeypatch.setattr(
+            "rhesis.backend.app.utils.user_model_utils.get_model",
+            lambda **kwargs: _StubLLM(kwargs.get("model_name", "default")),
+        )
+
+    def test_language_model_is_stamped_metered(self, in_local_mode_with_a_platform_key):
+        from rhesis.backend.app.utils.user_model_utils import _try_platform_key_model
+
+        model = _try_platform_key_model(
+            None, "org-1", "rhesis", "default", "language", metered=True
+        )
+
+        assert model.usage_metered is True
+
+    def test_returns_none_outside_local_mode(self, monkeypatch):
+        """So callers fall through to their own delegation/default logic."""
+        monkeypatch.setattr(
+            "rhesis.backend.app.utils.user_model_utils.get_application_settings",
+            lambda: SimpleNamespace(is_local=False),
+        )
+        from rhesis.backend.app.utils.user_model_utils import _try_platform_key_model
+
+        assert _try_platform_key_model(None, "org-1", "rhesis", "default", "language") is None
+
+
 class TestResolveDefaultHostedModel:
     """The system default always runs on the server's own credentials."""
 
-    def test_wires_accrual_for_a_non_rhesis_default(self, monkeypatch):
+    def test_stamps_a_non_rhesis_default_as_metered(self, monkeypatch):
         """Regression: a ``vertex_ai/...`` default used to be handed back as
-        a bare string with no callback, so its tokens were never counted."""
-        captured = {}
-
-        def fake_get_model(name, **kwargs):
-            captured["name"] = name
-            captured["on_usage"] = kwargs.get("on_usage")
-            return object()
-
-        monkeypatch.setattr("rhesis.backend.app.utils.user_model_utils.get_model", fake_get_model)
+        a bare string with no accrual, so its tokens were never counted."""
+        monkeypatch.setattr(
+            "rhesis.backend.app.utils.user_model_utils.get_model",
+            lambda name, **kwargs: _StubLLM(name),
+        )
 
         from rhesis.backend.app.utils.user_model_utils import resolve_default_hosted_model
 
-        resolve_default_hosted_model("vertex_ai/gemini-2.5-flash", "org-1")
+        model = resolve_default_hosted_model("vertex_ai/gemini-2.5-flash")
 
-        assert captured["name"] == "vertex_ai/gemini-2.5-flash"
-        assert callable(captured["on_usage"])
+        assert model.model_name == "vertex_ai/gemini-2.5-flash"
+        assert model.usage_metered is True
 
     @pytest.mark.parametrize(
         "error", [ValueError("no credentials"), ImportError("torch not installed")]
@@ -175,41 +389,48 @@ class TestResolveDefaultHostedModel:
 
         from rhesis.backend.app.utils.user_model_utils import resolve_default_hosted_model
 
-        result = resolve_default_hosted_model("vertex_ai/gemini-2.5-flash", "org-1")
+        assert resolve_default_hosted_model("vertex_ai/gemini-2.5-flash") == (
+            "vertex_ai/gemini-2.5-flash"
+        )
 
-        assert result == "vertex_ai/gemini-2.5-flash"
+    def test_a_user_with_no_configured_model_gets_the_stamped_default(self, monkeypatch):
+        """Covers `_get_user_model`'s no-model_id branch, which nothing
+        exercised -- an arity mistake here shipped past the whole suite once.
 
-    def test_accrues_against_the_given_org(self, monkeypatch, fake_delay):
-        captured = {}
+        Also the case peqy flagged on #2355: this branch used to pass
+        `str(user.organization_id)`, which is the string "None" for an
+        orgless user, straight into accrual. There is no org argument to get
+        wrong now.
+        """
         monkeypatch.setattr(
             "rhesis.backend.app.utils.user_model_utils.get_model",
-            lambda name, **kwargs: captured.setdefault("on_usage", kwargs.get("on_usage")),
+            lambda name, **kwargs: _StubLLM(name),
+        )
+
+        from rhesis.backend.app.utils.user_model_utils import _get_user_model
+
+        user = SimpleNamespace(
+            organization_id=None,
+            settings=SimpleNamespace(
+                models=SimpleNamespace(generation=SimpleNamespace(model_id=None))
+            ),
+        )
+        model = _get_user_model(db=None, user=user, purpose="generation", default_model="rhesis/x")
+
+        assert model.model_name == "rhesis/x"
+        assert model.usage_metered is True
+
+    def test_accrues_against_whatever_org_is_ambient(self, monkeypatch, fake_delay):
+        install_usage_sink()
+        monkeypatch.setattr(
+            "rhesis.backend.app.utils.user_model_utils.get_model",
+            lambda name, **kwargs: _StubLLM(name),
         )
 
         from rhesis.backend.app.utils.user_model_utils import resolve_default_hosted_model
 
-        resolve_default_hosted_model("vertex_ai/gemini-2.5-flash", "org-42")
-        captured["on_usage"](_usage(30))
+        model = resolve_default_hosted_model("vertex_ai/gemini-2.5-flash")
+        with usage_attribution("org-42"):
+            model.emit(30)
 
         assert fake_delay == [("org-42", QuotaResource.MODEL_TOKENS.value, 30)]
-
-    @pytest.mark.parametrize("organization_id", ["", None])
-    def test_no_org_still_builds_the_model_but_wires_no_accrual(self, organization_id, monkeypatch):
-        """The test-execution paths derive organization_id from a nullable
-        column and can pass "". Booking those tokens against no org at all is
-        worse than not counting them, so the model is still built (execution
-        must not break) with no callback attached."""
-        captured = {}
-
-        def fake_get_model(name, **kwargs):
-            captured["kwargs"] = kwargs
-            return object()
-
-        monkeypatch.setattr("rhesis.backend.app.utils.user_model_utils.get_model", fake_get_model)
-
-        from rhesis.backend.app.utils.user_model_utils import resolve_default_hosted_model
-
-        result = resolve_default_hosted_model("vertex_ai/gemini-2.5-flash", organization_id)
-
-        assert result is not None
-        assert "on_usage" not in captured["kwargs"]

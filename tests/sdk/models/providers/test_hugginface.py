@@ -532,6 +532,25 @@ class TestHuggingFaceLLM:
         assert llm.last_generation_metadata["input_tokens"] == 5
         assert llm.last_generation_metadata["output_tokens"] == 3
 
+    def test_generate_emits_usage(self):
+        """Regression: these counts were computed and stashed on an attribute
+        nobody read, so a host counting tokens never saw them. Local
+        inference is normally not billable, but that is the host's call to
+        make and it cannot make it about tokens it never hears about."""
+        llm, mock_model, mock_tokenizer = self.setup_model_with_mocks()
+        emitted = []
+        llm.on_usage = emitted.append
+
+        mock_tokenizer.apply_chat_template.return_value = {
+            "input_ids": torch.tensor([[1, 2, 3, 4, 5]]),
+            "attention_mask": torch.tensor([[1, 1, 1, 1, 1]]),
+        }
+        mock_model.generate.return_value = torch.tensor([[1, 2, 3, 4, 5, 6, 7, 8]])
+
+        llm.generate("Test prompt")
+
+        assert emitted == [{"input_tokens": 5, "output_tokens": 3, "total_tokens": 8}]
+
     def test_generate_sets_default_max_new_tokens(self):
         """Should set default max_new_tokens to 2048 if not provided"""
         llm, mock_model, mock_tokenizer = self.setup_model_with_mocks()

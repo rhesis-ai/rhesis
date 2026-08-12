@@ -5,7 +5,10 @@ from celery.signals import (
     after_setup_logger,
     celeryd_init,
     task_failure,
+    task_postrun,
+    task_prerun,
     task_revoked,
+    worker_process_init,
     worker_ready,
     worker_shutdown,
 )
@@ -19,6 +22,11 @@ logger = logging.getLogger("celery.signals")
 _EXECUTE_TEST_CONFIGURATION_TASK = "rhesis.backend.tasks.execute_test_configuration"
 # Set in celeryd_init from the worker node name (e.g. main@host → MAIN).
 _worker_role: str | None = None
+
+# Reset tokens from bind_usage_attribution_for_task, keyed by task id. A dict
+# rather than a single slot because eventlet/gevent pools interleave tasks in
+# one process, so prerun/postrun pairs can overlap.
+_usage_attribution_tokens: dict = {}
 
 
 def _update_test_run_status(task_id: str, new_status: RunStatus, error_message: str = None):
@@ -53,6 +61,98 @@ def _update_test_run_status(task_id: str, new_status: RunStatus, error_message: 
                 )
     except Exception as e:
         logger.error(f"Failed to update test run status for task {task_id}: {e}", exc_info=True)
+
+
+@celeryd_init.connect
+@worker_process_init.connect
+def install_worker_usage_sink(**kwargs):
+    """Register the process-wide token-usage sink in the worker.
+
+    Connected to both signals on purpose, and ``celeryd_init`` is the
+    load-bearing one. ``worker_process_init`` is sent only by the prefork and
+    solo pools (see ``celery/concurrency/{prefork,solo}.py``), and this
+    deployment runs ``--pool threads`` for both the main and architect
+    workers, so on its own it would never fire and no Celery task would
+    accrue anything at all. ``celeryd_init`` fires for every pool.
+
+    Keeping ``worker_process_init`` as well covers prefork children, where
+    installing after the fork keeps the sink independent of whatever the
+    parent had imported at fork time. Installation is idempotent, so being
+    called by both costs nothing.
+    """
+    from rhesis.backend.app.utils.usage_tracking import install_usage_sink
+
+    install_usage_sink()
+
+
+def _task_organization_id(task, task_kwargs):
+    """Resolve the org for a task that is starting, from the raw message.
+
+    Cannot read ``task.request.organization_id``: Celery's tracer fires
+    ``task_prerun`` *before* it calls ``Task.before_start``, and
+    ``before_start`` is what copies the org off the message onto the request.
+    At this point the attribute is still unset, so reading it would leave
+    every Celery task unattributed -- which is most of the token spend.
+
+    Mirrors ``BaseTask.before_start``'s own precedence, including kwargs
+    winning over headers, so attribution matches what the task body will see
+    a moment later rather than disagreeing with it on retries.
+    """
+    request = getattr(task, "request", None)
+    headers = getattr(request, "headers", None) or {}
+
+    organization_id = headers.get("organization_id") if hasattr(headers, "get") else None
+    if (task_kwargs or {}).get("organization_id"):
+        organization_id = task_kwargs["organization_id"]
+    if not organization_id:
+        # Anything that set it directly, e.g. a task invoked in-process.
+        organization_id = getattr(request, "organization_id", None)
+    return organization_id
+
+
+@task_prerun.connect
+def bind_usage_attribution_for_task(task_id=None, task=None, kwargs=None, **_):
+    """Name the org to bill for any LLM tokens this task spends.
+
+    The org rides in on the task headers and is already unpacked onto
+    the task message. Reading it here instead of threading it into each model
+    constructor means a task that calls an LLM accrues correctly without
+    knowing that usage accounting exists.
+
+    A signal rather than ``BaseTask.before_start`` because not every task
+    subclasses ``BaseTask`` -- ``tasks.usage.accrue_usage`` itself is a plain
+    ``@app.task``, and the next one someone writes might be too. The cost of
+    that choice is that the org has to be dug out of the raw message here;
+    see :func:`_task_organization_id`.
+    """
+    from rhesis.backend.app.usage_attribution import bind_usage_org
+
+    if not task_id:
+        # Nothing to key the reset token by, so binding would leak into
+        # whatever task runs next in this process. Skipping leaves the usage
+        # unattributed, which is logged, rather than billed to the wrong org.
+        # Deliberately not falling back to id(task): Celery instantiates one
+        # task object per task type per worker, so concurrent runs of the
+        # same task would share a key and reset each other's tokens.
+        logger.warning("task_prerun without a task_id; usage will not be attributed")
+        return
+
+    _usage_attribution_tokens[task_id] = bind_usage_org(_task_organization_id(task, kwargs))
+
+
+@task_postrun.connect
+def clear_usage_attribution_for_task(task_id=None, **kwargs):
+    """Unbind the org bound in ``bind_usage_attribution_for_task``.
+
+    Load-bearing, not tidiness: a prefork worker runs task after task in one
+    process, so a binding left in place would charge the next task's tokens
+    to the previous task's organization.
+    """
+    from rhesis.backend.app.usage_attribution import reset_usage_org
+
+    token = _usage_attribution_tokens.pop(task_id, None)
+    if token is not None:
+        reset_usage_org(token)
 
 
 @celeryd_init.connect

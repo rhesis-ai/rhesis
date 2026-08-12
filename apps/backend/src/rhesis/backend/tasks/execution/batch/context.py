@@ -155,24 +155,16 @@ def prefetch_execution_context(
                     session, user, model_id=override_evaluation_model_id
                 )
             else:
-                # Resolve rather than passing the bare default string on: the
-                # string is only turned into a model much later, inside
-                # Penelope / the metric judge, where no org context is left to
-                # attribute its tokens to. See resolve_default_hosted_model.
+                # Resolve rather than passing the bare default string on:
+                # the string is only turned into a model much later, inside
+                # Penelope / the metric judge, and a model built there carries
+                # no provenance stamp. See resolve_default_hosted_model.
                 logger.warning(f"User {user_id} not found, using default models")
-                execution_model = resolve_default_hosted_model(
-                    model_settings.execution_model, organization_id
-                )
-                evaluation_model = resolve_default_hosted_model(
-                    model_settings.evaluation_model, organization_id
-                )
+                execution_model = resolve_default_hosted_model(model_settings.execution_model)
+                evaluation_model = resolve_default_hosted_model(model_settings.evaluation_model)
         else:
-            execution_model = resolve_default_hosted_model(
-                model_settings.execution_model, organization_id
-            )
-            evaluation_model = resolve_default_hosted_model(
-                model_settings.evaluation_model, organization_id
-            )
+            execution_model = resolve_default_hosted_model(model_settings.execution_model)
+            evaluation_model = resolve_default_hosted_model(model_settings.evaluation_model)
     except Exception as e:
         from rhesis.backend.app.config.settings import get_model_settings
         from rhesis.backend.app.utils.user_model_utils import resolve_default_hosted_model
@@ -180,13 +172,9 @@ def prefetch_execution_context(
         logger.warning(f"Failed to resolve execution/evaluation models: {e}")
         model_settings = get_model_settings()
         if execution_model is None:
-            execution_model = resolve_default_hosted_model(
-                model_settings.execution_model, organization_id
-            )
+            execution_model = resolve_default_hosted_model(model_settings.execution_model)
         if evaluation_model is None:
-            evaluation_model = resolve_default_hosted_model(
-                model_settings.evaluation_model, organization_id
-            )
+            evaluation_model = resolve_default_hosted_model(model_settings.evaluation_model)
 
     # Warm the session identity map with prompt/behavior/behavior.metrics eager-loaded
     # for every test in the batch, in one query. get_test_and_prompt/get_test_metrics

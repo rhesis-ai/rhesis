@@ -36,7 +36,7 @@ class TestPolyphemusDelegation:
         from rhesis.backend.app.utils.user_model_utils import _call_polyphemus_with_delegation
 
         # Call the function
-        _call_polyphemus_with_delegation(test_user, "default", "org-456")
+        _call_polyphemus_with_delegation(test_user, "default")
 
         # Verify PolyphemusLLM was instantiated
         mock_polyphemus_class.assert_called_once()
@@ -64,7 +64,7 @@ class TestPolyphemusDelegation:
 
         test_url = "http://localhost:8000"
         with patch.dict(os.environ, {"DEFAULT_POLYPHEMUS_URL": test_url}):
-            _call_polyphemus_with_delegation(test_user, "default", "org-456")
+            _call_polyphemus_with_delegation(test_user, "default")
 
             call_kwargs = mock_polyphemus_class.call_args[1]
             assert call_kwargs["base_url"] == test_url
@@ -79,7 +79,7 @@ class TestPolyphemusDelegation:
             if "DEFAULT_POLYPHEMUS_URL" in os.environ:
                 del os.environ["DEFAULT_POLYPHEMUS_URL"]
 
-            _call_polyphemus_with_delegation(test_user, "default", "org-456")
+            _call_polyphemus_with_delegation(test_user, "default")
 
             call_kwargs = mock_polyphemus_class.call_args[1]
             assert call_kwargs["base_url"] == "https://polyphemus.rhesis.ai"
@@ -91,7 +91,7 @@ class TestPolyphemusDelegation:
 
         custom_kwargs = {"temperature": 0.7, "max_tokens": 1000}
 
-        _call_polyphemus_with_delegation(test_user, "default", "org-456", **custom_kwargs)
+        _call_polyphemus_with_delegation(test_user, "default", **custom_kwargs)
 
         call_kwargs = mock_polyphemus_class.call_args[1]
         assert call_kwargs["temperature"] == 0.7
@@ -110,7 +110,7 @@ class TestPolyphemusDelegation:
         mock_token = "mock.jwt.token"
         mock_create_token.return_value = mock_token
 
-        _call_polyphemus_with_delegation(test_user, "default", "org-456")
+        _call_polyphemus_with_delegation(test_user, "default")
 
         # Verify token creation was called correctly
         mock_create_token.assert_called_once_with(test_user, "polyphemus")
@@ -127,7 +127,7 @@ class TestPolyphemusDelegation:
         test_user.is_verified = True
 
         with pytest.raises(ValueError, match="User account is inactive"):
-            _call_polyphemus_with_delegation(test_user, "default", "org-456")
+            _call_polyphemus_with_delegation(test_user, "default")
 
     def test_delegation_unverified_user(self, test_user):
         """Test that delegation fails for unverified users."""
@@ -137,7 +137,7 @@ class TestPolyphemusDelegation:
         test_user.is_verified = False
 
         with pytest.raises(ValueError, match="User account is not verified"):
-            _call_polyphemus_with_delegation(test_user, "default", "org-456")
+            _call_polyphemus_with_delegation(test_user, "default")
 
 
 class TestPolyphemusModelConfiguration:
