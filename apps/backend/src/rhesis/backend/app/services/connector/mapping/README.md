@@ -252,7 +252,6 @@ mapping/
 ├── auto_mapper.py       # Heuristic-based auto-detection
 ├── llm_mapper.py        # LLM-based mapping generation
 ├── mapper_service.py    # Orchestration (4-tier priority)
-├── validator.py         # Synchronous test validation
 └── mapping_generation.jinja  # LLM prompt template
 ```
 
@@ -305,13 +304,6 @@ class MappingResult(BaseModel):
     reasoning: str
 ```
 
-#### `validator.py`
-
-**Synchronous Test Execution:**
-- Sends test request to SDK via WebSocket
-- Validates mappings work correctly
-- Sets endpoint status to "Active" (success) or "Error" (failure)
-
 ---
 
 ## Integration with Endpoint Sync
@@ -334,7 +326,7 @@ mapping_result = mapper_service.generate_or_use_existing(
 if mapping_result.should_update:
     endpoint.request_mapping = mapping_result.request_mapping
     endpoint.response_mapping = mapping_result.response_mapping
-    
+
     # Store metadata for transparency
     endpoint.endpoint_metadata["mapping_info"] = {
         "source": mapping_result.source,
@@ -343,12 +335,13 @@ if mapping_result.should_update:
         "generated_at": datetime.utcnow().isoformat(),
     }
 
-# 3. Validate mappings synchronously
-validation_result = await validator.validate_mappings(...)
-if validation_result["success"]:
-    endpoint.status = "Active"
-else:
-    endpoint.status = "Error"
+# 3. Mark the endpoint Active
+#
+# No request is sent to the agent here. Registration used to invoke it with a
+# synthetic payload to check the mappings, but the backend closes idle SDK
+# sockets after WS_IDLE_TIMEOUT (300s), so the SDK reconnects and re-registers
+# on a loop — that meant a real, traced agent turn every 5 minutes. Mapping
+# problems now surface on the first genuine invocation.
 ```
 
 ---
@@ -464,13 +457,12 @@ Matched context → context (confidence: 1.00)
 
 The SDK auto-mapping system provides:
 
-✅ **Zero-config for 80% of cases** - Standard naming works out of the box  
-✅ **Smart fallbacks** - Pattern matching → LLM → Manual override  
-✅ **Preservation of edits** - Database mappings never overwritten  
-✅ **Full transparency** - Source, confidence, and reasoning tracked  
-✅ **Type safety** - Pydantic models ensure correctness  
-✅ **Extensibility** - Add fields without touching core logic  
-✅ **Validation** - Test execution before marking as active  
+✅ **Zero-config for 80% of cases** - Standard naming works out of the box
+✅ **Smart fallbacks** - Pattern matching → LLM → Manual override
+✅ **Preservation of edits** - Database mappings never overwritten
+✅ **Full transparency** - Source, confidence, and reasoning tracked
+✅ **Type safety** - Pydantic models ensure correctness
+✅ **Extensibility** - Add fields without touching core logic
+✅ **Validation** - Test execution before marking as active
 
 **Result:** Developers can register SDK functions with minimal friction while maintaining flexibility for complex scenarios.
-
