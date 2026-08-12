@@ -8,6 +8,7 @@
 export const NotificationSection = {
   TEST_SETS: 'test-sets',
   TEST_RUNS: 'test-runs',
+  TASKS: 'tasks',
 } as const;
 
 export type NotificationSection =
