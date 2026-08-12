@@ -12,11 +12,28 @@ from datetime import datetime, timezone
 from typing import Any, Dict
 
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 
 from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.app.utils.crud_utils import get_or_create_status
 
 logger = logging.getLogger(__name__)
+
+
+def _clear_stale_validation_errors(endpoint: Endpoint) -> None:
+    """Drop error metadata written by the removed registration-time validation.
+
+    Endpoints marked Error before this flow was removed keep that metadata
+    forever otherwise, so the SDK connection panel would show a validation
+    error on an endpoint whose status now reads Active.
+    """
+    metadata = endpoint.endpoint_metadata
+    if not metadata:
+        return
+
+    cleared = [metadata.pop(key, None) for key in ("validation_error", "last_error")]
+    if any(value is not None for value in cleared):
+        flag_modified(endpoint, "endpoint_metadata")
 
 
 async def validate_and_update_status(
@@ -62,6 +79,7 @@ async def validate_and_update_status(
         )
         if active_status:
             endpoint.status_id = active_status.id
+            _clear_stale_validation_errors(endpoint)
             logger.info(f"[{function_name}] ✓ Status set to Active")
         else:
             logger.error(f"[{function_name}] Failed to get/create Active status")
@@ -90,10 +108,6 @@ async def validate_and_update_status(
                 "reason": "status_update_exception",
             }
             endpoint.endpoint_metadata["last_error"] = error_msg
-
-            # Mark the metadata as modified for SQLAlchemy
-            from sqlalchemy.orm.attributes import flag_modified
-
             flag_modified(endpoint, "endpoint_metadata")
 
             logger.error(f"[{function_name}] ✗ Status update exception - Status set to Error")

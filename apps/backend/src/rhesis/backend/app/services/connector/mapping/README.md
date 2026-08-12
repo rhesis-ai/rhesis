@@ -463,6 +463,5 @@ The SDK auto-mapping system provides:
 ✅ **Full transparency** - Source, confidence, and reasoning tracked
 ✅ **Type safety** - Pydantic models ensure correctness
 ✅ **Extensibility** - Add fields without touching core logic
-✅ **Validation** - Test execution before marking as active
 
 **Result:** Developers can register SDK functions with minimal friction while maintaining flexibility for complex scenarios.
