@@ -3,11 +3,23 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any
 
 from agent_framework import Content, Message
 
+logger = logging.getLogger(__name__)
+
 COORDINATOR_NAME = "trip_coordinator"
+
+# Served when the coordinator never produced user-facing text. Specialist prose is
+# never promoted in its place: specialists write internal notes addressed to the
+# coordinator, and one that stalls (for example because no destination reached it)
+# apologises to "the user" it thinks it is talking to.
+FALLBACK_RESPONSE = (
+    "I could not put a trip plan together this time. Tell me a destination - or ask for "
+    "a surprise one - and I will try again."
+)
 
 AGENT_LABELS: dict[str, str] = {
     "trip_coordinator": "Coordinator",
@@ -94,10 +106,15 @@ def record_function_calls(
         )
 
 
-def segment_texts(segments: list[dict[str, Any]]) -> list[str]:
-    """Concatenate each segment's streamed chunks into one non-empty string each."""
+def segment_texts(segments: list[dict[str, Any]], *, author: str | None = None) -> list[str]:
+    """Concatenate each segment's streamed chunks into one non-empty string each.
+
+    Pass ``author`` to keep only the segments that agent authored.
+    """
     texts: list[str] = []
     for segment in segments:
+        if author is not None and segment.get("author") != author:
+            continue
         joined = "".join(segment["parts"]).strip()
         if joined:
             texts.append(joined)
@@ -123,11 +140,25 @@ def user_visible_assistant_message(text: str) -> Message:
     )
 
 
+def authored_by_specialist(agent_response: Any) -> bool:
+    """Report whether a handoff response was written by a specialist, not the coordinator.
+
+    ``request_info`` fires from whichever agent ended its turn without handing off, so
+    the event can carry a specialist's internal note. Messages with no ``author_name``
+    are treated as the coordinator's: the check only rejects a known other agent.
+    """
+    for message in getattr(agent_response, "messages", None) or ():
+        author = getattr(message, "author_name", None)
+        if author and author != COORDINATOR_NAME:
+            return True
+    return False
+
+
 def capture_final_text(request_info_data: Any, *, fallback: list[str]) -> str | None:
-    """Pull the synthesised final answer out of a handoff request-info event."""
+    """Pull the coordinator's synthesised final answer out of a handoff request-info event."""
     agent_response = getattr(request_info_data, "agent_response", None)
     text = getattr(agent_response, "text", None)
-    if isinstance(text, str) and text.strip():
+    if isinstance(text, str) and text.strip() and not authored_by_specialist(agent_response):
         return text
     if fallback:
         joined = "\n".join(text for text in fallback if text).strip()
@@ -154,7 +185,12 @@ def resolve_response(
     *,
     final_text: str | None,
 ) -> tuple[str, str]:
-    """Pick the user-facing response text and the agent that authored it."""
+    """Pick the user-facing response text and the agent that authored it.
+
+    Only the coordinator's text is ever served. A specialist's segment is internal
+    research addressed to the coordinator, so when the coordinator produced nothing we
+    log the miss and serve :data:`FALLBACK_RESPONSE` rather than leaking that note.
+    """
     coordinator_text = last_segment_text(assistant_segments, author=COORDINATOR_NAME)
     if coordinator_text:
         return coordinator_text, COORDINATOR_NAME
@@ -162,10 +198,9 @@ def resolve_response(
     if final_text:
         return final_text, COORDINATOR_NAME
 
-    for segment in reversed(assistant_segments):
-        joined = "".join(segment["parts"]).strip()
-        if joined:
-            author = segment.get("author") or "unknown"
-            return joined, author
-
-    return "", "unknown"
+    logger.warning(
+        "Coordinator produced no user-facing text; serving the fallback response. "
+        "Segments seen from: %s",
+        [segment.get("author") for segment in assistant_segments],
+    )
+    return FALLBACK_RESPONSE, COORDINATOR_NAME

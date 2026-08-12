@@ -41,15 +41,14 @@ class TestCreateJiraTicketFromTask:
         )
 
         with (
-            patch(
-                "rhesis.backend.app.services.tool.rest.jira.crud"
-            ) as mock_crud,
+            patch("rhesis.backend.app.services.tool.rest.jira.task_crud") as mock_task_crud,
+            patch("rhesis.backend.app.services.tool.rest.jira.crud") as mock_crud,
             patch(
                 "rhesis.backend.app.services.tool.rest.config.get_rest_client",
                 return_value=mock_jira_client,
             ),
         ):
-            mock_crud.get_task.return_value = mock_task
+            mock_task_crud.get_task.return_value = mock_task
             mock_crud.get_tool.return_value = mock_tool
 
             result = await create_jira_ticket_from_task(task_id, tool_id, db, "org", "user")
@@ -66,8 +65,8 @@ class TestCreateJiraTicketFromTask:
         tool_id = str(uuid.uuid4())
         db = Mock(spec=Session)
 
-        with patch("rhesis.backend.app.services.tool.rest.jira.crud") as mock_crud:
-            mock_crud.get_task.return_value = None
+        with patch("rhesis.backend.app.services.tool.rest.jira.task_crud") as mock_task_crud:
+            mock_task_crud.get_task.return_value = None
 
             with pytest.raises(ValueError, match="not found"):
                 await create_jira_ticket_from_task(task_id, tool_id, db, "org", "user")
@@ -81,15 +80,13 @@ class TestCreateJiraTicketFromTask:
         mock_task = Mock()
 
         with (
-            patch(
-                "rhesis.backend.app.services.tool.rest.jira.crud"
-            ) as mock_crud,
+            patch("rhesis.backend.app.services.tool.rest.jira.task_crud") as mock_task_crud,
             patch(
                 "rhesis.backend.app.services.tool.rest.config.get_rest_client",
                 return_value=Mock(spec=NotionRestClient),
             ),
         ):
-            mock_crud.get_task.return_value = mock_task
+            mock_task_crud.get_task.return_value = mock_task
 
             with pytest.raises(ValueError, match="not a Jira integration"):
                 await create_jira_ticket_from_task(task_id, tool_id, db, "org", "user")
@@ -105,15 +102,14 @@ class TestCreateJiraTicketFromTask:
         mock_tool.tool_metadata = {}
 
         with (
-            patch(
-                "rhesis.backend.app.services.tool.rest.jira.crud"
-            ) as mock_crud,
+            patch("rhesis.backend.app.services.tool.rest.jira.task_crud") as mock_task_crud,
+            patch("rhesis.backend.app.services.tool.rest.jira.crud") as mock_crud,
             patch(
                 "rhesis.backend.app.services.tool.rest.config.get_rest_client",
                 return_value=Mock(spec=JiraRestClient),
             ),
         ):
-            mock_crud.get_task.return_value = mock_task
+            mock_task_crud.get_task.return_value = mock_task
             mock_crud.get_tool.return_value = mock_tool
 
             with pytest.raises(ValueError, match="not configured with a space_key"):
@@ -130,15 +126,14 @@ class TestCreateJiraTicketFromTask:
         mock_tool.tool_metadata = None
 
         with (
-            patch(
-                "rhesis.backend.app.services.tool.rest.jira.crud"
-            ) as mock_crud,
+            patch("rhesis.backend.app.services.tool.rest.jira.task_crud") as mock_task_crud,
+            patch("rhesis.backend.app.services.tool.rest.jira.crud") as mock_crud,
             patch(
                 "rhesis.backend.app.services.tool.rest.config.get_rest_client",
                 return_value=Mock(spec=JiraRestClient),
             ),
         ):
-            mock_crud.get_task.return_value = mock_task
+            mock_task_crud.get_task.return_value = mock_task
             mock_crud.get_tool.return_value = mock_tool
 
             with pytest.raises(ValueError, match="not configured with a space_key"):

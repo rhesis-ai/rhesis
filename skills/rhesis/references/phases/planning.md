@@ -11,7 +11,9 @@ Before proposing a plan:
 - **Project** (optional — large new suites only)
 - **Behaviors** with descriptions for new items
 - **Test sets** — name, description, `num_tests`, `test_type`, behaviors, `generation_prompt`
-- **Metrics** — criteria, thresholds, **`metric_scope`**
+- **Metrics** — criteria, thresholds, **`metric_scope`**, and the wording you will send for
+  `description`, `evaluation_steps`, `reasoning`, `explanation` (see `metric-authoring.md`). Design
+  the metric here, at plan time — creation copies the plan, it does not improve it
 - **Mappings** — every behavior ≥1 metric
 - **Scope coverage matrix** — see `metric-scope.md`
 

@@ -6,9 +6,10 @@ from typing import Any, AsyncGenerator, Dict, List, Optional
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud
+from rhesis.backend.app.crud import source as source_crud
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.services import GenerationConfig, SourceData
+from rhesis.backend.app.usage_attribution import with_usage_attribution
 from rhesis.backend.app.utils.user_model_utils import get_generation_model_with_override
 from rhesis.sdk.services.extractor import SourceSpecification, SourceType
 from rhesis.sdk.synthesizers import ConfigSynthesizer
@@ -52,7 +53,7 @@ def get_source_specifications(
 
     for source_data in sources:
         # Fetch full source from database
-        db_source = crud.get_source_with_content(
+        db_source = source_crud.get_source_with_content(
             db=db,
             source_id=source_data.id,
             organization_id=organization_id,
@@ -133,7 +134,10 @@ async def generate_tests(
     )
 
     # Generate tests
-    generate_func = partial(synthesizer.generate, num_tests=num_tests)
+    # with_usage_attribution: run_in_executor does not copy contextvars the
+    # way asyncio.to_thread does, so the generation's token usage would emit
+    # with no org bound and go unattributed.
+    generate_func = with_usage_attribution(partial(synthesizer.generate, num_tests=num_tests))
     loop = asyncio.get_event_loop()
     test_set = await loop.run_in_executor(None, generate_func)
 
@@ -216,6 +220,9 @@ async def generate_multiturn_tests(
     # Run the potentially blocking operation in a separate thread
     # to avoid blocking the event loop
     loop = asyncio.get_event_loop()
-    test_set = await loop.run_in_executor(None, synthesizer.generate, num_tests)
+    # with_usage_attribution: see the note in generate_tests.
+    test_set = await loop.run_in_executor(
+        None, with_usage_attribution(synthesizer.generate), num_tests
+    )
 
     return test_set.to_dict()

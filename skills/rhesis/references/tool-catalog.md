@@ -261,8 +261,9 @@ Prefer `generate_metric` when you know what to measure but don't want to fill ev
 - `metric_type` (required) — must be `"custom-prompt"` for user-defined metrics
 - `backend_type` (required) — must be `"custom"`
 - `score_type` (required) — must be exactly `"numeric"` or `"categorical"`
-- `evaluation_prompt` (required) — the prompt template used to score responses; may use `{{prompt}}`, `{{response}}`, `{{expected_response}}`
+- `evaluation_prompt` (required) — the evaluation criteria the judge applies. Criteria text only: placeholders like `{{response}}` are **not** substituted, and the engine already injects the input, response, context, and transcript
 - `metric_scope` (required) — list of strings, each must be `"Single-Turn"` or `"Multi-Turn"`
+- `description`, `evaluation_steps`, `reasoning`, `explanation` — optional to the API, expected in practice. Send all four, written out; see `metric-authoring.md` for the depth and for the `Step N:` / `---` format `evaluation_steps` must use
 
 **Fields required by `score_type`.** These are enforced by the server but cannot be expressed in the JSON schema, so they are easy to miss:
 

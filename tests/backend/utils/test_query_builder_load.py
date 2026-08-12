@@ -15,7 +15,9 @@ import pytest
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app import models, schemas
+from rhesis.backend.app.crud import behavior as behavior_crud
+from rhesis.backend.app.crud import tag as tag_crud
 from rhesis.backend.app.crud.metric import get_metrics
 from rhesis.backend.app.utils import crud_utils
 from rhesis.backend.app.utils.query_utils import QueryBuilder, include
@@ -189,7 +191,7 @@ class TestMetricBehaviorNestedM2MLoads:
                 user_id=authenticated_user_id,
             )
         )
-        crud.assign_tag(
+        tag_crud.assign_tag(
             db=test_db,
             tag=schemas.TagCreate(name="nested-behavior-tag"),
             entity_id=behavior.id,
@@ -242,7 +244,7 @@ class TestMetricBehaviorNestedM2MLoads:
                 user_id=authenticated_user_id,
             )
         )
-        crud.assign_tag(
+        tag_crud.assign_tag(
             db=test_db,
             tag=schemas.TagCreate(name="nested-metric-tag"),
             entity_id=metric.id,
@@ -262,11 +264,13 @@ class TestMetricBehaviorNestedM2MLoads:
             assert len(nested_metric.tags) == 1
             assert nested_metric.tags[0].name == "nested-metric-tag"
 
-        single = crud.get_behavior(db=test_db, behavior_id=behavior.id, organization_id=test_org_id)
+        single = behavior_crud.get_behavior(
+            db=test_db, behavior_id=behavior.id, organization_id=test_org_id
+        )
         _assert_nested_metric_loaded(single)
 
         test_db.expire_all()
-        listed = crud.get_behaviors_detail(
+        listed = behavior_crud.get_behaviors_detail(
             db=test_db, skip=0, limit=100, organization_id=test_org_id
         )
         _assert_nested_metric_loaded(next(b for b in listed if b.id == behavior.id))

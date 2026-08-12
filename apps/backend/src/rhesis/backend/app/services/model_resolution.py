@@ -26,23 +26,30 @@ def resolve_model_for_extraction(model) -> Optional["BaseLLM"]:
     - A ``BaseLLM`` instance — returned as-is.
     - A model-name string such as ``"openai/gpt-4o"`` or
       ``"vertex_ai/gemini-2.5-flash"`` — resolved via
-      ``get_language_model``.
+      ``user_model_utils.ensure_language_model``.
     - ``None`` or any other type — returns ``None`` so callers can fall
       back gracefully (e.g. EXIF-only image extraction).
 
-    Exceptions from ``get_language_model`` (missing credentials, unknown
-    provider, etc.) are caught and logged as warnings so that the caller
-    can continue without a vision model rather than failing entirely.
+    Goes through ``ensure_language_model`` rather than the SDK factory
+    directly so the resulting instance is stamped: the only caller,
+    ``resolve_model_for_extraction`` at the endpoint-files layer, feeds it
+    ``get_user_generation_model(db, user)``, which returns a bare string
+    precisely when the user's default model construction failed once
+    already and is being retried -- the same case
+    ``ensure_language_model`` exists to stamp correctly.
+
+    Exceptions (missing credentials, unknown provider, etc.) are caught and
+    logged as warnings so that the caller can continue without a vision
+    model rather than failing entirely.
     """
+    from rhesis.backend.app.utils.user_model_utils import ensure_language_model
     from rhesis.sdk.models.base import BaseLLM
 
     if isinstance(model, BaseLLM):
         return model
     if isinstance(model, str):
         try:
-            from rhesis.sdk.models.factory import get_language_model
-
-            return get_language_model(model)
+            return ensure_language_model(model)
         except Exception as exc:
             logger.warning("Could not resolve model '%s' for extraction: %s", model, exc)
     return None

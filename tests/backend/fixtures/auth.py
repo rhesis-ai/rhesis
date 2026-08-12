@@ -33,7 +33,7 @@ def get_authenticated_user_info(db) -> tuple[str | None, str | None]:
         Tuple of (organization_id, user_id) as strings, or (None, None) if not found
     """
     try:
-        from rhesis.backend.app import crud
+        from rhesis.backend.app.crud import user as user_crud
         from rhesis.backend.app.crud.token import get_token_by_value
     except ImportError:
         return None, None
@@ -49,7 +49,7 @@ def get_authenticated_user_info(db) -> tuple[str | None, str | None]:
             return None, None
 
         # Get user from the token's user_id
-        user = crud.get_user_by_id(db, token.user_id)
+        user = user_crud.get_user_by_id(db, token.user_id)
         if not user:
             return None, None
 

@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
 from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app.crud import user as user_crud
 from rhesis.backend.app.models.enums import (
     EndpointConfigSource,
     EndpointConnectionType,
@@ -53,7 +54,7 @@ async def sync_sdk_endpoints(
     logger.info(f"Functions to sync: {len(functions_data)}")
 
     # Get user for language model access
-    user = crud.get_user_by_id(db, user_id)
+    user = user_crud.get_user_by_id(db, user_id)
     if not user:
         logger.error(f"User {user_id} not found for mapping generation")
         return {"created": 0, "updated": 0, "marked_inactive": 0, "errors": ["User not found"]}

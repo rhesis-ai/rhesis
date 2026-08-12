@@ -17,8 +17,9 @@ import uuid
 import pytest
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app import models, schemas
 from rhesis.backend.app.constants import EntityType
+from rhesis.backend.app.crud import tag as tag_crud
 
 
 @pytest.mark.unit
@@ -42,7 +43,7 @@ class TestTagOperations:
         )
 
         # Test tag assignment
-        result = crud.assign_tag(
+        result = tag_crud.assign_tag(
             db=test_db,
             tag=tag_create_schema,
             entity_id=db_entity.id,
@@ -86,7 +87,7 @@ class TestTagOperations:
         )
 
         with pytest.raises(ValueError, match="Prompt with id .* not found"):
-            crud.assign_tag(
+            tag_crud.assign_tag(
                 db=test_db,
                 tag=tag_create_schema,
                 entity_id=fake_entity_id,
@@ -127,7 +128,7 @@ class TestTagOperations:
         test_db.flush()
 
         # Test tag removal
-        result = crud.remove_tag(
+        result = tag_crud.remove_tag(
             db=test_db,
             tag_id=db_tag.id,
             entity_id=db_entity.id,
@@ -154,7 +155,7 @@ class TestTagOperations:
         fake_entity_id = uuid.uuid4()
 
         with pytest.raises(ValueError, match="Tag not found"):
-            crud.remove_tag(
+            tag_crud.remove_tag(
                 db=test_db,
                 tag_id=fake_tag_id,
                 entity_id=fake_entity_id,

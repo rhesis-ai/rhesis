@@ -11,16 +11,17 @@ from typing import Optional, Union
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud
 from rhesis.backend.app.config.settings import (
     get_application_settings,
     get_model_settings,
     get_rhesis_settings,
 )
+from rhesis.backend.app.crud import model as model_crud
+from rhesis.backend.app.crud import user as user_crud
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.services.platform_key import get_platform_api_key
 from rhesis.backend.app.utils.model_errors import ModelConfigurationError
-from rhesis.backend.app.utils.usage_tracking import make_usage_accrual_callback
+from rhesis.backend.app.utils.usage_tracking import stamp_usage_provenance
 from rhesis.sdk.models.base import BaseEmbedder, BaseLLM
 from rhesis.sdk.models.factory import get_model
 
@@ -128,7 +129,7 @@ def get_evaluation_model(db: Session, user_id: str) -> Union[str, BaseLLM]:
     """
     try:
         default_model = _default_evaluation_model()
-        user = crud.get_user_by_id(db, user_id)
+        user = user_crud.get_user_by_id(db, user_id)
         if user:
             return get_user_evaluation_model(db, user)
         logger.warning(
@@ -173,7 +174,7 @@ def get_execution_model(db: Session, user_id: str) -> Union[str, BaseLLM]:
     """
     try:
         default_model = _default_execution_model()
-        user = crud.get_user_by_id(db, user_id)
+        user = user_crud.get_user_by_id(db, user_id)
         if user:
             return get_user_execution_model(db, user)
         logger.warning(
@@ -451,38 +452,73 @@ def _is_hosted_model(provider: str, api_key: Optional[str]) -> bool:
     return provider in ("rhesis", "polyphemus") and not api_key
 
 
-def resolve_default_hosted_model(default_model: str, organization_id: str) -> Union[str, BaseLLM]:
-    """
-    Instantiate the system default model with usage accrual when it names a hosted provider.
+def ensure_language_model(model_or_provider: Union[str, BaseLLM]) -> BaseLLM:
+    """Turn a ``get_user_*_model()`` result into a real, stamped model instance.
 
-    Several callers fall back to the bare `default_model` string (e.g.
-    "rhesis/rhesis-default") without ever calling `_fetch_and_configure_model`
-    -- most notably `_get_user_model` when the user has no model_id configured
-    for a purpose (execution model on a freshly onboarded org, for example),
-    and the execution/evaluation model resolution in the batch and sequential
-    test-execution paths when a test config carries no resolvable user.
-    Those calls would otherwise never accrue token usage, since the SDK only
-    resolves the string into an actual model instance much later (inside
-    synthesizers/agents/metrics, with no organization context available).
+    The single place in the backend that turns a provider string into a
+    language model. A dozen call sites used to do that unwrap themselves with
+    a plain ``get_model(x)``, which produces an *unstamped* model -- so
+    whether those tokens counted depended on remembering to stamp, at N
+    sites, which is the bug this accrual mechanism exists to remove. Routing
+    them all through here removes the choice.
+
+    ``metered=True`` is always right for a string, because a string only ever
+    reaches a caller as the system default: either straight from
+    ``DEFAULT_*_MODEL`` settings, or from
+    :func:`resolve_default_hosted_model`'s construction fallback.
+    ``_fetch_and_configure_model`` (the only path carrying an org's own key)
+    stamps directly or raises, and never returns a bare string.
+
+    Raises whatever ``get_model`` raises (typically ``ValueError``), so
+    callers that already wrap model resolution in their own error handling
+    keep working unchanged. Use :func:`resolve_default_hosted_model` for the
+    non-raising variant.
+
+    Args:
+        model_or_provider: The return value of a ``get_user_*_model()`` call:
+            either an already-resolved (and already-stamped) ``BaseLLM``, or
+            a bare ``"provider/model_name"`` string.
+
+    Returns:
+        A ``BaseLLM`` instance, stamped if this function built it.
+    """
+    if isinstance(model_or_provider, str):
+        return stamp_usage_provenance(
+            get_model(model_or_provider, model_type="language"),
+            metered=True,
+        )
+    return model_or_provider
+
+
+def resolve_default_hosted_model(default_model: str) -> Union[str, BaseLLM]:
+    """
+    Instantiate the system default model, falling back to the bare string.
+
+    The non-raising counterpart to :func:`ensure_language_model`, for the
+    callers that must not fail here: `_get_user_model` when the user has no
+    model_id configured for a purpose (execution model on a freshly
+    onboarded org, for example), and the execution/evaluation model
+    resolution in the batch and sequential test-execution paths when a test
+    config carries no resolvable user.
 
     Public rather than underscore-prefixed because those out-of-module
     fallbacks are the point of it: anything that would otherwise hand a bare
-    `DEFAULT_*_MODEL` string downstream should route through here instead.
+    `DEFAULT_*_MODEL` string downstream should route through here instead, so
+    that the resulting model carries a provenance stamp.
 
-    Construction here is cheap (no network call -- provider `__init__`s only
-    set up client config) so doing it eagerly costs nothing. On any
-    construction error (e.g. missing RHESIS_API_KEY), falls back to the bare
-    string so callers retain today's lazy-resolution behavior.
+    Construction is cheap (no network call -- provider `__init__`s only set
+    up client config) so doing it eagerly costs nothing.
+
+    Takes no organization id: which org to bill is read from the ambient
+    context when usage is actually emitted (see
+    `rhesis.backend.app.usage_attribution`), not captured here.
 
     Args:
         default_model: A "provider/model_name" string, e.g. "rhesis/rhesis-default"
-        organization_id: Org to attribute accrued tokens to. Falsy (the task
-            paths derive it from a nullable column and can pass "") skips
-            accrual rather than booking the tokens against no org.
 
     Returns:
-        An instance with `on_usage` wired for accrual when construction
-        succeeds; the original string otherwise.
+        A model stamped `usage_metered=True` when construction succeeds; the
+        original string otherwise.
     """
     # No provider restriction: the *system default* is by definition the
     # model this deployment runs on its own credentials, whatever provider
@@ -493,19 +529,7 @@ def resolve_default_hosted_model(default_model: str, organization_id: str) -> Un
     # ``rhesis/...``. Restricting this to rhesis/polyphemus meant every such
     # deployment reported zero MODEL_TOKENS forever.
     try:
-        extra_params = {}
-        if organization_id:
-            extra_params["on_usage"] = make_usage_accrual_callback(organization_id)
-        else:
-            logger.warning(
-                "No organization_id resolving default model %s; token usage will not accrue",
-                default_model,
-            )
-        return get_model(
-            default_model,
-            model_type="language",
-            **extra_params,
-        )
+        return ensure_language_model(default_model)
     except Exception:
         # Broad on purpose, not just ValueError: dropping the provider
         # restriction above means this now runs `get_model` for *any*
@@ -519,7 +543,7 @@ def resolve_default_hosted_model(default_model: str, organization_id: str) -> Un
         return default_model
 
 
-def _call_polyphemus_with_delegation(user: User, model_name: str, organization_id: str, **kwargs):
+def _call_polyphemus_with_delegation(user: User, model_name: str, **kwargs):
     """
     Create Polyphemus client with delegation token.
 
@@ -529,11 +553,10 @@ def _call_polyphemus_with_delegation(user: User, model_name: str, organization_i
     Args:
         user: User on whose behalf the request is made
         model_name: Polyphemus model name (e.g., "default")
-        organization_id: Org to attribute accrued MODEL_TOKENS usage to
         **kwargs: Additional arguments to pass to PolyphemusLLM
 
     Returns:
-        Configured PolyphemusLLM instance, with usage accrual wired
+        Configured PolyphemusLLM instance, stamped as running on our credentials
 
     Raises:
         ValueError: If user is not active or not verified
@@ -553,12 +576,16 @@ def _call_polyphemus_with_delegation(user: User, model_name: str, organization_i
     delegation_token = create_service_delegation_token(user, "polyphemus")
     polyphemus_url = os.environ.get("DEFAULT_POLYPHEMUS_URL", "https://polyphemus.rhesis.ai")
 
-    return PolyphemusLLM(
-        model_name=model_name,
-        api_key=delegation_token,
-        base_url=polyphemus_url,
-        on_usage=make_usage_accrual_callback(organization_id),
-        **kwargs,
+    # Metered: a delegation token means the call goes out on Rhesis
+    # infrastructure, not on a key the org supplied.
+    return stamp_usage_provenance(
+        PolyphemusLLM(
+            model_name=model_name,
+            api_key=delegation_token,
+            base_url=polyphemus_url,
+            **kwargs,
+        ),
+        metered=True,
     )
 
 
@@ -569,7 +596,7 @@ def _try_platform_key_model(
     model_name: str,
     model_type: str,
     *,
-    with_usage_accrual: bool = False,
+    metered: bool = False,
 ) -> Optional[Union[BaseLLM, BaseEmbedder]]:
     """Authenticate a Rhesis-hosted model with the org's platform key, in local mode only.
 
@@ -577,24 +604,26 @@ def _try_platform_key_model(
     resolves; ``None`` otherwise, so callers fall through to their own
     non-local default/delegation logic unchanged.
 
-    ``with_usage_accrual`` wires ``on_usage`` for language models (the SDK's
-    ``BaseEmbedder`` doesn't accept that constructor kwarg, so embedding
-    callers must leave it ``False``).
+    ``metered`` records that we pay for these tokens, and must be passed
+    explicitly here rather than derived from :func:`_is_hosted_model`: that
+    helper reads any API key as the org's own, and the platform key looks like
+    one while actually being Rhesis-issued credentials for local mode. Left
+    ``False`` for embedders, which have no usage-emission path at all, so the
+    stamp is a no-op on them.
     """
     if not get_application_settings().is_local:
         return None
     key = get_platform_api_key(db, organization_id)
     if not key:
         return None
-    extra_params = {}
-    if with_usage_accrual:
-        extra_params["on_usage"] = make_usage_accrual_callback(organization_id)
-    return get_model(
-        provider=provider,
-        model_name=model_name,
-        api_key=key,
-        model_type=model_type,
-        **extra_params,
+    return stamp_usage_provenance(
+        get_model(
+            provider=provider,
+            model_name=model_name,
+            api_key=key,
+            model_type=model_type,
+        ),
+        metered=metered,
     )
 
 
@@ -619,11 +648,11 @@ def _fetch_and_configure_model(
         or default_model if the configured model cannot be loaded
     """
     # SECURITY: Always use organization_id for filtering
-    model = crud.get_model(db=db, model_id=model_id, organization_id=organization_id)
+    model = model_crud.get_model(db=db, model_id=model_id, organization_id=organization_id)
 
     if not model or not model.provider_type:
         logger.warning("Model with id=%s not found or has no provider_type", model_id)
-        return resolve_default_hosted_model(default_model, organization_id)
+        return resolve_default_hosted_model(default_model)
 
     # Get provider configuration
     provider = model.provider_type.type_value
@@ -635,18 +664,18 @@ def _fetch_and_configure_model(
         # Local/self-hosted mode: authenticate the prepopulated Rhesis-hosted
         # system models with the org-scoped platform key when one is configured,
         # accruing usage like any other hosted call. Non-local (SaaS) behavior
-        # is unchanged: fall back to the accrual-wrapped default.
+        # is unchanged: fall back to the stamped default.
         hosted = _try_platform_key_model(
             db,
             organization_id,
             "rhesis",
             model_name or "default",
             "language",
-            with_usage_accrual=True,
+            metered=True,
         )
         if hosted is not None:
             return hosted
-        return resolve_default_hosted_model(default_model, organization_id)
+        return resolve_default_hosted_model(default_model)
 
     # Special handling for Polyphemus models without a stored API key.
     #
@@ -664,28 +693,29 @@ def _fetch_and_configure_model(
         # Non-local (SaaS) behavior is unchanged: existing env-precedence and
         # delegation logic runs when no per-org key resolves.
         hosted = _try_platform_key_model(
-            db, organization_id, "polyphemus", model_name, "language", with_usage_accrual=True
+            db, organization_id, "polyphemus", model_name, "language", metered=True
         )
         if hosted is not None:
             return hosted
         if get_rhesis_settings().api_key:
             logger.debug("Using configured RHESIS_API_KEY for Polyphemus (self-hosted mode)")
         elif user:
-            return _call_polyphemus_with_delegation(user, model_name, organization_id)
+            return _call_polyphemus_with_delegation(user, model_name)
 
     # Use SDK's get_model to create configured instance with error handling
     try:
         extra_params = {}
         if model.endpoint and model.endpoint.strip():
             extra_params["api_base"] = model.endpoint.strip()
-        if _is_hosted_model(provider, api_key):
-            extra_params["on_usage"] = make_usage_accrual_callback(organization_id)
-        return get_model(
-            provider=provider,
-            model_name=model_name,
-            api_key=api_key,
-            model_type="language",
-            **extra_params,
+        return stamp_usage_provenance(
+            get_model(
+                provider=provider,
+                model_name=model_name,
+                api_key=api_key,
+                model_type="language",
+                **extra_params,
+            ),
+            metered=_is_hosted_model(provider, api_key),
         )
     except ValueError as e:
         error_msg = str(e)
@@ -755,7 +785,7 @@ def _get_user_model(
     model_id = model_settings.model_id
 
     if not model_id:
-        return resolve_default_hosted_model(default_model, str(user.organization_id))
+        return resolve_default_hosted_model(default_model)
 
     return _fetch_and_configure_model(
         db=db,
@@ -783,7 +813,7 @@ def _fetch_and_configure_embedder(
         or default_model if the configured model cannot be loaded
     """
     # SECURITY: Always use organization_id for filtering
-    model = crud.get_model(db=db, model_id=model_id, organization_id=organization_id)
+    model = model_crud.get_model(db=db, model_id=model_id, organization_id=organization_id)
 
     if not model or not model.provider_type:
         logger.warning("Model with id=%s not found or has no provider_type", model_id)

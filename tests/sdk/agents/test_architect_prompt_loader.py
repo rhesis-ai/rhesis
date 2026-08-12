@@ -94,6 +94,14 @@ class TestPhaseIncludeNames:
         assert "phases/creation.md" in names
         assert "telemachus-creation-order.j2" not in names
 
+    def test_metric_authoring_loaded_when_metrics_are_written(self):
+        # Metric field depth is only actionable while planning or creating them.
+        for mode in (AgentMode.PLANNING, AgentMode.CREATING):
+            assert "metric-authoring.md" in phase_include_names(mode, WorkflowPath.EXPLORE)
+        assert "metric-authoring.md" not in phase_include_names(
+            AgentMode.EXECUTING, WorkflowPath.EXPLORE
+        )
+
     def test_executing_has_analysis(self):
         names = phase_include_names(AgentMode.EXECUTING, WorkflowPath.EXPLORE)
         assert "phases/analysis.md" in names
@@ -130,6 +138,19 @@ class TestRenderPhaseKnowledge:
         env = build_architect_jinja_env(_TEMPLATES_DIR)
         assert render_phase_knowledge(env, AgentMode.DISCOVERY, WorkflowPath.UNSET) == ""
 
+    def test_creating_phase_carries_the_metric_step_format(self):
+        env = build_architect_jinja_env(_TEMPLATES_DIR)
+        text = render_phase_knowledge(env, AgentMode.CREATING, WorkflowPath.EXPLORE)
+        assert "Step 1:" in text
+        assert "evaluation_steps" in text
+
+    def test_discovery_flags_a_project_with_no_endpoint(self):
+        # Discovery is where the endpoint gets resolved, so the "none at all"
+        # case has to be handled here too — not only in the system prompt.
+        env = build_architect_jinja_env(_TEMPLATES_DIR)
+        text = render_phase_knowledge(env, AgentMode.DISCOVERY, WorkflowPath.EXPLORE)
+        assert "no** endpoint at all" in text
+        assert "connecting-application" in text
 
 @pytest.mark.unit
 class TestBundledSkillReferences:

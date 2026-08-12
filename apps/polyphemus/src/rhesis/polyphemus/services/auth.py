@@ -11,7 +11,7 @@ from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from rhesis.backend.app.auth.token_validation import validate_token
-from rhesis.backend.app.crud import get_user_by_id
+from rhesis.backend.app.crud import user as user_crud
 from rhesis.backend.app.crud.token import get_token_by_value
 from rhesis.backend.app.database import get_db
 from rhesis.backend.app.models.user import User
@@ -94,7 +94,7 @@ async def _validate_api_token(request: Request, token_value: str) -> User:
 
             # Retrieve the token and get associated user using backend CRUD utilities
             token = get_token_by_value(db, token_value)
-            user = get_user_by_id(db, token.user_id) if token else None
+            user = user_crud.get_user_by_id(db, token.user_id) if token else None
 
             if not user:
                 logger.warning(f"User not found for token: {token_value[:10]}...")

@@ -70,6 +70,11 @@ needed.
 > It is only for scripts and tests that call `bind_scope()` explicitly. Do **not** call
 > `current_scope()` from inside a request handler and expect it to reflect the active project —
 > use `db.info.get('_scope')` instead.
+>
+> This is about `_scope` specifically, and the reason is that it is bound by a **sync**
+> dependency, which FastAPI runs in the anyio threadpool where a `ContextVar` write cannot escape
+> back to the handler's task. An `async def` dependency does not have that problem —
+> `app/usage_attribution.py` relies on it. See "Usage attribution" below.
 
 ### How it works
 
@@ -184,6 +189,34 @@ GUCs while ORM changes are still unflushed. A deferred write flushed under a bla
 (`invalid input syntax for type uuid: ""`). `get_db_with_tenant_variables` therefore commits
 deferred writes _before_ `reset_session_context()` runs. Any new side-channel caller that resets or
 blanks GUCs must commit/flush first.
+
+## Usage attribution (LLM token accrual)
+
+`MODEL_TOKENS` accrual is automatic. There is nothing to wire at a call site, and adding one is
+not supposed to require thinking about billing.
+
+- **Emission**: `app/utils/usage_tracking.py` registers one process-wide sink with the SDK at
+  startup (FastAPI lifespan, Celery `worker_process_init`). Every model built anywhere in the
+  process reports to it.
+- **Who to bill**: read at emission time from `app/usage_attribution.py`'s ContextVar, bound by
+  the `bind_usage_attribution` async dependency (pulled in by `get_tenant_db_session`) and by the
+  Celery `task_prerun` handler.
+- **Whether to bill**: `BaseLLM.usage_metered`, stamped by the model-resolution layer via
+  `stamp_usage_provenance`. This cannot move to the provider — an org's own OpenAI key means they
+  pay OpenAI directly, while the deployment default runs on our credentials, and that is the same
+  provider class with opposite answers.
+
+Two rules for new code:
+
+1. **Resolve models through `app/utils/user_model_utils.py`.** A bare `get_model("provider/name")`
+   produces an unstamped model, which bills the org and logs `usage.unstamped_model` so the call
+   site can be found and fixed.
+2. **Hand work to a thread with `with_usage_attribution(fn)`** if you use `ThreadPoolExecutor` or
+   `run_in_executor`. Neither copies contextvars; `asyncio.to_thread` and `anyio.to_thread` do,
+   and need nothing.
+
+Usage that arrives with no org bound is logged as `usage.unattributed` rather than dropped —
+a nonzero rate there means a code path is missing its binding.
 
 ## Affordances — backend side
 

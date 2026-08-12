@@ -9,7 +9,7 @@ from .architect import (
 from .base import Base
 from .behavior import Behavior, BehaviorBase, BehaviorCreate, BehaviorDetail, BehaviorUpdate
 from .category import Category, CategoryBase, CategoryCreate, CategoryDetail, CategoryUpdate
-from .chunk import Chunk, ChunkBase, ChunkCreate, ChunkUpdate
+from .chunk import Chunk, ChunkBase, ChunkCreate
 from .comment import Comment, CommentBase, CommentCreate, CommentDetail, CommentUpdate
 from .embedding import (
     Embedding,
@@ -187,7 +187,6 @@ __all__ = [
     "Chunk",
     "ChunkBase",
     "ChunkCreate",
-    "ChunkUpdate",
     "FileCreate",
     "FileEntityType",
     "FileResponse",

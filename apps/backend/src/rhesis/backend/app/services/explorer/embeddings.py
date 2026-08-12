@@ -12,7 +12,9 @@ from uuid import UUID as UUIDType
 import numpy as np
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app import models, schemas
+from rhesis.backend.app.crud import model as model_crud
+from rhesis.backend.app.crud import user as user_crud
 from rhesis.backend.app.crud.embedding import get_embedding_by_hash, mark_embeddings_stale
 from rhesis.backend.app.crud.explorer import (
     get_default_embedding_model,
@@ -125,7 +127,7 @@ def resolve_embedder(db: Session, user_id: str):
     result to :func:`generate_embedding_vector`, :func:`a_generate_embedding_vector`,
     or :func:`a_generate_embedding_vectors_batch` to avoid repeated DB lookups.
     """
-    user = crud.get_user_by_id(db, user_id)
+    user = user_crud.get_user_by_id(db, user_id)
     if not user:
         raise ValueError(f"User not found: {user_id}")
 
@@ -328,7 +330,7 @@ def create_test_embedding(
             f"(user_id={user.id}, model_id={model_id})"
         )
 
-    model = crud.get_model(db, UUIDType(model_id), organization_id, user_id)
+    model = model_crud.get_model(db, UUIDType(model_id), organization_id, user_id)
     if not model:
         logger.warning(
             "Skipping explorer test embedding persistence: model not found "

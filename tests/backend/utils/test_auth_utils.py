@@ -81,7 +81,7 @@ class TestGetCurrentUser:
         request = Mock()
         request.session = {"user_id": "user123"}
 
-        # Mock get_db context manager and crud.get_user_by_id
+        # Mock get_db context manager and user_crud.get_user_by_id
         mock_db = Mock(spec=Session)
 
         @contextmanager
@@ -90,7 +90,7 @@ class TestGetCurrentUser:
 
         with patch("rhesis.backend.app.auth.user_utils.get_db", mock_get_db):
             with patch(
-                "rhesis.backend.app.auth.user_utils.crud.get_user_by_id",
+                "rhesis.backend.app.auth.user_utils.user_crud.get_user_by_id",
                 return_value=mock_user,
             ) as mock_get_user:
                 result = pytest.run(get_current_user(request))
@@ -108,7 +108,7 @@ class TestGetCurrentUser:
         request = Mock()
         request.session = {"user_id": "user123"}
 
-        # Mock get_db context manager and crud.get_user_by_id
+        # Mock get_db context manager and user_crud.get_user_by_id
         mock_db = Mock(spec=Session)
 
         @contextmanager
@@ -117,7 +117,7 @@ class TestGetCurrentUser:
 
         with patch("rhesis.backend.app.auth.user_utils.get_db", mock_get_db):
             with patch(
-                "rhesis.backend.app.auth.user_utils.crud.get_user_by_id",
+                "rhesis.backend.app.auth.user_utils.user_crud.get_user_by_id",
                 return_value=mock_user,
             ) as mock_get_user:
                 result = pytest.run(get_current_user(request))
@@ -131,7 +131,7 @@ class TestGetCurrentUser:
         request = Mock()
         request.session = {"user_id": "user123"}
 
-        # Mock get_db context manager and crud.get_user_by_id
+        # Mock get_db context manager and user_crud.get_user_by_id
         mock_db = Mock(spec=Session)
 
         @contextmanager
@@ -140,7 +140,7 @@ class TestGetCurrentUser:
 
         with patch("rhesis.backend.app.auth.user_utils.get_db", mock_get_db):
             with patch(
-                "rhesis.backend.app.auth.user_utils.crud.get_user_by_id",
+                "rhesis.backend.app.auth.user_utils.user_crud.get_user_by_id",
                 return_value=None,
             ):
                 result = pytest.run(get_current_user(request))

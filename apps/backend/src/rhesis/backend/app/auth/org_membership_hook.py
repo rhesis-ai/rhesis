@@ -11,7 +11,7 @@ on for their org.
 ``organization_member`` is an EE concept, and core must never import EE
 (``community-boundary`` CI job).  So core exposes this tiny hook registry and
 EE registers a handler in its :func:`~rhesis.backend.ee.bootstrap`.  Core calls
-:func:`on_user_org_assigned` from ``crud.create_user`` (and the onboarding /
+:func:`on_user_org_assigned` from ``crud.user.create_user`` (and the onboarding /
 re-invite paths); when no handler is registered (community build) it is a no-op.
 
 Contract

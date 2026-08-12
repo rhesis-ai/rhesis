@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.capabilities import Permission, capability
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
+from rhesis.backend.app.crud import file as file_crud
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
@@ -459,4 +460,4 @@ def list_test_files(
 ):
     """List input files attached to a test."""
     organization_id, user_id = tenant_context
-    return crud.get_files_for_entity(db, test_id, "Test", organization_id, user_id)
+    return file_crud.get_files_for_entity(db, test_id, "Test", organization_id, user_id)

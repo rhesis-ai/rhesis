@@ -102,6 +102,7 @@ def phase_include_names(mode: AgentMode, workflow_path: WorkflowPath) -> List[st
                 "phases/planning.md",
                 "phases/reuse.md",
                 "metric-scope.md",
+                "metric-authoring.md",
                 "telemachus-save-plan.j2",
             ]
         )
@@ -113,6 +114,7 @@ def phase_include_names(mode: AgentMode, workflow_path: WorkflowPath) -> List[st
             [
                 "phases/creation.md",
                 "metric-scope.md",
+                "metric-authoring.md",
             ]
         )
         if wp == WorkflowPath.PRD:

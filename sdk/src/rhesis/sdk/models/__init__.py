@@ -6,7 +6,14 @@ import importlib
 import importlib.util
 from typing import TYPE_CHECKING
 
-from rhesis.sdk.models.base import BaseEmbedder, BaseLLM, BaseModel
+from rhesis.sdk.models.base import (
+    BaseEmbedder,
+    BaseLLM,
+    BaseModel,
+    TokenUsage,
+    get_default_usage_callback,
+    set_default_usage_callback,
+)
 from rhesis.sdk.models.factory import (
     ModelType,
     get_available_embedding_models,
@@ -109,14 +116,17 @@ __all__ = [
     "OpenRouterLLM",
     "PolyphemusLLM",
     "RhesisLLM",
+    "TokenUsage",
     "VertexAIEmbedder",
     "VertexAILLM",
     "get_available_embedding_models",
     "get_available_language_models",
+    "get_default_usage_callback",
     "get_embedder",
     "get_embedding_model",
     "get_language_model",
     "get_model",
+    "set_default_usage_callback",
 ]
 
 if HUGGINGFACE_AVAILABLE:

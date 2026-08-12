@@ -26,8 +26,10 @@ from rhesis.backend.app.schemas.endpoint import (
     AutoConfigureRequest,
     AutoConfigureResult,
 )
-from rhesis.backend.app.utils.user_model_utils import get_user_generation_model
-from rhesis.sdk.models.factory import get_model
+from rhesis.backend.app.utils.user_model_utils import (
+    ensure_language_model,
+    get_user_generation_model,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -58,8 +60,7 @@ class AutoConfigureService:
             trim_blocks=True,
             lstrip_blocks=True,
         )
-        model = get_user_generation_model(self.db, self.user)
-        self.llm = get_model(provider=model) if isinstance(model, str) else model
+        self.llm = ensure_language_model(get_user_generation_model(self.db, self.user))
 
     # ------------------------------------------------------------------
     # Public entry point

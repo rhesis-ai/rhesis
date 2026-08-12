@@ -629,9 +629,9 @@ def apply_pending_files(
                 try:
                     import uuid
 
-                    from rhesis.backend.app import crud as _crud
+                    from rhesis.backend.app.crud import file as file_crud
 
-                    _crud.link_file_to_entity(
+                    file_crud.link_file_to_entity(
                         db,
                         file_id=uuid.UUID(file_id),
                         entity_id=span.id,
@@ -667,9 +667,9 @@ def apply_pending_files(
                 entity_type="Trace",
                 position=idx,
             )
-            from rhesis.backend.app import crud as _crud
+            from rhesis.backend.app.crud import file as file_crud
 
-            _crud.create_file(db, file_create, organization_id=organization_id)
+            file_crud.create_file(db, file_create, organization_id=organization_id)
             total += 1
 
         logger.info(

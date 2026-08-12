@@ -6,20 +6,20 @@ from datetime import datetime, timezone
 import pytest
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud
 from rhesis.backend.app.auth.constants import AuthProviderType
 from rhesis.backend.app.auth.providers.base import AuthUser
 from rhesis.backend.app.auth.user_utils import (
     find_or_create_user_from_auth,
     mark_user_joined_if_needed,
 )
+from rhesis.backend.app.crud import user as user_crud
 from rhesis.backend.app.schemas import UserCreate
 
 
 @pytest.mark.unit
 class TestMarkUserJoinedIfNeeded:
     def test_sets_joined_at_when_user_has_org(self, test_db: Session, test_org_id: str):
-        user = crud.create_user(
+        user = user_crud.create_user(
             test_db,
             UserCreate(
                 email=f"joined-{uuid.uuid4().hex[:8]}@example.com",
@@ -34,7 +34,7 @@ class TestMarkUserJoinedIfNeeded:
 
     def test_is_idempotent(self, test_db: Session, test_org_id: str):
         when = datetime(2026, 7, 13, 10, 0, tzinfo=timezone.utc)
-        user = crud.create_user(
+        user = user_crud.create_user(
             test_db,
             UserCreate(
                 email=f"joined-idem-{uuid.uuid4().hex[:8]}@example.com",
@@ -48,7 +48,7 @@ class TestMarkUserJoinedIfNeeded:
         assert user.joined_at == when
 
     def test_no_op_without_organization(self, test_db: Session):
-        user = crud.create_user(
+        user = user_crud.create_user(
             test_db,
             UserCreate(email=f"no-org-{uuid.uuid4().hex[:8]}@example.com"),
         )
@@ -62,7 +62,7 @@ class TestMarkUserJoinedIfNeeded:
 class TestFindOrCreateUserFromAuthJoinedAt:
     def test_stamps_joined_at_for_invited_org_member(self, test_db: Session, test_org_id: str):
         email = f"invite-accept-{uuid.uuid4().hex[:8]}@example.com"
-        invited = crud.create_user(
+        invited = user_crud.create_user(
             test_db,
             UserCreate(email=email, organization_id=uuid.UUID(test_org_id)),
         )

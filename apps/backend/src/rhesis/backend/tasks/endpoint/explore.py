@@ -13,7 +13,7 @@ import logging
 import time
 from typing import Any, Dict, List, Literal, Optional
 
-from rhesis.backend.app import crud
+from rhesis.backend.app.crud import user as user_crud
 from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.utils.user_model_utils import get_user_generation_model
 from rhesis.backend.celery.core import app
@@ -132,7 +132,7 @@ def run_exploration_task(
     )
 
     with get_db_with_tenant_variables(org_id or "", user_id or "", project_id or "") as db:
-        user = crud.get_user(db, user_id=user_id)
+        user = user_crud.get_user(db, user_id=user_id)
         if user is None:
             raise RuntimeError(f"User {user_id} not found")
         model = get_user_generation_model(db, user)

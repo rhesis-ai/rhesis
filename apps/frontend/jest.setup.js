@@ -104,10 +104,12 @@ if (hasWindow) {
     writable: true,
   });
 
-  // Make window.location mockable for tests
-  // Delete first, then redefine to avoid jsdom's built-in location
-  delete window.location;
-  window.location = {
+  // Make window.location mockable for tests. jsdom on newer Node makes
+  // location neither deletable nor redefinable, and both forms throw *during
+  // setup*, taking down every suite before a single test runs. Fall back to
+  // stubbing the navigation methods on the real location object, which is all
+  // any test actually asserts on.
+  const locationStub = {
     href: 'http://localhost:3000',
     origin: 'http://localhost:3000',
     protocol: 'http:',
@@ -123,6 +125,26 @@ if (hasWindow) {
     reload: jest.fn(),
     toString: jest.fn(() => 'http://localhost:3000'),
   };
+
+  try {
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      writable: true,
+      value: locationStub,
+    });
+  } catch {
+    for (const method of ['assign', 'replace', 'reload']) {
+      try {
+        Object.defineProperty(window.location, method, {
+          configurable: true,
+          writable: true,
+          value: locationStub[method],
+        });
+      } catch {
+        // Nothing more we can do; a test needing this must stub it itself.
+      }
+    }
+  }
 }
 
 // Mock localStorage

@@ -99,7 +99,7 @@ class TestFileExecutionIntegration:
         ]
 
         with (
-            patch("rhesis.backend.tasks.execution.executors.results.crud") as mock_crud,
+            patch("rhesis.backend.tasks.execution.executors.results.file_crud") as mock_file_crud,
             patch(
                 "rhesis.backend.app.services.storage_service.StorageService.put_object_bytes",
                 return_value=("attachments/org/TestResult/rid/fid/original.png", "deadbeef"),
@@ -112,8 +112,8 @@ class TestFileExecutionIntegration:
             assert put_kwargs["content"] == generated_content
             assert put_kwargs["content_type"] == "image/png"
 
-            mock_crud.create_file.assert_called_once()
-            file_create = mock_crud.create_file.call_args[0][1]
+            mock_file_crud.create_file.assert_called_once()
+            file_create = mock_file_crud.create_file.call_args[0][1]
             assert file_create.filename == "generated.png"
             assert file_create.content_type == "image/png"
             assert file_create.entity_type == "TestResult"

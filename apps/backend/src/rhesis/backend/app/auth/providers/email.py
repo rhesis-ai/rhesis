@@ -110,10 +110,10 @@ class EmailProvider(AuthProvider):
             )
 
         # Import here to avoid circular imports
-        from rhesis.backend.app import crud
+        from rhesis.backend.app.crud import user as user_crud
 
         # Look up user by email
-        user = crud.get_user_by_email(db, email)
+        user = user_crud.get_user_by_email(db, email)
 
         if not user:
             logger.warning(
@@ -210,7 +210,7 @@ class EmailProvider(AuthProvider):
             )
 
         # Import here to avoid circular imports
-        from rhesis.backend.app import crud
+        from rhesis.backend.app.crud import user as user_crud
         from rhesis.backend.app.schemas import UserCreate
         from rhesis.backend.app.utils.validation import validate_and_normalize_email
 
@@ -227,7 +227,7 @@ class EmailProvider(AuthProvider):
             )
 
         # Check if user already exists
-        existing_user = crud.get_user_by_email(db, normalized_email)
+        existing_user = user_crud.get_user_by_email(db, normalized_email)
         if existing_user:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -246,7 +246,7 @@ class EmailProvider(AuthProvider):
             is_active=True,
         )
 
-        user = crud.create_user(db, user_data)
+        user = user_crud.create_user(db, user_data)
         logger.info(
             "New user registered via email: %s",
             redact_email(normalized_email),

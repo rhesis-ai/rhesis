@@ -326,6 +326,12 @@ async def lifespan(app: FastAPI):
 
     apply_web_context_overrides()
 
+    # Register the process-wide token-usage sink before anything can build a
+    # model, so no LLM call in this process goes unaccounted.
+    from rhesis.backend.app.utils.usage_tracking import install_usage_sink
+
+    install_usage_sink()
+
     # Set anyio threadpool size for async-to-thread offloading.
     # Default is 40; 100 is a reasonable production value for 2 vCPU + concurrency 80.
     try:

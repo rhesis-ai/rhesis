@@ -107,6 +107,84 @@ class TestRhesisOTLPExporter:
         assert result == SpanExportResult.SUCCESS
         assert not mock_post.called
 
+    @staticmethod
+    def _span(name: str, span_id: int = int("b" * 16, 16)) -> MagicMock:
+        """A minimal ReadableSpan stand-in, named so the schema accepts or rejects it."""
+        mock_span = MagicMock(spec=ReadableSpan)
+        mock_span.context = SpanContext(
+            trace_id=int("a" * 32, 16),
+            span_id=span_id,
+            is_remote=False,
+        )
+        mock_span.parent = None
+        mock_span.name = name
+        mock_span.kind = SpanKind.INTERNAL
+        mock_span.start_time = int(datetime.now(timezone.utc).timestamp() * 1e9)
+        mock_span.end_time = int(datetime.now(timezone.utc).timestamp() * 1e9)
+        mock_span.status = Status(StatusCode.OK)
+        mock_span.attributes = {}
+        mock_span.events = []
+        mock_span.links = []
+        mock_span.resource = None
+        return mock_span
+
+    @patch("rhesis.telemetry.exporter.requests.Session.post")
+    def test_export_skips_invalid_spans_and_sends_the_rest(self, mock_post):
+        """One non-conforming span must not cost the batch it travelled in.
+
+        Span names outside the ai.<domain>.<action> / function.* grammar are rejected by the
+        schema. A provider shared with auto-instrumentation contributes exactly that, and
+        validating the whole batch in one pass meant a single "GET" span discarded up to 511
+        valid ones.
+        """
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_post.return_value = mock_response
+
+        exporter = RhesisOTLPExporter(
+            api_key="test-key",
+            base_url="http://localhost:8080",
+            project_id="test-project",
+            environment="test",
+        )
+
+        result = exporter.export(
+            [
+                self._span("GET", span_id=1),
+                self._span("ai.llm.invoke", span_id=2),
+                self._span("ai.tool.invoke", span_id=3),
+            ]
+        )
+
+        assert result == SpanExportResult.SUCCESS
+        assert mock_post.called
+        sent = [span["span_name"] for span in mock_post.call_args.kwargs["json"]["spans"]]
+        assert sent == ["ai.llm.invoke", "ai.tool.invoke"]
+
+    @patch("rhesis.telemetry.exporter.requests.Session.post")
+    def test_export_succeeds_when_every_span_is_invalid(self, mock_post):
+        """A wholly foreign batch reports success without sending anything.
+
+        OTELTraceBatch requires at least one span, so an all-skipped batch has no valid
+        representation. Building one anyway raised, which undid the per-span validation for
+        precisely the case it was meant to cover: a provider carrying only another library's
+        spans. Nothing here is retryable, so FAILURE would only drive the consecutive-failure
+        alarm on spans this exporter was never meant to carry.
+        """
+        exporter = RhesisOTLPExporter(
+            api_key="test-key",
+            base_url="http://localhost:8080",
+            project_id="test-project",
+            environment="test",
+        )
+
+        result = exporter.export(
+            [self._span("GET", span_id=1), self._span("POST", span_id=2)]
+        )
+
+        assert result == SpanExportResult.SUCCESS
+        assert not mock_post.called
+
     @patch("rhesis.telemetry.exporter.requests.Session.post")
     def test_export_timeout(self, mock_post):
         """Test export handles timeout."""
@@ -149,7 +227,12 @@ class TestRhesisOTLPExporter:
 
     @patch("rhesis.telemetry.exporter.requests.Session.post")
     def test_export_validation_error(self, mock_post):
-        """Test export handles validation errors (422)."""
+        """Test export handles backend validation errors (422).
+
+        The span is deliberately well-formed: client-side validation now drops names outside
+        the schema's grammar before any request is made, so a locally invalid span would never
+        reach the HTTP layer this test is exercising.
+        """
         from requests.exceptions import HTTPError
 
         mock_response = MagicMock()
@@ -176,7 +259,7 @@ class TestRhesisOTLPExporter:
         mock_span = MagicMock(spec=ReadableSpan)
         mock_span.context = span_context
         mock_span.parent = None
-        mock_span.name = "invalid.span.name"
+        mock_span.name = "ai.llm.invoke"
         mock_span.kind = SpanKind.INTERNAL
         mock_span.start_time = int(datetime.now(timezone.utc).timestamp() * 1e9)
         mock_span.end_time = int(datetime.now(timezone.utc).timestamp() * 1e9)

@@ -32,6 +32,8 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.constants import EntityType
+from rhesis.backend.app.crud import tag as tag_crud
+from rhesis.backend.app.crud import user as user_crud
 from rhesis.backend.app.crud.comment import add_emoji_reaction, remove_emoji_reaction
 from tests.backend.routes.fixtures.data_factories import (
     CommentDataFactory,
@@ -98,7 +100,7 @@ class TestCRUDTransactionManagement:
         update_data = schemas.UserUpdate(name=new_name)
 
         # Update user
-        result = crud.update_user(test_db, user_id, update_data)
+        result = user_crud.update_user(test_db, user_id, update_data)
 
         # Verify user was updated and persisted
         assert result is not None
@@ -122,7 +124,7 @@ class TestCRUDTransactionManagement:
         user_create = schemas.UserCreate(**user_data)
 
         # Create user
-        result = crud.create_user(test_db, user_create)
+        result = user_crud.create_user(test_db, user_create)
 
         # Verify user was created and persisted
         assert result is not None
@@ -160,7 +162,7 @@ class TestCRUDTransactionManagement:
         entity_id = behavior.id
 
         # Assign tag
-        result = crud.assign_tag(test_db, tag_create, entity_id, entity_type, test_org_id)
+        result = tag_crud.assign_tag(test_db, tag_create, entity_id, entity_type, test_org_id)
 
         # Verify tag was created and persisted
         assert result is not None
@@ -203,7 +205,7 @@ class TestCRUDTransactionManagement:
         entity_type = EntityType.BEHAVIOR
 
         # Assign tag
-        created_tag = crud.assign_tag(test_db, tag_create, entity_id, entity_type, test_org_id)
+        created_tag = tag_crud.assign_tag(test_db, tag_create, entity_id, entity_type, test_org_id)
         tag_id = created_tag.id
 
         # Verify tagged item exists
@@ -215,7 +217,7 @@ class TestCRUDTransactionManagement:
         assert initial_tagged_items == 1
 
         # Remove tag
-        result = crud.remove_tag(test_db, tag_id, entity_id, entity_type, test_org_id)
+        result = tag_crud.remove_tag(test_db, tag_id, entity_id, entity_type, test_org_id)
 
         # Verify tag was removed (committed)
         assert result is True

@@ -5,8 +5,9 @@ from typing import List
 from fastapi import Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app import models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
+from rhesis.backend.app.crud import model as model_crud
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
@@ -47,7 +48,9 @@ def create_model(
 ):
     """Create a new model."""
     organization_id, user_id = tenant_context
-    return crud.create_model(db=db, model=model, organization_id=organization_id, user_id=user_id)
+    return model_crud.create_model(
+        db=db, model=model, organization_id=organization_id, user_id=user_id
+    )
 
 
 @router.post("/test-connection", response_model=TestModelConnectionResponse)
@@ -82,7 +85,7 @@ async def test_model_connection_endpoint(
     # When model_id is set, the API key is taken from the backend-stored model credentials.
     if request.model_id:
         organization_id, user_id = tenant_context
-        db_model = crud.get_model(
+        db_model = model_crud.get_model(
             db, model_id=request.model_id, organization_id=organization_id, user_id=user_id
         )
         if db_model is None:
@@ -120,7 +123,7 @@ def read_models(
 ):
     """Get all models with their related objects"""
     organization_id, user_id = tenant_context
-    db_models = crud.get_models(
+    db_models = model_crud.get_models(
         db=db,
         skip=skip,
         limit=limit,
@@ -164,7 +167,7 @@ def update_model(
     """Update an existing model."""
     organization_id, user_id = tenant_context
     try:
-        db_model = crud.update_model(
+        db_model = model_crud.update_model(
             db, model_id=model_id, model=model, organization_id=organization_id, user_id=user_id
         )
         if db_model is None:
@@ -186,7 +189,7 @@ def delete_model(
     """Delete a model (protected system models cannot be deleted)"""
     organization_id, user_id = tenant_context
     try:
-        db_model = crud.delete_model(
+        db_model = model_crud.delete_model(
             db, model_id=model_id, organization_id=organization_id, user_id=user_id
         )
         if db_model is None:
@@ -217,7 +220,7 @@ async def test_model_connection(
     logger.info(f"[MODEL_TEST] Testing connection for model_id={model_id}")
 
     organization_id, user_id = tenant_context
-    db_model = crud.get_model(db, model_id=model_id, organization_id=organization_id)
+    db_model = model_crud.get_model(db, model_id=model_id, organization_id=organization_id)
     if db_model is None:
         logger.warning(f"[MODEL_TEST] Model not found: model_id={model_id}")
         raise HTTPException(status_code=404, detail="Model not found")

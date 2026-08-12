@@ -8,7 +8,8 @@ from typing import Optional
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
-from rhesis.backend.app.crud import get_status, get_type_lookup, get_user
+from rhesis.backend.app.crud import get_status, get_type_lookup
+from rhesis.backend.app.crud import user as user_crud
 from rhesis.backend.notifications import EmailTemplate, email_service
 
 logger = logging.getLogger(__name__)
@@ -30,7 +31,7 @@ def send_task_assignment_notification(
     """
     try:
         # Get assignee details
-        assignee = get_user(db, task.assignee_id) if task.assignee_id else None
+        assignee = user_crud.get_user(db, task.assignee_id) if task.assignee_id else None
 
         if not assignee or not assignee.email:
             logger.warning(
@@ -39,7 +40,7 @@ def send_task_assignment_notification(
             return False
 
         # Get creator details
-        creator = get_user(db, task.user_id) if task.user_id else None
+        creator = user_crud.get_user(db, task.user_id) if task.user_id else None
 
         # Get status details
         status = get_status(db, task.status_id) if task.status_id else None

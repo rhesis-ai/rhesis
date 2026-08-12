@@ -323,8 +323,8 @@ def _store_trace_files(
     For legacy inline-base64 dicts (playground path): uploads to storage and
     creates the File row (backward compat).
     """
-    from rhesis.backend.app import crud as _crud
     from rhesis.backend.app import schemas
+    from rhesis.backend.app.crud import file as file_crud
 
     for idx, file_data in enumerate(files):
         if not isinstance(file_data, dict):
@@ -336,7 +336,7 @@ def _store_trace_files(
             try:
                 import uuid as _uuid
 
-                _crud.link_file_to_entity(
+                file_crud.link_file_to_entity(
                     db,
                     file_id=_uuid.UUID(file_id),
                     entity_id=trace_id,
@@ -365,6 +365,6 @@ def _store_trace_files(
             entity_type="Trace",
             position=idx,
         )
-        _crud.create_file(db, file_create, organization_id=organization_id)
+        file_crud.create_file(db, file_create, organization_id=organization_id)
 
     logger.debug(f"Processed {len(files)} input file(s) for trace_id={trace_id}")

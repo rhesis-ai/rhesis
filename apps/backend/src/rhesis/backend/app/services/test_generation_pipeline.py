@@ -12,9 +12,10 @@ import anyio
 import jinja2
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud
 from rhesis.backend.app.config.settings import get_model_settings
 from rhesis.backend.app.constants import TestSetType
+from rhesis.backend.app.crud import behavior as behavior_crud
+from rhesis.backend.app.crud import model as model_crud
 from rhesis.backend.app.crud.project import get_project
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.services import (
@@ -30,10 +31,9 @@ from rhesis.backend.app.services.generation import (
 from rhesis.backend.app.services.streaming_utils import IncrementalConfigParser, ndjson
 from rhesis.backend.app.utils.model_errors import ModelConfigurationError
 from rhesis.backend.app.utils.user_model_utils import (
+    ensure_language_model,
     get_user_generation_model,
-    resolve_default_hosted_model,
 )
-from rhesis.sdk.models.factory import get_model
 from rhesis.sdk.synthesizers.config_synthesizer import (
     GenerationConfig as SDKGenerationConfig,
 )
@@ -51,7 +51,7 @@ def _resolve_config_llm(db: Session, user: User):
     model_id = gen_settings.model_id
     use_fast_default = False
     if model_id:
-        row = crud.get_model(
+        row = model_crud.get_model(
             db=db,
             model_id=str(model_id),
             organization_id=str(user.organization_id),
@@ -61,28 +61,19 @@ def _resolve_config_llm(db: Session, user: User):
     if use_fast_default:
         logger.info("User generation model is Polyphemus; using fast default for pipeline config")
         try:
-            resolved = resolve_default_hosted_model(
-                get_model_settings().generation_model, str(user.organization_id)
-            )
-            if isinstance(resolved, str):
-                # Non-hosted default string (e.g. an ops override to a
-                # third-party provider) -- construct it the same way the
-                # pre-existing fallback below does.
-                return get_model(resolved)
-            return resolved
+            # ensure_language_model, not resolve_default_hosted_model: see the
+            # note on the identical branch in test_config_generator.py.
+            return ensure_language_model(get_model_settings().generation_model)
         except ValueError:
             pass
 
-    user_model = get_user_generation_model(db, user)
-    if isinstance(user_model, str):
-        try:
-            return get_model(user_model, model_type="language")
-        except ValueError as e:
-            raise ModelConfigurationError(
-                f"User model initialization failed: {e}",
-                original_error=e,
-            ) from e
-    return user_model
+    try:
+        return ensure_language_model(get_user_generation_model(db, user))
+    except ValueError as e:
+        raise ModelConfigurationError(
+            f"User model initialization failed: {e}",
+            original_error=e,
+        ) from e
 
 
 def _fetch_db_context(
@@ -93,7 +84,9 @@ def _fetch_db_context(
     previous_messages: Optional[list] = None,
 ) -> Dict[str, Any]:
     """Fetch all DB data needed for config prompts (called once upfront)."""
-    behaviors = crud.get_behaviors(db=db, organization_id=organization_id, skip=0, limit=100)
+    behaviors = behavior_crud.get_behaviors(
+        db=db, organization_id=organization_id, skip=0, limit=100
+    )
     behavior_list = [{"name": b.name, "description": b.description or ""} for b in behaviors]
 
     project_name = None

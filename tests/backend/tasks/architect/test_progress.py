@@ -196,10 +196,10 @@ class TestExplorationEmitsProgress:
     @patch("rhesis.backend.tasks.endpoint.explore.make_target_factory")
     @patch("rhesis.backend.tasks.endpoint.explore.get_db_with_tenant_variables")
     @patch("rhesis.backend.tasks.endpoint.explore.get_user_generation_model")
-    @patch("rhesis.backend.tasks.endpoint.explore.crud")
+    @patch("rhesis.backend.tasks.endpoint.explore.user_crud")
     def test_publishes_started_progress_and_completed(
         self,
-        mock_crud,
+        mock_user_crud,
         mock_get_model,
         mock_db_ctx,
         mock_make_factory,
@@ -209,7 +209,7 @@ class TestExplorationEmitsProgress:
     ):
         from rhesis.backend.tasks.endpoint.explore import run_exploration_task
 
-        mock_crud.get_user.return_value = MagicMock()
+        mock_user_crud.get_user.return_value = MagicMock()
         mock_get_model.return_value = "vertex_ai/gemini-2.0-flash"
         mock_db_ctx.return_value.__enter__ = MagicMock(return_value=MagicMock())
         mock_db_ctx.return_value.__exit__ = MagicMock(return_value=False)
@@ -248,10 +248,10 @@ class TestExplorationEmitsProgress:
     @patch("rhesis.backend.tasks.endpoint.explore.make_target_factory")
     @patch("rhesis.backend.tasks.endpoint.explore.get_db_with_tenant_variables")
     @patch("rhesis.backend.tasks.endpoint.explore.get_user_generation_model")
-    @patch("rhesis.backend.tasks.endpoint.explore.crud")
+    @patch("rhesis.backend.tasks.endpoint.explore.user_crud")
     def test_skips_emission_when_task_id_is_empty(
         self,
-        mock_crud,
+        mock_user_crud,
         mock_get_model,
         mock_db_ctx,
         mock_make_factory,
@@ -261,7 +261,7 @@ class TestExplorationEmitsProgress:
     ):
         from rhesis.backend.tasks.endpoint.explore import run_exploration_task
 
-        mock_crud.get_user.return_value = MagicMock()
+        mock_user_crud.get_user.return_value = MagicMock()
         mock_get_model.return_value = "vertex_ai/gemini-2.0-flash"
         mock_db_ctx.return_value.__enter__ = MagicMock(return_value=MagicMock())
         mock_db_ctx.return_value.__exit__ = MagicMock(return_value=False)
@@ -289,10 +289,10 @@ class TestExplorationEmitsProgress:
     @patch("rhesis.backend.tasks.endpoint.explore.make_target_factory")
     @patch("rhesis.backend.tasks.endpoint.explore.get_db_with_tenant_variables")
     @patch("rhesis.backend.tasks.endpoint.explore.get_user_generation_model")
-    @patch("rhesis.backend.tasks.endpoint.explore.crud")
+    @patch("rhesis.backend.tasks.endpoint.explore.user_crud")
     def test_emits_failed_event_when_tool_reports_failure(
         self,
-        mock_crud,
+        mock_user_crud,
         mock_get_model,
         mock_db_ctx,
         mock_make_factory,
@@ -302,7 +302,7 @@ class TestExplorationEmitsProgress:
     ):
         from rhesis.backend.tasks.endpoint.explore import run_exploration_task
 
-        mock_crud.get_user.return_value = MagicMock()
+        mock_user_crud.get_user.return_value = MagicMock()
         mock_get_model.return_value = "vertex_ai/gemini-2.0-flash"
         mock_db_ctx.return_value.__enter__ = MagicMock(return_value=MagicMock())
         mock_db_ctx.return_value.__exit__ = MagicMock(return_value=False)
@@ -423,10 +423,10 @@ class TestExplorationProjectIdFlow:
     @patch("rhesis.backend.tasks.endpoint.explore.make_target_factory")
     @patch("rhesis.backend.tasks.endpoint.explore.get_db_with_tenant_variables")
     @patch("rhesis.backend.tasks.endpoint.explore.get_user_generation_model")
-    @patch("rhesis.backend.tasks.endpoint.explore.crud")
+    @patch("rhesis.backend.tasks.endpoint.explore.user_crud")
     def test_passes_project_id_to_target_factory(
         self,
-        mock_crud,
+        mock_user_crud,
         mock_get_model,
         mock_db_ctx,
         mock_make_factory,
@@ -436,7 +436,7 @@ class TestExplorationProjectIdFlow:
     ):
         from rhesis.backend.tasks.endpoint.explore import run_exploration_task
 
-        mock_crud.get_user.return_value = MagicMock()
+        mock_user_crud.get_user.return_value = MagicMock()
         mock_get_model.return_value = "vertex_ai/gemini-2.0-flash"
         mock_db_ctx.return_value.__enter__ = MagicMock(return_value=MagicMock())
         mock_db_ctx.return_value.__exit__ = MagicMock(return_value=False)

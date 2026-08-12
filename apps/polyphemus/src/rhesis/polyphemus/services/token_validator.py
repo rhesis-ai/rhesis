@@ -7,7 +7,7 @@ import jwt
 from fastapi import HTTPException, Request, status
 from jwt import PyJWTError as JWTError
 
-from rhesis.backend.app.crud import get_user_by_id
+from rhesis.backend.app.crud import user as user_crud
 from rhesis.backend.app.database import get_db
 from rhesis.backend.app.models.user import User
 
@@ -71,7 +71,7 @@ def validate_delegation_token(request: Request, token: str) -> User:
 
         # Fetch from database
         with get_db() as db:
-            user = get_user_by_id(db, user_id)
+            user = user_crud.get_user_by_id(db, user_id)
 
             if not user or not user.is_active or not user.is_verified:
                 raise HTTPException(

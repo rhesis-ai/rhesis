@@ -11,16 +11,16 @@ from typing import Optional
 
 import jinja2
 
-from rhesis.backend.app import crud
 from rhesis.backend.app.config.settings import get_model_settings
+from rhesis.backend.app.crud import behavior as behavior_crud
+from rhesis.backend.app.crud import model as model_crud
 from rhesis.backend.app.crud.project import get_project
 from rhesis.backend.app.schemas.services import TestConfigResponse
 from rhesis.backend.app.utils.model_errors import ModelConfigurationError
 from rhesis.backend.app.utils.user_model_utils import (
+    ensure_language_model,
     get_user_generation_model,
-    resolve_default_hosted_model,
 )
-from rhesis.sdk.models.factory import get_model
 
 MAX_SAMPLE_SIZE = 6
 logger = logging.getLogger(__name__)
@@ -59,7 +59,7 @@ class TestConfigGeneratorService:
         model_id = gen_settings.model_id
         use_fast_default = False
         if model_id:
-            row = crud.get_model(
+            row = model_crud.get_model(
                 db=self.db,
                 model_id=str(model_id),
                 organization_id=str(self.user.organization_id),
@@ -71,42 +71,33 @@ class TestConfigGeneratorService:
                 "User generation model is Polyphemus; using fast system default for test config"
             )
             try:
-                resolved = resolve_default_hosted_model(
-                    get_model_settings().generation_model, str(self.user.organization_id)
-                )
-                if isinstance(resolved, str):
-                    # Non-hosted default string (e.g. an ops override to a
-                    # third-party provider) -- construct it the same way the
-                    # pre-existing fallback below does.
-                    return get_model(resolved)
-                return resolved
+                # ensure_language_model, not resolve_default_hosted_model:
+                # this caller *wants* the raising variant, so a system default
+                # that cannot be built falls through to the user's model
+                # below. Wrapping resolve's non-raising fallback in ensure
+                # just built the same model twice on the failure path.
+                return ensure_language_model(get_model_settings().generation_model)
             except ValueError as e:
                 logger.warning(
                     "Fast system default unavailable for test config (Polyphemus user); "
                     "falling back to Polyphemus: %s",
                     e,
                 )
-                user_model = get_user_generation_model(self.db, self.user)
-                if isinstance(user_model, str):
-                    try:
-                        return get_model(user_model, model_type="language")
-                    except ValueError as inner:
-                        raise ModelConfigurationError(
-                            f"User model initialization failed: {inner}",
-                            original_error=inner,
-                        ) from inner
-                return user_model
+                try:
+                    return ensure_language_model(get_user_generation_model(self.db, self.user))
+                except ValueError as inner:
+                    raise ModelConfigurationError(
+                        f"User model initialization failed: {inner}",
+                        original_error=inner,
+                    ) from inner
 
-        user_model = get_user_generation_model(self.db, self.user)
-        if isinstance(user_model, str):
-            try:
-                return get_model(user_model, model_type="language")
-            except ValueError as e:
-                raise ModelConfigurationError(
-                    f"User model initialization failed: {e}",
-                    original_error=e,
-                ) from e
-        return user_model
+        try:
+            return ensure_language_model(get_user_generation_model(self.db, self.user))
+        except ValueError as e:
+            raise ModelConfigurationError(
+                f"User model initialization failed: {e}",
+                original_error=e,
+            ) from e
 
     async def generate_config(
         self,
@@ -144,7 +135,7 @@ class TestConfigGeneratorService:
             raise ValueError("Database session and organization_id are required")
 
         # Fetch behaviors from database (limited to max 100 by validation)
-        behaviors = crud.get_behaviors(
+        behaviors = behavior_crud.get_behaviors(
             db=self.db,
             organization_id=organization_id,
             skip=0,
