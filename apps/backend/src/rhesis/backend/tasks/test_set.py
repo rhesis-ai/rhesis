@@ -754,6 +754,9 @@ def generate_and_save_owasp_test_set(
             },
         )
 
+        # tests_generated was missing here (unlike the sibling call above),
+        # which raised on every call and caused autoretry_for to retry the
+        # whole task -- see git history for the duplicate-test-set incident.
         result = _build_task_result(
             self,
             db_test_set,
@@ -763,6 +766,7 @@ def generate_and_save_owasp_test_set(
             batch_size,
             org_id,
             user_id,
+            tests_generated=len(test_set.tests),
         )
 
         self.log_with_context(
