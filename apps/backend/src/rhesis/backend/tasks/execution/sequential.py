@@ -56,8 +56,8 @@ def execute_tests_sequentially(
     execution_model = None
     evaluation_model = None
     try:
-        from rhesis.backend.app import crud
         from rhesis.backend.app.config.settings import get_model_settings
+        from rhesis.backend.app.crud import user as user_crud
         from rhesis.backend.app.utils.user_model_utils import (
             get_evaluation_model_with_override,
             get_execution_model_with_override,
@@ -71,7 +71,7 @@ def execute_tests_sequentially(
         seq_user_id = str(test_config.user_id) if test_config.user_id else None
 
         if seq_user_id:
-            user = crud.get_user_by_id(session, seq_user_id)
+            user = user_crud.get_user_by_id(session, seq_user_id)
             if user:
                 execution_model = get_execution_model_with_override(
                     session, user, model_id=override_execution_model_id

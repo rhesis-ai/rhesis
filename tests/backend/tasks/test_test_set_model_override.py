@@ -31,7 +31,7 @@ class TestResolveGenerationModel:
     """Tests for _resolve_generation_model."""
 
     @patch("rhesis.backend.tasks.test_set.get_generation_model_with_override")
-    @patch("rhesis.backend.app.crud.get_user")
+    @patch("rhesis.backend.app.crud.user.get_user")
     @patch("rhesis.backend.tasks.test_set.get_db_with_tenant_variables")
     def test_resolves_user_default_when_no_model_id(
         self, mock_get_db, mock_get_user, mock_override
@@ -51,7 +51,7 @@ class TestResolveGenerationModel:
         assert result == "user-default-model"
 
     @patch("rhesis.backend.tasks.test_set.get_generation_model_with_override")
-    @patch("rhesis.backend.app.crud.get_user")
+    @patch("rhesis.backend.app.crud.user.get_user")
     @patch("rhesis.backend.tasks.test_set.get_db_with_tenant_variables")
     def test_passes_through_override_model_id(
         self, mock_get_db, mock_get_user, mock_override
@@ -75,7 +75,7 @@ class TestResolveGenerationModel:
         assert result == "override-model"
 
     @patch("rhesis.backend.tasks.test_set.get_generation_model_with_override")
-    @patch("rhesis.backend.app.crud.get_user")
+    @patch("rhesis.backend.app.crud.user.get_user")
     @patch("rhesis.backend.tasks.test_set.get_db_with_tenant_variables")
     def test_passes_project_id_to_session(
         self, mock_get_db, mock_get_user, mock_override
@@ -92,7 +92,7 @@ class TestResolveGenerationModel:
 
         mock_get_db.assert_called_once_with("org-1", "user-1", "project-1")
 
-    @patch("rhesis.backend.app.crud.get_user")
+    @patch("rhesis.backend.app.crud.user.get_user")
     @patch("rhesis.backend.tasks.test_set.get_db_with_tenant_variables")
     def test_raises_when_user_not_found(self, mock_get_db, mock_get_user):
         from rhesis.backend.tasks.test_set import _resolve_generation_model

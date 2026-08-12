@@ -179,7 +179,7 @@ class TestFindOrCreateSSOUser:
             find_or_create_sso_user(db, auth_user, org, config)
         assert exc_info.value.reason_code == "auto_provision_disabled"
 
-    @patch("rhesis.backend.app.crud.create_user")
+    @patch("rhesis.backend.app.crud.user.create_user")
     def test_auto_provision_creates_user(self, mock_create_user):
         db = self._mock_db(query_results=[None, None])
         org = _organization()

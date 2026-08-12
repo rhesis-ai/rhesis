@@ -96,7 +96,7 @@ def prefetch_execution_context(
     trace_id: Optional[str] = None,
 ) -> ExecutionContext:
     """Pre-fetch all shared data in a single session before async execution."""
-    from rhesis.backend.app import crud
+    from rhesis.backend.app.crud import user as user_crud
     from rhesis.backend.app.database import bind_scope_to_session
     from rhesis.backend.app.models.behavior import Behavior
     from rhesis.backend.app.services.test_set import get_test_set
@@ -146,7 +146,7 @@ def prefetch_execution_context(
         override_evaluation_model_id = attrs.get("evaluation_model_id")
 
         if user_id:
-            user = crud.get_user_by_id(session, user_id)
+            user = user_crud.get_user_by_id(session, user_id)
             if user:
                 execution_model = get_execution_model_with_override(
                     session, user, model_id=override_execution_model_id

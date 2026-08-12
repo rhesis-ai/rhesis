@@ -33,6 +33,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.constants import EntityType
 from rhesis.backend.app.crud import tag as tag_crud
+from rhesis.backend.app.crud import user as user_crud
 from rhesis.backend.app.crud.comment import add_emoji_reaction, remove_emoji_reaction
 from tests.backend.routes.fixtures.data_factories import (
     CommentDataFactory,
@@ -99,7 +100,7 @@ class TestCRUDTransactionManagement:
         update_data = schemas.UserUpdate(name=new_name)
 
         # Update user
-        result = crud.update_user(test_db, user_id, update_data)
+        result = user_crud.update_user(test_db, user_id, update_data)
 
         # Verify user was updated and persisted
         assert result is not None
@@ -123,7 +124,7 @@ class TestCRUDTransactionManagement:
         user_create = schemas.UserCreate(**user_data)
 
         # Create user
-        result = crud.create_user(test_db, user_create)
+        result = user_crud.create_user(test_db, user_create)
 
         # Verify user was created and persisted
         assert result is not None

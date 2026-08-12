@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field, create_model
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
+from rhesis.backend.app.crud import user as user_crud
 from rhesis.backend.app.schemas.explorer import GenerateSuggestionsResponse, SuggestedTest
 from rhesis.backend.app.services.explorer.evaluation import (
     EVAL_MAX_CONCURRENCY,
@@ -63,7 +64,7 @@ def _get_generation_model(db: Session, user_id: str):
     )
 
     try:
-        user = crud.get_user_by_id(db, user_id)
+        user = user_crud.get_user_by_id(db, user_id)
         if user:
             return get_user_generation_model(db, user)
     except Exception as e:

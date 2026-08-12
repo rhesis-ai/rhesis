@@ -318,11 +318,11 @@ class BaseTask(Task):
             Tuple of (email, name) or (None, None) if user not found
         """
         try:
-            from rhesis.backend.app import crud
+            from rhesis.backend.app.crud import user as user_crud
 
             with self.get_db_session() as db:
                 # Session variables are automatically set by get_db_session()
-                user = crud.get_user(db, user_id, organization_id=organization_id)
+                user = user_crud.get_user(db, user_id, organization_id=organization_id)
                 if user:
                     display_name = (
                         user.display_name

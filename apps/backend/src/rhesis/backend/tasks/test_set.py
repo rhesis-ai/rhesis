@@ -3,6 +3,7 @@ from typing import Any, List, Optional, Union
 
 from rhesis.backend.app import crud
 from rhesis.backend.app.constants import TestSetType
+from rhesis.backend.app.crud import user as user_crud
 from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.app.quota import QuotaResource
@@ -199,7 +200,7 @@ def _resolve_generation_model(
     are visible to the ORM auto-filter.
     """
     with get_db_with_tenant_variables(org_id, user_id, project_id) as db:
-        user = crud.get_user(db, user_id=user_id)
+        user = user_crud.get_user(db, user_id=user_id)
         if not user:
             raise ValueError(f"User not found: {user_id}")
 

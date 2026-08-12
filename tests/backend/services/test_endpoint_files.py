@@ -175,7 +175,7 @@ class TestEnrichFilesWithExtraction:
         mock_user = MagicMock()
 
         with (
-            patch("rhesis.backend.app.crud.get_user_by_id", return_value=mock_user),
+            patch("rhesis.backend.app.crud.user.get_user_by_id", return_value=mock_user),
             patch(
                 "rhesis.backend.app.utils.user_model_utils.get_user_generation_model",
                 return_value="openai/gpt-4o",
