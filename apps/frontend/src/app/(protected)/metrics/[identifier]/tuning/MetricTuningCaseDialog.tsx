@@ -5,6 +5,7 @@ import {
   Box,
   FormControl,
   FormControlLabel,
+  FormHelperText,
   FormLabel,
   MenuItem,
   Radio,
@@ -39,13 +40,6 @@ export interface MetricTuningCaseDialogProps {
   onSubmit: (data: MetricTuningCaseCreate) => Promise<void>;
 }
 
-/** The verdict a fresh form starts on, so the field is never empty. */
-function defaultVerdict(scoreType: ScoreType, categories?: string[]): string {
-  if (scoreType === 'categorical') return categories?.[0] ?? '';
-  if (scoreType === 'numeric') return '';
-  return 'fail';
-}
-
 /**
  * Add or edit one tuning case.
  *
@@ -53,6 +47,9 @@ function defaultVerdict(scoreType: ScoreType, categories?: string[]): string {
  * being free text: the backend validates the verdict against the metric anyway,
  * and for a field with a handful of valid values, letting someone type
  * "passed" and rejecting it after submit is a bad trade.
+ *
+ * Nothing is preselected on a fresh form: defaulting the verdict would label a
+ * case with a judgement its author never made.
  */
 export default function MetricTuningCaseDialog({
   open,
@@ -79,19 +76,20 @@ export default function MetricTuningCaseDialog({
     setInput(tuningCase?.input ?? '');
     setOutput(tuningCase?.output ?? '');
     setExpectedOutput(tuningCase?.expected_output ?? '');
-    setExpected(tuningCase?.expected ?? defaultVerdict(scoreType, categories));
+    setExpected(tuningCase?.expected ?? '');
     setRationale(tuningCase?.rationale ?? '');
     setError('');
-  }, [open, tuningCase, scoreType, categories]);
+    // Not scoreType/categories: the form no longer derives anything from them, and
+    // their identity changes on every refetch, which would reset a form mid-edit.
+  }, [open, tuningCase]);
 
-  const complete =
-    input.trim().length > 0 &&
-    output.trim().length > 0 &&
-    expected.trim().length > 0;
+  // No verdict check: these two are what the metric is run over, so a case
+  // without them cannot be scored at all.
+  const complete = input.trim().length > 0 && output.trim().length > 0;
 
   const handleSave = async () => {
     if (!complete) {
-      setError('Input, output and an expected verdict are all required.');
+      setError('An input and the answer being judged are both required.');
       return;
     }
     setSaving(true);
@@ -101,6 +99,9 @@ export default function MetricTuningCaseDialog({
         input: input.trim(),
         output: output.trim(),
         expected_output: expectedOutput.trim() || null,
+        // Sent even when blank, unlike the other optional fields: on an update a
+        // missing verdict means "leave the stored one alone", and this form
+        // submits every field, so an emptied verdict must clear it.
         expected: expected.trim(),
         rationale: rationale.trim() || null,
       });
@@ -121,13 +122,12 @@ export default function MetricTuningCaseDialog({
           type="number"
           value={expected}
           onChange={e => setExpected(e.target.value)}
-          required
           fullWidth
           inputProps={{ min: minScore, max: maxScore, step: 'any' }}
           helperText={
             bounded
-              ? `The score you expect, between ${minScore} and ${maxScore}.`
-              : 'The score you expect this metric to return.'
+              ? `Optional. The score you expect, between ${minScore} and ${maxScore}.`
+              : 'Optional. The score you expect this metric to return.'
           }
         />
       );
@@ -141,11 +141,10 @@ export default function MetricTuningCaseDialog({
           label="Expected verdict"
           value={expected}
           onChange={e => setExpected(e.target.value)}
-          required
           fullWidth
           helperText={
             options.length
-              ? "The category you expect. Only this metric's own categories are valid."
+              ? "Optional. The category you expect — only this metric's own categories are valid."
               : 'This metric has no categories defined yet.'
           }
         >
@@ -175,6 +174,9 @@ export default function MetricTuningCaseDialog({
             />
           ))}
         </RadioGroup>
+        <FormHelperText>
+          Optional. Leave it and judge the case later.
+        </FormHelperText>
       </FormControl>
     );
   };
@@ -193,7 +195,8 @@ export default function MetricTuningCaseDialog({
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
         <Typography variant="body2" color="text.secondary">
           A case is an example the metric has to get right: what went in, what
-          came back, and the verdict you expect from the metric.
+          came back, and the verdict you expect from the metric. Write the case
+          down now and give it a verdict whenever you sit down to judge it.
         </Typography>
 
         <TextField
