@@ -22,7 +22,7 @@ remove_metrics_from_organizations from:
     rhesis.backend.alembic.utils.metric_sync
 
 Revision ID: 38ed899b9f41
-Revises: a1927b321511
+Revises: 82881df987af
 Create Date: 2026-07-02
 """
 
@@ -43,7 +43,7 @@ from rhesis.backend.alembic.utils.metric_sync import (
 
 # revision identifiers, used by Alembic.
 revision: str = "38ed899b9f41"
-down_revision: Union[str, None] = "a1927b321511"
+down_revision: Union[str, None] = "82881df987af"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
