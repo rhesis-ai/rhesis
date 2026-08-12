@@ -17,9 +17,9 @@ Create Date: 2026-07-16
 from typing import Sequence, Union
 
 from alembic import op
-from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from rhesis.backend.alembic.utils.metric_sync import _list_organizations_with_owner
 from rhesis.backend.app import models
 
 # revision identifiers, used by Alembic.
@@ -42,14 +42,8 @@ def upgrade() -> None:
     bind = op.get_bind()
     session = Session(bind=bind)
     try:
-        orgs = session.execute(
-            text(
-                "SELECT id, COALESCE(owner_id, user_id) FROM organization WHERE deleted_at IS NULL"
-            )
-        ).fetchall()
+        orgs = _list_organizations_with_owner(session)
         for org_id, user_id in orgs:
-            if not user_id:
-                continue
             tag = (
                 session.query(models.Tag).filter_by(name=_TAG_NAME, organization_id=org_id).first()
             )
