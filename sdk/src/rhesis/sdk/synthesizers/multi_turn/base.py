@@ -9,7 +9,7 @@ from rhesis.sdk.entities.test_set import TestSet
 from rhesis.sdk.enums import TestType
 from rhesis.sdk.models import get_model
 from rhesis.sdk.models.base import BaseLLM
-from rhesis.sdk.synthesizers.utils import create_test_set
+from rhesis.sdk.synthesizers.utils import create_test_set, stamp_multi_turn
 
 
 class GenerationConfig(BaseModel):
@@ -164,9 +164,4 @@ class MultiTurnSynthesizer:
             generation_prompt=self.config.generation_prompt,
         )
 
-        test_set.test_set_type = TestType.MULTI_TURN
-
-        if test_set.name:
-            test_set.name = f"{test_set.name} (Multi-Turn)"
-
-        return test_set
+        return stamp_multi_turn(test_set)
