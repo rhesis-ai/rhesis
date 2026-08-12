@@ -49,6 +49,21 @@ jest.mock('../ActiveProjectContext', () => ({
   useActiveProject: () => ({ activeProject: mockActiveProject }),
 }));
 
+// Mutable so tests can simulate being on the section's list page vs. a
+// nested detail sub-route (e.g. '/test-sets' vs '/test-sets/abc123').
+let mockPathname = '/';
+
+jest.mock('next/navigation', () => ({
+  usePathname: () => mockPathname,
+}));
+
+const mockInvalidateQueries = jest.fn();
+
+jest.mock('@tanstack/react-query', () => ({
+  ...jest.requireActual('@tanstack/react-query'),
+  useQueryClient: () => ({ invalidateQueries: mockInvalidateQueries }),
+}));
+
 jest.mock('@/utils/api-client/client-factory', () => ({
   ApiClientFactory: jest.fn().mockImplementation(() => ({
     getNotificationsClient: () => ({
@@ -90,6 +105,8 @@ beforeEach(() => {
   capturedHandler = null;
   mockActiveProject = { id: 'project-a' };
   mockSessionUser = { id: 'user-1', organization_id: 'org-1' };
+  mockPathname = '/';
+  mockInvalidateQueries.mockClear();
 });
 
 describe('NotificationsProvider', () => {
@@ -130,6 +147,28 @@ describe('NotificationsProvider', () => {
     expect(screen.getByTestId('test-sets-highlights')).toHaveTextContent(
       'ts-2'
     );
+  });
+
+  it('invalidates the section query cache on a matching websocket event', async () => {
+    render(
+      <NotificationsProvider>
+        <Probe />
+      </NotificationsProvider>
+    );
+    await waitFor(() => expect(mockGetSummary).toHaveBeenCalled());
+
+    emitNotification({
+      section: 'test-sets',
+      entity_id: 'ts-2',
+      project_id: 'project-a',
+    });
+
+    // Only the list queries -- not the whole ['test-sets'] prefix, which
+    // would also match (and needlessly refetch) some other test set's own
+    // detail-page query. See constants/query-keys.ts.
+    expect(mockInvalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['test-sets', 'list'],
+    });
   });
 
   it('ignores a websocket event scoped to a different project', async () => {
@@ -188,6 +227,49 @@ describe('NotificationsProvider', () => {
         section: NotificationSection.TEST_SETS,
       })
     );
+  });
+
+  it('marks a section read on landing on its own list page', async () => {
+    mockGetSummary.mockResolvedValue({
+      sections: { 'test-sets': { unread: 1, entity_ids: ['ts-1'] } },
+    });
+    mockPathname = '/test-sets';
+
+    render(
+      <NotificationsProvider>
+        <Probe />
+      </NotificationsProvider>
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId('test-sets-unread')).toHaveTextContent('0')
+    );
+    await waitFor(() =>
+      expect(mockMarkRead).toHaveBeenCalledWith({
+        section: NotificationSection.TEST_SETS,
+      })
+    );
+  });
+
+  it('does not mark a section read on a nested detail sub-route', async () => {
+    // Generating a test set redirects straight to that test set's own
+    // detail page (/test-sets/[id]) -- this must not consume the badge
+    // before the user ever sees the list.
+    mockGetSummary.mockResolvedValue({
+      sections: { 'test-sets': { unread: 1, entity_ids: ['ts-1'] } },
+    });
+    mockPathname = '/test-sets/ts-1';
+
+    render(
+      <NotificationsProvider>
+        <Probe />
+      </NotificationsProvider>
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId('test-sets-unread')).toHaveTextContent('1')
+    );
+    expect(mockMarkRead).not.toHaveBeenCalled();
   });
 
   it('refetches the summary when the active project changes', async () => {
