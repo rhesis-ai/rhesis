@@ -754,19 +754,13 @@ def generate_and_save_owasp_test_set(
             },
         )
 
-        # From here on the test set row already exists in the database. A
-        # failure anywhere below -- result-building, logging, whatever --
-        # must never reach the `except Exception` handler at the bottom of
-        # this function: that handler re-raises as a plain `Exception`,
-        # which Celery's `autoretry_for = (Exception,)` (tasks/base.py)
-        # retries up to 3 more times, re-running generation and re-saving
-        # for a save that already succeeded. A prior incident hit exactly
-        # this via a missing `tests_generated` kwarg on `_build_task_result`
-        # (now fixed) -- but that only closed the trigger, not the
-        # mechanism. This inner try/except is the mechanism fix: it isolates
-        # post-save work so nothing here can cause a duplicate save, and
-        # falls back to a minimal-but-valid result reflecting the
-        # already-successful save instead of raising.
+        # From here on, the test set is already saved. A failure below must
+        # not reach the `except Exception` at the bottom of this function --
+        # it re-raises, and Celery's `autoretry_for = (Exception,)`
+        # (tasks/base.py) retries the whole task, re-running generation and
+        # re-saving for a save that already succeeded. This try/except
+        # isolates post-save work so a failure here falls back to a minimal
+        # result instead of triggering that retry.
         try:
             result = _build_task_result(
                 self,

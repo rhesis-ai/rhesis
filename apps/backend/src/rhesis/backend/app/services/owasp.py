@@ -120,9 +120,9 @@ def save_owasp_content_cache(framework: str, sections: List[dict]) -> None:
     Storage failures are logged and swallowed so a misconfigured local path
     (e.g. Docker's ``file:///app/storage`` on a Mac host) does not discard a
     successful parse — Redis still gets the id/name metadata for the picker.
-    Caught broadly (not just ``OSError``): ``StorageService`` writes go
-    through ``fsspec``, and cloud backends (gcsfs, s3fs, ...) raise their own
-    native exception types on write failure, not just ``OSError``.
+    Caught broadly since ``StorageService`` writes go through ``fsspec``,
+    and cloud backends (gcsfs, s3fs, ...) can raise a variety of native
+    exception types on write failure.
     """
     storage = _get_storage()
     cache_key = _versioned_cache_key(framework)

@@ -29,8 +29,7 @@ from rhesis.sdk.services.owasp_extractor import (
 from rhesis.sdk.synthesizers.base import TestSetSynthesizer
 
 # Flat schema for multi-turn generation, repacked to the nested test_configuration
-# shape after generation. Reuses multi_turn.base's FlatTests directly (which wraps
-# FlatTest — same fields, same ge=1/le=50 bounds this synthesizer used to redefine)
+# shape after generation. Reuses multi_turn.base's FlatTests (which wraps FlatTest)
 # rather than redefining an identical schema.
 from rhesis.sdk.synthesizers.multi_turn.base import FlatTests as FlatMultiTurnTests
 from rhesis.sdk.synthesizers.utils import load_prompt_template, stamp_multi_turn
@@ -205,9 +204,7 @@ class OWASPSynthesizer(TestSetSynthesizer):
 
         return all_tests
 
-    # Multi-turn generation — modeled on MultiTurnSynthesizer._generate_batch,
-    # but plugged into TestSetSynthesizer._generate_with_retry (via the
-    # _generate_batch override below) instead of a bespoke retry loop.
+    # Multi-turn generation — see the _generate_batch override below.
 
     def _get_multi_turn_template(self) -> Template:
         """Lazily load the multi-turn OWASP Jinja template."""

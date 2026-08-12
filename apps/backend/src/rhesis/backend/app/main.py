@@ -422,12 +422,11 @@ async def lifespan(app: FastAPI):
     def _log_warm_task_exception(label: str):
         """Build a done-callback that logs (without re-raising) a failed pre-warm task.
 
-        Shared by the Garak and OWASP background pre-warms below (previously
-        two character-for-character identical closures). Background asyncio
-        tasks swallow exceptions unless something inspects `.result()`; this
-        callback does that and logs instead, since a fire-and-forget cache
-        pre-warm failing must never crash the app or propagate to the
-        lifespan handler.
+        Shared by the Garak and OWASP background pre-warms below. Background
+        asyncio tasks swallow exceptions unless something inspects
+        `.result()`; this callback does that and logs instead, since a
+        fire-and-forget cache pre-warm failing must never crash the app or
+        propagate to the lifespan handler.
         """
 
         def _callback(t: asyncio.Task) -> None:
