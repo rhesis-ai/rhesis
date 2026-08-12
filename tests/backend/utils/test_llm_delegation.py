@@ -189,7 +189,7 @@ class TestPolyphemusModelConfiguration:
         return model
 
     @patch("rhesis.sdk.models.providers.polyphemus.PolyphemusLLM")
-    @patch("rhesis.backend.app.utils.user_model_utils.crud.get_model")
+    @patch("rhesis.backend.app.utils.user_model_utils.model_crud.get_model")
     def test_polyphemus_model_uses_delegation(
         self, mock_get_model, mock_polyphemus_class, test_user, mock_polyphemus_model
     ):
@@ -224,7 +224,7 @@ class TestPolyphemusModelConfiguration:
         assert not call_kwargs["api_key"].startswith("rh-")
 
     @patch("rhesis.sdk.models.providers.polyphemus.PolyphemusLLM")
-    @patch("rhesis.backend.app.utils.user_model_utils.crud.get_model")
+    @patch("rhesis.backend.app.utils.user_model_utils.model_crud.get_model")
     @patch("rhesis.backend.app.utils.user_model_utils._call_polyphemus_with_delegation")
     def test_polyphemus_model_prefers_env_api_key_over_delegation(
         self,
@@ -265,7 +265,7 @@ class TestPolyphemusModelConfiguration:
         assert call_kwargs["api_key"] is None
 
     @patch("rhesis.sdk.models.providers.polyphemus.PolyphemusLLM")
-    @patch("rhesis.backend.app.utils.user_model_utils.crud.get_model")
+    @patch("rhesis.backend.app.utils.user_model_utils.model_crud.get_model")
     @patch("rhesis.backend.app.utils.user_model_utils._call_polyphemus_with_delegation")
     def test_polyphemus_model_uses_env_api_key_without_user(
         self,
@@ -317,7 +317,7 @@ class TestModelEndpointConfiguration:
         return model
 
     @patch("rhesis.backend.app.utils.user_model_utils.get_model")
-    @patch("rhesis.backend.app.utils.user_model_utils.crud.get_model")
+    @patch("rhesis.backend.app.utils.user_model_utils.model_crud.get_model")
     def test_fetch_and_configure_model_passes_endpoint(
         self, mock_get_model, mock_sdk_get_model, mock_db_model
     ):
@@ -345,7 +345,7 @@ class TestModelEndpointConfiguration:
         )
 
     @patch("rhesis.backend.app.utils.user_model_utils.get_model")
-    @patch("rhesis.backend.app.utils.user_model_utils.crud.get_model")
+    @patch("rhesis.backend.app.utils.user_model_utils.model_crud.get_model")
     def test_fetch_and_configure_embedder_passes_endpoint(
         self, mock_get_model, mock_sdk_get_model, mock_db_model
     ):
@@ -373,7 +373,7 @@ class TestModelEndpointConfiguration:
         )
 
     @patch("rhesis.backend.app.utils.user_model_utils.get_model")
-    @patch("rhesis.backend.app.utils.user_model_utils.crud.get_model")
+    @patch("rhesis.backend.app.utils.user_model_utils.model_crud.get_model")
     def test_fetch_and_configure_model_omits_empty_endpoint(
         self, mock_get_model, mock_sdk_get_model, mock_db_model
     ):

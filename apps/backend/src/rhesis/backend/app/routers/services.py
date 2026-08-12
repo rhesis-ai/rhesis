@@ -282,7 +282,7 @@ async def generate_tests_endpoint(
         # Validate per-request model override exists and belongs to user's org
         model_id_str = str(request.model_id) if request.model_id else None
         if model_id_str:
-            from rhesis.backend.app import crud as model_crud
+            from rhesis.backend.app.crud import model as model_crud
 
             model_obj = model_crud.get_model(
                 db=db,
@@ -345,7 +345,7 @@ async def generate_multiturn_tests_endpoint(
         # Validate per-request model override exists and belongs to user's org
         model_id_str = str(request.model_id) if request.model_id else None
         if model_id_str:
-            from rhesis.backend.app import crud as model_crud
+            from rhesis.backend.app.crud import model as model_crud
 
             model_obj = model_crud.get_model(
                 db=db,
