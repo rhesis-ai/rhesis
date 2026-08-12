@@ -67,7 +67,16 @@ def set_default_usage_callback(callback: Optional[DefaultUsageCallback]) -> None
     a caller that attaches its own listener to one model does not silently
     detach that model from the host's accounting.
 
-    Pass ``None`` to uninstall (mainly useful in tests).
+    One sink per process, held in module-level state, which is the point:
+    "every model reports here" cannot be true of a per-instance or
+    per-context registration. The cost is that the last caller wins, so this
+    is for an application to call once at startup, not something a library
+    or a request handler should set. Embedding the SDK somewhere that needs
+    different sinks concurrently wants per-instance ``on_usage`` instead.
+    Tests that install a sink should uninstall it again, or they will leak
+    it into whatever runs next in the same process.
+
+    Pass ``None`` to uninstall.
     """
     global _default_usage_callback
     _default_usage_callback = callback
