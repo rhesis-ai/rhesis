@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud
 from rhesis.backend.app.config.settings import get_model_settings
 from rhesis.backend.app.constants import TestSetType
+from rhesis.backend.app.crud import behavior as behavior_crud
 from rhesis.backend.app.crud.project import get_project
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.services import (
@@ -93,7 +94,9 @@ def _fetch_db_context(
     previous_messages: Optional[list] = None,
 ) -> Dict[str, Any]:
     """Fetch all DB data needed for config prompts (called once upfront)."""
-    behaviors = crud.get_behaviors(db=db, organization_id=organization_id, skip=0, limit=100)
+    behaviors = behavior_crud.get_behaviors(
+        db=db, organization_id=organization_id, skip=0, limit=100
+    )
     behavior_list = [{"name": b.name, "description": b.description or ""} for b in behaviors]
 
     project_name = None
