@@ -25,7 +25,11 @@ from rhesis.telemetry.context import (
     set_tracing_disabled,
 )
 from rhesis.telemetry.exporter import RhesisOTLPExporter
-from rhesis.telemetry.provider import get_tracer_provider, shutdown_tracer_provider
+from rhesis.telemetry.provider import (
+    build_tracer_provider,
+    get_tracer_provider,
+    shutdown_tracer_provider,
+)
 from rhesis.telemetry.schemas import (
     OTELSpan,
     OTELTraceBatch,
@@ -38,6 +42,7 @@ from rhesis.telemetry.token_extraction import extract_token_usage, get_first_val
 
 __all__ = [
     "RhesisOTLPExporter",
+    "build_tracer_provider",
     "get_tracer_provider",
     "shutdown_tracer_provider",
     "OTELSpan",
