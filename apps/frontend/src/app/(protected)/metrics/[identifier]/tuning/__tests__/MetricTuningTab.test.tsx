@@ -42,6 +42,7 @@ const CASE: MetricTuningCase = {
   id: 't1t1t1t1-0000-0000-0000-000000000001' as MetricTuningCase['id'],
   input: 'How are you?',
   output: 'I am fine, thanks.',
+  expected_output: 'A polite reply.',
   expected: 'pass',
   rationale: 'polite answer',
   is_stale: false,
@@ -98,15 +99,60 @@ describe('MetricTuningTab', () => {
     expect(screen.queryByText('Stale')).not.toBeInTheDocument();
   });
 
+  it('sends the expected output as part of the case', async () => {
+    mockCreateTuningCase.mockResolvedValue(CASE);
+    render(<MetricTuningTab metricId={METRIC_ID} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: /add case/i }));
+    fireEvent.change(await screen.findByLabelText(/^input/i), {
+      target: { value: 'Tell me a joke' },
+    });
+    fireEvent.change(screen.getByLabelText(/^output/i), {
+      target: { value: 'No.' },
+    });
+    fireEvent.change(screen.getByLabelText(/expected output/i), {
+      target: { value: 'Here is a joke.' },
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /add case/i, hidden: false })
+    );
+
+    await waitFor(() => expect(mockCreateTuningCase).toHaveBeenCalled());
+    expect(mockCreateTuningCase.mock.calls[0][1].expected_output).toBe(
+      'Here is a joke.'
+    );
+  });
+
+  it('omits an empty expected output rather than sending a blank', async () => {
+    mockCreateTuningCase.mockResolvedValue(CASE);
+    render(<MetricTuningTab metricId={METRIC_ID} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: /add case/i }));
+    fireEvent.change(await screen.findByLabelText(/^input/i), {
+      target: { value: 'Tell me a joke' },
+    });
+    fireEvent.change(screen.getByLabelText(/^output/i), {
+      target: { value: 'No.' },
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /add case/i, hidden: false })
+    );
+
+    await waitFor(() => expect(mockCreateTuningCase).toHaveBeenCalled());
+    expect(mockCreateTuningCase.mock.calls[0][1].expected_output).toBeNull();
+  });
+
   it('creates a case from the add form', async () => {
     mockCreateTuningCase.mockResolvedValue(CASE);
     render(<MetricTuningTab metricId={METRIC_ID} />);
 
     fireEvent.click(await screen.findByRole('button', { name: /add case/i }));
 
-    const inputField = await screen.findByLabelText(/input/i);
+    const inputField = await screen.findByLabelText(/^input/i);
     fireEvent.change(inputField, { target: { value: 'Tell me a joke' } });
-    fireEvent.change(screen.getByLabelText(/output/i), {
+    fireEvent.change(screen.getByLabelText(/^output/i), {
       target: { value: 'No.' },
     });
 
@@ -127,7 +173,7 @@ describe('MetricTuningTab', () => {
     render(<MetricTuningTab metricId={METRIC_ID} />);
 
     fireEvent.click(await screen.findByRole('button', { name: /add case/i }));
-    fireEvent.change(await screen.findByLabelText(/input/i), {
+    fireEvent.change(await screen.findByLabelText(/^input/i), {
       target: { value: 'Only an input' },
     });
 
@@ -171,10 +217,10 @@ describe('MetricTuningTab', () => {
     render(<MetricTuningTab metricId={METRIC_ID} />);
 
     fireEvent.click(await screen.findByRole('button', { name: /add case/i }));
-    fireEvent.change(await screen.findByLabelText(/input/i), {
+    fireEvent.change(await screen.findByLabelText(/^input/i), {
       target: { value: 'Another case' },
     });
-    fireEvent.change(screen.getByLabelText(/output/i), {
+    fireEvent.change(screen.getByLabelText(/^output/i), {
       target: { value: 'An answer' },
     });
     fireEvent.click(

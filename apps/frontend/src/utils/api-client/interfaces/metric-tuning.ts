@@ -3,6 +3,10 @@ import { UUID } from 'crypto';
 /**
  * A metric tuning case: one labelled example of what a metric should say.
  *
+ * `input`, `output` and `expected_output` are the case payload — what the metric
+ * is shown. `expected` is what it should say about them, and is never shown to
+ * it.
+ *
  * `expected` is a plain string because the owning metric's `score_type` decides
  * how to read it — 'pass'/'fail' for binary, '1.0' for numeric, a category name
  * for categorical. The backend validates it against the metric on write, and
@@ -14,6 +18,8 @@ export interface MetricTuningCase {
   input: string;
   /** The answer the metric has to judge. */
   output: string;
+  /** What the system under test should have answered, when the metric needs one. */
+  expected_output: string | null;
   /** The verdict a human expects from the metric. */
   expected: string;
   /** Why that verdict is right. */
@@ -30,6 +36,7 @@ export interface MetricTuningCase {
 export interface MetricTuningCaseCreate {
   input: string;
   output: string;
+  expected_output?: string | null;
   expected: string;
   rationale?: string | null;
 }
@@ -38,6 +45,7 @@ export interface MetricTuningCaseCreate {
 export interface MetricTuningCaseUpdate {
   input?: string;
   output?: string;
+  expected_output?: string | null;
   expected?: string;
   rationale?: string | null;
 }

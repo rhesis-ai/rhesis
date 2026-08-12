@@ -210,8 +210,15 @@ export default function MetricTuningTab({ metricId }: MetricTuningTabProps) {
         renderCell: params => <TruncatedCell params={params} />,
       },
       {
+        field: 'expected_output',
+        headerName: 'Expected output',
+        flex: 1,
+        minWidth: 160,
+        renderCell: params => <TruncatedCell params={params} />,
+      },
+      {
         field: 'expected',
-        headerName: 'Expected',
+        headerName: 'Verdict',
         width: 120,
         renderCell: params => (
           <ExpectedCell params={params} scoreType={scoreType} />

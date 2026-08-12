@@ -5,6 +5,11 @@ recorded output being judged, the verdict a human expects, and why. It is stored
 as a normal ``test`` + ``prompt`` pair owned by the metric -- see
 ``services/metric_tuning/cases.py`` for the column mapping.
 
+``input``, ``output`` and ``expected_output`` are the **case payload**: what the
+metric is shown. They are stored together in ``prompt.content`` because a tuning
+case puts the metric in the system-under-test role (ADR-0003). ``expected`` is
+the answer key and is stored apart from them, on ``prompt.expected_response``.
+
 ``expected`` is a plain string on purpose. The owning metric's ``score_type``
 decides how to read it -- ``"pass"``/``"fail"`` for binary, ``"1.0"`` for
 numeric, a category name for categorical -- so one field serves all three
@@ -26,6 +31,9 @@ class MetricTuningCaseBase(Base):
     input: str
     # The answer the metric has to judge.
     output: str
+    # What the system under test should have answered. Optional -- plenty of
+    # metrics judge an answer without a reference to compare it to.
+    expected_output: Optional[str] = None
     # The verdict a human expects from the metric for this case.
     expected: str
     # Why that verdict is right. Optional -- it is for the reviewer, not for scoring.
@@ -45,6 +53,7 @@ class MetricTuningCaseUpdate(Base):
 
     input: Optional[str] = None
     output: Optional[str] = None
+    expected_output: Optional[str] = None
     expected: Optional[str] = None
     rationale: Optional[str] = None
 

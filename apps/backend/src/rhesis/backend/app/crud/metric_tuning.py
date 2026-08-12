@@ -122,22 +122,21 @@ def create_tuning_case(
     organization_id: str,
     user_id: str,
     metric_id: uuid.UUID,
-    input_text: str,
+    content: str,
     expected: Optional[str],
     metadata: MetricTuningCaseMetadata,
 ) -> models.Test:
-    """Insert a tuning case: the prompt holding input + expected verdict, then the test.
+    """Insert a tuning case: the prompt holding the payload + verdict, then the test.
 
-    ``expected`` goes on ``Prompt.expected_response`` rather than into
-    ``test_metadata`` because that column is what already reaches metric
-    evaluation as ``expected_output``
-    (``tasks/execution/executors/data.py::get_test_and_prompt``).
+    ``content`` is the serialized case payload -- what the metric is shown --
+    and ``expected`` is the verdict it should return, which is why they sit in
+    the prompt's two natural slots (ADR-0002, ADR-0003).
 
     Associating the test with its test set is the caller's job -- that goes
     through the shared ``create_test_set_associations`` service.
     """
     db_prompt = models.Prompt(
-        content=input_text,
+        content=content,
         expected_response=expected,
         organization_id=organization_id,
         user_id=user_id,
@@ -179,7 +178,7 @@ def update_tuning_case(
     db: Session,
     db_test: models.Test,
     *,
-    input_text: Optional[str] = None,
+    content: Optional[str] = None,
     expected: Optional[str] = None,
     metadata: Optional[MetricTuningCaseMetadata] = None,
 ) -> models.Test:
@@ -189,8 +188,8 @@ def update_tuning_case(
     alone. Callers that want to clear ``expected`` pass an empty string.
     """
     if db_test.prompt is not None:
-        if input_text is not None:
-            db_test.prompt.content = input_text
+        if content is not None:
+            db_test.prompt.content = content
         if expected is not None:
             db_test.prompt.expected_response = expected
 
