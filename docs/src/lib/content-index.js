@@ -177,6 +177,23 @@ function truncateDescription(text, max = 160) {
   return `${normalized.substring(0, max)}...`
 }
 
+/** Reads `description:` out of a YAML frontmatter block, if there is one. */
+function extractFrontmatterDescription(rawSource) {
+  const fmMatch = rawSource.match(/^---\n([\s\S]*?)\n---/)
+  if (!fmMatch) return null
+  const line = fmMatch[1].match(/^description:\s*(.+)$/m)
+  if (!line) return null
+  return truncateDescription(line[1].trim().replace(/^['"]|['"]$/g, ''))
+}
+
+/** Reads `description` out of an `export const metadata = {...}` block. */
+function extractExportedDescription(rawSource) {
+  const match = rawSource.match(
+    /export\s+const\s+metadata\s*=\s*\{[\s\S]*?description:\s*(['"])([\s\S]*?)\1/
+  )
+  return match ? truncateDescription(match[2].trim()) : null
+}
+
 /**
  * Loads a single page from a relative file path.
  *
@@ -206,7 +223,13 @@ export function loadPage(filePath, contentDir) {
   if (!title) title = extractTitleFromSource(rawSource)
   if (!title) title = humanizeSlug(urlPath)
 
-  const description = extractDescription(rawSource)
+  // Description: frontmatter > exported metadata > first paragraph. The
+  // generated glossary pages have no prose to scan — their definition lives in
+  // `export const metadata`, and the page body is a single component.
+  const description =
+    extractFrontmatterDescription(rawSource) ||
+    extractExportedDescription(rawSource) ||
+    extractDescription(rawSource)
 
   return { urlPath, title, description, section, rawSource }
 }

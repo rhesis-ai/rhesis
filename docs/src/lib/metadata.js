@@ -34,8 +34,12 @@ export function extractDescription(content) {
   // Remove YAML frontmatter block (--- ... ---)
   let cleanContent = content.replace(/^---\n[\s\S]*?\n---\n?/, '')
 
-  // Remove MDX imports, exports, code blocks, inline code, and MDX components
+  // Remove MDX imports, exports, code blocks, inline code, and MDX components.
+  // Multi-line exports go first: `export const metadata = {...}` (what the
+  // generated glossary pages use) would otherwise leave its object body behind
+  // and get picked up as the first paragraph.
   cleanContent = cleanContent
+    .replace(/^export\s+(?:const|let|var)\s+\w+\s*=\s*\{[\s\S]*?^\}\s*$/gm, '')
     .replace(/^import\s+.*$/gm, '')
     .replace(/^export\s+.*$/gm, '')
     .replace(/```[\s\S]*?```/g, '')
@@ -47,6 +51,15 @@ export function extractDescription(content) {
 
   // Remove all remaining heading markers (##, ###, etc.) but keep the text
   cleanContent = cleanContent.replace(/^#+\s+/gm, '')
+
+  // Unwrap inline markdown — descriptions are plain text, and a lead paragraph
+  // wrapped in ** would otherwise ship the asterisks to search results and
+  // social cards.
+  cleanContent = cleanContent
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+    .replace(/(\*\*|__)(.+?)\1/g, '$2')
+    .replace(/(^|[\s(])[*_]([^*_\n]+)[*_](?=[\s).,;:!?]|$)/g, '$1$2')
 
   // Clean up and normalize whitespace
   cleanContent = cleanContent.trim()
