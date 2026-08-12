@@ -229,6 +229,17 @@ class TestCreateMetricDocumentsDescriptiveFields:
         for field in self.RICH_FIELDS:
             assert field in description, f"description should name {field}"
 
+    def test_evaluation_steps_documents_the_stored_step_format(self):
+        """Steps are split on '---' for display; a '1. 2. 3.' list renders as one step."""
+        steps = self._cfg()["parameters"]["evaluation_steps"]["description"]
+        assert "Step N:" in steps
+        assert "---" in steps
+
+    def test_evaluation_prompt_does_not_promise_placeholders(self):
+        """Nothing substitutes {{response}} — the judge would see the literal braces."""
+        prompt_doc = self._cfg()["parameters"]["evaluation_prompt"]["description"]
+        assert "do NOT include placeholders" in prompt_doc
+
     def test_descriptive_fields_reach_the_tool_schema(self):
         from rhesis.backend.app.main import app
         from rhesis.backend.app.mcp_server.tools import build_tools_and_operations

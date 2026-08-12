@@ -261,6 +261,34 @@ def test_generate_template_asks_for_descriptive_fields():
         assert field in rendered, f"generation template never mentions {field}"
 
 
+def test_generate_template_asks_for_the_stored_step_format():
+    """A plain '1. 2. 3.' list lands as one step in the UI, so the format is spelled out."""
+    mock_model = Mock(spec=BaseLLM)
+    synth = MetricSynthesizer(model=mock_model)
+    rendered = synth.prompt_template.render(prompt="test")
+    assert "Step 1:" in rendered
+    assert "Step 2:" in rendered
+    assert "\n---\n" in rendered
+
+
+def test_step_format_reaches_the_llm_through_the_schema_too():
+    """The template is only half the signal — the field description carries it as well."""
+    steps = GeneratedMetric.model_fields["evaluation_steps"].description or ""
+    assert "Step N:" in steps
+    assert "---" in steps
+
+
+def test_improve_template_asks_for_the_stored_step_format():
+    mock_model = Mock(spec=BaseLLM)
+    synth = MetricSynthesizer(model=mock_model)
+    rendered = synth.improve_template.render(
+        existing_metric=_NUMERIC_RESPONSE,
+        prompt="make the threshold stricter",
+    )
+    assert "Step N:" in rendered
+    assert "---" in rendered
+
+
 def test_improve_template_shows_all_descriptive_fields():
     """Rule 2 says preserve unmentioned fields — impossible if unshown."""
     mock_model = Mock(spec=BaseLLM)
