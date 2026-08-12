@@ -554,6 +554,10 @@ class BaseTask(Task):
             return
 
         kind = NOTIFICATION_CATALOG[event_type]
+        if kind.render is None:
+            raise ValueError(
+                f"NotificationKind for {event_type!r} has no render fn for a Celery hook"
+            )
         # Normalized to a dict here so every render function can read keys off it
         # directly. A task that returns None or a non-dict on success would
         # otherwise raise inside the renderer, and on_success swallows that --

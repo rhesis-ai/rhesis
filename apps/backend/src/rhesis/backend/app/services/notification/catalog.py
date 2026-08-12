@@ -40,7 +40,9 @@ class NotificationKind:
     event_type: str
     section: NotificationSection
     entity_type: Optional[str]
-    render: RenderFn
+    #: None for a kind emitted by a direct notify() caller (e.g. a router) --
+    #: only the Celery-hook caller (tasks/base.py) ever invokes this.
+    render: Optional[RenderFn] = None
 
 
 def _task_kwargs(task) -> Dict[str, Any]:
@@ -132,5 +134,11 @@ NOTIFICATION_CATALOG: Dict[str, NotificationKind] = {
         section=NotificationSection.TEST_RUNS,
         entity_type=EntityType.TEST_RUN.value,
         render=_render_execution_completed,
+    ),
+    NotificationEventType.Task.ASSIGNED: NotificationKind(
+        event_type=NotificationEventType.Task.ASSIGNED,
+        section=NotificationSection.TASKS,
+        entity_type=EntityType.TASK.value,
+        # Emitted directly from task_notification.py, not a Celery hook.
     ),
 }

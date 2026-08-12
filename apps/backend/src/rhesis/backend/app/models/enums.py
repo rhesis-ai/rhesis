@@ -70,6 +70,7 @@ class NotificationSection(str, Enum):
 
     TEST_SETS = "test-sets"
     TEST_RUNS = "test-runs"
+    TASKS = "tasks"
 
 
 class NotificationEventType:
@@ -88,6 +89,9 @@ class NotificationEventType:
 
     class TestRun(str, Enum):
         EXECUTION_COMPLETED = "test_run.execution_completed"
+
+    class Task(str, Enum):
+        ASSIGNED = "task.assigned"
 
 
 # Notification.entity_type reuses rhesis.backend.app.constants.EntityType
