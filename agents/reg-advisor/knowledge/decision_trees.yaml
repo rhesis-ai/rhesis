@@ -1,0 +1,257 @@
+# Routing logic, from section D3 of the reference taxonomy.
+#
+# The branches, their prose and their terminal node ids are data. The predicate that picks a
+# branch from a ProductProfile lives in `classify.py`, in Python — a model never chooses.
+#
+# `depends_on` lists the profile fields a tree needs. When no branch matches, classify() reports
+# the blank ones as `unresolved` and stops rather than guessing; the intake agent asks about them.
+
+version: "1.0"
+verified_on: "2026-08-11"
+
+trees:
+  - id: "qualification"
+    name: "12.1 Am I regulated at all?"
+    question: "Does the product have a medical intended purpose - diagnose, prevent, monitor, predict, treat or alleviate disease?"
+    depends_on: ["intended_purpose", "product_description", "influences_clinical_decision"]
+    branches:
+      - id: "wellness_no_medical_purpose"
+        summary: "No medical intended purpose. Outside the MDR in the EU and, if low risk, within FDA's general wellness enforcement discretion in the US. Data protection and advertising rules still apply."
+        nodes: ["EU-WELLNESS-OUTSIDE", "US-WELLNESS-GUIDANCE", "EU-DATA-GDPR-009", "US-DATA-HIPAA-164"]
+      - id: "medical_purpose"
+        summary: "A medical intended purpose is claimed, so the product is in scope. The next question is which product family."
+        nodes: ["EU-MD-QUAL-002", "US-MD-QUAL-201H"]
+
+  - id: "product_family"
+    name: "12.2 Which product family?"
+    question: "Principal action pharmacological, immunological or metabolic; examines specimens from the body; physical or software medical function; or a combination?"
+    depends_on: ["product_family", "product_description", "examines_specimens", "contains_software"]
+    branches:
+      - id: "medicinal_product"
+        summary: "Principal action is pharmacological, immunological or metabolic, so this is a medicinal product: EU Directive 2001/83/EC, US NDA."
+        nodes: ["EU-MP-QUAL-001", "US-MP-NDA-505"]
+      - id: "biologic_vaccine"
+        summary: "A biological product or vaccine: EU centralised authorisation with batch release, US BLA under CBER."
+        nodes: ["EU-VACCINE-OCABR", "US-MP-BLA-351"]
+      - id: "ivd"
+        summary: "The product examines specimens derived from the human body, so it is an in vitro diagnostic."
+        nodes: ["EU-IVD-QUAL-002", "US-IVD-PATH-DEVICE"]
+      - id: "combination_product"
+        summary: "Drug and device elements combine, so a determinative test decides the regime: EU integral product and Art. 117, US primary mode of action."
+        nodes: ["EU-COMB-ART117", "US-COMB-PMOA-3"]
+      - id: "software_medical_device"
+        summary: "Software performing a medical function. This is where the EU and US diverge most sharply."
+        nodes: ["EU-MD-QUAL-SW", "US-SW-CDS-3060"]
+      - id: "medical_device"
+        summary: "A physical device with a medical function, and no pharmacological principal action."
+        nodes: ["EU-MD-QUAL-002", "US-MD-QUAL-201H"]
+
+  - id: "eu_classification"
+    name: "12.3 EU - which class?"
+    question: "Which MDR Annex VIII or IVDR Annex VIII rule applies, and what class does it give?"
+    depends_on: ["product_family", "contains_software", "influences_clinical_decision", "invasiveness", "duration_of_use", "examines_specimens"]
+    branches:
+      - id: "eu_software_rule11_iia"
+        summary: "MDR Rule 11: software providing information for diagnostic or therapeutic decisions is Class IIa at minimum. A notified body is required."
+        eu_pathway: "MDR Class IIa (Annex VIII Rule 11) - notified body conformity assessment"
+        nodes: ["EU-MD-CLASS-011", "EU-MD-CONF-NB"]
+      - id: "eu_software_rule11_iib"
+        summary: "MDR Rule 11: Class IIb where the decision could cause serious deterioration in health or surgical intervention, and for software monitoring vital physiological parameters."
+        eu_pathway: "MDR Class IIb (Annex VIII Rule 11) - notified body conformity assessment"
+        nodes: ["EU-MD-CLASS-011", "EU-MD-CONF-NB"]
+      - id: "eu_software_rule11_iii"
+        summary: "MDR Rule 11: Class III where the decision could cause death or an irreversible deterioration in health."
+        eu_pathway: "MDR Class III (Annex VIII Rule 11) - notified body conformity assessment"
+        nodes: ["EU-MD-CLASS-011", "EU-MD-CONF-NB"]
+      - id: "eu_device_noninvasive"
+        summary: "A non-invasive physical device classified under MDR Annex VIII Rules 1-4."
+        eu_pathway: "MDR Annex VIII Rules 1-4 (non-invasive) - class depends on the specific rule"
+        nodes: ["EU-MD-CLASS-NONINVASIVE", "EU-MD-CLASS-ANNEXVIII"]
+      - id: "eu_device_invasive_transient"
+        summary: "An invasive device used transiently - under 60 minutes. Under MDR Annex VIII Rules 5-7 this is the lowest invasive band: Class I for a device used in a body orifice, Class IIa once it is surgically invasive. Confirm which rule applies before relying on Class I."
+        eu_pathway: "MDR Annex VIII Rules 5-7, transient use (under 60 minutes) - Class I or IIa depending on the route into the body"
+        nodes: ["EU-MD-CLASS-INVASIVE", "EU-MD-CLASS-ANNEXVIII"]
+      - id: "eu_device_invasive"
+        summary: "An invasive device used short term - 60 minutes to 30 days - classified under MDR Annex VIII Rules 5-7. Generally Class IIa, escalating where the device is used in direct contact with the heart, the central circulatory system or the central nervous system."
+        eu_pathway: "MDR Annex VIII Rules 5-7, short-term use (60 minutes to 30 days) - generally Class IIa, higher for central circulatory or nervous system contact"
+        nodes: ["EU-MD-CLASS-INVASIVE", "EU-MD-CLASS-ANNEXVIII"]
+      - id: "eu_device_invasive_long_term"
+        summary: "An invasive device used long term - over 30 days - or implantable, classified under MDR Annex VIII Rules 5-8. Generally Class IIb, and Class III for implantables in direct contact with the heart, the central circulatory system or the central nervous system."
+        eu_pathway: "MDR Annex VIII Rules 5-8, long-term or implantable (over 30 days) - generally Class IIb, Class III for central circulatory or nervous system contact"
+        nodes: ["EU-MD-CLASS-INVASIVE", "EU-MD-CLASS-ANNEXVIII", "EU-MD-CLINEVAL-061"]
+      - id: "eu_device_active"
+        summary: "An active device classified under MDR Annex VIII Rules 9-13."
+        eu_pathway: "MDR Annex VIII Rules 9-13 (active device)"
+        nodes: ["EU-MD-CLASS-ACTIVE", "EU-MD-CLASS-ANNEXVIII"]
+      - id: "eu_ivd_companion_class_c"
+        summary: "IVDR Rule 3(f): a companion diagnostic is Class C, and conformity assessment includes a consultation with the EMA or the competent medicines authority."
+        eu_pathway: "IVDR Class C (Annex VIII Rule 3(f), companion diagnostic) - notified body plus medicines authority consultation"
+        nodes: ["EU-IVD-CLASS-R3F", "EU-IVD-CONF-NB"]
+      - id: "eu_ivd_annexviii"
+        summary: "IVDR Annex VIII assigns Class A, B, C or D. Only non-sterile Class A is self-certified; everything else needs a notified body."
+        eu_pathway: "IVDR Annex VIII classification (A/B/C/D) - notified body unless non-sterile Class A"
+        nodes: ["EU-IVD-CLASS-ANNEXVIII", "EU-IVD-CONF-NB"]
+      - id: "eu_medicinal_authorisation"
+        summary: "A medicinal product does not have a device class; it needs a marketing authorisation."
+        eu_pathway: "EU marketing authorisation (centralised, decentralised, mutual recognition or national)"
+        nodes: ["EU-MP-AUTH-CENTRAL", "EU-MP-QUAL-001"]
+      - id: "eu_combination_nbop"
+        summary: "An integral drug-device combination marketed as a medicine needs a Notified Body Opinion on the device part alongside the marketing authorisation dossier."
+        eu_pathway: "EU marketing authorisation plus an Art. 117 Notified Body Opinion on the device part"
+        nodes: ["EU-COMB-ART117", "EU-MP-AUTH-CENTRAL"]
+      - id: "eu_not_a_device"
+        summary: "No medical intended purpose, so no MDR class. GDPR still applies to any health data."
+        eu_pathway: "Outside the MDR - no CE marking as a medical device"
+        nodes: ["EU-WELLNESS-OUTSIDE", "EU-DATA-GDPR-009"]
+
+  - id: "us_pathway"
+    name: "12.3 / 12.4 US - which pathway?"
+    question: "Is the software excluded as Non-Device CDS; otherwise does a predicate exist, and what is the risk class?"
+    depends_on: ["product_family", "contains_software", "influences_clinical_decision", "existing_certification", "examines_specimens"]
+    branches:
+      - id: "us_non_device_cds"
+        summary: "Clinical decision support meeting all four Cures Act Sec. 3060 criteria is not a device and sits outside FDA jurisdiction."
+        us_pathway: "Not a device - Non-Device CDS exclusion under FD&C Act Sec. 520(o)(1)(E)"
+        nodes: ["US-SW-CDS-3060"]
+      - id: "us_general_wellness"
+        summary: "A low-risk general wellness product falls under FDA enforcement discretion."
+        us_pathway: "General wellness enforcement discretion - no premarket submission expected"
+        nodes: ["US-WELLNESS-GUIDANCE"]
+      - id: "us_exempt"
+        summary: "A device whose classification regulation exempts it from premarket notification. Registration, listing, QMSR and MDR reporting still apply."
+        us_pathway: "510(k)-exempt"
+        nodes: ["US-MD-PATH-EXEMPT", "US-MD-REG-807"]
+      - id: "us_510k"
+        summary: "A predicate exists, so the route is a 510(k) premarket notification showing substantial equivalence. This is clearance, not approval."
+        us_pathway: "510(k) premarket notification"
+        nodes: ["US-MD-PATH-510K", "US-MD-CLASS-PRODCODE"]
+      - id: "us_denovo"
+        summary: "No predicate exists and the risk is low to moderate, so a De Novo classification request creates a new classification."
+        us_pathway: "De Novo classification request"
+        nodes: ["US-MD-PATH-DENOVO", "US-MD-CLASS-PRODCODE"]
+      - id: "us_predicate_unknown"
+        summary: "A device of low to moderate risk. The route turns on one fact the profile does not settle: whether a legally marketed predicate exists. With a predicate it is a 510(k) at a FY2026 fee of $19,870; without one it is a De Novo at $173,782. Search the FDA classification database for your product code before planning either."
+        us_pathway: "510(k) if a predicate exists, otherwise De Novo - search the classification database to settle it"
+        nodes: ["US-MD-PATH-510K", "US-MD-PATH-DENOVO", "US-MD-CLASS-PRODCODE"]
+      - id: "us_pma"
+        summary: "A Class III device, so premarket approval with a reasonable assurance of safety and effectiveness."
+        us_pathway: "Premarket approval (PMA)"
+        nodes: ["US-MD-PATH-PMA", "US-MD-IDE-812"]
+      - id: "us_hde"
+        summary: "A Humanitarian Use Device affecting not more than 8,000 individuals a year in the US can use an HDE, which is exempt from the effectiveness requirement and from user fees."
+        us_pathway: "Humanitarian Device Exemption"
+        nodes: ["US-MD-PATH-HDE", "US-MD-PATH-PMA"]
+      - id: "us_ldt_clia"
+        summary: "A test designed, made and used within one CLIA-certified laboratory. FDA's LDT rule was vacated and rescinded, so LDTs remain under CLIA with CMS."
+        us_pathway: "CLIA laboratory oversight - not regulated as an FDA device"
+        nodes: ["US-IVD-LDT-8093", "US-IVD-CLIA-493"]
+      - id: "us_companion_diagnostic"
+        summary: "A companion diagnostic is typically co-developed with the drug and reviewed through PMA by CDRH with CDER or CBER coordination."
+        us_pathway: "PMA as a companion diagnostic, coordinated across centres"
+        nodes: ["US-IVD-CDX-PMA", "US-MD-PATH-PMA"]
+      - id: "us_ivd_device_pathway"
+        summary: "An IVD distributed as a product is a device and follows the ordinary device pathways with Part 809 labelling."
+        us_pathway: "Device pathway (exempt / 510(k) / De Novo / PMA) with 21 CFR Part 809 labelling"
+        nodes: ["US-IVD-PATH-DEVICE", "US-MD-CLASS-PRODCODE"]
+      - id: "us_drug_nda"
+        summary: "A drug product needs an NDA under Sec. 505(b)(1), a 505(b)(2), or an ANDA for a generic."
+        us_pathway: "NDA / 505(b)(2) / ANDA"
+        nodes: ["US-MP-NDA-505", "US-MP-IND-312"]
+      - id: "us_biologic_bla"
+        summary: "A biological product needs a BLA under PHS Act Sec. 351(a), or Sec. 351(k) for a biosimilar."
+        us_pathway: "BLA under PHS Act Sec. 351"
+        nodes: ["US-MP-BLA-351", "US-VACCINE-CBER"]
+      - id: "us_combination_rfd"
+        summary: "The primary mode of action decides the lead centre. A Request for Designation gets a determination within 60 days."
+        us_pathway: "Lead centre by primary mode of action, via Request for Designation"
+        nodes: ["US-COMB-PMOA-3", "US-QMSR-820"]
+
+  - id: "conformity_route"
+    name: "12.4 EU - notified body or self-declaration?"
+    question: "Does the EU class require a notified body?"
+    depends_on: ["product_family", "contains_software", "influences_clinical_decision", "invasiveness"]
+    branches:
+      - id: "eu_self_declared"
+        summary: "Class I that is not sterile, not measuring and not a reusable surgical instrument: the manufacturer self-declares conformity and applies the CE mark without a notified body."
+        nodes: ["EU-MD-CONF-CLASS1", "EU-MD-QMS-13485"]
+      - id: "eu_notified_body"
+        summary: "Class IIa and above needs a notified body. Only 51 bodies were designated under MDR as of 7 Oct 2025, against 80+ under the old MDD, so queue time is a real planning constraint."
+        nodes: ["EU-MD-CONF-NB", "EU-MD-QMS-13485", "EU-MD-GSPR-ANNEXI"]
+      - id: "eu_ivd_self_declared"
+        summary: "Non-sterile Class A is the only self-certified IVD category."
+        nodes: ["EU-IVD-CLASS-ANNEXVIII", "EU-MD-QMS-13485"]
+      - id: "eu_ivd_notified_body"
+        summary: "IVDR Class B and above, and sterile Class A, need a notified body. Roughly 78% of IVDs now require one, against roughly 20% under the IVDD."
+        nodes: ["EU-IVD-CONF-NB", "EU-IVD-PERF-EVAL"]
+      - id: "eu_marketing_authorisation"
+        summary: "A medicinal product goes through marketing authorisation rather than conformity assessment; there is no CE mark and no notified body, unless Art. 117 applies to an integral device part."
+        nodes: ["EU-MP-AUTH-CENTRAL", "EU-COMB-ART117"]
+      - id: "eu_no_conformity_route"
+        summary: "Outside the MDR and IVDR, so there is no conformity assessment route as a device."
+        nodes: ["EU-WELLNESS-OUTSIDE"]
+
+  - id: "ai_act_stack"
+    name: "AI Act Article 6(1) - does the AI Act stack on top?"
+    question: "Is the AI system part of an MDR or IVDR product that needs third-party conformity assessment?"
+    depends_on: ["contains_ai", "product_family", "contains_software"]
+    branches:
+      - id: "no_ai"
+        summary: "No AI system, so the AI Act does not apply."
+        nodes: ["EU-AI-HIGHRISK-006"]
+      - id: "ai_high_risk"
+        summary: "The AI system is, or is a safety component of, an MDR or IVDR product that needs notified body conformity assessment, so it is a high-risk AI system under Art. 6(1). AI Act Arts. 9-15 layer on top. This does not change the device's MDR or IVDR risk class."
+        nodes: ["EU-AI-HIGHRISK-006", "US-AI-PCCP"]
+      - id: "ai_not_high_risk"
+        summary: "The AI system is embedded in a self-certified MDR Class I or IVDR non-sterile Class A product, so Art. 6(1) is not triggered. The rest of the AI Act may still apply on its own terms."
+        nodes: ["EU-AI-HIGHRISK-006", "EU-MD-CONF-CLASS1"]
+
+  - id: "clinical_evidence"
+    name: "12.5 What clinical evidence is needed?"
+    question: "Which evidence regime applies to this product family?"
+    depends_on: ["product_family", "examines_specimens"]
+    branches:
+      - id: "device_evidence"
+        summary: "EU: a clinical evaluation under Art. 61 and Annex XIV, with a clinical investigation under Annex XV where required. US: a 510(k) often needs little or no clinical data, while De Novo and PMA usually do; trials run under an IDE."
+        nodes: ["EU-MD-CLINEVAL-061", "US-MD-IDE-812", "US-MD-PATH-510K", "EU-ETHICS-COMMITTEE", "US-ETHICS-IRB-56"]
+      - id: "ivd_evidence"
+        summary: "EU: a performance evaluation covering scientific validity, analytical performance and clinical performance under Art. 56 and Annex XIII. US: analytical and clinical validation supporting the chosen device pathway."
+        nodes: ["EU-IVD-PERF-EVAL", "US-IVD-PATH-DEVICE", "EU-ETHICS-COMMITTEE", "US-ETHICS-IRB-56"]
+      - id: "medicinal_evidence"
+        summary: "EU: a clinical trial application through CTIS under Regulation (EU) 536/2014. US: an IND under 21 CFR Part 312."
+        nodes: ["EU-MP-CTR-536", "US-MP-IND-312", "EU-ETHICS-COMMITTEE", "US-ETHICS-IRB-56"]
+      - id: "no_clinical_evidence_regime"
+        summary: "Outside the device and medicines regimes, so no regulatory clinical evidence requirement attaches - though claims still have to be substantiated."
+        nodes: ["EU-PROMO-ART7", "US-PROMO-FDC"]
+
+  - id: "change_triggers"
+    name: "12.6 What changes trigger a new submission?"
+    question: "How are post-authorisation changes handled?"
+    depends_on: ["product_family", "contains_ai", "contains_software"]
+    branches:
+      - id: "ai_enabled_change"
+        summary: "An authorised Predetermined Change Control Plan lets pre-agreed US modifications ship without a new submission. The EU has no PCCP equivalent, so a substantial change still goes to the notified body."
+        nodes: ["US-AI-PCCP", "US-MD-CHANGE-510K", "EU-MD-CHANGE-MDCG20203"]
+      - id: "device_change"
+        summary: "US: assess whether the change could significantly affect safety or effectiveness, then submit a new 510(k) or a PMA supplement. EU: a substantial change needs notified body review, and a significant change breaks legacy status."
+        nodes: ["US-MD-CHANGE-510K", "EU-MD-CHANGE-MDCG20203"]
+      - id: "medicinal_change"
+        summary: "Changes run through the variations framework in the EU and through supplements or annual reports in the US."
+        nodes: ["EU-MP-AUTH-CENTRAL", "US-MP-NDA-505"]
+
+  - id: "legacy_transition"
+    name: "Existing certification - which transition applies?"
+    question: "Does the product already hold an MDD, IVDD, or US clearance or approval?"
+    depends_on: ["existing_certification", "product_family"]
+    branches:
+      - id: "mdd_legacy"
+        summary: "An MDD or AIMDD certificate is conditionally valid under MDR Art. 120 as amended by Regulation (EU) 2023/607: to 31 Dec 2027 for Class III and Class IIb implantables, to 31 Dec 2028 for other IIb, IIa and Im/Is. All three conditions must hold, and a significant change voids the extension."
+        nodes: ["EU-MD-TRANS-120", "EU-MD-CHANGE-MDCG20203", "EU-MD-CONF-NB"]
+      - id: "ivdd_legacy"
+        summary: "An IVDD certificate or self-declaration runs under IVDR Art. 110 as amended by Regulation (EU) 2024/1860: Class D to 31 Dec 2027, Class C to 31 Dec 2028, Class B and sterile Class A to 31 Dec 2029."
+        nodes: ["EU-IVD-TRANS-110", "EU-MD-CHANGE-MDCG20203", "EU-IVD-CONF-NB"]
+      - id: "us_prior_clearance"
+        summary: "An existing 510(k) clearance or PMA approval means the question is change management rather than a fresh submission."
+        nodes: ["US-MD-CHANGE-510K", "US-MD-PATH-510K"]
+      - id: "no_existing_certification"
+        summary: "No existing certification, so no transition provisions apply and the product takes the ordinary route in each market."
+        nodes: ["EU-MD-CONF-NB", "US-MD-CLASS-PRODCODE"]
