@@ -11,6 +11,7 @@ import pytest
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models
+from rhesis.backend.app.crud import task as task_crud
 from rhesis.backend.app.crud.metric import create_metric, get_metric
 from rhesis.backend.app.crud.test_run import get_test_run
 from rhesis.backend.app.crud.token import (
@@ -67,7 +68,7 @@ class TestCrudOrganizationFiltering:
         test_db.commit()
 
         # User from org1 should be able to access the task
-        result_org1 = crud.get_task(
+        result_org1 = task_crud.get_task(
             test_db, task.id, organization_id=str(org1.id), user_id=str(user1.id)
         )
         assert result_org1 is not None
@@ -75,7 +76,7 @@ class TestCrudOrganizationFiltering:
         assert result_org1.organization_id == org1.id
 
         # User from org2 should NOT be able to access the task
-        result_org2 = crud.get_task(
+        result_org2 = task_crud.get_task(
             test_db, task.id, organization_id=str(org2.id), user_id=str(user2.id)
         )
         assert result_org2 is None
@@ -605,7 +606,7 @@ class TestCrudParameterValidation:
         # extracted into their own module are not attributes of the crud package, so a
         # getattr/hasattr lookup would skip them and check nothing.
         crud_functions = [
-            ("get_task", crud.get_task),
+            ("get_task", task_crud.get_task),
             ("get_test", crud.get_test),
             ("get_test_result", crud.get_test_result),
             ("get_test_run", get_test_run),
