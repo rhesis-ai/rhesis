@@ -20,8 +20,8 @@ export interface MetricTuningCase {
   output: string;
   /** What the system under test should have answered, when the metric needs one. */
   expected_output: string | null;
-  /** The verdict a human expects from the metric. */
-  expected: string;
+  /** The verdict a human expects. Null on an unlabelled case, which scoring skips. */
+  expected: string | null;
   /** Why that verdict is right. */
   rationale: string | null;
   /**
@@ -37,16 +37,22 @@ export interface MetricTuningCaseCreate {
   input: string;
   output: string;
   expected_output?: string | null;
-  expected: string;
+  /** Omit to capture the case now and judge it later. */
+  expected?: string | null;
   rationale?: string | null;
 }
 
-/** Partial update — only the fields present are applied. */
+/**
+ * Partial update — only the fields present are applied.
+ *
+ * `expected` reads absence and blankness differently: omitting it leaves the
+ * stored verdict alone, while sending a blank one returns the case to unlabelled.
+ */
 export interface MetricTuningCaseUpdate {
   input?: string;
   output?: string;
   expected_output?: string | null;
-  expected?: string;
+  expected?: string | null;
   rationale?: string | null;
 }
 

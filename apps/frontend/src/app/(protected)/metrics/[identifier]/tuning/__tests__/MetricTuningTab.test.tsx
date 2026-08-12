@@ -155,6 +155,7 @@ describe('MetricTuningTab', () => {
     fireEvent.change(screen.getByLabelText(/^output/i), {
       target: { value: 'No.' },
     });
+    fireEvent.click(screen.getByRole('radio', { name: /^fail/i }));
 
     fireEvent.click(
       screen.getByRole('button', { name: /add case/i, hidden: false })
@@ -165,8 +166,59 @@ describe('MetricTuningTab', () => {
     expect(metricId).toBe(METRIC_ID);
     expect(payload.input).toBe('Tell me a joke');
     expect(payload.output).toBe('No.');
-    // The form defaults to the case worth recording: a verdict the metric got wrong.
     expect(payload.expected).toBe('fail');
+  });
+
+  it('starts with no verdict selected', async () => {
+    render(<MetricTuningTab metricId={METRIC_ID} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: /add case/i }));
+
+    // Nothing preselected: a captured case must never be silently labelled with
+    // a verdict its author did not choose.
+    expect(
+      await screen.findByRole('radio', { name: /^pass/i })
+    ).not.toBeChecked();
+    expect(screen.getByRole('radio', { name: /^fail/i })).not.toBeChecked();
+  });
+
+  it('saves a case with no verdict, to be judged later', async () => {
+    mockCreateTuningCase.mockResolvedValue(CASE);
+    render(<MetricTuningTab metricId={METRIC_ID} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: /add case/i }));
+    fireEvent.change(await screen.findByLabelText(/^input/i), {
+      target: { value: 'Tell me a joke' },
+    });
+    fireEvent.change(screen.getByLabelText(/^output/i), {
+      target: { value: 'No.' },
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /add case/i, hidden: false })
+    );
+
+    await waitFor(() => expect(mockCreateTuningCase).toHaveBeenCalled());
+    // Blank rather than omitted: on an update an omitted verdict means "leave the
+    // stored one alone", so this form always says what the field holds.
+    expect(mockCreateTuningCase.mock.calls[0][1].expected).toBe('');
+  });
+
+  it('marks a case that has no verdict yet', async () => {
+    mockGetTuningCases.mockResolvedValue([{ ...CASE, expected: null }]);
+
+    render(<MetricTuningTab metricId={METRIC_ID} />);
+
+    expect(await screen.findByText('Unlabelled')).toBeInTheDocument();
+  });
+
+  it('does not call an unlabelled case stale', async () => {
+    mockGetTuningCases.mockResolvedValue([{ ...CASE, expected: null }]);
+
+    render(<MetricTuningTab metricId={METRIC_ID} />);
+
+    await screen.findByText('Unlabelled');
+    expect(screen.queryByText('Stale')).not.toBeInTheDocument();
   });
 
   it('will not submit a case with no output', async () => {
