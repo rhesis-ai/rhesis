@@ -5,6 +5,7 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from 'react';
 import { usePathname } from 'next/navigation';
@@ -20,6 +21,7 @@ type SectionCounts = Partial<Record<NotificationSection, number>>;
 type SectionHighlights = Partial<Record<NotificationSection, string[]>>;
 
 interface NotificationEventPayload {
+  id?: string;
   section?: string;
   entity_id?: string | null;
   project_id?: string | null;
@@ -35,6 +37,15 @@ interface NotificationsContextValue {
   markSectionRead: (section: NotificationSection) => void;
   /** Drop one id from a section's highlight list (e.g. on row click). */
   clearHighlight: (section: NotificationSection, id: string) => void;
+  /**
+   * Declare that this entity is on screen right now, so its own notifications
+   * are pointless. Returns an unregister function. Prefer the
+   * `useViewingEntity` hook over calling this directly.
+   */
+  registerViewing: (
+    section: NotificationSection,
+    entityId: string
+  ) => () => void;
 }
 
 // Default (no provider in the tree) is "no notifications", not a thrown
@@ -47,6 +58,7 @@ const defaultNotificationsContext: NotificationsContextValue = {
   highlightedIds: () => [],
   markSectionRead: () => {},
   clearHighlight: () => {},
+  registerViewing: () => () => {},
 };
 
 const NotificationsContext = createContext<NotificationsContextValue>(
@@ -94,6 +106,30 @@ export function NotificationsProvider({
 
   const [unreadBySection, setUnreadBySection] = useState<SectionCounts>({});
   const [highlighted, setHighlighted] = useState<SectionHighlights>({});
+  // "section:entityId" for every entity currently on screen. A ref, not
+  // state: the websocket handler reads it, and re-running that effect on
+  // every navigation would churn the subscription for no benefit.
+  const viewingRef = useRef<Set<string>>(new Set());
+
+  const registerViewing = useCallback(
+    (section: NotificationSection, entityId: string) => {
+      const key = `${section}:${entityId}`;
+      viewingRef.current.add(key);
+      return () => {
+        viewingRef.current.delete(key);
+      };
+    },
+    []
+  );
+
+  const markIdsRead = useCallback((ids: string[]) => {
+    new ApiClientFactory()
+      .getNotificationsClient()
+      .markRead({ ids })
+      .catch(error => {
+        console.warn('Failed to mark notifications read:', error);
+      });
+  }, []);
 
   const fetchSummary = useCallback(async () => {
     try {
@@ -134,6 +170,20 @@ export function NotificationsProvider({
       }
 
       const section = payload.section;
+
+      // The user is looking at this exact entity, so telling them about it is
+      // pointless -- the page showing it live is responsible for its own
+      // updates (the architect page streams its session over a channel, for
+      // instance). Mark the row read straight away so it doesn't resurface on
+      // the next load, and skip the badge, the highlight and the list
+      // invalidation. Note this is per-entity: a notification for a *different*
+      // architect session still badges normally.
+      const entityId = payload.entity_id ? String(payload.entity_id) : null;
+      if (entityId && viewingRef.current.has(`${section}:${entityId}`)) {
+        if (payload.id) markIdsRead([String(payload.id)]);
+        return;
+      }
+
       setUnreadBySection(prev => ({
         ...prev,
         [section]: (prev[section] ?? 0) + 1,
@@ -168,7 +218,7 @@ export function NotificationsProvider({
     // and `subscribe` silently returns a no-op unsubscribe. `subscribe` itself
     // has a stable identity, so without re-running when the socket comes up
     // the handler would never be registered at all.
-  }, [subscribe, isConnected, activeProject?.id, queryClient]);
+  }, [subscribe, isConnected, activeProject?.id, queryClient, markIdsRead]);
 
   const markSectionRead = useCallback((section: NotificationSection) => {
     setUnreadBySection(prev => {
@@ -225,6 +275,7 @@ export function NotificationsProvider({
     highlightedIds,
     markSectionRead,
     clearHighlight,
+    registerViewing,
   };
 
   return (
@@ -236,4 +287,23 @@ export function NotificationsProvider({
 
 export function useNotifications(): NotificationsContextValue {
   return useContext(NotificationsContext);
+}
+
+/**
+ * Suppress notifications for the entity this component is currently showing.
+ *
+ * For a page that already streams its own live updates, a badge for the thing
+ * on screen is noise. While mounted with a non-null `entityId`, a matching
+ * notification is marked read on arrival instead of badged. Pass null when
+ * nothing is open (e.g. no architect session selected) to suppress nothing.
+ */
+export function useViewingEntity(
+  section: NotificationSection,
+  entityId: string | null | undefined
+): void {
+  const { registerViewing } = useNotifications();
+  useEffect(() => {
+    if (!entityId) return;
+    return registerViewing(section, entityId);
+  }, [registerViewing, section, entityId]);
 }

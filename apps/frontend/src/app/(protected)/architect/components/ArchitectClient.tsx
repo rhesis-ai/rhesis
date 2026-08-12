@@ -14,6 +14,8 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { ArchitectSession } from '@/utils/api-client/architect-client';
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
+import { useViewingEntity } from '@/contexts/NotificationsContext';
+import { NotificationSection } from '@/constants/notifications';
 import { useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import { architectSessionKeys } from '@/constants/query-keys';
@@ -48,6 +50,10 @@ export default function ArchitectClient() {
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
   const [isCreatingSession, setIsCreatingSession] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
+
+  // No badge for the session that's open on screen -- this page streams that
+  // session's own progress live. Another session completing still badges.
+  useViewingEntity(NotificationSection.ARCHITECT, activeSessionId);
 
   const projectKey = activeProject?.id ?? '';
   // Memoize so `updateSessions` (and the ?session= effect that depends on it)

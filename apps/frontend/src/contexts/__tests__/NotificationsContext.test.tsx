@@ -5,6 +5,7 @@ import '@testing-library/jest-dom';
 import {
   NotificationsProvider,
   useNotifications,
+  useViewingEntity,
 } from '../NotificationsContext';
 import { NotificationSection } from '@/constants/notifications';
 import type { EventHandler } from '@/utils/websocket';
@@ -87,6 +88,17 @@ function Probe() {
       <button onClick={() => markSectionRead(NotificationSection.TEST_SETS)}>
         mark read
       </button>
+    </div>
+  );
+}
+
+/** Probe that declares an architect session as being on screen. */
+function ViewingProbe({ sessionId }: { sessionId: string | null }) {
+  const { unreadBySection } = useNotifications();
+  useViewingEntity(NotificationSection.ARCHITECT, sessionId);
+  return (
+    <div data-testid="architect-unread">
+      {unreadBySection[NotificationSection.ARCHITECT] ?? 0}
     </div>
   );
 }
@@ -270,6 +282,73 @@ describe('NotificationsProvider', () => {
       expect(screen.getByTestId('test-sets-unread')).toHaveTextContent('1')
     );
     expect(mockMarkRead).not.toHaveBeenCalled();
+  });
+
+  it('does not badge a notification for the entity currently on screen', async () => {
+    render(
+      <NotificationsProvider>
+        <ViewingProbe sessionId="session-1" />
+      </NotificationsProvider>
+    );
+    await waitFor(() => expect(mockGetSummary).toHaveBeenCalled());
+
+    emitNotification({
+      id: 'notif-1',
+      section: 'architect',
+      entity_id: 'session-1',
+      project_id: 'project-a',
+    });
+
+    expect(screen.getByTestId('architect-unread')).toHaveTextContent('0');
+    // Cleared server-side too, so it doesn't come back on the next load.
+    await waitFor(() =>
+      expect(mockMarkRead).toHaveBeenCalledWith({ ids: ['notif-1'] })
+    );
+    expect(mockInvalidateQueries).not.toHaveBeenCalled();
+  });
+
+  it('still badges a notification for a different entity in that section', async () => {
+    render(
+      <NotificationsProvider>
+        <ViewingProbe sessionId="session-1" />
+      </NotificationsProvider>
+    );
+    await waitFor(() => expect(mockGetSummary).toHaveBeenCalled());
+
+    emitNotification({
+      id: 'notif-2',
+      section: 'architect',
+      entity_id: 'session-2',
+      project_id: 'project-a',
+    });
+
+    expect(screen.getByTestId('architect-unread')).toHaveTextContent('1');
+    expect(mockMarkRead).not.toHaveBeenCalled();
+  });
+
+  it('badges again once the entity is no longer on screen', async () => {
+    const { rerender } = render(
+      <NotificationsProvider>
+        <ViewingProbe sessionId="session-1" />
+      </NotificationsProvider>
+    );
+    await waitFor(() => expect(mockGetSummary).toHaveBeenCalled());
+
+    // Session closed -- the registration must have been torn down.
+    rerender(
+      <NotificationsProvider>
+        <ViewingProbe sessionId={null} />
+      </NotificationsProvider>
+    );
+
+    emitNotification({
+      id: 'notif-3',
+      section: 'architect',
+      entity_id: 'session-1',
+      project_id: 'project-a',
+    });
+
+    expect(screen.getByTestId('architect-unread')).toHaveTextContent('1');
   });
 
   it('refetches the summary when the active project changes', async () => {
