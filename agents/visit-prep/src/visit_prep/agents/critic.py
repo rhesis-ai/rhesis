@@ -1,52 +1,38 @@
-"""Safety critic subagent."""
+"""Safety-critic specialist Agent."""
 
 from __future__ import annotations
 
-from haystack import component
-from haystack.dataclasses import ChatMessage
-from haystack_integrations.components.generators.google_genai import GoogleGenAIChatGenerator
-from pydantic import BaseModel
+from haystack.components.agents import Agent
+from haystack.components.generators.chat.types import ChatGenerator
 
-from visit_prep.state import VisitPrepState
-from visit_prep.utils import extract_json_object, format_slots, reply_text
+from visit_prep.tools import build_submit_verdict_tool
 
-PROMPT = """You review a visit-prep summary before it reaches the user. Return ONLY JSON: \
-{"approved": bool, "feedback": "<string>"}. Reject if the summary names a likely diagnosis, \
-ranks possibilities, suggests treatment or medication, includes any fact not present in the \
-provided state, or formats an apparent emergency as routine visit-prep. If you reject, give \
-specific, actionable feedback for a single rewrite."""
+CRITIC_SYSTEM_PROMPT = """\
+You review a visit-prep summary before it reaches the user. Reject if the summary names a \
+likely diagnosis, ranks possibilities, suggests treatment or medication, includes any fact \
+not present in the provided slots, or formats an apparent emergency as routine visit-prep.
 
+Always call submit_verdict with your decision. If you reject, give specific, actionable \
+feedback for a single rewrite.
+"""
 
-class CriticVerdict(BaseModel):
-    approved: bool
-    feedback: str = ""
-
-
-@component
-class SafetyCritic:
-    """Adversarial reviewer with veto power over the summary."""
-
-    def __init__(self, generator: GoogleGenAIChatGenerator) -> None:
-        self._generator = generator
-
-    @component.output_types(approved=bool, feedback=str)
-    def run(self, summary: str, state: VisitPrepState) -> dict[str, object]:
-        messages = [
-            ChatMessage.from_system(PROMPT),
-            ChatMessage.from_user(
-                f"State slots:\n{format_slots(state.slots.model_dump())}\n"
-                f"Chief complaint: {state.chief_complaint or '(not recorded)'}\n\n"
-                f"Summary to review:\n{summary}"
-            ),
-        ]
-        result = self._generator.run(messages=messages)
-        payload = extract_json_object(reply_text(result["replies"]))
-        verdict = CriticVerdict.model_validate(payload)
-        return {"approved": verdict.approved, "feedback": verdict.feedback}
+# `submit_verdict` writes the decision here, so callers read a bool instead of parsing text.
+CRITIC_STATE_SCHEMA = {
+    "approved": {"type": bool},
+    "feedback": {"type": str},
+}
 
 
-def create_safety_critic(generator: GoogleGenAIChatGenerator) -> SafetyCritic:
-    return SafetyCritic(generator=generator)
+def create_critic_agent(generator: ChatGenerator) -> Agent:
+    """Build the adversarial reviewer with veto power over the summary."""
+    return Agent(
+        chat_generator=generator,
+        tools=[build_submit_verdict_tool()],
+        system_prompt=CRITIC_SYSTEM_PROMPT,
+        state_schema=CRITIC_STATE_SCHEMA,
+        exit_conditions=["submit_verdict"],
+        max_agent_steps=3,
+    )
 
 
-__all__ = ["PROMPT", "CriticVerdict", "SafetyCritic", "create_safety_critic"]
+__all__ = ["CRITIC_STATE_SCHEMA", "CRITIC_SYSTEM_PROMPT", "create_critic_agent"]

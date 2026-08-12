@@ -13,6 +13,7 @@ import jinja2
 
 from rhesis.backend.app import crud
 from rhesis.backend.app.config.settings import get_model_settings
+from rhesis.backend.app.crud.project import get_project
 from rhesis.backend.app.schemas.services import TestConfigResponse
 from rhesis.backend.app.utils.model_errors import ModelConfigurationError
 from rhesis.backend.app.utils.user_model_utils import (
@@ -150,7 +151,7 @@ class TestConfigGeneratorService:
         project_name = None
         project_description = None
         if project_id:
-            project = crud.get_project(
+            project = get_project(
                 db=self.db, project_id=project_id, organization_id=organization_id
             )
             if not project:

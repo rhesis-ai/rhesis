@@ -1,92 +1,67 @@
-"""Formatting and JSON parsing helpers."""
+"""ChatMessage helpers shared by the coordinator tools and the turn layer."""
 
 from __future__ import annotations
 
-import json
-import re
-from typing import Any
+from collections.abc import Iterable
 
-from haystack.dataclasses import ChatMessage
-
-SLOT_FIELDS = frozenset(
-    {
-        "chief_complaint",
-        "onset",
-        "location",
-        "character",
-        "severity",
-        "timing",
-        "aggravating",
-        "relieving",
-        "associated",
-        "context",
-    }
-)
+from haystack.dataclasses import ChatMessage, ChatRole
 
 
-def normalize_slot_payload(payload: dict[str, Any]) -> dict[str, Any]:
-    """Coerce slot values to strings and treat blank/whitespace-only values as unknown.
+def as_text(value: object) -> str:
+    """Return ``value`` as text, tolerating the non-strings that arrive from outside.
 
-    The model sometimes returns ``""`` (or whitespace) for a field it does not know
-    instead of ``null``. Left as-is, an empty string would count as a "filled" slot
-    and let the agent finish early with no real content, so blanks are mapped to
-    ``None``.
+    A turn's message is not always a ``str`` by the time it reaches us. The platform renders
+    an endpoint's ``request_mapping`` with Jinja and then tries ``json.loads`` on the result,
+    so a user who types ``9`` (or ``true``) has their message handed over as an ``int`` (or a
+    ``bool``). LLM tool arguments have the same problem: a model can answer a
+    ``"type": "string"`` parameter with a JSON number. Everything downstream — the red-flag
+    regexes, the Jinja prompts, the slot values — assumes text.
     """
-    normalized = dict(payload)
-    for key, value in normalized.items():
-        if key not in SLOT_FIELDS or value is None:
-            continue
-        text = value if isinstance(value, str) else str(value)
-        normalized[key] = text if text.strip() else None
-    return normalized
+    if isinstance(value, str):
+        return value
+    if value is None:
+        return ""
+    return str(value)
 
 
-def extract_json_object(text: str) -> dict[str, Any]:
-    """Parse a JSON object from model output, tolerating markdown fences."""
-    stripped = text.strip()
-    fence_match = re.search(r"```(?:json)?\s*([\s\S]*?)```", stripped)
-    if fence_match:
-        stripped = fence_match.group(1).strip()
-    start = stripped.find("{")
-    end = stripped.rfind("}")
-    if start == -1 or end == -1 or end <= start:
-        raise ValueError(f"No JSON object found in model output: {text!r}")
-    return json.loads(stripped[start : end + 1])
+def user_texts(messages: Iterable[ChatMessage]) -> list[str]:
+    """Return the text of every user message, oldest first."""
+    return [as_text(m.text) for m in messages if m.is_from(ChatRole.USER) and m.text]
 
 
-def reply_text(replies: list[ChatMessage]) -> str:
-    """Return the text of the first assistant reply."""
-    if not replies:
-        raise RuntimeError("Generator returned no replies.")
-    return replies[0].text or ""
+def latest_user_text(messages: Iterable[ChatMessage]) -> str:
+    """Return the most recent user message text, or an empty string if there is none."""
+    texts = user_texts(messages)
+    return texts[-1] if texts else ""
 
 
-def format_history(history: list[dict[str, str]], *, limit: int = 12) -> str:
-    """Format recent conversation history for prompts."""
-    if not history:
-        return "(no prior messages)"
-    lines: list[str] = []
-    for item in history[-limit:]:
-        role = item.get("role", "user")
-        content = item.get("content", "")
-        lines.append(f"{role}: {content}")
-    return "\n".join(lines)
+def conversation_messages(messages: Iterable[ChatMessage], *, limit: int = 12) -> list[ChatMessage]:
+    """Return the recent user/assistant turns, dropping system, tool, and tool-call messages.
 
-
-def format_slots(slots: dict[str, str | None]) -> str:
-    """Format slot state for prompts."""
-    lines = [
-        f"- {key}: {value if value is not None else '(missing)'}"
-        for key, value in slots.items()
+    Used to forward the coordinator's conversation context into a specialist Agent, which
+    otherwise starts from a single message with no idea what was already asked.
+    """
+    plain = [
+        m
+        for m in messages
+        if m.is_from(ChatRole.USER)
+        or (m.is_from(ChatRole.ASSISTANT) and m.text and not m.tool_calls)
     ]
-    return "\n".join(lines)
+    return plain[-limit:]
+
+
+def tool_result_text(message: ChatMessage) -> str:
+    """Return the text of a tool message's first result, falling back to its own text."""
+    results = message.tool_call_results or []
+    if results:
+        return str(results[0].result)
+    return message.text or ""
 
 
 __all__ = [
-    "SLOT_FIELDS",
-    "extract_json_object",
-    "format_history",
-    "format_slots",
-    "normalize_slot_payload",
-    "reply_text",
+    "as_text",
+    "conversation_messages",
+    "latest_user_text",
+    "tool_result_text",
+    "user_texts",
 ]

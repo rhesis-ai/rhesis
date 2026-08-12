@@ -11,12 +11,19 @@ Execute the approved plan exactly — no extra entities.
 5. Metrics — **(reuse)** skip; **(improve)** `improve_metric`; **(new)** `create_metric` with plan name, **`metric_scope`**, `score_type`, `evaluation_prompt`. Do NOT use `generate_metric`
 6. `add_behavior_to_metric` — all mappings before generation
 7. `assign_tag` — if planned (PRD path); `entity_type` `Behavior` or `Metric`
-8. `generate_test_set` — per set; `config.behaviors`, `generation_prompt`, `test_type`, optional `sources` (Single-Turn only). Prefer over `create_test_set_bulk` unless importing verbatim user prompts.
+8. `generate_test_set` — per set; `config.behaviors`, `generation_prompt`, `test_type`, optional `sources` (Single-Turn only). **Read `test_type` from the plan** for each test set and pass it explicitly — Multi-Turn sets MUST send `test_type: "Multi-Turn"`. Prefer over `create_test_set_bulk` unless importing verbatim user prompts.
 9. **Wait for generation** — call `await_task` with the `task_id`(s) from the responses. Do NOT poll `get_job_status` manually; the system resumes when all tasks finish.
 10. `get_test_set` + `list_test_set_tests` spot-check generated prompts
 11. Summarize by name (never IDs); offer execution: "Would you like me to run these against [endpoint name]?"
 
 **Critical:** test sets are generated LAST, only after every behavior, metric, and behavior→metric link is in place. Calling `generate_test_set` before that point is rejected with "Cannot generate test sets yet…". Wait until the "Plan progress" line shows N/N for behaviors, metrics, and mappings.
+
+## Multi-Turn test sets
+
+Multi-Turn and Single-Turn test sets produce structurally different tests. Getting this wrong creates a test set that says "Multi-Turn" but contains Single-Turn tests.
+
+- **`generate_test_set`**: pass `test_type: "Multi-Turn"`. The synthesizer generates goals and instructions instead of prompts. Omitting `test_type` or leaving the default produces Single-Turn tests regardless of the test set name.
+- **`create_test_set_bulk`**: pass `test_set_type: "Multi-Turn"`. Each test in the `tests` array must use `test_configuration` (with `goal`, optional `instructions`, `restrictions`, `scenario`, `max_turns`) instead of `prompt`, and set `test_type: "Multi-Turn"` on each test object. The server types each test from its own content, so tests carrying a `prompt` land as Single-Turn even inside a Multi-Turn set. Do NOT send `prompt` and `test_configuration` on the same test.
 
 ## Naming
 

@@ -7,6 +7,8 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app.crud.metric import get_behavior_metrics
+from rhesis.backend.app.crud.test_run import get_test_run, get_test_run_behaviors
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +28,7 @@ def get_test_results_for_test_run(
         List of dictionaries containing test result data
     """
     # First check if test run exists
-    test_run = crud.get_test_run(db, test_run_id, organization_id=organization_id)
+    test_run = get_test_run(db, test_run_id, organization_id=organization_id)
     if not test_run:
         raise ValueError("Test Run not found")
 
@@ -52,7 +54,7 @@ def get_test_results_for_test_run(
         raise ValueError("No test results found for this test run")
 
     # Get behaviors and metrics for this test run with organization filtering (SECURITY CRITICAL)
-    behaviors = crud.get_test_run_behaviors(
+    behaviors = get_test_run_behaviors(
         db, test_run_id, organization_id=str(test_run.organization_id)
     )
 
@@ -61,7 +63,7 @@ def get_test_results_for_test_run(
     for behavior in behaviors:
         # Get metrics for this behavior (use default limit to stay within bounds)
         # SECURITY: Pass organization_id from test_run to prevent cross-tenant access
-        metrics = crud.get_behavior_metrics(
+        metrics = get_behavior_metrics(
             db, behavior.id, organization_id=str(test_run.organization_id)
         )
         behavior_map[behavior.id] = {"behavior": behavior, "metrics": metrics}
@@ -196,7 +198,7 @@ def rescore_test_run(
     uid = str(current_user.id)
 
     # 1. Load the reference test run
-    ref_run = crud.get_test_run(
+    ref_run = get_test_run(
         db,
         test_run_id=uuid.UUID(reference_test_run_id),
         organization_id=org_id,

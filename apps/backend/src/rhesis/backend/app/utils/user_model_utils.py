@@ -12,8 +12,13 @@ from typing import Optional, Union
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
-from rhesis.backend.app.config.settings import get_model_settings, get_rhesis_settings
+from rhesis.backend.app.config.settings import (
+    get_application_settings,
+    get_model_settings,
+    get_rhesis_settings,
+)
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.services.platform_key import get_platform_api_key
 from rhesis.backend.app.utils.model_errors import ModelConfigurationError
 from rhesis.backend.app.utils.usage_tracking import stamp_usage_provenance
 from rhesis.sdk.models.base import BaseEmbedder, BaseLLM
@@ -583,6 +588,44 @@ def _call_polyphemus_with_delegation(user: User, model_name: str, **kwargs):
     )
 
 
+def _try_platform_key_model(
+    db: Session,
+    organization_id: str,
+    provider: str,
+    model_name: str,
+    model_type: str,
+    *,
+    metered: bool = False,
+) -> Optional[Union[BaseLLM, BaseEmbedder]]:
+    """Authenticate a Rhesis-hosted model with the org's platform key, in local mode only.
+
+    Returns a configured instance when local mode is active and a platform key
+    resolves; ``None`` otherwise, so callers fall through to their own
+    non-local default/delegation logic unchanged.
+
+    ``metered`` records that we pay for these tokens, and must be passed
+    explicitly here rather than derived from :func:`_is_hosted_model`: that
+    helper reads any API key as the org's own, and the platform key looks like
+    one while actually being Rhesis-issued credentials for local mode. Left
+    ``False`` for embedders, which have no usage-emission path at all, so the
+    stamp is a no-op on them.
+    """
+    if not get_application_settings().is_local:
+        return None
+    key = get_platform_api_key(db, organization_id)
+    if not key:
+        return None
+    return stamp_usage_provenance(
+        get_model(
+            provider=provider,
+            model_name=model_name,
+            api_key=key,
+            model_type=model_type,
+        ),
+        metered=metered,
+    )
+
+
 def _fetch_and_configure_model(
     db: Session,
     model_id: str,
@@ -617,6 +660,20 @@ def _fetch_and_configure_model(
 
     # Special handling for Rhesis system models
     if _is_rhesis_system_model(provider, api_key):
+        # Local/self-hosted mode: authenticate the prepopulated Rhesis-hosted
+        # system models with the org-scoped platform key when one is configured,
+        # accruing usage like any other hosted call. Non-local (SaaS) behavior
+        # is unchanged: fall back to the stamped default.
+        hosted = _try_platform_key_model(
+            db,
+            organization_id,
+            "rhesis",
+            model_name or "default",
+            "language",
+            metered=True,
+        )
+        if hosted is not None:
+            return hosted
         return resolve_default_hosted_model(default_model)
 
     # Special handling for Polyphemus models without a stored API key.
@@ -630,6 +687,15 @@ def _fetch_and_configure_model(
     #   be meaningless to the externally-hosted Polyphemus service, so a
     #   configured RHESIS_API_KEY always takes precedence when present.
     if provider == "polyphemus" and not api_key:
+        # Local/self-hosted mode: authenticate with the org-scoped platform
+        # key when configured, accruing usage like any other hosted call.
+        # Non-local (SaaS) behavior is unchanged: existing env-precedence and
+        # delegation logic runs when no per-org key resolves.
+        hosted = _try_platform_key_model(
+            db, organization_id, "polyphemus", model_name, "language", metered=True
+        )
+        if hosted is not None:
+            return hosted
         if get_rhesis_settings().api_key:
             logger.debug("Using configured RHESIS_API_KEY for Polyphemus (self-hosted mode)")
         elif user:
@@ -759,6 +825,14 @@ def _fetch_and_configure_embedder(
 
     # Special handling for Rhesis system models
     if _is_rhesis_system_model(provider, api_key):
+        # Local/self-hosted mode: authenticate the prepopulated Rhesis-hosted
+        # embedding models with the org-scoped platform key when configured.
+        # Non-local (SaaS) behavior is unchanged: fall back to default_model.
+        hosted = _try_platform_key_model(
+            db, organization_id, "rhesis", model_name or "default", "embedding"
+        )
+        if hosted is not None:
+            return hosted
         return default_model
 
     # Use SDK's get_model to create configured instance with error handling

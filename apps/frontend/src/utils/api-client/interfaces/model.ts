@@ -13,6 +13,19 @@ export interface Model {
   endpoint: string;
   is_protected?: boolean;
 
+  /**
+   * Whether the model is currently usable. Defaults to true; the backend sets
+   * it to false for Rhesis-hosted models when their prerequisite (e.g. a valid
+   * platform key) is missing on a local deployment.
+   */
+  available?: boolean;
+  /**
+   * Machine slug explaining why the model is unavailable (e.g.
+   * `rhesis_key_missing`, `polyphemus_not_authorized`), or null when available.
+   * Human-readable copy lives in the frontend — see `AVAILABILITY_REASON_COPY`.
+   */
+  availability_reason?: string | null;
+
   // References
   provider_type?: TypeLookup;
   status?: Status;

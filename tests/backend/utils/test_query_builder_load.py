@@ -16,6 +16,8 @@ from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app.crud import tag as tag_crud
+from rhesis.backend.app.crud.metric import get_metrics
 from rhesis.backend.app.utils import crud_utils
 from rhesis.backend.app.utils.query_utils import QueryBuilder, include
 from tests.backend.routes.fixtures.data_factories import BehaviorDataFactory, TestDataFactory
@@ -188,7 +190,7 @@ class TestMetricBehaviorNestedM2MLoads:
                 user_id=authenticated_user_id,
             )
         )
-        crud.assign_tag(
+        tag_crud.assign_tag(
             db=test_db,
             tag=schemas.TagCreate(name="nested-behavior-tag"),
             entity_id=behavior.id,
@@ -199,7 +201,7 @@ class TestMetricBehaviorNestedM2MLoads:
         test_db.flush()
         test_db.expire_all()
 
-        results = crud.get_metrics(db=test_db, skip=0, limit=100, organization_id=test_org_id)
+        results = get_metrics(db=test_db, skip=0, limit=100, organization_id=test_org_id)
         result = next(m for m in results if m.id == metric.id)
 
         assert _is_loaded(result, "behaviors")
@@ -241,7 +243,7 @@ class TestMetricBehaviorNestedM2MLoads:
                 user_id=authenticated_user_id,
             )
         )
-        crud.assign_tag(
+        tag_crud.assign_tag(
             db=test_db,
             tag=schemas.TagCreate(name="nested-metric-tag"),
             entity_id=metric.id,
@@ -340,7 +342,7 @@ class TestODataAnyNavigationFilter:
         test_db.expire_all()
 
         odata_filter = "behaviors/any(b: tolower(b/name) eq tolower('Toxicity'))"
-        results = crud.get_metrics(
+        results = get_metrics(
             db=test_db,
             skip=0,
             limit=100,

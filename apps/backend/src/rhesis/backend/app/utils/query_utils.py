@@ -430,6 +430,11 @@ class QueryBuilder:
         self.query = filter_func(self.query)
         return self
 
+    def with_explorer_rows_excluded(self) -> "QueryBuilder":
+        """Drop Explorer-owned rows -- they are listed through the /explorer API only."""
+        self.query = self.query.filter(self.model.explorer_row.is_(False))
+        return self
+
     def with_field_inclusion(self, include_fields: str) -> "QueryBuilder":
         """Apply field inclusion using SQLAlchemy undefer for deferred fields"""
         if not include_fields:

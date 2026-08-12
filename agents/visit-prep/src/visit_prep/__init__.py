@@ -1,12 +1,12 @@
 """Visit-Prep: Haystack multi-agent visit preparation assistant."""
 
 from visit_prep.pipeline import (
-    TurnComponents,
-    build_intent_pipeline,
-    build_turn_components,
+    build_coordinator_agent,
+    build_coordinator_pipeline,
     run_turn,
+    run_turn_async,
 )
-from visit_prep.session import StateStore, default_store, run_chat_turn
+from visit_prep.session import StateStore, default_store, run_chat_turn, run_chat_turn_async
 from visit_prep.state import CORE_SLOTS, Phase, Slots, VisitPrepState
 
 
@@ -23,12 +23,13 @@ __all__ = [
     "Phase",
     "Slots",
     "StateStore",
-    "TurnComponents",
     "VisitPrepState",
     "app",
-    "build_intent_pipeline",
-    "build_turn_components",
+    "build_coordinator_agent",
+    "build_coordinator_pipeline",
     "default_store",
     "run_chat_turn",
+    "run_chat_turn_async",
     "run_turn",
+    "run_turn_async",
 ]

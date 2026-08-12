@@ -1,0 +1,159 @@
+# Primary source register, from section D5 of the reference taxonomy.
+#
+# Source hierarchy: primary law (EUR-Lex consolidated, eCFR, US Code, Federal Register) ->
+# regulator guidance (Commission, MDCG, EMA, FDA) -> standards bodies. Guidance is non-binding;
+# only Regulations, Directives as transposed, statutes and the CFR bind.
+
+version: "1.0"
+verified_on: "2026-08-11"
+
+sources:
+  - citation: "Regulation (EU) 2017/745 (MDR)"
+    kind: "primary_law"
+    binding: true
+    status: "In force, applied 26 May 2021"
+    url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02017R0745"
+
+  - citation: "Regulation (EU) 2017/746 (IVDR)"
+    kind: "primary_law"
+    binding: true
+    status: "In force, applied 26 May 2022"
+    url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02017R0746"
+
+  - citation: "Regulation (EU) 2023/607 (MDR/IVDR transition amendment)"
+    kind: "primary_law"
+    binding: true
+    status: "In force, OJ L 80, 20 Mar 2023"
+    url: "https://eur-lex.europa.eu/eli/reg/2023/607/oj"
+
+  - citation: "Regulation (EU) 2024/1860 (IVDR further transition and EUDAMED)"
+    kind: "primary_law"
+    binding: true
+    status: "In force"
+    url: "https://eur-lex.europa.eu/eli/reg/2024/1860/oj"
+
+  - citation: "Commission Decision (EU) 2025/2371 (EUDAMED four modules functional)"
+    kind: "primary_law"
+    binding: true
+    status: "Published OJ 27 Nov 2025; modules mandatory from 28 May 2026"
+    url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32025D2371"
+
+  - citation: "Regulation (EU) No 536/2014 (Clinical Trials Regulation)"
+    kind: "primary_law"
+    binding: true
+    status: "Applied 31 Jan 2022; CTIS live"
+    url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32014R0536"
+
+  - citation: "Directive 2001/83/EC; Regulation (EC) No 726/2004; Regulation (EC) No 1394/2007; Regulation (EC) No 141/2000; Regulation (EC) No 1901/2006"
+    kind: "primary_law"
+    binding: true
+    status: "In force"
+    url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02001L0083"
+
+  - citation: "Regulation (EU) 2016/679 (GDPR)"
+    kind: "primary_law"
+    binding: true
+    status: "In force, applied 25 May 2018"
+    url: "https://eur-lex.europa.eu/eli/reg/2016/679/oj"
+
+  - citation: "Regulation (EU) 2025/327 (European Health Data Space)"
+    kind: "primary_law"
+    binding: true
+    status: "In force 26 Mar 2025; general application 26 Mar 2027; later phases to 2029 and 2031"
+    url: "https://eur-lex.europa.eu/eli/reg/2025/327/oj"
+
+  - citation: "Regulation (EU) 2024/1689 (AI Act), Arts. 6, 8, 43, 113 and Annex I"
+    kind: "primary_law"
+    binding: true
+    status: "In force 1 Aug 2024; Annex I embedded high-risk AI originally applicable 2 Aug 2027"
+    url: "https://eur-lex.europa.eu/eli/reg/2024/1689/oj"
+
+  - citation: "MDCG 2025-6 (19 Jun 2025) - MDR/IVDR and AI Act interplay"
+    kind: "guidance"
+    binding: false
+    status: "Official guidance, non-binding"
+    url: "https://health.ec.europa.eu/document/download/mdcg-2025-6"
+
+  - citation: "MDCG 2019-11 (software qualification and classification); MDCG 2019-16 (cybersecurity); MDCG 2020-3 (significant change)"
+    kind: "guidance"
+    binding: false
+    status: "Official guidance, non-binding"
+    url: "https://health.ec.europa.eu/medical-devices-sector/new-regulations/guidance-mdcg-endorsed-documents-and-other-guidance_en"
+
+  - citation: "Directive (EU) 2022/2555 (NIS2); Regulation (EU) 2024/2847 (Cyber Resilience Act)"
+    kind: "primary_law"
+    binding: true
+    status: "CRA reporting from 11 Sept 2026, full application 11 Dec 2027; medical devices excluded"
+    url: "https://eur-lex.europa.eu/eli/reg/2024/2847/oj"
+
+  - citation: "COM(2025) 1023 final - MDR/IVDR targeted simplification proposal, 16 Dec 2025"
+    kind: "proposal"
+    binding: false
+    status: "Proposal only, not adopted; feedback closed 18 Mar 2026"
+    url: "https://ec.europa.eu/info/law/better-regulation/have-your-say"
+
+  - citation: "FD&C Act Secs. 201(h), 510(k), 513, 513(f)(2), 515, 515B, 515C, 520, 520(m), 524B, 564; PHS Act Sec. 351; BPCIA"
+    kind: "primary_law"
+    binding: true
+    status: "In force"
+    url: "https://uscode.house.gov/browse/prelim@title21/chapter9&edition=prelim"
+
+  - citation: "21 CFR Parts 3, 4, 50, 54, 56, 58, 210-211, 312, 314, 600-680, 801, 803, 806, 807, 809, 812, 814, 820 (QMSR), 830, 860, 862-892"
+    kind: "primary_law"
+    binding: true
+    status: "In force"
+    url: "https://www.ecfr.gov/current/title-21"
+
+  - citation: "42 CFR Part 493 (CLIA); 45 CFR Parts 160 and 164 (HIPAA); 45 CFR Part 46 (Common Rule)"
+    kind: "primary_law"
+    binding: true
+    status: "In force"
+    url: "https://www.ecfr.gov/current/title-42/chapter-IV/subchapter-G/part-493"
+
+  - citation: "FDA QMSR final rule (published 2 Feb 2024, effective 2 Feb 2026); QMSR Technical Amendments (Federal Register 2025-21955)"
+    kind: "primary_law"
+    binding: true
+    status: "Effective 2 Feb 2026"
+    url: "https://www.fda.gov/medical-devices/postmarket-requirements-devices/quality-management-system-regulation-qmsr"
+
+  - citation: "LDT final rule (May 2024, 21 CFR 809.3(a)), vacated 31 Mar 2025 in ACLA v. FDA No. 4:24-CV-479-SDJ (E.D. Tex.); FDA rescission final rule 19 Sept 2025"
+    kind: "primary_law"
+    binding: true
+    status: "Rule vacated and rescinded; LDTs remain under CLIA"
+    url: "https://www.ecfr.gov/current/title-21/chapter-I/subchapter-H/part-809/section-809.3"
+
+  - citation: "FDA PCCP final guidance for AI-enabled device software functions (Dec 2024)"
+    kind: "guidance"
+    binding: false
+    status: "Final. Related Jan 2025 CDRH lifecycle and CDER/CBER AI guidances remain draft"
+    url: "https://www.fda.gov/regulatory-information/search-fda-guidance-documents/marketing-submission-recommendations-predetermined-change-control-plan-artificial-intelligence"
+
+  - citation: "FDA Clinical Decision Support Software guidance (Sept 2022)"
+    kind: "guidance"
+    binding: false
+    status: "Final"
+    url: "https://www.fda.gov/regulatory-information/search-fda-guidance-documents/clinical-decision-support-software"
+
+  - citation: "FDA Cybersecurity in Medical Devices: Quality System Considerations and Content of Premarket Submissions (June 2025)"
+    kind: "guidance"
+    binding: false
+    status: "Final"
+    url: "https://www.fda.gov/regulatory-information/search-fda-guidance-documents/cybersecurity-medical-devices-quality-system-considerations-and-content-premarket-submissions"
+
+  - citation: "FDA 'Classify Your Medical Device' (approximately 1,700 generic types, 16 panels); Breakthrough Devices Program (1,284 designations as of 31 Mar 2026); FY2026 MDUFA user-fee rates"
+    kind: "guidance"
+    binding: false
+    status: "FDA published figures"
+    url: "https://www.fda.gov/medical-devices/overview-device-regulation/classify-your-medical-device"
+
+  - citation: "Riegel v. Medtronic, Inc., 552 U.S. 312 (2008)"
+    kind: "case_law"
+    binding: true
+    status: "Binding precedent on PMA preemption"
+    url: "https://supreme.justia.com/cases/federal/us/552/312/"
+
+  - citation: "ISO 13485, ISO 14971, IEC 62304, IEC 62366-1, IEC 60601, ISO 10993, ISO 14155, ISO 20916, ISO/IEC 27001, ISO/IEC 42001, IEC 81001-5-1"
+    kind: "standard"
+    binding: false
+    status: "Voluntary. EU harmonised standards confer a presumption of conformity when cited in the OJ; FDA-recognised standards support a Declaration of Conformity"
+    url: "https://www.accessdata.fda.gov/scripts/cdrh/cfdocs/cfstandards/search.cfm"

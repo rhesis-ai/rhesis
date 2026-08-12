@@ -33,7 +33,7 @@ Top-level structure (all three array fields are required, even if empty):
 - `description`: string (required)
 - `short_description`: string (optional)
 - `num_tests`: integer (optional, defaults to 15) — must be a number, NOT a string like `"15"`
-- `test_type`: string (optional, defaults to `"Single-Turn"`) — must be exactly `"Single-Turn"` or `"Multi-Turn"`. No other values, no lower-case variants.
+- `test_type`: string (optional, defaults to `"Single-Turn"`) — must be exactly `"Single-Turn"` or `"Multi-Turn"`. No other values, no lower-case variants. Set it explicitly to `"Multi-Turn"` when the user asked for Multi-Turn tests: this records the intent, and you must pass the same value to `generate_test_set` (or `create_test_set_bulk`) when you create the set. Nothing forwards it for you.
 - `generation_prompt`: string (optional)
 - `behaviors`: array of strings (optional) — behavior names this test set targets
 - `categories`: array of strings (optional)

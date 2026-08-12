@@ -20,9 +20,9 @@ spec:
     type: postgres
     access: proxy
     url: rhesis-stg-rw.rhesis.svc:5432
-    database: rhesis-stg-db
     user: grafana-viewer
     jsonData:
+      database: rhesis-stg-db
       sslmode: disable
       postgresVersion: 1700
     editable: false

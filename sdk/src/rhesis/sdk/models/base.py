@@ -325,8 +325,10 @@ class BaseLLM(BaseModel):
     def generate(self, *args, **kwargs) -> Union[str, Dict[str, Any]]:
         """Runs the model to output LLM response.
 
-        Bridges to a_generate() via run_sync(), which auto-detects
-        whether a running event loop exists.
+        Bridges to a_generate() via run_sync(), which dispatches to a
+        shared background event loop. Never call this from async code --
+        ``await a_generate()`` directly. From a coroutine already running
+        on that background loop this raises rather than deadlocking.
 
         Returns:
             A string or dict (if schema provided).
@@ -362,11 +364,11 @@ class BaseLLM(BaseModel):
     ) -> AsyncIterator[str]:
         """Stream LLM response token-by-token.
 
-        Yields delta content strings. Default implementation falls back
-        to ``generate()`` and yields the full result as a single chunk.
+        Yields delta content strings. Default implementation awaits
+        ``a_generate()`` and yields the full result as a single chunk.
         Providers should override this for true streaming.
         """
-        result = self.generate(prompt=prompt, system_prompt=system_prompt, **kwargs)
+        result = await self.a_generate(prompt=prompt, system_prompt=system_prompt, **kwargs)
         if isinstance(result, dict):
             import json
 

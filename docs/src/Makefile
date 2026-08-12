@@ -1,33 +1,36 @@
 # Documentation Makefile
 # Provides convenient commands for linting and formatting documentation
 
-.PHONY: help lint lint-fast format format-check eslint install
+.PHONY: help lint lint-fast format format-check eslint images install
 
 # Default target
 help:
 	@echo "Available targets:"
-	@echo "  lint         - Run all linting checks (format, eslint)"
+	@echo "  lint         - Run all linting checks (format, eslint, images)"
 	@echo "  lint-fast    - Same as lint (no build needed for docs)"
 	@echo "  format       - Auto-fix code formatting"
 	@echo "  format-check - Check code formatting (errors only)"
 	@echo "  eslint       - Run ESLint (errors only)"
+	@echo "  images       - Check image formats and sizes in public/"
 	@echo "  install      - Install dependencies"
 
 # Main lint target - runs all validation steps
-lint: format-check eslint
+lint: format-check eslint images
 	@echo ""
 	@echo "✅ All lint checks passed!"
 	@echo "  ✓ Code formatting"
 	@echo "  ✓ ESLint"
+	@echo "  ✓ Image formats and sizes"
 	@echo ""
 	@echo "💡 Note: Docs has no build step - use 'make lint-fast' for same checks"
 
 # Fast lint (same as regular lint for docs since no build/type-check step)
-lint-fast: format-check eslint
+lint-fast: format-check eslint images
 	@echo ""
 	@echo "✅ Fast lint checks passed!"
 	@echo "  ✓ Code formatting"
 	@echo "  ✓ ESLint"
+	@echo "  ✓ Image formats and sizes"
 	@echo ""
 	@echo "💡 Note: Docs linting is already fast (no type-check or build step needed)"
 
@@ -46,6 +49,11 @@ format-check:
 eslint:
 	@echo "🔍 Running ESLint..."
 	@npm run lint:errors || (echo "❌ ESLint failed" && exit 1)
+
+# Image formats and sizes - keeps screenshot weight out of git history
+images:
+	@echo "🔍 Checking image formats and sizes..."
+	@npm run lint:images || (echo "❌ Image check failed" && exit 1)
 
 # Install dependencies
 install:

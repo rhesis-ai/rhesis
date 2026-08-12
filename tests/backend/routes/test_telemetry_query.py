@@ -15,6 +15,12 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
+from rhesis.backend.app.crud.project import create_project
+from rhesis.backend.app.crud.telemetry import (
+    create_trace_spans,
+    get_trace_by_id,
+    query_traces,
+)
 from tests.backend.routes.fixtures.data_factories import TraceDataFactory
 
 
@@ -128,9 +134,7 @@ class TestTraceListEndpoint:
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
         assert data["total"] >= 1
-        assert any(
-            t["root_operation"] == "function.endpoint_rest_invoke" for t in data["traces"]
-        )
+        assert any(t["root_operation"] == "function.endpoint_rest_invoke" for t in data["traces"])
 
     def test_list_traces_search_endpoint_name_in_attributes(
         self, authenticated_client: TestClient, db_project
@@ -483,7 +487,7 @@ class TestTraceListEndpoint:
         from datetime import timezone
         from uuid import uuid4
 
-        from rhesis.backend.app import crud, models
+        from rhesis.backend.app import models
         from rhesis.backend.app.constants import TestExecutionContext
         from rhesis.backend.app.schemas.telemetry import OTELSpanCreate, SpanKind, StatusCode
 
@@ -598,7 +602,7 @@ class TestTraceListEndpoint:
                     TestExecutionContext.SpanAttributes.TEST_CONFIGURATION_ID: str(test_config1.id),
                 },
             )
-            stored_spans = crud.create_trace_spans(test_db, [span], str(test_organization.id))
+            stored_spans = create_trace_spans(test_db, [span], str(test_organization.id))
             # Link trace to test result
             stored_spans[0].test_result_id = test_result1.id
             test_db.commit()
@@ -623,7 +627,7 @@ class TestTraceListEndpoint:
                     TestExecutionContext.SpanAttributes.TEST_CONFIGURATION_ID: str(test_config2.id),
                 },
             )
-            stored_spans = crud.create_trace_spans(test_db, [span], str(test_organization.id))
+            stored_spans = create_trace_spans(test_db, [span], str(test_organization.id))
             # Link trace to test result
             stored_spans[0].test_result_id = test_result2.id
             test_db.commit()
@@ -724,7 +728,6 @@ class TestTraceDetailEndpoint:
             if field in data:
                 pass  # Just ensure they are optional but recognized by schema
 
-
         assert data["trace_id"] == trace_id
         assert data["project_id"] == str(db_project.id)
         assert data["span_count"] == 3
@@ -758,7 +761,7 @@ class TestTraceDetailEndpoint:
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
 
-            # Check span node structure
+        # Check span node structure
         if data["root_spans"]:
             span_node = data["root_spans"][0]
             required_span_fields = [
@@ -1021,7 +1024,6 @@ class TestQueryValidation:
     ):
         """Reject project_id query params for projects the caller is not a member of."""
         import uuid
-        from datetime import datetime
 
         from rhesis.backend.app.models.project_membership import ProjectMembership
         from tests.backend.fixtures.test_setup import create_test_api_token, create_test_user
@@ -1130,9 +1132,7 @@ class TestQueryEdgeCases:
         authenticated_client.post("/telemetry/traces", json=trace_batch)
 
         # Query traces
-        response = authenticated_client.get(
-            f"/telemetry/traces?project_id={db_project.id}&limit=1"
-        )
+        response = authenticated_client.get(f"/telemetry/traces?project_id={db_project.id}&limit=1")
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
@@ -1203,12 +1203,13 @@ class TestCrossOrganizationSecurity:
     filter by organization_id as required.
     """
 
-    @pytest.mark.skip(reason="TODO: Requires multi-org test fixtures for proper cross-tenant isolation testing")
+    @pytest.mark.skip(
+        reason="TODO: Requires multi-org test fixtures for proper cross-tenant isolation testing"
+    )
     def test_crud_functions_require_organization_id(self, test_db):
         """🔒 SECURITY: Verify CRUD functions accept and use organization_id parameter"""
         import uuid
 
-        from rhesis.backend.app import crud
         from rhesis.telemetry.schemas import OTELSpan
 
         # Create test organization and project IDs
@@ -1220,33 +1221,35 @@ class TestCrossOrganizationSecurity:
         span = OTELSpan(**span_dict)
 
         # Create spans with organization_id
-        spans = crud.create_trace_spans(test_db, [span], str(org_id))
+        spans = create_trace_spans(test_db, [span], str(org_id))
         assert len(spans) == 1
         assert spans[0].organization_id == org_id
         trace_id = spans[0].trace_id
 
         # Test get_trace_by_id requires organization_id
-        traces = crud.get_trace_by_id(
+        traces = get_trace_by_id(
             test_db, trace_id=trace_id, project_id=project_id, organization_id=str(org_id)
         )
         assert len(traces) == 1
         assert traces[0].organization_id == org_id
 
         # Test query_traces requires organization_id
-        rows = crud.query_traces(test_db, project_id=project_id, organization_id=str(org_id))
+        rows = query_traces(test_db, project_id=project_id, organization_id=str(org_id))
         assert len(rows) >= 1
         # query_traces returns TraceRow(trace, span_count, total)
         assert all(row.trace.organization_id == org_id for row in rows)
         # Total count is embedded in each row via window function
         assert rows[0].total >= 1
 
-    @pytest.mark.skip(reason="TODO: Requires multi-org test fixtures for proper cross-tenant isolation testing")
+    @pytest.mark.skip(
+        reason="TODO: Requires multi-org test fixtures for proper cross-tenant isolation testing"
+    )
     def test_cannot_access_trace_from_different_organization(self, test_db, client: TestClient):
         """🔒 SECURITY: Test that users cannot access traces from other organizations"""
         import uuid
 
-        from rhesis.backend.app import crud
         from rhesis.backend.app.auth.token_utils import generate_api_token
+        from rhesis.backend.app.crud.token import create_token
         from rhesis.backend.app.schemas.token import TokenCreate
         from rhesis.backend.app.utils.encryption import hash_token
         from tests.backend.fixtures.test_setup import create_test_organization, create_test_user
@@ -1270,7 +1273,7 @@ class TestCrossOrganizationSecurity:
             user_id=user_a.id,
             organization_id=org_a.id,
         )
-        crud.create_token(db=test_db, token=token_a_data)
+        create_token(db=test_db, token=token_a_data)
 
         token_b_value = generate_api_token()
         token_b_data = TokenCreate(
@@ -1283,10 +1286,10 @@ class TestCrossOrganizationSecurity:
             user_id=user_b.id,
             organization_id=org_b.id,
         )
-        crud.create_token(db=test_db, token=token_b_data)
+        create_token(db=test_db, token=token_b_data)
 
         # Create a project for org A
-        project_a = crud.create_project(
+        project_a = create_project(
             test_db,
             {"name": f"Project A {uuid.uuid4()}", "description": "Test project"},
             organization_id=str(org_a.id),
@@ -1318,13 +1321,15 @@ class TestCrossOrganizationSecurity:
         assert response.status_code == 404  # Not 403 to avoid information leakage
         assert "not found" in response.json()["detail"].lower()
 
-    @pytest.mark.skip(reason="TODO: Requires multi-org test fixtures for proper cross-tenant isolation testing")
+    @pytest.mark.skip(
+        reason="TODO: Requires multi-org test fixtures for proper cross-tenant isolation testing"
+    )
     def test_list_traces_only_shows_own_organization(self, test_db, client: TestClient):
         """🔒 SECURITY: Test that list endpoint only returns traces from user's organization"""
         import uuid
 
-        from rhesis.backend.app import crud
         from rhesis.backend.app.auth.token_utils import generate_api_token
+        from rhesis.backend.app.crud.token import create_token
         from rhesis.backend.app.schemas.token import TokenCreate
         from rhesis.backend.app.utils.encryption import hash_token
         from tests.backend.fixtures.test_setup import create_test_organization, create_test_user
@@ -1342,7 +1347,7 @@ class TestCrossOrganizationSecurity:
 
         # Generate plaintext API tokens
         token_a_value = generate_api_token()
-        crud.create_token(
+        create_token(
             db=test_db,
             token=TokenCreate(
                 name="Test Token A",
@@ -1357,7 +1362,7 @@ class TestCrossOrganizationSecurity:
         )
 
         token_b_value = generate_api_token()
-        crud.create_token(
+        create_token(
             db=test_db,
             token=TokenCreate(
                 name="Test Token B",
@@ -1372,13 +1377,13 @@ class TestCrossOrganizationSecurity:
         )
 
         # Create projects for both orgs
-        project_a = crud.create_project(
+        project_a = create_project(
             test_db,
             {"name": f"Project A {uuid.uuid4()}", "description": "Test project A"},
             organization_id=str(org_a.id),
             user_id=str(user_a.id),
         )
-        project_b = crud.create_project(
+        project_b = create_project(
             test_db,
             {"name": f"Project B {uuid.uuid4()}", "description": "Test project B"},
             organization_id=str(org_b.id),
@@ -1425,13 +1430,15 @@ class TestCrossOrganizationSecurity:
             trace_ids = {t["trace_id"] for t in data["traces"]}
             assert span_b["trace_id"] not in trace_ids
 
-    @pytest.mark.skip(reason="TODO: Requires multi-org test fixtures for proper cross-tenant isolation testing")
+    @pytest.mark.skip(
+        reason="TODO: Requires multi-org test fixtures for proper cross-tenant isolation testing"
+    )
     def test_metrics_only_for_own_organization(self, test_db, client: TestClient):
         """🔒 SECURITY: Test that metrics endpoint only aggregates from user's organization"""
         import uuid
 
-        from rhesis.backend.app import crud
         from rhesis.backend.app.auth.token_utils import generate_api_token
+        from rhesis.backend.app.crud.token import create_token
         from rhesis.backend.app.schemas.token import TokenCreate
         from rhesis.backend.app.utils.encryption import hash_token
         from tests.backend.fixtures.test_setup import create_test_organization, create_test_user
@@ -1449,7 +1456,7 @@ class TestCrossOrganizationSecurity:
 
         # Generate plaintext API tokens
         token_a_value = generate_api_token()
-        crud.create_token(
+        create_token(
             db=test_db,
             token=TokenCreate(
                 name="Test Token A",
@@ -1464,7 +1471,7 @@ class TestCrossOrganizationSecurity:
         )
 
         token_b_value = generate_api_token()
-        crud.create_token(
+        create_token(
             db=test_db,
             token=TokenCreate(
                 name="Test Token B",
@@ -1479,13 +1486,13 @@ class TestCrossOrganizationSecurity:
         )
 
         # Create projects
-        project_a = crud.create_project(
+        project_a = create_project(
             test_db,
             {"name": f"Project A Metrics {uuid.uuid4()}", "description": "Test"},
             organization_id=str(org_a.id),
             user_id=str(user_a.id),
         )
-        project_b = crud.create_project(
+        project_b = create_project(
             test_db,
             {"name": f"Project B Metrics {uuid.uuid4()}", "description": "Test"},
             organization_id=str(org_b.id),

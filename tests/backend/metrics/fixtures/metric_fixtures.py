@@ -138,6 +138,8 @@ def test_metric_numeric(test_db, test_org_id, authenticated_user_id):
         threshold_operator=">=",
         backend_type_id=backend_type.id,
         metric_type_id=metric_type.id,
+        # Required and NOT NULL: an unscoped metric is never evaluated.
+        metric_scope=["Single-Turn"],
         organization_id=test_org_id,
         user_id=authenticated_user_id,
     )
@@ -182,6 +184,8 @@ def test_metric_categorical(test_db, test_org_id, authenticated_user_id):
         reference_score="positive",
         backend_type_id=backend_type.id,
         metric_type_id=metric_type.id,
+        # Required and NOT NULL: an unscoped metric is never evaluated.
+        metric_scope=["Single-Turn"],
         organization_id=test_org_id,
         user_id=authenticated_user_id,
     )
@@ -196,7 +200,8 @@ def test_behavior_with_metrics(
     test_db, test_org_id, authenticated_user_id, test_metric_numeric, test_metric_categorical
 ):
     """Create a behavior with associated metrics for testing."""
-    from rhesis.backend.app import crud, models
+    from rhesis.backend.app import models
+    from rhesis.backend.app.crud.metric import add_behavior_to_metric
 
     behavior = models.Behavior(
         name="Test Behavior with Metrics",
@@ -208,10 +213,10 @@ def test_behavior_with_metrics(
     test_db.flush()
 
     # Associate metrics with behavior using CRUD function to handle required fields
-    crud.add_behavior_to_metric(
+    add_behavior_to_metric(
         test_db, test_metric_numeric.id, behavior.id, authenticated_user_id, test_org_id
     )
-    crud.add_behavior_to_metric(
+    add_behavior_to_metric(
         test_db, test_metric_categorical.id, behavior.id, authenticated_user_id, test_org_id
     )
 

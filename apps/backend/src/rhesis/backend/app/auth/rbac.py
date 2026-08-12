@@ -181,6 +181,9 @@ _OWNER_ONLY_CAPABILITIES: frozenset[str] = frozenset(
         str(Permission.ApiClients.MANAGE),
         str(Permission.Recycle.RESTORE),
         str(Permission.Recycle.PURGE),
+        # Local-mode platform key: mutating it affects every member's ability
+        # to use Rhesis-hosted models, same rationale as SSO.MANAGE above.
+        str(Permission.Platform.MANAGE),
     }
 )
 

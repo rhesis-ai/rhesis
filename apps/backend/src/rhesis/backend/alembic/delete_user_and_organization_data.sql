@@ -16,15 +16,15 @@ DECLARE
     test_ids UUID[];
     test_run_ids UUID[];
     test_set_ids UUID[];
-    
+
     -- Configuration: tables with status_id that need to be NULLed
     status_ref_tables TEXT[] := ARRAY[
-        'behavior', 'category', 'endpoint', 'metric', 'model', 'prompt', 
-        'prompt_template', 'project', 'risk', 'source', 'subscription', 
-        'task', 'test', 'test_configuration', 'test_result', 'test_run', 
-        'test_set', 'topic', 'use_case'
+        'behavior', 'category', 'endpoint', 'metric', 'model', 'prompt',
+        'prompt_template', 'project', 'source', 'subscription',
+        'task', 'test', 'test_configuration', 'test_result', 'test_run',
+        'test_set', 'topic'
     ];
-    
+
     -- Configuration: lookup references to NULL out (table, column, lookup_table)
     type_lookup_refs TEXT[][] := ARRAY[
         ARRAY['category', 'entity_type_id', 'type_lookup'],
@@ -33,12 +33,11 @@ DECLARE
         ARRAY['model', 'provider_type_id', 'type_lookup'],
         ARRAY['metric', 'metric_type_id', 'type_lookup'],
         ARRAY['metric', 'backend_type_id', 'type_lookup'],
-        ARRAY['response_pattern', 'response_pattern_type_id', 'type_lookup'],
         ARRAY['source', 'source_type_id', 'type_lookup'],
         ARRAY['test_set', 'license_type_id', 'type_lookup'],
         ARRAY['test', 'test_type_id', 'type_lookup']
     ];
-    
+
     -- Configuration: tables with owner_id/assignee_id to NULL out
     ownership_tables TEXT[][] := ARRAY[
         ARRAY['metric', 'owner_id'],
@@ -54,7 +53,7 @@ DECLARE
         ARRAY['test_set', 'assignee_id'],
         ARRAY['task', 'assignee_id']
     ];
-    
+
     table_name TEXT;
     ref_info TEXT[];
     sql_stmt TEXT;
@@ -80,8 +79,8 @@ BEGIN
 
     SELECT COALESCE(ARRAY_AGG(id), '{}') INTO project_ids
     FROM project
-    WHERE organization_id = ANY(org_ids) 
-       OR user_id = target_user_id 
+    WHERE organization_id = ANY(org_ids)
+       OR user_id = target_user_id
        OR owner_id = target_user_id;
 
     SELECT COALESCE(ARRAY_AGG(id), '{}') INTO endpoint_ids
@@ -125,8 +124,8 @@ BEGIN
        OR assignee_id = target_user_id;
 
     RAISE NOTICE 'Deleting data for user: %', target_email;
-    RAISE NOTICE 'Organizations: %, Projects: %, Endpoints: %, Test Configs: %', 
-        array_length(org_ids, 1), array_length(project_ids, 1), 
+    RAISE NOTICE 'Organizations: %, Projects: %, Endpoints: %, Test Configs: %',
+        array_length(org_ids, 1), array_length(project_ids, 1),
         array_length(endpoint_ids, 1), array_length(test_config_ids, 1);
     RAISE NOTICE 'Tests: %, Test Runs: %, Test Sets: %',
         array_length(test_ids, 1), array_length(test_run_ids, 1), array_length(test_set_ids, 1);
@@ -134,12 +133,12 @@ BEGIN
     -- ========================================================================
     -- PHASE 1: NULL OUT lookup table references in OTHER orgs' data
     -- ========================================================================
-    
+
     -- NULL out status_id references
     FOREACH table_name IN ARRAY status_ref_tables
     LOOP
         sql_stmt := format(
-            'UPDATE %I SET status_id = NULL 
+            'UPDATE %I SET status_id = NULL
              WHERE status_id IN (SELECT id FROM status WHERE organization_id = ANY($1) OR user_id = $2)
                AND (organization_id IS NULL OR organization_id <> ALL($1))',
             table_name
@@ -151,7 +150,7 @@ BEGIN
     FOREACH ref_info SLICE 1 IN ARRAY type_lookup_refs
     LOOP
         sql_stmt := format(
-            'UPDATE %I SET %I = NULL 
+            'UPDATE %I SET %I = NULL
              WHERE %I IN (SELECT id FROM %I WHERE organization_id = ANY($1) OR user_id = $2)',
             ref_info[1], ref_info[2], ref_info[2], ref_info[3]
         );
@@ -163,7 +162,7 @@ BEGIN
     -- ========================================================================
 
     -- Delete test_result
-    DELETE FROM test_result 
+    DELETE FROM test_result
     WHERE test_configuration_id = ANY(test_config_ids)
        OR test_run_id = ANY(test_run_ids)
        OR test_id = ANY(test_ids)
@@ -176,19 +175,16 @@ BEGIN
     -- Delete test_configuration
     DELETE FROM test_configuration WHERE id = ANY(test_config_ids);
 
-    -- Delete test_test_set and test_context
-    DELETE FROM test_test_set 
+    -- Delete test_test_set
+    DELETE FROM test_test_set
     WHERE test_set_id = ANY(test_set_ids) OR test_id = ANY(test_ids);
-    
-    DELETE FROM test_context 
-    WHERE test_id = ANY(test_ids) OR organization_id = ANY(org_ids) OR user_id = target_user_id;
 
     -- Delete test and test_set
     DELETE FROM test WHERE id = ANY(test_ids);
     DELETE FROM test_set WHERE id = ANY(test_set_ids);
 
     -- Delete prompt_test_set
-    DELETE FROM prompt_test_set 
+    DELETE FROM prompt_test_set
     WHERE prompt_id IN (SELECT id FROM prompt WHERE organization_id = ANY(org_ids) OR user_id = target_user_id)
        OR user_id = target_user_id OR organization_id = ANY(org_ids);
 
@@ -199,17 +195,17 @@ BEGIN
     DELETE FROM project WHERE id = ANY(project_ids);
 
     -- Delete model
-    DELETE FROM model 
+    DELETE FROM model
     WHERE organization_id = ANY(org_ids) OR user_id = target_user_id
        OR owner_id = target_user_id OR assignee_id = target_user_id;
 
     -- Delete behavior_metric
-    DELETE FROM behavior_metric 
+    DELETE FROM behavior_metric
     WHERE behavior_id IN (SELECT id FROM behavior WHERE organization_id = ANY(org_ids) OR user_id = target_user_id)
        OR user_id = target_user_id OR organization_id = ANY(org_ids);
 
     -- Delete metric
-    DELETE FROM metric 
+    DELETE FROM metric
     WHERE organization_id = ANY(org_ids) OR user_id = target_user_id
        OR owner_id = target_user_id OR assignee_id = target_user_id;
 
@@ -217,23 +213,8 @@ BEGIN
     DELETE FROM behavior WHERE organization_id = ANY(org_ids) OR user_id = target_user_id;
 
     -- Delete prompt dependencies
-    DELETE FROM prompt_use_case 
-    WHERE prompt_id IN (SELECT id FROM prompt WHERE organization_id = ANY(org_ids) OR user_id = target_user_id)
-       OR user_id = target_user_id OR organization_id = ANY(org_ids);
     DELETE FROM prompt WHERE organization_id = ANY(org_ids) OR user_id = target_user_id;
     DELETE FROM prompt_template WHERE organization_id = ANY(org_ids) OR user_id = target_user_id;
-
-    -- Delete risk dependencies
-    DELETE FROM risk_use_case 
-    WHERE risk_id IN (SELECT id FROM risk WHERE organization_id = ANY(org_ids) OR user_id = target_user_id)
-       OR user_id = target_user_id OR organization_id = ANY(org_ids);
-    DELETE FROM risk WHERE organization_id = ANY(org_ids) OR user_id = target_user_id;
-
-    -- Delete use_case
-    DELETE FROM use_case WHERE organization_id = ANY(org_ids) OR user_id = target_user_id;
-
-    -- Delete response_pattern
-    DELETE FROM response_pattern WHERE organization_id = ANY(org_ids) OR user_id = target_user_id;
 
     -- Delete category, topic, source
     DELETE FROM category WHERE organization_id = ANY(org_ids) OR user_id = target_user_id;
@@ -241,7 +222,7 @@ BEGIN
     DELETE FROM source WHERE organization_id = ANY(org_ids) OR user_id = target_user_id;
 
     -- Delete tagged_item and tag
-    DELETE FROM tagged_item 
+    DELETE FROM tagged_item
     WHERE tag_id IN (SELECT id FROM tag WHERE organization_id = ANY(org_ids) OR user_id = target_user_id)
        OR user_id = target_user_id OR organization_id = ANY(org_ids);
     DELETE FROM tag WHERE organization_id = ANY(org_ids) OR user_id = target_user_id;
@@ -254,7 +235,7 @@ BEGIN
     DELETE FROM subscription WHERE organization_id = ANY(org_ids) OR user_id = target_user_id;
     DELETE FROM token WHERE organization_id = ANY(org_ids) OR user_id = target_user_id;
     DELETE FROM comment WHERE organization_id = ANY(org_ids) OR user_id = target_user_id;
-    DELETE FROM task 
+    DELETE FROM task
     WHERE organization_id = ANY(org_ids) OR user_id = target_user_id OR assignee_id = target_user_id;
 
     -- ========================================================================
@@ -269,7 +250,7 @@ BEGIN
     -- ========================================================================
     -- PHASE 4: Delete organizations and user
     -- ========================================================================
-    
+
     -- Delete other users in those organizations
     IF array_length(org_ids, 1) > 0 THEN
         DELETE FROM "user" WHERE organization_id = ANY(org_ids) AND id <> target_user_id;

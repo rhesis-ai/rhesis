@@ -17,7 +17,6 @@ from .mixins import (
     TasksMixin,
 )
 from .test_set import prompt_test_set_association
-from .use_case import prompt_use_case_association
 
 
 class Prompt(
@@ -61,9 +60,6 @@ class Prompt(
     prompt_template = relationship("PromptTemplate", back_populates="prompts")
     test_sets = relationship(
         "TestSet", secondary=prompt_test_set_association, back_populates="prompts"
-    )
-    use_cases = relationship(
-        "UseCase", secondary=prompt_use_case_association, back_populates="prompts"
     )
     test_configurations = relationship("TestConfiguration", back_populates="prompt")
     parent = relationship("Prompt", back_populates="children", remote_side="[Prompt.id]")

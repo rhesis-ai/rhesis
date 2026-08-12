@@ -1,0 +1,132 @@
+name: Security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Secret Scanning
+        uses: trufflesecurity/trufflehog@main
+        with:
+          extra_args: --results=verified,unknown
+
+  changes:
+    if: github.event_name != 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # paths-filter reads the PR's changed-file list from the API.
+      pull-requests: read
+    outputs:
+      services: ${{ steps.resolve.outputs.services }}
+      paths: ${{ steps.resolve.outputs.paths }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Check for file changes
+        if: github.event_name == 'pull_request'
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'apps/backend/**'
+            frontend:
+              - 'apps/frontend/**'
+            sdk:
+              - 'sdk/**'
+            penelope:
+              - 'penelope/**'
+            worker:
+              - 'apps/worker/**'
+            chatbot:
+              - 'apps/chatbot/**'
+            polyphemus:
+              - 'apps/polyphemus/**'
+            telemetry-processor:
+              - 'apps/telemetry-processor/**'
+
+      - name: Resolve services to scan
+        id: resolve
+        env:
+          SERVICES: |
+            {"backend": "apps/backend",
+             "frontend": "apps/frontend",
+             "sdk": "sdk",
+             "penelope": "penelope",
+             "worker": "apps/worker",
+             "chatbot": "apps/chatbot",
+             "polyphemus": "apps/polyphemus",
+             "telemetry-processor": "apps/telemetry-processor"}
+          CHANGED: ${{ steps.filter.outputs.changes }}
+        run: |
+          set -euo pipefail
+          PATHS=$(jq -c . <<<"$SERVICES")
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            SERVICE_LIST=$(jq -c 'keys' <<<"$PATHS")
+          else
+            SERVICE_LIST="$CHANGED"
+          fi
+          echo "paths=$PATHS" >> "$GITHUB_OUTPUT"
+          echo "services=$SERVICE_LIST" >> "$GITHUB_OUTPUT"
+          echo "Scanning: $SERVICE_LIST"
+
+  trivy:
+    needs: changes
+    if: needs.changes.outputs.services != '[]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJSON(needs.changes.outputs.services) }}
+    env:
+      SCAN_REF: ${{ fromJSON(needs.changes.outputs.paths)[matrix.service] }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
+        with:
+          scan-type: fs
+          scan-ref: ${{ env.SCAN_REF }}
+          format: table
+          exit-code: 0
+          severity: CRITICAL,HIGH,MEDIUM
+          scanners: vuln
+          version: v0.69.2
+
+      - name: Run Trivy (SARIF upload)
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
+        with:
+          scan-type: fs
+          scan-ref: ${{ env.SCAN_REF }}
+          format: sarif
+          output: trivy-${{ matrix.service }}.sarif
+          exit-code: 0
+          severity: CRITICAL,HIGH,MEDIUM
+          scanners: vuln
+          version: v0.69.2
+
+      - name: Upload SARIF to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-${{ matrix.service }}.sarif
+          category: trivy-${{ matrix.service }}

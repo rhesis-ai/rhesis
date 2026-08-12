@@ -11,7 +11,6 @@ class TestConfigurationBase(Base):
     category_id: Optional[UUID4] = None
     topic_id: Optional[UUID4] = None
     prompt_id: Optional[UUID4] = None
-    use_case_id: Optional[UUID4] = None
     test_set_id: Optional[UUID4] = None
     user_id: Optional[UUID4] = None
     organization_id: Optional[UUID4] = None

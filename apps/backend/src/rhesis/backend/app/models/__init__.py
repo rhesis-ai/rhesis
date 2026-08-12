@@ -22,8 +22,6 @@ from .project_membership import ProjectMembership
 from .prompt import Prompt
 from .prompt_template import PromptTemplate
 from .refresh_token import RefreshToken
-from .response_pattern import ResponsePattern
-from .risk import Risk
 from .source import Source
 
 # Import stats view models
@@ -36,7 +34,6 @@ from .tag import Tag, TaggedItem
 from .task import Task
 from .test import Test, test_test_set_association
 from .test_configuration import TestConfiguration
-from .test_context import TestContext
 from .test_result import TestResult
 from .test_run import TestRun
 from .test_set import TestSet, test_set_metric_association
@@ -46,7 +43,6 @@ from .topic import Topic
 from .trace import Trace
 from .type_lookup import TypeLookup
 from .usage import Usage
-from .use_case import UseCase
 from .user import User
 
 # This line ensures all models are registered with Base
@@ -68,12 +64,9 @@ __all__ = [
     "Model",
     "PromptTemplate",
     "Prompt",
-    "ResponsePattern",
     "TestConfiguration",
     "TestResult",
-    "UseCase",
     "TestSet",
-    "Risk",
     "User",
     "Subscription",
     "SubscriptionPlan",
@@ -93,7 +86,6 @@ __all__ = [
     "ProjectMembership",
     "Task",
     "Test",
-    "TestContext",
     "Tool",
     "Trace",
     "behavior_metric_association",

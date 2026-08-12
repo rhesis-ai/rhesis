@@ -6,7 +6,7 @@ from typing import Any, AsyncGenerator, Dict, List, Optional
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud
+from rhesis.backend.app.crud import source as source_crud
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.services import GenerationConfig, SourceData
 from rhesis.backend.app.usage_attribution import with_usage_attribution
@@ -53,7 +53,7 @@ def get_source_specifications(
 
     for source_data in sources:
         # Fetch full source from database
-        db_source = crud.get_source_with_content(
+        db_source = source_crud.get_source_with_content(
             db=db,
             source_id=source_data.id,
             organization_id=organization_id,

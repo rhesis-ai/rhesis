@@ -3,8 +3,12 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  # The root Application manages itself so selfHeal corrects manual targetRevision drift.
-  - base.yaml
+  # base.yaml is intentionally NOT listed here (unlike dev/stg): prd-base is pinned to
+  # an immutable commit SHA via an imperative `argocd app set`/`sync` in
+  # publish-release.yml, not tracked from a branch. If base.yaml were self-managed,
+  # every sync would re-apply whatever targetRevision is committed at prd-base's own
+  # pinned commit — which can never equal that commit's own (not-yet-known) hash — so
+  # the imperative pin would be reverted on every sync. See kubernetes/README.md.
   - argocd/argocd-application.yaml
   - argocd/argocd-ingress.yaml
   - external-secrets.yaml

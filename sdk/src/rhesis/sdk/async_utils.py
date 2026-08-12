@@ -7,6 +7,8 @@ using a persistent background thread/loop to avoid event loop lifecycle issues.
 import asyncio
 import atexit
 import logging
+import threading
+from concurrent.futures import TimeoutError as FuturesTimeoutError
 from threading import Thread
 
 logger = logging.getLogger(__name__)
@@ -80,20 +82,66 @@ def close_background_loop():
         _background_thread = None
 
 
-def run_sync(coro):
+def run_sync(coro, timeout: float | None = None):
     """Run an async coroutine from synchronous code.
 
-    Always dispatches to a persistent background thread via
-    run_coroutine_threadsafe, regardless of whether a loop is already running.
-    This avoids nested loop errors in Jupyter/FastAPI and prevents
-    RuntimeError('Event loop is closed') from fire-and-forget cleanup tasks
-    (e.g. litellm's AsyncHTTPHandler) that outlive asyncio.run().
+    Dispatches to a persistent background thread via
+    run_coroutine_threadsafe.  This avoids nested loop errors in
+    Jupyter/FastAPI and prevents RuntimeError('Event loop is closed')
+    from fire-and-forget cleanup tasks (e.g. litellm's AsyncHTTPHandler)
+    that outlive asyncio.run().
 
     Args:
-        coro: An awaitable coroutine to execute.
+        coro: A coroutine object to execute.  Must be a coroutine, not an
+            arbitrary awaitable -- ``run_coroutine_threadsafe`` rejects
+            Tasks and Futures with ``TypeError``.
+        timeout: Optional seconds to wait for the result.  ``None``
+            (default) waits indefinitely.  Pass an explicit value at
+            call sites where an unbounded wait would mask a hang; on
+            expiry the coroutine is cancelled rather than left running.
 
     Returns:
         The result of the coroutine.
+
+    Raises:
+        RuntimeError: If called from the background event loop thread
+            (would deadlock -- the loop cannot run the coroutine it is
+            blocked on).
+        concurrent.futures.TimeoutError: If *timeout* elapses first.
     """
+    # Self-call on the background thread is an unbreakable deadlock: the
+    # loop would block in future.result() inside its own callback and so
+    # could never run the coroutine it is waiting for. Fail loudly.
+    if threading.current_thread() is _background_thread:
+        coro.close()  # avoid "coroutine was never awaited"
+        raise RuntimeError(
+            "run_sync() called from the background event loop thread. "
+            "This would deadlock: the loop cannot run the coroutine it "
+            "is blocked on. Await the coroutine directly instead."
+        )
+
+    # Not a deadlock, but it stalls the caller's loop for the whole call.
+    # Warn so these surface before someone moves the code onto our loop.
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        pass
+    else:
+        logger.warning(
+            "run_sync() called from a thread with a running event loop; "
+            "this blocks that loop until the coroutine completes. "
+            "Await the coroutine directly instead.",
+            stacklevel=2,
+        )
+
     future = asyncio.run_coroutine_threadsafe(coro, _get_background_loop())
-    return future.result()
+    try:
+        return future.result(timeout)
+    except FuturesTimeoutError as exc:
+        # Reclaim the slot -- otherwise the abandoned coroutine keeps
+        # running on the shared loop and burning its resources.
+        future.cancel()
+        # future.result() raises a bare TimeoutError whose str() is empty,
+        # which downstream error formatters read as "no detail" and replace
+        # with a generic message. Re-raise with the reason spelled out.
+        raise FuturesTimeoutError(f"Operation timed out after {timeout}s") from exc

@@ -36,6 +36,11 @@ Conversation & Execution History:
 
 Based on the user's message, the current mode, available tools, and history above, decide what to do next.
 
+If a tool call above failed, the history shows both the error and the arguments you sent. Read them together and work out which argument caused it before calling anything. Never re-send a payload identical to one that was just rejected — it fails the same way and wastes a turn. Specifically:
+- Missing or invalid field: fix that field against the parameter list for the tool. Check required fields and, for nested objects and array items, the fields listed under "Each item:".
+- "already exists": the entity is there. Resolve it with the matching `list_*` tool and reuse its id. Do not retry with a suffixed name.
+- "Cannot generate test sets yet" or "already completed": this is the plan telling you the step is out of order or done. Move to the next incomplete plan item instead of retrying.
+
 {% else %}
 This is the start of the conversation. Analyze the user's request. If it's a direct action (e.g. update a metric, list entities, link a behavior), execute it immediately using the available tools. Otherwise, begin the discovery phase.
 

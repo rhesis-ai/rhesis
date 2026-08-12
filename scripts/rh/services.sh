@@ -132,31 +132,41 @@ start_polyphemus() {
 FLOWER_PID=""
 WORKER_PID=""
 
-# Scoped to this project — a bare "celery" would match another project's worker.
-# Catches Flower too, which runs under the same -A. The leading "-A" is left off
-# because pgrep/pkill would parse it as an option.
-CELERY_APP_PATTERN='rhesis\.backend\.worker\.app'
+# Matching on the app alone would hit every checkout's worker, so the worker
+# carries this tag in its -n node name and Flower is found by its port.
+CELERY_WORKER_TAG="${RHESIS_WORKTREE_NAME:-main}"
+CELERY_WORKER_PATTERN="worker@[^ ]*-${CELERY_WORKER_TAG}-[0-9a-f]{8}"
+CELERY_FLOWER_PATTERN="flower.*--port=${DEV_FLOWER_PORT}([^0-9]|\$)"
+
+celery_worktree_pids() {
+    { pgrep -f "$CELERY_WORKER_PATTERN"; pgrep -f "$CELERY_FLOWER_PATTERN"; } 2>/dev/null | sort -u
+}
 
 # TERM first so in-flight tasks can finish; KILL only for stragglers.
 stop_existing_celery() {
-    step "Checking for existing Celery workers..."
-    if ! pgrep -f "$CELERY_APP_PATTERN" > /dev/null; then
+    step "Checking for existing Celery workers (worktree ${CELERY_WORKER_TAG})..."
+    local pids
+    pids=$(celery_worktree_pids)
+    if [ -z "$pids" ]; then
         info "No existing workers found"
         return 0
     fi
 
     step "Stopping existing Celery workers..."
-    pkill -TERM -f "$CELERY_APP_PATTERN" 2>/dev/null || true
+    # shellcheck disable=SC2086
+    kill -TERM $pids 2>/dev/null || true
 
     local _
     for _ in {1..10}; do
-        pgrep -f "$CELERY_APP_PATTERN" > /dev/null || break
+        [ -z "$(celery_worktree_pids)" ] && break
         sleep 1
     done
 
-    if pgrep -f "$CELERY_APP_PATTERN" > /dev/null; then
+    pids=$(celery_worktree_pids)
+    if [ -n "$pids" ]; then
         warn "Workers did not stop gracefully — forcing"
-        pkill -9 -f "$CELERY_APP_PATTERN" 2>/dev/null || true
+        # shellcheck disable=SC2086
+        kill -9 $pids 2>/dev/null || true
         sleep 1
     fi
 
@@ -210,13 +220,16 @@ start_worker() {
     echo -e "${BLUE}Override the port with: ${WHITE}DEV_FLOWER_PORT=<port> ./rh dev worker${NC}"
     echo ""
 
-    # UUID suffix so rapid restarts cannot collide: worker@server1-a1b2c3d4
+    # The tag makes the worker findable per checkout; UUID suffix so rapid
+    # restarts cannot collide: worker@server1-main-a1b2c3d4
     local worker_uuid
     worker_uuid=$(python3 -c "import uuid; print(str(uuid.uuid4())[:8])")
-    export CELERY_WORKER_NAME="worker@$(hostname)-${worker_uuid}"
+    export CELERY_WORKER_NAME="worker@$(hostname)-${CELERY_WORKER_TAG}-${worker_uuid}"
     ok "CELERY_WORKER_NAME set to: ${CELERY_WORKER_NAME}"
 
+    # -n puts the node name in the command line, where pgrep can see it.
     uv run celery -A rhesis.backend.worker.app worker \
+        -n "$CELERY_WORKER_NAME" \
         --pool threads \
         --loglevel=DEBUG \
         --queues=celery,execution,telemetry,architect \

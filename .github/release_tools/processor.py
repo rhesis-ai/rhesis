@@ -50,7 +50,6 @@ class ReleaseProcessor:
             self.component_bumps,
             lambda component: get_current_version(component, self.repo_root),
             self.dry_run,
-            self.no_branch,
         )
 
     def process_releases(self) -> bool:
@@ -123,9 +122,7 @@ class ReleaseProcessor:
 
                 # Fall back to basic changelog if LLM failed
                 if not changelog_content:
-                    changelog_content = generate_fallback_changelog(
-                        new_version, commits
-                    )
+                    changelog_content = generate_fallback_changelog(new_version, commits)
 
                 # Update component changelog
                 if not update_component_changelog(

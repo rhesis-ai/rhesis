@@ -2,13 +2,26 @@
 Configuration for the Rhesis release tool including component definitions.
 """
 
+from pathlib import PurePosixPath
+
 
 class ComponentConfig:
     """Configuration for a component"""
+
     def __init__(self, config_file: str, config_type: str, changelog_path: str):
         self.config_file = config_file
         self.config_type = config_type
         self.changelog_path = changelog_path
+
+    @property
+    def path(self) -> str:
+        """Directory the component lives in, used to scope `git log` to its own commits.
+
+        Every component keeps its version file at the root of its own directory, so the
+        config file's parent is the component root. PurePosixPath because git wants
+        forward slashes regardless of platform.
+        """
+        return str(PurePosixPath(self.config_file).parent)
 
 
 # Component configurations
@@ -28,9 +41,7 @@ COMPONENTS = {
     "polyphemus": ComponentConfig(
         "apps/polyphemus/pyproject.toml", "pyproject", "apps/polyphemus/CHANGELOG.md"
     ),
-    "sdk": ComponentConfig(
-        "sdk/pyproject.toml", "pyproject", "sdk/CHANGELOG.md"
-    ),
+    "sdk": ComponentConfig("sdk/pyproject.toml", "pyproject", "sdk/CHANGELOG.md"),
     "ee-backend": ComponentConfig(
         "ee/backend/pyproject.toml", "pyproject", "ee/backend/CHANGELOG.md"
     ),
@@ -40,21 +51,16 @@ COMPONENTS = {
 PLATFORM_VERSION_FILE = "VERSION"
 PLATFORM_CHANGELOG = "CHANGELOG.md"
 
-# Component paths for git operations
-COMPONENT_PATHS = {
-    "backend": "apps/backend",
-    "frontend": "apps/frontend", 
-    "worker": "apps/worker",
-    "chatbot": "apps/chatbot",
-    "polyphemus": "apps/polyphemus",
-    "sdk": "sdk",
-    "ee-backend": "ee/backend",
-    "platform": "."
-}
+
+def get_component_path(component: str) -> str:
+    """Directory to scope git operations to; the platform spans the whole repository"""
+    if component in COMPONENTS:
+        return COMPONENTS[component].path
+    return "."
 
 
 def format_component_name(component: str) -> str:
     """Format component name with proper capitalization"""
     if component.lower() == "sdk":
         return "SDK"
-    return component.title() 
+    return component.title()

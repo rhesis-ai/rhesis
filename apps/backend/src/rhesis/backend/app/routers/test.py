@@ -17,7 +17,6 @@ from rhesis.backend.app.dependencies import (
 )
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.routers.base import RhesisRouter
-from rhesis.backend.app.services.stats import get_individual_test_stats, get_test_stats
 from rhesis.backend.app.services.test import (
     bulk_create_tests,
     extract_test_from_conversation,
@@ -187,19 +186,8 @@ def extract_test_from_conversation_endpoint(
         )
 
 
-@router.get("/stats", response_model=schemas.EntityStats)
-def generate_test_stats(
-    top: Optional[int] = None,
-    months: Optional[int] = 6,
-    db: Session = Depends(get_tenant_db_session),
-    current_user: User = Depends(require_current_user_or_token),
-):
-    """Get statistics about tests"""
-    return get_test_stats(db, current_user.organization_id, top, months)
-
-
 @router.get("/", response_model=List[schemas.TestDetail])
-@with_count_header(model=models.Test)
+@with_count_header(model=models.Test, exclude_explorer_rows=True)
 def read_tests(
     response: Response,
     skip: int = 0,
@@ -216,7 +204,11 @@ def read_tests(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """Get all tests with their related objects"""
+    """Get all tests with their related objects.
+
+    Explorer tests (flagged via explorer_row) are omitted; they are reachable
+    through the /explorer API only.
+    """
     organization_id, user_id = tenant_context
     tests = crud.get_tests(
         db,
@@ -266,60 +258,6 @@ def get_test_test_sets(
     )
     response.headers["X-Total-Count"] = str(count)
     return items
-
-
-@router.get("/{test_id}/stats")
-def get_individual_test_statistics(
-    test_id: UUID,
-    recent_runs_limit: Optional[int] = Query(
-        5, description="Number of recent test runs to include"
-    ),
-    months: Optional[int] = Query(None, description="Filter to last N months of data"),
-    start_date: Optional[str] = Query(
-        None, description="Start date (ISO format, overrides months)"
-    ),
-    end_date: Optional[str] = Query(None, description="End date (ISO format, overrides months)"),
-    db: Session = Depends(get_tenant_db_session),
-    tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token),
-):
-    """
-    Get comprehensive statistics for a specific test across all its test runs.
-
-    Provides:
-    - Overall pass/fail statistics
-    - Per-metric breakdown of success rates
-    - Recent test run details with per-metric results
-    - Average execution time
-
-    Query Parameters:
-    - recent_runs_limit: Number of recent test runs to include (default: 5)
-    - months: Filter to last N months of data (optional)
-    - start_date: Custom start date in ISO format (optional, overrides months)
-    - end_date: Custom end date in ISO format (optional, overrides months)
-
-    Example usage:
-    - GET /tests/{test_id}/stats
-    - GET /tests/{test_id}/stats?recent_runs_limit=10
-    - GET /tests/{test_id}/stats?months=3
-    - GET /tests/{test_id}/stats?start_date=2024-01-01&end_date=2024-12-31
-    """
-    organization_id, user_id = tenant_context
-
-    # First verify the test exists and belongs to the organization
-    db_test = crud.get_test(db, test_id=test_id, organization_id=organization_id, user_id=user_id)
-    if db_test is None:
-        raise HTTPException(status_code=404, detail="Test not found")
-
-    return get_individual_test_stats(
-        db=db,
-        test_id=str(test_id),
-        organization_id=organization_id,
-        recent_runs_limit=recent_runs_limit,
-        months=months,
-        start_date=start_date,
-        end_date=end_date,
-    )
 
 
 @router.get("/{test_id}", response_model=schemas.TestDetail)

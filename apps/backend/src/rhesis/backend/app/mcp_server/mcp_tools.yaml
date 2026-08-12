@@ -31,6 +31,21 @@ tools:
     description: >
       Create a new project to organize test suites. A project groups
       related test sets, test configurations, and test runs.
+    parameters:
+      name:
+        description: "REQUIRED. Project name (string)."
+      description:
+        description: "What this project covers (string)."
+      project_id:
+        description: >
+          Omit. The project scope is taken from the request, not from
+          this field.
+      is_active:
+        description: "Omit. New projects are active by default."
+      icon:
+        description: "Omit unless the user asked for a specific icon."
+      attributes:
+        description: "Omit. Free-form storage, not used by test generation."
 
   # ── Test Sets ─────────────────────────────────────────────
   - name: list_test_sets
@@ -103,24 +118,45 @@ tools:
     parameters:
       name:
         description: "Test set name (required, string)"
+      project_id:
+        description: >
+          Omit. The project scope is taken from the request, not from
+          this field.
       description:
         description: "Detailed description of the test set's purpose (string)"
       short_description:
         description: "Brief summary, one line (string)"
+      test_set_type:
+        description: >
+          REQUIRED. "Single-Turn" or "Multi-Turn". Must match the
+          test_type of the tests in the array. A Multi-Turn test set
+          must contain Multi-Turn tests; a Single-Turn test set must
+          contain Single-Turn tests.
       priority:
         description: >
           Integer priority value (e.g. 1, 2, 3). Must be an integer, NOT
           a string like "High" or "Low". Omit if unsure.
       tests:
         description: >
-          REQUIRED array of test objects (must not be empty). Each object:
-          {"prompt": {"content": "the test prompt text",
-          "language_code": "en", "expected_response": "optional expected
-          answer"}, "behavior": "behavior name", "category": "category
-          name", "topic": "topic name"}. behavior/category/topic are
-          plain-text names (not UUIDs) — the server resolves or creates
-          them automatically. Use list_behaviors, list_categories, and
-          list_topics to discover existing values first.
+          REQUIRED array of test objects (must not be empty). The item
+          fields are listed below; two things the schema cannot express:
+
+          1. A Single-Turn test carries "prompt". A Multi-Turn test sets
+          test_type to "Multi-Turn" and carries "test_configuration"
+          INSTEAD of prompt — never send both on the same test. The
+          test_configuration object takes: goal (required — what the
+          target SHOULD do), instructions (how to conduct the test),
+          restrictions (what the target MUST NOT do), scenario (context
+          and persona) and max_turns (integer, e.g. 10).
+
+          2. behavior, category and topic are plain-text names, not
+          UUIDs — the server resolves or creates them automatically. Use
+          list_behaviors, list_categories and list_topics to reuse
+          existing values rather than inventing near-duplicates.
+      metadata:
+        description: >
+          Omit. Free-form storage the synthesizers use to record how a
+          test set was produced.
 
   - name: generate_test_set
     label: Generating test set
@@ -137,7 +173,7 @@ tools:
       get_test_set + list_test_set_tests to verify content → offer
       execute_test_set. For grounded tests, pass source IDs from
       list_sources or create_source in the sources parameter.
-      Supports both single-turn and multi-turn test generation via the
+      Supports both Single-Turn and Multi-Turn test generation via the
       test_type parameter.
       PRECONDITION: when a saved plan is in effect, every behavior,
       metric, and behavior→metric mapping in the plan must be marked
@@ -149,29 +185,35 @@ tools:
     parameters:
       config:
         description: >
-          REQUIRED. Object with generation parameters:
-          - generation_prompt (string): Describe WHAT to test and HOW
-            (e.g. "Generate tests that verify the travel agent provides
-            accurate destination info, handles ambiguous queries, and
-            refuses off-topic requests"). Be specific — the synthesizer
-            uses this to craft test prompts.
-          - behaviors (list of strings): REQUIRED. Behavior names the
-            tests should target (e.g. ["Provides Accurate Information",
-            "Refuses Off-Topic Requests"]). At least one is required.
-          - categories (list of strings): Optional category names
-            (e.g. ["Functional", "Safety"]).
-          - topics (list of strings): Optional topic names
-            (e.g. ["Travel advisory", "Booking"]).
+          REQUIRED. Generation parameters. Be specific in
+          generation_prompt (e.g. "Generate tests that verify the travel
+          agent provides accurate destination info, handles ambiguous
+          queries, and refuses off-topic requests") — the synthesizer
+          uses it to craft the test prompts. behaviors takes behavior
+          names, e.g. ["Provides Accurate Information", "Refuses
+          Off-Topic Requests"]; categories and topics take names too,
+          e.g. ["Functional", "Safety"] and ["Travel advisory",
+          "Booking"].
       num_tests:
         description: >
           Number of tests to generate (integer, default 5). Typical
           range: 3–20 per test set.
+      batch_size:
+        description: >
+          Omit unless you have a reason to change it. Defaults to 20.
+      project_id:
+        description: >
+          Omit. The project scope is taken from the request, not from
+          this field.
       test_type:
         description: >
-          "Single-Turn" or "Multi-Turn". Single-turn tests send one
-          prompt and evaluate the response. Multi-turn tests generate
-          a goal and instructions for a multi-turn conversation.
-          Default: "Single-Turn".
+          "Single-Turn" or "Multi-Turn". MUST match the plan's
+          test_type for this test set — if the plan says Multi-Turn,
+          pass "Multi-Turn" here. Single-Turn tests generate a prompt
+          and evaluate the response. Multi-Turn tests generate a goal
+          and instructions that drive a conversation over several
+          turns. Default: "Single-Turn" — you MUST override this for
+          Multi-Turn sets.
       name:
         description: >
           Name for the generated test set (string). Use the test set
@@ -184,8 +226,8 @@ tools:
           by ID automatically and injects it into the synthesizer — do NOT
           attempt to load or pass source content yourself. Use list_sources
           to discover available sources and pass their IDs here.
-          LIMITATION: only single-turn test generation uses sources.
-          Multi-turn tests currently ignore this parameter.
+          LIMITATION: only Single-Turn test generation uses sources.
+          Multi-Turn tests currently ignore this parameter.
 
   - name: execute_test_set
     label: Running test set
@@ -197,7 +239,8 @@ tools:
       Endpoint → TestRun. PREREQUISITES: test_set_identifier from
       list_test_sets or get_job_status; endpoint_id from list_endpoints
       or get_endpoint. CHAIN: after response use get_test_run for
-      totals, then get_test_result_stats(mode=all) and
+      totals, then get_insights(entity=test_result,
+      test_run_ids=[<test_run_id>], measures=[count,passed,failed,pass_rate]) and
       list_test_results filtered by test_run_id. The backend auto-creates
       the internal test configuration — do NOT create test configurations
       manually. Response includes test_run_id and task_id.
@@ -250,7 +293,7 @@ tools:
       test_set_identifier and endpoint_id from list_test_sets and
       list_endpoints. CHAIN: use when offering run comparison ("compare
       with last run") or before re-scoring. Returns 404 if no completed
-      run exists yet. Pass test_run_id to get_test_result_stats for
+      run exists yet. Pass test_run_ids to get_insights for
       side-by-side analysis.
     parameters:
       test_set_identifier:
@@ -420,11 +463,20 @@ tools:
       (with its description) instead of auto-creating a description-less
       one. Do NOT send server-managed fields (id, user_id, organization_id,
       created_at, updated_at).
+      Behavior names are unique per organization. Creating one that
+      already exists fails with "Behavior with this name already exists".
+      Call list_behaviors first and reuse the existing id — do NOT retry
+      with a suffixed name like "Refuses Harmful Requests 2", which
+      creates a near-duplicate nobody wants.
     parameters:
       name:
         description: "REQUIRED. Behavior name (string, e.g. 'Refuses harmful requests')."
       description:
         description: "REQUIRED. Explain what this behavior means and how it should be evaluated."
+      project_id:
+        description: >
+          Omit. The project scope is taken from the request, not from
+          this field.
 
   # ── Categories & Topics ───────────────────────────────────
   - name: list_categories
@@ -514,9 +566,27 @@ tools:
       Sending only name + evaluation_prompt + score_type produces a
       threadbare metric and is a bug, not a shortcut. Fill every field you
       have grounds to fill.
+
+      FIELDS REQUIRED BY score_type — the schema cannot express this, so
+      read it here. When score_type is "numeric" you MUST also send
+      min_score, max_score AND threshold; omitting any one is rejected.
+      When score_type is "categorical" you MUST also send categories (at
+      least two labels) AND passing_categories (at least one, each of
+      which must also appear in categories). Send the numeric fields only
+      for numeric metrics and the category fields only for categorical
+      ones.
+
+      Metric names are unique per organization. Creating one that already
+      exists fails with "Metric with this name already exists". Call
+      list_metrics first and reuse the existing id, or use improve_metric
+      to change it — do NOT retry with a suffixed name.
     parameters:
       name:
         description: "Metric name, unique within the organization (required, string)"
+      project_id:
+        description: >
+          Omit. The project scope is taken from the request, not from
+          this field.
       description:
         description: >
           REQUIRED IN PRACTICE. One or two sentences on what this metric
@@ -552,8 +622,10 @@ tools:
           this field.
       score_type:
         description: >
-          REQUIRED. Must be exactly "numeric" or "categorical" (string
-          enum). No other values are accepted.
+          REQUIRED. Use "numeric" or "categorical". The third value the
+          schema still lists, "binary", is legacy and was migrated to
+          "categorical" — do not use it. Decides which other fields are
+          required; see the conditional rules in this tool's description.
       evaluation_prompt:
         description: >
           REQUIRED. The prompt template used to evaluate endpoint
@@ -561,14 +633,42 @@ tools:
           {{expected_response}} placeholders (string).
       metric_scope:
         description: >
-          List of strings. Each value must be exactly "Single-Turn" or
-          "Multi-Turn". Always include this field.
+          REQUIRED, and rejected if missing or empty. Non-empty list, each
+          entry exactly "Single-Turn" or "Multi-Turn". This decides
+          which tests the metric is evaluated against: a Single-Turn metric
+          is skipped on Multi-Turn tests and vice versa, so a wrong value
+          means the metric silently never runs. Use ["Multi-Turn"] for
+          conversation-level metrics, ["Single-Turn"] for single
+          request-response metrics, and both only when the metric genuinely
+          works either way.
+      reference_score:
+        description: "Deprecated. Omit — use categories instead."
+      class_name:
+        description: "Omit. Only used by built-in provider-backed metrics."
+      ground_truth_required:
+        description: >
+          Set true only when the metric cannot be scored without the
+          test's expected_response. Defaults to false.
+      context_required:
+        description: >
+          Set true only when the metric needs retrieved context to score
+          the response. Defaults to false.
+      evaluation_examples:
+        description: >
+          Optional worked examples showing how to score borderline cases.
+          Free text; helps the judge stay consistent.
       min_score:
-        description: "Minimum score value, number (numeric metrics only)"
+        description: >
+          Minimum score value, number. REQUIRED when score_type is
+          "numeric"; omit for categorical metrics.
       max_score:
-        description: "Maximum score value, number (numeric metrics only)"
+        description: >
+          Maximum score value, number. REQUIRED when score_type is
+          "numeric"; omit for categorical metrics.
       threshold:
-        description: "Pass/fail threshold, number (numeric metrics only)"
+        description: >
+          Pass/fail threshold, number. REQUIRED when score_type is
+          "numeric"; omit for categorical metrics.
       threshold_operator:
         description: >
           Comparison operator for the threshold. Must be exactly one of:
@@ -576,13 +676,15 @@ tools:
           Only used for numeric metrics.
       categories:
         description: >
-          List of category label strings (categorical metrics only).
-          Must be a non-empty list when score_type is "categorical".
+          List of category label strings. REQUIRED when score_type is
+          "categorical" and must contain at least two labels; omit for
+          numeric metrics.
       passing_categories:
         description: >
-          Subset of categories that indicate a pass (categorical metrics
-          only). Must be a non-empty list of strings that also appear in
-          "categories".
+          Subset of categories that indicate a pass. REQUIRED when
+          score_type is "categorical" and must contain at least one
+          string, each of which also appears in "categories"; omit for
+          numeric metrics.
 
   - name: generate_metric
     label: Generating metric
@@ -602,6 +704,10 @@ tools:
           REQUIRED. Natural-language description of what the metric
           should evaluate (e.g. "measure whether responses are factually
           accurate, on a 1-5 numeric scale").
+      project_id:
+        description: >
+          Omit. The project scope is taken from the request, not from
+          this field.
 
   - name: improve_metric
     label: Improving metric
@@ -621,6 +727,10 @@ tools:
           REQUIRED. Natural-language instructions describing what to change
           (e.g. "lower the threshold to 2", "switch to categorical with
           pass/fail categories").
+      project_id:
+        description: >
+          Omit. The project scope is taken from the request, not from
+          this field.
 
   - name: update_metric
     label: Updating metric
@@ -907,82 +1017,88 @@ tools:
           The strategy uses them to build on earlier results.
 
   # ── Statistics & Comparison ──────────────────────────────
-  - name: get_test_result_stats
-    label: Analyzing test results
+  - name: get_insights
+    label: Analyzing test results and runs
     method: GET
-    path: /test_results/stats
-    default_query:
-      mode: test_runs
+    path: /insights/
     description: >
-      Get aggregated statistics for test results. Use this for single-run
-      analysis (which behaviors/metrics failed?) and multi-run comparison
-      (did results improve?). The mode parameter controls what is returned:
+      Generic aggregation query over test results, metrics, test runs, or
+      tests. Always pass entity and measures; group_by is optional (omit
+      for one overall total).
 
-      - **all**: Complete stats for a single run — behavior pass rates,
-        metric pass rates, overall totals, and timeline. Use with a single
-        test_run_id immediately after execution for a full analysis in one
-        call. This is the most efficient option for post-run analysis.
-      - **behavior**: Pass rates grouped by behavior. Use with test_run_id
-        to see which behaviors passed/failed in a specific run.
-      - **metrics**: Pass rates grouped by metric name. Use with test_run_id
-        to see which metrics are the problem areas.
-      - **test_runs**: Per-run pass/fail summary with pass rates. Best for
-        comparing two or more runs side by side. Pass multiple test_run_ids.
-      - **summary**: Lightweight overall pass/fail totals only.
+      entity="test_result" -- one row per test execution. Use for
+      single-run analysis (which behaviors/metrics failed?) and multi-run
+      comparison (did results improve?).
+        group_by: behavior, behavior_id, category, category_id, topic,
+        topic_id, test_run, status, year, month.
+        measures: count, passed, failed, pass_rate.
 
-      For single-run analysis: use mode=all with test_run_id.
-      For multi-run comparison: use mode=test_runs with test_run_ids.
-      Filter by behavior_ids or test_set_ids for targeted analysis.
+      entity="metric" -- one row per (test_result, metric_name); use for
+      per-metric breakdowns (Answer Fluency, Contextual Recall, etc.).
+        group_by: metric_name, behavior_id, year, month.
+        measures: count, passed, failed, pass_rate, automated_passed,
+        automated_failed, human_review_count.
+
+      entity="test_run" -- one row per run. Use for operational overview
+      (how many runs by status, which test sets are run most often, who
+      runs tests, run volume over time), NOT for comparing pass/fail
+      outcomes between runs (use entity=test_result for that).
+        group_by: status, test_set, executor, year, month.
+        measures: count, passed, failed, pass_rate.
+
+      entity="test" -- one row per test, including tests that have never
+      run. Use for test-inventory questions (how many tests never ran?).
+        group_by: behavior, behavior_id, category, category_id, topic,
+        topic_id, is_unrun, year, month.
+        measures: count, unrun_count, run_count, passed, failed, pass_rate.
+
+      Examples:
+      - Which behaviors failed in a run: entity=test_result,
+        group_by=[behavior], measures=[count,passed,failed,pass_rate],
+        test_run_ids=[<id>]
+      - Compare runs side by side: entity=test_result, group_by=[test_run],
+        measures=[count,passed,failed,pass_rate], test_run_ids=[<id1>,<id2>]
+      - Which metrics are the problem areas: entity=metric,
+        group_by=[metric_name], measures=[count,passed,failed,pass_rate],
+        test_run_ids=[<id>]
+      - Runs by status: entity=test_run, group_by=[status], measures=[count]
+      - Most-run test sets: entity=test_run, group_by=[test_set],
+        measures=[count]
+      - Tests that never ran: entity=test, measures=[count,unrun_count]
+      - Lightweight overall total: entity=test_result, group_by=[],
+        measures=[count,passed,failed,pass_rate]
+
+      Filter by test_run_ids, behavior_ids, category_ids, topic_ids,
+      test_set_ids, endpoint_ids, or tags to narrow the analysis.
     parameters:
-      mode:
+      entity:
         description: >
-          Stats mode: "test_runs" (per-run comparison), "behavior"
-          (by behavior), "metrics" (by metric), "summary" (totals),
-          "all" (everything). Default: "test_runs".
+          "test_result", "metric", "test_run", or "test". See description
+          for the group_by/measures each supports.
+      group_by:
+        description: >
+          Dimensions to group by (array). See description for the valid
+          list per entity. Omit for a single overall row.
+      measures:
+        description: >
+          Measures to compute (array). See description for the valid list
+          per entity.
       test_run_ids:
         description: >
           Filter to specific test runs (array of UUIDs). Pass two or
           more run IDs to compare them side by side.
-      test_run_id:
-        description: >
-          Filter to a single test run (UUID). Use test_run_ids for
-          multi-run comparison.
       test_set_ids:
         description: "Filter by test set UUIDs (array)."
       behavior_ids:
         description: "Filter by behavior UUIDs (array)."
-      start_date:
-        description: "Start date in ISO format (e.g. 2026-01-01)."
-      end_date:
-        description: "End date in ISO format."
-
-  - name: get_test_run_stats
-    label: Analyzing test runs
-    method: GET
-    path: /test_runs/stats
-    default_query:
-      mode: summary
-    description: >
-      Get run-level analytics: how many runs by status, which test sets
-      are run most often, who runs tests, and run volume over time.
-      Use this for operational overview, NOT for comparing pass/fail
-      outcomes between runs (use get_test_result_stats for that).
-
-      Modes: "summary" (totals), "status" (status distribution),
-      "results" (result distribution), "test_sets" (most run test sets),
-      "executors" (top executors), "timeline" (monthly trends),
-      "all" (everything).
-    parameters:
-      mode:
-        description: >
-          Stats mode: "summary", "status", "results", "test_sets",
-          "executors", "timeline", "all". Default: "summary".
-      test_run_ids:
-        description: "Filter to specific test runs (array of UUIDs)."
+      category_ids:
+        description: "Filter by category UUIDs (array)."
+      topic_ids:
+        description: "Filter by topic UUIDs (array)."
+      tags:
+        description: "Filter by tag names (array)."
       endpoint_ids:
         description: "Filter by endpoint UUIDs (array)."
-      test_set_ids:
-        description: "Filter by test set UUIDs (array)."
       months:
         description: "Months of history to include (default: 6)."
       start_date:
@@ -1028,7 +1144,7 @@ tools:
       URL path, not trace_id (a 32-char hex string). Only trace_db_id
       resolves to a trace page.
 
-      CHAIN: after get_test_result_stats shows failures, call this with the
+      CHAIN: after get_insights shows failures, call this with the
       same test_run_id to see whether a human already diagnosed them — then
       use get_test_result on the ids it returns to read the full exchange.
       NEVER: assume no annotations exist because a run looks clean; a human
@@ -1068,7 +1184,7 @@ tools:
       $filter=contains(tolower(title), 'keyword'). The agent should
       NEVER fetch source content — pass IDs directly to generate_test_set
       and the backend handles content injection. CHAIN: if no match,
-      create_source then pass new id to generate_test_set (single-turn only).
+      create_source then pass new id to generate_test_set (Single-Turn only).
     parameters:
       filter:
         description: >
@@ -1084,7 +1200,7 @@ tools:
       Create a knowledge source for grounding test generation. ENTITY: Source.
       PREREQUISITES: copy source_type_id from list_sources (same type) or
       from an existing source of that type. CHAIN: after create, pass
-      [{"id": "<uuid>"}] to generate_test_set sources (single-turn only).
+      [{"id": "<uuid>"}] to generate_test_set sources (Single-Turn only).
       For pasted text: title + content (Manual type). For URLs: title + url
       (Website type). NEVER fetch or pass raw content to generate_test_set —
       only the ID. File uploads require the UI (POST /sources/upload not
@@ -1095,6 +1211,10 @@ tools:
         description: "REQUIRED. Source title (string)."
       description:
         description: "Optional description of the source (string)."
+      project_id:
+        description: >
+          Omit. The project scope is taken from the request, not from
+          this field.
       content:
         description: >
           Raw text content for Manual-type sources. Use when the user
@@ -1108,6 +1228,8 @@ tools:
         description: >
           REQUIRED. UUID of the source type. Copy from list_sources on an
           existing source of the same type (check source_type_id field).
+      source_metadata:
+        description: "Omit. Free-form storage, not used by test generation."
 
   # ── Tags ────────────────────────────────────────────────
   - name: list_tags

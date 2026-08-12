@@ -16,6 +16,8 @@ const LONG_RUNNING_PATH_PREFIXES = [
   '/garak/import',
   '/garak/generate',
   '/garak/sync',
+  '/explorer/import',
+  '/explorer/export',
 ];
 
 /**

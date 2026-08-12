@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { SectionCard } from '@/components/common/SectionCard';
 import {
   SectionEditButton,
@@ -45,20 +45,39 @@ export function EditableSection<T>({
   const [draft, setDraft] = useState<T>(initialValue);
   const [isSaving, setIsSaving] = useState(false);
 
+  // After a successful save, `initialValue` still reflects the pre-save prop
+  // until the caller's data refetch resolves. Without this, the effect below
+  // would snap the field back to the old value for a moment, which reads as
+  // "the save didn't stick" even though it did.
+  const pendingSaveRef = useRef<{ staleValue: T; savedValue: T } | null>(null);
+
+  const resolveValue = useCallback((value: T) => {
+    const pending = pendingSaveRef.current;
+    if (
+      pending &&
+      JSON.stringify(value) === JSON.stringify(pending.staleValue)
+    ) {
+      return pending.savedValue;
+    }
+    pendingSaveRef.current = null;
+    return value;
+  }, []);
+
   useEffect(() => {
     if (!isEditing) {
-      setDraft(initialValue);
+      setDraft(resolveValue(initialValue));
     }
-  }, [initialValue, isEditing]);
+  }, [initialValue, isEditing, resolveValue]);
 
   const dirty = isDirty(draft, initialValue);
 
   const handleEdit = useCallback(() => {
-    setDraft(initialValue);
+    setDraft(resolveValue(initialValue));
     setIsEditing(true);
-  }, [initialValue]);
+  }, [initialValue, resolveValue]);
 
   const handleCancel = useCallback(() => {
+    pendingSaveRef.current = null;
     setDraft(initialValue);
     setIsEditing(false);
   }, [initialValue]);
@@ -69,12 +88,16 @@ export function EditableSection<T>({
     try {
       const ok = await onSave(draft);
       if (ok !== false) {
+        pendingSaveRef.current = {
+          staleValue: initialValue,
+          savedValue: draft,
+        };
         setIsEditing(false);
       }
     } finally {
       setIsSaving(false);
     }
-  }, [dirty, isSaving, onSave, draft]);
+  }, [dirty, isSaving, onSave, draft, initialValue]);
 
   const actionButtons = isEditing ? (
     <SectionSaveCancelActions

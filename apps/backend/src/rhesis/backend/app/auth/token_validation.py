@@ -4,7 +4,7 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud
+from rhesis.backend.app.crud.token import get_token_by_value
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ def validate_token(
             return False, "Invalid token format. Token must start with 'rh-'"
         if not db:
             return False, "Database session required to validate token value"
-        token = crud.get_token_by_value(db, token_or_value)
+        token = get_token_by_value(db, token_or_value)
     else:
         token = token_or_value
 

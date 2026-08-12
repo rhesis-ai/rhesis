@@ -10,7 +10,8 @@ from hdbscan import HDBSCAN
 from sqlalchemy.orm import Session
 from umap import UMAP
 
-from rhesis.backend.app import crud, models
+from rhesis.backend.app import models
+from rhesis.backend.app.crud.embedding import get_active_embeddings_for_entities
 from rhesis.backend.app.models.test import Test
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.embedding import Cluster, Scatter2DGraph, ScatterPoint2D
@@ -34,7 +35,7 @@ def fetch_embeddings(
     """Load embeddings for one entity type and a set of IDs."""
     if not entity_ids:
         return []
-    return crud.get_active_embeddings_for_entities(
+    return get_active_embeddings_for_entities(
         db,
         entity_ids=list(entity_ids),
         entity_type=_embedding_entity_type_key(embedded_entity),

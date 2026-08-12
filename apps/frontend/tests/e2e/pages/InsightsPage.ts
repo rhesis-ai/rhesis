@@ -42,7 +42,10 @@ export class InsightsPage extends BasePage {
     });
     const passRateMetric = this.page.getByText(/\d+\.\d+%\s*pass rate/i);
     const loadingResults = this.page.getByText(/loading results/i);
-    const filterButton = this.page.getByRole('button', { name: /filters/i });
+    const filterButton = this.page.getByRole('button', {
+      name: 'Filters',
+      exact: true,
+    });
 
     // The behavior search box appears while insights are still loading, so wait
     // for a terminal signal instead of treating search alone as "settled".

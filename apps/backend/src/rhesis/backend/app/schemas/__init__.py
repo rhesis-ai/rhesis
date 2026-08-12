@@ -9,7 +9,7 @@ from .architect import (
 from .base import Base
 from .behavior import Behavior, BehaviorBase, BehaviorCreate, BehaviorDetail, BehaviorUpdate
 from .category import Category, CategoryBase, CategoryCreate, CategoryDetail, CategoryUpdate
-from .chunk import Chunk, ChunkBase, ChunkCreate, ChunkUpdate
+from .chunk import Chunk, ChunkBase, ChunkCreate
 from .comment import Comment, CommentBase, CommentCreate, CommentDetail, CommentUpdate
 from .embedding import (
     Embedding,
@@ -81,42 +81,14 @@ from .parameters import (
 )
 from .project import Project, ProjectBase, ProjectCreate, ProjectDetail, ProjectUpdate
 from .project_membership import ProjectMember, ProjectMemberCreate, ProjectMemberUser
-from .prompt import Prompt, PromptBase, PromptCreate, PromptUpdate, PromptView
+from .prompt import Prompt, PromptBase, PromptCreate, PromptUpdate
 from .prompt_template import (
     PromptTemplate,
     PromptTemplateBase,
     PromptTemplateCreate,
     PromptTemplateUpdate,
 )
-from .response_pattern import (
-    ResponsePattern,
-    ResponsePatternBase,
-    ResponsePatternCreate,
-    ResponsePatternUpdate,
-)
-from .risk import Risk, RiskBase, RiskCreate, RiskUpdate
 from .source import Source, SourceBase, SourceCreate, SourceUpdate, SourceWithContent
-from .stats import (
-    DimensionStats,
-    EntityStats,
-    HistoricalStats,
-    MetricStats,
-    OverallStats,
-    TestResultStats,
-    TestResultStatsAll,
-    TestResultStatsBehavior,
-    TestResultStatsCategory,
-    TestResultStatsMetadata,
-    TestResultStatsMetrics,
-    TestResultStatsResponse,
-    TestResultStatsSummary,
-    TestResultStatsTestRuns,
-    TestResultStatsTimeline,
-    TestResultStatsTopic,
-    TestRunStatsResponse,
-    TestRunSummary,
-    TimelineData,
-)
 from .status import Status, StatusBase, StatusCreate, StatusDetail, StatusUpdate
 from .tag import Tag, TagBase, TagCreate, TagUpdate
 from .task_management import Task, TaskBase, TaskCreate, TaskDetail, TaskUpdate
@@ -149,7 +121,6 @@ from .test_configuration import (
     TestConfigurationExecutionRequest,
     TestConfigurationUpdate,
 )
-from .test_context import TestContext, TestContextBase, TestContextCreate, TestContextUpdate
 from .test_result import (
     ReviewCreate,
     ReviewResponse,
@@ -184,7 +155,6 @@ from .token import TokenBase, TokenCreate, TokenUpdate
 from .tool import Tool, ToolBase, ToolCreate, ToolDetail, ToolUpdate
 from .topic import Topic, TopicBase, TopicCreate, TopicDetail, TopicUpdate
 from .type_lookup import TypeLookup, TypeLookupBase, TypeLookupCreate, TypeLookupUpdate
-from .use_case import UseCase, UseCaseBase, UseCaseCreate, UseCaseUpdate
 from .user import User, UserBase, UserCreate, UserUpdate
 
 __all__ = [
@@ -217,11 +187,6 @@ __all__ = [
     "Chunk",
     "ChunkBase",
     "ChunkCreate",
-    "ChunkUpdate",
-    "Risk",
-    "RiskBase",
-    "RiskCreate",
-    "RiskUpdate",
     "FileCreate",
     "FileEntityType",
     "FileResponse",
@@ -246,11 +211,6 @@ __all__ = [
     "PromptBase",
     "PromptCreate",
     "PromptUpdate",
-    "PromptView",
-    "ResponsePattern",
-    "ResponsePatternBase",
-    "ResponsePatternCreate",
-    "ResponsePatternUpdate",
     "TestConfiguration",
     "TestConfigurationBase",
     "TestConfigurationCreate",
@@ -286,10 +246,6 @@ __all__ = [
     "TestRunCreate",
     "TestRunDetail",
     "TestRunUpdate",
-    "UseCase",
-    "UseCaseBase",
-    "UseCaseCreate",
-    "UseCaseUpdate",
     "Status",
     "StatusBase",
     "StatusCreate",
@@ -393,29 +349,6 @@ __all__ = [
     "TestBulkCreateResponse",
     "TestExecuteRequest",
     "TestExecuteResponse",
-    "TestContext",
-    "TestContextBase",
-    "TestContextCreate",
-    "TestContextUpdate",
-    "EntityStats",
-    "DimensionStats",
-    "HistoricalStats",
-    "MetricStats",
-    "OverallStats",
-    "TestResultStats",
-    "TestResultStatsAll",
-    "TestResultStatsBehavior",
-    "TestResultStatsCategory",
-    "TestResultStatsMetadata",
-    "TestResultStatsMetrics",
-    "TestResultStatsResponse",
-    "TestResultStatsSummary",
-    "TestResultStatsTestRuns",
-    "TestResultStatsTimeline",
-    "TestResultStatsTopic",
-    "TestRunSummary",
-    "TestRunStatsResponse",
-    "TimelineData",
     "Metric",
     "MetricBase",
     "MetricCreate",

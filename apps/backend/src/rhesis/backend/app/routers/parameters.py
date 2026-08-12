@@ -28,8 +28,8 @@ from typing import Annotated
 from fastapi import Depends, HTTPException, Path, Query, Request, status
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
+from rhesis.backend.app.crud.project import get_project
 from rhesis.backend.app.database import bind_scope_to_session
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
@@ -89,7 +89,7 @@ def _load_project(
     organization_id: str,
     user_id: str,
 ):
-    db_project = crud.get_project(
+    db_project = get_project(
         db,
         project_id=project_id,
         organization_id=organization_id,

@@ -25,7 +25,11 @@ By clicking on a test run, you'll see the overview of how the test run went. Fro
 - **Re-run**: Execute the test set again with the same configuration
 - **Download**: Export test run data as CSV
 
-![Test Run Detail Page](/screenshots/rhesis-ai-test-run-details.png)
+<ThemeAwareImage
+  lightSrc="/screenshots/rhesis-ai-test-run-details.webp"
+  darkSrc="/screenshots/rhesis-ai-test-run-details-dark.webp"
+  alt="Test run summary — pass rate, tests executed, duration and review count, with pass rates broken down by behavior and by metric"
+/>
 
 ## Test Run Detail View
 
@@ -37,10 +41,22 @@ The test run detail page includes an expanded **Overview** and **Conversation** 
 - **Files / Output Files panels**: Inspect and download both input attachments and generated output files
 - **JSON-aware rendering**: Response content that is valid JSON is pretty-printed in the overview tab
 
+<ThemeAwareImage
+  lightSrc="/screenshots/rhesis-ai-test-results-overview.webp"
+  darkSrc="/screenshots/rhesis-ai-test-results-overview-dark.webp"
+  alt="Overview tab of a test result — status, prompt, response, expected response, retrieved context, and result tags"
+/>
+
 For multi-turn tests, the **Conversation** tab supports trace-driven debugging:
 
 - Click assistant responses to open the trace drawer
 - Navigate turn-by-turn while keeping test result context visible
+
+<ThemeAwareImage
+  lightSrc="/screenshots/rhesis-ai-test-results-conversation.webp"
+  darkSrc="/screenshots/rhesis-ai-test-results-conversation-dark.webp"
+  alt="Conversation tab of a test result — each turn with its message, the agent reply, and a per-turn pass or fail status"
+/>
 
 ## Parameters Used
 
@@ -146,6 +162,14 @@ Use filters to focus on specific changes:
 ## Test Run Metrics
 
 Each test result records the metrics it was evaluated against. Which metrics run is resolved from a priority hierarchy (execution-time → test set → behavior) configured when you start the run. See [Test Execution](/docs/test-runs/execution#test-run-metrics) for how to set metrics at each level.
+
+The **Metrics** tab of a result lists every metric with its verdict and the reason the judge gave. Filter to **Passed** or **Failed** to narrow a long list.
+
+<ThemeAwareImage
+  lightSrc="/screenshots/rhesis-ai-test-results-metrics.webp"
+  darkSrc="/screenshots/rhesis-ai-test-results-metrics-dark.webp"
+  alt="Metrics tab of a test result — overall performance, the behavior it belongs to, and a pass or fail verdict with a reason per metric"
+/>
 
 ## Next steps
 

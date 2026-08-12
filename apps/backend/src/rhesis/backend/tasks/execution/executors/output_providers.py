@@ -22,6 +22,7 @@ if TYPE_CHECKING:
     pass
 
 from rhesis.backend.app import crud
+from rhesis.backend.app.crud.telemetry import get_trace_by_id
 from rhesis.backend.app.dependencies import get_endpoint_service
 from rhesis.backend.app.services.endpoint.result_processing import process_endpoint_result
 
@@ -339,7 +340,7 @@ class TraceOutput(OutputProvider):
     3. **Legacy attributes** -- ``gen_ai.prompt`` / ``gen_ai.completion``
        (older OpenTelemetry semantic conventions).
 
-    Uses ``crud.get_trace_by_id()`` for multi-tenant safe lookup.  The
+    Uses ``get_trace_by_id()`` for multi-tenant safe lookup.  The
     returned spans are ordered by ``start_time``; the first span with
     ``parent_span_id IS NULL`` is treated as the root.
     """
@@ -357,7 +358,7 @@ class TraceOutput(OutputProvider):
         **kwargs,
     ) -> TestOutput:
         # Reuse existing CRUD for trace retrieval
-        traces = crud.get_trace_by_id(
+        traces = get_trace_by_id(
             db,
             trace_id=self.trace_id,
             project_id=self.project_id,

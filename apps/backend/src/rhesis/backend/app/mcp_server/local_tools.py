@@ -9,9 +9,10 @@ Auth is handled via a delegation token passed as a Bearer header,
 so tenant isolation is preserved without requiring a static API key.
 """
 
+import asyncio
 import json
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import httpx
 
@@ -27,6 +28,11 @@ from .tools import (
 )
 
 logger = logging.getLogger(__name__)
+
+# One retry is enough for the blips this is aimed at. More would stall the
+# turn behind a genuinely broken dependency.
+_TRANSIENT_RETRIES = 1
+_RETRY_DELAY_SECONDS = 0.5
 
 
 class LocalToolProvider(MCPTool):
@@ -133,49 +139,63 @@ class LocalToolProvider(MCPTool):
         if body is None and op.get("has_body"):
             body = {}
 
-        try:
-            transport = httpx.ASGITransport(app=self._app)
-            async with httpx.AsyncClient(transport=transport, base_url="http://internal") as client:
-                response = await client.request(
-                    method=op["method"],
-                    url=path,
-                    headers=headers,
-                    params=query,
-                    json=body,
-                )
+        # A blip (broker hiccup, pool exhaustion, dropped connection) would
+        # otherwise surface to the agent as a permanent failure and cost it a
+        # whole ReAct iteration to re-plan around. Only retried for server-side
+        # and transport faults — a 4xx is the agent's own mistake and repeating
+        # it verbatim just fails again.
+        last_error: Optional[str] = None
+        for attempt in range(_TRANSIENT_RETRIES + 1):
+            if attempt:
+                await asyncio.sleep(_RETRY_DELAY_SECONDS)
+                logger.info("Retrying tool %s after transient failure", tool_name)
 
-            if response.status_code >= 400:
-                try:
-                    detail = response.json()
-                except Exception:
-                    detail = response.text
-                return ToolResult(
-                    tool_name=tool_name,
-                    success=False,
-                    error=json.dumps(
+            try:
+                # ASGITransport runs the route on the caller's loop — for the
+                # architect that is the SDK background loop. Keep LLM-touching
+                # handlers sync `def` so FastAPI offloads them to its threadpool;
+                # an `async def` one reaching a run_sync bridge would deadlock it.
+                transport = httpx.ASGITransport(app=self._app)
+                async with httpx.AsyncClient(
+                    transport=transport, base_url="http://internal"
+                ) as client:
+                    response = await client.request(
+                        method=op["method"],
+                        url=path,
+                        headers=headers,
+                        params=query,
+                        json=body,
+                    )
+
+                if response.status_code >= 400:
+                    try:
+                        detail = response.json()
+                    except Exception:
+                        detail = response.text
+                    last_error = json.dumps(
                         {
                             "status_code": response.status_code,
                             "detail": detail,
                         },
                         default=str,
-                    ),
+                    )
+                    if response.status_code >= 500:
+                        continue
+                    return ToolResult(tool_name=tool_name, success=False, error=last_error)
+
+                try:
+                    data = response.json()
+                except Exception:
+                    data = response.text
+                formatted = format_list_response(data, page_size, current_skip)
+                return ToolResult(
+                    tool_name=tool_name,
+                    success=True,
+                    content=json.dumps(formatted, default=str),
                 )
 
-            try:
-                data = response.json()
-            except Exception:
-                data = response.text
-            formatted = format_list_response(data, page_size, current_skip)
-            return ToolResult(
-                tool_name=tool_name,
-                success=True,
-                content=json.dumps(formatted, default=str),
-            )
+            except Exception as e:
+                logger.error("Local tool execution failed: %s", e, exc_info=True)
+                last_error = str(e)
 
-        except Exception as e:
-            logger.error("Local tool execution failed: %s", e, exc_info=True)
-            return ToolResult(
-                tool_name=tool_name,
-                success=False,
-                error=str(e),
-            )
+        return ToolResult(tool_name=tool_name, success=False, error=last_error)

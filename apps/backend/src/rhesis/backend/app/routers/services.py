@@ -228,15 +228,29 @@ def generate_embedding_endpoint(
         db: The database session
         current_user: The current authenticated user
     """
+    from rhesis.backend.app.utils.model_errors import ModelConfigurationError
+
     try:
         from rhesis.backend.app.utils.user_model_utils import get_user_embedding_model
         from rhesis.sdk.models.factory import get_model
+        from rhesis.sdk.models.providers.native import RhesisEmbedder
 
         embedder = get_user_embedding_model(db, current_user)
         if isinstance(embedder, str):
             embedder = get_model(embedder, model_type="embedding")
+        if isinstance(embedder, RhesisEmbedder):
+            raise ModelConfigurationError(
+                "Embedding model resolved to the Rhesis native provider, which would call "
+                "this endpoint recursively. Set DEFAULT_EMBEDDING_MODEL to an actual "
+                "provider (e.g. vertex_ai/text-embedding-005)."
+            )
         embedding = embedder.generate(text=request.text)
         return embedding
+    except ModelConfigurationError as e:
+        # Deployment misconfiguration (DEFAULT_EMBEDDING_MODEL), not a bad
+        # request from this caller — no client-side fix makes this succeed.
+        logger.error(f"Embedding model misconfigured: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
         error_msg = str(e) if str(e) else "Unknown error"
         logger.error(f"Failed to generate embedding: {error_msg}", exc_info=True)
@@ -266,9 +280,7 @@ async def generate_tests_endpoint(
         GenerateTestsResponse: The generated test cases
     """
     try:
-        # Validate config
-        if not request.config.behaviors:
-            raise HTTPException(status_code=400, detail="At least one behavior must be specified")
+        # config.behaviors is enforced by GenerationConfig, so it arrives non-empty.
 
         # Validate per-request model override exists and belongs to user's org
         model_id_str = str(request.model_id) if request.model_id else None

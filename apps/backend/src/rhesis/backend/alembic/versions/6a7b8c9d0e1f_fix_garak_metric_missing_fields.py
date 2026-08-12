@@ -41,7 +41,8 @@ def upgrade() -> None:
     metric_scope, backend_type_id, metric_type_id, status_id, or incorrect
     score_type and updates them using the existing CRUD infrastructure.
     """
-    from rhesis.backend.app import crud, models, schemas
+    from rhesis.backend.app import models, schemas
+    from rhesis.backend.app.crud.metric import update_metric
 
     bind = op.get_bind()
 
@@ -141,7 +142,7 @@ def upgrade() -> None:
                 print(f"   → Setting threshold_operator='<' for '{metric.name}'")
 
             # Use CRUD to update - handles type conversions and status
-            crud.update_metric(
+            update_metric(
                 db=session,
                 metric_id=metric.id,
                 metric=update_data,

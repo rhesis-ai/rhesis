@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud
 from rhesis.backend.app.config.settings import get_model_settings
 from rhesis.backend.app.constants import TestSetType
+from rhesis.backend.app.crud.project import get_project
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.services import (
     SourceData,
@@ -88,7 +89,7 @@ def _fetch_db_context(
     project_name = None
     project_description = None
     if project_id:
-        project = crud.get_project(db=db, project_id=project_id, organization_id=organization_id)
+        project = get_project(db=db, project_id=project_id, organization_id=organization_id)
         if not project:
             raise ValueError(f"Project with id {project_id} not found or not accessible")
         project_name = project.name

@@ -154,7 +154,7 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
         """Load resolved-parameter snapshot from the active test run, if any."""
         from uuid import UUID
 
-        from rhesis.backend.app import crud
+        from rhesis.backend.app.crud.test_run import get_test_run
         from rhesis.backend.app.services.experiment import (
             connector_execute_extras_from_run_attributes,
         )
@@ -165,7 +165,7 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
         if not tr_id or db is None:
             return {}
         org = str(self.context.endpoint.organization_id)
-        run = crud.get_test_run(db, UUID(str(tr_id)), organization_id=org, user_id=None)
+        run = get_test_run(db, UUID(str(tr_id)), organization_id=org, user_id=None)
         if run is None:
             return {}
         return connector_execute_extras_from_run_attributes(run.attributes)
@@ -422,9 +422,11 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
             if existing_trace_id is None and db is not None:
                 # Lazy import: crud uses models that would cause a circular
                 # import at module level.
-                from rhesis.backend.app import crud
+                from rhesis.backend.app.crud.telemetry import (
+                    get_trace_id_for_conversation,
+                )
 
-                existing_trace_id = crud.get_trace_id_for_conversation(
+                existing_trace_id = get_trace_id_for_conversation(
                     db=db,
                     conversation_id=conversation_id,
                     project_id=str(endpoint.project_id),

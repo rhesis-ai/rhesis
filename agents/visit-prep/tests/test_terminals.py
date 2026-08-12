@@ -1,5 +1,6 @@
-from visit_prep.state import Phase
-from visit_prep.terminals import escalate, greet_and_explain, redirect_to_scope, terminal_reply
+"""Templated terminal responses."""
+
+from visit_prep.terminals import escalate, greet_and_explain, redirect_to_scope
 
 
 def test_greet():
@@ -16,12 +17,3 @@ def test_redirect():
 def test_escalate():
     text = escalate()
     assert "emergency" in text.lower() or "911" in text
-
-
-def test_emergency_terminal_sets_phase():
-    from visit_prep.state import VisitPrepState
-
-    reply, state = terminal_reply("emergency", VisitPrepState())
-    assert state.phase == Phase.ESCALATED
-    assert state.red_flag is True
-    assert "emergency" in reply.lower() or "911" in reply

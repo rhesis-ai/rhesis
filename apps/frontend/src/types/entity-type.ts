@@ -21,8 +21,6 @@ export const EntityType = {
   BEHAVIOR: 'Behavior',
   CATEGORY: 'Category',
   ENDPOINT: 'Endpoint',
-  USE_CASE: 'UseCase',
-  RESPONSE_PATTERN: 'ResponsePattern',
   PROJECT: 'Project',
   ORGANIZATION: 'Organization',
   METRIC: 'Metric',

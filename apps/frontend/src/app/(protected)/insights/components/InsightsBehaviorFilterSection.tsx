@@ -130,17 +130,6 @@ export default function InsightsBehaviorFilterSection({
               />
             ))}
           </Box>
-
-          <Typography
-            sx={{
-              fontSize: 12,
-              lineHeight: '18px',
-              color: 'text.secondary',
-              pt: '3px',
-            }}
-          >
-            Uncheck behaviors to hide them from the pass rate view.
-          </Typography>
         </Box>
 
         {!showAll && options.length > DEFAULT_VISIBLE_COUNT ? (

@@ -11,6 +11,12 @@ export interface FeaturesResponse {
   enabled: string[];
   /** Per-feature warnings for features that are licensed but not operationally ready. */
   warnings?: Record<string, string>;
+  /**
+   * Whether this deployment runs in local/self-hosted mode. Single source of
+   * truth for local-only UI -- optional to tolerate an older backend that
+   * predates this field.
+   */
+  is_local?: boolean;
 }
 
 /**

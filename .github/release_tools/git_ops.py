@@ -7,7 +7,7 @@ import re
 import subprocess
 from typing import Dict, List, Optional
 
-from .config import COMPONENT_PATHS
+from .config import get_component_path
 from .utils import error, info, success, warn
 
 
@@ -36,7 +36,7 @@ def get_commits_since_tag(component: str, last_tag: Optional[str]) -> List[Dict[
 
     Returns commits with full message (subject + body) for better changelog context.
     """
-    component_path = COMPONENT_PATHS.get(component, ".")
+    component_path = get_component_path(component)
 
     git_range = f"{last_tag}..HEAD" if last_tag else "HEAD"
 
@@ -124,13 +124,8 @@ def create_release_branch(
     component_bumps: Dict[str, str],
     get_version_func,
     dry_run: bool = False,
-    no_branch: bool = False,
 ) -> bool:
     """Create appropriate release branch based on components and versions"""
-    if no_branch:
-        info("Skipping branch creation (--no-branch specified)")
-        return True
-
     # Check if we're on main branch
     try:
         current_branch = subprocess.run(

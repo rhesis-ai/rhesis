@@ -297,10 +297,10 @@ class TestDeleteTestRunObjectAuth:
         client = _client(caller_id=_CREATOR_ID)
 
         with patch(
-            "rhesis.backend.app.routers.test_run.crud.get_test_run",
+            "rhesis.backend.app.routers.test_run.test_run_crud.get_test_run",
             return_value=run,
         ), patch(
-            "rhesis.backend.app.routers.test_run.crud.delete_test_run",
+            "rhesis.backend.app.routers.test_run.test_run_crud.delete_test_run",
             return_value=run,
         ):
             resp = client.delete(f"/test_runs/{_RESOURCE_ID}")
@@ -312,7 +312,7 @@ class TestDeleteTestRunObjectAuth:
         client = _client(caller_id=_OTHER_ID)
 
         with patch(
-            "rhesis.backend.app.routers.test_run.crud.get_test_run",
+            "rhesis.backend.app.routers.test_run.test_run_crud.get_test_run",
             return_value=run,
         ):
             resp = client.delete(f"/test_runs/{_RESOURCE_ID}")
@@ -323,7 +323,7 @@ class TestDeleteTestRunObjectAuth:
         client = _client(caller_id=_CREATOR_ID)
 
         with patch(
-            "rhesis.backend.app.routers.test_run.crud.get_test_run",
+            "rhesis.backend.app.routers.test_run.test_run_crud.get_test_run",
             return_value=None,
         ):
             resp = client.delete(f"/test_runs/{_RESOURCE_ID}")
@@ -344,10 +344,10 @@ class TestUpdateTaskObjectAuth:
         client = _client(caller_id=_CREATOR_ID)
 
         with patch(
-            "rhesis.backend.app.routers.task_management.crud.get_task",
+            "rhesis.backend.app.routers.task_management.task_crud.get_task",
             return_value=task,
         ), patch(
-            "rhesis.backend.app.routers.task_management.crud.update_task",
+            "rhesis.backend.app.routers.task_management.task_crud.update_task",
             return_value=task,
         ), patch(
             "rhesis.backend.app.routers.task_management.validate_task_organization_constraints",
@@ -361,10 +361,10 @@ class TestUpdateTaskObjectAuth:
         client = _client(caller_id=_ASSIGNEE_ID)
 
         with patch(
-            "rhesis.backend.app.routers.task_management.crud.get_task",
+            "rhesis.backend.app.routers.task_management.task_crud.get_task",
             return_value=task,
         ), patch(
-            "rhesis.backend.app.routers.task_management.crud.update_task",
+            "rhesis.backend.app.routers.task_management.task_crud.update_task",
             return_value=task,
         ), patch(
             "rhesis.backend.app.routers.task_management.validate_task_organization_constraints",
@@ -379,7 +379,7 @@ class TestUpdateTaskObjectAuth:
         client = _client(caller_id=_OTHER_ID)
 
         with patch(
-            "rhesis.backend.app.routers.task_management.crud.get_task",
+            "rhesis.backend.app.routers.task_management.task_crud.get_task",
             return_value=task,
         ):
             resp = client.patch(f"/tasks/{_RESOURCE_ID}", json={"title": "updated"})
@@ -390,7 +390,7 @@ class TestUpdateTaskObjectAuth:
         client = _client(caller_id=_CREATOR_ID)
 
         with patch(
-            "rhesis.backend.app.routers.task_management.crud.get_task",
+            "rhesis.backend.app.routers.task_management.task_crud.get_task",
             return_value=None,
         ):
             resp = client.patch(f"/tasks/{_RESOURCE_ID}", json={"title": "updated"})
@@ -409,10 +409,10 @@ class TestDeleteTaskObjectAuth:
         client = _client(caller_id=_CREATOR_ID)
 
         with patch(
-            "rhesis.backend.app.routers.task_management.crud.get_task",
+            "rhesis.backend.app.routers.task_management.task_crud.get_task",
             return_value=task,
         ), patch(
-            "rhesis.backend.app.routers.task_management.crud.delete_task",
+            "rhesis.backend.app.routers.task_management.task_crud.delete_task",
             return_value=True,
         ):
             resp = client.delete(f"/tasks/{_RESOURCE_ID}")
@@ -425,7 +425,7 @@ class TestDeleteTaskObjectAuth:
         client = _client(caller_id=_ASSIGNEE_ID)
 
         with patch(
-            "rhesis.backend.app.routers.task_management.crud.get_task",
+            "rhesis.backend.app.routers.task_management.task_crud.get_task",
             return_value=task,
         ):
             resp = client.delete(f"/tasks/{_RESOURCE_ID}")
@@ -437,7 +437,7 @@ class TestDeleteTaskObjectAuth:
         client = _client(caller_id=_OTHER_ID)
 
         with patch(
-            "rhesis.backend.app.routers.task_management.crud.get_task",
+            "rhesis.backend.app.routers.task_management.task_crud.get_task",
             return_value=task,
         ):
             resp = client.delete(f"/tasks/{_RESOURCE_ID}")
@@ -448,7 +448,7 @@ class TestDeleteTaskObjectAuth:
         client = _client(caller_id=_CREATOR_ID)
 
         with patch(
-            "rhesis.backend.app.routers.task_management.crud.get_task",
+            "rhesis.backend.app.routers.task_management.task_crud.get_task",
             return_value=None,
         ):
             resp = client.delete(f"/tasks/{_RESOURCE_ID}")

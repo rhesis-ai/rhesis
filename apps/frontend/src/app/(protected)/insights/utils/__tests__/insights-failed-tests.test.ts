@@ -54,7 +54,7 @@ describe('insights-failed-tests', () => {
     expect(parseInsightsFailedTestsSearchParams(params)).toEqual({
       endpointId: 'ep-1',
       runFilterMode: 'testRuns',
-      timeRange: '1m',
+      timeRange: 'always',
       testRunIds: [],
       outcome: 'failed',
     });
@@ -109,7 +109,7 @@ describe('insights-failed-tests', () => {
     expect(parseInsightsFailedTestsSearchParams(params)).toEqual({
       endpointId: 'ep-1',
       runFilterMode: 'testRuns',
-      timeRange: '1m',
+      timeRange: 'always',
       testRunIds: ['run-1', 'run-2'],
       behaviorId: 'b1',
       behaviorName: 'Beh',

@@ -1,17 +1,13 @@
-"""Subagent component factories."""
+"""Subagent factories for the Visit-Prep multi-agent system."""
 
-from visit_prep.agents.critic import SafetyCritic, create_safety_critic
-from visit_prep.agents.gathering import GatheringBrain, create_gathering_brain
-from visit_prep.agents.router import IntentRouter, create_intent_router
-from visit_prep.agents.summary import SummaryWriter, create_summary_writer
+from visit_prep.agents.coordinator import create_coordinator_agent
+from visit_prep.agents.critic import create_critic_agent
+from visit_prep.agents.history import create_history_agent
+from visit_prep.agents.summary import create_summary_agent
 
 __all__ = [
-    "GatheringBrain",
-    "IntentRouter",
-    "SafetyCritic",
-    "SummaryWriter",
-    "create_gathering_brain",
-    "create_intent_router",
-    "create_safety_critic",
-    "create_summary_writer",
+    "create_coordinator_agent",
+    "create_critic_agent",
+    "create_history_agent",
+    "create_summary_agent",
 ]

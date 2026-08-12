@@ -1,7 +1,6 @@
 
 -- Delete all test sets and prompts
 delete from prompt_test_set;
-delete from prompt_use_case;
 delete from test_set;
 delete from prompt;
 delete from prompt_template;
@@ -9,7 +8,6 @@ delete from source;
 
 -- Delete all test sets and prompts
 delete from prompt_test_set;
-delete from prompt_use_case;
 delete from test_set;
 delete from prompt;
 --delete from prompt_template;

@@ -20,7 +20,6 @@ from rhesis.backend.app.constants import (
 )
 from rhesis.backend.app.models import Prompt, TestSet
 from rhesis.backend.app.models.test import test_test_set_association
-from rhesis.backend.app.services.stats import StatsCalculator
 from rhesis.backend.app.services.test import bulk_create_test_set_associations, bulk_create_tests
 from rhesis.backend.app.utils.crud_utils import get_or_create_status, get_or_create_type_lookup
 from rhesis.backend.app.utils.query_utils import QueryBuilder, include
@@ -373,52 +372,6 @@ def bulk_create_test_set(
 
     except Exception as e:
         raise Exception(f"Failed to create test set: {str(e)}")
-
-
-def get_test_set_stats(
-    db: Session, current_user_organization_id: str | None, top: int | None = None, months: int = 6
-) -> Dict:
-    """
-    Get comprehensive statistics about test sets.
-    """
-    calculator = StatsCalculator(db, organization_id=current_user_organization_id)
-    return calculator.get_entity_stats(
-        entity_model=models.TestSet,
-        organization_id=current_user_organization_id,
-        top=top,
-        months=months,
-    )
-
-
-def get_test_set_test_stats(
-    db: Session,
-    test_set_id: str | None,
-    current_user_organization_id: str | None,
-    top: int | None = None,
-    months: int = 6,
-) -> Dict:
-    """
-    Get statistics about tests, optionally filtered by a specific test set.
-
-    Args:
-        db: Database session
-        test_set_id: Optional ID of a specific test set to filter by
-        current_user_organization_id: Optional organization ID for filtering
-        top: Optional number of top items to show per dimension
-        months: Number of months to include in historical stats (default: 6)
-    """
-
-    calculator = StatsCalculator(db, organization_id=current_user_organization_id)
-    return calculator.get_related_stats(
-        entity_model=models.TestSet,
-        related_model=models.Test,
-        relationship_attr="tests",
-        entity_id=test_set_id,
-        organization_id=current_user_organization_id,
-        top=top,
-        category_columns=["priority"],  # Only priority is treated as a category field
-        months=months,
-    )
 
 
 def create_test_set_associations(
@@ -947,9 +900,9 @@ def _validate_reference_test_run(
     Raises:
         ValueError: If validation fails
     """
-    from rhesis.backend.app import crud
+    from rhesis.backend.app.crud.test_run import get_test_run
 
-    db_ref_run = crud.get_test_run(
+    db_ref_run = get_test_run(
         db,
         test_run_id=reference_test_run_id,
         organization_id=str(current_user.organization_id),

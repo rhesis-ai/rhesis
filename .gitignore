@@ -240,6 +240,9 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+# Per-worktree dev ports, written by ./rh worktree
+.rhesis-ports
+
 # Local env files
 **/.env*.local
 **/.env.development
@@ -266,6 +269,7 @@ infrastructure/scripts/trigger-infrastructure.sh
 # Service secrets configuration
 infrastructure/scripts/service-secrets-config.sh
 infrastructure/config/service-secrets-file.json
+infrastructure/config/gsm-secrets.json
 !infrastructure/scripts/service-secrets-config.sh.example
 !infrastructure/scripts/service-secrets-create.sh
 
@@ -330,11 +334,14 @@ deepeval_telemetry.jsonl.gz.part
 # Cursor IDE
 .cursor/plans/
 
-# Playground
-playground/*
+# Playground — no trailing slash, so the symlink `./rh worktree` creates is ignored too
+/playground
 
-# Simulations
-simulations/
+# Simulations — as above, matches both the directory and a worktree's symlink
+/simulations
+
+# Domain model — local glossary (CONTEXT.md) and ADRs, never committed
+/domain.local
 
 # K8s files
 infrastructure/k8s/manifests/secrets/*
@@ -353,6 +360,7 @@ gke_gcloud_auth_plugin_cache
 # Claude Code
 .claude/settings.local.json
 .claude/skills.local
+CLAUDE.local.md
 
 # service secrets
 infrastructure/config/service-secrets-file.json

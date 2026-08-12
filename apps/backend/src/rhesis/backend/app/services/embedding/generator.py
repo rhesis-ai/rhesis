@@ -8,10 +8,19 @@ from typing import Any, Dict, Optional
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app.crud.embedding import (
+    create_embedding,
+    get_embedding_by_hash,
+    mark_embeddings_stale,
+)
 from rhesis.backend.app.models.embedding import EmbeddingConfig
 from rhesis.backend.app.models.enums import EmbeddingStatus
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.crud_utils import get_item
+from rhesis.backend.app.utils.model_errors import (
+    ModelConfigurationError,
+    is_permanent_model_error,
+)
 from rhesis.backend.app.utils.user_model_utils import get_user_embedding_model
 from rhesis.sdk.models.factory import get_model
 
@@ -58,7 +67,7 @@ class EmbeddingGenerator:
             raise ValueError(f"User not found: {user_id}")
 
         resolved = get_user_embedding_model(self.db, user)
-        return (
+        resolved_embedder = (
             get_model(
                 resolved,
                 model_type="embedding",
@@ -67,6 +76,25 @@ class EmbeddingGenerator:
             if isinstance(resolved, str)
             else resolved
         )
+
+        # Caught here, in-process, rather than left to surface as an HTTP error
+        # from generate_embedding_endpoint's own recursion guard: this path runs
+        # inside the Celery embedding task, and a permanent misconfiguration
+        # error raised from an HTTP call is only distinguishable from a
+        # retryable one by status code, which a generic 5xx wouldn't be. Raising
+        # ModelConfigurationError directly, before any network call, sidesteps
+        # that and makes the failure genuinely instant rather than a wasted
+        # round-trip that error-classification would then have to interpret.
+        from rhesis.sdk.models.providers.native import RhesisEmbedder
+
+        if isinstance(resolved_embedder, RhesisEmbedder):
+            raise ModelConfigurationError(
+                "Embedding model resolved to the Rhesis native provider, which would call "
+                "the embedding endpoint recursively. Set DEFAULT_EMBEDDING_MODEL to an "
+                "actual provider (e.g. vertex_ai/text-embedding-005)."
+            )
+
+        return resolved_embedder
 
     def _get_status(self, name: EmbeddingStatus, organization_id: str, user_id: str):
         """Fetch or create embedding status row and fail fast when unavailable."""
@@ -108,7 +136,7 @@ class EmbeddingGenerator:
         status_id: Any,
         after_race: bool = False,
     ) -> Optional[Dict[str, Any]]:
-        existing = crud.get_embedding_by_hash(
+        existing = get_embedding_by_hash(
             self.db,
             entity_id=entity_id,
             entity_type=entity_type,
@@ -205,6 +233,12 @@ class EmbeddingGenerator:
         try:
             embedding_vector = embedder.generate(searchable_text)
         except Exception as e:
+            # Keep permanent provider errors distinguishable so the Celery task
+            # fails once instead of autoretrying an unfixable request.
+            if is_permanent_model_error(e):
+                raise ModelConfigurationError(
+                    f"Failed to generate embedding: {e}", original_error=e
+                )
             raise ValueError(f"Failed to generate embedding: {e}")
 
         vec_dim = len(embedding_vector)
@@ -231,7 +265,7 @@ class EmbeddingGenerator:
             return duplicate
 
         # Mark old embeddings as stale (different text/config)
-        stale_count = crud.mark_embeddings_stale(
+        stale_count = mark_embeddings_stale(
             self.db,
             entity_id=entity_id,
             entity_type=entity_type,
@@ -260,7 +294,7 @@ class EmbeddingGenerator:
 
         try:
             with self.db.begin_nested():
-                new_embedding = crud.create_embedding(
+                new_embedding = create_embedding(
                     self.db,
                     embedding=embedding_create,
                     organization_id=organization_id,

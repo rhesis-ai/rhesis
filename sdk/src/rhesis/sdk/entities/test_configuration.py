@@ -14,7 +14,6 @@ class TestConfiguration(BaseEntity):
     category_id: Optional[str] = None
     topic_id: Optional[str] = None
     prompt_id: Optional[str] = None
-    use_case_id: Optional[str] = None
     test_set_id: Optional[str] = None
     user_id: Optional[str] = None
     organization_id: Optional[str] = None

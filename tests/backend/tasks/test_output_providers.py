@@ -623,7 +623,7 @@ class TestTraceOutput:
     async def test_raises_when_no_traces(self):
         """TraceOutput raises ValueError when no traces are found."""
         with patch(
-            "rhesis.backend.tasks.execution.executors.output_providers.crud.get_trace_by_id",
+            "rhesis.backend.tasks.execution.executors.output_providers.get_trace_by_id",
             return_value=[],
         ):
             provider = TraceOutput(trace_id="trace-missing")
@@ -635,14 +635,14 @@ class TestTraceOutput:
 
     @pytest.mark.asyncio
     async def test_passes_project_id(self):
-        """TraceOutput passes project_id to crud.get_trace_by_id."""
+        """TraceOutput passes project_id to get_trace_by_id."""
         root = _make_span(
             attributes={"gen_ai.completion": "response"},
             span_name="test",
         )
 
         with patch(
-            "rhesis.backend.tasks.execution.executors.output_providers.crud.get_trace_by_id",
+            "rhesis.backend.tasks.execution.executors.output_providers.get_trace_by_id",
             return_value=[root],
         ) as mock_get:
             provider = TraceOutput(trace_id="t-1", project_id="proj-99")
@@ -664,7 +664,7 @@ class TestTraceOutput:
         )
 
         with patch(
-            "rhesis.backend.tasks.execution.executors.output_providers.crud.get_trace_by_id",
+            "rhesis.backend.tasks.execution.executors.output_providers.get_trace_by_id",
             return_value=[root],
         ):
             provider = TraceOutput(trace_id="t-1")

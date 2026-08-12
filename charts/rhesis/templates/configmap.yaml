@@ -77,6 +77,9 @@ data:
   # GCP / Vertex AI
   # -------------------------------------------------------------------------
   VERTEX_AI_LOCATION: {{ .Values.config.vertexAiLocation | quote }}
+  # Embedding models are not served from the us/eu multi-region endpoints, so
+  # they need a concrete region even when vertexAiLocation is a multi-region.
+  VERTEX_AI_EMBEDDING_LOCATION: {{ .Values.config.vertexAiEmbeddingLocation | quote }}
   VERTEX_AI_PROJECT: {{ .Values.config.vertexAiProject | quote }}
 
   # -------------------------------------------------------------------------

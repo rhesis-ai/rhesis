@@ -6,9 +6,10 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app import models, schemas
 from rhesis.backend.app.auth.capabilities import capability
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
+from rhesis.backend.app.crud import source as source_crud
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
@@ -56,7 +57,7 @@ def create_source(
 ):
     """Create a new source."""
     organization_id, user_id = tenant_context
-    return crud.create_source(
+    return source_crud.create_source(
         db=db, source=source, organization_id=organization_id, user_id=user_id
     )
 
@@ -84,7 +85,7 @@ def read_sources(
     Note: Content field is excluded for performance. Use /sources/{id}/content to get content.
     """
     organization_id, user_id = tenant_context
-    results = crud.get_sources(
+    results = source_crud.get_sources(
         db=db,
         skip=skip,
         limit=limit,
@@ -112,7 +113,7 @@ def read_source(
     Note: Content field is excluded for performance. Use /sources/{id}/content to get content.
     """
     organization_id, user_id = tenant_context
-    db_source = crud.get_source(
+    db_source = source_crud.get_source(
         db, source_id=source_id, organization_id=organization_id, user_id=user_id
     )
     if db_source is None:
@@ -129,7 +130,7 @@ def delete_source(
 ):
     """Delete a source by ID."""
     organization_id, user_id = tenant_context
-    db_source = crud.delete_source(
+    db_source = source_crud.delete_source(
         db, source_id=source_id, organization_id=organization_id, user_id=user_id
     )
     if db_source is None:
@@ -276,7 +277,7 @@ def read_source_with_content(
     use GET /sources/{id} instead to avoid loading large content fields.
     """
     organization_id, user_id = tenant_context
-    db_source = crud.get_source_with_content(
+    db_source = source_crud.get_source_with_content(
         db, source_id=source_id, organization_id=organization_id, user_id=user_id
     )
     if db_source is None:
@@ -297,7 +298,9 @@ def compute_source_embedding_graph(
 ):
     """Queue background computation of a 2D embedding graph over this source's chunks."""
     organization_id, user_id = tenant_context
-    db_source = crud.get_source(db, source_id, organization_id=organization_id, user_id=user_id)
+    db_source = source_crud.get_source(
+        db, source_id, organization_id=organization_id, user_id=user_id
+    )
     if db_source is None:
         raise HTTPException(status_code=404, detail="Source not found")
     task = compute_source_graph_task.delay(str(source_id), user_id)
@@ -316,7 +319,9 @@ def get_source_embedding_graph(
 ):
     """Return the persisted embedding graph from ``source_metadata`` when available."""
     organization_id, user_id = tenant_context
-    db_source = crud.get_source(db, source_id, organization_id=organization_id, user_id=user_id)
+    db_source = source_crud.get_source(
+        db, source_id, organization_id=organization_id, user_id=user_id
+    )
     if db_source is None:
         raise HTTPException(status_code=404, detail="Source not found")
     meta = db_source.source_metadata or {}

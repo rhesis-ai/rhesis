@@ -26,6 +26,7 @@ const meta: MetaRecord = {
   'development-setup': 'Development Setup',
   'coding-standards': 'Coding Standards',
   'managing-docs': 'Managing Documentation',
+  releasing: 'Releasing',
 
   '---architecture': {
     type: 'separator',
