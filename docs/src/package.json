@@ -16,7 +16,7 @@
     "lint:images": "node ../scripts/check-image-formats.js",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "node --test --test-reporter=spec lib/__tests__"
+    "test": "node --test --test-reporter=spec lib/__tests__/*.test.js"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
