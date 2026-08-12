@@ -19,14 +19,6 @@ class ChunkCreate(ChunkBase):
     pass
 
 
-class ChunkUpdate(BaseModel):
-    content: Optional[str] = None
-    chunk_index: Optional[int] = None
-    token_count: Optional[int] = None
-    chunk_metadata: Optional[Dict[str, Any]] = None
-    status_id: Optional[UUID4] = None
-
-
 class Chunk(ChunkBase):
     id: UUID4
     created_at: Union[datetime, str]
