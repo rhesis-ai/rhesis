@@ -33,8 +33,8 @@ export default function TestSetsPage() {
     Capability.TestSet.READ
   );
   const canCreate = useCan(Capability.TestSet.CREATE);
-  const canGenerate = useCan(Capability.TestSet.GENERATE);
   const canGarak = useCan(Capability.Garak.CREATE);
+  const canOwasp = useCan(Capability.Owasp.CREATE);
 
   const [createDrawerOpen, setCreateDrawerOpen] = React.useState(false);
   const [fileImportDrawerOpen, setFileImportDrawerOpen] = React.useState(false);
@@ -116,20 +116,20 @@ export default function TestSetsPage() {
                 onClick={() => setFileImportDrawerOpen(true)}
               />
             </Can>
-            {(canGarak || canGenerate) && (
+            {(canGarak || canOwasp) && (
               <Fab
                 icon={<SecurityIcon />}
                 tooltip={
-                  canGarak && canGenerate
+                  canGarak && canOwasp
                     ? 'Import from Garak or OWASP'
-                    : canGenerate
+                    : canOwasp
                       ? 'Generate from OWASP'
                       : 'Import from Garak'
                 }
                 aria-label={
-                  canGarak && canGenerate
+                  canGarak && canOwasp
                     ? 'Import from Garak or OWASP'
-                    : canGenerate
+                    : canOwasp
                       ? 'Generate from OWASP'
                       : 'Import from Garak'
                 }
@@ -181,7 +181,7 @@ export default function TestSetsPage() {
         onImportStarted={handleGarakImportStarted}
         onOwaspSuccess={handleOwaspGenerateSuccess}
         canUseGarak={canGarak}
-        canUseOwasp={canGenerate}
+        canUseOwasp={canOwasp}
       />
     </>
   );
