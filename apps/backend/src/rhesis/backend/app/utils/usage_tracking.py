@@ -21,25 +21,17 @@ An org running ``openai`` on its own key pays OpenAI directly and must not
 also pay us; the deployment's default model runs on our credentials and
 must. Same class, opposite answer, decided by how the model was selected.
 
-``None`` -- nobody stamped it -- means the model was built outside the
-resolution layer, i.e. from a bare ``get_model("provider/name")``.
-``tests/backend/app/test_language_model_construction_boundary.py`` makes that
-unreachable from anywhere in ``apps/backend/src``: every language-model
-construction site there either goes through
-``user_model_utils.ensure_language_model`` (which stamps) or is on that
-test's allowlist for a documented reason.
-
-What the guard test *cannot* reach is Penelope, a separate package: if its
-own model-resolution chain has already failed catastrophically upstream (not
-just "the org has no configured model" -- that path is stamped before it
-gets there, see ``batch/runner.py`` and ``output_providers.py``) and it falls
-through to constructing its own default, that model has no stamp and never
-will, because the SDK does not know about ``usage_metered``. Real, though
-rare enough that it should not have happened to have real orgs' MODEL_TOKENS
-figures pinned by it. The safe default in that case is still to bill,
-because Penelope's own default is a deployment default running on our
-credentials, and to say so loudly (:func:`_warn_unstamped`) so a spike in
-that log line means the boundary is being hit far more than "rare".
+``None`` -- nobody stamped it -- is treated as a bug, not as a third
+category, and billed. That is safe because an org's own API key can only
+enter through a Model row (``_fetch_and_configure_model``,
+``_resolve_metric_model``) or the connection-test form
+(``model_connection``), and all of those stamp; a model that reached an LLM
+call unstamped is therefore running on this deployment's credentials.
+``tests/backend/app/test_language_model_construction_boundary.py`` keeps it
+that way, and the two Penelope construction sites (``batch/runner.py``,
+``output_providers.py``) stamp across that package boundary since Penelope
+cannot stamp itself. :func:`_warn_unstamped` fires once per provider/model
+so a path that slips through all of that is findable rather than silent.
 
 **Who to bill** -- the ambient organization from
 :mod:`rhesis.backend.app.usage_attribution`, read at emission time rather
@@ -52,10 +44,8 @@ silently discarded (:func:`_record_unattributed`).
 from __future__ import annotations
 
 import logging
-import os
 from typing import Optional, Set, Tuple
 
-from rhesis.backend.app.config.settings import get_rhesis_settings
 from rhesis.backend.app.quota import QuotaResource
 from rhesis.backend.app.services.usage import dispatch_accrual
 from rhesis.backend.app.usage_attribution import current_usage_org
@@ -82,61 +72,7 @@ def _model_identity(model: BaseLLM) -> Tuple[str, str]:
     )
 
 
-#: Environment variables an SDK provider reads into ``self.api_key`` when the
-#: caller passes none. A key matching one of these was supplied by the
-#: deployment, not by an org, so usage on it is ours to bill.
-#:
-#: Kept in step with the SDK by
-#: ``tests/backend/app/test_usage_tracking.py::test_every_env_key_a_provider_reads_is_known_to_us``,
-#: which fails if a provider starts reading one that is not listed here.
-#: A missing entry means an unstamped model on that provider looks
-#: org-owned and silently stops being billed.
-_DEPLOYMENT_KEY_ENV_VARS = ("RHESIS_API_KEY", "LITELLM_PROXY_API_KEY")
-
-
-def _our_api_keys() -> Set[str]:
-    """Every API key value this deployment supplies from its own config."""
-    candidates = {get_rhesis_settings().api_key}
-    candidates.update(os.getenv(name) for name in _DEPLOYMENT_KEY_ENV_VARS)
-    return {key for key in candidates if key}
-
-
-def _runs_on_someone_elses_key(model: BaseLLM) -> bool:
-    """Does this model hold an API key that is not one of ours?
-
-    Safety net for a model nobody stamped. Everything under
-    ``apps/backend/src`` is required to stamp -- see
-    ``tests/backend/app/test_language_model_construction_boundary.py`` --
-    so by the time this runs, ``usage_metered is None`` means either
-    Penelope's own default construction on total resolution failure (see
-    ``batch/runner.py`` / ``output_providers.py``, which stamp everything
-    they can before Penelope ever sees it) or a genuinely new call site this
-    net has not caught up with yet. Either way, this exists so that case
-    cannot bill an org for tokens their own provider already charged them
-    for.
-
-    "Has a key" alone is not the test, and getting that wrong is expensive
-    in the other direction: several providers fall back to a deployment
-    environment variable when handed no key (``RhesisLLM`` and
-    ``PolyphemusLLM`` to ``RHESIS_API_KEY``, ``LiteLLMProxy`` to
-    ``LITELLM_PROXY_API_KEY``), so an unstamped model on one of those
-    carries *our* key and must still be billed. Reading it as the org's
-    would silently stop billing a hosted provider. Hence the comparison is
-    against every key we supply, not just the Rhesis one.
-
-    Providers that authenticate from ambient credentials rather than a key
-    (``vertex_ai`` via GOOGLE_APPLICATION_CREDENTIALS, ``ollama``) leave
-    ``api_key`` unset and so read as ours, which is right for a deployment
-    default and irrelevant for an org-selected model, since those are
-    stamped and never reach here.
-    """
-    api_key = getattr(model, "api_key", None)
-    if not api_key:
-        return False
-    return api_key not in _our_api_keys()
-
-
-def _warn_unstamped(model: BaseLLM, *, billing: bool) -> None:
+def _warn_unstamped(model: BaseLLM) -> None:
     """Flag a model nobody recorded provenance for, once per provider/model.
 
     Names the provider and model only. Never the key, and never anything
@@ -149,14 +85,11 @@ def _warn_unstamped(model: BaseLLM, *, billing: bool) -> None:
     provider, model_name = identity
     logger.warning(
         "%s: %s/%s was built outside the model-resolution layer, so nobody "
-        "recorded whose credentials pay for it; %s. Route the call site "
-        "through rhesis.backend.app.utils.user_model_utils.",
+        "recorded whose credentials pay for it; billing it to the org. Route "
+        "the call site through rhesis.backend.app.utils.user_model_utils.",
         UNSTAMPED_MARKER,
         provider,
         model_name,
-        "billing it to the org"
-        if billing
-        else "it carries its own API key, so treating it as the org's own spend",
         extra={"usage_marker": UNSTAMPED_MARKER, "provider": provider, "model": model_name},
     )
 
@@ -202,12 +135,11 @@ def accrue_model_tokens(usage: TokenUsage, model: BaseLLM) -> None:
         # The org supplied its own API key, so it already pays the provider.
         return
     if model.usage_metered is None:
-        # Nobody stamped it. Bill only if it shows no sign of running on
-        # someone else's credentials -- see _runs_on_someone_elses_key.
-        billing = not _runs_on_someone_elses_key(model)
-        _warn_unstamped(model, billing=billing)
-        if not billing:
-            return
+        # Nobody stamped it, which is a bug rather than a category -- see the
+        # module docstring. Bill it (every construction path that could carry
+        # an org's own key stamps, so an unstamped model is on our
+        # credentials) and say so, once, so the call site gets found.
+        _warn_unstamped(model)
 
     organization_id = current_usage_org()
     if not organization_id:

@@ -17,6 +17,19 @@ import pytest
 
 from rhesis.backend.tasks.execution.batch.context import ExecutionContext
 from rhesis.backend.tasks.execution.batch.runner import run_batch
+from rhesis.sdk.models.base import BaseLLM
+
+
+class _StubLLM(BaseLLM):
+    """A real BaseLLM so stamp_usage_provenance's isinstance check passes."""
+
+    PROVIDER = "stub"
+
+    def load_model(self, *args, **kwargs):
+        return None
+
+    def generate_batch(self, *args, **kwargs):
+        return []
 
 
 def _make_execution_context(**overrides) -> ExecutionContext:
@@ -66,14 +79,18 @@ async def test_string_execution_model_is_stamped_before_penelope_receives_it():
 
 
 @pytest.mark.asyncio
-async def test_no_execution_model_falls_back_to_penelopes_own_default():
-    """Not stamped, and cannot be: there is nothing to resolve. This is the
-    genuine boundary case the process-wide sink's unstamped heuristic exists
-    for -- see the module docstring on usage_tracking.accrue_model_tokens."""
+async def test_penelopes_own_default_model_is_stamped_after_construction():
+    """With no model to hand in, Penelope builds its own default. That runs
+    on this deployment's credentials like any other default, so it is stamped
+    on the instance afterwards -- which is what lets accrue_model_tokens
+    treat an unstamped model as a plain bug rather than a category needing an
+    api-key heuristic to disambiguate."""
     ctx = _make_execution_context(
         execution_model=None,
         test_data={"t1": {"test": MagicMock()}},
     )
+    penelopes_own_model = _StubLLM("vertex_ai/gemini-2.5-flash")
+    penelopes_own_model.warmup = AsyncMock()
 
     with (
         patch(
@@ -86,10 +103,11 @@ async def test_no_execution_model_falls_back_to_penelopes_own_default():
             new=AsyncMock(return_value=[]),
         ),
     ):
-        mock_agent_class.return_value.model.warmup = AsyncMock()
+        mock_agent_class.return_value.model = penelopes_own_model
         await run_batch(ctx, ["t1"])
 
     mock_agent_class.assert_called_once_with()
+    assert penelopes_own_model.usage_metered is True
 
 
 @pytest.mark.asyncio
