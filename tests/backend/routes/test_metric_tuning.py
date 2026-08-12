@@ -310,9 +310,12 @@ class TestCreateTuningCase:
         test_db: Session,
         tuning_metric: models.Metric,
     ):
-        """No placeholder is attached -- the seat stays empty until the real
-        agreement check exists, rather than being held by a metric that computes
-        nothing and shows up in the organization's metric library."""
+        """A tuning test set carries no metric at all, permanently.
+
+        Comparing a verdict against the expected one is plain code, not a metric
+        (ADR-0004), so nothing is waiting to be attached here. The placeholder
+        that used to hold the slot open was a metric row that computed nothing
+        and showed up in the organization's metric library."""
         _create_case(authenticated_client, tuning_metric.id)
 
         test_set = (
@@ -456,17 +459,6 @@ class TestCreateTuningCase:
 
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
-    def test_expected_verdict_is_required(
-        self, authenticated_client: TestClient, tuning_metric: models.Metric
-    ):
-        """A case with no verdict carries no judgement -- there is no draft state."""
-        response = authenticated_client.post(
-            f"/metrics/{tuning_metric.id}/tuning/cases",
-            json={"input": CASE_INPUT, "output": CASE_OUTPUT},
-        )
-
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
-
     def test_unknown_metric_404s(self, authenticated_client: TestClient):
         response = authenticated_client.post(
             f"/metrics/{uuid.uuid4()}/tuning/cases",
@@ -474,6 +466,121 @@ class TestCreateTuningCase:
         )
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+@pytest.mark.integration
+@pytest.mark.routes
+class TestUnlabelledCases:
+    """A case can be captured now and judged later."""
+
+    def test_a_case_saves_without_a_verdict(
+        self, authenticated_client: TestClient, tuning_metric: models.Metric
+    ):
+        response = authenticated_client.post(
+            f"/metrics/{tuning_metric.id}/tuning/cases",
+            json={"input": CASE_INPUT, "output": CASE_OUTPUT},
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED, response.text
+        assert response.json()["expected"] is None
+
+    def test_a_blank_verdict_is_the_same_as_none(
+        self, authenticated_client: TestClient, tuning_metric: models.Metric
+    ):
+        """An empty verdict control must not be stored as an empty verdict."""
+        response = authenticated_client.post(
+            f"/metrics/{tuning_metric.id}/tuning/cases",
+            json={"input": CASE_INPUT, "output": CASE_OUTPUT, "expected": "   "},
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED, response.text
+        assert response.json()["expected"] is None
+
+    def test_an_unlabelled_case_is_listed(
+        self, authenticated_client: TestClient, tuning_metric: models.Metric
+    ):
+        """It is a complete case -- the metric could be run over it."""
+        created = _create_case(authenticated_client, tuning_metric.id, expected=None)
+
+        listed = authenticated_client.get(f"/metrics/{tuning_metric.id}/tuning/cases").json()
+
+        assert [item["id"] for item in listed] == [created["id"]]
+        assert listed[0]["expected"] is None
+        assert listed[0]["input"] == CASE_INPUT
+        assert listed[0]["output"] == CASE_OUTPUT
+
+    def test_an_unlabelled_case_is_not_stale(
+        self,
+        authenticated_client: TestClient,
+        test_db: Session,
+        tuning_metric: models.Metric,
+    ):
+        """Staleness is about a verdict that no longer fits, not an absent one."""
+        _create_case(authenticated_client, tuning_metric.id, expected=None)
+
+        tuning_metric.score_type = "numeric"
+        tuning_metric.min_score = 0.0
+        tuning_metric.max_score = 1.0
+        test_db.commit()
+
+        listed = authenticated_client.get(f"/metrics/{tuning_metric.id}/tuning/cases").json()
+
+        assert [item["is_stale"] for item in listed] == [False]
+
+    def test_a_verdict_supplied_later_is_stored(
+        self, authenticated_client: TestClient, tuning_metric: models.Metric
+    ):
+        created = _create_case(authenticated_client, tuning_metric.id, expected=None)
+
+        response = authenticated_client.put(
+            f"/metrics/{tuning_metric.id}/tuning/cases/{created['id']}",
+            json={"expected": "pass"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK, response.text
+        assert response.json()["expected"] == "pass"
+
+    def test_a_verdict_supplied_later_is_validated(
+        self, authenticated_client: TestClient, tuning_metric: models.Metric
+    ):
+        """Judging late is not judging loosely -- the same check runs as on create."""
+        created = _create_case(authenticated_client, tuning_metric.id, expected=None)
+
+        response = authenticated_client.put(
+            f"/metrics/{tuning_metric.id}/tuning/cases/{created['id']}",
+            json={"expected": "maybe"},
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "binary" in response.json()["detail"]
+
+    def test_a_verdict_can_be_taken_back(
+        self, authenticated_client: TestClient, tuning_metric: models.Metric
+    ):
+        """A blank verdict on update returns the case to unlabelled."""
+        created = _create_case(authenticated_client, tuning_metric.id)
+
+        response = authenticated_client.put(
+            f"/metrics/{tuning_metric.id}/tuning/cases/{created['id']}",
+            json={"expected": ""},
+        )
+
+        assert response.status_code == status.HTTP_200_OK, response.text
+        assert response.json()["expected"] is None
+
+    def test_an_omitted_verdict_leaves_an_existing_one_alone(
+        self, authenticated_client: TestClient, tuning_metric: models.Metric
+    ):
+        """Absent and blank differ on update: omitted means "do not touch"."""
+        created = _create_case(authenticated_client, tuning_metric.id)
+
+        response = authenticated_client.put(
+            f"/metrics/{tuning_metric.id}/tuning/cases/{created['id']}",
+            json={"rationale": "still toxic"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["expected"] == CASE_EXPECTED
 
 
 @pytest.mark.integration

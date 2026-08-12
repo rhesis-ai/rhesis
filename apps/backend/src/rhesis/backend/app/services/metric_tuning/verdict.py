@@ -50,15 +50,15 @@ def _expected_shape(metric: models.Metric) -> str:
 def normalize_verdict(metric: models.Metric, verdict: str) -> str:
     """Check a verdict against the metric and return the form to store.
 
+    For a verdict that is allowed to be absent, call ``normalize_optional_verdict``
+    instead -- this one treats blank as just another value that fits no score type.
+
     Raises ``InvalidVerdict`` with a message naming what was expected. An
     unrecognized ``score_type`` accepts anything -- refusing would make a metric
     in a state this code does not know about impossible to tune at all.
     """
     score_type = metric.score_type
     candidate = verdict.strip()
-
-    if not candidate:
-        raise InvalidVerdict(f"Expected verdict is required and must be {_expected_shape(metric)}.")
 
     if score_type == ScoreType.BINARY.value:
         lowered = candidate.lower()
@@ -101,11 +101,23 @@ def normalize_verdict(metric: models.Metric, verdict: str) -> str:
     return candidate
 
 
+def normalize_optional_verdict(metric: models.Metric, verdict: Optional[str]) -> Optional[str]:
+    """Same check, for a verdict that is allowed to be absent.
+
+    Blank counts as absent, so an empty verdict control is stored as no verdict
+    rather than as an empty-string one nothing can compare against.
+    """
+    if verdict is None or not verdict.strip():
+        return None
+    return normalize_verdict(metric, verdict)
+
+
 def is_stale(metric: models.Metric, verdict: Optional[str]) -> bool:
     """True when a stored verdict no longer fits its metric's score type.
 
-    A case with no verdict at all is not stale -- it predates verdicts being
-    required, and nothing about the metric made it that way.
+    An unlabelled case is never stale. Staleness is about a verdict that no
+    longer fits, not an absent one -- there is nothing to re-label, only to
+    label, and reporting the two as the same thing hides which is which.
     """
     if not verdict:
         return False
