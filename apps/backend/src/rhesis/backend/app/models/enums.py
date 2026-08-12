@@ -58,3 +58,49 @@ class EmbeddingOrigin(str, Enum):
     USER = "user"
     GENERATED = "generated"
     IMPORTED = "imported"
+
+
+class NotificationSection(str, Enum):
+    """Sidebar section a notification's badge count belongs to.
+
+    Values must equal the frontend NavigationPageItem.segment for that page
+    (mirrored in src/constants/notifications.ts, kept in sync manually like
+    FeatureName/Capability).
+    """
+
+    TEST_SETS = "test-sets"
+    TEST_RUNS = "test-runs"
+    TASKS = "tasks"
+    ARCHITECT = "architect"
+
+
+class NotificationEventType:
+    """Namespace of notification event-kind identifiers, grouped by resource.
+
+    Mirrors ``Permission``'s nested-enum grouping in ``auth/capabilities.py``
+    (``Permission.TestSet.READ``) rather than one flat enum, so a resource
+    with several event kinds reads as ``NotificationEventType.TestSet.X``
+    instead of a repeated ``TEST_SET_`` prefix on every member.
+    """
+
+    class TestSet(str, Enum):
+        GENERATION_COMPLETED = "test_set.generation_completed"
+        GARAK_IMPORT_COMPLETED = "test_set.garak_import_completed"
+        GARAK_SYNC_COMPLETED = "test_set.garak_sync_completed"
+
+    class TestRun(str, Enum):
+        EXECUTION_COMPLETED = "test_run.execution_completed"
+
+    class Task(str, Enum):
+        ASSIGNED = "task.assigned"
+
+    class Architect(str, Enum):
+        #: One architect turn concluded a background wait with nothing left
+        #: pending -- i.e. the plan is done. Mid-plan turns don't notify; see
+        #: the renderer in services/notification/catalog.py.
+        PLAN_COMPLETED = "architect.plan_completed"
+
+
+# Notification.entity_type reuses rhesis.backend.app.constants.EntityType
+# (the same enum Comment.entity_type is typed with) rather than a new enum —
+# it already carries TEST_SET / TEST_RUN.

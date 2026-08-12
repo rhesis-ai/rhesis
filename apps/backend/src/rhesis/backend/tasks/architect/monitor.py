@@ -26,6 +26,7 @@ import redis as _redis_lib
 from celery.signals import task_postrun
 
 from rhesis.backend.app.config.settings import get_redis_settings
+from rhesis.backend.app.constants import ARCHITECT_RESUME_PREFIX
 
 logger = logging.getLogger(__name__)
 
@@ -243,7 +244,7 @@ def _resume_architect(
     r.delete(f"arch:count:{session_id}")
 
     message = (
-        "[TASK_COMPLETED] The background tasks you were waiting "
+        f"{ARCHITECT_RESUME_PREFIX} The background tasks you were waiting "
         "for have finished. Here are the results:\n"
         + "\n".join(f"- {s}" for s in summaries)
         + "\nPlease continue with the next steps in the plan."

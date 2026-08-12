@@ -34,6 +34,13 @@ import {
 } from '@/components/common/createRowActionsColumn';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { useNotifications } from '@/components/common/NotificationContext';
+// Renamed on import: distinct from the toast system's useNotifications above --
+// this is the persistent, backend-tracked "assigned to you" badge/highlight.
+import { useNotifications as useJobNotifications } from '@/contexts/NotificationsContext';
+import {
+  HIGHLIGHTED_ROW_CLASS,
+  NotificationSection,
+} from '@/constants/notifications';
 import { useQueryClient } from '@tanstack/react-query';
 import { taskKeys } from '@/constants/query-keys';
 import { useGridState } from '@/hooks/useGridState';
@@ -118,6 +125,7 @@ export default function TasksGrid({
 }: TasksGridProps) {
   const router = useRouter();
   const notifications = useNotifications();
+  const { highlightedIds, clearHighlight } = useJobNotifications();
   const queryClient = useQueryClient();
   const { status } = useSession();
 
@@ -212,15 +220,20 @@ export default function TasksGrid({
       });
     },
     enabled: isAuthenticated(status),
+    // Always refetch when the list is opened -- a task assigned to you while
+    // you were elsewhere must show up on arrival. See the same note in
+    // TestSetsGrid.
+    staleTime: 0,
   });
   const tasks: Task[] = tasksData?.data ?? [];
   const totalCount = tasksData?.totalCount ?? 0;
 
   const handleRowClick = useCallback(
     (params: GridRowParams) => {
+      clearHighlight(NotificationSection.TASKS, String(params.id));
       router.push(`/tasks/${params.id}`);
     },
-    [router]
+    [router, clearHighlight]
   );
 
   const handleRowDeleteAction = useCallback((id: string) => {
@@ -392,6 +405,13 @@ export default function TasksGrid({
               onFilterModelChange={handleFilterModelChange}
               disableRowSelectionOnClick
               onRowClick={handleRowClick}
+              getRowClassName={params =>
+                highlightedIds(NotificationSection.TASKS).includes(
+                  String(params.id)
+                )
+                  ? HIGHLIGHTED_ROW_CLASS
+                  : ''
+              }
               serverSidePagination={true}
               totalRows={totalCount}
               pageSizeOptions={[10, 25, 50, 100]}

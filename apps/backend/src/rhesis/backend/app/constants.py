@@ -20,6 +20,7 @@ class EntityType(Enum):
     SOURCE = "Source"
     CHUNK = "Chunk"
     TRACE = "Trace"
+    ARCHITECT_SESSION = "ArchitectSession"
 
     @classmethod
     def get_value(cls, entity_type):
@@ -27,6 +28,14 @@ class EntityType(Enum):
         if isinstance(entity_type, cls):
             return entity_type.value
         return entity_type
+
+
+#: Prefix on the synthetic user message the architect monitor sends when it
+#: auto-resumes a session after the background tasks it was awaiting finish.
+#: Shared because three places key off it: the monitor builds the message, the
+#: runner routes it to the auto-resume handler, and the notification catalog
+#: uses it to tell a plan-concluding turn from an ordinary interactive one.
+ARCHITECT_RESUME_PREFIX = "[TASK_COMPLETED]"
 
 
 # TestType Enum - DB-level test classification aligned with initial_data.json type_lookup

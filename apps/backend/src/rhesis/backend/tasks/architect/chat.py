@@ -7,6 +7,7 @@ via Redis pub/sub, and persists the final response + updated state.
 import logging
 from typing import Any, Dict, Optional
 
+from rhesis.backend.app.models.enums import NotificationEventType
 from rhesis.backend.app.schemas.websocket import (
     ChannelTarget,
     EventType,
@@ -17,13 +18,16 @@ from rhesis.backend.tasks.architect.telemetry import (
     _conversation_telemetry_context,
     _load_session_trace_id,
 )
-from rhesis.backend.tasks.base import SilentTask
+from rhesis.backend.tasks.base import SilentTask, in_app_notification
 from rhesis.backend.worker import app
 from rhesis.sdk.agents.errors import format_user_facing_error
 
 logger = logging.getLogger(__name__)
 
 
+# Fires on at most one turn per user request -- the renderer declines the
+# interactive and mid-plan turns. See _render_architect_plan_completed.
+@in_app_notification(NotificationEventType.Architect.PLAN_COMPLETED)
 @app.task(
     base=SilentTask,
     name="rhesis.backend.tasks.architect.architect_chat_task",
@@ -158,6 +162,9 @@ def architect_chat_task(
             "session_id": session_id,
             "response_length": len(result.content),
             "mode": result.mode,
+            # Read by the in-app notification renderer to tell a turn that
+            # finished the plan from one that just started another wait.
+            "awaiting_task": result.awaiting_task,
         }
 
     except Exception as e:

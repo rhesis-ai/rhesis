@@ -17,7 +17,10 @@ from rhesis.backend.app.dependencies import (
 )
 from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.services.task_management import validate_task_organization_constraints
-from rhesis.backend.app.services.task_notification import send_task_assignment_notification
+from rhesis.backend.app.services.task_notification import (
+    send_task_assignment_in_app_notification,
+    send_task_assignment_notification,
+)
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.telemetry import (
     set_telemetry_enabled,
@@ -66,6 +69,7 @@ def create_task(
         if created_task.assignee_id:
             frontend_url = get_frontend_settings().url
             send_task_assignment_notification(db=db, task=created_task, frontend_url=frontend_url)
+            send_task_assignment_in_app_notification(db=db, task=created_task)
 
         # Track feature usage
         track_feature_usage(
@@ -243,6 +247,7 @@ def update_task(
         if assignee_changed and updated_task.assignee_id:
             frontend_url = get_frontend_settings().url
             send_task_assignment_notification(db=db, task=updated_task, frontend_url=frontend_url)
+            send_task_assignment_in_app_notification(db=db, task=updated_task)
 
         # Track feature usage
         track_feature_usage(

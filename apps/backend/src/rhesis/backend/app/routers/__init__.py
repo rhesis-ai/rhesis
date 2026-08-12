@@ -23,6 +23,7 @@ from .insights import router as insights_router
 from .job import router as task_router
 from .metric import router as metric_router
 from .model import router as model_router
+from .notification import router as notification_router
 from .organization import router as organization_router
 from .parameters import (
     project_experiments_router as project_experiments_router,
@@ -140,6 +141,7 @@ routers = sorted(
         type_lookup_router,
         metric_router,
         model_router,
+        notification_router,
         task_router,
         task_management_router,
         tools_router,

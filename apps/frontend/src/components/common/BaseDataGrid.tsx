@@ -27,6 +27,7 @@ import {
   TextField,
   InputAdornment,
   Menu,
+  alpha,
 } from '@mui/material';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import SearchIcon from '@mui/icons-material/Search';
@@ -68,6 +69,7 @@ import {
   useRowActionsGridRootProps,
 } from '@/components/common/createRowActionsColumn';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
+import { HIGHLIGHTED_ROW_CLASS } from '@/constants/notifications';
 
 /**
  * Shared "grid card" look — the bordered, rounded, shadowed Paper every grid
@@ -105,6 +107,8 @@ interface BaseDataGridProps {
   getRowId?: (row: GridRowModel) => string | number;
   showToolbar?: boolean;
   onRowClick?: (params: GridRowParams) => void;
+  /** Per-row extra CSS class, e.g. to gently highlight a row with an unseen notification. */
+  getRowClassName?: (params: GridRowParams) => string;
   density?: GridDensity;
   sx?: SxProps<Theme>;
   disableMultipleRowSelection?: boolean;
@@ -610,6 +614,7 @@ export default function BaseDataGrid({
   getRowId,
   showToolbar: _showToolbar = false,
   onRowClick,
+  getRowClassName,
   density,
   sx: _sx,
   disableMultipleRowSelection,
@@ -653,7 +658,7 @@ export default function BaseDataGrid({
   hideFooter = false,
   hideRowsPerPageBelow = 10,
 }: BaseDataGridProps) {
-  const _theme = useTheme();
+  const theme = useTheme();
   const router = useRouter();
   const apiRef = useGridApiRef();
 
@@ -1176,6 +1181,15 @@ export default function BaseDataGrid({
         display: 'none',
       },
     },
+    {
+      [`& .${HIGHLIGHTED_ROW_CLASS}`]: {
+        backgroundColor: alpha(theme.palette.primary.main, 0.08),
+        transition: 'background-color 0.3s ease',
+      },
+      [`& .${HIGHLIGHTED_ROW_CLASS}:hover`]: {
+        backgroundColor: alpha(theme.palette.primary.main, 0.14),
+      },
+    },
     ...(Array.isArray(_sx) ? _sx : _sx ? [_sx] : []),
   ].filter(Boolean) as SxProps<Theme>;
 
@@ -1427,6 +1441,7 @@ export default function BaseDataGrid({
                       rowSelectionModel,
                     })}
                     {...(isRowSelectable && { isRowSelectable })}
+                    {...(getRowClassName && { getRowClassName })}
                     {...(disableRowSelectionOnClick && {
                       disableRowSelectionOnClick,
                     })}
@@ -1500,6 +1515,7 @@ export default function BaseDataGrid({
                         rowSelectionModel,
                       })}
                       {...(isRowSelectable && { isRowSelectable })}
+                      {...(getRowClassName && { getRowClassName })}
                       {...(disableRowSelectionOnClick && {
                         disableRowSelectionOnClick,
                       })}

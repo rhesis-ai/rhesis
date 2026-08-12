@@ -13,6 +13,7 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
+from rhesis.backend.app.constants import ARCHITECT_RESUME_PREFIX
 from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.schemas.websocket import EventType
 from rhesis.backend.app.services.architect.attachments import process_attachments
@@ -192,9 +193,9 @@ async def _handle_auto_resume(
 ) -> None:
     """Persist auto-resume system messages and notify streaming start.
 
-    No-ops on ordinary turns; only fires for ``[TASK_COMPLETED]`` messages.
+    No-ops on ordinary turns; only fires for auto-resume messages.
     """
-    if not user_message.startswith("[TASK_COMPLETED]"):
+    if not user_message.startswith(ARCHITECT_RESUME_PREFIX):
         return
 
     from rhesis.backend.app import crud, schemas

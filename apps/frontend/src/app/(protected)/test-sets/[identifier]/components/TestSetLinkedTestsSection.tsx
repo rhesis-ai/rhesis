@@ -59,6 +59,13 @@ export default function TestSetLinkedTestsSection({
     setTotalCount(initialTestCount);
   }, [initialTestCount]);
 
+  // Mirrors the totalCount sync above -- isGenerating is only ever flipped
+  // to false via this effect, from the refreshed prop, never directly from
+  // the poll below. See the comment inside checkStatus for why.
+  useEffect(() => {
+    setIsGenerating(initialIsGenerating);
+  }, [initialIsGenerating]);
+
   useEffect(() => {
     if (!isGenerating) return;
 
@@ -77,11 +84,21 @@ export default function TestSetLinkedTestsSection({
         const generationStatus =
           testSet.attributes?.metadata?.generation?.status;
         if (generationStatus !== 'in_progress') {
-          setIsGenerating(false);
           if (pollRef.current) {
             clearInterval(pollRef.current);
             pollRef.current = null;
           }
+          // Deliberately not setIsGenerating(false) here. testCount and
+          // isGenerating are both derived from the same server read (see
+          // page.tsx) and land together in router.refresh()'s refreshed
+          // props. Flipping isGenerating locally first would render one
+          // frame with isGenerating=false but totalCount still stale at
+          // its old (often 0) value -- bouncing through the "No tests
+          // yet" empty state before the real grid mounts, which is what
+          // caused the flicker on the grid's pills as it mounted. Staying
+          // on the "Generating tests..." placeholder a moment longer, and
+          // switching both values in the same render once the refresh
+          // lands, avoids that extra state.
           router.refresh();
         }
       } catch {
