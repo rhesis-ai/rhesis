@@ -18,6 +18,7 @@ import {
   Slider,
   Stack,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import {
@@ -96,6 +97,7 @@ export default function OwaspGenerateForm({
   onFooterChange,
 }: OwaspGenerateFormProps) {
   const [testSetName, setTestSetName] = React.useState('');
+  const [purpose, setPurpose] = React.useState('');
   const [categoriesByFramework, setCategoriesByFramework] =
     React.useState<Record<OwaspFramework, OwaspCategory[]>>(EMPTY_CATEGORIES);
   const [loadingCategories, setLoadingCategories] = React.useState(false);
@@ -146,8 +148,29 @@ export default function OwaspGenerateForm({
     }
   }, [active, fetchCategories]);
 
+  // Prefill "System under test" from the active project's description —
+  // only when the field is still empty, so it never clobbers a user edit.
+  React.useEffect(() => {
+    if (!active) return;
+    const projectId = readActiveProjectId();
+    if (!projectId) return;
+
+    const clientFactory = new ApiClientFactory();
+    clientFactory
+      .getProjectsClient()
+      .getProject(projectId)
+      .then(project => {
+        const description = project?.description?.trim();
+        if (description) {
+          setPurpose(prev => prev || description);
+        }
+      })
+      .catch(() => {});
+  }, [active]);
+
   const resetState = React.useCallback(() => {
     setTestSetName('');
+    setPurpose('');
     setCategoriesByFramework(EMPTY_CATEGORIES);
     setSelectedKeys(new Set());
     setExpandedFrameworks(new Set());
@@ -251,11 +274,8 @@ export default function OwaspGenerateForm({
       return;
     }
 
-    const projectId = readActiveProjectId();
-    if (!projectId) {
-      setError(
-        'Select an active project first — its description is used as the system under test'
-      );
+    if (!purpose.trim()) {
+      setError('Please describe what your system under test does');
       return;
     }
 
@@ -264,18 +284,6 @@ export default function OwaspGenerateForm({
       setError(undefined);
 
       const clientFactory = new ApiClientFactory();
-      const project = await clientFactory
-        .getProjectsClient()
-        .getProject(projectId);
-      const purpose = project?.description?.trim();
-      if (!purpose) {
-        setError(
-          'Add a description to the active project — it is used as the system under test'
-        );
-        setSubmitting(false);
-        return;
-      }
-
       const owaspClient = clientFactory.getOwaspClient();
       const multiple = selectionsByFramework.length > 1;
       const baseName = testSetName.trim();
@@ -293,7 +301,7 @@ export default function OwaspGenerateForm({
 
           return owaspClient.generateTestSet({
             framework: selection.framework,
-            purpose,
+            purpose: purpose.trim(),
             categories: isFullFramework ? undefined : selection.categoryIds,
             num_tests: numTests,
             name,
@@ -315,6 +323,7 @@ export default function OwaspGenerateForm({
   }, [
     selectionsByFramework,
     testSetName,
+    purpose,
     categoriesByFramework,
     numTests,
     modelId,
@@ -536,21 +545,19 @@ export default function OwaspGenerateForm({
       </Box>
 
       <Box sx={drawerSectionSx}>
-        <FormSectionDivider
-          headline="Advanced Options"
-          descriptiveText="Optional overrides — defaults work well for most generations."
-        />
+        <FormSectionDivider headline="Test Configuration" />
         <Box sx={drawerFieldsSx}>
-          <ModelSelector
-            value={modelId}
-            onChange={setModelId}
-            label="Generation Model"
-            purpose="generation"
+          <TextField
+            label="System under test"
+            placeholder="e.g. Customer service chatbot for a retail bank with access to account balances and transfers"
+            helperText="Describe what the system does — attacks are tailored to this description."
+            value={purpose}
+            onChange={e => setPurpose(e.target.value)}
+            fullWidth
+            multiline
+            rows={3}
             disabled={submitting}
-            compact
-            hideHelperText
-            fieldSx={drawerOutlinedFieldSx}
-            enabled={active}
+            sx={drawerOutlinedFieldSx}
           />
 
           <FormControl fullWidth sx={drawerOutlinedFieldSx}>
@@ -561,8 +568,22 @@ export default function OwaspGenerateForm({
               label="Test Type"
               disabled={submitting}
             >
-              <MenuItem value={TEST_TYPES.SINGLE_TURN}>Single-Turn</MenuItem>
-              <MenuItem value={TEST_TYPES.MULTI_TURN}>Multi-Turn</MenuItem>
+              <MenuItem value={TEST_TYPES.SINGLE_TURN}>
+                <Tooltip
+                  title="Generates one-shot attack prompts"
+                  placement="right"
+                >
+                  <span>Single-Turn</span>
+                </Tooltip>
+              </MenuItem>
+              <MenuItem value={TEST_TYPES.MULTI_TURN}>
+                <Tooltip
+                  title="Generates multi-turn conversational attacks"
+                  placement="right"
+                >
+                  <span>Multi-Turn</span>
+                </Tooltip>
+              </MenuItem>
             </Select>
           </FormControl>
 
@@ -592,15 +613,35 @@ export default function OwaspGenerateForm({
               disabled={submitting}
             />
           </Box>
+        </Box>
+      </Box>
 
+      <Box sx={drawerSectionSx}>
+        <FormSectionDivider
+          headline="Advanced Options"
+          descriptiveText="Optional overrides — defaults work well for most generations."
+        />
+        <Box sx={drawerFieldsSx}>
           <TextField
             label="Test Set Name"
-            placeholder="Defaults to the OWASP report name and project description"
+            placeholder="Defaults to the OWASP report name and system description"
             value={testSetName}
             onChange={e => setTestSetName(e.target.value)}
             fullWidth
             disabled={submitting}
             sx={drawerOutlinedFieldSx}
+          />
+
+          <ModelSelector
+            value={modelId}
+            onChange={setModelId}
+            label="Generation Model"
+            purpose="generation"
+            disabled={submitting}
+            compact
+            hideHelperText
+            fieldSx={drawerOutlinedFieldSx}
+            enabled={active}
           />
         </Box>
       </Box>
