@@ -2,6 +2,7 @@
 
 **Status:** Decisions locked, ready to implement
 **Date:** 2026-07-20, revised 2026-08-12
+**Inventory verified against:** `main` at `d5d4b11d0`
 **Scope:** Database, backend, frontend, SDK, MCP, agent skill, Penelope, docs, tests, deployment config
 
 Supersedes the phased, compatibility-first draft. That version proposed seven releases with dual
@@ -45,9 +46,21 @@ start of implementation.
 
 | Measure | Count |
 |---------|-------|
-| Files containing `behavio` (excluding `node_modules`, build output) | **668** |
-| Matching lines | **~6,450** |
+| Files containing `behavio` (excluding `node_modules`, build output) | **701** |
+| Matching lines | **~6,540** |
 | Of those, in migrations + changelogs (frozen, not edited) | ~200 |
+
+Re-measured against `main` at `d5d4b11d0`. Two structural changes on main since the first audit
+materially affect this plan:
+
+- **`app/crud.py` is now the package `app/crud/`.** `crud/behavior.py` is an additional file
+  rename; `crud/metric.py` (61 refs) carries the M2M logic. The single 105-reference file no longer
+  exists.
+- **The explorer JSONB marker is already migrated.** `test_set.explorer_row` is a real boolean
+  column (migration `7dd69fe35db5_add_explorer_row_to_test_set_and_test.py`), `explorer/tests.py`
+  reads that column, and `ADAPTIVE_TESTING_BEHAVIOR` is gone from the backend entirely. This
+  removes what was the sharpest silent-failure risk in the earlier revision of this plan. There is
+  a migration test suite at `tests/backend/alembic/` to model the cutover's own tests on.
 
 This cannot be a 400-line PR. The honest shape is:
 
@@ -134,9 +147,7 @@ This is the category that breaks silently. Each item is a row-level `UPDATE` in 
 |---|---|---|
 | `type_lookup` row with `type_value = 'Behavior'` | seeded from `app/services/initial_data.json`; consumed by tags, comments, `EntityType.BEHAVIOR` (`app/constants.py:15`, `app/schemas/tag.py:33`, FE `types/entity-type.ts:21`) | Tag and comment assignment on the entity stops resolving |
 | `permission` catalog rows `behavior:create|read|update|delete` | seeded by `5b6c7d8e9f0a_seed_rbac_permission_catalog.py:59-62`; enum in `app/auth/capabilities.py:197-201` | Users lose all access to the entity. **`UPDATE permission SET name = …` in place**, never delete-and-insert: built-in roles compute their sets from code and follow the enum rename automatically, but custom roles have `role_permission` rows keyed on `permission.id`, and recreating the row orphans every custom grant. The drift guard at `tests/backend/security/test_capability_catalog.py` catches a code/catalog mismatch but not orphaned grants. |
-| `test_set.attributes['metadata']['behaviors']` (JSONB **key**) | written by `app/services/explorer/tests.py:170-171`; read by `app/services/explorer/tests.py:116` **and by the filter at `app/crud.py:587` that excludes explorer test sets from the main list** | Every historical explorer test set reappears in the normal test-sets list. Silent, user-visible, and easy to miss in review. |
-| `test_set.attributes['behaviors']` (list of ids) | same file, line 170 | Explorer linkage breaks |
-| `architect_session.plan_data` JSONB with keys `behaviors`, `behavior_metric_mappings`, `behavior` | `models/architect.py:20`; shape defined by `sdk/.../architect/plan.py` (`BehaviorSpec`, `MappingSpec.behavior`) | Every saved Architect session fails to deserialize. Renaming the Pydantic fields without backfilling `plan_data` is a hard break. |
+| `architect_session.plan_data` JSONB with keys `behaviors`, `behavior_metric_mappings`, `behavior` | `models/architect.py:20`; shape defined by `sdk/.../architect/plan.py` (`BehaviorSpec` at 27, `behavior_metric_mappings` at 211) | Every saved Architect session fails to deserialize. Renaming the Pydantic fields without backfilling `plan_data` is a hard break. **This is now the sharpest silent-failure path.** |
 | `MetricsSource.BEHAVIOR = 'behavior'` | `app/schemas/test_set.py:14`, FE `interfaces/test-configuration.ts:12` | Stored test-configuration rows stop matching; `TestDetailMetricsTab.tsx:116,146,151` falls through to the wrong branch |
 | Stats mode `behavior` and metric key `behavior_pass_rates` | `app/schemas/stats.py`, `app/services/stats/test_result.py`, SDK `entities/stats.py:27` | Insights renders empty |
 | Preflight check id `behavior_metric_coverage` | `app/services/preflight/constants.py:6`, used by `checks.py:719`, `orchestrator.py:174`, displayed by FE `components/common/PreflightDialog.tsx` | Check disappears from the preflight dialog |
@@ -154,7 +165,9 @@ Heaviest touch points by reference count:
 
 | File | Refs | Note |
 |---|---|---|
-| `app/crud.py` | 105 | Includes the JSONB explorer filter at 586-587 and `_METRIC_M2M_RELATIONSHIPS` at 2947 |
+| `app/crud/metric.py` | 61 | M2M association logic |
+| `app/crud/behavior.py` | 47 | File rename |
+| `app/crud/test_run.py`, `crud/__init__.py`, `crud/explorer.py`, `crud/comment.py` | 23 total | |
 | `app/mcp_server/mcp_tools.yaml` | 97 | See "public contracts" |
 | `app/services/preflight/checks.py` | 43 | Coverage check logic |
 | `app/services/initial_data.json` | 41 | `type_value: "Behavior"`, 3 default entity rows, ~25 metrics referencing them by name, and `"behaviors"` arrays on metric records |
@@ -180,6 +193,9 @@ Also: `models/organization.py`, `status.py`, `test_set.py`, `prompt.py`, `test.p
 `behavior_metric_association` export), `app/services/bulk_defaults.json`,
 `app/services/prompt.py`, `app/schemas/services.py`, `app/schemas/__init__.py`,
 `app/schemas/stats.py`.
+
+`app/services/explorer/tests.py` still has 19 references, but they are entity references now, not
+the JSONB marker. The marker moved to `test_set.explorer_row` on main.
 
 EE backend has no entity references (the `behavio` hits in `ee/backend/` are unrelated English).
 
@@ -308,8 +324,16 @@ stale notebook output is not a correctness problem.
 
 ### 8. Tests and tooling
 
-`tests/sdk/integration/conftest.py:396,419` runs `TRUNCATE TABLE metric, behavior, model CASCADE`.
+`tests/sdk/integration/conftest.py:303,326` runs `TRUNCATE TABLE metric, behavior, model CASCADE`.
 Raw SQL against the physical table name. Update in the cutover PR or every integration run fails.
+
+`tests/k6/common.js:56` registers a load-test endpoint `{ name: 'auth_behaviors', path: '/behaviors/' }`,
+documented in `tests/k6/README.md:11`. Load tests will 404 after the cutover, which reads as a
+performance regression rather than a rename miss.
+
+`tests/backend/alembic/` (`test_idempotency.py`, `test_explorer_row_migration.py`) is the pattern to
+follow for the cutover revision's own tests. `test_explorer_row_migration.py` is a worked example of
+testing a JSONB-to-column data migration, which is close to what the `plan_data` backfill needs.
 
 `scripts/check_organization_filtering.py` (multi-tenancy audit tooling) hardcodes `'Behavior'`
 at line 33 and regexes `Behavior\.organization_id` at 90 and `behavior_id\s*==` at 175. If missed
@@ -348,7 +372,7 @@ Each is behavior-preserving and reviewable on its own. None of them renames the 
 | P1 | Resolve the vocabulary collision: rename the skill/docs "requirements workflow" input concept to "spec" | ~150 lines | Unblocks docs and skill work; meaningless to review mid-rename |
 | P2 | Extract every hardcoded `'/behaviors'`, `'behaviors'`, and `'Behavior'` string literal in the frontend into the existing constants modules (`api-client/config.ts`, `query-keys.ts`, `types/entity-type.ts`) | ~200 lines | Shrinks the cutover diff and makes the remaining sites greppable |
 | P3 | Same for the backend: route prefix, resource name, and entity-type literals behind `app/constants.py` | ~150 lines | Same |
-| P4 | Add a regression test asserting the explorer-exclusion filter (`crud.py:587`) actually excludes explorer test sets, and one asserting `architect_session.plan_data` round-trips | ~120 lines | These are the two silent-failure paths. Prove they work **before** touching them. |
+| P4 | Add a regression test asserting `architect_session.plan_data` round-trips through `TestPlan`, modelled on `tests/backend/alembic/test_explorer_row_migration.py` | ~60 lines | The remaining silent-failure path. Prove it works **before** touching it. Halved from the earlier revision: the explorer-filter half is unnecessary now that main uses `test_set.explorer_row`. |
 
 ### The cutover PR
 
@@ -359,9 +383,9 @@ One PR, one Alembic revision, ordered commits inside it:
    - `DROP` + `CREATE` stats views and their indexes
    - Rename RLS policies
    - `CREATE OR REPLACE FUNCTION` for `delete_user_and_organization_data`
-   - Idempotent backfills: `type_lookup`, `permission` (+ repoint `role_permission`),
-     `test_set.attributes`, `architect_session.plan_data`, `test_configuration` metrics source,
-     any persisted stats or preflight payloads
+   - Idempotent backfills: `type_lookup`, `permission` (updated in place),
+     `architect_session.plan_data`, `test_configuration` metrics source, any persisted stats or
+     preflight payloads
    - `down_revision` set to the current head on `main` at the time of opening
 2. **Backend**: models, schemas, routers, CRUD, services, tasks, raw SQL in `annotations.py`,
    permission enum, constants, seed JSON, Garak taxonomy kwargs, Jinja prompt templates + parsers
@@ -369,7 +393,8 @@ One PR, one Alembic revision, ordered commits inside it:
 4. **SDK**: entities, clients, synthesizers, Garak provider, Architect plan schema and templates
 5. **Frontend**: route tree move + redirect, clients, interfaces, query keys, capabilities (both
    copies), insights, shared components, regenerated templates
-6. **Tests**: renames, fixture updates, `tests/sdk/integration/conftest.py` raw SQL
+6. **Tests**: renames, fixture updates, `tests/sdk/integration/conftest.py` raw SQL,
+   `tests/k6/common.js` endpoint path, plus a migration test under `tests/backend/alembic/`
 7. **Tooling**: `scripts/check_organization_filtering.py`, `alembic/row_level_security.sql`,
    `alembic/migrate_tests.sql`
 8. **Docs that describe contracts**: `odata-guide.mdx`, `test-result-stats.mdx`, SDK entity pages,
@@ -418,9 +443,8 @@ SELECT column_name, table_name FROM information_schema.columns WHERE column_name
 ```sql
 SELECT count(*) FROM type_lookup WHERE type_value = 'Behavior';                    -- 0
 SELECT count(*) FROM permission WHERE name LIKE 'behavior:%';                      -- 0
-SELECT count(*) FROM test_set WHERE attributes -> 'metadata' ? 'behaviors';        -- 0
-SELECT count(*) FROM test_set WHERE attributes ? 'behaviors';                      -- 0
 SELECT count(*) FROM architect_session WHERE plan_data ? 'behaviors';              -- 0
+SELECT count(*) FROM architect_session WHERE plan_data ? 'behavior_metric_mappings'; -- 0
 -- and the inverse: every row that had the old key now has the new one
 ```
 
@@ -431,7 +455,6 @@ SELECT count(*) FROM architect_session WHERE plan_data ? 'behaviors';           
 - Org deletion against a seeded org (proves the PL/pgSQL function was recreated)
 - Insights page renders non-empty against restored data (proves stats views and the
   `requirement_pass_rates` key line up)
-- Test-sets list does **not** contain explorer test sets (proves the JSONB backfill)
 - Open a pre-migration Architect session (proves the `plan_data` backfill)
 - RBAC: a user with the old grants can still read and write the entity
 - Preflight dialog shows the coverage check
@@ -449,8 +472,8 @@ assertions inverted. A rename migration without a tested downgrade has no rollba
 | Risk | Mitigation |
 |---|---|
 | `delete_user_and_organization_data` still references the old table; fails only at org-deletion time | `pg_proc` sweep + org-deletion test |
-| Explorer test sets leak into the main list via the un-backfilled JSONB key | P4 regression test written before the change + row assertion |
-| Saved Architect sessions fail to deserialize | P4 round-trip test + `plan_data` backfill + row assertion |
+| Saved Architect sessions fail to deserialize | P4 round-trip test written before the change, `plan_data` backfill, row assertion, and open a pre-migration session by hand |
+| `tests/k6` load tests 404 on `/behaviors/`, read as a perf regression | Endpoint path updated in the cutover PR |
 | `_BEHAVIOR_TOOLS` and `mcp_tools.yaml` drift, so Architect stops recognizing tool calls | Same commit, plus an Architect integration test |
 | Custom-role grants orphaned by recreating instead of updating `permission` rows in place | `UPDATE ... SET name`, keep the id; assert `role_permission` count unchanged before and after |
 | Stats view output alias `behavior_name` survives the table rename and quietly breaks insights | DROP/CREATE views, `pg_views` sweep, insights render check |
