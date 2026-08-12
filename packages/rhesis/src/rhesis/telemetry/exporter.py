@@ -10,6 +10,7 @@ import requests
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExportResult
+from pydantic import ValidationError
 from tenacity import (
     Retrying,
     retry_if_exception_type,
@@ -320,6 +321,7 @@ class RhesisOTLPExporter(OTLPSpanExporter):
             OTELTraceBatch with validated SDK schemas
         """
         converted_spans = []
+        skipped: list[str] = []
 
         # First pass: identify turn-root trace_ids for conversation_id
         # propagation to child spans
@@ -390,27 +392,45 @@ class RhesisOTLPExporter(OTLPSpanExporter):
                         )
                     )
 
-            # Create SDK OTELSpan model
-            otel_span = OTELSpan(
-                trace_id=trace_id,
-                span_id=span_id,
-                parent_span_id=parent_span_id,
-                project_id=self.project_id,
-                environment=self.environment,
-                conversation_id=conversation_id,
-                span_name=span.name,
-                span_kind=span.kind.name,
-                start_time=self._timestamp_to_datetime(span.start_time),
-                end_time=self._timestamp_to_datetime(span.end_time),
-                status_code=span.status.status_code.name,
-                status_message=span.status.description,
-                attributes=attrs,
-                events=events,
-                links=links,
-                resource=(dict(span.resource.attributes) if span.resource else {}),
-            )
+            # Validate per span, not per batch. `OTELSpan` rejects a span name outside the
+            # `ai.<domain>.<action>` / `function.*` grammar, and a non-string id where the schema
+            # wants a string. Building the whole batch inside one try meant a single such span
+            # raised out of here and cost the caller everything alongside it — up to 511 valid spans
+            # at `max_export_batch_size=512`. Skipping the offender loses only the offender.
+            try:
+                otel_span = OTELSpan(
+                    trace_id=trace_id,
+                    span_id=span_id,
+                    parent_span_id=parent_span_id,
+                    project_id=self.project_id,
+                    environment=self.environment,
+                    conversation_id=conversation_id,
+                    span_name=span.name,
+                    span_kind=span.kind.name,
+                    start_time=self._timestamp_to_datetime(span.start_time),
+                    end_time=self._timestamp_to_datetime(span.end_time),
+                    status_code=span.status.status_code.name,
+                    status_message=span.status.description,
+                    attributes=attrs,
+                    events=events,
+                    links=links,
+                    resource=(dict(span.resource.attributes) if span.resource else {}),
+                )
+            except ValidationError as exc:
+                skipped.append(span.name)
+                logger.warning(
+                    f"Skipping span {span.name!r}: it does not satisfy the Rhesis span schema "
+                    f"({exc.error_count()} validation error(s))"
+                )
+                continue
 
             converted_spans.append(otel_span)
+
+        if skipped:
+            logger.warning(
+                f"Dropped {len(skipped)} of {len(spans)} spans from this export batch: "
+                f"{', '.join(sorted(set(skipped)))}"
+            )
 
         return OTELTraceBatch(spans=converted_spans)
 
