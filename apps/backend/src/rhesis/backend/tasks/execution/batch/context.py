@@ -52,6 +52,11 @@ class ExecutionContext:
     # Per-test metric configs for behavior-mapped metrics (Priority 3) where each
     # test may have a different behavior with different metrics.
     per_test_metric_configs: Dict[str, List[MetricConfig]] = field(default_factory=dict)
+    # Judge models for metrics that configure their own `model_id`, resolved while the
+    # session is open because metric evaluation runs after it closes. A `None` value
+    # records a resolution that was attempted and failed, which is distinct from a
+    # `model_id` being absent here entirely; see `prepare_metrics`.
+    metric_models: Dict[str, Any] = field(default_factory=dict)
     test_data: Dict[str, Any] = field(default_factory=dict)
     input_files: Dict[str, List] = field(default_factory=dict)
     existing_result_ids: Set[str] = field(default_factory=set)
@@ -85,6 +90,42 @@ class ExecutionContext:
     def has_metrics(self) -> bool:
         """True if any test has metric configs to evaluate."""
         return bool(self.metric_configs) or bool(self.per_test_metric_configs)
+
+
+def _resolve_metric_judge_models(
+    session: Session,
+    organization_id: Optional[str],
+    metric_configs: List[MetricConfig],
+    per_test_metric_configs: Dict[str, List[MetricConfig]],
+) -> Dict[str, Any]:
+    """Resolve every distinct per-metric judge `model_id` in the batch, once each.
+
+    Deduped by `model_id` so a model shared by many metrics (or by many tests
+    sharing a behavior) costs one lookup rather than one per metric. Failures are
+    recorded as a `None` value rather than omitted, so the evaluator can tell
+    "tried and failed" from "never attempted" and warn accordingly.
+    """
+    from rhesis.backend.metrics.strategies.local import _resolve_metric_model
+
+    all_configs = list(metric_configs)
+    for configs in per_test_metric_configs.values():
+        all_configs.extend(configs)
+
+    resolved: Dict[str, Any] = {}
+    for config in all_configs:
+        model_id = (config.parameters or {}).get("model_id")
+        if not model_id or model_id in resolved:
+            continue
+        resolved[model_id] = _resolve_metric_model(
+            model_id, session, organization_id, config.name or config.class_name
+        )
+
+    if resolved:
+        failed = [mid for mid, model in resolved.items() if model is None]
+        logger.info(
+            f"Pre-resolved {len(resolved) - len(failed)}/{len(resolved)} per-metric judge models"
+        )
+    return resolved
 
 
 def prefetch_execution_context(
@@ -291,6 +332,14 @@ def prefetch_execution_context(
     except Exception as e:
         logger.warning(f"Failed to pre-fetch metrics: {e}")
 
+    # Resolve per-metric judge models now, while the session is still open. Metric
+    # evaluation happens after session.close(), so a `model_id` left unresolved here
+    # cannot be honoured later and the metric would quietly fall back to the default
+    # judge instead of the model the user picked.
+    metric_models = _resolve_metric_judge_models(
+        session, organization_id, metric_configs, per_test_metric_configs
+    )
+
     # Batch check existing results
     existing_result_ids: Set[str] = set()
     try:
@@ -362,6 +411,7 @@ def prefetch_execution_context(
         evaluation_model=evaluation_model,
         metric_configs=metric_configs,
         per_test_metric_configs=per_test_metric_configs,
+        metric_models=metric_models,
         test_data=test_data,
         existing_result_ids=existing_result_ids,
         batch_concurrency=batch_concurrency,
