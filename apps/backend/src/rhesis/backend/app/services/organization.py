@@ -10,12 +10,13 @@ from sqlalchemy.exc import InvalidRequestError
 from sqlalchemy.orm import Session, joinedload, with_parent
 from sqlalchemy.orm.attributes import flag_modified
 
-from rhesis.backend.app import crud, models
+from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.config.settings import get_application_settings
 from rhesis.backend.app.database import temporary_project_scope
 from rhesis.backend.app.models.enums import ModelType
 from rhesis.backend.app.models.metric import behavior_metric_association
 from rhesis.backend.app.models.test import test_test_set_association
+from rhesis.backend.app.schemas.tag import EntityType
 from rhesis.backend.app.scope import bypass_tenant_filter
 from rhesis.backend.app.services.test_set import execute_test_set_on_endpoint
 from rhesis.backend.app.utils.crud_utils import (
@@ -285,78 +286,6 @@ def unenroll_all_project_members(
     return len(user_ids)
 
 
-def _get_or_create_owasp_tag(db: Session, organization_id: str, user_id: str) -> models.Tag:
-    """Get or create the org-scoped "OWASP" Tag.
-
-    Looked up the same way migration b857edcac3c0 looks it up, so onboarding
-    and the historical migration backfill converge on the identical row
-    instead of creating duplicate "OWASP" tags for the same organization.
-    """
-    tag = (
-        db.query(models.Tag)
-        .filter_by(name=_OWASP_TAG_NAME, organization_id=organization_id)
-        .first()
-    )
-    if not tag:
-        tag = models.Tag(name=_OWASP_TAG_NAME, organization_id=organization_id, user_id=user_id)
-        db.add(tag)
-        db.flush()
-    return tag
-
-
-def _tag_as_owasp(
-    db: Session,
-    tag: models.Tag,
-    entity,
-    entity_type: str,
-    organization_id: str,
-    user_id: str,
-) -> None:
-    """Get-or-create the TaggedItem linking *entity* to the org's "OWASP" Tag.
-
-    Called from load_initial_data for every behavior/metric whose name starts
-    with "OWASP", so freshly onboarded organizations end up with the same
-    Tag/TaggedItem shape that migration b857edcac3c0 backfills for
-    pre-existing organizations. Without this, the frontend's OWASP filter
-    pill (which matches purely on this tag — see MetricsClient.tsx /
-    odata-filter.ts) never appears for new organizations, since load_initial_data
-    otherwise creates the OWASP-named Behavior/Metric rows without tagging them.
-
-    *tag* is resolved once by the caller (via `_get_or_create_owasp_tag`) and
-    passed in, rather than re-queried per behavior/metric — it's the same row
-    for every call within one load_initial_data run.
-
-    Idempotent like the rest of load_initial_data: checks the unique-constraint
-    keys directly (tag_id, entity_id, entity_type, organization_id) rather than
-    the entity's possibly-stale `.tags` relationship, then flushes immediately
-    so a later call within the same load_initial_data run sees the row and
-    skips re-inserting it (mirrors the same idiom in
-    garak/importer.py:_tag_garak_behaviors).
-    """
-    exists = (
-        db.query(models.TaggedItem)
-        .filter_by(
-            tag_id=tag.id,
-            entity_id=entity.id,
-            entity_type=entity_type,
-            organization_id=organization_id,
-        )
-        .first()
-    )
-    if exists:
-        return
-    db.add(
-        models.TaggedItem(
-            tag_id=tag.id,
-            entity_id=entity.id,
-            entity_type=entity_type,
-            organization_id=organization_id,
-            user_id=user_id,
-        )
-    )
-    db.flush()
-
-
 def load_initial_data(db: Session, organization_id: str, user_id: str) -> Dict[str, str]:
     """
     Load initial data from the JSON file into the database using optimized approach.
@@ -414,9 +343,6 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> Dict[s
             )
 
         # Process behaviors
-        # Resolved once and reused for every OWASP-prefixed behavior/metric
-        # tagged below, rather than re-queried per item.
-        owasp_tag = _get_or_create_owasp_tag(db, organization_id, user_id)
         print("Processing behaviors...")
         for item in initial_data.get("behavior", []):
             behavior = get_or_create_behavior(
@@ -429,7 +355,18 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> Dict[s
                 commit=False,
             )
             if item["name"].startswith(_OWASP_NAME_PREFIX):
-                _tag_as_owasp(db, owasp_tag, behavior, "Behavior", organization_id, user_id)
+                crud.assign_tag(
+                    db=db,
+                    tag=schemas.TagCreate(
+                        name=_OWASP_TAG_NAME,
+                        organization_id=organization_id,
+                        user_id=user_id,
+                    ),
+                    entity_id=behavior.id,
+                    entity_type=EntityType.BEHAVIOR,
+                    organization_id=organization_id,
+                    user_id=user_id,
+                )
 
         # Process projects
         print("Processing projects...")
@@ -919,7 +856,18 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> Dict[s
             )
 
             if item["name"].startswith(_OWASP_NAME_PREFIX):
-                _tag_as_owasp(db, owasp_tag, metric, "Metric", organization_id, user_id)
+                crud.assign_tag(
+                    db=db,
+                    tag=schemas.TagCreate(
+                        name=_OWASP_TAG_NAME,
+                        organization_id=organization_id,
+                        user_id=user_id,
+                    ),
+                    entity_id=metric.id,
+                    entity_type=EntityType.METRIC,
+                    organization_id=organization_id,
+                    user_id=user_id,
+                )
 
             # Process behavior associations
             behavior_names = item.get("behaviors", [])
