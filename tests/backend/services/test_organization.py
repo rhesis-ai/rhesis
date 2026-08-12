@@ -441,6 +441,86 @@ class TestLoadInitialData:
 
         assert framework_metric.id in {m.id for m in visible_metrics}
 
+    def test_load_initial_data_tags_owasp_behaviors_and_metrics(
+        self, test_db: Session, authenticated_user_id, test_org_id
+    ):
+        """Onboarding tags every OWASP-prefixed behavior/metric with an "OWASP" Tag.
+
+        Without this, a freshly onboarded organization gets the OWASP-named
+        Behavior/Metric rows but no Tag/TaggedItem rows, so the frontend's
+        OWASP filter pill (Metrics directory page) never appears for it. See
+        migration b857edcac3c0, which backfills the same Tag/TaggedItem shape
+        for organizations that already existed when it ran.
+        """
+        test_file_dir = os.path.dirname(__file__)
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(test_file_dir)))
+        initial_data_path = os.path.join(
+            project_root, "apps/backend/src/rhesis/backend/app/services/initial_data.json"
+        )
+        with open(initial_data_path, "r") as file:
+            expected_initial_data = json.load(file)
+
+        owasp_behavior_names = [
+            b["name"]
+            for b in expected_initial_data.get("behavior", [])
+            if b["name"].startswith("OWASP")
+        ]
+        owasp_metric_names = [
+            m["name"]
+            for m in expected_initial_data.get("metric", [])
+            if m["name"].startswith("OWASP")
+        ]
+        assert owasp_behavior_names, "initial_data.json should define OWASP-prefixed behaviors"
+        assert owasp_metric_names, "initial_data.json should define OWASP-prefixed metrics"
+
+        def _assert_owasp_tags_present():
+            tags = (
+                test_db.query(models.Tag)
+                .filter(models.Tag.name == "OWASP", models.Tag.organization_id == test_org_id)
+                .all()
+            )
+            assert len(tags) == 1, f"Expected exactly one org-scoped OWASP tag, found {len(tags)}"
+            tag = tags[0]
+
+            for model, entity_type, names in (
+                (models.Behavior, "Behavior", owasp_behavior_names),
+                (models.Metric, "Metric", owasp_metric_names),
+            ):
+                for name in names:
+                    entity = (
+                        test_db.query(model)
+                        .filter(model.organization_id == test_org_id, model.name == name)
+                        .first()
+                    )
+                    assert entity is not None, f"{entity_type} '{name}' should exist"
+                    tagged_items = (
+                        test_db.query(models.TaggedItem)
+                        .filter(
+                            models.TaggedItem.tag_id == tag.id,
+                            models.TaggedItem.entity_id == entity.id,
+                            models.TaggedItem.entity_type == entity_type,
+                            models.TaggedItem.organization_id == test_org_id,
+                        )
+                        .all()
+                    )
+                    assert len(tagged_items) == 1, (
+                        f"Expected exactly one TaggedItem for {entity_type.lower()} '{name}', "
+                        f"found {len(tagged_items)}"
+                    )
+
+        organization_service.load_initial_data(
+            db=test_db, organization_id=test_org_id, user_id=authenticated_user_id
+        )
+        _assert_owasp_tags_present()
+
+        # load_initial_data is safe to re-run (get-or-create throughout) -- tagging
+        # must stay idempotent too: re-running must not create a second "OWASP" tag
+        # or duplicate TaggedItem rows.
+        organization_service.load_initial_data(
+            db=test_db, organization_id=test_org_id, user_id=authenticated_user_id
+        )
+        _assert_owasp_tags_present()
+
 
 @pytest.mark.unit
 @pytest.mark.service
