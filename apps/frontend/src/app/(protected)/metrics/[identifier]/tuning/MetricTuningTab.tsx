@@ -72,14 +72,31 @@ function ExpectedCell({
   );
 }
 
-/** Marks a case whose verdict no longer fits the metric's current score type. */
-function StaleCell({ params }: { params: GridRenderCellParams }) {
-  if (params.value !== true) return <span>—</span>;
-  return (
-    <Tooltip title="This metric's score type changed after the case was written, so this verdict is no longer one the metric can return. Edit the case to fix it.">
-      <Chip label="Stale" size="small" color="warning" variant="outlined" />
-    </Tooltip>
-  );
+/**
+ * Marks a case that cannot be scored yet, and why. Shared visual language, but
+ * kept apart: unlabelled is work to label, stale is work to re-label.
+ */
+function StatusCell({ params }: { params: GridRenderCellParams }) {
+  if (params.row.is_stale === true) {
+    return (
+      <Tooltip title="This metric's score type changed after the case was written, so this verdict is no longer one the metric can return. Edit the case to fix it.">
+        <Chip label="Stale" size="small" color="warning" variant="outlined" />
+      </Tooltip>
+    );
+  }
+  if (!params.row.expected) {
+    return (
+      <Tooltip title="This case has no expected verdict yet, so there is nothing to compare the metric against. Edit the case to give it one.">
+        <Chip
+          label="Unlabelled"
+          size="small"
+          color="warning"
+          variant="outlined"
+        />
+      </Tooltip>
+    );
+  }
+  return <span>—</span>;
 }
 
 export interface MetricTuningTabProps {
@@ -227,8 +244,11 @@ export default function MetricTuningTab({ metricId }: MetricTuningTabProps) {
       {
         field: 'is_stale',
         headerName: 'Status',
-        width: 100,
-        renderCell: params => <StaleCell params={params} />,
+        width: 130,
+        // Reads two fields, so no single one sorts it — sorting by `is_stale`
+        // alone would scatter the unlabelled rows through the unmarked ones.
+        sortable: false,
+        renderCell: params => <StatusCell params={params} />,
       },
       {
         field: 'rationale',
@@ -271,7 +291,7 @@ export default function MetricTuningTab({ metricId }: MetricTuningTabProps) {
           <SectionEmptyState
             icon={TuneIcon}
             title="No tuning cases yet"
-            description="Add an input, the answer it produced, and the verdict you expect from this metric."
+            description="Add an input and the answer it produced. The verdict you expect from this metric can come later."
             actionLabel={canEdit ? 'Add case' : undefined}
             onAction={canEdit ? openAdd : undefined}
             showAddIcon
