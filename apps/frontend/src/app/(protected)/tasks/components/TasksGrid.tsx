@@ -220,6 +220,10 @@ export default function TasksGrid({
       });
     },
     enabled: isAuthenticated(status),
+    // Always refetch when the list is opened -- a task assigned to you while
+    // you were elsewhere must show up on arrival. See the same note in
+    // TestSetsGrid.
+    staleTime: 0,
   });
   const tasks: Task[] = tasksData?.data ?? [];
   const totalCount = tasksData?.totalCount ?? 0;

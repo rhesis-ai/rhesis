@@ -293,6 +293,10 @@ function TestRunsGrid({ canCreate, onCreateClick }: TestRunsGridProps) {
       });
     },
     enabled: isAuthenticated(status),
+    // Always refetch when the list is opened -- a run appears here as soon as
+    // it's started, so cached-but-not-yet-stale data hides it. See the same
+    // note in TestSetsGrid.
+    staleTime: 0,
   });
 
   const testRuns = testRunsData?.data ?? [];

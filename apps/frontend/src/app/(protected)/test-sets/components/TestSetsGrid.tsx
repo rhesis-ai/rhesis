@@ -290,6 +290,13 @@ export default function TestSetsGrid({
       });
     },
     enabled: isAuthenticated(status),
+    // Always refetch when the list is opened. A test set row exists from the
+    // moment generation is *submitted* (the flow then redirects to its detail
+    // page), so under the app-wide 5-minute staleTime, coming back to this
+    // list served cache that predated the new row -- it only showed up after a
+    // hard reload. keepPreviousData in useGridQuery means the current rows stay
+    // put while the refetch runs, so this costs no loading flash.
+    staleTime: 0,
   });
   const testSets = testSetsData?.data ?? [];
   const totalCount = testSetsData?.pagination.totalCount ?? 0;
