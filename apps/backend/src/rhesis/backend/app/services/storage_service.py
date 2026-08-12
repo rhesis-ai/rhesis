@@ -240,9 +240,17 @@ class StorageService:
         prefix = self.get_attachment_prefix(organization_id, entity_type, entity_id, file_id)
         return f"{prefix}/thumb-{size}.webp"
 
-    def get_owasp_content_path(self, framework: str) -> str:
-        """owasp/{framework}.json — shared (not org-scoped) cache of parsed OWASP sections."""
-        return f"owasp/{framework}.json"
+    @staticmethod
+    def get_owasp_content_path(cache_key: str) -> str:
+        """owasp/{cache_key}.json — shared (not org-scoped) cache of parsed OWASP sections.
+
+        Unlike the other path builders on this class, deliberately not
+        org-scoped: OWASP report content is shared static reference data, not
+        per-tenant data. ``cache_key`` is a versioned key (schema version +
+        framework + report-URL hash, see ``services/owasp.py``), not a bare
+        framework id, so a report URL change naturally lands at a new path.
+        """
+        return f"owasp/{cache_key}.json"
 
     # ------------------------------------------------------------------
     # Streaming primitives

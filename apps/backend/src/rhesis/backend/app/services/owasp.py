@@ -1,15 +1,17 @@
 """OWASP Top 10 report category service.
 
 Wraps the SDK's ``fetch_owasp_sections`` with two caches so the PDF download +
-pdfminer parse happens at most once per framework:
+pdfminer parse happens at most once per framework (and again whenever the
+framework's report URL changes — see :func:`_versioned_cache_key`):
 
-- A permanent content cache (parsed sections as ``owasp/{framework}.json`` in
+- A permanent content cache (parsed sections as ``owasp/{cache_key}.json`` in
   the object store, no TTL) shared by the categories endpoint and the
   generation task.
 - A Redis id/name-only cache in front of it (7-day TTL) so the frontend's
   category picker avoids a storage round-trip.
 """
 
+import hashlib
 import json
 import logging
 from typing import Dict, List, Optional
@@ -20,27 +22,47 @@ from rhesis.backend.app.services.storage_service import StorageService
 from rhesis.sdk.services.owasp_extractor import (
     DEFAULT_OWASP_AGENTIC_PDF_URL,
     DEFAULT_OWASP_LLM_PDF_URL,
-    ReportSection,
     fetch_owasp_sections,
 )
 
 logger = logging.getLogger(__name__)
 
 # Framework id -> report URL / behavior label stamped on generated tests.
+# `behavior` is read both here (routers/owasp.py) and by
+# tasks/test_set.py:generate_and_save_owasp_test_set — keep the single key so
+# the two call sites can't drift apart.
 OWASP_FRAMEWORKS: Dict[str, Dict[str, str]] = {
     "llm": {
         "report_url": DEFAULT_OWASP_LLM_PDF_URL,
         "behavior": "OWASP LLM Top 10",
-        "label": "OWASP LLM Top 10",
     },
     "agentic": {
         "report_url": DEFAULT_OWASP_AGENTIC_PDF_URL,
         "behavior": "OWASP Agentic Top 10",
-        "label": "OWASP Agentic Top 10",
     },
 }
 
 _CACHE_TTL = 86400 * 7  # 7 days - Redis metadata cache only; content cache never expires
+
+# Bump on any future incompatible change to the cached payload shape. Old
+# entries are simply never read again under the new prefix and age out on
+# their own (TTL for Redis; orphaned-but-harmless for the object store) --
+# no runtime shape-sniffing needed to tell old and new entries apart.
+_CACHE_SCHEMA_VERSION = "v2"
+
+
+def _versioned_cache_key(framework: str) -> str:
+    """Composite cache key: schema version + framework + report-URL hash.
+
+    Used for both the Redis metadata cache and the object-store content
+    cache, so a framework's report URL changing (new PDF revision, or a
+    corrected/moved URL) naturally invalidates both: the hash changes, a
+    fresh parse happens, and the old entry is simply never read again
+    instead of being served indefinitely.
+    """
+    report_url = OWASP_FRAMEWORKS[framework]["report_url"]
+    url_hash = hashlib.sha256(report_url.encode("utf-8")).hexdigest()[:12]
+    return f"{_CACHE_SCHEMA_VERSION}-{framework}-{url_hash}"
 
 
 class OwaspSectionCache(RedisBackedCache):
@@ -54,7 +76,7 @@ class OwaspSectionCache(RedisBackedCache):
         )
 
     def get_sections(self, framework: str) -> Optional[List[dict]]:
-        raw = self._get(f"owasp:sections:{framework}")
+        raw = self._get(f"owasp:sections:{_versioned_cache_key(framework)}")
         if raw is None:
             return None
         try:
@@ -63,7 +85,7 @@ class OwaspSectionCache(RedisBackedCache):
             return None
 
     def set_sections(self, framework: str, sections: List[dict]) -> None:
-        self._set(f"owasp:sections:{framework}", json.dumps(sections))
+        self._set(f"owasp:sections:{_versioned_cache_key(framework)}", json.dumps(sections))
 
 
 _cache = OwaspSectionCache()
@@ -81,7 +103,8 @@ def _get_storage() -> StorageService:
 def load_owasp_content_cache(framework: str) -> Optional[List[dict]]:
     """``cache_loader`` for ``fetch_owasp_sections``: read cached sections or None."""
     storage = _get_storage()
-    raw = storage.get_object_bytes(storage.get_owasp_content_path(framework))
+    cache_key = _versioned_cache_key(framework)
+    raw = storage.get_object_bytes(storage.get_owasp_content_path(cache_key))
     if raw is None:
         return None
     try:
@@ -97,14 +120,18 @@ def save_owasp_content_cache(framework: str, sections: List[dict]) -> None:
     Storage failures are logged and swallowed so a misconfigured local path
     (e.g. Docker's ``file:///app/storage`` on a Mac host) does not discard a
     successful parse — Redis still gets the id/name metadata for the picker.
+    Caught broadly (not just ``OSError``): ``StorageService`` writes go
+    through ``fsspec``, and cloud backends (gcsfs, s3fs, ...) raise their own
+    native exception types on write failure, not just ``OSError``.
     """
     storage = _get_storage()
+    cache_key = _versioned_cache_key(framework)
     payload = json.dumps(sections).encode("utf-8")
     try:
         storage.put_object_bytes(
-            payload, storage.get_owasp_content_path(framework), "application/json"
+            payload, storage.get_owasp_content_path(cache_key), "application/json"
         )
-    except OSError as e:
+    except Exception as e:
         logger.warning(
             "Failed to persist OWASP content cache for %r (%s); continuing without it",
             framework,
@@ -155,17 +182,6 @@ def _short_description(content: str, max_len: int = 180) -> str:
     return text
 
 
-def list_categories(framework: str) -> List[ReportSection]:
-    """Return the report sections (id, name, content) for *framework*, using caches when warm.
-
-    Redis stores id/name/description only. On a Redis hit, ``content`` is empty —
-    callers that need full section text should go through ``fetch_owasp_sections``.
-    Description is still available via :func:`list_category_summaries`.
-    """
-    summaries = list_category_summaries(framework)
-    return [ReportSection(id=s["id"], name=s["name"], content="") for s in summaries]
-
-
 def list_category_summaries(framework: str) -> List[dict]:
     """Return ``[{id, name, description}, ...]`` for the category picker."""
     if framework not in OWASP_FRAMEWORKS:
@@ -174,8 +190,7 @@ def list_category_summaries(framework: str) -> List[dict]:
 
     _cache.initialize()
     cached = _cache.get_sections(framework)
-    # v2 cache entries include description; ignore legacy id/name-only rows.
-    if cached is not None and cached and "description" in cached[0]:
+    if cached is not None:
         return cached
 
     report_url = OWASP_FRAMEWORKS[framework]["report_url"]

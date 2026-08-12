@@ -6,6 +6,7 @@ and launching an async LLM-driven generation task that produces a Rhesis test
 set of adversarial prompts for a described system under test.
 """
 
+import asyncio
 import logging
 
 from fastapi import Depends, HTTPException
@@ -49,7 +50,10 @@ async def get_categories(
     framework, then serves from cache.
     """
     try:
-        summaries = list_category_summaries(framework.value)
+        # On a cold cache this downloads/parses a PDF and hits storage/Redis —
+        # run off the event loop thread (mirrors the startup pre-warm in
+        # main.py's lifespan) so it doesn't block other requests.
+        summaries = await asyncio.to_thread(list_category_summaries, framework.value)
 
         return OwaspCategoriesResponse(
             framework=framework,
@@ -114,7 +118,7 @@ async def generate_test_set(
             },
         )
 
-        framework_label = OWASP_FRAMEWORKS[request.framework.value]["label"]
+        framework_label = OWASP_FRAMEWORKS[request.framework.value]["behavior"]
         return OwaspGenerateResponse(
             task_id=str(task_result.id),
             framework=request.framework,
