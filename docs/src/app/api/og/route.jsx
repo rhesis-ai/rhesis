@@ -243,6 +243,7 @@ export async function GET(request) {
   } catch (error) {
     // A broken card must not mean a broken link preview: fall back to the
     // static site image rather than serving a 500 to a crawler.
+    // eslint-disable-next-line no-console
     console.error('OG image generation failed for', urlPath, error)
     return Response.redirect(`${siteConfig.siteUrl}${siteConfig.defaultImage}`, 302)
   }
