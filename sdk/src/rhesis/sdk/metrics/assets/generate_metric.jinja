@@ -5,29 +5,74 @@ Given a user description, produce a complete metric definition.
 
 Every field is part of the metric. A metric that only scores is not
 finished — someone has to maintain it, and a judge LLM has to apply it
-consistently. Fill all of these, never leave one thin or generic:
+the same way twice. One thin sentence per field is the same failure as
+leaving the field blank: it passes validation and still leaves the judge
+guessing.
 
-- **description**: one or two sentences on what the metric measures and
-  why it matters, for a human scanning a list of metrics. Do not restate
-  the name.
-- **evaluation_steps**: numbered steps the judge follows to reach a
-  score. Be concrete and ordered — this is what makes scoring
-  repeatable. Example: "1. Identify each factual claim in the response.
-  2. Check each claim against the provided context. 3. Count the
-  unsupported claims. 4. Map that count onto the score scale."
-- **reasoning**: how the judge should justify its verdict — which
-  evidence to quote and how to tie it to the score it assigns.
-- **explanation**: what a passing versus failing result means for the
-  system under test, so whoever reads a result knows what to do next.
+- **description** — 2-3 sentences: what is measured, on what part of the
+  output, and why it matters for this system. Do not restate the name.
+- **evaluation_steps** — 4-7 ordered steps in the step format below. One
+  observable action per step: locate the evidence, check it against the
+  criterion, then map to the score. Scoring is always the last step. Do
+  not restate the criteria as steps.
+- **reasoning** — 3-5 sentences: which span of the output the judge must
+  quote, which clause to tie it to, what to do when the evidence is
+  missing, and how to break a tie between two bands instead of drifting
+  to the middle.
+- **explanation** — 2-4 sentences: what a pass and a fail each mean for
+  the system under test, and what the reader should do about a fail.
 
 Derive all four from the user's request. Do not pad them with filler —
-make each one specific to this metric.
+every line must add a decision the judge or the reader would otherwise
+have to guess.
+
+## Evaluation Steps Format
+
+Steps are stored as one string with a hard separator, and the platform
+renders each chunk as its own numbered step. Use exactly this shape:
+
+```
+Step 1:
+Identify each factual claim in the response.
+---
+Step 2:
+Check each claim against the provided context.
+---
+Step 3:
+Count the claims the context does not support.
+---
+Step 4:
+Map that count onto the score scale defined in the criteria.
+```
+
+`Step N:` on its own line, the text below it, chunks joined by a line
+containing only `---`. A plain "1. ... 2. ..." list is stored as a single
+step and renders as one block.
 
 ## Naming Convention
 
 The metric name MUST be Title Case with spaces between words.
 Examples: "Factual Accuracy", "Policy Advisory Accuracy", "Handback Continuity".
 Never use camelCase or PascalCase.
+
+## Choosing the Scale
+
+Use the coarsest scale that still answers the question. A judge asked for
+a score out of 100 will produce one, but the digits do not survive a
+re-run; a two-way category does. Bands described with adverbs land near
+the middle of the scale, because that is where a judge goes when it has
+nothing to check against.
+
+- "Did it violate the rule, yes or no?" → categorical, two categories
+- "Which of several named outcomes happened?" → categorical, one
+  category per outcome
+- "How many of N required elements are present?" → numeric, 0 to 1, with
+  a threshold traceable to the requirement
+- "Rate the overall quality" → the request is underspecified; pick the
+  one concrete property the user actually cares about and score that
+
+Category labels are outcomes, not grades: ["Blocked", "Initiated"],
+not ["Good", "Bad"].
 
 ## Score Type Rules
 
@@ -42,16 +87,34 @@ For **categorical** metrics:
 
 ## Evaluation Prompt
 
-The evaluation_prompt field should contain only the evaluation criteria —
-the text that tells the judge LLM what to assess and how to score.
+The evaluation_prompt field contains only the evaluation criteria — the
+text that tells the judge what to assess and how to score. Aim for 6-15
+lines, built in three parts:
+
+1. **Name something a reader could point at in the output**, in the
+   vocabulary of the system under test. "Every claim about coverage
+   limits appears in the retrieved policy document" can be checked. "The
+   response is helpful" cannot — the judge has to invent a standard
+   first, and the next run invents a different one.
+2. **One bullet per testable clause.** Split the criterion until each
+   bullet can fail on its own. If two bullets fire on the same sentence,
+   one mistake moves the score twice and the result no longer shows which
+   clause broke.
+3. **Score bands tied to conditions, not adverbs.** "Score 1 when a claim
+   contradicts the document; 3 when all claims appear but a limit is
+   stated without its qualifying condition; 5 when every claim and limit
+   appears with its condition" — not "1 if bad, 3 if okay, 5 if good".
+
+Close with what the metric does not cover (tone, length, formatting) so it
+does not quietly score what another metric owns.
+
 Do NOT include template placeholders (e.g. {{ '{{prompt}}' }}, {{ '{{response}}' }}).
-The evaluation engine automatically injects runtime context before the
+Nothing substitutes them, so the judge would see the literal braces. The
+evaluation engine automatically injects runtime context before the
 criteria text:
 - Single-turn: the user input and the AI response are provided.
 - Multi-turn: the full conversation history and the conversation goal
   are provided.
-
-Your evaluation_prompt should focus purely on what to evaluate and how.
 
 ## Metric Scope
 
