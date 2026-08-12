@@ -104,8 +104,10 @@ class TestFetchDbContext:
         behaviors = [_make_behavior("Accuracy", "Be accurate")]
         org_id = str(uuid.uuid4())
 
-        with patch("rhesis.backend.app.services.test_generation_pipeline.crud") as crud:
-            crud.get_behaviors.return_value = behaviors
+        with patch(
+            "rhesis.backend.app.services.test_generation_pipeline.behavior_crud"
+        ) as behavior_crud:
+            behavior_crud.get_behaviors.return_value = behaviors
             ctx = _fetch_db_context(
                 db=mock_db,
                 organization_id=org_id,
@@ -125,13 +127,15 @@ class TestFetchDbContext:
         project = _make_project("MyProject", "A chatbot")
 
         with (
-            patch("rhesis.backend.app.services.test_generation_pipeline.crud") as crud,
+            patch(
+                "rhesis.backend.app.services.test_generation_pipeline.behavior_crud"
+            ) as behavior_crud,
             patch(
                 "rhesis.backend.app.services.test_generation_pipeline.get_project",
                 return_value=project,
             ),
         ):
-            crud.get_behaviors.return_value = []
+            behavior_crud.get_behaviors.return_value = []
             ctx = _fetch_db_context(
                 db=mock_db,
                 organization_id=org_id,
@@ -147,13 +151,15 @@ class TestFetchDbContext:
         org_id = str(uuid.uuid4())
 
         with (
-            patch("rhesis.backend.app.services.test_generation_pipeline.crud") as crud,
+            patch(
+                "rhesis.backend.app.services.test_generation_pipeline.behavior_crud"
+            ) as behavior_crud,
             patch(
                 "rhesis.backend.app.services.test_generation_pipeline.get_project",
                 return_value=None,
             ),
         ):
-            crud.get_behaviors.return_value = []
+            behavior_crud.get_behaviors.return_value = []
             with pytest.raises(ValueError, match="not found"):
                 _fetch_db_context(
                     db=mock_db,
@@ -166,8 +172,10 @@ class TestFetchDbContext:
         mock_db = MagicMock()
         msgs = [{"content": "refine"}]
 
-        with patch("rhesis.backend.app.services.test_generation_pipeline.crud") as crud:
-            crud.get_behaviors.return_value = []
+        with patch(
+            "rhesis.backend.app.services.test_generation_pipeline.behavior_crud"
+        ) as behavior_crud:
+            behavior_crud.get_behaviors.return_value = []
             ctx = _fetch_db_context(
                 db=mock_db,
                 organization_id=str(uuid.uuid4()),

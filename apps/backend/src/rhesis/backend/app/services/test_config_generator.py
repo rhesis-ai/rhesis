@@ -13,6 +13,7 @@ import jinja2
 
 from rhesis.backend.app import crud
 from rhesis.backend.app.config.settings import get_model_settings
+from rhesis.backend.app.crud import behavior as behavior_crud
 from rhesis.backend.app.crud.project import get_project
 from rhesis.backend.app.schemas.services import TestConfigResponse
 from rhesis.backend.app.utils.model_errors import ModelConfigurationError
@@ -144,7 +145,7 @@ class TestConfigGeneratorService:
             raise ValueError("Database session and organization_id are required")
 
         # Fetch behaviors from database (limited to max 100 by validation)
-        behaviors = crud.get_behaviors(
+        behaviors = behavior_crud.get_behaviors(
             db=self.db,
             organization_id=organization_id,
             skip=0,

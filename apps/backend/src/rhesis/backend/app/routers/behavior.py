@@ -8,8 +8,9 @@ from fastapi.responses import JSONResponse
 from pydantic import create_model
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app import models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
+from rhesis.backend.app.crud import behavior as behavior_crud
 from rhesis.backend.app.crud.metric import (
     add_behavior_to_metric,
     get_behavior_metrics,
@@ -70,7 +71,7 @@ def create_behavior(
     """Create behavior with automatic session variables for RLS."""
     organization_id, user_id = tenant_context
 
-    return crud.create_behavior(
+    return behavior_crud.create_behavior(
         db=db, behavior=behavior, organization_id=organization_id, user_id=user_id
     )
 
@@ -96,7 +97,7 @@ def read_behaviors(
     """Get all behaviors with automatic session variables for RLS."""
     organization_id, user_id = tenant_context
 
-    results = crud.get_behaviors_detail(
+    results = behavior_crud.get_behaviors_detail(
         db=db,
         skip=skip,
         limit=limit,
@@ -121,7 +122,7 @@ def read_behavior(
 ):
     """Get behavior by ID with automatic session variables for RLS."""
     organization_id, user_id = tenant_context
-    db_behavior = crud.get_behavior(
+    db_behavior = behavior_crud.get_behavior(
         db, behavior_id=behavior_id, organization_id=organization_id, user_id=user_id
     )
     if db_behavior is None:
@@ -138,7 +139,7 @@ def delete_behavior(
 ):
     """Delete behavior with automatic session variables for RLS."""
     organization_id, user_id = tenant_context
-    db_behavior = crud.delete_behavior(
+    db_behavior = behavior_crud.delete_behavior(
         db, behavior_id=behavior_id, organization_id=organization_id, user_id=user_id
     )
     if db_behavior is None:
@@ -159,7 +160,7 @@ def update_behavior(
 ):
     """Update behavior with automatic session variables for RLS."""
     organization_id, user_id = tenant_context
-    db_behavior = crud.update_behavior(
+    db_behavior = behavior_crud.update_behavior(
         db,
         behavior_id=behavior_id,
         behavior=behavior,
