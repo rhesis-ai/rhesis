@@ -293,14 +293,6 @@ def set_logger(worker_role: str | None = None):
 
     # pdfminer emits per-token DEBUG lines while parsing OWASP report PDFs; under
     # uvicorn --log-level debug that can fill hundreds of MB and stall the
-    # categories endpoint / cache warm-up for minutes.
-    for name in (
-        "pdfminer",
-        "pdfminer.psparser",
-        "pdfminer.pdfinterp",
-        "pdfminer.pdfdocument",
-        "pdfminer.pdfpage",
-        "pdfminer.converter",
-        "pdfminer.cmapdb",
-    ):
-        logging.getLogger(name).setLevel(logging.WARNING)
+    # categories endpoint / cache warm-up for minutes. Child loggers (psparser,
+    # pdfinterp, ...) inherit this level since none of them set their own.
+    logging.getLogger("pdfminer").setLevel(logging.WARNING)
