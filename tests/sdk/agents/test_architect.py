@@ -1186,6 +1186,70 @@ class TestArchitectPromptHardening:
 
 
 @pytest.mark.unit
+class TestArchitectEndpointPrerequisiteGuidance:
+    """A project with no endpoint cannot run anything.
+
+    Test sets, behaviors and metrics can all be created without one, so the
+    agent can happily build a whole suite for a project that will never
+    produce a single result. The prompt has to make the missing endpoint the
+    first thing the user hears about, on any request that would lead to a run.
+    """
+
+    @pytest.fixture
+    def mock_model(self):
+        return _mock_model()
+
+    def test_prerequisite_section_present(self, mock_model):
+        agent = _make_agent(mock_model)
+        assert "## A working endpoint comes first" in agent.system_prompt
+
+    def test_explains_why_nothing_can_run(self, mock_model):
+        agent = _make_agent(mock_model)
+        prompt = agent.system_prompt.lower()
+        # The reason has to be in the prompt, not just the instruction —
+        # otherwise the agent parrots "you need an endpoint" without being
+        # able to answer "why?".
+        assert "no responses, no scores, no results, no insights" in prompt
+
+    def test_checks_endpoints_before_designing(self, mock_model):
+        agent = _make_agent(mock_model)
+        prompt = agent.system_prompt
+        section = prompt[prompt.index("## A working endpoint comes first") :]
+        assert "list_endpoints" in section
+        assert "before proposing behaviors, metrics or test sets" in section
+
+    def test_leads_with_the_missing_endpoint(self, mock_model):
+        agent = _make_agent(mock_model)
+        prompt = agent.system_prompt.lower()
+        assert "opening sentence" in prompt
+        assert "burying it under a plan" in prompt
+
+    def test_offers_both_connection_routes(self, mock_model):
+        agent = _make_agent(mock_model)
+        prompt = agent.system_prompt
+        assert "@endpoint" in prompt
+        assert "docs.rhesis.ai/docs/getting-started/connecting-application" in prompt
+
+    def test_does_not_nag_or_block(self, mock_model):
+        """Design-first is legitimate; the warning is said once, not per turn."""
+        agent = _make_agent(mock_model)
+        prompt = agent.system_prompt
+        assert "Say it once, then move on." in prompt
+        assert "do not repeat the warning every turn" in prompt
+
+    def test_read_only_requests_are_exempt(self, mock_model):
+        agent = _make_agent(mock_model)
+        prompt = agent.system_prompt
+        assert "Skip it for read-only requests." in prompt
+
+    def test_created_is_not_the_same_as_working(self, mock_model):
+        agent = _make_agent(mock_model)
+        prompt = agent.system_prompt
+        section = prompt[prompt.index("## A working endpoint comes first") :]
+        assert "check_endpoint" in section
+
+
+@pytest.mark.unit
 class TestArchitectNameResolutionGuidance:
     """Verify the prompt teaches a typo-tolerant name-resolution ladder.
 

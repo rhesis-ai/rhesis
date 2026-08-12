@@ -144,6 +144,13 @@ class TestRenderPhaseKnowledge:
         assert "Step 1:" in text
         assert "evaluation_steps" in text
 
+    def test_discovery_flags_a_project_with_no_endpoint(self):
+        # Discovery is where the endpoint gets resolved, so the "none at all"
+        # case has to be handled here too — not only in the system prompt.
+        env = build_architect_jinja_env(_TEMPLATES_DIR)
+        text = render_phase_knowledge(env, AgentMode.DISCOVERY, WorkflowPath.EXPLORE)
+        assert "no** endpoint at all" in text
+        assert "connecting-application" in text
 
 @pytest.mark.unit
 class TestBundledSkillReferences:
