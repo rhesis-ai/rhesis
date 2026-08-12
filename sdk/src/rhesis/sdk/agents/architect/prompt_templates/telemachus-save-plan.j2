@@ -22,11 +22,14 @@ Top-level structure (all three array fields are required, even if empty):
 - `reuse_status`: string (optional, defaults to `"new"`) — same allowed values as behaviors
 - `existing_id`: string (optional) — required when `reuse_status` is `"reuse"` or `"improve"`
 - `metric_scope`: array of strings (required) — each entry must be exactly `"Single-Turn"` or `"Multi-Turn"`. At least one entry. Must match the test sets that will evaluate this metric (see "Metric scope").
-- `evaluation_prompt`: string (optional) — for new metrics
-- `evaluation_steps`: string (optional)
-- `reasoning`: string (optional)
+- `evaluation_prompt`: string (optional, expected for new metrics) — the criteria the judge applies, as you will send them to `create_metric`: a criterion naming something a reader could point at in the output, one bullet per testable clause, score bands tied to conditions. No placeholders.
+- `evaluation_steps`: string (optional, expected for new metrics) — 4-7 ordered steps, one action each, scoring last. Format: `Step N:` on its own line, steps joined by a line containing only `---`.
+- `reasoning`: string (optional, expected for new metrics) — the judge's reasoning instructions: what evidence to quote, which clause to tie it to, how to break a tie. Not a note about why the metric is in the plan.
+- `explanation`: string (optional, expected for new metrics) — what a pass and a fail mean for the system under test, and what to do about a fail.
 - `threshold`: number (optional, defaults to 1.0)
 - `threshold_operator`: string (optional, defaults to `">="`)
+
+For every metric with `reuse_status: "new"`, write these fields out in full — this is the wording the user approves and the wording you send to `create_metric` afterwards. A one-sentence placeholder here means a threadbare metric later. See `metric-authoring.md` for the depth expected.
 
 `test_sets[]` items:
 - `name`: string (required)

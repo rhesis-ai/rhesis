@@ -84,7 +84,13 @@ class MetricSpec(BaseModel):
     """Specification for an evaluation metric."""
 
     name: str = Field(description="Metric name")
-    description: str = Field(description="What this metric evaluates")
+    description: str = Field(
+        description=(
+            "Two to three sentences on what this metric evaluates, on "
+            "what part of the output, and why it matters here. Not a "
+            "restatement of the name."
+        )
+    )
     reuse_status: ReuseStatus = Field(
         default="new",
         description="Whether to reuse, improve, or create this metric",
@@ -95,15 +101,38 @@ class MetricSpec(BaseModel):
     )
     evaluation_prompt: str = Field(
         default="",
-        description="Prompt for LLM-based evaluation",
+        description=(
+            "The criteria the judge applies, as they will be sent to "
+            "create_metric: something a reader could point at in the "
+            "output, one bullet per testable clause, and score bands tied "
+            "to conditions rather than adverbs. No template placeholders."
+        ),
     )
     evaluation_steps: str = Field(
         default="",
-        description="Step-by-step evaluation procedure",
+        description=(
+            "The ordered steps the judge follows, as they will be sent to "
+            "create_metric: 4-7 steps, one observable action each, "
+            "scoring last. Use the platform step format — 'Step N:' on "
+            "its own line, steps joined by a line containing only '---'."
+        ),
     )
     reasoning: str = Field(
         default="",
-        description="Why this metric is needed",
+        description=(
+            "The reasoning instructions for the judge, as they will be "
+            "sent to create_metric: what evidence to quote, which clause "
+            "to tie it to, and how to break a tie between score bands. "
+            "Not a note about why the metric is in the plan."
+        ),
+    )
+    explanation: str = Field(
+        default="",
+        description=(
+            "What a passing versus failing result means for the system "
+            "under test, and what to do about a fail. Two to four "
+            "sentences, sent to create_metric as the result explanation."
+        ),
     )
     threshold: float = Field(
         default=1.0,
@@ -285,6 +314,8 @@ class ArchitectPlan(BaseModel):
                 tag = f" *({m.reuse_status})*" if m.reuse_status != "new" else ""
                 scope = ", ".join(m.metric_scope) if m.metric_scope else "unset"
                 lines.append(f"- {box} **{m.name}**{tag} — scope: {scope}")
+                if m.description:
+                    lines.append(f"  {m.description}")
             lines.append("")
 
         if self.behavior_metric_mappings:

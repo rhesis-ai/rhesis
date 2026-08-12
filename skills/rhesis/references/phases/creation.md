@@ -8,7 +8,7 @@ Execute the approved plan exactly — no extra entities.
 2. `create_project` — only if planned
 3. `create_behavior` — **(new)** only; name + description
 4. Resolve all behavior IDs
-5. Metrics — **(reuse)** skip; **(improve)** `improve_metric`; **(new)** `create_metric` with plan name, **`metric_scope`**, `score_type`, `evaluation_prompt`. Do NOT use `generate_metric`
+5. Metrics — **(reuse)** skip; **(improve)** `improve_metric`; **(new)** `create_metric` with plan name, **`metric_scope`**, `score_type`, `evaluation_prompt`, plus `description`, `evaluation_steps`, `reasoning`, `explanation` written to the depth in `metric-authoring.md`. Do NOT use `generate_metric`
 6. `add_behavior_to_metric` — all mappings before generation
 7. `assign_tag` — if planned (PRD path); `entity_type` `Behavior` or `Metric`
 8. `generate_test_set` — per set; `config.behaviors`, `generation_prompt`, `test_type`, optional `sources` (Single-Turn only). **Read `test_type` from the plan** for each test set and pass it explicitly — Multi-Turn sets MUST send `test_type: "Multi-Turn"`. Prefer over `create_test_set_bulk` unless importing verbatim user prompts.
@@ -29,11 +29,20 @@ Multi-Turn and Single-Turn test sets produce structurally different tests. Getti
 
 Title Case, 2–5 words. No snake_case or `check_` prefixes.
 
+## Metric depth
+
+Send the full metric, not the minimum the API accepts. `description`, `evaluation_steps`,
+`reasoning`, and `explanation` go on every `create_metric` call, written out — one sentence each is
+a threadbare metric, not a shortcut. `evaluation_steps` uses the `Step N:` / `---` format. See
+`metric-authoring.md` for the field-by-field requirements, worked examples, and anti-patterns.
+
 ## Field constraints
 
 - `metric_type`: `"custom-prompt"`; `backend_type`: `"custom"`
 - `score_type`: `"numeric"` or `"categorical"` only
 - `metric_scope`: non-empty; entries `"Single-Turn"` and/or `"Multi-Turn"`
+- `evaluation_steps`: steps joined by a line containing only `---`, each prefixed `Step N:` on its
+  own line — a plain `1. … 2. …` list stores as a single step
 - `threshold_operator`: `=`, `<`, `>`, `<=`, `>=`, `!=`
 - `test_type`: `"Single-Turn"` or `"Multi-Turn"`
 - `priority`: integer, not string

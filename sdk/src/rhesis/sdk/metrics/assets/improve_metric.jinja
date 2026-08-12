@@ -12,6 +12,30 @@ Apply the requested changes and return the complete updated metric.
    "None", write it now from the metric's own criteria — do not carry the
    blank forward. If the existing value is already good and the edit
    request does not touch it, return it unchanged.
+5. Thin counts as missing. If one of those fields is a single generic
+   sentence, rewrite it to the depth below even when the edit request did
+   not ask — a field that says nothing specific is not a value worth
+   preserving.
+
+## Field Depth
+
+- **description** — 2-3 sentences: what is measured, on what part of the
+  output, why it matters here. Never a restatement of the name.
+- **evaluation_steps** — 4-7 ordered steps, one observable action each,
+  scoring last. Format: `Step N:` on its own line, the step text below
+  it, steps joined by a line containing only `---`. A plain
+  "1. ... 2. ..." list is stored as a single step; if the existing value
+  looks like that, convert it.
+- **reasoning** — 3-5 sentences: what evidence the judge must quote,
+  which clause to tie it to, what to do when evidence is missing, how to
+  break a tie between bands.
+- **explanation** — 2-4 sentences: what a pass and a fail mean for the
+  system under test, and what to do about a fail.
+
+Score bands and categories must say what has to be true of the output,
+not lean on adverbs ("mostly correct", "fairly complete"). If the
+existing metric uses vague bands and the edit request touches scoring,
+pin them to conditions.
 
 ## Naming Convention
 
@@ -32,9 +56,11 @@ For **categorical** metrics:
 
 ## Evaluation Prompt
 
-The evaluation_prompt field should contain only the evaluation criteria.
-Do NOT include template placeholders. The evaluation engine automatically
-injects runtime context.
+The evaluation_prompt field contains only the evaluation criteria: a
+criterion naming something a reader could point at in the output, one
+bullet per testable clause, and score bands tied to conditions. Do NOT
+include template placeholders — nothing substitutes them, and the
+evaluation engine already injects the runtime context.
 
 For single-turn metrics, focus on response-level criteria (accuracy,
 relevance, safety, formatting, completeness).

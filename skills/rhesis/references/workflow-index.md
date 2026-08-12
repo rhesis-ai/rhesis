@@ -12,7 +12,7 @@ resolve by name → list_behaviors + list_metrics once → plan → user approva
 
 Creation order: behaviors → metrics (with metric_scope) → mappings → tags (if planned) → generate_test_set → verify.
 
-Details: `phases/creation.md`, `entity-model.md`, `metric-scope.md`.
+Details: `phases/creation.md`, `entity-model.md`, `metric-scope.md`, `metric-authoring.md`.
 
 ---
 
@@ -74,6 +74,7 @@ Skip the menu when intent is already clear. Requirements and run/analyze paths s
 | `definitions.md` | Confusions and requirements traceability only (glossary first) |
 | `entity-model.md` | Entity graph and tool chains |
 | `metric-scope.md` | Single-Turn vs Multi-Turn alignment |
+| `metric-authoring.md` | Writing metric fields the judge and a reviewer can both use |
 | `requirements-workflow.md` | Requirements → test foundation pipeline |
 | `use-case-bracketfeld.md` | **Golden example** — full plan shape (fictional requirements doc) |
 | `exploration-strategies.md` | `explore_endpoint` strategies |
