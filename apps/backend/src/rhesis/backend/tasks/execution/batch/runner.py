@@ -190,6 +190,9 @@ async def run_batch(
         evaluator = MetricEvaluator(
             model=ctx.evaluation_model,
             connector_metric_sender=ctx.connector_metric_sender,
+            # No `db` here on purpose: the session closed before this point. Judge
+            # models for per-metric `model_id` overrides were resolved in prefetch.
+            metric_models=ctx.metric_models,
         )
 
     # Snapshot test data before the main pass so recovery rounds can restore it

@@ -56,11 +56,13 @@ class LocalStrategy:
         db: Optional[Session] = None,
         organization_id: Optional[str] = None,
         score_evaluator: Optional[ScoreEvaluator] = None,
+        metric_models: Optional[Dict[str, Any]] = None,
     ) -> None:
         self._model = model
         self._db = db
         self._organization_id = organization_id
         self._score_evaluator = score_evaluator or ScoreEvaluator()
+        self._metric_models = metric_models
 
     def backend_value(self) -> str:
         return "__local__"
@@ -86,6 +88,7 @@ class LocalStrategy:
             model=self._model,
             db=self._db,
             organization_id=self._organization_id,
+            metric_models=self._metric_models,
         )
         return self._execute_metrics_in_parallel(
             metric_tasks,
@@ -124,6 +127,7 @@ class LocalStrategy:
             model=self._model,
             db=self._db,
             organization_id=self._organization_id,
+            metric_models=self._metric_models,
         )
         if not metric_tasks:
             logger.warning("No metrics to evaluate (async)")
@@ -703,6 +707,40 @@ def _resolve_metric_model(
     return None
 
 
+def _select_metric_model(
+    model_id: str,
+    db: Optional[Session],
+    organization_id: Optional[str],
+    metric_name_for_log: str,
+    metric_models: Optional[Dict[str, Any]],
+) -> Optional[Any]:
+    """Pick the judge model for a metric that configured its own `model_id`.
+
+    Prefers a pre-resolved model over the session, because the batch path runs
+    after its session is closed and can only resolve while it is still open.
+    Returning None here means the caller falls back to the default judge, so
+    every path that cannot honour the override says so at warning level -- a
+    silently ignored override is indistinguishable from having configured none.
+    """
+    if metric_models is not None and model_id in metric_models:
+        pre_resolved = metric_models[model_id]
+        if pre_resolved is None:
+            logger.warning(
+                f"[METRIC_MODEL] Model {model_id} configured for metric "
+                f"'{metric_name_for_log}' could not be resolved; using the default judge"
+            )
+        return pre_resolved
+
+    if db is not None:
+        return _resolve_metric_model(model_id, db, organization_id, metric_name_for_log)
+
+    logger.warning(
+        f"[METRIC_MODEL] Metric '{metric_name_for_log}' configures model {model_id} but it was "
+        f"neither pre-resolved nor resolvable here (no database session); using the default judge"
+    )
+    return None
+
+
 def prepare_metrics(
     metrics: List[MetricConfig],
     expected_output: Optional[str],
@@ -710,6 +748,7 @@ def prepare_metrics(
     model: Optional[Any] = None,
     db: Optional[Session] = None,
     organization_id: Optional[str] = None,
+    metric_models: Optional[Dict[str, Any]] = None,
 ) -> List[Tuple[str, BaseMetric, MetricConfig, str]]:
     """Instantiate metric objects via SDK factory, resolving models from DB.
 
@@ -720,6 +759,10 @@ def prepare_metrics(
         model: Optional default LLM model for metrics evaluation.
         db: Optional database session for fetching metric-specific models.
         organization_id: Optional organization ID for secure model lookups.
+        metric_models: Models already resolved by `model_id` for callers with no live
+            session (the batch path). Key present with a value means resolved; key
+            present with `None` means resolution was attempted and failed; key absent
+            means not attempted, so fall back to resolving against `db`.
 
     Returns:
         List of tuples containing (class_name, metric_instance, metric_config, backend).
@@ -740,9 +783,9 @@ def prepare_metrics(
 
             metric_model = None
 
-            if model_id and db:
-                metric_model = _resolve_metric_model(
-                    model_id, db, organization_id, metric_name_for_log
+            if model_id:
+                metric_model = _select_metric_model(
+                    model_id, db, organization_id, metric_name_for_log, metric_models
                 )
 
             if metric_model is None and model is not None:

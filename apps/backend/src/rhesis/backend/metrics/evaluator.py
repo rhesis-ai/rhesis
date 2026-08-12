@@ -39,6 +39,7 @@ class MetricEvaluator:
         organization_id: Optional[str] = None,
         connector_metric_sender: Optional[ConnectorMetricSender] = None,
         extra_strategies: Optional[List[MetricStrategy]] = None,
+        metric_models: Optional[Dict[str, Any]] = None,
     ) -> None:
         """
         Initialize evaluator with optional backend strategy overrides.
@@ -53,6 +54,9 @@ class MetricEvaluator:
             extra_strategies: Optional additional (or replacement) strategies.
                 Each strategy is registered by its ``backend_value()``.  Use
                 this for testing or to add custom backends without subclassing.
+            metric_models: Judge models already resolved by `model_id`, for callers
+                that have no live session to resolve them with. Required in the batch
+                path, which runs after its session is closed; see `prepare_metrics`.
         """
         score_evaluator = ScoreEvaluator()
 
@@ -61,6 +65,7 @@ class MetricEvaluator:
             db=db,
             organization_id=organization_id,
             score_evaluator=score_evaluator,
+            metric_models=metric_models,
         )
 
         self._connector_strategy: MetricStrategy = ConnectorStrategy(
