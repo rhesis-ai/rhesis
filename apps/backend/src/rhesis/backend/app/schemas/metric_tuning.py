@@ -1,8 +1,9 @@
 """API shapes for metric tuning cases.
 
-A tuning case is one labelled example of what a metric should say: an input, the
-recorded output being judged, the verdict a human expects, and why. It is stored
-as a normal ``test`` + ``prompt`` pair owned by the metric -- see
+A tuning case is one example of what a metric should say: an input, the recorded
+output being judged, the verdict a human expects, and why. The verdict can be
+filled in later, which leaves the case **unlabelled** in the meantime. It is
+stored as a normal ``test`` + ``prompt`` pair owned by the metric -- see
 ``services/metric_tuning/cases.py`` for the column mapping.
 
 ``input``, ``output`` and ``expected_output`` are the **case payload**: what the
@@ -34,22 +35,29 @@ class MetricTuningCaseBase(Base):
     # What the system under test should have answered. Optional -- plenty of
     # metrics judge an answer without a reference to compare it to.
     expected_output: Optional[str] = None
-    # The verdict a human expects from the metric for this case.
-    expected: str
+    # The verdict a human expects from the metric for this case. Absent on an
+    # unlabelled case: one captured now and judged later.
+    expected: Optional[str] = None
     # Why that verdict is right. Optional -- it is for the reviewer, not for scoring.
     rationale: Optional[str] = None
 
 
 class MetricTuningCaseCreate(MetricTuningCaseBase):
-    """A new case. Input, output and verdict are all required.
+    """A new case. Only the input and the answer being judged are required.
 
-    A case without a verdict carries no judgement and cannot be scored, so there
-    is no draft state to model.
+    Those two are what the metric evaluates, so without them there is nothing to
+    run. A case saved without a verdict is an unlabelled case: runnable, but with
+    nothing to compare the result against, so scoring skips it.
     """
 
 
 class MetricTuningCaseUpdate(Base):
-    """Partial update -- only the fields present are applied."""
+    """Partial update -- only the fields present are applied.
+
+    ``expected`` reads absence and blankness differently: omitting it leaves the
+    stored verdict alone, while sending a blank one takes the verdict back and
+    returns the case to unlabelled.
+    """
 
     input: Optional[str] = None
     output: Optional[str] = None

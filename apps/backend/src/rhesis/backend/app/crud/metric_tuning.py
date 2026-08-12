@@ -191,7 +191,8 @@ def update_tuning_case(
         if content is not None:
             db_test.prompt.content = content
         if expected is not None:
-            db_test.prompt.expected_response = expected
+            # NULL, not "", so an unlabelled case looks the same however it got there.
+            db_test.prompt.expected_response = expected or None
 
     if metadata is not None:
         db_test.test_metadata = metadata.model_dump(mode="json", exclude_none=True)
