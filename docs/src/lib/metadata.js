@@ -1,4 +1,5 @@
 import { siteConfig } from './site-config.js'
+import { OG_VERSION, stripBrandSuffix } from './og-theme.js'
 
 /**
  * Generates canonical URL for a given path
@@ -12,15 +13,30 @@ export function getCanonicalUrl(path, config = siteConfig) {
 }
 
 /**
- * Generates OpenGraph image URL
- * @param {string} path - The page path
- * @param {string} defaultImage - Default image path from config
+ * Builds the OpenGraph image URL for a page.
+ *
+ * Every page gets its own card, rendered on demand by /api/og from the page's
+ * own title and description. `v` is the card design version — crawlers cache
+ * social images by URL, so bumping OG_VERSION is what makes them re-fetch.
+ *
+ * Pages that want a hand-made image instead set `ogImage` in frontmatter; it
+ * must be an absolute URL or a path under public/ (PNG or JPEG — LinkedIn and
+ * Facebook do not render webp reliably).
+ *
+ * @param {string} path - The page path, e.g. 'docs/endpoints' ('' for the root)
+ * @param {string|null} pageImage - Optional per-page override from frontmatter
  * @returns {string} - Full image URL
  */
-export function getOpenGraphImage(path, defaultImage = siteConfig.defaultImage) {
-  // In the future, we could check for page-specific images
-  // For now, return the default image with full URL
-  return `${siteConfig.siteUrl}${defaultImage}`
+export function getOpenGraphImage(path, pageImage = null) {
+  if (pageImage) {
+    return pageImage.startsWith('http') ? pageImage : `${siteConfig.siteUrl}${pageImage}`
+  }
+
+  const cleanPath = (path || '').replace(/^\/+|\/+$/g, '')
+  const query = cleanPath
+    ? `?p=${encodeURIComponent(cleanPath)}&v=${OG_VERSION}`
+    : `?v=${OG_VERSION}`
+  return `${siteConfig.siteUrl}/api/og${query}`
 }
 
 /**
@@ -115,7 +131,7 @@ export function generatePageMetadata(
     : config.keywords
 
   const canonicalUrl = getCanonicalUrl(urlPath, config)
-  const imageUrl = getOpenGraphImage(urlPath, config.defaultImage)
+  const imageUrl = getOpenGraphImage(urlPath, baseMetadata?.ogImage)
 
   // Respect ROBOTS_NOINDEX env var (e.g. staging deployments)
   const noIndex = process.env.ROBOTS_NOINDEX === 'true'
@@ -156,7 +172,7 @@ export function generatePageMetadata(
           url: imageUrl,
           width: 1200,
           height: 630,
-          alt: config.defaultImageAlt,
+          alt: `${stripBrandSuffix(title)} – ${config.siteName}`,
         },
       ],
     },
