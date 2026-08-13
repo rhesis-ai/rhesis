@@ -19,6 +19,7 @@ from rhesis.backend.jobs import (
     execution,  # noqa: F401
     file,  # noqa: F401
     garak,  # noqa: F401
+    metric_tuning,  # noqa: F401
     test_configuration,  # noqa: F401
     test_set,  # noqa: F401
     tracking,
@@ -37,6 +38,7 @@ from rhesis.backend.jobs.embedding import (
 )
 from rhesis.backend.jobs.enums import DEFAULT_METRIC_WORKERS
 from rhesis.backend.jobs.execution.results import collect_results
+from rhesis.backend.jobs.metric_tuning import run_metric_tuning
 from rhesis.backend.jobs.test_configuration import execute_test_configuration
 from rhesis.backend.jobs.test_set import count_test_sets
 from rhesis.backend.jobs.usage import accrue_usage
@@ -68,6 +70,7 @@ __all__ = [
     "execute_test_configuration",
     "collect_results",
     "accrue_usage",
+    "run_metric_tuning",
     # Constants
     "DEFAULT_METRIC_WORKERS",
 ]

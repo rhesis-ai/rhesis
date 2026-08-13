@@ -33,6 +33,7 @@ from rhesis.backend.app.crud import metric_tuning as crud_metric_tuning
 from rhesis.backend.app.schemas.metric_tuning import (
     MetricTuningCase,
     MetricTuningCaseCreate,
+    MetricTuningCaseResult,
     MetricTuningCaseUpdate,
 )
 from rhesis.backend.app.schemas.metric_tuning_metadata import (
@@ -67,6 +68,19 @@ def to_api(db_test: models.Test, metric: models.Metric) -> MetricTuningCase:
     prompt = db_test.prompt
     payload = parse_payload(prompt.content if prompt else None)
     expected = prompt.expected_response if prompt else None
+
+    # A result the run cleared but never refilled carries nothing worth showing,
+    # so it reads the same as never having been run.
+    result = None
+    stored = metadata.result
+    if stored and (stored.verdict is not None or stored.error):
+        result = MetricTuningCaseResult(
+            verdict=stored.verdict,
+            reasoning=stored.reasoning,
+            error=stored.error,
+            evaluated_at=stored.evaluated_at,
+        )
+
     return MetricTuningCase(
         id=db_test.id,
         input=payload.input,
@@ -75,6 +89,7 @@ def to_api(db_test: models.Test, metric: models.Metric) -> MetricTuningCase:
         expected=expected,
         rationale=metadata.rationale,
         is_stale=is_stale(metric, expected),
+        result=result,
         created_at=db_test.created_at,
         updated_at=db_test.updated_at,
     )

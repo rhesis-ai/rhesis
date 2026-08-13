@@ -5,6 +5,7 @@ import {
   MetricTuningCaseCreate,
   MetricTuningCaseDeleteResponse,
   MetricTuningCaseUpdate,
+  MetricTuningRun,
 } from './interfaces/metric-tuning';
 import { UUID } from 'crypto';
 
@@ -17,6 +18,10 @@ import { UUID } from 'crypto';
 export class MetricTuningClient extends BaseApiClient {
   private basePath(metricId: UUID | string): string {
     return `${API_ENDPOINTS.metrics}/${metricId}/tuning/cases`;
+  }
+
+  private runPath(metricId: UUID | string): string {
+    return `${API_ENDPOINTS.metrics}/${metricId}/tuning/run`;
   }
 
   /** Cases for a metric. Empty when it has no tuning test set yet. */
@@ -59,5 +64,25 @@ export class MetricTuningClient extends BaseApiClient {
       `${this.basePath(metricId)}/${caseId}`,
       { method: 'DELETE' }
     );
+  }
+
+  /** The metric's latest run. `never_run` when there has not been one. */
+  async getTuningRun(metricId: UUID | string): Promise<MetricTuningRun> {
+    return this.fetch<MetricTuningRun>(this.runPath(metricId), {
+      cache: 'no-store',
+    });
+  }
+
+  /**
+   * Starts a run over the metric's cases and returns the in-progress summary.
+   *
+   * The work happens in the background — poll `getTuningRun` for progress.
+   * Every run is one LLM call per case, so this is only ever called from an
+   * explicit action, never from an effect that watches the cases.
+   */
+  async startTuningRun(metricId: UUID | string): Promise<MetricTuningRun> {
+    return this.fetch<MetricTuningRun>(this.runPath(metricId), {
+      method: 'POST',
+    });
   }
 }
