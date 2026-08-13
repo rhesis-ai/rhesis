@@ -6,6 +6,7 @@ import { format } from 'date-fns';
 import { PageLayout } from '@/components/layout/PageLayout';
 import DetailMetadataStrip from '@/components/common/DetailMetadataStrip';
 import type { BehaviorWithMetrics } from '@/utils/api-client/interfaces/behavior';
+import { API_ENDPOINTS } from '@/utils/api-client/config';
 import BehaviorDetailTabs from './BehaviorDetailTabs';
 import AccessDenied from '@/components/common/AccessDenied';
 import PageLoadingState from '@/components/common/PageLoadingState';
@@ -36,8 +37,8 @@ export default function BehaviorDetailClient({
 
   const title = behavior.name || `Behavior ${identifier}`;
   const breadcrumbs = [
-    { label: 'Behaviors', href: '/behaviors' },
-    { label: title, href: `/behaviors/${identifier}` },
+    { label: 'Behaviors', href: API_ENDPOINTS.behaviors },
+    { label: title, href: `${API_ENDPOINTS.behaviors}/${identifier}` },
   ];
 
   const metadataStrip = (

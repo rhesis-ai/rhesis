@@ -87,7 +87,7 @@ export class TestRunsClient extends BaseApiClient {
 
   async getTestRunBehaviors(testRunId: string): Promise<Behavior[]> {
     return this.fetch<Behavior[]>(
-      `${API_ENDPOINTS.testRuns}/${testRunId}/behaviors`
+      `${API_ENDPOINTS.testRuns}/${testRunId}${API_ENDPOINTS.behaviors}`
     );
   }
 

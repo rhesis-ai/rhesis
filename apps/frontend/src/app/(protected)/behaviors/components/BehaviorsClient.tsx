@@ -15,6 +15,7 @@ import GridToolbar, {
 } from '@/components/common/GridToolbar';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { BehaviorClient } from '@/utils/api-client/behavior-client';
+import { API_ENDPOINTS } from '@/utils/api-client/config';
 import { TagsClient } from '@/utils/api-client/tags-client';
 import { EntityType, type Tag } from '@/utils/api-client/interfaces/tag';
 import type { BehaviorWithMetrics } from '@/utils/api-client/interfaces/behavior';
@@ -626,7 +627,9 @@ export default function BehaviorsClient({
             <BehaviorCard
               key={behavior.id}
               behavior={behavior}
-              onClick={() => router.push(`/behaviors/${behavior.id}`)}
+              onClick={() =>
+                router.push(`${API_ENDPOINTS.behaviors}/${behavior.id}`)
+              }
               onEdit={() =>
                 handleEditBehavior(
                   behavior.id,

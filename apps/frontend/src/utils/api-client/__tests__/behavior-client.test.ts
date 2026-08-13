@@ -1,4 +1,5 @@
 import { BehaviorClient } from '../behavior-client';
+import { API_ENDPOINTS } from '../config';
 import { UUID } from 'crypto';
 
 const BASE_URL = 'http://localhost/api/backend';
@@ -45,7 +46,7 @@ describe('BehaviorClient', () => {
     const result = await client.getBehaviors();
 
     expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining(`${BASE_URL}/behaviors`),
+      expect.stringContaining(`${BASE_URL}${API_ENDPOINTS.behaviors}`),
       expect.any(Object)
     );
     expect(result).toHaveLength(1);
@@ -70,7 +71,7 @@ describe('BehaviorClient', () => {
     await client.getBehavior(BEHAVIOR_ID);
 
     expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining(`/behaviors/${BEHAVIOR_ID}`),
+      expect.stringContaining(`${API_ENDPOINTS.behaviors}/${BEHAVIOR_ID}`),
       expect.any(Object)
     );
   });
@@ -108,7 +109,7 @@ describe('BehaviorClient', () => {
     await client.createBehavior(payload as never);
 
     const [url, opts] = fetchMock.mock.calls[0];
-    expect(url).toContain('/behaviors');
+    expect(url).toContain(API_ENDPOINTS.behaviors);
     expect(opts.method).toBe('POST');
     expect(JSON.parse(opts.body)).toMatchObject(payload);
   });
@@ -119,7 +120,7 @@ describe('BehaviorClient', () => {
     await client.updateBehavior(BEHAVIOR_ID, { name: 'Updated' } as never);
 
     const [url, opts] = fetchMock.mock.calls[0];
-    expect(url).toContain(`/behaviors/${BEHAVIOR_ID}`);
+    expect(url).toContain(`${API_ENDPOINTS.behaviors}/${BEHAVIOR_ID}`);
     expect(opts.method).toBe('PUT');
   });
 
@@ -129,7 +130,7 @@ describe('BehaviorClient', () => {
     await client.deleteBehavior(BEHAVIOR_ID);
 
     const [url, opts] = fetchMock.mock.calls[0];
-    expect(url).toContain(`/behaviors/${BEHAVIOR_ID}`);
+    expect(url).toContain(`${API_ENDPOINTS.behaviors}/${BEHAVIOR_ID}`);
     expect(opts.method).toBe('DELETE');
   });
 
@@ -143,7 +144,9 @@ describe('BehaviorClient', () => {
     await client.getBehaviorMetrics(BEHAVIOR_ID);
 
     const calledUrl = fetchMock.mock.calls[0][0] as string;
-    expect(calledUrl).toContain(`/behaviors/${BEHAVIOR_ID}/metrics/`);
+    expect(calledUrl).toContain(
+      `${API_ENDPOINTS.behaviors}/${BEHAVIOR_ID}/metrics/`
+    );
     expect(calledUrl).toContain('limit=100');
   });
 

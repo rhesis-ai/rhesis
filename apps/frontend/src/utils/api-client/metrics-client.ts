@@ -84,7 +84,7 @@ export class MetricsClient extends BaseApiClient {
 
   async addBehaviorToMetric(metricId: UUID, behaviorId: UUID): Promise<void> {
     return this.fetch<void>(
-      `${API_ENDPOINTS.metrics}/${metricId}/behaviors/${behaviorId}`,
+      `${API_ENDPOINTS.metrics}/${metricId}${API_ENDPOINTS.behaviors}/${behaviorId}`,
       {
         method: 'POST',
       }
@@ -96,7 +96,7 @@ export class MetricsClient extends BaseApiClient {
     behaviorId: UUID
   ): Promise<void> {
     return this.fetch<void>(
-      `${API_ENDPOINTS.metrics}/${metricId}/behaviors/${behaviorId}`,
+      `${API_ENDPOINTS.metrics}/${metricId}${API_ENDPOINTS.behaviors}/${behaviorId}`,
       {
         method: 'DELETE',
       }
@@ -110,7 +110,7 @@ export class MetricsClient extends BaseApiClient {
     const paginationParams = { ...DEFAULT_PAGINATION, ...params };
 
     return this.fetchPaginated<MetricDetail>(
-      `${API_ENDPOINTS.metrics}/${metricId}/behaviors`,
+      `${API_ENDPOINTS.metrics}/${metricId}${API_ENDPOINTS.behaviors}`,
       paginationParams,
       {
         cache: 'no-store',
