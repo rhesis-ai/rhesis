@@ -2,12 +2,17 @@ import React from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import MetricTuningTab from '../MetricTuningTab';
-import type { MetricTuningCase } from '@/utils/api-client/interfaces/metric-tuning';
+import type {
+  MetricTuningCase,
+  MetricTuningRun,
+} from '@/utils/api-client/interfaces/metric-tuning';
 
 const mockGetTuningCases = jest.fn();
 const mockCreateTuningCase = jest.fn();
 const mockUpdateTuningCase = jest.fn();
 const mockDeleteTuningCase = jest.fn();
+const mockGetTuningRun = jest.fn();
+const mockStartTuningRun = jest.fn();
 const mockGetMetric = jest.fn();
 
 jest.mock('@/utils/api-client/client-factory', () => ({
@@ -17,6 +22,8 @@ jest.mock('@/utils/api-client/client-factory', () => ({
       createTuningCase: mockCreateTuningCase,
       updateTuningCase: mockUpdateTuningCase,
       deleteTuningCase: mockDeleteTuningCase,
+      getTuningRun: mockGetTuningRun,
+      startTuningRun: mockStartTuningRun,
     }),
     getMetricsClient: () => ({
       getMetric: mockGetMetric,
@@ -46,17 +53,29 @@ const CASE: MetricTuningCase = {
   expected: 'pass',
   rationale: 'polite answer',
   is_stale: false,
+  result: null,
   created_at: '2026-08-06T00:00:00Z',
   updated_at: '2026-08-06T00:00:00Z',
 };
 
 const BINARY_METRIC = { score_type: 'binary' as const };
 
+const NEVER_RUN: MetricTuningRun = {
+  status: 'never_run',
+  started_at: null,
+  completed_at: null,
+  total_cases: 0,
+  completed_cases: 0,
+  errored_cases: 0,
+  error: null,
+};
+
 describe('MetricTuningTab', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockGetTuningCases.mockResolvedValue([]);
     mockGetMetric.mockResolvedValue(BINARY_METRIC);
+    mockGetTuningRun.mockResolvedValue(NEVER_RUN);
   });
 
   it('shows the empty state when the metric has no cases', async () => {
@@ -288,5 +307,161 @@ describe('MetricTuningTab', () => {
     render(<MetricTuningTab metricId={METRIC_ID} />);
 
     expect(await screen.findByText('No tuning cases yet')).toBeInTheDocument();
+  });
+});
+
+describe('MetricTuningTab — runs', () => {
+  const RUNNING: MetricTuningRun = {
+    status: 'running',
+    started_at: '2026-08-13T10:00:00Z',
+    completed_at: null,
+    total_cases: 3,
+    completed_cases: 1,
+    errored_cases: 0,
+    error: null,
+  };
+
+  const COMPLETED: MetricTuningRun = {
+    status: 'completed',
+    started_at: '2026-08-13T10:00:00Z',
+    completed_at: '2026-08-13T10:01:00Z',
+    total_cases: 1,
+    completed_cases: 1,
+    errored_cases: 0,
+    error: null,
+  };
+
+  const SCORED_CASE: MetricTuningCase = {
+    ...CASE,
+    result: {
+      verdict: 'fail',
+      reasoning: 'The answer contains an insult.',
+      error: null,
+      evaluated_at: '2026-08-13T10:00:30Z',
+    },
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGetMetric.mockResolvedValue(BINARY_METRIC);
+    mockGetTuningCases.mockResolvedValue([CASE]);
+    mockGetTuningRun.mockResolvedValue(NEVER_RUN);
+    mockStartTuningRun.mockResolvedValue(RUNNING);
+  });
+
+  it('offers a run control once there are cases to run', async () => {
+    render(<MetricTuningTab metricId={METRIC_ID} />);
+
+    expect(
+      await screen.findByRole('button', { name: /run metric/i })
+    ).toBeEnabled();
+  });
+
+  it('does not offer a run for a metric with no cases', async () => {
+    mockGetTuningCases.mockResolvedValue([]);
+
+    render(<MetricTuningTab metricId={METRIC_ID} />);
+
+    await screen.findByText('No tuning cases yet');
+    expect(
+      screen.queryByRole('button', { name: /run metric/i })
+    ).not.toBeInTheDocument();
+  });
+
+  it('starts a run only when the author asks for one', async () => {
+    render(<MetricTuningTab metricId={METRIC_ID} />);
+
+    // Loading the tab must not cost an LLM call per case.
+    await screen.findByRole('button', { name: /run metric/i });
+    expect(mockStartTuningRun).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: /run metric/i }));
+
+    await waitFor(() =>
+      expect(mockStartTuningRun).toHaveBeenCalledWith(METRIC_ID)
+    );
+  });
+
+  it('shows that a run is in progress, and how far along', async () => {
+    mockGetTuningRun.mockResolvedValue(RUNNING);
+
+    render(<MetricTuningTab metricId={METRIC_ID} />);
+
+    expect(await screen.findByText(/1 done/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /running/i })).toBeDisabled();
+  });
+
+  it('shows when the last run finished', async () => {
+    mockGetTuningRun.mockResolvedValue(COMPLETED);
+
+    render(<MetricTuningTab metricId={METRIC_ID} />);
+
+    expect(await screen.findByText(/last run/i)).toBeInTheDocument();
+  });
+
+  it('says nothing about runs before there has been one', async () => {
+    render(<MetricTuningTab metricId={METRIC_ID} />);
+
+    await screen.findByText('How are you?');
+    expect(screen.queryByText(/last run/i)).not.toBeInTheDocument();
+  });
+
+  it("shows the metric's verdict and its reasoning for each case", async () => {
+    mockGetTuningCases.mockResolvedValue([SCORED_CASE]);
+    mockGetTuningRun.mockResolvedValue(COMPLETED);
+
+    render(<MetricTuningTab metricId={METRIC_ID} />);
+
+    // 'pass' is what the author expected, 'fail' is what the metric said —
+    // both on the row, which is the whole point of a run.
+    expect(await screen.findByText('pass')).toBeInTheDocument();
+    expect(screen.getByText('fail')).toBeInTheDocument();
+    expect(
+      screen.getByText('The answer contains an insult.')
+    ).toBeInTheDocument();
+  });
+
+  it('marks a case whose metric call failed rather than calling it a verdict', async () => {
+    mockGetTuningCases.mockResolvedValue([
+      {
+        ...CASE,
+        result: {
+          verdict: null,
+          reasoning: null,
+          error: 'provider unreachable',
+          evaluated_at: '2026-08-13T10:00:30Z',
+        },
+      },
+    ]);
+    mockGetTuningRun.mockResolvedValue(COMPLETED);
+
+    render(<MetricTuningTab metricId={METRIC_ID} />);
+
+    expect(await screen.findByText('Error')).toBeInTheDocument();
+  });
+
+  it('reports a failed run instead of leaving old numbers on screen', async () => {
+    mockGetTuningRun.mockResolvedValue({
+      ...COMPLETED,
+      status: 'failed',
+      error: 'the worker died',
+    });
+
+    render(<MetricTuningTab metricId={METRIC_ID} />);
+
+    expect(await screen.findByText(/the worker died/i)).toBeInTheDocument();
+  });
+
+  it('survives a failed start', async () => {
+    mockStartTuningRun.mockRejectedValue(new Error('already running'));
+
+    render(<MetricTuningTab metricId={METRIC_ID} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: /run metric/i }));
+
+    await waitFor(() => expect(mockStartTuningRun).toHaveBeenCalled());
+    expect(
+      await screen.findByRole('button', { name: /run metric/i })
+    ).toBeEnabled();
   });
 });
