@@ -90,7 +90,7 @@ class TestRun(BaseEntity):
         raise NotImplementedError(
             "TestRun.stats() has been removed. Use Insights(entity='test_run', "
             "filters={'test_run_ids': [self.id]}, ...) directly. "
-            "See https://docs.rhesis.ai/sdk/statistics."
+            "See https://docs.rhesis.ai/sdk/insights."
         )
 
 
@@ -102,5 +102,5 @@ class TestRuns(BaseCollection):
     def stats(cls, *args: Any, **kwargs: Any) -> NoReturn:
         raise NotImplementedError(
             "TestRuns.stats() has been removed. Use Insights(entity='test_run', ...) "
-            "directly. See https://docs.rhesis.ai/sdk/statistics."
+            "directly. See https://docs.rhesis.ai/sdk/insights."
         )

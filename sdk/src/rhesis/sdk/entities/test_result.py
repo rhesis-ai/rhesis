@@ -59,5 +59,5 @@ class TestResults(BaseCollection):
     def stats(cls, *args: Any, **kwargs: Any) -> NoReturn:
         raise NotImplementedError(
             "TestResults.stats() has been removed. Use Insights(entity='test_result', ...) "
-            "or Insights(entity='metric', ...) directly. See https://docs.rhesis.ai/sdk/statistics."
+            "or Insights(entity='metric', ...) directly. See https://docs.rhesis.ai/sdk/insights."
         )
