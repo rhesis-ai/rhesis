@@ -20,7 +20,7 @@ interface BrandMarkProps {
  *
  * A remote URL renders as a plain `<img>`, not `next/image`: the optimizer
  * refuses any host absent from `images.remotePatterns`, and the host here is
- * whatever a customer put in their values file — unknowable at build time.
+ * whatever a deployment put in its values file — unknowable at build time.
  * Widening `remotePatterns` to `**` to work around that would turn the
  * optimizer into an open image proxy. Favicons are a few KB, so there is
  * nothing to optimise anyway. Local paths keep `next/image`.

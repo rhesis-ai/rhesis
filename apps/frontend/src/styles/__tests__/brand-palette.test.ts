@@ -7,8 +7,8 @@ import {
 } from '../brand-palette';
 import { getDesignTokens } from '../theme';
 
-/** netgo green — the colour that motivated this feature. */
-const BRAND = '#005B33';
+/** A dark brand colour, far enough from Rhesis blue to make swaps obvious. */
+const BRAND = '#6A1B9A';
 /** A pale brand colour, to prove contrast is computed and not assumed white. */
 const PALE_BRAND = '#FDD803';
 

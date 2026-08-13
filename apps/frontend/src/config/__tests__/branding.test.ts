@@ -19,8 +19,8 @@ describe('normalizeBrandColor', () => {
   });
 
   it('accepts 6-digit hex and normalizes case', () => {
-    expect(normalizeBrandColor('#005b33')).toBe('#005B33');
-    expect(normalizeBrandColor('  #005B33  ')).toBe('#005B33');
+    expect(normalizeBrandColor('#6a1b9a')).toBe('#6A1B9A');
+    expect(normalizeBrandColor('  #6A1B9A  ')).toBe('#6A1B9A');
   });
 
   it('treats absent and empty values as unset without warning', () => {
@@ -32,7 +32,7 @@ describe('normalizeBrandColor', () => {
 
   it.each([
     ['#fff', 'the 3-digit form'],
-    ['005B33', 'a missing hash'],
+    ['6A1B9A', 'a missing hash'],
     ['green', 'a colour name'],
     ['#00zz33', 'non-hex digits'],
   ])('rejects %s (%s) and warns', color => {
@@ -54,8 +54,8 @@ describe('normalizeFaviconUrl', () => {
 
   it('accepts https URLs', () => {
     expect(
-      normalizeFaviconUrl('https://www.netgo.de/hubfs/netgo_favicon.png')
-    ).toBe('https://www.netgo.de/hubfs/netgo_favicon.png');
+      normalizeFaviconUrl('https://cdn.example.com/assets/favicon.png')
+    ).toBe('https://cdn.example.com/assets/favicon.png');
   });
 
   it('accepts root-relative paths', () => {
@@ -92,12 +92,12 @@ describe('normalizeProductName', () => {
   });
 
   it('accepts a name and trims surrounding whitespace', () => {
-    expect(normalizeProductName('Netgo')).toBe('Netgo');
-    expect(normalizeProductName('  Netgo  ')).toBe('Netgo');
+    expect(normalizeProductName('Acme')).toBe('Acme');
+    expect(normalizeProductName('  Acme  ')).toBe('Acme');
   });
 
   it('preserves spacing and case inside the name', () => {
-    expect(normalizeProductName('netgo AI Studio')).toBe('netgo AI Studio');
+    expect(normalizeProductName('Acme AI Studio')).toBe('Acme AI Studio');
   });
 
   it('falls back to the default when unset', () => {
@@ -127,14 +127,14 @@ describe('getServerBranding', () => {
   });
 
   it('reads every variable from the environment', () => {
-    process.env.BRAND_PRIMARY_COLOR = '#005B33';
+    process.env.BRAND_PRIMARY_COLOR = '#6A1B9A';
     process.env.BRAND_FAVICON_URL = 'https://example.com/fav.png';
-    process.env.BRAND_PRODUCT_NAME = 'Netgo';
+    process.env.BRAND_PRODUCT_NAME = 'Acme';
 
     expect(getServerBranding()).toEqual({
-      primaryColor: '#005B33',
+      primaryColor: '#6A1B9A',
       faviconUrl: 'https://example.com/fav.png',
-      productName: 'Netgo',
+      productName: 'Acme',
       isDefaultProductName: false,
     });
   });

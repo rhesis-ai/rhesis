@@ -75,11 +75,11 @@ config:
   # Branding — both empty means the built-in Rhesis look. Set them to rebrand a
   # deployment without rebuilding the image; the frontend reads them at request
   # time and falls back to the defaults if a value is malformed.
-  # brandPrimaryColor: 6-digit hex, e.g. "#005B33". Drives the primary palette,
+  # brandPrimaryColor: 6-digit hex, e.g. "#6A1B9A". Drives the primary palette,
   #   app bar, buttons, brand-tinted surfaces and the sign-in screen accent.
   # brandFaviconUrl: https:// URL or a root-relative path, e.g.
   #   "https://www.example.com/favicon.png". Also used as the sidebar brand mark.
-  # brandProductName: replaces "Rhesis AI" in page titles, e.g. "Netgo".
+  # brandProductName: replaces "Rhesis AI" in page titles, e.g. "Acme".
   brandPrimaryColor: ""
   brandFaviconUrl: ""
   brandProductName: ""

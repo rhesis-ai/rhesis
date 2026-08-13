@@ -1,15 +1,16 @@
 /**
- * Runtime branding overrides, for deployments that need their own colour and
- * favicon (white-label / on-prem installs).
+ * Runtime branding overrides, for deployments that need their own colour, icon
+ * and product name (white-label / on-prem installs).
  *
- * Both values are plain env vars, deliberately *without* the `NEXT_PUBLIC_`
+ * All three are plain env vars, deliberately *without* the `NEXT_PUBLIC_`
  * prefix: that prefix inlines a value into the client bundle at build time,
- * which would mean one Docker image per customer. These are read on the server
- * at request time and handed to the client via props and `window.__ENV__` —
- * the same route `API_BASE_URL` already takes (see `url-resolver.ts`).
+ * which would mean one Docker image per deployment. These are read on the
+ * server at request time and handed to the client via props and
+ * `window.__ENV__` — the same route `API_BASE_URL` already takes (see
+ * `url-resolver.ts`).
  *
  * In Kubernetes they arrive from the chart's ConfigMap, which every app
- * deployment already loads with `envFrom`. Neither value is a secret — both
+ * deployment already loads with `envFrom`. None of them is a secret — all three
  * end up visible in the served HTML — so they do not belong in Secret Manager.
  */
 
@@ -49,7 +50,7 @@ export function normalizeBrandColor(
 
   if (!HEX_COLOR_PATTERN.test(trimmed)) {
     console.warn(
-      `[branding] Ignoring BRAND_PRIMARY_COLOR "${trimmed}": expected a 6-digit hex colour such as #005B33.`
+      `[branding] Ignoring BRAND_PRIMARY_COLOR "${trimmed}": expected a 6-digit hex colour such as #6A1B9A.`
     );
     return undefined;
   }

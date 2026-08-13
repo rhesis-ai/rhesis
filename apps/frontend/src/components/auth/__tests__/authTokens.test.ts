@@ -1,8 +1,8 @@
 import { getContrastRatio } from '@mui/system/colorManipulator';
 import { getAuthTokens } from '../authTokens';
 
-/** netgo green — the colour that motivated the branding feature. */
-const BRAND = '#005B33';
+/** A dark brand colour, far enough from Rhesis blue to make swaps obvious. */
+const BRAND = '#6A1B9A';
 
 describe('getAuthTokens', () => {
   it('keeps the rhesis.ai accents when no brand colour is configured', () => {
@@ -15,9 +15,9 @@ describe('getAuthTokens', () => {
 
   it('applies a configured brand colour to the accents', () => {
     const light = getAuthTokens('light', BRAND);
-    expect(light.accent).toBe('#005b33');
+    expect(light.accent).toBe('#6a1b9a');
     expect(light.accentHover).not.toBe(light.accent);
-    expect(light.accentShadow).toContain('rgba(0, 91, 51, 0.55)');
+    expect(light.accentShadow).toContain('rgba(106, 27, 154, 0.55)');
   });
 
   it('leaves the non-accent tokens alone', () => {
