@@ -35,6 +35,32 @@ These four secrets have no default; the stack refuses to start if any is unset.
 Ports are the host bind ports and are independent of the URLs — behind a reverse proxy the published port
 and the public URL usually differ.
 
+## Branding
+
+Replace the Rhesis colour, icon and product name with your own. All three are read at request time, so
+the same image serves every deployment — no rebuild, and no `NEXT_PUBLIC_` counterpart.
+
+| Variable | Description | Default |
+|---|---|---|
+| `BRAND_PRIMARY_COLOR` | 6-digit hex colour, e.g. `#EE7103`. Drives the primary palette, app bar, buttons, brand-tinted surfaces and the sign-in accent | *(unset — Rhesis blue)* |
+| `BRAND_FAVICON_URL` | `https://` URL or root-relative path, e.g. `https://www.example.com/favicon.png`. Used as the browser-tab icon and as the brand mark in the sidebar, onboarding and sign-in header | `/logos/rhesis-logo-favicon.svg` |
+| `BRAND_PRODUCT_NAME` | Name in page titles (`Architect` becomes `Architect \| Netgo`), the sign-in header and footer, and the sidebar before the organisation loads. Max 60 characters | `Rhesis AI` |
+
+Light and dark shades are derived from the one colour, and button label text switches between white and
+near-black to stay readable — a pale brand colour does not need extra configuration. A malformed value is
+ignored with a warning in the frontend logs and the Rhesis default applies, so a typo cannot break a
+deployment.
+
+Setting `BRAND_PRODUCT_NAME` also drops the Rhesis tagline from the page description and stops the
+sign-in wordmark linking to rhesis.ai.
+
+Three things keep their Rhesis identity on purpose: chart palettes, which need distinguishable hues
+rather than tints of one colour; the sign-in page's background artwork; and the Documentation, Blog and
+GitHub links in the sign-in header.
+
+On Kubernetes, set these through the chart instead — see
+[Kubernetes (Helm)](/docs/deployment/kubernetes-helm).
+
 ## Database
 
 Defaults point at the built-in `postgres` container. Set these to use your own database (see
