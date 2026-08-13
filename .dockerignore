@@ -12,7 +12,6 @@
 .Python
 *.so
 **/htmlcov/
-**/mypy_cache/
 **/*.ruff_cache/
 
 # Virtual environments

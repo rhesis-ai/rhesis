@@ -17,7 +17,6 @@
 **/*.pyo
 **/*.pyd
 **/htmlcov/
-**/mypy_cache/
 **/*.ruff_cache/
 **/.venv
 **/venv
