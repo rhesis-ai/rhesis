@@ -47,7 +47,7 @@ const sampleTests: TestDetail[] = [
     id: uuid(1),
     created_at: '',
     updated_at: '',
-    behavior: { id: uuid(101), name: 'Helpful' },
+    requirement: { id: uuid(101), name: 'Helpful' },
     category: { id: uuid(201), name: 'Support' },
     topic: { id: uuid(301), name: 'Refunds' },
   },
@@ -55,7 +55,7 @@ const sampleTests: TestDetail[] = [
     id: uuid(2),
     created_at: '',
     updated_at: '',
-    behavior: { id: uuid(101), name: 'Helpful' },
+    requirement: { id: uuid(101), name: 'Helpful' },
     category: { id: uuid(202), name: 'Billing' },
     topic: { id: uuid(302), name: 'Invoices' },
   },
@@ -63,7 +63,7 @@ const sampleTests: TestDetail[] = [
     id: uuid(3),
     created_at: '',
     updated_at: '',
-    behavior: { id: uuid(102), name: 'Strict' },
+    requirement: { id: uuid(102), name: 'Strict' },
   },
 ];
 
@@ -83,11 +83,11 @@ describe('buildEmbeddingChartColorConfig', () => {
     expect(config?.legend.some(l => l.label === 'Safety')).toBe(true);
   });
 
-  it('colors by behavior with unassigned bucket', () => {
+  it('colors by requirement with unassigned bucket', () => {
     const config = buildEmbeddingChartColorConfig(
       sampleGraph,
       sampleTests,
-      'behavior',
+      'requirement',
       embeddingColors
     );
     expect(config).not.toBeNull();

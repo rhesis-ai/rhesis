@@ -3,7 +3,7 @@
 The package-hallucination detectors (PythonPypi, RubyGems, …) report
 "not implemented" instead of running. The short-circuit happens before any
 garak import, so these tests run even when garak is not installed — which is
-the environment where this safety behavior matters most. They are kept out of
+the environment where this safety requirement matters most. They are kept out of
 the integration smoke-test module (which is skipped without garak) for exactly
 that reason.
 """

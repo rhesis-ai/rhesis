@@ -3,10 +3,10 @@
 import pytest
 
 from rhesis.backend.app.services.garak.taxonomy import (
-    FALLBACK_BEHAVIOR,
+    FALLBACK_REQUIREMENT,
     GarakMapping,
     GarakTaxonomy,
-    resolve_behavior,
+    resolve_requirement,
 )
 
 
@@ -116,7 +116,7 @@ class TestGarakTaxonomyMappings:
 @pytest.mark.unit
 @pytest.mark.service
 class TestGarakTaxonomyDefaultMapping:
-    """Tests for default mapping behavior."""
+    """Tests for default mapping requirement."""
 
     def test_unknown_module_returns_default(self):
         """Test that unknown modules return the default mapping."""
@@ -357,49 +357,49 @@ class TestGarakTaxonomyV013Modules:
 
 @pytest.mark.unit
 @pytest.mark.service
-class TestResolveBehavior:
-    """Tests for resolve_behavior tag-to-behavior resolution."""
+class TestResolveRequirement:
+    """Tests for resolve_requirement tag-to-requirement resolution."""
 
     def test_no_tags_returns_fallback(self):
-        assert resolve_behavior(None) == FALLBACK_BEHAVIOR
-        assert resolve_behavior([]) == FALLBACK_BEHAVIOR
+        assert resolve_requirement(None) == FALLBACK_REQUIREMENT
+        assert resolve_requirement([]) == FALLBACK_REQUIREMENT
 
     def test_no_quality_tags_returns_fallback(self):
-        assert resolve_behavior(["owasp:llm01", "cwe:79"]) == FALLBACK_BEHAVIOR
+        assert resolve_requirement(["owasp:llm01", "cwe:79"]) == FALLBACK_REQUIREMENT
 
     def test_single_content_safety_tag(self):
-        assert resolve_behavior(["quality:Behavioral:ContentSafety:Toxicity"]) == "Garak (Toxicity)"
+        assert resolve_requirement(["quality:Behavioral:ContentSafety:Toxicity"]) == "Garak (Toxicity)"
 
     def test_single_security_tag(self):
-        assert resolve_behavior(["quality:Security:PromptStability"]) == "Garak (Prompt Stability)"
+        assert resolve_requirement(["quality:Security:PromptStability"]) == "Garak (Prompt Stability)"
 
     def test_content_safety_wins_over_security(self):
         tags = [
             "quality:Security:PromptStability",
             "quality:Behavioral:ContentSafety:HateHarassment",
         ]
-        assert resolve_behavior(tags) == "Garak (Hate & Harassment)"
+        assert resolve_requirement(tags) == "Garak (Hate & Harassment)"
 
     def test_content_safety_wins_over_robustness(self):
         tags = [
             "quality:Robustness:GenerativeMisinformation",
             "quality:Behavioral:ContentSafety:Violence",
         ]
-        assert resolve_behavior(tags) == "Garak (Violence)"
+        assert resolve_requirement(tags) == "Garak (Violence)"
 
     def test_behavioral_wins_over_security(self):
         tags = [
             "quality:Security:Adversarial",
             "quality:Behavioral:DeliberativeMisinformation",
         ]
-        assert resolve_behavior(tags) == "Garak (Deliberate Misinformation)"
+        assert resolve_requirement(tags) == "Garak (Deliberate Misinformation)"
 
     def test_alphabetical_tiebreak_within_tier(self):
         tags = [
             "quality:Behavioral:ContentSafety:Violence",
             "quality:Behavioral:ContentSafety:HateHarassment",
         ]
-        assert resolve_behavior(tags) == "Garak (Hate & Harassment)"
+        assert resolve_requirement(tags) == "Garak (Hate & Harassment)"
 
     def test_non_quality_tags_ignored(self):
         tags = [
@@ -407,18 +407,18 @@ class TestResolveBehavior:
             "payload:jailbreak",
             "quality:Security:Integrity",
         ]
-        assert resolve_behavior(tags) == "Garak (Integrity)"
+        assert resolve_requirement(tags) == "Garak (Integrity)"
 
-    def test_all_behaviors_are_prefixed(self):
-        """Every resolved behavior name starts with 'Garak ('."""
+    def test_all_requirements_are_prefixed(self):
+        """Every resolved requirement name starts with 'Garak ('."""
         for tag in [
             "quality:Behavioral:ContentSafety:Toxicity",
             "quality:Behavioral:DeliberativeMisinformation",
             "quality:Robustness:GenerativeMisinformation",
             "quality:Security:Adversarial",
         ]:
-            result = resolve_behavior([tag])
+            result = resolve_requirement([tag])
             assert result.startswith("Garak ("), f"{tag} resolved to '{result}'"
 
     def test_fallback_is_prefixed(self):
-        assert FALLBACK_BEHAVIOR.startswith("Garak (")
+        assert FALLBACK_REQUIREMENT.startswith("Garak (")

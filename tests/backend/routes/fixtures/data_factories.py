@@ -6,13 +6,13 @@ It replaces the mixed approach of faker_utils.py with a unified factory system.
 
 Usage:
     # Standard data
-    data = BehaviorDataFactory.sample_data()
+    data = RequirementDataFactory.sample_data()
 
     # Edge cases
-    data = BehaviorDataFactory.edge_case_data("long_name")
+    data = RequirementDataFactory.edge_case_data("long_name")
 
     # Custom variations
-    data = BehaviorDataFactory.sample_data(name_length=50, include_description=False)
+    data = RequirementDataFactory.sample_data(name_length=50, include_description=False)
 """
 
 import string
@@ -87,12 +87,12 @@ class BaseDataFactory(ABC):
 
 
 @dataclass
-class BehaviorDataFactory(BaseDataFactory):
-    """Factory for generating behavior test data"""
+class RequirementDataFactory(BaseDataFactory):
+    """Factory for generating requirement test data"""
 
     @classmethod
     def minimal_data(cls) -> Dict[str, Any]:
-        """Generate minimal behavior data (only required fields)"""
+        """Generate minimal requirement data (only required fields)"""
         return {"name": fake.catch_phrase()}
 
     @classmethod
@@ -100,14 +100,14 @@ class BehaviorDataFactory(BaseDataFactory):
         cls, name_length: Optional[int] = None, include_description: bool = True
     ) -> Dict[str, Any]:
         """
-        Generate sample behavior data
+        Generate sample requirement data
 
         Args:
             name_length: Override name length (default: random phrase)
             include_description: Whether to include description field
 
         Returns:
-            Dict containing behavior data
+            Dict containing requirement data
         """
         if name_length:
             name = fake.text(max_nb_chars=name_length).replace("\n", " ").strip()
@@ -123,7 +123,7 @@ class BehaviorDataFactory(BaseDataFactory):
 
     @classmethod
     def update_data(cls) -> Dict[str, Any]:
-        """Generate behavior update data"""
+        """Generate requirement update data"""
         return {
             "name": fake.sentence(nb_words=3).rstrip("."),
             "description": fake.paragraph(nb_sentences=2),
@@ -131,7 +131,7 @@ class BehaviorDataFactory(BaseDataFactory):
 
     @classmethod
     def edge_case_data(cls, case_type: str) -> Dict[str, Any]:
-        """Generate behavior edge case data"""
+        """Generate requirement edge case data"""
         if case_type == "long_name":
             return {
                 "name": fake.text(max_nb_chars=1000).replace("\n", " "),
@@ -150,23 +150,23 @@ class BehaviorDataFactory(BaseDataFactory):
         elif case_type == "only_spaces":
             return {"name": "   ", "description": "     "}
         elif case_type == "sql_injection":
-            return {"name": "'; DROP TABLE behaviors; --", "description": "1' OR '1'='1"}
+            return {"name": "'; DROP TABLE requirements; --", "description": "1' OR '1'='1"}
 
         return super().edge_case_data(case_type)
 
     @classmethod
     def batch_data(cls, count: int, variation: bool = True) -> List[Dict[str, Any]]:
         """
-        Generate batch of behavior data
+        Generate batch of requirement data
 
         Args:
-            count: Number of behavior records to generate
+            count: Number of requirement records to generate
             variation: Whether to vary the data or use similar patterns
 
         Returns:
-            List of behavior data dictionaries
+            List of requirement data dictionaries
         """
-        behaviors = []
+        requirements = []
         for i in range(count):
             if variation:
                 # Create varied data
@@ -176,12 +176,12 @@ class BehaviorDataFactory(BaseDataFactory):
             else:
                 # Create similar data with incremental names
                 data = {
-                    "name": f"Test Behavior {i + 1}",
-                    "description": f"Description for test behavior {i + 1}",
+                    "name": f"Test Requirement {i + 1}",
+                    "description": f"Description for test requirement {i + 1}",
                 }
-            behaviors.append(data)
+            requirements.append(data)
 
-        return behaviors
+        return requirements
 
 
 @dataclass
@@ -616,7 +616,7 @@ class ProjectDataFactory(BaseDataFactory):
     @classmethod
     def sample_data(cls, include_description: bool = True) -> Dict[str, Any]:
         """
-        Generate sample project data (following working behavior pattern)
+        Generate sample project data (following working requirement pattern)
 
         Args:
             include_description: Whether to include description field
@@ -941,7 +941,7 @@ class FileDataFactory(BaseDataFactory):
 
 # Factory registry for dynamic access - moved after all factory definitions
 FACTORY_REGISTRY = {
-    "behavior": BehaviorDataFactory,
+    "requirement": RequirementDataFactory,
     "topic": TopicDataFactory,
     "category": CategoryDataFactory,
     "metric": MetricDataFactory,
@@ -959,7 +959,7 @@ def get_factory(entity_type: str) -> BaseDataFactory:
     Get data factory for entity type
 
     Args:
-        entity_type: Type of entity ('behavior', 'topic', etc.)
+        entity_type: Type of entity ('requirement', 'topic', etc.)
 
     Returns:
         Data factory class for the entity
@@ -978,7 +978,7 @@ def generate_test_data(entity_type: str, data_type: str = "sample", **kwargs) ->
     Generate test data for any entity type
 
     Args:
-        entity_type: Type of entity ('behavior', 'topic', etc.)
+        entity_type: Type of entity ('requirement', 'topic', etc.)
         data_type: Type of data ('minimal', 'sample', 'update', 'edge_case')
         **kwargs: Additional arguments passed to factory method
 
@@ -1589,7 +1589,7 @@ class CommentDataFactory(BaseDataFactory):
                     EntityType.METRIC.value,
                     EntityType.MODEL.value,
                     EntityType.PROMPT.value,
-                    EntityType.BEHAVIOR.value,
+                    EntityType.REQUIREMENT.value,
                     EntityType.CATEGORY.value,
                 ]
             ),
@@ -1701,7 +1701,7 @@ class CommentDataFactory(BaseDataFactory):
                 # Create varied data
                 data = cls.sample_data(
                     entity_type=fake.random_element(
-                        elements=["Test", "TestSet", "TestRun", "Behavior", "Metric"]
+                        elements=["Test", "TestSet", "TestRun", "Requirement", "Metric"]
                     )
                 )
             else:
@@ -1732,7 +1732,7 @@ class TestDataFactory(BaseDataFactory):
     def sample_data(
         cls,
         include_prompt: bool = True,
-        include_behavior: bool = True,
+        include_requirement: bool = True,
         include_category: bool = True,
         include_status: bool = True,
     ) -> Dict[str, Any]:
@@ -1741,7 +1741,7 @@ class TestDataFactory(BaseDataFactory):
 
         Args:
             include_prompt: Whether to include prompt_id reference
-            include_behavior: Whether to include behavior_id reference
+            include_requirement: Whether to include requirement_id reference
             include_category: Whether to include category_id reference
             include_status: Whether to include status_id reference
 
@@ -1754,8 +1754,8 @@ class TestDataFactory(BaseDataFactory):
         if include_prompt:
             data["prompt_id"] = None  # Will be set by fixtures
 
-        if include_behavior:
-            data["behavior_id"] = None  # Will be set by fixtures
+        if include_requirement:
+            data["requirement_id"] = None  # Will be set by fixtures
 
         if include_category:
             data["category_id"] = None  # Will be set by fixtures
@@ -2092,7 +2092,7 @@ FACTORY_REGISTRY.update(
 # Export main classes and functions
 __all__ = [
     "BaseDataFactory",
-    "BehaviorDataFactory",
+    "RequirementDataFactory",
     "TopicDataFactory",
     "CategoryDataFactory",
     "CommentDataFactory",

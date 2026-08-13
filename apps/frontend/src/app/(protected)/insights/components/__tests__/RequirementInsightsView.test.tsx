@@ -1,26 +1,26 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import BehaviorInsightsView from '../BehaviorInsightsView';
+import RequirementInsightsView from '../RequirementInsightsView';
 import { DEFAULT_INSIGHTS_FILTERS } from '../../types';
 
-jest.mock('../BehaviorInsightsRow', () => {
-  return function MockBehaviorInsightsRow({
+jest.mock('../RequirementInsightsRow', () => {
+  return function MockRequirementInsightsRow({
     row,
   }: {
     row: Array<{ name: string }>;
   }) {
     return (
-      <div data-testid="behavior-insights-row">
+      <div data-testid="requirement-insights-row">
         {row.map(column => column.name).join(',')}
       </div>
     );
   };
 });
 
-jest.mock('../BehaviorColumn', () => {
-  return function MockBehaviorColumn() {
-    return <div data-testid="behavior-column-skeleton" />;
+jest.mock('../RequirementColumn', () => {
+  return function MockRequirementColumn() {
+    return <div data-testid="requirement-column-skeleton" />;
   };
 });
 
@@ -33,9 +33,9 @@ const defaultColumn = {
 };
 
 function renderView(
-  props: Partial<React.ComponentProps<typeof BehaviorInsightsView>> = {}
+  props: Partial<React.ComponentProps<typeof RequirementInsightsView>> = {}
 ) {
-  const defaults: React.ComponentProps<typeof BehaviorInsightsView> = {
+  const defaults: React.ComponentProps<typeof RequirementInsightsView> = {
     filters: { ...DEFAULT_INSIGHTS_FILTERS, endpointId: 'ep-1' },
     insights: {
       summary: { total: 10, passed: 8, failed: 2, pass_rate: 80 },
@@ -49,15 +49,15 @@ function renderView(
     onRowToggle: jest.fn(),
   };
 
-  return render(<BehaviorInsightsView {...defaults} {...props} />);
+  return render(<RequirementInsightsView {...defaults} {...props} />);
 }
 
-describe('BehaviorInsightsView', () => {
-  it('renders summary bar and behavior rows when runs exist', () => {
+describe('RequirementInsightsView', () => {
+  it('renders summary bar and requirement rows when runs exist', () => {
     renderView();
 
     expect(screen.getByText(/80\.0%/)).toBeInTheDocument();
-    expect(screen.getByTestId('behavior-insights-row')).toHaveTextContent(
+    expect(screen.getByTestId('requirement-insights-row')).toHaveTextContent(
       'Safety'
     );
   });
@@ -75,6 +75,6 @@ describe('BehaviorInsightsView', () => {
     });
 
     expect(screen.getByText('Loading results…')).toBeInTheDocument();
-    expect(screen.getAllByTestId('behavior-column-skeleton')).toHaveLength(6);
+    expect(screen.getAllByTestId('requirement-column-skeleton')).toHaveLength(6);
   });
 });

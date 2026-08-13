@@ -37,7 +37,7 @@ if (!canRead) return <AccessDenied resource="test runs" />;
 ```
 
 Types carrying object-level affordances: `TestResult`, `ExperimentRead`, `Task`, `TestRun`,
-`Comment`. Everything else (Behavior, Metric, Endpoint, TestSet, Source, …) uses `useCan`/`<Can>`.
+`Comment`. Everything else (Requirement, Metric, Endpoint, TestSet, Source, …) uses `useCan`/`<Can>`.
 
 Every protected page must guard its READ capability with the `useCan` pattern above.
 

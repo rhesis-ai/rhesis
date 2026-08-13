@@ -30,7 +30,7 @@ class OrganizationFilterChecker:
 
         # Models that require organization filtering
         self.organization_models = {
-            'Behavior', 'Category', 'Comment',
+            'Requirement', 'Category', 'Comment',
             'Metric', 'Model', 'Prompt', 'Source', 'Status',
             'Tag', 'Task', 'Test', 'TestResult', 'TestRun', 'TestSet',
             'Token', 'Topic', 'TypeLookup', 'Endpoint'
@@ -87,7 +87,7 @@ class OrganizationFilterChecker:
             r'TaggedItem\.organization_id',
             r'Token\.organization_id',
             r'Metric\.organization_id',
-            r'Behavior\.organization_id',
+            r'Requirement\.organization_id',
             # Filter parameter patterns (functions that pass organization_id to filter helpers)
             r'"organization_id":\s*organization_id',
             r'filter_params\s*=.*organization_id',
@@ -172,7 +172,7 @@ class OrganizationFilterChecker:
             r'\.filter\([^)]*_id\s*==',   # .filter(model.some_id == uuid) - any ID field
             r'test_run_id\s*==',          # test_run_id filtering
             r'test_set_id\s*==',          # test_set_id filtering
-            r'behavior_id\s*==',          # behavior_id filtering
+            r'requirement_id\s*==',        # requirement_id filtering
             r'metric_id\s*==',            # metric_id filtering
             r'user_id\s*==',              # user_id filtering (when used for ID lookup)
             r'entity_id\s*==',            # entity_id filtering

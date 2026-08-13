@@ -4,10 +4,10 @@ import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import { ThemeProvider } from '@mui/material/styles';
 import lightTheme from '@/styles/theme';
-import BehaviorCard from '../BehaviorCard';
-import type { BehaviorWithMetrics } from '@/utils/api-client/interfaces/behavior';
+import RequirementCard from '../RequirementCard';
+import type { RequirementWithMetrics } from '@/utils/api-client/interfaces/requirement';
 
-const mockDeleteBehavior = jest.fn().mockResolvedValue(undefined);
+const mockDeleteRequirement = jest.fn().mockResolvedValue(undefined);
 
 jest.mock('@/components/common/Can', () => ({
   useCan: () => true,
@@ -15,9 +15,9 @@ jest.mock('@/components/common/Can', () => ({
   can: (_subject: unknown, _capability: string) => true,
 }));
 
-jest.mock('@/utils/api-client/behavior-client', () => ({
-  BehaviorClient: jest.fn().mockImplementation(() => ({
-    deleteBehavior: mockDeleteBehavior,
+jest.mock('@/utils/api-client/requirement-client', () => ({
+  RequirementClient: jest.fn().mockImplementation(() => ({
+    deleteRequirement: mockDeleteRequirement,
   })),
 }));
 
@@ -63,7 +63,7 @@ jest.mock('@/components/common/EntityCard', () => ({
         </div>
       ))}
       {onDelete && (
-        <button aria-label="delete behavior" onClick={onDelete}>
+        <button aria-label="delete requirement" onClick={onDelete}>
           delete
         </button>
       )}
@@ -93,7 +93,7 @@ jest.mock('@/components/common/DeleteModal', () => ({
     ) : null,
 }));
 
-function makeBehavior(overrides = {}): BehaviorWithMetrics {
+function makeRequirement(overrides = {}): RequirementWithMetrics {
   return {
     id: 'b1',
     name: 'Jailbreak Detection',
@@ -110,33 +110,33 @@ function makeBehavior(overrides = {}): BehaviorWithMetrics {
     },
     metrics: [],
     ...overrides,
-  } as unknown as BehaviorWithMetrics;
+  } as unknown as RequirementWithMetrics;
 }
 
 const DEFAULT_PROPS = {
-  behavior: makeBehavior(),
+  requirement: makeRequirement(),
   onRefresh: jest.fn(),
 };
 
 function renderCard(props = DEFAULT_PROPS) {
   return render(
     <ThemeProvider theme={lightTheme}>
-      <BehaviorCard {...props} />
+      <RequirementCard {...props} />
     </ThemeProvider>
   );
 }
 
-describe('BehaviorCard', () => {
+describe('RequirementCard', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it('renders the behavior name', () => {
+  it('renders the requirement name', () => {
     renderCard();
     expect(screen.getByText('Jailbreak Detection')).toBeInTheDocument();
   });
 
-  it('renders the behavior description', () => {
+  it('renders the requirement description', () => {
     renderCard();
     expect(screen.getByText('Detects jailbreak attempts')).toBeInTheDocument();
   });
@@ -144,17 +144,17 @@ describe('BehaviorCard', () => {
   it('shows delete button when there are no metrics', () => {
     renderCard();
     expect(
-      screen.getByRole('button', { name: /delete behavior/i })
+      screen.getByRole('button', { name: /delete requirement/i })
     ).toBeInTheDocument();
   });
 
   it('hides delete button when there are metrics (canDelete=false)', () => {
     renderCard({
       ...DEFAULT_PROPS,
-      behavior: makeBehavior({ metrics: [{ id: 'm1', name: 'Metric A' }] }),
+      requirement: makeRequirement({ metrics: [{ id: 'm1', name: 'Metric A' }] }),
     });
     expect(
-      screen.queryByRole('button', { name: /delete behavior/i })
+      screen.queryByRole('button', { name: /delete requirement/i })
     ).not.toBeInTheDocument();
   });
 
@@ -162,20 +162,20 @@ describe('BehaviorCard', () => {
     const user = userEvent.setup();
     renderCard();
 
-    await user.click(screen.getByRole('button', { name: /delete behavior/i }));
+    await user.click(screen.getByRole('button', { name: /delete requirement/i }));
     expect(screen.getByTestId('delete-modal')).toBeInTheDocument();
   });
 
-  it('calls deleteBehavior and onRefresh when delete is confirmed', async () => {
+  it('calls deleteRequirement and onRefresh when delete is confirmed', async () => {
     const user = userEvent.setup();
     const onRefresh = jest.fn();
     renderCard({ ...DEFAULT_PROPS, onRefresh });
 
-    await user.click(screen.getByRole('button', { name: /delete behavior/i }));
+    await user.click(screen.getByRole('button', { name: /delete requirement/i }));
     await user.click(screen.getByRole('button', { name: /confirm-delete/i }));
 
     await waitFor(() => {
-      expect(mockDeleteBehavior).toHaveBeenCalledWith('b1');
+      expect(mockDeleteRequirement).toHaveBeenCalledWith('b1');
       expect(onRefresh).toHaveBeenCalled();
     });
   });
@@ -184,7 +184,7 @@ describe('BehaviorCard', () => {
     const user = userEvent.setup();
     renderCard();
 
-    await user.click(screen.getByRole('button', { name: /delete behavior/i }));
+    await user.click(screen.getByRole('button', { name: /delete requirement/i }));
     expect(screen.getByTestId('delete-modal')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /cancel-delete/i }));
@@ -194,7 +194,7 @@ describe('BehaviorCard', () => {
   it('renders a Tags section with each tag chip when tags are present', () => {
     renderCard({
       ...DEFAULT_PROPS,
-      behavior: makeBehavior({
+      requirement: makeRequirement({
         tags: [
           { id: 't1', name: 'Marketing' },
           { id: 't2', name: 'US 1' },
@@ -208,7 +208,7 @@ describe('BehaviorCard', () => {
     expect(section).toHaveTextContent('US 1');
   });
 
-  it('renders Tags section empty text when behavior has no tags', () => {
+  it('renders Tags section empty text when requirement has no tags', () => {
     renderCard();
     const section = screen.getByTestId('chip-section-tags');
     expect(section).toBeInTheDocument();
@@ -222,7 +222,7 @@ describe('BehaviorCard', () => {
     }));
     renderCard({
       ...DEFAULT_PROPS,
-      behavior: makeBehavior({ tags: manyTags }),
+      requirement: makeRequirement({ tags: manyTags }),
     });
 
     const section = screen.getByTestId('chip-section-tags');
@@ -236,10 +236,10 @@ describe('BehaviorCard', () => {
     renderCard();
 
     expect(
-      screen.queryByRole('button', { name: /edit behavior/i })
+      screen.queryByRole('button', { name: /edit requirement/i })
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole('button', { name: /duplicate behavior/i })
+      screen.queryByRole('button', { name: /duplicate requirement/i })
     ).not.toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: /view metrics/i })

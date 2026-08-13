@@ -1,17 +1,17 @@
 """
-🔒 Behavior-Metric Security Testing
+🔒 Requirement-Metric Security Testing
 
-Security-focused tests for behavior-metric CRUD operations.
+Security-focused tests for requirement-metric CRUD operations.
 These tests ensure proper cross-tenant isolation and prevent unauthorized access
 to resources across organizations.
 
 Functions tested:
-- add_behavior_to_metric: Cross-tenant prevention
-- remove_behavior_from_metric: Cross-tenant prevention
-- get_metric_behaviors: Cross-tenant prevention
-- get_behavior_metrics: Cross-tenant prevention
+- add_requirement_to_metric: Cross-tenant prevention
+- remove_requirement_from_metric: Cross-tenant prevention
+- get_metric_requirements: Cross-tenant prevention
+- get_requirement_metrics: Cross-tenant prevention
 
-Run with: python -m pytest tests/backend/crud/test_behavior_metric_security.py -v
+Run with: python -m pytest tests/backend/crud/test_requirement_metric_security.py -v
 """
 
 import uuid
@@ -21,24 +21,24 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
 from rhesis.backend.app.crud.metric import (
-    add_behavior_to_metric,
-    get_behavior_metrics,
-    get_metric_behaviors,
-    remove_behavior_from_metric,
+    add_requirement_to_metric,
+    get_requirement_metrics,
+    get_metric_requirements,
+    remove_requirement_from_metric,
 )
 
 
 @pytest.mark.security
 @pytest.mark.crud
-class TestBehaviorMetricSecurity:
-    """🔒 Security tests for behavior-metric operations"""
+class TestRequirementMetricSecurity:
+    """🔒 Security tests for requirement-metric operations"""
 
-    def test_add_behavior_to_metric_cross_tenant_prevention(
+    def test_add_requirement_to_metric_cross_tenant_prevention(
         self, test_db: Session, authenticated_user_id: str
     ):
-        """🔒 SECURITY: Test that users cannot add behaviors from other organizations to their metrics"""
+        """🔒 SECURITY: Test that users cannot add requirements from other organizations to their metrics"""
         from tests.backend.routes.fixtures.data_factories import (
-            BehaviorDataFactory,
+            RequirementDataFactory,
             MetricDataFactory,
         )
 
@@ -52,47 +52,47 @@ class TestBehaviorMetricSecurity:
         test_db.add_all([org1, org2])
         test_db.flush()
 
-        # Create metric in org1 and behavior in org2 using data factories
+        # Create metric in org1 and requirement in org2 using data factories
         metric_data_org1 = MetricDataFactory.sample_data()
         metric_data_org1.update(
             {"organization_id": uuid.UUID(org1_id), "user_id": uuid.UUID(authenticated_user_id)}
         )
 
-        behavior_data_org2 = BehaviorDataFactory.sample_data()
-        behavior_data_org2.update(
+        requirement_data_org2 = RequirementDataFactory.sample_data()
+        requirement_data_org2.update(
             {"organization_id": uuid.UUID(org2_id), "user_id": uuid.UUID(authenticated_user_id)}
         )
 
         db_metric_org1 = models.Metric(**metric_data_org1)
-        db_behavior_org2 = models.Behavior(**behavior_data_org2)
-        test_db.add_all([db_metric_org1, db_behavior_org2])
+        db_requirement_org2 = models.Requirement(**requirement_data_org2)
+        test_db.add_all([db_metric_org1, db_requirement_org2])
         test_db.flush()
 
-        # Try to add behavior from org2 to metric in org1 - should fail
-        with pytest.raises(ValueError, match="Behavior with id .* not found or not accessible"):
-            add_behavior_to_metric(
+        # Try to add requirement from org2 to metric in org1 - should fail
+        with pytest.raises(ValueError, match="Requirement with id .* not found or not accessible"):
+            add_requirement_to_metric(
                 db=test_db,
                 metric_id=db_metric_org1.id,
-                behavior_id=db_behavior_org2.id,
+                requirement_id=db_requirement_org2.id,
                 organization_id=uuid.UUID(org1_id),  # User is in org1
                 user_id=authenticated_user_id,
             )
 
         # Verify no association was created
         association = test_db.execute(
-            models.behavior_metric_association.select().where(
-                models.behavior_metric_association.c.metric_id == db_metric_org1.id,
-                models.behavior_metric_association.c.behavior_id == db_behavior_org2.id,
+            models.requirement_metric_association.select().where(
+                models.requirement_metric_association.c.metric_id == db_metric_org1.id,
+                models.requirement_metric_association.c.requirement_id == db_requirement_org2.id,
             )
         ).first()
         assert association is None
 
-    def test_add_behavior_to_metric_cross_tenant_metric_prevention(
+    def test_add_requirement_to_metric_cross_tenant_metric_prevention(
         self, test_db: Session, authenticated_user_id: str
     ):
-        """🔒 SECURITY: Test that users cannot add behaviors to metrics from other organizations"""
+        """🔒 SECURITY: Test that users cannot add requirements to metrics from other organizations"""
         from tests.backend.routes.fixtures.data_factories import (
-            BehaviorDataFactory,
+            RequirementDataFactory,
             MetricDataFactory,
         )
 
@@ -106,38 +106,38 @@ class TestBehaviorMetricSecurity:
         test_db.add_all([org1, org2])
         test_db.flush()
 
-        # Create metric in org1 and behavior in org2 using data factories
+        # Create metric in org1 and requirement in org2 using data factories
         metric_data_org1 = MetricDataFactory.sample_data()
         metric_data_org1.update(
             {"organization_id": uuid.UUID(org1_id), "user_id": uuid.UUID(authenticated_user_id)}
         )
 
-        behavior_data_org2 = BehaviorDataFactory.sample_data()
-        behavior_data_org2.update(
+        requirement_data_org2 = RequirementDataFactory.sample_data()
+        requirement_data_org2.update(
             {"organization_id": uuid.UUID(org2_id), "user_id": uuid.UUID(authenticated_user_id)}
         )
 
         db_metric_org1 = models.Metric(**metric_data_org1)
-        db_behavior_org2 = models.Behavior(**behavior_data_org2)
-        test_db.add_all([db_metric_org1, db_behavior_org2])
+        db_requirement_org2 = models.Requirement(**requirement_data_org2)
+        test_db.add_all([db_metric_org1, db_requirement_org2])
         test_db.flush()
 
-        # Try to add behavior from org2 to metric in org1, but user is in org2 - should fail
+        # Try to add requirement from org2 to metric in org1, but user is in org2 - should fail
         with pytest.raises(ValueError, match="Metric with id .* not found or not accessible"):
-            add_behavior_to_metric(
+            add_requirement_to_metric(
                 db=test_db,
                 metric_id=db_metric_org1.id,
-                behavior_id=db_behavior_org2.id,
+                requirement_id=db_requirement_org2.id,
                 organization_id=uuid.UUID(org2_id),  # User is in org2, metric is in org1
                 user_id=authenticated_user_id,
             )
 
-    def test_remove_behavior_from_metric_cross_tenant_prevention(
+    def test_remove_requirement_from_metric_cross_tenant_prevention(
         self, test_db: Session, authenticated_user_id: str
     ):
-        """🔒 SECURITY: Test that users cannot remove behaviors from metrics in other organizations"""
+        """🔒 SECURITY: Test that users cannot remove requirements from metrics in other organizations"""
         from tests.backend.routes.fixtures.data_factories import (
-            BehaviorDataFactory,
+            RequirementDataFactory,
             MetricDataFactory,
         )
 
@@ -151,27 +151,27 @@ class TestBehaviorMetricSecurity:
         test_db.add_all([org1, org2])
         test_db.flush()
 
-        # Create metric and behavior in org1 using data factories
+        # Create metric and requirement in org1 using data factories
         metric_data_org1 = MetricDataFactory.sample_data()
         metric_data_org1.update(
             {"organization_id": uuid.UUID(org1_id), "user_id": uuid.UUID(authenticated_user_id)}
         )
 
-        behavior_data_org1 = BehaviorDataFactory.sample_data()
-        behavior_data_org1.update(
+        requirement_data_org1 = RequirementDataFactory.sample_data()
+        requirement_data_org1.update(
             {"organization_id": uuid.UUID(org1_id), "user_id": uuid.UUID(authenticated_user_id)}
         )
 
         db_metric_org1 = models.Metric(**metric_data_org1)
-        db_behavior_org1 = models.Behavior(**behavior_data_org1)
-        test_db.add_all([db_metric_org1, db_behavior_org1])
+        db_requirement_org1 = models.Requirement(**requirement_data_org1)
+        test_db.add_all([db_metric_org1, db_requirement_org1])
         test_db.flush()
 
         # Create association in org1
         test_db.execute(
-            models.behavior_metric_association.insert().values(
+            models.requirement_metric_association.insert().values(
                 metric_id=db_metric_org1.id,
-                behavior_id=db_behavior_org1.id,
+                requirement_id=db_requirement_org1.id,
                 organization_id=uuid.UUID(org1_id),
                 user_id=uuid.UUID(authenticated_user_id),
             )
@@ -180,28 +180,28 @@ class TestBehaviorMetricSecurity:
 
         # Try to remove association as user from org2 - should fail
         with pytest.raises(ValueError, match="Metric with id .* not found or not accessible"):
-            remove_behavior_from_metric(
+            remove_requirement_from_metric(
                 db=test_db,
                 metric_id=db_metric_org1.id,
-                behavior_id=db_behavior_org1.id,
+                requirement_id=db_requirement_org1.id,
                 organization_id=uuid.UUID(
                     org2_id
-                ),  # User is in org2, but metric/behavior are in org1
+                ),  # User is in org2, but metric/requirement are in org1
             )
 
         # Verify association still exists (wasn't removed)
         association = test_db.execute(
-            models.behavior_metric_association.select().where(
-                models.behavior_metric_association.c.metric_id == db_metric_org1.id,
-                models.behavior_metric_association.c.behavior_id == db_behavior_org1.id,
+            models.requirement_metric_association.select().where(
+                models.requirement_metric_association.c.metric_id == db_metric_org1.id,
+                models.requirement_metric_association.c.requirement_id == db_requirement_org1.id,
             )
         ).first()
         assert association is not None
 
-    def test_get_metric_behaviors_cross_tenant_prevention(
+    def test_get_metric_requirements_cross_tenant_prevention(
         self, test_db: Session, authenticated_user_id: str
     ):
-        """🔒 SECURITY: Test that users cannot get behaviors for metrics from other organizations"""
+        """🔒 SECURITY: Test that users cannot get requirements for metrics from other organizations"""
         from tests.backend.routes.fixtures.data_factories import MetricDataFactory
 
         # Create two separate organizations
@@ -223,19 +223,19 @@ class TestBehaviorMetricSecurity:
         test_db.add(db_metric_org1)
         test_db.flush()
 
-        # Try to get behaviors for metric from org1 as user from org2 - should fail
+        # Try to get requirements for metric from org1 as user from org2 - should fail
         with pytest.raises(ValueError, match="Metric with id .* not found or not accessible"):
-            get_metric_behaviors(
+            get_metric_requirements(
                 db=test_db,
                 metric_id=db_metric_org1.id,
                 organization_id=org2_id,  # User is in org2, but metric is in org1
             )
 
-    def test_get_behavior_metrics_cross_tenant_prevention(
+    def test_get_requirement_metrics_cross_tenant_prevention(
         self, test_db: Session, authenticated_user_id: str
     ):
-        """🔒 SECURITY: Test that users cannot get metrics for behaviors from other organizations"""
-        from tests.backend.routes.fixtures.data_factories import BehaviorDataFactory
+        """🔒 SECURITY: Test that users cannot get metrics for requirements from other organizations"""
+        from tests.backend.routes.fixtures.data_factories import RequirementDataFactory
 
         # Create two separate organizations
         org1_id = str(uuid.uuid4())
@@ -247,19 +247,19 @@ class TestBehaviorMetricSecurity:
         test_db.add_all([org1, org2])
         test_db.flush()
 
-        # Create behavior in org1 using data factory
-        behavior_data_org1 = BehaviorDataFactory.sample_data()
-        behavior_data_org1.update(
+        # Create requirement in org1 using data factory
+        requirement_data_org1 = RequirementDataFactory.sample_data()
+        requirement_data_org1.update(
             {"organization_id": uuid.UUID(org1_id), "user_id": uuid.UUID(authenticated_user_id)}
         )
-        db_behavior_org1 = models.Behavior(**behavior_data_org1)
-        test_db.add(db_behavior_org1)
+        db_requirement_org1 = models.Requirement(**requirement_data_org1)
+        test_db.add(db_requirement_org1)
         test_db.flush()
 
-        # Try to get metrics for behavior from org1 as user from org2 - should fail
-        with pytest.raises(ValueError, match="Behavior with id .* not found or not accessible"):
-            get_behavior_metrics(
+        # Try to get metrics for requirement from org1 as user from org2 - should fail
+        with pytest.raises(ValueError, match="Requirement with id .* not found or not accessible"):
+            get_requirement_metrics(
                 db=test_db,
-                behavior_id=db_behavior_org1.id,
-                organization_id=org2_id,  # User is in org2, but behavior is in org1
+                requirement_id=db_requirement_org1.id,
+                organization_id=org2_id,  # User is in org2, but requirement is in org1
             )

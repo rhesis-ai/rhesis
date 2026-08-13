@@ -13,7 +13,7 @@ This document tracks the testing status of all backend routes/routers in the app
 | Router | File | Status | Test File | Notes |
 |--------|------|--------|-----------|-------|
 | auth | `auth.py` | ✅ | `test_auth.py` | Authentication and authorization endpoints |
-| behavior | `behavior.py` | ✅ | `test_behavior.py` | Behavior management endpoints |
+| requirement | `requirement.py` | ✅ | `test_requirement.py` | Requirement management endpoints |
 | category | `category.py` | ✅ | `test_category.py` | Category CRUD operations |
 | endpoint | `endpoint.py` | ✅ | `test_endpoint.py` | Endpoint configuration management |
 | home | `home.py` | ✅ | `test_home.py` | Home/dashboard endpoints |
@@ -52,11 +52,11 @@ This document tracks the testing status of all backend routes/routers in the app
 
 ### Completed Tests
 1. **auth** - Authentication and authorization functionality
-2. **behavior** - Behavior management functionality
+2. **requirement** - Requirement management functionality
 3. **category** - Category CRUD operations
 4. **endpoint** - Endpoint configuration management and invocation
 5. **home** - Home/dashboard endpoints with authentication scenarios
-6. **metric** - Metrics and analytics functionality with behavior relationships
+6. **metric** - Metrics and analytics functionality with requirement relationships
 7. **model** - Model management functionality with connection testing
 8. **organization** - Organization management with onboarding and domain verification
 9. **project** - Project management functionality with ownership and authorization

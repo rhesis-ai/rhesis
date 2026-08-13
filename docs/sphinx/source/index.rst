@@ -104,7 +104,7 @@ Install and configure the Python SDK:
    for test in test_set.tests:
        print("-" * 40)
        print(f"Prompt: {test['prompt']['content']}")
-       print(f"Behavior: {test['behavior']}")
+       print(f"Requirement: {test['requirement']}")
        print(f"Category: {test['category']}")
        print(f"Topic: {test['topic']}")
 

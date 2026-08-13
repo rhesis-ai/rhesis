@@ -1,7 +1,7 @@
 """
 Tests for organization service functions.
 
-These tests verify the current behavior of functions before they are refactored
+These tests verify the current requirement of functions before they are refactored
 to use the new direct parameter passing approach.
 """
 
@@ -37,9 +37,9 @@ class TestLoadInitialData:
             .filter(models.Status.organization_id == test_org_id)
             .count()
         )
-        initial_behavior_count = (
-            test_db.query(models.Behavior)
-            .filter(models.Behavior.organization_id == test_org_id)
+        initial_requirement_count = (
+            test_db.query(models.Requirement)
+            .filter(models.Requirement.organization_id == test_org_id)
             .count()
         )
 
@@ -59,9 +59,9 @@ class TestLoadInitialData:
             .filter(models.Status.organization_id == test_org_id)
             .count()
         )
-        final_behavior_count = (
-            test_db.query(models.Behavior)
-            .filter(models.Behavior.organization_id == test_org_id)
+        final_requirement_count = (
+            test_db.query(models.Requirement)
+            .filter(models.Requirement.organization_id == test_org_id)
             .count()
         )
 
@@ -73,13 +73,13 @@ class TestLoadInitialData:
         assert final_status_count >= initial_status_count, (
             f"Status entities should exist (initial: {initial_status_count}, final: {final_status_count})"
         )
-        assert final_behavior_count >= initial_behavior_count, (
-            f"Behavior entities should exist (initial: {initial_behavior_count}, final: {final_behavior_count})"
+        assert final_requirement_count >= initial_requirement_count, (
+            f"Requirement entities should exist (initial: {initial_requirement_count}, final: {final_requirement_count})"
         )
 
         # Verify that we have the expected minimum number of entities
         assert final_status_count > 0, "Should have at least some status entities"
-        assert final_behavior_count > 0, "Should have at least some behavior entities"
+        assert final_requirement_count > 0, "Should have at least some requirement entities"
 
         # Verify specific entities exist with correct tenant context
         # Check that a test status was created with correct organization_id
@@ -97,18 +97,18 @@ class TestLoadInitialData:
             if test_status.user_id is not None:
                 assert str(test_status.user_id) == authenticated_user_id
 
-        # Check that behaviors were created with correct tenant context
-        test_behavior = (
-            test_db.query(models.Behavior)
-            .filter(models.Behavior.organization_id == test_org_id)
+        # Check that requirements were created with correct tenant context
+        test_requirement = (
+            test_db.query(models.Requirement)
+            .filter(models.Requirement.organization_id == test_org_id)
             .first()
         )
 
-        if test_behavior:
-            assert str(test_behavior.organization_id) == test_org_id
+        if test_requirement:
+            assert str(test_requirement.organization_id) == test_org_id
             # user_id might be None for initial data, which is acceptable for organization isolation
-            if test_behavior.user_id is not None:
-                assert str(test_behavior.user_id) == authenticated_user_id
+            if test_requirement.user_id is not None:
+                assert str(test_requirement.user_id) == authenticated_user_id
 
     def test_load_initial_data_with_custom_file_path(
         self, test_db: Session, authenticated_user_id, test_org_id
@@ -262,7 +262,7 @@ class TestLoadInitialData:
 
         # Count existing records before loading
         initial_status_count = test_db.query(models.Status).count()
-        initial_behavior_count = test_db.query(models.Behavior).count()
+        initial_requirement_count = test_db.query(models.Requirement).count()
         initial_type_lookup_count = test_db.query(models.TypeLookup).count()
         initial_topic_count = test_db.query(models.Topic).count()
         initial_category_count = test_db.query(models.Category).count()
@@ -275,14 +275,14 @@ class TestLoadInitialData:
 
         # Verify that data was actually created OR already exists (both are valid)
         final_status_count = test_db.query(models.Status).count()
-        final_behavior_count = test_db.query(models.Behavior).count()
+        final_requirement_count = test_db.query(models.Requirement).count()
         final_type_lookup_count = test_db.query(models.TypeLookup).count()
         final_topic_count = test_db.query(models.Topic).count()
         final_category_count = test_db.query(models.Category).count()
 
         # Assert that records exist (either created or already existed)
         assert final_status_count >= initial_status_count, "Status records should exist"
-        assert final_behavior_count >= initial_behavior_count, "Behavior records should exist"
+        assert final_requirement_count >= initial_requirement_count, "Requirement records should exist"
         assert final_type_lookup_count >= initial_type_lookup_count, (
             "TypeLookup records should exist"
         )
@@ -309,19 +309,19 @@ class TestLoadInitialData:
             )
             # Note: user_id might be None for initial data, which is fine - the key is organization isolation
 
-        # Test behavior records from actual initial data
-        if expected_initial_data.get("behavior"):
-            first_behavior = expected_initial_data["behavior"][0]
-            created_behavior = (
-                test_db.query(models.Behavior)
+        # Test requirement records from actual initial data
+        if expected_initial_data.get("requirement"):
+            first_requirement = expected_initial_data["requirement"][0]
+            created_requirement = (
+                test_db.query(models.Requirement)
                 .filter(
-                    models.Behavior.organization_id == test_org_id,
-                    models.Behavior.name == first_behavior["name"],
+                    models.Requirement.organization_id == test_org_id,
+                    models.Requirement.name == first_requirement["name"],
                 )
                 .first()
             )
-            assert created_behavior is not None, (
-                f"Behavior '{first_behavior['name']}' should exist for this organization"
+            assert created_requirement is not None, (
+                f"Requirement '{first_requirement['name']}' should exist for this organization"
             )
 
         # Test topic records from actual initial data
@@ -363,17 +363,17 @@ class TestLoadInitialData:
         assert org_specific_statuses > 0, "Should have organization-specific statuses"
 
         print("✅ Integration test passed! Function works correctly with direct parameter passing")
-        print(f"📊 Total records: {final_status_count} statuses, {final_behavior_count} behaviors")
+        print(f"📊 Total records: {final_status_count} statuses, {final_requirement_count} requirements")
         print(f"🏢 Organization-specific statuses: {org_specific_statuses}")
         print(f"📋 Expected data types: {list(expected_initial_data.keys())}")
         print(
-            f"🔄 Records delta: +{final_status_count - initial_status_count} statuses, +{final_behavior_count - initial_behavior_count} behaviors"
+            f"🔄 Records delta: +{final_status_count - initial_status_count} statuses, +{final_requirement_count - initial_requirement_count} requirements"
         )
 
     def test_load_initial_data_scopes_demo_content_to_example_project(
         self, test_db: Session, authenticated_user_id, test_org_id, bound_scope
     ):
-        """Demo behaviors are scoped to the example project, not org-wide."""
+        """Demo requirements are scoped to the example project, not org-wide."""
         organization_service.load_initial_data(
             db=test_db, organization_id=test_org_id, user_id=authenticated_user_id
         )
@@ -399,16 +399,16 @@ class TestLoadInitialData:
         test_db.add(other_project)
         test_db.flush()
 
-        demo_behavior = (
-            test_db.query(models.Behavior)
+        demo_requirement = (
+            test_db.query(models.Requirement)
             .filter(
-                models.Behavior.organization_id == test_org_id,
-                models.Behavior.name == "Reliability",
+                models.Requirement.organization_id == test_org_id,
+                models.Requirement.name == "Reliability",
             )
             .first()
         )
-        assert demo_behavior is not None
-        assert demo_behavior.project_id == example_project.id
+        assert demo_requirement is not None
+        assert demo_requirement.project_id == example_project.id
 
         org_statuses = (
             test_db.query(models.Status)
@@ -419,9 +419,9 @@ class TestLoadInitialData:
         assert all(s.project_id is None for s in org_statuses)
 
         with bound_scope(organization_id=test_org_id, project_id=str(other_project.id)):
-            visible = test_db.query(models.Behavior).all()
+            visible = test_db.query(models.Requirement).all()
 
-        assert demo_behavior.id not in {b.id for b in visible}
+        assert demo_requirement.id not in {b.id for b in visible}
 
         framework_metric = (
             test_db.query(models.Metric)
@@ -441,13 +441,13 @@ class TestLoadInitialData:
 
         assert framework_metric.id in {m.id for m in visible_metrics}
 
-    def test_load_initial_data_tags_owasp_behaviors_and_metrics(
+    def test_load_initial_data_tags_owasp_requirements_and_metrics(
         self, test_db: Session, authenticated_user_id, test_org_id
     ):
-        """Onboarding tags every OWASP-prefixed behavior/metric with an "OWASP" Tag.
+        """Onboarding tags every OWASP-prefixed requirement/metric with an "OWASP" Tag.
 
         Without this, a freshly onboarded organization gets the OWASP-named
-        Behavior/Metric rows but no Tag/TaggedItem rows, so the frontend's
+        Requirement/Metric rows but no Tag/TaggedItem rows, so the frontend's
         OWASP filter pill (Metrics directory page) never appears for it. See
         migration b857edcac3c0, which backfills the same Tag/TaggedItem shape
         for organizations that already existed when it ran.
@@ -460,9 +460,9 @@ class TestLoadInitialData:
         with open(initial_data_path, "r") as file:
             expected_initial_data = json.load(file)
 
-        owasp_behavior_names = [
+        owasp_requirement_names = [
             b["name"]
-            for b in expected_initial_data.get("behavior", [])
+            for b in expected_initial_data.get("requirement", [])
             if b["name"].startswith("OWASP")
         ]
         owasp_metric_names = [
@@ -470,7 +470,7 @@ class TestLoadInitialData:
             for m in expected_initial_data.get("metric", [])
             if m["name"].startswith("OWASP")
         ]
-        assert owasp_behavior_names, "initial_data.json should define OWASP-prefixed behaviors"
+        assert owasp_requirement_names, "initial_data.json should define OWASP-prefixed requirements"
         assert owasp_metric_names, "initial_data.json should define OWASP-prefixed metrics"
 
         def _assert_owasp_tags_present():
@@ -483,7 +483,7 @@ class TestLoadInitialData:
             tag = tags[0]
 
             for model, entity_type, names in (
-                (models.Behavior, "Behavior", owasp_behavior_names),
+                (models.Requirement, "Requirement", owasp_requirement_names),
                 (models.Metric, "Metric", owasp_metric_names),
             ):
                 for name in names:

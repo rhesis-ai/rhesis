@@ -119,7 +119,7 @@ Consider adding to the action menu:
 interface TestsTableViewProps {
   tests: TestResultDetail[];
   prompts: Record<string, { content: string; name?: string }>;
-  behaviors: Array<{
+  requirements: Array<{
     id: string;
     name: string;
     description?: string;

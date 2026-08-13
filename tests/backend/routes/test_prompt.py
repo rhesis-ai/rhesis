@@ -145,15 +145,15 @@ class TestPromptRoutes(PromptTestMixin, BaseEntityRouteTests):
         # Verify topic_id field is present in response (may be None)
         assert "topic_id" in created_prompt
 
-    def test_prompt_with_behavior_relationship(self, prompt_factory, prompt_data):
-        """Test prompt creation with behavior relationship (demonstrates API accepts field)"""
-        # Test that behavior_id field is accepted by the API
-        # Note: Full relationship testing requires db_behavior fixture which may have setup issues
+    def test_prompt_with_requirement_relationship(self, prompt_factory, prompt_data):
+        """Test prompt creation with requirement relationship (demonstrates API accepts field)"""
+        # Test that requirement_id field is accepted by the API
+        # Note: Full relationship testing requires db_requirement fixture which may have setup issues
 
         created_prompt = prompt_factory.create(prompt_data)
 
-        # Verify behavior_id field is present in response (may be None)
-        assert "behavior_id" in created_prompt
+        # Verify requirement_id field is present in response (may be None)
+        assert "requirement_id" in created_prompt
 
     def test_prompt_with_status_relationship(self, prompt_factory, prompt_data, db_status):
         """Test prompt creation with status relationship"""
@@ -464,7 +464,7 @@ class TestPromptEdgeCases(PromptTestMixin, BaseEntityTests):
             updated_parent = prompt_factory.get(parent_prompt["id"])
             # System should prevent or handle circular references
         except Exception as e:
-            # Expected behavior - circular references should be prevented
+            # Expected requirement - circular references should be prevented
             assert "circular" in str(e).lower() or "constraint" in str(e).lower()
 
 

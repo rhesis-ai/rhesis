@@ -206,7 +206,7 @@ class TestAuthorizeObjectCommunity:
     def _force_community_provider(self):
         """Pin the community DefaultAuthorizationProvider for this class.
 
-        These tests assert community-tier authorize_object behavior. The root
+        These tests assert community-tier authorize_object requirement. The root
         conftest installs the EE provider by default (for the RBAC route
         tests), so pin community here and restore it afterward.
         """

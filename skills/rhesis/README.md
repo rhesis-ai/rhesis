@@ -2,7 +2,7 @@
 
 Design, run, and analyze AI test suites on the [Rhesis](https://rhesis.ai) platform — from within Claude Code, Cursor, Codex, or [any compatible AI interface](https://github.com/vercel-labs/skills#supported-agents).
 
-This skill teaches your agent how to explore an AI endpoint's capabilities, design a test suite, create behaviors and metrics, generate tests, execute them, and analyze the results. All platform operations run through the Rhesis MCP server.
+This skill teaches your agent how to explore an AI endpoint's capabilities, design a test suite, create requirements and metrics, generate tests, execute them, and analyze the results. All platform operations run through the Rhesis MCP server.
 
 **Skill layout:** `SKILL.md` is a thin router. Deep guidance lives under `references/` — start with `workflow-index.md`. Spec plans should match the fictional golden example in `use-case-bracketfeld.md` (City of Bracketfeld PermitDesk — not a real product).
 
@@ -108,7 +108,7 @@ Once installed, start a conversation naturally:
 The skill guides the full workflow:
 
 1. **Discover** — explores what your endpoint can do (Quick or Comprehensive mode)
-2. **Plan** — proposes a test suite with behaviors, test sets, and metrics
+2. **Plan** — proposes a test suite with requirements, test sets, and metrics
 3. **Review** — waits for your approval before creating anything
 4. **Create** — builds the entities on the platform
 5. **Execute** — runs the tests when you're ready
@@ -120,7 +120,7 @@ You can also use it for direct operations without the full workflow:
 "List my existing test sets"
 "Improve the Safety Compliance metric — make the threshold stricter"
 "Compare my last two test runs for the chatbot"
-"Link the Accuracy metric to the Provides Accurate Information behavior"
+"Link the Accuracy metric to the Provides Accurate Information requirement"
 ```
 
 ---

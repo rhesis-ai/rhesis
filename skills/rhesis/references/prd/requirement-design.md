@@ -1,8 +1,8 @@
-# Behavior Design for PRD
+# Requirement Design for PRD
 
-## One behavior = one specific expectation
+## One requirement = one specific expectation
 
-A behavior is **not** a category label. It is a single, observable expectation you can write a test prompt for and score with one metric.
+A requirement is **not** a category label. It is a single, observable expectation you can write a test prompt for and score with one metric.
 
 Real PRDs express expectations through **stakeholder constraints**, **persona narratives**, and **numbered requirements** — often the same topic in all three. See [prd-anatomy.md](prd-anatomy.md).
 
@@ -26,7 +26,7 @@ The excerpts below are **illustrative** (fictional *Helios Retail Support Agent 
 | Reseller Fraud Pattern Flagging | "flag the pattern" ≠ refusing to draft — two observable actions | FR-6.1 |
 | Seller Verification Bypass Draft Refusal | "refuse to draft approval messages" is a separate prohibition | FR-6.2 |
 
-**Do not create:** "Marketplace Operations Support", "Flash Sale Reliability", or "Morgan's Workflow" as behaviors.
+**Do not create:** "Marketplace Operations Support", "Flash Sale Reliability", or "Morgan's Workflow" as requirements.
 
 **Underspecified in story alone:** what "flag the pattern" means visually — pull criteria from **FR-6.1** (numbered section), not from the adjective "looks like fraud".
 
@@ -49,7 +49,7 @@ The excerpts below are **illustrative** (fictional *Helios Retail Support Agent 
 
 **Do not create:** "Operate Safely" or "Stay Within Approved Content" — Legal's first sentence is **not** an AC until tied to FAQ boundary or a numbered FR.
 
-**Plan note:** "feel helpful" is not a behavior — only the **one-sentence redirect** rule is.
+**Plan note:** "feel helpful" is not a requirement — only the **one-sentence redirect** rule is.
 
 ---
 
@@ -69,7 +69,7 @@ The excerpts below are **illustrative** (fictional *Helios Retail Support Agent 
 | Denial Reason Single-Sentence Citation | FR-4.3 — separate from whether refund is correct (format + cited reason) |
 | Order Status Lookup by Identifier | FR-4.4 — OR-logic for identifiers |
 
-One **workflow** ("refunds") → **four behaviors** because each FR has independent pass conditions.
+One **workflow** ("refunds") → **four requirements** because each FR has independent pass conditions.
 
 ---
 
@@ -91,19 +91,19 @@ One **workflow** ("refunds") → **four behaviors** because each FR has independ
 
 ---
 
-## Reject as behaviors
+## Reject as requirements
 
 - Section / epic titles: "Order Support", "Adaptive Intelligence", "Safety"
 - Stakeholder theme names: "Legal & Trust Requirements"
 - Engineering virtues: reliable, robust, seamless, intuitive (unless a numbered req defines an observable test)
 - Entire persona names or stories: "Morgan's Workflow"
-- Metric names copied as behaviors
+- Metric names copied as requirements
 
-## Capability vs guardrail behaviors
+## Capability vs guardrail requirements
 
-**Capability behaviors** — what the agent should **do** in scope (collect slots, retain context, cite policy links).
+**Capability requirements** — what the agent should **do** in scope (collect slots, retain context, cite policy links).
 
-**Guardrail behaviors** — what it must **not** do or must **always** do under pressure (refuse, withhold, disclose, redirect).
+**Guardrail requirements** — what it must **not** do or must **always** do under pressure (refuse, withhold, disclose, redirect).
 
 Guardrails usually map to **binary categorical** metrics when the PRD states a prohibition. Capabilities map to **numeric** metrics when the PRD gives counts/limits/field lists — otherwise **categorical** gates from the FR text.
 
@@ -128,9 +128,9 @@ Example: [concrete user message] → [expected response pattern].
 
 Apply the same tags to the linked metric when the tag describes what is measured.
 
-## Test prompt angles per behavior type
+## Test prompt angles per requirement type
 
-| Behavior type | Generation prompt should include |
+| Requirement type | Generation prompt should include |
 |---|---|
 | Capability | Happy path, missing info, ambiguous input, correction mid-flow |
 | Context retention | Follow-up without re-supplying identifiers |

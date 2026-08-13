@@ -185,8 +185,8 @@ class TestListCapabilities:
     def test_response_contains_core_capabilities(self, authed_client: TestClient, mock_org_owner):
         caps = set(authed_client.get("/capabilities").json())
         for expected in (
-            "behavior:read",
-            "behavior:create",
+            "requirement:read",
+            "requirement:create",
             "test_set:read",
             "test_set:execute",
             "organization:read",

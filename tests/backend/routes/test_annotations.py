@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm.attributes import flag_modified
 
 from rhesis.backend.app.auth.capabilities import Permission
-from rhesis.backend.app.models.behavior import Behavior
+from rhesis.backend.app.models.requirement import Requirement
 from rhesis.backend.app.models.status import Status
 from rhesis.backend.app.models.test import Test
 from rhesis.backend.app.models.test_configuration import TestConfiguration
@@ -236,22 +236,22 @@ class TestListAnnotations:
             test_db, test_organization, test_type_lookup, db_user
         )
 
-        # Seed a test result with a review linked to a behavior via test
+        # Seed a test result with a review linked to a requirement via test
         review = _review_payload(pass_status.id, authenticated_user.id)
         with _project_scope(test_db, test_organization.id, authenticated_user.id, db_project.id):
-            behavior = Behavior(
-                name="Annotation Hub Behavior",
+            requirement = Requirement(
+                name="Annotation Hub Requirement",
                 organization_id=test_organization.id,
                 user_id=authenticated_user.id,
                 project_id=db_project.id,
             )
-            test_db.add(behavior)
+            test_db.add(requirement)
             test_db.flush()
             linked_test = Test(
                 organization_id=test_organization.id,
                 user_id=authenticated_user.id,
                 project_id=db_project.id,
-                behavior_id=behavior.id,
+                requirement_id=requirement.id,
             )
             test_db.add(linked_test)
             test_db.flush()
@@ -309,14 +309,14 @@ class TestListAnnotations:
             tr_item = next(i for i in data if i["review_id"] == review["review_id"])
             assert tr_item["test_result_id"] == str(test_result.id)
             assert tr_item["status"]["name"] == "Pass"
-            assert tr_item["behavior_id"] == str(behavior.id)
-            assert tr_item["behavior_name"] == "Annotation Hub Behavior"
+            assert tr_item["requirement_id"] == str(requirement.id)
+            assert tr_item["requirement_name"] == "Annotation Hub Requirement"
 
-            search_behavior = authenticated_client.get(
-                "/annotations/?search=Annotation%20Hub%20Behavior"
+            search_requirement = authenticated_client.get(
+                "/annotations/?search=Annotation%20Hub%20Requirement"
             )
-            assert search_behavior.status_code == status.HTTP_200_OK
-            assert any(i["review_id"] == review["review_id"] for i in search_behavior.json())
+            assert search_requirement.status_code == status.HTTP_200_OK
+            assert any(i["review_id"] == review["review_id"] for i in search_requirement.json())
 
             filter_tr = authenticated_client.get("/annotations/?source=test_result")
             assert filter_tr.status_code == status.HTTP_200_OK
@@ -325,7 +325,7 @@ class TestListAnnotations:
             filter_trace = authenticated_client.get("/annotations/?source=trace")
             assert filter_trace.status_code == status.HTTP_200_OK
             assert all(i["source"] == "trace" for i in filter_trace.json())
-            assert all(i.get("behavior_name") is None for i in filter_trace.json())
+            assert all(i.get("requirement_name") is None for i in filter_trace.json())
 
     def test_list_includes_resolved_flag(
         self,

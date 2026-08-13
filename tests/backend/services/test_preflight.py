@@ -8,7 +8,7 @@ import pytest
 
 from rhesis.backend.app.schemas.preflight import PreflightCheckResult, PreflightCheckStatus
 from rhesis.backend.app.services.preflight import (
-    CHECK_BEHAVIOR_METRIC_COVERAGE,
+    CHECK_REQUIREMENT_METRIC_COVERAGE,
     CHECK_ENDPOINT_CONNECTIVITY,
     CHECK_EVALUATION_MODEL,
     CHECK_EXECUTION_MODEL,
@@ -31,7 +31,7 @@ class TestConstants:
             CHECK_ENDPOINT_CONNECTIVITY,
             CHECK_EVALUATION_MODEL,
             CHECK_EXECUTION_MODEL,
-            CHECK_BEHAVIOR_METRIC_COVERAGE,
+            CHECK_REQUIREMENT_METRIC_COVERAGE,
             CHECK_METRIC_COMPATIBILITY,
             CHECK_METRIC_FUNCTIONALITY,
             CHECK_TEST_SET_NOT_EMPTY,
@@ -125,7 +125,7 @@ class TestComputeSummary:
     def test_warning_without_failure(self):
         results = [
             _make_result(CHECK_ENDPOINT_CONNECTIVITY, PreflightCheckStatus.PASSED),
-            _make_result(CHECK_BEHAVIOR_METRIC_COVERAGE, PreflightCheckStatus.WARNING),
+            _make_result(CHECK_REQUIREMENT_METRIC_COVERAGE, PreflightCheckStatus.WARNING),
         ]
         summary, passed, failed, warnings, skipped = compute_summary(results)
         assert summary == "warning"
@@ -703,10 +703,10 @@ class TestRunPreflightChecksMulti:
             ),
             patch(
                 "rhesis.backend.app.services.preflight.orchestrator"
-                ".check_behavior_metric_coverage",
+                ".check_requirement_metric_coverage",
                 new_callable=AsyncMock,
                 return_value=_make_result(
-                    CHECK_BEHAVIOR_METRIC_COVERAGE, PreflightCheckStatus.PASSED
+                    CHECK_REQUIREMENT_METRIC_COVERAGE, PreflightCheckStatus.PASSED
                 ),
             ),
             patch(

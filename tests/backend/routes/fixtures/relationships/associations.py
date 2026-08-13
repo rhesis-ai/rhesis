@@ -11,24 +11,24 @@ from fastapi.testclient import TestClient
 
 
 @pytest.fixture
-def behavior_with_metrics(
-    authenticated_client: TestClient, sample_behavior: Dict[str, Any], sample_metric: Dict[str, Any]
+def requirement_with_metrics(
+    authenticated_client: TestClient, sample_requirement: Dict[str, Any], sample_metric: Dict[str, Any]
 ) -> Dict[str, Any]:
     """
-    Create a behavior with associated metrics
+    Create a requirement with associated metrics
 
-    This fixture creates a complete behavior-metric relationship
+    This fixture creates a complete requirement-metric relationship
     for integration testing.
 
     Returns:
         Dict containing:
-        - behavior: The behavior data
-        - metric: The metric data associated with the behavior
+        - requirement: The requirement data
+        - metric: The metric data associated with the requirement
     """
-    # Associate the metric with the behavior
+    # Associate the metric with the requirement
     try:
         response = authenticated_client.post(
-            f"/behaviors/{sample_behavior['id']}/metrics/{sample_metric['id']}"
+            f"/requirements/{sample_requirement['id']}/metrics/{sample_metric['id']}"
         )
         # Note: This endpoint might not exist yet, so we handle gracefully
         if response.status_code not in [200, 201, 404]:
@@ -38,4 +38,4 @@ def behavior_with_metrics(
         # Gracefully handle if the association endpoint doesn't exist
         pass
 
-    return {"behavior": sample_behavior, "metric": sample_metric}
+    return {"requirement": sample_requirement, "metric": sample_metric}

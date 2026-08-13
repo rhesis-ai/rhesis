@@ -252,7 +252,7 @@ def test_test_add_files(mock_post):
     test = Test(
         id="test-123",
         category="safety",
-        behavior="jailbreak",
+        requirement="jailbreak",
     )
     files = test.add_files(
         [
@@ -286,7 +286,7 @@ def test_test_get_files(mock_request):
     test = Test(
         id="test-123",
         category="safety",
-        behavior="jailbreak",
+        requirement="jailbreak",
     )
     files = test.get_files()
 
@@ -314,7 +314,7 @@ def test_test_push_with_files(mock_request, mock_post, tmp_path):
     create_response.json.return_value = {
         "id": "test-new",
         "category": "safety",
-        "behavior": "jailbreak",
+        "requirement": "jailbreak",
     }
     create_response.raise_for_status = MagicMock()
     mock_request.return_value = create_response
@@ -330,7 +330,7 @@ def test_test_push_with_files(mock_request, mock_post, tmp_path):
 
     test = Test(
         category="safety",
-        behavior="jailbreak",
+        requirement="jailbreak",
         files=[str(test_file)],
     )
     test.push()
@@ -387,14 +387,14 @@ def test_test_result_get_files(mock_request):
 
 def test_test_add_files_requires_id():
     """Test.add_files() raises ValueError without an ID."""
-    test = Test(category="safety", behavior="jailbreak")
+    test = Test(category="safety", requirement="jailbreak")
     with pytest.raises(ValueError, match="Test must have an ID"):
         test.add_files(["photo.jpg"])
 
 
 def test_test_get_files_requires_id():
     """Test.get_files() raises ValueError without an ID."""
-    test = Test(category="safety", behavior="jailbreak")
+    test = Test(category="safety", requirement="jailbreak")
     with pytest.raises(ValueError, match="Test must have an ID"):
         test.get_files()
 

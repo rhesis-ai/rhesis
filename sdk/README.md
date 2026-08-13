@@ -115,7 +115,7 @@ pprint(test_set.tests)
 
 ### Generating Custom Test Sets 🛠️
 
-If none of the existing test sets fit your needs, you can generate your own. You can check out [app.rhesis.ai](http://app.rhesis.ai). There you can define requirements, scenarios and behaviors.
+If none of the existing test sets fit your needs, you can generate your own. You can check out [app.rhesis.ai](http://app.rhesis.ai). There you can define requirements, scenarios and expected behaviors.
 
 ## 🧪 About Rhesis AI
 

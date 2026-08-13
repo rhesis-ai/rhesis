@@ -274,7 +274,7 @@ class TestE2EFlow:
         from rhesis.backend.app import models
         from rhesis.backend.app.utils.crud_utils import get_or_create_type_lookup
 
-        # Create behavior with Ragas metric
+        # Create requirement with Ragas metric
         backend_type = get_or_create_type_lookup(
             test_db,
             type_name="backend_type",
@@ -306,17 +306,17 @@ class TestE2EFlow:
         test_db.add(ragas_metric)
         test_db.flush()
 
-        behavior = models.Behavior(
-            name="Behavior with Ragas", organization_id=test_org_id, user_id=authenticated_user_id
+        requirement = models.Requirement(
+            name="Requirement with Ragas", organization_id=test_org_id, user_id=authenticated_user_id
         )
-        test_db.add(behavior)
+        test_db.add(requirement)
         test_db.flush()
 
-        # Associate metric with behavior using CRUD function to handle required fields
-        from rhesis.backend.app.crud.metric import add_behavior_to_metric
+        # Associate metric with requirement using CRUD function to handle required fields
+        from rhesis.backend.app.crud.metric import add_requirement_to_metric
 
-        add_behavior_to_metric(
-            test_db, ragas_metric.id, behavior.id, authenticated_user_id, test_org_id
+        add_requirement_to_metric(
+            test_db, ragas_metric.id, requirement.id, authenticated_user_id, test_org_id
         )
 
         test_config = models.TestConfiguration(
@@ -326,8 +326,8 @@ class TestE2EFlow:
         test_db.commit()
         test_db.refresh(test_config)
 
-        # Update test to use this behavior
-        db_test_with_prompt.behavior_id = behavior.id
+        # Update test to use this requirement
+        db_test_with_prompt.requirement_id = requirement.id
         test_db.commit()
 
         mock_invoke.return_value = {"output": "Relevant answer", "status_code": 200}
@@ -486,13 +486,13 @@ class TestE2EFlow:
         from rhesis.backend.app import models
         from rhesis.backend.tasks.execution.test_execution import execute_test
 
-        # Create a behavior with real metrics (not mocked)
-        behavior = models.Behavior(
-            name="Test Behavior with Real Metrics",
+        # Create a requirement with real metrics (not mocked)
+        requirement = models.Requirement(
+            name="Test Requirement with Real Metrics",
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
-        test_db.add(behavior)
+        test_db.add(requirement)
         test_db.flush()
 
         # Create a real RhesisPromptMetric in the database
@@ -511,13 +511,13 @@ class TestE2EFlow:
         test_db.add(metric)
         test_db.flush()
 
-        # Link metric to behavior using CRUD function to handle required fields
-        from rhesis.backend.app.crud.metric import add_behavior_to_metric
+        # Link metric to requirement using CRUD function to handle required fields
+        from rhesis.backend.app.crud.metric import add_requirement_to_metric
 
-        add_behavior_to_metric(test_db, metric.id, behavior.id, authenticated_user_id, test_org_id)
+        add_requirement_to_metric(test_db, metric.id, requirement.id, authenticated_user_id, test_org_id)
 
-        # Update test to use this behavior
-        db_test_with_prompt.behavior_id = behavior.id
+        # Update test to use this requirement
+        db_test_with_prompt.requirement_id = requirement.id
         test_db.commit()
         test_db.refresh(db_test_with_prompt)
 

@@ -2,13 +2,13 @@ import type { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import type { InsightsRow } from '@/utils/api-client/interfaces/insights';
 import {
   assertInsightsTestRunIdsWithinLimit,
-  buildBehaviorColumns,
+  buildRequirementColumns,
   MAX_INSIGHTS_TEST_RUN_IDS,
   resolveEndpointId,
   rowToPassFailStats,
-  sortBehaviorColumns,
+  sortRequirementColumns,
   sortByPassRateAsc,
-} from '../behavior-insights-utils';
+} from '../requirement-insights-utils';
 
 jest.mock('@/utils/insights-endpoint', () => ({
   readInsightsEndpointId: jest.fn(),
@@ -23,7 +23,7 @@ import {
 const mockedRead = readInsightsEndpointId as jest.Mock;
 const mockedWrite = writeInsightsEndpointId as jest.Mock;
 
-describe('behavior-insights-utils', () => {
+describe('requirement-insights-utils', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
@@ -40,8 +40,8 @@ describe('behavior-insights-utils', () => {
     });
   });
 
-  describe('sortBehaviorColumns', () => {
-    it('sorts behaviors alphabetically by name', () => {
+  describe('sortRequirementColumns', () => {
+    it('sorts requirements alphabetically by name', () => {
       const mk = (name: string) => ({
         id: name,
         name,
@@ -49,7 +49,7 @@ describe('behavior-insights-utils', () => {
         metrics: [],
         topics: [],
       });
-      const sorted = sortBehaviorColumns([
+      const sorted = sortRequirementColumns([
         mk('Robustness'),
         mk('Compliance'),
         mk('Garak'),
@@ -95,19 +95,19 @@ describe('behavior-insights-utils', () => {
     });
   });
 
-  describe('buildBehaviorColumns', () => {
-    const behaviorRows: InsightsRow[] = [
+  describe('buildRequirementColumns', () => {
+    const requirementRows: InsightsRow[] = [
       {
-        behavior_id: 'b-1',
-        behavior: 'Robustness',
+        requirement_id: 'b-1',
+        requirement: 'Robustness',
         count: 10,
         passed: 8,
         failed: 2,
         pass_rate: 80,
       },
       {
-        behavior_id: 'b-2',
-        behavior: 'Compliance',
+        requirement_id: 'b-2',
+        requirement: 'Compliance',
         count: 5,
         passed: 5,
         failed: 0,
@@ -116,7 +116,7 @@ describe('behavior-insights-utils', () => {
     ];
     const topicRows: InsightsRow[] = [
       {
-        behavior_id: 'b-1',
+        requirement_id: 'b-1',
         topic_id: 't-1',
         topic: 'Safety',
         count: 6,
@@ -127,7 +127,7 @@ describe('behavior-insights-utils', () => {
     ];
     const metricRows: InsightsRow[] = [
       {
-        behavior_id: 'b-1',
+        requirement_id: 'b-1',
         metric_name: 'Fluency',
         count: 10,
         passed: 8,
@@ -136,14 +136,14 @@ describe('behavior-insights-utils', () => {
       },
     ];
 
-    it('builds one column per behavior row, sorted alphabetically', () => {
-      const columns = buildBehaviorColumns(behaviorRows, topicRows, metricRows);
+    it('builds one column per requirement row, sorted alphabetically', () => {
+      const columns = buildRequirementColumns(requirementRows, topicRows, metricRows);
       expect(columns.map(c => c.name)).toEqual(['Compliance', 'Robustness']);
     });
 
-    it('groups topic/metric rows onto the matching behavior_id', () => {
-      const [, robustness] = buildBehaviorColumns(
-        behaviorRows,
+    it('groups topic/metric rows onto the matching requirement_id', () => {
+      const [, robustness] = buildRequirementColumns(
+        requirementRows,
         topicRows,
         metricRows
       );
@@ -169,9 +169,9 @@ describe('behavior-insights-utils', () => {
       ]);
     });
 
-    it('leaves a behavior with no topic/metric rows empty', () => {
-      const [compliance] = buildBehaviorColumns(
-        behaviorRows,
+    it('leaves a requirement with no topic/metric rows empty', () => {
+      const [compliance] = buildRequirementColumns(
+        requirementRows,
         topicRows,
         metricRows
       );
@@ -180,9 +180,9 @@ describe('behavior-insights-utils', () => {
       expect(compliance.metrics).toEqual([]);
     });
 
-    it('skips rows missing behavior_id or behavior', () => {
-      const columns = buildBehaviorColumns(
-        [{ behavior: 'NoId', count: 1, passed: 1, failed: 0, pass_rate: 100 }],
+    it('skips rows missing requirement_id or requirement', () => {
+      const columns = buildRequirementColumns(
+        [{ requirement: 'NoId', count: 1, passed: 1, failed: 0, pass_rate: 100 }],
         [],
         []
       );

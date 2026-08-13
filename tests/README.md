@@ -91,7 +91,7 @@ tests/
 │   │   ├── 🏗️ base.py          # Base test classes for uniform route testing
 │   │   ├── 🔗 endpoints.py     # Centralized API endpoint management
 │   │   ├── 🎭 faker_utils.py   # Test data generation utilities
-│   │   ├── 🧪 test_behavior.py # Behavior route tests (DRY implementation)
+│   │   ├── 🧪 test_requirement.py # Requirement route tests (DRY implementation)
 │   │   ├── 🧪 test_topic.py    # Topic route tests (DRY implementation)
 │   │   └── 🧪 test_category.py # Category route tests (DRY implementation)
 │   └── 📁 crud/                # CRUD operation tests (no test_ prefix on folder)
@@ -701,7 +701,7 @@ pytest tests/ -v
 pytest tests/backend/routes/ -v
 
 # 🏗️ Run route tests for specific entity
-pytest tests/backend/routes/test_behavior.py -v
+pytest tests/backend/routes/test_requirement.py -v
 
 # ⚛️ Run frontend tests
 cd apps/frontend

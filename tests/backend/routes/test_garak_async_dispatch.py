@@ -1,5 +1,5 @@
 """
-Unit tests for the async-dispatch behavior of the Garak import/sync router
+Unit tests for the async-dispatch requirement of the Garak import/sync router
 endpoints — calls the route handler coroutines directly (bypassing FastAPI's
 dependency injection) with mocked dependencies, so no HTTP client/DB fixture
 harness is needed. The underlying business logic (GarakImporter,

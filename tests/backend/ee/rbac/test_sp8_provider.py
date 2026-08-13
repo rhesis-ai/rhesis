@@ -398,7 +398,7 @@ class TestPermissionChecks:
 class TestGetEffectivePermissions:
     def test_delegates_to_fallback_when_rbac_off(self, provider):
         """RBAC off → community fallback, mirroring is_authorized's own resolution
-        order. Returning an empty set here (the old behavior) would wrongly zero
+        order. Returning an empty set here (the old requirement) would wrongly zero
         out /me/permissions and every affordance's permitted_actions for orgs
         without RBAC licensed."""
         principal = _make_principal()

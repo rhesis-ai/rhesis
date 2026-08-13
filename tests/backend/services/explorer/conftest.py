@@ -211,7 +211,7 @@ def regular_test_set_for_import(test_db: Session, test_org_id, authenticated_use
         description="Source for import service tests",
         organization_id=test_org_id,
         user_id=authenticated_user_id,
-        attributes={"metadata": {"behaviors": ["Safety"]}},
+        attributes={"metadata": {"requirements": ["Safety"]}},
     )
     test_db.add(test_set)
     test_db.flush()

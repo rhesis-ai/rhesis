@@ -41,7 +41,7 @@ class TestResolveTestId:
 
     def test_resolve_test_instance(self, test_set):
         """Test instance with id returns its id."""
-        t = Test(id="t-123", category="Safety", behavior="Compliance")
+        t = Test(id="t-123", category="Safety", requirement="Compliance")
         assert test_set._resolve_test_id(t) == "t-123"
 
     def test_resolve_dict_with_id(self, test_set):
@@ -65,7 +65,7 @@ class TestResolveTestId:
 
     def test_resolve_test_instance_no_id_raises(self, test_set):
         """Test instance without id raises ValueError."""
-        t = Test(category="Safety", behavior="Compliance")
+        t = Test(category="Safety", requirement="Compliance")
         with pytest.raises(ValueError, match="Cannot resolve test reference"):
             test_set._resolve_test_id(t)
 
@@ -89,8 +89,8 @@ class TestAddTests:
         }
         mock_request.return_value = mock_response
 
-        t1 = Test(id="t-1", category="Safety", behavior="B1")
-        t2 = Test(id="t-2", category="Safety", behavior="B2")
+        t1 = Test(id="t-1", category="Safety", requirement="B1")
+        t2 = Test(id="t-2", category="Safety", requirement="B2")
         result = test_set.add_tests([t1, t2])
 
         assert result is not None
@@ -146,7 +146,7 @@ class TestAddTests:
         mock_request.return_value = mock_response
 
         uuid = "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
-        t = Test(id="t-1", category="Safety", behavior="B")
+        t = Test(id="t-1", category="Safety", requirement="B")
         test_set.add_tests([t, {"id": "t-2"}, uuid])
 
         _, kwargs = mock_request.call_args
@@ -159,15 +159,15 @@ class TestAddTests:
         mock_response.json.return_value = {"success": True}
         mock_request.return_value = mock_response
 
-        t1 = Test(id="t-1", category="Safety", behavior="B1")
-        t2 = Test(id="t-2", category="Safety", behavior="B2")
+        t1 = Test(id="t-1", category="Safety", requirement="B1")
+        t2 = Test(id="t-2", category="Safety", requirement="B2")
         test_set.add_tests([t1, t2])
 
         assert mock_request.call_count == 1
 
     def test_add_tests_no_id_raises(self, test_set_no_id):
         """ValueError when test set has no ID."""
-        t = Test(id="t-1", category="Safety", behavior="B")
+        t = Test(id="t-1", category="Safety", requirement="B")
         with pytest.raises(ValueError, match="Test set ID must be set"):
             test_set_no_id.add_tests([t])
 
@@ -197,7 +197,7 @@ class TestRemoveTests:
         }
         mock_request.return_value = mock_response
 
-        t = Test(id="t-1", category="Safety", behavior="B")
+        t = Test(id="t-1", category="Safety", requirement="B")
         result = test_set.remove_tests([t])
 
         assert result is not None
@@ -234,8 +234,8 @@ class TestRemoveTests:
         mock_response.json.return_value = {"success": True}
         mock_request.return_value = mock_response
 
-        t1 = Test(id="t-1", category="Safety", behavior="B1")
-        t2 = Test(id="t-2", category="Safety", behavior="B2")
+        t1 = Test(id="t-1", category="Safety", requirement="B1")
+        t2 = Test(id="t-2", category="Safety", requirement="B2")
         test_set.remove_tests([t1, t2])
 
         assert mock_request.call_count == 1

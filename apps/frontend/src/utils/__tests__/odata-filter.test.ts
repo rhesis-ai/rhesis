@@ -51,7 +51,7 @@ describe('createWildcardSearchFilter', () => {
 
   it('creates filter for test-related fields', () => {
     const result = createWildcardSearchFilter('query');
-    expect(result).toContain('behavior/name');
+    expect(result).toContain('requirement/name');
     expect(result).toContain('topic/name');
     expect(result).toContain('category/name');
     expect(result).toContain('prompt/content');
@@ -147,14 +147,14 @@ describe('convertGridFilterModelToOData', () => {
     const result = convertGridFilterModelToOData({
       items: [
         {
-          field: 'behavior.name',
+          field: 'requirement.name',
           operator: 'contains',
           value: 'test',
           id: 1,
         },
       ],
     });
-    expect(result).toContain('behavior/name');
+    expect(result).toContain('requirement/name');
   });
 
   it('skips items with missing required fields', () => {
@@ -264,7 +264,7 @@ describe('convertTestQuickFilterToOData', () => {
   it('searches test-related fields', () => {
     const result = convertTestQuickFilterToOData(['safety']);
     expect(result).toContain('prompt/content');
-    expect(result).toContain('behavior/name');
+    expect(result).toContain('requirement/name');
     expect(result).toContain('topic/name');
     expect(result).toContain('category/name');
   });

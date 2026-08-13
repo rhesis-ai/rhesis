@@ -196,30 +196,30 @@ def test_metric_categorical(test_db, test_org_id, authenticated_user_id):
 
 
 @pytest.fixture
-def test_behavior_with_metrics(
+def test_requirement_with_metrics(
     test_db, test_org_id, authenticated_user_id, test_metric_numeric, test_metric_categorical
 ):
-    """Create a behavior with associated metrics for testing."""
+    """Create a requirement with associated metrics for testing."""
     from rhesis.backend.app import models
-    from rhesis.backend.app.crud.metric import add_behavior_to_metric
+    from rhesis.backend.app.crud.metric import add_requirement_to_metric
 
-    behavior = models.Behavior(
-        name="Test Behavior with Metrics",
-        description="Behavior for baseline metrics tests",
+    requirement = models.Requirement(
+        name="Test Requirement with Metrics",
+        description="Requirement for baseline metrics tests",
         organization_id=test_org_id,
         user_id=authenticated_user_id,
     )
-    test_db.add(behavior)
+    test_db.add(requirement)
     test_db.flush()
 
-    # Associate metrics with behavior using CRUD function to handle required fields
-    add_behavior_to_metric(
-        test_db, test_metric_numeric.id, behavior.id, authenticated_user_id, test_org_id
+    # Associate metrics with requirement using CRUD function to handle required fields
+    add_requirement_to_metric(
+        test_db, test_metric_numeric.id, requirement.id, authenticated_user_id, test_org_id
     )
-    add_behavior_to_metric(
-        test_db, test_metric_categorical.id, behavior.id, authenticated_user_id, test_org_id
+    add_requirement_to_metric(
+        test_db, test_metric_categorical.id, requirement.id, authenticated_user_id, test_org_id
     )
 
     test_db.commit()
-    test_db.refresh(behavior)
-    return behavior
+    test_db.refresh(requirement)
+    return requirement

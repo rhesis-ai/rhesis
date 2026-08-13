@@ -4,7 +4,7 @@ import pytest
 
 from rhesis.sdk.agents.architect.plan import (
     ArchitectPlan,
-    BehaviorSpec,
+    RequirementSpec,
     MappingSpec,
     MetricSpec,
     TestSetSpec,
@@ -40,13 +40,13 @@ class TestMetricScopeCoverage:
     ) -> ArchitectPlan:
         scope = metric_scope or ["Single-Turn"]
         return ArchitectPlan(
-            behaviors=[BehaviorSpec(name="Refuses Harmful Requests", description="d")],
+            requirements=[RequirementSpec(name="Refuses Harmful Requests", description="d")],
             test_sets=[
                 TestSetSpec(
                     name="Guardrails",
                     description="d",
                     test_type=test_type,
-                    behaviors=["Refuses Harmful Requests"],
+                    requirements=["Refuses Harmful Requests"],
                 )
             ],
             metrics=[
@@ -56,9 +56,9 @@ class TestMetricScopeCoverage:
                     metric_scope=scope,
                 )
             ],
-            behavior_metric_mappings=[
+            requirement_metric_mappings=[
                 MappingSpec(
-                    behavior="Refuses Harmful Requests",
+                    requirement="Refuses Harmful Requests",
                     metrics=["Safety Compliance"],
                 )
             ],
@@ -84,9 +84,9 @@ class TestMetricScopeCoverage:
         plan = self._plan(test_type="Multi-Turn", metric_scope=["Single-Turn", "Multi-Turn"])
         assert plan.test_sets[0].test_type == "Multi-Turn"
 
-    def test_skips_coverage_when_test_set_has_no_behaviors(self):
+    def test_skips_coverage_when_test_set_has_no_requirements(self):
         plan = ArchitectPlan(
-            behaviors=[],
+            requirements=[],
             test_sets=[TestSetSpec(name="Orphan", description="d", test_type="Multi-Turn")],
             metrics=[
                 MetricSpec(
@@ -95,20 +95,20 @@ class TestMetricScopeCoverage:
                     metric_scope=["Single-Turn"],
                 )
             ],
-            behavior_metric_mappings=[],
+            requirement_metric_mappings=[],
         )
-        assert plan.test_sets[0].behaviors == []
+        assert plan.test_sets[0].requirements == []
 
-    def test_rejects_behavior_without_mapping(self):
-        with pytest.raises(ValueError, match="no behavior_metric_mappings"):
+    def test_rejects_requirement_without_mapping(self):
+        with pytest.raises(ValueError, match="no requirement_metric_mappings"):
             ArchitectPlan(
-                behaviors=[BehaviorSpec(name="Safety", description="d")],
+                requirements=[RequirementSpec(name="Safety", description="d")],
                 test_sets=[
                     TestSetSpec(
                         name="Tests",
                         description="d",
                         test_type="Single-Turn",
-                        behaviors=["Safety"],
+                        requirements=["Safety"],
                     )
                 ],
                 metrics=[
@@ -118,7 +118,7 @@ class TestMetricScopeCoverage:
                         metric_scope=["Single-Turn"],
                     )
                 ],
-                behavior_metric_mappings=[],
+                requirement_metric_mappings=[],
             )
 
     def test_to_markdown_shows_metric_scope(self):

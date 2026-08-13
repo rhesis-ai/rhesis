@@ -26,7 +26,7 @@ jest.mock('../test-sets-client');
 jest.mock('../test-configurations-client');
 jest.mock('../prompts-client');
 jest.mock('../status-client');
-jest.mock('../behavior-client');
+jest.mock('../requirement-client');
 jest.mock('../topic-client');
 jest.mock('../category-client');
 jest.mock('../type-lookup-client');
@@ -69,7 +69,7 @@ describe('ApiClientFactory', () => {
       expect(MetricsClient).toHaveBeenCalledWith(...clientArgs);
       expect(MetricsClient).toHaveBeenCalledTimes(1);
 
-      // Second call should return the same instance (singleton behavior)
+      // Second call should return the same instance (singleton requirement)
       const metricsClient2 = factory.getMetricsClient();
       expect(MetricsClient).toHaveBeenCalledTimes(1); // Still only called once
       expect(metricsClient1).toBe(metricsClient2);
@@ -189,7 +189,7 @@ describe('ApiClientFactory', () => {
       expect(typeof factory.getTestConfigurationsClient).toBe('function');
       expect(typeof factory.getPromptsClient).toBe('function');
       expect(typeof factory.getStatusClient).toBe('function');
-      expect(typeof factory.getBehaviorClient).toBe('function');
+      expect(typeof factory.getRequirementClient).toBe('function');
       expect(typeof factory.getTopicClient).toBe('function');
       expect(typeof factory.getCategoryClient).toBe('function');
       expect(typeof factory.getTypeLookupClient).toBe('function');

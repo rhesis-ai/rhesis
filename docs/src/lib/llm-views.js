@@ -79,7 +79,7 @@ export function renderLlmsTxt() {
     '- [Agent reference](https://docs.rhesis.ai/docs/agent-skill/for-agents.md): routing, confusions, plan tables'
   )
   lines.push(
-    '- [Glossary](https://docs.rhesis.ai/glossary.md): platform terms (e.g. `glossary/behavior.md`, `glossary/test-result.md`, `glossary/metric-scope.md`, `glossary/tag.md`)'
+    '- [Glossary](https://docs.rhesis.ai/glossary.md): platform terms (e.g. `glossary/requirement.md`, `glossary/test-result.md`, `glossary/metric-scope.md`, `glossary/tag.md`)'
   )
   lines.push(
     '- [Metric scope](https://docs.rhesis.ai/docs/metrics/metric-scope.md): Single-Turn vs Multi-Turn alignment (critical)'

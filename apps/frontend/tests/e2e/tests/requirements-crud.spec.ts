@@ -1,62 +1,62 @@
 import { test, expect } from '@playwright/test';
-import { BehaviorsPage } from '../pages/BehaviorsPage';
+import { RequirementsPage } from '../pages/RequirementsPage';
 import { confirmDeleteDialog, openDrawer } from '../helpers/CrudHelper';
 
 /**
- * CRUD interaction tests for Behaviors.
+ * CRUD interaction tests for Requirements.
  *
  * Covers: A3.4 (create), A3.5 (edit), A3.6 (assign metric), A3.9 (delete).
  * All tests run against the real backend in Quick Start mode.
  */
-test.describe('Behaviors — CRUD @crud', () => {
-  test('can create a behavior via the drawer', async ({ page }) => {
+test.describe('Requirements — CRUD @crud', () => {
+  test('can create a requirement via the drawer', async ({ page }) => {
     const UNIQUE_NAME = `e2e-beh-${Date.now()}`;
 
-    const behaviorsPage = new BehaviorsPage(page);
-    await behaviorsPage.goto();
-    await behaviorsPage.expectLoaded();
+    const requirementsPage = new RequirementsPage(page);
+    await requirementsPage.goto();
+    await requirementsPage.expectLoaded();
     await page.waitForLoadState('networkidle');
 
-    await behaviorsPage.openNewBehaviorDrawer();
-    await behaviorsPage.fillBehaviorName(UNIQUE_NAME);
-    await behaviorsPage.fillBehaviorDescription(
+    await requirementsPage.openNewRequirementDrawer();
+    await requirementsPage.fillRequirementName(UNIQUE_NAME);
+    await requirementsPage.fillRequirementDescription(
       'Created by Playwright CRUD test'
     );
-    await behaviorsPage.submitNewBehavior();
+    await requirementsPage.submitNewRequirement();
 
     // The drawer should close after a successful save
-    await behaviorsPage.waitForDrawerClosed();
+    await requirementsPage.waitForDrawerClosed();
     await page.waitForLoadState('networkidle');
 
-    // The new behavior card should appear in the grid
-    const visible = await behaviorsPage.cardIsVisible(UNIQUE_NAME);
+    // The new requirement card should appear in the grid
+    const visible = await requirementsPage.cardIsVisible(UNIQUE_NAME);
     expect(visible).toBeTruthy();
   });
 
-  test('can edit a behavior name and description', async ({ page }) => {
+  test('can edit a requirement name and description', async ({ page }) => {
     const UNIQUE_NAME = `e2e-beh-edit-${Date.now()}`;
     const UPDATED_NAME = `${UNIQUE_NAME}-updated`;
 
-    const behaviorsPage = new BehaviorsPage(page);
-    await behaviorsPage.goto();
-    await behaviorsPage.expectLoaded();
+    const requirementsPage = new RequirementsPage(page);
+    await requirementsPage.goto();
+    await requirementsPage.expectLoaded();
     await page.waitForLoadState('networkidle');
 
-    // --- Setup: create a behavior to edit ---
-    await behaviorsPage.openNewBehaviorDrawer();
-    await behaviorsPage.fillBehaviorName(UNIQUE_NAME);
-    await behaviorsPage.submitNewBehavior();
-    await behaviorsPage.waitForDrawerClosed();
+    // --- Setup: create a requirement to edit ---
+    await requirementsPage.openNewRequirementDrawer();
+    await requirementsPage.fillRequirementName(UNIQUE_NAME);
+    await requirementsPage.submitNewRequirement();
+    await requirementsPage.waitForDrawerClosed();
     await page.waitForLoadState('networkidle');
     await expect(page.getByText(UNIQUE_NAME).first()).toBeVisible({
       timeout: 15_000,
     });
 
     // --- Edit: click pencil icon on the card ---
-    await behaviorsPage.clickEditOnCard(UNIQUE_NAME);
+    await requirementsPage.clickEditOnCard(UNIQUE_NAME);
 
     // The edit drawer should open — use :not([aria-hidden="true"]) to avoid
-    // matching the permanently-hidden BehaviorMetricsViewer portal.
+    // matching the permanently-hidden RequirementMetricsViewer portal.
     await page
       .locator('.MuiDrawer-anchorRight:not([aria-hidden="true"])')
       .waitFor({ state: 'visible', timeout: 10_000 });
@@ -88,58 +88,58 @@ test.describe('Behaviors — CRUD @crud', () => {
     });
   });
 
-  test('can delete a behavior via the delete icon', async ({ page }) => {
+  test('can delete a requirement via the delete icon', async ({ page }) => {
     const UNIQUE_NAME = `e2e-beh-del-${Date.now()}`;
 
-    const behaviorsPage = new BehaviorsPage(page);
-    await behaviorsPage.goto();
-    await behaviorsPage.expectLoaded();
+    const requirementsPage = new RequirementsPage(page);
+    await requirementsPage.goto();
+    await requirementsPage.expectLoaded();
     await page.waitForLoadState('networkidle');
 
-    // --- Setup: create a behavior to delete ---
-    await behaviorsPage.openNewBehaviorDrawer();
-    await behaviorsPage.fillBehaviorName(UNIQUE_NAME);
-    await behaviorsPage.submitNewBehavior();
-    await behaviorsPage.waitForDrawerClosed();
+    // --- Setup: create a requirement to delete ---
+    await requirementsPage.openNewRequirementDrawer();
+    await requirementsPage.fillRequirementName(UNIQUE_NAME);
+    await requirementsPage.submitNewRequirement();
+    await requirementsPage.waitForDrawerClosed();
     await page.waitForLoadState('networkidle');
     await expect(page.getByText(UNIQUE_NAME).first()).toBeVisible({
       timeout: 15_000,
     });
 
     // --- Delete: click the trash icon on the card ---
-    await behaviorsPage.clickDeleteOnCard(UNIQUE_NAME);
+    await requirementsPage.clickDeleteOnCard(UNIQUE_NAME);
 
     // Confirm in the deletion dialog
     await confirmDeleteDialog(page);
     await page.waitForLoadState('networkidle');
 
     // The card should no longer be visible
-    const gone = await behaviorsPage.cardIsGone(UNIQUE_NAME);
+    const gone = await requirementsPage.cardIsGone(UNIQUE_NAME);
     expect(gone).toBeTruthy();
   });
 
-  test('can assign a metric to a behavior via the add metric dialog', async ({
+  test('can assign a metric to a requirement via the add metric dialog', async ({
     page,
   }) => {
     const UNIQUE_NAME = `e2e-beh-metric-${Date.now()}`;
 
-    const behaviorsPage = new BehaviorsPage(page);
-    await behaviorsPage.goto();
-    await behaviorsPage.expectLoaded();
+    const requirementsPage = new RequirementsPage(page);
+    await requirementsPage.goto();
+    await requirementsPage.expectLoaded();
     await page.waitForLoadState('networkidle');
 
-    // --- Setup: create a behavior ---
-    await behaviorsPage.openNewBehaviorDrawer();
-    await behaviorsPage.fillBehaviorName(UNIQUE_NAME);
-    await behaviorsPage.submitNewBehavior();
-    await behaviorsPage.waitForDrawerClosed();
+    // --- Setup: create a requirement ---
+    await requirementsPage.openNewRequirementDrawer();
+    await requirementsPage.fillRequirementName(UNIQUE_NAME);
+    await requirementsPage.submitNewRequirement();
+    await requirementsPage.waitForDrawerClosed();
     await page.waitForLoadState('networkidle');
     await expect(page.getByText(UNIQUE_NAME).first()).toBeVisible({
       timeout: 15_000,
     });
 
     // --- Assign metric: click the "+" icon on the card ---
-    await behaviorsPage.clickAddMetricOnCard(UNIQUE_NAME);
+    await requirementsPage.clickAddMetricOnCard(UNIQUE_NAME);
 
     // Assign Metric drawer opens from the Linked Metrics tab
     await expect(openDrawer(page).getByText(/^assign metric$/i)).toBeVisible({
@@ -172,7 +172,7 @@ test.describe('Behaviors — CRUD @crud', () => {
 
     await page.waitForLoadState('networkidle');
 
-    // Behavior detail page should still show the behavior name
+    // Requirement detail page should still show the requirement name
     await expect(page.getByText(UNIQUE_NAME).first()).toBeVisible({
       timeout: 15_000,
     });

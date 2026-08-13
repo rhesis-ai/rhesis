@@ -187,7 +187,7 @@ _ORG_SCOPED_TABLES = [
     "trace",
     "test_test_set",
     "prompt_test_set",
-    "behavior_metric",
+    "requirement_metric",
     "tagged_item",
     "comment",
     "test_result",
@@ -203,7 +203,7 @@ _ORG_SCOPED_TABLES = [
     "endpoint",
     "project",
     "source",
-    "behavior",
+    "requirement",
     "category",
     "topic",
     "tag",
@@ -221,7 +221,7 @@ def _hard_delete_organization(db, organization_id: str) -> None:
 
     Most ``organization_id`` foreign keys in this schema are
     ``ON DELETE NO ACTION``, not ``CASCADE`` (confirmed via ``pg_constraint``:
-    user/token/project/behavior/test/test_run/... are all ``NO ACTION``; only
+    user/token/project/requirement/test/test_run/... are all ``NO ACTION``; only
     organization_member/project_membership/role cascade) — a plain
     ``DELETE FROM organization`` would fail with an FK violation as soon as any
     child row exists. This disables FK-trigger enforcement for the duration of

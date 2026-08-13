@@ -49,7 +49,7 @@ class TestServiceTransactionManagement:
             "tests": [
                 {
                     "prompt": {"content": "Test prompt content", "language_code": "en"},
-                    "behavior": "Test behavior",
+                    "requirement": "Test requirement",
                     "category": "Test category",
                     "topic": "Test topic",
                 }
@@ -95,7 +95,7 @@ class TestServiceTransactionManagement:
             "tests": [
                 {
                     "prompt": {"content": "Test prompt content", "language_code": "en"},
-                    "behavior": "Test behavior",
+                    "requirement": "Test requirement",
                     "category": "Test category",
                     "topic": "Test topic",
                 }
@@ -120,19 +120,19 @@ class TestServiceTransactionManagement:
         tests_data = [
             {
                 "prompt": {"content": "Test prompt content 1", "language_code": "en"},
-                "behavior": "Test behavior 1",
+                "requirement": "Test requirement 1",
                 "category": "Test category 1",
                 "topic": "Test topic 1",
             },
             {
                 "prompt": {"content": "Test prompt content 2", "language_code": "en"},
-                "behavior": "Test behavior 2",
+                "requirement": "Test requirement 2",
                 "category": "Test category 2",
                 "topic": "Test topic 2",
             },
             {
                 "prompt": {"content": "Test prompt content 3", "language_code": "en"},
-                "behavior": "Test behavior 3",
+                "requirement": "Test requirement 3",
                 "category": "Test category 3",
                 "topic": "Test topic 3",
             },
@@ -166,7 +166,7 @@ class TestServiceTransactionManagement:
         tests_data = [
             {
                 "prompt": {"content": "Test prompt content", "language_code": "en"},
-                "behavior": "Test behavior",
+                "requirement": "Test requirement",
                 "category": "Test category",
                 "topic": "Test topic",
             }
@@ -226,7 +226,7 @@ class TestServiceTransactionManagement:
             user_id=authenticated_user_id,
         )
 
-        # Create topic, behavior, and category
+        # Create topic, requirement, and category
         topic = models.Topic(
             name="Test Topic",
             description="Test topic for association",
@@ -238,13 +238,13 @@ class TestServiceTransactionManagement:
         test_db.add(topic)
         test_db.flush()
 
-        behavior = models.Behavior(
-            name="Test Behavior", description="Test behavior for association"
+        requirement = models.Requirement(
+            name="Test Requirement", description="Test requirement for association"
         )
-        behavior.organization_id = uuid.UUID(test_org_id)
-        behavior.user_id = uuid.UUID(authenticated_user_id)
-        behavior.status_id = db_status.id
-        test_db.add(behavior)
+        requirement.organization_id = uuid.UUID(test_org_id)
+        requirement.user_id = uuid.UUID(authenticated_user_id)
+        requirement.status_id = db_status.id
+        test_db.add(requirement)
         test_db.flush()
 
         category = models.Category(
@@ -267,7 +267,7 @@ class TestServiceTransactionManagement:
             },
             prompt_id=prompt.id,
             topic_id=topic.id,
-            behavior_id=behavior.id,
+            requirement_id=requirement.id,
             category_id=category.id,
         )
         test1.organization_id = uuid.UUID(test_org_id)
@@ -282,7 +282,7 @@ class TestServiceTransactionManagement:
             },
             prompt_id=prompt.id,
             topic_id=topic.id,
-            behavior_id=behavior.id,
+            requirement_id=requirement.id,
             category_id=category.id,
         )
         test2.organization_id = uuid.UUID(test_org_id)
@@ -426,7 +426,7 @@ class TestServiceTransactionManagement:
             "tests": [
                 {
                     "prompt": {"content": "Test prompt content", "language_code": "en"},
-                    "behavior": "Test behavior",
+                    "requirement": "Test requirement",
                     "category": "Test category",
                     "topic": "Test topic",
                 }
@@ -445,7 +445,7 @@ class TestServiceTransactionManagement:
             "tests": [
                 {
                     "prompt": {"content": "Test prompt content", "language_code": "en"},
-                    "behavior": "Test behavior",
+                    "requirement": "Test requirement",
                     "category": "Test category",
                     "topic": "Test topic",
                 }
@@ -482,7 +482,7 @@ class TestServiceTransactionManagement:
             "tests": [
                 {
                     "prompt": {"content": "Test prompt content", "language_code": "en"},
-                    "behavior": "Test behavior",
+                    "requirement": "Test requirement",
                     "category": "Test category",
                     "topic": "Test topic",
                 }
@@ -502,7 +502,7 @@ class TestServiceTransactionManagement:
             "tests": [
                 {
                     "prompt": {"content": "Test prompt content", "language_code": "en"},
-                    "behavior": "Test behavior",
+                    "requirement": "Test requirement",
                     "category": "Test category",
                     "topic": "Test topic",
                 }
@@ -541,19 +541,19 @@ class TestServiceTransactionManagement:
         test_set_data["tests"] = [
             {
                 "prompt": {"content": "Test prompt content 1", "language_code": "en"},
-                "behavior": "Test behavior 1",
+                "requirement": "Test requirement 1",
                 "category": "Test category 1",
                 "topic": "Test topic 1",
             },
             {
                 "prompt": {"content": "Test prompt content 2", "language_code": "en"},
-                "behavior": "Test behavior 2",
+                "requirement": "Test requirement 2",
                 "category": "Test category 2",
                 "topic": "Test topic 2",
             },
             {
                 "prompt": {"content": "Test prompt content 3", "language_code": "en"},
-                "behavior": "Test behavior 3",
+                "requirement": "Test requirement 3",
                 "category": "Test category 3",
                 "topic": "Test topic 3",
             },

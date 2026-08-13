@@ -17,7 +17,7 @@ import projectsFixture from '../fixtures/projects.json';
  * are used for the same resource, always call mockDetail() AFTER mockList()
  * so the more specific detail route takes priority.
  *
- * Patterns here match on bare resource paths (`/tokens`, `/behaviors`, …)
+ * Patterns here match on bare resource paths (`/tokens`, `/requirements`, …)
  * with no origin/host restriction, because the frontend's `API_BASE_URL`
  * varies across configurations (mock-backend, live backend, prod). A page
  * whose route happens to share its name with its own API resource (e.g. the
@@ -34,7 +34,7 @@ export class MockApiHelper {
    * Register a route, but only handle it for genuine API calls — never for
    * the top-level page navigation (`resourceType() === 'document'`), which
    * can otherwise collide with a bare resource path like `/tokens` or
-   * `/behaviors` and hijack the page load itself. See class docstring.
+   * `/requirements` and hijack the page load itself. See class docstring.
    */
   private async routeApi(
     pattern: string | RegExp,

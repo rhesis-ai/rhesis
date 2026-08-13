@@ -1,4 +1,4 @@
-import { BehaviorClient } from '../behavior-client';
+import { RequirementClient } from '../requirement-client';
 import { API_ENDPOINTS } from '../config';
 import { UUID } from 'crypto';
 
@@ -22,14 +22,14 @@ function makeFetch(
   } as unknown as Response);
 }
 
-const BEHAVIOR_ID = 'b1b1b1b1-0000-0000-0000-000000000001' as UUID;
+const REQUIREMENT_ID = 'b1b1b1b1-0000-0000-0000-000000000001' as UUID;
 
-describe('BehaviorClient', () => {
-  let client: BehaviorClient;
+describe('RequirementClient', () => {
+  let client: RequirementClient;
   let fetchMock: jest.Mock;
 
   beforeEach(() => {
-    client = new BehaviorClient('test-token');
+    client = new RequirementClient('test-token');
     fetchMock = jest.fn();
     global.fetch = fetchMock;
   });
@@ -37,16 +37,16 @@ describe('BehaviorClient', () => {
   afterEach(() => jest.restoreAllMocks());
 
   // -------------------------------------------------------------------------
-  // getBehaviors
+  // getRequirements
   // -------------------------------------------------------------------------
 
-  it('fetches behaviors with default params', async () => {
+  it('fetches requirements with default params', async () => {
     fetchMock.mockResolvedValue(makeFetch([{ id: 'b1' }]));
 
-    const result = await client.getBehaviors();
+    const result = await client.getRequirements();
 
     expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining(`${BASE_URL}${API_ENDPOINTS.behaviors}`),
+      expect.stringContaining(`${BASE_URL}${API_ENDPOINTS.requirements}`),
       expect.any(Object)
     );
     expect(result).toHaveLength(1);
@@ -55,105 +55,105 @@ describe('BehaviorClient', () => {
   it('includes $filter in URL when provided', async () => {
     fetchMock.mockResolvedValue(makeFetch([]));
 
-    await client.getBehaviors({ $filter: "name eq 'Safety'" });
+    await client.getRequirements({ $filter: "name eq 'Safety'" });
 
     const calledUrl = fetchMock.mock.calls[0][0] as string;
     expect(calledUrl).toContain('%24filter');
   });
 
   // -------------------------------------------------------------------------
-  // getBehavior / getBehaviorWithMetrics
+  // getRequirement / getRequirementWithMetrics
   // -------------------------------------------------------------------------
 
-  it('fetches a single behavior by id', async () => {
-    fetchMock.mockResolvedValue(makeFetch({ id: BEHAVIOR_ID }));
+  it('fetches a single requirement by id', async () => {
+    fetchMock.mockResolvedValue(makeFetch({ id: REQUIREMENT_ID }));
 
-    await client.getBehavior(BEHAVIOR_ID);
+    await client.getRequirement(REQUIREMENT_ID);
 
     expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining(`${API_ENDPOINTS.behaviors}/${BEHAVIOR_ID}`),
+      expect.stringContaining(`${API_ENDPOINTS.requirements}/${REQUIREMENT_ID}`),
       expect.any(Object)
     );
   });
 
-  it('fetches a behavior with metrics (includes=metrics in URL)', async () => {
-    fetchMock.mockResolvedValue(makeFetch({ id: BEHAVIOR_ID, metrics: [] }));
+  it('fetches a requirement with metrics (includes=metrics in URL)', async () => {
+    fetchMock.mockResolvedValue(makeFetch({ id: REQUIREMENT_ID, metrics: [] }));
 
-    await client.getBehaviorWithMetrics(BEHAVIOR_ID);
+    await client.getRequirementWithMetrics(REQUIREMENT_ID);
 
     const calledUrl = fetchMock.mock.calls[0][0] as string;
     expect(calledUrl).toContain('include=metrics');
   });
 
   // -------------------------------------------------------------------------
-  // getBehaviorsWithMetrics
+  // getRequirementsWithMetrics
   // -------------------------------------------------------------------------
 
-  it('getBehaviorsWithMetrics delegates to getBehaviors', async () => {
+  it('getRequirementsWithMetrics delegates to getRequirements', async () => {
     fetchMock.mockResolvedValue(makeFetch([{ id: 'b1', metrics: [] }]));
 
-    const result = await client.getBehaviorsWithMetrics();
+    const result = await client.getRequirementsWithMetrics();
 
     expect(result).toHaveLength(1);
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   // -------------------------------------------------------------------------
-  // createBehavior / updateBehavior / deleteBehavior
+  // createRequirement / updateRequirement / deleteRequirement
   // -------------------------------------------------------------------------
 
-  it('creates a behavior with POST', async () => {
+  it('creates a requirement with POST', async () => {
     fetchMock.mockResolvedValue(makeFetch({ id: 'new-b' }));
-    const payload = { name: 'New Behavior', description: 'desc' };
+    const payload = { name: 'New Requirement', description: 'desc' };
 
-    await client.createBehavior(payload as never);
+    await client.createRequirement(payload as never);
 
     const [url, opts] = fetchMock.mock.calls[0];
-    expect(url).toContain(API_ENDPOINTS.behaviors);
+    expect(url).toContain(API_ENDPOINTS.requirements);
     expect(opts.method).toBe('POST');
     expect(JSON.parse(opts.body)).toMatchObject(payload);
   });
 
-  it('updates a behavior with PUT', async () => {
-    fetchMock.mockResolvedValue(makeFetch({ id: BEHAVIOR_ID }));
+  it('updates a requirement with PUT', async () => {
+    fetchMock.mockResolvedValue(makeFetch({ id: REQUIREMENT_ID }));
 
-    await client.updateBehavior(BEHAVIOR_ID, { name: 'Updated' } as never);
+    await client.updateRequirement(REQUIREMENT_ID, { name: 'Updated' } as never);
 
     const [url, opts] = fetchMock.mock.calls[0];
-    expect(url).toContain(`${API_ENDPOINTS.behaviors}/${BEHAVIOR_ID}`);
+    expect(url).toContain(`${API_ENDPOINTS.requirements}/${REQUIREMENT_ID}`);
     expect(opts.method).toBe('PUT');
   });
 
-  it('deletes a behavior with DELETE', async () => {
-    fetchMock.mockResolvedValue(makeFetch({ id: BEHAVIOR_ID }));
+  it('deletes a requirement with DELETE', async () => {
+    fetchMock.mockResolvedValue(makeFetch({ id: REQUIREMENT_ID }));
 
-    await client.deleteBehavior(BEHAVIOR_ID);
+    await client.deleteRequirement(REQUIREMENT_ID);
 
     const [url, opts] = fetchMock.mock.calls[0];
-    expect(url).toContain(`${API_ENDPOINTS.behaviors}/${BEHAVIOR_ID}`);
+    expect(url).toContain(`${API_ENDPOINTS.requirements}/${REQUIREMENT_ID}`);
     expect(opts.method).toBe('DELETE');
   });
 
   // -------------------------------------------------------------------------
-  // getBehaviorMetrics
+  // getRequirementMetrics
   // -------------------------------------------------------------------------
 
-  it('fetches metrics for a behavior', async () => {
+  it('fetches metrics for a requirement', async () => {
     fetchMock.mockResolvedValue(makeFetch([{ id: 'm1' }]));
 
-    await client.getBehaviorMetrics(BEHAVIOR_ID);
+    await client.getRequirementMetrics(REQUIREMENT_ID);
 
     const calledUrl = fetchMock.mock.calls[0][0] as string;
     expect(calledUrl).toContain(
-      `${API_ENDPOINTS.behaviors}/${BEHAVIOR_ID}/metrics/`
+      `${API_ENDPOINTS.requirements}/${REQUIREMENT_ID}/metrics/`
     );
     expect(calledUrl).toContain('limit=100');
   });
 
-  it('passes custom skip/limit to getBehaviorMetrics', async () => {
+  it('passes custom skip/limit to getRequirementMetrics', async () => {
     fetchMock.mockResolvedValue(makeFetch([]));
 
-    await client.getBehaviorMetrics(BEHAVIOR_ID, { skip: 10, limit: 20 });
+    await client.getRequirementMetrics(REQUIREMENT_ID, { skip: 10, limit: 20 });
 
     const calledUrl = fetchMock.mock.calls[0][0] as string;
     expect(calledUrl).toContain('skip=10');

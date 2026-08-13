@@ -53,7 +53,7 @@ const AUTH_ENDPOINTS = [
   { name: 'auth_projects', path: '/projects/?skip=0&limit=10' },
   { name: 'auth_test_runs_stats', path: '/test_runs/stats' },
   { name: 'auth_test_sets_stats', path: '/test_sets/stats' },
-  { name: 'auth_behaviors', path: '/behaviors/' },
+  { name: 'auth_requirements', path: '/requirements/' },
   { name: 'auth_test_results', path: '/test_results/?skip=0&limit=50' },
 ];
 

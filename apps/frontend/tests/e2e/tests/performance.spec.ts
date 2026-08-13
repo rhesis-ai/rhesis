@@ -27,7 +27,7 @@ const perfRoutes = [
   { path: '/architect', name: 'Architect' },
   { path: '/projects', name: 'Projects' },
   { path: '/knowledge', name: 'Knowledge' },
-  { path: '/behaviors', name: 'Behaviors' },
+  { path: '/requirements', name: 'Requirements' },
   { path: '/playground', name: 'Playground' },
   { path: '/tests', name: 'Tests' },
   { path: '/test-sets', name: 'Test Sets' },

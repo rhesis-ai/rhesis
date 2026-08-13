@@ -7,10 +7,10 @@ Read this file first when routing a request. Do **not** answer platform mechanic
 ## Shared skeleton (every full workflow)
 
 ```text
-resolve by name → list_behaviors + list_metrics once → plan → user approval → create in order → optional execute → analyze
+resolve by name → list_requirements + list_metrics once → plan → user approval → create in order → optional execute → analyze
 ```
 
-Creation order: behaviors → metrics (with metric_scope) → mappings → tags (if planned) → generate_test_set → verify.
+Creation order: requirements → metrics (with metric_scope) → mappings → tags (if planned) → generate_test_set → verify.
 
 Details: `phases/creation.md`, `entity-model.md`, `metric-scope.md`, `metric-authoring.md`.
 
@@ -49,7 +49,7 @@ What would you like to do?
 
 1. Quick exploration — fast scan of an endpoint's domain and boundaries
 2. Comprehensive exploration — full capability and boundary analysis
-3. Build test foundation from a spec — behaviors, metrics, and test sets
+3. Build test foundation from a spec — requirements, metrics, and test sets
 4. Run or analyze existing tests — execute a test set or review/compare past runs
 ```
 
@@ -70,7 +70,7 @@ Skip the menu when intent is already clear. Spec and run/analyze paths skip expl
 
 | File | Contents |
 |---|---|
-| [Glossary](https://docs.rhesis.ai/glossary.md) | Canonical terms — `glossary/behavior.md`, `glossary/test-result.md`, `glossary/tag.md`, … |
+| [Glossary](https://docs.rhesis.ai/glossary.md) | Canonical terms — `glossary/requirement.md`, `glossary/test-result.md`, `glossary/tag.md`, … |
 | `definitions.md` | Confusions and PRD traceability only (glossary first) |
 | `entity-model.md` | Entity graph and tool chains |
 | `metric-scope.md` | Single-Turn vs Multi-Turn alignment |

@@ -16,5 +16,5 @@ __all__ = [
     # Hierarchical relationships
     "topic_with_children",
     # Associations
-    "behavior_with_metrics",
+    "requirement_with_metrics",
 ]

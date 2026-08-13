@@ -101,7 +101,7 @@ class TestCategorySpecificEdgeCases(CategoryTestMixin, BaseEntityTests):
         created_category = self.create_entity(authenticated_client)
 
         # Test filtering by entity type (this tests the query parameter handling)
-        response = authenticated_client.get(f"{self.endpoints.list}?entity_type=behavior")
+        response = authenticated_client.get(f"{self.endpoints.list}?entity_type=requirement")
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()

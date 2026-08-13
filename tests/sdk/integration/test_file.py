@@ -35,7 +35,7 @@ def test_with_id(db_cleanup):
     """Create and push a Test, returning it with a valid ID."""
     test = Test(
         category="Safety",
-        behavior="Refusal",
+        requirement="Refusal",
         prompt=Prompt(content="Test prompt for file tests"),
     )
     test.push()
@@ -211,7 +211,7 @@ def test_push_with_inline_files(db_cleanup, tmp_path):
 
     test = Test(
         category="Safety",
-        behavior="Refusal",
+        requirement="Refusal",
         prompt=Prompt(content="Inline file test"),
         files=[str(img_path)],
     )
@@ -231,7 +231,7 @@ def test_push_with_inline_base64_files(db_cleanup):
 
     test = Test(
         category="Safety",
-        behavior="Refusal",
+        requirement="Refusal",
         prompt=Prompt(content="Inline base64 file test"),
         files=[
             {
@@ -268,14 +268,14 @@ def test_file_push_raises():
 
 def test_add_files_without_test_id():
     """add_files() raises ValueError when test has no ID."""
-    test = Test(category="Safety", behavior="Refusal")
+    test = Test(category="Safety", requirement="Refusal")
     with pytest.raises(ValueError, match="Test must have an ID"):
         test.add_files(["anything.png"])
 
 
 def test_get_files_without_test_id():
     """get_files() raises ValueError when test has no ID."""
-    test = Test(category="Safety", behavior="Refusal")
+    test = Test(category="Safety", requirement="Refusal")
     with pytest.raises(ValueError, match="Test must have an ID"):
         test.get_files()
 

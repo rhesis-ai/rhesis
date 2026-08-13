@@ -192,13 +192,13 @@ class TestGarakTaxonomyIntegration:
             print("Consider adding explicit mappings in GarakTaxonomy.MODULE_MAPPINGS")
 
         # All modules should at least get a valid mapping (even if default)
-        from rhesis.backend.app.services.garak.taxonomy import resolve_behavior
+        from rhesis.backend.app.services.garak.taxonomy import resolve_requirement
 
         for module in modules:
             mapping = GarakTaxonomy.get_mapping(module.name)
             assert mapping.category, f"Module {module.name} should have a category"
             assert mapping.topic, f"Module {module.name} should have a topic"
-            assert resolve_behavior(module.tags), f"Module {module.name} should resolve a behavior"
+            assert resolve_requirement(module.tags), f"Module {module.name} should resolve a requirement"
 
     def test_taxonomy_detector_paths_are_valid(self):
         """Test that taxonomy detector paths follow garak conventions."""

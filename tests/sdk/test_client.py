@@ -46,10 +46,10 @@ def test_base_url():
 
 def test_get_url():
     client = APIClient(base_url="https://test.example.com/")
-    assert client.get_url("behaviors") == "https://test.example.com/behaviors"
-    assert client.get_url("/behaviors") == "https://test.example.com/behaviors"
-    assert client.get_url("behaviors/1") == "https://test.example.com/behaviors/1"
-    assert client.get_url("/behaviors/1") == "https://test.example.com/behaviors/1"
+    assert client.get_url("requirements") == "https://test.example.com/requirements"
+    assert client.get_url("/requirements") == "https://test.example.com/requirements"
+    assert client.get_url("requirements/1") == "https://test.example.com/requirements/1"
+    assert client.get_url("/requirements/1") == "https://test.example.com/requirements/1"
 
 
 @patch("requests.request")
@@ -62,12 +62,12 @@ def test_send_request_get(mock_request):
     mock_request.return_value = mock_response
 
     client = APIClient(api_key="test_key", base_url="https://test.example.com")
-    result = client.send_request(Endpoints.BEHAVIORS, Methods.GET)
+    result = client.send_request(Endpoints.REQUIREMENTS, Methods.GET)
 
     # Verify the request was made correctly
     mock_request.assert_called_once_with(
         method="GET",
-        url="https://test.example.com/behaviors",
+        url="https://test.example.com/requirements",
         headers=client.headers,
         json=None,
         params=None,
@@ -87,13 +87,13 @@ def test_send_request_post_with_data(mock_request):
     mock_request.return_value = mock_response
 
     client = APIClient(api_key="test_key", base_url="https://test.example.com")
-    data = {"name": "test_behavior", "type": "custom"}
-    result = client.send_request(Endpoints.BEHAVIORS, Methods.POST, data=data)
+    data = {"name": "test_requirement", "type": "custom"}
+    result = client.send_request(Endpoints.REQUIREMENTS, Methods.POST, data=data)
 
     # Verify the request was made correctly
     mock_request.assert_called_once_with(
         method="POST",
-        url="https://test.example.com/behaviors",
+        url="https://test.example.com/requirements",
         headers=client.headers,
         json=data,
         params=None,
@@ -139,12 +139,12 @@ def test_send_request_with_url_params(mock_request):
     mock_request.return_value = mock_response
 
     client = APIClient(api_key="test_key", base_url="https://test.example.com")
-    result = client.send_request(Endpoints.BEHAVIORS, Methods.GET, url_params="123")
+    result = client.send_request(Endpoints.REQUIREMENTS, Methods.GET, url_params="123")
 
     # Verify the request was made correctly
     mock_request.assert_called_once_with(
         method="GET",
-        url="https://test.example.com/behaviors/123",
+        url="https://test.example.com/requirements/123",
         headers=client.headers,
         json=None,
         params=None,
@@ -164,16 +164,16 @@ def test_send_request_put_with_all_params(mock_request):
     mock_request.return_value = mock_response
 
     client = APIClient(api_key="test_key", base_url="https://test.example.com")
-    data = {"name": "updated_behavior"}
+    data = {"name": "updated_requirement"}
     params = {"version": "1.0"}
     result = client.send_request(
-        Endpoints.BEHAVIORS, Methods.PUT, data=data, params=params, url_params="123"
+        Endpoints.REQUIREMENTS, Methods.PUT, data=data, params=params, url_params="123"
     )
 
     # Verify the request was made correctly
     mock_request.assert_called_once_with(
         method="PUT",
-        url="https://test.example.com/behaviors/123",
+        url="https://test.example.com/requirements/123",
         headers=client.headers,
         json=data,
         params=params,
@@ -194,7 +194,7 @@ def test_send_request_http_error(mock_request):
     client = APIClient(api_key="test_key", base_url="https://test.example.com")
 
     with pytest.raises(requests.HTTPError, match="404 Not Found"):
-        client.send_request(Endpoints.BEHAVIORS, Methods.GET)
+        client.send_request(Endpoints.REQUIREMENTS, Methods.GET)
 
 
 @patch("requests.request")
@@ -230,7 +230,7 @@ def test_send_request_all_methods(mock_request):
 
     # Test all methods
     for method in Methods:
-        result = client.send_request(Endpoints.BEHAVIORS, method)
+        result = client.send_request(Endpoints.REQUIREMENTS, method)
         assert result == {"status": "success"}
 
     # Should have been called for each method

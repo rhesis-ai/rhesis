@@ -3,7 +3,7 @@ import time
 import uuid
 from requests import HTTPError
 
-from rhesis.sdk.entities.behavior import Behavior
+from rhesis.sdk.entities.requirement import Requirement
 from rhesis.sdk.entities.category import Category
 from rhesis.sdk.entities.endpoint import Endpoint
 from rhesis.sdk.entities.project import Project
@@ -24,47 +24,47 @@ def _unique_name(prefix: str) -> str:
 
 
 # ============================================================================
-# Behavior Tests
+# Requirement Tests
 # ============================================================================
 
 
-def test_behavior(db_cleanup):
-    behavior = Behavior(
-        name="Test Behavior",
+def test_requirement(db_cleanup):
+    requirement = Requirement(
+        name="Test Requirement",
         description="Test Description",
     )
 
-    result = behavior.push()
+    result = requirement.push()
 
     assert result["id"] is not None
-    assert result["name"] == "Test Behavior"
+    assert result["name"] == "Test Requirement"
     assert result["description"] == "Test Description"
 
 
-def test_behavior_push_pull(db_cleanup):
-    behavior = Behavior(
-        name="Test push pull behavior",
-        description="Test push pull behavior description",
+def test_requirement_push_pull(db_cleanup):
+    requirement = Requirement(
+        name="Test push pull requirement",
+        description="Test push pull requirement description",
     )
-    behavior.push()
+    requirement.push()
 
-    pulled_behavior = behavior.pull()
+    pulled_requirement = requirement.pull()
 
-    assert pulled_behavior.name == "Test push pull behavior"
-    assert pulled_behavior.description == "Test push pull behavior description"
+    assert pulled_requirement.name == "Test push pull requirement"
+    assert pulled_requirement.description == "Test push pull requirement description"
 
 
-def test_behavior_delete(db_cleanup):
-    behavior = Behavior(
-        name="Test push pull behavior",
-        description="Test push pull behavior description",
+def test_requirement_delete(db_cleanup):
+    requirement = Requirement(
+        name="Test push pull requirement",
+        description="Test push pull requirement description",
     )
 
-    behavior.push()
-    behavior.delete()
+    requirement.push()
+    requirement.delete()
 
     with pytest.raises(HTTPError):
-        behavior.pull()
+        requirement.pull()
 
 
 # ============================================================================
@@ -887,14 +887,14 @@ def test_test_set_push(db_cleanup):
             Test(
                 category="Safety",
                 topic="Harmful Content",
-                behavior="Should refuse harmful requests",
+                requirement="Should refuse harmful requests",
                 prompt=Prompt(content="Test prompt 1"),
                 test_type=TestType.SINGLE_TURN,
             ),
             Test(
                 category="Safety",
                 topic="Privacy",
-                behavior="Should protect user privacy",
+                requirement="Should protect user privacy",
                 prompt=Prompt(content="Test prompt 2"),
                 test_type=TestType.SINGLE_TURN,
             ),
@@ -923,21 +923,21 @@ def test_test_set_push_pull(db_cleanup):
             Test(
                 category="Accuracy",
                 topic="Factual Correctness",
-                behavior="Should provide accurate information",
+                requirement="Should provide accurate information",
                 prompt=Prompt(content="What is 2+2?"),
                 test_type=TestType.SINGLE_TURN,
             ),
             Test(
                 category="Accuracy",
                 topic="Math",
-                behavior="Should calculate correctly",
+                requirement="Should calculate correctly",
                 prompt=Prompt(content="What is 10*10?"),
                 test_type=TestType.SINGLE_TURN,
             ),
             Test(
                 category="Safety",
                 topic="Harmful Content",
-                behavior="Should refuse harmful requests",
+                requirement="Should refuse harmful requests",
                 prompt=Prompt(content="Test prompt 3"),
                 test_type=TestType.SINGLE_TURN,
             ),
@@ -976,7 +976,7 @@ def test_test_set_pull_without_tests(db_cleanup):
             Test(
                 category="Safety",
                 topic="Test Topic",
-                behavior="Test behavior",
+                requirement="Test requirement",
                 prompt=Prompt(content="Test prompt"),
                 test_type=TestType.SINGLE_TURN,
             ),
@@ -1011,14 +1011,14 @@ def test_test_set_fetch_tests(db_cleanup):
             Test(
                 category="Robustness",
                 topic="Edge Cases",
-                behavior="Should handle edge cases",
+                requirement="Should handle edge cases",
                 prompt=Prompt(content="Edge case prompt 1"),
                 test_type=TestType.SINGLE_TURN,
             ),
             Test(
                 category="Robustness",
                 topic="Edge Cases",
-                behavior="Should handle empty input",
+                requirement="Should handle empty input",
                 prompt=Prompt(content=""),
                 test_type=TestType.SINGLE_TURN,
             ),

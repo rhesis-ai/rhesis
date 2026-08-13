@@ -40,7 +40,7 @@ class UserFieldDetector:
         # For certain entity types, we can make educated guesses based on actual model definitions
         entity_user_field_mapping = {
             # Entities with OrganizationAndUserMixin (user_id only)
-            "behavior": ["user_id"],
+            "requirement": ["user_id"],
             "category": ["user_id"],
             "status": ["user_id"],
             "topic": ["user_id"],

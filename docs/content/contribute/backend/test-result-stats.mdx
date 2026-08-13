@@ -20,7 +20,7 @@ The `mode` parameter selects which sections the response includes; every respons
 | `summary` | `overall_pass_rates` |
 | `overall` | `overall_pass_rates` |
 | `metrics` | `metric_pass_rates` |
-| `behavior` | `behavior_pass_rates` |
+| `requirement` | `requirement_pass_rates` |
 | `category` | `category_pass_rates` |
 | `topic` | `topic_pass_rates` |
 | `timeline` | `timeline` |
@@ -29,14 +29,14 @@ The `mode` parameter selects which sections the response includes; every respons
 
 ## Filters
 
-All UUID and tag filters accept multiple values via repeated parameters (e.g. `?behavior_ids=uuid1&behavior_ids=uuid2`); results match any of the given IDs. `tags` uses AND logic (a test must carry all listed tags).
+All UUID and tag filters accept multiple values via repeated parameters (e.g. `?requirement_ids=uuid1&requirement_ids=uuid2`); results match any of the given IDs. `tags` uses AND logic (a test must carry all listed tags).
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `test_set_ids` | UUID[] | Filter by test sets |
 | `test_ids` | UUID[] | Filter by specific tests |
 | `test_type_ids` | UUID[] | Filter by test types |
-| `behavior_ids` | UUID[] | Filter by behaviors |
+| `requirement_ids` | UUID[] | Filter by requirements |
 | `category_ids` | UUID[] | Filter by categories |
 | `topic_ids` | UUID[] | Filter by topics |
 | `status_ids` | UUID[] | Filter by test statuses |
@@ -52,7 +52,7 @@ All UUID and tag filters accept multiple values via repeated parameters (e.g. `?
 
 ## Response shape
 
-Each `*_pass_rates` block reports `total`, `passed`, `failed`, and `pass_rate` (percentage). `metric_pass_rates`, `behavior_pass_rates`, `category_pass_rates`, and `topic_pass_rates` key those blocks by name.
+Each `*_pass_rates` block reports `total`, `passed`, `failed`, and `pass_rate` (percentage). `metric_pass_rates`, `requirement_pass_rates`, `category_pass_rates`, and `topic_pass_rates` key those blocks by name.
 
 <CodeBlock filename="response.json" language="json">
 {`{
@@ -73,7 +73,7 @@ Each `*_pass_rates` block reports `total`, `passed`, `failed`, and `pass_rate` (
     "end_date": "2024-12-01T00:00:00+00:00",
     "organization_id": "org-uuid",
     "available_metrics": ["Answer Relevancy", "Answer Fluency"],
-    "available_behaviors": ["Factual Accuracy", "Reasoning"],
+    "available_requirements": ["Factual Accuracy", "Reasoning"],
     "available_categories": ["RAG Systems", "Chatbots"],
     "available_topics": ["Healthcare", "Finance"]
   }
@@ -89,8 +89,8 @@ curl '.../test_results/stats?mode=summary&months=1' -H 'Authorization: Bearer TO
 # 12-month metric trends for a regression suite
 curl '.../test_results/stats?mode=metrics&test_set_ids=uuid&months=12' -H 'Authorization: Bearer TOKEN'
 
-# Compare two behaviors over a date range
-curl '.../test_results/stats?mode=behavior&behavior_ids=uuid1&behavior_ids=uuid2&start_date=2024-01-01&end_date=2024-06-30' -H 'Authorization: Bearer TOKEN'`}
+# Compare two requirements over a date range
+curl '.../test_results/stats?mode=requirement&requirement_ids=uuid1&requirement_ids=uuid2&start_date=2024-01-01&end_date=2024-06-30' -H 'Authorization: Bearer TOKEN'`}
 </CodeBlock>
 
 ## Related documentation

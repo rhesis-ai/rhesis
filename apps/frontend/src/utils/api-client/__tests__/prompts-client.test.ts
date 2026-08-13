@@ -50,16 +50,16 @@ describe('PromptsClient', () => {
     expect(calledUrl).toContain('limit=20');
   });
 
-  it('includes topic_id, behavior_id, and category_id when provided', async () => {
+  it('includes topic_id, requirement_id, and category_id when provided', async () => {
     fetchMock.mockResolvedValue(makeFetch([]));
     await client.getPrompts({
       topic_id: 't1',
-      behavior_id: 'b1',
+      requirement_id: 'b1',
       category_id: 'c1',
     });
     const calledUrl = fetchMock.mock.calls[0][0] as string;
     expect(calledUrl).toContain('topic_id=t1');
-    expect(calledUrl).toContain('behavior_id=b1');
+    expect(calledUrl).toContain('requirement_id=b1');
     expect(calledUrl).toContain('category_id=c1');
   });
 

@@ -2,7 +2,7 @@
 🧪 Metrics Test Fixtures
 
 This module contains fixtures for testing the current backend metrics infrastructure.
-These fixtures support baseline regression tests to lock in current behavior before migration.
+These fixtures support baseline regression tests to lock in current requirement before migration.
 """
 
 from .metric_factories import *
@@ -29,5 +29,5 @@ __all__ = [
     "test_model",
     "test_metric_numeric",
     "test_metric_categorical",
-    "test_behavior_with_metrics",
+    "test_requirement_with_metrics",
 ]

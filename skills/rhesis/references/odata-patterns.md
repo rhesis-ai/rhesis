@@ -20,11 +20,11 @@ $select=name,id,description
 | Tool | Recommended `$select` |
 |------|----------------------|
 | `list_endpoints` | `name,id,url,description` |
-| `list_behaviors` | `name,id,description` |
+| `list_requirements` | `name,id,description` |
 | `list_metrics` | `name,id,score_type,threshold` |
 | `list_test_sets` | `name,id,description` |
 | `list_test_runs` | `id,status,test_set,created_at` |
-| `list_test_results` | `id,status,prompt,behavior,metric_scores` |
+| `list_test_results` | `id,status,prompt,requirement,metric_scores` |
 
 ---
 
@@ -77,7 +77,7 @@ Instead of making one call per entity, batch them with OR:
 $filter=tolower(name) eq 'refuses harmful requests' or tolower(name) eq 'provides accurate information' or tolower(name) eq 'handles errors gracefully'
 ```
 
-Use this after creating behaviors to resolve all their IDs in a single call.
+Use this after creating requirements to resolve all their IDs in a single call.
 
 ### Combining filter and select
 
@@ -104,10 +104,10 @@ $skip=0
 
 ## Worked examples
 
-### Resolve a behavior by approximate name
+### Resolve a requirement by approximate name
 
 ```
-list_behaviors
+list_requirements
   $filter=contains(tolower(name), 'safety')
   $select=name,id,description
 ```
@@ -117,7 +117,7 @@ list_behaviors
 ```
 list_test_results
   $filter=test_run_id eq '6a01639e-...' and status/name eq 'Failed'
-  $select=id,status,prompt,behavior,metric_scores
+  $select=id,status,prompt,requirement,metric_scores
 ```
 
 ### Find a test run that completed for a specific test set
@@ -128,10 +128,10 @@ list_test_runs
   $select=id,status,test_set,created_at
 ```
 
-### Resolve three behavior IDs in one call
+### Resolve three requirement IDs in one call
 
 ```
-list_behaviors
+list_requirements
   $filter=tolower(name) eq 'refuses harmful requests' or tolower(name) eq 'provides accurate information' or tolower(name) eq 'responds within domain'
   $select=name,id
 ```

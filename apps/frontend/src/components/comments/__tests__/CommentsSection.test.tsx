@@ -11,7 +11,7 @@ jest.mock('@/components/common/Can', () => ({
   can: (_subject: unknown, _capability: string) => true,
 }));
 
-// Mock CommentItem and UserAvatar to keep tests focused on CommentsSection behavior
+// Mock CommentItem and UserAvatar to keep tests focused on CommentsSection requirement
 jest.mock('../CommentItem', () => ({
   CommentItem: ({
     comment,

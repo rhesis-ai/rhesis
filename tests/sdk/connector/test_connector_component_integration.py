@@ -1,7 +1,7 @@
 """Component-level integration tests for SDK connector over WebSocket.
 
 These tests run in-process with a lightweight fake backend WebSocket server.
-They validate real connector behavior (connect, register, execute metric)
+They validate real connector requirement (connect, register, execute metric)
 without requiring Docker or a real backend stack.
 """
 

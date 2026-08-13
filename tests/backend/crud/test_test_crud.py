@@ -19,7 +19,7 @@ import pytest
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models
-from rhesis.backend.app.constants import EXPLORER_BEHAVIOR_NAME
+from rhesis.backend.app.constants import EXPLORER_REQUIREMENT_NAME
 from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.services import test_set as test_set_service
 from rhesis.backend.app.utils.crud_utils import count_items
@@ -38,7 +38,7 @@ class TestTestOperations:
         db_test = db_test_minimal
         test_id = db_test.id
 
-        # Test deletion - no mocking needed, test real behavior
+        # Test deletion - no mocking needed, test real requirement
         result = crud.delete_test(
             db=test_db, test_id=test_id, organization_id=test_org_id, user_id=authenticated_user_id
         )
@@ -67,16 +67,16 @@ class TestTestOperations:
         # Should return None for non-existent test
         assert result is None
 
-    def test_update_test_refreshes_test_set_attributes_on_behavior_change(
+    def test_update_test_refreshes_test_set_attributes_on_requirement_change(
         self, test_db: Session, test_org_id: str, authenticated_user_id: str
     ):
-        """Updating test behavior refreshes linked test set denormalized attributes."""
-        compliance = models.Behavior(
+        """Updating test requirement refreshes linked test set denormalized attributes."""
+        compliance = models.Requirement(
             name="Compliance",
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
-        robustness = models.Behavior(
+        robustness = models.Requirement(
             name="Robustness",
             organization_id=test_org_id,
             user_id=authenticated_user_id,
@@ -85,7 +85,7 @@ class TestTestOperations:
         test_db.flush()
 
         db_test = models.Test(
-            behavior_id=compliance.id,
+            requirement_id=compliance.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
@@ -120,18 +120,18 @@ class TestTestOperations:
             user_id=authenticated_user_id,
         )
         assert seeded_test_set is not None
-        assert seeded_test_set.attributes["metadata"]["behaviors"] == ["Compliance"]
+        assert seeded_test_set.attributes["metadata"]["requirements"] == ["Compliance"]
 
         result = crud.update_test(
             db=test_db,
             test_id=db_test.id,
-            test={"behavior_id": robustness.id},
+            test={"requirement_id": robustness.id},
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
 
         assert result is not None
-        assert result.behavior_id == robustness.id
+        assert result.requirement_id == robustness.id
 
         reloaded_test_set = crud.get_test_set(
             test_db,
@@ -140,7 +140,7 @@ class TestTestOperations:
             user_id=authenticated_user_id,
         )
         assert reloaded_test_set is not None
-        assert reloaded_test_set.attributes["metadata"]["behaviors"] == ["Robustness"]
+        assert reloaded_test_set.attributes["metadata"]["requirements"] == ["Robustness"]
 
     def test_update_test_skips_attribute_refresh_for_non_metadata_fields(
         self, test_db: Session, db_test_minimal, test_org_id: str, authenticated_user_id: str
@@ -164,12 +164,12 @@ class TestTestOperations:
         self, test_db: Session, test_org_id: str, authenticated_user_id: str
     ):
         """Explorer test sets keep their own attributes when a linked test changes."""
-        compliance = models.Behavior(
+        compliance = models.Requirement(
             name="Compliance",
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
-        robustness = models.Behavior(
+        robustness = models.Requirement(
             name="Robustness",
             organization_id=test_org_id,
             user_id=authenticated_user_id,
@@ -178,7 +178,7 @@ class TestTestOperations:
         test_db.flush()
 
         db_test = models.Test(
-            behavior_id=compliance.id,
+            requirement_id=compliance.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
@@ -186,7 +186,7 @@ class TestTestOperations:
             name="Explorer Test Set",
             organization_id=test_org_id,
             user_id=authenticated_user_id,
-            attributes={"metadata": {"behaviors": [EXPLORER_BEHAVIOR_NAME]}},
+            attributes={"metadata": {"requirements": [EXPLORER_REQUIREMENT_NAME]}},
             explorer_row=True,
         )
         test_db.add_all([db_test, explorer_test_set])
@@ -205,7 +205,7 @@ class TestTestOperations:
         crud.update_test(
             db=test_db,
             test_id=db_test.id,
-            test={"behavior_id": robustness.id},
+            test={"requirement_id": robustness.id},
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
@@ -217,8 +217,8 @@ class TestTestOperations:
             user_id=authenticated_user_id,
         )
         assert reloaded_explorer_test_set is not None
-        assert reloaded_explorer_test_set.attributes["metadata"]["behaviors"] == [
-            EXPLORER_BEHAVIOR_NAME
+        assert reloaded_explorer_test_set.attributes["metadata"]["requirements"] == [
+            EXPLORER_REQUIREMENT_NAME
         ]
 
 
@@ -227,9 +227,9 @@ class TestTestOperations:
 class TestBulkDeleteTests:
     """🧪 crud.bulk_delete_tests"""
 
-    def _make_test(self, test_db, test_org_id, authenticated_user_id, behavior_id, test_set_id):
+    def _make_test(self, test_db, test_org_id, authenticated_user_id, requirement_id, test_set_id):
         db_test = models.Test(
-            behavior_id=behavior_id,
+            requirement_id=requirement_id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
@@ -251,10 +251,10 @@ class TestBulkDeleteTests:
     ):
         """Deleting several tests spread across 2 test sets recomputes each
         test set's attributes exactly once, not once per deleted test."""
-        behavior = models.Behavior(
+        requirement = models.Requirement(
             name="Compliance", organization_id=test_org_id, user_id=authenticated_user_id
         )
-        test_db.add(behavior)
+        test_db.add(requirement)
         test_db.flush()
 
         test_set_a = models.TestSet(
@@ -268,11 +268,11 @@ class TestBulkDeleteTests:
 
         # 2 tests in set A, 1 test in set B
         tests_a = [
-            self._make_test(test_db, test_org_id, authenticated_user_id, behavior.id, test_set_a.id)
+            self._make_test(test_db, test_org_id, authenticated_user_id, requirement.id, test_set_a.id)
             for _ in range(2)
         ]
         test_b = self._make_test(
-            test_db, test_org_id, authenticated_user_id, behavior.id, test_set_b.id
+            test_db, test_org_id, authenticated_user_id, requirement.id, test_set_b.id
         )
         all_ids = [t.id for t in tests_a] + [test_b.id]
 
@@ -339,10 +339,10 @@ class TestBulkDeleteTests:
         test_db.add(models.Organization(id=uuid.UUID(other_org_id), name="Other Org"))
         test_db.flush()
 
-        behavior = models.Behavior(
+        requirement = models.Requirement(
             name="Compliance", organization_id=test_org_id, user_id=authenticated_user_id
         )
-        test_db.add(behavior)
+        test_db.add(requirement)
         test_db.flush()
 
         own_test_set = models.TestSet(
@@ -355,11 +355,11 @@ class TestBulkDeleteTests:
         test_db.flush()
 
         own_test = self._make_test(
-            test_db, test_org_id, authenticated_user_id, behavior.id, own_test_set.id
+            test_db, test_org_id, authenticated_user_id, requirement.id, own_test_set.id
         )
 
         foreign_test = models.Test(
-            behavior_id=behavior.id,
+            requirement_id=requirement.id,
             organization_id=other_org_id,
             user_id=authenticated_user_id,
         )

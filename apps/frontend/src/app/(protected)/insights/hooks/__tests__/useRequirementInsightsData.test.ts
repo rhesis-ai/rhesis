@@ -2,7 +2,7 @@ import React from 'react';
 import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { DEFAULT_INSIGHTS_FILTERS } from '../../types';
-import { useBehaviorInsightsData } from '../useBehaviorInsightsData';
+import { useRequirementInsightsData } from '../useRequirementInsightsData';
 
 jest.mock('next-auth/react', () => ({
   useSession: () => ({
@@ -11,10 +11,10 @@ jest.mock('next-auth/react', () => ({
   }),
 }));
 
-jest.mock('../../utils/behavior-insights-utils', () => ({
-  ...jest.requireActual('../../utils/behavior-insights-utils'),
+jest.mock('../../utils/requirement-insights-utils', () => ({
+  ...jest.requireActual('../../utils/requirement-insights-utils'),
   resolveInsightsQueryTestRunIds: jest.fn(),
-  buildBehaviorColumns: jest.fn(() => []),
+  buildRequirementColumns: jest.fn(() => []),
 }));
 
 function mockInsightsQueryResponse(summaryRow: {
@@ -29,27 +29,27 @@ function mockInsightsQueryResponse(summaryRow: {
       measures: ['count', 'passed', 'failed', 'pass_rate'],
       rows: [summaryRow],
     },
-    behaviors: {
+    requirements: {
       entity: 'test_result',
-      dimensions: ['behavior_id', 'behavior'],
+      dimensions: ['requirement_id', 'requirement'],
       measures: ['count', 'passed', 'failed', 'pass_rate'],
       rows: [],
     },
     topics: {
       entity: 'test_result',
-      dimensions: ['behavior_id', 'topic_id', 'topic'],
+      dimensions: ['requirement_id', 'topic_id', 'topic'],
       measures: ['count', 'passed', 'failed', 'pass_rate'],
       rows: [],
     },
     metrics: {
       entity: 'metric',
-      dimensions: ['behavior_id', 'metric_name'],
+      dimensions: ['requirement_id', 'metric_name'],
       measures: ['count', 'passed', 'failed', 'pass_rate'],
       rows: [],
     },
-    allBehaviors: {
+    allRequirements: {
       entity: 'test_result',
-      dimensions: ['behavior_id', 'behavior'],
+      dimensions: ['requirement_id', 'requirement'],
       measures: ['count', 'passed', 'failed', 'pass_rate'],
       rows: [],
     },
@@ -70,7 +70,7 @@ jest.mock('@/utils/api-client/client-factory', () => ({
   })),
 }));
 
-import { resolveInsightsQueryTestRunIds } from '../../utils/behavior-insights-utils';
+import { resolveInsightsQueryTestRunIds } from '../../utils/requirement-insights-utils';
 
 const mockResolveTestRunIds = resolveInsightsQueryTestRunIds as jest.Mock;
 
@@ -87,7 +87,7 @@ function createWrapper() {
   };
 }
 
-describe('useBehaviorInsightsData', () => {
+describe('useRequirementInsightsData', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     mockResolveTestRunIds.mockReset();
@@ -105,7 +105,7 @@ describe('useBehaviorInsightsData', () => {
       endpointId: 'ep-1',
     };
 
-    const { result } = renderHook(() => useBehaviorInsightsData(filters), {
+    const { result } = renderHook(() => useRequirementInsightsData(filters), {
       wrapper: createWrapper(),
     });
 
@@ -124,7 +124,7 @@ describe('useBehaviorInsightsData', () => {
 
     const { result } = renderHook(
       () =>
-        useBehaviorInsightsData(
+        useRequirementInsightsData(
           {
             ...DEFAULT_INSIGHTS_FILTERS,
             endpointId: 'ep-1',
@@ -150,7 +150,7 @@ describe('useBehaviorInsightsData', () => {
     };
 
     const { result, rerender } = renderHook(
-      ({ enabled }) => useBehaviorInsightsData(filters, enabled),
+      ({ enabled }) => useRequirementInsightsData(filters, enabled),
       { initialProps: { enabled: false }, wrapper: createWrapper() }
     );
 
@@ -171,16 +171,16 @@ describe('useBehaviorInsightsData', () => {
     });
   });
 
-  it('shows zero data when behaviorIds is explicitly filtered to nothing', async () => {
+  it('shows zero data when requirementIds is explicitly filtered to nothing', async () => {
     mockResolveTestRunIds.mockResolvedValue(['run-1']);
 
     const filters = {
       ...DEFAULT_INSIGHTS_FILTERS,
       endpointId: 'ep-1',
-      behaviorIds: [], // explicitly unchecked every behavior -- not "no filter"
+      requirementIds: [], // explicitly unchecked every requirement -- not "no filter"
     };
 
-    const { result } = renderHook(() => useBehaviorInsightsData(filters), {
+    const { result } = renderHook(() => useRequirementInsightsData(filters), {
       wrapper: createWrapper(),
     });
 
@@ -211,7 +211,7 @@ describe('useBehaviorInsightsData', () => {
       statusIds: [], // explicitly unchecked every status
     };
 
-    const { result } = renderHook(() => useBehaviorInsightsData(filters), {
+    const { result } = renderHook(() => useRequirementInsightsData(filters), {
       wrapper: createWrapper(),
     });
 

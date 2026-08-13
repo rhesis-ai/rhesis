@@ -48,6 +48,8 @@ export default withNextra({
       { source: '/docs/frameworks', destination: '/docs/metrics', permanent },
       { source: '/docs/mcp', destination: '/docs/tools', permanent },
       { source: '/docs/mcp/:path*', destination: '/docs/tools/:path*', permanent },
+      { source: '/docs/behaviors', destination: '/docs/requirements', permanent },
+      { source: '/glossary/behavior', destination: '/glossary/requirement', permanent },
       { source: '/docs/test-execution', destination: '/docs/test-runs/execution', permanent },
       // Avoid clash with public/static assets under /integrations/* — only the bare path is a doc URL
       { source: '/integrations', destination: '/docs/integrations', permanent },

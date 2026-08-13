@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
 from rhesis.backend.app.constants import TestType
-from rhesis.backend.app.models import Behavior, Category, Prompt, Test, Topic, TypeLookup
+from rhesis.backend.app.models import Requirement, Category, Prompt, Test, Topic, TypeLookup
 from rhesis.backend.app.models.enums import ModelType
 from rhesis.backend.app.services.embedding.services import EmbeddingService
 
@@ -89,17 +89,17 @@ def test_entity(
     test_db.flush()
     test_db.refresh(topic)
 
-    # Create Behavior
-    behavior = Behavior(
-        name="Test Behavior",
-        description="A test behavior",
+    # Create Requirement
+    requirement = Requirement(
+        name="Test Requirement",
+        description="A test requirement",
         organization_id=test_org_id,
         user_id=authenticated_user_id,
         status_id=db_status.id,
     )
-    test_db.add(behavior)
+    test_db.add(requirement)
     test_db.flush()
-    test_db.refresh(behavior)
+    test_db.refresh(requirement)
 
     # Create Category
     category = Category(
@@ -130,7 +130,7 @@ def test_entity(
         prompt_id=prompt.id,
         test_type_id=single_turn_type.id,
         topic_id=topic.id,
-        behavior_id=behavior.id,
+        requirement_id=requirement.id,
         category_id=category.id,
         status_id=db_status.id,
         organization_id=test_org_id,

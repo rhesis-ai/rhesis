@@ -93,7 +93,7 @@ const meta: MetaRecord = {
     ),
   },
   knowledge: 'Knowledge',
-  behaviors: 'Behaviors',
+  requirements: 'Requirements',
   metrics: 'Metrics',
 
   '---generate': {

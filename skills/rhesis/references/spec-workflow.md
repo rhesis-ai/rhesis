@@ -1,6 +1,6 @@
 # Spec → test foundation
 
-Turn a Product Requirements Document (PRD), product spec, or guardrails doc into behaviors, metrics, tags, mappings, and test sets on Rhesis.
+Turn a Product Requirements Document (PRD), product spec, or guardrails doc into requirements, metrics, tags, mappings, and test sets on Rhesis.
 
 **Read:** `use-case-bracketfeld.md` for the full deliverable shape. **Read:** `metric-scope.md` before presenting any plan.
 
@@ -10,7 +10,7 @@ Turn a Product Requirements Document (PRD), product spec, or guardrails doc into
 
 - User pasted or attached a PRD, product spec, or guardrails doc
 - User chose menu option **Spec → test foundation**
-- User asks to scaffold behaviors/metrics from a spec
+- User asks to scaffold requirements/metrics from a spec
 
 **Skip** `explore_endpoint` unless the user asks after the foundation exists.
 
@@ -21,7 +21,7 @@ Turn a Product Requirements Document (PRD), product spec, or guardrails doc into
 ## Pipeline
 
 ```text
-Intake → Extract behaviors → Design metrics from AC (+ metric_scope) → Plan tags & test sets
+Intake → Extract requirements → Design metrics from AC (+ metric_scope) → Plan tags & test sets
 → Scope matrix → Assumptions & gaps → User approval → Create → assign_tag → generate_test_set → Verify
 ```
 
@@ -37,17 +37,17 @@ Large specs: offer `create_source` (title + content) for Single-Turn grounding.
 
 ---
 
-## 2. Behaviors
+## 2. Requirements
 
-One behavior = one testable expectation. **Never** use section titles or persona names as behaviors.
+One requirement = one testable expectation. **Never** use section titles or persona names as requirements.
 
-Target **6–12 behaviors** for a typical agent spec. Split bundled prose using the patterns in `use-case-bracketfeld.md` § Behavior extraction.
+Target **6–12 requirements** for a typical agent spec. Split bundled prose using the patterns in `use-case-bracketfeld.md` § Requirement extraction.
 
 ---
 
 ## 3. Metrics
 
-Metrics come from **acceptance criteria / FR text**, not behavior titles.
+Metrics come from **acceptance criteria / FR text**, not requirement titles.
 
 Each metric needs: `score_type`, **`metric_scope`**, `evaluation_prompt` quoting the source FR/AC.
 
@@ -64,10 +64,10 @@ Split by theme and **`metric_scope`**. One `test_type` per set. Run scope covera
 ## 5. Present plan (required sections)
 
 1. Spec summary (2–3 sentences)
-2. Behaviors table (reuse/new)
+2. Requirements table (reuse/new)
 3. Metrics table (AC source, scope, score type, pass rule)
 4. Mappings table
-5. Test sets table (`test_type`, behaviors, generation_prompt summary)
+5. Test sets table (`test_type`, requirements, generation_prompt summary)
 6. **Scope coverage matrix**
 7. Tags (if any)
 8. **Assumptions & gaps** / TBD items
@@ -83,7 +83,7 @@ Follow `phases/creation.md`. Set `metric_scope` on every new metric. `assign_tag
 
 ## Checklist before approval
 
-- [ ] No umbrella behavior names
+- [ ] No umbrella requirement names
 - [ ] Every metric has AC traceability and `metric_scope`
 - [ ] Scope matrix: all rows OK
 - [ ] TBD items flagged, not invented rubrics

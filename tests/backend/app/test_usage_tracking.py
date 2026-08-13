@@ -1,7 +1,7 @@
 """Unit tests for :mod:`rhesis.backend.app.utils.usage_tracking`.
 
 Pure unit tests -- no database, no Docker, no Celery broker. The task's
-`.delay()` is monkeypatched so these verify dispatch behavior in isolation
+`.delay()` is monkeypatched so these verify dispatch requirement in isolation
 from the real Celery app and the usage-accounting service.
 
 The sink is only ever handed an already-normalized ``TokenUsage`` by

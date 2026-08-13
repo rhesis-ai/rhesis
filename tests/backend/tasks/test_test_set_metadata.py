@@ -23,7 +23,7 @@ def _make_sdk_test_set(name="Generated Set", metadata=None):
     # One minimal test so the function doesn't raise "No tests to save"
     test_dict = {
         "prompt": {"content": "hello", "language_code": "en"},
-        "behavior": "Harmful",
+        "requirement": "Harmful",
         "category": "Security",
         "topic": "Injection",
         "metadata": {"generated_by": "ConfigSynthesizer", "additional_info": {}},

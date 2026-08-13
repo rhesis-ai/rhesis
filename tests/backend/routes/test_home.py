@@ -441,7 +441,7 @@ class TestHomeIntegration:
         """
         🔒 Test access pattern for protected endpoint
 
-        Verifies proper access control behavior.
+        Verifies proper access control requirement.
         """
         from fastapi import HTTPException
 
@@ -567,9 +567,9 @@ class TestHomeHealthChecks:
         data = response.json()
         assert "message" in data
 
-    def test_home_endpoints_consistent_behavior(self, client: TestClient):
+    def test_home_endpoints_consistent_requirement(self, client: TestClient):
         """
-        🔄 Test consistent behavior across multiple requests
+        🔄 Test consistent requirement across multiple requests
 
         Should return consistent responses for the same conditions.
         """

@@ -429,7 +429,7 @@ class TestAuthenticationFlow:
         """Test that protected routes require authentication"""
         # Test various protected endpoints
         protected_endpoints = [
-            "/behaviors/",
+            "/requirements/",
             "/categories/",
             "/topics/",
             "/users/",

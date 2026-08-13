@@ -24,7 +24,7 @@ from fastapi import status
 
 from .base import BaseEntityRouteTests, BaseEntityTests
 from .endpoints import APIEndpoints
-from .fixtures.data_factories import BehaviorDataFactory, MetricDataFactory
+from .fixtures.data_factories import RequirementDataFactory, MetricDataFactory
 
 # Initialize Faker
 fake = Faker()
@@ -77,31 +77,31 @@ class TestMetricStandardRoutes(MetricTestMixin, BaseEntityRouteTests):
 
 
 @pytest.mark.integration
-class TestMetricBehaviorRelationships(MetricTestMixin, BaseEntityTests):
-    """Enhanced metric-behavior relationship tests using factories"""
+class TestMetricRequirementRelationships(MetricTestMixin, BaseEntityTests):
+    """Enhanced metric-requirement relationship tests using factories"""
 
-    def test_get_metric_behaviors_empty(self, metric_factory):
-        """🔗 Test getting behaviors for metric with no behaviors (using factory)"""
+    def test_get_metric_requirements_empty(self, metric_factory):
+        """🔗 Test getting requirements for metric with no requirements (using factory)"""
         # Create metric using factory (automatic cleanup)
         metric = metric_factory.create(self.get_sample_data())
         metric_id = metric["id"]
 
-        response = metric_factory.client.get(self.endpoints.behaviors(metric_id))
+        response = metric_factory.client.get(self.endpoints.requirements(metric_id))
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
         assert isinstance(data, list)
         assert len(data) == 0
 
-    def test_add_behavior_to_metric_factory(self, metric_factory, behavior_factory):
-        """🔗 Test adding behavior to metric using factories"""
+    def test_add_requirement_to_metric_factory(self, metric_factory, requirement_factory):
+        """🔗 Test adding requirement to metric using factories"""
         # Create entities using factories
         metric = metric_factory.create(self.get_sample_data())
-        behavior = behavior_factory.create(BehaviorDataFactory.sample_data())
+        requirement = requirement_factory.create(RequirementDataFactory.sample_data())
 
         # Test the relationship creation
         response = metric_factory.client.post(
-            self.endpoints.add_behavior_to_metric(metric["id"], behavior["id"])
+            self.endpoints.add_requirement_to_metric(metric["id"], requirement["id"])
         )
 
         assert response.status_code in [status.HTTP_200_OK, status.HTTP_201_CREATED]
@@ -109,21 +109,21 @@ class TestMetricBehaviorRelationships(MetricTestMixin, BaseEntityTests):
         assert result["status"] == "success"
         assert "added" in result["message"].lower() or "associated" in result["message"].lower()
 
-    def test_remove_behavior_from_metric_factory(self, metric_factory, behavior_factory):
-        """🔗 Test removing behavior from metric using factories"""
+    def test_remove_requirement_from_metric_factory(self, metric_factory, requirement_factory):
+        """🔗 Test removing requirement from metric using factories"""
         # Create entities using factories
         metric = metric_factory.create(self.get_sample_data())
-        behavior = behavior_factory.create(BehaviorDataFactory.sample_data())
+        requirement = requirement_factory.create(RequirementDataFactory.sample_data())
 
-        # First add the behavior to the metric
+        # First add the requirement to the metric
         add_response = metric_factory.client.post(
-            self.endpoints.add_behavior_to_metric(metric["id"], behavior["id"])
+            self.endpoints.add_requirement_to_metric(metric["id"], requirement["id"])
         )
         assert add_response.status_code in [status.HTTP_200_OK, status.HTTP_201_CREATED]
 
         # Then remove it
         remove_response = metric_factory.client.delete(
-            self.endpoints.remove_behavior_from_metric(metric["id"], behavior["id"])
+            self.endpoints.remove_requirement_from_metric(metric["id"], requirement["id"])
         )
 
         assert remove_response.status_code == status.HTTP_200_OK
@@ -133,43 +133,43 @@ class TestMetricBehaviorRelationships(MetricTestMixin, BaseEntityTests):
             "removed" in result["message"].lower() or "not associated" in result["message"].lower()
         )
 
-    def test_bulk_behavior_association(self, metric_factory, behavior_factory):
-        """🔗 Test associating multiple behaviors with metric"""
-        # Create one metric and multiple behaviors
+    def test_bulk_requirement_association(self, metric_factory, requirement_factory):
+        """🔗 Test associating multiple requirements with metric"""
+        # Create one metric and multiple requirements
         metric = metric_factory.create(self.get_sample_data())
 
-        # Create multiple behaviors using batch creation
-        behaviors = behavior_factory.create_batch(
+        # Create multiple requirements using batch creation
+        requirements = requirement_factory.create_batch(
             [
-                BehaviorDataFactory.sample_data(),
-                BehaviorDataFactory.sample_data(),
-                BehaviorDataFactory.sample_data(),
+                RequirementDataFactory.sample_data(),
+                RequirementDataFactory.sample_data(),
+                RequirementDataFactory.sample_data(),
             ]
         )
 
-        # Associate all behaviors with the metric
-        for behavior in behaviors:
+        # Associate all requirements with the metric
+        for requirement in requirements:
             response = metric_factory.client.post(
-                self.endpoints.add_behavior_to_metric(metric["id"], behavior["id"])
+                self.endpoints.add_requirement_to_metric(metric["id"], requirement["id"])
             )
             assert response.status_code in [status.HTTP_200_OK, status.HTTP_201_CREATED]
 
         # Verify all associations
-        response = metric_factory.client.get(self.endpoints.behaviors(metric["id"]))
+        response = metric_factory.client.get(self.endpoints.requirements(metric["id"]))
         assert response.status_code == status.HTTP_200_OK
 
-        returned_behaviors = response.json()
-        assert len(returned_behaviors) == len(behaviors)
+        returned_requirements = response.json()
+        assert len(returned_requirements) == len(requirements)
 
-    def test_metric_behavior_relationship_error_handling(self, metric_factory):
-        """🔗 Test error handling for metric-behavior relationships"""
+    def test_metric_requirement_relationship_error_handling(self, metric_factory):
+        """🔗 Test error handling for metric-requirement relationships"""
         # Create a metric
         metric = metric_factory.create(self.get_sample_data())
 
-        # Try to add a non-existent behavior
-        fake_behavior_id = str(uuid.uuid4())
+        # Try to add a non-existent requirement
+        fake_requirement_id = str(uuid.uuid4())
         response = metric_factory.client.post(
-            self.endpoints.add_behavior_to_metric(metric["id"], fake_behavior_id)
+            self.endpoints.add_requirement_to_metric(metric["id"], fake_requirement_id)
         )
 
         # Should handle the error gracefully
