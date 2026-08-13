@@ -165,6 +165,57 @@ def _error_result(message: str) -> MetricTuningCaseResult:
     return MetricTuningCaseResult(error=message, evaluated_at=_now())
 
 
+# How the SDK opens the reason on a result it is using to report its own failure.
+_SDK_FAILURE_REASON = "Error evaluating with "
+
+
+def _declares_error_category(metric: models.Metric) -> bool:
+    """Whether ``error`` is one of this metric's own categories rather than a sentinel."""
+    categories = metric.categories or []
+    if not isinstance(categories, list):
+        return False
+    return any(isinstance(c, str) and c.strip().lower() == "error" for c in categories)
+
+
+def _failure_from_result(metric: models.Metric, result: dict) -> Optional[str]:
+    """The failure this result is reporting, if it is reporting one.
+
+    Two shapes reach here and only one of them says ``error``. The error builder
+    sets it outright. The local strategy never does: it wraps whatever the SDK
+    handed back in ``MetricResultBuilder.success()``, and the SDK answers its own
+    failures with a result rather than an exception -- the score is a sentinel
+    (``"error"`` for a categorical metric, ``0.0`` for the rest) and the cause is
+    left in a reason it formats itself. ``success()`` carries neither the SDK's
+    ``details["error"]`` nor an ``error`` key, so the reason is all that survives.
+
+    Reading that second shape as a verdict fails quietly, which is the danger. A
+    categorical metric stores ``error`` as the verdict; a binary one stores
+    ``pass``, since any non-empty score string is truthy. The run then reports
+    zero errored cases and the scorecard counts a provider outage as the metric
+    agreeing. A 401 against the hosted model is exactly this.
+    """
+    error = result.get("error")
+    if error:
+        return str(error)
+
+    reason = result.get("reason")
+    score = result.get("score")
+
+    # Only a sentinel when the metric does not offer "error" as a real answer.
+    if (
+        isinstance(score, str)
+        and score.strip().lower() == "error"
+        and not _declares_error_category(metric)
+    ):
+        return str(reason or "The metric failed to evaluate this case.")
+
+    # All that is left for the score types whose sentinel is an ordinary number.
+    if isinstance(reason, str) and reason.startswith(_SDK_FAILURE_REASON):
+        return reason
+
+    return None
+
+
 def invoke_metric_on_case(
     db: Session,
     metric: models.Metric,
@@ -210,9 +261,9 @@ def invoke_metric_on_case(
     if not isinstance(result, dict):
         return _error_result("The metric returned a result in an unrecognized shape.")
 
-    error = result.get("error")
-    if error:
-        return _error_result(str(error))
+    failure = _failure_from_result(metric, result)
+    if failure:
+        return _error_result(failure)
 
     return MetricTuningCaseResult(
         verdict=verdict_from_score(metric, result.get("score")),

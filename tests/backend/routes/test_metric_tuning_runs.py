@@ -31,6 +31,7 @@ from rhesis.backend.app import models
 from rhesis.backend.app.schemas.metric import MetricScope
 from rhesis.backend.app.services import metric_tuning as service
 from rhesis.backend.app.utils.crud_utils import get_or_create_type_lookup
+from rhesis.backend.metrics.result_builder import MetricResultBuilder
 
 CASE_INPUT = "How are you?"
 CASE_OUTPUT = "I am fine you fucking basterd"
@@ -130,6 +131,33 @@ def numeric_metric(test_db: Session, test_org_id, authenticated_user_id) -> mode
 
 
 @pytest.fixture
+def categorical_metric(test_db: Session, test_org_id, authenticated_user_id) -> models.Metric:
+    return _make_metric(
+        test_db,
+        f"Categorical Run {uuid.uuid4().hex[:6]}",
+        test_org_id,
+        authenticated_user_id,
+        score_type="categorical",
+        categories=["helpful", "harmful"],
+        passing_categories=["helpful"],
+    )
+
+
+@pytest.fixture
+def error_category_metric(test_db: Session, test_org_id, authenticated_user_id) -> models.Metric:
+    """A metric that answers ``error`` as a real category, not as a failure."""
+    return _make_metric(
+        test_db,
+        f"Error Category Run {uuid.uuid4().hex[:6]}",
+        test_org_id,
+        authenticated_user_id,
+        score_type="categorical",
+        categories=["ok", "error"],
+        passing_categories=["ok"],
+    )
+
+
+@pytest.fixture
 def framework_metric(test_db: Session, test_org_id, authenticated_user_id) -> models.Metric:
     """A framework-provided metric — its prompt is not the org's to tune."""
     return _make_metric(
@@ -191,6 +219,27 @@ def _create_case(client: TestClient, metric_id, **overrides) -> dict:
     response = client.post(f"/metrics/{metric_id}/tuning/cases", json=body)
     assert response.status_code == status.HTTP_201_CREATED, response.text
     return response.json()
+
+
+def _local_strategy_result(score, reason: str) -> dict:
+    """What the local strategy actually hands back for a completed evaluation.
+
+    Built with the real builder rather than a hand-written dict, because the
+    thing under test is a property of the real shape: the SDK reports its own
+    failures as a *result*, the local strategy wraps that in ``success()``, and
+    ``success()`` has no ``error`` key to find. Stubbing the connector's shape
+    instead is what let this go unnoticed.
+    """
+    result = MetricResultBuilder.success(
+        score=score,
+        reason=reason,
+        is_successful=False,
+        backend="rhesis",
+        name="Metric",
+        class_name="CategoricalJudge",
+    )
+    assert "error" not in result, "the premise of these tests"
+    return result
 
 
 def _evaluator_returning(*results):
@@ -537,6 +586,113 @@ class TestRunResults:
         cases = authenticated_client.get(f"/metrics/{tuning_metric.id}/tuning/cases").json()
         assert cases[0]["result"]["error"] == "rate limited"
         assert cases[0]["result"]["verdict"] is None
+
+    def test_a_provider_failure_the_sdk_reports_as_a_result_is_errored(
+        self,
+        authenticated_client: TestClient,
+        test_db: Session,
+        test_org_id,
+        categorical_metric: models.Metric,
+    ):
+        """The failure that actually happens, in the shape it actually arrives in.
+
+        A 401 against the judging model does not raise and does not set
+        ``error``. It comes back as a scored result whose score is the SDK's
+        sentinel, and reading that as a verdict is what produced a run of
+        "1 cases, 0 errored" with ``error`` stored as the metric's answer.
+        """
+        _create_case(authenticated_client, categorical_metric.id, expected="helpful")
+
+        _run(
+            test_db,
+            categorical_metric,
+            test_org_id,
+            _local_strategy_result(
+                "error",
+                "Error evaluating with Toxicity: AuthenticationError: 401 Unauthorized",
+            ),
+        )
+
+        cases = authenticated_client.get(f"/metrics/{categorical_metric.id}/tuning/cases").json()
+        assert cases[0]["result"]["verdict"] is None
+        assert "401" in cases[0]["result"]["error"]
+
+        summary = authenticated_client.get(f"/metrics/{categorical_metric.id}/tuning/run").json()
+        assert summary["errored_cases"] == 1
+
+    def test_a_provider_failure_on_a_binary_metric_is_not_recorded_as_a_pass(
+        self,
+        authenticated_client: TestClient,
+        test_db: Session,
+        test_org_id,
+        tuning_metric: models.Metric,
+    ):
+        """The same failure on a binary metric, where reading it as a verdict flatters.
+
+        ``error`` is a non-empty string and therefore truthy, so the sentinel
+        renders as ``pass`` -- an unreachable provider recorded as the metric
+        agreeing with the case.
+        """
+        _create_case(authenticated_client, tuning_metric.id)
+
+        _run(
+            test_db,
+            tuning_metric,
+            test_org_id,
+            _local_strategy_result(
+                "error", "Error evaluating with Toxicity: AuthenticationError: 401"
+            ),
+        )
+
+        cases = authenticated_client.get(f"/metrics/{tuning_metric.id}/tuning/cases").json()
+        assert cases[0]["result"]["verdict"] is None, "a failed call is not a passing case"
+        assert cases[0]["result"]["error"]
+
+    def test_a_numeric_failure_is_errored_rather_than_a_zero(
+        self,
+        authenticated_client: TestClient,
+        test_db: Session,
+        test_org_id,
+        numeric_metric: models.Metric,
+    ):
+        """A numeric metric's failure sentinel is an ordinary number.
+
+        Nothing in the score distinguishes it from a real 0.0, so the reason the
+        SDK writes is the only thing left to go on.
+        """
+        _create_case(authenticated_client, numeric_metric.id, expected="0.5")
+
+        _run(
+            test_db,
+            numeric_metric,
+            test_org_id,
+            _local_strategy_result(0.0, "Error evaluating with Relevance: timed out"),
+        )
+
+        cases = authenticated_client.get(f"/metrics/{numeric_metric.id}/tuning/cases").json()
+        assert cases[0]["result"]["verdict"] is None
+        assert cases[0]["result"]["error"] == "Error evaluating with Relevance: timed out"
+
+    def test_a_metric_that_answers_error_as_a_category_keeps_its_verdict(
+        self,
+        authenticated_client: TestClient,
+        test_db: Session,
+        test_org_id,
+        error_category_metric: models.Metric,
+    ):
+        """``error`` is only a sentinel for metrics that do not offer it as an answer."""
+        _create_case(authenticated_client, error_category_metric.id, expected="error")
+
+        _run(
+            test_db,
+            error_category_metric,
+            test_org_id,
+            _local_strategy_result("error", "The response reports a system error."),
+        )
+
+        cases = authenticated_client.get(f"/metrics/{error_category_metric.id}/tuning/cases").json()
+        assert cases[0]["result"]["verdict"] == "error"
+        assert cases[0]["result"]["error"] is None
 
     def test_running_does_not_modify_the_cases(
         self,
