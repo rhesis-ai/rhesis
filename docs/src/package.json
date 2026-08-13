@@ -17,7 +17,7 @@
     "lint:titles": "node ../scripts/check-page-titles.js",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "node --test --test-reporter=spec lib/__tests__"
+    "test": "node --test --test-reporter=spec lib/__tests__/*.test.js"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

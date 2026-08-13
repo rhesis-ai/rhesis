@@ -1,4 +1,5 @@
 import { siteConfig } from './site-config.js'
+import { OG_VERSION, cardKey, stripBrandSuffix } from './og-theme.js'
 
 /**
  * Generates canonical URL for a given path
@@ -12,15 +13,34 @@ export function getCanonicalUrl(path, config = siteConfig) {
 }
 
 /**
- * Generates OpenGraph image URL
- * @param {string} path - The page path
- * @param {string} defaultImage - Default image path from config
+ * Builds the OpenGraph image URL for a page.
+ *
+ * Every page gets its own card, rendered on demand by /api/og from the page's
+ * own title and description. Both query parameters exist to defeat caching,
+ * since crawlers and CDNs key social images by URL and nothing else: `v` is the
+ * card design version, and `h` changes when this page's own text changes.
+ *
+ * Pages that want a hand-made image instead set `ogImage` in frontmatter; it
+ * must be an absolute URL or a path under public/ (PNG or JPEG — LinkedIn and
+ * Facebook do not render webp reliably).
+ *
+ * @param {string} path - The page path, e.g. 'docs/endpoints' ('' for the root)
+ * @param {string|null} pageImage - Optional per-page override from frontmatter
+ * @param {string|null} cardText - Text the card renders, hashed into `h`
  * @returns {string} - Full image URL
  */
-export function getOpenGraphImage(path, defaultImage = siteConfig.defaultImage) {
-  // In the future, we could check for page-specific images
-  // For now, return the default image with full URL
-  return `${siteConfig.siteUrl}${defaultImage}`
+export function getOpenGraphImage(path, pageImage = null, cardText = null) {
+  if (pageImage) {
+    return /^https?:\/\//.test(pageImage) ? pageImage : `${siteConfig.siteUrl}${pageImage}`
+  }
+
+  const cleanPath = (path || '').replace(/^\/+|\/+$/g, '')
+  const params = new URLSearchParams()
+  if (cleanPath) params.set('p', cleanPath)
+  params.set('v', OG_VERSION)
+  if (cardText) params.set('h', cardKey(cardText))
+
+  return `${siteConfig.siteUrl}/api/og?${params}`
 }
 
 /**
@@ -34,12 +54,18 @@ export function extractDescription(content) {
   // Remove YAML frontmatter block (--- ... ---)
   let cleanContent = content.replace(/^---\n[\s\S]*?\n---\n?/, '')
 
-  // Remove MDX imports, exports, code blocks, inline code, and MDX components
+  // Remove MDX imports, exports, code blocks, inline code, and MDX components.
+  // Multi-line exports go first: `export const metadata = {...}` (what the
+  // generated glossary pages use) would otherwise leave its object body behind
+  // and get picked up as the first paragraph.
   cleanContent = cleanContent
+    .replace(/^export\s+(?:const|let|var)\s+\w+\s*=\s*\{[\s\S]*?^\}\s*$/gm, '')
     .replace(/^import\s+.*$/gm, '')
     .replace(/^export\s+.*$/gm, '')
     .replace(/```[\s\S]*?```/g, '')
-    .replace(/`[^`]+`/g, '')
+    // Inline code keeps its text: dropping it would leave `**` + `**` around a
+    // hole, and the emphasis unwrap below would then pair the wrong asterisks.
+    .replace(/`([^`]+)`/g, '$1')
     .replace(/<[^>]+>/g, '')
 
   // Remove the first H1 heading (page title)
@@ -47,6 +73,15 @@ export function extractDescription(content) {
 
   // Remove all remaining heading markers (##, ###, etc.) but keep the text
   cleanContent = cleanContent.replace(/^#+\s+/gm, '')
+
+  // Unwrap inline markdown — descriptions are plain text, and a lead paragraph
+  // wrapped in ** would otherwise ship the asterisks to search results and
+  // social cards.
+  cleanContent = cleanContent
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+    .replace(/(\*\*|__)(.+?)\1/g, '$2')
+    .replace(/(^|[\s(])[*_]([^*_\n]+)[*_](?=[\s).,;:!?]|$)/g, '$1$2')
 
   // Clean up and normalize whitespace
   cleanContent = cleanContent.trim()
@@ -102,7 +137,7 @@ export function generatePageMetadata(
     : config.keywords
 
   const canonicalUrl = getCanonicalUrl(urlPath, config)
-  const imageUrl = getOpenGraphImage(urlPath, config.defaultImage)
+  const imageUrl = getOpenGraphImage(urlPath, baseMetadata?.ogImage, `${title}${description}`)
 
   // Respect ROBOTS_NOINDEX env var (e.g. staging deployments)
   const noIndex = process.env.ROBOTS_NOINDEX === 'true'
@@ -143,7 +178,7 @@ export function generatePageMetadata(
           url: imageUrl,
           width: 1200,
           height: 630,
-          alt: config.defaultImageAlt,
+          alt: `${stripBrandSuffix(title)} – ${config.siteName}`,
         },
       ],
     },

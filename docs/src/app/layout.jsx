@@ -6,12 +6,18 @@ import GradientBackdrop from '../components/GradientBackdrop'
 import Footer from '../components/Footer'
 import CollapsibleSidebar from '../components/CollapsibleSidebar'
 import { siteConfig } from '../lib/site-config'
-import { generateOrganizationSchema, generateWebsiteSchema } from '../lib/metadata'
+import {
+  generateOrganizationSchema,
+  generateWebsiteSchema,
+  getOpenGraphImage,
+} from '../lib/metadata'
 import 'nextra-theme-docs/style.css'
 import '../styles/globals.css'
 
 export async function generateMetadata() {
   const isNoIndex = process.env.ROBOTS_NOINDEX === 'true'
+  // Root-level default; per-page cards come from generatePageMetadata.
+  const imageUrl = getOpenGraphImage('')
 
   return {
     metadataBase: new URL(siteConfig.siteUrl),
@@ -64,7 +70,7 @@ export async function generateMetadata() {
       description: siteConfig.siteDescription,
       images: [
         {
-          url: `${siteConfig.siteUrl}${siteConfig.defaultImage}`,
+          url: imageUrl,
           width: 1200,
           height: 630,
           alt: siteConfig.defaultImageAlt,
@@ -79,7 +85,7 @@ export async function generateMetadata() {
       creator: siteConfig.twitterHandle,
       title: siteConfig.siteName,
       description: siteConfig.siteDescription,
-      images: [`${siteConfig.siteUrl}${siteConfig.defaultImage}`],
+      images: [imageUrl],
     },
 
     // Robots

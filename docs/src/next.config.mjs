@@ -15,6 +15,11 @@ const withNextra = nextra({
 export default withNextra({
   output: 'standalone',
   outputFileTracingRoot: path.join(__dirname, '../..'),
+  // next/og loads a resvg wasm blob at runtime that the tracer misses, so the
+  // OG route renders in dev and 500s in the container without this.
+  outputFileTracingIncludes: {
+    '/api/og': ['./node_modules/next/dist/compiled/@vercel/og/**'],
+  },
   async redirects() {
     const permanent = true
     return [

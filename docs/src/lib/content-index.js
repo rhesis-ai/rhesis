@@ -178,6 +178,38 @@ function truncateDescription(text, max = 160) {
 }
 
 /**
+ * Reads `description:` out of a YAML frontmatter block, if there is one.
+ * Single-line values only — no page uses a block scalar (`description: |`),
+ * and one would fall through to the paragraph scan rather than break.
+ */
+function extractFrontmatterDescription(rawSource) {
+  const fmMatch = rawSource.match(/^---\n([\s\S]*?)\n---/)
+  if (!fmMatch) return null
+  const line = fmMatch[1].match(/^description:\s*(.+)$/m)
+  if (!line) return null
+  return truncateDescription(line[1].trim().replace(/^['"]|['"]$/g, ''))
+}
+
+/**
+ * Reads `description` out of an `export const metadata = {...}` block.
+ *
+ * The value is matched escape-aware: glossary definitions are single-quoted and
+ * many contain an apostrophe (`'the AI\'s answer'`), which a plain
+ * non-greedy match would cut at the backslash. The search is also bounded to
+ * the metadata object, so a `description:` in a later code sample can't be
+ * mistaken for the page's own.
+ */
+function extractExportedDescription(rawSource) {
+  const block = rawSource.match(/export\s+const\s+metadata\s*=\s*\{([\s\S]*?)^\}/m)
+  if (!block) return null
+
+  const value = block[1].match(/\bdescription:\s*(['"])((?:[^\\]|\\.)*?)\1/)
+  if (!value) return null
+
+  return truncateDescription(value[2].replace(/\\(['"\\])/g, '$1').trim())
+}
+
+/**
  * Loads a single page from a relative file path.
  *
  * @param {string} filePath - Relative path within contentDir (e.g. "docs/concepts.mdx")
@@ -206,7 +238,13 @@ export function loadPage(filePath, contentDir) {
   if (!title) title = extractTitleFromSource(rawSource)
   if (!title) title = humanizeSlug(urlPath)
 
-  const description = extractDescription(rawSource)
+  // Description: frontmatter > exported metadata > first paragraph. The
+  // generated glossary pages have no prose to scan — their definition lives in
+  // `export const metadata`, and the page body is a single component.
+  const description =
+    extractFrontmatterDescription(rawSource) ||
+    extractExportedDescription(rawSource) ||
+    extractDescription(rawSource)
 
   return { urlPath, title, description, section, rawSource }
 }
