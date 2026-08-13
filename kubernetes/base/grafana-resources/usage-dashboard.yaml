@@ -61,7 +61,7 @@ spec:
             "label": "Organization",
             "type": "query",
             "datasource": { "type": "postgres", "uid": "${datasource}" },
-            "query": "SELECT COALESCE(display_name, name) FROM public.organization WHERE deleted_at IS NULL ORDER BY 1",
+            "query": "SELECT id AS __value, COALESCE(display_name, name) AS __text FROM public.organization WHERE deleted_at IS NULL ORDER BY 2",
             "refresh": 1,
             "sort": 1,
             "multi": true,
@@ -127,7 +127,7 @@ spec:
               "editorMode": "code",
               "rawQuery": true,
               "format": "table",
-              "rawSql": "SELECT\n  COALESCE(o.display_name, o.name) AS \"Organization\",\n  COALESCE(SUM(u.used) FILTER (WHERE u.resource = 'test_executions'), 0) AS \"Test executions\",\n  COALESCE(SUM(u.used) FILTER (WHERE u.resource = 'tracing_spans'), 0) AS \"Tracing spans\",\n  COALESCE(SUM(u.used) FILTER (WHERE u.resource = 'test_generation'), 0) AS \"Tests generated\",\n  COALESCE(SUM(u.used) FILTER (WHERE u.resource = 'model_tokens'), 0) AS \"Model tokens\"\nFROM public.usage u\nJOIN public.organization o ON o.id = u.organization_id\nWHERE u.deleted_at IS NULL\n  AND o.deleted_at IS NULL\n  AND u.period_start = date_trunc('month', now() AT TIME ZONE 'UTC')::date\nGROUP BY 1\nORDER BY 2 DESC, 1"
+              "rawSql": "SELECT\n  COALESCE(o.display_name, o.name) AS \"Organization\",\n  COALESCE(SUM(u.used) FILTER (WHERE u.resource = 'test_executions'), 0) AS \"Test executions\",\n  COALESCE(SUM(u.used) FILTER (WHERE u.resource = 'tracing_spans'), 0) AS \"Tracing spans\",\n  COALESCE(SUM(u.used) FILTER (WHERE u.resource = 'test_generation'), 0) AS \"Tests generated\",\n  COALESCE(SUM(u.used) FILTER (WHERE u.resource = 'model_tokens'), 0) AS \"Model tokens\"\nFROM public.usage u\nJOIN public.organization o ON o.id = u.organization_id\nWHERE u.deleted_at IS NULL\n  AND o.deleted_at IS NULL\n  AND u.period_start = date_trunc('month', now() AT TIME ZONE 'UTC')::date\nGROUP BY o.id\nORDER BY 2 DESC, 1"
             }
           ]
         },
@@ -154,7 +154,7 @@ spec:
               "editorMode": "code",
               "rawQuery": true,
               "format": "table",
-              "rawSql": "SELECT\n  COALESCE(o.display_name, o.name) AS org,\n  SUM(u.used) AS used\nFROM public.usage u\nJOIN public.organization o ON o.id = u.organization_id\nWHERE u.deleted_at IS NULL\n  AND o.deleted_at IS NULL\n  AND u.resource = '$resource'\n  AND u.period_start = date_trunc('month', now() AT TIME ZONE 'UTC')::date\nGROUP BY 1\nHAVING SUM(u.used) > 0\nORDER BY 2 DESC\nLIMIT 10"
+              "rawSql": "SELECT\n  COALESCE(o.display_name, o.name) AS org,\n  SUM(u.used) AS used\nFROM public.usage u\nJOIN public.organization o ON o.id = u.organization_id\nWHERE u.deleted_at IS NULL\n  AND o.deleted_at IS NULL\n  AND u.resource = '$resource'\n  AND u.period_start = date_trunc('month', now() AT TIME ZONE 'UTC')::date\nGROUP BY o.id\nHAVING SUM(u.used) > 0\nORDER BY 2 DESC\nLIMIT 10"
             }
           ]
         },
@@ -187,7 +187,7 @@ spec:
               "editorMode": "code",
               "rawQuery": true,
               "format": "time_series",
-              "rawSql": "SELECT\n  u.period_start::timestamptz AS \"time\",\n  u.resource AS metric,\n  SUM(u.used) AS value\nFROM public.usage u\nJOIN public.organization o ON o.id = u.organization_id\nWHERE u.deleted_at IS NULL\n  AND o.deleted_at IS NULL\n  AND $__timeFilter(u.period_start)\nGROUP BY 1, 2\nORDER BY 1"
+              "rawSql": "SELECT\n  u.period_start::timestamp AT TIME ZONE 'UTC' AS \"time\",\n  u.resource AS metric,\n  SUM(u.used) AS value\nFROM public.usage u\nJOIN public.organization o ON o.id = u.organization_id\nWHERE u.deleted_at IS NULL\n  AND o.deleted_at IS NULL\n  AND $__timeFilter(u.period_start)\nGROUP BY 1, 2\nORDER BY 1"
             }
           ]
         },
@@ -213,7 +213,7 @@ spec:
               "editorMode": "code",
               "rawQuery": true,
               "format": "time_series",
-              "rawSql": "SELECT\n  u.period_start::timestamptz AS \"time\",\n  COALESCE(o.display_name, o.name) AS metric,\n  SUM(u.used) AS value\nFROM public.usage u\nJOIN public.organization o ON o.id = u.organization_id\nWHERE u.deleted_at IS NULL\n  AND o.deleted_at IS NULL\n  AND u.resource = '$resource'\n  AND COALESCE(o.display_name, o.name) IN (${org:sqlstring})\n  AND $__timeFilter(u.period_start)\nGROUP BY 1, 2\nORDER BY 1"
+              "rawSql": "SELECT\n  u.period_start::timestamp AT TIME ZONE 'UTC' AS \"time\",\n  COALESCE(o.display_name, o.name) AS metric,\n  SUM(u.used) AS value\nFROM public.usage u\nJOIN public.organization o ON o.id = u.organization_id\nWHERE u.deleted_at IS NULL\n  AND o.deleted_at IS NULL\n  AND u.resource = '$resource'\n  AND o.id::text IN (${org:sqlstring})\n  AND $__timeFilter(u.period_start)\nGROUP BY 1, o.id\nORDER BY 1"
             }
           ]
         },
@@ -238,7 +238,7 @@ spec:
               "editorMode": "code",
               "rawQuery": true,
               "format": "table",
-              "rawSql": "WITH bounds AS (\n  SELECT\n    date_trunc('month', now() AT TIME ZONE 'UTC')::date AS this_month,\n    (date_trunc('month', now() AT TIME ZONE 'UTC') - interval '1 month')::date AS prev_month\n),\nmonthly AS (\n  SELECT\n    COALESCE(o.display_name, o.name) AS org,\n    u.period_start,\n    SUM(u.used) AS used\n  FROM public.usage u\n  JOIN public.organization o ON o.id = u.organization_id\n  CROSS JOIN bounds b\n  WHERE u.deleted_at IS NULL\n    AND o.deleted_at IS NULL\n    AND u.resource = '$resource'\n    AND u.period_start IN (b.prev_month, b.this_month)\n  GROUP BY 1, 2\n)\nSELECT\n  m.org AS \"Organization\",\n  COALESCE(SUM(m.used) FILTER (WHERE m.period_start = b.prev_month), 0) AS \"Previous month\",\n  COALESCE(SUM(m.used) FILTER (WHERE m.period_start = b.this_month), 0) AS \"This month\",\n  COALESCE(SUM(m.used) FILTER (WHERE m.period_start = b.this_month), 0)\n    - COALESCE(SUM(m.used) FILTER (WHERE m.period_start = b.prev_month), 0) AS \"Change\"\nFROM monthly m\nCROSS JOIN bounds b\nGROUP BY 1\nORDER BY 4 DESC"
+              "rawSql": "WITH bounds AS (\n  SELECT\n    date_trunc('month', now() AT TIME ZONE 'UTC')::date AS this_month,\n    (date_trunc('month', now() AT TIME ZONE 'UTC') - interval '1 month')::date AS prev_month\n),\nmonthly AS (\n  SELECT\n    o.id AS org_id,\n    COALESCE(o.display_name, o.name) AS org,\n    u.period_start,\n    SUM(u.used) AS used\n  FROM public.usage u\n  JOIN public.organization o ON o.id = u.organization_id\n  CROSS JOIN bounds b\n  WHERE u.deleted_at IS NULL\n    AND o.deleted_at IS NULL\n    AND u.resource = '$resource'\n    AND u.period_start IN (b.prev_month, b.this_month)\n  GROUP BY o.id, u.period_start\n)\nSELECT\n  m.org AS \"Organization\",\n  COALESCE(SUM(m.used) FILTER (WHERE m.period_start = b.prev_month), 0) AS \"Previous month\",\n  COALESCE(SUM(m.used) FILTER (WHERE m.period_start = b.this_month), 0) AS \"This month\",\n  COALESCE(SUM(m.used) FILTER (WHERE m.period_start = b.this_month), 0)\n    - COALESCE(SUM(m.used) FILTER (WHERE m.period_start = b.prev_month), 0) AS \"Change\"\nFROM monthly m\nCROSS JOIN bounds b\nGROUP BY m.org_id, 1\nORDER BY 4 DESC"
             }
           ]
         },
