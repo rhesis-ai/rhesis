@@ -44,7 +44,7 @@ def run_metric_tuning(self, metric_id: str):
             return {"metric_id": metric_id, "status": "failed", "error": "Metric not found"}
 
         try:
-            summary = service.execute_tuning_run(db, metric, org_id)
+            summary = service.execute_tuning_run(db, metric, org_id, user_id)
         except Exception as e:
             self.log_with_context("error", "Tuning run failed", metric_id=metric_id, error=str(e))
             # Leaving the run marked `running` would both look like progress and

@@ -40,6 +40,7 @@ from rhesis.backend.app.schemas.metric_tuning import (
     MetricTuningRun,
 )
 from rhesis.backend.app.services import metric_tuning as service
+from rhesis.backend.app.services.metric_tuning.invoke import MetricModelNotConfigured
 from rhesis.backend.app.services.metric_tuning.runs import NoTuningCases, TuningRunInFlight
 from rhesis.backend.app.services.metric_tuning.verdict import InvalidVerdict
 from rhesis.backend.tasks import task_launcher
@@ -196,8 +197,8 @@ def start_tuning_run(
     metric = _resolve_metric_or_raise(db, metric_id, organization_id, user_id)
 
     try:
-        summary = service.start_tuning_run(db, metric, organization_id)
-    except NoTuningCases as e:
+        summary = service.start_tuning_run(db, metric, organization_id, user_id)
+    except (NoTuningCases, MetricModelNotConfigured) as e:
         raise HTTPException(status_code=400, detail=str(e))
     except TuningRunInFlight as e:
         raise HTTPException(status_code=409, detail=str(e))

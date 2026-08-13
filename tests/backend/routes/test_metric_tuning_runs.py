@@ -40,6 +40,34 @@ CASE_EXPECTED = "fail"
 CASE_RATIONALE = "the metric scored 0, but this is toxic so it should be 1"
 
 
+def _make_model(db: Session, organization_id, user_id) -> models.Model:
+    """A judging model for a metric — or for the evaluation setting — to point at.
+
+    A run resolves the metric's own model, else the configured default
+    evaluation model, and refuses if there is neither. So every runnable metric
+    here needs one of the two.
+    """
+    provider_lookup = get_or_create_type_lookup(
+        db=db,
+        type_name="ProviderType",
+        type_value="openai",
+        organization_id=organization_id,
+        user_id=user_id,
+        commit=False,
+    )
+    model = models.Model(
+        name=f"Judge {uuid.uuid4().hex[:6]}",
+        model_name="gpt-4o-mini",
+        key="sk-not-a-real-key",
+        provider_type_id=provider_lookup.id,
+        organization_id=organization_id,
+        user_id=user_id,
+    )
+    db.add(model)
+    db.flush()
+    return model
+
+
 def _make_metric(
     db: Session,
     name: str,
@@ -48,6 +76,7 @@ def _make_metric(
     *,
     score_type: str = "binary",
     backend_type: str = "custom",
+    with_model: bool = True,
     **columns,
 ) -> models.Metric:
     backend_type_lookup = get_or_create_type_lookup(
@@ -58,6 +87,7 @@ def _make_metric(
         user_id=user_id,
         commit=False,
     )
+    model = _make_model(db, organization_id, user_id) if with_model else None
     metric = models.Metric(
         name=name,
         description="Metric under tuning",
@@ -65,6 +95,7 @@ def _make_metric(
         score_type=score_type,
         metric_scope=[MetricScope.SINGLE_TURN.value],
         backend_type_id=backend_type_lookup.id,
+        model_id=model.id if model else None,
         organization_id=organization_id,
         user_id=user_id,
         **columns,
@@ -108,6 +139,33 @@ def framework_metric(test_db: Session, test_org_id, authenticated_user_id) -> mo
         authenticated_user_id,
         backend_type="deepeval",
     )
+
+
+@pytest.fixture
+def metric_without_model(test_db: Session, test_org_id, authenticated_user_id) -> models.Metric:
+    """A metric with no judging model — nothing to run it with."""
+    return _make_metric(
+        test_db,
+        f"Modelless {uuid.uuid4().hex[:6]}",
+        test_org_id,
+        authenticated_user_id,
+        with_model=False,
+    )
+
+
+def _set_evaluation_model(db: Session, user_id, model_id) -> None:
+    """Point the default evaluation model at ``model_id`` (or clear it).
+
+    Goes through ``user.settings.update`` rather than writing the column: the
+    settings manager is cached per User instance, so a raw column write can be
+    read back stale.
+    """
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    user.settings.update(
+        {"models": {"evaluation": {"model_id": str(model_id) if model_id else None}}}
+    )
+    db.flush()
+    db.commit()
 
 
 @pytest.fixture
@@ -155,11 +213,14 @@ def _evaluator_returning(*results):
     return factory, evaluator
 
 
-def _run(test_db: Session, metric: models.Metric, org_id, *results):
+def _run(test_db: Session, metric: models.Metric, org_id, *results, user_id=None):
     """Execute a run with the metric invocation stubbed. Returns the evaluator mock."""
     factory, evaluator = _evaluator_returning(*results)
     with patch("rhesis.backend.metrics.evaluator.MetricEvaluator", factory):
-        service.execute_tuning_run(test_db, metric, org_id)
+        service.execute_tuning_run(test_db, metric, org_id, user_id)
+    # Kept on the mock so a test can assert how the evaluator was constructed,
+    # not just what it was asked to evaluate.
+    evaluator.constructed_with = factory.call_args
     return evaluator
 
 
@@ -245,6 +306,62 @@ class TestStartTuningRun:
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
+    def test_a_metric_with_no_model_falls_back_to_the_evaluation_default(
+        self,
+        authenticated_client: TestClient,
+        test_db: Session,
+        test_org_id,
+        authenticated_user_id,
+        metric_without_model: models.Metric,
+        no_dispatch,
+    ):
+        """Step two of the chain: the model configured as the evaluation default."""
+        _create_case(authenticated_client, metric_without_model.id)
+        default_model = _make_model(test_db, test_org_id, authenticated_user_id)
+        _set_evaluation_model(test_db, authenticated_user_id, default_model.id)
+
+        response = authenticated_client.post(f"/metrics/{metric_without_model.id}/tuning/run")
+
+        assert response.status_code == status.HTTP_202_ACCEPTED, response.text
+        assert no_dispatch.call_count == 1
+
+    def test_neither_a_metric_model_nor_an_evaluation_default_is_refused(
+        self,
+        authenticated_client: TestClient,
+        test_db: Session,
+        authenticated_user_id,
+        metric_without_model: models.Metric,
+        no_dispatch,
+    ):
+        """Where the chain ends: an error, not a third silent step.
+
+        The evaluation path keeps going past here — to whatever the caller
+        passed, then to the SDK's own hosted default. A scorecard produced by a
+        judge nobody chose measures nothing, so the run is refused instead.
+        """
+        _create_case(authenticated_client, metric_without_model.id)
+        _set_evaluation_model(test_db, authenticated_user_id, None)
+
+        response = authenticated_client.post(f"/metrics/{metric_without_model.id}/tuning/run")
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "model" in response.json()["detail"].lower()
+        no_dispatch.assert_not_called()
+
+    def test_the_refusal_leaves_no_run_behind(
+        self,
+        authenticated_client: TestClient,
+        metric_without_model: models.Metric,
+        no_dispatch,
+    ):
+        """Refused before anything is claimed, so the status is untouched."""
+        _create_case(authenticated_client, metric_without_model.id)
+        authenticated_client.post(f"/metrics/{metric_without_model.id}/tuning/run")
+
+        body = authenticated_client.get(f"/metrics/{metric_without_model.id}/tuning/run").json()
+
+        assert body["status"] == "never_run"
+
 
 @pytest.mark.integration
 @pytest.mark.routes
@@ -312,6 +429,25 @@ class TestRunResults:
         assert cases[0]["result"]["reasoning"] == "No insult detected."
         assert cases[0]["result"]["error"] is None
         assert cases[0]["result"]["evaluated_at"]
+
+    def test_the_metric_is_judged_with_its_own_model(
+        self,
+        authenticated_client: TestClient,
+        test_db: Session,
+        test_org_id,
+        tuning_metric: models.Metric,
+    ):
+        """An explicit model reaches the evaluator, so it never picks one itself.
+
+        `MetricEvaluator` falls back to the SDK's built-in default when no model
+        is passed. Passing one is what removes that possibility — there is no
+        argument left to omit.
+        """
+        _create_case(authenticated_client, tuning_metric.id)
+        evaluator = _run(test_db, tuning_metric, test_org_id, {"score": 1.0, "reason": "ok"})
+
+        model = evaluator.constructed_with.kwargs.get("model")
+        assert model is not None, "no model passed — the evaluator would pick its own default"
 
     def test_a_numeric_metrics_verdict_is_its_number(
         self,

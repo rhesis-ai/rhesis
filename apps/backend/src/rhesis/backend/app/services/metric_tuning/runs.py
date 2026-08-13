@@ -18,7 +18,7 @@ who does not know a tuning set exists.
 
 import logging
 from datetime import datetime, timezone
-from typing import List
+from typing import List, Optional
 
 from sqlalchemy.orm import Session
 
@@ -29,7 +29,10 @@ from rhesis.backend.app.schemas.metric_tuning_metadata import (
     MetricTuningRunSummary,
     TuningRunStatus,
 )
-from rhesis.backend.app.services.metric_tuning.invoke import invoke_metric_on_case
+from rhesis.backend.app.services.metric_tuning.invoke import (
+    invoke_metric_on_case,
+    resolve_metric_model,
+)
 from rhesis.backend.app.services.metric_tuning.payload import parse_payload
 from rhesis.backend.app.services.metric_tuning.test_sets import get_tuning_test_set
 
@@ -57,7 +60,7 @@ def get_tuning_run(db: Session, metric: models.Metric, organization_id: str):
 
 
 def start_tuning_run(
-    db: Session, metric: models.Metric, organization_id: str
+    db: Session, metric: models.Metric, organization_id: str, user_id: Optional[str]
 ) -> MetricTuningRunSummary:
     """Claim the run slot and return the summary the caller should show.
 
@@ -82,6 +85,11 @@ def start_tuning_run(
     if current.status == TuningRunStatus.RUNNING:
         raise TuningRunInFlight("A run is already in progress for this metric.")
 
+    # Checked here, before anything is written or queued, so a metric with no
+    # model is refused outright rather than producing a run that judges with
+    # something nobody picked. Raises MetricModelNotConfigured.
+    resolve_metric_model(db, metric, organization_id, user_id)
+
     summary = MetricTuningRunSummary(
         status=TuningRunStatus.RUNNING,
         started_at=_now(),
@@ -104,7 +112,7 @@ def _clear_previous_results(db: Session, cases: List[models.Test]) -> None:
 
 
 def execute_tuning_run(
-    db: Session, metric: models.Metric, organization_id: str
+    db: Session, metric: models.Metric, organization_id: str, user_id: Optional[str]
 ) -> MetricTuningRunSummary:
     """Run the metric over every one of its cases, writing results as it goes.
 
@@ -123,6 +131,11 @@ def execute_tuning_run(
     if not cases:
         raise NoTuningCases("This metric has no tuning cases yet.")
 
+    # Resolved once for the whole run, and before any case is touched: if the
+    # metric's model has gone missing since the run was queued, the run fails
+    # outright rather than judging half the set with something else.
+    model = resolve_metric_model(db, metric, organization_id, user_id)
+
     summary = crud_metric_tuning.get_run_summary(test_set)
     summary.status = TuningRunStatus.RUNNING
     summary.total_cases = len(cases)
@@ -139,7 +152,7 @@ def execute_tuning_run(
 
     for db_test in cases:
         payload = parse_payload(db_test.prompt.content if db_test.prompt else None)
-        result = invoke_metric_on_case(db, metric, payload, organization_id)
+        result = invoke_metric_on_case(db, metric, payload, organization_id, model)
 
         crud_metric_tuning.set_case_result(db, db_test, result)
         summary.completed_cases += 1

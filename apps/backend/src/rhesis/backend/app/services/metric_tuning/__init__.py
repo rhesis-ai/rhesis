@@ -17,7 +17,9 @@ from rhesis.backend.app.services.metric_tuning.cases import (
     update_tuning_case,
 )
 from rhesis.backend.app.services.metric_tuning.invoke import (
+    MetricModelNotConfigured,
     invoke_metric_on_case,
+    resolve_metric_model,
     verdict_from_score,
 )
 from rhesis.backend.app.services.metric_tuning.runs import (
@@ -42,6 +44,7 @@ from rhesis.backend.app.services.metric_tuning.verdict import (
 __all__ = [
     "BINARY_VERDICTS",
     "InvalidVerdict",
+    "MetricModelNotConfigured",
     "NoTuningCases",
     "TuningRunInFlight",
     "create_tuning_case",
@@ -56,6 +59,7 @@ __all__ = [
     "is_stale",
     "list_tuning_cases",
     "normalize_verdict",
+    "resolve_metric_model",
     "start_tuning_run",
     "to_api",
     "update_tuning_case",
