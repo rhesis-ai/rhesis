@@ -30,6 +30,9 @@ const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
 export interface Branding {
   /** Undefined means "use the built-in Rhesis palette", not "no colour". */
   primaryColor?: string;
+  /** Secondary/CTA colour. Independent of `primaryColor` — a deployment can set
+   * either on its own. */
+  secondaryColor?: string;
   faviconUrl: string;
   productName: string;
   /** True when `productName` is the Rhesis default, so callers can keep
@@ -43,14 +46,16 @@ export interface Branding {
  * rather than take the app down or paint half the UI `undefined`.
  */
 export function normalizeBrandColor(
-  value: string | undefined | null
+  value: string | undefined | null,
+  // Named so the warning tells the operator which variable to go and fix.
+  varName = 'BRAND_PRIMARY_COLOR'
 ): string | undefined {
   const trimmed = value?.trim();
   if (!trimmed) return undefined;
 
   if (!HEX_COLOR_PATTERN.test(trimmed)) {
     console.warn(
-      `[branding] Ignoring BRAND_PRIMARY_COLOR "${trimmed}": expected a 6-digit hex colour in #RRGGBB form.`
+      `[branding] Ignoring ${varName} "${trimmed}": expected a 6-digit hex colour in #RRGGBB form.`
     );
     return undefined;
   }
@@ -136,6 +141,10 @@ export function getServerBranding(): Branding {
 
   return {
     primaryColor: normalizeBrandColor(process.env.BRAND_PRIMARY_COLOR),
+    secondaryColor: normalizeBrandColor(
+      process.env.BRAND_SECONDARY_COLOR,
+      'BRAND_SECONDARY_COLOR'
+    ),
     faviconUrl: normalizeFaviconUrl(process.env.BRAND_FAVICON_URL),
     productName,
     isDefaultProductName: productName === DEFAULT_PRODUCT_NAME,

@@ -438,7 +438,10 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
         <ThemeContextProvider
           disableTransitionOnChange
           initialMode={storedThemeMode ?? 'light'}
-          brandColor={deploymentBranding.primaryColor}
+          brandColors={{
+            primary: deploymentBranding.primaryColor,
+            secondary: deploymentBranding.secondaryColor,
+          }}
         >
           <LayoutContent
             session={session}

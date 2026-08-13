@@ -43,6 +43,7 @@ data:
   # into the client bundle at build time, which would mean one image per
   # deployment. The frontend reads these per request instead.
   BRAND_PRIMARY_COLOR: {{ .Values.config.brandPrimaryColor | quote }}
+  BRAND_SECONDARY_COLOR: {{ .Values.config.brandSecondaryColor | quote }}
   BRAND_FAVICON_URL: {{ .Values.config.brandFaviconUrl | quote }}
   BRAND_PRODUCT_NAME: {{ .Values.config.brandProductName | quote }}
 

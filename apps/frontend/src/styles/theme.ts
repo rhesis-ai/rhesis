@@ -17,29 +17,42 @@ import {
   contrastTextFor,
   deriveBrandAccents,
   deriveBrandPrimary,
+  deriveBrandSecondary,
   deriveBrandSurfaces,
+  deriveSecondaryAccents,
 } from './brand-palette';
 export { GREYSCALE, BORDER_RADIUS, BACKDROP_COLORS, ELEVATION, FAB_GROUP_GAP };
+
+/** Deployment brand colours (`BRAND_PRIMARY_COLOR`, `BRAND_SECONDARY_COLOR`). */
+export interface BrandColors {
+  primary?: string;
+  secondary?: string;
+}
 
 /**
  * Define theme settings for both light and dark modes.
  *
- * `brandColor` overrides the Rhesis primary for white-label deployments
- * (`BRAND_PRIMARY_COLOR`, threaded down from the root layout). When it is
- * omitted every token below is the literal Figma value, so the default Rhesis
- * theme is unaffected by this parameter existing.
+ * `brand` overrides the Rhesis primary and secondary for white-label
+ * deployments, threaded down from the root layout. Either colour can be set on
+ * its own. When a colour is omitted every token below is the literal Figma
+ * value, so the default Rhesis theme is unaffected by this parameter existing.
  */
-const getDesignTokens = (mode: PaletteMode, brandColor?: string) => {
+const getDesignTokens = (mode: PaletteMode, brand: BrandColors = {}) => {
   const gs = mode === 'light' ? GREYSCALE.light : GREYSCALE.dark;
+  const brandColor = brand.primary;
   const brandPrimary = brandColor
     ? deriveBrandPrimary(brandColor, mode)
     : undefined;
   const brandSurfaces = brandColor
     ? deriveBrandSurfaces(brandColor)
     : undefined;
+  const brandSecondary = brand.secondary
+    ? deriveBrandSecondary(brand.secondary)
+    : undefined;
   // Brand colours for the `components` overrides further down, which set
-  // colours directly rather than reading `palette.primary`.
+  // colours directly rather than reading `palette.primary`/`palette.secondary`.
   const accent = deriveBrandAccents(mode, brandColor);
+  const secondaryAccent = deriveSecondaryAccents(brand.secondary);
 
   return {
     palette: {
@@ -53,7 +66,7 @@ const getDesignTokens = (mode: PaletteMode, brandColor?: string) => {
               dark: '#005F82', // darker shade
               contrastText: '#FFFFFF',
             },
-            secondary: {
+            secondary: brandSecondary ?? {
               main: '#FD6E12', // Secondary CTA Orange
               light: '#FDD803', // Accent Yellow
               dark: '#1A1A1A', // Dark Black
@@ -94,7 +107,7 @@ const getDesignTokens = (mode: PaletteMode, brandColor?: string) => {
               dark: '#0080AF',
               contrastText: '#FFFFFF',
             },
-            secondary: {
+            secondary: brandSecondary ?? {
               main: '#FD6E12',
               light: '#F78166',
               dark: '#58A6FF',
@@ -128,6 +141,7 @@ const getDesignTokens = (mode: PaletteMode, brandColor?: string) => {
       // Greyscale ramp available on palette for both modes
       greyscale: gs,
       brandColor,
+      brandSecondaryColor: brand.secondary,
     },
     shape: {
       borderRadius: 8,
@@ -370,9 +384,12 @@ const getDesignTokens = (mode: PaletteMode, brandColor?: string) => {
               '&.Mui-disabled': { backgroundColor: 'unset', color: 'unset' },
             },
             '&.MuiButton-containedSecondary': {
-              backgroundColor: '#FD6E12',
-              color: '#FFFFFF',
-              '&:hover': { backgroundColor: '#FDD803', color: '#1A1A1A' },
+              backgroundColor: secondaryAccent.main,
+              color: secondaryAccent.contrastText,
+              '&:hover': {
+                backgroundColor: secondaryAccent.mainHover,
+                color: secondaryAccent.hoverContrastText,
+              },
             },
             '&.MuiButton-outlinedPrimary': {
               color: accent.onSurface,
@@ -385,13 +402,13 @@ const getDesignTokens = (mode: PaletteMode, brandColor?: string) => {
               },
             },
             '&.MuiButton-outlinedSecondary': {
-              color: '#FD6E12',
-              borderColor: '#FD6E12',
+              color: secondaryAccent.main,
+              borderColor: secondaryAccent.main,
               backgroundColor: 'transparent',
               '&:hover': {
-                backgroundColor: '#FD6E12',
-                color: '#FFFFFF',
-                borderColor: '#FD6E12',
+                backgroundColor: secondaryAccent.main,
+                color: secondaryAccent.contrastText,
+                borderColor: secondaryAccent.main,
               },
             },
             '&.MuiButton-textPrimary': {
@@ -764,6 +781,8 @@ declare module '@mui/material/styles' {
      * blue on the server and swap after hydration.
      */
     brandColor?: string;
+    /** The raw configured `BRAND_SECONDARY_COLOR`. Undefined on the default theme. */
+    brandSecondaryColor?: string;
   }
   interface PaletteOptions {
     greyscale?: {
@@ -777,6 +796,7 @@ declare module '@mui/material/styles' {
       fieldSurface?: string;
     };
     brandColor?: string;
+    brandSecondaryColor?: string;
   }
 }
 

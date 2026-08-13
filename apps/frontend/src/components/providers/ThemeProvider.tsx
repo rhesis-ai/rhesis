@@ -5,7 +5,7 @@ import {
   ThemeProvider as MuiThemeProvider,
   createTheme,
 } from '@mui/material/styles';
-import { getDesignTokens } from '../../styles/theme';
+import { getDesignTokens, type BrandColors } from '../../styles/theme';
 
 export const ColorModeContext = React.createContext({
   toggleColorMode: () => {},
@@ -17,13 +17,13 @@ interface ThemeContextProviderProps {
   disableTransitionOnChange?: boolean;
   initialMode?: 'light' | 'dark';
   /**
-   * Validated `BRAND_PRIMARY_COLOR` for white-label deployments, passed down
-   * from the root layout (a Server Component) because the env var has no
-   * `NEXT_PUBLIC_` prefix and so is unreadable from the client bundle. Server
-   * render and hydration both receive it as a prop, so the two agree and the
-   * theme does not flash Rhesis blue first.
+   * Validated `BRAND_PRIMARY_COLOR` / `BRAND_SECONDARY_COLOR` for white-label
+   * deployments, passed down from the root layout (a Server Component) because
+   * the env vars have no `NEXT_PUBLIC_` prefix and so are unreadable from the
+   * client bundle. Server render and hydration both receive them as a prop, so
+   * the two agree and the theme does not flash Rhesis blue first.
    */
-  brandColor?: string;
+  brandColors?: BrandColors;
 }
 
 const THEME_MODE_KEY = 'theme-mode';
@@ -39,7 +39,7 @@ export default function ThemeContextProvider({
   children,
   disableTransitionOnChange = false,
   initialMode = 'light',
-  brandColor,
+  brandColors,
 }: ThemeContextProviderProps) {
   const [mode, setMode] = React.useState<'light' | 'dark'>(initialMode);
 
@@ -104,9 +104,20 @@ export default function ThemeContextProvider({
     [mode, disableTransitionOnChange]
   );
 
+  // Destructured so the memo keys on the colour values rather than the object's
+  // identity — a fresh `{primary, secondary}` literal from the caller would
+  // otherwise rebuild the whole theme on every render.
+  const brandPrimary = brandColors?.primary;
+  const brandSecondary = brandColors?.secondary;
   const theme = React.useMemo(
-    () => createTheme(getDesignTokens(mode, brandColor)),
-    [mode, brandColor]
+    () =>
+      createTheme(
+        getDesignTokens(mode, {
+          primary: brandPrimary,
+          secondary: brandSecondary,
+        })
+      ),
+    [mode, brandPrimary, brandSecondary]
   );
 
   return (

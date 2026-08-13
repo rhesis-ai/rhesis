@@ -128,36 +128,70 @@ describe('normalizeProductName', () => {
 describe('getServerBranding', () => {
   const original = {
     color: process.env.BRAND_PRIMARY_COLOR,
+    secondary: process.env.BRAND_SECONDARY_COLOR,
     favicon: process.env.BRAND_FAVICON_URL,
     product: process.env.BRAND_PRODUCT_NAME,
   };
 
+  // Assigning `undefined` to a process.env key stores the *string* "undefined"
+  // rather than clearing it, which leaked a bogus BRAND_FAVICON_URL into the
+  // next test and made it warn about the wrong variable. Delete instead.
+  const restore = (key: string, value: string | undefined) => {
+    if (value === undefined) delete process.env[key];
+    else process.env[key] = value;
+  };
+
   afterEach(() => {
-    process.env.BRAND_PRIMARY_COLOR = original.color;
-    process.env.BRAND_FAVICON_URL = original.favicon;
-    process.env.BRAND_PRODUCT_NAME = original.product;
+    restore('BRAND_PRIMARY_COLOR', original.color);
+    restore('BRAND_SECONDARY_COLOR', original.secondary);
+    restore('BRAND_FAVICON_URL', original.favicon);
+    restore('BRAND_PRODUCT_NAME', original.product);
   });
 
   it('reads every variable from the environment', () => {
     process.env.BRAND_PRIMARY_COLOR = '#6A1B9A';
+    process.env.BRAND_SECONDARY_COLOR = '#C2185B';
     process.env.BRAND_FAVICON_URL = 'https://example.com/fav.png';
     process.env.BRAND_PRODUCT_NAME = 'Acme';
 
     expect(getServerBranding()).toEqual({
       primaryColor: '#6A1B9A',
+      secondaryColor: '#C2185B',
       faviconUrl: 'https://example.com/fav.png',
       productName: 'Acme',
       isDefaultProductName: false,
     });
   });
 
+  it('accepts a secondary colour on its own', () => {
+    delete process.env.BRAND_PRIMARY_COLOR;
+    process.env.BRAND_SECONDARY_COLOR = '#C2185B';
+
+    const b = getServerBranding();
+    expect(b.primaryColor).toBeUndefined();
+    expect(b.secondaryColor).toBe('#C2185B');
+  });
+
+  it('names the offending variable when the secondary colour is malformed', () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    process.env.BRAND_SECONDARY_COLOR = 'not-a-colour';
+
+    expect(getServerBranding().secondaryColor).toBeUndefined();
+    expect(
+      warn.mock.calls.some(c => String(c[0]).includes('BRAND_SECONDARY_COLOR'))
+    ).toBe(true);
+    warn.mockRestore();
+  });
+
   it('reports Rhesis defaults when nothing is configured', () => {
     delete process.env.BRAND_PRIMARY_COLOR;
+    delete process.env.BRAND_SECONDARY_COLOR;
     delete process.env.BRAND_FAVICON_URL;
     delete process.env.BRAND_PRODUCT_NAME;
 
     expect(getServerBranding()).toEqual({
       primaryColor: undefined,
+      secondaryColor: undefined,
       faviconUrl: DEFAULT_FAVICON_URL,
       productName: DEFAULT_PRODUCT_NAME,
       isDefaultProductName: true,

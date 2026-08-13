@@ -61,6 +61,7 @@ x-nextjs-frontend: &nextjs-frontend
   NEXT_TELEMETRY_DISABLED: 1
   # Optional branding overrides, read at request time — see .env.example
   BRAND_PRIMARY_COLOR: ${BRAND_PRIMARY_COLOR:-}
+  BRAND_SECONDARY_COLOR: ${BRAND_SECONDARY_COLOR:-}
   BRAND_FAVICON_URL: ${BRAND_FAVICON_URL:-}
   BRAND_PRODUCT_NAME: ${BRAND_PRODUCT_NAME:-}
 

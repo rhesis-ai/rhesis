@@ -37,19 +37,26 @@ and the public URL usually differ.
 
 ## Branding
 
-Replace the Rhesis colour, icon and product name with your own. All three are read at request time, so
-the same image serves every deployment — no rebuild, and no `NEXT_PUBLIC_` counterpart.
+Replace the Rhesis colours, icon and product name with your own. All four are read at request time, so
+the same image serves every deployment — no rebuild, and no `NEXT_PUBLIC_` counterpart. Each is
+independent; set only the ones you need.
 
 | Variable | Description | Default |
 |---|---|---|
 | `BRAND_PRIMARY_COLOR` | 6-digit hex colour, e.g. `#6A1B9A`. Drives the primary palette, app bar, buttons, brand-tinted surfaces and the sign-in accent | *(unset — Rhesis blue)* |
+| `BRAND_SECONDARY_COLOR` | 6-digit hex colour for the secondary/CTA accent — secondary buttons and anything using `palette.secondary` | *(unset — Rhesis orange)* |
 | `BRAND_FAVICON_URL` | `https://` URL or root-relative path, e.g. `https://www.example.com/favicon.png`. Used as the browser-tab icon and as the brand mark in the sidebar, onboarding and sign-in header | `/logos/rhesis-logo-favicon.svg` |
 | `BRAND_PRODUCT_NAME` | Name in page titles (`Architect` becomes `Architect \| Acme`), the sign-in header and footer, and the sidebar before the organisation loads. Max 60 characters | `Rhesis AI` |
 
-Light and dark shades are derived from the one colour, and button label text switches between white and
+Light and dark shades are derived from each colour, and button label text switches between white and
 near-black to stay readable — a pale brand colour does not need extra configuration. A malformed value is
 ignored with a warning in the frontend logs and the Rhesis default applies, so a typo cannot break a
 deployment.
+
+One difference between the two colours: the built-in secondary uses a different hue for its hover
+(orange to yellow) and near-black for `secondary.dark`. A configured `BRAND_SECONDARY_COLOR` gets a plain
+lighten/darken ramp instead, so secondary buttons brighten on hover within your own hue rather than
+shifting to another colour.
 
 Setting `BRAND_PRODUCT_NAME` also drops the Rhesis tagline from the page description and stops the
 sign-in wordmark linking to rhesis.ai.

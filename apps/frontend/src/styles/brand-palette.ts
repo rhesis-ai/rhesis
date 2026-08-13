@@ -93,6 +93,64 @@ export function deriveBrandSurfaces(brandColor: string): BrandSurfaces {
   };
 }
 
+/**
+ * Builds `palette.secondary` for one mode from a configured secondary colour.
+ *
+ * Unlike primary, the Rhesis secondary slots are not a tint ramp — `light` is
+ * the accent yellow, and `dark` is near-black in light mode and a stray blue in
+ * dark mode. There is no relationship to generalise, so a configured colour gets
+ * a plain lighten/darken ramp instead. The defaults are kept verbatim when
+ * nothing is configured, so this only applies to deployments that opt in.
+ *
+ * `main` is the same in both modes, matching the current theme, where the
+ * secondary orange does not shift for dark surfaces the way primary does.
+ */
+export function deriveBrandSecondary(secondaryColor: string): BrandPrimary {
+  return {
+    main: secondaryColor,
+    light: lighten(secondaryColor, 0.25),
+    dark: darken(secondaryColor, 0.26),
+    contrastText: contrastTextFor(secondaryColor),
+  };
+}
+
+export interface SecondaryAccents {
+  main: string;
+  /** Hover fill. Brightens rather than darkens, keeping the spirit of the
+   * Rhesis orange→yellow hover. */
+  mainHover: string;
+  contrastText: string;
+  /** Text colour on top of `mainHover`, recomputed because a lighter fill can
+   * flip the readable choice. */
+  hoverContrastText: string;
+}
+
+/**
+ * Resolves the secondary colours used directly by the contained/outlined
+ * secondary button overrides. With no configured colour it returns the Figma
+ * literals, including the orange→yellow hover and its dark label.
+ */
+export function deriveSecondaryAccents(
+  secondaryColor?: string
+): SecondaryAccents {
+  if (!secondaryColor) {
+    return {
+      main: '#FD6E12',
+      mainHover: '#FDD803',
+      contrastText: '#FFFFFF',
+      hoverContrastText: '#1A1A1A',
+    };
+  }
+
+  const mainHover = lighten(secondaryColor, 0.25);
+  return {
+    main: secondaryColor,
+    mainHover,
+    contrastText: contrastTextFor(secondaryColor),
+    hoverContrastText: contrastTextFor(mainHover),
+  };
+}
+
 export interface BrandAccents {
   /** Solid brand fill: app bar, contained primary button, active pill. */
   main: string;

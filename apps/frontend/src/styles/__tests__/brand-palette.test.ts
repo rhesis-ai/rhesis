@@ -3,7 +3,9 @@ import {
   contrastTextFor,
   deriveBrandAccents,
   deriveBrandPrimary,
+  deriveBrandSecondary,
   deriveBrandSurfaces,
+  deriveSecondaryAccents,
 } from '../brand-palette';
 import { getDesignTokens } from '../theme';
 
@@ -104,6 +106,49 @@ describe('deriveBrandAccents', () => {
   });
 });
 
+describe('deriveBrandSecondary', () => {
+  it('builds a lighten/darken ramp around the configured colour', () => {
+    const s = deriveBrandSecondary(BRAND);
+    expect(s.main).toBe(BRAND);
+    expect(s.light).not.toBe(s.main);
+    expect(s.dark).not.toBe(s.main);
+    expect(getContrastRatio(s.light, '#FFFFFF')).toBeLessThan(
+      getContrastRatio(s.dark, '#FFFFFF')
+    );
+  });
+
+  it('picks readable label text for a pale secondary', () => {
+    expect(deriveBrandSecondary(PALE_BRAND).contrastText).toBe('#1A1A1A');
+    expect(deriveBrandSecondary(BRAND).contrastText).toBe('#FFFFFF');
+  });
+});
+
+describe('deriveSecondaryAccents', () => {
+  it('returns the Figma literals verbatim when nothing is configured', () => {
+    // Including the orange→yellow hover and its dark label, so the default
+    // secondary button is untouched.
+    expect(deriveSecondaryAccents()).toEqual({
+      main: '#FD6E12',
+      mainHover: '#FDD803',
+      contrastText: '#FFFFFF',
+      hoverContrastText: '#1A1A1A',
+    });
+  });
+
+  it('brightens on hover, matching the Rhesis behaviour', () => {
+    const a = deriveSecondaryAccents(BRAND);
+    expect(getContrastRatio(a.mainHover, '#FFFFFF')).toBeLessThan(
+      getContrastRatio(a.main, '#FFFFFF')
+    );
+  });
+
+  it('recomputes the label colour for the lighter hover fill', () => {
+    // A hover fill light enough to need dark text must not keep white text.
+    const a = deriveSecondaryAccents(PALE_BRAND);
+    expect(a.hoverContrastText).toBe('#1A1A1A');
+  });
+});
+
 describe('getDesignTokens brand integration', () => {
   it('is byte-identical to the Rhesis palette when no brand colour is passed', () => {
     // The regression guard: adding the parameter must not shift the default look.
@@ -124,7 +169,23 @@ describe('getDesignTokens brand integration', () => {
               contrastText: '#FFFFFF',
             }
       );
+      expect(palette.secondary).toEqual(
+        mode === 'light'
+          ? {
+              main: '#FD6E12',
+              light: '#FDD803',
+              dark: '#1A1A1A',
+              contrastText: '#FFFFFF',
+            }
+          : {
+              main: '#FD6E12',
+              light: '#F78166',
+              dark: '#58A6FF',
+              contrastText: '#FFFFFF',
+            }
+      );
       expect(palette.brandColor).toBeUndefined();
+      expect(palette.brandSecondaryColor).toBeUndefined();
     }
 
     expect(getDesignTokens('light').palette.background).toMatchObject({
@@ -136,15 +197,32 @@ describe('getDesignTokens brand integration', () => {
   });
 
   it('applies a brand colour to the palette and exposes the raw value', () => {
-    const palette = getDesignTokens('light', BRAND).palette;
+    const palette = getDesignTokens('light', { primary: BRAND }).palette;
     expect(palette.primary.main).toBe(BRAND);
     expect(palette.brandColor).toBe(BRAND);
     expect(palette.background.light4).not.toBe('#33A6CB');
   });
 
+  it('lets either colour be set on its own', () => {
+    // A deployment that only wants a new primary must not lose the Rhesis
+    // secondary, and vice versa.
+    const primaryOnly = getDesignTokens('light', { primary: BRAND }).palette;
+    expect(primaryOnly.primary.main).toBe(BRAND);
+    expect(primaryOnly.secondary.main).toBe('#FD6E12');
+
+    const secondaryOnly = getDesignTokens('light', {
+      secondary: PALE_BRAND,
+    }).palette;
+    expect(secondaryOnly.secondary.main).toBe(PALE_BRAND);
+    expect(secondaryOnly.primary.main).toBe('#0080AF');
+    expect(secondaryOnly.background.light1).toBe('#F2F9FD');
+  });
+
   it('leaves dark-mode background tints as greys', () => {
     // Only light mode's light1-4 are brand-tinted; dark's are true greys.
-    expect(getDesignTokens('dark', BRAND).palette.background).toMatchObject({
+    expect(
+      getDesignTokens('dark', { primary: BRAND }).palette.background
+    ).toMatchObject({
       light1: '#0D1117',
       light2: '#161B22',
     });

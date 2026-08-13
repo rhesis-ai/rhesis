@@ -15,10 +15,16 @@ export default function SignOut() {
   // it still has to honour a deployment's brand colour, which the spinner below
   // picks up from `palette.primary`. Rebuild the light theme with the brand
   // colour read off the ambient one instead of the static `lightTheme` export.
-  const { brandColor } = useTheme().palette;
+  const { brandColor, brandSecondaryColor } = useTheme().palette;
   const theme = useMemo(
-    () => createTheme(getDesignTokens('light', brandColor)),
-    [brandColor]
+    () =>
+      createTheme(
+        getDesignTokens('light', {
+          primary: brandColor,
+          secondary: brandSecondaryColor,
+        })
+      ),
+    [brandColor, brandSecondaryColor]
   );
 
   useEffect(() => {
