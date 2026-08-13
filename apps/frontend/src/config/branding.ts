@@ -70,7 +70,19 @@ export function normalizeFaviconUrl(value: string | undefined | null): string {
   const trimmed = value?.trim();
   if (!trimmed) return DEFAULT_FAVICON_URL;
 
-  if (trimmed.startsWith('/')) return trimmed;
+  if (trimmed.startsWith('/')) {
+    // `//host/icon.png` is protocol-relative: it looks root-relative but the
+    // browser resolves it against an external host, inheriting the page's
+    // scheme — so it would slip past the https check below. The backslash form
+    // is here too because browsers normalise `/\` to `//`.
+    if (/^\/[/\\]/.test(trimmed)) {
+      console.warn(
+        `[branding] Ignoring BRAND_FAVICON_URL "${trimmed}": protocol-relative URLs point at an external host. Use an explicit https:// URL.`
+      );
+      return DEFAULT_FAVICON_URL;
+    }
+    return trimmed;
+  }
 
   let parsed: URL;
   try {

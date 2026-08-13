@@ -74,9 +74,21 @@ describe('normalizeFaviconUrl', () => {
     ['data:image/png;base64,AAAA', 'other schemes are not allowed'],
     ['not a url', 'unparseable'],
     ['example.com/favicon.png', 'scheme-less is unparseable'],
+    [
+      '//example.com/favicon.png',
+      'protocol-relative resolves to an external host',
+    ],
+    ['/\\example.com/favicon.png', 'browsers normalise /\\ to //'],
   ])('rejects %s (%s)', url => {
     expect(normalizeFaviconUrl(url)).toBe(DEFAULT_FAVICON_URL);
     expect(warn).toHaveBeenCalled();
+  });
+
+  it('still accepts an ordinary root-relative path with nested segments', () => {
+    // The // guard must not catch a single leading slash followed by a path.
+    expect(normalizeFaviconUrl('/assets/brand/icon.png')).toBe(
+      '/assets/brand/icon.png'
+    );
   });
 });
 
