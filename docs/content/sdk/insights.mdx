@@ -31,4 +31,13 @@ failed_ids = Insights(entity="test_result", filters={"test_run_ids": ["your-run-
 | `test_run` | `status`, `test_set`, `executor`, `year`, `month` | `count`, `passed`, `failed`, `pass_rate` |
 | `test` | `behavior`, `behavior_id`, `category`, `category_id`, `topic`, `topic_id`, `is_unrun`, `year`, `month` | `count`, `unrun_count`, `run_count`, `passed`, `failed`, `pass_rate` |
 
-Filters (`test_run_ids`, `behavior_ids`, `category_ids`, `topic_ids`, `test_set_ids`, `endpoint_ids`, `tags`, `metric_names`, …) narrow which rows are aggregated; `months`, `start_date`, and `end_date` bound the date range.
+Filters narrow which rows are aggregated, and which keys are valid depends on the entity — a key not listed for that entity returns a 400:
+
+| Entity | filters |
+|--------|---------|
+| `test_result` | `test_run_ids`, `behavior_ids`, `category_ids`, `topic_ids`, `status_ids`, `test_ids`, `test_type_ids`, `user_ids`, `assignee_ids`, `owner_ids`, `prompt_ids`, `test_set_ids`, `tags` |
+| `metric` | `test_run_ids`, `behavior_ids`, `test_ids`, `metric_names` |
+| `test_run` | `test_run_ids`, `user_ids`, `endpoint_ids`, `test_set_ids`, `status_names` |
+| `test` | `behavior_ids`, `category_ids`, `topic_ids`, `status_ids`, `test_ids`, `test_type_ids`, `user_ids`, `assignee_ids`, `owner_ids`, `prompt_ids`, `test_set_ids`, `tags` |
+
+`months`, `start_date`, and `end_date` bound the date range and apply to every entity.
