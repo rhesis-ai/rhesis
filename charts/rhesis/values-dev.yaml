@@ -377,6 +377,10 @@ postgresql:
             GRANT SELECT ON ALL TABLES IN SCHEMA public TO "grafana-viewer";
             -- No app tables exist yet at initdb, so ALL TABLES above is a no-op and this
             -- is what actually covers `usage`: Alembic creates it later as rhesis-admin.
+            -- Hence full-schema read rather than a `usage`/`organization` grant: default
+            -- privileges cannot name tables that do not exist yet. Combined with BYPASSRLS
+            -- this role can read any tenant's data, which #2479 tracks as a decision to
+            -- confirm across all three envs rather than diverge on here.
             ALTER DEFAULT PRIVILEGES FOR ROLE "rhesis-admin" IN SCHEMA public
               GRANT SELECT ON TABLES TO "grafana-viewer";
           EOSQL
