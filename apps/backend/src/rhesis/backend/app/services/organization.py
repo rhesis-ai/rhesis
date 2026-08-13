@@ -10,13 +10,15 @@ from sqlalchemy.exc import InvalidRequestError
 from sqlalchemy.orm import Session, joinedload, with_parent
 from sqlalchemy.orm.attributes import flag_modified
 
-from rhesis.backend.app import crud, models
+from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.config.settings import get_application_settings
+from rhesis.backend.app.crud import tag as tag_crud
 from rhesis.backend.app.crud import user as user_crud
 from rhesis.backend.app.database import temporary_project_scope
 from rhesis.backend.app.models.enums import ModelType
 from rhesis.backend.app.models.metric import behavior_metric_association
 from rhesis.backend.app.models.test import test_test_set_association
+from rhesis.backend.app.schemas.tag import EntityType
 from rhesis.backend.app.scope import bypass_tenant_filter
 from rhesis.backend.app.services.test_set import execute_test_set_on_endpoint
 from rhesis.backend.app.utils.crud_utils import (
@@ -118,6 +120,16 @@ _ORG_WIDE_INITIAL_DATA_MODELS = frozenset({"Status", "TypeLookup", "Model", "Pro
 
 # Built-in metric providers are shared across projects (like statuses/models).
 _ORG_WIDE_METRIC_BACKEND_TYPES = frozenset({"deepeval", "ragas", "garak", "rhesis"})
+
+# Behaviors/metrics whose name starts with this prefix get tagged "OWASP" so the
+# frontend's OWASP filter pill (Metrics directory page) can find them via the
+# generic Tag/TaggedItem system. Mirrors the same prefix check in migrations
+# 38ed899b9f41 (creates the OWASP behaviors/metrics for pre-existing orgs) and
+# b857edcac3c0 (tags them) — those migrations only backfill organizations that
+# already existed when they ran, so this is the onboarding-time counterpart for
+# organizations created afterward.
+_OWASP_NAME_PREFIX = "OWASP"
+_OWASP_TAG_NAME = "OWASP"
 
 
 def _bust_permission_cache(user_id: uuid.UUID, organization_id: uuid.UUID) -> None:
@@ -335,7 +347,7 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> Dict[s
         # Process behaviors
         print("Processing behaviors...")
         for item in initial_data.get("behavior", []):
-            get_or_create_behavior(
+            behavior = get_or_create_behavior(
                 db=db,
                 name=item["name"],
                 description=item["description"],
@@ -344,6 +356,19 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> Dict[s
                 user_id=user_id,
                 commit=False,
             )
+            if item["name"].startswith(_OWASP_NAME_PREFIX):
+                tag_crud.assign_tag(
+                    db=db,
+                    tag=schemas.TagCreate(
+                        name=_OWASP_TAG_NAME,
+                        organization_id=organization_id,
+                        user_id=user_id,
+                    ),
+                    entity_id=behavior.id,
+                    entity_type=EntityType.BEHAVIOR,
+                    organization_id=organization_id,
+                    user_id=user_id,
+                )
 
         # Process projects
         print("Processing projects...")
@@ -831,6 +856,20 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> Dict[s
                 user_id=user_id,
                 commit=False,
             )
+
+            if item["name"].startswith(_OWASP_NAME_PREFIX):
+                tag_crud.assign_tag(
+                    db=db,
+                    tag=schemas.TagCreate(
+                        name=_OWASP_TAG_NAME,
+                        organization_id=organization_id,
+                        user_id=user_id,
+                    ),
+                    entity_id=metric.id,
+                    entity_type=EntityType.METRIC,
+                    organization_id=organization_id,
+                    user_id=user_id,
+                )
 
             # Process behavior associations
             behavior_names = item.get("behaviors", [])

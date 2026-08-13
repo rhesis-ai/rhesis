@@ -15,10 +15,11 @@ Usage in migrations:
         session.close()
 """
 
+import functools
 import json
 import uuid
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -26,10 +27,67 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import models
 from rhesis.backend.app.constants import EntityType
 from rhesis.backend.app.utils.crud_utils import (
+    get_or_create_behavior,
     get_or_create_entity,
     get_or_create_status,
     get_or_create_type_lookup,
 )
+
+
+@functools.lru_cache(maxsize=1)
+def _load_initial_data() -> Dict[str, Any]:
+    """Load the full initial_data.json payload.
+
+    Cached because a single migration run can call this (indirectly, via
+    ``load_metrics_from_initial_data`` / ``load_behaviors_from_initial_data``)
+    several times, and the file is not small.
+    """
+    # Get the path to initial_data.json relative to this file
+    current_dir = Path(__file__).parent
+    initial_data_path = current_dir.parent.parent / "app" / "services" / "initial_data.json"
+
+    with open(initial_data_path, "r") as f:
+        return json.load(f)
+
+
+def _list_organizations_with_owner(
+    session: Session, verbose: bool = False
+) -> List[Tuple[str, str]]:
+    """
+    List active organizations paired with an effective owner user id.
+
+    Uses raw SQL rather than the ORM so migrations that run before newer
+    Organization columns (e.g. sso_config, slug) exist do not fail with
+    UndefinedColumn on ORM loads. Falls back to ``user_id`` when ``owner_id``
+    is unset, and skips organizations that have neither.
+
+    Args:
+        session: SQLAlchemy database session (or Connection)
+        verbose: If True, print a warning for each organization skipped for
+            lacking both owner_id and user_id.
+
+    Returns:
+        List of (organization_id, user_id) string tuples, one per organization
+        with a resolvable owner. Organizations without either are omitted.
+    """
+    org_rows = session.execute(
+        text("SELECT id, owner_id, user_id FROM organization WHERE deleted_at IS NULL")
+    ).fetchall()
+
+    organizations = []
+    for org_id, owner_id, user_id_raw in org_rows:
+        # Use owner_id or fall back to user_id
+        user_id = owner_id or user_id_raw
+
+        # Skip if no valid user_id
+        if not user_id:
+            if verbose:
+                print(f"  ⚠ Skipping org {org_id}: No owner or user")
+            continue
+
+        organizations.append((str(org_id), str(user_id)))
+
+    return organizations
 
 
 def load_metrics_from_initial_data() -> List[Dict[str, Any]]:
@@ -39,14 +97,17 @@ def load_metrics_from_initial_data() -> List[Dict[str, Any]]:
     Returns:
         List of metric definitions from initial_data.json
     """
-    # Get the path to initial_data.json relative to this file
-    current_dir = Path(__file__).parent
-    initial_data_path = current_dir.parent.parent / "app" / "services" / "initial_data.json"
+    return _load_initial_data().get("metric", [])
 
-    with open(initial_data_path, "r") as f:
-        data = json.load(f)
 
-    return data.get("metric", [])
+def load_behaviors_from_initial_data() -> List[Dict[str, Any]]:
+    """
+    Load behaviors from initial_data.json file.
+
+    Returns:
+        List of behavior definitions from initial_data.json
+    """
+    return _load_initial_data().get("behavior", [])
 
 
 def sync_metrics_to_organizations(
@@ -113,30 +174,13 @@ def sync_metrics_to_organizations(
         if verbose:
             print(f"   Found {len(all_metrics)} metric definitions")
 
-        # List orgs with raw SQL so migrations run before newer Organization columns
-        # (e.g. sso_config, slug) exist do not fail with UndefinedColumn on ORM loads.
-        org_rows = session.execute(
-            text("SELECT id, owner_id, user_id FROM organization WHERE deleted_at IS NULL")
-        ).fetchall()
+        org_rows = _list_organizations_with_owner(session, verbose=verbose)
 
         if verbose:
             print(f"   Found {len(org_rows)} organization(s)\n")
 
-        for org_row in org_rows:
-            org_id = org_row[0]
-            organization_id = str(org_id)
-            owner_id, user_id_raw = org_row[1], org_row[2]
-            # Use owner_id or fall back to user_id
-            user_id = owner_id or user_id_raw
-
-            # Skip if no valid user_id
-            if not user_id:
-                if verbose:
-                    print(f"  ⚠ Skipping org {organization_id}: No owner or user")
-                continue
-
-            # Convert to string after validation
-            user_id = str(user_id)
+        for organization_id, user_id in org_rows:
+            org_id = uuid.UUID(organization_id)
 
             # Get existing metrics for this organization
             existing_metrics = (
@@ -341,4 +385,182 @@ def remove_metrics_from_organizations(
     except Exception as e:
         if verbose:
             print(f"\n❌ Metric removal failed: {e}\n")
+        raise
+
+
+def sync_behaviors_to_organizations(
+    session: Session,
+    behavior_names: List[str] | None = None,
+    verbose: bool = True,
+    commit: bool = False,
+) -> Dict[str, int]:
+    """
+    Sync behaviors to all existing organizations.
+
+    Loads behavior definitions from initial_data.json.
+
+    This function is fully idempotent - it will only create behaviors that don't
+    already exist in each organization (matched by name via
+    ``get_or_create_behavior``). It's safe to run multiple times.
+
+    Args:
+        session: SQLAlchemy database session
+        behavior_names: Optional list of behavior names to sync. If None, syncs all
+            behaviors.
+        verbose: If True, print progress messages
+        commit: If True, commit the session after syncing. If False, caller is responsible.
+
+    Returns:
+        Dictionary with stats: {
+            'total_created': int,
+            'total_skipped': int,
+            'total_errors': int,
+            'organizations_processed': int
+        }
+    """
+    stats = {
+        "total_created": 0,
+        "total_skipped": 0,
+        "total_errors": 0,
+        "organizations_processed": 0,
+    }
+
+    try:
+        if verbose:
+            print("\n📖 Loading behaviors from initial_data.json...")
+
+        all_behaviors = load_behaviors_from_initial_data()
+
+        if behavior_names is not None:
+            behavior_names_set = set(behavior_names)
+            all_behaviors = [b for b in all_behaviors if b["name"] in behavior_names_set]
+            if verbose:
+                print(f"   Filtered to {len(all_behaviors)} behaviors by name")
+
+        if verbose:
+            print(f"   Found {len(all_behaviors)} behavior definitions")
+
+        org_rows = _list_organizations_with_owner(session, verbose=verbose)
+
+        if verbose:
+            print(f"   Found {len(org_rows)} organization(s)\n")
+
+        for organization_id, user_id in org_rows:
+            org_id = uuid.UUID(organization_id)
+
+            # Get existing behaviors for this organization
+            existing_behaviors = (
+                session.query(models.Behavior)
+                .filter(models.Behavior.organization_id == org_id)
+                .all()
+            )
+            existing_behavior_names = {b.name for b in existing_behaviors}
+
+            org_created = 0
+            org_skipped = 0
+            org_errors = 0
+
+            for behavior_item in all_behaviors:
+                behavior_name = behavior_item["name"]
+
+                # Skip if behavior already exists (idempotent)
+                if behavior_name in existing_behavior_names:
+                    org_skipped += 1
+                    continue
+
+                try:
+                    get_or_create_behavior(
+                        db=session,
+                        name=behavior_item["name"],
+                        description=behavior_item.get("description"),
+                        status=behavior_item.get("status"),
+                        organization_id=organization_id,
+                        user_id=user_id,
+                        commit=False,
+                    )
+                    org_created += 1
+
+                except Exception as e:
+                    if verbose:
+                        print(
+                            f"  ✗ Error creating behavior '{behavior_name}' "
+                            f"for org {organization_id}: {e}"
+                        )
+                    org_errors += 1
+                    continue
+
+            stats["total_created"] += org_created
+            stats["total_skipped"] += org_skipped
+            stats["total_errors"] += org_errors
+            stats["organizations_processed"] += 1
+
+            if verbose and org_created > 0:
+                print(f"  ✓ Org {organization_id}: created {org_created}, skipped {org_skipped}")
+
+        if commit:
+            session.commit()
+
+        if verbose:
+            print("\n✅ Behavior sync complete!")
+            print(f"   Created: {stats['total_created']} behaviors")
+            print(f"   Skipped (already exist): {stats['total_skipped']} behaviors")
+            if stats["total_errors"] > 0:
+                print(f"   Errors: {stats['total_errors']} behaviors")
+            print()
+
+    except Exception as e:
+        if verbose:
+            print(f"\n❌ Behavior sync failed: {e}\n")
+        raise
+
+    return stats
+
+
+def remove_behaviors_from_organizations(
+    session: Session, behavior_names: List[str], verbose: bool = True, commit: bool = False
+) -> int:
+    """
+    Remove specific behaviors from all organizations.
+
+    Useful for downgrade migrations. Callers should generally remove any metrics
+    associated with these behaviors first (e.g. via ``remove_metrics_from_organizations``)
+    since deleting a behavior does not cascade to metrics, and behaviors still
+    referenced by prompts/tests/response patterns will fail to delete due to
+    foreign key constraints.
+
+    Args:
+        session: SQLAlchemy database session
+        behavior_names: List of behavior names to remove
+        verbose: If True, print progress messages
+        commit: If True, commit the session after removal. If False, caller is responsible.
+
+    Returns:
+        Number of behaviors deleted
+    """
+    try:
+        if verbose:
+            print(f"\n🗑 Removing behaviors: {', '.join(behavior_names)}...")
+
+        # Find behaviors to delete
+        behaviors_to_delete = (
+            session.query(models.Behavior).filter(models.Behavior.name.in_(behavior_names)).all()
+        )
+
+        deleted_count = len(behaviors_to_delete)
+
+        # Delete each behavior individually
+        for behavior in behaviors_to_delete:
+            session.delete(behavior)
+
+        if commit:
+            session.commit()
+
+        if verbose:
+            print(f"   Removed {deleted_count} behavior(s)\n")
+
+        return deleted_count
+
+    except Exception as e:
+        if verbose:
+            print(f"\n❌ Behavior removal failed: {e}\n")
         raise

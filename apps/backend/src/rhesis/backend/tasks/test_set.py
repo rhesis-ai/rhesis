@@ -642,3 +642,184 @@ def generate_and_save_test_set(
             _mark_test_set_generation_failed(self, test_set_id, org_id, user_id, error_msg)
         # The task will be automatically retried due to BaseTask settings
         raise Exception(f"Test set generation and save failed: {error_msg}")
+
+
+@email_notification(
+    template=EmailTemplate.TASK_COMPLETION,
+    subject_template="OWASP Test Set Generation Complete: {task_name} - {status}",
+)
+@app.task(
+    base=EmailEnabledTask,
+    name="rhesis.backend.tasks.generate_and_save_owasp_test_set",
+    bind=True,
+    display_name="Generate and Save OWASP Test Set",
+)
+def generate_and_save_owasp_test_set(
+    self,
+    framework: str,
+    purpose: str,
+    categories: Optional[List[str]] = None,
+    num_tests: int = 20,
+    batch_size: int = 10,
+    name: Optional[str] = None,
+    model_id: Optional[str] = None,
+    test_type: Optional[str] = TestSetType.SINGLE_TURN.value,
+):
+    """
+    Generate and save a test set using the SDK's OWASPSynthesizer.
+
+    Downloads the OWASP Top 10 report for ``framework`` and generates
+    adversarial test cases tailored to ``purpose`` for each selected risk
+    category.
+
+    Args:
+        framework: "llm" or "agentic" - which OWASP report to generate from.
+        purpose: What the system under test does, e.g. "customer service
+            chatbot for a bank".
+        categories: Optional list of category ids to restrict generation to
+            (e.g. ["llm01", "llm07"]). Defaults to every category in the report.
+        num_tests: Number of tests to generate, spread evenly across categories.
+        batch_size: Max attacks generated per LLM call per category.
+        name: Optional custom name for the test set.
+        model_id: Optional model UUID to override the user's default generation model.
+        test_type: "Single-Turn" (default) or "Multi-Turn" - whether to generate
+            one-shot attack prompts or multi-turn conversational attacks.
+
+    Returns:
+        dict: Information about the generated and saved test set.
+    """
+    org_id, user_id, project_id = self.get_tenant_context()
+
+    from rhesis.backend.app.services.owasp import (
+        OWASP_FRAMEWORKS,
+        load_owasp_content_cache,
+        save_owasp_content_cache,
+    )
+
+    framework_info = OWASP_FRAMEWORKS[framework]
+    report_url = framework_info["report_url"]
+    behavior = framework_info["behavior"]
+
+    model = _resolve_generation_model(self, org_id, user_id, project_id or "", model_id)
+    model_info = model if isinstance(model, str) else f"{type(model).__name__} instance"
+
+    self.log_with_context(
+        "info",
+        "Starting generate_and_save_owasp_test_set task",
+        framework=framework,
+        num_tests=num_tests,
+        model=model_info,
+        test_type=test_type,
+    )
+
+    try:
+        self.update_state(state="PROGRESS", meta={"status": f"Generating {num_tests} tests"})
+
+        # Imported lazily for the same fork-safety reason as ConfigSynthesizer above.
+        from rhesis.sdk.synthesizers import OWASPSynthesizer
+
+        synthesizer = OWASPSynthesizer(
+            purpose=purpose,
+            report_url=report_url,
+            categories=categories,
+            batch_size=batch_size,
+            model=model,
+            behavior=behavior,
+            test_type=test_type,
+            # Shared content cache: parse each report's PDF at most once per framework.
+            cache_key=framework,
+            cache_loader=load_owasp_content_cache,
+            cache_writer=save_owasp_content_cache,
+        )
+
+        import time
+
+        gen_start = time.time()
+        test_set = synthesizer.generate(num_tests=num_tests)
+        gen_elapsed = time.time() - gen_start
+
+        self.log_with_context(
+            "info",
+            "OWASP test set generated",
+            actual_tests_generated=len(test_set.tests),
+            requested_tests=num_tests,
+            generation_time_seconds=round(gen_elapsed, 1),
+        )
+
+        self.update_state(state="PROGRESS", meta={"status": "Saving to database"})
+
+        test_set_name = name or f"{behavior}: {purpose[:60]}"
+        db_test_set = _save_test_set_to_database(
+            self,
+            test_set,
+            org_id,
+            user_id,
+            custom_name=test_set_name,
+            extra_metadata={
+                "source": "owasp",
+                "owasp_framework": framework,
+                "owasp_report_url": report_url,
+            },
+        )
+
+        # From here on, the test set is already saved. A failure below must
+        # not reach the `except Exception` at the bottom of this function --
+        # it re-raises, and Celery's `autoretry_for = (Exception,)`
+        # (tasks/base.py) retries the whole task, re-running generation and
+        # re-saving for a save that already succeeded. This try/except
+        # isolates post-save work so a failure here falls back to a minimal
+        # result instead of triggering that retry.
+        try:
+            result = _build_task_result(
+                self,
+                db_test_set,
+                num_tests,
+                synthesizer,
+                {"framework": framework, "purpose": purpose, "categories": categories},
+                batch_size,
+                org_id,
+                user_id,
+                tests_generated=len(test_set.tests),
+            )
+
+            # No session needed here any more -- the accrual is queued and the
+            # worker task opens its own. dispatch_accrual no-ops on a count of
+            # zero, so the guard that used to protect the session checkout is
+            # gone too.
+            dispatch_accrual(org_id, QuotaResource.TEST_GENERATION, len(test_set.tests))
+
+            self.log_with_context(
+                "info",
+                "Task completed successfully",
+                test_set_id=str(db_test_set.id),
+                tests_generated=len(test_set.tests),
+            )
+
+            return result
+        except Exception as post_save_error:
+            self.log_with_context(
+                "error",
+                "Result building failed after test set was already saved; "
+                "returning minimal result instead of retrying (retrying would "
+                "re-run generation and create a duplicate test set)",
+                test_set_id=str(db_test_set.id),
+                error=str(post_save_error),
+            )
+            return {
+                "test_set_id": str(db_test_set.id),
+                "num_tests_generated": len(test_set.tests),
+                "num_tests_requested": num_tests,
+                "organization_id": org_id,
+                "user_id": user_id,
+                "save_successful": True,
+                "result_build_error": str(post_save_error),
+            }
+
+    except ValueError as e:
+        error_msg = str(e)
+        self.log_with_context("error", "User model configuration error", error=error_msg)
+        raise ValueError(f"OWASP test set generation failed: {error_msg}")
+    except Exception as e:
+        error_msg = str(e)
+        self.log_with_context("error", "Task failed", error=error_msg)
+        raise Exception(f"OWASP test set generation failed: {error_msg}")

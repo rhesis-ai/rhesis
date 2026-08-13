@@ -161,6 +161,10 @@ export const Capability = {
     READ: 'garak:read',
     CREATE: 'garak:create',
   },
+  Owasp: {
+    READ: 'owasp:read',
+    CREATE: 'owasp:create',
+  },
   Metric: {
     READ: 'metric:read',
     CREATE: 'metric:create',
@@ -336,6 +340,9 @@ export const CAPABILITY_LABELS: Record<string, string> = {
   // Garak
   'garak:read': 'View Garak probes',
   'garak:create': 'Import Garak probes',
+  // OWASP
+  'owasp:read': 'View OWASP categories',
+  'owasp:create': 'Generate OWASP test sets',
   // Metrics
   'metric:read': 'View metrics',
   'metric:create': 'Create metrics',

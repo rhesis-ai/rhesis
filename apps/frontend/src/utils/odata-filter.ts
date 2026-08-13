@@ -1353,6 +1353,15 @@ export interface MetricDirectoryFilters {
   behavior: string;
 }
 
+/** Tag applied to OWASP metrics by the tag_owasp_metrics_and_behaviors migration. */
+export const OWASP_METRIC_TAG_NAME = 'OWASP';
+/**
+ * Pseudo-backend pill value for the OWASP tag — no metric actually has this
+ * as its `backend_type`, so it's mapped to a tag-based OData clause below
+ * instead of the usual `backend_type/type_value eq ...` comparison.
+ */
+export const OWASP_METRIC_FILTER_VALUE = 'owasp';
+
 /**
  * Builds an OData $filter string for the metric list endpoint.
  * Returns undefined when no filters are active.
@@ -1373,10 +1382,10 @@ export function buildMetricODataFilter(
     );
   }
 
-  pushOrConditions(
-    parts,
-    f.backend,
-    b => `tolower(backend_type/type_value) eq '${escapeODataValue(b)}'`
+  pushOrConditions(parts, f.backend, b =>
+    b === OWASP_METRIC_FILTER_VALUE
+      ? `_tags_relationship/any(tg: tolower(tg/tag/name) eq tolower('${escapeODataValue(OWASP_METRIC_TAG_NAME)}'))`
+      : `tolower(backend_type/type_value) eq '${escapeODataValue(b)}'`
   );
 
   pushOrConditions(

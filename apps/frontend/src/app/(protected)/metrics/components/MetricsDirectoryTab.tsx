@@ -34,6 +34,10 @@ import type { UUID } from 'crypto';
 import { Can, useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import {
+  OWASP_METRIC_FILTER_VALUE,
+  OWASP_METRIC_TAG_NAME,
+} from '@/utils/odata-filter';
 export interface FilterState {
   search: string;
   backend: string[];
@@ -494,6 +498,10 @@ export default function MetricsDirectoryTab({
                     value: o.type_value.toLowerCase(),
                     label: o.type_value,
                   })),
+                  {
+                    value: OWASP_METRIC_FILTER_VALUE,
+                    label: OWASP_METRIC_TAG_NAME,
+                  },
                 ]}
                 selectedValues={filters.backend}
                 onMultiChange={values => handleFilterChange('backend', values)}
