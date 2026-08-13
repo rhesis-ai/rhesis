@@ -50,7 +50,7 @@ export function normalizeBrandColor(
 
   if (!HEX_COLOR_PATTERN.test(trimmed)) {
     console.warn(
-      `[branding] Ignoring BRAND_PRIMARY_COLOR "${trimmed}": expected a 6-digit hex colour such as #6A1B9A.`
+      `[branding] Ignoring BRAND_PRIMARY_COLOR "${trimmed}": expected a 6-digit hex colour in #RRGGBB form.`
     );
     return undefined;
   }
