@@ -4,30 +4,30 @@ from rhesis.sdk.clients import APIClient, Endpoints, Methods
 from rhesis.sdk.entities.base_collection import BaseCollection
 from rhesis.sdk.entities.base_entity import BaseEntity
 
-ENDPOINT = Endpoints.BEHAVIORS
+ENDPOINT = Endpoints.REQUIREMENTS
 
 
-class Behavior(BaseEntity):
+class Requirement(BaseEntity):
     endpoint: ClassVar[Endpoints] = ENDPOINT
     name: Optional[str] = None
     description: Optional[str] = None
     id: Optional[str] = None
 
     def get_metrics(self) -> Dict[str, Any]:
-        """Get all metrics associated with this behavior.
+        """Get all metrics associated with this requirement.
 
         Returns:
-            Dict containing the list of metrics for this behavior
+            Dict containing the list of metrics for this requirement
 
         Raises:
-            ValueError: If behavior ID is not set
+            ValueError: If requirement ID is not set
 
         Example:
-            >>> behavior = Behavior(id='behavior-123')
-            >>> metrics = behavior.get_metrics()
+            >>> requirement = Requirement(id='requirement-123')
+            >>> metrics = requirement.get_metrics()
         """
         if self.id is None:
-            raise ValueError("Behavior ID is required")
+            raise ValueError("Requirement ID is required")
 
         client = APIClient()
 
@@ -39,23 +39,23 @@ class Behavior(BaseEntity):
         return response
 
     def add_metric(self, metric_id: str) -> Dict[str, Any]:
-        """Add a metric to this behavior.
+        """Add a metric to this requirement.
 
         Args:
-            metric_id: The ID of the metric to add to this behavior
+            metric_id: The ID of the metric to add to this requirement
 
         Returns:
             Dict containing the response from adding the metric
 
         Raises:
-            ValueError: If behavior ID is not set
+            ValueError: If requirement ID is not set
 
         Example:
-            >>> behavior = Behavior(id='behavior-123')
-            >>> response = behavior.add_metric('metric-456')
+            >>> requirement = Requirement(id='requirement-123')
+            >>> response = requirement.add_metric('metric-456')
         """
         if self.id is None:
-            raise ValueError("Behavior ID is required")
+            raise ValueError("Requirement ID is required")
 
         client = APIClient()
 
@@ -67,23 +67,23 @@ class Behavior(BaseEntity):
         return response
 
     def remove_metric(self, metric_id: str) -> Dict[str, Any]:
-        """Remove a metric from this behavior.
+        """Remove a metric from this requirement.
 
         Args:
-            metric_id: The ID of the metric to remove from this behavior
+            metric_id: The ID of the metric to remove from this requirement
 
         Returns:
             Dict containing the response from removing the metric
 
         Raises:
-            ValueError: If behavior ID is not set
+            ValueError: If requirement ID is not set
 
         Example:
-            >>> behavior = Behavior(id='behavior-123')
-            >>> response = behavior.remove_metric('metric-456')
+            >>> requirement = Requirement(id='requirement-123')
+            >>> response = requirement.remove_metric('metric-456')
         """
         if self.id is None:
-            raise ValueError("Behavior ID is required")
+            raise ValueError("Requirement ID is required")
 
         client = APIClient()
 
@@ -95,6 +95,6 @@ class Behavior(BaseEntity):
         return response
 
 
-class Behaviors(BaseCollection):
+class Requirements(BaseCollection):
     endpoint = ENDPOINT
-    entity_class = Behavior
+    entity_class = Requirement

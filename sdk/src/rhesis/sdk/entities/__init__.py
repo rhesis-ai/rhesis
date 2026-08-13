@@ -10,7 +10,7 @@ from rhesis.sdk.entities.endpoint import Endpoint, Endpoints
 
 from .base_collection import BaseCollection
 from .base_entity import BaseEntity
-from .behavior import Behavior, Behaviors
+from .requirement import Requirement, Requirements
 from .category import Categories, Category
 from .experiment import Experiment, Experiments
 from .file import File
@@ -34,8 +34,8 @@ __all__ = [
     "Experiments",
     "File",
     "Insights",
-    "Behavior",
-    "Behaviors",
+    "Requirement",
+    "Requirements",
     "Category",
     "Categories",
     "Model",

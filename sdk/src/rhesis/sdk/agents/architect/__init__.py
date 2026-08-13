@@ -4,7 +4,7 @@ from rhesis.sdk.agents.architect.agent import ArchitectAgent
 from rhesis.sdk.agents.architect.config import ArchitectConfig
 from rhesis.sdk.agents.architect.plan import (
     ArchitectPlan,
-    BehaviorSpec,
+    RequirementSpec,
     MappingSpec,
     MetricSpec,
     ProjectSpec,
@@ -15,7 +15,7 @@ __all__ = [
     "ArchitectAgent",
     "ArchitectConfig",
     "ArchitectPlan",
-    "BehaviorSpec",
+    "RequirementSpec",
     "MappingSpec",
     "MetricSpec",
     "ProjectSpec",

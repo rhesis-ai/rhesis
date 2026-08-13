@@ -90,7 +90,7 @@ class OWASPSynthesizer(TestSetSynthesizer):
         subsection_exclusions: Collection[str] = DEFAULT_SUBSECTION_EXCLUSIONS,
         batch_size: int = 10,
         model: Optional[Union[str, BaseLLM]] = None,
-        behavior: str = "OWASP LLM Top 10",
+        requirement: str = "OWASP LLM Top 10",
         test_type: Union[str, TestType] = TestType.SINGLE_TURN,
         cache_key: Optional[str] = None,
         cache_loader: Optional[Callable[[str], Optional[List[dict]]]] = None,
@@ -113,7 +113,7 @@ class OWASPSynthesizer(TestSetSynthesizer):
                 keep all subsections.
             batch_size: Max attacks to generate per LLM call per section.
             model: LLM to use for generation.
-            behavior: Behavior label stored on every generated test, used for
+            requirement: Requirement label stored on every generated test, used for
                 analytics grouping.  Override to e.g. ``"OWASP Agentic Top 10"``
                 when using :data:`DEFAULT_OWASP_AGENTIC_PDF_URL`.
             test_type: ``SINGLE_TURN`` (default) generates one-shot prompts;
@@ -125,7 +125,7 @@ class OWASPSynthesizer(TestSetSynthesizer):
         super().__init__(batch_size=batch_size, model=model, harmful=True)
         self.purpose = purpose
         self._report_url = report_url
-        self._behavior = behavior
+        self._requirement = requirement
         self._category_filter = [c.lower() for c in categories] if categories else None
         self._subsection_exclusions = subsection_exclusions
         self._cache_key = cache_key
@@ -224,7 +224,7 @@ class OWASPSynthesizer(TestSetSynthesizer):
                 "min_turns": int(flat["test_configuration_min_turns"]),
                 "max_turns": int(flat["test_configuration_max_turns"]),
             },
-            "behavior": flat["behavior"],
+            "requirement": flat["requirement"],
             "category": flat["category"],
             "topic": flat["topic"],
         }
@@ -317,7 +317,7 @@ class OWASPSynthesizer(TestSetSynthesizer):
             "section_id": section.id,
             "section_name": section.name,
             "section_content": section.content,
-            "behavior": self._behavior,
+            "requirement": self._requirement,
             "topic": section.name.lower(),
             "harmful": True,
             **extra,

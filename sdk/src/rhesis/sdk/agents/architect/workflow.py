@@ -45,7 +45,7 @@ _DIRECT_SIGNALS = (
     "list my",
     "list test",
     "list metric",
-    "list behavior",
+    "list requirement",
     "update metric",
     "improve metric",
     "link metric",

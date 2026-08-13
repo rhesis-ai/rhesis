@@ -36,7 +36,7 @@ _DETECTOR_OVERRIDES = {
 # (PythonPypi, RubyGems, …) download a ~555K-row package dataset from
 # HuggingFace on first use, which is impractical in the worker environment and
 # offers little value outside code-generation tests. They are detached from any
-# behavior in detectors.yaml (catalog-only) and report "not implemented" if run.
+# requirement in detectors.yaml (catalog-only) and report "not implemented" if run.
 _UNSUPPORTED_DETECTOR_MODULES = ("packagehallucination",)
 
 

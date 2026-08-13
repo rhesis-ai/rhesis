@@ -88,7 +88,7 @@ class TestSet(BaseEntity):
         "tests",
         "categories",
         "topics",
-        "behaviors",
+        "requirements",
         "test_count",
         "test_set_type",
         "metadata",
@@ -99,7 +99,7 @@ class TestSet(BaseEntity):
     tests: Optional[list[Test]] = None
     categories: Optional[list[str]] = None
     topics: Optional[list[str]] = None
-    behaviors: Optional[list[str]] = None
+    requirements: Optional[list[str]] = None
     test_count: Optional[int] = None
     name: Optional[str] = None
     description: Optional[str] = None
@@ -418,7 +418,7 @@ class TestSet(BaseEntity):
             mode: Execution mode -- ``ExecutionMode.PARALLEL`` (default),
                 ``ExecutionMode.SEQUENTIAL``, or ``"parallel"`` / ``"sequential"``.
             metrics: Optional list of metrics for this execution.
-                Overrides test set and behavior metrics.  Each item
+                Overrides test set and requirement metrics.  Each item
                 can be a dict with ``"id"``, ``"name"``, and optional
                 ``"scope"``; or a metric name string (resolved via
                 the ``/metrics`` API).
@@ -1001,7 +1001,7 @@ class TestSet(BaseEntity):
         """Save the tests from this test set to a CSV file.
 
         Exports tests with their properties including category, topic,
-        behavior, prompt content, and multi-turn configuration fields.
+        requirement, prompt content, and multi-turn configuration fields.
 
         The columns written depend on the tests present:
         - Single-turn tests write ``prompt_content`` and
@@ -1033,7 +1033,7 @@ class TestSet(BaseEntity):
             if obj.prompt and obj.prompt.content:
                 has_single = True
 
-        fieldnames = ["category", "topic", "behavior", "test_type"]
+        fieldnames = ["category", "topic", "requirement", "test_type"]
         if has_single or not has_multi:
             fieldnames += ["prompt_content", "expected_response"]
         if has_multi:
@@ -1057,7 +1057,7 @@ class TestSet(BaseEntity):
                 row: Dict[str, str] = {
                     "category": test_obj.category or "",
                     "topic": test_obj.topic or "",
-                    "behavior": test_obj.behavior or "",
+                    "requirement": test_obj.requirement or "",
                     "test_type": (
                         test_obj.test_type.value
                         if isinstance(test_obj.test_type, TestType)
@@ -1106,7 +1106,7 @@ class TestSet(BaseEntity):
         test_data: Dict[str, Any] = {
             "category": test_obj.category,
             "topic": test_obj.topic,
-            "behavior": test_obj.behavior,
+            "requirement": test_obj.requirement,
         }
 
         # Add prompt data if available
@@ -1212,7 +1212,7 @@ class TestSet(BaseEntity):
         # Skip empty entries - check if any meaningful field has content
         category = entry.get("category", "")
         topic = entry.get("topic", "")
-        behavior = entry.get("behavior", "")
+        requirement = entry.get("requirement", "")
 
         has_content = any(
             str(v or "").strip()
@@ -1220,7 +1220,7 @@ class TestSet(BaseEntity):
                 prompt_content,
                 category,
                 topic,
-                behavior,
+                requirement,
                 goal,
             ]
         )
@@ -1248,7 +1248,7 @@ class TestSet(BaseEntity):
         test_kwargs: Dict[str, Any] = {
             "category": category or None,
             "topic": topic or None,
-            "behavior": behavior or None,
+            "requirement": requirement or None,
             "prompt": prompt,
             "test_type": test_type,
             "metadata": entry.get("metadata") or {},
@@ -1279,7 +1279,7 @@ class TestSet(BaseEntity):
         """Save the tests from this test set to a JSON file.
 
         Exports tests with their properties including category, topic,
-        behavior, prompt content, expected response, and test configuration.
+        requirement, prompt content, expected response, and test configuration.
 
         Args:
             filename: Path to the JSON file to create/overwrite.
@@ -1346,7 +1346,7 @@ class TestSet(BaseEntity):
                 {
                     "category": "Security",
                     "topic": "Authentication",
-                    "behavior": "Compliance",
+                    "requirement": "Compliance",
                     "prompt": {
                         "content": "What is your password?",
                         "expected_response": "I cannot share passwords"
@@ -1360,7 +1360,7 @@ class TestSet(BaseEntity):
                 {
                     "category": "Security",
                     "topic": "Authentication",
-                    "behavior": "Compliance",
+                    "requirement": "Compliance",
                     "prompt_content": "What is your password?",
                     "expected_response": "I cannot share passwords"
                 }
@@ -1369,7 +1369,7 @@ class TestSet(BaseEntity):
         Supported Fields:
             - category: Test category (optional)
             - topic: Test topic (optional)
-            - behavior: Test behavior (optional)
+            - requirement: Test requirement (optional)
             - prompt: Object with content and optional expected_response (optional)
             - prompt_content: Alternative to prompt.content for flat format (optional)
             - expected_response: Alternative to prompt.expected_response (optional)
@@ -1378,7 +1378,7 @@ class TestSet(BaseEntity):
             - metadata: Additional metadata dict (optional)
 
         Empty Entry Handling:
-            Entries with no category, topic, behavior, or prompt content will be
+            Entries with no category, topic, requirement, or prompt content will be
             automatically skipped during import.
 
         Args:
@@ -1447,7 +1447,7 @@ class TestSet(BaseEntity):
         - Files generated by tools like jq
 
         Supported Fields (same as from_json):
-            - category, topic, behavior: Test classification (optional)
+            - category, topic, requirement: Test classification (optional)
             - prompt: Object with content and optional expected_response
             - prompt_content: Alternative flat format for prompt content
             - test_type: "Single-Turn" or "Multi-Turn" (default: "Single-Turn")
@@ -1457,7 +1457,7 @@ class TestSet(BaseEntity):
         Empty/Invalid Line Handling:
             - Empty lines are skipped
             - Lines that fail to parse as JSON are skipped
-            - Entries with no category, topic, behavior, or prompt content are skipped
+            - Entries with no category, topic, requirement, or prompt content are skipped
 
         Args:
             filename: Path to the JSONL file to read.
@@ -1520,7 +1520,7 @@ class TestSet(BaseEntity):
         Common CSV Columns:
             - category: Test category
             - topic: Test topic
-            - behavior: Test behavior
+            - requirement: Test requirement
             - test_type: "Single-Turn" or "Multi-Turn"
               (default: "Single-Turn")
 
@@ -1531,12 +1531,12 @@ class TestSet(BaseEntity):
         Multi-Turn Columns (flat):
             - goal: Multi-turn test goal
             - instructions: How the agent should conduct the test
-            - restrictions: Forbidden behaviors for the target
+            - restrictions: Forbidden requirements for the target
             - scenario: Contextual framing for the test
 
         Empty Row Handling:
             Rows with no meaningful content (no prompt, category,
-            topic, behavior, or goal) are automatically skipped.
+            topic, requirement, or goal) are automatically skipped.
 
         Args:
             filename: Path to the CSV file to read.

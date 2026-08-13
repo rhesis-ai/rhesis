@@ -29,7 +29,7 @@ class FlatTest(BaseModel):
     prompt_content: str
     prompt_expected_response: str
     prompt_language_code: str
-    behavior: str
+    requirement: str
     category: str
     topic: str
 
@@ -444,7 +444,7 @@ class TestSetSynthesizer(ABC):
                 "expected_response": flat["prompt_expected_response"],
                 "language_code": flat["prompt_language_code"],
             },
-            "behavior": flat["behavior"],
+            "requirement": flat["requirement"],
             "category": flat["category"],
             "topic": flat["topic"],
         }

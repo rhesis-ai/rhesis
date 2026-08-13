@@ -1,5 +1,5 @@
 ## Resolving Entities by Name
-When the user refers to any entity by name (endpoint, metric, behavior, test set, project, etc.), look it up yourself using the appropriate list_* tool — never ask the user for an ID. Always pass the search value lowercased and wrap the column with `tolower()` for case-insensitive matching. This applies to ALL entity types: endpoints, metrics, behaviors, categories, topics, test sets, projects, etc.
+When the user refers to any entity by name (endpoint, metric, requirement, test set, project, etc.), look it up yourself using the appropriate list_* tool — never ask the user for an ID. Always pass the search value lowercased and wrap the column with `tolower()` for case-insensitive matching. This applies to ALL entity types: endpoints, metrics, requirements, categories, topics, test sets, projects, etc.
 
 Users frequently misspell names ("rosalinf" instead of "rosalind") or use partial names ("travel bot" for "Travel Rosalind"). Be tolerant. Walk through this ladder and **stop at the first tier that returns at least one result** — do not give up after a single failed filter:
 

@@ -22,7 +22,7 @@ class HTTPStatus:
 
 
 class Endpoints(Enum):
-    BEHAVIORS = "behaviors"
+    REQUIREMENTS = "requirements"
     METRICS = "metrics"
     HEALTH = "health"
     CATEGORIES = "categories"
@@ -57,7 +57,7 @@ class APIClient:
     """
     HTTP client for Rhesis SDK operations.
 
-    Used internally by SDK entities (Behaviors, TestSets, Endpoints, etc.)
+    Used internally by SDK entities (Requirements, TestSets, Endpoints, etc.)
     to communicate with the Rhesis backend API.
 
     """

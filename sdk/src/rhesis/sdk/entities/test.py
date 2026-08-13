@@ -20,7 +20,7 @@ ENDPOINT = Endpoints.TESTS
 class TestConfiguration(BaseModel):
     goal: str
     instructions: str = ""  # Optional - how Penelope should conduct the test
-    restrictions: str = ""  # Optional - forbidden behaviors for the target
+    restrictions: str = ""  # Optional - forbidden requirements for the target
     scenario: str = ""  # Optional - contextual framing for the test
     max_turns: Optional[int] = None  # Maximum conversation turns (default: 10)
     min_turns: Optional[int] = None  # Minimum turns before early stopping
@@ -28,12 +28,12 @@ class TestConfiguration(BaseModel):
 
 class Test(BaseEntity):
     endpoint = ENDPOINT
-    _push_required_fields: ClassVar[tuple[str, ...]] = ("category", "behavior")
+    _push_required_fields: ClassVar[tuple[str, ...]] = ("category", "requirement")
     _write_only_fields: ClassVar[tuple[str, ...]] = ("files",)
 
     category: Optional[str] = None
     topic: Optional[str] = None
-    behavior: Optional[str] = None
+    requirement: Optional[str] = None
     prompt: Optional[Prompt] = None
     metadata: dict = {}
     id: Optional[str] = None
@@ -118,7 +118,7 @@ class Test(BaseEntity):
                 data.pop("test_metadata", None)
         return data
 
-    @field_validator("category", "topic", "behavior", mode="before")
+    @field_validator("category", "topic", "requirement", mode="before")
     @classmethod
     def extract_name_from_dict(cls, v: Any) -> Optional[str]:
         """Extract name from nested dict if backend returns full object.
