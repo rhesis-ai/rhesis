@@ -29,6 +29,7 @@ from rhesis.backend.app.services.streaming_utils import (
     IncrementalJsonArrayParser,
 )
 from rhesis.backend.app.services.streaming_utils import ndjson as _ndjson
+from rhesis.backend.app.utils.model_errors import EmbeddingProviderNotConfigured
 
 logger = logging.getLogger(__name__)
 
@@ -328,19 +329,29 @@ async def generate_suggestions(
             sort_by_diversity,
         )
 
-        embedder = resolve_embedder(db, user_id)
-        texts = [(item.get("input") or "").strip() for item in suggestions]
+        # Embeddings only drive diversity ordering here, so a deployment with no
+        # embedding provider still gets its suggestions -- just unsorted and
+        # without vectors. Before, this resolve raised straight out of the
+        # function and took the whole suggestion request with it.
+        try:
+            embedder = resolve_embedder(db, user_id)
+        except EmbeddingProviderNotConfigured as e:
+            logger.warning("Suggestions generated without embeddings: %s", e)
+            embedder = None
 
-        vectors = await a_generate_embedding_vectors_batch(
-            texts,
-            db,
-            user_id,
-            embedder=embedder,
-        )
-        for item, vec in zip(suggestions, vectors):
-            item["embedding"] = vec
+        if embedder is not None:
+            texts = [(item.get("input") or "").strip() for item in suggestions]
 
-        suggestions = sort_by_diversity(suggestions)
+            vectors = await a_generate_embedding_vectors_batch(
+                texts,
+                db,
+                user_id,
+                embedder=embedder,
+            )
+            for item, vec in zip(suggestions, vectors):
+                item["embedding"] = vec
+
+            suggestions = sort_by_diversity(suggestions)
 
     logger.info(
         f"Generated {len(suggestions)} suggestions for "
@@ -426,7 +437,14 @@ async def suggestion_pipeline_stream(
             resolve_embedder,
         )
 
-        embedder = resolve_embedder(db, user_id)
+        # Degrade to a no-embedding stream rather than failing it: this resolve
+        # sits outside _embed_one's own try/except, so an unconfigured provider
+        # used to abort the entire suggestion stream, not just the vectors.
+        try:
+            embedder = resolve_embedder(db, user_id)
+        except EmbeddingProviderNotConfigured as e:
+            logger.warning("Suggestion stream running without embeddings: %s", e)
+            generate_embeddings = False
 
     # ── Shared state ──
     suggestions: List[Dict[str, Any]] = []

@@ -6,7 +6,10 @@ import pytest
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.services.explorer.embeddings import resolve_embedder
-from rhesis.backend.app.utils.model_errors import ModelConfigurationError
+from rhesis.backend.app.utils.model_errors import (
+    EmbeddingProviderNotConfigured,
+    ModelConfigurationError,
+)
 
 
 @pytest.mark.unit
@@ -39,9 +42,12 @@ class TestResolveEmbedder:
         fake_native_embedder = Mock(spec=RhesisEmbedder)
         mock_get_user_embedding_model.return_value = fake_native_embedder
 
-        with pytest.raises(ModelConfigurationError, match="recursively"):
+        with pytest.raises(EmbeddingProviderNotConfigured, match="recursively") as exc_info:
             resolve_embedder(test_db, authenticated_user_id)
 
+        # Callers that can degrade catch the narrow type; the subclassing keeps
+        # existing `except ModelConfigurationError` handlers working.
+        assert isinstance(exc_info.value, ModelConfigurationError)
         fake_native_embedder.generate.assert_not_called()
 
     @patch("rhesis.backend.app.services.explorer.embeddings.get_model")

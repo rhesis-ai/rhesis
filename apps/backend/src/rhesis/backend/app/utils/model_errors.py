@@ -12,6 +12,21 @@ class ModelConfigurationError(ValueError):
         super().__init__(self.message)
 
 
+class EmbeddingProviderNotConfigured(ModelConfigurationError):
+    """No real embedding provider is configured for this deployment.
+
+    Distinct from a provider that *is* configured but broken (bad key,
+    inaccessible model): that stays a plain ``ModelConfigurationError`` and
+    should still fail loudly. This one means ``DEFAULT_EMBEDDING_MODEL`` still
+    resolves to the Rhesis native provider, whose ``.generate()`` would call
+    this backend's own embedding endpoint over HTTP -- i.e. itself.
+
+    Subclasses ``ModelConfigurationError`` so existing handlers keep catching
+    it; callers that can degrade gracefully (embeddings are optional
+    enrichment) catch this narrower type and carry on without vectors.
+    """
+
+
 # Provider statuses that mean "this request is wrong", not "try again later":
 # bad request, missing/invalid credentials, no permission, unknown model.
 _PERMANENT_PROVIDER_STATUSES = frozenset({400, 401, 403, 404})
