@@ -16,7 +16,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app.constants import MetricBackendType
+from rhesis.backend.app.constants import EntityType, MetricBackendType
 from rhesis.backend.app.models.metric import Metric
 from rhesis.backend.app.models.test_set import TestSet, test_set_metric_association
 from rhesis.backend.app.schemas import test_set as test_set_schemas
@@ -457,7 +457,10 @@ class GarakImporter:
                 .filter_by(
                     tag_id=tag.id,
                     entity_id=test.behavior_id,
-                    entity_type="Behavior",
+                    # TaggedItem.entity_type is a plain String column with no
+                    # normalization at this call site -- use .value explicitly, a
+                    # bare enum would write "EntityType.BEHAVIOR" into the column.
+                    entity_type=EntityType.BEHAVIOR.value,
                     organization_id=organization_id,
                 )
                 .first()
@@ -468,7 +471,7 @@ class GarakImporter:
             tagged_item = TaggedItem(
                 tag_id=tag.id,
                 entity_id=test.behavior_id,
-                entity_type="Behavior",
+                entity_type=EntityType.BEHAVIOR.value,
                 organization_id=organization_id,
                 user_id=user_id,
             )

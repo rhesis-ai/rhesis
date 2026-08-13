@@ -21,8 +21,8 @@ Details: `phases/creation.md`, `entity-model.md`, `metric-scope.md`, `metric-aut
 | Intent | Read first | Then | Skip |
 |---|---|---|---|
 | Vague `/rhesis` or "help me test" | This file → `SKILL.md` intake | Matching path below | — |
-| Named endpoint + explore/test | `phases/discovery.md` | `exploration-strategies.md` → `phases/planning.md` | Requirements workflow |
-| Pasted PRD / spec / FRs | `requirements-workflow.md` | `use-case-bracketfeld.md` (target shape) → `metric-scope.md` | `explore_endpoint` unless user asks |
+| Named endpoint + explore/test | `phases/discovery.md` | `exploration-strategies.md` → `phases/planning.md` | Spec workflow |
+| Pasted PRD / spec / FRs | `spec-workflow.md` | `use-case-bracketfeld.md` (target shape) → `metric-scope.md` | `explore_endpoint` unless user asks |
 | "Run tests" / "analyze" / "compare runs" / Insights summarize | `phases/execution.md` → `phases/analysis.md` | `result-analysis.md`, `insights-summary.md` (Insights handoff) | New plan |
 | Single action ("list test sets", "fix metric X") | `phases/direct-requests.md` | `tool-catalog.md` if needed | Full phases |
 | Entity / OData / tool questions | `entity-model.md` | `odata-patterns.md`, `tool-catalog.md` | — |
@@ -34,7 +34,7 @@ Details: `phases/creation.md`, `entity-model.md`, `metric-scope.md`, `metric-aut
 
 | Signal | Default path |
 |---|---|
-| PRD paste, numbered FRs, "requirements doc" | Requirements → test foundation |
+| PRD paste, numbered FRs, "spec doc" | Spec → test foundation |
 | Endpoint name + "test" / "explore" | Exploration (Quick unless they said comprehensive) |
 | Test run id, "compare runs", "last run", "summarize insights" | Run / analyze |
 | OpenAPI, `AGENTS.md`, agent code in repo | Quick exploration of implied endpoint |
@@ -49,7 +49,7 @@ What would you like to do?
 
 1. Quick exploration — fast scan of an endpoint's domain and boundaries
 2. Comprehensive exploration — full capability and boundary analysis
-3. Build test foundation from requirements — behaviors, metrics, and test sets
+3. Build test foundation from a spec — behaviors, metrics, and test sets
 4. Run or analyze existing tests — execute a test set or review/compare past runs
 ```
 
@@ -57,10 +57,10 @@ What would you like to do?
 |---|---|
 | 1 Quick | `phases/discovery.md` → Quick strategy |
 | 2 Comprehensive | `phases/discovery.md` → Comprehensive strategy |
-| 3 Requirements | `requirements-workflow.md` — match `use-case-bracketfeld.md` |
+| 3 Spec | `spec-workflow.md` — match `use-case-bracketfeld.md` |
 | 4 Run / analyze | `phases/execution.md`, `phases/analysis.md` |
 
-Skip the menu when intent is already clear. Requirements and run/analyze paths skip exploration unless the user asks later.
+Skip the menu when intent is already clear. Spec and run/analyze paths skip exploration unless the user asks later.
 
 **Write gate:** No `create_*` / `generate_*` until the user approves the plan.
 
@@ -71,12 +71,12 @@ Skip the menu when intent is already clear. Requirements and run/analyze paths s
 | File | Contents |
 |---|---|
 | [Glossary](https://docs.rhesis.ai/glossary.md) | Canonical terms — `glossary/behavior.md`, `glossary/test-result.md`, `glossary/tag.md`, … |
-| `definitions.md` | Confusions and requirements traceability only (glossary first) |
+| `definitions.md` | Confusions and PRD traceability only (glossary first) |
 | `entity-model.md` | Entity graph and tool chains |
 | `metric-scope.md` | Single-Turn vs Multi-Turn alignment |
 | `metric-authoring.md` | Writing metric fields the judge and a reviewer can both use |
-| `requirements-workflow.md` | Requirements → test foundation pipeline |
-| `use-case-bracketfeld.md` | **Golden example** — full plan shape (fictional requirements doc) |
+| `spec-workflow.md` | Spec → test foundation pipeline |
+| `use-case-bracketfeld.md` | **Golden example** — full plan shape (fictional spec doc) |
 | `exploration-strategies.md` | `explore_endpoint` strategies |
 | `phases/discovery.md` | Discovery phase |
 | `phases/planning.md` | Planning and reuse |
@@ -93,4 +93,4 @@ Skip the menu when intent is already clear. Requirements and run/analyze paths s
 
 ## Grounding rule
 
-Before citing **metric_scope**, **creation order**, **field constraints**, or **requirements extraction rules**, read the reference above — do not paraphrase from memory. For requirements plans, match the section structure in `use-case-bracketfeld.md`.
+Before citing **metric_scope**, **creation order**, **field constraints**, or **spec extraction rules**, read the reference above — do not paraphrase from memory. For spec plans, match the section structure in `use-case-bracketfeld.md`.

@@ -454,7 +454,7 @@ class TestEmbeddingGenerator:
             )
 
     @patch("rhesis.backend.app.services.embedding.generator.get_user_embedding_model")
-    def test_recursive_native_provider_fails_before_any_network_call(
+    def test_recursive_native_provider_skips_before_any_network_call(
         self,
         mock_get_user_embedding_model,
         test_db,
@@ -464,9 +464,10 @@ class TestEmbeddingGenerator:
         authenticated_user_id,
     ):
         """DEFAULT_EMBEDDING_MODEL misconfigured back to the Rhesis native
-        provider must fail in-process, not via a doomed HTTP round-trip to
-        generate_embedding_endpoint whose eventual error only a status code
-        would distinguish as permanent-vs-transient.
+        provider must skip in-process, not via a doomed HTTP round-trip to
+        generate_embedding_endpoint. Embeddings are optional enrichment, so an
+        unconfigured provider is a skip, not a task failure -- unlike a
+        provider that is configured but broken (see the two tests above).
         """
         from rhesis.sdk.models.providers.native import RhesisEmbedder
 
@@ -477,15 +478,15 @@ class TestEmbeddingGenerator:
 
         generator = EmbeddingGenerator(test_db)
 
-        with pytest.raises(ModelConfigurationError, match="recursively"):
-            generator.generate(
-                entity_id=str(test_entity.id),
-                entity_type="Test",
-                organization_id=test_org_id,
-                user_id=authenticated_user_id,
-                model_id=str(embedding_model.id),
-            )
+        result = generator.generate(
+            entity_id=str(test_entity.id),
+            entity_type="Test",
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            model_id=str(embedding_model.id),
+        )
 
+        assert result == {"status": "skipped_no_provider", "embedding_id": None}
         fake_native_embedder.generate.assert_not_called()
 
     @patch("rhesis.backend.app.services.embedding.generator.get_model")

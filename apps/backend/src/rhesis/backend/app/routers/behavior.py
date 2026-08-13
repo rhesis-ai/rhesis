@@ -10,6 +10,11 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
+from rhesis.backend.app.constants import (
+    BEHAVIOR_RESOURCE_NAME,
+    BEHAVIOR_ROUTE_PREFIX,
+    BEHAVIOR_TAG,
+)
 from rhesis.backend.app.crud import behavior as behavior_crud
 from rhesis.backend.app.crud.metric import (
     add_behavior_to_metric,
@@ -48,17 +53,18 @@ BehaviorWithMetricsSchema = create_model(
 )
 
 router = RhesisRouter(
-    prefix="/behaviors",
-    tags=["behaviors"],
+    prefix=BEHAVIOR_ROUTE_PREFIX,
+    tags=[BEHAVIOR_TAG],
     responses={404: {"description": "Not found"}},
     dependencies=[Depends(require_current_user_or_token)],
-    resource="behavior",
+    resource=BEHAVIOR_RESOURCE_NAME,
 )
 
 
 @router.post("/", response_model=BehaviorWithMetricsSchema)
 @handle_database_exceptions(
-    entity_name="behavior", custom_unique_message="Behavior with this name already exists"
+    entity_name=BEHAVIOR_RESOURCE_NAME,
+    custom_unique_message="Behavior with this name already exists",
 )
 def create_behavior(
     behavior: schemas.BehaviorCreate,
@@ -149,7 +155,8 @@ def delete_behavior(
 
 @router.put("/{behavior_id}", response_model=BehaviorWithMetricsSchema)
 @handle_database_exceptions(
-    entity_name="behavior", custom_unique_message="Behavior with this name already exists"
+    entity_name=BEHAVIOR_RESOURCE_NAME,
+    custom_unique_message="Behavior with this name already exists",
 )
 def update_behavior(
     behavior_id: uuid.UUID,

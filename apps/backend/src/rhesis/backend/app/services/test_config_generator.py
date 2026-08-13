@@ -12,6 +12,7 @@ from typing import Optional
 import jinja2
 
 from rhesis.backend.app.config.settings import get_model_settings
+from rhesis.backend.app.constants import BEHAVIOR_LIST_KEY
 from rhesis.backend.app.crud import behavior as behavior_crud
 from rhesis.backend.app.crud import model as model_crud
 from rhesis.backend.app.crud.project import get_project
@@ -169,7 +170,9 @@ class TestConfigGeneratorService:
             {
                 "prompt": prompt,
                 "sample_size": MAX_SAMPLE_SIZE,
-                "behaviors": behavior_list,
+                # Must stay in sync with the `{{ behaviors }}` variable in
+                # test_config_generator.jinja2 -- the template can't reference this constant.
+                BEHAVIOR_LIST_KEY: behavior_list,
                 "project_name": project_name,
                 "project_description": project_description,
                 "previous_messages": previous_messages or [],

@@ -124,6 +124,16 @@ class MetricType:
 EXPLORER_BEHAVIOR_NAME = "Adaptive Testing"
 
 
+# Behavior resource identifiers -- single source of truth ahead of the
+# Behavior -> Requirement rename. Router prefix/tags/resource-name and the
+# JSON/dict key used by the test-generation streaming contract and the
+# metric-seed JSON's "behaviors" array.
+BEHAVIOR_ROUTE_PREFIX = "/behaviors"
+BEHAVIOR_RESOURCE_NAME = "behavior"
+BEHAVIOR_TAG = "behaviors"
+BEHAVIOR_LIST_KEY = "behaviors"
+
+
 # Error messages
 ERROR_INVALID_UUID = "Invalid UUID format in input parameters: {error}"
 ERROR_TEST_SET_NOT_FOUND = "Test set with ID {test_set_id} not found"

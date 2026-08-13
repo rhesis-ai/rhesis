@@ -269,8 +269,16 @@ def sync_metrics_to_organizations(
                         commit=False,
                     )
 
-                    # Process behavior associations
-                    behavior_names = metric_item.get("behaviors", [])
+                    # Process behavior associations. Literal keys, not app.constants'
+                    # BEHAVIOR_LIST_KEY: this module is imported by frozen migrations
+                    # (e.g. c2d3e4f5a6b7) that hardcode "behaviors" in their own
+                    # metric_definitions and can never be edited, so a rename of that
+                    # constant's value must not change what this lookup reads. Checked
+                    # in rename-then-frozen order so a post-rename initial_data.json
+                    # (using the new key) still matches.
+                    behavior_names = metric_item.get("requirements") or metric_item.get(
+                        "behaviors", []
+                    )
                     for behavior_name in behavior_names:
                         behavior = (
                             session.query(models.Behavior)

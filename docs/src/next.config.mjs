@@ -155,6 +155,11 @@ export default withNextra({
         destination: '/contribute/:path*',
         permanent,
       },
+      {
+        source: '/docs/agent-skill/requirements',
+        destination: '/docs/agent-skill/spec',
+        permanent,
+      },
     ]
   },
   webpack: config => {

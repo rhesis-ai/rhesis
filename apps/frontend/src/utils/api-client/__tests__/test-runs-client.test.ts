@@ -1,4 +1,5 @@
 import { TestRunsClient } from '../test-runs-client';
+import { API_ENDPOINTS } from '../config';
 
 function makeFetchResponse(
   body: unknown,
@@ -280,7 +281,7 @@ describe('TestRunsClient', () => {
       const result = await client.getTestRunBehaviors('run-123');
 
       expect(fetchMock).toHaveBeenCalledWith(
-        expect.stringContaining('/test_runs/run-123/behaviors'),
+        expect.stringContaining(`/test_runs/run-123${API_ENDPOINTS.behaviors}`),
         expect.anything()
       );
       expect(result).toHaveLength(2);

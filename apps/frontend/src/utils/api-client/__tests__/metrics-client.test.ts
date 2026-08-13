@@ -1,4 +1,5 @@
 import { MetricsClient } from '../metrics-client';
+import { API_ENDPOINTS } from '../config';
 import { UUID } from 'crypto';
 
 const BASE_URL = 'http://localhost/api/backend';
@@ -83,7 +84,9 @@ describe('MetricsClient', () => {
     fetchMock.mockResolvedValue(makeFetch(null, 204));
     await client.addBehaviorToMetric(METRIC_ID, BEHAVIOR_ID);
     const [url, opts] = fetchMock.mock.calls[0];
-    expect(url).toContain(`/metrics/${METRIC_ID}/behaviors/${BEHAVIOR_ID}`);
+    expect(url).toContain(
+      `/metrics/${METRIC_ID}${API_ENDPOINTS.behaviors}/${BEHAVIOR_ID}`
+    );
     expect(opts.method).toBe('POST');
   });
 
@@ -91,7 +94,9 @@ describe('MetricsClient', () => {
     fetchMock.mockResolvedValue(makeFetch(null, 204));
     await client.removeBehaviorFromMetric(METRIC_ID, BEHAVIOR_ID);
     const [url, opts] = fetchMock.mock.calls[0];
-    expect(url).toContain(`/metrics/${METRIC_ID}/behaviors/${BEHAVIOR_ID}`);
+    expect(url).toContain(
+      `/metrics/${METRIC_ID}${API_ENDPOINTS.behaviors}/${BEHAVIOR_ID}`
+    );
     expect(opts.method).toBe('DELETE');
   });
 });

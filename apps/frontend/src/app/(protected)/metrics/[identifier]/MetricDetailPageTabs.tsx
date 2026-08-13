@@ -26,6 +26,7 @@ import LinkedEntitiesFilterDrawer, {
 import { MetricDetailView } from './MetricDetailView';
 import { MetricsClient } from '@/utils/api-client/metrics-client';
 import { BehaviorClient } from '@/utils/api-client/behavior-client';
+import { API_ENDPOINTS } from '@/utils/api-client/config';
 import { useCan, useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import AccessDenied from '@/components/common/AccessDenied';
@@ -316,7 +317,9 @@ function MetricLinkedBehaviors({
         columns={linkedColumns}
         loading={loading}
         getRowId={row => String(row.id)}
-        onRowClick={params => router.push(`/behaviors/${String(params.id)}`)}
+        onRowClick={params =>
+          router.push(`${API_ENDPOINTS.behaviors}/${String(params.id)}`)
+        }
         onAssignClick={canEditMetric ? handleAssignClick : undefined}
         searchPlaceholder="Search behaviors…"
         rowFilter={rowFilter}
@@ -363,7 +366,7 @@ function MetricLinkedBehaviors({
         onFilterClick={() => setAssignFilterOpen(true)}
         hasActiveFilters={hasActiveLinkedFilters(assignFilters)}
         activeFilterCount={countActiveLinkedFilters(assignFilters)}
-        onCreateNew={() => router.push('/behaviors')}
+        onCreateNew={() => router.push(API_ENDPOINTS.behaviors)}
         createNewLabel="Create new behavior"
       />
 

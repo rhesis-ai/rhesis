@@ -12,6 +12,7 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.config.settings import get_application_settings
+from rhesis.backend.app.constants import BEHAVIOR_LIST_KEY
 from rhesis.backend.app.crud import tag as tag_crud
 from rhesis.backend.app.crud import user as user_crud
 from rhesis.backend.app.database import temporary_project_scope
@@ -872,7 +873,7 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> Dict[s
                 )
 
             # Process behavior associations
-            behavior_names = item.get("behaviors", [])
+            behavior_names = item.get(BEHAVIOR_LIST_KEY, [])
             for behavior_name in behavior_names:
                 # Get or create the behavior
                 behavior = get_or_create_behavior(

@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session, contains_eager
 
 from rhesis.backend.app import models, schemas
 from rhesis.backend.app.constants import (
+    BEHAVIOR_LIST_KEY,
     ERROR_BULK_CREATE_FAILED,
     ERROR_INVALID_UUID,
     ERROR_TEST_SET_NOT_FOUND,
@@ -143,7 +144,7 @@ def create_pending_test_set(
             "metadata": {
                 "total_tests": 0,
                 "categories": [],
-                "behaviors": [],
+                BEHAVIOR_LIST_KEY: [],
                 "topics": [],
                 "license_type": defaults["test_set"]["license_type"],
                 "generation": {
@@ -238,7 +239,7 @@ def generate_test_set_attributes(
     metadata = {
         "sample": sample,
         "topics": topic_names,
-        "behaviors": behavior_names,
+        BEHAVIOR_LIST_KEY: behavior_names,
         "categories": category_names,
         "license_type": license_type.type_value,
         "total_prompts": total_prompts,
@@ -250,7 +251,7 @@ def generate_test_set_attributes(
 
     return {
         "topics": topics,
-        "behaviors": behaviors,
+        BEHAVIOR_LIST_KEY: behaviors,
         "categories": categories,
         "metadata": metadata,
     }
