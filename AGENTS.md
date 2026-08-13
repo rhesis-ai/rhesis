@@ -81,6 +81,19 @@ git checkout -b feature/short-description`.
   - `BREAKING CHANGE:` in the footer for breaking changes
   - Example: `fix(backend): resolve timeout issue in user endpoint`
 
+## Updating a Branch
+
+- **Rebase a feature branch onto `main`; don't merge `main` into it:**
+  `git fetch origin && git rebase origin/main`. Merging leaves a merge commit and interleaves
+  unrelated `main` changes into the branch's history, which makes the PR diff noisy and stops the
+  branch's own commits from reading as a clean sequence.
+- On conflicts: fix the files, `git add <file>`, then `git rebase --continue`. `git rebase --abort`
+  puts the branch back the way it was.
+- A rebase rewrites history, so pushing an already-pushed branch needs
+  `git push --force-with-lease` — it refuses to overwrite commits someone else pushed, which plain
+  `--force` will do. On a branch someone else is working on, tell them before you force-push.
+- **Never force-push `main`.**
+
 ## Task-specific workflows
 
 Opening a pull request, filing a GitHub issue, writing playground scripts, and linting Python each
