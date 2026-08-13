@@ -38,6 +38,21 @@ class TestBinaryVerdicts:
         """`1.0` beside an expected `pass` reads as a disagreement to a human."""
         assert verdict_from_score(_metric("binary"), 1.0) == "pass"
 
+    @pytest.mark.parametrize("score", ["no", "false", "0", "harmful"])
+    def test_a_word_the_metric_chose_itself_is_not_read_as_a_flag(self, score):
+        """The failure here is silent and flattering, which is why it is tested.
+
+        There is no binary judge in the SDK factory, so a binary metric is backed
+        by one that answers in categories. Falling through to ``bool()`` would
+        make every non-empty string truthy -- ``no`` and ``false`` would both
+        render as ``pass``, and every case would agree.
+        """
+        assert verdict_from_score(_metric("binary"), score) == score
+
+    def test_a_word_it_does_recognize_still_wins(self):
+        """The as-is path must not swallow the pass/fail the metric did answer."""
+        assert verdict_from_score(_metric("binary"), " FAIL ") == "fail"
+
 
 class TestNumericVerdicts:
     def test_a_number_is_its_own_verdict(self):

@@ -397,6 +397,33 @@ class TestStartTuningRun:
         assert "model" in response.json()["detail"].lower()
         no_dispatch.assert_not_called()
 
+    def test_an_unreadable_evaluation_model_setting_is_still_a_refusal(
+        self,
+        authenticated_client: TestClient,
+        test_db: Session,
+        authenticated_user_id,
+        metric_without_model: models.Metric,
+        no_dispatch,
+    ):
+        """A broken setting must refuse like a missing one, not crash.
+
+        The settings accessor parses the stored value as a UUID, so a malformed
+        one raises rather than reading as absent — and the walk that reads it
+        only guards against a missing attribute. Unhandled it escapes as a 500
+        from the very function whose job is to refuse cleanly.
+        """
+        _create_case(authenticated_client, metric_without_model.id)
+        user = test_db.query(models.User).filter(models.User.id == authenticated_user_id).first()
+        user.settings.update({"models": {"evaluation": {"model_id": "not-a-uuid"}}})
+        test_db.flush()
+        test_db.commit()
+
+        response = authenticated_client.post(f"/metrics/{metric_without_model.id}/tuning/run")
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "model" in response.json()["detail"].lower()
+        no_dispatch.assert_not_called()
+
     def test_the_refusal_leaves_no_run_behind(
         self,
         authenticated_client: TestClient,

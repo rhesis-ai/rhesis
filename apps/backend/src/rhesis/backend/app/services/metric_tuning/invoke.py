@@ -79,7 +79,18 @@ def _configured_evaluation_model_id(user: Optional[models.User]) -> Optional[Any
     settings = getattr(user, "settings", None)
     models_settings = getattr(settings, "models", None)
     evaluation = getattr(models_settings, "evaluation", None)
-    return getattr(evaluation, "model_id", None)
+    try:
+        return getattr(evaluation, "model_id", None)
+    except (ValueError, TypeError) as e:
+        # The accessor parses the stored value as a UUID, so a malformed setting
+        # raises rather than reading as absent -- and `getattr` only swallows
+        # AttributeError. Left alone it escapes as a 500 from a function whose
+        # whole purpose is to refuse cleanly.
+        raise MetricModelNotConfigured(
+            "The default evaluation model setting could not be read. Pick a default evaluation "
+            "model on the Models page, or set a model on the metric, before running it over its "
+            "tuning cases."
+        ) from e
 
 
 def resolve_metric_model(
@@ -145,6 +156,12 @@ def verdict_from_score(metric: models.Metric, score: Union[float, str, None]) ->
             lowered = score.strip().lower()
             if lowered in BINARY_VERDICTS:
                 return lowered
+            # Any other word is the judge's own, not a flag. There is no binary
+            # judge in the SDK -- a binary metric is backed by one that answers
+            # in categories -- so this really happens, and `bool()` on a string
+            # is true whatever it says: "no" would render as "pass". Shown as
+            # the metric said it instead of guessed at.
+            return score.strip()
         passing, failing = BINARY_VERDICTS
         return passing if bool(score) else failing
 
