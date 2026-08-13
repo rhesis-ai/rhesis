@@ -13,11 +13,33 @@ import {
   ELEVATION,
   FAB_GROUP_GAP,
 } from './theme-constants';
+import {
+  contrastTextFor,
+  deriveBrandAccents,
+  deriveBrandPrimary,
+  deriveBrandSurfaces,
+} from './brand-palette';
 export { GREYSCALE, BORDER_RADIUS, BACKDROP_COLORS, ELEVATION, FAB_GROUP_GAP };
 
-// Define theme settings for both light and dark modes
-const getDesignTokens = (mode: PaletteMode) => {
+/**
+ * Define theme settings for both light and dark modes.
+ *
+ * `brandColor` overrides the Rhesis primary for white-label deployments
+ * (`BRAND_PRIMARY_COLOR`, threaded down from the root layout). When it is
+ * omitted every token below is the literal Figma value, so the default Rhesis
+ * theme is unaffected by this parameter existing.
+ */
+const getDesignTokens = (mode: PaletteMode, brandColor?: string) => {
   const gs = mode === 'light' ? GREYSCALE.light : GREYSCALE.dark;
+  const brandPrimary = brandColor
+    ? deriveBrandPrimary(brandColor, mode)
+    : undefined;
+  const brandSurfaces = brandColor
+    ? deriveBrandSurfaces(brandColor)
+    : undefined;
+  // Brand colours for the `components` overrides further down, which set
+  // colours directly rather than reading `palette.primary`.
+  const accent = deriveBrandAccents(mode, brandColor);
 
   return {
     palette: {
@@ -25,7 +47,7 @@ const getDesignTokens = (mode: PaletteMode) => {
       ...(mode === 'light'
         ? {
             // Light mode - Rhesis AI colors
-            primary: {
+            primary: brandPrimary ?? {
               main: '#0080AF', // Figma primary blue
               light: '#33A6CB', // lighter tint
               dark: '#005F82', // darker shade
@@ -40,10 +62,12 @@ const getDesignTokens = (mode: PaletteMode) => {
             background: {
               default: BACKGROUND_DEFAULT.light,
               paper: '#FFFFFF',
-              light1: '#F2F9FD',
-              light2: '#E4F2FA',
-              light3: '#C2E5F5',
-              light4: '#33A6CB',
+              ...(brandSurfaces ?? {
+                light1: '#F2F9FD',
+                light2: '#E4F2FA',
+                light3: '#C2E5F5',
+                light4: '#33A6CB',
+              }),
             },
             text: {
               primary: '#3D3D3D',
@@ -64,7 +88,7 @@ const getDesignTokens = (mode: PaletteMode) => {
           }
         : {
             // Dark mode
-            primary: {
+            primary: brandPrimary ?? {
               main: '#33A6CB', // slightly lighter for dark bg readability
               light: '#66C2DC',
               dark: '#0080AF',
@@ -103,6 +127,7 @@ const getDesignTokens = (mode: PaletteMode) => {
           }),
       // Greyscale ramp available on palette for both modes
       greyscale: gs,
+      brandColor,
     },
     shape: {
       borderRadius: 8,
@@ -280,9 +305,10 @@ const getDesignTokens = (mode: PaletteMode) => {
       MuiAppBar: {
         styleOverrides: {
           root: {
-            backgroundColor: mode === 'light' ? '#0080AF' : '#161B22',
+            backgroundColor: mode === 'light' ? accent.main : '#161B22',
             '& .MuiSvgIcon-root': {
-              color: '#FFFFFF',
+              // Dark mode's bar is grey, so its icons stay white regardless.
+              color: mode === 'light' ? accent.contrastText : '#FFFFFF',
             },
           },
         },
@@ -305,9 +331,9 @@ const getDesignTokens = (mode: PaletteMode) => {
       MuiDataGrid: {
         styleOverrides: {
           checkboxInput: {
-            color: mode === 'light' ? '#0080AF' : '#33A6CB',
+            color: accent.onSurface,
             '&.Mui-checked, &.MuiCheckbox-indeterminate': {
-              color: mode === 'light' ? '#0080AF' : '#33A6CB',
+              color: accent.onSurface,
             },
           },
         },
@@ -338,9 +364,9 @@ const getDesignTokens = (mode: PaletteMode) => {
             fontWeight: 600,
             borderRadius: 8,
             '&.MuiButton-containedPrimary': {
-              backgroundColor: '#0080AF',
-              color: '#FFFFFF',
-              '&:hover': { backgroundColor: '#005F82' },
+              backgroundColor: accent.main,
+              color: accent.contrastText,
+              '&:hover': { backgroundColor: accent.mainHover },
               '&.Mui-disabled': { backgroundColor: 'unset', color: 'unset' },
             },
             '&.MuiButton-containedSecondary': {
@@ -349,13 +375,13 @@ const getDesignTokens = (mode: PaletteMode) => {
               '&:hover': { backgroundColor: '#FDD803', color: '#1A1A1A' },
             },
             '&.MuiButton-outlinedPrimary': {
-              color: mode === 'dark' ? '#33A6CB' : '#0080AF',
-              borderColor: mode === 'dark' ? '#33A6CB' : '#0080AF',
+              color: accent.onSurface,
+              borderColor: accent.onSurface,
               backgroundColor: 'transparent',
               '&:hover': {
-                backgroundColor: mode === 'dark' ? '#33A6CB' : '#0080AF',
-                color: '#FFFFFF',
-                borderColor: mode === 'dark' ? '#33A6CB' : '#0080AF',
+                backgroundColor: accent.onSurface,
+                color: contrastTextFor(accent.onSurface),
+                borderColor: accent.onSurface,
               },
             },
             '&.MuiButton-outlinedSecondary': {
@@ -369,10 +395,10 @@ const getDesignTokens = (mode: PaletteMode) => {
               },
             },
             '&.MuiButton-textPrimary': {
-              color: mode === 'light' ? '#0080AF' : '#33A6CB',
+              color: accent.onSurface,
               '&:hover': {
                 backgroundColor:
-                  mode === 'light' ? 'rgba(0, 128, 175, 0.04)' : '#1F242B',
+                  mode === 'light' ? accent.softHover : '#1F242B',
               },
             },
           },
@@ -394,9 +420,9 @@ const getDesignTokens = (mode: PaletteMode) => {
                 mode === 'light' ? GREYSCALE.light.body : GREYSCALE.dark.body,
               backgroundColor: 'transparent',
               '&.active, &[aria-pressed="true"]': {
-                backgroundColor: '#0080AF',
-                color: '#FFFFFF',
-                borderColor: '#0080AF',
+                backgroundColor: accent.main,
+                color: accent.contrastText,
+                borderColor: accent.main,
               },
               '&:hover': {
                 backgroundColor:
@@ -541,7 +567,7 @@ const getDesignTokens = (mode: PaletteMode) => {
                     : GREYSCALE.dark.border,
               },
               '&:hover fieldset': {
-                borderColor: '#0080AF',
+                borderColor: accent.onSurface,
               },
             },
             ...(mode === 'dark' && {
@@ -727,6 +753,17 @@ declare module '@mui/material/styles' {
       surface2: string;
       fieldSurface: string;
     };
+    /**
+     * The raw configured `BRAND_PRIMARY_COLOR`, before any per-mode lightening.
+     * Undefined on the default Rhesis theme.
+     *
+     * Carried on the palette so consumers that need the *unshifted* brand
+     * colour — the auth pages, which run their own palette — can read it from
+     * the ambient theme. That keeps server render and hydration in agreement;
+     * reading `window.__ENV__` in those components instead would render Rhesis
+     * blue on the server and swap after hydration.
+     */
+    brandColor?: string;
   }
   interface PaletteOptions {
     greyscale?: {
@@ -739,6 +776,7 @@ declare module '@mui/material/styles' {
       surface2?: string;
       fieldSurface?: string;
     };
+    brandColor?: string;
   }
 }
 
