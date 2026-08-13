@@ -1,16 +1,25 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Box, Typography, CircularProgress } from '@mui/material';
-import { ThemeProvider } from '@mui/material/styles';
+import { ThemeProvider, createTheme, useTheme } from '@mui/material/styles';
 import { handleClientSignOut } from '@/utils/client-auth';
 import BackgroundDecoration from '@/components/auth/BackgroundDecoration';
-import { lightTheme } from '@/styles/theme';
+import { getDesignTokens } from '@/styles/theme';
 import { scaledVh } from '@/styles/viewport-scaling';
 
 export default function SignOut() {
   const _searchParams = useSearchParams();
+  // This page pins light mode, so it can't use the ambient theme directly — but
+  // it still has to honour a deployment's brand colour, which the spinner below
+  // picks up from `palette.primary`. Rebuild the light theme with the brand
+  // colour read off the ambient one instead of the static `lightTheme` export.
+  const { brandColor } = useTheme().palette;
+  const theme = useMemo(
+    () => createTheme(getDesignTokens('light', brandColor)),
+    [brandColor]
+  );
 
   useEffect(() => {
     // The backend logout call goes through the /api/backend proxy, which
@@ -20,7 +29,7 @@ export default function SignOut() {
   }, []);
 
   return (
-    <ThemeProvider theme={lightTheme}>
+    <ThemeProvider theme={theme}>
       <Box
         sx={{
           display: 'flex',
