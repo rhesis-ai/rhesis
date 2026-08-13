@@ -16,6 +16,7 @@ from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
 )
+from rhesis.backend.app.error_handlers import UpstreamHTTPException, internal_error
 from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.quota import QuotaResource
@@ -368,7 +369,15 @@ async def invoke_endpoint(
         raise e
     except EndpointInvocationError as e:
         logger.error(f"API invoke error for endpoint {endpoint_id}: {e}")
-        raise HTTPException(status_code=e.status_code or 500, detail=str(e)) from e
+        status_code = e.status_code or 500
+        # EndpointService wraps *our* failures in this same type as
+        # error_type="internal_error" (services/endpoint/service.py), so the
+        # discriminator is what separates the user's endpoint from our bug.
+        if e.error_type == "internal_error":
+            raise internal_error(
+                e, context=f"invoking endpoint {endpoint_id}", status_code=status_code
+            ) from e
+        raise UpstreamHTTPException(status_code=status_code, detail=str(e)) from e
 
 
 @router.post(

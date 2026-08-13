@@ -12,7 +12,9 @@ from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
 from rhesis.backend.app.error_handlers import (
+    UpstreamHTTPException,
     http_exception_handler,
+    internal_error,
     public_message,
     unhandled_exception_handler,
 )
@@ -43,6 +45,24 @@ def client() -> TestClient:
     @app.get("/not-found")
     def not_found():
         raise HTTPException(status_code=404, detail="Organization not found")
+
+    @app.get("/internal")
+    def internal():
+        try:
+            raise RuntimeError(SECRET)
+        except RuntimeError as exc:
+            raise internal_error(exc, context="ctx") from exc
+
+    @app.get("/internal-400")
+    def internal_400():
+        try:
+            raise RuntimeError(SECRET)
+        except RuntimeError as exc:
+            raise internal_error(exc, context="ctx", status_code=400) from exc
+
+    @app.get("/upstream")
+    def upstream():
+        raise UpstreamHTTPException(status_code=502, detail="Upstream returned 401 Unauthorized")
 
     return TestClient(app, raise_server_exceptions=False)
 
@@ -111,3 +131,44 @@ def test_hostile_inbound_request_id_is_rejected(client, hostile):
     response = client.get("/boom", headers={"X-Request-ID": hostile})
 
     assert response.json()["error_id"] != hostile
+
+
+def test_request_id_header_is_not_duplicated(client):
+    """The middleware adds the header; handlers must not add it again."""
+    for path in ("/boom", "/server-error", "/bad-request"):
+        response = client.get(path)
+        ids = [v for k, v in response.headers.multi_items() if k.lower() == "x-request-id"]
+        assert len(ids) == 1, f"{path} returned {len(ids)} X-Request-ID headers"
+
+
+def test_internal_error_is_logged_once(client, caplog):
+    """internal_error logs with context; the handler must not log it again."""
+    with caplog.at_level(logging.ERROR):
+        client.get("/internal")
+
+    with_traceback = [r for r in caplog.records if r.exc_info]
+    assert len(with_traceback) == 1, f"expected 1 traceback, got {len(with_traceback)}"
+    assert "ctx" in with_traceback[0].getMessage()
+
+
+def test_internal_error_uses_client_wording_for_4xx(client):
+    """A 400 described as "an unexpected error occurred" misattributes the fault."""
+    response = client.get("/internal-400")
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "The request could not be processed."
+
+
+def test_upstream_exception_keeps_its_detail(client):
+    """A 5xx describing the CALLER's system is theirs to read."""
+    response = client.get("/upstream")
+
+    assert response.status_code == 502
+    assert response.json()["detail"] == "Upstream returned 401 Unauthorized"
+    assert response.json()["error_id"]
+
+
+def test_upstream_exemption_does_not_leak_our_errors(client):
+    """The exemption is opt-in -- a plain 500 is still masked."""
+    assert client.get("/server-error").json()["detail"] == public_message(500)
+    assert SECRET not in client.get("/server-error").text

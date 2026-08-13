@@ -15,7 +15,7 @@ from rhesis.backend.app.utils.request_context import get_request_id, request_id_
 logger = logging.getLogger(__name__)
 
 #: What the client is told when the real reason must not leave the server.
-#: Keyed by status code; anything unlisted falls back to the 500 text.
+#: Keyed by status code; anything unlisted falls back by class (see below).
 PUBLIC_ERROR_MESSAGES = {
     500: "An unexpected error occurred.",
     502: "An upstream service returned an invalid response.",
@@ -23,9 +23,30 @@ PUBLIC_ERROR_MESSAGES = {
     504: "The request timed out.",
 }
 
+#: 4xx fallback. Describing a client error as "an unexpected error occurred"
+#: tells the caller the wrong thing about whose fault it is.
+_CLIENT_ERROR_MESSAGE = "The request could not be processed."
+
 
 def public_message(status_code: int) -> str:
-    return PUBLIC_ERROR_MESSAGES.get(status_code, PUBLIC_ERROR_MESSAGES[500])
+    if status_code in PUBLIC_ERROR_MESSAGES:
+        return PUBLIC_ERROR_MESSAGES[status_code]
+    if 400 <= status_code < 500:
+        return _CLIENT_ERROR_MESSAGE
+    return PUBLIC_ERROR_MESSAGES[500]
+
+
+class UpstreamHTTPException(HTTPException):
+    """A failure of the *caller's* system, not ours -- detail is theirs to see.
+
+    Endpoint testing and invocation exist to report what is wrong with a user's
+    own endpoint: a refused connection, a rejected token, an unparseable body.
+    Masking those explains nothing to the person debugging and conceals nothing
+    of ours, so the global handler passes the detail through even on a 5xx.
+
+    Only for text that came from the upstream service. An exception raised by
+    our own code is not upstream detail, however much it looks like it.
+    """
 
 
 def internal_error(exc: Exception, *, context: str, status_code: int = 500) -> HTTPException:
@@ -35,13 +56,12 @@ def internal_error(exc: Exception, *, context: str, status_code: int = 500) -> H
     can't infer. Otherwise don't catch at all — the global handler logs the
     same traceback and the `except` block is just noise.
     """
-    request_id = get_request_id()
-    logger.exception("[%s] %s: %s", request_id or "-", context, exc)
-    return HTTPException(
-        status_code=status_code,
-        detail=public_message(status_code),
-        headers={"X-Error-Id": request_id} if request_id else None,
-    )
+    logger.exception("[%s] %s: %s", get_request_id() or "-", context, exc)
+    http_exc = HTTPException(status_code=status_code, detail=public_message(status_code))
+    # The traceback is already in the log with `context` attached; without this
+    # the handler below logs the same failure a second time, saying less.
+    http_exc.rhesis_logged = True
+    return http_exc
 
 
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
@@ -78,22 +98,29 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
         return await default_http_exception_handler(request, exc)
 
     request_id = request_id_of(request)
-    logger.error(
-        "[%s] %s on %s %s: %s",
-        request_id or "-",
-        exc.status_code,
-        request.method,
-        request.url.path,
-        exc.detail,
-        exc_info=True,
-    )
-    headers = dict(getattr(exc, "headers", None) or {})
-    if request_id:
-        headers["X-Request-ID"] = request_id
+    upstream = isinstance(exc, UpstreamHTTPException)
+
+    if not getattr(exc, "rhesis_logged", False):
+        logger.error(
+            "[%s] %s on %s %s: %s",
+            request_id or "-",
+            exc.status_code,
+            request.method,
+            request.url.path,
+            exc.detail,
+            # An upstream failure is not our stack; the detail is the useful part.
+            exc_info=not upstream,
+        )
+
+    # No X-Request-ID here: this response is built inside ExceptionMiddleware,
+    # which RequestIDMiddleware wraps, so the header is added on the way out.
     return JSONResponse(
         status_code=exc.status_code,
-        content={"detail": public_message(exc.status_code), "error_id": request_id},
-        headers=headers or None,
+        content={
+            "detail": exc.detail if upstream else public_message(exc.status_code),
+            "error_id": request_id,
+        },
+        headers=getattr(exc, "headers", None),
     )
 
 

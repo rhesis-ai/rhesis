@@ -709,7 +709,9 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["X-Total-Count", "X-Test-Header"],
+    # X-Request-ID must be exposed or browser JS cannot read the id it needs
+    # to quote back to support.
+    expose_headers=["X-Total-Count", "X-Test-Header", "X-Request-ID"],
 )
 
 # SESSION_SECRET_KEY is a required setting (see AuthSettings), so this fails

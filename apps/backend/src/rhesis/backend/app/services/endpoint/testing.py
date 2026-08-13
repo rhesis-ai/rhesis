@@ -13,6 +13,7 @@ from typing import Any, Dict
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
+from rhesis.backend.app.error_handlers import UpstreamHTTPException, internal_error
 from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.app.models.enums import (
     EndpointAuthType,
@@ -122,15 +123,26 @@ async def test_endpoint(
             endpoint=endpoint,
             input_data=enriched_input_data,
         )
-        result = await create_invoker(context).invoke()
+        try:
+            result = await create_invoker(context).invoke()
+        except Exception as exc:
+            # Scoped to the invocation alone, not the setup above it: a failure
+            # here is the user's own endpoint refusing, rejecting the token or
+            # returning something unparseable -- which is what they ran the test
+            # to find out. Setup failures are ours and stay masked below.
+            logger.warning("Endpoint test invocation failed: %s", exc, exc_info=True)
+            raise UpstreamHTTPException(status_code=500, detail=str(exc)) from exc
+
         logger.debug("Endpoint test invocation completed")
         return result
+    except HTTPException:
+        # Covers the UpstreamHTTPException above -- must not be re-wrapped.
+        raise
     except ValueError as exc:
         logger.error("ValueError testing endpoint: %s", exc)
-        raise HTTPException(status_code=400, detail=str(exc))
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
-        logger.error("Exception testing endpoint: %s", exc, exc_info=True)
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise internal_error(exc, context="testing endpoint") from exc
 
 
 async def test_endpoint_mapping(
