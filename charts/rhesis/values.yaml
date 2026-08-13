@@ -71,6 +71,18 @@ config:
   nextPublicQuickStart: "false"
   nextPublicSupportEmail: "hello@rhesis.ai"
   onboardingVideoUrl: ""
+
+  # Branding — both empty means the built-in Rhesis look. Set them to rebrand a
+  # deployment without rebuilding the image; the frontend reads them at request
+  # time and falls back to the defaults if a value is malformed.
+  # brandPrimaryColor: 6-digit hex, e.g. "#005B33". Drives the primary palette,
+  #   app bar, buttons, brand-tinted surfaces and the sign-in screen accent.
+  # brandFaviconUrl: https:// URL or a root-relative path, e.g.
+  #   "https://www.example.com/favicon.png". Also used as the sidebar brand mark.
+  # brandProductName: replaces "Rhesis AI" in page titles, e.g. "Netgo".
+  brandPrimaryColor: ""
+  brandFaviconUrl: ""
+  brandProductName: ""
   # Backend
   rhesisBaseUrl: ""
   frontendUrl: ""
