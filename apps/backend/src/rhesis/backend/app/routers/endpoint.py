@@ -173,11 +173,6 @@ async def test_endpoint(
     except HTTPException as e:
         logger.error(f"API test HTTPException for endpoint {test_config.url}: {e.detail}")
         raise e
-    except Exception as e:
-        logger.error(
-            f"API test unexpected error for endpoint {test_config.url}: {str(e)}", exc_info=True
-        )
-        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/auto-configure", response_model=AutoConfigureResult)
@@ -209,13 +204,7 @@ async def auto_configure_endpoint(
         raise HTTPException(
             status_code=422,
             detail=str(e),
-        )
-    except Exception as e:
-        logger.error(
-            f"Auto-configure unexpected error: {str(e)}",
-            exc_info=True,
-        )
-        raise HTTPException(status_code=500, detail=str(e))
+        ) from e
 
 
 @router.get("/schema")
@@ -379,12 +368,7 @@ async def invoke_endpoint(
         raise e
     except EndpointInvocationError as e:
         logger.error(f"API invoke error for endpoint {endpoint_id}: {e}")
-        raise HTTPException(status_code=e.status_code or 500, detail=str(e))
-    except Exception as e:
-        logger.error(
-            f"API invoke unexpected error for endpoint {endpoint_id}: {str(e)}", exc_info=True
-        )
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=e.status_code or 500, detail=str(e)) from e
 
 
 @router.post(

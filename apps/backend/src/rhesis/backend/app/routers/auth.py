@@ -63,6 +63,7 @@ from rhesis.backend.app.config.settings import (
 from rhesis.backend.app.dependencies import (
     get_db_session,
 )
+from rhesis.backend.app.error_handlers import internal_error
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.quick_start import is_quick_start_enabled
 from rhesis.backend.app.utils.rate_limit import (
@@ -420,11 +421,11 @@ async def login_with_provider(
     try:
         return await auth_provider.get_authorization_url(request, callback_url)
     except Exception as e:
-        logger.error(f"OAuth login error for {provider}: {str(e)}", exc_info=True)
-        raise HTTPException(
+        raise internal_error(
+            e,
+            context=f"initiating OAuth login for provider {provider}",
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to initiate {provider} login: {str(e)}",
-        )
+        ) from e
 
 
 @router.get("/callback")
@@ -505,11 +506,11 @@ async def auth_callback(request: Request, db: Session = Depends(get_db_session))
             detail=str(e),
         )
     except Exception as e:
-        logger.error(f"Auth callback error for {provider_name}: {str(e)}", exc_info=True)
-        raise HTTPException(
+        raise internal_error(
+            e,
+            context=f"completing OAuth callback for provider {provider_name}",
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Authentication failed: {str(e)}",
-        )
+        ) from e
 
 
 # =============================================================================
@@ -1429,61 +1430,51 @@ async def local_login(request: Request, db: Session = Depends(get_db_session)):
     logger.warning("⚠️  QUICK START MODE LOGIN - Bypassing authentication!")
     logger.warning("⚠️  This should NEVER be used in production!")
 
-    try:
-        user = user_crud.get_user_by_email(db, "admin@local.dev")
+    user = user_crud.get_user_by_email(db, "admin@local.dev")
 
-        if not user:
-            logger.error("QUICK START MODE user (admin@local.dev) not found in database")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=(
-                    "QUICK START MODE user not found. "
-                    "Please ensure the database was initialized with init_local_user.sql"
-                ),
-            )
-
-        request.session["user_id"] = str(user.id)
-        clear_user_logout(str(user.id))
-        access_token = create_session_token(user)
-        refresh_tok = create_refresh_token(db, str(user.id))
-        db.commit()
-        auth_code = await create_auth_code(access_token, refresh_tok)
-
-        logger.info(
-            "QUICK START MODE login successful for user: %s",
-            redact_email(user.email),
-        )
-
-        if get_telemetry_settings().is_telemetry_enabled:
-            set_telemetry_enabled(
-                enabled=True,
-                user_id=str(user.id),
-                org_id=(str(user.organization_id) if user.organization_id else None),
-            )
-            track_user_activity(
-                event_type="login",
-                session_id=request.session.get("_id"),
-                login_method="local_dev",
-                auth_provider="local",
-            )
-
-        return {
-            "success": True,
-            "auth_code": auth_code,
-            "user": {
-                "id": str(user.id),
-                "email": user.email,
-                "name": user.name,
-                "organization_id": (str(user.organization_id) if user.organization_id else None),
-            },
-            "message": ("QUICK START MODE login - Not for production use!"),
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"QUICK START MODE login error: {str(e)}", exc_info=True)
+    if not user:
+        logger.error("QUICK START MODE user (admin@local.dev) not found in database")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"QUICK START MODE login failed: {str(e)}",
+            detail=(
+                "QUICK START MODE user not found. "
+                "Please ensure the database was initialized with init_local_user.sql"
+            ),
         )
+
+    request.session["user_id"] = str(user.id)
+    clear_user_logout(str(user.id))
+    access_token = create_session_token(user)
+    refresh_tok = create_refresh_token(db, str(user.id))
+    db.commit()
+    auth_code = await create_auth_code(access_token, refresh_tok)
+
+    logger.info(
+        "QUICK START MODE login successful for user: %s",
+        redact_email(user.email),
+    )
+
+    if get_telemetry_settings().is_telemetry_enabled:
+        set_telemetry_enabled(
+            enabled=True,
+            user_id=str(user.id),
+            org_id=(str(user.organization_id) if user.organization_id else None),
+        )
+        track_user_activity(
+            event_type="login",
+            session_id=request.session.get("_id"),
+            login_method="local_dev",
+            auth_provider="local",
+        )
+
+    return {
+        "success": True,
+        "auth_code": auth_code,
+        "user": {
+            "id": str(user.id),
+            "email": user.email,
+            "name": user.name,
+            "organization_id": (str(user.organization_id) if user.organization_id else None),
+        },
+        "message": ("QUICK START MODE login - Not for production use!"),
+    }

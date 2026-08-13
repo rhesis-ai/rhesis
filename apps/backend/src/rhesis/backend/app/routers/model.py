@@ -286,13 +286,7 @@ def get_provider_models(
         return models_list
     except ValueError as e:
         # ValueError is raised for unsupported providers or providers that don't support listing
-        raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
-        # Other exceptions (network errors, API errors, etc.)
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to retrieve models for provider '{provider_name}': {str(e)}",
-        )
+        raise HTTPException(status_code=404, detail=str(e)) from e
 
 
 @router.get("/provider/{provider_name}/embeddings", response_model=List[str])
@@ -308,12 +302,4 @@ def get_provider_embedding_models(
         return models_list
     except ValueError as e:
         # ValueError is raised for unsupported providers or providers that don't support embeddings
-        raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
-        # Other exceptions (network errors, API errors, etc.)
-        raise HTTPException(
-            status_code=500,
-            detail=(
-                f"Failed to retrieve embedding models for provider '{provider_name}': {str(e)}"
-            ),
-        )
+        raise HTTPException(status_code=404, detail=str(e)) from e

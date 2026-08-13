@@ -563,10 +563,7 @@ async def test_tool_connection(
                 project_id=project_id,
             )
     except (ToolConfigurationError, ValueError) as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        logger.error(f"Tool health check error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.post("/jira/create-ticket-from-task", response_model=CreateJiraTicketFromTaskResponse)
@@ -598,13 +595,10 @@ async def create_jira_ticket_from_task_endpoint(
             user_id=user_id,
         )
     except ToolConfigurationError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
     except ValueError as e:
         logger.warning(f"Invalid request for Jira ticket creation: {str(e)}")
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        logger.error(f"Failed to create Jira ticket: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.delete("/{tool_id}", status_code=204)
