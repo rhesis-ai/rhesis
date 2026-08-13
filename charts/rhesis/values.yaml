@@ -71,6 +71,21 @@ config:
   nextPublicQuickStart: "false"
   nextPublicSupportEmail: "hello@rhesis.ai"
   onboardingVideoUrl: ""
+
+  # Branding — all empty means the built-in Rhesis look. Set them to rebrand a
+  # deployment without rebuilding the image; the frontend reads them at request
+  # time and falls back to the defaults if a value is malformed.
+  # brandPrimaryColor: 6-digit hex, e.g. "#6A1B9A". Drives the primary palette,
+  #   app bar, buttons, brand-tinted surfaces and the sign-in screen accent.
+  # brandFaviconUrl: https:// URL or a root-relative path, e.g.
+  #   "https://www.example.com/favicon.png". Also used as the sidebar brand mark.
+  # brandSecondaryColor: 6-digit hex for the secondary/CTA colour. Independent of
+  #   brandPrimaryColor — set either on its own.
+  # brandProductName: replaces "Rhesis AI" in page titles, e.g. "Acme".
+  brandPrimaryColor: ""
+  brandSecondaryColor: ""
+  brandFaviconUrl: ""
+  brandProductName: ""
   # Backend
   rhesisBaseUrl: ""
   frontendUrl: ""

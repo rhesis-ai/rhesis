@@ -37,10 +37,10 @@ export interface AuthStyles {
  * hover pair ended up duplicated across five files.
  */
 export function useAuthStyles(): AuthStyles {
-  const mode = useTheme().palette.mode;
+  const { mode, brandColor } = useTheme().palette;
 
   return useMemo(() => {
-    const t = getAuthTokens(mode);
+    const t = getAuthTokens(mode, brandColor);
 
     return {
       tokens: t,
@@ -117,5 +117,5 @@ export function useAuthStyles(): AuthStyles {
         textDecoration: 'none',
       },
     };
-  }, [mode]);
+  }, [mode, brandColor]);
 }

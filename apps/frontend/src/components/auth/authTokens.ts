@@ -10,6 +10,8 @@
  * this — the rest of the app stays on the MUI theme and Be Vietnam Pro.
  */
 
+import { alpha, darken, lighten } from '@mui/system/colorManipulator';
+
 /** Geist, registered in `src/styles/fonts.css`. Auth pages only. */
 export const AUTH_FONT_SANS =
   '"Geist", "Be Vietnam Pro", system-ui, sans-serif';
@@ -90,8 +92,34 @@ const DARK: AuthTokens = {
   accentShadow: '0 6px 14px -4px rgba(34,165,209,0.4)',
 };
 
-export function getAuthTokens(mode: 'light' | 'dark'): AuthTokens {
-  return mode === 'dark' ? DARK : LIGHT;
+/**
+ * Applies a deployment's `BRAND_PRIMARY_COLOR` to the three accent tokens.
+ *
+ * The sign-in screen is the first thing a white-label user sees, so leaving it
+ * on Rhesis blue while the app itself is rebranded is the most visible way to
+ * get this wrong. The dark-mode lift mirrors what the hand-picked pair already
+ * does (`#0080af` → `#22a5d1`, i.e. roughly `lighten(0.13)`) — a saturated
+ * brand colour carrying white button text needs the extra contrast against
+ * `#030712`.
+ */
+function withBrandAccent(tokens: AuthTokens, brandColor: string): AuthTokens {
+  const accent =
+    tokens === DARK ? lighten(brandColor, 0.13) : brandColor.toLowerCase();
+
+  return {
+    ...tokens,
+    accent,
+    accentHover: tokens === DARK ? lighten(accent, 0.15) : darken(accent, 0.15),
+    accentShadow: `0 6px 14px -4px ${alpha(accent, tokens === DARK ? 0.4 : 0.55)}`,
+  };
+}
+
+export function getAuthTokens(
+  mode: 'light' | 'dark',
+  brandColor?: string
+): AuthTokens {
+  const tokens = mode === 'dark' ? DARK : LIGHT;
+  return brandColor ? withBrandAccent(tokens, brandColor) : tokens;
 }
 
 /** Shapes, lifted from the website's radius scale and hero CTAs. */

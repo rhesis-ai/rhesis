@@ -1,7 +1,8 @@
 'use client';
 
-import Image from 'next/image';
 import { Box, Typography } from '@mui/material';
+import BrandMark from '@/components/common/BrandMark';
+import { useNavigationItems } from '@/contexts/NavigationItemsContext';
 
 interface OnboardingStepHeaderProps {
   title: string;
@@ -12,6 +13,8 @@ export default function OnboardingStepHeader({
   title,
   description,
 }: OnboardingStepHeaderProps) {
+  const { branding } = useNavigationItems();
+
   return (
     <Box
       sx={{
@@ -24,11 +27,10 @@ export default function OnboardingStepHeader({
       }}
     >
       <Box sx={{ width: 92, height: 92, position: 'relative', flexShrink: 0 }}>
-        <Image
-          src="/logos/rhesis-logo-favicon.svg"
-          alt="Rhesis AI"
-          width={92}
-          height={92}
+        <BrandMark
+          src={branding?.iconUrl}
+          size={92}
+          alt={branding?.productName ?? 'Rhesis AI'}
           priority
         />
       </Box>

@@ -106,6 +106,7 @@ const EXCLUDE_PATTERNS = [
   /\.next/,
   /theme\.ts$/, // Exclude the theme file itself
   /authTokens\.ts$/, // Same reason as theme.ts: the auth pages' palette is defined here
+  /brand-palette\.ts$/, // Same reason: holds the Rhesis literals a custom brand colour falls back to
   /globals\.css$/, // Exclude globals.css (contains theme definitions)
   /check-hardcoded-styles\.js$/, // Exclude this script itself
   /apps\/documentation\/components\//, // Temporarily exclude docs components (need refactoring)

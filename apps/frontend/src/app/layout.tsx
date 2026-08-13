@@ -52,6 +52,7 @@ import { type Organization } from '../utils/api-client/interfaces/organization';
 import { type UserSettings } from '../utils/api-client/interfaces/user';
 import { type Session } from 'next-auth';
 import ThemeContextProvider from '../components/providers/ThemeProvider';
+import { getServerBranding } from '../config/branding';
 import { BACKGROUND_DEFAULT } from '../styles/theme-background';
 import { Capability } from '../constants/capabilities';
 
@@ -95,14 +96,21 @@ html[data-theme-mode='${mode}'],html[data-theme-mode='${mode}'] body{background-
   .join('\n');
 
 // This function will be used to get navigation items with dynamic data
-async function getNavigationItems(session: Session | null): Promise<{
+async function getNavigationItems(
+  session: Session | null,
+  // Only a fallback: the real organisation name replaces it below whenever the
+  // lookup succeeds. It matters on the paths where it can't — no session yet, or
+  // the request failed — since that is where a branded deployment would
+  // otherwise flash "Rhesis AI" in its sidebar.
+  fallbackName: string
+): Promise<{
   items: NavigationItem[];
   organizationName: string;
   organization: Organization | null;
 }> {
   'use server';
 
-  let organizationName = 'Rhesis AI';
+  let organizationName = fallbackName;
   let organization: Organization | null = null;
 
   if (session?.user?.organization_id && !session.error) {
@@ -296,16 +304,30 @@ async function getNavigationItems(session: Session | null): Promise<{
   };
 }
 
-export const metadata: Metadata = {
-  title: {
-    template: '%s | Rhesis AI',
-    default: 'Rhesis AI',
-  },
-  description: 'Rhesis AI | OSS Gen AI Testing Platform',
-  icons: {
-    icon: '/logos/rhesis-logo-favicon.svg',
-  },
-};
+/**
+ * A function rather than a static `metadata` object so the favicon and product
+ * name are resolved per request from the environment, letting one image serve
+ * deployments with different branding.
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  const { faviconUrl, productName, isDefaultProductName } = getServerBranding();
+
+  return {
+    title: {
+      // Pages set a bare `title` ('Architect'); this supplies the suffix.
+      template: `%s | ${productName}`,
+      default: productName,
+    },
+    // The Rhesis tagline would be wrong copy on a rebranded deployment, so a
+    // configured product name replaces it rather than being appended to it.
+    description: isDefaultProductName
+      ? 'Rhesis AI | OSS Gen AI Testing Platform'
+      : productName,
+    icons: {
+      icon: faviconUrl,
+    },
+  };
+}
 
 const AUTHENTICATION: AuthenticationProps = {
   signIn: handleSignIn,
@@ -323,20 +345,31 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
   const storedThemeMode =
     themeCookie === 'dark' || themeCookie === 'light' ? themeCookie : undefined;
 
+  // Branding is read here rather than in a client component because its env
+  // vars carry no `NEXT_PUBLIC_` prefix — see `config/branding.ts`. Reading it
+  // on the server and passing it down as props also keeps the server-rendered
+  // markup and the hydrated tree in agreement.
+  const deploymentBranding = getServerBranding();
+
   // Get navigation with dynamic organization name
   const {
     items: navigation,
     organizationName,
     organization,
-  } = await getNavigationItems(session);
+  } = await getNavigationItems(session, deploymentBranding.productName);
 
   const branding: BrandingProps = {
     title: organizationName,
-    logo: <ThemeAwareLogo />,
+    logo: <ThemeAwareLogo productName={deploymentBranding.productName} />,
+    iconUrl: deploymentBranding.faviconUrl,
+    productName: deploymentBranding.productName,
     homeUrl: '/architect',
   };
   const runtimeEnvScript = `window.__ENV__=${JSON.stringify({
     apiBaseUrl: process.env.API_BASE_URL ?? 'http://localhost:8080',
+    brandPrimaryColor: deploymentBranding.primaryColor,
+    brandFaviconUrl: deploymentBranding.faviconUrl,
+    brandProductName: deploymentBranding.productName,
   }).replace(/</g, '\\u003c')};`;
 
   // Fetch the active project, and the full member-project list for the
@@ -405,6 +438,10 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
         <ThemeContextProvider
           disableTransitionOnChange
           initialMode={storedThemeMode ?? 'light'}
+          brandColors={{
+            primary: deploymentBranding.primaryColor,
+            secondary: deploymentBranding.secondaryColor,
+          }}
         >
           <LayoutContent
             session={session}

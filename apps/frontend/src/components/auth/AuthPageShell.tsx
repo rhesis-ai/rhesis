@@ -3,7 +3,8 @@
 import * as React from 'react';
 import { Box, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import Image from 'next/image';
+import BrandMark from '@/components/common/BrandMark';
+import { useNavigationItems } from '@/contexts/NavigationItemsContext';
 import BackgroundDecoration from './BackgroundDecoration';
 import {
   AUTH_FONT_DISPLAY,
@@ -84,8 +85,17 @@ interface AuthPageShellProps {
 }
 
 export default function AuthPageShell({ children }: AuthPageShellProps) {
-  const mode = useTheme().palette.mode;
-  const t = getAuthTokens(mode);
+  const { mode, brandColor } = useTheme().palette;
+  const t = getAuthTokens(mode, brandColor);
+  // `NavigationProvider` wraps every route, auth pages included, so the
+  // server-resolved branding is available here without a second env read.
+  const { branding } = useNavigationItems();
+  const productName = branding?.productName ?? 'Rhesis AI';
+  const isRebranded = productName !== 'Rhesis AI';
+  // A rebranded sign-in page must not send its users to rhesis.ai, and there is
+  // no configured homepage to send them to instead — so the wordmark stops
+  // being a link and just labels the page.
+  const wordmarkHref = isRebranded ? undefined : 'https://www.rhesis.ai';
 
   return (
     <Box
@@ -116,10 +126,14 @@ export default function AuthPageShell({ children }: AuthPageShellProps) {
         }}
       >
         <Box
-          component="a"
-          href="https://www.rhesis.ai"
-          target="_blank"
-          rel="noopener noreferrer"
+          {...(wordmarkHref
+            ? {
+                component: 'a' as const,
+                href: wordmarkHref,
+                target: '_blank',
+                rel: 'noopener noreferrer',
+              }
+            : {})}
           sx={{
             display: 'flex',
             alignItems: 'center',
@@ -127,11 +141,10 @@ export default function AuthPageShell({ children }: AuthPageShellProps) {
             textDecoration: 'none',
           }}
         >
-          <Image
-            src="/logos/rhesis-logo-favicon.svg"
-            alt="Rhesis AI"
-            width={44}
-            height={44}
+          <BrandMark
+            src={branding?.iconUrl}
+            size={44}
+            alt={productName}
             priority
           />
           <Typography
@@ -143,7 +156,7 @@ export default function AuthPageShell({ children }: AuthPageShellProps) {
               color: mode === 'dark' ? '#fff' : '#111827',
             }}
           >
-            Rhesis AI
+            {productName}
           </Typography>
         </Box>
 
@@ -387,7 +400,7 @@ export default function AuthPageShell({ children }: AuthPageShellProps) {
           color: t.muted,
         }}
       >
-        © 2026 Rhesis AI
+        © 2026 {productName}
       </Box>
     </Box>
   );
