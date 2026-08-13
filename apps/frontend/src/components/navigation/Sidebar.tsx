@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useContext } from 'react';
-import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import Box from '@mui/material/Box';
@@ -21,6 +20,7 @@ import SwapHorizOutlinedIcon from '@mui/icons-material/SwapHorizOutlined';
 import Divider from '@mui/material/Divider';
 import { useNavigationItems } from '@/contexts/NavigationItemsContext';
 import { useSidebarCollapse } from '@/components/layout/AppShell';
+import BrandMark from '@/components/common/BrandMark';
 import { UserAvatar } from '@/components/common/UserAvatar';
 import { Can } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
@@ -114,7 +114,7 @@ export function Sidebar() {
   // Support drawer
   const [supportOpen, setSupportOpen] = useState(false);
 
-  const orgName = branding?.title ?? 'Rhesis AI';
+  const orgName = branding?.title ?? branding?.productName ?? 'Rhesis AI';
   const groups = groupNavItems(navigation);
 
   const mainGroups = groups.filter(g => g.type !== 'footer-links') as (
@@ -216,11 +216,10 @@ export function Sidebar() {
                   },
                 }}
               >
-                <Image
-                  src="/logos/rhesis-logo-favicon.svg"
-                  alt="Rhesis logo"
-                  width={40}
-                  height={40}
+                <BrandMark
+                  src={branding?.iconUrl}
+                  size={40}
+                  alt={`${orgName} logo`}
                   priority
                 />
               </ButtonBase>
@@ -268,11 +267,10 @@ export function Sidebar() {
                   justifyContent: 'center',
                 }}
               >
-                <Image
-                  src="/logos/rhesis-logo-favicon.svg"
-                  alt="Rhesis logo"
-                  width={40}
-                  height={40}
+                <BrandMark
+                  src={branding?.iconUrl}
+                  size={40}
+                  alt={`${orgName} logo`}
                   priority
                 />
               </Box>

@@ -16,6 +16,14 @@ interface ThemeContextProviderProps {
   children: React.ReactNode;
   disableTransitionOnChange?: boolean;
   initialMode?: 'light' | 'dark';
+  /**
+   * Validated `BRAND_PRIMARY_COLOR` for white-label deployments, passed down
+   * from the root layout (a Server Component) because the env var has no
+   * `NEXT_PUBLIC_` prefix and so is unreadable from the client bundle. Server
+   * render and hydration both receive it as a prop, so the two agree and the
+   * theme does not flash Rhesis blue first.
+   */
+  brandColor?: string;
 }
 
 const THEME_MODE_KEY = 'theme-mode';
@@ -31,6 +39,7 @@ export default function ThemeContextProvider({
   children,
   disableTransitionOnChange = false,
   initialMode = 'light',
+  brandColor,
 }: ThemeContextProviderProps) {
   const [mode, setMode] = React.useState<'light' | 'dark'>(initialMode);
 
@@ -95,7 +104,10 @@ export default function ThemeContextProvider({
     [mode, disableTransitionOnChange]
   );
 
-  const theme = React.useMemo(() => createTheme(getDesignTokens(mode)), [mode]);
+  const theme = React.useMemo(
+    () => createTheme(getDesignTokens(mode, brandColor)),
+    [mode, brandColor]
+  );
 
   return (
     <ColorModeContext.Provider value={colorMode}>

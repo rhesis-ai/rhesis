@@ -1,0 +1,130 @@
+/**
+ * Runtime branding overrides, for deployments that need their own colour and
+ * favicon (white-label / on-prem installs).
+ *
+ * Both values are plain env vars, deliberately *without* the `NEXT_PUBLIC_`
+ * prefix: that prefix inlines a value into the client bundle at build time,
+ * which would mean one Docker image per customer. These are read on the server
+ * at request time and handed to the client via props and `window.__ENV__` —
+ * the same route `API_BASE_URL` already takes (see `url-resolver.ts`).
+ *
+ * In Kubernetes they arrive from the chart's ConfigMap, which every app
+ * deployment already loads with `envFrom`. Neither value is a secret — both
+ * end up visible in the served HTML — so they do not belong in Secret Manager.
+ */
+
+/** Shipped Rhesis favicon, used whenever no override is configured. */
+export const DEFAULT_FAVICON_URL = '/logos/rhesis-logo-favicon.svg';
+
+/** Product name in page titles, the sidebar and image alt text. */
+export const DEFAULT_PRODUCT_NAME = 'Rhesis AI';
+
+/** Long enough for a real product name, short enough to keep `<title>` sane. */
+const MAX_PRODUCT_NAME_LENGTH = 60;
+
+/** 6-digit hex only: MUI's colour manipulators need a parseable value, and the
+ * 3-digit form would silently widen what deployments can put in a values file. */
+const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
+
+export interface Branding {
+  /** Undefined means "use the built-in Rhesis palette", not "no colour". */
+  primaryColor?: string;
+  faviconUrl: string;
+  productName: string;
+  /** True when `productName` is the Rhesis default, so callers can keep
+   * Rhesis-specific copy (the marketing description) out of a branded build. */
+  isDefaultProductName: boolean;
+}
+
+/**
+ * Validates a configured brand colour, returning undefined when it is absent
+ * or malformed. A typo in a values file must fall back to the Rhesis palette
+ * rather than take the app down or paint half the UI `undefined`.
+ */
+export function normalizeBrandColor(
+  value: string | undefined | null
+): string | undefined {
+  const trimmed = value?.trim();
+  if (!trimmed) return undefined;
+
+  if (!HEX_COLOR_PATTERN.test(trimmed)) {
+    console.warn(
+      `[branding] Ignoring BRAND_PRIMARY_COLOR "${trimmed}": expected a 6-digit hex colour such as #005B33.`
+    );
+    return undefined;
+  }
+
+  return trimmed.toUpperCase();
+}
+
+/**
+ * Validates a configured favicon URL, falling back to the Rhesis default.
+ *
+ * Only absolute `https://` URLs and root-relative paths are accepted. `http://`
+ * is rejected because it would make an https page issue a mixed-content
+ * request, and rejecting every other scheme keeps `javascript:` out of an
+ * attribute we render into `<head>`.
+ */
+export function normalizeFaviconUrl(value: string | undefined | null): string {
+  const trimmed = value?.trim();
+  if (!trimmed) return DEFAULT_FAVICON_URL;
+
+  if (trimmed.startsWith('/')) return trimmed;
+
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    console.warn(
+      `[branding] Ignoring BRAND_FAVICON_URL "${trimmed}": not a valid URL.`
+    );
+    return DEFAULT_FAVICON_URL;
+  }
+
+  if (parsed.protocol !== 'https:') {
+    console.warn(
+      `[branding] Ignoring BRAND_FAVICON_URL "${trimmed}": only https:// URLs and root-relative paths are allowed.`
+    );
+    return DEFAULT_FAVICON_URL;
+  }
+
+  return parsed.toString();
+}
+
+/**
+ * Validates a configured product name — the `%s | <name>` suffix on every page
+ * title, and the fallback shown in the sidebar before the organisation loads.
+ *
+ * Over-long values are rejected rather than truncated: a cut-off name in the
+ * browser tab is harder to diagnose than the default reappearing next to a
+ * warning.
+ */
+export function normalizeProductName(value: string | undefined | null): string {
+  const trimmed = value?.trim();
+  if (!trimmed) return DEFAULT_PRODUCT_NAME;
+
+  if (trimmed.length > MAX_PRODUCT_NAME_LENGTH) {
+    console.warn(
+      `[branding] Ignoring BRAND_PRODUCT_NAME: ${trimmed.length} characters exceeds the ${MAX_PRODUCT_NAME_LENGTH}-character limit.`
+    );
+    return DEFAULT_PRODUCT_NAME;
+  }
+
+  return trimmed;
+}
+
+/**
+ * Reads branding from the environment. Server-side only — the env vars carry no
+ * `NEXT_PUBLIC_` prefix, so in a client bundle every read compiles to
+ * `undefined` and this would quietly report the defaults.
+ */
+export function getServerBranding(): Branding {
+  const productName = normalizeProductName(process.env.BRAND_PRODUCT_NAME);
+
+  return {
+    primaryColor: normalizeBrandColor(process.env.BRAND_PRIMARY_COLOR),
+    faviconUrl: normalizeFaviconUrl(process.env.BRAND_FAVICON_URL),
+    productName,
+    isDefaultProductName: productName === DEFAULT_PRODUCT_NAME,
+  };
+}
