@@ -277,25 +277,20 @@ def create_test_set_bulk(
       tables were removed)
     - expected_response is an optional field to specify the expected model response
     """
-    try:
-        # Extract test_set_type from request if provided
-        test_set_type = None
-        if test_set_data.test_set_type:
-            from rhesis.backend.app.constants import TestSetType
+    # Extract test_set_type from request if provided
+    test_set_type = None
+    if test_set_data.test_set_type:
+        from rhesis.backend.app.constants import TestSetType
 
-            test_set_type = TestSetType.from_string(test_set_data.test_set_type)
+        test_set_type = TestSetType.from_string(test_set_data.test_set_type)
 
-        test_set = bulk_create_test_set(
-            db=db,
-            test_set_data=test_set_data,
-            organization_id=str(current_user.organization_id),
-            user_id=str(current_user.id),
-            test_set_type=test_set_type,
-        )
-        return test_set
-    except Exception as e:
-        logger.error(f"Failed to create test set: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to create test set: {str(e)}")
+    return bulk_create_test_set(
+        db=db,
+        test_set_data=test_set_data,
+        organization_id=str(current_user.organization_id),
+        user_id=str(current_user.id),
+        test_set_type=test_set_type,
+    )
 
 
 @router.post("/", response_model=schemas.TestSet)
@@ -451,35 +446,26 @@ def download_test_set_prompts(
     tenant_context=Depends(get_tenant_context),  # SECURITY: Extract tenant context
     current_user: User = Depends(require_current_user_or_token),
 ):
-    try:
-        # Resolve test set
-        organization_id, user_id = tenant_context  # SECURITY: Get tenant context
-        db_test_set = resolve_test_set_or_raise(test_set_identifier, db, organization_id)
+    # Resolve test set
+    organization_id, user_id = tenant_context  # SECURITY: Get tenant context
+    db_test_set = resolve_test_set_or_raise(test_set_identifier, db, organization_id)
 
-        # Get prompts with organization filtering (SECURITY CRITICAL)
-        prompts = get_prompts_for_test_set(db, db_test_set.id, organization_id)
+    # Get prompts with organization filtering (SECURITY CRITICAL)
+    prompts = get_prompts_for_test_set(db, db_test_set.id, organization_id)
 
-        # Check if prompts list is empty before trying to create CSV
-        if not prompts:
-            raise HTTPException(
-                status_code=404, detail=f"No prompts found in test set: {test_set_identifier}"
-            )
-
-        csv_data = prompts_to_csv(prompts)
-
-        response = StreamingResponse(iter([csv_data]), media_type="text/csv")
-        response.headers["Content-Disposition"] = (
-            f"attachment; filename=test_set_{test_set_identifier}.csv"
-        )
-        return response
-
-    except HTTPException:
-        raise
-    except Exception as e:
+    # Check if prompts list is empty before trying to create CSV
+    if not prompts:
         raise HTTPException(
-            status_code=500,
-            detail=f"Failed to download test set prompts for {test_set_identifier}: {str(e)}",
+            status_code=404, detail=f"No prompts found in test set: {test_set_identifier}"
         )
+
+    csv_data = prompts_to_csv(prompts)
+
+    response = StreamingResponse(iter([csv_data]), media_type="text/csv")
+    response.headers["Content-Disposition"] = (
+        f"attachment; filename=test_set_{test_set_identifier}.csv"
+    )
+    return response
 
 
 @router.get("/{test_set_identifier}/tests", response_model=list[schemas.TestDetail])

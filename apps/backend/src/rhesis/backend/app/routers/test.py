@@ -17,6 +17,7 @@ from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
 )
+from rhesis.backend.app.error_handlers import internal_error
 from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.quota import QuotaResource
@@ -125,12 +126,8 @@ def create_tests_bulk(
         error_message = str(e)
         if "not found" in error_message.lower():
             # Handle cases where referenced entities (e.g., test set) are not found
-            raise HTTPException(status_code=404, detail=error_message)
-        else:
-            # Handle unexpected server errors
-            raise HTTPException(
-                status_code=500, detail=f"An error occurred while creating tests: {error_message}"
-            )
+            raise HTTPException(status_code=404, detail=error_message) from e
+        raise internal_error(e, context="creating tests in bulk") from e
 
 
 @router.delete("/bulk", response_model=schemas.TestBulkDeleteResponse)
@@ -178,16 +175,7 @@ def extract_test_from_conversation_endpoint(
             test_type=request.test_type or "Multi-Turn",
         )
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        logger.error(
-            f"Error extracting test from conversation: {e}",
-            exc_info=True,
-        )
-        raise HTTPException(
-            status_code=500,
-            detail=(f"Failed to extract test from conversation: {str(e)}"),
-        )
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/", response_model=List[schemas.TestDetail])

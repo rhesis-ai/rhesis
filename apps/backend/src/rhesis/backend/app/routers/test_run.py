@@ -350,12 +350,7 @@ def rescore_test_run_endpoint(
         )
         return result
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to rescore test run: {str(e)}",
-        )
+        raise HTTPException(status_code=404, detail=str(e)) from e
 
 
 @router.get("/{test_run_id}/download", response_class=StreamingResponse)
@@ -391,12 +386,7 @@ def download_test_run_results(
         return response
 
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to download test run results for {test_run_id}: {str(e)}",
-        )
+        raise HTTPException(status_code=404, detail=str(e)) from e
 
 
 @router.get("/{test_run_id}/traces", response_model=TraceListResponse)

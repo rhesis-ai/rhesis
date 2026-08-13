@@ -120,8 +120,8 @@ def generate_metric(
         )
         raise HTTPException(
             status_code=400,
-            detail=f"Failed to generate metric: {e}",
-        )
+            detail="Failed to generate metric",
+        ) from e
 
 
 @router.post("/{metric_id}/improve", response_model=schemas.Metric)
@@ -198,8 +198,8 @@ def improve_metric(
         )
         raise HTTPException(
             status_code=400,
-            detail=f"Failed to improve metric: {e}",
-        )
+            detail="Failed to improve metric",
+        ) from e
 
 
 @router.get("/", response_model=list[schemas.MetricDetail])

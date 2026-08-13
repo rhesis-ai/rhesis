@@ -29,13 +29,7 @@ ROUTERS_DIR = (
 BROAD_EXCEPTIONS = {"Exception", "BaseException"}
 
 #: file name -> number of leaks still tolerated. Only ever shrinks.
-KNOWN_LEAKS: dict[str, int] = {
-    "metric.py": 2,
-    "test.py": 1,
-    "test_configuration.py": 1,
-    "test_run.py": 2,
-    "test_set.py": 2,
-}
+KNOWN_LEAKS: dict[str, int] = {}
 
 
 def _is_broad(handler: ast.ExceptHandler) -> bool:
