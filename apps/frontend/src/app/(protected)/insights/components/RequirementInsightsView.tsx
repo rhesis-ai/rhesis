@@ -3,32 +3,32 @@
 import React from 'react';
 import { Alert, Box, CircularProgress, Typography } from '@mui/material';
 import { InsightsFilters } from '../types';
-import { BehaviorInsightsData } from '../hooks/useBehaviorInsightsData';
-import { BehaviorInsightColumn } from '../utils/behavior-insights-utils';
+import { RequirementInsightsData } from '../hooks/useRequirementInsightsData';
+import { RequirementInsightColumn } from '../utils/requirement-insights-utils';
 import InsightsSummaryBar from './InsightsSummaryBar';
-import BehaviorColumn from './BehaviorColumn';
-import BehaviorInsightsRow from './BehaviorInsightsRow';
+import RequirementColumn from './RequirementColumn';
+import RequirementInsightsRow from './RequirementInsightsRow';
 
-interface BehaviorInsightsViewProps {
+interface RequirementInsightsViewProps {
   filters: InsightsFilters;
   insights: Pick<
-    BehaviorInsightsData,
+    RequirementInsightsData,
     'summary' | 'columns' | 'loading' | 'error' | 'noRuns'
   >;
   searchQuery?: string;
   endpointName?: string;
   endpointsLoading?: boolean;
-  columnRows: BehaviorInsightColumn[][];
+  columnRows: RequirementInsightColumn[][];
   expandedRows: Set<number>;
   onRowToggle: (rowIndex: number) => void;
 }
 
-const BEHAVIOR_GRID_COLUMNS = {
+const REQUIREMENT_GRID_COLUMNS = {
   xs: '1fr',
   md: '1fr 1fr 1fr',
 } as const;
 
-export default function BehaviorInsightsView({
+export default function RequirementInsightsView({
   filters,
   insights,
   searchQuery = '',
@@ -37,7 +37,7 @@ export default function BehaviorInsightsView({
   columnRows,
   expandedRows,
   onRowToggle,
-}: BehaviorInsightsViewProps) {
+}: RequirementInsightsViewProps) {
   const { summary, loading, error } = insights;
 
   const isLoading = endpointsLoading || loading;
@@ -55,7 +55,7 @@ export default function BehaviorInsightsView({
     return (
       <Box sx={{ py: 6, textAlign: 'center' }}>
         <Typography variant="body2" color="text.secondary">
-          Select an endpoint in Filters to view behavior insights.
+          Select an endpoint in Filters to view requirement insights.
         </Typography>
       </Box>
     );
@@ -75,13 +75,13 @@ export default function BehaviorInsightsView({
         <Box
           sx={{
             display: 'grid',
-            gridTemplateColumns: BEHAVIOR_GRID_COLUMNS,
+            gridTemplateColumns: REQUIREMENT_GRID_COLUMNS,
             gap: 1.25,
             alignItems: 'stretch',
           }}
         >
           {[1, 2, 3, 4, 5, 6].map(i => (
-            <BehaviorColumn
+            <RequirementColumn
               key={i}
               insightsFilters={filters}
               column={{
@@ -98,7 +98,7 @@ export default function BehaviorInsightsView({
       ) : hasVisibleColumns ? (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
           {columnRows.map((row, rowIndex) => (
-            <BehaviorInsightsRow
+            <RequirementInsightsRow
               key={row.map(column => column.id).join('-') || rowIndex}
               row={row}
               rowIndex={rowIndex}
@@ -113,8 +113,8 @@ export default function BehaviorInsightsView({
         !error && (
           <Typography variant="body2" color="text.secondary" sx={{ py: 4 }}>
             {searchQuery.trim()
-              ? 'No behaviors match your search.'
-              : 'No behavior data available for the selected filters.'}
+              ? 'No requirements match your search.'
+              : 'No requirement data available for the selected filters.'}
           </Typography>
         )
       )}

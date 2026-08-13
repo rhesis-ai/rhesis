@@ -32,7 +32,7 @@ export interface DimensionItem {
   pass_rate: number;
 }
 
-export interface BehaviorInsightColumn {
+export interface RequirementInsightColumn {
   id: string;
   name: string;
   overall: PassFailStats;
@@ -52,10 +52,10 @@ export function sortByPassRateAsc<
   });
 }
 
-/** Sort behavior insight columns alphabetically by name (A–Z). */
-export function sortBehaviorColumns(
-  columns: BehaviorInsightColumn[]
-): BehaviorInsightColumn[] {
+/** Sort requirement insight columns alphabetically by name (A–Z). */
+export function sortRequirementColumns(
+  columns: RequirementInsightColumn[]
+): RequirementInsightColumn[] {
   return [...columns].sort((a, b) =>
     a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
   );
@@ -78,8 +78,8 @@ export function rowToPassFailStats(row: InsightsRow): PassFailStats {
   };
 }
 
-export function isBehaviorColumnExpandable(
-  column: Pick<BehaviorInsightColumn, 'overall' | 'metrics' | 'topics'>
+export function isRequirementColumnExpandable(
+  column: Pick<RequirementInsightColumn, 'overall' | 'metrics' | 'topics'>
 ): boolean {
   return (
     column.overall.total > 0 &&
@@ -87,20 +87,20 @@ export function isBehaviorColumnExpandable(
   );
 }
 
-export const INSIGHTS_BEHAVIOR_COLUMNS_PER_ROW = 3;
+export const INSIGHTS_REQUIREMENT_COLUMNS_PER_ROW = 3;
 
-export function chunkBehaviorColumns(
-  columns: BehaviorInsightColumn[]
-): BehaviorInsightColumn[][] {
-  const rows: BehaviorInsightColumn[][] = [];
-  for (let i = 0; i < columns.length; i += INSIGHTS_BEHAVIOR_COLUMNS_PER_ROW) {
-    rows.push(columns.slice(i, i + INSIGHTS_BEHAVIOR_COLUMNS_PER_ROW));
+export function chunkRequirementColumns(
+  columns: RequirementInsightColumn[]
+): RequirementInsightColumn[][] {
+  const rows: RequirementInsightColumn[][] = [];
+  for (let i = 0; i < columns.length; i += INSIGHTS_REQUIREMENT_COLUMNS_PER_ROW) {
+    rows.push(columns.slice(i, i + INSIGHTS_REQUIREMENT_COLUMNS_PER_ROW));
   }
   return rows;
 }
 
-export function isBehaviorRowExpandable(row: BehaviorInsightColumn[]): boolean {
-  return row.some(isBehaviorColumnExpandable);
+export function isRequirementRowExpandable(row: RequirementInsightColumn[]): boolean {
+  return row.some(isRequirementColumnExpandable);
 }
 
 export function buildTestRunTimeFilter(timeRange: InsightsTimeRange): string {
@@ -229,51 +229,51 @@ export async function resolveInsightsQueryTestRunIds(
   return testRunIds;
 }
 
-/** Group rows sharing a `behavior_id` into `DimensionItem[]`, keyed by `nameKey`. */
-function groupRowsByBehaviorId(
+/** Group rows sharing a `requirement_id` into `DimensionItem[]`, keyed by `nameKey`. */
+function groupRowsByRequirementId(
   rows: InsightsRow[],
   nameKey: string,
   idKey?: string
 ): Map<string, DimensionItem[]> {
   const grouped = new Map<string, DimensionItem[]>();
   for (const row of rows) {
-    const behaviorId = row.behavior_id;
+    const requirementId = row.requirement_id;
     const name = row[nameKey];
-    if (typeof behaviorId !== 'string' || typeof name !== 'string') continue;
+    if (typeof requirementId !== 'string' || typeof name !== 'string') continue;
     const id = idKey != null ? row[idKey] : undefined;
-    const items = grouped.get(behaviorId) ?? [];
+    const items = grouped.get(requirementId) ?? [];
     items.push({
       name,
       ...(typeof id === 'string' ? { id } : {}),
       ...rowToPassFailStats(row),
     });
-    grouped.set(behaviorId, items);
+    grouped.set(requirementId, items);
   }
   return grouped;
 }
 
 /**
- * Build behavior columns straight from `/insights/query` rows: `behaviorRows`
- * (group_by=[behavior_id,behavior]) already are "behaviors with data" -- no
- * separate behavior list fetch needed. `topicRows`/`metricRows` are grouped
- * by behavior_id to fill each column's breakdown lists.
+ * Build requirement columns straight from `/insights/query` rows: `requirementRows`
+ * (group_by=[requirement_id,requirement]) already are "requirements with data" -- no
+ * separate requirement list fetch needed. `topicRows`/`metricRows` are grouped
+ * by requirement_id to fill each column's breakdown lists.
  */
-export interface BehaviorOption {
+export interface RequirementOption {
   id: string;
   name: string;
   count: number;
 }
 
-/** Build the full (unfiltered) behavior list for the filter drawer's checkbox options. */
-export function buildBehaviorOptions(rows: InsightsRow[]): BehaviorOption[] {
+/** Build the full (unfiltered) requirement list for the filter drawer's checkbox options. */
+export function buildRequirementOptions(rows: InsightsRow[]): RequirementOption[] {
   return rows
     .filter(
-      (row): row is InsightsRow & { behavior_id: string; behavior: string } =>
-        typeof row.behavior_id === 'string' && typeof row.behavior === 'string'
+      (row): row is InsightsRow & { requirement_id: string; requirement: string } =>
+        typeof row.requirement_id === 'string' && typeof row.requirement === 'string'
     )
     .map(row => ({
-      id: row.behavior_id,
-      name: row.behavior,
+      id: row.requirement_id,
+      name: row.requirement,
       count: rowToPassFailStats(row).total,
     }))
     .sort((a, b) =>
@@ -281,30 +281,30 @@ export function buildBehaviorOptions(rows: InsightsRow[]): BehaviorOption[] {
     );
 }
 
-export function buildBehaviorColumns(
-  behaviorRows: InsightsRow[],
+export function buildRequirementColumns(
+  requirementRows: InsightsRow[],
   topicRows: InsightsRow[],
   metricRows: InsightsRow[]
-): BehaviorInsightColumn[] {
-  const topicsByBehavior = groupRowsByBehaviorId(
+): RequirementInsightColumn[] {
+  const topicsByRequirement = groupRowsByRequirementId(
     topicRows,
     'topic',
     'topic_id'
   );
-  const metricsByBehavior = groupRowsByBehaviorId(metricRows, 'metric_name');
+  const metricsByRequirement = groupRowsByRequirementId(metricRows, 'metric_name');
 
-  const columns: BehaviorInsightColumn[] = behaviorRows
+  const columns: RequirementInsightColumn[] = requirementRows
     .filter(
-      (row): row is InsightsRow & { behavior_id: string; behavior: string } =>
-        typeof row.behavior_id === 'string' && typeof row.behavior === 'string'
+      (row): row is InsightsRow & { requirement_id: string; requirement: string } =>
+        typeof row.requirement_id === 'string' && typeof row.requirement === 'string'
     )
     .map(row => ({
-      id: row.behavior_id,
-      name: row.behavior,
+      id: row.requirement_id,
+      name: row.requirement,
       overall: rowToPassFailStats(row),
-      metrics: sortByPassRateAsc(metricsByBehavior.get(row.behavior_id) ?? []),
-      topics: sortByPassRateAsc(topicsByBehavior.get(row.behavior_id) ?? []),
+      metrics: sortByPassRateAsc(metricsByRequirement.get(row.requirement_id) ?? []),
+      topics: sortByPassRateAsc(topicsByRequirement.get(row.requirement_id) ?? []),
     }));
 
-  return sortBehaviorColumns(columns);
+  return sortRequirementColumns(columns);
 }

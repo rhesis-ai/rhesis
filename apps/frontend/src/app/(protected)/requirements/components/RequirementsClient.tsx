@@ -14,15 +14,15 @@ import GridToolbar, {
   directoryToolbarProps,
 } from '@/components/common/GridToolbar';
 import { useNotifications } from '@/components/common/NotificationContext';
-import { BehaviorClient } from '@/utils/api-client/behavior-client';
+import { RequirementClient } from '@/utils/api-client/requirement-client';
 import { API_ENDPOINTS } from '@/utils/api-client/config';
 import { TagsClient } from '@/utils/api-client/tags-client';
 import { EntityType, type Tag } from '@/utils/api-client/interfaces/tag';
-import type { BehaviorWithMetrics } from '@/utils/api-client/interfaces/behavior';
+import type { RequirementWithMetrics } from '@/utils/api-client/interfaces/requirement';
 import type { UUID } from 'crypto';
-import BehaviorCard from './BehaviorCard';
-import BehaviorDrawer from './BehaviorDrawer';
-import BehaviorMetricsViewer from './BehaviorMetricsViewer';
+import RequirementCard from './RequirementCard';
+import RequirementDrawer from './RequirementDrawer';
+import RequirementMetricsViewer from './RequirementMetricsViewer';
 import { generateCopyName } from '@/utils/entity-helpers';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { getEntityEmptyStateEnrichment } from '@/constants/entity-empty-state-env';
@@ -33,38 +33,38 @@ import { Can, useCan, useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import AccessDenied from '@/components/common/AccessDenied';
 import PageLoadingState from '@/components/common/PageLoadingState';
-import BehaviorFilterDrawer, {
-  type BehaviorFilters,
+import RequirementFilterDrawer, {
+  type RequirementFilters,
   type MetricFilter,
-  EMPTY_BEHAVIOR_FILTERS,
-  hasActiveBehaviorFilters,
-  countActiveBehaviorFilters,
-} from './BehaviorFilterDrawer';
+  EMPTY_REQUIREMENT_FILTERS,
+  hasActiveRequirementFilters,
+  countActiveRequirementFilters,
+} from './RequirementFilterDrawer';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 import { usePaginatedList } from '@/hooks/usePaginatedList';
-import { buildBehaviorODataFilter } from '@/utils/odata-filter';
+import { buildRequirementODataFilter } from '@/utils/odata-filter';
 
-interface BehaviorsClientProps {
+interface RequirementsClientProps {
   organizationId: UUID;
   userId?: UUID;
   /** Server-fetched first page — when present, skips the initial client fetch. */
-  initialData?: BehaviorWithMetrics[];
+  initialData?: RequirementWithMetrics[];
   initialTotalCount?: number;
 }
 
-export default function BehaviorsClient({
+export default function RequirementsClient({
   organizationId,
   userId,
   initialData,
   initialTotalCount = 0,
-}: BehaviorsClientProps) {
+}: RequirementsClientProps) {
   const router = useRouter();
   const notifications = useNotifications();
   const { status: sessionStatus } = useSession();
   const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
-    Capability.Behavior.READ
+    Capability.Requirement.READ
   );
-  const canCreateBehavior = useCan(Capability.Behavior.CREATE);
+  const canCreateRequirement = useCan(Capability.Requirement.CREATE);
 
   // Accumulate tag names seen across page navigations for the filter drawer
   const tagNamesRef = React.useRef(new Set<string>());
@@ -72,8 +72,8 @@ export default function BehaviorsClient({
   const [availableTagNames, setAvailableTagNames] = React.useState<string[]>(
     () => {
       if (!initialData) return [];
-      initialData.forEach(behavior => {
-        (behavior.tags ?? []).forEach(tag => tagNamesRef.current.add(tag.name));
+      initialData.forEach(requirement => {
+        (requirement.tags ?? []).forEach(tag => tagNamesRef.current.add(tag.name));
       });
       return Array.from(tagNamesRef.current).sort((a, b) => a.localeCompare(b));
     }
@@ -81,28 +81,28 @@ export default function BehaviorsClient({
 
   // Drawer state
   const [drawerOpen, setDrawerOpen] = React.useState(false);
-  const [editingBehavior, setEditingBehavior] = React.useState<{
+  const [editingRequirement, setEditingRequirement] = React.useState<{
     id: UUID | null;
     name: string;
     description: string;
     tagNames: string[];
   } | null>(null);
-  const [isNewBehavior, setIsNewBehavior] = React.useState(false);
+  const [isNewRequirement, setIsNewRequirement] = React.useState(false);
   const [drawerLoading, setDrawerLoading] = React.useState(false);
   const [drawerError, setDrawerError] = React.useState<string>();
 
   // Metrics viewer state
   const [metricsViewerOpen, setMetricsViewerOpen] = React.useState(false);
-  const [viewingBehavior, setViewingBehavior] =
-    React.useState<BehaviorWithMetrics | null>(null);
+  const [viewingRequirement, setViewingRequirement] =
+    React.useState<RequirementWithMetrics | null>(null);
 
   // Search & filter state
   const [searchQuery, setSearchQuery] = React.useState('');
   const [metricCountFilter, setMetricCountFilter] =
     React.useState<MetricFilter>('all');
   const [filterDrawerOpen, setFilterDrawerOpen] = React.useState(false);
-  const [drawerFilters, setDrawerFilters] = React.useState<BehaviorFilters>(
-    EMPTY_BEHAVIOR_FILTERS
+  const [drawerFilters, setDrawerFilters] = React.useState<RequirementFilters>(
+    EMPTY_REQUIREMENT_FILTERS
   );
 
   // Reset to page 0 whenever filters change
@@ -113,8 +113,8 @@ export default function BehaviorsClient({
   );
 
   const {
-    data: behaviors,
-    setData: setBehaviors,
+    data: requirements,
+    setData: setRequirements,
     totalCount,
     setTotalCount,
     isLoading,
@@ -124,15 +124,15 @@ export default function BehaviorsClient({
     onPageChange: setPage,
     onRowsPerPageChange: handleRowsPerPageChange,
     refresh: handleRefresh,
-  } = usePaginatedList<BehaviorWithMetrics>({
+  } = usePaginatedList<RequirementWithMetrics>({
     fetchPage: ({ skip, limit }) => {
-      const behaviorClient = new BehaviorClient();
-      const odataFilter = buildBehaviorODataFilter({
+      const requirementClient = new RequirementClient();
+      const odataFilter = buildRequirementODataFilter({
         search: searchQuery,
         metricCount: metricCountFilter,
         tagNames: drawerFilters.tagNames,
       });
-      return behaviorClient.getBehaviorsPage({
+      return requirementClient.getRequirementsPage({
         skip,
         limit,
         sort_by: 'name',
@@ -145,15 +145,15 @@ export default function BehaviorsClient({
     initialTotalCount,
     enabled: !permsLoading && canRead,
     onData: data => {
-      data.forEach(behavior => {
-        (behavior.tags ?? []).forEach(tag => tagNamesRef.current.add(tag.name));
+      data.forEach(requirement => {
+        (requirement.tags ?? []).forEach(tag => tagNamesRef.current.add(tag.name));
       });
       setAvailableTagNames(
         Array.from(tagNamesRef.current).sort((a, b) => a.localeCompare(b))
       );
     },
     onError: () => {
-      notifications.show('Failed to load behaviors data', {
+      notifications.show('Failed to load requirements data', {
         severity: 'error',
         autoHideDuration: 4000,
       });
@@ -161,7 +161,7 @@ export default function BehaviorsClient({
   });
 
   /**
-   * Inserts a behavior into the current page in name order (matching the
+   * Inserts a requirement into the current page in name order (matching the
    * directory's default sort) rather than relying on a re-fetch to reveal
    * it. A re-fetch of the current page can't be trusted to surface a
    * just-created item -- with server-side pagination, its name may sort
@@ -177,31 +177,31 @@ export default function BehaviorsClient({
    * to `rowsPerPage` after inserting keeps the rendered page from exceeding
    * what the pagination controls advertise.
    */
-  const insertBehaviorSorted = (behavior: BehaviorWithMetrics) => {
+  const insertRequirementSorted = (requirement: RequirementWithMetrics) => {
     setTotalCount(prev => prev + 1);
     if (page !== 0) return;
-    setBehaviors(prev => {
-      const next = [...prev, behavior].sort((a, b) =>
+    setRequirements(prev => {
+      const next = [...prev, requirement].sort((a, b) =>
         a.name.localeCompare(b.name)
       );
       return next.slice(0, rowsPerPage);
     });
   };
 
-  const handleAddNewBehavior = () => {
-    setEditingBehavior({ id: null, name: '', description: '', tagNames: [] });
-    setIsNewBehavior(true);
+  const handleAddNewRequirement = () => {
+    setEditingRequirement({ id: null, name: '', description: '', tagNames: [] });
+    setIsNewRequirement(true);
     setDrawerOpen(true);
   };
 
-  const handleEditBehavior = (
+  const handleEditRequirement = (
     id: UUID,
     name: string,
     description: string,
     tagNames: string[] = []
   ) => {
-    setEditingBehavior({ id, name, description, tagNames });
-    setIsNewBehavior(false);
+    setEditingRequirement({ id, name, description, tagNames });
+    setIsNewRequirement(false);
     setDrawerOpen(true);
   };
 
@@ -212,8 +212,8 @@ export default function BehaviorsClient({
    * Compares on normalized names (trim + lowercase) while sending trimmed
    * display values to the API.
    */
-  const syncBehaviorTags = async (
-    behaviorId: UUID,
+  const syncRequirementTags = async (
+    requirementId: UUID,
     initialTags: Tag[],
     nextTagNames: string[]
   ): Promise<void> => {
@@ -250,13 +250,13 @@ export default function BehaviorsClient({
 
     await Promise.all(
       toRemove.map(tag =>
-        tagsClient.removeTagFromEntity(EntityType.BEHAVIOR, behaviorId, tag.id)
+        tagsClient.removeTagFromEntity(EntityType.REQUIREMENT, requirementId, tag.id)
       )
     );
 
     await Promise.all(
       toAdd.map(name =>
-        tagsClient.assignTagToEntity(EntityType.BEHAVIOR, behaviorId, {
+        tagsClient.assignTagToEntity(EntityType.REQUIREMENT, requirementId, {
           name,
           organization_id: organizationId,
           ...(userId ? { user_id: userId } : {}),
@@ -265,7 +265,7 @@ export default function BehaviorsClient({
     );
   };
 
-  const handleSaveBehavior = async (
+  const handleSaveRequirement = async (
     name: string,
     description: string,
     tagNames: string[]
@@ -274,11 +274,11 @@ export default function BehaviorsClient({
       setDrawerLoading(true);
       setDrawerError(undefined);
 
-      const behaviorClient = new BehaviorClient();
+      const requirementClient = new RequirementClient();
       let tagSyncFailed = false;
 
-      if (isNewBehavior) {
-        const created = await behaviorClient.createBehavior({
+      if (isNewRequirement) {
+        const created = await requirementClient.createRequirement({
           name: name.trim(),
           description: description?.trim() || null,
           organization_id: organizationId,
@@ -286,43 +286,43 @@ export default function BehaviorsClient({
 
         if (tagNames.length > 0) {
           try {
-            await syncBehaviorTags(created.id, [], tagNames);
+            await syncRequirementTags(created.id, [], tagNames);
           } catch {
             tagSyncFailed = true;
           }
         }
 
-        const createdWithMetrics = await behaviorClient.getBehaviorWithMetrics(
+        const createdWithMetrics = await requirementClient.getRequirementWithMetrics(
           created.id
         );
-        insertBehaviorSorted(createdWithMetrics);
+        insertRequirementSorted(createdWithMetrics);
 
         notifications.show(
           tagSyncFailed
-            ? 'Behavior created, but some tags failed to sync'
-            : 'Behavior created successfully',
+            ? 'Requirement created, but some tags failed to sync'
+            : 'Requirement created successfully',
           {
             severity: tagSyncFailed ? 'warning' : 'success',
             autoHideDuration: 4000,
           }
         );
-      } else if (editingBehavior && editingBehavior.id) {
-        const editingId = editingBehavior.id;
-        const existing = behaviors.find(b => b.id === editingId);
-        const updated = await behaviorClient.updateBehavior(editingId, {
+      } else if (editingRequirement && editingRequirement.id) {
+        const editingId = editingRequirement.id;
+        const existing = requirements.find(b => b.id === editingId);
+        const updated = await requirementClient.updateRequirement(editingId, {
           name: name.trim(),
           description: description?.trim() || null,
         });
 
         try {
-          await syncBehaviorTags(editingId, existing?.tags ?? [], tagNames);
+          await syncRequirementTags(editingId, existing?.tags ?? [], tagNames);
         } catch {
           tagSyncFailed = true;
         }
 
         const refreshed =
-          await behaviorClient.getBehaviorWithMetrics(editingId);
-        setBehaviors(prev =>
+          await requirementClient.getRequirementWithMetrics(editingId);
+        setRequirements(prev =>
           prev
             .map(b =>
               b.id === editingId
@@ -339,8 +339,8 @@ export default function BehaviorsClient({
 
         notifications.show(
           tagSyncFailed
-            ? 'Behavior updated, but some tags failed to sync'
-            : 'Behavior updated successfully',
+            ? 'Requirement updated, but some tags failed to sync'
+            : 'Requirement updated successfully',
           {
             severity: tagSyncFailed ? 'warning' : 'success',
             autoHideDuration: 4000,
@@ -351,14 +351,14 @@ export default function BehaviorsClient({
       setDrawerOpen(false);
     } catch (err) {
       setDrawerError(
-        err instanceof Error ? err.message : 'Failed to save behavior'
+        err instanceof Error ? err.message : 'Failed to save requirement'
       );
     } finally {
       setDrawerLoading(false);
     }
   };
 
-  const handleDuplicateBehavior = async (
+  const handleDuplicateRequirement = async (
     id: UUID,
     name: string,
     description: string
@@ -367,20 +367,20 @@ export default function BehaviorsClient({
       setDrawerLoading(true);
       setDrawerError(undefined);
 
-      const behaviorClient = new BehaviorClient();
+      const requirementClient = new RequirementClient();
 
-      const created = await behaviorClient.createBehavior({
+      const created = await requirementClient.createRequirement({
         name: generateCopyName(name),
         description: description || null,
         organization_id: organizationId,
       });
 
-      const createdWithMetrics = await behaviorClient.getBehaviorWithMetrics(
+      const createdWithMetrics = await requirementClient.getRequirementWithMetrics(
         created.id
       );
-      insertBehaviorSorted(createdWithMetrics);
+      insertRequirementSorted(createdWithMetrics);
 
-      notifications.show('Behavior duplicated successfully', {
+      notifications.show('Requirement duplicated successfully', {
         severity: 'success',
         autoHideDuration: 4000,
       });
@@ -388,9 +388,9 @@ export default function BehaviorsClient({
       setDrawerOpen(false);
     } catch (err) {
       setDrawerError(
-        err instanceof Error ? err.message : 'Failed to duplicate behavior'
+        err instanceof Error ? err.message : 'Failed to duplicate requirement'
       );
-      notifications.show('Failed to duplicate behavior', {
+      notifications.show('Failed to duplicate requirement', {
         severity: 'error',
         autoHideDuration: 4000,
       });
@@ -399,35 +399,35 @@ export default function BehaviorsClient({
     }
   };
 
-  const handleDeleteBehavior = async () => {
-    if (!isNewBehavior && editingBehavior && editingBehavior.id) {
+  const handleDeleteRequirement = async () => {
+    if (!isNewRequirement && editingRequirement && editingRequirement.id) {
       try {
-        const behaviorClient = new BehaviorClient();
+        const requirementClient = new RequirementClient();
 
-        const behaviorToDelete = behaviors.find(
-          b => b.id === editingBehavior.id
+        const requirementToDelete = requirements.find(
+          b => b.id === editingRequirement.id
         );
-        if (behaviorToDelete && behaviorToDelete.metrics.length > 0) {
+        if (requirementToDelete && requirementToDelete.metrics.length > 0) {
           notifications.show(
-            'Cannot delete behavior with assigned metrics. Please remove all metrics first.',
+            'Cannot delete requirement with assigned metrics. Please remove all metrics first.',
             { severity: 'error', autoHideDuration: 6000 }
           );
           return;
         }
 
-        await behaviorClient.deleteBehavior(editingBehavior.id);
+        await requirementClient.deleteRequirement(editingRequirement.id);
 
-        setBehaviors(prev => prev.filter(b => b.id !== editingBehavior.id));
+        setRequirements(prev => prev.filter(b => b.id !== editingRequirement.id));
         setTotalCount(prev => Math.max(0, prev - 1));
 
-        notifications.show('Behavior deleted successfully', {
+        notifications.show('Requirement deleted successfully', {
           severity: 'success',
           autoHideDuration: 4000,
         });
         setDrawerOpen(false);
       } catch (err) {
         notifications.show(
-          err instanceof Error ? err.message : 'Failed to delete behavior',
+          err instanceof Error ? err.message : 'Failed to delete requirement',
           { severity: 'error', autoHideDuration: 4000 }
         );
       }
@@ -436,33 +436,33 @@ export default function BehaviorsClient({
     }
   };
 
-  const handleViewMetrics = (behavior: BehaviorWithMetrics) => {
-    setViewingBehavior(behavior);
+  const handleViewMetrics = (requirement: RequirementWithMetrics) => {
+    setViewingRequirement(requirement);
     setMetricsViewerOpen(true);
   };
 
   const handleMetricsViewerClose = () => {
     setMetricsViewerOpen(false);
-    setViewingBehavior(null);
+    setViewingRequirement(null);
   };
 
   const handleMetricsViewerRefresh = (removedMetricId?: string) => {
-    if (removedMetricId && viewingBehavior) {
-      setBehaviors(prev =>
-        prev.map(behavior => {
-          if (behavior.id === viewingBehavior.id) {
+    if (removedMetricId && viewingRequirement) {
+      setRequirements(prev =>
+        prev.map(requirement => {
+          if (requirement.id === viewingRequirement.id) {
             return {
-              ...behavior,
-              metrics: behavior.metrics.filter(
+              ...requirement,
+              metrics: requirement.metrics.filter(
                 metric => metric.id !== removedMetricId
               ),
             };
           }
-          return behavior;
+          return requirement;
         })
       );
 
-      setViewingBehavior(prev => {
+      setViewingRequirement(prev => {
         if (prev) {
           return {
             ...prev,
@@ -481,13 +481,13 @@ export default function BehaviorsClient({
   const hasActiveFilters =
     searchQuery.trim() !== '' ||
     metricCountFilter !== 'all' ||
-    hasActiveBehaviorFilters(drawerFilters);
-  const editingBehaviorId = !isNewBehavior ? editingBehavior?.id : null;
+    hasActiveRequirementFilters(drawerFilters);
+  const editingRequirementId = !isNewRequirement ? editingRequirement?.id : null;
 
   const handleResetFilters = () => {
     setSearchQuery('');
     setMetricCountFilter('all');
-    setDrawerFilters(EMPTY_BEHAVIOR_FILTERS);
+    setDrawerFilters(EMPTY_REQUIREMENT_FILTERS);
   };
 
   const metricOptions: { value: MetricFilter; label: string }[] = [
@@ -497,11 +497,11 @@ export default function BehaviorsClient({
   ];
 
   // First load — no data at all yet, show a full-page spinner
-  const isInitialLoad = isLoading && behaviors.length === 0 && totalCount === 0;
+  const isInitialLoad = isLoading && requirements.length === 0 && totalCount === 0;
 
   if (isInitialLoad) {
     return (
-      <PageLayout title="Behaviors" breadcrumbs={[]}>
+      <PageLayout title="Requirements" breadcrumbs={[]}>
         <Box
           sx={{
             display: 'flex',
@@ -512,7 +512,7 @@ export default function BehaviorsClient({
           }}
         >
           <CircularProgress size={24} />
-          <Typography>Loading behaviors...</Typography>
+          <Typography>Loading requirements...</Typography>
         </Box>
       </PageLayout>
     );
@@ -521,35 +521,35 @@ export default function BehaviorsClient({
   // Auth error state
   if (!isAuthenticated(sessionStatus)) {
     return (
-      <PageLayout title="Behaviors" breadcrumbs={[]}>
+      <PageLayout title="Requirements" breadcrumbs={[]}>
         <Alert severity="error" sx={{ mb: 3 }}>
           Session expired. Please refresh the page or log in again.
         </Alert>
         <EntityEmptyState
           icon={PsychologyIcon}
           title="Authentication required"
-          description="Please log in to view and manage your behaviors."
+          description="Please log in to view and manage your requirements."
         />
       </PageLayout>
     );
   }
 
   if (permsLoading) return <PageLoadingState />;
-  if (!canRead) return <AccessDenied resource="behaviors" />;
+  if (!canRead) return <AccessDenied resource="requirements" />;
 
   return (
     <PageLayout
-      title="Behaviors"
-      description="Behaviors are atomic expectations for your application, measured through one or more metrics to determine if requirements are met."
+      title="Requirements"
+      description="Requirements are atomic expectations for your application, measured through one or more metrics to determine if requirements are met."
       breadcrumbs={[]}
       actions={
         <FabGroup>
-          <Can capability={Capability.Behavior.CREATE}>
+          <Can capability={Capability.Requirement.CREATE}>
             <Fab
               icon={<FabAddIcon />}
-              tooltip="Create behavior"
-              aria-label="Create behavior"
-              onClick={handleAddNewBehavior}
+              tooltip="Create requirement"
+              aria-label="Create requirement"
+              onClick={handleAddNewRequirement}
             />
           </Can>
         </FabGroup>
@@ -558,10 +558,10 @@ export default function BehaviorsClient({
       <GridToolbar
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
-        searchPlaceholder="Search behaviors…"
+        searchPlaceholder="Search requirements…"
         onFilterClick={() => setFilterDrawerOpen(true)}
-        hasActiveFilters={hasActiveBehaviorFilters(drawerFilters)}
-        activeFilterCount={countActiveBehaviorFilters(drawerFilters)}
+        hasActiveFilters={hasActiveRequirementFilters(drawerFilters)}
+        activeFilterCount={countActiveRequirementFilters(drawerFilters)}
         {...directoryToolbarProps}
         middleContent={
           <ToolbarPillTabs
@@ -589,13 +589,13 @@ export default function BehaviorsClient({
         }}
       />
 
-      {/* Behaviors grid / empty states */}
-      {behaviors.length === 0 ? (
+      {/* Requirements grid / empty states */}
+      {requirements.length === 0 ? (
         hasActiveFilters ? (
           <EntityEmptyState
             icon={PsychologyIcon}
-            title="No behaviors match your filters"
-            description="Try adjusting your search or filter to find the behaviors you're looking for."
+            title="No requirements match your filters"
+            description="Try adjusting your search or filter to find the requirements you're looking for."
             actionLabel="Reset filters"
             onAction={handleResetFilters}
           />
@@ -603,11 +603,11 @@ export default function BehaviorsClient({
           <EntityEmptyState
             card
             icon={PsychologyIcon}
-            title="No behavior yet"
-            description="Create your first behavior to define atomic expectations for your AI applications. Behaviors are measured through metrics to ensure your requirements are met."
-            actionLabel={canCreateBehavior ? 'Create behavior' : undefined}
-            onAction={canCreateBehavior ? handleAddNewBehavior : undefined}
-            enrichment={getEntityEmptyStateEnrichment('behaviors')}
+            title="No requirement yet"
+            description="Create your first requirement to define atomic expectations for your AI applications. Requirements are measured through metrics to ensure your requirements are met."
+            actionLabel={canCreateRequirement ? 'Create requirement' : undefined}
+            onAction={canCreateRequirement ? handleAddNewRequirement : undefined}
+            enrichment={getEntityEmptyStateEnrichment('requirements')}
           />
         )
       ) : (
@@ -623,29 +623,29 @@ export default function BehaviorsClient({
             mb: 4,
           })}
         >
-          {behaviors.map(behavior => (
-            <BehaviorCard
-              key={behavior.id}
-              behavior={behavior}
+          {requirements.map(requirement => (
+            <RequirementCard
+              key={requirement.id}
+              requirement={requirement}
               onClick={() =>
-                router.push(`${API_ENDPOINTS.behaviors}/${behavior.id}`)
+                router.push(`${API_ENDPOINTS.requirements}/${requirement.id}`)
               }
               onEdit={() =>
-                handleEditBehavior(
-                  behavior.id,
-                  behavior.name,
-                  behavior.description || '',
-                  (behavior.tags ?? []).map(t => t.name)
+                handleEditRequirement(
+                  requirement.id,
+                  requirement.name,
+                  requirement.description || '',
+                  (requirement.tags ?? []).map(t => t.name)
                 )
               }
               onDuplicate={() =>
-                handleDuplicateBehavior(
-                  behavior.id,
-                  behavior.name,
-                  behavior.description || ''
+                handleDuplicateRequirement(
+                  requirement.id,
+                  requirement.name,
+                  requirement.description || ''
                 )
               }
-              onViewMetrics={() => handleViewMetrics(behavior)}
+              onViewMetrics={() => handleViewMetrics(requirement)}
               onRefresh={handleRefresh}
             />
           ))}
@@ -662,53 +662,53 @@ export default function BehaviorsClient({
             handleRowsPerPageChange(parseInt(event.target.value, 10))
           }
           rowsPerPageOptions={[25, 50, 100]}
-          labelRowsPerPage="Behaviors per page:"
+          labelRowsPerPage="Requirements per page:"
           sx={{ mb: 2 }}
         />
       )}
 
-      {/* Behavior Edit Drawer */}
-      {editingBehavior && (
-        <BehaviorDrawer
+      {/* Requirement Edit Drawer */}
+      {editingRequirement && (
+        <RequirementDrawer
           open={drawerOpen}
           onClose={() => setDrawerOpen(false)}
-          name={editingBehavior.name}
-          description={editingBehavior.description}
-          initialTagNames={editingBehavior.tagNames}
+          name={editingRequirement.name}
+          description={editingRequirement.description}
+          initialTagNames={editingRequirement.tagNames}
           tagSuggestions={availableTagNames}
-          onSave={handleSaveBehavior}
+          onSave={handleSaveRequirement}
           onDuplicate={
-            editingBehaviorId
+            editingRequirementId
               ? () =>
-                  handleDuplicateBehavior(
-                    editingBehaviorId,
-                    editingBehavior.name,
-                    editingBehavior.description
+                  handleDuplicateRequirement(
+                    editingRequirementId,
+                    editingRequirement.name,
+                    editingRequirement.description
                   )
               : undefined
           }
           onDelete={
-            editingBehaviorId &&
-            behaviors.find(b => b.id === editingBehaviorId)?.metrics?.length ===
+            editingRequirementId &&
+            requirements.find(b => b.id === editingRequirementId)?.metrics?.length ===
               0
-              ? handleDeleteBehavior
+              ? handleDeleteRequirement
               : undefined
           }
-          isNew={isNewBehavior}
+          isNew={isNewRequirement}
           loading={drawerLoading}
           error={drawerError}
         />
       )}
 
-      {/* Behavior Metrics Viewer */}
-      <BehaviorMetricsViewer
+      {/* Requirement Metrics Viewer */}
+      <RequirementMetricsViewer
         open={metricsViewerOpen}
         onClose={handleMetricsViewerClose}
-        behavior={viewingBehavior}
+        requirement={viewingRequirement}
         onRefresh={handleMetricsViewerRefresh}
       />
 
-      <BehaviorFilterDrawer
+      <RequirementFilterDrawer
         open={filterDrawerOpen}
         onClose={() => setFilterDrawerOpen(false)}
         filters={drawerFilters}

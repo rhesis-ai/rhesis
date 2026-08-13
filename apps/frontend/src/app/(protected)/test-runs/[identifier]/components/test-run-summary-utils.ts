@@ -27,13 +27,13 @@ export function getReviewBand(passRate: number): ReviewBandInfo {
   return { band: 'review', label: 'Needs Review', colorKey: 'error' };
 }
 
-export interface BehaviorStat {
+export interface RequirementStat {
   name: string;
   total: number;
   passed: number;
   failed: number;
   passRate: number;
-  /** True when a human review changed a test outcome in this behavior */
+  /** True when a human review changed a test outcome in this requirement */
   hasHumanCorrection?: boolean;
   humanCorrectionCount?: number;
   humanCorrectionTooltip?: string;
@@ -384,12 +384,12 @@ export function hasMetricTargetedReview(
   return iterMetricTargetReviews(result, metricName).length > 0;
 }
 
-export function getResultBehaviorName(
+export function getResultRequirementName(
   result: TestResultDetail
 ): string | undefined {
   return (
-    result.test?.behavior?.name ||
-    (result.test as { behavior?: { name?: string } } | undefined)?.behavior
+    result.test?.requirement?.name ||
+    (result.test as { requirement?: { name?: string } } | undefined)?.requirement
       ?.name
   );
 }
@@ -412,32 +412,32 @@ export function testHasHumanCorrection(result: TestResultDetail): boolean {
   });
 }
 
-export function countBehaviorHumanCorrections(
-  behaviorName: string,
+export function countRequirementHumanCorrections(
+  requirementName: string,
   testResults: TestResultDetail[]
 ): number {
   return testResults.filter(
     result =>
-      getResultBehaviorName(result) === behaviorName &&
+      getResultRequirementName(result) === requirementName &&
       testHasHumanCorrection(result)
   ).length;
 }
 
-export function buildBehaviorCorrectionTooltip(
-  behaviorName: string,
+export function buildRequirementCorrectionTooltip(
+  requirementName: string,
   testResults: TestResultDetail[]
 ): string {
-  const testCount = countBehaviorHumanCorrections(behaviorName, testResults);
+  const testCount = countRequirementHumanCorrections(requirementName, testResults);
   if (testCount === 0) return '';
   return `${testCount} test${testCount === 1 ? '' : 's'} corrected by human review`;
 }
 
-/** True when any test in this behavior had a test-level review correction. */
-export function behaviorHasHumanCorrection(
-  behaviorName: string,
+/** True when any test in this requirement had a test-level review correction. */
+export function requirementHasHumanCorrection(
+  requirementName: string,
   testResults: TestResultDetail[]
 ): boolean {
-  return countBehaviorHumanCorrections(behaviorName, testResults) > 0;
+  return countRequirementHumanCorrections(requirementName, testResults) > 0;
 }
 
 /** True when reviewed passed/failed counts differ from automated counts. */
@@ -598,13 +598,13 @@ export function computeReviewSummary(
   };
 }
 
-export function aggregateBehaviorStats(
+export function aggregateRequirementStats(
   testResults: TestResultDetail[]
-): BehaviorStat[] {
+): RequirementStat[] {
   const map = new Map<string, { passed: number; total: number }>();
 
   for (const result of testResults) {
-    const name = getResultBehaviorName(result);
+    const name = getResultRequirementName(result);
     if (!name) continue;
     const entry = map.get(name) ?? { passed: 0, total: 0 };
     entry.total += 1;
@@ -613,7 +613,7 @@ export function aggregateBehaviorStats(
   }
 
   return Array.from(map.entries()).map(([name, { passed, total }]) => {
-    const humanCorrectionCount = countBehaviorHumanCorrections(
+    const humanCorrectionCount = countRequirementHumanCorrections(
       name,
       testResults
     );
@@ -625,7 +625,7 @@ export function aggregateBehaviorStats(
       passRate: total > 0 ? (passed / total) * 100 : 0,
       hasHumanCorrection: humanCorrectionCount > 0,
       humanCorrectionCount,
-      humanCorrectionTooltip: buildBehaviorCorrectionTooltip(name, testResults),
+      humanCorrectionTooltip: buildRequirementCorrectionTooltip(name, testResults),
     };
   });
 }

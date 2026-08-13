@@ -2,16 +2,16 @@
 
 import * as React from 'react';
 import { useNotifications } from '@/components/common/NotificationContext';
-import { BehaviorClient } from '@/utils/api-client/behavior-client';
+import { RequirementClient } from '@/utils/api-client/requirement-client';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import EntityCard, { type ChipSection } from '@/components/common/EntityCard';
-import type { BehaviorWithMetrics } from '@/utils/api-client/interfaces/behavior';
+import type { RequirementWithMetrics } from '@/utils/api-client/interfaces/requirement';
 import type { UUID } from 'crypto';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 
-interface BehaviorCardProps {
-  behavior: BehaviorWithMetrics;
+interface RequirementCardProps {
+  requirement: RequirementWithMetrics;
   onRefresh: () => void;
   onClick?: () => void;
   /** Retained for backward compatibility — no longer used in the card UI. */
@@ -22,11 +22,11 @@ interface BehaviorCardProps {
   onViewMetrics?: () => void;
 }
 
-export default function BehaviorCard({
-  behavior,
+export default function RequirementCard({
+  requirement,
   onRefresh,
   onClick,
-}: BehaviorCardProps) {
+}: RequirementCardProps) {
   const notifications = useNotifications();
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
   const [isDeleting, setIsDeleting] = React.useState(false);
@@ -34,17 +34,17 @@ export default function BehaviorCard({
   const handleConfirmDelete = async () => {
     try {
       setIsDeleting(true);
-      const behaviorClient = new BehaviorClient();
-      await behaviorClient.deleteBehavior(behavior.id as UUID);
+      const requirementClient = new RequirementClient();
+      await requirementClient.deleteRequirement(requirement.id as UUID);
 
-      notifications.show('Behavior deleted successfully', {
+      notifications.show('Requirement deleted successfully', {
         severity: 'success',
         autoHideDuration: 4000,
       });
 
       onRefresh();
     } catch {
-      notifications.show('Failed to delete behavior', {
+      notifications.show('Failed to delete requirement', {
         severity: 'error',
         autoHideDuration: 4000,
       });
@@ -54,11 +54,11 @@ export default function BehaviorCard({
     }
   };
 
-  const canDeleteBehavior = useCan(Capability.Behavior.DELETE);
-  const metricsCount = behavior.metrics?.length || 0;
-  const canDelete = canDeleteBehavior && metricsCount === 0;
+  const canDeleteRequirement = useCan(Capability.Requirement.DELETE);
+  const metricsCount = requirement.metrics?.length || 0;
+  const canDelete = canDeleteRequirement && metricsCount === 0;
 
-  const tags = behavior.tags ?? [];
+  const tags = requirement.tags ?? [];
   const tagsCount = tags.length;
   const MAX_VISIBLE_TAGS = 5;
 
@@ -66,7 +66,7 @@ export default function BehaviorCard({
     {
       label: 'Metrics',
       chips: [
-        ...(behavior.metrics || []).slice(0, 3).map(metric => ({
+        ...(requirement.metrics || []).slice(0, 3).map(metric => ({
           key: metric.id,
           label: metric.name,
         })),
@@ -99,11 +99,11 @@ export default function BehaviorCard({
   return (
     <>
       <EntityCard
-        title={behavior.name}
-        description={behavior.description || 'No description provided'}
+        title={requirement.name}
+        description={requirement.description || 'No description provided'}
         onClick={onClick}
         onDelete={canDelete ? () => setDeleteDialogOpen(true) : undefined}
-        userName={behavior.user?.name}
+        userName={requirement.user?.name}
         chipSections={chipSections}
       />
 
@@ -112,8 +112,8 @@ export default function BehaviorCard({
         onClose={() => setDeleteDialogOpen(false)}
         onConfirm={handleConfirmDelete}
         isLoading={isDeleting}
-        itemType="behavior"
-        itemName={behavior.name}
+        itemType="requirement"
+        itemName={requirement.name}
       />
     </>
   );

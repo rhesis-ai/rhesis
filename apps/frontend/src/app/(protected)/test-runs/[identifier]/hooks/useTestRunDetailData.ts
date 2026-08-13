@@ -4,7 +4,7 @@ import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { Prompt } from '@/utils/api-client/interfaces/prompt';
 import { useIsAuthenticated } from '@/hooks/useIsAuthenticated';
 
-export interface BehaviorWithMetrics {
+export interface RequirementWithMetrics {
   id: string;
   name: string;
   description?: string;
@@ -19,7 +19,7 @@ interface UseTestRunDetailDataOptions {
 interface UseTestRunDetailDataReturn {
   testResults: TestResultDetail[];
   prompts: Record<string, Prompt>;
-  behaviors: BehaviorWithMetrics[];
+  requirements: RequirementWithMetrics[];
   availableMetrics: string[];
   loading: boolean;
   error: string | null;
@@ -75,27 +75,27 @@ function buildPromptsMap(
   );
 }
 
-function extractBehaviorsWithMetrics(results: TestResultDetail[]): {
-  behaviors: BehaviorWithMetrics[];
+function extractRequirementsWithMetrics(results: TestResultDetail[]): {
+  requirements: RequirementWithMetrics[];
   availableMetrics: string[];
 } {
-  const behaviorMap = new Map<string, BehaviorWithMetrics>();
+  const requirementMap = new Map<string, RequirementWithMetrics>();
 
   for (const result of results) {
-    const behavior = result.test?.behavior;
+    const requirement = result.test?.requirement;
     const metrics = result.test_metrics?.metrics ?? {};
 
-    if (behavior && !behaviorMap.has(behavior.id as string)) {
-      behaviorMap.set(behavior.id as string, {
-        id: behavior.id as string,
-        name: behavior.name,
-        description: behavior.description || undefined,
+    if (requirement && !requirementMap.has(requirement.id as string)) {
+      requirementMap.set(requirement.id as string, {
+        id: requirement.id as string,
+        name: requirement.name,
+        description: requirement.description || undefined,
         metrics: [],
       });
     }
 
-    if (behavior) {
-      const entry = behaviorMap.get(behavior.id as string)!;
+    if (requirement) {
+      const entry = requirementMap.get(requirement.id as string)!;
       for (const [name, data] of Object.entries(metrics)) {
         if (!entry.metrics.some(m => m.name === name)) {
           entry.metrics.push({
@@ -107,10 +107,10 @@ function extractBehaviorsWithMetrics(results: TestResultDetail[]): {
     }
   }
 
-  const behaviors = Array.from(behaviorMap.values())
-    .map(behavior => ({
-      ...behavior,
-      metrics: [...behavior.metrics].sort((a, b) =>
+  const requirements = Array.from(requirementMap.values())
+    .map(requirement => ({
+      ...requirement,
+      metrics: [...requirement.metrics].sort((a, b) =>
         a.name.localeCompare(b.name)
       ),
     }))
@@ -122,7 +122,7 @@ function extractBehaviorsWithMetrics(results: TestResultDetail[]): {
     ),
   ].sort();
 
-  return { behaviors, availableMetrics };
+  return { requirements, availableMetrics };
 }
 
 export function useTestRunDetailData({
@@ -132,7 +132,7 @@ export function useTestRunDetailData({
   const isAuthenticated = useIsAuthenticated();
   const [testResults, setTestResults] = useState<TestResultDetail[]>([]);
   const [prompts, setPrompts] = useState<Record<string, Prompt>>({});
-  const [behaviors, setBehaviors] = useState<BehaviorWithMetrics[]>([]);
+  const [requirements, setRequirements] = useState<RequirementWithMetrics[]>([]);
   const [availableMetrics, setAvailableMetrics] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -159,19 +159,19 @@ export function useTestRunDetailData({
 
         if (cancelled) return;
 
-        const { behaviors, availableMetrics } =
-          extractBehaviorsWithMetrics(results);
+        const { requirements, availableMetrics } =
+          extractRequirementsWithMetrics(results);
 
         setTestResults(results);
         setPrompts(buildPromptsMap(results));
-        setBehaviors(behaviors);
+        setRequirements(requirements);
         setAvailableMetrics(availableMetrics);
       } catch {
         if (!cancelled) {
           setError('Failed to load test run data');
           setTestResults([]);
           setPrompts({});
-          setBehaviors([]);
+          setRequirements([]);
           setAvailableMetrics([]);
         }
       } finally {
@@ -191,7 +191,7 @@ export function useTestRunDetailData({
   return {
     testResults,
     prompts,
-    behaviors,
+    requirements,
     availableMetrics,
     loading,
     error,

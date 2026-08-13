@@ -1,10 +1,10 @@
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Behaviors',
+  title: 'Requirements',
 };
 
-export default function BehaviorsLayout({
+export default function RequirementsLayout({
   children,
 }: {
   children: React.ReactNode;

@@ -38,7 +38,7 @@ import { scaledVh } from '@/styles/viewport-scaling';
 // Initial empty chip configurations
 const createEmptyChips = (): ConfigChips => {
   return {
-    behavior: [],
+    requirement: [],
     topics: [],
     category: [],
   };
@@ -46,8 +46,8 @@ const createEmptyChips = (): ConfigChips => {
 
 const singularizeCategoryName = (category: keyof ConfigChips): string => {
   switch (category) {
-    case 'behavior':
-      return 'behavior';
+    case 'requirement':
+      return 'requirement';
     case 'topics':
       return 'topic';
     case 'category':
@@ -65,14 +65,14 @@ interface GeneratedMultiTurnTest {
     restrictions: string;
     scenario: string;
   };
-  behavior: string;
+  requirement: string;
   topic: string;
   category: string;
 }
 
 interface GeneratedSingleTurnTest {
   prompt: { content: string; expected_response?: string };
-  behavior: string;
+  requirement: string;
   topic: string;
   metadata?: {
     sources?: Array<{
@@ -89,7 +89,7 @@ interface GeneratedSingleTurnTest {
 const generateSamplesForTestType = async (
   servicesClient: ServicesClient,
   testType: TestType,
-  activeBehaviors: string[],
+  activeRequirements: string[],
   activeTopics: string[],
   activeCategories: string[],
   description: string,
@@ -102,7 +102,7 @@ const generateSamplesForTestType = async (
     // Generate multi-turn tests
     const response = await servicesClient.generateMultiTurnTests({
       generation_prompt: description,
-      behavior: activeBehaviors,
+      requirement: activeRequirements,
       category: activeCategories,
       topic: activeTopics,
       num_tests: numTests,
@@ -122,7 +122,7 @@ const generateSamplesForTestType = async (
               restrictions: t.test_configuration.restrictions,
               scenario: t.test_configuration.scenario,
             },
-            behavior: t.behavior,
+            requirement: t.requirement,
             topic: t.topic,
             category: t.category,
             rating: null,
@@ -138,7 +138,7 @@ const generateSamplesForTestType = async (
 
     const config = {
       generation_prompt: generationPrompt,
-      behaviors: activeBehaviors,
+      requirements: activeRequirements,
       categories: activeCategories,
       topics: activeTopics,
       additional_context: JSON.stringify({
@@ -162,7 +162,7 @@ const generateSamplesForTestType = async (
           id: `sample-${Date.now()}-${index}`,
           testType: 'Single-Turn',
           prompt: t.prompt.content,
-          behavior: t.behavior,
+          requirement: t.requirement,
           topic: t.topic,
           rating: null,
           feedback: '',
@@ -183,8 +183,8 @@ const generateSamplesForTestType = async (
 
 const mapCategoryToChipKey = (category: string): keyof ConfigChips | null => {
   switch (category) {
-    case 'behaviors':
-      return 'behavior';
+    case 'requirements':
+      return 'requirement';
     case 'topics':
       return 'topics';
     case 'categories':
@@ -198,7 +198,7 @@ const categoryColorVariant: Record<
   string,
   'blue' | 'purple' | 'orange' | 'green'
 > = {
-  behaviors: 'blue',
+  requirements: 'blue',
   topics: 'green',
   categories: 'purple',
 };
@@ -217,7 +217,7 @@ const convertTestEventToSample = (
         restrictions: t.test_configuration.restrictions,
         scenario: t.test_configuration.scenario,
       },
-      behavior: t.behavior,
+      requirement: t.requirement,
       topic: t.topic,
       category: t.category,
       rating: null,
@@ -230,7 +230,7 @@ const convertTestEventToSample = (
     id: `sample-${Date.now()}-${event.index}`,
     testType: 'Single-Turn',
     prompt: t.prompt.content,
-    behavior: t.behavior,
+    requirement: t.requirement,
     topic: t.topic,
     rating: null,
     feedback: '',
@@ -503,7 +503,7 @@ export default function TestGenerationFlow() {
       const servicesClient = apiFactory.getServicesClient();
 
       const pipelineConfig = {
-        behaviors: configChips.behavior.map(c => ({
+        requirements: configChips.requirement.map(c => ({
           name: c.label,
           description: c.description || '',
           active: c.active,
@@ -561,7 +561,7 @@ export default function TestGenerationFlow() {
         const servicesClient = apiFactory.getServicesClient();
 
         // Build config from configuration with feedback
-        const activeBehaviors = configChips.behavior
+        const activeRequirements = configChips.requirement
           .filter(c => c.active)
           .map(c => c.label);
         const activeTopics = configChips.topics
@@ -584,7 +584,7 @@ export default function TestGenerationFlow() {
 
           const config = {
             generation_prompt: generationPrompt,
-            behaviors: activeBehaviors,
+            requirements: activeRequirements,
             categories: activeCategories,
             topics: activeTopics,
             additional_context: JSON.stringify({
@@ -608,7 +608,7 @@ export default function TestGenerationFlow() {
               id: `sample-${Date.now()}-regenerated`,
               testType: 'Single-Turn',
               prompt: t?.prompt?.content || '',
-              behavior: t?.behavior || '',
+              requirement: t?.requirement || '',
               topic: t?.topic || '',
               rating: null,
               feedback: '',
@@ -630,7 +630,7 @@ export default function TestGenerationFlow() {
           const newSamples = await generateSamplesForTestType(
             servicesClient,
             testType,
-            activeBehaviors,
+            activeRequirements,
             activeTopics,
             activeCategories,
             `${description}\n\nFeedback: ${feedback}`,
@@ -703,13 +703,13 @@ export default function TestGenerationFlow() {
         label: string;
         description: string;
         active: boolean;
-        category: 'behavior' | 'topic' | 'category' | 'scenario';
+        category: 'requirement' | 'topic' | 'category' | 'scenario';
       }> = [
-        ...configChips.behavior.map(chip => ({
+        ...configChips.requirement.map(chip => ({
           label: chip.label,
           description: chip.description || '',
           active: chip.active,
-          category: 'behavior' as const,
+          category: 'requirement' as const,
         })),
         ...configChips.topics.map(chip => ({
           label: chip.label,
@@ -828,7 +828,7 @@ export default function TestGenerationFlow() {
       const apiFactory = new ApiClientFactory();
       const servicesClient = apiFactory.getServicesClient();
 
-      const activeBehaviors = configChips.behavior
+      const activeRequirements = configChips.requirement
         .filter(c => c.active)
         .map(c => c.label);
       const activeTopics = configChips.topics
@@ -841,7 +841,7 @@ export default function TestGenerationFlow() {
       const newSamples = await generateSamplesForTestType(
         servicesClient,
         testType,
-        activeBehaviors,
+        activeRequirements,
         activeTopics,
         activeCategories,
         description,
@@ -880,7 +880,7 @@ export default function TestGenerationFlow() {
       const apiFactory = new ApiClientFactory();
       const testSetsClient = apiFactory.getTestSetsClient();
 
-      const activeBehaviors = configChips.behavior
+      const activeRequirements = configChips.requirement
         .filter(c => c.active)
         .map(c => c.label);
       const activeTopics = configChips.topics
@@ -901,14 +901,14 @@ export default function TestGenerationFlow() {
       // Build additional context with samples and metadata
       const additionalContext = {
         project_name: project?.name,
-        behaviors: activeBehaviors,
+        requirements: activeRequirements,
         purposes: activeTopics,
         test_type: testType,
         response_generation: 'prompt_only',
         test_coverage: testCoverage,
         samples: testSamples.map(sample => ({
           text: sample.prompt,
-          behavior: sample.behavior,
+          requirement: sample.requirement,
           topic: sample.topic,
           rating: sample.rating,
           feedback: sample.feedback,
@@ -918,7 +918,7 @@ export default function TestGenerationFlow() {
       // Build new unified GenerationConfig
       const config: GenerationConfig = {
         generation_prompt: description,
-        behaviors: activeBehaviors,
+        requirements: activeRequirements,
         categories: activeCategories,
         topics: activeTopics,
         additional_context: JSON.stringify(additionalContext),
@@ -954,7 +954,7 @@ export default function TestGenerationFlow() {
       setIsFinishing(false);
     }
   }, [
-    configChips.behavior,
+    configChips.requirement,
     configChips.topics,
     configChips.category,
     description,

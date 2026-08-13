@@ -362,7 +362,7 @@ export default function FileImportDrawer({
       { value: '', label: '(skip)' },
       { value: 'category', label: 'Category' },
       { value: 'topic', label: 'Topic' },
-      { value: 'behavior', label: 'Behavior' },
+      { value: 'requirement', label: 'Requirement' },
       { value: 'prompt_content', label: 'Prompt Content' },
       { value: 'expected_response', label: 'Expected Response' },
       { value: 'language_code', label: 'Language Code' },
@@ -501,14 +501,14 @@ export default function FileImportDrawer({
         {testType === TEST_TYPES.SINGLE_TURN ? (
           <Typography variant="body2">
             <strong>Single-turn tests:</strong> Each row should have a prompt,
-            category, topic, and behavior. Optionally include expected_response
+            category, topic, and requirement. Optionally include expected_response
             and language_code.
           </Typography>
         ) : (
           <>
             <Typography variant="body2">
               <strong>Multi-turn tests:</strong> Each row should have category,
-              topic, and behavior. Additionally, include <strong>goal</strong>{' '}
+              topic, and requirement. Additionally, include <strong>goal</strong>{' '}
               (required), <strong>instructions</strong> (optional),{' '}
               <strong>restrictions</strong> (optional), and{' '}
               <strong>scenario</strong> (optional) to configure multi-turn
@@ -518,7 +518,7 @@ export default function FileImportDrawer({
               • <strong>goal:</strong> The objective of the conversation test
               <br />• <strong>instructions:</strong> How the test agent should
               conduct the test
-              <br />• <strong>restrictions:</strong> Forbidden behaviors for the
+              <br />• <strong>restrictions:</strong> Forbidden requirements for the
               target system
               <br />• <strong>scenario:</strong> Contextual framing for the test
             </Typography>

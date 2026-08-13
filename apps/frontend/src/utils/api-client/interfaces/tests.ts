@@ -31,7 +31,7 @@ export interface Status {
   name: string;
 }
 
-export interface Behavior {
+export interface Requirement {
   id: UUID;
   name: string;
 }
@@ -52,7 +52,7 @@ export interface TestBase {
   test_configuration?: Record<string, unknown>;
   parent_id?: UUID;
   topic_id?: UUID;
-  behavior_id?: UUID;
+  requirement_id?: UUID;
   category_id?: UUID;
   status_id?: UUID | null;
   organization_id?: UUID;
@@ -61,7 +61,7 @@ export interface TestBase {
 }
 
 export interface TestCreate extends TestBase {
-  behavior?: string;
+  requirement?: string;
   topic?: string;
   category?: string;
   prompt?: TestPromptCreate;
@@ -84,7 +84,7 @@ export interface TestDetail extends Test {
   assignee?: UserReference;
   owner?: UserReference;
   topic?: Topic;
-  behavior?: Behavior;
+  requirement?: Requirement;
   category?: Category;
   status?: Status;
   priorityLevel?: PriorityLevel;
@@ -106,7 +106,7 @@ export interface TestPromptCreate {
 
 export interface TestBulkCreate {
   prompt?: TestPromptCreate; // Optional - only required for single-turn tests
-  behavior: string;
+  requirement: string;
   category: string;
   topic: string;
   test_configuration?: Record<string, unknown>; // Required for multi-turn tests (must contain 'goal')
@@ -145,7 +145,7 @@ export interface TestExecuteRequest {
   test_configuration?: Record<string, unknown>;
 
   // Required metadata if test_id not provided
-  behavior?: string;
+  requirement?: string;
   topic?: string;
   category?: string;
 
@@ -173,7 +173,7 @@ export interface ConversationToTestRequest {
 
 export interface ConversationTestExtractionResponse {
   test_type: TestTypeValue;
-  behavior: string;
+  requirement: string;
   category: string;
   topic: string;
   prompt_content?: string;

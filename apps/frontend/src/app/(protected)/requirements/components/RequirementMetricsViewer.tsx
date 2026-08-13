@@ -13,13 +13,13 @@ import { useRouter } from 'next/navigation';
 import { useNotifications } from '@/components/common/NotificationContext';
 import MetricCard from '@/app/(protected)/metrics/components/MetricCard';
 import { MetricsClient } from '@/utils/api-client/metrics-client';
-import type { BehaviorWithMetrics } from '@/utils/api-client/interfaces/behavior';
+import type { RequirementWithMetrics } from '@/utils/api-client/interfaces/requirement';
 import type { UUID } from 'crypto';
 
-interface BehaviorMetricsViewerProps {
+interface RequirementMetricsViewerProps {
   open: boolean;
   onClose: () => void;
-  behavior: BehaviorWithMetrics | null;
+  requirement: RequirementWithMetrics | null;
   onRefresh: (removedMetricId?: string) => void;
 }
 
@@ -35,12 +35,12 @@ function isValidMetricType(
   );
 }
 
-export default function BehaviorMetricsViewer({
+export default function RequirementMetricsViewer({
   open,
   onClose,
-  behavior,
+  requirement,
   onRefresh,
-}: BehaviorMetricsViewerProps) {
+}: RequirementMetricsViewerProps) {
   const router = useRouter();
   const notifications = useNotifications();
   const theme = useTheme();
@@ -52,25 +52,25 @@ export default function BehaviorMetricsViewer({
   };
 
   const handleRemoveMetric = async (metricId: string) => {
-    if (!behavior) return;
+    if (!requirement) return;
 
     try {
       setIsRemoving(metricId);
       const metricClient = new MetricsClient();
 
-      await metricClient.removeBehaviorFromMetric(
+      await metricClient.removeRequirementFromMetric(
         metricId as UUID,
-        behavior.id as UUID
+        requirement.id as UUID
       );
 
-      notifications.show('Successfully removed metric from behavior', {
+      notifications.show('Successfully removed metric from requirement', {
         severity: 'success',
         autoHideDuration: 4000,
       });
 
       onRefresh(metricId); // Pass the removed metric ID for dynamic update
     } catch (_err) {
-      notifications.show('Failed to remove metric from behavior', {
+      notifications.show('Failed to remove metric from requirement', {
         severity: 'error',
         autoHideDuration: 4000,
       });
@@ -79,7 +79,7 @@ export default function BehaviorMetricsViewer({
     }
   };
 
-  const metrics = behavior?.metrics || [];
+  const metrics = requirement?.metrics || [];
 
   return (
     <Drawer
@@ -118,7 +118,7 @@ export default function BehaviorMetricsViewer({
         },
       }}
     >
-      {behavior && (
+      {requirement && (
         <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
           {/* Header */}
           <Box
@@ -133,10 +133,10 @@ export default function BehaviorMetricsViewer({
           >
             <Box sx={{ flex: 1 }}>
               <Typography variant="h6" component="h2" gutterBottom>
-                {behavior.name}
+                {requirement.name}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                {behavior.description || 'No description provided'}
+                {requirement.description || 'No description provided'}
               </Typography>
               <Typography
                 variant="caption"
@@ -228,7 +228,7 @@ export default function BehaviorMetricsViewer({
                       metricType={metric.metric_type?.type_value}
                       scoreType={metric.score_type}
                       metricScope={metric.metric_scope}
-                      usedIn={[behavior.name]}
+                      usedIn={[requirement.name]}
                       showUsage={false}
                     />
                   </Box>
@@ -244,7 +244,7 @@ export default function BehaviorMetricsViewer({
                 }}
               >
                 <Typography variant="body1" color="text.secondary">
-                  No metrics assigned to this behavior yet.
+                  No metrics assigned to this requirement yet.
                 </Typography>
               </Box>
             )}

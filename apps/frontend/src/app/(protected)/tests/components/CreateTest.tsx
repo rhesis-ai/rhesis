@@ -33,7 +33,7 @@ type AutocompleteOption = FreeSoloOption;
 
 // Extended interface for form data
 interface TestFormData {
-  behavior_id?: UUID | string;
+  requirement_id?: UUID | string;
   topic_id?: UUID | string;
   category_id?: UUID | string;
   priorityLevel?: PriorityLevel;
@@ -58,7 +58,7 @@ interface CreateTestProps {
 const PRIORITY_OPTIONS: PriorityLevel[] = ['Low', 'Medium', 'High', 'Urgent'];
 
 const defaultFormData: TestFormData = {
-  behavior_id: undefined,
+  requirement_id: undefined,
   topic_id: undefined,
   category_id: undefined,
   priorityLevel: 'Medium',
@@ -89,7 +89,7 @@ export default function CreateTest({
   }, [defaultOwnerId]);
 
   // Options for dropdowns
-  const [behaviors, setBehaviors] = useState<AutocompleteOption[]>([]);
+  const [requirements, setRequirements] = useState<AutocompleteOption[]>([]);
   const [topics, setTopics] = useState<AutocompleteOption[]>([]);
   const [categories, setCategories] = useState<AutocompleteOption[]>([]);
   const [users, setUsers] = useState<UserOption[]>([]);
@@ -99,7 +99,7 @@ export default function CreateTest({
   useEffect(() => {
     if (test) {
       setFormData({
-        behavior_id: test.behavior?.id || test.behavior?.name || undefined,
+        requirement_id: test.requirement?.id || test.requirement?.name || undefined,
         topic_id: test.topic?.id || test.topic?.name || undefined,
         category_id: test.category?.id || undefined,
         priorityLevel: test.priorityLevel || 'Medium',
@@ -122,7 +122,7 @@ export default function CreateTest({
     const loadOptions = async () => {
       try {
         const apiFactory = new ApiClientFactory();
-        const behaviorClient = apiFactory.getBehaviorClient();
+        const requirementClient = apiFactory.getRequirementClient();
         const topicClient = apiFactory.getTopicClient();
         const categoryClient = apiFactory.getCategoryClient();
         const usersClient = apiFactory.getUsersClient();
@@ -130,13 +130,13 @@ export default function CreateTest({
 
         // Load all options in parallel
         const [
-          behaviorsData,
+          requirementsData,
           topicsData,
           categoriesData,
           usersData,
           statusesData,
         ] = await Promise.all([
-          behaviorClient.getBehaviors({ sort_by: 'name', sort_order: 'asc' }),
+          requirementClient.getRequirements({ sort_by: 'name', sort_order: 'asc' }),
           topicClient.getTopics({
             sort_by: 'name',
             sort_order: 'asc',
@@ -156,7 +156,7 @@ export default function CreateTest({
         ]);
 
         // Filter out duplicates and invalid entries before setting state
-        setBehaviors(filterUniqueValidOptions(behaviorsData));
+        setRequirements(filterUniqueValidOptions(requirementsData));
         setTopics(filterUniqueValidOptions(topicsData));
         setCategories(filterUniqueValidOptions(categoriesData));
         setStatuses(statusesData);
@@ -261,11 +261,11 @@ export default function CreateTest({
           return match ? match.name : fieldValue.trim();
         };
 
-        const behaviorName = resolveName(
-          formData.behavior_id as string | undefined,
-          behaviors
+        const requirementName = resolveName(
+          formData.requirement_id as string | undefined,
+          requirements
         );
-        if (!behaviorName) throw new Error('Behavior is required');
+        if (!requirementName) throw new Error('Requirement is required');
 
         const topicName = resolveName(
           formData.topic_id as string | undefined,
@@ -288,7 +288,7 @@ export default function CreateTest({
         // Build payload for single-test creation
         const payload: TestCreatePayload = {
           prompt: promptData,
-          behavior: behaviorName,
+          requirement: requirementName,
           category: categoryName,
           topic: topicName,
           priority: numericPriority,
@@ -331,7 +331,7 @@ export default function CreateTest({
       pendingFiles,
       onSuccess,
       onError,
-      behaviors,
+      requirements,
       topics,
       categories,
       statuses,
@@ -471,10 +471,10 @@ export default function CreateTest({
       </Typography>
 
       <BaseFreesoloAutocomplete
-        options={behaviors}
-        value={formData.behavior_id}
-        onChange={handleFieldChange('behavior_id')}
-        label="Behavior"
+        options={requirements}
+        value={formData.requirement_id}
+        onChange={handleFieldChange('requirement_id')}
+        label="Requirement"
         required
       />
 

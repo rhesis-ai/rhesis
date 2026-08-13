@@ -3,7 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import {
   statusKeys,
-  behaviorKeys,
+  requirementKeys,
   categoryKeys,
   topicKeys,
   tagKeys,
@@ -12,7 +12,7 @@ import {
 } from '@/constants/query-keys';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Status } from '@/utils/api-client/interfaces/status';
-import { BehaviorWithMetrics } from '@/utils/api-client/interfaces/behavior';
+import { RequirementWithMetrics } from '@/utils/api-client/interfaces/requirement';
 import { Category } from '@/utils/api-client/interfaces/category';
 import { Topic } from '@/utils/api-client/interfaces/topic';
 import { Tag } from '@/utils/api-client/interfaces/tag';
@@ -54,15 +54,15 @@ export function useStatuses(entityType: string, enabled = true) {
   });
 }
 
-export function useBehaviors(enabled = true) {
+export function useRequirements(enabled = true) {
   const isAuthenticated = useIsAuthenticated();
-  return useQuery<BehaviorWithMetrics[]>({
-    queryKey: behaviorKeys.list('', 0, 100, 'name', 'asc'),
+  return useQuery<RequirementWithMetrics[]>({
+    queryKey: requirementKeys.list('', 0, 100, 'name', 'asc'),
     queryFn: async () => {
-      const behaviors = await new ApiClientFactory()
-        .getBehaviorClient()
-        .getAllBehaviors({ sort_by: 'name', sort_order: 'asc' });
-      return behaviors;
+      const requirements = await new ApiClientFactory()
+        .getRequirementClient()
+        .getAllRequirements({ sort_by: 'name', sort_order: 'asc' });
+      return requirements;
     },
     enabled: enabled && isAuthenticated,
     staleTime: STALE_TIME,

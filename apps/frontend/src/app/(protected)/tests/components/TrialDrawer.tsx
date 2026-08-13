@@ -316,7 +316,7 @@ export default function TrialDrawer({
             min_turns: config.min_turns,
             max_turns: config.max_turns,
           },
-          behavior: testData.behavior?.name || '',
+          requirement: testData.requirement?.name || '',
           topic: testData.topic?.name || '',
           category: testData.category?.name || '',
           evaluate_metrics: false,

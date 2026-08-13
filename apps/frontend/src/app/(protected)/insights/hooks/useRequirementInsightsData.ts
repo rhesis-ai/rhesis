@@ -11,12 +11,12 @@ import {
   timeRangeToStatsParams,
 } from '../types';
 import {
-  BehaviorInsightColumn,
-  BehaviorOption,
-  buildBehaviorColumns,
-  buildBehaviorOptions,
+  RequirementInsightColumn,
+  RequirementOption,
+  buildRequirementColumns,
+  buildRequirementOptions,
   rowToPassFailStats,
-} from '../utils/behavior-insights-utils';
+} from '../utils/requirement-insights-utils';
 import { fetchInsightsQueryTestRunIds } from '@/hooks/useInsightsFailedTestIds';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
@@ -27,23 +27,23 @@ const EMPTY_SUMMARY: PassFailStats = {
   pass_rate: 0,
 };
 
-export interface BehaviorInsightsData {
+export interface RequirementInsightsData {
   summary: PassFailStats | null;
-  columns: BehaviorInsightColumn[];
-  /** Full, unfiltered behavior list -- for the filter drawer's checkbox options. */
-  behaviorOptions: BehaviorOption[];
+  columns: RequirementInsightColumn[];
+  /** Full, unfiltered requirement list -- for the filter drawer's checkbox options. */
+  requirementOptions: RequirementOption[];
   loading: boolean;
   error: string | null;
   noRuns: boolean;
 }
 
-export function useBehaviorInsightsData(
+export function useRequirementInsightsData(
   filters: InsightsFilters,
   enabled = true
-): BehaviorInsightsData {
+): RequirementInsightsData {
   const [summary, setSummary] = useState<PassFailStats | null>(null);
-  const [columns, setColumns] = useState<BehaviorInsightColumn[]>([]);
-  const [behaviorOptions, setBehaviorOptions] = useState<BehaviorOption[]>([]);
+  const [columns, setColumns] = useState<RequirementInsightColumn[]>([]);
+  const [requirementOptions, setRequirementOptions] = useState<RequirementOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [noRuns, setNoRuns] = useState(false);
@@ -64,7 +64,7 @@ export function useBehaviorInsightsData(
       setLoading(false);
       setSummary(null);
       setColumns([]);
-      setBehaviorOptions([]);
+      setRequirementOptions([]);
       setNoRuns(false);
       setError(null);
       return;
@@ -97,7 +97,7 @@ export function useBehaviorInsightsData(
           if (testRunIds.length === 0) {
             setSummary(EMPTY_SUMMARY);
             setColumns([]);
-            setBehaviorOptions([]);
+            setRequirementOptions([]);
             setNoRuns(true);
             setLoading(false);
             return;
@@ -121,35 +121,35 @@ export function useBehaviorInsightsData(
           // that case is handled client-side below instead of being sent
           // as a query param.
           const showsNoData =
-            (filters.behaviorIds !== null &&
-              filters.behaviorIds.length === 0) ||
+            (filters.requirementIds !== null &&
+              filters.requirementIds.length === 0) ||
             (filters.statusIds !== null && filters.statusIds.length === 0);
 
           // Status narrows every test_result query, including the "options"
-          // scope below -- unlike behaviorIds, this isn't a client-side
+          // scope below -- unlike requirementIds, this isn't a client-side
           // column toggle, so the checkbox list itself should only offer
-          // behaviors that exist within the selected status.
+          // requirements that exist within the selected status.
           const testResultFilterExtras: Record<string, string[]> = {};
           if (filters.statusIds !== null && filters.statusIds.length > 0) {
             testResultFilterExtras.status_ids = filters.statusIds;
           }
 
-          // Unfiltered by behaviorIds -- used only to populate the drawer's
-          // full behavior checkbox list (with counts), independent of which
-          // behaviors are currently checked.
+          // Unfiltered by requirementIds -- used only to populate the drawer's
+          // full requirement checkbox list (with counts), independent of which
+          // requirements are currently checked.
           const optionsQuery = {
             filters: { test_run_ids: testRunIds, ...testResultFilterExtras },
             ...timeParams,
           };
 
           // Actual display/summary scope for the test_result entity -- also
-          // narrowed to the checked behaviors so the pass rate and columns
+          // narrowed to the checked requirements so the pass rate and columns
           // reflect the filter, not just which columns are shown.
           const testResultQuery = {
             filters: {
               ...optionsQuery.filters,
-              ...(filters.behaviorIds !== null && filters.behaviorIds.length > 0
-                ? { behavior_ids: filters.behaviorIds }
+              ...(filters.requirementIds !== null && filters.requirementIds.length > 0
+                ? { requirement_ids: filters.requirementIds }
                 : {}),
             },
             ...timeParams,
@@ -161,8 +161,8 @@ export function useBehaviorInsightsData(
           const metricQuery = {
             filters: {
               test_run_ids: testRunIds,
-              ...(filters.behaviorIds !== null && filters.behaviorIds.length > 0
-                ? { behavior_ids: filters.behaviorIds }
+              ...(filters.requirementIds !== null && filters.requirementIds.length > 0
+                ? { requirement_ids: filters.requirementIds }
                 : {}),
             },
             ...timeParams,
@@ -175,27 +175,27 @@ export function useBehaviorInsightsData(
               measures,
               ...testResultQuery,
             },
-            behaviors: {
+            requirements: {
               entity: 'test_result',
-              group_by: ['behavior_id', 'behavior'],
+              group_by: ['requirement_id', 'requirement'],
               measures,
               ...testResultQuery,
             },
             topics: {
               entity: 'test_result',
-              group_by: ['behavior_id', 'topic_id', 'topic'],
+              group_by: ['requirement_id', 'topic_id', 'topic'],
               measures,
               ...testResultQuery,
             },
             metrics: {
               entity: 'metric',
-              group_by: ['behavior_id', 'metric_name'],
+              group_by: ['requirement_id', 'metric_name'],
               measures,
               ...metricQuery,
             },
-            allBehaviors: {
+            allRequirements: {
               entity: 'test_result',
-              group_by: ['behavior_id', 'behavior'],
+              group_by: ['requirement_id', 'requirement'],
               measures,
               ...optionsQuery,
             },
@@ -212,14 +212,14 @@ export function useBehaviorInsightsData(
               summaryRow ? rowToPassFailStats(summaryRow) : EMPTY_SUMMARY
             );
             setColumns(
-              buildBehaviorColumns(
-                results.behaviors.rows,
+              buildRequirementColumns(
+                results.requirements.rows,
                 results.topics.rows,
                 results.metrics.rows
               )
             );
           }
-          setBehaviorOptions(buildBehaviorOptions(results.allBehaviors.rows));
+          setRequirementOptions(buildRequirementOptions(results.allRequirements.rows));
 
           setLoading(false);
         } catch (err) {
@@ -245,14 +245,14 @@ export function useBehaviorInsightsData(
     filters.runFilterMode,
     filters.timeRange,
     filters.testRunIds,
-    filters.behaviorIds,
+    filters.requirementIds,
     filters.statusIds,
   ]);
 
   return {
     summary,
     columns,
-    behaviorOptions,
+    requirementOptions,
     loading,
     error,
     noRuns,

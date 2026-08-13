@@ -163,7 +163,7 @@ export default function TestResultTab({ trace }: TestResultTabProps) {
       >
         <CardContent>
           <Stack spacing={2}>
-            {/* Status, Test Type, and Behavior - Side by Side */}
+            {/* Status, Test Type, and Requirement - Side by Side */}
             <Box sx={{ display: 'flex', gap: theme => theme.spacing(2) }}>
               {/* Test Status Cell */}
               <Box sx={{ flex: 1 }}>
@@ -216,15 +216,15 @@ export default function TestResultTab({ trace }: TestResultTabProps) {
                 </Box>
               </Box>
 
-              {/* Test Behavior Cell */}
+              {/* Test Requirement Cell */}
               <Box sx={{ flex: 1 }}>
                 <Typography variant="caption" color="text.secondary">
-                  Behavior
+                  Requirement
                 </Typography>
                 <Box sx={{ mt: 0.5 }}>
-                  {testResult.test?.behavior?.name ? (
+                  {testResult.test?.requirement?.name ? (
                     <Chip
-                      label={testResult.test.behavior.name}
+                      label={testResult.test.requirement.name}
                       size="medium"
                       variant="outlined"
                       color="info"
@@ -237,7 +237,7 @@ export default function TestResultTab({ trace }: TestResultTabProps) {
                         fontSize: theme => theme.typography.body2.fontSize,
                       }}
                     >
-                      No behavior
+                      No requirement
                     </Typography>
                   )}
                 </Box>

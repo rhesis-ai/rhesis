@@ -131,7 +131,7 @@ export { default as EndpointsIcon } from './EndpointsIcon';
 export { default as PlaygroundIcon } from './PlaygroundIcon';
 export { default as KnowledgeIcon } from './KnowledgeIcon';
 export { default as BuildIcon } from '@mui/icons-material/BuildOutlined';
-export { default as BehaviorsIcon } from './BehaviorsIcon';
+export { default as RequirementsIcon } from './RequirementsIcon';
 export { default as DarkModeIcon } from '@mui/icons-material/DarkModeOutlined';
 export { default as ExitToAppIcon } from '@mui/icons-material/ExitToAppOutlined';
 export { default as Brightness4Icon } from '@mui/icons-material/Brightness4Outlined';

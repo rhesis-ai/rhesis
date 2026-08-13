@@ -20,7 +20,7 @@ export type TestRunDetailDrawerFilters = {
   commentFilter: 'all' | 'with_comments' | 'without_comments' | 'range';
   taskFilter: 'all' | 'with_tasks' | 'without_tasks' | 'range';
   selectedMetrics: string[];
-  selectedBehaviors: string[];
+  selectedRequirements: string[];
 };
 
 export const EMPTY_TEST_RUN_DETAIL_DRAWER_FILTERS: TestRunDetailDrawerFilters =
@@ -29,7 +29,7 @@ export const EMPTY_TEST_RUN_DETAIL_DRAWER_FILTERS: TestRunDetailDrawerFilters =
     commentFilter: 'all',
     taskFilter: 'all',
     selectedMetrics: [],
-    selectedBehaviors: [],
+    selectedRequirements: [],
   };
 
 export function extractDetailDrawerFilters(filter: {
@@ -37,14 +37,14 @@ export function extractDetailDrawerFilters(filter: {
   commentFilter: TestRunDetailDrawerFilters['commentFilter'];
   taskFilter: TestRunDetailDrawerFilters['taskFilter'];
   selectedMetrics: string[];
-  selectedBehaviors: string[];
+  selectedRequirements: string[];
 }): TestRunDetailDrawerFilters {
   return {
     overruleFilter: filter.overruleFilter,
     commentFilter: filter.commentFilter,
     taskFilter: filter.taskFilter,
     selectedMetrics: filter.selectedMetrics,
-    selectedBehaviors: filter.selectedBehaviors,
+    selectedRequirements: filter.selectedRequirements,
   };
 }
 
@@ -56,7 +56,7 @@ export function hasActiveTestRunDetailDrawerFilters(
     filters.commentFilter !== 'all' ||
     filters.taskFilter !== 'all' ||
     filters.selectedMetrics.length > 0 ||
-    filters.selectedBehaviors.length > 0
+    filters.selectedRequirements.length > 0
   );
 }
 
@@ -68,7 +68,7 @@ export function countActiveTestRunDetailDrawerFilters(
     (filters.commentFilter !== 'all' ? 1 : 0) +
     (filters.taskFilter !== 'all' ? 1 : 0) +
     filters.selectedMetrics.length +
-    filters.selectedBehaviors.length
+    filters.selectedRequirements.length
   );
 }
 
@@ -197,7 +197,7 @@ interface TestRunDetailFilterDrawerProps {
   open: boolean;
   onClose: () => void;
   filters: TestRunDetailDrawerFilters;
-  availableBehaviors: Array<{ id: string; name: string }>;
+  availableRequirements: Array<{ id: string; name: string }>;
   availableMetrics: Array<{ name: string; description?: string }>;
   onApply: (filters: TestRunDetailDrawerFilters) => void;
 }
@@ -206,7 +206,7 @@ export default function TestRunDetailFilterDrawer({
   open,
   onClose,
   filters,
-  availableBehaviors,
+  availableRequirements,
   availableMetrics,
   onApply,
 }: TestRunDetailFilterDrawerProps) {
@@ -227,12 +227,12 @@ export default function TestRunDetailFilterDrawer({
     }));
   };
 
-  const toggleBehavior = (behaviorId: string) => {
+  const toggleRequirement = (requirementId: string) => {
     setDraft(prev => ({
       ...prev,
-      selectedBehaviors: prev.selectedBehaviors.includes(behaviorId)
-        ? prev.selectedBehaviors.filter(id => id !== behaviorId)
-        : [...prev.selectedBehaviors, behaviorId],
+      selectedRequirements: prev.selectedRequirements.includes(requirementId)
+        ? prev.selectedRequirements.filter(id => id !== requirementId)
+        : [...prev.selectedRequirements, requirementId],
     }));
   };
 
@@ -315,21 +315,21 @@ export default function TestRunDetailFilterDrawer({
         </FilterSection>
       )}
 
-      {availableBehaviors.length > 0 && (
-        <FilterSection title="Behaviors">
+      {availableRequirements.length > 0 && (
+        <FilterSection title="Requirements">
           <FormGroup>
-            {availableBehaviors.map(behavior => (
+            {availableRequirements.map(requirement => (
               <FormControlLabel
-                key={behavior.id}
+                key={requirement.id}
                 control={
                   <Checkbox
-                    checked={draft.selectedBehaviors.includes(behavior.id)}
-                    onChange={() => toggleBehavior(behavior.id)}
+                    checked={draft.selectedRequirements.includes(requirement.id)}
+                    onChange={() => toggleRequirement(requirement.id)}
                     size="small"
                   />
                 }
                 label={
-                  <Typography sx={{ fontSize: 14 }}>{behavior.name}</Typography>
+                  <Typography sx={{ fontSize: 14 }}>{requirement.name}</Typography>
                 }
                 sx={{ ml: 0, mb: 0.5 }}
               />

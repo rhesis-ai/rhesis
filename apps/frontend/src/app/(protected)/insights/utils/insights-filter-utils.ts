@@ -1,7 +1,7 @@
 import { TestRun } from '@/utils/api-client/interfaces/test-run';
 import { DEFAULT_INSIGHTS_TIME_RANGE, InsightsFilters } from '../types';
 
-export interface InsightsBehaviorOption {
+export interface InsightsRequirementOption {
   id: string;
   name: string;
   count: number;
@@ -35,7 +35,7 @@ export function idsFromCheckedSelection(
 }
 
 /**
- * Behaviors/statuses: a "hide/exclude" toggle over `allIds`, where
+ * Requirements/statuses: a "hide/exclude" toggle over `allIds`, where
  * unchecking everything is a real, meaningful state (show nothing) --
  * distinct from having never touched the filter (show everything). `null`
  * carries that "unset" meaning so it isn't confused with the explicit `[]`.

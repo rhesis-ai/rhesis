@@ -96,15 +96,15 @@ export interface MetricUpdate {
   model_id?: UUID;
 }
 
-export interface BehaviorReference {
+export interface RequirementReference {
   id: UUID;
   name: string;
   description?: string;
-  // Add other essential behavior fields as needed
+  // Add other essential requirement fields as needed
 }
 
 export interface MetricDetail extends Metric {
-  behaviors?: BehaviorReference[] | string[]; // Allow both reference objects and UUID strings
+  requirements?: RequirementReference[] | string[]; // Allow both reference objects and UUID strings
   model?: Model; // Include the full model object when available
 }
 

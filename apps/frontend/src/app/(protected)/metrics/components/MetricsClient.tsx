@@ -7,9 +7,9 @@ import ErrorBoundary from '@/components/common/ErrorBoundary';
 import { MetricsClient } from '@/utils/api-client/metrics-client';
 import { MetricDetail } from '@/utils/api-client/interfaces/metric';
 import type {
-  Behavior as ApiBehavior,
-  BehaviorWithMetrics,
-} from '@/utils/api-client/interfaces/behavior';
+  Requirement as ApiRequirement,
+  RequirementWithMetrics,
+} from '@/utils/api-client/interfaces/requirement';
 import type { UUID } from 'crypto';
 import { TEST_TYPES } from '@/constants/test-types';
 import { buildMetricODataFilter } from '@/utils/odata-filter';
@@ -28,7 +28,7 @@ const initialFilterState: FilterState = {
   type: [],
   scoreType: [],
   metricScope: [],
-  behavior: '',
+  requirement: '',
 };
 
 interface FilterOptions {
@@ -36,7 +36,7 @@ interface FilterOptions {
   type: { type_value: string; description: string }[];
   scoreType: { value: string; label: string }[];
   metricScope: { value: string; label: string }[];
-  behavior: { id: string; name: string }[];
+  requirement: { id: string; name: string }[];
 }
 
 const initialFilterOptions: FilterOptions = {
@@ -51,11 +51,11 @@ const initialFilterOptions: FilterOptions = {
     { value: TEST_TYPES.MULTI_TURN, label: TEST_TYPES.MULTI_TURN },
     { value: 'Trace', label: 'Trace' },
   ],
-  behavior: [],
+  requirement: [],
 };
 
-interface BehaviorMetrics {
-  [behaviorId: string]: {
+interface RequirementMetrics {
+  [requirementId: string]: {
     metrics: MetricDetail[];
     isLoading: boolean;
     error: string | null;
@@ -70,13 +70,13 @@ interface MetricsClientProps {
 }
 
 interface MetricsOptionMaps {
-  behaviors: Map<string, ApiBehavior>;
+  requirements: Map<string, ApiRequirement>;
   backendTypes: Map<string, { type_value: string }>;
   metricTypes: Map<string, { type_value: string; description: string }>;
 }
 
 /**
- * Extracts the behavior/backend/type dropdown options a page of metrics
+ * Extracts the requirement/backend/type dropdown options a page of metrics
  * contributes and merges them into the running accumulator maps. Mutating
  * maps that persist across fetches -- rather than deriving from just the
  * current page -- matters because pages are server-filtered: filtering by
@@ -89,13 +89,13 @@ function deriveMetricsPageOptions(
   maps: MetricsOptionMaps
 ) {
   data.forEach(metric => {
-    metric.behaviors?.forEach(behavior => {
-      if (behavior && typeof behavior !== 'string' && behavior.id) {
-        maps.behaviors.set(behavior.id, {
-          id: behavior.id,
-          name: behavior.name || 'Unnamed Behavior',
-          description: behavior.description ?? undefined,
-        } as ApiBehavior);
+    metric.requirements?.forEach(requirement => {
+      if (requirement && typeof requirement !== 'string' && requirement.id) {
+        maps.requirements.set(requirement.id, {
+          id: requirement.id,
+          name: requirement.name || 'Unnamed Requirement',
+          description: requirement.description ?? undefined,
+        } as ApiRequirement);
       }
     });
     if (metric.backend_type) {
@@ -112,10 +112,10 @@ function deriveMetricsPageOptions(
     }
   });
 
-  const behaviorsData = Array.from(maps.behaviors.values());
+  const requirementsData = Array.from(maps.requirements.values());
   return {
-    behaviorsData,
-    behaviorOptions: behaviorsData.map(b => ({ id: b.id, name: b.name })),
+    requirementsData,
+    requirementOptions: requirementsData.map(b => ({ id: b.id, name: b.name })),
     backendTypeOptions: Array.from(maps.backendTypes.values()),
     metricTypeOptions: Array.from(maps.metricTypes.values()),
   };
@@ -138,19 +138,19 @@ export default function MetricsClientComponent({
   // deriveMetricsPageOptions) so filtering to one value doesn't erase the
   // other options from the dropdowns.
   const optionMapsRef = React.useRef<MetricsOptionMaps>({
-    behaviors: new Map(),
+    requirements: new Map(),
     backendTypes: new Map(),
     metricTypes: new Map(),
   });
 
-  const [behaviors, setBehaviors] = React.useState<ApiBehavior[]>(() =>
+  const [requirements, setRequirements] = React.useState<ApiRequirement[]>(() =>
     initialData
       ? deriveMetricsPageOptions(initialData, optionMapsRef.current)
-          .behaviorsData
+          .requirementsData
       : []
   );
-  const [_behaviorsWithMetrics, setBehaviorsWithMetrics] = React.useState<
-    BehaviorWithMetrics[]
+  const [_requirementsWithMetrics, setRequirementsWithMetrics] = React.useState<
+    RequirementWithMetrics[]
   >([]);
 
   // Filter state
@@ -158,18 +158,18 @@ export default function MetricsClientComponent({
   const [filterOptions, setFilterOptions] = React.useState<FilterOptions>(
     () => {
       if (!initialData) return initialFilterOptions;
-      const { behaviorOptions, backendTypeOptions, metricTypeOptions } =
+      const { requirementOptions, backendTypeOptions, metricTypeOptions } =
         deriveMetricsPageOptions(initialData, optionMapsRef.current);
       return {
         ...initialFilterOptions,
         backend: backendTypeOptions,
         type: metricTypeOptions,
-        behavior: behaviorOptions,
+        requirement: requirementOptions,
       };
     }
   );
-  const [_behaviorMetrics, setBehaviorMetrics] =
-    React.useState<BehaviorMetrics>({});
+  const [_requirementMetrics, setRequirementMetrics] =
+    React.useState<RequirementMetrics>({});
 
   const filterFingerprint = React.useMemo(
     () =>
@@ -179,7 +179,7 @@ export default function MetricsClientComponent({
         filters.type,
         filters.scoreType,
         filters.metricScope,
-        filters.behavior,
+        filters.requirement,
       ]),
     [filters]
   );
@@ -217,18 +217,18 @@ export default function MetricsClientComponent({
     enabled: !permsLoading && canRead,
     onData: data => {
       const {
-        behaviorsData,
-        behaviorOptions,
+        requirementsData,
+        requirementOptions,
         backendTypeOptions,
         metricTypeOptions,
       } = deriveMetricsPageOptions(data, optionMapsRef.current);
-      setBehaviors(behaviorsData);
+      setRequirements(requirementsData);
 
       setFilterOptions(prev => ({
         ...prev,
         backend: backendTypeOptions,
         type: metricTypeOptions,
-        behavior: behaviorOptions,
+        requirement: requirementOptions,
       }));
     },
     onError: () => {
@@ -246,7 +246,7 @@ export default function MetricsClientComponent({
     <ErrorBoundary>
       <MetricsDirectoryTab
         organizationId={organizationId}
-        behaviors={behaviors}
+        requirements={requirements}
         metrics={metrics}
         totalCount={totalCount}
         page={page}
@@ -260,8 +260,8 @@ export default function MetricsClientComponent({
         error={error}
         setFilters={setFilters}
         setMetrics={setMetrics}
-        setBehaviorMetrics={setBehaviorMetrics}
-        setBehaviorsWithMetrics={setBehaviorsWithMetrics}
+        setRequirementMetrics={setRequirementMetrics}
+        setRequirementsWithMetrics={setRequirementsWithMetrics}
         assignMode={assignMode}
       />
     </ErrorBoundary>

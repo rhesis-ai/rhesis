@@ -41,7 +41,7 @@ export default async function TestRunComparePage({
   const apiFactory = await createServerApiFactory();
   const testRunsClient = apiFactory.getTestRunsClient();
   const testResultsClient = apiFactory.getTestResultsClient();
-  const behaviorClient = apiFactory.getBehaviorClient();
+  const requirementClient = apiFactory.getRequirementClient();
 
   let testRun;
   try {
@@ -142,7 +142,7 @@ export default async function TestRunComparePage({
     }
   }
 
-  let behaviors: Array<{
+  let requirements: Array<{
     id: string;
     name: string;
     description?: string;
@@ -150,34 +150,34 @@ export default async function TestRunComparePage({
   }> = [];
 
   try {
-    const behaviorsData = await testRunsClient.getTestRunBehaviors(identifier);
-    behaviors = await Promise.all(
-      behaviorsData.map(async behavior => {
+    const requirementsData = await testRunsClient.getTestRunRequirements(identifier);
+    requirements = await Promise.all(
+      requirementsData.map(async requirement => {
         try {
-          const behaviorMetrics = await behaviorClient.getBehaviorMetrics(
-            behavior.id as UUID
+          const requirementMetrics = await requirementClient.getRequirementMetrics(
+            requirement.id as UUID
           );
           return {
-            id: behavior.id as string,
-            name: behavior.name,
-            description: behavior.description ?? undefined,
-            metrics: behaviorMetrics.map(m => ({
+            id: requirement.id as string,
+            name: requirement.name,
+            description: requirement.description ?? undefined,
+            metrics: requirementMetrics.map(m => ({
               name: m.name,
               description: m.description ?? undefined,
             })),
           };
         } catch {
           return {
-            id: behavior.id as string,
-            name: behavior.name,
-            description: behavior.description ?? undefined,
+            id: requirement.id as string,
+            name: requirement.name,
+            description: requirement.description ?? undefined,
             metrics: [] as Array<{ name: string; description?: string }>,
           };
         }
       })
     );
   } catch {
-    behaviors = [];
+    requirements = [];
   }
 
   return (
@@ -217,7 +217,7 @@ export default async function TestRunComparePage({
           currentTestResults={testResults}
           availableTestRuns={availableTestRuns}
           prompts={promptsMap}
-          behaviors={behaviors}
+          requirements={requirements}
           initialBaselineId={initialBaselineId}
           testSetType={
             testRun.test_configuration?.test_set?.test_set_type?.type_value

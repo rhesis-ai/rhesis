@@ -36,7 +36,7 @@ export default function TestSetDetailsCard({
   const canEditTestSet = useCan(Capability.TestSet.UPDATE);
 
   const metadata = testSet.attributes?.metadata;
-  const behaviors = metadata?.behaviors ?? [];
+  const requirements = metadata?.requirements ?? [];
   const topics = metadata?.topics ?? [];
   const categories = metadata?.categories ?? [];
   const sources = metadata?.sources ?? [];
@@ -116,13 +116,13 @@ export default function TestSetDetailsCard({
             </Grid>
           </Box>
 
-          {/* ── Behaviors ─────────────────────────────────────────────────── */}
+          {/* ── Requirements ─────────────────────────────────────────────────── */}
           <Box>
             <SubsectionHeader
-              headline="Behaviors"
-              description="The behaviors covered by tests in this set"
+              headline="Requirements"
+              description="The requirements covered by tests in this set"
             />
-            <BadgeRow items={behaviors} />
+            <BadgeRow items={requirements} />
           </Box>
 
           {/* ── Topics ────────────────────────────────────────────────────── */}

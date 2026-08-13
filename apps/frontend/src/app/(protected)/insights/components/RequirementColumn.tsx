@@ -13,25 +13,25 @@ import {
 } from '@mui/material';
 import { getReviewBand } from '@/app/(protected)/test-runs/[identifier]/components/test-run-summary-utils';
 import { InsightsFilters } from '../types';
-import { BehaviorInsightColumn } from '../utils/behavior-insights-utils';
+import { RequirementInsightColumn } from '../utils/requirement-insights-utils';
 import {
-  BehaviorMetricList,
-  BehaviorTopicList,
-} from './BehaviorDimensionLists';
+  RequirementMetricList,
+  RequirementTopicList,
+} from './RequirementDimensionLists';
 
-interface BehaviorColumnProps {
-  column: BehaviorInsightColumn;
+interface RequirementColumnProps {
+  column: RequirementInsightColumn;
   insightsFilters: InsightsFilters;
   loading?: boolean;
   expanded?: boolean;
 }
 
-export default function BehaviorColumn({
+export default function RequirementColumn({
   column,
   insightsFilters,
   loading = false,
   expanded = false,
-}: BehaviorColumnProps) {
+}: RequirementColumnProps) {
   const noTests = column.overall.total === 0;
   const hasMetrics = column.metrics.length > 0;
   const hasTopics = column.topics.length > 0;
@@ -162,11 +162,11 @@ export default function BehaviorColumn({
             }}
           >
             {hasMetrics && (
-              <BehaviorMetricList
+              <RequirementMetricList
                 items={column.metrics}
                 insightsFilters={insightsFilters}
-                behaviorId={column.id}
-                behaviorName={column.name}
+                requirementId={column.id}
+                requirementName={column.name}
               />
             )}
             {hasMetrics && hasTopics && (
@@ -180,11 +180,11 @@ export default function BehaviorColumn({
               />
             )}
             {hasTopics && (
-              <BehaviorTopicList
+              <RequirementTopicList
                 items={column.topics}
                 insightsFilters={insightsFilters}
-                behaviorId={column.id}
-                behaviorName={column.name}
+                requirementId={column.id}
+                requirementName={column.name}
               />
             )}
           </Box>

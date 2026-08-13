@@ -1,5 +1,5 @@
 /**
- * BaseTag component for managing entity tags with customizable behavior
+ * BaseTag component for managing entity tags with customizable requirement
  * Handles tag creation, deletion, and validation with API integration
  */
 

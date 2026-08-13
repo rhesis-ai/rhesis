@@ -69,12 +69,12 @@ function readEntityEnvSources(key: EntityEmptyStateKey): {
         articleUrls:
           process.env.NEXT_PUBLIC_ENDPOINTS_EMPTY_STATE_ARTICLE_URLS?.trim(),
       };
-    case 'behaviors':
+    case 'requirements':
       return {
         videoUrl:
-          process.env.NEXT_PUBLIC_BEHAVIORS_EMPTY_STATE_VIDEO_URL?.trim(),
+          process.env.NEXT_PUBLIC_REQUIREMENTS_EMPTY_STATE_VIDEO_URL?.trim(),
         articleUrls:
-          process.env.NEXT_PUBLIC_BEHAVIORS_EMPTY_STATE_ARTICLE_URLS?.trim(),
+          process.env.NEXT_PUBLIC_REQUIREMENTS_EMPTY_STATE_ARTICLE_URLS?.trim(),
       };
     case 'metrics':
       return {

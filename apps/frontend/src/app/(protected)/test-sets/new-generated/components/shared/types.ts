@@ -35,7 +35,7 @@ export interface ChipConfig {
  * Configuration chips grouped by category
  */
 export interface ConfigChips {
-  behavior: ChipConfig[];
+  requirement: ChipConfig[];
   topics: ChipConfig[];
   category: ChipConfig[];
 }
@@ -47,7 +47,7 @@ export interface ChipState {
   label: string;
   description: string;
   active: boolean;
-  category: 'behavior' | 'topic' | 'category' | 'scenario';
+  category: 'requirement' | 'topic' | 'category' | 'scenario';
 }
 
 /**
@@ -58,7 +58,7 @@ export interface TestSample {
   testType: 'Single-Turn';
   prompt: string;
   response?: string;
-  behavior: string;
+  requirement: string;
   topic: string;
   rating: number | null; // 1-5 or null
   feedback: string;
@@ -75,7 +75,7 @@ export interface MultiTurnTestSample {
   testType: 'Multi-Turn';
   prompt: MultiTurnPrompt;
   response?: string;
-  behavior: string;
+  requirement: string;
   topic: string;
   category: string;
   rating: number | null; // 1-5 or null
@@ -110,7 +110,7 @@ export interface ChatMessage {
  */
 export interface GenerationConfig {
   project: Project | null;
-  behaviors: string[];
+  requirements: string[];
   purposes: string[];
   testType: 'Single-Turn' | 'Multi-Turn';
   responseGeneration: 'prompt_only' | 'prompt_and_response';

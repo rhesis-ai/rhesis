@@ -198,8 +198,8 @@ export default function EmbeddingTestsPanel({
 
     const metadataKey = (test: TestDetail): string => {
       switch (colorBy) {
-        case 'behavior':
-          return test.behavior?.name ?? '';
+        case 'requirement':
+          return test.requirement?.name ?? '';
         case 'category':
           return test.category?.name ?? '';
         case 'topic':
@@ -634,9 +634,9 @@ export default function EmbeddingTestsPanel({
                             : content}
                         </Typography>
                         <Stack direction="row" spacing={0.5} flexWrap="wrap">
-                          {test.behavior?.name && (
+                          {test.requirement?.name && (
                             <Chip
-                              label={test.behavior.name}
+                              label={test.requirement.name}
                               size="small"
                               variant="outlined"
                               sx={{ height: 18, fontSize: 10 }}

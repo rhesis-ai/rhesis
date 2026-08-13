@@ -16,7 +16,7 @@ import BaseDrawer from '@/components/common/BaseDrawer';
 import { drawerOutlinedFieldSx } from '@/components/common/drawerFormFieldSx';
 import { useFormChangeDetection } from '@/hooks/useFormChangeDetection';
 
-interface BehaviorDrawerProps {
+interface RequirementDrawerProps {
   open: boolean;
   onClose: () => void;
   name: string;
@@ -34,7 +34,7 @@ interface BehaviorDrawerProps {
 const sortedUnique = (values: string[]) =>
   Array.from(new Set(values.filter(v => v.trim().length > 0))).sort();
 
-const BehaviorDrawer = ({
+const RequirementDrawer = ({
   open,
   onClose,
   name: initialName,
@@ -47,7 +47,7 @@ const BehaviorDrawer = ({
   isNew = false,
   loading = false,
   error,
-}: BehaviorDrawerProps) => {
+}: RequirementDrawerProps) => {
   const [currentName, setCurrentName] = React.useState(initialName);
   const [currentDescription, setCurrentDescription] =
     React.useState(initialDescription);
@@ -96,12 +96,12 @@ const BehaviorDrawer = ({
     const trimmedName = currentName.trim();
 
     if (!trimmedName) {
-      setValidationError('Behavior name is required');
+      setValidationError('Requirement name is required');
       return;
     }
 
     if (trimmedName.length < 2) {
-      setValidationError('Behavior name must be at least 2 characters');
+      setValidationError('Requirement name must be at least 2 characters');
       return;
     }
 
@@ -112,8 +112,8 @@ const BehaviorDrawer = ({
     );
   };
 
-  const drawerTitle = isNew ? 'Add New Behavior' : 'Edit Behavior';
-  const saveButtonText = isNew ? 'Add Behavior' : 'Save Changes';
+  const drawerTitle = isNew ? 'Add New Requirement' : 'Edit Requirement';
+  const saveButtonText = isNew ? 'Add Requirement' : 'Save Changes';
 
   return (
     <BaseDrawer
@@ -147,7 +147,7 @@ const BehaviorDrawer = ({
             disabled={loading}
             error={!!validationError}
             helperText={
-              validationError || 'A clear, descriptive name for this behavior'
+              validationError || 'A clear, descriptive name for this requirement'
             }
             sx={drawerOutlinedFieldSx}
           />
@@ -161,7 +161,7 @@ const BehaviorDrawer = ({
             fullWidth
             variant="outlined"
             disabled={loading}
-            helperText="Describe what this behavior measures and why it matters"
+            helperText="Describe what this requirement measures and why it matters"
           />
 
           <Autocomplete
@@ -190,10 +190,10 @@ const BehaviorDrawer = ({
                 label="Tags"
                 placeholder={
                   currentTagNames.length === 0
-                    ? 'Add tags to group behaviors (e.g. Marketing, US 1)'
+                    ? 'Add tags to group requirements (e.g. Marketing, US 1)'
                     : ''
                 }
-                helperText="Press Enter to add. Reuse tags from other behaviors to group them."
+                helperText="Press Enter to add. Reuse tags from other requirements to group them."
               />
             )}
           />
@@ -203,7 +203,7 @@ const BehaviorDrawer = ({
         {!isNew && onDuplicate && (
           <Stack spacing={1.5}>
             <Typography variant="body2" color="text.secondary">
-              Create a copy of this behavior
+              Create a copy of this requirement
             </Typography>
             <Button
               variant="outlined"
@@ -212,7 +212,7 @@ const BehaviorDrawer = ({
               fullWidth
               disabled={loading}
             >
-              Duplicate Behavior
+              Duplicate Requirement
             </Button>
           </Stack>
         )}
@@ -221,7 +221,7 @@ const BehaviorDrawer = ({
         {!isNew && onDelete && (
           <Stack spacing={1.5}>
             <Typography variant="body2" color="text.secondary">
-              Delete this behavior (only available if no metrics are assigned)
+              Delete this requirement (only available if no metrics are assigned)
             </Typography>
             <Button
               variant="outlined"
@@ -231,7 +231,7 @@ const BehaviorDrawer = ({
               fullWidth
               disabled={loading}
             >
-              Delete Behavior
+              Delete Requirement
             </Button>
           </Stack>
         )}
@@ -240,4 +240,4 @@ const BehaviorDrawer = ({
   );
 };
 
-export default BehaviorDrawer;
+export default RequirementDrawer;

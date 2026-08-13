@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { Box, Checkbox, Link, Typography } from '@mui/material';
 import { FilterSection } from '@/components/common/FilterDrawer';
-import { InsightsBehaviorOption } from '../utils/insights-filter-utils';
+import { InsightsRequirementOption } from '../utils/insights-filter-utils';
 
 const DEFAULT_VISIBLE_COUNT = 5;
 
@@ -15,18 +15,18 @@ const checkboxSx = {
   },
 } as const;
 
-interface InsightsBehaviorFilterSectionProps {
-  options: InsightsBehaviorOption[];
+interface InsightsRequirementFilterSectionProps {
+  options: InsightsRequirementOption[];
   checkedIds: string[];
   onCheckedIdsChange: (ids: string[]) => void;
 }
 
-function BehaviorCheckboxRow({
+function RequirementCheckboxRow({
   option,
   checked,
   onToggle,
 }: {
-  option: InsightsBehaviorOption;
+  option: InsightsRequirementOption;
   checked: boolean;
   onToggle: () => void;
 }) {
@@ -82,11 +82,11 @@ function BehaviorCheckboxRow({
   );
 }
 
-export default function InsightsBehaviorFilterSection({
+export default function InsightsRequirementFilterSection({
   options,
   checkedIds,
   onCheckedIdsChange,
-}: InsightsBehaviorFilterSectionProps) {
+}: InsightsRequirementFilterSectionProps) {
   const [showAll, setShowAll] = React.useState(false);
 
   if (options.length === 0) {
@@ -98,7 +98,7 @@ export default function InsightsBehaviorFilterSection({
       ? options
       : options.slice(0, DEFAULT_VISIBLE_COUNT);
 
-  const toggleBehavior = (id: string) => {
+  const toggleRequirement = (id: string) => {
     onCheckedIdsChange(
       checkedIds.includes(id)
         ? checkedIds.filter(value => value !== id)
@@ -107,7 +107,7 @@ export default function InsightsBehaviorFilterSection({
   };
 
   return (
-    <FilterSection title="Behaviors">
+    <FilterSection title="Requirements">
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <Typography
@@ -117,16 +117,16 @@ export default function InsightsBehaviorFilterSection({
               color: theme => theme.palette.greyscale.body,
             }}
           >
-            Behavior
+            Requirement
           </Typography>
 
           <Box sx={{ display: 'flex', flexDirection: 'column' }}>
             {visibleOptions.map(option => (
-              <BehaviorCheckboxRow
+              <RequirementCheckboxRow
                 key={option.id}
                 option={option}
                 checked={checkedIds.includes(option.id)}
-                onToggle={() => toggleBehavior(option.id)}
+                onToggle={() => toggleRequirement(option.id)}
               />
             ))}
           </Box>

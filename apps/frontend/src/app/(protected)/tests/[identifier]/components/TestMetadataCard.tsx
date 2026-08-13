@@ -17,7 +17,7 @@ import { useNotifications } from '@/components/common/NotificationContext';
 import { useRouter } from 'next/navigation';
 import { UUID } from 'crypto';
 import { useQuery } from '@tanstack/react-query';
-import { behaviorKeys, topicKeys, categoryKeys } from '@/constants/query-keys';
+import { requirementKeys, topicKeys, categoryKeys } from '@/constants/query-keys';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface TestDetailOption {
@@ -26,8 +26,8 @@ interface TestDetailOption {
 }
 
 interface MetadataDraft {
-  behavior_id: UUID | null;
-  behavior_name: string;
+  requirement_id: UUID | null;
+  requirement_name: string;
   topic_id: UUID | null;
   topic_name: string;
   category_id: UUID | null;
@@ -64,12 +64,12 @@ export default function TestMetadataCard({
 
   const apiFactory = React.useMemo(() => new ApiClientFactory(), []);
 
-  const { data: behaviorsData } = useQuery({
-    queryKey: behaviorKeys.list(),
+  const { data: requirementsData } = useQuery({
+    queryKey: requirementKeys.list(),
     queryFn: () =>
       apiFactory
-        .getBehaviorClient()
-        .getBehaviors({ sort_by: 'name', sort_order: 'asc' }),
+        .getRequirementClient()
+        .getRequirements({ sort_by: 'name', sort_order: 'asc' }),
     enabled: isAuthenticated(status),
     staleTime: 5 * 60_000,
   });
@@ -96,12 +96,12 @@ export default function TestMetadataCard({
     staleTime: 5 * 60_000,
   });
 
-  const behaviors: TestDetailOption[] = React.useMemo(
+  const requirements: TestDetailOption[] = React.useMemo(
     () =>
-      (behaviorsData ?? [])
+      (requirementsData ?? [])
         .filter((b: { id: UUID; name: string }) => b.id && b.name?.trim())
         .map((b: { id: UUID; name: string }) => ({ id: b.id, name: b.name })),
-    [behaviorsData]
+    [requirementsData]
   );
 
   const topics: TestDetailOption[] = React.useMemo(
@@ -123,8 +123,8 @@ export default function TestMetadataCard({
   );
 
   const initialDraft: MetadataDraft = {
-    behavior_id: (test.behavior?.id ?? null) as UUID | null,
-    behavior_name: test.behavior?.name ?? '',
+    requirement_id: (test.requirement?.id ?? null) as UUID | null,
+    requirement_name: test.requirement?.name ?? '',
     topic_id: (test.topic?.id ?? null) as UUID | null,
     topic_name: test.topic?.name ?? '',
     category_id: (test.category?.id ?? null) as UUID | null,
@@ -136,7 +136,7 @@ export default function TestMetadataCard({
     const apiFactory = new ApiClientFactory();
     const testsClient = apiFactory.getTestsClient();
     await testsClient.updateTest(test.id, {
-      behavior_id: draft.behavior_id ?? undefined,
+      requirement_id: draft.requirement_id ?? undefined,
       topic_id: draft.topic_id ?? undefined,
       category_id: draft.category_id ?? undefined,
       priority: draft.priority,
@@ -162,41 +162,41 @@ export default function TestMetadataCard({
           columnSpacing={isEditing ? 2 : '30px'}
           rowSpacing={isEditing ? 2 : '50px'}
         >
-          {/* Row 1: Behavior, Type, Topic, Category */}
+          {/* Row 1: Requirement, Type, Topic, Category */}
           <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             {isEditing ? (
               <BaseFreesoloAutocomplete
-                options={behaviors}
-                value={draft.behavior_name}
+                options={requirements}
+                value={draft.requirement_name}
                 onChange={(val: AutocompleteOption | string | null) => {
                   if (val && typeof val === 'object') {
                     setDraft(d => ({
                       ...d,
-                      behavior_id: val.id,
-                      behavior_name: val.name,
+                      requirement_id: val.id,
+                      requirement_name: val.name,
                     }));
                   } else if (typeof val === 'string') {
-                    const match = behaviors.find(b => b.name === val);
+                    const match = requirements.find(b => b.name === val);
                     setDraft(d => ({
                       ...d,
-                      behavior_id: match?.id ?? null,
-                      behavior_name: val,
+                      requirement_id: match?.id ?? null,
+                      requirement_name: val,
                     }));
                   } else {
                     setDraft(d => ({
                       ...d,
-                      behavior_id: null,
-                      behavior_name: '',
+                      requirement_id: null,
+                      requirement_name: '',
                     }));
                   }
                 }}
-                label="Behavior"
+                label="Requirement"
                 popperWidth="100%"
               />
             ) : (
               <ViewField
-                label="Behavior"
-                value={draft.behavior_name}
+                label="Requirement"
+                value={draft.requirement_name}
                 helperText="Infotext"
               />
             )}

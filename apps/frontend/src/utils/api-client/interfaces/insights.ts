@@ -37,7 +37,7 @@ export interface InsightsIdsParams {
   start_date?: string;
   end_date?: string;
   test_run_ids?: string[];
-  behavior_ids?: string[];
+  requirement_ids?: string[];
   category_ids?: string[];
   topic_ids?: string[];
   status_ids?: string[];

@@ -5,50 +5,50 @@ import { Box } from '@mui/material';
 import { format } from 'date-fns';
 import { PageLayout } from '@/components/layout/PageLayout';
 import DetailMetadataStrip from '@/components/common/DetailMetadataStrip';
-import type { BehaviorWithMetrics } from '@/utils/api-client/interfaces/behavior';
+import type { RequirementWithMetrics } from '@/utils/api-client/interfaces/requirement';
 import { API_ENDPOINTS } from '@/utils/api-client/config';
-import BehaviorDetailTabs from './BehaviorDetailTabs';
+import RequirementDetailTabs from './RequirementDetailTabs';
 import AccessDenied from '@/components/common/AccessDenied';
 import PageLoadingState from '@/components/common/PageLoadingState';
 import { useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 
-interface BehaviorDetailClientProps {
-  behavior: BehaviorWithMetrics;
+interface RequirementDetailClientProps {
+  requirement: RequirementWithMetrics;
   identifier: string;
 }
 
-export default function BehaviorDetailClient({
-  behavior: initialBehavior,
+export default function RequirementDetailClient({
+  requirement: initialRequirement,
   identifier,
-}: BehaviorDetailClientProps) {
+}: RequirementDetailClientProps) {
   const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
-    Capability.Behavior.READ
+    Capability.Requirement.READ
   );
-  const [behavior, setBehavior] =
-    React.useState<BehaviorWithMetrics>(initialBehavior);
+  const [requirement, setRequirement] =
+    React.useState<RequirementWithMetrics>(initialRequirement);
 
   React.useEffect(() => {
-    setBehavior(initialBehavior);
-  }, [initialBehavior]);
+    setRequirement(initialRequirement);
+  }, [initialRequirement]);
 
   if (permsLoading) return <PageLoadingState />;
-  if (!canRead) return <AccessDenied resource="behaviors" />;
+  if (!canRead) return <AccessDenied resource="requirements" />;
 
-  const title = behavior.name || `Behavior ${identifier}`;
+  const title = requirement.name || `Requirement ${identifier}`;
   const breadcrumbs = [
-    { label: 'Behaviors', href: API_ENDPOINTS.behaviors },
-    { label: title, href: `${API_ENDPOINTS.behaviors}/${identifier}` },
+    { label: 'Requirements', href: API_ENDPOINTS.requirements },
+    { label: title, href: `${API_ENDPOINTS.requirements}/${identifier}` },
   ];
 
   const metadataStrip = (
     <DetailMetadataStrip
       items={[
-        { label: 'created by:', value: behavior.user?.name || '—' },
+        { label: 'created by:', value: requirement.user?.name || '—' },
         {
           label: 'created on:',
-          value: behavior.created_at
-            ? format(new Date(behavior.created_at), 'dd/MM/yyyy')
+          value: requirement.created_at
+            ? format(new Date(requirement.created_at), 'dd/MM/yyyy')
             : '—',
         },
       ]}
@@ -62,7 +62,7 @@ export default function BehaviorDetailClient({
       metadata={metadataStrip}
     >
       <Box sx={{ flexGrow: 1 }}>
-        <BehaviorDetailTabs behavior={behavior} onUpdated={setBehavior} />
+        <RequirementDetailTabs requirement={requirement} onUpdated={setRequirement} />
       </Box>
     </PageLayout>
   );

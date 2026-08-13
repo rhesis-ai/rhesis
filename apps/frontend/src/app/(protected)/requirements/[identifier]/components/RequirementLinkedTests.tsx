@@ -13,7 +13,7 @@ import { useNotifications } from '@/components/common/NotificationContext';
 import type { ToolbarPillTab } from '@/components/common/GridToolbar';
 import { DescriptionIcon, ErrorIcon } from '@/components/icons';
 import { useRouter } from 'next/navigation';
-import type { BehaviorWithMetrics } from '@/utils/api-client/interfaces/behavior';
+import type { RequirementWithMetrics } from '@/utils/api-client/interfaces/requirement';
 import type { TestDetail } from '@/utils/api-client/interfaces/tests';
 import { TestsClient } from '@/utils/api-client/tests-client';
 import {
@@ -22,17 +22,17 @@ import {
 } from '@/app/(protected)/tests/components/test-grid-helpers';
 import { TEST_TYPE_PILL_TABS } from '@/constants/test-types';
 
-interface BehaviorLinkedTestsProps {
-  behavior: BehaviorWithMetrics;
+interface RequirementLinkedTestsProps {
+  requirement: RequirementWithMetrics;
 }
 
 function escapeODataValue(value: string): string {
   return value.replace(/'/g, "''");
 }
 
-export default function BehaviorLinkedTests({
-  behavior,
-}: BehaviorLinkedTestsProps) {
+export default function RequirementLinkedTests({
+  requirement,
+}: RequirementLinkedTestsProps) {
   const router = useRouter();
   const notifications = useNotifications();
   const [tests, setTests] = useState<TestDetail[]>([]);
@@ -46,7 +46,7 @@ export default function BehaviorLinkedTests({
     try {
       const client = new TestsClient();
       const result = await client.getAllTests({
-        filter: `behavior_id eq '${escapeODataValue(String(behavior.id))}'`,
+        filter: `requirement_id eq '${escapeODataValue(String(requirement.id))}'`,
         sort_by: 'created_at',
         sort_order: 'desc',
       });
@@ -63,7 +63,7 @@ export default function BehaviorLinkedTests({
     } finally {
       setLoading(false);
     }
-  }, [behavior.id, notifications]);
+  }, [requirement.id, notifications]);
 
   useEffect(() => {
     fetchLinked();
@@ -173,7 +173,7 @@ export default function BehaviorLinkedTests({
               Couldn't load linked tests
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Something went wrong while loading tests for this behavior. Try
+              Something went wrong while loading tests for this requirement. Try
               refreshing the page.
             </Typography>
           </Box>
@@ -196,7 +196,7 @@ export default function BehaviorLinkedTests({
               No tests linked yet
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              No tests have this behavior assigned yet. Assign this behavior
+              No tests have this requirement assigned yet. Assign this requirement
               when creating or editing a test to see it here.
             </Typography>
           </Box>

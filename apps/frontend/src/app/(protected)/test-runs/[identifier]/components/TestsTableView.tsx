@@ -52,7 +52,7 @@ import { EntityType } from '@/types/entity-type';
 interface TestsTableViewProps {
   tests: TestResultDetail[];
   prompts: Record<string, { content: string; name?: string }>;
-  behaviors: Array<{
+  requirements: Array<{
     id: string;
     name: string;
     description?: string;
@@ -78,7 +78,7 @@ interface TestsTableViewProps {
 export default function TestsTableView({
   tests,
   prompts,
-  behaviors,
+  requirements,
   testRunId,
   loading = false,
   onTestResultUpdate,
@@ -696,7 +696,7 @@ export default function TestsTableView({
         test={selectedTest}
         loading={false}
         prompts={prompts}
-        behaviors={behaviors}
+        requirements={requirements}
         testRunId={testRunId}
         onTestResultUpdate={handleTestResultUpdateInDrawer}
         currentUserId={currentUserId}

@@ -8,7 +8,7 @@ import { Capability } from '@/constants/capabilities';
 import { EngineeringIcon } from '@/components/icons';
 import { createAndOpenArchitectSession } from '@/utils/architect-handoff';
 import { InsightsFilters } from '../types';
-import { resolveInsightsQueryTestRunIds } from '../utils/behavior-insights-utils';
+import { resolveInsightsQueryTestRunIds } from '../utils/requirement-insights-utils';
 import {
   buildInsightsSummarizePrompt,
   buildInsightsSummarizeSessionTitle,
@@ -18,8 +18,8 @@ import {
 interface InsightsSummarizeFabProps {
   filters: InsightsFilters;
   endpointName?: string;
-  /** Behavior names currently visible (multi-select ∩ search). */
-  visibleBehaviorNames: string[];
+  /** Requirement names currently visible (multi-select ∩ search). */
+  visibleRequirementNames: string[];
   loading?: boolean;
   disabled?: boolean;
 }
@@ -27,7 +27,7 @@ interface InsightsSummarizeFabProps {
 export default function InsightsSummarizeFab({
   filters,
   endpointName = '',
-  visibleBehaviorNames,
+  visibleRequirementNames,
   loading = false,
   disabled = false,
 }: InsightsSummarizeFabProps) {
@@ -51,7 +51,7 @@ export default function InsightsSummarizeFab({
       const initialMessage = buildInsightsSummarizePrompt({
         endpointName,
         filters,
-        visibleBehaviorNames,
+        visibleRequirementNames,
         testRunIds: ids,
         truncated,
         totalMatched,
@@ -73,7 +73,7 @@ export default function InsightsSummarizeFab({
     filters,
     isDisabled,
     showNotification,
-    visibleBehaviorNames,
+    visibleRequirementNames,
   ]);
 
   return (

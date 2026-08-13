@@ -40,7 +40,7 @@ interface CreateTestFromConversationDrawerProps {
 }
 
 interface TestFormData {
-  behavior: string;
+  requirement: string;
   topic: string;
   category: string;
   // Single-turn
@@ -66,13 +66,13 @@ export default function CreateTestFromConversationDrawer({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
   const [formData, setFormData] = useState<TestFormData>({
-    behavior: '',
+    requirement: '',
     topic: '',
     category: '',
   });
 
   // Options for autocomplete fields
-  const [behaviors, setBehaviors] = useState<AutocompleteOption[]>([]);
+  const [requirements, setRequirements] = useState<AutocompleteOption[]>([]);
   const [topics, setTopics] = useState<AutocompleteOption[]>([]);
   const [categories, setCategories] = useState<AutocompleteOption[]>([]);
 
@@ -83,10 +83,10 @@ export default function CreateTestFromConversationDrawer({
     const loadOptions = async () => {
       try {
         const apiFactory = new ApiClientFactory();
-        const [behaviorsData, topicsData, categoriesData] = await Promise.all([
+        const [requirementsData, topicsData, categoriesData] = await Promise.all([
           apiFactory
-            .getBehaviorClient()
-            .getBehaviors({ sort_by: 'name', sort_order: 'asc' }),
+            .getRequirementClient()
+            .getRequirements({ sort_by: 'name', sort_order: 'asc' }),
           apiFactory.getTopicClient().getTopics({
             sort_by: 'name',
             sort_order: 'asc',
@@ -99,7 +99,7 @@ export default function CreateTestFromConversationDrawer({
           }),
         ]);
 
-        setBehaviors(filterUniqueValidOptions(behaviorsData));
+        setRequirements(filterUniqueValidOptions(requirementsData));
         setTopics(filterUniqueValidOptions(topicsData));
         setCategories(filterUniqueValidOptions(categoriesData));
       } catch (err) {
@@ -145,7 +145,7 @@ export default function CreateTestFromConversationDrawer({
 
   const applyExtraction = (extraction: ConversationTestExtractionResponse) => {
     const data: TestFormData = {
-      behavior: extraction.behavior || '',
+      requirement: extraction.requirement || '',
       topic: extraction.topic || '',
       category: extraction.category || '',
     };
@@ -194,7 +194,7 @@ export default function CreateTestFromConversationDrawer({
     setSaving(true);
     setError(undefined);
     try {
-      if (!formData.behavior) throw new Error('Behavior is required');
+      if (!formData.requirement) throw new Error('Requirement is required');
       if (!formData.topic) throw new Error('Topic is required');
       if (!formData.category) throw new Error('Category is required');
 
@@ -202,7 +202,7 @@ export default function CreateTestFromConversationDrawer({
       const testsClient = apiFactory.getTestsClient();
 
       const testData: Record<string, unknown> = {
-        behavior: formData.behavior,
+        requirement: formData.requirement,
         category: formData.category,
         topic: formData.topic,
       };
@@ -285,10 +285,10 @@ export default function CreateTestFromConversationDrawer({
           <SubsectionHeader headline="Test Details" />
 
           <BaseFreesoloAutocomplete
-            options={behaviors}
-            value={findOptionValue(behaviors, formData.behavior)}
-            onChange={handleAutoCompleteChange('behavior')}
-            label="Behavior"
+            options={requirements}
+            value={findOptionValue(requirements, formData.requirement)}
+            onChange={handleAutoCompleteChange('requirement')}
+            label="Requirement"
             required
           />
 

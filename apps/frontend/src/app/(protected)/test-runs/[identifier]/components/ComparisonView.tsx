@@ -75,7 +75,7 @@ interface ComparisonViewProps {
   onClose: () => void;
   onLoadBaseline: (testRunId: string) => Promise<TestResultDetail[]>;
   prompts: Record<string, { content: string; name?: string }>;
-  behaviors: Array<{
+  requirements: Array<{
     id: string;
     name: string;
     description?: string;
@@ -231,14 +231,14 @@ function MetricRow({
   );
 }
 
-// Collapsible behavior section card matching Figma "section 1" component
-function BehaviorSection({
-  behaviorName,
+// Collapsible requirement section card matching Figma "section 1" component
+function RequirementSection({
+  requirementName,
   passedCount,
   totalCount,
   children,
 }: {
-  behaviorName: string;
+  requirementName: string;
   passedCount: number;
   totalCount: number;
   children: React.ReactNode;
@@ -273,7 +273,7 @@ function BehaviorSection({
               color: theme => theme.palette.greyscale.title,
             }}
           >
-            {behaviorName}
+            {requirementName}
           </Typography>
           <Chip
             label={`${passedCount}/${totalCount}`}
@@ -341,7 +341,7 @@ export default function ComparisonView({
   onClose,
   onLoadBaseline,
   prompts,
-  behaviors,
+  requirements,
   testSetType,
   project,
   projectName,
@@ -1566,7 +1566,7 @@ export default function ComparisonView({
                     </Box>
                   </Box>
 
-                  {/* Row 3: Behavior sections — baseline left, current right */}
+                  {/* Row 3: Requirement sections — baseline left, current right */}
                   <Box
                     sx={{
                       display: 'flex',
@@ -1583,8 +1583,8 @@ export default function ComparisonView({
                         gap: '40px',
                       }}
                     >
-                      {behaviors.map(behavior => {
-                        const bMetrics = behavior.metrics
+                      {requirements.map(requirement => {
+                        const bMetrics = requirement.metrics
                           .map(metric => ({
                             name: metric.name,
                             result:
@@ -1601,9 +1601,9 @@ export default function ComparisonView({
                           m => m.result.is_successful
                         ).length;
                         return (
-                          <BehaviorSection
-                            key={behavior.id}
-                            behaviorName={behavior.name}
+                          <RequirementSection
+                            key={requirement.id}
+                            requirementName={requirement.name}
                             passedCount={passed}
                             totalCount={bMetrics.length}
                           >
@@ -1614,7 +1614,7 @@ export default function ComparisonView({
                                 result={m.result}
                               />
                             ))}
-                          </BehaviorSection>
+                          </RequirementSection>
                         );
                       })}
                     </Box>
@@ -1628,8 +1628,8 @@ export default function ComparisonView({
                         gap: '40px',
                       }}
                     >
-                      {behaviors.map(behavior => {
-                        const bMetrics = behavior.metrics
+                      {requirements.map(requirement => {
+                        const bMetrics = requirement.metrics
                           .map(metric => ({
                             name: metric.name,
                             result:
@@ -1646,9 +1646,9 @@ export default function ComparisonView({
                           m => m.result.is_successful
                         ).length;
                         return (
-                          <BehaviorSection
-                            key={behavior.id}
-                            behaviorName={behavior.name}
+                          <RequirementSection
+                            key={requirement.id}
+                            requirementName={requirement.name}
                             passedCount={passed}
                             totalCount={bMetrics.length}
                           >
@@ -1659,7 +1659,7 @@ export default function ComparisonView({
                                 result={m.result}
                               />
                             ))}
-                          </BehaviorSection>
+                          </RequirementSection>
                         );
                       })}
                     </Box>

@@ -26,7 +26,7 @@ export interface GarakProbeModule {
   default_detector: string | null;
   rhesis_category: string;
   rhesis_topic: string;
-  rhesis_behavior: string;
+  rhesis_requirement: string;
   has_dynamic_probes: boolean;
   probes: GarakProbeClass[];
 }
@@ -54,7 +54,7 @@ export interface GarakProbeDetailResponse {
   rhesis_mapping: {
     category: string;
     topic: string;
-    behavior: string;
+    requirement: string;
   };
   probes: GarakProbeClass[];
 }

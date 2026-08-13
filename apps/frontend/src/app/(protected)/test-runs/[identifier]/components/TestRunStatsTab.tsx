@@ -37,21 +37,21 @@ import type {
   InsightsRow,
 } from '@/utils/api-client/interfaces/insights';
 import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
-import { BehaviorWithMetrics } from '../hooks/useTestRunDetailData';
+import { RequirementWithMetrics } from '../hooks/useTestRunDetailData';
 import TestRunHeader from './TestRunHeader';
 import TestRunTags from './TestRunTags';
 import {
-  BehaviorStat,
-  buildBehaviorCorrectionTooltip,
+  RequirementStat,
+  buildRequirementCorrectionTooltip,
   computeReviewSummary,
-  countBehaviorHumanCorrections,
+  countRequirementHumanCorrections,
   getResultReviews,
   getReviewBand,
   metricHasHumanReview,
   metricShowsHumanCorrection,
   MetricStat,
 } from './test-run-summary-utils';
-import { rowToPassFailStats } from '@/app/(protected)/insights/utils/behavior-insights-utils';
+import { rowToPassFailStats } from '@/app/(protected)/insights/utils/requirement-insights-utils';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface TestRunStatsTabProps {
@@ -60,8 +60,8 @@ interface TestRunStatsTabProps {
   testResults: TestResultDetail[];
   loading?: boolean;
   onRefresh?: () => void;
-  behaviors?: BehaviorWithMetrics[];
-  onViewBehavior?: (behaviorId: string) => void;
+  requirements?: RequirementWithMetrics[];
+  onViewRequirement?: (requirementId: string) => void;
   onViewMetric?: (metricName: string) => void;
 }
 
@@ -125,21 +125,21 @@ function CorrectedChip({
   );
 }
 
-type BehaviorSortField = 'name' | 'total' | 'passRate';
+type RequirementSortField = 'name' | 'total' | 'passRate';
 
-function BehaviorTable({
+function RequirementTable({
   stats,
-  behaviors,
-  onViewBehavior,
+  requirements,
+  onViewRequirement,
 }: {
-  stats: BehaviorStat[];
-  behaviors?: BehaviorWithMetrics[];
-  onViewBehavior?: (behaviorId: string) => void;
+  stats: RequirementStat[];
+  requirements?: RequirementWithMetrics[];
+  onViewRequirement?: (requirementId: string) => void;
 }) {
-  const [sortField, setSortField] = useState<BehaviorSortField>('passRate');
+  const [sortField, setSortField] = useState<RequirementSortField>('passRate');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
-  const handleSort = (field: BehaviorSortField) => {
+  const handleSort = (field: RequirementSortField) => {
     if (field === sortField) {
       setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
     } else {
@@ -168,7 +168,7 @@ function BehaviorTable({
                 direction={sortField === 'name' ? sortDir : 'asc'}
                 onClick={() => handleSort('name')}
               >
-                Behavior
+                Requirement
               </TableSortLabel>
             </TableCell>
             <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
@@ -192,21 +192,21 @@ function BehaviorTable({
               </TableSortLabel>
             </TableCell>
             <TableCell>Status</TableCell>
-            {onViewBehavior && <TableCell />}
+            {onViewRequirement && <TableCell />}
           </TableRow>
         </TableHead>
         <TableBody>
           {sorted.map(stat => {
-            const behavior = behaviors?.find(b => b.name === stat.name);
+            const requirement = requirements?.find(b => b.name === stat.name);
             const canDrilldown =
-              stat.failed > 0 && !!onViewBehavior && !!behavior;
+              stat.failed > 0 && !!onViewRequirement && !!requirement;
             return (
               <TableRow
                 key={stat.name}
                 hover={canDrilldown}
                 sx={{ cursor: canDrilldown ? 'pointer' : 'default' }}
                 onClick={
-                  canDrilldown ? () => onViewBehavior!(behavior!.id) : undefined
+                  canDrilldown ? () => onViewRequirement!(requirement!.id) : undefined
                 }
               >
                 <TableCell sx={{ maxWidth: 300 }}>
@@ -262,7 +262,7 @@ function BehaviorTable({
                 <TableCell>
                   <BandChip passRate={stat.passRate} />
                 </TableCell>
-                {onViewBehavior && (
+                {onViewRequirement && (
                   <TableCell sx={{ width: 32, p: 0.5 }}>
                     {canDrilldown && (
                       <Tooltip title="View failures in Test Cases">
@@ -286,21 +286,21 @@ function BehaviorTable({
   );
 }
 
-function BehaviorPerformanceSection({
+function RequirementPerformanceSection({
   stats,
-  behaviors,
-  onViewBehavior,
+  requirements,
+  onViewRequirement,
 }: {
-  stats: BehaviorStat[];
-  behaviors?: BehaviorWithMetrics[];
-  onViewBehavior?: (behaviorId: string) => void;
+  stats: RequirementStat[];
+  requirements?: RequirementWithMetrics[];
+  onViewRequirement?: (requirementId: string) => void;
 }) {
   return (
-    <SectionCard title="Behavior Performance">
-      <BehaviorTable
+    <SectionCard title="Requirement Performance">
+      <RequirementTable
         stats={stats}
-        behaviors={behaviors}
-        onViewBehavior={onViewBehavior}
+        requirements={requirements}
+        onViewRequirement={onViewRequirement}
       />
     </SectionCard>
   );
@@ -627,8 +627,8 @@ export default function TestRunStatsTab({
   testResults,
   loading = false,
   onRefresh,
-  behaviors,
-  onViewBehavior,
+  requirements,
+  onViewRequirement,
   onViewMetric,
 }: TestRunStatsTabProps) {
   const { status } = useSession();
@@ -662,9 +662,9 @@ export default function TestRunStatsTab({
           measures,
           filters,
         },
-        behaviors: {
+        requirements: {
           entity: 'test_result',
-          group_by: ['behavior'],
+          group_by: ['requirement'],
           measures,
           filters,
         },
@@ -735,13 +735,13 @@ export default function TestRunStatsTab({
     [insights]
   );
 
-  const behaviorStats = useMemo((): BehaviorStat[] => {
-    if (!insights?.behaviors || loading) return [];
-    return (insights.behaviors.rows ?? []).flatMap(row => {
-      const name = row.behavior;
+  const requirementStats = useMemo((): RequirementStat[] => {
+    if (!insights?.requirements || loading) return [];
+    return (insights.requirements.rows ?? []).flatMap(row => {
+      const name = row.requirement;
       if (typeof name !== 'string' || !name) return [];
       const s = rowToPassFailStats(row);
-      const humanCorrectionCount = countBehaviorHumanCorrections(
+      const humanCorrectionCount = countRequirementHumanCorrections(
         name,
         testResults
       );
@@ -754,7 +754,7 @@ export default function TestRunStatsTab({
           passRate: s.pass_rate,
           hasHumanCorrection: humanCorrectionCount > 0,
           humanCorrectionCount,
-          humanCorrectionTooltip: buildBehaviorCorrectionTooltip(
+          humanCorrectionTooltip: buildRequirementCorrectionTooltip(
             name,
             testResults
           ),
@@ -796,7 +796,7 @@ export default function TestRunStatsTab({
     [testResults, loading]
   );
 
-  const hasInsights = behaviorStats.length > 0 || metricStats.length > 0;
+  const hasInsights = requirementStats.length > 0 || metricStats.length > 0;
 
   return (
     <Box>
@@ -822,11 +822,11 @@ export default function TestRunStatsTab({
           </Paper>
         ) : (
           <>
-            {behaviorStats.length > 0 && (
-              <BehaviorPerformanceSection
-                stats={behaviorStats}
-                behaviors={behaviors}
-                onViewBehavior={onViewBehavior}
+            {requirementStats.length > 0 && (
+              <RequirementPerformanceSection
+                stats={requirementStats}
+                requirements={requirements}
+                onViewRequirement={onViewRequirement}
               />
             )}
             {metricStats.length > 0 && (

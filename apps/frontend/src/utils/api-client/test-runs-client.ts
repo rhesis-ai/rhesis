@@ -6,7 +6,7 @@ import {
   TestRunUpdate,
   TestRunDetail,
 } from './interfaces/test-run';
-import { Behavior } from './interfaces/behavior';
+import { Requirement } from './interfaces/requirement';
 import { PaginatedResponse, PaginationParams } from './interfaces/pagination';
 import { joinUrl } from '@/utils/url';
 
@@ -85,9 +85,9 @@ export class TestRunsClient extends BaseApiClient {
     return this.fetch<TestRunDetail>(`${API_ENDPOINTS.testRuns}/${id}`);
   }
 
-  async getTestRunBehaviors(testRunId: string): Promise<Behavior[]> {
-    return this.fetch<Behavior[]>(
-      `${API_ENDPOINTS.testRuns}/${testRunId}${API_ENDPOINTS.behaviors}`
+  async getTestRunRequirements(testRunId: string): Promise<Requirement[]> {
+    return this.fetch<Requirement[]>(
+      `${API_ENDPOINTS.testRuns}/${testRunId}${API_ENDPOINTS.requirements}`
     );
   }
 

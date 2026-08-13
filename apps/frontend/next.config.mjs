@@ -338,6 +338,21 @@ const nextConfig = {
 
     return baseHeaders;
   },
+
+  async redirects() {
+    return [
+      {
+        source: '/behaviors',
+        destination: '/requirements',
+        permanent: true,
+      },
+      {
+        source: '/behaviors/:path*',
+        destination: '/requirements/:path*',
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

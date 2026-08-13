@@ -44,7 +44,7 @@ const DEFAULT_DESCRIPTIONS: Record<string, string> = {
   endpoint_connectivity: 'Testing endpoint reachability',
   evaluation_model: 'Validating evaluation model configuration',
   execution_model: 'Validating execution model configuration',
-  behavior_metric_coverage: 'Checking behavior-metric associations',
+  requirement_metric_coverage: 'Checking requirement-metric associations',
   metric_functionality: 'Verifying metric implementations',
 };
 

@@ -105,7 +105,7 @@ interface SelectedMetric {
   scope?: string[];
 }
 
-type MetricMode = 'use_test_set' | 'use_behavior' | 'define_custom';
+type MetricMode = 'use_test_set' | 'use_requirement' | 'define_custom';
 type ScoringTarget = 'fresh' | 'reuse';
 
 // ---------------------------------------------------------------------------
@@ -334,7 +334,7 @@ export default function RunDrawer(props: RunDrawerProps) {
   );
 
   // ---- Metrics ----
-  const [metricMode, setMetricMode] = useState<MetricMode>('use_behavior');
+  const [metricMode, setMetricMode] = useState<MetricMode>('use_requirement');
   const [selectedMetrics, setSelectedMetrics] = useState<SelectedMetric[]>([]);
   const [metricsDialogOpen, setMetricsDialogOpen] = useState(false);
 
@@ -405,7 +405,7 @@ export default function RunDrawer(props: RunDrawerProps) {
     setScoringTarget('fresh');
     setLastTestRun(null);
     setSelectedMetrics([]);
-    setMetricMode('use_behavior');
+    setMetricMode('use_requirement');
     setSelectedExecutionModelId('');
     setSelectedEvaluationModelId('');
     setSelectedExperiments([]);
@@ -550,13 +550,13 @@ export default function RunDrawer(props: RunDrawerProps) {
         setTestSetMetrics(metrics || []);
 
         if (mode === 'executeTestSet') {
-          setMetricMode(metrics?.length > 0 ? 'use_test_set' : 'use_behavior');
+          setMetricMode(metrics?.length > 0 ? 'use_test_set' : 'use_requirement');
         }
       } catch {
         if (mounted) {
           setTestSetType(null);
           setTestSetMetrics([]);
-          setMetricMode('use_behavior');
+          setMetricMode('use_requirement');
         }
       }
     };
@@ -1585,13 +1585,13 @@ export default function RunDrawer(props: RunDrawerProps) {
                 </Box>
               </MenuItem>
             )}
-            <MenuItem value="use_behavior">
+            <MenuItem value="use_requirement">
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <PsychologyIcon fontSize="small" />
                 <Box>
-                  <Typography variant="body1">Behavior Metrics</Typography>
+                  <Typography variant="body1">Requirement Metrics</Typography>
                   <Typography variant="caption" color="text.secondary">
-                    Use default metrics defined on each test&apos;s behavior
+                    Use default metrics defined on each test&apos;s requirement
                   </Typography>
                 </Box>
               </Box>
@@ -1729,7 +1729,7 @@ export default function RunDrawer(props: RunDrawerProps) {
               {testSetMetrics.length > 0 && (
                 <MenuItem value="use_test_set">Test Set Metrics</MenuItem>
               )}
-              <MenuItem value="use_behavior">Behavior Metrics</MenuItem>
+              <MenuItem value="use_requirement">Requirement Metrics</MenuItem>
               <MenuItem value="define_custom">Custom Metrics</MenuItem>
             </Select>
           </FormControl>

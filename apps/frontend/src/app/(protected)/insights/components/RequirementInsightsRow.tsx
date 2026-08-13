@@ -5,32 +5,32 @@ import { Box, IconButton } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { InsightsFilters } from '../types';
 import {
-  BehaviorInsightColumn,
-  isBehaviorRowExpandable,
-} from '../utils/behavior-insights-utils';
-import BehaviorColumn from './BehaviorColumn';
+  RequirementInsightColumn,
+  isRequirementRowExpandable,
+} from '../utils/requirement-insights-utils';
+import RequirementColumn from './RequirementColumn';
 
-const BEHAVIOR_GRID_COLUMNS = {
+const REQUIREMENT_GRID_COLUMNS = {
   xs: '1fr',
   md: '1fr 1fr 1fr',
 } as const;
 
-interface BehaviorInsightsRowProps {
-  row: BehaviorInsightColumn[];
+interface RequirementInsightsRowProps {
+  row: RequirementInsightColumn[];
   rowIndex: number;
   expanded: boolean;
   onToggle: () => void;
   insightsFilters: InsightsFilters;
 }
 
-export default function BehaviorInsightsRow({
+export default function RequirementInsightsRow({
   row,
   rowIndex,
   expanded,
   onToggle,
   insightsFilters,
-}: BehaviorInsightsRowProps) {
-  const canExpand = isBehaviorRowExpandable(row);
+}: RequirementInsightsRowProps) {
+  const canExpand = isRequirementRowExpandable(row);
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
@@ -56,14 +56,14 @@ export default function BehaviorInsightsRow({
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: BEHAVIOR_GRID_COLUMNS,
+          gridTemplateColumns: REQUIREMENT_GRID_COLUMNS,
           gap: 1.25,
           alignItems: 'stretch',
         }}
         data-insights-row={rowIndex}
       >
         {row.map(column => (
-          <BehaviorColumn
+          <RequirementColumn
             key={column.id}
             column={column}
             insightsFilters={insightsFilters}

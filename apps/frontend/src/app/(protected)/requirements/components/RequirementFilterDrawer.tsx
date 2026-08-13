@@ -11,21 +11,21 @@ import {
 
 export type MetricFilter = 'all' | 'has_metrics' | 'no_metrics';
 
-export interface BehaviorFilters {
+export interface RequirementFilters {
   metricCount: MetricFilter;
   tagNames: string[];
 }
 
-export const EMPTY_BEHAVIOR_FILTERS: BehaviorFilters = {
+export const EMPTY_REQUIREMENT_FILTERS: RequirementFilters = {
   metricCount: 'all',
   tagNames: [],
 };
 
-export function hasActiveBehaviorFilters(f: BehaviorFilters): boolean {
+export function hasActiveRequirementFilters(f: RequirementFilters): boolean {
   return f.metricCount !== 'all' || f.tagNames.length > 0;
 }
 
-export function countActiveBehaviorFilters(f: BehaviorFilters): number {
+export function countActiveRequirementFilters(f: RequirementFilters): number {
   return (f.metricCount !== 'all' ? 1 : 0) + f.tagNames.length;
 }
 
@@ -35,26 +35,26 @@ const METRIC_OPTIONS: { value: MetricFilter; label: string }[] = [
   { value: 'no_metrics', label: 'No Metrics' },
 ];
 
-interface BehaviorFilterDrawerProps {
+interface RequirementFilterDrawerProps {
   open: boolean;
   onClose: () => void;
-  filters: BehaviorFilters;
-  /** Unique tag names available across the loaded behaviors. */
+  filters: RequirementFilters;
+  /** Unique tag names available across the loaded requirements. */
   availableTagNames?: string[];
-  onApply: (filters: BehaviorFilters) => void;
+  onApply: (filters: RequirementFilters) => void;
 }
 
-export default function BehaviorFilterDrawer({
+export default function RequirementFilterDrawer({
   open,
   onClose,
   filters,
   availableTagNames = [],
   onApply,
-}: BehaviorFilterDrawerProps) {
+}: RequirementFilterDrawerProps) {
   const { draft, setDraft, handleReset, handleApply } = useFilterDrawerDraft(
     open,
     filters,
-    EMPTY_BEHAVIOR_FILTERS,
+    EMPTY_REQUIREMENT_FILTERS,
     onApply,
     onClose
   );
@@ -95,8 +95,8 @@ export default function BehaviorFilterDrawer({
       <FilterSection title="Tags">
         {availableTagNames.length === 0 ? (
           <Typography variant="body2" color="text.secondary">
-            No tags yet. Add tags from the behavior edit drawer to group your
-            behaviors.
+            No tags yet. Add tags from the requirement edit drawer to group your
+            requirements.
           </Typography>
         ) : (
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>

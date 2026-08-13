@@ -30,19 +30,19 @@ import EditableSectionCard from '@/components/common/EditableSection';
 import TagsField from '@/components/common/TagsField';
 import { useRouter } from 'next/navigation';
 import type {
-  BehaviorWithMetrics,
+  RequirementWithMetrics,
   MetricWithRelationships,
-} from '@/utils/api-client/interfaces/behavior';
+} from '@/utils/api-client/interfaces/requirement';
 import type { MetricDetail } from '@/utils/api-client/interfaces/metric';
 import type { Status } from '@/utils/api-client/interfaces/status';
 import { EntityType, type Tag } from '@/utils/api-client/interfaces/tag';
-import { BehaviorClient } from '@/utils/api-client/behavior-client';
+import { RequirementClient } from '@/utils/api-client/requirement-client';
 import { MetricsClient } from '@/utils/api-client/metrics-client';
 import { TagsClient } from '@/utils/api-client/tags-client';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
-import BehaviorDrawer from '../../components/BehaviorDrawer';
-import BehaviorLinkedTests from './BehaviorLinkedTests';
+import RequirementDrawer from '../../components/RequirementDrawer';
+import RequirementLinkedTests from './RequirementLinkedTests';
 import type { UUID } from 'crypto';
 
 const TAB_KEYS = ['basic', 'linked-metrics', 'linked-tests'] as const;
@@ -53,22 +53,22 @@ const NAV_LABELS: Record<(typeof TAB_KEYS)[number], string> = {
   'linked-tests': 'Linked Tests',
 };
 
-interface BehaviorDetailTabsProps {
-  behavior: BehaviorWithMetrics;
-  onUpdated: (updated: BehaviorWithMetrics) => void;
+interface RequirementDetailTabsProps {
+  requirement: RequirementWithMetrics;
+  onUpdated: (updated: RequirementWithMetrics) => void;
 }
 
-export default function BehaviorDetailTabs({
-  behavior,
+export default function RequirementDetailTabs({
+  requirement,
   onUpdated,
-}: BehaviorDetailTabsProps) {
+}: RequirementDetailTabsProps) {
   const { activeTab, handleTabChange } = useDetailTabNav(TAB_KEYS);
 
   const navTabs = TAB_KEYS.map((key, index) => ({
     key,
     label: NAV_LABELS[key],
-    id: `behavior-detail-tab-${index}`,
-    'aria-controls': `behavior-detail-tabpanel-${index}`,
+    id: `requirement-detail-tab-${index}`,
+    'aria-controls': `requirement-detail-tabpanel-${index}`,
   }));
 
   return (
@@ -77,37 +77,37 @@ export default function BehaviorDetailTabs({
         tabs={navTabs}
         activeIndex={activeTab}
         onChange={handleTabChange}
-        aria-label="Behavior detail tabs"
+        aria-label="Requirement detail tabs"
       />
 
-      <DetailTabPanel value={activeTab} index={0} prefix="behavior-detail">
-        <BehaviorBasicInfo behavior={behavior} onUpdated={onUpdated} />
+      <DetailTabPanel value={activeTab} index={0} prefix="requirement-detail">
+        <RequirementBasicInfo requirement={requirement} onUpdated={onUpdated} />
       </DetailTabPanel>
 
-      <DetailTabPanel value={activeTab} index={1} prefix="behavior-detail">
-        <BehaviorLinkedMetrics behavior={behavior} />
+      <DetailTabPanel value={activeTab} index={1} prefix="requirement-detail">
+        <RequirementLinkedMetrics requirement={requirement} />
       </DetailTabPanel>
 
-      <DetailTabPanel value={activeTab} index={2} prefix="behavior-detail">
-        <BehaviorLinkedTests behavior={behavior} />
+      <DetailTabPanel value={activeTab} index={2} prefix="requirement-detail">
+        <RequirementLinkedTests requirement={requirement} />
       </DetailTabPanel>
     </Box>
   );
 }
 
-function BehaviorBasicInfo({
-  behavior,
+function RequirementBasicInfo({
+  requirement,
   onUpdated,
 }: {
-  behavior: BehaviorWithMetrics;
-  onUpdated: (updated: BehaviorWithMetrics) => void;
+  requirement: RequirementWithMetrics;
+  onUpdated: (updated: RequirementWithMetrics) => void;
 }) {
   const [editOpen, setEditOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | undefined>();
-  const canEditBehavior = useCan(Capability.Behavior.UPDATE);
+  const canEditRequirement = useCan(Capability.Requirement.UPDATE);
 
-  const tags = behavior.tags ?? [];
+  const tags = requirement.tags ?? [];
 
   const handleSave = async (
     name: string,
@@ -118,8 +118,8 @@ function BehaviorBasicInfo({
       setSaving(true);
       setSaveError(undefined);
 
-      const client = new BehaviorClient();
-      await client.updateBehavior(behavior.id as UUID, {
+      const client = new RequirementClient();
+      await client.updateRequirement(requirement.id as UUID, {
         name: name.trim(),
         description: description.trim() || null,
       });
@@ -139,8 +139,8 @@ function BehaviorBasicInfo({
       await Promise.all(
         toRemove.map(tag =>
           tagsClient.removeTagFromEntity(
-            EntityType.BEHAVIOR,
-            behavior.id as UUID,
+            EntityType.REQUIREMENT,
+            requirement.id as UUID,
             tag.id as UUID
           )
         )
@@ -148,18 +148,18 @@ function BehaviorBasicInfo({
       await Promise.all(
         toAdd.map(tagName =>
           tagsClient.assignTagToEntity(
-            EntityType.BEHAVIOR,
-            behavior.id as UUID,
+            EntityType.REQUIREMENT,
+            requirement.id as UUID,
             {
               name: tagName,
-              organization_id: behavior.organization_id,
-              ...(behavior.user_id ? { user_id: behavior.user_id } : {}),
+              organization_id: requirement.organization_id,
+              ...(requirement.user_id ? { user_id: requirement.user_id } : {}),
             }
           )
         )
       );
 
-      const updated = await client.getBehaviorWithMetrics(behavior.id as UUID);
+      const updated = await client.getRequirementWithMetrics(requirement.id as UUID);
       onUpdated(updated);
       setEditOpen(false);
     } catch {
@@ -185,24 +185,24 @@ function BehaviorBasicInfo({
     await Promise.all(
       toRemove.map(tag =>
         tagsClient.removeTagFromEntity(
-          EntityType.BEHAVIOR,
-          behavior.id as UUID,
+          EntityType.REQUIREMENT,
+          requirement.id as UUID,
           tag.id as UUID
         )
       )
     );
     await Promise.all(
       toAdd.map(tagName =>
-        tagsClient.assignTagToEntity(EntityType.BEHAVIOR, behavior.id as UUID, {
+        tagsClient.assignTagToEntity(EntityType.REQUIREMENT, requirement.id as UUID, {
           name: tagName,
-          organization_id: behavior.organization_id,
-          ...(behavior.user_id ? { user_id: behavior.user_id } : {}),
+          organization_id: requirement.organization_id,
+          ...(requirement.user_id ? { user_id: requirement.user_id } : {}),
         })
       )
     );
 
-    const client = new BehaviorClient();
-    const updated = await client.getBehaviorWithMetrics(behavior.id as UUID);
+    const client = new RequirementClient();
+    const updated = await client.getRequirementWithMetrics(requirement.id as UUID);
     onUpdated(updated);
   };
 
@@ -210,21 +210,21 @@ function BehaviorBasicInfo({
     <>
       <Stack spacing={3}>
         <GeneralInfoCard
-          onEdit={canEditBehavior ? () => setEditOpen(true) : undefined}
+          onEdit={canEditRequirement ? () => setEditOpen(true) : undefined}
         >
           <Stack spacing={3}>
-            <ViewField label="Name" value={behavior.name} />
+            <ViewField label="Name" value={requirement.name} />
 
             <ViewField
               label="Description"
-              value={behavior.description || undefined}
+              value={requirement.description || undefined}
               multiline
             />
           </Stack>
         </GeneralInfoCard>
 
         <EditableSectionCard
-          editable={canEditBehavior}
+          editable={canEditRequirement}
           title="Tags"
           initialValue={{ tagNames: tags.map((t: Tag) => t.name) }}
           onSave={handleTagsSave}
@@ -238,18 +238,18 @@ function BehaviorBasicInfo({
               tagNames={draft.tagNames}
               isEditing={isTagsEditing}
               onChange={names => setDraft(d => ({ ...d, tagNames: names }))}
-              helperText="These tags help categorize and find this behavior"
+              helperText="These tags help categorize and find this requirement"
               emptyLabel="No tags"
             />
           )}
         </EditableSectionCard>
       </Stack>
 
-      <BehaviorDrawer
+      <RequirementDrawer
         open={editOpen}
         onClose={() => setEditOpen(false)}
-        name={behavior.name}
-        description={behavior.description ?? ''}
+        name={requirement.name}
+        description={requirement.description ?? ''}
         initialTagNames={tags.map((t: Tag) => t.name)}
         tagSuggestions={tags.map((t: Tag) => t.name)}
         onSave={handleSave}
@@ -261,16 +261,16 @@ function BehaviorBasicInfo({
   );
 }
 
-function BehaviorLinkedMetrics({
-  behavior,
+function RequirementLinkedMetrics({
+  requirement,
 }: {
-  behavior: BehaviorWithMetrics;
+  requirement: RequirementWithMetrics;
 }) {
   const router = useRouter();
   const notifications = useNotifications();
-  const canEditBehavior = useCan(Capability.Behavior.UPDATE);
+  const canEditRequirement = useCan(Capability.Requirement.UPDATE);
   const [metrics, setMetrics] = useState<MetricWithRelationships[]>(
-    behavior.metrics ?? []
+    requirement.metrics ?? []
   );
   const [loading, setLoading] = useState(false);
 
@@ -300,28 +300,28 @@ function BehaviorLinkedMetrics({
   const fetchLinked = useCallback(async () => {
     setLoading(true);
     try {
-      const client = new BehaviorClient();
-      const result = await client.getBehaviorWithMetrics(behavior.id as UUID);
+      const client = new RequirementClient();
+      const result = await client.getRequirementWithMetrics(requirement.id as UUID);
       setMetrics(result.metrics ?? []);
     } catch {
       // keep existing
     } finally {
       setLoading(false);
     }
-  }, [behavior.id]);
+  }, [requirement.id]);
 
   useEffect(() => {
     fetchLinked();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only on mount / id change
-  }, [behavior.id]);
+  }, [requirement.id]);
 
   const handleUnassign = useCallback(
     async (metricId: string) => {
       try {
         const client = new MetricsClient();
-        await client.removeBehaviorFromMetric(
+        await client.removeRequirementFromMetric(
           metricId as UUID,
-          behavior.id as UUID
+          requirement.id as UUID
         );
         setMetrics(prev => prev.filter(m => String(m.id) !== metricId));
         notifications.show('Metric unassigned', {
@@ -337,7 +337,7 @@ function BehaviorLinkedMetrics({
         );
       }
     },
-    [behavior.id, notifications]
+    [requirement.id, notifications]
   );
 
   // Linked metrics columns (with unassign action)
@@ -385,13 +385,13 @@ function BehaviorLinkedMetrics({
           ) : null,
       },
       createRowActionsColumn({
-        canDelete: () => canEditBehavior,
+        canDelete: () => canEditRequirement,
         onDelete: id => handleUnassign(id),
         deleteTooltip: 'Unassign',
         deleteIcon: LinkOffIcon,
       }),
     ],
-    [handleUnassign, canEditBehavior]
+    [handleUnassign, canEditRequirement]
   );
 
   // Assign drawer columns (name + description + badges, no action)
@@ -461,13 +461,13 @@ function BehaviorLinkedMetrics({
       const client = new MetricsClient();
       await Promise.all(
         selectedIds.map(id =>
-          client.addBehaviorToMetric(id as UUID, behavior.id as UUID)
+          client.addRequirementToMetric(id as UUID, requirement.id as UUID)
         )
       );
       await fetchLinked();
       setAssignOpen(false);
     },
-    [behavior.id, fetchLinked]
+    [requirement.id, fetchLinked]
   );
 
   // Score Type pill tabs
@@ -621,7 +621,7 @@ function BehaviorLinkedMetrics({
         loading={loading}
         getRowId={row => String(row.id)}
         onRowClick={params => router.push(`/metrics/${String(params.id)}`)}
-        onAssignClick={canEditBehavior ? handleAssignClick : undefined}
+        onAssignClick={canEditRequirement ? handleAssignClick : undefined}
         searchPlaceholder="Search metrics…"
         rowFilter={rowFilter}
         onFilterClick={() => setFilterOpen(true)}
@@ -649,8 +649,8 @@ function BehaviorLinkedMetrics({
               No metrics assigned yet
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              No metrics have been assigned to this behavior yet. Click Assign
-              to link a metric and start measuring this behavior.
+              No metrics have been assigned to this requirement yet. Click Assign
+              to link a metric and start measuring this requirement.
             </Typography>
           </Box>
         }

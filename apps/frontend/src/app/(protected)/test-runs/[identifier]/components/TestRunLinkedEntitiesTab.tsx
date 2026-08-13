@@ -12,7 +12,7 @@ interface TestRunLinkedEntitiesTabProps {
   filteredTests: TestResultDetail[];
   filter: FilterState;
   onFilterChange: (filter: FilterState) => void;
-  availableBehaviors: Array<{
+  availableRequirements: Array<{
     id: string;
     name: string;
     description?: string;
@@ -30,7 +30,7 @@ interface TestRunLinkedEntitiesTabProps {
   testRunId: string;
   loading?: boolean;
   prompts: Record<string, { content: string; name?: string }>;
-  behaviors: Array<{
+  requirements: Array<{
     id: string;
     name: string;
     description?: string;
@@ -52,7 +52,7 @@ export default function TestRunLinkedEntitiesTab({
   filteredTests,
   filter,
   onFilterChange,
-  availableBehaviors,
+  availableRequirements,
   availableMetrics,
   isDownloading,
   onDownload,
@@ -65,7 +65,7 @@ export default function TestRunLinkedEntitiesTab({
   testRunId,
   loading = false,
   prompts,
-  behaviors,
+  requirements,
   onTestResultUpdate,
   currentUserId,
   currentUserName,
@@ -99,7 +99,7 @@ export default function TestRunLinkedEntitiesTab({
       <TestRunFilterBar
         filter={filter}
         onFilterChange={onFilterChange}
-        availableBehaviors={availableBehaviors}
+        availableRequirements={availableRequirements}
         availableMetrics={availableMetrics.map(name => ({ name }))}
         onDownload={onDownload}
         onCompare={onCompare}
@@ -117,7 +117,7 @@ export default function TestRunLinkedEntitiesTab({
       <TestsTableView
         tests={filteredTests}
         prompts={prompts}
-        behaviors={behaviors}
+        requirements={requirements}
         testRunId={testRunId}
         loading={loading}
         onTestResultUpdate={onTestResultUpdate}

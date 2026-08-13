@@ -3,7 +3,7 @@
 import React from 'react';
 import { alpha, Box, Theme, Typography } from '@mui/material';
 import { getReviewBand } from '@/app/(protected)/test-runs/[identifier]/components/test-run-summary-utils';
-import { DimensionItem } from '../utils/behavior-insights-utils';
+import { DimensionItem } from '../utils/requirement-insights-utils';
 import { InsightsFilters } from '../types';
 import {
   buildInsightsFailedTestsUrl,
@@ -60,16 +60,16 @@ function isClickable(item: DimensionItem): boolean {
 interface DimensionRowsProps {
   items: DimensionItem[];
   insightsFilters: InsightsFilters;
-  behaviorId: string;
-  behaviorName: string;
+  requirementId: string;
+  requirementName: string;
   dimension: 'metric' | 'topic';
 }
 
 function DimensionRows({
   items,
   insightsFilters,
-  behaviorId,
-  behaviorName,
+  requirementId,
+  requirementName,
   dimension,
 }: DimensionRowsProps) {
   if (items.length === 0) {
@@ -82,8 +82,8 @@ function DimensionRows({
 
   const openTestsForDimension = (item: DimensionItem) => {
     const scope: InsightsFailedTestsScope = {
-      behaviorId,
-      behaviorName,
+      requirementId,
+      requirementName,
       outcome: 'all',
       ...(dimension === 'metric'
         ? { metricName: item.name }
@@ -174,19 +174,19 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-interface BehaviorMetricListProps {
+interface RequirementMetricListProps {
   items: DimensionItem[];
   insightsFilters: InsightsFilters;
-  behaviorId: string;
-  behaviorName: string;
+  requirementId: string;
+  requirementName: string;
 }
 
-export function BehaviorMetricList({
+export function RequirementMetricList({
   items,
   insightsFilters,
-  behaviorId,
-  behaviorName,
-}: BehaviorMetricListProps) {
+  requirementId,
+  requirementName,
+}: RequirementMetricListProps) {
   if (items.length === 0) return null;
 
   return (
@@ -195,27 +195,27 @@ export function BehaviorMetricList({
       <DimensionRows
         items={items}
         insightsFilters={insightsFilters}
-        behaviorId={behaviorId}
-        behaviorName={behaviorName}
+        requirementId={requirementId}
+        requirementName={requirementName}
         dimension="metric"
       />
     </Box>
   );
 }
 
-interface BehaviorTopicListProps {
+interface RequirementTopicListProps {
   items: DimensionItem[];
   insightsFilters: InsightsFilters;
-  behaviorId: string;
-  behaviorName: string;
+  requirementId: string;
+  requirementName: string;
 }
 
-export function BehaviorTopicList({
+export function RequirementTopicList({
   items,
   insightsFilters,
-  behaviorId,
-  behaviorName,
-}: BehaviorTopicListProps) {
+  requirementId,
+  requirementName,
+}: RequirementTopicListProps) {
   if (items.length === 0) return null;
 
   return (
@@ -224,8 +224,8 @@ export function BehaviorTopicList({
       <DimensionRows
         items={items}
         insightsFilters={insightsFilters}
-        behaviorId={behaviorId}
-        behaviorName={behaviorName}
+        requirementId={requirementId}
+        requirementName={requirementName}
         dimension="topic"
       />
     </Box>

@@ -81,7 +81,7 @@ export default function ExplorerClient() {
     <>
       <PageLayout
         title="Explorer"
-        description="Interactive sessions to discover behaviors, generate tests, and export them to test sets."
+        description="Interactive sessions to discover requirements, generate tests, and export them to test sets."
         breadcrumbs={[]}
         actions={
           <FabGroup>

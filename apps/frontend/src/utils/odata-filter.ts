@@ -41,7 +41,7 @@ export function createWildcardSearchFilter(searchTerm: string): string {
 
   // Define all the searchable fields for tests
   const searchableFields = [
-    'behavior/name',
+    'requirement/name',
     'topic/name',
     'category/name',
     'prompt/content',
@@ -167,7 +167,7 @@ function convertFilterItemToOData(item: GridFilterItem): string {
   }
 
   // Convert dot notation to OData relationship syntax
-  // e.g., 'behavior.name' becomes 'behavior/name'
+  // e.g., 'requirement.name' becomes 'requirement/name'
   const odataField = field.replace(/\./g, '/');
 
   // Handle different operators following the official OData guide patterns
@@ -588,7 +588,7 @@ export function convertTestQuickFilterToOData(
   // Define test searchable fields - based on TestsGrid columns
   const searchFields = [
     'prompt/content',
-    'behavior/name',
+    'requirement/name',
     'topic/name',
     'category/name',
   ];
@@ -1350,7 +1350,7 @@ export interface MetricDirectoryFilters {
   backend: string[];
   type: string[];
   scoreType: string[];
-  behavior: string;
+  requirement: string;
 }
 
 /** Tag applied to OWASP metrics by the tag_owasp_metrics_and_behaviors migration. */
@@ -1400,30 +1400,30 @@ export function buildMetricODataFilter(
     s => `tolower(score_type) eq tolower('${escapeODataValue(s)}')`
   );
 
-  if (f.behavior.trim()) {
-    const b = escapeODataValue(f.behavior.trim());
-    parts.push(`behaviors/any(b: tolower(b/name) eq tolower('${b}'))`);
+  if (f.requirement.trim()) {
+    const b = escapeODataValue(f.requirement.trim());
+    parts.push(`requirements/any(b: tolower(b/name) eq tolower('${b}'))`);
   }
 
   return joinODataParts(parts);
 }
 
-// ── Behavior directory filters ────────────────────────────────────────────────
+// ── Requirement directory filters ────────────────────────────────────────────────
 
-export type BehaviorMetricCountFilter = 'all' | 'has_metrics' | 'no_metrics';
+export type RequirementMetricCountFilter = 'all' | 'has_metrics' | 'no_metrics';
 
-export interface BehaviorDirectoryFilters {
+export interface RequirementDirectoryFilters {
   search: string;
-  metricCount: BehaviorMetricCountFilter;
+  metricCount: RequirementMetricCountFilter;
   tagNames: string[];
 }
 
 /**
- * Builds an OData $filter string for the behavior list endpoint.
+ * Builds an OData $filter string for the requirement list endpoint.
  * Returns undefined when no filters are active.
  */
-export function buildBehaviorODataFilter(
-  f: BehaviorDirectoryFilters
+export function buildRequirementODataFilter(
+  f: RequirementDirectoryFilters
 ): string | undefined {
   const parts: string[] = [];
 

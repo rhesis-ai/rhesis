@@ -405,7 +405,7 @@ export default function TestSetsGrid({
         id: testSet.id,
         name: testSet.name,
         testSetType: testSet.test_set_type?.type_value || '',
-        behaviors: testSet.attributes?.metadata?.behaviors || [],
+        requirements: testSet.attributes?.metadata?.requirements || [],
         categories: testSet.attributes?.metadata?.categories || [],
         totalTests: testSet.attributes?.metadata?.total_tests || 0,
         creator: testSet.user,
@@ -434,13 +434,13 @@ export default function TestSetsGrid({
         filterable: true,
       },
       {
-        field: 'behaviors',
-        headerName: 'Behaviors',
+        field: 'requirements',
+        headerName: 'Requirements',
         width: 160,
         minWidth: 100,
         resizable: true,
         renderCell: params => (
-          <ChipContainer items={params.row.behaviors || []} />
+          <ChipContainer items={params.row.requirements || []} />
         ),
       },
       {

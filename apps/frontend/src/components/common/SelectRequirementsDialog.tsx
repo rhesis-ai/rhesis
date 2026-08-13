@@ -18,86 +18,86 @@ import {
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import { PsychologyIcon } from '@/components/icons';
-import { BehaviorClient } from '@/utils/api-client/behavior-client';
-import type { BehaviorWithMetrics } from '@/utils/api-client/interfaces/behavior';
+import { RequirementClient } from '@/utils/api-client/requirement-client';
+import type { RequirementWithMetrics } from '@/utils/api-client/interfaces/requirement';
 import type { UUID } from 'crypto';
 
-interface SelectBehaviorsDialogProps {
+interface SelectRequirementsDialogProps {
   open: boolean;
   onClose: () => void;
-  onSelect: (behaviorId: UUID) => void;
-  excludeBehaviorIds?: UUID[];
+  onSelect: (requirementId: UUID) => void;
+  excludeRequirementIds?: UUID[];
 }
 
-export default function SelectBehaviorsDialog({
+export default function SelectRequirementsDialog({
   open,
   onClose,
   onSelect,
-  excludeBehaviorIds = [],
-}: SelectBehaviorsDialogProps) {
-  const [behaviors, setBehaviors] = React.useState<BehaviorWithMetrics[]>([]);
-  const [filteredBehaviors, setFilteredBehaviors] = React.useState<
-    BehaviorWithMetrics[]
+  excludeRequirementIds = [],
+}: SelectRequirementsDialogProps) {
+  const [requirements, setRequirements] = React.useState<RequirementWithMetrics[]>([]);
+  const [filteredRequirements, setFilteredRequirements] = React.useState<
+    RequirementWithMetrics[]
   >([]);
   const [searchQuery, setSearchQuery] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  const fetchBehaviors = React.useCallback(async () => {
+  const fetchRequirements = React.useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
-      const behaviorClient = new BehaviorClient();
-      const behaviorsList = await behaviorClient.getBehaviorsWithMetrics({
+      const requirementClient = new RequirementClient();
+      const requirementsList = await requirementClient.getRequirementsWithMetrics({
         skip: 0,
         limit: 100,
         sort_by: 'name',
         sort_order: 'asc',
       });
 
-      // Filter out excluded behaviors
-      const availableBehaviors = behaviorsList.filter(
-        behavior => !excludeBehaviorIds.includes(behavior.id)
+      // Filter out excluded requirements
+      const availableRequirements = requirementsList.filter(
+        requirement => !excludeRequirementIds.includes(requirement.id)
       );
 
-      setBehaviors(availableBehaviors);
-      setFilteredBehaviors(availableBehaviors);
+      setRequirements(availableRequirements);
+      setFilteredRequirements(availableRequirements);
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : 'Failed to fetch behaviors'
+        err instanceof Error ? err.message : 'Failed to fetch requirements'
       );
     } finally {
       setIsLoading(false);
     }
-  }, [excludeBehaviorIds]);
+  }, [excludeRequirementIds]);
 
-  // Fetch behaviors when dialog opens
+  // Fetch requirements when dialog opens
   React.useEffect(() => {
     if (open) {
-      fetchBehaviors();
+      fetchRequirements();
       setSearchQuery('');
     }
-  }, [open, fetchBehaviors]);
+  }, [open, fetchRequirements]);
 
-  // Filter behaviors based on search query
+  // Filter requirements based on search query
   React.useEffect(() => {
     if (!searchQuery.trim()) {
-      setFilteredBehaviors(behaviors);
+      setFilteredRequirements(requirements);
       return;
     }
 
     const query = searchQuery.toLowerCase();
-    const filtered = behaviors.filter(
-      behavior =>
-        behavior.name?.toLowerCase().includes(query) ||
-        behavior.description?.toLowerCase().includes(query)
+    const filtered = requirements.filter(
+      requirement =>
+        requirement.name?.toLowerCase().includes(query) ||
+        requirement.description?.toLowerCase().includes(query)
     );
 
-    setFilteredBehaviors(filtered);
-  }, [searchQuery, behaviors]);
+    setFilteredRequirements(filtered);
+  }, [searchQuery, requirements]);
 
-  const handleSelect = (behaviorId: UUID) => {
-    onSelect(behaviorId);
+  const handleSelect = (requirementId: UUID) => {
+    onSelect(requirementId);
     onClose();
   };
 
@@ -115,10 +115,10 @@ export default function SelectBehaviorsDialog({
     >
       <DialogTitle>
         <Typography variant="h6" component="div">
-          Add to Behavior
+          Add to Requirement
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-          Select a behavior to assign this metric to
+          Select a requirement to assign this metric to
         </Typography>
       </DialogTitle>
 
@@ -126,7 +126,7 @@ export default function SelectBehaviorsDialog({
         <Box sx={{ mb: 2 }}>
           <TextField
             fullWidth
-            placeholder="Search behaviors..."
+            placeholder="Search requirements..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             InputProps={{
@@ -150,25 +150,25 @@ export default function SelectBehaviorsDialog({
             }}
           >
             <CircularProgress size={24} sx={{ mr: 1 }} />
-            <Typography>Loading behaviors...</Typography>
+            <Typography>Loading requirements...</Typography>
           </Box>
         ) : error ? (
           <Box sx={{ textAlign: 'center', py: 4 }}>
             <Typography color="error">{error}</Typography>
           </Box>
-        ) : filteredBehaviors.length === 0 ? (
+        ) : filteredRequirements.length === 0 ? (
           <Box sx={{ textAlign: 'center', py: 4 }}>
             <Typography color="text.secondary">
-              {behaviors.length === 0
-                ? 'No behaviors available'
-                : 'No behaviors match your search'}
+              {requirements.length === 0
+                ? 'No requirements available'
+                : 'No requirements match your search'}
             </Typography>
           </Box>
         ) : (
           <Stack spacing={1.5} sx={{ maxHeight: '400px', overflowY: 'auto' }}>
-            {filteredBehaviors.map(behavior => (
+            {filteredRequirements.map(requirement => (
               <Paper
-                key={behavior.id}
+                key={requirement.id}
                 elevation={0}
                 sx={{
                   p: 2,
@@ -183,7 +183,7 @@ export default function SelectBehaviorsDialog({
                     boxShadow: 1,
                   },
                 }}
-                onClick={() => handleSelect(behavior.id as UUID)}
+                onClick={() => handleSelect(requirement.id as UUID)}
               >
                 <Box
                   sx={{
@@ -207,9 +207,9 @@ export default function SelectBehaviorsDialog({
                         whiteSpace: 'nowrap',
                       }}
                     >
-                      {behavior.name}
+                      {requirement.name}
                     </Typography>
-                    {behavior.description && (
+                    {requirement.description && (
                       <Typography
                         variant="body2"
                         color="text.secondary"
@@ -221,12 +221,12 @@ export default function SelectBehaviorsDialog({
                           overflow: 'hidden',
                         }}
                       >
-                        {behavior.description}
+                        {requirement.description}
                       </Typography>
                     )}
-                    {behavior.metrics && behavior.metrics.length > 0 && (
+                    {requirement.metrics && requirement.metrics.length > 0 && (
                       <Chip
-                        label={`${behavior.metrics.length} ${behavior.metrics.length === 1 ? 'Metric' : 'Metrics'}`}
+                        label={`${requirement.metrics.length} ${requirement.metrics.length === 1 ? 'Metric' : 'Metrics'}`}
                         size="small"
                         variant="outlined"
                       />

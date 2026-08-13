@@ -58,8 +58,8 @@ export function buildInsightsSummarizeSessionTitle(input: {
 export interface BuildInsightsSummarizePromptInput {
   endpointName: string;
   filters: InsightsFilters;
-  /** Behavior names currently visible (multi-select ∩ search). */
-  visibleBehaviorNames: string[];
+  /** Requirement names currently visible (multi-select ∩ search). */
+  visibleRequirementNames: string[];
   testRunIds: string[];
   truncated: boolean;
   totalMatched: number;
@@ -70,9 +70,9 @@ export function buildInsightsSummarizePrompt(
   input: BuildInsightsSummarizePromptInput
 ): string {
   const period = formatInsightsPeriodLabel(input.filters);
-  const behaviors =
-    input.visibleBehaviorNames.length > 0
-      ? input.visibleBehaviorNames.join(', ')
+  const requirements =
+    input.visibleRequirementNames.length > 0
+      ? input.visibleRequirementNames.join(', ')
       : 'all visible';
 
   const truncationNote = input.truncated
@@ -89,7 +89,7 @@ export function buildInsightsSummarizePrompt(
     '',
     `Endpoint: ${input.endpointName.trim() || 'unknown'}`,
     `Period / runs: ${period}`,
-    `Behaviors in scope: ${behaviors}`,
+    `Requirements in scope: ${requirements}`,
     `Test run IDs (max ${MAX_ARCHITECT_INSIGHTS_TEST_RUN_IDS}): ${input.testRunIds.join(', ') || '(none)'}`,
   ];
 
@@ -99,7 +99,7 @@ export function buildInsightsSummarizePrompt(
 
   lines.push(
     '',
-    'Please re-fetch stats for this scope, summarize overall and by behavior/metric,',
+    'Please re-fetch stats for this scope, summarize overall and by requirement/metric,',
     'then sample a few failed results and call out patterns and next steps.'
   );
 

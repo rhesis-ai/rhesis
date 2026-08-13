@@ -5,28 +5,28 @@ import { User } from './user';
 import { Tag } from './tag';
 import { MetricScope } from './metric';
 
-export interface BehaviorBase {
+export interface RequirementBase {
   name: string;
   description?: string | null;
   user_id?: UUID | null;
   organization_id?: UUID | null;
 }
 
-export type BehaviorCreate = BehaviorBase;
+export type RequirementCreate = RequirementBase;
 
-export type BehaviorUpdate = Partial<BehaviorBase>;
+export type RequirementUpdate = Partial<RequirementBase>;
 
-export interface Behavior extends BehaviorBase {
+export interface Requirement extends RequirementBase {
   id: UUID;
 }
 
-export interface BehaviorReference {
+export interface RequirementReference {
   id: UUID;
   name: string;
   description?: string | null;
 }
 
-export interface BehaviorWithMetrics extends BehaviorBase {
+export interface RequirementWithMetrics extends RequirementBase {
   id: UUID;
   name: string;
   description?: string | null;
@@ -53,7 +53,7 @@ export interface MetricWithRelationships {
   status?: Status | null;
 }
 
-export interface BehaviorsQueryParams {
+export interface RequirementsQueryParams {
   skip?: number;
   limit?: number;
   sort_by?: string;
