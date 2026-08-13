@@ -70,7 +70,7 @@ class Organization(Base, TagsMixin):
     test_sets = relationship("TestSet", back_populates="organization")
     endpoints = relationship("Endpoint", back_populates="organization")
     projects = relationship("Project", back_populates="organization")
-    behaviors = relationship("Behavior", back_populates="organization")
+    requirements = relationship("Requirement", back_populates="organization")
     categories = relationship("Category", back_populates="organization")
     statuses = relationship("Status", back_populates="organization")
     test_configurations = relationship("TestConfiguration", back_populates="organization")

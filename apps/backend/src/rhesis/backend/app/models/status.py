@@ -14,7 +14,7 @@ class Status(Base, ProjectMixin, OrganizationAndUserMixin):
 
     entity_type = relationship("TypeLookup", back_populates="statuses")
 
-    behaviors = relationship("Behavior", back_populates="status")
+    requirements = relationship("Requirement", back_populates="status")
     categories = relationship("Category", back_populates="status")
     endpoints = relationship("Endpoint", back_populates="status")
     topics = relationship("Topic", back_populates="status")

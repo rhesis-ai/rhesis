@@ -3,7 +3,7 @@ DECLARE
     rec RECORD;
 BEGIN
     FOR rec IN 
-        SELECT id, behavior_id, category_id, topic_id
+        SELECT id, requirement_id, category_id, topic_id
         FROM public.prompt
         ORDER BY created_at
     LOOP
@@ -18,7 +18,7 @@ BEGIN
             test_configuration,
             parent_id,
             topic_id,
-            behavior_id,
+            requirement_id,
             category_id,
             status_id,
             nano_id,
@@ -36,7 +36,7 @@ BEGIN
             '{}'::jsonb, -- empty test_configuration
             NULL, -- parent_id
             rec.topic_id,
-            rec.behavior_id,
+            rec.requirement_id,
             rec.category_id,
             '63b7bd48-1fc8-48ec-8f3c-3f731ca3207b', -- fixed status_id
             NULL, -- nano_id (can be generated later if needed)

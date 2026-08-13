@@ -39,7 +39,7 @@ class Prompt(
         default="en-US",
         comment="Standardized language code with IETF language tag",
     )
-    behavior_id = Column(GUID(), ForeignKey("behavior.id"))
+    requirement_id = Column(GUID(), ForeignKey("requirement.id"))
     parent_id = Column(GUID(), ForeignKey("prompt.id"))
     prompt_template_id = Column(GUID(), ForeignKey("prompt_template.id"))
     expected_response = Column(Text)
@@ -47,7 +47,7 @@ class Prompt(
     user_id = Column(GUID(), ForeignKey("user.id"))
     status_id = Column(GUID(), ForeignKey("status.id"))
     user = relationship("User", back_populates="prompts")
-    behavior = relationship("Behavior", back_populates="prompts")
+    requirement = relationship("Requirement", back_populates="prompts")
     category = relationship(
         "Category", back_populates="prompts", foreign_keys="[Prompt.category_id]"
     )
@@ -77,7 +77,7 @@ class Prompt(
             "attack_category": self.attack_category.name if self.attack_category else None,
             "topic": self.topic.name if self.topic else None,
             "language_code": self.language_code,
-            "behavior": self.behavior.name if self.behavior else None,
+            "requirement": self.requirement.name if self.requirement else None,
             "parent": self.parent.content
             if self.parent
             else None,  # Assuming you want the content of the parent

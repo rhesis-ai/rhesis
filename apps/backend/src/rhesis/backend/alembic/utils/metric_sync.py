@@ -27,8 +27,8 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import models
 from rhesis.backend.app.constants import EntityType
 from rhesis.backend.app.utils.crud_utils import (
-    get_or_create_behavior,
     get_or_create_entity,
+    get_or_create_requirement,
     get_or_create_status,
     get_or_create_type_lookup,
 )
@@ -39,7 +39,7 @@ def _load_initial_data() -> Dict[str, Any]:
     """Load the full initial_data.json payload.
 
     Cached because a single migration run can call this (indirectly, via
-    ``load_metrics_from_initial_data`` / ``load_behaviors_from_initial_data``)
+    ``load_metrics_from_initial_data`` / ``load_requirements_from_initial_data``)
     several times, and the file is not small.
     """
     # Get the path to initial_data.json relative to this file
@@ -100,14 +100,19 @@ def load_metrics_from_initial_data() -> List[Dict[str, Any]]:
     return _load_initial_data().get("metric", [])
 
 
-def load_behaviors_from_initial_data() -> List[Dict[str, Any]]:
+def load_requirements_from_initial_data() -> List[Dict[str, Any]]:
     """
-    Load behaviors from initial_data.json file.
+    Load requirements from initial_data.json file.
+
+    Checks the "requirement" key first, falling back to "behavior" — the
+    top-level key in initial_data.json itself is renamed in a later PR, and
+    this must keep working against either.
 
     Returns:
-        List of behavior definitions from initial_data.json
+        List of requirement definitions from initial_data.json
     """
-    return _load_initial_data().get("behavior", [])
+    data = _load_initial_data()
+    return data.get("requirement") or data.get("behavior", [])
 
 
 def sync_metrics_to_organizations(
@@ -269,34 +274,37 @@ def sync_metrics_to_organizations(
                         commit=False,
                     )
 
-                    # Process behavior associations. Literal keys, not app.constants'
-                    # BEHAVIOR_LIST_KEY: this module is imported by frozen migrations
+                    # Process requirement associations. Literal keys, not app.constants'
+                    # REQUIREMENT_LIST_KEY: this module is imported by frozen migrations
                     # (e.g. c2d3e4f5a6b7) that hardcode "behaviors" in their own
                     # metric_definitions and can never be edited, so a rename of that
                     # constant's value must not change what this lookup reads. Checked
                     # in rename-then-frozen order so a post-rename initial_data.json
                     # (using the new key) still matches.
-                    behavior_names = metric_item.get("requirements") or metric_item.get(
+                    requirement_names = metric_item.get("requirements") or metric_item.get(
                         "behaviors", []
                     )
-                    for behavior_name in behavior_names:
-                        behavior = (
-                            session.query(models.Behavior)
+                    for requirement_name in requirement_names:
+                        requirement = (
+                            session.query(models.Requirement)
                             .filter(
-                                models.Behavior.name == behavior_name,
-                                models.Behavior.organization_id == org_id,
+                                models.Requirement.name == requirement_name,
+                                models.Requirement.organization_id == org_id,
                             )
                             .first()
                         )
-                        if behavior:
+                        if requirement:
                             # Check if association already exists
-                            from rhesis.backend.app.models.metric import behavior_metric_association
+                            from rhesis.backend.app.models.metric import (
+                                requirement_metric_association,
+                            )
 
                             existing = session.execute(
-                                behavior_metric_association.select().where(
-                                    behavior_metric_association.c.behavior_id == behavior.id,
-                                    behavior_metric_association.c.metric_id == metric.id,
-                                    behavior_metric_association.c.organization_id
+                                requirement_metric_association.select().where(
+                                    requirement_metric_association.c.requirement_id
+                                    == requirement.id,
+                                    requirement_metric_association.c.metric_id == metric.id,
+                                    requirement_metric_association.c.organization_id
                                     == uuid.UUID(organization_id),
                                 )
                             ).first()
@@ -304,8 +312,8 @@ def sync_metrics_to_organizations(
                             # Create association with explicit organization_id and user_id
                             if not existing:
                                 session.execute(
-                                    behavior_metric_association.insert().values(
-                                        behavior_id=behavior.id,
+                                    requirement_metric_association.insert().values(
+                                        requirement_id=requirement.id,
                                         metric_id=metric.id,
                                         organization_id=uuid.UUID(organization_id),
                                         user_id=uuid.UUID(user_id),
@@ -396,25 +404,25 @@ def remove_metrics_from_organizations(
         raise
 
 
-def sync_behaviors_to_organizations(
+def sync_requirements_to_organizations(
     session: Session,
-    behavior_names: List[str] | None = None,
+    requirement_names: List[str] | None = None,
     verbose: bool = True,
     commit: bool = False,
 ) -> Dict[str, int]:
     """
-    Sync behaviors to all existing organizations.
+    Sync requirements to all existing organizations.
 
-    Loads behavior definitions from initial_data.json.
+    Loads requirement definitions from initial_data.json.
 
-    This function is fully idempotent - it will only create behaviors that don't
+    This function is fully idempotent - it will only create requirements that don't
     already exist in each organization (matched by name via
-    ``get_or_create_behavior``). It's safe to run multiple times.
+    ``get_or_create_requirement``). It's safe to run multiple times.
 
     Args:
         session: SQLAlchemy database session
-        behavior_names: Optional list of behavior names to sync. If None, syncs all
-            behaviors.
+        requirement_names: Optional list of requirement names to sync. If None, syncs all
+            requirements.
         verbose: If True, print progress messages
         commit: If True, commit the session after syncing. If False, caller is responsible.
 
@@ -435,18 +443,20 @@ def sync_behaviors_to_organizations(
 
     try:
         if verbose:
-            print("\n📖 Loading behaviors from initial_data.json...")
+            print("\n📖 Loading requirements from initial_data.json...")
 
-        all_behaviors = load_behaviors_from_initial_data()
+        all_requirements = load_requirements_from_initial_data()
 
-        if behavior_names is not None:
-            behavior_names_set = set(behavior_names)
-            all_behaviors = [b for b in all_behaviors if b["name"] in behavior_names_set]
+        if requirement_names is not None:
+            requirement_names_set = set(requirement_names)
+            all_requirements = [
+                r for r in all_requirements if r["name"] in requirement_names_set
+            ]
             if verbose:
-                print(f"   Filtered to {len(all_behaviors)} behaviors by name")
+                print(f"   Filtered to {len(all_requirements)} requirements by name")
 
         if verbose:
-            print(f"   Found {len(all_behaviors)} behavior definitions")
+            print(f"   Found {len(all_requirements)} requirement definitions")
 
         org_rows = _list_organizations_with_owner(session, verbose=verbose)
 
@@ -456,32 +466,32 @@ def sync_behaviors_to_organizations(
         for organization_id, user_id in org_rows:
             org_id = uuid.UUID(organization_id)
 
-            # Get existing behaviors for this organization
-            existing_behaviors = (
-                session.query(models.Behavior)
-                .filter(models.Behavior.organization_id == org_id)
+            # Get existing requirements for this organization
+            existing_requirements = (
+                session.query(models.Requirement)
+                .filter(models.Requirement.organization_id == org_id)
                 .all()
             )
-            existing_behavior_names = {b.name for b in existing_behaviors}
+            existing_requirement_names = {r.name for r in existing_requirements}
 
             org_created = 0
             org_skipped = 0
             org_errors = 0
 
-            for behavior_item in all_behaviors:
-                behavior_name = behavior_item["name"]
+            for requirement_item in all_requirements:
+                requirement_name = requirement_item["name"]
 
-                # Skip if behavior already exists (idempotent)
-                if behavior_name in existing_behavior_names:
+                # Skip if requirement already exists (idempotent)
+                if requirement_name in existing_requirement_names:
                     org_skipped += 1
                     continue
 
                 try:
-                    get_or_create_behavior(
+                    get_or_create_requirement(
                         db=session,
-                        name=behavior_item["name"],
-                        description=behavior_item.get("description"),
-                        status=behavior_item.get("status"),
+                        name=requirement_item["name"],
+                        description=requirement_item.get("description"),
+                        status=requirement_item.get("status"),
                         organization_id=organization_id,
                         user_id=user_id,
                         commit=False,
@@ -491,7 +501,7 @@ def sync_behaviors_to_organizations(
                 except Exception as e:
                     if verbose:
                         print(
-                            f"  ✗ Error creating behavior '{behavior_name}' "
+                            f"  ✗ Error creating requirement '{requirement_name}' "
                             f"for org {organization_id}: {e}"
                         )
                     org_errors += 1
@@ -509,66 +519,93 @@ def sync_behaviors_to_organizations(
             session.commit()
 
         if verbose:
-            print("\n✅ Behavior sync complete!")
-            print(f"   Created: {stats['total_created']} behaviors")
-            print(f"   Skipped (already exist): {stats['total_skipped']} behaviors")
+            print("\n✅ Requirement sync complete!")
+            print(f"   Created: {stats['total_created']} requirements")
+            print(f"   Skipped (already exist): {stats['total_skipped']} requirements")
             if stats["total_errors"] > 0:
-                print(f"   Errors: {stats['total_errors']} behaviors")
+                print(f"   Errors: {stats['total_errors']} requirements")
             print()
 
     except Exception as e:
         if verbose:
-            print(f"\n❌ Behavior sync failed: {e}\n")
+            print(f"\n❌ Requirement sync failed: {e}\n")
         raise
 
     return stats
 
 
-def remove_behaviors_from_organizations(
-    session: Session, behavior_names: List[str], verbose: bool = True, commit: bool = False
+def remove_requirements_from_organizations(
+    session: Session, requirement_names: List[str], verbose: bool = True, commit: bool = False
 ) -> int:
     """
-    Remove specific behaviors from all organizations.
+    Remove specific requirements from all organizations.
 
     Useful for downgrade migrations. Callers should generally remove any metrics
-    associated with these behaviors first (e.g. via ``remove_metrics_from_organizations``)
-    since deleting a behavior does not cascade to metrics, and behaviors still
-    referenced by prompts/tests/response patterns will fail to delete due to
-    foreign key constraints.
+    associated with these requirements first (e.g. via ``remove_metrics_from_organizations``)
+    since deleting a requirement does not cascade to metrics, and requirements still
+    referenced by prompts/tests will fail to delete due to foreign key constraints.
 
     Args:
         session: SQLAlchemy database session
-        behavior_names: List of behavior names to remove
+        requirement_names: List of requirement names to remove
         verbose: If True, print progress messages
         commit: If True, commit the session after removal. If False, caller is responsible.
 
     Returns:
-        Number of behaviors deleted
+        Number of requirements deleted
     """
     try:
         if verbose:
-            print(f"\n🗑 Removing behaviors: {', '.join(behavior_names)}...")
+            print(f"\n🗑 Removing requirements: {', '.join(requirement_names)}...")
 
-        # Find behaviors to delete
-        behaviors_to_delete = (
-            session.query(models.Behavior).filter(models.Behavior.name.in_(behavior_names)).all()
+        # Find requirements to delete
+        requirements_to_delete = (
+            session.query(models.Requirement)
+            .filter(models.Requirement.name.in_(requirement_names))
+            .all()
         )
 
-        deleted_count = len(behaviors_to_delete)
+        deleted_count = len(requirements_to_delete)
 
-        # Delete each behavior individually
-        for behavior in behaviors_to_delete:
-            session.delete(behavior)
+        # Delete each requirement individually
+        for requirement in requirements_to_delete:
+            session.delete(requirement)
 
         if commit:
             session.commit()
 
         if verbose:
-            print(f"   Removed {deleted_count} behavior(s)\n")
+            print(f"   Removed {deleted_count} requirement(s)\n")
 
         return deleted_count
 
     except Exception as e:
         if verbose:
-            print(f"\n❌ Behavior removal failed: {e}\n")
+            print(f"\n❌ Requirement removal failed: {e}\n")
         raise
+
+
+# Frozen migration 38ed899b9f41 imports these three names directly from this
+# module -- and calls the two below with the old `behavior_names=` keyword,
+# so a plain `= sync_requirements_to_organizations` alias isn't enough; the
+# wrapper has to keep accepting that keyword.
+load_behaviors_from_initial_data = load_requirements_from_initial_data
+
+
+def sync_behaviors_to_organizations(
+    session: Session,
+    behavior_names: List[str] | None = None,
+    verbose: bool = True,
+    commit: bool = False,
+) -> Dict[str, int]:
+    return sync_requirements_to_organizations(
+        session=session, requirement_names=behavior_names, verbose=verbose, commit=commit
+    )
+
+
+def remove_behaviors_from_organizations(
+    session: Session, behavior_names: List[str], verbose: bool = True, commit: bool = False
+) -> int:
+    return remove_requirements_from_organizations(
+        session=session, requirement_names=behavior_names, verbose=verbose, commit=commit
+    )
