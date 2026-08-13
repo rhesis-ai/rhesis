@@ -11,6 +11,7 @@ from rhesis.backend.app.services.explorer import (
     invoke_endpoint_for_suggestions_stream,
     suggestion_pipeline_stream,
 )
+from rhesis.backend.app.utils.model_errors import EmbeddingProviderNotConfigured
 
 # Resolved at call time inside EndpointInvoker, so the source modules are the patch targets.
 _DB_CTX_PATCH = "rhesis.backend.app.database.get_db_with_tenant_variables"
@@ -452,3 +453,53 @@ class TestSuggestionPipelineStream:
         assert sorted(done["diversity_order"]) == [0, 1]
         assert len(done["diversity_scores"]) == 2
         assert all(score is not None for score in done["diversity_scores"])
+
+    async def test_unconfigured_embedding_provider_still_streams_suggestions(
+        self, test_db: Session, test_org_id, authenticated_user_id
+    ):
+        """No embedding provider must not abort the stream.
+
+        resolve_embedder runs outside _embed_one's own try/except, so before
+        this it took the whole suggestion stream down with it -- even though
+        embeddings here only drive diversity ordering.
+        """
+        mock_invoker = MagicMock()
+        mock_invoker.invoke = AsyncMock(return_value=("an answer", None))
+        run_metrics = AsyncMock(return_value={"Correctness": {"score": 1.0, "is_successful": True}})
+        embed_one = AsyncMock()
+
+        with (
+            patch(
+                _GENERATE_SUGGESTIONS_PATCH,
+                new=AsyncMock(
+                    return_value=_fake_suggestion_stream([("", "first"), ("", "second")])
+                ),
+            ),
+            patch(_INVOKER_PATCH, return_value=mock_invoker),
+            patch(_RESOLVE_METRICS_PATCH, return_value=[]),
+            patch(_RUN_METRICS_PATCH, new=run_metrics),
+            patch(
+                _RESOLVE_EMBEDDER_PATCH,
+                side_effect=EmbeddingProviderNotConfigured("no provider configured"),
+            ),
+            patch(_EMBED_ONE_PATCH, new=embed_one),
+        ):
+            events = await _collect(
+                suggestion_pipeline_stream(
+                    db=test_db,
+                    test_set_identifier="some-test-set",
+                    organization_id=test_org_id,
+                    user_id=authenticated_user_id,
+                    endpoint_id=str(uuid.uuid4()),
+                    metric_names=["Correctness"],
+                    num_suggestions=2,
+                    generate_embeddings=True,
+                )
+            )
+
+        # The stream completes and still carries its suggestions...
+        done = next(e for e in events if e["type"] == "suggestions_done")
+        assert done["total"] == 2
+        # ...just with no embedding work attempted and no diversity ordering.
+        embed_one.assert_not_called()
+        assert not any(e["type"] == "embedding" for e in events)
