@@ -150,7 +150,10 @@ class TestConnectorHTTPEndpoints:
 
             assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
             data = response.json()
-            assert "failed" in data["detail"].lower()
+            # 5xx detail is generic by design; the real reason goes to the logs
+            # under this error_id. See app/error_handlers.py.
+            assert data["detail"] == "An unexpected error occurred."
+            assert data["error_id"]
 
     def test_trigger_test_project_not_a_member(self, authenticated_client: TestClient):
         """Test trigger when the user is not a member of the requested project.

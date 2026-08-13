@@ -19,10 +19,12 @@ initialize_telemetry()
 
 # ruff: noqa: E402 - Imports must come after telemetry initialization
 from fastapi import Depends, FastAPI, Request
+from fastapi import HTTPException as FastAPIHTTPException
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -41,12 +43,15 @@ from rhesis.backend.app.config.settings import (
 from rhesis.backend.app.database import Base, engine, get_db
 from rhesis.backend.app.error_handlers import (
     create_validation_error_response,
+    http_exception_handler,
     log_validation_error,
+    unhandled_exception_handler,
 )
 from rhesis.backend.app.quota.enforcement import QuotaExceededError, quota_exceeded_response_body
 from rhesis.backend.app.routers import routers
 from rhesis.backend.app.utils.database_exceptions import ItemDeletedException, ItemNotFoundException
 from rhesis.backend.app.utils.git_utils import get_version_info
+from rhesis.backend.app.utils.request_context import RequestIDMiddleware
 from rhesis.backend.local_init import initialize_local_environment
 from rhesis.backend.logging import set_logger
 from rhesis.backend.telemetry.middleware import TelemetryMiddleware
@@ -688,6 +693,14 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     return create_validation_error_response(exc)
 
 
+# Server-side failures: log in full, tell the client nothing but an error_id.
+# Registered for both bases because FastAPI's HTTPException subclasses Starlette's
+# but is looked up by exact class first.
+app.add_exception_handler(StarletteHTTPException, http_exception_handler)
+app.add_exception_handler(FastAPIHTTPException, http_exception_handler)
+app.add_exception_handler(Exception, unhandled_exception_handler)
+
+
 # Configure CORS
 _frontend_settings = get_frontend_settings()
 app.add_middleware(
@@ -746,6 +759,10 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 # Outermost middleware -- runs first on every response
 app.add_middleware(SecurityHeadersMiddleware)
+
+# Added last so it ends up outermost: every other middleware's log lines then
+# carry the request id too.
+app.add_middleware(RequestIDMiddleware)
 
 
 class LoggingMiddleware(BaseHTTPMiddleware):

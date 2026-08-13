@@ -7,6 +7,7 @@ from datetime import datetime
 from pathlib import Path
 
 from rhesis.backend.app.config.settings import get_application_settings, get_logging_settings
+from rhesis.backend.app.utils.request_context import get_request_id
 
 application_settings = get_application_settings()
 logging_settings = get_logging_settings()
@@ -17,7 +18,7 @@ ENVIRONMENT = application_settings.backend_env
 JSON_LOGGER_ENABLED = application_settings.json_logger_enabled
 DEV_MODE = application_settings.dev_mode
 # role_prefix is "" for API; Celery workers get "[MAIN] - " via the filter.
-LOG_FORMAT = "%(asctime)s - %(role_prefix)s%(name)s - %(levelname)s - %(message)s"
+LOG_FORMAT = "%(asctime)s - %(role_prefix)s%(request_prefix)s%(name)s - %(levelname)s - %(message)s"
 LOG_DATE_FORMAT = "%m/%d/%Y %I:%M:%S%p"
 
 
@@ -177,6 +178,8 @@ class RedactingFormatter(logging.Formatter):
 #: one nobody can rely on. Add a key here when you want to query by it.
 _STRUCTURED_EXTRA_FIELDS = (
     "worker_role",
+    # Ties a client's error_id to the log line holding the traceback.
+    "request_id",
     # rhesis.backend.app.utils.usage_tracking -- token usage that could not be
     # billed to an org, or came from a model with no provenance stamp. Alerting
     # on these needs them as fields, not as prose inside `message`.
@@ -204,7 +207,10 @@ class JsonLogFormatter(logging.Formatter):
 
 
 class _WorkerContextFilter(logging.Filter):
-    """Stamp ``worker_role`` / ``role_prefix`` on every record (empty for API)."""
+    """Stamp ``worker_role`` / ``role_prefix`` / ``request_id`` on every record.
+
+    All empty outside a request (API startup, Celery, scripts).
+    """
 
     def __init__(self, worker_role: str | None = None):
         super().__init__()
@@ -213,6 +219,9 @@ class _WorkerContextFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
         record.worker_role = self.worker_role
         record.role_prefix = f"[{self.worker_role}] - " if self.worker_role else ""
+        request_id = get_request_id()
+        record.request_id = request_id or None
+        record.request_prefix = f"[{request_id}] " if request_id else ""
         return True
 
 

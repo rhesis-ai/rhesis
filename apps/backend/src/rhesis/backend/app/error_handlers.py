@@ -4,11 +4,97 @@ Error handling utilities for FastAPI validation errors and responses.
 
 import logging
 
-from fastapi import Request
+from fastapi import HTTPException, Request
+from fastapi.exception_handlers import http_exception_handler as default_http_exception_handler
 from fastapi.exceptions import RequestValidationError
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import JSONResponse
 
+from rhesis.backend.app.utils.request_context import get_request_id, request_id_of
+
 logger = logging.getLogger(__name__)
+
+#: What the client is told when the real reason must not leave the server.
+#: Keyed by status code; anything unlisted falls back to the 500 text.
+PUBLIC_ERROR_MESSAGES = {
+    500: "An unexpected error occurred.",
+    502: "An upstream service returned an invalid response.",
+    503: "The service is temporarily unavailable.",
+    504: "The request timed out.",
+}
+
+
+def public_message(status_code: int) -> str:
+    return PUBLIC_ERROR_MESSAGES.get(status_code, PUBLIC_ERROR_MESSAGES[500])
+
+
+def internal_error(exc: Exception, *, context: str, status_code: int = 500) -> HTTPException:
+    """Log ``exc`` in full and return an HTTPException that reveals none of it.
+
+    Only for cases where the router genuinely adds context a global handler
+    can't infer. Otherwise don't catch at all — the global handler logs the
+    same traceback and the `except` block is just noise.
+    """
+    request_id = get_request_id()
+    logger.exception("[%s] %s: %s", request_id or "-", context, exc)
+    return HTTPException(
+        status_code=status_code,
+        detail=public_message(status_code),
+        headers={"X-Error-Id": request_id} if request_id else None,
+    )
+
+
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    """Last resort for anything no router caught.
+
+    Without this, an uncaught error becomes a bare Starlette 500 that logs
+    nothing, which is how errors used to disappear entirely.
+    """
+    request_id = request_id_of(request)
+    logger.exception(
+        "[%s] Unhandled exception on %s %s: %s",
+        request_id or "-",
+        request.method,
+        request.url.path,
+        exc,
+    )
+    # Header set here, not by the middleware: an unhandled exception is turned
+    # into a response by ServerErrorMiddleware, which sits outside it.
+    return JSONResponse(
+        status_code=500,
+        content={"detail": public_message(500), "error_id": request_id},
+        headers={"X-Request-ID": request_id} if request_id else None,
+    )
+
+
+async def http_exception_handler(request: Request, exc: StarletteHTTPException):
+    """Log server-side HTTPExceptions and strip their detail.
+
+    Sub-500s pass through untouched: a 400 "name already exists" is a message
+    we intend the user to read. A 5xx detail is an internal failure that only
+    belongs in the logs.
+    """
+    if exc.status_code < 500:
+        return await default_http_exception_handler(request, exc)
+
+    request_id = request_id_of(request)
+    logger.error(
+        "[%s] %s on %s %s: %s",
+        request_id or "-",
+        exc.status_code,
+        request.method,
+        request.url.path,
+        exc.detail,
+        exc_info=True,
+    )
+    headers = dict(getattr(exc, "headers", None) or {})
+    if request_id:
+        headers["X-Request-ID"] = request_id
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": public_message(exc.status_code), "error_id": request_id},
+        headers=headers or None,
+    )
 
 
 def create_validation_error_response(exc: RequestValidationError) -> JSONResponse:
