@@ -22,9 +22,10 @@ on the way in and again on the way out.
 from datetime import datetime
 from typing import Optional, Union
 
-from pydantic import UUID4, ConfigDict
+from pydantic import UUID4, BaseModel, ConfigDict
 
 from rhesis.backend.app.schemas import Base
+from rhesis.backend.app.schemas.metric_tuning_metadata import TuningRunStatus
 
 
 class MetricTuningCaseBase(Base):
@@ -66,13 +67,63 @@ class MetricTuningCaseUpdate(Base):
     rationale: Optional[str] = None
 
 
+class MetricTuningCaseResult(BaseModel):
+    """What the metric said about this case in the latest run.
+
+    Absent until the metric has been run over the case. ``verdict`` is the
+    metric's own answer, to be read beside ``expected`` -- which is what the
+    human said it should be, and which the metric never sees.
+
+    Plain ``BaseModel``, not the shared ``Base``: this is a value on a case, not
+    a row. ``Base`` would add ``id``/``nano_id``/``project_id``, and an ``id``
+    here would advertise a handle that does not exist.
+    """
+
+    # The metric's own verdict, as a string, whatever its score type.
+    verdict: Optional[str] = None
+    # The metric's explanation, where it produces one.
+    reasoning: Optional[str] = None
+    # Set when the metric call failed for this case. Not the same as a wrong
+    # verdict, and never reported as one.
+    error: Optional[str] = None
+    evaluated_at: Optional[str] = None
+
+
 class MetricTuningCase(MetricTuningCaseBase):
     id: UUID4
     # True when `expected` no longer fits the metric's current score type, which
     # happens when the score type is changed after the case was written. Derived
     # on read, never stored -- see services/metric_tuning/verdict.py.
     is_stale: bool = False
+    # The latest run's result for this case, or None if it has never been run.
+    result: Optional[MetricTuningCaseResult] = None
     created_at: Union[datetime, str]
     updated_at: Union[datetime, str]
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class MetricTuningRun(BaseModel):
+    """The state of a metric's latest tuning run.
+
+    Only the latest is kept -- a new run overwrites the previous one, per
+    domain.local/adr/0004. A metric that has never been run reads as
+    ``never_run`` rather than as an absent object, so the interface has one
+    shape to render either way.
+
+    Plain ``BaseModel``, not the shared ``Base``: a run is stored in JSONB and is
+    deliberately not a row (ADR-0004), so it has no id to expose. Inheriting
+    ``Base`` would put a null ``id`` on every response and suggest otherwise.
+    """
+
+    status: TuningRunStatus = TuningRunStatus.NEVER_RUN
+    started_at: Optional[str] = None
+    completed_at: Optional[str] = None
+    # How many cases the run set out to cover, and how many it has finished.
+    # The pair is what makes progress reportable while a run is still going.
+    total_cases: int = 0
+    completed_cases: int = 0
+    # Cases whose metric call failed. Reported apart from the verdicts.
+    errored_cases: int = 0
+    # Why the run as a whole failed. A single case failing does not fail a run.
+    error: Optional[str] = None

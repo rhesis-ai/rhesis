@@ -22,9 +22,20 @@ from sqlalchemy.orm import Session, joinedload
 
 from rhesis.backend.app import models
 from rhesis.backend.app.models.test import test_test_set_association
-from rhesis.backend.app.schemas.metric_tuning_metadata import MetricTuningCaseMetadata
+from rhesis.backend.app.schemas.metric_tuning_metadata import (
+    MetricTuningCaseMetadata,
+    MetricTuningCaseResult,
+    MetricTuningRunSummary,
+    parse_metric_tuning_case_metadata,
+    parse_metric_tuning_run_summary,
+)
 
 logger = logging.getLogger(__name__)
+
+# Where the latest run's summary lives inside ``TestSet.attributes``. Nothing
+# else writes a tuning set's attributes -- attribute regeneration early-returns
+# for metric-owned sets -- but the key keeps it out of the way regardless.
+RUN_SUMMARY_KEY = "tuning_run"
 
 
 # --- Test sets ---------------------------------------------------------------------
@@ -60,6 +71,28 @@ def mark_test_set_as_tuning(
     test_set.metric_id = metric_id
     db.flush()
     db.refresh(test_set)
+    return test_set
+
+
+def get_run_summary(test_set: models.TestSet) -> MetricTuningRunSummary:
+    """The latest run's summary. A set nobody has run reads as ``never_run``."""
+    attributes = test_set.attributes or {}
+    return parse_metric_tuning_run_summary(attributes.get(RUN_SUMMARY_KEY))
+
+
+def set_run_summary(
+    db: Session, test_set: models.TestSet, summary: MetricTuningRunSummary
+) -> models.TestSet:
+    """Overwrite the latest run's summary. Only the latest is ever kept.
+
+    The whole ``attributes`` dict is reassigned rather than mutated in place:
+    SQLAlchemy does not track mutation inside a plain JSONB column, so an
+    in-place edit would flush nothing.
+    """
+    attributes = dict(test_set.attributes or {})
+    attributes[RUN_SUMMARY_KEY] = summary.model_dump(mode="json", exclude_none=True)
+    test_set.attributes = attributes
+    db.flush()
     return test_set
 
 
@@ -172,6 +205,22 @@ def remove_case_from_test_set(db: Session, test_set_id: uuid.UUID, test_id: uuid
         )
     )
     db.flush()
+
+
+def set_case_result(
+    db: Session, db_test: models.Test, result: MetricTuningCaseResult
+) -> models.Test:
+    """Record what the metric said about this case, overwriting the last run's.
+
+    Writes only the ``result`` key -- the case itself (its payload, its expected
+    verdict, its rationale) is what is being scored and is never touched by
+    scoring it.
+    """
+    metadata = parse_metric_tuning_case_metadata(db_test.test_metadata)
+    metadata.result = result
+    db_test.test_metadata = metadata.model_dump(mode="json", exclude_none=True)
+    db.flush()
+    return db_test
 
 
 def update_tuning_case(
