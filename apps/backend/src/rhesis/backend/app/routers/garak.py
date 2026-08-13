@@ -131,13 +131,7 @@ async def list_probe_modules(
         raise HTTPException(
             status_code=503,
             detail="Garak package is not installed or not available",
-        )
-    except Exception as e:
-        logger.error(f"Error listing Garak probes: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to list Garak probes: {str(e)}",
-        )
+        ) from e
 
 
 @router.get("/probes/{module_name}", response_model=GarakProbeDetailResponse)
@@ -152,55 +146,45 @@ def get_probe_module_detail(
 
     Returns the probe classes, prompts, and metadata for the module.
     """
-    try:
-        module_info = probe_service.get_probe_details(module_name)
+    module_info = probe_service.get_probe_details(module_name)
 
-        if not module_info:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Probe module '{module_name}' not found",
-            )
-
-        # Get detailed probe information
-        probes = probe_service.extract_probes_from_module(module_name)
-        mapping = GarakTaxonomy.get_mapping(module_name)
-
-        probe_details = [
-            {
-                "class_name": p.class_name,
-                "full_name": p.full_name,
-                "description": p.description,
-                "tags": p.tags,
-                "prompt_count": p.prompt_count,
-                "detector": p.detector,
-            }
-            for p in probes
-        ]
-
-        return GarakProbeDetailResponse(
-            name=module_info.name,
-            description=module_info.description,
-            probe_classes=module_info.probe_classes,
-            probe_count=module_info.probe_count,
-            total_prompt_count=module_info.total_prompt_count,
-            tags=module_info.tags,
-            default_detector=module_info.default_detector,
-            rhesis_mapping={
-                "category": mapping.category,
-                "topic": mapping.topic,
-                "requirement": resolve_requirement(module_info.tags),
-            },
-            probes=probe_details,
-        )
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error getting probe module detail: {e}")
+    if not module_info:
         raise HTTPException(
-            status_code=500,
-            detail=f"Failed to get probe module detail: {str(e)}",
+            status_code=404,
+            detail=f"Probe module '{module_name}' not found",
         )
+
+    # Get detailed probe information
+    probes = probe_service.extract_probes_from_module(module_name)
+    mapping = GarakTaxonomy.get_mapping(module_name)
+
+    probe_details = [
+        {
+            "class_name": p.class_name,
+            "full_name": p.full_name,
+            "description": p.description,
+            "tags": p.tags,
+            "prompt_count": p.prompt_count,
+            "detector": p.detector,
+        }
+        for p in probes
+    ]
+
+    return GarakProbeDetailResponse(
+        name=module_info.name,
+        description=module_info.description,
+        probe_classes=module_info.probe_classes,
+        probe_count=module_info.probe_count,
+        total_prompt_count=module_info.total_prompt_count,
+        tags=module_info.tags,
+        default_detector=module_info.default_detector,
+        rhesis_mapping={
+            "category": mapping.category,
+            "topic": mapping.topic,
+            "requirement": resolve_requirement(module_info.tags),
+        },
+        probes=probe_details,
+    )
 
 
 @router.post("/import/preview", response_model=GarakImportPreviewResponse)
@@ -216,46 +200,38 @@ async def preview_import(
 
     Returns details of test sets that would be created for each probe.
     """
-    try:
-        # Preload from the Garak probe cache instead of re-instantiating each
-        # selected probe from scratch — turns this into a Redis GET + dict
-        # lookups rather than re-running probe extraction.
-        _, probes_by_module = await probe_service.enumerate_probe_modules_cached()
+    # Preload from the Garak probe cache instead of re-instantiating each
+    # selected probe from scratch — turns this into a Redis GET + dict
+    # lookups rather than re-running probe extraction.
+    _, probes_by_module = await probe_service.enumerate_probe_modules_cached()
 
-        importer = GarakImporter(db)
-        importer.preload_probes(probes_by_module)
-        preview = importer.get_import_preview(
-            probes=request.probes,
-            name_prefix=request.name_prefix,
+    importer = GarakImporter(db)
+    importer.preload_probes(probes_by_module)
+    preview = importer.get_import_preview(
+        probes=request.probes,
+        name_prefix=request.name_prefix,
+    )
+
+    probe_previews = [
+        GarakProbePreview(
+            module_name=p["module_name"],
+            class_name=p["class_name"],
+            full_name=p["full_name"],
+            test_set_name=p["test_set_name"],
+            prompt_count=p["prompt_count"],
+            detector=p.get("detector"),
         )
+        for p in preview["probes"]
+    ]
 
-        probe_previews = [
-            GarakProbePreview(
-                module_name=p["module_name"],
-                class_name=p["class_name"],
-                full_name=p["full_name"],
-                test_set_name=p["test_set_name"],
-                prompt_count=p["prompt_count"],
-                detector=p.get("detector"),
-            )
-            for p in preview["probes"]
-        ]
-
-        return GarakImportPreviewResponse(
-            garak_version=preview["garak_version"],
-            total_test_sets=preview["total_test_sets"],
-            total_tests=preview["total_tests"],
-            detector_count=preview["detector_count"],
-            detectors=preview["detectors"],
-            probes=probe_previews,
-        )
-
-    except Exception as e:
-        logger.error(f"Error previewing import: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to preview import: {str(e)}",
-        )
+    return GarakImportPreviewResponse(
+        garak_version=preview["garak_version"],
+        total_test_sets=preview["total_test_sets"],
+        total_tests=preview["total_tests"],
+        detector_count=preview["detector_count"],
+        detectors=preview["detectors"],
+        probes=probe_previews,
+    )
 
 
 @router.post("/import", response_model=GarakImportTaskResponse, status_code=202)
@@ -275,37 +251,29 @@ def import_probes(
     request — returns HTTP 202 Accepted with a `task_id` that can be polled
     via `GET /jobs/{task_id}`.
     """
-    try:
-        # Dispatch only the probe identifiers — the task extracts the selected
-        # probes itself in the background. We deliberately do NOT ship probe
-        # data (prompts) through the Celery broker: a single "Full" probe
-        # carries thousands of prompts, so a multi-probe import would push
-        # megabytes through the broker on one dispatch. Per-probe extraction in
-        # the worker is bounded to the selected classes and dwarfed by the
-        # test/prompt row writes the import does anyway. (The synchronous
-        # preview endpoints still reuse the warm cache — there blocking the
-        # request thread on enumeration is what we must avoid.)
-        task_result = task_launcher(
-            import_garak_probes_task,
-            current_user=current_user,
-            db=db,
-            probes=[p.model_dump() for p in request.probes],
-            name_prefix=request.name_prefix,
-            description_template=request.description_template,
-        )
+    # Dispatch only the probe identifiers — the task extracts the selected
+    # probes itself in the background. We deliberately do NOT ship probe
+    # data (prompts) through the Celery broker: a single "Full" probe
+    # carries thousands of prompts, so a multi-probe import would push
+    # megabytes through the broker on one dispatch. Per-probe extraction in
+    # the worker is bounded to the selected classes and dwarfed by the
+    # test/prompt row writes the import does anyway. (The synchronous
+    # preview endpoints still reuse the warm cache — there blocking the
+    # request thread on enumeration is what we must avoid.)
+    task_result = task_launcher(
+        import_garak_probes_task,
+        current_user=current_user,
+        db=db,
+        probes=[p.model_dump() for p in request.probes],
+        name_prefix=request.name_prefix,
+        description_template=request.description_template,
+    )
 
-        return GarakImportTaskResponse(
-            task_id=str(task_result.id),
-            probe_count=len(request.probes),
-            message=f"Import started for {len(request.probes)} probe(s).",
-        )
-
-    except Exception as e:
-        logger.error(f"Error launching Garak probe import: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to launch Garak probe import: {str(e)}",
-        )
+    return GarakImportTaskResponse(
+        task_id=str(task_result.id),
+        probe_count=len(request.probes),
+        message=f"Import started for {len(request.probes)} probe(s).",
+    )
 
 
 @router.get("/sync/{test_set_id}/preview", response_model=GarakSyncPreviewResponse)
@@ -345,15 +313,7 @@ async def preview_sync(
         raise HTTPException(
             status_code=400,
             detail=str(e),
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error previewing sync: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to preview sync: {str(e)}",
-        )
+        ) from e
 
 
 @router.post("/sync/{test_set_id}", response_model=GarakSyncTaskResponse, status_code=202)
@@ -402,13 +362,7 @@ def sync_test_set(
         raise HTTPException(
             status_code=400,
             detail=str(e),
-        )
-    except Exception as e:
-        logger.error(f"Error launching test set sync: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to launch test set sync: {str(e)}",
-        )
+        ) from e
 
 
 @router.post("/generate", response_model=GarakGenerateResponse, status_code=202)
@@ -494,17 +448,9 @@ def generate_dynamic_probe(
             ),
         )
 
-    except HTTPException:
-        raise
     except RuntimeError as e:
         logger.error(f"Garak not available: {e}")
         raise HTTPException(
             status_code=503,
             detail="Garak package is not installed or not available",
-        )
-    except Exception as e:
-        logger.error(f"Error launching dynamic generation for {module_name}.{class_name}: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to launch dynamic probe generation: {str(e)}",
-        )
+        ) from e

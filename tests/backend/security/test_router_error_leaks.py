@@ -30,10 +30,7 @@ BROAD_EXCEPTIONS = {"Exception", "BaseException"}
 
 #: file name -> number of leaks still tolerated. Only ever shrinks.
 KNOWN_LEAKS: dict[str, int] = {
-    "garak.py": 7,
-    "job.py": 4,
     "metric.py": 2,
-    "source.py": 3,
     "test.py": 1,
     "test_configuration.py": 1,
     "test_run.py": 2,
