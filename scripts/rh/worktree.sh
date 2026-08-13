@@ -82,6 +82,8 @@ rewrite_backend_env_ports() {
     set_env_var "$file" DB_PORT "$(dev_port_for postgres "$offset")"
     set_env_url_port "$file" BROKER_URL "$(dev_port_for redis "$offset")"
     set_env_url_port "$file" CELERY_RESULT_BACKEND "$(dev_port_for redis "$offset")"
+    # The backend's CORS allowlist is derived from this, so it must track the worktree's frontend
+    set_env_var "$file" FRONTEND_URL "http://localhost:$(dev_port_for frontend "$offset")"
 }
 
 rewrite_frontend_env_ports() {
