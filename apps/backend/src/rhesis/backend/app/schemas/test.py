@@ -5,7 +5,7 @@ from pydantic import UUID4, BaseModel, ConfigDict, field_validator
 
 from rhesis.backend.app.schemas import Base
 from rhesis.backend.app.schemas.references import (
-    BehaviorReference,
+    RequirementReference,
     CategoryReference,
     PromptReference,
     StatusReference,
@@ -33,7 +33,7 @@ class TestBase(Base):
     test_configuration: Optional[Dict] = None
     parent_id: Optional[UUID4] = None
     topic_id: Optional[UUID4] = None
-    behavior_id: Optional[UUID4] = None
+    requirement_id: Optional[UUID4] = None
     category_id: Optional[UUID4] = None
     status_id: Optional[UUID4] = None
     organization_id: Optional[UUID4] = None
@@ -49,7 +49,7 @@ class TestPromptCreate(BaseModel):
 class TestCreate(TestBase):
     category: Optional[str] = None
     topic: Optional[str] = None
-    behavior: Optional[str] = None
+    requirement: Optional[str] = None
     prompt: Optional[TestPromptCreate] = None
     test_type: Optional[str] = None
 
@@ -72,7 +72,7 @@ class TestUpdate(TestBase):
     prompt_id: Optional[UUID4] = None
     category: Optional[str] = None
     topic: Optional[str] = None
-    behavior: Optional[str] = None
+    requirement: Optional[str] = None
     prompt: Optional[TestPromptCreate] = None
     test_type: Optional[str] = None
 
@@ -109,7 +109,7 @@ class TestDetail(Test):
     assignee: Optional[UserReference] = None
     owner: Optional[UserReference] = None
     topic: Optional[TopicReference] = None
-    behavior: Optional[BehaviorReference] = None
+    requirement: Optional[RequirementReference] = None
     category: Optional[CategoryReference] = None
     status: Optional[StatusReference] = None
     tags: Optional[List[TestTag]] = []
@@ -118,7 +118,7 @@ class TestDetail(Test):
 # Bulk creation models
 class TestBulkCreate(BaseModel):
     prompt: Optional[TestPromptCreate] = None  # Optional for Multi-Turn tests
-    behavior: str
+    requirement: str
     category: str
     topic: str
     test_configuration: Optional[Dict[str, Any]] = None
@@ -204,8 +204,8 @@ class TestExecuteRequest(BaseModel):
 
     Either provide test_id (to execute existing test) OR provide full test definition.
     For new test definition, must provide:
-    - For single-turn: prompt + behavior + topic + category
-    - For multi-turn: test_configuration (with goal) + behavior + topic + category
+    - For single-turn: prompt + requirement + topic + category
+    - For multi-turn: test_configuration (with goal) + requirement + topic + category
     """
 
     # Option 1: Use existing test
@@ -225,7 +225,7 @@ class TestExecuteRequest(BaseModel):
     test_configuration: Optional[Dict[str, Any]] = None
 
     # Required metadata if test_id not provided
-    behavior: Optional[str] = None
+    requirement: Optional[str] = None
     topic: Optional[str] = None
     category: Optional[str] = None
 
@@ -254,9 +254,9 @@ class TestExecuteRequest(BaseModel):
             return
 
         # If test_id not provided, must have test definition
-        if not self.behavior or not self.topic or not self.category:
+        if not self.requirement or not self.topic or not self.category:
             raise ValueError(
-                "When test_id is not provided, behavior, topic, and category are required"
+                "When test_id is not provided, requirement, topic, and category are required"
             )
 
         # Must have either prompt (single-turn) or test_configuration (multi-turn)
@@ -322,7 +322,7 @@ class ConversationToTestRequest(BaseModel):
 class SingleTurnTestExtraction(BaseModel):
     """LLM-extracted metadata for a single-turn test."""
 
-    behavior: str
+    requirement: str
     category: str
     topic: str
 
@@ -331,7 +331,7 @@ class ConversationTestExtractionResponse(BaseModel):
     """Extracted test metadata from a conversation (without creating a test)."""
 
     test_type: str  # "Single-Turn" or "Multi-Turn"
-    behavior: str
+    requirement: str
     category: str
     topic: str
     # Single-turn fields

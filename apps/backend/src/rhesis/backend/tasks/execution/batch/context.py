@@ -49,8 +49,8 @@ class ExecutionContext:
     # SDK MetricConfig objects built while the DB session is open (ORM-safe after close).
     # Shared list used when all tests share the same metrics (Priority 1/2).
     metric_configs: List[MetricConfig] = field(default_factory=list)
-    # Per-test metric configs for behavior-mapped metrics (Priority 3) where each
-    # test may have a different behavior with different metrics.
+    # Per-test metric configs for requirement-mapped metrics (Priority 3) where each
+    # test may have a different requirement with different metrics.
     per_test_metric_configs: Dict[str, List[MetricConfig]] = field(default_factory=dict)
     # Judge models for metrics that configure their own `model_id`, resolved while the
     # session is open because metric evaluation runs after it closes. A `None` value
@@ -79,7 +79,7 @@ class ExecutionContext:
     def get_metric_configs_for_test(self, test_id: str) -> List[MetricConfig]:
         """Return metric configs for a specific test.
 
-        Uses per-test configs when available (behavior-mapped metrics),
+        Uses per-test configs when available (requirement-mapped metrics),
         otherwise falls back to the shared list (test_set / execution-time).
         """
         if self.per_test_metric_configs:
@@ -101,7 +101,7 @@ def _resolve_metric_judge_models(
     """Resolve every distinct per-metric judge `model_id` in the batch, once each.
 
     Deduped by `model_id` so a model shared by many metrics (or by many tests
-    sharing a behavior) costs one lookup rather than one per metric. Failures are
+    sharing a requirement) costs one lookup rather than one per metric. Failures are
     recorded as a `None` value rather than omitted, so the evaluator can tell
     "tried and failed" from "never attempted" and warn accordingly.
     """
@@ -139,7 +139,7 @@ def prefetch_execution_context(
     """Pre-fetch all shared data in a single session before async execution."""
     from rhesis.backend.app.crud import user as user_crud
     from rhesis.backend.app.database import bind_scope_to_session
-    from rhesis.backend.app.models.behavior import Behavior
+    from rhesis.backend.app.models.requirement import Requirement
     from rhesis.backend.app.services.test_set import get_test_set
     from rhesis.backend.app.utils.query_utils import QueryBuilder, include
     from rhesis.backend.tasks.execution.executors.data import get_test_metrics
@@ -217,7 +217,7 @@ def prefetch_execution_context(
         if evaluation_model is None:
             evaluation_model = resolve_default_hosted_model(model_settings.evaluation_model)
 
-    # Warm the session identity map with prompt/behavior/behavior.metrics eager-loaded
+    # Warm the session identity map with prompt/requirement/requirement.metrics eager-loaded
     # for every test in the batch, in one query. get_test_and_prompt/get_test_metrics
     # below re-fetch each test by id from this same session -- SQLAlchemy's identity
     # map returns the very same instance per row, so once these relationships are
@@ -229,7 +229,7 @@ def prefetch_execution_context(
             lambda q: q.filter(Test.id.in_(test_ids))
         ).with_related(
             include(Test.prompt),
-            include(Test.behavior, Behavior.metrics),
+            include(Test.requirement, Requirement.metrics),
             # test_type decides which executor each test gets. Eager-load it so it
             # is already populated when the Test objects are expunged below.
             include(Test.test_type),
@@ -260,7 +260,7 @@ def prefetch_execution_context(
     # lazy loads (e.g. backend_type) in metric_model_to_config.
     #
     # Metric resolution follows a 3-level priority (see executors/data.py):
-    #   P1 execution-time, P2 test-set, P3 behavior.
+    #   P1 execution-time, P2 test-set, P3 requirement.
     # P1 and P2 come from shared config (test_configuration.attributes / test_set.metrics)
     # and resolve identically for every test, so a single resolution is correct — but
     # only when one of them actually wins. get_test_metrics() can fall through past a
@@ -308,15 +308,15 @@ def prefetch_execution_context(
             metric_configs = _convert_metrics(models, f"test {sample_test.id}")
         else:
             # P3 (or no metrics at all) — resolution can differ per test since each
-            # test may belong to a different behavior. Cache by behavior_id so tests
-            # sharing a behavior don't each re-query get_behavior_metrics() (N+1).
-            metrics_by_behavior_id: Dict[Any, List] = {sample_test.behavior_id: sample_metrics}
+            # test may belong to a different requirement. Cache by requirement_id so tests
+            # sharing a requirement don't each re-query get_requirement_metrics() (N+1).
+            metrics_by_requirement_id: Dict[Any, List] = {sample_test.requirement_id: sample_metrics}
             for test in tests:
                 tid = str(test.id)
                 if test is sample_test:
                     metrics = sample_metrics
-                elif test.behavior_id in metrics_by_behavior_id:
-                    metrics = metrics_by_behavior_id[test.behavior_id]
+                elif test.requirement_id in metrics_by_requirement_id:
+                    metrics = metrics_by_requirement_id[test.requirement_id]
                 else:
                     metrics = get_test_metrics(
                         test,
@@ -326,7 +326,7 @@ def prefetch_execution_context(
                         test_set=test_set,
                         test_configuration=test_config,
                     )
-                    metrics_by_behavior_id[test.behavior_id] = metrics
+                    metrics_by_requirement_id[test.requirement_id] = metrics
                 models = prepare_metric_configs(metrics, tid)
                 per_test_metric_configs[tid] = _convert_metrics(models, f"test {tid}")
     except Exception as e:

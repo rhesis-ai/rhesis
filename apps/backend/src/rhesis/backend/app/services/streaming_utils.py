@@ -5,14 +5,14 @@ import json
 import logging
 from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
 
-from rhesis.backend.app.constants import BEHAVIOR_LIST_KEY
+from rhesis.backend.app.constants import REQUIREMENT_LIST_KEY
 from rhesis.sdk.synthesizers.streaming import IncrementalJsonArrayParser
 
 logger = logging.getLogger(__name__)
 
 __all__ = ["ndjson", "EventFanout", "IncrementalJsonArrayParser", "IncrementalConfigParser"]
 
-_CONFIG_ARRAY_KEYS = (BEHAVIOR_LIST_KEY, "topics", "categories")
+_CONFIG_ARRAY_KEYS = (REQUIREMENT_LIST_KEY, "topics", "categories")
 
 _FANOUT_DONE = object()
 
@@ -84,7 +84,7 @@ class IncrementalConfigParser:
     """Parse a streaming config response with multiple named arrays.
 
     Wraps ``IncrementalJsonArrayParser`` and tracks which top-level key
-    (``behaviors``, ``topics``, ``categories``) each object belongs to by
+    (``requirements``, ``topics``, ``categories``) each object belongs to by
     detecting when the inner parser enters each successive array.
 
     Yields ``(category, obj)`` tuples.

@@ -13,8 +13,8 @@ import jinja2
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.config.settings import get_model_settings
-from rhesis.backend.app.constants import BEHAVIOR_LIST_KEY, TestSetType
-from rhesis.backend.app.crud import behavior as behavior_crud
+from rhesis.backend.app.constants import REQUIREMENT_LIST_KEY, TestSetType
+from rhesis.backend.app.crud import requirement as requirement_crud
 from rhesis.backend.app.crud import model as model_crud
 from rhesis.backend.app.crud.project import get_project
 from rhesis.backend.app.models.user import User
@@ -84,10 +84,10 @@ def _fetch_db_context(
     previous_messages: Optional[list] = None,
 ) -> Dict[str, Any]:
     """Fetch all DB data needed for config prompts (called once upfront)."""
-    behaviors = behavior_crud.get_behaviors(
+    requirements = requirement_crud.get_requirements(
         db=db, organization_id=organization_id, skip=0, limit=100
     )
-    behavior_list = [{"name": b.name, "description": b.description or ""} for b in behaviors]
+    requirement_list = [{"name": b.name, "description": b.description or ""} for b in requirements]
 
     project_name = None
     project_description = None
@@ -101,9 +101,9 @@ def _fetch_db_context(
     return {
         "prompt": prompt,
         "sample_size": MAX_SAMPLE_SIZE,
-        # Must stay in sync with the `{{ behaviors }}` variable in
+        # Must stay in sync with the `{{ requirements }}` variable in
         # test_config_generator.jinja2 -- the template can't reference this constant.
-        BEHAVIOR_LIST_KEY: behavior_list,
+        REQUIREMENT_LIST_KEY: requirement_list,
         "project_name": project_name,
         "project_description": project_description,
         "previous_messages": previous_messages or [],
@@ -128,7 +128,7 @@ async def _stream_config(
 ) -> AsyncGenerator[Dict[str, Any], None]:
     """Stream config items from a single LLM call.
 
-    The LLM returns a JSON object with ``behaviors``, ``topics``, and
+    The LLM returns a JSON object with ``requirements``, ``topics``, and
     ``categories`` arrays.  ``IncrementalConfigParser`` tracks which key
     each parsed object belongs to so items can be emitted incrementally.
 
@@ -136,7 +136,7 @@ async def _stream_config(
     then ``config_done`` and ``_collected`` (internal) when finished.
     """
     collected: Dict[str, List[TestConfigItem]] = {
-        BEHAVIOR_LIST_KEY: [],
+        REQUIREMENT_LIST_KEY: [],
         "topics": [],
         "categories": [],
     }
@@ -186,7 +186,7 @@ async def _stream_config(
     yield {
         "type": "_collected",
         "config": TestConfigResponse(
-            behaviors=collected[BEHAVIOR_LIST_KEY],
+            requirements=collected[REQUIREMENT_LIST_KEY],
             topics=collected["topics"],
             categories=collected["categories"],
         ),
@@ -253,12 +253,12 @@ async def test_generation_pipeline_stream(
         yield ndjson({"type": "done"})
         return
 
-    active_behaviors = [b.name for b in config_response.behaviors if b.active]
+    active_requirements = [b.name for b in config_response.requirements if b.active]
     active_topics = [t.name for t in config_response.topics if t.active]
     active_categories = [c.name for c in config_response.categories if c.active]
 
-    if not active_behaviors:
-        active_behaviors = [b.name for b in config_response.behaviors[:1]]
+    if not active_requirements:
+        active_requirements = [b.name for b in config_response.requirements[:1]]
 
     test_index = 0
     tests_generated = 0
@@ -267,7 +267,7 @@ async def test_generation_pipeline_stream(
         if test_type == "Multi-Turn":
             config_dict = {
                 "generation_prompt": prompt,
-                BEHAVIOR_LIST_KEY: active_behaviors,
+                REQUIREMENT_LIST_KEY: active_requirements,
                 "categories": active_categories,
                 "topics": active_topics,
             }
@@ -296,7 +296,7 @@ async def test_generation_pipeline_stream(
             )
             sdk_config = SDKGenerationConfig(
                 generation_prompt=generation_prompt,
-                behaviors=active_behaviors,
+                requirements=active_requirements,
                 categories=active_categories,
                 topics=active_topics,
             )
@@ -327,7 +327,7 @@ async def test_generation_pipeline_stream(
             )
             sdk_config = SDKGenerationConfig(
                 generation_prompt=generation_prompt,
-                behaviors=active_behaviors,
+                requirements=active_requirements,
                 categories=active_categories,
                 topics=active_topics,
             )

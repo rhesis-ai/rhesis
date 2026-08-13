@@ -43,7 +43,7 @@ class GarakProbeModuleResponse(BaseModel):
     )
     rhesis_category: str = Field(..., description="Mapped Rhesis category")
     rhesis_topic: str = Field(..., description="Mapped Rhesis topic")
-    rhesis_behavior: str = Field(..., description="Mapped Rhesis behavior")
+    rhesis_requirement: str = Field(..., description="Mapped Rhesis requirement")
     has_dynamic_probes: bool = Field(
         False,
         description=(
@@ -77,7 +77,7 @@ class GarakProbeDetailResponse(BaseModel):
     tags: List[str] = Field(default_factory=list, description="Module tags")
     default_detector: Optional[str] = Field(None, description="Default detector")
     rhesis_mapping: Dict[str, str] = Field(
-        ..., description="Rhesis taxonomy mapping (category, topic, behavior)"
+        ..., description="Rhesis taxonomy mapping (category, topic, requirement)"
     )
     probes: List[Dict[str, Any]] = Field(..., description="List of probes with their details")
 

@@ -85,7 +85,7 @@ async def execute_test_in_place(
         # Validate test and get prompt data from database
         test, prompt_content, expected_response = get_test_and_prompt(db, test_id, organization_id)
     else:
-        # Create inline test object (looks up behavior for metrics)
+        # Create inline test object (looks up requirement for metrics)
         logger.info("[InPlaceExecution] Creating inline test object")
         test = _create_inplace_test(request_data, organization_id, user_id, db)
         test_id = str(test.id)
@@ -143,28 +143,28 @@ def _create_inplace_test(
     request_data: Dict[str, Any], organization_id: str, user_id: str, db: Session
 ) -> Any:
     """
-    Create an inline test object with behavior lookup for metrics.
+    Create an inline test object with requirement lookup for metrics.
 
-    Looks up the behavior by name to retrieve associated metrics,
+    Looks up the requirement by name to retrieve associated metrics,
     enabling metric evaluation for inline tests.
     """
     from uuid import UUID
 
-    # Look up behavior by name to get metrics
-    behavior_name = request_data.get("behavior")
-    behavior_obj = None
-    if behavior_name:
-        behavior_obj = (
-            db.query(models.Behavior)
+    # Look up requirement by name to get metrics
+    requirement_name = request_data.get("requirement")
+    requirement_obj = None
+    if requirement_name:
+        requirement_obj = (
+            db.query(models.Requirement)
             .filter(
-                models.Behavior.name == behavior_name,
-                models.Behavior.organization_id == UUID(organization_id),
+                models.Requirement.name == requirement_name,
+                models.Requirement.organization_id == UUID(organization_id),
             )
             .first()
         )
-        if not behavior_obj:
+        if not requirement_obj:
             logger.warning(
-                f"[InPlaceExecution] Behavior '{behavior_name}' not found - "
+                f"[InPlaceExecution] Requirement '{requirement_name}' not found - "
                 f"metrics will not be available"
             )
 
@@ -177,12 +177,12 @@ def _create_inplace_test(
             self.prompt = request_data.get("prompt")
             self.prompt_id = uuid4() if self.prompt else None
             self.test_configuration = request_data.get("test_configuration")
-            # Set behavior as the actual model object (with metrics relationship)
-            self.behavior = behavior_obj
+            # Set requirement as the actual model object (with metrics relationship)
+            self.requirement = requirement_obj
             self.topic = request_data.get("topic")
             self.category = request_data.get("category")
             # For compatibility, set IDs
-            self.behavior_id = behavior_obj.id if behavior_obj else None
+            self.requirement_id = requirement_obj.id if requirement_obj else None
             self.topic_id = None
             self.category_id = None
 

@@ -151,7 +151,7 @@ def _save_test_set_to_database(
             test_dict = test.model_dump(exclude={"id", "endpoint"})
 
         # Ensure required string fields have values (TestData requires non-None)
-        test_dict["behavior"] = test_dict.get("behavior") or ""
+        test_dict["requirement"] = test_dict.get("requirement") or ""
         test_dict["category"] = test_dict.get("category") or ""
         test_dict["topic"] = test_dict.get("topic") or ""
 
@@ -304,7 +304,7 @@ def _attach_tests_to_existing_test_set(
             test_dict = test.copy()
         else:
             test_dict = test.model_dump(exclude={"id", "endpoint"})
-        test_dict["behavior"] = test_dict.get("behavior") or ""
+        test_dict["requirement"] = test_dict.get("requirement") or ""
         test_dict["category"] = test_dict.get("category") or ""
         test_dict["topic"] = test_dict.get("topic") or ""
         converted_tests.append(TestData(**test_dict))
@@ -698,7 +698,7 @@ def generate_and_save_owasp_test_set(
 
     framework_info = OWASP_FRAMEWORKS[framework]
     report_url = framework_info["report_url"]
-    behavior = framework_info["behavior"]
+    requirement = framework_info["requirement"]
 
     model = _resolve_generation_model(self, org_id, user_id, project_id or "", model_id)
     model_info = model if isinstance(model, str) else f"{type(model).__name__} instance"
@@ -724,7 +724,7 @@ def generate_and_save_owasp_test_set(
             categories=categories,
             batch_size=batch_size,
             model=model,
-            behavior=behavior,
+            requirement=requirement,
             test_type=test_type,
             # Shared content cache: parse each report's PDF at most once per framework.
             cache_key=framework,
@@ -748,7 +748,7 @@ def generate_and_save_owasp_test_set(
 
         self.update_state(state="PROGRESS", meta={"status": "Saving to database"})
 
-        test_set_name = name or f"{behavior}: {purpose[:60]}"
+        test_set_name = name or f"{requirement}: {purpose[:60]}"
         db_test_set = _save_test_set_to_database(
             self,
             test_set,

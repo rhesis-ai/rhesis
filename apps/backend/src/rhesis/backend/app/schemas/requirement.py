@@ -8,30 +8,30 @@ from rhesis.backend.app.schemas.tag import Tag, TagRead
 from rhesis.backend.app.schemas.user import UserReference
 
 
-# Behavior schemas
-class BehaviorBase(Base):
+# Requirement schemas
+class RequirementBase(Base):
     name: str
     description: Optional[str] = None
     user_id: Optional[UUID4] = None
     organization_id: Optional[UUID4] = None
 
 
-class BehaviorCreate(BehaviorBase):
+class RequirementCreate(RequirementBase):
     pass
 
 
-class BehaviorUpdate(BehaviorBase):
+class RequirementUpdate(RequirementBase):
     name: Optional[str] = None
 
 
-class Behavior(BehaviorBase):
+class Requirement(RequirementBase):
     tags: List[Tag] = Field(default_factory=list)
     created_at: Optional[Union[datetime, str]] = None
     user: Optional[UserReference] = None
 
 
 # The detailed model with expanded relations.
-class BehaviorDetail(Behavior):
+class RequirementDetail(Requirement):
     # Override of the base schema's tags field to match the shape used for the
     # detailed/expanded response (TagRead instead of Tag).
     id: UUID4

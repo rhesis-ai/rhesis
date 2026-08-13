@@ -11,15 +11,15 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.constants import (
-    BEHAVIOR_RESOURCE_NAME,
-    BEHAVIOR_ROUTE_PREFIX,
-    BEHAVIOR_TAG,
+    REQUIREMENT_RESOURCE_NAME,
+    REQUIREMENT_ROUTE_PREFIX,
+    REQUIREMENT_TAG,
 )
-from rhesis.backend.app.crud import behavior as behavior_crud
+from rhesis.backend.app.crud import requirement as requirement_crud
 from rhesis.backend.app.crud.metric import (
-    add_behavior_to_metric,
-    get_behavior_metrics,
-    remove_behavior_from_metric,
+    add_requirement_to_metric,
+    get_requirement_metrics,
+    remove_requirement_from_metric,
 )
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
@@ -34,57 +34,57 @@ from rhesis.backend.app.utils.odata import apply_select
 
 logger = logging.getLogger(__name__)
 
-# Behavior's associated metrics only need Metric's own fields (name, description,
+# Requirement's associated metrics only need Metric's own fields (name, description,
 # backend_type, metric_type, score_type, metric_scope) -- confirmed against actual
-# frontend usage (BehaviorCard/BehaviorsClient/BehaviorMetricsViewer/BehaviorDetailTabs,
-# and the standalone GET /behaviors/{id}/metrics/ compare-page caller). None of
-# MetricDetail's relationship fields (status/assignee/owner/model/behaviors/
+# frontend usage (RequirementCard/RequirementsClient/RequirementMetricsViewer/RequirementDetailTabs,
+# and the standalone GET /requirements/{id}/metrics/ compare-page caller). None of
+# MetricDetail's relationship fields (status/assignee/owner/model/requirements/
 # test_sets/organization/project) are read here, so this stays on the base
 # Metric schema rather than sharing MetricDetail with routers/metric.py.
 # tags is overridden to TagRead (not the base Tag) to match the minimal shape
-# used everywhere else tags are embedded in a read response (e.g. BehaviorDetail,
+# used everywhere else tags are embedded in a read response (e.g. RequirementDetail,
 # TestSetDetail) -- otherwise this endpoint alone leaks organization_id/user_id
 # per tag.
-BehaviorWithMetricsSchema = create_model(
-    "BehaviorWithMetrics",
-    __base__=schemas.Behavior,
+RequirementWithMetricsSchema = create_model(
+    "RequirementWithMetrics",
+    __base__=schemas.Requirement,
     metrics=(List[schemas.Metric], []),
     tags=(List[TagRead], []),
 )
 
 router = RhesisRouter(
-    prefix=BEHAVIOR_ROUTE_PREFIX,
-    tags=[BEHAVIOR_TAG],
+    prefix=REQUIREMENT_ROUTE_PREFIX,
+    tags=[REQUIREMENT_TAG],
     responses={404: {"description": "Not found"}},
     dependencies=[Depends(require_current_user_or_token)],
-    resource=BEHAVIOR_RESOURCE_NAME,
+    resource=REQUIREMENT_RESOURCE_NAME,
 )
 
 
-@router.post("/", response_model=BehaviorWithMetricsSchema)
+@router.post("/", response_model=RequirementWithMetricsSchema)
 @handle_database_exceptions(
-    entity_name=BEHAVIOR_RESOURCE_NAME,
-    custom_unique_message="Behavior with this name already exists",
+    entity_name=REQUIREMENT_RESOURCE_NAME,
+    custom_unique_message="Requirement with this name already exists",
 )
-def create_behavior(
-    behavior: schemas.BehaviorCreate,
+def create_requirement(
+    requirement: schemas.RequirementCreate,
     db: Session = Depends(
         get_tenant_db_session
     ),  # ← Uses drop-in replacement with automatic session variables
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """Create behavior with automatic session variables for RLS."""
+    """Create requirement with automatic session variables for RLS."""
     organization_id, user_id = tenant_context
 
-    return behavior_crud.create_behavior(
-        db=db, behavior=behavior, organization_id=organization_id, user_id=user_id
+    return requirement_crud.create_requirement(
+        db=db, requirement=requirement, organization_id=organization_id, user_id=user_id
     )
 
 
-@router.get("/", response_model=list[BehaviorWithMetricsSchema])
-@with_count_header(model=models.Behavior)
-def read_behaviors(
+@router.get("/", response_model=list[RequirementWithMetricsSchema])
+@with_count_header(model=models.Requirement)
+def read_requirements(
     response: Response,
     skip: int = 0,
     limit: int = 20,
@@ -100,10 +100,10 @@ def read_behaviors(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """Get all behaviors with automatic session variables for RLS."""
+    """Get all requirements with automatic session variables for RLS."""
     organization_id, user_id = tenant_context
 
-    results = behavior_crud.get_behaviors_detail(
+    results = requirement_crud.get_requirements_detail(
         db=db,
         skip=skip,
         limit=limit,
@@ -119,71 +119,71 @@ def read_behaviors(
     return results
 
 
-@router.get("/{behavior_id}", response_model=BehaviorWithMetricsSchema)
-def read_behavior(
-    behavior_id: uuid.UUID,
+@router.get("/{requirement_id}", response_model=RequirementWithMetricsSchema)
+def read_requirement(
+    requirement_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """Get behavior by ID with automatic session variables for RLS."""
+    """Get requirement by ID with automatic session variables for RLS."""
     organization_id, user_id = tenant_context
-    db_behavior = behavior_crud.get_behavior(
-        db, behavior_id=behavior_id, organization_id=organization_id, user_id=user_id
+    db_requirement = requirement_crud.get_requirement(
+        db, requirement_id=requirement_id, organization_id=organization_id, user_id=user_id
     )
-    if db_behavior is None:
-        raise HTTPException(status_code=404, detail="Behavior not found")
-    return db_behavior
+    if db_requirement is None:
+        raise HTTPException(status_code=404, detail="Requirement not found")
+    return db_requirement
 
 
-@router.delete("/{behavior_id}")
-def delete_behavior(
-    behavior_id: uuid.UUID,
+@router.delete("/{requirement_id}")
+def delete_requirement(
+    requirement_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """Delete behavior with automatic session variables for RLS."""
+    """Delete requirement with automatic session variables for RLS."""
     organization_id, user_id = tenant_context
-    db_behavior = behavior_crud.delete_behavior(
-        db, behavior_id=behavior_id, organization_id=organization_id, user_id=user_id
+    db_requirement = requirement_crud.delete_requirement(
+        db, requirement_id=requirement_id, organization_id=organization_id, user_id=user_id
     )
-    if db_behavior is None:
-        raise HTTPException(status_code=404, detail="Behavior not found")
-    return db_behavior
+    if db_requirement is None:
+        raise HTTPException(status_code=404, detail="Requirement not found")
+    return db_requirement
 
 
-@router.put("/{behavior_id}", response_model=BehaviorWithMetricsSchema)
+@router.put("/{requirement_id}", response_model=RequirementWithMetricsSchema)
 @handle_database_exceptions(
-    entity_name=BEHAVIOR_RESOURCE_NAME,
-    custom_unique_message="Behavior with this name already exists",
+    entity_name=REQUIREMENT_RESOURCE_NAME,
+    custom_unique_message="Requirement with this name already exists",
 )
-def update_behavior(
-    behavior_id: uuid.UUID,
-    behavior: schemas.BehaviorUpdate,
+def update_requirement(
+    requirement_id: uuid.UUID,
+    requirement: schemas.RequirementUpdate,
     db: Session = Depends(get_tenant_db_session),  # ← Uses drop-in replacement
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """Update behavior with automatic session variables for RLS."""
+    """Update requirement with automatic session variables for RLS."""
     organization_id, user_id = tenant_context
-    db_behavior = behavior_crud.update_behavior(
+    db_requirement = requirement_crud.update_requirement(
         db,
-        behavior_id=behavior_id,
-        behavior=behavior,
+        requirement_id=requirement_id,
+        requirement=requirement,
         organization_id=organization_id,
         user_id=user_id,
     )
-    if db_behavior is None:
-        raise HTTPException(status_code=404, detail="Behavior not found")
-    return db_behavior
+    if db_requirement is None:
+        raise HTTPException(status_code=404, detail="Requirement not found")
+    return db_requirement
 
 
-@router.get("/{behavior_id}/metrics/", response_model=List[schemas.Metric])
+@router.get("/{requirement_id}/metrics/", response_model=List[schemas.Metric])
 @with_count_header(model=models.Metric)
-def read_behavior_metrics(
+def read_requirement_metrics(
     response: Response,
-    behavior_id: uuid.UUID,
+    requirement_id: uuid.UUID,
     skip: int = 0,
     limit: int = 100,
     sort_by: str = "created_at",
@@ -195,12 +195,12 @@ def read_behavior_metrics(
     organization_id: str = None,  # For with_count_header decorator
     user_id: str = None,  # For with_count_header decorator
 ):
-    """Get all metrics associated with a behavior"""
+    """Get all metrics associated with a requirement"""
     try:
         organization_id, user_id = tenant_context  # SECURITY: Get tenant context
-        metrics = get_behavior_metrics(
+        metrics = get_requirement_metrics(
             db,
-            behavior_id=behavior_id,
+            requirement_id=requirement_id,
             organization_id=organization_id,  # SECURITY: Pass organization_id for filtering
             skip=skip,
             limit=limit,
@@ -210,50 +210,50 @@ def read_behavior_metrics(
         )
         return metrics
     except ValueError as e:
-        logger.error(f"Error getting behavior metrics: {e}")
+        logger.error(f"Error getting requirement metrics: {e}")
         raise HTTPException(status_code=404, detail=str(e))
 
 
-@router.post("/{behavior_id}/metrics/{metric_id}")
-def add_metric_to_behavior(
-    behavior_id: uuid.UUID,
+@router.post("/{requirement_id}/metrics/{metric_id}")
+def add_metric_to_requirement(
+    requirement_id: uuid.UUID,
     metric_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """Add a metric to a behavior"""
+    """Add a metric to a requirement"""
     try:
-        added = add_behavior_to_metric(
+        added = add_requirement_to_metric(
             db=db,
             metric_id=metric_id,
-            behavior_id=behavior_id,
+            requirement_id=requirement_id,
             user_id=current_user.id,
             organization_id=current_user.organization_id,
         )
         if added:
-            return {"status": "success", "message": "Metric added to behavior"}
-        return {"status": "success", "message": "Metric was already associated with behavior"}
+            return {"status": "success", "message": "Metric added to requirement"}
+        return {"status": "success", "message": "Metric was already associated with requirement"}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
 
-@router.delete("/{behavior_id}/metrics/{metric_id}")
-def remove_metric_from_behavior(
-    behavior_id: uuid.UUID,
+@router.delete("/{requirement_id}/metrics/{metric_id}")
+def remove_metric_from_requirement(
+    requirement_id: uuid.UUID,
     metric_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """Remove a metric from a behavior"""
+    """Remove a metric from a requirement"""
     try:
-        removed = remove_behavior_from_metric(
+        removed = remove_requirement_from_metric(
             db=db,
             metric_id=metric_id,
-            behavior_id=behavior_id,
+            requirement_id=requirement_id,
             organization_id=current_user.organization_id,
         )
         if removed:
-            return {"status": "success", "message": "Metric removed from behavior"}
-        raise HTTPException(status_code=404, detail="Metric was not associated with behavior")
+            return {"status": "success", "message": "Metric removed from requirement"}
+        raise HTTPException(status_code=404, detail="Metric was not associated with requirement")
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))

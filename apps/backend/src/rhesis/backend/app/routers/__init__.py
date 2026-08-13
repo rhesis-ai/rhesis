@@ -2,7 +2,7 @@
 from .annotations import router as annotations_router
 from .architect import router as architect_router
 from .auth import router as auth_router
-from .behavior import router as behavior_router
+from .requirement import router as requirement_router
 from .capabilities import router as capabilities_router
 from .category import router as category_router
 from .comment import router as comment_router
@@ -69,7 +69,7 @@ __all__ = [
     "prompt",
     "prompt_template",
     "category",
-    "behavior",
+    "requirement",
     "comment",
     "connector",
     "test_set",
@@ -115,7 +115,7 @@ routers = sorted(
         prompt_router,
         prompt_template_router,
         category_router,
-        behavior_router,
+        requirement_router,
         comment_router,
         connector_router,
         telemetry_router,

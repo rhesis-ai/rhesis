@@ -7,8 +7,8 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
-from rhesis.backend.app.crud.metric import get_behavior_metrics
-from rhesis.backend.app.crud.test_run import get_test_run, get_test_run_behaviors
+from rhesis.backend.app.crud.metric import get_requirement_metrics
+from rhesis.backend.app.crud.test_run import get_test_run, get_test_run_requirements
 
 logger = logging.getLogger(__name__)
 
@@ -53,20 +53,20 @@ def get_test_results_for_test_run(
     if not all_test_results:
         raise ValueError("No test results found for this test run")
 
-    # Get behaviors and metrics for this test run with organization filtering (SECURITY CRITICAL)
-    behaviors = get_test_run_behaviors(
+    # Get requirements and metrics for this test run with organization filtering (SECURITY CRITICAL)
+    requirements = get_test_run_requirements(
         db, test_run_id, organization_id=str(test_run.organization_id)
     )
 
-    # Create a mapping of behavior_id to behavior with metrics
-    behavior_map = {}
-    for behavior in behaviors:
-        # Get metrics for this behavior (use default limit to stay within bounds)
+    # Create a mapping of requirement_id to requirement with metrics
+    requirement_map = {}
+    for requirement in requirements:
+        # Get metrics for this requirement (use default limit to stay within bounds)
         # SECURITY: Pass organization_id from test_run to prevent cross-tenant access
-        metrics = get_behavior_metrics(
-            db, behavior.id, organization_id=str(test_run.organization_id)
+        metrics = get_requirement_metrics(
+            db, requirement.id, organization_id=str(test_run.organization_id)
         )
-        behavior_map[behavior.id] = {"behavior": behavior, "metrics": metrics}
+        requirement_map[requirement.id] = {"requirement": requirement, "metrics": metrics}
 
     # Process test results into CSV format
     csv_data = []
@@ -92,16 +92,16 @@ def get_test_results_for_test_run(
             "created_at": result.created_at.isoformat() if result.created_at else "N/A",
         }
 
-        # Add behavior metrics columns
+        # Add requirement metrics columns
         test_metrics = result.test_metrics.get("metrics", {}) if result.test_metrics else {}
 
-        for behavior_id, behavior_data in behavior_map.items():
-            behavior = behavior_data["behavior"]
-            metrics = behavior_data["metrics"]
+        for requirement_id, requirement_data in requirement_map.items():
+            requirement = requirement_data["requirement"]
+            metrics = requirement_data["metrics"]
 
             for metric in metrics:
                 metric_name = metric.name
-                column_name = f"{behavior.name}_{metric_name}"
+                column_name = f"{requirement.name}_{metric_name}"
 
                 # Get metric result
                 metric_result = test_metrics.get(metric_name)
@@ -153,7 +153,7 @@ def test_run_results_to_csv(test_results_data: List[Dict[str, Any]]) -> str:
     for row in test_results_data:
         all_columns.update(row.keys())
 
-    # Order columns: base columns first, then behavior metrics
+    # Order columns: base columns first, then requirement metrics
     base_columns = ["test_id", "prompt_content", "response", "created_at"]
     metric_columns = sorted([col for col in all_columns if col not in base_columns])
     ordered_columns = base_columns + metric_columns

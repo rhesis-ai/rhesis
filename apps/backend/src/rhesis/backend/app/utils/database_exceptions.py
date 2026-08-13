@@ -41,7 +41,7 @@ class DatabaseExceptionHandler:
         "project_id": "Invalid project reference",
         "test_set_id": "Invalid test set reference",
         "test_id": "Invalid test reference",
-        "behavior_id": "Invalid behavior reference",
+        "requirement_id": "Invalid requirement reference",
         "metric_id": "Invalid metric reference",
         "category_id": "Invalid category reference",
         "topic_id": "Invalid topic reference",

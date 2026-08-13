@@ -576,7 +576,7 @@ def get_test_set_tests(
             include(models.Test.assignee),
             include(models.Test.owner),
             include(models.Test.topic),
-            include(models.Test.behavior),
+            include(models.Test.requirement),
             include(models.Test.category),
             include(models.Test.status),
         )
@@ -949,8 +949,8 @@ def update_test(
     from rhesis.backend.app.services.test_set import update_test_set_attributes
 
     metadata_fields = {
-        "behavior",
-        "behavior_id",
+        "requirement",
+        "requirement_id",
         "topic",
         "topic_id",
         "category",
@@ -1080,7 +1080,7 @@ _TEST_RESULT_RELATED_FIELDS = (
     include(models.TestResult.test_run),
     include(models.TestResult.test),
     include(models.TestResult.test, models.Test.prompt),
-    include(models.TestResult.test, models.Test.behavior),
+    include(models.TestResult.test, models.Test.requirement),
 )
 
 

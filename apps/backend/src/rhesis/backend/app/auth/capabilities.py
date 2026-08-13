@@ -210,11 +210,11 @@ class Permission:
         UPDATE = "source:update"
         DELETE = "source:delete"
 
-    class Behavior(_PermissionEnum):
-        READ = "behavior:read"
-        CREATE = "behavior:create"
-        UPDATE = "behavior:update"
-        DELETE = "behavior:delete"
+    class Requirement(_PermissionEnum):
+        READ = "requirement:read"
+        CREATE = "requirement:create"
+        UPDATE = "requirement:update"
+        DELETE = "requirement:delete"
 
     class Tool(_PermissionEnum):
         READ = "tool:read"

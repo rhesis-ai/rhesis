@@ -22,7 +22,7 @@ from rhesis.backend.app.schemas.preflight import (
     PreflightSyncResponse,
 )
 from rhesis.backend.app.services.preflight import (
-    CHECK_BEHAVIOR_METRIC_COVERAGE,
+    CHECK_REQUIREMENT_METRIC_COVERAGE,
     CHECK_ENDPOINT_CONNECTIVITY,
     CHECK_EVALUATION_MODEL,
     CHECK_EXECUTION_MODEL,
@@ -94,7 +94,7 @@ def _determine_applicable_checks(
     for ts_id_str, ts_name, _ in test_sets:
         for check_id in [
             CHECK_TEST_SET_NOT_EMPTY,
-            CHECK_BEHAVIOR_METRIC_COVERAGE,
+            CHECK_REQUIREMENT_METRIC_COVERAGE,
             CHECK_METRIC_COMPATIBILITY,
             CHECK_METRIC_FUNCTIONALITY,
         ]:

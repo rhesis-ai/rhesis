@@ -204,7 +204,7 @@ def configure_worker_logging(logger=None, **kw):
     """Replace Celery's default root logger setup with our shared pipeline.
 
     Runs after Celery hijacks the root logger at worker boot (the default
-    `worker_hijack_root_logger` behavior), so calling this at import time
+    `worker_hijack_root_logger` requirement), so calling this at import time
     would just get overwritten by Celery's own setup.
 
     Uses the role captured from the Celery hostname in ``celeryd_init``.

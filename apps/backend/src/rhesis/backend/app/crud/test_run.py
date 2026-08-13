@@ -169,23 +169,23 @@ def get_test_runs(
     )
 
 
-def get_test_run_behaviors(
+def get_test_run_requirements(
     db: Session, test_run_id: uuid.UUID, organization_id: str = None
-) -> List[models.Behavior]:
-    """Get behaviors that have test results for a specific test run with organization filtering"""
+) -> List[models.Requirement]:
+    """Get requirements that have test results for a specific test run with organization filtering"""
     # Verify the test run exists (UUID lookup is safe)
     test_run = get_test_run(db, test_run_id, organization_id=organization_id)
     if not test_run:
         raise ValueError(f"Test run with id {test_run_id} not found")
 
-    # Get unique behavior IDs from tests that have results in this test run
+    # Get unique requirement IDs from tests that have results in this test run
     # SECURITY: Add organization filtering
-    behavior_ids_query = (
-        db.query(models.Test.behavior_id)
+    requirement_ids_query = (
+        db.query(models.Test.requirement_id)
         .join(models.TestResult, models.Test.id == models.TestResult.test_id)
         .filter(
             models.TestResult.test_run_id == test_run_id,
-            models.Test.behavior_id.isnot(None),  # Only tests that have a behavior
+            models.Test.requirement_id.isnot(None),  # Only tests that have a requirement
         )
     )
 
@@ -193,22 +193,22 @@ def get_test_run_behaviors(
     if organization_id:
         from uuid import UUID
 
-        behavior_ids_query = behavior_ids_query.filter(
+        requirement_ids_query = requirement_ids_query.filter(
             models.Test.organization_id == UUID(organization_id)
         )
 
-    behavior_ids_query = behavior_ids_query.distinct()
+    requirement_ids_query = requirement_ids_query.distinct()
 
-    behavior_ids = [row[0] for row in behavior_ids_query.all()]
+    requirement_ids = [row[0] for row in requirement_ids_query.all()]
 
-    if not behavior_ids:
+    if not requirement_ids:
         return []
 
-    # Get the actual behavior objects with proper filtering
+    # Get the actual requirement objects with proper filtering
     return (
-        QueryBuilder(db, models.Behavior)
+        QueryBuilder(db, models.Requirement)
         .with_visibility_filter()
-        .with_custom_filter(lambda q: q.filter(models.Behavior.id.in_(behavior_ids)))
+        .with_custom_filter(lambda q: q.filter(models.Requirement.id.in_(requirement_ids)))
         .with_sorting("name", "asc")
         .all()
     )

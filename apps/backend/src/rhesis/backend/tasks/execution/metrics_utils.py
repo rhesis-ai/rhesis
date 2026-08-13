@@ -1,5 +1,5 @@
 """
-Utility functions for managing behavior metrics.
+Utility functions for managing requirement metrics.
 
 Note: Metric model to config conversion is now handled directly by the
 MetricEvaluator class - no intermediate conversion needed.
@@ -16,27 +16,27 @@ from rhesis.backend.app.models.metric import Metric
 logger = logging.getLogger(__name__)
 
 
-def get_behavior_metrics(db: Session, behavior_id: UUID) -> List[Metric]:
+def get_requirement_metrics(db: Session, requirement_id: UUID) -> List[Metric]:
     """
-    Retrieve metrics associated with a behavior.
+    Retrieve metrics associated with a requirement.
 
     Args:
         db: Database session
-        behavior_id: UUID of the behavior
+        requirement_id: UUID of the requirement
 
     Returns:
         List of Metric model instances (evaluator handles conversion)
     """
-    if not behavior_id:
-        logger.warning("No behavior ID provided for metrics retrieval")
+    if not requirement_id:
+        logger.warning("No requirement ID provided for metrics retrieval")
         return []
 
     try:
-        # Query metrics related to the behavior
+        # Query metrics related to the requirement
         metrics = (
             db.query(Metric)
-            .join(Metric.behaviors)
-            .filter(Metric.behaviors.any(id=behavior_id))
+            .join(Metric.requirements)
+            .filter(Metric.requirements.any(id=requirement_id))
             .all()
         )
 
@@ -52,6 +52,6 @@ def get_behavior_metrics(db: Session, behavior_id: UUID) -> List[Metric]:
 
     except Exception as e:
         logger.error(
-            f"Error retrieving metrics for behavior {behavior_id}: {str(e)}", exc_info=True
+            f"Error retrieving metrics for requirement {requirement_id}: {str(e)}", exc_info=True
         )
         return []

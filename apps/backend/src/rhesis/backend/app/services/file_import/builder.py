@@ -69,7 +69,7 @@ def rows_to_test_data(
     """Convert normalized rows to the TestData payload format.
 
     Filters out rows that are completely empty (no category, topic,
-    behavior, or prompt content). Multi-turn tests don't require a prompt.
+    requirement, or prompt content). Multi-turn tests don't require a prompt.
     """
     tests = []
     for row in rows:
@@ -77,17 +77,17 @@ def rows_to_test_data(
         prompt_content = prompt.get("content", "") if isinstance(prompt, dict) else ""
         category = row.get("category", "")
         topic = row.get("topic", "")
-        behavior = row.get("behavior", "")
+        requirement = row.get("requirement", "")
         test_type = row.get("test_type", "Single-Turn")
 
         is_multi_turn = test_type == "Multi-Turn"
 
         # Skip completely empty rows
         if is_multi_turn:
-            if not any(str(v or "").strip() for v in [category, topic, behavior]):
+            if not any(str(v or "").strip() for v in [category, topic, requirement]):
                 continue
         else:
-            if not any(str(v or "").strip() for v in [prompt_content, category, topic, behavior]):
+            if not any(str(v or "").strip() for v in [prompt_content, category, topic, requirement]):
                 continue
 
         # Build a clean prompt dict — multi-turn tests don't have prompts
@@ -103,7 +103,7 @@ def rows_to_test_data(
         test: Dict[str, Any] = {
             "category": category or "Uncategorized",
             "topic": topic or "General",
-            "behavior": behavior or "Default",
+            "requirement": requirement or "Default",
         }
 
         if clean_prompt is not None and clean_prompt.get("content"):

@@ -203,7 +203,7 @@ async def a_generate_embedding_vector(
 ) -> List[float]:
     """Async embed plain text using the user's configured embedding model or platform default.
 
-    Same behavior as :func:`generate_embedding_vector` but uses the embedder's async API.
+    Same requirement as :func:`generate_embedding_vector` but uses the embedder's async API.
 
     Parameters
     ----------

@@ -385,10 +385,10 @@ def get_db_with_tenant_context(
         yield db, organization_id, user_id
 
 
-# Backward compatibility alias for behavior endpoints
-def get_behavior_context(current_user: User = Depends(require_current_user_or_token)):
+# Backward compatibility alias for requirement endpoints
+def get_requirement_context(current_user: User = Depends(require_current_user_or_token)):
     """
     DEPRECATED: Use get_tenant_context instead.
-    Kept for backward compatibility with behavior endpoints.
+    Kept for backward compatibility with requirement endpoints.
     """
     return get_tenant_context(current_user)

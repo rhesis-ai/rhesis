@@ -11,7 +11,7 @@ from rhesis.backend.app.constants import (
 from rhesis.backend.app.schemas import Base
 from rhesis.backend.app.schemas.affordances import WithPermittedActions
 from rhesis.backend.app.schemas.references import (
-    BehaviorReference,
+    RequirementReference,
     PromptReference,
 )
 from rhesis.backend.app.schemas.tag import TagRead
@@ -65,7 +65,7 @@ class TestResult(TestResultBase, WithPermittedActions):
 class TestReference(Base):
     id: UUID4
     prompt: Optional[PromptReference] = None
-    behavior: Optional[BehaviorReference] = None
+    requirement: Optional[RequirementReference] = None
 
     model_config = ConfigDict(from_attributes=True)
 

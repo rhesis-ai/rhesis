@@ -95,7 +95,7 @@ class MultiTurnTestExecutor(BaseTestExecutor):
             test, _, _ = get_test_and_prompt(db, test_id, organization_id)
 
             # Load test_configuration for metric override support
-            # Metric resolution priority: execution-time > test set > behavior
+            # Metric resolution priority: execution-time > test set > requirement
             test_config = None
             test_set = None
             if test_config_id:

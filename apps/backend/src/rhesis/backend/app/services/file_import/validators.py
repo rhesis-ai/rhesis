@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Tuple
 VALID_TEST_TYPES = {"Single-Turn", "Multi-Turn"}
 
 # Fields that must have a non-empty value
-REQUIRED_FIELDS = ["category", "topic", "behavior"]
+REQUIRED_FIELDS = ["category", "topic", "requirement"]
 
 
 def validate_rows(

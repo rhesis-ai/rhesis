@@ -21,7 +21,7 @@ router = APIRouter(prefix="/insights", tags=["insights"])
 
 def insights_filters(
     test_run_ids: Optional[List[UUID]] = Query(None, description="Filter by test run IDs"),
-    behavior_ids: Optional[List[UUID]] = Query(None, description="Filter by behavior IDs"),
+    requirement_ids: Optional[List[UUID]] = Query(None, description="Filter by requirement IDs"),
     category_ids: Optional[List[UUID]] = Query(None, description="Filter by category IDs"),
     topic_ids: Optional[List[UUID]] = Query(None, description="Filter by topic IDs"),
     status_ids: Optional[List[UUID]] = Query(None, description="Filter by test status IDs"),
@@ -42,7 +42,7 @@ def insights_filters(
     """Shared registry filter query params for GET /insights and GET /insights/ids."""
     filters = {
         "test_run_ids": test_run_ids,
-        "behavior_ids": behavior_ids,
+        "requirement_ids": requirement_ids,
         "category_ids": category_ids,
         "topic_ids": topic_ids,
         "status_ids": status_ids,
@@ -85,7 +85,7 @@ def get_insights(
     Every param is checked against the registry entry for `entity` before it
     reaches SQL -- an unknown group_by/measure/filter returns 400, not a query.
 
-    Example: `GET /insights/?entity=test_result&group_by=behavior&measures=count&measures=pass_rate`
+    Example: `GET /insights/?entity=test_result&group_by=requirement&measures=count&measures=pass_rate`
     """
     try:
         return run_query(
@@ -121,9 +121,9 @@ def get_insights_ids(
     """Resolve distinct entity IDs under the same filter universe as GET /insights.
 
     Returns a flat ID list (not the aggregation envelope). Use this for drill-down
-    from a chart slice to a test list -- e.g. failed tests for a behavior/metric/topic.
+    from a chart slice to a test list -- e.g. failed tests for a requirement/metric/topic.
 
-    Example: `GET /insights/ids?entity=test_result&outcome=fail&test_run_ids=...&behavior_ids=...`
+    Example: `GET /insights/ids?entity=test_result&outcome=fail&test_run_ids=...&requirement_ids=...`
     """
     try:
         return run_ids(
@@ -159,9 +159,9 @@ def query_insights(
 
     Example:
         POST /insights/query
-        {"topics": {"entity": "test_result", "group_by": ["behavior", "topic"],
+        {"topics": {"entity": "test_result", "group_by": ["requirement", "topic"],
                     "measures": ["count", "pass_rate"]},
-         "metrics": {"entity": "metric", "group_by": ["behavior_id", "metric_name"],
+         "metrics": {"entity": "metric", "group_by": ["requirement_id", "metric_name"],
                      "measures": ["count", "passed", "pass_rate"]}}
     """
     try:

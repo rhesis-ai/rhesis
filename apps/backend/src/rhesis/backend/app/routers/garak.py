@@ -36,7 +36,7 @@ from rhesis.backend.app.services.garak import (
     GarakSyncService,
     GarakTaxonomy,
 )
-from rhesis.backend.app.services.garak.taxonomy import resolve_behavior
+from rhesis.backend.app.services.garak.taxonomy import resolve_requirement
 from rhesis.backend.tasks import task_launcher
 from rhesis.backend.tasks.garak import import_garak_probes_task, sync_garak_test_set_task
 from rhesis.backend.tasks.test_set import generate_and_save_test_set
@@ -111,7 +111,7 @@ async def list_probe_modules(
                     default_detector=module.default_detector,
                     rhesis_category=mapping.category,
                     rhesis_topic=mapping.topic,
-                    rhesis_behavior=resolve_behavior(module.tags),
+                    rhesis_requirement=resolve_requirement(module.tags),
                     has_dynamic_probes=module.has_dynamic_probes,
                     probes=probe_responses,
                 )
@@ -185,7 +185,7 @@ def get_probe_module_detail(
             rhesis_mapping={
                 "category": mapping.category,
                 "topic": mapping.topic,
-                "behavior": resolve_behavior(module_info.tags),
+                "requirement": resolve_requirement(module_info.tags),
             },
             probes=probe_details,
         )

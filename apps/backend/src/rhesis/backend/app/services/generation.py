@@ -196,7 +196,7 @@ async def generate_multiturn_tests(
         user: Current user (organization_id extracted from user for security)
         config: The generation configuration as a dictionary containing:
             - generation_prompt (str): The generation prompt describing what to test
-            - behavior (str, optional): Behavior type (e.g., "Compliance", "Reliability")
+            - requirement (str, optional): Requirement type (e.g., "Compliance", "Reliability")
             - category (str, optional): Category (e.g., "Harmful", "Harmless")
             - topic (str, optional): Specific topic
         num_tests: Number of test cases to generate (default: 5)

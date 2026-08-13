@@ -154,19 +154,19 @@ def read_test_run(
     return db_test_run
 
 
-@router.get("/{test_run_id}/behaviors", response_model=List[schemas.Behavior])
-def get_test_run_behaviors(
+@router.get("/{test_run_id}/requirements", response_model=List[schemas.Requirement])
+def get_test_run_requirements(
     test_run_id: UUID,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),  # SECURITY: Extract tenant context
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """Get behaviors that have test results for this test run with organization filtering"""
+    """Get requirements that have test results for this test run with organization filtering"""
     organization_id, user_id = tenant_context  # SECURITY: Get tenant context
-    behaviors = test_run_crud.get_test_run_behaviors(
+    requirements = test_run_crud.get_test_run_requirements(
         db, test_run_id=test_run_id, organization_id=organization_id
     )
-    return behaviors
+    return requirements
 
 
 @router.get("/{test_run_id}/metrics", response_model=List[str])
@@ -412,7 +412,7 @@ def get_test_run_traces(
     Get all traces associated with a test run.
 
     Returns traces from all test executions within this test run,
-    useful for debugging and analyzing test execution behavior.
+    useful for debugging and analyzing test execution requirement.
 
     **Authentication**: Requires valid user session or API key
 

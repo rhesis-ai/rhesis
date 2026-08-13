@@ -5,7 +5,7 @@ from pydantic import UUID4, ConfigDict, Field, field_validator, model_validator
 
 from rhesis.backend.app.schemas import Base
 from rhesis.backend.app.schemas.metric_types import ScoreType, ThresholdOperator
-from rhesis.backend.app.schemas.references import BehaviorReference
+from rhesis.backend.app.schemas.references import RequirementReference
 from rhesis.backend.app.schemas.tag import Tag
 from rhesis.backend.app.schemas.type_lookup import TypeLookup
 
@@ -113,7 +113,7 @@ class ModelReference(Base):
 class MetricDetail(Metric):
     name: Optional[str] = None
     model: Optional[ModelReference] = None
-    behaviors: Optional[List[BehaviorReference]] = []
+    requirements: Optional[List[RequirementReference]] = []
 
 
 class GenerateMetricRequest(Base):

@@ -72,7 +72,7 @@ def create_tests_bulk(
                     "language_code": "en",
                     "expected_response": "Optional expected response"
                 },
-                "behavior": "Behavior name",
+                "requirement": "Requirement name",
                 "category": "Category name",
                 "topic": "Topic name",
                 "test_configuration": {},  # Optional test configuration
@@ -199,7 +199,7 @@ def read_tests(
     select: str | None = Query(
         None,
         alias="$select",
-        description="Comma-separated list of fields to return (e.g. id,prompt,behavior)",
+        description="Comma-separated list of fields to return (e.g. id,prompt,requirement)",
     ),
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
@@ -341,8 +341,8 @@ async def execute_test_endpoint(
 
     1. **Existing test**: Provide `test_id` to execute an existing test
     2. **Inline test**: Provide complete test definition:
-       - For single-turn: `prompt` + `behavior` + `topic` + `category`
-       - For multi-turn: `test_configuration` (with goal) + `behavior` + `topic` + `category`
+       - For single-turn: `prompt` + `requirement` + `topic` + `category`
+       - For multi-turn: `test_configuration` (with goal) + `requirement` + `topic` + `category`
 
     **Parameters:**
     - `test_id`: Optional UUID of existing test
@@ -350,7 +350,7 @@ async def execute_test_endpoint(
     - `evaluate_metrics`: Whether to evaluate and return test_metrics (default: True)
     - `prompt`: For single-turn tests (if test_id not provided)
     - `test_configuration`: For multi-turn tests (if test_id not provided)
-    - `behavior`, `topic`, `category`: Required if test_id not provided
+    - `requirement`, `topic`, `category`: Required if test_id not provided
     - `test_type`: Optional, auto-detected if not provided
 
     **Returns:**
@@ -381,7 +381,7 @@ async def execute_test_endpoint(
         "language_code": "en",
         "expected_response": "4"
       },
-      "behavior": "Mathematical Reasoning",
+      "requirement": "Mathematical Reasoning",
       "topic": "Arithmetic",
       "category": "Math"
     }
@@ -395,7 +395,7 @@ async def execute_test_endpoint(
         "max_turns": 10,
         "min_turns": 5
       },
-      "behavior": "Task Completion",
+      "requirement": "Task Completion",
       "topic": "Travel",
       "category": "Booking"
     }

@@ -58,7 +58,7 @@ def include(*path, cols: list | None = None):
 
     Example::
 
-        include(Test.behavior, cols=[Behavior.id, Behavior.name])
+        include(Test.requirement, cols=[Requirement.id, Requirement.name])
         include(Test.test_configuration, TestConfiguration.endpoint,
                 cols=[Endpoint.id, Endpoint.name])
     """
@@ -112,8 +112,8 @@ class QueryBuilder:
 
     def with_related(self, *options) -> "QueryBuilder":
         """Eager-load each relationship option, built via ``include(...)`` (see
-        module level) -- e.g. ``include(Test.behavior, cols=[Behavior.id,
-        Behavior.name])`` or a multi-hop chain: ``include(Test.test_configuration,
+        module level) -- e.g. ``include(Test.requirement, cols=[Requirement.id,
+        Requirement.name])`` or a multi-hop chain: ``include(Test.test_configuration,
         TestConfiguration.endpoint, cols=[Endpoint.id, Endpoint.name])``.
 
         A pass-through onto the query's own ``.options()`` -- all of the
