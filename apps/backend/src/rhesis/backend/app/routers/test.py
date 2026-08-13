@@ -110,6 +110,10 @@ def create_tests_bulk(
         return schemas.TestBulkCreateResponse(
             success=True, total_tests=len(tests), message=f"Successfully created {len(tests)} tests"
         )
+    except HTTPException:
+        # The empty-request 400 above is raised inside this try; without this
+        # arm the broad handler below turns it into a 500.
+        raise
     except ValueError as e:
         # Handle validation errors
         raise HTTPException(status_code=400, detail=str(e))
