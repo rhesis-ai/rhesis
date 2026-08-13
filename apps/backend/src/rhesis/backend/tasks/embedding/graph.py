@@ -67,6 +67,7 @@ def _ensure_embeddings_for_entities(
     generator = EmbeddingGenerator(db)
     generated = 0
     skipped_empty = 0
+    skipped_no_provider = 0
     failed = 0
     for entity_id in missing_ids:
         try:
@@ -93,15 +94,19 @@ def _ensure_embeddings_for_entities(
             generated += 1
         elif status == "skipped_empty_text":
             skipped_empty += 1
+        elif status == "skipped_no_provider":
+            skipped_no_provider += 1
         else:
             failed += 1
 
     logger.info(
-        "Embedding backfill for %s: missing=%s generated=%s skipped_empty=%s failed=%s",
+        "Embedding backfill for %s: missing=%s generated=%s skipped_empty=%s "
+        "skipped_no_provider=%s failed=%s",
         entity_type,
         len(missing_ids),
         generated,
         skipped_empty,
+        skipped_no_provider,
         failed,
     )
 

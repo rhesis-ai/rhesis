@@ -28,6 +28,16 @@ from rhesis.sdk.models.factory import get_model
 logger = logging.getLogger(__name__)
 
 
+class _NoEmbeddingProviderConfigured(Exception):
+    """Raised internally when the embedder resolves to the Rhesis native provider.
+
+    Distinct from :class:`ModelConfigurationError`, which also covers a
+    provider that *is* configured but broken (bad key, inaccessible model) --
+    that case should still fail the task loudly. This one means no provider
+    was ever configured, which ``generate()`` treats as a skip.
+    """
+
+
 class EmbeddingGenerator:
     """Generate embedding for any embeddable entity."""
 
@@ -80,19 +90,16 @@ class EmbeddingGenerator:
 
         # Caught here, in-process, rather than left to surface as an HTTP error
         # from generate_embedding_endpoint's own recursion guard: this path runs
-        # inside the Celery embedding task, and a permanent misconfiguration
-        # error raised from an HTTP call is only distinguishable from a
-        # retryable one by status code, which a generic 5xx wouldn't be. Raising
-        # ModelConfigurationError directly, before any network call, sidesteps
-        # that and makes the failure genuinely instant rather than a wasted
-        # round-trip that error-classification would then have to interpret.
+        # inside the Celery embedding task, and calling the native provider
+        # from here would call this backend's own embedding endpoint over
+        # HTTP, which implements this exact code path -- infinite recursion.
         from rhesis.sdk.models.providers.native import RhesisEmbedder
 
         if isinstance(resolved_embedder, RhesisEmbedder):
-            raise ModelConfigurationError(
+            raise _NoEmbeddingProviderConfigured(
                 "Embedding model resolved to the Rhesis native provider, which would call "
                 "the embedding endpoint recursively. Set DEFAULT_EMBEDDING_MODEL to an "
-                "actual provider (e.g. vertex_ai/text-embedding-005)."
+                "actual provider (e.g. vertex_ai/text-embedding-005) to enable embeddings."
             )
 
         return resolved_embedder
@@ -184,6 +191,10 @@ class EmbeddingGenerator:
             - ``{"status": "skipped_empty_text", "embedding_id": None}`` —
               ``searchable_text`` was missing or only whitespace; no API call and
               no embedding row created.
+            - ``{"status": "skipped_no_provider", "embedding_id": None}`` —
+              no real embedding provider is configured (``DEFAULT_EMBEDDING_MODEL``
+              still resolves to the Rhesis native provider); embeddings are
+              optional enrichment, so this is a skip, not a task failure.
 
             Celery task ``generate_embedding_task`` returns this dict unchanged.
         """
@@ -208,7 +219,15 @@ class EmbeddingGenerator:
         db_model = model_crud.get_model(self.db, model_id=model_id, organization_id=organization_id)
         if not db_model:
             raise ValueError(f"Model not found: {model_id}")
-        embedder = self._resolve_embedder(user_id=user_id, db_model=db_model, embedder=embedder)
+
+        try:
+            embedder = self._resolve_embedder(user_id=user_id, db_model=db_model, embedder=embedder)
+        except _NoEmbeddingProviderConfigured as e:
+            # No real provider configured is an environment state, not a task
+            # failure -- embeddings are optional enrichment, and this path runs
+            # for every entity save until an operator sets DEFAULT_EMBEDDING_MODEL.
+            logger.warning("Skipping embedding for %s:%s: %s", entity_type, entity_id, e)
+            return {"status": "skipped_no_provider", "embedding_id": None}
 
         text_hash = self._compute_hash(searchable_text)
 
