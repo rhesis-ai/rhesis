@@ -13,7 +13,7 @@ import jinja2
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.config.settings import get_model_settings
-from rhesis.backend.app.constants import TestSetType
+from rhesis.backend.app.constants import BEHAVIOR_LIST_KEY, TestSetType
 from rhesis.backend.app.crud import behavior as behavior_crud
 from rhesis.backend.app.crud import model as model_crud
 from rhesis.backend.app.crud.project import get_project
@@ -101,7 +101,9 @@ def _fetch_db_context(
     return {
         "prompt": prompt,
         "sample_size": MAX_SAMPLE_SIZE,
-        "behaviors": behavior_list,
+        # Must stay in sync with the `{{ behaviors }}` variable in
+        # test_config_generator.jinja2 -- the template can't reference this constant.
+        BEHAVIOR_LIST_KEY: behavior_list,
         "project_name": project_name,
         "project_description": project_description,
         "previous_messages": previous_messages or [],
@@ -134,7 +136,7 @@ async def _stream_config(
     then ``config_done`` and ``_collected`` (internal) when finished.
     """
     collected: Dict[str, List[TestConfigItem]] = {
-        "behaviors": [],
+        BEHAVIOR_LIST_KEY: [],
         "topics": [],
         "categories": [],
     }
@@ -184,7 +186,7 @@ async def _stream_config(
     yield {
         "type": "_collected",
         "config": TestConfigResponse(
-            behaviors=collected["behaviors"],
+            behaviors=collected[BEHAVIOR_LIST_KEY],
             topics=collected["topics"],
             categories=collected["categories"],
         ),
@@ -265,7 +267,7 @@ async def test_generation_pipeline_stream(
         if test_type == "Multi-Turn":
             config_dict = {
                 "generation_prompt": prompt,
-                "behaviors": active_behaviors,
+                BEHAVIOR_LIST_KEY: active_behaviors,
                 "categories": active_categories,
                 "topics": active_topics,
             }

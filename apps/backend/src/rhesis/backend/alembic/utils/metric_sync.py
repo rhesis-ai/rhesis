@@ -25,7 +25,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
-from rhesis.backend.app.constants import EntityType
+from rhesis.backend.app.constants import BEHAVIOR_LIST_KEY, EntityType
 from rhesis.backend.app.utils.crud_utils import (
     get_or_create_behavior,
     get_or_create_entity,
@@ -270,7 +270,7 @@ def sync_metrics_to_organizations(
                     )
 
                     # Process behavior associations
-                    behavior_names = metric_item.get("behaviors", [])
+                    behavior_names = metric_item.get(BEHAVIOR_LIST_KEY, [])
                     for behavior_name in behavior_names:
                         behavior = (
                             session.query(models.Behavior)

@@ -5,13 +5,14 @@ import json
 import logging
 from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
 
+from rhesis.backend.app.constants import BEHAVIOR_LIST_KEY
 from rhesis.sdk.synthesizers.streaming import IncrementalJsonArrayParser
 
 logger = logging.getLogger(__name__)
 
 __all__ = ["ndjson", "EventFanout", "IncrementalJsonArrayParser", "IncrementalConfigParser"]
 
-_CONFIG_ARRAY_KEYS = ("behaviors", "topics", "categories")
+_CONFIG_ARRAY_KEYS = (BEHAVIOR_LIST_KEY, "topics", "categories")
 
 _FANOUT_DONE = object()
 
