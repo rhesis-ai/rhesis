@@ -1,4 +1,4 @@
-# Requirements → test foundation
+# Spec → test foundation
 
 Turn a Product Requirements Document (PRD), product spec, or guardrails doc into behaviors, metrics, tags, mappings, and test sets on Rhesis.
 
@@ -9,8 +9,8 @@ Turn a Product Requirements Document (PRD), product spec, or guardrails doc into
 ## When to use
 
 - User pasted or attached a PRD, product spec, or guardrails doc
-- User chose menu option **Requirements → test foundation**
-- User asks to scaffold behaviors/metrics from requirements
+- User chose menu option **Spec → test foundation**
+- User asks to scaffold behaviors/metrics from a spec
 
 **Skip** `explore_endpoint` unless the user asks after the foundation exists.
 
@@ -41,7 +41,7 @@ Large specs: offer `create_source` (title + content) for Single-Turn grounding.
 
 One behavior = one testable expectation. **Never** use section titles or persona names as behaviors.
 
-Target **6–12 behaviors** for a typical agent requirements doc. Split bundled prose using the patterns in `use-case-bracketfeld.md` § Behavior extraction.
+Target **6–12 behaviors** for a typical agent spec. Split bundled prose using the patterns in `use-case-bracketfeld.md` § Behavior extraction.
 
 ---
 
@@ -63,7 +63,7 @@ Split by theme and **`metric_scope`**. One `test_type` per set. Run scope covera
 
 ## 5. Present plan (required sections)
 
-1. Requirements summary (2–3 sentences)
+1. Spec summary (2–3 sentences)
 2. Behaviors table (reuse/new)
 3. Metrics table (AC source, scope, score type, pass rule)
 4. Mappings table

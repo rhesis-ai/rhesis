@@ -40,6 +40,59 @@ After the rename, "build requirements from your requirements" is incoherent. Pic
 This decision blocks the docs and skill work packages and nothing else, so it does not gate the
 start of implementation.
 
+**Resolved (2026-08-13, prep PR P1):** adopted "spec." `requirements-workflow.md` →
+`spec-workflow.md`, `docs/content/docs/agent-skill/requirements.mdx` → `spec.mdx`, plus every
+cross-reference in `skills/rhesis/` and `docs/content/docs/agent-skill/`. Two sites outside those
+directories were not in this section's original scope but are load-bearing and shipped in the same
+PR: `sdk/src/rhesis/sdk/agents/architect/prompt_loader.py` loads `"requirements-workflow.md"` by
+literal filename via a `FileSystemLoader` with no fallback, so the native Architect's PRD-workflow
+guidance would silently stop loading (`TemplateNotFound` at render time) without the matching edit;
+`prompt_templates/workflow-routing.j2` duplicates the same menu text injected into the system
+prompt. Left alone, on purpose: `definitions.md`'s FR/AC/TBD traceability table and
+`use-case-bracketfeld.md`'s "Functional requirements" section header describe PRD *content*, not
+the workflow name.
+
+### Corrections found while planning execution (2026-08-13)
+
+Five corrections to this document's own inventory, found by reading current source (and, for the
+DB items, the live schema) rather than trusting the citations below at face value:
+
+1. **`response_pattern` is dead.** PR #2435 (`76ab61799`) deleted `models/response_pattern.py` and
+   dropped the table — and that PR is an ancestor of this doc's own claimed baseline `d5d4b11d0`.
+   The DB inventory's `response_pattern.behavior_id` row (Section 1) is stale; there is nothing left
+   to rename.
+2. **RLS policy names never embedded "behavior."** Every cited migration (`7bacdb1ce615`,
+   `c3d4e5f6a7b2`, `b8c9d0e1f2a3`, `d4e5f6a7b8c3`) creates only the generic `tenant_isolation` /
+   `project_isolation` policy names, attached per-table by OID — a table rename updates
+   `pg_policies.tablename` for free. **No `ALTER POLICY` is needed anywhere.** The only real
+   artifact is `alembic/row_level_security.sql`, a scratch reference script never executed by any
+   migration; it needs a text find/replace, not DDL.
+3. **Stats views: two missing from Section 1, one cited needs nothing.** `v_test_run_stats` has zero
+   `behavior` references. `v_metric_stats` (`d3f8a91c5b02`) and `v_test_stats` (`90104949ab99`)
+   both reference `behavior_id`/`behavior_name` and aren't in Section 1's table at all. Of those two,
+   only `v_test_stats` carries the `behavior_name` alias and needs DROP+CREATE; `v_metric_stats`'s
+   `t.behavior_id` is an unaliased passthrough that renames itself automatically the instant
+   `test.behavior_id` is renamed — only its `models/stats_views.py` mirror needs a code-level rename.
+4. **Two Section 2 rows cite files that don't exist and aren't stored data.** `app/schemas/stats.py`
+   and `app/services/stats/test_result.py` don't exist in this tree; `behavior_pass_rates` lives
+   only in the SDK's `entities/stats.py` — a code rename, not a DB concern. The preflight check id
+   `behavior_metric_coverage` is never persisted (`orchestrator.py` computes it transiently) — it
+   belongs in Section 3 (backend code), not Section 2 (stored data).
+5. **A real stored-data site Section 2 misses entirely:** six tables carry a polymorphic
+   `entity_type` string column populated from `cls.__name__` (`models/mixins.py:52` and friends) —
+   `tagged_item`, `comment`, `file`, `task`, `embedding`, `notification`. Existing rows say
+   `'Behavior'` and need the same backfill treatment as `type_lookup`, or every tag/comment/
+   attachment on a pre-rename entity becomes invisible via the ORM's polymorphic join (which
+   computes `'Requirement'` for new rows only).
+
+Two precision fixes, load-bearing for whoever writes the cutover migration but not corrections to
+the plan itself: `delete_user_and_organization_data.sql`'s cited line numbers have drifted (the
+array is still at line 22; the subquery is at 106, not 107; the two DELETEs are at 202–213, not
+206–217 — PR #2435 touched this file too, after these numbers were recorded). And the
+`architect_session.plan_data` backfill (Section 2) is **three** JSON-shape changes, not two:
+`TestSetSpec.behaviors` (`sdk/.../architect/plan.py:68`) is a third key, nested inside each element
+of the `test_sets` array — a different JSONB manipulation than the two top-level key renames.
+
 ---
 
 ## Size and shape

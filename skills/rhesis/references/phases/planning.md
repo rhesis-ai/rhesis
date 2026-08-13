@@ -17,7 +17,7 @@ Before proposing a plan:
 - **Mappings** — every behavior ≥1 metric
 - **Scope coverage matrix** — see `metric-scope.md`
 
-Requirements plans: follow section list in `requirements-workflow.md` and shape in `use-case-bracketfeld.md`.
+Spec plans: follow section list in `spec-workflow.md` and shape in `use-case-bracketfeld.md`.
 
 ## Choosing `test_type`
 
