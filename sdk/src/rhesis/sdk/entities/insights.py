@@ -1,13 +1,10 @@
 """Client for the generic /insights aggregation endpoint."""
 
-import logging
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
 from rhesis.sdk.clients import APIClient, Endpoints, Methods
-
-logger = logging.getLogger(__name__)
 
 ENDPOINT = Endpoints.INSIGHTS
 
