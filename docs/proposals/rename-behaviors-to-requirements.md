@@ -477,7 +477,14 @@ The plan is only as good as the sweep that proves it complete. All of these are 
 **1. Source sweep.** `rg -i behavio` across the repo returns only files on the "What is NOT
 renamed" allowlist. Encode the allowlist as a script so it runs in CI for one release.
 
-**2. Postgres catalog sweep.** Renames leave debris in places `\dt` does not show:
+**2. OpenAPI schema sweep.** A source-text sweep does not prove what the running app actually
+serves. `app/mcp_server/tools.py` builds every MCP tool by calling `fastapi_app.openapi()` and
+matching `mcp_tools.yaml` against `openapi_schema["paths"]` — a stale path, operationId, or a
+router still mounted under the old prefix compiles fine and passes gate 1, then silently breaks
+MCP tool binding at runtime. Fetch the served `/openapi.json` and assert no `behavio` string and
+no `/behaviors` path remains.
+
+**3. Postgres catalog sweep.** Renames leave debris in places `\dt` does not show:
 
 ```sql
 SELECT relname FROM pg_class WHERE relname ILIKE '%behavio%';
@@ -491,7 +498,7 @@ SELECT tgname FROM pg_trigger WHERE tgname ILIKE '%behavio%';
 SELECT column_name, table_name FROM information_schema.columns WHERE column_name ILIKE '%behavio%';
 ```
 
-**3. Row-level assertions**, run against a restored production snapshot:
+**4. Row-level assertions**, run against a restored production snapshot:
 
 ```sql
 SELECT count(*) FROM type_lookup WHERE type_value = 'Behavior';                    -- 0
@@ -501,7 +508,7 @@ SELECT count(*) FROM architect_session WHERE plan_data ? 'behavior_metric_mappin
 -- and the inverse: every row that had the old key now has the new one
 ```
 
-**4. Behavioral checks**
+**5. Behavioral checks**
 
 - Fresh-org bootstrap: seed an org, assert the three default entities exist by name and that Garak
   taxonomy sync maps onto them (proves seed data and taxonomy did not drift)
@@ -515,7 +522,7 @@ SELECT count(*) FROM architect_session WHERE plan_data ? 'behavior_metric_mappin
 - Docs build (`next build`) and Sphinx build both succeed
 - Full backend, SDK, frontend unit, and Playwright E2E suites green
 
-**5. Downgrade rehearsal.** Run `alembic downgrade` on a snapshot and re-run the row-level
+**6. Downgrade rehearsal.** Run `alembic downgrade` on a snapshot and re-run the row-level
 assertions inverted. A rename migration without a tested downgrade has no rollback.
 
 ---

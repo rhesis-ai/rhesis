@@ -281,9 +281,7 @@ describe('TestRunsClient', () => {
       const result = await client.getTestRunBehaviors('run-123');
 
       expect(fetchMock).toHaveBeenCalledWith(
-        expect.stringContaining(
-          `/test_runs/run-123${API_ENDPOINTS.behaviors}`
-        ),
+        expect.stringContaining(`/test_runs/run-123${API_ENDPOINTS.behaviors}`),
         expect.anything()
       );
       expect(result).toHaveLength(2);
