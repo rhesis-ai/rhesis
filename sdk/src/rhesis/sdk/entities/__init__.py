@@ -14,15 +14,10 @@ from .behavior import Behavior, Behaviors
 from .category import Categories, Category
 from .experiment import Experiment, Experiments
 from .file import File
+from .insights import Insights
 from .model import Model, Models
 from .project import Project, Projects
 from .prompt import Prompt, Prompts
-from .stats import (
-    TestResultStats,
-    TestResultStatsMode,
-    TestRunStats,
-    TestRunStatsMode,
-)
 from .status import Status, Statuses
 from .test import Test, Tests
 from .test_result import TestResult, TestResults
@@ -38,6 +33,7 @@ __all__ = [
     "Experiment",
     "Experiments",
     "File",
+    "Insights",
     "Behavior",
     "Behaviors",
     "Category",
@@ -54,10 +50,6 @@ __all__ = [
     "Tests",
     "TestResult",
     "TestResults",
-    "TestResultStats",
-    "TestResultStatsMode",
-    "TestRunStats",
-    "TestRunStatsMode",
     "RunStatus",
     "TestRun",
     "TestRuns",

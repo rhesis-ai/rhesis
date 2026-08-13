@@ -41,6 +41,7 @@ export default withNextra({
         permanent,
       },
       { source: '/concepts', destination: '/docs/concepts', permanent },
+      { source: '/sdk/statistics', destination: '/sdk/insights', permanent },
       { source: '/product-tour', destination: '/docs/tour', permanent },
       { source: '/docs/product-tour', destination: '/docs/tour', permanent },
       { source: '/frameworks', destination: '/docs/metrics', permanent },
