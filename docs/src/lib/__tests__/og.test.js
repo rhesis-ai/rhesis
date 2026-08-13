@@ -15,7 +15,7 @@ import { fileURLToPath } from 'node:url'
 
 import { getOpenGraphImage, generatePageMetadata } from '../metadata.js'
 import { resolveOgPage } from '../og-page.js'
-import { titleFontSize, truncate, OG_SIZE, OG_VERSION } from '../og-theme.js'
+import { titleFontSize, truncate, cardKey, OG_SIZE, OG_VERSION } from '../og-theme.js'
 import { findContentDir, getMdxFiles, filePathToUrl } from '../content-index.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -61,12 +61,41 @@ test('getOpenGraphImage: frontmatter ogImage wins over the generated card', () =
 })
 
 test('generatePageMetadata: openGraph and twitter point at the page card', () => {
-  const meta = generatePageMetadata({ title: 'Endpoints' }, 'docs/endpoints')
-  const expected = getOpenGraphImage('docs/endpoints')
+  const meta = generatePageMetadata(
+    { title: 'Endpoints', description: 'How to connect' },
+    'docs/endpoints'
+  )
+  const expected = getOpenGraphImage('docs/endpoints', null, 'EndpointsHow to connect')
 
   assert.equal(meta.openGraph.images[0].url, expected)
   assert.equal(meta.twitter.images[0], expected)
   assert.equal(meta.openGraph.images[0].alt, 'Endpoints – Rhesis Documentation')
+})
+
+test('getOpenGraphImage: the card URL changes when the page text changes', () => {
+  // Crawlers and the CDN cache by URL for a year, so an edited title or
+  // description has to produce a different URL or the old card sticks.
+  const before = generatePageMetadata({ title: 'Endpoints', description: 'old' }, 'docs/endpoints')
+  const after = generatePageMetadata({ title: 'Endpoints', description: 'new' }, 'docs/endpoints')
+  const again = generatePageMetadata({ title: 'Endpoints', description: 'old' }, 'docs/endpoints')
+
+  assert.notEqual(before.openGraph.images[0].url, after.openGraph.images[0].url)
+  assert.equal(before.openGraph.images[0].url, again.openGraph.images[0].url)
+})
+
+test('cardKey: stable, short, and collision-free across every page', () => {
+  assert.equal(cardKey('same'), cardKey('same'))
+  assert.match(cardKey('anything'), /^[0-9a-z]{7}$/)
+
+  // A collision would pin two pages to one cached card.
+  const keys = getMdxFiles(findContentDir())
+    .map(filePathToUrl)
+    .map(urlPath => {
+      const page = resolveOgPage(urlPath)
+      return cardKey(`${page.title}${page.description}`)
+    })
+
+  assert.equal(new Set(keys).size, keys.length)
 })
 
 test('resolveOgPage: resolves every content page', () => {
@@ -91,6 +120,15 @@ test('resolveOgPage: glossary terms use their exported definition, not raw MDX',
   assert.equal(term.section, 'Glossary')
   assert.ok(!term.description.includes('description:'), 'leaked the export block')
   assert.match(term.description, /^An approach where an LLM evaluates/)
+})
+
+test('resolveOgPage: keeps apostrophes in exported glossary definitions', () => {
+  // The definitions are single-quoted JS strings, so `the AI\'s certainty`
+  // must not be cut at the backslash.
+  const term = resolveOgPage('glossary/confidence-score')
+
+  assert.ok(!term.description.includes('\\'), `stray escape in: ${term.description}`)
+  assert.match(term.description, /the AI's certainty/)
 })
 
 test('resolveOgPage: unknown paths fall back to the site card', () => {

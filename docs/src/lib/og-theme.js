@@ -16,6 +16,26 @@ export const OG_SIZE = { width: 1200, height: 630 }
 /** Bumped when the card design changes, to bust crawler caches — see getOpenGraphImage(). */
 export const OG_VERSION = '1'
 
+/**
+ * Short, stable hash of a card's text, used as a cache key in the image URL.
+ *
+ * Cards are cached for a year by URL, in the CDN and inside every social
+ * crawler, so the URL has to change when the page's title or description does —
+ * otherwise an edited page keeps its old card. FNV-1a: no crypto import, and
+ * identical output on every machine that builds the site.
+ *
+ * @param {string} text
+ * @returns {string} 7-character base36 hash
+ */
+export function cardKey(text) {
+  let hash = 0x811c9dc5
+  for (let i = 0; i < text.length; i++) {
+    hash ^= text.charCodeAt(i)
+    hash = Math.imul(hash, 0x01000193) >>> 0
+  }
+  return hash.toString(36).padStart(7, '0')
+}
+
 export const OG_COLORS = {
   canvas: '#ffffff',
   heading: '#111827',

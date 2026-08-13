@@ -173,6 +173,8 @@ adding a page. Three rules:
 
 - **Changing the card design means bumping `OG_VERSION`** in `lib/og-theme.js`. Crawlers cache
   social images by URL; without a new `v=`, LinkedIn and Slack keep serving the old picture.
+  Editing a page's own title or description needs nothing — `h=` in the URL is a hash of the card
+  text, so it changes on its own.
 - **Card colours are literal hex in `lib/og-theme.js`, copied from `tokens.css`.** satori never
   sees a stylesheet, so `var(--rh-*)` resolves to nothing. This is the one place hex is expected —
   change both files together.

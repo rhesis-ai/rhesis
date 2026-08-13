@@ -225,7 +225,7 @@ export async function GET(request) {
     const { logo, fonts } = loadAssets()
     const page = resolveOgPage(urlPath)
 
-    return new ImageResponse(
+    const image = new ImageResponse(
       (
         <Card
           title={truncate(page.title, TITLE_LIMIT)}
@@ -234,17 +234,30 @@ export async function GET(request) {
           logo={logo}
         />
       ),
-      {
-        ...OG_SIZE,
-        fonts,
-        headers: { 'Cache-Control': CACHE_CONTROL },
-      }
+      { ...OG_SIZE, fonts }
     )
+
+    // ImageResponse renders inside its body stream, so satori and resvg failures
+    // surface only once the body is read — returning it directly would send a
+    // 200 with a broken body past the catch below. Buffering (~50 KB) is what
+    // makes the fallback reachable.
+    const png = await image.arrayBuffer()
+
+    return new Response(png, {
+      headers: { 'Content-Type': 'image/png', 'Cache-Control': CACHE_CONTROL },
+    })
   } catch (error) {
     // A broken card must not mean a broken link preview: fall back to the
-    // static site image rather than serving a 500 to a crawler.
+    // static site image rather than serving a 500 to a crawler. Uncached, so a
+    // transient failure doesn't pin a page to the fallback in some CDN.
     // eslint-disable-next-line no-console
     console.error('OG image generation failed for', urlPath, error)
-    return Response.redirect(`${siteConfig.siteUrl}${siteConfig.defaultImage}`, 302)
+    return new Response(null, {
+      status: 302,
+      headers: {
+        Location: `${siteConfig.siteUrl}${siteConfig.defaultImage}`,
+        'Cache-Control': 'no-store',
+      },
+    })
   }
 }
