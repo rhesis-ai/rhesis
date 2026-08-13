@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.dependencies import get_tenant_context, get_tenant_db_session
+from rhesis.backend.app.error_handlers import internal_error
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.services import (
@@ -88,11 +89,8 @@ def get_github_contents(repo_url: str):
         contents = read_repo_contents(repo_url)
         return contents
     except Exception as e:
-        error_msg = str(e) if str(e) else "Unknown error"
-        logger.error(f"Failed to get GitHub contents for {repo_url}: {error_msg}", exc_info=True)
-        raise HTTPException(
-            status_code=400, detail=f"Failed to retrieve repository contents: {error_msg}"
-        )
+        logger.error(f"Failed to get GitHub contents for {repo_url}: {e}", exc_info=True)
+        raise HTTPException(status_code=400, detail="Failed to retrieve repository contents") from e
 
 
 @router.post("/generate/content")
@@ -209,9 +207,8 @@ async def generate_content_endpoint(
 
         return result
     except Exception as e:
-        error_msg = str(e) if str(e) else "Unknown error"
-        logger.error(f"Failed to generate content: {error_msg}", exc_info=True)
-        raise HTTPException(status_code=400, detail=f"Failed to generate content: {error_msg}")
+        logger.error(f"Failed to generate content: {e}", exc_info=True)
+        raise HTTPException(status_code=400, detail="Failed to generate content") from e
 
 
 @router.post("/generate/embedding")
@@ -252,9 +249,8 @@ def generate_embedding_endpoint(
         logger.error(f"Embedding model misconfigured: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
-        error_msg = str(e) if str(e) else "Unknown error"
-        logger.error(f"Failed to generate embedding: {error_msg}", exc_info=True)
-        raise HTTPException(status_code=400, detail=f"Failed to generate embedding: {error_msg}")
+        logger.error(f"Failed to generate embedding: {e}", exc_info=True)
+        raise HTTPException(status_code=400, detail="Failed to generate embedding") from e
 
 
 @router.post("/generate/tests", response_model=GenerateTestsResponse)
@@ -473,16 +469,7 @@ async def generate_test_config(
         detail = str(e) if e.args else "Failed to generate test configuration"
         raise HTTPException(status_code=500, detail=detail)
     except Exception as e:
-        logger.error(
-            f"Unexpected error in test config generation: {str(e)}",
-            exc_info=True,
-        )
-        error_detail = (
-            str(e)
-            if str(e)
-            else "An unexpected error occurred during test configuration generation"
-        )
-        raise HTTPException(status_code=500, detail=error_detail)
+        raise internal_error(e, context="generating test configuration") from e
 
 
 @router.post("/mcp/query", response_model=QueryMCPResponse)

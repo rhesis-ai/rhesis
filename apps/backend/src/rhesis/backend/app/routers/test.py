@@ -123,10 +123,11 @@ def create_tests_bulk(
             detail="Database integrity error: A record with the same unique values already exists",
         )
     except Exception as e:
-        error_message = str(e)
-        if "not found" in error_message.lower():
-            # Handle cases where referenced entities (e.g., test set) are not found
-            raise HTTPException(status_code=404, detail=error_message) from e
+        if "not found" in str(e).lower():
+            # Referenced entity (e.g. test set) is missing. Keep the 404, but the
+            # message is a broad exception's text -- log it instead of returning it.
+            logger.warning("Referenced entity missing while creating tests in bulk", exc_info=True)
+            raise HTTPException(status_code=404, detail="A referenced entity was not found") from e
         raise internal_error(e, context="creating tests in bulk") from e
 
 

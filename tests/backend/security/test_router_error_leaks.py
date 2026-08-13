@@ -39,8 +39,33 @@ def _is_broad(handler: ast.ExceptHandler) -> bool:
     return any(isinstance(n, ast.Name) and n.id in BROAD_EXCEPTIONS for n in names)
 
 
-def _references(node: ast.AST, name: str) -> bool:
-    return any(isinstance(n, ast.Name) and n.id == name for n in ast.walk(node))
+def _references(node: ast.AST, names: set[str]) -> bool:
+    return any(isinstance(n, ast.Name) and n.id in names for n in ast.walk(node))
+
+
+def _tainted_names(handler: ast.ExceptHandler) -> set[str]:
+    """The exception name plus every local it was copied into.
+
+    ``error_msg = str(e)`` then ``detail=f"...{error_msg}"`` is the same leak
+    written in two steps, and checking only the exception name misses it.
+    Iterates to a fixpoint so chains of copies are caught too.
+    """
+    tainted = {handler.name}
+    while True:
+        grown = set(tainted)
+        for node in ast.walk(handler):
+            if isinstance(node, ast.Assign) and _references(node.value, tainted):
+                grown |= {t.id for t in node.targets if isinstance(t, ast.Name)}
+            elif (
+                isinstance(node, ast.AnnAssign)
+                and node.value is not None
+                and isinstance(node.target, ast.Name)
+                and _references(node.value, tainted)
+            ):
+                grown.add(node.target.id)
+        if grown == tainted:
+            return tainted
+        tainted = grown
 
 
 def find_leaks(source: str) -> list[int]:
@@ -49,11 +74,12 @@ def find_leaks(source: str) -> list[int]:
     for node in ast.walk(ast.parse(source)):
         if not isinstance(node, ast.ExceptHandler) or not _is_broad(node) or not node.name:
             continue
+        tainted = _tainted_names(node)
         for inner in ast.walk(node):
             if not isinstance(inner, ast.Call):
                 continue
             for kw in inner.keywords:
-                if kw.arg == "detail" and _references(kw.value, node.name):
+                if kw.arg == "detail" and _references(kw.value, tainted):
                     leaks.append(inner.lineno)
     return sorted(set(leaks))
 

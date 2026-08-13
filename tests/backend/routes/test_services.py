@@ -70,8 +70,9 @@ class TestGenerateContentEndpoint:
                 )
 
             assert exc_info.value.status_code == 400
-            assert "Failed to generate content:" in str(exc_info.value.detail)
-            assert "Model initialization failed" in str(exc_info.value.detail)
+            # The provider's own error text stays in the logs, not the response.
+            assert str(exc_info.value.detail) == "Failed to generate content"
+            assert "Model initialization failed" not in str(exc_info.value.detail)
 
 
 class TestGenerateEmbeddingEndpoint:
@@ -99,7 +100,9 @@ class TestGenerateEmbeddingEndpoint:
                 generate_embedding_endpoint(mock_request, db=mock_db, current_user=mock_user)
 
             assert exc_info.value.status_code == 400
-            assert "Failed to generate embedding:" in str(exc_info.value.detail)
+            # The provider's own error text stays in the logs, not the response.
+            assert str(exc_info.value.detail) == "Failed to generate embedding"
+            assert "Provider rejected the request" not in str(exc_info.value.detail)
 
     def test_recursive_native_provider_returns_500_not_400(self):
         """DEFAULT_EMBEDDING_MODEL resolving back to RhesisEmbedder is a server
