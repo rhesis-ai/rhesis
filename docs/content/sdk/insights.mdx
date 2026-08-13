@@ -1,10 +1,8 @@
 import { CodeBlock } from '@/components/CodeBlock'
 
-# Statistics
+# Insights
 
 `Insights` runs aggregation queries against your organization's test results, metrics, test runs, and tests directly.
-
-## Insights
 
 <CodeBlock filename="insights.py" language="python">
 {`from rhesis.sdk.entities import Insights
@@ -34,17 +32,3 @@ failed_ids = Insights(entity="test_result", filters={"test_run_ids": ["your-run-
 | `test` | `behavior`, `behavior_id`, `category`, `category_id`, `topic`, `topic_id`, `is_unrun`, `year`, `month` | `count`, `unrun_count`, `run_count`, `passed`, `failed`, `pass_rate` |
 
 Filters (`test_run_ids`, `behavior_ids`, `category_ids`, `topic_ids`, `test_set_ids`, `endpoint_ids`, `tags`, `metric_names`, …) narrow which rows are aggregated; `months`, `start_date`, and `end_date` bound the date range.
-
-## TestRuns.stats() / TestResults.stats() (removed)
-
-`TestRuns.stats()`, `TestResults.stats()`, and `TestRun.stats()` raise `NotImplementedError`.
-The backend endpoints they called (`/test_runs/stats`, `/test_results/stats`) were removed;
-use `Insights` directly instead, as shown above.
-
----
-
-<Callout type="default">
-  **Related** — [Test Runs & Results](/sdk/entities/test-runs) |
-  [SDK Metrics](/sdk/metrics) |
-  [Test Execution](/sdk/execution)
-</Callout>
