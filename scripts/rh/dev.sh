@@ -132,8 +132,11 @@ JWT_SECRET_KEY=${jwt_secret}
 # Session
 SESSION_SECRET_KEY=${session_secret}
 
-# Rhesis API Key (get one at https://app.rhesis.ai)
-RHESIS_API_KEY=your_api_key
+# Rhesis API Key (get one at https://app.rhesis.ai). Left commented on purpose:
+# get_platform_api_key() treats any non-empty value as a real key, so an active
+# placeholder makes Rhesis-hosted models 401 instead of falling through to the
+# DEFAULT_*_MODEL provider. Uncomment and set a real key to use hosted models.
+#RHESIS_API_KEY=your_api_key
 EOF
 }
 
