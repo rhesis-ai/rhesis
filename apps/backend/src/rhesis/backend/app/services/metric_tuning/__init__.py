@@ -16,6 +16,18 @@ from rhesis.backend.app.services.metric_tuning.cases import (
     to_api,
     update_tuning_case,
 )
+from rhesis.backend.app.services.metric_tuning.invoke import (
+    invoke_metric_on_case,
+    verdict_from_score,
+)
+from rhesis.backend.app.services.metric_tuning.runs import (
+    NoTuningCases,
+    TuningRunInFlight,
+    execute_tuning_run,
+    fail_tuning_run,
+    get_tuning_run,
+    start_tuning_run,
+)
 from rhesis.backend.app.services.metric_tuning.test_sets import (
     get_or_create_tuning_test_set,
     get_tuning_test_set,
@@ -30,14 +42,22 @@ from rhesis.backend.app.services.metric_tuning.verdict import (
 __all__ = [
     "BINARY_VERDICTS",
     "InvalidVerdict",
+    "NoTuningCases",
+    "TuningRunInFlight",
     "create_tuning_case",
     "delete_tuning_case",
+    "execute_tuning_run",
+    "fail_tuning_run",
     "get_or_create_tuning_test_set",
     "get_tuning_case",
+    "get_tuning_run",
     "get_tuning_test_set",
+    "invoke_metric_on_case",
     "is_stale",
     "list_tuning_cases",
     "normalize_verdict",
+    "start_tuning_run",
     "to_api",
     "update_tuning_case",
+    "verdict_from_score",
 ]

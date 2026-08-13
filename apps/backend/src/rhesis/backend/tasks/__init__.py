@@ -14,6 +14,7 @@ from rhesis.backend.tasks import (
     execution,  # noqa: F401
     file,  # noqa: F401
     garak,  # noqa: F401
+    metric_tuning,  # noqa: F401
     task_notifications,  # noqa: F401
     test_configuration,  # noqa: F401
     test_set,  # noqa: F401
@@ -48,6 +49,7 @@ from rhesis.backend.tasks.example_task import (
     process_data,
 )
 from rhesis.backend.tasks.execution.results import collect_results
+from rhesis.backend.tasks.metric_tuning import run_metric_tuning
 from rhesis.backend.tasks.test_configuration import execute_test_configuration
 from rhesis.backend.tasks.test_set import count_test_sets
 from rhesis.backend.tasks.usage import accrue_usage
@@ -86,6 +88,7 @@ __all__ = [
     "email_notification_test",
     "process_data",
     "accrue_usage",
+    "run_metric_tuning",
     # Constants
     "DEFAULT_METRIC_WORKERS",
     "DEFAULT_RESULT_STATUS",
