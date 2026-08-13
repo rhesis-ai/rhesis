@@ -12,7 +12,7 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-07-29T08:27:57.808526Z"
+exclude-newer = "2026-08-06T15:19:34.153158Z"
 exclude-newer-span = "P1W"
 
 [options.exclude-newer-package]
@@ -3518,7 +3518,7 @@ wheels = [
 
 [[package]]
 name = "rhesis"
-source = { directory = "../../packages/rhesis" }
+source = { editable = "../../packages/rhesis" }
 dependencies = [
     { name = "pydantic" },
     { name = "requests" },
@@ -3585,7 +3585,7 @@ dev = [{ name = "streamlit", specifier = ">=1.41.1" }]
 
 [[package]]
 name = "rhesis-sdk"
-version = "0.11.0"
+version = "0.12.0"
 source = { editable = "../../sdk" }
 dependencies = [
     { name = "aiohttp" },
@@ -3674,7 +3674,7 @@ requires-dist = [
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "ragas", specifier = ">=0.3.7,<0.4" },
     { name = "requests", specifier = ">=2.31.0" },
-    { name = "rhesis", extras = ["telemetry"], directory = "../../packages/rhesis" },
+    { name = "rhesis", extras = ["telemetry"], editable = "../../packages/rhesis" },
     { name = "tenacity", specifier = ">=8.2.3" },
     { name = "tiktoken", specifier = ">=0.9.0" },
     { name = "torch" },
@@ -3694,7 +3694,6 @@ dev = [
     { name = "agent-framework-orchestrations", specifier = ">=1.0.0b260421" },
     { name = "garak", specifier = ">=0.14.0" },
     { name = "hatch", specifier = ">=1.14.1" },
-    { name = "mypy", specifier = "==1.15.0" },
     { name = "myst-parser", specifier = ">=4.0.0" },
     { name = "pandas-stubs", specifier = ">=2.2.3.250308" },
     { name = "pre-commit", specifier = ">=4.3.0" },

@@ -14,7 +14,7 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "0001-01-01T00:00:00Z" # This has no effect and is included for backwards compatibility when using relative exclude-newer values.
+exclude-newer = "2026-08-06T15:19:32.753515Z"
 exclude-newer-span = "P1W"
 
 [options.exclude-newer-package]
@@ -2132,7 +2132,7 @@ wheels = [
 
 [[package]]
 name = "rhesis"
-source = { directory = "../../packages/rhesis" }
+source = { editable = "../../packages/rhesis" }
 dependencies = [
     { name = "pydantic" },
     { name = "requests" },
@@ -2268,7 +2268,7 @@ requires-dist = [
     { name = "python-multipart", specifier = ">=0.0.31" },
     { name = "pyyaml" },
     { name = "redis", specifier = ">=5.0.0,<6.0.0" },
-    { name = "rhesis", directory = "../../packages/rhesis" },
+    { name = "rhesis", editable = "../../packages/rhesis" },
     { name = "rhesis-backend-ee", marker = "extra == 'ee'", editable = "../../ee/backend" },
     { name = "rhesis-penelope", marker = "extra == 'all'", editable = "../../penelope" },
     { name = "rhesis-sdk", marker = "extra == 'all'", editable = "../../sdk" },
@@ -2296,7 +2296,6 @@ dev = [
     { name = "factory-boy", specifier = ">=3.3.0" },
     { name = "flower", specifier = ">=2.0.1,<3" },
     { name = "hatch", specifier = ">=1.14.1" },
-    { name = "mypy", specifier = ">=1.15.0" },
     { name = "pre-commit", specifier = ">=4.0.0" },
     { name = "pytest", specifier = ">=8.3.4" },
     { name = "pytest-asyncio", specifier = ">=0.24.0" },

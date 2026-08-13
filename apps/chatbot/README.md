@@ -561,9 +561,6 @@ print(response.json())
 # Format code
 black .
 
-# Type checking
-mypy client.py endpoint.py
-
 # Linting
 flake8 .
 ```

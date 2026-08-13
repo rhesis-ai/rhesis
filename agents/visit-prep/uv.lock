@@ -3698,7 +3698,6 @@ dev = [
     { name = "agent-framework-orchestrations", specifier = ">=1.0.0b260421" },
     { name = "garak", specifier = ">=0.14.0" },
     { name = "hatch", specifier = ">=1.14.1" },
-    { name = "mypy", specifier = "==1.15.0" },
     { name = "myst-parser", specifier = ">=4.0.0" },
     { name = "pandas-stubs", specifier = ">=2.2.3.250308" },
     { name = "pre-commit", specifier = ">=4.3.0" },
