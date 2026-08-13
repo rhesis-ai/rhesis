@@ -1,5 +1,5 @@
 import { siteConfig } from './site-config.js'
-import { OG_VERSION, stripBrandSuffix } from './og-theme.js'
+import { OG_VERSION, cardKey, stripBrandSuffix } from './og-theme.js'
 
 /**
  * Generates canonical URL for a given path
@@ -16,8 +16,9 @@ export function getCanonicalUrl(path, config = siteConfig) {
  * Builds the OpenGraph image URL for a page.
  *
  * Every page gets its own card, rendered on demand by /api/og from the page's
- * own title and description. `v` is the card design version — crawlers cache
- * social images by URL, so bumping OG_VERSION is what makes them re-fetch.
+ * own title and description. Both query parameters exist to defeat caching,
+ * since crawlers and CDNs key social images by URL and nothing else: `v` is the
+ * card design version, and `h` changes when this page's own text changes.
  *
  * Pages that want a hand-made image instead set `ogImage` in frontmatter; it
  * must be an absolute URL or a path under public/ (PNG or JPEG — LinkedIn and
@@ -25,18 +26,21 @@ export function getCanonicalUrl(path, config = siteConfig) {
  *
  * @param {string} path - The page path, e.g. 'docs/endpoints' ('' for the root)
  * @param {string|null} pageImage - Optional per-page override from frontmatter
+ * @param {string|null} cardText - Text the card renders, hashed into `h`
  * @returns {string} - Full image URL
  */
-export function getOpenGraphImage(path, pageImage = null) {
+export function getOpenGraphImage(path, pageImage = null, cardText = null) {
   if (pageImage) {
-    return pageImage.startsWith('http') ? pageImage : `${siteConfig.siteUrl}${pageImage}`
+    return /^https?:\/\//.test(pageImage) ? pageImage : `${siteConfig.siteUrl}${pageImage}`
   }
 
   const cleanPath = (path || '').replace(/^\/+|\/+$/g, '')
-  const query = cleanPath
-    ? `?p=${encodeURIComponent(cleanPath)}&v=${OG_VERSION}`
-    : `?v=${OG_VERSION}`
-  return `${siteConfig.siteUrl}/api/og${query}`
+  const params = new URLSearchParams()
+  if (cleanPath) params.set('p', cleanPath)
+  params.set('v', OG_VERSION)
+  if (cardText) params.set('h', cardKey(cardText))
+
+  return `${siteConfig.siteUrl}/api/og?${params}`
 }
 
 /**
@@ -59,7 +63,9 @@ export function extractDescription(content) {
     .replace(/^import\s+.*$/gm, '')
     .replace(/^export\s+.*$/gm, '')
     .replace(/```[\s\S]*?```/g, '')
-    .replace(/`[^`]+`/g, '')
+    // Inline code keeps its text: dropping it would leave `**` + `**` around a
+    // hole, and the emphasis unwrap below would then pair the wrong asterisks.
+    .replace(/`([^`]+)`/g, '$1')
     .replace(/<[^>]+>/g, '')
 
   // Remove the first H1 heading (page title)
@@ -131,7 +137,7 @@ export function generatePageMetadata(
     : config.keywords
 
   const canonicalUrl = getCanonicalUrl(urlPath, config)
-  const imageUrl = getOpenGraphImage(urlPath, baseMetadata?.ogImage)
+  const imageUrl = getOpenGraphImage(urlPath, baseMetadata?.ogImage, `${title}${description}`)
 
   // Respect ROBOTS_NOINDEX env var (e.g. staging deployments)
   const noIndex = process.env.ROBOTS_NOINDEX === 'true'

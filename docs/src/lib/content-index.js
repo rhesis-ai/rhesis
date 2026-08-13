@@ -177,7 +177,11 @@ function truncateDescription(text, max = 160) {
   return `${normalized.substring(0, max)}...`
 }
 
-/** Reads `description:` out of a YAML frontmatter block, if there is one. */
+/**
+ * Reads `description:` out of a YAML frontmatter block, if there is one.
+ * Single-line values only — no page uses a block scalar (`description: |`),
+ * and one would fall through to the paragraph scan rather than break.
+ */
 function extractFrontmatterDescription(rawSource) {
   const fmMatch = rawSource.match(/^---\n([\s\S]*?)\n---/)
   if (!fmMatch) return null
@@ -186,12 +190,23 @@ function extractFrontmatterDescription(rawSource) {
   return truncateDescription(line[1].trim().replace(/^['"]|['"]$/g, ''))
 }
 
-/** Reads `description` out of an `export const metadata = {...}` block. */
+/**
+ * Reads `description` out of an `export const metadata = {...}` block.
+ *
+ * The value is matched escape-aware: glossary definitions are single-quoted and
+ * many contain an apostrophe (`'the AI\'s answer'`), which a plain
+ * non-greedy match would cut at the backslash. The search is also bounded to
+ * the metadata object, so a `description:` in a later code sample can't be
+ * mistaken for the page's own.
+ */
 function extractExportedDescription(rawSource) {
-  const match = rawSource.match(
-    /export\s+const\s+metadata\s*=\s*\{[\s\S]*?description:\s*(['"])([\s\S]*?)\1/
-  )
-  return match ? truncateDescription(match[2].trim()) : null
+  const block = rawSource.match(/export\s+const\s+metadata\s*=\s*\{([\s\S]*?)^\}/m)
+  if (!block) return null
+
+  const value = block[1].match(/\bdescription:\s*(['"])((?:[^\\]|\\.)*?)\1/)
+  if (!value) return null
+
+  return truncateDescription(value[2].replace(/\\(['"\\])/g, '$1').trim())
 }
 
 /**

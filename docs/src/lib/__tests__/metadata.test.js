@@ -26,6 +26,32 @@ This is the first real paragraph and it is long enough to be picked up by the de
   assert.ok(!desc.includes('frontmatter'))
 })
 
+test('extractDescription: unwraps emphasis, links and inline code', () => {
+  const src = `# Heading
+
+Every metric declares **\`metric_scope\`**, and *every* test set declares a [type](/docs/types) that must match.`
+
+  assert.equal(
+    extractDescription(src),
+    'Every metric declares metric_scope, and every test set declares a type that must match.'
+  )
+})
+
+test('extractDescription: skips a multi-line exported metadata block', () => {
+  const src = `import { Page } from '@/components/Page'
+
+export const metadata = {
+  title: 'A Term - Glossary',
+  description: 'The exported description that must not become the page description.',
+}
+
+# A Term
+
+<Page termId="a-term" />`
+
+  assert.equal(extractDescription(src), null)
+})
+
 test('extractDescription: returns null for empty input', () => {
   assert.equal(extractDescription(''), null)
   assert.equal(extractDescription(null), null)
