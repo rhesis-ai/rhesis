@@ -198,7 +198,7 @@ torch = [
     # GPU extra: use CUDA on Linux/Windows, fall back to PyPI (CPU) on macOS
     { index = "pytorch-cu128", extra = "gpu", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
 ]
-rhesis = { path = "../../packages/rhesis" }
+rhesis = { path = "../../packages/rhesis", editable = true }
 rhesis-sdk = { path = "../../sdk", editable = true }
 rhesis-penelope = { path = "../../penelope", editable = true }
 rhesis-backend-ee = { path = "../../ee/backend", editable = true }
