@@ -39,7 +39,7 @@ conflicts = [[
 ]]
 
 [options]
-exclude-newer = "0001-01-01T00:00:00Z" # This has no effect and is included for backwards compatibility when using relative exclude-newer values.
+exclude-newer = "2026-08-06T12:56:06.74257Z"
 exclude-newer-span = "P1W"
 
 [options.exclude-newer-package]
@@ -6791,7 +6791,7 @@ wheels = [
 
 [[package]]
 name = "rhesis"
-source = { directory = "../../packages/rhesis" }
+source = { editable = "../../packages/rhesis" }
 dependencies = [
     { name = "pydantic" },
     { name = "requests" },
@@ -6981,7 +6981,7 @@ requires-dist = [
     { name = "python-multipart", specifier = ">=0.0.31" },
     { name = "pyyaml" },
     { name = "redis", specifier = ">=5.0.0,<6.0.0" },
-    { name = "rhesis", directory = "../../packages/rhesis" },
+    { name = "rhesis", editable = "../../packages/rhesis" },
     { name = "rhesis-backend-ee", marker = "extra == 'ee'", editable = "../../ee/backend" },
     { name = "rhesis-penelope", marker = "extra == 'all'", editable = "../../penelope" },
     { name = "rhesis-sdk", marker = "extra == 'all'", editable = "../../sdk" },
@@ -7190,7 +7190,7 @@ requires-dist = [
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "ragas", specifier = ">=0.3.7,<0.4" },
     { name = "requests", specifier = ">=2.31.0" },
-    { name = "rhesis", extras = ["telemetry"], directory = "../../packages/rhesis" },
+    { name = "rhesis", extras = ["telemetry"], editable = "../../packages/rhesis" },
     { name = "tenacity", specifier = ">=8.2.3" },
     { name = "tiktoken", specifier = ">=0.9.0" },
     { name = "torch" },
