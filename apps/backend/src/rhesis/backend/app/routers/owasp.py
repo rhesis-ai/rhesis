@@ -9,11 +9,12 @@ set of adversarial prompts for a described system under test.
 import asyncio
 import logging
 
-from fastapi import Depends, HTTPException
+from fastapi import Depends
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.dependencies import get_tenant_db_session
+from rhesis.backend.app.error_handlers import internal_error
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.owasp import (
@@ -68,11 +69,9 @@ async def get_categories(
             ],
         )
     except Exception as e:
-        logger.error(f"Error listing OWASP categories for {framework.value}: {e}")
-        raise HTTPException(
-            status_code=502,
-            detail=f"Failed to load OWASP report categories: {str(e)}",
-        )
+        raise internal_error(
+            e, context=f"listing OWASP categories for {framework.value}", status_code=502
+        ) from e
 
 
 @router.post("/generate", response_model=OwaspGenerateResponse, status_code=202)
@@ -130,8 +129,4 @@ async def generate_test_set(
         )
 
     except Exception as e:
-        logger.error(f"Error launching OWASP generation: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to launch OWASP test set generation: {str(e)}",
-        )
+        raise internal_error(e, context="launching OWASP test set generation") from e
