@@ -404,6 +404,7 @@ def get_metric_requirements(
 
     return (
         QueryBuilder(db, models.Requirement)
+        .with_related(include(models.Requirement.user))
         .with_organization_filter(organization_id)
         .with_custom_filter(
             lambda q: q.join(models.requirement_metric_association).filter(

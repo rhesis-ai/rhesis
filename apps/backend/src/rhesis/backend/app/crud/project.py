@@ -239,7 +239,10 @@ def add_project_member(
 
     with bypass_tenant_filter():
         existing = (
-            db.query(ProjectMembership).filter_by(project_id=project_id, user_id=user_id).first()
+            db.query(ProjectMembership)
+            .options(joinedload(ProjectMembership.user))
+            .filter_by(project_id=project_id, user_id=user_id)
+            .first()
         )
     if existing:
         return existing
@@ -248,7 +251,12 @@ def add_project_member(
     db.commit()
 
     with bypass_tenant_filter():
-        return db.query(ProjectMembership).filter_by(project_id=project_id, user_id=user_id).first()
+        return (
+            db.query(ProjectMembership)
+            .options(joinedload(ProjectMembership.user))
+            .filter_by(project_id=project_id, user_id=user_id)
+            .first()
+        )
 
 
 def remove_project_member(
