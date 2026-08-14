@@ -88,6 +88,97 @@ class TestNotify:
         rows = get_notifications(self.db, user_id=self.user_id)
         assert any(r.title == "Garak sync complete" for r in rows)
 
+    def test_batch_notification_counts_as_its_entities(self):
+        """One Garak import that made three test sets must badge as three."""
+        entity_ids = [str(uuid.uuid4()) for _ in range(3)]
+        rendered = RenderedNotification(title="Imported 3 Garak test set(s)", entity_ids=entity_ids)
+
+        with patch(
+            "rhesis.backend.app.services.notification.service.publish_event"
+        ) as mock_publish:
+            notify(
+                self.db,
+                event_type=NotificationEventType.TestSet.GARAK_IMPORT_COMPLETED,
+                rendered=rendered,
+                user_id=self.user_id,
+                organization_id=self.org_id,
+                project_id=None,
+            )
+
+        rows = get_notifications(self.db, user_id=self.user_id)
+        row = next(r for r in rows if r.title == "Imported 3 Garak test set(s)")
+        assert row.item_count == 3
+        assert row.payload["entity_ids"] == entity_ids
+
+        # The frontend badges straight off the websocket payload, so the count
+        # has to be on the wire too, not only in the summary endpoint.
+        message, _target = mock_publish.call_args[0]
+        assert message.payload["item_count"] == 3
+
+    def test_single_entity_notification_counts_as_one(self):
+        rendered = RenderedNotification(title="single", entity_id=str(uuid.uuid4()))
+
+        with patch("rhesis.backend.app.services.notification.service.publish_event"):
+            notify(
+                self.db,
+                event_type=NotificationEventType.TestSet.GENERATION_COMPLETED,
+                rendered=rendered,
+                user_id=self.user_id,
+                organization_id=self.org_id,
+                project_id=None,
+            )
+
+        rows = get_notifications(self.db, user_id=self.user_id)
+        assert next(r for r in rows if r.title == "single").item_count == 1
+
+    def test_summary_sums_item_counts_across_rows(self):
+        """Two batches of three, plus one single, is seven -- not three rows."""
+        with patch("rhesis.backend.app.services.notification.service.publish_event"):
+            for _ in range(2):
+                notify(
+                    self.db,
+                    event_type=NotificationEventType.TestSet.GARAK_IMPORT_COMPLETED,
+                    rendered=RenderedNotification(
+                        title="batch", entity_ids=[str(uuid.uuid4()) for _ in range(3)]
+                    ),
+                    user_id=self.user_id,
+                    organization_id=self.org_id,
+                    project_id=None,
+                )
+            notify(
+                self.db,
+                event_type=NotificationEventType.TestSet.GENERATION_COMPLETED,
+                rendered=RenderedNotification(title="single", entity_id=str(uuid.uuid4())),
+                user_id=self.user_id,
+                organization_id=self.org_id,
+                project_id=None,
+            )
+
+        summary = get_notification_summary(self.db, user_id=self.user_id)
+        assert summary["test-sets"]["unread"] == 7
+        assert len(summary["test-sets"]["entity_ids"]) == 7
+
+    # Keep this name off 40 characters. `test_` plus exactly 35 more is the
+    # shape of a Lob test-mode API key, and the repo's TruffleHog job flags
+    # such a name as a verified secret and fails the build.
+    def test_summary_entity_ids_are_deduped(self):
+        """The same test set synced twice is one row to highlight, not two."""
+        entity_id = str(uuid.uuid4())
+        with patch("rhesis.backend.app.services.notification.service.publish_event"):
+            for _ in range(2):
+                notify(
+                    self.db,
+                    event_type=NotificationEventType.TestSet.GARAK_SYNC_COMPLETED,
+                    rendered=RenderedNotification(title="synced", entity_id=entity_id),
+                    user_id=self.user_id,
+                    organization_id=self.org_id,
+                    project_id=None,
+                )
+
+        summary = get_notification_summary(self.db, user_id=self.user_id)
+        assert summary["test-sets"]["unread"] == 2
+        assert summary["test-sets"]["entity_ids"] == [entity_id]
+
     def test_failure_notification_is_flagged(self):
         rendered = RenderedNotification(title="Test set generation failed", is_failure=True)
 

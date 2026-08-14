@@ -92,6 +92,14 @@ function Probe() {
   );
 }
 
+/** Probe for a section other than test-sets, to check the badge is generic. */
+function SectionProbe({ section }: { section: NotificationSection }) {
+  const { unreadBySection } = useNotifications();
+  return (
+    <div data-testid="section-unread">{unreadBySection[section] ?? 0}</div>
+  );
+}
+
 /** Probe that declares an architect session as being on screen. */
 function ViewingProbe({ sessionId }: { sessionId: string | null }) {
   const { unreadBySection } = useNotifications();
@@ -158,6 +166,106 @@ describe('NotificationsProvider', () => {
     expect(screen.getByTestId('test-sets-unread')).toHaveTextContent('1');
     expect(screen.getByTestId('test-sets-highlights')).toHaveTextContent(
       'ts-2'
+    );
+  });
+
+  it('accumulates counts and highlights across several events', async () => {
+    render(
+      <NotificationsProvider>
+        <Probe />
+      </NotificationsProvider>
+    );
+    await waitFor(() => expect(mockGetSummary).toHaveBeenCalled());
+
+    ['ts-1', 'ts-2', 'ts-3'].forEach(entityId => {
+      emitNotification({
+        section: 'test-sets',
+        entity_id: entityId,
+        project_id: 'project-a',
+      });
+    });
+
+    expect(screen.getByTestId('test-sets-unread')).toHaveTextContent('3');
+    expect(screen.getByTestId('test-sets-highlights')).toHaveTextContent(
+      'ts-1,ts-2,ts-3'
+    );
+  });
+
+  it('counts a batch notification as its item_count, and highlights every id', async () => {
+    render(
+      <NotificationsProvider>
+        <Probe />
+      </NotificationsProvider>
+    );
+    await waitFor(() => expect(mockGetSummary).toHaveBeenCalled());
+
+    // One Garak import that created three test sets: a single row on the
+    // backend, three things done as far as the badge is concerned.
+    emitNotification({
+      section: 'test-sets',
+      entity_id: null,
+      item_count: 3,
+      project_id: 'project-a',
+      payload: { entity_ids: ['ts-1', 'ts-2', 'ts-3'] },
+    });
+
+    expect(screen.getByTestId('test-sets-unread')).toHaveTextContent('3');
+    expect(screen.getByTestId('test-sets-highlights')).toHaveTextContent(
+      'ts-1,ts-2,ts-3'
+    );
+  });
+
+  it.each([
+    ['tasks', NotificationSection.TASKS],
+    ['architect', NotificationSection.ARCHITECT],
+    ['test-runs', NotificationSection.TEST_RUNS],
+  ])(
+    'accumulates while away from the %s page too',
+    async (sectionValue, section) => {
+      // Nothing about accumulating is test-set specific: three tasks assigned
+      // or three architect plans finishing must badge as three the same way.
+      render(
+        <NotificationsProvider>
+          <SectionProbe section={section} />
+        </NotificationsProvider>
+      );
+      await waitFor(() => expect(mockGetSummary).toHaveBeenCalled());
+
+      ['e-1', 'e-2', 'e-3'].forEach(entityId => {
+        emitNotification({
+          section: sectionValue,
+          entity_id: entityId,
+          project_id: 'project-a',
+        });
+      });
+
+      expect(screen.getByTestId('section-unread')).toHaveTextContent('3');
+    }
+  );
+
+  it('does not re-highlight an entity already in the list', async () => {
+    render(
+      <NotificationsProvider>
+        <Probe />
+      </NotificationsProvider>
+    );
+    await waitFor(() => expect(mockGetSummary).toHaveBeenCalled());
+
+    emitNotification({
+      section: 'test-sets',
+      entity_id: 'ts-1',
+      project_id: 'project-a',
+    });
+    emitNotification({
+      section: 'test-sets',
+      entity_id: 'ts-1',
+      project_id: 'project-a',
+    });
+
+    // Both count -- two jobs did finish -- but the row is listed once.
+    expect(screen.getByTestId('test-sets-unread')).toHaveTextContent('2');
+    expect(screen.getByTestId('test-sets-highlights')).toHaveTextContent(
+      'ts-1'
     );
   });
 
@@ -261,6 +369,31 @@ describe('NotificationsProvider', () => {
         section: NotificationSection.TEST_SETS,
       })
     );
+  });
+
+  it('clears an accumulated count in one go on landing on the list page', async () => {
+    // Three jobs finished while the user was elsewhere; arriving on the list
+    // page consumes all three at once, not one per visit.
+    mockGetSummary.mockResolvedValue({
+      sections: { 'test-sets': { unread: 3, entity_ids: ['ts-1'] } },
+    });
+    mockPathname = '/test-sets';
+
+    render(
+      <NotificationsProvider>
+        <Probe />
+      </NotificationsProvider>
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId('test-sets-unread')).toHaveTextContent('0')
+    );
+    await waitFor(() =>
+      expect(mockMarkRead).toHaveBeenCalledWith({
+        section: NotificationSection.TEST_SETS,
+      })
+    );
+    expect(mockMarkRead).toHaveBeenCalledTimes(1);
   });
 
   it('does not mark a section read on a nested detail sub-route', async () => {

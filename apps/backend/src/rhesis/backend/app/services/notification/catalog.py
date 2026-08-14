@@ -22,6 +22,11 @@ class RenderedNotification:
     #: stored in Notification.payload["entity_ids"] for the frontend to
     #: highlight every affected row, not just one.
     entity_ids: Optional[list] = None
+    #: How many finished things this notification stands for, for the badge
+    #: count. Left None, notify() derives it from the entity ids, which is
+    #: right for every renderer so far -- set it only where the count is not
+    #: one per id.
+    item_count: Optional[int] = None
 
 
 # A render function receives the Celery task instance (for self.request.kwargs /

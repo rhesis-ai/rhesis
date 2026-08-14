@@ -25,6 +25,9 @@ interface NotificationEventPayload {
   section?: string;
   entity_id?: string | null;
   project_id?: string | null;
+  /** Things this one notification stands for -- 3 for a Garak import of
+   * three test sets. The badge adds this rather than 1. */
+  item_count?: number | null;
   payload?: { entity_ids?: string[] } | null;
 }
 
@@ -186,7 +189,7 @@ export function NotificationsProvider({
 
       setUnreadBySection(prev => ({
         ...prev,
-        [section]: (prev[section] ?? 0) + 1,
+        [section]: (prev[section] ?? 0) + (payload.item_count || 1),
       }));
 
       // Invalidate only the section's *list* queries (e.g. testSetKeys.list()
@@ -205,9 +208,12 @@ export function NotificationsProvider({
         ...(payload.payload?.entity_ids ?? []),
       ];
       if (newIds.length > 0) {
+        // Append, never replace: a second job finishing must not drop the
+        // first one's rows. Deduped so an entity notified about twice
+        // doesn't grow the list.
         setHighlighted(prev => ({
           ...prev,
-          [section]: [...(prev[section] ?? []), ...newIds],
+          [section]: Array.from(new Set([...(prev[section] ?? []), ...newIds])),
         }));
       }
     });
@@ -233,10 +239,12 @@ export function NotificationsProvider({
       });
   }, []);
 
-  // Visiting a section's own list page clears its badge. Fires again on a
-  // later render if a new notification for the current section arrives
-  // while already here -- unreadBySection[section] going back above 0
-  // re-triggers the effect.
+  // Visiting a section's own list page clears its badge -- the whole count at
+  // once, however many jobs it accumulated while the user was elsewhere.
+  // Fires again on a later render if a new notification for the current
+  // section arrives while already here -- unreadBySection[section] going back
+  // above 0 re-triggers the effect. That is deliberate: the badge is for
+  // telling you about work you are *not* looking at.
   //
   // Must be the exact list route, not just a matching first path segment --
   // e.g. generating a test set redirects straight to that new test set's

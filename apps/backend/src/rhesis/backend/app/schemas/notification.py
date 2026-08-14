@@ -18,6 +18,9 @@ class NotificationRead(Base):
     is_failure: bool
     entity_type: Optional[str] = None
     entity_id: Optional[UUID] = None
+    #: How many entities this one notification covers -- the badge adds this,
+    #: not 1, so a Garak import of three test sets counts as three.
+    item_count: int = 1
     payload: Optional[Dict[str, Any]] = None
     read_at: Optional[datetime.datetime] = None
     created_at: datetime.datetime
