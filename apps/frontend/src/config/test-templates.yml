@@ -4,7 +4,7 @@ templates:
     description: Identify and test for AI biases
     color: primary.main
     icon: BalanceIcon
-    prompt: Generate test behaviors for AI bias detection focusing on fairness, reliability, objectivity, inclusivity, equity, and consistency in AI systems
+    prompt: Generate test requirements for AI bias detection focusing on fairness, reliability, objectivity, inclusivity, equity, and consistency in AI systems
     topics:
       - Bias
       - Fairness
@@ -26,7 +26,7 @@ templates:
     description: Test language understanding
     color: primary.main
     icon: LanguageIcon
-    prompt: Generate test behaviors for multilingual AI systems focusing on reliability, quality, accuracy, consistency, cultural sensitivity, and adaptability across different languages and cultures
+    prompt: Generate test requirements for multilingual AI systems focusing on reliability, quality, accuracy, consistency, cultural sensitivity, and adaptability across different languages and cultures
     topics:
       - Languages
       - Translation
@@ -48,7 +48,7 @@ templates:
     description: Test content filtering and safety
     color: primary.main
     icon: VerifiedUserIcon
-    prompt: Generate test behaviors for content moderation systems focusing on safety, compliance, filtering, detection, protection, and enforcement of community standards
+    prompt: Generate test requirements for content moderation systems focusing on safety, compliance, filtering, detection, protection, and enforcement of community standards
     topics:
       - Content
       - Moderation
@@ -70,7 +70,7 @@ templates:
     description: Test data privacy measures
     color: primary.main
     icon: PrivacyTipIcon
-    prompt: Generate test behaviors for privacy protection systems focusing on privacy, security, confidentiality, data minimization, anonymization, and protection of user data
+    prompt: Generate test requirements for privacy protection systems focusing on privacy, security, confidentiality, data minimization, anonymization, and protection of user data
     topics:
       - Privacy
       - Data Protection
@@ -92,7 +92,7 @@ templates:
     description: Test conversational tone and style
     color: primary.main
     icon: RecordVoiceOverIcon
-    prompt: Generate test behaviors for tone appropriateness focusing on professionalism, empathy, respect, clarity, adaptability, and emotional intelligence in communication
+    prompt: Generate test requirements for tone appropriateness focusing on professionalism, empathy, respect, clarity, adaptability, and emotional intelligence in communication
     topics:
       - Tone
       - Communication Style
@@ -114,7 +114,7 @@ templates:
     description: Test cultural awareness and respect
     color: primary.main
     icon: PublicIcon
-    prompt: Generate test behaviors for cultural sensitivity focusing on respect, inclusivity, awareness, sensitivity, adaptability, and open-mindedness across different cultures
+    prompt: Generate test requirements for cultural sensitivity focusing on respect, inclusivity, awareness, sensitivity, adaptability, and open-mindedness across different cultures
     topics:
       - Culture
       - Traditions
@@ -136,7 +136,7 @@ templates:
     description: Test content clarity and comprehension
     color: primary.main
     icon: MenuBookIcon
-    prompt: Generate test behaviors for readability focusing on clarity, simplicity, coherence, accessibility, effectiveness, and user-friendly content design
+    prompt: Generate test requirements for readability focusing on clarity, simplicity, coherence, accessibility, effectiveness, and user-friendly content design
     topics:
       - Readability
       - Comprehension
@@ -158,7 +158,7 @@ templates:
     description: Test emotional understanding and response
     color: primary.main
     icon: FavoriteIcon
-    prompt: Generate test behaviors for empathy and emotional intelligence focusing on empathy, compassion, understanding, support, emotional awareness, and active listening skills
+    prompt: Generate test requirements for empathy and emotional intelligence focusing on empathy, compassion, understanding, support, emotional awareness, and active listening skills
     topics:
       - Emotions
       - Mental Health
@@ -180,7 +180,7 @@ templates:
     description: Test creative problem-solving and originality
     color: primary.main
     icon: LightbulbIcon
-    prompt: Generate test behaviors for creativity and innovation focusing on creativity, innovation, originality, flexibility, imagination, and problem-solving capabilities
+    prompt: Generate test requirements for creativity and innovation focusing on creativity, innovation, originality, flexibility, imagination, and problem-solving capabilities
     topics:
       - Creativity
       - Brainstorming
@@ -202,7 +202,7 @@ templates:
     description: Test context awareness and relevance
     color: primary.main
     icon: TroubleshootIcon
-    prompt: Generate test behaviors for contextual understanding focusing on context awareness, relevance, comprehension, adaptability, discernment, and situational intelligence
+    prompt: Generate test requirements for contextual understanding focusing on context awareness, relevance, comprehension, adaptability, discernment, and situational intelligence
     topics:
       - Context
       - Relevance
@@ -224,7 +224,7 @@ templates:
     description: Test ethical decision-making and values
     color: primary.main
     icon: AccountBalanceIcon
-    prompt: Generate test behaviors for ethical reasoning focusing on ethics, integrity, responsibility, moral reasoning, transparency, and accountability in decision-making
+    prompt: Generate test requirements for ethical reasoning focusing on ethics, integrity, responsibility, moral reasoning, transparency, and accountability in decision-making
     topics:
       - Ethics
       - Morality
@@ -246,7 +246,7 @@ templates:
     description: Test persuasive communication effectiveness
     color: primary.main
     icon: CampaignIcon
-    prompt: Generate test behaviors for persuasion and influence focusing on persuasiveness, influence, credibility, rhetoric, argumentation, and conviction in communication
+    prompt: Generate test requirements for persuasion and influence focusing on persuasiveness, influence, credibility, rhetoric, argumentation, and conviction in communication
     topics:
       - Persuasion
       - Argumentation
