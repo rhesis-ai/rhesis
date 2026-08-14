@@ -100,6 +100,7 @@ show_help() {
     echo ""
     step "Worktree:"
     help_row "./rh worktree <name>" "Create a worktree with its own dev ports" "$RH_PAD_WORKTREE"
+    help_row "./rh worktree --init" "Set up the worktree you are standing in" "$RH_PAD_WORKTREE"
     help_row "./rh worktree <name> --remove" "Remove worktree, its containers, and branch" "$RH_PAD_WORKTREE"
     help_row "./rh worktree <name> --load" "Launch shell in worktree" "$RH_PAD_WORKTREE"
     help_row "./rh worktree --list" "List all worktrees" "$RH_PAD_WORKTREE"
