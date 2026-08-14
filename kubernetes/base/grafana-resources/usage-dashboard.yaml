@@ -213,7 +213,7 @@ spec:
               "editorMode": "code",
               "rawQuery": true,
               "format": "time_series",
-              "rawSql": "SELECT\n  u.period_start::timestamp AT TIME ZONE 'UTC' AS \"time\",\n  COALESCE(o.display_name, o.name) AS metric,\n  SUM(u.used) AS value\nFROM public.usage u\nJOIN public.organization o ON o.id = u.organization_id\nWHERE u.deleted_at IS NULL\n  AND o.deleted_at IS NULL\n  AND u.resource = ${resource:sqlstring}\n  AND o.id::text IN (${org:sqlstring})\n  AND $__timeFilter(u.period_start::timestamp AT TIME ZONE 'UTC')\nGROUP BY 1, o.id\nORDER BY 1"
+              "rawSql": "SELECT\n  u.period_start::timestamp AT TIME ZONE 'UTC' AS \"time\",\n  COALESCE(o.display_name, o.name) AS metric,\n  SUM(u.used) AS value\nFROM public.usage u\nJOIN public.organization o ON o.id = u.organization_id\nWHERE u.deleted_at IS NULL\n  AND o.deleted_at IS NULL\n  AND u.resource = ${resource:sqlstring}\n  AND o.id::text IN ($org)\n  AND $__timeFilter(u.period_start::timestamp AT TIME ZONE 'UTC')\nGROUP BY 1, o.id\nORDER BY 1"
             }
           ]
         },
