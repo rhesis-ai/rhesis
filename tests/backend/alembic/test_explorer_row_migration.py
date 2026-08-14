@@ -45,7 +45,7 @@ _MIGRATION_PATH = (
     / "7dd69fe35db5_add_explorer_row_to_test_set_and_test.py"
 )
 
-_EXPLORER_REQUIREMENT_NAME = "Adaptive Testing"
+_EXPLORER_BEHAVIOR_NAME = "Adaptive Testing"
 
 
 def _load_migration_module():
@@ -192,14 +192,14 @@ class TestBackfillLogic:
             conn,
             org_id=test_org_id,
             user_id=authenticated_user_id,
-            attributes={"metadata": {"requirements": [_EXPLORER_REQUIREMENT_NAME]}},
+            attributes={"metadata": {"behaviors": [_EXPLORER_BEHAVIOR_NAME]}},
         )
 
         _migration.upgrade()
 
         assert _explorer_row(conn, "test_set", ts_id) is True
 
-    def test_marker_among_other_requirements_becomes_true(
+    def test_marker_among_other_behaviors_becomes_true(
         self, test_db, migration_ops, test_org_id, authenticated_user_id
     ):
         conn = test_db.connection()
@@ -207,7 +207,7 @@ class TestBackfillLogic:
             conn,
             org_id=test_org_id,
             user_id=authenticated_user_id,
-            attributes={"metadata": {"requirements": ["Safety", _EXPLORER_REQUIREMENT_NAME]}},
+            attributes={"metadata": {"behaviors": ["Safety", _EXPLORER_BEHAVIOR_NAME]}},
         )
 
         _migration.upgrade()
@@ -222,7 +222,7 @@ class TestBackfillLogic:
             conn,
             org_id=test_org_id,
             user_id=authenticated_user_id,
-            attributes={"metadata": {"requirements": ["Safety"]}},
+            attributes={"metadata": {"behaviors": ["Safety"]}},
         )
 
         _migration.upgrade()
@@ -258,7 +258,7 @@ class TestBackfillLogic:
             conn,
             org_id=test_org_id,
             user_id=authenticated_user_id,
-            attributes={"metadata": {"requirements": [_EXPLORER_REQUIREMENT_NAME]}},
+            attributes={"metadata": {"behaviors": [_EXPLORER_BEHAVIOR_NAME]}},
         )
         t_id = _insert_test(conn, org_id=test_org_id, user_id=authenticated_user_id)
         _associate(
@@ -282,7 +282,7 @@ class TestBackfillLogic:
             conn,
             org_id=test_org_id,
             user_id=authenticated_user_id,
-            attributes={"metadata": {"requirements": ["Safety"]}},
+            attributes={"metadata": {"behaviors": ["Safety"]}},
         )
         t_id = _insert_test(conn, org_id=test_org_id, user_id=authenticated_user_id)
         _associate(
@@ -305,13 +305,13 @@ class TestBackfillLogic:
             conn,
             org_id=test_org_id,
             user_id=authenticated_user_id,
-            attributes={"metadata": {"requirements": [_EXPLORER_REQUIREMENT_NAME]}},
+            attributes={"metadata": {"behaviors": [_EXPLORER_BEHAVIOR_NAME]}},
         )
         regular_ts_id = _insert_test_set(
             conn,
             org_id=test_org_id,
             user_id=authenticated_user_id,
-            attributes={"metadata": {"requirements": ["Safety"]}},
+            attributes={"metadata": {"behaviors": ["Safety"]}},
         )
         t_id = _insert_test(conn, org_id=test_org_id, user_id=authenticated_user_id)
         _associate(
@@ -341,7 +341,7 @@ class TestBackfillLogic:
             conn,
             org_id=test_org_id,
             user_id=authenticated_user_id,
-            attributes={"metadata": {"requirements": [_EXPLORER_REQUIREMENT_NAME]}},
+            attributes={"metadata": {"behaviors": [_EXPLORER_BEHAVIOR_NAME]}},
         )
         t_id = _insert_test(conn, org_id=test_org_id, user_id=authenticated_user_id)
         _associate(
@@ -362,7 +362,7 @@ class TestBackfillLogic:
 @pytest.mark.integration
 class TestMarkerIsNotStripped:
     """upgrade() leaves the "Adaptive Testing" marker in attributes untouched --
-    only explorer_row is written. Stripping it would delete a real Requirement tag
+    only explorer_row is written. Stripping it would delete a real Behavior tag
     from any unrelated test set that happens to be named "Adaptive Testing";
     leaving it is a one-time wart on pre-migration rows, not new ones (see
     module docstring)."""
@@ -375,16 +375,16 @@ class TestMarkerIsNotStripped:
             conn,
             org_id=test_org_id,
             user_id=authenticated_user_id,
-            attributes={"metadata": {"requirements": [_EXPLORER_REQUIREMENT_NAME]}},
+            attributes={"metadata": {"behaviors": [_EXPLORER_BEHAVIOR_NAME]}},
         )
 
         _migration.upgrade()
 
         assert _explorer_row(conn, "test_set", ts_id) is True
         attrs = _test_set_attributes(conn, ts_id)
-        assert attrs["metadata"]["requirements"] == [_EXPLORER_REQUIREMENT_NAME]
+        assert attrs["metadata"]["behaviors"] == [_EXPLORER_BEHAVIOR_NAME]
 
-    def test_marker_among_other_requirements_stays_in_attributes(
+    def test_marker_among_other_behaviors_stays_in_attributes(
         self, test_db, migration_ops, test_org_id, authenticated_user_id
     ):
         conn = test_db.connection()
@@ -392,13 +392,13 @@ class TestMarkerIsNotStripped:
             conn,
             org_id=test_org_id,
             user_id=authenticated_user_id,
-            attributes={"metadata": {"requirements": ["Safety", _EXPLORER_REQUIREMENT_NAME]}},
+            attributes={"metadata": {"behaviors": ["Safety", _EXPLORER_BEHAVIOR_NAME]}},
         )
 
         _migration.upgrade()
 
         attrs = _test_set_attributes(conn, ts_id)
-        assert attrs["metadata"]["requirements"] == ["Safety", _EXPLORER_REQUIREMENT_NAME]
+        assert attrs["metadata"]["behaviors"] == ["Safety", _EXPLORER_BEHAVIOR_NAME]
 
     def test_regular_test_set_attributes_are_untouched(
         self, test_db, migration_ops, test_org_id, authenticated_user_id
@@ -408,13 +408,13 @@ class TestMarkerIsNotStripped:
             conn,
             org_id=test_org_id,
             user_id=authenticated_user_id,
-            attributes={"metadata": {"requirements": ["Safety"]}},
+            attributes={"metadata": {"behaviors": ["Safety"]}},
         )
 
         _migration.upgrade()
 
         attrs = _test_set_attributes(conn, ts_id)
-        assert attrs["metadata"]["requirements"] == ["Safety"]
+        assert attrs["metadata"]["behaviors"] == ["Safety"]
 
     def test_idempotent_rerun_does_not_error(
         self, test_db, migration_ops, test_org_id, authenticated_user_id
@@ -424,7 +424,7 @@ class TestMarkerIsNotStripped:
             conn,
             org_id=test_org_id,
             user_id=authenticated_user_id,
-            attributes={"metadata": {"requirements": [_EXPLORER_REQUIREMENT_NAME]}},
+            attributes={"metadata": {"behaviors": [_EXPLORER_BEHAVIOR_NAME]}},
         )
 
         _migration.upgrade()
@@ -432,7 +432,7 @@ class TestMarkerIsNotStripped:
 
         assert _explorer_row(conn, "test_set", ts_id) is True
         attrs = _test_set_attributes(conn, ts_id)
-        assert attrs["metadata"]["requirements"] == [_EXPLORER_REQUIREMENT_NAME]
+        assert attrs["metadata"]["behaviors"] == [_EXPLORER_BEHAVIOR_NAME]
 
 
 @pytest.mark.integration
@@ -440,14 +440,14 @@ class TestDowngradeDoesNotTouchAttributes:
     """downgrade() only drops the column and its index -- it never writes to
     attributes. A backend rolled back after this migration won't recognize as
     Explorer any test set created since (see module docstring); this is a
-    deliberate tradeoff to keep downgrade() free of attributes/requirements
+    deliberate tradeoff to keep downgrade() free of attributes/behaviors
     mutation."""
 
     @pytest.mark.parametrize(
         "attributes",
         [
-            {"metadata": {"requirements": ["Safety"]}},
-            {"metadata": {"requirements": [_EXPLORER_REQUIREMENT_NAME]}},
+            {"metadata": {"behaviors": ["Safety"]}},
+            {"metadata": {"behaviors": [_EXPLORER_BEHAVIOR_NAME]}},
             None,
             {"metadata": "not-an-object"},
         ],
@@ -507,7 +507,7 @@ class TestDowngradeUpgradeRoundTrip:
             conn,
             org_id=test_org_id,
             user_id=authenticated_user_id,
-            attributes={"metadata": {"requirements": [_EXPLORER_REQUIREMENT_NAME]}},
+            attributes={"metadata": {"behaviors": [_EXPLORER_BEHAVIOR_NAME]}},
         )
         t_id = _insert_test(conn, org_id=test_org_id, user_id=authenticated_user_id)
         _associate(
@@ -553,7 +553,7 @@ class TestBypassRLSSkipsDisableEnable:
                 conn,
                 org_id=test_org_id,
                 user_id=authenticated_user_id,
-                attributes={"metadata": {"requirements": [_EXPLORER_REQUIREMENT_NAME]}},
+                attributes={"metadata": {"behaviors": [_EXPLORER_BEHAVIOR_NAME]}},
             )
 
             _migration.upgrade()  # must not raise, must not touch RLS to succeed
