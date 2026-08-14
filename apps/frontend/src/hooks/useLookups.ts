@@ -61,7 +61,7 @@ export function useStatuses(entityType: string, enabled = true) {
 export function useRequirements(enabled = true) {
   const isAuthenticated = useIsAuthenticated();
   return useQuery<RequirementOption[]>({
-    queryKey: requirementKeys.list('name', 0, 100, 'name', 'asc'),
+    queryKey: requirementKeys.list('', 0, 100, 'name', 'asc'),
     queryFn: async () => {
       const requirements = await new ApiClientFactory()
         .getRequirementClient()
