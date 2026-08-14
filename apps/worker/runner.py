@@ -9,9 +9,7 @@ Usage:
     python runner.py task_name --arg1=value1 --arg2=value2 --org=org_id --user=user_id
 
 Examples:
-    python runner.py rhesis.backend.tasks.echo --message="Hello World" --org=org123 --user=user456
     python runner.py rhesis.backend.tasks.count_test_sets --org=org123 --user=user456
-    python runner.py rhesis.backend.tasks.process_data --data='{"key":"value"}' --org=org123 --user=user456
     python runner.py rhesis.backend.tasks.execute_test_configuration --test_configuration_id="uuid-here" --org=org123 --user=user456
     
     # For sequential execution, use longer timeout:

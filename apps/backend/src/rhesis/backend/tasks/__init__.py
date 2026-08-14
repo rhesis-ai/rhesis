@@ -10,11 +10,9 @@ from rhesis.backend.notifications import email_service
 from rhesis.backend.tasks import (
     embedding,  # noqa: F401
     endpoint,  # noqa: F401
-    example_task,  # noqa: F401
     execution,  # noqa: F401
     file,  # noqa: F401
     garak,  # noqa: F401
-    task_notifications,  # noqa: F401
     test_configuration,  # noqa: F401
     test_set,  # noqa: F401
     usage,  # noqa: F401
@@ -39,14 +37,6 @@ from rhesis.backend.tasks.enums import (
 )
 
 # Import task functions after BaseTask is defined to avoid circular imports
-from rhesis.backend.tasks.example_task import (
-    echo,
-    email_notification_test,
-    get_test_configuration,
-    get_test_set_count,
-    manual_db_example,
-    process_data,
-)
 from rhesis.backend.tasks.execution.results import collect_results
 from rhesis.backend.tasks.test_configuration import execute_test_configuration
 from rhesis.backend.tasks.test_set import count_test_sets
@@ -73,18 +63,12 @@ __all__ = [
     # Services
     "email_service",
     # Tasks
-    "echo",
     "generate_embedding_task",
     "compute_test_set_graph_task",
     "compute_source_graph_task",
     "count_test_sets",
     "execute_test_configuration",
     "collect_results",
-    "get_test_configuration",
-    "get_test_set_count",
-    "manual_db_example",
-    "email_notification_test",
-    "process_data",
     "accrue_usage",
     # Constants
     "DEFAULT_METRIC_WORKERS",

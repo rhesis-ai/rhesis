@@ -49,7 +49,8 @@ Templates: `EmailTemplate.TASK_COMPLETION` (generic) or `EmailTemplate.TEST_EXEC
 Current usage:
 
 - `collect_results` — `TEST_EXECUTION_SUMMARY`
-- `email_notification_test` — `TASK_COMPLETION`
+- `generate_and_save_test_set` — `TASK_COMPLETION`
+- `import_garak_probes`, `sync_garak_test_set` — `TASK_COMPLETION`
 - per-test execution and utility tasks — no decorator
 
 Parallel test execution runs an async batch inside one Celery task (not a Celery `chord`). When the
