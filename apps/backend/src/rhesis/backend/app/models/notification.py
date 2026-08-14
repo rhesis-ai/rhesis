@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, String, Text, text
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text, text
 from sqlalchemy.dialects.postgresql import JSONB
 
 from .base import Base
@@ -43,5 +43,9 @@ class Notification(Base, ProjectMixin, OrganizationAndUserMixin):
     is_failure = Column(Boolean, nullable=False, server_default=text("false"))
     entity_type = Column(String, nullable=True)
     entity_id = Column(GUID(), nullable=True, index=True)
+    # How many things this row is about: 3 for a Garak import that created
+    # three test sets. The badge sums this instead of counting rows, so a
+    # batch reads as three finished jobs rather than one.
+    item_count = Column(Integer, nullable=False, server_default=text("1"))
     payload = Column(JSONB, nullable=True)
     read_at = Column(DateTime(timezone=True), nullable=True, index=True)

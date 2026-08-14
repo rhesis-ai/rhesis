@@ -27,6 +27,7 @@ def create_notification(
     is_failure: bool = False,
     entity_type: Optional[str] = None,
     entity_id: Optional[UUID] = None,
+    item_count: int = 1,
     payload: Optional[Dict[str, Any]] = None,
     organization_id: Optional[str] = None,
     project_id: Optional[str] = None,
@@ -40,6 +41,7 @@ def create_notification(
         is_failure=is_failure,
         entity_type=entity_type,
         entity_id=entity_id,
+        item_count=item_count,
         payload=payload,
         user_id=user_id,
         organization_id=organization_id,
@@ -62,17 +64,21 @@ _SUMMARY_HIGHLIGHT_SCAN_LIMIT = 200
 def get_notification_summary(db: Session, user_id: str) -> Dict[str, Dict[str, Any]]:
     """Unread count and highlightable entity ids, grouped by section.
 
+    The count sums ``item_count`` rather than counting rows, so a batch
+    notification (one Garak import, three test sets) contributes three. See
+    the column's comment on ``models/notification.py``.
+
     Sections with zero unread notifications are omitted -- the frontend
     treats an absent key the same as ``{"unread": 0, "entity_ids": []}``.
     """
     counts = (
-        db.query(Notification.section, func.count(Notification.id))
+        db.query(Notification.section, func.sum(Notification.item_count))
         .filter(Notification.user_id == user_id, Notification.read_at.is_(None))
         .group_by(Notification.section)
         .all()
     )
     summary: Dict[str, Dict[str, Any]] = {
-        section: {"unread": count, "entity_ids": []} for section, count in counts
+        section: {"unread": int(total or 0), "entity_ids": []} for section, total in counts
     }
     if not summary:
         return summary
@@ -93,6 +99,11 @@ def get_notification_summary(db: Session, user_id: str) -> Dict[str, Dict[str, A
         extra_ids = (row.payload or {}).get("entity_ids")
         if extra_ids:
             bucket["entity_ids"].extend(extra_ids)
+    # The same entity can be notified about more than once (a Garak sync run
+    # twice, say). Duplicates would only make the frontend's highlight list
+    # grow, so collapse them here while keeping newest-first order.
+    for bucket in summary.values():
+        bucket["entity_ids"] = list(dict.fromkeys(str(i) for i in bucket["entity_ids"]))
     return summary
 
 
