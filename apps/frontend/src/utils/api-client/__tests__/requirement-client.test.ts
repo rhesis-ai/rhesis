@@ -71,7 +71,9 @@ describe('RequirementClient', () => {
     await client.getRequirement(REQUIREMENT_ID);
 
     expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining(`${API_ENDPOINTS.requirements}/${REQUIREMENT_ID}`),
+      expect.stringContaining(
+        `${API_ENDPOINTS.requirements}/${REQUIREMENT_ID}`
+      ),
       expect.any(Object)
     );
   });
@@ -117,7 +119,9 @@ describe('RequirementClient', () => {
   it('updates a requirement with PUT', async () => {
     fetchMock.mockResolvedValue(makeFetch({ id: REQUIREMENT_ID }));
 
-    await client.updateRequirement(REQUIREMENT_ID, { name: 'Updated' } as never);
+    await client.updateRequirement(REQUIREMENT_ID, {
+      name: 'Updated',
+    } as never);
 
     const [url, opts] = fetchMock.mock.calls[0];
     expect(url).toContain(`${API_ENDPOINTS.requirements}/${REQUIREMENT_ID}`);

@@ -11,9 +11,9 @@ from rhesis.sdk.agents.architect import (
     ArchitectAgent,
     ArchitectConfig,
     ArchitectPlan,
-    RequirementSpec,
     MetricSpec,
     ProjectSpec,
+    RequirementSpec,
     TestSetSpec,
 )
 from rhesis.sdk.agents.base import BaseAgent, BaseTool, MCPTool

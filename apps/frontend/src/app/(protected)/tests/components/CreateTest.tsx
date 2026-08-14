@@ -99,7 +99,8 @@ export default function CreateTest({
   useEffect(() => {
     if (test) {
       setFormData({
-        requirement_id: test.requirement?.id || test.requirement?.name || undefined,
+        requirement_id:
+          test.requirement?.id || test.requirement?.name || undefined,
         topic_id: test.topic?.id || test.topic?.name || undefined,
         category_id: test.category?.id || undefined,
         priorityLevel: test.priorityLevel || 'Medium',
@@ -136,7 +137,10 @@ export default function CreateTest({
           usersData,
           statusesData,
         ] = await Promise.all([
-          requirementClient.getRequirements({ sort_by: 'name', sort_order: 'asc' }),
+          requirementClient.getRequirements({
+            sort_by: 'name',
+            sort_order: 'asc',
+          }),
           topicClient.getTopics({
             sort_by: 'name',
             sort_order: 'asc',

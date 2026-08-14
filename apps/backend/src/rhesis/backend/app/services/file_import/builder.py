@@ -87,7 +87,9 @@ def rows_to_test_data(
             if not any(str(v or "").strip() for v in [category, topic, requirement]):
                 continue
         else:
-            if not any(str(v or "").strip() for v in [prompt_content, category, topic, requirement]):
+            if not any(
+                str(v or "").strip() for v in [prompt_content, category, topic, requirement]
+            ):
                 continue
 
         # Build a clean prompt dict — multi-turn tests don't have prompts

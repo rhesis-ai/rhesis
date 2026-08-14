@@ -93,13 +93,19 @@ export function chunkRequirementColumns(
   columns: RequirementInsightColumn[]
 ): RequirementInsightColumn[][] {
   const rows: RequirementInsightColumn[][] = [];
-  for (let i = 0; i < columns.length; i += INSIGHTS_REQUIREMENT_COLUMNS_PER_ROW) {
+  for (
+    let i = 0;
+    i < columns.length;
+    i += INSIGHTS_REQUIREMENT_COLUMNS_PER_ROW
+  ) {
     rows.push(columns.slice(i, i + INSIGHTS_REQUIREMENT_COLUMNS_PER_ROW));
   }
   return rows;
 }
 
-export function isRequirementRowExpandable(row: RequirementInsightColumn[]): boolean {
+export function isRequirementRowExpandable(
+  row: RequirementInsightColumn[]
+): boolean {
   return row.some(isRequirementColumnExpandable);
 }
 
@@ -265,11 +271,16 @@ export interface RequirementOption {
 }
 
 /** Build the full (unfiltered) requirement list for the filter drawer's checkbox options. */
-export function buildRequirementOptions(rows: InsightsRow[]): RequirementOption[] {
+export function buildRequirementOptions(
+  rows: InsightsRow[]
+): RequirementOption[] {
   return rows
     .filter(
-      (row): row is InsightsRow & { requirement_id: string; requirement: string } =>
-        typeof row.requirement_id === 'string' && typeof row.requirement === 'string'
+      (
+        row
+      ): row is InsightsRow & { requirement_id: string; requirement: string } =>
+        typeof row.requirement_id === 'string' &&
+        typeof row.requirement === 'string'
     )
     .map(row => ({
       id: row.requirement_id,
@@ -291,19 +302,29 @@ export function buildRequirementColumns(
     'topic',
     'topic_id'
   );
-  const metricsByRequirement = groupRowsByRequirementId(metricRows, 'metric_name');
+  const metricsByRequirement = groupRowsByRequirementId(
+    metricRows,
+    'metric_name'
+  );
 
   const columns: RequirementInsightColumn[] = requirementRows
     .filter(
-      (row): row is InsightsRow & { requirement_id: string; requirement: string } =>
-        typeof row.requirement_id === 'string' && typeof row.requirement === 'string'
+      (
+        row
+      ): row is InsightsRow & { requirement_id: string; requirement: string } =>
+        typeof row.requirement_id === 'string' &&
+        typeof row.requirement === 'string'
     )
     .map(row => ({
       id: row.requirement_id,
       name: row.requirement,
       overall: rowToPassFailStats(row),
-      metrics: sortByPassRateAsc(metricsByRequirement.get(row.requirement_id) ?? []),
-      topics: sortByPassRateAsc(topicsByRequirement.get(row.requirement_id) ?? []),
+      metrics: sortByPassRateAsc(
+        metricsByRequirement.get(row.requirement_id) ?? []
+      ),
+      topics: sortByPassRateAsc(
+        topicsByRequirement.get(row.requirement_id) ?? []
+      ),
     }));
 
   return sortRequirementColumns(columns);

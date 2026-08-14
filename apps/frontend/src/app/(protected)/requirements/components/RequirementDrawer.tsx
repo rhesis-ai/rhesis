@@ -147,7 +147,8 @@ const RequirementDrawer = ({
             disabled={loading}
             error={!!validationError}
             helperText={
-              validationError || 'A clear, descriptive name for this requirement'
+              validationError ||
+              'A clear, descriptive name for this requirement'
             }
             sx={drawerOutlinedFieldSx}
           />
@@ -221,7 +222,8 @@ const RequirementDrawer = ({
         {!isNew && onDelete && (
           <Stack spacing={1.5}>
             <Typography variant="body2" color="text.secondary">
-              Delete this requirement (only available if no metrics are assigned)
+              Delete this requirement (only available if no metrics are
+              assigned)
             </Typography>
             <Button
               variant="outlined"

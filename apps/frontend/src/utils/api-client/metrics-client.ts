@@ -82,7 +82,10 @@ export class MetricsClient extends BaseApiClient {
     });
   }
 
-  async addRequirementToMetric(metricId: UUID, requirementId: UUID): Promise<void> {
+  async addRequirementToMetric(
+    metricId: UUID,
+    requirementId: UUID
+  ): Promise<void> {
     return this.fetch<void>(
       `${API_ENDPOINTS.metrics}/${metricId}${API_ENDPOINTS.requirements}/${requirementId}`,
       {

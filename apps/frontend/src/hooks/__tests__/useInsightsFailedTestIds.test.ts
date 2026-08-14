@@ -4,9 +4,12 @@ import {
   toInsightsFailedTestIdsScope,
 } from '../useInsightsFailedTestIds';
 
-jest.mock('@/app/(protected)/insights/utils/requirement-insights-utils', () => ({
-  resolveInsightsQueryTestRunIds: jest.fn(),
-}));
+jest.mock(
+  '@/app/(protected)/insights/utils/requirement-insights-utils',
+  () => ({
+    resolveInsightsQueryTestRunIds: jest.fn(),
+  })
+);
 
 jest.mock('@/app/(protected)/insights/utils/insights-failed-tests', () => ({
   fetchFailedTestIdsForInsights: jest.fn(),

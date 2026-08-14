@@ -17,7 +17,11 @@ import { useNotifications } from '@/components/common/NotificationContext';
 import { useRouter } from 'next/navigation';
 import { UUID } from 'crypto';
 import { useQuery } from '@tanstack/react-query';
-import { requirementKeys, topicKeys, categoryKeys } from '@/constants/query-keys';
+import {
+  requirementKeys,
+  topicKeys,
+  categoryKeys,
+} from '@/constants/query-keys';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface TestDetailOption {

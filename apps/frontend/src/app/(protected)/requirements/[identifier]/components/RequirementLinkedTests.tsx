@@ -196,8 +196,8 @@ export default function RequirementLinkedTests({
               No tests linked yet
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              No tests have this requirement assigned yet. Assign this requirement
-              when creating or editing a test to see it here.
+              No tests have this requirement assigned yet. Assign this
+              requirement when creating or editing a test to see it here.
             </Typography>
           </Box>
         )

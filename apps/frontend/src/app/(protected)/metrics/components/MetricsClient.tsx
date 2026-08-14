@@ -143,11 +143,12 @@ export default function MetricsClientComponent({
     metricTypes: new Map(),
   });
 
-  const [requirements, setRequirements] = React.useState<ApiRequirement[]>(() =>
-    initialData
-      ? deriveMetricsPageOptions(initialData, optionMapsRef.current)
-          .requirementsData
-      : []
+  const [requirements, setRequirements] = React.useState<ApiRequirement[]>(
+    () =>
+      initialData
+        ? deriveMetricsPageOptions(initialData, optionMapsRef.current)
+            .requirementsData
+        : []
   );
   const [_requirementsWithMetrics, setRequirementsWithMetrics] = React.useState<
     RequirementWithMetrics[]

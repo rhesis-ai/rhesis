@@ -43,7 +43,9 @@ export function useRequirementInsightsData(
 ): RequirementInsightsData {
   const [summary, setSummary] = useState<PassFailStats | null>(null);
   const [columns, setColumns] = useState<RequirementInsightColumn[]>([]);
-  const [requirementOptions, setRequirementOptions] = useState<RequirementOption[]>([]);
+  const [requirementOptions, setRequirementOptions] = useState<
+    RequirementOption[]
+  >([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [noRuns, setNoRuns] = useState(false);
@@ -148,7 +150,8 @@ export function useRequirementInsightsData(
           const testResultQuery = {
             filters: {
               ...optionsQuery.filters,
-              ...(filters.requirementIds !== null && filters.requirementIds.length > 0
+              ...(filters.requirementIds !== null &&
+              filters.requirementIds.length > 0
                 ? { requirement_ids: filters.requirementIds }
                 : {}),
             },
@@ -161,7 +164,8 @@ export function useRequirementInsightsData(
           const metricQuery = {
             filters: {
               test_run_ids: testRunIds,
-              ...(filters.requirementIds !== null && filters.requirementIds.length > 0
+              ...(filters.requirementIds !== null &&
+              filters.requirementIds.length > 0
                 ? { requirement_ids: filters.requirementIds }
                 : {}),
             },
@@ -219,7 +223,9 @@ export function useRequirementInsightsData(
               )
             );
           }
-          setRequirementOptions(buildRequirementOptions(results.allRequirements.rows));
+          setRequirementOptions(
+            buildRequirementOptions(results.allRequirements.rows)
+          );
 
           setLoading(false);
         } catch (err) {

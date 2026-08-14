@@ -343,7 +343,9 @@ describe('metricHasHumanCorrection', () => {
   it('detects metric correction alongside a separate test-level review', () => {
     const results = [
       makeResult({
-        test: { requirement: { name: 'Compliance' } } as TestResultDetail['test'],
+        test: {
+          requirement: { name: 'Compliance' },
+        } as TestResultDetail['test'],
         status: { id: u(30), name: 'Fail' },
         last_review: makeReview({
           status: { name: 'Pass' },
@@ -432,7 +434,9 @@ describe('requirementHasHumanCorrection', () => {
   it('does not flag requirement when only a metric in that requirement was corrected', () => {
     const results = [
       makeResult({
-        test: { requirement: { name: 'Compliance' } } as TestResultDetail['test'],
+        test: {
+          requirement: { name: 'Compliance' },
+        } as TestResultDetail['test'],
         last_review: undefined,
         metrics: {
           'Bias Detection': {

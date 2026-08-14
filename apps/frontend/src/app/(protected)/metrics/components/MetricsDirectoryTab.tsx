@@ -81,7 +81,9 @@ interface MetricsDirectoryTabProps {
   error: string | null;
   setFilters: React.Dispatch<React.SetStateAction<FilterState>>;
   setMetrics: React.Dispatch<React.SetStateAction<MetricDetail[]>>;
-  setRequirementMetrics: React.Dispatch<React.SetStateAction<RequirementMetrics>>;
+  setRequirementMetrics: React.Dispatch<
+    React.SetStateAction<RequirementMetrics>
+  >;
   setRequirementsWithMetrics: React.Dispatch<
     React.SetStateAction<RequirementWithMetrics[]>
   >;
@@ -333,7 +335,10 @@ export default function MetricsDirectoryTab({
 
   const handleAssignMetric = (requirementId: UUID) => {
     if (selectedMetric) {
-      handleAssignMetricToRequirement(requirementId as string, selectedMetric.id);
+      handleAssignMetricToRequirement(
+        requirementId as string,
+        selectedMetric.id
+      );
     }
     setAssignDialogOpen(false);
     setSelectedMetric(null);
@@ -383,7 +388,9 @@ export default function MetricsDirectoryTab({
     setMetricToDeleteCompletely(null);
   };
 
-  const activeRequirements = requirements.filter(b => b.name && b.name.trim() !== '');
+  const activeRequirements = requirements.filter(
+    b => b.name && b.name.trim() !== ''
+  );
 
   // First load — no data at all yet, show a full-page spinner
   const isInitialLoad = isLoading && metrics.length === 0 && totalCount === 0;
@@ -519,7 +526,9 @@ export default function MetricsDirectoryTab({
               scoreType: filters.scoreType,
               metricScope: filters.metricScope,
               requirement:
-                typeof filters.requirement === 'string' ? filters.requirement : '',
+                typeof filters.requirement === 'string'
+                  ? filters.requirement
+                  : '',
             }}
             filterOptions={{
               type: filterOptions.type,

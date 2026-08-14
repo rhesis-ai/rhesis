@@ -130,7 +130,10 @@ describe('SelectRequirementsDialog', () => {
     renderDialog();
     await screen.findByText('Safety');
 
-    await user.type(screen.getByPlaceholderText(/search requirements/i), 'safe');
+    await user.type(
+      screen.getByPlaceholderText(/search requirements/i),
+      'safe'
+    );
 
     expect(screen.queryByText('Coherence')).not.toBeInTheDocument();
     expect(screen.getByText('Safety')).toBeInTheDocument();
@@ -139,13 +142,24 @@ describe('SelectRequirementsDialog', () => {
   it('filters requirements by search query (description match)', async () => {
     const user = userEvent.setup();
     mockGetRequirements.mockResolvedValue([
-      makeRequirement({ id: 'b-1', name: 'Alpha', description: 'detects bias' }),
-      makeRequirement({ id: 'b-2', name: 'Beta', description: 'checks safety' }),
+      makeRequirement({
+        id: 'b-1',
+        name: 'Alpha',
+        description: 'detects bias',
+      }),
+      makeRequirement({
+        id: 'b-2',
+        name: 'Beta',
+        description: 'checks safety',
+      }),
     ]);
     renderDialog();
     await screen.findByText('Alpha');
 
-    await user.type(screen.getByPlaceholderText(/search requirements/i), 'bias');
+    await user.type(
+      screen.getByPlaceholderText(/search requirements/i),
+      'bias'
+    );
 
     expect(screen.queryByText('Beta')).not.toBeInTheDocument();
     expect(screen.getByText('Alpha')).toBeInTheDocument();

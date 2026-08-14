@@ -57,7 +57,8 @@ const features = [
   {
     icon: PsychologyIcon,
     title: 'Requirements',
-    description: 'Define expected requirements that your AI application should follow during testing.',
+    description:
+      'Define expected requirements that your AI application should follow during testing.',
     link: '/docs/requirements',
   },
   {

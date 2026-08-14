@@ -158,7 +158,10 @@ export default function TestDetailMetricsTab({
         categoryName = getMetricsSourceLabel(metricsSource);
       } else if (isMultiTurn) {
         categoryName = 'Multi-Turn Test';
-      } else if (metricsSource === MetricsSource.REQUIREMENT && hasRequirements) {
+      } else if (
+        metricsSource === MetricsSource.REQUIREMENT &&
+        hasRequirements
+      ) {
         // Fallback for requirement source when requirement metrics didn't match
         categoryName = 'Requirement Metrics';
       } else {
@@ -437,7 +440,8 @@ export default function TestDetailMetricsTab({
                     color="text.secondary"
                     gutterBottom
                   >
-                    {metricsSource === MetricsSource.REQUIREMENT || !metricsSource
+                    {metricsSource === MetricsSource.REQUIREMENT ||
+                    !metricsSource
                       ? 'Best Requirement'
                       : 'Best Performing'}
                   </Typography>
@@ -473,7 +477,8 @@ export default function TestDetailMetricsTab({
                     color="text.secondary"
                     gutterBottom
                   >
-                    {metricsSource === MetricsSource.REQUIREMENT || !metricsSource
+                    {metricsSource === MetricsSource.REQUIREMENT ||
+                    !metricsSource
                       ? 'Worst Requirement'
                       : 'Worst Performing'}
                   </Typography>

@@ -62,7 +62,10 @@ export default function RequirementDetailClient({
       metadata={metadataStrip}
     >
       <Box sx={{ flexGrow: 1 }}>
-        <RequirementDetailTabs requirement={requirement} onUpdated={setRequirement} />
+        <RequirementDetailTabs
+          requirement={requirement}
+          onUpdated={setRequirement}
+        />
       </Box>
     </PageLayout>
   );

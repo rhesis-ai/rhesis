@@ -73,7 +73,9 @@ export default function RequirementsClient({
     () => {
       if (!initialData) return [];
       initialData.forEach(requirement => {
-        (requirement.tags ?? []).forEach(tag => tagNamesRef.current.add(tag.name));
+        (requirement.tags ?? []).forEach(tag =>
+          tagNamesRef.current.add(tag.name)
+        );
       });
       return Array.from(tagNamesRef.current).sort((a, b) => a.localeCompare(b));
     }
@@ -146,7 +148,9 @@ export default function RequirementsClient({
     enabled: !permsLoading && canRead,
     onData: data => {
       data.forEach(requirement => {
-        (requirement.tags ?? []).forEach(tag => tagNamesRef.current.add(tag.name));
+        (requirement.tags ?? []).forEach(tag =>
+          tagNamesRef.current.add(tag.name)
+        );
       });
       setAvailableTagNames(
         Array.from(tagNamesRef.current).sort((a, b) => a.localeCompare(b))
@@ -189,7 +193,12 @@ export default function RequirementsClient({
   };
 
   const handleAddNewRequirement = () => {
-    setEditingRequirement({ id: null, name: '', description: '', tagNames: [] });
+    setEditingRequirement({
+      id: null,
+      name: '',
+      description: '',
+      tagNames: [],
+    });
     setIsNewRequirement(true);
     setDrawerOpen(true);
   };
@@ -250,7 +259,11 @@ export default function RequirementsClient({
 
     await Promise.all(
       toRemove.map(tag =>
-        tagsClient.removeTagFromEntity(EntityType.REQUIREMENT, requirementId, tag.id)
+        tagsClient.removeTagFromEntity(
+          EntityType.REQUIREMENT,
+          requirementId,
+          tag.id
+        )
       )
     );
 
@@ -292,9 +305,8 @@ export default function RequirementsClient({
           }
         }
 
-        const createdWithMetrics = await requirementClient.getRequirementWithMetrics(
-          created.id
-        );
+        const createdWithMetrics =
+          await requirementClient.getRequirementWithMetrics(created.id);
         insertRequirementSorted(createdWithMetrics);
 
         notifications.show(
@@ -375,9 +387,8 @@ export default function RequirementsClient({
         organization_id: organizationId,
       });
 
-      const createdWithMetrics = await requirementClient.getRequirementWithMetrics(
-        created.id
-      );
+      const createdWithMetrics =
+        await requirementClient.getRequirementWithMetrics(created.id);
       insertRequirementSorted(createdWithMetrics);
 
       notifications.show('Requirement duplicated successfully', {
@@ -417,7 +428,9 @@ export default function RequirementsClient({
 
         await requirementClient.deleteRequirement(editingRequirement.id);
 
-        setRequirements(prev => prev.filter(b => b.id !== editingRequirement.id));
+        setRequirements(prev =>
+          prev.filter(b => b.id !== editingRequirement.id)
+        );
         setTotalCount(prev => Math.max(0, prev - 1));
 
         notifications.show('Requirement deleted successfully', {
@@ -482,7 +495,9 @@ export default function RequirementsClient({
     searchQuery.trim() !== '' ||
     metricCountFilter !== 'all' ||
     hasActiveRequirementFilters(drawerFilters);
-  const editingRequirementId = !isNewRequirement ? editingRequirement?.id : null;
+  const editingRequirementId = !isNewRequirement
+    ? editingRequirement?.id
+    : null;
 
   const handleResetFilters = () => {
     setSearchQuery('');
@@ -497,7 +512,8 @@ export default function RequirementsClient({
   ];
 
   // First load — no data at all yet, show a full-page spinner
-  const isInitialLoad = isLoading && requirements.length === 0 && totalCount === 0;
+  const isInitialLoad =
+    isLoading && requirements.length === 0 && totalCount === 0;
 
   if (isInitialLoad) {
     return (
@@ -605,8 +621,12 @@ export default function RequirementsClient({
             icon={PsychologyIcon}
             title="No requirement yet"
             description="Create your first requirement to define atomic expectations for your AI applications. Requirements are measured through metrics to ensure your requirements are met."
-            actionLabel={canCreateRequirement ? 'Create requirement' : undefined}
-            onAction={canCreateRequirement ? handleAddNewRequirement : undefined}
+            actionLabel={
+              canCreateRequirement ? 'Create requirement' : undefined
+            }
+            onAction={
+              canCreateRequirement ? handleAddNewRequirement : undefined
+            }
             enrichment={getEntityEmptyStateEnrichment('requirements')}
           />
         )
@@ -689,8 +709,8 @@ export default function RequirementsClient({
           }
           onDelete={
             editingRequirementId &&
-            requirements.find(b => b.id === editingRequirementId)?.metrics?.length ===
-              0
+            requirements.find(b => b.id === editingRequirementId)?.metrics
+              ?.length === 0
               ? handleDeleteRequirement
               : undefined
           }

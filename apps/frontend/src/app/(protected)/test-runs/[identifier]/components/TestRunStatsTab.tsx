@@ -206,7 +206,9 @@ function RequirementTable({
                 hover={canDrilldown}
                 sx={{ cursor: canDrilldown ? 'pointer' : 'default' }}
                 onClick={
-                  canDrilldown ? () => onViewRequirement!(requirement!.id) : undefined
+                  canDrilldown
+                    ? () => onViewRequirement!(requirement!.id)
+                    : undefined
                 }
               >
                 <TableCell sx={{ maxWidth: 300 }}>

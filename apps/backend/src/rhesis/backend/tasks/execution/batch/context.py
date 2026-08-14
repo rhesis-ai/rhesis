@@ -310,7 +310,9 @@ def prefetch_execution_context(
             # P3 (or no metrics at all) — resolution can differ per test since each
             # test may belong to a different requirement. Cache by requirement_id so tests
             # sharing a requirement don't each re-query get_requirement_metrics() (N+1).
-            metrics_by_requirement_id: Dict[Any, List] = {sample_test.requirement_id: sample_metrics}
+            metrics_by_requirement_id: Dict[Any, List] = {
+                sample_test.requirement_id: sample_metrics
+            }
             for test in tests:
                 tid = str(test.id)
                 if test is sample_test:

@@ -69,7 +69,9 @@ export class InsightsPage extends BasePage {
       return;
     }
 
-    await expect(this.page.getByPlaceholder(/search requirements/i)).toBeVisible();
+    await expect(
+      this.page.getByPlaceholder(/search requirements/i)
+    ).toBeVisible();
     await expect(filterButton).toBeVisible();
     await expect(passRateMetric.first()).toBeVisible({ timeout: 15_000 });
   }

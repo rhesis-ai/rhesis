@@ -389,8 +389,8 @@ export function getResultRequirementName(
 ): string | undefined {
   return (
     result.test?.requirement?.name ||
-    (result.test as { requirement?: { name?: string } } | undefined)?.requirement
-      ?.name
+    (result.test as { requirement?: { name?: string } } | undefined)
+      ?.requirement?.name
   );
 }
 
@@ -427,7 +427,10 @@ export function buildRequirementCorrectionTooltip(
   requirementName: string,
   testResults: TestResultDetail[]
 ): string {
-  const testCount = countRequirementHumanCorrections(requirementName, testResults);
+  const testCount = countRequirementHumanCorrections(
+    requirementName,
+    testResults
+  );
   if (testCount === 0) return '';
   return `${testCount} test${testCount === 1 ? '' : 's'} corrected by human review`;
 }
@@ -625,7 +628,10 @@ export function aggregateRequirementStats(
       passRate: total > 0 ? (passed / total) * 100 : 0,
       hasHumanCorrection: humanCorrectionCount > 0,
       humanCorrectionCount,
-      humanCorrectionTooltip: buildRequirementCorrectionTooltip(name, testResults),
+      humanCorrectionTooltip: buildRequirementCorrectionTooltip(
+        name,
+        testResults
+      ),
     };
   });
 }

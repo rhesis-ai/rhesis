@@ -58,7 +58,11 @@ const SCAFFOLD_CATEGORIES = [
         text: 'Expected output should: ',
         hint: 'be concise, include sources',
       },
-      { id: 'test-requirement', label: 'Test requirement:', text: 'Test requirement: ' },
+      {
+        id: 'test-requirement',
+        label: 'Test requirement:',
+        text: 'Test requirement: ',
+      },
     ],
   },
   {

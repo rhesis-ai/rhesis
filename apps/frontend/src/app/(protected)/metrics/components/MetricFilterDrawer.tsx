@@ -164,7 +164,9 @@ export default function MetricFilterDrawer({
       {filterOptions.requirement.length > 0 && (
         <FilterSection title="Requirement">
           <FormControl fullWidth size="small">
-            <InputLabel id="metric-filter-requirement-label">Requirement</InputLabel>
+            <InputLabel id="metric-filter-requirement-label">
+              Requirement
+            </InputLabel>
             <Select
               labelId="metric-filter-requirement-label"
               value={draft.requirement}

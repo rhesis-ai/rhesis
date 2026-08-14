@@ -550,7 +550,9 @@ export default function RunDrawer(props: RunDrawerProps) {
         setTestSetMetrics(metrics || []);
 
         if (mode === 'executeTestSet') {
-          setMetricMode(metrics?.length > 0 ? 'use_test_set' : 'use_requirement');
+          setMetricMode(
+            metrics?.length > 0 ? 'use_test_set' : 'use_requirement'
+          );
         }
       } catch {
         if (mounted) {

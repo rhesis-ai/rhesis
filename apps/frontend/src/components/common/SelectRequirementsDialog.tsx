@@ -35,7 +35,9 @@ export default function SelectRequirementsDialog({
   onSelect,
   excludeRequirementIds = [],
 }: SelectRequirementsDialogProps) {
-  const [requirements, setRequirements] = React.useState<RequirementWithMetrics[]>([]);
+  const [requirements, setRequirements] = React.useState<
+    RequirementWithMetrics[]
+  >([]);
   const [filteredRequirements, setFilteredRequirements] = React.useState<
     RequirementWithMetrics[]
   >([]);
@@ -48,12 +50,13 @@ export default function SelectRequirementsDialog({
       setIsLoading(true);
       setError(null);
       const requirementClient = new RequirementClient();
-      const requirementsList = await requirementClient.getRequirementsWithMetrics({
-        skip: 0,
-        limit: 100,
-        sort_by: 'name',
-        sort_order: 'asc',
-      });
+      const requirementsList =
+        await requirementClient.getRequirementsWithMetrics({
+          skip: 0,
+          limit: 100,
+          sort_by: 'name',
+          sort_order: 'asc',
+        });
 
       // Filter out excluded requirements
       const availableRequirements = requirementsList.filter(

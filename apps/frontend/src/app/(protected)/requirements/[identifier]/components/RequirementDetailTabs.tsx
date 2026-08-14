@@ -159,7 +159,9 @@ function RequirementBasicInfo({
         )
       );
 
-      const updated = await client.getRequirementWithMetrics(requirement.id as UUID);
+      const updated = await client.getRequirementWithMetrics(
+        requirement.id as UUID
+      );
       onUpdated(updated);
       setEditOpen(false);
     } catch {
@@ -193,16 +195,22 @@ function RequirementBasicInfo({
     );
     await Promise.all(
       toAdd.map(tagName =>
-        tagsClient.assignTagToEntity(EntityType.REQUIREMENT, requirement.id as UUID, {
-          name: tagName,
-          organization_id: requirement.organization_id,
-          ...(requirement.user_id ? { user_id: requirement.user_id } : {}),
-        })
+        tagsClient.assignTagToEntity(
+          EntityType.REQUIREMENT,
+          requirement.id as UUID,
+          {
+            name: tagName,
+            organization_id: requirement.organization_id,
+            ...(requirement.user_id ? { user_id: requirement.user_id } : {}),
+          }
+        )
       )
     );
 
     const client = new RequirementClient();
-    const updated = await client.getRequirementWithMetrics(requirement.id as UUID);
+    const updated = await client.getRequirementWithMetrics(
+      requirement.id as UUID
+    );
     onUpdated(updated);
   };
 
@@ -301,7 +309,9 @@ function RequirementLinkedMetrics({
     setLoading(true);
     try {
       const client = new RequirementClient();
-      const result = await client.getRequirementWithMetrics(requirement.id as UUID);
+      const result = await client.getRequirementWithMetrics(
+        requirement.id as UUID
+      );
       setMetrics(result.metrics ?? []);
     } catch {
       // keep existing
@@ -649,8 +659,8 @@ function RequirementLinkedMetrics({
               No metrics assigned yet
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              No metrics have been assigned to this requirement yet. Click Assign
-              to link a metric and start measuring this requirement.
+              No metrics have been assigned to this requirement yet. Click
+              Assign to link a metric and start measuring this requirement.
             </Typography>
           </Box>
         }

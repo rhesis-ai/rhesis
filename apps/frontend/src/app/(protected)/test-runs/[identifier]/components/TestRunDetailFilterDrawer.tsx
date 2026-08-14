@@ -323,13 +323,17 @@ export default function TestRunDetailFilterDrawer({
                 key={requirement.id}
                 control={
                   <Checkbox
-                    checked={draft.selectedRequirements.includes(requirement.id)}
+                    checked={draft.selectedRequirements.includes(
+                      requirement.id
+                    )}
                     onChange={() => toggleRequirement(requirement.id)}
                     size="small"
                   />
                 }
                 label={
-                  <Typography sx={{ fontSize: 14 }}>{requirement.name}</Typography>
+                  <Typography sx={{ fontSize: 14 }}>
+                    {requirement.name}
+                  </Typography>
                 }
                 sx={{ ml: 0, mb: 0.5 }}
               />

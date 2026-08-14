@@ -150,13 +150,15 @@ export default async function TestRunComparePage({
   }> = [];
 
   try {
-    const requirementsData = await testRunsClient.getTestRunRequirements(identifier);
+    const requirementsData =
+      await testRunsClient.getTestRunRequirements(identifier);
     requirements = await Promise.all(
       requirementsData.map(async requirement => {
         try {
-          const requirementMetrics = await requirementClient.getRequirementMetrics(
-            requirement.id as UUID
-          );
+          const requirementMetrics =
+            await requirementClient.getRequirementMetrics(
+              requirement.id as UUID
+            );
           return {
             id: requirement.id as string,
             name: requirement.name,

@@ -85,7 +85,10 @@ export default function MetricDetailPageTabs() {
       tabNav={tabNav}
       tabBody={
         activeTab === 1 ? (
-          <MetricLinkedRequirements metricId={metricId} sessionStatus={status} />
+          <MetricLinkedRequirements
+            metricId={metricId}
+            sessionStatus={status}
+          />
         ) : undefined
       }
     />
@@ -151,7 +154,9 @@ function MetricLinkedRequirements({
           metricId as UUID,
           requirementId as UUID
         );
-        setRequirements(prev => prev.filter(b => String(b.id) !== requirementId));
+        setRequirements(prev =>
+          prev.filter(b => String(b.id) !== requirementId)
+        );
         notifications.show('Requirement unassigned', {
           severity: 'success',
           autoHideDuration: 4000,
@@ -345,8 +350,8 @@ function MetricLinkedRequirements({
               No requirements assigned yet
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              No requirements have been assigned to this metric yet. Click Assign
-              to link a requirement.
+              No requirements have been assigned to this metric yet. Click
+              Assign to link a requirement.
             </Typography>
           </Box>
         }

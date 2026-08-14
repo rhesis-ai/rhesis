@@ -369,7 +369,10 @@ def remove_requirement_from_metric(
     organization_id, user_id = tenant_context
     try:
         removed = metric_crud.remove_requirement_from_metric(
-            db=db, metric_id=metric_id, requirement_id=requirement_id, organization_id=organization_id
+            db=db,
+            metric_id=metric_id,
+            requirement_id=requirement_id,
+            organization_id=organization_id,
         )
         if removed:
             return {"status": "success", "message": "Requirement removed from metric"}

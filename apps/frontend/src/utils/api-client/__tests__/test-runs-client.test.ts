@@ -281,7 +281,9 @@ describe('TestRunsClient', () => {
       const result = await client.getTestRunRequirements('run-123');
 
       expect(fetchMock).toHaveBeenCalledWith(
-        expect.stringContaining(`/test_runs/run-123${API_ENDPOINTS.requirements}`),
+        expect.stringContaining(
+          `/test_runs/run-123${API_ENDPOINTS.requirements}`
+        ),
         expect.anything()
       );
       expect(result).toHaveLength(2);
@@ -319,9 +321,9 @@ describe('TestRunsClient', () => {
         makeFetchResponse({ detail: 'Not found' }, 404)
       );
 
-      await expect(client.getTestRunRequirements('run-missing')).rejects.toThrow(
-        'API error: 404'
-      );
+      await expect(
+        client.getTestRunRequirements('run-missing')
+      ).rejects.toThrow('API error: 404');
     });
   });
 

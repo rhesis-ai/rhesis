@@ -122,14 +122,19 @@ export class RequirementClient extends BaseApiClient {
     }
   }
 
-  async createRequirement(requirement: RequirementCreate): Promise<Requirement> {
+  async createRequirement(
+    requirement: RequirementCreate
+  ): Promise<Requirement> {
     return this.fetch<Requirement>(`${API_ENDPOINTS.requirements}/`, {
       method: 'POST',
       body: JSON.stringify(requirement),
     });
   }
 
-  async updateRequirement(id: UUID, requirement: RequirementUpdate): Promise<Requirement> {
+  async updateRequirement(
+    id: UUID,
+    requirement: RequirementUpdate
+  ): Promise<Requirement> {
     return this.fetch<Requirement>(`${API_ENDPOINTS.requirements}/${id}`, {
       method: 'PUT',
       body: JSON.stringify(requirement),

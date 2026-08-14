@@ -89,7 +89,8 @@ export default function TestFilterDrawer({
     EntityType.TEST,
     open
   );
-  const loadingOptions = loadingRequirements || loadingCategories || loadingTopics;
+  const loadingOptions =
+    loadingRequirements || loadingCategories || loadingTopics;
 
   const requirementOptions = React.useMemo(
     () => filterUniqueValidOptions(rawRequirements ?? []).map(b => b.name),

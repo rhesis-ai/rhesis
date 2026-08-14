@@ -96,7 +96,10 @@ def get_requirements_detail(
 
 
 def create_requirement(
-    db: Session, requirement: schemas.RequirementCreate, organization_id: str = None, user_id: str = None
+    db: Session,
+    requirement: schemas.RequirementCreate,
+    organization_id: str = None,
+    user_id: str = None,
 ) -> models.Requirement:
     """Create requirement."""
     return create_item(db, models.Requirement, requirement, organization_id, user_id)
@@ -110,7 +113,9 @@ def update_requirement(
     user_id: str = None,
 ) -> Optional[models.Requirement]:
     """Update requirement."""
-    return update_item(db, models.Requirement, requirement_id, requirement, organization_id, user_id)
+    return update_item(
+        db, models.Requirement, requirement_id, requirement, organization_id, user_id
+    )
 
 
 def delete_requirement(

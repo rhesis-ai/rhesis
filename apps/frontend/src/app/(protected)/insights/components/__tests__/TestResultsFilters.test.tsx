@@ -111,7 +111,10 @@ describe('TestResultsFilters', () => {
     const onSearchChange = jest.fn();
     renderFilters({ onSearchChange });
 
-    await user.type(screen.getByPlaceholderText(/search requirements/i), 'safe');
+    await user.type(
+      screen.getByPlaceholderText(/search requirements/i),
+      'safe'
+    );
 
     expect(onSearchChange).toHaveBeenCalled();
   });

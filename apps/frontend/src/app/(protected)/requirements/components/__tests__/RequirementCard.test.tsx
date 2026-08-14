@@ -151,7 +151,9 @@ describe('RequirementCard', () => {
   it('hides delete button when there are metrics (canDelete=false)', () => {
     renderCard({
       ...DEFAULT_PROPS,
-      requirement: makeRequirement({ metrics: [{ id: 'm1', name: 'Metric A' }] }),
+      requirement: makeRequirement({
+        metrics: [{ id: 'm1', name: 'Metric A' }],
+      }),
     });
     expect(
       screen.queryByRole('button', { name: /delete requirement/i })
@@ -162,7 +164,9 @@ describe('RequirementCard', () => {
     const user = userEvent.setup();
     renderCard();
 
-    await user.click(screen.getByRole('button', { name: /delete requirement/i }));
+    await user.click(
+      screen.getByRole('button', { name: /delete requirement/i })
+    );
     expect(screen.getByTestId('delete-modal')).toBeInTheDocument();
   });
 
@@ -171,7 +175,9 @@ describe('RequirementCard', () => {
     const onRefresh = jest.fn();
     renderCard({ ...DEFAULT_PROPS, onRefresh });
 
-    await user.click(screen.getByRole('button', { name: /delete requirement/i }));
+    await user.click(
+      screen.getByRole('button', { name: /delete requirement/i })
+    );
     await user.click(screen.getByRole('button', { name: /confirm-delete/i }));
 
     await waitFor(() => {
@@ -184,7 +190,9 @@ describe('RequirementCard', () => {
     const user = userEvent.setup();
     renderCard();
 
-    await user.click(screen.getByRole('button', { name: /delete requirement/i }));
+    await user.click(
+      screen.getByRole('button', { name: /delete requirement/i })
+    );
     expect(screen.getByTestId('delete-modal')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /cancel-delete/i }));

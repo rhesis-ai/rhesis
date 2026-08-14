@@ -91,7 +91,8 @@ export default function UpdateTest({
     if (test) {
       setFormData(_prevData => {
         const newData = {
-          requirement_id: test.requirement?.id || test.requirement?.name || undefined,
+          requirement_id:
+            test.requirement?.id || test.requirement?.name || undefined,
           topic_id: test.topic?.name || test.topic?.id || undefined,
           category_id: test.category?.name || test.category?.id || undefined,
           priorityLevel: test.priorityLevel || 'Medium',
@@ -132,7 +133,10 @@ export default function UpdateTest({
           usersData,
           statusesData,
         ] = await Promise.all([
-          requirementClient.getRequirements({ sort_by: 'name', sort_order: 'asc' }),
+          requirementClient.getRequirements({
+            sort_by: 'name',
+            sort_order: 'asc',
+          }),
           topicClient.getTopics({
             sort_by: 'name',
             sort_order: 'asc',
@@ -399,7 +403,9 @@ export default function UpdateTest({
       if (!formData.requirement_id) {
         throw new Error('Requirement is required');
       }
-      const requirementName = await getOrCreateRequirement(formData.requirement_id);
+      const requirementName = await getOrCreateRequirement(
+        formData.requirement_id
+      );
 
       // Validate and process topic
       if (!formData.topic_id) {

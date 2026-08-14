@@ -83,21 +83,22 @@ export default function CreateTestFromConversationDrawer({
     const loadOptions = async () => {
       try {
         const apiFactory = new ApiClientFactory();
-        const [requirementsData, topicsData, categoriesData] = await Promise.all([
-          apiFactory
-            .getRequirementClient()
-            .getRequirements({ sort_by: 'name', sort_order: 'asc' }),
-          apiFactory.getTopicClient().getTopics({
-            sort_by: 'name',
-            sort_order: 'asc',
-            entity_type: EntityType.TEST,
-          }),
-          apiFactory.getCategoryClient().getCategories({
-            sort_by: 'name',
-            sort_order: 'asc',
-            entity_type: EntityType.TEST,
-          }),
-        ]);
+        const [requirementsData, topicsData, categoriesData] =
+          await Promise.all([
+            apiFactory
+              .getRequirementClient()
+              .getRequirements({ sort_by: 'name', sort_order: 'asc' }),
+            apiFactory.getTopicClient().getTopics({
+              sort_by: 'name',
+              sort_order: 'asc',
+              entity_type: EntityType.TEST,
+            }),
+            apiFactory.getCategoryClient().getCategories({
+              sort_by: 'name',
+              sort_order: 'asc',
+              entity_type: EntityType.TEST,
+            }),
+          ]);
 
         setRequirements(filterUniqueValidOptions(requirementsData));
         setTopics(filterUniqueValidOptions(topicsData));

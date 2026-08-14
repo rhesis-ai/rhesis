@@ -477,9 +477,7 @@ def upgrade() -> None:
     op.execute(BACKFILL_TYPE_LOOKUP)
     op.execute(BACKFILL_PERMISSION)
     for table in BACKFILL_ENTITY_TYPE_TABLES:
-        op.execute(
-            f"UPDATE {table} SET entity_type = 'Requirement' WHERE entity_type = 'Behavior'"
-        )
+        op.execute(f"UPDATE {table} SET entity_type = 'Requirement' WHERE entity_type = 'Behavior'")
     op.execute(BACKFILL_TEST_CONFIGURATION)
     op.execute(BACKFILL_TEST_SET_ATTRIBUTES_TOP)
     op.execute(BACKFILL_TEST_SET_ATTRIBUTES_METADATA)

@@ -132,7 +132,9 @@ export function useTestRunDetailData({
   const isAuthenticated = useIsAuthenticated();
   const [testResults, setTestResults] = useState<TestResultDetail[]>([]);
   const [prompts, setPrompts] = useState<Record<string, Prompt>>({});
-  const [requirements, setRequirements] = useState<RequirementWithMetrics[]>([]);
+  const [requirements, setRequirements] = useState<RequirementWithMetrics[]>(
+    []
+  );
   const [availableMetrics, setAvailableMetrics] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

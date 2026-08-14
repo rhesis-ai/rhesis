@@ -501,16 +501,16 @@ export default function FileImportDrawer({
         {testType === TEST_TYPES.SINGLE_TURN ? (
           <Typography variant="body2">
             <strong>Single-turn tests:</strong> Each row should have a prompt,
-            category, topic, and requirement. Optionally include expected_response
-            and language_code.
+            category, topic, and requirement. Optionally include
+            expected_response and language_code.
           </Typography>
         ) : (
           <>
             <Typography variant="body2">
               <strong>Multi-turn tests:</strong> Each row should have category,
-              topic, and requirement. Additionally, include <strong>goal</strong>{' '}
-              (required), <strong>instructions</strong> (optional),{' '}
-              <strong>restrictions</strong> (optional), and{' '}
+              topic, and requirement. Additionally, include{' '}
+              <strong>goal</strong> (required), <strong>instructions</strong>{' '}
+              (optional), <strong>restrictions</strong> (optional), and{' '}
               <strong>scenario</strong> (optional) to configure multi-turn
               conversation testing.
             </Typography>
@@ -518,8 +518,8 @@ export default function FileImportDrawer({
               • <strong>goal:</strong> The objective of the conversation test
               <br />• <strong>instructions:</strong> How the test agent should
               conduct the test
-              <br />• <strong>restrictions:</strong> Forbidden requirements for the
-              target system
+              <br />• <strong>restrictions:</strong> Forbidden requirements for
+              the target system
               <br />• <strong>scenario:</strong> Contextual framing for the test
             </Typography>
             <Typography

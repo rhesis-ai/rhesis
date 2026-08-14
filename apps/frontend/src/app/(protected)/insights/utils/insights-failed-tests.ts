@@ -211,7 +211,9 @@ export async function fetchFailedTestIdsForInsights(
     entity: filters.metricName ? 'metric' : 'test_result',
     test_run_ids: testRunIds,
     outcome: filters.outcome === 'all' ? 'all' : 'fail',
-    ...(filters.requirementId ? { requirement_ids: [filters.requirementId] } : {}),
+    ...(filters.requirementId
+      ? { requirement_ids: [filters.requirementId] }
+      : {}),
     ...(filters.metricName ? { metric_names: [filters.metricName] } : {}),
     ...(filters.topicId ? { topic_ids: [filters.topicId] } : {}),
   });

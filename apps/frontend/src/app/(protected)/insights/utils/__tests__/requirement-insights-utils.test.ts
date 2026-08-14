@@ -137,7 +137,11 @@ describe('requirement-insights-utils', () => {
     ];
 
     it('builds one column per requirement row, sorted alphabetically', () => {
-      const columns = buildRequirementColumns(requirementRows, topicRows, metricRows);
+      const columns = buildRequirementColumns(
+        requirementRows,
+        topicRows,
+        metricRows
+      );
       expect(columns.map(c => c.name)).toEqual(['Compliance', 'Robustness']);
     });
 
@@ -182,7 +186,15 @@ describe('requirement-insights-utils', () => {
 
     it('skips rows missing requirement_id or requirement', () => {
       const columns = buildRequirementColumns(
-        [{ requirement: 'NoId', count: 1, passed: 1, failed: 0, pass_rate: 100 }],
+        [
+          {
+            requirement: 'NoId',
+            count: 1,
+            passed: 1,
+            failed: 0,
+            pass_rate: 100,
+          },
+        ],
         [],
         []
       );

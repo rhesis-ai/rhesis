@@ -75,6 +75,8 @@ describe('RequirementInsightsView', () => {
     });
 
     expect(screen.getByText('Loading results…')).toBeInTheDocument();
-    expect(screen.getAllByTestId('requirement-column-skeleton')).toHaveLength(6);
+    expect(screen.getAllByTestId('requirement-column-skeleton')).toHaveLength(
+      6
+    );
   });
 });

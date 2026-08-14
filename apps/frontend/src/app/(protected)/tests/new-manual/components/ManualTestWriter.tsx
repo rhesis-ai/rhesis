@@ -763,7 +763,9 @@ export default function ManualTestWriter() {
                         </TableCell>
                         <TableCell sx={{ minWidth: 200 }}>Category *</TableCell>
                         <TableCell sx={{ minWidth: 200 }}>Topic *</TableCell>
-                        <TableCell sx={{ minWidth: 200 }}>Requirement *</TableCell>
+                        <TableCell sx={{ minWidth: 200 }}>
+                          Requirement *
+                        </TableCell>
                         <TableCell sx={{ minWidth: 300 }}>
                           Expected Output
                         </TableCell>
@@ -783,7 +785,9 @@ export default function ManualTestWriter() {
                         </TableCell>
                         <TableCell sx={{ minWidth: 200 }}>Category *</TableCell>
                         <TableCell sx={{ minWidth: 200 }}>Topic *</TableCell>
-                        <TableCell sx={{ minWidth: 200 }}>Requirement *</TableCell>
+                        <TableCell sx={{ minWidth: 200 }}>
+                          Requirement *
+                        </TableCell>
                       </>
                     )}
                     <TableCell sx={theme => ({ width: theme.spacing(7.5) })}>

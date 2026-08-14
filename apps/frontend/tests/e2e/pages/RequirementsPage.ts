@@ -88,7 +88,9 @@ export class RequirementsPage extends BasePage {
     if (fabVisible) {
       await fab.click();
     } else {
-      await this.page.getByRole('button', { name: /create requirement/i }).click();
+      await this.page
+        .getByRole('button', { name: /create requirement/i })
+        .click();
     }
 
     await this.page

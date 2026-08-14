@@ -4,10 +4,10 @@ from rhesis.sdk.agents.architect.agent import ArchitectAgent
 from rhesis.sdk.agents.architect.config import ArchitectConfig
 from rhesis.sdk.agents.architect.plan import (
     ArchitectPlan,
-    RequirementSpec,
     MappingSpec,
     MetricSpec,
     ProjectSpec,
+    RequirementSpec,
     TestSetSpec,
 )
 

@@ -449,9 +449,7 @@ def sync_requirements_to_organizations(
 
         if requirement_names is not None:
             requirement_names_set = set(requirement_names)
-            all_requirements = [
-                r for r in all_requirements if r["name"] in requirement_names_set
-            ]
+            all_requirements = [r for r in all_requirements if r["name"] in requirement_names_set]
             if verbose:
                 print(f"   Filtered to {len(all_requirements)} requirements by name")
 
