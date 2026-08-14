@@ -383,7 +383,7 @@ class TestCommentValidationAndEdgeCases(CommentTestMixin, BaseEntityTests):
         assert "💬" in comment["content"]
         assert "émojis" in comment["content"]
 
-    def test_create_comment_with_unicode_content(self, comment_factory, requirement_factory):
+    def test_create_comment_with_unicode_text(self, comment_factory, requirement_factory):
         """💬 Test creating comment with Unicode content"""
         # Create requirement entity
         requirement = requirement_factory.create(RequirementDataFactory.sample_data())

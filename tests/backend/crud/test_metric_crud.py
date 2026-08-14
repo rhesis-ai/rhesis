@@ -165,7 +165,7 @@ class TestRequirementMetricOperations:
         assert association is not None
         assert association.organization_id == uuid.UUID(test_org_id)
 
-    def test_add_requirement_to_metric_duplicate(
+    def test_add_requirement_to_metric_twice(
         self, test_db: Session, test_org_id: str, authenticated_user_id: str
     ):
         """Test adding duplicate requirement to metric"""

@@ -550,7 +550,7 @@ class TestExecuteTestInPlace:
 class TestCreateInplaceTest:
     """Test _create_inplace_test helper function."""
 
-    def test_create_inline_test_with_requirement(
+    def test_create_inline_test_with_linked_requirement(
         self, test_db: Session, authenticated_user_id, test_org_id, test_organization, db_status
     ):
         """Test creating an inline test with requirement lookup."""

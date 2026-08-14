@@ -99,7 +99,7 @@ class TestMetricScopeCoverage:
         )
         assert plan.test_sets[0].requirements == []
 
-    def test_rejects_requirement_without_mapping(self):
+    def test_rejects_a_requirement_without_mapping(self):
         with pytest.raises(ValueError, match="no requirement_metric_mappings"):
             ArchitectPlan(
                 requirements=[RequirementSpec(name="Safety", description="d")],
