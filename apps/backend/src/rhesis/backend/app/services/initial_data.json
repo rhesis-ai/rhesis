@@ -219,7 +219,7 @@
         },
         {
             "type_name": "EntityType",
-            "type_value": "Behavior",
+            "type_value": "Requirement",
             "description": "Entity type for requirements"
         },
         {
