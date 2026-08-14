@@ -247,7 +247,11 @@ class TestRecycleRestoreEndpoint:
         assert "item" in data
         assert data["item"]["id"] == str(category_id)
 
-        # Verify it's actually restored
+        # Verify it's actually restored. The restore ran through the HTTP
+        # client's own session, not test_db -- expire test_db's cached copy
+        # (created earlier by create_item/delete_item) so this re-reads
+        # the restored row instead of the stale pre-restore one.
+        test_db.expire_all()
         restored = crud_utils.get_item(
             test_db, models.Category, category_id, organization_id=test_org_id
         )

@@ -20,17 +20,31 @@ from rhesis.backend.app.database import get_database_url
 
 
 @contextmanager
-def _yield_shared_session(db):
-    """A ``get_db()``-shaped context manager that just hands back ``db``.
+def _yield_fresh_session(db):
+    """A ``get_db()``-shaped context manager, but with a fresh ``Session`` per call.
 
-    ``db``'s own fixture owns commit/rollback/close — this never touches
-    either, so it's safe to substitute anywhere ``get_db()`` is called.
+    Mirrors production's real ``get_db()``: commits on success, rolls back on
+    exception, always closes. Bound to ``db``'s own connection/savepoint so it
+    still sees ``db``'s writes -- but with its own empty identity map, so it
+    can't serve a stale cached row for something another session (e.g. an
+    HTTP request handled via ``fixtures/client.py``'s ``override_get_db``)
+    committed after this session last read it.
     """
-    yield db
+    session = TestingSessionLocal(bind=db.get_bind(), join_transaction_mode="create_savepoint")
+    try:
+        yield session
+        if session.in_transaction():
+            session.commit()
+    except Exception:
+        if session.in_transaction():
+            session.rollback()
+        raise
+    finally:
+        session.close()
 
 
 def patch_auth_get_db(monkeypatch, db):
-    """Route the auth-resolution path's direct ``get_db()`` calls onto ``db``.
+    """Route the auth-resolution path's direct ``get_db()`` calls onto ``db``'s connection.
 
     ``get_current_user``/``get_user_from_jwt``/``get_authenticated_user_with_context``
     (``auth/user_utils.py``) call ``get_db()`` directly rather than through a
@@ -46,7 +60,7 @@ def patch_auth_get_db(monkeypatch, db):
     """
     from rhesis.backend.app.auth import user_utils
 
-    monkeypatch.setattr(user_utils, "get_db", lambda: _yield_shared_session(db))
+    monkeypatch.setattr(user_utils, "get_db", lambda: _yield_fresh_session(db))
 
 # Test database configuration uses the same URL resolution as production.
 DATABASE_URL = get_database_url()

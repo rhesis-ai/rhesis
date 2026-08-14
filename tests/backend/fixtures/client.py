@@ -33,6 +33,13 @@ def client(test_db):
         session = TestingSessionLocal(
             bind=test_db.get_bind(), join_transaction_mode="create_savepoint"
         )
+        # Some tests bind ambient scope by setting test_db.info["_scope"] directly
+        # (e.g. _project_scope in test_annotations.py) rather than sending a real
+        # X-Project-Id header, since route tests bypass the real get_tenant_db_session
+        # dependency that would read it. Copying test_db.info here -- read fresh on
+        # every request, so it still respects a `with _project_scope(...):` block --
+        # keeps that pattern working now that requests get their own session.
+        session.info.update(test_db.info)
         try:
             yield session
             if session.in_transaction():
