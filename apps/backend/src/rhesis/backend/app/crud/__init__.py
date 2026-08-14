@@ -885,7 +885,7 @@ _TEST_RELATED_FIELDS = (
     include(models.Test.assignee),
     include(models.Test.owner),
     include(models.Test.topic),
-    include(models.Test.behavior),
+    include(models.Test.requirement),
     include(models.Test.category),
     include(models.Test.status),
 )
