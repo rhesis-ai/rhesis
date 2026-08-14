@@ -29,8 +29,13 @@ def _yield_fresh_session(db):
     can't serve a stale cached row for something another session (e.g. an
     HTTP request handled via ``fixtures/client.py``'s ``override_get_db``)
     committed after this session last read it.
+
+    Copies ``db.info`` (as ``override_get_db`` does) so ambient scope set via
+    ``db.info["_scope"]`` still applies -- otherwise auth functions called
+    directly against this session would silently lose project/org scoping.
     """
     session = TestingSessionLocal(bind=db.get_bind(), join_transaction_mode="create_savepoint")
+    session.info.update(db.info)
     try:
         yield session
         if session.in_transaction():
