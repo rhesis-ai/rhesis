@@ -28,7 +28,8 @@ from typing import List, Optional
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models
+from rhesis.backend.app import models
+from rhesis.backend.app.crud import delete_test
 from rhesis.backend.app.crud import metric_tuning as crud_metric_tuning
 from rhesis.backend.app.schemas.metric_tuning import (
     MetricTuningCase,
@@ -226,12 +227,12 @@ def delete_tuning_case(
 ) -> None:
     """Soft-delete a case and detach it from the tuning set.
 
-    The association row goes first: ``crud.delete_test`` reads that table to
-    decide which test sets to recalculate, so detaching up front keeps the
-    metric-owned set out of it. Same ordering as
+    The association row goes first: ``delete_test`` reads that table to decide
+    which test sets to recalculate, so detaching up front keeps the metric-owned
+    set out of it. Same ordering as
     ``crud/explorer.py::remove_tests_from_test_set``.
     """
     test_set = get_tuning_test_set(db, metric_id, organization_id)
     if test_set:
         crud_metric_tuning.remove_case_from_test_set(db, test_set.id, db_test.id)
-    crud.delete_test(db, db_test.id, organization_id=organization_id, user_id=user_id)
+    delete_test(db, db_test.id, organization_id=organization_id, user_id=user_id)
