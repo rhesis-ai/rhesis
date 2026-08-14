@@ -1,0 +1,35 @@
+# Read-only Postgres datasource for dev dashboards. "grafana-viewer" (see the
+# init-grafana-viewer.sh initdb script in charts/rhesis/values-dev.yaml) only has SELECT
+# granted on public schema tables.
+# Unlike stg/prd there is no CNPG here, so there are no -rw/-ro services to choose
+# between: dev runs the Bitnami subchart, whose single service the Helm helper resolves
+# as "rhesis-postgresql". The (RO) in the name therefore describes the role's SELECT-only
+# grant, which is what enforces read-only, not a replica endpoint as it does in prd.
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDatasource
+metadata:
+  name: rhesis-dev-postgres
+  namespace: monitoring
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  instanceSelector:
+    matchLabels:
+      dashboards: grafana
+  datasource:
+    name: "Rhesis DEV Postgres (RO)"
+    type: postgres
+    access: proxy
+    url: rhesis-postgresql.rhesis.svc:5432
+    user: grafana-viewer
+    jsonData:
+      database: rhesis-dev-db
+      sslmode: disable
+      postgresVersion: 1600
+    editable: false
+  valuesFrom:
+    - targetPath: "secureJsonData.password"
+      valueFrom:
+        secretKeyRef:
+          name: grafana-viewer-credentials
+          key: password

@@ -1,0 +1,263 @@
+# Cross-org usage dashboard, read straight from the `usage` table via the per-env
+# read-only Postgres datasource. The in-app Usage page shows one org its own numbers;
+# this shows the whole platform.
+#
+# Lives in base/ (not per-cluster) even though each env's datasource has a different
+# name, because the datasource is picked by a template variable rather than hardcoded.
+# The variable queries type "postgres", which is the `type` all three GrafanaDatasource
+# CRs declare, so it matches whether or not this Grafana resolves the newer
+# grafana-postgresql-datasource plugin alias.
+#
+# Periods are UTC-anchored calendar months (services/usage.py:_current_period), pinned at
+# both ends: `timezone: utc` so rendering does not shift rows across month boundaries, and
+# `now() AT TIME ZONE 'UTC'` in SQL so the month bounds do not depend on the DB session
+# TimeZone, which no CNPG manifest sets.
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: rhesis-usage
+  namespace: monitoring
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  folder: Rhesis
+  instanceSelector:
+    matchLabels:
+      dashboards: grafana
+  json: |
+    {
+      "uid": "rhesis-usage",
+      "title": "Rhesis Usage",
+      "tags": ["rhesis", "usage"],
+      "timezone": "utc",
+      "editable": false,
+      "schemaVersion": 39,
+      "version": 1,
+      "refresh": "",
+      "time": { "from": "now-12M", "to": "now" },
+      "templating": {
+        "list": [
+          {
+            "name": "datasource",
+            "label": "Datasource",
+            "type": "datasource",
+            "query": "postgres",
+            "current": {},
+            "hide": 0
+          },
+          {
+            "name": "resource",
+            "label": "Resource",
+            "type": "query",
+            "datasource": { "type": "postgres", "uid": "${datasource}" },
+            "query": "SELECT DISTINCT resource FROM public.usage WHERE deleted_at IS NULL ORDER BY 1",
+            "refresh": 1,
+            "sort": 1,
+            "current": {},
+            "hide": 0
+          },
+          {
+            "name": "org",
+            "label": "Organization",
+            "type": "query",
+            "datasource": { "type": "postgres", "uid": "${datasource}" },
+            "query": "SELECT id AS __value, COALESCE(display_name, name) AS __text FROM public.organization WHERE deleted_at IS NULL ORDER BY 2",
+            "refresh": 1,
+            "sort": 1,
+            "multi": true,
+            "includeAll": true,
+            "current": { "text": "All", "value": "$__all" },
+            "hide": 0
+          }
+        ]
+      },
+      "panels": [
+        {
+          "type": "row",
+          "title": "Current billing period",
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+          "collapsed": false,
+          "panels": []
+        },
+        {
+          "id": 1,
+          "type": "stat",
+          "title": "Platform total this month",
+          "description": "Sum across every organization for the current calendar month. Ignores the time picker.",
+          "gridPos": { "h": 4, "w": 24, "x": 0, "y": 1 },
+          "fieldConfig": {
+            "defaults": { "unit": "short", "decimals": 0, "thresholds": { "mode": "absolute", "steps": [{ "color": "text", "value": null }] } },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+            "colorMode": "none",
+            "graphMode": "none",
+            "textMode": "auto",
+            "justifyMode": "auto"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": { "type": "postgres", "uid": "${datasource}" },
+              "editorMode": "code",
+              "rawQuery": true,
+              "format": "table",
+              "rawSql": "SELECT\n  COALESCE(SUM(u.used) FILTER (WHERE u.resource = 'test_executions'), 0) AS \"Test executions\",\n  COALESCE(SUM(u.used) FILTER (WHERE u.resource = 'tracing_spans'), 0) AS \"Tracing spans\",\n  COALESCE(SUM(u.used) FILTER (WHERE u.resource = 'test_generation'), 0) AS \"Tests generated\",\n  COALESCE(SUM(u.used) FILTER (WHERE u.resource = 'model_tokens'), 0) AS \"Model tokens\"\nFROM public.usage u\nJOIN public.organization o ON o.id = u.organization_id\nWHERE u.deleted_at IS NULL\n  AND o.deleted_at IS NULL\n  AND u.period_start = date_trunc('month', now() AT TIME ZONE 'UTC')::date"
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "type": "table",
+          "title": "Usage by organization, this month",
+          "description": "One row per organization for the current calendar month. Ignores the time picker.",
+          "gridPos": { "h": 9, "w": 16, "x": 0, "y": 5 },
+          "fieldConfig": {
+            "defaults": { "unit": "short", "decimals": 0, "custom": { "align": "auto", "filterable": true } },
+            "overrides": [
+              { "matcher": { "id": "byName", "options": "Organization" }, "properties": [{ "id": "custom.width", "value": 260 }] }
+            ]
+          },
+          "options": { "showHeader": true, "footer": { "show": true, "reducer": ["sum"], "fields": "" } },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": { "type": "postgres", "uid": "${datasource}" },
+              "editorMode": "code",
+              "rawQuery": true,
+              "format": "table",
+              "rawSql": "SELECT\n  COALESCE(o.display_name, o.name) AS \"Organization\",\n  COALESCE(SUM(u.used) FILTER (WHERE u.resource = 'test_executions'), 0) AS \"Test executions\",\n  COALESCE(SUM(u.used) FILTER (WHERE u.resource = 'tracing_spans'), 0) AS \"Tracing spans\",\n  COALESCE(SUM(u.used) FILTER (WHERE u.resource = 'test_generation'), 0) AS \"Tests generated\",\n  COALESCE(SUM(u.used) FILTER (WHERE u.resource = 'model_tokens'), 0) AS \"Model tokens\"\nFROM public.usage u\nJOIN public.organization o ON o.id = u.organization_id\nWHERE u.deleted_at IS NULL\n  AND o.deleted_at IS NULL\n  AND u.period_start = date_trunc('month', now() AT TIME ZONE 'UTC')::date\nGROUP BY o.id\nORDER BY 2 DESC, 1"
+            }
+          ]
+        },
+        {
+          "id": 3,
+          "type": "bargauge",
+          "title": "Top consumers: $resource",
+          "description": "Highest ten organizations for the selected resource, current calendar month.",
+          "gridPos": { "h": 9, "w": 8, "x": 16, "y": 5 },
+          "fieldConfig": {
+            "defaults": { "unit": "short", "decimals": 0, "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] } },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": true },
+            "displayMode": "gradient",
+            "orientation": "horizontal",
+            "showUnfilled": true
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": { "type": "postgres", "uid": "${datasource}" },
+              "editorMode": "code",
+              "rawQuery": true,
+              "format": "table",
+              "rawSql": "SELECT\n  COALESCE(o.display_name, o.name) AS org,\n  SUM(u.used) AS used\nFROM public.usage u\nJOIN public.organization o ON o.id = u.organization_id\nWHERE u.deleted_at IS NULL\n  AND o.deleted_at IS NULL\n  AND u.resource = ${resource:sqlstring}\n  AND u.period_start = date_trunc('month', now() AT TIME ZONE 'UTC')::date\nGROUP BY o.id\nHAVING SUM(u.used) > 0\nORDER BY 2 DESC\nLIMIT 10"
+            }
+          ]
+        },
+        {
+          "type": "row",
+          "title": "Trends",
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 },
+          "collapsed": false,
+          "panels": []
+        },
+        {
+          "id": 4,
+          "type": "timeseries",
+          "title": "Platform total by month",
+          "description": "One point per calendar month, so a time range shorter than a month renders empty. Default range is 12 months.",
+          "gridPos": { "h": 9, "w": 12, "x": 0, "y": 15 },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "decimals": 0,
+              "custom": { "drawStyle": "bars", "fillOpacity": 60, "lineWidth": 1, "barAlignment": 0, "showPoints": "never", "stacking": { "mode": "none" } }
+            },
+            "overrides": []
+          },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": { "type": "postgres", "uid": "${datasource}" },
+              "editorMode": "code",
+              "rawQuery": true,
+              "format": "time_series",
+              "rawSql": "SELECT\n  u.period_start::timestamp AT TIME ZONE 'UTC' AS \"time\",\n  u.resource AS metric,\n  SUM(u.used) AS value\nFROM public.usage u\nJOIN public.organization o ON o.id = u.organization_id\nWHERE u.deleted_at IS NULL\n  AND o.deleted_at IS NULL\n  AND $__timeFilter(u.period_start::timestamp AT TIME ZONE 'UTC')\nGROUP BY 1, 2\nORDER BY 1"
+            }
+          ]
+        },
+        {
+          "id": 5,
+          "type": "timeseries",
+          "title": "$resource by organization",
+          "description": "One point per calendar month for the selected resource and organizations.",
+          "gridPos": { "h": 9, "w": 12, "x": 12, "y": 15 },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "decimals": 0,
+              "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2, "showPoints": "always", "spanNulls": true }
+            },
+            "overrides": []
+          },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": { "type": "postgres", "uid": "${datasource}" },
+              "editorMode": "code",
+              "rawQuery": true,
+              "format": "time_series",
+              "rawSql": "SELECT\n  u.period_start::timestamp AT TIME ZONE 'UTC' AS \"time\",\n  COALESCE(o.display_name, o.name) AS metric,\n  SUM(u.used) AS value\nFROM public.usage u\nJOIN public.organization o ON o.id = u.organization_id\nWHERE u.deleted_at IS NULL\n  AND o.deleted_at IS NULL\n  AND u.resource = ${resource:sqlstring}\n  AND o.id::text IN (${org:sqlstring})\n  AND $__timeFilter(u.period_start::timestamp AT TIME ZONE 'UTC')\nGROUP BY 1, o.id\nORDER BY 1"
+            }
+          ]
+        },
+        {
+          "id": 6,
+          "type": "table",
+          "title": "Month over month: $resource",
+          "description": "This calendar month against the previous one for the selected resource. Ignores the time picker.",
+          "gridPos": { "h": 9, "w": 24, "x": 0, "y": 24 },
+          "fieldConfig": {
+            "defaults": { "unit": "short", "decimals": 0, "custom": { "align": "auto", "filterable": true } },
+            "overrides": [
+              { "matcher": { "id": "byName", "options": "Organization" }, "properties": [{ "id": "custom.width", "value": 260 }] },
+              { "matcher": { "id": "byName", "options": "Change" }, "properties": [{ "id": "custom.cellOptions", "value": { "type": "color-text" } }, { "id": "color", "value": { "mode": "continuous-RdYlGr" } }] }
+            ]
+          },
+          "options": { "showHeader": true, "sortBy": [{ "displayName": "Change", "desc": true }] },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": { "type": "postgres", "uid": "${datasource}" },
+              "editorMode": "code",
+              "rawQuery": true,
+              "format": "table",
+              "rawSql": "WITH bounds AS (\n  SELECT\n    date_trunc('month', now() AT TIME ZONE 'UTC')::date AS this_month,\n    (date_trunc('month', now() AT TIME ZONE 'UTC') - interval '1 month')::date AS prev_month\n),\nmonthly AS (\n  SELECT\n    o.id AS org_id,\n    COALESCE(o.display_name, o.name) AS org,\n    u.period_start,\n    SUM(u.used) AS used\n  FROM public.usage u\n  JOIN public.organization o ON o.id = u.organization_id\n  CROSS JOIN bounds b\n  WHERE u.deleted_at IS NULL\n    AND o.deleted_at IS NULL\n    AND u.resource = ${resource:sqlstring}\n    AND u.period_start IN (b.prev_month, b.this_month)\n  GROUP BY o.id, u.period_start\n)\nSELECT\n  m.org AS \"Organization\",\n  COALESCE(SUM(m.used) FILTER (WHERE m.period_start = b.prev_month), 0) AS \"Previous month\",\n  COALESCE(SUM(m.used) FILTER (WHERE m.period_start = b.this_month), 0) AS \"This month\",\n  COALESCE(SUM(m.used) FILTER (WHERE m.period_start = b.this_month), 0)\n    - COALESCE(SUM(m.used) FILTER (WHERE m.period_start = b.prev_month), 0) AS \"Change\"\nFROM monthly m\nCROSS JOIN bounds b\nGROUP BY m.org_id, 1\nORDER BY 4 DESC"
+            }
+          ]
+        },
+        {
+          "type": "row",
+          "title": "Notes",
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 33 },
+          "collapsed": false,
+          "panels": []
+        },
+        {
+          "id": 7,
+          "type": "text",
+          "title": "What is and is not here",
+          "gridPos": { "h": 5, "w": 24, "x": 0, "y": 34 },
+          "options": {
+            "mode": "markdown",
+            "content": "**Limits are not shown.** Each tier's quota lives in the EE tier config and the org's signed license, neither of which is readable from SQL. An org's used-vs-limit view is on its own Usage page in the app.\n\n**seats, projects and endpoints are missing on purpose.** They are counted live off the `user`, `project` and `endpoint` tables rather than accrued into `usage`, so they have no history to chart.\n\n**Periods are UTC calendar months.** Each row covers one month, so panels above either pin to the current month or need a range of a month or more."
+          }
+        }
+      ]
+    }
