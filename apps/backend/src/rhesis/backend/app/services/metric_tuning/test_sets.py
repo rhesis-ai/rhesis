@@ -16,8 +16,9 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app import models, schemas
 from rhesis.backend.app.constants import TestSetType
+from rhesis.backend.app.crud import create_test_set
 from rhesis.backend.app.crud import metric_tuning as crud_metric_tuning
 from rhesis.backend.app.utils.crud_utils import get_or_create_type_lookup
 
@@ -70,7 +71,7 @@ def get_or_create_tuning_test_set(
         ),
         test_set_type_id=test_set_type_lookup.id,
     )
-    test_set = crud.create_test_set(
+    test_set = create_test_set(
         db=db,
         test_set=test_set_data,
         organization_id=organization_id,
