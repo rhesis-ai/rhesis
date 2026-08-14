@@ -130,8 +130,14 @@ async def test_endpoint(
             # here is the user's own endpoint refusing, rejecting the token or
             # returning something unparseable -- which is what they ran the test
             # to find out. Setup failures are ours and stay masked below.
-            logger.warning("Endpoint test invocation failed: %s", exc, exc_info=True)
-            raise UpstreamHTTPException(status_code=500, detail=str(exc)) from exc
+            #
+            # One warning line, no stack: a mistyped key in the user's endpoint
+            # config is not a server fault to page anyone about. `rhesis_logged`
+            # keeps the global handler from restating it as an error.
+            logger.warning("Endpoint test invocation failed: %s", exc)
+            upstream = UpstreamHTTPException(status_code=500, detail=str(exc))
+            upstream.rhesis_logged = True
+            raise upstream from exc
 
         logger.debug("Endpoint test invocation completed")
         return result

@@ -64,6 +64,13 @@ def client() -> TestClient:
     def upstream():
         raise UpstreamHTTPException(status_code=502, detail="Upstream returned 401 Unauthorized")
 
+    @app.get("/upstream-logged")
+    def upstream_logged():
+        """What services/endpoint/testing.py raises: logged by the caller."""
+        exc = UpstreamHTTPException(status_code=500, detail="Connection refused")
+        exc.rhesis_logged = True
+        raise exc
+
     return TestClient(app, raise_server_exceptions=False)
 
 
@@ -159,6 +166,17 @@ def test_internal_error_uses_client_wording_for_4xx(client):
     assert response.json()["detail"] == "The request could not be processed."
 
 
+def test_internal_error_does_not_log_a_traceback_for_4xx(client, caplog):
+    """A caller's mistake is a warning, not a stack trace in the error stream."""
+    with caplog.at_level(logging.WARNING):
+        client.get("/internal-400")
+
+    records = [r for r in caplog.records if "ctx" in r.getMessage()]
+    assert records, "the failure must still leave one line"
+    assert all(r.levelno == logging.WARNING for r in records)
+    assert not any(r.exc_info for r in records)
+
+
 def test_upstream_exception_keeps_its_detail(client):
     """A 5xx describing the CALLER's system is theirs to read."""
     response = client.get("/upstream")
@@ -172,3 +190,12 @@ def test_upstream_exemption_does_not_leak_our_errors(client):
     """The exemption is opt-in -- a plain 500 is still masked."""
     assert client.get("/server-error").json()["detail"] == public_message(500)
     assert SECRET not in client.get("/server-error").text
+
+
+def test_already_logged_upstream_error_is_not_logged_again(client, caplog):
+    """A user's own endpoint refusing must not also land in the error stream."""
+    with caplog.at_level(logging.WARNING):
+        response = client.get("/upstream-logged")
+
+    assert response.json()["detail"] == "Connection refused"
+    assert not [r for r in caplog.records if r.levelno >= logging.ERROR]

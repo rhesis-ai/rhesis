@@ -50,16 +50,23 @@ class UpstreamHTTPException(HTTPException):
 
 
 def internal_error(exc: Exception, *, context: str, status_code: int = 500) -> HTTPException:
-    """Log ``exc`` in full and return an HTTPException that reveals none of it.
+    """Log ``exc`` and return an HTTPException that reveals none of it.
 
     Only for cases where the router genuinely adds context a global handler
     can't infer. Otherwise don't catch at all — the global handler logs the
     same traceback and the `except` block is just noise.
+
+    The level follows the status: a 4xx is the caller's mistake, so it gets one
+    warning line and no stack. If a failure is ours to debug it belongs in the
+    5xx branch, which is what puts a traceback in the log.
     """
-    logger.exception("[%s] %s: %s", get_request_id() or "-", context, exc)
+    if status_code >= 500:
+        logger.exception("[%s] %s: %s", get_request_id() or "-", context, exc)
+    else:
+        logger.warning("[%s] %s: %s", get_request_id() or "-", context, exc)
     http_exc = HTTPException(status_code=status_code, detail=public_message(status_code))
-    # The traceback is already in the log with `context` attached; without this
-    # the handler below logs the same failure a second time, saying less.
+    # Already in the log with `context` attached; without this the handler below
+    # logs the same failure a second time, saying less.
     http_exc.rhesis_logged = True
     return http_exc
 
