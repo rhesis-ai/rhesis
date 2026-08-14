@@ -12,7 +12,7 @@ import {
 } from '@/constants/query-keys';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Status } from '@/utils/api-client/interfaces/status';
-import { RequirementWithMetrics } from '@/utils/api-client/interfaces/requirement';
+import { RequirementOption } from '@/utils/api-client/interfaces/requirement';
 import { Category } from '@/utils/api-client/interfaces/category';
 import { Topic } from '@/utils/api-client/interfaces/topic';
 import { Tag } from '@/utils/api-client/interfaces/tag';
@@ -23,6 +23,10 @@ import type { Priority } from '@/utils/api-client/interfaces/task';
 import { useIsAuthenticated } from '@/hooks/useIsAuthenticated';
 
 const STALE_TIME = 5 * 60_000;
+
+// Without an explicit limit `/type_lookups` defaults to 10 and silently
+// truncates. 100 is the server's ceiling (`validate_pagination` 400s above it).
+const TYPE_LOOKUP_LIMIT = 100;
 
 /**
  * Shared read-only lookup hooks for filter drawers and forms.
@@ -56,12 +60,16 @@ export function useStatuses(entityType: string, enabled = true) {
 
 export function useRequirements(enabled = true) {
   const isAuthenticated = useIsAuthenticated();
-  return useQuery<RequirementWithMetrics[]>({
+  return useQuery<RequirementOption[]>({
     queryKey: requirementKeys.list('', 0, 100, 'name', 'asc'),
     queryFn: async () => {
       const requirements = await new ApiClientFactory()
         .getRequirementClient()
-        .getAllRequirements({ sort_by: 'name', sort_order: 'asc' });
+        .getAllRequirements<RequirementOption>({
+          $select: 'name',
+          sort_by: 'name',
+          sort_order: 'asc',
+        });
       return requirements;
     },
     enabled: enabled && isAuthenticated,
@@ -142,6 +150,7 @@ export function useTypeLookups(filter: string, enabled = true) {
         .getTypeLookupClient()
         .getTypeLookups({
           $filter: filter,
+          limit: TYPE_LOOKUP_LIMIT,
           sort_by: 'type_value',
           sort_order: 'asc',
         });

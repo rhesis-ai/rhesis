@@ -26,10 +26,6 @@ import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import { MetricsClient } from '@/utils/api-client/metrics-client';
 import { MetricDetail } from '@/utils/api-client/interfaces/metric';
-import type {
-  Requirement as ApiRequirement,
-  RequirementWithMetrics,
-} from '@/utils/api-client/interfaces/requirement';
 import type { UUID } from 'crypto';
 import { Can, useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
@@ -47,7 +43,7 @@ export interface FilterState {
   requirement: string;
 }
 
-interface FilterOptions {
+export interface FilterOptions {
   backend: { type_value: string }[];
   type: { type_value: string; description: string }[];
   scoreType: { value: string; label: string }[];
@@ -55,19 +51,8 @@ interface FilterOptions {
   requirement: { id: string; name: string }[];
 }
 
-interface RequirementMetrics {
-  [requirementId: string]: {
-    metrics: MetricDetail[];
-    isLoading: boolean;
-    error: string | null;
-  };
-}
-
-// Using SelectRequirementsDialog component instead of inline dialog
-
 interface MetricsDirectoryTabProps {
   organizationId: UUID;
-  requirements: ApiRequirement[];
   metrics: MetricDetail[];
   totalCount: number;
   page: number;
@@ -81,12 +66,6 @@ interface MetricsDirectoryTabProps {
   error: string | null;
   setFilters: React.Dispatch<React.SetStateAction<FilterState>>;
   setMetrics: React.Dispatch<React.SetStateAction<MetricDetail[]>>;
-  setRequirementMetrics: React.Dispatch<
-    React.SetStateAction<RequirementMetrics>
-  >;
-  setRequirementsWithMetrics: React.Dispatch<
-    React.SetStateAction<RequirementWithMetrics[]>
-  >;
   assignMode?: boolean;
 }
 
@@ -102,9 +81,17 @@ function isValidMetricType(
   );
 }
 
+// Read off the metric rather than a separately-fetched requirements list: while
+// such a fetch is in flight every metric looks unassigned, which blanks the
+// badges and offers delete on metrics that are in use.
+function getAssignedRequirementNames(metric: MetricDetail): string[] {
+  return (metric.requirements ?? [])
+    .map(requirement => requirement.name ?? '')
+    .filter(name => name.trim() !== '');
+}
+
 export default function MetricsDirectoryTab({
   organizationId: _organizationId,
-  requirements,
   metrics,
   totalCount,
   page,
@@ -118,8 +105,6 @@ export default function MetricsDirectoryTab({
   error,
   setFilters,
   setMetrics,
-  setRequirementMetrics,
-  setRequirementsWithMetrics,
   assignMode = false,
 }: MetricsDirectoryTabProps) {
   const router = useRouter();
@@ -173,81 +158,34 @@ export default function MetricsDirectoryTab({
     filters.backend.length === 0 &&
     activeAdvancedFilterCount === 0;
 
-  // Function to assign a metric to a requirement
   const handleAssignMetricToRequirement = async (
     requirementId: string,
-    metricId: string
+    metricId: string,
+    requirementName: string
   ) => {
     try {
       const metricClient = new MetricsClient();
 
-      // Assign metric to requirement
       await metricClient.addRequirementToMetric(
         metricId as UUID,
         requirementId as UUID
       );
 
-      // Update local state optimistically - add requirement to metric's requirements list
       setMetrics(prevMetrics =>
         prevMetrics.map(metric => {
-          if (metric.id === metricId) {
-            const currentRequirements = Array.isArray(metric.requirements)
-              ? metric.requirements
-              : [];
-            // Add requirement ID if not already present
-            const requirementIds = currentRequirements.map(b =>
-              typeof b === 'string' ? b : b.id
-            );
-            if (!requirementIds.includes(requirementId)) {
-              // Maintain consistent type - if current requirements are strings, add string; if objects, add object
-              const isStringArray =
-                currentRequirements.length === 0 ||
-                typeof currentRequirements[0] === 'string';
-              const newRequirement = isStringArray
-                ? requirementId
-                : { id: requirementId as UUID, name: '', description: '' };
-              return {
-                ...metric,
-                requirements: [
-                  ...currentRequirements,
-                  newRequirement,
-                ] as MetricDetail['requirements'],
-              };
-            }
-          }
-          return metric;
+          if (metric.id !== metricId) return metric;
+          const currentRequirements = metric.requirements ?? [];
+          if (currentRequirements.some(r => r.id === requirementId))
+            return metric;
+          return {
+            ...metric,
+            requirements: [
+              ...currentRequirements,
+              { id: requirementId as UUID, name: requirementName },
+            ],
+          };
         })
       );
-
-      // Find the metric to add to requirement's metrics
-      const targetMetric = metrics.find(m => m.id === metricId);
-      if (targetMetric) {
-        // Update requirementMetrics state
-        setRequirementMetrics(prev => ({
-          ...prev,
-          [requirementId]: {
-            ...prev[requirementId],
-            metrics: [...(prev[requirementId]?.metrics || []), targetMetric],
-            isLoading: false,
-            error: null,
-          },
-        }));
-
-        // Update requirementsWithMetrics state
-        setRequirementsWithMetrics(prevRequirements =>
-          prevRequirements.map(requirement =>
-            requirement.id === requirementId
-              ? {
-                  ...requirement,
-                  metrics: [
-                    ...(requirement.metrics || []),
-                    targetMetric as MetricDetail,
-                  ],
-                }
-              : requirement
-          )
-        );
-      }
 
       notifications.show('Successfully assigned metric to requirement', {
         severity: 'success',
@@ -261,83 +199,12 @@ export default function MetricsDirectoryTab({
     }
   };
 
-  // Function to remove a metric from a requirement
-  const _handleRemoveMetricFromRequirement = async (
-    requirementId: string,
-    metricId: string
-  ) => {
-    try {
-      const metricClient = new MetricsClient();
-
-      // Remove metric from requirement
-      await metricClient.removeRequirementFromMetric(
-        metricId as UUID,
-        requirementId as UUID
-      );
-
-      // Update local state optimistically - remove requirement from metric's requirements list
-      setMetrics(prevMetrics =>
-        prevMetrics.map(metric => {
-          if (metric.id === metricId) {
-            const currentRequirements = Array.isArray(metric.requirements)
-              ? metric.requirements
-              : [];
-            return {
-              ...metric,
-              requirements: currentRequirements.filter(b => {
-                const requirementId_str = typeof b === 'string' ? b : b.id;
-                return requirementId_str !== requirementId;
-              }) as MetricDetail['requirements'],
-            };
-          }
-          return metric;
-        })
-      );
-
-      // Update requirementMetrics state - remove the metric
-      setRequirementMetrics(prev => ({
-        ...prev,
-        [requirementId]: {
-          ...prev[requirementId],
-          metrics: (prev[requirementId]?.metrics || []).filter(
-            m => m.id !== metricId
-          ),
-          isLoading: false,
-          error: null,
-        },
-      }));
-
-      // Update requirementsWithMetrics state - remove the metric
-      setRequirementsWithMetrics(prevRequirements =>
-        prevRequirements.map(requirement =>
-          requirement.id === requirementId
-            ? {
-                ...requirement,
-                metrics: (requirement.metrics || []).filter(
-                  m => m.id !== metricId
-                ),
-              }
-            : requirement
-        )
-      );
-
-      notifications.show('Successfully removed metric from requirement', {
-        severity: 'success',
-        autoHideDuration: 4000,
-      });
-    } catch (_err) {
-      notifications.show('Failed to remove metric from requirement', {
-        severity: 'error',
-        autoHideDuration: 4000,
-      });
-    }
-  };
-
-  const handleAssignMetric = (requirementId: UUID) => {
+  const handleAssignMetric = (requirementId: UUID, requirementName: string) => {
     if (selectedMetric) {
       handleAssignMetricToRequirement(
         requirementId as string,
-        selectedMetric.id
+        selectedMetric.id,
+        requirementName
       );
     }
     setAssignDialogOpen(false);
@@ -387,10 +254,6 @@ export default function MetricsDirectoryTab({
     setDeleteMetricDialogOpen(false);
     setMetricToDeleteCompletely(null);
   };
-
-  const activeRequirements = requirements.filter(
-    b => b.name && b.name.trim() !== ''
-  );
 
   // First load — no data at all yet, show a full-page spinner
   const isInitialLoad = isLoading && metrics.length === 0 && totalCount === 0;
@@ -571,17 +434,10 @@ export default function MetricsDirectoryTab({
             })}
           >
             {metrics.map(metric => {
-              const assignedRequirements = activeRequirements.filter(b => {
-                if (!Array.isArray(metric.requirements)) return false;
-                // Check if requirements is an array of strings (UUIDs) or RequirementReference objects
-                const requirementIds = metric.requirements.map(requirement =>
-                  typeof requirement === 'string' ? requirement : requirement.id
-                );
-                return requirementIds.includes(b.id as string);
-              });
-              const requirementNames = assignedRequirements.map(
-                b => b.name || 'Unnamed Requirement'
-              );
+              const requirementNames = getAssignedRequirementNames(metric);
+              const hasAssignedRequirements =
+                Array.isArray(metric.requirements) &&
+                metric.requirements.length > 0;
 
               const isCustomMetric =
                 metric.backend_type?.type_value?.toLowerCase() === 'custom';
@@ -614,7 +470,7 @@ export default function MetricsDirectoryTab({
                   }
                   onDelete={
                     canDelete &&
-                    assignedRequirements.length === 0 &&
+                    !hasAssignedRequirements &&
                     metric.backend_type?.type_value?.toLowerCase() === 'custom'
                       ? () => handleDeleteMetric(metric.id, metric.name)
                       : undefined
@@ -654,11 +510,9 @@ export default function MetricsDirectoryTab({
               setSelectedMetric(null);
             }}
             onSelect={handleAssignMetric}
-            excludeRequirementIds={(selectedMetric?.requirements || [])
-              .filter(b => typeof b !== 'string' && b.id)
-              .map(b =>
-                typeof b !== 'string' ? b.id : (b as unknown as UUID)
-              )}
+            excludeRequirementIds={(selectedMetric?.requirements ?? []).map(
+              r => r.id
+            )}
           />
         </>
       )}

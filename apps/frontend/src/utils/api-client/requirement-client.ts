@@ -41,19 +41,19 @@ export class RequirementClient extends BaseApiClient {
     );
   }
 
-  async getRequirements(
+  async getRequirements<T = RequirementWithMetrics>(
     params: RequirementsQueryParams = {}
-  ): Promise<RequirementWithMetrics[]> {
+  ): Promise<T[]> {
     const {
       skip = 0,
       limit = 100,
       sort_by = 'created_at',
       sort_order = 'desc',
       $filter,
+      $select,
       include: _include,
     } = params;
 
-    // Build query string
     const queryParams = new URLSearchParams();
     queryParams.append('skip', skip.toString());
     queryParams.append('limit', limit.toString());
@@ -62,26 +62,31 @@ export class RequirementClient extends BaseApiClient {
     if ($filter) {
       queryParams.append('$filter', $filter);
     }
-    // Note: The backend now always returns requirements with metrics and their relationships
-    // No need for conditional include parameter since get_items_detail always loads relationships
+    if ($select) {
+      queryParams.append('$select', $select);
+    }
 
     const url = `${API_ENDPOINTS.requirements}/?${queryParams.toString()}`;
 
-    return this.fetch<RequirementWithMetrics[]>(url, {
+    return this.fetch<T[]>(url, {
       cache: 'no-store',
     });
   }
 
-  /** Paginate through all requirements (page size 100) for lookups / filter drawers. */
-  async getAllRequirements(
+  /**
+   * Paginate through all requirements (page size 100) for lookups / filter drawers.
+   * Pass `$select` to trim the response: the default shape inlines every
+   * requirement's full metric list, which callers rendering a name list don't need.
+   */
+  async getAllRequirements<T = RequirementWithMetrics>(
     params: Omit<RequirementsQueryParams, 'skip' | 'limit'> = {}
-  ): Promise<RequirementWithMetrics[]> {
+  ): Promise<T[]> {
     const pageSize = 100;
-    const allData: RequirementWithMetrics[] = [];
+    const allData: T[] = [];
     let skip = 0;
 
     while (true) {
-      const page = await this.getRequirements({
+      const page = await this.getRequirements<T>({
         ...params,
         skip,
         limit: pageSize,

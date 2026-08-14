@@ -7,6 +7,8 @@ import type { UUID } from 'crypto';
 import {
   METRICS_SELECT,
   DEFAULT_METRICS_PAGE_SIZE,
+  METRICS_SORT_BY,
+  METRICS_SORT_ORDER,
 } from './components/metrics-constants';
 
 /**
@@ -30,8 +32,8 @@ export default async function MetricsPage() {
       client.getMetrics({
         skip: 0,
         limit: DEFAULT_METRICS_PAGE_SIZE,
-        sort_by: 'created_at',
-        sort_order: 'desc',
+        sort_by: METRICS_SORT_BY,
+        sort_order: METRICS_SORT_ORDER,
         $select: METRICS_SELECT,
       })
   );

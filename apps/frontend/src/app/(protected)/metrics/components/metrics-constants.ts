@@ -9,3 +9,8 @@ export const METRICS_SELECT =
 
 /** Default page size for the metrics directory grid. */
 export const DEFAULT_METRICS_PAGE_SIZE = 25;
+
+// Shared with the server prefetch: if the two drift, the first page visibly
+// reshuffles once the client refetch lands.
+export const METRICS_SORT_BY = 'name';
+export const METRICS_SORT_ORDER = 'asc' as const;

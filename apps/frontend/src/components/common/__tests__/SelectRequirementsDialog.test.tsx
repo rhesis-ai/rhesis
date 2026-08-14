@@ -193,7 +193,7 @@ describe('SelectRequirementsDialog', () => {
 
     await user.click(screen.getByText('Relevance'));
 
-    expect(onSelect).toHaveBeenCalledWith('requirement-xyz');
+    expect(onSelect).toHaveBeenCalledWith('requirement-xyz', 'Relevance');
     expect(onClose).toHaveBeenCalled();
   });
 
