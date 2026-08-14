@@ -11,7 +11,7 @@ on behavior/behavior_metric are the generic, OID-attached pair with no
 rename automatically.
 
 Revision ID: 491519fd3010
-Revises: b857edcac3c0
+Revises: d3f7a1c95b28
 Create Date: 2026-08-13
 """
 
@@ -21,7 +21,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "491519fd3010"
-down_revision: Union[str, None] = "b857edcac3c0"
+down_revision: Union[str, None] = "d3f7a1c95b28"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
