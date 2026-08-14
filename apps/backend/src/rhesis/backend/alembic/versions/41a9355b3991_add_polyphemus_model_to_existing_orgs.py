@@ -89,7 +89,7 @@ def upgrade() -> None:
                     model_name="default",
                     name="Rhesis Polyphemus",
                     description=(
-                        "Polyphemus adversarial model hosted by Rhesis. No API key required."
+                        "Polyphemus adversarial model hosted by Rhesis."
                     ),
                     icon="polyphemus",
                     organization_id=organization_id,

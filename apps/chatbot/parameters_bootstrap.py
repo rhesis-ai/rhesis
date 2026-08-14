@@ -13,7 +13,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 CHATBOT_PROJECT = os.getenv("RHESIS_CHATBOT_PROJECT", "chatbot-demo")
-DEFAULT_GENERATION_MODEL = os.getenv("DEFAULT_GENERATION_MODEL", "rhesis/rhesis-managed")
+DEFAULT_GENERATION_MODEL = os.getenv("DEFAULT_GENERATION_MODEL", "rhesis/rhesis")
 SUPPORTED_USE_CASES = [
     "baufinanzierung",
     "echo",

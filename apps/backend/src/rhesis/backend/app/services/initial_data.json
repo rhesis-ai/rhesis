@@ -697,7 +697,7 @@
                         "type": "string",
                         "default": {
                             "type": "string",
-                            "value": "rhesis/rhesis-managed"
+                            "value": "rhesis/rhesis"
                         },
                         "description": "LLM provider string (e.g. vertex_ai/gemini-2.0-flash)"
                     },

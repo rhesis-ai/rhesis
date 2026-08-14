@@ -2,8 +2,10 @@
 
 Rename the org-onboarded Rhesis-hosted models from "Rhesis Default" /
 "Rhesis Default Embedding" to "Rhesis" / "Rhesis Embedding", and update
-model_name from "default" to "rhesis-managed" (the composite id changes
-from rhesis/rhesis-default to rhesis/rhesis-managed).
+model_name from "default" to "rhesis" (the composite id changes
+from rhesis/default to rhesis/rhesis).
+
+Also strips "No API key required." from the Polyphemus model description.
 
 Revision ID: b7e3a1c9d2f6
 Revises: e90c29496562
@@ -33,8 +35,8 @@ def upgrade() -> None:
                 """
                 UPDATE model
                 SET name = 'Rhesis',
-                    model_name = 'rhesis-managed',
-                    description = 'Rhesis-managed language model.'
+                    model_name = 'rhesis',
+                    description = 'Rhesis language model.'
                 WHERE name = 'Rhesis Default'
                   AND is_protected = TRUE
                   AND provider_type_id IN (
@@ -49,13 +51,27 @@ def upgrade() -> None:
                 """
                 UPDATE model
                 SET name = 'Rhesis Embedding',
-                    model_name = 'rhesis-managed',
-                    description = 'Rhesis-managed embedding model.'
+                    model_name = 'rhesis',
+                    description = 'Rhesis embedding model.'
                 WHERE name = 'Rhesis Default Embedding'
                   AND is_protected = TRUE
                   AND provider_type_id IN (
                       SELECT id FROM type_lookup
                       WHERE type_name = 'ProviderType' AND type_value = 'rhesis'
+                  )
+                """
+            )
+        )
+        session.execute(
+            sa.text(
+                """
+                UPDATE model
+                SET description = 'Polyphemus adversarial model hosted by Rhesis.'
+                WHERE name = 'Rhesis Polyphemus'
+                  AND is_protected = TRUE
+                  AND provider_type_id IN (
+                      SELECT id FROM type_lookup
+                      WHERE type_name = 'ProviderType' AND type_value = 'polyphemus'
                   )
                 """
             )
@@ -100,6 +116,20 @@ def downgrade() -> None:
                   AND provider_type_id IN (
                       SELECT id FROM type_lookup
                       WHERE type_name = 'ProviderType' AND type_value = 'rhesis'
+                  )
+                """
+            )
+        )
+        session.execute(
+            sa.text(
+                """
+                UPDATE model
+                SET description = 'Polyphemus adversarial model hosted by Rhesis. No API key required.'
+                WHERE name = 'Rhesis Polyphemus'
+                  AND is_protected = TRUE
+                  AND provider_type_id IN (
+                      SELECT id FROM type_lookup
+                      WHERE type_name = 'ProviderType' AND type_value = 'polyphemus'
                   )
                 """
             )

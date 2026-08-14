@@ -70,8 +70,7 @@ class ModelConnectionService:
                     success=True,
                     message=(
                         f"{provider_label}-hosted model is ready to use. "
-                        f"This model uses {provider_label} infrastructure "
-                        "and requires no API key."
+                        f"This model uses {provider_label} infrastructure."
                     ),
                     provider=provider,
                     model_name=model_name,
