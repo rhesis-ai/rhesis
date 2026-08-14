@@ -78,12 +78,13 @@ def get_visible_experiment(
     - Anything else surfaces as 404 (never 403). Returning 404 keeps
       experiment existence from leaking across users / orgs.
     """
-    db_experiment = crud.get_item(
+    db_experiment = crud.get_item_detail(
         db,
         Experiment,
         experiment_id,
         organization_id=organization_id,
         user_id=user_id,
+        related_fields=(crud.include(Experiment.project),),
     )
     if db_experiment is None:
         raise HTTPException(

@@ -64,18 +64,15 @@ def get_endpoint(
     project_id: str = None,
 ) -> Optional[models.Endpoint]:
     """Get endpoint with relationships eagerly loaded."""
-    from rhesis.backend.app.utils.crud_utils import _check_and_raise_if_deleted
-
-    item = (
-        QueryBuilder(db, models.Endpoint)
-        .with_deleted()
-        .with_related(*_ENDPOINT_RELATED_FIELDS)
-        .with_organization_filter(organization_id)
-        .with_project_filter(project_id)
-        .with_visibility_filter(user_id)
-        .filter_by_id(endpoint_id)
+    return get_item_detail(
+        db,
+        models.Endpoint,
+        endpoint_id,
+        organization_id,
+        user_id,
+        project_id=project_id,
+        related_fields=_ENDPOINT_RELATED_FIELDS,
     )
-    return _check_and_raise_if_deleted(item, models.Endpoint, endpoint_id, False)
 
 
 def get_endpoints(
@@ -88,15 +85,17 @@ def get_endpoints(
     organization_id: str = None,
     user_id: str = None,
 ) -> List[models.Endpoint]:
-    return (
-        QueryBuilder(db, models.Endpoint)
-        .with_related(*_ENDPOINT_RELATED_FIELDS)
-        .with_organization_filter(organization_id)
-        .with_visibility_filter(user_id)
-        .with_odata_filter(filter)
-        .with_sorting(sort_by, sort_order)
-        .with_pagination(skip, limit)
-        .all()
+    return get_items_detail(
+        db,
+        models.Endpoint,
+        skip,
+        limit,
+        sort_by,
+        sort_order,
+        filter,
+        related_fields=_ENDPOINT_RELATED_FIELDS,
+        organization_id=organization_id,
+        user_id=user_id,
     )
 
 
@@ -167,7 +166,8 @@ def get_prompts(
     organization_id: str = None,
     user_id: str = None,
 ) -> List[models.Prompt]:
-    return get_items_detail(
+    # PromptDetail has no nested relationship fields -- plain get_items, no eager load.
+    return get_items(
         db,
         models.Prompt,
         skip,
@@ -876,11 +876,28 @@ def get_test(
     return get_item(db, models.Test, test_id, organization_id, user_id)
 
 
+# Every many-to-one relationship TestDetail serializes -- see schemas/test.py.
+# parent/source/organization/project are unused and intentionally excluded.
+_TEST_RELATED_FIELDS = (
+    include(models.Test.prompt),
+    include(models.Test.test_type),
+    include(models.Test.user),
+    include(models.Test.assignee),
+    include(models.Test.owner),
+    include(models.Test.topic),
+    include(models.Test.behavior),
+    include(models.Test.category),
+    include(models.Test.status),
+)
+
+
 def get_test_detail(
     db: Session, test_id: uuid.UUID, organization_id: str = None, user_id: str = None
 ) -> Optional[models.Test]:
     """Get test with all relationships loaded using optimized approach."""
-    return get_item_detail(db, models.Test, test_id, organization_id, user_id)
+    return get_item_detail(
+        db, models.Test, test_id, organization_id, user_id, related_fields=_TEST_RELATED_FIELDS
+    )
 
 
 def get_tests(
@@ -903,6 +920,7 @@ def get_tests(
         sort_by,
         sort_order,
         filter,
+        related_fields=_TEST_RELATED_FIELDS,
         organization_id=organization_id,
         user_id=user_id,
         exclude_explorer_rows=True,

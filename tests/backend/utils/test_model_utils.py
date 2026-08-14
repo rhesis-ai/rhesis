@@ -5,7 +5,7 @@ These tests verify the current behavior of functions before they are refactored
 to use the new direct parameter passing approach.
 """
 
-from unittest.mock import ANY, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from sqlalchemy.orm import Session
@@ -113,63 +113,6 @@ class TestQueryBuilder:
 
         original_query.options.assert_not_called()
         assert query_builder._eager_load_count == 0
-
-    def test_query_builder_with_optimized_loads(
-        self, test_db: Session, authenticated_user_id, test_org_id
-    ):
-        """Test QueryBuilder with_optimized_loads method."""
-        # Create QueryBuilder instance
-        query_builder = QueryBuilder(test_db, models.Test)
-
-        # Mock the apply_optimized_loads function
-        with patch(
-            "rhesis.backend.app.utils.query_utils.apply_optimized_loads"
-        ) as mock_apply_optimized_loads:
-            mock_modified_query = MagicMock()
-            mock_apply_optimized_loads.return_value = mock_modified_query
-
-            nested_relationships = {"test_set": {"prompts": None}}
-
-            # Call with_optimized_loads
-            result = query_builder.with_optimized_loads(
-                skip_many_to_many=False,
-                skip_one_to_many=True,
-                nested_relationships=nested_relationships,
-            )
-
-            # Verify the method returns self and modifies the query
-            assert result == query_builder
-            assert query_builder.query == mock_modified_query
-
-            # Verify apply_optimized_loads was called with correct parameters
-            mock_apply_optimized_loads.assert_called_once_with(
-                ANY, models.Test, False, True, nested_relationships
-            )
-
-    def test_query_builder_chaining(self, test_db: Session, authenticated_user_id, test_org_id):
-        """Test QueryBuilder method chaining across with_related and with_optimized_loads."""
-        from rhesis.backend.app.utils.query_utils import include
-
-        query_builder = QueryBuilder(test_db, models.Test)
-        original_query = MagicMock()
-        query_builder.query = original_query
-        stage1 = MagicMock()
-        original_query.options.return_value = stage1
-
-        with patch(
-            "rhesis.backend.app.utils.query_utils.apply_optimized_loads"
-        ) as mock_apply_optimized_loads:
-            mock_final = MagicMock()
-            mock_apply_optimized_loads.return_value = mock_final
-
-            result = query_builder.with_related(include(models.Test.prompt)).with_optimized_loads(
-                skip_one_to_many=True
-            )
-
-            assert result is query_builder
-            assert original_query.options.call_count == 1
-            mock_apply_optimized_loads.assert_called_once()
-            assert query_builder.query is mock_final
 
     def test_query_builder_state_isolation(
         self, test_db: Session, authenticated_user_id, test_org_id

@@ -24,6 +24,9 @@ from rhesis.backend.app.utils.crud_utils import (
 )
 from rhesis.backend.app.utils.query_utils import include
 
+# Relationships serialized by schemas.ProjectDetail -- owner (tags load via the mixin cascade).
+_PROJECT_RELATED_FIELDS = (include(models.Project.owner),)
+
 
 def get_project(
     db: Session, project_id: uuid.UUID, organization_id: str = None, user_id: str = None
@@ -42,7 +45,14 @@ def get_project(
     from rhesis.backend.app.models.project_membership import ProjectMembership
     from rhesis.backend.app.scope import bypass_tenant_filter
 
-    project = get_item_detail(db, models.Project, project_id, organization_id, user_id)
+    project = get_item_detail(
+        db,
+        models.Project,
+        project_id,
+        organization_id,
+        user_id,
+        related_fields=_PROJECT_RELATED_FIELDS,
+    )
     if project is None or user_id is None:
         return project
 

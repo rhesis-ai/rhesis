@@ -35,12 +35,22 @@ from rhesis.backend.app.utils.query_utils import QueryBuilder, include
 
 logger = logging.getLogger(__name__)
 
+# Relationships serialized by schemas.CommentDetail -- user only.
+_COMMENT_RELATED_FIELDS = (include(models.Comment.user),)
+
 
 def get_comment(
     db: Session, comment_id: uuid.UUID, organization_id: str = None, user_id: str = None
 ) -> Optional[models.Comment]:
     """Get comment with relationships eagerly loaded."""
-    return get_item_detail(db, models.Comment, comment_id, organization_id, user_id)
+    return get_item_detail(
+        db,
+        models.Comment,
+        comment_id,
+        organization_id,
+        user_id,
+        related_fields=_COMMENT_RELATED_FIELDS,
+    )
 
 
 def get_comments(
@@ -62,6 +72,7 @@ def get_comments(
         sort_by,
         sort_order,
         filter,
+        related_fields=_COMMENT_RELATED_FIELDS,
         organization_id=organization_id,
         user_id=user_id,
     )

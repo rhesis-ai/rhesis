@@ -186,7 +186,7 @@ class QueryBuilder:
             self.with_related(include(*resolve_chain(self.model, chain)))
 
         # Cascade one level into joined-in single-object relations (the ones
-        # with_optimized_loads/with_related eager-load via joinedload) whose
+        # with_related eager-loads via joinedload) whose
         # target model also carries these mixins. These relationships are
         # already strategy=joinedload (by convention, whether set by this
         # call or by the caller) -- selectinload-ing the same attribute
@@ -220,20 +220,6 @@ class QueryBuilder:
                 self.model.__name__,
                 self._eager_load_count,
             )
-
-    def with_optimized_loads(
-        self,
-        skip_many_to_many: bool = True,
-        skip_one_to_many: bool = True,
-        nested_relationships: dict = None,
-    ) -> "QueryBuilder":
-        """Apply optimized loading strategy.
-
-        Uses selectinload for many-to-many, joinedload for others."""
-        self.query = apply_optimized_loads(
-            self.query, self.model, skip_many_to_many, skip_one_to_many, nested_relationships
-        )
-        return self
 
     def with_deleted(self) -> "QueryBuilder":
         """
@@ -601,93 +587,3 @@ def get_model_relationships(
         relationships[rel.key] = rel
 
     return relationships
-
-
-def _build_nested_load_options(
-    parent_load,
-    parent_rel_prop: RelationshipProperty,
-    nested_spec,
-) -> List:
-    """
-    Recursively build chained load options for nested relationships.
-
-    Args:
-        parent_load: The parent load option (e.g. joinedload(Model.rel))
-        parent_rel_prop: The SQLAlchemy RelationshipProperty for the parent
-        nested_spec: Either a list of relationship names or a dict for deeper nesting.
-                     List format:  ["endpoint", "test_set"]
-                     Dict format:  {"endpoint": ["project"], "test_set": ["test_set_type"]}
-
-    Returns:
-        List of chained load options to apply to the query.
-    """
-    target_model = parent_rel_prop.mapper.class_
-    options = []
-
-    if isinstance(nested_spec, list):
-        for nested_rel_name in nested_spec:
-            if hasattr(target_model, nested_rel_name):
-                nested_attr = getattr(target_model, nested_rel_name)
-                options.append(parent_load.joinedload(nested_attr))
-    elif isinstance(nested_spec, dict):
-        for nested_rel_name, deeper_spec in nested_spec.items():
-            if hasattr(target_model, nested_rel_name):
-                nested_attr = getattr(target_model, nested_rel_name)
-                nested_load = parent_load.joinedload(nested_attr)
-                options.append(nested_load)
-                nested_rel_prop = inspect(target_model).relationships[nested_rel_name]
-                options.extend(
-                    _build_nested_load_options(nested_load, nested_rel_prop, deeper_spec)
-                )
-
-    return options
-
-
-def apply_optimized_loads(
-    query: Query,
-    model: Type,
-    skip_many_to_many: bool = True,
-    skip_one_to_many: bool = True,
-    nested_relationships: dict = None,
-) -> Query:
-    """
-    Apply optimized loading strategy using selectinload for many-to-many relationships
-    and joinedload for one-to-many/many-to-one relationships.
-
-    This avoids the cartesian product problem that occurs with joinedload on many-to-many.
-
-    Args:
-        nested_relationships: Dict specifying nested relationships to load.
-            Supports both flat and deep nesting formats:
-            - Flat:  {"tags": ["status"]}
-            - Deep:  {"test_configuration": {"endpoint": ["project"],
-                                             "test_set": ["test_set_type"]}}
-    """
-    relationships = get_model_relationships(
-        model, skip_many_to_many=False, skip_one_to_many=skip_one_to_many
-    )
-
-    for rel_name, rel_prop in relationships.items():
-        relationship_attr = getattr(model, rel_name)
-        has_nested = nested_relationships and rel_name in nested_relationships
-
-        if rel_prop.direction.name in ["MANYTOMANY"]:
-            if not skip_many_to_many:
-                if has_nested:
-                    base_load = selectinload(relationship_attr)
-                    query = query.options(base_load)
-                    for nested_rel in nested_relationships[rel_name]:
-                        nested_attr = getattr(rel_prop.mapper.class_, nested_rel)
-                        query = query.options(base_load.selectinload(nested_attr))
-                else:
-                    query = query.options(selectinload(relationship_attr))
-        else:
-            base_load = joinedload(relationship_attr)
-            query = query.options(base_load)
-            if has_nested:
-                for opt in _build_nested_load_options(
-                    base_load, rel_prop, nested_relationships[rel_name]
-                ):
-                    query = query.options(opt)
-
-    return query

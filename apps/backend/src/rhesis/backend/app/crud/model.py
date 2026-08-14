@@ -35,6 +35,14 @@ from rhesis.backend.app.utils.crud_utils import (
 )
 from rhesis.backend.app.utils.query_utils import include
 
+# Relationships serialized by schemas.ModelDetail -- provider_type, status.
+# owner/assignee: unused, excluded. Public (no leading underscore) since
+# routers/model.py's own get_item_detail call for the single-item GET reuses it.
+MODEL_DETAIL_RELATED_FIELDS = (
+    include(models.Model.provider_type),
+    include(models.Model.status),
+)
+
 
 def get_model(
     db: Session, model_id: uuid.UUID, organization_id: str = None, user_id: str = None
@@ -74,6 +82,7 @@ def get_models(
         sort_by,
         sort_order,
         filter,
+        related_fields=MODEL_DETAIL_RELATED_FIELDS,
         organization_id=organization_id,
         user_id=user_id,
     )
