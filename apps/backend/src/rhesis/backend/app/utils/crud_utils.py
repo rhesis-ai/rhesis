@@ -9,7 +9,7 @@ from typing import Any, Callable, Dict, List, Optional, Type, TypeVar, Union
 
 from pydantic import BaseModel
 from sqlalchemy import inspect
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Query, Session
 
 from rhesis.backend.app.constants import EntityType
 
@@ -344,13 +344,12 @@ def get_item_detail(
     user_id: str = None,
     include_deleted: bool = False,
     project_id: str = None,
-    nested_relationships: dict = None,
+    related_fields: tuple | list | None = None,
     selectin_chains: list | None = None,
+    extra_filter: Callable[[Query], Query] | None = None,
 ) -> Optional[T]:
     """
-    Get a single item with all first-level relationships eagerly loaded.
-
-    Uses selectinload for many-to-many and joinedload for other relationships.
+    Get a single item with explicitly declared relationships eagerly loaded.
 
     Args:
         db: Database session
@@ -363,16 +362,22 @@ def get_item_detail(
             the session auto-filter).  When provided the predicate is
             ``project_id = :pid OR project_id IS NULL`` so org-level rows
             remain visible.  ``None`` skips the filter.
-        nested_relationships: Dict specifying nested relationships to load.
-            Format: {"relationship_name": ["nested_rel1", "nested_rel2"]}. Mirrors
-            get_items_detail's parameter of the same name, for parity between the
-            single-item and list paths when a schema nests fields two levels deep.
+        related_fields: Pre-built ``include(...)`` load options -- e.g. a
+            module-level ``_ENTITY_RELATED_FIELDS`` tuple (see
+            ``crud/behavior.py`` for the pattern). Passed straight to
+            ``with_related``, so multi-hop chains and ``cols=`` scoping work
+            exactly as they would calling ``include()`` directly. Only what
+            the caller's response schema actually serializes should be
+            listed here.
         selectin_chains: Extra relationship-name chains to load with nested
-            selectinload, beyond with_optimized_loads' many-to-one/one-to-one
-            defaults -- e.g. a one-to-many relationship the response schema
-            reads directly (custom polymorphic relationships bypass the
-            comments/tasks/files/tags mixin defaults). Mirrors
-            get_items_detail's parameter of the same name.
+            selectinload, beyond ``related_fields`` -- e.g. a one-to-many
+            relationship the response schema reads directly (custom
+            polymorphic relationships bypass the comments/tasks/files/tags
+            mixin defaults). Mirrors get_items_detail's parameter of the same
+            name.
+        extra_filter: Optional query transform for entity-specific needs that
+            don't fit the generic filters above -- e.g. deferring a large
+            column (``TestRun``'s ``endpoint.last_token``).
 
     Returns:
         Item with relationships loaded or None if not found
@@ -381,70 +386,18 @@ def get_item_detail(
         ItemDeletedException: If item is soft-deleted and include_deleted is False
     """
     # Always check with deleted items first to differentiate not-found vs deleted
-    item = (
+    builder = (
         QueryBuilder(db, model)
         .with_deleted()  # Always include deleted to check status
-        .with_optimized_loads(skip_one_to_many=True, nested_relationships=nested_relationships)
+        .with_related(*(related_fields or ()))
         .with_default_derived_field_loads(selectin_chains)
         .with_organization_filter(organization_id)
         .with_project_filter(project_id)
         .with_visibility_filter(user_id)
-        .filter_by_id(item_id)
     )
-
-    # Use helper to check deletion status and raise exception if needed
-    return _check_and_raise_if_deleted(item, model, item_id, include_deleted)
-
-
-def get_item_with_deferred(
-    db: Session,
-    model: Type[T],
-    item_id: uuid.UUID,
-    deferred_fields: List[str],
-    organization_id: str = None,
-    user_id: str = None,
-    include_deleted: bool = False,
-) -> Optional[T]:
-    """
-    Get a single item with all relationships loaded AND specific deferred fields.
-
-    This is similar to get_item_detail but also explicitly loads deferred columns.
-
-    Args:
-        db: Database session
-        model: SQLAlchemy model class
-        item_id: ID of the item to retrieve
-        deferred_fields: List of deferred field names to explicitly load
-        organization_id: Organization ID for filtering
-        user_id: User ID for filtering
-        include_deleted: If True, include soft-deleted records (default: False)
-
-    Returns:
-        Item with relationships and deferred fields loaded or None if not found
-
-    Raises:
-        ItemDeletedException: If item is soft-deleted and include_deleted is False
-    """
-    from sqlalchemy.orm import undefer
-
-    # Build query with relationships loaded (same as get_item_detail)
-    item = (
-        QueryBuilder(db, model)
-        .with_deleted()  # Always include deleted to check status
-        .with_optimized_loads()
-        .with_organization_filter(organization_id)
-        .with_visibility_filter(user_id)
-    )
-
-    # Add undefer options for deferred fields BEFORE query execution
-    for field_name in deferred_fields:
-        if hasattr(model, field_name):
-            # Get the actual column attribute (not string)
-            column_attr = getattr(model, field_name)
-            item.query = item.query.options(undefer(column_attr))
-
-    # Execute the query with deferred fields included
-    item = item.filter_by_id(item_id)
+    if extra_filter:
+        builder = builder.with_custom_filter(extra_filter)
+    item = builder.filter_by_id(item_id)
 
     # Use helper to check deletion status and raise exception if needed
     return _check_and_raise_if_deleted(item, model, item_id, include_deleted)
@@ -481,28 +434,47 @@ def get_items_detail(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
-    nested_relationships: dict = None,
+    related_fields: tuple | list | None = None,
     selectin_chains: list | None = None,
     organization_id: str = None,
     user_id: str = None,
     secondary_sort_by: str | None = None,
     secondary_sort_order: str = "asc",
     exclude_explorer_rows: bool = False,
+    extra_filter: Callable[[Query], Query] | None = None,
+    hydrate_filter: Callable[[Query], Query] | None = None,
 ) -> List[T]:
     """
-    Get multiple items with relationships eagerly loaded, pagination, sorting, and filtering.
+    Get multiple items with explicitly declared relationships eagerly loaded,
+    pagination, sorting, and filtering.
 
-    Uses selectinload for many-to-many and joinedload for other relationships.
     Also always selectin-loads comments/tasks/files/tags for any model that has
     them -- see QueryBuilder.with_default_derived_field_loads for why.
 
     Args:
-        nested_relationships: Dict specifying nested relationships to load.
-                            Format: {"relationship_name": ["nested_rel1", "nested_rel2"]}
+        related_fields: Pre-built ``include(...)`` load options -- e.g. a
+            module-level ``_ENTITY_RELATED_FIELDS`` tuple (see
+            ``crud/behavior.py`` for the pattern). Passed straight to
+            ``with_related``, so multi-hop chains and ``cols=`` scoping work
+            exactly as they would calling ``include()`` directly. Only what
+            the caller's response schema actually serializes should be listed
+            here.
         selectin_chains: Extra relationship-name chains to load with nested selectinload,
                         beyond the defaults above. Format: [["rel", "nested_rel"], ...]
         exclude_explorer_rows: Drop Explorer-owned rows. Only for models with an
                         ``explorer_row`` column (Test, TestSet).
+        extra_filter: Optional row-selection query transform for entity-specific
+            WHERE clauses the generic filters above don't cover -- e.g.
+            ``Metric``'s ``metric_scope`` or ``TestRun``'s experiment/review
+            filters. Applied only to the phase-1 id query, same scope as
+            ``with_odata_filter`` -- once phase 1 has picked the page's ids,
+            there is nothing left to filter in phase 2.
+        hydrate_filter: Optional query transform applied only to the phase-2
+            (eager-loaded) query, for loader-option tweaks that only make
+            sense once the full row is being fetched -- e.g. ``TestRun``
+            deferring ``Endpoint.last_token``. Applying a loader option like
+            this to the id-only phase-1 query would be meaningless (or emit
+            SQLAlchemy warnings), since that query never loads the relationship.
 
     Runs as two queries rather than one: a joinless query picks the page's IDs
     (filter + sort + LIMIT/OFFSET), then a second query eager-loads
@@ -520,6 +492,8 @@ def get_items_detail(
     )
     if exclude_explorer_rows:
         ids_builder = ids_builder.with_explorer_rows_excluded()
+    if extra_filter:
+        ids_builder = ids_builder.with_custom_filter(extra_filter)
     ordered_ids = (
         ids_builder.with_sorting(
             sort_by,
@@ -533,12 +507,10 @@ def get_items_detail(
     if not ordered_ids:
         return []
 
-    builder = QueryBuilder(db, model).with_optimized_loads(
-        skip_many_to_many=False,
-        skip_one_to_many=True,
-        nested_relationships=nested_relationships,
-    )
+    builder = QueryBuilder(db, model).with_related(*(related_fields or ()))
     builder = builder.with_default_derived_field_loads(selectin_chains)
+    if hydrate_filter:
+        builder = builder.with_custom_filter(hydrate_filter)
     items = (
         builder.with_organization_filter(organization_id)
         .with_visibility_filter(user_id)

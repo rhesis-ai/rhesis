@@ -152,7 +152,14 @@ def read_model(
     # Use get_item_detail which properly handles soft-deleted items (raises ItemDeletedException)
     from rhesis.backend.app.utils.crud_utils import get_item_detail
 
-    db_model = get_item_detail(db, models.Model, model_id, organization_id, user_id)
+    db_model = get_item_detail(
+        db,
+        models.Model,
+        model_id,
+        organization_id,
+        user_id,
+        related_fields=model_crud.MODEL_DETAIL_RELATED_FIELDS,
+    )
     if db_model is None:
         raise HTTPException(status_code=404, detail="Model not found")
     annotate_model_availability(db, organization_id, [db_model])

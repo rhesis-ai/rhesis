@@ -40,6 +40,15 @@ from rhesis.backend.app.utils.crud_utils import (
     get_items_detail,
     update_item,
 )
+from rhesis.backend.app.utils.query_utils import include
+
+# Relationships serialized by schemas.TaskDetail -- user, assignee, status, priority.
+_TASK_RELATED_FIELDS = (
+    include(models.Task.user),
+    include(models.Task.assignee),
+    include(models.Task.status),
+    include(models.Task.priority),
+)
 
 
 def get_task(
@@ -51,7 +60,13 @@ def get_task(
     # default -- TaskDetail.comment_count reads it directly, so it needs its
     # own explicit selectin_chains entry.
     return get_item_detail(
-        db, models.Task, task_id, organization_id, user_id, selectin_chains=[["comments"]]
+        db,
+        models.Task,
+        task_id,
+        organization_id,
+        user_id,
+        related_fields=_TASK_RELATED_FIELDS,
+        selectin_chains=[["comments"]],
     )
 
 
@@ -76,6 +91,7 @@ def get_tasks(
         sort_by,
         sort_order,
         filter,
+        related_fields=_TASK_RELATED_FIELDS,
         selectin_chains=[["comments"]],
         organization_id=organization_id,
         user_id=user_id,
