@@ -77,7 +77,7 @@ def _create_test_set(
             {
                 "category": "Safety",
                 "topic": "Content",
-                "behavior": "Compliance",
+                "requirement": "Compliance",
                 "prompt": {"content": "Hello, is this safe?"},
             }
         ],

@@ -60,7 +60,7 @@ describe('insights-failed-tests', () => {
     });
   });
 
-  it('builds tests URL with behavior metric scope', () => {
+  it('builds tests URL with requirement metric scope', () => {
     expect(
       buildInsightsFailedTestsUrl(
         {
@@ -70,13 +70,13 @@ describe('insights-failed-tests', () => {
           testRunIds: [],
         },
         {
-          behaviorId: 'beh-1',
-          behaviorName: 'Safety',
+          requirementId: 'beh-1',
+          requirementName: 'Safety',
           metricName: 'Toxicity',
         }
       )
     ).toBe(
-      '/tests?failedFromInsights=1&endpointId=ep-1&runFilterMode=timeRange&timeRange=1m&behaviorId=beh-1&behaviorName=Safety&metric=Toxicity'
+      '/tests?failedFromInsights=1&endpointId=ep-1&runFilterMode=timeRange&timeRange=1m&requirementId=beh-1&requirementName=Safety&metric=Toxicity'
     );
   });
 
@@ -90,29 +90,29 @@ describe('insights-failed-tests', () => {
           testRunIds: [],
         },
         {
-          behaviorId: 'beh-1',
-          behaviorName: 'Safety',
+          requirementId: 'beh-1',
+          requirementName: 'Safety',
           topicId: 'topic-1',
           topicName: 'Claims',
           outcome: 'all',
         }
       )
     ).toBe(
-      '/tests?failedFromInsights=1&endpointId=ep-1&runFilterMode=timeRange&timeRange=1m&behaviorId=beh-1&behaviorName=Safety&topicId=topic-1&topic=Claims&outcome=all'
+      '/tests?failedFromInsights=1&endpointId=ep-1&runFilterMode=timeRange&timeRange=1m&requirementId=beh-1&requirementName=Safety&topicId=topic-1&topic=Claims&outcome=all'
     );
   });
 
   it('parses insights failed tests search params', () => {
     const params = new URLSearchParams(
-      'failedFromInsights=1&endpointId=ep-1&runFilterMode=testRuns&testRunIds=run-1,run-2&behaviorId=b1&metric=m1&topicId=tid1&topic=t1&behaviorName=Beh'
+      'failedFromInsights=1&endpointId=ep-1&runFilterMode=testRuns&testRunIds=run-1,run-2&requirementId=b1&metric=m1&topicId=tid1&topic=t1&requirementName=Beh'
     );
     expect(parseInsightsFailedTestsSearchParams(params)).toEqual({
       endpointId: 'ep-1',
       runFilterMode: 'testRuns',
       timeRange: 'always',
       testRunIds: ['run-1', 'run-2'],
-      behaviorId: 'b1',
-      behaviorName: 'Beh',
+      requirementId: 'b1',
+      requirementName: 'Beh',
       metricName: 'm1',
       topicId: 'tid1',
       topicName: 't1',
@@ -172,7 +172,7 @@ describe('insights-failed-tests', () => {
           runFilterMode: 'timeRange',
           timeRange: '1m',
           testRunIds: [],
-          behaviorName: 'Safety',
+          requirementName: 'Safety',
           metricName: 'Toxicity',
         },
         3,
@@ -186,7 +186,7 @@ describe('insights-failed-tests', () => {
           runFilterMode: 'timeRange',
           timeRange: '1m',
           testRunIds: [],
-          behaviorName: 'Safety',
+          requirementName: 'Safety',
           metricName: 'Toxicity',
         },
         3,
@@ -203,7 +203,7 @@ describe('insights-failed-tests', () => {
           runFilterMode: 'timeRange',
           timeRange: '1m',
           testRunIds: [],
-          behaviorName: 'Safety',
+          requirementName: 'Safety',
           topicName: 'Claims',
           outcome: 'all',
         },
@@ -218,7 +218,7 @@ describe('insights-failed-tests', () => {
           runFilterMode: 'testRuns',
           timeRange: '1m',
           testRunIds: ['run-1'],
-          behaviorName: 'Safety',
+          requirementName: 'Safety',
           metricName: 'Toxicity',
           outcome: 'all',
         },

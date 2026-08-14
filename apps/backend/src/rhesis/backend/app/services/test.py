@@ -38,7 +38,7 @@ class _BulkEntityCache:
     In-memory cache for entity lookups during bulk operations.
 
     Dramatically reduces database round-trips when creating many tests
-    with the same topic/behavior/category (common in Garak imports).
+    with the same topic/requirement/category (common in Garak imports).
 
     Usage:
         cache = _BulkEntityCache()
@@ -47,7 +47,7 @@ class _BulkEntityCache:
 
     def __init__(self):
         self.topics: Dict[str, models.Topic] = {}
-        self.behaviors: Dict[str, models.Behavior] = {}
+        self.requirements: Dict[str, models.Requirement] = {}
         self.categories: Dict[str, models.Category] = {}
         self.statuses: Dict[tuple, models.Status] = {}
         self.type_lookups: Dict[tuple, models.TypeLookup] = {}
@@ -78,30 +78,30 @@ class _BulkEntityCache:
         self.topics[cache_key] = topic
         return topic
 
-    def get_or_create_behavior(
+    def get_or_create_requirement(
         self,
         db: Session,
         name: str,
         defaults: Dict,
         organization_id: str,
         user_id: str,
-    ) -> models.Behavior:
-        """Get or create a behavior, using cache if available."""
+    ) -> models.Requirement:
+        """Get or create a requirement, using cache if available."""
         cache_key = name
-        if cache_key in self.behaviors:
-            return self.behaviors[cache_key]
+        if cache_key in self.requirements:
+            return self.requirements[cache_key]
 
-        behavior = _create_entity_with_status_uncached(
+        requirement = _create_entity_with_status_uncached(
             db=db,
-            model=models.Behavior,
+            model=models.Requirement,
             name=name,
             defaults=defaults,
-            entity_type=EntityType.BEHAVIOR,
+            entity_type=EntityType.REQUIREMENT,
             organization_id=organization_id,
             user_id=user_id,
         )
-        self.behaviors[cache_key] = behavior
-        return behavior
+        self.requirements[cache_key] = requirement
+        return requirement
 
     def get_or_create_category(
         self,
@@ -426,8 +426,8 @@ def create_entity_with_status(
     if cache is not None:
         if model == models.Topic:
             return cache.get_or_create_topic(db, name, defaults, organization_id, user_id)
-        elif model == models.Behavior:
-            return cache.get_or_create_behavior(db, name, defaults, organization_id, user_id)
+        elif model == models.Requirement:
+            return cache.get_or_create_requirement(db, name, defaults, organization_id, user_id)
         elif model == models.Category:
             return cache.get_or_create_category(db, name, defaults, organization_id, user_id)
 
@@ -454,7 +454,7 @@ def resolve_test_entity_names(
     """Resolve string name fields to entity IDs for single-test create/update.
 
     Handles the same name-resolution that the bulk endpoint does:
-    - ``category``, ``topic``, ``behavior`` → ``*_id`` via get-or-create
+    - ``category``, ``topic``, ``requirement`` → ``*_id`` via get-or-create
     - ``prompt`` (dict) → ``prompt_id`` via :func:`create_prompt`
     - ``test_type`` (string) → ``test_type_id`` via get-or-create TypeLookup
 
@@ -471,11 +471,11 @@ def resolve_test_entity_names(
     """
     defaults = load_defaults()
 
-    # Resolve category / topic / behavior names → _id
+    # Resolve category / topic / requirement names → _id
     entity_mapping = [
         ("category", models.Category, EntityType.CATEGORY),
         ("topic", models.Topic, EntityType.TOPIC),
-        ("behavior", models.Behavior, EntityType.BEHAVIOR),
+        ("requirement", models.Requirement, EntityType.REQUIREMENT),
     ]
     for field, model_cls, entity_type in entity_mapping:
         name = test_data.pop(field, None)
@@ -635,7 +635,7 @@ def bulk_create_tests(
     a single atomic transaction. Every ``flush_interval`` tests the newly
     created Test objects are flushed (to assign IDs) and then expunged from
     the identity map so they no longer consume memory. Cached entities
-    (topics, behaviors, categories, statuses) remain attached to the session.
+    (topics, requirements, categories, statuses) remain attached to the session.
 
     Args:
         db: Database session
@@ -665,7 +665,7 @@ def bulk_create_tests(
     defaults = load_defaults()
 
     # Create cache for entity lookups - dramatically reduces DB round-trips
-    # when many tests share the same topic/behavior/category (common in Garak imports)
+    # when many tests share the same topic/requirement/category (common in Garak imports)
     cache = _BulkEntityCache()
 
     try:
@@ -728,7 +728,7 @@ def bulk_create_tests(
                     skip_duplicate_check=skip_prompt_dedup,
                 )
 
-            # Create topic, behavior, and category (with caching for bulk operations)
+            # Create topic, requirement, and category (with caching for bulk operations)
             topic = create_entity_with_status(
                 db=db,
                 model=models.Topic,
@@ -740,12 +740,12 @@ def bulk_create_tests(
                 cache=cache,
             )
 
-            behavior = create_entity_with_status(
+            requirement = create_entity_with_status(
                 db=db,
-                model=models.Behavior,
-                name=test_data_dict.pop("behavior"),
+                model=models.Requirement,
+                name=test_data_dict.pop("requirement"),
                 defaults=defaults,
-                entity_type=EntityType.BEHAVIOR,
+                entity_type=EntityType.REQUIREMENT,
                 organization_id=organization_id,
                 user_id=user_id,
                 cache=cache,
@@ -794,7 +794,7 @@ def bulk_create_tests(
                 "prompt_id": prompt.id if prompt else None,  # None for multi-turn tests
                 "test_type_id": test_type.id,
                 "topic_id": topic.id,
-                "behavior_id": behavior.id,
+                "requirement_id": requirement.id,
                 "category_id": category.id,
                 "status_id": test_status.id
                 if not test_data_dict.get("status")
@@ -1159,7 +1159,7 @@ def _extract_single_turn_test(
 
     extraction_prompt += (
         "\nExtract:\n"
-        "- behavior: The high-level behavior being tested (e.g., "
+        "- requirement: The high-level requirement being tested (e.g., "
         "Compliance, Reliability, Robustness, Fairness, Safety)\n"
         "- category: Whether the scenario is Harmless or Harmful\n"
         "- topic: The domain or subject area\n"
@@ -1173,7 +1173,7 @@ def _extract_single_turn_test(
 
     return schemas.ConversationTestExtractionResponse(
         test_type="Single-Turn",
-        behavior=extraction["behavior"],
+        requirement=extraction["requirement"],
         category=extraction["category"],
         topic=extraction["topic"],
         prompt_content=user_msg.content,
@@ -1206,7 +1206,7 @@ def _extract_multi_turn_test(
             "Based on the following real conversation between a user and "
             "an AI assistant (provided in the additional context), create "
             "a multi-turn test case that captures the interaction pattern, "
-            "intent, and behavior being demonstrated. The test should "
+            "intent, and requirement being demonstrated. The test should "
             "reproduce the scenario observed in the conversation."
         ),
         additional_context=conversation_text,
@@ -1227,7 +1227,7 @@ def _extract_multi_turn_test(
 
     return schemas.ConversationTestExtractionResponse(
         test_type="Multi-Turn",
-        behavior=test_dict["behavior"],
+        requirement=test_dict["requirement"],
         category=test_dict["category"],
         topic=test_dict["topic"],
         test_configuration=test_dict.get("test_configuration"),

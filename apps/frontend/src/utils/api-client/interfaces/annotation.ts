@@ -25,8 +25,8 @@ export interface AnnotationListItem {
   test_run_id?: string | null;
   trace_id?: string | null;
   project_id?: string | null;
-  behavior_id?: string | null;
-  behavior_name?: string | null;
+  requirement_id?: string | null;
+  requirement_name?: string | null;
 }
 
 export interface AnnotationsQueryParams {

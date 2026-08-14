@@ -629,7 +629,7 @@ class TestAdaptiveSettingsWrites:
             test_db, f"Replace {uuid.uuid4().hex[:8]}", test_org_id, authenticated_user_id
         )
         test_set.attributes = {
-            "metadata": {"behaviors": ["Adaptive Testing"]},
+            "metadata": {"requirements": ["Adaptive Testing"]},
             "adaptive_settings": {"default_endpoint_id": "stale", "other": "dropped"},
         }
         test_db.flush()
@@ -643,7 +643,7 @@ class TestAdaptiveSettingsWrites:
             "default_endpoint_id": str(fresh_endpoint_id)
         }
         # Everything outside adaptive_settings survives.
-        assert test_set.attributes["metadata"] == {"behaviors": ["Adaptive Testing"]}
+        assert test_set.attributes["metadata"] == {"requirements": ["Adaptive Testing"]}
 
     def test_patching_the_endpoint_keeps_the_other_settings(
         self, test_db: Session, test_org_id: str, authenticated_user_id: str

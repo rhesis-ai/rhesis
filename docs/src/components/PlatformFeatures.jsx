@@ -56,9 +56,10 @@ const features = [
   },
   {
     icon: PsychologyIcon,
-    title: 'Behaviors',
-    description: 'Define expected behaviors that your AI application should follow during testing.',
-    link: '/docs/behaviors',
+    title: 'Requirements',
+    description:
+      'Define expected requirements that your AI application should follow during testing.',
+    link: '/docs/requirements',
   },
   {
     icon: TuneIcon,
@@ -81,7 +82,7 @@ const features = [
   {
     icon: AutoFixHighIcon,
     title: 'Test Generation',
-    description: 'Generate test cases using AI from knowledge sources and defined behaviors.',
+    description: 'Generate test cases using AI from knowledge sources and defined requirements.',
     link: '/docs/tests-generation',
   },
   {

@@ -21,7 +21,7 @@ def _flat_multiturn_test(i: int) -> dict:
         "test_configuration_scenario": "Scenario",
         "test_configuration_min_turns": 3,
         "test_configuration_max_turns": 7,
-        "behavior": "Robustness",
+        "requirement": "Robustness",
         "category": "Harmful",
         "topic": "prompt injection",
     }
@@ -113,7 +113,7 @@ def test_single_turn_generation_still_uses_prompt_schema(_mock_fetch):
                 "prompt_content": "Attack prompt",
                 "prompt_expected_response": "Refusal",
                 "prompt_language_code": "en",
-                "behavior": "OWASP LLM Top 10",
+                "requirement": "OWASP LLM Top 10",
                 "category": "Harmful",
                 "topic": "prompt injection",
             }

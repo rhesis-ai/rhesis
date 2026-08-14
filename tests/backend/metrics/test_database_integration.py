@@ -188,21 +188,21 @@ class TestDatabaseIntegration:
         assert metric.model is not None
         assert metric.model.id == test_model.id
 
-    def test_metric_with_behavior_relationship(
-        self, test_db, test_behavior_with_metrics, test_metric_numeric
+    def test_metric_with_requirement_relationship(
+        self, test_db, test_requirement_with_metrics, test_metric_numeric
     ):
-        """Test metric associated with behavior."""
-        behavior = test_behavior_with_metrics
+        """Test metric associated with requirement."""
+        requirement = test_requirement_with_metrics
 
-        # Verify behavior has metrics
-        assert len(behavior.metrics) > 0
+        # Verify requirement has metrics
+        assert len(requirement.metrics) > 0
 
-        # Verify our metric is in the behavior's metrics
-        metric_ids = [m.id for m in behavior.metrics]
+        # Verify our metric is in the requirement's metrics
+        metric_ids = [m.id for m in requirement.metrics]
         assert test_metric_numeric.id in metric_ids
 
         # Verify reverse relationship (if implemented)
-        # Some ORMs support querying behaviors that use a metric
+        # Some ORMs support querying requirements that use a metric
         assert test_metric_numeric.id is not None
 
     def test_test_result_test_metrics_storage(

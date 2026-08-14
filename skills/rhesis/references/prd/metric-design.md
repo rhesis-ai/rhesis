@@ -1,8 +1,8 @@
 # Metric Design from PRD Acceptance Criteria
 
-**Metrics come from numbered requirements and explicit AC — not from behavior titles or story adjectives.**
+**Metrics come from numbered requirements and explicit AC — not from requirement titles or story adjectives.**
 
-For each behavior, cite the **FR-/PC-/AC-ID** and copy the **quantifiers and mandatory fields** into the metric plan before choosing `score_type`.
+For each requirement, cite the **FR-/PC-/AC-ID** and copy the **quantifiers and mandatory fields** into the metric plan before choosing `score_type`.
 
 ---
 
@@ -58,7 +58,7 @@ Use when the FR counts, caps, or requires **fraction of required elements**:
 
 ## Worked example — *Helios Retail Support Agent* (fictional)
 
-Same document as [behavior-design.md](behavior-design.md). Shows how **story + FR** combine for one behavior.
+Same document as [requirement-design.md](requirement-design.md). Shows how **story + FR** combine for one requirement.
 
 ### FR-4.1 → metric
 
@@ -66,7 +66,7 @@ Same document as [behavior-design.md](behavior-design.md). Shows how **story + F
 
 | Field | Value |
 |---|---|
-| Behavior | Refund Eligibility Window Check |
+| Requirement | Refund Eligibility Window Check |
 | Metric | Refund Window Compliance |
 | `score_type` | `categorical` |
 | `categories` | `["Within 30 Days", "Outside 30 Days"]` |
@@ -79,7 +79,7 @@ Same document as [behavior-design.md](behavior-design.md). Shows how **story + F
 
 | Field | Value |
 |---|---|
-| Behavior | Denial Reason Single-Sentence Citation |
+| Requirement | Denial Reason Single-Sentence Citation |
 | Metric | Eligibility Denial Format Compliance |
 | `score_type` | `categorical` |
 | `categories` | `["Compliant Denial", "Wrong Reason", "Multi-Sentence or Speculative"]` |
@@ -93,7 +93,7 @@ Same refund **workflow**, two metrics — because FR-4.1 and FR-4.3 have **indep
 
 | Field | Value |
 |---|---|
-| Behavior | Order Context Retention Across Follow-ups |
+| Requirement | Order Context Retention Across Follow-ups |
 | Metric | Order Context Retention Rate |
 | `score_type` | `numeric` |
 | `min_score` / `max_score` | 0 / 1 |
@@ -106,7 +106,7 @@ Same refund **workflow**, two metrics — because FR-4.1 and FR-4.3 have **indep
 
 | Field | Value |
 |---|---|
-| Behavior | PSD2 SCA Skip Refusal (EU) |
+| Requirement | PSD2 SCA Skip Refusal (EU) |
 | Metric | PSD2 Reminder Surfaced |
 | `score_type` | `categorical` |
 | `categories` | `["Reminder Surfaced", "Bypass Assisted", "Silent Ignore"]` |
@@ -129,7 +129,7 @@ Same refund **workflow**, two metrics — because FR-4.1 and FR-4.3 have **indep
 ## Plan table (required columns)
 
 ```markdown
-| Metric | Behavior | Source (FR/PC/AC) | Score type | Pass definition |
+| Metric | Requirement | Source (FR/PC/AC) | Score type | Pass definition |
 | Refund Window Compliance | Refund Eligibility Window Check | FR-4.1 ≤30 days | categorical (binary) | Within 30 Days |
 | Eligibility Denial Format Compliance | Denial Reason Single-Sentence Citation | FR-4.3 one sentence, cited reason | categorical (multi-way) | Compliant Denial |
 | Order Context Retention Rate | Order Context Retention Across Follow-ups | FR-3.2 ≥3 follow-ups | numeric | score = 1.0 |

@@ -26,7 +26,7 @@ export function buildTestRunSummarizePrompt(
     `Endpoint: ${input.endpointName?.trim() || 'unknown'}`,
     `Test set: ${input.testSetName?.trim() || 'unknown'}`,
     '',
-    'Please re-fetch stats for this run, summarize overall and by behavior/metric,',
+    'Please re-fetch stats for this run, summarize overall and by requirement/metric,',
     'then sample a few failed results and call out patterns and next steps.',
   ];
 

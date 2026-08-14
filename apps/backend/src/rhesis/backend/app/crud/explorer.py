@@ -120,7 +120,7 @@ def get_test_sets_by_ids(
 ) -> List[models.TestSet]:
     """Load the given test sets, scoped to the organization.
 
-    Used by the bulk-delete path to inspect each candidate's behavior before deleting;
+    Used by the bulk-delete path to inspect each candidate's requirement before deleting;
     ids that don't resolve simply come back missing from the result.
 
     Parameters
@@ -681,7 +681,7 @@ def get_test_for_embedding(
     Returns
     -------
     models.Test or None
-        The test with prompt, topic, behavior, category and test type loaded.
+        The test with prompt, topic, requirement, category and test type loaded.
     """
     return (
         QueryBuilder(db, models.Test)
@@ -693,7 +693,7 @@ def get_test_for_embedding(
         .with_related(
             include(models.Test.prompt),
             include(models.Test.topic),
-            include(models.Test.behavior),
+            include(models.Test.requirement),
             include(models.Test.category),
             include(models.Test.test_type),
         )

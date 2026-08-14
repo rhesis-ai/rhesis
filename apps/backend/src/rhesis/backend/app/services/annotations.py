@@ -48,8 +48,8 @@ def _row_to_item(row: Any) -> AnnotationListItem:
         trace_id=row.trace_id,
         project_id=row.project_id,
         span_name=row.span_name,
-        behavior_id=row.behavior_id,
-        behavior_name=row.behavior_name,
+        requirement_id=row.requirement_id,
+        requirement_name=row.requirement_name,
     )
 
 
@@ -121,16 +121,16 @@ def list_annotations(
                 NULL::text AS trace_id,
                 tr.project_id AS project_id,
                 NULL::text AS span_name,
-                b.id AS behavior_id,
-                b.name AS behavior_name,
+                b.id AS requirement_id,
+                b.name AS requirement_name,
                 elem AS review,
                 COALESCE(elem->>'updated_at', elem->>'created_at') AS sort_at
             FROM test_result tr
             LEFT JOIN test tst
               ON tst.id = tr.test_id
              AND tst.deleted_at IS NULL
-            LEFT JOIN behavior b
-              ON b.id = tst.behavior_id
+            LEFT JOIN requirement b
+              ON b.id = tst.requirement_id
              AND b.deleted_at IS NULL
             CROSS JOIN LATERAL jsonb_array_elements(tr.test_reviews->'reviews') AS elem
             WHERE tr.organization_id = CAST(:organization_id AS uuid)
@@ -164,8 +164,8 @@ def list_annotations(
                 t.trace_id AS trace_id,
                 t.project_id AS project_id,
                 t.span_name AS span_name,
-                NULL::uuid AS behavior_id,
-                NULL::text AS behavior_name,
+                NULL::uuid AS requirement_id,
+                NULL::text AS requirement_name,
                 elem AS review,
                 COALESCE(elem->>'updated_at', elem->>'created_at') AS sort_at
             FROM trace t,
@@ -213,8 +213,8 @@ def list_annotations(
             trace_id,
             project_id,
             span_name,
-            behavior_id,
-            behavior_name,
+            requirement_id,
+            requirement_name,
             review,
             sort_at,
             COUNT(*) OVER() AS total_count
@@ -228,7 +228,7 @@ def list_annotations(
                     ILIKE '%' || CAST(:search AS text) || '%'
                 OR COALESCE(review->'status'->>'name', '')
                     ILIKE '%' || CAST(:search AS text) || '%'
-                OR COALESCE(behavior_name, '')
+                OR COALESCE(requirement_name, '')
                     ILIKE '%' || CAST(:search AS text) || '%'
               )
           AND (

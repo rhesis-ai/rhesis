@@ -17,7 +17,7 @@ Functions tested from app/crud.py:
 - create_tag / remove_tag
 - delete_tokens_by_user
 - delete_test
-- add_behavior_to_metric / remove_behavior_from_metric
+- add_requirement_to_metric / remove_requirement_from_metric
 - add_emoji_reaction / remove_emoji_reaction
 
 Run with: python -m pytest tests/backend/crud/test_transaction_management.py -v
@@ -148,18 +148,18 @@ class TestCRUDTransactionManagement:
 
         # Create a test entity to tag
         entity_id = uuid.uuid4()
-        entity_type = EntityType.BEHAVIOR
+        entity_type = EntityType.REQUIREMENT
 
-        # Create a test behavior entity first
-        behavior = models.Behavior(
-            name="Test Behavior",
-            description="Test behavior for tagging",
+        # Create a test requirement entity first
+        requirement = models.Requirement(
+            name="Test Requirement",
+            description="Test requirement for tagging",
             organization_id=uuid.UUID(test_org_id),
             user_id=uuid.UUID(authenticated_user_id),
         )
-        test_db.add(behavior)
+        test_db.add(requirement)
         test_db.flush()
-        entity_id = behavior.id
+        entity_id = requirement.id
 
         # Assign tag
         result = tag_crud.assign_tag(test_db, tag_create, entity_id, entity_type, test_org_id)
@@ -192,17 +192,17 @@ class TestCRUDTransactionManagement:
         tag_data["user_id"] = authenticated_user_id
         tag_create = schemas.TagCreate(**tag_data)
 
-        # Create a test behavior entity first
-        behavior = models.Behavior(
-            name="Test Behavior",
-            description="Test behavior for tagging",
+        # Create a test requirement entity first
+        requirement = models.Requirement(
+            name="Test Requirement",
+            description="Test requirement for tagging",
             organization_id=uuid.UUID(test_org_id),
             user_id=uuid.UUID(authenticated_user_id),
         )
-        test_db.add(behavior)
+        test_db.add(requirement)
         test_db.flush()
-        entity_id = behavior.id
-        entity_type = EntityType.BEHAVIOR
+        entity_id = requirement.id
+        entity_type = EntityType.REQUIREMENT
 
         # Assign tag
         created_tag = tag_crud.assign_tag(test_db, tag_create, entity_id, entity_type, test_org_id)

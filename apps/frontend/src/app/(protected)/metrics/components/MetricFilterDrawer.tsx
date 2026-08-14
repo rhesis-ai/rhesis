@@ -14,14 +14,14 @@ export interface MetricDrawerFilters {
   type: string[];
   scoreType: string[];
   metricScope: string[];
-  behavior: string;
+  requirement: string;
 }
 
 export const EMPTY_METRIC_DRAWER_FILTERS: MetricDrawerFilters = {
   type: [],
   scoreType: [],
   metricScope: [],
-  behavior: '',
+  requirement: '',
 };
 
 export function hasActiveMetricDrawerFilters(f: MetricDrawerFilters): boolean {
@@ -29,7 +29,7 @@ export function hasActiveMetricDrawerFilters(f: MetricDrawerFilters): boolean {
     f.type.length > 0 ||
     f.scoreType.length > 0 ||
     f.metricScope.length > 0 ||
-    f.behavior !== ''
+    f.requirement !== ''
   );
 }
 
@@ -38,7 +38,7 @@ export function countActiveMetricDrawerFilters(f: MetricDrawerFilters): number {
     f.type.length +
     f.scoreType.length +
     f.metricScope.length +
-    (f.behavior !== '' ? 1 : 0)
+    (f.requirement !== '' ? 1 : 0)
   );
 }
 
@@ -54,7 +54,7 @@ export interface MetricFilterOptions {
   type: { type_value: string; description: string }[];
   scoreType: { value: string; label: string }[];
   metricScope: { value: string; label: string }[];
-  behavior: { id: string; name: string }[];
+  requirement: { id: string; name: string }[];
 }
 
 const selectSx = {
@@ -161,21 +161,23 @@ export default function MetricFilterDrawer({
         </FilterSection>
       )}
 
-      {filterOptions.behavior.length > 0 && (
-        <FilterSection title="Behavior">
+      {filterOptions.requirement.length > 0 && (
+        <FilterSection title="Requirement">
           <FormControl fullWidth size="small">
-            <InputLabel id="metric-filter-behavior-label">Behavior</InputLabel>
+            <InputLabel id="metric-filter-requirement-label">
+              Requirement
+            </InputLabel>
             <Select
-              labelId="metric-filter-behavior-label"
-              value={draft.behavior}
-              label="Behavior"
+              labelId="metric-filter-requirement-label"
+              value={draft.requirement}
+              label="Requirement"
               onChange={e =>
-                setDraft(prev => ({ ...prev, behavior: e.target.value }))
+                setDraft(prev => ({ ...prev, requirement: e.target.value }))
               }
               sx={selectSx}
             >
-              <MenuItem value="">All behaviors</MenuItem>
-              {filterOptions.behavior.map(opt => (
+              <MenuItem value="">All requirements</MenuItem>
+              {filterOptions.requirement.map(opt => (
                 <MenuItem key={opt.id} value={opt.name}>
                   {opt.name}
                 </MenuItem>

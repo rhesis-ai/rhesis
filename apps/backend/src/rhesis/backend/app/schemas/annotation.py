@@ -29,8 +29,8 @@ class AnnotationListItem(Base):
     project_id: Optional[UUID] = None
     span_name: Optional[str] = None
     # From the linked test (test results only; null for traces)
-    behavior_id: Optional[UUID] = None
-    behavior_name: Optional[str] = None
+    requirement_id: Optional[UUID] = None
+    requirement_name: Optional[str] = None
 
 
 class AnnotationListResponse(Base):

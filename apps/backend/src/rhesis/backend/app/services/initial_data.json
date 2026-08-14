@@ -219,8 +219,8 @@
         },
         {
             "type_name": "EntityType",
-            "type_value": "Behavior",
-            "description": "Entity type for behaviors"
+            "type_value": "Requirement",
+            "description": "Entity type for requirements"
         },
         {
             "type_name": "EntityType",
@@ -633,7 +633,7 @@
             "description": "Embedding imported from external source"
         }
     ],
-    "behavior": [
+    "requirement": [
         {
             "name": "Reliability",
             "description": "Ensures the application performs its intended functions correctly and consistently",
@@ -818,7 +818,7 @@
             "priority": 1,
             "topic": "Policy Information",
             "category": "Accuracy",
-            "behavior": "Reliability"
+            "requirement": "Reliability"
         },
         {
             "test_type": "Single-Turn",
@@ -827,7 +827,7 @@
             "priority": 1,
             "topic": "Claims Process",
             "category": "Helpfulness",
-            "behavior": "Reliability"
+            "requirement": "Reliability"
         },
         {
             "test_type": "Single-Turn",
@@ -836,7 +836,7 @@
             "priority": 1,
             "topic": "Premium Calculation",
             "category": "Clarity",
-            "behavior": "Reliability"
+            "requirement": "Reliability"
         },
         {
             "test_type": "Single-Turn",
@@ -845,7 +845,7 @@
             "priority": 1,
             "topic": "Customer Service",
             "category": "Scope Adherence",
-            "behavior": "Compliance"
+            "requirement": "Compliance"
         },
         {
             "test_type": "Single-Turn",
@@ -854,7 +854,7 @@
             "priority": 1,
             "topic": "Prompt Security",
             "category": "Security",
-            "behavior": "Robustness"
+            "requirement": "Robustness"
         }
     ],
     "test_set": [
@@ -868,7 +868,7 @@
             "visibility": "organization",
             "metadata": {
                 "sample": "Domain-specific tests for evaluating insurance chatbot quality and reliability.",
-                "behaviors": [
+                "requirements": [
                     "Compliance",
                     "Robustness",
                     "Reliability"
@@ -948,7 +948,7 @@
             "metric_type": "framework",
             "backend_type": "deepeval",
             "status": "New",
-            "behaviors": [
+            "requirements": [
                 "Reliability"
             ],
             "metric_scope": [
@@ -973,7 +973,7 @@
             "metric_type": "custom-prompt",
             "backend_type": "rhesis",
             "status": "New",
-            "behaviors": [
+            "requirements": [
                 "Reliability"
             ],
             "metric_scope": [
@@ -996,7 +996,7 @@
             "metric_type": "framework",
             "backend_type": "deepeval",
             "status": "New",
-            "behaviors": [
+            "requirements": [
                 "Reliability"
             ],
             "metric_scope": [
@@ -1021,7 +1021,7 @@
             "metric_type": "framework",
             "backend_type": "deepeval",
             "status": "New",
-            "behaviors": [
+            "requirements": [
                 "Reliability"
             ],
             "metric_scope": [
@@ -1046,7 +1046,7 @@
             "metric_type": "framework",
             "backend_type": "deepeval",
             "status": "New",
-            "behaviors": [
+            "requirements": [
                 "Reliability"
             ],
             "metric_scope": [
@@ -1071,7 +1071,7 @@
             "metric_type": "framework",
             "backend_type": "deepeval",
             "status": "New",
-            "behaviors": [
+            "requirements": [
                 "Reliability"
             ],
             "metric_scope": [
@@ -1097,7 +1097,7 @@
             "metric_type": "custom-prompt",
             "backend_type": "rhesis",
             "status": "New",
-            "behaviors": [
+            "requirements": [
                 "Robustness"
             ],
             "metric_scope": [
@@ -1127,7 +1127,7 @@
             "metric_type": "custom-prompt",
             "backend_type": "rhesis",
             "status": "New",
-            "behaviors": [
+            "requirements": [
                 "Compliance"
             ],
             "metric_scope": [
@@ -1152,7 +1152,7 @@
             "metric_type": "framework",
             "backend_type": "deepeval",
             "status": "New",
-            "behaviors": [
+            "requirements": [
                 "Compliance"
             ],
             "metric_scope": [
@@ -1177,7 +1177,7 @@
             "metric_type": "framework",
             "backend_type": "deepeval",
             "status": "New",
-            "behaviors": [
+            "requirements": [
                 "Compliance"
             ],
             "metric_scope": [
@@ -1202,7 +1202,7 @@
             "metric_type": "framework",
             "backend_type": "deepeval",
             "status": "New",
-            "behaviors": [
+            "requirements": [
                 "Compliance"
             ],
             "metric_scope": [
@@ -1227,7 +1227,7 @@
             "metric_type": "framework",
             "backend_type": "deepeval",
             "status": "New",
-            "behaviors": [
+            "requirements": [
                 "Compliance"
             ],
             "metric_scope": [
@@ -1252,7 +1252,7 @@
             "metric_type": "framework",
             "backend_type": "ragas",
             "status": "New",
-            "behaviors": [
+            "requirements": [
                 "Reliability"
             ],
             "metric_scope": [
@@ -1277,7 +1277,7 @@
             "metric_type": "framework",
             "backend_type": "ragas",
             "status": "New",
-            "behaviors": [
+            "requirements": [
                 "Reliability"
             ],
             "metric_scope": [
@@ -1302,7 +1302,7 @@
             "metric_type": "framework",
             "backend_type": "ragas",
             "status": "New",
-            "behaviors": [
+            "requirements": [
                 "Reliability"
             ],
             "metric_scope": [
@@ -1327,7 +1327,7 @@
             "metric_type": "framework",
             "backend_type": "ragas",
             "status": "New",
-            "behaviors": [
+            "requirements": [
                 "Reliability"
             ],
             "metric_scope": [
@@ -1352,7 +1352,7 @@
             "metric_type": "framework",
             "backend_type": "deepeval",
             "status": "New",
-            "behaviors": [
+            "requirements": [
                 "Reliability"
             ],
             "metric_scope": [
@@ -1377,7 +1377,7 @@
             "metric_type": "framework",
             "backend_type": "deepeval",
             "status": "New",
-            "behaviors": [
+            "requirements": [
                 "Compliance"
             ],
             "metric_scope": [
@@ -1402,7 +1402,7 @@
             "metric_type": "framework",
             "backend_type": "deepeval",
             "status": "New",
-            "behaviors": [
+            "requirements": [
                 "Reliability"
             ],
             "metric_scope": [
@@ -1427,7 +1427,7 @@
             "metric_type": "framework",
             "backend_type": "deepeval",
             "status": "New",
-            "behaviors": [
+            "requirements": [
                 "Reliability"
             ],
             "metric_scope": [
@@ -1452,7 +1452,7 @@
             "metric_type": "framework",
             "backend_type": "deepeval",
             "status": "New",
-            "behaviors": [
+            "requirements": [
                 "Reliability"
             ],
             "metric_scope": [
@@ -1477,7 +1477,7 @@
             "metric_type": "framework",
             "backend_type": "deepeval",
             "status": "New",
-            "behaviors": [
+            "requirements": [
                 "Reliability"
             ],
             "metric_scope": [
@@ -1502,7 +1502,7 @@
             "metric_type": "custom-prompt",
             "backend_type": "rhesis",
             "status": "New",
-            "behaviors": [
+            "requirements": [
                 "Reliability"
             ],
             "metric_scope": [
@@ -1527,7 +1527,7 @@
             "metric_type": "custom-prompt",
             "backend_type": "rhesis",
             "status": "New",
-            "behaviors": [
+            "requirements": [
                 "Reliability"
             ],
             "metric_scope": [
@@ -1552,7 +1552,7 @@
             "metric_type": "custom-prompt",
             "backend_type": "rhesis",
             "status": "New",
-            "behaviors": [
+            "requirements": [
                 "Reliability"
             ],
             "metric_scope": [
@@ -1577,7 +1577,7 @@
             "metric_type": "custom-prompt",
             "backend_type": "rhesis",
             "status": "New",
-            "behaviors": [
+            "requirements": [
                 "Reliability"
             ],
             "metric_scope": [
@@ -1602,7 +1602,7 @@
             "metric_type": "custom-prompt",
             "backend_type": "rhesis",
             "status": "New",
-            "behaviors": [
+            "requirements": [
                 "Compliance"
             ],
             "metric_scope": [
@@ -1632,7 +1632,7 @@
             "metric_type": "custom-prompt",
             "backend_type": "rhesis",
             "status": "New",
-            "behaviors": [
+            "requirements": [
                 "OWASP LLM Top 10"
             ],
             "metric_scope": [
@@ -1662,7 +1662,7 @@
             "metric_type": "custom-prompt",
             "backend_type": "rhesis",
             "status": "New",
-            "behaviors": [
+            "requirements": [
                 "OWASP LLM Top 10"
             ],
             "metric_scope": [
@@ -1692,7 +1692,7 @@
             "metric_type": "custom-prompt",
             "backend_type": "rhesis",
             "status": "New",
-            "behaviors": [
+            "requirements": [
                 "OWASP LLM Top 10"
             ],
             "metric_scope": [
@@ -1722,7 +1722,7 @@
             "metric_type": "custom-prompt",
             "backend_type": "rhesis",
             "status": "New",
-            "behaviors": [
+            "requirements": [
                 "OWASP LLM Top 10"
             ],
             "metric_scope": [
@@ -1752,7 +1752,7 @@
             "metric_type": "custom-prompt",
             "backend_type": "rhesis",
             "status": "New",
-            "behaviors": [
+            "requirements": [
                 "OWASP LLM Top 10"
             ],
             "metric_scope": [
@@ -1782,7 +1782,7 @@
             "metric_type": "custom-prompt",
             "backend_type": "rhesis",
             "status": "New",
-            "behaviors": [
+            "requirements": [
                 "OWASP LLM Top 10"
             ],
             "metric_scope": [
@@ -1812,7 +1812,7 @@
             "metric_type": "custom-prompt",
             "backend_type": "rhesis",
             "status": "New",
-            "behaviors": [
+            "requirements": [
                 "OWASP LLM Top 10"
             ],
             "metric_scope": [
@@ -1842,7 +1842,7 @@
             "metric_type": "custom-prompt",
             "backend_type": "rhesis",
             "status": "New",
-            "behaviors": [
+            "requirements": [
                 "OWASP LLM Top 10"
             ],
             "metric_scope": [
@@ -1872,7 +1872,7 @@
             "metric_type": "custom-prompt",
             "backend_type": "rhesis",
             "status": "New",
-            "behaviors": [
+            "requirements": [
                 "OWASP LLM Top 10"
             ],
             "metric_scope": [
@@ -1902,7 +1902,7 @@
             "metric_type": "custom-prompt",
             "backend_type": "rhesis",
             "status": "New",
-            "behaviors": [
+            "requirements": [
                 "OWASP LLM Top 10"
             ],
             "metric_scope": [
@@ -1932,7 +1932,7 @@
             "metric_type": "custom-prompt",
             "backend_type": "rhesis",
             "status": "New",
-            "behaviors": [
+            "requirements": [
                 "OWASP Agentic Top 10"
             ],
             "metric_scope": [
@@ -1963,7 +1963,7 @@
             "metric_type": "custom-prompt",
             "backend_type": "rhesis",
             "status": "New",
-            "behaviors": [
+            "requirements": [
                 "OWASP Agentic Top 10"
             ],
             "metric_scope": [
@@ -1994,7 +1994,7 @@
             "metric_type": "custom-prompt",
             "backend_type": "rhesis",
             "status": "New",
-            "behaviors": [
+            "requirements": [
                 "OWASP Agentic Top 10"
             ],
             "metric_scope": [
@@ -2025,7 +2025,7 @@
             "metric_type": "custom-prompt",
             "backend_type": "rhesis",
             "status": "New",
-            "behaviors": [
+            "requirements": [
                 "OWASP Agentic Top 10"
             ],
             "metric_scope": [
@@ -2056,7 +2056,7 @@
             "metric_type": "custom-prompt",
             "backend_type": "rhesis",
             "status": "New",
-            "behaviors": [
+            "requirements": [
                 "OWASP Agentic Top 10"
             ],
             "metric_scope": [
@@ -2087,7 +2087,7 @@
             "metric_type": "custom-prompt",
             "backend_type": "rhesis",
             "status": "New",
-            "behaviors": [
+            "requirements": [
                 "OWASP Agentic Top 10"
             ],
             "metric_scope": [
@@ -2117,7 +2117,7 @@
             "metric_type": "custom-prompt",
             "backend_type": "rhesis",
             "status": "New",
-            "behaviors": [
+            "requirements": [
                 "OWASP Agentic Top 10"
             ],
             "metric_scope": [
@@ -2148,7 +2148,7 @@
             "metric_type": "custom-prompt",
             "backend_type": "rhesis",
             "status": "New",
-            "behaviors": [
+            "requirements": [
                 "OWASP Agentic Top 10"
             ],
             "metric_scope": [
@@ -2178,7 +2178,7 @@
             "metric_type": "custom-prompt",
             "backend_type": "rhesis",
             "status": "New",
-            "behaviors": [
+            "requirements": [
                 "OWASP Agentic Top 10"
             ],
             "metric_scope": [
@@ -2209,7 +2209,7 @@
             "metric_type": "custom-prompt",
             "backend_type": "rhesis",
             "status": "New",
-            "behaviors": [
+            "requirements": [
                 "OWASP Agentic Top 10"
             ],
             "metric_scope": [

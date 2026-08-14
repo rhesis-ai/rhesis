@@ -16,7 +16,7 @@ export const taskKeys = createEntityKeys('tasks');
 export const annotationKeys = createEntityKeys('annotations');
 export const experimentKeys = createEntityKeys('experiments');
 export const modelKeys = createEntityKeys('models');
-export const behaviorKeys = createEntityKeys('behaviors');
+export const requirementKeys = createEntityKeys('requirements');
 export const projectKeys = createEntityKeys('projects');
 export const explorerKeys = createEntityKeys('explorer');
 
@@ -112,7 +112,7 @@ export const insightsFailedTestIdsKeys = {
     runFilterMode: string;
     timeRange: string;
     testRunIds: readonly string[];
-    behaviorId?: string;
+    requirementId?: string;
     metricName?: string;
     topicName?: string;
     outcome?: string;

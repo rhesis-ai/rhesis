@@ -126,7 +126,7 @@ The judge's `reason` string is what a human reads when a test fails, so say how 
 
 ## Worked example — categorical, Single-Turn
 
-Behavior: *Denial Reason Single-Sentence Citation*. Requirement: a denial gives a one-sentence reason
+Requirement: *Denial Reason Single-Sentence Citation* — a denial gives a one-sentence reason
 citing purchase date, final-sale flag, or open RMA; no speculative alternatives.
 
 | Field | Value |
@@ -207,7 +207,7 @@ the denial template.
 
 ## Worked example — numeric, Multi-Turn
 
-Behavior: *Order Context Retention Across Follow-ups*. Requirement: keep order context for at least
+Requirement: *Order Context Retention Across Follow-ups* — keep order context for at least
 three follow-up turns without re-asking for the order number.
 
 | Field | Value |

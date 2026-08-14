@@ -23,9 +23,9 @@ class BaseEntityTests(ABC):
     """Abstract base class for all entity route tests"""
 
     # Must be overridden by subclasses
-    entity_name: str = ""  # e.g., "behavior", "topic"
-    entity_plural: str = ""  # e.g., "behaviors", "topics"
-    endpoints = None  # e.g., APIEndpoints.BEHAVIORS
+    entity_name: str = ""  # e.g., "requirement", "topic"
+    entity_plural: str = ""  # e.g., "requirements", "topics"
+    endpoints = None  # e.g., APIEndpoints.REQUIREMENTS
     data_generator = None  # e.g., TestDataGenerator method (LEGACY)
 
     # Optional overrides

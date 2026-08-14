@@ -304,7 +304,7 @@ class TestResolveUnderEnforcedRLS:
     — which is exactly why the original ``bypass_tenant_filter()`` approach
     (ORM-level only) passed tests yet returned 404 in production, where the app
     role is subject to ``FORCE ROW LEVEL SECURITY``. Because the endpoint's
-    probe runs on the superuser app session, this asserts the RLS behavior at
+    probe runs on the superuser app session, this asserts the RLS requirement at
     the query layer rather than through the endpoint.
     """
 

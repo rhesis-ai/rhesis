@@ -40,7 +40,7 @@ router = APIRouter(prefix="/resolve", tags=["resolve"])
 # Keep in sync with frontend ``parseEntityFromPathname`` / detail routes.
 RESOLVABLE_ENTITY_TABLES = frozenset(
     {
-        "behavior",
+        "requirement",
         "endpoint",
         "experiment",
         "metric",
@@ -120,7 +120,7 @@ def resolve_entity(
     project the caller is a member of; otherwise 404. Entities in projects the
     caller cannot access are indistinguishable from non-existent ones by
     design — the app role cannot see them under RLS, and not revealing their
-    existence is the safer behavior.
+    existence is the safer requirement.
     """
     model_cls = get_resolvable_entities().get(entity_type)
     if model_cls is None:

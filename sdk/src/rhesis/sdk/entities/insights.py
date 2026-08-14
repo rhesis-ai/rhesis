@@ -27,7 +27,7 @@ class Insights(BaseModel):
     Example:
         >>> insights = Insights(
         ...     entity="test_result",
-        ...     group_by=["behavior"],
+        ...     group_by=["requirement"],
         ...     measures=["count", "pass_rate"],
         ...     filters={"test_run_ids": [run_id]},
         ... )

@@ -1,9 +1,9 @@
 /**
- * Isolation tests for resolve behavior when `testRunIds` is empty.
+ * Isolation tests for resolve requirement when `testRunIds` is empty.
  * Kept separate so we can mock `resolveInsightsQueryTestRunIds` without
  * affecting URL/format unit tests.
  */
-jest.mock('../behavior-insights-utils', () => ({
+jest.mock('../requirement-insights-utils', () => ({
   resolveInsightsQueryTestRunIds: jest.fn(),
 }));
 
@@ -20,7 +20,7 @@ jest.mock('@/utils/api-client/client-factory', () => ({
   })),
 }));
 
-import { resolveInsightsQueryTestRunIds } from '../behavior-insights-utils';
+import { resolveInsightsQueryTestRunIds } from '../requirement-insights-utils';
 import { fetchFailedTestIdsForInsights } from '../insights-failed-tests';
 
 const mockResolve = resolveInsightsQueryTestRunIds as jest.Mock;
@@ -83,7 +83,7 @@ describe('fetchFailedTestIdsForInsights resolution', () => {
       timeRange: '1m',
       testRunIds: ['run-1'],
       metricName: 'Accuracy',
-      behaviorId: 'beh-1',
+      requirementId: 'beh-1',
       outcome: 'all',
     });
 
@@ -91,7 +91,7 @@ describe('fetchFailedTestIdsForInsights resolution', () => {
       entity: 'metric',
       test_run_ids: ['run-1'],
       outcome: 'all',
-      behavior_ids: ['beh-1'],
+      requirement_ids: ['beh-1'],
       metric_names: ['Accuracy'],
     });
     expect(ids).toEqual(['test-1']);

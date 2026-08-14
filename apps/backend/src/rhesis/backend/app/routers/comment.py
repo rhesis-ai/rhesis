@@ -65,7 +65,7 @@ The structure is: {emoji_character: [list_of_user_reactions]}
 - **No Duplicates**: A user can only react once per emoji per comment
 
 ### Supported Entity Types:
-- Test, TestSet, TestRun, TestResult, Metric, Model, Prompt, Behavior, Category, Source
+- Test, TestSet, TestRun, TestResult, Metric, Model, Prompt, Requirement, Category, Source
 """
 
 
@@ -213,7 +213,7 @@ def read_comments_by_entity(
     """Get all comments for a specific entity.
 
     Supported entities: Test, TestSet, TestRun, TestResult, PromptTemplate,
-    Metric, Model, Prompt, Behavior, Category, Source
+    Metric, Model, Prompt, Requirement, Category, Source
     """
     organization_id, user_id = tenant_context
     # Validate entity type

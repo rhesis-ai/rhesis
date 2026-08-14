@@ -71,7 +71,7 @@ Status is set in three places:
 
 After execution the stored `status` is authoritative. Statistics and reporting read it through `categorize_test_result_status()` (`app/constants.py`), which collapses the status name into a pass/fail/error bucket — they do **not** re-derive pass/fail from `test_metrics`. Deriving once at execution time keeps every surface consistent and avoids re-parsing JSONB.
 
-Read `test_metrics` directly only for per-metric analytics, drill-down, and debugging — never to recompute overall pass/fail. Note that human [reviews](/contribute/backend/test-reviews) can override the stored status or individual metric outcomes; [statistics](/contribute/backend/test-result-stats) account for those overrides.
+Read `test_metrics` directly only for per-metric analytics, drill-down, and debugging — never to recompute overall pass/fail. Note that human [reviews](/contribute/backend/test-reviews) can override the stored status or individual metric outcomes; the stats views backing Insights account for those overrides.
 
 ## Test result status vs test run status
 
@@ -87,6 +87,5 @@ A test can `Fail` (a metric didn't pass) yet still have executed successfully. S
 ## Related documentation
 
 - [Test Run Status](/contribute/backend/test-run-status)
-- [Test Result Statistics](/contribute/backend/test-result-stats)
 - [Test Reviews](/contribute/backend/test-reviews)
 - [Background Tasks](/contribute/backend/background-tasks)

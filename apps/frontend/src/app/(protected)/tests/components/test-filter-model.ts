@@ -7,7 +7,7 @@ import {
 
 export const TEST_DRAWER_FILTER_FIELDS = [
   'test_type.type_value',
-  'behavior.name',
+  'requirement.name',
   'category.name',
   'topic.name',
 ] as const;
@@ -75,12 +75,12 @@ export function applyTestDrawerFiltersToModel(
       value: drawerFilters.testType,
     });
   }
-  if (drawerFilters.behavior) {
+  if (drawerFilters.requirement) {
     drawerItems.push({
-      id: 'behavior.name',
-      field: 'behavior.name',
+      id: 'requirement.name',
+      field: 'requirement.name',
       operator: 'equals',
-      value: drawerFilters.behavior,
+      value: drawerFilters.requirement,
     });
   }
   if (drawerFilters.category) {

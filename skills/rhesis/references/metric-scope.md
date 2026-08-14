@@ -34,16 +34,16 @@ Rare — same rubric for one reply or full transcript. Prefer two metrics + two 
 
 1. `metric_scope` on every metric (copy from `list_metrics` when reusing).
 2. One `test_type` per test set.
-3. Behaviors listed on each test set.
-4. Coverage: every behavior in a set has a linked metric whose scope includes that set's `test_type`.
+3. Requirements listed on each test set.
+4. Coverage: every requirement in a set has a linked metric whose scope includes that set's `test_type`.
 5. Split guardrails (Single-Turn) and retention (Multi-Turn) into separate sets when needed.
 
 ---
 
 ## Plan tables (required before approval)
 
-**Metrics:** Metric | Behavior | AC source | `metric_scope` | Score type | Pass definition
+**Metrics:** Metric | Requirement | AC source | `metric_scope` | Score type | Pass definition
 
-**Test sets:** Test set | `test_type` | Behaviors | Metrics expected to run
+**Test sets:** Test set | `test_type` | Requirements | Metrics expected to run
 
-**Coverage matrix:** Test set | test_type | Behavior | Linked metric | Scope OK?
+**Coverage matrix:** Test set | test_type | Requirement | Linked metric | Scope OK?

@@ -62,7 +62,7 @@ class TestResolveMetricJudgeModels:
         assert resolve.call_count == 2
 
     def test_covers_per_test_configs_too(self):
-        """Behavior-mapped metrics (P3) live in per_test_metric_configs, not the shared list."""
+        """Requirement-mapped metrics (P3) live in per_test_metric_configs, not the shared list."""
         session = MagicMock()
 
         with patch(

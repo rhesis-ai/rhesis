@@ -481,7 +481,7 @@ class TestEnvironmentNameRules:
 
     ``DELETE /environments/{name}`` stays permissive on purpose so legacy
     data written before the rule existed can still be cleaned up; that
-    behavior is locked in here too.
+    requirement is locked in here too.
     """
 
     def _shared_pointer(

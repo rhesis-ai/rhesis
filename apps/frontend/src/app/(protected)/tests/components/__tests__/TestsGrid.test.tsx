@@ -181,7 +181,7 @@ jest.mock('@/components/common/DeleteModal', () => ({
 const makeTest = (id: string, content = 'Test content') => ({
   id,
   prompt: { content },
-  behavior: { name: 'Safety' },
+  requirement: { name: 'Safety' },
   topic: { name: 'Topic A' },
   category: { name: 'Cat 1' },
   test_type: { type_value: 'adversarial' },

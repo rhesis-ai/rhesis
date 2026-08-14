@@ -14,7 +14,7 @@ from sqlalchemy.orm import Query, Session
 from rhesis.backend.app.constants import EntityType
 
 # Removed unused imports - legacy tenant functions no longer needed
-from rhesis.backend.app.models import Behavior, Category, Model, Status, Topic, TypeLookup
+from rhesis.backend.app.models import Requirement, Category, Model, Status, Topic, TypeLookup
 from rhesis.backend.app.utils.database_exceptions import ItemDeletedException, ItemNotFoundException
 from rhesis.backend.app.utils.query_utils import QueryBuilder
 from rhesis.backend.app.utils.uuid_utils import safe_uuid_convert
@@ -1215,7 +1215,7 @@ def get_or_create_category(
     )
 
 
-def get_or_create_behavior(
+def get_or_create_requirement(
     db: Session,
     name: str,
     description: str | None = None,
@@ -1223,14 +1223,14 @@ def get_or_create_behavior(
     organization_id: str = None,
     user_id: str = None,
     commit: bool = True,
-) -> Behavior:
-    """Get or create a behavior with optional description and status."""
-    # Prepare behavior data - only include non-None values
-    behavior_data = {"name": name}
+) -> Requirement:
+    """Get or create a requirement with optional description and status."""
+    # Prepare requirement data - only include non-None values
+    requirement_data = {"name": name}
 
     # Add description only if provided
     if description is not None:
-        behavior_data["description"] = description
+        requirement_data["description"] = description
 
     # Add status if provided
     if status:
@@ -1242,11 +1242,11 @@ def get_or_create_behavior(
             user_id=user_id,
             commit=commit,
         )
-        behavior_data["status_id"] = status_obj.id
+        requirement_data["status_id"] = status_obj.id
 
     # Use get_or_create_entity for consistent lookup logic
     return get_or_create_entity(
-        db, Behavior, behavior_data, organization_id, user_id, commit=commit
+        db, Requirement, requirement_data, organization_id, user_id, commit=commit
     )
 
 

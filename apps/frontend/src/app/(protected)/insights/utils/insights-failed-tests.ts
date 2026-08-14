@@ -5,7 +5,7 @@ import {
   InsightsTimeRange,
   resolveInsightsTimeRange,
 } from '../types';
-import { resolveInsightsQueryTestRunIds } from './behavior-insights-utils';
+import { resolveInsightsQueryTestRunIds } from './requirement-insights-utils';
 
 export const INSIGHTS_FAILED_TESTS_QUERY = 'failedFromInsights';
 export const INSIGHTS_OUTCOME_ALL = 'all';
@@ -19,8 +19,8 @@ export const INSIGHTS_TEST_RUN_SCOPE_PARAM = 'testRunScope';
 export type InsightsTestOutcome = 'failed' | 'all';
 
 export interface InsightsFailedTestsScope {
-  behaviorId?: string;
-  behaviorName?: string;
+  requirementId?: string;
+  requirementName?: string;
   metricName?: string;
   topicId?: string;
   topicName?: string;
@@ -32,8 +32,8 @@ export interface InsightsFailedTestsFilter {
   runFilterMode: InsightsRunFilterMode;
   timeRange: InsightsTimeRange;
   testRunIds: string[];
-  behaviorId?: string;
-  behaviorName?: string;
+  requirementId?: string;
+  requirementName?: string;
   metricName?: string;
   topicId?: string;
   topicName?: string;
@@ -65,11 +65,11 @@ export function buildInsightsFailedTestsUrl(
     params.set(INSIGHTS_TEST_RUN_IDS_PARAM, filters.testRunIds.join(','));
   }
 
-  if (scope?.behaviorId) {
-    params.set('behaviorId', scope.behaviorId);
+  if (scope?.requirementId) {
+    params.set('requirementId', scope.requirementId);
   }
-  if (scope?.behaviorName) {
-    params.set('behaviorName', scope.behaviorName);
+  if (scope?.requirementName) {
+    params.set('requirementName', scope.requirementName);
   }
   if (scope?.metricName) {
     params.set('metric', scope.metricName);
@@ -170,8 +170,8 @@ export function parseInsightsFailedTestsSearchParams(
   return {
     endpointId,
     ...runFilters,
-    behaviorId: searchParams.get('behaviorId') || undefined,
-    behaviorName: searchParams.get('behaviorName') || undefined,
+    requirementId: searchParams.get('requirementId') || undefined,
+    requirementName: searchParams.get('requirementName') || undefined,
     metricName: searchParams.get('metric') || undefined,
     topicId: searchParams.get('topicId') || undefined,
     topicName: searchParams.get('topic') || undefined,
@@ -182,7 +182,7 @@ export function parseInsightsFailedTestsSearchParams(
 
 /**
  * Resolve test case IDs that failed for the selected Insights scope,
- * optionally scoped to a behavior, metric, or topic row.
+ * optionally scoped to a requirement, metric, or topic row.
  *
  * Delegates to GET /insights/ids, which resolves matching test_ids
  * server-side (a Postgres query over the stats view) instead of
@@ -211,7 +211,9 @@ export async function fetchFailedTestIdsForInsights(
     entity: filters.metricName ? 'metric' : 'test_result',
     test_run_ids: testRunIds,
     outcome: filters.outcome === 'all' ? 'all' : 'fail',
-    ...(filters.behaviorId ? { behavior_ids: [filters.behaviorId] } : {}),
+    ...(filters.requirementId
+      ? { requirement_ids: [filters.requirementId] }
+      : {}),
     ...(filters.metricName ? { metric_names: [filters.metricName] } : {}),
     ...(filters.topicId ? { topic_ids: [filters.topicId] } : {}),
   });
@@ -286,24 +288,24 @@ export function formatInsightsFailedTestsBanner(
       : 'No failed test cases matched your Insights filters.';
   }
 
-  if (filter.metricName && filter.behaviorName) {
+  if (filter.metricName && filter.requirementName) {
     if (showAll) {
-      return `Showing ${count} ${noun} evaluated for "${filter.metricName}" in ${filter.behaviorName} on ${endpoint} for ${period}.`;
+      return `Showing ${count} ${noun} evaluated for "${filter.metricName}" in ${filter.requirementName} on ${endpoint} for ${period}.`;
     }
-    return `Showing ${count} ${noun} where "${filter.metricName}" failed for ${filter.behaviorName} on ${endpoint} for ${period}.`;
+    return `Showing ${count} ${noun} where "${filter.metricName}" failed for ${filter.requirementName} on ${endpoint} for ${period}.`;
   }
 
-  if (filter.topicName && filter.behaviorName) {
+  if (filter.topicName && filter.requirementName) {
     if (showAll) {
-      return `Showing ${count} ${noun} for topic "${filter.topicName}" in ${filter.behaviorName} on ${endpoint} for ${period}.`;
+      return `Showing ${count} ${noun} for topic "${filter.topicName}" in ${filter.requirementName} on ${endpoint} for ${period}.`;
     }
-    return `Showing ${count} failed ${noun} for topic "${filter.topicName}" in ${filter.behaviorName} on ${endpoint} for ${period}.`;
+    return `Showing ${count} failed ${noun} for topic "${filter.topicName}" in ${filter.requirementName} on ${endpoint} for ${period}.`;
   }
 
-  if (filter.behaviorName) {
+  if (filter.requirementName) {
     return showAll
-      ? `Showing ${count} ${noun} for ${filter.behaviorName} on ${endpoint} for ${period}.`
-      : `Showing ${count} failed ${noun} for ${filter.behaviorName} on ${endpoint} for ${period}.`;
+      ? `Showing ${count} ${noun} for ${filter.requirementName} on ${endpoint} for ${period}.`
+      : `Showing ${count} failed ${noun} for ${filter.requirementName} on ${endpoint} for ${period}.`;
   }
 
   return showAll

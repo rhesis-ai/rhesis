@@ -19,7 +19,7 @@ class GenerationConfig(BaseModel):
 
     generation_prompt: Optional[str] = None  # Describe what you want to test
 
-    behaviors: Optional[List[str]] = None  # Behaviors
+    requirements: Optional[List[str]] = None  # Requirements
     categories: Optional[List[str]] = None  # Categories
     topics: Optional[List[str]] = None  # Topics
 

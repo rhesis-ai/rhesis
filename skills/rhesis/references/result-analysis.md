@@ -14,7 +14,7 @@ get_test_result_stats
   test_run_id="<uuid>"
 ```
 
-Returns behavior pass rates, metric pass rates, overall totals, and timeline in one call. Use this immediately after execution for a complete post-run analysis. Most efficient option.
+Returns requirement pass rates, metric pass rates, overall totals, and timeline in one call. Use this immediately after execution for a complete post-run analysis. Most efficient option.
 
 ### Authoritative total counts
 
@@ -36,7 +36,7 @@ Never count items from `list_test_results` for totals — the list may be pagina
 ```
 list_test_results
   $filter=test_run_id eq '<uuid>'
-  $select=id,status,prompt,behavior,metric_scores
+  $select=id,status,prompt,requirement,metric_scores
 ```
 
 Keep `$select` minimal. Add `response` only if you need the full endpoint response — it is a large field that causes truncation.
@@ -55,8 +55,8 @@ To understand a specific failure in depth, call `get_test_result` with the resul
 Structure your summary as:
 
 1. **Overall**: total tests, pass count, fail count, pass rate percentage
-2. **Failures by behavior**: group failed results by the `behavior` field; count failures per behavior
-3. **Notable patterns**: any behavior or metric with a high failure rate (e.g., "3 of 4 failures came from the Safety Compliance metric")
+2. **Failures by requirement**: group failed results by the `requirement` field; count failures per requirement
+3. **Notable patterns**: any requirement or metric with a high failure rate (e.g., "3 of 4 failures came from the Safety Compliance metric")
 4. **Link**: `[Test Set Name](/test-runs/<uuid>)` — use the test set name as link text, never a raw UUID
 
 Example structure:
@@ -88,23 +88,23 @@ get_test_result_stats
 
 Returns per-run pass/fail counts and pass rates in a single call. Best starting point for "did anything change between these runs?"
 
-### Behavior-level breakdown
+### Requirement-level breakdown
 
 Call separately for each run:
 
 ```
 get_test_result_stats
-  mode=behavior
+  mode=requirement
   test_run_id="<run-a-uuid>"
 ```
 
 ```
 get_test_result_stats
-  mode=behavior
+  mode=requirement
   test_run_id="<run-b-uuid>"
 ```
 
-Compare the per-behavior pass rates to identify which behaviors improved and which regressed.
+Compare the per-requirement pass rates to identify which requirements improved and which regressed.
 
 ### Metric-level breakdown
 
@@ -120,8 +120,8 @@ Use when the user wants to understand which evaluation criteria changed between 
 
 Structure comparisons as:
 - **Overall**: pass rate change (e.g., "72% → 85%, +13 points")
-- **Improved**: behaviors or metrics that went from failing to passing
-- **Regressed**: behaviors or metrics that went from passing to failing
+- **Improved**: requirements or metrics that went from failing to passing
+- **Regressed**: requirements or metrics that went from passing to failing
 - **Unchanged**: brief count of stable results
 - **Links**: to both test runs so the user can drill into details
 
@@ -187,13 +187,13 @@ Returns: full prompt, full response, expected response, metric scores with indiv
 
 ## Insights handoff
 
-When the message is an Insights page summarize handoff, follow `insights-summary.md`: skip the menu, re-fetch with the listed `test_run_ids` / behaviors, enforce the nested ≤50-run budget, then present aggregates and a few failure samples.
+When the message is an Insights page summarize handoff, follow `insights-summary.md`: skip the menu, re-fetch with the listed `test_run_ids` / requirements, enforce the nested ≤50-run budget, then present aggregates and a few failure samples.
 
 ---
 
 ## Offering next steps after analysis
 
 After presenting results, proactively offer relevant follow-ups:
-- If pass rate is low: "Would you like me to improve any of these metrics, or adjust the test set to focus on different behaviors?"
+- If pass rate is low: "Would you like me to improve any of these metrics, or adjust the test set to focus on different requirements?"
 - If a prior run exists for the same test set: "Would you like me to compare this with the previous run?"
-- If there are failures concentrated in one behavior: "This behavior might need a stricter or more specific metric — want me to improve it?"
+- If there are failures concentrated in one requirement: "This requirement might need a stricter or more specific metric — want me to improve it?"

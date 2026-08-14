@@ -6,13 +6,13 @@ It ensures proper lifecycle management and prevents test pollution.
 
 Usage:
     @pytest.fixture
-    def behavior_factory(authenticated_client: TestClient):
-        factory = EntityFactory(authenticated_client, APIEndpoints.BEHAVIORS)
+    def requirement_factory(authenticated_client: TestClient):
+        factory = EntityFactory(authenticated_client, APIEndpoints.REQUIREMENTS)
         yield factory
         factory.cleanup()
 
-    def test_behavior_creation(behavior_factory):
-        behavior = behavior_factory.create({"name": "Test Behavior"})
+    def test_requirement_creation(requirement_factory):
+        requirement = requirement_factory.create({"name": "Test Requirement"})
         # Automatic cleanup happens after test
 """
 
@@ -256,37 +256,37 @@ class EntityFactory:
         self.cleanup()
 
 
-class BehaviorFactory(EntityFactory):
-    """Specialized factory for behaviors"""
+class RequirementFactory(EntityFactory):
+    """Specialized factory for requirements"""
 
     def __init__(self, client: TestClient):
-        super().__init__(client, APIEndpoints.BEHAVIORS)
+        super().__init__(client, APIEndpoints.REQUIREMENTS)
 
     def create_with_metrics(
-        self, behavior_data: Dict[str, Any], metric_ids: List[str]
+        self, requirement_data: Dict[str, Any], metric_ids: List[str]
     ) -> Dict[str, Any]:
         """
-        Create behavior and associate with metrics
+        Create requirement and associate with metrics
 
         Args:
-            behavior_data: Behavior creation data
+            requirement_data: Requirement creation data
             metric_ids: List of metric IDs to associate
 
         Returns:
-            Created behavior data
+            Created requirement data
         """
-        behavior = self.create(behavior_data)
-        behavior_id = behavior[self.id_field]
+        requirement = self.create(requirement_data)
+        requirement_id = requirement[self.id_field]
 
         # Associate metrics
         for metric_id in metric_ids:
             response = self.client.post(
-                self.endpoints.add_metric_to_behavior(behavior_id, metric_id)
+                self.endpoints.add_metric_to_requirement(requirement_id, metric_id)
             )
             if response.status_code not in [status.HTTP_200_OK, status.HTTP_201_CREATED]:
-                print(f"⚠️  Failed to associate metric {metric_id} with behavior {behavior_id}")
+                print(f"⚠️  Failed to associate metric {metric_id} with requirement {requirement_id}")
 
-        return behavior
+        return requirement
 
 
 class TopicFactory(EntityFactory):
@@ -321,9 +321,9 @@ class TopicFactory(EntityFactory):
 
 
 # Convenience factory creation functions
-def create_behavior_factory(client: TestClient) -> BehaviorFactory:
-    """Create a behavior factory instance"""
-    return BehaviorFactory(client)
+def create_requirement_factory(client: TestClient) -> RequirementFactory:
+    """Create a requirement factory instance"""
+    return RequirementFactory(client)
 
 
 def create_topic_factory(client: TestClient) -> TopicFactory:
@@ -339,9 +339,9 @@ def create_generic_factory(client: TestClient, endpoints: EndpointProtocol) -> E
 # Export main classes
 __all__ = [
     "EntityFactory",
-    "BehaviorFactory",
+    "RequirementFactory",
     "TopicFactory",
-    "create_behavior_factory",
+    "create_requirement_factory",
     "create_topic_factory",
     "create_generic_factory",
 ]

@@ -88,8 +88,8 @@ REGISTRY = {
         "id_column": TR.test_id,
         "apply_outcome": _overall_result_outcome,
         "dimensions": {
-            "behavior": TR.behavior_name,
-            "behavior_id": TR.behavior_id,
+            "requirement": TR.requirement_name,
+            "requirement_id": TR.requirement_id,
             "category": TR.category_name,
             "category_id": TR.category_id,
             "topic": TR.topic_name,
@@ -110,7 +110,7 @@ REGISTRY = {
         },
         "filters": {
             "test_run_ids": TR.test_run_id,
-            "behavior_ids": TR.behavior_id,
+            "requirement_ids": TR.requirement_id,
             "category_ids": TR.category_id,
             "topic_ids": TR.topic_id,
             "status_ids": TR.test_status_id,
@@ -136,7 +136,7 @@ REGISTRY = {
         "apply_outcome": _metric_success_outcome,
         "dimensions": {
             "metric_name": ME.metric_name,
-            "behavior_id": ME.behavior_id,
+            "requirement_id": ME.requirement_id,
             "year": ME.year,
             "month": ME.month,
         },
@@ -154,7 +154,7 @@ REGISTRY = {
         },
         "filters": {
             "test_run_ids": ME.test_run_id,
-            "behavior_ids": ME.behavior_id,
+            "requirement_ids": ME.requirement_id,
             "test_ids": ME.test_id,
             "metric_names": ME.metric_name,
         },
@@ -197,8 +197,8 @@ REGISTRY = {
         "date_column": TS.created_at,
         "id_column": TS.test_id,
         "dimensions": {
-            "behavior": TS.behavior_name,
-            "behavior_id": TS.behavior_id,
+            "requirement": TS.requirement_name,
+            "requirement_id": TS.requirement_id,
             "category": TS.category_name,
             "category_id": TS.category_id,
             "topic": TS.topic_name,
@@ -221,7 +221,7 @@ REGISTRY = {
             ),
         },
         "filters": {
-            "behavior_ids": TS.behavior_id,
+            "requirement_ids": TS.requirement_id,
             "category_ids": TS.category_id,
             "topic_ids": TS.topic_id,
             "status_ids": TS.test_status_id,

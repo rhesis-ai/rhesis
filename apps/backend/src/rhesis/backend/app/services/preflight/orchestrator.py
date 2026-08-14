@@ -14,7 +14,7 @@ from rhesis.backend.app.schemas.preflight import PreflightCheckResult, Preflight
 from rhesis.backend.app.schemas.websocket import ChannelTarget, EventType, WebSocketMessage
 
 from .checks import (
-    check_behavior_metric_coverage,
+    check_requirement_metric_coverage,
     check_endpoint_connectivity,
     check_evaluation_model,
     check_execution_model,
@@ -23,7 +23,7 @@ from .checks import (
     check_test_set_not_empty,
 )
 from .constants import (
-    CHECK_BEHAVIOR_METRIC_COVERAGE,
+    CHECK_REQUIREMENT_METRIC_COVERAGE,
     CHECK_ENDPOINT_CONNECTIVITY,
     CHECK_EVALUATION_MODEL,
     CHECK_EXECUTION_MODEL,
@@ -74,7 +74,7 @@ async def run_preflight_checks_multi(
     test_sets: list[tuple[UUID, str, bool]],
     endpoint_id: UUID,
     scoring_target: str = "fresh",
-    metric_mode: str = "use_behavior",
+    metric_mode: str = "use_requirement",
     selected_metrics: Optional[list] = None,
     execution_model_id: Optional[str] = None,
     evaluation_model_id: Optional[str] = None,
@@ -171,8 +171,8 @@ async def run_preflight_checks_multi(
 
         tasks.append(
             (
-                _make_composite_key(CHECK_BEHAVIOR_METRIC_COVERAGE, ts_id_str),
-                check_behavior_metric_coverage(
+                _make_composite_key(CHECK_REQUIREMENT_METRIC_COVERAGE, ts_id_str),
+                check_requirement_metric_coverage(
                     db,
                     ts_id,
                     metric_mode,
@@ -291,7 +291,7 @@ async def run_preflight_checks(
     test_set_id: UUID,
     endpoint_id: UUID,
     scoring_target: str = "fresh",
-    metric_mode: str = "use_behavior",
+    metric_mode: str = "use_requirement",
     selected_metrics: Optional[list] = None,
     execution_model_id: Optional[str] = None,
     evaluation_model_id: Optional[str] = None,

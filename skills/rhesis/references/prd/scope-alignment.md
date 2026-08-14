@@ -10,7 +10,7 @@ For each test, metrics come from (highest priority first):
 
 1. Execution-time override on `test_configuration`
 2. Metrics attached to the **test set**
-3. Metrics linked to the test's **behavior**
+3. Metrics linked to the test's **requirement**
 
 Then the executor filters by **test type**:
 
@@ -45,10 +45,10 @@ There is no separate "binary" scope — binary is a **categorical score type**, 
 - **`Single-Turn`** — each test has a **prompt** (+ optional `expected_response`)
 - **`Multi-Turn`** — each test has **`test_configuration.goal`**; no prompt. Penelope drives the conversation.
 
-**Implication:** behaviors that only make sense across turns (context retention, multi-step refund thread) need:
+**Implication:** requirements that only make sense across turns (context retention, multi-step refund thread) need:
 
 1. Metric with `"Multi-Turn"` in `metric_scope`
-2. A **Multi-Turn** test set whose `generation_prompt` targets those behaviors
+2. A **Multi-Turn** test set whose `generation_prompt` targets those requirements
 
 Single-turn guardrails (secrecy, one-shot refusal) need:
 
@@ -67,7 +67,7 @@ Single-turn guardrails (secrecy, one-shot refusal) need:
 | Full RS-04 thread (status + refund, no re-entry) | `["Multi-Turn"]` for retention; separate metrics per FR | Multi-Turn |
 | Off-topic one-sentence redirect | `["Single-Turn"]` | Single-Turn |
 
-When the same behavior needs **both** a one-shot adversarial probe and a conversational flow, either:
+When the same requirement needs **both** a one-shot adversarial probe and a conversational flow, either:
 
 - Create **two metrics** (one per scope), or
 - One dual-scope metric with an `evaluation_prompt` that works for both (harder — prefer split)
@@ -76,24 +76,24 @@ When the same behavior needs **both** a one-shot adversarial probe and a convers
 
 ### Metrics table
 
-| Metric | Behavior | AC source | `metric_scope` | Score type | Pass definition |
+| Metric | Requirement | AC source | `metric_scope` | Score type | Pass definition |
 
 Every row must have an explicit `metric_scope` list — never leave blank (platform default may be Single-Turn only, but PRD skill must plan intentionally).
 
 ### Test sets table
 
-| Test set | `test_type` | Behaviors targeted | Metrics expected to run |
+| Test set | `test_type` | Requirements targeted | Metrics expected to run |
 
 **Coverage check before user approval:**
 
-For each test set row, every behavior listed must have **at least one** linked metric whose `metric_scope` includes that test set's `test_type`.
+For each test set row, every requirement listed must have **at least one** linked metric whose `metric_scope` includes that test set's `test_type`.
 
 ```
-∀ test_set T, ∀ behavior B ∈ T.behaviors:
+∀ test_set T, ∀ requirement B ∈ T.requirements:
   ∃ metric M linked to B such that T.test_type ∈ M.metric_scope
 ```
 
-If not, split behaviors, split metrics, or add dual-scope metrics — do not proceed.
+If not, split requirements, split metrics, or add dual-scope metrics — do not proceed.
 
 ## Common failure modes
 
@@ -102,15 +102,15 @@ If not, split behaviors, split metrics, or add dual-scope metrics — do not pro
 | Multi-Turn test set, all metrics `["Single-Turn"]` only | Preflight warning; run produces no metric scores |
 | Context-retention FR, metric scoped Single-Turn only | Metric never runs on the Multi-Turn set that tests retention |
 | Forgot `metric_scope` on `create_metric` | Metric excluded on every run |
-| One test set mixes retention + secrecy behaviors | Secrecy metrics won't run on Multi-Turn set unless dual-scope — **split test sets** by scope |
-| Behavior linked to metric, but wrong test set type | Mapping exists but execution filter drops metric |
+| One test set mixes retention + secrecy requirements | Secrecy metrics won't run on Multi-Turn set unless dual-scope — **split test sets** by scope |
+| Requirement linked to metric, but wrong test set type | Mapping exists but execution filter drops metric |
 
 ## Creation order reminder
 
-1. Create behaviors
+1. Create requirements
 2. Create metrics **with `metric_scope` set from plan**
-3. `add_behavior_to_metric` for each mapping
+3. `add_requirement_to_metric` for each mapping
 4. Generate **Single-Turn** and **Multi-Turn** test sets separately when the PRD needs both
 5. Tag entities
 
-Do not put all behaviors in one test set if their metrics require different scopes.
+Do not put all requirements in one test set if their metrics require different scopes.

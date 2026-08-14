@@ -9,14 +9,14 @@ A plan has five sections:
 | Section | Required | What it contains |
 | --- | --- | --- |
 | **Project** | No | A name and description to group the test suite. Omit for ad-hoc tests against an existing endpoint. |
-| **Behaviors** | Yes | What the endpoint should (or shouldn't) do. Each test is tagged with a behavior. |
-| **Test sets** | Yes | Named collections of tests, each targeting specific behaviors, categories, and topics. |
+| **Requirements** | Yes | What the endpoint should (or shouldn't) do. Each test is tagged with a requirement. |
+| **Test sets** | Yes | Named collections of tests, each targeting specific requirements, categories, and topics. |
 | **Metrics** | Yes | How each test is evaluated — the evaluation criteria and pass/fail threshold. |
-| **Behavior-metric mappings** | Yes | Which metric evaluates which behavior. Every behavior needs at least one. |
+| **Requirement-metric mappings** | Yes | Which metric evaluates which requirement. Every requirement needs at least one. |
 
 ## Reuse status
 
-Architect checks what already exists on your platform before proposing new entities. Each behavior and metric in the plan is labelled:
+Architect checks what already exists on your platform before proposing new entities. Each requirement and metric in the plan is labelled:
 
 | Label | Meaning |
 | --- | --- |
@@ -24,11 +24,11 @@ Architect checks what already exists on your platform before proposing new entit
 | **(improve)** | Exists but needs adjustment — Architect refines it in place |
 | **(new)** | Doesn't exist — Architect creates it |
 
-This prevents duplicate behaviors and metrics from accumulating across sessions.
+This prevents duplicate requirements and metrics from accumulating across sessions.
 
 ## Naming conventions
 
-Architect uses **Title Case** for behavior and metric names — two to five words describing what is being measured or expected.
+Architect uses **Title Case** for requirement and metric names — two to five words describing what is being measured or expected.
 
 | Good | Avoid |
 | --- | --- |
@@ -68,7 +68,7 @@ Every metric declares which test shapes it can score. At run time the platform *
 | `Multi-Turn` | Full conversation needed (context retention, multi-step threads) | Multi-Turn |
 | Both | Same rubric works for either shape (rare — prefer splitting) | Matching sets |
 
-When planning, Architect shows each metric's scope and validates that every behavior in a test set has at least one linked metric with a compatible scope. If you need both one-shot guardrails and conversational retention tests, expect **two test sets** with separately scoped metrics.
+When planning, Architect shows each metric's scope and validates that every requirement in a test set has at least one linked metric with a compatible scope. If you need both one-shot guardrails and conversational retention tests, expect **two test sets** with separately scoped metrics.
 
 → Full rules: [Metric scope](/docs/metrics/metric-scope)
 
@@ -78,7 +78,7 @@ The plan is a conversation. After Architect presents it, you can:
 
 - Ask for more or fewer test sets
 - Swap a metric for an existing one
-- Add specific behaviors Architect didn't include
+- Add specific requirements Architect didn't include
 - Remove entities you don't need
 
 Architect updates the plan and presents it again before creating anything. There is no limit to how many rounds of revision you can make.

@@ -13,7 +13,7 @@
 #   external_service – (optional) true if detector calls a remote API
 #   legacy_aliases  – (optional) old short names kept for backward compatibility
 #
-# Garak detectors are NEVER auto-attached to behaviors.  They are created in
+# Garak detectors are NEVER auto-attached to requirements.  They are created in
 # the metric catalog during org onboarding but only run when explicitly
 # selected at the test-set level (e.g. via Garak probe import) or at
 # execution time.  This avoids flooding hand-authored test sets with

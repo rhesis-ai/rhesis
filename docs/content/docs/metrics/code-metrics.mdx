@@ -108,7 +108,7 @@ When your script is running and connected (`client.connect()`), the backend rece
 Open **Metrics** in the sidebar. Code metrics registered from the SDK appear in the list marked with an **SDK** button, which distinguishes them from LLM-based metrics configured directly in the platform.
 
 
-You can assign them to [Behaviors](/docs/behaviors) and include them in test sets exactly like any other metric. The only difference is that the metric code runs on your machine — the connector must be active when a test run that uses the metric is executed.
+You can assign them to [Requirements](/docs/requirements) and include them in test sets exactly like any other metric. The only difference is that the metric code runs on your machine — the connector must be active when a test run that uses the metric is executed.
 
 <Callout type="warning">
   If your script is not running when a test executes, the backend will report a metric error for that run. Keep the script running for the duration of any test execution that references your code metrics.

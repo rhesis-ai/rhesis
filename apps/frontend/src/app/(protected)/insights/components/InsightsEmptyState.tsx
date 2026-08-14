@@ -18,7 +18,7 @@ const VARIANT_CONFIG = {
     icon: EndpointsIcon,
     title: 'No endpoints in this project',
     description:
-      'Create an endpoint to view behavior insights for your AI application.',
+      'Create an endpoint to view requirement insights for your AI application.',
     actionLabel: 'Go to Endpoints',
     href: '/endpoints',
   },
@@ -26,7 +26,7 @@ const VARIANT_CONFIG = {
     icon: PlayArrowIcon,
     title: 'No test results yet',
     description:
-      'Run a test set against your endpoint to generate your first test run and view behavior insights.',
+      'Run a test set against your endpoint to generate your first test run and view requirement insights.',
     actionLabel: 'Go to Test Sets',
     href: '/test-sets',
   },

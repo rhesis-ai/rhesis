@@ -7,14 +7,14 @@ import {
   type EmbeddingViewLabel,
 } from './graphToEmbeddingViewData';
 
-export type EmbeddingColorBy = 'cluster' | 'behavior' | 'category' | 'topic';
+export type EmbeddingColorBy = 'cluster' | 'requirement' | 'category' | 'topic';
 
 export const EMBEDDING_COLOR_BY_OPTIONS: {
   value: EmbeddingColorBy;
   label: string;
 }[] = [
   { value: 'cluster', label: 'Cluster' },
-  { value: 'behavior', label: 'Behavior' },
+  { value: 'requirement', label: 'Requirement' },
   { value: 'category', label: 'Category' },
   { value: 'topic', label: 'Topic' },
 ];
@@ -63,8 +63,8 @@ function getDimensionValue(
 ): string | null {
   if (!test) return null;
   switch (colorBy) {
-    case 'behavior':
-      return test.behavior?.name ?? null;
+    case 'requirement':
+      return test.requirement?.name ?? null;
     case 'category':
       return test.category?.name ?? null;
     case 'topic':

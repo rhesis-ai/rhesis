@@ -156,7 +156,7 @@ export interface PromptReference {
   };
 }
 
-export interface BehaviorReference {
+export interface RequirementReference {
   id: UUID;
   name: string;
   description?: string;
@@ -165,7 +165,7 @@ export interface BehaviorReference {
 export interface TestReference {
   id: UUID;
   prompt?: PromptReference;
-  behavior?: BehaviorReference;
+  requirement?: RequirementReference;
 }
 
 // Base interface for test results

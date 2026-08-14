@@ -3,7 +3,7 @@ SQLAlchemy event listeners for automatic soft delete filtering.
 
 This module provides automatic filtering of soft-deleted records at the
 SQLAlchemy query level. It works in conjunction with the QueryBuilder
-to provide multiple levels of control over soft delete behavior.
+to provide multiple levels of control over soft delete requirement.
 """
 
 import logging

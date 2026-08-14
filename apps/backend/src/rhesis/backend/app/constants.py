@@ -12,7 +12,7 @@ class EntityType(Enum):
     METRIC = "Metric"
     MODEL = "Model"
     PROMPT = "Prompt"
-    BEHAVIOR = "Behavior"
+    REQUIREMENT = "Requirement"
     CATEGORY = "Category"
     TOPIC = "Topic"
     TASK = "Task"
@@ -117,21 +117,20 @@ class MetricType:
     CUSTOM_PROMPT = "custom-prompt"
 
 
-# Marker behavior name stored in test_set.attributes["metadata"]["behaviors"] for Explorer
+# Marker requirement name stored in test_set.attributes["metadata"]["requirements"] for Explorer
 # test sets. "Explorer" is the settled vocabulary (see explorer-roadmap.md 2.1) -- the value
 # itself is legacy ("Adaptive Testing", the module's old name) and must not change: it is
 # already persisted in existing test_set rows and matched via JSONB containment.
-EXPLORER_BEHAVIOR_NAME = "Adaptive Testing"
+EXPLORER_REQUIREMENT_NAME = "Adaptive Testing"
 
 
-# Behavior resource identifiers -- single source of truth ahead of the
-# Behavior -> Requirement rename. Router prefix/tags/resource-name and the
-# JSON/dict key used by the test-generation streaming contract and the
-# metric-seed JSON's "behaviors" array.
-BEHAVIOR_ROUTE_PREFIX = "/behaviors"
-BEHAVIOR_RESOURCE_NAME = "behavior"
-BEHAVIOR_TAG = "behaviors"
-BEHAVIOR_LIST_KEY = "behaviors"
+# Requirement resource identifiers -- single source of truth for the router
+# prefix/tags/resource-name and the JSON/dict key used by the test-generation
+# streaming contract and the metric-seed JSON's "requirements" array.
+REQUIREMENT_ROUTE_PREFIX = "/requirements"
+REQUIREMENT_RESOURCE_NAME = "requirement"
+REQUIREMENT_TAG = "requirements"
+REQUIREMENT_LIST_KEY = "requirements"
 
 
 # Error messages

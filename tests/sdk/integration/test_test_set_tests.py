@@ -20,7 +20,7 @@ def _create_test_set(name: str = "Association Test Set", num_tests: int = 1) -> 
         {
             "category": "Safety",
             "topic": "Content",
-            "behavior": f"Behavior{i}",
+            "requirement": f"Requirement{i}",
             "prompt": {"content": f"Test prompt {i}"},
         }
         for i in range(num_tests)

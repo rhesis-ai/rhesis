@@ -18,7 +18,7 @@ jest.mock('../InsightsFilterDrawer', () => ({
     open: boolean;
     onApply: (filters: {
       endpointId: string;
-      behaviorIds: string[] | null;
+      requirementIds: string[] | null;
       statusIds: string[] | null;
       timeRange: '1m' | '7d';
       testRunIds: string[];
@@ -31,7 +31,7 @@ jest.mock('../InsightsFilterDrawer', () => ({
           onClick={() =>
             onApply({
               endpointId: 'ep-2',
-              behaviorIds: null,
+              requirementIds: null,
               statusIds: null,
               timeRange: '1m',
               testRunIds: ['run-1'],
@@ -76,7 +76,7 @@ function renderFilters(
     onFiltersChange: jest.fn(),
     projectEndpoints: defaultEndpoints,
     endpointsLoading: false,
-    behaviorOptions: [
+    requirementOptions: [
       { id: 'beh-1', name: 'Safety', count: 12 },
       { id: 'beh-2', name: 'Fluency', count: 8 },
     ],
@@ -102,7 +102,7 @@ describe('TestResultsFilters', () => {
   it('renders search input', () => {
     renderFilters();
     expect(
-      screen.getByPlaceholderText(/search behaviors/i)
+      screen.getByPlaceholderText(/search requirements/i)
     ).toBeInTheDocument();
   });
 
@@ -111,7 +111,10 @@ describe('TestResultsFilters', () => {
     const onSearchChange = jest.fn();
     renderFilters({ onSearchChange });
 
-    await user.type(screen.getByPlaceholderText(/search behaviors/i), 'safe');
+    await user.type(
+      screen.getByPlaceholderText(/search requirements/i),
+      'safe'
+    );
 
     expect(onSearchChange).toHaveBeenCalled();
   });
@@ -155,7 +158,7 @@ describe('TestResultsFilters', () => {
       filters: {
         ...DEFAULT_INSIGHTS_FILTERS,
         endpointId: 'ep-1',
-        behaviorIds: ['beh-1'],
+        requirementIds: ['beh-1'],
         timeRange: '7d',
       },
     });
@@ -165,11 +168,11 @@ describe('TestResultsFilters', () => {
     expect(onFiltersChange).toHaveBeenCalledWith(DEFAULT_INSIGHTS_FILTERS);
   });
 
-  it('hides behavior search in compact variant but keeps filters', () => {
+  it('hides requirement search in compact variant but keeps filters', () => {
     renderFilters({ variant: 'compact' });
 
     expect(
-      screen.queryByPlaceholderText(/search behaviors/i)
+      screen.queryByPlaceholderText(/search requirements/i)
     ).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Filters' })).toBeInTheDocument();
   });

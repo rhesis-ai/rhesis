@@ -426,11 +426,11 @@ class TestArchitectWriteGuard:
     def test_mutating_tools_detected_from_http_method(self, mock_model):
         agent = _make_agent(mock_model)
         agent._mutating_tools = frozenset(
-            {"create_metric", "generate_metric", "update_behavior", "execute_tests"}
+            {"create_metric", "generate_metric", "update_requirement", "execute_tests"}
         )
         assert agent._is_mutating("create_metric") is True
         assert agent._is_mutating("generate_metric") is True
-        assert agent._is_mutating("update_behavior") is True
+        assert agent._is_mutating("update_requirement") is True
         assert agent._is_mutating("execute_tests") is True
 
     def test_readonly_tools_not_mutating(self, mock_model):
@@ -1189,7 +1189,7 @@ class TestArchitectPromptHardening:
 class TestArchitectEndpointPrerequisiteGuidance:
     """A project with no endpoint cannot run anything.
 
-    Test sets, behaviors and metrics can all be created without one, so the
+    Test sets, requirements and metrics can all be created without one, so the
     agent can happily build a whole suite for a project that will never
     produce a single result. The prompt has to make the missing endpoint the
     first thing the user hears about, on any request that would lead to a run.
@@ -1216,7 +1216,7 @@ class TestArchitectEndpointPrerequisiteGuidance:
         prompt = agent.system_prompt
         section = prompt[prompt.index("## A working endpoint comes first") :]
         assert "list_endpoints" in section
-        assert "before proposing behaviors, metrics or test sets" in section
+        assert "before proposing requirements, metrics or test sets" in section
 
     def test_leads_with_the_missing_endpoint(self, mock_model):
         agent = _make_agent(mock_model)
@@ -1393,7 +1393,7 @@ class TestArchitectArgumentValidation:
         from rhesis.sdk.agents.schemas import ToolCall
 
         tc = ToolCall(
-            tool_name="create_behavior",
+            tool_name="create_requirement",
             arguments=json.dumps({"description": "y" * (agent._cfg.max_string_value_len + 1)}),
         )
         error = agent._validate_tool_arguments(tc)
@@ -1691,7 +1691,7 @@ class TestArchitectDeferredTestSetCompletion:
 
         agent = _make_agent(mock_model)
         agent._plan = ArchitectPlan(
-            behaviors=[],
+            requirements=[],
             test_sets=[TestSetSpec(name="Safety Tests", description="d")],
             metrics=[],
         )
@@ -1713,7 +1713,7 @@ class TestArchitectDeferredTestSetCompletion:
 
         agent = _make_agent(mock_model)
         agent._plan = ArchitectPlan(
-            behaviors=[],
+            requirements=[],
             test_sets=[
                 TestSetSpec(name="Safety Tests", description="d"),
                 TestSetSpec(name="Accuracy Tests", description="d"),
@@ -1743,7 +1743,7 @@ class TestArchitectDeferredTestSetCompletion:
 
         agent = _make_agent(mock_model)
         agent._plan = ArchitectPlan(
-            behaviors=[],
+            requirements=[],
             test_sets=[
                 TestSetSpec(name="Safety Tests", description="d"),
                 TestSetSpec(name="Other Tests", description="d"),
@@ -1781,7 +1781,7 @@ class TestArchitectPlanConstraints:
 
         agent = _make_agent(mock_model)
         agent._plan = ArchitectPlan(
-            behaviors=[],
+            requirements=[],
             test_sets=[],
             metrics=[],
         )
@@ -1800,7 +1800,7 @@ class TestArchitectPlanConstraints:
         agent = _make_agent(mock_model)
         agent._plan = ArchitectPlan(
             project=ProjectSpec(name="Real Project", description="A test project"),
-            behaviors=[],
+            requirements=[],
             test_sets=[],
             metrics=[],
         )
@@ -1817,7 +1817,7 @@ class TestArchitectPlanConstraints:
 
         agent = _make_agent(mock_model)
         agent._plan = ArchitectPlan(
-            behaviors=[],
+            requirements=[],
             test_sets=[],
             metrics=[MetricSpec(name="Factual Accuracy", description="Checks facts")],
         )
@@ -1836,7 +1836,7 @@ class TestArchitectPlanConstraints:
 
         agent = _make_agent(mock_model)
         agent._plan = ArchitectPlan(
-            behaviors=[],
+            requirements=[],
             test_sets=[],
             metrics=[MetricSpec(name="Factual Accuracy", description="Checks facts")],
         )
@@ -1864,7 +1864,7 @@ class TestArchitectPlanConstraints:
 
         agent = _make_agent(mock_model)
         agent._plan = ArchitectPlan(
-            behaviors=[],
+            requirements=[],
             test_sets=[],
             metrics=[MetricSpec(
                 name="Factual Accuracy",
@@ -1880,16 +1880,16 @@ class TestArchitectPlanConstraints:
         assert error is not None
         assert "already completed" in error
 
-    def test_rejects_already_completed_behavior(self, mock_model):
+    def test_rejects_already_completed_requirement(self, mock_model):
         from rhesis.sdk.agents.architect.plan import (
             ArchitectPlan,
-            BehaviorSpec,
+            RequirementSpec,
         )
         from rhesis.sdk.agents.schemas import ToolCall
 
         agent = _make_agent(mock_model)
         agent._plan = ArchitectPlan(
-            behaviors=[BehaviorSpec(
+            requirements=[RequirementSpec(
                 name="Safety",
                 description="d",
                 completed=True,
@@ -1898,7 +1898,7 @@ class TestArchitectPlanConstraints:
             metrics=[],
         )
         tc = ToolCall(
-            tool_name="create_behavior",
+            tool_name="create_requirement",
             arguments=json.dumps({"name": "Safety"}),
         )
         error = agent._check_plan_constraints(tc)
@@ -1911,7 +1911,7 @@ class TestArchitectPlanConstraints:
 
         agent = _make_agent(mock_model)
         agent._plan = ArchitectPlan(
-            behaviors=[],
+            requirements=[],
             test_sets=[],
             metrics=[MetricSpec(
                 name="Factual Accuracy",
@@ -1926,17 +1926,17 @@ class TestArchitectPlanConstraints:
         error = agent._check_plan_constraints(tc)
         assert error is None
 
-    def test_blocks_test_set_when_behaviors_incomplete(self, mock_model):
+    def test_blocks_test_set_when_requirements_incomplete(self, mock_model):
         from rhesis.sdk.agents.architect.plan import (
             ArchitectPlan,
-            BehaviorSpec,
+            RequirementSpec,
             TestSetSpec,
         )
         from rhesis.sdk.agents.schemas import ToolCall
 
         agent = _make_agent(mock_model)
         agent._plan = ArchitectPlan(
-            behaviors=[BehaviorSpec(
+            requirements=[RequirementSpec(
                 name="Safety",
                 description="d",
                 completed=False,
@@ -1950,7 +1950,7 @@ class TestArchitectPlanConstraints:
         )
         error = agent._check_plan_constraints(tc)
         assert error is not None
-        assert "behavior 'Safety'" in error
+        assert "requirement 'Safety'" in error
 
     def test_blocks_test_set_when_metrics_incomplete(self, mock_model):
         from rhesis.sdk.agents.architect.plan import (
@@ -1962,7 +1962,7 @@ class TestArchitectPlanConstraints:
 
         agent = _make_agent(mock_model)
         agent._plan = ArchitectPlan(
-            behaviors=[],
+            requirements=[],
             test_sets=[TestSetSpec(name="Tests", description="d")],
             metrics=[MetricSpec(
                 name="Accuracy",
@@ -1988,11 +1988,11 @@ class TestArchitectPlanConstraints:
 
         agent = _make_agent(mock_model)
         agent._plan = ArchitectPlan(
-            behaviors=[],
+            requirements=[],
             test_sets=[TestSetSpec(name="Tests", description="d")],
             metrics=[],
-            behavior_metric_mappings=[MappingSpec(
-                behavior="Safety",
+            requirement_metric_mappings=[MappingSpec(
+                requirement="Safety",
                 metrics=["Accuracy"],
             )],
         )
@@ -2007,7 +2007,7 @@ class TestArchitectPlanConstraints:
     def test_allows_test_set_when_all_prereqs_done(self, mock_model):
         from rhesis.sdk.agents.architect.plan import (
             ArchitectPlan,
-            BehaviorSpec,
+            RequirementSpec,
             MappingSpec,
             MetricSpec,
             TestSetSpec,
@@ -2016,15 +2016,15 @@ class TestArchitectPlanConstraints:
 
         agent = _make_agent(mock_model)
         agent._plan = ArchitectPlan(
-            behaviors=[BehaviorSpec(
+            requirements=[RequirementSpec(
                 name="Safety", description="d", completed=True,
             )],
             test_sets=[TestSetSpec(name="Tests", description="d")],
             metrics=[MetricSpec(
                 name="Accuracy", description="d", completed=True,
             )],
-            behavior_metric_mappings=[MappingSpec(
-                behavior="Safety",
+            requirement_metric_mappings=[MappingSpec(
+                requirement="Safety",
                 metrics=["Accuracy"],
                 completed=True,
             )],
@@ -2051,7 +2051,7 @@ class TestArchitectIdNameCollection:
     def test_collects_from_single_object(self, mock_model):
         agent = _make_agent(mock_model)
         result = ToolResult(
-            tool_name="create_behavior",
+            tool_name="create_requirement",
             success=True,
             content=json.dumps({"id": "uuid-1", "name": "Safety"}),
         )
@@ -2061,7 +2061,7 @@ class TestArchitectIdNameCollection:
     def test_collects_from_list(self, mock_model):
         agent = _make_agent(mock_model)
         result = ToolResult(
-            tool_name="list_behaviors",
+            tool_name="list_requirements",
             success=True,
             content=json.dumps([
                 {"id": "uuid-1", "name": "Safety"},
@@ -2090,12 +2090,12 @@ class TestArchitectIdNameCollection:
         """MCP server wraps paginated list responses in {results, _pagination}.
 
         Without this support the architect drops every ID returned by
-        list_behaviors / list_metrics, breaking add_behavior_to_metric
+        list_requirements / list_metrics, breaking add_requirement_to_metric
         progress tracking downstream.
         """
         agent = _make_agent(mock_model)
         result = ToolResult(
-            tool_name="list_behaviors",
+            tool_name="list_requirements",
             success=True,
             content=json.dumps({
                 "results": [
@@ -2112,7 +2112,7 @@ class TestArchitectIdNameCollection:
     def test_skips_failed_results(self, mock_model):
         agent = _make_agent(mock_model)
         result = ToolResult(
-            tool_name="create_behavior",
+            tool_name="create_requirement",
             success=False,
             error="validation error",
         )
@@ -2122,7 +2122,7 @@ class TestArchitectIdNameCollection:
     def test_skips_malformed_json(self, mock_model):
         agent = _make_agent(mock_model)
         result = ToolResult(
-            tool_name="create_behavior",
+            tool_name="create_requirement",
             success=True,
             content="not json",
         )
@@ -2375,9 +2375,9 @@ class TestArchitectCompactListRendering:
 
 @pytest.mark.unit
 class TestArchitectMappingMatch:
-    """Behavior-metric mapping progress tracking via _match_mapping.
+    """Requirement-metric mapping progress tracking via _match_mapping.
 
-    The matcher must require BOTH a behavior name match AND a metric
+    The matcher must require BOTH a requirement name match AND a metric
     that is in that mapping's planned metrics list. Mappings with
     multiple planned metrics must accumulate links across calls and
     only flip to completed once every planned metric is linked.
@@ -2391,17 +2391,17 @@ class TestArchitectMappingMatch:
     def _travel_plan():
         from rhesis.sdk.agents.architect.plan import (
             ArchitectPlan,
-            BehaviorSpec,
+            RequirementSpec,
             MappingSpec,
             MetricSpec,
             TestSetSpec,
         )
 
         return ArchitectPlan(
-            behaviors=[
-                BehaviorSpec(name="Core Travel Assistance", description="d"),
-                BehaviorSpec(name="Pricing Information & Disclaimers", description="d"),
-                BehaviorSpec(name="Refuses Non-Travel Queries", description="d"),
+            requirements=[
+                RequirementSpec(name="Core Travel Assistance", description="d"),
+                RequirementSpec(name="Pricing Information & Disclaimers", description="d"),
+                RequirementSpec(name="Refuses Non-Travel Queries", description="d"),
             ],
             test_sets=[TestSetSpec(name="Tests", description="d")],
             metrics=[
@@ -2409,36 +2409,36 @@ class TestArchitectMappingMatch:
                 MetricSpec(name="Travel Hallucination Detection", description="d"),
                 MetricSpec(name="Domain Adherence", description="d"),
             ],
-            behavior_metric_mappings=[
+            requirement_metric_mappings=[
                 MappingSpec(
-                    behavior="Core Travel Assistance",
+                    requirement="Core Travel Assistance",
                     metrics=[
                         "Pricing Information Accuracy",
                         "Travel Hallucination Detection",
                     ],
                 ),
                 MappingSpec(
-                    behavior="Pricing Information & Disclaimers",
+                    requirement="Pricing Information & Disclaimers",
                     metrics=[
                         "Pricing Information Accuracy",
                         "Travel Hallucination Detection",
                     ],
                 ),
                 MappingSpec(
-                    behavior="Refuses Non-Travel Queries",
+                    requirement="Refuses Non-Travel Queries",
                     metrics=["Domain Adherence"],
                 ),
             ],
         )
 
     @staticmethod
-    def _link_call(behavior_id: str, metric_id: str):
+    def _link_call(requirement_id: str, metric_id: str):
         from rhesis.sdk.agents.schemas import ToolCall
 
         return ToolCall(
-            tool_name="add_behavior_to_metric",
+            tool_name="add_requirement_to_metric",
             arguments=json.dumps(
-                {"behavior_id": behavior_id, "metric_id": metric_id}
+                {"requirement_id": requirement_id, "metric_id": metric_id}
             ),
         )
 
@@ -2458,8 +2458,8 @@ class TestArchitectMappingMatch:
         )
 
         refuses = next(
-            m for m in plan.behavior_metric_mappings
-            if m.behavior == "Refuses Non-Travel Queries"
+            m for m in plan.requirement_metric_mappings
+            if m.requirement == "Refuses Non-Travel Queries"
         )
         assert updated is True
         assert refuses.completed is True
@@ -2482,8 +2482,8 @@ class TestArchitectMappingMatch:
         )
 
         core = next(
-            m for m in plan.behavior_metric_mappings
-            if m.behavior == "Core Travel Assistance"
+            m for m in plan.requirement_metric_mappings
+            if m.requirement == "Core Travel Assistance"
         )
         assert core.completed is False
         assert core.linked_metrics == ["Pricing Information Accuracy"]
@@ -2501,7 +2501,7 @@ class TestArchitectMappingMatch:
         }
 
     def test_overlapping_metrics_do_not_cross_contaminate_mappings(self, mock_model):
-        """Linking metric M to behavior A must not mark a different mapping
+        """Linking metric M to requirement A must not mark a different mapping
         (B → M) as completed, even though M appears in both mappings."""
         agent = _make_agent(mock_model)
         plan = self._travel_plan()
@@ -2526,12 +2526,12 @@ class TestArchitectMappingMatch:
         )
 
         core = next(
-            m for m in plan.behavior_metric_mappings
-            if m.behavior == "Core Travel Assistance"
+            m for m in plan.requirement_metric_mappings
+            if m.requirement == "Core Travel Assistance"
         )
         pricing = next(
-            m for m in plan.behavior_metric_mappings
-            if m.behavior == "Pricing Information & Disclaimers"
+            m for m in plan.requirement_metric_mappings
+            if m.requirement == "Pricing Information & Disclaimers"
         )
         assert core.completed is True
         # Critical assertion: Pricing's mapping must remain pending — the
@@ -2555,8 +2555,8 @@ class TestArchitectMappingMatch:
         )
 
         refuses = next(
-            m for m in plan.behavior_metric_mappings
-            if m.behavior == "Refuses Non-Travel Queries"
+            m for m in plan.requirement_metric_mappings
+            if m.requirement == "Refuses Non-Travel Queries"
         )
         assert updated is False
         assert refuses.completed is False
@@ -2575,7 +2575,7 @@ class TestArchitectMappingMatch:
         )
 
         assert updated is False
-        for mapping in plan.behavior_metric_mappings:
+        for mapping in plan.requirement_metric_mappings:
             assert mapping.completed is False
             assert mapping.linked_metrics == []
 
@@ -2591,7 +2591,7 @@ class TestArchitectMappingMatch:
 
         # Plan missing required top-level keys and with a bad enum value.
         bad_args = {
-            "behaviors": [
+            "requirements": [
                 {"name": "Safety", "reuse_status": "Reuse"},  # wrong literal case
             ],
             # test_sets and metrics intentionally omitted.
@@ -2625,10 +2625,10 @@ class TestArchitectMappingMatch:
     async def test_save_plan_seeds_id_to_name_from_existing_ids(self, mock_model):
         """When the LLM saves a plan with existing_id for reused entities,
         those (id, name) pairs must be available for _match_mapping even
-        if the agent never re-calls list_behaviors / list_metrics."""
+        if the agent never re-calls list_requirements / list_metrics."""
         from rhesis.sdk.agents.architect.plan import (
             ArchitectPlan,
-            BehaviorSpec,
+            RequirementSpec,
             MappingSpec,
             MetricSpec,
             TestSetSpec,
@@ -2637,8 +2637,8 @@ class TestArchitectMappingMatch:
 
         agent = _make_agent(mock_model)
         plan_payload = ArchitectPlan(
-            behaviors=[
-                BehaviorSpec(
+            requirements=[
+                RequirementSpec(
                     name="Refuses Non-Travel Queries",
                     description="d",
                     reuse_status="reuse",
@@ -2654,9 +2654,9 @@ class TestArchitectMappingMatch:
                     existing_id="m-domain",
                 ),
             ],
-            behavior_metric_mappings=[
+            requirement_metric_mappings=[
                 MappingSpec(
-                    behavior="Refuses Non-Travel Queries",
+                    requirement="Refuses Non-Travel Queries",
                     metrics=["Domain Adherence"],
                 ),
             ],
@@ -2672,13 +2672,13 @@ class TestArchitectMappingMatch:
         assert agent._id_to_name["b-refuses"] == "Refuses Non-Travel Queries"
         assert agent._id_to_name["m-domain"] == "Domain Adherence"
 
-        # Now exercise add_behavior_to_metric without ever calling list_*.
+        # Now exercise add_requirement_to_metric without ever calling list_*.
         agent._match_mapping(
             agent._plan,
             self._link_call("b-refuses", "m-domain"),
             agent._id_to_name,
         )
-        refuses = agent._plan.behavior_metric_mappings[0]
+        refuses = agent._plan.requirement_metric_mappings[0]
         assert refuses.completed is True
         assert refuses.linked_metrics == ["Domain Adherence"]
 
@@ -2705,8 +2705,8 @@ class TestArchitectMappingMatch:
         )
 
         refuses = next(
-            m for m in plan.behavior_metric_mappings
-            if m.behavior == "Refuses Non-Travel Queries"
+            m for m in plan.requirement_metric_mappings
+            if m.requirement == "Refuses Non-Travel Queries"
         )
         assert first is True
         assert second is False
@@ -2718,7 +2718,7 @@ class TestArchitectMappingMatch:
 class TestArchitectIdCollectionUngated:
     """_collect_id_names runs on every successful tool call, not only
     once a plan is saved. Otherwise IDs gathered during the planning
-    phase (list_behaviors, list_metrics) are dropped."""
+    phase (list_requirements, list_metrics) are dropped."""
 
     @pytest.fixture
     def mock_model(self):
@@ -2748,7 +2748,7 @@ class TestArchitectIdCollectionUngated:
         monkeypatch.setattr(BaseAgent, "execute_tool", _fake_execute)
 
         await agent.execute_tool(
-            ToolCall(tool_name="list_behaviors", arguments=json.dumps({}))
+            ToolCall(tool_name="list_requirements", arguments=json.dumps({}))
         )
 
         assert agent._id_to_name["uuid-1"] == "Safety"
@@ -2763,8 +2763,8 @@ class TestArchitectPlanProgress:
     """The iteration prompt must surface plan-completion progress as a
     short, machine-readable line so the LLM can reason about ordering
     on its own — specifically, that ``generate_test_set`` and
-    ``create_test_set_bulk`` are blocked until every behavior, metric,
-    and behavior→metric mapping is marked completed.
+    ``create_test_set_bulk`` are blocked until every requirement, metric,
+    and requirement→metric mapping is marked completed.
 
     The runtime constraint in ``_check_execution_order`` is the
     authoritative gate; the prompt text is what makes that gate
@@ -2778,9 +2778,9 @@ class TestArchitectPlanProgress:
     @staticmethod
     def _tools_list() -> list:
         return [
-            {"name": "create_behavior", "description": "Create behavior"},
+            {"name": "create_requirement", "description": "Create requirement"},
             {"name": "create_metric", "description": "Create metric"},
-            {"name": "add_behavior_to_metric", "description": "Link"},
+            {"name": "add_requirement_to_metric", "description": "Link"},
             {"name": "generate_test_set", "description": "Generate test set"},
             {"name": "create_test_set_bulk", "description": "Bulk import"},
             {"name": "list_metrics", "description": "Discover metrics"},
@@ -2790,19 +2790,19 @@ class TestArchitectPlanProgress:
     def _ready_plan():
         from rhesis.sdk.agents.architect.plan import (
             ArchitectPlan,
-            BehaviorSpec,
+            RequirementSpec,
             MappingSpec,
             MetricSpec,
             TestSetSpec,
         )
 
         return ArchitectPlan(
-            behaviors=[BehaviorSpec(name="Safety", description="d", completed=True)],
+            requirements=[RequirementSpec(name="Safety", description="d", completed=True)],
             metrics=[MetricSpec(name="Quality", description="d", completed=True)],
             test_sets=[TestSetSpec(name="Smoke", description="d", num_tests=5)],
-            behavior_metric_mappings=[
+            requirement_metric_mappings=[
                 MappingSpec(
-                    behavior="Safety",
+                    requirement="Safety",
                     metrics=["Quality"],
                     linked_metrics=["Quality"],
                     completed=True,
@@ -2814,19 +2814,19 @@ class TestArchitectPlanProgress:
     def _pending_mapping_plan():
         from rhesis.sdk.agents.architect.plan import (
             ArchitectPlan,
-            BehaviorSpec,
+            RequirementSpec,
             MappingSpec,
             MetricSpec,
             TestSetSpec,
         )
 
         return ArchitectPlan(
-            behaviors=[BehaviorSpec(name="Safety", description="d", completed=True)],
+            requirements=[RequirementSpec(name="Safety", description="d", completed=True)],
             metrics=[MetricSpec(name="Quality", description="d", completed=True)],
             test_sets=[TestSetSpec(name="Smoke", description="d", num_tests=5)],
-            behavior_metric_mappings=[
+            requirement_metric_mappings=[
                 MappingSpec(
-                    behavior="Safety",
+                    requirement="Safety",
                     metrics=["Quality"],
                     linked_metrics=[],
                     completed=False,
@@ -2838,15 +2838,15 @@ class TestArchitectPlanProgress:
     def _pending_metric_plan():
         from rhesis.sdk.agents.architect.plan import (
             ArchitectPlan,
-            BehaviorSpec,
+            RequirementSpec,
             MetricSpec,
             TestSetSpec,
         )
 
         return ArchitectPlan(
-            behaviors=[
-                BehaviorSpec(name="Safety", description="d", completed=True),
-                BehaviorSpec(name="Accuracy", description="d", completed=True),
+            requirements=[
+                RequirementSpec(name="Safety", description="d", completed=True),
+                RequirementSpec(name="Accuracy", description="d", completed=True),
             ],
             metrics=[MetricSpec(name="Quality", description="d", completed=False)],
             test_sets=[TestSetSpec(name="Smoke", description="d", num_tests=5)],
@@ -2861,7 +2861,7 @@ class TestArchitectPlanProgress:
         agent._plan = self._pending_metric_plan()
 
         progress = agent._format_plan_progress()
-        assert "behaviors 2/2" in progress
+        assert "requirements 2/2" in progress
         assert "metrics 0/1" in progress
         assert "mappings 0/0" in progress
         assert "test_sets 0/1" in progress
@@ -2928,7 +2928,7 @@ class TestArchitectSavePlanReconciliation:
     """save_plan reconciles plan completion against session evidence.
 
     Real conversations frequently end up with the LLM creating
-    behaviors, metrics and behavior-metric links *before* it ever
+    requirements, metrics and requirement-metric links *before* it ever
     calls ``save_plan`` (for example, after exploration, when the
     user keeps refining the plan as it's being built). When the plan
     finally arrives, every ``completed`` defaults to False — which
@@ -2937,7 +2937,7 @@ class TestArchitectSavePlanReconciliation:
 
     These tests pin the recovery path: ``_execute_save_plan`` consults
     the agent's session evidence (``_id_to_name`` for created
-    behaviors/metrics, ``_linked_pairs`` for completed mappings) and
+    requirements/metrics, ``_linked_pairs`` for completed mappings) and
     flips the matching plan items to ``completed=True`` automatically.
     """
 
@@ -2949,23 +2949,23 @@ class TestArchitectSavePlanReconciliation:
     def _plan_payload():
         from rhesis.sdk.agents.architect.plan import (
             ArchitectPlan,
-            BehaviorSpec,
+            RequirementSpec,
             MappingSpec,
             MetricSpec,
             TestSetSpec,
         )
 
         return ArchitectPlan(
-            behaviors=[
-                BehaviorSpec(name="Provides Accurate Health Info", description="d"),
+            requirements=[
+                RequirementSpec(name="Provides Accurate Health Info", description="d"),
             ],
             test_sets=[TestSetSpec(name="Health Tests", description="d")],
             metrics=[
                 MetricSpec(name="Health Information Accuracy", description="d"),
             ],
-            behavior_metric_mappings=[
+            requirement_metric_mappings=[
                 MappingSpec(
-                    behavior="Provides Accurate Health Info",
+                    requirement="Provides Accurate Health Info",
                     metrics=["Health Information Accuracy"],
                 ),
             ],
@@ -2978,13 +2978,13 @@ class TestArchitectSavePlanReconciliation:
         return ToolCall(tool_name="save_plan", arguments=json.dumps(payload))
 
     @staticmethod
-    def _link_call(behavior_id, metric_id):
+    def _link_call(requirement_id, metric_id):
         from rhesis.sdk.agents.schemas import ToolCall
 
         return ToolCall(
-            tool_name="add_behavior_to_metric",
+            tool_name="add_requirement_to_metric",
             arguments=json.dumps(
-                {"behavior_id": behavior_id, "metric_id": metric_id}
+                {"requirement_id": requirement_id, "metric_id": metric_id}
             ),
         )
 
@@ -2993,7 +2993,7 @@ class TestArchitectSavePlanReconciliation:
         self, mock_model
     ):
         """Reproduces the failing session in the worker logs:
-        create_behavior + create_metric run while ``self._plan is None``,
+        create_requirement + create_metric run while ``self._plan is None``,
         then save_plan arrives. Without reconciliation, every plan item
         comes back ``completed=False`` and generate_test_set is rejected
         forever."""
@@ -3003,7 +3003,7 @@ class TestArchitectSavePlanReconciliation:
             "b-health": "Provides Accurate Health Info",
             "m-health": "Health Information Accuracy",
         }
-        agent._behavior_id_names = {"b-health": "Provides Accurate Health Info"}
+        agent._requirement_id_names = {"b-health": "Provides Accurate Health Info"}
         agent._metric_id_names = {"m-health": "Health Information Accuracy"}
 
         result = await agent._execute_save_plan(self._save_call(self._plan_payload()))
@@ -3011,15 +3011,15 @@ class TestArchitectSavePlanReconciliation:
 
         plan = agent._plan
         assert plan is not None
-        assert plan.behaviors[0].completed is True
+        assert plan.requirements[0].completed is True
         assert plan.metrics[0].completed is True
 
     @pytest.mark.asyncio
     async def test_links_made_before_plan_complete_their_mappings_on_save(
         self, mock_model
     ):
-        """``add_behavior_to_metric`` succeeded before save_plan, so
-        ``_linked_pairs`` carries the (behavior, metric) pair across
+        """``add_requirement_to_metric`` succeeded before save_plan, so
+        ``_linked_pairs`` carries the (requirement, metric) pair across
         the plan-save boundary. After save, the matching MappingSpec
         must be marked completed and ``linked_metrics`` populated."""
         agent = _make_agent(mock_model)
@@ -3028,7 +3028,7 @@ class TestArchitectSavePlanReconciliation:
             "b-health": "Provides Accurate Health Info",
             "m-health": "Health Information Accuracy",
         }
-        agent._behavior_id_names = {"b-health": "Provides Accurate Health Info"}
+        agent._requirement_id_names = {"b-health": "Provides Accurate Health Info"}
         agent._metric_id_names = {"m-health": "Health Information Accuracy"}
         agent._record_link_if_mapping(
             self._link_call("b-health", "m-health")
@@ -3040,7 +3040,7 @@ class TestArchitectSavePlanReconciliation:
         result = await agent._execute_save_plan(self._save_call(self._plan_payload()))
         assert result.success is True
 
-        mapping = agent._plan.behavior_metric_mappings[0]
+        mapping = agent._plan.requirement_metric_mappings[0]
         assert mapping.completed is True
         assert mapping.linked_metrics == ["Health Information Accuracy"]
 
@@ -3051,7 +3051,7 @@ class TestArchitectSavePlanReconciliation:
         ``reuse_status``."""
         from rhesis.sdk.agents.architect.plan import (
             ArchitectPlan,
-            BehaviorSpec,
+            RequirementSpec,
             MetricSpec,
             TestSetSpec,
         )
@@ -3059,9 +3059,9 @@ class TestArchitectSavePlanReconciliation:
         agent = _make_agent(mock_model)
 
         plan_payload = ArchitectPlan(
-            behaviors=[
-                BehaviorSpec(
-                    name="Existing Behavior",
+            requirements=[
+                RequirementSpec(
+                    name="Existing Requirement",
                     description="d",
                     reuse_status="new",  # deliberately not "reuse"
                     existing_id="b-existing",
@@ -3080,7 +3080,7 @@ class TestArchitectSavePlanReconciliation:
 
         result = await agent._execute_save_plan(self._save_call(plan_payload))
         assert result.success is True
-        assert agent._plan.behaviors[0].completed is True
+        assert agent._plan.requirements[0].completed is True
         assert agent._plan.metrics[0].completed is True
 
     @pytest.mark.asyncio
@@ -3092,17 +3092,17 @@ class TestArchitectSavePlanReconciliation:
 
         # Only one of the two planned entities was actually created.
         agent._id_to_name = {"b-health": "Provides Accurate Health Info"}
-        agent._behavior_id_names = {"b-health": "Provides Accurate Health Info"}
+        agent._requirement_id_names = {"b-health": "Provides Accurate Health Info"}
         # _metric_id_names intentionally empty — metric was never observed
 
         result = await agent._execute_save_plan(self._save_call(self._plan_payload()))
         assert result.success is True
 
         plan = agent._plan
-        assert plan.behaviors[0].completed is True
+        assert plan.requirements[0].completed is True
         assert plan.metrics[0].completed is False
-        assert plan.behavior_metric_mappings[0].completed is False
-        assert plan.behavior_metric_mappings[0].linked_metrics == []
+        assert plan.requirement_metric_mappings[0].completed is False
+        assert plan.requirement_metric_mappings[0].linked_metrics == []
 
     @pytest.mark.asyncio
     async def test_partial_link_keeps_multi_metric_mapping_pending(self, mock_model):
@@ -3111,7 +3111,7 @@ class TestArchitectSavePlanReconciliation:
         ``completed=False`` until the second link arrives."""
         from rhesis.sdk.agents.architect.plan import (
             ArchitectPlan,
-            BehaviorSpec,
+            RequirementSpec,
             MappingSpec,
             MetricSpec,
             TestSetSpec,
@@ -3124,7 +3124,7 @@ class TestArchitectSavePlanReconciliation:
             "m-pricing": "Pricing Accuracy",
             "m-hallucination": "Hallucination Detection",
         }
-        agent._behavior_id_names = {"b-core": "Core"}
+        agent._requirement_id_names = {"b-core": "Core"}
         agent._metric_id_names = {
             "m-pricing": "Pricing Accuracy",
             "m-hallucination": "Hallucination Detection",
@@ -3133,15 +3133,15 @@ class TestArchitectSavePlanReconciliation:
         agent._record_link_if_mapping(self._link_call("b-core", "m-pricing"))
 
         plan_payload = ArchitectPlan(
-            behaviors=[BehaviorSpec(name="Core", description="d")],
+            requirements=[RequirementSpec(name="Core", description="d")],
             test_sets=[TestSetSpec(name="T", description="d")],
             metrics=[
                 MetricSpec(name="Pricing Accuracy", description="d"),
                 MetricSpec(name="Hallucination Detection", description="d"),
             ],
-            behavior_metric_mappings=[
+            requirement_metric_mappings=[
                 MappingSpec(
-                    behavior="Core",
+                    requirement="Core",
                     metrics=["Pricing Accuracy", "Hallucination Detection"],
                 ),
             ],
@@ -3150,7 +3150,7 @@ class TestArchitectSavePlanReconciliation:
         result = await agent._execute_save_plan(self._save_call(plan_payload))
         assert result.success is True
 
-        mapping = agent._plan.behavior_metric_mappings[0]
+        mapping = agent._plan.requirement_metric_mappings[0]
         assert mapping.linked_metrics == ["Pricing Accuracy"]
         assert mapping.completed is False
 
@@ -3164,10 +3164,10 @@ class TestArchitectSavePlanReconciliation:
         # No session evidence at all — every item must come back False
         # even though the LLM tried to set completed=True.
         bad_payload = self._plan_payload()
-        bad_payload["behaviors"][0]["completed"] = True
+        bad_payload["requirements"][0]["completed"] = True
         bad_payload["metrics"][0]["completed"] = True
-        bad_payload["behavior_metric_mappings"][0]["completed"] = True
-        bad_payload["behavior_metric_mappings"][0]["linked_metrics"] = [
+        bad_payload["requirement_metric_mappings"][0]["completed"] = True
+        bad_payload["requirement_metric_mappings"][0]["linked_metrics"] = [
             "Health Information Accuracy"
         ]
 
@@ -3175,10 +3175,10 @@ class TestArchitectSavePlanReconciliation:
         assert result.success is True
 
         plan = agent._plan
-        assert plan.behaviors[0].completed is False
+        assert plan.requirements[0].completed is False
         assert plan.metrics[0].completed is False
-        assert plan.behavior_metric_mappings[0].completed is False
-        assert plan.behavior_metric_mappings[0].linked_metrics == []
+        assert plan.requirement_metric_mappings[0].completed is False
+        assert plan.requirement_metric_mappings[0].linked_metrics == []
 
     def test_record_link_ignores_unrelated_tool_calls(self, mock_model):
         from rhesis.sdk.agents.schemas import ToolCall
@@ -3188,8 +3188,8 @@ class TestArchitectSavePlanReconciliation:
 
         agent._record_link_if_mapping(
             ToolCall(
-                tool_name="create_behavior",
-                arguments=json.dumps({"behavior_id": "b-x", "metric_id": "m-x"}),
+                tool_name="create_requirement",
+                arguments=json.dumps({"requirement_id": "b-x", "metric_id": "m-x"}),
             )
         )
         assert agent._linked_pairs == set()
@@ -3219,17 +3219,17 @@ class TestArchitectSavePlanReconciliation:
 
         agent = _make_agent(mock_model)
 
-        # Build a plan with one behavior, one metric, one mapping — all
+        # Build a plan with one requirement, one metric, one mapping — all
         # marked incomplete (as the LLM would supply them).
         payload = self._plan_payload()
         await agent._execute_save_plan(self._save_call(payload))
         assert agent._plan is not None
 
         # Manually mark all behaviours and metrics as having been created,
-        # and record the behavior→metric link — without calling save_plan.
+        # and record the requirement→metric link — without calling save_plan.
         agent._id_to_name["b-id"] = "Provides Accurate Health Info"
         agent._id_to_name["m-id"] = "Health Information Accuracy"
-        agent._behavior_id_names["b-id"] = "Provides Accurate Health Info"
+        agent._requirement_id_names["b-id"] = "Provides Accurate Health Info"
         agent._metric_id_names["m-id"] = "Health Information Accuracy"
         agent._linked_pairs.add(("provides accurate health info", "health information accuracy"))
 

@@ -23,7 +23,7 @@ The EE per-role matrix is exhaustively covered at the provider level in
 
 Routes used (resolved from the live capability map):
 - ``PUT /organizations/{id}`` → ``organization:update`` (owner-only, core/non-EE).
-- ``GET /behaviors/`` → ``behavior:read`` (ordinary, not owner-only).
+- ``GET /requirements/`` → ``requirement:read`` (ordinary, not owner-only).
 - ``GET /usage`` → ``usage:read`` (owner-only in community, Owner/Admin in EE).
 
 Run with:
@@ -43,7 +43,7 @@ from tests.backend.fixtures.test_setup import create_test_organization_and_user
 
 # Route + capability under test (kept in sync with the live capability map).
 OWNER_ONLY_ROUTE_CAP = "organization:update"
-ORDINARY_READ_ROUTE = "/behaviors/"
+ORDINARY_READ_ROUTE = "/requirements/"
 USAGE_ROUTE = "/usage"
 USAGE_ROUTE_CAP = "usage:read"
 
@@ -145,7 +145,7 @@ class TestHttpAuthzEnforcement:
         _org, _user, token = _make_context(test_db, owner=False)
         resp = client.get(ORDINARY_READ_ROUTE, headers=_auth(token))
         assert resp.status_code != 403, (
-            f"Non-owner member wrongly denied behavior:read: {resp.status_code} {resp.text}"
+            f"Non-owner member wrongly denied requirement:read: {resp.status_code} {resp.text}"
         )
         assert resp.status_code == 200, resp.text
 

@@ -31,9 +31,9 @@ class DetectorDef:
     description: str
     explanation: str = ""
     # None ⇒ catalog-only: the metric is still created during seeding, but it is
-    # not auto-attached to any behavior (so it never runs unless explicitly
+    # not auto-attached to any requirement (so it never runs unless explicitly
     # selected or attached to a test set).
-    behavior: Optional[str] = None
+    requirement: Optional[str] = None
     required_note: Optional[str] = None
     external_service: bool = False
     legacy_aliases: Tuple[str, ...] = field(default_factory=tuple)
@@ -55,9 +55,9 @@ def _load_yaml(path: Path = _YAML_PATH) -> Tuple[Dict[str, Any], List[DetectorDe
                 display_name=item["display_name"],
                 description=item["description"],
                 explanation=item.get("explanation", ""),
-                # A missing key and an explicit ``behavior: null`` both mean
+                # A missing key and an explicit ``requirement: null`` both mean
                 # "catalog-only" (no auto-assignment).
-                behavior=item.get("behavior"),
+                requirement=item.get("requirement"),
                 required_note=item.get("required_note"),
                 external_service=item.get("external_service", False),
                 legacy_aliases=tuple(aliases),
@@ -150,9 +150,9 @@ def to_initial_data_metrics() -> List[Dict[str, Any]]:
             "evaluation_steps": "[garak]",
             "reasoning": "[garak]",
             "explanation": d.explanation,
-            # behavior=None ⇒ no auto-assignment; the metric is still created
-            # but is not linked to any behavior during seeding.
-            "behaviors": [d.behavior] if d.behavior else [],
+            # requirement=None ⇒ no auto-assignment; the metric is still created
+            # but is not linked to any requirement during seeding.
+            "requirements": [d.requirement] if d.requirement else [],
         }
         metrics.append(entry)
     return metrics

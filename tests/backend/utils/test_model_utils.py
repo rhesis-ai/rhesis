@@ -1,7 +1,7 @@
 """
 Tests for model_utils functions.
 
-These tests verify the current behavior of functions before they are refactored
+These tests verify the current requirement of functions before they are refactored
 to use the new direct parameter passing approach.
 """
 
@@ -70,7 +70,7 @@ class TestQueryBuilder:
                 include(models.Test.owner),
                 include(models.Test.parent),
                 include(models.Test.topic),
-                include(models.Test.behavior),
+                include(models.Test.requirement),
                 include(models.Test.category),
                 include(models.Test.status),
                 include(models.Test.source),

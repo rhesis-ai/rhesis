@@ -32,7 +32,7 @@ type AutocompleteOption = FreeSoloOption;
 
 // Extended interface for form data
 interface TestFormData {
-  behavior_id?: UUID | string;
+  requirement_id?: UUID | string;
   topic_id?: UUID | string;
   category_id?: UUID | string;
   priorityLevel?: PriorityLevel;
@@ -69,7 +69,7 @@ export default function UpdateTest({
 }: UpdateTestProps) {
   const [_loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<TestFormData>({
-    behavior_id: test.behavior?.id || test.behavior?.name || undefined,
+    requirement_id: test.requirement?.id || test.requirement?.name || undefined,
     topic_id: test.topic?.name || test.topic?.id || undefined,
     category_id: test.category?.name || test.category?.id || undefined,
     priorityLevel: test.priorityLevel || 'Medium',
@@ -80,7 +80,7 @@ export default function UpdateTest({
   });
 
   // Options for dropdowns
-  const [behaviors, setBehaviors] = useState<AutocompleteOption[]>([]);
+  const [requirements, setRequirements] = useState<AutocompleteOption[]>([]);
   const [topics, setTopics] = useState<AutocompleteOption[]>([]);
   const [categories, setCategories] = useState<AutocompleteOption[]>([]);
   const [users, setUsers] = useState<UserOption[]>([]);
@@ -91,7 +91,8 @@ export default function UpdateTest({
     if (test) {
       setFormData(_prevData => {
         const newData = {
-          behavior_id: test.behavior?.id || test.behavior?.name || undefined,
+          requirement_id:
+            test.requirement?.id || test.requirement?.name || undefined,
           topic_id: test.topic?.name || test.topic?.id || undefined,
           category_id: test.category?.name || test.category?.id || undefined,
           priorityLevel: test.priorityLevel || 'Medium',
@@ -118,7 +119,7 @@ export default function UpdateTest({
     const loadOptions = async () => {
       try {
         const apiFactory = new ApiClientFactory();
-        const behaviorClient = apiFactory.getBehaviorClient();
+        const requirementClient = apiFactory.getRequirementClient();
         const topicClient = apiFactory.getTopicClient();
         const categoryClient = apiFactory.getCategoryClient();
         const usersClient = apiFactory.getUsersClient();
@@ -126,13 +127,16 @@ export default function UpdateTest({
 
         // Load all options in parallel
         const [
-          behaviorsData,
+          requirementsData,
           topicsData,
           categoriesData,
           usersData,
           statusesData,
         ] = await Promise.all([
-          behaviorClient.getBehaviors({ sort_by: 'name', sort_order: 'asc' }),
+          requirementClient.getRequirements({
+            sort_by: 'name',
+            sort_order: 'asc',
+          }),
           topicClient.getTopics({
             sort_by: 'name',
             sort_order: 'asc',
@@ -152,7 +156,7 @@ export default function UpdateTest({
         ]);
 
         // Filter out duplicates and invalid entries before setting state
-        setBehaviors(filterUniqueValidOptions(behaviorsData));
+        setRequirements(filterUniqueValidOptions(requirementsData));
         setTopics(filterUniqueValidOptions(topicsData));
         setCategories(filterUniqueValidOptions(categoriesData));
         setStatuses(statusesData);
@@ -174,7 +178,7 @@ export default function UpdateTest({
     loadOptions();
   }, [
     onError,
-    setBehaviors,
+    setRequirements,
     setTopics,
     setCategories,
     setStatuses,
@@ -223,7 +227,7 @@ export default function UpdateTest({
       }));
     };
 
-  // Helper function to create a new behavior if needed
+  // Helper function to create a new requirement if needed
   const validateEntityName = (name: string): string => {
     const trimmedName = name.trim();
     if (!trimmedName) {
@@ -235,47 +239,47 @@ export default function UpdateTest({
     return trimmedName;
   };
 
-  const getOrCreateBehavior = useCallback(
+  const getOrCreateRequirement = useCallback(
     async (name: string) => {
-      const behaviorName = validateEntityName(name);
+      const requirementName = validateEntityName(name);
       const apiFactory = new ApiClientFactory();
-      const behaviorClient = apiFactory.getBehaviorClient();
+      const requirementClient = apiFactory.getRequirementClient();
 
       // First check if it's a UUID
       if (isValidUUID(name)) {
-        const existingBehavior = behaviors.find(b => b.id === name);
-        if (existingBehavior) {
-          return existingBehavior.name;
+        const existingRequirement = requirements.find(b => b.id === name);
+        if (existingRequirement) {
+          return existingRequirement.name;
         }
       }
 
       // Then check by name
-      const existingBehavior = behaviors.find(
-        b => b.name.toLowerCase() === behaviorName.toLowerCase()
+      const existingRequirement = requirements.find(
+        b => b.name.toLowerCase() === requirementName.toLowerCase()
       );
-      if (existingBehavior) {
-        return existingBehavior.name;
+      if (existingRequirement) {
+        return existingRequirement.name;
       }
 
       try {
-        // Create new behavior
-        const newBehavior = await behaviorClient.createBehavior({
-          name: behaviorName,
+        // Create new requirement
+        const newRequirement = await requirementClient.createRequirement({
+          name: requirementName,
         });
 
         // Add to local state
-        setBehaviors(prev => [
+        setRequirements(prev => [
           ...prev,
-          { id: newBehavior.id, name: newBehavior.name },
+          { id: newRequirement.id, name: newRequirement.name },
         ]);
-        return newBehavior.name;
+        return newRequirement.name;
       } catch (error) {
         throw new Error(
-          `Failed to create behavior: ${(error as Error).message}`
+          `Failed to create requirement: ${(error as Error).message}`
         );
       }
     },
-    [behaviors, setBehaviors]
+    [requirements, setRequirements]
   );
 
   // Helper function to create a new topic if needed
@@ -395,11 +399,13 @@ export default function UpdateTest({
         ? priorityMap[formData.priorityLevel]
         : 1;
 
-      // Validate and process behavior
-      if (!formData.behavior_id) {
-        throw new Error('Behavior is required');
+      // Validate and process requirement
+      if (!formData.requirement_id) {
+        throw new Error('Requirement is required');
       }
-      const behaviorName = await getOrCreateBehavior(formData.behavior_id);
+      const requirementName = await getOrCreateRequirement(
+        formData.requirement_id
+      );
 
       // Validate and process topic
       if (!formData.topic_id) {
@@ -414,8 +420,8 @@ export default function UpdateTest({
       const categoryName = await getOrCreateCategory(formData.category_id);
 
       // Get IDs for the selected entities
-      const selectedBehavior = behaviors.find(
-        b => b.name.toLowerCase() === behaviorName.toLowerCase()
+      const selectedRequirement = requirements.find(
+        b => b.name.toLowerCase() === requirementName.toLowerCase()
       );
       const selectedTopic = topics.find(
         t => t.name.toLowerCase() === topicName.toLowerCase()
@@ -425,7 +431,7 @@ export default function UpdateTest({
       );
 
       if (
-        !selectedBehavior?.id ||
+        !selectedRequirement?.id ||
         !selectedTopic?.id ||
         !selectedCategory?.id
       ) {
@@ -434,7 +440,7 @@ export default function UpdateTest({
 
       // Update the test using updateTest
       const updateData: TestUpdate = {
-        behavior_id: selectedBehavior.id,
+        requirement_id: selectedRequirement.id,
         topic_id: selectedTopic.id,
         category_id: selectedCategory.id,
         priority: numericPriority,
@@ -455,10 +461,10 @@ export default function UpdateTest({
     test,
     onSuccess,
     onError,
-    behaviors,
+    requirements,
     topics,
     categories,
-    getOrCreateBehavior,
+    getOrCreateRequirement,
     getOrCreateTopic,
     getOrCreateCategory,
     setLoading,
@@ -595,10 +601,10 @@ export default function UpdateTest({
       </Typography>
 
       <BaseFreesoloAutocomplete
-        options={behaviors}
-        value={formData.behavior_id}
-        onChange={handleFieldChange('behavior_id')}
-        label="Behavior"
+        options={requirements}
+        value={formData.requirement_id}
+        onChange={handleFieldChange('requirement_id')}
+        label="Requirement"
         required
       />
 

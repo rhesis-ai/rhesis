@@ -14,7 +14,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
-import SelectBehaviorsDialog from '@/components/common/SelectBehaviorsDialog';
+import SelectRequirementsDialog from '@/components/common/SelectRequirementsDialog';
 import MetricFilterDrawer from './MetricFilterDrawer';
 import { PageLayout } from '@/components/layout/PageLayout';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
@@ -27,9 +27,9 @@ import MenuItem from '@mui/material/MenuItem';
 import { MetricsClient } from '@/utils/api-client/metrics-client';
 import { MetricDetail } from '@/utils/api-client/interfaces/metric';
 import type {
-  Behavior as ApiBehavior,
-  BehaviorWithMetrics,
-} from '@/utils/api-client/interfaces/behavior';
+  Requirement as ApiRequirement,
+  RequirementWithMetrics,
+} from '@/utils/api-client/interfaces/requirement';
 import type { UUID } from 'crypto';
 import { Can, useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
@@ -44,7 +44,7 @@ export interface FilterState {
   type: string[];
   scoreType: string[];
   metricScope: string[];
-  behavior: string;
+  requirement: string;
 }
 
 interface FilterOptions {
@@ -52,22 +52,22 @@ interface FilterOptions {
   type: { type_value: string; description: string }[];
   scoreType: { value: string; label: string }[];
   metricScope: { value: string; label: string }[];
-  behavior: { id: string; name: string }[];
+  requirement: { id: string; name: string }[];
 }
 
-interface BehaviorMetrics {
-  [behaviorId: string]: {
+interface RequirementMetrics {
+  [requirementId: string]: {
     metrics: MetricDetail[];
     isLoading: boolean;
     error: string | null;
   };
 }
 
-// Using SelectBehaviorsDialog component instead of inline dialog
+// Using SelectRequirementsDialog component instead of inline dialog
 
 interface MetricsDirectoryTabProps {
   organizationId: UUID;
-  behaviors: ApiBehavior[];
+  requirements: ApiRequirement[];
   metrics: MetricDetail[];
   totalCount: number;
   page: number;
@@ -81,9 +81,11 @@ interface MetricsDirectoryTabProps {
   error: string | null;
   setFilters: React.Dispatch<React.SetStateAction<FilterState>>;
   setMetrics: React.Dispatch<React.SetStateAction<MetricDetail[]>>;
-  setBehaviorMetrics: React.Dispatch<React.SetStateAction<BehaviorMetrics>>;
-  setBehaviorsWithMetrics: React.Dispatch<
-    React.SetStateAction<BehaviorWithMetrics[]>
+  setRequirementMetrics: React.Dispatch<
+    React.SetStateAction<RequirementMetrics>
+  >;
+  setRequirementsWithMetrics: React.Dispatch<
+    React.SetStateAction<RequirementWithMetrics[]>
   >;
   assignMode?: boolean;
 }
@@ -102,7 +104,7 @@ function isValidMetricType(
 
 export default function MetricsDirectoryTab({
   organizationId: _organizationId,
-  behaviors,
+  requirements,
   metrics,
   totalCount,
   page,
@@ -116,8 +118,8 @@ export default function MetricsDirectoryTab({
   error,
   setFilters,
   setMetrics,
-  setBehaviorMetrics,
-  setBehaviorsWithMetrics,
+  setRequirementMetrics,
+  setRequirementsWithMetrics,
   assignMode = false,
 }: MetricsDirectoryTabProps) {
   const router = useRouter();
@@ -156,13 +158,13 @@ export default function MetricsDirectoryTab({
   };
 
   // Count active advanced filters
-  const behaviorStr =
-    typeof filters.behavior === 'string' ? filters.behavior : '';
+  const requirementStr =
+    typeof filters.requirement === 'string' ? filters.requirement : '';
   const activeAdvancedFilterCount =
     filters.type.length +
     filters.scoreType.length +
     filters.metricScope.length +
-    (behaviorStr.trim() !== '' ? 1 : 0);
+    (requirementStr.trim() !== '' ? 1 : 0);
 
   // True empty = server returned zero results and no filters are active
   const isTrueEmpty =
@@ -171,45 +173,45 @@ export default function MetricsDirectoryTab({
     filters.backend.length === 0 &&
     activeAdvancedFilterCount === 0;
 
-  // Function to assign a metric to a behavior
-  const handleAssignMetricToBehavior = async (
-    behaviorId: string,
+  // Function to assign a metric to a requirement
+  const handleAssignMetricToRequirement = async (
+    requirementId: string,
     metricId: string
   ) => {
     try {
       const metricClient = new MetricsClient();
 
-      // Assign metric to behavior
-      await metricClient.addBehaviorToMetric(
+      // Assign metric to requirement
+      await metricClient.addRequirementToMetric(
         metricId as UUID,
-        behaviorId as UUID
+        requirementId as UUID
       );
 
-      // Update local state optimistically - add behavior to metric's behaviors list
+      // Update local state optimistically - add requirement to metric's requirements list
       setMetrics(prevMetrics =>
         prevMetrics.map(metric => {
           if (metric.id === metricId) {
-            const currentBehaviors = Array.isArray(metric.behaviors)
-              ? metric.behaviors
+            const currentRequirements = Array.isArray(metric.requirements)
+              ? metric.requirements
               : [];
-            // Add behavior ID if not already present
-            const behaviorIds = currentBehaviors.map(b =>
+            // Add requirement ID if not already present
+            const requirementIds = currentRequirements.map(b =>
               typeof b === 'string' ? b : b.id
             );
-            if (!behaviorIds.includes(behaviorId)) {
-              // Maintain consistent type - if current behaviors are strings, add string; if objects, add object
+            if (!requirementIds.includes(requirementId)) {
+              // Maintain consistent type - if current requirements are strings, add string; if objects, add object
               const isStringArray =
-                currentBehaviors.length === 0 ||
-                typeof currentBehaviors[0] === 'string';
-              const newBehavior = isStringArray
-                ? behaviorId
-                : { id: behaviorId as UUID, name: '', description: '' };
+                currentRequirements.length === 0 ||
+                typeof currentRequirements[0] === 'string';
+              const newRequirement = isStringArray
+                ? requirementId
+                : { id: requirementId as UUID, name: '', description: '' };
               return {
                 ...metric,
-                behaviors: [
-                  ...currentBehaviors,
-                  newBehavior,
-                ] as MetricDetail['behaviors'],
+                requirements: [
+                  ...currentRequirements,
+                  newRequirement,
+                ] as MetricDetail['requirements'],
               };
             }
           }
@@ -217,87 +219,87 @@ export default function MetricsDirectoryTab({
         })
       );
 
-      // Find the metric to add to behavior's metrics
+      // Find the metric to add to requirement's metrics
       const targetMetric = metrics.find(m => m.id === metricId);
       if (targetMetric) {
-        // Update behaviorMetrics state
-        setBehaviorMetrics(prev => ({
+        // Update requirementMetrics state
+        setRequirementMetrics(prev => ({
           ...prev,
-          [behaviorId]: {
-            ...prev[behaviorId],
-            metrics: [...(prev[behaviorId]?.metrics || []), targetMetric],
+          [requirementId]: {
+            ...prev[requirementId],
+            metrics: [...(prev[requirementId]?.metrics || []), targetMetric],
             isLoading: false,
             error: null,
           },
         }));
 
-        // Update behaviorsWithMetrics state
-        setBehaviorsWithMetrics(prevBehaviors =>
-          prevBehaviors.map(behavior =>
-            behavior.id === behaviorId
+        // Update requirementsWithMetrics state
+        setRequirementsWithMetrics(prevRequirements =>
+          prevRequirements.map(requirement =>
+            requirement.id === requirementId
               ? {
-                  ...behavior,
+                  ...requirement,
                   metrics: [
-                    ...(behavior.metrics || []),
+                    ...(requirement.metrics || []),
                     targetMetric as MetricDetail,
                   ],
                 }
-              : behavior
+              : requirement
           )
         );
       }
 
-      notifications.show('Successfully assigned metric to behavior', {
+      notifications.show('Successfully assigned metric to requirement', {
         severity: 'success',
         autoHideDuration: 4000,
       });
     } catch (_err) {
-      notifications.show('Failed to assign metric to behavior', {
+      notifications.show('Failed to assign metric to requirement', {
         severity: 'error',
         autoHideDuration: 4000,
       });
     }
   };
 
-  // Function to remove a metric from a behavior
-  const _handleRemoveMetricFromBehavior = async (
-    behaviorId: string,
+  // Function to remove a metric from a requirement
+  const _handleRemoveMetricFromRequirement = async (
+    requirementId: string,
     metricId: string
   ) => {
     try {
       const metricClient = new MetricsClient();
 
-      // Remove metric from behavior
-      await metricClient.removeBehaviorFromMetric(
+      // Remove metric from requirement
+      await metricClient.removeRequirementFromMetric(
         metricId as UUID,
-        behaviorId as UUID
+        requirementId as UUID
       );
 
-      // Update local state optimistically - remove behavior from metric's behaviors list
+      // Update local state optimistically - remove requirement from metric's requirements list
       setMetrics(prevMetrics =>
         prevMetrics.map(metric => {
           if (metric.id === metricId) {
-            const currentBehaviors = Array.isArray(metric.behaviors)
-              ? metric.behaviors
+            const currentRequirements = Array.isArray(metric.requirements)
+              ? metric.requirements
               : [];
             return {
               ...metric,
-              behaviors: currentBehaviors.filter(b => {
-                const behaviorId_str = typeof b === 'string' ? b : b.id;
-                return behaviorId_str !== behaviorId;
-              }) as MetricDetail['behaviors'],
+              requirements: currentRequirements.filter(b => {
+                const requirementId_str = typeof b === 'string' ? b : b.id;
+                return requirementId_str !== requirementId;
+              }) as MetricDetail['requirements'],
             };
           }
           return metric;
         })
       );
 
-      // Update behaviorMetrics state - remove the metric
-      setBehaviorMetrics(prev => ({
+      // Update requirementMetrics state - remove the metric
+      setRequirementMetrics(prev => ({
         ...prev,
-        [behaviorId]: {
-          ...prev[behaviorId],
-          metrics: (prev[behaviorId]?.metrics || []).filter(
+        [requirementId]: {
+          ...prev[requirementId],
+          metrics: (prev[requirementId]?.metrics || []).filter(
             m => m.id !== metricId
           ),
           isLoading: false,
@@ -305,35 +307,38 @@ export default function MetricsDirectoryTab({
         },
       }));
 
-      // Update behaviorsWithMetrics state - remove the metric
-      setBehaviorsWithMetrics(prevBehaviors =>
-        prevBehaviors.map(behavior =>
-          behavior.id === behaviorId
+      // Update requirementsWithMetrics state - remove the metric
+      setRequirementsWithMetrics(prevRequirements =>
+        prevRequirements.map(requirement =>
+          requirement.id === requirementId
             ? {
-                ...behavior,
-                metrics: (behavior.metrics || []).filter(
+                ...requirement,
+                metrics: (requirement.metrics || []).filter(
                   m => m.id !== metricId
                 ),
               }
-            : behavior
+            : requirement
         )
       );
 
-      notifications.show('Successfully removed metric from behavior', {
+      notifications.show('Successfully removed metric from requirement', {
         severity: 'success',
         autoHideDuration: 4000,
       });
     } catch (_err) {
-      notifications.show('Failed to remove metric from behavior', {
+      notifications.show('Failed to remove metric from requirement', {
         severity: 'error',
         autoHideDuration: 4000,
       });
     }
   };
 
-  const handleAssignMetric = (behaviorId: UUID) => {
+  const handleAssignMetric = (requirementId: UUID) => {
     if (selectedMetric) {
-      handleAssignMetricToBehavior(behaviorId as string, selectedMetric.id);
+      handleAssignMetricToRequirement(
+        requirementId as string,
+        selectedMetric.id
+      );
     }
     setAssignDialogOpen(false);
     setSelectedMetric(null);
@@ -383,7 +388,9 @@ export default function MetricsDirectoryTab({
     setMetricToDeleteCompletely(null);
   };
 
-  const activeBehaviors = behaviors.filter(b => b.name && b.name.trim() !== '');
+  const activeRequirements = requirements.filter(
+    b => b.name && b.name.trim() !== ''
+  );
 
   // First load — no data at all yet, show a full-page spinner
   const isInitialLoad = isLoading && metrics.length === 0 && totalCount === 0;
@@ -422,7 +429,7 @@ export default function MetricsDirectoryTab({
   return (
     <PageLayout
       title="Metrics"
-      description="Metrics are quantifiable measurements that evaluate behaviors and determine if requirements are met."
+      description="Metrics are quantifiable measurements that evaluate requirements and determine if requirements are met."
       breadcrumbs={[]}
       actions={
         <FabGroup>
@@ -470,7 +477,7 @@ export default function MetricsDirectoryTab({
           card
           icon={InsertChartIcon}
           title="No metrics yet"
-          description="Create your first metric to measure behaviors and evaluate whether your AI applications meet requirements."
+          description="Create your first metric to measure requirements and evaluate whether your AI applications meet requirements."
           actionLabel={canCreate ? 'Create metric' : undefined}
           onAction={
             canCreate
@@ -518,14 +525,16 @@ export default function MetricsDirectoryTab({
               type: filters.type,
               scoreType: filters.scoreType,
               metricScope: filters.metricScope,
-              behavior:
-                typeof filters.behavior === 'string' ? filters.behavior : '',
+              requirement:
+                typeof filters.requirement === 'string'
+                  ? filters.requirement
+                  : '',
             }}
             filterOptions={{
               type: filterOptions.type,
               scoreType: filterOptions.scoreType,
               metricScope: filterOptions.metricScope,
-              behavior: filterOptions.behavior,
+              requirement: filterOptions.requirement,
             }}
             onApply={drawerFilters => {
               setFilters(prev => ({
@@ -533,7 +542,7 @@ export default function MetricsDirectoryTab({
                 type: drawerFilters.type,
                 scoreType: drawerFilters.scoreType,
                 metricScope: drawerFilters.metricScope,
-                behavior: drawerFilters.behavior,
+                requirement: drawerFilters.requirement,
               }));
             }}
           />
@@ -562,16 +571,16 @@ export default function MetricsDirectoryTab({
             })}
           >
             {metrics.map(metric => {
-              const assignedBehaviors = activeBehaviors.filter(b => {
-                if (!Array.isArray(metric.behaviors)) return false;
-                // Check if behaviors is an array of strings (UUIDs) or BehaviorReference objects
-                const behaviorIds = metric.behaviors.map(behavior =>
-                  typeof behavior === 'string' ? behavior : behavior.id
+              const assignedRequirements = activeRequirements.filter(b => {
+                if (!Array.isArray(metric.requirements)) return false;
+                // Check if requirements is an array of strings (UUIDs) or RequirementReference objects
+                const requirementIds = metric.requirements.map(requirement =>
+                  typeof requirement === 'string' ? requirement : requirement.id
                 );
-                return behaviorIds.includes(b.id as string);
+                return requirementIds.includes(b.id as string);
               });
-              const behaviorNames = assignedBehaviors.map(
-                b => b.name || 'Unnamed Behavior'
+              const requirementNames = assignedRequirements.map(
+                b => b.name || 'Unnamed Requirement'
               );
 
               const isCustomMetric =
@@ -591,7 +600,7 @@ export default function MetricsDirectoryTab({
                   metricType={metric.metric_type?.type_value}
                   scoreType={metric.score_type}
                   metricScope={metric.metric_scope}
-                  usedIn={behaviorNames}
+                  usedIn={requirementNames}
                   showUsage={true}
                   onClick={
                     assignMode
@@ -605,7 +614,7 @@ export default function MetricsDirectoryTab({
                   }
                   onDelete={
                     canDelete &&
-                    assignedBehaviors.length === 0 &&
+                    assignedRequirements.length === 0 &&
                     metric.backend_type?.type_value?.toLowerCase() === 'custom'
                       ? () => handleDeleteMetric(metric.id, metric.name)
                       : undefined
@@ -638,14 +647,14 @@ export default function MetricsDirectoryTab({
             itemType="metric"
             itemName={metricToDeleteCompletely?.name}
           />
-          <SelectBehaviorsDialog
+          <SelectRequirementsDialog
             open={assignDialogOpen}
             onClose={() => {
               setAssignDialogOpen(false);
               setSelectedMetric(null);
             }}
             onSelect={handleAssignMetric}
-            excludeBehaviorIds={(selectedMetric?.behaviors || [])
+            excludeRequirementIds={(selectedMetric?.requirements || [])
               .filter(b => typeof b !== 'string' && b.id)
               .map(b =>
                 typeof b !== 'string' ? b.id : (b as unknown as UUID)

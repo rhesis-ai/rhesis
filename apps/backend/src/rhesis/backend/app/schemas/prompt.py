@@ -11,7 +11,7 @@ class PromptBase(Base):
     category_id: Optional[UUID4] = None
     topic_id: Optional[UUID4] = None
     language_code: str
-    behavior_id: Optional[UUID4] = None
+    requirement_id: Optional[UUID4] = None
     expected_response: Optional[str] = None
     user_id: Optional[UUID4] = None
     organization_id: Optional[UUID4] = None

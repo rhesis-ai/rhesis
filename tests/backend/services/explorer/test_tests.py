@@ -52,13 +52,13 @@ def explorer_and_regular_test_sets(test_db: Session, test_org_id, authenticated_
 
     Creates:
     - 2 test sets with ``explorer_row=True``
-    - 1 test set with different behavior
+    - 1 test set with different requirement
     - 1 test set with no attributes at all
     """
     ts_adaptive_1 = _make_test_set(
         test_db,
         f"Adaptive Set A {uuid.uuid4().hex[:6]}",
-        {"metadata": {"behaviors": ["Adaptive Testing"]}},
+        {"metadata": {"requirements": ["Adaptive Testing"]}},
         test_org_id,
         authenticated_user_id,
         explorer_row=True,
@@ -67,7 +67,7 @@ def explorer_and_regular_test_sets(test_db: Session, test_org_id, authenticated_
         test_db,
         f"Adaptive Set B {uuid.uuid4().hex[:6]}",
         {
-            "metadata": {"behaviors": ["Adaptive Testing", "Safety"]},
+            "metadata": {"requirements": ["Adaptive Testing", "Safety"]},
             "topics": [],
         },
         test_org_id,
@@ -77,7 +77,7 @@ def explorer_and_regular_test_sets(test_db: Session, test_org_id, authenticated_
     ts_regular = _make_test_set(
         test_db,
         f"Regular Set {uuid.uuid4().hex[:6]}",
-        {"metadata": {"behaviors": ["Safety"]}},
+        {"metadata": {"requirements": ["Safety"]}},
         test_org_id,
         authenticated_user_id,
     )
@@ -1134,7 +1134,7 @@ class TestImportExplorerTestSetFromSource:
             organization_id=test_org_id,
             user_id=authenticated_user_id,
             attributes={
-                "metadata": {"behaviors": ["Safety"]},
+                "metadata": {"requirements": ["Safety"]},
                 "adaptive_settings": {"default_endpoint_id": str(endpoint_id)},
             },
         )

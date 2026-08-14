@@ -20,14 +20,14 @@ export function getTestSetTestColumns(testSetType?: string): GridColDef[] {
       renderCell: renderTestContentCell,
     },
     {
-      field: 'behavior',
-      headerName: 'Behavior',
+      field: 'requirement',
+      headerName: 'Requirement',
       flex: 1,
       minWidth: 120,
       renderCell: params => {
-        const behaviorName = params.row.behavior?.name;
-        if (!behaviorName) return null;
-        return <GridBadge label={behaviorName} />;
+        const requirementName = params.row.requirement?.name;
+        if (!requirementName) return null;
+        return <GridBadge label={requirementName} />;
       },
     },
     {

@@ -8,12 +8,12 @@ class RhesisRouter(APIRouter):
 
     Usage::
 
-        router = RhesisRouter(prefix="/behaviors", tags=["behaviors"], resource="behavior")
+        router = RhesisRouter(prefix="/requirements", tags=["requirements"], resource="requirement")
 
     The ``resource`` name is stored in ``route.openapi_extra["x-rhesis-resource"]``
     on every route added to this router.  The capability deriver in
     :mod:`rhesis.backend.app.auth.capabilities` reads it to derive
-    ``"behavior:read"``, ``"behavior:create"``, etc. without any hardcoded
+    ``"requirement:read"``, ``"requirement:create"``, etc. without any hardcoded
     tag-to-resource mapping.
 
     Non-CRUD routes whose action cannot be inferred from the HTTP verb should

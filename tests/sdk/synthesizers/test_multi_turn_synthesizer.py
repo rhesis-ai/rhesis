@@ -74,14 +74,14 @@ def test_generation_config_with_all_fields():
     """Test GenerationConfig accepts all optional fields."""
     config = GenerationConfig(
         generation_prompt="Generate tests",
-        behaviors=["Compliance", "Reliability"],
+        requirements=["Compliance", "Reliability"],
         categories=["Harmful", "Harmless"],
         topics=["healthcare", "finance"],
         additional_context="Extra context here",
     )
 
     assert config.generation_prompt == "Generate tests"
-    assert config.behaviors == ["Compliance", "Reliability"]
+    assert config.requirements == ["Compliance", "Reliability"]
     assert config.categories == ["Harmful", "Harmless"]
     assert config.topics == ["healthcare", "finance"]
     assert config.additional_context == "Extra context here"
@@ -158,7 +158,7 @@ def test_generate_batch_returns_nested_structure():
                 "test_configuration_scenario": "Customer support",
                 "test_configuration_min_turns": 3,
                 "test_configuration_max_turns": 7,
-                "behavior": "Compliance",
+                "requirement": "Compliance",
                 "category": "Harmful",
                 "topic": "data privacy",
             },
@@ -169,7 +169,7 @@ def test_generate_batch_returns_nested_structure():
                 "test_configuration_scenario": "",
                 "test_configuration_min_turns": 5,
                 "test_configuration_max_turns": 12,
-                "behavior": "Reliability",
+                "requirement": "Reliability",
                 "category": "Harmless",
                 "topic": "product info",
             },
@@ -189,7 +189,7 @@ def test_generate_batch_returns_nested_structure():
     assert result[0]["test_configuration"]["scenario"] == "Customer support"
     assert result[0]["test_configuration"]["min_turns"] == 3
     assert result[0]["test_configuration"]["max_turns"] == 7
-    assert result[0]["behavior"] == "Compliance"
+    assert result[0]["requirement"] == "Compliance"
     assert result[0]["category"] == "Harmful"
     assert result[0]["topic"] == "data privacy"
     assert result[0]["test_type"] == "Multi-Turn"
@@ -201,7 +201,7 @@ def test_generate_batch_returns_nested_structure():
     assert result[1]["test_configuration"]["scenario"] == ""
     assert result[1]["test_configuration"]["min_turns"] == 5
     assert result[1]["test_configuration"]["max_turns"] == 12
-    assert result[1]["behavior"] == "Reliability"
+    assert result[1]["requirement"] == "Reliability"
     assert result[1]["category"] == "Harmless"
     assert result[1]["topic"] == "product info"
     assert result[1]["test_type"] == "Multi-Turn"
@@ -220,7 +220,7 @@ def test_generate_batch_sets_multi_turn_type():
                 "test_configuration_scenario": "",
                 "test_configuration_min_turns": 3,
                 "test_configuration_max_turns": 7,
-                "behavior": "Robustness",
+                "requirement": "Robustness",
                 "category": "Harmful",
                 "topic": "security",
             },
@@ -250,7 +250,7 @@ def test_flat_test_to_nested_includes_turn_config():
         "test_configuration_scenario": "Context",
         "test_configuration_min_turns": 4,
         "test_configuration_max_turns": 15,
-        "behavior": "Reliability",
+        "requirement": "Reliability",
         "category": "Harmless",
         "topic": "general",
     }
@@ -272,7 +272,7 @@ def test_flat_test_to_nested_omits_none_turn_config():
         "test_configuration_instructions": "",
         "test_configuration_restrictions": "",
         "test_configuration_scenario": "",
-        "behavior": "Compliance",
+        "requirement": "Compliance",
         "category": "Harmful",
         "topic": "security",
     }
@@ -304,7 +304,7 @@ def test_generate_batch_passes_config_to_template():
 
     config = GenerationConfig(
         generation_prompt="My custom prompt",
-        behaviors=["Compliance"],
+        requirements=["Compliance"],
     )
     synthesizer = MultiTurnSynthesizer(config=config, model=mock_model, batch_size=5)
     synthesizer._generate_batch()
@@ -331,7 +331,7 @@ def test_generate_single_batch(mock_create_test_set, mock_generate_batch):
                 "restrictions": "",
                 "scenario": "",
             },
-            "behavior": "Compliance",
+            "requirement": "Compliance",
             "category": "Harmful",
             "topic": "topic1",
             "test_type": "Multi-Turn",
@@ -370,7 +370,7 @@ def test_generate_multiple_batches(mock_create_test_set, mock_generate_batch):
                 "restrictions": "",
                 "scenario": "",
             },
-            "behavior": "Reliability",
+            "requirement": "Reliability",
             "category": "Harmless",
             "topic": "topic",
             "test_type": "Multi-Turn",

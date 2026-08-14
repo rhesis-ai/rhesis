@@ -118,7 +118,7 @@ async def generate_test_set(
             },
         )
 
-        framework_label = OWASP_FRAMEWORKS[request.framework.value]["behavior"]
+        framework_label = OWASP_FRAMEWORKS[request.framework.value]["requirement"]
         return OwaspGenerateResponse(
             task_id=str(task_result.id),
             framework=request.framework,

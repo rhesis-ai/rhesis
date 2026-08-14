@@ -42,7 +42,7 @@ def _create_test_set(name: str = "Metric Mgmt Test Set") -> TestSet:
             {
                 "category": "Safety",
                 "topic": "Content",
-                "behavior": "Compliance",
+                "requirement": "Compliance",
                 "prompt": {"content": "Hello, is this safe?"},
             }
         ],

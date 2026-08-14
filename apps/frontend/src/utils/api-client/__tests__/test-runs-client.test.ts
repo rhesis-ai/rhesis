@@ -270,28 +270,30 @@ describe('TestRunsClient', () => {
     });
   });
 
-  describe('getTestRunBehaviors', () => {
-    it('fetches behaviors for the given test run id', async () => {
-      const mockBehaviors = [
-        { id: 'beh-1', name: 'Behavior A' },
-        { id: 'beh-2', name: 'Behavior B' },
+  describe('getTestRunRequirements', () => {
+    it('fetches requirements for the given test run id', async () => {
+      const mockRequirements = [
+        { id: 'beh-1', name: 'Requirement A' },
+        { id: 'beh-2', name: 'Requirement B' },
       ];
-      fetchMock.mockResolvedValue(makeFetchResponse(mockBehaviors));
+      fetchMock.mockResolvedValue(makeFetchResponse(mockRequirements));
 
-      const result = await client.getTestRunBehaviors('run-123');
+      const result = await client.getTestRunRequirements('run-123');
 
       expect(fetchMock).toHaveBeenCalledWith(
-        expect.stringContaining(`/test_runs/run-123${API_ENDPOINTS.behaviors}`),
+        expect.stringContaining(
+          `/test_runs/run-123${API_ENDPOINTS.requirements}`
+        ),
         expect.anything()
       );
       expect(result).toHaveLength(2);
-      expect(result[0]).toMatchObject({ id: 'beh-1', name: 'Behavior A' });
+      expect(result[0]).toMatchObject({ id: 'beh-1', name: 'Requirement A' });
     });
 
     it('sends credentials but omits Authorization header client-side', async () => {
       fetchMock.mockResolvedValue(makeFetchResponse([]));
 
-      await client.getTestRunBehaviors('run-123');
+      await client.getTestRunRequirements('run-123');
 
       expect(fetchMock).toHaveBeenCalledWith(
         expect.any(String),
@@ -306,10 +308,10 @@ describe('TestRunsClient', () => {
       expect(headers['Authorization']).toBeUndefined();
     });
 
-    it('returns an empty array when there are no behaviors', async () => {
+    it('returns an empty array when there are no requirements', async () => {
       fetchMock.mockResolvedValue(makeFetchResponse([]));
 
-      const result = await client.getTestRunBehaviors('run-empty');
+      const result = await client.getTestRunRequirements('run-empty');
 
       expect(result).toEqual([]);
     });
@@ -319,9 +321,9 @@ describe('TestRunsClient', () => {
         makeFetchResponse({ detail: 'Not found' }, 404)
       );
 
-      await expect(client.getTestRunBehaviors('run-missing')).rejects.toThrow(
-        'API error: 404'
-      );
+      await expect(
+        client.getTestRunRequirements('run-missing')
+      ).rejects.toThrow('API error: 404');
     });
   });
 

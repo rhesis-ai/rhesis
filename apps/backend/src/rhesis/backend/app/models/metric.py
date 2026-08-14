@@ -26,15 +26,19 @@ from .mixins import (
     UserOwnedMixin,
 )
 
-# Association table for behavior and metric
-behavior_metric_association = Table(
-    "behavior_metric",
+# Association table for requirement and metric
+requirement_metric_association = Table(
+    "requirement_metric",
     Base.metadata,
-    Column("behavior_id", GUID(), ForeignKey("behavior.id"), primary_key=True),
+    Column("requirement_id", GUID(), ForeignKey("requirement.id"), primary_key=True),
     Column("metric_id", GUID(), ForeignKey("metric.id"), primary_key=True),
     Column("user_id", GUID(), ForeignKey("user.id"), nullable=False),
     Column("organization_id", GUID(), ForeignKey("organization.id"), nullable=False),
 )
+
+# Frozen migration alembic/utils/metric_sync.py imports this name directly
+# (rhesis.backend.app.models.metric.behavior_metric_association) — keep it valid.
+behavior_metric_association = requirement_metric_association
 
 
 class Metric(
@@ -100,7 +104,7 @@ class Metric(
     backend_type = relationship(
         "TypeLookup", foreign_keys=[backend_type_id], back_populates="backend_types"
     )
-    behaviors = relationship(
-        "Behavior", secondary=behavior_metric_association, back_populates="metrics"
+    requirements = relationship(
+        "Requirement", secondary=requirement_metric_association, back_populates="metrics"
     )
     test_sets = relationship("TestSet", secondary="test_set_metric", back_populates="metrics")

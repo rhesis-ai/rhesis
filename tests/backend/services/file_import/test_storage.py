@@ -222,7 +222,7 @@ class TestImportSessionStore:
             file_format="json",
         )
         session.parsed_rows = [{"category": "Safety", "topic": "Content"}]
-        session.row_errors = [[{"type": "missing", "field": "behavior", "message": "Missing"}]]
+        session.row_errors = [[{"type": "missing", "field": "requirement", "message": "Missing"}]]
         session.row_warnings = [[]]
 
         page = ImportSessionStore.get_preview_page(session.import_id, page=1, page_size=10)
@@ -231,7 +231,7 @@ class TestImportSessionStore:
         assert row["index"] == 0
         assert row["data"]["category"] == "Safety"
         assert len(row["errors"]) == 1
-        assert row["errors"][0]["field"] == "behavior"
+        assert row["errors"][0]["field"] == "requirement"
 
 
 # ── Disk persistence (L2) ───────────────────────────────────────

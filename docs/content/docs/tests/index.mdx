@@ -5,7 +5,7 @@ Tests are individual cases that validate specific inputs and expected outputs fo
 <ThemeAwareImage
   lightSrc="/screenshots/rhesis-ai-tests.webp"
   darkSrc="/screenshots/rhesis-ai-tests-dark.webp"
-  alt="Tests page — prompts with their behavior, topic, category, and test type"
+  alt="Tests page — prompts with their requirement, topic, category, and test type"
 />
 
 ## Test Types
@@ -27,7 +27,7 @@ A single prompt sent to your LLM application, evaluated against expected outputs
 | **Files** | (Optional) File attachments (images, PDFs, or audio) sent alongside the prompt. See [Multi-modal Testing](/docs/tests/multimodal-testing) for supported types and size limits, and [file format filters](/docs/endpoints/request-mapping#file-format-filters) for how files are mapped to provider formats. |
 | **Category** | High-level classification (e.g., Harmful, Harmless) |
 | **Topic** | Specific subject matter (e.g., healthcare, financial advice) |
-| **Behavior** | Type of behavior to validate (e.g., Compliance, Reliability, Robustness) |
+| **Requirement** | Type of requirement to validate (e.g., Compliance, Reliability, Robustness) |
 | **Expected Output** | (Optional) What the LLM application should respond with |
 
 ### Multi-Turn Tests
@@ -47,11 +47,11 @@ Goal-based conversations that test your LLM application across multiple turns. P
 | **Max. Turns** | Maximum number of conversation turns allowed (`max_turns`) |
 | **Category** | High-level classification (e.g., Harmful, Harmless) |
 | **Topic** | Specific subject matter (e.g., healthcare, financial advice) |
-| **Behavior** | Type of behavior to validate (e.g., Compliance, Reliability, Robustness) |
+| **Requirement** | Type of requirement to validate (e.g., Compliance, Reliability, Robustness) |
 
 ## Creating Tests
 
-Create tests manually or generate them automatically from behaviors and requirements. See [Test Generation](/docs/test-sets/tests-generation) for automated generation.
+Create tests manually or generate them automatically. See [Test Generation](/docs/test-sets/tests-generation) for automated generation.
 
 ### Manual Test Writer
 
@@ -59,8 +59,8 @@ Use **Manual Test Writer** to enter or paste multiple tests without running AI g
 
 | Test type | Fields |
 | --- | --- |
-| Single-turn | Prompt, category, topic, behavior, expected output, and optional file attachments |
-| Multi-turn | Goal, instructions, restrictions, scenario, min turns, max turns, category, topic, behavior, and optional file attachments |
+| Single-turn | Prompt, category, topic, requirement, expected output, and optional file attachments |
+| Multi-turn | Goal, instructions, restrictions, scenario, min turns, max turns, category, topic, requirement, and optional file attachments |
 
 From the Tests page, choose manual creation, select the test type, add or remove rows, attach files when needed, then save the rows as tests or as a test set. Use the single-test drawer when you only need to create or edit one test.
 

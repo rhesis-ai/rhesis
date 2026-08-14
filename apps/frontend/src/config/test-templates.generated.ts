@@ -15,6 +15,22 @@ import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
 import CampaignIcon from '@mui/icons-material/Campaign';
 import { TestTemplate } from '@/app/(protected)/test-sets/new-generated/components/shared/types';
 
+// Icon mapping for YAML references
+const iconMap: Record<string, React.ComponentType<any>> = {
+  BalanceIcon,
+  LanguageIcon,
+  VerifiedUserIcon,
+  PrivacyTipIcon,
+  RecordVoiceOverIcon,
+  PublicIcon,
+  MenuBookIcon,
+  FavoriteIcon,
+  LightbulbIcon,
+  TroubleshootIcon,
+  AccountBalanceIcon,
+  CampaignIcon,
+};
+
 // Generated templates from YAML
 export const TEMPLATES: TestTemplate[] = [
   {
@@ -24,7 +40,7 @@ export const TEMPLATES: TestTemplate[] = [
     icon: BalanceIcon,
     color: 'primary.main',
     prompt:
-      'Generate test behaviors for AI bias detection focusing on fairness, reliability, objectivity, inclusivity, equity, and consistency in AI systems',
+      'Generate test requirements for AI bias detection focusing on fairness, reliability, objectivity, inclusivity, equity, and consistency in AI systems',
     topics: [
       'Bias',
       'Fairness',
@@ -50,7 +66,7 @@ export const TEMPLATES: TestTemplate[] = [
     icon: LanguageIcon,
     color: 'primary.main',
     prompt:
-      'Generate test behaviors for multilingual AI systems focusing on reliability, quality, accuracy, consistency, cultural sensitivity, and adaptability across different languages and cultures',
+      'Generate test requirements for multilingual AI systems focusing on reliability, quality, accuracy, consistency, cultural sensitivity, and adaptability across different languages and cultures',
     topics: [
       'Languages',
       'Translation',
@@ -76,7 +92,7 @@ export const TEMPLATES: TestTemplate[] = [
     icon: VerifiedUserIcon,
     color: 'primary.main',
     prompt:
-      'Generate test behaviors for content moderation systems focusing on safety, compliance, filtering, detection, protection, and enforcement of community standards',
+      'Generate test requirements for content moderation systems focusing on safety, compliance, filtering, detection, protection, and enforcement of community standards',
     topics: [
       'Content',
       'Moderation',
@@ -102,7 +118,7 @@ export const TEMPLATES: TestTemplate[] = [
     icon: PrivacyTipIcon,
     color: 'primary.main',
     prompt:
-      'Generate test behaviors for privacy protection systems focusing on privacy, security, confidentiality, data minimization, anonymization, and protection of user data',
+      'Generate test requirements for privacy protection systems focusing on privacy, security, confidentiality, data minimization, anonymization, and protection of user data',
     topics: [
       'Privacy',
       'Data Protection',
@@ -128,7 +144,7 @@ export const TEMPLATES: TestTemplate[] = [
     icon: RecordVoiceOverIcon,
     color: 'primary.main',
     prompt:
-      'Generate test behaviors for tone appropriateness focusing on professionalism, empathy, respect, clarity, adaptability, and emotional intelligence in communication',
+      'Generate test requirements for tone appropriateness focusing on professionalism, empathy, respect, clarity, adaptability, and emotional intelligence in communication',
     topics: [
       'Tone',
       'Communication Style',
@@ -154,7 +170,7 @@ export const TEMPLATES: TestTemplate[] = [
     icon: PublicIcon,
     color: 'primary.main',
     prompt:
-      'Generate test behaviors for cultural sensitivity focusing on respect, inclusivity, awareness, sensitivity, adaptability, and open-mindedness across different cultures',
+      'Generate test requirements for cultural sensitivity focusing on respect, inclusivity, awareness, sensitivity, adaptability, and open-mindedness across different cultures',
     topics: [
       'Culture',
       'Traditions',
@@ -180,7 +196,7 @@ export const TEMPLATES: TestTemplate[] = [
     icon: MenuBookIcon,
     color: 'primary.main',
     prompt:
-      'Generate test behaviors for readability focusing on clarity, simplicity, coherence, accessibility, effectiveness, and user-friendly content design',
+      'Generate test requirements for readability focusing on clarity, simplicity, coherence, accessibility, effectiveness, and user-friendly content design',
     topics: [
       'Readability',
       'Comprehension',
@@ -206,7 +222,7 @@ export const TEMPLATES: TestTemplate[] = [
     icon: FavoriteIcon,
     color: 'primary.main',
     prompt:
-      'Generate test behaviors for empathy and emotional intelligence focusing on empathy, compassion, understanding, support, emotional awareness, and active listening skills',
+      'Generate test requirements for empathy and emotional intelligence focusing on empathy, compassion, understanding, support, emotional awareness, and active listening skills',
     topics: [
       'Emotions',
       'Mental Health',
@@ -232,7 +248,7 @@ export const TEMPLATES: TestTemplate[] = [
     icon: LightbulbIcon,
     color: 'primary.main',
     prompt:
-      'Generate test behaviors for creativity and innovation focusing on creativity, innovation, originality, flexibility, imagination, and problem-solving capabilities',
+      'Generate test requirements for creativity and innovation focusing on creativity, innovation, originality, flexibility, imagination, and problem-solving capabilities',
     topics: [
       'Creativity',
       'Brainstorming',
@@ -258,7 +274,7 @@ export const TEMPLATES: TestTemplate[] = [
     icon: TroubleshootIcon,
     color: 'primary.main',
     prompt:
-      'Generate test behaviors for contextual understanding focusing on context awareness, relevance, comprehension, adaptability, discernment, and situational intelligence',
+      'Generate test requirements for contextual understanding focusing on context awareness, relevance, comprehension, adaptability, discernment, and situational intelligence',
     topics: [
       'Context',
       'Relevance',
@@ -284,7 +300,7 @@ export const TEMPLATES: TestTemplate[] = [
     icon: AccountBalanceIcon,
     color: 'primary.main',
     prompt:
-      'Generate test behaviors for ethical reasoning focusing on ethics, integrity, responsibility, moral reasoning, transparency, and accountability in decision-making',
+      'Generate test requirements for ethical reasoning focusing on ethics, integrity, responsibility, moral reasoning, transparency, and accountability in decision-making',
     topics: [
       'Ethics',
       'Morality',
@@ -310,7 +326,7 @@ export const TEMPLATES: TestTemplate[] = [
     icon: CampaignIcon,
     color: 'primary.main',
     prompt:
-      'Generate test behaviors for persuasion and influence focusing on persuasiveness, influence, credibility, rhetoric, argumentation, and conviction in communication',
+      'Generate test requirements for persuasion and influence focusing on persuasiveness, influence, credibility, rhetoric, argumentation, and conviction in communication',
     topics: [
       'Persuasion',
       'Argumentation',

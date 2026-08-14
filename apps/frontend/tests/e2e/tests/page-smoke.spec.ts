@@ -12,7 +12,7 @@ const protectedRoutes = [
   { path: '/insights', name: 'Insights' },
   { path: '/projects', name: 'Projects' },
   { path: '/knowledge', name: 'Knowledge' },
-  { path: '/behaviors', name: 'Behaviors' },
+  { path: '/requirements', name: 'Requirements' },
   { path: '/generation', name: 'Generation' },
   { path: '/playground', name: 'Playground' },
   { path: '/tests', name: 'Tests' },

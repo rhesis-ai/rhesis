@@ -48,7 +48,7 @@ class TestSingleTurnRunnerWithProvider:
 
         mock_test = MagicMock()
         mock_test.id = "test-1"
-        mock_test.behavior = MagicMock()
+        mock_test.requirement = MagicMock()
 
         with (
             patch(
@@ -133,7 +133,7 @@ class TestSingleTurnRunnerWithProvider:
 
         mock_test = MagicMock()
         mock_test.id = "test-1"
-        mock_test.behavior = MagicMock()
+        mock_test.requirement = MagicMock()
 
         with (
             patch(

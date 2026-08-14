@@ -27,18 +27,18 @@ from rhesis.sdk.services.owasp_extractor import (
 
 logger = logging.getLogger(__name__)
 
-# Framework id -> report URL / behavior label stamped on generated tests.
-# `behavior` is read both here (routers/owasp.py) and by
+# Framework id -> report URL / requirement label stamped on generated tests.
+# `requirement` is read both here (routers/owasp.py) and by
 # tasks/test_set.py:generate_and_save_owasp_test_set — keep the single key so
 # the two call sites can't drift apart.
 OWASP_FRAMEWORKS: Dict[str, Dict[str, str]] = {
     "llm": {
         "report_url": DEFAULT_OWASP_LLM_PDF_URL,
-        "behavior": "OWASP LLM Top 10",
+        "requirement": "OWASP LLM Top 10",
     },
     "agentic": {
         "report_url": DEFAULT_OWASP_AGENTIC_PDF_URL,
-        "behavior": "OWASP Agentic Top 10",
+        "requirement": "OWASP Agentic Top 10",
     },
 }
 

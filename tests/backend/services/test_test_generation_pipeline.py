@@ -36,7 +36,7 @@ def _make_user(model_id=None):
     )
 
 
-def _make_behavior(name, description=""):
+def _make_requirement(name, description=""):
     return SimpleNamespace(name=name, description=description)
 
 
@@ -44,16 +44,16 @@ def _make_project(name="TestProject", description="A test project"):
     return SimpleNamespace(name=name, description=description)
 
 
-def _streaming_llm(behaviors=None, topics=None, categories=None):
+def _streaming_llm(requirements=None, topics=None, categories=None):
     """Return a mock LLM whose generate_stream yields a single combined JSON.
 
-    The response is a JSON object with ``behaviors``, ``topics``, and
+    The response is a JSON object with ``requirements``, ``topics``, and
     ``categories`` arrays, streamed character-by-character so the
     ``IncrementalConfigParser`` can parse items incrementally.
     """
     response = json.dumps(
         {
-            "behaviors": behaviors or [],
+            "requirements": requirements or [],
             "topics": topics or [],
             "categories": categories or [],
         }
@@ -72,7 +72,7 @@ def _db_context(**overrides):
     ctx = {
         "prompt": "test a chatbot",
         "sample_size": 6,
-        "behaviors": [{"name": "Accuracy", "description": "Correct answers"}],
+        "requirements": [{"name": "Accuracy", "description": "Correct answers"}],
         "project_name": None,
         "project_description": None,
         "previous_messages": [],
@@ -99,15 +99,15 @@ async def _collect_ndjson(async_gen):
 @pytest.mark.unit
 @pytest.mark.services
 class TestFetchDbContext:
-    def test_returns_behaviors_and_prompt(self):
+    def test_returns_requirements_and_prompt(self):
         mock_db = MagicMock()
-        behaviors = [_make_behavior("Accuracy", "Be accurate")]
+        requirements = [_make_requirement("Accuracy", "Be accurate")]
         org_id = str(uuid.uuid4())
 
         with patch(
-            "rhesis.backend.app.services.test_generation_pipeline.behavior_crud"
-        ) as behavior_crud:
-            behavior_crud.get_behaviors.return_value = behaviors
+            "rhesis.backend.app.services.test_generation_pipeline.requirement_crud"
+        ) as requirement_crud:
+            requirement_crud.get_requirements.return_value = requirements
             ctx = _fetch_db_context(
                 db=mock_db,
                 organization_id=org_id,
@@ -115,8 +115,8 @@ class TestFetchDbContext:
             )
 
         assert ctx["prompt"] == "test chatbot"
-        assert len(ctx["behaviors"]) == 1
-        assert ctx["behaviors"][0]["name"] == "Accuracy"
+        assert len(ctx["requirements"]) == 1
+        assert ctx["requirements"][0]["name"] == "Accuracy"
         assert ctx["project_name"] is None
         assert ctx["previous_messages"] == []
 
@@ -128,14 +128,14 @@ class TestFetchDbContext:
 
         with (
             patch(
-                "rhesis.backend.app.services.test_generation_pipeline.behavior_crud"
-            ) as behavior_crud,
+                "rhesis.backend.app.services.test_generation_pipeline.requirement_crud"
+            ) as requirement_crud,
             patch(
                 "rhesis.backend.app.services.test_generation_pipeline.get_project",
                 return_value=project,
             ),
         ):
-            behavior_crud.get_behaviors.return_value = []
+            requirement_crud.get_requirements.return_value = []
             ctx = _fetch_db_context(
                 db=mock_db,
                 organization_id=org_id,
@@ -152,14 +152,14 @@ class TestFetchDbContext:
 
         with (
             patch(
-                "rhesis.backend.app.services.test_generation_pipeline.behavior_crud"
-            ) as behavior_crud,
+                "rhesis.backend.app.services.test_generation_pipeline.requirement_crud"
+            ) as requirement_crud,
             patch(
                 "rhesis.backend.app.services.test_generation_pipeline.get_project",
                 return_value=None,
             ),
         ):
-            behavior_crud.get_behaviors.return_value = []
+            requirement_crud.get_requirements.return_value = []
             with pytest.raises(ValueError, match="not found"):
                 _fetch_db_context(
                     db=mock_db,
@@ -173,9 +173,9 @@ class TestFetchDbContext:
         msgs = [{"content": "refine"}]
 
         with patch(
-            "rhesis.backend.app.services.test_generation_pipeline.behavior_crud"
-        ) as behavior_crud:
-            behavior_crud.get_behaviors.return_value = []
+            "rhesis.backend.app.services.test_generation_pipeline.requirement_crud"
+        ) as requirement_crud:
+            requirement_crud.get_requirements.return_value = []
             ctx = _fetch_db_context(
                 db=mock_db,
                 organization_id=str(uuid.uuid4()),
@@ -194,7 +194,7 @@ class TestFetchDbContext:
 @pytest.mark.unit
 @pytest.mark.services
 class TestRenderConfigPrompt:
-    def test_renders_template_with_behaviors(self):
+    def test_renders_template_with_requirements(self):
         ctx = _db_context()
         result = _render_config_prompt(ctx)
         assert "Accuracy" in result
@@ -221,7 +221,7 @@ class TestRenderConfigPrompt:
 class TestStreamConfig:
     async def test_yields_config_items_from_all_dimensions(self):
         llm = _streaming_llm(
-            behaviors=[
+            requirements=[
                 {"name": "Accuracy", "description": "Be accurate", "active": True},
             ],
             topics=[
@@ -239,12 +239,12 @@ class TestStreamConfig:
         config_items = [e for e in events if e["type"] == "config_item"]
         categories_seen = {e["category"] for e in config_items}
 
-        assert categories_seen == {"behaviors", "topics", "categories"}
+        assert categories_seen == {"requirements", "topics", "categories"}
         assert len(config_items) == 3
 
     async def test_yields_config_done_with_total(self):
         llm = _streaming_llm(
-            behaviors=[
+            requirements=[
                 {"name": "B1", "description": "d", "active": True},
                 {"name": "B2", "description": "d", "active": True},
             ],
@@ -264,7 +264,7 @@ class TestStreamConfig:
 
     async def test_yields_collected_config_response(self):
         llm = _streaming_llm(
-            behaviors=[
+            requirements=[
                 {"name": "B1", "description": "d", "active": True},
             ],
             topics=[
@@ -282,13 +282,13 @@ class TestStreamConfig:
 
         assert collected is not None
         assert isinstance(collected, TestConfigResponse)
-        assert len(collected.behaviors) == 1
+        assert len(collected.requirements) == 1
         assert len(collected.topics) == 1
         assert len(collected.categories) == 1
 
     async def test_skips_items_without_name(self):
         llm = _streaming_llm(
-            behaviors=[
+            requirements=[
                 {"name": "", "description": "no name", "active": True},
                 {"name": "Valid", "description": "ok", "active": True},
             ],
@@ -334,7 +334,7 @@ class TestStreamConfig:
 
 def _config_response_json(**overrides):
     payload = {
-        "behaviors": [
+        "requirements": [
             {"name": "Compliance", "description": "d", "active": True},
             {"name": "Reliability", "description": "d", "active": True},
         ],
@@ -362,8 +362,8 @@ class TestIncrementalConfigParser:
         parsed = parser.feed(_config_response_json())
 
         assert [cat for cat, _ in parsed] == [
-            "behaviors",
-            "behaviors",
+            "requirements",
+            "requirements",
             "topics",
             "topics",
             "categories",
@@ -378,7 +378,7 @@ class TestIncrementalConfigParser:
         for ch in _config_response_json():
             parsed.extend(parser.feed(ch))
 
-        assert {cat for cat, _ in parsed} == {"behaviors", "topics", "categories"}
+        assert {cat for cat, _ in parsed} == {"requirements", "topics", "categories"}
         assert len(parsed) == 6
 
     def test_empty_array_does_not_shift_later_keys(self):
@@ -387,7 +387,7 @@ class TestIncrementalConfigParser:
         parser = IncrementalConfigParser()
         parsed = parser.feed(
             _config_response_json(
-                behaviors=[],
+                requirements=[],
                 topics=[{"name": "Auth", "description": "d", "active": True}],
                 categories=[{"name": "Security", "description": "d", "active": True}],
             )
@@ -464,7 +464,7 @@ class TestPipelineStream:
         org_id = str(uuid.uuid4())
 
         llm = _streaming_llm(
-            behaviors=[
+            requirements=[
                 {"name": "Accuracy", "description": "d", "active": True},
             ],
             topics=[
@@ -476,8 +476,8 @@ class TestPipelineStream:
         )
 
         fake_tests = [
-            {"prompt": {"content": "test1"}, "behavior": "Accuracy"},
-            {"prompt": {"content": "test2"}, "behavior": "Accuracy"},
+            {"prompt": {"content": "test1"}, "requirement": "Accuracy"},
+            {"prompt": {"content": "test2"}, "requirement": "Accuracy"},
         ]
 
         async def _fake_stream(**kwargs):
@@ -531,7 +531,7 @@ class TestPipelineStream:
         org_id = str(uuid.uuid4())
 
         llm = _streaming_llm(
-            behaviors=[
+            requirements=[
                 {"name": "B", "description": "d", "active": True},
             ],
             topics=[
@@ -543,7 +543,7 @@ class TestPipelineStream:
         )
 
         fake_tests = [
-            {"test_configuration": {"goal": "test goal"}, "behavior": "B"},
+            {"test_configuration": {"goal": "test goal"}, "requirement": "B"},
         ]
 
         async def _fake_stream(**kwargs):
@@ -587,12 +587,12 @@ class TestPipelineStream:
         org_id = str(uuid.uuid4())
 
         llm = _streaming_llm(
-            behaviors=[{"name": "B", "description": "d", "active": True}],
+            requirements=[{"name": "B", "description": "d", "active": True}],
             topics=[{"name": "T", "description": "d", "active": True}],
             categories=[{"name": "C", "description": "d", "active": True}],
         )
 
-        fake_tests = [{"test_configuration": {"goal": "test goal"}, "behavior": "B"}]
+        fake_tests = [{"test_configuration": {"goal": "test goal"}, "requirement": "B"}]
 
         async def _fake_stream(**kwargs):
             for t in fake_tests:
@@ -670,7 +670,7 @@ class TestPipelineStream:
         mock_db = MagicMock()
 
         llm = _streaming_llm(
-            behaviors=[
+            requirements=[
                 {"name": "B", "description": "d", "active": True},
             ],
             topics=[
@@ -715,14 +715,14 @@ class TestPipelineStream:
         assert "tests_done" in types
         assert types[-1] == "done"
 
-    async def test_inactive_behaviors_fallback(self):
-        """When all behaviors are inactive, pipeline uses the first one."""
+    async def test_inactive_requirements_fallback(self):
+        """When all requirements are inactive, pipeline uses the first one."""
         user = _make_user()
         mock_db = MagicMock()
 
         llm = _streaming_llm(
-            behaviors=[
-                {"name": "OnlyBehavior", "description": "d", "active": False},
+            requirements=[
+                {"name": "OnlyRequirement", "description": "d", "active": False},
             ],
             topics=[
                 {"name": "T", "description": "d", "active": True},
@@ -761,7 +761,7 @@ class TestPipelineStream:
 
         call_kwargs = mock_gen.call_args
         sdk_config = call_kwargs.kwargs.get("config") or call_kwargs[1].get("config")
-        assert sdk_config.behaviors == ["OnlyBehavior"]
+        assert sdk_config.requirements == ["OnlyRequirement"]
 
     async def test_skips_config_when_provided(self):
         """When config is provided, Phase 1 is skipped entirely."""
@@ -769,13 +769,13 @@ class TestPipelineStream:
         mock_db = MagicMock()
 
         config = TestConfigResponse(
-            behaviors=[{"name": "B1", "description": "d", "active": True}],
+            requirements=[{"name": "B1", "description": "d", "active": True}],
             topics=[{"name": "T1", "description": "d", "active": True}],
             categories=[{"name": "C1", "description": "d", "active": True}],
         )
 
         async def _fake_stream(**kwargs):
-            yield {"prompt": {"content": "test1"}, "behavior": "B1"}
+            yield {"prompt": {"content": "test1"}, "requirement": "B1"}
 
         with patch(
             "rhesis.backend.app.services.test_generation_pipeline.generate_tests_stream",

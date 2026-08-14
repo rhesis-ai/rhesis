@@ -87,7 +87,7 @@ class TopicReference(Base):
     model_config = ConfigDict(from_attributes=True)
 
 
-class BehaviorReference(Base):
+class RequirementReference(Base):
     id: UUID4
     name: Optional[str] = None
     description: Optional[str] = None

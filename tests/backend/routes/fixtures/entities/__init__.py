@@ -7,14 +7,14 @@ Each module contains fixtures for a specific business domain.
 Modules:
 - categories.py: Category-related fixtures
 - topics.py: Topic-related fixtures
-- behaviors.py: Behavior-related fixtures
+- requirements.py: Requirement-related fixtures
 - endpoints.py: Endpoint-related fixtures
 - metrics.py: Metric-related fixtures
 - users.py: User-related fixtures
 """
 
 # Import all entity fixtures
-from .behaviors import *
+from .requirements import *
 from .categories import *
 from .endpoints import *
 from .metrics import *
@@ -34,8 +34,8 @@ __all__ = [
     # Topic fixtures
     "sample_topic",
     "parent_topic",
-    # Behavior fixtures
-    "sample_behavior",
+    # Requirement fixtures
+    "sample_requirement",
     # Metric fixtures
     "sample_metric",
     # Endpoint fixtures

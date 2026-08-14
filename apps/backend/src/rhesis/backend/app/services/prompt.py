@@ -45,10 +45,10 @@ def get_prompts_for_test_set(
             # Load Prompt relationships
             # joinedload(Prompt.source),  # Temporarily disabled due to entity_type column issue
             joinedload(Prompt.status),
-            # Load Test relationships for category, topic, behavior
+            # Load Test relationships for category, topic, requirement
             joinedload(Test.category),
             joinedload(Test.topic),
-            joinedload(Test.behavior),
+            joinedload(Test.requirement),
         )
         .distinct()
         .all()
@@ -67,7 +67,7 @@ def get_prompts_for_test_set(
                     "category": test.category.name if test.category else None,  # From Test
                     "topic": test.topic.name if test.topic else None,  # From Test
                     "language_code": prompt.language_code,
-                    "behavior": test.behavior.name if test.behavior else None,  # From Test
+                    "requirement": test.requirement.name if test.requirement else None,  # From Test
                     "expected_response": prompt.expected_response,
                     "source": prompt.source.title if prompt.source else None,
                     "status": prompt.status.name if prompt.status else None,

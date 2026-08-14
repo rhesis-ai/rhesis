@@ -15,7 +15,7 @@
             "metadata": {
                 "sample": "",
                 "categories": [],
-                "behaviors": [],
+                "requirements": [],
                 "topics": [],
                 "license_type": "Copyright"
             }
@@ -28,7 +28,7 @@
     "topic": {
         "status": "Active"
     },
-    "behavior": {
+    "requirement": {
         "status": "Active"
     },
     "category": {

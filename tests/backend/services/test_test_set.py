@@ -1,7 +1,7 @@
 """
 Tests for test_set service functions.
 
-These tests verify the current behavior of functions before they are refactored
+These tests verify the current requirement of functions before they are refactored
 to use the new direct parameter passing approach.
 """
 
@@ -13,7 +13,7 @@ from faker import Faker
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
-from rhesis.backend.app.constants import EXPLORER_BEHAVIOR_NAME
+from rhesis.backend.app.constants import EXPLORER_REQUIREMENT_NAME
 from rhesis.backend.app.services import test_set as test_set_service
 
 # Use existing data factories from the established pattern
@@ -304,7 +304,7 @@ class TestTestSetExecution:
                 None,
                 None,
                 None,
-                "behavior",
+                "requirement",
                 reference_test_run_id=None,
                 execution_model_id=None,
                 evaluation_model_id=None,
@@ -594,7 +594,7 @@ class TestTestSetGeneration:
             tests=[
                 schemas.TestData(
                     prompt=schemas.TestPrompt(content="Test prompt 1"),
-                    behavior="Security",
+                    requirement="Security",
                     category="Injection",
                     topic="SQL Injection",
                 )
@@ -625,7 +625,7 @@ class TestTestSetGeneration:
             "tests": [
                 {
                     "prompt": {"content": "Test prompt 1"},
-                    "behavior": "Security",
+                    "requirement": "Security",
                     "category": "Injection",
                     "topic": "SQL Injection",
                 }
@@ -648,7 +648,7 @@ class TestTestSetGeneration:
 class TestGetTestSetsExcludesExplorer:
     """crud.get_test_sets must omit explorer sets (general test set list API)."""
 
-    def test_get_test_sets_excludes_explorer_metadata_behavior(
+    def test_get_test_sets_excludes_explorer_metadata_requirement(
         self, test_db: Session, authenticated_user_id, test_org_id
     ):
         regular = models.TestSet(
@@ -656,14 +656,14 @@ class TestGetTestSetsExcludesExplorer:
             organization_id=test_org_id,
             user_id=authenticated_user_id,
             visibility="organization",
-            attributes={"metadata": {"behaviors": ["Safety"]}},
+            attributes={"metadata": {"requirements": ["Safety"]}},
         )
         explorer = models.TestSet(
             name="Explorer set for list filter",
             organization_id=test_org_id,
             user_id=authenticated_user_id,
             visibility="organization",
-            attributes={"metadata": {"behaviors": [EXPLORER_BEHAVIOR_NAME]}},
+            attributes={"metadata": {"requirements": [EXPLORER_REQUIREMENT_NAME]}},
             explorer_row=True,
         )
         test_db.add_all([regular, explorer])

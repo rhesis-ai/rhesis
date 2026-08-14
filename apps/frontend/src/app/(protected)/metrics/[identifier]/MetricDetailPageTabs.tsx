@@ -25,28 +25,28 @@ import LinkedEntitiesFilterDrawer, {
 } from '@/components/common/LinkedEntitiesFilterDrawer';
 import { MetricDetailView } from './MetricDetailView';
 import { MetricsClient } from '@/utils/api-client/metrics-client';
-import { BehaviorClient } from '@/utils/api-client/behavior-client';
+import { RequirementClient } from '@/utils/api-client/requirement-client';
 import { API_ENDPOINTS } from '@/utils/api-client/config';
 import { useCan, useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import AccessDenied from '@/components/common/AccessDenied';
 import PageLoadingState from '@/components/common/PageLoadingState';
 import type {
-  BehaviorReference,
-  BehaviorWithMetrics,
-} from '@/utils/api-client/interfaces/behavior';
+  RequirementReference,
+  RequirementWithMetrics,
+} from '@/utils/api-client/interfaces/requirement';
 import type { Status } from '@/utils/api-client/interfaces/status';
 import type { UUID } from 'crypto';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
-/** Linked behaviors come back with the status relationship at runtime. */
-type LinkedBehaviorRow = BehaviorReference & { status?: Status | null };
+/** Linked requirements come back with the status relationship at runtime. */
+type LinkedRequirementRow = RequirementReference & { status?: Status | null };
 
-const TAB_KEYS = ['basic', 'linked-behaviors'] as const;
+const TAB_KEYS = ['basic', 'linked-requirements'] as const;
 
 const NAV_LABELS: Record<(typeof TAB_KEYS)[number], string> = {
   basic: 'Basic Information',
-  'linked-behaviors': 'Linked Behaviors',
+  'linked-requirements': 'Linked Requirements',
 };
 
 export default function MetricDetailPageTabs() {
@@ -85,14 +85,17 @@ export default function MetricDetailPageTabs() {
       tabNav={tabNav}
       tabBody={
         activeTab === 1 ? (
-          <MetricLinkedBehaviors metricId={metricId} sessionStatus={status} />
+          <MetricLinkedRequirements
+            metricId={metricId}
+            sessionStatus={status}
+          />
         ) : undefined
       }
     />
   );
 }
 
-function MetricLinkedBehaviors({
+function MetricLinkedRequirements({
   metricId,
   sessionStatus,
 }: {
@@ -102,12 +105,12 @@ function MetricLinkedBehaviors({
   const router = useRouter();
   const notifications = useNotifications();
   const canEditMetric = useCan(Capability.Metric.UPDATE);
-  const [behaviors, setBehaviors] = useState<LinkedBehaviorRow[]>([]);
+  const [requirements, setRequirements] = useState<LinkedRequirementRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Assign drawer state
   const [assignOpen, setAssignOpen] = useState(false);
-  const [available, setAvailable] = useState<BehaviorWithMetrics[]>([]);
+  const [available, setAvailable] = useState<RequirementWithMetrics[]>([]);
   const [loadingAvailable, setLoadingAvailable] = useState(false);
 
   // Filter drawer state
@@ -127,12 +130,12 @@ function MetricLinkedBehaviors({
     setLoading(true);
     try {
       const client = new MetricsClient();
-      const result = await client.getMetricBehaviors(metricId as UUID);
+      const result = await client.getMetricRequirements(metricId as UUID);
       const data =
-        (result as unknown as { data: LinkedBehaviorRow[] }).data ?? [];
-      setBehaviors(data);
+        (result as unknown as { data: LinkedRequirementRow[] }).data ?? [];
+      setRequirements(data);
     } catch {
-      setBehaviors([]);
+      setRequirements([]);
     } finally {
       setLoading(false);
     }
@@ -144,23 +147,25 @@ function MetricLinkedBehaviors({
   }, [metricId]);
 
   const handleUnassign = useCallback(
-    async (behaviorId: string) => {
+    async (requirementId: string) => {
       try {
         const client = new MetricsClient();
-        await client.removeBehaviorFromMetric(
+        await client.removeRequirementFromMetric(
           metricId as UUID,
-          behaviorId as UUID
+          requirementId as UUID
         );
-        setBehaviors(prev => prev.filter(b => String(b.id) !== behaviorId));
-        notifications.show('Behavior unassigned', {
+        setRequirements(prev =>
+          prev.filter(b => String(b.id) !== requirementId)
+        );
+        notifications.show('Requirement unassigned', {
           severity: 'success',
           autoHideDuration: 4000,
         });
       } catch (error) {
         notifications.show(
           error instanceof Error
-            ? `Failed to unassign behavior: ${error.message}`
-            : 'Failed to unassign behavior',
+            ? `Failed to unassign requirement: ${error.message}`
+            : 'Failed to unassign requirement',
           { severity: 'error', autoHideDuration: 6000 }
         );
       }
@@ -168,7 +173,7 @@ function MetricLinkedBehaviors({
     [metricId, notifications]
   );
 
-  // Linked behaviors columns
+  // Linked requirements columns
   const linkedColumns = useMemo<GridColDef[]>(
     () => [
       { field: 'name', headerName: 'Name', flex: 1, minWidth: 160 },
@@ -215,8 +220,8 @@ function MetricLinkedBehaviors({
   );
 
   const linkedIds = useMemo(
-    () => new Set(behaviors.map(b => String(b.id))),
-    [behaviors]
+    () => new Set(requirements.map(b => String(b.id))),
+    [requirements]
   );
 
   const availableFiltered: GridRowModel[] = useMemo(
@@ -229,8 +234,8 @@ function MetricLinkedBehaviors({
     setAssignOpen(true);
     setAssignFilters({ status: [] });
     try {
-      const client = new BehaviorClient();
-      const result = await client.getBehaviors({ skip: 0, limit: 100 });
+      const client = new RequirementClient();
+      const result = await client.getRequirements({ skip: 0, limit: 100 });
       setAvailable(result);
     } catch {
       setAvailable([]);
@@ -244,7 +249,7 @@ function MetricLinkedBehaviors({
       const client = new MetricsClient();
       await Promise.all(
         selectedIds.map(id =>
-          client.addBehaviorToMetric(metricId as UUID, id as UUID)
+          client.addRequirementToMetric(metricId as UUID, id as UUID)
         )
       );
       await fetchLinked();
@@ -253,11 +258,11 @@ function MetricLinkedBehaviors({
     [metricId, fetchLinked]
   );
 
-  // Filter drawer: Status only (linked behaviors have no other filterable field)
+  // Filter drawer: Status only (linked requirements have no other filterable field)
   const filterSections: LinkedFilterSectionConfig[] = useMemo(() => {
     const statusNames = Array.from(
       new Set(
-        behaviors
+        requirements
           .map(b => b.status?.name)
           .filter((name): name is string => !!name)
       )
@@ -269,7 +274,7 @@ function MetricLinkedBehaviors({
         options: statusNames.map(name => ({ value: name, label: name })),
       },
     ];
-  }, [behaviors]);
+  }, [requirements]);
 
   const rowFilter = useCallback(
     (row: GridRowModel) => {
@@ -281,7 +286,7 @@ function MetricLinkedBehaviors({
     [appliedFilters]
   );
 
-  // Assign-drawer filter sections derived from available (unlinked) behaviors
+  // Assign-drawer filter sections derived from available (unlinked) requirements
   const assignFilterSections: LinkedFilterSectionConfig[] = useMemo(() => {
     const statusNames = Array.from(
       new Set(
@@ -312,16 +317,16 @@ function MetricLinkedBehaviors({
   return (
     <>
       <LinkedEntitiesGrid
-        title="Linked Behaviors"
-        rows={behaviors as GridRowModel[]}
+        title="Linked Requirements"
+        rows={requirements as GridRowModel[]}
         columns={linkedColumns}
         loading={loading}
         getRowId={row => String(row.id)}
         onRowClick={params =>
-          router.push(`${API_ENDPOINTS.behaviors}/${String(params.id)}`)
+          router.push(`${API_ENDPOINTS.requirements}/${String(params.id)}`)
         }
         onAssignClick={canEditMetric ? handleAssignClick : undefined}
-        searchPlaceholder="Search behaviors…"
+        searchPlaceholder="Search requirements…"
         rowFilter={rowFilter}
         onFilterClick={() => setFilterOpen(true)}
         hasActiveFilters={hasActiveLinkedFilters(appliedFilters)}
@@ -342,11 +347,11 @@ function MetricLinkedBehaviors({
               variant="h6"
               sx={{ fontWeight: 600, color: 'primary.main' }}
             >
-              No behaviors assigned yet
+              No requirements assigned yet
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              No behaviors have been assigned to this metric yet. Click Assign
-              to link a behavior.
+              No requirements have been assigned to this metric yet. Click
+              Assign to link a requirement.
             </Typography>
           </Box>
         }
@@ -355,19 +360,19 @@ function MetricLinkedBehaviors({
       <AssignEntityDrawer
         open={assignOpen}
         onClose={() => setAssignOpen(false)}
-        title="Assign Behavior"
+        title="Assign Requirement"
         rows={availableFiltered}
         columns={drawerColumns}
         loading={loadingAvailable}
         getRowId={row => String(row.id)}
         onAssign={handleAssign}
-        searchPlaceholder="Search behaviors…"
+        searchPlaceholder="Search requirements…"
         rowFilter={assignRowFilter}
         onFilterClick={() => setAssignFilterOpen(true)}
         hasActiveFilters={hasActiveLinkedFilters(assignFilters)}
         activeFilterCount={countActiveLinkedFilters(assignFilters)}
-        onCreateNew={() => router.push(API_ENDPOINTS.behaviors)}
-        createNewLabel="Create new behavior"
+        onCreateNew={() => router.push(API_ENDPOINTS.requirements)}
+        createNewLabel="Create new requirement"
       />
 
       <LinkedEntitiesFilterDrawer

@@ -17,7 +17,7 @@ from rhesis.backend.app import models
 from rhesis.backend.app.services import test_execution
 from rhesis.backend.tasks.enums import ResultStatus
 from tests.backend.routes.fixtures.data_factories import (
-    BehaviorDataFactory,
+    RequirementDataFactory,
     CategoryDataFactory,
     PromptDataFactory,
     TopicDataFactory,
@@ -40,7 +40,7 @@ def create_single_turn_request_data(**overrides):
             "content": fake.paragraph(nb_sentences=3),
             "expected_response": fake.paragraph(nb_sentences=2),
         },
-        "behavior": BehaviorDataFactory.minimal_data()["name"],
+        "requirement": RequirementDataFactory.minimal_data()["name"],
         "topic": TopicDataFactory.minimal_data()["name"],
         "category": CategoryDataFactory.minimal_data()["name"],
         "test_type": "Single-Turn",
@@ -57,7 +57,7 @@ def create_multi_turn_request_data(**overrides):
             "max_turns": 3,
             "success_criteria": fake.sentence(nb_words=10),
         },
-        "behavior": BehaviorDataFactory.minimal_data()["name"],
+        "requirement": RequirementDataFactory.minimal_data()["name"],
         "topic": TopicDataFactory.minimal_data()["name"],
         "category": CategoryDataFactory.minimal_data()["name"],
         "test_type": "Multi-Turn",
@@ -96,14 +96,14 @@ class TestExecuteTestInPlace:
         db_endpoint,
     ):
         """Test execution of an existing single-turn test by test_id."""
-        # Create behavior, topic, category
-        behavior = models.Behavior(
-            name=BehaviorDataFactory.minimal_data()["name"],
+        # Create requirement, topic, category
+        requirement = models.Requirement(
+            name=RequirementDataFactory.minimal_data()["name"],
             organization_id=test_org_id,
             user_id=authenticated_user_id,
             status_id=db_status.id,
         )
-        test_db.add(behavior)
+        test_db.add(requirement)
         test_db.flush()
 
         topic = models.Topic(
@@ -142,7 +142,7 @@ class TestExecuteTestInPlace:
             organization_id=test_org_id,
             user_id=authenticated_user_id,
             prompt_id=prompt.id,
-            behavior_id=behavior.id,
+            requirement_id=requirement.id,
             topic_id=topic.id,
             category_id=category.id,
             status_id=db_status.id,
@@ -211,17 +211,17 @@ class TestExecuteTestInPlace:
         db_endpoint,
     ):
         """Test execution of an inline single-turn test without test_id."""
-        # Create behavior for metrics
-        behavior = models.Behavior(
-            name=BehaviorDataFactory.minimal_data()["name"],
+        # Create requirement for metrics
+        requirement = models.Requirement(
+            name=RequirementDataFactory.minimal_data()["name"],
             organization_id=test_org_id,
             user_id=authenticated_user_id,
             status_id=db_status.id,
         )
-        test_db.add(behavior)
+        test_db.add(requirement)
         test_db.commit()
 
-        request_data = create_single_turn_request_data(behavior=behavior.name)
+        request_data = create_single_turn_request_data(requirement=requirement.name)
 
         # Mock the evaluation model and runner
         with (
@@ -279,17 +279,17 @@ class TestExecuteTestInPlace:
         db_endpoint,
     ):
         """Test execution of an inline multi-turn test."""
-        # Create behavior for metrics
-        behavior = models.Behavior(
-            name=BehaviorDataFactory.minimal_data()["name"],
+        # Create requirement for metrics
+        requirement = models.Requirement(
+            name=RequirementDataFactory.minimal_data()["name"],
             organization_id=test_org_id,
             user_id=authenticated_user_id,
             status_id=db_status.id,
         )
-        test_db.add(behavior)
+        test_db.add(requirement)
         test_db.commit()
 
-        request_data = create_multi_turn_request_data(behavior=behavior.name)
+        request_data = create_multi_turn_request_data(requirement=requirement.name)
 
         # Mock the evaluation model and runner
         with (
@@ -348,17 +348,17 @@ class TestExecuteTestInPlace:
         db_endpoint,
     ):
         """Test execution without metric evaluation."""
-        # Create behavior
-        behavior = models.Behavior(
-            name=BehaviorDataFactory.minimal_data()["name"],
+        # Create requirement
+        requirement = models.Requirement(
+            name=RequirementDataFactory.minimal_data()["name"],
             organization_id=test_org_id,
             user_id=authenticated_user_id,
             status_id=db_status.id,
         )
-        test_db.add(behavior)
+        test_db.add(requirement)
         test_db.commit()
 
-        request_data = create_single_turn_request_data(behavior=behavior.name)
+        request_data = create_single_turn_request_data(requirement=requirement.name)
 
         # Mock the evaluation model and runner
         with (
@@ -435,7 +435,7 @@ class TestExecuteTestInPlace:
                 )
 
     @pytest.mark.asyncio
-    async def test_execute_test_behavior_not_found_inline(
+    async def test_execute_test_requirement_not_found_inline(
         self,
         test_db: Session,
         authenticated_user_id,
@@ -446,8 +446,8 @@ class TestExecuteTestInPlace:
         db_user,
         db_endpoint,
     ):
-        """Test inline execution when behavior is not found (should proceed without metrics)."""
-        request_data = create_single_turn_request_data(behavior="NonExistentBehavior")
+        """Test inline execution when requirement is not found (should proceed without metrics)."""
+        request_data = create_single_turn_request_data(requirement="NonExistentRequirement")
 
         # Mock the evaluation model and runner
         with (
@@ -466,7 +466,7 @@ class TestExecuteTestInPlace:
             mock_runner.run = AsyncMock(return_value=(
                 0.75,  # execution_time
                 {"response": "Test response"},  # processed_result
-                {},  # Empty metrics since behavior not found
+                {},  # Empty metrics since requirement not found
             ))
 
             # Execute - should not raise error, but log warning
@@ -497,17 +497,17 @@ class TestExecuteTestInPlace:
         db_endpoint,
     ):
         """Test execution with failed metrics."""
-        # Create behavior
-        behavior = models.Behavior(
-            name=BehaviorDataFactory.minimal_data()["name"],
+        # Create requirement
+        requirement = models.Requirement(
+            name=RequirementDataFactory.minimal_data()["name"],
             organization_id=test_org_id,
             user_id=authenticated_user_id,
             status_id=db_status.id,
         )
-        test_db.add(behavior)
+        test_db.add(requirement)
         test_db.commit()
 
-        request_data = create_single_turn_request_data(behavior=behavior.name)
+        request_data = create_single_turn_request_data(requirement=requirement.name)
 
         # Mock the evaluation model and runner
         with (
@@ -550,21 +550,21 @@ class TestExecuteTestInPlace:
 class TestCreateInplaceTest:
     """Test _create_inplace_test helper function."""
 
-    def test_create_inline_test_with_behavior(
+    def test_create_inline_test_with_linked_requirement(
         self, test_db: Session, authenticated_user_id, test_org_id, test_organization, db_status
     ):
-        """Test creating an inline test with behavior lookup."""
-        # Create behavior
-        behavior = models.Behavior(
-            name=BehaviorDataFactory.minimal_data()["name"],
+        """Test creating an inline test with requirement lookup."""
+        # Create requirement
+        requirement = models.Requirement(
+            name=RequirementDataFactory.minimal_data()["name"],
             organization_id=test_org_id,
             user_id=authenticated_user_id,
             status_id=db_status.id,
         )
-        test_db.add(behavior)
+        test_db.add(requirement)
         test_db.commit()
 
-        request_data = create_single_turn_request_data(behavior=behavior.name)
+        request_data = create_single_turn_request_data(requirement=requirement.name)
 
         # Create inline test
         inline_test = test_execution._create_inplace_test(
@@ -579,17 +579,17 @@ class TestCreateInplaceTest:
         assert inline_test.id is not None
         assert inline_test.organization_id == test_org_id
         assert inline_test.user_id == authenticated_user_id
-        assert inline_test.behavior is not None
-        assert inline_test.behavior.id == behavior.id
+        assert inline_test.requirement is not None
+        assert inline_test.requirement.id == requirement.id
         assert inline_test.prompt == request_data["prompt"]
 
-    def test_create_inline_test_without_behavior(
+    def test_create_inline_test_without_requirement(
         self, test_db: Session, authenticated_user_id, test_org_id, test_organization
     ):
-        """Test creating an inline test without behavior."""
+        """Test creating an inline test without requirement."""
         request_data = create_single_turn_request_data()
-        # Remove behavior to test warning path
-        del request_data["behavior"]
+        # Remove requirement to test warning path
+        del request_data["requirement"]
 
         # Create inline test
         inline_test = test_execution._create_inplace_test(
@@ -602,24 +602,24 @@ class TestCreateInplaceTest:
         # Verify inline test object
         assert inline_test is not None
         assert inline_test.id is not None
-        assert inline_test.behavior is None
-        assert inline_test.behavior_id is None
+        assert inline_test.requirement is None
+        assert inline_test.requirement_id is None
 
     def test_create_inline_multi_turn_test(
         self, test_db: Session, authenticated_user_id, test_org_id, test_organization, db_status
     ):
         """Test creating an inline multi-turn test."""
-        # Create behavior
-        behavior = models.Behavior(
-            name=BehaviorDataFactory.minimal_data()["name"],
+        # Create requirement
+        requirement = models.Requirement(
+            name=RequirementDataFactory.minimal_data()["name"],
             organization_id=test_org_id,
             user_id=authenticated_user_id,
             status_id=db_status.id,
         )
-        test_db.add(behavior)
+        test_db.add(requirement)
         test_db.commit()
 
-        request_data = create_multi_turn_request_data(behavior=behavior.name)
+        request_data = create_multi_turn_request_data(requirement=requirement.name)
 
         # Create inline test
         inline_test = test_execution._create_inplace_test(
@@ -633,25 +633,25 @@ class TestCreateInplaceTest:
         assert inline_test is not None
         assert inline_test.test_configuration is not None
         assert inline_test.test_configuration["goal"] == request_data["test_configuration"]["goal"]
-        assert inline_test.behavior is not None
+        assert inline_test.requirement is not None
 
     def test_create_inline_test_auto_detect_type(
         self, test_db: Session, authenticated_user_id, test_org_id, test_organization, db_status
     ):
         """Test auto-detection of test type based on content."""
-        # Create behavior
-        behavior = models.Behavior(
-            name=BehaviorDataFactory.minimal_data()["name"],
+        # Create requirement
+        requirement = models.Requirement(
+            name=RequirementDataFactory.minimal_data()["name"],
             organization_id=test_org_id,
             user_id=authenticated_user_id,
             status_id=db_status.id,
         )
-        test_db.add(behavior)
+        test_db.add(requirement)
         test_db.commit()
 
         # Test with goal in config - should detect Multi-Turn
         request_data_multi = {
-            "behavior": behavior.name,
+            "requirement": requirement.name,
             "test_configuration": {"goal": "Test goal"},
         }
         inline_test_multi = test_execution._create_inplace_test(
@@ -665,7 +665,7 @@ class TestCreateInplaceTest:
 
         # Test with prompt - should detect Single-Turn
         request_data_single = {
-            "behavior": behavior.name,
+            "requirement": requirement.name,
             "prompt": {"content": "Test prompt"},
         }
         inline_test_single = test_execution._create_inplace_test(
@@ -697,13 +697,13 @@ class TestExecutionHelpers:
     ):
         """Test _execute_single_turn_in_place helper function."""
         # Create a minimal test object
-        behavior = models.Behavior(
-            name=BehaviorDataFactory.minimal_data()["name"],
+        requirement = models.Requirement(
+            name=RequirementDataFactory.minimal_data()["name"],
             organization_id=test_org_id,
             user_id=authenticated_user_id,
             status_id=db_status.id,
         )
-        test_db.add(behavior)
+        test_db.add(requirement)
         test_db.flush()
 
         prompt = models.Prompt(
@@ -721,7 +721,7 @@ class TestExecutionHelpers:
             organization_id=test_org_id,
             user_id=authenticated_user_id,
             prompt_id=prompt.id,
-            behavior_id=behavior.id,
+            requirement_id=requirement.id,
             status_id=db_status.id,
             test_type_id=test_type_lookup.id,
         )
@@ -776,19 +776,19 @@ class TestExecutionHelpers:
     ):
         """Test _execute_multi_turn_in_place helper function."""
         # Create a minimal test object
-        behavior = models.Behavior(
-            name=BehaviorDataFactory.minimal_data()["name"],
+        requirement = models.Requirement(
+            name=RequirementDataFactory.minimal_data()["name"],
             organization_id=test_org_id,
             user_id=authenticated_user_id,
             status_id=db_status.id,
         )
-        test_db.add(behavior)
+        test_db.add(requirement)
         test_db.flush()
 
         test = models.Test(
             organization_id=test_org_id,
             user_id=authenticated_user_id,
-            behavior_id=behavior.id,
+            requirement_id=requirement.id,
             status_id=db_status.id,
             test_type_id=test_type_lookup.id,
             test_configuration={"goal": "Test goal", "max_turns": 3},
@@ -849,17 +849,17 @@ class TestEdgeCases:
         db_endpoint,
     ):
         """Test execution with special characters in prompt."""
-        behavior = models.Behavior(
-            name=BehaviorDataFactory.minimal_data()["name"],
+        requirement = models.Requirement(
+            name=RequirementDataFactory.minimal_data()["name"],
             organization_id=test_org_id,
             user_id=authenticated_user_id,
             status_id=db_status.id,
         )
-        test_db.add(behavior)
+        test_db.add(requirement)
         test_db.commit()
 
         request_data = create_single_turn_request_data(
-            behavior=behavior.name,
+            requirement=requirement.name,
             prompt={
                 "content": "Test with émoji 🧪 and spëcial chars! @#$%^&*()",
                 "expected_response": "Response with 测试 тест テスト",
@@ -911,17 +911,17 @@ class TestEdgeCases:
         db_endpoint,
     ):
         """Test execution with empty prompt content."""
-        behavior = models.Behavior(
-            name=BehaviorDataFactory.minimal_data()["name"],
+        requirement = models.Requirement(
+            name=RequirementDataFactory.minimal_data()["name"],
             organization_id=test_org_id,
             user_id=authenticated_user_id,
             status_id=db_status.id,
         )
-        test_db.add(behavior)
+        test_db.add(requirement)
         test_db.commit()
 
         request_data = create_single_turn_request_data(
-            behavior=behavior.name, prompt={"content": "", "expected_response": ""}
+            requirement=requirement.name, prompt={"content": "", "expected_response": ""}
         )
 
         # Mock the evaluation model and runner
@@ -965,17 +965,17 @@ class TestEdgeCases:
         db_endpoint,
     ):
         """Test execution with complex multi-turn configuration."""
-        behavior = models.Behavior(
-            name=BehaviorDataFactory.minimal_data()["name"],
+        requirement = models.Requirement(
+            name=RequirementDataFactory.minimal_data()["name"],
             organization_id=test_org_id,
             user_id=authenticated_user_id,
             status_id=db_status.id,
         )
-        test_db.add(behavior)
+        test_db.add(requirement)
         test_db.commit()
 
         request_data = create_multi_turn_request_data(
-            behavior=behavior.name,
+            requirement=requirement.name,
             test_configuration={
                 "goal": "Complex multi-turn goal with nested data",
                 "max_turns": 5,

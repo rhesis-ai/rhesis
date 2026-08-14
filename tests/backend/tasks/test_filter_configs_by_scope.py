@@ -73,7 +73,7 @@ class TestFilterConfigsByScope:
         assert filter_configs_by_scope(configs, MetricScope.SINGLE_TURN, "t1") == []
 
     def test_wrong_scope_logs_at_debug_not_info(self, caplog):
-        """Explicitly-out-of-scope is routine — most behaviors mix scopes."""
+        """Explicitly-out-of-scope is routine — most requirements mix scopes."""
         import logging
 
         configs = [_Config("Faithfulness", ["Single-Turn"], "RagasFaithfulness")]
@@ -119,8 +119,8 @@ class TestFilterConfigsByScope:
     def test_empty_input_returns_empty(self):
         assert filter_configs_by_scope([], MetricScope.MULTI_TURN, "t1") == []
 
-    def test_reproduces_the_reported_behavior_metric_set_helper(self):
-        """The exact 10 metrics on the 'Booking Flow Completion' behavior.
+    def test_reproduces_the_reported_requirement_metric_set_helper(self):
+        """The exact 10 metrics on the 'Booking Flow Completion' requirement.
 
         Multi-turn evaluation must keep 8 and drop the 2 single-turn-only ones,
         so the run scores out of 9 (8 plus Goal Achievement) rather than 11.

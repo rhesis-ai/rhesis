@@ -20,7 +20,7 @@ def test_test_with_test_configuration_object():
     test = Test(
         category="Safety",
         topic="Test",
-        behavior="Refusal",
+        requirement="Refusal",
         prompt=Prompt(content="Test prompt"),
         test_configuration=config,
     )
@@ -37,7 +37,7 @@ def test_test_with_separate_fields():
     test = Test(
         category="Safety",
         topic="Test",
-        behavior="Refusal",
+        requirement="Refusal",
         goal="Test the system",
         instructions="Follow these steps",
         restrictions="Do not do this",
@@ -56,7 +56,7 @@ def test_test_with_only_goal():
     test = Test(
         category="Safety",
         topic="Test",
-        behavior="Refusal",
+        requirement="Refusal",
         goal="Test the system",
     )
 
@@ -72,7 +72,7 @@ def test_test_without_goal_or_config():
     test = Test(
         category="Safety",
         topic="Test",
-        behavior="Refusal",
+        requirement="Refusal",
         prompt=Prompt(content="Test prompt"),
     )
 
@@ -89,7 +89,7 @@ def test_test_configuration_takes_precedence():
     test = Test(
         category="Safety",
         topic="Test",
-        behavior="Refusal",
+        requirement="Refusal",
         test_configuration=config,
         goal="Separate goal",  # Should be ignored
         instructions="Separate instructions",  # Should be ignored
@@ -105,7 +105,7 @@ def test_test_with_partial_fields():
     test = Test(
         category="Safety",
         topic="Test",
-        behavior="Refusal",
+        requirement="Refusal",
         goal="Test the system",
         restrictions="Do not do this",
         # instructions and scenario not provided
@@ -123,7 +123,7 @@ def test_single_turn_with_prompt():
     test = Test(
         category="Safety",
         topic="Test",
-        behavior="Refusal",
+        requirement="Refusal",
         prompt=Prompt(content="Test prompt"),
     )
 

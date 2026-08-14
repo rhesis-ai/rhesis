@@ -356,7 +356,7 @@ export default function ExplorerGrid({
           card
           icon={AccountTreeIcon}
           title="No explorer sessions yet"
-          description="Start a new session to explore behaviors and generate tests, or load an existing test set."
+          description="Start a new session to explore requirements and generate tests, or load an existing test set."
           actionLabel={canCreate ? 'New session' : undefined}
           onAction={canCreate ? onCreateClick : undefined}
         />

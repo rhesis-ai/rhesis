@@ -1,6 +1,6 @@
 import {
   aggregateMetricStats,
-  behaviorHasHumanCorrection,
+  requirementHasHumanCorrection,
   computeReviewSummary,
   findMetricKey,
   getEffectiveMetricSuccess,
@@ -343,7 +343,9 @@ describe('metricHasHumanCorrection', () => {
   it('detects metric correction alongside a separate test-level review', () => {
     const results = [
       makeResult({
-        test: { behavior: { name: 'Compliance' } } as TestResultDetail['test'],
+        test: {
+          requirement: { name: 'Compliance' },
+        } as TestResultDetail['test'],
         status: { id: u(30), name: 'Fail' },
         last_review: makeReview({
           status: { name: 'Pass' },
@@ -382,7 +384,7 @@ describe('metricHasHumanCorrection', () => {
     ];
 
     expect(metricHasHumanCorrection('Bias Detection', results)).toBe(true);
-    expect(behaviorHasHumanCorrection('Compliance', results)).toBe(true);
+    expect(requirementHasHumanCorrection('Compliance', results)).toBe(true);
 
     const summary = computeReviewSummary(results);
     expect(summary.headline).toBe('2 tests');
@@ -396,11 +398,11 @@ describe('metricHasHumanCorrection', () => {
   });
 });
 
-describe('behaviorHasHumanCorrection', () => {
-  it('returns true when a test review changed the outcome for that behavior', () => {
+describe('requirementHasHumanCorrection', () => {
+  it('returns true when a test review changed the outcome for that requirement', () => {
     const results = [
       makeResult({
-        test: { behavior: { name: 'Safety' } } as TestResultDetail['test'],
+        test: { requirement: { name: 'Safety' } } as TestResultDetail['test'],
         status: { id: u(36), name: 'Fail' },
         last_review: makeReview({
           status: { name: 'Pass' },
@@ -410,14 +412,14 @@ describe('behaviorHasHumanCorrection', () => {
     ];
 
     expect(testHasHumanCorrection(results[0])).toBe(true);
-    expect(behaviorHasHumanCorrection('Safety', results)).toBe(true);
-    expect(behaviorHasHumanCorrection('Other', results)).toBe(false);
+    expect(requirementHasHumanCorrection('Safety', results)).toBe(true);
+    expect(requirementHasHumanCorrection('Other', results)).toBe(false);
   });
 
   it('returns false when review confirms automated outcome', () => {
     const results = [
       makeResult({
-        test: { behavior: { name: 'Safety' } } as TestResultDetail['test'],
+        test: { requirement: { name: 'Safety' } } as TestResultDetail['test'],
         status: { id: u(38), name: 'Pass' },
         last_review: makeReview({
           status: { name: 'Pass' },
@@ -426,13 +428,15 @@ describe('behaviorHasHumanCorrection', () => {
       }),
     ];
 
-    expect(behaviorHasHumanCorrection('Safety', results)).toBe(false);
+    expect(requirementHasHumanCorrection('Safety', results)).toBe(false);
   });
 
-  it('does not flag behavior when only a metric in that behavior was corrected', () => {
+  it('does not flag requirement when only a metric in that requirement was corrected', () => {
     const results = [
       makeResult({
-        test: { behavior: { name: 'Compliance' } } as TestResultDetail['test'],
+        test: {
+          requirement: { name: 'Compliance' },
+        } as TestResultDetail['test'],
         last_review: undefined,
         metrics: {
           'Bias Detection': {
@@ -443,7 +447,7 @@ describe('behaviorHasHumanCorrection', () => {
       }),
     ];
 
-    expect(behaviorHasHumanCorrection('Compliance', results)).toBe(false);
+    expect(requirementHasHumanCorrection('Compliance', results)).toBe(false);
     expect(metricHasHumanCorrection('Bias Detection', results)).toBe(true);
   });
 });

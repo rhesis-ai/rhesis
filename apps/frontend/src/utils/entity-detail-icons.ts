@@ -2,7 +2,7 @@ import type { SvgIconProps } from '@mui/material/SvgIcon';
 import FolderOffOutlinedIcon from '@mui/icons-material/FolderOffOutlined';
 import SwapHorizOutlinedIcon from '@mui/icons-material/SwapHorizOutlined';
 import {
-  BehaviorsIcon,
+  RequirementsIcon,
   BiotechIcon,
   CategoryIcon,
   EndpointsIcon,
@@ -22,7 +22,7 @@ const RESOLVE_ENTITY_ICONS: Record<
   test: ScienceIcon,
   test_run: PlayArrowIcon,
   endpoint: EndpointsIcon,
-  behavior: BehaviorsIcon,
+  requirement: RequirementsIcon,
   metric: InsertChartIcon,
   experiment: BiotechIcon,
   task: TasksIcon,

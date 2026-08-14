@@ -9,7 +9,7 @@ Usage:
     from tests.backend.routes.endpoints import APIEndpoints
 
     # Use the endpoints
-    response = client.post(APIEndpoints.BEHAVIORS.create, json=data)
+    response = client.post(APIEndpoints.REQUIREMENTS.create, json=data)
     response = client.get(APIEndpoints.TOPICS.list)
 """
 
@@ -61,19 +61,19 @@ class BaseEntityEndpoints(EndpointBase):
 
 
 @dataclass
-class BehaviorEndpoints(BaseEntityEndpoints):
-    """Behavior API endpoints"""
+class RequirementEndpoints(BaseEntityEndpoints):
+    """Requirement API endpoints"""
 
     # Base entity configuration
-    _base_entity: str = "behaviors"
-    _id_param: str = "behavior_id"
+    _base_entity: str = "requirements"
+    _id_param: str = "requirement_id"
 
     def __post_init__(self):
-        """Initialize behavior-specific endpoints"""
+        """Initialize requirement-specific endpoints"""
         # Initialize base endpoints
         super().__post_init__()
 
-        # Behavior-specific relationship endpoints
+        # Requirement-specific relationship endpoints
         self.get_metrics = f"/{self._base_entity}/{{{self._id_param}}}/metrics/"
         self.add_metric = f"/{self._base_entity}/{{{self._id_param}}}/metrics/{{metric_id}}"
         self.remove_metric = f"/{self._base_entity}/{{{self._id_param}}}/metrics/{{metric_id}}"
@@ -82,11 +82,11 @@ class BehaviorEndpoints(BaseEntityEndpoints):
         """Get entity metrics endpoint"""
         return self.format_path(self.get_metrics, **{self._id_param: entity_id})
 
-    def add_metric_to_behavior(self, entity_id: str, metric_id: str) -> str:
+    def add_metric_to_requirement(self, entity_id: str, metric_id: str) -> str:
         """Add metric to entity endpoint"""
         return self.format_path(self.add_metric, **{self._id_param: entity_id}, metric_id=metric_id)
 
-    def remove_metric_from_behavior(self, entity_id: str, metric_id: str) -> str:
+    def remove_metric_from_requirement(self, entity_id: str, metric_id: str) -> str:
         """Remove metric from entity endpoint"""
         return self.format_path(
             self.remove_metric, **{self._id_param: entity_id}, metric_id=metric_id
@@ -122,30 +122,30 @@ class MetricEndpoints(BaseEntityEndpoints):
         self.improve_path = f"/{self._base_entity}/{{{self._id_param}}}/improve"
 
         # Metric-specific relationship endpoints
-        self.get_behaviors = f"/{self._base_entity}/{{{self._id_param}}}/behaviors/"
-        self.add_behavior = f"/{self._base_entity}/{{{self._id_param}}}/behaviors/{{behavior_id}}"
-        self.remove_behavior = (
-            f"/{self._base_entity}/{{{self._id_param}}}/behaviors/{{behavior_id}}"
+        self.get_requirements = f"/{self._base_entity}/{{{self._id_param}}}/requirements/"
+        self.add_requirement = f"/{self._base_entity}/{{{self._id_param}}}/requirements/{{requirement_id}}"
+        self.remove_requirement = (
+            f"/{self._base_entity}/{{{self._id_param}}}/requirements/{{requirement_id}}"
         )
 
     def improve(self, entity_id: str) -> str:
         """Improve metric endpoint"""
         return self.format_path(self.improve_path, **{self._id_param: entity_id})
 
-    def behaviors(self, entity_id: str) -> str:
-        """Get metric behaviors endpoint"""
-        return self.format_path(self.get_behaviors, **{self._id_param: entity_id})
+    def requirements(self, entity_id: str) -> str:
+        """Get metric requirements endpoint"""
+        return self.format_path(self.get_requirements, **{self._id_param: entity_id})
 
-    def add_behavior_to_metric(self, entity_id: str, behavior_id: str) -> str:
-        """Add behavior to metric endpoint"""
+    def add_requirement_to_metric(self, entity_id: str, requirement_id: str) -> str:
+        """Add requirement to metric endpoint"""
         return self.format_path(
-            self.add_behavior, **{self._id_param: entity_id}, behavior_id=behavior_id
+            self.add_requirement, **{self._id_param: entity_id}, requirement_id=requirement_id
         )
 
-    def remove_behavior_from_metric(self, entity_id: str, behavior_id: str) -> str:
-        """Remove behavior from metric endpoint"""
+    def remove_requirement_from_metric(self, entity_id: str, requirement_id: str) -> str:
+        """Remove requirement from metric endpoint"""
         return self.format_path(
-            self.remove_behavior, **{self._id_param: entity_id}, behavior_id=behavior_id
+            self.remove_requirement, **{self._id_param: entity_id}, requirement_id=requirement_id
         )
 
 
@@ -284,7 +284,7 @@ def create_entity_endpoints(entity_name: str, entity_class=BaseEntityEndpoints):
     Factory function to create endpoint classes for any entity
 
     Args:
-        entity_name: Name of the entity (e.g., 'behaviors', 'topics')
+        entity_name: Name of the entity (e.g., 'requirements', 'topics')
         entity_class: Base class to use (defaults to BaseEntityEndpoints)
 
     Returns:
@@ -314,7 +314,7 @@ def create_entity_endpoints(entity_name: str, entity_class=BaseEntityEndpoints):
 class APIEndpoints:
     """Centralized API endpoints registry"""
 
-    BEHAVIORS = BehaviorEndpoints()
+    REQUIREMENTS = RequirementEndpoints()
     TOPICS = TopicEndpoints()
     METRICS = MetricEndpoints()
     MODELS = ModelEndpoints()
@@ -341,7 +341,7 @@ class APIEndpoints:
     def get_all_endpoints(cls) -> Dict[str, Any]:
         """Get all available endpoints"""
         return {
-            "behaviors": cls.BEHAVIORS,
+            "requirements": cls.REQUIREMENTS,
             "topics": cls.TOPICS,
             "metrics": cls.METRICS,
             "models": cls.MODELS,
@@ -353,7 +353,7 @@ class APIEndpoints:
         """Validate all endpoints are properly formatted"""
         try:
             # Test basic endpoint access
-            assert cls.BEHAVIORS.create.startswith("/")
+            assert cls.REQUIREMENTS.create.startswith("/")
             assert cls.TOPICS.create.startswith("/")
             assert cls.METRICS.create.startswith("/")
             assert cls.MODELS.create.startswith("/")
@@ -361,7 +361,7 @@ class APIEndpoints:
 
             # Test parameterized endpoints
             test_id = "test-id"
-            assert cls.BEHAVIORS.get(test_id).endswith(test_id)
+            assert cls.REQUIREMENTS.get(test_id).endswith(test_id)
             assert cls.TOPICS.get(test_id).endswith(test_id)
             assert cls.METRICS.get(test_id).endswith(test_id)
             assert cls.MODELS.get(test_id).endswith(test_id)
@@ -409,7 +409,7 @@ class PaginationDefaults:
 # Export main interface
 __all__ = [
     "APIEndpoints",
-    "BehaviorEndpoints",
+    "RequirementEndpoints",
     "TopicEndpoints",
     "MetricEndpoints",
     "ModelEndpoints",

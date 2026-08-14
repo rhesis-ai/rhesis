@@ -24,7 +24,7 @@ interface ConversationHistoryModalProps {
   onClose: () => void;
   conversationSummary: ConversationTurn[];
   testConfiguration: MultiTurnPrompt;
-  behavior?: string;
+  requirement?: string;
   topic?: string;
   category?: string;
   endpointName?: string;
@@ -41,7 +41,7 @@ export default function ConversationHistoryModal({
   onClose,
   conversationSummary,
   testConfiguration,
-  behavior,
+  requirement,
   topic,
   category,
   endpointName,
@@ -97,11 +97,11 @@ export default function ConversationHistoryModal({
           }}
         >
           {/* Metadata Chips */}
-          {(behavior || topic || category) && (
+          {(requirement || topic || category) && (
             <Box sx={{ display: 'flex', gap: 0.5, mb: 1.5 }}>
-              {behavior && (
+              {requirement && (
                 <Chip
-                  label={behavior}
+                  label={requirement}
                   size="small"
                   color="primary"
                   variant="outlined"

@@ -154,7 +154,7 @@ class TestPolyphemusModelConfiguration:
     @pytest.fixture(autouse=True)
     def not_local_mode(self):
         """These tests cover SaaS delegation and self-hosted-via-env-var-only
-        behavior, not the per-org platform key (local-mode-only) path -- force
+        requirement, not the per-org platform key (local-mode-only) path -- force
         ``is_local=False`` so a developer's own ``BACKEND_ENV=local`` .env
         doesn't change which branch runs."""
         with patch(

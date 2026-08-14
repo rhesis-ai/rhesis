@@ -50,7 +50,7 @@ export class InsightsClient extends BaseApiClient {
       searchParams.set('end_date', params.end_date);
     }
     appendListParam(searchParams, 'test_run_ids', params.test_run_ids);
-    appendListParam(searchParams, 'behavior_ids', params.behavior_ids);
+    appendListParam(searchParams, 'requirement_ids', params.requirement_ids);
     appendListParam(searchParams, 'category_ids', params.category_ids);
     appendListParam(searchParams, 'topic_ids', params.topic_ids);
     appendListParam(searchParams, 'status_ids', params.status_ids);

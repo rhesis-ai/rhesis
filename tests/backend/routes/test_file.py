@@ -18,13 +18,13 @@ class TestFileRoutes:
 
     def _create_test_entity(self, authenticated_client: TestClient) -> str:
         """Create a test entity to attach files to."""
-        from tests.backend.routes.fixtures.data_factories import BehaviorDataFactory
+        from tests.backend.routes.fixtures.data_factories import RequirementDataFactory
 
-        # Create a behavior to use as a test entity parent
+        # Create a requirement to use as a test entity parent
         # Actually we need a Test entity. Let's create one via the API.
         # First create required dependencies
-        behavior_data = BehaviorDataFactory.minimal_data()
-        resp = authenticated_client.post("/behaviors/", json=behavior_data)
+        requirement_data = RequirementDataFactory.minimal_data()
+        resp = authenticated_client.post("/requirements/", json=requirement_data)
         assert resp.status_code in (status.HTTP_200_OK, status.HTTP_201_CREATED)
 
         # Create a prompt

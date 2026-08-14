@@ -196,7 +196,7 @@ class SingleTurnRunner(BaseRunner):
         test_id = str(test.id)
 
         # Prepare metrics if evaluation requested
-        # Metric resolution priority: execution-time > test set > behavior
+        # Metric resolution priority: execution-time > test set > requirement
         metric_configs = []
         if evaluate_metrics:
             metrics = get_test_metrics(

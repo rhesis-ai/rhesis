@@ -90,7 +90,7 @@ def test_generate_batch_returns_nested_structure():
                 "prompt_content": "User query A",
                 "prompt_expected_response": "Expected A",
                 "prompt_language_code": "en",
-                "behavior": "behavior one",
+                "requirement": "requirement one",
                 "category": "category one",
                 "topic": "topic one",
             },
@@ -98,7 +98,7 @@ def test_generate_batch_returns_nested_structure():
                 "prompt_content": "User query B",
                 "prompt_expected_response": "Expected B",
                 "prompt_language_code": "pl",
-                "behavior": "behavior two",
+                "requirement": "requirement two",
                 "category": "category two",
                 "topic": "topic two",
             },
@@ -113,7 +113,7 @@ def test_generate_batch_returns_nested_structure():
     assert result[0]["prompt"]["content"] == "User query A"
     assert result[0]["prompt"]["expected_response"] == "Expected A"
     assert result[0]["prompt"]["language_code"] == "en"
-    assert result[0]["behavior"] == "behavior one"
+    assert result[0]["requirement"] == "requirement one"
     assert result[0]["category"] == "category one"
     assert result[0]["topic"] == "topic one"
     assert result[0]["test_type"] == "Single-Turn"
@@ -122,7 +122,7 @@ def test_generate_batch_returns_nested_structure():
     assert result[1]["prompt"]["content"] == "User query B"
     assert result[1]["prompt"]["expected_response"] == "Expected B"
     assert result[1]["prompt"]["language_code"] == "pl"
-    assert result[1]["behavior"] == "behavior two"
+    assert result[1]["requirement"] == "requirement two"
     assert result[1]["category"] == "category two"
     assert result[1]["topic"] == "topic two"
     assert result[1]["test_type"] == "Single-Turn"
@@ -140,7 +140,7 @@ def test_generate_without_sources_small_batch():
                     "prompt_content": f"Test prompt {i + 1}",
                     "prompt_expected_response": f"Response {i + 1}",
                     "prompt_language_code": "en",
-                    "behavior": f"test behavior {i + 1}",
+                    "requirement": f"test requirement {i + 1}",
                     "category": f"test category {i + 1}",
                     "topic": f"test topic {i + 1}",
                 }
@@ -159,7 +159,7 @@ def test_generate_without_sources_small_batch():
     assert item0["prompt"]["content"] == "Test prompt 1"
     assert item0["prompt"]["expected_response"] == "Response 1"
     assert item0["prompt"]["language_code"] == "en"
-    assert item0["behavior"] == "test behavior 1"
+    assert item0["requirement"] == "test requirement 1"
     assert item0["category"] == "test category 1"
     assert item0["topic"] == "test topic 1"
     assert item0["metadata"]["generated_by"] == "PromptSynthesizer"
@@ -174,7 +174,7 @@ def test_generate_without_sources_large_batch():
                 "prompt_content": f"Test {i}",
                 "prompt_expected_response": f"Response {i}",
                 "prompt_language_code": "en",
-                "behavior": "behavior",
+                "requirement": "requirement",
                 "category": "category",
                 "topic": "topic",
             }
@@ -199,7 +199,7 @@ def test_generate_without_sources_large_batch_with_remainder():
                 "prompt_content": f"Test {i}",
                 "prompt_expected_response": f"Response {i}",
                 "prompt_language_code": "en",
-                "behavior": "behavior",
+                "requirement": "requirement",
                 "category": "category",
                 "topic": "topic",
             }
@@ -212,7 +212,7 @@ def test_generate_without_sources_large_batch_with_remainder():
                 "prompt_content": f"Test r{i}",
                 "prompt_expected_response": f"Response r{i}",
                 "prompt_language_code": "en",
-                "behavior": "behavior",
+                "requirement": "requirement",
                 "category": "category",
                 "topic": "topic",
             }
@@ -243,7 +243,7 @@ def test_large_batch_partial_failure_falls_back():
                 "prompt_content": f"Test {i}",
                 "prompt_expected_response": f"Response {i}",
                 "prompt_language_code": "en",
-                "behavior": "behavior",
+                "requirement": "requirement",
                 "category": "category",
                 "topic": "topic",
             }
@@ -273,7 +273,7 @@ def test_large_batch_exception_falls_back():
                 "prompt_content": f"Test {i}",
                 "prompt_expected_response": f"Response {i}",
                 "prompt_language_code": "en",
-                "behavior": "behavior",
+                "requirement": "requirement",
                 "category": "category",
                 "topic": "topic",
             }
@@ -302,7 +302,7 @@ def test_batch_size_reduction_on_failure(mock_generate_batch, _mock_parallel):
                 "expected_response": f"Response {i}",
                 "language_code": "en",
             },
-            "behavior": "behavior",
+            "requirement": "requirement",
             "category": "category",
             "topic": "topic",
             "metadata": {"generated_by": "PromptSynthesizer"},
@@ -351,7 +351,7 @@ def test_batch_size_reduction_on_exception(mock_generate_batch, _mock_parallel):
                 "expected_response": "Response 0",
                 "language_code": "en",
             },
-            "behavior": "behavior",
+            "requirement": "requirement",
             "category": "category",
             "topic": "topic",
             "metadata": {"generated_by": "PromptSynthesizer"},

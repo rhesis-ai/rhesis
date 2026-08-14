@@ -6,7 +6,7 @@ from rhesis.backend.tasks.execution.evaluation import (
     evaluate_prompt_response,
     evaluate_single_turn_metrics,
 )
-from rhesis.backend.tasks.execution.metrics_utils import get_behavior_metrics
+from rhesis.backend.tasks.execution.metrics_utils import get_requirement_metrics
 from rhesis.backend.tasks.execution.orchestration import execute_test_cases
 from rhesis.backend.tasks.execution.results import collect_results
 from rhesis.backend.tasks.execution.run import (
@@ -26,6 +26,6 @@ __all__ = [
     "evaluate_prompt_response",
     "evaluate_single_turn_metrics",
     "evaluate_multi_turn_metrics",
-    "get_behavior_metrics",
+    "get_requirement_metrics",
     "execute_test",
 ]

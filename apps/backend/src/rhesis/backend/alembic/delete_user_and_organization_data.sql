@@ -19,7 +19,7 @@ DECLARE
 
     -- Configuration: tables with status_id that need to be NULLed
     status_ref_tables TEXT[] := ARRAY[
-        'behavior', 'category', 'endpoint', 'metric', 'model', 'prompt',
+        'requirement', 'category', 'endpoint', 'metric', 'model', 'prompt',
         'prompt_template', 'project', 'source', 'subscription',
         'task', 'test', 'test_configuration', 'test_result', 'test_run',
         'test_set', 'topic'
@@ -103,7 +103,7 @@ BEGIN
        OR assignee_id = target_user_id
        OR prompt_id IN (SELECT id FROM prompt WHERE organization_id = ANY(org_ids) OR user_id = target_user_id)
        OR topic_id IN (SELECT id FROM topic WHERE organization_id = ANY(org_ids) OR user_id = target_user_id)
-       OR behavior_id IN (SELECT id FROM behavior WHERE organization_id = ANY(org_ids) OR user_id = target_user_id)
+       OR requirement_id IN (SELECT id FROM requirement WHERE organization_id = ANY(org_ids) OR user_id = target_user_id)
        OR category_id IN (SELECT id FROM category WHERE organization_id = ANY(org_ids) OR user_id = target_user_id)
        OR status_id IN (SELECT id FROM status WHERE organization_id = ANY(org_ids) OR user_id = target_user_id)
        OR source_id IN (SELECT id FROM source WHERE organization_id = ANY(org_ids) OR user_id = target_user_id);
@@ -199,9 +199,9 @@ BEGIN
     WHERE organization_id = ANY(org_ids) OR user_id = target_user_id
        OR owner_id = target_user_id OR assignee_id = target_user_id;
 
-    -- Delete behavior_metric
-    DELETE FROM behavior_metric
-    WHERE behavior_id IN (SELECT id FROM behavior WHERE organization_id = ANY(org_ids) OR user_id = target_user_id)
+    -- Delete requirement_metric
+    DELETE FROM requirement_metric
+    WHERE requirement_id IN (SELECT id FROM requirement WHERE organization_id = ANY(org_ids) OR user_id = target_user_id)
        OR user_id = target_user_id OR organization_id = ANY(org_ids);
 
     -- Delete metric
@@ -209,8 +209,8 @@ BEGIN
     WHERE organization_id = ANY(org_ids) OR user_id = target_user_id
        OR owner_id = target_user_id OR assignee_id = target_user_id;
 
-    -- Delete behavior
-    DELETE FROM behavior WHERE organization_id = ANY(org_ids) OR user_id = target_user_id;
+    -- Delete requirement
+    DELETE FROM requirement WHERE organization_id = ANY(org_ids) OR user_id = target_user_id;
 
     -- Delete prompt dependencies
     DELETE FROM prompt WHERE organization_id = ANY(org_ids) OR user_id = target_user_id;

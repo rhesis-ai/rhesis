@@ -45,7 +45,7 @@ export interface TestSet {
     metadata?: {
       total_tests?: number;
       categories?: string[];
-      behaviors?: string[];
+      requirements?: string[];
       topics?: string[];
       sources?: Array<{ document: string; name: string; description: string }>;
       generation?: {
@@ -93,7 +93,7 @@ export interface TestSetBulkAssociateRequest {
  */
 export interface GenerationConfig {
   generation_prompt?: string;
-  behaviors?: string[];
+  requirements?: string[];
   categories?: string[];
   topics?: string[];
   additional_context?: string;
@@ -138,7 +138,7 @@ export interface GenerateTestSetResponse {
 /** @deprecated Use GenerationConfig instead */
 export interface GenerationSample {
   text: string;
-  behavior: string;
+  requirement: string;
   topic: string;
   rating?: number | null;
   feedback?: string;
@@ -178,7 +178,7 @@ export interface IterationMessage {
 }
 
 export interface TestPipelineConfig {
-  behaviors: Array<{ name: string; description: string; active: boolean }>;
+  requirements: Array<{ name: string; description: string; active: boolean }>;
   topics: Array<{ name: string; description: string; active: boolean }>;
   categories: Array<{ name: string; description: string; active: boolean }>;
 }
@@ -197,7 +197,7 @@ export interface TestPipelineRequest {
 export type TestPipelineEvent =
   | {
       type: 'config_item';
-      category: 'behaviors' | 'topics' | 'categories';
+      category: 'requirements' | 'topics' | 'categories';
       name: string;
       description: string;
       active: boolean;

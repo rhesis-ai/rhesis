@@ -7,7 +7,13 @@ from .architect import (
     ArchitectSessionUpdate,
 )
 from .base import Base
-from .behavior import Behavior, BehaviorBase, BehaviorCreate, BehaviorDetail, BehaviorUpdate
+from .requirement import (
+    Requirement,
+    RequirementBase,
+    RequirementCreate,
+    RequirementDetail,
+    RequirementUpdate,
+)
 from .category import Category, CategoryBase, CategoryCreate, CategoryDetail, CategoryUpdate
 from .chunk import Chunk, ChunkBase, ChunkCreate
 from .comment import Comment, CommentBase, CommentCreate, CommentDetail, CommentUpdate
@@ -175,11 +181,11 @@ __all__ = [
     "TagBase",
     "TagCreate",
     "TagUpdate",
-    "Behavior",
-    "BehaviorBase",
-    "BehaviorCreate",
-    "BehaviorDetail",
-    "BehaviorUpdate",
+    "Requirement",
+    "RequirementBase",
+    "RequirementCreate",
+    "RequirementDetail",
+    "RequirementUpdate",
     "Category",
     "CategoryBase",
     "CategoryCreate",

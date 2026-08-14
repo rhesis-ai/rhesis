@@ -280,7 +280,7 @@ async def generate_tests_endpoint(
         GenerateTestsResponse: The generated test cases
     """
     try:
-        # config.behaviors is enforced by GenerationConfig, so it arrives non-empty.
+        # config.requirements is enforced by GenerationConfig, so it arrives non-empty.
 
         # Validate per-request model override exists and belongs to user's org
         model_id_str = str(request.model_id) if request.model_id else None
@@ -333,7 +333,7 @@ async def generate_multiturn_tests_endpoint(
     Args:
         request: The request containing the generation prompt and optional parameters
             - generation_prompt: Description of what to test
-            - behavior: Optional behavior type (e.g., "Compliance", "Reliability")
+            - requirement: Optional requirement type (e.g., "Compliance", "Reliability")
             - category: Optional category (e.g., "Harmful", "Harmless")
             - topic: Optional specific topic
             - num_tests: Number of tests to generate (default: 5)
@@ -364,7 +364,7 @@ async def generate_multiturn_tests_endpoint(
         # Prepare config dict from request
         config = {
             "generation_prompt": request.generation_prompt,
-            "behavior": request.behavior,
+            "requirement": request.requirement,
             "category": request.category,
             "topic": request.topic,
         }
@@ -425,9 +425,9 @@ async def generate_test_config(
     Generate test configuration JSON based on user description.
 
     This endpoint:
-    1. Fetches all behaviors from the database (filtered by organization)
+    1. Fetches all requirements from the database (filtered by organization)
     2. Optionally fetches project details if project_id is provided
-    3. Sends the behaviors and project context to the LLM and asks it to select
+    3. Sends the requirements and project context to the LLM and asks it to select
        relevant ones based on the prompt
     4. LLM generates topics and test categories
 
@@ -439,7 +439,7 @@ async def generate_test_config(
         current_user: Current authenticated user (injected)
 
     Returns:
-        TestConfigResponse: JSON containing LLM-selected behaviors (from database), and
+        TestConfigResponse: JSON containing LLM-selected requirements (from database), and
             LLM-generated topics and test categories, each with name and description fields
     """
     try:

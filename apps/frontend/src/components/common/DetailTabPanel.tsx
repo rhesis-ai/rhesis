@@ -7,7 +7,7 @@ interface DetailTabPanelProps {
   index: number;
   /** The currently active tab index. */
   value: number;
-  /** Prefix used to generate stable ARIA ids (e.g. "behavior-detail"). */
+  /** Prefix used to generate stable ARIA ids (e.g. "requirement-detail"). */
   prefix?: string;
 }
 

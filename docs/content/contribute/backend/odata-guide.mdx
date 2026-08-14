@@ -37,12 +37,12 @@ GET /tests?$filter=priority le 5`}
 Function-style syntax: `function(field, value)`.
 
 <CodeBlock filename="string-functions.sh" language="bash">
-{`GET /behaviors?$filter=contains(name,'Test')
-GET /behaviors?$filter=startswith(name,'Test')
-GET /behaviors?$filter=endswith(name,'Behavior')
+{`GET /requirements?$filter=contains(name,'Test')
+GET /requirements?$filter=startswith(name,'Test')
+GET /requirements?$filter=endswith(name,'Requirement')
 
 # Case-insensitive search with tolower / toupper
-GET /behaviors?$filter=contains(tolower(name),'test')`}
+GET /requirements?$filter=contains(tolower(name),'test')`}
 </CodeBlock>
 
 ## Navigation properties
@@ -51,11 +51,11 @@ Traverse relationships with `/`: `relationship/field`. This resolves related dat
 request instead of chaining calls.
 
 <CodeBlock filename="navigation.sh" language="bash">
-{`GET /tests?$filter=behavior/name eq 'Test Behavior'
+{`GET /tests?$filter=requirement/name eq 'Test Requirement'
 GET /tests?$filter=status/name eq 'New'
 GET /tests?$filter=topic/name eq 'Security'
 GET /tests?$filter=contains(prompt/content,'test')
-GET /tests?$filter=contains(tolower(behavior/name),'rel')`}
+GET /tests?$filter=contains(tolower(requirement/name),'rel')`}
 </CodeBlock>
 
 ## Logical operators
@@ -118,7 +118,7 @@ For direct REST calls, `limit` and `skip` remain client-controlled.
 Encode filter values in query strings: space becomes `%20`, `/` becomes `%2F`, `'` becomes `%27`.
 
 <CodeBlock filename="url-encoding.sh" language="bash">
-{`GET /tests?%24filter=contains(behavior%2Fname,%27Test%27)`}
+{`GET /tests?%24filter=contains(requirement%2Fname,%27Test%27)`}
 </CodeBlock>
 
 ## Error responses
@@ -129,11 +129,11 @@ Invalid fields or unparseable expressions return `400` with a `detail` message:
 {`{ "detail": "Error processing filter: Failed to parse at: Token(...)" }`}
 </CodeBlock>
 
-Use function-style syntax for string operations — `contains(behavior/name,'test')`, not
-`behavior/name contains 'test'`.
+Use function-style syntax for string operations — `contains(requirement/name,'test')`, not
+`requirement/name contains 'test'`.
 
 ## Endpoints supporting OData filtering
 
-`/tests`, `/behaviors`, `/topics`, `/categories`, `/test_sets`, `/test_runs`, `/test_results`,
+`/tests`, `/requirements`, `/topics`, `/categories`, `/test_sets`, `/test_runs`, `/test_results`,
 `/prompts`, `/metrics`, `/projects`, and related list routes. Each supports the navigation
 properties defined by its model relationships.

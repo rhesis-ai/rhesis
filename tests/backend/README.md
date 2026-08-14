@@ -35,7 +35,7 @@ tests/backend/
 ├── 📁 crud/                 # CRUD operation tests
 │   ├── test_user.py
 │   ├── test_category.py
-│   └── test_behavior.py
+│   └── test_requirement.py
 ├── 📁 services/             # Service layer tests
 │   ├── test_auth_service.py
 │   └── test_ai_service.py

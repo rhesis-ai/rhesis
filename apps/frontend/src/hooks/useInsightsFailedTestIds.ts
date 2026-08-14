@@ -12,7 +12,7 @@ import {
 } from '@/constants/query-keys';
 import { useIsAuthenticated } from '@/hooks/useIsAuthenticated';
 import { resolveInsightsTimeRange } from '@/app/(protected)/insights/types';
-import { resolveInsightsQueryTestRunIds } from '@/app/(protected)/insights/utils/behavior-insights-utils';
+import { resolveInsightsQueryTestRunIds } from '@/app/(protected)/insights/utils/requirement-insights-utils';
 import {
   fetchFailedTestIdsForInsights,
   type InsightsFailedTestsScope,
@@ -31,7 +31,7 @@ export function toInsightsFailedTestIdsScope(
     runFilterMode: filters.runFilterMode,
     timeRange: resolveInsightsTimeRange(filters.timeRange),
     testRunIds: [...filters.testRunIds].sort(),
-    ...(filters.behaviorId ? { behaviorId: filters.behaviorId } : {}),
+    ...(filters.requirementId ? { requirementId: filters.requirementId } : {}),
     ...(filters.metricName ? { metricName: filters.metricName } : {}),
     ...(filters.topicName ? { topicName: filters.topicName } : {}),
     outcome: filters.outcome === 'all' ? 'all' : 'failed',
@@ -117,7 +117,7 @@ export function useInsightsFailedTestIds(
       filters?.runFilterMode,
       filters?.timeRange,
       filters?.testRunIds?.join(','),
-      filters?.behaviorId,
+      filters?.requirementId,
       filters?.metricName,
       filters?.topicName,
       filters?.outcome,

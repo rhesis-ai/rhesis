@@ -233,7 +233,7 @@ def regular_source_test_set_for_import(test_db: Session, test_org_id, authentica
         description="Source for import route tests",
         organization_id=test_org_id,
         user_id=authenticated_user_id,
-        attributes={"metadata": {"behaviors": ["Safety"]}},
+        attributes={"metadata": {"requirements": ["Safety"]}},
     )
     test_db.add(test_set)
     test_db.flush()
@@ -310,13 +310,13 @@ def explorer_and_regular_test_sets(test_db: Session, test_org_id, authenticated_
 
     Creates:
     - 2 test sets with ``explorer_row=True``
-    - 1 test set with a different behavior
+    - 1 test set with a different requirement
     - 1 test set with no attributes
     """
     ts_adaptive_1 = _make_test_set_with_attrs(
         test_db,
         f"Adaptive Route A {uuid.uuid4().hex[:6]}",
-        {"metadata": {"behaviors": ["Adaptive Testing"]}},
+        {"metadata": {"requirements": ["Adaptive Testing"]}},
         test_org_id,
         authenticated_user_id,
         explorer_row=True,
@@ -325,7 +325,7 @@ def explorer_and_regular_test_sets(test_db: Session, test_org_id, authenticated_
         test_db,
         f"Adaptive Route B {uuid.uuid4().hex[:6]}",
         {
-            "metadata": {"behaviors": ["Adaptive Testing", "Safety"]},
+            "metadata": {"requirements": ["Adaptive Testing", "Safety"]},
         },
         test_org_id,
         authenticated_user_id,
@@ -334,7 +334,7 @@ def explorer_and_regular_test_sets(test_db: Session, test_org_id, authenticated_
     ts_regular = _make_test_set_with_attrs(
         test_db,
         f"Regular Route Set {uuid.uuid4().hex[:6]}",
-        {"metadata": {"behaviors": ["Safety"]}},
+        {"metadata": {"requirements": ["Safety"]}},
         test_org_id,
         authenticated_user_id,
     )

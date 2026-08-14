@@ -78,11 +78,11 @@ def _create_mcp_server(fastapi_app: Any) -> MCPServer:
         name="Rhesis",
         instructions=(
             "Rhesis platform API tools for AI test suite design and execution. "
-            "Entity model: Project owns Endpoints; Behaviors link to Metrics "
-            "(add_behavior_to_metric) before generate_test_set; Sources ground "
+            "Entity model: Project owns Endpoints; Requirements link to Metrics "
+            "(add_requirement_to_metric) before generate_test_set; Sources ground "
             "single-turn generation; TestSet + Endpoint → execute_test_set → "
             "TestRun → TestResults. "
-            "Creation order: behaviors → metrics → behavior-metric mappings → "
+            "Creation order: requirements → metrics → requirement-metric mappings → "
             "generate_test_set → verify (get_test_set, list_test_set_tests) → "
             "execute_test_set → analyze (get_test_run, get_insights). "
             "Resolve entities by name via list_* + $filter; use get_* for full detail."

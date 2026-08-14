@@ -1,7 +1,7 @@
 """
 Tests for crud_utils functions.
 
-These tests verify the current behavior of functions before they are refactored
+These tests verify the current requirement of functions before they are refactored
 to use the new direct parameter passing approach.
 """
 
@@ -19,7 +19,7 @@ from rhesis.backend.app.utils import crud_utils
 
 # Use existing data factories from the established pattern
 from tests.backend.routes.fixtures.data_factories import (
-    BehaviorDataFactory,
+    RequirementDataFactory,
     CategoryDataFactory,
     TopicDataFactory,
 )
@@ -58,9 +58,9 @@ def create_category_data(**overrides):
     return data
 
 
-def create_behavior_data(**overrides):
-    """Create behavior data using existing factory."""
-    data = BehaviorDataFactory.sample_data()
+def create_requirement_data(**overrides):
+    """Create requirement data using existing factory."""
+    data = RequirementDataFactory.sample_data()
     data.update(overrides)
     return data
 
@@ -501,11 +501,11 @@ class TestGetOrCreateSpecializedFunctions:
                 test_db, models.Category, expected_category_data, None, None, commit=True
             )
 
-    def test_get_or_create_behavior_with_description_and_status(
+    def test_get_or_create_requirement_with_description_and_status(
         self, test_db: Session, authenticated_user_id, test_org_id
     ):
-        """Test get_or_create_behavior with description and status."""
-        behavior_name = "Test Behavior"
+        """Test get_or_create_requirement with description and status."""
+        requirement_name = "Test Requirement"
         description = "Test description"
         status = "active"
 
@@ -520,16 +520,16 @@ class TestGetOrCreateSpecializedFunctions:
             mock_get_status.return_value = mock_status_obj
 
             # Setup mock entity
-            mock_behavior = MagicMock()
-            mock_get_entity.return_value = mock_behavior
+            mock_requirement = MagicMock()
+            mock_get_entity.return_value = mock_requirement
 
             # Call the function
-            result = crud_utils.get_or_create_behavior(
-                db=test_db, name=behavior_name, description=description, status=status, commit=True
+            result = crud_utils.get_or_create_requirement(
+                db=test_db, name=requirement_name, description=description, status=status, commit=True
             )
 
             # Verify result
-            assert result == mock_behavior
+            assert result == mock_requirement
 
             # Verify get_or_create_status was called (now includes organization_id and user_id)
             mock_get_status.assert_called_once_with(
@@ -542,13 +542,13 @@ class TestGetOrCreateSpecializedFunctions:
             )
 
             # Verify get_or_create_entity was called with complete data
-            expected_behavior_data = {
-                "name": behavior_name,
+            expected_requirement_data = {
+                "name": requirement_name,
                 "description": description,
                 "status_id": mock_status_obj.id,
             }
             mock_get_entity.assert_called_once_with(
-                test_db, models.Behavior, expected_behavior_data, None, None, commit=True
+                test_db, models.Requirement, expected_requirement_data, None, None, commit=True
             )
 
 

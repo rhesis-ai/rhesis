@@ -7,9 +7,9 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app.models.behavior import Behavior
 from rhesis.backend.app.models.endpoint import Endpoint
-from rhesis.backend.app.models.metric import Metric, behavior_metric_association
+from rhesis.backend.app.models.requirement import Requirement
+from rhesis.backend.app.models.metric import Metric, requirement_metric_association
 from rhesis.backend.app.models.prompt import Prompt
 from rhesis.backend.app.models.test import Test
 from rhesis.backend.app.models.test_set import TestSet, test_test_set_association
@@ -18,7 +18,7 @@ from rhesis.backend.app.schemas.metric import MetricScope
 from rhesis.backend.app.schemas.preflight import PreflightCheckResult, PreflightCheckStatus
 
 from .constants import (
-    CHECK_BEHAVIOR_METRIC_COVERAGE,
+    CHECK_REQUIREMENT_METRIC_COVERAGE,
     CHECK_ENDPOINT_CONNECTIVITY,
     CHECK_EVALUATION_MODEL,
     CHECK_EXECUTION_MODEL,
@@ -492,26 +492,26 @@ async def check_metric_compatibility(
             if test_set:
                 metrics = list(test_set.metrics)
         else:
-            behavior_ids = (
-                db.query(Test.behavior_id)
+            requirement_ids = (
+                db.query(Test.requirement_id)
                 .join(
                     test_test_set_association,
                     Test.id == test_test_set_association.c.test_id,
                 )
                 .filter(test_test_set_association.c.test_set_id == test_set_id)
-                .filter(Test.behavior_id.isnot(None))
+                .filter(Test.requirement_id.isnot(None))
                 .distinct()
                 .all()
             )
-            behavior_id_set = {b[0] for b in behavior_ids}
-            if behavior_id_set:
+            requirement_id_set = {b[0] for b in requirement_ids}
+            if requirement_id_set:
                 metrics = (
                     db.query(Metric)
                     .join(
-                        behavior_metric_association,
-                        Metric.id == behavior_metric_association.c.metric_id,
+                        requirement_metric_association,
+                        Metric.id == requirement_metric_association.c.metric_id,
                     )
-                    .filter(behavior_metric_association.c.behavior_id.in_(behavior_id_set))
+                    .filter(requirement_metric_association.c.requirement_id.in_(requirement_id_set))
                     .distinct()
                     .all()
                 )
@@ -639,26 +639,26 @@ async def check_metric_functionality(
             if test_set:
                 metrics = list(test_set.metrics)
         else:
-            behavior_ids = (
-                db.query(Test.behavior_id)
+            requirement_ids = (
+                db.query(Test.requirement_id)
                 .join(
                     test_test_set_association,
                     Test.id == test_test_set_association.c.test_id,
                 )
                 .filter(test_test_set_association.c.test_set_id == test_set_id)
-                .filter(Test.behavior_id.isnot(None))
+                .filter(Test.requirement_id.isnot(None))
                 .distinct()
                 .all()
             )
-            behavior_id_set = {b[0] for b in behavior_ids}
-            if behavior_id_set:
+            requirement_id_set = {b[0] for b in requirement_ids}
+            if requirement_id_set:
                 metrics = (
                     db.query(Metric)
                     .join(
-                        behavior_metric_association,
-                        Metric.id == behavior_metric_association.c.metric_id,
+                        requirement_metric_association,
+                        Metric.id == requirement_metric_association.c.metric_id,
                     )
-                    .filter(behavior_metric_association.c.behavior_id.in_(behavior_id_set))
+                    .filter(requirement_metric_association.c.requirement_id.in_(requirement_id_set))
                     .distinct()
                     .all()
                 )
@@ -707,7 +707,7 @@ async def check_metric_functionality(
     return result
 
 
-async def check_behavior_metric_coverage(
+async def check_requirement_metric_coverage(
     db: Session,
     test_set_id: UUID,
     metric_mode: str,
@@ -716,7 +716,7 @@ async def check_behavior_metric_coverage(
     publish: bool = True,
     test_set_name: Optional[str] = None,
 ) -> PreflightCheckResult:
-    check_id = CHECK_BEHAVIOR_METRIC_COVERAGE
+    check_id = CHECK_REQUIREMENT_METRIC_COVERAGE
     ts_id_str = str(test_set_id) if test_set_name else None
     comp_key = _make_composite_key(check_id, ts_id_str)
 
@@ -763,7 +763,7 @@ async def check_behavior_metric_coverage(
                     check_id,
                     PreflightCheckStatus.WARNING,
                     "Test set has no metrics configured",
-                    "Add metrics to the test set or switch to behavior metrics.",
+                    "Add metrics to the test set or switch to requirement metrics.",
                 )
             else:
                 metric_names = [m.name for m in test_set.metrics if m.name]
@@ -774,45 +774,45 @@ async def check_behavior_metric_coverage(
                     ", ".join(metric_names) if metric_names else None,
                 )
         else:
-            behavior_rows = (
-                db.query(Test.behavior_id, Behavior.name)
+            requirement_rows = (
+                db.query(Test.requirement_id, Requirement.name)
                 .join(
                     test_test_set_association,
                     Test.id == test_test_set_association.c.test_id,
                 )
-                .join(Behavior, Behavior.id == Test.behavior_id)
+                .join(Requirement, Requirement.id == Test.requirement_id)
                 .filter(test_test_set_association.c.test_set_id == test_set_id)
-                .filter(Test.behavior_id.isnot(None))
+                .filter(Test.requirement_id.isnot(None))
                 .distinct()
                 .all()
             )
-            behavior_map = {row[0]: row[1] for row in behavior_rows}
-            behavior_id_set = set(behavior_map.keys())
+            requirement_map = {row[0]: row[1] for row in requirement_rows}
+            requirement_id_set = set(requirement_map.keys())
 
-            if not behavior_id_set:
+            if not requirement_id_set:
                 result = _make_result(
                     check_id,
                     PreflightCheckStatus.WARNING,
-                    "No behaviors found in test set",
-                    "Tests in this set have no associated behaviors.",
+                    "No requirements found in test set",
+                    "Tests in this set have no associated requirements.",
                 )
             else:
-                behaviors_with_metrics = set(
+                requirements_with_metrics = set(
                     row[0]
-                    for row in db.query(behavior_metric_association.c.behavior_id)
+                    for row in db.query(requirement_metric_association.c.requirement_id)
                     .join(
                         Metric,
-                        Metric.id == behavior_metric_association.c.metric_id,
+                        Metric.id == requirement_metric_association.c.metric_id,
                     )
-                    .filter(behavior_metric_association.c.behavior_id.in_(behavior_id_set))
+                    .filter(requirement_metric_association.c.requirement_id.in_(requirement_id_set))
                     .filter(Metric.class_name.isnot(None))
                     .distinct()
                     .all()
                 )
 
-                missing = behavior_id_set - behaviors_with_metrics
+                missing = requirement_id_set - requirements_with_metrics
                 if missing:
-                    names_list = [behavior_map.get(bid) or str(bid) for bid in missing]
+                    names_list = [requirement_map.get(bid) or str(bid) for bid in missing]
                     names_str = ", ".join(names_list[:10])
                     if len(names_list) > 10:
                         names_str += f" and {len(names_list) - 10} more"
@@ -820,26 +820,26 @@ async def check_behavior_metric_coverage(
                         check_id,
                         PreflightCheckStatus.WARNING,
                         f"{len(missing)} of "
-                        f"{len(behavior_id_set)} behavior(s)"
+                        f"{len(requirement_id_set)} requirement(s)"
                         f" missing metric associations",
                         f"No metrics assigned to: {names_str}. "
-                        "Tests linked to these behaviors will be "
+                        "Tests linked to these requirements will be "
                         "skipped during evaluation.",
                     )
                 else:
-                    behavior_names = list(behavior_map.values())
+                    requirement_names = list(requirement_map.values())
                     result = _make_result(
                         check_id,
                         PreflightCheckStatus.PASSED,
-                        f"All {len(behavior_id_set)} behavior(s) have metrics",
-                        ", ".join(n for n in behavior_names if n) or None,
+                        f"All {len(requirement_id_set)} requirement(s) have metrics",
+                        ", ".join(n for n in requirement_names if n) or None,
                     )
 
     except Exception as e:
         result = _make_result(
             check_id,
             PreflightCheckStatus.FAILED,
-            "Error checking behavior-metric coverage",
+            "Error checking requirement-metric coverage",
             str(e),
         )
 

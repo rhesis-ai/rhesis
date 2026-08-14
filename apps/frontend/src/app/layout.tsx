@@ -26,7 +26,7 @@ import {
   EndpointsIcon,
   TasksIcon,
   KnowledgeIcon,
-  BehaviorsIcon,
+  RequirementsIcon,
   KidStarIcon,
   ForumIcon,
   RateReviewIcon,
@@ -150,10 +150,10 @@ async function getNavigationItems(
     },
     {
       kind: 'page',
-      segment: 'behaviors',
-      title: 'Behaviors',
-      icon: <BehaviorsIcon key="behaviors-icon" />,
-      requiredPermission: Capability.Behavior.READ,
+      segment: 'requirements',
+      title: 'Requirements',
+      icon: <RequirementsIcon key="requirements-icon" />,
+      requiredPermission: Capability.Requirement.READ,
     },
     {
       kind: 'page',

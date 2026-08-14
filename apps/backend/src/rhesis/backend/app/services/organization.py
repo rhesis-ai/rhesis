@@ -12,19 +12,19 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.config.settings import get_application_settings
-from rhesis.backend.app.constants import BEHAVIOR_LIST_KEY
+from rhesis.backend.app.constants import REQUIREMENT_LIST_KEY
 from rhesis.backend.app.crud import tag as tag_crud
 from rhesis.backend.app.crud import user as user_crud
 from rhesis.backend.app.database import temporary_project_scope
 from rhesis.backend.app.models.enums import ModelType
-from rhesis.backend.app.models.metric import behavior_metric_association
+from rhesis.backend.app.models.metric import requirement_metric_association
 from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.schemas.tag import EntityType
 from rhesis.backend.app.scope import bypass_tenant_filter
 from rhesis.backend.app.services.test_set import execute_test_set_on_endpoint
 from rhesis.backend.app.utils.crud_utils import (
     create_default_rhesis_model,
-    get_or_create_behavior,
+    get_or_create_requirement,
     get_or_create_category,
     get_or_create_entity,
     get_or_create_status,
@@ -122,10 +122,10 @@ _ORG_WIDE_INITIAL_DATA_MODELS = frozenset({"Status", "TypeLookup", "Model", "Pro
 # Built-in metric providers are shared across projects (like statuses/models).
 _ORG_WIDE_METRIC_BACKEND_TYPES = frozenset({"deepeval", "ragas", "garak", "rhesis"})
 
-# Behaviors/metrics whose name starts with this prefix get tagged "OWASP" so the
+# Requirements/metrics whose name starts with this prefix get tagged "OWASP" so the
 # frontend's OWASP filter pill (Metrics directory page) can find them via the
 # generic Tag/TaggedItem system. Mirrors the same prefix check in migrations
-# 38ed899b9f41 (creates the OWASP behaviors/metrics for pre-existing orgs) and
+# 38ed899b9f41 (creates the OWASP requirements/metrics for pre-existing orgs) and
 # b857edcac3c0 (tags them) — those migrations only backfill organizations that
 # already existed when they ran, so this is the onboarding-time counterpart for
 # organizations created afterward.
@@ -345,10 +345,10 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> Dict[s
                 commit=False,
             )
 
-        # Process behaviors
-        print("Processing behaviors...")
-        for item in initial_data.get("behavior", []):
-            behavior = get_or_create_behavior(
+        # Process requirements
+        print("Processing requirements...")
+        for item in initial_data.get("requirement", []):
+            requirement = get_or_create_requirement(
                 db=db,
                 name=item["name"],
                 description=item["description"],
@@ -365,8 +365,8 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> Dict[s
                         organization_id=organization_id,
                         user_id=user_id,
                     ),
-                    entity_id=behavior.id,
-                    entity_type=EntityType.BEHAVIOR,
+                    entity_id=requirement.id,
+                    entity_type=EntityType.REQUIREMENT,
                     organization_id=organization_id,
                     user_id=user_id,
                 )
@@ -489,10 +489,10 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> Dict[s
                 commit=False,
             )
 
-            # Get behavior
-            behavior = get_or_create_behavior(
+            # Get requirement
+            requirement = get_or_create_requirement(
                 db=db,
-                name=item["behavior"],
+                name=item["requirement"],
                 organization_id=organization_id,
                 user_id=user_id,
                 commit=False,
@@ -518,7 +518,7 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> Dict[s
                     "status_id": status.id,
                     "topic_id": topic.id,
                     "category_id": category.id,
-                    "behavior_id": behavior.id,
+                    "requirement_id": requirement.id,
                     "priority": item.get("priority", 1),
                 },
                 organization_id=organization_id,
@@ -872,13 +872,13 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> Dict[s
                     user_id=user_id,
                 )
 
-            # Process behavior associations
-            behavior_names = item.get(BEHAVIOR_LIST_KEY, [])
-            for behavior_name in behavior_names:
-                # Get or create the behavior
-                behavior = get_or_create_behavior(
+            # Process requirement associations
+            requirement_names = item.get(REQUIREMENT_LIST_KEY, [])
+            for requirement_name in requirement_names:
+                # Get or create the requirement
+                requirement = get_or_create_requirement(
                     db=db,
-                    name=behavior_name,
+                    name=requirement_name,
                     organization_id=organization_id,
                     user_id=user_id,
                     commit=False,
@@ -886,21 +886,21 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> Dict[s
 
                 # Check if association already exists
                 existing_association = db.execute(
-                    behavior_metric_association.select().where(
-                        behavior_metric_association.c.behavior_id == behavior.id,
-                        behavior_metric_association.c.metric_id == metric.id,
+                    requirement_metric_association.select().where(
+                        requirement_metric_association.c.requirement_id == requirement.id,
+                        requirement_metric_association.c.metric_id == metric.id,
                     )
                 ).first()
 
                 # Create association if it doesn't exist
                 if not existing_association:
                     association_values = {
-                        "behavior_id": behavior.id,
+                        "requirement_id": requirement.id,
                         "metric_id": metric.id,
                         "organization_id": uuid.UUID(organization_id),
                         "user_id": uuid.UUID(user_id),
                     }
-                    db.execute(behavior_metric_association.insert().values(**association_values))
+                    db.execute(requirement_metric_association.insert().values(**association_values))
                     db.flush()
 
         _assign_demo_entities_to_example_project(db, organization_id, user_id, initial_data)
@@ -1379,7 +1379,7 @@ def _build_model_data_map(initial_data: dict) -> dict:
     if "test_set" in initial_data:
         prompts = set()
         topics = set()
-        behaviors = set()
+        requirements = set()
         categories = set()
 
         for test_set in initial_data["test_set"]:
@@ -1389,8 +1389,8 @@ def _build_model_data_map(initial_data: dict) -> dict:
                         prompts.add(test["prompt"])
                     if "topic" in test:
                         topics.add(test["topic"])
-                    if "behavior" in test:
-                        behaviors.add(test["behavior"])
+                    if "requirement" in test:
+                        requirements.add(test["requirement"])
                     if "category" in test:
                         categories.add(test["category"])
 
@@ -1399,8 +1399,8 @@ def _build_model_data_map(initial_data: dict) -> dict:
             model_data_map["Prompt"] = prompts
         if topics:
             model_data_map.setdefault("Topic", set()).update(topics)
-        if behaviors:
-            model_data_map.setdefault("Behavior", set()).update(behaviors)
+        if requirements:
+            model_data_map.setdefault("Requirement", set()).update(requirements)
         if categories:
             model_data_map.setdefault("Category", set()).update(categories)
 
@@ -1648,7 +1648,7 @@ def rollback_initial_data(db: Session, organization_id: str, user_id: str | None
                 "Prompt": 0,
                 "Test": 1,
                 "Topic": 2,
-                "Behavior": 2,
+                "Requirement": 2,
                 "Category": 2,
                 "Metric": 2,
                 "TestSet": 5,

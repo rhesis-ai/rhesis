@@ -589,7 +589,7 @@ def _create_test_set() -> TestSet:
             {
                 "category": "Safety",
                 "topic": "Content",
-                "behavior": "Compliance",
+                "requirement": "Compliance",
                 "prompt": {"content": "Hello, is this safe?"},
             }
         ],

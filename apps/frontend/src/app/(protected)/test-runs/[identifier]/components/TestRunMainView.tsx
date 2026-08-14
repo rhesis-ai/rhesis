@@ -134,7 +134,7 @@ export default function TestRunMainView({
   const {
     testResults: loadedTestResults,
     prompts,
-    behaviors,
+    requirements,
     availableMetrics,
     loading,
     error: loadError,
@@ -170,7 +170,7 @@ export default function TestRunMainView({
   const [filter, setFilter] = useState<FilterState>({
     searchQuery: '',
     statusFilter: 'all',
-    selectedBehaviors: [],
+    selectedRequirements: [],
     overruleFilter: 'all',
     selectedMetrics: [],
     commentFilter: 'all',
@@ -219,13 +219,13 @@ export default function TestRunMainView({
       });
     }
 
-    if (filter.selectedBehaviors.length > 0) {
+    if (filter.selectedRequirements.length > 0) {
       filtered = filtered.filter(test => {
         const metrics = test.test_metrics?.metrics || {};
-        return filter.selectedBehaviors.some(behaviorId => {
-          const behavior = behaviors.find(b => b.id === behaviorId);
-          if (!behavior) return false;
-          return behavior.metrics.some(metric => metrics[metric.name]);
+        return filter.selectedRequirements.some(requirementId => {
+          const requirement = requirements.find(b => b.id === requirementId);
+          if (!requirement) return false;
+          return requirement.metrics.some(metric => metrics[metric.name]);
         });
       });
     }
@@ -283,17 +283,17 @@ export default function TestRunMainView({
     }
 
     return filtered;
-  }, [testResults, filter, prompts, behaviors]);
+  }, [testResults, filter, prompts, requirements]);
 
   const handleFilterChange = useCallback((newFilter: FilterState) => {
     setFilter(newFilter);
   }, []);
 
-  const handleDrilldownToBehavior = useCallback(
-    (behaviorId: string) => {
+  const handleDrilldownToRequirement = useCallback(
+    (requirementId: string) => {
       setFilter(prev => ({
         ...prev,
-        selectedBehaviors: [behaviorId],
+        selectedRequirements: [requirementId],
         statusFilter: 'failed',
       }));
       handleTabChange(TAB_KEYS.indexOf('linked_entities'));
@@ -593,8 +593,8 @@ export default function TestRunMainView({
           testResults={testResults}
           loading={loading}
           onRefresh={() => router.refresh()}
-          behaviors={behaviors}
-          onViewBehavior={handleDrilldownToBehavior}
+          requirements={requirements}
+          onViewRequirement={handleDrilldownToRequirement}
           onViewMetric={handleDrilldownToMetric}
         />
       </TabPanel>
@@ -604,7 +604,7 @@ export default function TestRunMainView({
           filteredTests={filteredTests}
           filter={filter}
           onFilterChange={handleFilterChange}
-          availableBehaviors={behaviors}
+          availableRequirements={requirements}
           availableMetrics={availableMetrics}
           isDownloading={isDownloading}
           onDownload={handleDownload}
@@ -617,7 +617,7 @@ export default function TestRunMainView({
           testRunId={testRunId}
           loading={loading}
           prompts={prompts}
-          behaviors={behaviors}
+          requirements={requirements}
           onTestResultUpdate={handleTestResultUpdate}
           currentUserId={currentUserId}
           currentUserName={currentUserName}

@@ -14,7 +14,7 @@ from rhesis.sdk.synthesizers.utils import create_test_set, stamp_multi_turn
 
 class GenerationConfig(BaseModel):
     generation_prompt: str
-    behaviors: Optional[list[str]] = None
+    requirements: Optional[list[str]] = None
     categories: Optional[list[str]] = None
     topics: Optional[list[str]] = None
     additional_context: Optional[str] = None
@@ -22,7 +22,7 @@ class GenerationConfig(BaseModel):
 
 class Test(BaseModel):
     test_configuration: TestConfiguration
-    behavior: str
+    requirement: str
     category: str
     topic: str
     # Note: test_type is NOT included in the schema sent to the LLM
@@ -42,7 +42,7 @@ class FlatTest(BaseModel):
     test_configuration_scenario: str
     test_configuration_min_turns: int = Field(ge=1, le=50)
     test_configuration_max_turns: int = Field(ge=1, le=50)
-    behavior: str
+    requirement: str
     category: str
     topic: str
 
@@ -93,7 +93,7 @@ class MultiTurnSynthesizer:
             config["max_turns"] = int(max_turns)
         return {
             "test_configuration": config,
-            "behavior": flat["behavior"],
+            "requirement": flat["requirement"],
             "category": flat["category"],
             "topic": flat["topic"],
         }

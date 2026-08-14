@@ -26,7 +26,7 @@ from fastapi import status
 
 from .base import BaseEntityRouteTests, BaseEntityTests
 from .endpoints import APIEndpoints
-from .fixtures.data_factories import BehaviorDataFactory, ProjectDataFactory, TagDataFactory
+from .fixtures.data_factories import RequirementDataFactory, ProjectDataFactory, TagDataFactory
 
 # Initialize Faker
 fake = Faker()
@@ -397,7 +397,7 @@ class TestTagRoutes(TagTestMixin, BaseEntityRouteTests):
         )
 
         # This might be allowed or not depending on validation rules
-        # Adjust assertion based on actual API behavior
+        # Adjust assertion based on actual API requirement
         assert response.status_code in [
             status.HTTP_200_OK,
             status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -447,12 +447,12 @@ class TestTagRoutes(TagTestMixin, BaseEntityRouteTests):
 class TestTagAssignments(TagTestMixin, BaseEntityTests):
     """Enhanced tag assignment and entity relationship tests"""
 
-    def _create_test_behavior(self, authenticated_client):
-        """Helper to create a test behavior for tag assignment"""
-        behavior_data = BehaviorDataFactory.sample_data()
+    def _create_test_requirement(self, authenticated_client):
+        """Helper to create a test requirement for tag assignment"""
+        requirement_data = RequirementDataFactory.sample_data()
         response = authenticated_client.post(
-            "/behaviors/",
-            json=behavior_data,
+            "/requirements/",
+            json=requirement_data,
         )
         assert response.status_code == status.HTTP_200_OK
         return response.json()
@@ -467,18 +467,18 @@ class TestTagAssignments(TagTestMixin, BaseEntityTests):
         assert response.status_code == status.HTTP_200_OK
         return response.json()
 
-    def test_assign_tag_to_behavior(self, authenticated_client):
-        """Test assigning a tag to a behavior entity"""
-        # Create a behavior
-        behavior = self._create_test_behavior(authenticated_client)
-        behavior_id = behavior["id"]
+    def test_assign_tag_to_requirement(self, authenticated_client):
+        """Test assigning a tag to a requirement entity"""
+        # Create a requirement
+        requirement = self._create_test_requirement(authenticated_client)
+        requirement_id = requirement["id"]
 
         # Create tag data
         tag_data = self.get_sample_data()
 
-        # Assign tag to behavior
+        # Assign tag to requirement
         response = authenticated_client.post(
-            f"/tags/Behavior/{behavior_id}",
+            f"/tags/Requirement/{requirement_id}",
             json=tag_data,
         )
 
@@ -513,9 +513,9 @@ class TestTagAssignments(TagTestMixin, BaseEntityTests):
 
     def test_assign_existing_tag_to_entity(self, authenticated_client):
         """Test assigning an existing tag to an entity"""
-        # Create a behavior
-        behavior = self._create_test_behavior(authenticated_client)
-        behavior_id = behavior["id"]
+        # Create a requirement
+        requirement = self._create_test_requirement(authenticated_client)
+        requirement_id = requirement["id"]
 
         # Create a tag first
         tag_data = self.get_sample_data()
@@ -525,9 +525,9 @@ class TestTagAssignments(TagTestMixin, BaseEntityTests):
         )
         assert create_response.status_code == status.HTTP_200_OK
 
-        # Assign the same tag to behavior (should reuse existing tag)
+        # Assign the same tag to requirement (should reuse existing tag)
         response = authenticated_client.post(
-            f"/tags/Behavior/{behavior_id}",
+            f"/tags/Requirement/{requirement_id}",
             json=tag_data,
         )
 
@@ -538,22 +538,22 @@ class TestTagAssignments(TagTestMixin, BaseEntityTests):
 
     def test_remove_tag_from_entity(self, authenticated_client):
         """Test removing a tag from an entity"""
-        # Create a behavior
-        behavior = self._create_test_behavior(authenticated_client)
-        behavior_id = behavior["id"]
+        # Create a requirement
+        requirement = self._create_test_requirement(authenticated_client)
+        requirement_id = requirement["id"]
 
         # Create and assign tag
         tag_data = self.get_sample_data()
         assign_response = authenticated_client.post(
-            f"/tags/Behavior/{behavior_id}",
+            f"/tags/Requirement/{requirement_id}",
             json=tag_data,
         )
         assert assign_response.status_code == status.HTTP_200_OK
         tag_id = assign_response.json()["id"]
 
-        # Remove tag from behavior
+        # Remove tag from requirement
         response = authenticated_client.delete(
-            f"/tags/Behavior/{behavior_id}/{tag_id}",
+            f"/tags/Requirement/{requirement_id}/{tag_id}",
         )
 
         assert response.status_code == status.HTTP_200_OK
@@ -566,7 +566,7 @@ class TestTagAssignments(TagTestMixin, BaseEntityTests):
         tag_data = self.get_sample_data()
 
         response = authenticated_client.post(
-            f"/tags/Behavior/{fake_id}",
+            f"/tags/Requirement/{fake_id}",
             json=tag_data,
         )
 
@@ -578,7 +578,7 @@ class TestTagAssignments(TagTestMixin, BaseEntityTests):
         fake_tag_id = str(uuid.uuid4())
 
         response = authenticated_client.delete(
-            f"/tags/Behavior/{fake_entity_id}/{fake_tag_id}",
+            f"/tags/Requirement/{fake_entity_id}/{fake_tag_id}",
         )
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
@@ -618,18 +618,18 @@ class TestTagPerformance(TagTestMixin, BaseEntityTests):
 
     def test_tag_assignment_performance(self, authenticated_client):
         """Test tag assignment performance with multiple entities"""
-        # Create multiple behaviors
-        behaviors = []
+        # Create multiple requirements
+        requirements = []
         for i in range(5):
-            behavior = self._create_test_behavior(authenticated_client)
-            behaviors.append(behavior)
+            requirement = self._create_test_requirement(authenticated_client)
+            requirements.append(requirement)
 
         # Create and assign tags
         tag_data = self.get_sample_data()
 
-        for behavior in behaviors:
+        for requirement in requirements:
             response = authenticated_client.post(
-                f"/tags/Behavior/{behavior['id']}",
+                f"/tags/Requirement/{requirement['id']}",
                 json=tag_data,
             )
             assert response.status_code == status.HTTP_200_OK
@@ -665,12 +665,12 @@ class TestTagPerformance(TagTestMixin, BaseEntityTests):
             )
             assert response.status_code == status.HTTP_200_OK
 
-    def _create_test_behavior(self, authenticated_client):
-        """Helper to create a test behavior for tag assignment"""
-        behavior_data = BehaviorDataFactory.sample_data()
+    def _create_test_requirement(self, authenticated_client):
+        """Helper to create a test requirement for tag assignment"""
+        requirement_data = RequirementDataFactory.sample_data()
         response = authenticated_client.post(
-            "/behaviors/",
-            json=behavior_data,
+            "/requirements/",
+            json=requirement_data,
         )
         assert response.status_code == status.HTTP_200_OK
         return response.json()

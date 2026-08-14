@@ -31,7 +31,7 @@ Single-turn tests use the `Test` model with a `Prompt` containing:
 
 - `content`: The input text
 - `expected_response`: Optional expected output
-- Associated `Behavior` with metrics for evaluation
+- Associated `Requirement` with metrics for evaluation
 
 ### Example
 
@@ -39,7 +39,7 @@ Single-turn tests use the `Test` model with a `Prompt` containing:
 {`# Create a single-turn test
 test = Test(
     prompt=prompt,
-    behavior=behavior,  # Contains metrics
+    requirement=requirement,  # Contains metrics
     test_type="Single-Turn",
     organization_id=org_id,
     user_id=user_id

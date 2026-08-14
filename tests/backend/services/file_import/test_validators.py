@@ -11,7 +11,7 @@ class TestValidateRows:
             {
                 "category": "Safety",
                 "topic": "Content",
-                "behavior": "Refusal",
+                "requirement": "Refusal",
                 "prompt": {"content": "test prompt"},
             }
         ]
@@ -25,7 +25,7 @@ class TestValidateRows:
         rows = [
             {
                 "topic": "Content",
-                "behavior": "Refusal",
+                "requirement": "Refusal",
                 "prompt": {"content": "test"},
             }
         ]
@@ -37,14 +37,14 @@ class TestValidateRows:
         rows = [
             {
                 "category": "Safety",
-                "behavior": "Refusal",
+                "requirement": "Refusal",
                 "prompt": {"content": "test"},
             }
         ]
         errors, warnings, summary = validate_rows(rows)
         assert any(e["field"] == "topic" for e in errors[0])
 
-    def test_missing_behavior(self):
+    def test_missing_requirement(self):
         rows = [
             {
                 "category": "Safety",
@@ -53,14 +53,14 @@ class TestValidateRows:
             }
         ]
         errors, warnings, summary = validate_rows(rows)
-        assert any(e["field"] == "behavior" for e in errors[0])
+        assert any(e["field"] == "requirement" for e in errors[0])
 
     def test_missing_prompt_content(self):
         rows = [
             {
                 "category": "Safety",
                 "topic": "Content",
-                "behavior": "Refusal",
+                "requirement": "Refusal",
             }
         ]
         errors, warnings, summary = validate_rows(rows)
@@ -71,7 +71,7 @@ class TestValidateRows:
             {
                 "category": "Safety",
                 "topic": "Content",
-                "behavior": "Refusal",
+                "requirement": "Refusal",
                 "prompt_content": "test prompt",
             }
         ]
@@ -84,7 +84,7 @@ class TestValidateRows:
             {
                 "category": "Safety",
                 "topic": "Content",
-                "behavior": "Refusal",
+                "requirement": "Refusal",
                 "prompt": {"content": "test"},
                 "test_type": "Unknown-Type",
             }
@@ -99,7 +99,7 @@ class TestValidateRows:
             {
                 "category": "Safety",
                 "topic": "Content",
-                "behavior": "Refusal",
+                "requirement": "Refusal",
                 "prompt": {"content": "test"},
                 "test_type": "Multi-Turn",
             }
@@ -112,7 +112,7 @@ class TestValidateRows:
             {
                 "category": "Safety",
                 "topic": "Content",
-                "behavior": "Refusal",
+                "requirement": "Refusal",
                 "prompt": {"content": "test"},
                 "test_type": "Multi-Turn",
                 "test_configuration": {"instructions": "do stuff"},
@@ -126,7 +126,7 @@ class TestValidateRows:
             {
                 "category": "Safety",
                 "topic": "Content",
-                "behavior": "Refusal",
+                "requirement": "Refusal",
                 "prompt": {"content": "test"},
                 "test_type": "Multi-Turn",
                 "test_configuration": {"goal": "test goal"},
@@ -143,7 +143,7 @@ class TestValidateRows:
             {
                 "category": "Safety",
                 "topic": "Content",
-                "behavior": "Refusal",
+                "requirement": "Refusal",
                 "test_type": "Multi-Turn",
                 "test_configuration": {
                     "goal": "Test the system",
@@ -164,7 +164,7 @@ class TestValidateRows:
             {
                 "category": "Safety",
                 "topic": "Content",
-                "behavior": "Refusal",
+                "requirement": "Refusal",
                 "test_type": "Multi-Turn",
                 "goal": "Probe the model",
                 "instructions": "Ask about other users",
@@ -182,7 +182,7 @@ class TestValidateRows:
             {
                 "category": "Safety",
                 "topic": "Content",
-                "behavior": "Refusal",
+                "requirement": "Refusal",
                 "prompt": {"content": "ok"},
             },
             {
@@ -206,7 +206,7 @@ class TestValidateRows:
             {
                 "category": "",
                 "topic": "  ",
-                "behavior": "Refusal",
+                "requirement": "Refusal",
                 "prompt": {"content": "test"},
             }
         ]

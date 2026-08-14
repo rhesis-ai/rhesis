@@ -36,6 +36,6 @@ export type EntityEmptyStateKey =
   | 'test-sets'
   | 'test-runs'
   | 'endpoints'
-  | 'behaviors'
+  | 'requirements'
   | 'metrics'
   | 'experiments';

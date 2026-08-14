@@ -15,9 +15,9 @@ def insights_response():
     """Fixture for a GET /insights aggregation response."""
     return {
         "entity": "test_result",
-        "dimensions": ["behavior"],
+        "dimensions": ["requirement"],
         "measures": ["count", "pass_rate"],
-        "rows": [{"behavior": "refund", "count": 10, "pass_rate": 80.0}],
+        "rows": [{"requirement": "refund", "count": 10, "pass_rate": 80.0}],
     }
 
 
@@ -36,7 +36,7 @@ def test_insights_get_sends_entity_group_by_measures_and_filters(mock_request, i
 
     result = Insights(
         entity="test_result",
-        group_by=["behavior"],
+        group_by=["requirement"],
         measures=["count", "pass_rate"],
         filters={"test_run_ids": ["run-1"]},
     ).get()
@@ -52,11 +52,11 @@ def test_insights_get_sends_entity_group_by_measures_and_filters(mock_request, i
         params={
             "entity": "test_result",
             "test_run_ids": ["run-1"],
-            "group_by": ["behavior"],
+            "group_by": ["requirement"],
             "measures": ["count", "pass_rate"],
         },
     )
-    assert result.rows[0]["behavior"] == "refund"
+    assert result.rows[0]["requirement"] == "refund"
 
 
 @patch("requests.request")

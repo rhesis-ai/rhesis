@@ -178,7 +178,7 @@ class TestBundledSkillReferences:
 
         env = build_architect_jinja_env(templates_dir)
         text = env.get_template("system_prompt.j2").render()
-        assert "Behavior" in text
+        assert "Requirement" in text
         assert "OData" in text
         assert "confirm" in text.lower()
 
@@ -222,14 +222,14 @@ def _has_detail_page(segment: str) -> bool:
 class TestEntityLinkGuidanceMatchesFrontend:
     """Keep link guidance honest about which entities have detail pages.
 
-    Both templates previously told the agent that behaviors and metrics had
+    Both templates previously told the agent that requirements and metrics had
     no detail pages. Both do, so the agent was suppressing links a user
     could have followed — and the two files disagreed with each other.
     """
 
     TEMPLATES = ("telemachus-guidelines.j2", "streaming_response.j2")
     # Entities the prompts tell the agent to link.
-    LINKED = ("test-sets", "tests", "endpoints", "projects", "test-runs", "behaviors", "metrics")
+    LINKED = ("test-sets", "tests", "endpoints", "projects", "test-runs", "requirements", "metrics")
 
     @pytest.mark.parametrize("segment", LINKED)
     def test_linked_entities_really_have_detail_pages(self, segment):
@@ -242,18 +242,18 @@ class TestEntityLinkGuidanceMatchesFrontend:
         assert not _has_detail_page("test-results")
 
     @pytest.mark.parametrize("template", TEMPLATES)
-    def test_templates_do_not_deny_behavior_or_metric_pages(self, template):
+    def test_templates_do_not_deny_requirement_or_metric_pages(self, template):
         text = (_TEMPLATES_DIR / template).read_text()
         for stale in (
-            "Behaviors, metrics and test results do NOT have detail pages",
-            "Behaviors and test results do NOT have detail pages",
+            "Requirements, metrics and test results do NOT have detail pages",
+            "Requirements and test results do NOT have detail pages",
         ):
             assert stale not in text, f"{template} still carries stale claim: {stale!r}"
 
     @pytest.mark.parametrize("template", TEMPLATES)
-    def test_templates_document_behavior_and_metric_links(self, template):
+    def test_templates_document_requirement_and_metric_links(self, template):
         text = (_TEMPLATES_DIR / template).read_text()
-        assert "/behaviors/" in text, f"{template} never shows a behavior link"
+        assert "/requirements/" in text, f"{template} never shows a requirement link"
         assert "/metrics/" in text, f"{template} never shows a metric link"
 
     @pytest.mark.parametrize("template", TEMPLATES)

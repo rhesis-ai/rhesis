@@ -52,7 +52,7 @@ class Test(
     test_configuration = Column(JSONB)
     parent_id = Column(GUID(), ForeignKey("test.id"))
     topic_id = Column(GUID(), ForeignKey("topic.id"), index=True)
-    behavior_id = Column(GUID(), ForeignKey("behavior.id"), index=True)
+    requirement_id = Column(GUID(), ForeignKey("requirement.id"), index=True)
     category_id = Column(GUID(), ForeignKey("category.id"), index=True)
     status_id = Column(GUID(), ForeignKey("status.id"))
     source_id = Column(GUID(), ForeignKey("source.id"))
@@ -73,7 +73,7 @@ class Test(
     parent = relationship("Test", remote_side="[Test.id]", post_update=True)
     children = relationship("Test", foreign_keys=[parent_id], viewonly=True)
     topic = relationship("Topic", back_populates="tests")
-    behavior = relationship("Behavior", back_populates="tests")
+    requirement = relationship("Requirement", back_populates="tests")
     category = relationship("Category", back_populates="tests")
     status = relationship("Status", back_populates="tests")
     source = relationship("Source", back_populates="tests")
@@ -124,8 +124,8 @@ class Test(
         from rhesis.backend.app.constants import TestType
         from rhesis.backend.tasks.execution.modes import get_test_type
 
-        from .behavior import Behavior
         from .category import Category
+        from .requirement import Requirement
         from .prompt import Prompt
         from .topic import Topic
 
@@ -147,14 +147,14 @@ class Test(
                 return sess.get(model_cls, fk_id)
 
         topic = _fk_obj("topic", self.topic_id, Topic)
-        behavior = _fk_obj("behavior", self.behavior_id, Behavior)
+        requirement = _fk_obj("requirement", self.requirement_id, Requirement)
         category = _fk_obj("category", self.category_id, Category)
         prompt = _fk_obj("prompt", self.prompt_id, Prompt)
 
         # Common metadata for both types
         metadata = [
             topic.name if topic else None,
-            behavior.name if behavior else None,
+            requirement.name if requirement else None,
             category.name if category else None,
         ]
 

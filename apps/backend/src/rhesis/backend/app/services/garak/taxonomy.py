@@ -3,18 +3,18 @@ Garak to Rhesis taxonomy mapping.
 
 This module maps Garak probe modules to Rhesis categories, topics,
 and default detectors, and resolves Garak ``quality:*`` tags to
-``Garak (...)`` behavior names.
+``Garak (...)`` requirement names.
 """
 
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 
-FALLBACK_BEHAVIOR = "Garak (Security Probing)"
+FALLBACK_REQUIREMENT = "Garak (Security Probing)"
 
-# Maps ``quality:*`` tag suffixes to human-readable behavior names.
+# Maps ``quality:*`` tag suffixes to human-readable requirement names.
 # Priority order: ContentSafety > other Behavioral > Robustness > Security.
 # Within a tier the first alphabetical tag wins.
-_QUALITY_TAG_TO_BEHAVIOR: Dict[str, str] = {
+_QUALITY_TAG_TO_REQUIREMENT: Dict[str, str] = {
     "quality:Behavioral:ContentSafety:HateHarassment": "Garak (Hate & Harassment)",
     "quality:Behavioral:ContentSafety:LegalGoodsServices": "Garak (Legal Goods & Services)",
     "quality:Behavioral:ContentSafety:Profanity": "Garak (Profanity)",
@@ -39,27 +39,27 @@ _TIER_ORDER = [
 ]
 
 
-def resolve_behavior(tags: Optional[List[str]]) -> str:
-    """Pick one ``Garak (...)`` behavior name from a probe's tag list.
+def resolve_requirement(tags: Optional[List[str]]) -> str:
+    """Pick one ``Garak (...)`` requirement name from a probe's tag list.
 
     Selects the highest-priority ``quality:*`` tag using the tier order
     (ContentSafety > Behavioral > Robustness > Security), breaking ties
-    alphabetically within a tier.  Returns ``FALLBACK_BEHAVIOR`` when no
+    alphabetically within a tier.  Returns ``FALLBACK_REQUIREMENT`` when no
     ``quality:*`` tag is present.
     """
     if not tags:
-        return FALLBACK_BEHAVIOR
+        return FALLBACK_REQUIREMENT
 
-    quality_tags = sorted(t for t in tags if t in _QUALITY_TAG_TO_BEHAVIOR)
+    quality_tags = sorted(t for t in tags if t in _QUALITY_TAG_TO_REQUIREMENT)
     if not quality_tags:
-        return FALLBACK_BEHAVIOR
+        return FALLBACK_REQUIREMENT
 
     for prefix in _TIER_ORDER:
         for tag in quality_tags:
             if tag.startswith(prefix):
-                return _QUALITY_TAG_TO_BEHAVIOR[tag]
+                return _QUALITY_TAG_TO_REQUIREMENT[tag]
 
-    return FALLBACK_BEHAVIOR
+    return FALLBACK_REQUIREMENT
 
 
 @dataclass
@@ -77,8 +77,8 @@ class GarakTaxonomy:
     Taxonomy mapping for Garak probes to Rhesis entities.
 
     Maps Garak probe modules to Rhesis categories, topics, and default
-    detectors. Behaviors are resolved from probe-level ``quality:*`` tags
-    via :func:`resolve_behavior`, not from the module mapping.
+    detectors. Requirements are resolved from probe-level ``quality:*`` tags
+    via :func:`resolve_requirement`, not from the module mapping.
     """
 
     MODULE_MAPPINGS: Dict[str, GarakMapping] = {

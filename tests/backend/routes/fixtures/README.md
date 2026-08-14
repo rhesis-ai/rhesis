@@ -27,21 +27,21 @@ def test_business_logic(mock_user_data):
 
 ### For Integration Tests (Real Database)
 ```python
-def test_api_endpoint(behavior_factory):
+def test_api_endpoint(requirement_factory):
     # Create entity with automatic cleanup
-    behavior = behavior_factory.create(BehaviorDataFactory.sample_data())
+    requirement = requirement_factory.create(RequirementDataFactory.sample_data())
     
-    response = behavior_factory.client.get(f"/behaviors/{behavior['id']}")
+    response = requirement_factory.client.get(f"/requirements/{requirement['id']}")
     assert response.status_code == 200
     # Automatic cleanup after test
 ```
 
 ### For Relationship Testing
 ```python
-def test_complex_relationships(behavior_with_metrics):
+def test_complex_relationships(requirement_with_metrics):
     # Pre-created relationships with automatic cleanup
-    behavior = behavior_with_metrics["behavior"]
-    metrics = behavior_with_metrics["metrics"]
+    requirement = requirement_with_metrics["requirement"]
+    metrics = requirement_with_metrics["metrics"]
     
     assert len(metrics) == 2
     # All entities cleaned up automatically
@@ -51,7 +51,7 @@ def test_complex_relationships(behavior_with_metrics):
 
 ```
 tests/backend/routes/fixtures/
-├── 📊 data_factories.py      # Data generation (BehaviorDataFactory, etc.)
+├── 📊 data_factories.py      # Data generation (RequirementDataFactory, etc.)
 ├── 🏭 factories.py           # Entity creation & cleanup (EntityFactory, etc.)
 ├── 🧩 factory_fixtures.py    # Pytest fixture integration
 ├── entities/
@@ -96,10 +96,10 @@ def test_database_integration(db_user):
 **Naming**: `*_factory`
 
 ```python
-def test_entity_creation(behavior_factory):
+def test_entity_creation(requirement_factory):
     # Automatic cleanup
-    behavior = behavior_factory.create({"name": "Test"})
-    assert behavior["id"] is not None
+    requirement = requirement_factory.create({"name": "Test"})
+    assert requirement["id"] is not None
 ```
 
 ### 📊 Data Fixtures (Test Data)
@@ -107,10 +107,10 @@ def test_entity_creation(behavior_factory):
 **Naming**: `*_data`
 
 ```python
-def test_with_consistent_data(behavior_data):
+def test_with_consistent_data(requirement_data):
     # Pre-generated test data
-    assert "name" in behavior_data
-    assert behavior_data["name"] is not None
+    assert "name" in requirement_data
+    assert requirement_data["name"] is not None
 ```
 
 ## 📊 Data Factories
@@ -121,7 +121,7 @@ Data factories provide consistent, realistic test data generation.
 
 | Factory | Purpose | Key Methods |
 |---------|---------|-------------|
-| `BehaviorDataFactory` | Behavior test data | `sample_data()`, `minimal_data()`, `edge_case_data()` |
+| `RequirementDataFactory` | Requirement test data | `sample_data()`, `minimal_data()`, `edge_case_data()` |
 | `TopicDataFactory` | Topic test data | `sample_data()`, `hierarchy_data()` |
 | `CategoryDataFactory` | Category test data | `sample_data()`, `minimal_data()` |
 | `MetricDataFactory` | Metric test data | `sample_data()`, `update_data()` |
@@ -130,21 +130,21 @@ Data factories provide consistent, realistic test data generation.
 
 ```python
 # Standard data
-data = BehaviorDataFactory.sample_data()
+data = RequirementDataFactory.sample_data()
 
 # Minimal data (only required fields)
-data = BehaviorDataFactory.minimal_data()
+data = RequirementDataFactory.minimal_data()
 
 # Edge cases
-data = BehaviorDataFactory.edge_case_data("long_name")
-data = BehaviorDataFactory.edge_case_data("special_chars")
-data = BehaviorDataFactory.edge_case_data("unicode")
+data = RequirementDataFactory.edge_case_data("long_name")
+data = RequirementDataFactory.edge_case_data("special_chars")
+data = RequirementDataFactory.edge_case_data("unicode")
 
 # Batch data
-batch = BehaviorDataFactory.batch_data(count=10, variation=True)
+batch = RequirementDataFactory.batch_data(count=10, variation=True)
 
 # Custom variations
-data = BehaviorDataFactory.sample_data(
+data = RequirementDataFactory.sample_data(
     name_length=50, 
     include_description=False
 )
@@ -177,18 +177,18 @@ class EntityFactory:
 
 ### Specialized Factories
 
-#### `BehaviorFactory`
+#### `RequirementFactory`
 ```python
-def test_behavior_with_metrics(behavior_factory, metric_factory):
+def test_requirement_with_metrics(requirement_factory, metric_factory):
     # Create metrics first
     metrics = metric_factory.create_batch([
         MetricDataFactory.sample_data(),
         MetricDataFactory.sample_data()
     ])
     
-    # Create behavior with metrics
-    behavior = behavior_factory.create_with_metrics(
-        BehaviorDataFactory.sample_data(),
+    # Create requirement with metrics
+    requirement = requirement_factory.create_with_metrics(
+        RequirementDataFactory.sample_data(),
         [m["id"] for m in metrics]
     )
 ```
@@ -211,14 +211,14 @@ All factory fixtures provide automatic cleanup:
 
 ```python
 @pytest.fixture
-def behavior_factory(authenticated_client: TestClient):
-    factory = BehaviorFactory(authenticated_client)
+def requirement_factory(authenticated_client: TestClient):
+    factory = RequirementFactory(authenticated_client)
     yield factory
     factory.cleanup()  # Automatic cleanup
 ```
 
 Available factory fixtures:
-- `behavior_factory`
+- `requirement_factory`
 - `topic_factory` 
 - `category_factory`
 - `metric_factory`
@@ -274,13 +274,13 @@ def test_permissions(admin_and_user):
 
 Composite fixtures create complex entity relationships with automatic cleanup.
 
-### `behavior_with_metrics`
+### `requirement_with_metrics`
 ```python
-def test_behavior_metrics(behavior_with_metrics):
-    behavior = behavior_with_metrics["behavior"]
-    metrics = behavior_with_metrics["metrics"]
+def test_requirement_metrics(requirement_with_metrics):
+    requirement = requirement_with_metrics["requirement"]
+    metrics = requirement_with_metrics["metrics"]
     
-    assert behavior["id"] is not None
+    assert requirement["id"] is not None
     assert len(metrics) == 2
     # Relationship already established
 ```
@@ -299,7 +299,7 @@ def test_topic_relationships(topic_hierarchy):
 ### `entity_relationships`
 ```python
 def test_complex_relationships(entity_relationships):
-    behaviors = entity_relationships["behaviors"]
+    requirements = entity_relationships["requirements"]
     metrics = entity_relationships["metrics"]
     topics = entity_relationships["topics"]
     relationships = entity_relationships["relationships"]
@@ -340,12 +340,12 @@ def test_validation_logic(mock_user_data):
     assert result.is_valid
 
 # ✅ Integration tests: Use factory fixtures  
-def test_api_endpoint(behavior_factory):
-    behavior = behavior_factory.create(BehaviorDataFactory.sample_data())
+def test_api_endpoint(requirement_factory):
+    requirement = requirement_factory.create(RequirementDataFactory.sample_data())
     # Test with real database entity
 
 # ✅ Relationship tests: Use composite fixtures
-def test_complex_workflow(behavior_with_metrics):
+def test_complex_workflow(requirement_with_metrics):
     # Pre-configured relationships
 ```
 
@@ -353,24 +353,24 @@ def test_complex_workflow(behavior_with_metrics):
 
 ```python
 # ✅ Standard testing
-data = BehaviorDataFactory.sample_data()
+data = RequirementDataFactory.sample_data()
 
 # ✅ Minimal testing (performance)
-data = BehaviorDataFactory.minimal_data()
+data = RequirementDataFactory.minimal_data()
 
 # ✅ Edge case testing
-data = BehaviorDataFactory.edge_case_data("long_name")
+data = RequirementDataFactory.edge_case_data("long_name")
 
 # ✅ Batch testing
-batch = BehaviorDataFactory.batch_data(count=10)
+batch = RequirementDataFactory.batch_data(count=10)
 ```
 
 ### 3. Leverage Automatic Cleanup
 
 ```python
-def test_entity_operations(behavior_factory, topic_factory):
+def test_entity_operations(requirement_factory, topic_factory):
     # Create multiple entities
-    behavior = behavior_factory.create(BehaviorDataFactory.sample_data())
+    requirement = requirement_factory.create(RequirementDataFactory.sample_data())
     topic = topic_factory.create(TopicDataFactory.sample_data())
     
     # Test operations
@@ -382,11 +382,11 @@ def test_entity_operations(behavior_factory, topic_factory):
 ### 4. Use Parameterized Fixtures for Coverage
 
 ```python
-def test_entity_creation(varied_behavior_data):
+def test_entity_creation(varied_requirement_data):
     # This test runs with multiple data variations automatically
-    assert "name" in varied_behavior_data
+    assert "name" in varied_requirement_data
     
-def test_edge_cases(edge_case_behavior_data):
+def test_edge_cases(edge_case_requirement_data):
     # This test runs with multiple edge cases automatically
     # Handles long_name, special_chars, unicode, etc.
 ```
@@ -394,13 +394,13 @@ def test_edge_cases(edge_case_behavior_data):
 ### 5. Combine Fixtures Effectively
 
 ```python
-def test_user_entity_relationships(db_owner_user, behavior_factory):
-    # Create behavior owned by specific user
-    behavior_data = BehaviorDataFactory.sample_data()
-    behavior_data["owner_id"] = str(db_owner_user.id)
+def test_user_entity_relationships(db_owner_user, requirement_factory):
+    # Create requirement owned by specific user
+    requirement_data = RequirementDataFactory.sample_data()
+    requirement_data["owner_id"] = str(db_owner_user.id)
     
-    behavior = behavior_factory.create(behavior_data)
-    assert behavior["owner_id"] == str(db_owner_user.id)
+    requirement = requirement_factory.create(requirement_data)
+    assert requirement["owner_id"] == str(db_owner_user.id)
 ```
 
 ## 🚨 Common Pitfalls
@@ -428,20 +428,20 @@ def my_custom_entities(authenticated_client):
 ### ❌ Don't Use Factory Fixtures for Unit Tests
 ```python
 # BAD: Using database fixtures for unit tests
-def test_validation_logic(behavior_factory):  # Too heavy for unit test
+def test_validation_logic(requirement_factory):  # Too heavy for unit test
     # This creates real database entities for a simple validation test
 ```
 
 ### ✅ Do Use Appropriate Fixtures
 ```python
 # GOOD: Use mock data for unit tests
-def test_validation_logic(mock_behavior_data):
-    result = validate_behavior(mock_behavior_data)
+def test_validation_logic(mock_requirement_data):
+    result = validate_requirement(mock_requirement_data)
     assert result.is_valid
 
 # GOOD: Use factory for integration tests
-def test_api_behavior(behavior_factory):
-    behavior = behavior_factory.create(BehaviorDataFactory.sample_data())
+def test_api_requirement(requirement_factory):
+    requirement = requirement_factory.create(RequirementDataFactory.sample_data())
     # Test with real entity
 ```
 
@@ -454,25 +454,25 @@ def test_api_behavior(behavior_factory):
 | Mock user data | `mock_user_data` | Unit tests |
 | Real user in DB | `db_user` | Integration tests |
 | Auth user | `authenticated_user` | Auth-specific tests |
-| Create behaviors | `behavior_factory` | Entity testing |
-| Behavior data | `behavior_data` | Data validation |
-| Edge case data | `edge_case_behavior_data` | Boundary testing |
+| Create requirements | `requirement_factory` | Entity testing |
+| Requirement data | `requirement_data` | Data validation |
+| Edge case data | `edge_case_requirement_data` | Boundary testing |
 | Multiple entities | `large_entity_batch` | Performance tests |
-| Relationships | `behavior_with_metrics` | Relationship tests |
+| Relationships | `requirement_with_metrics` | Relationship tests |
 
 ### Import Cheat Sheet
 
 ```python
 # Data factories
 from .fixtures.data_factories import (
-    BehaviorDataFactory,
+    RequirementDataFactory,
     TopicDataFactory,
     CategoryDataFactory,
     MetricDataFactory
 )
 
 # Entity factories
-from .fixtures.factories import EntityFactory, BehaviorFactory
+from .fixtures.factories import EntityFactory, RequirementFactory
 
 # All fixtures are automatically available via conftest.py
 # Just use them as parameters in your test functions!

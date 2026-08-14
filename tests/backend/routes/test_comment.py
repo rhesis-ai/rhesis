@@ -26,7 +26,7 @@ from fastapi.testclient import TestClient
 
 from .base import BaseEntityRouteTests, BaseEntityTests
 from .endpoints import APIEndpoints
-from .fixtures.data_factories import BehaviorDataFactory, CommentDataFactory, StatusDataFactory
+from .fixtures.data_factories import RequirementDataFactory, CommentDataFactory, StatusDataFactory
 
 # Initialize Faker
 fake = Faker()
@@ -102,64 +102,64 @@ class TestCommentStandardRoutes(CommentTestMixin, BaseEntityRouteTests):
 class TestCommentEntityRelationships(CommentTestMixin, BaseEntityTests):
     """Enhanced comment-entity relationship tests using factories"""
 
-    def test_create_comment_for_behavior_entity(self, comment_factory, behavior_factory):
-        """💬 Test creating comment for behavior entity (using factories)"""
-        # Create behavior entity using factory (automatic cleanup)
-        behavior = behavior_factory.create(BehaviorDataFactory.sample_data())
-        behavior_id = behavior["id"]
+    def test_create_comment_for_requirement_entity(self, comment_factory, requirement_factory):
+        """💬 Test creating comment for requirement entity (using factories)"""
+        # Create requirement entity using factory (automatic cleanup)
+        requirement = requirement_factory.create(RequirementDataFactory.sample_data())
+        requirement_id = requirement["id"]
 
-        # Create comment for the behavior
-        comment_data = CommentDataFactory.sample_data(entity_id=behavior_id, entity_type="Behavior")
+        # Create comment for the requirement
+        comment_data = CommentDataFactory.sample_data(entity_id=requirement_id, entity_type="Requirement")
         comment = comment_factory.create(comment_data)
 
-        assert comment["entity_id"] == behavior_id
-        assert comment["entity_type"] == "Behavior"
+        assert comment["entity_id"] == requirement_id
+        assert comment["entity_type"] == "Requirement"
         assert comment["content"] == comment_data["content"]
         assert comment["id"] is not None
         assert comment["user_id"] is not None
 
-    def test_get_comments_by_entity(self, comment_factory, behavior_factory):
+    def test_get_comments_by_entity(self, comment_factory, requirement_factory):
         """💬 Test getting comments for specific entity"""
-        # Create behavior entity
-        behavior = behavior_factory.create(BehaviorDataFactory.sample_data())
-        behavior_id = behavior["id"]
+        # Create requirement entity
+        requirement = requirement_factory.create(RequirementDataFactory.sample_data())
+        requirement_id = requirement["id"]
 
-        # Create multiple comments for the behavior
+        # Create multiple comments for the requirement
         comment_data_1 = CommentDataFactory.sample_data(
-            entity_id=behavior_id, entity_type="Behavior"
+            entity_id=requirement_id, entity_type="Requirement"
         )
         comment_data_2 = CommentDataFactory.sample_data(
-            entity_id=behavior_id, entity_type="Behavior"
+            entity_id=requirement_id, entity_type="Requirement"
         )
 
         comment1 = comment_factory.create(comment_data_1)
         comment2 = comment_factory.create(comment_data_2)
 
         # Get comments by entity
-        response = comment_factory.client.get(self.endpoints.by_entity("Behavior", behavior_id))
+        response = comment_factory.client.get(self.endpoints.by_entity("Requirement", requirement_id))
 
         assert response.status_code == status.HTTP_200_OK
         comments = response.json()
         assert isinstance(comments, list)
         assert len(comments) == 2
 
-        # Verify all comments belong to the behavior
+        # Verify all comments belong to the requirement
         comment_ids = {c["id"] for c in comments}
         assert comment1["id"] in comment_ids
         assert comment2["id"] in comment_ids
 
         for comment in comments:
-            assert comment["entity_id"] == behavior_id
-            assert comment["entity_type"] == "Behavior"
+            assert comment["entity_id"] == requirement_id
+            assert comment["entity_type"] == "Requirement"
 
-    def test_get_comments_by_entity_empty(self, comment_factory, behavior_factory):
+    def test_get_comments_by_entity_empty(self, comment_factory, requirement_factory):
         """💬 Test getting comments for entity with no comments"""
-        # Create behavior entity
-        behavior = behavior_factory.create(BehaviorDataFactory.sample_data())
-        behavior_id = behavior["id"]
+        # Create requirement entity
+        requirement = requirement_factory.create(RequirementDataFactory.sample_data())
+        requirement_id = requirement["id"]
 
         # Get comments by entity (should be empty)
-        response = comment_factory.client.get(self.endpoints.by_entity("Behavior", behavior_id))
+        response = comment_factory.client.get(self.endpoints.by_entity("Requirement", requirement_id))
 
         assert response.status_code == status.HTTP_200_OK
         comments = response.json()
@@ -184,12 +184,12 @@ class TestCommentEntityRelationships(CommentTestMixin, BaseEntityTests):
 class TestCommentEmojiReactions(CommentTestMixin, BaseEntityTests):
     """Enhanced comment emoji reaction tests using factories"""
 
-    def test_add_emoji_reaction(self, comment_factory, behavior_factory):
+    def test_add_emoji_reaction(self, comment_factory, requirement_factory):
         """😀 Test adding emoji reaction to comment"""
-        # Create behavior and comment
-        behavior = behavior_factory.create(BehaviorDataFactory.sample_data())
+        # Create requirement and comment
+        requirement = requirement_factory.create(RequirementDataFactory.sample_data())
         comment_data = CommentDataFactory.sample_data(
-            entity_id=behavior["id"], entity_type="Behavior"
+            entity_id=requirement["id"], entity_type="Requirement"
         )
         comment = comment_factory.create(comment_data)
         comment_id = comment["id"]
@@ -212,12 +212,12 @@ class TestCommentEmojiReactions(CommentTestMixin, BaseEntityTests):
         assert "user_name" in reaction
         assert reaction["user_id"] is not None
 
-    def test_add_multiple_emoji_reactions(self, comment_factory, behavior_factory):
+    def test_add_multiple_emoji_reactions(self, comment_factory, requirement_factory):
         """😀 Test adding multiple emoji reactions to comment"""
-        # Create behavior and comment
-        behavior = behavior_factory.create(BehaviorDataFactory.sample_data())
+        # Create requirement and comment
+        requirement = requirement_factory.create(RequirementDataFactory.sample_data())
         comment_data = CommentDataFactory.sample_data(
-            entity_id=behavior["id"], entity_type="Behavior"
+            entity_id=requirement["id"], entity_type="Requirement"
         )
         comment = comment_factory.create(comment_data)
         comment_id = comment["id"]
@@ -241,12 +241,12 @@ class TestCommentEmojiReactions(CommentTestMixin, BaseEntityTests):
             assert emoji in final_comment["emojis"]
             assert len(final_comment["emojis"][emoji]) == 1
 
-    def test_add_emoji_reaction_duplicate_user(self, comment_factory, behavior_factory):
+    def test_add_emoji_reaction_duplicate_user(self, comment_factory, requirement_factory):
         """😀 Test adding same emoji reaction twice (should not duplicate)"""
-        # Create behavior and comment
-        behavior = behavior_factory.create(BehaviorDataFactory.sample_data())
+        # Create requirement and comment
+        requirement = requirement_factory.create(RequirementDataFactory.sample_data())
         comment_data = CommentDataFactory.sample_data(
-            entity_id=behavior["id"], entity_type="Behavior"
+            entity_id=requirement["id"], entity_type="Requirement"
         )
         comment = comment_factory.create(comment_data)
         comment_id = comment["id"]
@@ -271,12 +271,12 @@ class TestCommentEmojiReactions(CommentTestMixin, BaseEntityTests):
         assert emoji in updated_comment["emojis"]
         assert len(updated_comment["emojis"][emoji]) == 1
 
-    def test_remove_emoji_reaction(self, comment_factory, behavior_factory):
+    def test_remove_emoji_reaction(self, comment_factory, requirement_factory):
         """😀 Test removing emoji reaction from comment"""
-        # Create behavior and comment
-        behavior = behavior_factory.create(BehaviorDataFactory.sample_data())
+        # Create requirement and comment
+        requirement = requirement_factory.create(RequirementDataFactory.sample_data())
         comment_data = CommentDataFactory.sample_data(
-            entity_id=behavior["id"], entity_type="Behavior"
+            entity_id=requirement["id"], entity_type="Requirement"
         )
         comment = comment_factory.create(comment_data)
         comment_id = comment["id"]
@@ -325,12 +325,12 @@ class TestCommentEmojiReactions(CommentTestMixin, BaseEntityTests):
         error_data = response.json()
         assert "Comment not found" in error_data["detail"]
 
-    def test_emoji_reaction_with_special_characters(self, comment_factory, behavior_factory):
+    def test_emoji_reaction_with_special_characters(self, comment_factory, requirement_factory):
         """😀 Test emoji reactions with special Unicode characters"""
-        # Create behavior and comment
-        behavior = behavior_factory.create(BehaviorDataFactory.sample_data())
+        # Create requirement and comment
+        requirement = requirement_factory.create(RequirementDataFactory.sample_data())
         comment_data = CommentDataFactory.sample_data(
-            entity_id=behavior["id"], entity_type="Behavior"
+            entity_id=requirement["id"], entity_type="Requirement"
         )
         comment = comment_factory.create(comment_data)
         comment_id = comment["id"]
@@ -352,30 +352,30 @@ class TestCommentEmojiReactions(CommentTestMixin, BaseEntityTests):
 class TestCommentValidationAndEdgeCases(CommentTestMixin, BaseEntityTests):
     """Enhanced comment validation and edge case tests using factories"""
 
-    def test_create_comment_with_long_content(self, comment_factory, behavior_factory):
+    def test_create_comment_with_long_content(self, comment_factory, requirement_factory):
         """💬 Test creating comment with long content"""
-        # Create behavior entity
-        behavior = behavior_factory.create(BehaviorDataFactory.sample_data())
+        # Create requirement entity
+        requirement = requirement_factory.create(RequirementDataFactory.sample_data())
 
         # Create comment with long content
         comment_data = CommentDataFactory.edge_case_data("long_content")
-        comment_data["entity_id"] = behavior["id"]
-        comment_data["entity_type"] = "Behavior"
+        comment_data["entity_id"] = requirement["id"]
+        comment_data["entity_type"] = "Requirement"
 
         comment = comment_factory.create(comment_data)
 
         assert comment["content"] == comment_data["content"]
         assert len(comment["content"]) > 1000  # Verify it's actually long
 
-    def test_create_comment_with_special_characters(self, comment_factory, behavior_factory):
+    def test_create_comment_with_special_characters(self, comment_factory, requirement_factory):
         """💬 Test creating comment with special characters and emojis"""
-        # Create behavior entity
-        behavior = behavior_factory.create(BehaviorDataFactory.sample_data())
+        # Create requirement entity
+        requirement = requirement_factory.create(RequirementDataFactory.sample_data())
 
         # Create comment with special characters
         comment_data = CommentDataFactory.edge_case_data("special_chars")
-        comment_data["entity_id"] = behavior["id"]
-        comment_data["entity_type"] = "Behavior"
+        comment_data["entity_id"] = requirement["id"]
+        comment_data["entity_type"] = "Requirement"
 
         comment = comment_factory.create(comment_data)
 
@@ -383,15 +383,15 @@ class TestCommentValidationAndEdgeCases(CommentTestMixin, BaseEntityTests):
         assert "💬" in comment["content"]
         assert "émojis" in comment["content"]
 
-    def test_create_comment_with_unicode_content(self, comment_factory, behavior_factory):
+    def test_create_comment_with_unicode_text(self, comment_factory, requirement_factory):
         """💬 Test creating comment with Unicode content"""
-        # Create behavior entity
-        behavior = behavior_factory.create(BehaviorDataFactory.sample_data())
+        # Create requirement entity
+        requirement = requirement_factory.create(RequirementDataFactory.sample_data())
 
         # Create comment with Unicode content
         comment_data = CommentDataFactory.edge_case_data("unicode")
-        comment_data["entity_id"] = behavior["id"]
-        comment_data["entity_type"] = "Behavior"
+        comment_data["entity_id"] = requirement["id"]
+        comment_data["entity_type"] = "Requirement"
 
         comment = comment_factory.create(comment_data)
 
@@ -400,15 +400,15 @@ class TestCommentValidationAndEdgeCases(CommentTestMixin, BaseEntityTests):
         assert "тест" in comment["content"]
         assert "テスト" in comment["content"]
 
-    def test_create_comment_with_empty_content(self, comment_factory, behavior_factory):
+    def test_create_comment_with_empty_content(self, comment_factory, requirement_factory):
         """💬 Test creating comment with empty content (currently allows empty strings)"""
-        # Create behavior entity
-        behavior = behavior_factory.create(BehaviorDataFactory.sample_data())
+        # Create requirement entity
+        requirement = requirement_factory.create(RequirementDataFactory.sample_data())
 
         # Try to create comment with empty content
         comment_data = CommentDataFactory.edge_case_data("empty_content")
-        comment_data["entity_id"] = behavior["id"]
-        comment_data["entity_type"] = "Behavior"
+        comment_data["entity_id"] = requirement["id"]
+        comment_data["entity_type"] = "Requirement"
 
         # Currently the backend allows empty content (Pydantic doesn't validate empty strings)
         # This test documents the current behavior - if validation is added later, update this test
@@ -434,19 +434,19 @@ class TestCommentValidationAndEdgeCases(CommentTestMixin, BaseEntityTests):
         """💬 Test creating comment for non-existent entity"""
         comment_data = CommentDataFactory.sample_data()
         comment_data["entity_id"] = str(uuid.uuid4())  # Non-existent entity
-        comment_data["entity_type"] = "Behavior"
+        comment_data["entity_type"] = "Requirement"
 
         # This might succeed in creation but the entity won't exist
         # The behavior depends on whether the system validates entity existence
         comment = comment_factory.create(comment_data)
         assert comment["entity_id"] == comment_data["entity_id"]
 
-    def test_update_comment_authorization(self, comment_factory, behavior_factory):
+    def test_update_comment_authorization(self, comment_factory, requirement_factory):
         """💬 Test comment update authorization (users can only update their own comments)"""
-        # Create behavior and comment
-        behavior = behavior_factory.create(BehaviorDataFactory.sample_data())
+        # Create requirement and comment
+        requirement = requirement_factory.create(RequirementDataFactory.sample_data())
         comment_data = CommentDataFactory.sample_data(
-            entity_id=behavior["id"], entity_type="Behavior"
+            entity_id=requirement["id"], entity_type="Requirement"
         )
         comment = comment_factory.create(comment_data)
 
@@ -457,12 +457,12 @@ class TestCommentValidationAndEdgeCases(CommentTestMixin, BaseEntityTests):
         assert updated_comment["content"] == update_data["content"]
         assert updated_comment["id"] == comment["id"]
 
-    def test_delete_comment_authorization(self, comment_factory, behavior_factory):
+    def test_delete_comment_authorization(self, comment_factory, requirement_factory):
         """💬 Test comment delete authorization (users can only delete their own comments)"""
-        # Create behavior and comment
-        behavior = behavior_factory.create(BehaviorDataFactory.sample_data())
+        # Create requirement and comment
+        requirement = requirement_factory.create(RequirementDataFactory.sample_data())
         comment_data = CommentDataFactory.sample_data(
-            entity_id=behavior["id"], entity_type="Behavior"
+            entity_id=requirement["id"], entity_type="Requirement"
         )
         comment = comment_factory.create(comment_data)
 
@@ -478,50 +478,50 @@ class TestCommentValidationAndEdgeCases(CommentTestMixin, BaseEntityTests):
 class TestCommentPerformance(CommentTestMixin, BaseEntityTests):
     """Enhanced comment performance tests using factories"""
 
-    def test_create_multiple_comments_performance(self, comment_factory, behavior_factory):
+    def test_create_multiple_comments_performance(self, comment_factory, requirement_factory):
         """💬 Test creating multiple comments for performance"""
-        # Create behavior entity
-        behavior = behavior_factory.create(BehaviorDataFactory.sample_data())
+        # Create requirement entity
+        requirement = requirement_factory.create(RequirementDataFactory.sample_data())
 
         # Create batch of comments with consistent data
         comment_data_batch = CommentDataFactory.batch_data(
             count=10,
             variation=False,  # Use consistent data to avoid random entity types
-            entity_type="Behavior",
+            entity_type="Requirement",
         )
 
         comments = []
         for comment_data in comment_data_batch:
-            comment_data["entity_id"] = behavior["id"]
+            comment_data["entity_id"] = requirement["id"]
             comment = comment_factory.create(comment_data)
             comments.append(comment)
 
         assert len(comments) == 10
         for comment in comments:
-            assert comment["entity_id"] == behavior["id"]
-            assert comment["entity_type"] == "Behavior"
+            assert comment["entity_id"] == requirement["id"]
+            assert comment["entity_type"] == "Requirement"
 
-    def test_comment_pagination_performance(self, comment_factory, behavior_factory):
+    def test_comment_pagination_performance(self, comment_factory, requirement_factory):
         """💬 Test comment pagination with large datasets"""
-        # Create behavior entity
-        behavior = behavior_factory.create(BehaviorDataFactory.sample_data())
+        # Create requirement entity
+        requirement = requirement_factory.create(RequirementDataFactory.sample_data())
 
         # Create multiple comments with consistent entity type
         comment_count = 25
         comment_data_batch = CommentDataFactory.batch_data(
             count=comment_count,
             variation=False,  # Don't vary entity types - use consistent data
-            entity_type="Behavior",
+            entity_type="Requirement",
         )
 
         for comment_data in comment_data_batch:
-            comment_data["entity_id"] = behavior["id"]
-            comment_data["entity_type"] = "Behavior"  # Ensure consistent entity type
+            comment_data["entity_id"] = requirement["id"]
+            comment_data["entity_type"] = "Requirement"  # Ensure consistent entity type
             comment_factory.create(comment_data)
 
         # Test pagination
         response = comment_factory.client.get(
-            self.endpoints.by_entity("Behavior", behavior["id"]), params={"limit": 10, "skip": 0}
+            self.endpoints.by_entity("Requirement", requirement["id"]), params={"limit": 10, "skip": 0}
         )
 
         assert response.status_code == status.HTTP_200_OK
@@ -530,7 +530,7 @@ class TestCommentPerformance(CommentTestMixin, BaseEntityTests):
 
         # Get second page
         response = comment_factory.client.get(
-            self.endpoints.by_entity("Behavior", behavior["id"]), params={"limit": 10, "skip": 10}
+            self.endpoints.by_entity("Requirement", requirement["id"]), params={"limit": 10, "skip": 10}
         )
 
         assert response.status_code == status.HTTP_200_OK
@@ -542,12 +542,12 @@ class TestCommentPerformance(CommentTestMixin, BaseEntityTests):
         second_page_ids = {c["id"] for c in second_page}
         assert len(first_page_ids.intersection(second_page_ids)) == 0
 
-    def test_emoji_reaction_performance(self, comment_factory, behavior_factory):
+    def test_emoji_reaction_performance(self, comment_factory, requirement_factory):
         """😀 Test emoji reaction performance with multiple reactions"""
-        # Create behavior and comment
-        behavior = behavior_factory.create(BehaviorDataFactory.sample_data())
+        # Create requirement and comment
+        requirement = requirement_factory.create(RequirementDataFactory.sample_data())
         comment_data = CommentDataFactory.sample_data(
-            entity_id=behavior["id"], entity_type="Behavior"
+            entity_id=requirement["id"], entity_type="Requirement"
         )
         comment = comment_factory.create(comment_data)
         comment_id = comment["id"]
@@ -571,15 +571,15 @@ class TestCommentPerformance(CommentTestMixin, BaseEntityTests):
             assert emoji in final_comment["emojis"]
 
     def test_delete_comment_clears_task_references(
-        self, comment_factory, behavior_factory, authenticated_client
+        self, comment_factory, requirement_factory, authenticated_client
     ):
         """🗑️ Test that deleting a comment clears comment_id from associated tasks"""
-        # Create a behavior entity
-        behavior = behavior_factory.create(BehaviorDataFactory.sample_data())
-        behavior_id = behavior["id"]
+        # Create a requirement entity
+        requirement = requirement_factory.create(RequirementDataFactory.sample_data())
+        requirement_id = requirement["id"]
 
-        # Create a comment for the behavior
-        comment_data = CommentDataFactory.sample_data(entity_id=behavior_id, entity_type="Behavior")
+        # Create a comment for the requirement
+        comment_data = CommentDataFactory.sample_data(entity_id=requirement_id, entity_type="Requirement")
         comment = comment_factory.create(comment_data)
         comment_id = comment["id"]
 
@@ -594,8 +594,8 @@ class TestCommentPerformance(CommentTestMixin, BaseEntityTests):
             "title": "Test task with comment reference",
             "description": "This task references a comment",
             "status_id": default_status_id,
-            "entity_id": behavior_id,
-            "entity_type": "Behavior",
+            "entity_id": requirement_id,
+            "entity_type": "Requirement",
             "task_metadata": {"comment_id": comment_id, "some_other_field": "should remain"},
         }
 

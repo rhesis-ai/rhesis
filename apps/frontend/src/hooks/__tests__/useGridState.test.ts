@@ -7,7 +7,7 @@ import { combineTestFiltersToOData } from '@/utils/odata-filter';
 
 describe('useGridState', () => {
   it('keeps search when drawer filters are applied first', () => {
-    const drawerFilters = { ...EMPTY_TEST_FILTERS, behavior: 'Active' };
+    const drawerFilters = { ...EMPTY_TEST_FILTERS, requirement: 'Active' };
 
     const { result, rerender } = renderHook(
       ({
@@ -32,8 +32,8 @@ describe('useGridState', () => {
 
     expect(result.current.filterModel.items).toEqual([
       {
-        id: 'behavior.name',
-        field: 'behavior.name',
+        id: 'requirement.name',
+        field: 'requirement.name',
         operator: 'equals',
         value: 'Active',
       },
@@ -50,8 +50,8 @@ describe('useGridState', () => {
           value: 'refund',
         },
         {
-          id: 'behavior.name',
-          field: 'behavior.name',
+          id: 'requirement.name',
+          field: 'requirement.name',
           operator: 'equals',
           value: 'Active',
         },
@@ -60,7 +60,7 @@ describe('useGridState', () => {
   });
 
   it('preserves toolbar search when DataGrid echoes a stripped filter model', () => {
-    const drawerFilters = { ...EMPTY_TEST_FILTERS, behavior: 'Safety' };
+    const drawerFilters = { ...EMPTY_TEST_FILTERS, requirement: 'Safety' };
 
     const { result } = renderHook(() =>
       useGridState({
@@ -74,7 +74,7 @@ describe('useGridState', () => {
       result.current.handleFilterModelChange({
         items: [
           {
-            field: 'behavior.name',
+            field: 'requirement.name',
             operator: 'equals',
             value: 'Safety',
           },
@@ -91,8 +91,8 @@ describe('useGridState', () => {
           value: 'prompt text',
         },
         {
-          id: 'behavior.name',
-          field: 'behavior.name',
+          id: 'requirement.name',
+          field: 'requirement.name',
           operator: 'equals',
           value: 'Safety',
         },
@@ -138,7 +138,7 @@ describe('useGridState', () => {
   });
 
   it('drops stale column filters when the same field becomes toolbar-managed', () => {
-    const drawerFilters = { ...EMPTY_TEST_FILTERS, behavior: 'Active' };
+    const drawerFilters = { ...EMPTY_TEST_FILTERS, requirement: 'Active' };
 
     const { result, rerender } = renderHook(
       ({
@@ -165,7 +165,7 @@ describe('useGridState', () => {
       result.current.handleFilterModelChange({
         items: [
           {
-            field: 'behavior.name',
+            field: 'requirement.name',
             operator: 'equals',
             value: 'Draft',
           },
@@ -175,7 +175,7 @@ describe('useGridState', () => {
 
     expect(result.current.filterModel.items).toEqual([
       {
-        field: 'behavior.name',
+        field: 'requirement.name',
         operator: 'equals',
         value: 'Draft',
       },
@@ -185,8 +185,8 @@ describe('useGridState', () => {
 
     expect(result.current.filterModel.items).toEqual([
       {
-        id: 'behavior.name',
-        field: 'behavior.name',
+        id: 'requirement.name',
+        field: 'requirement.name',
         operator: 'equals',
         value: 'Active',
       },
@@ -196,7 +196,7 @@ describe('useGridState', () => {
   it('forces AND logic when DataGrid echoes logicOperator or', () => {
     const drawerFilters = {
       ...EMPTY_TEST_FILTERS,
-      behavior: 'Accuracy Testing',
+      requirement: 'Accuracy Testing',
       category: 'New',
     };
 
@@ -212,7 +212,7 @@ describe('useGridState', () => {
         logicOperator: GridLogicOperator.Or,
         items: [
           {
-            field: 'behavior.name',
+            field: 'requirement.name',
             operator: 'equals',
             value: 'Accuracy Testing',
           },

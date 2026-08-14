@@ -198,7 +198,7 @@ def clean_and_validate_tests(tests: List[Dict[str, Any]]) -> List[Dict[str, Any]
             # Ensure required fields have defaults
             cleaned_test = {
                 "prompt": test["prompt"],
-                "behavior": test.get("behavior", "Unknown"),
+                "requirement": test.get("requirement", "Unknown"),
                 "category": test.get("category", "Unknown"),
                 "topic": test.get("topic", "General"),
                 **test,  # Keep any additional fields

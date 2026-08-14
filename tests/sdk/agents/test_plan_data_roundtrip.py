@@ -21,7 +21,7 @@ from tests.sdk.agents.test_architect import _make_agent, _mock_model
 # a silent empty-parse would wipe.
 _STORED_PLAN_DATA = {
     "project": None,
-    "behaviors": [
+    "requirements": [
         {
             "name": "Refuses Harmful Requests",
             "description": "Model declines requests for harmful content",
@@ -38,7 +38,7 @@ _STORED_PLAN_DATA = {
             "num_tests": 15,
             "test_type": "Single-Turn",
             "generation_prompt": "",
-            "behaviors": ["Refuses Harmful Requests"],
+            "requirements": ["Refuses Harmful Requests"],
             "categories": [],
             "topics": [],
             "completed": False,
@@ -60,9 +60,9 @@ _STORED_PLAN_DATA = {
             "completed": False,
         }
     ],
-    "behavior_metric_mappings": [
+    "requirement_metric_mappings": [
         {
-            "behavior": "Refuses Harmful Requests",
+            "requirement": "Refuses Harmful Requests",
             "metrics": ["Safety Compliance"],
             "linked_metrics": ["Safety Compliance"],
             "completed": True,
@@ -72,12 +72,13 @@ _STORED_PLAN_DATA = {
 
 # What a stored plan_data payload looks like once the rename has happened on the
 # model but NOT on the data -- unknown top-level keys, everything else silently
-# dropped to defaults.
+# dropped to defaults. Deliberately still spelled with the pre-rename key names
+# ("behaviors", "behavior_metric_mappings", "behavior") -- this is what already-
+# stored rows looked like before the Behavior -> Requirement migration backfill,
+# and it must keep failing to parse fully so this test class stays meaningful.
 _MISMATCHED_PAYLOAD = {
-    "requirements": [{"name": "Refuses Harmful Requests"}],
-    "requirement_metric_mappings": [
-        {"requirement": "Refuses Harmful Requests", "metrics": []}
-    ],
+    "behaviors": [{"name": "Refuses Harmful Requests"}],
+    "behavior_metric_mappings": [{"behavior": "Refuses Harmful Requests", "metrics": []}],
 }
 
 
@@ -86,16 +87,16 @@ class TestStoredPlanDataParsesFully:
     def test_frozen_payload_parses_into_populated_plan(self):
         plan = ArchitectPlan.model_validate(_STORED_PLAN_DATA)
 
-        assert plan.behaviors[0].name == "Refuses Harmful Requests"
-        assert plan.test_sets[0].behaviors == ["Refuses Harmful Requests"]
+        assert plan.requirements[0].name == "Refuses Harmful Requests"
+        assert plan.test_sets[0].requirements == ["Refuses Harmful Requests"]
         assert plan.metrics[0].name == "Safety Compliance"
-        assert plan.behavior_metric_mappings[0].behavior == "Refuses Harmful Requests"
+        assert plan.requirement_metric_mappings[0].requirement == "Refuses Harmful Requests"
 
     def test_completed_and_linked_metrics_survive(self):
         plan = ArchitectPlan.model_validate(_STORED_PLAN_DATA)
 
-        assert plan.behaviors[0].completed is True
-        mapping = plan.behavior_metric_mappings[0]
+        assert plan.requirements[0].completed is True
+        mapping = plan.requirement_metric_mappings[0]
         assert mapping.completed is True
         assert mapping.linked_metrics == ["Safety Compliance"]
 
@@ -104,14 +105,14 @@ class TestStoredPlanDataParsesFully:
         re-emits -- an older stored plan can still have this shape."""
         legacy_payload = {
             **_STORED_PLAN_DATA,
-            "behavior_metric_mappings": {"Refuses Harmful Requests": ["Safety Compliance"]},
+            "requirement_metric_mappings": {"Refuses Harmful Requests": ["Safety Compliance"]},
         }
 
         plan = ArchitectPlan.model_validate(legacy_payload)
 
-        assert len(plan.behavior_metric_mappings) == 1
-        assert plan.behavior_metric_mappings[0].behavior == "Refuses Harmful Requests"
-        assert plan.behavior_metric_mappings[0].metrics == ["Safety Compliance"]
+        assert len(plan.requirement_metric_mappings) == 1
+        assert plan.requirement_metric_mappings[0].requirement == "Refuses Harmful Requests"
+        assert plan.requirement_metric_mappings[0].metrics == ["Safety Compliance"]
 
 
 @pytest.mark.unit
@@ -123,7 +124,7 @@ class TestAgentStateRoundTrip:
         agent.restore_state(snapshot)
 
         assert agent.plan is not None
-        assert agent.plan.behaviors[0].name == "Refuses Harmful Requests"
+        assert agent.plan.requirements[0].name == "Refuses Harmful Requests"
 
     def test_dump_state_after_restore_is_stable(self):
         agent = _make_agent(_mock_model())
@@ -150,8 +151,8 @@ class TestMismatchedKeysFailSilentlyNotLoudly:
     def test_unrecognized_keys_yield_an_empty_plan_without_raising(self):
         plan = ArchitectPlan.model_validate(_MISMATCHED_PAYLOAD)
 
-        assert plan.behaviors == []
-        assert plan.behavior_metric_mappings == []
+        assert plan.requirements == []
+        assert plan.requirement_metric_mappings == []
 
     def test_restore_state_does_not_raise_on_mismatched_payload(self):
         agent = _make_agent(_mock_model())
@@ -160,7 +161,7 @@ class TestMismatchedKeysFailSilentlyNotLoudly:
         agent.restore_state(snapshot)  # must not raise
 
         assert agent.plan is not None
-        assert agent.plan.behaviors == []
+        assert agent.plan.requirements == []
 
     def test_dump_after_mismatched_restore_persists_an_empty_plan(self):
         """The destructive follow-on: once the empty plan is in memory, the next
@@ -174,4 +175,4 @@ class TestMismatchedKeysFailSilentlyNotLoudly:
         dumped = agent.dump_state()
 
         assert dumped.plan_data is not None
-        assert dumped.plan_data["behaviors"] == []
+        assert dumped.plan_data["requirements"] == []

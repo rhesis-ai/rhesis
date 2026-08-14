@@ -28,7 +28,7 @@ By clicking on a test run, you'll see the overview of how the test run went. Fro
 <ThemeAwareImage
   lightSrc="/screenshots/rhesis-ai-test-run-details.webp"
   darkSrc="/screenshots/rhesis-ai-test-run-details-dark.webp"
-  alt="Test run summary — pass rate, tests executed, duration and review count, with pass rates broken down by behavior and by metric"
+  alt="Test run summary — pass rate, tests executed, duration and review count, with pass rates broken down by requirement and by metric"
 />
 
 ## Test Run Detail View
@@ -161,14 +161,14 @@ Use filters to focus on specific changes:
 
 ## Test Run Metrics
 
-Each test result records the metrics it was evaluated against. Which metrics run is resolved from a priority hierarchy (execution-time → test set → behavior) configured when you start the run. See [Test Execution](/docs/test-runs/execution#test-run-metrics) for how to set metrics at each level.
+Each test result records the metrics it was evaluated against. Which metrics run is resolved from a priority hierarchy (execution-time → test set → requirement) configured when you start the run. See [Test Execution](/docs/test-runs/execution#test-run-metrics) for how to set metrics at each level.
 
 The **Metrics** tab of a result lists every metric with its verdict and the reason the judge gave. Filter to **Passed** or **Failed** to narrow a long list.
 
 <ThemeAwareImage
   lightSrc="/screenshots/rhesis-ai-test-results-metrics.webp"
   darkSrc="/screenshots/rhesis-ai-test-results-metrics-dark.webp"
-  alt="Metrics tab of a test result — overall performance, the behavior it belongs to, and a pass or fail verdict with a reason per metric"
+  alt="Metrics tab of a test result — overall performance, the requirement it belongs to, and a pass or fail verdict with a reason per metric"
 />
 
 ## Next steps

@@ -1,4 +1,4 @@
-"""CRUD operations for metrics and their behavior/test-set associations.
+"""CRUD operations for metrics and their requirement/test-set associations.
 
 Split out of ``crud/__init__.py``. Import the functions directly::
 
@@ -27,19 +27,21 @@ logger = logging.getLogger(__name__)
 # Metric CRUD
 # Relationships serialized by schemas.MetricDetail. with_related picks joinedload
 # for many-to-one (metric_type, ...) and selectinload for the many-to-many
-# (behaviors) -- joinedload on an M2M would cartesian-product the rows.
+# (requirements) -- joinedload on an M2M would cartesian-product the rows.
 # status/assignee/owner/user/organization/project/test_sets: unused, excluded.
 _METRIC_RELATED_FIELDS = (
     include(models.Metric.metric_type),
     include(models.Metric.model),
     include(models.Metric.backend_type),
-    # behaviors serializes as BehaviorReference, which reads counts/tags;
+    # requirements serializes as RequirementReference, which reads counts/tags;
     # with_default_derived_field_loads only cascades those into many-to-one
-    # relations, so these chains are explicit to avoid an N+1 per behavior.
-    include(models.Metric.behaviors),
-    include(models.Metric.behaviors, models.Behavior.comments),
-    include(models.Metric.behaviors, models.Behavior.tasks),
-    include(models.Metric.behaviors, models.Behavior._tags_relationship, models.TaggedItem.tag),
+    # relations, so these chains are explicit to avoid an N+1 per requirement.
+    include(models.Metric.requirements),
+    include(models.Metric.requirements, models.Requirement.comments),
+    include(models.Metric.requirements, models.Requirement.tasks),
+    include(
+        models.Metric.requirements, models.Requirement._tags_relationship, models.TaggedItem.tag
+    ),
 )
 
 
@@ -251,20 +253,20 @@ def delete_metric(
     )
 
 
-def add_behavior_to_metric(
-    db: Session, metric_id: UUID, behavior_id: UUID, user_id: UUID, organization_id: UUID
+def add_requirement_to_metric(
+    db: Session, metric_id: UUID, requirement_id: UUID, user_id: UUID, organization_id: UUID
 ) -> bool:
-    """Add a behavior to a metric.
+    """Add a requirement to a metric.
 
     Args:
         db: Database session
         metric_id: ID of the metric
-        behavior_id: ID of the behavior to add
+        requirement_id: ID of the requirement to add
         user_id: ID of the user performing the operation
         organization_id: ID of the organization
 
     Returns:
-        bool: True if the behavior was added, False if it was already associated
+        bool: True if the requirement was added, False if it was already associated
     """
     # Verify the metric exists AND belongs to the organization (SECURITY CRITICAL)
     metric = (
@@ -275,24 +277,25 @@ def add_behavior_to_metric(
     if not metric:
         raise ValueError(f"Metric with id {metric_id} not found or not accessible")
 
-    # Verify the behavior exists AND belongs to the organization (SECURITY CRITICAL)
-    behavior = (
-        db.query(models.Behavior)
+    # Verify the requirement exists AND belongs to the organization (SECURITY CRITICAL)
+    requirement = (
+        db.query(models.Requirement)
         .filter(
-            models.Behavior.id == behavior_id, models.Behavior.organization_id == organization_id
+            models.Requirement.id == requirement_id,
+            models.Requirement.organization_id == organization_id,
         )
         .first()
     )
-    if not behavior:
-        raise ValueError(f"Behavior with id {behavior_id} not found or not accessible")
+    if not requirement:
+        raise ValueError(f"Requirement with id {requirement_id} not found or not accessible")
 
     # Check if the association already exists
     existing = (
-        db.query(models.behavior_metric_association)
+        db.query(models.requirement_metric_association)
         .filter(
-            models.behavior_metric_association.c.metric_id == metric_id,
-            models.behavior_metric_association.c.behavior_id == behavior_id,
-            models.behavior_metric_association.c.organization_id == organization_id,
+            models.requirement_metric_association.c.metric_id == metric_id,
+            models.requirement_metric_association.c.requirement_id == requirement_id,
+            models.requirement_metric_association.c.organization_id == organization_id,
         )
         .first()
     )
@@ -302,9 +305,9 @@ def add_behavior_to_metric(
 
     # Create the association
     db.execute(
-        models.behavior_metric_association.insert().values(
+        models.requirement_metric_association.insert().values(
             metric_id=metric_id,
-            behavior_id=behavior_id,
+            requirement_id=requirement_id,
             user_id=user_id,
             organization_id=organization_id,
         )
@@ -314,19 +317,19 @@ def add_behavior_to_metric(
     return True
 
 
-def remove_behavior_from_metric(
-    db: Session, metric_id: UUID, behavior_id: UUID, organization_id: UUID
+def remove_requirement_from_metric(
+    db: Session, metric_id: UUID, requirement_id: UUID, organization_id: UUID
 ) -> bool:
-    """Remove a behavior from a metric.
+    """Remove a requirement from a metric.
 
     Args:
         db: Database session
         metric_id: ID of the metric
-        behavior_id: ID of the behavior to remove
+        requirement_id: ID of the requirement to remove
         organization_id: ID of the organization
 
     Returns:
-        bool: True if the behavior was removed, False if it wasn't associated
+        bool: True if the requirement was removed, False if it wasn't associated
     """
     # Verify the metric exists AND belongs to the organization (SECURITY CRITICAL)
     metric = (
@@ -337,23 +340,24 @@ def remove_behavior_from_metric(
     if not metric:
         raise ValueError(f"Metric with id {metric_id} not found or not accessible")
 
-    # Verify the behavior exists AND belongs to the organization (SECURITY CRITICAL)
-    behavior = (
-        db.query(models.Behavior)
+    # Verify the requirement exists AND belongs to the organization (SECURITY CRITICAL)
+    requirement = (
+        db.query(models.Requirement)
         .filter(
-            models.Behavior.id == behavior_id, models.Behavior.organization_id == organization_id
+            models.Requirement.id == requirement_id,
+            models.Requirement.organization_id == organization_id,
         )
         .first()
     )
-    if not behavior:
-        raise ValueError(f"Behavior with id {behavior_id} not found or not accessible")
+    if not requirement:
+        raise ValueError(f"Requirement with id {requirement_id} not found or not accessible")
 
     result = (
-        db.query(models.behavior_metric_association)
+        db.query(models.requirement_metric_association)
         .filter(
-            models.behavior_metric_association.c.metric_id == metric_id,
-            models.behavior_metric_association.c.behavior_id == behavior_id,
-            models.behavior_metric_association.c.organization_id == organization_id,
+            models.requirement_metric_association.c.metric_id == metric_id,
+            models.requirement_metric_association.c.requirement_id == requirement_id,
+            models.requirement_metric_association.c.organization_id == organization_id,
         )
         .delete()
     )
@@ -362,7 +366,7 @@ def remove_behavior_from_metric(
     return result > 0
 
 
-def get_metric_behaviors(
+def get_metric_requirements(
     db: Session,
     metric_id: UUID,
     organization_id: str,
@@ -371,8 +375,8 @@ def get_metric_behaviors(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
-) -> List[models.Behavior]:
-    """Get all behaviors associated with a metric.
+) -> List[models.Requirement]:
+    """Get all requirements associated with a metric.
 
     Args:
         db: Database session
@@ -385,7 +389,7 @@ def get_metric_behaviors(
         filter: OData filter string
 
     Returns:
-        List of behaviors associated with the metric
+        List of requirements associated with the metric
     """
     # Verify the metric exists AND belongs to the organization (SECURITY CRITICAL)
     metric = (
@@ -399,11 +403,11 @@ def get_metric_behaviors(
         raise ValueError(f"Metric with id {metric_id} not found or not accessible")
 
     return (
-        QueryBuilder(db, models.Behavior)
+        QueryBuilder(db, models.Requirement)
         .with_organization_filter(organization_id)
         .with_custom_filter(
-            lambda q: q.join(models.behavior_metric_association).filter(
-                models.behavior_metric_association.c.metric_id == metric_id
+            lambda q: q.join(models.requirement_metric_association).filter(
+                models.requirement_metric_association.c.metric_id == metric_id
             )
         )
         .with_odata_filter(filter)
@@ -413,9 +417,9 @@ def get_metric_behaviors(
     )
 
 
-def get_behavior_metrics(
+def get_requirement_metrics(
     db: Session,
-    behavior_id: UUID,
+    requirement_id: UUID,
     organization_id: str,
     skip: int = 0,
     limit: int = 20,
@@ -423,11 +427,11 @@ def get_behavior_metrics(
     sort_order: str = "desc",
     filter: str | None = None,
 ) -> List[models.Metric]:
-    """Get all metrics associated with a behavior.
+    """Get all metrics associated with a requirement.
 
     Args:
         db: Database session
-        behavior_id: ID of the behavior
+        requirement_id: ID of the requirement
         organization_id: ID of the organization (SECURITY CRITICAL)
         skip: Number of records to skip
         limit: Maximum number of records to return
@@ -436,26 +440,26 @@ def get_behavior_metrics(
         filter: OData filter string
 
     Returns:
-        List of metrics associated with the behavior
+        List of metrics associated with the requirement
     """
-    # Verify the behavior exists AND belongs to the organization (SECURITY CRITICAL)
-    behavior = (
-        db.query(models.Behavior)
+    # Verify the requirement exists AND belongs to the organization (SECURITY CRITICAL)
+    requirement = (
+        db.query(models.Requirement)
         .filter(
-            models.Behavior.id == behavior_id,
-            models.Behavior.organization_id == UUID(organization_id),
+            models.Requirement.id == requirement_id,
+            models.Requirement.organization_id == UUID(organization_id),
         )
         .first()
     )
-    if not behavior:
-        raise ValueError(f"Behavior with id {behavior_id} not found or not accessible")
+    if not requirement:
+        raise ValueError(f"Requirement with id {requirement_id} not found or not accessible")
 
     return (
         QueryBuilder(db, models.Metric)
         .with_organization_filter(organization_id)
         .with_custom_filter(
-            lambda q: q.join(models.behavior_metric_association).filter(
-                models.behavior_metric_association.c.behavior_id == behavior_id
+            lambda q: q.join(models.requirement_metric_association).filter(
+                models.requirement_metric_association.c.requirement_id == requirement_id
             )
         )
         .with_odata_filter(filter)

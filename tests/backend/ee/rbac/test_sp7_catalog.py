@@ -421,8 +421,8 @@ class TestPermissionsForBuiltInRole:
         )
 
         caps = [
-            "behavior:read",
-            "behavior:create",
+            "requirement:read",
+            "requirement:create",
             "topic:update",
             "category:delete",
             "test_set:read",

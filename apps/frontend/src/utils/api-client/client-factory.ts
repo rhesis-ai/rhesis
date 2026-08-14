@@ -12,7 +12,7 @@ import { TestRunsClient } from './test-runs-client';
 import { TestConfigurationsClient } from './test-configurations-client';
 import { PromptsClient } from './prompts-client';
 import { StatusClient } from './status-client';
-import { BehaviorClient } from './behavior-client';
+import { RequirementClient } from './requirement-client';
 import { TopicClient } from './topic-client';
 import { CategoryClient } from './category-client';
 import { TypeLookupClient } from './type-lookup-client';
@@ -151,8 +151,8 @@ export class ApiClientFactory {
     return new StatusClient(this.sessionToken, undefined, this.projectId);
   }
 
-  getBehaviorClient(): BehaviorClient {
-    return new BehaviorClient(this.sessionToken, undefined, this.projectId);
+  getRequirementClient(): RequirementClient {
+    return new RequirementClient(this.sessionToken, undefined, this.projectId);
   }
 
   getInsightsClient(): InsightsClient {

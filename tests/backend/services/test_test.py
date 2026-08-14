@@ -1,7 +1,7 @@
 """
 Tests for test service functions.
 
-These tests verify the current behavior of functions before they are refactored
+These tests verify the current requirement of functions before they are refactored
 to use the new direct parameter passing approach.
 """
 
@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import models
 from rhesis.backend.app.services import test as test_service
 from tests.backend.routes.fixtures.data_factories import (
-    BehaviorDataFactory,
+    RequirementDataFactory,
     CategoryDataFactory,
     PromptDataFactory,
     TopicDataFactory,
@@ -40,7 +40,7 @@ def create_bulk_test_data(**overrides):
     data = {
         "prompt": PromptDataFactory.minimal_data(),
         "topic": TopicDataFactory.minimal_data()["name"],
-        "behavior": BehaviorDataFactory.minimal_data()["name"],
+        "requirement": RequirementDataFactory.minimal_data()["name"],
         "category": CategoryDataFactory.minimal_data()["name"],
         "test_configuration": {},
     }
@@ -80,13 +80,13 @@ class TestBulkCreateTests:
             },
             "prompt": {"language_code": "en-US", "status": "New"},
             "topic": {"status": "Active"},
-            "behavior": {"status": "Active"},
+            "requirement": {"status": "Active"},
             "category": {"status": "Active", "entity_type": "Test"},
         }
 
         # Required entities are provided by fixtures (test_type_lookup, db_status, db_user)
 
-        # Only mock the load_defaults to control the test behavior
+        # Only mock the load_defaults to control the test requirement
         with patch("rhesis.backend.app.services.test.load_defaults") as mock_load_defaults:
             mock_load_defaults.return_value = mock_defaults
 
@@ -113,7 +113,7 @@ class TestBulkCreateTests:
                 assert str(test_obj.user_id) == authenticated_user_id
                 assert test_obj.prompt_id is not None
                 assert test_obj.topic_id is not None
-                assert test_obj.behavior_id is not None
+                assert test_obj.requirement_id is not None
                 assert test_obj.category_id is not None
                 assert test_obj.status_id is not None
 
@@ -163,7 +163,7 @@ class TestBulkCreateTests:
             assert str(test_obj.user_id) == authenticated_user_id
             assert test_obj.prompt_id is not None
             assert test_obj.topic_id is not None
-            assert test_obj.behavior_id is not None
+            assert test_obj.requirement_id is not None
             assert test_obj.category_id is not None
             assert test_obj.status_id is not None
 

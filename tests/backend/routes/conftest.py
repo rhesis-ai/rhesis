@@ -45,7 +45,7 @@ def dynamic_test_data():
 
     Usage:
         def test_something(dynamic_test_data):
-            behavior_data = dynamic_test_data("behavior", "sample")
+            requirement_data = dynamic_test_data("requirement", "sample")
             topic_data = dynamic_test_data("topic", "minimal")
     """
 
@@ -64,7 +64,7 @@ def batch_test_data():
 
     Usage:
         def test_bulk_operations(batch_test_data):
-            behaviors = batch_test_data("behavior", count=10)
+            requirements = batch_test_data("requirement", count=10)
     """
 
     def _generate_batch(entity_type: str, count: int = 5, **kwargs):
@@ -85,7 +85,7 @@ def batch_test_data():
 # === PARAMETERIZED FIXTURES ===
 
 
-@pytest.fixture(params=["behavior", "topic", "category", "metric"])
+@pytest.fixture(params=["requirement", "topic", "category", "metric"])
 def entity_type(request):
     """
     🎯 Parameterized entity type for testing multiple entities

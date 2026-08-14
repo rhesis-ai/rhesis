@@ -41,10 +41,10 @@ Status
    :special-members: __init__
    :noindex:
 
-Behavior
-~~~~~~~~
+Requirement
+~~~~~~~~~~~
 
-.. autoclass:: rhesis.sdk.entities.Behavior
+.. autoclass:: rhesis.sdk.entities.Requirement
    :members:
    :undoc-members:
    :show-inheritance:

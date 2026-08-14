@@ -19,7 +19,7 @@ class PlanCategory(StrEnum):
     """Plan item categories tracked for progress."""
 
     PROJECT = "project"
-    BEHAVIOR = "behavior"
+    REQUIREMENT = "requirement"
     TEST_SET = "test_set"
     METRIC = "metric"
     MAPPING = "mapping"
@@ -39,9 +39,9 @@ TOOL_REGISTRY: Dict[str, ToolEntry] = {
         mode=AgentMode.CREATING,
         plan_category=PlanCategory.PROJECT,
     ),
-    "create_behavior": ToolEntry(
+    "create_requirement": ToolEntry(
         mode=AgentMode.CREATING,
-        plan_category=PlanCategory.BEHAVIOR,
+        plan_category=PlanCategory.REQUIREMENT,
     ),
     "create_test_set_bulk": ToolEntry(
         mode=AgentMode.CREATING,
@@ -63,7 +63,7 @@ TOOL_REGISTRY: Dict[str, ToolEntry] = {
         mode=AgentMode.CREATING,
         plan_category=PlanCategory.METRIC,
     ),
-    "add_behavior_to_metric": ToolEntry(
+    "add_requirement_to_metric": ToolEntry(
         mode=AgentMode.CREATING,
         plan_category=PlanCategory.MAPPING,
     ),

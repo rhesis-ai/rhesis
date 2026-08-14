@@ -32,7 +32,7 @@ class PreflightCheckRequest(BaseModel):
     endpoint_id: UUID
     correlation_id: Optional[str] = None
     scoring_target: str = "fresh"
-    metric_mode: str = "use_behavior"
+    metric_mode: str = "use_requirement"
     selected_metrics: Optional[List[PreflightMetricRef]] = None
     execution_model_id: Optional[str] = None
     evaluation_model_id: Optional[str] = None

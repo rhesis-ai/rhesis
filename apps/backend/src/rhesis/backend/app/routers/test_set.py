@@ -119,7 +119,7 @@ def generate_test_set(
         Task information including task ID and estimated test count
     """
     try:
-        # config.behaviors and name are enforced by TestSetGenerationRequest,
+        # config.requirements and name are enforced by TestSetGenerationRequest,
         # so they arrive non-empty and already stripped.
         name = request.name
 
@@ -247,7 +247,7 @@ def create_test_set_bulk(
                     "language_code": "en",
                     "expected_response": "Optional expected response text"
                 },
-                "behavior": "Behavior name",
+                "requirement": "Requirement name",
                 "category": "Category name",
                 "topic": "Topic name",
                 "test_configuration": {}  # Optional test configuration,
@@ -524,7 +524,7 @@ def execute_test_set(
     The request body can include:
     - execution_options: Execution mode (Parallel/Sequential)
     - metrics: Optional list of execution-time metrics that override test set
-               and behavior metrics. Each metric should have id, name, and scope.
+               and requirement metrics. Each metric should have id, name, and scope.
     - reference_test_run_id: Optional UUID of a previous test run whose outputs
                should be reused (re-scoring mode).
     """
@@ -699,10 +699,10 @@ def get_test_set_metrics(
     Get metrics associated with a test set.
 
     When a test set has associated metrics, those metrics override the default
-    behavior-level metrics during test execution.
+    requirement-level metrics during test execution.
 
     If no metrics are associated, the test set will use the metrics defined
-    on each test's behavior during execution.
+    on each test's requirement during execution.
 
     Args:
         test_set_identifier: The test set identifier (UUID, nano_id, or slug)
@@ -733,7 +733,7 @@ def add_metric_to_test_set(
     Add a metric to a test set.
 
     When a test set has associated metrics, those metrics override the default
-    behavior-level metrics during test execution.
+    requirement-level metrics during test execution.
 
     Args:
         test_set_identifier: The test set identifier (UUID, nano_id, or slug)

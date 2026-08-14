@@ -2,7 +2,7 @@
 name: rhesis
 description: >-
   Design, run, and analyze AI test suites on Rhesis — explore endpoints, build
-  test foundations from a spec, create behaviors and metrics, execute
+  test foundations from a spec, create requirements and metrics, execute
   tests, and analyze results. Use when testing an AI endpoint, pasting a Product
   Requirements Document (PRD) or product spec, or working with Rhesis via MCP.
 ---
@@ -24,7 +24,7 @@ Platform operations use the `rhesis` MCP server. **Read `references/workflow-ind
 ## Shared skeleton
 
 ```text
-resolve by name → list_behaviors + list_metrics once → plan → user approval → create in order → optional execute → analyze
+resolve by name → list_requirements + list_metrics once → plan → user approval → create in order → optional execute → analyze
 ```
 
 Not every request needs the full cycle — see `references/phases/direct-requests.md`.
@@ -48,7 +48,7 @@ What would you like to do?
 
 1. Quick exploration — fast scan of an endpoint's domain and boundaries
 2. Comprehensive exploration — full capability and boundary analysis
-3. Build test foundation from a spec — behaviors, metrics, and test sets
+3. Build test foundation from a spec — requirements, metrics, and test sets
 4. Run or analyze existing tests — execute a test set or review/compare past runs
 ```
 
@@ -69,7 +69,7 @@ Look up by name via `list_*` — never ask for IDs. Use `tolower()` in `$filter`
 
 ## Output conventions
 
-- **Plans:** behaviors, metrics (with `metric_scope`), mappings, test sets, scope matrix, assumptions — see `use-case-bracketfeld.md` for spec depth
+- **Plans:** requirements, metrics (with `metric_scope`), mappings, test sets, scope matrix, assumptions — see `use-case-bracketfeld.md` for spec depth
 - **Links:** `[Entity Name](/test-sets/id)` — human names only, never UUIDs in prose
 - **Tool names:** never mention MCP tool names to the user
 - **Queries:** `$select` on every `list_*` — see `odata-patterns.md`

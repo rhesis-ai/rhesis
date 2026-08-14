@@ -34,7 +34,7 @@ import TestRunDetailFilterDrawer, {
 export interface FilterState {
   searchQuery: string;
   statusFilter: 'all' | 'passed' | 'failed';
-  selectedBehaviors: string[];
+  selectedRequirements: string[];
   overruleFilter: 'all' | 'overruled' | 'original' | 'conflicting';
   selectedMetrics: string[];
   commentFilter: 'all' | 'with_comments' | 'without_comments' | 'range';
@@ -46,7 +46,7 @@ export interface FilterState {
 interface TestRunFilterBarProps {
   filter: FilterState;
   onFilterChange: (filter: FilterState) => void;
-  availableBehaviors: Array<{ id: string; name: string }>;
+  availableRequirements: Array<{ id: string; name: string }>;
   availableMetrics: Array<{ name: string; description?: string }>;
   onDownload: () => void;
   onCompare: () => void;
@@ -69,7 +69,7 @@ interface TestRunFilterBarProps {
 export default function TestRunFilterBar({
   filter,
   onFilterChange,
-  availableBehaviors,
+  availableRequirements,
   availableMetrics,
   onDownload,
   onCompare,
@@ -123,7 +123,7 @@ export default function TestRunFilterBar({
       open={filterDrawerOpen}
       onClose={() => setFilterDrawerOpen(false)}
       filters={drawerFilters}
-      availableBehaviors={availableBehaviors}
+      availableRequirements={availableRequirements}
       availableMetrics={availableMetrics}
       onApply={handleDrawerApply}
     />
