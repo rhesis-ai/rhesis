@@ -39,6 +39,7 @@ data:
   NEXT_PUBLIC_QUICK_START: {{ .Values.config.nextPublicQuickStart | quote }}
   NEXT_PUBLIC_SUPPORT_EMAIL: {{ .Values.config.nextPublicSupportEmail | quote }}
   ONBOARDING_VIDEO_URL: {{ .Values.config.onboardingVideoUrl | quote }}
+  ARCHITECT_HELP_ARTICLE_URLS: {{ .Values.config.architectHelpArticleUrls | quote }}
   # Branding overrides. Not NEXT_PUBLIC_* on purpose: that prefix bakes a value
   # into the client bundle at build time, which would mean one image per
   # deployment. The frontend reads these per request instead.

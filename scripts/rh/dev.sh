@@ -164,7 +164,8 @@ NEXT_TELEMETRY_DISABLED=1
 
 # Docs cards shown on the Architect welcome screen while a project has no
 # endpoint. Read at request time by /api/architect-help; in the cloud it comes
-# from GCP Secret Manager instead. Hosts must be allowlisted in
+# from the Helm chart's ConfigMap (charts/rhesis/values.yaml config.architectHelpArticleUrls)
+# instead. Hosts must be allowlisted in
 # apps/frontend/src/app/api/og-metadata/og-metadata-utils.ts.
 ARCHITECT_HELP_ARTICLE_URLS=https://docs.rhesis.ai/docs/getting-started/connecting-application,https://docs.rhesis.ai/docs/endpoints,https://docs.rhesis.ai/docs/endpoints/sdk-endpoints,https://docs.rhesis.ai/docs/concepts
 EOF

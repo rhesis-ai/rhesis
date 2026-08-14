@@ -71,6 +71,7 @@ config:
   nextPublicQuickStart: "false"
   nextPublicSupportEmail: "hello@rhesis.ai"
   onboardingVideoUrl: ""
+  architectHelpArticleUrls: "https://docs.rhesis.ai/docs/getting-started/connecting-application,https://docs.rhesis.ai/docs/endpoints,https://docs.rhesis.ai/docs/endpoints/sdk-endpoints,https://docs.rhesis.ai/docs/concepts"
 
   # Branding — all empty means the built-in Rhesis look. Set them to rebrand a
   # deployment without rebuilding the image; the frontend reads them at request
