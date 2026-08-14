@@ -18,6 +18,14 @@ def create_validation_error_response(exc: RequestValidationError) -> JSONRespons
     Handles Pydantic validation errors that may contain non-JSON-serializable
     objects (like ValueError instances) in the error context.
 
+    Pydantic's ``input`` is deliberately dropped. For a *missing* field it holds
+    the whole request body rather than one value, so a signup that forgets its
+    email address answers with the password in cleartext -- and from there into
+    the browser console, which logs the error body for a 422. `loc`, `msg` and
+    `ctx` say which field, what is wrong and which rule broke it; the value adds
+    nothing the caller didn't just send us. Not masked by field name: the name
+    lists we have already miss `credentials` and `code`.
+
     Args:
         exc: The RequestValidationError from FastAPI/Pydantic
 
@@ -31,7 +39,6 @@ def create_validation_error_response(exc: RequestValidationError) -> JSONRespons
             "type": error.get("type"),
             "loc": error.get("loc"),
             "msg": error.get("msg"),
-            "input": error.get("input"),
         }
         # Only include ctx if it exists, and convert any non-serializable values to strings
         if "ctx" in error and error["ctx"]:
@@ -44,7 +51,14 @@ def create_validation_error_response(exc: RequestValidationError) -> JSONRespons
 
 def log_validation_error(exc: RequestValidationError, request: Request) -> None:
     """
-    Log validation errors with detailed information for debugging.
+    Log which fields a request failed validation on, and why.
+
+    Never the submitted value, for the same reason the response omits it. The
+    redaction patterns can't rescue this one: they match the word after
+    "password:", which in a validation message is the message itself, leaving
+    the real value sitting in "(input: ...)" further along the line.
+
+    Warning, not error: a 422 is the caller's mistake, not a server fault.
 
     Args:
         exc: The RequestValidationError from FastAPI/Pydantic
@@ -54,6 +68,10 @@ def log_validation_error(exc: RequestValidationError, request: Request) -> None:
         # Build a readable field path
         field_path = " -> ".join(str(loc) for loc in error["loc"])
 
-        logger.error(
-            f"Validation error: {field_path}: {error['msg']} (input: {error.get('input', 'N/A')})"
+        logger.warning(
+            "Validation error on %s %s: %s: %s",
+            request.method,
+            request.url.path,
+            field_path,
+            error["msg"],
         )
