@@ -45,11 +45,11 @@ class TagTestMixin:
     description_field = None  # No description field for tags
 
     # Factory-based data methods
-    def get_sample_data(self) -> Dict[str, Any]:
+    def get_sample_data(self, client=None) -> Dict[str, Any]:
         """Return sample tag data using factory"""
         return TagDataFactory.sample_data()
 
-    def get_minimal_data(self) -> Dict[str, Any]:
+    def get_minimal_data(self, client=None) -> Dict[str, Any]:
         """Return minimal tag data using factory"""
         return TagDataFactory.minimal_data()
 

@@ -42,11 +42,11 @@ class CommentTestMixin:
     name_field = "content"  # Comments use 'content' instead of 'name'
 
     # Factory-based data methods
-    def get_sample_data(self) -> Dict[str, Any]:
+    def get_sample_data(self, client=None) -> Dict[str, Any]:
         """Return sample comment data using factory"""
         return CommentDataFactory.sample_data()
 
-    def get_minimal_data(self) -> Dict[str, Any]:
+    def get_minimal_data(self, client=None) -> Dict[str, Any]:
         """Return minimal comment data using factory"""
         return CommentDataFactory.minimal_data()
 

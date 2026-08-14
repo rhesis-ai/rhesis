@@ -45,11 +45,11 @@ class PromptTestMixin:
     description_field = "expected_response"
 
     # Factory-based data methods
-    def get_sample_data(self) -> Dict[str, Any]:
+    def get_sample_data(self, client=None) -> Dict[str, Any]:
         """Return sample prompt data using factory"""
         return PromptDataFactory.sample_data()
 
-    def get_minimal_data(self) -> Dict[str, Any]:
+    def get_minimal_data(self, client=None) -> Dict[str, Any]:
         """Return minimal prompt data using factory"""
         return PromptDataFactory.minimal_data()
 

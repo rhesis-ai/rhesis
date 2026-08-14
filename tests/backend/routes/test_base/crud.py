@@ -25,7 +25,7 @@ class BaseCRUDTests(BaseEntityTests):
 
     def test_create_entity_success(self, authenticated_client: TestClient):
         """Test successful entity creation"""
-        sample_data = self.get_sample_data()
+        sample_data = self.get_sample_data(client=authenticated_client)
         response = authenticated_client.post(self.endpoints.create, json=sample_data)
 
         assert response.status_code == status.HTTP_200_OK
@@ -38,7 +38,7 @@ class BaseCRUDTests(BaseEntityTests):
 
     def test_create_entity_minimal_data(self, authenticated_client: TestClient):
         """Test entity creation with minimal required data"""
-        minimal_data = self.get_minimal_data()
+        minimal_data = self.get_minimal_data(client=authenticated_client)
         response = authenticated_client.post(self.endpoints.create, json=minimal_data)
 
         assert response.status_code == status.HTTP_200_OK

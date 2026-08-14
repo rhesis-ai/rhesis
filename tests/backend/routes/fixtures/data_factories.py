@@ -34,6 +34,31 @@ fake = Faker()
 Faker.seed(12345)
 
 
+def find_or_create_type_lookup_id(client, type_name: str, type_value: str) -> str:
+    """Look up a type_lookup row's id via the API, creating it if missing.
+
+    For factories whose target API only accepts a raw *_id UUID FK (no
+    string-to-lookup shortcut like Metric's crud/metric.py has) -- e.g.
+    Model.provider_type_id, Source.source_type_id -- so a test payload can
+    reference a real row instead of leaving the FK NULL. type_name/type_value
+    pairs used here (e.g. "ProviderType"/"openai") are already seeded into
+    every test org by initial_data.json, so this is normally just a lookup.
+    """
+    # sort_order=asc: these rows are seeded once at org bootstrap (initial_data.json),
+    # so they're among the oldest -- robust regardless of how many type_lookups
+    # accumulate later in the same test, unlike relying on the default desc order.
+    existing = client.get(
+        "/type_lookups/", params={"limit": 100, "sort_order": "asc"}
+    ).json()
+    for row in existing:
+        if row["type_name"] == type_name and row["type_value"] == type_value:
+            return row["id"]
+    created = client.post(
+        "/type_lookups/", json={"type_name": type_name, "type_value": type_value}
+    )
+    return created.json()["id"]
+
+
 class BaseDataFactory(ABC):
     """
     Abstract base class for test data factories

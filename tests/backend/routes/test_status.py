@@ -45,11 +45,11 @@ class StatusTestMixin:
     description_field = "description"
 
     # Factory-based data methods
-    def get_sample_data(self) -> Dict[str, Any]:
+    def get_sample_data(self, client=None) -> Dict[str, Any]:
         """Return sample status data using factory"""
         return StatusDataFactory.sample_data()
 
-    def get_minimal_data(self) -> Dict[str, Any]:
+    def get_minimal_data(self, client=None) -> Dict[str, Any]:
         """Return minimal status data using factory"""
         return StatusDataFactory.minimal_data()
 

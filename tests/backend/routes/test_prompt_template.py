@@ -44,11 +44,11 @@ class PromptTemplateTestMixin:
     description_field = None  # No description field for prompt templates
 
     # Factory-based data methods
-    def get_sample_data(self) -> Dict[str, Any]:
+    def get_sample_data(self, client=None) -> Dict[str, Any]:
         """Return sample prompt template data using factory"""
         return PromptTemplateDataFactory.sample_data()
 
-    def get_minimal_data(self) -> Dict[str, Any]:
+    def get_minimal_data(self, client=None) -> Dict[str, Any]:
         """Return minimal prompt template data using factory"""
         return PromptTemplateDataFactory.minimal_data()
 
