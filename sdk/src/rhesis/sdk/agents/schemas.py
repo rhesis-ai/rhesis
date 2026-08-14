@@ -2,7 +2,6 @@
 
 import json
 import logging
-import re
 from typing import Annotated, Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, BeforeValidator, Field, WithJsonSchema
@@ -10,19 +9,6 @@ from pydantic import BaseModel, BeforeValidator, Field, WithJsonSchema
 from rhesis.sdk.agents.constants import Action
 
 logger = logging.getLogger(__name__)
-
-_CONTROL_CHAR_RE = re.compile(r"[\x00-\x1f\x7f]")
-
-
-def _escape_control_chars(s: str) -> str:
-    """Replace bare ASCII control characters with JSON ``\\uXXXX`` escapes.
-
-    LLMs (Gemini in particular) emit literal newlines and tabs inside
-    JSON string values, which ``json.loads`` rightly rejects.
-    Already-escaped sequences (``\\n``, ``\\t``) are two printable
-    characters and are untouched.
-    """
-    return _CONTROL_CHAR_RE.sub(lambda m: f"\\u{ord(m.group()):04x}", s)
 
 
 def _parse_arguments(v: Any) -> Dict[str, Any]:
@@ -36,18 +22,14 @@ def _parse_arguments(v: Any) -> Dict[str, Any]:
     """
     if isinstance(v, str):
         try:
-            parsed = json.loads(v)
+            parsed = json.loads(v, strict=False)
         except json.JSONDecodeError:
-            repaired = _escape_control_chars(v)
-            try:
-                parsed = json.loads(repaired)
-            except json.JSONDecodeError:
-                logger.error(
-                    "Tool arguments were not valid JSON; dispatching with no "
-                    "arguments. First 200 chars: %s",
-                    v[:200],
-                )
-                return {}
+            logger.error(
+                "Tool arguments were not valid JSON; dispatching with no "
+                "arguments. First 200 chars: %s",
+                v[:200],
+            )
+            return {}
         if not isinstance(parsed, dict):
             logger.error(
                 "Tool arguments parsed to %s, expected an object; dispatching with no arguments.",
