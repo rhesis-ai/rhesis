@@ -7,8 +7,9 @@ lightweight ``rhesis[telemetry]`` package instead of the full SDK.
 The ContextVars themselves live in the new module, so importing from either path reads and writes
 the same state — there is no second set.
 
-New code should import from ``rhesis.telemetry.context``. This module stays for the ~25 existing
-import sites, including ``apps/backend``.
+Import from ``rhesis.telemetry.context``. Every site in this repository does; this module stays only
+for consumers outside it — released ``rhesis-haystack`` versions and user code written against the
+old path — and is not the path to add new imports to.
 """
 
 from rhesis.telemetry.context import (

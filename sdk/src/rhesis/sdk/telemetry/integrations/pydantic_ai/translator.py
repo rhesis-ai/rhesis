@@ -36,17 +36,17 @@ from opentelemetry.sdk.trace.id_generator import RandomIdGenerator
 from opentelemetry.trace import SpanContext, SpanKind, TraceFlags
 from opentelemetry.trace.status import Status, StatusCode
 
-from rhesis.sdk.telemetry.attributes import AIAttributes
-from rhesis.sdk.telemetry.context import (
-    is_llm_observation_active,
-    set_llm_observation_active,
-)
 from rhesis.sdk.telemetry.integrations.genai import (
     AncestryRegistry,
     TranslatedSpan,
     translate_events,
 )
 from rhesis.sdk.telemetry.integrations.pydantic_ai import mapping
+from rhesis.telemetry.attributes import AIAttributes
+from rhesis.telemetry.context import (
+    is_llm_observation_active,
+    set_llm_observation_active,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -157,7 +157,7 @@ def _safe_fallback_span(span: ReadableSpan) -> ReadableSpan:
     """Build the safest possible wrapper when :func:`translate_span` raises.
 
     The raw Pydantic AI span name (e.g. ``"chat gpt-4o"``) fails the Rhesis
-    backend's :func:`~rhesis.sdk.telemetry.attributes.validate_span_name`
+    backend's :func:`~rhesis.telemetry.attributes.validate_span_name`
     regex, so simply forwarding the original span on a translation error
     causes silent HTTP 422 drops. Funnel the span into
     ``function.pydantic_ai.*`` instead so the backend accepts it. The original
@@ -321,7 +321,7 @@ class PydanticAILLMDedupSpanProcessor(SpanProcessor):
        shared :class:`~rhesis.sdk.telemetry.integrations.genai.AncestryRegistry`,
        so the exporter can resolve handoff
        ``from`` agents across export batches.
-    2. Toggles :func:`~rhesis.sdk.telemetry.context.is_llm_observation_active`
+    2. Toggles :func:`~rhesis.telemetry.context.is_llm_observation_active`
        for the duration of Pydantic AI ``chat`` spans so that any flag-checking
        auto-instrumentation running inside an agent run (e.g. the LangChain
        callback) skips emitting a duplicate ``ai.llm.invoke`` span.

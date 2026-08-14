@@ -33,11 +33,11 @@ from dotenv import load_dotenv
 from llama_index.core import Document, Settings, VectorStoreIndex, get_response_synthesizer
 from llama_index.core.schema import NodeWithScore
 from opentelemetry import trace
+from rhesis.telemetry.attributes import AIAttributes, AIEvents
 from rhesis.telemetry.schemas import AIOperationType
 
 from rhesis.sdk import RhesisClient, observe
 from rhesis.sdk.telemetry import auto_instrument
-from rhesis.sdk.telemetry.attributes import AIAttributes, AIEvents
 
 env_path = Path(__file__).parent / ".env"
 if env_path.exists():

@@ -95,19 +95,20 @@ def _normalize_usage(usage: Any) -> Optional[TokenUsage]:
     result as a simple "emit or skip" decision.
 
     Delegates the actual key-name matching to
-    :func:`~rhesis.sdk.telemetry.utils.token_extraction.extract_token_usage`,
+    :func:`~rhesis.telemetry.token_extraction.extract_token_usage`,
     which already handles every provider dialect and is used by the
     LangChain tracing integration -- there is no reason for the accrual
-    path to grow a second, thinner copy of that logic. Imported lazily
-    because ``rhesis.sdk.telemetry`` builds the OTel tracer and exporter
-    on package init, and this module is on the import path of every SDK
-    user; the ``on_usage is None`` guard in the callers means the import
-    only ever happens for callers that actually wired up accrual.
+    path to grow a second, thinner copy of that logic. The function is
+    pure stdlib, but importing it runs ``rhesis.telemetry.__init__``,
+    which pulls in the OpenTelemetry SDK and the exporter -- so it stays
+    lazy, because this module is on the import path of every SDK user;
+    the ``on_usage is None`` guard in the callers means the import only
+    ever happens for callers that actually wired up accrual.
     """
     if not usage:
         return None
 
-    from rhesis.sdk.telemetry.utils.token_extraction import extract_token_usage
+    from rhesis.telemetry.token_extraction import extract_token_usage
 
     input_tokens, output_tokens, total_tokens = extract_token_usage(usage)
     if not total_tokens:

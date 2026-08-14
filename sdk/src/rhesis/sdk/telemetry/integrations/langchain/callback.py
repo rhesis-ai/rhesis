@@ -7,8 +7,8 @@ from opentelemetry import context as otel_context
 from opentelemetry import trace
 from opentelemetry.trace import SpanKind, Status, StatusCode
 
-from rhesis.sdk.telemetry.attributes import AIAttributes, AIEvents
-from rhesis.sdk.telemetry.context import is_llm_observation_active, is_tracing_disabled
+from rhesis.telemetry.attributes import AIAttributes, AIEvents
+from rhesis.telemetry.context import is_llm_observation_active, is_tracing_disabled
 from rhesis.telemetry.schemas import AIOperationType
 
 from .extractors import (

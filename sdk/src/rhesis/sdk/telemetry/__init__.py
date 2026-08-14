@@ -2,17 +2,16 @@
 
 # Core tracing API
 # Helpers
-from rhesis.sdk.telemetry.attributes import (
+# Auto-instrumentation
+from rhesis.sdk.telemetry.observer import auto_instrument, disable_auto_instrument
+from rhesis.sdk.telemetry.tracer import Tracer
+from rhesis.telemetry.attributes import (
     AIAttributes,
     AIEvents,
     create_llm_attributes,
     create_tool_attributes,
     validate_span_name,
 )
-
-# Auto-instrumentation
-from rhesis.sdk.telemetry.observer import auto_instrument, disable_auto_instrument
-from rhesis.sdk.telemetry.tracer import Tracer
 
 # Re-export from rhesis.telemetry (lightweight foundation)
 from rhesis.telemetry.exporter import RhesisOTLPExporter

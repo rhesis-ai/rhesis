@@ -5,18 +5,18 @@ from unittest.mock import Mock
 import litellm
 import pytest
 
+# Import semantic layer constants
+from rhesis.telemetry.attributes import AIAttributes
+
 from rhesis.backend.app.models.trace import Trace
 from rhesis.backend.app.schemas.enrichment import TokenCosts
 from rhesis.backend.app.services.exchange_rate import get_usd_to_eur_rate
-from rhesis.backend.app.services.telemetry.enrichment.processor import TraceEnricher
 from rhesis.backend.app.services.telemetry.enrichment import (
     calculate_token_costs,
     detect_anomalies,
     extract_metadata,
 )
-
-# Import semantic layer constants
-from rhesis.sdk.telemetry.attributes import AIAttributes
+from rhesis.backend.app.services.telemetry.enrichment.processor import TraceEnricher
 
 
 class TestCalculateTokenCosts:

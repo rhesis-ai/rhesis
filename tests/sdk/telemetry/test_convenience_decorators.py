@@ -3,11 +3,10 @@
 from unittest.mock import MagicMock
 
 import pytest
+from rhesis.telemetry.attributes import AIAttributes
 
-from rhesis.sdk import decorators
-from rhesis.sdk.decorators import observe
 from rhesis.sdk.decorators import _state as decorators_state
-from rhesis.sdk.telemetry.attributes import AIAttributes
+from rhesis.sdk.decorators import observe
 
 
 @pytest.fixture

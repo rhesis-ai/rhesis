@@ -19,7 +19,7 @@ from opentelemetry import trace
 from opentelemetry.trace import Span, Status, StatusCode
 
 from rhesis.sdk.agents.schemas import ToolResult
-from rhesis.sdk.telemetry.attributes import AIAttributes, AIEvents
+from rhesis.telemetry.attributes import AIAttributes, AIEvents
 from rhesis.telemetry.schemas import AIOperationType
 
 # Cap tool input/output content stamped on spans to avoid blowing up the

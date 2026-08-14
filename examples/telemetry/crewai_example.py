@@ -27,13 +27,13 @@ Traces appear in the Rhesis UI under Traces (http://localhost:3000/traces).
 import os
 from pathlib import Path
 
-from crewai import Agent, LLM, Task
+from crewai import LLM, Agent, Task
 from dotenv import load_dotenv
+from rhesis.telemetry.attributes import AIAttributes
+from rhesis.telemetry.schemas import AIOperationType
 
 from rhesis.sdk import RhesisClient, observe
 from rhesis.sdk.telemetry import auto_instrument
-from rhesis.sdk.telemetry.attributes import AIAttributes
-from rhesis.telemetry.schemas import AIOperationType
 
 os.environ.setdefault("CREWAI_TELEMETRY_OPT_OUT", "true")
 

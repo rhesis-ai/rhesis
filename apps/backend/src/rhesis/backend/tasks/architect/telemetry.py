@@ -27,7 +27,7 @@ async def _conversation_telemetry_context(
     cleared on exit so they do not leak into surrounding scopes that
     share the same asyncio task.
     """
-    from rhesis.sdk.telemetry.context import (
+    from rhesis.telemetry.context import (
         set_conversation_id,
         set_conversation_mapped_input,
         set_conversation_trace_id,

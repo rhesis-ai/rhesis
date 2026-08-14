@@ -134,7 +134,7 @@ If you're instrumenting a custom chat server (not using `@endpoint`'s automatic 
 
 <CodeBlock filename="chat_server.py" language="python">
 {`from rhesis.sdk import observe
-from rhesis.sdk.telemetry.context import (
+from rhesis.telemetry.context import (
     set_conversation_id,
     set_conversation_trace_id,
     set_conversation_mapped_input,

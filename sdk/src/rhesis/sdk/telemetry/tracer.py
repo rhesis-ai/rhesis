@@ -11,8 +11,10 @@ from typing import Any, Optional
 from opentelemetry import trace
 from opentelemetry.trace import NonRecordingSpan, SpanContext, TraceFlags
 
-from rhesis.sdk.telemetry.attributes import AIAttributes
-from rhesis.sdk.telemetry.context import (
+from rhesis.telemetry.attributes import AIAttributes
+from rhesis.telemetry.constants import ConversationContext as ConvContextConstants
+from rhesis.telemetry.constants import TestExecutionContext as TestContextConstants
+from rhesis.telemetry.context import (
     get_conversation_id,
     get_conversation_mapped_input,
     get_conversation_trace_id,
@@ -21,8 +23,6 @@ from rhesis.sdk.telemetry.context import (
     is_tracing_disabled,
     set_root_trace_id,
 )
-from rhesis.telemetry.constants import ConversationContext as ConvContextConstants
-from rhesis.telemetry.constants import TestExecutionContext as TestContextConstants
 from rhesis.telemetry.provider import get_tracer_provider
 from rhesis.telemetry.schemas import TestExecutionContext
 

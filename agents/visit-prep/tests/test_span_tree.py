@@ -19,12 +19,12 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 from opentelemetry.trace import NonRecordingSpan, SpanContext, TraceFlags
+from rhesis.telemetry.attributes import AIAttributes
 from rhesis.telemetry.constants import ConversationContext
+from rhesis.telemetry.context import set_root_trace_id
 from rhesis.telemetry.exporter import RhesisOTLPExporter
 from rhesis.telemetry.schemas import AIOperationType
 
-from rhesis.sdk.telemetry.attributes import AIAttributes
-from rhesis.sdk.telemetry.context import set_root_trace_id
 from tests.mocks import gather_script, greeting_script, make_pipeline
 from visit_prep.pipeline import run_turn
 from visit_prep.state import VisitPrepState
