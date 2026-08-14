@@ -134,39 +134,6 @@ export function NotificationsProvider({
       });
   }, []);
 
-  const markSectionReadOnServer = useCallback(
-    (section: NotificationSection) => {
-      new ApiClientFactory()
-        .getNotificationsClient()
-        .markRead({ section })
-        .catch(error => {
-          console.warn('Failed to mark notifications read:', error);
-        });
-    },
-    []
-  );
-
-  // Read by callbacks that must not re-run when the route changes.
-  const pathnameRef = useRef<string | null>(null);
-  useEffect(() => {
-    pathnameRef.current = pathname ?? null;
-  }, [pathname]);
-
-  /**
-   * The section whose *list* page is open right now, or null.
-   *
-   * The exact list route, not just a matching first path segment -- e.g.
-   * generating a test set redirects straight to that new test set's detail
-   * page (/test-sets/[id]), which shares the 'test-sets' segment with the
-   * list page but is not the list.
-   */
-  const openListSection = useCallback((): NotificationSection | null => {
-    const current = pathnameRef.current;
-    const segment = current?.split('/')[1];
-    if (!segment || !isNotificationSection(segment)) return null;
-    return current === `/${segment}` ? segment : null;
-  }, []);
-
   const fetchSummary = useCallback(async () => {
     try {
       const client = new ApiClientFactory().getNotificationsClient();
@@ -178,15 +145,6 @@ export function NotificationsProvider({
         nextUnread[section] = summary.unread;
         nextHighlighted[section] = summary.entity_ids;
       });
-      // Whatever was already waiting for the list page the user is looking at
-      // counts as seen. Zeroed here rather than left to the navigation effect
-      // below so the badge never flashes a count the user is already looking
-      // at. The highlights stay -- the rows themselves are still new.
-      const open = openListSection();
-      if (open && (nextUnread[open] ?? 0) > 0) {
-        nextUnread[open] = 0;
-        markSectionReadOnServer(open);
-      }
       setUnreadBySection(nextUnread);
       setHighlighted(nextHighlighted);
     } catch (error) {
@@ -194,7 +152,7 @@ export function NotificationsProvider({
     }
     // Project scoping is server-side via the active-project cookie, not an
     // explicit dependency here -- the effect below re-runs this on project change.
-  }, [openListSection, markSectionReadOnServer]);
+  }, []);
 
   useEffect(() => {
     if (!hasOrganization) return;
@@ -268,52 +226,41 @@ export function NotificationsProvider({
     // the handler would never be registered at all.
   }, [subscribe, isConnected, activeProject?.id, queryClient, markIdsRead]);
 
-  const markSectionRead = useCallback(
-    (section: NotificationSection) => {
-      setUnreadBySection(prev => {
-        if (!prev[section]) return prev;
-        return { ...prev, [section]: 0 };
+  const markSectionRead = useCallback((section: NotificationSection) => {
+    setUnreadBySection(prev => {
+      if (!prev[section]) return prev;
+      return { ...prev, [section]: 0 };
+    });
+    new ApiClientFactory()
+      .getNotificationsClient()
+      .markRead({ section })
+      .catch(error => {
+        console.warn('Failed to mark notifications read:', error);
       });
-      markSectionReadOnServer(section);
-    },
-    [markSectionReadOnServer]
-  );
+  }, []);
 
-  // Read by the navigation effect below, which must not re-run when a count
-  // changes -- see the comment there.
-  const unreadRef = useRef<SectionCounts>({});
-  useEffect(() => {
-    unreadRef.current = unreadBySection;
-  }, [unreadBySection]);
-
-  // Navigating onto a section's own list page clears its badge -- once, on
-  // arrival. Notifications that land while the user is already sitting there
-  // keep accumulating; the count is what tells them a third job just
-  // finished, and clearing on arrival only means "you have seen what was
-  // waiting for you". The badge clears again the next time they navigate in.
-  // (What was already waiting on a fresh page load is handled in
-  // fetchSummary, which zeroes it before the badge ever renders.)
+  // Visiting a section's own list page clears its badge -- the whole count at
+  // once, however many jobs it accumulated while the user was elsewhere.
+  // Fires again on a later render if a new notification for the current
+  // section arrives while already here -- unreadBySection[section] going back
+  // above 0 re-triggers the effect. That is deliberate: the badge is for
+  // telling you about work you are *not* looking at.
   //
-  // This effect deliberately does not depend on unreadBySection. It used to,
-  // and that made every arriving notification re-trigger it: the badge was
-  // wiped the instant it appeared, so kicking off three Garak imports from
-  // the test sets page (where that drawer lives) showed a fleeting "1" and
-  // never counted up. Worse, each wipe also marked the rows read on the
-  // backend, and /notifications/summary only returns entity_ids for unread
-  // rows -- so their grid highlights were gone after a reload too.
-  const clearedForPathRef = useRef<string | null>(null);
+  // Must be the exact list route, not just a matching first path segment --
+  // e.g. generating a test set redirects straight to that new test set's
+  // *detail* page (/test-sets/[id]), which shares the 'test-sets' segment
+  // with the list page. Matching on the segment alone marked the section
+  // read before the user ever saw the list, which (since /notifications/
+  // summary only returns entity_ids for still-unread rows) also erased the
+  // row's highlight on a later reload, before it had ever been shown.
   useEffect(() => {
-    if (clearedForPathRef.current === pathname) return;
-    clearedForPathRef.current = pathname ?? null;
-
-    const section = openListSection();
-    if (section && (unreadRef.current[section] ?? 0) > 0) {
-      markSectionRead(section);
+    const segment = pathname?.split('/')[1];
+    if (!segment || !isNotificationSection(segment)) return;
+    if (pathname !== `/${segment}`) return;
+    if ((unreadBySection[segment] ?? 0) > 0) {
+      markSectionRead(segment);
     }
-    // openListSection reads pathname through a ref, so it must not run before
-    // that ref is updated -- the effect that does is declared above this one,
-    // and React runs effects in declaration order.
-  }, [pathname, openListSection, markSectionRead]);
+  }, [pathname, unreadBySection, markSectionRead]);
 
   const clearHighlight = useCallback(
     (section: NotificationSection, id: string) => {
