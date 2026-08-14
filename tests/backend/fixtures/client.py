@@ -16,6 +16,8 @@ from rhesis.backend.app.database import get_db
 from rhesis.backend.app.dependencies import get_db_session, get_tenant_db_session
 from rhesis.backend.app.main import app
 
+from .database import TestingSessionLocal
+
 
 @pytest.fixture
 def client(test_db):
@@ -27,10 +29,20 @@ def client(test_db):
     consistently, including under savepoint isolation.
     """
 
-    # Create override function that uses the same session as test fixtures
     def override_get_db():
-        """Override the get_db dependency to use the same session as fixtures."""
-        yield test_db
+        session = TestingSessionLocal(
+            bind=test_db.get_bind(), join_transaction_mode="create_savepoint"
+        )
+        try:
+            yield session
+            if session.in_transaction():
+                session.commit()
+        except Exception:
+            if session.in_transaction():
+                session.rollback()
+            raise
+        finally:
+            session.close()
 
     # Override the database dependencies
     app.dependency_overrides[get_db] = override_get_db
