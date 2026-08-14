@@ -50,9 +50,12 @@ _SENSITIVE_PATTERNS = [
         ),
         r"\1[REDACTED]",
     ),
+    # A space is a separator too, not just - and _: an upstream service's own
+    # error body says "invalid api key: sk-live-..." in prose, and that body
+    # reaches us verbatim. Only a space -- \s would let a match jump log lines.
     (
         re.compile(
-            r"(api[-_]?key[\"']?\s*[:=]\s*[\"']?)[\w\-]+",
+            r"(api[-_ ]?key[\"']?\s*[:=]\s*[\"']?)[\w\-]+",
             re.IGNORECASE,
         ),
         r"\1[REDACTED]",
@@ -77,7 +80,7 @@ _SENSITIVE_PATTERNS = [
     ),
     (
         re.compile(
-            r"(session[-_]?token[\"']?\s*[:=]\s*[\"']?)[\w\-\.]+",
+            r"(session[-_ ]?token[\"']?\s*[:=]\s*[\"']?)[\w\-\.]+",
             re.IGNORECASE,
         ),
         r"\1[REDACTED]",
@@ -91,7 +94,7 @@ _SENSITIVE_PATTERNS = [
     ),
     (
         re.compile(
-            r"((?:access|refresh)[-_]?token[\"']?\s*[:=]\s*[\"']?)"
+            r"((?:access|refresh)[-_ ]?token[\"']?\s*[:=]\s*[\"']?)"
             r"[\w\-\.]+",
             re.IGNORECASE,
         ),
@@ -99,7 +102,7 @@ _SENSITIVE_PATTERNS = [
     ),
     (
         re.compile(
-            r"(client[-_]?secret[\"']?\s*[:=]\s*[\"']?)[\w\-]+",
+            r"(client[-_ ]?secret[\"']?\s*[:=]\s*[\"']?)[\w\-]+",
             re.IGNORECASE,
         ),
         r"\1[REDACTED]",
@@ -117,7 +120,7 @@ _SENSITIVE_PATTERNS = [
     ),
     (
         re.compile(
-            r"(aws[-_]?secret[-_]?(?:access[-_]?)?key[\"']?"
+            r"(aws[-_ ]?secret[-_ ]?(?:access[-_ ]?)?key[\"']?"
             r"\s*[:=]\s*[\"']?)[\w\+/=]+",
             re.IGNORECASE,
         ),

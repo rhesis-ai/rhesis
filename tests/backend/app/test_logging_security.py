@@ -1,6 +1,9 @@
 """Tests to verify that sensitive information is not logged."""
 
+import pytest
+
 from rhesis.backend.app.services.invokers.common.headers import HeaderManager
+from rhesis.backend.logging.logging_config import _redact
 
 
 class TestHeaderSanitization:
@@ -171,3 +174,43 @@ class TestHeaderSanitization:
             assert sanitized[keyword.upper()] == "***REDACTED***", (
                 f"Keyword '{keyword}' was not properly redacted"
             )
+
+
+class TestLogLineRedaction:
+    """Credentials that reach a log *message* rather than a header.
+
+    Upstream services describe their own auth failures in prose, and that text
+    comes back to us verbatim -- through an endpoint test, an invoker error, a
+    traceback. The formatter is the last place to catch it.
+    """
+
+    @pytest.mark.parametrize(
+        "line,secret",
+        [
+            # Space-separated, as an upstream error body actually phrases it.
+            ('{"error":"invalid api key: sk-live-9f8e7d6c"}', "sk-live-9f8e7d6c"),
+            ("upstream said: client secret = abc123def", "abc123def"),
+            ("aws secret access key: AbC123xyz", "AbC123xyz"),
+            ("session token: tok-abc-123", "tok-abc-123"),
+            ("refresh token = 0123456789abcdef", "0123456789abcdef"),
+            # The pre-existing separators must keep working.
+            ("api_key: sk-underscore-style", "sk-underscore-style"),
+            ("api-key=sk-dash-style", "sk-dash-style"),
+        ],
+    )
+    def test_secret_in_message_is_redacted(self, line, secret):
+        redacted = _redact(line)
+        assert secret not in redacted
+        assert "[REDACTED]" in redacted
+
+    @pytest.mark.parametrize(
+        "line",
+        [
+            "the api key was missing from the request",
+            "No api keys configured for this project",
+            "client secret rotation is due",
+        ],
+    )
+    def test_prose_without_a_value_is_left_alone(self, line):
+        """Over-redaction hides the diagnosis, so a bare mention must survive."""
+        assert _redact(line) == line
