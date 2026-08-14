@@ -32,7 +32,8 @@ from typing import Any, Optional, Union
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models
+from rhesis.backend.app import models
+from rhesis.backend.app.crud.user import get_user
 from rhesis.backend.app.schemas.metric_tuning_metadata import MetricTuningCaseResult
 from rhesis.backend.app.schemas.metric_types import ScoreType
 from rhesis.backend.app.services.metric_tuning.payload import CasePayload
@@ -120,7 +121,7 @@ def resolve_metric_model(
             f"model configured on the metric {metric.name!r}",
         )
 
-    user = crud.get_user(db, user_id=user_id) if user_id else None
+    user = get_user(db, user_id=user_id) if user_id else None
     evaluation_model_id = _configured_evaluation_model_id(user)
 
     if not evaluation_model_id:
