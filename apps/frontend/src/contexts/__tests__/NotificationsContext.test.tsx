@@ -161,6 +161,78 @@ describe('NotificationsProvider', () => {
     );
   });
 
+  it('accumulates counts and highlights across several events', async () => {
+    render(
+      <NotificationsProvider>
+        <Probe />
+      </NotificationsProvider>
+    );
+    await waitFor(() => expect(mockGetSummary).toHaveBeenCalled());
+
+    ['ts-1', 'ts-2', 'ts-3'].forEach(entityId => {
+      emitNotification({
+        section: 'test-sets',
+        entity_id: entityId,
+        project_id: 'project-a',
+      });
+    });
+
+    expect(screen.getByTestId('test-sets-unread')).toHaveTextContent('3');
+    expect(screen.getByTestId('test-sets-highlights')).toHaveTextContent(
+      'ts-1,ts-2,ts-3'
+    );
+  });
+
+  it('counts a batch notification as its item_count, and highlights every id', async () => {
+    render(
+      <NotificationsProvider>
+        <Probe />
+      </NotificationsProvider>
+    );
+    await waitFor(() => expect(mockGetSummary).toHaveBeenCalled());
+
+    // One Garak import that created three test sets: a single row on the
+    // backend, three things done as far as the badge is concerned.
+    emitNotification({
+      section: 'test-sets',
+      entity_id: null,
+      item_count: 3,
+      project_id: 'project-a',
+      payload: { entity_ids: ['ts-1', 'ts-2', 'ts-3'] },
+    });
+
+    expect(screen.getByTestId('test-sets-unread')).toHaveTextContent('3');
+    expect(screen.getByTestId('test-sets-highlights')).toHaveTextContent(
+      'ts-1,ts-2,ts-3'
+    );
+  });
+
+  it('does not re-highlight an entity already in the list', async () => {
+    render(
+      <NotificationsProvider>
+        <Probe />
+      </NotificationsProvider>
+    );
+    await waitFor(() => expect(mockGetSummary).toHaveBeenCalled());
+
+    emitNotification({
+      section: 'test-sets',
+      entity_id: 'ts-1',
+      project_id: 'project-a',
+    });
+    emitNotification({
+      section: 'test-sets',
+      entity_id: 'ts-1',
+      project_id: 'project-a',
+    });
+
+    // Both count -- two jobs did finish -- but the row is listed once.
+    expect(screen.getByTestId('test-sets-unread')).toHaveTextContent('2');
+    expect(screen.getByTestId('test-sets-highlights')).toHaveTextContent(
+      'ts-1'
+    );
+  });
+
   it('invalidates the section query cache on a matching websocket event', async () => {
     render(
       <NotificationsProvider>
@@ -261,6 +333,35 @@ describe('NotificationsProvider', () => {
         section: NotificationSection.TEST_SETS,
       })
     );
+  });
+
+  it('keeps counting notifications that arrive while already on the list page', async () => {
+    // The Garak import drawer lives on /test-sets, so this is the normal
+    // flow: start three imports, stay put, watch the badge count up. Marking
+    // each one read on arrival used to wipe the badge back to nothing and
+    // clear the rows' highlights server-side along with it.
+    mockPathname = '/test-sets';
+
+    render(
+      <NotificationsProvider>
+        <Probe />
+      </NotificationsProvider>
+    );
+    await waitFor(() => expect(mockGetSummary).toHaveBeenCalled());
+
+    ['ts-1', 'ts-2', 'ts-3'].forEach(entityId => {
+      emitNotification({
+        section: 'test-sets',
+        entity_id: entityId,
+        project_id: 'project-a',
+      });
+    });
+
+    expect(screen.getByTestId('test-sets-unread')).toHaveTextContent('3');
+    expect(screen.getByTestId('test-sets-highlights')).toHaveTextContent(
+      'ts-1,ts-2,ts-3'
+    );
+    expect(mockMarkRead).not.toHaveBeenCalled();
   });
 
   it('does not mark a section read on a nested detail sub-route', async () => {

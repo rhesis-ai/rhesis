@@ -2,6 +2,8 @@ import { BaseApiClient } from './base-client';
 import { NotificationSection } from '@/constants/notifications';
 
 export interface NotificationSectionSummary {
+  /** Unread items, not unread rows -- a batch notification counts as all the
+   * entities it covers. See `item_count` below. */
   unread: number;
   entity_ids: string[];
 }
@@ -19,6 +21,9 @@ export interface Notification {
   is_failure: boolean;
   entity_type: string | null;
   entity_id: string | null;
+  /** Entities this one notification covers -- 3 for a Garak import of three
+   * test sets. Badge counts add this, not 1. */
+  item_count: number;
   payload: Record<string, unknown> | null;
   read_at: string | null;
   created_at: string;
