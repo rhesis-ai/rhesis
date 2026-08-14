@@ -2,7 +2,7 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 # Test Reviews
 
-Human reviews let a reviewer record a verdict on a test result alongside the automated [metric outcome](/contribute/backend/test-result-status) — to confirm it, disagree with it, or comment on a specific metric. Reviews are stored in the `test_reviews` JSONB column on `test_result`; a metric- or test-level review can override the stored status, which is why [statistics](/contribute/backend/test-result-stats) read the effective (post-review) result.
+Human reviews let a reviewer record a verdict on a test result alongside the automated [metric outcome](/contribute/backend/test-result-status) — to confirm it, disagree with it, or comment on a specific metric. Reviews are stored in the `test_reviews` JSONB column on `test_result`; a metric- or test-level review can override the stored status, which is why the stats views backing Insights read the effective (post-review) result.
 
 ## Structure
 
@@ -100,5 +100,4 @@ When the last review is deleted, `reviews` becomes empty, `total_reviews` is 0, 
 ## Related documentation
 
 - [Test Result Status](/contribute/backend/test-result-status)
-- [Test Result Statistics](/contribute/backend/test-result-stats)
 - [Test Run Status](/contribute/backend/test-run-status)
