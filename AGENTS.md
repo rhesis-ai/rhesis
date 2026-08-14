@@ -44,6 +44,9 @@ them. It also gives the worktree its own dev ports and container names; a worktr
 `.rhesis-ports` shares the main checkout's stack, and `./rh dev clean` in one would delete main's
 dev database.
 
+A worktree that already exists without that setup isn't stuck — run `./rh worktree --init` from
+inside it.
+
 The `WorktreeCreate` hook in `.claude/settings.json` handles this for you. It replaces Claude Code's
 git logic everywhere worktrees are created — `--worktree`, `isolation: worktree` subagents,
 background sessions, and the `EnterWorktree` tool — so **call `EnterWorktree` with a `name`
@@ -96,6 +99,6 @@ git checkout -b feature/short-description`.
 
 ## Task-specific workflows
 
-Opening a pull request, filing a GitHub issue, writing playground scripts, and linting Python each
-have their own skill — invoke `pull-request`, `github-issue`, `playground-script`, or
-`python-linting` when doing that task.
+Opening a pull request, filing a GitHub issue, writing playground scripts, linting Python, and
+running `./rh worktree` each have their own skill — invoke `pull-request`, `github-issue`,
+`playground-script`, `python-linting`, or `worktree` when doing that task.
