@@ -6,8 +6,8 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud
 from rhesis.backend.app.models.test import Test
+from rhesis.backend.app.utils.query_utils import QueryBuilder, include
 from rhesis.backend.tasks.execution.metrics_utils import get_requirement_metrics
 
 logger = logging.getLogger(__name__)
@@ -37,17 +37,16 @@ def get_test_and_prompt(
     from rhesis.backend.app.constants import TestType
     from rhesis.backend.tasks.execution.modes import get_test_type
 
-    # Get the test
-    test = crud.get_test(db, UUID(test_id), organization_id=organization_id)
+    # Get the test. Reads test.prompt below for single-turn tests -- eager-load it explicitly.
+    test = (
+        QueryBuilder(db, Test)
+        .with_related(include(Test.prompt))
+        .with_organization_filter(organization_id)
+        .with_custom_filter(lambda q: q.filter(Test.id == UUID(test_id)))
+        .first()
+    )
     if not test:
-        # Fallback query with organization filter
-        test_query = db.query(Test).filter(Test.id == UUID(test_id))
-        if organization_id:
-            test_query = test_query.filter(Test.organization_id == UUID(organization_id))
-        test = test_query.first()
-
-        if not test:
-            raise ValueError(f"Test with ID {test_id} not found")
+        raise ValueError(f"Test with ID {test_id} not found")
 
     # Determine test type
     test_type = get_test_type(test)

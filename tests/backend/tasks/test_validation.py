@@ -15,6 +15,23 @@ from rhesis.backend.app.constants import TestType
 from rhesis.backend.tasks.execution.executors.data import get_test_and_prompt
 
 
+def _mock_query_builder(mocker, test_obj):
+    """Mock the QueryBuilder chain get_test_and_prompt uses to fetch the test.
+
+    QueryBuilder(db, Test).with_related(...).with_organization_filter(...)
+    .with_custom_filter(...).first() -- each chained call returns the same
+    mock so .first() can be configured once.
+    """
+    builder = MagicMock()
+    builder.with_related.return_value = builder
+    builder.with_organization_filter.return_value = builder
+    builder.with_custom_filter.return_value = builder
+    builder.first.return_value = test_obj
+    mocker.patch(
+        "rhesis.backend.tasks.execution.executors.data.QueryBuilder", return_value=builder
+    )
+
+
 def test_single_turn_requires_prompt(mocker):
     """Test that single-turn tests require a prompt."""
     # Mock database session
@@ -28,10 +45,8 @@ def test_single_turn_requires_prompt(mocker):
     mock_test.test_type.type_value = TestType.SINGLE_TURN.value
     mock_test.test_configuration = {}
 
-    # Mock crud.get_test to return our mock test
-    mocker.patch(
-        "rhesis.backend.tasks.execution.executors.data.crud.get_test", return_value=mock_test
-    )
+    # Mock the QueryBuilder chain to return our mock test
+    _mock_query_builder(mocker, mock_test)
 
     # This should raise ValueError for missing prompt
     with pytest.raises(ValueError, match="Single-turn test .* has no associated prompt"):
@@ -51,10 +66,8 @@ def test_multi_turn_requires_goal(mocker):
     mock_test.test_type.type_value = TestType.MULTI_TURN.value
     mock_test.test_configuration = {}  # No goal defined
 
-    # Mock crud.get_test to return our mock test
-    mocker.patch(
-        "rhesis.backend.tasks.execution.executors.data.crud.get_test", return_value=mock_test
-    )
+    # Mock the QueryBuilder chain to return our mock test
+    _mock_query_builder(mocker, mock_test)
 
     # This should raise ValueError for missing goal
     with pytest.raises(ValueError, match="Multi-turn test .* has no goal defined"):
@@ -79,10 +92,8 @@ def test_single_turn_with_prompt_succeeds(mocker):
     mock_test.test_type.type_value = TestType.SINGLE_TURN.value
     mock_test.test_configuration = {}
 
-    # Mock crud.get_test to return our mock test
-    mocker.patch(
-        "rhesis.backend.tasks.execution.executors.data.crud.get_test", return_value=mock_test
-    )
+    # Mock the QueryBuilder chain to return our mock test
+    _mock_query_builder(mocker, mock_test)
 
     # This should succeed
     test, prompt_content, expected_response = get_test_and_prompt(mock_db, str(mock_test.id))
@@ -105,10 +116,8 @@ def test_multi_turn_with_goal_succeeds(mocker):
     mock_test.test_type.type_value = TestType.MULTI_TURN.value
     mock_test.test_configuration = {"goal": "Complete a multi-turn conversation", "max_turns": 5}
 
-    # Mock crud.get_test to return our mock test
-    mocker.patch(
-        "rhesis.backend.tasks.execution.executors.data.crud.get_test", return_value=mock_test
-    )
+    # Mock the QueryBuilder chain to return our mock test
+    _mock_query_builder(mocker, mock_test)
 
     # This should succeed
     test, prompt_content, expected_response = get_test_and_prompt(mock_db, str(mock_test.id))
@@ -132,10 +141,8 @@ def test_multi_turn_with_empty_goal_fails(mocker):
     mock_test.test_type.type_value = TestType.MULTI_TURN.value
     mock_test.test_configuration = {"goal": ""}  # Empty goal
 
-    # Mock crud.get_test to return our mock test
-    mocker.patch(
-        "rhesis.backend.tasks.execution.executors.data.crud.get_test", return_value=mock_test
-    )
+    # Mock the QueryBuilder chain to return our mock test
+    _mock_query_builder(mocker, mock_test)
 
     # This should raise ValueError for empty goal
     with pytest.raises(ValueError, match="Multi-turn test .* has no goal defined"):

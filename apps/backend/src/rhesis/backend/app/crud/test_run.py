@@ -207,6 +207,7 @@ def get_test_run_requirements(
     # Get the actual requirement objects with proper filtering
     return (
         QueryBuilder(db, models.Requirement)
+        .with_related(include(models.Requirement.user))
         .with_visibility_filter()
         .with_custom_filter(lambda q: q.filter(models.Requirement.id.in_(requirement_ids)))
         .with_sorting("name", "asc")

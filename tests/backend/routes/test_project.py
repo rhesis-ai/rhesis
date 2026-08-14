@@ -40,11 +40,11 @@ class ProjectTestMixin:
     endpoints = APIEndpoints.PROJECTS
 
     # Factory-based data methods
-    def get_sample_data(self) -> Dict[str, Any]:
+    def get_sample_data(self, client=None) -> Dict[str, Any]:
         """Return sample project data using factory"""
         return ProjectDataFactory.sample_data()
 
-    def get_minimal_data(self) -> Dict[str, Any]:
+    def get_minimal_data(self, client=None) -> Dict[str, Any]:
         """Return minimal project data using factory"""
         return ProjectDataFactory.minimal_data()
 

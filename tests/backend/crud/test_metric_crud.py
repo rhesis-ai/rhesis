@@ -42,9 +42,8 @@ class TestMetricOperations:
         from tests.backend.routes.fixtures.data_factories import MetricDataFactory
 
         # Create metric using data factory
-        metric_data = MetricDataFactory.sample_data()
-        metric_data.update(
-            {"organization_id": uuid.UUID(test_org_id), "user_id": uuid.UUID(authenticated_user_id)}
+        metric_data = MetricDataFactory.orm_data(
+            test_db, test_org_id, authenticated_user_id
         )
         db_metric = models.Metric(**metric_data)
         test_db.add(db_metric)
@@ -72,28 +71,18 @@ class TestMetricOperations:
         self, test_db: Session, test_org_id: str, authenticated_user_id: str
     ):
         """Test successful metrics listing"""
-        import uuid
-
         from tests.backend.routes.fixtures.data_factories import MetricDataFactory
 
         # Create multiple metrics using data factory
-        metric_data_1 = MetricDataFactory.sample_data()
-        metric_data_1.update(
-            {
-                "name": f"{metric_data_1['name']} Alpha",
-                "organization_id": uuid.UUID(test_org_id),
-                "user_id": uuid.UUID(authenticated_user_id),
-            }
+        metric_data_1 = MetricDataFactory.orm_data(
+            test_db, test_org_id, authenticated_user_id
         )
+        metric_data_1["name"] = f"{metric_data_1['name']} Alpha"
 
-        metric_data_2 = MetricDataFactory.sample_data()
-        metric_data_2.update(
-            {
-                "name": f"{metric_data_2['name']} Beta",
-                "organization_id": uuid.UUID(test_org_id),
-                "user_id": uuid.UUID(authenticated_user_id),
-            }
+        metric_data_2 = MetricDataFactory.orm_data(
+            test_db, test_org_id, authenticated_user_id
         )
+        metric_data_2["name"] = f"{metric_data_2['name']} Beta"
 
         db_metric_1 = models.Metric(**metric_data_1)
         db_metric_2 = models.Metric(**metric_data_2)
@@ -127,9 +116,8 @@ class TestRequirementMetricOperations:
         )
 
         # Create metric and requirement using data factories
-        metric_data = MetricDataFactory.sample_data()
-        metric_data.update(
-            {"organization_id": uuid.UUID(test_org_id), "user_id": uuid.UUID(authenticated_user_id)}
+        metric_data = MetricDataFactory.orm_data(
+            test_db, test_org_id, authenticated_user_id
         )
 
         requirement_data = RequirementDataFactory.sample_data()
@@ -177,9 +165,8 @@ class TestRequirementMetricOperations:
         )
 
         # Create metric and requirement using data factories
-        metric_data = MetricDataFactory.sample_data()
-        metric_data.update(
-            {"organization_id": uuid.UUID(test_org_id), "user_id": uuid.UUID(authenticated_user_id)}
+        metric_data = MetricDataFactory.orm_data(
+            test_db, test_org_id, authenticated_user_id
         )
 
         requirement_data = RequirementDataFactory.sample_data()
@@ -226,9 +213,8 @@ class TestRequirementMetricOperations:
         )
 
         # Create metric and requirement using data factories
-        metric_data = MetricDataFactory.sample_data()
-        metric_data.update(
-            {"organization_id": uuid.UUID(test_org_id), "user_id": uuid.UUID(authenticated_user_id)}
+        metric_data = MetricDataFactory.orm_data(
+            test_db, test_org_id, authenticated_user_id
         )
 
         requirement_data = RequirementDataFactory.sample_data()
@@ -285,9 +271,8 @@ class TestRequirementMetricOperations:
         )
 
         # Create metric and requirement but no association using data factories
-        metric_data = MetricDataFactory.sample_data()
-        metric_data.update(
-            {"organization_id": uuid.UUID(test_org_id), "user_id": uuid.UUID(authenticated_user_id)}
+        metric_data = MetricDataFactory.orm_data(
+            test_db, test_org_id, authenticated_user_id
         )
 
         requirement_data = RequirementDataFactory.sample_data()
@@ -333,9 +318,8 @@ class TestRequirementMetricOperations:
         from tests.backend.routes.fixtures.data_factories import MetricDataFactory
 
         # Create metric using data factory
-        metric_data = MetricDataFactory.sample_data()
-        metric_data.update(
-            {"organization_id": uuid.UUID(test_org_id), "user_id": uuid.UUID(authenticated_user_id)}
+        metric_data = MetricDataFactory.orm_data(
+            test_db, test_org_id, authenticated_user_id
         )
         db_metric = models.Metric(**metric_data)
         test_db.add(db_metric)

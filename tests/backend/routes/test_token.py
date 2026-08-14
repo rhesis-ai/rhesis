@@ -47,11 +47,11 @@ class TokenTestMixin:
     description_field = None  # Tokens don't have a description field
 
     # Factory-based data methods
-    def get_sample_data(self) -> Dict[str, Any]:
+    def get_sample_data(self, client=None) -> Dict[str, Any]:
         """Return sample token data using factory"""
         return TokenDataFactory.sample_data()
 
-    def get_minimal_data(self) -> Dict[str, Any]:
+    def get_minimal_data(self, client=None) -> Dict[str, Any]:
         """Return minimal token data using factory"""
         return TokenDataFactory.minimal_data()
 

@@ -23,7 +23,7 @@ from typing import Any, Dict, List, Optional
 
 from faker import Faker
 
-from rhesis.backend.app.constants import EntityType
+from rhesis.backend.app.constants import EntityType, MetricBackendType, MetricType
 from rhesis.backend.app.schemas.telemetry import (
     SpanKind,
     StatusCode,
@@ -32,6 +32,31 @@ from rhesis.backend.app.schemas.telemetry import (
 # Initialize Faker with consistent seed for reproducible tests
 fake = Faker()
 Faker.seed(12345)
+
+
+def find_or_create_type_lookup_id(client, type_name: str, type_value: str) -> str:
+    """Look up a type_lookup row's id via the API, creating it if missing.
+
+    For factories whose target API only accepts a raw *_id UUID FK (no
+    string-to-lookup shortcut like Metric's crud/metric.py has) -- e.g.
+    Model.provider_type_id, Source.source_type_id -- so a test payload can
+    reference a real row instead of leaving the FK NULL. type_name/type_value
+    pairs used here (e.g. "ProviderType"/"openai") are already seeded into
+    every test org by initial_data.json, so this is normally just a lookup.
+    """
+    # sort_order=asc: these rows are seeded once at org bootstrap (initial_data.json),
+    # so they're among the oldest -- robust regardless of how many type_lookups
+    # accumulate later in the same test, unlike relying on the default desc order.
+    existing = client.get(
+        "/type_lookups/", params={"limit": 100, "sort_order": "asc"}
+    ).json()
+    for row in existing:
+        if row["type_name"] == type_name and row["type_value"] == type_value:
+            return row["id"]
+    created = client.post(
+        "/type_lookups/", json={"type_name": type_name, "type_value": type_value}
+    )
+    return created.json()["id"]
 
 
 class BaseDataFactory(ABC):
@@ -319,10 +344,56 @@ class MetricDataFactory(BaseDataFactory):
         # Required on create and NOT NULL in the table: a metric with no scope is
         # never evaluated by any execution path.
         data.setdefault("metric_scope", ["Single-Turn"])
+        # Real metrics always have these set (crud/metric.py resolves the string to a
+        # type_lookup row); leaving them unset here made every test metric's
+        # metric_type_id/backend_type_id NULL, masking N+1s that only fire when populated.
+        data.setdefault("metric_type", MetricType.CUSTOM_PROMPT)
+        data.setdefault("backend_type", MetricBackendType.RHESIS)
         return data
 
     # Kept as an alias: the old name described only part of what it now does.
     _add_score_type_fields = _add_required_fields
+
+    @classmethod
+    def orm_data(
+        cls, db, organization_id, user_id, **overrides: Any
+    ) -> Dict[str, Any]:
+        """sample_data(), with metric_type/backend_type resolved to real
+        metric_type_id/backend_type_id via type_lookup rows, and organization_id/
+        user_id set to match -- ready to pass straight into models.Metric(**data).
+
+        For tests that build models.Metric(**data) directly instead of going through
+        the API: the ORM constructor sets the metric_type/backend_type *relationship*
+        attributes verbatim, so the plain string values from sample_data() (meant for
+        crud/metric.py's string-to-type_lookup conversion) fail on flush.
+        """
+        import uuid
+
+        from rhesis.backend.app.utils.crud_utils import get_or_create_type_lookup
+
+        data = cls.sample_data()
+        data.update(overrides)
+        metric_type = data.pop("metric_type", None)
+        backend_type = data.pop("backend_type", None)
+        if metric_type:
+            data["metric_type_id"] = get_or_create_type_lookup(
+                db,
+                type_name="MetricType",
+                type_value=metric_type,
+                organization_id=organization_id,
+                user_id=user_id,
+            ).id
+        if backend_type:
+            data["backend_type_id"] = get_or_create_type_lookup(
+                db,
+                type_name="BackendType",
+                type_value=backend_type,
+                organization_id=organization_id,
+                user_id=user_id,
+            ).id
+        data["organization_id"] = uuid.UUID(str(organization_id))
+        data["user_id"] = uuid.UUID(str(user_id))
+        return data
 
     @classmethod
     def minimal_data(cls) -> Dict[str, Any]:

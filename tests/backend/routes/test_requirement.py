@@ -37,11 +37,11 @@ class RequirementTestMixin:
     endpoints = APIEndpoints.REQUIREMENTS
 
     # Factory-based data methods
-    def get_sample_data(self) -> Dict[str, Any]:
+    def get_sample_data(self, client=None) -> Dict[str, Any]:
         """Return sample requirement data using factory"""
         return RequirementDataFactory.sample_data()
 
-    def get_minimal_data(self) -> Dict[str, Any]:
+    def get_minimal_data(self, client=None) -> Dict[str, Any]:
         """Return minimal requirement data using factory"""
         return RequirementDataFactory.minimal_data()
 

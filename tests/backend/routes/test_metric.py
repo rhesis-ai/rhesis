@@ -39,11 +39,11 @@ class MetricTestMixin:
     endpoints = APIEndpoints.METRICS
 
     # Factory-based data methods
-    def get_sample_data(self) -> Dict[str, Any]:
+    def get_sample_data(self, client=None) -> Dict[str, Any]:
         """Return sample metric data using factory"""
         return MetricDataFactory.sample_data()
 
-    def get_minimal_data(self) -> Dict[str, Any]:
+    def get_minimal_data(self, client=None) -> Dict[str, Any]:
         """Return minimal metric data using factory"""
         return MetricDataFactory.minimal_data()
 

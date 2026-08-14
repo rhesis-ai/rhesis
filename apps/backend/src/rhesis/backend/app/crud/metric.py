@@ -404,6 +404,7 @@ def get_metric_requirements(
 
     return (
         QueryBuilder(db, models.Requirement)
+        .with_related(include(models.Requirement.user))
         .with_organization_filter(organization_id)
         .with_custom_filter(
             lambda q: q.join(models.requirement_metric_association).filter(
@@ -456,6 +457,7 @@ def get_requirement_metrics(
 
     return (
         QueryBuilder(db, models.Metric)
+        .with_related(include(models.Metric.metric_type), include(models.Metric.backend_type))
         .with_organization_filter(organization_id)
         .with_custom_filter(
             lambda q: q.join(models.requirement_metric_association).filter(
@@ -470,6 +472,27 @@ def get_requirement_metrics(
 
 
 # Test Set Metric CRUD
+def get_test_set_metrics(
+    db: Session, test_set_id: UUID, organization_id: str
+) -> List[models.Metric]:
+    """Get all metrics associated with a test set.
+
+    Queries Metric via the association table rather than reading TestSet.metrics
+    directly -- robust regardless of whether the caller's TestSet object eager-loaded it.
+    """
+    return (
+        QueryBuilder(db, models.Metric)
+        .with_related(include(models.Metric.metric_type), include(models.Metric.backend_type))
+        .with_organization_filter(organization_id)
+        .with_custom_filter(
+            lambda q: q.join(models.test_set_metric_association).filter(
+                models.test_set_metric_association.c.test_set_id == test_set_id
+            )
+        )
+        .all()
+    )
+
+
 def add_metric_to_test_set(
     db: Session, test_set_id: UUID, metric_id: UUID, user_id: UUID, organization_id: UUID
 ) -> bool:

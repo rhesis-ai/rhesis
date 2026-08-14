@@ -715,7 +715,7 @@ def get_test_set_metrics(
     db_test_set = resolve_test_set_or_raise(
         test_set_identifier, db, str(current_user.organization_id)
     )
-    return db_test_set.metrics or []
+    return metric_crud.get_test_set_metrics(db, db_test_set.id, str(current_user.organization_id))
 
 
 @router.post(
@@ -761,8 +761,9 @@ def add_metric_to_test_set(
                 status_code=400, detail="Metric is already associated with this test set"
             )
         db.commit()
-        db.refresh(db_test_set)
-        return db_test_set.metrics or []
+        return metric_crud.get_test_set_metrics(
+            db, db_test_set.id, str(current_user.organization_id)
+        )
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
@@ -806,8 +807,9 @@ def remove_metric_from_test_set(
                 status_code=400, detail="Metric is not associated with this test set"
             )
         db.commit()
-        db.refresh(db_test_set)
-        return db_test_set.metrics or []
+        return metric_crud.get_test_set_metrics(
+            db, db_test_set.id, str(current_user.organization_id)
+        )
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 

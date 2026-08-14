@@ -26,7 +26,7 @@ from fastapi import status
 
 from .base import BaseEntityRouteTests, BaseEntityTests
 from .endpoints import APIEndpoints
-from .fixtures.data_factories import SourceDataFactory
+from .fixtures.data_factories import SourceDataFactory, find_or_create_type_lookup_id
 
 # Initialize Faker
 fake = Faker()
@@ -45,13 +45,28 @@ class SourceTestMixin:
     description_field = "description"
 
     # Factory-based data methods
-    def get_sample_data(self) -> Dict[str, Any]:
-        """Return sample source data using factory"""
-        return SourceDataFactory.sample_data()
+    def get_sample_data(self, client=None) -> Dict[str, Any]:
+        """Return sample source data using factory.
 
-    def get_minimal_data(self) -> Dict[str, Any]:
-        """Return minimal source data using factory"""
-        return SourceDataFactory.minimal_data()
+        source_type_id is left NULL without client -- Source.source_type_id
+        has no string-to-lookup shortcut like Metric's, so a real FK needs an
+        API call to look one up.
+        """
+        data = SourceDataFactory.sample_data()
+        if client is not None:
+            data["source_type_id"] = find_or_create_type_lookup_id(
+                client, "SourceType", "Document"
+            )
+        return data
+
+    def get_minimal_data(self, client=None) -> Dict[str, Any]:
+        """Return minimal source data using factory. See get_sample_data re: client."""
+        data = SourceDataFactory.minimal_data()
+        if client is not None:
+            data["source_type_id"] = find_or_create_type_lookup_id(
+                client, "SourceType", "Document"
+            )
+        return data
 
     def get_update_data(self) -> Dict[str, Any]:
         """Return source update data using factory"""

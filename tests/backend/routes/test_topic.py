@@ -45,11 +45,11 @@ class TopicTestMixin:
     description_field = "description"
 
     # Factory-based data methods
-    def get_sample_data(self) -> Dict[str, Any]:
+    def get_sample_data(self, client=None) -> Dict[str, Any]:
         """Return sample topic data using factory"""
         return TopicDataFactory.sample_data()
 
-    def get_minimal_data(self) -> Dict[str, Any]:
+    def get_minimal_data(self, client=None) -> Dict[str, Any]:
         """Return minimal topic data using factory"""
         return TopicDataFactory.minimal_data()
 
