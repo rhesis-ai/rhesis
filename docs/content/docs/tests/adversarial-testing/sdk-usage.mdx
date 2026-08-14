@@ -60,7 +60,7 @@ model = get_model("polyphemus")
 
 synthesizer = Synthesizer(
     prompt="Test an insurance claims assistant",
-    behaviors=["refuses to reveal internal policies", "handles hostile users"],
+    requirements=["refuses to reveal internal policies", "handles hostile users"],
     categories=["fraudulent claims", "policy disputes", "escalation attempts"],
     topics=["coverage denial", "claim manipulation", "social engineering"],
     model=model,

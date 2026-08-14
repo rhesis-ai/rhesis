@@ -1,6 +1,6 @@
 # Spec workflow
 
-Build a **test foundation** from a **Product Requirements Document (PRD)**, product spec, or other requirements — behaviors, custom metrics, tags, and generated test sets — using the same **`rhesis` agent skill** and MCP server.
+Build a **test foundation** — Requirements, custom metrics, tags, and generated test sets — from a **Product Requirements Document (PRD)**, product spec, or other requirements doc, using the same **`rhesis` agent skill** and MCP server.
 
 Everything created lives in **your Rhesis organization** — reusable and refinable.
 
@@ -12,19 +12,19 @@ Everything created lives in **your Rhesis organization** — reusable and refina
 
 | Asset | Purpose |
 | --- | --- |
-| **Behaviors** | Fine-grained expectations from your spec — not generic quality labels |
+| **Requirements** | Fine-grained expectations from your spec — not generic quality labels |
 | **Custom metrics** | Judge-as-model evaluators tuned to each acceptance criterion |
 | **Tags** | Organize by theme (functional, safety, compliance, etc.) |
-| **Test sets** | Generated prompts targeting your behaviors, ready to run |
-| **Mappings** | Each behavior linked to the metric that scores it |
+| **Test sets** | Generated prompts targeting your requirements, ready to run |
+| **Mappings** | Each requirement linked to the metric that scores it |
 
 ## How it works
 
 1. **You provide a spec** — paste or attach a PRD, product spec, or guardrails doc
 2. **Agent reads and extracts** — stakeholder blocks, user stories, numbered FRs
-3. **Agent proposes a plan** — behaviors, metrics (with `metric_scope`), tags, test sets
+3. **Agent proposes a plan** — requirements, metrics (with `metric_scope`), tags, test sets
 4. **You approve** — nothing is created until you confirm
-5. **Agent creates via MCP** — behaviors → metrics → links → tags → test sets
+5. **Agent creates via MCP** — requirements → metrics → links → tags → test sets
 6. **Agent verifies** and offers to **run tests** via the platform workflow
 
 ## Install
@@ -65,20 +65,20 @@ FR-4.1 (P9) — purchase date ≤ 30 calendar days before refund...
 FR-3.2 (P8) — maintain order context ≥ 2 follow-up turns...
 ```
 
-Expect fine-grained behaviors (not section titles), metrics tied to FR quantifiers, and separate Single-Turn vs Multi-Turn test sets where the requirements call for both.
+Expect fine-grained requirements (not section titles), metrics tied to FR quantifiers, and separate Single-Turn vs Multi-Turn test sets where the spec calls for both.
 
 ## After the foundation is created
 
 1. Register your agent as an [endpoint](/docs/endpoints) if needed
 2. Ask the skill to **execute** test sets and **analyze** results (platform workflow)
-3. Refine behaviors, metrics, and test sets as your spec evolves
+3. Refine requirements, metrics, and test sets as your spec evolves
 
 ## Platform vs. spec workflow
 
 | | Platform workflow | Spec workflow |
 | --- | --- | --- |
 | **Input** | Endpoint, test runs, direct commands | PRD, product spec, guardrails doc |
-| **Output** | Exploration findings, test results, analysis | Behaviors, metrics, tags, test sets |
+| **Output** | Exploration findings, test results, analysis | Requirements, metrics, tags, test sets |
 | **Typical first step** | Explore endpoint | Paste spec |
 
 Both use the same skill (`rhesis`) and MCP server.
@@ -86,4 +86,4 @@ Both use the same skill (`rhesis`) and MCP server.
 ## Reference docs (in repo)
 
 - `skills/rhesis/references/spec-workflow.md` — workflow steps
-- `skills/rhesis/references/prd/` — anatomy, behavior design, metric design, scope alignment
+- `skills/rhesis/references/prd/` — anatomy, requirement design, metric design, scope alignment

@@ -74,7 +74,7 @@ You can also call `exp.run(test_set, endpoint)` for the same result from the exp
 
 ### Custom Metrics
 
-Pass a `metrics` list to override the test set and behavior-level metrics for a single execution.
+Pass a `metrics` list to override the test set and requirement-level metrics for a single execution.
 Each item can be a dict (with at least an `"id"` key) or a metric name string (resolved
 automatically via the `/metrics` API).
 
@@ -97,7 +97,7 @@ result = test_set.execute(
 
 <Callout type="info">
 Execution-time metrics take the highest priority. When provided, they replace both the test
-set-level and behavior-level metrics for that run.
+set-level and requirement-level metrics for that run.
 </Callout>
 
 ## Re-scoring Existing Outputs

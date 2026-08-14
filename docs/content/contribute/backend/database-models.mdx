@@ -17,7 +17,7 @@ UUID primary keys are used instead of sequential integers for security and distr
 
 - **User** — `email` (unique), `name`, `is_active`, `is_verified` (admin/Polyphemus access gate), `organization_id`, and `user_settings` (JSONB preferences, see [User Settings](/contribute/backend/user-settings)).
 - **Organization** — a tenant in the multi-tenant architecture: `name`, `slug`, `is_active`, plus domain and subscription fields.
-- **Prompt** — the input text sent to a model: `content`, `expected_response`, and FKs to behavior, category, topic, and source.
+- **Prompt** — the input text sent to a model: `content`, `expected_response`, and FKs to requirement, category, topic, and source.
 - **Test** — pairs a `Prompt` (`prompt_id`) with metadata: `priority`, `test_type_id`, `status_id`, and owner/assignee. A test's text comes from its linked prompt, not from its own columns.
 - **TestSet** — a named collection of tests (many-to-many with `Test`): `name`, `description`, `status_id`.
 - **Model** — an AI model configuration: `name`, `model_name` (provider identifier), `model_type`, `endpoint`, and `provider_type` (FK to a type lookup). API keys are stored encrypted.

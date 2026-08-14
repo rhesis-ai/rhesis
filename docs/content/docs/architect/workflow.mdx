@@ -30,9 +30,9 @@ Architect explores your endpoint first — before asking you questions. It figur
 
 ## Planning
 
-Architect proposes a structured plan: behaviors to test, test sets to generate, metrics to evaluate with, and how they connect. It checks what already exists on the platform and reuses it where possible.
+Architect proposes a structured plan: requirements to test, test sets to generate, metrics to evaluate with, and how they connect. It checks what already exists on the platform and reuses it where possible.
 
-**What you see:** The plan panel appears between the chat and the input. Behaviors and metrics are labelled **(reuse)**, **(improve)**, or **(new)**.
+**What you see:** The plan panel appears between the chat and the input. Requirements and metrics are labelled **(reuse)**, **(improve)**, or **(new)**.
 
 **What you do:** Read the plan. Ask for changes — "add a robustness test set", "use the existing Accuracy metric instead". Architect updates the plan and waits again.
 
@@ -48,7 +48,7 @@ Before creating anything, Architect presents its proposal and asks for your expl
 
 ## Creating
 
-Architect creates entities in order: behaviors first, then metrics, then behavior-metric links — and generates test sets last, once every prerequisite is in place. It reports each step as it completes.
+Architect creates entities in order: requirements first, then metrics, then requirement-metric links — and generates test sets last, once every prerequisite is in place. It reports each step as it completes.
 
 **What you see:** The plan panel checkboxes tick off as each item is done. The mode chip reads `creating`.
 
@@ -58,7 +58,7 @@ Architect creates entities in order: behaviors first, then metrics, then behavio
 
 Once everything is set up, Architect offers to run the tests. Confirm, and it executes them against your endpoint and waits for results automatically.
 
-**What you see:** The mode chip reads `executing`. When the run completes, Architect presents a structured summary: overall pass rate, behavior breakdown, metric breakdown, and notable failures with the evaluator's reasoning.
+**What you see:** The mode chip reads `executing`. When the run completes, Architect presents a structured summary: overall pass rate, requirement breakdown, metric breakdown, and notable failures with the evaluator's reasoning.
 
 → [Running and Analyzing](/docs/architect/execution-and-analysis) covers the result format and comparison workflow.
 

@@ -97,12 +97,12 @@ agent = ArchitectAgent(model="vertex_ai/gemini-2.0-flash", config=config)`}
 | Model | Key fields |
 | --- | --- |
 | `ProjectSpec` | `name`, `description`, `completed` |
-| `BehaviorSpec` | `name`, `description`, `reuse_status`, `existing_id`, `completed` |
-| `TestSetSpec` | `name`, `description`, `num_tests`, `test_type`, `generation_prompt`, `behaviors`, `categories`, `topics`, `completed` |
+| `RequirementSpec` | `name`, `description`, `reuse_status`, `existing_id`, `completed` |
+| `TestSetSpec` | `name`, `description`, `num_tests`, `test_type`, `generation_prompt`, `requirements`, `categories`, `topics`, `completed` |
 | `MetricSpec` | `name`, `description`, `reuse_status`, `existing_id`, `evaluation_prompt`, `evaluation_steps`, `threshold`, `threshold_operator`, `completed` |
-| `MappingSpec` | `behavior`, `metrics` (list of metric names), `completed` |
+| `MappingSpec` | `requirement`, `metrics` (list of metric names), `completed` |
 
-`reuse_status` is a `Literal["reuse", "improve", "new"]` on `BehaviorSpec` and `MetricSpec`.
+`reuse_status` is a `Literal["reuse", "improve", "new"]` on `RequirementSpec` and `MetricSpec`.
 
 ### `save_plan` auto-generation
 
@@ -121,13 +121,13 @@ This means the plan schema stays in sync with the Pydantic model automatically. 
 | --- | --- | --- |
 | `list_sources` | `DISCOVERY` | — |
 | `create_project` | `CREATING` | `PROJECT` |
-| `create_behavior` | `CREATING` | `BEHAVIOR` |
+| `create_requirement` | `CREATING` | `REQUIREMENT` |
 | `generate_test_set` | `CREATING` | `TEST_SET` |
 | `create_test_set_bulk` | `CREATING` | `TEST_SET` |
 | `create_metric` | `CREATING` | `METRIC` |
 | `generate_metric` | `CREATING` | `METRIC` |
 | `improve_metric` | `CREATING` | `METRIC` |
-| `add_behavior_to_metric` | `CREATING` | `MAPPING` |
+| `add_requirement_to_metric` | `CREATING` | `MAPPING` |
 | `execute_test_set` | `EXECUTING` | — |
 | `get_test_result_stats` | `EXECUTING` | — |
 | `get_test_run_stats` | `EXECUTING` | — |
@@ -177,7 +177,7 @@ A tool is considered mutating if its HTTP method is **not** in `ArchitectConfig.
 {`# tool_registry.py
 TOOL_REGISTRY["my_new_tool"] = ToolEntry(
     mode=AgentMode.CREATING,
-    plan_category=PlanCategory.BEHAVIOR,  # or None
+    plan_category=PlanCategory.REQUIREMENT,  # or None
 )`}
 </CodeBlock>
 
