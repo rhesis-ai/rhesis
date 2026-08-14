@@ -53,9 +53,8 @@ class TestRequirementMetricSecurity:
         test_db.flush()
 
         # Create metric in org1 and requirement in org2 using data factories
-        metric_data_org1 = MetricDataFactory.sample_data()
-        metric_data_org1.update(
-            {"organization_id": uuid.UUID(org1_id), "user_id": uuid.UUID(authenticated_user_id)}
+        metric_data_org1 = MetricDataFactory.orm_data(
+            test_db, org1_id, authenticated_user_id
         )
 
         requirement_data_org2 = RequirementDataFactory.sample_data()
@@ -107,9 +106,8 @@ class TestRequirementMetricSecurity:
         test_db.flush()
 
         # Create metric in org1 and requirement in org2 using data factories
-        metric_data_org1 = MetricDataFactory.sample_data()
-        metric_data_org1.update(
-            {"organization_id": uuid.UUID(org1_id), "user_id": uuid.UUID(authenticated_user_id)}
+        metric_data_org1 = MetricDataFactory.orm_data(
+            test_db, org1_id, authenticated_user_id
         )
 
         requirement_data_org2 = RequirementDataFactory.sample_data()
@@ -152,9 +150,8 @@ class TestRequirementMetricSecurity:
         test_db.flush()
 
         # Create metric and requirement in org1 using data factories
-        metric_data_org1 = MetricDataFactory.sample_data()
-        metric_data_org1.update(
-            {"organization_id": uuid.UUID(org1_id), "user_id": uuid.UUID(authenticated_user_id)}
+        metric_data_org1 = MetricDataFactory.orm_data(
+            test_db, org1_id, authenticated_user_id
         )
 
         requirement_data_org1 = RequirementDataFactory.sample_data()
@@ -215,9 +212,8 @@ class TestRequirementMetricSecurity:
         test_db.flush()
 
         # Create metric in org1 using data factory
-        metric_data_org1 = MetricDataFactory.sample_data()
-        metric_data_org1.update(
-            {"organization_id": uuid.UUID(org1_id), "user_id": uuid.UUID(authenticated_user_id)}
+        metric_data_org1 = MetricDataFactory.orm_data(
+            test_db, org1_id, authenticated_user_id
         )
         db_metric_org1 = models.Metric(**metric_data_org1)
         test_db.add(db_metric_org1)
