@@ -34,6 +34,7 @@ team:
     endpoints: null
   retention_days: 90
   overage: soft
+  overage_tolerance_percent: 25
 
 enterprise: &unlimited_tier
   all_features: true
@@ -48,6 +49,7 @@ enterprise: &unlimited_tier
     endpoints: null
   retention_days: 365
   overage: soft
+  overage_tolerance_percent: 25
 
 # Internal tier (see LicenseEdition docstring). Currently identical to
 # enterprise; the merge key keeps that fact explicit instead of two

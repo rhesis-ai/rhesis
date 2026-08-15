@@ -1,9 +1,10 @@
-"""Config-backed quota provider that resolves limits from tier_config.yaml.
+"""Config-backed quota provider that resolves policy from tier_config.yaml.
 
 Installed by :func:`~rhesis.backend.ee.bootstrap` when the EE package
 is present.  Resolves the organization's edition from the license
-provider, then looks up per-resource limits in the YAML-loaded tier
-catalog.  Unlicensed orgs get the community (free-tier) entry.
+provider, then looks up the limits and overage policy defined in the
+YAML-loaded tier catalog.  Unlicensed orgs get the community (free-tier)
+entry.
 """
 
 from __future__ import annotations
@@ -12,19 +13,19 @@ import logging
 from typing import Optional
 
 from rhesis.backend.app.models.organization import Organization
-from rhesis.backend.app.quota import QuotaResource
+from rhesis.backend.app.quota import QuotaPolicy
 from rhesis.backend.ee.licensing.entitlements import LicenseEdition
-from rhesis.backend.ee.licensing.tiers import resolve_limits
+from rhesis.backend.ee.licensing.tiers import resolve_policy
 
 logger = logging.getLogger(__name__)
 
 
 class ConfigQuotaProvider:
-    """Resolves quota limits from the tier YAML config.
+    """Resolves quota policy from the tier YAML config.
 
     For each organization, it determines the edition from the license
-    provider's entitlements, then returns the limits defined in the
-    config for that edition.
+    provider's entitlements, then returns the limits and overage policy
+    defined in the config for that edition.
     """
 
     def _resolve_edition(self, org: Optional[Organization]) -> Optional[LicenseEdition]:
@@ -52,9 +53,9 @@ class ConfigQuotaProvider:
             return None
         return edition
 
-    def get_limits(self, org: Optional[Organization] = None) -> dict[QuotaResource, int | None]:
+    def get_policy(self, org: Optional[Organization] = None) -> QuotaPolicy:
         edition = self._resolve_edition(org)
-        return resolve_limits(edition)
+        return resolve_policy(edition)
 
 
 __all__ = ["ConfigQuotaProvider"]

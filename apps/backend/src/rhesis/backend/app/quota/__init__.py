@@ -11,10 +11,18 @@ resource identifiers.  Add new members here when adding a new metered
 resource.  Because ``QuotaResource`` inherits from ``str``, members
 serialize transparently to JSON and compare equal to their raw string
 values (``QuotaResource.TEST_EXECUTIONS == "test_executions"``).
+
+Actual enforcement (blocking a request once a limit is reached) lives in
+:mod:`rhesis.backend.app.quota.enforcement`, not here -- this module only
+resolves *what the limits and overage policy are*, not what to do about
+them. Keeping that split means the token-usage gate in
+``user_model_utils.py`` and the HTTP gate in ``auth/quota_gates.py`` share
+one blocking rule instead of each re-deriving it.
 """
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional, Protocol, Union
 
@@ -48,6 +56,26 @@ class QuotaResource(str, Enum):
 QuotaResourceLike = Union[QuotaResource, str]
 
 
+class OveragePolicy(str, Enum):
+    """What happens when an organization reaches a limit.
+
+    ``HARD`` blocks at the limit. ``SOFT`` allows a configurable grace band
+    past it (see :attr:`QuotaPolicy.overage_tolerance_percent`) and only
+    blocks once that is exhausted, so a paying customer is warned before
+    being cut off mid-work rather than after.
+
+    Replaces the bare ``"hard"``/``"soft"`` strings previously carried on
+    ``TierSpec`` and in the tier YAML, keeping resource *and* policy
+    identifiers typed for the same reason (see :class:`QuotaResource`).
+    """
+
+    def __str__(self) -> str:
+        return self.value
+
+    HARD = "hard"
+    SOFT = "soft"
+
+
 # Free-tier defaults applied when no EE quota provider is installed, and the
 # safety-net catalog EE falls back to if its tier config YAML is missing or
 # malformed. Exported (not underscore-prefixed) so both consumers -- and a
@@ -64,6 +92,45 @@ FREE_TIER_LIMITS: dict[QuotaResource, int | None] = {
 }
 
 
+@dataclass(frozen=True)
+class QuotaPolicy:
+    """An organization's resolved limits plus what to do when they are hit.
+
+    :param limits: per-resource caps; ``None`` means unlimited.
+    :param overage: whether reaching a limit blocks immediately
+        (:attr:`OveragePolicy.HARD`) or allows a grace band
+        (:attr:`OveragePolicy.SOFT`).
+    :param overage_tolerance_percent: how far past a limit a ``SOFT`` tier
+        may run before it hard-blocks, as a whole percent. ``0`` means no
+        grace, which makes ``SOFT`` behave identically to ``HARD``.
+
+    A percent rather than a float multiplier so the tier YAML reads as
+    ``overage_tolerance_percent: 25`` instead of ``1.25``, and so
+    :meth:`ceiling_for` stays integer arithmetic -- ``used`` is an integer
+    count and comparing it against a float ceiling invites the usual
+    floating-point boundary surprises at exactly the value that decides
+    whether a customer is blocked.
+    """
+
+    limits: dict[QuotaResource, int | None] = field(default_factory=dict)
+    overage: OveragePolicy = OveragePolicy.HARD
+    overage_tolerance_percent: int = 0
+
+    def ceiling_for(self, limit: Optional[int]) -> Optional[int]:
+        """Return the value of ``used`` at which *limit* actually blocks.
+
+        ``None`` (unlimited) passes straight through. For ``HARD`` -- and
+        for ``SOFT`` with zero tolerance -- the ceiling is the limit itself,
+        so both policies fall out of one expression with no branch at the
+        call site.
+        """
+        if limit is None:
+            return None
+        if self.overage is not OveragePolicy.SOFT:
+            return limit
+        return limit * (100 + self.overage_tolerance_percent) // 100
+
+
 def limits_to_wire(limits: dict[QuotaResource, int | None]) -> dict[str, int | None]:
     """Convert a ``QuotaResource``-keyed limits dict to string keys for the wire.
 
@@ -75,36 +142,43 @@ def limits_to_wire(limits: dict[QuotaResource, int | None]) -> dict[str, int | N
 
 
 class QuotaProvider(Protocol):
-    """Pluggable limit resolver.
+    """Pluggable limit and overage-policy resolver.
 
-    Implementations decide what numeric limits apply to a given
-    organization for each metered resource.  Only one implementation is
-    active per process, installed via
-    :meth:`QuotaRegistry.set_quota_provider`.
+    Implementations decide what limits and overage policy apply to a given
+    organization. Only one implementation is active per process, installed
+    via :meth:`QuotaRegistry.set_quota_provider`.
+
+    Deliberately a single method. An earlier version of this protocol also
+    required ``get_limits()``, which meant every implementation carried two
+    overlapping methods that had to agree with each other. ``QuotaPolicy``
+    already carries ``limits``, so :meth:`QuotaRegistry.get_limits` derives
+    from :meth:`QuotaRegistry.get_policy` instead of asking providers for it
+    a second way.
     """
 
-    def get_limits(self, org: Optional[Organization] = None) -> dict[QuotaResource, int | None]: ...
+    def get_policy(self, org: Optional[Organization] = None) -> QuotaPolicy: ...
 
 
 class DefaultQuotaProvider:
-    """Returns hardcoded free-tier limits for every org.
+    """Returns hardcoded free-tier limits and hard enforcement for every org.
 
     Active when the EE package is not installed or no license is
     configured.  In production,
     :class:`~rhesis.backend.ee.licensing.quota_provider.ConfigQuotaProvider`
-    replaces this and resolves limits from the tier YAML config.
+    replaces this and resolves the policy from the tier YAML config.
     """
 
-    def get_limits(self, org: Optional[Organization] = None) -> dict[QuotaResource, int | None]:
-        return dict(FREE_TIER_LIMITS)
+    def get_policy(self, org: Optional[Organization] = None) -> QuotaPolicy:
+        return QuotaPolicy(limits=dict(FREE_TIER_LIMITS))
 
 
 class QuotaRegistry:
-    """Singleton registry for quota limits.
+    """Singleton registry for quota policy.
 
-    Holds the installed :class:`QuotaProvider`.  Callers query limits
-    via :meth:`get_limit` / :meth:`get_limits`; the provider decides
-    how to resolve them (hardcoded defaults vs. YAML config vs. DB).
+    Holds the installed :class:`QuotaProvider`.  Callers query the policy
+    via :meth:`get_policy`, or just the limits via :meth:`get_limit` /
+    :meth:`get_limits`; the provider decides how to resolve them (hardcoded
+    defaults vs. YAML config vs. DB).
     """
 
     _provider: QuotaProvider = DefaultQuotaProvider()
@@ -129,9 +203,19 @@ class QuotaRegistry:
         return QuotaResource(resource)
 
     @classmethod
+    def get_policy(cls, org: Optional[Organization] = None) -> QuotaPolicy:
+        """Return the resolved limits and overage policy for *org*."""
+        return cls._provider.get_policy(org)
+
+    @classmethod
     def get_limits(cls, org: Optional[Organization] = None) -> dict[QuotaResource, int | None]:
-        """Return all resource limits for *org*."""
-        return cls._provider.get_limits(org)
+        """Return all resource limits for *org*.
+
+        A thin wrapper over :meth:`get_policy` -- kept as its own method
+        because ``services/usage.py`` and ``routers/features.py`` only ever
+        need the limits, not the overage policy, and predate that field.
+        """
+        return cls.get_policy(org).limits
 
     @classmethod
     def get_limit(
@@ -155,6 +239,8 @@ class QuotaRegistry:
 __all__ = [
     "DefaultQuotaProvider",
     "FREE_TIER_LIMITS",
+    "OveragePolicy",
+    "QuotaPolicy",
     "QuotaProvider",
     "QuotaRegistry",
     "QuotaResource",

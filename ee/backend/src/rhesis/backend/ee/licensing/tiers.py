@@ -32,7 +32,13 @@ from typing import Optional
 import yaml
 
 from rhesis.backend.app.features import FeatureName
-from rhesis.backend.app.quota import FREE_TIER_LIMITS, QuotaResource, limits_to_wire
+from rhesis.backend.app.quota import (
+    FREE_TIER_LIMITS,
+    OveragePolicy,
+    QuotaPolicy,
+    QuotaResource,
+    limits_to_wire,
+)
 from rhesis.backend.ee.licensing.entitlements import (
     ENV_TIER_CONFIG,
     LIC_ALL_FEATURES,
@@ -111,7 +117,11 @@ class TierSpec:
     :param limits: metered resource limits keyed by
         :class:`QuotaResource`.  ``None`` values mean unlimited.
     :param retention_days: data retention in days for this tier.
-    :param overage: ``"hard"`` (block) or ``"soft"`` (warn + allow).
+    :param overage: whether reaching a limit blocks immediately or allows
+        the grace band in :attr:`overage_tolerance_percent`.
+    :param overage_tolerance_percent: for :attr:`OveragePolicy.SOFT`, how
+        far past a limit this tier may run before it hard-blocks. Ignored
+        (equivalent to ``0``) for :attr:`OveragePolicy.HARD`.
     """
 
     edition: LicenseEdition
@@ -119,7 +129,16 @@ class TierSpec:
     features: frozenset[FeatureName] = frozenset()
     limits: dict[QuotaResource, int | None] = field(default_factory=dict)
     retention_days: int = 14
-    overage: str = "hard"
+    overage: OveragePolicy = OveragePolicy.HARD
+    overage_tolerance_percent: int = 0
+
+    def to_policy(self) -> QuotaPolicy:
+        """Return the :class:`QuotaPolicy` this tier grants."""
+        return QuotaPolicy(
+            limits=dict(self.limits),
+            overage=self.overage,
+            overage_tolerance_percent=self.overage_tolerance_percent,
+        )
 
     def feature_values(self) -> list[str]:
         """Return granted feature identifiers as sorted wire strings."""
@@ -188,6 +207,48 @@ def _parse_limits(raw: dict[str, int | None]) -> dict[QuotaResource, int | None]
 
         result[resource] = value
     return result
+
+
+def _parse_overage(raw: object) -> OveragePolicy:
+    """Coerce a raw YAML ``overage`` value to an :class:`OveragePolicy`.
+
+    :raises ValueError: on anything other than ``"hard"`` or ``"soft"``.
+    Deliberately not caught by :func:`_load_tier_config`'s fallback, for the
+    same reason as :func:`_parse_limits`: an overage policy this backend
+    doesn't recognize is a config bug, not a "no data yet" situation, and
+    guessing a default here could turn a paid tier's intended grace period
+    into an unannounced hard block, or vice versa.
+    """
+    try:
+        return OveragePolicy(raw)
+    except ValueError:
+        raise ValueError(
+            f"Invalid overage policy {raw!r} in tier config. "
+            f"Valid values: {[p.value for p in OveragePolicy]}"
+        )
+
+
+def _parse_overage_tolerance(raw: object) -> int:
+    """Validate a raw YAML ``overage_tolerance_percent`` value.
+
+    Same shape as the limit-value checks in :func:`_parse_limits`: ``bool``
+    is rejected explicitly because it passes ``isinstance(v, int)``, and a
+    negative percent would make :meth:`QuotaPolicy.ceiling_for` return a
+    ceiling *below* the limit, blocking a soft tier before it even reaches
+    the number it was promised.
+
+    :raises ValueError: if *raw* is not a non-negative ``int``.
+    """
+    if isinstance(raw, bool) or not isinstance(raw, int):
+        raise ValueError(
+            f"Invalid overage_tolerance_percent in tier config: {raw!r} "
+            f"({type(raw).__name__}). Expected a non-negative integer."
+        )
+    if raw < 0:
+        raise ValueError(
+            f"Invalid overage_tolerance_percent in tier config: {raw!r}. Must be non-negative."
+        )
+    return raw
 
 
 def _fallback_catalog() -> dict[LicenseEdition, TierSpec]:
@@ -276,11 +337,16 @@ def _load_tier_config() -> dict[LicenseEdition, TierSpec]:
         # defaults apply for the rest. Hardcoding e.g. `retention_days=14`
         # here would duplicate TierSpec's default and silently drift from
         # it if that default ever changes.
-        overrides = {
-            key: spec_raw[key]
-            for key in ("all_features", "retention_days", "overage")
-            if key in spec_raw
+        overrides: dict[str, object] = {
+            key: spec_raw[key] for key in ("all_features", "retention_days") if key in spec_raw
         }
+        if "overage" in spec_raw:
+            overrides["overage"] = _parse_overage(spec_raw["overage"])
+        if "overage_tolerance_percent" in spec_raw:
+            overrides["overage_tolerance_percent"] = _parse_overage_tolerance(
+                spec_raw["overage_tolerance_percent"]
+            )
+
         catalog[edition] = TierSpec(
             edition=edition,
             features=features,
@@ -353,20 +419,26 @@ def resolve_tier(edition: LicenseEdition) -> TierSpec:
     return EDITION_ENTITLEMENTS[edition]
 
 
-def resolve_limits(edition: Optional[LicenseEdition]) -> dict[QuotaResource, int | None]:
-    """Return limits for *edition*, falling back to community defaults.
+def resolve_policy(edition: Optional[LicenseEdition]) -> QuotaPolicy:
+    """Return the full :class:`QuotaPolicy` for *edition*, falling back to
+    community defaults.
 
     Used for quota lookups, not minting -- unlike :func:`resolve_tier`,
     this intentionally accepts ``None``/``community`` and any edition
     absent from the catalog, since every org (licensed or not) needs a
-    resolvable limits dict.
+    resolvable policy.
     """
     spec = EDITION_ENTITLEMENTS.get(edition) if edition is not None else None
     if spec is None:
         spec = EDITION_ENTITLEMENTS.get(LicenseEdition.COMMUNITY)
     if spec is None:
-        return {}
-    return dict(spec.limits)
+        return QuotaPolicy()
+    return spec.to_policy()
+
+
+def resolve_limits(edition: Optional[LicenseEdition]) -> dict[QuotaResource, int | None]:
+    """Return just the limits for *edition*. See :func:`resolve_policy`."""
+    return resolve_policy(edition).limits
 
 
 def tier_to_lic_claim(
@@ -398,6 +470,7 @@ __all__ = [
     "all_sellable",
     "is_sellable",
     "resolve_limits",
+    "resolve_policy",
     "resolve_tier",
     "tier_to_lic_claim",
 ]
