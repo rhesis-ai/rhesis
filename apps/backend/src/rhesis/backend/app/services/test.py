@@ -665,6 +665,16 @@ def bulk_create_tests(
     _pending_tests: List[models.Test] = []
     defaults = load_defaults()
 
+    # When tests are created directly into an existing test set, that set's
+    # type is authoritative. It also supplies the parent fallback that the
+    # schema validator uses for bulk test-set creation.
+    enforced_set_type = test_type_value
+    if test_set_id and not enforced_set_type:
+        db_test_set = db.query(models.TestSet).filter(models.TestSet.id == test_set_id).first()
+        if db_test_set is not None and db_test_set.test_set_type is not None:
+            enforced_set_type = db_test_set.test_set_type.type_value
+            test_type_value = enforced_set_type
+
     # Create cache for entity lookups - dramatically reduces DB round-trips
     # when many tests share the same topic/requirement/category (common in Garak imports)
     cache = _BulkEntityCache()
@@ -689,6 +699,12 @@ def bulk_create_tests(
                 test_set_type=test_type_value,
                 default_test_type=defaults["test"]["test_type"],
             )
+            if enforced_set_type is not None and type_value_to_use != enforced_set_type:
+                raise ValueError(
+                    f"test[{i}] resolves to '{type_value_to_use}', which does not match "
+                    f"target test set type '{enforced_set_type}'; set test_type on the test "
+                    "or split it into a matching test set."
+                )
             test_data_dict.pop("test_type", None)
 
             # Get or create test type for this specific test (cached)
