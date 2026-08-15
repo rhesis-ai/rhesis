@@ -6,6 +6,7 @@ from sqlalchemy import desc, select
 from sqlalchemy.orm import Query
 
 from rhesis.backend.app.models.category import Category
+from rhesis.backend.app.models.prompt import Prompt
 from rhesis.backend.app.models.requirement import Requirement
 from rhesis.backend.app.models.topic import Topic
 from rhesis.backend.app.models.type_lookup import TypeLookup
@@ -15,6 +16,7 @@ _RELATIONSHIP_SORT_FIELDS = {
     "topic.name": (Topic, "name", "topic_id"),
     "category.name": (Category, "name", "category_id"),
     "test_type.type_value": (TypeLookup, "type_value", "test_type_id"),
+    "prompt.content": (Prompt, "content", "prompt_id"),
 }
 VIRTUAL_RELATIONSHIP_SORT_FIELDS = frozenset(_RELATIONSHIP_SORT_FIELDS)
 
