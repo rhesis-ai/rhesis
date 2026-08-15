@@ -18,7 +18,10 @@ from rhesis.backend.app.config.settings import (
 )
 from rhesis.backend.app.crud import model as model_crud
 from rhesis.backend.app.crud import user as user_crud
+from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.quota import QuotaResource
+from rhesis.backend.app.quota.enforcement import enforce_quota
 from rhesis.backend.app.services.platform_key import get_platform_api_key
 from rhesis.backend.app.utils.model_errors import ModelConfigurationError
 from rhesis.backend.app.utils.usage_tracking import stamp_usage_provenance
@@ -540,7 +543,35 @@ def ensure_language_model(model_or_provider: Union[str, BaseLLM]) -> BaseLLM:
     return model_or_provider
 
 
-def resolve_default_hosted_model(default_model: str) -> Union[str, BaseLLM]:
+def _enforce_model_token_quota(db: Session, organization_id: Optional[str]) -> None:
+    """Enforce the MODEL_TOKENS quota for *organization_id* before a hosted
+    model is constructed.
+
+    Every real call site of :func:`resolve_default_hosted_model` and
+    :func:`_fetch_and_configure_model` already has an organization id in
+    scope -- either from a resolved ``User`` or from the org-scoped
+    ``TestConfiguration``/context object driving the call -- so this is
+    required, not optional, forcing new call sites to pass one rather than
+    silently omitting it. ``organization_id`` itself stays ``Optional``
+    only as a last-resort escape hatch: if a future caller genuinely has
+    none, this skips the check and logs, rather than raising on a org-less
+    construction path we haven't seen yet.
+
+    :raises ~rhesis.backend.app.quota.enforcement.QuotaExceededError: if
+        the org has reached its enforceable ceiling for ``MODEL_TOKENS``.
+    """
+    if not organization_id:
+        logger.warning(
+            "No organization_id available for a hosted-model quota check; skipping enforcement."
+        )
+        return
+    organization = db.query(Organization).filter(Organization.id == organization_id).first()
+    enforce_quota(db, str(organization_id), organization, QuotaResource.MODEL_TOKENS)
+
+
+def resolve_default_hosted_model(
+    default_model: str, db: Session, organization_id: Optional[str]
+) -> Union[str, BaseLLM]:
     """
     Instantiate the system default model, falling back to the bare string.
 
@@ -559,17 +590,33 @@ def resolve_default_hosted_model(default_model: str) -> Union[str, BaseLLM]:
     Construction is cheap (no network call -- provider `__init__`s only set
     up client config) so doing it eagerly costs nothing.
 
-    Takes no organization id: which org to bill is read from the ambient
-    context when usage is actually emitted (see
-    `rhesis.backend.app.usage_attribution`), not captured here.
+    Takes ``db``/``organization_id`` -- unlike an earlier version of this
+    function, which took neither and left MODEL_TOKENS display-only. Every
+    real caller (checked directly rather than assumed) already has an
+    organization id in scope even when it has no resolvable *user*: the
+    batch/sequential execution paths that hit this when a test config
+    carries no user still have `test_config.organization_id`. Which org to
+    *bill* still comes from the ambient context at emission time (see
+    `rhesis.backend.app.usage_attribution`) -- this is only the pre-call
+    check that a hosted call is allowed to happen at all.
 
     Args:
         default_model: A "provider/model_name" string, e.g. "rhesis/rhesis"
+        db: Database session, tenant-scoped for *organization_id* (RLS on
+            the `usage` table this indirectly reads requires it -- see
+            `auth/quota_gates.py` for the same requirement on the HTTP gate).
+        organization_id: The org to enforce the quota against.
 
     Returns:
         A model stamped `usage_metered=True` when construction succeeds; the
         original string otherwise.
+
+    Raises:
+        ~rhesis.backend.app.quota.enforcement.QuotaExceededError: if the org
+            has reached its enforceable ceiling for `MODEL_TOKENS`.
     """
+    _enforce_model_token_quota(db, organization_id)
+
     # No provider restriction: the *system default* is by definition the
     # model this deployment runs on its own credentials, whatever provider
     # it names. A deployment configured with
@@ -702,7 +749,7 @@ def _fetch_and_configure_model(
 
     if not model or not model.provider_type:
         logger.warning("Model with id=%s not found or has no provider_type", model_id)
-        return resolve_default_hosted_model(default_model)
+        return resolve_default_hosted_model(default_model, db, organization_id)
 
     # Get provider configuration
     provider = model.provider_type.type_value
@@ -713,6 +760,19 @@ def _fetch_and_configure_model(
     # reaches LiteLLM as a real key and fails auth instead of falling back.
     api_key = (model.key or "").strip() or None
     _require_own_credentials(provider, api_key, model.endpoint, model.name)
+
+    # Enforce MODEL_TOKENS once, up front, iff this call will end up billed to
+    # us. _is_hosted_model(provider, api_key) is exactly that predicate for
+    # every branch below: the two special-cased branches (rhesis / polyphemus
+    # without a stored key) only special-case providers _is_hosted_model
+    # already considers hosted, and the general path's own `metered=` kwarg
+    # a few lines down is this identical expression. Gating here rather than
+    # unconditionally at function entry is what keeps an org's own key (a
+    # non-hosted provider, or a hosted provider with its own key) from ever
+    # being blocked by *our* token quota -- their call was never going to
+    # cost us anything.
+    if _is_hosted_model(provider, api_key):
+        _enforce_model_token_quota(db, organization_id)
 
     # Special handling for Rhesis system models
     if _is_rhesis_system_model(provider, api_key):
@@ -730,7 +790,7 @@ def _fetch_and_configure_model(
         )
         if hosted is not None:
             return hosted
-        return resolve_default_hosted_model(default_model)
+        return resolve_default_hosted_model(default_model, db, organization_id)
 
     # Special handling for Polyphemus models without a stored API key.
     #
@@ -840,7 +900,12 @@ def _get_user_model(
     model_id = model_settings.model_id
 
     if not model_id:
-        return resolve_default_hosted_model(default_model)
+        # Guard, not str(user.organization_id) unconditionally: for an orgless
+        # user that produces the literal string "None", not an actual null --
+        # exactly the bug peqy flagged on #2355 for this same branch, just
+        # reintroduced by adding the org argument back for the quota check.
+        org_id = str(user.organization_id) if user.organization_id else None
+        return resolve_default_hosted_model(default_model, db, org_id)
 
     return _fetch_and_configure_model(
         db=db,

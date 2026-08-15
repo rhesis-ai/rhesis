@@ -498,7 +498,9 @@ class TestResolveDefaultHostedModel:
 
         from rhesis.backend.app.utils.user_model_utils import resolve_default_hosted_model
 
-        model = resolve_default_hosted_model("vertex_ai/gemini-2.5-flash")
+        model = resolve_default_hosted_model(
+            "vertex_ai/gemini-2.5-flash", db=None, organization_id=None
+        )
 
         assert model.model_name == "vertex_ai/gemini-2.5-flash"
         assert model.usage_metered is True
@@ -519,9 +521,9 @@ class TestResolveDefaultHostedModel:
 
         from rhesis.backend.app.utils.user_model_utils import resolve_default_hosted_model
 
-        assert resolve_default_hosted_model("vertex_ai/gemini-2.5-flash") == (
-            "vertex_ai/gemini-2.5-flash"
-        )
+        assert resolve_default_hosted_model(
+            "vertex_ai/gemini-2.5-flash", db=None, organization_id=None
+        ) == ("vertex_ai/gemini-2.5-flash")
 
     def test_a_user_with_no_configured_model_gets_the_stamped_default(self, monkeypatch):
         """Covers `_get_user_model`'s no-model_id branch, which nothing
@@ -559,7 +561,9 @@ class TestResolveDefaultHostedModel:
 
         from rhesis.backend.app.utils.user_model_utils import resolve_default_hosted_model
 
-        model = resolve_default_hosted_model("vertex_ai/gemini-2.5-flash")
+        model = resolve_default_hosted_model(
+            "vertex_ai/gemini-2.5-flash", db=None, organization_id=None
+        )
         with usage_attribution("org-42"):
             model.emit(30)
 
