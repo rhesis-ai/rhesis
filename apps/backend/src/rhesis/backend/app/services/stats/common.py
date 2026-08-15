@@ -2,8 +2,6 @@
 
 from datetime import datetime, timedelta, timezone
 
-from rhesis.backend.app.constants import OverallTestResult
-
 
 def parse_date_range(
     start_date: str | None,
@@ -35,26 +33,3 @@ def automated_metric_success(data: dict) -> bool:
     if isinstance(override, dict) and "original_value" in override:
         return bool(override["original_value"])
     return bool(data["is_successful"])
-
-
-def effective_metric_success(
-    overall_result: str | None,
-    is_successful: bool,
-    has_metric_override: bool,
-) -> bool:
-    """Return whether a metric counts as passed in aggregate stats.
-
-    Metric-level reviews update ``is_successful`` directly (``has_metric_override``
-    is True). Test-result-level reviews only update ``status_id`` / ``result``, so
-    when overall passed/failed disagrees with the stored metric value, prefer the
-    overall outcome.
-    """
-    if has_metric_override:
-        return is_successful
-
-    if overall_result == OverallTestResult.PASSED and not is_successful:
-        return True
-    if overall_result == OverallTestResult.FAILED and is_successful:
-        return False
-
-    return is_successful
