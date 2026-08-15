@@ -172,7 +172,7 @@ export default function TestRunMainView({
     statusFilter: 'all',
     selectedRequirements: [],
     overruleFilter: 'all',
-    selectedMetrics: [],
+    metricFilters: {},
     commentFilter: 'all',
     commentCountRange: { min: 0, max: 20 },
     taskFilter: 'all',
@@ -230,12 +230,18 @@ export default function TestRunMainView({
       });
     }
 
-    if (filter.selectedMetrics.length > 0) {
+    const activeMetricFilters = Object.entries(filter.metricFilters);
+    if (activeMetricFilters.length > 0) {
       filtered = filtered.filter(test => {
         const metrics = test.test_metrics?.metrics || {};
-        return filter.selectedMetrics.some(metricName =>
-          Object.hasOwn(metrics, metricName)
-        );
+        return activeMetricFilters.some(([metricName, outcome]) => {
+          const metric = metrics[metricName];
+          if (!metric) return false;
+          if (outcome === 'evaluated') return true;
+          return outcome === 'passed'
+            ? metric.is_successful === true
+            : metric.is_successful === false;
+        });
       });
     }
 
@@ -305,8 +311,8 @@ export default function TestRunMainView({
     (metricName: string) => {
       setFilter(prev => ({
         ...prev,
-        selectedMetrics: [metricName],
-        statusFilter: 'failed',
+        metricFilters: { [metricName]: 'failed' },
+        statusFilter: 'all',
       }));
       handleTabChange(TAB_KEYS.indexOf('linked_entities'));
     },
