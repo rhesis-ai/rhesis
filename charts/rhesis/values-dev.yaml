@@ -40,7 +40,7 @@ config:
   # GCP
   vertexAiProject: "playground-437609"
 
-  # AI model — Vertex defaults in dev (GEMINI_API_KEY + GOOGLE_APPLICATION_CREDENTIALS in ESO);
+  # AI model — Vertex defaults in dev (GOOGLE_APPLICATION_CREDENTIALS in ESO);
   # avoids requiring RHESIS_API_KEY for rhesis/rhesis
   defaultGenerationModel: "vertex_ai/gemini-3.1-flash-lite"
   defaultEvaluationModel: "vertex_ai/gemini-3.1-flash-lite"
