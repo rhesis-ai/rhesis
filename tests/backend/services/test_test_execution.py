@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
 from rhesis.backend.app.services import test_execution
-from rhesis.backend.tasks.enums import ResultStatus
+from rhesis.backend.jobs.enums import ResultStatus
 from tests.backend.routes.fixtures.data_factories import (
     RequirementDataFactory,
     CategoryDataFactory,

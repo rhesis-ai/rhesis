@@ -637,7 +637,7 @@ def get_last_completed_test_run(
         TestConfiguration,
     )
     from rhesis.backend.app.models.test_run import TestRun
-    from rhesis.backend.tasks.enums import RunStatus
+    from rhesis.backend.jobs.enums import RunStatus
 
     # Resolve test set
     db_test_set = crud.resolve_test_set(test_set_identifier, db, organization_id=organization_id)
@@ -1054,9 +1054,9 @@ def _submit_test_configuration_for_execution(
         Tuple of (celery_result, test_run_id_str)
     """
     from rhesis.backend.app import crud
-    from rhesis.backend.tasks import task_launcher
-    from rhesis.backend.tasks.execution.run import create_test_run
-    from rhesis.backend.tasks.test_configuration import execute_test_configuration
+    from rhesis.backend.jobs import launch_job
+    from rhesis.backend.jobs.execution.run import create_test_run
+    from rhesis.backend.jobs.test_configuration import execute_test_configuration
 
     logger.debug(
         f"Submitting test configuration for execution: test_configuration_id={test_config_id}"
@@ -1084,7 +1084,7 @@ def _submit_test_configuration_for_execution(
     logger.info(f"Created test run {test_run_id} with Queued status")
 
     try:
-        result = task_launcher(
+        result = launch_job(
             execute_test_configuration,
             test_config_id,
             test_run_id=test_run_id,
@@ -1093,8 +1093,8 @@ def _submit_test_configuration_for_execution(
         )
     except Exception:
         # Mark the queued test run as failed so it doesn't stay stuck
-        from rhesis.backend.tasks.enums import RunStatus
-        from rhesis.backend.tasks.execution.run import update_test_run_status
+        from rhesis.backend.jobs.enums import RunStatus
+        from rhesis.backend.jobs.execution.run import update_test_run_status
 
         # Same rule as the response: the stored text is shown in the UI, and a
         # broker error carries the connection string with it. Full text in the log.

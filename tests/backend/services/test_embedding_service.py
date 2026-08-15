@@ -195,7 +195,7 @@ class TestEmbeddingService:
             entity=None,
         )
 
-    @patch("rhesis.backend.app.services.embedding.services.task_launcher")
+    @patch("rhesis.backend.app.services.embedding.services.launch_job")
     @patch("rhesis.backend.app.services.embedding.services.generate_embedding_task")
     def test_enqueue_async(
         self,

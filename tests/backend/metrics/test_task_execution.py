@@ -9,10 +9,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from rhesis.backend.jobs.execution.evaluation import evaluate_prompt_response
+from rhesis.backend.jobs.execution.executors.data import get_test_and_prompt, get_test_metrics
+from rhesis.backend.jobs.execution.executors.metrics import prepare_metric_configs
 from rhesis.backend.metrics import Evaluator, MetricResult
-from rhesis.backend.tasks.execution.evaluation import evaluate_prompt_response
-from rhesis.backend.tasks.execution.executors.data import get_test_and_prompt, get_test_metrics
-from rhesis.backend.tasks.execution.executors.metrics import prepare_metric_configs
 
 
 class TestTaskExecution:

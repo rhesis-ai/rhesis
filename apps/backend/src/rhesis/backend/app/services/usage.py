@@ -103,12 +103,12 @@ def dispatch_accrual(
     if amount <= 0 or not organization_id:
         return
 
-    # Imported lazily, not at module scope: `tasks/__init__.py` eagerly
-    # imports every task module, and `tasks.usage` imports this module back
+    # Imported lazily, not at module scope: `jobs/__init__.py` eagerly
+    # imports every task module, and `jobs.usage` imports this module back
     # for `increment_usage`. A module-scope import here would be circular,
     # and would also drag the whole Celery app graph into any request that
     # merely touches the usage service.
-    from rhesis.backend.tasks.usage import accrue_usage
+    from rhesis.backend.jobs.usage import accrue_usage
 
     try:
         accrue_usage.delay(str(organization_id), resource.value, amount)

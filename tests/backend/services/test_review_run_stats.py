@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
 from rhesis.backend.app.services.review import classify_test_result_review_counts
-from rhesis.backend.tasks.execution.result_processor import (
+from rhesis.backend.jobs.execution.result_processor import (
     get_review_statistics_for_runs,
     inject_review_counts_into_serialized_runs,
 )

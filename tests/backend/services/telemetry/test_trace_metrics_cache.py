@@ -75,7 +75,7 @@ class TestScheduleConversationEval:
         mock_result = MagicMock(id="new-task-id")
         with (
             patch(
-                "rhesis.backend.tasks.telemetry.evaluate."
+                "rhesis.backend.jobs.telemetry.evaluate."
                 "evaluate_conversation_trace_metrics"
             ) as mock_task,
             patch("rhesis.backend.worker.app.control.revoke") as mock_revoke,
@@ -99,7 +99,7 @@ class TestScheduleConversationEval:
         mock_result = MagicMock(id="new-task-id")
         with (
             patch(
-                "rhesis.backend.tasks.telemetry.evaluate."
+                "rhesis.backend.jobs.telemetry.evaluate."
                 "evaluate_conversation_trace_metrics"
             ) as mock_task,
             patch("rhesis.backend.worker.app.control.revoke") as mock_revoke,
@@ -142,7 +142,7 @@ class TestSignalConversationComplete:
     def test_marks_complete_and_dispatches(self):
         with (
             patch(
-                "rhesis.backend.tasks.telemetry.evaluate."
+                "rhesis.backend.jobs.telemetry.evaluate."
                 "evaluate_conversation_trace_metrics"
             ) as mock_task,
             patch("rhesis.backend.worker.app.control.revoke") as mock_revoke,
@@ -160,7 +160,7 @@ class TestSignalConversationComplete:
 
         with (
             patch(
-                "rhesis.backend.tasks.telemetry.evaluate."
+                "rhesis.backend.jobs.telemetry.evaluate."
                 "evaluate_conversation_trace_metrics"
             ) as mock_task,
             patch("rhesis.backend.worker.app.control.revoke") as mock_revoke,

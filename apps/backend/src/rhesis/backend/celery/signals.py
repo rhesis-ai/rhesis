@@ -13,13 +13,13 @@ from celery.signals import (
     worker_shutdown,
 )
 
-import rhesis.backend.tasks.architect.monitor  # noqa: F401
+import rhesis.backend.jobs.architect.monitor  # noqa: F401
+from rhesis.backend.jobs.enums import RunStatus
 from rhesis.backend.logging import set_logger
-from rhesis.backend.tasks.enums import RunStatus
 
 logger = logging.getLogger("celery.signals")
 
-_EXECUTE_TEST_CONFIGURATION_TASK = "rhesis.backend.tasks.execute_test_configuration"
+_EXECUTE_TEST_CONFIGURATION_TASK = "rhesis.backend.jobs.execute_test_configuration"
 # Set in celeryd_init from the worker node name (e.g. main@host → MAIN).
 _worker_role: str | None = None
 
@@ -32,8 +32,8 @@ _usage_attribution_tokens: dict = {}
 def _update_test_run_status(task_id: str, new_status: RunStatus, error_message: str = None):
     try:
         from rhesis.backend.app.database import SessionLocal, bind_scope_to_session
-        from rhesis.backend.tasks.execution.run import update_test_run_status
-        from rhesis.backend.tasks.utils import get_test_run_by_task_id
+        from rhesis.backend.jobs.execution.run import update_test_run_status
+        from rhesis.backend.jobs.utils import get_test_run_by_task_id
 
         with SessionLocal() as db:
             test_run = get_test_run_by_task_id(db, task_id)
@@ -50,7 +50,7 @@ def _update_test_run_status(task_id: str, new_status: RunStatus, error_message: 
                 bind_scope_to_session(db, org_id, user_id, project_id)
 
                 if new_status == RunStatus.FAILED:
-                    from rhesis.backend.tasks.utils import update_test_run_with_error
+                    from rhesis.backend.jobs.utils import update_test_run_with_error
 
                     update_test_run_with_error(db, test_run, error_message or "Unknown error")
                 else:
@@ -101,7 +101,7 @@ def _task_organization_id(task, task_kwargs):
     At this point the attribute is still unset, so reading it would leave
     every Celery task unattributed -- which is most of the token spend.
 
-    Mirrors ``BaseTask.before_start``'s own precedence, including kwargs
+    Mirrors ``BaseJob.before_start``'s own precedence, including kwargs
     winning over headers, so attribution matches what the task body will see
     a moment later rather than disagreeing with it on retries.
     """
@@ -126,8 +126,8 @@ def bind_usage_attribution_for_task(task_id=None, task=None, kwargs=None, **_):
     constructor means a task that calls an LLM accrues correctly without
     knowing that usage accounting exists.
 
-    A signal rather than ``BaseTask.before_start`` because not every task
-    subclasses ``BaseTask`` -- ``tasks.usage.accrue_usage`` itself is a plain
+    A signal rather than ``BaseJob.before_start`` because not every task
+    subclasses ``BaseJob`` -- ``tasks.usage.accrue_usage`` itself is a plain
     ``@app.task``, and the next one someone writes might be too. The cost of
     that choice is that the org has to be dug out of the raw message here;
     see :func:`_task_organization_id`.

@@ -1,0 +1,174 @@
+from datetime import datetime, timezone
+from typing import Dict
+
+from sqlalchemy.orm import Session
+
+from rhesis.backend.app import schemas
+from rhesis.backend.app.crud import test_run as test_run_crud
+from rhesis.backend.app.models.test_configuration import TestConfiguration
+from rhesis.backend.app.models.test_run import TestRun
+from rhesis.backend.app.utils.crud_utils import get_or_create_status
+from rhesis.backend.jobs.enums import RunStatus
+
+
+class TestExecutionError(Exception):
+    """Exception raised for errors during test execution."""
+
+    pass
+
+
+def create_test_run(
+    session: Session,
+    test_config: TestConfiguration,
+    task_info: Dict = None,
+    current_user_id: str = None,
+    initial_status: RunStatus = RunStatus.QUEUED,
+) -> TestRun:
+    """Create a new test run with initial status and metadata."""
+    task_info = task_info or {}
+    status = get_or_create_status(
+        session,
+        initial_status.value,
+        "TestRun",
+        organization_id=str(test_config.organization_id),
+    )
+
+    # Create the run with proper tenant context via the crud utility
+    # Use current_user_id if provided (for re-runs), otherwise fall back to test_config.user_id
+    executor_user_id = current_user_id if current_user_id else test_config.user_id
+
+    # Count tests from the test set so the UI can show the total immediately
+    total_tests = 0
+    if test_config.test_set_id:
+        from sqlalchemy import func
+
+        from rhesis.backend.app.models.test_set import test_test_set_association
+
+        total_tests = (
+            session.query(func.count())
+            .select_from(test_test_set_association)
+            .filter(test_test_set_association.c.test_set_id == test_config.test_set_id)
+            .scalar()
+        ) or 0
+
+    attributes = {
+        "configuration_id": str(test_config.id),
+        "task_state": initial_status.value,
+        "total_tests": total_tests,
+    }
+    if task_info.get("id"):
+        attributes["task_id"] = task_info["id"]
+    if initial_status == RunStatus.PROGRESS:
+        attributes["started_at"] = datetime.now(timezone.utc).isoformat()
+
+    # Batch-run grouping (multi-experiment fan-out). Keys originate from
+    # the request payload and live on test_configuration.attributes; we
+    # lift them onto the run so each member can be discovered/grouped
+    # without joining back through its configuration.
+    raw_cfg_attrs = getattr(test_config, "attributes", None)
+    cfg_attrs = raw_cfg_attrs if isinstance(raw_cfg_attrs, dict) else {}
+    for batch_key in (
+        "batch_id",
+        "batch_size",
+        "batch_index",
+        "batch_experiments",
+    ):
+        if batch_key in cfg_attrs:
+            attributes[batch_key] = cfg_attrs[batch_key]
+
+    from rhesis.backend.app.services.experiment import apply_parameter_snapshot_to_run_attributes
+
+    snapshot = apply_parameter_snapshot_to_run_attributes(
+        session,
+        test_config=test_config,
+        attributes=attributes,
+        organization_id=str(test_config.organization_id),
+        user_id=str(executor_user_id) if executor_user_id else str(test_config.user_id or ""),
+    )
+
+    test_run_data = {
+        "test_configuration_id": test_config.id,
+        "user_id": executor_user_id,
+        "organization_id": test_config.organization_id,
+        "status_id": status.id,
+        "attributes": snapshot.attributes,
+        "experiment_id": snapshot.experiment_id,
+    }
+
+    test_run = test_run_crud.create_test_run(
+        session,
+        schemas.TestRunCreate(**test_run_data),
+        organization_id=str(test_config.organization_id) if test_config.organization_id else None,
+        user_id=str(executor_user_id) if executor_user_id else None,
+    )
+    return test_run
+
+
+def update_test_run_status(
+    session: Session, test_run: TestRun, status_name: str, error: str = None
+) -> None:
+    """
+    Update the status of a test run.
+
+    Args:
+        session: Database session
+        test_run: TestRun instance to update
+        status_name: New status name (should match RunStatus enum values)
+        error: Optional error message if the run failed
+    """
+    # Get the appropriate status record
+    new_status = get_or_create_status(
+        session, status_name, "TestRun", organization_id=str(test_run.organization_id)
+    )
+
+    # Build update data
+    update_data = {"status_id": new_status.id}
+
+    # Guard against nullable attributes
+    test_run.attributes = test_run.attributes or {}
+
+    # Update attributes in memory before saving
+    if error:
+        test_run.attributes["error"] = error
+        test_run.attributes["status"] = RunStatus.FAILED.value
+        test_run.attributes["task_state"] = RunStatus.FAILED.value
+    else:
+        # Map the status name to the corresponding RunStatus enum value
+        if status_name == RunStatus.COMPLETED.value:
+            test_run.attributes["task_state"] = RunStatus.COMPLETED.value
+        elif status_name == RunStatus.FAILED.value:
+            test_run.attributes["task_state"] = RunStatus.FAILED.value
+        elif status_name == RunStatus.PARTIAL.value:
+            test_run.attributes["task_state"] = RunStatus.PARTIAL.value
+        elif status_name == RunStatus.PROGRESS.value:
+            test_run.attributes["task_state"] = RunStatus.PROGRESS.value
+        elif status_name == RunStatus.QUEUED.value:
+            test_run.attributes["task_state"] = RunStatus.QUEUED.value
+        elif status_name == RunStatus.CANCELLED.value:
+            test_run.attributes["task_state"] = RunStatus.CANCELLED.value
+
+        # Update the status attribute consistently
+        test_run.attributes["status"] = status_name
+
+    # Always update the timestamp
+    test_run.attributes["updated_at"] = datetime.now(timezone.utc).isoformat()
+
+    # If this is a final status (not Queued/Progress), add completed_at if not already present
+    # This preserves the completed_at set by collect_results while ensuring it gets set
+    # if update_test_run_status is called directly
+    if (
+        status_name not in (RunStatus.QUEUED.value, RunStatus.PROGRESS.value)
+        and "completed_at" not in test_run.attributes
+    ):
+        test_run.attributes["completed_at"] = datetime.now(timezone.utc).isoformat()
+
+    update_data["attributes"] = test_run.attributes
+
+    # Use crud update operation
+    test_run_crud.update_test_run(
+        session,
+        test_run.id,
+        schemas.TestRunUpdate(**update_data),
+        organization_id=str(test_run.organization_id) if test_run.organization_id else None,
+        user_id=str(test_run.user_id) if test_run.user_id else None,
+    )

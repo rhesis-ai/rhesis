@@ -1,0 +1,60 @@
+"""
+Executor factory for routing tests to appropriate executors.
+
+Uses the Strategy Pattern to select the correct executor based on test type.
+"""
+
+import logging
+
+from rhesis.backend.app.constants import TestType
+from rhesis.backend.app.models.test import Test
+from rhesis.backend.jobs.execution.executors.base import BaseTestExecutor
+from rhesis.backend.jobs.execution.modes import get_test_type
+
+logger = logging.getLogger(__name__)
+
+
+def create_executor(test: Test) -> BaseTestExecutor:
+    """
+    Factory function to create appropriate executor based on test type.
+
+    This function implements the Strategy Pattern, routing tests to the correct
+    executor based on their type. This makes it easy to add new test types
+    without modifying existing code (Open/Closed Principle).
+
+    Args:
+        test: Test model instance
+
+    Returns:
+        Appropriate BaseTestExecutor subclass instance
+
+    Examples:
+        >>> test = get_test(db, test_id)
+        >>> executor = create_executor(test)
+        >>> result = executor.execute(...)
+
+    Future test types can be added here:
+        - ImageTestExecutor for vision/multimodal tests
+        - AdversarialTestExecutor for security/jailbreak tests
+        - SyntheticTestExecutor for generated test cases
+        - PerformanceTestExecutor for load/stress testing
+    """
+    test_type = get_test_type(test)
+
+    logger.debug(f"Creating executor for test {test.id} with type {test_type.value}")
+
+    if test_type == TestType.MULTI_TURN:
+        from rhesis.backend.jobs.execution.executors.multi_turn import (
+            MultiTurnTestExecutor,
+        )
+
+        logger.info(f"Routing test {test.id} to MultiTurnTestExecutor")
+        return MultiTurnTestExecutor()
+    else:
+        # Default to single-turn for backward compatibility
+        from rhesis.backend.jobs.execution.executors.single_turn import (
+            SingleTurnTestExecutor,
+        )
+
+        logger.info(f"Routing test {test.id} to SingleTurnTestExecutor")
+        return SingleTurnTestExecutor()

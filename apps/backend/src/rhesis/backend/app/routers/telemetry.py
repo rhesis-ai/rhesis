@@ -195,7 +195,7 @@ def ingest_trace(
         # Fire-and-forget: dispatch async post-processing.
         # Spans are already persisted — enrichment is eventual-consistency.
         # If the broker is unreachable, we log a warning and return success.
-        from rhesis.backend.tasks.telemetry.post_ingest import post_ingest_link
+        from rhesis.backend.jobs.telemetry.post_ingest import post_ingest_link
 
         _stage = "async_dispatch"
         try:

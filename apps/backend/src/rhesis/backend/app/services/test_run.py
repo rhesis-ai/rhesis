@@ -251,12 +251,12 @@ def rescore_test_run(
     )
 
     # 4. Submit for execution via the task launcher
-    from rhesis.backend.tasks import task_launcher
-    from rhesis.backend.tasks.test_configuration import (
+    from rhesis.backend.jobs import launch_job
+    from rhesis.backend.jobs.test_configuration import (
         execute_test_configuration,
     )
 
-    result = task_launcher(
+    result = launch_job(
         execute_test_configuration,
         new_config_id,
         current_user=current_user,

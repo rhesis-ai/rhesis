@@ -13,7 +13,7 @@ from rhesis.backend.app.dependencies import (
 from rhesis.backend.app.error_handlers import PublicHTTPException, internal_error
 from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.celery.core import app as celery_app
-from rhesis.backend.tasks import task_launcher
+from rhesis.backend.jobs import launch_job
 
 router = RhesisRouter(
     prefix="/jobs",
@@ -63,18 +63,18 @@ async def create_task(
     """
     Submit a new task to Celery.
 
-    Uses task_launcher to automatically add context from current user.
+    Uses launch_job to automatically add context from current user.
     """
     try:
         # Get the task by name
-        task_path = f"rhesis.backend.tasks.{task_name}"
+        task_path = f"rhesis.backend.jobs.{task_name}"
         if task_path not in celery_app.tasks:
             raise HTTPException(status_code=404, detail=f"Task {task_name} not found")
 
         task = celery_app.tasks[task_path]
 
-        # Use task_launcher to handle context
-        result = task_launcher(task, current_user=current_user, db=db, **payload)
+        # Use launch_job to handle context
+        result = launch_job(task, current_user=current_user, db=db, **payload)
 
         return {"task_id": result.id}
     except KeyError as e:

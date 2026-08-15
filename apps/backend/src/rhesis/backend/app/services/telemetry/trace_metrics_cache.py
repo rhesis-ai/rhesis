@@ -80,7 +80,7 @@ def schedule_conversation_eval(
     it is revoked before scheduling a new one.
     """
     from rhesis.backend.celery.core import app as celery_app
-    from rhesis.backend.tasks.telemetry.evaluate import (
+    from rhesis.backend.jobs.telemetry.evaluate import (
         evaluate_conversation_trace_metrics,
     )
 
@@ -125,7 +125,7 @@ def signal_conversation_complete(
       3. Revoke any pending debounced task.
     """
     from rhesis.backend.celery.core import app as celery_app
-    from rhesis.backend.tasks.telemetry.evaluate import (
+    from rhesis.backend.jobs.telemetry.evaluate import (
         evaluate_conversation_trace_metrics,
     )
 

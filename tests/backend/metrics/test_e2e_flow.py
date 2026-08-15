@@ -126,7 +126,7 @@ class TestE2EFlow:
         )
         mock_create_metric.return_value = mock_metric
 
-        from rhesis.backend.tasks.execution.test_execution import execute_test
+        from rhesis.backend.jobs.execution.test_execution import execute_test
 
         result = await execute_test(
             db=full_test_setup["db"],
@@ -176,7 +176,7 @@ class TestE2EFlow:
 
         mock_create_metric.side_effect = [mock_metric1, mock_metric2]
 
-        from rhesis.backend.tasks.execution.test_execution import execute_test
+        from rhesis.backend.jobs.execution.test_execution import execute_test
 
         result = await execute_test(
             db=full_test_setup["db"],
@@ -204,7 +204,7 @@ class TestE2EFlow:
         # Endpoint fails
         mock_invoke.side_effect = Exception("Endpoint unavailable")
 
-        from rhesis.backend.tasks.execution.test_execution import execute_test
+        from rhesis.backend.jobs.execution.test_execution import execute_test
 
         # Should handle error gracefully
         try:
@@ -240,7 +240,7 @@ class TestE2EFlow:
         mock_metric.evaluate.side_effect = Exception("Evaluation failed")
         mock_create_metric.return_value = mock_metric
 
-        from rhesis.backend.tasks.execution.test_execution import execute_test
+        from rhesis.backend.jobs.execution.test_execution import execute_test
 
         # Should handle gracefully and still store result
         result = await execute_test(
@@ -341,7 +341,7 @@ class TestE2EFlow:
         )
         mock_create_metric.return_value = mock_metric
 
-        from rhesis.backend.tasks.execution.test_execution import execute_test
+        from rhesis.backend.jobs.execution.test_execution import execute_test
 
         result = await execute_test(
             db=test_db,
@@ -361,7 +361,7 @@ class TestE2EFlow:
         """Test that execution time is tracked and stored."""
         mock_invoke.return_value = {"output": "Response", "status_code": 200}
 
-        from rhesis.backend.tasks.execution.test_execution import execute_test
+        from rhesis.backend.jobs.execution.test_execution import execute_test
 
         result = await execute_test(
             db=full_test_setup["db"],
@@ -396,7 +396,7 @@ class TestE2EFlow:
         )
         mock_create_metric.return_value = mock_metric
 
-        from rhesis.backend.tasks.execution.test_execution import execute_test
+        from rhesis.backend.jobs.execution.test_execution import execute_test
 
         result = await execute_test(
             db=full_test_setup["db"],
@@ -435,7 +435,7 @@ class TestE2EFlow:
         mock_metric.evaluate.return_value = MetricResult(score=7.5, details={"reason": "Pass"})
         mock_create_metric.return_value = mock_metric
 
-        from rhesis.backend.tasks.execution.test_execution import execute_test
+        from rhesis.backend.jobs.execution.test_execution import execute_test
 
         result = await execute_test(
             db=full_test_setup["db"],
@@ -484,7 +484,7 @@ class TestE2EFlow:
         allowing the full dict → adapter → SDK metric chain to execute.
         """
         from rhesis.backend.app import models
-        from rhesis.backend.tasks.execution.test_execution import execute_test
+        from rhesis.backend.jobs.execution.test_execution import execute_test
 
         # Create a requirement with real metrics (not mocked)
         requirement = models.Requirement(

@@ -84,7 +84,7 @@ class TestCeleryBinding:
     def _request(self, organization_id):
         # Shaped like a real request at prerun: the org is in `headers`, and
         # the `organization_id` attribute does NOT exist yet, because
-        # BaseTask.before_start has not run. An earlier version of these
+        # BaseJob.before_start has not run. An earlier version of these
         # tests set the attribute directly, which meant they asserted the
         # implementation's assumption rather than Celery's actual behaviour,
         # and passed while every Celery task went unattributed.

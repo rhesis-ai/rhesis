@@ -43,7 +43,7 @@ def start_session_with_message(
     # context manager commits on exit. Enqueue only after the rows are durable.
     db.commit()
 
-    from rhesis.backend.tasks.architect import architect_chat_task
+    from rhesis.backend.jobs.architect import architect_chat_task
 
     task_headers = {
         "organization_id": organization_id,

@@ -247,7 +247,7 @@ async def upload_files(
         created_files.append(created)
 
         try:
-            from rhesis.backend.tasks.file.extract_text import extract_file_text
+            from rhesis.backend.jobs.file.extract_text import extract_file_text
 
             extract_file_text.delay(
                 file_id=str(created.id),

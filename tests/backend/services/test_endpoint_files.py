@@ -108,7 +108,7 @@ class TestInjectFileContentIntoInput:
 # files.py imports resolve_model_for_extraction from model_resolution; patch there.
 _FILES_PATH = "rhesis.backend.app.services.endpoint.files"
 # output_providers still has _resolve_model_for_extraction as a re-exported alias.
-_PROVIDERS_PATH = "rhesis.backend.tasks.execution.executors.output_providers"
+_PROVIDERS_PATH = "rhesis.backend.jobs.execution.executors.output_providers"
 _SDK_EXTRACTOR_PATH = "rhesis.sdk.services.extractor"
 
 

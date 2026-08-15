@@ -32,7 +32,7 @@ class RenderedNotification:
 # A render function receives the Celery task instance (for self.request.kwargs /
 # .headers / .get_tenant_context()), the task's return value, and the exception
 # message (None on success). The caller normalizes a failed or non-dict return
-# to ``{}`` (see BaseTask._send_task_completion_notification), so renderers can
+# to ``{}`` (see BaseJob._send_task_completion_notification), so renderers can
 # read keys off it without guarding -- but must not assume any key is present.
 #
 # Returning None means "this completion isn't worth notifying about" and no row

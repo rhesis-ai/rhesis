@@ -27,7 +27,7 @@ Normal flow (FastAPI):
     Nothing extra to do in routers or CRUD.
 
 Normal flow (Celery):
-    BaseTask.get_db_session() routes through get_db_with_tenant_variables(), so the
+    BaseJob.get_db_session() routes through get_db_with_tenant_variables(), so the
     scope is stored on Session.info for the lifetime of the task's DB session.
 
 Admin / cross-org reads:

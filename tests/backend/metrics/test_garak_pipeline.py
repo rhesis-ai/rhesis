@@ -70,7 +70,7 @@ class TestInjectProbeNotes:
     """Verify _inject_probe_notes merges notes into the right MetricConfigs."""
 
     def _inject(self, metric_configs, probe_notes):
-        from rhesis.backend.tasks.execution.batch.evaluation import _inject_probe_notes
+        from rhesis.backend.jobs.execution.batch.evaluation import _inject_probe_notes
 
         return _inject_probe_notes(metric_configs, probe_notes)
 
@@ -363,7 +363,7 @@ class TestEvaluateSingleTurnGarakNotes:
     @pytest.mark.asyncio
     async def test_garak_notes_from_metadata_reach_evaluator(self):
         """The a_evaluate call receives MetricConfigs with probe_notes injected."""
-        from rhesis.backend.tasks.execution.batch.evaluation import (
+        from rhesis.backend.jobs.execution.batch.evaluation import (
             _evaluate_single_turn_metrics,
         )
 
@@ -401,7 +401,7 @@ class TestEvaluateSingleTurnGarakNotes:
     @pytest.mark.asyncio
     async def test_missing_garak_notes_does_not_inject(self):
         """When test_metadata has no garak_notes, configs pass through unchanged."""
-        from rhesis.backend.tasks.execution.batch.evaluation import (
+        from rhesis.backend.jobs.execution.batch.evaluation import (
             _evaluate_single_turn_metrics,
         )
 
@@ -431,7 +431,7 @@ class TestEvaluateSingleTurnGarakNotes:
     @pytest.mark.asyncio
     async def test_null_test_metadata_does_not_inject(self):
         """When test has no test_metadata at all, pipeline handles gracefully."""
-        from rhesis.backend.tasks.execution.batch.evaluation import (
+        from rhesis.backend.jobs.execution.batch.evaluation import (
             _evaluate_single_turn_metrics,
         )
 
