@@ -246,7 +246,8 @@ jobs:
                         "frontend=${{ needs.frontend.result }}" \
                         "styles=${{ needs.styles.result }}" \
                         "docs=${{ needs.docs.result }}" \
-                        "skill=${{ needs.skill.result }}"; do
+                        "skill=${{ needs.skill.result }}" \
+                        "helm-overlap=${{ needs.helm-overlap.result }}"; do
             echo "$RESULT"
             case "${RESULT#*=}" in
               success|skipped) ;;

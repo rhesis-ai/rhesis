@@ -48,6 +48,8 @@ def configmap_keys(env: str) -> set[str]:
             "charts/rhesis",
             "-f",
             f"charts/rhesis/values-{env}.yaml",
+            "--show-only",
+            "templates/configmap.yaml",
         ],
         cwd=REPO_ROOT,
         capture_output=True,
@@ -69,9 +71,15 @@ def externalsecret_keys(env: str) -> set[str]:
             if not isinstance(doc, dict) or doc.get("kind") != "ExternalSecret":
                 continue
             for entry in doc.get("spec", {}).get("data") or []:
-                key = entry.get("secretKey") or (entry.get("remoteRef") or {}).get("key")
+                key = entry.get("secretKey")
                 if key:
                     keys.add(key)
+                else:
+                    print(
+                        f"warning: {manifest.name} has an ExternalSecret data "
+                        "entry without secretKey; skipping it",
+                        file=sys.stderr,
+                    )
     return keys
 
 
