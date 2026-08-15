@@ -61,7 +61,7 @@ function makeResult(
 }
 
 describe('aggregateMetricStats', () => {
-  it('counts effective passes when test-level review overrides failed metric', () => {
+  it('counts each metric by its own automated result, even when a whole-test review disagrees', () => {
     const results = [
       makeResult({
         metrics: { 'Goal Achievement': { is_successful: false } },
@@ -77,12 +77,39 @@ describe('aggregateMetricStats', () => {
     expect(goal).toEqual(
       expect.objectContaining({
         total: 2,
-        passed: 2,
-        failed: 0,
+        passed: 1,
+        failed: 1,
         automatedPassed: 1,
         automatedFailed: 1,
         humanReviewCount: 0,
       })
+    );
+  });
+
+  it('attributes a failure to only the metric that failed, not every metric on the same test', () => {
+    const results = [
+      makeResult({
+        last_review: undefined,
+        status: { id: u(40), name: 'Fail' },
+        metrics: {
+          'Answer Relevancy': { is_successful: true },
+          Faithfulness: { is_successful: false },
+          'Contextual Precision': { is_successful: true },
+        },
+      }),
+    ];
+
+    const stats = aggregateMetricStats(results);
+    const byName = Object.fromEntries(stats.map(s => [s.name, s]));
+
+    expect(byName['Answer Relevancy']).toEqual(
+      expect.objectContaining({ passed: 1, failed: 0 })
+    );
+    expect(byName.Faithfulness).toEqual(
+      expect.objectContaining({ passed: 0, failed: 1 })
+    );
+    expect(byName['Contextual Precision']).toEqual(
+      expect.objectContaining({ passed: 1, failed: 0 })
     );
   });
 
@@ -100,7 +127,6 @@ describe('aggregateMetricStats', () => {
 
     expect(
       getEffectiveMetricSuccess(
-        result,
         result.test_metrics!.metrics!['Goal Achievement'] as {
           is_successful: boolean;
           override?: { original_value: boolean };
