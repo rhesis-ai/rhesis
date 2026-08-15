@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional, Union
 
-from pydantic import UUID4, BaseModel, ConfigDict, Field, field_validator
+from pydantic import UUID4, BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from rhesis.backend.app.constants import TestSetType, TestType
 from rhesis.backend.app.schemas import Base
@@ -184,6 +184,46 @@ class TestSetBulkCreate(BaseModel):
         except (ValueError, TypeError):
             # If it's not a valid UUID, return None instead of raising an error
             return None
+
+    @model_validator(mode="after")
+    def validate_tests_match_set_type(self):
+        """Reject mixed or mismatched turn types instead of persisting them.
+
+        Preflight reads the set type while execution reads each test type; a
+        mismatch makes preflight validate the wrong execution mode.
+        """
+        from rhesis.backend.app.schemas.validators import resolve_test_type
+
+        declared_type = TestSetType.get_value(self.test_set_type)
+        mismatches = []
+        for index, test in enumerate(self.tests):
+            effective_type = resolve_test_type(
+                test.model_dump(exclude_none=True),
+                test_set_type=declared_type,
+                default_test_type=declared_type,
+            )
+            if effective_type != declared_type:
+                mismatches.append((index, effective_type))
+
+        if not mismatches:
+            return self
+
+        if len({effective for _, effective in mismatches}) > 1 or len(mismatches) < len(self.tests):
+            raise ValueError(
+                f"Test set type is '{declared_type}' but tests resolve to mixed turn types; "
+                "split the payload into separate Single-Turn and Multi-Turn test sets."
+            )
+
+        index, effective_type = mismatches[0]
+        fix = (
+            "set test_type on the test, or send test_configuration with a goal instead of prompt"
+            if declared_type == TestSetType.MULTI_TURN.value
+            else "set test_type on the test, or send a prompt instead of test_configuration.goal"
+        )
+        raise ValueError(
+            f"test[{index}] resolves to '{effective_type}', which does not match test set "
+            f"type '{declared_type}'; {fix}."
+        )
 
 
 class TestSetBulkResponse(BaseModel):

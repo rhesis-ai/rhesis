@@ -10,10 +10,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from faker import Faker
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.constants import EXPLORER_REQUIREMENT_NAME
+from rhesis.backend.app.schemas.validators import resolve_test_type
 from rhesis.backend.app.services import test_set as test_set_service
 
 # Use existing data factories from the established pattern
@@ -641,6 +643,112 @@ class TestTestSetGeneration:
 
         assert result.name == "Generated Test Set"
         assert len(result.tests) == 1
+
+
+@pytest.mark.unit
+@pytest.mark.service
+class TestBulkCreateEnforcesUniformTestType:
+    def test_prompt_only_test_rejected_for_multi_turn_set(self):
+        with pytest.raises(ValidationError, match="does not match test set type"):
+            schemas.TestSetBulkCreate(
+                name="Mismatched",
+                test_set_type="Multi-Turn",
+                tests=[
+                    schemas.TestData(
+                        prompt=schemas.TestPrompt(content="single turn"),
+                        requirement="Security",
+                        category="Injection",
+                        topic="Prompt Injection",
+                    )
+                ],
+            )
+
+    def test_goal_config_test_rejected_for_single_turn_set(self):
+        with pytest.raises(ValidationError, match="does not match test set type"):
+            schemas.TestSetBulkCreate(
+                name="Mismatched",
+                test_set_type="Single-Turn",
+                tests=[
+                    schemas.TestData(
+                        test_configuration={"goal": "multi turn"},
+                        requirement="Security",
+                        category="Injection",
+                        topic="Prompt Injection",
+                    )
+                ],
+            )
+
+    def test_mixed_payload_rejected_with_split_guidance(self):
+        with pytest.raises(ValidationError, match="mixed turn types"):
+            schemas.TestSetBulkCreate(
+                name="Mixed",
+                test_set_type="Multi-Turn",
+                tests=[
+                    schemas.TestData(
+                        prompt=schemas.TestPrompt(content="single turn"),
+                        requirement="Security",
+                        category="Injection",
+                        topic="Prompt Injection",
+                    ),
+                    schemas.TestData(
+                        test_configuration={"goal": "multi turn"},
+                        requirement="Security",
+                        category="Injection",
+                        topic="Prompt Injection",
+                    ),
+                ],
+            )
+
+    def test_uniform_single_turn_payload_is_accepted(self):
+        payload = schemas.TestSetBulkCreate(
+            name="Single",
+            test_set_type="Single-Turn",
+            tests=[
+                schemas.TestData(
+                    prompt=schemas.TestPrompt(content="single turn"),
+                    requirement="Security",
+                    category="Injection",
+                    topic="Prompt Injection",
+                )
+            ],
+        )
+        assert payload.tests[0].test_type is None
+
+    def test_uniform_multi_turn_payload_is_accepted(self):
+        payload = schemas.TestSetBulkCreate(
+            name="Multi",
+            test_set_type="Multi-Turn",
+            tests=[
+                schemas.TestData(
+                    test_configuration={"goal": "multi turn"},
+                    requirement="Security",
+                    category="Injection",
+                    topic="Prompt Injection",
+                )
+            ],
+        )
+        assert payload.tests[0].test_configuration == {"goal": "multi turn"}
+
+    def test_effective_type_precedence_is_shared(self):
+        base = {
+            "prompt": {"content": "prompt wins over parent"},
+            "test_configuration": {},
+        }
+        assert resolve_test_type(base, "Multi-Turn", "Single-Turn") == "Single-Turn"
+        assert (
+            resolve_test_type({"test_configuration": {"goal": "g"}}, "Single-Turn", "Multi-Turn")
+            == "Multi-Turn"
+        )
+        assert (
+            resolve_test_type(
+                {"test_type": "Single-Turn", "test_configuration": {"goal": "g"}},
+                "Multi-Turn",
+                "Multi-Turn",
+            )
+            == "Single-Turn"
+        )
+        assert resolve_test_type({}, "Multi-Turn", "Single-Turn") == "Multi-Turn"
+        assert resolve_test_type({}, None, None) == "Single-Turn"
 
 
 @pytest.mark.unit

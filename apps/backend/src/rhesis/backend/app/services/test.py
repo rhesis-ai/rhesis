@@ -14,6 +14,7 @@ from rhesis.backend.app.constants import (
 )
 from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.schemas.validators import resolve_test_type
 from rhesis.backend.app.utils.crud_utils import (
     create_item,
     get_or_create_entity,
@@ -681,27 +682,14 @@ def bulk_create_tests(
         for i, test_data in enumerate(tests_data):
             test_data_dict = prepare_test_data(test_data, defaults)
 
-            # Determine test type for this specific test
-            # Priority: 1. Individual test's test_type, 2. Auto-detect from config,
-            # 3. test_set's test_type_value, 4. defaults
-            individual_test_type = test_data_dict.pop("test_type", None)
-
-            # Auto-detect test type based on test_configuration
-            # If test_configuration has a 'goal' field, it's a multi-turn test
-            # If prompt is provided (and no goal in config), it's a single-turn test
-            auto_detected_type = None
-            test_config = test_data_dict.get("test_configuration", {})
-            if test_config and isinstance(test_config, dict) and "goal" in test_config:
-                auto_detected_type = "Multi-Turn"
-            elif test_data_dict.get("prompt"):
-                auto_detected_type = "Single-Turn"
-
-            type_value_to_use = (
-                individual_test_type
-                or auto_detected_type
-                or test_type_value
-                or defaults["test"]["test_type"]
+            # Determine test type for this specific test. The precedence is
+            # shared with TestSetBulkCreate validation so the two cannot drift.
+            type_value_to_use = resolve_test_type(
+                test_data_dict,
+                test_set_type=test_type_value,
+                default_test_type=defaults["test"]["test_type"],
             )
+            test_data_dict.pop("test_type", None)
 
             # Get or create test type for this specific test (cached)
             test_type = cache.get_or_create_type_lookup(
