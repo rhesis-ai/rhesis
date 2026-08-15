@@ -87,8 +87,11 @@ export const drawerDisabledFieldSx: SxProps<Theme> = {
     padding: theme =>
       `${theme.spacing(2)} ${theme.spacing(1.5)} ${theme.spacing(2)} ${theme.spacing(2)} !important`,
     minHeight: '24px',
-    WebkitTextFillColor: theme => theme.palette.greyscale.border,
-    color: theme => theme.palette.greyscale.border,
+    // Use text.secondary, not greyscale.border: the border token is nearly
+    // invisible against the dark drawer surface and made disabled rerun
+    // fields unreadable in dark mode (#2400).
+    WebkitTextFillColor: theme => theme.palette.text.secondary,
+    color: theme => theme.palette.text.secondary,
     opacity: 1,
   },
 };
