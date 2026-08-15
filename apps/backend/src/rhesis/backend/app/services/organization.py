@@ -910,7 +910,7 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> Dict[s
         default_language_model = create_default_rhesis_model(
             db=db,
             provider_value="rhesis",
-            model_name=\"rhesis\",
+            model_name="rhesis",
             name="Rhesis",
             description="Rhesis language model.",
             icon="rhesis",
@@ -926,7 +926,7 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> Dict[s
         default_embedding_model = create_default_rhesis_model(
             db=db,
             provider_value="rhesis",
-            model_name=\"rhesis\",
+            model_name="rhesis",
             name="Rhesis Embedding",
             description="Rhesis embedding model.",
             icon="rhesis",
