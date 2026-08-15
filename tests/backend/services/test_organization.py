@@ -229,12 +229,12 @@ class TestLoadInitialData:
 
             # Verify first call was for language model
             first_call = mock_create_model.call_args_list[0]
-            assert first_call.kwargs["name"] == "Rhesis Default"
+            assert first_call.kwargs["name"] == "Rhesis"
             assert first_call.kwargs["model_type"] == "language"
 
             # Verify second call was for embedding model
             second_call = mock_create_model.call_args_list[1]
-            assert second_call.kwargs["name"] == "Rhesis Default Embedding"
+            assert second_call.kwargs["name"] == "Rhesis Embedding"
             assert second_call.kwargs["model_type"] == "embedding"
 
             # Verify third call was for Polyphemus model

@@ -622,9 +622,9 @@ def test_smtp_service_uses_configured_settings(clean_smtp_env, monkeypatch):
 def test_model_settings_uses_system_defaults(clean_model_env):
     settings = ModelSettings(_env_file=None)
 
-    assert settings.generation_model == "rhesis/rhesis-default"
-    assert settings.evaluation_model == "rhesis/rhesis-default"
-    assert settings.execution_model == "rhesis/rhesis-default"
+    assert settings.generation_model == "rhesis/rhesis"
+    assert settings.evaluation_model == "rhesis/rhesis"
+    assert settings.execution_model == "rhesis/rhesis"
     assert settings.embedding_model == "rhesis/rhesis-embedding"
 
 
@@ -645,7 +645,7 @@ def test_model_settings_loads_existing_environment_variables(clean_model_env, mo
 
 @pytest.mark.unit
 def test_get_model_settings_cache_clear_allows_env_overrides(clean_model_env, monkeypatch):
-    assert get_model_settings().generation_model == "rhesis/rhesis-default"
+    assert get_model_settings().generation_model == "rhesis/rhesis"
 
     monkeypatch.setenv("DEFAULT_GENERATION_MODEL", "openai/gpt-4o-mini")
     get_model_settings.cache_clear()

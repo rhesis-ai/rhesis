@@ -564,7 +564,7 @@ def resolve_default_hosted_model(default_model: str) -> Union[str, BaseLLM]:
     `rhesis.backend.app.usage_attribution`), not captured here.
 
     Args:
-        default_model: A "provider/model_name" string, e.g. "rhesis/rhesis-default"
+        default_model: A "provider/model_name" string, e.g. "rhesis/rhesis"
 
     Returns:
         A model stamped `usage_metered=True` when construction succeeds; the
