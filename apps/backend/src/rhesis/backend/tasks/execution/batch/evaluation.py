@@ -71,7 +71,10 @@ async def _evaluate_multi_turn_metrics(
     metric_configs: list,
 ) -> Dict[str, Any]:
     from rhesis.backend.tasks.execution.constants import CONVERSATION_SUMMARY_KEY
-    from rhesis.backend.tasks.execution.evaluation import _build_conversation_history
+    from rhesis.backend.tasks.execution.evaluation import (
+        _build_conversation_history,
+        _collect_conversation_context,
+    )
 
     conversation_summary = output.get(CONVERSATION_SUMMARY_KEY, [])
     conversation_history = _build_conversation_history(conversation_summary)
@@ -104,7 +107,7 @@ async def _evaluate_multi_turn_metrics(
         input_text=goal,
         output_text=conversation_text.strip(),
         expected_output="",
-        context=[],
+        context=_collect_conversation_context(conversation_summary),
         metrics=filtered_configs,
         conversation_history=conversation_history,
     )
