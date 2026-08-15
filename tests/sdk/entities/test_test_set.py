@@ -610,6 +610,44 @@ class TestFromJson:
             os.unlink(temp_path)
 
 
+class TestInferTestSetType:
+    """A test set must be uniformly Single-Turn or Multi-Turn."""
+
+    def test_all_single_turn(self):
+        tests = [
+            Test(category="c", requirement="r", test_type=TestType.SINGLE_TURN),
+            Test(category="c2", requirement="r2", test_type=TestType.SINGLE_TURN),
+        ]
+        assert TestSet._infer_test_set_type(tests) == TestType.SINGLE_TURN
+
+    def test_all_multi_turn(self):
+        tests = [
+            Test(
+                category="c",
+                requirement="r",
+                test_type=TestType.MULTI_TURN,
+                test_configuration=TestConfiguration(goal="g"),
+            )
+        ]
+        assert TestSet._infer_test_set_type(tests) == TestType.MULTI_TURN
+
+    def test_mixed_turns_raise(self):
+        tests = [
+            Test(category="c", requirement="r", test_type=TestType.SINGLE_TURN),
+            Test(
+                category="c2",
+                requirement="r2",
+                test_type=TestType.MULTI_TURN,
+                test_configuration=TestConfiguration(goal="g"),
+            ),
+        ]
+        with pytest.raises(ValueError, match="mixed test types"):
+            TestSet._infer_test_set_type(tests)
+
+    def test_empty_defaults_to_single_turn(self):
+        assert TestSet._infer_test_set_type([]) == TestType.SINGLE_TURN
+
+
 # --- Round-trip tests ---
 
 

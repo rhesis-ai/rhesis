@@ -1152,13 +1152,18 @@ class TestSet(BaseEntity):
     def _infer_test_set_type(tests: List[Test]) -> TestType:
         """Infer the test set type from the tests.
 
-        Returns MULTI_TURN if any test has test_type == MULTI_TURN,
-        otherwise SINGLE_TURN.
+        A test set must be uniformly Single-Turn or Multi-Turn. Mixed
+        collections fail here instead of building a payload the API will
+        reject.
         """
-        for test in tests:
-            if test.test_type == TestType.MULTI_TURN:
-                return TestType.MULTI_TURN
-        return TestType.SINGLE_TURN
+        inferred_types = {test.test_type for test in tests if test.test_type is not None}
+        if len(inferred_types) > 1:
+            raise ValueError(
+                "Cannot create a TestSet with mixed test types: "
+                f"{sorted(t.value for t in inferred_types)}. "
+                "Split the tests into separate Single-Turn and Multi-Turn test sets."
+            )
+        return next(iter(inferred_types), TestType.SINGLE_TURN)
 
     @classmethod
     def _dict_to_test(cls, entry: Dict[str, Any]) -> Optional[Test]:
