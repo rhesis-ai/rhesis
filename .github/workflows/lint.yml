@@ -40,6 +40,10 @@ jobs:
             skill:
               - 'skills/rhesis/**'
               - 'scripts/skill/**'
+            helm:
+              - 'charts/**'
+              - 'kubernetes/**'
+              - 'scripts/check-env-overlap.py'
 
       - name: Resolve lint targets
         id: resolve
@@ -208,8 +212,27 @@ jobs:
       - name: Validate skill
         run: python scripts/skill/validate.py
 
+  helm-overlap:
+    needs: changes
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(needs.changes.outputs.targets, 'helm') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: latest
+
+      - name: Install Python dependencies
+        run: python -m pip install pyyaml
+
+      - name: Check ConfigMap / ExternalSecret overlap
+        run: python scripts/check-env-overlap.py
+
   lint:
-    needs: [changes, python, migrations, frontend, styles, docs, skill]
+    needs: [changes, python, migrations, frontend, styles, docs, skill, helm-overlap]
     if: always()
     runs-on: ubuntu-latest
     steps:
