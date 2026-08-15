@@ -43,6 +43,7 @@ from rhesis.backend.app.error_handlers import (
     create_validation_error_response,
     log_validation_error,
 )
+from rhesis.backend.app.quota.enforcement import QuotaExceededError, quota_exceeded_response_body
 from rhesis.backend.app.routers import routers
 from rhesis.backend.app.utils.database_exceptions import ItemDeletedException, ItemNotFoundException
 from rhesis.backend.app.utils.git_utils import get_version_info
@@ -643,6 +644,32 @@ async def not_found_item_exception_handler(request: Request, exc: ItemNotFoundEx
     }
 
     return JSONResponse(status_code=404, content=response_content)
+
+
+# Global exception handler for quota-exceeded errors
+@app.exception_handler(QuotaExceededError)
+async def quota_exceeded_exception_handler(request: Request, exc: QuotaExceededError):
+    """Handle quota-exceeded errors with HTTP 402 Payment Required.
+
+    402, not 401/403/429: 401 and 403 clear the frontend session, which a
+    quota cap should not do, and 429 means rate limiting, not "you've used
+    up what your plan allows."
+
+    Raised from two places that share this one shape: the ``require_quota``
+    route dependency (``auth/quota_gates.py``), and the hosted-model token
+    gate (``utils/user_model_utils.py``), which can also fire deep inside a
+    request with no dependency involved -- Starlette's exception-handling
+    middleware catches both the same way, since it wraps the whole request,
+    not just route dependencies.
+
+    Does NOT catch every raise site, though: a route wrapped by a decorator
+    that swallows bare ``Exception`` before it reaches this middleware (e.g.
+    ``@handle_database_exceptions``) never gets here. ``routers/user.py``'s
+    ``create_user`` is one such case and builds this same response body
+    itself via :func:`~rhesis.backend.app.quota.enforcement.quota_exceeded_response_body`
+    rather than relying on this handler.
+    """
+    return JSONResponse(status_code=402, content=quota_exceeded_response_body(exc.verdict))
 
 
 # Global exception handler for request validation errors (422)
