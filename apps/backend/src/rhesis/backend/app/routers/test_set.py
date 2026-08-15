@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.capabilities import Permission, capability
+from rhesis.backend.app.auth.quota_gates import require_quota
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.crud import metric as metric_crud
 from rhesis.backend.app.dependencies import (
@@ -17,8 +18,10 @@ from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
 )
+from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.quota import QuotaResource
 from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas import services as services_schemas
 from rhesis.backend.app.schemas.embedding import (
@@ -101,6 +104,7 @@ def generate_test_set(
     current_user: User = Depends(require_current_user_or_token),
     scoped_project_id: Optional[str] = Depends(get_project_context),
     _validate_model=Depends(validate_generation_model),
+    _quota_gate: Organization = Depends(require_quota(QuotaResource.TEST_GENERATION)),
 ):
     """
     Generate test set using ConfigSynthesizer.
@@ -269,7 +273,8 @@ def create_test_set_bulk(
     }
 
     Notes:
-    - demographic and dimension fields are accepted but ignored (dimension/demographic tables were removed)
+    - demographic and dimension fields are accepted but ignored (dimension/demographic
+      tables were removed)
     - expected_response is an optional field to specify the expected model response
     """
     try:
@@ -518,6 +523,7 @@ def execute_test_set(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
     _validate_model=Depends(validate_execution_model),
+    _quota_gate: Organization = Depends(require_quota(QuotaResource.TEST_EXECUTIONS)),
 ):
     """Submit a test set for execution against an endpoint.
 

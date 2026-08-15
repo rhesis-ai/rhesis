@@ -11,9 +11,12 @@ import random
 from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from rhesis.backend.app.auth.quota_gates import require_quota
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.dependencies import get_tenant_context, get_tenant_db_session
+from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.quota import QuotaResource
 from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.garak import (
     GarakGenerateRequest,
@@ -261,6 +264,7 @@ def import_probes(
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
+    _quota_gate: Organization = Depends(require_quota(QuotaResource.TEST_GENERATION)),
 ):
     """
     Import selected Garak probes as Rhesis test sets.
@@ -358,6 +362,7 @@ def sync_test_set(
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
+    _quota_gate: Organization = Depends(require_quota(QuotaResource.TEST_GENERATION)),
 ):
     """
     Sync a Garak-imported test set with the latest probes.
@@ -412,6 +417,7 @@ def generate_dynamic_probe(
     current_user: User = Depends(require_current_user_or_token),
     probe_service: GarakProbeService = Depends(get_probe_service),
     db: Session = Depends(get_tenant_db_session),
+    _quota_gate: Organization = Depends(require_quota(QuotaResource.TEST_GENERATION)),
 ):
     """
     Generate a test set from a **dynamic** Garak probe using the user's LLM.
