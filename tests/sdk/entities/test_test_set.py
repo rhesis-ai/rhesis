@@ -648,6 +648,67 @@ class TestInferTestSetType:
         assert TestSet._infer_test_set_type([]) == TestType.SINGLE_TURN
 
 
+class TestImportInfersTypeFromGoal:
+    """Imports must not silently label goal-bearing tests as Single-Turn."""
+
+    def test_from_json_nested_goal_without_test_type(self):
+        json_content = [
+            {
+                "category": "Conversation",
+                "requirement": "Memory",
+                "topic": "Context",
+                "test_configuration": {"goal": "Keep context across turns"},
+            }
+        ]
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump(json_content, f)
+            temp_path = f.name
+        try:
+            test_set = TestSet.from_json(temp_path, name="Nested goal")
+            assert test_set.tests[0].test_type == TestType.MULTI_TURN
+            assert test_set.test_set_type == TestType.MULTI_TURN
+        finally:
+            os.unlink(temp_path)
+
+    def test_from_json_flat_goal_without_test_type(self):
+        json_content = [
+            {
+                "category": "Conversation",
+                "requirement": "Memory",
+                "topic": "Context",
+                "goal": "Keep context across turns",
+            }
+        ]
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump(json_content, f)
+            temp_path = f.name
+        try:
+            test_set = TestSet.from_json(temp_path, name="Flat goal")
+            assert test_set.tests[0].test_type == TestType.MULTI_TURN
+            assert test_set.test_set_type == TestType.MULTI_TURN
+        finally:
+            os.unlink(temp_path)
+
+    def test_prompt_without_test_type_stays_single_turn(self):
+        json_content = [
+            {
+                "category": "Security",
+                "requirement": "Compliance",
+                "topic": "Auth",
+                "prompt": {"content": "What is your password?"},
+            }
+        ]
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump(json_content, f)
+            temp_path = f.name
+        try:
+            test_set = TestSet.from_json(temp_path, name="Prompt default")
+            assert test_set.tests[0].test_type == TestType.SINGLE_TURN
+            assert test_set.test_set_type == TestType.SINGLE_TURN
+        finally:
+            os.unlink(temp_path)
+
+
 # --- Round-trip tests ---
 
 

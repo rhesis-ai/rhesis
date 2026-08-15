@@ -1241,12 +1241,18 @@ class TestSet(BaseEntity):
                 language_code=language_code if language_code else "en",
             )
 
-        # Determine test type
-        test_type_value = entry.get("test_type", "Single-Turn")
+        # Determine test type. When the entry has a goal but no explicit
+        # test_type, infer Multi-Turn so imports do not silently build a
+        # Single-Turn payload around multi-turn configuration.
+        test_type_value = entry.get("test_type")
+        if test_type_value is None:
+            nested_goal = (entry.get("test_configuration") or {}).get("goal")
+            has_goal = bool(nested_goal) or bool(str(entry.get("goal") or "").strip())
+            test_type_value = "Multi-Turn" if has_goal else "Single-Turn"
         if isinstance(test_type_value, str):
             test_type = TestType(test_type_value)
         else:
-            test_type = TestType.SINGLE_TURN
+            test_type = test_type_value
 
         # Build test kwargs — let Test.model_validator handle
         # building test_configuration from flat fields.
