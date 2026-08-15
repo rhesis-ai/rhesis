@@ -19,6 +19,7 @@ from rhesis.backend.app.utils.relationship_sort import (
         "topic.name",
         "category.name",
         "test_type.type_value",
+        "prompt.content",
     ],
 )
 def test_virtual_relationship_sort_detection(sort_by):
@@ -33,6 +34,7 @@ def test_virtual_relationship_sort_detection(sort_by):
         "topic.name",
         "category.name",
         "test_type.type_value",
+        "prompt.content",
     ],
 )
 def test_model_supports_relationship_sort_for_test(sort_by):
@@ -47,6 +49,7 @@ def test_model_supports_relationship_sort_for_test(sort_by):
         "topic.name",
         "category.name",
         "test_type.type_value",
+        "prompt.content",
     ],
 )
 def test_validate_sort_field_accepts_relationship_sort_for_test(sort_by):
@@ -60,6 +63,7 @@ def test_validate_sort_field_accepts_relationship_sort_for_test(sort_by):
         "topic.name",
         "category.name",
         "test_type.type_value",
+        "prompt.content",
     ],
 )
 def test_validate_sort_field_rejects_relationship_sort_for_other_models(sort_by):
@@ -79,6 +83,7 @@ def test_validate_sort_field_rejects_relationship_sort_for_other_models(sort_by)
             "type_lookup.type_value",
             "test.test_type_id",
         ),
+        ("prompt.content", "prompt.content", "test.prompt_id"),
     ],
 )
 @pytest.mark.parametrize("sort_order", ["asc", "desc"])
@@ -108,6 +113,7 @@ def test_apply_relationship_sort_builds_correlated_subquery(
             "type_lookup.type_value",
             "test.test_type_id",
         ),
+        ("prompt.content", "prompt.content", "test.prompt_id"),
     ],
 )
 def test_query_builder_dispatches_relationship_sort(test_db, sort_by, related_column, foreign_key):
