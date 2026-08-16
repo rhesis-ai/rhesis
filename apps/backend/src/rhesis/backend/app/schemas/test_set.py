@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional, Union
 
-from pydantic import UUID4, BaseModel, ConfigDict, Field, field_validator
+from pydantic import UUID4, BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from rhesis.backend.app.constants import TestSetType, TestType
 from rhesis.backend.app.schemas import Base
@@ -184,6 +184,57 @@ class TestSetBulkCreate(BaseModel):
         except (ValueError, TypeError):
             # If it's not a valid UUID, return None instead of raising an error
             return None
+
+    @model_validator(mode="after")
+    def validate_tests_match_set_type(self):
+        """Reject tests whose effective type disagrees with the set's type.
+
+        A test set and its tests cannot disagree about their turn type, and a
+        payload mixing both shapes must fail with an actionable message rather
+        than persisting silently.
+        """
+        from rhesis.backend.app.utils.test_type_resolution import (
+            resolve_effective_test_type,
+        )
+
+        declared = TestSetType.get_value(self.test_set_type)
+
+        mismatches = []
+        signaled_shapes = []
+        for index, test in enumerate(self.tests):
+            effective = resolve_effective_test_type(
+                explicit_test_type=test.test_type,
+                test_configuration=test.test_configuration,
+                prompt=test.prompt,
+                test_set_type=declared,
+            )
+            if (
+                test.test_type
+                or (test.test_configuration and "goal" in test.test_configuration)
+                or test.prompt
+            ):
+                signaled_shapes.append(effective)
+            if effective != declared:
+                mismatches.append((index, effective))
+
+        messages = []
+        if len(set(signaled_shapes)) > 1:
+            messages.append(
+                "The payload mixes Single-Turn and Multi-Turn tests; split them into two test sets."
+            )
+        if mismatches:
+            examples = ", ".join(
+                f"test {index} is {effective}" for index, effective in mismatches[:3]
+            )
+            messages.append(
+                f"{examples} but the test set is declared {declared}. "
+                "Set test_type on the offending tests, or send test_configuration "
+                "instead of prompt (and vice versa) to match the set type."
+            )
+        if messages:
+            raise ValueError(" ".join(messages))
+
+        return self
 
 
 class TestSetBulkResponse(BaseModel):

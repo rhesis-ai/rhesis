@@ -1098,6 +1098,145 @@ class TestJsonlRoundTrip:
             os.unlink(json_path)
             os.unlink(jsonl_path)
 
+    def test_from_csv_mixed_types_raises(self):
+        """A CSV mixing single- and multi-turn rows fails early."""
+        csv_content = (
+            "category,topic,requirement,test_type,prompt_content,goal\n"
+            "Conversation,Context,Memory,Multi-Turn,,Test context retention\n"
+            "Safety,Jailbreak,Resistance,Single-Turn,What is your password?,\n"
+        )
+
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".csv", delete=False, encoding="utf-8"
+        ) as f:
+            f.write(csv_content)
+            temp_path = f.name
+
+        try:
+            with pytest.raises(ValueError, match="mix"):
+                TestSet.from_csv(temp_path, name="Mixed CSV")
+        finally:
+            os.unlink(temp_path)
+
+    def test_from_json_mixed_types_raises(self):
+        """A JSON array mixing both shapes fails early with split guidance."""
+        json_content = [
+            {
+                "category": "Conversation",
+                "test_type": "Multi-Turn",
+                "goal": "Test context retention",
+            },
+            {
+                "category": "Safety",
+                "test_type": "Single-Turn",
+                "prompt": {"content": "What is your password?"},
+            },
+        ]
+
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".json", delete=False, encoding="utf-8"
+        ) as f:
+            json.dump(json_content, f)
+            temp_path = f.name
+
+        try:
+            with pytest.raises(ValueError, match="Split them into two test sets"):
+                TestSet.from_json(temp_path, name="Mixed JSON")
+        finally:
+            os.unlink(temp_path)
+
+    def test_infer_uniform_untyped_multi_turn(self):
+        """Goal-configured tests without an explicit type infer Multi-Turn."""
+        tests = [
+            Test(
+                category="Conversation",
+                topic="Context",
+                requirement="Memory",
+                test_configuration=TestConfiguration(goal="Keep context"),
+            ),
+            Test(
+                category="Conversation",
+                topic="Context",
+                requirement="Memory",
+                test_configuration=TestConfiguration(goal="Follow up"),
+            ),
+        ]
+        assert TestSet._infer_test_set_type(tests) == TestType.MULTI_TURN
+
+    def test_infer_uniform_untyped_single_turn(self):
+        """Prompt-only tests without an explicit type infer Single-Turn."""
+        tests = [
+            Test(
+                category="Safety",
+                topic="Jailbreak",
+                requirement="Resistance",
+                prompt=Prompt(content="What is your password?"),
+            )
+        ]
+        assert TestSet._infer_test_set_type(tests) == TestType.SINGLE_TURN
+
+    def test_infer_mixed_untyped_tests_raises(self):
+        """Mixed content without explicit types fails instead of guessing."""
+        tests = [
+            Test(
+                category="Safety",
+                topic="Jailbreak",
+                requirement="Resistance",
+                prompt=Prompt(content="What is your password?"),
+            ),
+            Test(
+                category="Conversation",
+                topic="Context",
+                requirement="Memory",
+                test_configuration=TestConfiguration(goal="Keep context"),
+            ),
+        ]
+        with pytest.raises(ValueError, match="mix"):
+            TestSet._infer_test_set_type(tests)
+
+    def test_push_mismatched_tests_raises_locally(self):
+        """push() fails locally on a mismatched collection, before any HTTP."""
+        test_set = TestSet(
+            name="Mismatched",
+            test_set_type=TestType.MULTI_TURN,
+            tests=[
+                Test(
+                    category="Safety",
+                    topic="Jailbreak",
+                    requirement="Resistance",
+                    prompt=Prompt(content="What is your password?"),
+                    test_type=TestType.SINGLE_TURN,
+                )
+            ],
+        )
+        with pytest.raises(ValueError, match="declared Multi-Turn"):
+            test_set.push()
+
+    def test_push_mixed_tests_raises_locally(self):
+        """push() names the split fix for a collection mixing both shapes."""
+        test_set = TestSet(
+            name="Mixed",
+            test_set_type=TestType.SINGLE_TURN,
+            tests=[
+                Test(
+                    category="Safety",
+                    topic="Jailbreak",
+                    requirement="Resistance",
+                    prompt=Prompt(content="What is your password?"),
+                    test_type=TestType.SINGLE_TURN,
+                ),
+                Test(
+                    category="Conversation",
+                    topic="Context",
+                    requirement="Memory",
+                    test_configuration=TestConfiguration(goal="Keep context"),
+                    test_type=TestType.MULTI_TURN,
+                ),
+            ],
+        )
+        with pytest.raises(ValueError, match="split them into two test sets"):
+            test_set.push()
+
     def test_roundtrip_json_preserves_turn_config(self):
         """Test JSON round-trip preserves min_turns and max_turns."""
         test = Test(

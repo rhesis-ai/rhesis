@@ -978,6 +978,11 @@ class TestSet(BaseEntity):
                         f"{', '.join(missing_test_fields)}"
                     )
 
+        # Fail locally on a mismatched or mixed collection instead of
+        # round-tripping to the backend's 422.
+        if self.tests and self.test_set_type is not None:
+            self._validate_tests_match_set_type(self.tests)
+
         # mode="json": Ensures enums are serialized as strings instead of enum objects
         # exclude_none=True: Excludes None values so backend uses defaults
         data = self.model_dump(mode="json", exclude_none=True)
@@ -1149,16 +1154,87 @@ class TestSet(BaseEntity):
         return {k: v for k, v in test_data.items() if v is not None}
 
     @staticmethod
+    def _effective_type(test: Test, declared: str) -> str:
+        """Resolve a test's effective type with the backend's precedence.
+
+        Explicit test_type, then content (a goal configuration means
+        Multi-Turn, a prompt means Single-Turn), then the set's declared type.
+        """
+        if test.test_type is not None:
+            return test.test_type.value
+        if test.test_configuration is not None:
+            return TestType.MULTI_TURN.value
+        if test.prompt is not None:
+            return TestType.SINGLE_TURN.value
+        return declared
+
+    @staticmethod
     def _infer_test_set_type(tests: List[Test]) -> TestType:
         """Infer the test set type from the tests.
 
-        Returns MULTI_TURN if any test has test_type == MULTI_TURN,
-        otherwise SINGLE_TURN.
+        Every test set is uniformly one type, so a collection mixing
+        single- and multi-turn tests raises instead of silently building a
+        payload the API would reject.
         """
+        seen = set()
         for test in tests:
-            if test.test_type == TestType.MULTI_TURN:
-                return TestType.MULTI_TURN
-        return TestType.SINGLE_TURN
+            if test.test_type is not None:
+                seen.add(test.test_type.value)
+            elif test.test_configuration is not None:
+                seen.add(TestType.MULTI_TURN.value)
+            elif test.prompt is not None:
+                seen.add(TestType.SINGLE_TURN.value)
+
+        if len(seen) > 1:
+            raise ValueError(
+                "Cannot infer a test set type: the tests mix Single-Turn and "
+                "Multi-Turn. Split them into two test sets."
+            )
+        if not seen:
+            return TestType.SINGLE_TURN
+        return TestType(next(iter(seen)))
+
+    def _validate_tests_match_set_type(self, tests: List[Test]) -> None:
+        """Reject tests whose type disagrees with the set's declared type.
+
+        Mirrors the backend bulk-create validator so push() fails locally
+        with the same actionable message.
+        """
+        declared = (
+            self.test_set_type.value
+            if isinstance(self.test_set_type, TestType)
+            else str(self.test_set_type)
+        )
+
+        mismatches = []
+        signaled_shapes = set()
+        for index, test in enumerate(tests):
+            effective = self._effective_type(test, declared)
+            if (
+                test.test_type is not None
+                or test.test_configuration is not None
+                or test.prompt is not None
+            ):
+                signaled_shapes.add(effective)
+            if effective != declared:
+                mismatches.append((index, effective))
+
+        messages = []
+        if len(signaled_shapes) > 1:
+            messages.append(
+                "The tests mix Single-Turn and Multi-Turn; split them into two test sets."
+            )
+        if mismatches:
+            examples = ", ".join(
+                f"test {index} is {effective}" for index, effective in mismatches[:3]
+            )
+            messages.append(
+                f"{examples} but the test set is declared {declared}. "
+                "Set test_type on the offending tests, or send test_configuration "
+                "instead of prompt (and vice versa) to match the set type."
+            )
+        if messages:
+            raise ValueError(" ".join(messages))
 
     @classmethod
     def _dict_to_test(cls, entry: Dict[str, Any]) -> Optional[Test]:
