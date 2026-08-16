@@ -34,6 +34,16 @@ from rhesis.backend.app.utils.uuid_utils import (
 logger = logging.getLogger(__name__)
 
 
+class TestSetInaccessibleError(LookupError):
+    """Referenced test set is missing or belongs to another organization.
+
+    Raised by bulk_create_tests when a test_set_id cannot be resolved
+    within the caller's organization, instead of silently creating
+    unassociated tests. Routers map this to 404 via their existing
+    "not found" error handling.
+    """
+
+
 class _BulkEntityCache:
     """
     In-memory cache for entity lookups during bulk operations.
@@ -679,7 +689,11 @@ def bulk_create_tests(
             )
             .first()
         )
-        if db_test_set is not None and db_test_set.test_set_type is not None:
+        if db_test_set is None:
+            raise TestSetInaccessibleError(
+                f"Test set with ID {test_set_id} not found or not accessible"
+            )
+        if db_test_set.test_set_type is not None:
             enforced_set_type = db_test_set.test_set_type.type_value
             test_type_value = enforced_set_type
     if enforced_set_type is None:

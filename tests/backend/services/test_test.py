@@ -206,7 +206,7 @@ class TestBulkCreateTests:
                 test_set_id=str(test_set.id),
             )
 
-    def test_bulk_create_tests_ignores_cross_org_test_set_type(
+    def test_bulk_create_tests_rejects_cross_org_test_set_id(
         self,
         test_db: Session,
         authenticated_user_id,
@@ -216,7 +216,7 @@ class TestBulkCreateTests:
         db_status,
         db_user,
     ):
-        """A test_set_id from another org must not leak its type or block writes."""
+        """A cross-org test_set_id must fail fast, never leak type or create unassociated tests."""
         multi_turn_type = models.TypeLookup(
             type_name="TestSetType",
             type_value="Multi-Turn",
@@ -236,17 +236,19 @@ class TestBulkCreateTests:
         test_db.add(other_org_set)
         test_db.commit()
 
-        # The caller is test_org_id with an explicit Single-Turn fallback; the
-        # other org's Multi-Turn type must not be read, so this succeeds.
-        created = test_service.bulk_create_tests(
-            db=test_db,
-            tests_data=[create_bulk_test_data()],
-            organization_id=test_org_id,
-            user_id=authenticated_user_id,
-            test_set_id=str(other_org_set.id),
-            test_type_value="Single-Turn",
-        )
-        assert len(created) == 1
+        # The caller is test_org_id; the other org's set is inaccessible and
+        # must be rejected instead of silently creating unassociated tests.
+        with pytest.raises(
+            test_service.TestSetInaccessibleError, match="not found or not accessible"
+        ):
+            test_service.bulk_create_tests(
+                db=test_db,
+                tests_data=[create_bulk_test_data()],
+                organization_id=test_org_id,
+                user_id=authenticated_user_id,
+                test_set_id=str(other_org_set.id),
+                test_type_value="Single-Turn",
+            )
 
     def test_bulk_create_tests_invalid_uuid(self, test_db: Session, authenticated_user_id):
         """Test bulk_create_tests with invalid UUID parameters."""
