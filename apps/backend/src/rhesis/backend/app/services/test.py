@@ -671,7 +671,14 @@ def bulk_create_tests(
     # schema validator for bulk test-set creation.
     enforced_set_type = None
     if test_set_id:
-        db_test_set = db.query(models.TestSet).filter(models.TestSet.id == test_set_id).first()
+        db_test_set = (
+            db.query(models.TestSet)
+            .filter(
+                models.TestSet.id == test_set_id,
+                models.TestSet.organization_id == organization_id,
+            )
+            .first()
+        )
         if db_test_set is not None and db_test_set.test_set_type is not None:
             enforced_set_type = db_test_set.test_set_type.type_value
             test_type_value = enforced_set_type
@@ -891,6 +898,11 @@ def bulk_create_tests(
         # Transaction commit/rollback is handled by the session context manager
         return created_test_ids
 
+    except ValueError:
+        # The type-mismatch guard raises ValueError with an actionable
+        # message; propagate it as a client error instead of the generic
+        # 500 wrapper below.
+        raise
     except Exception as e:
         error_msg = str(e)
         logger.error(f"Failed to create tests: {error_msg}", exc_info=True)

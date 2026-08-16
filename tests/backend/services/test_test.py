@@ -206,6 +206,48 @@ class TestBulkCreateTests:
                 test_set_id=str(test_set.id),
             )
 
+    def test_bulk_create_tests_ignores_cross_org_test_set_type(
+        self,
+        test_db: Session,
+        authenticated_user_id,
+        test_org_id,
+        test_organization,
+        test_type_lookup,
+        db_status,
+        db_user,
+    ):
+        """A test_set_id from another org must not leak its type or block writes."""
+        multi_turn_type = models.TypeLookup(
+            type_name="TestSetType",
+            type_value="Multi-Turn",
+            description="Multi-Turn test set type",
+            organization_id=test_organization.id,
+            user_id=authenticated_user_id,
+        )
+        test_db.add(multi_turn_type)
+        test_db.flush()
+
+        other_org_set = models.TestSet(
+            name="Other org multi-turn set",
+            organization_id=uuid.uuid4(),
+            user_id=authenticated_user_id,
+            test_set_type_id=multi_turn_type.id,
+        )
+        test_db.add(other_org_set)
+        test_db.commit()
+
+        # The caller is test_org_id with an explicit Single-Turn fallback; the
+        # other org's Multi-Turn type must not be read, so this succeeds.
+        created = test_service.bulk_create_tests(
+            db=test_db,
+            tests_data=[create_bulk_test_data()],
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            test_set_id=str(other_org_set.id),
+            test_type_value="Single-Turn",
+        )
+        assert len(created) == 1
+
     def test_bulk_create_tests_invalid_uuid(self, test_db: Session, authenticated_user_id):
         """Test bulk_create_tests with invalid UUID parameters."""
         test_data_list = [
