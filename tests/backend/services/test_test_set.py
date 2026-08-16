@@ -14,7 +14,11 @@ from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
-from rhesis.backend.app.constants import EXPLORER_REQUIREMENT_NAME
+from rhesis.backend.app.constants import (
+    EXPLORER_REQUIREMENT_NAME,
+    TestSetType,
+    TestType,
+)
 from rhesis.backend.app.schemas.validators import resolve_test_type
 from rhesis.backend.app.services import test_set as test_set_service
 
@@ -698,6 +702,29 @@ class TestBulkCreateEnforcesUniformTestType:
                     ),
                 ],
             )
+
+    def test_enum_typed_inputs_resolve_to_plain_strings(self):
+        """Enum instances (pydantic-coerced) must resolve to plain strings."""
+        payload = schemas.TestSetBulkCreate(
+            name="Enum",
+            test_set_type=TestSetType.SINGLE_TURN,
+            tests=[
+                schemas.TestData(
+                    prompt=schemas.TestPrompt(content="single turn"),
+                    test_type=TestType.SINGLE_TURN,
+                    requirement="Security",
+                    category="Injection",
+                    topic="Prompt Injection",
+                )
+            ],
+        )
+        effective_type = resolve_test_type(
+            payload.tests[0].model_dump(exclude_none=True),
+            test_set_type=TestSetType.get_value(payload.test_set_type),
+            default_test_type=TestSetType.get_value(payload.test_set_type),
+        )
+        assert effective_type == "Single-Turn"
+        assert type(effective_type) is str
 
     def test_uniform_single_turn_payload_is_accepted(self):
         payload = schemas.TestSetBulkCreate(
