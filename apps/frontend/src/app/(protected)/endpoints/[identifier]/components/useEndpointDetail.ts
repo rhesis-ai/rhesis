@@ -102,6 +102,10 @@ export function useEndpointDetail(initialEndpoint: Endpoint) {
           endpointKeys.detail(endpoint.id),
           prev => (prev ? applyUpdate(prev) : prev)
         );
+        // Refetch the endpoints list (and any other endpoint consumers) so a
+        // change like Active -> Inactive shows up in the grid immediately,
+        // instead of waiting out the list query's staleTime.
+        void queryClient.invalidateQueries({ queryKey: endpointKeys.all() });
         notifications.show('Endpoint updated successfully', {
           severity: 'success',
         });
