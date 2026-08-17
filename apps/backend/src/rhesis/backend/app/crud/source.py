@@ -27,6 +27,7 @@ from rhesis.backend.app import models, schemas
 from rhesis.backend.app.utils.crud_utils import (
     create_item,
     delete_item,
+    get_item_detail,
     update_item,
 )
 from rhesis.backend.app.utils.query_utils import QueryBuilder, include
@@ -49,18 +50,14 @@ def get_source(
     Use get_source_with_content() to load the content field.
     Relationships (source_type, user) are loaded for display.
     """
-    from rhesis.backend.app.utils.crud_utils import _check_and_raise_if_deleted
-
-    item = (
-        QueryBuilder(db, models.Source)
-        .with_deleted()
-        .with_related(*_SOURCE_RELATED_FIELDS)
-        .with_default_derived_field_loads()
-        .with_organization_filter(organization_id)
-        .with_visibility_filter(user_id)
-        .filter_by_id(source_id)
+    return get_item_detail(
+        db,
+        models.Source,
+        source_id,
+        organization_id=organization_id,
+        user_id=user_id,
+        related_fields=_SOURCE_RELATED_FIELDS,
     )
-    return _check_and_raise_if_deleted(item, models.Source, source_id, False)
 
 
 def get_source_with_content(
@@ -73,19 +70,16 @@ def get_source_with_content(
     """Get source with content field explicitly loaded (a deferred column)."""
     from sqlalchemy.orm import undefer
 
-    from rhesis.backend.app.utils.crud_utils import _check_and_raise_if_deleted
-
-    item = (
-        QueryBuilder(db, models.Source)
-        .with_deleted()
-        .with_related(*_SOURCE_RELATED_FIELDS)
-        .with_default_derived_field_loads()
-        .with_organization_filter(organization_id)
-        .with_visibility_filter(user_id)
-        .with_custom_filter(lambda q: q.options(undefer(models.Source.content)))
-        .filter_by_id(source_id)
+    return get_item_detail(
+        db,
+        models.Source,
+        source_id,
+        organization_id=organization_id,
+        user_id=user_id,
+        include_deleted=include_deleted,
+        related_fields=_SOURCE_RELATED_FIELDS,
+        extra_filter=lambda q: q.options(undefer(models.Source.content)),
     )
-    return _check_and_raise_if_deleted(item, models.Source, source_id, include_deleted)
 
 
 def get_sources(

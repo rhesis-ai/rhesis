@@ -616,16 +616,13 @@ def get_test_set_tests(
 def get_test_configuration(
     db: Session, test_configuration_id: uuid.UUID, organization_id: str = None, user_id: str = None
 ) -> Optional[models.TestConfiguration]:
-    from rhesis.backend.app.utils.crud_utils import _check_and_raise_if_deleted
-
-    item = (
-        QueryBuilder(db, models.TestConfiguration)
-        .with_deleted()
-        .with_organization_filter(organization_id)
-        .with_visibility_filter(user_id)
-        .filter_by_id(test_configuration_id)
+    return get_item_detail(
+        db,
+        models.TestConfiguration,
+        test_configuration_id,
+        organization_id=organization_id,
+        user_id=user_id,
     )
-    return _check_and_raise_if_deleted(item, models.TestConfiguration, test_configuration_id, False)
 
 
 def get_test_configurations(
@@ -1102,18 +1099,14 @@ def get_test_result(
     db: Session, test_result_id: uuid.UUID, organization_id: str = None, user_id: str = None
 ) -> Optional[models.TestResult]:
     """Get test_result with relationships (tags, test, test_run) eagerly loaded."""
-    from rhesis.backend.app.utils.crud_utils import _check_and_raise_if_deleted
-
-    item = (
-        QueryBuilder(db, models.TestResult)
-        .with_deleted()
-        .with_related(*_TEST_RESULT_RELATED_FIELDS)
-        .with_default_derived_field_loads()
-        .with_organization_filter(organization_id)
-        .with_visibility_filter(user_id)
-        .filter_by_id(test_result_id)
+    return get_item_detail(
+        db,
+        models.TestResult,
+        test_result_id,
+        organization_id=organization_id,
+        user_id=user_id,
+        related_fields=_TEST_RESULT_RELATED_FIELDS,
     )
-    return _check_and_raise_if_deleted(item, models.TestResult, test_result_id, False)
 
 
 def get_test_results(
@@ -1252,17 +1245,14 @@ def get_tool(
     db: Session, tool_id: uuid.UUID, organization_id: str, user_id: str = None
 ) -> Optional[models.Tool]:
     """Get a specific tool by ID with relationships loaded"""
-    from rhesis.backend.app.utils.crud_utils import _check_and_raise_if_deleted
-
-    item = (
-        QueryBuilder(db, models.Tool)
-        .with_deleted()
-        .with_related(*_TOOL_RELATED_FIELDS)
-        .with_organization_filter(organization_id)
-        .with_visibility_filter(user_id)
-        .filter_by_id(tool_id)
+    return get_item_detail(
+        db,
+        models.Tool,
+        tool_id,
+        organization_id=organization_id,
+        user_id=user_id,
+        related_fields=_TOOL_RELATED_FIELDS,
     )
-    return _check_and_raise_if_deleted(item, models.Tool, tool_id, False)
 
 
 def get_tools(
@@ -1332,17 +1322,14 @@ def get_architect_session_detail(
     user_id: str = None,
 ) -> Optional[models.ArchitectSession]:
     """Get an architect session with its messages eagerly loaded."""
-    from rhesis.backend.app.utils.crud_utils import _check_and_raise_if_deleted
-
-    item = (
-        QueryBuilder(db, models.ArchitectSession)
-        .with_deleted()
-        .with_related(include(models.ArchitectSession.messages))
-        .with_organization_filter(organization_id)
-        .with_visibility_filter(user_id)
-        .filter_by_id(session_id)
+    return get_item_detail(
+        db,
+        models.ArchitectSession,
+        session_id,
+        organization_id=organization_id,
+        user_id=user_id,
+        related_fields=(include(models.ArchitectSession.messages),),
     )
-    return _check_and_raise_if_deleted(item, models.ArchitectSession, session_id, False)
 
 
 def get_architect_sessions(
