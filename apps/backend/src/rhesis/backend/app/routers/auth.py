@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from starlette.responses import RedirectResponse
 
 from rhesis.backend.app.auth.constants import AuthProviderType
+from rhesis.backend.app.auth.disposable_email import DisposableEmailError, screen_signup_email
 from rhesis.backend.app.auth.password_policy import get_password_policy, validate_password
 from rhesis.backend.app.auth.provider_hooks import apply_enrichers
 from rhesis.backend.app.auth.providers import ProviderRegistry
@@ -497,6 +498,12 @@ async def auth_callback(request: Request, db: Session = Depends(get_db_session))
 
     except HTTPException:
         raise
+    except DisposableEmailError as e:
+        # Policy rejection, not a failure — already logged by the screener.
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
     except Exception as e:
         logger.error(f"Auth callback error for {provider_name}: {str(e)}", exc_info=True)
         raise HTTPException(
@@ -916,6 +923,17 @@ def request_magic_link(
     is_new_user = False
 
     if not user:
+        # Sign-up branch only, so existing accounts on a disposable domain keep
+        # working. A 400 here does reveal that the address has no account yet,
+        # but only for domains we are refusing to register anyway.
+        try:
+            screen_signup_email(body.email, source="magic_link")
+        except DisposableEmailError as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(e),
+            )
+
         try:
             user_data = UserCreate(
                 email=body.email,

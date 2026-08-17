@@ -195,6 +195,16 @@ class AuthSettings(BaseSettings):
 
     email_password_enabled: bool = Field(default=True, alias="AUTH_EMAIL_PASSWORD_ENABLED")
     registration_enabled: bool = Field(default=True, alias="AUTH_REGISTRATION_ENABLED")
+    # Starts at "log" so we can measure the false-positive rate of the community
+    # blocklist from logs for a week before it starts turning real users away.
+    block_disposable_emails: Literal["off", "log", "enforce"] = Field(
+        default="log",
+        alias="AUTH_BLOCK_DISPOSABLE_EMAILS",
+    )
+    disposable_email_extra_domains: str = Field(
+        default="",
+        alias="AUTH_DISPOSABLE_EMAIL_EXTRA_DOMAINS",
+    )
     google_client_id: str | None = Field(default=None, alias="GOOGLE_CLIENT_ID")
     google_client_secret: str | None = Field(default=None, alias="GOOGLE_CLIENT_SECRET")
     github_client_id: str | None = Field(default=None, alias="GH_CLIENT_ID")
@@ -206,6 +216,20 @@ class AuthSettings(BaseSettings):
         default=15,
         alias="JWT_ACCESS_TOKEN_EXPIRE_MINUTES",
     )
+
+    @field_validator("block_disposable_emails", mode="before")
+    @classmethod
+    def _accept_boolean_form(cls, value: object) -> object:
+        """Accept the boolean spelling this setting shipped as before the log mode existed."""
+        if isinstance(value, bool):
+            return "enforce" if value else "off"
+        if isinstance(value, str):
+            lowered = value.strip().lower()
+            if lowered in {"true", "1", "yes", "on"}:
+                return "enforce"
+            if lowered in {"false", "0", "no"}:
+                return "off"
+        return value
 
     @property
     def google_enabled(self) -> bool:

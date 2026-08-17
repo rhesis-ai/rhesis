@@ -55,6 +55,7 @@ def find_or_create_user_from_auth(db: Session, auth_user: "AuthUser") -> User:
     Returns:
         User instance (existing or newly created)
     """
+    from rhesis.backend.app.auth.disposable_email import screen_signup_email
     from rhesis.backend.app.auth.providers.base import AuthUser as AuthUserClass
     from rhesis.backend.app.utils.validation import validate_and_normalize_email
 
@@ -89,6 +90,10 @@ def find_or_create_user_from_auth(db: Session, auth_user: "AuthUser") -> User:
     # check to avoid DNS failures in split-horizon environments where the
     # internal BIND9 zone only carries subdomain A records (no apex MX).
     normalized_email = validate_and_normalize_email(auth_user.email, check_deliverability=False)
+
+    # Only reached when no user matched above, so this is a first login — existing
+    # accounts on a disposable domain keep working.
+    screen_signup_email(normalized_email, source=f"oauth:{auth_user.provider_type}")
 
     # Create new user
     logger.info(f"Creating new user: {normalized_email} via {auth_user.provider_type}")
