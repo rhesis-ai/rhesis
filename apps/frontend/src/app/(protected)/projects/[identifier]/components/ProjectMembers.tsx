@@ -20,6 +20,8 @@ import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { projectKeys } from '@/constants/query-keys';
+import { useFeature } from '@/contexts/FeaturesContext';
+import { FeatureName } from '@/constants/features';
 import { getMemberRoleExtensions } from '@/lib/extension-registries';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
@@ -113,15 +115,18 @@ export default function ProjectMembers({
     }
   };
 
-  const { ProjectRoleCell, prewarmProjectCaches } = getMemberRoleExtensions();
+  const rbacEnabled = useFeature(FeatureName.RBAC);
+  const { ProjectRoleCell: RawProjectRoleCell, prewarmProjectCaches } =
+    getMemberRoleExtensions();
+  const ProjectRoleCell = rbacEnabled ? RawProjectRoleCell : undefined;
 
   useEffect(() => {
-    if (isAuthenticated(status) && projectId) {
+    if (rbacEnabled && isAuthenticated(status) && projectId) {
       prewarmProjectCaches?.(projectId, {
         canManageRoles: canManageMembers,
       });
     }
-  }, [projectId, prewarmProjectCaches, canManageMembers, status]);
+  }, [rbacEnabled, projectId, prewarmProjectCaches, canManageMembers, status]);
 
   const columns: GridColDef[] = React.useMemo(() => {
     const RoleCell = ProjectRoleCell;

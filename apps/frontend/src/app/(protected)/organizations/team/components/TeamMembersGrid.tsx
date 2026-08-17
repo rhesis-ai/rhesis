@@ -49,6 +49,8 @@ import TeamFilterDrawer from './TeamFilterDrawer';
 import MemberAccessDrawer from './MemberAccessDrawer';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
+import { useFeature } from '@/contexts/FeaturesContext';
+import { FeatureName } from '@/constants/features';
 import { getMemberRoleExtensions } from '@/lib/extension-registries';
 import { getMemberJoinStatus } from '@/utils/member-join-status';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
@@ -183,13 +185,16 @@ export default function TeamMembersGrid({
     setAccessDrawerOpen(true);
   }, []);
 
-  const { OrgRoleCell, prewarmCaches } = getMemberRoleExtensions();
+  const rbacEnabled = useFeature(FeatureName.RBAC);
+  const { OrgRoleCell: RawOrgRoleCell, prewarmCaches } =
+    getMemberRoleExtensions();
+  const OrgRoleCell = rbacEnabled ? RawOrgRoleCell : undefined;
 
   useEffect(() => {
-    if (isAuthenticated(status)) {
+    if (rbacEnabled && isAuthenticated(status)) {
       prewarmCaches?.({ canManageRoles: canManageMembers });
     }
-  }, [prewarmCaches, canManageMembers, status]);
+  }, [rbacEnabled, prewarmCaches, canManageMembers, status]);
 
   const showRoleColumn = Boolean(OrgRoleCell);
   const currentUserId = session?.user?.id;
