@@ -488,6 +488,13 @@ class TestPlatformKeyModelProvenance:
 class TestResolveDefaultHostedModel:
     """The system default always runs on the server's own credentials."""
 
+    @pytest.fixture(autouse=True)
+    def _bypass_quota_gate(self, monkeypatch):
+        monkeypatch.setattr(
+            "rhesis.backend.app.utils.user_model_utils._enforce_model_token_quota",
+            lambda db, org_id: None,
+        )
+
     def test_stamps_a_non_rhesis_default_as_metered(self, monkeypatch):
         """Regression: a ``vertex_ai/...`` default used to be handed back as
         a bare string with no accrual, so its tokens were never counted."""
