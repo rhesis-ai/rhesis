@@ -7,19 +7,16 @@ from sqlalchemy.orm import Session, joinedload
 
 from rhesis.backend.app.models import Prompt, Test, TestSet
 from rhesis.backend.app.models.test import test_test_set_association
+from rhesis.backend.app.utils.crud_utils import get_item_detail
 
 
 def get_prompts_for_test_set(
     db: Session, test_set_id: uuid.UUID, organization_id: str = None
 ) -> List[dict]:
-    # First check if test set exists AND belongs to organization (SECURITY CRITICAL)
-    query = db.query(TestSet).filter(TestSet.id == test_set_id)
-    if organization_id:
-        from uuid import UUID
-
-        query = query.filter(TestSet.organization_id == UUID(organization_id))
-
-    test_set_exists = query.first()
+    # First check if test set exists AND belongs to organization (SECURITY CRITICAL).
+    # Raises ItemDeletedException for a soft-deleted test set; the sole caller
+    # (download_test_set_prompts) already lets that through to its 410 response.
+    test_set_exists = get_item_detail(db, TestSet, test_set_id, organization_id=organization_id)
     if not test_set_exists:
         raise ValueError("Test Set not found or not accessible")
 
