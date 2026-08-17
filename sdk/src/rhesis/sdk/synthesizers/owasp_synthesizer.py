@@ -318,7 +318,7 @@ class OWASPSynthesizer(TestSetSynthesizer):
             "section_name": section.name,
             "section_content": section.content,
             "requirement": self._requirement,
-            "topic": section.name.lower(),
+            "topic": f"{section.id.upper()}: {section.name}",
             "harmful": True,
             **extra,
         }
