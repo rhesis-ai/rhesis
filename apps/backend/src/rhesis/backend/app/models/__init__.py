@@ -1,5 +1,6 @@
 # Import base classes first
 # Import remaining models
+from .activity_log import ActivityLog
 from .architect import ArchitectMessage, ArchitectSession
 from .base import Base
 from .category import Category
@@ -10,6 +11,7 @@ from .endpoint import Endpoint
 from .experiment import Experiment
 from .file import File
 from .guid import GUID
+from .job import Job
 from .metric import Metric, behavior_metric_association, requirement_metric_association
 from .mixins import ProjectMixin, TagsMixin
 from .model import Model
@@ -52,6 +54,7 @@ Behavior = Requirement
 # This line ensures all models are registered with Base
 __all__ = [
     "Base",
+    "ActivityLog",
     "ArchitectSession",
     "ArchitectMessage",
     "Behavior",
@@ -65,6 +68,7 @@ __all__ = [
     "Experiment",
     "File",
     "GUID",
+    "Job",
     "Metric",
     "Model",
     "Notification",
