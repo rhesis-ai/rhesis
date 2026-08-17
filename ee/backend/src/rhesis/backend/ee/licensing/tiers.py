@@ -176,9 +176,10 @@ def _parse_limits(raw: dict[str, int | None]) -> dict[QuotaResource, int | None]
     ``/features`` response, so they are rejected here rather than surfacing
     far from their cause.
 
-    :raises ValueError: on an unrecognized key, or a value that is neither
-        ``None`` (unlimited) nor a non-negative ``int``. Deliberately not
-        caught by :func:`_load_tier_config`'s fallback -- a config that
+    :raises ValueError: on an unrecognized key, a value that is neither
+        ``None`` (unlimited) nor a non-negative ``int``, or a ``limits``
+        mapping that doesn't cover every :class:`QuotaResource`. Deliberately
+        not caught by :func:`_load_tier_config`'s fallback -- a config that
         parses as YAML but is semantically wrong is a real bug that must
         surface at startup, not degrade into a silently-unmetered or
         permanently-blocked resource.
@@ -206,7 +207,45 @@ def _parse_limits(raw: dict[str, int | None]) -> dict[QuotaResource, int | None]
             )
 
         result[resource] = value
+
+    # A resource this dict never mentions and a resource explicitly set to
+    # `null` both end up absent from `result` -- and `QuotaPolicy.limits.get()`
+    # reads either as unlimited. The unknown-key check above catches a typo
+    # that adds a key; nothing caught the opposite typo, a key that's simply
+    # missing -- most likely a new QuotaResource member added without every
+    # tier config being updated for it, which would then silently unmeter it
+    # everywhere rather than block, the same failure mode _parse_limits exists
+    # to prevent for typo'd keys.
+    missing = sorted(r.value for r in QuotaResource if r not in result)
+    if missing:
+        raise ValueError(
+            f"Tier config `limits` is missing resource(s): {missing}. Every "
+            f"QuotaResource member must have an explicit entry (use null for "
+            f"unlimited) -- an absent resource is not 'inherits a default', "
+            f"it reads as unlimited to every caller."
+        )
     return result
+
+
+def _parse_all_features(raw: object) -> bool:
+    """Validate a raw YAML ``all_features`` value.
+
+    :func:`~rhesis.backend.ee.licensing.verify.verify_token` reads the minted
+    claim back with ``bool(lic.get(LIC_ALL_FEATURES, False))``, and Python's
+    ``bool()`` treats any non-empty string as ``True`` -- including the
+    string ``"false"``. An unvalidated ``all_features: "false"`` in the YAML
+    would therefore mint a token that unlocks every registered EE feature,
+    the opposite of what the config says. Reject anything that isn't a real
+    bool here, at load time, rather than at verify time on every request.
+
+    :raises ValueError: if *raw* is not a ``bool``.
+    """
+    if not isinstance(raw, bool):
+        raise ValueError(
+            f"Invalid all_features in tier config: {raw!r} ({type(raw).__name__}). "
+            f"Expected true or false."
+        )
+    return raw
 
 
 def _parse_overage(raw: object) -> OveragePolicy:
@@ -251,7 +290,26 @@ def _parse_overage_tolerance(raw: object) -> int:
     return raw
 
 
-def _fallback_catalog() -> dict[LicenseEdition, TierSpec]:
+class _FallbackCatalog(dict):
+    """Marks a catalog as the intentional safety-net from :func:`_fallback_catalog`.
+
+    A genuinely broken multi-tier config can also collapse to a bare
+    ``{COMMUNITY: TierSpec(...)}`` -- e.g. every paid entry gets dropped by
+    the per-entry shape checks in :func:`_load_tier_config` while community
+    itself stays valid. That result is indistinguishable from the on-purpose
+    fallback *by shape alone*, and :func:`_assert_catalog_complete` used to
+    tell them apart by comparing key sets, which made the two cases look
+    identical: a paying org silently gets free-tier limits and no error is
+    raised, when the real bug is a malformed config for two other tiers.
+
+    Subclassing ``dict`` rather than returning a separate boolean means the
+    marker survives being passed through anything that treats the catalog as
+    a plain mapping (which is everywhere else in this module), with no
+    signature changes required.
+    """
+
+
+def _fallback_catalog() -> _FallbackCatalog:
     """Safety-net catalog used when the tier config can't be read at all.
 
     Only the community entry is populated, using the same numbers as
@@ -263,12 +321,14 @@ def _fallback_catalog() -> dict[LicenseEdition, TierSpec]:
     and :func:`is_sellable` correctly reports paid tiers as unsellable until
     the config is fixed, rather than minting tokens against stale defaults.
     """
-    return {
-        LicenseEdition.COMMUNITY: TierSpec(
-            edition=LicenseEdition.COMMUNITY,
-            limits=dict(FREE_TIER_LIMITS),
-        )
-    }
+    return _FallbackCatalog(
+        {
+            LicenseEdition.COMMUNITY: TierSpec(
+                edition=LicenseEdition.COMMUNITY,
+                limits=dict(FREE_TIER_LIMITS),
+            )
+        }
+    )
 
 
 def _load_tier_config() -> dict[LicenseEdition, TierSpec]:
@@ -338,8 +398,10 @@ def _load_tier_config() -> dict[LicenseEdition, TierSpec]:
         # here would duplicate TierSpec's default and silently drift from
         # it if that default ever changes.
         overrides: dict[str, object] = {
-            key: spec_raw[key] for key in ("all_features", "retention_days") if key in spec_raw
+            key: spec_raw[key] for key in ("retention_days",) if key in spec_raw
         }
+        if "all_features" in spec_raw:
+            overrides["all_features"] = _parse_all_features(spec_raw["all_features"])
         if "overage" in spec_raw:
             overrides["overage"] = _parse_overage(spec_raw["overage"])
         if "overage_tolerance_percent" in spec_raw:
@@ -373,12 +435,15 @@ def _assert_catalog_complete(catalog: dict[LicenseEdition, TierSpec]) -> None:
     unlicensed org -- which reads downstream as *unlimited*. Requiring it
     here turns that fail-open into a startup failure.
 
-    Skipped when the catalog is the free-tier fallback, which is by design
-    community-only -- see :func:`_fallback_catalog`.
+    Skipped only for the genuine safety-net fallback -- see
+    :class:`_FallbackCatalog`. Checking ``isinstance`` rather than comparing
+    key sets matters: a real multi-tier config that lost every paid entry to
+    :func:`_load_tier_config`'s per-entry shape checks also collapses to a
+    bare ``{COMMUNITY: ...}``, and that case must still raise.
 
     :raises RuntimeError: naming exactly which editions are missing.
     """
-    if set(catalog) == {LicenseEdition.COMMUNITY}:
+    if isinstance(catalog, _FallbackCatalog):
         return
 
     missing = sorted(e.value for e in CATALOG_EDITIONS - set(catalog))

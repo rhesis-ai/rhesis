@@ -8,6 +8,7 @@ verifies to entitlements that grant exactly those features.
 from __future__ import annotations
 
 import pytest
+import yaml
 
 from rhesis.backend.app.features import FeatureName
 from rhesis.backend.app.quota import (
@@ -33,6 +34,7 @@ from rhesis.backend.ee.licensing.tiers import (
     SELLABLE_EDITIONS,
     TierSpec,
     _assert_catalog_complete,
+    _fallback_catalog,
     _load_tier_config,
     all_sellable,
     is_sellable,
@@ -118,8 +120,26 @@ class TestLoadTierConfig:
     or silently misparse into a wrong-but-valid-looking TierSpec."""
 
     def _load_from(self, tmp_path, monkeypatch, content: str) -> dict:
+        """Parse *content* as a tier config, filling any `limits` mapping
+        out to full QuotaResource coverage (defaulting to null/unlimited)
+        before writing it.
+
+        `_parse_limits` now requires every QuotaResource to have an explicit
+        entry (see its docstring). Most tests in this class are about some
+        other behavior -- a malformed shape, an unknown edition, an overage
+        value -- and write a minimal `limits: {seats: 3}` block that would
+        otherwise fail that unrelated coverage check for a reason the test
+        isn't exercising. Backfilling here keeps those fixtures minimal
+        without any test asserting on QuotaResource coverage by accident.
+        """
+        parsed = yaml.safe_load(content) or {}
+        for spec in parsed.values():
+            if isinstance(spec, dict) and isinstance(spec.get("limits"), dict):
+                for resource in QuotaResource:
+                    spec["limits"].setdefault(resource.value, None)
+
         config_file = tmp_path / "tier_config.yaml"
-        config_file.write_text(content)
+        config_file.write_text(yaml.safe_dump(parsed))
         monkeypatch.setenv(ENV_TIER_CONFIG, str(config_file))
         return _load_tier_config()
 
@@ -224,6 +244,38 @@ class TestLoadTierConfig:
         limits = catalog[LicenseEdition.COMMUNITY].limits
         assert limits[QuotaResource.SEATS] == 0
         assert limits[QuotaResource.PROJECTS] is None
+
+    def test_limits_missing_a_resource_raises(self, tmp_path, monkeypatch):
+        """A `limits` block that omits a resource must fail loud, not read as
+        unlimited for that resource -- the same failure mode an unknown key
+        already fails loud for, just the opposite typo. Bypasses `_load_from`
+        (which backfills missing resources for every other test in this
+        class) to exercise the real, unfilled-in loader path."""
+        config_file = tmp_path / "tier_config.yaml"
+        config_file.write_text(f"community:\n  limits:\n    {QuotaResource.SEATS.value}: 3\n")
+        monkeypatch.setenv(ENV_TIER_CONFIG, str(config_file))
+
+        with pytest.raises(ValueError, match="missing resource"):
+            _load_tier_config()
+
+    def test_invalid_all_features_value_is_rejected(self, tmp_path, monkeypatch):
+        """`bool("false")` is `True` -- an unvalidated quoted string here
+        would mint a token unlocking every EE feature for a tier the config
+        says shouldn't have them."""
+        with pytest.raises(ValueError, match="all_features"):
+            self._load_from(
+                tmp_path,
+                monkeypatch,
+                'community:\n  all_features: "false"\n  limits:\n    seats: 3\n',
+            )
+
+    def test_real_all_features_bool_is_accepted(self, tmp_path, monkeypatch):
+        catalog = self._load_from(
+            tmp_path,
+            monkeypatch,
+            "community:\n  all_features: true\n  limits:\n    seats: 3\n",
+        )
+        assert catalog[LicenseEdition.COMMUNITY].all_features is True
 
     def test_unrecognized_overage_value_raises(self, tmp_path, monkeypatch):
         with pytest.raises(ValueError, match="[Ii]nvalid overage policy"):
@@ -358,8 +410,18 @@ class TestCatalogCompleteness:
     def test_community_only_fallback_is_exempt(self):
         """_fallback_catalog() is community-only by design; the gate must
         not turn a degraded-but-working config into a boot failure."""
-        fallback = {LicenseEdition.COMMUNITY: TierSpec(edition=LicenseEdition.COMMUNITY)}
-        _assert_catalog_complete(fallback)
+        _assert_catalog_complete(_fallback_catalog())
+
+    def test_a_plain_community_only_dict_is_not_exempt(self):
+        """The gate distinguishes the *marked* fallback from a real config
+        that merely collapsed to the same shape -- e.g. every paid tier got
+        dropped by _load_tier_config's per-entry checks while community
+        stayed valid. A bare dict with the identical keys must still raise;
+        only the actual _fallback_catalog() marker is exempt (see
+        _FallbackCatalog's docstring for why this used to silently pass)."""
+        degraded = {LicenseEdition.COMMUNITY: TierSpec(edition=LicenseEdition.COMMUNITY)}
+        with pytest.raises(RuntimeError, match="missing an entry"):
+            _assert_catalog_complete(degraded)
 
     def test_missing_community_entry_raises(self):
         """A catalog with every paid tier but no community entry must fail.
