@@ -4,7 +4,7 @@ import React from 'react';
 import { Box, Button, Paper, Skeleton, Typography } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import { ArrowOutwardIcon } from '@/components/icons';
-import { BORDER_RADIUS } from '@/styles/theme-constants';
+import { BORDER_RADIUS, ELEVATION } from '@/styles/theme-constants';
 import {
   emptyStateCardShellSx,
   emptyStateEnrichedActionSx,
@@ -174,17 +174,24 @@ function EmptyStateArticleCard({ article }: { article: EmptyStateArticle }) {
   const imageUrl = article.imageUrl ?? metadata?.imageUrl ?? null;
 
   const content = (
-    <Box
+    // `overflow: hidden` lets the preview run edge to edge and still pick up
+    // the card's rounded top corners.
+    <Paper
+      elevation={0}
       sx={{
         display: 'flex',
         flexDirection: 'column',
-        gap: '14px',
-        alignItems: 'flex-start',
-        width: '100%',
+        height: '100%',
+        overflow: 'hidden',
+        border: theme => `1px solid ${theme.palette.greyscale.border}`,
+        borderRadius: BORDER_RADIUS.md,
+        boxShadow: ELEVATION.xs,
+        transition: theme =>
+          theme.transitions.create(['box-shadow', 'border-color']),
       }}
     >
       {loading ? (
-        <Skeleton variant="rounded" width="100%" height={148} />
+        <Skeleton variant="rectangular" width="100%" height={148} />
       ) : (
         imageUrl && (
           <Box
@@ -192,15 +199,22 @@ function EmptyStateArticleCard({ article }: { article: EmptyStateArticle }) {
             src={imageUrl}
             alt=""
             sx={{
+              display: 'block',
               width: '100%',
               height: 148,
               objectFit: 'cover',
-              borderRadius: BORDER_RADIUS.sm,
             }}
           />
         )
       )}
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '5px',
+          p: '16px',
+        }}
+      >
         <Typography
           sx={{
             fontWeight: 700,
@@ -223,7 +237,7 @@ function EmptyStateArticleCard({ article }: { article: EmptyStateArticle }) {
           </Typography>
         )}
       </Box>
-    </Box>
+    </Paper>
   );
 
   if (article.href) {
@@ -236,7 +250,13 @@ function EmptyStateArticleCard({ article }: { article: EmptyStateArticle }) {
         sx={{
           textDecoration: 'none',
           color: 'inherit',
+          display: 'block',
           width: '100%',
+          height: '100%',
+          '&:hover .MuiPaper-root': {
+            boxShadow: ELEVATION.s,
+            borderColor: 'primary.main',
+          },
         }}
       >
         {content}

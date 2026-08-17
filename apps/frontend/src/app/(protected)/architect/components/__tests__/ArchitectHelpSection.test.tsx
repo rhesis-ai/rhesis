@@ -46,12 +46,17 @@ describe('ArchitectHelpSection', () => {
     setArticles(ARTICLE_URLS);
   });
 
-  it('renders both sections when the project has no endpoint', () => {
+  it('renders the help articles when the project has no endpoint', () => {
     render(<ArchitectHelpSection />);
 
     expect(screen.getByText('Top Help Articles')).toBeInTheDocument();
-    expect(screen.getByText('Community & Support')).toBeInTheDocument();
-    expect(screen.getByText('Documentation')).toBeInTheDocument();
+  });
+
+  it('never renders community links', () => {
+    render(<ArchitectHelpSection />);
+
+    expect(screen.queryByText('Community & Support')).not.toBeInTheDocument();
+    expect(screen.queryByText('Documentation')).not.toBeInTheDocument();
   });
 
   it('renders nothing once the project has an endpoint', () => {
@@ -60,7 +65,6 @@ describe('ArchitectHelpSection', () => {
     render(<ArchitectHelpSection />);
 
     expect(screen.queryByText('Top Help Articles')).not.toBeInTheDocument();
-    expect(screen.queryByText('Community & Support')).not.toBeInTheDocument();
   });
 
   it('renders nothing while the endpoint check is still loading', () => {
@@ -68,15 +72,14 @@ describe('ArchitectHelpSection', () => {
 
     render(<ArchitectHelpSection />);
 
-    expect(screen.queryByText('Community & Support')).not.toBeInTheDocument();
+    expect(screen.queryByText('Top Help Articles')).not.toBeInTheDocument();
   });
 
-  it('still shows community links when no article URLs are configured', () => {
+  it('renders nothing when no article URLs are configured', () => {
     setArticles([]);
 
     render(<ArchitectHelpSection />);
 
     expect(screen.queryByText('Top Help Articles')).not.toBeInTheDocument();
-    expect(screen.getByText('Community & Support')).toBeInTheDocument();
   });
 });

@@ -81,21 +81,21 @@ export default function ArchitectWelcome({ onSubmit }: ArchitectWelcomeProps) {
         p: 4,
       }}
     >
-      {/* `my: 'auto'` centres the group while it fits, then resolves to 0 and
-          scrolls from the top once the help section makes it taller than the
-          viewport. `justifyContent: 'center'` would clip the leading edge.
-          The top padding only applies with the help section below: it counts
-          towards the centred box's height, so on its own it would push the
-          input off-centre by half its value. */}
+      {/* The input keeps its own vertical centre whether or not the help
+          articles sit below it: `flexGrow` claims the leftover space, and the
+          `minHeight` reserves most of the viewport for it once the articles
+          are there — so they start near the bottom edge and scroll into view. */}
       <Box
         sx={{
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
+          justifyContent: 'center',
           gap: 3,
           width: '100%',
-          my: 'auto',
-          pt: needsEndpoint ? { xs: 6, md: 18 } : 0,
+          flexGrow: 1,
+          flexShrink: 0,
+          minHeight: needsEndpoint ? '70vh' : 0,
         }}
       >
         <Box
@@ -197,9 +197,9 @@ export default function ArchitectWelcome({ onSubmit }: ArchitectWelcomeProps) {
             </Box>
           )}
         </Box>
-
-        <ArchitectHelpSection />
       </Box>
+
+      <ArchitectHelpSection />
     </Box>
   );
 }
