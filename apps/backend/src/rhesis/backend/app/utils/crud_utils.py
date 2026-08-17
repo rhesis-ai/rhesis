@@ -491,7 +491,10 @@ def get_items_detail(
         .with_odata_filter(filter)
     )
     if exclude_explorer_rows:
-        ids_builder = ids_builder.with_explorer_rows_excluded()
+        # Explorer-owned rows are listed through the /explorer API only.
+        ids_builder = ids_builder.with_custom_filter(
+            lambda q: q.filter(model.explorer_row.is_(False))
+        )
     if extra_filter:
         ids_builder = ids_builder.with_custom_filter(extra_filter)
     ordered_ids = (
@@ -888,11 +891,16 @@ def count_items(
     organization_id: str = None,
     user_id: str = None,
     exclude_explorer_rows: bool = False,
+    extra_filter: Callable[[Query], Query] | None = None,
 ) -> int:
     """Get the total count of items matching filters (without pagination).
 
     ``exclude_explorer_rows`` must match the list endpoint's own filtering, otherwise
     the count and the returned page disagree.
+
+    ``extra_filter``: same row-selection query transform accepted by
+    ``get_items_detail`` -- pass the same one here so the count matches the
+    page it's counting.
     """
     builder = (
         QueryBuilder(db, model)
@@ -901,7 +909,10 @@ def count_items(
         .with_odata_filter(filter)
     )
     if exclude_explorer_rows:
-        builder = builder.with_explorer_rows_excluded()
+        # Explorer-owned rows are listed through the /explorer API only.
+        builder = builder.with_custom_filter(lambda q: q.filter(model.explorer_row.is_(False)))
+    if extra_filter:
+        builder = builder.with_custom_filter(extra_filter)
     return builder.count()
 
 

@@ -112,12 +112,16 @@ class TestResultHandler:
             # First, get a sample endpoint to determine the organization
             # We'll use this to filter statuses by organization for tenant isolation
             # Use QueryBuilder which properly handles soft delete filtering
-            query_builder = QueryBuilder(db, Endpoint)
-            query_builder.query = query_builder.query.filter(
-                Endpoint.project_id == project_id,
-                Endpoint.environment == environment,
+            sample_endpoint = (
+                QueryBuilder(db, Endpoint)
+                .with_custom_filter(
+                    lambda q: q.filter(
+                        Endpoint.project_id == project_id,
+                        Endpoint.environment == environment,
+                    )
+                )
+                .first()
             )
-            sample_endpoint = query_builder.first()
 
             if not sample_endpoint:
                 logger.debug(f"No endpoints found for {project_id}:{environment}")
@@ -139,16 +143,19 @@ class TestResultHandler:
 
             # Find recently created/updated endpoints in Error status for this project
             # Use QueryBuilder which properly handles soft delete filtering
-            query_builder = QueryBuilder(db, Endpoint).with_organization_filter(
-                str(organization_id)
+            recent_error_endpoints = (
+                QueryBuilder(db, Endpoint)
+                .with_organization_filter(str(organization_id))
+                .with_custom_filter(
+                    lambda q: q.filter(
+                        Endpoint.project_id == project_id,
+                        Endpoint.environment == environment,
+                        Endpoint.status_id == error_status.id,
+                        Endpoint.updated_at >= recent_cutoff,
+                    )
+                )
+                .all()
             )
-            query_builder.query = query_builder.query.filter(
-                Endpoint.project_id == project_id,
-                Endpoint.environment == environment,
-                Endpoint.status_id == error_status.id,
-                Endpoint.updated_at >= recent_cutoff,
-            )
-            recent_error_endpoints = query_builder.all()
 
             if not recent_error_endpoints:
                 logger.debug(f"No recent error endpoints found for {project_id}:{environment}")

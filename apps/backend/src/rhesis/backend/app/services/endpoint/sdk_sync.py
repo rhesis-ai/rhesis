@@ -87,13 +87,18 @@ async def sync_sdk_endpoints(
 
     # Get all existing SDK endpoints for this project/environment
     # Use QueryBuilder which properly handles soft delete filtering
-    query_builder = QueryBuilder(db, models.Endpoint).with_organization_filter(organization_id)
-    query_builder.query = query_builder.query.filter(
-        models.Endpoint.project_id == project_id,
-        models.Endpoint.environment == environment,
-        models.Endpoint.connection_type == EndpointConnectionType.SDK.value,
+    existing_endpoints = (
+        QueryBuilder(db, models.Endpoint)
+        .with_organization_filter(organization_id)
+        .with_custom_filter(
+            lambda q: q.filter(
+                models.Endpoint.project_id == project_id,
+                models.Endpoint.environment == environment,
+                models.Endpoint.connection_type == EndpointConnectionType.SDK.value,
+            )
+        )
+        .all()
     )
-    existing_endpoints = query_builder.all()
 
     # Map existing endpoints by function name
     existing_by_function = {}
