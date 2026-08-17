@@ -42,7 +42,10 @@ from rhesis.backend.app.services.test_set import (
     execute_test_set_on_endpoint,
     update_test_set_attributes,
 )
-from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
+from rhesis.backend.app.utils.database_exceptions import (
+    ItemDeletedException,
+    handle_database_exceptions,
+)
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.execution_validation import (
     handle_execution_error,
@@ -474,6 +477,9 @@ def download_test_set_prompts(
         return response
 
     except HTTPException:
+        raise
+    except ItemDeletedException:
+        # Let the app-level handler turn this into its 410 response
         raise
     except Exception as e:
         raise HTTPException(

@@ -327,14 +327,19 @@ def get_test_set(
 ) -> Optional[models.TestSet]:
     """
     Get a test set by its UUID, applying proper visibility filtering and organization scoping.
+
+    Raises ``ItemDeletedException`` for a soft-deleted test set.
     """
-    return (
+    from rhesis.backend.app.utils.crud_utils import _check_and_raise_if_deleted
+
+    item = (
         QueryBuilder(db, models.TestSet)
-        .with_organization_filter(organization_id)  # Add organization filtering
+        .with_deleted()
+        .with_organization_filter(organization_id)
         .with_visibility_filter(user_id)
-        .with_custom_filter(lambda q: q.filter(models.TestSet.id == test_set_id))
-        .first()
+        .filter_by_id(test_set_id)
     )
+    return _check_and_raise_if_deleted(item, models.TestSet, test_set_id, False)
 
 
 # Relationships serialized by TestSetDetailSchema. All many-to-one -- excludes
@@ -446,9 +451,14 @@ def get_test_set_by_nano_id_or_slug(
 ) -> Optional[models.TestSet]:
     """
     Get a test set by its nano_id or slug, applying proper visibility filtering.
+
+    Raises ``ItemDeletedException`` for a soft-deleted test set.
     """
-    return (
+    from rhesis.backend.app.utils.crud_utils import _check_and_raise_if_deleted
+
+    item = (
         QueryBuilder(db, models.TestSet)
+        .with_deleted()
         .with_related(*_TEST_SET_RELATED_FIELDS)
         .with_organization_filter(organization_id)
         .with_visibility_filter(user_id)
@@ -459,6 +469,7 @@ def get_test_set_by_nano_id_or_slug(
         )
         .first()
     )
+    return _check_and_raise_if_deleted(item, models.TestSet, identifier, False)
 
 
 def resolve_test_set(
@@ -1274,22 +1285,6 @@ def get_tools(
         .with_sorting(sort_by, sort_order)
         .with_pagination(skip, limit)
         .all()
-    )
-
-
-def get_tool_by_provider(
-    db: Session, organization_id: str, provider_value: str
-) -> Optional[models.Tool]:
-    """Get organization's tool by provider type_value (e.g., 'notion', 'github')."""
-    return (
-        db.query(models.Tool)
-        .join(models.TypeLookup, models.Tool.tool_provider_type_id == models.TypeLookup.id)
-        .filter(
-            models.Tool.organization_id == uuid.UUID(organization_id),
-            models.TypeLookup.type_value == provider_value,
-            models.Tool.deleted_at.is_(None),  # Exclude soft-deleted tools
-        )
-        .first()
     )
 
 

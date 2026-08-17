@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.dependencies import get_tenant_db_session
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
 from rhesis.backend.app.utils.model_errors import ModelConfigurationError
 from rhesis.backend.app.utils.user_model_utils import (
     validate_user_evaluation_model,
@@ -120,6 +121,10 @@ def handle_execution_error(error: Exception, operation: str = "execute tests") -
     """
     if isinstance(error, HTTPException):
         # Already an HTTPException, re-raise as-is
+        raise error
+
+    if isinstance(error, ItemDeletedException):
+        # Let the app-level handler turn this into its 410 response
         raise error
 
     if isinstance(error, ModelConfigurationError):
