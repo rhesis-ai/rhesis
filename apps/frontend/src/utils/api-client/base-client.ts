@@ -362,7 +362,8 @@ export class BaseApiClient {
         if (!response.ok) {
           // Determine if this is an expected validation/client error or an unexpected server error
           // 404 Not Found and 410 Gone are expected states for missing/deleted items
-          const isClientError = [400, 404, 409, 410, 422, 429].includes(
+          // 402 is a quota block: an expected, server-enforced state, not a fault.
+          const isClientError = [400, 402, 404, 409, 410, 422, 429].includes(
             response.status
           );
           const logLevel = isClientError ? 'warn' : 'error';
@@ -535,7 +536,7 @@ export class BaseApiClient {
           // 410 Gone is included as it's an expected state for soft-deleted items
           const isClientError =
             errWithStatus.status &&
-            [400, 409, 410, 422, 429].includes(errWithStatus.status);
+            [400, 402, 409, 410, 422, 429].includes(errWithStatus.status);
           if (isClientError) {
           } else {
           }

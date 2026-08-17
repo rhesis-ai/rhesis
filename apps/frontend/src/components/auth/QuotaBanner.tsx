@@ -27,14 +27,25 @@ interface WorstResource {
  * over-threshold resource would compete with `VerificationBanner` and the
  * app chrome for the same header space. A resource with `limit: null`
  * (unlimited) never contributes: there is no ratio to compute.
+ *
+ * `limit: 0` is a real configured value meaning "none allowed", not a
+ * missing limit, so it reports as fully consumed rather than being skipped
+ * -- skipping it hid the banner from precisely the orgs that were already
+ * blocked. Matches `UsageOverviewTab`'s handling of the same case.
+ *
+ * Resources with no label are skipped: the backend can add a `QuotaResource`
+ * before `constants/quota.ts` catches up, and this component renders inside
+ * the protected layout, so a missing label would throw on every page rather
+ * than just this banner.
  */
 function findWorstResource(
   resources: Readonly<Record<string, { used: number; limit: number | null }>>
 ): WorstResource | null {
   let worst: WorstResource | null = null;
   for (const [resource, item] of Object.entries(resources)) {
-    if (item.limit === null || item.limit <= 0) continue;
-    const ratio = item.used / item.limit;
+    if (item.limit === null || item.limit < 0) continue;
+    if (!(resource in QUOTA_RESOURCE_LABELS)) continue;
+    const ratio = item.limit === 0 ? 1 : item.used / item.limit;
     if (ratio >= WARNING_THRESHOLD && (!worst || ratio > worst.ratio)) {
       worst = { resource: resource as QuotaResource, used: item.used, limit: item.limit, ratio };
     }
