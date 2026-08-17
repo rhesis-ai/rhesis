@@ -1,0 +1,201 @@
+# Starter set of generic k8s health alerts, dev only. All queries use metrics that
+# kube-prometheus-stack (kube-state-metrics + node-exporter) and cert-manager already
+# expose by default, so nothing extra needs to be scraped for these to work.
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaAlertRuleGroup
+metadata:
+  name: rhesis-basic-alerts
+  namespace: monitoring
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  folderRef: rhesis-alerts
+  instanceSelector:
+    matchLabels:
+      dashboards: grafana
+  interval: 5m
+  rules:
+    - uid: rhesis-pod-crashloop
+      title: Pod crash-looping
+      condition: B
+      for: 5m
+      noDataState: OK
+      execErrState: Error
+      data:
+        - refId: A
+          datasourceUid: prometheus
+          relativeTimeRange:
+            from: 900
+            to: 0
+          model:
+            datasource: { type: prometheus, uid: prometheus }
+            expr: max by (namespace, pod) (increase(kube_pod_container_status_restarts_total[15m]))
+            instant: true
+            refId: A
+        - refId: B
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 900
+            to: 0
+          model:
+            datasource: { type: __expr__, uid: __expr__ }
+            type: threshold
+            expression: A
+            conditions:
+              - evaluator: { type: gt, params: [3] }
+                operator: { type: and }
+                query: { params: [] }
+                reducer: { type: last, params: [] }
+            refId: B
+      labels:
+        severity: critical
+      annotations:
+        summary: "Pod {{ $labels.namespace }}/{{ $labels.pod }} restarted more than 3 times in 15m"
+
+    - uid: rhesis-pod-not-ready
+      title: Pod not ready
+      condition: B
+      for: 10m
+      noDataState: OK
+      execErrState: Error
+      data:
+        - refId: A
+          datasourceUid: prometheus
+          relativeTimeRange:
+            from: 600
+            to: 0
+          model:
+            datasource: { type: prometheus, uid: prometheus }
+            expr: max by (namespace, pod) (kube_pod_status_ready{condition="false"})
+            instant: true
+            refId: A
+        - refId: B
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 600
+            to: 0
+          model:
+            datasource: { type: __expr__, uid: __expr__ }
+            type: threshold
+            expression: A
+            conditions:
+              - evaluator: { type: gt, params: [0] }
+                operator: { type: and }
+                query: { params: [] }
+                reducer: { type: last, params: [] }
+            refId: B
+      labels:
+        severity: critical
+      annotations:
+        summary: "Pod {{ $labels.namespace }}/{{ $labels.pod }} has not been Ready for 10m"
+
+    - uid: rhesis-pod-oomkilled
+      title: Container OOMKilled
+      condition: B
+      for: 0m
+      noDataState: OK
+      execErrState: Error
+      data:
+        - refId: A
+          datasourceUid: prometheus
+          relativeTimeRange:
+            from: 600
+            to: 0
+          model:
+            datasource: { type: prometheus, uid: prometheus }
+            expr: max by (namespace, pod, container) (kube_pod_container_status_last_terminated_reason{reason="OOMKilled"})
+            instant: true
+            refId: A
+        - refId: B
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 600
+            to: 0
+          model:
+            datasource: { type: __expr__, uid: __expr__ }
+            type: threshold
+            expression: A
+            conditions:
+              - evaluator: { type: gt, params: [0] }
+                operator: { type: and }
+                query: { params: [] }
+                reducer: { type: last, params: [] }
+            refId: B
+      labels:
+        severity: critical
+      annotations:
+        summary: "Container {{ $labels.namespace }}/{{ $labels.pod }}/{{ $labels.container }} was OOMKilled"
+
+    - uid: rhesis-scrape-target-down
+      title: Prometheus scrape target down
+      condition: B
+      for: 5m
+      noDataState: OK
+      execErrState: Error
+      data:
+        - refId: A
+          datasourceUid: prometheus
+          relativeTimeRange:
+            from: 600
+            to: 0
+          model:
+            datasource: { type: prometheus, uid: prometheus }
+            expr: up
+            instant: true
+            refId: A
+        - refId: B
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 600
+            to: 0
+          model:
+            datasource: { type: __expr__, uid: __expr__ }
+            type: threshold
+            expression: A
+            conditions:
+              - evaluator: { type: lt, params: [1] }
+                operator: { type: and }
+                query: { params: [] }
+                reducer: { type: last, params: [] }
+            refId: B
+      labels:
+        severity: critical
+      annotations:
+        summary: "Scrape target {{ $labels.job }}/{{ $labels.instance }} is down"
+
+    - uid: rhesis-tls-cert-expiring
+      title: Grafana TLS cert expiring soon
+      condition: B
+      for: 1h
+      noDataState: OK
+      execErrState: Error
+      data:
+        - refId: A
+          datasourceUid: prometheus
+          relativeTimeRange:
+            from: 600
+            to: 0
+          model:
+            datasource: { type: prometheus, uid: prometheus }
+            expr: certmanager_certificate_expiration_timestamp_seconds{name="grafana-tls"} - time()
+            instant: true
+            refId: A
+        - refId: B
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 600
+            to: 0
+          model:
+            datasource: { type: __expr__, uid: __expr__ }
+            type: threshold
+            expression: A
+            conditions:
+              - evaluator: { type: lt, params: [2592000] }
+                operator: { type: and }
+                query: { params: [] }
+                reducer: { type: last, params: [] }
+            refId: B
+      labels:
+        severity: warning
+      annotations:
+        summary: "grafana-tls certificate expires in less than 30 days"

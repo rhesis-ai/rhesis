@@ -35,6 +35,18 @@ echo -n 'your-secure-password' | gcloud secrets versions add grafana-admin-passw
 
 Repeat for each environment’s GCP project used by External Secrets Operator.
 
+## Grafana alert notifications (Discord webhook, dev)
+
+Before syncing `dev-grafana-resources`, create a Secret Manager secret named
+**`dev-grafana-discord-webhook`** in the dev GCP project, containing the Discord incoming
+webhook URL as plain text (the ExternalSecret maps it to key `url` in Kubernetes).
+
+```bash
+echo -n 'https://discord.com/api/webhooks/...' | gcloud secrets create dev-grafana-discord-webhook \
+  --project=rhesis-dev \
+  --data-file=-
+```
+
 ## Grafana TLS (cert-manager / Let’s Encrypt)
 
 The Grafana `Ingress` uses `cert-manager.io/cluster-issuer: letsencrypt-prod` and the **internal** NGINX class for user traffic. cert-manager still completes **HTTP-01** using the solver in `ClusterIssuer` (typically a separate **external**-class `Ingress` in the same namespace). While issuance is in progress, the `Certificate` condition often reads **Issuing certificate as Secret does not exist**—that only means the final `grafana-tls` secret is not ready yet.
