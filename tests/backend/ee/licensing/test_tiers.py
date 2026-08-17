@@ -10,7 +10,7 @@ from __future__ import annotations
 import pytest
 
 from rhesis.backend.app.features import FeatureName
-from rhesis.backend.app.quota import FREE_TIER_LIMITS, QuotaResource
+from rhesis.backend.app.quota import FREE_TIER_LIMITS, OveragePolicy, QuotaPolicy, QuotaResource
 from rhesis.backend.ee.licensing.entitlements import (
     ENV_TIER_CONFIG,
     LIC_ALL_FEATURES,
@@ -28,9 +28,12 @@ from rhesis.backend.ee.licensing.tiers import (
     TierSpec,
     _assert_catalog_complete,
     _load_tier_config,
+    _parse_overage,
+    _parse_overage_tolerance,
     all_sellable,
     is_sellable,
     resolve_limits,
+    resolve_policy,
     resolve_tier,
     tier_to_lic_claim,
 )
@@ -201,6 +204,131 @@ class TestLoadTierConfig:
         limits = catalog[LicenseEdition.COMMUNITY].limits
         assert limits[QuotaResource.SEATS] == 0
         assert limits[QuotaResource.PROJECTS] is None
+
+    def test_unrecognized_overage_value_raises(self, tmp_path, monkeypatch):
+        with pytest.raises(ValueError, match="[Ii]nvalid overage policy"):
+            self._load_from(
+                tmp_path,
+                monkeypatch,
+                "community:\n  limits:\n    seats: 3\n  overage: lenient\n",
+            )
+
+    def test_overage_and_tolerance_are_parsed_from_the_entry(self, tmp_path, monkeypatch):
+        catalog = self._load_from(
+            tmp_path,
+            monkeypatch,
+            "community:\n  limits:\n    seats: 3\n"
+            "  overage: soft\n  overage_tolerance_percent: 10\n",
+        )
+        spec = catalog[LicenseEdition.COMMUNITY]
+        assert spec.overage is OveragePolicy.SOFT
+        assert spec.overage_tolerance_percent == 10
+
+    def test_omitted_overage_fields_use_tierspec_defaults(self, tmp_path, monkeypatch):
+        """HARD / 0% -- unchanged behavior for a tier that doesn't opt in."""
+        catalog = self._load_from(
+            tmp_path,
+            monkeypatch,
+            "community:\n  limits:\n    seats: 3\n",
+        )
+        spec = catalog[LicenseEdition.COMMUNITY]
+        assert spec.overage is OveragePolicy.HARD
+        assert spec.overage_tolerance_percent == 0
+
+    @pytest.mark.parametrize(
+        "value,description",
+        [("-1", "negative"), ("true", "bool"), ('"25"', "string"), ("1.5", "float")],
+    )
+    def test_invalid_overage_tolerance_values_are_rejected(
+        self, tmp_path, monkeypatch, value, description
+    ):
+        with pytest.raises(ValueError, match="overage_tolerance_percent"):
+            self._load_from(
+                tmp_path,
+                monkeypatch,
+                f"community:\n  limits:\n    seats: 3\n"
+                f"  overage: soft\n  overage_tolerance_percent: {value}\n",
+            )
+
+
+class TestParseOverage:
+    def test_valid_values_round_trip(self):
+        assert _parse_overage("hard") is OveragePolicy.HARD
+        assert _parse_overage("soft") is OveragePolicy.SOFT
+
+    def test_unrecognized_value_raises(self):
+        with pytest.raises(ValueError, match="[Ii]nvalid overage policy"):
+            _parse_overage("lenient")
+
+
+class TestParseOverageTolerance:
+    def test_non_negative_int_is_valid(self):
+        assert _parse_overage_tolerance(0) == 0
+        assert _parse_overage_tolerance(25) == 25
+
+    def test_bool_is_rejected_even_though_it_is_an_int_subclass(self):
+        with pytest.raises(ValueError, match="overage_tolerance_percent"):
+            _parse_overage_tolerance(True)
+
+    def test_negative_is_rejected(self):
+        with pytest.raises(ValueError, match="overage_tolerance_percent"):
+            _parse_overage_tolerance(-1)
+
+    def test_non_int_is_rejected(self):
+        with pytest.raises(ValueError, match="overage_tolerance_percent"):
+            _parse_overage_tolerance("25")
+
+
+class TestTierSpecToPolicy:
+    def test_carries_limits_overage_and_tolerance(self):
+        spec = TierSpec(
+            edition=LicenseEdition.TEAM,
+            limits={QuotaResource.SEATS: 10},
+            overage=OveragePolicy.SOFT,
+            overage_tolerance_percent=25,
+        )
+
+        policy = spec.to_policy()
+
+        assert isinstance(policy, QuotaPolicy)
+        assert policy.limits == {QuotaResource.SEATS: 10}
+        assert policy.overage is OveragePolicy.SOFT
+        assert policy.overage_tolerance_percent == 25
+        assert policy.ceiling_for(10) == 12
+
+
+class TestResolvePolicy:
+    def test_real_team_tier_is_soft_with_25_percent_tolerance(self):
+        """Locks in the shipped tier_config.yaml values the plan calls for:
+        team warns at the limit and hard-blocks at limit + 25%."""
+        policy = resolve_policy(LicenseEdition.TEAM)
+
+        assert policy.overage is OveragePolicy.SOFT
+        assert policy.overage_tolerance_percent == 25
+        assert policy.ceiling_for(100_000) == 125_000
+
+    def test_real_enterprise_tier_is_soft_with_25_percent_tolerance(self):
+        policy = resolve_policy(LicenseEdition.ENTERPRISE)
+
+        assert policy.overage is OveragePolicy.SOFT
+        assert policy.overage_tolerance_percent == 25
+
+    def test_real_community_tier_is_hard_with_no_tolerance(self):
+        """Free tier gets no grace band -- blocks exactly at the limit."""
+        policy = resolve_policy(LicenseEdition.COMMUNITY)
+
+        assert policy.overage is OveragePolicy.HARD
+        assert policy.overage_tolerance_percent == 0
+        assert policy.ceiling_for(1_000) == 1_000
+
+    def test_none_edition_falls_back_to_community(self):
+        assert resolve_policy(None).limits == resolve_policy(LicenseEdition.COMMUNITY).limits
+
+    def test_unknown_edition_falls_back_to_community(self):
+        assert (
+            resolve_policy(LicenseEdition.UNKNOWN).limits
+            == resolve_policy(LicenseEdition.COMMUNITY).limits
+        )
 
 
 class TestCatalogCompleteness:
