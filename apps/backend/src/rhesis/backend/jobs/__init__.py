@@ -6,11 +6,13 @@ to-do (the ``task`` table, the Tasks screen), so the package is ``jobs``.
 """
 
 import logging
+import uuid
 from typing import Any, Callable, Dict, Optional, TypeVar, Union
 
 from rhesis.backend.celery.core import app
 
 # Import all task modules to ensure they're registered with Celery
+# Import task functions after BaseJob is defined to avoid circular imports
 from rhesis.backend.jobs import (
     embedding,  # noqa: F401
     endpoint,  # noqa: F401
@@ -19,6 +21,7 @@ from rhesis.backend.jobs import (
     garak,  # noqa: F401
     test_configuration,  # noqa: F401
     test_set,  # noqa: F401
+    tracking,
     usage,  # noqa: F401
 )
 from rhesis.backend.jobs.base import (
@@ -39,8 +42,6 @@ from rhesis.backend.jobs.enums import (
     DEFAULT_RUN_STATUS_FAILED,
     DEFAULT_RUN_STATUS_PROGRESS,
 )
-
-# Import task functions after BaseJob is defined to avoid circular imports
 from rhesis.backend.jobs.execution.results import collect_results
 from rhesis.backend.jobs.test_configuration import execute_test_configuration
 from rhesis.backend.jobs.test_set import count_test_sets
@@ -90,6 +91,8 @@ def launch_job(
     current_user=None,
     celery_task_id: Optional[str] = None,
     db=None,
+    entity_type: Optional[str] = None,
+    entity_id: Optional[str] = None,
     **kwargs: Any,
 ):
     """
@@ -97,6 +100,11 @@ def launch_job(
 
     This helper automatically adds organization_id and user_id from current_user
     to the task context, removing the need to pass them explicitly.
+
+    Also records a ``job`` row so the work shows up on the Jobs screen. That
+    happens here rather than at each call site so a new job is visible without
+    anyone remembering to register it. Recording is best-effort and never
+    raises -- see :mod:`rhesis.backend.jobs.tracking`.
 
     Args:
         task: The Celery task to launch
@@ -108,6 +116,9 @@ def launch_job(
         db: Optional SQLAlchemy Session. When supplied, project_id is read from
             db.info['_scope'] which is reliable for both sync and async route
             handlers. If omitted, falls back to the ContextVar (Celery / scripts).
+        entity_type: Optional subject of the job (e.g. ``"TestSet"``), so the
+            Jobs screen can offer a way back to whatever the job is about.
+        entity_id: Optional id of that subject.
         **kwargs: Keyword arguments to pass to the task
 
     Returns:
@@ -141,6 +152,30 @@ def launch_job(
             pass
     if scope_project_id:
         headers["project_id"] = str(scope_project_id)
+
+    # A job row needs an id before dispatch, so mint one when the caller did
+    # not supply it rather than letting Celery generate it after the fact.
+    if celery_task_id is None and db is not None:
+        celery_task_id = str(uuid.uuid4())
+
+    if db is not None and celery_task_id:
+        # Guarded here as well as inside create_job: the invariant is that
+        # recording cannot stop a dispatch, and it should hold at this boundary
+        # regardless of how create_job is implemented later.
+        try:
+            tracking.create_job(
+                db,
+                celery_task_id=celery_task_id,
+                task_name=getattr(task, "name", "") or "",
+                name=getattr(task, "display_name", None),
+                organization_id=headers.get("organization_id"),
+                user_id=headers.get("user_id"),
+                project_id=headers.get("project_id"),
+                entity_type=entity_type,
+                entity_id=entity_id,
+            )
+        except Exception as exc:
+            logger.warning(f"Could not record job row before dispatch: {exc}", exc_info=True)
 
     apply_kwargs: Dict[str, Any] = dict(args=args, kwargs=kwargs)
     if headers:

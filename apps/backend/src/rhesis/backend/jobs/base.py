@@ -193,6 +193,8 @@ class BaseJob(Task):
 
     def on_success(self, retval, task_id, args, kwargs):
         """Log successful task completion with context information."""
+        self._advance_job_row("completed")
+
         self.log_with_context(
             "info",
             "Task completed successfully",
@@ -305,6 +307,10 @@ class BaseJob(Task):
                         error=str(notification_error),
                         exception_type=type(notification_error).__name__,
                     )
+            # Terminal, so the row can move to failed. Deliberately after the
+            # notifications above: those already guard themselves, and the row
+            # should record the outcome even if one of them misbehaved.
+            self._advance_job_row("failed", error=exc)
         else:
             self.log_with_context(
                 "warning",
@@ -313,6 +319,10 @@ class BaseJob(Task):
                 exception_type=type(exc).__name__,
                 execution_time=self._get_execution_time() or "Unknown",
             )
+            # Not terminal: count the attempt but leave the job running, or the
+            # Jobs screen would show a job as failed while it is about to run
+            # again.
+            self._advance_job_row("retrying")
 
         return super().on_failure(exc, task_id, args, kwargs, einfo)
 
@@ -345,7 +355,38 @@ class BaseJob(Task):
         # Do a soft validation (warning only)
         self.validate_params(args, kwargs)
 
+        self._advance_job_row("running")
+
         return super().before_start(task_id, args, kwargs)
+
+    def _advance_job_row(self, transition: str, error: Optional[BaseException] = None) -> None:
+        """Move this task's ``job`` row to its next state.
+
+        A thin wrapper so the lifecycle hooks below stay readable and so the
+        tenant triple is resolved in one place. ``tracking`` swallows its own
+        failures, and this adds a second guard: a hook that raised would turn
+        bookkeeping into a task failure.
+        """
+        from rhesis.backend.jobs import tracking
+
+        try:
+            celery_task_id = getattr(self.request, "id", None)
+            if not celery_task_id:
+                return
+
+            org_id, user_id, project_id = self.get_tenant_context()
+            args = (celery_task_id, org_id or "", user_id or "", project_id or "")
+
+            if transition == "running":
+                tracking.mark_running(*args)
+            elif transition == "completed":
+                tracking.mark_completed(*args)
+            elif transition == "failed":
+                tracking.mark_failed(*args, error=error or Exception("Unknown error"))
+            elif transition == "retrying":
+                tracking.mark_retrying(*args, attempt=getattr(self.request, "retries", 0) + 1)
+        except Exception as exc:
+            logger.warning(f"Job row transition '{transition}' failed: {exc}", exc_info=True)
 
     def _get_execution_time(self) -> Optional[str]:
         """Return formatted task execution duration, if start time is available."""

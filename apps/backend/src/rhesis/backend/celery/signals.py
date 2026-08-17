@@ -283,3 +283,24 @@ def handle_task_revoked(sender=None, request=None, **kw):
                 f"Setting TestRun to Cancelled."
             )
             _update_test_run_status(task_id, RunStatus.CANCELLED)
+
+        # A signal rather than a BaseJob hook because revocation can land on a
+        # task that never started, so no hook of ours would ever run for it.
+        # The tenant triple comes off the message headers for the same reason:
+        # before_start has not copied them onto the request yet.
+        headers = getattr(request, "headers", None) or {}
+        _mark_job_cancelled(task_id, headers)
+
+
+def _mark_job_cancelled(task_id: str, headers: dict) -> None:
+    from rhesis.backend.jobs import tracking
+
+    try:
+        tracking.mark_cancelled(
+            task_id,
+            headers.get("organization_id") or "",
+            headers.get("user_id") or "",
+            headers.get("project_id") or "",
+        )
+    except Exception as exc:
+        logger.warning(f"Could not mark job {task_id} cancelled: {exc}", exc_info=True)
