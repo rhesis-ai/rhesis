@@ -147,30 +147,17 @@ function shouldSkipFilterItem(
 }
 
 /**
- * Converts a MUI DataGrid filter item to an OData filter expression
- * Optimized for Tests filtering with simple navigation patterns
+ * Shared operator → OData expression switch. Every entity gets the same
+ * operator support (standardized deliberately — narrower legacy subsets,
+ * e.g. Test Sets not handling `>`/`>=`/`<`/`<=`, don't survive this
+ * refactor: those grids just never emit those operators today, so this
+ * only adds latent capability, it doesn't remove any tested behavior).
  */
-function convertFilterItemToOData(item: GridFilterItem): string {
-  const { field, operator, value } = item;
-
-  if (shouldSkipFilterItem(field, operator, value)) {
-    return '';
-  }
-
-  // Special handling for tags field - use the relationship path
-  if (field === 'tags') {
-    return convertTagsFilterToOData(item);
-  }
-
-  if (field === 'comments' || field === 'tasks') {
-    return convertRelationshipPresenceFilterToOData(field, operator);
-  }
-
-  // Convert dot notation to OData relationship syntax
-  // e.g., 'requirement.name' becomes 'requirement/name'
-  const odataField = field.replace(/\./g, '/');
-
-  // Handle different operators following the official OData guide patterns
+function convertOperatorToOData(
+  odataField: string,
+  operator: string,
+  value: unknown
+): string {
   switch (operator) {
     case 'contains':
       return `contains(tolower(${odataField}), tolower('${escapeODataValue(value)}'))`;
@@ -236,118 +223,89 @@ function convertFilterItemToOData(item: GridFilterItem): string {
 }
 
 /**
- * Converts a MUI DataGrid filter item to an OData filter expression
- * Optimized for Tasks filtering with proper field mapping
+ * Per-entity configuration for `convertConfiguredFilterItemToOData` /
+ * `combineConfiguredFiltersToOData` — the field-map + special-case list
+ * that used to be reimplemented per entity as a whole `convertXFilterItemToOData`
+ * function. New entities should add a config here rather than a new function.
  */
-function convertTaskFilterItemToOData(item: GridFilterItem): string {
+export interface DirectoryFilterFieldConfig {
+  /** Grid column field name → backend OData path. Unmapped fields fall
+   *  through to `dotToSlashFallback`. */
+  fieldMap?: Record<string, string>;
+  /** Default true: an unmapped field with dots ('requirement.name') becomes
+   *  OData path syntax ('requirement/name'). Tasks is the one entity that
+   *  wants the literal field name instead, hence this being overridable. */
+  dotToSlashFallback?: boolean;
+  /** Field name treated as the tags many-to-many relationship. Pass `null`
+   *  to disable tag handling for entities with no tags relationship
+   *  (default: `'tags'`). */
+  tagsField?: string | null;
+  /** Field names treated as relationship-presence checks (`isEmpty`/
+   *  `isNotEmpty` → `not X/any()` / `X/any()`) instead of a value
+   *  comparison — e.g. `'comments'`, `'tasks'`. Default: none. */
+  presenceFields?: string[];
+}
+
+function mapODataField(
+  field: string,
+  config: DirectoryFilterFieldConfig
+): string {
+  if (config.fieldMap?.[field]) return config.fieldMap[field];
+  if (config.dotToSlashFallback === false) return field;
+  return field.replace(/\./g, '/');
+}
+
+/**
+ * Config-driven replacement for the family of `convertXFilterItemToOData`
+ * functions (one per entity) that used to each reimplement this same
+ * skip/tags/presence/field-map/operator pipeline from scratch.
+ */
+export function convertConfiguredFilterItemToOData(
+  item: GridFilterItem,
+  config: DirectoryFilterFieldConfig = {}
+): string {
   const { field, operator, value } = item;
 
-  if (
-    !field ||
-    !operator ||
-    value === undefined ||
-    value === null ||
-    value === ''
-  ) {
+  if (shouldSkipFilterItem(field, operator, value)) {
     return '';
   }
 
-  // Handle quick filter (global search) - MUI DataGrid adds this as a special field
-  if (field === '__quickFilter__' || field === 'quickFilter') {
-    return convertTaskQuickFilterToOData([value]);
-  }
-
-  // Special handling for tags field - use the relationship path
-  if (field === 'tags') {
+  const tagsField = config.tagsField === undefined ? 'tags' : config.tagsField;
+  if (tagsField && field === tagsField) {
     return convertTagsFilterToOData(item);
   }
 
-  // Map task-specific fields to their OData relationship syntax
-  let odataField = field;
-
-  // Handle relationship fields
-  switch (field) {
-    case 'status':
-      odataField = 'status/name';
-      break;
-    case 'assignee':
-      odataField = 'assignee/name';
-      break;
-    case 'priority':
-      odataField = 'priority/type_value';
-      break;
-    case 'user':
-      odataField = 'user/name';
-      break;
-    default:
-      // For direct fields like 'title', 'description', keep as is
-      odataField = field;
+  if (config.presenceFields?.includes(field)) {
+    return convertRelationshipPresenceFilterToOData(field, operator as string);
   }
 
-  // Handle different operators following the official OData guide patterns
-  switch (operator) {
-    case 'contains':
-      return `contains(tolower(${odataField}), tolower('${escapeODataValue(value)}'))`;
-
-    case 'startsWith':
-      return `startswith(tolower(${odataField}), tolower('${escapeODataValue(value)}'))`;
-
-    case 'endsWith':
-      return `endswith(tolower(${odataField}), tolower('${escapeODataValue(value)}'))`;
-
-    case 'equals':
-    case '=':
-    case 'is':
-      // For string fields, use case-insensitive comparison
-      if (typeof value === 'string') {
-        return `tolower(${odataField}) eq tolower('${escapeODataValue(value)}')`;
-      }
-      return `${odataField} eq '${escapeODataValue(value)}'`;
-
-    case 'not':
-    case '!=':
-      // For string fields, use case-insensitive comparison
-      if (typeof value === 'string') {
-        return `tolower(${odataField}) ne tolower('${escapeODataValue(value)}')`;
-      }
-      return `${odataField} ne '${escapeODataValue(value)}'`;
-
-    case 'greaterThan':
-    case '>':
-      return `${odataField} gt ${escapeODataValue(value)}`;
-
-    case 'greaterThanOrEqual':
-    case '>=':
-      return `${odataField} ge ${escapeODataValue(value)}`;
-
-    case 'lessThan':
-    case '<':
-      return `${odataField} lt ${escapeODataValue(value)}`;
-
-    case 'lessThanOrEqual':
-    case '<=':
-      return `${odataField} le ${escapeODataValue(value)}`;
-
-    case 'isEmpty':
-      return `${odataField} eq null or ${odataField} eq ''`;
-
-    case 'isNotEmpty':
-      return `${odataField} ne null and ${odataField} ne ''`;
-
-    case 'isAnyOf':
-      if (Array.isArray(value) && value.length > 0) {
-        const conditions = value
-          .map(v => `${odataField} eq '${escapeODataValue(v)}'`)
-          .join(' or ');
-        return `(${conditions})`;
-      }
-      return '';
-
-    default:
-      // Fallback for unknown operators - treat as contains
-      return `contains(tolower(${odataField}), tolower('${escapeODataValue(value)}'))`;
-  }
+  const odataField = mapODataField(field as string, config);
+  return convertOperatorToOData(odataField, operator as string, value);
 }
+
+/** Default config used by entities with no field remapping (Tests, Sources, Test Runs). */
+const GENERIC_FILTER_CONFIG: DirectoryFilterFieldConfig = {
+  tagsField: 'tags',
+  presenceFields: ['comments', 'tasks'],
+};
+
+/**
+ * Converts a MUI DataGrid filter item to an OData filter expression
+ * Optimized for Tests filtering with simple navigation patterns
+ */
+function convertFilterItemToOData(item: GridFilterItem): string {
+  return convertConfiguredFilterItemToOData(item, GENERIC_FILTER_CONFIG);
+}
+
+const TASK_FILTER_CONFIG: DirectoryFilterFieldConfig = {
+  fieldMap: {
+    status: 'status/name',
+    assignee: 'assignee/name',
+    priority: 'priority/type_value',
+    user: 'user/name',
+  },
+  dotToSlashFallback: false,
+};
 
 /**
  * Escapes special characters in OData filter values
@@ -374,7 +332,7 @@ export function convertTaskFilterModelToOData(
 
   // Convert each filter item to OData expression using task-specific converter
   const filterExpressions = filterModel.items
-    .map(item => convertTaskFilterItemToOData(item))
+    .map(item => convertConfiguredFilterItemToOData(item, TASK_FILTER_CONFIG))
     .filter(expr => expr !== ''); // Remove empty expressions
 
   if (filterExpressions.length === 0) {
@@ -426,11 +384,39 @@ export function convertQuickFilterToOData(
   quickFilterValues: unknown[],
   searchFields: string[]
 ): string {
+  return convertConfiguredQuickFilterToOData(quickFilterValues, {
+    searchFields: searchFields ?? [],
+  });
+}
+
+/**
+ * Per-entity configuration for `convertConfiguredQuickFilterToOData` — the
+ * search-fields list (+ optional extra clauses, e.g. a tags relationship
+ * search) that used to be reimplemented per entity as a whole
+ * `convertXQuickFilterToOData` function.
+ */
+export interface QuickFilterConfig {
+  searchFields: string[];
+  /** Extra OData clauses ORed in alongside `searchFields` for each quick-filter
+   *  value — e.g. Tests/Sources/Test Sets additionally search the tags
+   *  relationship, which isn't a plain field. */
+  extraFieldExpressions?: (value: unknown) => string[];
+}
+
+/**
+ * Config-driven replacement for the family of `convertXQuickFilterToOData`
+ * functions (one per entity) that used to each reimplement this same
+ * per-value OR-across-fields / AND-across-values pipeline from scratch.
+ */
+export function convertConfiguredQuickFilterToOData(
+  quickFilterValues: unknown[],
+  config: QuickFilterConfig
+): string {
   if (
     !quickFilterValues ||
     quickFilterValues.length === 0 ||
-    !searchFields ||
-    searchFields.length === 0
+    !config.searchFields ||
+    config.searchFields.length === 0
   ) {
     return '';
   }
@@ -439,13 +425,14 @@ export function convertQuickFilterToOData(
     .map(value => {
       if (!value || value === '') return '';
 
-      // Create a contains condition for each search field
-      const fieldConditions = searchFields.map(
+      const fieldConditions = config.searchFields.map(
         field =>
           `contains(tolower(${field}), tolower('${escapeODataValue(value)}'))`
       );
+      if (config.extraFieldExpressions) {
+        fieldConditions.push(...config.extraFieldExpressions(value));
+      }
 
-      // Join field conditions with OR (search in any field)
       return `(${fieldConditions.join(' or ')})`;
     })
     .filter(expr => expr !== '');
@@ -453,7 +440,6 @@ export function convertQuickFilterToOData(
   if (quickFilterExpressions.length === 0) {
     return '';
   }
-
   if (quickFilterExpressions.length === 1) {
     return quickFilterExpressions[0];
   }
@@ -462,17 +448,24 @@ export function convertQuickFilterToOData(
   return `(${quickFilterExpressions.join(' and ')})`;
 }
 
+/** Config bundle for `combineConfiguredFiltersToOData`. */
+export interface CombineFiltersConfig extends DirectoryFilterFieldConfig {
+  quickFilter: QuickFilterConfig;
+}
+
 /**
- * Combines regular filters and quick filters into a single OData expression for tasks
+ * Config-driven replacement for the family of `combineXFiltersToOData`
+ * functions (one per entity) that used to each reimplement this same
+ * split-quick-filter / convert-regular-items / join-with-logic-operator glue.
  */
-export function combineTaskFiltersToOData(
-  filterModel: GridFilterModel
+export function combineConfiguredFiltersToOData(
+  filterModel: GridFilterModel,
+  config: CombineFiltersConfig
 ): string {
   if (!filterModel || !filterModel.items || filterModel.items.length === 0) {
     return '';
   }
 
-  // Separate regular filters from quick filters
   const regularFilters: GridFilterItem[] = [];
   const quickFilterValues: unknown[] = [];
 
@@ -484,18 +477,18 @@ export function combineTaskFiltersToOData(
     }
   });
 
-  // Convert regular filters
   const regularFilterExpressions = regularFilters
-    .map(item => convertTaskFilterItemToOData(item))
+    .map(item => convertConfiguredFilterItemToOData(item, config))
     .filter(expr => expr !== '');
 
-  // Convert quick filters
   const quickFilterExpression =
     quickFilterValues.length > 0
-      ? convertTaskQuickFilterToOData(quickFilterValues)
+      ? convertConfiguredQuickFilterToOData(
+          quickFilterValues,
+          config.quickFilter
+        )
       : '';
 
-  // Combine both types of filters
   const allExpressions = [...regularFilterExpressions];
   if (quickFilterExpression) {
     allExpressions.push(quickFilterExpression);
@@ -504,14 +497,28 @@ export function combineTaskFiltersToOData(
   if (allExpressions.length === 0) {
     return '';
   }
-
   if (allExpressions.length === 1) {
     return allExpressions[0];
   }
 
-  // Join multiple filters with the logic operator
   const logicOperator = filterModel.logicOperator === 'or' ? ' or ' : ' and ';
   return `(${allExpressions.join(logicOperator)})`;
+}
+
+const TASK_QUICK_FILTER_CONFIG: QuickFilterConfig = {
+  searchFields: ['title', 'description'],
+};
+
+/**
+ * Combines regular filters and quick filters into a single OData expression for tasks
+ */
+export function combineTaskFiltersToOData(
+  filterModel: GridFilterModel
+): string {
+  return combineConfiguredFiltersToOData(filterModel, {
+    ...TASK_FILTER_CONFIG,
+    quickFilter: TASK_QUICK_FILTER_CONFIG,
+  });
 }
 
 /**
@@ -541,39 +548,30 @@ export function combineFiltersToOData(
 export function convertTaskQuickFilterToOData(
   quickFilterValues: unknown[]
 ): string {
-  if (!quickFilterValues || quickFilterValues.length === 0) {
-    return '';
-  }
-
-  // Define task searchable fields - only title and description
-  const searchFields = ['title', 'description'];
-
-  const quickFilterExpressions = quickFilterValues
-    .map(value => {
-      if (!value || value === '') return '';
-
-      // Create a contains condition for each search field
-      const fieldConditions = searchFields.map(
-        field =>
-          `contains(tolower(${field}), tolower('${escapeODataValue(value)}'))`
-      );
-
-      // Join field conditions with OR (search in any field)
-      return `(${fieldConditions.join(' or ')})`;
-    })
-    .filter(expr => expr !== '');
-
-  if (quickFilterExpressions.length === 0) {
-    return '';
-  }
-
-  if (quickFilterExpressions.length === 1) {
-    return quickFilterExpressions[0];
-  }
-
-  // Join multiple quick filter values with AND (all values must match)
-  return `(${quickFilterExpressions.join(' and ')})`;
+  return convertConfiguredQuickFilterToOData(
+    quickFilterValues,
+    TASK_QUICK_FILTER_CONFIG
+  );
 }
+
+/** Appends a tags-relationship OR clause to a quick-filter value — shared by
+ *  every entity whose quick search also matches on tag names (Tests, Sources,
+ *  Test Sets, Test Runs). */
+function tagsQuickFilterExpression(value: unknown): string[] {
+  return [
+    `_tags_relationship/any(t: contains(tolower(t/tag/name), tolower('${escapeODataValue(value)}')))`,
+  ];
+}
+
+const TEST_QUICK_FILTER_CONFIG: QuickFilterConfig = {
+  searchFields: [
+    'prompt/content',
+    'requirement/name',
+    'topic/name',
+    'category/name',
+  ],
+  extraFieldExpressions: tagsQuickFilterExpression,
+};
 
 /**
  * Handles quick filter (global search) conversion to OData for tests
@@ -581,48 +579,10 @@ export function convertTaskQuickFilterToOData(
 export function convertTestQuickFilterToOData(
   quickFilterValues: unknown[]
 ): string {
-  if (!quickFilterValues || quickFilterValues.length === 0) {
-    return '';
-  }
-
-  // Define test searchable fields - based on TestsGrid columns
-  const searchFields = [
-    'prompt/content',
-    'requirement/name',
-    'topic/name',
-    'category/name',
-  ];
-
-  const quickFilterExpressions = quickFilterValues
-    .map(value => {
-      if (!value || value === '') return '';
-
-      // Create a contains condition for each search field
-      const fieldConditions = searchFields.map(
-        field =>
-          `contains(tolower(${field}), tolower('${escapeODataValue(value)}'))`
-      );
-
-      // Add tags search with proper relationship path
-      fieldConditions.push(
-        `_tags_relationship/any(t: contains(tolower(t/tag/name), tolower('${escapeODataValue(value)}')))`
-      );
-
-      // Join field conditions with OR (search in any field)
-      return `(${fieldConditions.join(' or ')})`;
-    })
-    .filter(expr => expr !== '');
-
-  if (quickFilterExpressions.length === 0) {
-    return '';
-  }
-
-  if (quickFilterExpressions.length === 1) {
-    return quickFilterExpressions[0];
-  }
-
-  // Join multiple quick filter values with AND (all values must match)
-  return `(${quickFilterExpressions.join(' and ')})`;
+  return convertConfiguredQuickFilterToOData(
+    quickFilterValues,
+    TEST_QUICK_FILTER_CONFIG
+  );
 }
 
 /**
@@ -631,51 +591,16 @@ export function convertTestQuickFilterToOData(
 export function combineTestFiltersToOData(
   filterModel: GridFilterModel
 ): string {
-  if (!filterModel || !filterModel.items || filterModel.items.length === 0) {
-    return '';
-  }
-
-  // Separate regular filters from quick filters
-  const regularFilters: GridFilterItem[] = [];
-  const quickFilterValues: unknown[] = [];
-
-  filterModel.items.forEach(item => {
-    if (item.field === '__quickFilter__' || item.field === 'quickFilter') {
-      quickFilterValues.push(item.value);
-    } else {
-      regularFilters.push(item);
-    }
+  return combineConfiguredFiltersToOData(filterModel, {
+    ...GENERIC_FILTER_CONFIG,
+    quickFilter: TEST_QUICK_FILTER_CONFIG,
   });
-
-  // Convert regular filters (tags handling is now in convertFilterItemToOData)
-  const regularFilterExpressions = regularFilters
-    .map(item => convertFilterItemToOData(item))
-    .filter(expr => expr !== '');
-
-  // Convert quick filters
-  const quickFilterExpression =
-    quickFilterValues.length > 0
-      ? convertTestQuickFilterToOData(quickFilterValues)
-      : '';
-
-  // Combine both types of filters
-  const allExpressions = [...regularFilterExpressions];
-  if (quickFilterExpression) {
-    allExpressions.push(quickFilterExpression);
-  }
-
-  if (allExpressions.length === 0) {
-    return '';
-  }
-
-  if (allExpressions.length === 1) {
-    return allExpressions[0];
-  }
-
-  // Join multiple filters with the logic operator
-  const logicOperator = filterModel.logicOperator === 'or' ? ' or ' : ' and ';
-  return `(${allExpressions.join(logicOperator)})`;
 }
+
+const SOURCE_QUICK_FILTER_CONFIG: QuickFilterConfig = {
+  searchFields: ['title', 'description'],
+  extraFieldExpressions: tagsQuickFilterExpression,
+};
 
 /**
  * Handles quick filter (global search) conversion to OData for sources
@@ -683,43 +608,10 @@ export function combineTestFiltersToOData(
 export function convertSourceQuickFilterToOData(
   quickFilterValues: unknown[]
 ): string {
-  if (!quickFilterValues || quickFilterValues.length === 0) {
-    return '';
-  }
-
-  // Define source searchable fields - title and description
-  const searchFields = ['title', 'description'];
-
-  const quickFilterExpressions = quickFilterValues
-    .map(value => {
-      if (!value || value === '') return '';
-
-      // Create a contains condition for each search field
-      const fieldConditions = searchFields.map(
-        field =>
-          `contains(tolower(${field}), tolower('${escapeODataValue(value)}'))`
-      );
-
-      // Add tags search with proper relationship path
-      fieldConditions.push(
-        `_tags_relationship/any(t: contains(tolower(t/tag/name), tolower('${escapeODataValue(value)}')))`
-      );
-
-      // Join field conditions with OR (search in any field)
-      return `(${fieldConditions.join(' or ')})`;
-    })
-    .filter(expr => expr !== '');
-
-  if (quickFilterExpressions.length === 0) {
-    return '';
-  }
-
-  if (quickFilterExpressions.length === 1) {
-    return quickFilterExpressions[0];
-  }
-
-  // Join multiple quick filter values with AND (all values must match)
-  return `(${quickFilterExpressions.join(' and ')})`;
+  return convertConfiguredQuickFilterToOData(
+    quickFilterValues,
+    SOURCE_QUICK_FILTER_CONFIG
+  );
 }
 
 /**
@@ -728,51 +620,21 @@ export function convertSourceQuickFilterToOData(
 export function combineSourceFiltersToOData(
   filterModel: GridFilterModel
 ): string {
-  if (!filterModel || !filterModel.items || filterModel.items.length === 0) {
-    return '';
-  }
-
-  // Separate regular filters from quick filters
-  const regularFilters: GridFilterItem[] = [];
-  const quickFilterValues: unknown[] = [];
-
-  filterModel.items.forEach(item => {
-    if (item.field === '__quickFilter__' || item.field === 'quickFilter') {
-      quickFilterValues.push(item.value);
-    } else {
-      regularFilters.push(item);
-    }
+  return combineConfiguredFiltersToOData(filterModel, {
+    ...GENERIC_FILTER_CONFIG,
+    quickFilter: SOURCE_QUICK_FILTER_CONFIG,
   });
-
-  // Convert regular filters (tags handling is now in convertFilterItemToOData)
-  const regularFilterExpressions = regularFilters
-    .map(item => convertFilterItemToOData(item))
-    .filter(expr => expr !== '');
-
-  // Convert quick filters
-  const quickFilterExpression =
-    quickFilterValues.length > 0
-      ? convertSourceQuickFilterToOData(quickFilterValues)
-      : '';
-
-  // Combine both types of filters
-  const allExpressions = [...regularFilterExpressions];
-  if (quickFilterExpression) {
-    allExpressions.push(quickFilterExpression);
-  }
-
-  if (allExpressions.length === 0) {
-    return '';
-  }
-
-  if (allExpressions.length === 1) {
-    return allExpressions[0];
-  }
-
-  // Join multiple filters with the logic operator
-  const logicOperator = filterModel.logicOperator === 'or' ? ' or ' : ' and ';
-  return `(${allExpressions.join(logicOperator)})`;
 }
+
+const TEST_RUN_QUICK_FILTER_CONFIG: QuickFilterConfig = {
+  searchFields: [
+    'name',
+    'test_configuration/test_set/name',
+    'user/name',
+    'status/name',
+  ],
+  extraFieldExpressions: tagsQuickFilterExpression,
+};
 
 /**
  * Handles quick filter (global search) conversion to OData for test runs
@@ -780,48 +642,10 @@ export function combineSourceFiltersToOData(
 export function convertTestRunQuickFilterToOData(
   quickFilterValues: unknown[]
 ): string {
-  if (!quickFilterValues || quickFilterValues.length === 0) {
-    return '';
-  }
-
-  // Define test run searchable fields
-  const searchFields = [
-    'name',
-    'test_configuration/test_set/name',
-    'user/name',
-    'status/name',
-    'tags/name', // Search in tag names
-  ];
-
-  const quickFilterExpressions = quickFilterValues
-    .map(value => {
-      if (!value || value === '') return '';
-
-      // Create a contains condition for each search field
-      const fieldConditions = searchFields.map(field => {
-        // Special handling for tags field (collection through TaggedItem)
-        if (field === 'tags/name') {
-          return `_tags_relationship/any(t: contains(tolower(t/tag/name), tolower('${escapeODataValue(value)}')))`;
-        }
-        // Regular fields
-        return `contains(tolower(${field}), tolower('${escapeODataValue(value)}'))`;
-      });
-
-      // Join field conditions with OR (search in any field)
-      return `(${fieldConditions.join(' or ')})`;
-    })
-    .filter(expr => expr !== '');
-
-  if (quickFilterExpressions.length === 0) {
-    return '';
-  }
-
-  if (quickFilterExpressions.length === 1) {
-    return quickFilterExpressions[0];
-  }
-
-  // Join multiple quick filter values with AND (all values must match)
-  return `(${quickFilterExpressions.join(' and ')})`;
+  return convertConfiguredQuickFilterToOData(
+    quickFilterValues,
+    TEST_RUN_QUICK_FILTER_CONFIG
+  );
 }
 
 /**
@@ -830,50 +654,10 @@ export function convertTestRunQuickFilterToOData(
 export function combineTestRunFiltersToOData(
   filterModel: GridFilterModel
 ): string {
-  if (!filterModel || !filterModel.items || filterModel.items.length === 0) {
-    return '';
-  }
-
-  // Separate regular filters from quick filters
-  const regularFilters: GridFilterItem[] = [];
-  const quickFilterValues: unknown[] = [];
-
-  filterModel.items.forEach(item => {
-    if (item.field === '__quickFilter__' || item.field === 'quickFilter') {
-      quickFilterValues.push(item.value);
-    } else {
-      regularFilters.push(item);
-    }
+  return combineConfiguredFiltersToOData(filterModel, {
+    ...GENERIC_FILTER_CONFIG,
+    quickFilter: TEST_RUN_QUICK_FILTER_CONFIG,
   });
-
-  // Convert regular filters (tags handling is now in convertFilterItemToOData)
-  const regularFilterExpressions = regularFilters
-    .map(item => convertFilterItemToOData(item))
-    .filter(expr => expr !== '');
-
-  // Convert quick filters
-  const quickFilterExpression =
-    quickFilterValues.length > 0
-      ? convertTestRunQuickFilterToOData(quickFilterValues)
-      : '';
-
-  // Combine both types of filters
-  const allExpressions = [...regularFilterExpressions];
-  if (quickFilterExpression) {
-    allExpressions.push(quickFilterExpression);
-  }
-
-  if (allExpressions.length === 0) {
-    return '';
-  }
-
-  if (allExpressions.length === 1) {
-    return allExpressions[0];
-  }
-
-  // Join multiple filters with the logic operator
-  const logicOperator = filterModel.logicOperator === 'or' ? ' or ' : ' and ';
-  return `(${allExpressions.join(logicOperator)})`;
 }
 
 /**
@@ -881,81 +665,18 @@ export function combineTestRunFiltersToOData(
  * Maps grid field names to backend OData paths (name, testSetType->test_set_type/type_value,
  * creator->user/name, tags->_tags_relationship).
  */
-function convertTestSetFilterItemToOData(item: GridFilterItem): string {
-  const { field, operator, value } = item;
+const TEST_SET_FILTER_CONFIG: DirectoryFilterFieldConfig = {
+  fieldMap: {
+    testSetType: 'test_set_type/type_value',
+    creator: 'user/name',
+  },
+  ...GENERIC_FILTER_CONFIG,
+};
 
-  if (shouldSkipFilterItem(field, operator, value)) {
-    return '';
-  }
-
-  if (field === 'tags') {
-    return convertTagsFilterToOData(item);
-  }
-
-  if (field === 'comments' || field === 'tasks') {
-    return convertRelationshipPresenceFilterToOData(field, operator);
-  }
-
-  // Map grid column fields to backend OData paths
-  let odataField: string;
-  switch (field) {
-    case 'testSetType':
-      odataField = 'test_set_type/type_value';
-      break;
-    case 'creator':
-      odataField = 'user/name';
-      break;
-    case 'name':
-      odataField = 'name';
-      break;
-    default:
-      odataField = field.replace(/\./g, '/');
-  }
-
-  switch (operator) {
-    case 'contains':
-      return `contains(tolower(${odataField}), tolower('${escapeODataValue(value)}'))`;
-
-    case 'startsWith':
-      return `startswith(tolower(${odataField}), tolower('${escapeODataValue(value)}'))`;
-
-    case 'endsWith':
-      return `endswith(tolower(${odataField}), tolower('${escapeODataValue(value)}'))`;
-
-    case 'equals':
-    case '=':
-    case 'is':
-      if (typeof value === 'string') {
-        return `tolower(${odataField}) eq tolower('${escapeODataValue(value)}')`;
-      }
-      return `${odataField} eq '${escapeODataValue(value)}'`;
-
-    case 'not':
-    case '!=':
-      if (typeof value === 'string') {
-        return `tolower(${odataField}) ne tolower('${escapeODataValue(value)}')`;
-      }
-      return `${odataField} ne '${escapeODataValue(value)}'`;
-
-    case 'isEmpty':
-      return `${odataField} eq null or ${odataField} eq ''`;
-
-    case 'isNotEmpty':
-      return `${odataField} ne null and ${odataField} ne ''`;
-
-    case 'isAnyOf':
-      if (Array.isArray(value) && value.length > 0) {
-        const conditions = value
-          .map(v => `${odataField} eq '${escapeODataValue(v)}'`)
-          .join(' or ');
-        return `(${conditions})`;
-      }
-      return '';
-
-    default:
-      return `contains(tolower(${odataField}), tolower('${escapeODataValue(value)}'))`;
-  }
-}
+const TEST_SET_QUICK_FILTER_CONFIG: QuickFilterConfig = {
+  searchFields: ['name', 'user/name', 'test_set_type/type_value'],
+  extraFieldExpressions: tagsQuickFilterExpression,
+};
 
 /**
  * Handles quick filter (global search) conversion to OData for test sets
@@ -963,34 +684,10 @@ function convertTestSetFilterItemToOData(item: GridFilterItem): string {
 export function convertTestSetQuickFilterToOData(
   quickFilterValues: unknown[]
 ): string {
-  if (!quickFilterValues || quickFilterValues.length === 0) {
-    return '';
-  }
-
-  const searchFields = ['name', 'user/name', 'test_set_type/type_value'];
-
-  const quickFilterExpressions = quickFilterValues
-    .map(value => {
-      if (!value || value === '') return '';
-
-      const fieldConditions = searchFields.map(
-        field =>
-          `contains(tolower(${field}), tolower('${escapeODataValue(value)}'))`
-      );
-      fieldConditions.push(
-        `_tags_relationship/any(t: contains(tolower(t/tag/name), tolower('${escapeODataValue(value)}')))`
-      );
-      return `(${fieldConditions.join(' or ')})`;
-    })
-    .filter(expr => expr !== '');
-
-  if (quickFilterExpressions.length === 0) {
-    return '';
-  }
-  if (quickFilterExpressions.length === 1) {
-    return quickFilterExpressions[0];
-  }
-  return `(${quickFilterExpressions.join(' and ')})`;
+  return convertConfiguredQuickFilterToOData(
+    quickFilterValues,
+    TEST_SET_QUICK_FILTER_CONFIG
+  );
 }
 
 /**
@@ -999,107 +696,20 @@ export function convertTestSetQuickFilterToOData(
 export function combineTestSetFiltersToOData(
   filterModel: GridFilterModel
 ): string {
-  if (!filterModel || !filterModel.items || filterModel.items.length === 0) {
-    return '';
-  }
-
-  const regularFilters: GridFilterItem[] = [];
-  const quickFilterValues: unknown[] = [];
-
-  filterModel.items.forEach(item => {
-    if (item.field === '__quickFilter__' || item.field === 'quickFilter') {
-      quickFilterValues.push(item.value);
-    } else {
-      regularFilters.push(item);
-    }
+  return combineConfiguredFiltersToOData(filterModel, {
+    ...TEST_SET_FILTER_CONFIG,
+    quickFilter: TEST_SET_QUICK_FILTER_CONFIG,
   });
-
-  const regularFilterExpressions = regularFilters
-    .map(item => convertTestSetFilterItemToOData(item))
-    .filter(expr => expr !== '');
-
-  const quickFilterExpression =
-    quickFilterValues.length > 0
-      ? convertTestSetQuickFilterToOData(quickFilterValues)
-      : '';
-
-  const allExpressions = [...regularFilterExpressions];
-  if (quickFilterExpression) {
-    allExpressions.push(quickFilterExpression);
-  }
-
-  if (allExpressions.length === 0) {
-    return '';
-  }
-  if (allExpressions.length === 1) {
-    return allExpressions[0];
-  }
-  const logicOperator = filterModel.logicOperator === 'or' ? ' or ' : ' and ';
-  return `(${allExpressions.join(logicOperator)})`;
 }
 
-/**
- * Converts quick-filter values to OData for experiments.
- * Searches across name, description, visibility, and project/name.
- */
-function convertExperimentQuickFilterToOData(
-  quickFilterValues: unknown[]
-): string {
-  if (!quickFilterValues || quickFilterValues.length === 0) {
-    return '';
-  }
+const EXPERIMENT_QUICK_FILTER_CONFIG: QuickFilterConfig = {
+  searchFields: ['name', 'description', 'visibility', 'project/name'],
+};
 
-  const searchFields = ['name', 'description', 'visibility', 'project/name'];
-
-  const quickFilterExpressions = quickFilterValues
-    .map(value => {
-      if (!value || value === '') return '';
-
-      const fieldConditions = searchFields.map(
-        field =>
-          `contains(tolower(${field}), tolower('${escapeODataValue(value)}'))`
-      );
-
-      return `(${fieldConditions.join(' or ')})`;
-    })
-    .filter(expr => expr !== '');
-
-  if (quickFilterExpressions.length === 0) {
-    return '';
-  }
-  if (quickFilterExpressions.length === 1) {
-    return quickFilterExpressions[0];
-  }
-  return `(${quickFilterExpressions.join(' and ')})`;
-}
-
-/**
- * Maps experiment grid column fields to backend OData paths.
- */
-function convertExperimentFilterItemToOData(item: GridFilterItem): string {
-  const { field, operator, value } = item;
-
-  if (
-    !field ||
-    !operator ||
-    value === undefined ||
-    value === null ||
-    value === ''
-  ) {
-    return '';
-  }
-
-  let odataField: string;
-  switch (field) {
-    case 'projectName':
-      odataField = 'project/name';
-      break;
-    default:
-      odataField = field;
-  }
-
-  return convertFilterItemToOData({ ...item, field: odataField });
-}
+const EXPERIMENT_FILTER_CONFIG: DirectoryFilterFieldConfig = {
+  fieldMap: { projectName: 'project/name' },
+  ...GENERIC_FILTER_CONFIG,
+};
 
 /**
  * Combines regular filters and quick filters into a single OData
@@ -1108,44 +718,15 @@ function convertExperimentFilterItemToOData(item: GridFilterItem): string {
 export function combineExperimentFiltersToOData(
   filterModel: GridFilterModel
 ): string {
-  if (!filterModel || !filterModel.items || filterModel.items.length === 0) {
-    return '';
-  }
-
-  const regularFilters: GridFilterItem[] = [];
-  const quickFilterValues: unknown[] = [];
-
-  filterModel.items.forEach(item => {
-    if (item.field === '__quickFilter__' || item.field === 'quickFilter') {
-      quickFilterValues.push(item.value);
-    } else {
-      regularFilters.push(item);
-    }
+  return combineConfiguredFiltersToOData(filterModel, {
+    ...EXPERIMENT_FILTER_CONFIG,
+    quickFilter: EXPERIMENT_QUICK_FILTER_CONFIG,
   });
-
-  const regularFilterExpressions = regularFilters
-    .map(item => convertExperimentFilterItemToOData(item))
-    .filter(expr => expr !== '');
-
-  const quickFilterExpression =
-    quickFilterValues.length > 0
-      ? convertExperimentQuickFilterToOData(quickFilterValues)
-      : '';
-
-  const allExpressions = [...regularFilterExpressions];
-  if (quickFilterExpression) {
-    allExpressions.push(quickFilterExpression);
-  }
-
-  if (allExpressions.length === 0) {
-    return '';
-  }
-  if (allExpressions.length === 1) {
-    return allExpressions[0];
-  }
-  const logicOp = filterModel.logicOperator === 'or' ? ' or ' : ' and ';
-  return `(${allExpressions.join(logicOp)})`;
 }
+
+const ENDPOINT_QUICK_FILTER_CONFIG: QuickFilterConfig = {
+  searchFields: ['name', 'environment', 'connection_type', 'description'],
+};
 
 /**
  * Handles quick filter (global search) conversion to OData for endpoints
@@ -1153,95 +734,19 @@ export function combineExperimentFiltersToOData(
 export function convertEndpointQuickFilterToOData(
   quickFilterValues: unknown[]
 ): string {
-  if (!quickFilterValues || quickFilterValues.length === 0) {
-    return '';
-  }
-
-  const searchFields = [
-    'name',
-    'environment',
-    'connection_type',
-    'description',
-  ];
-
-  const quickFilterExpressions = quickFilterValues
-    .map(value => {
-      if (!value || value === '') return '';
-
-      const fieldConditions = searchFields.map(
-        field =>
-          `contains(tolower(${field}), tolower('${escapeODataValue(value)}'))`
-      );
-      return `(${fieldConditions.join(' or ')})`;
-    })
-    .filter(expr => expr !== '');
-
-  if (quickFilterExpressions.length === 0) {
-    return '';
-  }
-  if (quickFilterExpressions.length === 1) {
-    return quickFilterExpressions[0];
-  }
-  return `(${quickFilterExpressions.join(' and ')})`;
+  return convertConfiguredQuickFilterToOData(
+    quickFilterValues,
+    ENDPOINT_QUICK_FILTER_CONFIG
+  );
 }
 
-/**
- * Converts a MUI DataGrid filter item to OData for endpoints.
- */
-function convertEndpointFilterItemToOData(item: GridFilterItem): string {
-  const { field, operator, value } = item;
-
-  if (
-    !field ||
-    !operator ||
-    value === undefined ||
-    value === null ||
-    value === ''
-  ) {
-    return '';
-  }
-
-  let odataField: string;
-  switch (field) {
-    case 'connectionType':
-      odataField = 'connection_type';
-      break;
-    case 'projectId':
-      odataField = 'project_id';
-      break;
-    case 'status':
-      odataField = 'status/name';
-      break;
-    case 'environment':
-      odataField = 'environment';
-      break;
-    default:
-      odataField = field.replace(/\./g, '/');
-  }
-
-  switch (operator) {
-    case 'contains':
-      return `contains(tolower(${odataField}), tolower('${escapeODataValue(value)}'))`;
-
-    case 'equals':
-    case '=':
-    case 'is':
-      if (typeof value === 'string') {
-        return `tolower(${odataField}) eq tolower('${escapeODataValue(value)}')`;
-      }
-      return `${odataField} eq '${escapeODataValue(value)}'`;
-
-    case 'not':
-    case '!=':
-      if (typeof value === 'string') {
-        return `tolower(${odataField}) ne tolower('${escapeODataValue(value)}')`;
-      }
-      return `${odataField} ne '${escapeODataValue(value)}'`;
-
-    default:
-      return `contains(tolower(${odataField}), tolower('${escapeODataValue(value)}'))`;
-  }
-}
+const ENDPOINT_FILTER_CONFIG: DirectoryFilterFieldConfig = {
+  fieldMap: {
+    connectionType: 'connection_type',
+    projectId: 'project_id',
+    status: 'status/name',
+  },
+};
 
 /**
  * Combines regular filters and quick filters into a single OData expression for endpoints
@@ -1249,43 +754,10 @@ function convertEndpointFilterItemToOData(item: GridFilterItem): string {
 export function combineEndpointFiltersToOData(
   filterModel: GridFilterModel
 ): string {
-  if (!filterModel || !filterModel.items || filterModel.items.length === 0) {
-    return '';
-  }
-
-  const regularFilters: GridFilterItem[] = [];
-  const quickFilterValues: unknown[] = [];
-
-  filterModel.items.forEach(item => {
-    if (item.field === '__quickFilter__' || item.field === 'quickFilter') {
-      quickFilterValues.push(item.value);
-    } else {
-      regularFilters.push(item);
-    }
+  return combineConfiguredFiltersToOData(filterModel, {
+    ...ENDPOINT_FILTER_CONFIG,
+    quickFilter: ENDPOINT_QUICK_FILTER_CONFIG,
   });
-
-  const regularFilterExpressions = regularFilters
-    .map(item => convertEndpointFilterItemToOData(item))
-    .filter(expr => expr !== '');
-
-  const quickFilterExpression =
-    quickFilterValues.length > 0
-      ? convertEndpointQuickFilterToOData(quickFilterValues)
-      : '';
-
-  const allExpressions = [...regularFilterExpressions];
-  if (quickFilterExpression) {
-    allExpressions.push(quickFilterExpression);
-  }
-
-  if (allExpressions.length === 0) {
-    return '';
-  }
-  if (allExpressions.length === 1) {
-    return allExpressions[0];
-  }
-  const logicOperator = filterModel.logicOperator === 'or' ? ' or ' : ' and ';
-  return `(${allExpressions.join(logicOperator)})`;
 }
 
 /**
