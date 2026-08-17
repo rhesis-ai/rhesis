@@ -1,4 +1,4 @@
-import { BaseApiClient } from '../base-client';
+import { BaseApiClient, type ApiErrorData } from '../base-client';
 
 // Concrete subclass to expose protected methods under test
 class TestableClient extends BaseApiClient {
@@ -249,6 +249,92 @@ describe('BaseApiClient', () => {
           message: expect.stringContaining('already associated'),
         })
       );
+    });
+
+    describe('402 quota exceeded', () => {
+      function makeQuotaError() {
+        return {
+          error: 'quota_exceeded',
+          resource: 'test_executions',
+          used: 100,
+          limit: 100,
+          message:
+            "You've reached your test executions limit for this billing period.",
+        };
+      }
+
+      it('surfaces resource/used/limit as typed fields on the error', async () => {
+        fetchMock.mockResolvedValue(
+          makeFetchResponse(makeQuotaError(), 402, {
+            'content-type': 'application/json',
+          })
+        );
+
+        let caughtError:
+          | (Error & { status?: number; data?: ApiErrorData })
+          | null = null;
+        try {
+          await client.fetchPublic('/test_configurations/1/execute', {
+            method: 'POST',
+          });
+        } catch (e) {
+          caughtError = e as Error & { status?: number; data?: ApiErrorData };
+        }
+
+        expect(caughtError).not.toBeNull();
+        expect(caughtError?.status).toBe(402);
+        expect(caughtError?.data?.resource).toBe('test_executions');
+        expect(caughtError?.data?.used).toBe(100);
+        expect(caughtError?.data?.limit).toBe(100);
+      });
+
+      it('does not encode resource/used/limit into the message string the way 404/410 do', async () => {
+        // getApiErrorMessage only strips the "API error: N - " prefix, not a
+        // further table:/id:/name:-style encoding -- and callers such as
+        // RunDrawer's execute catch block pass the message straight into
+        // setError(). A structured encoding here would display raw to users.
+        fetchMock.mockResolvedValue(
+          makeFetchResponse(makeQuotaError(), 402, {
+            'content-type': 'application/json',
+          })
+        );
+
+        await expect(
+          client.fetchPublic('/test_configurations/1/execute', {
+            method: 'POST',
+          })
+        ).rejects.toThrow(
+          "API error: 402 - You've reached your test executions limit for this billing period."
+        );
+      });
+
+      it('logs a 402 as a warning, not an error', async () => {
+        // Asserts the specific call rather than "console.error was never
+        // called": a 5xx test elsewhere in this suite schedules a real-timer
+        // retry backoff that can fire during a later test's execution window
+        // and log unrelated to this one -- a global absence assertion would
+        // be flaky against that, independent of whether 402 logging is right.
+        const warnSpy = jest
+          .spyOn(console, 'warn')
+          .mockImplementation(() => {});
+        fetchMock.mockResolvedValue(
+          makeFetchResponse(makeQuotaError(), 402, {
+            'content-type': 'application/json',
+          })
+        );
+
+        await expect(
+          client.fetchPublic('/test_configurations/1/execute', {
+            method: 'POST',
+          })
+        ).rejects.toThrow();
+
+        expect(warnSpy).toHaveBeenCalledWith(
+          '[VALIDATION] API Response Error:',
+          expect.objectContaining({ status: 402 })
+        );
+        warnSpy.mockRestore();
+      });
     });
   });
 
