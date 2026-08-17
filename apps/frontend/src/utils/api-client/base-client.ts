@@ -23,6 +23,17 @@ export interface ApiErrorData {
   table_name?: string;
   item_id?: string;
   item_name?: string;
+  /** Present on a 402 quota-exceeded body (see
+   * `rhesis.backend.app.quota.enforcement.quota_exceeded_response_body`):
+   * the `QuotaResource` value the org exhausted. */
+  resource?: string;
+  /** Current usage for `resource`, on a 402 quota-exceeded body. */
+  used?: number;
+  /** The resource's limit, on a 402 quota-exceeded body. `null` would mean
+   * unlimited, but a 402 for an unlimited resource cannot happen -- present
+   * for type-shape parity with the backend response, not because it's ever
+   * actually null here. */
+  limit?: number | null;
   [key: string]: unknown;
 }
 
@@ -408,6 +419,19 @@ export class BaseApiClient {
             const rateLimitInfo = errorMessage; // e.g., "10 per 1 hour"
             errorMessage = `Too many requests. You've exceeded the rate limit (${rateLimitInfo}). Please try again later.`;
           }
+
+          // 402 Payment Required means a quota was exhausted (see
+          // require_quota / QuotaExceededError on the backend). Deliberately
+          // NOT string-encoded into the message the way 410/404 encode
+          // table_name/item_id below: getApiErrorMessage only strips the
+          // "API error: {status} - " prefix, not a further table:/id:/name:-
+          // style encoding, and callers (RunDrawer's own execute catch
+          // block, among others) pass its return value straight into
+          // setError() for display. The body's `message` is already a full,
+          // friendly sentence -- parseApiErrorResponse above has already
+          // used it as errorMessage -- and `error.data.resource/.used/.limit`
+          // (typed on ApiErrorData) is there for any caller that wants
+          // structured access without parsing the message string at all.
 
           // For 410 Gone and 404 Not Found responses, encode critical data in the message
           // so it survives serialization across Next.js server-client boundary

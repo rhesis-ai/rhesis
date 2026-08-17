@@ -79,6 +79,8 @@ import type { UUID } from 'crypto';
 import { readActiveProjectId } from '@/utils/active-project';
 import { formatDate } from '@/utils/date';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import { useResourceUsage } from '@/contexts/UsageContext';
+import { QuotaResource, QUOTA_RESOURCE_LABELS } from '@/constants/quota';
 
 // ---------------------------------------------------------------------------
 // Shared local types
@@ -1006,15 +1008,38 @@ export default function RunDrawer(props: RunDrawerProps) {
   // Form validity
   // -----------------------------------------------------------------------
 
+  // Proactive quota gate: mirrors the backend's require_quota(TEST_EXECUTIONS)
+  // check on the execute endpoints, so the button is disabled before a
+  // request goes out at all rather than only after it comes back 402. Not a
+  // replacement for that check -- usage can change between render and
+  // submit, so the server-side gate is still authoritative; this is purely
+  // about giving the user the answer earlier.
+  const executionUsage = useResourceUsage(QuotaResource.TEST_EXECUTIONS);
+  const executionQuotaExhausted =
+    executionUsage !== null &&
+    executionUsage.limit !== null &&
+    executionUsage.used >= executionUsage.limit;
+
   const canExecute = useMemo(() => {
     const endpointId = resolveEndpointId();
     const testSetIds = resolveTestSetIds();
     if (!endpointId || testSetIds.length === 0) return false;
     if (mode === 'runExperiment' && internalVersionHashes.size === 0)
       return false;
+    if (executionQuotaExhausted) return false;
     return true;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, selectedEndpoint, selectedTestSet, internalVersionHashes]);
+  }, [
+    mode,
+    selectedEndpoint,
+    selectedTestSet,
+    internalVersionHashes,
+    executionQuotaExhausted,
+  ]);
+
+  const quotaExhaustedMessage = executionQuotaExhausted
+    ? `You've reached your ${QUOTA_RESOURCE_LABELS[QuotaResource.TEST_EXECUTIONS].toLowerCase()} limit for this billing period.`
+    : undefined;
 
   // Effective test set type for multi-turn detection
   const effectiveTestSetType = useMemo(() => {
@@ -1898,7 +1923,7 @@ export default function RunDrawer(props: RunDrawerProps) {
       onClose={onClose}
       title={title}
       loading={loading || endpointsLoading || executing}
-      error={error}
+      error={error ?? quotaExhaustedMessage}
       onSave={handleExecute}
       saveDisabled={!canExecute}
       saveButtonText={saveButtonText}

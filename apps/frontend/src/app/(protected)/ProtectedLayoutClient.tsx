@@ -5,9 +5,11 @@ import { useSession } from 'next-auth/react';
 import { usePathname } from 'next/navigation';
 import AuthErrorBoundary from './error-boundary';
 import VerificationBanner from '@/components/auth/VerificationBanner';
+import QuotaBanner from '@/components/auth/QuotaBanner';
 import { FeaturesProvider } from '@/contexts/FeaturesContext';
 import type { FeaturesResponse } from '@/utils/api-client/features-client';
 import { PermissionsProvider } from '@/contexts/PermissionsContext';
+import { UsageProvider } from '@/contexts/UsageContext';
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
 import { AppShell } from '@/components/layout/AppShell';
 import { Sidebar } from '@/components/navigation/Sidebar';
@@ -104,15 +106,18 @@ export function ProtectedLayoutClient({
     <AuthErrorBoundary>
       <FeaturesProvider initialFeatures={initialFeatures}>
         <PermissionsProvider initialPermissions={initialPermissions}>
-          <WebSocketProvider>
-            <NotificationsProvider>
-              {!isOnboarding && (
-                <TermsAcceptanceGate initialTermsStatus={initialTermsStatus} />
-              )}
-              {!isOnboarding && !chromeless && <VerificationBanner />}
-              {content}
-            </NotificationsProvider>
-          </WebSocketProvider>
+          <UsageProvider>
+            <WebSocketProvider>
+              <NotificationsProvider>
+                {!isOnboarding && (
+                  <TermsAcceptanceGate initialTermsStatus={initialTermsStatus} />
+                )}
+                {!isOnboarding && !chromeless && <VerificationBanner />}
+                {!isOnboarding && !chromeless && <QuotaBanner />}
+                {content}
+              </NotificationsProvider>
+            </WebSocketProvider>
+          </UsageProvider>
         </PermissionsProvider>
       </FeaturesProvider>
     </AuthErrorBoundary>
