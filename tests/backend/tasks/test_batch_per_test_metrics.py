@@ -34,9 +34,7 @@ def _make_metric_config(
     mc.class_name = class_name
     # Batch evaluation drops configs that declare no scope, so default to both
     # turn types: these tests are about which configs are selected, not scope.
-    mc.metric_scope = (
-        metric_scope if metric_scope is not None else ["Single-Turn", "Multi-Turn"]
-    )
+    mc.metric_scope = metric_scope if metric_scope is not None else ["Single-Turn", "Multi-Turn"]
     return mc
 
 
@@ -110,9 +108,7 @@ class TestHasMetrics:
         assert ctx.has_metrics is False
 
     def test_true_with_shared(self):
-        ctx = _make_execution_context(
-            metric_configs=[_make_metric_config("M", "J")]
-        )
+        ctx = _make_execution_context(metric_configs=[_make_metric_config("M", "J")])
         assert ctx.has_metrics is True
 
     def test_true_with_per_test(self):
@@ -157,26 +153,16 @@ class TestPrefetchMetricResolution:
         return test, metric
 
     @patch("rhesis.backend.metrics.metric_config.metric_model_to_config")
-    @patch(
-        "rhesis.backend.tasks.execution.executors.data.get_test_metrics"
-    )
-    def test_requirement_metrics_resolved_per_test(
-        self, mock_get_metrics, mock_to_config
-    ):
+    @patch("rhesis.backend.tasks.execution.executors.data.get_test_metrics")
+    def test_requirement_metrics_resolved_per_test(self, mock_get_metrics, mock_to_config):
         """When using requirement metrics (P3), each test gets its own configs."""
-        test_1, metric_1 = self._make_test(
-            "t1", "Requirement A", "Metric A", "JudgeA"
-        )
-        test_2, metric_2 = self._make_test(
-            "t2", "Requirement B", "Metric B", "JudgeB"
-        )
+        test_1, metric_1 = self._make_test("t1", "Requirement A", "Metric A", "JudgeA")
+        test_2, metric_2 = self._make_test("t2", "Requirement B", "Metric B", "JudgeB")
 
         # get_test_metrics returns different metrics per test; the sample-test
         # call passes return_source=True and expects a (metrics, source) tuple.
         def side_effect(test, *args, **kwargs):
-            metrics = {str(test_1.id): [metric_1], str(test_2.id): [metric_2]}[
-                str(test.id)
-            ]
+            metrics = {str(test_1.id): [metric_1], str(test_2.id): [metric_2]}[str(test.id)]
             if kwargs.get("return_source"):
                 return metrics, "requirement"
             return metrics
@@ -214,26 +200,21 @@ class TestPrefetchMetricResolution:
         endpoint.environment = None
 
         session = MagicMock()
-        session.query.return_value.filter.return_value.first.return_value = endpoint
 
         with (
-            patch(
-                "rhesis.backend.app.database.bind_scope_to_session"
-            ),
+            patch("rhesis.backend.app.database.bind_scope_to_session"),
             patch(
                 "rhesis.backend.app.services.test_set.get_test_set",
                 return_value=test_set,
             ),
             patch(
-                "rhesis.backend.app.services.invokers.auth.manager"
-                ".AuthenticationManager"
+                "rhesis.backend.app.crud.get_endpoint",
+                return_value=endpoint,
             ),
+            patch("rhesis.backend.app.services.invokers.auth.manager.AuthenticationManager"),
+            patch("rhesis.backend.app.config.settings.get_model_settings"),
             patch(
-                "rhesis.backend.app.config.settings.get_model_settings"
-            ),
-            patch(
-                "rhesis.backend.tasks.execution.executors.data"
-                ".get_test_and_prompt",
+                "rhesis.backend.tasks.execution.executors.data.get_test_and_prompt",
                 side_effect=lambda s, tid, org: (
                     test_1 if tid == str(test_1.id) else test_2,
                     "prompt",
@@ -245,9 +226,7 @@ class TestPrefetchMetricResolution:
                 prefetch_execution_context,
             )
 
-            ctx = prefetch_execution_context(
-                session, test_config, test_run, [test_1, test_2]
-            )
+            ctx = prefetch_execution_context(session, test_config, test_run, [test_1, test_2])
 
         # Shared should be empty; per-test should have entries
         assert ctx.metric_configs == []
@@ -262,9 +241,7 @@ class TestPrefetchMetricResolution:
         assert configs_2[0].class_name == "JudgeB"
 
     @patch("rhesis.backend.metrics.metric_config.metric_model_to_config")
-    @patch(
-        "rhesis.backend.tasks.execution.executors.data.get_test_metrics"
-    )
+    @patch("rhesis.backend.tasks.execution.executors.data.get_test_metrics")
     def test_test_set_metrics_shared(self, mock_get_metrics, mock_to_config):
         """When using test_set metrics (P2), all tests share the same configs."""
         test_1, _ = self._make_test("t1", "Requirement A", "Metric A", "JudgeA")
@@ -309,26 +286,21 @@ class TestPrefetchMetricResolution:
         endpoint.environment = None
 
         session = MagicMock()
-        session.query.return_value.filter.return_value.first.return_value = endpoint
 
         with (
-            patch(
-                "rhesis.backend.app.database.bind_scope_to_session"
-            ),
+            patch("rhesis.backend.app.database.bind_scope_to_session"),
             patch(
                 "rhesis.backend.app.services.test_set.get_test_set",
                 return_value=test_set,
             ),
             patch(
-                "rhesis.backend.app.services.invokers.auth.manager"
-                ".AuthenticationManager"
+                "rhesis.backend.app.crud.get_endpoint",
+                return_value=endpoint,
             ),
+            patch("rhesis.backend.app.services.invokers.auth.manager.AuthenticationManager"),
+            patch("rhesis.backend.app.config.settings.get_model_settings"),
             patch(
-                "rhesis.backend.app.config.settings.get_model_settings"
-            ),
-            patch(
-                "rhesis.backend.tasks.execution.executors.data"
-                ".get_test_and_prompt",
+                "rhesis.backend.tasks.execution.executors.data.get_test_and_prompt",
                 side_effect=lambda s, tid, org: (
                     test_1 if tid == str(test_1.id) else test_2,
                     "prompt",
@@ -340,9 +312,7 @@ class TestPrefetchMetricResolution:
                 prefetch_execution_context,
             )
 
-            ctx = prefetch_execution_context(
-                session, test_config, test_run, [test_1, test_2]
-            )
+            ctx = prefetch_execution_context(session, test_config, test_run, [test_1, test_2])
 
         # Shared should be populated; per-test should be empty
         assert len(ctx.metric_configs) == 1
@@ -396,9 +366,7 @@ class TestPrefetchFallthroughToPerTest:
         # resolved to nothing valid, so it fell through to P3 (requirement) —
         # which differs per test.
         def side_effect(test, *args, **kwargs):
-            metrics = {str(test_1.id): [metric_1], str(test_2.id): [metric_2]}[
-                str(test.id)
-            ]
+            metrics = {str(test_1.id): [metric_1], str(test_2.id): [metric_2]}[str(test.id)]
             if kwargs.get("return_source"):
                 return metrics, "requirement"
             return metrics
@@ -436,7 +404,6 @@ class TestPrefetchFallthroughToPerTest:
         endpoint.environment = None
 
         session = MagicMock()
-        session.query.return_value.filter.return_value.first.return_value = endpoint
 
         with (
             patch("rhesis.backend.app.database.bind_scope_to_session"),
@@ -445,13 +412,13 @@ class TestPrefetchFallthroughToPerTest:
                 return_value=test_set,
             ),
             patch(
-                "rhesis.backend.app.services.invokers.auth.manager"
-                ".AuthenticationManager"
+                "rhesis.backend.app.crud.get_endpoint",
+                return_value=endpoint,
             ),
+            patch("rhesis.backend.app.services.invokers.auth.manager.AuthenticationManager"),
             patch("rhesis.backend.app.config.settings.get_model_settings"),
             patch(
-                "rhesis.backend.tasks.execution.executors.data"
-                ".get_test_and_prompt",
+                "rhesis.backend.tasks.execution.executors.data.get_test_and_prompt",
                 side_effect=lambda s, tid, org: (
                     test_1 if tid == str(test_1.id) else test_2,
                     "prompt",
@@ -463,9 +430,7 @@ class TestPrefetchFallthroughToPerTest:
                 prefetch_execution_context,
             )
 
-            ctx = prefetch_execution_context(
-                session, test_config, test_run, [test_1, test_2]
-            )
+            ctx = prefetch_execution_context(session, test_config, test_run, [test_1, test_2])
 
         # Even though P1 config was present, it didn't actually win — the
         # per-test path must be used, not a single shared resolution from
@@ -504,9 +469,7 @@ class TestBatchEvaluationPerTestMetrics:
         )
 
         mock_evaluator = MagicMock()
-        mock_evaluator.a_evaluate = MagicMock(
-            return_value={"MetricA": {"is_successful": True}}
-        )
+        mock_evaluator.a_evaluate = MagicMock(return_value={"MetricA": {"is_successful": True}})
         # Make it awaitable
         import asyncio
 
@@ -546,8 +509,6 @@ class TestBatchEvaluationPerTestMetrics:
         # The evaluator should have been called with test-1's metric (MetricA),
         # not test-2's (MetricB) or an empty shared list.
         call_kwargs = mock_evaluator.a_evaluate.call_args
-        metrics_passed = call_kwargs.kwargs.get("metrics") or call_kwargs[1].get(
-            "metrics"
-        )
+        metrics_passed = call_kwargs.kwargs.get("metrics") or call_kwargs[1].get("metrics")
         assert len(metrics_passed) == 1
         assert metrics_passed[0].class_name == "JudgeA"

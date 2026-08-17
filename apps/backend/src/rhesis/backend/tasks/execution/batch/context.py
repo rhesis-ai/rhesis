@@ -138,10 +138,12 @@ def prefetch_execution_context(
     trace_id: Optional[str] = None,
 ) -> ExecutionContext:
     """Pre-fetch all shared data in a single session before async execution."""
+    from rhesis.backend.app.crud import get_endpoint
     from rhesis.backend.app.crud import user as user_crud
     from rhesis.backend.app.database import bind_scope_to_session
     from rhesis.backend.app.models.requirement import Requirement
     from rhesis.backend.app.services.test_set import get_test_set
+    from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
     from rhesis.backend.app.utils.query_utils import QueryBuilder, include
     from rhesis.backend.tasks.execution.executors.data import get_test_metrics
 
@@ -156,7 +158,16 @@ def prefetch_execution_context(
 
     test_set = get_test_set(session, str(test_config.test_set_id), organization_id)
 
-    endpoint = session.query(Endpoint).filter(Endpoint.id == test_config.endpoint_id).first()
+    try:
+        endpoint = get_endpoint(
+            session,
+            test_config.endpoint_id,
+            organization_id,
+            user_id,
+            project_id=project_id or None,
+        )
+    except ItemDeletedException:
+        raise ValueError(f"Endpoint {test_config.endpoint_id} has been deleted")
     if not endpoint:
         raise ValueError(f"Endpoint {test_config.endpoint_id} not found")
 

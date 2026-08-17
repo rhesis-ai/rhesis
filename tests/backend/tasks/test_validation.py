@@ -12,24 +12,31 @@ from uuid import uuid4
 import pytest
 
 from rhesis.backend.app.constants import TestType
+from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
 from rhesis.backend.tasks.execution.executors.data import get_test_and_prompt
 
 
 def _mock_query_builder(mocker, test_obj):
-    """Mock the QueryBuilder chain get_test_and_prompt uses to fetch the test.
+    """Mock get_item_detail, which get_test_and_prompt uses to fetch the test."""
+    mocker.patch("rhesis.backend.app.utils.crud_utils.get_item_detail", return_value=test_obj)
 
-    QueryBuilder(db, Test).with_related(...).with_organization_filter(...)
-    .with_custom_filter(...).first() -- each chained call returns the same
-    mock so .first() can be configured once.
+
+def test_deleted_test_raises_clear_value_error(mocker):
+    """A soft-deleted test must raise a clear ValueError, not ItemDeletedException.
+
+    get_test_and_prompt's contract is ValueError for every failure mode --
+    background executors only catch/re-raise generically, so the exception
+    type doesn't need to change, but the message should say "deleted" rather
+    than the generic "not found".
     """
-    builder = MagicMock()
-    builder.with_related.return_value = builder
-    builder.with_organization_filter.return_value = builder
-    builder.with_custom_filter.return_value = builder
-    builder.first.return_value = test_obj
+    mock_db = MagicMock()
     mocker.patch(
-        "rhesis.backend.tasks.execution.executors.data.QueryBuilder", return_value=builder
+        "rhesis.backend.app.utils.crud_utils.get_item_detail",
+        side_effect=ItemDeletedException("Test", "some-id"),
     )
+
+    with pytest.raises(ValueError, match="has been deleted"):
+        get_test_and_prompt(mock_db, str(uuid4()))
 
 
 def test_single_turn_requires_prompt(mocker):
