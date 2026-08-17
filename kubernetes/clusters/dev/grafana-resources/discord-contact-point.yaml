@@ -13,7 +13,7 @@ spec:
   receivers:
     - type: discord
       settings:
-        use_discord_username: "true"
+        use_discord_username: true
       valuesFrom:
         - targetPath: url
           valueFrom:
