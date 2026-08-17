@@ -194,6 +194,9 @@ def handle_database_exceptions(
                 except HTTPException:
                     # Re-raise HTTP exceptions without modification
                     raise
+                except ItemDeletedException:
+                    # Let the app-level handler turn this into its 410 response
+                    raise
                 except Exception as e:
                     DatabaseExceptionHandler.handle_database_error(
                         e,
@@ -215,6 +218,9 @@ def handle_database_exceptions(
                     raise
                 except HTTPException:
                     # Re-raise HTTP exceptions without modification
+                    raise
+                except ItemDeletedException:
+                    # Let the app-level handler turn this into its 410 response
                     raise
                 except Exception as e:
                     DatabaseExceptionHandler.handle_database_error(

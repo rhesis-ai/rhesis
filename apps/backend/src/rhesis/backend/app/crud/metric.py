@@ -16,6 +16,8 @@ from rhesis.backend.app import models, schemas
 from rhesis.backend.app.utils.crud_utils import (
     create_item,
     delete_item,
+    get_item,
+    get_item_detail,
     get_items_detail,
     update_item,
 )
@@ -50,19 +52,16 @@ def get_metric(
 ) -> Optional[models.Metric]:
     """Get a specific metric by ID with its related objects, including many-to-many relationships.
 
-    Deliberately not routed through ``get_item_detail``: a soft-deleted metric must come
-    back as ``None`` here (tested behavior), not raise ``ItemDeletedException`` -- unlike
-    every other entity's single-item fetch, callers of this one don't need to tell "not
-    found" apart from "deleted".
+    Raises ``ItemDeletedException`` for a soft-deleted metric, same as every other
+    entity's single-item fetch.
     """
-    return (
-        QueryBuilder(db, models.Metric)
-        .with_related(*_METRIC_RELATED_FIELDS)
-        .with_default_derived_field_loads()
-        .with_organization_filter(organization_id)
-        .with_visibility_filter(user_id)
-        .with_custom_filter(lambda q: q.filter(models.Metric.id == metric_id))
-        .first()
+    return get_item_detail(
+        db,
+        models.Metric,
+        metric_id,
+        organization_id=organization_id,
+        user_id=user_id,
+        related_fields=_METRIC_RELATED_FIELDS,
     )
 
 
@@ -269,23 +268,12 @@ def add_requirement_to_metric(
         bool: True if the requirement was added, False if it was already associated
     """
     # Verify the metric exists AND belongs to the organization (SECURITY CRITICAL)
-    metric = (
-        db.query(models.Metric)
-        .filter(models.Metric.id == metric_id, models.Metric.organization_id == organization_id)
-        .first()
-    )
+    metric = get_item(db, models.Metric, metric_id, organization_id)
     if not metric:
         raise ValueError(f"Metric with id {metric_id} not found or not accessible")
 
     # Verify the requirement exists AND belongs to the organization (SECURITY CRITICAL)
-    requirement = (
-        db.query(models.Requirement)
-        .filter(
-            models.Requirement.id == requirement_id,
-            models.Requirement.organization_id == organization_id,
-        )
-        .first()
-    )
+    requirement = get_item(db, models.Requirement, requirement_id, organization_id)
     if not requirement:
         raise ValueError(f"Requirement with id {requirement_id} not found or not accessible")
 
@@ -332,23 +320,12 @@ def remove_requirement_from_metric(
         bool: True if the requirement was removed, False if it wasn't associated
     """
     # Verify the metric exists AND belongs to the organization (SECURITY CRITICAL)
-    metric = (
-        db.query(models.Metric)
-        .filter(models.Metric.id == metric_id, models.Metric.organization_id == organization_id)
-        .first()
-    )
+    metric = get_item(db, models.Metric, metric_id, organization_id)
     if not metric:
         raise ValueError(f"Metric with id {metric_id} not found or not accessible")
 
     # Verify the requirement exists AND belongs to the organization (SECURITY CRITICAL)
-    requirement = (
-        db.query(models.Requirement)
-        .filter(
-            models.Requirement.id == requirement_id,
-            models.Requirement.organization_id == organization_id,
-        )
-        .first()
-    )
+    requirement = get_item(db, models.Requirement, requirement_id, organization_id)
     if not requirement:
         raise ValueError(f"Requirement with id {requirement_id} not found or not accessible")
 
@@ -392,13 +369,7 @@ def get_metric_requirements(
         List of requirements associated with the metric
     """
     # Verify the metric exists AND belongs to the organization (SECURITY CRITICAL)
-    metric = (
-        db.query(models.Metric)
-        .filter(
-            models.Metric.id == metric_id, models.Metric.organization_id == UUID(organization_id)
-        )
-        .first()
-    )
+    metric = get_item(db, models.Metric, metric_id, organization_id)
     if not metric:
         raise ValueError(f"Metric with id {metric_id} not found or not accessible")
 
@@ -444,14 +415,7 @@ def get_requirement_metrics(
         List of metrics associated with the requirement
     """
     # Verify the requirement exists AND belongs to the organization (SECURITY CRITICAL)
-    requirement = (
-        db.query(models.Requirement)
-        .filter(
-            models.Requirement.id == requirement_id,
-            models.Requirement.organization_id == UUID(organization_id),
-        )
-        .first()
-    )
+    requirement = get_item(db, models.Requirement, requirement_id, organization_id)
     if not requirement:
         raise ValueError(f"Requirement with id {requirement_id} not found or not accessible")
 
@@ -518,11 +482,7 @@ def add_metric_to_test_set(
         raise ValueError(f"Test set with id {test_set_id} not found or not accessible")
 
     # Verify the metric exists AND belongs to the organization (SECURITY CRITICAL)
-    metric = (
-        db.query(models.Metric)
-        .filter(models.Metric.id == metric_id, models.Metric.organization_id == organization_id)
-        .first()
-    )
+    metric = get_item(db, models.Metric, metric_id, organization_id)
     if not metric:
         raise ValueError(f"Metric with id {metric_id} not found or not accessible")
 
@@ -578,11 +538,7 @@ def remove_metric_from_test_set(
         raise ValueError(f"Test set with id {test_set_id} not found or not accessible")
 
     # Verify the metric exists AND belongs to the organization (SECURITY CRITICAL)
-    metric = (
-        db.query(models.Metric)
-        .filter(models.Metric.id == metric_id, models.Metric.organization_id == organization_id)
-        .first()
-    )
+    metric = get_item(db, models.Metric, metric_id, organization_id)
     if not metric:
         raise ValueError(f"Metric with id {metric_id} not found or not accessible")
 

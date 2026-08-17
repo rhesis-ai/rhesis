@@ -5,6 +5,8 @@ These tests validate database integration for metrics, including CRUD operations
 and the storage of evaluation results in TestResult.test_metrics.
 """
 
+import pytest
+
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.crud.metric import (
     create_metric,
@@ -13,6 +15,7 @@ from rhesis.backend.app.crud.metric import (
     get_metrics,
     update_metric,
 )
+from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
 
 
 class TestDatabaseIntegration:
@@ -142,8 +145,8 @@ class TestDatabaseIntegration:
         delete_metric(test_db, metric_id, test_org_id, authenticated_user_id)
 
         # Verify it's deleted (soft delete)
-        deleted_metric = get_metric(test_db, metric_id, test_org_id)
-        assert deleted_metric is None
+        with pytest.raises(ItemDeletedException):
+            get_metric(test_db, metric_id, test_org_id)
 
     def test_metric_with_model_relationship(
         self, test_db, test_model, test_org_id, authenticated_user_id
