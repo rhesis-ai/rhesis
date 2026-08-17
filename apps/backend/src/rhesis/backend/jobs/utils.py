@@ -1,5 +1,5 @@
 """
-Utility functions for task operations and common patterns.
+Utility functions for background job operations and common patterns.
 """
 
 import logging

@@ -1,4 +1,4 @@
-"""Enum definitions and constants used by tasks throughout the application."""
+"""Enum definitions and constants used by background jobs throughout the application."""
 
 from enum import Enum
 

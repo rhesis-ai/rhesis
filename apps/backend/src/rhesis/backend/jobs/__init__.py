@@ -1,4 +1,9 @@
-"""Task module for Rhesis backend."""
+"""Background jobs for the Rhesis backend.
+
+Celery orchestration only. The units of work here are Celery tasks -- that is
+Celery's own vocabulary and stays -- but in this codebase a "task" is a human
+to-do (the ``task`` table, the Tasks screen), so the package is ``jobs``.
+"""
 
 import logging
 from typing import Any, Callable, Dict, Optional, TypeVar, Union

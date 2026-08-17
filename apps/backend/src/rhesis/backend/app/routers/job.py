@@ -44,23 +44,17 @@ async def get_task_status_by_celery_id(
     db: Session = Depends(get_tenant_db_session),
     current_user: schemas.User = Depends(require_current_user_or_token),
 ):
-    """Get the status of a background task (e.g. test execution) by Celery task ID.
+    """Get a background task's status by Celery task ID.
 
-    STOPGAP ownership check: there is no ``job`` table yet, so the only way to
-    prove a Celery task id belongs to the caller's organization is to find a
-    ``TestRun`` row that recorded it. ``organization_id`` is passed explicitly
-    rather than left to the session's ambient scope: the query builder treats
-    a missing ``organization_id`` as an error for any model that has the
-    column (see ``QueryBuilder.with_organization_filter``), so passing it
-    explicitly is what makes this a real ownership check rather than an
-    always-empty one.
+    Stopgap ownership check until the ``job`` table lands: the only record
+    tying a Celery task id to an organization today is a ``TestRun`` row, so
+    only test-execution tasks can be verified. Every other task type fails
+    closed with a 404 rather than being served unverified.
 
-    This only covers test-execution tasks. Other task types (test set
-    generation, Garak import, ...) have no queryable owner yet, so the lookup
-    misses and the request is denied rather than served unverified: failing
-    closed is the safe default while this stopgap is in place. Replaced by an
-    indexed lookup against ``job.celery_task_id`` once the jobs table lands,
-    which will cover every job type uniformly.
+    ``organization_id`` must be passed explicitly -- ``with_organization_filter``
+    rejects a missing one for any model that has the column, and
+    ``get_test_run_by_task_id`` swallows that error into ``None``, so omitting
+    it yields a check that denies everyone.
     """
     test_run = get_test_run_by_task_id(
         db, str(celery_task_id), organization_id=str(current_user.organization_id)

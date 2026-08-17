@@ -119,7 +119,13 @@ class TestJobStatusTenantCheck:
     def test_deprecated_alias_enforces_the_same_tenant_check(
         self, client: TestClient, test_db: Session
     ):
-        org_a, user_a, _ = create_test_organization_and_user(
+        """Both halves matter.
+
+        Asserting only the cross-org 404 would also pass if the alias denied
+        everyone -- which is precisely how this endpoint was first written, so
+        the owner case is what stops that regression recurring silently.
+        """
+        org_a, user_a, token_a = create_test_organization_and_user(
             test_db, "Job Status Org Alias A", "aliasa@job-status-test.com", "User A"
         )
         task_id = str(uuid.uuid4())
@@ -129,10 +135,28 @@ class TestJobStatusTenantCheck:
             test_db, "Job Status Org Alias B", "aliasb@job-status-test.com", "User B"
         )
 
-        owner_response = client.get(f"/jobs/{task_id}", headers=_auth(token_b))
-        assert owner_response.status_code == 404
+        assert client.get(f"/jobs/{task_id}", headers=_auth(token_a)).status_code == 200
+        assert client.get(f"/jobs/{task_id}", headers=_auth(token_b)).status_code == 404
 
     def test_deprecated_alias_marked_deprecated_in_openapi(self, client: TestClient):
         schema = client.get("/openapi.json").json()
         get_op = schema["paths"]["/jobs/{task_id}"]["get"]
         assert get_op.get("deprecated") is True
+
+    def test_by_celery_id_route_is_not_shadowed_by_the_alias(
+        self, client: TestClient, test_db: Session
+    ):
+        """Pins declaration order of the two GET routes.
+
+        ``/jobs/{task_id}`` would happily match ``by-celery-id`` as a path
+        segment and reject it as a malformed UUID (422). It does not only
+        because the more specific route is declared first, which nothing else
+        would catch if someone reordered them.
+        """
+        _, _, token = create_test_organization_and_user(
+            test_db, "Job Status Org Order", "order@job-status-test.com", "User"
+        )
+
+        response = client.get(f"/jobs/by-celery-id/{uuid.uuid4()}", headers=_auth(token))
+
+        assert response.status_code == 404
