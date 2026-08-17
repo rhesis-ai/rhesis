@@ -24,7 +24,8 @@ The EE per-role matrix is exhaustively covered at the provider level in
 Routes used (resolved from the live capability map):
 - ``PUT /organizations/{id}`` → ``organization:update`` (owner-only, core/non-EE).
 - ``GET /requirements/`` → ``requirement:read`` (ordinary, not owner-only).
-- ``GET /usage`` → ``usage:read`` (owner-only in community, Owner/Admin in EE).
+- ``GET /usage`` → ``usage:read`` (authorized, but held by every org member
+  in both community and EE -- see the note on ``_OWNER_ONLY_CAPABILITIES``).
 
 Run with:
     cd apps/backend
@@ -150,33 +151,56 @@ class TestHttpAuthzEnforcement:
         assert resp.status_code == 200, resp.text
 
     def test_owner_allowed_on_usage_route(self, client, test_db):
-        """Usage is billing data, but the org owner may read it."""
         _org, _user, token = _make_context(test_db, owner=True)
         resp = client.get(USAGE_ROUTE, headers=_auth(token))
         assert resp.status_code == 200, (
             f"Org owner wrongly denied usage:read: {resp.status_code} {resp.text}"
         )
 
-    def test_non_owner_denied_on_usage_route(self, client, test_db):
-        """A plain member may not read the org's usage totals or plan limits.
+    def test_non_owner_allowed_on_usage_route(self, client, test_db):
+        """A plain member may read the org's usage against plan limits.
 
-        Regression guard: ``GET /usage`` used to sit in
-        ``AUTHZ_EXEMPT_ROUTES``, so any authenticated member could read it.
+        ``usage:read`` is not owner-only: it reports consumption against
+        plan limits -- counters and caps, no money -- and quota enforcement
+        blocks members, so they need to see why. See the note on
+        ``_OWNER_ONLY_CAPABILITIES`` in ``app/auth/rbac.py``.
         """
         _org, _user, token = _make_context(test_db, owner=False)
         resp = client.get(USAGE_ROUTE, headers=_auth(token))
-        assert resp.status_code == 403, (
-            f"Expected 403 for non-owner usage:read, got {resp.status_code}: {resp.text}"
+        assert resp.status_code == 200, (
+            f"Non-owner member wrongly denied usage:read: {resp.status_code} {resp.text}"
         )
-        assert resp.headers.get("X-Accepted-Permissions") == USAGE_ROUTE_CAP
 
-    def test_usage_history_is_gated_too(self, client, test_db):
-        """The history endpoint behind the charts carries the same data."""
+    def test_non_owner_allowed_on_usage_history(self, client, test_db):
+        """The history endpoint behind the charts carries the same data class,
+        so it moves with the summary rather than being split from it."""
         _org, _user, token = _make_context(test_db, owner=False)
         resp = client.get(f"{USAGE_ROUTE}/history", headers=_auth(token))
-        assert resp.status_code == 403, (
-            f"Expected 403 for non-owner usage history, got {resp.status_code}: {resp.text}"
+        assert resp.status_code == 200, (
+            f"Non-owner member wrongly denied usage history: {resp.status_code} {resp.text}"
         )
+
+    def test_usage_still_goes_through_authorization(self):
+        """Members may read usage, but the route is still *authorized*, not
+        exempt.
+
+        This is what the original regression guard was really protecting:
+        ``GET /usage`` once sat in ``AUTHZ_EXEMPT_ROUTES``, bypassing authz
+        entirely. Widening who holds ``usage:read`` is a deliberate policy
+        change; putting the route back on the bypass list is not, and would
+        expose it to callers with no org context at all.
+        """
+        from rhesis.backend.app.auth.public_routes import AUTHZ_EXEMPT_ROUTES, PUBLIC_ROUTES
+
+        for method in ("GET",):
+            assert (method, USAGE_ROUTE) not in AUTHZ_EXEMPT_ROUTES
+            assert (method, f"{USAGE_ROUTE}/history") not in AUTHZ_EXEMPT_ROUTES
+            assert (method, USAGE_ROUTE) not in PUBLIC_ROUTES
+
+    def test_usage_requires_authentication(self, client):
+        """Unauthenticated callers are still rejected outright."""
+        resp = client.get(USAGE_ROUTE)
+        assert resp.status_code == 401, resp.text
 
 
 def _assign_role(test_db, organization_id, user_id, role_name: str) -> None:
@@ -272,21 +296,20 @@ class TestHttpAuthzEnforcementByRole:
             resp = client.get(f"/organizations/{org.id}", headers=_auth(token))
         assert resp.status_code == 200, resp.text
 
-    def test_admin_allowed_on_usage_read(self, client, test_db):
-        """EE Admin is an org admin, so billing data is in scope."""
-        _org, _user, token = self._context(test_db, "Admin")
-        with _ee_active():
-            resp = client.get(USAGE_ROUTE, headers=_auth(token))
-        assert resp.status_code == 200, resp.text
+    @pytest.mark.parametrize("role_name", ["Admin", "Member", "Viewer"])
+    def test_every_role_allowed_on_usage_read(self, role_name, client, test_db):
+        """``usage:read`` is part of the Viewer baseline, and Member's set is
+        built from it, so every role holds it.
 
-    @pytest.mark.parametrize("role_name", ["Member", "Viewer"])
-    def test_non_admin_roles_denied_on_usage_read(self, role_name, client, test_db):
-        """usage:read is excluded from the Viewer baseline, and Member's set is
-        built from it, so neither role holds it."""
+        Kept in step with community, where ``usage:read`` is likewise not in
+        ``_OWNER_ONLY_CAPABILITIES``: if these two drift, whether a member can
+        see their own quota starts depending on whether EE happens to be
+        active, which is not a licensing distinction anyone intends.
+        """
         _org, _user, token = self._context(test_db, role_name)
         with _ee_active():
             resp = client.get(USAGE_ROUTE, headers=_auth(token))
-        assert resp.status_code == 403, resp.text
+        assert resp.status_code == 200, resp.text
 
     def test_viewer_denied_on_organization_update(self, client, test_db):
         org, _user, token = self._context(test_db, "Viewer")
