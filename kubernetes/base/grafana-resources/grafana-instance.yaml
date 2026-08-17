@@ -52,11 +52,13 @@ spec:
                     secretKeyRef:
                       name: grafana-smtp-credentials
                       key: password
+                # Plain literal, not from the app's FROM_EMAIL secret: that value is
+                # formatted as `"Display Name" <hello@rhesis.ai>` for the app's email
+                # library, but Grafana's from_address rejects anything but a bare address.
                 - name: GF_SMTP_FROM_ADDRESS
-                  valueFrom:
-                    secretKeyRef:
-                      name: grafana-smtp-credentials
-                      key: from
+                  value: "hello@rhesis.ai"
+                - name: GF_SMTP_FROM_NAME
+                  value: "Rhesis Alerts"
   config:
     server:
       root_url: PLACEHOLDER

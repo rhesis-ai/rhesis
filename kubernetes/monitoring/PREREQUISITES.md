@@ -53,9 +53,12 @@ Repeat with `stg-grafana-discord-webhook` / `prd-grafana-discord-webhook` in the
 `rhesis-prd` projects.
 
 Alert emails need no new secret: `grafana-smtp-credentials.yaml` in each cluster's
-`grafana-resources` overlay reuses the same `{dev,stg,prd}-rhesis-smtp-*` and
-`{dev,stg,prd}-rhesis-from-email` GSM keys the app already uses for its own SMTP
-(`external-secrets/rhesis-app-secrets.yaml`), synced separately into `monitoring`.
+`grafana-resources` overlay reuses the same `{dev,stg,prd}-rhesis-smtp-*` GSM keys the
+app already uses for its own SMTP (`external-secrets/rhesis-app-secrets.yaml`), synced
+separately into `monitoring`. The sender address (`GF_SMTP_FROM_ADDRESS`) is a plain
+literal in `grafana-instance.yaml` instead, not from the app's `FROM_EMAIL` secret —
+that value is formatted as `"Display Name" <hello@rhesis.ai>` for the app's email
+library, which Grafana's from_address field rejects.
 
 ## Grafana TLS (cert-manager / Let’s Encrypt)
 
