@@ -10,7 +10,13 @@ from __future__ import annotations
 import pytest
 
 from rhesis.backend.app.features import FeatureName
-from rhesis.backend.app.quota import FREE_TIER_LIMITS, OveragePolicy, QuotaPolicy, QuotaResource
+from rhesis.backend.app.quota import (
+    FREE_TIER_LIMITS,
+    OveragePolicy,
+    QuotaPolicy,
+    QuotaResource,
+    limits_to_wire,
+)
 from rhesis.backend.ee.licensing.entitlements import (
     ENV_TIER_CONFIG,
     LIC_ALL_FEATURES,
@@ -28,16 +34,30 @@ from rhesis.backend.ee.licensing.tiers import (
     TierSpec,
     _assert_catalog_complete,
     _load_tier_config,
-    _parse_overage,
-    _parse_overage_tolerance,
     all_sellable,
     is_sellable,
-    resolve_limits,
     resolve_policy,
     resolve_tier,
     tier_to_lic_claim,
 )
 from rhesis.backend.ee.licensing.verify import verify_token
+
+
+@pytest.fixture
+def bundled_catalog(monkeypatch):
+    """Reload the catalog from the bundled YAML, ignoring any ambient override.
+
+    Tests that assert the *shipped* tier numbers must not read whatever
+    ``RHESIS_TIER_CONFIG`` happens to point at. That variable is a documented
+    local workflow (``tier_config.dev.yaml`` sets deliberately tiny limits for
+    exercising enforcement by hand) and the app calls ``load_dotenv``, so
+    putting it in ``apps/backend/.env`` -- the natural way to switch it on --
+    otherwise fails these tests with numbers that are correct for the config
+    actually loaded.
+    """
+    monkeypatch.setenv(ENV_TIER_CONFIG, str(_BUNDLED_CONFIG))
+    return _load_tier_config()
+
 
 pytestmark = pytest.mark.skipif(
     not pytest.importorskip(
@@ -77,11 +97,11 @@ class TestCatalogShape:
         """COMMUNITY is in the catalog (for resolve_limits) despite being non-sellable."""
         assert LicenseEdition.COMMUNITY in EDITION_ENTITLEMENTS
 
-    def test_community_limits_match_core_free_tier_defaults(self):
+    def test_community_limits_match_core_free_tier_defaults(self, bundled_catalog):
         """The YAML's community entry must stay in sync with core's
         FREE_TIER_LIMITS -- the two are duplicated by necessity (core can't
         import EE), so drift between them would only show up here."""
-        assert resolve_limits(LicenseEdition.COMMUNITY) == FREE_TIER_LIMITS
+        assert bundled_catalog[LicenseEdition.COMMUNITY].limits == FREE_TIER_LIMITS
 
     def test_limit_keys_are_quota_resources(self):
         """All limit keys in every tier spec are QuotaResource members."""
@@ -251,34 +271,6 @@ class TestLoadTierConfig:
             )
 
 
-class TestParseOverage:
-    def test_valid_values_round_trip(self):
-        assert _parse_overage("hard") is OveragePolicy.HARD
-        assert _parse_overage("soft") is OveragePolicy.SOFT
-
-    def test_unrecognized_value_raises(self):
-        with pytest.raises(ValueError, match="[Ii]nvalid overage policy"):
-            _parse_overage("lenient")
-
-
-class TestParseOverageTolerance:
-    def test_non_negative_int_is_valid(self):
-        assert _parse_overage_tolerance(0) == 0
-        assert _parse_overage_tolerance(25) == 25
-
-    def test_bool_is_rejected_even_though_it_is_an_int_subclass(self):
-        with pytest.raises(ValueError, match="overage_tolerance_percent"):
-            _parse_overage_tolerance(True)
-
-    def test_negative_is_rejected(self):
-        with pytest.raises(ValueError, match="overage_tolerance_percent"):
-            _parse_overage_tolerance(-1)
-
-    def test_non_int_is_rejected(self):
-        with pytest.raises(ValueError, match="overage_tolerance_percent"):
-            _parse_overage_tolerance("25")
-
-
 class TestTierSpecToPolicy:
     def test_carries_limits_overage_and_tolerance(self):
         spec = TierSpec(
@@ -321,14 +313,22 @@ class TestResolvePolicy:
         assert policy.overage_tolerance_percent == 0
         assert policy.ceiling_for(1_000) == 1_000
 
-    def test_none_edition_falls_back_to_community(self):
-        assert resolve_policy(None).limits == resolve_policy(LicenseEdition.COMMUNITY).limits
+    @pytest.mark.parametrize("edition", [None, LicenseEdition.UNKNOWN])
+    def test_unresolvable_edition_falls_back_to_a_populated_community_tier(self, edition):
+        """Comparing only against ``resolve_policy(COMMUNITY)`` would not be
+        enough: both sides come from the same function, so the assertion also
+        holds when the community entry has vanished and both are an empty
+        dict. An empty limits dict reads as *unlimited* downstream, so that
+        fail-open case is exactly what needs catching -- hence the second
+        assertion that every resource is actually covered.
 
-    def test_unknown_edition_falls_back_to_community(self):
-        assert (
-            resolve_policy(LicenseEdition.UNKNOWN).limits
-            == resolve_policy(LicenseEdition.COMMUNITY).limits
-        )
+        Deliberately no assertion on the numbers themselves: ``resolve_policy``
+        reads the catalog loaded at import time, which honours an ambient
+        ``RHESIS_TIER_CONFIG`` (see the ``bundled_catalog`` fixture)."""
+        policy = resolve_policy(edition)
+
+        assert policy.limits == resolve_policy(LicenseEdition.COMMUNITY).limits
+        assert set(policy.limits) == set(QuotaResource)
 
 
 class TestCatalogCompleteness:
@@ -408,9 +408,8 @@ class TestTierToLicClaim:
         assert claim[LIC_ALL_FEATURES] is False
         assert claim[LIC_FEATURES] == [FeatureName.RBAC.value]
 
-    def test_team_claim_has_quota_limits(self):
-        claim = tier_to_lic_claim(LicenseEdition.TEAM)
-        limits = claim[LIC_LIMITS]
+    def test_team_claim_has_quota_limits(self, bundled_catalog):
+        limits = limits_to_wire(bundled_catalog[LicenseEdition.TEAM].limits)
         assert limits[str(QuotaResource.TEST_EXECUTIONS)] == 100_000
         assert limits[str(QuotaResource.SEATS)] is None
 

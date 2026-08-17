@@ -23,8 +23,9 @@ from fastapi.testclient import TestClient
 
 from rhesis.backend.app.auth.quota_gates import QUOTA_WARNING_HEADER, require_quota
 from rhesis.backend.app.models.organization import Organization
+from rhesis.backend.app.models.project import Project
 from rhesis.backend.app.quota import OveragePolicy, QuotaPolicy, QuotaRegistry, QuotaResource
-from rhesis.backend.app.services.usage import increment_usage
+from rhesis.backend.app.services.usage import count_org_projects, count_org_seats, increment_usage
 
 
 class _FixedPolicyProvider:
@@ -61,17 +62,35 @@ def authenticated_org(test_db, test_org_id) -> Organization:
 class TestRequireQuotaStockResource:
     """`POST /projects/` is gated on `QuotaResource.PROJECTS`, a stock (live
     COUNT) resource -- no accrual lag, so "already at the limit" is exactly
-    "the next create is blocked", tested directly."""
+    "the next create is blocked".
 
-    def test_under_the_limit_succeeds(self, authenticated_client: TestClient, clean_registry):
-        _install(QuotaPolicy(limits={QuotaResource.PROJECTS: 1_000}))
+    Both limits are derived from the org's *actual* project count rather than
+    hardcoded. An earlier version used a fixed limit of 0 to block and 1,000
+    to allow, which passed with the stock counters stubbed to return 0 --
+    i.e. it proved nothing about whether the live count was ever read. Here a
+    wrong count moves the boundary and both tests fail.
+    """
+
+    def test_one_below_the_limit_succeeds(
+        self, authenticated_client: TestClient, test_db, test_org_id, clean_registry
+    ):
+        existing = count_org_projects(test_db, test_org_id)
+        _install(
+            QuotaPolicy(limits={QuotaResource.PROJECTS: existing + 1}, overage=OveragePolicy.HARD)
+        )
 
         response = authenticated_client.post("/projects/", json=_project_payload())
 
         assert response.status_code == status.HTTP_200_OK
 
-    def test_at_the_limit_returns_402(self, authenticated_client: TestClient, clean_registry):
-        _install(QuotaPolicy(limits={QuotaResource.PROJECTS: 0}, overage=OveragePolicy.HARD))
+    def test_at_the_limit_returns_402(
+        self, authenticated_client: TestClient, test_db, test_org_id, clean_registry
+    ):
+        test_db.add(Project(name="quota-gate-existing-project", organization_id=test_org_id))
+        test_db.commit()
+        existing = count_org_projects(test_db, test_org_id)
+        assert existing >= 1, "fixture should leave at least the project just created"
+        _install(QuotaPolicy(limits={QuotaResource.PROJECTS: existing}, overage=OveragePolicy.HARD))
 
         response = authenticated_client.post("/projects/", json=_project_payload())
 
@@ -79,7 +98,55 @@ class TestRequireQuotaStockResource:
         body = response.json()
         assert body["error"] == "quota_exceeded"
         assert body["resource"] == QuotaResource.PROJECTS.value
-        assert body["limit"] == 0
+        assert body["limit"] == existing
+        # The live count really was read, not defaulted to 0.
+        assert body["used"] == existing
+
+
+class TestSeatGateOnUserInvite:
+    """`POST /users/` is the one gated route wrapped by
+    `@handle_database_exceptions`, whose bare `except Exception` rewrites
+    anything raised out of the route body into a 500.
+
+    The gate survives that only because it runs as a `Depends()` -- FastAPI
+    resolves dependencies before calling the decorated function, so
+    `QuotaExceededError` never passes through the decorator and reaches the
+    global 402 handler intact. Nothing else in the suite covers that, and
+    reordering the decorator or inlining the check into the body would break
+    it silently, so it is pinned here.
+    """
+
+    def test_at_the_seat_limit_returns_402(
+        self, authenticated_client: TestClient, test_db, test_org_id, clean_registry
+    ):
+        existing = count_org_seats(test_db, test_org_id)
+        _install(QuotaPolicy(limits={QuotaResource.SEATS: existing}, overage=OveragePolicy.HARD))
+
+        response = authenticated_client.post(
+            "/users/", json={"email": "quota-gate-invitee@example.com"}
+        )
+
+        assert response.status_code == status.HTTP_402_PAYMENT_REQUIRED, response.text
+        body = response.json()
+        assert body["error"] == "quota_exceeded"
+        assert body["resource"] == QuotaResource.SEATS.value
+        assert body["used"] == existing
+
+    def test_under_the_seat_limit_is_not_blocked_by_quota(
+        self, authenticated_client: TestClient, test_db, test_org_id, clean_registry
+    ):
+        """Only asserts the quota gate did not fire -- the invite itself can
+        still fail on email deliverability, which is not this gate's business."""
+        existing = count_org_seats(test_db, test_org_id)
+        _install(
+            QuotaPolicy(limits={QuotaResource.SEATS: existing + 1}, overage=OveragePolicy.HARD)
+        )
+
+        response = authenticated_client.post(
+            "/users/", json={"email": "quota-gate-invitee@example.com"}
+        )
+
+        assert response.status_code != status.HTTP_402_PAYMENT_REQUIRED, response.text
 
 
 class TestRequireQuotaFlowResourceWarningHeader:
