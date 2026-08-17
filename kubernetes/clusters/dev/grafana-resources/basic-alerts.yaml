@@ -1,10 +1,14 @@
 # Starter set of generic k8s health alerts, dev only. All queries use metrics that
-# kube-prometheus-stack (kube-state-metrics + node-exporter) and cert-manager already
-# expose by default, so nothing extra needs to be scraped for these to work.
+# kube-prometheus-stack (kube-state-metrics + node-exporter + kubelet) and cert-manager
+# already expose by default, so nothing extra needs to be scraped for these to work.
+#
+# Deliberately not covered here (would need new ServiceMonitors first): Postgres/Valkey
+# exporter metrics, ingress-nginx request/error-rate metrics, ArgoCD sync/health drift,
+# External Secrets Operator sync failures.
 apiVersion: grafana.integreatly.org/v1beta1
 kind: GrafanaAlertRuleGroup
 metadata:
-  name: rhesis-basic-alerts
+  name: rhesis-infrastructure-alerts
   namespace: monitoring
   annotations:
     argocd.argoproj.io/sync-wave: "2"
@@ -164,7 +168,7 @@ spec:
         summary: "Scrape target {{ $labels.job }}/{{ $labels.instance }} is down"
 
     - uid: rhesis-tls-cert-expiring
-      title: Grafana TLS cert expiring soon
+      title: TLS cert expiring soon
       condition: B
       for: 1h
       noDataState: OK
@@ -177,7 +181,7 @@ spec:
             to: 0
           model:
             datasource: { type: prometheus, uid: prometheus }
-            expr: certmanager_certificate_expiration_timestamp_seconds{name="grafana-tls"} - time()
+            expr: certmanager_certificate_expiration_timestamp_seconds - time()
             instant: true
             refId: A
         - refId: B
@@ -198,4 +202,41 @@ spec:
       labels:
         severity: warning
       annotations:
-        summary: "grafana-tls certificate expires in less than 30 days"
+        summary: "Certificate {{ $labels.namespace }}/{{ $labels.name }} expires in less than 30 days"
+
+    - uid: rhesis-pvc-almost-full
+      title: PVC almost full
+      condition: B
+      for: 15m
+      noDataState: OK
+      execErrState: Error
+      data:
+        - refId: A
+          datasourceUid: prometheus
+          relativeTimeRange:
+            from: 900
+            to: 0
+          model:
+            datasource: { type: prometheus, uid: prometheus }
+            expr: min by (namespace, persistentvolumeclaim) (kubelet_volume_stats_available_bytes / kubelet_volume_stats_capacity_bytes)
+            instant: true
+            refId: A
+        - refId: B
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 900
+            to: 0
+          model:
+            datasource: { type: __expr__, uid: __expr__ }
+            type: threshold
+            expression: A
+            conditions:
+              - evaluator: { type: lt, params: [0.1] }
+                operator: { type: and }
+                query: { params: [] }
+                reducer: { type: last, params: [] }
+            refId: B
+      labels:
+        severity: critical
+      annotations:
+        summary: "PVC {{ $labels.namespace }}/{{ $labels.persistentvolumeclaim }} has less than 10% free space"
