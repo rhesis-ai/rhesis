@@ -52,6 +52,11 @@ echo -n 'https://discord.com/api/webhooks/...' | gcloud secrets create dev-grafa
 Repeat with `stg-grafana-discord-webhook` / `prd-grafana-discord-webhook` in the `rhesis-stg-494712` /
 `rhesis-prd` projects.
 
+Alert emails need no new secret: `grafana-smtp-credentials.yaml` in each cluster's
+`grafana-resources` overlay reuses the same `{dev,stg,prd}-rhesis-smtp-*` and
+`{dev,stg,prd}-rhesis-from-email` GSM keys the app already uses for its own SMTP
+(`external-secrets/rhesis-app-secrets.yaml`), synced separately into `monitoring`.
+
 ## Grafana TLS (cert-manager / Let’s Encrypt)
 
 The Grafana `Ingress` uses `cert-manager.io/cluster-issuer: letsencrypt-prod` and the **internal** NGINX class for user traffic. cert-manager still completes **HTTP-01** using the solver in `ClusterIssuer` (typically a separate **external**-class `Ingress` in the same namespace). While issuance is in progress, the `Certificate` condition often reads **Issuing certificate as Secret does not exist**—that only means the final `grafana-tls` secret is not ready yet.

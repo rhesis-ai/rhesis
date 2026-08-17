@@ -1,7 +1,7 @@
 apiVersion: grafana.integreatly.org/v1beta1
 kind: GrafanaNotificationPolicy
 metadata:
-  name: default-to-discord
+  name: default-notification-policy
   namespace: monitoring
   annotations:
     argocd.argoproj.io/sync-wave: "2"
@@ -10,7 +10,7 @@ spec:
     matchLabels:
       dashboards: grafana
   route:
-    receiver: discord-default
+    receiver: default-notifications
     group_by:
       - alertname
     group_wait: 30s

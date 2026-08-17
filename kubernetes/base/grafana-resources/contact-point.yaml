@@ -1,7 +1,7 @@
 apiVersion: grafana.integreatly.org/v1beta1
 kind: GrafanaContactPoint
 metadata:
-  name: discord-default
+  name: default-notifications
   namespace: monitoring
   annotations:
     argocd.argoproj.io/sync-wave: "1"
@@ -9,7 +9,7 @@ spec:
   instanceSelector:
     matchLabels:
       dashboards: grafana
-  name: discord-default
+  name: default-notifications
   receivers:
     - type: discord
       settings:
@@ -20,3 +20,6 @@ spec:
             secretKeyRef:
               name: grafana-discord-webhook
               key: url
+    - type: email
+      settings:
+        addresses: hello@rhesis.ai

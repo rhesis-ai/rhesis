@@ -7,9 +7,10 @@ resources:
   # this doesn't belong in base/grafana-resources (shared identically by dev/stg/prd).
   - grafana-viewer-credentials.yaml
   - postgres-dev-datasource.yaml
-  # dev-scoped Discord webhook URL; the contact point that consumes it lives in
-  # base/grafana-resources (shared identically by dev/stg/prd).
+  # dev-scoped Discord webhook URL and SMTP creds; the contact point that consumes
+  # them lives in base/grafana-resources (shared identically by dev/stg/prd).
   - discord-webhook-secret.yaml
+  - grafana-smtp-credentials.yaml
 
 configMapGenerator:
   - name: grafana-config

@@ -33,6 +33,30 @@ spec:
                       key: admin-password
                 - name: GF_USERS_ALLOW_SIGN_UP
                   value: "false"
+                # Reuses the app's own SMTP credentials (see grafana-smtp-credentials.yaml
+                # in each cluster's grafana-resources overlay) so alert emails work.
+                - name: GF_SMTP_ENABLED
+                  value: "true"
+                - name: GF_SMTP_HOST
+                  valueFrom:
+                    secretKeyRef:
+                      name: grafana-smtp-credentials
+                      key: host
+                - name: GF_SMTP_USER
+                  valueFrom:
+                    secretKeyRef:
+                      name: grafana-smtp-credentials
+                      key: user
+                - name: GF_SMTP_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: grafana-smtp-credentials
+                      key: password
+                - name: GF_SMTP_FROM_ADDRESS
+                  valueFrom:
+                    secretKeyRef:
+                      name: grafana-smtp-credentials
+                      key: from
   config:
     server:
       root_url: PLACEHOLDER
