@@ -16,6 +16,8 @@ from rhesis.backend.app.models.test_set import TestSet, test_test_set_associatio
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.metric import MetricScope
 from rhesis.backend.app.schemas.preflight import PreflightCheckResult, PreflightCheckStatus
+from rhesis.backend.app.utils.crud_utils import _check_and_raise_if_deleted
+from rhesis.backend.app.utils.query_utils import QueryBuilder
 
 from .constants import (
     CHECK_REQUIREMENT_METRIC_COVERAGE,
@@ -488,7 +490,8 @@ async def check_metric_compatibility(
             metric_ids = [m.id for m in selected_metrics]
             metrics = db.query(Metric).filter(Metric.id.in_(metric_ids)).all()
         elif metric_mode == "use_test_set":
-            test_set = db.query(TestSet).filter(TestSet.id == test_set_id).first()
+            test_set_query = QueryBuilder(db, TestSet).with_deleted().filter_by_id(test_set_id)
+            test_set = _check_and_raise_if_deleted(test_set_query, TestSet, test_set_id, False)
             if test_set:
                 metrics = list(test_set.metrics)
         else:
@@ -635,7 +638,8 @@ async def check_metric_functionality(
             metric_ids = [m.id for m in selected_metrics]
             metrics = db.query(Metric).filter(Metric.id.in_(metric_ids)).all()
         elif metric_mode == "use_test_set":
-            test_set = db.query(TestSet).filter(TestSet.id == test_set_id).first()
+            test_set_query = QueryBuilder(db, TestSet).with_deleted().filter_by_id(test_set_id)
+            test_set = _check_and_raise_if_deleted(test_set_query, TestSet, test_set_id, False)
             if test_set:
                 metrics = list(test_set.metrics)
         else:
@@ -751,7 +755,8 @@ async def check_requirement_metric_coverage(
                     ", ".join(names) if names else None,
                 )
         elif metric_mode == "use_test_set":
-            test_set = db.query(TestSet).filter(TestSet.id == test_set_id).first()
+            test_set_query = QueryBuilder(db, TestSet).with_deleted().filter_by_id(test_set_id)
+            test_set = _check_and_raise_if_deleted(test_set_query, TestSet, test_set_id, False)
             if not test_set:
                 result = _make_result(
                     check_id,
