@@ -23,6 +23,7 @@ interface WorstResource {
   used: number;
   limit: number;
   ratio: number;
+  kind: 'flow' | 'stock';
 }
 
 /**
@@ -45,7 +46,9 @@ interface WorstResource {
  * than just this banner.
  */
 function findWorstResource(
-  resources: Readonly<Record<string, { used: number; limit: number | null }>>
+  resources: Readonly<
+    Record<string, { used: number; limit: number | null; kind: 'flow' | 'stock' }>
+  >
 ): WorstResource | null {
   let worst: WorstResource | null = null;
   for (const [resource, item] of Object.entries(resources)) {
@@ -58,6 +61,7 @@ function findWorstResource(
         used: item.used,
         limit: item.limit,
         ratio,
+        kind: item.kind,
       };
     }
   }
@@ -123,7 +127,9 @@ export default function QuotaBanner() {
             fontWeight: theme => theme.typography.fontWeightMedium,
           }}
         >
-          {`You've used ${percent}% of your ${label.toLowerCase()} limit for this billing period.`}
+          {worst.kind === 'stock'
+            ? `You've used ${percent}% of your ${label.toLowerCase()} limit.`
+            : `You've used ${percent}% of your ${label.toLowerCase()} limit for this period.`}
         </Typography>
         <MuiLink
           component={NextLink}

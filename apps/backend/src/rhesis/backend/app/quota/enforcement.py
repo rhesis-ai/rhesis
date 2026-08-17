@@ -87,12 +87,14 @@ def quota_exceeded_response_body(verdict: QuotaVerdict) -> dict:
     propagate there (see the note on :class:`QuotaExceededError`).
     """
     resource_display = verdict.resource.value.replace("_", " ")
+    is_stock = verdict.resource in _STOCK_COUNTERS
+    suffix = "" if is_stock else " for this period"
     return {
         "error": "quota_exceeded",
         "resource": verdict.resource.value,
         "used": verdict.used,
         "limit": verdict.limit,
-        "message": f"You've reached your {resource_display} limit for this billing period.",
+        "message": f"You've reached your {resource_display} limit{suffix}.",
     }
 
 
@@ -110,6 +112,7 @@ def _read_usage(db: Session, org_id: str, resource: QuotaResource) -> int:
         return counter(db, org_id)
 
     period_start, _period_end = _current_period()
+    # Explicit org_id filter; bypass the ORM auto-filter which may carry a different tenant.
     with bypass_tenant_filter():
         used = (
             db.query(Usage.used)

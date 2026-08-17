@@ -259,7 +259,7 @@ describe('BaseApiClient', () => {
           used: 100,
           limit: 100,
           message:
-            "You've reached your test executions limit for this billing period.",
+            "You've reached your test executions limit for this period.",
         };
       }
 
@@ -304,7 +304,7 @@ describe('BaseApiClient', () => {
             method: 'POST',
           })
         ).rejects.toThrow(
-          "API error: 402 - You've reached your test executions limit for this billing period."
+          "API error: 402 - You've reached your test executions limit for this period."
         );
       });
 

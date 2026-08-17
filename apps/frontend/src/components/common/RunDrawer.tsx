@@ -1043,7 +1043,7 @@ export default function RunDrawer(props: RunDrawerProps) {
   ]);
 
   const quotaExhaustedMessage = executionQuotaExhausted
-    ? `You've reached your ${QUOTA_RESOURCE_LABELS[QuotaResource.TEST_EXECUTIONS].toLowerCase()} limit for this billing period.`
+    ? `You've reached your ${QUOTA_RESOURCE_LABELS[QuotaResource.TEST_EXECUTIONS].toLowerCase()} limit for this period.`
     : undefined;
 
   // Effective test set type for multi-turn detection

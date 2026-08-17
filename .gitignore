@@ -127,6 +127,7 @@ celery_worker.log
 
 # Environments
 .env
+tier_config_dev.yaml
 .venv
 env/
 venv/
