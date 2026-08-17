@@ -99,7 +99,7 @@ return TraceResponse(status="received", span_count=stored_count, trace_id=trace_
 
 If the broker is unreachable, the request still returns 200 — linking and enrichment for that batch simply do not run. This differs from a separate code path used by direct SDK-endpoint invocation (`services/invokers/tracing.py`), which enqueues enrichment via `AsyncService.execute_with_fallback`: it tries the async Celery dispatch first and only falls back to running enrichment synchronously, in-process, when the broker raises a connection error.
 
-The `post_ingest_link` task itself (`tasks/telemetry/post_ingest.py`) performs test-result linking, conversation-id linking, input-file linking, and dispatches an enrichment → evaluation chain per root span. See [Worker: Trace Ingestion Pipeline](/contribute/worker/trace-ingestion-pipeline) for the full breakdown, including metric evaluation.
+The `post_ingest_link` task itself (`jobs/telemetry/post_ingest.py`) performs test-result linking, conversation-id linking, input-file linking, and dispatches an enrichment → evaluation chain per root span. See [Worker: Trace Ingestion Pipeline](/contribute/worker/trace-ingestion-pipeline) for the full breakdown, including metric evaluation.
 
 ### Linking Service
 

@@ -48,7 +48,7 @@ Ensure that:
 2. The `organization_id` and `user_id` are correctly passed to the task
 3. The tenant context is explicitly set at the beginning of database operations
 
-The `execute_single_test` task in `tasks/execution/test.py` includes defensive coding to handle such issues:
+The `execute_single_test` task in `jobs/execution/batch/runner.py` includes defensive coding to handle such issues:
 
 <CodeBlock language="python" isTerminal={false}>
 {`# Access context from task request - task headers take precedence over kwargs

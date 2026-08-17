@@ -6,7 +6,7 @@ Test run status reflects **execution completion**, not assertion results. A run 
 
 ## Status values
 
-`RunStatus` (`tasks/enums.py`):
+`RunStatus` (`jobs/enums.py`):
 
 | Status | Meaning |
 | ------ | ------- |
@@ -21,7 +21,7 @@ Test run status reflects **execution completion**, not assertion results. A run 
 
 ## Determination logic
 
-When execution finishes, the `collect_results` task runs `TestRunProcessor` (`tasks/execution/result_processor.py`), which aggregates stored test results and calls `determine_overall_status`:
+When execution finishes, the `collect_results` task runs `TestRunProcessor` (`jobs/execution/result_processor.py`), which aggregates stored test results and calls `determine_overall_status`:
 
 <CodeBlock filename="status-determination-logic.py" language="python">
 {`if total_tests == 0:
@@ -61,7 +61,7 @@ Per-test pass/fail/error counts come from the stored test result status, not fro
 
 | File | Purpose |
 | ---- | ------- |
-| `tasks/execution/result_processor.py` | Status determination and statistics |
-| `tasks/enums.py` | `RunStatus` enum |
+| `jobs/execution/result_processor.py` | Status determination and statistics |
+| `jobs/enums.py` | `RunStatus` enum |
 | `app/constants.py` | Status category mappings |
 | `notifications/email/templates/test_execution_summary.html.jinja2` | Email template |

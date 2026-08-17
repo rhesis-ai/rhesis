@@ -50,7 +50,7 @@ Example import hierarchy:
 {`# In a worker task
 from rhesis.backend.app import models, crud    # Backend models and database operations
 from rhesis.backend.app.database import get_db_with_tenant_variables
-from rhesis.backend.tasks.base import BaseTask # Worker-specific task base class
+from rhesis.backend.jobs.base import BaseJob   # Worker-specific task base class
 from rhesis.sdk import client                  # Shared SDK components`}
 </CodeBlock>
 
@@ -71,7 +71,7 @@ When deploying the worker, it must include:
 
 1. The entire `rhesis.backend` package
 2. The `rhesis.sdk` package
-3. Worker-specific code (`rhesis.backend.tasks` and `rhesis.backend.worker`)
+3. Worker-specific code (`rhesis.backend.jobs` and `rhesis.backend.worker`)
 
 ### Environment Configuration
 
@@ -100,7 +100,7 @@ One challenge in the worker-backend relationship is avoiding circular dependenci
 1. Worker tasks can import backend modules
 2. Backend modules should not directly import worker tasks (use dynamic imports if needed)
 3. Shared dependencies go in the SDK package
-4. Base task classes, task organization, and worker configuration belong in `rhesis.backend.tasks`
+4. Base task classes, task organization, and worker configuration belong in `rhesis.backend.jobs`
 
 ## Task Context and State
 
@@ -114,12 +114,12 @@ This is handled through:
 
 <CodeBlock language="python" filename="task_context_example.py" isTerminal={false}>
 {`# In the backend API
-from rhesis.backend.tasks import task_launcher
+from rhesis.backend.jobs import launch_job
 
 @router.post("/execute")
 def execute_endpoint(current_user: User = Depends(get_current_user)):
     # Launch task with context
-    result = task_launcher(
+    result = launch_job(
         my_task,
         arg1,
         arg2,
@@ -128,7 +128,7 @@ def execute_endpoint(current_user: User = Depends(get_current_user)):
     return {"task_id": result.id}
 
 # In the worker
-@app.task(base=BaseTask)
+@app.task(base=BaseJob)
 @with_tenant_context
 def my_task(self, arg1, arg2, db=None):
     # Access context

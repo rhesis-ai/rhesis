@@ -99,7 +99,7 @@ T=10s: test_result created ← Too late for linking attempt #2!`}
 
 ### Point #1: After Test Result Creation
 
-**Location**: `tasks/execution/executors/results.py` → `link_traces_for_test_result()`
+**Location**: `jobs/execution/executors/results.py` → `link_traces_for_test_result()`
 
 **Purpose**: Catch traces that arrived BEFORE test result (slow tests)
 
@@ -116,7 +116,7 @@ linking_service.link_traces_for_test_result(
 
 ### Point #2: After Span Ingestion
 
-**Location**: `tasks/telemetry/post_ingest.py` → `link_traces_for_incoming_batch()`, run inside the async `post_ingest_link` task dispatched by the ingestion endpoint
+**Location**: `jobs/telemetry/post_ingest.py` → `link_traces_for_incoming_batch()`, run inside the async `post_ingest_link` task dispatched by the ingestion endpoint
 
 **Purpose**: Catch traces that arrived AFTER test result (fast tests)
 

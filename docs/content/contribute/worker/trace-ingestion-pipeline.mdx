@@ -86,7 +86,7 @@ The `post_ingest_link` task performs three types of linking:
 
 After linking, the pipeline dispatches an enrichment chain per unique trace ID. The first task in the chain is `enrich_trace_async`, which runs the `TraceEnricher` processor:
 
-<CodeBlock language="python" filename="tasks/telemetry/enrich.py" isTerminal={false}>
+<CodeBlock language="python" filename="jobs/telemetry/enrich.py" isTerminal={false}>
 {`@shared_task(bind=True, max_retries=3, default_retry_delay=60)
 def enrich_trace_async(self, trace_id, project_id, organization_id):
     db = SessionLocal()

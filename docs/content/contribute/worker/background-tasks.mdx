@@ -9,12 +9,12 @@ run with the same isolation as an API request.
 ## Celery configuration
 
 The Celery app is created in `celery/core.py`, which applies `CELERY_CONFIG` from
-`celery/config.py` and auto-discovers tasks under `rhesis.backend.tasks`:
+`celery/config.py` and auto-discovers tasks under `rhesis.backend.jobs`:
 
 <CodeBlock language="python" filename="celery/core.py" isTerminal={false}>
 {`app = Celery("rhesis")
 app.conf.update(CELERY_CONFIG)
-app.autodiscover_tasks(["rhesis.backend.tasks"], force=True)`}
+app.autodiscover_tasks(["rhesis.backend.jobs"], force=True)`}
 </CodeBlock>
 
 Redis serves as both broker and result backend. Use `rediss://` for TLS; the
@@ -37,12 +37,12 @@ connections.
 
 ## Base task class
 
-Tasks inherit from `BaseTask`, which adds retry settings and tenant-context management. It reads
+Tasks inherit from `BaseJob`, which adds retry settings and tenant-context management. It reads
 `organization_id` and `user_id` from task kwargs when the task is queued, stores them in the task
 headers, and restores them onto the request before the task starts:
 
-<CodeBlock language="python" filename="tasks/base.py" isTerminal={false}>
-{`class BaseTask(Task):
+<CodeBlock language="python" filename="jobs/base.py" isTerminal={false}>
+{`class BaseJob(Task):
     autoretry_for = (Exception,)
     max_retries = 3
     retry_backoff = True
@@ -64,7 +64,7 @@ headers, and restores them onto the request before the task starts:
 `with_tenant_context` opens a database session with the task's tenant context and passes it to the
 function as `db`:
 
-<CodeBlock language="python" filename="tasks/decorators.py" isTerminal={false}>
+<CodeBlock language="python" filename="jobs/decorators.py" isTerminal={false}>
 {`def with_tenant_context(func):
     @wraps(func)
     def wrapper(self, *args, **kwargs):
@@ -74,13 +74,13 @@ function as `db`:
     return wrapper`}
 </CodeBlock>
 
-## Task launcher
+## Job launcher
 
-`task_launcher` launches a task from a FastAPI route, pulling `organization_id` and `user_id` off
+`launch_job` launches a task from a FastAPI route, pulling `organization_id` and `user_id` off
 `current_user` so callers don't pass them explicitly:
 
-<CodeBlock language="python" filename="tasks/launcher.py" isTerminal={false}>
-{`def task_launcher(task: Callable, *args: Any, current_user=None, **kwargs: Any):
+<CodeBlock language="python" filename="jobs/launcher.py" isTerminal={false}>
+{`def launch_job(task: Callable, *args: Any, current_user=None, **kwargs: Any):
     if current_user is not None:
         if getattr(current_user, 'id', None) is not None:
             kwargs.setdefault('user_id', str(current_user.id))
@@ -94,8 +94,8 @@ function as `db`:
 You do not pass `organization_id` and `user_id` as explicit parameters — the context system
 propagates them. Use `@with_tenant_context` when the task needs a database session:
 
-<CodeBlock language="python" filename="tasks/test_configuration.py" isTerminal={false}>
-{`@app.task(base=BaseTask, name="rhesis.backend.tasks.get_test_configuration")
+<CodeBlock language="python" filename="jobs/test_configuration.py" isTerminal={false}>
+{`@app.task(base=BaseJob, name="rhesis.backend.jobs.get_test_configuration")
 @with_tenant_context
 def get_test_configuration(test_configuration_id: str, db=None):
     config_id = UUID(test_configuration_id)
@@ -107,25 +107,25 @@ def get_test_configuration(test_configuration_id: str, db=None):
 Without the decorator, open a session manually via `self.get_db_session()`, which already carries
 tenant context:
 
-<CodeBlock language="python" filename="tasks/manual_example.py" isTerminal={false}>
-{`@app.task(base=BaseTask, name="rhesis.backend.tasks.manual_db_example")
+<CodeBlock language="python" filename="jobs/manual_example.py" isTerminal={false}>
+{`@app.task(base=BaseJob, name="rhesis.backend.jobs.manual_db_example")
 def manual_db_example():
     with manual_db_example.get_db_session() as db:
         test_sets = crud.get_test_sets(db)
         return {"test_set_count": len(test_sets)}`}
 </CodeBlock>
 
-Launch tasks from a route with `task_launcher`:
+Launch jobs from a route with `launch_job`:
 
 <CodeBlock language="python" filename="routers/test_configuration.py" isTerminal={false}>
-{`from rhesis.backend.tasks import task_launcher, execute_test_configuration
+{`from rhesis.backend.jobs import launch_job, execute_test_configuration
 
 @router.post("/{test_configuration_id}/execute")
 def execute_test_configuration_endpoint(
     test_configuration_id: UUID,
     current_user: schemas.User = Depends(require_current_user_or_token),
 ):
-    result = task_launcher(
+    result = launch_job(
         execute_test_configuration,
         str(test_configuration_id),
         current_user=current_user,
@@ -176,7 +176,7 @@ async def get_task_status(task_id: str):
 
 ## Error handling
 
-`BaseTask` logs exceptions with tenant context, retries failed tasks with exponential backoff up to
+`BaseJob` logs exceptions with tenant context, retries failed tasks with exponential backoff up to
 `max_retries`, and records the final error in the result backend once retries are exhausted.
 
 For stuck tasks, broker connectivity, and tenant-context errors, see

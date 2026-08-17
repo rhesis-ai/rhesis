@@ -6,10 +6,10 @@ This page documents the worker-side runtime for Architect chat execution and asy
 
 The implementation lives in:
 
-- `apps/backend/src/rhesis/backend/tasks/architect.py`
-- `apps/backend/src/rhesis/backend/tasks/architect_monitor.py`
-- `apps/backend/src/rhesis/backend/tasks/endpoint/explore.py`
-- `apps/backend/src/rhesis/backend/tasks/architect_progress.py`
+- `apps/backend/src/rhesis/backend/jobs/architect/chat.py`
+- `apps/backend/src/rhesis/backend/jobs/architect/monitor.py`
+- `apps/backend/src/rhesis/backend/jobs/endpoint/explore.py`
+- `apps/backend/src/rhesis/backend/jobs/architect/progress.py`
 
 ## Overview
 
@@ -29,8 +29,8 @@ Task definition:
 
 <CodeBlock filename="architect_task_signature.py" language="python">
 {`@app.task(
-    base=SilentTask,
-    name="rhesis.backend.tasks.architect.architect_chat_task",
+    base=SilentJob,
+    name="rhesis.backend.jobs.architect.architect_chat_task",
     bind=True,
     max_retries=1,
     soft_time_limit=300,
