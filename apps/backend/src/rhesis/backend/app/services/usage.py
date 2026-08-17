@@ -225,12 +225,22 @@ def get_usage_summary(
     org: Optional[Organization],
     period_start: Optional[date] = None,
 ) -> dict:
-    """Return ``{resources: {<resource>: {used, limit, period_start, period_end, kind}}, edition}``.
+    """Return ``{resources: {<resource>: {used, limit, ceiling, period_start, period_end,
+    kind}}, edition}``.
 
     Flow resources report cumulative usage from the ``usage`` table for the
     requested billing period (the current one by default). ``kind``
     (``"flow"`` or ``"stock"``) lets the frontend group resources without
     duplicating the flow/stock split as a second, hand-maintained list.
+
+    ``limit`` is the advertised cap; ``ceiling`` is the value of ``used`` at
+    which requests actually start failing, which on a ``SOFT`` tier is
+    ``limit`` plus its overage tolerance. Both are reported because they
+    answer different questions: ``limit`` is what a progress bar fills
+    toward, ``ceiling`` is what a client must compare against to predict a
+    402. Sending only ``limit`` is what made the frontend's pre-emptive
+    execute-gating disagree with the backend, disabling the Run button for
+    a paying org that still had its whole grace band left.
 
     Pass *period_start* (first day of a month) to report a past month
     instead of the current one -- this only affects flow resources. Stock
@@ -256,7 +266,8 @@ def get_usage_summary(
         last_day = monthrange(period_start.year, period_start.month)[1]
         period_end = period_start.replace(day=last_day)
 
-    limits = QuotaRegistry.get_limits(org)
+    policy = QuotaRegistry.get_policy(org)
+    limits = policy.limits
 
     with bypass_tenant_filter():
         flow_used = {
@@ -276,9 +287,11 @@ def get_usage_summary(
         else:
             used = flow_used.get(resource.value, 0)
             item_start, item_end = period_start, period_end
+        limit = limits.get(resource)
         resources[resource.value] = {
             "used": used,
-            "limit": limits.get(resource),
+            "limit": limit,
+            "ceiling": policy.ceiling_for(limit),
             "period_start": item_start.isoformat(),
             "period_end": item_end.isoformat(),
             "kind": STOCK_KIND if counter is not None else FLOW_KIND,

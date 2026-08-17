@@ -3,6 +3,14 @@ import { BaseApiClient } from './base-client';
 export interface UsageResourceItem {
   used: number;
   limit: number | null;
+  /**
+   * The value of `used` at which requests actually start failing: `limit`
+   * plus the tier's overage tolerance on a soft policy, `limit` itself on a
+   * hard one. Compare against this, not `limit`, to predict a 402 -- gating
+   * on `limit` disables actions for a paying org that still has its whole
+   * grace band left. `limit` is what a progress bar fills toward.
+   */
+  ceiling: number | null;
   period_start: string;
   period_end: string;
   /**

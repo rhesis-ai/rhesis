@@ -1014,11 +1014,16 @@ export default function RunDrawer(props: RunDrawerProps) {
   // replacement for that check -- usage can change between render and
   // submit, so the server-side gate is still authoritative; this is purely
   // about giving the user the answer earlier.
+  //
+  // Compares against `ceiling`, not `limit`: on a soft tier those differ by
+  // the overage tolerance, and gating on `limit` would disable the button
+  // for an org the backend would still happily accept -- erasing exactly the
+  // grace band the tier grants.
   const executionUsage = useResourceUsage(QuotaResource.TEST_EXECUTIONS);
   const executionQuotaExhausted =
     executionUsage !== null &&
-    executionUsage.limit !== null &&
-    executionUsage.used >= executionUsage.limit;
+    executionUsage.ceiling !== null &&
+    executionUsage.used >= executionUsage.ceiling;
 
   const canExecute = useMemo(() => {
     const endpointId = resolveEndpointId();
