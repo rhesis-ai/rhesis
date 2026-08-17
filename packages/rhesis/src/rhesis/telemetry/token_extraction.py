@@ -17,6 +17,11 @@ regardless of the provider or framework being used.
 import logging
 from typing import Any, Dict, Tuple, Union
 
+# Declared, not inferred: the backwards-compatible shim at
+# rhesis.sdk.telemetry.utils.token_extraction has to forward this exact set, and a test asserts it
+# does.
+__all__ = ["extract_token_usage", "get_first_value"]
+
 logger = logging.getLogger(__name__)
 
 

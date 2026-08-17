@@ -5,6 +5,25 @@ from typing import Optional
 
 from rhesis.telemetry.schemas import TestExecutionContext
 
+# Declared, not inferred: the backwards-compatible shim at rhesis.sdk.telemetry.context has to
+# forward this exact set, and a test asserts it does.
+__all__ = [
+    "get_conversation_id",
+    "get_conversation_mapped_input",
+    "get_conversation_trace_id",
+    "get_root_trace_id",
+    "get_test_execution_context",
+    "is_llm_observation_active",
+    "is_tracing_disabled",
+    "set_conversation_id",
+    "set_conversation_mapped_input",
+    "set_conversation_trace_id",
+    "set_llm_observation_active",
+    "set_root_trace_id",
+    "set_test_execution_context",
+    "set_tracing_disabled",
+]
+
 # Context variable to thread test execution context through call stack
 # This avoids polluting function signatures with internal parameters
 _test_execution_context: ContextVar[Optional[TestExecutionContext]] = ContextVar(

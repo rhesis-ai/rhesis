@@ -1,10 +1,10 @@
 """The ``rhesis.sdk.telemetry`` re-export shims stay usable and stay in sync.
 
 ``attributes``, ``context`` and ``token_extraction`` moved into the lightweight ``rhesis`` package
-(#2462) so framework integrations can depend on ``rhesis[telemetry]`` instead of the whole SDK. Every
-import site in this repository now uses the canonical ``rhesis.telemetry.*`` paths (#2473), which
-means nothing in the repository exercises the old paths any more — and a compatibility surface no
-test touches is one that breaks silently.
+(#2462) so framework integrations can depend on ``rhesis[telemetry]`` instead of the whole SDK.
+Every import site in this repository now uses the canonical ``rhesis.telemetry.*`` paths (#2473),
+which means nothing here exercises the old paths any more — and a compatibility surface no test
+touches is one that breaks silently.
 
 What breaks if these fail: released ``rhesis-haystack`` versions import
 ``rhesis.sdk.telemetry.attributes`` and ``rhesis.sdk.telemetry.context``, and so does any user code
@@ -38,29 +38,36 @@ def test_shim_re_exports_the_same_objects(legacy_path, canonical):
 
 
 @pytest.mark.parametrize("legacy_path, canonical", SHIMS, ids=lambda v: getattr(v, "__name__", v))
-def test_shim_forwards_everything_public(legacy_path, canonical):
-    """A symbol added to the canonical module must be added to the shim as well.
+def test_shim_forwards_the_whole_canonical_surface(legacy_path, canonical):
+    """The shim forwards exactly what the canonical module declares public, no more and no less.
 
-    Only names *defined* in the canonical module count, so imports it makes for its own use (a
-    constant pulled from ``schemas``, say) are not treated as part of its surface.
+    Compared against the canonical ``__all__`` rather than inferred from the module namespace,
+    because inference cannot answer the question. Filtering ``vars()`` by ``__module__`` catches
+    functions and classes but silently drops constants — ``MAX_CONTENT_LENGTH`` is an ``int`` and
+    carries no ``__module__`` — while dropping the underscore-prefixed names would keep imports the
+    module makes for its own use, like ``FORBIDDEN_SPAN_DOMAINS`` from ``schemas``. Either way a new
+    public constant could be added to a canonical module and skip the shim unnoticed.
+
+    A failure here is a decision to make, not a line to delete: a name added to the canonical
+    module either belongs on the old path too, or the shim deliberately stops short and this test
+    should say so.
     """
     legacy = importlib.import_module(legacy_path)
 
-    own_public_names = {
-        name
-        for name, value in vars(canonical).items()
-        if not name.startswith("_") and getattr(value, "__module__", None) == canonical.__name__
-    }
-    missing = own_public_names - set(legacy.__all__)
+    missing = set(canonical.__all__) - set(legacy.__all__)
+    extra = set(legacy.__all__) - set(canonical.__all__)
     assert not missing, f"{legacy_path} does not forward {sorted(missing)}"
+    assert not extra, (
+        f"{legacy_path} advertises {sorted(extra)}, which {canonical.__name__} does not"
+    )
 
 
 def test_context_vars_are_shared_across_both_paths():
     """The ContextVars live in one module, so a write through either path is visible from the other.
 
     This is what lets the SDK and a framework integration read the same turn state while importing
-    from different paths. A shim that rebound its own ContextVars would pass the identity tests above
-    and still split the state in two.
+    from different paths. A shim that rebound its own ContextVars would pass the identity tests
+    above and still split the state in two.
     """
     legacy = importlib.import_module("rhesis.sdk.telemetry.context")
 
