@@ -126,6 +126,8 @@ export { default as FileUploadIcon } from '@mui/icons-material/FileUploadOutline
 export { default as AnimationIcon } from '@mui/icons-material/AnimationOutlined';
 export { default as TestRunsIcon } from './TestRunsIcon';
 export { default as TasksIcon } from './TasksIcon';
+// Background work, distinct from TasksIcon's human to-do.
+export { default as JobsIcon } from '@mui/icons-material/WorkHistoryOutlined';
 export { default as TracesIcon } from './TracesIcon';
 export { default as EndpointsIcon } from './EndpointsIcon';
 export { default as PlaygroundIcon } from './PlaygroundIcon';

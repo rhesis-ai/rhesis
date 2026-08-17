@@ -24,6 +24,7 @@ import {
   SmartToyIcon,
   EndpointsIcon,
   TasksIcon,
+  JobsIcon,
   KnowledgeIcon,
   RequirementsIcon,
   KidStarIcon,
@@ -250,6 +251,13 @@ async function getNavigationItems(
       title: 'Tasks',
       icon: <TasksIcon key="tasks-icon" />,
       requiredPermission: Capability.Task.READ,
+    },
+    {
+      kind: 'page',
+      segment: 'jobs',
+      title: 'Jobs',
+      icon: <JobsIcon key="jobs-icon" />,
+      requiredPermission: Capability.Job.READ,
     },
     // CONNECT section — tools and infrastructure (collapsible, collapsed by default)
     {

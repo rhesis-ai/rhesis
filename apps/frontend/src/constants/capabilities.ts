@@ -98,6 +98,17 @@ export const Capability = {
     UPDATE_OWN: 'comment:update:own',
     DELETE_OWN: 'comment:delete:own',
   },
+  /**
+   * Background work, not the human to-do that `Task` below describes.
+   *
+   * No CREATE/UPDATE/DELETE: a job exists because some other capability was
+   * exercised, and the row is a record of what happened rather than something
+   * a user edits.
+   */
+  Job: {
+    READ: 'job:read',
+    CANCEL: 'job:cancel',
+  },
   Task: {
     READ: 'task:read',
     CREATE: 'task:create',
