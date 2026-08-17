@@ -34,6 +34,7 @@ from .endpoint import (
 )
 from .file import FileCreate, FileEntityType, FileResponse, FileUpdate
 from .insights import InsightsIdsResponse, InsightsQuery, InsightsResponse
+from .job import ActivityLogEntry, Job, JobActivity
 from .metric import (
     GenerateMetricRequest,
     ImproveMetricRequest,
@@ -200,6 +201,9 @@ from .user import User, UserBase, UserCreate, UserUpdate
 
 __all__ = [
     "Base",
+    "ActivityLogEntry",
+    "Job",
+    "JobActivity",
     "ServerIdentity",
     "ArchitectSession",
     "ArchitectSessionCreate",

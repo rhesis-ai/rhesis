@@ -428,7 +428,7 @@ def explore_endpoint_route(
 ):
     """Launch an async Penelope exploration of an endpoint.
 
-    Returns a ``task_id`` that can be polled via ``GET /jobs/{task_id}``
+    Returns a ``task_id`` that can be polled via ``GET /jobs/by-celery-id/{task_id}``
     until status is ``SUCCESS``.  The ``result`` field then contains the
     exploration findings.
     """
@@ -458,6 +458,6 @@ def explore_endpoint_route(
         task_id=str(task_result.id),
         message=(
             f"Endpoint exploration started using {strategy_label}. "
-            "Poll GET /jobs/{{task_id}} until status is SUCCESS."
+            "Poll GET /jobs/by-celery-id/{{task_id}} until status is SUCCESS."
         ),
     )

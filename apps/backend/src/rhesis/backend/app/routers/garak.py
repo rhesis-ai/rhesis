@@ -272,7 +272,7 @@ def import_probes(
     appropriate Garak detector metrics. Some Garak probes produce thousands of
     prompts, so this runs as a background task rather than blocking the
     request — returns HTTP 202 Accepted with a `task_id` that can be polled
-    via `GET /jobs/{task_id}`.
+    via `GET /jobs/by-celery-id/{task_id}`.
     """
     # Dispatch only the probe identifiers — the task extracts the selected
     # probes itself in the background. We deliberately do NOT ship probe
@@ -353,7 +353,7 @@ def sync_test_set(
     Updates the test set to include new probes and remove deprecated ones.
     Some Garak probes produce thousands of prompts, so this runs as a
     background task rather than blocking the request — returns HTTP 202
-    Accepted with a `task_id` that can be polled via `GET /jobs/{task_id}`.
+    Accepted with a `task_id` that can be polled via `GET /jobs/by-celery-id/{task_id}`.
     """
     try:
         organization_id, _ = tenant_context
@@ -407,7 +407,7 @@ def generate_dynamic_probe(
     set. All garak metadata is preserved on the resulting test set.
 
     Returns HTTP 202 Accepted with a `task_id` that can be polled via
-    `GET /jobs/{task_id}`.
+    `GET /jobs/by-celery-id/{task_id}`.
     """
     module_name = request.module_name
     class_name = request.class_name

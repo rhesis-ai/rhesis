@@ -175,6 +175,22 @@ class Permission:
         #: Delete an experiment the caller owns (object-level :own qualifier).
         DELETE_OWN = "experiment:delete:own"
 
+    class Job(_PermissionEnum):
+        """Background work, not the human to-do that ``Task`` below describes.
+
+        No CREATE: a job exists because some other capability was exercised
+        (generating a test set, executing a run), and the route that dispatched
+        it is already gated. No UPDATE or DELETE either -- the row is a record
+        of what happened, and the retention sweep is what removes it.
+
+        ``job:read`` is already in the seeded catalog, derived from the /jobs
+        route before this enum existed. Declaring it here makes it explicit
+        without changing its scope.
+        """
+
+        READ = "job:read"
+        CANCEL = "job:cancel"
+
     class Task(_PermissionEnum):
         READ = "task:read"
         CREATE = "task:create"
