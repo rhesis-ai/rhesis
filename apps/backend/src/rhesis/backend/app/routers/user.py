@@ -9,6 +9,7 @@ from sqlalchemy.orm.attributes import flag_modified
 from rhesis.backend.app import models, schemas
 from rhesis.backend.app.auth.capabilities import Permission, capability
 from rhesis.backend.app.auth.principal import resolve_principal_from_request
+from rhesis.backend.app.auth.quota_gates import require_quota
 from rhesis.backend.app.auth.rbac import authorize
 from rhesis.backend.app.auth.user_utils import (
     require_current_user_or_token,
@@ -23,11 +24,6 @@ from rhesis.backend.app.dependencies import (
 from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.quota import QuotaResource
-from rhesis.backend.app.quota.enforcement import (
-    QuotaExceededError,
-    enforce_quota,
-    quota_exceeded_response_body,
-)
 from rhesis.backend.app.routers.auth import create_session_token
 from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.polyphemus import (
@@ -132,34 +128,16 @@ def create_user(
     user: schemas.UserCreate,
     db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token_without_context),
+    # Gates both inviting and re-inviting -- each consumes a seat, since
+    # count_org_seats counts every row carrying this organization_id and a
+    # re-invite reassigns one. Safe despite @handle_database_exceptions'
+    # bare `except Exception`: dependencies resolve before the route body
+    # runs, so QuotaExceededError never passes through the decorator and
+    # reaches the global 402 handler in main.py intact.
+    _quota_gate: Organization = Depends(require_quota(QuotaResource.SEATS)),
 ):
     # Set the organization_id from the current user
     user.organization_id = current_user.organization_id
-
-    # Enforce the seat limit before inviting OR re-inviting -- both consume a
-    # seat (count_org_seats counts any row with this organization_id, and a
-    # re-invite reassigns one). Skipped for an orgless caller: this endpoint
-    # uses require_current_user_or_token_without_context specifically so
-    # such a caller can still reach it, and there is no org to enforce a
-    # seat limit against. Called directly rather than via the require_quota
-    # dependency because that composes the stricter with-context auth chain
-    # (get_tenant_context raises 403 on a missing org) this endpoint
-    # deliberately opts out of.
-    #
-    # Caught and turned into a JSONResponse here, not left to propagate to
-    # the global QuotaExceededError handler in main.py: this endpoint is
-    # wrapped by @handle_database_exceptions, whose bare `except Exception`
-    # would catch it first and rewrite it into an unrelated 500. Returning a
-    # Response directly from inside the decorated function bypasses that
-    # try/except entirely, since nothing is raised through it.
-    if current_user.organization_id:
-        organization = (
-            db.query(Organization).filter(Organization.id == current_user.organization_id).first()
-        )
-        try:
-            enforce_quota(db, str(current_user.organization_id), organization, QuotaResource.SEATS)
-        except QuotaExceededError as exc:
-            return JSONResponse(status_code=402, content=quota_exceeded_response_body(exc.verdict))
 
     # Validate, normalize, and verify the email domain can receive mail
     try:

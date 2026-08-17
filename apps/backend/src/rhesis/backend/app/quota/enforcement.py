@@ -26,7 +26,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.models.usage import Usage
-from rhesis.backend.app.quota import QuotaPolicy, QuotaRegistry, QuotaResource
+from rhesis.backend.app.quota import QuotaRegistry, QuotaResource
 from rhesis.backend.app.scope import bypass_tenant_filter
 from rhesis.backend.app.services.usage import _STOCK_COUNTERS, _current_period
 
@@ -39,9 +39,6 @@ class QuotaVerdict:
     :param used: current usage (a live count for stock resources, the
         current billing period's accrued total for flow resources).
     :param limit: the tier's cap for this resource, or ``None`` if unlimited.
-    :param policy: the policy the verdict was computed under, so a caller
-        can render e.g. "warns at 100,000, blocks at 125,000" without a
-        second lookup.
     :param allowed: whether the request may proceed.
     :param over_limit: whether *used* has reached *limit*, independent of
         *allowed*. ``over_limit and allowed`` is exactly the soft-overage
@@ -52,7 +49,6 @@ class QuotaVerdict:
     resource: QuotaResource
     used: int
     limit: Optional[int]
-    policy: QuotaPolicy
     allowed: bool
     over_limit: bool
 
@@ -151,7 +147,7 @@ def check_quota(
 
     if limit is None:
         return QuotaVerdict(
-            resource=resource, used=used, limit=None, policy=policy, allowed=True, over_limit=False
+            resource=resource, used=used, limit=None, allowed=True, over_limit=False
         )
 
     ceiling = policy.ceiling_for(limit)
@@ -159,7 +155,6 @@ def check_quota(
         resource=resource,
         used=used,
         limit=limit,
-        policy=policy,
         allowed=used < ceiling,
         over_limit=used >= limit,
     )

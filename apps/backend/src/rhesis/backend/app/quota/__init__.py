@@ -123,6 +123,14 @@ class QuotaPolicy:
         for ``SOFT`` with zero tolerance -- the ceiling is the limit itself,
         so both policies fall out of one expression with no branch at the
         call site.
+
+        The integer division floors, so a ``SOFT`` limit small enough that
+        the tolerance is worth less than one unit gets no grace band at all
+        (25% of 3 floors to 0, giving ``ceiling == limit``). That is correct
+        -- a fractional unit of quota is not a thing -- but it does mean a
+        tier's advertised tolerance quietly stops applying below
+        ``100 / tolerance_percent``. Real paid limits are far above that;
+        it mostly bites when writing deliberately tiny limits for testing.
         """
         if limit is None:
             return None

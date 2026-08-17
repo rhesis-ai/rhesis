@@ -17,7 +17,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from rhesis.backend.app.quota import OveragePolicy, QuotaPolicy, QuotaResource
+from rhesis.backend.app.quota import QuotaResource
 from rhesis.backend.app.quota.enforcement import QuotaExceededError, QuotaVerdict
 
 
@@ -33,7 +33,6 @@ def _always_blocks(db, organization_id):
             resource=QuotaResource.MODEL_TOKENS,
             used=999,
             limit=1,
-            policy=QuotaPolicy(overage=OveragePolicy.HARD),
             allowed=False,
             over_limit=True,
         )
