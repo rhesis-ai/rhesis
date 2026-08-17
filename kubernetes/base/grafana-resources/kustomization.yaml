@@ -8,3 +8,11 @@ resources:
   - loki-datasource.yaml
   # Picks its Postgres datasource by template variable, so one copy works in every env.
   - usage-dashboard.yaml
+  # Alerting: identical in every env. Each cluster's ExternalSecret (see
+  # clusters/*/grafana-resources/discord-webhook-secret.yaml) fills in the one thing
+  # that differs — the Discord webhook URL — via the same grafana-discord-webhook
+  # secret name, local to that cluster's monitoring namespace.
+  - basic-alerts-folder.yaml
+  - discord-contact-point.yaml
+  - notification-policy.yaml
+  - basic-alerts.yaml

@@ -7,12 +7,9 @@ resources:
   # this doesn't belong in base/grafana-resources (shared identically by dev/stg/prd).
   - grafana-viewer-credentials.yaml
   - postgres-dev-datasource.yaml
-  # dev-only: alerting starter set, not yet promoted to base/grafana-resources.
+  # dev-scoped Discord webhook URL; the contact point that consumes it lives in
+  # base/grafana-resources (shared identically by dev/stg/prd).
   - discord-webhook-secret.yaml
-  - discord-contact-point.yaml
-  - notification-policy.yaml
-  - basic-alerts-folder.yaml
-  - basic-alerts.yaml
 
 configMapGenerator:
   - name: grafana-config

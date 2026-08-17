@@ -7,6 +7,9 @@ resources:
   # base/grafana-resources (shared identically by dev/stg/prd).
   - grafana-viewer-credentials.yaml
   - postgres-stg-datasource.yaml
+  # stg-scoped Discord webhook URL; the contact point that consumes it lives in
+  # base/grafana-resources (shared identically by dev/stg/prd).
+  - discord-webhook-secret.yaml
 
 configMapGenerator:
   - name: grafana-config

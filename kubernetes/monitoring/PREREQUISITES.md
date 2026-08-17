@@ -35,17 +35,22 @@ echo -n 'your-secure-password' | gcloud secrets versions add grafana-admin-passw
 
 Repeat for each environment’s GCP project used by External Secrets Operator.
 
-## Grafana alert notifications (Discord webhook, dev)
+## Grafana alert notifications (Discord webhook)
 
-Before syncing `dev-grafana-resources`, create a Secret Manager secret named
-**`dev-grafana-discord-webhook`** in the dev GCP project, containing the Discord incoming
-webhook URL as plain text (the ExternalSecret maps it to key `url` in Kubernetes).
+Before syncing `{dev,stg,prd}-grafana-resources`, create a Secret Manager secret named
+**`{dev,stg,prd}-grafana-discord-webhook`** in the matching GCP project, containing that
+env's Discord incoming webhook URL as plain text (the ExternalSecret maps it to key `url`
+in Kubernetes). Each env's secret can point at the same Discord channel or a different one —
+nothing else needs to change either way.
 
 ```bash
 echo -n 'https://discord.com/api/webhooks/...' | gcloud secrets create dev-grafana-discord-webhook \
   --project=rhesis-dev \
   --data-file=-
 ```
+
+Repeat with `stg-grafana-discord-webhook` / `prd-grafana-discord-webhook` in the `rhesis-stg-494712` /
+`rhesis-prd` projects.
 
 ## Grafana TLS (cert-manager / Let’s Encrypt)
 
