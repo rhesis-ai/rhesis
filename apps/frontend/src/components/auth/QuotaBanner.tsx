@@ -47,7 +47,10 @@ interface WorstResource {
  */
 function findWorstResource(
   resources: Readonly<
-    Record<string, { used: number; limit: number | null; kind: 'flow' | 'stock' }>
+    Record<
+      string,
+      { used: number; limit: number | null; kind: 'flow' | 'stock' }
+    >
   >
 ): WorstResource | null {
   let worst: WorstResource | null = null;

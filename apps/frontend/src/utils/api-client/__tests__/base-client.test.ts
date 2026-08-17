@@ -258,8 +258,7 @@ describe('BaseApiClient', () => {
           resource: 'test_executions',
           used: 100,
           limit: 100,
-          message:
-            "You've reached your test executions limit for this period.",
+          message: "You've reached your test executions limit for this period.",
         };
       }
 
