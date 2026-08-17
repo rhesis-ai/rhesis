@@ -357,6 +357,15 @@ class TestMetricPerformance(MetricTestMixin, BaseEntityTests):
         page_2 = response.json()
         # page_2 might be empty if there aren't enough metrics, which is fine
 
+    def test_metric_list_with_metric_scope_filter(self, metric_factory):
+        """metric_scope must not break the X-Total-Count override in the router."""
+        metric_factory.create(self.get_sample_data())
+
+        response = metric_factory.client.get(f"{self.endpoints.list}?metric_scope=Single-Turn")
+
+        assert response.status_code == status.HTTP_200_OK
+        assert int(response.headers["X-Total-Count"]) >= len(response.json())
+
 
 # === METRIC GENERATE ENDPOINT TESTS ===
 
