@@ -914,7 +914,12 @@ def request_magic_link(
     """
     Send a magic link email. Creates a new account if the email
     doesn't exist yet (unified sign-in / sign-up flow).
-    Always returns 200 to prevent email enumeration.
+
+    Returns 200 whether or not the account exists, to prevent email
+    enumeration. The one exception is a disposable domain under
+    AUTH_BLOCK_DISPOSABLE_EMAILS=enforce, which returns 400 on the
+    sign-up branch — so for those domains, and only those, the response
+    does reveal whether an account already exists.
     """
     from rhesis.backend.app.crud import user as user_crud
     from rhesis.backend.app.schemas.user import UserCreate
