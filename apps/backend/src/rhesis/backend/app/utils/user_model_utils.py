@@ -547,24 +547,21 @@ def _enforce_model_token_quota(db: Session, organization_id: Optional[str]) -> N
     """Enforce the MODEL_TOKENS quota for *organization_id* before a hosted
     model is constructed.
 
-    Every real call site of :func:`resolve_default_hosted_model` and
-    :func:`_fetch_and_configure_model` already has an organization id in
-    scope -- either from a resolved ``User`` or from the org-scoped
-    ``TestConfiguration``/context object driving the call -- so this is
-    required, not optional, forcing new call sites to pass one rather than
-    silently omitting it. ``organization_id`` itself stays ``Optional``
-    only as a last-resort escape hatch: if a future caller genuinely has
-    none, this skips the check and logs, rather than raising on a org-less
-    construction path we haven't seen yet.
+    Fails closed: a missing ``organization_id`` raises ``ValueError``
+    rather than silently skipping enforcement. Every real call site
+    already has an org id in scope, so a ``None`` here means a new caller
+    forgot to thread it -- failing loud surfaces the gap immediately
+    instead of granting unmetered access.
 
+    :raises ValueError: if *organization_id* is falsy.
     :raises ~rhesis.backend.app.quota.enforcement.QuotaExceededError: if
         the org has reached its enforceable ceiling for ``MODEL_TOKENS``.
     """
     if not organization_id:
-        logger.warning(
-            "No organization_id available for a hosted-model quota check; skipping enforcement."
+        raise ValueError(
+            "No organization_id available for a hosted-model quota check. "
+            "Every production call site must pass one; see the docstring."
         )
-        return
     organization = db.query(Organization).filter(Organization.id == organization_id).first()
     enforce_quota(db, str(organization_id), organization, QuotaResource.MODEL_TOKENS)
 

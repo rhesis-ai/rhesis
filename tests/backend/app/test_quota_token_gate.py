@@ -138,17 +138,13 @@ class TestResolveDefaultHostedModelTokenGate:
         with pytest.raises(QuotaExceededError):
             resolve_default_hosted_model("rhesis/default", db=None, organization_id="org-1")
 
-    def test_no_organization_id_skips_the_check_instead_of_raising(self, monkeypatch, caplog):
-        """A last-resort escape hatch, not a silent bypass: an org-less
-        construction path logs rather than raising or blocking."""
+    def test_no_organization_id_raises_instead_of_silently_skipping(self, monkeypatch):
+        """Fail closed: a missing org id is a caller bug, not a grace path."""
         monkeypatch.setattr(
             "rhesis.backend.app.utils.user_model_utils.get_model",
             lambda name, **kwargs: SimpleNamespace(model_name=name),
         )
         from rhesis.backend.app.utils.user_model_utils import resolve_default_hosted_model
 
-        with caplog.at_level("WARNING"):
-            model = resolve_default_hosted_model("rhesis/default", db=None, organization_id=None)
-
-        assert model.model_name == "rhesis/default"
-        assert "No organization_id" in caplog.text
+        with pytest.raises(ValueError, match="No organization_id"):
+            resolve_default_hosted_model("rhesis/default", db=None, organization_id=None)
