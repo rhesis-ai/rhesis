@@ -71,7 +71,14 @@ describe('TasksSection - Infinite Loading Fix', () => {
   it('should not trigger infinite fetches when props are stable', async () => {
     mockTasksClient.getTasks.mockResolvedValue({
       data: [],
-      totalCount: 0,
+      pagination: {
+        totalCount: 0,
+        skip: 0,
+        limit: 10,
+        currentPage: 0,
+        pageSize: 10,
+        totalPages: 0,
+      },
     });
 
     const { rerender } = wrap(<TasksSection {...defaultProps} />);
@@ -123,7 +130,14 @@ describe('TasksSection - Infinite Loading Fix', () => {
   it('should display empty state when no tasks', async () => {
     mockTasksClient.getTasks.mockResolvedValue({
       data: [],
-      totalCount: 0,
+      pagination: {
+        totalCount: 0,
+        skip: 0,
+        limit: 10,
+        currentPage: 0,
+        pageSize: 10,
+        totalPages: 0,
+      },
     });
 
     wrap(<TasksSection {...defaultProps} />);
@@ -136,7 +150,14 @@ describe('TasksSection - Infinite Loading Fix', () => {
   it('should refetch when entity changes', async () => {
     mockTasksClient.getTasks.mockResolvedValue({
       data: [],
-      totalCount: 0,
+      pagination: {
+        totalCount: 0,
+        skip: 0,
+        limit: 10,
+        currentPage: 0,
+        pageSize: 10,
+        totalPages: 0,
+      },
     });
 
     const { rerender } = wrap(<TasksSection {...defaultProps} />);

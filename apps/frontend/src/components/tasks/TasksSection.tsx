@@ -84,7 +84,7 @@ export function TasksSection({
   });
 
   const tasks: Task[] = data?.data ?? [];
-  const totalCount: number = data?.totalCount ?? 0;
+  const totalCount: number = data?.pagination.totalCount ?? 0;
 
   const handlePaginationModelChange = useCallback(
     (newModel: GridPaginationModel) => {

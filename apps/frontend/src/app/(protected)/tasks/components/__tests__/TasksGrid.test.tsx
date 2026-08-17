@@ -59,7 +59,14 @@ const makeTasksResponse = (
   total?: number
 ) => ({
   data,
-  totalCount: total ?? data.length,
+  pagination: {
+    totalCount: total ?? data.length,
+    skip: 0,
+    limit: 10,
+    currentPage: 0,
+    pageSize: 10,
+    totalPages: 1,
+  },
 });
 
 const makeTask = (id: string, title = 'Task') => ({

@@ -226,7 +226,7 @@ export default function TasksGrid({
     staleTime: 0,
   });
   const tasks: Task[] = tasksData?.data ?? [];
-  const totalCount = tasksData?.totalCount ?? 0;
+  const totalCount = tasksData?.pagination.totalCount ?? 0;
 
   const handleRowClick = useCallback(
     (params: GridRowParams) => {

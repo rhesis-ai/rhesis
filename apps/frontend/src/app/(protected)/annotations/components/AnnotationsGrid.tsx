@@ -180,7 +180,7 @@ export default function AnnotationsGrid({
   });
 
   const annotations: AnnotationListItem[] = annotationsData?.data ?? [];
-  const totalCount = annotationsData?.totalCount ?? 0;
+  const totalCount = annotationsData?.pagination.totalCount ?? 0;
 
   useEffect(() => {
     if (!annotationsData) return;

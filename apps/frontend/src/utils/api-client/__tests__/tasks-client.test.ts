@@ -42,7 +42,7 @@ describe('TasksClient', () => {
       expect.any(Object)
     );
     expect(result.data).toHaveLength(1);
-    expect(result.totalCount).toBe(5);
+    expect(result.pagination.totalCount).toBe(5);
   });
 
   it('includes $filter in URL when provided', async () => {
@@ -85,6 +85,6 @@ describe('TasksClient', () => {
     const result = await client.getTasksByEntity('test_run', 'run-id-1');
     const calledUrl = fetchMock.mock.calls[0][0] as string;
     expect(calledUrl).toContain('/tasks/test_run/run-id-1');
-    expect(result.totalCount).toBe(1);
+    expect(result.pagination.totalCount).toBe(1);
   });
 });
