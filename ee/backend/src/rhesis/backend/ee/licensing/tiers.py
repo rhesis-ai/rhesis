@@ -334,7 +334,12 @@ def _fallback_catalog() -> _FallbackCatalog:
 def _load_tier_config() -> dict[LicenseEdition, TierSpec]:
     """Load tier specs from YAML, falling back to the bundled file."""
     config_path_str = os.environ.get(ENV_TIER_CONFIG)
-    config_path = Path(config_path_str) if config_path_str else _BUNDLED_CONFIG
+    if config_path_str:
+        config_path = Path(config_path_str)
+        if not config_path.is_absolute():
+            config_path = _BUNDLED_CONFIG.parent / config_path
+    else:
+        config_path = _BUNDLED_CONFIG
 
     try:
         raw = yaml.safe_load(config_path.read_text())
