@@ -151,13 +151,23 @@ class PolyphemusLLM(BaseLLM):
                 return {"error": "No response generated."}
             return "No response generated."
 
-        except (requests.exceptions.HTTPError, KeyError, IndexError, json.JSONDecodeError) as e:
-            # Log the error and return an appropriate message
+        except (
+            requests.exceptions.RequestException,
+            KeyError,
+            IndexError,
+            json.JSONDecodeError,
+        ) as e:
+            # Log the raw exception for debugging; surface a message the user can act on.
             logger.error(f"Error occurred while running the prompt: {e}", exc_info=True)
+            message = (
+                self._describe_request_error(e)
+                if isinstance(e, requests.exceptions.RequestException)
+                else "Polyphemus returned a response that could not be parsed."
+            )
             if schema:
-                return {"error": "An error occurred while processing the request."}
+                return {"error": message}
 
-            return "An error occurred while processing the request."
+            return message
 
     async def a_generate(self, *args, **kwargs) -> Any:
         """Async version of generate. Runs sync generate() in a thread pool."""
@@ -230,11 +240,10 @@ class PolyphemusLLM(BaseLLM):
 
         try:
             batch_response = self.create_batch_completion(requests_list, timeout=timeout)
-        except requests.exceptions.HTTPError as e:
+        except requests.exceptions.RequestException as e:
             logger.error("Batch request failed: %s", e, exc_info=True)
-            return [err_placeholder("An error occurred while processing the request.")] * len(
-                prompts
-            )
+            message = self._describe_request_error(e)
+            return [err_placeholder(message)] * len(prompts)
 
         results: List[Any] = []
         batch_usage: List[Any] = []
@@ -296,6 +305,43 @@ class PolyphemusLLM(BaseLLM):
             if obj is not None:
                 last = obj
         return last
+
+    def _describe_request_error(self, exc: Exception) -> str:
+        """Translate a low-level request failure into a message a user can act on.
+
+        Polyphemus scales to zero when idle, so a connection failure or a
+        timeout most often means the request arrived while the model was
+        still starting up rather than a real outage — word it as a hint to
+        retry rather than a hard failure. Falls back to a generic message
+        for anything else (bad JSON, unexpected response shape, ...).
+        """
+        if isinstance(exc, requests.exceptions.Timeout):
+            return (
+                "Polyphemus did not respond in time. The model may still be "
+                "starting up after scaling to zero from inactivity -- please "
+                "try again in a minute."
+            )
+        if isinstance(exc, requests.exceptions.ConnectionError):
+            return (
+                "Could not reach the Polyphemus service. It may still be "
+                "starting up after scaling to zero from inactivity -- please "
+                "try again in a minute."
+            )
+        if isinstance(exc, requests.exceptions.HTTPError):
+            status = getattr(exc.response, "status_code", None)
+            if status in (502, 503, 504):
+                return (
+                    f"Polyphemus is temporarily unavailable (HTTP {status}), "
+                    "likely while scaling up from zero -- please try again "
+                    "in a minute."
+                )
+            return (
+                f"Polyphemus returned HTTP {status} while generating the "
+                "response."
+                if status
+                else "An error occurred while processing the request."
+            )
+        return "An error occurred while processing the request."
 
     def _strip_reasoning_tokens(self, content: str) -> str:
         """

@@ -339,6 +339,52 @@ class TestPolyphemusLLM:
         assert result == {"error": "An error occurred while processing the request."}
 
     @patch("rhesis.sdk.models.providers.polyphemus.requests.post")
+    def test_generate_connection_error_mentions_scaling(self, mock_post):
+        """A connection failure gets a message hinting at scale-to-zero, not a raw
+        urllib3 dump -- this is the symptom a user hits when Polyphemus is
+        cold-starting."""
+        import requests
+
+        mock_post.side_effect = requests.exceptions.ConnectionError("Connection refused")
+
+        llm = PolyphemusLLM(api_key="test_key")
+        result = llm.generate("Test prompt")
+
+        assert "scaling" in result.lower() or "scal" in result.lower()
+        assert "Connection refused" not in result
+
+    @patch("rhesis.sdk.models.providers.polyphemus.requests.post")
+    def test_generate_timeout_mentions_scaling(self, mock_post):
+        """A timeout gets the same scale-to-zero hint as a connection error."""
+        import requests
+
+        mock_post.side_effect = requests.exceptions.ReadTimeout("Read timed out")
+
+        llm = PolyphemusLLM(api_key="test_key")
+        result = llm.generate("Test prompt")
+
+        assert "scal" in result.lower()
+        assert "Read timed out" not in result
+
+    @patch("rhesis.sdk.models.providers.polyphemus.requests.post")
+    def test_generate_503_mentions_scaling(self, mock_post):
+        """A 503 (service warming up) also gets the scale-to-zero hint."""
+        import requests
+
+        mock_response = Mock()
+        mock_response.status_code = 503
+        http_error = requests.exceptions.HTTPError("503 Service Unavailable")
+        http_error.response = mock_response
+        mock_response.raise_for_status = Mock(side_effect=http_error)
+        mock_post.return_value = mock_response
+
+        llm = PolyphemusLLM(api_key="test_key")
+        result = llm.generate("Test prompt")
+
+        assert "503" in result
+        assert "scal" in result.lower()
+
+    @patch("rhesis.sdk.models.providers.polyphemus.requests.post")
     def test_generate_no_choices(self, mock_post):
         """Test generate handles response with no choices"""
         mock_response = Mock()
