@@ -57,6 +57,14 @@ data:
   QUICK_START: {{ .Values.config.quickStart | quote }}
 
   # -------------------------------------------------------------------------
+  # Auth
+  # Disposable-email screening on self-serve sign-up. Config, not a secret, so
+  # blocking a domain is a values change plus a rollout — no image rebuild.
+  # -------------------------------------------------------------------------
+  AUTH_BLOCK_DISPOSABLE_EMAILS: {{ .Values.config.authBlockDisposableEmails | quote }}
+  AUTH_DISPOSABLE_EMAIL_EXTRA_DOMAINS: {{ .Values.config.authDisposableEmailExtraDomains | quote }}
+
+  # -------------------------------------------------------------------------
   # AI model configuration
   # -------------------------------------------------------------------------
   AZURE_OPENAI_DEPLOYMENT_NAME: {{ .Values.config.azureOpenAiDeploymentName | quote }}
