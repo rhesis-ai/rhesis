@@ -24,6 +24,8 @@ from rhesis.backend.app.models.test import Test, test_test_set_association
 from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.app.schemas import test_set as test_set_schemas
 from rhesis.backend.app.services.test import bulk_create_tests
+from rhesis.backend.app.utils.crud_utils import get_item_detail
+from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
 
 from .probes import GarakProbeInfo, GarakProbeService
 from .taxonomy import GarakTaxonomy, resolve_requirement
@@ -85,17 +87,14 @@ class GarakSyncService:
             ValueError: If test set not found or not a Garak-imported test set
         """
         test_set_uuid = UUID(test_set_id)
-        org_uuid = UUID(organization_id)
 
         # Get the test set
-        test_set = (
-            self.db.query(TestSet)
-            .filter(
-                TestSet.id == test_set_uuid,
-                TestSet.organization_id == org_uuid,
+        try:
+            test_set = get_item_detail(
+                self.db, TestSet, test_set_uuid, organization_id=organization_id
             )
-            .first()
-        )
+        except ItemDeletedException:
+            raise ValueError(f"Test set {test_set_id} has been deleted")
 
         if not test_set:
             raise ValueError(f"Test set not found: {test_set_id}")
@@ -215,14 +214,12 @@ class GarakSyncService:
                 or has no Garak probe information (same conditions/messages as
                 ``sync_test_set``).
         """
-        test_set = (
-            self.db.query(TestSet)
-            .filter(
-                TestSet.id == UUID(test_set_id),
-                TestSet.organization_id == UUID(organization_id),
+        try:
+            test_set = get_item_detail(
+                self.db, TestSet, UUID(test_set_id), organization_id=organization_id
             )
-            .first()
-        )
+        except ItemDeletedException:
+            raise ValueError(f"Test set {test_set_id} has been deleted")
 
         if not test_set:
             raise ValueError(f"Test set not found: {test_set_id}")
@@ -454,14 +451,12 @@ class GarakSyncService:
         Returns:
             True if the test set is a Garak-imported test set
         """
-        test_set = (
-            self.db.query(TestSet)
-            .filter(
-                TestSet.id == UUID(test_set_id),
-                TestSet.organization_id == UUID(organization_id),
+        try:
+            test_set = get_item_detail(
+                self.db, TestSet, UUID(test_set_id), organization_id=organization_id
             )
-            .first()
-        )
+        except ItemDeletedException:
+            return False
 
         if not test_set:
             return False
@@ -484,16 +479,13 @@ class GarakSyncService:
             Dictionary with preview information or None if not syncable
         """
         test_set_uuid = UUID(test_set_id)
-        org_uuid = UUID(organization_id)
 
-        test_set = (
-            self.db.query(TestSet)
-            .filter(
-                TestSet.id == test_set_uuid,
-                TestSet.organization_id == org_uuid,
+        try:
+            test_set = get_item_detail(
+                self.db, TestSet, test_set_uuid, organization_id=organization_id
             )
-            .first()
-        )
+        except ItemDeletedException:
+            return None
 
         if not test_set or not test_set.attributes:
             return None

@@ -7,6 +7,7 @@ import pytest
 from faker import Faker
 from sqlalchemy.orm import Session
 
+from rhesis.backend.app import crud
 from rhesis.backend.app.models.test import Test, test_test_set_association
 from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.app.services.garak.probes import GarakProbeInfo
@@ -126,6 +127,63 @@ class TestGarakSyncServiceCanSync:
         result = service.can_sync(str(uuid4()), str(test_org_id))
 
         assert result is False
+
+
+@pytest.mark.unit
+@pytest.mark.service
+class TestGarakSyncServiceSoftDeleteContract:
+    """A soft-deleted test set must not be treated as syncable, and must not
+    crash any of the four lookups with an unhandled ItemDeletedException."""
+
+    @pytest.fixture
+    def deleted_garak_test_set(self, test_db: Session, test_org_id, authenticated_user_id):
+        test_set = TestSet(
+            name="Deleted Garak Test Set",
+            description="Test",
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            attributes={
+                "source": "garak",
+                "garak_module": "dan",
+                "garak_probe_class": "Dan_11_0",
+            },
+        )
+        test_db.add(test_set)
+        test_db.commit()
+        test_db.refresh(test_set)
+
+        crud.delete_test_set(
+            test_db, test_set.id, organization_id=test_org_id, user_id=authenticated_user_id
+        )
+        return test_set
+
+    def test_can_sync_returns_false_for_deleted(
+        self, test_db: Session, test_org_id, deleted_garak_test_set
+    ):
+        service = GarakSyncService(test_db)
+        assert service.can_sync(str(deleted_garak_test_set.id), str(test_org_id)) is False
+
+    def test_get_sync_preview_returns_none_for_deleted(
+        self, test_db: Session, test_org_id, deleted_garak_test_set
+    ):
+        service = GarakSyncService(test_db)
+        assert service.get_sync_preview(str(deleted_garak_test_set.id), str(test_org_id)) is None
+
+    def test_resolve_sync_target_raises_for_deleted(
+        self, test_db: Session, test_org_id, deleted_garak_test_set
+    ):
+        service = GarakSyncService(test_db)
+        with pytest.raises(ValueError, match="has been deleted"):
+            service.resolve_sync_target(str(deleted_garak_test_set.id), str(test_org_id))
+
+    def test_sync_test_set_raises_for_deleted(
+        self, test_db: Session, test_org_id, authenticated_user_id, deleted_garak_test_set
+    ):
+        service = GarakSyncService(test_db)
+        with pytest.raises(ValueError, match="has been deleted"):
+            service.sync_test_set(
+                str(deleted_garak_test_set.id), str(test_org_id), str(authenticated_user_id)
+            )
 
 
 @pytest.mark.unit
