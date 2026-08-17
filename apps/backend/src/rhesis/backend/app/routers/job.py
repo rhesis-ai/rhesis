@@ -1,5 +1,5 @@
 import uuid
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 from celery.result import AsyncResult
 from fastapi import Depends, HTTPException
@@ -7,133 +7,80 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
-from rhesis.backend.app.dependencies import (
-    get_tenant_db_session,
-)
-from rhesis.backend.app.error_handlers import PublicHTTPException, internal_error
+from rhesis.backend.app.dependencies import get_tenant_db_session
 from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.celery.core import app as celery_app
-from rhesis.backend.jobs import launch_job
+from rhesis.backend.jobs.utils import get_test_run_by_task_id
 
 router = RhesisRouter(
     prefix="/jobs",
-    tags=["tasks"],
+    tags=["jobs"],
     responses={404: {"description": "Not found"}},
     dependencies=[Depends(require_current_user_or_token)],
     resource="job",
 )
 
 
-async def list_tasks(
-    current_user: schemas.User = Depends(require_current_user_or_token),
-) -> Dict[str, List[str]]:
-    """List all registered Celery tasks."""
-    # Filter out internal Celery tasks (those starting with "celery.")
-    user_tasks = [
-        task_name for task_name in celery_app.tasks.keys() if not task_name.startswith("celery.")
-    ]
-    return {"tasks": sorted(user_tasks)}
+def _task_status_payload(celery_task_id: str) -> Dict[str, Any]:
+    """Read a Celery task's status from the result backend.
+
+    ``AsyncResult`` has no ``.error`` attribute -- on failure the exception
+    itself is what ``.result`` holds, which is also why "result" must be
+    suppressed on failure rather than shown alongside "error".
+    """
+    result = AsyncResult(celery_task_id, app=celery_app)
+    failed = result.failed()
+    return {
+        "task_id": celery_task_id,
+        "status": result.status,
+        "result": result.result if result.ready() and not failed else None,
+        "error": str(result.result) if failed else None,
+    }
 
 
-async def list_active_tasks(current_user: schemas.User = Depends(require_current_user_or_token)):
-    """List all currently running tasks."""
-    inspector = celery_app.control.inspect()
-    active = inspector.active()
-    scheduled = inspector.scheduled()
-    reserved = inspector.reserved()
-
-    return {"active": active, "scheduled": scheduled, "reserved": reserved}
-
-
-async def get_stats(current_user: schemas.User = Depends(require_current_user_or_token)):
-    """Get statistics about the Celery workers and tasks."""
-    inspector = celery_app.control.inspect()
-    stats = inspector.stats()
-    registered = inspector.registered()
-
-    return {"stats": stats, "registered_tasks": registered, "total_tasks": len(celery_app.tasks)}
-
-
-async def create_task(
-    task_name: str,
-    payload: Dict[Any, Any],
+@router.get("/by-celery-id/{celery_task_id}")
+async def get_task_status_by_celery_id(
+    celery_task_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),
     current_user: schemas.User = Depends(require_current_user_or_token),
 ):
+    """Get the status of a background task (e.g. test execution) by Celery task ID.
+
+    STOPGAP ownership check: there is no ``job`` table yet, so the only way to
+    prove a Celery task id belongs to the caller's organization is to find a
+    ``TestRun`` row that recorded it. ``organization_id`` is passed explicitly
+    rather than left to the session's ambient scope: the query builder treats
+    a missing ``organization_id`` as an error for any model that has the
+    column (see ``QueryBuilder.with_organization_filter``), so passing it
+    explicitly is what makes this a real ownership check rather than an
+    always-empty one.
+
+    This only covers test-execution tasks. Other task types (test set
+    generation, Garak import, ...) have no queryable owner yet, so the lookup
+    misses and the request is denied rather than served unverified: failing
+    closed is the safe default while this stopgap is in place. Replaced by an
+    indexed lookup against ``job.celery_task_id`` once the jobs table lands,
+    which will cover every job type uniformly.
     """
-    Submit a new task to Celery.
+    test_run = get_test_run_by_task_id(
+        db, str(celery_task_id), organization_id=str(current_user.organization_id)
+    )
+    if test_run is None:
+        raise HTTPException(status_code=404, detail="Task not found")
 
-    Uses launch_job to automatically add context from current user.
-    """
-    try:
-        # Get the task by name
-        task_path = f"rhesis.backend.jobs.{task_name}"
-        if task_path not in celery_app.tasks:
-            raise HTTPException(status_code=404, detail=f"Task {task_name} not found")
-
-        task = celery_app.tasks[task_path]
-
-        # Use launch_job to handle context
-        result = launch_job(task, current_user=current_user, db=db, **payload)
-
-        return {"task_id": result.id}
-    except KeyError as e:
-        raise HTTPException(status_code=404, detail=f"Task {task_name} not found") from e
+    return _task_status_payload(str(celery_task_id))
 
 
-@router.get("/{task_id}")
+@router.get("/{task_id}", deprecated=True)
 async def get_task_status(
-    task_id: uuid.UUID, current_user: schemas.User = Depends(require_current_user_or_token)
-):
-    """Get the status of a background task (e.g. test set generation)."""
-    result = AsyncResult(str(task_id), app=celery_app)
-    return {
-        "task_id": str(task_id),
-        "status": result.status,
-        "result": result.result if result.ready() else None,
-        "error": str(result.error) if result.failed() else None,
-    }
-
-
-async def revoke_task(
     task_id: uuid.UUID,
-    terminate: bool = False,
+    db: Session = Depends(get_tenant_db_session),
     current_user: schemas.User = Depends(require_current_user_or_token),
 ):
-    """Revoke a task (prevent it from being executed if not already running)."""
-    celery_app.control.revoke(task_id, terminate=terminate)
-    return {"message": f"Task {task_id} revoked"}
+    """Deprecated alias for ``GET /jobs/by-celery-id/{celery_task_id}``.
 
-
-async def health_check(current_user: schemas.User = Depends(require_current_user_or_token)):
-    """Check if the Celery workers are running and responding."""
-    try:
-        inspector = celery_app.control.inspect()
-        stats = inspector.stats()
-    except Exception as e:
-        raise internal_error(e, context="Celery health check", status_code=503) from e
-
-    if not stats:
-        raise PublicHTTPException(status_code=503, detail="No Celery workers available")
-    return {
-        "status": "healthy",
-        "workers": len(stats),
-        "tasks_registered": len(celery_app.tasks),
-    }
-
-
-async def get_workers_status(current_user: schemas.User = Depends(require_current_user_or_token)):
-    """Get detailed status of all Celery workers and their tasks."""
-    inspector = celery_app.control.inspect()
-
-    try:
-        return {
-            "active": inspector.active() or {},
-            "reserved": inspector.reserved() or {},
-            "registered_tasks": inspector.registered() or {},
-            "stats": inspector.stats() or {},
-            "total_tasks": len(celery_app.tasks),
-            "ping": inspector.ping() or {},
-        }
-    except Exception as e:
-        raise internal_error(e, context="collecting Celery worker status", status_code=503) from e
+    Kept so the routers that already document this path as their polling
+    target keep working. Will be removed once ``GET /jobs/{id}`` is reclaimed
+    for job UUIDs.
+    """
+    return await get_task_status_by_celery_id(task_id, db=db, current_user=current_user)
