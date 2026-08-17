@@ -72,6 +72,10 @@ class TestSetSynthesizer(ABC):
         self.harmful = harmful
         self.prompt_template = load_prompt_template(self.prompt_template_file)
         self.sources = sources
+        # Last error message seen from a failed batch (if any), surfaced in the
+        # final "Failed to generate any valid test cases" error so callers get
+        # more than just that generic sentence -- see _process_batch_response.
+        self.last_error: Optional[str] = None
         # Default RecursiveChunker is applied in _generate_with_sources (lazy import).
         self.chunker = chunking_strategy
 
@@ -240,14 +244,16 @@ class TestSetSynthesizer(ABC):
     ) -> List[Dict[str, Any]]:
         """Process a single response from model.generate or model.generate_batch."""
         if isinstance(response, dict) and "error" in response:
+            self.last_error = str(response["error"])
             logger.error(
                 "[Synthesizer] Batch %d: LLM returned error: %s",
                 batch_index,
-                response["error"],
+                self.last_error,
             )
             return []
 
         if not isinstance(response, dict) or "tests" not in response:
+            self.last_error = f"Unexpected response type: {type(response).__name__}"
             logger.error(
                 "[Synthesizer] Batch %d: unexpected response type=%s: %s",
                 batch_index,
@@ -322,7 +328,8 @@ class TestSetSynthesizer(ABC):
         )
 
         if not all_test_cases:
-            raise ValueError("Failed to generate any valid test cases")
+            reason = f": {self.last_error}" if self.last_error else ""
+            raise ValueError(f"Failed to generate any valid test cases{reason}")
 
         return all_test_cases
 
@@ -349,7 +356,8 @@ class TestSetSynthesizer(ABC):
 
             try:
                 tests = self._generate_batch(batch_request_size, **template_context)
-            except Exception:
+            except Exception as e:
+                self.last_error = str(e)
                 logger.exception(
                     "[Synthesizer] Exception in batch generation (batch_size=%d)",
                     batch_request_size,

@@ -391,12 +391,28 @@ def test_generate_multiple_batches(mock_create_test_set, mock_generate_batch):
     assert mock_generate_batch.call_count == 3
 
 
+_SAMPLE_BATCH = [
+    {
+        "test_configuration": {
+            "goal": "Goal 1",
+            "instructions": "",
+            "restrictions": "",
+            "scenario": "",
+        },
+        "requirement": "Compliance",
+        "category": "Harmful",
+        "topic": "topic1",
+        "test_type": "Multi-Turn",
+    },
+]
+
+
 @patch.object(MultiTurnSynthesizer, "_generate_batch")
 @patch("rhesis.sdk.synthesizers.multi_turn.base.create_test_set")
 def test_generate_sets_test_set_type(mock_create_test_set, mock_generate_batch):
     """Test that generate() sets test_set_type to MULTI_TURN."""
     mock_model = Mock(spec=BaseLLM)
-    mock_generate_batch.return_value = []
+    mock_generate_batch.return_value = _SAMPLE_BATCH
 
     mock_test_set = Mock()
     mock_test_set.name = "Test Set"
@@ -416,7 +432,7 @@ def test_generate_sets_test_set_type(mock_create_test_set, mock_generate_batch):
 def test_generate_appends_multi_turn_to_name(mock_create_test_set, mock_generate_batch):
     """Test that generate() appends '(Multi-Turn)' to test set name."""
     mock_model = Mock(spec=BaseLLM)
-    mock_generate_batch.return_value = []
+    mock_generate_batch.return_value = _SAMPLE_BATCH
 
     mock_test_set = Mock()
     mock_test_set.name = "My Test Set"
@@ -434,7 +450,7 @@ def test_generate_appends_multi_turn_to_name(mock_create_test_set, mock_generate
 def test_generate_skips_name_suffix_when_empty(mock_create_test_set, mock_generate_batch):
     """Test that generate() does not modify name when it is empty/falsy."""
     mock_model = Mock(spec=BaseLLM)
-    mock_generate_batch.return_value = []
+    mock_generate_batch.return_value = _SAMPLE_BATCH
 
     mock_test_set = Mock()
     mock_test_set.name = ""
@@ -446,3 +462,76 @@ def test_generate_skips_name_suffix_when_empty(mock_create_test_set, mock_genera
 
     # Name should remain empty
     assert mock_test_set.name == ""
+
+
+# --- Error handling: a failed/malformed LLM response must not crash generation ---
+
+
+def test_generate_batch_returns_empty_on_error_response():
+    """A model response shaped like {"error": ...} must not raise KeyError.
+
+    Regression test: Polyphemus (and other providers) return this shape when
+    generation fails -- e.g. mid scale-up-from-zero -- and _generate_batch
+    used to blow up with a bare `KeyError: 'tests'` instead of degrading
+    gracefully.
+    """
+    mock_model = Mock(spec=BaseLLM)
+    mock_model.generate.return_value = {"error": "Polyphemus did not respond in time."}
+
+    config = GenerationConfig(generation_prompt="Test")
+    synthesizer = MultiTurnSynthesizer(config=config, model=mock_model, batch_size=2)
+
+    result = synthesizer._generate_batch()
+
+    assert result == []
+    assert synthesizer.last_error == "Polyphemus did not respond in time."
+
+
+def test_generate_batch_returns_empty_on_unexpected_response():
+    """A non-dict / dict-without-tests response also degrades to []."""
+    mock_model = Mock(spec=BaseLLM)
+    mock_model.generate.return_value = "not a dict"
+
+    config = GenerationConfig(generation_prompt="Test")
+    synthesizer = MultiTurnSynthesizer(config=config, model=mock_model, batch_size=2)
+
+    result = synthesizer._generate_batch()
+
+    assert result == []
+    assert synthesizer.last_error is not None
+
+
+@patch.object(MultiTurnSynthesizer, "_generate_batch")
+@patch("rhesis.sdk.synthesizers.multi_turn.base.create_test_set")
+def test_generate_retries_failed_batch(mock_create_test_set, mock_generate_batch):
+    """A batch that fails once should be retried before giving up."""
+    mock_model = Mock(spec=BaseLLM)
+    mock_generate_batch.side_effect = [[], _SAMPLE_BATCH]
+    mock_test_set = Mock()
+    mock_test_set.name = "Test Set"
+    mock_create_test_set.return_value = mock_test_set
+
+    config = GenerationConfig(generation_prompt="Test")
+    synthesizer = MultiTurnSynthesizer(config=config, model=mock_model, batch_size=10)
+    synthesizer.generate(num_tests=5)
+
+    assert mock_generate_batch.call_count == 2
+    assert mock_create_test_set.call_args.kwargs["tests"] == _SAMPLE_BATCH
+
+
+@patch.object(MultiTurnSynthesizer, "_generate_batch")
+def test_generate_raises_with_reason_when_all_batches_fail(mock_generate_batch):
+    """When every attempt fails, generate() raises a ValueError carrying the reason
+    instead of silently returning an empty test set."""
+    mock_model = Mock(spec=BaseLLM)
+    mock_generate_batch.return_value = []
+
+    config = GenerationConfig(generation_prompt="Test")
+    synthesizer = MultiTurnSynthesizer(config=config, model=mock_model, batch_size=10)
+    synthesizer.last_error = "Polyphemus did not respond in time."
+
+    try:
+        synthesizer.generate(num_tests=5)
+        assert False, "expected ValueError"
+    except ValueError as e:
+        assert "Polyphemus did not respond in time." in str(e)
