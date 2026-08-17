@@ -255,7 +255,11 @@ interface MetricOutcomeRowProps {
 /** Metric name plus an icon-only segmented pill (All/Evaluated/Passed/Failed)
  * -- icons keep this compact next to a long metric name; MetricOutcomeLegend
  * spells out what each one means once, at the top of the section. */
-function MetricOutcomeRow({ label, activeValue, onChange }: MetricOutcomeRowProps) {
+function MetricOutcomeRow({
+  label,
+  activeValue,
+  onChange,
+}: MetricOutcomeRowProps) {
   return (
     <Box
       sx={{
@@ -279,47 +283,49 @@ function MetricOutcomeRow({ label, activeValue, onChange }: MetricOutcomeRowProp
         {label}
       </Typography>
       <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-        {METRIC_OUTCOME_OPTIONS.map(({ value, label: optionLabel, icon }, idx, arr) => {
-          const isSelected = activeValue === value;
-          const isFirst = idx === 0;
-          const isLast = idx === arr.length - 1;
-          return (
-            <Tooltip key={value} title={optionLabel}>
-              <Box
-                component="button"
-                type="button"
-                aria-label={optionLabel}
-                onClick={() => onChange(value)}
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: 30,
-                  height: 28,
-                  cursor: 'pointer',
-                  border: '1px solid',
-                  borderColor: 'primary.main',
-                  borderLeft: isFirst ? '1px solid' : 'none',
-                  borderRight: isLast ? '1px solid' : 'none',
-                  borderRadius: isFirst
-                    ? '999px 0 0 999px'
-                    : isLast
-                      ? '0 999px 999px 0'
-                      : 0,
-                  bgcolor: isSelected ? 'primary.main' : 'transparent',
-                  color: isSelected ? '#fff' : 'primary.main',
-                  '&:hover': {
-                    bgcolor: isSelected
-                      ? 'primary.dark'
-                      : theme => `${theme.palette.primary.main}0f`,
-                  },
-                }}
-              >
-                {icon}
-              </Box>
-            </Tooltip>
-          );
-        })}
+        {METRIC_OUTCOME_OPTIONS.map(
+          ({ value, label: optionLabel, icon }, idx, arr) => {
+            const isSelected = activeValue === value;
+            const isFirst = idx === 0;
+            const isLast = idx === arr.length - 1;
+            return (
+              <Tooltip key={value} title={optionLabel}>
+                <Box
+                  component="button"
+                  type="button"
+                  aria-label={optionLabel}
+                  onClick={() => onChange(value)}
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 30,
+                    height: 28,
+                    cursor: 'pointer',
+                    border: '1px solid',
+                    borderColor: 'primary.main',
+                    borderLeft: isFirst ? '1px solid' : 'none',
+                    borderRight: isLast ? '1px solid' : 'none',
+                    borderRadius: isFirst
+                      ? '999px 0 0 999px'
+                      : isLast
+                        ? '0 999px 999px 0'
+                        : 0,
+                    bgcolor: isSelected ? 'primary.main' : 'transparent',
+                    color: isSelected ? '#fff' : 'primary.main',
+                    '&:hover': {
+                      bgcolor: isSelected
+                        ? 'primary.dark'
+                        : theme => `${theme.palette.primary.main}0f`,
+                    },
+                  }}
+                >
+                  {icon}
+                </Box>
+              </Tooltip>
+            );
+          }
+        )}
       </Box>
     </Box>
   );

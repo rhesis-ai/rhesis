@@ -336,8 +336,7 @@ class PolyphemusLLM(BaseLLM):
                     "in a minute."
                 )
             return (
-                f"Polyphemus returned HTTP {status} while generating the "
-                "response."
+                f"Polyphemus returned HTTP {status} while generating the response."
                 if status
                 else "An error occurred while processing the request."
             )

@@ -30,6 +30,7 @@ Create Date: 2026-08-15
 from __future__ import annotations
 
 import hashlib
+import hmac
 from typing import Any, Dict, Sequence, Union
 
 from alembic import op
@@ -177,7 +178,7 @@ def upgrade() -> None:
             row.evaluation_examples,
             row.context_required,
         )
-        if current_hash != ORIGINAL_HASHES[row.name]:
+        if not hmac.compare_digest(current_hash, ORIGINAL_HASHES[row.name]):
             skipped_customized += 1
             continue
 

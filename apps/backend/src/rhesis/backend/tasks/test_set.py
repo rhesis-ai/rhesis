@@ -611,7 +611,10 @@ def generate_and_save_test_set(
         if test_set_id:
             _mark_test_set_generation_failed(self, test_set_id, org_id, user_id, error_msg)
 
-        # Check for various model configuration issues
+        # Check for various model configuration issues. Deliberately not matching on
+        # a bare "model" -- nearly every LLM-related error mentions "model" somewhere,
+        # so that keyword mislabeled transient failures (e.g. a scaled-to-zero
+        # Polyphemus instance timing out) as "check your Models settings".
         if any(
             keyword in error_msg_lower
             for keyword in [
@@ -622,7 +625,6 @@ def generate_and_save_test_set(
                 "authentication",
                 "provider",
                 "not supported",
-                "model",
                 "not found",
                 "invalid",
             ]
