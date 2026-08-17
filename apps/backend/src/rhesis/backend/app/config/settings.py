@@ -219,8 +219,12 @@ class AuthSettings(BaseSettings):
 
     @field_validator("block_disposable_emails", mode="before")
     @classmethod
-    def _accept_boolean_form(cls, value: object) -> object:
-        """Accept the boolean spelling this setting shipped as before the log mode existed."""
+    def _normalize_mode(cls, value: object) -> object:
+        """Lowercase the mode, and accept the boolean spelling this setting shipped as.
+
+        An uppercase AUTH_BLOCK_DISPOSABLE_EMAILS=ENFORCE would otherwise fail
+        Literal validation and take the whole app down at startup.
+        """
         if isinstance(value, bool):
             return "enforce" if value else "off"
         if isinstance(value, str):
@@ -229,6 +233,7 @@ class AuthSettings(BaseSettings):
                 return "enforce"
             if lowered in {"false", "0", "no"}:
                 return "off"
+            return lowered
         return value
 
     @property
