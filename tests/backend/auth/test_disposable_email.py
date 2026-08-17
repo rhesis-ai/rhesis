@@ -186,6 +186,35 @@ class TestModes:
         with pytest.raises(DisposableEmailError):
             screen_signup_email(f"user@{UPSTREAM_DOMAIN}", source="test")
 
+    @pytest.mark.unit
+    @pytest.mark.parametrize(
+        ("value", "expected"),
+        [
+            ("OFF", "off"),
+            ("LOG", "log"),
+            ("ENFORCE", "enforce"),
+            ("Enforce", "enforce"),
+            ("  enforce  ", "enforce"),
+        ],
+    )
+    def test_mode_is_case_and_whitespace_insensitive(self, monkeypatch, value, expected):
+        """An uppercase value must not fail Literal validation and take startup down."""
+        monkeypatch.setenv("AUTH_BLOCK_DISPOSABLE_EMAILS", value)
+        get_auth_settings.cache_clear()
+
+        assert get_auth_settings().block_disposable_emails == expected
+
+    @pytest.mark.unit
+    def test_unknown_mode_still_fails_loudly(self, monkeypatch):
+        """Lowercasing must not turn a typo into a silent default."""
+        from pydantic import ValidationError
+
+        monkeypatch.setenv("AUTH_BLOCK_DISPOSABLE_EMAILS", "enfroce")
+        get_auth_settings.cache_clear()
+
+        with pytest.raises(ValidationError):
+            get_auth_settings()
+
 
 class TestScreening:
     """screen_signup_email() behaviour outside the mode matrix."""
