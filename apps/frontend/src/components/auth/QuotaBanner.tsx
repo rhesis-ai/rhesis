@@ -1,7 +1,13 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Box, IconButton, Link as MuiLink, Typography, useTheme } from '@mui/material';
+import {
+  Box,
+  IconButton,
+  Link as MuiLink,
+  Typography,
+  useTheme,
+} from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import CloseIcon from '@mui/icons-material/Close';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
@@ -47,7 +53,12 @@ function findWorstResource(
     if (!(resource in QUOTA_RESOURCE_LABELS)) continue;
     const ratio = item.limit === 0 ? 1 : item.used / item.limit;
     if (ratio >= WARNING_THRESHOLD && (!worst || ratio > worst.ratio)) {
-      worst = { resource: resource as QuotaResource, used: item.used, limit: item.limit, ratio };
+      worst = {
+        resource: resource as QuotaResource,
+        used: item.used,
+        limit: item.limit,
+        ratio,
+      };
     }
   }
   return worst;

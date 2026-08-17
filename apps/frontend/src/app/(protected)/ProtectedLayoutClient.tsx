@@ -110,7 +110,9 @@ export function ProtectedLayoutClient({
             <WebSocketProvider>
               <NotificationsProvider>
                 {!isOnboarding && (
-                  <TermsAcceptanceGate initialTermsStatus={initialTermsStatus} />
+                  <TermsAcceptanceGate
+                    initialTermsStatus={initialTermsStatus}
+                  />
                 )}
                 {!isOnboarding && !chromeless && <VerificationBanner />}
                 {!isOnboarding && !chromeless && <QuotaBanner />}

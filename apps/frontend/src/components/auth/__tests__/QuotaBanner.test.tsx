@@ -66,7 +66,9 @@ describe('QuotaBanner', () => {
   it('warns once a resource crosses 80% utilization', () => {
     mockUsage({ [QuotaResource.TEST_EXECUTIONS]: item(800, 1000) });
     render(<QuotaBanner />);
-    expect(screen.getByText(/80% of your test runs limit/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/80% of your test runs limit/i)
+    ).toBeInTheDocument();
   });
 
   it('treats a limit of zero as fully consumed rather than skipping it', () => {
@@ -74,7 +76,9 @@ describe('QuotaBanner', () => {
     // it hid the banner from exactly the orgs that were already blocked.
     mockUsage({ [QuotaResource.PROJECTS]: item(0, 0) });
     render(<QuotaBanner />);
-    expect(screen.getByText(/100% of your projects limit/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/100% of your projects limit/i)
+    ).toBeInTheDocument();
   });
 
   it('surfaces only the worst resource when several are over the threshold', () => {
