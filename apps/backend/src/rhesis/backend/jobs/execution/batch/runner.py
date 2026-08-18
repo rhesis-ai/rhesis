@@ -14,30 +14,9 @@ from rhesis.backend.app.utils.response_extractor import has_http_error_in_result
 from rhesis.backend.jobs.execution.batch.context import ExecutionContext
 from rhesis.backend.jobs.execution.batch.evaluation import evaluate_metrics
 from rhesis.backend.jobs.execution.batch.invocation import is_multi_turn_test, run_test
+from rhesis.backend.jobs.execution.shared import is_task_revoked
 
 logger = logging.getLogger(__name__)
-
-
-# ---------------------------------------------------------------------------
-# Cooperative cancellation helper
-# ---------------------------------------------------------------------------
-
-
-def _is_task_revoked(task_id: str | None) -> bool:
-    """Return True if the Celery task has been revoked.
-
-    Checks the worker-process in-memory revoke set — a pure dict lookup with
-    no I/O.  Safe to call from any thread or coroutine running inside the
-    worker.  Returns False if called outside a worker (e.g. in tests).
-    """
-    if not task_id:
-        return False
-    try:
-        from celery.worker.state import revoked as _revoked  # noqa: PLC0415
-
-        return task_id in _revoked
-    except Exception:
-        return False
 
 
 # ---------------------------------------------------------------------------
@@ -60,7 +39,7 @@ async def _cancellation_watchdog(
     """
     while True:
         await asyncio.sleep(poll_interval)
-        if _is_task_revoked(task_id):
+        if is_task_revoked(task_id):
             pending = [t for t in tasks if not t.done()]
             logger.info(f"[BATCH] Revoke detected — cancelling {len(pending)} in-flight tasks")
             for t in pending:

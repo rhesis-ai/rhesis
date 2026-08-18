@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app.models.test import Test
 from rhesis.backend.app.models.test_configuration import TestConfiguration
 from rhesis.backend.app.models.test_run import TestRun
-from rhesis.backend.jobs.enums import ExecutionMode
+from rhesis.backend.jobs.enums import ExecutionMode, RunStatus
 from rhesis.backend.jobs.execution.batch.context import (
     ExecutionContext,
     prefetch_execution_context,
@@ -121,6 +121,28 @@ def _persist_failed_results(ctx: "ExecutionContext", results: List[Dict[str, Any
             logger.warning(f"[BATCH] Failed to persist error record for {tid}: {e}")
 
 
+def _mark_test_run_cancelled(ctx: "ExecutionContext") -> None:
+    """Set the test run to Cancelled after the revoke watchdog stopped a batch mid-flight.
+
+    Opens its own session, same as ``_persist_failed_results``: the batch's
+    main session was already closed before the async phase started.
+    """
+    from rhesis.backend.app.database import get_db_with_tenant_variables
+    from rhesis.backend.jobs.execution.run import update_test_run_status
+
+    try:
+        with get_db_with_tenant_variables(
+            ctx.organization_id, ctx.user_id or "", ctx.project_id or ""
+        ) as db:
+            test_run = db.query(TestRun).filter(TestRun.id == ctx.test_run.id).first()
+            if test_run is None:
+                return
+            update_test_run_status(db, test_run, RunStatus.CANCELLED.value)
+            db.commit()
+    except Exception as e:
+        logger.warning(f"[BATCH] Could not mark test run {ctx.test_run.id} cancelled: {e}")
+
+
 def execute_tests_as_batch(
     session: Session,
     test_config: TestConfiguration,
@@ -201,7 +223,14 @@ def execute_tests_as_batch(
     # empty — there are no persisted test results to aggregate and calling
     # collect_results would erroneously overwrite the Cancelled status
     # (total_tests == 0 -> FAILED).
-    skip_collection = not results or all(r.get("status") == "cancelled" for r in results)
+    was_cancelled = bool(results) and all(r.get("status") == "cancelled" for r in results)
+    skip_collection = not results or was_cancelled
+    if was_cancelled:
+        # revoke() without terminate=True never fires task_revoked for a task
+        # that had already started (see BaseJob docstring), so nothing else
+        # writes the terminal status for a batch stopped mid-flight. Safe to
+        # call even if the test-run-cancel endpoint already set this directly.
+        _mark_test_run_cancelled(ctx)
     if not skip_collection:
         trigger_results_collection(test_config, str(test_run.id), results)
 
@@ -212,4 +241,5 @@ def execute_tests_as_batch(
         ExecutionMode.PARALLEL,
         execution_time_total=wall_time_ms,
         batch_mode=True,
+        **({"status": "cancelled"} if was_cancelled else {}),
     )

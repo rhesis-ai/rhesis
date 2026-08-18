@@ -191,13 +191,23 @@ class BaseJob(Task):
         # We don't validate here - we do it in before_start when the request is available
         return super().__call__(*args, **kwargs)
 
+    @staticmethod
+    def _job_transition_for_success(retval) -> str:
+        """A task that returns ``{"status": "cancelled", ...}`` ended cooperatively,
+        not successfully -- the job row should say so rather than "completed".
+        """
+        if isinstance(retval, dict) and retval.get("status") == "cancelled":
+            return "cancelled"
+        return "completed"
+
     def on_success(self, retval, task_id, args, kwargs):
         """Log successful task completion with context information."""
-        self._advance_job_row("completed")
+        transition = self._job_transition_for_success(retval)
+        self._advance_job_row(transition)
 
         self.log_with_context(
             "info",
-            "Task completed successfully",
+            "Task cancelled" if transition == "cancelled" else "Task completed successfully",
             task_result_type=type(retval).__name__,
             execution_time=self._get_execution_time() or "Unknown",
         )
@@ -381,6 +391,8 @@ class BaseJob(Task):
                 tracking.mark_running(*args)
             elif transition == "completed":
                 tracking.mark_completed(*args)
+            elif transition == "cancelled":
+                tracking.mark_cancelled(*args)
             elif transition == "failed":
                 tracking.mark_failed(*args, error=error or Exception("Unknown error"))
             elif transition == "retrying":
@@ -646,12 +658,14 @@ class SilentJob(BaseJob):
     def on_success(self, retval, task_id, args, kwargs):
         """Skip generic completion logging; callers log task-specific outcomes.
 
-        In-app notifications still fire. "Silent" here means no email and no
-        generic log line, not no notification -- they're opt-in per task via
-        ``@in_app_notification``, so a task only gets one by asking. Without
-        this call, skipping ``BaseJob.on_success`` would drop them on
-        success while ``on_failure`` (not overridden) kept sending them,
-        leaving a decorated SilentJob notifying on failure only.
+        In-app notifications still fire, and the job row still advances --
+        "Silent" here means no email and no generic log line, not no
+        bookkeeping. Without the ``_advance_job_row`` call, skipping
+        ``BaseJob.on_success`` would leave every SilentJob-based task
+        (test execution, embedding, architect chat, endpoint exploration)
+        stuck at "running" forever, since ``on_failure`` (not overridden)
+        already advances the row but nothing else does on this path.
         """
+        self._advance_job_row(self._job_transition_for_success(retval))
         self._notify_task_success(retval)
         return super(BaseJob, self).on_success(retval, task_id, args, kwargs)

@@ -7,7 +7,7 @@ to ensure consistent behavior and results.
 
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
@@ -19,6 +19,28 @@ from rhesis.backend.jobs.enums import ExecutionMode
 from rhesis.backend.jobs.execution.results import collect_results
 
 logger = logging.getLogger(__name__)
+
+
+def is_task_revoked(task_id: Optional[str]) -> bool:
+    """Return True if the Celery task has been revoked.
+
+    Checks the worker-process in-memory revoke set -- a pure dict lookup with
+    no I/O. Safe to call from any thread or coroutine running inside the
+    worker. Returns False if called outside a worker (e.g. in tests), or if
+    no task id is available.
+
+    Shared by both execution modes: revoke() (called by both the test-run
+    cancel endpoint and the job cancel endpoint) populates the same set,
+    whether the task has not started yet, is mid-batch, or is mid-loop.
+    """
+    if not task_id:
+        return False
+    try:
+        from celery.worker.state import revoked as _revoked  # noqa: PLC0415
+
+        return task_id in _revoked
+    except Exception:
+        return False
 
 
 def update_test_run_start(

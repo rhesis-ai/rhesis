@@ -11,10 +11,12 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app.models.test_configuration import TestConfiguration
 from rhesis.backend.app.models.test_run import TestRun
 from rhesis.backend.app.quota.enforcement import QuotaExceededError
-from rhesis.backend.jobs.enums import ExecutionMode
+from rhesis.backend.jobs.enums import ExecutionMode, RunStatus
+from rhesis.backend.jobs.execution.run import update_test_run_status
 from rhesis.backend.jobs.execution.shared import (
     create_execution_result,
     create_failure_result,
+    is_task_revoked,
     trigger_results_collection,
     update_test_run_start,
 )
@@ -119,8 +121,23 @@ def execute_tests_sequentially(
                 model_settings.evaluation_model, session, fallback_org_id
             )
 
+    # Cooperative cancellation: checked once per test, the only safe point in
+    # a loop that otherwise blocks on a synchronous asyncio.run() per test.
+    # Same revoke set the batch runner polls, populated by revoke() from
+    # either the test-run cancel endpoint or the job cancel endpoint.
+    celery_task_id = (test_run.attributes or {}).get("task_id")
+    was_cancelled = False
+
     # Execute tests one by one
     for i, test in enumerate(tests, 1):
+        if is_task_revoked(celery_task_id):
+            logger.info(
+                f"Revoke detected before test {i}/{len(tests)} — "
+                f"stopping sequential execution for test run {test_run.id}"
+            )
+            was_cancelled = True
+            break
+
         logger.info(f"Executing test {i}/{len(tests)}: {test.id}")
 
         try:
@@ -155,6 +172,27 @@ def execute_tests_sequentially(
 
     end_time = datetime.now(timezone.utc)
     execution_time = (end_time - start_time).total_seconds()
+
+    if was_cancelled:
+        logger.info(
+            f"Sequential execution cancelled for test run {test_run.id} "
+            f"after {len(results)}/{len(tests)} tests"
+        )
+        # No collect_results dispatch: the run stopped partway, so there is
+        # nothing to aggregate and the session is still open here, unlike the
+        # batch path, so the status update needs no new session.
+        update_test_run_status(session, test_run, RunStatus.CANCELLED.value)
+        session.commit()
+
+        return create_execution_result(
+            test_run,
+            test_config,
+            len(tests),
+            ExecutionMode.SEQUENTIAL,
+            execution_time=execution_time,
+            completed_at=end_time.isoformat(),
+            status="cancelled",
+        )
 
     logger.info(
         f"Sequential execution completed for test run {test_run.id} in {execution_time:.2f} seconds"

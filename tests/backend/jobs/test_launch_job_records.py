@@ -197,3 +197,114 @@ class TestBaseJobHooks:
                 task._advance_job_row("completed")
         finally:
             task.pop_request()
+
+    def test_on_success_marks_completed_through_the_real_hook(self, real_commit_test_db: Session):
+        """Exercises on_success itself, not just the _advance_job_row helper.
+
+        SilentJob overrides on_success and used to skip _advance_job_row
+        entirely -- a test that only calls the helper directly would not have
+        caught that.
+        """
+        org, user, _ = create_test_organization_and_user(
+            real_commit_test_db, "Hook Org Success", "hooksuccess@launch-test.com", "Hook User"
+        )
+        celery_task_id = self._job_for(real_commit_test_db, org, user)
+        task = self._base_job(celery_task_id, org, user)
+        try:
+            with patch.object(task, "log_with_context"):
+                task.on_success({"total_tests": 3}, celery_task_id, [], {})
+            real_commit_test_db.expire_all()
+            job = (
+                real_commit_test_db.query(Job).filter(Job.celery_task_id == celery_task_id).first()
+            )
+            assert job.status == JobStatus.COMPLETED.value
+        finally:
+            task.pop_request()
+
+    def test_on_success_with_cancelled_retval_marks_cancelled(self, real_commit_test_db: Session):
+        org, user, _ = create_test_organization_and_user(
+            real_commit_test_db, "Hook Org Cancel", "hookcancel@launch-test.com", "Hook User"
+        )
+        celery_task_id = self._job_for(real_commit_test_db, org, user)
+        task = self._base_job(celery_task_id, org, user)
+        try:
+            with patch.object(task, "log_with_context"):
+                task.on_success({"total_tests": 3, "status": "cancelled"}, celery_task_id, [], {})
+            real_commit_test_db.expire_all()
+            job = (
+                real_commit_test_db.query(Job).filter(Job.celery_task_id == celery_task_id).first()
+            )
+            assert job.status == JobStatus.CANCELLED.value
+        finally:
+            task.pop_request()
+
+
+class TestSilentJobOnSuccessAdvancesJobRow:
+    """SilentJob overrides on_success but must still advance the job row.
+
+    Regression test: SilentJob.on_success used to call
+    ``super(BaseJob, self).on_success(...)``, which skips BaseJob.on_success
+    (and therefore _advance_job_row) entirely. Every SilentJob-based task
+    (test execution, embedding, architect chat, endpoint exploration) would
+    stay "running" forever after a successful run.
+    """
+
+    def _job_for(self, db: Session, org, user) -> str:
+        from rhesis.backend.jobs import tracking
+
+        celery_task_id = str(uuid.uuid4())
+        tracking.create_job(
+            db,
+            celery_task_id=celery_task_id,
+            task_name="rhesis.backend.jobs.execute_test_configuration",
+            organization_id=str(org.id),
+            user_id=str(user.id),
+        )
+        db.commit()
+        return celery_task_id
+
+    def _silent_job(self, celery_task_id: str, org, user):
+        from rhesis.backend.celery.core import app as celery_app
+
+        job = celery_app.tasks["rhesis.backend.jobs.execute_test_configuration"]
+        job.push_request(
+            id=celery_task_id,
+            organization_id=str(org.id),
+            user_id=str(user.id),
+            project_id=None,
+        )
+        return job
+
+    def test_on_success_marks_completed(self, real_commit_test_db: Session):
+        org, user, _ = create_test_organization_and_user(
+            real_commit_test_db, "Silent Org", "silent@launch-test.com", "Silent User"
+        )
+        celery_task_id = self._job_for(real_commit_test_db, org, user)
+        task = self._silent_job(celery_task_id, org, user)
+        try:
+            with patch.object(task, "log_with_context"):
+                task.on_success({"total_tests": 3}, celery_task_id, [], {})
+            real_commit_test_db.expire_all()
+            job = (
+                real_commit_test_db.query(Job).filter(Job.celery_task_id == celery_task_id).first()
+            )
+            assert job.status == JobStatus.COMPLETED.value
+        finally:
+            task.pop_request()
+
+    def test_on_success_with_cancelled_retval_marks_cancelled(self, real_commit_test_db: Session):
+        org, user, _ = create_test_organization_and_user(
+            real_commit_test_db, "Silent Org Cancel", "silentcancel@launch-test.com", "Silent User"
+        )
+        celery_task_id = self._job_for(real_commit_test_db, org, user)
+        task = self._silent_job(celery_task_id, org, user)
+        try:
+            with patch.object(task, "log_with_context"):
+                task.on_success({"total_tests": 3, "status": "cancelled"}, celery_task_id, [], {})
+            real_commit_test_db.expire_all()
+            job = (
+                real_commit_test_db.query(Job).filter(Job.celery_task_id == celery_task_id).first()
+            )
+            assert job.status == JobStatus.CANCELLED.value
+        finally:
+            task.pop_request()
