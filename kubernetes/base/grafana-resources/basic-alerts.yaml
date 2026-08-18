@@ -1,4 +1,5 @@
-# Starter set of generic k8s health alerts, dev only. All queries use metrics that
+# Starter set of generic k8s health alerts, shared by dev/stg/prd (see kustomization.yaml
+# in each cluster's grafana-resources overlay). All queries use metrics that
 # kube-prometheus-stack (kube-state-metrics + node-exporter + kubelet) and cert-manager
 # already expose by default, so nothing extra needs to be scraped for these to work.
 #
@@ -70,7 +71,10 @@ spec:
             to: 0
           model:
             datasource: { type: prometheus, uid: prometheus }
-            expr: max by (namespace, pod) (kube_pod_status_ready{condition="false"})
+            # Excludes pods currently in a terminal phase (Job/CronJob pods that already
+            # completed): a finished pod is never Ready again, so without this exclusion
+            # a Job that lingers past its TTL would false-positive as "not ready".
+            expr: max by (namespace, pod) (kube_pod_status_ready{condition="false"}) unless on (namespace, pod) (kube_pod_status_phase{phase=~"Succeeded|Failed"} == 1)
             instant: true
             refId: A
         - refId: B
