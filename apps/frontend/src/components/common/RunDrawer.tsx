@@ -414,6 +414,7 @@ export default function RunDrawer(props: RunDrawerProps) {
     setSelectedTestSet(null);
     setSelectedSearchTestSets([]);
     setTestSetInput('');
+    setPreflightEnabled(true);
     setPreflightDialogOpen(false);
     setPreflightCorrelationId('');
     setPreflightChecks([]);
