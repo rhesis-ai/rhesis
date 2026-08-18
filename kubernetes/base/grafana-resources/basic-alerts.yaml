@@ -89,7 +89,7 @@ spec:
                 reducer: { type: last, params: [] }
             refId: B
       labels:
-        severity: critical
+        severity: warning
       annotations:
         summary: "Pod {{ $labels.namespace }}/{{ $labels.pod }} has not been Ready for 10m"
 
@@ -107,7 +107,11 @@ spec:
             to: 0
           model:
             datasource: { type: prometheus, uid: prometheus }
-            expr: max by (namespace, pod, container) (kube_pod_container_status_last_terminated_reason{reason="OOMKilled"})
+            # kube_pod_container_status_last_terminated_reason is a gauge that stays 1
+            # until the container's next restart, so alone it never resolves. Joining
+            # against a recent restart count makes it self-clear ~10-15m after the
+            # actual OOM event instead of paging again every repeat_interval forever.
+            expr: increase(kube_pod_container_status_restarts_total[10m]) and on (namespace, pod, container) kube_pod_container_status_last_terminated_reason{reason="OOMKilled"} == 1
             instant: true
             refId: A
         - refId: B
@@ -133,7 +137,7 @@ spec:
     - uid: rhesis-scrape-target-down
       title: Prometheus scrape target down
       condition: B
-      for: 5m
+      for: 10m
       noDataState: OK
       execErrState: Error
       data:
@@ -144,7 +148,10 @@ spec:
             to: 0
           model:
             datasource: { type: prometheus, uid: prometheus }
-            expr: up
+            # job="coredns" excluded: on GKE its metrics port isn't reachable the way
+            # kube-prometheus-stack's default ServiceMonitor expects, so it always
+            # reports down even though DNS itself works fine — confirmed live on dev.
+            expr: up{job!="coredns"}
             instant: true
             refId: A
         - refId: B
@@ -163,7 +170,7 @@ spec:
                 reducer: { type: last, params: [] }
             refId: B
       labels:
-        severity: critical
+        severity: warning
       annotations:
         summary: "Scrape target {{ $labels.job }}/{{ $labels.instance }} is down"
 
@@ -237,6 +244,6 @@ spec:
                 reducer: { type: last, params: [] }
             refId: B
       labels:
-        severity: critical
+        severity: warning
       annotations:
         summary: "PVC {{ $labels.namespace }}/{{ $labels.persistentvolumeclaim }} has less than 10% free space"
