@@ -17,6 +17,7 @@ Create Date: 2026-07-16
 from typing import Sequence, Union
 
 from alembic import op
+from sqlalchemy import inspect
 from sqlalchemy.orm import Session
 
 from rhesis.backend.alembic.utils.metric_sync import _list_organizations_with_owner
@@ -40,6 +41,12 @@ def _owasp_rows(session: Session, model, org_id):
 
 def upgrade() -> None:
     bind = op.get_bind()
+
+    # Predates 491519fd3010 (rename_behavior_to_requirement), so on a fresh DB
+    # the table is still "behavior" here. Nothing to tag yet; skip.
+    if not inspect(bind).has_table("requirement"):
+        return
+
     session = Session(bind=bind)
     try:
         orgs = _list_organizations_with_owner(session)
