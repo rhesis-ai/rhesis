@@ -78,18 +78,17 @@ def has_feature(name: FeatureNameLike):
     return _dep
 
 
-def require_local_mode() -> None:
-    """Dependency: raise 404 unless the deployment runs in local mode.
+def require_rhesis_key_enabled() -> None:
+    """Dependency: raise 404 unless ENABLE_RHESIS_KEY is set.
 
-    Local-only endpoints (e.g. the org-scoped Rhesis platform API key
-    management under ``/platform``) mount unconditionally but must be
-    invisible on non-local deployments. Returning 404 (not 403) means an
-    unavailable local endpoint is indistinguishable from a non-existent
+    Rhesis platform API key endpoints (``/platform``) mount unconditionally
+    but must be invisible when the feature is disabled. Returning 404 (not
+    403) makes a disabled endpoint indistinguishable from a non-existent
     route from the outside, preventing enumeration -- the same rationale as
     :func:`require_feature`. Unlike ``require_feature`` this gate needs no
     organization, so it is a plain dependency rather than a factory.
     """
-    if not get_application_settings().is_local:
+    if not get_application_settings().enable_rhesis_key:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Not available",
@@ -97,4 +96,4 @@ def require_local_mode() -> None:
     return None
 
 
-__all__ = ["has_feature", "require_feature", "require_local_mode"]
+__all__ = ["has_feature", "require_feature", "require_rhesis_key_enabled"]

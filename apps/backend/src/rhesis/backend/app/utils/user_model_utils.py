@@ -705,7 +705,7 @@ def _try_platform_key_model(
     ``False`` for embedders, which have no usage-emission path at all, so the
     stamp is a no-op on them.
     """
-    if not get_application_settings().is_local:
+    if not get_application_settings().enable_rhesis_key:
         return None
     key = get_platform_api_key(db, organization_id)
     if not key:

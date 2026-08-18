@@ -141,7 +141,7 @@ def annotate_model_availability(db: Session, organization_id, models_list) -> No
     Reason slugs are a frozen contract: ``"rhesis_key_missing"``,
     ``"rhesis_key_invalid"`` and ``"polyphemus_not_authorized"``.
     """
-    if not get_application_settings().is_local:
+    if not get_application_settings().enable_rhesis_key:
         for model in models_list:
             model.available = True
             model.availability_reason = None
