@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 
 def get_test_set(db: Session, test_set_id: uuid.UUID, organization_id: str = None):
     """Get test set by ID with organization filtering for security"""
-    builder = (
+    return (
         QueryBuilder(db, TestSet)
         .with_custom_filter(lambda q: q.filter(TestSet.id == test_set_id))
         .with_related(
@@ -53,17 +53,9 @@ def get_test_set(db: Session, test_set_id: uuid.UUID, organization_id: str = Non
             include(TestSet.prompts, Prompt.status),
             include(TestSet.prompts, Prompt.user),
         )
+        .with_organization_filter(organization_id)
+        .first()
     )
-
-    # Apply organization filtering if provided
-    if organization_id:
-        from uuid import UUID as UUIDType
-
-        builder = builder.with_custom_filter(
-            lambda q: q.filter(TestSet.organization_id == UUIDType(organization_id))
-        )
-
-    return builder.first()
 
 
 def create_pending_test_set(

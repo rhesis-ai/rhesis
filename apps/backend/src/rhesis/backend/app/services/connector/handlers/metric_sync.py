@@ -123,11 +123,12 @@ def _get_existing_sdk_metrics(
     backend_type_id,
 ) -> Dict[str, models.Metric]:
     """Get existing SDK metrics for this org keyed by name."""
-    query_builder = QueryBuilder(db, models.Metric).with_organization_filter(organization_id)
-    query_builder.query = query_builder.query.filter(
-        models.Metric.backend_type_id == backend_type_id,
+    existing = (
+        QueryBuilder(db, models.Metric)
+        .with_organization_filter(organization_id)
+        .with_custom_filter(lambda q: q.filter(models.Metric.backend_type_id == backend_type_id))
+        .all()
     )
-    existing = query_builder.all()
 
     result = {}
     for m in existing:

@@ -242,16 +242,18 @@ def read_metrics(
     # $filter.  When metric_scope is also active, override the header with an
     # accurate count that includes the JSONB filter.
     if metric_scope:
-        from rhesis.backend.app.utils.query_utils import QueryBuilder
+        from rhesis.backend.app.utils.crud_utils import count_items
 
-        cb = (
-            QueryBuilder(db, models.Metric)
-            .with_organization_filter(organization_id)
-            .with_visibility_filter(user_id)
-            .with_odata_filter(filter)
+        response.headers["X-Total-Count"] = str(
+            count_items(
+                db,
+                models.Metric,
+                filter,
+                organization_id,
+                user_id,
+                extra_filter=metric_crud._metric_scope_filter(metric_scope),
+            )
         )
-        metric_crud._apply_metric_scope_filter(cb, metric_scope)
-        response.headers["X-Total-Count"] = str(cb.count())
 
     if select:
         serialized = jsonable_encoder(results)

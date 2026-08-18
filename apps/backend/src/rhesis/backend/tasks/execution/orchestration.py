@@ -39,7 +39,7 @@ def execute_test_cases(
         trace_id: Optional trace ID for trace-based evaluation
     """
 
-    test_set = get_test_set(session, str(test_config.test_set_id))
+    test_set = get_test_set(session, str(test_config.test_set_id), str(test_config.organization_id))
     if count_test_set_tests(session, test_set.id) == 0:
         raise TestExecutionError(
             "Cannot execute test set with 0 tests. Please add tests before executing."

@@ -82,9 +82,9 @@ def get_source_with_content(
         .with_default_derived_field_loads()
         .with_organization_filter(organization_id)
         .with_visibility_filter(user_id)
+        .with_custom_filter(lambda q: q.options(undefer(models.Source.content)))
+        .filter_by_id(source_id)
     )
-    item.query = item.query.options(undefer(models.Source.content))
-    item = item.filter_by_id(source_id)
     return _check_and_raise_if_deleted(item, models.Source, source_id, include_deleted)
 
 

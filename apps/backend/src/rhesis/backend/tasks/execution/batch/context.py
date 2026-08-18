@@ -154,7 +154,7 @@ def prefetch_execution_context(
 
     bind_scope_to_session(session, organization_id, user_id or "", project_id)
 
-    test_set = get_test_set(session, str(test_config.test_set_id))
+    test_set = get_test_set(session, str(test_config.test_set_id), organization_id)
 
     endpoint = session.query(Endpoint).filter(Endpoint.id == test_config.endpoint_id).first()
     if not endpoint:

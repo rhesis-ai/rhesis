@@ -396,7 +396,8 @@ def get_test_sets(
                     organization_id
                 )
                 subquery = (
-                    subquery_builder.query.join(models.TestConfiguration)
+                    subquery_builder.build()
+                    .join(models.TestConfiguration)
                     .join(models.TestRun)
                     .distinct()
                     .with_entities(models.TestSet.id)
@@ -409,7 +410,9 @@ def get_test_sets(
         query_builder = query_builder.with_custom_filter(has_runs_filter)
 
     # Exclude explorer test sets (they use the dedicated /explorer API)
-    return query_builder.with_explorer_rows_excluded().all()
+    return query_builder.with_custom_filter(
+        lambda q: q.filter(models.TestSet.explorer_row.is_(False))
+    ).all()
 
 
 def create_test_set(

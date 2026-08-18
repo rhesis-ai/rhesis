@@ -1460,12 +1460,7 @@ def _assign_demo_entities_to_example_project(
 
 def _get_matching_records(db: Session, model, identifiers: set, organization_id: str):
     """Get records that match the initial data identifiers."""
-    query = (
-        QueryBuilder(db, model)
-        .with_organization_filter(organization_id)
-        .with_custom_filter(lambda q: q.filter(model.organization_id == organization_id))
-        .build()
-    )
+    query = QueryBuilder(db, model).with_organization_filter(organization_id).build()
 
     if model.__name__ == "Test":
         return query.join(models.Prompt).filter(models.Prompt.content.in_(identifiers)).all()
@@ -1603,14 +1598,7 @@ def rollback_initial_data(db: Session, organization_id: str, user_id: str | None
                 # — and joinedload across many one-to-many relationships
                 # produces cartesian-product result sets. Lazy-loading per
                 # relationship as we recurse is slower but bounded.
-                query = (
-                    QueryBuilder(db, model)
-                    .with_organization_filter(organization_id)
-                    .with_custom_filter(
-                        lambda q: q.filter(model.organization_id == organization_id)
-                    )
-                    .build()
-                )
+                query = QueryBuilder(db, model).with_organization_filter(organization_id).build()
 
                 if model.__name__ == "Test":
                     records = (

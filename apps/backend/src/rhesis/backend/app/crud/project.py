@@ -105,7 +105,7 @@ def get_projects(
                 )
                 .exists()
             )
-            builder.query = builder.query.filter(exists_subquery)
+            builder = builder.with_custom_filter(lambda q: q.filter(exists_subquery))
 
         return builder.with_pagination(skip, limit).with_sorting(sort_by, sort_order).all()
 
@@ -138,7 +138,7 @@ def count_projects(
                 )
                 .exists()
             )
-            builder.query = builder.query.filter(exists_subquery)
+            builder = builder.with_custom_filter(lambda q: q.filter(exists_subquery))
         return builder.count()
 
 

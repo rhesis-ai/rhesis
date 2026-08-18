@@ -15,7 +15,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
-from rhesis.backend.app.utils.query_utils import QueryBuilder, has_visibility
+from rhesis.backend.app.utils.query_utils import QueryBuilder
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -106,23 +106,6 @@ def _insert_experiment(
     )
     db.flush()
     return exp_id
-
-
-# ---------------------------------------------------------------------------
-# has_visibility probe
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.unit
-class TestHasVisibility:
-    def test_test_set_has_visibility(self):
-        assert has_visibility(models.TestSet) is True
-
-    def test_experiment_has_visibility(self):
-        assert has_visibility(models.Experiment) is True
-
-    def test_project_no_visibility(self):
-        assert has_visibility(models.Project) is False
 
 
 # ---------------------------------------------------------------------------
