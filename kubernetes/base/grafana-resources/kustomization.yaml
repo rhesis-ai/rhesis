@@ -17,3 +17,32 @@ resources:
   - contact-point.yaml
   - notification-policy.yaml
   - basic-alerts.yaml
+
+configMapGenerator:
+  # Single source for the alert recipient/sender address, since it's the same in
+  # every env — read by both grafana-instance.yaml (GF_SMTP_FROM_ADDRESS) and
+  # contact-point.yaml (email receiver) so it's defined once, not duplicated.
+  - name: grafana-alert-email
+    literals:
+      - address=hello@rhesis.ai
+    options:
+      annotations:
+        config.kubernetes.io/local-config: "true"
+      disableNameSuffixHash: true
+
+replacements:
+  - source:
+      kind: ConfigMap
+      name: grafana-alert-email
+      fieldPath: data.address
+    targets:
+      - select:
+          kind: Grafana
+          name: grafana
+        fieldPaths:
+          - spec.deployment.spec.template.spec.containers.[name=grafana].env.[name=GF_SMTP_FROM_ADDRESS].value
+      - select:
+          kind: GrafanaContactPoint
+          name: default-notifications
+        fieldPaths:
+          - spec.receivers.[type=email].settings.addresses
