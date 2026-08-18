@@ -22,6 +22,8 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { UsersClient } from '@/utils/api-client/users-client';
 import { User } from '@/utils/api-client/interfaces/user';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { useFeature } from '@/contexts/FeaturesContext';
+import { FeatureName } from '@/constants/features';
 import { getMemberRoleExtensions } from '@/lib/extension-registries';
 
 function getUserDisplayName(user: User): string {
@@ -53,7 +55,10 @@ export default function ProjectAddMemberDrawer({
   const [selectedRoleId, setSelectedRoleId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
 
-  const { AddMemberRoleField } = getMemberRoleExtensions();
+  const rbacEnabled = useFeature(FeatureName.RBAC);
+  const { AddMemberRoleField: RawAddMemberRoleField } =
+    getMemberRoleExtensions();
+  const AddMemberRoleField = rbacEnabled ? RawAddMemberRoleField : undefined;
 
   const resetForm = useCallback(() => {
     setSelectedUser(null);

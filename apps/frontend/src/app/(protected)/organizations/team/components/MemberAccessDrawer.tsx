@@ -18,6 +18,8 @@ import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { User } from '@/utils/api-client/interfaces/user';
 import { Project, ProjectMember } from '@/utils/api-client/interfaces/project';
+import { useFeature } from '@/contexts/FeaturesContext';
+import { FeatureName } from '@/constants/features';
 import {
   getMemberRoleExtensions,
   type UserProjectMembership,
@@ -77,8 +79,17 @@ export default function MemberAccessDrawer({
   const { status } = useSession();
   const [projectAccess, setProjectAccess] = useState<ProjectAccess[]>([]);
   const [loading, setLoading] = useState(false);
-  const { OrgRoleCell, ProjectRoleCell, fetchUserProjectMemberships } =
-    getMemberRoleExtensions();
+  const rbacEnabled = useFeature(FeatureName.RBAC);
+  const {
+    OrgRoleCell: RawOrgRoleCell,
+    ProjectRoleCell: RawProjectRoleCell,
+    fetchUserProjectMemberships: rawFetchMemberships,
+  } = getMemberRoleExtensions();
+  const OrgRoleCell = rbacEnabled ? RawOrgRoleCell : undefined;
+  const ProjectRoleCell = rbacEnabled ? RawProjectRoleCell : undefined;
+  const fetchUserProjectMemberships = rbacEnabled
+    ? rawFetchMemberships
+    : undefined;
 
   useEffect(() => {
     if (!open || !user || !isAuthenticated(status)) return;
