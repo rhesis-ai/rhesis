@@ -191,7 +191,7 @@ export function PlatformKeyDrawer({
   };
 
   const intro =
-    'Rhesis-hosted models (Rhesis, Rhesis Embedding, and Rhesis Polyphemus) require a platform API key on self-hosted deployments.';
+    'Rhesis-hosted models (Rhesis, Rhesis Embedding, and Rhesis Polyphemus) require a platform API key.';
 
   const loadingSection = (
     <Box sx={drawerSectionSx}>

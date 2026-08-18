@@ -7,9 +7,9 @@ export const dynamic = 'force-dynamic';
 /**
  * BFF proxy for the deployment-wide Rhesis platform API key.
  *
- * These endpoints only exist when the backend runs in local/self-hosted mode;
+ * These endpoints only exist when ENABLE_RHESIS_KEY is set on the backend;
  * otherwise the backend returns 404, which we pass through cleanly so the
- * frontend can hide the local-only key-settings UI. Mirrors the
+ * frontend can hide the key-settings UI. Mirrors the
  * `users/request-polyphemus-access` BFF pattern: inject `Authorization`
  * server-side from the httpOnly session cookie, never exposing the access
  * token to the browser.
