@@ -39,14 +39,14 @@ import type { ValidationStatus } from './types';
 
 export type { ValidationStatus } from './types';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
-import { useIsLocalMode } from '@/contexts/FeaturesContext';
+import { useRhesisKeyEnabled } from '@/contexts/FeaturesContext';
 
 type ModelTypeFilter = 'all' | 'language' | 'embedding';
 
 export default function ModelsPage() {
   const { data: session, status } = useSession();
   const queryClient = useQueryClient();
-  const isLocalMode = useIsLocalMode();
+  const rhesisKeyEnabled = useRhesisKeyEnabled();
   const userScope = session?.user?.id ?? '';
   const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
     Capability.Model.READ
@@ -385,7 +385,7 @@ export default function ModelsPage() {
       breadcrumbs={[]}
       actions={
         <FabGroup>
-          {isLocalMode && (
+          {rhesisKeyEnabled && (
             <Fab
               icon={<VpnKeyIcon />}
               tooltip="Rhesis Platform API Key"
@@ -519,7 +519,7 @@ export default function ModelsPage() {
         title="Delete Model Connection"
       />
 
-      {isLocalMode && (
+      {rhesisKeyEnabled && (
         <PlatformKeyDrawer
           open={platformKeyDrawerOpen}
           onClose={() => setPlatformKeyDrawerOpen(false)}
