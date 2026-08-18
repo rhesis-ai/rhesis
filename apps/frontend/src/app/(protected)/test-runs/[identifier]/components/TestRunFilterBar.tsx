@@ -31,12 +31,15 @@ import TestRunDetailFilterDrawer, {
   type TestRunDetailDrawerFilters,
 } from './TestRunDetailFilterDrawer';
 
+export type MetricOutcomeFilter = 'evaluated' | 'passed' | 'failed';
+
 export interface FilterState {
   searchQuery: string;
   statusFilter: 'all' | 'passed' | 'failed';
   selectedRequirements: string[];
   overruleFilter: 'all' | 'overruled' | 'original' | 'conflicting';
-  selectedMetrics: string[];
+  /** Metric name -> selected outcome. Absent entries are not filtered on. */
+  metricFilters: Record<string, MetricOutcomeFilter>;
   commentFilter: 'all' | 'with_comments' | 'without_comments' | 'range';
   commentCountRange: { min: number; max: number };
   taskFilter: 'all' | 'with_tasks' | 'without_tasks' | 'range';

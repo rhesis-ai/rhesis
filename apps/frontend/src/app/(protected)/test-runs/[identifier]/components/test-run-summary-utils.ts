@@ -66,22 +66,15 @@ export interface ReviewSummary {
   subtitle: string;
 }
 
-export function getEffectiveMetricSuccess(
-  test: TestResultDetail,
-  metric: { is_successful: boolean; override?: { original_value: boolean } }
-): boolean {
-  if (metric.override) {
-    return metric.is_successful;
-  }
-
-  const overall = getEffectiveTestResultStatus(test);
-  if (overall === 'Pass' && !metric.is_successful) {
-    return true;
-  }
-  if (overall === 'Fail' && metric.is_successful) {
-    return false;
-  }
-
+export function getEffectiveMetricSuccess(metric: {
+  is_successful: boolean;
+  override?: { original_value: boolean };
+}): boolean {
+  // is_successful already reflects a review that targeted this specific metric
+  // (see _apply_metric_override on the backend). A whole-test review judges the
+  // response as a whole, not this metric's own correctness, so it's deliberately
+  // excluded here -- otherwise one corrected/failing metric would drag every
+  // other metric on the same test into its own pass/fail count.
   return metric.is_successful;
 }
 
@@ -663,7 +656,7 @@ export function aggregateMetricStats(
         m.override?.original_value !== undefined
           ? m.override.original_value
           : m.is_successful;
-      const effective = getEffectiveMetricSuccess(result, m);
+      const effective = getEffectiveMetricSuccess(m);
       if (automated) entry.automatedPassed += 1;
       if (effective) entry.passed += 1;
       const hasMetricOverride =

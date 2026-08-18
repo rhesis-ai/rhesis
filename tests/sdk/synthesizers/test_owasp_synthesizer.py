@@ -127,3 +127,19 @@ def test_single_turn_generation_still_uses_prompt_schema(_mock_fetch):
     assert len(tests) == 1
     assert tests[0]["prompt"]["content"] == "Attack prompt"
     assert tests[0]["test_type"] == TestType.SINGLE_TURN.value
+
+
+# --- Topic naming: the ASI/LLM code prefix must be included, not just the name ---
+
+
+def test_build_section_context_prefixes_topic_with_section_id():
+    """The generated `topic` must read e.g. "ASI08: Cascading Failures", not just
+    "cascading failures" -- otherwise it's ambiguous which OWASP list/category a
+    topic came from once tests from multiple frameworks are mixed together."""
+    mock_model = Mock(spec=BaseLLM)
+    synthesizer = OWASPSynthesizer(purpose="Customer support chatbot", model=mock_model)
+
+    section = ReportSection(id="asi08", name="Cascading Failures", content="report content")
+    context = synthesizer._build_section_context(section)
+
+    assert context["topic"] == "ASI08: Cascading Failures"
