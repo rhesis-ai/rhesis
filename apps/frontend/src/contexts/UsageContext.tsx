@@ -2,16 +2,22 @@
 
 /**
  * Read-only usage accounting: per-resource counters, limits, and the
- * current billing period, for the org usage dashboard tab.
+ * current billing period. Backs the Usage dashboard tab, `QuotaBanner`,
+ * and execute-gating (`RunDrawer`'s `canExecute`).
  *
  * Mirrors `FeaturesContext`'s caching pattern: `useQuery` scoped by
  * `userScope`, with `staleTime` matching the other ambient providers.
  *
- * Unlike `FeaturesProvider`, this is mounted by the Usage page itself rather
- * than the protected layout -- nothing else reads usage, and `GET /usage`
- * is too costly to issue on every protected navigation. That also means
- * there is no SSR-seeded `initialData`: the page shows its loading
- * skeleton for one round trip instead.
+ * Mounted in `ProtectedLayoutClient` alongside `FeaturesProvider`/
+ * `PermissionsProvider`, not just the Usage page: `QuotaBanner` and
+ * execute-gating both need this outside that one page. That was a
+ * deliberate tradeoff, not an oversight -- `GET /usage` costs a license
+ * lookup plus four counting queries, paid once per `staleTime` window
+ * (5 minutes) rather than never, so every session now carries a fixed
+ * background cost proactive quota UI didn't have before. Unlike
+ * `FeaturesProvider`, there is still no SSR-seeded `initialData`: the
+ * first consumer on a given page shows a loading state for one round
+ * trip instead.
  *
  * Fail-closed, same as `FeaturesContext`/`PermissionsContext`: `resources`
  * is empty during the initial fetch and on error, never a stale/default

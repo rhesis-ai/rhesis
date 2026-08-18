@@ -9,6 +9,7 @@ from sqlalchemy.orm.attributes import flag_modified
 from rhesis.backend.app import models, schemas
 from rhesis.backend.app.auth.capabilities import Permission, capability
 from rhesis.backend.app.auth.principal import resolve_principal_from_request
+from rhesis.backend.app.auth.quota_gates import require_quota
 from rhesis.backend.app.auth.rbac import authorize
 from rhesis.backend.app.auth.user_utils import (
     require_current_user_or_token,
@@ -20,7 +21,9 @@ from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
 )
+from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.quota import QuotaResource
 from rhesis.backend.app.routers.auth import create_session_token
 from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.polyphemus import (
@@ -125,6 +128,13 @@ def create_user(
     user: schemas.UserCreate,
     db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token_without_context),
+    # Gates both inviting and re-inviting -- each consumes a seat, since
+    # count_org_seats counts every row carrying this organization_id and a
+    # re-invite reassigns one. Safe despite @handle_database_exceptions'
+    # bare `except Exception`: dependencies resolve before the route body
+    # runs, so QuotaExceededError never passes through the decorator and
+    # reaches the global 402 handler in main.py intact.
+    _quota_gate: Organization = Depends(require_quota(QuotaResource.SEATS)),
 ):
     # Set the organization_id from the current user
     user.organization_id = current_user.organization_id

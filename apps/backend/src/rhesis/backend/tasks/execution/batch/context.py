@@ -18,6 +18,7 @@ from rhesis.backend.app.models.test import Test
 from rhesis.backend.app.models.test_configuration import TestConfiguration
 from rhesis.backend.app.models.test_run import TestRun
 from rhesis.backend.app.models.test_set import TestSet
+from rhesis.backend.app.quota.enforcement import QuotaExceededError
 from rhesis.backend.metrics.metric_config import metric_model_to_config
 from rhesis.sdk.metrics import MetricConfig
 
@@ -201,11 +202,25 @@ def prefetch_execution_context(
                 # Penelope / the metric judge, and a model built there carries
                 # no provenance stamp. See resolve_default_hosted_model.
                 logger.warning(f"User {user_id} not found, using default models")
-                execution_model = resolve_default_hosted_model(model_settings.execution_model)
-                evaluation_model = resolve_default_hosted_model(model_settings.evaluation_model)
+                execution_model = resolve_default_hosted_model(
+                    model_settings.execution_model, session, organization_id
+                )
+                evaluation_model = resolve_default_hosted_model(
+                    model_settings.evaluation_model, session, organization_id
+                )
         else:
-            execution_model = resolve_default_hosted_model(model_settings.execution_model)
-            evaluation_model = resolve_default_hosted_model(model_settings.evaluation_model)
+            execution_model = resolve_default_hosted_model(
+                model_settings.execution_model, session, organization_id
+            )
+            evaluation_model = resolve_default_hosted_model(
+                model_settings.evaluation_model, session, organization_id
+            )
+    except QuotaExceededError:
+        # Not a resolution failure -- let it propagate as-is. The broad
+        # except below would otherwise retry the identical call against the
+        # same org and quota state, misreport it as "failed to resolve" in
+        # the log, and only raise the same error a second time anyway.
+        raise
     except Exception as e:
         from rhesis.backend.app.config.settings import get_model_settings
         from rhesis.backend.app.utils.user_model_utils import resolve_default_hosted_model
@@ -213,9 +228,13 @@ def prefetch_execution_context(
         logger.warning(f"Failed to resolve execution/evaluation models: {e}")
         model_settings = get_model_settings()
         if execution_model is None:
-            execution_model = resolve_default_hosted_model(model_settings.execution_model)
+            execution_model = resolve_default_hosted_model(
+                model_settings.execution_model, session, organization_id
+            )
         if evaluation_model is None:
-            evaluation_model = resolve_default_hosted_model(model_settings.evaluation_model)
+            evaluation_model = resolve_default_hosted_model(
+                model_settings.evaluation_model, session, organization_id
+            )
 
     # Warm the session identity map with prompt/requirement/requirement.metrics eager-loaded
     # for every test in the batch, in one query. get_test_and_prompt/get_test_metrics

@@ -167,12 +167,20 @@ def rbac_active_for(organization_id: Optional[UUID], db: Session) -> bool:
 # normally allow any project member — but membership management is sensitive
 # enough that we restrict it to org owners (and, in EE Phase 2, project admins
 # via role_id).  This matches the plan §1.5 "org Owner/project admin" ceiling.
+#
+# Usage.READ is deliberately NOT here, despite reading as "billing" at first
+# glance.  ``GET /usage`` carries consumption against plan limits — counters
+# and caps, no money: no price, invoice, payment method or spend figure.  It
+# is operational data that tells a member whether their next action will be
+# allowed, and quota enforcement blocks *members*, so hiding the reason from
+# them only turns a clear 402 into a support ticket.  The plan limits it
+# reports are already readable by any member via ungated ``GET /features``,
+# and most of the "used" figures are just counts of rows they can already
+# list.  When a real billing surface lands (spend, invoices, payment method,
+# upgrades) that gets its own permission, and *that* one is owner-only.
 _OWNER_ONLY_CAPABILITIES: frozenset[str] = frozenset(
     {
         str(Permission.Organization.UPDATE),
-        # Billing data: org totals against plan limits. Community has no
-        # Admin role, so the owner is the only "admin" to scope this to.
-        str(Permission.Usage.READ),
         str(Permission.Member.MANAGE),
         str(Permission.ProjectMember.MANAGE),
         str(Permission.Role.MANAGE),

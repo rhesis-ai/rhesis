@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.test_configuration import TestConfiguration
 from rhesis.backend.app.models.test_run import TestRun
+from rhesis.backend.app.quota.enforcement import QuotaExceededError
 from rhesis.backend.tasks.enums import ExecutionMode
 from rhesis.backend.tasks.execution.shared import (
     create_execution_result,
@@ -66,6 +67,7 @@ def execute_tests_sequentially(
         override_execution_model_id = attrs.get("execution_model_id")
         override_evaluation_model_id = attrs.get("evaluation_model_id")
         seq_user_id = str(test_config.user_id) if test_config.user_id else None
+        seq_org_id = str(test_config.organization_id) if test_config.organization_id else None
 
         if seq_user_id:
             user = user_crud.get_user_by_id(session, seq_user_id)
@@ -82,21 +84,40 @@ def execute_tests_sequentially(
                 # Penelope / the metric judge, and a model built there carries
                 # no provenance stamp. See resolve_default_hosted_model.
                 logger.warning(f"User {seq_user_id} not found, using default models")
-                execution_model = resolve_default_hosted_model(model_settings.execution_model)
-                evaluation_model = resolve_default_hosted_model(model_settings.evaluation_model)
+                execution_model = resolve_default_hosted_model(
+                    model_settings.execution_model, session, seq_org_id
+                )
+                evaluation_model = resolve_default_hosted_model(
+                    model_settings.evaluation_model, session, seq_org_id
+                )
         else:
-            execution_model = resolve_default_hosted_model(model_settings.execution_model)
-            evaluation_model = resolve_default_hosted_model(model_settings.evaluation_model)
+            execution_model = resolve_default_hosted_model(
+                model_settings.execution_model, session, seq_org_id
+            )
+            evaluation_model = resolve_default_hosted_model(
+                model_settings.evaluation_model, session, seq_org_id
+            )
+    except QuotaExceededError:
+        # Not a resolution failure -- let it propagate as-is. The broad
+        # except below would otherwise retry the identical call against the
+        # same org and quota state, misreport it as "failed to resolve" in
+        # the log, and only raise the same error a second time anyway.
+        raise
     except Exception as e:
         from rhesis.backend.app.config.settings import get_model_settings
         from rhesis.backend.app.utils.user_model_utils import resolve_default_hosted_model
 
         logger.warning(f"Failed to resolve execution/evaluation models: {e}")
         model_settings = get_model_settings()
+        fallback_org_id = str(test_config.organization_id) if test_config.organization_id else None
         if execution_model is None:
-            execution_model = resolve_default_hosted_model(model_settings.execution_model)
+            execution_model = resolve_default_hosted_model(
+                model_settings.execution_model, session, fallback_org_id
+            )
         if evaluation_model is None:
-            evaluation_model = resolve_default_hosted_model(model_settings.evaluation_model)
+            evaluation_model = resolve_default_hosted_model(
+                model_settings.evaluation_model, session, fallback_org_id
+            )
 
     # Execute tests one by one
     for i, test in enumerate(tests, 1):

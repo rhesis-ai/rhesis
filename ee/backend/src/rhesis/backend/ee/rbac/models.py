@@ -123,15 +123,21 @@ def _primary_action(cap: str) -> str:
 # Org-level reads excluded from the read-only **Viewer** baseline.
 # ``role:read`` exposes the org's custom role catalog; only Owner and Admin
 # need it (Admin needs it to assign roles via member:manage).  ``token:read``
-# exposes API token metadata.  ``usage:read`` exposes metered consumption
-# against plan limits — billing data, not org context.  Everything else
-# ending in ``:read`` — including ``organization:read`` and ``member:read``
-# for basic org context — is fine for a Viewer.
+# exposes API token metadata.  Everything else ending in ``:read`` —
+# including ``organization:read`` and ``member:read`` for basic org context —
+# is fine for a Viewer.
+#
+# ``usage:read`` was excluded here as "billing data" and is deliberately no
+# longer.  It reports consumption against plan limits — counters and caps,
+# with no money in it — which is operational rather than financial: quota
+# enforcement blocks Members, so they need to see why.  See the longer note
+# on ``_OWNER_ONLY_CAPABILITIES`` in ``app/auth/rbac.py``, which this mirrors;
+# the two must agree, or community and EE disagree about who may read usage.
 #
 # Excluding a read here also keeps it away from **Member**: that set is
-# ``project_actions | viewer_permissions``, and all three of these are
+# ``project_actions | viewer_permissions``, and both of these are
 # org-scoped, so they never enter ``project_actions``.
-_VIEWER_EXCLUDED_READS: frozenset[str] = frozenset({"role:read", "token:read", "usage:read"})
+_VIEWER_EXCLUDED_READS: frozenset[str] = frozenset({"role:read", "token:read"})
 
 
 def _viewer_permissions(cap_set: set[str]) -> set[str]:

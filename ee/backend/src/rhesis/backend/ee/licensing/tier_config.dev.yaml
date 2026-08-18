@@ -1,0 +1,78 @@
+# Dev-only tier config with deliberately tiny limits, for exercising quota
+# enforcement without generating thousands of test runs first.
+#
+# NOT loaded by default. Opt in explicitly:
+#
+#   RHESIS_TIER_CONFIG=<abs path to this file>
+#
+# Same schema and the same startup validation as tier_config.yaml: every
+# declared LicenseEdition needs an entry (including community), limit keys
+# must match QuotaResource, and limits must be null or a non-negative int.
+#
+# The numbers are chosen so each branch of the blocking rule is reachable by
+# hand:
+#
+#   community (hard, 0% tolerance)
+#     3 test executions -> the 4th is blocked outright.
+#
+#   team (soft, 25% tolerance)
+#     4 test executions -> ceiling is 4 * 125 // 100 = 5.
+#     runs 1-3 clean, run 4 allowed with a warning header (in grace),
+#     run 5 blocked. That is the boundary worth eyeballing in a browser.
+#
+#   model_tokens is small enough that a single Architect message or explorer
+#   suggestion crosses it, which is the runaway-spend path this exists for.
+#
+# Every finite team limit here is >= 4 on purpose. `QuotaPolicy.ceiling_for`
+# floors, so 25% of anything below 4 is worth less than one unit and the
+# grace band collapses to nothing -- a team limit of 2 would block exactly
+# like a hard one and make the soft path look broken while testing it.
+
+community:
+  all_features: false
+  features: []
+  limits:
+    test_executions: 3
+    tracing_spans: 20
+    test_generation: 5
+    model_tokens: 1000
+    seats: 1
+    projects: 1
+    endpoints: 1
+  retention_days: 14
+  overage: hard
+  overage_tolerance_percent: 0
+
+team:
+  all_features: false
+  features:
+    - rbac
+  limits:
+    test_executions: 4
+    tracing_spans: 40
+    test_generation: 10
+    model_tokens: 2000
+    seats: 4
+    projects: 4
+    endpoints: 4
+  retention_days: 90
+  overage: soft
+  overage_tolerance_percent: 25
+
+enterprise: &unlimited_tier
+  all_features: true
+  features: []
+  limits:
+    test_executions: null
+    tracing_spans: null
+    test_generation: null
+    model_tokens: null
+    seats: null
+    projects: null
+    endpoints: null
+  retention_days: 365
+  overage: soft
+  overage_tolerance_percent: 25
+
+master:
+  <<: *unlimited_tier

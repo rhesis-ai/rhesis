@@ -29,6 +29,11 @@ router = APIRouter(prefix="/usage", tags=["usage"])
 class UsageResourceItem(BaseModel):
     used: int
     limit: int | None
+    #: The value of ``used`` at which requests actually start failing --
+    #: ``limit`` plus the tier's overage tolerance on a SOFT policy, and
+    #: ``limit`` itself on a HARD one. Compare against this, not ``limit``,
+    #: to predict a 402; ``limit`` is what a progress bar fills toward.
+    ceiling: int | None
     period_start: str
     period_end: str
     kind: str

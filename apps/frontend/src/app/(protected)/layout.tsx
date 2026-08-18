@@ -19,9 +19,12 @@ import { ProtectedLayoutClient } from './ProtectedLayoutClient';
  * nested server components (page.tsx via prefetchList/hasServerCapability)
  * share the same responses without issuing duplicate requests.
  *
- * `GET /usage` is deliberately absent: only the Usage page reads it, so it
- * mounts its own `UsageProvider` rather than making every protected
- * navigation pay for a license lookup plus four counting queries.
+ * `GET /usage` has no server seed here (unlike features/permissions):
+ * `UsageProvider` is mounted client-side in `ProtectedLayoutClient` so
+ * `QuotaBanner` and execute-gating (`RunDrawer`) can read it anywhere in
+ * the app, not just the Usage settings page. The cost this used to avoid
+ * (a license lookup plus four counting queries) is real, but is paid once
+ * per `UsageContext`'s 5-minute `staleTime` window, not per navigation.
  */
 export default async function ProtectedLayout({
   children,
