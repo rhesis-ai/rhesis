@@ -29,6 +29,7 @@ Create Date: 2026-07-02
 from typing import Sequence, Union
 
 from alembic import op
+from sqlalchemy import inspect
 from sqlalchemy.orm import Session
 
 # Import reusable behavior/metric sync utilities
@@ -73,6 +74,13 @@ def upgrade() -> None:
     per-organization behavior lookup succeeds and associations are created.
     """
     bind = op.get_bind()
+
+    # Predates 491519fd3010 (rename_behavior_to_requirement), so on a fresh DB
+    # the table is still "behavior" here. Fresh installs seed OWASP data via
+    # onboarding anyway, so skip the backfill.
+    if not inspect(bind).has_table("requirement"):
+        return
+
     session = Session(bind=bind)
 
     try:
