@@ -89,7 +89,7 @@ export const drawerDisabledFieldSx: SxProps<Theme> = {
     minHeight: '24px',
     // Use text.secondary, not greyscale.border: the border token is nearly
     // invisible against the dark drawer surface and made disabled rerun
-    // fields unreadable in dark mode (#2400).
+    // fields unreadable in dark mode (issue 2400).
     WebkitTextFillColor: theme => theme.palette.text.secondary,
     color: theme => theme.palette.text.secondary,
     opacity: 1,
