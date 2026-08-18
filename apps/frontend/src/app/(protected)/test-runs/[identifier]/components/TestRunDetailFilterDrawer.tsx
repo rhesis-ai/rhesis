@@ -167,7 +167,10 @@ function CompactSegmentedPills({
                   ? '0 999px 999px 0'
                   : 0,
               bgcolor: isSelected ? 'primary.main' : 'transparent',
-              color: isSelected ? '#fff' : 'primary.main',
+              color: theme =>
+                isSelected
+                  ? theme.palette.primary.contrastText
+                  : theme.palette.primary.main,
               whiteSpace: 'nowrap',
               '&:hover': {
                 bgcolor: isSelected
@@ -312,7 +315,10 @@ function MetricOutcomeRow({
                         ? '0 999px 999px 0'
                         : 0,
                     bgcolor: isSelected ? 'primary.main' : 'transparent',
-                    color: isSelected ? '#fff' : 'primary.main',
+                    color: theme =>
+                      isSelected
+                        ? theme.palette.primary.contrastText
+                        : theme.palette.primary.main,
                     '&:hover': {
                       bgcolor: isSelected
                         ? 'primary.dark'
