@@ -35,6 +35,31 @@ echo -n 'your-secure-password' | gcloud secrets versions add grafana-admin-passw
 
 Repeat for each environment’s GCP project used by External Secrets Operator.
 
+## Grafana alert notifications (Discord webhook)
+
+Before syncing `{dev,stg,prd}-grafana-resources`, create a Secret Manager secret named
+**`{dev,stg,prd}-grafana-discord-webhook`** in the matching GCP project, containing that
+env's Discord incoming webhook URL as plain text (the ExternalSecret maps it to key `url`
+in Kubernetes). Each env's secret can point at the same Discord channel or a different one —
+nothing else needs to change either way.
+
+```bash
+echo -n 'https://discord.com/api/webhooks/...' | gcloud secrets create dev-grafana-discord-webhook \
+  --project=rhesis-dev \
+  --data-file=-
+```
+
+Repeat with `stg-grafana-discord-webhook` / `prd-grafana-discord-webhook` in the `rhesis-stg-494712` /
+`rhesis-prd` projects.
+
+Alert emails need no new secret: `grafana-smtp-credentials.yaml` in each cluster's
+`grafana-resources` overlay reuses the same `{dev,stg,prd}-rhesis-smtp-*` GSM keys the
+app already uses for its own SMTP (`external-secrets/rhesis-app-secrets.yaml`), synced
+separately into `monitoring`. The sender address (`GF_SMTP_FROM_ADDRESS`) is a plain
+literal in `grafana-instance.yaml` instead, not from the app's `FROM_EMAIL` secret —
+that value is formatted as `"Display Name" <hello@rhesis.ai>` for the app's email
+library, which Grafana's from_address field rejects.
+
 ## Grafana TLS (cert-manager / Let’s Encrypt)
 
 The Grafana `Ingress` uses `cert-manager.io/cluster-issuer: letsencrypt-prod` and the **internal** NGINX class for user traffic. cert-manager still completes **HTTP-01** using the solver in `ClusterIssuer` (typically a separate **external**-class `Ingress` in the same namespace). While issuance is in progress, the `Certificate` condition often reads **Issuing certificate as Secret does not exist**—that only means the final `grafana-tls` secret is not ready yet.

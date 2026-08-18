@@ -10,6 +10,9 @@ spec:
     matchLabels:
       dashboards: grafana
   datasource:
+    # Pinned so alert rules (kubernetes/clusters/*/grafana-resources) can reference this
+    # datasource by a stable uid instead of an operator-generated one.
+    uid: prometheus
     name: Prometheus
     type: prometheus
     access: proxy
